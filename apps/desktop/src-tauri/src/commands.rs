@@ -108,7 +108,7 @@ pub async fn import_file(app: AppHandle, path: String) -> Result<ImportResult, S
     let result = blocking(move || engine::import(&path)).await?;
     let images = result.objects.iter().filter_map(|o| match &o.kind {
         tlaku_doc::ObjectKind::Image(i) => Some(PathBuf::from(&i.source_path)),
-        tlaku_doc::ObjectKind::Vector(_) => None,
+        tlaku_doc::ObjectKind::Vector(_) | tlaku_doc::ObjectKind::Text(_) => None,
     });
     allow_images(&app, images);
     Ok(result)

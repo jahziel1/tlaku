@@ -89,9 +89,12 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
   let cursor: Point = [0, 0];
 
   for (const layer of ordered) {
-    const objs = doc.objects.filter(
+    const candidates = doc.objects.filter(
       (o) => o.layer === layer.color && !o.hidden && (!selection || selection.has(o.id)),
     );
+    // Igual que el motor: un texto sin contorno generado no se corta.
+    const objs = candidates.filter((o) => o.kind.type !== 'text' || o.kind.outline.length > 0);
+    for (const o of candidates) if (!objs.includes(o)) warnings.push(`Objeto '${o.id}' omitido: el texto no tiene contorno generado.`);
     if (objs.length === 0) continue;
 
     const power = layer.power;

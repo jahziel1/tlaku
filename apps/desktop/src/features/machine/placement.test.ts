@@ -3,6 +3,7 @@ import type { DesignObject, LayerSettings } from '@/api/types';
 import { makeLayer } from '@/lib/layers';
 import { translation } from '@/lib/geometry';
 import { anchorFraction, anchorPoint, computeJobPlacement, designBounds, type PlacementInput } from './placement';
+import { polylineBez } from '@/lib/bezpath';
 
 const bedDevice = { bed: [400, 300] as [number, number], origin: 'bottom_left' as const };
 /** Diseño de 100 x 50 mm con la esquina inferior izquierda en (60, 70). */
@@ -101,7 +102,8 @@ describe('designBounds', () => {
     transform: translation(x, 0),
     locked: false,
     hidden,
-    kind: { type: 'vector', paths: [{ points: [[0, 0], [10, 0], [10, 10], [0, 10]], closed: true }] },
+    group: null,
+    kind: { type: 'vector', paths: [polylineBez([[0, 0], [10, 0], [10, 10], [0, 10]], true)] },
   });
   const doc = {
     layers: [layer('#ff0000'), layer('#00ff00', false)],

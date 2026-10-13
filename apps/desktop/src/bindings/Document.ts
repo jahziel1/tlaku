@@ -2,7 +2,7 @@
 import type { DesignObject } from "./DesignObject";
 import type { LayerSettings } from "./LayerSettings";
 
-export type Document = { version: 1, objects: Array<DesignObject>, 
+export type Document = { version: 2, objects: Array<DesignObject>, 
 /**
  * Orden del archivo: el que usa `layer_order = "file"`.
  */

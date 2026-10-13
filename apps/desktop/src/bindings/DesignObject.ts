@@ -13,4 +13,8 @@ layer: string,
 /**
  * Afín `[a b c d e f]`: `x' = a·x + c·y + e`, `y' = b·x + d·y + f`.
  */
-transform: [number, number, number, number, number, number], kind: ObjectKind, locked: boolean, hidden: boolean, };
+transform: [number, number, number, number, number, number], kind: ObjectKind, locked: boolean, hidden: boolean, 
+/**
+ * Grupo plano al que pertenece (los objetos con el mismo id se seleccionan juntos).
+ */
+group: string | null, };

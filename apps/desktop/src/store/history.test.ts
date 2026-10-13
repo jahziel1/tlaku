@@ -5,6 +5,7 @@ import { makeLayer } from '@/lib/layers';
 import { createAppStore } from './index';
 import { entryCost, HISTORY_LIMIT, HISTORY_POINT_BUDGET, trimHistory, type HistoryEntry } from './document';
 import { isSticky, MAX_NOTICES, MAX_STICKY } from './notices';
+import { bezPointCount, polylineBez } from '@/lib/bezpath';
 
 let store: ReturnType<typeof createAppStore>;
 let registry: CommandRegistry;
@@ -15,9 +16,10 @@ function vector(id: string, layer: string, x: number, points = 4): DesignObject 
     id,
     layer,
     transform: [1, 0, 0, 1, x, 0],
-    kind: { type: 'vector', paths: [{ points: Array.from({ length: points }, (_, i) => [i, i % 2] as [number, number]), closed: true }] },
+    kind: { type: 'vector', paths: [polylineBez(Array.from({ length: points }, (_, i) => [i, i % 2] as [number, number]), true)] },
     locked: false,
     hidden: false,
+    group: null,
   };
 }
 
@@ -224,7 +226,7 @@ describe('memoria del historial', () => {
   const reshape = (doc: Document): Document => ({
     ...doc,
     objects: doc.objects.map((o) =>
-      o.kind.type === 'vector' ? { ...o, kind: { ...o.kind, paths: o.kind.paths.map((p) => ({ ...p, points: [...p.points] })) } } : o,
+      o.kind.type === 'vector' ? { ...o, kind: { ...o.kind, paths: o.kind.paths.map((p) => [...p]) } } : o,
     ),
   });
 
@@ -236,7 +238,7 @@ describe('memoria del historial', () => {
       for (const o of d.objects) {
         if (o.kind.type !== 'vector' || seen.has(o.kind)) continue;
         seen.add(o.kind);
-        n += o.kind.paths.reduce((sum, p) => sum + p.points.length, 0);
+        n += o.kind.paths.reduce((sum, p) => sum + bezPointCount(p), 0);
       }
     }
     return n;
@@ -279,7 +281,7 @@ describe('memoria del historial', () => {
   });
 
   it('trimHistory respeta el tope de pasos y conserva siempre el más reciente', () => {
-    const doc: Document = { version: 1, objects: [], layers: [], device_id: null };
+    const doc: Document = { version: 2, objects: [], layers: [], device_id: null };
     const mk = (cost: number): HistoryEntry => ({ label: 'history.move', doc, at: 0, cost });
     expect(trimHistory(Array.from({ length: HISTORY_LIMIT + 10 }, () => mk(0)))).toHaveLength(HISTORY_LIMIT);
     expect(trimHistory([mk(0), mk(0), mk(HISTORY_POINT_BUDGET * 3)])).toHaveLength(1);

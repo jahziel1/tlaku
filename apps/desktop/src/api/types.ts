@@ -19,7 +19,11 @@ import type { ImageMode } from '@/bindings/ImageMode';
 import type { LayerMode } from '@/bindings/LayerMode';
 import type { LayerOrder } from '@/bindings/LayerOrder';
 import type { Origin } from '@/bindings/Origin';
-import type { PathData } from '@/bindings/PathData';
+import type { BezPath } from '@/bindings/BezPath';
+import type { PathSeg } from '@/bindings/PathSeg';
+import type { TextAlign } from '@/bindings/TextAlign';
+import type { TextObject } from '@/bindings/TextObject';
+import type { TextOnPath } from '@/bindings/TextOnPath';
 import type { PreviewLayer } from '@/bindings/PreviewLayer';
 import type { StartFrom } from '@/bindings/StartFrom';
 import type { ImageObject } from '@/bindings/ImageObject';
@@ -38,6 +42,7 @@ import type { RealtimeCommand } from '@/bindings/RealtimeCommand';
 import type { StatusReport } from '@/bindings/StatusReport';
 
 export type {
+  BezPath,
   BufferStatus,
   ConnectResult,
   ConnectionEvent,
@@ -58,11 +63,14 @@ export type {
   LogDir,
   LogEvent,
   MachineState,
-  PathData,
+  PathSeg,
   ProgressEvent,
   RealtimeCommand,
   StartFrom,
   StatusReport,
+  TextAlign,
+  TextObject,
+  TextOnPath,
   VectorObject,
 };
 export type DeviceOrigin = Origin;

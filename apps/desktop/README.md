@@ -275,8 +275,14 @@ Hecho y cubierto por pruebas:
 - Máquina: conexión, estado, mover el cabezal, origen de usuario con los 9 puntos, "Iniciar desde",
   encuadrar, iniciar con diálogo de confirmación, pausa/detener, consola con confirmación de
   comandos peligrosos, alarmas con explicación, gestor de dispositivos.
-- Historial visible de deshacer/rehacer, cortar/copiar/pegar, agrupar, archivos recientes y
+- Historial visible de deshacer/rehacer, cortar/copiar/pegar, archivos recientes y
   diálogo de atajos generado del registro.
+- Documento versión 2 (fase 3): las trayectorias son curvas Bézier (`BezPath`; elipses y esquinas
+  redondeadas son cúbicas reales y el lienzo las dibuja con `bezierCurveTo`, nítidas a cualquier
+  zoom; el SVG importado conserva sus curvas), grupos planos (`group`: Ctrl+G / Ctrl+Mayús+G; un
+  clic en un objeto del grupo elige todo el grupo y Alt+clic solo ese objeto) y objetos de texto
+  (se dibuja su `outline`; sin contorno generado se ve un marcador con el texto en fuente del sistema).
+  Los proyectos de la versión 1 se migran al abrirlos.
 
 Pendiente:
 

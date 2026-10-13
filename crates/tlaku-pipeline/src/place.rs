@@ -162,10 +162,24 @@ pub(crate) fn place<'a>(
                     Err(e) => warnings.push(format!("{e}; se ignora")),
                 }
             }
+            (ObjectKind::Text(t), LayerMode::Line | LayerMode::Fill) => {
+                // El pipeline solo corta el contorno ya generado; no interpreta fuentes.
+                if t.outline.is_empty() {
+                    warnings.push(format!(
+                        "objeto '{}' omitido: el texto no tiene contorno generado",
+                        obj.id
+                    ));
+                } else {
+                    layer
+                        .paths
+                        .extend(obj.polylines().into_iter().filter(|p| !p.points.is_empty()));
+                }
+            }
             (kind, mode) => {
                 let what = match kind {
                     ObjectKind::Vector(_) => "vectorial",
                     ObjectKind::Image(_) => "de imagen",
+                    ObjectKind::Text(_) => "de texto",
                 };
                 warnings.push(format!(
                     "objeto '{}' {what} ignorado: la capa {} es de modo {}",

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Affine, Point } from '@/api/types';
+import type { Affine, BezPath, Point } from '@/api/types';
 import type { BoxMode } from './hit';
 import type { Guide } from './snap';
 
@@ -10,7 +10,7 @@ import type { Guide } from './snap';
  */
 export interface DraftShape {
   /** Contornos a dibujar como vista previa (mm). */
-  paths: { points: Point[]; closed: boolean }[];
+  paths: BezPath[];
   /** Polilínea en curso: se dibuja el último tramo hasta el cursor. */
   rubber?: boolean;
 }

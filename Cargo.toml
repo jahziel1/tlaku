@@ -6,3 +6,6 @@ members = ["crates/*", "apps/desktop/src-tauri"]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+
+# No uses `panic = "abort"` en ningún perfil: tlaku-trace recupera con `catch_unwind` un pánico
+# conocido de vtracer en imágenes con decenas de miles de regiones.

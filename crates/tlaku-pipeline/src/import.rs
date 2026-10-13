@@ -3,11 +3,10 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Job, Rgb};
 use tlaku_doc::affine::IDENTITY;
-use tlaku_doc::{
-    DesignObject, ImageObject, ImportResult, LayerSettings, ObjectKind, PathData, VectorObject,
-};
+use tlaku_doc::{DesignObject, ImageObject, ImportResult, LayerSettings, ObjectKind, VectorObject};
 use tlaku_raster::Luma;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,10 +35,14 @@ pub fn input_kind(path: &Path) -> Result<InputKind, String> {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ImportOptions {
-    /// Error máximo al convertir curvas en rectas, en mm.
+    /// Error máximo al convertir curvas en rectas, en mm. Solo cuenta con
+    /// `keep_curves = false`.
     pub tolerance_mm: f64,
     /// SVG: pasa a Y hacia arriba (el DXF ya lo está).
     pub flip_y: bool,
+    /// Conserva las curvas Bézier del SVG (lo que usa el editor). Con `false` las aplana en
+    /// el import con `tolerance_mm`: así se comporta el CLI con `--tolerance`.
+    pub keep_curves: bool,
 }
 
 impl Default for ImportOptions {
@@ -47,6 +50,7 @@ impl Default for ImportOptions {
         Self {
             tolerance_mm: 0.02,
             flip_y: true,
+            keep_curves: true,
         }
     }
 }
@@ -74,26 +78,25 @@ fn object(layer: Rgb, kind: ObjectKind) -> DesignObject {
         kind,
         locked: false,
         hidden: false,
+        group: None,
     }
 }
 
-fn from_job(job: Job, warnings: Vec<String>) -> ImportResult {
+/// Las capas de un `Job` como trayectorias sin curvas.
+fn job_layers(job: Job) -> Vec<(Rgb, Vec<BezPath>)> {
+    job.layers
+        .into_iter()
+        .map(|l| (l.color, l.paths.iter().map(BezPath::from).collect()))
+        .collect()
+}
+
+/// Un objeto vectorial y una capa `line` nueva por color.
+fn from_curves(layers: Vec<(Rgb, Vec<BezPath>)>, warnings: Vec<String>) -> ImportResult {
     let mut objects = Vec::new();
     let mut new_layers = Vec::new();
-    for layer in job.layers {
-        let paths = layer
-            .paths
-            .iter()
-            .map(|p| PathData {
-                points: p.points.iter().map(|q| [q.x, q.y]).collect(),
-                closed: p.closed,
-            })
-            .collect();
-        objects.push(object(
-            layer.color,
-            ObjectKind::Vector(VectorObject { paths }),
-        ));
-        new_layers.push(LayerSettings::for_color(layer.color));
+    for (color, paths) in layers {
+        objects.push(object(color, ObjectKind::Vector(VectorObject { paths })));
+        new_layers.push(LayerSettings::for_color(color));
     }
     ImportResult {
         objects,
@@ -125,7 +128,7 @@ fn import_image(path: &Path) -> Result<ImportResult, String> {
 /// Importa un SVG, DXF o imagen con las opciones por defecto.
 ///
 /// Los vectores salen agrupados por color (un objeto y una capa nueva `line` por color) con
-/// transform identidad; una imagen sale como un `ImageObject` de 96 ppp en la capa gris de
+/// transform identidad (el SVG conserva sus curvas Bézier; el DXF da rectas); una imagen sale como un `ImageObject` de 96 ppp en la capa gris de
 /// imágenes. Un archivo sin trayectorias es un error.
 pub fn import_file(path: &Path) -> Result<ImportResult, String> {
     import_file_with(path, &ImportOptions::default())
@@ -137,32 +140,34 @@ pub fn import_file_with(path: &Path, opts: &ImportOptions) -> Result<ImportResul
         return import_image(path);
     }
     let data = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let (job, warnings) = match kind {
+    let (layers, warnings) = match kind {
         InputKind::Svg => {
             let doc = tlaku_svg::import_svg(&data, opts.tolerance_mm)
                 .map_err(|e| format!("{}: SVG inválido: {e}", path.display()))?;
             let warnings = doc.warnings.clone();
-            (
-                doc.into_job(|_| tlaku_core::CutSettings::default(), opts.flip_y),
-                warnings,
-            )
+            let layers = if opts.keep_curves {
+                doc.into_curves(opts.flip_y)
+            } else {
+                job_layers(doc.into_job(|_| tlaku_core::CutSettings::default(), opts.flip_y))
+            };
+            (layers, warnings)
         }
         InputKind::Dxf => {
             let doc = tlaku_dxf::import_dxf(&data, opts.tolerance_mm)
                 .map_err(|e| format!("{}: {e}", path.display()))?;
             let warnings = doc.warnings.clone();
             (
-                doc.into_job(|_| tlaku_core::CutSettings::default()),
+                job_layers(doc.into_job(|_| tlaku_core::CutSettings::default())),
                 warnings,
             )
         }
         InputKind::Image => unreachable!("las imágenes se importan arriba"),
     };
-    if job.layers.is_empty() {
+    if layers.is_empty() {
         return Err(format!(
             "{}: el archivo no contiene trayectorias",
             path.display()
         ));
     }
-    Ok(from_job(job, warnings))
+    Ok(from_curves(layers, warnings))
 }

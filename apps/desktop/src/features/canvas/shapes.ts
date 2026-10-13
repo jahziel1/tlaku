@@ -1,51 +1,15 @@
-import type { DesignObject, LayerSettings, PathData, Point } from '@/api/types';
+import type { BezPath, DesignObject, LayerSettings, Point } from '@/api/types';
+import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
 import { IDENTITY, type Bounds } from '@/lib/geometry';
 import { LAYER_PALETTE } from '@/lib/palette';
 
-/** Error máximo permitido al aproximar curvas con segmentos (mm). */
-export const CURVE_TOLERANCE_MM = 0.02;
-
-/** Segmentos para un arco de `sweep` radianes de radio `r` sin pasar de la tolerancia. */
-export function arcSegments(r: number, sweep: number, tol = CURVE_TOLERANCE_MM): number {
-  if (r <= tol) return Math.max(2, Math.ceil(sweep / (Math.PI / 4)));
-  const step = 2 * Math.acos(1 - tol / r);
-  return Math.max(2, Math.ceil(sweep / step));
-}
-
-export function ellipsePoints(cx: number, cy: number, rx: number, ry: number): Point[] {
-  // Múltiplo de 4: hay vértices exactamente en los cuatro extremos, así la caja mide lo que se dibujó.
-  const n = Math.ceil(Math.min(720, Math.max(24, arcSegments(Math.max(rx, ry), Math.PI * 2))) / 4) * 4;
-  return Array.from({ length: n }, (_, i) => {
-    const t = (i / n) * Math.PI * 2;
-    return [cx + rx * Math.cos(t), cy + ry * Math.sin(t)] as Point;
-  });
-}
-
-/** Rectángulo antihorario desde la esquina inferior izquierda; con `radius` > 0 las esquinas son arcos. */
-export function rectPoints(x0: number, y0: number, x1: number, y1: number, radius = 0): Point[] {
+/** Rectángulo antihorario desde la esquina inferior izquierda (esquinas en cualquier orden). */
+export function rectPoints(x0: number, y0: number, x1: number, y1: number): Point[] {
   const minX = Math.min(x0, x1);
   const maxX = Math.max(x0, x1);
   const minY = Math.min(y0, y1);
   const maxY = Math.max(y0, y1);
-  const r = Math.min(Math.max(0, radius), (maxX - minX) / 2, (maxY - minY) / 2);
-  if (r <= 1e-9) {
-    return [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
-  }
-  const seg = Math.max(2, arcSegments(r, Math.PI / 2));
-  const pts: Point[] = [];
-  const corners: [number, number, number][] = [
-    [maxX - r, minY + r, -Math.PI / 2],
-    [maxX - r, maxY - r, 0],
-    [minX + r, maxY - r, Math.PI / 2],
-    [minX + r, minY + r, Math.PI],
-  ];
-  for (const [cx, cy, a0] of corners) {
-    for (let i = 0; i <= seg; i++) {
-      const a = a0 + (i / seg) * (Math.PI / 2);
-      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
-    }
-  }
-  return pts;
+  return [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
 }
 
 export interface DragRectOptions {
@@ -100,18 +64,21 @@ export function pickDrawLayer(layers: readonly LayerSettings[], activeLayer: str
   return (free ?? LAYER_PALETTE[0]).color;
 }
 
-export function newVectorObject(id: string, layer: string, paths: PathData[]): DesignObject {
-  return { id, layer, transform: [...IDENTITY], kind: { type: 'vector', paths }, locked: false, hidden: false };
+export function newVectorObject(id: string, layer: string, paths: BezPath[]): DesignObject {
+  return { id, layer, transform: [...IDENTITY], kind: { type: 'vector', paths }, locked: false, hidden: false, group: null };
 }
 
 export type ShapeKind = 'rect' | 'ellipse' | 'line' | 'polyline';
 
-/** Rutas de la forma definida por una caja de arrastre. */
-export function boxShapePaths(kind: 'rect' | 'ellipse', box: Bounds, radius = 0): PathData[] {
-  if (kind === 'rect') return [{ points: rectPoints(box[0][0], box[0][1], box[1][0], box[1][1], radius), closed: true }];
+/**
+ * Rutas de la forma definida por una caja de arrastre. La elipse y las esquinas redondeadas son
+ * cúbicas reales (no segmentos): se ven y se cortan exactas a cualquier tamaño.
+ */
+export function boxShapePaths(kind: 'rect' | 'ellipse', box: Bounds, radius = 0): BezPath[] {
+  if (kind === 'rect') return [roundedRectBez(box[0][0], box[0][1], box[1][0], box[1][1], radius)];
   const rx = (box[1][0] - box[0][0]) / 2;
   const ry = (box[1][1] - box[0][1]) / 2;
-  return [{ points: ellipsePoints(box[0][0] + rx, box[0][1] + ry, rx, ry), closed: true }];
+  return [ellipseBez(box[0][0] + rx, box[0][1] + ry, rx, ry)];
 }
 
 /** Puntos de una polilínea sin repetir vecinos iguales (el doble clic suma un punto duplicado). */
@@ -124,8 +91,8 @@ export function dedupePoints(points: readonly Point[], eps = 1e-9): Point[] {
   return out;
 }
 
-export function polylinePaths(points: readonly Point[], close: boolean): PathData[] | null {
+export function polylinePaths(points: readonly Point[], close: boolean): BezPath[] | null {
   const pts = dedupePoints(points);
   if (pts.length < 2) return null;
-  return [{ points: pts, closed: close && pts.length >= 3 }];
+  return [polylineBez(pts, close && pts.length >= 3)];
 }

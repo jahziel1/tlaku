@@ -1,6 +1,19 @@
 use super::*;
 use std::f64::consts::FRAC_PI_2;
-use tlaku_core::{Point, Rgb};
+use tlaku_core::bezpath::{BezPath, PathSeg};
+use tlaku_core::{Point, Polyline, Rgb};
+
+fn rect_path(w: f64, h: f64) -> BezPath {
+    BezPath::from(&Polyline {
+        points: vec![
+            Point::new(0.0, 0.0),
+            Point::new(w, 0.0),
+            Point::new(w, h),
+            Point::new(0.0, h),
+        ],
+        closed: true,
+    })
+}
 
 fn square(id: &str, layer: Rgb, transform: affine::Transform) -> DesignObject {
     DesignObject {
@@ -8,13 +21,11 @@ fn square(id: &str, layer: Rgb, transform: affine::Transform) -> DesignObject {
         layer,
         transform,
         kind: ObjectKind::Vector(VectorObject {
-            paths: vec![PathData {
-                points: vec![[0.0, 0.0], [10.0, 0.0], [10.0, 5.0], [0.0, 5.0]],
-                closed: true,
-            }],
+            paths: vec![rect_path(10.0, 5.0)],
         }),
         locked: false,
         hidden: false,
+        group: None,
     }
 }
 
@@ -32,9 +43,10 @@ fn sample() -> Document {
         }),
         locked: true,
         hidden: false,
+        group: Some("g1".into()),
     };
     Document {
-        version: FORMAT_VERSION,
+        version: DOC_VERSION,
         objects: vec![square("a", red, affine::IDENTITY), image],
         layers: vec![
             LayerSettings {
@@ -59,10 +71,14 @@ fn json_roundtrip_keeps_everything() {
 #[test]
 fn json_uses_the_contract_shape() {
     let v: serde_json::Value = serde_json::from_str(&sample().to_json().unwrap()).unwrap();
-    assert_eq!(v["version"], 1);
+    assert_eq!(v["version"], 2);
     assert_eq!(v["objects"][0]["layer"], "#ff0000");
     assert_eq!(v["objects"][0]["kind"]["type"], "vector");
-    assert_eq!(v["objects"][0]["kind"]["paths"][0]["points"][1][0], 10.0);
+    assert_eq!(v["objects"][0]["kind"]["paths"][0][0]["type"], "move_to");
+    assert_eq!(v["objects"][0]["kind"]["paths"][0][1]["to"][0], 10.0);
+    assert_eq!(v["objects"][0]["kind"]["paths"][0][4]["type"], "close");
+    assert!(v["objects"][0]["group"].is_null());
+    assert_eq!(v["objects"][1]["group"], "g1");
     assert_eq!(v["objects"][1]["kind"]["type"], "image");
     assert_eq!(v["objects"][1]["kind"]["size_mm"][0], 20.0);
     assert_eq!(v["layers"][0]["mode"], "fill");
@@ -77,9 +93,11 @@ fn json_uses_the_contract_shape() {
 #[test]
 fn unknown_or_missing_version_is_rejected() {
     let mut v: serde_json::Value = serde_json::from_str(&sample().to_json().unwrap()).unwrap();
-    v["version"] = 2.into();
+    v["version"] = 3.into();
     let e = Document::from_json(&v.to_string()).unwrap_err();
-    assert!(e.contains("versión de documento no soportada: 2"), "{e}");
+    assert!(e.contains("versión de documento no soportada: 3"), "{e}");
+    v["version"] = 0.into();
+    assert!(Document::from_json(&v.to_string()).is_err());
     v.as_object_mut().unwrap().remove("version");
     assert!(
         Document::from_json(&v.to_string())
@@ -92,7 +110,7 @@ fn unknown_or_missing_version_is_rejected() {
             .contains("documento inválido")
     );
     assert!(
-        Document::from_json(r#"{"version":1,"objects":[]}"#)
+        Document::from_json(r#"{"version":2,"objects":[]}"#)
             .unwrap_err()
             .contains("layers")
     );
@@ -267,4 +285,136 @@ fn preview_and_import_results_serialize() {
         serde_json::from_str::<ImportResult>(&text).unwrap(),
         imported
     );
+}
+
+#[test]
+fn version_1_documents_are_migrated() {
+    let v1 = r##"{
+        "version": 1,
+        "objects": [
+            {"id":"a","layer":"#ff0000","transform":[1,0,0,1,0,0],"locked":false,"hidden":false,
+             "kind":{"type":"vector","paths":[
+                {"points":[[0,0],[10,0],[10,5]],"closed":true},
+                {"points":[[1,1],[2,2]],"closed":false},
+                {"points":[],"closed":false}]}},
+            {"id":"i","layer":"#808080","transform":[1,0,0,1,0,0],"locked":false,"hidden":true,
+             "kind":{"type":"image","source_path":"/x.png","width_px":2,"height_px":2,"size_mm":[1,1]}}
+        ],
+        "layers": [],
+        "device_id": null
+    }"##;
+    let doc = Document::from_json(v1).unwrap();
+    assert_eq!(doc.version, DOC_VERSION);
+    assert!(doc.objects.iter().all(|o| o.group.is_none()));
+    let ObjectKind::Vector(v) = &doc.objects[0].kind else {
+        panic!("se esperaba un vector");
+    };
+    assert_eq!(v.paths[0], triangle());
+    assert_eq!(v.paths[1].0.len(), 2);
+    assert!(matches!(v.paths[1].0[1], PathSeg::LineTo { .. }));
+    assert!(v.paths[2].0.is_empty());
+    // Sin pérdida: aplanar da las mismas polilíneas que había.
+    let lines = doc.objects[0].polylines();
+    assert_eq!(lines[0].points.len(), 3);
+    assert!(lines[0].closed && !lines[1].closed);
+    // Y se vuelve a guardar ya como versión 2.
+    let again = Document::from_json(&doc.to_json().unwrap()).unwrap();
+    assert_eq!(again, doc);
+}
+
+/// El triángulo (0,0) (10,0) (10,5) cerrado, como lo escribe la migración.
+fn triangle() -> BezPath {
+    BezPath::from(&Polyline {
+        points: vec![
+            Point::new(0.0, 0.0),
+            Point::new(10.0, 0.0),
+            Point::new(10.0, 5.0),
+        ],
+        closed: true,
+    })
+}
+
+fn circle_object(transform: affine::Transform) -> DesignObject {
+    let k = 0.552_284_749_8 * 10.0;
+    let p = Point::new;
+    let seg = |a, b, c| PathSeg::CubicTo {
+        ctrl1: a,
+        ctrl2: b,
+        to: c,
+    };
+    DesignObject {
+        kind: ObjectKind::Vector(VectorObject {
+            paths: vec![BezPath(vec![
+                PathSeg::MoveTo { to: p(10.0, 0.0) },
+                seg(p(10.0, k), p(k, 10.0), p(0.0, 10.0)),
+                seg(p(-k, 10.0), p(-10.0, k), p(-10.0, 0.0)),
+                seg(p(-10.0, -k), p(-k, -10.0), p(0.0, -10.0)),
+                seg(p(k, -10.0), p(10.0, -k), p(10.0, 0.0)),
+                PathSeg::Close,
+            ])],
+        }),
+        ..square("c", Rgb(0, 0, 0), transform)
+    }
+}
+
+#[test]
+fn curve_bounds_are_exact_and_follow_the_transform() {
+    let c = circle_object(affine::compose(
+        &affine::translate(50.0, 20.0),
+        &affine::scale(2.0, 1.0),
+    ));
+    let b = c.bounds().unwrap();
+    close(b.min, 30.0, 10.0);
+    close(b.max, 70.0, 30.0);
+    // Aplanada: la tolerancia se respeta en mm reales (después de escalar).
+    let poly = &c.polylines()[0];
+    assert!(poly.closed && poly.points.len() > 16);
+    let (cx, cy) = (50.0, 20.0);
+    for q in &poly.points {
+        let r = ((q.x - cx) / 20.0).hypot((q.y - cy) / 10.0);
+        assert!((r - 1.0).abs() < 0.01, "{q:?}");
+    }
+}
+
+#[test]
+fn text_object_roundtrips_and_uses_its_outline() {
+    let text = DesignObject {
+        id: "t".into(),
+        layer: Rgb(0, 0, 255),
+        transform: affine::translate(5.0, 5.0),
+        kind: ObjectKind::Text(TextObject {
+            text: "Hola\nmundo".into(),
+            font_family: "Arial".into(),
+            bold: true,
+            italic: false,
+            size_mm: 10.0,
+            letter_spacing_mm: 0.5,
+            line_spacing: 1.2,
+            align: TextAlign::Center,
+            on_path: Some(TextOnPath {
+                object_id: "a".into(),
+                offset_mm: 2.0,
+                flip: true,
+            }),
+            outline: vec![rect_path(4.0, 6.0)],
+        }),
+        locked: false,
+        hidden: false,
+        group: None,
+    };
+    let v = serde_json::to_value(&text).unwrap();
+    assert_eq!(v["kind"]["type"], "text");
+    assert_eq!(v["kind"]["align"], "center");
+    assert_eq!(v["kind"]["on_path"]["object_id"], "a");
+    assert_eq!(v["kind"]["outline"][0][0]["type"], "move_to");
+    assert_eq!(serde_json::from_value::<DesignObject>(v).unwrap(), text);
+    let b = text.bounds().unwrap();
+    close(b.min, 5.0, 5.0);
+    close(b.max, 9.0, 11.0);
+    // Sin contorno generado no hay geometría.
+    let mut empty = text.clone();
+    if let ObjectKind::Text(t) = &mut empty.kind {
+        t.outline.clear();
+    }
+    assert!(empty.polylines().is_empty() && empty.bounds().is_none());
 }

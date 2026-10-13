@@ -66,7 +66,7 @@ pub fn image_paths(doc: &Document) -> Vec<PathBuf> {
         .iter()
         .filter_map(|o| match &o.kind {
             tlaku_doc::ObjectKind::Image(i) => Some(PathBuf::from(&i.source_path)),
-            tlaku_doc::ObjectKind::Vector(_) => None,
+            tlaku_doc::ObjectKind::Vector(_) | tlaku_doc::ObjectKind::Text(_) => None,
         })
         .collect()
 }

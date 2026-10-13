@@ -1,3 +1,4 @@
+import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
 import { shapes, translation } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { DesignObject, DeviceProfile, Document, LayerSettings } from '../types';
@@ -24,7 +25,7 @@ export function sampleLayers(): LayerSettings[] {
  * y una foto. Cabe en una cama de 400 x 400 mm.
  */
 export function sampleObjects(): DesignObject[] {
-  const base = { locked: false, hidden: false };
+  const base = { locked: false, hidden: false, group: null };
   return [
     {
       id: 'obj-placa',
@@ -33,13 +34,13 @@ export function sampleObjects(): DesignObject[] {
       kind: {
         type: 'vector',
         paths: [
-          { points: shapes.roundedRect(0, 0, 220, 140, 14), closed: true },
+          roundedRectBez(0, 0, 220, 140, 14),
           ...[
             [14, 14],
             [206, 14],
             [14, 126],
             [206, 126],
-          ].map(([x, y]) => ({ points: shapes.circle(x!, y!, 3.2, 24), closed: true })),
+          ].map(([x, y]) => ellipseBez(x!, y!, 3.2, 3.2)),
         ],
       },
       ...base,
@@ -51,8 +52,8 @@ export function sampleObjects(): DesignObject[] {
       kind: {
         type: 'vector',
         paths: [
-          { points: shapes.gear(62, 70, 42, 34, 18), closed: true },
-          { points: shapes.circle(62, 70, 12, 48), closed: true },
+          polylineBez(shapes.gear(62, 70, 42, 34, 18), true),
+          ellipseBez(62, 70, 12, 12),
         ],
       },
       ...base,
@@ -64,9 +65,9 @@ export function sampleObjects(): DesignObject[] {
       kind: {
         type: 'vector',
         paths: [
-          { points: shapes.star(176, 98, 22, 9), closed: true },
-          { points: [[128, 28], [206, 28]], closed: false },
-          { points: [[128, 22], [166, 22]], closed: false },
+          polylineBez(shapes.star(176, 98, 22, 9), true),
+          polylineBez([[128, 28], [206, 28]], false),
+          polylineBez([[128, 22], [166, 22]], false),
         ],
       },
       ...base,
@@ -82,7 +83,7 @@ export function sampleObjects(): DesignObject[] {
 }
 
 export function sampleDocument(): Document {
-  return { version: 1, objects: sampleObjects(), layers: sampleLayers(), device_id: 'falcon2-22w' };
+  return { version: 2, objects: sampleObjects(), layers: sampleLayers(), device_id: 'falcon2-22w' };
 }
 
 export function sampleDevices(): DeviceProfile[] {

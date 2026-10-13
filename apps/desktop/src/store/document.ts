@@ -1,6 +1,8 @@
 import type { Affine, DesignObject, Document, ImportResult, LayerSettings } from '@/api/types';
 import type { I18nKey } from '@/i18n';
+import { bezPointCount } from '@/lib/bezpath';
 import { multiplyAffine, translateAffine } from '@/lib/geometry';
+import { groupIdsOf, regroupCopies } from '@/lib/groups';
 import { makeLayer } from '@/lib/layers';
 import { LAYER_PALETTE, paletteLabel } from '@/lib/palette';
 import type { SliceCreator } from './types';
@@ -110,7 +112,8 @@ const pointsCache = new WeakMap<object, number>();
 function kindPoints(kind: DesignObject['kind']): number {
   let n = pointsCache.get(kind);
   if (n === undefined) {
-    n = kind.type === 'vector' ? kind.paths.reduce((sum, p) => sum + p.points.length, 0) : 0;
+    const paths = kind.type === 'vector' ? kind.paths : kind.type === 'text' ? kind.outline : [];
+    n = paths.reduce((sum, p) => sum + bezPointCount(p), 0);
     pointsCache.set(kind, n);
   }
   return n;
@@ -153,7 +156,7 @@ const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
 const roundMove = (m: Affine): Affine => [m[0], m[1], m[2], m[3], round6(m[4]), round6(m[5])];
 
 export function emptyDocument(): Document {
-  return { version: 1, objects: [], layers: [], device_id: null };
+  return { version: 2, objects: [], layers: [], device_id: null };
 }
 
 function paletteName(color: string): string {
@@ -291,14 +294,17 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
       const taken = new Set(get().doc.objects.map((o) => o.id));
       const created: string[] = [];
       commit('history.duplicate', (doc) => {
-        const copies = doc.objects
-          .filter((o) => set_.has(o.id))
-          .map((o) => {
-            const id = uniqueId(o.id.replace(/-\d+$/, ''), taken);
-            taken.add(id);
-            created.push(id);
-            return { ...o, id, locked: false, transform: translateAffine(o.transform, offset, offset) };
-          });
+        const copies = regroupCopies(
+          doc.objects
+            .filter((o) => set_.has(o.id))
+            .map((o) => {
+              const id = uniqueId(o.id.replace(/-\d+$/, ''), taken);
+              taken.add(id);
+              created.push(id);
+              return { ...o, id, locked: false, transform: translateAffine(o.transform, offset, offset) };
+            }),
+          groupIdsOf(doc.objects),
+        );
         return copies.length ? { ...doc, objects: [...doc.objects, ...copies] } : doc;
       });
       return created;
@@ -338,13 +344,16 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
       commit('history.paste', (doc) => {
         created.length = 0;
         const taken = new Set(doc.objects.map((o) => o.id));
-        const copies = clip.objects.map((o) => {
-          const id = uniqueId(o.id.replace(/-\d+$/, ''), taken);
-          taken.add(id);
-          created.push(id);
-          const transform = offset === 0 ? o.transform : roundMove(translateAffine(o.transform, offset, offset));
-          return { ...o, id, locked: false, transform };
-        });
+        const copies = regroupCopies(
+          clip.objects.map((o) => {
+            const id = uniqueId(o.id.replace(/-\d+$/, ''), taken);
+            taken.add(id);
+            created.push(id);
+            const transform = offset === 0 ? o.transform : roundMove(translateAffine(o.transform, offset, offset));
+            return { ...o, id, locked: false, transform };
+          }),
+          groupIdsOf(doc.objects),
+        );
         // Las capas que faltan (otro proyecto, o borradas) se recrean con los ajustes que tenían.
         const have = new Set(doc.layers.map((l) => l.color.toLowerCase()));
         const missing = clip.layers.filter((l) => !have.has(l.color.toLowerCase()));

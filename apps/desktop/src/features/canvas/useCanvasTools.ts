@@ -1,5 +1,7 @@
 import { useEffect, type RefObject } from 'react';
-import type { Affine, DesignObject, PathData, Point } from '@/api/types';
+import type { Affine, BezPath, DesignObject, Point } from '@/api/types';
+import { polylineBez } from '@/lib/bezpath';
+import { expandGroups } from '@/lib/groups';
 import { t, type I18nKey } from '@/i18n';
 import { isEditableTarget } from '@/commands/shortcuts';
 import { fmt } from '@/lib/platform';
@@ -10,7 +12,7 @@ import { visibleBox } from './geom';
 import { cursorForHandle, handleSpots, hitHandle, type HandleSpot } from './handles';
 import { boxModeFor, HIT_PX, layerLookup, normalizeBox, pickObject, selectByBox, type PickContext } from './hit';
 import { clearGesture, patchInteraction, registerGestureHooks, useInteraction } from './interaction';
-import { boxShapePaths, constrainAngle, constrainDelta, dragBox, newVectorObject, pickDrawLayer, polylinePaths, type ShapeKind } from './shapes';
+import { boxShapePaths, constrainAngle, constrainDelta, dedupePoints, dragBox, newVectorObject, pickDrawLayer, polylinePaths, type ShapeKind } from './shapes';
 import { collectSnapTargets, NO_SNAP, snapFeatures, snapMove, snapPoint, snapToleranceMM, type Feature, type SnapOptions, type SnapSet } from './snap';
 import {
   anchorPoint, boundsCenter, boundsOf, boundsSize, canRotate, handlePoint, isIdentity, rotateByPointer, scaleByHandle,
@@ -125,6 +127,10 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       return s.doc.objects.filter((o) => ids.has(o.id) && !o.locked);
     };
 
+    /** Ids del objeto y de su grupo (solo los seleccionables). */
+    const groupIds = (id: string): string[] => expandGroups(st().doc.objects, [id], isSelectableId);
+    const isSelectableId = (o: DesignObject) => !o.hidden && !o.locked && (layerLookup(st().doc.layers)(o.layer)?.visible ?? true);
+
     const fmtMM = (v: number) => fmt(v, 2);
     const setTip = (sx: number, sy: number, text: string) => patchInteraction({ tip: { x: sx + 16, y: sy + 18, text } });
 
@@ -192,7 +198,9 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (hit) {
         const wasSelected = s.selectedIds.includes(hit.id);
         if (!wasSelected) {
-          s.select(mods.shift ? [...s.selectedIds, hit.id] : [hit.id]);
+          // Un objeto de un grupo selecciona todo el grupo; Alt+clic elige solo ese objeto.
+          const picked = mods.alt ? [hit.id] : groupIds(hit.id);
+          s.select(mods.shift ? [...s.selectedIds, ...picked] : picked);
           patchInteraction({ rotateMode: false });
         }
         g = { ...common, kind: 'press', hit, wasSelected, shift: mods.shift };
@@ -279,7 +287,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       setTip(sx, sy, t('canvas.tip.rotate', { deg: fmt(total, 1) }));
     };
 
-    const drawPaths = (tool: 'rect' | 'ellipse', a: Point, b: Point, mods: Mods): { paths: PathData[]; w: number; h: number } => {
+    const drawPaths = (tool: 'rect' | 'ellipse', a: Point, b: Point, mods: Mods): { paths: BezPath[]; w: number; h: number } => {
       const box = dragBox(a, b, { square: mods.shift, fromCenter: false });
       const [w, h] = boundsSize(box);
       return { paths: boxShapePaths(tool, box, tool === 'rect' ? st().cornerRadius : 0), w, h };
@@ -293,7 +301,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         if (opts) p = applyPointSnap(p, gs.targets, opts);
         else patchInteraction({ guides: [] });
         gs.end = p;
-        patchInteraction({ draft: { paths: [{ points: [gs.startWorld, p], closed: false }] } });
+        patchInteraction({ draft: { paths: [polylineBez([gs.startWorld, p], false)] } });
         setTip(sx, sy, lineTip(gs.startWorld, p));
         return;
       }
@@ -301,7 +309,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       else patchInteraction({ guides: [] });
       gs.end = p;
       const { paths, w, h } = drawPaths(gs.tool, gs.startWorld, p, mods);
-      patchInteraction({ draft: { paths: paths.map((q) => ({ points: q.points, closed: q.closed })) } });
+      patchInteraction({ draft: { paths } });
       const circle = gs.tool === 'ellipse' && Math.abs(w - h) < 1e-6;
       setTip(sx, sy, circle ? t('canvas.tip.circle', { d: fmtMM(w) }) : t('canvas.tip.size', { w: fmtMM(w), h: fmtMM(h) }));
     };
@@ -328,11 +336,11 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const showPoly = (cursor: Point | null, sx = 0, sy = 0) => {
       if (!poly) return;
       const pts = cursor ? [...poly.points, cursor] : poly.points;
-      patchInteraction({ draft: { paths: [{ points: pts, closed: false }], rubber: true }, polyPoints: poly.points.length });
+      patchInteraction({ draft: { paths: [polylineBez(pts, false)], rubber: true }, polyPoints: poly.points.length });
       if (cursor) setTip(sx, sy, lineTip(poly.points[poly.points.length - 1], cursor));
     };
 
-    const createShape = (paths: PathData[], kind: ShapeKind) => {
+    const createShape = (paths: BezPath[], kind: ShapeKind) => {
       const s = st();
       const layer = pickDrawLayer(s.doc.layers, s.activeLayer);
       const id = uniqueId(kind, new Set(s.doc.objects.map((o) => o.id)));
@@ -348,7 +356,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       clearGesture();
       const paths = polylinePaths(pts, close);
       if (!paths) return;
-      createShape(paths, paths[0].points.length === 2 ? 'line' : 'polyline');
+      createShape(paths, dedupePoints(pts).length === 2 ? 'line' : 'polyline');
     };
 
     const downLine = (e: PointerEvent, sx: number, sy: number, mods: Mods) => {
@@ -512,10 +520,11 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         case 'press': {
           if (!cur.active) {
             // Clic sin arrastre.
-            if (cur.shift && cur.wasSelected) s.select(s.selectedIds.filter((id) => id !== cur.hit.id));
+            const picked = mods.alt ? [cur.hit.id] : groupIds(cur.hit.id);
+            if (cur.shift && cur.wasSelected) s.select(s.selectedIds.filter((id) => !picked.includes(id)));
             else if (!cur.shift && cur.wasSelected) {
               if (s.selectedIds.length === 1) patchInteraction({ rotateMode: !useInteraction.getState().rotateMode });
-              else s.select([cur.hit.id]);
+              else s.select(picked);
             }
           }
           break;
@@ -535,7 +544,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
             }
           } else {
             const mode = boxModeFor(cur.startScreen[0], sx);
-            const ids = selectByBox(pickCtx(), normalizeBox(cur.startWorld, world(sx, sy)), mode);
+            const found = selectByBox(pickCtx(), normalizeBox(cur.startWorld, world(sx, sy)), mode);
+            const ids = expandGroups(s.doc.objects, found, isSelectableId);
             s.select(cur.shift ? [...s.selectedIds, ...ids] : ids);
           }
           break;

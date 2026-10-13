@@ -1,6 +1,10 @@
-//! Importación de SVG: convierte curvas en polilíneas en milímetros y agrupa
-//! las trayectorias por color para formar capas.
+//! Importación de SVG en milímetros, con las trayectorias agrupadas por color para formar
+//! capas. Cada trayectoria sale de dos formas: aplanada a polilíneas con una tolerancia
+//! ([`SvgDocument::paths`], para el CLI y [`SvgDocument::into_job`]) y como curvas Bézier
+//! exactas ([`SvgDocument::curves`], para el editor). Ambas pasan por la misma transformación
+//! (`abs_transform`), los mismos colores y generan las mismas advertencias.
 
+use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{CutSettings, Job, Layer, Point, Polyline, Rgb};
 use usvg::tiny_skia_path::{self, PathSegment};
 use usvg::{Group, Node, Paint};
@@ -13,11 +17,20 @@ pub struct ImportedPath {
     pub polyline: Polyline,
 }
 
+/// Un subtrayecto con sus curvas intactas (rectas, cuadráticas y cúbicas), en mm.
+pub struct ImportedCurve {
+    pub color: Rgb,
+    pub path: BezPath,
+}
+
 /// Documento importado, en coordenadas SVG (origen arriba a la izquierda, Y hacia abajo).
 pub struct SvgDocument {
     pub width_mm: f64,
     pub height_mm: f64,
+    /// Subtrayectos aplanados con la tolerancia pedida.
     pub paths: Vec<ImportedPath>,
+    /// Los mismos subtrayectos sin aplanar, en el mismo orden de aparición.
+    pub curves: Vec<ImportedCurve>,
     /// Avisos de importación (escala asumida, elementos omitidos o aproximados).
     pub warnings: Vec<String>,
 }
@@ -28,8 +41,13 @@ pub fn import_svg(data: &[u8], tolerance_mm: f64) -> Result<SvgDocument, usvg::E
     opt.fontdb_mut().load_system_fonts();
     let tree = usvg::Tree::from_data(data, &opt)?;
     let mut paths = Vec::new();
+    let mut curves = Vec::new();
     let mut stats = Stats::default();
-    collect(tree.root(), tolerance_mm, &mut paths, &mut stats);
+    let mut out = Out {
+        polylines: &mut paths,
+        curves: &mut curves,
+    };
+    collect(tree.root(), tolerance_mm, &mut out, &mut stats);
     let width_mm = tree.size().width() as f64 * PX_TO_MM;
     let height_mm = tree.size().height() as f64 * PX_TO_MM;
     let warnings = build_warnings(data, width_mm, height_mm, paths.is_empty(), &stats);
@@ -37,6 +55,7 @@ pub fn import_svg(data: &[u8], tolerance_mm: f64) -> Result<SvgDocument, usvg::E
         width_mm,
         height_mm,
         paths,
+        curves,
         warnings,
     })
 }
@@ -259,6 +278,25 @@ fn build_warnings(
 }
 
 impl SvgDocument {
+    /// Las curvas agrupadas por color (en el orden en que aparece cada uno). Con `flip_y` se
+    /// pasa a coordenadas de máquina (Y hacia arriba), igual que [`into_job`](Self::into_job).
+    pub fn into_curves(self, flip_y: bool) -> Vec<(Rgb, Vec<BezPath>)> {
+        let height = self.height_mm;
+        let mut out: Vec<(Rgb, Vec<BezPath>)> = Vec::new();
+        for ImportedCurve { color, path } in self.curves {
+            let path = if flip_y {
+                path.map_points(|p| Point::new(p.x, height - p.y))
+            } else {
+                path
+            };
+            match out.iter_mut().find(|(c, _)| *c == color) {
+                Some((_, paths)) => paths.push(path),
+                None => out.push((color, vec![path])),
+            }
+        }
+        out
+    }
+
     /// Crea un trabajo con una capa por color, en el orden en que aparecen.
     /// Con `flip_y` se pasa a coordenadas de máquina (Y hacia arriba).
     pub fn into_job(self, settings_for: impl Fn(Rgb) -> CutSettings, flip_y: bool) -> Job {
@@ -287,7 +325,13 @@ impl SvgDocument {
     }
 }
 
-fn collect(group: &Group, tolerance: f64, out: &mut Vec<ImportedPath>, stats: &mut Stats) {
+/// Destinos del recorrido del árbol.
+struct Out<'a> {
+    polylines: &'a mut Vec<ImportedPath>,
+    curves: &'a mut Vec<ImportedCurve>,
+}
+
+fn collect(group: &Group, tolerance: f64, out: &mut Out, stats: &mut Stats) {
     for node in group.children() {
         match node {
             Node::Group(g) => {
@@ -296,9 +340,9 @@ fn collect(group: &Group, tolerance: f64, out: &mut Vec<ImportedPath>, stats: &m
                 collect(g, tolerance, out, stats);
             }
             Node::Text(t) => {
-                let before = out.len();
+                let before = out.polylines.len();
                 collect(t.flattened(), tolerance, out, stats);
-                if out.len() > before {
+                if out.polylines.len() > before {
                     stats.text_with_paths += 1;
                 } else {
                     stats.text_empty += 1;
@@ -315,7 +359,10 @@ fn collect(group: &Group, tolerance: f64, out: &mut Vec<ImportedPath>, stats: &m
                     stats.non_color_paints += 1;
                 }
                 for polyline in flatten(&data, tolerance) {
-                    out.push(ImportedPath { color, polyline });
+                    out.polylines.push(ImportedPath { color, polyline });
+                }
+                for path in curves(&data) {
+                    out.curves.push(ImportedCurve { color, path });
                 }
             }
         }
@@ -345,6 +392,58 @@ fn path_color(p: &usvg::Path) -> Rgb {
 
 fn mm(p: tiny_skia_path::Point) -> Point {
     Point::new(p.x as f64 * PX_TO_MM, p.y as f64 * PX_TO_MM)
+}
+
+/// Los subtrayectos del camino como curvas (mm). Un subtrayecto sin trazo se descarta; tras
+/// un `Close`, lo que siga empieza otro subtrayecto en el punto inicial.
+fn curves(path: &tiny_skia_path::Path) -> Vec<BezPath> {
+    let mut result = Vec::new();
+    let mut segs: Vec<PathSeg> = Vec::new();
+    let mut start: Option<Point> = None;
+    let mut drawn = false;
+    let flush = |segs: &mut Vec<PathSeg>, drawn: &mut bool, result: &mut Vec<BezPath>| {
+        let segs = std::mem::take(segs);
+        if std::mem::take(drawn) {
+            result.push(BezPath(segs));
+        }
+    };
+    for seg in path.segments() {
+        if !matches!(seg, PathSegment::MoveTo(_)) && segs.is_empty() {
+            segs.extend(start.map(|to| PathSeg::MoveTo { to }));
+        }
+        match seg {
+            PathSegment::MoveTo(p) => {
+                flush(&mut segs, &mut drawn, &mut result);
+                start = Some(mm(p));
+                segs.push(PathSeg::MoveTo { to: mm(p) });
+            }
+            PathSegment::LineTo(p) => {
+                drawn = true;
+                segs.push(PathSeg::LineTo { to: mm(p) });
+            }
+            PathSegment::QuadTo(c, p) => {
+                drawn = true;
+                segs.push(PathSeg::QuadTo {
+                    ctrl: mm(c),
+                    to: mm(p),
+                });
+            }
+            PathSegment::CubicTo(c1, c2, p) => {
+                drawn = true;
+                segs.push(PathSeg::CubicTo {
+                    ctrl1: mm(c1),
+                    ctrl2: mm(c2),
+                    to: mm(p),
+                });
+            }
+            PathSegment::Close => {
+                segs.push(PathSeg::Close);
+                flush(&mut segs, &mut drawn, &mut result);
+            }
+        }
+    }
+    flush(&mut segs, &mut drawn, &mut result);
+    result
 }
 
 /// Número de segmentos según la fórmula de Wang para no exceder la tolerancia.
@@ -422,6 +521,45 @@ fn flatten(path: &tiny_skia_path::Path, tolerance: f64) -> Vec<Polyline> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn curves_keep_beziers_and_match_the_flattened_paths() {
+        let svg = br##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="0 0 100 50">
+            <path d="M10 10 C 10 30 40 30 40 10 Z M60 10 L 80 10 Q 90 20 80 30" fill="none" stroke="#ff0000"/>
+            <rect x="5" y="5" width="4" height="4" fill="none" stroke="#0000ff"/></svg>"##;
+        let doc = import_svg(svg, 0.01).unwrap();
+        assert_eq!(doc.paths.len(), 3);
+        assert_eq!(doc.curves.len(), 3);
+        // La cúbica sigue siendo cúbica y la cuadrática también.
+        assert!(
+            doc.curves[0]
+                .path
+                .0
+                .iter()
+                .any(|s| matches!(s, PathSeg::CubicTo { .. }))
+        );
+        assert!(matches!(doc.curves[0].path.0.last(), Some(PathSeg::Close)));
+        assert!(
+            doc.curves[1]
+                .path
+                .0
+                .iter()
+                .any(|s| matches!(s, PathSeg::QuadTo { .. }))
+        );
+        let flat = doc.curves[0].path.flatten(0.01);
+        assert_eq!(flat.len(), 1);
+        assert_eq!(flat[0].closed, doc.paths[0].polyline.closed);
+        // Misma transformación, color y volteo que el camino aplanado.
+        let grouped = doc.into_curves(true);
+        assert_eq!(grouped.len(), 2);
+        assert_eq!(grouped[0].0, Rgb(255, 0, 0));
+        assert_eq!(grouped[0].1.len(), 2);
+        let b = grouped[0].1[0].bounds().unwrap();
+        assert!(
+            b.min.y > 50.0 - 30.0 - 1e-6 && b.max.y < 50.0 - 10.0 + 1e-6,
+            "{b:?}"
+        );
+    }
 
     #[test]
     fn rect_in_mm_is_closed() {

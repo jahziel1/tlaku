@@ -6,6 +6,9 @@
 //! - [`import_file`]: SVG, DXF o imagen a objetos y capas nuevas.
 //! - [`compute`] / [`build`]: documento a [`ComputedJob`] (trayectoria, vista previa, avisos).
 //! - [`gcode`]: [`ComputedJob`] a G-code para la máquina.
+//!
+//! Las curvas del documento se aplanan al construir el trabajo con [`FLATTEN_TOLERANCE_MM`]
+//! (0.01 mm); un texto sin contorno generado se omite con una advertencia.
 
 mod build;
 mod gcode;
@@ -26,6 +29,7 @@ pub use layers::{
 
 /// Los tipos del documento, para quien solo depende de este crate.
 pub use tlaku_doc as doc;
+pub use tlaku_doc::FLATTEN_TOLERANCE_MM;
 
 #[cfg(test)]
 mod tests;

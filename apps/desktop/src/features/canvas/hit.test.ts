@@ -3,6 +3,7 @@ import { makeLayer } from '@/lib/layers';
 import { boxModeFor, hitObject, normalizeBox, pickObject, segmentIntersectsBox, selectByBox } from './hit';
 import { getGeom } from './geom';
 import { ctxFor, lineObj, rectObj } from './testUtil';
+import { polylineBez } from '@/lib/bezpath';
 
 describe('hit-testing', () => {
   const frame = rectObj('a', 10, 10, 50, 40);
@@ -24,7 +25,7 @@ describe('hit-testing', () => {
   it('la regla par-impar deja huecos: el agujero de un relleno no se selecciona', () => {
     const ring = rectObj('ring', 0, 0, 100, 100);
     if (ring.kind.type === 'vector') {
-      ring.kind.paths.push({ points: [[40, 40], [60, 40], [60, 60], [40, 60]], closed: true });
+      ring.kind.paths.push(polylineBez([[40, 40], [60, 40], [60, 60], [40, 60]], true));
     }
     const ctx = ctxFor([ring], [makeLayer('#ff0000', 'Rojo', { mode: 'fill' })]);
     expect(pickObject(ctx, [20, 20], 1)?.id).toBe('ring');

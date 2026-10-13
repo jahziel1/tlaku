@@ -1,12 +1,12 @@
 import { HISTORY_TAB } from '@/features/shell/dockTabs';
 import { useShellUi } from '@/features/shell/uiStore';
 import type { I18nKey } from '@/i18n';
+import { groupDoc, hasGroup, ungroupDoc } from '@/lib/groups';
 import { selectSelectedObjects } from '@/store';
 import type { AppState } from '@/store';
 import type { CommandDef } from '../types';
 
 const needSelection = (s: AppState): true | I18nKey => (s.selectedIds.length > 0 ? true : 'reason.noSelection');
-const soon = (): I18nKey => 'reason.soon';
 
 /** Hay algo seleccionado que se pueda cortar (no bloqueado). */
 const needMovable = (s: AppState): true | I18nKey => {
@@ -128,9 +128,22 @@ export const editCommands: CommandDef[] = [
     enabled: needClipboard,
     run: (s) => s.select(s.pasteObjects({ inPlace: true })),
   },
-  // Pendientes: el registro ya los reserva para que menús y atajos no se reasignen después.
-  { id: 'edit.group', label: 'cmd.edit.group', category: 'edit', shortcuts: ['Mod+G'], enabled: soon, run: () => {} },
-  { id: 'edit.ungroup', label: 'cmd.edit.ungroup', category: 'edit', shortcuts: ['Mod+Shift+G'], enabled: soon, run: () => {} },
+  {
+    id: 'edit.group',
+    label: 'cmd.edit.group',
+    category: 'edit',
+    shortcuts: ['Mod+G'],
+    enabled: (s) => (s.doc.objects.filter((o) => s.selectedIds.includes(o.id) && !o.locked).length >= 2 ? true : 'history.reason.groupNeedsTwo'),
+    run: (s) => s.applyDocChange('history.group', (doc) => groupDoc(doc, s.selectedIds)),
+  },
+  {
+    id: 'edit.ungroup',
+    label: 'cmd.edit.ungroup',
+    category: 'edit',
+    shortcuts: ['Mod+Shift+G'],
+    enabled: (s) => (hasGroup(s.doc.objects, s.selectedIds) ? true : 'history.reason.noGroup'),
+    run: (s) => s.applyDocChange('history.ungroup', (doc) => ungroupDoc(doc, s.selectedIds)),
+  },
   // Paneles y ayuda. `?` (en cualquier distribución de teclado) lo atiende el shell; aquí quedan
   // los atajos que el registro puede resolver por tecla física.
   {

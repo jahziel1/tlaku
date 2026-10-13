@@ -1,50 +1,54 @@
 import { describe, expect, it } from 'vitest';
 import { makeLayer } from '@/lib/layers';
-import { pointsBounds, polylineLength } from '@/lib/geometry';
+import { polylineLength } from '@/lib/geometry';
+import { bezBounds, ellipseBez, flattenBez, roundedRectBez, type BezPath } from '@/lib/bezpath';
 import {
-  arcSegments, boxShapePaths, constrainAngle, constrainDelta, dedupePoints, dragBox, ellipsePoints, newVectorObject,
-  pickDrawLayer, polylinePaths, rectPoints,
+  boxShapePaths, constrainAngle, constrainDelta, dedupePoints, dragBox, newVectorObject, pickDrawLayer, polylinePaths, rectPoints,
 } from './shapes';
 
 describe('creación de formas', () => {
+  const kinds = (p: BezPath) => p.map((s) => s.type);
+
   it('rectángulo: cuatro esquinas antihorarias', () => {
     expect(rectPoints(10, 20, 30, 50)).toEqual([[10, 20], [30, 20], [30, 50], [10, 50]]);
     expect(rectPoints(30, 50, 10, 20)).toEqual(rectPoints(10, 20, 30, 50)); // esquinas en cualquier orden
   });
 
-  it('rectángulo con radio: mismas dimensiones, esquinas redondeadas', () => {
-    const pts = rectPoints(0, 0, 40, 20, 5);
-    const b = pointsBounds(pts)!;
-    expect(b).toEqual([[0, 0], [40, 20]]);
-    expect(pts.length).toBeGreaterThan(8);
-    // El vértice de la esquina ya no existe.
-    expect(pts.some(([x, y]) => x === 0 && y === 0)).toBe(false);
+  it('rectángulo con radio: mismas dimensiones, esquinas como cúbicas reales', () => {
+    const path = roundedRectBez(0, 0, 40, 20, 5);
+    expect(bezBounds([path])).toEqual([[0, 0], [40, 20]]);
+    expect(kinds(path).filter((k) => k === 'cubic_to')).toHaveLength(4);
+    expect(kinds(path).filter((k) => k === 'line_to')).toHaveLength(4);
+    expect(kinds(path).at(-1)).toBe('close');
+    // El vértice de la esquina ya no existe: el trazo pasa por (5, 0) y (0, 5).
+    const starts = flattenBez(path)[0].points;
+    expect(starts.some(([x, y]) => x === 0 && y === 0)).toBe(false);
+  });
+
+  it('sin radio, el rectángulo son cuatro rectas cerradas', () => {
+    expect(kinds(roundedRectBez(0, 0, 10, 10))).toEqual(['move_to', 'line_to', 'line_to', 'line_to', 'close']);
   });
 
   it('el radio se limita a la mitad del lado menor', () => {
-    const b = pointsBounds(rectPoints(0, 0, 40, 20, 999))!;
-    expect(b).toEqual([[0, 0], [40, 20]]);
-    const stadium = rectPoints(0, 0, 40, 20, 999);
-    for (const [x, y] of stadium) expect(Number.isFinite(x + y)).toBe(true);
+    expect(bezBounds([roundedRectBez(0, 0, 40, 20, 999)])).toEqual([[0, 0], [40, 20]]);
+    for (const s of roundedRectBez(0, 0, 40, 20, 999)) {
+      if (s.type === 'cubic_to') for (const p of [...s.ctrl1, ...s.ctrl2, ...s.to]) expect(Number.isFinite(p)).toBe(true);
+    }
   });
 
-  it('elipse: caja exacta y error de arco acotado', () => {
-    const pts = ellipsePoints(50, 50, 30, 20);
-    const b = pointsBounds(pts)!;
-    expect(b[0][0]).toBeCloseTo(20, 6);
-    expect(b[1][0]).toBeCloseTo(80, 6);
-    expect(b[0][1]).toBeCloseTo(30, 1);
-    expect(b[1][1]).toBeCloseTo(70, 1);
-    // Más segmentos cuanto más grande es el radio, con tolerancia fija.
-    expect(arcSegments(100, Math.PI * 2)).toBeGreaterThan(arcSegments(5, Math.PI * 2));
-    const r = 100;
-    const n = arcSegments(r, Math.PI * 2);
-    const sagitta = r * (1 - Math.cos(Math.PI / n));
-    expect(sagitta).toBeLessThanOrEqual(0.02 + 1e-9);
+  it('elipse: cuatro cúbicas con la caja exacta', () => {
+    const path = ellipseBez(50, 50, 30, 20);
+    expect(kinds(path)).toEqual(['move_to', 'cubic_to', 'cubic_to', 'cubic_to', 'cubic_to', 'close']);
+    const b = bezBounds([path])!;
+    expect(b[0][0]).toBeCloseTo(20, 9);
+    expect(b[1][0]).toBeCloseTo(80, 9);
+    expect(b[0][1]).toBeCloseTo(30, 9);
+    expect(b[1][1]).toBeCloseTo(70, 9);
   });
 
-  it('un círculo cerrado tiene perímetro cercano a 2πr', () => {
-    const pts = ellipsePoints(0, 0, 25, 25);
+  it('el aplanado de una elipse respeta la tolerancia', () => {
+    const pts = flattenBez(ellipseBez(0, 0, 25, 25), 0.01)[0].points;
+    for (const [x, y] of pts) expect(Math.abs(Math.hypot(x, y) - 25)).toBeLessThan(0.02);
     expect(polylineLength(pts, true)).toBeCloseTo(2 * Math.PI * 25, 1);
   });
 
@@ -58,24 +62,27 @@ describe('creación de formas', () => {
     const centered = dragBox([50, 50], [60, 55], { square: false, fromCenter: true });
     expect(centered).toEqual([[40, 45], [60, 55]]);
     const circle = boxShapePaths('ellipse', sq);
-    const b = pointsBounds(circle[0].points)!;
-    expect(b[1][0] - b[0][0]).toBeCloseTo(b[1][1] - b[0][1], 2);
+    const b = bezBounds(circle)!;
+    expect(b[1][0] - b[0][0]).toBeCloseTo(b[1][1] - b[0][1], 9);
   });
 
   it('boxShapePaths aplica el radio solo a rectángulos', () => {
-    expect(boxShapePaths('rect', [[0, 0], [10, 10]])[0].points).toHaveLength(4);
-    expect(boxShapePaths('rect', [[0, 0], [10, 10]], 2)[0].points.length).toBeGreaterThan(4);
-    expect(boxShapePaths('rect', [[0, 0], [10, 10]])[0].closed).toBe(true);
+    expect(boxShapePaths('rect', [[0, 0], [10, 10]])[0].filter((s) => s.type === 'line_to')).toHaveLength(3);
+    expect(boxShapePaths('rect', [[0, 0], [10, 10]], 2)[0].some((s) => s.type === 'cubic_to')).toBe(true);
+    expect(boxShapePaths('rect', [[0, 0], [10, 10]])[0].at(-1)).toEqual({ type: 'close' });
+    expect(boxShapePaths('ellipse', [[0, 0], [10, 10]], 2)[0].some((s) => s.type === 'cubic_to')).toBe(true);
   });
 
   it('línea y polilínea: sin puntos repetidos, cerrada solo con 3 o más', () => {
     expect(dedupePoints([[0, 0], [0, 0], [5, 0], [5, 0], [5, 5]])).toEqual([[0, 0], [5, 0], [5, 5]]);
     expect(polylinePaths([[0, 0]], false)).toBeNull();
     expect(polylinePaths([[0, 0], [0, 0]], false)).toBeNull();
-    expect(polylinePaths([[0, 0], [10, 0]], false)).toEqual([{ points: [[0, 0], [10, 0]], closed: false }]);
-    expect(polylinePaths([[0, 0], [10, 0]], true)![0].closed).toBe(false); // una línea no se cierra
-    expect(polylinePaths([[0, 0], [10, 0], [10, 10]], true)![0].closed).toBe(true);
-    expect(polylinePaths([[0, 0], [10, 0], [10, 10], [10, 10]], false)![0].points).toHaveLength(3); // doble clic
+    expect(polylinePaths([[0, 0], [10, 0]], false)).toEqual([
+      [{ type: 'move_to', to: [0, 0] }, { type: 'line_to', to: [10, 0] }],
+    ]);
+    expect(polylinePaths([[0, 0], [10, 0]], true)![0].at(-1)!.type).toBe('line_to'); // una línea no se cierra
+    expect(polylinePaths([[0, 0], [10, 0], [10, 10]], true)![0].at(-1)!.type).toBe('close');
+    expect(polylinePaths([[0, 0], [10, 0], [10, 10], [10, 10]], false)![0]).toHaveLength(3); // doble clic
   });
 
   it('Mayús fija ángulos de 45° al dibujar', () => {
@@ -94,7 +101,7 @@ describe('creación de formas', () => {
 
   it('el objeto nuevo es un vector visible y desbloqueado con transform identidad', () => {
     const o = newVectorObject('rect-1', '#ff0000', boxShapePaths('rect', [[0, 0], [10, 10]]));
-    expect(o).toMatchObject({ id: 'rect-1', layer: '#ff0000', locked: false, hidden: false, transform: [1, 0, 0, 1, 0, 0] });
+    expect(o).toMatchObject({ id: 'rect-1', layer: '#ff0000', locked: false, hidden: false, group: null, transform: [1, 0, 0, 1, 0, 0] });
     expect(o.kind.type).toBe('vector');
   });
 });

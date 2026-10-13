@@ -4,6 +4,7 @@ import { makeLayer } from '@/lib/layers';
 import { GUIDE_COLOR } from '@/lib/palette';
 import { buildExecution, classifyLayer, executionOf, layerSequence, localOrderNote, moveLayerInDoc, orderConflict } from './order';
 import { countByLayer } from '@/lib/layers';
+import { polylineBez } from '@/lib/bezpath';
 
 const C = { cut: '#ff3b4a', engrave: '#2f7bff', mark: '#ffb020', photo: '#9aa4b2', extra: '#14c28a' };
 
@@ -13,16 +14,17 @@ const obj = (id: string, layer: string, image = false): DesignObject => ({
   transform: [1, 0, 0, 1, 0, 0],
   kind: image
     ? { type: 'image', source_path: 'a.png', width_px: 1, height_px: 1, size_mm: [1, 1] }
-    : { type: 'vector', paths: [{ points: [[0, 0], [1, 1]], closed: false }] },
+    : { type: 'vector', paths: [polylineBez([[0, 0], [1, 1]], false)] },
   locked: false,
   hidden: false,
+  group: null,
 });
 
 /** Corte (kerf), grabado (fill), marcas (line) e imagen, todos con objetos. */
 function sample(over: Record<string, Partial<LayerSettings>> = {}): Document {
   const l = (c: string, name: string, patch: Partial<LayerSettings>) => makeLayer(c, name, { ...patch, ...over[c] });
   return {
-    version: 1,
+    version: 2,
     device_id: null,
     layers: [
       l(C.cut, 'Corte', { kerf: 0.1 }),

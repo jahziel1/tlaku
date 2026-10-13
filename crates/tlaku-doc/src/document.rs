@@ -1,26 +1,25 @@
 use crate::affine::{self, Transform};
 use crate::layer::LayerSettings;
+use crate::text::TextObject;
 use serde::{Deserialize, Serialize};
+use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Bounds, Point, Polyline, Rgb};
 use ts_rs::TS;
 
-/// Versión del formato del documento (y del archivo `.tlaku`).
-pub const FORMAT_VERSION: u32 = 1;
+/// Versión del formato del documento (y del archivo `.tlaku`). La 1 guardaba polilíneas
+/// (`points`/`closed`); la 2 guarda curvas Bézier, grupos y objetos de texto.
+pub const DOC_VERSION: u32 = 2;
 
-/// Trayectoria en coordenadas locales del objeto.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub struct PathData {
-    pub points: Vec<[f64; 2]>,
-    pub closed: bool,
-}
+/// Error máximo (mm) al aplanar curvas para el trabajo (`polylines`, colocación y G-code).
+/// 0.01 mm es bastante menos que el ancho del haz de un láser de diodo (~0.1 mm).
+pub const FLATTEN_TOLERANCE_MM: f64 = 0.01;
 
+/// Curvas en coordenadas locales del objeto.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub struct VectorObject {
-    pub paths: Vec<PathData>,
+    pub paths: Vec<BezPath>,
 }
 
 /// Imagen enlazada por ruta. Su caja local es `[0, size_mm[0]] x [0, size_mm[1]]` (Y hacia
@@ -41,6 +40,7 @@ pub struct ImageObject {
 pub enum ObjectKind {
     Vector(VectorObject),
     Image(ImageObject),
+    Text(TextObject),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -57,6 +57,8 @@ pub struct DesignObject {
     pub kind: ObjectKind,
     pub locked: bool,
     pub hidden: bool,
+    /// Grupo plano al que pertenece (los objetos con el mismo id se seleccionan juntos).
+    pub group: Option<String>,
 }
 
 fn to_point(p: [f64; 2]) -> Point {
@@ -64,35 +66,54 @@ fn to_point(p: [f64; 2]) -> Point {
 }
 
 impl DesignObject {
-    /// Geometría en coordenadas de máquina: los trazos de un objeto vectorial con el
-    /// `transform` aplicado, o el rectángulo (cerrado) que ocupa una imagen.
-    pub fn polylines(&self) -> Vec<Polyline> {
-        let place = |p: [f64; 2]| to_point(affine::apply(&self.transform, p));
+    /// Curvas del objeto en coordenadas de máquina (con el `transform` aplicado): las del
+    /// vector, el contorno generado de un texto (vacío si aún no se generó) o el rectángulo
+    /// cerrado que ocupa una imagen.
+    pub fn curves(&self) -> Vec<BezPath> {
+        let place = |p: Point| to_point(affine::apply(&self.transform, [p.x, p.y]));
+        let placed = |paths: &[BezPath]| paths.iter().map(|b| b.map_points(place)).collect();
         match &self.kind {
-            ObjectKind::Vector(v) => v
-                .paths
-                .iter()
-                .map(|path| Polyline {
-                    points: path.points.iter().map(|&p| place(p)).collect(),
-                    closed: path.closed,
-                })
-                .collect(),
+            ObjectKind::Vector(v) => placed(&v.paths),
+            ObjectKind::Text(t) => placed(&t.outline),
             ObjectKind::Image(img) => {
                 let [w, h] = img.size_mm;
-                vec![Polyline {
+                let rect = Polyline {
                     points: [[0.0, 0.0], [w, 0.0], [w, h], [0.0, h]]
                         .into_iter()
-                        .map(place)
+                        .map(|p| place(to_point(p)))
                         .collect(),
                     closed: true,
-                }]
+                };
+                vec![BezPath::from(&rect)]
             }
         }
     }
 
-    /// Caja envolvente en coordenadas de máquina; `None` si el objeto no tiene puntos.
+    /// Geometría en coordenadas de máquina aplanada con [`FLATTEN_TOLERANCE_MM`].
+    pub fn polylines(&self) -> Vec<Polyline> {
+        self.polylines_with(FLATTEN_TOLERANCE_MM)
+    }
+
+    /// Como [`polylines`](Self::polylines) con una tolerancia (mm) a elección. El aplanado se
+    /// hace después del `transform`, así que la tolerancia vale en mm reales aunque el objeto
+    /// esté escalado.
+    pub fn polylines_with(&self, tolerance_mm: f64) -> Vec<Polyline> {
+        self.curves()
+            .iter()
+            .flat_map(|c| c.flatten(tolerance_mm))
+            .collect()
+    }
+
+    /// Caja envolvente en coordenadas de máquina; `None` si el objeto no dibuja nada.
+    ///
+    /// Es **exacta** para curvas: se calculan los extremos de cada Bézier ya transformada
+    /// (una afín de una Bézier es otra Bézier), no la caja de los puntos de control ni la de
+    /// una versión aplanada.
     pub fn bounds(&self) -> Option<Bounds> {
-        bounds_of(&self.polylines())
+        self.curves()
+            .iter()
+            .filter_map(BezPath::bounds)
+            .reduce(union)
     }
 }
 
@@ -117,7 +138,7 @@ pub fn bounds_of(paths: &[Polyline]) -> Option<Bounds> {
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub struct Document {
-    #[ts(type = "1")]
+    #[ts(type = "2")]
     pub version: u32,
     pub objects: Vec<DesignObject>,
     /// Orden del archivo: el que usa `layer_order = "file"`.
@@ -128,7 +149,7 @@ pub struct Document {
 impl Default for Document {
     fn default() -> Self {
         Self {
-            version: FORMAT_VERSION,
+            version: DOC_VERSION,
             objects: Vec::new(),
             layers: Vec::new(),
             device_id: None,
@@ -141,17 +162,20 @@ impl Document {
         serde_json::to_string_pretty(self).map_err(|e| format!("no se pudo serializar: {e}"))
     }
 
-    /// Lee un documento; rechaza versiones que esta compilación no conoce.
+    /// Lee un documento; migra la versión 1 (polilíneas) a la actual y rechaza versiones que
+    /// esta compilación no conoce.
     pub fn from_json(text: &str) -> Result<Self, String> {
-        let value: serde_json::Value =
+        let mut value: serde_json::Value =
             serde_json::from_str(text).map_err(|e| format!("documento inválido: {e}"))?;
-        match value.get("version") {
+        match value.get("version").map(|v| v.as_u64()) {
             None => return Err("documento inválido: falta el campo \"version\"".into()),
-            Some(v) if v.as_u64() == Some(u64::from(FORMAT_VERSION)) => {}
-            Some(v) => {
+            Some(Some(1)) => migrate_v1(&mut value),
+            Some(Some(v)) if v == u64::from(DOC_VERSION) => {}
+            Some(_) => {
                 return Err(format!(
-                    "versión de documento no soportada: {v} (esta aplicación entiende la {FORMAT_VERSION}); \
-                     actualiza la aplicación para abrirlo"
+                    "versión de documento no soportada: {} (esta aplicación entiende la {DOC_VERSION}); \
+                     actualiza la aplicación para abrirlo",
+                    value["version"]
                 ));
             }
         }
@@ -180,4 +204,41 @@ pub fn union(a: Bounds, b: Bounds) -> Bounds {
         min: Point::new(a.min.x.min(b.min.x), a.min.y.min(b.min.y)),
         max: Point::new(a.max.x.max(b.max.x), a.max.y.max(b.max.y)),
     }
+}
+
+/// Versión 1 a 2: cada `{points, closed}` pasa a `move_to`/`line_to`(/`close`) y los objetos
+/// ganan `group: null`. Lo que no reconoce lo deja tal cual para que falle la lectura normal.
+fn migrate_v1(doc: &mut serde_json::Value) {
+    use serde_json::{Value, json};
+    let Some(objects) = doc.get_mut("objects").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for obj in objects {
+        if let Some(map) = obj.as_object_mut() {
+            map.entry("group").or_insert(Value::Null);
+        }
+        let Some(paths) = obj.pointer_mut("/kind/paths").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for path in paths {
+            let (Some(points), closed) = (
+                path.get("points").and_then(Value::as_array),
+                path.get("closed").and_then(Value::as_bool).unwrap_or(false),
+            ) else {
+                continue;
+            };
+            let mut segs: Vec<Value> = points
+                .iter()
+                .enumerate()
+                .map(
+                    |(i, p)| json!({ "type": if i == 0 { "move_to" } else { "line_to" }, "to": p }),
+                )
+                .collect();
+            if closed && !segs.is_empty() {
+                segs.push(json!({ "type": "close" }));
+            }
+            *path = Value::Array(segs);
+        }
+    }
+    doc["version"] = DOC_VERSION.into();
 }

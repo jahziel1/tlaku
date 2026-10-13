@@ -3,6 +3,7 @@ import type { DesignObject } from '@/api/types';
 import { createAppStore } from '@/store';
 import { GUIDE_COLOR, GUIDE_ENTRY, LAYER_PALETTE, paletteEntry } from '@/lib/palette';
 import { moveLayer, pickPaletteEntry } from './actions';
+import { polylineBez } from '@/lib/bezpath';
 
 const RED = paletteEntry('#ff3b4a')!;
 const BLUE = paletteEntry('#2f7bff')!;
@@ -11,14 +12,15 @@ const obj = (id: string, layer: string, locked = false): DesignObject => ({
   id,
   layer,
   transform: [1, 0, 0, 1, 0, 0],
-  kind: { type: 'vector', paths: [{ points: [[0, 0], [1, 1]], closed: false }] },
+  kind: { type: 'vector', paths: [polylineBez([[0, 0], [1, 1]], false)] },
   locked,
   hidden: false,
+  group: null,
 });
 
 function setup(objects: DesignObject[]) {
   const store = createAppStore();
-  store.getState().replaceDocument({ version: 1, objects, layers: [], device_id: null }, null);
+  store.getState().replaceDocument({ version: 2, objects, layers: [], device_id: null }, null);
   return store;
 }
 

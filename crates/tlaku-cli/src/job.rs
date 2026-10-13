@@ -67,6 +67,8 @@ fn prepare(req: &DesignRequest) -> Result<Prepared, String> {
         &ImportOptions {
             tolerance_mm: req.tolerance_mm,
             flip_y: req.flip_y,
+            // El CLI aplana al importar con --tolerance, como siempre.
+            keep_curves: false,
         },
     )?;
     let mut layers: Vec<LayerSettings> = Vec::new();

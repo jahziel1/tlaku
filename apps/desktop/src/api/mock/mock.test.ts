@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COMMAND_NAMES, EVENT_NAMES } from '../api';
 import { resolveApiKind } from '../index';
-import type { JobOptions, LogEvent, StatusReport } from '../types';
+import { polylineBez } from '@/lib/bezpath';
+import type { BezPath, DesignObject, JobOptions, LogEvent, StatusReport } from '../types';
 import { createMockApi, type MockApi } from './index';
 import { sampleDevices, sampleDocument } from './sample';
 
@@ -79,6 +80,26 @@ describe('diseño y trabajo', () => {
     const a = jobArgs();
     a.device = { ...a.device, bed: [100, 100] };
     expect((await fast().computeJob(a)).warnings.join(' ')).toMatch(/sale de la cama/);
+  });
+
+  it('el texto sin contorno se omite con aviso y con contorno se corta', async () => {
+    const text = (outline: BezPath[]): DesignObject => ({
+      id: 'txt', layer: '#ff3b4a', transform: [1, 0, 0, 1, 10, 10], locked: false, hidden: false, group: null,
+      kind: {
+        type: 'text', text: 'Hola', font_family: 'Arial', bold: false, italic: false, size_mm: 10, letter_spacing_mm: 0,
+        line_spacing: 1.2, align: 'left', on_path: null, outline,
+      },
+    });
+    const empty = jobArgs();
+    empty.doc.objects = [text([])];
+    const p = await fast().computeJob(empty);
+    expect(p.warnings.join(' ')).toMatch(/el texto no tiene contorno generado/);
+    expect(p.moves).toHaveLength(0);
+    const full = jobArgs();
+    full.doc.objects = [text([polylineBez([[0, 0], [5, 0], [5, 8]], true)])];
+    const q = await fast().computeJob(full);
+    expect(q.warnings.join(' ')).not.toMatch(/contorno/);
+    expect(q.moves.length).toBeGreaterThan(0);
   });
 
   it('guarda y carga proyectos en memoria', async () => {

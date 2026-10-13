@@ -11,6 +11,7 @@ import {
   newLayerFor,
 } from './layers';
 import { GUIDE_COLOR } from './palette';
+import { polylineBez } from '@/lib/bezpath';
 
 const RED = '#ff3b4a';
 const BLUE = '#2f7bff';
@@ -20,14 +21,15 @@ function obj(id: string, layer: string, over: Partial<DesignObject> = {}): Desig
     id,
     layer,
     transform: [1, 0, 0, 1, 0, 0],
-    kind: { type: 'vector', paths: [{ points: [[0, 0], [1, 1]], closed: false }] },
+    kind: { type: 'vector', paths: [polylineBez([[0, 0], [1, 1]], false)] },
     locked: false,
     hidden: false,
+  group: null,
     ...over,
   };
 }
 
-const doc = (objects: DesignObject[], layers = [makeLayer(RED, 'Rojo')]): Document => ({ version: 1, objects, layers, device_id: null });
+const doc = (objects: DesignObject[], layers = [makeLayer(RED, 'Rojo')]): Document => ({ version: 2, objects, layers, device_id: null });
 
 describe('valores por defecto', () => {
   it('el umbral de imagen está en 0-1 como pide el motor', () => {

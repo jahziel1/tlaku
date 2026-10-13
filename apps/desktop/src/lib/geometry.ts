@@ -1,4 +1,6 @@
 import type { Affine, DesignObject, Point } from '@/api/types';
+import { bezBounds, FLATTEN_TOLERANCE_MM, flattenBez, polylineBez, transformBez, type BezPath } from './bezpath';
+import { textPlaceholderBez } from './textobj';
 
 export const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
 
@@ -31,22 +33,32 @@ export function translation(dx: number, dy: number): Affine {
   return [1, 0, 0, 1, dx, dy];
 }
 
-/** Polilíneas del objeto en coordenadas de documento (mm). Las imágenes dan su caja. */
-export function objectPolylines(obj: DesignObject): { points: Point[]; closed: boolean }[] {
-  if (obj.kind.type === 'vector') {
-    return obj.kind.paths.map((p) => ({
-      points: p.points.map((pt) => applyAffine(obj.transform, pt)),
-      closed: p.closed,
-    }));
+/**
+ * Curvas del objeto en coordenadas locales: las del vector, el contorno del texto (o su caja
+ * estimada mientras no tenga contorno) o el rectángulo de la imagen.
+ */
+export function objectLocalPaths(obj: DesignObject): readonly BezPath[] {
+  const kind = obj.kind;
+  switch (kind.type) {
+    case 'vector':
+      return kind.paths;
+    case 'text':
+      return kind.outline.length > 0 ? kind.outline : [textPlaceholderBez(kind)];
+    case 'image': {
+      const [w, h] = kind.size_mm;
+      return [polylineBez([[0, 0], [w, 0], [w, h], [0, h]], true)];
+    }
   }
-  const [w, h] = obj.kind.size_mm;
-  const corners: Point[] = [
-    [0, 0],
-    [w, 0],
-    [w, h],
-    [0, h],
-  ];
-  return [{ points: corners.map((c) => applyAffine(obj.transform, c)), closed: true }];
+}
+
+/** Curvas del objeto en coordenadas de documento (con el `transform` aplicado). */
+export function objectCurves(obj: DesignObject): BezPath[] {
+  return objectLocalPaths(obj).map((p) => transformBez(p, obj.transform));
+}
+
+/** Polilíneas del objeto en coordenadas de documento (mm), con las curvas aplanadas. */
+export function objectPolylines(obj: DesignObject, tol = FLATTEN_TOLERANCE_MM): { points: Point[]; closed: boolean }[] {
+  return objectCurves(obj).flatMap((p) => flattenBez(p, tol));
 }
 
 export function pointsBounds(points: Point[]): Bounds | null {
@@ -67,8 +79,9 @@ export function pointsBounds(points: Point[]): Bounds | null {
   ];
 }
 
+/** Caja exacta del objeto (extremos de las curvas, no de sus puntos de control). */
 export function objectBounds(obj: DesignObject): Bounds | null {
-  return pointsBounds(objectPolylines(obj).flatMap((p) => p.points));
+  return bezBounds(objectCurves(obj));
 }
 
 export function unionBounds(list: (Bounds | null)[]): Bounds | null {
@@ -89,38 +102,8 @@ export function polylineLength(points: Point[], closed: boolean): number {
   return total;
 }
 
-/** Formas que generan los ejemplos y el mock. Todas en mm, sentido antihorario. */
+/** Polígonos que generan los ejemplos y el mock (círculos y rectángulos son curvas: ver `lib/bezpath`). */
 export const shapes = {
-  circle(cx: number, cy: number, r: number, n = 64): Point[] {
-    return Array.from({ length: n }, (_, i) => {
-      const t = (i / n) * Math.PI * 2;
-      return [cx + r * Math.cos(t), cy + r * Math.sin(t)] as Point;
-    });
-  },
-  rect(x: number, y: number, w: number, h: number): Point[] {
-    return [
-      [x, y],
-      [x + w, y],
-      [x + w, y + h],
-      [x, y + h],
-    ];
-  },
-  roundedRect(x: number, y: number, w: number, h: number, r: number, seg = 8): Point[] {
-    const pts: Point[] = [];
-    const corners: [number, number, number][] = [
-      [x + w - r, y + r, -Math.PI / 2],
-      [x + w - r, y + h - r, 0],
-      [x + r, y + h - r, Math.PI / 2],
-      [x + r, y + r, Math.PI],
-    ];
-    for (const [cx, cy, a0] of corners) {
-      for (let i = 0; i <= seg; i++) {
-        const a = a0 + (i / seg) * (Math.PI / 2);
-        pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
-      }
-    }
-    return pts;
-  },
   star(cx: number, cy: number, rOuter: number, rInner: number, points = 5): Point[] {
     return Array.from({ length: points * 2 }, (_, i) => {
       const r = i % 2 === 0 ? rOuter : rInner;

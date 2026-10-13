@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DesignObject, Point } from '@/api/types';
+import { polylineBez } from '@/lib/bezpath';
 import { makeLayer } from '@/lib/layers';
 import { fitBounds } from '@/lib/viewport';
 import { boxesIntersect, buildGeom, getGeom, visibleBox } from './geom';
@@ -28,7 +29,7 @@ function denseObject(): DesignObject {
     const x = row % 2 === 0 ? col * 1.6 : 400 - col * 1.6;
     pts.push([x, 2 + row * 2 + (col % 2)]);
   }
-  return newVectorObject('dense', '#ff0000', [{ points: pts, closed: false }]);
+  return newVectorObject('dense', '#ff0000', [polylineBez(pts, false)]);
 }
 
 /** 5 000 objetos de 10 segmentos cada uno (50 000 en total) repartidos por la cama. */
@@ -37,7 +38,7 @@ function manyObjects(): DesignObject[] {
     const ox = (k % 100) * 4;
     const oy = Math.floor(k / 100) * 7;
     const pts: Point[] = Array.from({ length: 11 }, (_, i) => [ox + i * 0.3, oy + (i % 2) * 2]);
-    return newVectorObject(`o${k}`, '#ff0000', [{ points: pts, closed: false }]);
+    return newVectorObject(`o${k}`, '#ff0000', [polylineBez(pts, false)]);
   });
 }
 

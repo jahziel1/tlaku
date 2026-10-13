@@ -14,7 +14,7 @@ JSON con `snake_case`, unidades en mm, mm/min y %, origen abajo a la izquierda, 
 ```ts
 type Point = [number, number];
 
-interface PathData { points: Point[]; closed: boolean }        // coordenadas locales del objeto
+type BezPath = PathSeg[];   // curvas en coordenadas locales del objeto; ver "Fase 3"
 
 interface DesignObject {
   id: string;                       // único en el documento
@@ -26,7 +26,7 @@ interface DesignObject {
 }
 // el discriminante `type` vive en ObjectKind; VectorObject e ImageObject no lo llevan
 type ObjectKind = ({ type: "vector" } & VectorObject) | ({ type: "image" } & ImageObject);
-interface VectorObject { paths: PathData[] }
+interface VectorObject { paths: BezPath[] }
 interface ImageObject  { source_path: string; width_px: number; height_px: number;
                          size_mm: [number, number] }   // caja local [0,w]x[0,h]; el transform la coloca y escala
 
@@ -46,7 +46,7 @@ interface ImageSettings { mode: "threshold" | "floyd" | "jarvis" | "stucki" | "a
                           threshold: number; brightness: number; contrast: number; gamma: number;
                           invert: boolean; dot_width: number }
 
-interface Document { version: 1; objects: DesignObject[]; layers: LayerSettings[]; device_id: string | null }
+interface Document { version: 2; objects: DesignObject[]; layers: LayerSettings[]; device_id: string | null }
 ```
 
 Semántica que fija el motor (`tlaku-pipeline`):

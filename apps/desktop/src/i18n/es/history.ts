@@ -4,6 +4,8 @@ export const history = {
   'history.cut': 'Cortar',
   'history.paste': 'Pegar',
   'history.initial': 'Estado inicial',
+  'history.group': 'Agrupar',
+  'history.ungroup': 'Desagrupar',
 
   // ---- comandos ---------------------------------------------------------------
   'history.cmd.pasteInPlace': 'Pegar en el mismo lugar',
@@ -14,6 +16,8 @@ export const history = {
   // ---- por qué un comando no está disponible --------------------------------
   'history.reason.clipboardEmpty': 'El portapapeles está vacío: copia o corta objetos primero.',
   'history.reason.emptyDocument': 'No hay objetos en el diseño.',
+  'history.reason.groupNeedsTwo': 'Selecciona dos o más objetos (sin bloquear) para agruparlos.',
+  'history.reason.noGroup': 'Ningún objeto seleccionado está en un grupo.',
 
   // ---- menús ---------------------------------------------------------------------
   'history.menu.help': 'Ayuda',

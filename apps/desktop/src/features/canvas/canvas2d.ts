@@ -1,4 +1,5 @@
-import type { Affine, DesignObject, DeviceOrigin, Point } from '@/api/types';
+import type { Affine, DesignObject, DeviceOrigin, Point, TextObject } from '@/api/types';
+import { textFont, textLines } from '@/lib/textobj';
 import { gridSteps, worldToScreen, type ViewTransform } from '@/lib/viewport';
 import { boxesIntersect, chunkPath, fillPath, getGeom, visibleBox, type Box, type ObjectGeom } from './geom';
 import { frameRect, handleSpots } from './handles';
@@ -341,6 +342,10 @@ export class Canvas2DRenderer implements Renderer {
         this.drawImage(ctx, obj, g, wireframe, dim, vb);
         continue;
       }
+      if (g.placeholder && obj.kind.type === 'text') {
+        this.drawTextMarker(ctx, obj, obj.kind, g, wireframe, dim, view.zoom * scale);
+        continue;
+      }
       if (layer?.mode === 'fill' && !wireframe) {
         ctx.globalAlpha = dim * 0.3;
         ctx.fill(fillPath(g), 'evenodd');
@@ -379,20 +384,46 @@ export class Canvas2DRenderer implements Renderer {
     this.strokeGeom(ctx, g, vb);
   }
 
+  /**
+   * Texto sin contorno generado: la caja estimada en trazo discontinuo y el texto en una fuente
+   * del sistema, para que se vea algo hasta que el motor genere el contorno real.
+   */
+  private drawTextMarker(
+    ctx: CanvasRenderingContext2D, obj: DesignObject, text: TextObject, g: ObjectGeom, wireframe: boolean, dim: number, pxPerMm: number,
+  ): void {
+    ctx.save();
+    ctx.setLineDash([4 / pxPerMm, 3 / pxPerMm]);
+    this.strokeGeom(ctx, g, null);
+    ctx.restore();
+    if (wireframe || text.text.trim() === '') return;
+    ctx.save();
+    const [a, b, c, d, e, f] = obj.transform;
+    ctx.transform(a, b, c, d, e, f);
+    ctx.scale(1, -1); // el lienzo tiene Y hacia arriba: el texto se dibuja derecho
+    ctx.globalAlpha = dim * 0.7;
+    ctx.font = textFont(text, Math.max(text.size_mm, 0.1));
+    ctx.textAlign = text.align;
+    ctx.textBaseline = 'alphabetic';
+    if ('letterSpacing' in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${text.letter_spacing_mm}px`;
+    textLines(text).forEach((line, i) => ctx.fillText(line, 0, i * text.size_mm * text.line_spacing));
+    ctx.restore();
+  }
+
   private drawHover(ctx: CanvasRenderingContext2D, scene: Scene, selected: DesignObject[]): void {
     const { overlay, view, objects, palette: p } = scene;
     if (!overlay.hoverId || overlay.live || overlay.marquee || overlay.draft) return;
     if (selected.some((o) => o.id === overlay.hoverId)) return;
     const obj = objects.find((o) => o.id === overlay.hoverId);
     if (!obj || obj.hidden) return;
-    const g = getGeom(obj);
+    // Un objeto de un grupo resalta todo el grupo (Alt+clic elige uno solo).
+    const hovered = obj.group ? objects.filter((o) => o.group === obj.group && !o.hidden) : [obj];
     ctx.save();
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     this.worldTransform(ctx, view, null);
     ctx.strokeStyle = p.selection;
     ctx.lineWidth = HOVER_PX / view.zoom;
-    this.strokeGeom(ctx, g, null);
+    for (const o of hovered) this.strokeGeom(ctx, getGeom(o), null);
     ctx.restore();
   }
 
@@ -544,19 +575,45 @@ export class Canvas2DRenderer implements Renderer {
     ctx.lineWidth = 1.5;
     ctx.lineJoin = 'round';
     for (const path of d.paths) {
+      // La vista es una afín: llevar los puntos de control a pantalla conserva las curvas.
       ctx.beginPath();
-      path.points.forEach((pt, i) => {
-        const [sx, sy] = worldToScreen(view, pt);
-        if (i === 0) ctx.moveTo(sx, sy);
-        else ctx.lineTo(sx, sy);
-      });
-      if (path.closed) ctx.closePath();
+      for (const seg of path) {
+        switch (seg.type) {
+          case 'move_to': {
+            const [x, y] = worldToScreen(view, seg.to);
+            ctx.moveTo(x, y);
+            break;
+          }
+          case 'line_to': {
+            const [x, y] = worldToScreen(view, seg.to);
+            ctx.lineTo(x, y);
+            break;
+          }
+          case 'quad_to': {
+            const [cx, cy] = worldToScreen(view, seg.ctrl);
+            const [x, y] = worldToScreen(view, seg.to);
+            ctx.quadraticCurveTo(cx, cy, x, y);
+            break;
+          }
+          case 'cubic_to': {
+            const [c1x, c1y] = worldToScreen(view, seg.ctrl1);
+            const [c2x, c2y] = worldToScreen(view, seg.ctrl2);
+            const [x, y] = worldToScreen(view, seg.to);
+            ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x, y);
+            break;
+          }
+          case 'close':
+            ctx.closePath();
+            break;
+        }
+      }
       ctx.stroke();
     }
     if (d.rubber) {
       for (const path of d.paths) {
         // El último punto es el cursor: los vértices fijos llevan un cuadrito.
-        path.points.slice(0, -1).forEach((pt) => {
+        const verts = path.flatMap((seg) => (seg.type === 'move_to' || seg.type === 'line_to' ? [seg.to] : []));
+        verts.slice(0, -1).forEach((pt) => {
           const [sx, sy] = worldToScreen(view, pt);
           ctx.fillRect(sx - 3, sy - 3, 6, 6);
           ctx.strokeRect(sx - 3, sy - 3, 6, 6);

@@ -1,7 +1,8 @@
 use super::*;
-use tlaku_core::Rgb;
+use tlaku_core::bezpath::BezPath;
+use tlaku_core::{Point, Polyline, Rgb};
 use tlaku_doc::affine::IDENTITY;
-use tlaku_doc::{DesignObject, LayerSettings, ObjectKind, PathData, VectorObject};
+use tlaku_doc::{DesignObject, LayerSettings, ObjectKind, VectorObject};
 
 fn temp(test: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("tlaku-desktop-{}-{test}", std::process::id()));
@@ -18,13 +19,19 @@ fn square_doc() -> Document {
             layer: red,
             transform: IDENTITY,
             kind: ObjectKind::Vector(VectorObject {
-                paths: vec![PathData {
-                    points: vec![[10.0, 10.0], [30.0, 10.0], [30.0, 30.0], [10.0, 30.0]],
+                paths: vec![BezPath::from(&Polyline {
+                    points: vec![
+                        Point::new(10.0, 10.0),
+                        Point::new(30.0, 10.0),
+                        Point::new(30.0, 30.0),
+                        Point::new(10.0, 30.0),
+                    ],
                     closed: true,
-                }],
+                })],
             }),
             locked: false,
             hidden: false,
+            group: None,
         }],
         layers: vec![LayerSettings::for_color(red)],
         ..Document::default()
@@ -124,6 +131,23 @@ fn projects_roundtrip_and_reject_bad_files() {
 }
 
 #[test]
+fn version_1_projects_are_migrated_on_load() {
+    let dir = temp("v1");
+    let path = dir.join("viejo.tlaku");
+    fs::write(
+        &path,
+        r##"{"version":1,"objects":[{"id":"a","layer":"#ff0000","transform":[1,0,0,1,0,0],
+        "locked":false,"hidden":false,"kind":{"type":"vector","paths":[
+        {"points":[[10,10],[30,10],[30,30],[10,30]],"closed":true}]}}],
+        "layers":[],"device_id":null}"##,
+    )
+    .unwrap();
+    let doc = load_project(path.to_str().unwrap()).unwrap();
+    assert_eq!(doc.version, 2);
+    assert_eq!(doc.objects, square_doc().objects);
+}
+
+#[test]
 fn import_makes_the_path_absolute_and_reports_unsupported_files() {
     let dir = temp("import");
     let svg = dir.join("c.svg");
@@ -215,6 +239,7 @@ fn image_paths_lists_only_images() {
         }),
         locked: false,
         hidden: false,
+        group: None,
     });
     assert_eq!(image_paths(&doc), vec![PathBuf::from("/tmp/foto.png")]);
 }

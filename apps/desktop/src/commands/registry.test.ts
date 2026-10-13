@@ -80,7 +80,7 @@ describe('ejecución', () => {
   it('las flechas mueven la selección y se funden en un solo paso de historial', async () => {
     const { registry, store } = makeRegistry();
     store.getState().applyImport({
-      objects: [{ id: 'a', layer: '#ff0000', transform: [1, 0, 0, 1, 10, 10], kind: { type: 'vector', paths: [] }, locked: false, hidden: false }],
+      objects: [{ id: 'a', layer: '#ff0000', transform: [1, 0, 0, 1, 10, 10], kind: { type: 'vector', paths: [] }, locked: false, hidden: false, group: null }],
       new_layers: [],
       warnings: [],
     });
