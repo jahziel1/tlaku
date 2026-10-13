@@ -13,6 +13,10 @@
 mod build;
 mod gcode;
 mod import;
+mod import_gcode;
+mod import_hpgl;
+mod import_lbrn;
+mod import_pdf;
 mod job;
 mod layers;
 mod material_test;

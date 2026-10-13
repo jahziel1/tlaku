@@ -14,6 +14,14 @@ pub enum InputKind {
     Svg,
     Dxf,
     Image,
+    /// PDF y AI (un AI moderno es un PDF).
+    Pdf,
+    /// HPGL de plotters y cortadoras (`.plt`, `.hpgl`, `.hpg`).
+    Hpgl,
+    /// G-code de otros programas (`.nc`, `.gcode`, `.gc`, `.ngc`), como trayectorias.
+    Gcode,
+    /// Proyectos de LightBurn (`.lbrn`, `.lbrn2`), con sus capas y ajustes.
+    Lbrn,
 }
 
 pub fn input_kind(path: &Path) -> Result<InputKind, String> {
@@ -25,9 +33,16 @@ pub fn input_kind(path: &Path) -> Result<InputKind, String> {
     match ext.as_str() {
         "svg" => Ok(InputKind::Svg),
         "dxf" => Ok(InputKind::Dxf),
-        "png" | "jpg" | "jpeg" | "bmp" => Ok(InputKind::Image),
+        "png" | "jpg" | "jpeg" | "bmp" | "webp" | "tif" | "tiff" | "gif" | "tga" => {
+            Ok(InputKind::Image)
+        }
+        "pdf" | "ai" => Ok(InputKind::Pdf),
+        "plt" | "hpgl" | "hpg" => Ok(InputKind::Hpgl),
+        "nc" | "gcode" | "gc" | "ngc" => Ok(InputKind::Gcode),
+        "lbrn" | "lbrn2" => Ok(InputKind::Lbrn),
         _ => Err(format!(
-            "{}: formato de entrada no soportado; usa .svg, .dxf, .png, .jpg, .jpeg o .bmp",
+            "{}: formato de entrada no soportado; usa SVG, DXF, PDF, AI, HPGL, G-code, \
+             LightBurn (.lbrn/.lbrn2) o una imagen (PNG, JPG, BMP, WebP, TIFF, GIF, TGA)",
             path.display()
         )),
     }
@@ -59,7 +74,7 @@ impl Default for ImportOptions {
 const IMAGE_DPI: f64 = 96.0;
 
 /// Id único aunque se importe en sesiones distintas del mismo proyecto.
-fn new_id() -> String {
+pub(crate) fn new_id() -> String {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     static START_MS: std::sync::OnceLock<u128> = std::sync::OnceLock::new();
     let start = START_MS.get_or_init(|| {
@@ -70,7 +85,7 @@ fn new_id() -> String {
     format!("obj-{start:x}-{}", COUNTER.fetch_add(1, Ordering::Relaxed))
 }
 
-fn object(layer: Rgb, kind: ObjectKind) -> DesignObject {
+pub(crate) fn object(layer: Rgb, kind: ObjectKind) -> DesignObject {
     DesignObject {
         id: new_id(),
         layer,
@@ -91,7 +106,7 @@ fn job_layers(job: Job) -> Vec<(Rgb, Vec<BezPath>)> {
 }
 
 /// Un objeto vectorial y una capa `line` nueva por color.
-fn from_curves(layers: Vec<(Rgb, Vec<BezPath>)>, warnings: Vec<String>) -> ImportResult {
+pub(crate) fn from_curves(layers: Vec<(Rgb, Vec<BezPath>)>, warnings: Vec<String>) -> ImportResult {
     let mut objects = Vec::new();
     let mut new_layers = Vec::new();
     for (color, paths) in layers {
@@ -140,6 +155,17 @@ pub fn import_file_with(path: &Path, opts: &ImportOptions) -> Result<ImportResul
         return import_image(path);
     }
     let data = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    // Formatos que traen sus propias capas o se resuelven en su módulo.
+    let own = match kind {
+        InputKind::Lbrn => Some(crate::import_lbrn::import(path, &data, opts)),
+        InputKind::Pdf => Some(crate::import_pdf::import(path, &data, opts)),
+        InputKind::Hpgl => Some(crate::import_hpgl::import(path, &data, opts)),
+        InputKind::Gcode => Some(crate::import_gcode::import(path, &data, opts)),
+        _ => None,
+    };
+    if let Some(result) = own {
+        return result;
+    }
     let (layers, warnings) = match kind {
         InputKind::Svg => {
             let doc = tlaku_svg::import_svg(&data, opts.tolerance_mm)
@@ -161,7 +187,11 @@ pub fn import_file_with(path: &Path, opts: &ImportOptions) -> Result<ImportResul
                 warnings,
             )
         }
-        InputKind::Image => unreachable!("las imágenes se importan arriba"),
+        InputKind::Image
+        | InputKind::Pdf
+        | InputKind::Hpgl
+        | InputKind::Gcode
+        | InputKind::Lbrn => unreachable!("se importan arriba"),
     };
     if layers.is_empty() {
         return Err(format!(
