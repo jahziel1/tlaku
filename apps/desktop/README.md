@@ -274,6 +274,7 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Mostrar máquina | `Ctrl+2` |
 |  | Mostrar consola | `Ctrl+3` |
 |  | Panel de cámara | `Ctrl+5` |
+|  | Panel de materiales | `Ctrl+6` |
 | Lienzo (gestos) | Zoom en el cursor | `Rueda del ratón` |
 |  | Zoom con el trackpad | `Pellizco` |
 |  | Mover la vista | `Botón central, Espacio + arrastrar o dos dedos` |

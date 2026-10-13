@@ -1,10 +1,11 @@
-import { Camera, Cpu, History, Layers, Terminal } from 'lucide-react';
+import { Camera, Cpu, History, Layers, Library, Terminal } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { useCommand } from '@/commands/useCommand';
 import { CameraPanel } from '@/features/camera';
 import { HistoryPanel } from '@/features/history';
 import { ConsolePanel, MachinePanel } from '@/features/machine';
 import { LayersPanel } from '@/features/layers';
+import { MaterialsPanel } from '@/features/materials';
 import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
 import { DOCK_MAX, DOCK_MIN, type DockTab } from '@/store/view';
@@ -16,6 +17,7 @@ const TABS: { id: DockTab; icon: typeof Layers; cmd: string; label: I18nKey }[] 
   { id: 'console', icon: Terminal, cmd: 'panel.console', label: 'dock.console' },
   { id: HISTORY_TAB, icon: History, cmd: 'panel.history', label: 'history.dock.title' },
   { id: 'camera', icon: Camera, cmd: 'panel.camera', label: 'dock.camera' },
+  { id: 'materials', icon: Library, cmd: 'panel.materials', label: 'dock.materials' },
 ];
 
 function Tab({ id, icon: Icon, cmd, label, onKey, compact }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent) => void; compact: boolean }) {
@@ -128,6 +130,7 @@ export function Dock() {
         {tab === 'console' && <ConsolePanel />}
         {tab === HISTORY_TAB && <HistoryPanel />}
         {tab === 'camera' && <CameraPanel />}
+        {tab === 'materials' && <MaterialsPanel />}
       </div>
     </aside>
   );

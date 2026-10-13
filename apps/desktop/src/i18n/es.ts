@@ -9,6 +9,7 @@ import { canvas } from './es/canvas';
 import { history } from './es/history';
 import { layers } from './es/layers';
 import { machine } from './es/machine';
+import { materials } from './es/materials';
 import { nodes } from './es/nodes';
 import { preview } from './es/preview';
 import { text } from './es/text';
@@ -67,6 +68,7 @@ const base = {
   'cmd.panel.machine': 'Mostrar máquina',
   'cmd.panel.console': 'Mostrar consola',
   'cmd.panel.camera': 'Panel de cámara',
+  'cmd.panel.materials': 'Panel de materiales',
 
   // ---- menús y barras -----------------------------------------------------
   'menu.label': 'Menú principal',
@@ -133,6 +135,7 @@ const base = {
   'dock.machine': 'Máquina',
   'dock.console': 'Consola',
   'dock.camera': 'Cámara',
+  'dock.materials': 'Materiales',
 
   // ---- capas ----------------------------------------------------------------
   'layers.empty': 'Aún no hay capas. Importa un diseño o elige un color en la franja de abajo.',
@@ -221,4 +224,5 @@ export const es = {
   ...nodes,
   ...trace,
   ...camera,
+  ...materials,
 };

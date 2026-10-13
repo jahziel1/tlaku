@@ -5,6 +5,7 @@ import { editCommands } from './definitions/edit';
 import { fileCommands } from './definitions/file';
 import { layerCommands } from './definitions/layers';
 import { machineCommands } from './definitions/machine';
+import { materialCommands } from './definitions/materials';
 import { panelCommands } from './definitions/panels';
 import { previewCommands } from './definitions/preview';
 import { toolCommands } from './definitions/tools';
@@ -34,6 +35,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...arrangeCommands,
   ...traceCommands,
   ...cameraCommands,
+  ...materialCommands,
 ];
 
 export const commands = new CommandRegistry(ALL_COMMANDS, () => useStore.getState());

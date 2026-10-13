@@ -3,6 +3,7 @@ import { DropOverlay, PromptHost, useCloseGuard, useFileDrop, useWindowTitle } f
 import { ColorPalette } from '@/features/layers';
 import { ArrangeDialogHost } from '@/features/arrange';
 import { CameraDialogHost } from '@/features/camera';
+import { MaterialsDialogHost } from '@/features/materials';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
 import { TraceDialogHost } from '@/features/trace';
@@ -48,6 +49,7 @@ export function AppShell() {
       <ArrangeDialogHost />
       <TraceDialogHost />
       <CameraDialogHost />
+      <MaterialsDialogHost />
     </div>
   );
 }
