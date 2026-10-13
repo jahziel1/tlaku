@@ -432,7 +432,7 @@ pub struct SavedPosition {
 }
 
 /// Ajustes propios de Ruida.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case", default)]
 #[ts(export)]
 pub struct RuidaSettings {
@@ -442,14 +442,6 @@ pub struct RuidaSettings {
     pub run_after_upload: bool,
 }
 
-impl Default for RuidaSettings {
-    fn default() -> Self {
-        Self {
-            magic: None,
-            run_after_upload: false,
-        }
-    }
-}
 
 /// Ajustes de las placas Lihuiyu (M2 Nano y afines).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
