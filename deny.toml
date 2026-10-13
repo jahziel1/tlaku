@@ -25,6 +25,7 @@ allow = [
     "0BSD",
     "Unlicense",
     "MPL-2.0", # copyleft por archivo; compatible con distribuir un binario MIT
+    "Apache-2.0 WITH LLVM-exception", # Apache con excepción que solo afloja requisitos
 ]
 confidence-threshold = 0.9
 

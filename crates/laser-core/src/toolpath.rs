@@ -4,8 +4,9 @@
 //! (GRBL, Ruida, galvo) solo saben traducir un `Toolpath` a su protocolo.
 
 use crate::{Job, Point};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Move {
     /// Desplazamiento rápido con el láser apagado (G0 en GRBL).
     Travel { to: Point },
@@ -22,7 +23,7 @@ impl Move {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum PowerMode {
     /// La controladora escala la potencia con la velocidad real (M4 en GRBL).
     #[default]
@@ -32,7 +33,7 @@ pub enum PowerMode {
 }
 
 /// Movimientos que comparten velocidad y ajustes, normalmente una capa o una pasada.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolpathBlock {
     /// Texto para comentarios en la salida y para la vista previa.
     pub label: String,
@@ -42,7 +43,7 @@ pub struct ToolpathBlock {
     pub moves: Vec<Move>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Toolpath {
     pub blocks: Vec<ToolpathBlock>,
 }

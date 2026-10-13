@@ -2,12 +2,9 @@
 //! resolución contra los valores por defecto de los crates del motor.
 
 use clap::ValueEnum;
-use laser_core::{CutSettings, Rgb};
-use laser_fill::FillSettings;
-use laser_raster::{BayerSize, ImageAdjust, RasterMode, RasterSettings};
-
-/// Tope de pasadas: protege contra errores de dedo que generarían G-code gigantesco.
-pub const MAX_PASSES: u32 = 1000;
+use laser_core::Rgb;
+pub use laser_pipeline::doc::Overscan;
+use laser_pipeline::doc::{ImageMode, LayerSettings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum LayerMode {
@@ -24,6 +21,13 @@ impl LayerMode {
             LayerMode::Fill => "fill",
         }
     }
+
+    fn to_doc(self) -> laser_pipeline::doc::LayerMode {
+        match self {
+            LayerMode::Line => laser_pipeline::doc::LayerMode::Line,
+            LayerMode::Fill => laser_pipeline::doc::LayerMode::Fill,
+        }
+    }
 }
 
 /// Cómo se ordenan las capas al armar el trabajo.
@@ -35,11 +39,13 @@ pub enum LayerOrder {
     File,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Overscan {
-    /// Se calcula con `laser_sim::overscan_mm` a la velocidad de la capa.
-    Auto,
-    Mm(f64),
+impl From<LayerOrder> for laser_pipeline::doc::LayerOrder {
+    fn from(o: LayerOrder) -> Self {
+        match o {
+            LayerOrder::Auto => Self::Auto,
+            LayerOrder::File => Self::File,
+        }
+    }
 }
 
 /// Ajustes de una capa tal como los escribió el usuario; lo que falte toma el valor global
@@ -199,63 +205,27 @@ pub fn parse_layer(s: &str) -> Result<(Rgb, LayerOverride), String> {
     Ok((color.trim().parse()?, o))
 }
 
-/// Capa ya resuelta, lista para ejecutarse.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ResolvedLayer {
-    Line {
-        settings: CutSettings,
-        /// Desplazamiento de cada trayectoria (0 = sin compensar).
-        kerf_mm: f64,
-    },
-    Fill {
-        /// Con `overscan_mm` en 0 si `overscan` es `Auto`: se calcula al armar el trabajo.
-        settings: FillSettings,
-        overscan: Overscan,
-        passes: u32,
-    },
-}
-
-impl ResolvedLayer {
-    pub fn mode(&self) -> LayerMode {
-        match self {
-            ResolvedLayer::Line { .. } => LayerMode::Line,
-            ResolvedLayer::Fill { .. } => LayerMode::Fill,
-        }
-    }
-}
-
-fn check_passes(passes: u32) -> Result<(), String> {
-    if passes == 0 {
-        return Err("las pasadas deben ser al menos 1".into());
-    }
-    if passes > MAX_PASSES {
-        return Err(format!(
-            "demasiadas pasadas ({passes}); el máximo es {MAX_PASSES}"
-        ));
-    }
-    Ok(())
-}
-
-/// Combina los valores globales con los de la capa y valida el resultado.
+/// Pone sobre los ajustes que dio la importación los valores globales y los de la capa.
+/// Solo rechaza claves que no corresponden al modo; los valores los valida el pipeline.
 /// Los errores salen con el prefijo `capa #rrggbb:`.
-pub fn resolve_layer(
-    color: Rgb,
+pub fn apply_layer(
+    mut s: LayerSettings,
     defaults: &Defaults,
     over: Option<&LayerOverride>,
-) -> Result<ResolvedLayer, String> {
+) -> Result<LayerSettings, String> {
     let none = LayerOverride::default();
     let o = over.unwrap_or(&none);
-    let err = |m: String| format!("capa {color}: {m}");
     let mode = o.mode.or(defaults.mode).unwrap_or(LayerMode::Line);
 
     // Claves que solo tienen sentido en un modo: se rechazan en vez de ignorarse.
     let only = |key: &str, present: bool, wanted: LayerMode| -> Result<(), String> {
         if present && mode != wanted {
-            return Err(err(format!(
-                "la clave '{key}' solo aplica en modo {} (esta capa es {})",
+            return Err(format!(
+                "capa {}: la clave '{key}' solo aplica en modo {} (esta capa es {})",
+                s.color,
                 wanted.name(),
                 mode.name()
-            )));
+            ));
         }
         Ok(())
     };
@@ -266,49 +236,23 @@ pub fn resolve_layer(
     only("bidir", o.bidir.is_some(), LayerMode::Fill)?;
     only("overscan", o.overscan.is_some(), LayerMode::Fill)?;
 
-    let passes = o.passes.or(defaults.passes);
-    let air = o.air.or(defaults.air);
+    s.mode = mode.to_doc();
+    s.speed = o.speed.or(defaults.speed).unwrap_or(s.speed);
+    s.power = o.power.or(defaults.power).unwrap_or(s.power);
+    s.passes = o.passes.or(defaults.passes).unwrap_or(s.passes);
+    s.air = o.air.or(defaults.air).unwrap_or(s.air);
+    s.order = o.order.map(|n| n.min(u32::MAX as usize) as u32);
     match mode {
-        LayerMode::Line => {
-            let d = CutSettings::default();
-            let settings = CutSettings {
-                speed_mm_min: o.speed.or(defaults.speed).unwrap_or(d.speed_mm_min),
-                power_pct: o.power.or(defaults.power).unwrap_or(d.power_pct),
-                passes: passes.unwrap_or(d.passes),
-                air_assist: air.unwrap_or(d.air_assist),
-            };
-            settings.validate().map_err(err)?;
-            check_passes(settings.passes).map_err(err)?;
-            let kerf_mm = o.kerf.unwrap_or(0.0);
-            Ok(ResolvedLayer::Line { settings, kerf_mm })
-        }
+        LayerMode::Line => s.kerf = o.kerf.unwrap_or(0.0),
         LayerMode::Fill => {
-            let d = FillSettings::default();
-            let passes = passes.unwrap_or(1);
-            check_passes(passes).map_err(err)?;
-            let overscan = o.overscan.or(defaults.overscan).unwrap_or(Overscan::Auto);
-            let settings = FillSettings {
-                interval_mm: o.interval.or(defaults.interval).unwrap_or(d.interval_mm),
-                angle_deg: o.angle.unwrap_or(d.angle_deg),
-                bidirectional: o.bidir.unwrap_or(d.bidirectional),
-                overscan_mm: match overscan {
-                    Overscan::Auto => 0.0,
-                    Overscan::Mm(v) => v,
-                },
-                crosshatch: o.crosshatch.unwrap_or(d.crosshatch),
-                speed_mm_min: o.speed.or(defaults.speed).unwrap_or(d.speed_mm_min),
-                power_pct: o.power.or(defaults.power).unwrap_or(d.power_pct),
-                air_assist: air.unwrap_or(d.air_assist),
-                ..d
-            };
-            settings.validate().map_err(err)?;
-            Ok(ResolvedLayer::Fill {
-                settings,
-                overscan,
-                passes,
-            })
+            s.interval = o.interval.or(defaults.interval).unwrap_or(s.interval);
+            s.angle = o.angle.unwrap_or(s.angle);
+            s.bidirectional = o.bidir.unwrap_or(s.bidirectional);
+            s.crosshatch = o.crosshatch.unwrap_or(s.crosshatch);
+            s.overscan = o.overscan.or(defaults.overscan).unwrap_or(Overscan::Auto);
         }
     }
+    Ok(s)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -325,15 +269,15 @@ pub enum ImageModeArg {
 }
 
 impl ImageModeArg {
-    pub fn to_raster(self, threshold: f32) -> RasterMode {
+    pub fn to_doc(self) -> ImageMode {
         match self {
-            ImageModeArg::Threshold => RasterMode::Threshold(threshold),
-            ImageModeArg::Floyd => RasterMode::FloydSteinberg,
-            ImageModeArg::Jarvis => RasterMode::Jarvis,
-            ImageModeArg::Stucki => RasterMode::Stucki,
-            ImageModeArg::Atkinson => RasterMode::Atkinson,
-            ImageModeArg::Bayer4 => RasterMode::Bayer(BayerSize::N4),
-            ImageModeArg::Grayscale => RasterMode::Grayscale,
+            ImageModeArg::Threshold => ImageMode::Threshold,
+            ImageModeArg::Floyd => ImageMode::Floyd,
+            ImageModeArg::Jarvis => ImageMode::Jarvis,
+            ImageModeArg::Stucki => ImageMode::Stucki,
+            ImageModeArg::Atkinson => ImageMode::Atkinson,
+            ImageModeArg::Bayer4 => ImageMode::Bayer4,
+            ImageModeArg::Grayscale => ImageMode::Grayscale,
         }
     }
 }
@@ -357,66 +301,32 @@ pub struct ImageParams {
     pub given: Vec<&'static str>,
 }
 
-/// Parámetros de imagen resueltos.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ResolvedImage {
-    pub adjust: ImageAdjust,
-    pub mode: RasterMode,
-    pub interval_mm: f64,
-    pub raster: RasterSettings,
-    pub overscan: Overscan,
-    pub passes: u32,
-}
-
-pub fn resolve_image(defaults: &Defaults, img: &ImageParams) -> Result<ResolvedImage, String> {
-    let da = ImageAdjust::default();
-    let dr = RasterSettings::default();
-    let adjust = ImageAdjust {
-        brightness: img.brightness.map_or(da.brightness, |v| v as f32),
-        contrast: img.contrast.map_or(da.contrast, |v| v as f32),
-        gamma: img.gamma.map_or(da.gamma, |v| v as f32),
-        invert: img.invert,
-        ..da
-    };
-    adjust.validate().map_err(|e| format!("imagen: {e}"))?;
-    let threshold = img.threshold.unwrap_or(0.5);
-    if !(0.0..=1.0).contains(&threshold) {
-        return Err(format!("imagen: umbral fuera de 0-1: {threshold}"));
-    }
+/// Pone los valores globales y las opciones de imagen sobre la capa de imágenes importada.
+/// Los valores los valida el pipeline.
+pub fn apply_image(
+    mut s: LayerSettings,
+    defaults: &Defaults,
+    img: &ImageParams,
+) -> Result<LayerSettings, String> {
     if img.threshold.is_some() && img.mode != Some(ImageModeArg::Threshold) {
         return Err("--threshold solo aplica con --image-mode threshold".into());
     }
-    let mode = img
-        .mode
-        .map_or_else(RasterMode::default, |m| m.to_raster(threshold as f32));
-    let overscan = defaults.overscan.unwrap_or(Overscan::Auto);
-    let raster = RasterSettings {
-        speed_mm_min: defaults.speed.unwrap_or(dr.speed_mm_min),
-        min_power_pct: img.min_power.unwrap_or(dr.min_power_pct),
-        max_power_pct: defaults.power.unwrap_or(dr.max_power_pct),
-        overscan_mm: match overscan {
-            Overscan::Auto => 0.0,
-            Overscan::Mm(v) => v,
-        },
-        dot_width_mm: img.dot_width.unwrap_or(dr.dot_width_mm),
-        air_assist: defaults.air.unwrap_or(dr.air_assist),
-        ..dr
-    };
-    raster.validate().map_err(|e| format!("imagen: {e}"))?;
-    let interval_mm = defaults.interval.unwrap_or(0.1);
-    if !(interval_mm.is_finite() && interval_mm > 0.0) {
-        return Err(format!("imagen: intervalo inválido: {interval_mm}"));
-    }
-    let passes = defaults.passes.unwrap_or(1);
-    check_passes(passes).map_err(|e| format!("imagen: {e}"))?;
-    Ok(ResolvedImage {
-        adjust,
-        mode,
-        interval_mm,
-        raster,
-        overscan,
-        passes,
-    })
+    s.speed = defaults.speed.unwrap_or(s.speed);
+    s.power = defaults.power.unwrap_or(s.power);
+    s.passes = defaults.passes.unwrap_or(s.passes);
+    s.air = defaults.air.unwrap_or(s.air);
+    s.interval = defaults.interval.unwrap_or(s.interval);
+    s.overscan = defaults.overscan.unwrap_or(Overscan::Auto);
+    s.min_power = img.min_power.unwrap_or(s.min_power);
+    let i = &mut s.image;
+    i.mode = img.mode.map_or(i.mode, ImageModeArg::to_doc);
+    i.threshold = img.threshold.unwrap_or(i.threshold);
+    i.brightness = img.brightness.unwrap_or(i.brightness);
+    i.contrast = img.contrast.unwrap_or(i.contrast);
+    i.gamma = img.gamma.unwrap_or(i.gamma);
+    i.invert = img.invert;
+    i.dot_width = img.dot_width.unwrap_or(i.dot_width);
+    Ok(s)
 }
 
 #[cfg(test)]
@@ -476,89 +386,76 @@ mod tests {
         assert!(parse_pos("a,b").is_err());
     }
 
-    #[test]
-    fn resolve_uses_crate_defaults() {
-        let l = resolve_layer(Rgb(0, 0, 0), &Defaults::default(), None).unwrap();
-        assert_eq!(
-            l,
-            ResolvedLayer::Line {
-                settings: CutSettings::default(),
-                kerf_mm: 0.0
-            }
-        );
-        let d = Defaults {
-            mode: Some(LayerMode::Fill),
-            ..Default::default()
-        };
-        match resolve_layer(Rgb(0, 0, 0), &d, None).unwrap() {
-            ResolvedLayer::Fill {
-                settings, overscan, ..
-            } => {
-                assert_eq!(settings, FillSettings::default());
-                assert_eq!(overscan, Overscan::Auto);
-            }
-            _ => panic!("debía ser fill"),
-        }
+    fn layer(color: Rgb) -> LayerSettings {
+        LayerSettings::for_color(color)
     }
 
     #[test]
-    fn resolve_rejects_keys_of_other_mode_and_bad_values() {
+    fn apply_uses_the_import_defaults() {
+        let l = apply_layer(layer(Rgb(0, 0, 0)), &Defaults::default(), None).unwrap();
+        assert_eq!(l, layer(Rgb(0, 0, 0)));
+        let d = Defaults {
+            mode: Some(LayerMode::Fill),
+            speed: Some(300.0),
+            ..Default::default()
+        };
+        let l = apply_layer(layer(Rgb(0, 0, 0)), &d, None).unwrap();
+        assert_eq!(l.mode, laser_pipeline::doc::LayerMode::Fill);
+        assert_eq!(l.speed, 300.0);
+        assert_eq!(l.overscan, Overscan::Auto);
+    }
+
+    #[test]
+    fn apply_layer_override_beats_global() {
+        let (c, o) = parse_layer("#ff0000:speed=50,order=2,kerf=0.1").unwrap();
+        let d = Defaults {
+            speed: Some(300.0),
+            power: Some(40.0),
+            ..Default::default()
+        };
+        let l = apply_layer(layer(c), &d, Some(&o)).unwrap();
+        assert_eq!(
+            (l.speed, l.power, l.kerf, l.order),
+            (50.0, 40.0, 0.1, Some(2))
+        );
+    }
+
+    #[test]
+    fn apply_rejects_keys_of_other_mode() {
         let (c, o) = parse_layer("#ff0000:interval=0.1").unwrap();
-        let e = resolve_layer(c, &Defaults::default(), Some(&o)).unwrap_err();
+        let e = apply_layer(layer(c), &Defaults::default(), Some(&o)).unwrap_err();
         assert!(
             e.contains("capa #ff0000") && e.contains("solo aplica en modo fill"),
             "{e}"
         );
         let (c, o) = parse_layer("#ff0000:mode=fill,kerf=0.1").unwrap();
-        assert!(resolve_layer(c, &Defaults::default(), Some(&o)).is_err());
-        let (c, o) = parse_layer("#ff0000:power=150").unwrap();
-        assert!(
-            resolve_layer(c, &Defaults::default(), Some(&o))
-                .unwrap_err()
-                .contains("potencia")
-        );
-        let (c, o) = parse_layer("#ff0000:passes=0").unwrap();
-        assert!(resolve_layer(c, &Defaults::default(), Some(&o)).is_err());
-        let (c, o) = parse_layer("#ff0000:mode=fill,interval=0").unwrap();
-        assert!(resolve_layer(c, &Defaults::default(), Some(&o)).is_err());
+        assert!(apply_layer(layer(c), &Defaults::default(), Some(&o)).is_err());
     }
 
     #[test]
-    fn image_resolution() {
-        let r = resolve_image(&Defaults::default(), &ImageParams::default()).unwrap();
-        assert_eq!(
-            r.raster,
-            RasterSettings {
-                overscan_mm: 0.0, // "auto": se calcula al armar el trabajo
-                ..RasterSettings::default()
-            }
-        );
-        assert_eq!(r.overscan, Overscan::Auto);
-        assert_eq!(r.mode, RasterMode::default());
+    fn image_options_are_applied() {
+        let base = LayerSettings::for_images();
+        let same = apply_image(base.clone(), &Defaults::default(), &ImageParams::default());
+        assert_eq!(same.unwrap(), base);
         let img = ImageParams {
             mode: Some(ImageModeArg::Threshold),
             threshold: Some(0.3),
-            gamma: Some(0.0),
+            min_power: Some(5.0),
+            invert: true,
             ..Default::default()
         };
-        assert!(
-            resolve_image(&Defaults::default(), &img)
-                .unwrap_err()
-                .contains("gamma")
-        );
+        let d = Defaults {
+            power: Some(60.0),
+            ..Default::default()
+        };
+        let s = apply_image(base.clone(), &d, &img).unwrap();
+        assert_eq!(s.image.mode, ImageMode::Threshold);
+        assert_eq!((s.image.threshold, s.min_power, s.power), (0.3, 5.0, 60.0));
+        assert!(s.image.invert);
         let img = ImageParams {
             threshold: Some(0.3),
             ..Default::default()
         };
-        assert!(resolve_image(&Defaults::default(), &img).is_err());
-        let img = ImageParams {
-            min_power: Some(50.0),
-            ..Default::default()
-        };
-        let d = Defaults {
-            power: Some(20.0),
-            ..Default::default()
-        };
-        assert!(resolve_image(&d, &img).unwrap_err().contains("mínima"));
+        assert!(apply_image(base, &Defaults::default(), &img).is_err());
     }
 }

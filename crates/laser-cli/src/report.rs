@@ -1,6 +1,6 @@
 //! Salida en pantalla: resumen del trabajo y plan de corte explicado.
 
-use crate::job::{Built, LayerReport};
+use laser_pipeline::{ComputedJob, LayerReport};
 use laser_plan::PlanStep;
 use std::fmt::Write;
 
@@ -51,19 +51,19 @@ fn layer_line(n: usize, l: &LayerReport) -> String {
     s
 }
 
-pub fn summary(built: &Built) -> String {
+pub fn summary(built: &ComputedJob) -> String {
     let mut out = String::from("Capas (en el orden en que se ejecutan):\n");
     for (i, l) in built.layers.iter().enumerate() {
         out.push_str(&layer_line(i + 1, l));
         out.push('\n');
     }
-    if let Some(note) = &built.order_note {
+    if let Some(note) = &built.preview.order_note {
         let _ = writeln!(out, "{}", capitalize(note));
     }
     let _ = writeln!(
         out,
         "Tiempo total estimado: {}",
-        format_duration(built.total_seconds)
+        format_duration(built.preview.total_s)
     );
     if let Some(b) = built.bounds() {
         let _ = writeln!(
@@ -72,9 +72,9 @@ pub fn summary(built: &Built) -> String {
             b.min.x, b.max.x, b.min.y, b.max.y
         );
     }
-    if !built.warnings.is_empty() {
+    if !built.preview.warnings.is_empty() {
         out.push_str("Advertencias:\n");
-        for w in &built.warnings {
+        for w in &built.preview.warnings {
             let _ = writeln!(out, "  - {w}");
         }
     }
@@ -91,8 +91,8 @@ fn capitalize(s: &str) -> String {
 }
 
 /// Orden de ejecución en una línea y su explicación; vacío si solo hay una capa.
-pub fn order_line(built: &Built) -> String {
-    let Some(note) = &built.order_note else {
+pub fn order_line(built: &ComputedJob) -> String {
+    let Some(note) = &built.preview.order_note else {
         return String::new();
     };
     let names: Vec<String> = built
@@ -123,9 +123,9 @@ fn step_line(n: usize, s: &PlanStep) -> String {
 
 /// Orden de corte con la razón de cada paso. Las figuras se numeran desde 0 dentro de su capa,
 /// en el orden del archivo (después de la compensación de kerf, si la hay).
-pub fn plan_text(built: &Built) -> String {
+pub fn plan_text(built: &ComputedJob) -> String {
     let mut out = String::new();
-    if let Some(note) = &built.order_note {
+    if let Some(note) = &built.preview.order_note {
         let _ = writeln!(out, "{}", capitalize(note));
     }
     for (i, l) in built.layers.iter().enumerate() {
@@ -164,9 +164,9 @@ pub fn plan_text(built: &Built) -> String {
             }
         }
     }
-    if !built.warnings.is_empty() {
+    if !built.preview.warnings.is_empty() {
         out.push_str("Advertencias:\n");
-        for w in &built.warnings {
+        for w in &built.preview.warnings {
             let _ = writeln!(out, "  - {w}");
         }
     }

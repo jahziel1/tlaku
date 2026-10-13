@@ -1,0 +1,137 @@
+/*
+ * Tokens de diseño. Identidad "banco de trabajo": grafito azulado, un solo acento (violeta
+ * de diodo 450 nm) y números en monoespaciada, como la lectura de un instrumento.
+ * Todo color de la interfaz sale de aquí; el lienzo lee los --cv-* (ver features/canvas/palette.ts).
+ * Para cambiar de tema se pone data-theme="light|dark" en <html>.
+ */
+:root {
+  /* tipografía */
+  --font-ui: 'Archivo Variable', 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-num: 'Spline Sans Mono Variable', 'Spline Sans Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --stretch-ui: 94%;
+  --stretch-brand: 118%;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 12.5px;
+  --text-lg: 14px;
+
+  /* espacio, radio, tamaño de barras */
+  --s-1: 2px;
+  --s-2: 4px;
+  --s-3: 6px;
+  --s-4: 8px;
+  --s-5: 12px;
+  --s-6: 16px;
+  --radius: 5px;
+  --radius-sm: 3px;
+  --topbar-h: 44px;
+  --tools-w: 48px;
+  --palette-h: 38px;
+  --status-h: 26px;
+  --control-h: 28px;
+
+  /* estado */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: dark;
+}
+
+/* Tema oscuro (predeterminado: los talleres suelen tener poca luz) */
+:root,
+:root[data-theme='dark'] {
+  --bg-app: #0e1115;
+  --bg-chrome: #151920;
+  --bg-raised: #1c222b;
+  --bg-sunken: #0f1216;
+  --bg-hover: #242c38;
+  --border: #272f3b;
+  --border-strong: #3b4655;
+
+  --text: #e9edf3;
+  --text-muted: #a1acbb;
+  --text-faint: #8190a2;
+
+  --accent: #8793ff;
+  --accent-hover: #a2acff;
+  --accent-ink: #a9b2ff;
+  --accent-subtle: rgba(135, 147, 255, 0.17);
+  --on-accent: #0a0c1d;
+  --focus: #c3c9ff;
+
+  --ok: #45d6a4;
+  --warn: #ffbd4a;
+  --danger: #ff7f7f;
+  --danger-subtle: rgba(255, 127, 127, 0.15);
+  --on-danger: #1c0a0a;
+
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  /* lienzo: alto contraste */
+  --cv-workspace: #090b0e;
+  --cv-bed: #151c26;
+  --cv-bed-edge: #55657b;
+  --cv-grid-minor: rgba(165, 190, 225, 0.085);
+  --cv-grid-major: rgba(165, 190, 225, 0.2);
+  --cv-origin: #8793ff;
+  --cv-selection: #a2acff;
+  --cv-selection-fill: rgba(135, 147, 255, 0.08);
+  --cv-travel: rgba(165, 180, 205, 0.55);
+  --cv-cut: #f2f4ff;
+  --cv-engrave: #58d6ae;
+  --cv-overscan: rgba(135, 147, 255, 0.6);
+  --cv-head: #8793ff;
+  --cv-ink: #e9edf3;
+
+  --ruler-bg: #121720;
+  --ruler-ink: #a1acbb;
+  --ruler-tick: #4a5666;
+}
+
+/* Tema claro */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-app: #dde2e9;
+  --bg-chrome: #f3f5f8;
+  --bg-raised: #ffffff;
+  --bg-sunken: #e8ecf1;
+  --bg-hover: #e4e8ee;
+  --border: #d2d8e1;
+  --border-strong: #a9b3c1;
+
+  --text: #141922;
+  --text-muted: #465162;
+  --text-faint: #5b6879;
+
+  --accent: #4650e0;
+  --accent-hover: #3a43cc;
+  --accent-ink: #3640cc;
+  --accent-subtle: rgba(70, 80, 224, 0.12);
+  --on-accent: #ffffff;
+  --focus: #2630c8;
+
+  --ok: #0b8a63;
+  --warn: #946200;
+  --danger: #c32f3a;
+  --danger-subtle: rgba(195, 47, 58, 0.1);
+  --on-danger: #ffffff;
+
+  --shadow-pop: 0 10px 28px rgba(25, 35, 55, 0.2), 0 0 0 1px rgba(25, 35, 55, 0.08);
+
+  --cv-workspace: #ccd3de;
+  --cv-bed: #ffffff;
+  --cv-bed-edge: #6c7a8f;
+  --cv-grid-minor: rgba(40, 62, 105, 0.1);
+  --cv-grid-major: rgba(40, 62, 105, 0.26);
+  --cv-origin: #4650e0;
+  --cv-selection: #3640cc;
+  --cv-selection-fill: rgba(70, 80, 224, 0.07);
+  --cv-travel: rgba(60, 75, 100, 0.5);
+  --cv-cut: #10131c;
+  --cv-engrave: #0b8a63;
+  --cv-overscan: rgba(70, 80, 224, 0.55);
+  --cv-head: #4650e0;
+  --cv-ink: #141922;
+
+  --ruler-bg: #eaedf2;
+  --ruler-ink: #465162;
+  --ruler-tick: #94a0b2;
+}

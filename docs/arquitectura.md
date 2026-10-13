@@ -3,7 +3,7 @@
 El motor es una biblioteca en Rust organizada en crates pequeños. Ninguno conoce la interfaz:
 todo lo que haga la aplicación se puede ejecutar y probar desde la línea de comandos.
 Los crates intermedios (`geom`, `plan`, `fill`, `raster`, `sim`) dependen solo de `laser-core`;
-hoy el CLI conecta únicamente el camino SVG -> Line -> G-code, el resto se usa como biblioteca.
+`laser-pipeline` los une y es lo que usan el CLI y la app de escritorio (ver [app-api.md](app-api.md)).
 
 ## Pipeline
 
@@ -45,7 +45,9 @@ Los drivers futuros (Ruida, galvo) también partirán de un `Toolpath`.
 | `laser-raster` | Imagen a bitmap de potencia (ajustes, remuestreo, dithering/umbral) y barrido a `ToolpathBlock`. |
 | `laser-sim` | Estima el tiempo con aceleración por eje y desviación de unión, calcula el overscan (`v²/2a`) y muestrea la trayectoria. |
 | `laser-grbl` | G-code GRBL 1.1 a partir de un `Toolpath`, puertos serie y envío con conteo de caracteres, pausa y cancelación. |
-| `laser-cli` | Binario `lasersoft`; solo orquesta los demás crates. |
+| `laser-doc` | Tipos del contrato con la app (`Document`, `LayerSettings`, `DeviceProfile`, `JobOptions`, `JobPreview`...) con `serde` y `ts-rs`, más transformaciones afines y cajas envolventes. No depende del resto del motor. |
+| `laser-pipeline` | De `Document` + `DeviceProfile` + `JobOptions` a `ComputedJob` (`Toolpath`, vista previa, avisos): validación de capas, orden automático, kerf, plan, relleno, imágenes, colocación (`start_from`, `job_origin`), límites de la cama y G-code. También `import_file`. |
+| `laser-cli` | Binario `lasersoft`; traduce los argumentos a un `Document` y delega en `laser-pipeline`. |
 
 ## Contrato de `Toolpath`
 

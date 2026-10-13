@@ -6,10 +6,11 @@
 pub mod optimize;
 pub mod toolpath;
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Point {
     pub x: f64,
     pub y: f64,
@@ -27,7 +28,7 @@ impl Point {
 
 /// Trayectoria de puntos unidos por rectas. Si `closed` es verdadero, el último
 /// punto vuelve al primero (el primer punto no se repite al final).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Polyline {
     pub points: Vec<Point>,
     pub closed: bool,
@@ -59,6 +60,20 @@ impl fmt::Display for Rgb {
     }
 }
 
+/// Se serializa como el texto `#rrggbb`.
+impl Serialize for Rgb {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for Rgb {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
+}
+
 impl FromStr for Rgb {
     type Err = String;
 
@@ -72,7 +87,7 @@ impl FromStr for Rgb {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CutSettings {
     pub speed_mm_min: f64,
     /// Potencia de 0 a 100 %.
@@ -107,7 +122,7 @@ impl CutSettings {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Layer {
     pub color: Rgb,
     pub settings: CutSettings,
@@ -115,12 +130,12 @@ pub struct Layer {
 }
 
 /// Trabajo listo para enviar: las capas se ejecutan en orden.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Job {
     pub layers: Vec<Layer>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Bounds {
     pub min: Point,
     pub max: Point,

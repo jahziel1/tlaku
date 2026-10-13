@@ -24,7 +24,9 @@ comercial. La hoja de ruta está en [docs/spec/00-resumen.md](docs/spec/00-resum
 | `laser-raster` | Modo Image: ajustes de imagen, remuestreo, dithering y umbral, barrido de bitmaps. |
 | `laser-sim` | Estimación de tiempo con aceleración por eje y desviación de unión; cálculo físico del overscan. |
 | `laser-grbl` | G-code para GRBL 1.1 (M3/M4), puertos serie y envío por conteo de caracteres. |
-| `laser-cli` | Binario `lasersoft`. |
+| `laser-doc` | Tipos del contrato con la app (documento, capas, máquina, opciones) en `serde`, exportados a TypeScript con `ts-rs`. |
+| `laser-pipeline` | Documento + máquina a `Toolpath`, estimaciones, límites de la cama y G-code; importa SVG, DXF e imágenes. |
+| `laser-cli` | Binario `lasersoft`; arma un documento con los argumentos y usa `laser-pipeline`. |
 
 ## Instalación desde el código fuente
 

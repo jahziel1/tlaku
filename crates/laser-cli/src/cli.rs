@@ -9,9 +9,8 @@ use crate::options::{
 use crate::{report, sigint};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use laser_core::Rgb;
-use laser_core::toolpath::PowerMode;
-use laser_grbl::gcode::GcodeOptions;
 use laser_grbl::serial::{self, Grbl};
+use laser_pipeline::doc::{DeviceProfile, PowerMode};
 use laser_sim::MachineProfile;
 use std::io::{self, IsTerminal};
 use std::path::PathBuf;
@@ -197,10 +196,6 @@ pub struct DesignArgs {
 }
 
 impl DesignArgs {
-    pub fn bed(&self) -> (f64, f64) {
-        self.bed
-    }
-
     pub fn into_request(self) -> Result<DesignRequest, String> {
         let mut profile = MachineProfile::default();
         if let Some(a) = self.machine_accel {
@@ -253,6 +248,7 @@ impl DesignArgs {
             tolerance_mm: self.tolerance,
             flip_y: !self.no_flip,
             profile,
+            bed: self.bed,
             layer_order: self.layer_order,
         })
     }
@@ -332,22 +328,17 @@ pub fn run(cli: Cli) -> Result<(), String> {
         } => {
             let start_gcode = read_script(start_gcode)?;
             let end_gcode = read_script(end_gcode)?;
-            let bed = design.bed();
-            let built = job::build(&design.into_request()?)?;
-            job::check_bounds(&built, bed)?;
-            let mut toolpath = built.toolpath.clone();
-            for block in &mut toolpath.blocks {
-                block.power_mode = power_mode.into();
-            }
-            let g = laser_grbl::gcode::generate(
-                &toolpath,
-                &GcodeOptions {
-                    s_max,
-                    start_gcode,
-                    end_gcode,
-                    ..Default::default()
-                },
-            );
+            let request = design.into_request()?;
+            let built = job::build(&request)?;
+            laser_pipeline::check_bounds(&built, [request.bed.0, request.bed.1])?;
+            let device = DeviceProfile {
+                s_max,
+                power_mode: power_mode.into(),
+                start_gcode: start_gcode.unwrap_or_default(),
+                end_gcode: end_gcode.unwrap_or_default(),
+                ..request.device()
+            };
+            let g = laser_pipeline::gcode(&built, &device);
             std::fs::write(&output, g).map_err(|e| format!("{}: {e}", output.display()))?;
             print!("{}", report::summary(&built));
             println!("Escrito {}", output.display());
@@ -368,10 +359,10 @@ pub fn run(cli: Cli) -> Result<(), String> {
             stream(&link, &lines)
         }
         Command::Frame { design, link } => {
-            let bed = design.bed();
             let speed = design.speed.unwrap_or(link::DEFAULT_FRAME_SPEED);
-            let built = job::build(&design.into_request()?)?;
-            job::check_bounds(&built, bed)?;
+            let request = design.into_request()?;
+            let built = job::build(&request)?;
+            laser_pipeline::check_bounds(&built, [request.bed.0, request.bed.1])?;
             let bounds = built.bounds().ok_or("el diseño no tiene movimientos")?;
             print!("{}", report::order_line(&built));
             print!("{}", link::frame_description(bounds, speed));

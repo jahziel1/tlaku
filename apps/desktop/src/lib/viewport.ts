@@ -1,0 +1,68 @@
+import type { Point } from '@/api/types';
+import type { Bounds } from './geometry';
+
+/**
+ * Relación entre el espacio del documento (mm, Y hacia arriba) y el de pantalla (px, Y hacia abajo).
+ * `panX/panY` son los px donde cae el origen (0, 0) del documento, medidos desde la esquina
+ * superior izquierda del lienzo. `zoom` son px por mm.
+ */
+export interface ViewTransform {
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
+export const MIN_ZOOM = 0.05;
+export const MAX_ZOOM = 400;
+
+export function clampZoom(zoom: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+}
+
+export function worldToScreen(v: ViewTransform, [x, y]: Point): Point {
+  return [v.panX + x * v.zoom, v.panY - y * v.zoom];
+}
+
+export function screenToWorld(v: ViewTransform, [sx, sy]: Point): Point {
+  return [(sx - v.panX) / v.zoom, (v.panY - sy) / v.zoom];
+}
+
+/** Nuevo transform con zoom `factor` veces mayor, manteniendo fijo el punto de pantalla (sx, sy). */
+export function zoomAround(v: ViewTransform, factor: number, sx: number, sy: number): ViewTransform {
+  const zoom = clampZoom(v.zoom * factor);
+  const k = zoom / v.zoom;
+  return { zoom, panX: sx - (sx - v.panX) * k, panY: sy - (sy - v.panY) * k };
+}
+
+/** Transform que encuadra `bounds` (mm) centrado en un lienzo de `w` x `h` px con margen en px. */
+export function fitBounds(bounds: Bounds, w: number, h: number, margin = 32): ViewTransform {
+  const bw = Math.max(bounds[1][0] - bounds[0][0], 1e-6);
+  const bh = Math.max(bounds[1][1] - bounds[0][1], 1e-6);
+  const zoom = clampZoom(Math.min((w - margin * 2) / bw, (h - margin * 2) / bh));
+  const cx = (bounds[0][0] + bounds[1][0]) / 2;
+  const cy = (bounds[0][1] + bounds[1][1]) / 2;
+  return { zoom, panX: w / 2 - cx * zoom, panY: h / 2 + cy * zoom };
+}
+
+const STEPS = [0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000];
+
+/**
+ * Pasos de cuadrícula en mm: `minor` es el más pequeño que deja al menos `minPx` entre
+ * líneas; `major` es 10 veces `minor`. Coincide con la regla.
+ */
+export function gridSteps(zoom: number, minPx = 7): { minor: number; major: number } {
+  const minor = STEPS.find((s) => s * zoom >= minPx) ?? STEPS[STEPS.length - 1]!;
+  return { minor, major: minor * 10 };
+}
+
+/** Texto de una cota de la regla (sin ceros de más). */
+export function formatTick(mm: number): string {
+  return Number.isInteger(mm) ? String(mm) : String(Math.round(mm * 100) / 100);
+}
+
+/** px por mm al 100 %: tamaño real en una pantalla de 96 ppp (25,4 mm = 96 px). */
+export const PX_PER_MM_AT_100 = 96 / 25.4;
+
+export function zoomPercent(zoom: number): number {
+  return Math.round((zoom / PX_PER_MM_AT_100) * 100);
+}
