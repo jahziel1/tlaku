@@ -1,4 +1,5 @@
 import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
+import { DEFAULT_ROTARY } from '@/lib/device';
 import { shapes, translation } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { DesignObject, DeviceProfile, Document, LayerSettings } from '../types';
@@ -104,6 +105,9 @@ export function sampleDevices(): DeviceProfile[] {
       start_gcode: '',
       end_gcode: 'M5',
       return_to_origin: true,
+      z_axis: false,
+      rotary: { ...DEFAULT_ROTARY },
+      scan_offsets: [],
     },
     {
       id: 'taller-co2',
@@ -121,6 +125,9 @@ export function sampleDevices(): DeviceProfile[] {
       start_gcode: '',
       end_gcode: 'M5',
       return_to_origin: false,
+      z_axis: false,
+      rotary: { ...DEFAULT_ROTARY },
+      scan_offsets: [],
     },
   ];
 }

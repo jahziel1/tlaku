@@ -294,3 +294,33 @@ Convenciones que fija el motor:
   calibra y guarda la configuración.
 - **`camera.json`** vive en la carpeta de configuración de la app junto a `devices.json`; en modo
   mock (navegador) la misma configuración se guarda en memoria y `localStorage`.
+
+## Fase 4: taller (sin hardware)
+
+Campos nuevos del contrato (todos con valor por defecto al leer documentos y perfiles viejos):
+
+- `LayerSettings.fill_style`: `scan` (barrido) u `offset` (contornos concéntricos).
+- `LayerSettings.tabs`: puentes de las capas line (`enabled`, `width`, `count`, `spacing`,
+  `skip_inner`). Los huecos aparecen en la vista previa y en el G-code.
+- `LayerSettings.z_offset` / `z_step`: Z al empezar la capa y bajada por pasada. Solo se emiten si
+  `DeviceProfile.z_axis` es verdadero; si no, el trabajo avisa y los ignora.
+- `LayerSettings.angle` ahora también es el ángulo de barrido de las capas image.
+- `ImageMode`: `halftone`, `newsprint` y `sketch`; `ImageSettings.halftone_cell` (mm) y
+  `halftone_angle` (grados).
+- `DeviceProfile.rotary`: rotativo en lugar del eje Y (`roller` o `chuck`). El documento sigue en
+  mm de superficie de la pieza; la conversión a mm de Y de la controladora se hace al generar el
+  G-code y el encuadre.
+- `DeviceProfile.scan_offsets`: corrección de ida y vuelta por velocidad (interpolada).
+- `ToolpathBlock.z_mm` (motor): Z absoluta al empezar el bloque, `None` = no mover Z.
+
+Comandos nuevos:
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `load_material_library` | — | `MaterialLibrary` (vacía si no hay archivo) |
+| `save_material_library` | `library` | — |
+| `import_material_library` | `path` | `MaterialLibrary` del archivo `.tlakumat` |
+| `export_material_library` | `path`, `library` | — |
+| `material_test` | `params: MaterialTestParams` | `Document` con la cuadrícula |
+
+`geometry_op` admite además `join`, `close` y `dedupe` con `tolerance` (mm).

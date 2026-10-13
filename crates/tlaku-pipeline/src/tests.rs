@@ -790,6 +790,7 @@ fn bounds_check_covers_every_move() {
                 power_pct: 0.0,
             },
         ],
+        z_mm: None,
     };
     let layer = LayerReport {
         name: "#ff0000".into(),

@@ -2,6 +2,8 @@
 import type { DeviceKind } from "./DeviceKind";
 import type { Origin } from "./Origin";
 import type { PowerMode } from "./PowerMode";
+import type { RotarySettings } from "./RotarySettings";
+import type { ScanOffset } from "./ScanOffset";
 
 export type DeviceProfile = { id: string, name: string, kind: DeviceKind, 
 /**
@@ -27,4 +29,12 @@ rapid_rate: number, baud: number,
 /**
  * Bytes del búfer de recepción de la controladora.
  */
-rx_buffer: number, start_gcode: string, end_gcode: string, return_to_origin: boolean, };
+rx_buffer: number, start_gcode: string, end_gcode: string, return_to_origin: boolean, 
+/**
+ * La máquina tiene eje Z motorizado (habilita `z_offset`/`z_step` de las capas).
+ */
+z_axis: boolean, rotary: RotarySettings, 
+/**
+ * Ordenadas por velocidad; vacío = sin corrección.
+ */
+scan_offsets: Array<ScanOffset>, };

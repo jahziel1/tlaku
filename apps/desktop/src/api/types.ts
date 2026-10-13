@@ -40,6 +40,16 @@ import type { MachineState } from '@/bindings/MachineState';
 import type { ProgressEvent } from '@/bindings/ProgressEvent';
 import type { RealtimeCommand } from '@/bindings/RealtimeCommand';
 import type { StatusReport } from '@/bindings/StatusReport';
+import type { FillStyle } from '@/bindings/FillStyle';
+import type { TabSettings } from '@/bindings/TabSettings';
+import type { RotaryKind } from '@/bindings/RotaryKind';
+import type { RotarySettings } from '@/bindings/RotarySettings';
+import type { ScanOffset } from '@/bindings/ScanOffset';
+import type { MaterialLibrary } from '@/bindings/MaterialLibrary';
+import type { MaterialPreset } from '@/bindings/MaterialPreset';
+import type { MaterialTestParams } from '@/bindings/MaterialTestParams';
+import type { TestAxis } from '@/bindings/TestAxis';
+import type { TestParam } from '@/bindings/TestParam';
 
 export type {
   BezPath,
@@ -50,6 +60,7 @@ export type {
   DeviceProfile,
   Document,
   ExportResult,
+  FillStyle,
   ImageObject,
   ImageSettings,
   ImportResult,
@@ -63,11 +74,20 @@ export type {
   LogDir,
   LogEvent,
   MachineState,
+  MaterialLibrary,
+  MaterialPreset,
+  MaterialTestParams,
   PathSeg,
   ProgressEvent,
   RealtimeCommand,
+  RotaryKind,
+  RotarySettings,
+  ScanOffset,
   StartFrom,
   StatusReport,
+  TabSettings,
+  TestAxis,
+  TestParam,
   TextAlign,
   TextObject,
   TextOnPath,
@@ -121,7 +141,22 @@ export interface TextOutlineResult {
   warnings: string[];
 }
 
-export type GeometryOp = 'union' | 'difference' | 'intersection' | 'xor' | 'weld' | 'offset';
+/**
+ * `join`: une trayectorias abiertas cuyos extremos están a menos de `tolerance` mm;
+ * `close`: cierra las abiertas cuyos extremos están a menos de `tolerance` mm;
+ * `dedupe`: borra segmentos repetidos o superpuestos (a menos de `tolerance` mm) para no cortar
+ * dos veces la misma línea. Las tres conservan la capa de cada objeto (fase 4).
+ */
+export type GeometryOp =
+  | 'union'
+  | 'difference'
+  | 'intersection'
+  | 'xor'
+  | 'weld'
+  | 'offset'
+  | 'join'
+  | 'close'
+  | 'dedupe';
 
 export interface GeometryOpArgs {
   op: GeometryOp;
@@ -129,6 +164,8 @@ export interface GeometryOpArgs {
   /** Solo `offset`: positivo agranda la pieza (los agujeros se encogen). */
   distance?: number;
   join?: 'round' | 'miter' | 'bevel';
+  /** Solo `join`, `close` y `dedupe`, en mm. */
+  tolerance?: number;
 }
 
 export interface TraceSettings {

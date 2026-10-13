@@ -45,6 +45,11 @@ export function createTauriApi(): LaserApi {
     loadCameraSetup: () => call('loadCameraSetup'),
     saveCameraSetup: (a) => call('saveCameraSetup', a),
     saveBoardFile: (a) => call('saveBoardFile', a),
+    loadMaterialLibrary: () => call('loadMaterialLibrary'),
+    saveMaterialLibrary: (a) => call('saveMaterialLibrary', a),
+    importMaterialLibrary: (a) => call('importMaterialLibrary', a),
+    exportMaterialLibrary: (a) => call('exportMaterialLibrary', a),
+    materialTest: (a) => call('materialTest', a),
     on: (event, handler) => listen(event, (e) => handler(e.payload as never)),
   };
 }

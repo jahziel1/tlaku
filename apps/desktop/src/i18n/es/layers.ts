@@ -189,6 +189,12 @@ export const layers = {
   'layers.dither.bayer4.help': 'Patrón regular, rápido y predecible; el patrón se nota a simple vista.',
   'layers.dither.grayscale': 'Escala de grises',
   'layers.dither.grayscale.help': 'Sin trama: la potencia varía con el tono. Necesita potencias mínima y máxima bien ajustadas al material.',
+  'layers.dither.halftone': 'Semitono',
+  'layers.dither.halftone.help': 'Puntos más grandes en las zonas oscuras, sobre una rejilla girada, como en una revista impresa.',
+  'layers.dither.newsprint': 'Líneas de periódico',
+  'layers.dither.newsprint.help': 'Líneas paralelas más gruesas en las zonas oscuras.',
+  'layers.dither.sketch': 'Boceto',
+  'layers.dither.sketch.help': 'Solo graba los bordes de la imagen, como un dibujo a lápiz.',
 
   // ---- errores de validación ---------------------------------------------------------------------------
   'layers.err.number': 'Escribe un número.',

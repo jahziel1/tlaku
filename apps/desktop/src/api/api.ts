@@ -17,6 +17,8 @@ import type {
   DesignObject,
   FontFamily,
   GeometryOpArgs,
+  MaterialLibrary,
+  MaterialTestParams,
   TextObject,
   TextOutlineResult,
   TraceResult,
@@ -94,6 +96,16 @@ export interface LaserApi {
   /** Escribe el tablero de calibración (`.svg` o `.pdf`) en la ruta que eligió el usuario. */
   saveBoardFile(args: { path: string; content_base64: string }): Promise<void>;
 
+  // Materiales (fase 4)
+  /** Biblioteca del usuario (`materials.json`). Sin archivo, una vacía. */
+  loadMaterialLibrary(): Promise<MaterialLibrary>;
+  saveMaterialLibrary(args: { library: MaterialLibrary }): Promise<void>;
+  /** Lee un archivo `.tlakumat`; la interfaz decide cómo mezclarlo con la biblioteca actual. */
+  importMaterialLibrary(args: { path: string }): Promise<MaterialLibrary>;
+  exportMaterialLibrary(args: { path: string; library: MaterialLibrary }): Promise<void>;
+  /** Documento con la cuadrícula de prueba (una capa por celda más la de rótulos). */
+  materialTest(args: { params: MaterialTestParams }): Promise<Document>;
+
   /** Suscripción a eventos `machine://*`. Devuelve la función para cancelar. */
   on<K extends EventName>(event: K, handler: (payload: EventMap[K]) => void): Promise<Unlisten>;
 }
@@ -129,6 +141,11 @@ export const COMMAND_NAMES = {
   loadCameraSetup: 'load_camera_setup',
   saveCameraSetup: 'save_camera_setup',
   saveBoardFile: 'save_board_file',
+  loadMaterialLibrary: 'load_material_library',
+  saveMaterialLibrary: 'save_material_library',
+  importMaterialLibrary: 'import_material_library',
+  exportMaterialLibrary: 'export_material_library',
+  materialTest: 'material_test',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [

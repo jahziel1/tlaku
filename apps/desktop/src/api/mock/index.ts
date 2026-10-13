@@ -1,4 +1,5 @@
 import { mockCamera } from './camera';
+import { mockMaterials } from './materials';
 import { mockGeometry } from './geometry';
 import { mockText } from './text';
 import { mockTrace } from './trace';
@@ -94,6 +95,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockGeometry(lag),
     ...mockTrace(lag),
     ...mockCamera(lag),
+    ...mockMaterials(lag),
 
     on: (event, handler) => Promise.resolve(machine.on(event, handler)),
   };

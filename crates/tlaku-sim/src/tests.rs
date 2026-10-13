@@ -24,6 +24,7 @@ fn block(speed_mm_min: f64, moves: Vec<Move>) -> ToolpathBlock {
         air_assist: false,
         power_mode: PowerMode::Dynamic,
         moves,
+        z_mm: None,
     }
 }
 

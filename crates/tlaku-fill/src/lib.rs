@@ -26,6 +26,16 @@ pub enum FillRule {
     NonZero,
 }
 
+/// Patrón del relleno.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FillPattern {
+    /// Líneas paralelas a `angle_deg` separadas `interval_mm`.
+    #[default]
+    Scan,
+    /// Contornos concéntricos hacia dentro separados `interval_mm`.
+    Offset,
+}
+
 /// Cómo se agrupan las formas al barrer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Grouping {
@@ -55,6 +65,7 @@ pub struct FillSettings {
     /// Potencia de 0 a 100 %.
     pub power_pct: f64,
     pub air_assist: bool,
+    pub pattern: FillPattern,
 }
 
 impl Default for FillSettings {
@@ -70,6 +81,7 @@ impl Default for FillSettings {
             speed_mm_min: 1000.0,
             power_pct: 20.0,
             air_assist: false,
+            pattern: FillPattern::Scan,
         }
     }
 }
@@ -109,6 +121,10 @@ pub struct FillResult {
 /// cantidad absurda de líneas.
 pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, String> {
     settings.validate()?;
+    if settings.pattern == FillPattern::Offset {
+        // TODO(fase4): relleno por contornos concéntricos.
+        return Err("el relleno por contornos aún no está implementado".into());
+    }
 
     let ignored_open: Vec<usize> = paths
         .iter()
@@ -140,6 +156,7 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
         air_assist: settings.air_assist,
         power_mode: PowerMode::Dynamic,
         moves: Vec::new(),
+        z_mm: None,
     };
 
     let mut angles = vec![settings.angle_deg];

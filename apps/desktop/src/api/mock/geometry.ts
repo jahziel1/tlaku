@@ -79,6 +79,12 @@ function mockGeometryOp(args: GeometryOpArgs): DesignObject[] {
         return [{ ...rectObject(`${o.id}-off-1`, o.layer, grown, round ? d : 0) }];
       });
     }
+    case 'join':
+    case 'close':
+    case 'dedupe': {
+      // TODO(fase4): simulación de unir, cerrar y quitar duplicados.
+      return args.objects.map((o) => structuredClone(o));
+    }
   }
 }
 

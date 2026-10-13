@@ -30,6 +30,56 @@ pub enum PowerMode {
     Constant,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum RotaryKind {
+    /// La pieza descansa sobre dos rodillos; gira según el diámetro del rodillo.
+    #[default]
+    Roller,
+    /// La pieza va sujeta al eje (mandril); gira según su propio diámetro.
+    Chuck,
+}
+
+/// Accesorio rotativo conectado en lugar del eje Y.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct RotarySettings {
+    pub enabled: bool,
+    pub kind: RotaryKind,
+    /// mm de Y que la controladora debe recorrer para una vuelta completa del rotativo.
+    pub mm_per_rotation: f64,
+    /// Diámetro del rodillo motriz en mm (solo `roller`).
+    pub roller_diameter: f64,
+    /// Diámetro de la pieza en mm (solo `chuck`, y para la vista previa).
+    pub object_diameter: f64,
+}
+
+impl Default for RotarySettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            kind: RotaryKind::Roller,
+            mm_per_rotation: 360.0,
+            roller_diameter: 20.0,
+            object_diameter: 80.0,
+        }
+    }
+}
+
+/// Corrección del desfase entre las líneas de ida y de vuelta en barridos bidireccionales,
+/// medida a una velocidad. Entre velocidades se interpola linealmente.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct ScanOffset {
+    /// mm/min.
+    pub speed: f64,
+    /// mm que se desplazan las líneas de vuelta en el sentido del barrido.
+    pub offset: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
@@ -55,6 +105,14 @@ pub struct DeviceProfile {
     pub start_gcode: String,
     pub end_gcode: String,
     pub return_to_origin: bool,
+    /// La máquina tiene eje Z motorizado (habilita `z_offset`/`z_step` de las capas).
+    #[serde(default)]
+    pub z_axis: bool,
+    #[serde(default)]
+    pub rotary: RotarySettings,
+    /// Ordenadas por velocidad; vacío = sin corrección.
+    #[serde(default)]
+    pub scan_offsets: Vec<ScanOffset>,
 }
 
 impl Default for DeviceProfile {
@@ -76,6 +134,9 @@ impl Default for DeviceProfile {
             start_gcode: String::new(),
             end_gcode: String::new(),
             return_to_origin: true,
+            z_axis: false,
+            rotary: RotarySettings::default(),
+            scan_offsets: Vec::new(),
         }
     }
 }

@@ -137,6 +137,9 @@ const HISTORY: Record<GeometryOp, I18nKey> = {
   xor: 'arrange.history.xor',
   weld: 'arrange.history.weld',
   offset: 'arrange.history.offset',
+  join: 'arrange.history.join',
+  close: 'arrange.history.close',
+  dedupe: 'arrange.history.dedupe',
 };
 
 /**

@@ -22,6 +22,8 @@ pub struct RasterSettings {
     pub dot_width_mm: f64,
     pub air_assist: bool,
     pub power_mode: PowerMode,
+    /// Ángulo de las líneas de barrido en grados, antihorario (0 = horizontal).
+    pub angle_deg: f64,
 }
 
 impl Default for RasterSettings {
@@ -36,6 +38,7 @@ impl Default for RasterSettings {
             dot_width_mm: 0.0,
             air_assist: false,
             power_mode: PowerMode::Dynamic,
+            angle_deg: 0.0,
         }
     }
 }
@@ -129,6 +132,7 @@ pub fn raster_to_block(
         air_assist: settings.air_assist,
         power_mode: settings.power_mode,
         moves,
+        z_mm: None,
     }
 }
 

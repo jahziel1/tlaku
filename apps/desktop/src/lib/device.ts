@@ -1,4 +1,13 @@
-import type { DeviceProfile, Point } from '@/api/types';
+import type { DeviceProfile, Point, RotarySettings } from '@/api/types';
+
+/** Mismos valores que `RotarySettings::default()` del motor. */
+export const DEFAULT_ROTARY: RotarySettings = {
+  enabled: false,
+  kind: 'roller',
+  mm_per_rotation: 360,
+  roller_diameter: 20,
+  object_diameter: 80,
+};
 
 /** Perfil provisional mientras no se ha cargado ninguno (cama de 400 x 400 mm). */
 export const FALLBACK_DEVICE: DeviceProfile = {
@@ -17,6 +26,9 @@ export const FALLBACK_DEVICE: DeviceProfile = {
   start_gcode: '',
   end_gcode: 'M5',
   return_to_origin: false,
+  z_axis: false,
+  rotary: { ...DEFAULT_ROTARY },
+  scan_offsets: [],
 };
 
 /** Velocidades de comunicación que ofrecen GRBL y sus derivados. */

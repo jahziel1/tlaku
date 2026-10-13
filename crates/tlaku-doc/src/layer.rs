@@ -90,6 +90,12 @@ pub enum ImageMode {
     Atkinson,
     Bayer4,
     Grayscale,
+    /// Puntos de tamaño variable en una rejilla girada (`halftone_cell`, `halftone_angle`).
+    Halftone,
+    /// Líneas paralelas de grosor variable (como en un periódico).
+    Newsprint,
+    /// Solo los bordes de la imagen, como un dibujo a lápiz.
+    Sketch,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -108,6 +114,20 @@ pub struct ImageSettings {
     pub invert: bool,
     /// Ancho del punto del haz en mm; acorta cada tramo encendido.
     pub dot_width: f64,
+    /// Tamaño de la celda en mm (halftone y newsprint).
+    #[serde(default = "default_halftone_cell")]
+    pub halftone_cell: f64,
+    /// Ángulo de la rejilla en grados (halftone y newsprint).
+    #[serde(default = "default_halftone_angle")]
+    pub halftone_angle: f64,
+}
+
+fn default_halftone_cell() -> f64 {
+    0.5
+}
+
+fn default_halftone_angle() -> f64 {
+    45.0
 }
 
 impl Default for ImageSettings {
@@ -120,15 +140,59 @@ impl Default for ImageSettings {
             gamma: 1.0,
             invert: false,
             dot_width: 0.0,
+            halftone_cell: default_halftone_cell(),
+            halftone_angle: default_halftone_angle(),
+        }
+    }
+}
+
+/// Cómo se rellena una forma cerrada en modo fill.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum FillStyle {
+    /// Líneas paralelas de barrido (`interval`, `angle`).
+    #[default]
+    Scan,
+    /// Contornos concéntricos hacia dentro, separados `interval`: sin aceleraciones de
+    /// barrido, mejor para formas delgadas o letras.
+    Offset,
+}
+
+/// Puentes sin cortar que sostienen la pieza en la placa (solo capas line).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct TabSettings {
+    pub enabled: bool,
+    /// Largo de cada puente, en mm.
+    pub width: f64,
+    /// Puentes por forma cerrada si `spacing` es 0; si no, el mínimo por forma.
+    pub count: u32,
+    /// Distancia en mm entre puentes a lo largo del contorno; 0 = usar `count`.
+    pub spacing: f64,
+    /// No poner puentes en las formas que están dentro de otra (huecos).
+    pub skip_inner: bool,
+}
+
+impl Default for TabSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            width: 0.5,
+            count: 4,
+            spacing: 0.0,
+            skip_inner: true,
         }
     }
 }
 
 /// Ajustes de una capa (un color). Cada modo usa solo parte de los campos:
 /// line: `speed`, `power`, `passes`, `air`, `kerf`;
-/// fill: además `interval`, `angle`, `crosshatch`, `bidirectional`, `overscan`;
-/// image: `speed`, `power` (máxima), `min_power`, `passes`, `air`, `interval`,
-/// `bidirectional`, `overscan` e `image`.
+/// fill: además `interval`, `angle`, `crosshatch`, `bidirectional`, `overscan`, `fill_style`;
+/// image: `speed`, `power` (máxima), `min_power`, `passes`, `air`, `interval`, `angle`
+/// (ángulo de barrido), `bidirectional`, `overscan` e `image`.
+/// line usa además `tabs`; todos los modos usan `z_offset` y `z_step` si la máquina tiene Z.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
@@ -160,6 +224,19 @@ pub struct LayerSettings {
     pub image: ImageSettings,
     /// Posición forzada en el orden de ejecución (desde 1); `null` = automático.
     pub order: Option<u32>,
+    /// Solo fill.
+    #[serde(default)]
+    pub fill_style: FillStyle,
+    /// Solo line.
+    #[serde(default)]
+    pub tabs: TabSettings,
+    /// mm que baja la mesa (o sube el cabezal) respecto al foco al empezar la capa; positivo =
+    /// enfoca más adentro del material. Solo con `DeviceProfile.z_axis`.
+    #[serde(default)]
+    pub z_offset: f64,
+    /// mm adicionales por cada pasada después de la primera (cortes profundos).
+    #[serde(default)]
+    pub z_step: f64,
 }
 
 impl LayerSettings {
@@ -184,6 +261,10 @@ impl LayerSettings {
             kerf: 0.0,
             image: ImageSettings::default(),
             order: None,
+            fill_style: FillStyle::Scan,
+            tabs: TabSettings::default(),
+            z_offset: 0.0,
+            z_step: 0.0,
         }
     }
 

@@ -1,4 +1,4 @@
-import type { DesignObject, Document, ImageSettings, LayerSettings } from '@/api/types';
+import type { DesignObject, Document, ImageSettings, LayerSettings, TabSettings } from '@/api/types';
 import { colorName, isGuideColor } from './palette';
 
 /** Mismos valores por defecto que `ImageSettings::default()` del motor (umbral 0-1, no 0-255). */
@@ -10,6 +10,17 @@ export const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
   gamma: 1,
   invert: false,
   dot_width: 0,
+  halftone_cell: 0.5,
+  halftone_angle: 45,
+};
+
+/** Mismos valores que `TabSettings::default()` del motor. */
+export const DEFAULT_TAB_SETTINGS: TabSettings = {
+  enabled: false,
+  width: 0.5,
+  count: 4,
+  spacing: 0,
+  skip_inner: true,
 };
 
 export function makeLayer(color: string, name: string, patch: Partial<LayerSettings> = {}): LayerSettings {
@@ -32,6 +43,10 @@ export function makeLayer(color: string, name: string, patch: Partial<LayerSetti
     kerf: 0,
     image: { ...DEFAULT_IMAGE_SETTINGS },
     order: null,
+    fill_style: 'scan',
+    tabs: { ...DEFAULT_TAB_SETTINGS },
+    z_offset: 0,
+    z_step: 0,
     ...patch,
   };
 }

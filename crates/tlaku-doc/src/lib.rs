@@ -12,18 +12,27 @@ mod document;
 mod job;
 mod layer;
 mod machine;
+mod materials;
 mod text;
 
-pub use device::{DeviceKind, DeviceProfile, Origin, PowerMode};
+pub use device::{
+    DeviceKind, DeviceProfile, Origin, PowerMode, RotaryKind, RotarySettings, ScanOffset,
+};
 pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
     VectorObject, bounds_of, union,
 };
 pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, StartFrom};
-pub use layer::{ImageMode, ImageSettings, LayerMode, LayerSettings, Overscan};
+pub use layer::{
+    FillStyle, ImageMode, ImageSettings, LayerMode, LayerSettings, Overscan, TabSettings,
+};
 pub use machine::{
     BufferStatus, ConnectResult, ConnectionEvent, ExportResult, JobEvent, JobState, LogDir,
     LogEvent, MachineState, ProgressEvent, RealtimeCommand, StatusReport,
+};
+pub use materials::{
+    MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialPreset, MaterialTestParams, TestAxis,
+    TestParam,
 };
 pub use text::{TextAlign, TextObject, TextOnPath};
 

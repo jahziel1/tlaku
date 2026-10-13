@@ -34,6 +34,12 @@ pub enum RasterMode {
     Bayer(BayerSize),
     /// Conserva los niveles: potencia = 1 - gris.
     Grayscale,
+    /// Puntos de tamaño variable en celdas de `cell_mm` sobre una rejilla girada `angle_deg`.
+    Halftone { cell_mm: f64, angle_deg: f64 },
+    /// Líneas de grosor variable con periodo `cell_mm`, giradas `angle_deg`.
+    Newsprint { cell_mm: f64, angle_deg: f64 },
+    /// Bordes de la imagen.
+    Sketch,
 }
 
 /// Kernel de difusión: `(dx, dy, peso)` hacia píxeles pendientes y divisor.
@@ -146,6 +152,10 @@ pub fn to_power(img: &GrayF32, mode: RasterMode, serpentine: bool) -> Vec<f32> {
                 }
             }
             out
+        }
+        // TODO(fase4): `process` los rechaza antes de llegar aquí.
+        RasterMode::Halftone { .. } | RasterMode::Newsprint { .. } | RasterMode::Sketch => {
+            vec![0.0; img.data.len()]
         }
     }
 }

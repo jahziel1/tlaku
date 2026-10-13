@@ -21,4 +21,12 @@ gamma: number, invert: boolean,
 /**
  * Ancho del punto del haz en mm; acorta cada tramo encendido.
  */
-dot_width: number, };
+dot_width: number, 
+/**
+ * Tamaño de la celda en mm (halftone y newsprint).
+ */
+halftone_cell: number, 
+/**
+ * Ángulo de la rejilla en grados (halftone y newsprint).
+ */
+halftone_angle: number, };

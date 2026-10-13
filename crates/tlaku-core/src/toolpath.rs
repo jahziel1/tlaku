@@ -33,7 +33,7 @@ pub enum PowerMode {
 }
 
 /// Movimientos que comparten velocidad y ajustes, normalmente una capa o una pasada.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct ToolpathBlock {
     /// Texto para comentarios en la salida y para la vista previa.
     pub label: String,
@@ -41,6 +41,10 @@ pub struct ToolpathBlock {
     pub air_assist: bool,
     pub power_mode: PowerMode,
     pub moves: Vec<Move>,
+    /// Posición Z (mm, 0 = foco, positivo = hacia dentro del material) al empezar el bloque;
+    /// `None` = no mover Z. Solo en máquinas con eje Z.
+    #[serde(default)]
+    pub z_mm: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -79,6 +83,7 @@ impl Toolpath {
                     air_assist: st.air_assist,
                     power_mode: PowerMode::Dynamic,
                     moves,
+                    z_mm: None,
                 }
             })
             .collect();

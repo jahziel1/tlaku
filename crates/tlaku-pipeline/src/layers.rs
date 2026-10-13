@@ -1,8 +1,8 @@
 //! Ajustes de capa a ajustes del motor, clasificación y orden automático de capas.
 
 use tlaku_core::{CutSettings, Rgb};
-use tlaku_doc::{ImageMode, LayerMode, LayerOrder, LayerSettings, Overscan};
-use tlaku_fill::FillSettings;
+use tlaku_doc::{FillStyle, ImageMode, LayerMode, LayerOrder, LayerSettings, Overscan};
+use tlaku_fill::{FillPattern, FillSettings};
 use tlaku_raster::{BayerSize, ImageAdjust, RasterMode, RasterSettings};
 
 /// Tope de pasadas: protege contra errores de dedo que generarían G-code gigantesco.
@@ -92,6 +92,10 @@ pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
                 speed_mm_min: l.speed,
                 power_pct: l.power,
                 air_assist: l.air,
+                pattern: match l.fill_style {
+                    FillStyle::Scan => FillPattern::Scan,
+                    FillStyle::Offset => FillPattern::Offset,
+                },
                 ..FillSettings::default()
             };
             settings.validate().map_err(err)?;
@@ -114,6 +118,15 @@ fn raster_mode(l: &LayerSettings) -> RasterMode {
         ImageMode::Atkinson => RasterMode::Atkinson,
         ImageMode::Bayer4 => RasterMode::Bayer(BayerSize::N4),
         ImageMode::Grayscale => RasterMode::Grayscale,
+        ImageMode::Halftone => RasterMode::Halftone {
+            cell_mm: l.image.halftone_cell,
+            angle_deg: l.image.halftone_angle,
+        },
+        ImageMode::Newsprint => RasterMode::Newsprint {
+            cell_mm: l.image.halftone_cell,
+            angle_deg: l.image.halftone_angle,
+        },
+        ImageMode::Sketch => RasterMode::Sketch,
     }
 }
 
@@ -139,6 +152,7 @@ pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
         overscan_mm: overscan_mm(l.overscan),
         dot_width_mm: img.dot_width,
         air_assist: l.air,
+        angle_deg: l.angle,
         ..RasterSettings::default()
     };
     raster.validate().map_err(|e| format!("imagen: {e}"))?;

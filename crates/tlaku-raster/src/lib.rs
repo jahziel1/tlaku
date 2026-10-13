@@ -54,6 +54,13 @@ pub fn process(
     {
         return Err(format!("umbral fuera de 0-1: {t}"));
     }
+    if matches!(
+        opts.mode,
+        RasterMode::Halftone { .. } | RasterMode::Newsprint { .. } | RasterMode::Sketch
+    ) {
+        // TODO(fase4): halftone, newsprint y sketch.
+        return Err("este modo de imagen aún no está implementado".into());
+    }
     let adjusted = opts.adjust.apply(img);
     let grid = resample::resample_to_mm(&adjusted, width_mm, height_mm, opts.sampling)?;
     let data = dither::to_power(&grid.image, opts.mode, opts.serpentine);

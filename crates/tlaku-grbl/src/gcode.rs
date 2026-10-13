@@ -223,6 +223,7 @@ mod tests {
             air_assist: false,
             power_mode: mode,
             moves,
+            z_mm: None,
         }
     }
 
