@@ -266,7 +266,8 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.beginner.hiddenInUse': 'This layer uses advanced settings that beginner mode hides. They still apply; turn the mode off to see or change them.',
 
   // ---- minimum power and angle -----------------------------------------------------------------------
-  'layers.help.minPowerLine': 'With dynamic power (M4) the machine lowers the power when the head slows down, for example at corners. This is the floor it can drop to: 0% lets it fall all the way to off. It cannot exceed the layer power.',
+  'layers.note.minPowerLine':
+    "A line layer has no minimum power: with dynamic power (M4) the controller lowers the power at corners based on the real speed, and GRBL does not let the G-code set a floor for it. Minimum power only matters on image layers.",
   'layers.angleIncrement': 'Angle increment',
   'layers.angleIncrement.live': 'Only noticeable with 2 or more passes.',
   'layers.help.angleIncrement': 'Degrees added to the scan angle on every pass. With 2 passes and 90° the second crosses the first; small increments spread the engraving so streaks show less.',

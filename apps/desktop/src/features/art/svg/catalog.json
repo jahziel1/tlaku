@@ -1,0 +1,248 @@
+[
+  {
+    "id": "flechas-simple",
+    "category": "flechas",
+    "es": "Flecha simple",
+    "en": "Simple arrow"
+  },
+  {
+    "id": "flechas-doble",
+    "category": "flechas",
+    "es": "Flecha doble",
+    "en": "Double arrow"
+  },
+  {
+    "id": "flechas-curva",
+    "category": "flechas",
+    "es": "Flecha curva",
+    "en": "Curved arrow"
+  },
+  {
+    "id": "flechas-bloque",
+    "category": "flechas",
+    "es": "Flecha en bloque",
+    "en": "Block arrow"
+  },
+  {
+    "id": "flechas-chevron",
+    "category": "flechas",
+    "es": "Flecha con muesca",
+    "en": "Notched chevron arrow"
+  },
+  {
+    "id": "flechas-circular",
+    "category": "flechas",
+    "es": "Flecha circular",
+    "en": "Circular arrow"
+  },
+  {
+    "id": "marcos-redondeado",
+    "category": "marcos",
+    "es": "Marco redondeado",
+    "en": "Rounded frame"
+  },
+  {
+    "id": "marcos-chaflan",
+    "category": "marcos",
+    "es": "Marco con chaflan",
+    "en": "Chamfered frame"
+  },
+  {
+    "id": "marcos-doble",
+    "category": "marcos",
+    "es": "Marco doble",
+    "en": "Double frame"
+  },
+  {
+    "id": "marcos-esquinas-decorativas",
+    "category": "marcos",
+    "es": "Marco con esquinas decorativas",
+    "en": "Frame with decorative corners"
+  },
+  {
+    "id": "marcos-ovalo-doble",
+    "category": "marcos",
+    "es": "Ovalo doble",
+    "en": "Double oval frame"
+  },
+  {
+    "id": "marcos-etiqueta",
+    "category": "marcos",
+    "es": "Etiqueta con orificio",
+    "en": "Hang tag with hole"
+  },
+  {
+    "id": "estrellas-5-puntas",
+    "category": "estrellas",
+    "es": "Estrella de 5 puntas",
+    "en": "5-point star"
+  },
+  {
+    "id": "estrellas-6-puntas",
+    "category": "estrellas",
+    "es": "Estrella de 6 puntas",
+    "en": "6-point star"
+  },
+  {
+    "id": "estrellas-8-puntas",
+    "category": "estrellas",
+    "es": "Estrella de 8 puntas",
+    "en": "8-point star"
+  },
+  {
+    "id": "estrellas-destello",
+    "category": "estrellas",
+    "es": "Destello",
+    "en": "Sparkle"
+  },
+  {
+    "id": "estrellas-circulo-central",
+    "category": "estrellas",
+    "es": "Estrella con circulo central",
+    "en": "Star with center circle"
+  },
+  {
+    "id": "corazones-clasico",
+    "category": "corazones",
+    "es": "Corazon clasico",
+    "en": "Classic heart"
+  },
+  {
+    "id": "corazones-doble",
+    "category": "corazones",
+    "es": "Corazon con contorno doble",
+    "en": "Double outline heart"
+  },
+  {
+    "id": "corazones-partido",
+    "category": "corazones",
+    "es": "Corazon partido",
+    "en": "Split heart"
+  },
+  {
+    "id": "corazones-geometrico",
+    "category": "corazones",
+    "es": "Corazon geometrico",
+    "en": "Geometric heart"
+  },
+  {
+    "id": "iconos-luna",
+    "category": "iconos",
+    "es": "Luna creciente",
+    "en": "Crescent moon"
+  },
+  {
+    "id": "iconos-sol",
+    "category": "iconos",
+    "es": "Sol con rayos",
+    "en": "Sun with rays"
+  },
+  {
+    "id": "iconos-nube",
+    "category": "iconos",
+    "es": "Nube",
+    "en": "Cloud"
+  },
+  {
+    "id": "iconos-gota",
+    "category": "iconos",
+    "es": "Gota",
+    "en": "Water drop"
+  },
+  {
+    "id": "iconos-hoja",
+    "category": "iconos",
+    "es": "Hoja",
+    "en": "Leaf"
+  },
+  {
+    "id": "iconos-casa",
+    "category": "iconos",
+    "es": "Casa",
+    "en": "House"
+  },
+  {
+    "id": "iconos-llave",
+    "category": "iconos",
+    "es": "Llave",
+    "en": "Key"
+  },
+  {
+    "id": "iconos-flor",
+    "category": "iconos",
+    "es": "Flor de 6 petalos",
+    "en": "Six-petal flower"
+  },
+  {
+    "id": "iconos-mariposa",
+    "category": "iconos",
+    "es": "Mariposa",
+    "en": "Butterfly"
+  },
+  {
+    "id": "iconos-engranaje",
+    "category": "iconos",
+    "es": "Engranaje de 8 dientes",
+    "en": "8-tooth gear"
+  },
+  {
+    "id": "bordes-olas",
+    "category": "bordes",
+    "es": "Borde de olas",
+    "en": "Wave border"
+  },
+  {
+    "id": "bordes-sierra",
+    "category": "bordes",
+    "es": "Borde de dientes de sierra",
+    "en": "Sawtooth border"
+  },
+  {
+    "id": "bordes-arcos",
+    "category": "bordes",
+    "es": "Borde de arcos",
+    "en": "Scallop border"
+  },
+  {
+    "id": "bordes-rombos",
+    "category": "bordes",
+    "es": "Borde de rombos",
+    "en": "Diamond border"
+  },
+  {
+    "id": "bordes-grecas",
+    "category": "bordes",
+    "es": "Borde de grecas",
+    "en": "Greek key border"
+  },
+  {
+    "id": "cajas-panel-frontal",
+    "category": "cajas",
+    "es": "Caja: panel frontal",
+    "en": "Box: front panel"
+  },
+  {
+    "id": "cajas-panel-lateral",
+    "category": "cajas",
+    "es": "Caja: panel lateral",
+    "en": "Box: side panel"
+  },
+  {
+    "id": "cajas-base",
+    "category": "cajas",
+    "es": "Caja: base",
+    "en": "Box: base"
+  },
+  {
+    "id": "cajas-tapa-ranura",
+    "category": "cajas",
+    "es": "Caja: tapa con ranura",
+    "en": "Box: lid with slot"
+  },
+  {
+    "id": "cajas-panel-solapa",
+    "category": "cajas",
+    "es": "Caja: panel con solapa",
+    "en": "Box: panel with flap"
+  }
+]

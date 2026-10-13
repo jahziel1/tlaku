@@ -2,6 +2,7 @@ import { getApi } from '@/api';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { fmtClock } from '@/lib/platform';
+import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { buildJobArgs, useStore } from '@/store';
 import { pickImportPaths, pickPath } from './dialogs';
 import { baseName, isImportable, withExtension } from './paths';
@@ -156,7 +157,7 @@ export async function exportGcodeFile(): Promise<boolean> {
   if (!picked) return false;
   const path = withExtension(picked, 'gcode');
   try {
-    const r = await getApi().exportGcode({ ...buildJobArgs(state()), path });
+    const r = await getApi().exportGcode({ ...(await resolveJobArgs(buildJobArgs(state()))), path });
     const text = t('notice.exported', { lines: r.lines, time: fmtClock(r.estimate_s), path });
     if (r.warnings.length > 0) state().notify('warning', text, r.warnings);
     else state().notify('success', text);

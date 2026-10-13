@@ -5,6 +5,8 @@
 import type { I18nKey } from './index';
 import { base } from './en/base';
 import { arrange } from './en/arrange';
+import { design } from './en/design';
+import { art } from './en/art';
 import { camera } from './en/camera';
 import { devices } from './en/devices';
 import { fileio } from './en/fileio';
@@ -21,10 +23,15 @@ import { preview } from './en/preview';
 import { prefs } from './en/prefs';
 import { text } from './en/text';
 import { trace } from './en/trace';
+import { variables } from './en/variables';
+import { nest } from './en/nest';
+import { shapes } from './en/shapes';
 
 export const en: { [K in I18nKey]?: string } = {
   ...base,
   ...arrange,
+  ...art,
+  ...design,
   ...camera,
   ...devices,
   ...fileio,
@@ -40,5 +47,8 @@ export const en: { [K in I18nKey]?: string } = {
   ...preview,
   ...prefs,
   ...text,
+  ...variables,
   ...trace,
+  ...nest,
+  ...shapes,
 };

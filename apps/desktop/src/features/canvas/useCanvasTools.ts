@@ -14,11 +14,15 @@ import { boxModeFor, HIT_PX, layerLookup, normalizeBox, pickObject, selectByBox,
 import { clearGesture, patchInteraction, registerGestureHooks, useInteraction } from './interaction';
 import { boxShapePaths, constrainAngle, constrainDelta, dragBox, newVectorObject, pickDrawLayer, type ShapeKind } from './shapes';
 import { openContextMenu } from '@/features/contextmenu/uiStore';
+import { createGuideTool } from './guideTool';
+import { guideSnapTargets } from './guides';
+import { createMarksTool } from './marksTool';
 import { createMeasureTool } from './measureTool';
 import { createNodeTool } from './nodeTool';
 import { cornerNode, handleLines, hasCurves, penDraft, penPath, smoothNode, type PenNode } from './pen';
 import { createPickTool } from './pickTool';
 import { createPositionTool } from './positionTool';
+import { createTrimTool } from './trimTool';
 import { newShapeObject, type ShapeSpec } from '@/lib/paramShape';
 import { createTextAt, editText, prefetchFonts } from './textTool';
 import { DRAG_PX, type Mods, type ToolDeps } from './toolDeps';
@@ -128,7 +132,15 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const targetsFor = (skip: ReadonlySet<string>): SnapSet => {
       const s = st();
       const dev = selectActiveDevice(s);
-      return collectSnapTargets(s.doc.objects, skip, { width: dev.bed[0], height: dev.bed[1] }, visibleBox(viewOf(), s.viewport.width, s.viewport.height, 40));
+      const bed = { width: dev.bed[0], height: dev.bed[1] };
+      const set = collectSnapTargets(s.doc.objects, skip, bed, visibleBox(viewOf(), s.viewport.width, s.viewport.height, 40));
+      // Las guías visibles del documento también atraen.
+      if (s.showGuides && s.doc.guides?.length) {
+        const g = guideSnapTargets(s.doc.guides, bed);
+        set.xs.push(...g.xs);
+        set.ys.push(...g.ys);
+      }
+      return set;
     };
 
     // ---- selección y datos del gesto ---------------------------------------------------------------
@@ -174,6 +186,9 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       nodeTool.cancel();
       measureTool.cancel();
       pickTool.cancel();
+      guideTool.cancel();
+      marksTool.cancel();
+      trimTool.cancel();
       clearGesture();
     };
 
@@ -267,6 +282,9 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const measureTool = createMeasureTool(toolDeps);
     const pickTool = createPickTool(toolDeps);
     const positionTool = createPositionTool(toolDeps);
+    const guideTool = createGuideTool(toolDeps);
+    const marksTool = createMarksTool(toolDeps);
+    const trimTool = createTrimTool(toolDeps);
 
     // ---- actualizar gestos -------------------------------------------------------------------------------
 
@@ -507,7 +525,16 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         pickTool.down(e, sx, sy, mods);
         return;
       }
+      // Una guía del documento se agarra antes que cualquier objeto.
+      if (guideTool.down(e, sx, sy)) return;
       switch (s.activeTool) {
+        case 'tabs':
+        case 'start':
+          marksTool.down(sx, sy, mods);
+          break;
+        case 'trim':
+          trimTool.down(sx, sy, mods.shift);
+          break;
         case 'rect':
         case 'ellipse':
         case 'polygon':
@@ -617,6 +644,15 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         patchInteraction({ cursor: 'text', hoverId: null });
         return;
       }
+      if (tool === 'tabs' || tool === 'start') {
+        marksTool.hover(sx, sy);
+        return;
+      }
+      if (tool === 'trim') {
+        trimTool.hover(sx, sy);
+        return;
+      }
+      if (guideTool.hover(sx, sy)) return;
       if (tool === 'nodes') {
         patchInteraction({ hoverId: null });
         nodeTool.hover(sx, sy);
@@ -644,6 +680,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (nodeTool.move(e, sx, sy, mods)) return;
       if (pickTool.move(e, sx, sy, mods)) return;
       if (measureTool.move(e, sx, sy, mods)) return;
+      if (guideTool.move(e, sx, sy, mods)) return;
       if (g) {
         if (e.pointerId === g.pointerId) update(sx, sy, mods);
         return;
@@ -658,7 +695,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (!hoverFrame) {
         hoverFrame = requestAnimationFrame(() => {
           hoverFrame = 0;
-          if (last && !g && !nodeTool.active()) hoverAt(last.sx, last.sy);
+          if (last && !g && !nodeTool.active() && !guideTool.active()) hoverAt(last.sx, last.sy);
         });
       }
     };
@@ -676,6 +713,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       }
       if (pickTool.up(e, ...local(e), modsOf(e))) return;
       if (measureTool.up(e, ...local(e), modsOf(e))) return;
+      if (guideTool.up(e, ...local(e), modsOf(e))) return;
       if (!g || e.pointerId !== g.pointerId) return;
       const gs = g;
       release(gs.pointerId);
@@ -753,6 +791,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         hoverFrame = 0;
       }
       if (!g) patchInteraction({ hoverId: null });
+      if (st().activeTool === 'tabs' || st().activeTool === 'start') marksTool.leave();
+      if (st().activeTool === 'trim') trimTool.leave();
       if (positionTool.active()) patchInteraction({ tip: null });
     };
 
@@ -802,6 +842,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (e.target !== canvas && e.target !== el) return;
       const s = st();
       const [sx, sy] = local(e);
+      if (guideTool.doubleClick(sx, sy)) return;
       if (s.activeTool === 'nodes') {
         nodeTool.doubleClick(sx, sy);
       } else if (s.activeTool === 'select') {
@@ -831,7 +872,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const unsub = useStore.subscribe((s, prev) => {
       if (s.activeTool !== prev.activeTool) {
         cancel();
-        patchInteraction({ hoverId: null, nodeHover: null, measure: null });
+        patchInteraction({ hoverId: null, nodeHover: null, measure: null, markHover: null, guideHover: null, tip: null });
         if (s.activeTool === 'text') prefetchFonts();
       }
       if (s.selectedIds !== prev.selectedIds && useInteraction.getState().rotateMode) {

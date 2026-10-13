@@ -1,11 +1,12 @@
 //! Qué objetos entran al trabajo y dónde se colocan (`start_from` y `job_origin`).
 
+use crate::start;
 use std::collections::{HashMap, HashSet};
 use tlaku_core::{Bounds, Point, Polyline, Rgb};
 use tlaku_doc::affine::{self, Transform};
 use tlaku_doc::{
     DesignObject, Document, ImageObject, JobOptions, LayerMode, LayerSettings, ObjectKind,
-    StartFrom, bounds_of, union,
+    StartFrom, VirtualArray, bounds_of, union,
 };
 
 /// Imagen alineada a los ejes lista para rasterizar.
@@ -17,6 +18,8 @@ pub(crate) struct PlacedImage {
     pub size_mm: (f64, f64),
     pub mirror_x: bool,
     pub mirror_y: bool,
+    /// Máscara ya en coordenadas del documento (mm); vacía = la imagen completa.
+    pub mask: Vec<Polyline>,
 }
 
 /// Máximo de sub-capas de una capa (el de la ficha F30: hasta 11).
@@ -39,6 +42,9 @@ pub(crate) struct PathMeta {
     pub priority: i32,
     /// `DesignObject::power_scale` en % de la potencia de la capa; sin valor = 100.
     pub power_scale: f64,
+    /// El usuario fijó el punto de inicio o el sentido de esta trayectoria (`DesignObject::start`):
+    /// el planificador no los cambia. Ver `start.rs`.
+    pub locked: bool,
 }
 
 impl PathMeta {
@@ -49,6 +55,7 @@ impl PathMeta {
         priority: 0,
         fill_group: 0,
         power_scale: 100.0,
+        locked: false,
     };
 }
 
@@ -60,6 +67,9 @@ pub(crate) struct LayerWork<'a> {
     pub paths: Vec<Polyline>,
     /// Origen de cada trayectoria de `paths`, en el mismo orden.
     pub meta: Vec<PathMeta>,
+    /// Puentes manuales de los objetos de esta operación (`DesignObject::manual_tabs`), por
+    /// posición del objeto en `Document::objects`, ya en el mismo sistema que `paths`.
+    pub manual_tabs: HashMap<usize, Vec<Point>>,
     pub images: Vec<PlacedImage>,
     /// Capa del documento de la que sale (posición en `Document::layers`).
     pub parent: usize,
@@ -125,6 +135,17 @@ fn placed_image(
         size_mm: (sw, sh),
         mirror_x: t[0] < 0.0,
         mirror_y: t[3] < 0.0,
+        mask: img
+            .mask
+            .iter()
+            .flat_map(|path| {
+                path.map_points(|p| {
+                    let [x, y] = affine::apply(t, [p.x, p.y]);
+                    Point::new(x, y)
+                })
+                .flatten(0.01)
+            })
+            .collect(),
     })
 }
 
@@ -153,9 +174,16 @@ fn add_object(
 ) -> bool {
     let mode = unit.settings.mode;
     let push_paths = |unit: &mut LayerWork| {
-        for path in obj.polylines().into_iter().filter(|p| !p.points.is_empty()) {
+        let mut paths: Vec<Polyline> = obj
+            .polylines()
+            .into_iter()
+            .filter(|p| !p.points.is_empty())
+            .collect();
+        // Punto de inicio y sentido elegidos a mano: se aplican aquí y el planificador los respeta.
+        let locked = start::lock_paths(&mut paths, obj.start.as_ref());
+        for (path, locked) in paths.into_iter().zip(locked) {
             unit.paths.push(path);
-            unit.meta.push(meta);
+            unit.meta.push(PathMeta { locked, ..meta });
         }
     };
     match (&obj.kind, mode) {
@@ -183,6 +211,105 @@ fn add_object(
         _ => return false,
     }
     true
+}
+
+/// Tope de copias virtuales por objeto (el mismo que el de los arreglos reales de la interfaz).
+pub(crate) const MAX_VIRTUAL_COPIES: usize = 2000;
+
+/// Transformaciones de las copias de un arreglo virtual (`DesignObject::array`), **sin** la
+/// original, en coordenadas del documento: la copia final es `compose(copia, objeto.transform)`.
+///
+/// - `Grid`: la original es la esquina inferior izquierda; las columnas van hacia la derecha y las
+///   filas hacia arriba, separadas `dx` y `dy` mm entre bordes de la caja del objeto (negativo =
+///   solapadas).
+/// - `Circular`: `count` piezas en total, contando la original, alrededor de `center`. Con
+///   `sweep_deg` de 360 o más se reparte sin repetir la original; con menos, incluye ambos
+///   extremos del arco. Con `rotate` cada copia gira con el arreglo; sin él, conserva la
+///   orientación y solo su centro recorre el arco.
+///
+/// Es la misma regla que `virtualCopies` de la interfaz (`apps/desktop/src/lib/virtualArray.ts`).
+/// Error con parámetros inválidos o más de [`MAX_VIRTUAL_COPIES`] copias.
+pub(crate) fn virtual_copies(obj: &DesignObject) -> Result<Vec<Transform>, String> {
+    let Some(array) = &obj.array else {
+        return Ok(Vec::new());
+    };
+    let bad = |what: &str| {
+        Err(format!(
+            "objeto '{}': arreglo virtual inválido ({what})",
+            obj.id
+        ))
+    };
+    match *array {
+        VirtualArray::Grid { cols, rows, dx, dy } => {
+            if cols == 0 || rows == 0 {
+                return bad("columnas y filas deben ser al menos 1");
+            }
+            if !(dx.is_finite() && dy.is_finite()) {
+                return bad("separación no numérica");
+            }
+            if (cols as usize).saturating_mul(rows as usize) > MAX_VIRTUAL_COPIES {
+                return bad(&format!("más de {MAX_VIRTUAL_COPIES} piezas"));
+            }
+            let Some(b) = obj.bounds() else {
+                return Ok(Vec::new());
+            };
+            let (sx, sy) = (b.max.x - b.min.x + dx, b.max.y - b.min.y + dy);
+            let mut out = Vec::with_capacity((cols * rows) as usize - 1);
+            for j in 0..rows {
+                for i in 0..cols {
+                    if i != 0 || j != 0 {
+                        out.push(affine::translate(f64::from(i) * sx, f64::from(j) * sy));
+                    }
+                }
+            }
+            Ok(out)
+        }
+        VirtualArray::Circular {
+            count,
+            center,
+            sweep_deg,
+            rotate,
+        } => {
+            if count == 0 {
+                return bad("al menos una pieza");
+            }
+            if !(center.iter().all(|v| v.is_finite()) && sweep_deg.is_finite()) {
+                return bad("centro o ángulo no numéricos");
+            }
+            if count as usize > MAX_VIRTUAL_COPIES {
+                return bad(&format!("más de {MAX_VIRTUAL_COPIES} piezas"));
+            }
+            let Some(b) = obj.bounds() else {
+                return Ok(Vec::new());
+            };
+            let n = f64::from(count);
+            let step = if sweep_deg.abs() >= 360.0 - 1e-9 {
+                sweep_deg / n
+            } else if count > 1 {
+                sweep_deg / (n - 1.0)
+            } else {
+                0.0
+            };
+            let (cx, cy) = (center[0], center[1]);
+            let (mx, my) = ((b.min.x + b.max.x) / 2.0, (b.min.y + b.max.y) / 2.0);
+            Ok((1..count)
+                .map(|k| {
+                    let rot = affine::rotate((f64::from(k) * step).to_radians());
+                    // Giro alrededor de `center`: T(c) · R · T(-c).
+                    let about = affine::compose(
+                        &affine::translate(cx, cy),
+                        &affine::compose(&rot, &affine::translate(-cx, -cy)),
+                    );
+                    if rotate {
+                        about
+                    } else {
+                        let [px, py] = affine::apply(&about, [mx, my]);
+                        affine::translate(px - mx, py - my)
+                    }
+                })
+                .collect())
+        }
+    }
 }
 
 /// Grupo de más afuera de una cadena `"g2/g1"` (de afuera hacia adentro); `None` si está vacía.
@@ -232,6 +359,7 @@ fn collect<'a>(
                 color: layer.color,
                 paths: Vec::new(),
                 meta: Vec::new(),
+                manual_tabs: HashMap::new(),
                 images: Vec::new(),
                 parent,
                 sub,
@@ -281,15 +409,43 @@ fn collect<'a>(
             fill_group: group.unwrap_or(groups.len() + idx) as u32,
             priority: obj.priority.unwrap_or(0),
             power_scale,
+            locked: false,
         };
         let ops = first[parent]..first[parent] + 1 + doc.layers[parent].sub_layers.len();
+        // Copias del arreglo virtual: el mismo objeto con otra transformación, sin existir en el documento.
+        let copies = match virtual_copies(obj) {
+            Ok(list) => list,
+            Err(e) => {
+                warnings.push(format!("{e}; se ignoran las copias"));
+                Vec::new()
+            }
+        };
+        let mut copy_obj = (!copies.is_empty()).then(|| obj.clone());
         for u in ops {
             let unit = &mut work[u];
+            if !obj.manual_tabs.is_empty() {
+                let points = obj.manual_tabs.iter().map(|p| Point::new(p[0], p[1]));
+                unit.manual_tabs.insert(idx, points.collect());
+            }
             if u != first[parent] && !unit.settings.output {
                 continue;
             }
             let main = u == first[parent];
-            if !add_object(unit, obj, meta, main, warnings) {
+            let added = add_object(unit, obj, meta, main, warnings);
+            if added && let Some(copy) = copy_obj.as_mut() {
+                // Los avisos de las copias son los del original: se da uno solo.
+                let mut sink = Vec::new();
+                for t in &copies {
+                    copy.transform = affine::compose(t, &obj.transform);
+                    add_object(unit, copy, meta, main, &mut sink);
+                }
+                if let Some(first_warning) = sink.first() {
+                    warnings.push(format!(
+                        "{first_warning} (en las copias del arreglo virtual)"
+                    ));
+                }
+            }
+            if !added {
                 if main {
                     warnings.push(format!(
                         "objeto '{}' {} ignorado: la capa {} es de modo {}",
@@ -434,6 +590,10 @@ pub(crate) fn place<'a>(
             p.x += dx;
             p.y += dy;
         }
+        for p in layer.manual_tabs.values_mut().flatten() {
+            p.x += dx;
+            p.y += dy;
+        }
         for img in &mut layer.images {
             img.origin.x += dx;
             img.origin.y += dy;
@@ -443,4 +603,204 @@ pub(crate) fn place<'a>(
         layers: work,
         start: target,
     })
+}
+
+#[cfg(test)]
+mod virtual_array_tests {
+    use super::*;
+    use tlaku_core::bezpath::BezPath;
+    use tlaku_doc::VectorObject;
+
+    const RED: Rgb = Rgb(255, 0, 0);
+
+    fn square(id: &str, x: f64, y: f64, s: f64) -> DesignObject {
+        DesignObject {
+            id: id.into(),
+            layer: RED,
+            transform: affine::IDENTITY,
+            kind: ObjectKind::Vector(VectorObject {
+                paths: vec![BezPath::from(&Polyline {
+                    points: vec![
+                        Point::new(x, y),
+                        Point::new(x + s, y),
+                        Point::new(x + s, y + s),
+                        Point::new(x, y + s),
+                    ],
+                    closed: true,
+                })],
+            }),
+            locked: false,
+            hidden: false,
+            group: None,
+            priority: None,
+            power_scale: None,
+            shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
+        }
+    }
+
+    fn doc_of(objects: Vec<DesignObject>) -> Document {
+        Document {
+            objects,
+            layers: vec![LayerSettings::for_color(RED)],
+            ..Document::default()
+        }
+    }
+
+    fn close(a: [f64; 2], b: [f64; 2]) {
+        assert!(
+            (a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9,
+            "{a:?} != {b:?}"
+        );
+    }
+
+    #[test]
+    fn without_array_there_are_no_copies() {
+        assert!(
+            virtual_copies(&square("a", 0.0, 0.0, 10.0))
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn grid_steps_from_edge_to_edge() {
+        let mut o = square("a", 5.0, 5.0, 10.0);
+        o.array = Some(VirtualArray::Grid {
+            cols: 3,
+            rows: 2,
+            dx: 2.0,
+            dy: 4.0,
+        });
+        let t = virtual_copies(&o).unwrap();
+        // 3 x 2 = 6 piezas: 5 copias, la original no se cuenta.
+        assert_eq!(t.len(), 5);
+        close(affine::apply(&t[0], [0.0, 0.0]), [12.0, 0.0]);
+        close(affine::apply(&t[1], [0.0, 0.0]), [24.0, 0.0]);
+        close(affine::apply(&t[2], [0.0, 0.0]), [0.0, 14.0]);
+        close(affine::apply(&t[4], [0.0, 0.0]), [24.0, 14.0]);
+    }
+
+    #[test]
+    fn circular_full_turn_does_not_repeat_the_original() {
+        let mut o = square("a", 10.0, -5.0, 10.0);
+        o.array = Some(VirtualArray::Circular {
+            count: 4,
+            center: [0.0, 0.0],
+            sweep_deg: 360.0,
+            rotate: true,
+        });
+        let t = virtual_copies(&o).unwrap();
+        assert_eq!(t.len(), 3);
+        // Cuartos de vuelta antihorarios alrededor del origen.
+        close(affine::apply(&t[0], [10.0, 0.0]), [0.0, 10.0]);
+        close(affine::apply(&t[1], [10.0, 0.0]), [-10.0, 0.0]);
+        close(affine::apply(&t[2], [10.0, 0.0]), [0.0, -10.0]);
+    }
+
+    #[test]
+    fn circular_arc_includes_both_ends_and_can_keep_orientation() {
+        let mut o = square("a", 10.0, -5.0, 10.0);
+        o.array = Some(VirtualArray::Circular {
+            count: 3,
+            center: [0.0, 0.0],
+            sweep_deg: 180.0,
+            rotate: false,
+        });
+        let t = virtual_copies(&o).unwrap();
+        assert_eq!(t.len(), 2);
+        // El centro de la caja (15, 0) recorre media vuelta; la orientación no cambia.
+        close(affine::apply(&t[0], [15.0, 0.0]), [0.0, 15.0]);
+        close(affine::apply(&t[1], [15.0, 0.0]), [-15.0, 0.0]);
+        for m in &t {
+            assert_eq!(&m[..4], &[1.0, 0.0, 0.0, 1.0]);
+        }
+    }
+
+    #[test]
+    fn invalid_arrays_are_reported() {
+        let mut o = square("a", 0.0, 0.0, 10.0);
+        o.array = Some(VirtualArray::Grid {
+            cols: 0,
+            rows: 2,
+            dx: 0.0,
+            dy: 0.0,
+        });
+        assert!(virtual_copies(&o).unwrap_err().contains("al menos 1"));
+        o.array = Some(VirtualArray::Grid {
+            cols: 100,
+            rows: 100,
+            dx: 0.0,
+            dy: 0.0,
+        });
+        assert!(virtual_copies(&o).unwrap_err().contains("más de"));
+        o.array = Some(VirtualArray::Circular {
+            count: 3,
+            center: [f64::NAN, 0.0],
+            sweep_deg: 360.0,
+            rotate: true,
+        });
+        assert!(virtual_copies(&o).is_err());
+    }
+
+    #[test]
+    fn place_expands_the_copies_into_the_layer() {
+        let mut o = square("a", 0.0, 0.0, 10.0);
+        o.array = Some(VirtualArray::Grid {
+            cols: 2,
+            rows: 2,
+            dx: 5.0,
+            dy: 5.0,
+        });
+        let doc = doc_of(vec![o, square("b", 100.0, 0.0, 10.0)]);
+        let mut warnings = Vec::new();
+        let placed = place(&doc, &JobOptions::default(), None, &mut warnings).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let work = &placed.layers[0];
+        // 4 piezas del arreglo + el objeto suelto.
+        assert_eq!(work.paths.len(), 5);
+        assert_eq!(work.meta.iter().filter(|m| m.object == 0).count(), 4);
+        let b = bounds_of(&work.paths).unwrap();
+        assert!((b.max.x - 110.0).abs() < 1e-9 && (b.max.y - 25.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn copies_follow_the_object_transform_and_the_selection() {
+        let mut o = square("a", 0.0, 0.0, 10.0);
+        o.transform = affine::translate(50.0, 0.0);
+        o.array = Some(VirtualArray::Grid {
+            cols: 3,
+            rows: 1,
+            dx: 0.0,
+            dy: 0.0,
+        });
+        let doc = doc_of(vec![o, square("b", 0.0, 100.0, 10.0)]);
+        let options = JobOptions {
+            selection: Some(vec!["a".into()]),
+            ..JobOptions::default()
+        };
+        let mut warnings = Vec::new();
+        let placed = place(&doc, &options, None, &mut warnings).unwrap();
+        let b = bounds_of(&placed.layers[0].paths).unwrap();
+        assert_eq!(placed.layers[0].paths.len(), 3);
+        assert!((b.min.x - 50.0).abs() < 1e-9 && (b.max.x - 80.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_broken_array_warns_and_keeps_the_original() {
+        let mut o = square("a", 0.0, 0.0, 10.0);
+        o.array = Some(VirtualArray::Grid {
+            cols: 0,
+            rows: 0,
+            dx: 0.0,
+            dy: 0.0,
+        });
+        let doc = doc_of(vec![o]);
+        let mut warnings = Vec::new();
+        let placed = place(&doc, &JobOptions::default(), None, &mut warnings).unwrap();
+        assert_eq!(placed.layers[0].paths.len(), 1);
+        assert!(warnings.iter().any(|w| w.contains("arreglo virtual")));
+    }
 }

@@ -1,6 +1,9 @@
 import type { DesignObject, Document, TextObject } from '@/api/types';
 import { transformBez, type BezPath } from '@/lib/bezpath';
 import { multiplyAffine } from '@/lib/geometry';
+import { displayContext, useVariablesUi } from '@/features/variables/context';
+import { resolveTemplate, type Issue, type VarContext } from '@/features/variables/resolve';
+import { isTemplate } from '@/features/variables/syntax';
 import { invertAffine } from './affine';
 
 /** Objeto del documento cuyo `kind` es un texto. */
@@ -63,7 +66,15 @@ function pathText(path: BezPath): string {
 }
 
 export type Resolved =
-  | { ok: true; sig: string; path: BezPath | null }
+  | {
+      ok: true;
+      sig: string;
+      path: BezPath | null;
+      /** Solo en textos con llaves: el texto con las variables ya sustituidas (o la plantilla, si así se pide). */
+      text?: string;
+      /** Variables que no se pudieron resolver (se dejan escritas en `text`). */
+      issues?: Issue[];
+    }
   /** `target`: el objeto guía no existe o no es un vector con trayectoria. */
   | { ok: false; reason: 'target' };
 
@@ -97,14 +108,25 @@ function guidePath(text: TextDesignObject, doc: Document): ResolvedPath {
  * la trayectoria guía vista desde el sistema local del texto (el contorno se dibuja con el
  * `transform` del texto, así que la guía se pasa ya con la inversa aplicada).
  */
-export function resolveText(obj: TextDesignObject, doc: Document): Resolved {
-  let key = paramsMemo.get(obj.kind);
-  if (key === undefined) {
-    key = paramsKey(obj.kind);
-    paramsMemo.set(obj.kind, key);
+export function resolveText(obj: TextDesignObject, doc: Document, ctx?: VarContext): Resolved {
+  let key: string;
+  let extra: { text: string; issues: Issue[] } | null = null;
+  if (isTemplate(obj.kind.text)) {
+    // Texto variable: la firma depende del texto ya resuelto, así que no se memoiza.
+    const template = ctx === undefined && useVariablesUi.getState().showTemplate;
+    const r = template ? { text: obj.kind.text, issues: [] } : resolveTemplate(obj.kind.text, ctx ?? displayContext(doc));
+    extra = r;
+    key = paramsKey({ ...obj.kind, text: r.text });
+  } else {
+    let memo = paramsMemo.get(obj.kind);
+    if (memo === undefined) {
+      memo = paramsKey(obj.kind);
+      paramsMemo.set(obj.kind, memo);
+    }
+    key = memo;
   }
-  if (!obj.kind.on_path) return { ok: true, sig: key, path: null };
+  if (!obj.kind.on_path) return { ok: true, sig: key, path: null, ...extra };
   const guide = guidePath(obj, doc);
   if (!guide) return { ok: false, reason: 'target' };
-  return { ok: true, sig: `${key}|${guide.hash}`, path: guide.path };
+  return { ok: true, sig: `${key}|${guide.hash}`, path: guide.path, ...extra };
 }

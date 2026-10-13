@@ -310,7 +310,9 @@ pub(crate) fn improve(
         flip: members.iter().map(|&g| ctx.sh.flip[g]).collect(),
         flippable: members
             .iter()
-            .map(|&g| ctx.items[g].path.closed || ctx.opts.choose_direction)
+            .map(|&g| {
+                ctx.items[g].path.closed || (ctx.opts.choose_direction && !ctx.items[g].locked)
+            })
             .collect(),
         parent: members
             .iter()
@@ -383,6 +385,9 @@ pub(crate) fn polish(ctx: &mut Ctx, order: &[usize], start: Point) {
             let next = (p + 1 < m).then(|| ctx.sh.entry(order[p + 1]));
             let cost =
                 |pin: Point, pout: Point| prev.dist(pin) + next.map_or(0.0, |n| pout.dist(n));
+            if ctx.items[i].locked {
+                continue;
+            }
             if ctx.items[i].path.closed {
                 if !ctx.opts.choose_start_point {
                     continue;

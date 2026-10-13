@@ -27,7 +27,10 @@ const INSERT_AFTER: Record<string, string[]> = {
   'file.open': ['@recent'],
   'edit.paste': ['edit.pasteInPlace'],
   'edit.selectAll': ['edit.selectInvert'],
-  'panel.console': ['panel.history'],
+  'panel.console': ['panel.history', 'panel.notes'],
+  'file.new': ['file.newFromTemplate', 'file.newWindow'],
+  'file.saveAs': ['file.saveTemplate'],
+  'view.priorityBadges': ['view.guides', 'view.guidesDialog', 'view.startMarks'],
 };
 
 const HELP_MENU: ShellMenu = {

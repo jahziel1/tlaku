@@ -38,9 +38,20 @@ export function activeConflicts(layer: LayerSettings): I18nKey[] {
   return out;
 }
 
-/** La potencia mínima de una capa de línea solo cambia algo con potencia dinámica (M4). */
-export function minPowerApplies(layer: Pick<LayerSettings, 'mode'>, powerMode: PowerMode): boolean {
-  return layer.mode === 'image' || (layer.mode === 'line' && powerMode === 'dynamic');
+/**
+ * La potencia mínima solo la usa el motor en las capas de imagen (la potencia de los puntos más
+ * claros). En una capa de línea no cambia el G-code: con potencia dinámica (M4) es la propia
+ * controladora la que baja la potencia en las esquinas, escalándola con la velocidad real, y GRBL
+ * (y los demás dialectos que Tlaku emite) no tienen un mínimo configurable. Por eso el campo se
+ * oculta en las capas de línea y se explica con `minPowerLineNote`.
+ */
+export function minPowerApplies(layer: Pick<LayerSettings, 'mode'>): boolean {
+  return layer.mode === 'image';
+}
+
+/** Una capa de línea con potencia dinámica (M4) explica por qué no tiene potencia mínima. */
+export function minPowerLineNote(layer: Pick<LayerSettings, 'mode'>, powerMode: PowerMode): boolean {
+  return layer.mode === 'line' && powerMode === 'dynamic';
 }
 
 export type AdvancedFeature =
@@ -52,7 +63,6 @@ export type AdvancedFeature =
   | 'cut_through'
   | 'dot_mode'
   | 'ramp'
-  | 'min_power'
   | 'tabs'
   | 'fill_style'
   | 'fill_grouping'
@@ -66,7 +76,7 @@ export type AdvancedFeature =
  * Ajustes avanzados que la capa ya usa y que el modo principiante oculta. Solo cuenta lo que el
  * modo de la capa muestra: un ajuste de línea en una capa de relleno no se aplica ni se oculta.
  */
-export function advancedInUse(layer: LayerSettings, powerMode: PowerMode = 'dynamic'): AdvancedFeature[] {
+export function advancedInUse(layer: LayerSettings): AdvancedFeature[] {
   const out: AdvancedFeature[] = [];
   const mode = layer.mode;
   if (mode === 'line') {
@@ -79,8 +89,7 @@ export function advancedInUse(layer: LayerSettings, powerMode: PowerMode = 'dyna
     if (layer.dot_mode.enabled) out.push('dot_mode');
     if (layer.ramp.enabled) out.push('ramp');
     if (layer.tabs.enabled) out.push('tabs');
-    if (minPowerApplies(layer, powerMode) && layer.min_power > 0) out.push('min_power');
-  }
+      }
   if (mode === 'fill') {
     if (layer.fill_style !== 'scan') out.push('fill_style');
     if (layer.fill_grouping !== 'all') out.push('fill_grouping');

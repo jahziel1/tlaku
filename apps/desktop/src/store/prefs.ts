@@ -1,5 +1,6 @@
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
 import { sanitizeLayerTemplate, type LayerTemplate } from '@/lib/layers';
+import { DEFAULT_DOCK_LAYOUT, sanitizeDockLayout, type DockLayout } from '@/lib/dockLayout';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
 import { detectLanguage, setLanguage } from '@/i18n';
 import { readPref, writePref } from '@/lib/platform';
@@ -51,6 +52,8 @@ export interface Prefs {
   jobChecklistItems: number;
   /** El diálogo de inicio exige tener marcadas las casillas de la lista antes de enviar. */
   jobChecklistRequired: boolean;
+  /** Orden y visibilidad de las pestañas del panel derecho (arrastrar para reordenar; ver `lib/dockLayout.ts`). */
+  dockLayout: DockLayout;
 }
 
 export type PrefKey = keyof Prefs;
@@ -82,6 +85,7 @@ export const PREF_SPECS: PrefSpecs = {
   beginnerMode: { kind: 'bool', default: false },
   jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
   jobChecklistRequired: { kind: 'bool', default: false },
+  dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
   layerDefaults: {
     kind: 'json',
     default: null,

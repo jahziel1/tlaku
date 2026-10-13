@@ -8,6 +8,9 @@ import type { CommandDef } from '../types';
  * Una tecla por herramienta. Funcionan en toda la ventana salvo al escribir en un campo
  * (no dependen de qué panel tiene el foco). Escape vuelve a Seleccionar.
  */
+/** Herramientas con su texto en el diccionario del área canvas (el resto usa `cmd.tool.*`). */
+const OWN_LABELS: Partial<Record<ToolId, I18nKey>> = { tabs: 'canvas.cmd.toolTabs', start: 'canvas.cmd.toolStart', trim: 'canvas.cmd.toolTrim' };
+
 const KEYS: Record<ToolId, string[]> = {
   select: ['V', 'Escape'],
   nodes: ['N'],
@@ -19,6 +22,9 @@ const KEYS: Record<ToolId, string[]> = {
   text: ['T'],
   pan: ['H'],
   measure: ['M'],
+  tabs: ['U'],
+  start: ['Q'],
+  trim: ['X'],
 };
 
 /**
@@ -54,6 +60,16 @@ const KEYS: Record<ToolId, string[]> = {
  *    flechas actúan sobre los nodos elegidos en lugar de sobre el objeto; el resto de teclas de
  *    nodos solo existen aquí y cada una hace una sola cosa. Esc sale a Seleccionar. Deshacer y
  *    rehacer funcionan siempre, con nodos elegidos o sin ellos.
+ *  - U `tool.tabs`: un clic sobre el contorno de un objeto pone un puente manual (se guarda en
+ *    `manual_tabs` y, en ese objeto, sustituye a los automáticos de la capa); un clic sobre un
+ *    puente ya puesto lo quita. Los puentes salen en el trabajo si la capa es de línea y tiene los
+ *    puentes encendidos; el ancho es el de la capa.
+ *  - Q `tool.start`: un clic sobre un contorno cerrado fija ahí su punto de inicio (se pega al
+ *    vértice más cercano; Alt lo suspende; Mayús+clic invierte el sentido del objeto y Ctrl/Cmd+clic
+ *    quita lo fijado). Una flecha muestra el inicio y el sentido; el comando «Invertir sentido»
+ *    (Organizar) también cambia el sentido. El planificador respeta lo fijado.
+ *  - X `tool.trim`: con los objetos que se cruzan seleccionados, un clic sobre un tramo entre dos
+ *    cruces lo borra (Mayús lo conserva como objeto aparte). Se resalta el tramo al pasar el puntero.
  *  - T `tool.text`: clic en vacío crea un texto ahí; clic en un texto lo selecciona. El doble clic
  *    sobre un texto con Seleccionar también pasa a editarlo.
  */
@@ -87,7 +103,7 @@ const nodeCommands: CommandDef[] = NODE_OPS.map<CommandDef>((op) => ({
 export const toolCommands: CommandDef[] = [
   ...TOOL_IDS.map<CommandDef>((tool) => ({
     id: `tool.${tool}`,
-    label: `cmd.tool.${tool}` as I18nKey,
+    label: (OWN_LABELS[tool] ?? `cmd.tool.${tool}`) as I18nKey,
     category: 'tools',
     shortcuts: KEYS[tool],
     checked: (s) => s.activeTool === tool,

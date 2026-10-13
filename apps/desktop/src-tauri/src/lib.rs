@@ -14,6 +14,8 @@ mod engine;
 mod machine;
 mod prefs;
 mod probe;
+mod templates;
+mod window;
 
 use commands::AppState;
 use tauri::{Manager, RunEvent};
@@ -52,9 +54,23 @@ pub fn run() {
             edit::text::list_fonts,
             edit::text::text_outline,
             edit::text::import_shx_fonts,
+            edit::variables::read_csv,
             edit::codes::generate_code,
             edit::geometry::geometry_op,
+            edit::nest::nest_start,
+            edit::nest::nest_poll,
+            edit::nest::nest_cancel,
+            edit::shape_ops::shape_op,
+            edit::design::warp_objects,
+            edit::design::hull_outline,
+            edit::design::tangent_circles,
             edit::trace::trace_image,
+            edit::trace::vectors_to_bitmap,
+            edit::trace::save_processed_image,
+            edit::art::art_import_svg,
+            edit::art::art_list_user,
+            edit::art::art_add_user,
+            edit::art::art_remove_user,
             edit::camera::detect_board,
             edit::camera::calibrate_lens,
             edit::camera::camera_marks,
@@ -81,6 +97,11 @@ pub fn run() {
             prefs::export_preferences,
             prefs::import_preferences,
             prefs::paths_exist,
+            templates::list_templates,
+            templates::save_template,
+            templates::load_template,
+            templates::delete_template,
+            window::new_window,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar la aplicación Tlaku");

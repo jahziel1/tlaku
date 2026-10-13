@@ -285,3 +285,79 @@
   border-top: 1px solid var(--border);
   overflow-y: auto;
 }
+
+/* ---- diálogos pequeños: convertir a mapa de bits y vectorizar por lotes ------------------ */
+.tr-modal--sm {
+  width: min(480px, 100%);
+  height: auto;
+  max-height: calc(100vh - 2 * var(--s-6));
+}
+.tr-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-6);
+  overflow-y: auto;
+}
+.tr-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.tr-batch {
+  width: min(1040px, 100%);
+}
+.tr-files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.tr-file {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.tr-file[aria-current='true'] {
+  border-color: var(--accent);
+}
+.tr-file__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.tr-file[data-status='error'] .tr-file__state {
+  color: var(--danger, #d33);
+}
+.tr-progress {
+  width: 100%;
+}
+
+.tr-chip {
+  padding: 2px var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.tr-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}

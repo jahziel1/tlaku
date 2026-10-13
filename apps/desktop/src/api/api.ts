@@ -19,19 +19,31 @@ import type {
   CameraSetup,
   MarksReport,
   DesignObject,
+  ImageObject,
+  LayerSettings,
   CodeResult,
   CodeSpec,
   FontFamily,
   GeometryOpArgs,
+  ShapeOpArgs,
+  ShapeOpResult,
+  HullArgs,
+  TangentArgs,
+  TangentCircle,
+  WarpArgs,
   MaterialLibrary,
   MaterialTestParams,
   TextObject,
   TextOutlineResult,
+  CsvTable,
   TraceResult,
   TraceSettings,
 } from './types';
 
+import type { AddArtResult, UserArt } from '@/features/art/types';
+import type { BitmapOptions, BitmapResult, ProcessedSummary } from '@/features/trace/types';
 import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
+import type { NestRequest, NestStatus } from '@/features/nest/types';
 
 export type Unlisten = () => void;
 
@@ -43,6 +55,14 @@ export interface RecoveryInfo {
   /** Proyecto del que viene la copia; null si nunca se guardó. */
   path: string | null;
   /** Momento de la copia, en milisegundos desde 1970. */
+  saved_at_ms: number;
+  size_bytes: number;
+}
+
+/** Plantilla de proyecto guardada en la carpeta de configuración (ver `src-tauri/src/templates.rs`). */
+export interface TemplateInfo {
+  name: string;
+  /** Última modificación, en milisegundos desde 1970. */
   saved_at_ms: number;
   size_bytes: number;
 }
@@ -157,11 +177,50 @@ export interface LaserApi {
   textOutline(args: { text: TextObject; path: BezPath | null }): Promise<TextOutlineResult>;
   /** Importa fuentes SHX de AutoCAD; devuelve los nombres con que quedan disponibles en `listFonts`. */
   importShxFonts(args: { paths: string[] }): Promise<string[]>;
+  /**
+   * Lee el CSV del texto variable (UTF-8 con o sin BOM; separador `,`, `;` o tabulador). Con
+   * `required` falla si falta alguna de esas columnas (por nombre o número desde 1).
+   */
+  readCsv(args: { path: string; required?: string[] }): Promise<CsvTable>;
   /** QR o código de barras como formas cerradas (rellenables). */
   generateCode(args: { spec: CodeSpec }): Promise<CodeResult>;
   /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
   geometryOp(args: GeometryOpArgs): Promise<DesignObject[]>;
+  /** Recortar, separar, optimizar, redondear esquinas, cortar formas y redimensionar ranuras (ola 3). */
+  shapeOp(args: ShapeOpArgs): Promise<ShapeOpResult>;
+  /** Deforma los objetos con una envolvente de cuatro bordes Bézier; cada uno vuelve con su id, vectorial. */
+  warpObjects(args: WarpArgs): Promise<DesignObject[]>;
+  /** Una forma cerrada con el casco convexo (o cóncavo, con `max_edge`) de los objetos. */
+  hullOutline(args: HullArgs): Promise<DesignObject[]>;
+  /** Círculos tangentes a 2 o 3 operandos, de menor a mayor radio; vacío si no hay solución. */
+  tangentCircles(args: TangentArgs): Promise<TangentCircle[]>;
   traceImage(args: { path: string; settings: TraceSettings; size_mm: [number, number] }): Promise<TraceResult>;
+  /**
+   * Convierte las formas de `selection` (vectores y texto) en un PNG negro sobre blanco a `options.dpi`,
+   * escrito en `dir` (o en la carpeta temporal si es `null`) con el nombre `<stem>-bitmap-<n>.png`.
+   * Devuelve dónde queda la imagen en el documento.
+   */
+  vectorsToBitmap(args: { doc: Document; selection: string[]; dir: string | null; stem: string; options: BitmapOptions }): Promise<BitmapResult>;
+  /** Guarda como PNG lo que se grabaría de una imagen con los ajustes de imagen de su capa (y su máscara). */
+  saveProcessedImage(args: { image: ImageObject; layer: LayerSettings; path: string }): Promise<ProcessedSummary>;
+  /** Importa el texto de un SVG (curvas, mm); con `target_layer` (`#rrggbb`) todo cae en esa capa. */
+  artImportSvg(args: { svg: string; target_layer: string | null }): Promise<ImportResult>;
+  /** SVG propios del usuario, en `<configuración>/art/`. */
+  artListUser(): Promise<UserArt[]>;
+  /** Copia SVG a la biblioteca del usuario; los que no se leen como dibujo se devuelven en `errors`. */
+  artAddUser(args: { paths: string[] }): Promise<AddArtResult>;
+  artRemoveUser(args: { name: string }): Promise<void>;
+
+  // Nesting: acomodar piezas en la cama o en un material irregular
+  /**
+   * Arranca el cálculo en segundo plano y devuelve el `job_id`. Rechaza con un mensaje en español si
+   * la petición no es válida. Un `nestStart` nuevo cancela el anterior.
+   */
+  nestStart(args: { request: NestRequest }): Promise<string>;
+  /** Mejor solución hasta ahora; se sondea cada ~250 ms mientras `running`. */
+  nestPoll(args: { job_id: string }): Promise<NestStatus>;
+  /** Pide parar; el siguiente `nestPoll` devuelve `running: false` con la mejor solución. */
+  nestCancel(args: { job_id: string }): Promise<void>;
 
   // Cámara (fase 3): las imágenes viajan como PNG en base64, sin prefijo data:.
   /** Esquinas internas del tablero en píxeles, o `null` si no se encontró. */
@@ -227,6 +286,16 @@ export interface LaserApi {
   autosaveRead(args: { id: string }): Promise<Document>;
   autosaveDiscard(args: { id: string }): Promise<void>;
 
+  // Plantillas de proyecto (ola 3)
+  /** Plantillas guardadas, por nombre. */
+  listTemplates(): Promise<TemplateInfo[]>;
+  /** Guarda (o reemplaza) la plantilla `name` con el diseño, las capas y los ajustes de `doc`. */
+  saveTemplate(args: { name: string; doc: Document }): Promise<TemplateInfo>;
+  loadTemplate(args: { name: string }): Promise<Document>;
+  deleteTemplate(args: { name: string }): Promise<void>;
+  /** Abre otra ventana de la app con un documento independiente (comparte la máquina y las preferencias). Devuelve su etiqueta. */
+  newWindow(): Promise<string>;
+
   // Formatos de archivo (ola 1)
   /**
    * Importa con las opciones del diálogo de importación (escala, DPI de SVG e imágenes, unidad de
@@ -275,9 +344,23 @@ export const COMMAND_NAMES = {
   listFonts: 'list_fonts',
   textOutline: 'text_outline',
   importShxFonts: 'import_shx_fonts',
+  readCsv: 'read_csv',
   generateCode: 'generate_code',
   geometryOp: 'geometry_op',
+  shapeOp: 'shape_op',
+  warpObjects: 'warp_objects',
+  hullOutline: 'hull_outline',
+  tangentCircles: 'tangent_circles',
   traceImage: 'trace_image',
+  vectorsToBitmap: 'vectors_to_bitmap',
+  saveProcessedImage: 'save_processed_image',
+  artImportSvg: 'art_import_svg',
+  artListUser: 'art_list_user',
+  artAddUser: 'art_add_user',
+  artRemoveUser: 'art_remove_user',
+  nestStart: 'nest_start',
+  nestPoll: 'nest_poll',
+  nestCancel: 'nest_cancel',
   detectBoard: 'detect_board',
   calibrateLens: 'calibrate_lens',
   loadCameraSetup: 'load_camera_setup',
@@ -304,6 +387,11 @@ export const COMMAND_NAMES = {
   autosaveList: 'autosave_list',
   autosaveRead: 'autosave_read',
   autosaveDiscard: 'autosave_discard',
+  listTemplates: 'list_templates',
+  saveTemplate: 'save_template',
+  loadTemplate: 'load_template',
+  deleteTemplate: 'delete_template',
+  newWindow: 'new_window',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [

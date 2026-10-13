@@ -28,7 +28,7 @@ describe('Vectorizar imagen…', () => {
   const vector = sampleObjects().find((o) => o.kind.type === 'vector')!;
 
   it('está en el menú Herramientas', () => {
-    expect(traceCommands.map((c) => c.category)).toEqual(['tools']);
+    expect(new Set(traceCommands.map((c) => c.category))).toEqual(new Set(['tools']));
     expect(commands.get('tools.traceImage')).toBeDefined();
   });
 

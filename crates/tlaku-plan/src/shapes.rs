@@ -60,7 +60,8 @@ impl Shapes {
 
 /// Puntos por los que se puede empezar la figura `i`: (elemento, índice de punto, coordenada).
 /// Cerradas: todos los vértices (o solo el primero); abiertas: los dos extremos (o solo el
-/// inicio) con índice 0 = inicio, 1 = final.
+/// inicio) con índice 0 = inicio, 1 = final. Una figura fijada por el usuario (`locked`) solo
+/// ofrece la entrada que ya trae.
 pub(crate) fn push_entries(
     items: &[PlanItem],
     opts: &PlanOptions,
@@ -69,14 +70,14 @@ pub(crate) fn push_entries(
 ) {
     let path = &items[i].path;
     if path.closed {
-        if opts.choose_start_point {
+        if opts.choose_start_point && !items[i].locked {
             out.extend(path.points.iter().enumerate().map(|(v, &p)| (i, v, p)));
         } else {
             out.push((i, 0, path.points[0]));
         }
     } else {
         out.push((i, 0, path.points[0]));
-        if opts.choose_direction {
+        if opts.choose_direction && !items[i].locked {
             out.push((i, 1, path.points[path.points.len() - 1]));
         }
     }

@@ -8,9 +8,11 @@ use crate::place::{LayerWork, PathMeta, PlacedImage, place};
 use crate::preview::preview;
 use crate::rotary;
 use crate::scan_offset;
+use crate::start;
 use crate::stroke::{self, ShapeCtx, StrokeSpec, StrokeStats};
 use crate::tabs::{self, TabSpec, TabStats};
 use crate::zaxis::{self, LayerZ};
+use std::collections::HashMap;
 use std::f64::consts::FRAC_PI_2;
 use std::path::Path;
 use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
@@ -158,6 +160,8 @@ struct LineCtx {
     meta: Vec<PathMeta>,
     /// Las trayectorias antes de compensar el kerf (que las reordena y regrupa).
     src: Vec<Polyline>,
+    /// Puentes manuales por objeto (posición en `Document::objects`); ver `tabs::assign_manual`.
+    manual: HashMap<usize, Vec<Point>>,
     /// Opciones del planificador (la posición de partida la pone `line_layer`).
     plan: PlanOptions,
     /// Ajustes de trazo de la capa (perforación, entradas, pausas...); ver `stroke`.
@@ -168,8 +172,9 @@ impl LineCtx {
     /// Después del kerf las trayectorias cambian de número y de orden: cada una hereda los datos
     /// de la trayectoria original más cercana a su primer punto (el kerf solo las desplaza `|kerf|`
     /// a cada lado, así que su origen sigue siendo la más próxima). Es aproximado si dos objetos
-    /// están a menos de un kerf entre sí.
-    fn realign(&mut self, after: &[Polyline]) {
+    /// están a menos de un kerf entre sí. Una trayectoria con inicio o sentido fijados por el
+    /// usuario conserva ambos tras la compensación (`start::follow`).
+    fn realign(&mut self, after: &mut [Polyline]) {
         let seg_dist = |p: Point, path: &Polyline| -> f64 {
             let pts = &path.points;
             let n = pts.len();
@@ -193,7 +198,7 @@ impl LineCtx {
         };
         let meta = std::mem::take(&mut self.meta);
         self.meta = after
-            .iter()
+            .iter_mut()
             .map(|path| {
                 let nearest = path.points.first().and_then(|&p| {
                     self.src
@@ -203,9 +208,13 @@ impl LineCtx {
                         .map(|(i, s)| (i, seg_dist(p, s)))
                         .min_by(|a, b| a.1.total_cmp(&b.1))
                 });
-                nearest
-                    .and_then(|(i, _)| meta.get(i).copied())
-                    .unwrap_or(PathMeta::NONE)
+                let found = nearest.and_then(|(i, _)| meta.get(i).copied().map(|m| (i, m)));
+                if let Some((i, m)) = found
+                    && m.locked
+                {
+                    start::follow(&self.src[i], path);
+                }
+                found.map_or(PathMeta::NONE, |(_, m)| m)
             })
             .collect();
     }
@@ -335,13 +344,24 @@ impl Builder<'_> {
                 ));
             }
             paths = tlaku_geom::kerf_compensate(&paths, kerf_mm);
-            self.line.realign(&paths);
+            self.line.realign(&mut paths);
         }
         // Los puentes van después del kerf (se parte el contorno ya compensado). Qué formas los
         // admiten se decide con todo el conjunto, porque "dentro de otra" depende de las demás.
         let eligible = tabs
             .as_ref()
             .map(|t| tlaku_geom::tab_eligible(&paths, t.skip_inner));
+        // Los objetos con puentes puestos a mano usan solo esos (ver `tabs::assign_manual`).
+        let objects: Vec<usize> = (0..paths.len())
+            .map(|i| self.line.meta.get(i).map_or(usize::MAX, |m| m.object))
+            .collect();
+        let manual = tabs::assign_manual(&paths, &objects, &self.line.manual);
+        if tabs.is_none() && manual.iter().any(Option::is_some) {
+            self.warnings.push(format!(
+                "capa {name}: hay objetos con puentes manuales, pero los puentes de la capa están \
+                 desactivados (actívalos para que se respeten)"
+            ));
+        }
         let items: Vec<PlanItem> = paths
             .into_iter()
             .enumerate()
@@ -353,6 +373,7 @@ impl Builder<'_> {
                     layer_order: self.layers.len() + 1,
                     group: meta.group,
                     priority: meta.priority,
+                    locked: meta.locked,
                 }
             })
             .collect();
@@ -387,8 +408,11 @@ impl Builder<'_> {
                 .get(step.item)
                 .map_or(1.0, |m| m.power_scale / 100.0);
             let power = stroke::scaled_power(settings.power_pct, scale, &mut sstats);
-            let pieces = match (&tabs, &eligible) {
-                (Some(spec), Some(ok)) if ok[step.item] => {
+            let pieces = match (&tabs, &eligible, &manual[step.item]) {
+                (Some(spec), _, Some(points)) => {
+                    tabs::split_manual(&step.path, points, spec.options.width_mm, &mut stats)
+                }
+                (Some(spec), Some(ok), None) if ok[step.item] => {
                     tabs::split(&step.path, spec, &mut stats)
                 }
                 _ => vec![step.path.clone()],
@@ -753,8 +777,10 @@ impl Builder<'_> {
             ..Default::default()
         };
         let (w, h) = img.size_mm;
-        let bitmap =
+        let mut bitmap =
             tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?;
+        // Máscara de recorte: lo que queda fuera de las formas no se graba.
+        tlaku_raster::apply_mask(&mut bitmap, img.origin, &img.mask);
         let mut blocks = Vec::new();
         let mut overscan_mm = raster.overscan_mm;
         for k in 0..if varied { r.passes } else { 1 } {
@@ -1032,9 +1058,13 @@ pub fn build(
             Resolved::Vector(ResolvedLayer::Line { settings, kerf_mm }) => {
                 let mut paths: Vec<Polyline> = Vec::new();
                 let mut meta = Vec::new();
+                let mut manual: HashMap<usize, Vec<Point>> = HashMap::new();
                 for &k in step {
                     paths.extend(work[k].paths.iter().cloned());
                     meta.extend(work[k].meta.iter().copied());
+                    for (o, pts) in &work[k].manual_tabs {
+                        manual.entry(*o).or_insert_with(|| pts.clone());
+                    }
                 }
                 if optimization.remove_overlaps {
                     if *kerf_mm != 0.0 {
@@ -1063,6 +1093,7 @@ pub fn build(
                         Vec::new()
                     },
                     meta,
+                    manual,
                     plan: plan_options.clone(),
                     stroke: stroke_specs[i].clone(),
                 };

@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { base } from './es';
 import { detectLanguage, en, es, getLanguage, locale, setLanguage, t } from './index';
 import { arrange } from './es/arrange';
+import { design } from './es/design';
+import { art } from './es/art';
 import { camera } from './es/camera';
 import { canvas } from './es/canvas';
 import { catalog } from './es/catalog';
@@ -17,8 +19,13 @@ import { preview } from './es/preview';
 import { prefs } from './es/prefs';
 import { text } from './es/text';
 import { trace } from './es/trace';
+import { variables } from './es/variables';
+import { nest } from './es/nest';
+import { shapes } from './es/shapes';
 import { materials } from './es/materials';
 import { arrange as en_arrange } from './en/arrange';
+import { design as en_design } from './en/design';
+import { art as en_art } from './en/art';
 import { camera as en_camera } from './en/camera';
 import { canvas as en_canvas } from './en/canvas';
 import { catalog as en_catalog } from './en/catalog';
@@ -35,11 +42,14 @@ import { preview as en_preview } from './en/preview';
 import { prefs as en_prefs } from './en/prefs';
 import { text as en_text } from './en/text';
 import { trace as en_trace } from './en/trace';
+import { variables as en_variables } from './en/variables';
+import { nest as en_nest } from './en/nest';
+import { shapes as en_shapes } from './en/shapes';
 import { base as en_base } from './en/base';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { canvas, help, history, layers, machine, preview, arrange, text, nodes, trace, camera, materials, devices, catalog, prefs, codes, fileio };
+    const areas = { art, canvas, help, history, layers, machine, preview, arrange, design, text, nodes, trace, nest, shapes, camera, materials, devices, catalog, prefs, codes, fileio, variables };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -51,6 +61,8 @@ type Dict = Record<string, string | undefined>;
 const AREAS: Record<string, { es: Dict; en: Dict }> = {
   base: { es: base, en: en_base },
   arrange: { es: arrange, en: en_arrange },
+  design: { es: design, en: en_design },
+  art: { es: art, en: en_art },
   camera: { es: camera, en: en_camera },
   canvas: { es: canvas, en: en_canvas },
   catalog: { es: catalog, en: en_catalog },
@@ -63,10 +75,13 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   machine: { es: machine, en: en_machine },
   materials: { es: materials, en: en_materials },
   nodes: { es: nodes, en: en_nodes },
+  nest: { es: nest, en: en_nest },
+  shapes: { es: shapes, en: en_shapes },
   preview: { es: preview, en: en_preview },
   prefs: { es: prefs, en: en_prefs },
   text: { es: text, en: en_text },
   trace: { es: trace, en: en_trace },
+  variables: { es: variables, en: en_variables },
 };
 
 /**

@@ -67,6 +67,11 @@ export interface ImportDialogOptions {
   /** DXF sin unidades: mm que vale una unidad del dibujo; `null` = milímetros. */
   dxf_unit_mm: number | null;
   group: boolean;
+  /**
+   * Agrupa por contención al importar (D31): cada pieza con los huecos y grabados que quedan dentro de
+   * su contorno. Lo hace la interfaz después de importar (`lib/autogroup.ts`); el motor no lo recibe.
+   */
+  auto_group: boolean;
   /** Capa destino de los vectores (`#rrggbb`); `null` = una capa por color. */
   target_layer: string | null;
   /** PDF y AI: página a importar, desde 1. */
@@ -80,6 +85,7 @@ export const DEFAULT_IMPORT_OPTIONS: ImportDialogOptions = {
   dpi: null,
   dxf_unit_mm: null,
   group: false,
+  auto_group: false,
   target_layer: null,
   pdf_page: 1,
   gcode_by_power: true,

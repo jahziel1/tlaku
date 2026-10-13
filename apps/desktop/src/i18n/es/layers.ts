@@ -264,7 +264,8 @@ export const layers = {
   'layers.beginner.hiddenInUse': 'Esta capa usa ajustes avanzados que el modo principiante oculta. Se siguen aplicando; apaga el modo para verlos o cambiarlos.',
 
   // ---- potencia mínima y ángulo ------------------------------------------------------------------------
-  'layers.help.minPowerLine': 'Con potencia dinámica (M4) la máquina baja la potencia cuando el cabezal frena, por ejemplo en las esquinas. Este es el mínimo al que puede bajar: 0 % la deja bajar hasta apagarse. No puede superar la potencia de la capa.',
+  'layers.note.minPowerLine':
+    'Una capa de línea no tiene potencia mínima: con potencia dinámica (M4) es la controladora la que baja la potencia en las esquinas, según la velocidad real, y GRBL no permite fijarle un mínimo desde el G-code. La potencia mínima solo cuenta en las capas de imagen.',
   'layers.angleIncrement': 'Incremento de ángulo',
   'layers.angleIncrement.live': 'Solo se nota con 2 o más pasadas.',
   'layers.help.angleIncrement': 'Grados que se suman al ángulo de barrido en cada pasada. Con 2 pasadas y 90° la segunda cruza la primera; con incrementos pequeños el grabado se reparte y se notan menos las rayas.',

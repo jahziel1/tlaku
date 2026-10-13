@@ -28,6 +28,7 @@ import type { PreviewLayer } from '@/bindings/PreviewLayer';
 import type { StartFrom } from '@/bindings/StartFrom';
 import type { ImageObject } from '@/bindings/ImageObject';
 import type { VectorObject } from '@/bindings/VectorObject';
+import type { VariableText } from '@/bindings/VariableText';
 import type { BufferStatus } from '@/bindings/BufferStatus';
 import type { ConnectResult } from '@/bindings/ConnectResult';
 import type { ConnectionEvent } from '@/bindings/ConnectionEvent';
@@ -53,8 +54,14 @@ import type { MaterialPreset } from '@/bindings/MaterialPreset';
 import type { MaterialTestParams } from '@/bindings/MaterialTestParams';
 import type { TestAxis } from '@/bindings/TestAxis';
 import type { TestParam } from '@/bindings/TestParam';
+import type { Guide } from '@/bindings/Guide';
+import type { GuideAxis } from '@/bindings/GuideAxis';
+import type { StartSpec } from '@/bindings/StartSpec';
 
 export type {
+  Guide,
+  GuideAxis,
+  StartSpec,
   BezPath,
   BufferStatus,
   ConnectResult,
@@ -98,6 +105,7 @@ export type {
   TextObject,
   TextOnPath,
   VectorObject,
+  VariableText,
 };
 export type DeviceOrigin = Origin;
 export type ImageDitherMode = ImageMode;
@@ -176,6 +184,16 @@ export interface CodeResult {
 export interface TextOutlineResult {
   paths: BezPath[];
   warnings: string[];
+}
+
+/** CSV del texto variable (comando `read_csv`). */
+export interface CsvTable {
+  /** Nombres de columna (primera fila). */
+  headers: string[];
+  /** Filas de datos; cada una con al menos tantas celdas como encabezados. */
+  rows: string[][];
+  /** Separador detectado: `,`, `;` o tabulador. */
+  delimiter: string;
 }
 
 /**
@@ -364,4 +382,118 @@ export interface CameraSetup {
   calibration: LensCalibration | null;
   alignment: CameraAlignment | null;
   prefs: CameraPrefs;
+}
+
+// ---- Diseño avanzado (ola 3): deformar, contorno envolvente y círculo tangente ----------------------
+
+/** Borde Bézier cúbico de una envolvente: inicio, dos controles y fin. */
+export type EnvelopeEdge = [Point, Point, Point, Point];
+
+/**
+ * Envolvente de la deformación: `bottom` y `top` van de izquierda a derecha; `left` y `right`, de
+ * abajo hacia arriba. Las esquinas las fijan `bottom` y `top`.
+ */
+export interface WarpEnvelope {
+  bottom: EnvelopeEdge;
+  top: EnvelopeEdge;
+  left: EnvelopeEdge;
+  right: EnvelopeEdge;
+}
+
+export interface WarpArgs {
+  /** Objetos en coordenadas de documento; vuelven vectoriales, con el mismo id, y con transform identidad. */
+  objects: DesignObject[];
+  /** Región de origen que la envolvente deforma (normalmente la caja de la selección). */
+  bounds: [Point, Point];
+  envelope: WarpEnvelope;
+  /** Error máximo (mm) de las curvas deformadas; por defecto 0,01. */
+  tolerance?: number;
+}
+
+export interface HullArgs {
+  objects: DesignObject[];
+  /** Con valor: casco cóncavo con aristas de a lo sumo estos mm donde se pueda; sin valor: convexo. */
+  max_edge?: number | null;
+  /** Capa (`#rrggbb`) del contorno; por defecto la del primer objeto. */
+  layer?: string | null;
+}
+
+export interface TangentArgs {
+  /** Dos o tres operandos (un grupo viaja como un solo objeto). */
+  objects: DesignObject[];
+  /** Obligatorio con dos operandos; con tres sale de las formas y se ignora. */
+  radius?: number | null;
+}
+
+export interface TangentCircle {
+  center: Point;
+  radius: number;
+}
+
+/** Copias virtuales de un objeto (`DesignObject.array`): rejilla o circular. */
+export type { VirtualArray } from '@/bindings/VirtualArray';
+
+// --- Operaciones de forma (ola 3): recortar, separar, optimizar, redondear, cortar y ranuras ---
+
+/**
+ * `trim`: borra el tramo de trazo más cercano a `point` entre dos intersecciones;
+ * `break_apart`: un objeto por subtrayecto; `optimize`: menos nodos con un error acotado;
+ * `fillet`: redondea, achaflana o muerde las esquinas de recta con recta;
+ * `cut_shapes`: una forma cerrada (`knife_id`) parte a las demás en lo de dentro y lo de fuera;
+ * `resize_slots`: cambia ranuras de un ancho a otro.
+ */
+export type ShapeOp = 'trim' | 'break_apart' | 'optimize' | 'fillet' | 'cut_shapes' | 'resize_slots';
+
+export type FilletKind = 'round' | 'chamfer' | 'bite';
+export type SlotAnchor = 'center' | 'start' | 'end';
+
+/** Cada operación lee solo sus parámetros (ver `edit/shape_ops.rs`). */
+export interface ShapeParams {
+  point?: Point;
+  max_dist?: number;
+  keep_removed?: boolean;
+  keep_holes?: boolean;
+  tolerance?: number;
+  smooth?: boolean;
+  corner_angle?: number;
+  radius?: number;
+  style?: FilletKind;
+  /** `fillet`: solo las esquinas en estos puntos (mm, documento). */
+  nodes?: Point[];
+  knife_id?: string;
+  close_pieces?: boolean;
+  keep_knife?: boolean;
+  from_width?: number;
+  to_width?: number;
+  anchor?: SlotAnchor;
+  notches?: boolean;
+  holes?: boolean;
+  tabs?: boolean;
+}
+
+export interface ShapeOpArgs {
+  op: ShapeOp;
+  objects: DesignObject[];
+  params?: ShapeParams;
+}
+
+/** Números del resultado; lo que una operación no usa viene en 0 o vacío. */
+export interface ShapeStats {
+  count: number;
+  skipped: number;
+  clamped: number;
+  produced: number;
+  found: number;
+  nodes_before: number;
+  nodes_after: number;
+  /** `resize_slots`: `[ancho, cuántas]` de cada ancho detectado. */
+  widths: [number, number][];
+  /** `trim`: puntos del tramo que se borra. */
+  removed: Point[];
+}
+
+/** Misma convención de resultado que `join`/`close`/`dedupe`: la lista completa de objetos de entrada. */
+export interface ShapeOpResult {
+  objects: DesignObject[];
+  stats: ShapeStats;
 }

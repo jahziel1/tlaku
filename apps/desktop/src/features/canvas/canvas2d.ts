@@ -5,7 +5,10 @@ import { gridSteps, worldToScreen, type ViewTransform } from '@/lib/viewport';
 import { boxesIntersect, chunkPath, fillPath, getGeom, visibleBox, type Box, type ObjectGeom } from './geom';
 import { backdropKeyOf, paintBackdrop, sameBackdropKey, type BackdropKey } from './backdrop';
 import { frameRect, handleSpots } from './handles';
+import { bezToPath2D } from '@/lib/maskClip';
 import { ImageCache } from './imageSource';
+import { drawMarks } from './marksDraw';
+import { drawVirtualCopies } from './virtualDraw';
 import { drawPreview } from './previewLayer';
 import type { CanvasPalette, Renderer, Scene } from './renderer';
 import { boundsOf, keepsAxes, canRotate as selectionCanRotate } from './transform';
@@ -103,6 +106,7 @@ export class Canvas2DRenderer implements Renderer {
     this.drawBed(ctx, scene);
     const selected = scene.objects.filter((o) => scene.selectedIds.has(o.id));
     this.drawObjects(ctx, scene);
+    drawVirtualCopies(ctx, scene, this.dpr);
     if (scene.preview) {
       drawPreview(ctx, scene);
       this.drawPreviewBounds(ctx, scene);
@@ -115,6 +119,7 @@ export class Canvas2DRenderer implements Renderer {
     this.drawMeasure(ctx, scene);
     this.drawDraft(ctx, scene);
     this.drawGuides(ctx, scene);
+    drawMarks(ctx, scene, this.dpr);
     this.drawSnapMark(ctx, scene);
     this.drawMarquee(ctx, scene);
     this.drawOrigin(ctx, view, scene.bed, p);
@@ -415,6 +420,9 @@ export class Canvas2DRenderer implements Renderer {
       ctx.save();
       const [a, b, c, d, e, f] = obj.transform;
       ctx.transform(a, b, c, d, e, f);
+      // Máscara de recorte (D81): solo se ve lo que queda dentro, en coordenadas locales de la imagen.
+      const mask = obj.kind.mask;
+      if (mask && mask.length > 0) ctx.clip(bezToPath2D(mask), 'evenodd');
       ctx.transform(1, 0, 0, -1, 0, h); // el documento tiene Y hacia arriba: la imagen se dibuja derecha
       ctx.drawImage(img, 0, 0, w, h);
       ctx.restore();

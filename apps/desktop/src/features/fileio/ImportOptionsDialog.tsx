@@ -117,7 +117,10 @@ export function ImportOptionsDialog({ fileCount, kinds, layers, onDone }: Props)
             </select>
           </div>
         )}
-        <CheckRow label={t('fileio.import.group')} checked={o.group} onChange={(group) => patch({ group })} />
+        <CheckRow label={t('fileio.import.group')} checked={o.group} onChange={(group) => patch({ group, auto_group: group ? false : o.auto_group })} />
+        {kinds.vector && (
+          <CheckRow label={t('fileio.import.autoGroup')} checked={o.auto_group} onChange={(auto_group) => patch({ auto_group, group: auto_group ? false : o.group })} />
+        )}
       </div>
       <div className="modal__foot">
         <button type="button" className="btn" onClick={() => onDone(null)}>{t('fileio.import.cancel')}</button>

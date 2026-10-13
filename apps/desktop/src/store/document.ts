@@ -1,4 +1,5 @@
-import type { Affine, DesignObject, Document, ImportResult, LayerSettings } from '@/api/types';
+import type { Affine, DesignObject, Document, Guide, ImportResult, LayerSettings } from '@/api/types';
+import { followAnchors } from '@/lib/anchors';
 import type { I18nKey } from '@/i18n';
 import { bezPointCount } from '@/lib/bezpath';
 import { multiplyAffine, transformKind, translateAffine } from '@/lib/geometry';
@@ -76,6 +77,15 @@ export interface DocumentSlice {
    */
   transformObjects: (ids: string[], matrix: Affine, key?: string, label?: I18nKey) => void;
   addObjects: (objects: DesignObject[], label?: I18nKey) => void;
+  /** Texto de las notas del proyecto (se guarda con el documento). Teclear seguido es un solo paso de deshacer. */
+  setNotes: (notes: string) => void;
+  /** Sustituye todas las guías del documento. */
+  setGuides: (guides: Guide[], label?: I18nKey) => void;
+  /** Agrega una guía y devuelve su posición en la lista (o -1 si no se agregó). */
+  addGuide: (guide: Guide) => number;
+  /** Cambia la guía `index`; las demás no se tocan. */
+  updateGuide: (index: number, patch: Partial<Guide>, key?: string) => void;
+  removeGuide: (index: number) => void;
   /** Nuevo orden de capas por color; los colores omitidos conservan su orden relativo al final. */
   reorderLayers: (colors: string[]) => void;
   /**
@@ -191,7 +201,8 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
   const commit = (label: I18nKey, change: (doc: Document) => Document, key?: string): void => {
     const { doc, past, savedDoc } = get();
     // Las formas paramétricas conservan sus parámetros coherentes con el contorno (ver `lib/paramShape`).
-    const next = reconcileShapes(doc, change(doc));
+    // Puentes manuales e inicio fijado siguen al objeto cuando el cambio lo mueve (ver `lib/anchors`).
+    const next = followAnchors(doc, reconcileShapes(doc, change(doc)));
     if (next === doc) return;
     const now = Date.now();
     const last = past[past.length - 1];
@@ -424,6 +435,43 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     },
 
     applyDocChange: (label, change, key) => commit(label, change, key),
+
+    setNotes: (notes) =>
+      commit('canvas.history.notes', (doc) => ((doc.notes ?? '') === notes ? doc : { ...doc, notes }), 'notes'),
+
+    setGuides: (guides, label = 'canvas.history.guides') =>
+      commit(label, (doc) => {
+        const old = doc.guides ?? [];
+        const same = old.length === guides.length && old.every((g, i) => g.axis === guides[i]!.axis && g.pos === guides[i]!.pos);
+        return same ? doc : { ...doc, guides };
+      }),
+
+    addGuide: (guide) => {
+      if (!Number.isFinite(guide.pos)) return -1;
+      const index = (get().doc.guides ?? []).length;
+      commit('canvas.history.guideAdd', (doc) => ({ ...doc, guides: [...(doc.guides ?? []), guide] }));
+      return index;
+    },
+
+    updateGuide: (index, patch, key) =>
+      commit(
+        'canvas.history.guideMove',
+        (doc) => {
+          const list = doc.guides ?? [];
+          const g = list[index];
+          if (!g || (patch.pos !== undefined && !Number.isFinite(patch.pos))) return doc;
+          const next = { ...g, ...patch };
+          if (next.axis === g.axis && next.pos === g.pos) return doc;
+          return { ...doc, guides: list.map((x, i) => (i === index ? next : x)) };
+        },
+        key,
+      ),
+
+    removeGuide: (index) =>
+      commit('canvas.history.guideRemove', (doc) => {
+        const list = doc.guides ?? [];
+        return index < 0 || index >= list.length ? doc : { ...doc, guides: list.filter((_, i) => i !== index) };
+      }),
 
     patchSilently: (change) =>
       set((s) => {

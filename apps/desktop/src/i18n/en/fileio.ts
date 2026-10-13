@@ -78,6 +78,7 @@ export const fileio: { [K in keyof typeof Source]?: string } = {
   'fileio.import.dxfUnit.inch': 'Inches',
   'fileio.import.dxfUnit.cm': 'Centimeters',
   'fileio.import.group': 'Group everything imported',
+  'fileio.import.autoGroup': 'Group by containment (each piece with its holes and engravings)',
   'fileio.import.layer': 'Target layer for vectors',
   'fileio.import.layer.auto': 'One layer per color (automatic)',
   'fileio.import.pdfPage': 'PDF or AI page',

@@ -3,6 +3,7 @@ import { CanvasView } from '@/features/canvas';
 import { DropOverlay, PromptHost, useCloseGuard, useFileDrop, useWindowTitle } from '@/features/history';
 import { ColorPalette } from '@/features/layers';
 import { ArrangeDialogHost } from '@/features/arrange';
+import { DesignDialogHost } from '@/features/arrange/DesignDialogHost';
 import { CameraDialogHost } from '@/features/camera';
 import { DevicesDialogHost } from '@/features/devices';
 import { MaterialsDialogHost } from '@/features/materials';
@@ -11,6 +12,8 @@ import { SettingsHost } from '@/features/settings';
 import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
+import { NestDialogHost } from '@/features/nest';
+import { ArtPanelHost } from '@/features/art';
 import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
 import { usePref, useStore } from '@/store';
@@ -18,6 +21,7 @@ import './shell-extra.css';
 import { Dock } from './Dock';
 import { ShortcutsDialog, useShortcutsHotkey } from './ShortcutsDialog';
 import { StatusBar } from './StatusBar';
+import { TemplatesHost } from './TemplatesDialog';
 import { ToolPalette } from './ToolPalette';
 import { TopBar } from './TopBar';
 import { Toasts } from './Toasts';
@@ -72,11 +76,15 @@ function ShellBody() {
       <ShortcutsDialog />
       <MachineDialogHost />
       <ArrangeDialogHost />
+      <DesignDialogHost />
       <TraceDialogHost />
+      <ArtPanelHost />
+      <NestDialogHost />
       <CameraDialogHost />
       <MaterialsDialogHost />
       <DevicesDialogHost />
       <HelpDialogHost />
+      <TemplatesHost />
     </div>
   );
 }

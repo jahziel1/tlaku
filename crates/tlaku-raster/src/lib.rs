@@ -11,6 +11,7 @@ pub mod adjust;
 pub mod bitmap;
 pub mod dither;
 pub mod gray;
+pub mod mask;
 pub mod resample;
 pub mod scan;
 pub mod screen;
@@ -20,6 +21,7 @@ pub use adjust::ImageAdjust;
 pub use bitmap::RasterBitmap;
 pub use dither::{BayerSize, RasterMode};
 pub use gray::{GrayF32, Luma};
+pub use mask::apply_mask;
 pub use resample::Sampling;
 pub use scan::{RasterSettings, raster_to_block};
 

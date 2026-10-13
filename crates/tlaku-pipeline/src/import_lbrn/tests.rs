@@ -264,7 +264,9 @@ fn three_layers_with_different_settings() {
     assert!(cut.tabs.enabled && close(cut.tabs.width, 0.8));
     assert_eq!((cut.tabs.count, cut.tabs.spacing), (6, 0.0));
     assert!(cut.tabs.skip_inner);
-    assert!(has_warning(&r, "perforado"));
+    // El perforado ya se traduce (sin los valores del archivo, con los de fábrica).
+    assert!(cut.perforation.enabled);
+    assert!(!has_warning(&r, "perforado"));
 
     let fill = layer(&r, "Grabado");
     assert_eq!(fill.mode, LayerMode::Fill);
@@ -296,6 +298,72 @@ fn three_layers_with_different_settings() {
     assert_eq!(r.objects[0].layer, cut.color);
     assert_eq!(r.objects[1].layer, fill.color);
     assert_eq!(r.objects[2].layer, marks.color);
+}
+
+#[test]
+fn advanced_cut_settings_map_to_tlaku_without_warnings() {
+    let r = load("advanced_cut.lbrn2");
+    for needle in [
+        "no tiene equivalente",
+        "perforado",
+        "sobrecorte",
+        "rampa",
+        "modo de puntos",
+        "inundado",
+        "cut-through",
+        "retardos",
+    ] {
+        assert!(
+            !has_warning(&r, needle),
+            "aviso inesperado: {needle}: {:?}",
+            r.warnings
+        );
+    }
+
+    let perf = layer(&r, "Perforado");
+    assert!(perf.perforation.enabled);
+    assert_eq!(
+        (perf.perforation.cut_mm, perf.perforation.skip_mm),
+        (2.0, 0.5)
+    );
+    assert_eq!(perf.overcut, 1.5);
+    assert_eq!((perf.start_delay_ms, perf.end_delay_ms), (30.0, 10.0));
+    assert!(!perf.cut_through.enabled && !perf.dot_mode.enabled && !perf.ramp.enabled);
+
+    let dots = layer(&r, "Puntos");
+    assert!(dots.dot_mode.enabled);
+    assert_eq!(
+        (dots.dot_mode.dwell_ms, dots.dot_mode.spacing_mm),
+        (4.0, 0.8)
+    );
+    assert!(!dots.perforation.enabled);
+
+    // El corte pasante toma su tiempo de la pausa de inicio, que deja de ser pausa.
+    let ramp = layer(&r, "Rampa y pasante");
+    assert!(ramp.ramp.enabled && ramp.ramp.outer_only);
+    assert_eq!(ramp.ramp.length_mm, 3.0);
+    assert!(ramp.cut_through.enabled);
+    assert_eq!((ramp.cut_through.power, ramp.cut_through.ms), (70.0, 120.0));
+    assert_eq!(ramp.start_delay_ms, 0.0);
+
+    let flood = layer(&r, "Inundado");
+    assert_eq!(flood.mode, LayerMode::Fill);
+    assert_eq!(flood.fill_style, FillStyle::Flood);
+}
+
+#[test]
+fn repeated_index_becomes_sub_layers() {
+    let r = load("advanced_cut.lbrn2");
+    // Las dos capas con índice 4 son una sola con una sub-capa.
+    let main = layer(&r, "Relleno y contorno");
+    assert_eq!(main.mode, LayerMode::Fill);
+    assert_eq!(main.sub_layers.len(), 1);
+    let sub = &main.sub_layers[0];
+    assert_eq!(sub.mode, LayerMode::Line);
+    assert_eq!((sub.speed, sub.power, sub.passes), (720.0, 55.0, 2));
+    assert_eq!(sub.color, main.color);
+    assert!(r.new_layers.iter().all(|l| l.name != "Contorno"));
+    assert!(!has_warning(&r, "repetida"));
 }
 
 #[test]

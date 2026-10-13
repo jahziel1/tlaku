@@ -15,6 +15,7 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 - [Dibujar y editar](03-dibujar-y-editar.md): herramientas de dibujo (curvas, polígono y estrella), formas paramétricas, prioridad de corte y escala de potencia por objeto, medir, selección, voltear y girar, orden y bloqueo, nodos, agrupar, menú contextual, menú Organizar y deshacer.
 - [Importar y exportar](03b-importar-y-exportar.md): los formatos que se importan (SVG, DXF, PDF, AI, HPGL, G-code e imágenes), sus opciones, y exportar a SVG, DXF, PNG y PDF o imprimir a escala 1:1.
 - [Texto](04-texto.md): crear texto, elegir fuente (también de una línea), curvarlo, soldarlo, escribirlo sobre un trayecto, convertirlo a trayectos e insertar códigos QR y de barras.
+- [Texto variable](04b-texto-variable.md): números de serie, datos de un CSV, fecha y hora dentro de un texto, cómo avanzan después de cada trabajo y una copia por fila del CSV.
 - [Capas y ajustes de corte](05-capas-y-ajustes.md): modos Línea, Relleno e Imagen, velocidad, potencia, pasadas, puentes, corte avanzado (perforación, entrada y salida, sobrecorte, pausas, modo punto, rampa), operaciones adicionales, valores por defecto, modo principiante y orden de ejecución.
 - [Imágenes](06-imagenes.md): importar fotos, elegir el tramado, ajustar tonos, enviar sin tramar, realzar bordes, quitar motas y vectorizar una imagen.
 

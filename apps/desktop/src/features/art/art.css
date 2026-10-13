@@ -1,0 +1,156 @@
+/* Biblioteca de arte. Solo tokens de src/styles/tokens.css; prefijo art-. */
+
+.art-panel {
+  position: fixed;
+  right: var(--s-6);
+  bottom: var(--s-6);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: min(380px, calc(100vw - 2 * var(--s-6)));
+  max-height: min(640px, calc(100vh - 2 * var(--s-6)));
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-chrome);
+  box-shadow: var(--shadow-pop);
+}
+.art-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.art-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+.art-intro,
+.art-empty,
+.art-folder {
+  margin: 0;
+}
+.art-search {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input, var(--bg-app));
+}
+.art-search input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--s-2) 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.art-search input:focus {
+  outline: none;
+}
+.art-search:focus-within {
+  border-color: var(--accent);
+}
+.art-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.art-cat {
+  padding: 2px var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.art-cat[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.art-scroll {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+}
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.art-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.art-tile:hover,
+.art-tile:focus-visible {
+  border-color: var(--accent);
+}
+.art-tile__img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  padding: 4px;
+  border-radius: 4px;
+  /* Los SVG son negros: el fondo claro los muestra igual en los dos temas. */
+  background: #fff;
+}
+.art-tile__name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-ghost {
+  position: fixed;
+  z-index: 200;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  padding: 4px;
+  border-radius: 4px;
+  background: #fff;
+  opacity: 0.85;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.art-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4);
+}
+.art-manage ul {
+  margin: var(--s-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.art-manage li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}

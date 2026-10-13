@@ -1,0 +1,122 @@
+/*
+ * Estilos de los diálogos de diseño avanzado (deformar, contorno, círculo tangente, asistente
+ * booleano, copiar a lo largo de un trazo, arreglo virtual y acoplar). Solo tokens de
+ * src/styles/tokens.css; prefijo dg- para no chocar con arrange.css.
+ */
+
+.dg-line {
+  fill: none;
+  stroke-width: 1.6px;
+  vector-effect: non-scaling-stroke;
+}
+.dg-tone--original {
+  stroke: var(--text-faint);
+  stroke-width: 1.2px;
+  stroke-dasharray: 4 3;
+}
+.dg-tone--result {
+  stroke: var(--cv-selection);
+  fill: var(--cv-selection-fill);
+  fill-rule: evenodd;
+}
+.dg-tone--ghost {
+  stroke: var(--text-faint);
+  stroke-width: 1px;
+}
+.dg-tone--accent {
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+.dg-tone--warn {
+  stroke: var(--warn);
+}
+
+.dg-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+.dg-advanced {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-4);
+}
+.dg-advanced > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.dg-advanced[open] > summary {
+  margin-bottom: var(--s-4);
+}
+.dg-grid4 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+
+/* candidatos del círculo tangente */
+.dg-cands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+/* asistente booleano: tarjetas con la miniatura del resultado */
+.dg-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s-4);
+}
+.dg-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text);
+  text-align: left;
+}
+.dg-card:hover:not([aria-disabled='true']) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+.dg-card[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.dg-card__title {
+  font-weight: 650;
+}
+.dg-card__hint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.dg-thumb {
+  width: 100%;
+  height: 96px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--cv-workspace);
+}
+.dg-thumb__shape {
+  fill: var(--cv-selection-fill);
+  stroke: var(--cv-selection);
+  stroke-width: 1.4px;
+  fill-rule: evenodd;
+  vector-effect: non-scaling-stroke;
+}
+.dg-empty {
+  display: grid;
+  place-items: center;
+  height: 96px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

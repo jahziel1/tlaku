@@ -1,0 +1,12 @@
+<!--
+  Caja sin tapa para corte laser - panel frontal (el trasero es identico: cortar 2)
+  Dimensiones exteriores de la caja: 63 x 45 x 33 mm (ancho x fondo x alto).
+  Grosor de material: 3 mm. Ancho de dedo: 3 mm (rejilla de 3 mm).
+  Esta pieza: panel frontal/trasero 63 x 33 mm. Dedos en los lados verticales (se alternan con el panel lateral) y en el borde inferior (se alternan con la base). Borde superior liso.
+  Convencion de dedos: en cada union las celdas de 3 mm se alternan entre ambas piezas;
+  los dedos de un panel coinciden con las ranuras del contiguo. Sin holgura de kerf
+  (ajustar en el software segun el ancho de corte). Unidades: mm.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="64mm" height="34mm" viewBox="0 0 64 34">
+  <polygon points="0.5,0.5 63.5,0.5 63.5,3.5 60.5,3.5 60.5,6.5 63.5,6.5 63.5,9.5 60.5,9.5 60.5,12.5 63.5,12.5 63.5,15.5 60.5,15.5 60.5,18.5 63.5,18.5 63.5,21.5 60.5,21.5 60.5,24.5 63.5,24.5 63.5,27.5 60.5,27.5 60.5,30.5 63.5,30.5 63.5,33.5 57.5,33.5 57.5,30.5 54.5,30.5 54.5,33.5 51.5,33.5 51.5,30.5 48.5,30.5 48.5,33.5 45.5,33.5 45.5,30.5 42.5,30.5 42.5,33.5 39.5,33.5 39.5,30.5 36.5,30.5 36.5,33.5 33.5,33.5 33.5,30.5 30.5,30.5 30.5,33.5 27.5,33.5 27.5,30.5 24.5,30.5 24.5,33.5 21.5,33.5 21.5,30.5 18.5,30.5 18.5,33.5 15.5,33.5 15.5,30.5 12.5,30.5 12.5,33.5 9.5,33.5 9.5,30.5 6.5,30.5 6.5,33.5 0.5,33.5 0.5,30.5 3.5,30.5 3.5,27.5 0.5,27.5 0.5,24.5 3.5,24.5 3.5,21.5 0.5,21.5 0.5,18.5 3.5,18.5 3.5,15.5 0.5,15.5 0.5,12.5 3.5,12.5 3.5,9.5 0.5,9.5 0.5,6.5 3.5,6.5 3.5,3.5 0.5,3.5" fill="none" stroke="#000000" stroke-width="0.2"/>
+</svg>

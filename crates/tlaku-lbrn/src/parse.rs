@@ -83,11 +83,9 @@ pub fn parse(data: &[u8]) -> Result<Project, String> {
         match node.tag_name().name() {
             "CutSetting" | "CutSetting_Img" => {
                 if let Some(layer) = parse_layer(node) {
-                    if layers.iter().any(|l| l.index == layer.index) {
-                        ctx.count(format!(
-                            "La capa C{:02} aparece repetida (sub-capas): solo se importa la primera",
-                            layer.index
-                        ));
+                    // Un índice repetido es una sub-capa de la primera (misma capa, otra operación).
+                    if let Some(main) = layers.iter_mut().find(|l| l.index == layer.index) {
+                        main.subs.push(layer);
                     } else {
                         layers.push(layer);
                     }
@@ -153,6 +151,7 @@ fn parse_layer(n: Node) -> Option<Layer> {
         kind,
         name,
         params,
+        subs: Vec::new(),
     })
 }
 
@@ -475,7 +474,7 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_layer_index_keeps_the_first() {
+    fn duplicate_layer_index_becomes_a_sub_layer() {
         let p = shapes(
             r#"<LightBurnProject>
                  <CutSetting type="Cut"><index Value="1"/><name Value="A"/></CutSetting>
@@ -484,7 +483,9 @@ mod tests {
         );
         assert_eq!(p.layers.len(), 1);
         assert_eq!(p.layers[0].name, "A");
-        assert!(p.warnings.iter().any(|w| w.contains("repetida")));
+        assert_eq!(p.layers[0].subs.len(), 1);
+        assert_eq!(p.layers[0].subs[0].name, "B");
+        assert_eq!(p.layers[0].subs[0].kind, "Scan");
     }
 
     #[test]

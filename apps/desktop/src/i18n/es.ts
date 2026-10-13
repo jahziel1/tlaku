@@ -4,6 +4,8 @@
  * y una sección por panel. Los marcadores `{nombre}` se reemplazan con los parámetros de `t()`.
  */
 import { arrange } from './es/arrange';
+import { design } from './es/design';
+import { art } from './es/art';
 import { camera } from './es/camera';
 import { devices } from './es/devices';
 import { fileio } from './es/fileio';
@@ -20,6 +22,9 @@ import { preview } from './es/preview';
 import { prefs } from './es/prefs';
 import { text } from './es/text';
 import { trace } from './es/trace';
+import { variables } from './es/variables';
+import { nest } from './es/nest';
+import { shapes } from './es/shapes';
 
 export const base = {
   // ---- comandos -----------------------------------------------------------
@@ -264,14 +269,19 @@ export const es = {
   ...history,
   ...help,
   ...arrange,
+  ...design,
   ...text,
+  ...variables,
   ...codes,
   ...nodes,
   ...trace,
+  ...nest,
+  ...shapes,
   ...camera,
   ...materials,
   ...devices,
   ...fileio,
   ...catalog,
   ...prefs,
+  ...art,
 };

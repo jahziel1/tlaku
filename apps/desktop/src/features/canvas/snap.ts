@@ -17,7 +17,7 @@ export type { SnapPoint, SnapPointKind } from './snapPoints';
 /** Tolerancia de fábrica; la que rige es la preferencia `snapPx`. */
 export const SNAP_PX = 8;
 
-export type SnapKind = 'object' | 'bed' | 'grid';
+export type SnapKind = 'object' | 'bed' | 'grid' | 'guide';
 
 /** Línea de referencia en un eje. `lo..hi` es su extensión en el otro eje. */
 export interface SnapTarget {

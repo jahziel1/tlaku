@@ -223,7 +223,14 @@ interface TextObject {                // ObjectKind "text"
 | `list_fonts` | | `{ family: string; styles: string[] }[]` |
 | `text_outline` | `{ text: TextObject, path: BezPath \| null }` | `{ paths: BezPath[], warnings: string[] }` (un `BezPath` por glifo, en coordenadas locales del texto; las advertencias son sustituciones de fuente, caracteres sin glifo o texto que no cabe en la trayectoria) |
 | `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento, transform identidad) |
+| `shape_op` | `{ op: "trim" \| "break_apart" \| "optimize" \| "fillet" \| "cut_shapes" \| "resize_slots", objects: DesignObject[], params?: ShapeParams }` | `{ objects: DesignObject[], stats: ShapeStats }` (misma convención de resultado que `join`/`close`/`dedupe`) |
 | `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `{ paths: BezPath[], warnings: string[] }` |
+| `vectors_to_bitmap` | `{ doc, selection: string[], dir: string \| null, stem, options: { dpi, filled, stroke_mm, invert } }` | `{ path, width_px, height_px, size_mm, origin_mm, in_temp_dir }` |
+| `save_processed_image` | `{ image: ImageObject, layer: LayerSettings, path }` | `{ path, bytes, width_px, height_px }` |
+| `art_import_svg` | `{ svg, target_layer: string \| null }` | `ImportResult` |
+| `art_list_user` | — | `{ name, svg }[]` (SVG de `<configuración>/art/`) |
+| `art_add_user` | `{ paths: string[] }` | `{ added: { name, svg }[], errors: string[] }` |
+| `art_remove_user` | `{ name }` | — |
 | `detect_board` | `{ image_png_base64: string, board: [number, number] }` | `[number, number][] \| null`: esquinas internas del tablero, fila por fila, en píxeles de la imagen; `null` si no se ve completo |
 | `calibrate_lens` | `{ images_png_base64: string[], board: [number, number], square_mm: number }` | `CalibrationReport` |
 | `load_camera_setup` | | `CameraSetup`; sin `camera.json`, una configuración vacía. Un archivo dañado se aparta como `camera.json.dañado` y se devuelve una vacía |
@@ -431,6 +438,12 @@ cambia se sustituye por uno nuevo (`join-N`, `close-N`, `dedupe-N`); un objeto q
 no vuelve. La interfaz quita los ids que no volvieron y pone los nuevos en su lugar, en un solo
 paso de deshacer.
 
+`shape_op` (recortar, separar, optimizar, redondear esquinas, cortar formas y redimensionar ranuras)
+sigue la misma convención de resultado y devuelve además `stats` (cuántas cosas se hicieron, nodos
+antes y después, anchos de ranura detectados, puntos del tramo que se borraría). Cada operación lee
+solo sus campos de `params` (ver `edit/shape_ops.rs`), así que la interfaz puede llamarla sin aplicar
+el resultado para mostrar una vista previa. Solo acepta objetos vectoriales.
+
 La biblioteca vive en `materials.json` dentro de la carpeta de configuración de la app (escritura
 atómica; un archivo dañado se aparta como `materials.json.dañado`, uno de versión desconocida da
 error sin tocarlo). Los archivos `.tlakumat` son el mismo JSON de `MaterialLibrary`.
@@ -472,6 +485,21 @@ y `features/recovery/`.
 | `autosave_list` | — | `RecoveryInfo[]` pendientes, de la más nueva a la más vieja; borra las superadas por un guardado posterior |
 | `autosave_read` | `id` | `Document` |
 | `autosave_discard` | `id` | Borra la copia (no es error que no exista) |
+
+### Plantillas y ventanas (ola 3)
+
+Código: `src-tauri/src/templates.rs` y `src-tauri/src/window.rs`; en la interfaz `features/shell/` (`templates.ts`, `TemplatesDialog.tsx`).
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `list_templates` | — | `TemplateInfo[]` (`name`, `saved_at_ms`, `size_bytes`), por nombre |
+| `save_template` | `name`, `doc` | `TemplateInfo`; reemplaza la plantilla del mismo nombre. El nombre es el del archivo `<nombre>.tlakutemplate` y no admite separadores de ruta ni caracteres reservados |
+| `load_template` | `name` | `Document` |
+| `delete_template` | `name` | Borra la plantilla (no es error que no exista) |
+| `new_window` | — | Etiqueta de la ventana nueva (`doc-N`). Cada ventana tiene su propio documento; comparten la máquina y las preferencias |
+
+Las plantillas viven en `<app_config_dir>/plantillas/`. La capacidad `capabilities/default.json` cubre las
+ventanas `main` y `doc-*`.
 
 - **Preferencias**: `preferences.json` en `app_config_dir()` (sobrevive a reinstalar y se puede copiar).
   Forma: `{ "version": 1, "prefs": { ... }, "shortcuts": { "<id de comando>": ["Mod+K", ...] } }`.

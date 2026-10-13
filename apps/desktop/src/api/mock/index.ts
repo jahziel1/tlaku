@@ -3,11 +3,16 @@ import { mockCodes } from './codes';
 import { mockDevices } from './devices';
 import { mockFileio } from './fileio';
 import { mockMaterials } from './materials';
+import { mockNest } from './nest';
 import { mockPrefs } from './prefs';
 import { mockProbe } from './probe';
+import { mockDesign } from './design';
 import { mockGeometry } from './geometry';
+import { mockShapes } from './shapes';
 import { mockText } from './text';
 import { mockTrace } from './trace';
+import { mockTraceExtras } from './traceExtras';
+import { mockVariables } from './variables';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
@@ -102,9 +107,14 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     simulateFault: ({ fault }) => lag(() => machine.simulateFault(fault)),
 
     ...mockText(lag),
+    ...mockVariables(lag),
     ...mockCodes(lag),
     ...mockGeometry(lag),
+    ...mockShapes(lag),
+    ...mockDesign(lag),
     ...mockTrace(lag),
+    ...mockTraceExtras(lag),
+    ...mockNest(lag),
     ...mockCamera(lag),
     ...mockMaterials(lag),
     ...mockProbe(lag),

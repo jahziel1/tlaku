@@ -2,10 +2,41 @@
 //!
 //! Unidades de LightBurn en el archivo: velocidad en mm/s (Tlaku usa mm/min), potencias en %,
 //! intervalos y distancias en mm. Los campos sin equivalente se avisan solo si están activos.
+//!
+//! # Tabla de mapeo de `CutSetting` a `LayerSettings`
+//!
+//! Los nombres de elemento son datos del formato (ver `THIRD_PARTY.md`: lbrnts y lbrn2-to-svg, MIT;
+//! escritores públicos de archivos `.lbrn2`). Lo marcado "(inferido)" no está documentado.
+//!
+//! | Elemento de LightBurn | Ajuste de Tlaku |
+//! |---|---|
+//! | `type` (`Cut`, `Scan`, `Scan+Cut`, `Image`, `Tool`) | `mode` (`Tool` = guía sin salida) |
+//! | `speed` (mm/s) | `speed` (mm/min, x60) |
+//! | `maxPower`, `minPower` | `power`, `min_power` |
+//! | `numPasses`, `zOffset`, `zPerPass`, `kerf`, `runBlower` | `passes`, `z_offset`, `z_step`, `kerf`, `air` |
+//! | `interval` o `dpi`, `angle`, `crossHatch`, `bidir` | `interval`, `angle`, `crosshatch`, `bidirectional` |
+//! | `overscan`, `overscanPercent` | `overscan` (% de la velocidad, inferido) |
+//! | `tabsEnabled`, `tabSize`, `tabCount`, `tabSpacing`, `skipInnerTabs` | `tabs` |
+//! | `perforate`, `perfLen`, `perfSkip` | `perforation` (`cut_mm`, `skip_mm`) |
+//! | `dotMode`, `dotTime`, `dotSpacing` | `dot_mode` (`dwell_ms`, `spacing_mm`; `dotTime` en ms, inferido) |
+//! | `floodFill` (en `Scan`) | `fill_style` = `flood` |
+//! | `overcut` (mm) | `overcut` |
+//! | `enablePowerRamp` (o `rampLength` > 0), `rampLength`, `rampOuter` | `ramp` (`length_mm`, `outer_only`; arranca en 0 %, inferido) |
+//! | `startDelay`, `endDelay` (ms) | `start_delay_ms`, `end_delay_ms` |
+//! | `enableCutThrough`, `enableCutThroughStart/End`, `throughPower` | `cut_through` (potencia; el tiempo sale de `startDelay` o `endDelay`, que dejan de ser pausas; inferido) |
+//! | otra `CutSetting` con el mismo `index` | `sub_layers` (hasta 11, en orden) |
+//! | `index`, `name`, `priority`, `doOutput`, `hide` | color, nombre, `order`, `output`, `visible` |
+//!
+//! Sin equivalente (se avisan si están activos): PPI, frecuencia, segundo láser, potencia constante,
+//! velocidad del soplador y el relleno por objeto. LightBurn no guarda entradas ni salidas en la
+//! capa (no se conoce un elemento para ellas): `lead_in` y `lead_out` quedan apagados.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use tlaku_core::Rgb;
-use tlaku_doc::{FillStyle, ImageMode, LayerMode, LayerSettings, Overscan, TabSettings};
+use tlaku_doc::{
+    CutThrough, DotMode, FillStyle, ImageMode, LayerMode, LayerSettings, Overscan, Perforation,
+    Ramp, TabSettings,
+};
 use tlaku_lbrn::{Layer, Project, Shape, ShapeKind, TOOL_LAYER_FIRST};
 
 /// Color de Tlaku de cada capa de LightBurn `C00`..`C29`.
@@ -282,9 +313,44 @@ fn dither_mode(name: &str) -> Option<ImageMode> {
     })
 }
 
-/// Convierte una capa. Devuelve los ajustes, la prioridad de LightBurn y los avisos (frases sin el
-/// nombre de la capa, que `Layers` agrupa).
+/// Máximo de sub-capas de una capa (el del motor, `place.rs`).
+const MAX_SUB_LAYERS: usize = 11;
+
+/// Convierte una capa con sus sub-capas (las `CutSetting` siguientes con el mismo índice). Devuelve
+/// los ajustes, la prioridad de LightBurn y los avisos (frases sin el nombre de la capa, que `Layers`
+/// agrupa).
 fn convert(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
+    let (mut main, priority, mut warns) = convert_one(layer, color);
+    if main.output && !layer.subs.is_empty() && !layer.is_tool() {
+        for sub in &layer.subs {
+            let (mut s, _, w) = convert_one(sub, color);
+            let n = main.sub_layers.len() + 1;
+            if sub.is_tool() || (s.mode == LayerMode::Image) != (main.mode == LayerMode::Image) {
+                warns.push(format!(
+                    "la sub-capa {n} es de un tipo ({}) que no se puede combinar con la capa; se ignora",
+                    sub.kind
+                ));
+                continue;
+            }
+            if main.sub_layers.len() >= MAX_SUB_LAYERS {
+                warns.push(format!(
+                    "hay más de {MAX_SUB_LAYERS} sub-capas; se ignoran las sobrantes"
+                ));
+                break;
+            }
+            warns.extend(w.into_iter().map(|w| format!("sub-capa {n}: {w}")));
+            // Una sub-capa no lleva color, orden ni sub-capas propias.
+            s.color = main.color;
+            s.order = None;
+            s.sub_layers.clear();
+            main.sub_layers.push(s);
+        }
+    }
+    (main, priority, warns)
+}
+
+/// Convierte una sola `CutSetting`, sin mirar sus sub-capas.
+fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
     let mut s = LayerSettings::for_color(color);
     let mut warns: Vec<String> = Vec::new();
     s.name = layer.name.clone();
@@ -409,6 +475,69 @@ fn convert(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
         }
     }
 
+    // Ajustes avanzados de corte (solo cuentan en capas de línea; en las demás el motor no los usa).
+    let on = |k: &str| layer.flag(k).unwrap_or(false);
+    let nonzero = |k: &str| layer.num(k).is_some_and(|v| v != 0.0);
+    let positive = |k: &str| layer.num(k).filter(|v| *v > 0.0);
+    if s.mode == LayerMode::Line {
+        let d = Perforation::default();
+        s.perforation = Perforation {
+            enabled: on("perforate"),
+            cut_mm: positive("perfLen").unwrap_or(d.cut_mm),
+            skip_mm: positive("perfSkip").unwrap_or(d.skip_mm),
+        };
+        let d = DotMode::default();
+        s.dot_mode = DotMode {
+            enabled: on("dotMode"),
+            dwell_ms: positive("dotTime").unwrap_or(d.dwell_ms),
+            spacing_mm: layer
+                .num("dotSpacing")
+                .filter(|v| *v >= 0.01)
+                .unwrap_or(d.spacing_mm),
+        };
+        s.overcut = layer.num("overcut").filter(|v| *v > 0.0).unwrap_or(0.0);
+        // `enablePowerRamp` (si el archivo lo trae) manda; si no, basta un largo de rampa.
+        let ramp_on = layer
+            .flag("enablePowerRamp")
+            .unwrap_or_else(|| nonzero("rampLength"));
+        let d = Ramp::default();
+        s.ramp = Ramp {
+            enabled: ramp_on && positive("rampLength").is_some(),
+            length_mm: positive("rampLength").unwrap_or(d.length_mm),
+            start_pct: d.start_pct,
+            outer_only: on("rampOuter"),
+        };
+        if ramp_on && positive("rampLength").is_none() {
+            warns.push("la rampa de potencia no tiene largo; se ignora".into());
+        }
+        let delay = |k: &str| layer.num(k).filter(|v| *v > 0.0).unwrap_or(0.0);
+        let (start, end) = (delay("startDelay"), delay("endDelay"));
+        if on("enableCutThrough") || on("enableCutThroughStart") || on("enableCutThroughEnd") {
+            // El tiempo del pulso de atravesado sale de la pausa de inicio (o de fin): en Tlaku
+            // es parte del corte pasante y ya no es una pausa aparte (inferido).
+            let d = CutThrough::default();
+            let ms = if start > 0.0 { start } else { end };
+            s.cut_through = CutThrough {
+                enabled: true,
+                power: layer
+                    .num("throughPower")
+                    .map_or(d.power, |v| v.clamp(0.0, 100.0)),
+                ms: if ms > 0.0 { ms } else { d.ms },
+            };
+            if ms <= 0.0 {
+                warns.push(format!(
+                    "el corte pasante no trae su tiempo; se usan {} ms",
+                    d.ms
+                ));
+            }
+        } else {
+            s.start_delay_ms = start;
+            s.end_delay_ms = end;
+        }
+    } else if s.mode == LayerMode::Fill && s.fill_style == FillStyle::Scan && on("floodFill") {
+        s.fill_style = FillStyle::Flood;
+    }
+
     // Modo imagen.
     if s.mode == LayerMode::Image {
         if let Some(mode) = layer.text("ditherMode") {
@@ -428,35 +557,12 @@ fn convert(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
     }
 
     // Lo que no tiene equivalente, solo si está activo.
-    let on = |k: &str| layer.flag(k).unwrap_or(false);
-    let nonzero = |k: &str| layer.num(k).is_some_and(|v| v != 0.0);
     let mut ignored: Vec<&str> = Vec::new();
-    if on("perforate") {
-        ignored.push("perforado");
-    }
-    if on("dotMode") {
-        ignored.push("modo de puntos");
-    }
-    if on("floodFill") {
-        ignored.push("relleno inundado (flood fill)");
-    }
-    if nonzero("overcut") {
-        ignored.push("sobrecorte (overcut)");
-    }
-    if nonzero("rampLength") {
-        ignored.push("rampa de potencia");
-    }
     if on("enablePPI") {
         ignored.push("pulsos por pulgada (PPI)");
     }
     if on("overrideFrequency") {
         ignored.push("frecuencia del láser");
-    }
-    if nonzero("startDelay") || nonzero("endDelay") {
-        ignored.push("retardos de encendido/apagado");
-    }
-    if on("enableCutThrough") || on("enableCutThroughStart") || on("enableCutThroughEnd") {
-        ignored.push("potencia de atravesado (cut-through)");
     }
     if on("enableLaser2") {
         ignored.push("segundo láser");

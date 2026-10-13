@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Affine, BezPath, Point } from '@/api/types';
+import type { Affine, BezPath, GuideAxis, Point } from '@/api/types';
 import type { BoxMode } from './hit';
 import type { EditModel } from './nodeedit';
 import type { Guide, SnapPointKind } from './snap';
@@ -53,7 +53,19 @@ export interface Tip {
   text: string;
 }
 
-export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes' | 'pick' | 'measure';
+/**
+ * Guía del documento que se está creando (arrastrando desde una regla) o moviendo. `index` es
+ * `null` mientras todavía no existe en el documento. Con `remove`, al soltar se borra.
+ */
+export interface GuideDrag {
+  index: number | null;
+  axis: GuideAxis;
+  /** Posición viva (mm). */
+  pos: number;
+  remove: boolean;
+}
+
+export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes' | 'pick' | 'measure' | 'guide';
 
 /** Resultado vivo de un arrastre de nodos o manejadores: el objeto se dibuja con él hasta soltar. */
 export interface NodePreview {
@@ -91,6 +103,12 @@ export interface InteractionState {
   measure: Measurement | null;
   /** Modo de elegir puntos en curso (espejo sobre línea, rotar/escalar por dos puntos). */
   pick: PickState | null;
+  /** Guía del documento en creación o en movimiento. */
+  guideDrag: GuideDrag | null;
+  /** Guía bajo el puntero (posición en `Document.guides`), para resaltarla. */
+  guideHover: number | null;
+  /** Punto del contorno bajo el puntero con las herramientas de puentes e inicio (mm). */
+  markHover: Point | null;
 }
 
 const INITIAL: InteractionState = {
@@ -110,6 +128,9 @@ const INITIAL: InteractionState = {
   snapMark: null,
   measure: null,
   pick: null,
+  guideDrag: null,
+  guideHover: null,
+  markHover: null,
 };
 
 export const useInteraction = create<InteractionState>()(() => ({ ...INITIAL }));
@@ -122,7 +143,7 @@ export function patchInteraction(patch: Partial<InteractionState>): void {
 export function clearGesture(): void {
   useInteraction.setState({
     gesture: null, live: null, marquee: null, guides: [], draft: null, tip: null, pivot: null, polyPoints: 0, nodePreview: null,
-    snapMark: null, pick: null,
+    snapMark: null, pick: null, guideDrag: null,
   });
 }
 

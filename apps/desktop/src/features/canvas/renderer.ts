@@ -3,6 +3,7 @@ import type { ViewTransform } from '@/lib/viewport';
 import type { BoxMode } from './hit';
 import type { CameraBackdrop } from '@/store/camera';
 import type { DraftShape, Measurement, SnapMark } from './interaction';
+import type { SceneMarks } from './marks';
 import type { NodeOverlay } from './nodeview';
 import type { Guide } from './snap';
 
@@ -30,6 +31,10 @@ export interface CanvasPalette {
   guide: string;
   /** Caja de selección "toca" (de derecha a izquierda). */
   crossing: string;
+  /** Guías del documento (opcional: sin él se usa el color de grabado). */
+  docGuide?: string;
+  /** Puentes manuales y marca del punto bajo el puntero en las herramientas de puentes e inicio. */
+  tab?: string;
 }
 
 /** Lo que dibuja la interacción encima del diseño (efímero, no es parte del documento). */
@@ -74,6 +79,8 @@ export interface Scene {
   head: Point | null;
   /** Imagen de la cámara, bajo la cuadrícula y los objetos; null si no hay cámara. */
   backdrop: CameraBackdrop | null;
+  /** Guías del documento, puentes manuales y flechas de inicio. */
+  marks?: SceneMarks;
 }
 
 /**

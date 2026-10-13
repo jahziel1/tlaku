@@ -4,6 +4,7 @@ import { ArrayDialog } from './ArrayDialog';
 import { BooleanDialog } from './BooleanDialog';
 import { CleanupDialog } from './CleanupDialog';
 import { OffsetDialog } from './OffsetDialog';
+import { ShapeOpsHost } from './ShapeOpsDialog';
 import { SizeSelectDialog } from './SizeSelectDialog';
 
 export { useArrangeUi } from './uiStore';
@@ -14,7 +15,8 @@ export { useArrangeUi } from './uiStore';
  */
 export function ArrangeDialogHost() {
   const dialog = useArrangeUi((s) => s.dialog);
-  if (!dialog) return null;
+  // Sin diálogo de Organizar abierto, puede haber uno de las operaciones de forma (shapeOpsUi).
+  if (!dialog) return <ShapeOpsHost />;
   switch (dialog.kind) {
     case 'boolean':
       return <BooleanDialog key={dialog.op} op={dialog.op} />;

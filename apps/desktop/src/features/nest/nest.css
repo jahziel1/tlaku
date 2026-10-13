@@ -1,0 +1,176 @@
+/*
+ * Estilos del diálogo de nesting. Solo tokens de src/styles/tokens.css;
+ * clases con prefijo ne- para no chocar con otras áreas.
+ */
+
+.ne-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .ne-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* el formulario es un fieldset para deshabilitar todo de una vez mientras corre el cálculo */
+.ne-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ne-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.ne-heading {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+
+/* lista desplazable de piezas */
+.ne-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-height: 168px;
+  margin: 0;
+  padding: var(--s-3);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.ne-row .field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.ne-row .field__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ne-row .field__box {
+  width: 96px;
+  flex: none;
+}
+
+/* columna derecha: la vista previa se queda a la vista al desplazar el formulario */
+.ne-side {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.ne-preview {
+  width: 100%;
+  height: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--cv-workspace);
+}
+.ne-preview path,
+.ne-preview rect {
+  vector-effect: non-scaling-stroke;
+}
+.ne-bed {
+  fill: var(--cv-bed);
+  stroke: var(--cv-bed-edge);
+  stroke-width: 1px;
+}
+.ne-material {
+  fill: var(--cv-bed);
+  fill-rule: evenodd;
+  stroke: var(--cv-bed-edge);
+  stroke-width: 1.4px;
+}
+.ne-piece {
+  fill: var(--cv-selection-fill);
+  fill-rule: evenodd;
+  stroke: var(--cv-selection);
+  stroke-width: 1.2px;
+}
+.ne-piece--copy {
+  fill: var(--accent-subtle);
+  stroke: var(--ok);
+}
+.ne-piece--ghost {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-dasharray: 4 3;
+}
+.ne-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-5);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.ne-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.ne-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--cv-selection);
+  border-radius: 2px;
+  background: var(--cv-selection-fill);
+}
+.ne-swatch--copy {
+  border-color: var(--ok);
+  background: var(--accent-subtle);
+}
+
+/* avance */
+.ne-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.ne-bar {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-sunken);
+}
+.ne-bar__fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 200ms var(--ease);
+}
+.ne-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.ne-stats strong {
+  color: var(--text);
+  font-weight: 650;
+}
+.ne-side .warn-line p {
+  margin: 0;
+}

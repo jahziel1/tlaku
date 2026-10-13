@@ -4,6 +4,7 @@ import { DEFAULT_OPTIMIZATION, readOptimization, sanitizeOptimization, sameOptim
 import { getModel, PLAY_SPEEDS, type PlaySpeed, type PreviewViewOptions } from '@/features/preview/model';
 import { errorMessage } from '@/lib/errors';
 import { readPref, writePref } from '@/lib/platform';
+import { hasTemplates, resolveJobArgs } from '@/features/variables/jobResolve';
 import { buildJobArgs } from './selectors';
 import type { SliceCreator } from './types';
 
@@ -96,9 +97,11 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
 
     computePreview: async () => {
       const mine = ++seq;
-      const args = buildJobArgs(get());
       set({ previewStatus: 'computing', previewError: null, previewStale: false });
       try {
+        // Los textos con variables se resuelven con los valores de ahora antes de calcular.
+        const base = buildJobArgs(get());
+        const args = hasTemplates(base.doc) ? await resolveJobArgs(base) : base;
         const preview = await getApi().computeJob(args);
         if (mine !== seq) return; // llegó una petición más nueva o el documento cambió
         getModel(preview, args.device.rapid_rate); // arma el modelo ya, fuera del camino de dibujo

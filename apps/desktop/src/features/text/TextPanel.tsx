@@ -3,7 +3,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { TextAlign } from '@/api/types';
 import { CodesDialogHost } from '@/features/codes';
-import { t } from '@/i18n';
+import { InsertVariable, VariablesHost, useVariablesUi } from '@/features/variables';
+import { variableExamples } from '@/features/variables/insert';
+import { isTemplate } from '@/features/variables/syntax';
+import { getLanguage, t } from '@/i18n';
 import { objectBounds } from '@/lib/geometry';
 import { useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
@@ -35,6 +38,8 @@ export function TextPanel() {
     <>
       {/* El diálogo "Insertar código" (portal) lo monta este panel, que el shell ya incluye siempre. */}
       <CodesDialogHost />
+      {/* Diálogo "Texto variable" y la carga del CSV y del reloj para los textos con variables. */}
+      <VariablesHost />
       {obj && isTextObject(obj) ? <TextEditor key={obj.id} obj={obj} /> : null}
     </>
   );
@@ -48,6 +53,8 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
   const status = useTextStatus(selectStatus(id));
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const view = useStore(useShallow((s) => ({ zoom: s.zoom, panX: s.panX, panY: s.panY, w: s.viewport.width, h: s.viewport.height })));
+  const showTemplate = useVariablesUi((s) => s.showTemplate);
+  const setShowTemplate = useVariablesUi((s) => s.setShowTemplate);
   const candidates = useStore(useShallow((s) => guideCandidates(s.doc, id).map((o) => o.id)));
 
   // El foco va al contenido en cuanto aparece el panel y cada vez que el lienzo lo pide
@@ -108,6 +115,25 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
             }}
           />
         </div>
+
+        <InsertVariable value={text.text} areaRef={areaRef} onChange={(v) => set({ text: v }, 'text')} />
+        {isTemplate(text.text) && (
+          <div className="text-panel__row">
+            <label className="text-panel__check" title={t('variables.canvas.templateHint')}>
+              <input type="checkbox" checked={showTemplate} onChange={(e) => setShowTemplate(e.target.checked)} />
+              {t('variables.canvas.templateShort')}
+            </label>
+            <button type="button" className="btn" onClick={() => useVariablesUi.getState().show()}>
+              {t('variables.panel.open')}
+            </button>
+          </div>
+        )}
+        {!isTemplate(text.text) && (
+          <p className="hint text-panel__hint">
+            {t('variables.panel.syntaxHint', { examples: variableExamples(getLanguage()) })}{' '}
+            <button type="button" className="btn" onClick={() => useVariablesUi.getState().show()}>{t('variables.panel.open')}</button>
+          </p>
+        )}
 
         <div className="field text-panel__fontrow">
           <span className="field__label">{t('text.field.font')}</span>

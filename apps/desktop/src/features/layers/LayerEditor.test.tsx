@@ -173,14 +173,17 @@ describe('secciones avanzadas del editor', () => {
 });
 
 describe('potencia mínima en line (C08)', () => {
-  it('se muestra con potencia dinámica (M4), explicando que baja en las esquinas', () => {
+  it('no hay campo en línea (el motor no lo usa) y se explica que la controladora decide en las esquinas', () => {
     const h = fields();
-    expect(h).toContain('Potencia mínima');
+    expect(h).not.toContain('Potencia mínima');
+    expect(h).toContain('no tiene potencia mínima');
     expect(h).toContain('M4');
   });
 
-  it('no se muestra con potencia constante (M3)', () => {
-    expect(fields({}, false, { ...GRBL, powerMode: 'constant' })).not.toContain('Potencia mínima');
+  it('con potencia constante (M3) no hay campo ni explicación', () => {
+    const h = fields({}, false, { ...GRBL, powerMode: 'constant' });
+    expect(h).not.toContain('Potencia mínima');
+    expect(h).not.toContain('no tiene potencia mínima');
   });
 
   it('en fill no se muestra; en imagen se muestra siempre', () => {
@@ -252,9 +255,10 @@ describe('lista de operaciones adicionales', () => {
 
   it('al llegar al máximo deshabilita el botón y lo explica', () => {
     const sub = makeLayer('#ff0000', '');
-    const parent = makeLayer('#ff0000', 'Corte', { sub_layers: Array.from({ length: 10 }, () => sub) });
+    // El mismo tope que el motor (`MAX_SUB_LAYERS` de place.rs).
+    const parent = makeLayer('#ff0000', 'Corte', { sub_layers: Array.from({ length: 11 }, () => sub) });
     const h = renderToString(<SubLayers layer={parent} />);
-    expect(h).toContain('máximo de 10 operaciones adicionales');
+    expect(h).toContain('máximo de 11 operaciones adicionales');
     expect(h).toMatch(/<button[^>]*disabled=""[^>]*>.*Agregar operación/);
   });
 });

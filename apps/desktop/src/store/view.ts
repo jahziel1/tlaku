@@ -1,12 +1,15 @@
 import type { Point } from '@/api/types';
-import { objectBounds, unionBounds, type Bounds } from '@/lib/geometry';
+import { applyAffine, objectBounds, unionBounds, type Bounds } from '@/lib/geometry';
+import { virtualCopies } from '@/lib/virtualArray';
+import type { DesignObject } from '@/api/types';
+import { setDockTabHidden } from '@/lib/dockLayout';
 import { readPref, writePref } from '@/lib/platform';
 import { fitBounds, zoomAround } from '@/lib/viewport';
 import { selectActiveDevice, selectSelectedObjects } from './selectors';
 import type { SliceCreator } from './types';
 
 export type Theme = 'dark' | 'light';
-export type DockTab = 'layers' | 'machine' | 'console' | 'history' | 'camera' | 'materials';
+export type DockTab = 'layers' | 'machine' | 'console' | 'history' | 'camera' | 'materials' | 'notes';
 
 export interface ViewSlice {
   zoom: number;
@@ -25,6 +28,10 @@ export interface ViewSlice {
   snapEnabled: boolean;
   snapGrid: boolean;
   snapObjects: boolean;
+  /** Muestra las guías del documento (Ver); ocultas no se dibujan ni atraen. */
+  showGuides: boolean;
+  /** Muestra la flecha de inicio y sentido de todos los contornos con inicio fijado (Ver); con el objeto seleccionado siempre se ve. */
+  showStartMarks: boolean;
   /**
    * Contador que sube cuando el lienzo pide el foco del panel de texto (al crear un texto con la
    * herramienta de texto o al editarlo con doble clic). El panel de texto lo observa y enfoca su campo.
@@ -48,7 +55,23 @@ export interface ViewSlice {
   toggleSnap: () => void;
   toggleSnapGrid: () => void;
   toggleSnapObjects: () => void;
+  toggleGuides: () => void;
+  toggleStartMarks: () => void;
   requestTextFocus: () => void;
+}
+
+/** Caja del objeto y de sus copias virtuales (arreglo virtual): lo que ocupa en el trabajo. */
+export function objectBoundsWithCopies(o: DesignObject): Bounds | null {
+  const own = objectBounds(o);
+  if (!own || !o.array) return own;
+  const [[x0, y0], [x1, y1]] = own;
+  const boxes = virtualCopies(o).map((m): Bounds => {
+    const pts = [applyAffine(m, [x0, y0]), applyAffine(m, [x1, y0]), applyAffine(m, [x1, y1]), applyAffine(m, [x0, y1])];
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    return [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]];
+  });
+  return unionBounds([own, ...boxes]);
 }
 
 export const DOCK_MIN = 280;
@@ -88,6 +111,8 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
   snapEnabled: initialFlag('snap', true),
   snapGrid: initialFlag('snapGrid', true),
   snapObjects: initialFlag('snapObjects', true),
+  showGuides: initialFlag('showGuides', true),
+  showStartMarks: initialFlag('showStartMarks', false),
   textFocusToken: 0,
 
   setViewport: (width, height) => {
@@ -116,7 +141,7 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
   fitContent: () => {
     const s = get();
     const objs = s.selectedIds.length ? selectSelectedObjects(s) : s.doc.objects.filter((o) => !o.hidden);
-    const b = unionBounds(objs.map(objectBounds));
+    const b = unionBounds(objs.map(objectBoundsWithCopies));
     if (!b) get().fitBed();
     else get().fitBounds(b, 64);
   },
@@ -128,7 +153,12 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
     set({ theme });
   },
   toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
-  setDockTab: (dockTab) => set({ dockTab }),
+  setDockTab: (dockTab) => {
+    // Abrir una pestaña oculta la vuelve a mostrar (por ejemplo, con su atajo de teclado).
+    const layout = get().prefs.dockLayout;
+    if (layout.hidden.includes(dockTab)) get().setPref('dockLayout', setDockTabHidden(layout, dockTab, false));
+    set({ dockTab });
+  },
   setDockWidth: (w) => {
     const dockWidth = Math.round(Math.min(DOCK_MAX, Math.max(DOCK_MIN, w)));
     writePref('dockWidth', String(dockWidth));
@@ -145,6 +175,16 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
     set({ snapGrid });
   },
   requestTextFocus: () => set((s) => ({ textFocusToken: s.textFocusToken + 1 })),
+  toggleGuides: () => {
+    const showGuides = !get().showGuides;
+    writePref('showGuides', showGuides ? '1' : '0');
+    set({ showGuides });
+  },
+  toggleStartMarks: () => {
+    const showStartMarks = !get().showStartMarks;
+    writePref('showStartMarks', showStartMarks ? '1' : '0');
+    set({ showStartMarks });
+  },
   toggleSnapObjects: () => {
     const snapObjects = !get().snapObjects;
     writePref('snapObjects', snapObjects ? '1' : '0');

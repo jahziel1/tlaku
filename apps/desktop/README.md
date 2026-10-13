@@ -192,6 +192,7 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Importar diseño… | `Ctrl+I` |
 |  | Exportar G-code… | `Ctrl+Mayús+E` |
 |  | Imprimir… | `Ctrl+P` |
+|  | Nueva ventana | `Ctrl+Mayús+N` |
 | Edición | Deshacer | `Ctrl+Z` |
 |  | Rehacer | `Ctrl+Mayús+Z` o `Ctrl+Y` |
 |  | Seleccionar todo | `Ctrl+A` |
@@ -240,6 +241,9 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Texto | `T` |
 |  | Mano (mover la vista) | `H` |
 |  | Medir | `M` |
+|  | Puentes manuales | `U` |
+|  | Punto de inicio | `Q` |
+|  | Recortar formas | `X` |
 |  | Insertar nodo en el punto medio | `I` |
 |  | Segmento a recta | `Mayús+L` |
 |  | Segmento a curva | `Mayús+U` |
@@ -273,6 +277,11 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Cortar después (prioridad +1) | `Alt+Mayús+]` |
 |  | Bloquear | `Ctrl+L` |
 |  | Desbloquear todo | `Ctrl+Mayús+L` |
+|  | Asistente booleano… | `Ctrl+B` |
+|  | Recortar en el último clic | `Ctrl+K` |
+|  | Separar subtrayectos… | `Alt+B` |
+|  | Optimizar formas… | `Alt+Mayús+O` |
+|  | Cortar formas con una cuchilla… | `Alt+Mayús+C` |
 | Vista | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |
 |  | Alejar | `Ctrl+-` |
 |  | Ajustar a la cama | `Ctrl+0` |
@@ -293,6 +302,7 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Mover hacia abajo | `Ctrl+Alt+↓` |
 | Paneles y ayuda | Mostrar historial | `Ctrl+4` |
 |  | Atajos de teclado… | `Ctrl+/` o `F1` o `Mayús+/` |
+|  | Notas del proyecto | `Ctrl+7` |
 |  | Mostrar capas | `Ctrl+1` |
 |  | Mostrar máquina | `Ctrl+2` |
 |  | Mostrar consola | `Ctrl+3` |

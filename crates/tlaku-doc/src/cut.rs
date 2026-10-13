@@ -273,9 +273,11 @@ pub enum VirtualArray {
 #[serde(rename_all = "snake_case", default)]
 #[ts(export)]
 pub struct VariableText {
-    /// Próximo número de serie.
+    /// Próximo número de serie. En TypeScript es un `number` (el JSON no lleva `bigint`).
+    #[ts(type = "number")]
     pub serial: i64,
     /// Cuánto avanza la serie por cada copia o trabajo.
+    #[ts(type = "number")]
     pub serial_step: i64,
     /// Dígitos mínimos (rellena con ceros).
     pub serial_digits: u32,

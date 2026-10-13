@@ -7,7 +7,7 @@ import { selectActiveDevice, useStore } from '@/store';
 import { FeatureBlock, Fold, Group, NumField, SelectField, Toggle } from './ParamFields';
 import { formatNumber } from './fields';
 import { useLayerUi } from './layerUi';
-import { activeConflicts, advancedInUse, layerRules, minPowerApplies, type AdvancedFeature, type LayerRules } from './rules';
+import { activeConflicts, advancedInUse, layerRules, minPowerApplies, minPowerLineNote, type AdvancedFeature, type LayerRules } from './rules';
 import { useLayerSetters, type LayerTarget, type SetIn, type SetPatch } from './targets';
 
 const MODES: { mode: LayerMode; icon: typeof Spline }[] = [
@@ -67,9 +67,10 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
   const tabs = layer.tabs;
   const offsetFill = layer.mode === 'fill' && layer.fill_style === 'offset';
   const rules = layerRules(layer);
-  const used = advancedInUse(layer, powerMode);
+  const used = advancedInUse(layer);
   const usedIn = (list: AdvancedFeature[]) => list.some((f) => used.includes(f));
-  const showMinPower = minPowerApplies(layer, powerMode) && (isImage || !beginner);
+  const showMinPower = minPowerApplies(layer);
+  const showMinPowerNote = minPowerLineNote(layer, powerMode) && !beginner;
   const hiddenAdvanced = beginner && used.length > 0;
   const setImage = <K extends keyof LayerSettings['image']>(key: K, value: LayerSettings['image'][K]) => setIn('image', key, value);
   const activeBadge = t('layers.adv.active');
@@ -106,9 +107,10 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
             value={layer.min_power}
             onApply={(v) => set({ min_power: v })}
             ctx={{ power: layer.power }}
-            help={isImage ? t('layers.help.minPower') : t('layers.help.minPowerLine')}
+            help={t('layers.help.minPower')}
           />
         )}
+        {showMinPowerNote && <p className="lyr-info">{t('layers.note.minPowerLine')}</p>}
         <NumField field="passes" label={t('layers.passes')} value={layer.passes} onApply={(v) => set({ passes: v })} help={t('layers.help.passes')} />
         <Toggle label={t('layers.air')} checked={layer.air} onChange={(v) => set({ air: v })} help={t('layers.help.air')} />
       </Group>
@@ -431,6 +433,7 @@ function LeadBlock({ which, lead, setIn }: { which: 'lead_in' | 'lead_out'; lead
       <NumField field="lead_length" label={t('layers.lead.length')} value={lead.length} onApply={(v) => setIn(which, 'length', v)} help={t('layers.help.leadLength')} />
       <NumField
         field="lead_angle"
+        ctx={{ leadKind: lead.kind }}
         label={lead.kind === 'arc' ? t('layers.lead.sweep') : t('layers.lead.angle')}
         value={lead.angle}
         onApply={(v) => setIn(which, 'angle', v)}

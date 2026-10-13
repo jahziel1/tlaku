@@ -2,10 +2,13 @@ import { useEffect } from 'react';
 import type { StoreApi } from 'zustand';
 import { getApi, type LaserApi } from '@/api';
 import type { DesignObject, Document, FontFamily } from '@/api/types';
+import { useVariablesUi } from '@/features/variables/context';
+import { issueMessage } from '@/features/variables/messages';
 import { t } from '@/i18n';
 import type { BezPath } from '@/lib/bezpath';
 import { useStore, type AppState } from '@/store';
 import { effectiveFont, loadFonts } from './fonts';
+import { isOutlineCurrent, rememberOutline } from './outlineSigs';
 import { isTextObject, resolveText, type TextDesignObject } from './signature';
 import { useTextStatus } from './status';
 
@@ -41,25 +44,7 @@ export function patchDocOutline(
 /** Espera tras el último cambio antes de pedir el contorno (escribir no debe saturar al motor). */
 export const OUTLINE_DEBOUNCE_MS = 250;
 
-/**
- * Firma con la que se generó cada contorno. Un texto está al día si la firma de su contorno
- * coincide con la de sus parámetros actuales. Un contorno que no conocemos (archivo abierto,
- * pegado de otro proyecto) se da por bueno la primera vez que se ve: así abrir un proyecto no
- * regenera todos los textos, y deshacer/rehacer devuelven contornos que ya están al día.
- */
-const outlineSigs = new WeakMap<BezPath[], string>();
-
-/** ¿El contorno del texto corresponde a `sig`? Registra los contornos desconocidos y no vacíos. */
-export function isOutlineCurrent(outline: BezPath[], sig: string, doneSig?: string): boolean {
-  const known = outlineSigs.get(outline);
-  if (known !== undefined) return known === sig;
-  if (outline.length > 0) {
-    outlineSigs.set(outline, sig);
-    return true;
-  }
-  // Un texto vacío (o solo espacios) genera un contorno vacío legítimo.
-  return doneSig === sig;
-}
+export { isOutlineCurrent, outlineMatches, rememberOutline } from './outlineSigs';
 
 export interface OutlineSyncOptions {
   /** Store del que se lee el documento (la app usa `useStore`). */
@@ -126,7 +111,10 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
     const font = effectiveFont(families, obj.kind.font_family);
     let result;
     try {
-      result = await api().textOutline({ text: { ...obj.kind, font_family: font.family, outline: [] }, path: resolved.path });
+      result = await api().textOutline({
+        text: { ...obj.kind, text: resolved.text ?? obj.kind.text, font_family: font.family, outline: [] },
+        path: resolved.path,
+      });
     } catch (e) {
       if (stopped || jobs.get(id) !== job) return;
       jobs.delete(id);
@@ -145,10 +133,12 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
     }
     jobs.delete(id);
     done.set(id, sig);
-    outlineSigs.set(result.paths, sig);
-    const warnings = font.fellBack
-      ? [t('text.warn.fontFallback', { family: obj.kind.font_family.trim(), used: font.family }), ...result.warnings]
-      : result.warnings;
+    rememberOutline(result.paths, sig);
+    const warnings = [
+      ...(resolved.issues ?? []).map(issueMessage),
+      ...(font.fellBack ? [t('text.warn.fontFallback', { family: obj.kind.font_family.trim(), used: font.family })] : []),
+      ...result.warnings,
+    ];
     status.set(id, { busy: false, warnings, error: null });
     // Sin paso de deshacer: deshacer un contorno dejaría un texto sin contorno que se regeneraría y
     // borraría el rehacer. El mismo contorno se escribe en el documento, en lo guardado y en el historial.
@@ -177,7 +167,7 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
         status.set(o.id, { busy: false, warnings: [], error: t('text.onPath.missing') });
         continue;
       }
-      if (isOutlineCurrent(o.kind.outline, r.sig, done.get(o.id))) {
+      if (isOutlineCurrent(o.kind.outline, r.sig, done.get(o.id), r.text === undefined)) {
         if (jobs.has(o.id)) {
           cancel(o.id);
           status.set(o.id, { busy: false });
@@ -203,6 +193,13 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
     prevDoc = s.doc;
     scan();
   });
+  // Los valores del texto variable también cambian con el CSV cargado, el reloj y "ver plantilla".
+  let prevUi = useVariablesUi.getState();
+  const unsubscribeUi = useVariablesUi.subscribe((ui) => {
+    const changed = ui.csv !== prevUi.csv || ui.showTemplate !== prevUi.showTemplate || ui.clock !== prevUi.clock;
+    prevUi = ui;
+    if (changed) scan();
+  });
   scan();
 
   return {
@@ -210,6 +207,7 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
     stop: () => {
       stopped = true;
       unsubscribe();
+      unsubscribeUi();
       for (const id of [...jobs.keys()]) cancel(id);
     },
   };

@@ -1,8 +1,11 @@
 import { getApi, getApiKind } from '@/api';
 import type { Document } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
+import { autoGroupObjects } from '@/lib/autogroup';
 import { errorMessage } from '@/lib/errors';
+import { groupIdsOf } from '@/lib/groups';
 import { pickImportPaths } from '@/features/history/dialogs';
+import { resolveDocForOutput } from '@/features/variables/jobResolve';
 import { baseName, extensionOf, isImportable, withExtension } from '@/features/history/paths';
 import { useStore, type AppState } from '@/store';
 import { ExportDialog, defaultRemembered, type ExportChoice, type RememberedOptions } from './ExportDialog';
@@ -90,8 +93,9 @@ export async function exportAs(format: ExportFormat, io: FileioIo = defaultIo): 
   const picked = await io.pickSavePath(format, suggestedName(state().filePath, format));
   if (!picked) return false;
   const path = withExtension(picked, EXPORT_EXTENSION[format]);
-  const doc: Document = state().doc;
   try {
+    // Los textos variables salen con los valores de ahora.
+    const doc: Document = await resolveDocForOutput(state().doc);
     const summary = await getApi().exportDesign({ doc, selection: scopeIds(choice), path, request: choice.request });
     report(summary);
     return true;
@@ -108,7 +112,7 @@ export async function printDesign(io: FileioIo = defaultIo): Promise<boolean> {
   if (!choice || choice.request.format !== 'pdf') return false;
   const { format: _format, ...options } = choice.request;
   try {
-    const summary = await getApi().printDesign({ doc: state().doc, selection: scopeIds(choice), options });
+    const summary = await getApi().printDesign({ doc: await resolveDocForOutput(state().doc), selection: scopeIds(choice), options });
     if (summary.warnings.length > 0) {
       state().notify('warning', t('fileio.notice.printed', { path: summary.path }), summary.warnings);
     } else {
@@ -139,7 +143,13 @@ export async function importWithOptions(io: FileioIo = defaultIo): Promise<numbe
   for (const path of paths) {
     const file = baseName(path);
     try {
-      const result = await getApi().importFileWith({ path, options });
+      // `auto_group` lo resuelve la interfaz; el motor no lo conoce.
+      const { auto_group: autoGroup, ...engineOptions } = options;
+      const result = await getApi().importFileWith({ path, options: engineOptions });
+      if (autoGroup) {
+        const grouped = autoGroupObjects(result.objects, groupIdsOf(state().doc.objects));
+        result.objects = grouped.objects;
+      }
       if (result.objects.length === 0) {
         state().notify('warning', t('history.notice.importedNothing', { file }), result.warnings);
         continue;

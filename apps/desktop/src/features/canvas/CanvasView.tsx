@@ -15,6 +15,8 @@ import { NumericBar } from './NumericBar';
 import { readCanvasPalette } from './palette';
 import { createRenderer } from './createRenderer';
 import { MeasureReadout } from './MeasureReadout';
+import { buildMarks } from './marks';
+import { GuidesDialogHost } from './GuidesDialog';
 import type { CanvasPalette, Scene } from './renderer';
 import { Ruler, RULER_SIZE } from './Ruler';
 import { PositionIndicator } from './PositionIndicator';
@@ -30,7 +32,7 @@ import { ZoomControls } from './ZoomControls';
 const WATCHED: (keyof AppState)[] = [
   'zoom', 'panX', 'panY', 'viewport', 'doc', 'selectedIds', 'wireframe', 'theme',
   'preview', 'previewVisible', 'previewView', 'scrub', 'devices', 'activeDeviceId', 'status', 'connection',
-  'cameraBackdrop', 'nodeSel', 'nodeCorners', 'activeTool',
+  'cameraBackdrop', 'nodeSel', 'nodeCorners', 'activeTool', 'showGuides', 'showStartMarks',
 ];
 
 // Estructuras derivadas que solo cambian con el documento / la selección: se recalculan por identidad.
@@ -90,6 +92,7 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     // La posición de trabajo de la máquina se convierte al documento según el origen del perfil.
     head: selectHeadDoc(s),
     backdrop: s.cameraBackdrop,
+    marks: buildMarks(s, ix),
   };
 }
 
@@ -192,6 +195,7 @@ export function CanvasView() {
         )}
       </div>
       <ContextMenuHost />
+      <GuidesDialogHost />
     </div>
   );
 }

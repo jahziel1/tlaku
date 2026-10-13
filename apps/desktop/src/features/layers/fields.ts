@@ -2,8 +2,9 @@ import type { I18nKey } from '@/i18n';
 
 /**
  * Campos numéricos del editor de capas: unidad, rango y validación. Un valor inválido se
- * marca en la interfaz y NO se aplica al documento. Los rangos no son más estrictos que los
- * del motor (`tlaku-pipeline`): lo que él acepta, el editor lo acepta.
+ * marca en la interfaz y NO se aplica al documento. Los rangos siguen los del motor
+ * (`tlaku-pipeline`: `stroke.rs`, `layers.rs`, `tabs.rs`): lo que él rechaza, el editor no lo deja
+ * escribir, y lo que acepta (dentro de un tope práctico), el editor lo acepta.
  */
 export type NumericField =
   | 'speed'
@@ -87,12 +88,14 @@ export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
   perf_cut: { min: 0.01, max: 100, step: 0.1, decimals: 3, unit: 'mm', positive: true },
   perf_skip: { min: 0.01, max: 100, step: 0.1, decimals: 3, unit: 'mm', positive: true },
   lead_length: { min: 0.01, max: 50, step: 0.5, decimals: 3, unit: 'mm', positive: true },
-  lead_angle: { min: -180, max: 180, step: 5, decimals: 1, unit: '°' },
+  // Igual que el motor (`stroke.rs`): mayor que 0 y hasta 90° en recta o 180° de barrido en arco.
+  lead_angle: { min: 0, max: 180, step: 5, decimals: 1, unit: '°', positive: true },
   overcut: { min: 0, max: 50, step: 0.1, decimals: 3, unit: 'mm' },
   // Pausa con el láser encendido, en milisegundos (0 = sin pausa).
   delay: { min: 0, max: 10000, step: 10, decimals: 0, unit: 'ms' },
   cut_through_power: { min: 0, max: 100, step: 1, decimals: 1, unit: '%' },
-  cut_through_ms: { min: 0, max: 10000, step: 10, decimals: 0, unit: 'ms' },
+  // El motor exige un tiempo mayor que 0 ms.
+  cut_through_ms: { min: 0, max: 10000, step: 10, decimals: 0, unit: 'ms', positive: true },
   dot_dwell: { min: 0.01, max: 1000, step: 0.5, decimals: 2, unit: 'ms', positive: true },
   dot_spacing: { min: 0.01, max: 50, step: 0.1, decimals: 3, unit: 'mm', positive: true },
   ramp_length: { min: 0.01, max: 50, step: 0.5, decimals: 3, unit: 'mm', positive: true },
@@ -121,6 +124,8 @@ export interface FieldContext {
   layerCount?: number;
   /** Largo de los puentes (la separación, si no es 0, debe ser mayor). */
   tabWidth?: number;
+  /** Tipo de la entrada o salida: en recta el ángulo llega a 90°, en arco el barrido a 180°. */
+  leadKind?: 'straight' | 'arc';
 }
 
 /** Texto numérico con coma o punto decimal; `null` si no es un número finito. */
@@ -143,7 +148,8 @@ export function validateField(field: NumericField, text: string, ctx: FieldConte
   if (n === null) return { ok: false, error: { key: 'layers.err.number' } };
   if (spec.integer && !Number.isInteger(n)) return { ok: false, error: { key: 'layers.err.integer' } };
   if (spec.positive && n <= 0) return { ok: false, error: { key: 'layers.err.positive' } };
-  const max = field === 'order' && ctx.layerCount ? Math.max(spec.min, ctx.layerCount) : spec.max;
+  let max = field === 'order' && ctx.layerCount ? Math.max(spec.min, ctx.layerCount) : spec.max;
+  if (field === 'lead_angle' && ctx.leadKind === 'straight') max = 90;
   if (n < spec.min || n > max) {
     const fmt = (v: number) => formatNumber(v, spec.decimals);
     return { ok: false, error: { key: 'layers.err.range', params: { min: fmt(spec.min), max: fmt(max), unit: spec.unit } } };

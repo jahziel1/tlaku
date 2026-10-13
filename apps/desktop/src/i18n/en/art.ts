@@ -1,0 +1,37 @@
+import type { art as Source } from '../es/art';
+
+/** English for the `art` area (art library). Missing keys fall back to Spanish (see `i18n/index.ts`). */
+export const art: { [K in keyof typeof Source]?: string } = {
+  'art.cmd.open': 'Art library',
+  'art.title': 'Art library',
+  'art.close': 'Close the library',
+  'art.intro': 'Click a design to insert it at the center of the view, or drag it onto the canvas.',
+  'art.search': 'Search designs',
+  'art.categories': 'Categories',
+  'art.cat.todo': 'All',
+  'art.cat.flechas': 'Arrows',
+  'art.cat.marcos': 'Frames',
+  'art.cat.estrellas': 'Stars',
+  'art.cat.corazones': 'Hearts',
+  'art.cat.iconos': 'Icons',
+  'art.cat.bordes': 'Borders',
+  'art.cat.cajas': 'Boxes',
+  'art.cat.usuario': 'My designs',
+  'art.empty': 'No design matches the search.',
+  'art.tile.hint': '{name}: click to insert, or drag onto the canvas',
+  'art.tile.insert': 'Insert {name}',
+  'art.inserted': '"{name}" inserted.',
+  'art.insertWarnings': 'The design was inserted with {n} warning(s).',
+  'art.insertFailed': 'The design could not be inserted: {error}',
+
+  'art.user.add': 'Add my SVGs…',
+  'art.user.empty': 'You have not added any designs yet. Use "Add my SVGs…" to copy your files into the library.',
+  'art.user.manage': 'Remove from my library',
+  'art.user.remove': 'Remove "{name}" from my library',
+  'art.user.folder': 'Your SVGs are stored in the Tlaku configuration folder, inside "art".',
+  'art.user.added': '{n} design(s) added to your library.',
+  'art.user.addErrors': '{n} file(s) could not be added.',
+  'art.user.loadFailed': 'Your library could not be read: {error}',
+  'art.user.addFailed': 'Could not add to your library: {error}',
+  'art.user.removeFailed': 'The design could not be removed: {error}',
+};

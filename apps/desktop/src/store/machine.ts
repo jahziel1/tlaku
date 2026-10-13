@@ -3,6 +3,8 @@ import type { ConnectionEvent, JobEvent, LogEvent, OverrideKind, Point, Progress
 import { firmwareFamily, parseAlarmLine, type AlarmAction, type FirmwareFamily } from '@/features/machine/grblCodes';
 import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, stepDelta, type JogDir } from '@/features/machine/jogMath';
 import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish, writeJogSteps, type FinishPosition } from '@/features/machine/moveSettings';
+import { advanceAfterJob } from '@/features/variables/advance';
+import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { needsConfirmation, parseCommand, type CommandError } from '@/features/machine/commandSafety';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, portKey, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
 import { t, type I18nKey } from '@/i18n';
@@ -732,7 +734,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       set({ dialog: null });
       await get().startJob();
     },
-    startJob: () => guardJob(() => getApi().startJob(buildJobArgs(get()))),
+    startJob: () => guardJob(async () => getApi().startJob(await resolveJobArgs(buildJobArgs(get())))),
     pauseJob: async () => {
       await guard(() => getApi().pauseJob());
     },
@@ -743,8 +745,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (get().jogging) await get().jogStop();
       await guard(() => getApi().cancelJob());
     },
-    frameJob: () => guardJob(() => getApi().frameJob({ ...buildJobArgs(get()), speed: jogSpeedNow() })),
-    frameHull: () => guardJob(() => getApi().frameHull({ ...buildJobArgs(get()), speed: jogSpeedNow() })),
+    frameJob: () => guardJob(async () => getApi().frameJob({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow() })),
+    frameHull: () => guardJob(async () => getApi().frameHull({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow() })),
     dismissJobError: () => set({ jobError: null }),
     dismissPositionLost: () => set({ positionLost: false, positionLostPort: null }),
     simulateFault: async (fault) => {
@@ -774,6 +776,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       apply({ type: 'job', job });
       if (job.state === 'finished') {
         get().notify('success', job.message);
+        // Texto variable: la serie y la fila del CSV pasan al siguiente trabajo (solo si terminó bien).
+        advanceAfterJob({ getState: get });
         // Solo si el trabajo terminó bien: tras una cancelación o un error la cabeza no se mueve sola.
         if (get().finish.mode !== 'stay') void waitIdleThen(get, () => get().goToFinishPosition());
       }

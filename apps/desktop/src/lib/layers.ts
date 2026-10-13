@@ -27,8 +27,8 @@ export const DEFAULT_TAB_SETTINGS: TabSettings = {
   skip_inner: true,
 };
 
-/** Máximo de operaciones adicionales (sub-capas) de una capa; con la principal son 11. */
-export const MAX_SUB_LAYERS = 10;
+/** Máximo de operaciones adicionales (sub-capas) de una capa; el mismo que `MAX_SUB_LAYERS` del motor (`place.rs`). */
+export const MAX_SUB_LAYERS = 11;
 
 /** Grupos de ajustes anidados de una capa (cada uno es un objeto con sus propios campos). */
 export const NESTED_KEYS = ['image', 'tabs', 'perforation', 'lead_in', 'lead_out', 'cut_through', 'dot_mode', 'ramp'] as const;

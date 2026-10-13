@@ -6,13 +6,13 @@
  */
 export type VariableText = { 
 /**
- * Próximo número de serie.
+ * Próximo número de serie. En TypeScript es un `number` (el JSON no lleva `bigint`).
  */
-serial: bigint, 
+serial: number, 
 /**
  * Cuánto avanza la serie por cada copia o trabajo.
  */
-serial_step: bigint, 
+serial_step: number, 
 /**
  * Dígitos mínimos (rellena con ceros).
  */

@@ -1,4 +1,4 @@
-import type { LaserApi, PrefsBundle, PrefsFile, RecoveryInfo } from '../api';
+import type { LaserApi, PrefsBundle, PrefsFile, RecoveryInfo, TemplateInfo } from '../api';
 import type { Document } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
@@ -9,11 +9,12 @@ type Lag = <T>(value: () => T) => Promise<T>;
  */
 export function mockPrefs(lag: Lag): Pick<
   LaserApi,
-  'loadPreferences' | 'savePreferences' | 'exportPreferences' | 'importPreferences' | 'pathsExist' | 'autosaveWrite' | 'autosaveList' | 'autosaveRead' | 'autosaveDiscard'
+  'loadPreferences' | 'savePreferences' | 'exportPreferences' | 'importPreferences' | 'pathsExist' | 'autosaveWrite' | 'autosaveList' | 'autosaveRead' | 'autosaveDiscard' | 'listTemplates' | 'saveTemplate' | 'loadTemplate' | 'deleteTemplate' | 'newWindow'
 > {
   let stored: PrefsFile | null = null;
   const bundles = new Map<string, PrefsBundle>();
   const copies = new Map<string, { info: RecoveryInfo; doc: Document }>();
+  const templates = new Map<string, { info: TemplateInfo; doc: Document }>();
 
   return {
     loadPreferences: () => lag(() => (stored ? structuredClone(stored) : null)),
@@ -48,6 +49,32 @@ export function mockPrefs(lag: Lag): Pick<
     autosaveDiscard: ({ id }) =>
       lag(() => {
         copies.delete(id);
+      }),
+    listTemplates: () =>
+      lag(() => [...templates.values()].map((t) => t.info).sort((a, b) => a.name.localeCompare(b.name))),
+    saveTemplate: ({ name, doc }) =>
+      lag(() => {
+        const clean = name.trim();
+        if (!clean || /[/\\:*?"<>|]/.test(clean)) throw new Error(`El nombre «${name}» no es válido para una plantilla.`);
+        const info: TemplateInfo = { name: clean, saved_at_ms: Date.now(), size_bytes: JSON.stringify(doc).length };
+        templates.set(clean, { info, doc: structuredClone(doc) });
+        return info;
+      }),
+    loadTemplate: ({ name }) =>
+      lag(() => {
+        const found = templates.get(name);
+        if (!found) throw new Error(`No existe la plantilla «${name}».`);
+        return structuredClone(found.doc);
+      }),
+    newWindow: () =>
+      lag(() => {
+        // En el navegador (modo mock) una pestaña nueva hace de ventana nueva.
+        if (typeof window !== 'undefined' && typeof window.open === 'function') window.open(window.location.href, '_blank');
+        return 'doc-mock';
+      }),
+    deleteTemplate: ({ name }) =>
+      lag(() => {
+        templates.delete(name);
       }),
   };
 }

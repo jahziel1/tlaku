@@ -55,6 +55,7 @@ fn item(path: Polyline) -> PlanItem {
         layer_order: 0,
         group: None,
         priority: 0,
+        locked: false,
     }
 }
 
@@ -357,6 +358,7 @@ fn hierarchy_is_layer_then_group_then_priority() {
         layer_order: layer,
         group,
         priority,
+        locked: false,
     };
     let items = vec![
         mk(1, Some(0), 0, 0.0),
@@ -1714,4 +1716,85 @@ fn closed_winding_makes_every_closed_shape_turn_the_same_way() {
     let p = plan(&items, &opts());
     let kept = p.steps.iter().find(|s| s.item == 1).unwrap();
     assert!(signed_area2(&kept.path) < 0.0);
+}
+
+// ---- punto de inicio y sentido fijados por el usuario ----
+
+#[test]
+fn locked_closed_shape_keeps_its_start_vertex() {
+    // El planificador libre rotaría este cuadrado para entrar por el vértice más cercano al
+    // origen; fijado, conserva el suyo (el último vértice, el más lejano).
+    let mut sq = square(0.0, 0.0, 10.0);
+    sq.points.rotate_left(2);
+    let first = sq.points[0];
+    let free = plan(&[item(sq.clone())], &opts());
+    assert_ne!(
+        free.steps[0].path.points[0], first,
+        "el caso debe poder rotarse"
+    );
+    let locked = plan(
+        &[PlanItem {
+            locked: true,
+            ..item(sq)
+        }],
+        &opts(),
+    );
+    assert_eq!(locked.steps[0].path.points[0], first);
+}
+
+#[test]
+fn locked_open_path_is_not_reversed() {
+    // Una línea cuyo final está junto a la cabeza se invertiría; fijada, se corta como viene.
+    let l = line((100.0, 0.0), (1.0, 0.0));
+    let free = plan(&[item(l.clone())], &opts());
+    assert_eq!(free.steps[0].path.points[0], pt(1.0, 0.0));
+    let locked = plan(
+        &[PlanItem {
+            locked: true,
+            ..item(l.clone())
+        }],
+        &opts(),
+    );
+    assert_eq!(locked.steps[0].path, l);
+}
+
+#[test]
+fn locked_shapes_ignore_the_unified_winding_but_others_obey_it() {
+    let ccw = square(0.0, 0.0, 10.0);
+    let mut cw = square(30.0, 0.0, 10.0);
+    cw.points.reverse();
+    let items = [
+        PlanItem {
+            locked: true,
+            ..item(cw.clone())
+        },
+        item(cw.clone()),
+        item(ccw),
+    ];
+    let o = PlanOptions {
+        closed_winding: Some(Winding::Ccw),
+        choose_start_point: false,
+        ..opts()
+    };
+    let p = plan(&items, &o);
+    let by_item = |i: usize| p.steps.iter().find(|s| s.item == i).unwrap();
+    assert!(same_points(&by_item(0).path, &cw));
+    assert_eq!(
+        by_item(0).path.points,
+        cw.points,
+        "el sentido fijado se conserva"
+    );
+    assert_ne!(by_item(1).path.points, cw.points, "el resto se unifica");
+}
+
+#[test]
+fn locked_shapes_still_get_ordered_with_the_rest() {
+    let a = PlanItem {
+        locked: true,
+        ..item(square(0.0, 0.0, 5.0))
+    };
+    let b = item(square(100.0, 0.0, 5.0));
+    let c = item(square(10.0, 0.0, 5.0));
+    let p = plan(&[a, b, c], &opts());
+    assert_eq!(order(&p), vec![0, 2, 1]);
 }

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="1.4.03" FormatVersion="1" MaterialHeight="0" MirrorX="False" MirrorY="False">
+    <CutSetting type="Cut">
+        <index Value="0"/>
+        <name Value="Perforado"/>
+        <maxPower Value="60"/>
+        <speed Value="20"/>
+        <perforate Value="1"/>
+        <perfLen Value="2"/>
+        <perfSkip Value="0.5"/>
+        <overcut Value="1.5"/>
+        <startDelay Value="30"/>
+        <endDelay Value="10"/>
+    </CutSetting>
+    <CutSetting type="Cut">
+        <index Value="1"/>
+        <name Value="Puntos"/>
+        <maxPower Value="40"/>
+        <speed Value="50"/>
+        <dotMode Value="1"/>
+        <dotTime Value="4"/>
+        <dotSpacing Value="0.8"/>
+    </CutSetting>
+    <CutSetting type="Cut">
+        <index Value="2"/>
+        <name Value="Rampa y pasante"/>
+        <maxPower Value="90"/>
+        <speed Value="15"/>
+        <rampLength Value="3"/>
+        <rampOuter Value="1"/>
+        <enableCutThroughStart Value="1"/>
+        <throughPower Value="70"/>
+        <startDelay Value="120"/>
+    </CutSetting>
+    <CutSetting type="Scan">
+        <index Value="3"/>
+        <name Value="Inundado"/>
+        <maxPower Value="30"/>
+        <speed Value="200"/>
+        <interval Value="0.1"/>
+        <floodFill Value="1"/>
+    </CutSetting>
+    <CutSetting type="Scan">
+        <index Value="4"/>
+        <name Value="Relleno y contorno"/>
+        <maxPower Value="25"/>
+        <speed Value="150"/>
+        <interval Value="0.2"/>
+        <priority Value="1"/>
+    </CutSetting>
+    <CutSetting type="Cut">
+        <index Value="4"/>
+        <name Value="Contorno"/>
+        <maxPower Value="55"/>
+        <speed Value="12"/>
+        <numPasses Value="2"/>
+    </CutSetting>
+    <Shape Type="Rect" CutIndex="0" W="10" H="10" Cr="0">
+        <XForm>1 0 0 1 20 20</XForm>
+    </Shape>
+    <Shape Type="Rect" CutIndex="4" W="10" H="10" Cr="0">
+        <XForm>1 0 0 1 40 20</XForm>
+    </Shape>
+</LightBurnProject>

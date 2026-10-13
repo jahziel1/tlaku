@@ -76,6 +76,7 @@ export const fileio = {
   'fileio.import.dxfUnit.inch': 'Pulgadas',
   'fileio.import.dxfUnit.cm': 'Centímetros',
   'fileio.import.group': 'Agrupar todo lo importado',
+  'fileio.import.autoGroup': 'Agrupar por contención (cada pieza con sus huecos y grabados)',
   'fileio.import.layer': 'Capa destino de los vectores',
   'fileio.import.layer.auto': 'Una capa por color (automático)',
   'fileio.import.pdfPage': 'Página del PDF o AI',

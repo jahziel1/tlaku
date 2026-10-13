@@ -206,7 +206,7 @@ fn with_winding(items: &[PlanItem], w: Winding) -> Vec<PlanItem> {
         .iter()
         .map(|it| {
             let mut it = it.clone();
-            if it.path.closed && it.path.points.len() >= 3 {
+            if it.path.closed && !it.locked && it.path.points.len() >= 3 {
                 let area = signed_area2(&it.path.points);
                 let wrong = match w {
                     Winding::Ccw => area < 0.0,

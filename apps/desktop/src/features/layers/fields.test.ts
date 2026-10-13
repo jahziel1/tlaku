@@ -152,8 +152,14 @@ describe('campos de la ola 2', () => {
   });
 
   it('ángulo de entrada, sobrecorte y pausas tienen su rango', () => {
-    expect(ok('lead_angle', '-45')).toBe(-45);
+    expect(ok('lead_angle', '45')).toBe(45);
     expect(ok('lead_angle', '181')).toBe('layers.err.range');
+    // Como el motor: ni 0 ni negativo; en recta hasta 90°, en arco hasta 180°.
+    expect(ok('lead_angle', '0')).toBe('layers.err.positive');
+    expect(ok('lead_angle', '-45')).toBe('layers.err.positive');
+    expect(ok('lead_angle', '90', { leadKind: 'straight' })).toBe(90);
+    expect(ok('lead_angle', '91', { leadKind: 'straight' })).toBe('layers.err.range');
+    expect(ok('lead_angle', '180', { leadKind: 'arc' })).toBe(180);
     expect(ok('overcut', '0')).toBe(0);
     expect(ok('overcut', '-0.1')).toBe('layers.err.range');
     expect(ok('overcut', '51')).toBe('layers.err.range');
@@ -166,7 +172,9 @@ describe('campos de la ola 2', () => {
   it('corte pasante y rampa usan porcentajes de 0 a 100', () => {
     expect(ok('cut_through_power', '100')).toBe(100);
     expect(ok('cut_through_power', '101')).toBe('layers.err.range');
-    expect(ok('cut_through_ms', '0')).toBe(0);
+    expect(ok('cut_through_ms', '0')).toBe('layers.err.positive');
+    expect(ok('cut_through_ms', '0,5')).toBe(0.5);
+    expect(ok('cut_through_ms', '-3')).toBe('layers.err.positive');
     expect(ok('cut_through_ms', '20000')).toBe('layers.err.range');
     expect(ok('ramp_start', '0')).toBe(0);
     expect(ok('ramp_start', '100.5')).toBe('layers.err.range');

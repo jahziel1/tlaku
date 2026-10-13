@@ -80,6 +80,8 @@
   --cv-overscan: rgba(135, 147, 255, 0.6);
   --cv-head: #8793ff;
   --cv-ink: #e9edf3;
+  --cv-docguide: #e58be8;
+  --cv-tab: #f2b14c;
 
   --ruler-bg: #121720;
   --ruler-ink: #a1acbb;
@@ -130,6 +132,8 @@
   --cv-overscan: rgba(70, 80, 224, 0.55);
   --cv-head: #4650e0;
   --cv-ink: #141922;
+  --cv-docguide: #b02ab4;
+  --cv-tab: #c4710a;
 
   --ruler-bg: #eaedf2;
   --ruler-ink: #465162;

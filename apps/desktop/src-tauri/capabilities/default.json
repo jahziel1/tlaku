@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permisos mínimos de la ventana principal. Eventos del motor (listen/unlisten), diálogos de archivo, utilidades de rutas (solo cálculo de cadenas) y control de su propia ventana (título, cerrar, destruir; onCloseRequested sale de los eventos). Los comandos propios de la app (los del contrato de docs/app-api.md) no necesitan permisos aquí. Las imágenes del diseño se leen por el protocolo asset:// (alcance en tauri.conf.json), no por el plugin de archivos.",
-  "windows": ["main"],
+  "windows": ["main", "doc-*"],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",

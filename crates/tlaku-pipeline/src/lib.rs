@@ -22,8 +22,10 @@ mod layers;
 mod material_test;
 mod place;
 mod preview;
+mod processed;
 mod rotary;
 mod scan_offset;
+mod start;
 mod stroke;
 mod tabs;
 mod zaxis;
@@ -40,6 +42,7 @@ pub use layers::{
     resolve_layer,
 };
 pub use material_test::material_test;
+pub use processed::processed_png;
 pub use rotary::rotary_test;
 
 /// Los tipos del documento, para quien solo depende de este crate.

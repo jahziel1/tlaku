@@ -1670,11 +1670,19 @@ fn feed_and_power_overrides_reach_the_machine_and_come_back_in_the_status() {
     // Volver al 100 % es un solo byte.
     let before = e.realtime_bytes().len();
     rig.handle.set_override(OverrideKind::Feed, 100).unwrap();
+    // Solo se miran los bytes de override: entre medias puede colarse un `?` del sondeo.
+    let new_overrides = || -> Vec<u8> {
+        e.realtime_bytes()[before..]
+            .iter()
+            .copied()
+            .filter(|b| *b >= 0x90)
+            .collect()
+    };
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while e.realtime_bytes().len() <= before && std::time::Instant::now() < deadline {
+    while new_overrides().is_empty() && std::time::Instant::now() < deadline {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
-    assert_eq!(e.realtime_bytes()[before..], [0x90]);
+    assert_eq!(new_overrides(), [0x90]);
     rig.sink.wait("100 % otra vez", |s| {
         last_overrides(s).is_some_and(|o| o.feed == 100 && o.spindle == 85)
     });

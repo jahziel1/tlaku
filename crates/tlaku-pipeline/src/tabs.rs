@@ -12,6 +12,7 @@
 //! vista previa lo dibuja como láser apagado. El hueco que cae justo al final del recorrido
 //! (cuando cubre el punto de partida) no se cruza.
 
+use std::collections::HashMap;
 use tlaku_core::toolpath::Move;
 use tlaku_core::{Point, Polyline};
 use tlaku_doc::LayerSettings;
@@ -157,6 +158,231 @@ pub(crate) fn split(path: &Polyline, spec: &TabSpec, stats: &mut TabStats) -> Ve
     let r = tab_segments(path, &spec.options);
     stats.record(&r);
     r.segments
+}
+
+// ---------------------------------------------------------------------------
+// Puentes manuales (`DesignObject::manual_tabs`)
+// ---------------------------------------------------------------------------
+//
+// Si un objeto tiene puentes puestos a mano, éstos sustituyen a los automáticos de la capa para
+// ese objeto (aunque sean menos, y sin la regla de omitir interiores). Cada punto se lleva al
+// punto más cercano del contorno y ahí se centra un puente con el ancho de la capa.
+
+/// Quita vértices repetidos consecutivos y el último si repite al primero.
+fn clean(points: &[Point]) -> Vec<Point> {
+    let mut out: Vec<Point> = Vec::with_capacity(points.len());
+    for &p in points {
+        if out.last().is_none_or(|l| l.dist(p) > 1e-9) {
+            out.push(p);
+        }
+    }
+    while out.len() > 1 && out[0].dist(out[out.len() - 1]) <= 1e-9 {
+        out.pop();
+    }
+    out
+}
+
+/// Posición (longitud de arco desde el primer vértice) del punto del contorno más cercano a `p`
+/// y distancia a él. `pts` es el contorno cerrado ya limpio.
+fn arc_position(pts: &[Point], cum: &[f64], p: Point) -> (f64, f64) {
+    let n = pts.len();
+    let mut best = (f64::INFINITY, 0.0);
+    for i in 0..n {
+        let (a, b) = (pts[i], pts[(i + 1) % n]);
+        let (dx, dy) = (b.x - a.x, b.y - a.y);
+        let len2 = dx * dx + dy * dy;
+        let t = if len2 > 0.0 {
+            (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let q = Point::new(a.x + t * dx, a.y + t * dy);
+        let d = p.dist(q);
+        if d < best.0 {
+            best = (d, cum[i] + t * (cum[i + 1] - cum[i]));
+        }
+    }
+    (best.1, best.0)
+}
+
+/// Punto del contorno a la longitud de arco `u` (se envuelve al perímetro).
+fn point_at(pts: &[Point], cum: &[f64], u: f64) -> Point {
+    let n = pts.len();
+    let total = cum[n];
+    let u = u.rem_euclid(total);
+    let i = cum
+        .partition_point(|&c| c <= u)
+        .saturating_sub(1)
+        .min(n - 1);
+    let len = cum[i + 1] - cum[i];
+    let t = if len > 0.0 { (u - cum[i]) / len } else { 0.0 };
+    let (a, b) = (pts[i], pts[(i + 1) % n]);
+    Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+}
+
+/// Tramo abierto del contorno entre las longitudes de arco `u0 < u1` (con `u1 <= u0 + perímetro`).
+fn piece(pts: &[Point], cum: &[f64], u0: f64, u1: f64) -> Polyline {
+    let total = cum[pts.len()];
+    let u0n = u0.rem_euclid(total);
+    let u1n = u0n + (u1 - u0);
+    let mut points = vec![point_at(pts, cum, u0n)];
+    for lap in 0..2 {
+        for (j, p) in pts.iter().enumerate() {
+            let pos = cum[j] + f64::from(lap) * total;
+            if pos > u0n + 1e-9 && pos < u1n - 1e-9 {
+                points.push(*p);
+            }
+        }
+    }
+    points.push(point_at(pts, cum, u1n));
+    Polyline {
+        points,
+        closed: false,
+    }
+}
+
+/// Tramos del contorno que quedan entre los huecos de ancho `width` centrados en `centers`
+/// (ordenados). Igual que los puentes automáticos: si un hueco cubre el inicio del recorrido,
+/// éste empieza al final de ese hueco y termina donde empieza.
+fn split_at(pts: &[Point], cum: &[f64], centers: &[f64], width: f64) -> Vec<Polyline> {
+    let total = cum[pts.len()];
+    let half = width / 2.0;
+    let wrapping = centers.iter().position(|&c| c < half || c > total - half);
+    let start = wrapping.map_or(0.0, |i| {
+        let c = centers[i];
+        if c < half { c + half } else { c + half - total }
+    });
+    let mut gaps: Vec<f64> = centers
+        .iter()
+        .map(|&c| if c >= start { c } else { c + total })
+        .collect();
+    if let Some(i) = wrapping {
+        gaps[i] = start + total - half;
+    }
+    gaps.sort_by(f64::total_cmp);
+    let mut segments = Vec::with_capacity(gaps.len() + 1);
+    let mut from = start;
+    for c in gaps {
+        let (a, b) = (c - half, c + half);
+        if a - from > 1e-9 {
+            segments.push(piece(pts, cum, from, a));
+        }
+        from = b;
+    }
+    if start + total - from > 1e-9 {
+        segments.push(piece(pts, cum, from, start + total));
+    }
+    segments
+}
+
+/// Para cada trayectoria, los puentes manuales que le tocan: `None` si su objeto no tiene (rige
+/// la regla automática de la capa) y `Some(puntos)` si los tiene, aunque a ese contorno no le
+/// caiga ninguno. Cada punto va a la trayectoria **cerrada** de su objeto más cercana.
+/// `objects[i]` es el objeto de `paths[i]`.
+pub(crate) fn assign_manual(
+    paths: &[Polyline],
+    objects: &[usize],
+    manual: &HashMap<usize, Vec<Point>>,
+) -> Vec<Option<Vec<Point>>> {
+    let mut out: Vec<Option<Vec<Point>>> = vec![None; paths.len()];
+    if manual.is_empty() {
+        return out;
+    }
+    let mut by_object: HashMap<usize, Vec<usize>> = HashMap::new();
+    for (i, &o) in objects.iter().enumerate().take(paths.len()) {
+        if manual.contains_key(&o) {
+            by_object.entry(o).or_default().push(i);
+            out[i] = Some(Vec::new());
+        }
+    }
+    for (object, indices) in &by_object {
+        let closed: Vec<(usize, Vec<Point>, Vec<f64>)> = indices
+            .iter()
+            .filter(|&&i| paths[i].closed)
+            .filter_map(|&i| {
+                let pts = clean(&paths[i].points);
+                (pts.len() >= 3).then(|| {
+                    let cum = cumulative(&pts);
+                    (i, pts, cum)
+                })
+            })
+            .collect();
+        for &p in &manual[object] {
+            let nearest = closed
+                .iter()
+                .map(|(i, pts, cum)| (*i, arc_position(pts, cum, p).1))
+                .min_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((i, _)) = nearest {
+                out[i].get_or_insert_with(Vec::new).push(p);
+            }
+        }
+    }
+    out
+}
+
+/// Longitud acumulada hasta cada vértice; el elemento `n` es el perímetro (con la arista de cierre).
+fn cumulative(pts: &[Point]) -> Vec<f64> {
+    let n = pts.len();
+    let mut cum = Vec::with_capacity(n + 1);
+    cum.push(0.0);
+    for i in 0..n {
+        cum.push(cum[i] + pts[i].dist(pts[(i + 1) % n]));
+    }
+    cum
+}
+
+/// Parte el contorno cerrado `path` con puentes de `width_mm` centrados en los puntos de
+/// `points` (el más cercano del contorno a cada uno). Los puentes no se pisan ni ocupan más de la
+/// mitad del perímetro: si sobran, se conservan los primeros de la lista. Un contorno abierto o
+/// sin puntos se devuelve entero.
+pub(crate) fn split_manual(
+    path: &Polyline,
+    points: &[Point],
+    width_mm: f64,
+    stats: &mut TabStats,
+) -> Vec<Polyline> {
+    let pts = clean(&path.points);
+    if !path.closed
+        || pts.len() < 3
+        || points.is_empty()
+        || !(width_mm.is_finite() && width_mm > 0.0)
+    {
+        return vec![path.clone()];
+    }
+    let cum = cumulative(&pts);
+    let total = cum[pts.len()];
+    if total <= 1e-9 {
+        return vec![path.clone()];
+    }
+    let room = (total / (2.0 * width_mm)).floor() as usize;
+    let cyclic = |a: f64, b: f64| {
+        let d = (a - b).abs() % total;
+        d.min(total - d)
+    };
+    let mut centers: Vec<f64> = Vec::new();
+    let mut requested = 0;
+    for &p in points {
+        let u = arc_position(&pts, &cum, p).0;
+        // Dos puntos tan juntos que sus puentes se pisarían son el mismo puente.
+        if centers.iter().any(|&c| cyclic(c, u) < width_mm - 1e-9) {
+            continue;
+        }
+        requested += 1;
+        if centers.len() < room.min(MAX_TABS_PER_SHAPE) {
+            centers.push(u);
+        }
+    }
+    stats.record(&TabResult {
+        segments: Vec::new(),
+        requested,
+        placed: centers.len(),
+        length_mm: total,
+    });
+    if centers.is_empty() {
+        return vec![path.clone()];
+    }
+    centers.sort_by(f64::total_cmp);
+    split_at(&pts, &cum, &centers, width_mm)
 }
 
 #[cfg(test)]

@@ -4844,6 +4844,7 @@ dependencies = [
  "tlaku-export",
  "tlaku-geom",
  "tlaku-grbl",
+ "tlaku-nest",
  "tlaku-pipeline",
  "tlaku-text",
  "tlaku-trace",
@@ -4927,6 +4928,14 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "roxmltree",
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-nest"
+version = "0.1.0"
+dependencies = [
+ "i_overlay",
  "tlaku-core",
 ]
 

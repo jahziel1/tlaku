@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { t } from '@/i18n';
 import { formatTick, gridSteps } from '@/lib/viewport';
 import { useStore } from '@/store';
+import { createRulerDrag } from './guideTool';
+import { useGuideUi } from './guides';
 
 export const RULER_SIZE = 22;
 
@@ -16,9 +19,15 @@ function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** Regla en mm. Se dibuja sola a partir del store (zoom, paneo, cursor y tema). */
+/**
+ * Regla en mm. Se dibuja sola a partir del store (zoom, paneo, cursor y tema). Arrastrar desde ella
+ * hacia el lienzo crea una guía (la regla de arriba crea guías horizontales; la de la izquierda,
+ * verticales); el doble clic abre el diálogo de guías.
+ */
 export function Ruler({ axis, length, bedLength }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<ReturnType<typeof createRulerDrag> | null>(null);
+  const pointer = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -104,6 +113,44 @@ export function Ruler({ axis, length, bedLength }: Props) {
     });
   }, [axis, length, bedLength]);
 
-  const style = axis === 'x' ? { width: length, height: RULER_SIZE } : { width: RULER_SIZE, height: length };
-  return <canvas ref={ref} className="ruler" style={style} aria-hidden="true" />;
+  const rect = () => ref.current!.getBoundingClientRect();
+  const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0 || !useStore.getState().showGuides) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointer.current = e.pointerId;
+    drag.current = createRulerDrag(axis);
+  };
+  const onMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerId === pointer.current) drag.current?.move(rect(), e);
+  };
+  const onUp = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (e.pointerId !== pointer.current) return;
+    pointer.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    drag.current?.finish(rect(), e);
+    drag.current = null;
+  };
+  const onCancel = () => {
+    pointer.current = null;
+    drag.current?.cancel();
+    drag.current = null;
+  };
+
+  const style = {
+    ...(axis === 'x' ? { width: length, height: RULER_SIZE } : { width: RULER_SIZE, height: length }),
+    cursor: axis === 'x' ? 'row-resize' : 'col-resize',
+  };
+  return (
+    <canvas
+      ref={ref}
+      className="ruler"
+      style={style}
+      title={t('canvas.guide.rulerHint')}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onCancel}
+      onDoubleClick={() => useGuideUi.getState().show()}
+    />
+  );
 }

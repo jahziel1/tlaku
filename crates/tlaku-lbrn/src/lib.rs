@@ -65,6 +65,8 @@ pub struct Layer {
     pub name: String,
     /// Parámetros por nombre de elemento (`speed`, `maxPower`...), con el texto de su `Value`.
     pub params: std::collections::HashMap<String, String>,
+    /// Sub-capas: las capas siguientes del archivo con el mismo índice, en orden.
+    pub subs: Vec<Layer>,
 }
 
 impl Layer {

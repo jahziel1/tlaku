@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeLayer } from '@/lib/layers';
-import { activeConflicts, advancedInUse, layerRules, minPowerApplies } from './rules';
+import { activeConflicts, advancedInUse, layerRules, minPowerApplies, minPowerLineNote } from './rules';
 
 const layer = (patch = {}) => makeLayer('#ff0000', 'Capa', patch);
 const on = <T extends object>(o: T): T & { enabled: true } => ({ ...o, enabled: true });
@@ -42,11 +42,16 @@ describe('combinaciones incompatibles', () => {
 });
 
 describe('potencia mínima', () => {
-  it('en línea solo aplica con potencia dinámica (M4); en imagen siempre; en relleno nunca', () => {
-    expect(minPowerApplies({ mode: 'line' }, 'dynamic')).toBe(true);
-    expect(minPowerApplies({ mode: 'line' }, 'constant')).toBe(false);
-    expect(minPowerApplies({ mode: 'image' }, 'constant')).toBe(true);
-    expect(minPowerApplies({ mode: 'fill' }, 'dynamic')).toBe(false);
+  it('solo aplica en imagen: el motor no la usa en línea ni en relleno', () => {
+    expect(minPowerApplies({ mode: 'line' })).toBe(false);
+    expect(minPowerApplies({ mode: 'image' })).toBe(true);
+    expect(minPowerApplies({ mode: 'fill' })).toBe(false);
+  });
+
+  it('una capa de línea con potencia dinámica explica por qué no la tiene', () => {
+    expect(minPowerLineNote({ mode: 'line' }, 'dynamic')).toBe(true);
+    expect(minPowerLineNote({ mode: 'line' }, 'constant')).toBe(false);
+    expect(minPowerLineNote({ mode: 'image' }, 'dynamic')).toBe(false);
   });
 });
 
@@ -63,8 +68,7 @@ describe('ajustes avanzados en uso (modo principiante)', () => {
 
   it('detecta línea, relleno, imagen, ángulo y operaciones adicionales', () => {
     const base = layer();
-    expect(advancedInUse(layer({ start_delay_ms: 5, ramp: on(base.ramp), min_power: 10 }))).toEqual(['delays', 'ramp', 'min_power']);
-    expect(advancedInUse(layer({ min_power: 10 }), 'constant')).toEqual([]);
+    expect(advancedInUse(layer({ start_delay_ms: 5, ramp: on(base.ramp), min_power: 10 }))).toEqual(['delays', 'ramp']);
     expect(advancedInUse(layer({ mode: 'fill', fill_style: 'flood', fill_grouping: 'by_shape', angle_increment: 5 }))).toEqual(['fill_style', 'fill_grouping', 'angle_increment']);
     const image = { ...base.image, pass_through: true, enhance_radius: 1, enhance_amount: 0.5, denoise: 2 };
     expect(advancedInUse(layer({ mode: 'image', image }))).toEqual(['pass_through', 'enhance', 'denoise']);

@@ -6,6 +6,7 @@ import { ALL_COMMANDS, CommandRegistry } from '@/commands';
 import { ellipseBez, polylineBez } from '@/lib/bezpath';
 import { objectBounds } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
+import { es } from '@/i18n';
 import { createAppStore, selectActiveDevice } from '@/store';
 import { alignMoves, bedBounds, centerOnBedMoves, distributeMoves, moveDoc } from './align';
 import { buildArray, centerForRadius, planCircular, planGrid, radiusOf } from './arrays';
@@ -291,7 +292,8 @@ describe('habilitación con motivos', () => {
     load([rect('a', 0, 0, 10, 10)]);
     for (const def of registry.list().filter((d) => d.category === 'arrange')) {
       const r = registry.availability(def.id, s());
-      if (r !== true) expect(r.startsWith('arrange.reason.'), def.id).toBe(true);
+      // El motivo puede venir de otra área (por ejemplo `design.reason.*`), pero siempre es un motivo con texto.
+      if (r !== true) expect(/(^|\.)reason\./.test(r) && es[r] !== undefined, def.id).toBe(true);
     }
   });
 });

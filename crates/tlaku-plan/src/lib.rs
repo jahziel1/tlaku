@@ -64,6 +64,10 @@ pub struct PlanItem {
     pub group: Option<usize>,
     /// Menor valor se corta antes.
     pub priority: i32,
+    /// El usuario fijó el punto de inicio y el sentido de esta figura: el planificador no rota
+    /// el inicio de una cerrada, no invierte una abierta ni la gira para unificar el sentido.
+    /// Sigue pudiendo cambiar su lugar en el orden de corte.
+    pub locked: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

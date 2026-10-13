@@ -68,11 +68,12 @@ export const MENUS: MenuDef[] = [
       'arrange.union', 'arrange.difference', 'arrange.intersection', 'arrange.xor', 'arrange.weld', '-',
       'arrange.offset', '-',
       'arrange.join', 'arrange.close', 'arrange.dedupe', '-',
+      'arrange.trim', 'arrange.breakApart', 'arrange.optimize', 'arrange.fillet', 'arrange.cutShapes', 'arrange.resizeSlots', '-',
       'arrange.align.left', 'arrange.align.hcenter', 'arrange.align.right',
       'arrange.align.top', 'arrange.align.vcenter', 'arrange.align.bottom', '-',
       'arrange.distribute.h', 'arrange.distribute.v', 'arrange.alignDialog', '-',
       'arrange.alignTo.selection', 'arrange.alignTo.object', 'arrange.alignTo.bed', 'arrange.centerOnBed', '-',
-      'arrange.grid', 'arrange.circular',
+      'arrange.grid', 'arrange.circular', 'arrange.nest',
     ],
   },
 ];

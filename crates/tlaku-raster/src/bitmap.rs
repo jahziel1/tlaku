@@ -64,6 +64,22 @@ impl RasterBitmap {
         self.data.iter().filter(|&&v| v > 0.0).count() as f64 / self.data.len() as f64
     }
 
+    /// PNG en escala de grises de lo que se grabaría: negro = potencia máxima, blanco = apagado.
+    /// La fila 0 del bitmap queda arriba, como en cualquier imagen.
+    pub fn to_png(&self) -> Result<Vec<u8>, String> {
+        let pixels: Vec<u8> = self
+            .data
+            .iter()
+            .map(|&p| ((1.0 - p.clamp(0.0, 1.0)) * 255.0).round() as u8)
+            .collect();
+        let img = image::GrayImage::from_raw(self.width as u32, self.height as u32, pixels)
+            .ok_or("el bitmap no cabe en una imagen")?;
+        let mut out = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut out, image::ImageFormat::Png)
+            .map_err(|e| format!("no se pudo codificar el PNG: {e}"))?;
+        Ok(out.into_inner())
+    }
+
     /// Reduce la potencia a `levels` niveles (2 = binario). Útil en Grayscale para que
     /// píxeles casi iguales se unan en un solo tramo y el G-code sea más corto.
     pub fn quantize(&mut self, levels: u32) {
@@ -97,5 +113,16 @@ mod tests {
         b.quantize(2);
         assert_eq!(b.data, vec![0.0, 1.0]);
         assert_eq!(b.lit_fraction(), 0.5);
+    }
+
+    #[test]
+    fn png_maps_power_to_black() {
+        let b = RasterBitmap::new(2, 1, 0.1, 0.1, vec![1.0, 0.0]).unwrap();
+        let img = image::load_from_memory(&b.to_png().unwrap())
+            .unwrap()
+            .to_luma8();
+        assert_eq!((img.width(), img.height()), (2, 1));
+        assert_eq!(img.get_pixel(0, 0).0[0], 0);
+        assert_eq!(img.get_pixel(1, 0).0[0], 255);
     }
 }
