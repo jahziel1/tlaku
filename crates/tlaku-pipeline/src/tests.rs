@@ -152,8 +152,10 @@ fn input_kinds() {
     assert_eq!(input_kind(Path::new("a.SVG")), Ok(InputKind::Svg));
     assert_eq!(input_kind(Path::new("a.dxf")), Ok(InputKind::Dxf));
     assert_eq!(input_kind(Path::new("a.JPEG")), Ok(InputKind::Image));
+    assert_eq!(input_kind(Path::new("a.pdf")), Ok(InputKind::Pdf));
+    assert_eq!(input_kind(Path::new("a.lbrn2")), Ok(InputKind::Lbrn));
     assert!(
-        input_kind(Path::new("a.pdf"))
+        input_kind(Path::new("a.cdr"))
             .unwrap_err()
             .contains("no soportado")
     );
@@ -224,7 +226,7 @@ fn image_import_makes_an_image_object_and_layer() {
     assert_eq!(r.objects[0].layer, r.new_layers[0].color);
     assert!(import_file(&dir.join("no_existe.bmp")).is_err());
     assert!(
-        import_file(&dir.join("x.pdf"))
+        import_file(&dir.join("x.cdr"))
             .unwrap_err()
             .contains("no soportado")
     );
