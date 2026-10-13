@@ -23,9 +23,15 @@ tutoriales, estándares, documentación de protocolos). Por eso:
   con distribuir un binario MIT). Con varias licencias alternativas basta con que una sea permisiva.
   GPL, LGPL y AGPL como única opción están prohibidas. `cargo deny check licenses sources`
   lo comprueba (configuración en [deny.toml](deny.toml)) y corre en la CI.
-- **Código GPL.** No leas ni copies código GPL, en particular GRBL y LaserGRBL: la contaminación
-  de licencia no se puede deshacer. Para GRBL usa solo su documentación pública (wiki, protocolo
-  y descripción de ajustes) y pruebas de comportamiento.
+- **Código de terceros.** Puedes leer código abierto de cualquier licencia para entender un
+  protocolo o tomar ideas: los datos de un protocolo y las ideas no tienen derechos de autor.
+  - **Copiar o adaptar** código solo se permite si su licencia es compatible con MIT (MIT,
+    Apache-2.0, BSD, ISC, Zlib). Conserva su aviso de copyright, cita el origen en un comentario y
+    agrégalo a [THIRD_PARTY.md](THIRD_PARTY.md).
+  - **Código GPL/LGPL/AGPL** (GRBL, LaserGRBL, Marlin, etc.): leer sí, copiar o traducir línea por
+    línea no. Escribe tu propia implementación; si te basaste en él para entender algo, cítalo como
+    referencia.
+  - Esto no aplica a LightBurn ni a otros programas comerciales: ver "Sala limpia".
 - Lo que aportes se publica bajo licencia MIT.
 
 ## Estilo
