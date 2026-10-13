@@ -8,6 +8,7 @@ license.workspace = true
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-doc = { version = "0.1.0", path = "../tlaku-doc" }
 serialport = "4"
+tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
 
 [dev-dependencies]
 tlaku-svg = { path = "../tlaku-svg" }

@@ -4,13 +4,18 @@
 //! entra) y recién entonces se parte con [`tlaku_geom::tab_segments`], así el orden de corte
 //! no cambia por los puentes.
 //!
-//! El hueco entre dos tramos es un `Cut` con potencia 0 y no un `Travel`. Los dos dejan el
-//! láser apagado en GRBL (G1 con S0 / G0), pero un `Travel` es un G0 a velocidad rápida: la
-//! máquina frena al cambiar de tipo de movimiento (así lo modela `tlaku-sim`), con un hueco de
-//! 0,5 mm se sale del régimen de corte a cada puente y la estimación de tiempo se infla. Con
-//! `Cut` a potencia 0 la cabeza conserva la velocidad de corte, igual que el overscan, y la
-//! vista previa lo dibuja como láser apagado. El hueco que cae justo al final del recorrido
-//! (cuando cubre el punto de partida) no se cruza.
+//! El hueco entre dos tramos es un `Cut` y no un `Travel`. Con potencia de puente 0 los dos
+//! dejan el láser apagado en GRBL (G1 con S0 / G0), pero un `Travel` es un G0 a velocidad
+//! rápida: la máquina frena al cambiar de tipo de movimiento (así lo modela `tlaku-sim`), con un
+//! hueco de 0,5 mm se sale del régimen de corte a cada puente y la estimación de tiempo se
+//! infla. Con `Cut` la cabeza conserva la velocidad de corte, igual que el overscan, y la vista
+//! previa lo dibuja como láser apagado (potencia 0) o como marcado (potencia > 0). El hueco que
+//! cae justo al final del recorrido (cuando cubre el punto de partida) no se cruza.
+//!
+//! **Potencia de puente** (`TabSettings.power`): es un porcentaje **absoluto** de la potencia de
+//! la máquina (0..=100), no relativo a la capa, y 0 la apaga. Si es mayor que 0 el hueco se
+//! marca (sin atravesar la pieza) con esa potencia, pero nunca supera la del corte: se usa
+//! `min(potencia de puente, potencia de corte del objeto)` (ver [`TabSpec::gap_power`]).
 
 use std::collections::HashMap;
 use tlaku_core::toolpath::Move;
@@ -23,6 +28,16 @@ use tlaku_geom::{MAX_TABS_PER_SHAPE, TabOptions, TabResult, tab_segments};
 pub(crate) struct TabSpec {
     pub options: TabOptions,
     pub skip_inner: bool,
+    /// Potencia de los huecos entre tramos, % absoluto de la máquina (0 = láser apagado).
+    pub power: f64,
+}
+
+impl TabSpec {
+    /// Potencia con la que se cruzan los huecos de un objeto cuyo corte va a `cut_power` (%):
+    /// la de puente, sin pasar nunca de la del corte.
+    pub fn gap_power(&self, cut_power: f64) -> f64 {
+        self.power.min(cut_power).max(0.0)
+    }
 }
 
 /// Lee y valida los puentes de una capa line. `None` si no están activos.
@@ -39,6 +54,12 @@ pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<TabSpec>, String> {
         return Err(err(format!(
             "la separación debe ser 0 o mayor: {}",
             t.spacing
+        )));
+    }
+    if !(t.power.is_finite() && (0.0..=100.0).contains(&t.power)) {
+        return Err(err(format!(
+            "la potencia de puente debe estar entre 0 y 100: {}",
+            t.power
         )));
     }
     if t.count as usize > MAX_TABS_PER_SHAPE {
@@ -59,6 +80,7 @@ pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<TabSpec>, String> {
             spacing_mm: t.spacing,
         },
         skip_inner: t.skip_inner,
+        power: t.power,
     }))
 }
 
@@ -132,8 +154,8 @@ pub(crate) fn kerf_warning(layer: &str, width_mm: f64, kerf_mm: f64) -> Option<S
 
 /// Agrega a `moves` el recorrido de una forma: `pieces` es el contorno entero (un solo
 /// elemento) o los tramos que dejan los puentes. El primer tramo entra con un `Travel`; los
-/// huecos entre tramos se cruzan con un `Cut` a potencia 0.
-pub(crate) fn push_shape(moves: &mut Vec<Move>, pieces: &[Polyline], power_pct: f64) {
+/// huecos entre tramos se cruzan con un `Cut` a `gap_pct` (0 = láser apagado).
+pub(crate) fn push_shape(moves: &mut Vec<Move>, pieces: &[Polyline], power_pct: f64, gap_pct: f64) {
     let mut first = true;
     for piece in pieces.iter().filter(|p| !p.points.is_empty()) {
         let start: Point = piece.start();
@@ -142,7 +164,7 @@ pub(crate) fn push_shape(moves: &mut Vec<Move>, pieces: &[Polyline], power_pct: 
         } else {
             Move::Cut {
                 to: start,
-                power_pct: 0.0,
+                power_pct: gap_pct,
             }
         });
         first = false;
@@ -411,6 +433,9 @@ mod tests {
             layer(|l| l.tabs.width = f64::NAN),
             layer(|l| l.tabs.spacing = -1.0),
             layer(|l| l.tabs.count = 5000),
+            layer(|l| l.tabs.power = -1.0),
+            layer(|l| l.tabs.power = 101.0),
+            layer(|l| l.tabs.power = f64::NAN),
             layer(|l| {
                 l.tabs.count = 0;
                 l.tabs.spacing = 0.0
@@ -429,6 +454,17 @@ mod tests {
     }
 
     #[test]
+    fn bridge_power_is_absolute_and_capped_by_the_cut() {
+        let spec = resolve(&layer(|l| l.tabs.power = 25.0)).unwrap().unwrap();
+        assert_eq!(spec.power, 25.0);
+        assert_eq!(spec.gap_power(80.0), 25.0);
+        // Nunca supera el corte (p. ej. con una escala de potencia por objeto baja).
+        assert_eq!(spec.gap_power(10.0), 10.0);
+        let off = resolve(&layer(|_| {})).unwrap().unwrap();
+        assert_eq!(off.gap_power(80.0), 0.0);
+    }
+
+    #[test]
     fn push_shape_crosses_gaps_with_laser_off_cuts() {
         let piece = |pts: &[(f64, f64)], closed| Polyline {
             points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
@@ -442,6 +478,24 @@ mod tests {
                 piece(&[(6.0, 0.0), (10.0, 0.0)], false),
             ],
             30.0,
+            0.0,
+        );
+        let mut marked = Vec::new();
+        push_shape(
+            &mut marked,
+            &[
+                piece(&[(0.0, 0.0), (4.0, 0.0)], false),
+                piece(&[(6.0, 0.0), (10.0, 0.0)], false),
+            ],
+            30.0,
+            12.0,
+        );
+        assert_eq!(
+            marked[2],
+            Move::Cut {
+                to: Point::new(6.0, 0.0),
+                power_pct: 12.0
+            }
         );
         assert_eq!(
             moves,
@@ -469,6 +523,7 @@ mod tests {
             &mut closed,
             &[piece(&[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0)], true)],
             10.0,
+            0.0,
         );
         assert_eq!(closed.len(), 4);
         assert_eq!(closed[3].to(), Point::new(0.0, 0.0));

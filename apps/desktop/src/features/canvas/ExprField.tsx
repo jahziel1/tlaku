@@ -1,5 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { t } from '@/i18n';
+import { fromDisplay, toDisplay, unitSymbol, type LengthUnit } from '@/lib/units';
+import { usePref } from '@/store';
 import { formatValue, resolveInput, type ExprMode } from './expr';
 
 interface Props {
@@ -7,6 +9,10 @@ interface Props {
   value: number;
   onApply: (value: number) => void;
   mode?: ExprMode;
+  /**
+   * Etiqueta de la unidad. Con `'mm'` (y modo longitud) el campo es una longitud: `value` va en mm
+   * pero se muestra y se escribe en la unidad de las preferencias (mm o pulgadas).
+   */
   unit?: string;
   disabled?: boolean;
   /** Texto de ayuda o motivo de deshabilitado. */
@@ -14,11 +20,16 @@ interface Props {
 }
 
 /**
- * Campo numérico con expresiones (`100/3`, `+5`, `*2`, `50%`, `5in`). Confirma con Enter (y suelta el foco) o al salir
+ * Campo numérico con expresiones (`100/3`, `+5`, `*2`, `50%`, `5in`; en pulgadas, también `3/8"`). Confirma con Enter (y suelta el foco) o al salir
  * (Tab); Escape revierte; las flechas suman 1 (Mayús 10, Alt 0,1) y aplican al momento.
  */
 export function ExprField({ label, value, onApply, mode = 'length', unit, disabled, title }: Props) {
   const id = useId();
+  const prefUnit = usePref('units');
+  const isLength = mode === 'length' && unit === 'mm';
+  // Unidad en que se muestra y se escribe; los demás campos (grados, %, conteos) no cambian.
+  const shownUnit: LengthUnit = isLength ? prefUnit : 'mm';
+  const shown = (mm: number) => formatValue(toDisplay(mm, shownUnit), shownUnit === 'in' ? 4 : 3);
   // `null` = no se está editando: se muestra el valor del documento tal cual.
   const [text, setText] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
@@ -33,7 +44,7 @@ export function ExprField({ label, value, onApply, mode = 'length', unit, disabl
     const typed = pending.current;
     if (typed === null) return;
     edit(null);
-    const v = resolveInput(typed, value, mode);
+    const v = resolveInput(typed, value, mode, shownUnit);
     if (v === null) {
       setInvalid(true);
       return;
@@ -52,7 +63,7 @@ export function ExprField({ label, value, onApply, mode = 'length', unit, disabl
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}
-          value={text ?? formatValue(value)}
+          value={text ?? shown(value)}
           disabled={disabled}
           aria-invalid={invalid || undefined}
           onFocus={(e) => {
@@ -76,14 +87,15 @@ export function ExprField({ label, value, onApply, mode = 'length', unit, disabl
               e.stopPropagation();
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
               e.preventDefault();
-              const base = pending.current === null ? value : (resolveInput(pending.current, value, mode) ?? value);
-              const step = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
+              const base = pending.current === null ? value : (resolveInput(pending.current, value, mode, shownUnit) ?? value);
+              // Pasos en la unidad que se ve: 1 / 10 / 0,1 mm, o 0,1 / 1 / 0,01 in.
+              const step = fromDisplay((e.shiftKey ? 10 : e.altKey ? 0.1 : 1) * (shownUnit === 'in' ? 0.1 : 1), shownUnit);
               edit(null);
               onApply(base + (e.key === 'ArrowUp' ? step : -step));
             }
           }}
         />
-        {unit && <span className="nbar-field__unit" aria-hidden="true">{unit}</span>}
+        {unit && <span className="nbar-field__unit" aria-hidden="true">{isLength ? unitSymbol(shownUnit) : unit}</span>}
       </div>
     </div>
   );

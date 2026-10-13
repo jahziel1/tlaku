@@ -40,8 +40,10 @@ use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 use tlaku_core::Polyline;
 
-/// Tope de copias en total: más allá el cálculo deja de ser manejable.
-pub const MAX_INSTANCES: usize = 5000;
+/// Tope de copias en total: más allá el cálculo deja de ser manejable. Es el mismo que usa la
+/// interfaz (`MAX_NEST_INSTANCES` en `apps/desktop/src/features/nest/request.ts`; una prueba de
+/// la interfaz comprueba que coinciden) y que el de las copias virtuales.
+pub const MAX_INSTANCES: usize = 2000;
 
 /// Una pieza: sus contornos cerrados en coordenadas de documento (los que están dentro de otros
 /// son huecos) y cuántas copias se acomodan. La copia 0 es la pieza original.

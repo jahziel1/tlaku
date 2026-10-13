@@ -375,8 +375,9 @@ struct Stroke {
 }
 
 impl Stroke {
-    /// Une los tramos como hace `tabs::push_shape`: los huecos entre tramos son segmentos a 0.
-    fn from_pieces(pieces: &[Polyline], power: f64) -> Option<Stroke> {
+    /// Une los tramos como hace `tabs::push_shape`: los huecos entre tramos son segmentos a
+    /// `gap` (0 = láser apagado; la potencia de puente si es mayor).
+    fn from_pieces(pieces: &[Polyline], power: f64, gap: f64) -> Option<Stroke> {
         let mut pts: Vec<Point> = Vec::new();
         let mut pw = Vec::new();
         for piece in pieces.iter().filter(|p| !p.points.is_empty()) {
@@ -384,7 +385,7 @@ impl Stroke {
                 pts.push(piece.start());
             } else {
                 pts.push(piece.start());
-                pw.push(0.0);
+                pw.push(gap);
             }
             let rest = piece
                 .points
@@ -672,6 +673,8 @@ pub(crate) struct ShapeCtx<'a> {
     pub pieces: &'a [Polyline],
     /// Potencia de la capa por la escala del objeto, %.
     pub power: f64,
+    /// Potencia de los huecos entre tramos de puente, % (0 = láser apagado; nunca mayor que `power`).
+    pub tab_power: f64,
     /// La escala sola (`power_scale / 100`); también escala el corte pasante.
     pub scale: f64,
     /// Profundidad de anidamiento (par = exterior, impar = hueco).
@@ -689,10 +692,11 @@ pub(crate) fn push_shape(
         shape,
         pieces,
         power,
+        tab_power,
         scale,
         depth,
     } = *ctx;
-    let Some(mut stroke) = Stroke::from_pieces(pieces, power) else {
+    let Some(mut stroke) = Stroke::from_pieces(pieces, power, tab_power) else {
         return;
     };
     let total = stroke.length();
@@ -870,7 +874,8 @@ fn ramp(stroke: &Stroke, r: RampSpec) -> Stroke {
 
 /// Modo punto: un disparo de `dwell_ms` cada `spacing` mm. Entre disparos la cabeza avanza con
 /// un `Cut` a potencia 0 (mantiene la velocidad de la capa, como los huecos de los puentes). Los
-/// puntos que caen sobre un hueco de puente no disparan.
+/// puntos que caen sobre un hueco de puente no disparan, salvo que el puente tenga potencia de
+/// puente: entonces disparan con ella.
 fn push_dots(
     stroke: &Stroke,
     closed: bool,
@@ -960,6 +965,7 @@ mod tests {
             shape,
             pieces: std::slice::from_ref(shape),
             power,
+            tab_power: 0.0,
             scale,
             depth,
         };
@@ -1266,11 +1272,53 @@ mod tests {
             shape: &sq,
             pieces: &halves,
             power: 50.0,
+            tab_power: 0.0,
             scale: 1.0,
             depth: 0,
         };
         push_shape(&s, &ctx, &mut st, &mut Vec::new());
         assert_eq!(st.tabbed_skipped, 1);
+    }
+
+    #[test]
+    fn tab_gaps_use_the_bridge_power_through_perforation() {
+        let s = spec(|l| {
+            l.perforation.enabled = true;
+            l.perforation.cut_mm = 2.0;
+            l.perforation.skip_mm = 2.0;
+        });
+        let line = poly(&[(0.0, 0.0), (10.0, 0.0)], false);
+        let pieces = [
+            poly(&[(0.0, 0.0), (4.0, 0.0)], false),
+            poly(&[(6.0, 0.0), (10.0, 0.0)], false),
+        ];
+        let ctx = ShapeCtx {
+            shape: &line,
+            pieces: &pieces,
+            power: 50.0,
+            tab_power: 10.0,
+            scale: 1.0,
+            depth: 0,
+        };
+        let mut out = Vec::new();
+        push_shape(&s, &ctx, &mut StrokeStats::default(), &mut out);
+        let powers: Vec<f64> = out
+            .iter()
+            .filter_map(|m| match m {
+                Move::Cut { power_pct, .. } => Some(*power_pct),
+                _ => None,
+            })
+            .collect();
+        // El corte va a 50, la pausa de la perforación a 0 y el hueco del puente a 10.
+        assert!(
+            powers.contains(&50.0) && powers.contains(&0.0),
+            "{powers:?}"
+        );
+        assert!(
+            powers.iter().any(|p| (*p - 10.0).abs() < 1e-9),
+            "{powers:?}"
+        );
+        assert!(powers.iter().all(|p| *p <= 50.0));
     }
 
     #[test]

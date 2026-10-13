@@ -44,7 +44,8 @@ export function LayerFields(props: FieldsProps) {
   const maxRate = useStore((s) => selectActiveDevice(s).max_rate[0]);
   const powerMode = useStore((s) => selectActiveDevice(s).power_mode);
   const hasZ = useStore((s) => selectActiveDevice(s).z_axis === true);
-  return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ }} />;
+  const hasLaser2 = useStore((s) => selectActiveDevice(s).laser2 === true);
+  return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ, hasLaser2 }} />;
 }
 
 /** Lo que los campos necesitan saber de la máquina activa. */
@@ -53,6 +54,8 @@ export interface FieldsDevice {
   maxRate: number;
   powerMode: DeviceProfile['power_mode'];
   hasZ: boolean;
+  /** La máquina tiene segundo láser: se ofrece elegirlo por capa. */
+  hasLaser2?: boolean;
 }
 
 /** `LayerFields` con la máquina como dato (así se prueba sin tocar el estado global). */
@@ -113,6 +116,9 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
         {showMinPowerNote && <p className="lyr-info">{t('layers.note.minPowerLine')}</p>}
         <NumField field="passes" label={t('layers.passes')} value={layer.passes} onApply={(v) => set({ passes: v })} help={t('layers.help.passes')} />
         <Toggle label={t('layers.air')} checked={layer.air} onChange={(v) => set({ air: v })} help={t('layers.help.air')} />
+        {(device.hasLaser2 || layer.laser2) && (
+          <Toggle label={t('layers.laser2')} checked={layer.laser2} onChange={(v) => set({ laser2: v })} help={t(device.hasLaser2 ? 'layers.help.laser2' : 'layers.help.laser2None')} />
+        )}
       </Group>
 
       {isLine && (
@@ -147,6 +153,7 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
                 onApply={(v) => setIn('tabs', 'spacing', v)}
                 help={t('layers.help.tabsSpacing')}
               />
+              <NumField field="tab_power" label={t('layers.tabs.power')} value={tabs.power} onApply={(v) => setIn('tabs', 'power', v)} help={t('layers.help.tabsPower')} />
               <Toggle label={t('layers.tabs.skipInner')} checked={tabs.skip_inner} onChange={(v) => setIn('tabs', 'skip_inner', v)} help={t('layers.help.tabsSkipInner')} />
             </>
           )}

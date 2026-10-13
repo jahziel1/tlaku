@@ -2,8 +2,11 @@ import { AlarmBanner } from './AlarmBanner';
 import { ConnectionSection } from './ConnectionSection';
 import { JobSection } from './JobSection';
 import { JogSection } from './JogSection';
+import { MacroButtons } from './MacroButtons';
+import { MachineSettingsSection } from './MachineSettingsSection';
 import { OverridesSection } from './OverridesSection';
 import { PositionLostNote } from './PositionLostNote';
+import { RuidaSection } from './RuidaSection';
 import { StatusSection } from './StatusSection';
 import { VirtualSection } from './VirtualSection';
 import './machine.css';
@@ -16,10 +19,13 @@ export function MachinePanel() {
       <PositionLostNote />
       <ConnectionSection />
       <VirtualSection />
+      <RuidaSection />
       <StatusSection />
       <JogSection />
+      <MacroButtons />
       <JobSection />
       <OverridesSection />
+      <MachineSettingsSection />
     </div>
   );
 }

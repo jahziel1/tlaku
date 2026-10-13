@@ -52,6 +52,15 @@ export interface Prefs {
   jobChecklistItems: number;
   /** El diálogo de inicio exige tener marcadas las casillas de la lista antes de enviar. */
   jobChecklistRequired: boolean;
+  /**
+   * Automatización por UDP: servidor local de comandos de texto (`PING`, `LOAD`, `START`, `STATUS`,
+   * `STOP`; ver `docs/app-api.md`). Apagado por omisión; solo escucha en 127.0.0.1.
+   */
+  automationEnabled: boolean;
+  /** Puerto UDP de la automatización (sin privilegios). */
+  automationPort: number;
+  /** `START` puede iniciar sin confirmar en la interfaz. Apagado por omisión: sin esto, solo abre el diálogo de inicio. */
+  automationAllowStart: boolean;
   /** Orden y visibilidad de las pestañas del panel derecho (arrastrar para reordenar; ver `lib/dockLayout.ts`). */
   dockLayout: DockLayout;
 }
@@ -85,6 +94,9 @@ export const PREF_SPECS: PrefSpecs = {
   beginnerMode: { kind: 'bool', default: false },
   jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
   jobChecklistRequired: { kind: 'bool', default: false },
+  automationEnabled: { kind: 'bool', default: false },
+  automationPort: { kind: 'number', min: 1024, max: 65535, step: 1, integer: true, default: 47801 },
+  automationAllowStart: { kind: 'bool', default: false },
   dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
   layerDefaults: {
     kind: 'json',

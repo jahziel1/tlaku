@@ -11,11 +11,18 @@ import type {
   JobPreview,
   OverrideKind,
   RealtimeCommand,
+  RuidaFile,
+  RuidaInfo,
   SimulatedFault,
 } from './types';
 import type {
   BezPath,
+  BedImage,
   CalibrationReport,
+  CircleFit,
+  CircleHint,
+  ComposeBedArgs,
+  LensModelChoice,
   CameraSetup,
   MarksReport,
   DesignObject,
@@ -79,6 +86,42 @@ export interface PrefsBundle extends PrefsFile {
   format: 'tlaku-prefs';
 }
 
+/**
+ * Paquete de usuario `.tlakubundle` (ver `src-tauri/src/prefs.rs` y `features/bundle`): máquinas,
+ * biblioteca de materiales, preferencias y atajos en un solo archivo. Cada sección es opcional al
+ * importar: un paquete puede ser parcial. `devices` se lee sin tipar a fondo (cada perfil se
+ * normaliza y valida en la interfaz).
+ */
+export interface UserBundle {
+  format: 'tlaku-bundle';
+  version: 1;
+  /** Fecha de creación, ISO 8601. */
+  created: string;
+  /** Versión de la aplicación que lo creó. */
+  app: string;
+  devices?: DeviceProfile[];
+  active_device?: string | null;
+  materials?: MaterialLibrary | null;
+  prefs?: PrefsBundle | null;
+}
+
+/** Automatización por UDP (Preferencias): ver `docs/app-api.md` y `src-tauri/src/automation.rs`. */
+export interface AutomationConfig {
+  enabled: boolean;
+  /** Puerto UDP en 127.0.0.1 (1024 a 65535). */
+  port: number;
+  /** Permite que `START` inicie sin confirmar en la interfaz. */
+  allow_start: boolean;
+}
+
+/** Estado real del servidor de automatización tras aplicar la configuración. */
+export interface AutomationStatus {
+  running: boolean;
+  port: number;
+  /** Por qué no arrancó (puerto ocupado, etc.); `null` si todo bien o está apagada. */
+  error: string | null;
+}
+
 /** Familia de firmware que reconoce `probe_port`. */
 export type ProbeFamily = 'grbl' | 'grbl_hal' | 'fluid_nc' | 'grbl_lpc' | 'marlin' | 'smoothie' | 'unknown';
 
@@ -127,7 +170,13 @@ export interface LaserApi {
    * `virtual:<modelo>` los atiende el emulador. Falla con un mensaje en español si no abre.
    */
   probePort(args: { port: string; baud: number }): Promise<ProbeResult>;
-  connect(args: { port: string; baud: number }): Promise<ConnectResult>;
+  /** Enciende, apaga o reconfigura el servidor UDP de automatización (apagado por omisión, solo 127.0.0.1). */
+  automationConfigure(args: { config: AutomationConfig }): Promise<AutomationStatus>;
+  /**
+   * Conecta. `device` es el perfil activo: con `kind = ruida` el motor usa su IP (`connection`),
+   * su magic y su cama en lugar del puerto serie (`port` solo se usa para `virtual:ruida`).
+   */
+  connect(args: { port: string; baud: number; device?: DeviceProfile }): Promise<ConnectResult>;
   disconnect(): Promise<void>;
   /**
    * Devuelve las líneas de respuesta; la última es `ok`, o `error:N: ...` / `ALARM:N: ...` con su
@@ -147,18 +196,31 @@ export interface LaserApi {
   /** Con trabajo: feed hold y soft reset. Sin trabajo: cancela el jog en curso (0x85). */
   cancelJob(): Promise<void>;
   /** Encuadre con el láser apagado; mismas comprobaciones de estado que `startJob`. */
-  frameJob(args: JobArgs & { speed: number }): Promise<void>;
+  frameJob(args: JobArgs & { speed: number; power_pct?: number | null }): Promise<void>;
   /**
    * Encuadre de banda elástica: como `frameJob` pero siguiendo el casco convexo del trabajo en
    * lugar del rectángulo. Láser apagado; mismas comprobaciones de estado.
    */
-  frameHull(args: JobArgs & { speed: number }): Promise<void>;
+  frameHull(args: JobArgs & { speed: number; power_pct?: number | null }): Promise<void>;
   /**
    * Mueve la cabeza a (`x`, `y`) en coordenadas de TRABAJO de la máquina (las de `work_pos`, ya
    * convertidas desde el documento con el origen del perfil), en mm y a `speed` mm/min, con el
    * láser apagado (`$J=G90 G21 X.. Y.. F..`). Falla con un trabajo en curso o en alarma.
    */
   jogTo(args: { x: number; y: number; speed: number }): Promise<void>;
+  /** Ruida (EXPERIMENTAL, solo lectura): modelo, tarjeta, cama, velocidades y contadores de la controladora. */
+  ruidaInfo(): Promise<RuidaInfo>;
+  /** Ruida (EXPERIMENTAL, solo lectura): documentos guardados en la memoria de la controladora. */
+  ruidaFiles(): Promise<RuidaFile[]>;
+  /** Mueve un eje extra (`Z`, `U`, `A`...) `delta` mm respecto a donde está. `kind` decide la sintaxis (GRBL o RepRap). */
+  jogAxis(args: { kind: DeviceKind; axis: string; delta: number; speed: number }): Promise<void>;
+  /** Lleva un eje extra a la posición `pos` (mm, coordenadas de trabajo); lo usa «Enfocar». */
+  jogAxisTo(args: { kind: DeviceKind; axis: string; pos: number; speed: number }): Promise<void>;
+  /**
+   * Disparo de prueba: láser a `power_pct` % (máx. 20) de `s_max` durante `duration_ms` (10 a 2000) y
+   * apagado siempre al terminar, aunque falle. Falla con un trabajo en curso.
+   */
+  fireTest(args: { kind: DeviceKind; power_pct: number; s_max: number; duration_ms: number }): Promise<void>;
   /**
    * Lleva el override en vivo de velocidad (`feed`) o potencia (`spindle`) a `percent` por ciento
    * (10 a 200) con los bytes en tiempo real de GRBL. Vale durante un trabajo. Falla en Marlin y
@@ -225,7 +287,12 @@ export interface LaserApi {
   // Cámara (fase 3): las imágenes viajan como PNG en base64, sin prefijo data:.
   /** Esquinas internas del tablero en píxeles, o `null` si no se encontró. */
   detectBoard(args: { image_png_base64: string; board: [number, number] }): Promise<[number, number][] | null>;
-  calibrateLens(args: { images_png_base64: string[]; board: [number, number]; square_mm: number }): Promise<CalibrationReport>;
+  /**
+   * Calibra la lente con vistas del tablero. `model` fija el modelo (`brown_conrady`, `fisheye`) o lo
+   * deja en `auto` (por defecto): se ajustan los dos y se elige por error de reproyección y por
+   * validación cruzada con vistas reservadas.
+   */
+  calibrateLens(args: { images_png_base64: string[]; board: [number, number]; square_mm: number; model?: LensModelChoice }): Promise<CalibrationReport>;
   /** Calibración, alineación y preferencias guardadas (`camera.json`). Sin archivo, una configuración vacía. */
   loadCameraSetup(): Promise<CameraSetup>;
   /** Valida, recalcula la homografía y guarda; devuelve lo guardado. */
@@ -249,6 +316,16 @@ export interface LaserApi {
     count: 4 | 9;
     prior_to_bed: [[number, number, number], [number, number, number], [number, number, number]] | null;
   }): Promise<MarksReport>;
+
+  // Cámara (ola 4): imagen de la cama, mosaico del cabezal y buscador de centro
+  /**
+   * Compone fotos ya corregidas de lente, cada una con su posición en la cama (`to_bed`: píxel ->
+   * mm), en una imagen alineada con la cama; con `save` la escribe como PNG en `dir` (o en la
+   * carpeta temporal) como `<stem>-camara-<n>.png`. Las fotos se mezclan en los bordes.
+   */
+  composeBedImage(args: ComposeBedArgs): Promise<BedImage>;
+  /** Busca un círculo en una foto (px, origen en el borde); `hint` acota la búsqueda a un objeto. */
+  detectCircle(args: { image_png_base64: string; hint?: CircleHint | null }): Promise<CircleFit>;
 
   // Materiales (fase 4)
   /** Biblioteca del usuario (`materials.json`). Sin archivo, una vacía. */
@@ -277,8 +354,16 @@ export interface LaserApi {
   exportPreferences(args: { path: string; bundle: PrefsBundle }): Promise<void>;
   /** Lee un paquete `.tlakuprefs`; la interfaz sanea y aplica lo que trae. */
   importPreferences(args: { path: string }): Promise<PrefsBundle>;
+  /** Escribe un paquete de usuario `.tlakubundle` (la extensión es obligatoria). */
+  exportUserBundle(args: { path: string; bundle: UserBundle }): Promise<void>;
+  /** Lee un paquete `.tlakubundle`; el motor valida el sobre, la interfaz el contenido. */
+  importUserBundle(args: { path: string }): Promise<UserBundle>;
   /** Para cada ruta, si el archivo existe. */
   pathsExist(args: { paths: string[] }): Promise<boolean[]>;
+  /** Guarda el texto de un respaldo de ajustes GRBL (`.tlakuset` o `.txt`, hasta 256 KiB; atómico). */
+  writeSettingsBackup(args: { path: string; text: string }): Promise<void>;
+  /** Lee un respaldo de ajustes GRBL como texto UTF-8 (hasta 256 KiB). */
+  readSettingsBackup(args: { path: string }): Promise<string>;
   /** Guarda la copia de recuperación `id` (atómico; recorta las más viejas). */
   autosaveWrite(args: { id: string; name: string; path: string | null; doc: Document }): Promise<RecoveryInfo>;
   /** Copias pendientes de recuperar, de la más nueva a la más vieja (las superadas por un guardado se borran). */
@@ -327,6 +412,7 @@ export const COMMAND_NAMES = {
   deleteDevice: 'delete_device',
   listPorts: 'list_ports',
   probePort: 'probe_port',
+  automationConfigure: 'automation_configure',
   connect: 'connect',
   disconnect: 'disconnect',
   machineCommand: 'machine_command',
@@ -339,6 +425,11 @@ export const COMMAND_NAMES = {
   frameJob: 'frame_job',
   frameHull: 'frame_hull',
   jogTo: 'jog_to',
+  ruidaInfo: 'ruida_info',
+  ruidaFiles: 'ruida_files',
+  jogAxis: 'jog_axis',
+  jogAxisTo: 'jog_axis_to',
+  fireTest: 'fire_test',
   setOverride: 'set_override',
   simulateFault: 'simulate_fault',
   listFonts: 'list_fonts',
@@ -368,6 +459,8 @@ export const COMMAND_NAMES = {
   saveBoardFile: 'save_board_file',
   cameraMarks: 'camera_marks',
   detectCameraMarks: 'detect_camera_marks',
+  composeBedImage: 'compose_bed_image',
+  detectCircle: 'detect_circle_in_image',
   loadMaterialLibrary: 'load_material_library',
   saveMaterialLibrary: 'save_material_library',
   importMaterialLibrary: 'import_material_library',
@@ -382,7 +475,11 @@ export const COMMAND_NAMES = {
   savePreferences: 'save_preferences',
   exportPreferences: 'export_preferences',
   importPreferences: 'import_preferences',
+  exportUserBundle: 'export_user_bundle',
+  importUserBundle: 'import_user_bundle',
   pathsExist: 'paths_exist',
+  writeSettingsBackup: 'write_settings_backup',
+  readSettingsBackup: 'read_settings_backup',
   autosaveWrite: 'autosave_write',
   autosaveList: 'autosave_list',
   autosaveRead: 'autosave_read',
@@ -400,4 +497,6 @@ export const EVENT_NAMES: readonly EventName[] = [
   'machine://log',
   'machine://job',
   'machine://connection',
+  'automation://load',
+  'automation://start',
 ];

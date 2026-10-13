@@ -7,8 +7,11 @@ tutoriales; sin código, textos ni íconos de LightBurn). Detalle por área:
 |---|---|---|---|---|---|
 | [01-diseno-edicion.md](01-diseno-edicion.md) | Interfaz, dibujo, edición, importación | 100 | 32 | 39 | 29 |
 | [02-capas-corte-imagen.md](02-capas-corte-imagen.md) | Capas, ajustes de corte, rellenos, imagen, vista previa | 60 | 22 | 23 | 15 |
-| [03-maquinas-avanzadas.md](03-maquinas-avanzadas.md) | Dispositivos, control, cámara, rotary, galvo | 53 | 13 | 24 | 16 |
-| **Total** | | **213** | **67** | **86** | **60** |
+| [03-maquinas-avanzadas.md](03-maquinas-avanzadas.md) | Dispositivos, control, cámara, rotary, galvo | 54 | 14 | 24 | 16 |
+| **Total** | | **214** | **68** | **86** | **60** |
+
+La fila 21 del inventario 03 mezcla prioridades (P0 para G-code, P1 para `.rd`) y se cuenta como P0;
+por eso son 54 funciones y 68 P0. El detalle de avance está en [04-cobertura.md](04-cobertura.md).
 
 Lo marcado "(no verificado)" o "(inferido)" en cada archivo debe confirmarse antes de implementarlo.
 
@@ -42,7 +45,7 @@ ventana de control (conectar, encuadre, iniciar/pausar/detener, jog, consola, or
 puntos, "iniciar desde"), deshacer/rehacer, formato de proyecto propio.
 
 **M3 - Edición.** Texto con fuentes del sistema, edición de nodos, booleanas, offset, soldar,
-alinear, arreglos, snapping, auto-join. Con esto se cubren los 67 P0.
+alinear, arreglos, snapping, auto-join. Con esto se cubren los 68 P0.
 
 **M4 - Taller.** Ruida (red y USB), biblioteca de materiales, test de materiales, kerf, tabs,
 sub-capas, eje Z, rotary, cámara (calibración de lente + homografía), macros.

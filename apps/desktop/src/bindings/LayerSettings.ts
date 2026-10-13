@@ -98,4 +98,9 @@ angle_increment: number,
  * ejemplo rellenar y luego contornear). Se ignoran su `color`, `name`, `visible`, `order`
  * y sus propias `sub_layers`.
  */
-sub_layers: Array<LayerSettings>, };
+sub_layers: Array<LayerSettings>, 
+/**
+ * La capa se ejecuta con el segundo láser (máquinas con `DeviceProfile::laser2`); `false` =
+ * el láser 1. El motor emite el comando de selección del dialecto al cambiar de láser.
+ */
+laser2: boolean, };

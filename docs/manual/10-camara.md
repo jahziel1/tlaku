@@ -61,4 +61,36 @@ La cámara ve la superficie del material, que está más cerca que la cama, así
 - **Estimada con la lente** (aproximada), si solo hay una alineación.
 - **Medida con marcas** a las alturas que hayas capturado. Para medirla, repite las marcas sobre una tabla de otra altura (al menos 2 mm de diferencia con las anteriores) y escribe esa altura en el asistente. Si tu grosor queda fuera del rango medido, te avisa que extrapolar es menos fiable.
 
+## Lentes de ojo de pez
+
+Las cámaras de 5 MP que vienen en la tapa de muchas láser de CO2 son de ojo de pez: la distorsión es tan fuerte que el modelo normal (Brown-Conrady) acaba con errores de varios milímetros en las esquinas aunque en el centro parezca bien. En el asistente de calibración, **Modelo de lente** ofrece:
+
+- **Automático (recomendado)**: ajusta los dos modelos y elige el que mejor predice las vistas que reservó, no solo el de menor error de reproyección. Una lente normal se queda en Brown-Conrady.
+- **Brown-Conrady** y **Ojo de pez (Kannala-Brandt)**, para fijar uno.
+
+El resultado muestra el modelo elegido y una tabla con el ajuste y el error en vistas reservadas de cada modelo. Con ojo de pez toma vistas del tablero también en las esquinas de la imagen. La imagen corregida de un ojo de pez muestra un campo más amplio, con menos píxeles por milímetro en el centro. *Por validar con hardware real.*
+
+## Capturar la imagen de la cama
+
+Con la cámara alineada, **Imagen de la cama** guarda lo que ve la cámara dentro del documento:
+
+- **Capturar imagen de la cama** guarda la foto, ya corregida y alineada, como una imagen del documento en el lugar exacto donde está sobre la cama (con la corrección por grosor del material). Si el proyecto no está guardado, el PNG queda en la carpeta temporal y la app te avisa.
+- **Vectorizar desde la cámara** hace lo mismo y abre enseguida el diálogo de vectorizar sobre esa imagen.
+
+En **Fondo en el lienzo** (junto a la opacidad) hay dos ajustes más: **Fondo en escala de grises** (para ver mejor el diseño encima; la imagen que captures también sale en gris) y **Actualizar el fondo al terminar un trabajo** (renueva el cuadro congelado, o repite el recorrido de la cámara del cabezal).
+
+## Cámara en el cabezal
+
+Si tu cámara va montada en el cabezal de la máquina, marca **La cámara está montada en el cabezal**: la imagen se mueve con la posición de la máquina. Hace falta calibrar el desfase entre la cámara y el láser:
+
+1. **Generar marca** abre una cruz en el centro de la cama (puedes cambiar su posición). Grábala sobre un cartón sin moverlo, en coordenadas absolutas.
+2. Enciende la cámara, conecta la máquina, mueve el cabezal hasta ver la cruz y pulsa **Medir con la cámara**. Haz clic en el centro de la cruz en la imagen.
+3. Pulsa **Siguiente posición**: el cabezal se mueve unos milímetros y vuelves a hacer clic. Con 3 puntos o más se calculan el desfase, la escala y el error; **Guardar calibración** los conserva.
+
+**Actualizar la superposición** recorre la cama en cuadrícula con el láser apagado, toma una foto en cada punto y las une con mezcla en los bordes; el mosaico queda de fondo fijo. Antes de mover la máquina la app pide confirmación y muestra cuántas posiciones son; el recorrido se puede cancelar. Con una selección puedes limitarlo a esa zona. El mismo recorrido se usa en **Capturar imagen de la cama**. *Por validar con hardware real.*
+
+## Buscador de centro
+
+**Buscador de centro** encuentra el centro de un objeto redondo con la cámara: marca **3 puntos del borde** en la imagen, o elige **Detectar el círculo** y haz clic dentro del objeto. Te dice el centro y el radio en mm y ofrece **Mover la cabeza al centro** (con el láser apagado) y **Origen del trabajo aquí** (fija el origen de usuario; después elige «Origen de usuario» en «Iniciar desde»). *Por validar con hardware real.*
+
 Siguiente: [Materiales](11-materiales.md)

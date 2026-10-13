@@ -1,9 +1,10 @@
 import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { t } from '@/i18n';
-import { fmt } from '@/lib/platform';
+import { formatSize } from '@/lib/units';
 import { NumberField } from '@/ui/NumberField';
-import { selectActiveDevice, useStore } from '@/store';
+import { LengthField } from '@/ui/LengthField';
+import { selectActiveDevice, usePref, useStore } from '@/store';
 import { bedBounds } from './align';
 import {
   buildArray, centerForRadius, MAX_ARRAY_PIECES, planCircular, planGrid, radiusOf, type ArrayPlan, type CircularParams, type GridParams,
@@ -45,6 +46,7 @@ export function ArrayDialog({ kind }: { kind: 'grid' | 'circular' }) {
   const doc = useStore((s) => s.doc);
   const selectedIds = useStore((s) => s.selectedIds);
   const bed = useStore((s) => selectActiveDevice(s).bed);
+  const lengthUnit = usePref('units');
   const grid = useArrangeUi((s) => s.grid);
   const circular = useArrangeUi((s) => s.circular);
   const patchGrid = useArrangeUi((s) => s.patchGrid);
@@ -100,13 +102,13 @@ export function ArrayDialog({ kind }: { kind: 'grid' | 'circular' }) {
           {plan && !plan.issue && (
             <p className="ar-stats" role="status">
               <strong className="num">{t('arrange.array.summary', { count: plan.count, extra: plan.count - 1 })}</strong>
-              <span className="num">{t(approx ? 'arrange.array.sizeApprox' : 'arrange.array.size', { w: fmt(plan.size[0]), h: fmt(plan.size[1]) })}</span>
+              <span className="num">{t(approx ? 'arrange.array.sizeApprox' : 'arrange.array.size', { size: formatSize(plan.size[0], plan.size[1], lengthUnit) })}</span>
             </p>
           )}
           {plan && !plan.issue && plan.outOfBed && (
             <p className="warn-line" role="alert">
               <TriangleAlert size={14} aria-hidden="true" />
-              <span>{t('arrange.array.outOfBed', { bw: fmt(bed[0], 0), bh: fmt(bed[1], 0) })}</span>
+              <span>{t('arrange.array.outOfBed', { size: formatSize(bed[0], bed[1], lengthUnit, 0) })}</span>
             </p>
           )}
         </div>
@@ -116,7 +118,6 @@ export function ArrayDialog({ kind }: { kind: 'grid' | 'circular' }) {
 }
 
 function GridFields({ params, patch }: { params: GridParams; patch: (p: Partial<GridParams>) => void }) {
-  const mm = t('arrange.dlg.mm');
   return (
     <>
       <div className="field-grid">
@@ -133,15 +134,14 @@ function GridFields({ params, patch }: { params: GridParams; patch: (p: Partial<
         onChange={(mode) => patch({ mode })}
       />
       <div className="field-grid">
-        <NumberField label={t('arrange.grid.horizontal')} value={params.spacingX} min={-10000} max={10000} step={0.5} unit={mm} onCommit={(spacingX) => patch({ spacingX })} />
-        <NumberField label={t('arrange.grid.vertical')} value={params.spacingY} min={-10000} max={10000} step={0.5} unit={mm} onCommit={(spacingY) => patch({ spacingY })} />
+        <LengthField label={t('arrange.grid.horizontal')} value={params.spacingX} min={-10000} max={10000} step={0.5} onCommit={(spacingX) => patch({ spacingX })} />
+        <LengthField label={t('arrange.grid.vertical')} value={params.spacingY} min={-10000} max={10000} step={0.5} onCommit={(spacingY) => patch({ spacingY })} />
       </div>
     </>
   );
 }
 
 function CircularFields({ params, patch, block }: { params: CircularParams; patch: (p: Partial<CircularParams>) => void; block: ReturnType<typeof blockBounds> }) {
-  const mm = t('arrange.dlg.mm');
   const radius = block ? radiusOf(block, params) : 0;
   return (
     <>
@@ -150,13 +150,12 @@ function CircularFields({ params, patch, block }: { params: CircularParams; patc
         <NumberField label={t('arrange.circular.angle')} value={params.angle} min={-3600} max={3600} step={15} unit="°" onCommit={(angle) => patch({ angle })} />
       </div>
       <p className="hint">{t('arrange.circular.angleHint')}</p>
-      <NumberField
+      <LengthField
         label={t('arrange.circular.radius')}
         value={Math.round(radius * 1000) / 1000}
         min={0}
         max={10000}
         step={1}
-        unit={mm}
         onCommit={(r) => {
           if (!block) return;
           const [centerX, centerY] = centerForRadius(block, params, r);
@@ -164,8 +163,8 @@ function CircularFields({ params, patch, block }: { params: CircularParams; patc
         }}
       />
       <div className="field-grid">
-        <NumberField label={t('arrange.circular.centerX')} value={params.centerX} step={1} unit={mm} onCommit={(centerX) => patch({ centerX })} />
-        <NumberField label={t('arrange.circular.centerY')} value={params.centerY} step={1} unit={mm} onCommit={(centerY) => patch({ centerY })} />
+        <LengthField label={t('arrange.circular.centerX')} value={params.centerX} step={1} onCommit={(centerX) => patch({ centerX })} />
+        <LengthField label={t('arrange.circular.centerY')} value={params.centerY} step={1} onCommit={(centerY) => patch({ centerY })} />
       </div>
       <p className="hint">{t('arrange.circular.centerHint')}</p>
       <Check label={t('arrange.circular.rotate')} checked={params.rotate} onChange={(rotate) => patch({ rotate })} />

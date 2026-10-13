@@ -1,5 +1,6 @@
 import type { Affine, DesignObject, VirtualArray } from '@/api/types';
-import { objectBounds } from './geometry';
+import { bezBounds, transformBez } from './bezpath';
+import { objectBounds, objectCurves, unionBounds, type Bounds } from './geometry';
 
 /** Tope de piezas de un arreglo virtual (el mismo que el del motor, `MAX_VIRTUAL_COPIES`). */
 export const MAX_VIRTUAL_COPIES = 2000;
@@ -74,4 +75,23 @@ export function virtualCopies(obj: DesignObject): Affine[] {
     }
   }
   return out;
+}
+
+/**
+ * Caja del objeto y de sus copias virtuales (arreglo virtual): lo que ocupa en el trabajo. Es la
+ * contraparte de `DesignObject::bounds_with_copies` del motor (`tlaku-doc`) y se usa para «ajustar
+ * al diseño» y para el tamaño de la selección. Editar un objeto (barra numérica, alinear) sigue
+ * usando `objectBounds`: las copias no se pueden mover por separado.
+ */
+export function objectBoundsWithCopies(o: DesignObject): Bounds | null {
+  const own = objectBounds(o);
+  if (!own || !o.array) return own;
+  const curves = objectCurves(o);
+  const boxes = virtualCopies(o).map((m) =>
+    m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1
+      ? ([[own[0][0] + m[4], own[0][1] + m[5]], [own[1][0] + m[4], own[1][1] + m[5]]] as Bounds)
+      : // Exacta, como en el motor: la afín de una Bézier es otra Bézier.
+        bezBounds(curves.map((c) => transformBez(c, m))),
+  );
+  return unionBounds([own, ...boxes]);
 }

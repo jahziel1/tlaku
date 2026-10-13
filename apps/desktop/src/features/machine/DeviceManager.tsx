@@ -26,9 +26,14 @@ import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { Field, NumInput } from './DeviceFields';
 import { DialectEditor } from './DeviceDialect';
+import { DeviceConnection } from './DeviceConnection';
+import { connectionIssue } from './DeviceConnectionModel';
+import { MacroEditor } from './MacroEditor';
+import { ExtraAxesFields } from './ExtraAxesFields';
 import { RotaryFields, ScanInitialOffsetField, ScanOffsetsTable, ZAxisField, type ScanIssue } from './DeviceExtras';
 import { KindChangeDialog, KindField } from './DeviceKindField';
 import { RotaryTest } from './DeviceRotaryTest';
+import { RuidaFields } from './RuidaFields';
 import { Modal } from './Modal';
 
 const ORIGINS: { id: DeviceProfile['origin']; label: I18nKey }[] = [
@@ -149,8 +154,10 @@ export function DeviceManager() {
   const issues = useMemo(() => validateDevice(draft), [draft]);
   // El dialecto solo se edita (y por eso solo se valida) con «G-code personalizado».
   const dialectIssues = useMemo(() => (draft.kind === 'custom_gcode' ? validateDialect(draft.dialect) : {}), [draft.kind, draft.dialect]);
-  const invalid = Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0;
+  const invalid = Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0 || connectionIssue(draft.connection) !== null;
   const isActive = draft.id === activeId;
+  // Ruida habla por red con su propio protocolo: no usa G-code, S máxima, baudios ni macros.
+  const ruida = draft.kind === 'ruida';
 
   // Si la lista cambia desde fuera (otro borrado), el borrador sigue apuntando a un perfil que existe.
   useEffect(() => {
@@ -343,7 +350,7 @@ export function DeviceManager() {
               </Field>
             </fieldset>
 
-            <fieldset className="mc-group">
+            <fieldset className="mc-group" hidden={ruida}>
               <legend>{t('machine.dev.group.laser')}</legend>
               <div className="field-grid">
                 <Field label={t('machine.dev.sMax')} help="machine.dev.sMax.help" error={issues.s_max}>
@@ -360,7 +367,7 @@ export function DeviceManager() {
               </div>
             </fieldset>
 
-            <fieldset className="mc-group">
+            <fieldset className="mc-group" hidden={ruida}>
               <legend>{t('devices.dialect.title')}</legend>
               <DialectEditor draft={draft} edit={edit} issues={dialectIssues} />
             </fieldset>
@@ -391,6 +398,7 @@ export function DeviceManager() {
             <fieldset className="mc-group">
               <legend>{t('machine.dev.group.axes')}</legend>
               <ZAxisField draft={draft} edit={edit} />
+              <ExtraAxesFields draft={draft} edit={edit} />
               <RotaryFields draft={draft} edit={edit} issues={issues}>
                 <RotaryTest draft={draft} blocked={rotaryBlocked} />
               </RotaryFields>
@@ -402,8 +410,16 @@ export function DeviceManager() {
               <ScanOffsetsTable rows={draft.scan_offsets} error={issues.scan_offsets as ScanIssue | undefined} onChange={(rows) => edit({ scan_offsets: rows })} />
             </fieldset>
 
-            <fieldset className="mc-group">
+            {ruida && (
+              <fieldset className="mc-group">
+                <legend>{t('ruida.dev.group')}</legend>
+                <RuidaFields draft={draft} edit={edit} />
+              </fieldset>
+            )}
+
+            <fieldset className="mc-group" hidden={ruida}>
               <legend>{t('machine.dev.group.comms')}</legend>
+              <DeviceConnection draft={draft} edit={edit} />
               <div className="field-grid">
                 <Field label={t('machine.baud')} help="machine.dev.baud.help" error={issues.baud}>
                   {({ id, describedBy }) => (
@@ -420,7 +436,7 @@ export function DeviceManager() {
               </div>
             </fieldset>
 
-            <fieldset className="mc-group">
+            <fieldset className="mc-group" hidden={ruida}>
               <legend>{t('machine.dev.group.gcode')}</legend>
               <Field label={t('machine.dev.startGcode')} help="machine.dev.startGcode.help">
                 {({ id, describedBy }) => (
@@ -440,6 +456,12 @@ export function DeviceManager() {
                   </label>
                 )}
               </Field>
+            </fieldset>
+
+            <fieldset className="mc-group" hidden={ruida}>
+              <legend>{t('machine.dev.group.macros')}</legend>
+              <MacroEditor draft={draft} edit={edit} />
+              {issues.macros && <p className="hint hint--danger" role="alert">{t('machine.dev.err.macro')}</p>}
             </fieldset>
           </form>
         </div>

@@ -3,6 +3,7 @@ import type { CameraSlice } from './camera';
 import type { DevicesSlice } from './devices';
 import type { DocumentSlice } from './document';
 import type { MachineSlice } from './machine';
+import type { MoveControlSlice } from './moveControl';
 import type { NoticesSlice } from './notices';
 import type { PreviewSlice } from './preview';
 import type { PrefsSlice } from './prefs';
@@ -14,6 +15,7 @@ export type AppState = DocumentSlice &
   SelectionSlice &
   ViewSlice &
   MachineSlice &
+  MoveControlSlice &
   PreviewSlice &
   DevicesSlice &
   NoticesSlice &

@@ -98,6 +98,7 @@ pub mod clock;
 pub mod fault;
 pub mod machine;
 mod model;
+pub mod net;
 mod parse;
 pub mod profile;
 pub mod trace;

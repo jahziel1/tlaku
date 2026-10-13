@@ -6,6 +6,7 @@ import type { DeviceKind } from '@/bindings/DeviceKind';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { parseGrblVersion } from '@/lib/device';
+import { withoutRuidaPort } from '@/features/machine/ruidaPorts';
 import { useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { findEntry } from './catalog';
@@ -42,7 +43,9 @@ export function StepList({ current }: { current: WizardStep }) {
 export function AddMachineWizard() {
   const titleId = useId();
   const close = useDevicesWizard((s) => s.close);
-  const ports = useStore((s) => s.ports);
+  // La detección es de puertos serie: la máquina virtual de Ruida no es una opción aquí.
+  const allPorts = useStore((s) => s.ports);
+  const ports = useMemo(() => withoutRuidaPort(allPorts), [allPorts]);
   const refreshPorts = useStore((s) => s.refreshPorts);
   const connected = useStore((s) => s.connection.connected);
   const storePort = useStore((s) => s.selectedPort);
@@ -65,6 +68,8 @@ export function AddMachineWizard() {
   const [otherKind, setOtherKind] = useState<DeviceKind>('grbl');
   const [choices, setChoices] = useState<Set<CompareField>>(new Set());
   const [name, setName] = useState('');
+  /** Ruida: IP de la controladora, escrita a mano. */
+  const [host, setHost] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   /** Detecciones lanzadas: una respuesta tardía de una anterior se descarta. */
@@ -132,7 +137,7 @@ export function AddMachineWizard() {
   const save = async () => {
     if (!nameOk || saving) return;
     setSaving(true);
-    const profile = built.profile;
+    const profile = built.profile.kind === 'ruida' ? { ...built.profile, connection: { type: 'udp' as const, host: host.trim() } } : built.profile;
     const ok = await saveDevice(profile);
     if (!alive.current) return;
     setSaving(false);
@@ -209,7 +214,7 @@ export function AddMachineWizard() {
             oldGrbl={oldGrbl}
           />
         )}
-        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} />}
+        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} />}
       </div>
       <footer className="dev-foot">
         {step === 'detect' && (

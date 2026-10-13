@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { t } from '@/i18n';
-import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { Check, Choice, Dialog, Footer } from './Dialog';
 import { boxOutline, DesignPreview } from './DesignPreview';
@@ -82,7 +82,7 @@ export function DockDialog() {
               onChange={(direction) => patch({ direction })}
             />
           )}
-          <NumberField label={t('design.dock.padding')} value={params.padding} min={-1000} max={1000} step={0.5} unit={t('arrange.dlg.mm')} onCommit={(padding) => patch({ padding })} />
+          <LengthField label={t('design.dock.padding')} value={params.padding} min={-1000} max={1000} step={0.5} onCommit={(padding) => patch({ padding })} />
           <Check label={t('design.dock.asGroup')} checked={params.asGroup} onChange={(asGroup) => patch({ asGroup })} />
           <p className="hint">{t(params.mode === 'dock' ? 'design.dock.hintDock' : 'design.dock.hintTogether')}</p>
         </div>

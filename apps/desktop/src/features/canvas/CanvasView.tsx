@@ -4,7 +4,8 @@ import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
 import { useArrangeUi } from '@/features/arrange';
 import { ContextMenuHost } from '@/features/contextmenu';
-import { selectActiveDevice, useStore, type AppState } from '@/store';
+import { selectActiveDevice, usePref, useStore, type AppState } from '@/store';
+import { formatSize, unitSymbol } from '@/lib/units';
 import { selectHeadDoc } from '@/store/machine';
 import './canvas-overlay.css';
 import { CanvasTip } from './CanvasTip';
@@ -32,7 +33,7 @@ import { ZoomControls } from './ZoomControls';
 const WATCHED: (keyof AppState)[] = [
   'zoom', 'panX', 'panY', 'viewport', 'doc', 'selectedIds', 'wireframe', 'theme',
   'preview', 'previewVisible', 'previewView', 'scrub', 'devices', 'activeDeviceId', 'status', 'connection',
-  'cameraBackdrop', 'nodeSel', 'nodeCorners', 'activeTool', 'showGuides', 'showStartMarks',
+  'cameraBackdrop', 'nodeSel', 'nodeCorners', 'activeTool', 'showGuides', 'showStartMarks', 'prefs',
 ];
 
 // Estructuras derivadas que solo cambian con el documento / la selección: se recalculan por identidad.
@@ -70,6 +71,7 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     primaryId: useArrangeUi.getState().primaryId,
     preview: s.previewVisible && s.preview ? { data: s.preview, scrub: s.scrub } : null,
     palette,
+    gridUnit: s.prefs.units,
     overlay: {
       hoverId: ix.hoverId,
       live: ix.live,
@@ -105,6 +107,7 @@ export function CanvasView() {
   const viewport = useStore((s) => s.viewport);
   const nodeTool = useStore((s) => s.activeTool === 'nodes');
   const bed = useStore((s) => selectActiveDevice(s).bed);
+  const units = usePref('units');
   const deviceName = useStore((s) => selectActiveDevice(s).name);
   const empty = useStore((s) => s.doc.objects.length === 0);
   const importCmd = useCommand('file.import');
@@ -166,14 +169,14 @@ export function CanvasView() {
   return (
     <div className="canvas-view" style={{ ['--ruler' as string]: `${RULER_SIZE}px` }}>
       {nodeTool ? <NodeBar /> : <NumericBar />}
-      <div className="canvas-corner" aria-hidden="true">mm</div>
+      <div className="canvas-corner" aria-hidden="true">{unitSymbol(units)}</div>
       <Ruler axis="x" length={rulerW} bedLength={bedSize.x} />
       <Ruler axis="y" length={rulerH} bedLength={bedSize.y} />
       <div ref={areaRef} className="canvas-area" data-testid="canvas-area">
         <canvas ref={canvasRef} className="canvas" style={{ width: viewport.width, height: viewport.height }} aria-label={t('canvas.label')} role="img" />
         <div className="canvas-hud canvas-hud--tl" aria-hidden="true">
           <span className="canvas-hud__name">{deviceName}</span>
-          <span className="canvas-hud__dim num">{bed[0]} × {bed[1]} mm</span>
+          <span className="canvas-hud__dim num">{formatSize(bed[0], bed[1], units, 0)}</span>
         </div>
         <PriorityBadges />
         <SnapBar />

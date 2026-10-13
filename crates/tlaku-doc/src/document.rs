@@ -234,11 +234,11 @@ impl Document {
         self.layers.iter().find(|l| l.color == color)
     }
 
-    /// Caja envolvente de todos los objetos, en coordenadas de máquina.
+    /// Caja envolvente de todos los objetos y de sus copias virtuales, en coordenadas de máquina.
     pub fn bounds(&self) -> Option<Bounds> {
         self.objects
             .iter()
-            .filter_map(DesignObject::bounds)
+            .filter_map(DesignObject::bounds_with_copies)
             .reduce(union)
     }
 }

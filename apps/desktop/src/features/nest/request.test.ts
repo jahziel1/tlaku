@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { selectionUnits } from '@/features/arrange/units';
 import { DEFAULT_NEST_OPTIONS, buildNestRequest, materialCandidates, resolveContainer, sanitizeCopies, totalInstances, MAX_NEST_INSTANCES } from './request';
@@ -72,5 +73,14 @@ describe('copias y material', () => {
     const open = { ...rectObject('open', 5, 5), kind: { type: 'vector' as const, paths: [[{ type: 'move_to' as const, to: [0, 0] as [number, number] }, { type: 'line_to' as const, to: [5, 0] as [number, number] }, { type: 'line_to' as const, to: [5, 5] as [number, number] }]] } };
     const d = docOf([a, b, rectObject('m1', 50, 50), rectObject('m2', 50, 50, [0, 0], { hidden: true }), open]);
     expect(materialCandidates(d, new Set(['a', 'b'])).map((o) => o.id)).toEqual(['m1']);
+  });
+});
+
+describe('tope de piezas', () => {
+  it('coincide con el del motor (MAX_INSTANCES en tlaku-nest)', () => {
+    const rust = readFileSync(new URL('../../../../../crates/tlaku-nest/src/lib.rs', import.meta.url), 'utf8');
+    const match = /pub const MAX_INSTANCES: usize = (\d[\d_]*);/.exec(rust);
+    expect(match).not.toBeNull();
+    expect(Number(match![1]!.replace(/_/g, ''))).toBe(MAX_NEST_INSTANCES);
   });
 });

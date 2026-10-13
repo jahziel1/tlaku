@@ -80,7 +80,7 @@ export function DialectEditor({ draft, edit, issues }: Props) {
   const editable = draft.kind === 'custom_gcode';
   const set = (patch: Partial<Dialect>) => edit({ dialect: { ...d, ...patch } });
   /** Orden opcional: vacía se guarda como nula (sin aire, sin cierre). */
-  const optional = (field: 'air_on' | 'air_off' | 'end_sync') => (v: string) => set({ [field]: v === '' ? null : v });
+  const optional = (field: 'air_on' | 'air_off' | 'end_sync' | 'laser1_select' | 'laser2_select') => (v: string) => set({ [field]: v === '' ? null : v });
   const warnings = editable ? dialectWarnings(draft) : [];
   const { s_max, power_mode, rapid_rate, start_gcode, end_gcode, return_to_origin } = draft;
   const preview = useMemo(
@@ -139,6 +139,11 @@ export function DialectEditor({ draft, edit, issues }: Props) {
               <Cmd label="devices.dialect.airOn" help="devices.dialect.airOn.help" value={d.air_on ?? ''} editable={editable} error={issues.air_on} onChange={optional('air_on')} />
               <Cmd label="devices.dialect.airOff" help="devices.dialect.airOff.help" value={d.air_off ?? ''} editable={editable} error={issues.air_off} onChange={optional('air_off')} />
             </div>
+          </Group>
+
+          <Group title="devices.dialect.group.laser2">
+            <Cmd label="devices.dialect.laser2Select" help="devices.dialect.laser2Select.help" value={d.laser2_select ?? ''} editable={editable} error={issues.laser2_select} onChange={optional('laser2_select')} />
+            <Cmd label="devices.dialect.laser1Select" help="devices.dialect.laser1Select.help" value={d.laser1_select ?? ''} editable={editable} error={issues.laser1_select} onChange={optional('laser1_select')} />
           </Group>
 
           <Group title="devices.dialect.group.end">

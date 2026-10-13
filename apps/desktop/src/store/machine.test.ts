@@ -422,7 +422,8 @@ describe('máquina virtual en el slice', () => {
     const ports = store.getState().ports;
     const firstVirtual = ports.findIndex((p) => p.startsWith('virtual:'));
     expect(firstVirtual).toBeGreaterThan(0);
-    expect(ports.slice(firstVirtual).every((p) => p.startsWith('virtual:'))).toBe(true);
+    expect(ports.slice(firstVirtual).every((p) => p.startsWith('virtual:') || p.startsWith('virtualnet:'))).toBe(true);
+    expect(ports).toContain('virtualnet:falcon2');
     expect(ports).toEqual(expect.arrayContaining(['virtual:falcon2', 'virtual:grbl11', 'virtual:grblhal', 'virtual:fluidnc']));
   });
 

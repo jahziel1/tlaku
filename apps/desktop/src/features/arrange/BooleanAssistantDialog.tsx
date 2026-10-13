@@ -11,26 +11,15 @@ import { Thumb, type Outline } from './DesignPreview';
 import { designReason, outlinesOf } from './designOps';
 import { useDesignUi } from './designUi';
 import { geometryReason, operandOf, orderedUnits, runGeometry } from './geomOps';
-import { unitLabel, unitThumbnail } from './unitLabel';
-import { selectionUnits, unitSize, type Unit } from './units';
+import { UnitThumb } from './UnitThumb';
+import { unitLabel } from './unitLabel';
+import { selectionUnits, unitSize } from './units';
 
 /** Las cinco operaciones del asistente, en el orden de las tarjetas. */
 export const ASSISTANT_OPS = ['union', 'difference', 'intersection', 'xor', 'weld'] as const satisfies readonly GeometryOp[];
 type AssistantOp = (typeof ASSISTANT_OPS)[number];
 
 type Result = { status: 'computing' } | { status: 'error'; msg: string } | { status: 'ready'; outlines: Outline[]; count: number };
-
-/** Miniatura del contorno de una unidad (para elegir cuál es A). */
-function UnitThumb({ unit }: { unit: Unit }) {
-  const thumb = useMemo(() => unitThumbnail(unit), [unit]);
-  const color = unit.objects[0]!.layer;
-  if (!thumb) return <span className="ar-swatch" style={{ background: color }} aria-hidden="true" />;
-  return (
-    <svg className="ar-thumb" viewBox={`0 0 ${thumb.width} ${thumb.height}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <path d={thumb.d} fill="none" stroke={color} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
 
 /**
  * Asistente booleano: muestra el resultado de las cinco operaciones sobre la selección actual,

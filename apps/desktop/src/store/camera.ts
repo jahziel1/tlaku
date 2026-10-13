@@ -33,6 +33,7 @@ export function emptyCameraSetup(): CameraSetup {
     calibration: null,
     alignment: null,
     prefs: { device_id: null, device_label: null, width: null, height: null, opacity: 0.6, visible: false },
+    head: { enabled: false, calibration: null },
   };
 }
 

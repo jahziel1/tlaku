@@ -129,6 +129,11 @@ pub struct GcodeDialect {
     /// Longitud máxima de una línea con su salto, en bytes (127 en GRBL, ~96 en Marlin);
     /// 0 = sin dato. Los comentarios se recortan para no pasarla.
     pub max_line_len: u32,
+    /// Línea que selecciona el láser 1 al volver a él tras usar el 2; `None` = no se emite.
+    pub laser1_select: Option<String>,
+    /// Línea que selecciona el láser 2 antes de las capas que lo usan (máquinas con
+    /// `DeviceProfile::laser2`); `None` = el firmware no la tiene y se avisa.
+    pub laser2_select: Option<String>,
 }
 
 impl Default for GcodeDialect {
@@ -151,6 +156,8 @@ impl Default for GcodeDialect {
             comment: CommentStyle::Semicolon,
             dwell: DwellFormat::PSeconds,
             max_line_len: 127,
+            laser1_select: None,
+            laser2_select: None,
         }
     }
 }
@@ -441,7 +448,6 @@ pub struct RuidaSettings {
     /// Al enviar, ejecutar en vez de solo guardar en la memoria de la controladora.
     pub run_after_upload: bool,
 }
-
 
 /// Ajustes de las placas Lihuiyu (M2 Nano y afines).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

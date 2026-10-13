@@ -2,12 +2,17 @@ import { TriangleAlert } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Check, Choice, Dialog } from '@/features/arrange/Dialog';
 import { selectionUnits } from '@/features/arrange/units';
+import { UnitThumb } from '@/features/arrange/UnitThumb';
+import { unitLabel } from '@/features/arrange/unitLabel';
 import { t } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { fmt } from '@/lib/platform';
-import { selectActiveDevice, useStore } from '@/store';
+import { formatSize } from '@/lib/units';
+import { selectActiveDevice, usePref, useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { applyNest } from './apply';
+import { pieceNames } from './names';
 import { useNestUi } from './nestStore';
 import { NestPreview } from './NestPreview';
 import { flatPolylines, unplacedSummary } from './preview';
@@ -26,21 +31,20 @@ export function NestDialog() {
   const doc = useStore((s) => s.doc);
   const selectedIds = useStore((s) => s.selectedIds);
   const bed = useStore((s) => selectActiveDevice(s).bed);
+  const lengthUnit = usePref('units');
   const options = useNestUi((s) => s.options);
   const patch = useNestUi((s) => s.patch);
   const close = useNestUi((s) => s.close);
   const run = useNestRun();
-  const mm = t('arrange.dlg.mm');
   const pickId = useId();
 
   const units = useMemo(() => selectionUnits(doc, selectedIds), [doc, selectedIds]);
   const [copies, setCopies] = useState<Record<string, number>>({});
   const total = totalInstances(units, copies);
   const flat = useMemo(() => new Map(units.map((u) => [u.id, flatPolylines(u.objects)])), [units]);
-  const nameOf = (id: string): string => {
-    const u = units.find((x) => x.id === id);
-    return u && u.objects.length > 1 ? t('nest.piece.group', { id, n: u.objects.length }) : id;
-  };
+  // Nombre legible de cada pieza ("Rectángulo 40×20 mm"); si dos se llaman igual, se numeran.
+  const names = useMemo(() => pieceNames(units), [units]);
+  const nameOf = (id: string): string => names.get(id) ?? id;
 
   // Material: objetos vectoriales cerrados que no son piezas.
   const candidates = useMemo(() => {
@@ -155,8 +159,9 @@ export function NestDialog() {
             <ul className="ne-list" aria-label={t('nest.pieces.list')}>
               {units.map((u) => (
                 <li key={u.id} className="ne-row">
+                  <UnitThumb unit={u} />
                   <NumberField
-                    label={t('nest.piece.copies', { id: nameOf(u.id) })}
+                    label={t('nest.piece.copies', { name: nameOf(u.id) })}
                     value={sanitizeCopies(copies[u.id] ?? 1)}
                     min={1}
                     max={MAX_NEST_INSTANCES}
@@ -177,7 +182,7 @@ export function NestDialog() {
               legend={t('nest.container.title')}
               value={options.containerKind}
               options={[
-                { value: 'bed', label: t('nest.container.bed', { w: fmt(bed[0], 0), h: fmt(bed[1], 0) }) },
+                { value: 'bed', label: t('nest.container.bed', { size: formatSize(bed[0], bed[1], lengthUnit, 0) }) },
                 { value: 'object', label: t('nest.container.object') },
               ]}
               onChange={(containerKind) => patch({ containerKind })}
@@ -195,7 +200,7 @@ export function NestDialog() {
                     onChange={(e) => patch({ materialId: e.target.value })}
                   >
                     {candidates.map((o) => (
-                      <option key={o.id} value={o.id}>{t('nest.container.option', { id: o.id, layer: layerName(o.layer) })}</option>
+                      <option key={o.id} value={o.id}>{t('nest.container.option', { name: unitLabel({ objects: [o] }), layer: layerName(o.layer) })}</option>
                     ))}
                   </select>
                   <p className="hint">{t('nest.container.hint')}</p>
@@ -206,8 +211,8 @@ export function NestDialog() {
           <section className="ne-section" aria-labelledby={`${pickId}-options`}>
             <h3 id={`${pickId}-options`} className="ne-heading">{t('nest.opt.title')}</h3>
             <div className="field-grid">
-              <NumberField label={t('nest.opt.spacing')} value={options.spacing} min={0} max={1000} step={0.5} unit={mm} onCommit={(spacing) => patch({ spacing })} />
-              <NumberField label={t('nest.opt.margin')} value={options.margin} min={0} max={1000} step={0.5} unit={mm} onCommit={(margin) => patch({ margin })} />
+              <LengthField label={t('nest.opt.spacing')} value={options.spacing} min={0} max={1000} step={0.5} onCommit={(spacing) => patch({ spacing })} />
+              <LengthField label={t('nest.opt.margin')} value={options.margin} min={0} max={1000} step={0.5} onCommit={(margin) => patch({ margin })} />
             </div>
             <Choice<NestRotationMode>
               legend={t('nest.opt.rotation')}

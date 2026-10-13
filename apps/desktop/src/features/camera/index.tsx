@@ -4,6 +4,7 @@ import { loadCameraSetup } from './actions';
 import { CalibrationDialog } from './CalibrationDialog';
 import { MarksDialog } from './MarksDialog';
 import { useMarks } from './marksState';
+import { startAutoRefresh } from './refresh';
 import { startCamera } from './session';
 
 export { CameraPanel } from './CameraPanel';
@@ -18,11 +19,14 @@ export function CameraDialogHost() {
   const marksOpen = useMarks((s) => s.open);
   const closeMarks = useMarks((s) => s.closeDialog);
 
+  // "Actualizar al terminar un trabajo": mientras la app está abierta.
+  useEffect(() => startAutoRefresh(), []);
+
   useEffect(() => {
     void loadCameraSetup().then(() => {
       const { cameraSetup, cameraStatus } = useStore.getState();
       // Se recupera el fondo tras reiniciar sin que el usuario repita nada.
-      if (cameraSetup.prefs.visible && cameraSetup.alignment && cameraStatus === 'off') void startCamera();
+      if (cameraSetup.prefs.visible && (cameraSetup.alignment || cameraSetup.head?.calibration) && cameraStatus === 'off') void startCamera();
     });
   }, []);
 

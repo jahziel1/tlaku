@@ -2,7 +2,7 @@
 //! distorsión conocidas (suavizado por supermuestreo adaptativo, desenfoque óptico
 //! y ruido gaussiano determinista).
 
-use crate::calibration::LensCalibration;
+use crate::calibration::{LensCalibration, LensModel};
 use crate::imgproc::{FloatImage, gaussian_blur};
 use image::GrayImage;
 use nalgebra::{Matrix3, Rotation3, Vector3};
@@ -24,6 +24,9 @@ pub fn truth_camera() -> LensCalibration {
         p1: 0.0006,
         p2: -0.0005,
         k3: 0.0,
+        model: LensModel::BrownConrady,
+        k4: 0.0,
+        view_zoom: 1.0,
         rms_error_px: 0.0,
         views_used: 0,
     }
@@ -187,5 +190,74 @@ pub fn standard_poses(board: [u32; 2], sq: f64) -> Vec<Pose> {
     specs
         .iter()
         .map(|&(deg, c)| Pose::about_center(board, sq, deg, c))
+        .collect()
+}
+
+/// Cámara virtual de ojo de pez (Kannala-Brandt) como las de 5 MP en la tapa de un CO2: unos
+/// 140° de campo en la diagonal, de modo que el borde está a 70° del eje y `tan` no es útil.
+pub fn fisheye_camera() -> LensCalibration {
+    LensCalibration {
+        width: 640,
+        height: 480,
+        fx: 330.0,
+        fy: 331.0,
+        cx: 321.0,
+        cy: 241.0,
+        k1: -0.04,
+        k2: 0.012,
+        p1: 0.0,
+        p2: 0.0,
+        k3: 0.0,
+        model: LensModel::Fisheye,
+        k4: 0.0,
+        view_zoom: 1.0,
+        rms_error_px: 0.0,
+        views_used: 0,
+    }
+}
+
+/// Poses de un tablero de 9x6 que recorren el campo del ojo de pez hasta unos 60° del eje: la
+/// normal apunta hacia la cámara más una inclinación y un giro propios de cada vista.
+pub fn fisheye_poses(board: [u32; 2], sq: f64) -> Vec<Pose> {
+    // (centro en mm, inclinación°, giro°)
+    let specs: [((f64, f64, f64), f64, f64); 16] = [
+        ((0.0, 0.0, 330.0), 20.0, 5.0),
+        ((-210.0, -110.0, 330.0), 25.0, 20.0),
+        ((230.0, -100.0, 340.0), -25.0, -15.0),
+        ((-220.0, 120.0, 330.0), 30.0, 70.0),
+        ((210.0, 130.0, 330.0), -20.0, 100.0),
+        ((0.0, -150.0, 300.0), 35.0, 0.0),
+        ((20.0, 160.0, 310.0), -30.0, 160.0),
+        ((-330.0, 10.0, 360.0), 15.0, 40.0),
+        ((340.0, 20.0, 360.0), -15.0, -50.0),
+        ((-90.0, 60.0, 280.0), 30.0, -90.0),
+        ((120.0, -70.0, 290.0), -35.0, 30.0),
+        ((-150.0, -190.0, 400.0), 10.0, 120.0),
+        ((-360.0, -230.0, 360.0), 15.0, 30.0),
+        ((360.0, -230.0, 360.0), -15.0, -30.0),
+        ((-360.0, 230.0, 360.0), 20.0, 60.0),
+        ((360.0, 230.0, 360.0), -20.0, 110.0),
+    ];
+    specs
+        .iter()
+        .map(|&((x, y, z), tilt, roll)| {
+            let c = Vector3::new(x, y, z);
+            let n = -c.normalize();
+            let base =
+                Rotation3::rotation_between(&Vector3::z(), &n).unwrap_or_else(Rotation3::identity);
+            let d = std::f64::consts::PI / 180.0;
+            let r = (base * Rotation3::from_euler_angles(tilt * d, 0.0, roll * d))
+                .matrix()
+                .to_owned();
+            let local_center = Vector3::new(
+                (board[0] - 1) as f64 * sq / 2.0,
+                (board[1] - 1) as f64 * sq / 2.0,
+                0.0,
+            );
+            Pose {
+                r,
+                t: c - r * local_center,
+            }
+        })
         .collect()
 }

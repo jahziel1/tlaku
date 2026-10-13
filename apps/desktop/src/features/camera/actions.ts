@@ -1,4 +1,4 @@
-import type { LensCalibration } from '@/api/types';
+import type { HeadCalibration, LensCalibration } from '@/api/types';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
@@ -53,19 +53,52 @@ export function updateCameraPrefs(prefs: Partial<CameraPrefs>, debounce = 0): vo
 export function applyLens(calibration: LensCalibration): void {
   const s = useStore.getState();
   const hadAlignment = s.cameraSetup.alignment !== null;
-  s.setCameraSetup({ ...s.cameraSetup, calibration, alignment: null });
+  const hadHead = s.cameraSetup.head?.calibration != null;
+  s.setCameraSetup({
+    ...s.cameraSetup,
+    calibration,
+    alignment: null,
+    head: s.cameraSetup.head ? { ...s.cameraSetup.head, calibration: null } : s.cameraSetup.head,
+  });
   if (hadAlignment) s.notify('warning', t('camera.lens.alignmentReset'));
+  if (hadHead) s.notify('warning', t('camera.head.cal.reset'));
   void persistCameraSetup();
 }
 
 export function clearLens(): void {
   const s = useStore.getState();
-  s.setCameraSetup({ ...s.cameraSetup, calibration: null, alignment: null });
+  s.setCameraSetup({
+    ...s.cameraSetup,
+    calibration: null,
+    alignment: null,
+    head: s.cameraSetup.head ? { ...s.cameraSetup.head, calibration: null } : s.cameraSetup.head,
+  });
   void persistCameraSetup();
 }
 
 export function applyAlignment(alignment: CameraAlignment | null): void {
   const s = useStore.getState();
   s.setCameraSetup({ ...s.cameraSetup, alignment });
+  void persistCameraSetup();
+}
+
+/** Cambia el modo de cámara montada en el cabezal. Al cambiar de modo el mosaico anterior ya no vale. */
+export function setHeadEnabled(enabled: boolean): void {
+  const s = useStore.getState();
+  const head = s.cameraSetup.head ?? { enabled: false, calibration: null };
+  s.setCameraSetup({ ...s.cameraSetup, head: { ...head, enabled } });
+  void persistCameraSetup();
+}
+
+/** Guarda la calibración del cabezal y deja el modo activado. */
+export function applyHeadCalibration(calibration: HeadCalibration): void {
+  const s = useStore.getState();
+  s.setCameraSetup({ ...s.cameraSetup, head: { enabled: true, calibration } });
+  void persistCameraSetup();
+}
+
+export function clearHeadCalibration(): void {
+  const s = useStore.getState();
+  s.setCameraSetup({ ...s.cameraSetup, head: { enabled: s.cameraSetup.head?.enabled ?? false, calibration: null } });
   void persistCameraSetup();
 }

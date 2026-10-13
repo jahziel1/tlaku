@@ -276,7 +276,9 @@ describe('tipo de controladora', () => {
     expect(kindDefaults('grbl')).toMatchObject({ s_max: 1000, power_mode: 'dynamic', baud: 115200 });
     expect(kindDefaults('grbl_lpc').s_max).toBe(1);
     expect(kindDefaults('grbl_m3').s_max).toBe(255);
-    expect(DEVICE_KINDS).toHaveLength(8);
+    // Ocho tipos de G-code y Ruida (por red, experimental): el K40 se agrega cuando se pueda enviar.
+    expect(DEVICE_KINDS).toHaveLength(9);
+    expect(DEVICE_KINDS).toContain('ruida');
   });
 
   it('un perfil sin dialecto toma el de su tipo, no el de GRBL', () => {

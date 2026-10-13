@@ -6,6 +6,8 @@ export interface CorrectorTarget {
   height: number;
   /** Lente a corregir; `null` = pasar el cuadro tal cual. */
   lens: LensParams | null;
+  /** Pasar la imagen a escala de grises. */
+  gray?: boolean;
 }
 
 export interface Corrector {
@@ -57,6 +59,9 @@ function createGl(canvas: HTMLCanvasElement): Corrector | null {
     const uK = u('uK');
     const uRad = u('uRad');
     const uTan = u('uTan');
+    const uZoom = u('uZoom');
+    const uFisheye = u('uFisheye');
+    const uGray = u('uGray');
     const uCorrect = u('uCorrect');
     gl.uniform1i(u('uTex'), 0);
 
@@ -74,12 +79,15 @@ function createGl(canvas: HTMLCanvasElement): Corrector | null {
           const p = lensUniforms(target.lens);
           gl.uniform2f(uSize, p.size[0], p.size[1]);
           gl.uniform4f(uK, ...p.k);
-          gl.uniform3f(uRad, ...p.rad);
+          gl.uniform4f(uRad, ...p.rad);
           gl.uniform2f(uTan, ...p.tan);
+          gl.uniform1f(uZoom, p.zoom);
+          gl.uniform1f(uFisheye, p.fisheye);
           gl.uniform1f(uCorrect, 1);
         } else {
           gl.uniform1f(uCorrect, 0);
         }
+        gl.uniform1f(uGray, target.gray ? 1 : 0);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       },
       dispose() {
@@ -103,6 +111,15 @@ function createCopy(canvas: HTMLCanvasElement): Corrector {
       canvas.width = target.width;
       canvas.height = target.height;
       ctx?.drawImage(source, 0, 0, target.width, target.height);
+      if (target.gray && ctx) {
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = img.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const g = 0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!;
+          d[i] = d[i + 1] = d[i + 2] = g;
+        }
+        ctx.putImageData(img, 0, 0);
+      }
     },
     dispose() {},
   };

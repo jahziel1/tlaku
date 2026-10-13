@@ -32,7 +32,7 @@ export const prefs = {
   'prefs.units': 'Unidades de longitud',
   'prefs.units.mm': 'Milímetros (mm)',
   'prefs.units.in': 'Pulgadas (in)',
-  'prefs.units.hint': 'El diseño se guarda siempre en milímetros. La unidad elegida se usa en los campos que ya la admiten y se irá extendiendo al resto.',
+  'prefs.units.hint': 'El diseño se guarda siempre en milímetros. La unidad elegida se usa en la barra numérica, las reglas, la barra de estado y los campos de longitud de los diálogos (las velocidades siguen en mm/min).',
   'prefs.nudge.title': 'Flechas del teclado',
   'prefs.nudgeStep': 'Paso normal',
   'prefs.nudgeStepBig': 'Paso con Mayús',
@@ -123,4 +123,19 @@ export const prefs = {
   'prefs.recovery.recoverFailed': 'No se pudo recuperar «{name}»: {error}',
   'prefs.recovery.discardFailed': 'No se pudo descartar la copia: {error}',
   'prefs.recovery.listFailed': 'No se pudo revisar si hay copias de recuperación: {error}',
+
+  // ---- Automatización por UDP ---------------------------------------------------------------
+  'prefs.section.automation': 'Automatización',
+  'prefs.automation.enabled': 'Activar la automatización por UDP',
+  'prefs.automation.hint': 'Deja que otros programas o scripts de este equipo controlen Tlaku con comandos de texto (PING, LOAD, START, STATUS, STOP). Solo escucha en 127.0.0.1: ningún otro equipo de la red puede conectarse. El protocolo está en docs/app-api.md.',
+  'prefs.automation.port': 'Puerto UDP',
+  'prefs.automation.portUnit': 'UDP',
+  'prefs.automation.allowStart': 'Permitir iniciar desde automatización',
+  'prefs.automation.allowStart.hint': 'Apagado, START solo abre el diálogo de inicio y decides tú. Encendido, cualquier programa de este equipo puede arrancar el láser sin que lo confirmes: actívalo solo si confías en todo lo que corre aquí.',
+  'prefs.automation.status.on': 'Escuchando en 127.0.0.1:{port}',
+  'prefs.automation.status.off': 'Apagada',
+  'prefs.automation.status.error': 'No se pudo activar: {error}',
+  'prefs.automation.startAsked': 'Un programa externo pidió iniciar el trabajo. Revisa el diálogo y confirma para empezar.',
+  'prefs.automation.startBlocked': 'Un programa externo pidió iniciar el trabajo, pero no se puede: {reason}',
+  'prefs.automation.started': 'Trabajo iniciado por un programa externo.',
 } as const;

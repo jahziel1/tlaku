@@ -835,6 +835,7 @@ fn bounds_check_covers_every_move() {
         z_mm: None,
         pass: None,
         sub: None,
+        laser2: false,
     };
     let job = ComputedJob {
         toolpath: tlaku_core::toolpath::Toolpath {
@@ -852,6 +853,25 @@ fn bounds_check_covers_every_move() {
     };
     let e = check_bounds(&job, [100.0, 100.0]).unwrap_err();
     assert!(e.contains("#ff0000") && e.contains("overscan"), "{e}");
+}
+
+#[test]
+fn bounds_warning_counts_the_virtual_copies() {
+    // El original (10 x 10 mm) cabe en la cama de 100 x 100, pero la rejilla de 5 columnas
+    // (paso de 30 mm) llega a X = 130 mm: debe avisar, y la caja del trabajo la incluye.
+    let mut a = rect_object("a", RED, 0.0, 0.0, 10.0, 10.0);
+    a.array = Some(tlaku_doc::VirtualArray::Grid {
+        cols: 5,
+        rows: 1,
+        dx: 20.0,
+        dy: 0.0,
+    });
+    let d = doc(vec![a], vec![line_layer(RED)]);
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    point(job.bounds().unwrap().max, 130.0, 10.0);
+    let e = check_bounds(&job, [100.0, 100.0]).unwrap_err();
+    assert!(e.contains("#ff0000"), "{e}");
+    point(d.bounds().unwrap().max, 130.0, 10.0);
 }
 
 #[test]
@@ -994,6 +1014,59 @@ fn gcode_uses_the_device_profile() {
     let g = gcode(&job, &dev);
     assert!(g.contains("G21\nG54\nM3 S0\n"), "{g}");
     assert!(g.contains("S51") && g.trim_end().ends_with("M5\nM2"), "{g}");
+}
+
+#[test]
+fn laser2_layers_select_the_second_laser_only_on_machines_that_have_it() {
+    let both = doc(
+        vec![
+            rect_object("a", RED, 10.0, 20.0, 20.0, 40.0),
+            rect_object("b", Rgb(0, 0, 255), 50.0, 20.0, 20.0, 40.0),
+        ],
+        vec![
+            line_layer(RED),
+            LayerSettings {
+                laser2: true,
+                ..line_layer(Rgb(0, 0, 255))
+            },
+        ],
+    );
+    let mut dev = device();
+    dev.laser2 = true;
+    dev.dialect.laser2_select = Some("M114 L2".into());
+    dev.dialect.laser1_select = Some("M114 L1".into());
+    let job = compute(&both, &dev, &JobOptions::default()).unwrap();
+    assert!(job.layers.iter().any(|l| l.laser2));
+    let g = gcode(&job, &dev);
+    let sel: Vec<&str> = g.lines().filter(|l| l.starts_with("M114")).collect();
+    // Un solo cambio al láser 2 (y, si la capa azul va antes, uno de vuelta al 1).
+    assert_eq!(sel.iter().filter(|l| **l == "M114 L2").count(), 1, "{g}");
+    assert!(sel.len() <= 2, "{g}");
+    assert!(job.preview.warnings.iter().all(|w| !w.contains("láser 2")));
+
+    // Sin segundo láser en el perfil: nada se selecciona y se avisa.
+    let mut single = dev.clone();
+    single.laser2 = false;
+    let job = compute(&both, &single, &JobOptions::default()).unwrap();
+    assert!(!gcode(&job, &single).contains("M114"));
+    assert!(
+        job.preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("no tiene segundo láser"))
+    );
+
+    // Con láser 2 pero sin comando en el dialecto: se avisa y tampoco se emite nada.
+    let mut nocmd = dev.clone();
+    nocmd.dialect.laser2_select = None;
+    let job = compute(&both, &nocmd, &JobOptions::default()).unwrap();
+    assert!(!gcode(&job, &nocmd).contains("M114 L2"));
+    assert!(
+        job.preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("comando para seleccionar el láser 2"))
+    );
 }
 
 #[test]

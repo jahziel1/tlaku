@@ -337,3 +337,43 @@
     height: 100%;
   }
 }
+
+/* ---- ola 4: confirmación del recorrido, subsecciones y tabla de modelos ------------------- */
+
+.cam-confirm {
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: var(--s-3);
+}
+.cam-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.cam-tool {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.cam-scores {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.cam-scores th,
+.cam-scores td {
+  padding: var(--s-1) var(--s-2);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.cam-scores tr[data-chosen='true'] th,
+.cam-scores tr[data-chosen='true'] td {
+  color: var(--ok);
+}
+.cam-subtitle {
+  margin: var(--s-3) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}

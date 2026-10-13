@@ -170,6 +170,7 @@ export const layers = {
   'layers.tabs.count': 'Cantidad',
   'layers.tabs.countMin': 'Mínimo por forma',
   'layers.tabs.spacing': 'Separación',
+  'layers.tabs.power': 'Potencia en puentes (%)',
   'layers.tabs.skipInner': 'Omitir formas interiores',
   'layers.tabs.live.count': '{n} puentes por forma cerrada',
   'layers.tabs.live.spacing': 'Uno cada {spacing} mm, y al menos {n} por forma',
@@ -213,6 +214,7 @@ export const layers = {
   'layers.help.tabsCount': 'Puentes que se reparten en cada forma cerrada.',
   'layers.help.tabsCountMin': 'Con una separación fija, las formas pequeñas llevan al menos esta cantidad.',
   'layers.help.tabsSpacing': 'Distancia entre puentes a lo largo del contorno, en mm. Con 0 se usa la cantidad.',
+  'layers.help.tabsPower': '0 = apagado: el láser no toca el puente. Con un valor mayor marca el puente sin atravesarlo (nunca supera la potencia de la capa).',
   'layers.help.tabsSkipInner': 'Los agujeros y figuras interiores caen como desecho: no necesitan puentes.',
   'layers.help.zOffset': 'Cuánto sube la mesa (o baja el cabezal) desde el foco al empezar la capa. Positivo enfoca más adentro del material.',
   'layers.help.zStep': 'Milímetros adicionales que se baja en cada pasada después de la primera, para cortes profundos. 0 = todas a la misma altura.',
@@ -397,4 +399,8 @@ export const layers = {
   'layers.cmd.delete': 'Borrar la capa activa y sus objetos…',
   'layers.cmd.saveDefaults': 'Guardar la capa activa como valores por defecto',
   'layers.cmd.resetDefaults': 'Restablecer los valores por defecto de las capas nuevas',
+
+  'layers.laser2': 'Láser 2',
+  'layers.help.laser2': 'Ejecuta esta capa con el segundo láser de la máquina (se envía la orden de selección del dialecto).',
+  'layers.help.laser2None': 'Esta capa pide el láser 2, pero la máquina activa no lo tiene: saldrá con el láser 1.',
 } as const;

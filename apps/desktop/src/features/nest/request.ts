@@ -3,7 +3,11 @@ import { objectPolylines } from '@/lib/geometry';
 import type { Unit } from '@/features/arrange/units';
 import type { NestContainer, NestGravity, NestPieceInput, NestRequest, NestRotationMode } from './types';
 
-/** Tope de instancias (piezas con sus copias): más allá, el cálculo y el documento se vuelven inmanejables. */
+/**
+ * Tope de instancias (piezas con sus copias): más allá, el cálculo y el documento se vuelven
+ * inmanejables. Es el mismo del motor (`MAX_INSTANCES` en crates/tlaku-nest/src/lib.rs); una prueba
+ * (`request.test.ts`) comprueba que coinciden.
+ */
 export const MAX_NEST_INSTANCES = 2000;
 export const NEST_TIME_RANGE = [1, 600] as const;
 export const NEST_STEP_RANGE = [0.5, 180] as const;

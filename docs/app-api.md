@@ -114,7 +114,7 @@ para mostrar (la promesa se rechaza con un `string`). Los comandos pesados (`imp
 | `save_project` / `load_project` | `{ path, doc }` / `{ path }` | `void` / `Document` (extensión `.tlaku`, JSON; `load_project` rechaza versiones desconocidas y permite las imágenes del documento en el protocolo de assets) |
 | `list_devices` / `save_device` / `delete_device` | `{}` / `{ device }` / `{ id }` | perfiles guardados en `devices.json` dentro de la carpeta de configuración de la app (`app_config_dir`). Sin archivo, `list_devices` devuelve el perfil de fábrica (`DeviceProfile::default()`) sin guardarlo; `save_device` crea o reemplaza por `id` y valida lo básico (cama, S máx., aceleraciones, baudios); `delete_device` falla si el id no existe |
 | `list_ports` | | `string[]` |
-| `connect` / `disconnect` | `{ port, baud }` / `{}` | `{ firmware: string }` (`Grbl 1.1h`, de `$I`) / `void`. `connect` abre el puerto (~2 s por el reinicio de la placa) y falla si hay otra conexión o la máquina no responde a `$I`; `disconnect` cancela un trabajo en curso antes de soltar el puerto y no falla si no hay conexión |
+| `connect` / `disconnect` | `{ port, baud, device? }` / `{}` | `{ firmware: string }` (`Grbl 1.1h`, de `$I`) / `void`. `connect` abre el puerto (~2 s por el reinicio de la placa) y falla si hay otra conexión o la máquina no responde a `$I`; `disconnect` cancela un trabajo en curso antes de soltar el puerto y no falla si no hay conexión |
 | `machine_command` | `{ line }` | `string[]`: líneas de respuesta, la última `ok`, `error:N: explicación` o `ALARM:N: explicación`. Rechaza `?`, `!`, `~` (usa `machine_realtime`) y falla con un trabajo en curso. `$H` espera hasta 60 s; el resto 5 s |
 | `machine_realtime` | `{ cmd: "status" \| "hold" \| "resume" \| "reset" \| "jog_cancel" }` | `void`. Un byte (`?`, `!`, `~`, 0x18, 0x85). Durante un trabajo, `hold`/`resume` pausan y reanudan, `reset` lo cancela |
 | `jog` | `{ dx, dy, speed }` | `void`: `$J=G91 G21 X.. Y.. F..` (mm, mm/min). Falla con un trabajo en curso o en alarma (con el consejo de `$X`/`$H`) |
@@ -512,3 +512,153 @@ ventanas `main` y `doc-*`.
 - **Recuperación**: `<datos de la app>/recuperacion/<id>.tlaku` y `<id>.meta.json`. Máximo 10 copias, 128 MB
   por copia y 512 MB en total. Una copia de un proyecto con ruta se descarta si el archivo tiene fecha igual o
   posterior; las de documentos sin guardar se ofrecen siempre.
+
+## Conexión por red y automatización por UDP (ola 4)
+
+### Conexión por red (GRBL, grblHAL, FluidNC)
+
+`DeviceProfile.connection` elige el transporte: `{ "type": "serial" }` (por omisión; el puerto se
+escoge al conectar), `{ "type": "tcp", "host", "port" }` o `{ "type": "web_socket", "url" }`
+(`udp` es de Ruida). La interfaz entrega al motor, en el mismo argumento `port` de `connect` y
+`probe_port`, un identificador por esquema; ningún puerto serie empieza así:
+
+| Identificador | Qué abre |
+|---|---|
+| `tcp://host[:puerto]` | Telnet o TCP crudo; puerto 23 si falta (grblHAL Ethernet, servidor Telnet de FluidNC). Se rechaza y descarta la negociación Telnet si el servidor la manda |
+| `ws://host[:puerto][/ruta]` | WebSocket de FluidNC y ESP3D. `wss://` no está soportado. Los mensajes de sesión de ESP3D (`currentID:`, `activeID:`, `PING:`) se descartan |
+| `virtualnet:<modelo>[@<velocidad>]` | Máquina virtual por red: el emulador detrás de un socket TCP local en `127.0.0.1` (puerto libre) al que la app se conecta de verdad. Los modelos y la velocidad son los de `virtual:`. Al soltar la conexión se cierra el socket y se detiene el emulador. `list_ports` los ofrece al final |
+
+Detalles:
+
+- Por red no hay reinicio de la placa: tras conectar solo se espera y descarta un saludo breve (hasta 1,5 s)
+  antes de `$I`. El `ok` puede llegar partido en varios paquetes; el lector de líneas trabaja byte a byte.
+- Los errores de conexión llegan explicados en español: nombre no encontrado, conexión rechazada,
+  tiempo agotado (5 s), equipo no alcanzable, conexión cerrada por la máquina.
+- `probe_port` acepta esos identificadores («Probar conexión» del perfil): abre, lee el saludo, hace las
+  mismas consultas de solo lectura de siempre y cierra, sin mover nada. Por red espera el saludo 0,8 s
+  en lugar de 3,5 s.
+- El transporte (`tlaku_grbl::net::{TcpTransport, WebSocketTransport}`) implementa `Transport`, así que el
+  `Streamer` y `Connection::start_with` no cambian. El cierre es ordenado (`shutdown` / trama Close).
+
+### Ruida por UDP (EXPERIMENTAL)
+
+Una controladora Ruida (CO2) se conecta con un perfil `kind = "ruida"`. Solo está probada contra el
+emulador UDP de `tlaku-ruida`, no con una máquina real (ver `docs/hardware/ruida.md`, sección 15).
+
+- `connect` recibe además `device` (el perfil activo). Con `kind = "ruida"` el motor ignora `baud` y usa
+  `device.connection.host` (UDP, puertos 50200 y 40200), `device.ruida.magic` (`null` = detectarlo con el
+  sondeo de solo lectura) y la cama y el origen del perfil. El `port` solo cuenta para `virtual:ruida[@<velocidad>]`,
+  una máquina virtual que arranca el emulador UDP en `127.0.0.1` y se conecta a él por UDP real (`list_ports` la
+  ofrece al final). `ConnectResult.firmware` es `Ruida RDC6442S · tarjeta 0x65106510`, y el evento de conexión lleva
+  `port = "udp://<IP>"`. Un perfil Ruida sin IP solo conecta a la máquina virtual.
+- Los eventos son los mismos `machine://*`. El estado llega cada ~500 ms (nunca durante una subida):
+  `work_pos` y `machine_pos` son los mm desde el home hacia dentro de la cama, o sea las coordenadas del
+  origen del perfil (`origin` = esquina del home); `feed`, `spindle` y `buffer` van en 0 y no hay `overrides`.
+  Con un trabajo en marcha, un sondeo sin respuesta no es una conexión perdida (algunas controladoras ignoran
+  la red mientras ejecutan); fuera de uno, tres seguidos sí.
+- `start_job` genera el `.rd` (`tlaku_pipeline::export_rd_for_device`) y lo sube con progreso (`machine://progress`
+  cuenta paquetes). Con `ruida.run_after_upload = false` (predeterminado) queda como documento `TLAKUnnn` en la
+  memoria y no arranca: `machine://job` termina en `finished` con el aviso; con `true` se ejecuta y el hilo sigue el
+  estado hasta que la máquina vuelve a reposo (`finished`). Si la subida falla antes del primer paquete, el comando
+  devuelve el error y no hay eventos; si falla después, `machine://job` `error` (y `D8 01` si se ejecutaba). Se rechaza
+  si la cama que informa la máquina no coincide con la del perfil.
+- `pause_job` / `resume_job` / `cancel_job` son `D8 02` / `D8 03` / `D8 01` (cancelar también interrumpe una subida).
+  `machine_realtime` traduce `hold`, `resume`, `reset` y `jog_cancel` a esos mismos; `status` no hace nada.
+  `jog` y `jog_to` usan saltos `D9` con el láser apagado; `frame_job` y `frame_hull` recorren el rectángulo del trabajo
+  con cinco saltos y no bloquean (ignoran `power_pct`: no hay encuadre con el láser encendido).
+- Lo que es de GRBL (`machine_command`, `set_override`, ajustes `$`, macros, `jog_axis`, `fire_test`,
+  `simulate_fault`) devuelve el error `Esta función es solo de GRBL...`.
+- `ruida_info` → `RuidaInfo` y `ruida_files` → `RuidaFile[]`: solo lectura (M26 y M24).
+
+**Despacho.** `AppState` guarda una sola conexión, `machine::active::ActiveMachine` (`Grbl` o `Ruida`), y los
+comandos pasan por `machine::active::Machine` (`is_closed`, `work_pos`, `jog`, `jog_to`, pausa, reanudar,
+cancelar y `realtime`); lo exclusivo de GRBL usa `Machine::grbl()` (`AppState::handle`) y lo de Ruida
+`Machine::ruida()`. Agregar un respaldo nuevo (K40) es una variante en cada enum: el compilador marca los
+`match` que faltan. `start_job`, `frame_job` y `frame_hull` despachan con `if let Machine::Ruida(r)` antes de la
+ruta GRBL, porque cada respaldo calcula cosas distintas.
+
+### Automatización por UDP (M54)
+
+Un servidor local opcional para que otros programas o scripts manejen la app con comandos de texto.
+
+- **Apagado por omisión.** Se activa en Preferencias ▸ Automatización (`automationEnabled`), con el puerto
+  `automationPort` (1024 a 65535, 47801 por omisión) y la casilla `automationAllowStart`.
+- **Solo escucha en `127.0.0.1`.** Ningún otro equipo de la red puede enviarle nada.
+- Comando `automation_configure` · `{ config: { enabled, port, allow_start } }` → `{ running, port, error }`
+  (la interfaz lo llama al arrancar y cada vez que cambian esas preferencias). Un puerto ocupado o menor
+  de 1024 no es un error del comando: vuelve `running: false` con el motivo en `error`.
+- Eventos hacia la ventana: `automation://load` `{ path }` y `automation://start` `{ confirmed }`. La interfaz
+  es dueña del documento y de las opciones del trabajo, así que `LOAD` y `START` se piden a ella.
+
+**Protocolo.** Un comando por datagrama UDP, texto UTF-8 en una sola línea (máximo 4096 bytes; un `\n` o
+`\r\n` final se ignora). La palabra no distingue mayúsculas. La respuesta es un datagrama de una línea
+terminada en `\n`, enviado al origen.
+
+| Comando | Respuesta | Qué hace |
+|---|---|---|
+| `PING` | `PONG` | Comprueba que la app escucha |
+| `LOAD <ruta>` | `OK loading` | Pide abrir un proyecto `.tlaku` o importar el diseño, como si se soltara sobre la ventana. La ruta debe ser **absoluta** y de un archivo que existe (el resto de la línea es la ruta, con espacios). El resultado de la importación se avisa en la interfaz |
+| `START` | `OK starting` o `PENDING confirm_in_app: ...` | Ver seguridad |
+| `STATUS` | `STATUS connected=0` o `STATUS connected=1 state=<idle\|run\|hold\|alarm...> x=<mm> y=<mm>` | Estado de la máquina y posición de trabajo |
+| `STOP` | `OK` | Detiene el trabajo (feed hold y soft reset; sin trabajo, cancela el jog). Siempre se atiende si hay máquina conectada |
+
+Errores: `ERR <código>: <texto en español>`. Códigos: `not_connected`, `busy`, `not_found`, `bad_argument`,
+`bad_text`, `too_long`, `empty`, `unknown_command`, `failed`.
+
+**Seguridad de `START`:**
+
+1. Exige máquina conectada y en reposo (`idle`); si no, `ERR not_connected` o `ERR busy`, y no pasa nada.
+2. Por omisión **no inicia**: abre el diálogo de inicio de la interfaz y responde `PENDING confirm_in_app`;
+   el usuario revisa y confirma allí. Se puede consultar el avance con `STATUS`.
+3. Solo con la preferencia explícita «permitir iniciar desde automatización» (`automationAllowStart`,
+   apagada por omisión) responde `OK starting` y la interfaz inicia sin preguntar, y aun así, si la lista de
+   comprobación del diálogo de inicio es obligatoria (`jobChecklistRequired`), se pregunta en el diálogo.
+   La interfaz vuelve a comprobar que haya algo que enviar y que la máquina esté lista.
+
+Ejemplo desde una terminal: `echo PING | nc -u -w1 127.0.0.1 47801`.
+
+## Cámara (ola 4)
+
+Ojo de pez, imagen de la cama, cámara en el cabezal y buscador de centro. `camera.json` gana campos
+nuevos y **todos** llevan valor por defecto al leer: un archivo anterior carga igual.
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `calibrate_lens` | `{ images_png_base64, board, square_mm, model?: "auto" \| "brown_conrady" \| "fisheye" }` | `CalibrationReport`. Sin `model` es `auto`: se ajustan Brown-Conrady y el ojo de pez de Kannala-Brandt y se elige por validación cruzada con vistas reservadas (el ojo de pez solo gana si mejora ≥ 15 % y ≥ 0,1 px). `model_scores` trae el error de ajuste y de vistas reservadas de cada modelo |
+| `compose_bed_image` | `{ tiles: { image_png_base64, to_bed: Mat3 }[], bed, px_per_mm: number \| null, grayscale, feather_px: number \| null, crop_px: number \| null, rect: [x0, y0, x1, y1] \| null, dir: string \| null, stem, save }` | `BedImage { path, width_px, height_px, size_mm, origin_mm, in_temp_dir, coverage, px_per_mm, preview_png_base64 }`. Compone fotos **ya corregidas de lente**, cada una con su `to_bed` (píxel con origen en el borde -> mm de la cama), en una imagen alineada con los ejes de la cama; la fila de arriba es la `Y` mayor y `origin_mm` es su esquina inferior izquierda, así que colocada con `transform = [1,0,0,1,origin]` queda donde estaba. Mezcla los traslapes con una rampa de `feather_px` y descarta `crop_px` de cada borde. Con `save` escribe `<stem>-camara-<n>.png` en `dir` (o en la carpeta temporal); la vista previa se reduce a 1600 px de ancho |
+| `detect_circle_in_image` | `{ image_png_base64, hint?: { center: [x, y], radius?: number } }` | `CircleFit { center, radius, rms_px, inliers, arc_coverage, points }` en píxeles de la imagen. Hough con la dirección del gradiente, radio por histograma y ajuste de Kåsa; devuelve hasta 48 puntos del borde para que quien llama los pase a mm y ajuste ahí (la perspectiva vuelve elipse al círculo). Falla si se ve menos del 45 % del contorno |
+
+```ts
+type LensModel = "brown_conrady" | "fisheye";
+interface LensCalibration {           // campos nuevos, opcionales al leer
+  model?: LensModel;                  // por defecto brown_conrady
+  k4?: number;                        // 4.º coeficiente de Kannala-Brandt
+  view_zoom?: number;                 // focal de la imagen corregida / focal de la calibración; 1 por defecto
+}
+interface CameraPrefs { grayscale?: boolean; update_on_job_finish?: boolean }
+interface HeadCalibration {
+  image_size: [number, number]; ref_px: [number, number];
+  px_to_mm: [[number, number], [number, number]];   // píxeles -> mm (con la inversión del eje Y de la imagen)
+  offset_mm: [number, number]; rms_mm: number; observations: number;
+}
+interface HeadCamera { enabled: boolean; calibration: HeadCalibration | null }
+interface CameraSetup { /* ... */ head?: HeadCamera }
+```
+
+- **Ojo de pez (Kannala-Brandt).** `θ = atan(r)`, `θd = θ(1 + k1 θ² + k2 θ⁴ + k3 θ⁶ + k4 θ⁸)` y el píxel es
+  `f · θd · (x, y) / r`. No usa `p1`/`p2`. El ajuste (LM) parte de varias focales supuestas (la inicialización
+  de Zhang no sirve) y refina primero focal y `k1` y luego todo; `k3`/`k4` solo si el error sigue alto. La
+  proyección rectilínea no puede mostrar 180°, así que la imagen corregida usa `view_zoom < 1`
+  (el borde horizontal de la imagen cruda hasta 60° del eje): `UndistortMap`, el shader WebGL
+  (`lens.ts`, `uFisheye`/`uZoom`) y el modelo de altura de `save_camera_setup` usan la misma focal
+  `fx · view_zoom`. Las calibraciones guardadas antes (sin `model`) siguen siendo Brown-Conrady con zoom 1.
+- **Cámara en el cabezal.** El píxel `p` ve el punto `L + offset + A (p - ref)` (mm de documento, `L` = posición
+  del láser). El desfase y `A` salen de mínimos cuadrados con ≥ 3 observaciones de una marca grabada en una
+  posición conocida, vista desde posiciones distintas del cabezal. El recorrido (`planScan`) cubre la cama o la
+  selección con un 20 % de traslape sobre la parte útil de cada foto (se descarta el 6 % de cada borde) en
+  orden de serpiente; el láser nunca sale de la cama y, si el desfase lo obliga, se avisa que quedan zonas sin ver.
+  Mueve la máquina con `jog_to` (láser apagado), espera a que llegue y esté en reposo, deja 0,5 s de reposo y fotografía.
+  Pide confirmación antes y se puede cancelar entre fotos.
+- **Buscador de centro.** Con 3 puntos: circuncírculo en mm; con la detección automática, ajuste por
+  mínimos cuadrados a los puntos de borde pasados a mm. Mover al centro usa `jog_to`; fijar el origen escribe
+  `user_origin` (coordenadas de trabajo, como «Origen de usuario aquí»).

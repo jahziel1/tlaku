@@ -24,7 +24,7 @@ La forma más cómoda de crear un perfil. Ábrelo desde el menú **Máquina**, *
 
 El catálogo trae 21 entradas: 18 modelos (Creality Falcon2, Sculpfun, Atomstack, Ortur, xTool, Longer, Neje, Two Trees, K40 con Cohesion3D) y 3 familias genéricas (GRBL, Marlin, Smoothieware). Cada dato dice de dónde sale (**Oficial**, **Tienda o reseña** o **Foro**), y los que ninguna fuente aporta se dejan sin dato para que los leas de tu máquina. Las cifras anunciadas pueden ser distintas en tu unidad: confía en lo que lea la máquina.
 
-> **Consejo:** las máquinas de red (Ruida y similares) no se detectan. Ruida solo existe por línea de comandos y es experimental; K40 con placa M2 Nano, galvo y fibra no están soportados.
+> **Consejo:** las máquinas de red (Ruida y similares) no se detectan. Para una Ruida (experimental) elige el tipo **Ruida** en «Otro / genérico» y escribe su IP; K40 con placa M2 Nano, galvo y fibra no están soportados.
 
 ## Opción 2: perfil manual
 

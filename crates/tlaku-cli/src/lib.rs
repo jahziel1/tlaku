@@ -3,6 +3,7 @@
 
 pub mod cli;
 pub mod job;
+pub mod k40;
 pub mod link;
 pub mod options;
 pub mod report;

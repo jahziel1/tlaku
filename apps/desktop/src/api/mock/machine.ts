@@ -38,6 +38,14 @@ export const DEFAULT_MOCK_OPTIONS: MockMachineOptions = {
 /** Puertos virtuales que ofrece `list_ports` (los mismos ids que el motor real). */
 export const MOCK_VIRTUAL_PORTS = ['virtual:falcon2', 'virtual:grbl11', 'virtual:grblhal', 'virtual:fluidnc', 'virtual:marlin', 'virtual:smoothie'];
 
+/** Máquinas virtuales por red (`virtualnet:...`): el mismo emulador detrás de un socket TCP local. */
+/** Máquina virtual Ruida (el emulador UDP de `tlaku-ruida`); solo se ofrece con un perfil Ruida. */
+export const MOCK_RUIDA_PORT = 'virtual:ruida';
+export const RUIDA_FIRMWARE = 'Ruida RDC6442S · tarjeta 0x65106510';
+const RUIDA_GRBL_ONLY = 'Esta función es solo de GRBL: la controladora Ruida no usa G-code ni overrides en vivo.';
+
+export const MOCK_VIRTUAL_NET_PORTS = MOCK_VIRTUAL_PORTS.map((p) => p.replace('virtual:', 'virtualnet:'));
+
 const VIRTUAL_FIRMWARE: Record<string, string> = {
   falcon2: 'Grbl 1.1f',
   grbl11: 'Grbl 1.1h',
@@ -48,6 +56,14 @@ const VIRTUAL_FIRMWARE: Record<string, string> = {
 };
 
 const VIRTUAL_PREFIX = 'virtual:';
+const VIRTUAL_NET_PREFIX = 'virtualnet:';
+
+/** Ajustes de partida de la máquina simulada (un láser de diodo típico, sin los de velocidad ni aceleración). */
+const MOCK_GRBL_SETTINGS: [number, string][] = [
+  [0, '10'], [1, '25'], [2, '0'], [3, '0'], [4, '0'], [5, '0'], [6, '0'], [10, '1'], [11, '0.010'], [12, '0.002'], [13, '0'],
+  [20, '0'], [21, '0'], [22, '1'], [23, '0'], [24, '25.000'], [25, '500.000'], [26, '250'], [27, '1.000'],
+  [30, '1000'], [31, '0'], [32, '1'], [100, '80.000'], [101, '80.000'], [130, '400.000'], [131, '415.000'],
+];
 
 /** Máquina GRBL simulada en memoria: emite estado, progreso, registro y conexión. */
 export class MockMachine {
@@ -61,6 +77,8 @@ export class MockMachine {
   port: string | null = null;
   /** La conexión es una máquina virtual (puerto `virtual:...`). */
   virtual = false;
+  /** La conexión es con una controladora Ruida (sin G-code ni overrides). */
+  ruida = false;
   state: MachineState = 'idle';
   /** Código de ALARM:N activo; null si no hay alarma. */
   alarmCode: number | null = null;
@@ -69,6 +87,8 @@ export class MockMachine {
   spindle = 0;
   /** Overrides en vivo (%); solo GRBL, como en el motor real. */
   ovr = { feed: 100, rapid: 100, spindle: 100 };
+  /** Ajustes de GRBL (`$n`) en memoria: `$$` los lista y `$n=v` los cambia (como la EEPROM de la controladora). */
+  private grblSettings = new Map<number, string>(MOCK_GRBL_SETTINGS);
 
   private job: {
     preview: JobPreview;
@@ -100,20 +120,21 @@ export class MockMachine {
 
   // ---- conexión ---------------------------------------------------------
 
-  connect(port: string): string {
+  connect(port: string, ruida = false): string {
     if (this.connected) throw new Error('Ya hay una máquina conectada. Desconéctala antes de abrir otro puerto.');
     this.connected = true;
     this.port = port;
-    this.virtual = port.startsWith(VIRTUAL_PREFIX);
+    this.virtual = port.startsWith(VIRTUAL_PREFIX) || port.startsWith(VIRTUAL_NET_PREFIX);
+    this.ruida = ruida || port.startsWith(MOCK_RUIDA_PORT);
     this.state = 'idle';
     this.alarmCode = null;
     this.pos = [0, 0];
     this.ovr = { feed: 100, rapid: 100, spindle: 100 };
-    const firmware = this.virtual ? (VIRTUAL_FIRMWARE[port.slice(VIRTUAL_PREFIX.length).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
+    const firmware = this.ruida ? RUIDA_FIRMWARE : this.virtual ? (VIRTUAL_FIRMWARE[port.slice(port.indexOf(':') + 1).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
     const evt: ConnectionEvent = { connected: true, port, error: null };
     this.emit('machine://connection', evt);
     if (this.virtual) this.log('in', '; Máquina virtual (emulador): no hay láser ni hardware reales.');
-    this.log('in', "Grbl 1.1h ['$' for help]");
+    this.log('in', this.ruida ? 'Ruida RDC6442S (tarjeta 0x65106510), magic 0x88 (detectado), cama 600.0 × 400.0 mm' : "Grbl 1.1h ['$' for help]");
     this.statusTimer = setInterval(() => this.emitStatus(), this.opts.statusIntervalMs);
     this.emitStatus();
     return firmware;
@@ -128,6 +149,7 @@ export class MockMachine {
     const port = this.port;
     this.port = null;
     this.virtual = false;
+    this.ruida = false;
     this.state = 'idle';
     this.emit('machine://connection', { connected: false, port, error });
   }
@@ -184,12 +206,13 @@ export class MockMachine {
 
   /** Marlin y Smoothieware no tienen overrides en tiempo real. */
   private hasOverrides(): boolean {
-    return !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
+    return !this.ruida && !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
   }
 
   /** Lleva el override de velocidad o potencia a `percent` (10 a 200), como los bytes 0x90-0x9D de GRBL. */
   setOverride(kind: OverrideKind, percent: number): void {
     this.requireConnection();
+    if (this.ruida) throw new Error(RUIDA_GRBL_ONLY);
     if (!this.hasOverrides()) {
       throw new Error('Los ajustes en vivo de velocidad y potencia solo existen en controladoras GRBL: Marlin y Smoothieware no los tienen.');
     }
@@ -207,6 +230,7 @@ export class MockMachine {
 
   command(line: string): string[] {
     this.requireConnection();
+    if (this.ruida) throw new Error(RUIDA_GRBL_ONLY);
     if (this.job) throw new Error(BUSY_MESSAGE);
     const trimmed = line.trim();
     if (/[?!~]/.test(trimmed)) {
@@ -216,7 +240,8 @@ export class MockMachine {
     this.log('out', trimmed);
     let reply: string[];
     if (trimmed === '$I') reply = ['[VER:1.1h.20190825:Tlaku simulada]', '[OPT:V,15,128]', 'ok'];
-    else if (trimmed === '$$') reply = ['$22=1', '$30=1000', '$31=0', '$32=1', '$100=80.000', '$101=80.000', '$130=400.000', '$131=415.000', 'ok'];
+    else if (trimmed === '$$') reply = [...[...this.grblSettings].sort((a, b) => a[0] - b[0]).map(([n, v]) => `$${n}=${v}`), 'ok'];
+    else if (/^\$\d+=/.test(trimmed)) reply = [this.writeSetting(trimmed)];
     else if (trimmed === '$X') {
       this.setAlarm(null);
       reply = ['[MSG:Caution: Unlocked]', 'ok'];
@@ -229,6 +254,19 @@ export class MockMachine {
     else reply = [describeLine('error:20')];
     for (const r of reply) this.log('in', r);
     return reply;
+  }
+
+  /** `$n=v`: guarda el ajuste si existe y el valor es un número no negativo; si no, contesta como GRBL. */
+  private writeSetting(line: string): string {
+    const m = /^\$(\d+)=(.*)$/.exec(line)!;
+    const n = Number(m[1]);
+    if (!this.grblSettings.has(n)) return describeLine('error:3');
+    if (!/^-?\d+(\.\d+)?$/.test(m[2]!)) return describeLine('error:2');
+    const v = Number(m[2]);
+    if (v < 0) return describeLine('error:4');
+    // Los de paso/avance/recorrido y los decimales se informan con tres decimales, como GRBL.
+    this.grblSettings.set(n, n >= 100 || [11, 12, 24, 25, 27].includes(n) ? v.toFixed(3) : String(v));
+    return 'ok';
   }
 
   /** Simula una alarma de la controladora (para desarrollar la interfaz de recuperación). */
@@ -280,6 +318,34 @@ export class MockMachine {
     this.log('in', 'ok');
   }
 
+  /** Eje extra (Z, U...): relativo (`delta`) o absoluto. La posición de estos ejes no se informa en el estado. */
+  jogAxis(axis: string, value: number, speed: number, relative: boolean): void {
+    this.requireConnection();
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    if (!/^[ZUABCzuabc]$/.test(axis)) throw new Error(`El eje '${axis}' no es válido; usa uno de ZUABC.`);
+    if (!Number.isFinite(value)) throw new Error(relative ? 'El desplazamiento no es un número.' : 'La posición de destino no es un número.');
+    if (!(speed > 0)) throw new Error('La velocidad del movimiento debe ser mayor que 0.');
+    this.log('out', `$J=${relative ? 'G91' : 'G90'} G21 ${axis.toUpperCase()}${value} F${speed}`);
+    if (this.alarmCode !== null) {
+      const reply = describeLine('error:9');
+      this.log('in', reply);
+      throw new Error(`La máquina rechazó el movimiento del eje ${axis.toUpperCase()} (${reply}).`);
+    }
+    this.log('in', 'ok');
+  }
+
+  /** Disparo de prueba: M3, pausa y M5 (siempre). */
+  fire(powerPct: number, sMax: number, durationMs: number): void {
+    this.requireConnection();
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    if (!(powerPct > 0 && powerPct <= 20)) throw new Error('La potencia del disparo de prueba debe estar entre 0 y 20 %.');
+    if (!(durationMs >= 10 && durationMs <= 2000)) throw new Error('La duración del disparo debe estar entre 10 y 2000 ms.');
+    this.log('out', `M3 S${Math.round((sMax * powerPct) / 10) / 10}`);
+    this.log('out', `G4 P${durationMs / 1000}`);
+    this.log('out', 'M5');
+    this.log('in', 'ok');
+  }
+
   /** Movimiento absoluto en coordenadas de trabajo (`$J=G90`), con el láser apagado. */
   jogTo(x: number, y: number, bed: Point, speed = 1500): void {
     this.requireConnection();
@@ -320,6 +386,26 @@ export class MockMachine {
     };
     const msg = why[this.state];
     if (msg) throw new Error(msg.charAt(0).toUpperCase() + msg.slice(1));
+  }
+
+  // ---- Ruida ------------------------------------------------------------
+
+  /** Documentos guardados en la memoria de la controladora Ruida simulada. */
+  readonly storedDocs: string[] = [];
+
+  /** Ruida sin «ejecutar al subir»: el trabajo queda como documento y no arranca. */
+  storeDocument(): void {
+    this.requireConnection();
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    const name = `TLAKU${String(this.storedDocs.length + 1).padStart(3, '0')}`;
+    this.storedDocs.push(name);
+    this.emit('machine://job', { state: 'started', message: 'Enviando el trabajo (1 paquetes).', position_lost: false });
+    this.emit('machine://progress', { acked: 1, total: 1 });
+    this.emit('machine://job', {
+      state: 'finished',
+      message: `Documento «${name}» guardado en la memoria de la controladora. No se ejecutó: selecciónalo e inícialo desde el panel de la máquina.`,
+      position_lost: false,
+    });
   }
 
   // ---- trabajos ---------------------------------------------------------

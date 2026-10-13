@@ -34,6 +34,8 @@ pub struct LayerReport {
     /// `(pasada, total)` cuando la capa se divide en un bloque por pasada (Z distinta en cada
     /// una); `None` si el bloque contiene todas sus pasadas.
     pub pass: Option<(u32, u32)>,
+    /// El bloque va con el segundo láser (`LayerSettings::laser2`).
+    pub laser2: bool,
     /// `(posición, total)` de la operación entre las de su capa, si ésta tiene sub-capas (la
     /// principal es `1/total`). El nombre también lo lleva ("#rrggbb · 2/3").
     pub sub: Option<(u32, u32)>,

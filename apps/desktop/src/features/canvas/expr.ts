@@ -9,6 +9,8 @@
  *   atom   := (número | constante | función '(' expr ')' | '(' expr ')') unidad? '%'?
  */
 
+import { MM_PER_INCH, parseLength, type LengthUnit } from '@/lib/units';
+
 export type ExprMode = 'length' | 'angle';
 
 const LENGTH_UNITS: Record<string, number> = { mm: 1, cm: 10, m: 1000, in: 25.4, '"': 25.4 };
@@ -19,9 +21,11 @@ const FUNCTIONS: Record<string, (x: number) => number> = {
 };
 
 interface Ctx {
-  /** Valor actual del campo, para `%`. */
+  /** Valor actual del campo, para `%`, en la unidad en que se escribe. */
   current: number;
   mode: ExprMode;
+  /** Milímetros por unidad en que se escribe el campo (1 en mm, 25,4 en pulgadas). Solo longitudes. */
+  scale: number;
 }
 
 class Parser {
@@ -137,7 +141,8 @@ class Parser {
     const m = /^\s*(mm|cm|in|m|deg|rad|°|")(?![a-zA-Z])/.exec(rest);
     if (m && m[1] in units) {
       this.i += m[0].length;
-      return v * units[m[1]];
+      // El sufijo pasa a la unidad en que se escribe el campo (`5mm` en pulgadas = 0,1969).
+      return (v * units[m[1]]) / this.ctx.scale;
     }
     if (/^\s*%/.test(rest)) {
       this.i += rest.indexOf('%') + 1;
@@ -147,12 +152,18 @@ class Parser {
   }
 }
 
-/** Valor de una expresión; `null` si no es válida o no es un número finito. */
-export function evalExpression(text: string, ctx: { current?: number; mode?: ExprMode } = {}): number | null {
+/**
+ * Valor de una expresión; `null` si no es válida o no es un número finito. Con `unit: 'in'` los
+ * números sin sufijo son pulgadas (`100/3` = 33,3 in) y `current` y el resultado van en mm: el
+ * documento siempre está en milímetros.
+ */
+export function evalExpression(text: string, ctx: { current?: number; mode?: ExprMode; unit?: LengthUnit } = {}): number | null {
   const src = text.trim();
   if (!src) return null;
+  const mode = ctx.mode ?? 'length';
+  const scale = mode === 'length' && ctx.unit === 'in' ? MM_PER_INCH : 1;
   try {
-    const v = new Parser(src, { current: ctx.current ?? 0, mode: ctx.mode ?? 'length' }).parse();
+    const v = new Parser(src, { current: (ctx.current ?? 0) / scale, mode, scale }).parse() * scale;
     return Number.isFinite(v) ? v : null;
   } catch {
     return null;
@@ -166,25 +177,34 @@ export function evalExpression(text: string, ctx: { current?: number; mode?: Exp
  *  - `50%` es la mitad del valor actual.
  *  - Todo lo demás es un valor absoluto (`100/3`, `(10+2)*4`, `5in`).
  */
-export function resolveInput(text: string, current: number, mode: ExprMode = 'length'): number | null {
+export function resolveInput(text: string, current: number, mode: ExprMode = 'length', unit: LengthUnit = 'mm'): number | null {
   const src = text.trim();
   if (!src) return null;
-  const ctx = { current, mode };
+  const ctx = { current, mode, unit };
   const first = src[0];
   if (first === '+') {
     const d = evalExpression(src.slice(1), ctx);
     return d === null ? null : current + d;
   }
+  // Los factores no llevan unidad: `*2` duplica sea cual sea la unidad del campo.
+  const factor = { current, mode };
   if (first === '*' || first === '×') {
-    const d = evalExpression(src.slice(1), ctx);
+    const d = evalExpression(src.slice(1), factor);
     return d === null ? null : current * d;
   }
   if (first === '/') {
-    const d = evalExpression(src.slice(1), ctx);
+    const d = evalExpression(src.slice(1), factor);
     return d === null || d === 0 ? null : current / d;
+  }
+  // Fracciones de pulgada (`3/8"`, `1 1/2 in`): las lee `parseLength`, que sabe de números mixtos.
+  if (mode === 'length' && FRACTION.test(src)) {
+    const mm = parseLength(src, unit);
+    if (mm !== null) return mm;
   }
   return evalExpression(src, ctx);
 }
+
+const FRACTION = /^[-+]?\s*(\d+\s+)?\d+\s*\/\s*\d+\s*(in|pulg|"|”)$|^\d+\s+\d+\s*\/\s*\d+$/i;
 
 /** Texto de un número para un campo: hasta 3 decimales, sin ceros de más. */
 export function formatValue(v: number, decimals = 3): string {

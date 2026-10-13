@@ -171,7 +171,7 @@ Falta, y no lo prometo si no está en el código:
 - **Del corte:** potencia de puente y arrastrar puentes ya puestos, valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min). El encuadre no se repite en bucle ni va con el láser encendido a baja potencia, y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
 - **Del modo principiante:** en Tlaku solo oculta ajustes avanzados del editor de capa; no oculta herramientas ni menús como el de LightBurn.
 - No se pueden ocultar objetos sueltos (sí capas), no hay selección con `Tab` ni sesgar.
-- Las **pulgadas** de las preferencias solo se aplican hoy en Medir y en la ventana de Preferencias; la barra numérica sigue en mm y acepta `5in` o `50%`.
+- Las **pulgadas** de las preferencias se aplican en la barra numérica, la barra de estado, las reglas (décimas de pulgada), Medir y los campos de longitud de los diálogos de Organizar y de Acomodar piezas; los campos aceptan fracciones (`3/8"`, `1 1/2 in`) y sufijos (`5mm`, `50%`). Las velocidades siguen en mm/min y los campos de las áreas de máquina y cámara, en mm.
 - Máquinas de red (Wi-Fi, Ethernet), Ruida en la app, K40 con M2 Nano, galvo y fibra: ver [Controladoras soportadas](13-controladoras.md).
 - Solo hay una capa de guías (la de la paleta de colores); las guías de las reglas son aparte.
 - **Nueva ventana** no se ha probado en una ventana real (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)).

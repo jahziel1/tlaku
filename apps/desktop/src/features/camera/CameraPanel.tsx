@@ -7,6 +7,9 @@ import { useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
 import { RESOLUTIONS } from './capture';
 import { AlignmentSection, ViewSection, useAlignmentEditor } from './AlignmentSection';
+import { CaptureSection } from './CaptureSection';
+import { CenterSection } from './CenterSection';
+import { HeadConfirm, HeadSection } from './HeadSection';
 import { clearLens, loadCameraSetup, updateCameraPrefs } from './actions';
 import { rateRms } from './coverage';
 import { heightStatus, maxShiftMm } from './height';
@@ -26,11 +29,15 @@ export function CameraPanel() {
     <div className="panel-scroll cam-panel">
       <SourceSection />
       <ViewSection editor={editor} />
+      <HeadConfirm />
       <BackdropSection />
+      <CaptureSection />
       <LensSection />
       <MarksSection />
       <HeightSection />
       <AlignmentSection editor={editor} />
+      <HeadSection />
+      <CenterSection />
     </div>
   );
 }
@@ -100,10 +107,11 @@ function BackdropSection() {
   const calibration = useStore((s) => s.cameraSetup.calibration);
   const size = useStore((s) => s.cameraStreamSize);
   const frozen = useStore((s) => s.cameraFrozen);
+  const headMode = useStore((s) => s.cameraSetup.head?.enabled === true);
   // Se vuelve a evaluar al cambiar alguno de estos datos.
   void calibration;
   void size;
-  const stale = alignment !== null && size !== null && !alignmentIsCurrent();
+  const stale = !headMode && alignment !== null && size !== null && !alignmentIsCurrent();
 
   return (
     <section className="section" aria-label={t('camera.backdrop.title')}>

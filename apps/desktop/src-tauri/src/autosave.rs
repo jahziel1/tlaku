@@ -9,14 +9,24 @@
 //! Siempre se escribe el documento primero y el meta después, y los dos de forma atómica: una copia
 //! sin meta no existe para la lista (y se limpia sola), así un corte a media escritura nunca deja una
 //! copia a medias. El número y el tamaño están acotados (`Limits`).
+//!
+//! **Copias vivas.** Con varias ventanas (`new_window`) todas leen la misma carpeta. Cada copia se
+//! marca como viva de la ventana que la escribe (`LiveCopies`, en memoria: no sobrevive a un cierre
+//! inesperado, que es justo lo que se quiere) y la lista de pendientes deja fuera las copias de
+//! *otras* ventanas que siguen abiertas: al arrancar, o al abrir una ventana nueva, solo se ofrecen
+//! las huérfanas (de una sesión anterior o de una ventana ya cerrada). Las copias de la propia
+//! ventana que pregunta cuentan como huérfanas: pregunta al montarse, así que son de una carga
+//! anterior de la página. Límite: el registro es de un solo proceso; dos instancias de la app a
+//! la vez no se ven entre sí.
 
 use crate::engine::write_atomic;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WebviewWindow, WindowEvent};
 use tlaku_doc::Document;
 
 /// Carpeta de las copias dentro de la carpeta de datos de la app.
@@ -54,6 +64,51 @@ pub struct RecoveryInfo {
     pub saved_at_ms: u64,
     /// Peso del documento guardado.
     pub size_bytes: u64,
+}
+
+/// Qué ventana es dueña de cada copia que sigue viva.
+#[derive(Debug, Default)]
+pub struct LiveCopies {
+    /// id de copia -> etiqueta de la ventana que la escribe.
+    owners: HashMap<String, String>,
+    /// Ventanas que ya tienen enganchado el aviso de cierre.
+    watched: HashSet<String>,
+}
+
+impl LiveCopies {
+    /// Marca `id` como viva de `window`. Devuelve `true` si es la primera copia de esa ventana
+    /// (hay que engancharle el aviso de cierre).
+    pub fn mark(&mut self, window: &str, id: &str) -> bool {
+        self.owners.insert(id.to_string(), window.to_string());
+        self.watched.insert(window.to_string())
+    }
+
+    /// La copia ya no es de nadie (se borró).
+    pub fn release_id(&mut self, id: &str) {
+        self.owners.remove(id);
+    }
+
+    /// La ventana se cerró: sus copias que queden pasan a ser huérfanas.
+    pub fn release_window(&mut self, window: &str) {
+        self.owners.retain(|_, w| w != window);
+        self.watched.remove(window);
+    }
+
+    /// Copias vivas de ventanas distintas de `asking`: no se ofrecen para recuperar.
+    pub fn held_by_others(&self, asking: &str) -> HashSet<String> {
+        self.owners
+            .iter()
+            .filter(|(_, w)| w.as_str() != asking)
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+}
+
+static LIVE: Mutex<Option<LiveCopies>> = Mutex::new(None);
+
+fn with_live<T>(f: impl FnOnce(&mut LiveCopies) -> T) -> T {
+    let mut guard = LIVE.lock().unwrap_or_else(|e| e.into_inner());
+    f(guard.get_or_insert_with(LiveCopies::default))
 }
 
 fn now_ms() -> u64 {
@@ -170,6 +225,13 @@ pub fn list_pending(dir: &Path) -> Vec<RecoveryInfo> {
     pending
 }
 
+/// Como [`list_pending`] pero sin las copias de `live` (las de otras ventanas abiertas).
+pub fn list_orphans(dir: &Path, live: &HashSet<String>) -> Vec<RecoveryInfo> {
+    let mut pending = list_pending(dir);
+    pending.retain(|i| !live.contains(&i.id));
+    pending
+}
+
 pub fn read_copy(dir: &Path, id: &str) -> Result<Document, String> {
     check_id(id)?;
     let file = doc_file(dir, id);
@@ -257,6 +319,7 @@ async fn blocking<T: Send + 'static>(
 
 #[tauri::command]
 pub async fn autosave_write(
+    window: WebviewWindow,
     app: AppHandle,
     id: String,
     name: String,
@@ -264,17 +327,35 @@ pub async fn autosave_write(
     doc: Document,
 ) -> Result<RecoveryInfo, String> {
     let dir = recovery_dir(&app)?;
+    let label = window.label().to_string();
     blocking(move || {
         let json = doc.to_json()?;
+        // La copia se marca viva antes de escribirla: ninguna lista puede verla sin dueño.
+        if with_live(|live| live.mark(&label, &id)) {
+            let closing = label.clone();
+            window.on_window_event(move |event| {
+                if matches!(event, WindowEvent::Destroyed) {
+                    with_live(|live| live.release_window(&closing));
+                }
+            });
+        }
         write_copy(&dir, &id, &name, path.as_deref(), &json, Limits::default())
     })
     .await
 }
 
 #[tauri::command]
-pub async fn autosave_list(app: AppHandle) -> Result<Vec<RecoveryInfo>, String> {
+pub async fn autosave_list(
+    window: WebviewWindow,
+    app: AppHandle,
+) -> Result<Vec<RecoveryInfo>, String> {
     let dir = recovery_dir(&app)?;
-    blocking(move || Ok(list_pending(&dir))).await
+    let label = window.label().to_string();
+    blocking(move || {
+        let live = with_live(|live| live.held_by_others(&label));
+        Ok(list_orphans(&dir, &live))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -286,7 +367,11 @@ pub async fn autosave_read(app: AppHandle, id: String) -> Result<Document, Strin
 #[tauri::command]
 pub async fn autosave_discard(app: AppHandle, id: String) -> Result<(), String> {
     let dir = recovery_dir(&app)?;
-    blocking(move || remove_copy(&dir, &id)).await
+    blocking(move || {
+        with_live(|live| live.release_id(&id));
+        remove_copy(&dir, &id)
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -482,5 +567,66 @@ mod tests {
         put(&dir, "ok2", None);
         assert!(!doc_file(&dir, "sinmeta").exists());
         assert!(!dir.join("resto.tlaku.tmp").exists());
+    }
+
+    #[test]
+    fn el_registro_sigue_a_cada_ventana() {
+        let mut live = LiveCopies::default();
+        // La primera copia de una ventana pide enganchar el aviso de cierre; las demás, no.
+        assert!(live.mark("main", "a1"));
+        assert!(!live.mark("main", "a2"));
+        assert!(live.mark("doc-1", "b1"));
+        assert_eq!(
+            live.held_by_others("main"),
+            HashSet::from(["b1".to_string()])
+        );
+        assert_eq!(
+            live.held_by_others("doc-1"),
+            HashSet::from(["a1".to_string(), "a2".to_string()])
+        );
+        // Una ventana desconocida (por ejemplo una recién abierta) ve todas como ajenas.
+        assert_eq!(live.held_by_others("doc-2").len(), 3);
+        live.release_id("a1");
+        assert!(!live.held_by_others("doc-1").contains("a1"));
+        // Al cerrarse, la ventana suelta sus copias y puede volver a engancharse.
+        live.release_window("doc-1");
+        assert_eq!(live.held_by_others("main").len(), 0);
+        assert!(live.mark("doc-1", "b2"));
+    }
+
+    #[test]
+    fn solo_se_ofrecen_las_copias_huerfanas() {
+        let tmp = TempDir::new();
+        let dir = tmp.recovery();
+        let mut live = LiveCopies::default();
+        // Dos ventanas abiertas con cambios, y una copia de una sesión anterior.
+        put(&dir, "ventana-a", None);
+        live.mark("main", "ventana-a");
+        put(&dir, "ventana-b", None);
+        live.mark("doc-1", "ventana-b");
+        put(&dir, "vieja", None);
+
+        let ids = |live: &LiveCopies, asking: &str| -> Vec<String> {
+            let mut v: Vec<String> = list_orphans(&dir, &live.held_by_others(asking))
+                .into_iter()
+                .map(|c| c.id)
+                .collect();
+            v.sort();
+            v
+        };
+        // Una ventana nueva no ve las copias de las otras dos, solo la huérfana.
+        assert_eq!(ids(&live, "doc-2"), vec!["vieja"]);
+        // La propia ventana que pregunta (recarga de la página) sí recupera la suya.
+        assert_eq!(ids(&live, "main"), vec!["ventana-a", "vieja"]);
+
+        // Al cerrarse una ventana su copia queda huérfana y se ofrece.
+        live.release_window("doc-1");
+        assert_eq!(ids(&live, "doc-2"), vec!["ventana-b", "vieja"]);
+
+        // Tras un reinicio (registro vacío) todas son huérfanas.
+        let fresh = LiveCopies::default();
+        assert_eq!(list_orphans(&dir, &fresh.held_by_others("main")).len(), 3);
+        // Y las copias vivas no se borran por consultar la lista.
+        assert!(doc_file(&dir, "ventana-a").is_file());
     }
 }

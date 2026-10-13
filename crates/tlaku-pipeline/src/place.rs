@@ -6,7 +6,7 @@ use tlaku_core::{Bounds, Point, Polyline, Rgb};
 use tlaku_doc::affine::{self, Transform};
 use tlaku_doc::{
     DesignObject, Document, ImageObject, JobOptions, LayerMode, LayerSettings, ObjectKind,
-    StartFrom, VirtualArray, bounds_of, union,
+    StartFrom, bounds_of, union,
 };
 
 /// Imagen alineada a los ejes lista para rasterizar.
@@ -213,105 +213,6 @@ fn add_object(
     true
 }
 
-/// Tope de copias virtuales por objeto (el mismo que el de los arreglos reales de la interfaz).
-pub(crate) const MAX_VIRTUAL_COPIES: usize = 2000;
-
-/// Transformaciones de las copias de un arreglo virtual (`DesignObject::array`), **sin** la
-/// original, en coordenadas del documento: la copia final es `compose(copia, objeto.transform)`.
-///
-/// - `Grid`: la original es la esquina inferior izquierda; las columnas van hacia la derecha y las
-///   filas hacia arriba, separadas `dx` y `dy` mm entre bordes de la caja del objeto (negativo =
-///   solapadas).
-/// - `Circular`: `count` piezas en total, contando la original, alrededor de `center`. Con
-///   `sweep_deg` de 360 o más se reparte sin repetir la original; con menos, incluye ambos
-///   extremos del arco. Con `rotate` cada copia gira con el arreglo; sin él, conserva la
-///   orientación y solo su centro recorre el arco.
-///
-/// Es la misma regla que `virtualCopies` de la interfaz (`apps/desktop/src/lib/virtualArray.ts`).
-/// Error con parámetros inválidos o más de [`MAX_VIRTUAL_COPIES`] copias.
-pub(crate) fn virtual_copies(obj: &DesignObject) -> Result<Vec<Transform>, String> {
-    let Some(array) = &obj.array else {
-        return Ok(Vec::new());
-    };
-    let bad = |what: &str| {
-        Err(format!(
-            "objeto '{}': arreglo virtual inválido ({what})",
-            obj.id
-        ))
-    };
-    match *array {
-        VirtualArray::Grid { cols, rows, dx, dy } => {
-            if cols == 0 || rows == 0 {
-                return bad("columnas y filas deben ser al menos 1");
-            }
-            if !(dx.is_finite() && dy.is_finite()) {
-                return bad("separación no numérica");
-            }
-            if (cols as usize).saturating_mul(rows as usize) > MAX_VIRTUAL_COPIES {
-                return bad(&format!("más de {MAX_VIRTUAL_COPIES} piezas"));
-            }
-            let Some(b) = obj.bounds() else {
-                return Ok(Vec::new());
-            };
-            let (sx, sy) = (b.max.x - b.min.x + dx, b.max.y - b.min.y + dy);
-            let mut out = Vec::with_capacity((cols * rows) as usize - 1);
-            for j in 0..rows {
-                for i in 0..cols {
-                    if i != 0 || j != 0 {
-                        out.push(affine::translate(f64::from(i) * sx, f64::from(j) * sy));
-                    }
-                }
-            }
-            Ok(out)
-        }
-        VirtualArray::Circular {
-            count,
-            center,
-            sweep_deg,
-            rotate,
-        } => {
-            if count == 0 {
-                return bad("al menos una pieza");
-            }
-            if !(center.iter().all(|v| v.is_finite()) && sweep_deg.is_finite()) {
-                return bad("centro o ángulo no numéricos");
-            }
-            if count as usize > MAX_VIRTUAL_COPIES {
-                return bad(&format!("más de {MAX_VIRTUAL_COPIES} piezas"));
-            }
-            let Some(b) = obj.bounds() else {
-                return Ok(Vec::new());
-            };
-            let n = f64::from(count);
-            let step = if sweep_deg.abs() >= 360.0 - 1e-9 {
-                sweep_deg / n
-            } else if count > 1 {
-                sweep_deg / (n - 1.0)
-            } else {
-                0.0
-            };
-            let (cx, cy) = (center[0], center[1]);
-            let (mx, my) = ((b.min.x + b.max.x) / 2.0, (b.min.y + b.max.y) / 2.0);
-            Ok((1..count)
-                .map(|k| {
-                    let rot = affine::rotate((f64::from(k) * step).to_radians());
-                    // Giro alrededor de `center`: T(c) · R · T(-c).
-                    let about = affine::compose(
-                        &affine::translate(cx, cy),
-                        &affine::compose(&rot, &affine::translate(-cx, -cy)),
-                    );
-                    if rotate {
-                        about
-                    } else {
-                        let [px, py] = affine::apply(&about, [mx, my]);
-                        affine::translate(px - mx, py - my)
-                    }
-                })
-                .collect())
-        }
-    }
-}
-
 /// Grupo de más afuera de una cadena `"g2/g1"` (de afuera hacia adentro); `None` si está vacía.
 fn outer_group(group: &str) -> Option<&str> {
     group.split('/').find(|g| !g.is_empty())
@@ -413,7 +314,7 @@ fn collect<'a>(
         };
         let ops = first[parent]..first[parent] + 1 + doc.layers[parent].sub_layers.len();
         // Copias del arreglo virtual: el mismo objeto con otra transformación, sin existir en el documento.
-        let copies = match virtual_copies(obj) {
+        let copies = match obj.virtual_copies() {
             Ok(list) => list,
             Err(e) => {
                 warnings.push(format!("{e}; se ignoran las copias"));
@@ -610,6 +511,7 @@ mod virtual_array_tests {
     use super::*;
     use tlaku_core::bezpath::BezPath;
     use tlaku_doc::VectorObject;
+    use tlaku_doc::VirtualArray;
 
     const RED: Rgb = Rgb(255, 0, 0);
 
@@ -647,102 +549,6 @@ mod virtual_array_tests {
             layers: vec![LayerSettings::for_color(RED)],
             ..Document::default()
         }
-    }
-
-    fn close(a: [f64; 2], b: [f64; 2]) {
-        assert!(
-            (a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9,
-            "{a:?} != {b:?}"
-        );
-    }
-
-    #[test]
-    fn without_array_there_are_no_copies() {
-        assert!(
-            virtual_copies(&square("a", 0.0, 0.0, 10.0))
-                .unwrap()
-                .is_empty()
-        );
-    }
-
-    #[test]
-    fn grid_steps_from_edge_to_edge() {
-        let mut o = square("a", 5.0, 5.0, 10.0);
-        o.array = Some(VirtualArray::Grid {
-            cols: 3,
-            rows: 2,
-            dx: 2.0,
-            dy: 4.0,
-        });
-        let t = virtual_copies(&o).unwrap();
-        // 3 x 2 = 6 piezas: 5 copias, la original no se cuenta.
-        assert_eq!(t.len(), 5);
-        close(affine::apply(&t[0], [0.0, 0.0]), [12.0, 0.0]);
-        close(affine::apply(&t[1], [0.0, 0.0]), [24.0, 0.0]);
-        close(affine::apply(&t[2], [0.0, 0.0]), [0.0, 14.0]);
-        close(affine::apply(&t[4], [0.0, 0.0]), [24.0, 14.0]);
-    }
-
-    #[test]
-    fn circular_full_turn_does_not_repeat_the_original() {
-        let mut o = square("a", 10.0, -5.0, 10.0);
-        o.array = Some(VirtualArray::Circular {
-            count: 4,
-            center: [0.0, 0.0],
-            sweep_deg: 360.0,
-            rotate: true,
-        });
-        let t = virtual_copies(&o).unwrap();
-        assert_eq!(t.len(), 3);
-        // Cuartos de vuelta antihorarios alrededor del origen.
-        close(affine::apply(&t[0], [10.0, 0.0]), [0.0, 10.0]);
-        close(affine::apply(&t[1], [10.0, 0.0]), [-10.0, 0.0]);
-        close(affine::apply(&t[2], [10.0, 0.0]), [0.0, -10.0]);
-    }
-
-    #[test]
-    fn circular_arc_includes_both_ends_and_can_keep_orientation() {
-        let mut o = square("a", 10.0, -5.0, 10.0);
-        o.array = Some(VirtualArray::Circular {
-            count: 3,
-            center: [0.0, 0.0],
-            sweep_deg: 180.0,
-            rotate: false,
-        });
-        let t = virtual_copies(&o).unwrap();
-        assert_eq!(t.len(), 2);
-        // El centro de la caja (15, 0) recorre media vuelta; la orientación no cambia.
-        close(affine::apply(&t[0], [15.0, 0.0]), [0.0, 15.0]);
-        close(affine::apply(&t[1], [15.0, 0.0]), [-15.0, 0.0]);
-        for m in &t {
-            assert_eq!(&m[..4], &[1.0, 0.0, 0.0, 1.0]);
-        }
-    }
-
-    #[test]
-    fn invalid_arrays_are_reported() {
-        let mut o = square("a", 0.0, 0.0, 10.0);
-        o.array = Some(VirtualArray::Grid {
-            cols: 0,
-            rows: 2,
-            dx: 0.0,
-            dy: 0.0,
-        });
-        assert!(virtual_copies(&o).unwrap_err().contains("al menos 1"));
-        o.array = Some(VirtualArray::Grid {
-            cols: 100,
-            rows: 100,
-            dx: 0.0,
-            dy: 0.0,
-        });
-        assert!(virtual_copies(&o).unwrap_err().contains("más de"));
-        o.array = Some(VirtualArray::Circular {
-            count: 3,
-            center: [f64::NAN, 0.0],
-            sweep_deg: 360.0,
-            rotate: true,
-        });
-        assert!(virtual_copies(&o).is_err());
     }
 
     #[test]

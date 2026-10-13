@@ -4,6 +4,7 @@ import { createCameraSlice } from './camera';
 import { createDevicesSlice } from './devices';
 import { createDocumentSlice } from './document';
 import { createMachineSlice } from './machine';
+import { createMoveControlSlice } from './moveControl';
 import { createNoticesSlice } from './notices';
 import { createPreviewSlice } from './preview';
 import { createPrefsSlice, type PrefKey, type Prefs } from './prefs';
@@ -22,6 +23,7 @@ export function createAppStore(): UseBoundStore<StoreApi<AppState>> {
     ...createSelectionSlice(...a),
     ...createViewSlice(...a),
     ...createMachineSlice(...a),
+    ...createMoveControlSlice(...a),
     ...createPreviewSlice(...a),
     ...createDevicesSlice(...a),
     ...createNoticesSlice(...a),

@@ -6,6 +6,8 @@ import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish
 import { advanceAfterJob } from '@/features/variables/advance';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { needsConfirmation, parseCommand, type CommandError } from '@/features/machine/commandSafety';
+import { connectionPortId } from '@/features/machine/DeviceConnectionModel';
+import { portForDevice } from '@/features/machine/ruidaPorts';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, portKey, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
 import { t, type I18nKey } from '@/i18n';
 import { docToWork, parseGrblSettings, workToDoc, type GrblSettings } from '@/lib/device';
@@ -34,7 +36,11 @@ export type MachineDialog =
   /** Gestor de dispositivos. */
   | { kind: 'devices' }
   /** Ajustes de optimización del orden de corte (`features/preview/OptimizationDialog.tsx`). */
-  | { kind: 'optimization' };
+  | { kind: 'optimization' }
+  /** Ventana "Ajustes de la máquina": leer, editar y respaldar los `$n` de GRBL (`features/machine/MachineSettingsDialog.tsx`). */
+  | { kind: 'machineSettings' }
+  /** Confirmación de una macro del perfil (índice en `DeviceProfile.macros`). */
+  | { kind: 'macro'; index: number };
 
 // ---------------------------------------------------------------------------
 // Reducer: función pura que aplica un evento `machine://*` a los datos de la máquina
@@ -439,6 +445,9 @@ function initialJogSpeed(): number {
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
+/** Argumento de potencia del encuadre: solo si el usuario activó el láser a baja potencia. */
+const framePower = (s: Pick<AppState, 'frameLaser'>) => (s.frameLaser.on ? { power_pct: s.frameLaser.powerPct } : {});
+
 /** Espera `ms` milisegundos. */
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -530,7 +539,12 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
 
     connect: async () => {
-      const { selectedPort, baud, virtualSpeed } = get();
+      const { baud, virtualSpeed } = get();
+      // Una máquina por red (TCP o WebSocket) se conecta a su dirección, sin elegir puerto serie.
+      const device = selectActiveDevice(get());
+      const networkPort = connectionPortId(device.connection);
+      // Ruida (UDP) usa la IP del perfil; el «puerto» solo distingue la máquina real de la virtual.
+      const selectedPort = networkPort ?? portForDevice(device, get().selectedPort, get().ports);
       if (!selectedPort) {
         get().notifyKey('warning', 'machine.noPort');
         return;
@@ -539,10 +553,11 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       try {
         // La velocidad de una máquina virtual viaja en el id del puerto (`virtual:falcon2@5`).
         const port = isVirtualPort(selectedPort) ? withVirtualSpeed(selectedPort, virtualSpeed) : selectedPort;
-        const { firmware } = await getApi().connect({ port, baud });
+        const { firmware } = await getApi().connect({ port, baud, device });
         set({ firmware });
         // Mejor esfuerzo: sirve para el aviso de modo láser y para sugerir $H o $X ante una alarma.
-        void get().readSettings({ silent: true });
+        // Ruida no tiene ajustes `$`: lee su información desde el panel Máquina.
+        if (device.kind !== 'ruida') void get().readSettings({ silent: true });
       } catch (e) {
         get().notify('error', errorMessage(e));
       } finally {
@@ -742,11 +757,18 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       await guard(() => getApi().resumeJob());
     },
     cancelJob: async () => {
+      get().stopFrameLoop();
       if (get().jogging) await get().jogStop();
       await guard(() => getApi().cancelJob());
     },
-    frameJob: () => guardJob(async () => getApi().frameJob({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow() })),
-    frameHull: () => guardJob(async () => getApi().frameHull({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow() })),
+    frameJob: async () => {
+      await guardJob(async () => getApi().frameJob({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow(), ...framePower(get()) }));
+      get().afterFrameStart('rect');
+    },
+    frameHull: async () => {
+      await guardJob(async () => getApi().frameHull({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow(), ...framePower(get()) }));
+      get().afterFrameStart('hull');
+    },
     dismissJobError: () => set({ jobError: null }),
     dismissPositionLost: () => set({ positionLost: false, positionLostPort: null }),
     simulateFault: async (fault) => {
@@ -771,7 +793,10 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
 
     onStatus: (report) => apply({ type: 'status', report }),
     onProgress: (progress) => apply({ type: 'progress', progress }),
-    onLog: (log) => apply({ type: 'log', log }),
+    onLog: (log) => {
+      apply({ type: 'log', log });
+      if (log.dir === 'in') get().noteFrameLog(log.text);
+    },
     onJob: (job) => {
       apply({ type: 'job', job });
       if (job.state === 'finished') {
@@ -791,7 +816,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         get().notifyKey('warning', 'machine.positionLost.reconnect');
         apply({ type: 'log', log: { dir: 'in', text: `; ${t('machine.positionLost.reconnect')}` } });
       }
-      if (!connection.connected) set((s) => ({ jogging: false, positioningLaser: false, dialog: s.dialog?.kind === 'devices' || s.dialog?.kind === 'optimization' ? s.dialog : null }));
+      if (!connection.connected) set((s) => ({ jogging: false, frameLooping: false, positioningLaser: false, dialog: s.dialog?.kind === 'devices' || s.dialog?.kind === 'optimization' ? s.dialog : null }));
       if (connection.error) get().notify('error', connection.error);
     },
   };

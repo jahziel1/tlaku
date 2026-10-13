@@ -18,14 +18,13 @@ export const nest = {
   'nest.pieces.all': 'Copias de todas',
   'nest.pieces.total': '{total} de {max} piezas en total',
   'nest.pieces.tooMany': 'Son demasiadas piezas: el máximo es {max} en total.',
-  'nest.piece.group': '{id} · grupo de {n}',
-  'nest.piece.copies': 'Copias de {id}',
+  'nest.piece.copies': 'Copias de {name}',
 
   'nest.container.title': 'Contenedor',
-  'nest.container.bed': 'Cama ({w} × {h} mm)',
+  'nest.container.bed': 'Cama ({size})',
   'nest.container.object': 'Material: un objeto del documento',
   'nest.container.pick': 'Objeto que hace de material',
-  'nest.container.option': '{id} · capa {layer}',
+  'nest.container.option': '{name} · capa {layer}',
   'nest.container.none': 'No hay otros objetos vectoriales con un contorno cerrado que sirvan de material.',
   'nest.container.hint': 'El objeto material no se mueve ni se acomoda; las piezas caben dentro de su contorno y esquivan sus huecos.',
 

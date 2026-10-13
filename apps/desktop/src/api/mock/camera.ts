@@ -1,7 +1,7 @@
 import { applyH, homographyFrom4, invertH, type Mat3, type Quad } from '@/features/camera/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { LaserApi } from '../api';
-import type { BezPath, CalibrationReport, CameraAlignment, CameraSetup, DesignObject, Document, HeightModel, MarkResult, MarksReport } from '../types';
+import type { BedImage, BezPath, CalibrationReport, CameraAlignment, CameraSetup, CircleFit, DesignObject, Document, HeightModel, MarkResult, MarksReport } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
@@ -28,6 +28,7 @@ function blankSetup(): CameraSetup {
     calibration: null,
     alignment: null,
     prefs: { device_id: null, device_label: null, width: null, height: null, opacity: 0.6, visible: false },
+    head: { enabled: false, calibration: null },
   };
 }
 
@@ -162,7 +163,8 @@ function browserStorage(): Storage | null {
 export function mockCamera(
   lag: Lag,
   setups: SetupStore = createSetupStore(browserStorage()),
-): Pick<LaserApi, 'detectBoard' | 'calibrateLens' | 'loadCameraSetup' | 'saveCameraSetup' | 'saveBoardFile' | 'cameraMarks' | 'detectCameraMarks'> {
+): Pick<LaserApi, 'detectBoard' | 'calibrateLens' | 'loadCameraSetup' | 'saveCameraSetup' | 'saveBoardFile' | 'cameraMarks' | 'detectCameraMarks' | 'composeBedImage' | 'detectCircle'> {
+  let imageCounter = 0;
   return {
     loadCameraSetup: () => lag(() => setups.load()),
     saveCameraSetup: ({ setup }) => lag(() => setups.save(setup)),
@@ -257,31 +259,114 @@ export function mockCamera(
         return pts;
       }),
 
-    calibrateLens: ({ images_png_base64 }) =>
+    calibrateLens: ({ images_png_base64, model = 'auto' }) =>
       lag((): CalibrationReport => {
         if (images_png_base64.length < 3) throw new Error('Se necesitan al menos 3 vistas con el tablero visible.');
         const [w, h] = pngSize(images_png_base64[0]!) ?? [640, 480];
         const n = images_png_base64.length;
+        // El mock no analiza la imagen: el modelo automático elige Brown-Conrady; el ojo de pez, solo si se pide.
+        const fisheye = model === 'fisheye';
         return {
-          calibration: {
-            width: w,
-            height: h,
-            fx: w * 0.95,
-            fy: w * 0.95,
-            cx: w / 2,
-            cy: h / 2,
-            k1: -0.18,
-            k2: 0.04,
-            p1: 0,
-            p2: 0,
-            k3: 0,
-            rms_error_px: 0.34,
-            views_used: n,
-          },
+          calibration: fisheye
+            ? {
+                width: w,
+                height: h,
+                fx: w * 0.52,
+                fy: w * 0.52,
+                cx: w / 2,
+                cy: h / 2,
+                k1: -0.04,
+                k2: 0.012,
+                p1: 0,
+                p2: 0,
+                k3: 0,
+                model: 'fisheye',
+                k4: 0,
+                view_zoom: 0.62,
+                rms_error_px: 0.21,
+                views_used: n,
+              }
+            : {
+                width: w,
+                height: h,
+                fx: w * 0.95,
+                fy: w * 0.95,
+                cx: w / 2,
+                cy: h / 2,
+                k1: -0.18,
+                k2: 0.04,
+                p1: 0,
+                p2: 0,
+                k3: 0,
+                model: 'brown_conrady',
+                k4: 0,
+                view_zoom: 1,
+                rms_error_px: 0.34,
+                views_used: n,
+              },
           warnings: [],
           used_views: images_png_base64.map((_, i) => i),
           view_rms_px: images_png_base64.map((_, i) => 0.28 + 0.03 * (i % 4)),
+          model_scores:
+            model === 'auto'
+              ? [
+                  { model: 'brown_conrady', rms_px: 0.34, cv_rms_px: 0.37, chosen: true },
+                  { model: 'fisheye', rms_px: 0.33, cv_rms_px: 0.4, chosen: false },
+                ]
+              : [{ model: fisheye ? 'fisheye' : 'brown_conrady', rms_px: fisheye ? 0.21 : 0.34, cv_rms_px: null, chosen: true }],
         };
+      }),
+
+    composeBedImage: ({ tiles, bed, px_per_mm, rect, stem, save }) =>
+      lag((): BedImage => {
+        if (tiles.length === 0) throw new Error('No hay ninguna foto que componer.');
+        // Caja de las fotos en la cama (como el motor): cada foto cubre el rectángulo de sus esquinas.
+        let box: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+        let scale = 0;
+        for (const t of tiles) {
+          const [w, h] = pngSize(t.image_png_base64) ?? [640, 480];
+          const corners = [applyH(t.to_bed, [0, 0]), applyH(t.to_bed, [w, 0]), applyH(t.to_bed, [w, h]), applyH(t.to_bed, [0, h])];
+          box = [
+            Math.min(box[0], ...corners.map((c) => c[0])),
+            Math.min(box[1], ...corners.map((c) => c[1])),
+            Math.max(box[2], ...corners.map((c) => c[0])),
+            Math.max(box[3], ...corners.map((c) => c[1])),
+          ];
+          const c0 = applyH(t.to_bed, [w / 2, h / 2]);
+          const c1 = applyH(t.to_bed, [w / 2 + 10, h / 2]);
+          const mmPerPx = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) / 10;
+          scale = Math.max(scale, mmPerPx > 0 ? 1 / mmPerPx : 0);
+        }
+        const r: [number, number, number, number] = rect ?? [Math.max(0, box[0]), Math.max(0, box[1]), Math.min(bed[0], box[2]), Math.min(bed[1], box[3])];
+        if (!(r[2] > r[0] && r[3] > r[1])) throw new Error('Ninguna foto cae dentro de la cama: revisa la alineación de la cámara.');
+        const ppm = Math.min(20, Math.max(0.5, px_per_mm ?? Math.min(4, Math.max(1, scale))));
+        const wpx = Math.max(1, Math.ceil((r[2] - r[0]) * ppm));
+        const hpx = Math.max(1, Math.ceil((r[3] - r[1]) * ppm));
+        const size: [number, number] = [wpx / ppm, hpx / ppm];
+        imageCounter += save ? 1 : 0;
+        return {
+          path: save ? `mock/${stem}-camara-${imageCounter}.png` : '',
+          width_px: wpx,
+          height_px: hpx,
+          size_mm: size,
+          origin_mm: [r[0], r[3] - size[1]],
+          in_temp_dir: false,
+          coverage: 1,
+          px_per_mm: ppm,
+          preview_png_base64: tiles[0]!.image_png_base64,
+        };
+      }),
+
+    detectCircle: ({ image_png_base64, hint }) =>
+      lag((): CircleFit => {
+        const [w, h] = pngSize(image_png_base64) ?? [640, 480];
+        const center: [number, number] = hint?.center ?? [w / 2, h / 2];
+        const radius = hint?.radius ?? 0.2 * Math.min(w, h);
+        const points = Array.from({ length: 48 }, (_, k): [number, number] => [
+          center[0] + radius * Math.cos((2 * Math.PI * k) / 48),
+          center[1] + radius * Math.sin((2 * Math.PI * k) / 48),
+        ]);
+        return { center, radius, rms_px: 0.12, inliers: 48 * 6, arc_coverage: 1, points };
       }),
   };
 }

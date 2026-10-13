@@ -3,8 +3,8 @@
 //! La tabla se calcula una sola vez por calibración y tamaño de salida; aplicarla a
 //! cada cuadro es un remapeo bilineal en aritmética entera (apto para cámara en vivo).
 //!
-//! Cámara virtual de salida: misma focal y punto principal que la calibración,
-//! escalados por `out_size / tamaño_calibrado`. Con distorsión de barril el
+//! Cámara virtual de salida: la focal de la calibración por `view_zoom` (1 salvo en ojo de pez)
+//! y el mismo punto principal, escalados por `out_size / tamaño_calibrado`. Con distorsión de barril el
 //! resultado queda recortado (sin bordes negros); con cojín aparecen bordes negros.
 //! La alineación con la cama debe calcularse sobre esta misma imagen corregida.
 
@@ -45,7 +45,8 @@ impl UndistortMap {
         }
         let sx = f64::from(out_size.0) / f64::from(calib.width);
         let sy = f64::from(out_size.1) / f64::from(calib.height);
-        let new_k = [calib.fx * sx, calib.fy * sy, calib.cx * sx, calib.cy * sy];
+        let (zfx, zfy) = calib.corrected_focal();
+        let new_k = [zfx * sx, zfy * sy, calib.cx * sx, calib.cy * sy];
         let (sw, sh) = (f64::from(calib.width), f64::from(calib.height));
         let mut table = Vec::with_capacity(out_size.0 as usize * out_size.1 as usize);
         for v in 0..out_size.1 {
@@ -290,6 +291,39 @@ mod tests {
         for &p in raw.iter().take(10) {
             assert!(map.corrected_to_raw(map.raw_to_corrected(p)).dist(p) < 1e-6);
         }
+    }
+
+    #[test]
+    fn el_ojo_de_pez_corregido_recupera_lineas_rectas() {
+        // Ojo de pez de 140° con el tablero lejos del centro, donde la curvatura es fuerte.
+        let mut cam = fisheye_camera();
+        cam.view_zoom = 0.62;
+        let pose = Pose::about_center(BOARD, SQ, (20.0, 10.0, 5.0), (120.0, -60.0, 270.0));
+        let img = render_board(&cam, &pose, BOARD, SQ, 1.0, 17);
+        let map = UndistortMap::new(&cam, (640, 480)).unwrap();
+        let truth_raw = board_corners(&cam, &pose, BOARD, SQ);
+        let before = max_line_deviation(&truth_raw);
+        let pts: Vec<Point> = truth_raw.iter().map(|&p| map.raw_to_corrected(p)).collect();
+        let after_pts = max_line_deviation(&pts);
+        let fixed = map.undistort(&img).unwrap();
+        let found = find_chessboard(&fixed, BOARD).expect("el tablero corregido se detecta");
+        let after_img = max_line_deviation(&found);
+        eprintln!(
+            "ojo de pez, desviación de rectas: antes {before:.2} px, puntos {after_pts:.3} px, imagen {after_img:.3} px"
+        );
+        assert!(
+            before > 3.0,
+            "la imagen cruda debería estar curvada ({before:.2})"
+        );
+        assert!(after_pts < 0.05, "puntos corregidos: {after_pts:.3}");
+        assert!(after_img < 0.5, "imagen corregida: {after_img:.3}");
+        // Ida y vuelta de puntos.
+        for &p in truth_raw.iter().take(10) {
+            assert!(map.corrected_to_raw(map.raw_to_corrected(p)).dist(p) < 1e-6);
+        }
+        // La cámara de salida usa la focal reducida por view_zoom.
+        let k = map.new_camera();
+        assert!((k[0] - cam.fx * 0.62).abs() < 1e-9 && (k[2] - cam.cx).abs() < 1e-9);
     }
 
     #[test]

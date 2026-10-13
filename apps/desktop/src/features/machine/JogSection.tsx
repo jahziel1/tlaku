@@ -10,6 +10,7 @@ import { selectActiveDevice, useStore } from '@/store';
 import { jogBlockedReason } from '@/store/machine';
 import { JOG_DIRS, type JogDirName } from './jogMath';
 import { FinishPositionControls, JogStepsEditor, PositionLaserButton } from './MoveExtras';
+import { MoveWindowExtras } from './MoveWindowExtras';
 import { onPadKeyDown, useHoldJog } from './useHoldJog';
 
 const ICONS: Record<JogDirName, LucideIcon> = {
@@ -114,6 +115,7 @@ export function JogSection() {
       )}
       <PositionLaserButton />
       <JogStepsEditor />
+      <MoveWindowExtras />
       <FinishPositionControls />
     </section>
   );

@@ -25,6 +25,7 @@ export type NumericField =
   | 'tab_width'
   | 'tab_count'
   | 'tab_spacing'
+  | 'tab_power'
   | 'halftone_cell'
   | 'halftone_angle'
   | 'z_offset'
@@ -80,6 +81,8 @@ export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
   tab_count: { min: 1, max: 100, step: 1, decimals: 0, unit: '', integer: true },
   // 0 = repartir por cantidad.
   tab_spacing: { min: 0, max: 1000, step: 1, decimals: 2, unit: 'mm' },
+  // Potencia de los puentes: 0 = apagado (no marca); el motor la limita a la del corte.
+  tab_power: { min: 0, max: 100, step: 1, decimals: 1, unit: '%' },
   halftone_cell: { min: 0.05, max: 10, step: 0.05, decimals: 3, unit: 'mm', positive: true },
   halftone_angle: { min: -360, max: 360, step: 1, decimals: 2, unit: '°' },
   z_offset: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },

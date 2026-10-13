@@ -23,3 +23,20 @@ describe('viewport', () => {
     expect(formatTick(0.5)).toBe('0.5');
   });
 });
+
+describe('reglas y cuadrícula en pulgadas', () => {
+  it('los pasos son décimas de pulgada, expresadas en mm, y el mayor es 10 veces el menor', () => {
+    const g = gridSteps(2, 7, 'in');
+    expect(g.minor / 25.4).toBeCloseTo(0.5, 9);
+    expect(g.major).toBeCloseTo(g.minor * 10, 9);
+    expect(gridSteps(20, 7, 'in').minor * 20).toBeGreaterThanOrEqual(7);
+    // En mm no cambia.
+    expect(gridSteps(2, 7, 'mm')).toEqual(gridSteps(2));
+  });
+  it('las cotas se rotulan en pulgadas sin ceros de más', () => {
+    expect(formatTick(25.4, 'in')).toBe('1');
+    expect(formatTick(12.7, 'in')).toBe('0,5');
+    expect(formatTick(2.54, 'in')).toBe('0,1');
+    expect(formatTick(50, 'mm')).toBe('50');
+  });
+});

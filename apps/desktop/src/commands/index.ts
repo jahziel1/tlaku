@@ -1,6 +1,7 @@
 import { useStore } from '@/store';
 import { arrangeCommands } from './definitions/arrange';
 import { designAdvancedCommands } from './definitions/designAdvanced';
+import { bundleCommands } from './definitions/bundle';
 import { cameraCommands } from './definitions/camera';
 import { codesCommands } from './definitions/codes';
 import { designCommands } from './definitions/design';
@@ -11,6 +12,7 @@ import { fileioCommands } from './definitions/fileio';
 import { helpCommands } from './definitions/help';
 import { layerCommands } from './definitions/layers';
 import { machineCommands } from './definitions/machine';
+import { machineExtraCommands } from './definitions/machineExtras';
 import { materialCommands } from './definitions/materials';
 import { nestCommands } from './definitions/nest';
 import { panelCommands } from './definitions/panels';
@@ -41,6 +43,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...viewCommands,
   ...designCommands,
   ...machineCommands,
+  ...machineExtraCommands,
   ...deviceCommands,
   ...panelCommands,
   ...layerCommands,
@@ -55,6 +58,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...cameraCommands,
   ...materialCommands,
   ...prefsCommands,
+  ...bundleCommands,
   ...helpCommands,
 ];
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { DesignObject, VirtualArray } from '@/api/types';
 import { rectObj } from '@/features/canvas/testUtil';
-import { applyAffine } from './geometry';
-import { MAX_VIRTUAL_COPIES, virtualArrayIssue, virtualCopies } from './virtualArray';
+import { applyAffine, objectBounds } from './geometry';
+import { MAX_VIRTUAL_COPIES, objectBoundsWithCopies, virtualArrayIssue, virtualCopies } from './virtualArray';
 
 const withArray = (array: VirtualArray | null, patch: Partial<DesignObject> = {}): DesignObject => ({ ...rectObj('a', 5, 5, 15, 15), array, ...patch });
 const near = (a: readonly number[], b: readonly number[]) => a.forEach((v, i) => expect(v).toBeCloseTo(b[i]!, 9));
 
-// Los mismos casos que `virtual_array_tests` de crates/tlaku-pipeline/src/place.rs: el lienzo y el
+// Los mismos casos que las pruebas de `virtual_copies` en crates/tlaku-doc/src/tests.rs: el lienzo y el
 // trabajo enviado deben coincidir.
 describe('virtualCopies', () => {
   it('sin arreglo no hay copias', () => {
@@ -61,5 +61,31 @@ describe('virtualCopies', () => {
     expect(virtualArrayIssue({ type: 'grid', cols: MAX_VIRTUAL_COPIES, rows: 2, dx: 0, dy: 0 })).toBe('tooMany');
     expect(virtualArrayIssue({ type: 'circular', count: 2, center: [0, Infinity], sweep_deg: 90, rotate: false })).toBe('numbers');
     expect(virtualArrayIssue({ type: 'circular', count: 6, center: [0, 0], sweep_deg: 360, rotate: true })).toBeNull();
+  });
+});
+
+// Mismos casos que `bounds_include_the_virtual_copies` de crates/tlaku-doc/src/tests.rs.
+describe('objectBoundsWithCopies', () => {
+  it('sin arreglo es la caja del objeto', () => {
+    const o = rectObj('a', 5, 5, 15, 15);
+    expect(objectBoundsWithCopies(o)).toEqual(objectBounds(o));
+  });
+
+  it('la rejilla suma las copias a la caja', () => {
+    const o = withArray({ type: 'grid', cols: 3, rows: 2, dx: 2, dy: 4 });
+    // Caja de 10 x 10: paso de 12 en X y de 14 en Y.
+    expect(objectBoundsWithCopies(o)).toEqual([[5, 5], [5 + 10 + 24, 5 + 10 + 14]]);
+    expect(objectBounds(o)).toEqual([[5, 5], [15, 15]]);
+  });
+
+  it('el arreglo circular con giro usa la caja exacta de cada copia', () => {
+    const o = withArray({ type: 'circular', count: 4, center: [0, 0], sweep_deg: 360, rotate: true });
+    const [[x0, y0], [x1, y1]] = objectBoundsWithCopies(o)!;
+    near([x0, y0, x1, y1], [-15, -15, 15, 15]);
+  });
+
+  it('un arreglo inválido no cambia la caja', () => {
+    const o = withArray({ type: 'grid', cols: 0, rows: 2, dx: 0, dy: 0 });
+    expect(objectBoundsWithCopies(o)).toEqual(objectBounds(o));
   });
 });

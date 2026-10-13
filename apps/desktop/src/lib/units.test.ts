@@ -79,3 +79,28 @@ describe('parseLength', () => {
     }
   });
 });
+
+describe('campos de longitud', () => {
+  it('fieldText deja el mm tal cual y redondea las pulgadas a diezmilésimas', async () => {
+    const { fieldText } = await import('./units');
+    expect(fieldText(12.3456, 'mm')).toBe('12.3456');
+    expect(fieldText(25.4, 'in')).toBe('1');
+    expect(fieldText(10, 'in')).toBe('0.3937');
+    expect(fieldText(-0.001, 'in')).toBe('0');
+  });
+  it('stepInMm redondea el paso a uno bonito en pulgadas', async () => {
+    const { stepInMm } = await import('./units');
+    expect(stepInMm(0.5, 'mm')).toBe(0.5);
+    // 0,5 mm = 0,0197 in -> 0,02 in; 1 mm = 0,039 in -> 0,05 in; 25 mm -> 1 in
+    expect(stepInMm(0.5, 'in') / 25.4).toBeCloseTo(0.02, 9);
+    expect(stepInMm(1, 'in') / 25.4).toBeCloseTo(0.05, 9);
+    expect(stepInMm(25, 'in') / 25.4).toBeCloseTo(1, 9);
+  });
+  it('formatSize une ancho, alto y unidad', async () => {
+    const { formatSize } = await import('./units');
+    expect(formatSize(40, 20.55, 'mm')).toBe('40,0 × 20,6 mm');
+    expect(formatSize(400, 415, 'mm', 0)).toBe('400 × 415 mm');
+    expect(formatSize(25.4, 50.8, 'in', 1)).toBe('1,00 × 2,00 in');
+    expect(formatSize(400, 415, 'in', 0)).toBe('15,7 × 16,3 in');
+  });
+});

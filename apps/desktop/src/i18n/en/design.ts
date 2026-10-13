@@ -177,7 +177,7 @@ export const design = {
   'design.virtual.preview': 'Preview',
   'design.virtual.previewLabel': 'Virtual array preview: the object highlighted and the copies in a faint line',
   'design.virtual.summary': '{count} pieces (virtual copies: {extra})',
-  'design.virtual.object': 'Object of {w} × {h} mm',
+  'design.virtual.object': 'Object of {size}',
   'design.virtual.err.single': 'The array has a single piece: increase the columns, rows or copies.',
   'design.virtual.err.counts': 'Columns, rows and copies must be whole numbers of at least 1.',
   'design.virtual.err.tooMany': 'That is too many pieces; the maximum is {max}.',

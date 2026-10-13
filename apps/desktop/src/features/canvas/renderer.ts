@@ -1,4 +1,5 @@
 import type { Affine, DesignObject, DeviceOrigin, JobPreview, LayerSettings, Point } from '@/api/types';
+import type { LengthUnit } from '@/lib/units';
 import type { ViewTransform } from '@/lib/viewport';
 import type { BoxMode } from './hit';
 import type { CameraBackdrop } from '@/store/camera';
@@ -81,6 +82,8 @@ export interface Scene {
   backdrop: CameraBackdrop | null;
   /** Guías del documento, puentes manuales y flechas de inicio. */
   marks?: SceneMarks;
+  /** Unidad de la cuadrícula (mm por omisión): sus líneas siguen a las marcas de la regla. */
+  gridUnit?: LengthUnit;
 }
 
 /**

@@ -251,6 +251,7 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 | `tlaku-sim` | Estimación de tiempo con aceleración por eje y cálculo físico del overscan. |
 | `tlaku-grbl` | G-code por dialecto, puertos serie, envío con conteo de caracteres y revisión previa. |
 | `tlaku-ruida` | Experimental: archivos `.rd` y sesión por red para controladoras Ruida. |
+| `tlaku-lhymicro` | Experimental: K40 con placa Lihuiyu M2 Nano (LHYMICRO-GL por USB) con placa simulada. |
 | `tlaku-emu` | Emulador de controladoras (GRBL, Falcon2 Pro, grblHAL, FluidNC, GRBL-LPC, Marlin, Smoothie). |
 | `tlaku-camera` | Calibración de lente, alineación y corrección por altura. |
 | `tlaku-doc` | Tipos del contrato con la app, exportados a TypeScript. |

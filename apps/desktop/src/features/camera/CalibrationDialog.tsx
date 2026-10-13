@@ -2,7 +2,7 @@ import { X } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getApi, getApiKind } from '@/api';
-import type { CalibrationReport } from '@/api/types';
+import type { CalibrationReport, LensModel, LensModelChoice } from '@/api/types';
 import { Modal } from '@/features/history';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
@@ -53,6 +53,7 @@ export function CalibrationDialog({ onClose }: { onClose: () => void }) {
   const [report, setReport] = useState<CalibrationReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [squareMm, setSquareMm] = useState(25);
+  const [model, setModel] = useState<LensModelChoice>('auto');
 
   const host = useRef<HTMLDivElement>(null);
   const overlay = useRef<HTMLCanvasElement>(null);
@@ -195,6 +196,7 @@ export function CalibrationDialog({ onClose }: { onClose: () => void }) {
         images_png_base64: views.map((v) => v.png),
         board: BOARD_CORNERS,
         square_mm: squareMm,
+        model,
       });
       setReport(r);
     } catch (e) {
@@ -265,6 +267,28 @@ export function CalibrationDialog({ onClose }: { onClose: () => void }) {
 
             <BoardSection squareMm={squareMm} onSquare={setSquareMm} />
 
+            <section className="cam-cal__block">
+              <h3 className="panel-title">{t('camera.cal.model.title')}</h3>
+              <div className="field">
+                <label className="field__label" htmlFor="cam-model">{t('camera.cal.model.label')}</label>
+                <select
+                  id="cam-model"
+                  className="select"
+                  value={model}
+                  onChange={(e) => {
+                    setReport(null);
+                    setModel(e.target.value as LensModelChoice);
+                  }}
+                >
+                  <option value="auto">{t('camera.cal.model.auto')}</option>
+                  <option value="brown_conrady">{t('camera.cal.model.brown')}</option>
+                  <option value="fisheye">{t('camera.cal.model.fisheye')}</option>
+                </select>
+              </div>
+              <p className="hint">{t(`camera.cal.model.help.${model}` as I18nKey)}</p>
+              <p className="hint hint--warn">{t('camera.cal.model.unvalidated')}</p>
+            </section>
+
             <section className="cam-cal__block" aria-live="polite">
               <h3 className="panel-title">{t('camera.cal.views', { n: views.length })}</h3>
               <ul className="cam-chips">
@@ -330,8 +354,29 @@ function ResultBlock({ report, total, onUse, onDiscard }: { report: CalibrationR
       <dl className="kv cam-kv">
         <div><dt>{t('camera.cal.result.views')}</dt><dd className="num">{report.used_views.length} / {total}</dd></div>
         <div><dt>{t('camera.cal.result.focal')}</dt><dd className="num">{fmt(c.fx, 0)} / {fmt(c.fy, 0)}</dd></div>
+        <div><dt>{t('camera.cal.result.model')}</dt><dd>{t(`camera.cal.model.name.${c.model ?? 'brown_conrady'}` as I18nKey)}</dd></div>
         <div><dt>k1 / k2</dt><dd className="num">{fmt(c.k1, 3)} / {fmt(c.k2, 3)}</dd></div>
       </dl>
+      {(report.model_scores?.length ?? 0) > 1 && (
+        <table className="cam-scores" aria-label={t('camera.cal.result.scores')}>
+          <thead>
+            <tr>
+              <th scope="col">{t('camera.cal.result.model')}</th>
+              <th scope="col">{t('camera.cal.result.fit')}</th>
+              <th scope="col">{t('camera.cal.result.reserved')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.model_scores!.map((sc) => (
+              <tr key={sc.model} data-chosen={sc.chosen}>
+                <th scope="row">{t(`camera.cal.model.name.${sc.model as LensModel}` as I18nKey)}{sc.chosen ? ` · ${t('camera.cal.result.chosen')}` : ''}</th>
+                <td className="num">{fmt(sc.rms_px, 2)} px</td>
+                <td className="num">{sc.cv_rms_px === null ? '–' : Number.isFinite(sc.cv_rms_px) ? `${fmt(sc.cv_rms_px, 2)} px` : t('camera.cal.result.noConverge')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {dropped.length > 0 && <p className="warn-line">{t('camera.cal.result.discarded', { list: dropped.map((i) => i + 1).join(', ') })}</p>}
       {report.view_rms_px.length > 0 && (
         <p className="hint num">{t('camera.cal.result.perView', { list: report.view_rms_px.map((v, i) => `${report.used_views[i]! + 1}: ${fmt(v, 2)}`).join('  ') })}</p>

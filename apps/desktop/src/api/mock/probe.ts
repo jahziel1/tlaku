@@ -72,6 +72,11 @@ export function mockProbe(lag: Lag): Pick<LaserApi, 'probePort'> {
     probePort: ({ port, baud }) =>
       lag(() => {
         if (baud <= 0) throw 'Los baudios deben ser mayores que 0.';
+        // Direcciones de red: responde un GRBL genérico, salvo `no-responde` (simula un equipo que no contesta).
+        if (/^(tcp|wss?):\/\//i.test(port)) {
+          if (port.includes('no-responde')) throw `${port.replace(/^tcp:\/\//i, '')} no contestó a tiempo. Revisa que la máquina esté encendida, conectada a la misma red que este equipo y que la dirección sea la correcta.`;
+          return genericGrblProbe();
+        }
         if (port === MOCK_FALCON_PORT || /^virtual:.*falcon/i.test(port)) return falconProProbe();
         if (port === MOCK_GRBL_PORT || port.startsWith('virtual:')) return genericGrblProbe();
         throw `No se pudo abrir ${port}: no existe. Revisa el cable, que la máquina esté encendida y que ningún otro programa use el puerto.`;

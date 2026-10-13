@@ -79,4 +79,13 @@ dwell: DwellFormat,
  * Longitud máxima de una línea con su salto, en bytes (127 en GRBL, ~96 en Marlin);
  * 0 = sin dato. Los comentarios se recortan para no pasarla.
  */
-max_line_len: number, };
+max_line_len: number, 
+/**
+ * Línea que selecciona el láser 1 al volver a él tras usar el 2; `None` = no se emite.
+ */
+laser1_select: string | null, 
+/**
+ * Línea que selecciona el láser 2 antes de las capas que lo usan (máquinas con
+ * `DeviceProfile::laser2`); `None` = el firmware no la tiene y se avisa.
+ */
+laser2_select: string | null, };

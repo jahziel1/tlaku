@@ -13,7 +13,7 @@ use std::time::Duration;
 use tlaku_pipeline::ComputedJob;
 use tlaku_ruida::cmd;
 use tlaku_ruida::link::{LOCAL_PORT, PacketLink, REMOTE_PORT, UdpLink};
-use tlaku_ruida::rd::{self, HomeCorner, LayerOptions, RuidaJobOptions};
+use tlaku_ruida::rd::{self, HomeCorner};
 use tlaku_ruida::safety::SafetyLimits;
 use tlaku_ruida::session::{
     ProbeInfo, Progress, RuidaSession, SendMode, SessionConfig, SessionError,
@@ -115,30 +115,14 @@ fn parse_home(s: &str) -> Result<HomeCorner, String> {
     })
 }
 
-/// Genera los bytes del `.rd` (en claro) de un trabajo ya calculado. Usa el color de cada capa y
-/// la cama indicada; los demás ajustes son los de [`RuidaJobOptions`] por defecto.
+/// Genera los bytes del `.rd` (en claro) de un trabajo ya calculado: ver
+/// [`tlaku_pipeline::export_rd`], que comparten el CLI y la app.
 pub fn export_rd(
     built: &ComputedJob,
     bed: (f64, f64),
     home: HomeCorner,
 ) -> Result<Vec<u8>, String> {
-    let opts = RuidaJobOptions {
-        limits: SafetyLimits {
-            bed_mm: [bed.0, bed.1],
-            ..SafetyLimits::default()
-        },
-        layers: built
-            .layers
-            .iter()
-            .map(|l| LayerOptions {
-                color: [l.color.0, l.color.1, l.color.2],
-                min_power_pct: None,
-            })
-            .collect(),
-        home,
-        ..RuidaJobOptions::default()
-    };
-    rd::build_rd(&built.toolpath, &opts).map_err(|e| e.to_string())
+    tlaku_pipeline::export_rd(built, bed, home)
 }
 
 pub fn run(action: RuidaCommand) -> Result<(), String> {

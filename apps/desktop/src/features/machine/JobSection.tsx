@@ -7,6 +7,7 @@ import { useStore } from '@/store';
 import { jobElapsedSeconds } from '@/store/machine';
 import { useNow } from './hooks';
 import { remainingSeconds } from './jobSummary';
+import { FrameOptions } from './FrameOptions';
 import { SelectionOptions } from './SelectionOptions';
 import { StartFromSection } from './StartFromSection';
 
@@ -78,6 +79,7 @@ export function JobSection() {
           <Spline size={15} aria-hidden="true" />{hull.label}
         </button>
       </div>
+      <FrameOptions />
       <div className="row">
         <button type="button" className="btn grow" onClick={optimization.run} title={optimization.tooltip}>
           <Settings2 size={15} aria-hidden="true" />{optimization.label}

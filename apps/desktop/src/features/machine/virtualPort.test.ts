@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baseVirtualPort, isVirtualPort, portKey, portLabel, virtualSpeed, withVirtualSpeed } from './virtualPort';
+import { baseVirtualPort, isVirtualNetPort, isVirtualPort, portKey, portLabel, virtualSpeed, withVirtualSpeed } from './virtualPort';
 
 describe('puertos virtuales', () => {
   it('se reconocen por el prefijo, que ningún puerto real usa', () => {
@@ -37,5 +37,28 @@ describe('puertos virtuales', () => {
     expect(portLabel('virtual:falcon2@5')).toBe('Máquina virtual · Falcon2 Pro (×5)');
     expect(portLabel('virtual:otra')).toBe('Máquina virtual · otra');
     expect(portLabel('/dev/cu.usbserial-1420')).toBe('/dev/cu.usbserial-1420');
+  });
+});
+
+describe('máquinas virtuales por red', () => {
+  it('se reconocen como virtuales, con su prefijo propio', () => {
+    expect(isVirtualPort('virtualnet:falcon2')).toBe(true);
+    expect(isVirtualNetPort('virtualnet:falcon2@5')).toBe(true);
+    expect(isVirtualNetPort('virtual:falcon2')).toBe(false);
+    expect(isVirtualNetPort('tcp://10.0.0.5:23')).toBe(false);
+  });
+
+  it('la velocidad y la identidad funcionan igual que en las locales', () => {
+    expect(withVirtualSpeed('virtualnet:falcon2', 5)).toBe('virtualnet:falcon2@5');
+    expect(virtualSpeed('virtualnet:fluidnc@20')).toBe(20);
+    expect(portKey('virtualnet:falcon2@5')).toBe(portKey('virtualnet:falcon2'));
+    expect(portKey('virtualnet:falcon2')).not.toBe(portKey('virtual:falcon2'));
+  });
+
+  it('se muestran con nombre claro; las direcciones de red, sin el esquema tcp://', () => {
+    expect(portLabel('virtualnet:falcon2')).toBe('Máquina virtual por red · Falcon2 Pro');
+    expect(portLabel('virtualnet:fluidnc@5')).toBe('Máquina virtual por red · FluidNC (×5)');
+    expect(portLabel('tcp://192.168.1.50:23')).toBe('192.168.1.50:23');
+    expect(portLabel('ws://fluidnc.local:81/')).toBe('ws://fluidnc.local:81/');
   });
 });

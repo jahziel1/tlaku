@@ -96,3 +96,32 @@ describe('valor final de un campo', () => {
     expect(formatValue(1.5)).toBe('1.5');
   });
 });
+
+describe('expresiones en pulgadas', () => {
+  it('los números sin sufijo son pulgadas y el resultado va en mm', () => {
+    expect(resolveInput('1', 0, 'length', 'in')).toBeCloseTo(25.4, 9);
+    expect(resolveInput('100/3', 0, 'length', 'in')).toBeCloseTo((100 / 3) * 25.4, 9);
+    expect(resolveInput('(1+1)*2', 0, 'length', 'in')).toBeCloseTo(101.6, 9);
+  });
+  it('un sufijo manda sobre la unidad del campo', () => {
+    expect(resolveInput('25.4mm', 0, 'length', 'in')).toBeCloseTo(25.4, 9);
+    expect(resolveInput('2cm', 0, 'length', 'in')).toBeCloseTo(20, 9);
+    expect(resolveInput('1in', 0, 'length', 'mm')).toBeCloseTo(25.4, 9);
+  });
+  it('+, * y % se aplican sobre el valor actual en mm', () => {
+    expect(resolveInput('+0.5', 25.4, 'length', 'in')).toBeCloseTo(38.1, 9);
+    expect(resolveInput('*2', 25.4, 'length', 'in')).toBeCloseTo(50.8, 9);
+    expect(resolveInput('50%', 25.4, 'length', 'in')).toBeCloseTo(12.7, 9);
+  });
+  it('lee fracciones y números mixtos de pulgada', () => {
+    expect(resolveInput('3/8"', 0, 'length', 'in')).toBeCloseTo(9.525, 9);
+    expect(resolveInput('3/8', 0, 'length', 'in')).toBeCloseTo(9.525, 9);
+    expect(resolveInput('1 1/2', 0, 'length', 'in')).toBeCloseTo(38.1, 9);
+    expect(resolveInput('1 1/2 in', 0, 'length', 'mm')).toBeCloseTo(38.1, 9);
+    // En mm una división sigue siendo una división.
+    expect(resolveInput('3/8', 0, 'length', 'mm')).toBeCloseTo(0.375, 9);
+  });
+  it('los ángulos no cambian con la unidad', () => {
+    expect(resolveInput('90', 0, 'angle', 'in')).toBe(90);
+  });
+});

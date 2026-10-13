@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { applyAffine } from '@/lib/geometry';
 import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { buildAlongPath, contentCenter, pathOfUnit, planAlongPath, samplePath, type AlongMode } from './alongPath';
 import { Check, Choice, Dialog, Footer } from './Dialog';
@@ -90,7 +91,7 @@ export function AlongPathDialog() {
           {params.mode === 'count' ? (
             <NumberField label={t('design.along.count')} value={params.count} min={1} max={2000} step={1} onCommit={(v) => patch({ count: Math.round(v) })} />
           ) : (
-            <NumberField label={t('design.along.spacing')} value={params.spacing} min={0.01} max={100000} step={1} unit={t('arrange.dlg.mm')} onCommit={(spacing) => patch({ spacing })} />
+            <LengthField label={t('design.along.spacing')} value={params.spacing} min={0.01} max={100000} step={1} onCommit={(spacing) => patch({ spacing })} />
           )}
           <Check label={t('design.along.rotate')} checked={params.rotate} onChange={(rotate) => patch({ rotate })} />
           <NumberField label={t('design.along.angle')} value={params.angle} min={-360} max={360} step={15} unit="°" onCommit={(angle) => patch({ angle })} />

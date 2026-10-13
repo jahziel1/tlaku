@@ -2,21 +2,25 @@ import { Clock, Gauge, Keyboard, MousePointer2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { commands } from '@/commands';
 import { t } from '@/i18n';
-import { objectBounds, unionBounds } from '@/lib/geometry';
-import { fmt, fmtClock, isMac } from '@/lib/platform';
+import { unionBounds } from '@/lib/geometry';
+import { objectBoundsWithCopies } from '@/lib/virtualArray';
+import { fmtClock, isMac } from '@/lib/platform';
+import { formatLength, formatSize, unitSymbol } from '@/lib/units';
 import { zoomPercent } from '@/lib/viewport';
 import { VirtualBadge, portLabel, stateLabel } from '@/features/machine';
-import { selectActiveDevice, useStore } from '@/store';
+import { selectActiveDevice, usePref, useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
 
 function Cursor() {
   const cursor = useStore((s) => s.cursor);
+  const units = usePref('units');
+  const coord = (mm: number) => formatLength(mm, units, { digits: units === 'in' ? 3 : 2, symbol: false });
   return (
     <div className="status__item" aria-label={t('status.cursor')}>
       <MousePointer2 size={13} aria-hidden="true" />
-      <span className="num status__coord"><span className="status__axis">X</span>{cursor ? fmt(cursor[0], 2) : '—'}</span>
-      <span className="num status__coord"><span className="status__axis">Y</span>{cursor ? fmt(cursor[1], 2) : '—'}</span>
-      <span className="status__unit">mm</span>
+      <span className="num status__coord"><span className="status__axis">X</span>{cursor ? coord(cursor[0]) : '—'}</span>
+      <span className="num status__coord"><span className="status__axis">Y</span>{cursor ? coord(cursor[1]) : '—'}</span>
+      <span className="status__unit">{unitSymbol(units)}</span>
     </div>
   );
 }
@@ -35,10 +39,12 @@ function Zoom() {
 function Selection() {
   const doc = useStore((s) => s.doc);
   const ids = useStore((s) => s.selectedIds);
+  const units = usePref('units');
+  const one = (mm: number) => formatLength(mm, units, { digits: units === 'in' ? 3 : 2, symbol: false });
   const size = useMemo(() => {
     if (ids.length === 0) return null;
     const picked = new Set(ids);
-    const b = unionBounds(doc.objects.filter((o) => picked.has(o.id)).map(objectBounds));
+    const b = unionBounds(doc.objects.filter((o) => picked.has(o.id)).map(objectBoundsWithCopies));
     return b ? { w: b[1][0] - b[0][0], h: b[1][1] - b[0][1] } : null;
   }, [doc, ids]);
   return (
@@ -47,9 +53,9 @@ function Selection() {
         {ids.length === 0 ? t('status.nothingSelected') : ids.length === 1 ? t('status.selectedOne') : t('status.selected', { n: ids.length })}
       </div>
       {size && (
-        <div className="status__item" title={t('history.status.size', { w: fmt(size.w, 2), h: fmt(size.h, 2) })}>
-          <span className="num">{fmt(size.w, 2)} × {fmt(size.h, 2)}</span>
-          <span className="status__unit">mm</span>
+        <div className="status__item" title={t('history.status.size', { size: formatSize(size.w, size.h, units, 2) })}>
+          <span className="num">{one(size.w)} × {one(size.h)}</span>
+          <span className="status__unit">{unitSymbol(units)}</span>
         </div>
       )}
       <div className="status__item status__muted">{doc.objects.length === 1 ? t('history.status.objectOne') : t('history.status.objects', { n: doc.objects.length })}</div>

@@ -90,6 +90,12 @@ fn parse(port: &str) -> Result<(&'static Kind, f64), String> {
 /// Devuelve el transporte, ya sin el saludo de arranque (como `Grbl::open`), y el mando que
 /// permite inyectar fallas.
 pub fn open(port: &str) -> Result<(Box<dyn Transport>, Handle), String> {
+    let (vm, handle) = build(port)?;
+    Ok((Box::new(vm), handle))
+}
+
+/// Como [`open`], con la máquina concreta (para servirla por red, ver `netlink`).
+pub fn build(port: &str) -> Result<(VirtualMachine, Handle), String> {
     let (kind, speed) = parse(port)?;
     // Arranca referenciada y sin alarma: una máquina lista para trabajar.
     let (mut vm, handle) = VirtualMachine::builder((kind.profile)())
@@ -99,7 +105,7 @@ pub fn open(port: &str) -> Result<(Box<dyn Transport>, Handle), String> {
     // Como al abrir un puerto real: el saludo del arranque se descarta.
     vm.clear_input()
         .map_err(|e| format!("No se pudo preparar la máquina virtual: {e}"))?;
-    Ok((Box::new(vm), handle))
+    Ok((vm, handle))
 }
 
 /// Falla de la interfaz -> falla del emulador, inmediata.

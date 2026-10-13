@@ -5,7 +5,7 @@ import type { TangentCircle } from '@/api/types';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { fmt } from '@/lib/platform';
-import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { Dialog, Footer } from './Dialog';
 import { DesignPreview } from './DesignPreview';
@@ -72,7 +72,6 @@ export function TangentDialog() {
       if (!next.delete(i)) next.add(i);
       return next;
     });
-  const mm = t('arrange.dlg.mm');
 
   return (
     <Dialog
@@ -84,7 +83,7 @@ export function TangentDialog() {
     >
       <div className="ar-cols">
         <div className="ar-form">
-          <NumberField label={t('design.tangent.radius')} value={radius} min={0.01} max={100000} step={1} unit={mm} disabled={three} onCommit={setRadius} />
+          <LengthField label={t('design.tangent.radius')} value={radius} min={0.01} max={100000} step={1} disabled={three} onCommit={setRadius} />
           <p className="hint">{t(three ? 'design.tangent.hintThree' : 'design.tangent.hintTwo')}</p>
           {circles.length > 0 && (
             <fieldset className="ar-group">

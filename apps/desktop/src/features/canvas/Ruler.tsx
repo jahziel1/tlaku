@@ -1,7 +1,7 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { t } from '@/i18n';
 import { formatTick, gridSteps } from '@/lib/viewport';
-import { useStore } from '@/store';
+import { usePref, useStore } from '@/store';
 import { createRulerDrag } from './guideTool';
 import { useGuideUi } from './guides';
 
@@ -20,7 +20,7 @@ function cssVar(name: string): string {
 }
 
 /**
- * Regla en mm. Se dibuja sola a partir del store (zoom, paneo, cursor y tema). Arrastrar desde ella
+ * Regla en mm o en pulgadas (décimas), según las preferencias. Se dibuja sola a partir del store (zoom, paneo, cursor y tema). Arrastrar desde ella
  * hacia el lienzo crea una guía (la regla de arriba crea guías horizontales; la de la izquierda,
  * verticales); el doble clic abre el diálogo de guías.
  */
@@ -28,6 +28,7 @@ export function Ruler({ axis, length, bedLength }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const drag = useRef<ReturnType<typeof createRulerDrag> | null>(null);
   const pointer = useRef<number | null>(null);
+  const units = usePref('units');
 
   useEffect(() => {
     const canvas = ref.current;
@@ -50,7 +51,7 @@ export function Ruler({ axis, length, bedLength }: Props) {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
 
-      const { minor } = gridSteps(zoom, 8);
+      const { minor } = gridSteps(zoom, 8, units);
       // Posición en px del mm `mm` a lo largo del eje.
       const pos = (mm: number) => (axis === 'x' ? panX + mm * zoom : panY - mm * zoom);
       const lo = axis === 'x' ? (0 - panX) / zoom : (panY - h) / zoom;
@@ -77,7 +78,7 @@ export function Ruler({ axis, length, bedLength }: Props) {
           ctx.moveTo(w, p);
           ctx.lineTo(w - len, p);
         }
-        if (major) labels.push([formatTick(i * minor), p]);
+        if (major) labels.push([formatTick(i * minor, units), p]);
       }
       ctx.stroke();
       for (const [text, p] of labels) {
@@ -111,7 +112,7 @@ export function Ruler({ axis, length, bedLength }: Props) {
     return useStore.subscribe((s, prev) => {
       if (s.zoom !== prev.zoom || s.panX !== prev.panX || s.panY !== prev.panY || s.cursor !== prev.cursor || s.theme !== prev.theme) draw();
     });
-  }, [axis, length, bedLength]);
+  }, [axis, length, bedLength, units]);
 
   const rect = () => ref.current!.getBoundingClientRect();
   const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {

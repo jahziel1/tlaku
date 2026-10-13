@@ -14,7 +14,9 @@ mod job;
 mod layer;
 mod machine;
 mod materials;
+mod ruida;
 mod text;
+mod virtual_array;
 
 pub use cut::{
     CutThrough, DotMode, FillGrouping, Guide, GuideAxis, Lead, LeadKind, Optimization, Perforation,
@@ -42,7 +44,9 @@ pub use materials::{
     MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialPreset, MaterialTestParams, TestAxis,
     TestParam,
 };
+pub use ruida::{RuidaFile, RuidaInfo};
 pub use text::{TextAlign, TextObject, TextOnPath};
+pub use virtual_array::MAX_VIRTUAL_COPIES;
 
 #[cfg(test)]
 mod tests;

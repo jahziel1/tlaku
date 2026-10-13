@@ -507,6 +507,10 @@ fn open_transport(port: &str, baud: u32) -> io::Result<Box<dyn Transport>> {
         let (vm, _handle) = VirtualMachine::new(virtual_profile(id));
         return Ok(Box::new(vm));
     }
+    if crate::netlink::is_network(port) {
+        // Dirección de red (`tcp://`, `ws://`): el error ya viene explicado en español.
+        return crate::netlink::open_endpoint(port).map_err(io::Error::other);
+    }
     Ok(Box::new(SerialTransport::open(port, baud)?))
 }
 
@@ -515,7 +519,11 @@ pub fn probe(port: &str, baud: u32, timing: &ProbeTiming) -> Result<ProbeResult,
     if baud == 0 {
         return Err("Los baudios deben ser mayores que 0.".into());
     }
+    let network = crate::netlink::is_network(port);
     let mut transport = open_transport(port, baud).map_err(|e| {
+        if network {
+            return e.to_string();
+        }
         format!(
             "No se pudo abrir {port}: {e}. Revisa el cable, que la máquina esté encendida y que \
              ningún otro programa use el puerto."
@@ -528,9 +536,20 @@ pub fn probe(port: &str, baud: u32, timing: &ProbeTiming) -> Result<ProbeResult,
 /// Comando de Tauri: ver [`probe`]. Corre en un hilo aparte porque espera a la placa.
 #[tauri::command]
 pub async fn probe_port(port: String, baud: u32) -> Result<ProbeResult, String> {
-    tauri::async_runtime::spawn_blocking(move || probe(&port, baud, &ProbeTiming::default()))
-        .await
-        .map_err(|e| format!("La detección se interrumpió: {e}"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        // Por red no hay reinicio de la placa: basta una espera corta del saludo.
+        let timing = if crate::netlink::is_network(&port) {
+            ProbeTiming {
+                banner_first: Duration::from_millis(800),
+                ..ProbeTiming::default()
+            }
+        } else {
+            ProbeTiming::default()
+        };
+        probe(&port, baud, &timing)
+    })
+    .await
+    .map_err(|e| format!("La detección se interrumpió: {e}"))?
 }
 
 #[cfg(test)]

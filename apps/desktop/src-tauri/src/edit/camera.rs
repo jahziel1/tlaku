@@ -14,8 +14,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use tlaku_camera::{
-    CalibrationReport, DetectOptions, HeightModel, HeightSample, Homography, ImageToBed,
-    LensCalibration, MarkLayout, MarksReport, detect_marks, find_chessboard, fit_height_model,
+    CalibrationOptions, CalibrationReport, CircleFit, CircleHint, DetectOptions, HeightModel,
+    HeightSample, Homography, ImageToBed, LensCalibration, LensModelChoice, MarkLayout,
+    MarksReport, MosaicOptions, Tile, detect_circle, detect_marks, find_chessboard,
+    fit_height_model,
 };
 use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Point, Polyline, Rgb};
@@ -64,10 +66,21 @@ pub fn run_detect_board(image_b64: &str, board: [u32; 2]) -> Result<Option<Vec<[
 }
 
 /// Calibra la lente con varias vistas del tablero (todas del mismo tamaño).
+#[cfg(test)]
 pub fn run_calibrate(
     images_b64: &[String],
     board: [u32; 2],
     square_mm: f64,
+) -> Result<CalibrationReport, String> {
+    run_calibrate_with(images_b64, board, square_mm, LensModelChoice::Auto)
+}
+
+/// Igual que [`run_calibrate`] pero con el modelo de lente fijo o automático.
+pub fn run_calibrate_with(
+    images_b64: &[String],
+    board: [u32; 2],
+    square_mm: f64,
+    model: LensModelChoice,
 ) -> Result<CalibrationReport, String> {
     check_board(board)?;
     if !square_mm.is_finite() || square_mm <= 0.0 {
@@ -81,7 +94,11 @@ pub fn run_calibrate(
         .enumerate()
         .map(|(i, b)| decode_gray(b).map_err(|e| format!("Vista {}: {e}", i + 1)))
         .collect::<Result<Vec<_>, _>>()?;
-    tlaku_camera::calibrate_lens(&images, board, square_mm)
+    let opts = CalibrationOptions {
+        model,
+        ..CalibrationOptions::default()
+    };
+    tlaku_camera::calibrate_lens_with(&images, board, square_mm, &opts)
 }
 
 // La interfaz manda los argumentos en snake_case (`image_png_base64`), como el resto del contrato.
@@ -100,9 +117,15 @@ pub async fn calibrate_lens(
     images_png_base64: Vec<String>,
     board: [u32; 2],
     square_mm: f64,
+    model: Option<LensModelChoice>,
 ) -> Result<CalibrationReport, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_calibrate(&images_png_base64, board, square_mm)
+        run_calibrate_with(
+            &images_png_base64,
+            board,
+            square_mm,
+            model.unwrap_or_default(),
+        )
     })
     .await
     .map_err(blocking_error)?
@@ -299,6 +322,12 @@ pub struct CameraPrefs {
     /// Grosor del material actual (mm sobre la cama): el fondo se corrige a esa altura.
     #[serde(default)]
     pub material_height_mm: f64,
+    /// El fondo se muestra en escala de grises (se ven mejor los trazos del diseño encima).
+    #[serde(default)]
+    pub grayscale: bool,
+    /// Refrescar el fondo al terminar un trabajo.
+    #[serde(default)]
+    pub update_on_job_finish: bool,
 }
 
 impl Default for CameraPrefs {
@@ -311,8 +340,60 @@ impl Default for CameraPrefs {
             opacity: 0.6,
             visible: false,
             material_height_mm: 0.0,
+            grayscale: false,
+            update_on_job_finish: false,
         }
     }
+}
+
+/// Calibración de una cámara montada en el cabezal: cómo se relaciona la imagen corregida con
+/// la posición del láser. El punto de la cama que ve el píxel `p` cuando el láser está en `L` es
+/// `L + offset_mm + px_to_mm * (p - ref_px)` (mm de documento, Y hacia arriba).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HeadCalibration {
+    /// Tamaño (px) de la imagen corregida en que se midió.
+    pub image_size: [u32; 2],
+    /// Píxel de referencia (el centro óptico de la imagen corregida).
+    pub ref_px: [f64; 2],
+    /// Matriz 2x2, por filas, de píxeles a mm (incluye la inversión del eje Y de la imagen).
+    pub px_to_mm: [[f64; 2]; 2],
+    /// Desfase del centro de la imagen respecto del láser (mm).
+    pub offset_mm: [f64; 2],
+    /// Error rms (mm) del ajuste sobre las observaciones.
+    #[serde(default)]
+    pub rms_mm: f64,
+    #[serde(default)]
+    pub observations: u32,
+}
+
+/// Cámara en el cabezal: modo y calibración. Falta la calibración hasta medirla.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HeadCamera {
+    /// La cámara está montada en el cabezal (la imagen se mueve con la máquina).
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub calibration: Option<HeadCalibration>,
+}
+
+fn check_head(h: &HeadCamera) -> Result<(), String> {
+    let Some(c) = &h.calibration else {
+        return Ok(());
+    };
+    let vals = c
+        .ref_px
+        .iter()
+        .chain(c.px_to_mm.iter().flatten())
+        .chain(c.offset_mm.iter())
+        .chain(std::iter::once(&c.rms_mm));
+    if c.image_size[0] == 0 || c.image_size[1] == 0 || vals.into_iter().any(|v| !v.is_finite()) {
+        return Err("La calibración de la cámara del cabezal no es válida.".into());
+    }
+    let det = c.px_to_mm[0][0] * c.px_to_mm[1][1] - c.px_to_mm[0][1] * c.px_to_mm[1][0];
+    if det.abs() < 1e-12 {
+        return Err("La escala de la cámara del cabezal es nula: repite la calibración.".into());
+    }
+    Ok(())
 }
 
 /// Todo lo que sobrevive al reinicio: calibración de lente, alineación y preferencias.
@@ -325,6 +406,9 @@ pub struct CameraSetup {
     pub alignment: Option<CameraAlignment>,
     #[serde(default)]
     pub prefs: CameraPrefs,
+    /// Cámara montada en el cabezal (ola 4).
+    #[serde(default)]
+    pub head: HeadCamera,
 }
 
 impl Default for CameraSetup {
@@ -334,6 +418,7 @@ impl Default for CameraSetup {
             calibration: None,
             alignment: None,
             prefs: CameraPrefs::default(),
+            head: HeadCamera::default(),
         }
     }
 }
@@ -354,7 +439,9 @@ const SAME_HEIGHT_MM: f64 = 0.25;
 fn corrected_camera(c: &LensCalibration, size: [u32; 2]) -> [f64; 4] {
     let sx = f64::from(size[0]) / f64::from(c.width);
     let sy = f64::from(size[1]) / f64::from(c.height);
-    [c.fx * sx, c.fy * sy, sx * (c.cx + 0.5), sy * (c.cy + 0.5)]
+    // La imagen corregida usa la focal por `view_zoom` (1 salvo en ojo de pez).
+    let (zfx, zfy) = c.corrected_focal();
+    [zfx * sx, zfy * sy, sx * (c.cx + 0.5), sy * (c.cy + 0.5)]
 }
 
 /// Modelo de altura de respaldo con una sola alineación y la matriz de la cámara.
@@ -491,6 +578,7 @@ pub fn normalize_setup(mut setup: CameraSetup) -> Result<CameraSetup, String> {
     if let Some(c) = &setup.calibration {
         c.validate()?;
     }
+    check_head(&setup.head)?;
     let calib = setup.calibration.clone();
     if let Some(a) = &mut setup.alignment {
         if a.image_size[0] == 0 || a.image_size[1] == 0 {
@@ -604,6 +692,245 @@ pub fn write_board_file(path: &str, content_b64: &str) -> Result<(), String> {
 #[tauri::command(rename_all = "snake_case")]
 pub async fn save_board_file(path: String, content_base64: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || write_board_file(&path, &content_base64))
+        .await
+        .map_err(blocking_error)?
+}
+
+// ---------------------------------------------------------------------------
+// Imagen de la cama y mosaico de la cámara del cabezal
+// ---------------------------------------------------------------------------
+
+/// Una foto ya corregida de lente con su posición en la cama.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BedTile {
+    pub image_png_base64: String,
+    /// Píxel (origen en el borde de la imagen) -> mm de la cama, por filas.
+    pub to_bed: [[f64; 3]; 3],
+}
+
+/// Imagen compuesta y dónde queda en el documento.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct BedImage {
+    /// Archivo PNG escrito; vacío si no se pidió guardar.
+    pub path: String,
+    pub width_px: u32,
+    pub height_px: u32,
+    /// Tamaño de la imagen en la cama (mm).
+    pub size_mm: [f64; 2],
+    /// Esquina inferior izquierda de la imagen en el documento (mm).
+    pub origin_mm: [f64; 2],
+    /// El proyecto no estaba guardado y el PNG quedó en la carpeta temporal.
+    pub in_temp_dir: bool,
+    /// Fracción de la imagen cubierta por alguna foto (0..1).
+    pub coverage: f64,
+    /// Píxeles por mm de la imagen.
+    pub px_per_mm: f64,
+    /// Vista previa en PNG (base64), reducida a un ancho máximo de 1600 px.
+    pub preview_png_base64: String,
+}
+
+/// Ancho máximo de la vista previa que viaja a la interfaz.
+const PREVIEW_MAX_WIDTH: u32 = 1600;
+/// Resolución por defecto y máxima de la imagen de la cama (px por mm).
+const DEFAULT_PX_PER_MM: f64 = 4.0;
+const MAX_PX_PER_MM: f64 = 20.0;
+
+fn decode_rgb(b64: &str) -> Result<image::RgbImage, String> {
+    let raw = b64.split_once(',').map_or(b64, |(_, rest)| rest).trim();
+    let bytes = STANDARD
+        .decode(raw)
+        .map_err(|e| format!("La imagen no es base64 válido: {e}"))?;
+    Ok(image::load_from_memory(&bytes)
+        .map_err(|e| format!("No se pudo decodificar la imagen: {e}"))?
+        .to_rgb8())
+}
+
+fn encode_png(img: &image::RgbImage) -> Result<Vec<u8>, String> {
+    let mut cur = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut cur, image::ImageFormat::Png)
+        .map_err(|e| format!("No se pudo codificar el PNG: {e}"))?;
+    Ok(cur.into_inner())
+}
+
+/// Primer nombre libre `<stem>-camara-<n>.png` en `dir`.
+fn free_camera_name(dir: &Path, stem: &str) -> PathBuf {
+    let stem: String = stem
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | ' ') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = if stem.trim().is_empty() {
+        "tlaku".to_string()
+    } else {
+        stem
+    };
+    (1..)
+        .map(|n| dir.join(format!("{stem}-camara-{n}.png")))
+        .find(|p| !p.exists())
+        .expect("siempre hay un número libre")
+}
+
+/// Opciones de [`run_compose_bed`].
+#[derive(Debug, Clone)]
+pub struct ComposeArgs {
+    pub bed: [f64; 2],
+    /// Resolución; si es `None` se usa la de la foto (con tope).
+    pub px_per_mm: Option<f64>,
+    pub grayscale: bool,
+    pub feather_px: f64,
+    pub crop_px: f64,
+    /// Rectángulo (mm) `[x0, y0, x1, y1]`; si es `None`, lo que cubren las fotos dentro de la cama.
+    pub rect: Option<[f64; 4]>,
+    pub dir: Option<PathBuf>,
+    pub stem: String,
+    /// Escribir el PNG (si no, solo se devuelve la vista previa).
+    pub save: bool,
+}
+
+/// Compone las fotos en una imagen alineada con la cama y, si se pide, la guarda como PNG.
+pub fn run_compose_bed(tiles: &[BedTile], args: &ComposeArgs) -> Result<BedImage, String> {
+    if tiles.is_empty() {
+        return Err("No hay ninguna foto que componer.".into());
+    }
+    if tiles.len() > 400 {
+        return Err("Son demasiadas fotos (máximo 400).".into());
+    }
+    if !(args.bed[0] > 0.0 && args.bed[1] > 0.0) {
+        return Err("El tamaño de la cama no es válido.".into());
+    }
+    let images = tiles
+        .iter()
+        .enumerate()
+        .map(|(i, t)| decode_rgb(&t.image_png_base64).map_err(|e| format!("Foto {}: {e}", i + 1)))
+        .collect::<Result<Vec<_>, _>>()?;
+    for (i, t) in tiles.iter().enumerate() {
+        if t.to_bed.iter().flatten().any(|v| !v.is_finite()) {
+            return Err(format!("La posición de la foto {} no es válida.", i + 1));
+        }
+    }
+    let refs: Vec<Tile> = images
+        .iter()
+        .zip(tiles)
+        .map(|(image, t)| Tile {
+            image,
+            to_bed: Homography { m: t.to_bed },
+        })
+        .collect();
+    let rect = match args.rect {
+        Some(r) => r,
+        None => tlaku_camera::covered_rect(&refs, args.bed)
+            .ok_or("Ninguna foto cae dentro de la cama: revisa la alineación de la cámara.")?,
+    };
+    let native = refs
+        .iter()
+        .map(tlaku_camera::tile_scale_px_per_mm)
+        .fold(0.0_f64, f64::max);
+    let ppm = args
+        .px_per_mm
+        .unwrap_or_else(|| native.clamp(1.0, DEFAULT_PX_PER_MM.max(native.min(8.0))))
+        .clamp(0.5, MAX_PX_PER_MM);
+    let mut opts = MosaicOptions::new(rect, ppm);
+    opts.feather_px = args.feather_px.max(1.0);
+    opts.crop_px = args.crop_px.max(0.0);
+    let mut mosaic = tlaku_camera::compose(&refs, &opts)?;
+    if args.grayscale {
+        tlaku_camera::to_gray(&mut mosaic.image);
+    }
+    let (width_px, height_px) = mosaic.image.dimensions();
+    let preview = if width_px > PREVIEW_MAX_WIDTH {
+        let h = (u64::from(height_px) * u64::from(PREVIEW_MAX_WIDTH) / u64::from(width_px)).max(1);
+        image::imageops::resize(
+            &mosaic.image,
+            PREVIEW_MAX_WIDTH,
+            h as u32,
+            image::imageops::FilterType::Triangle,
+        )
+    } else {
+        mosaic.image.clone()
+    };
+    let preview_png_base64 = STANDARD.encode(encode_png(&preview)?);
+    let (path, in_temp_dir) = if args.save {
+        let (folder, temp) = match &args.dir {
+            Some(d) if d.is_dir() => (d.clone(), false),
+            _ => (std::env::temp_dir().join("tlaku-camera"), true),
+        };
+        fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
+        let path = free_camera_name(&folder, &args.stem);
+        fs::write(&path, encode_png(&mosaic.image)?)
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+        (path.to_string_lossy().into_owned(), temp)
+    } else {
+        (String::new(), false)
+    };
+    Ok(BedImage {
+        path,
+        width_px,
+        height_px,
+        size_mm: mosaic.size_mm,
+        origin_mm: mosaic.origin_mm,
+        in_temp_dir,
+        coverage: mosaic.coverage,
+        px_per_mm: mosaic.px_per_mm,
+        preview_png_base64,
+    })
+}
+
+#[tauri::command(rename_all = "snake_case")]
+#[allow(clippy::too_many_arguments)]
+pub async fn compose_bed_image(
+    tiles: Vec<BedTile>,
+    bed: [f64; 2],
+    px_per_mm: Option<f64>,
+    grayscale: bool,
+    feather_px: Option<f64>,
+    crop_px: Option<f64>,
+    rect: Option<[f64; 4]>,
+    dir: Option<String>,
+    stem: String,
+    save: bool,
+) -> Result<BedImage, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_compose_bed(
+            &tiles,
+            &ComposeArgs {
+                bed,
+                px_per_mm,
+                grayscale,
+                feather_px: feather_px.unwrap_or(24.0),
+                crop_px: crop_px.unwrap_or(0.0),
+                rect,
+                dir: dir.map(PathBuf::from),
+                stem,
+                save,
+            },
+        )
+    })
+    .await
+    .map_err(blocking_error)?
+}
+
+// ---------------------------------------------------------------------------
+// Buscador de centro
+// ---------------------------------------------------------------------------
+
+/// Busca un círculo en una foto (px de la imagen: origen en el borde). `hint` acota la búsqueda a
+/// un objeto cuando hay varios.
+pub fn run_detect_circle(image_b64: &str, hint: Option<CircleHint>) -> Result<CircleFit, String> {
+    let img = decode_gray(image_b64)?;
+    detect_circle(&img, hint)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn detect_circle_in_image(
+    image_png_base64: String,
+    hint: Option<CircleHint>,
+) -> Result<CircleFit, String> {
+    tauri::async_runtime::spawn_blocking(move || run_detect_circle(&image_png_base64, hint))
         .await
         .map_err(blocking_error)?
 }
@@ -905,6 +1232,9 @@ mod tests {
                 p1: 0.0,
                 p2: 0.0,
                 k3: 0.0,
+                model: tlaku_camera::LensModel::BrownConrady,
+                k4: 0.0,
+                view_zoom: 1.0,
                 rms_error_px: 0.31,
                 views_used: 8,
             }),
@@ -1203,6 +1533,9 @@ mod tests {
             p1: 0.0,
             p2: 0.0,
             k3: 0.0,
+            model: tlaku_camera::LensModel::BrownConrady,
+            k4: 0.0,
+            view_zoom: 1.0,
             rms_error_px: 0.2,
             views_used: 8,
         }
@@ -1361,5 +1694,294 @@ mod tests {
         assert_eq!(s.prefs.material_height_mm, 0.0);
         assert!(s.prefs.visible);
         assert!(!tmp.0.join("camera.json.dañado").exists());
+    }
+
+    // -----------------------------------------------------------------------
+    // Ola 4: ojo de pez, imagen de la cama, cámara del cabezal y buscador de centro
+    // -----------------------------------------------------------------------
+
+    fn rgb_to_b64(img: &image::RgbImage) -> String {
+        let mut buf = Cursor::new(Vec::new());
+        img.write_to(&mut buf, ImageFormat::Png).unwrap();
+        STANDARD.encode(buf.into_inner())
+    }
+
+    /// Foto de 320x240 con un disco claro de 20 px de radio en (200, 100).
+    fn tile_photo() -> image::RgbImage {
+        image::RgbImage::from_fn(320, 240, |x, y| {
+            let inside = (f64::from(x) + 0.5 - 200.0).hypot(f64::from(y) + 0.5 - 100.0) < 20.0;
+            if inside {
+                image::Rgb([250, 240, 230])
+            } else {
+                image::Rgb([(x / 2) as u8, 90, (y / 2) as u8])
+            }
+        })
+    }
+
+    #[test]
+    fn la_imagen_de_la_cama_cae_donde_estaba_y_se_guarda() {
+        let tmp = TempDir::new();
+        fs::create_dir_all(&tmp.0).unwrap();
+        // 320x240 px a 2 px/mm = 160x120 mm con la esquina superior izquierda en (50, 180).
+        let tile = BedTile {
+            image_png_base64: rgb_to_b64(&tile_photo()),
+            to_bed: [[0.5, 0.0, 50.0], [0.0, -0.5, 180.0], [0.0, 0.0, 1.0]],
+        };
+        let args = ComposeArgs {
+            bed: [300.0, 200.0],
+            px_per_mm: Some(2.0),
+            grayscale: false,
+            feather_px: 24.0,
+            crop_px: 0.0,
+            rect: None,
+            dir: Some(tmp.0.clone()),
+            stem: "proyecto".into(),
+            save: true,
+        };
+        let r = run_compose_bed(std::slice::from_ref(&tile), &args).unwrap();
+        assert_eq!((r.width_px, r.height_px), (320, 240));
+        assert!((r.origin_mm[0] - 50.0).abs() < 1e-9 && (r.origin_mm[1] - 60.0).abs() < 1e-9);
+        assert!((r.size_mm[0] - 160.0).abs() < 1e-9 && (r.size_mm[1] - 120.0).abs() < 1e-9);
+        assert!(!r.in_temp_dir && r.path.ends_with("proyecto-camara-1.png"));
+        // El disco (200, 100) px está en (50 + 100, 180 - 50) = (150, 130) mm: en la imagen guardada
+        // cae en la columna 200 y la fila 100, igual que en la foto.
+        let saved = image::open(&r.path).unwrap().to_rgb8();
+        assert_eq!(saved.get_pixel(200, 100).0, [250, 240, 230]);
+        assert!(r.coverage > 0.999 && !r.preview_png_base64.is_empty());
+        // Otro guardado no pisa el primero.
+        let r2 = run_compose_bed(std::slice::from_ref(&tile), &args).unwrap();
+        assert!(r2.path.ends_with("proyecto-camara-2.png"));
+        // En gris, los tres canales coinciden.
+        let g = run_compose_bed(
+            std::slice::from_ref(&tile),
+            &ComposeArgs {
+                grayscale: true,
+                save: false,
+                ..args.clone()
+            },
+        )
+        .unwrap();
+        assert!(g.path.is_empty());
+        let preview = image::load_from_memory(&STANDARD.decode(&g.preview_png_base64).unwrap())
+            .unwrap()
+            .to_rgb8();
+        let p = preview.get_pixel(10, 10).0;
+        assert!(p[0] == p[1] && p[1] == p[2]);
+        // Sin carpeta de proyecto va a la temporal.
+        let t = run_compose_bed(&[tile], &ComposeArgs { dir: None, ..args }).unwrap();
+        assert!(t.in_temp_dir);
+        let _ = fs::remove_file(&t.path);
+    }
+
+    #[test]
+    fn la_imagen_de_la_cama_rechaza_entradas_invalidas() {
+        let base = ComposeArgs {
+            bed: [300.0, 200.0],
+            px_per_mm: None,
+            grayscale: false,
+            feather_px: 24.0,
+            crop_px: 0.0,
+            rect: None,
+            dir: None,
+            stem: "x".into(),
+            save: false,
+        };
+        assert!(
+            run_compose_bed(&[], &base)
+                .unwrap_err()
+                .contains("ninguna foto")
+        );
+        let fuera = BedTile {
+            image_png_base64: rgb_to_b64(&tile_photo()),
+            to_bed: [[0.5, 0.0, 900.0], [0.0, -0.5, 900.0], [0.0, 0.0, 1.0]],
+        };
+        assert!(
+            run_compose_bed(&[fuera], &base)
+                .unwrap_err()
+                .contains("dentro de la cama")
+        );
+        let nan = BedTile {
+            image_png_base64: rgb_to_b64(&tile_photo()),
+            to_bed: [[f64::NAN, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        };
+        assert!(run_compose_bed(&[nan], &base).is_err());
+        let roto = BedTile {
+            image_png_base64: "###".into(),
+            to_bed: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        };
+        assert!(
+            run_compose_bed(&[roto], &base)
+                .unwrap_err()
+                .contains("Foto 1")
+        );
+    }
+
+    #[test]
+    fn detecta_un_circulo_en_una_foto() {
+        let img = GrayImage::from_fn(400, 300, |x, y| {
+            let inside = (f64::from(x) + 0.5 - 180.5).hypot(f64::from(y) + 0.5 - 120.25) < 60.0;
+            image::Luma([if inside { 40 } else { 200 }])
+        });
+        let hint = CircleHint {
+            center: [180.0, 120.0],
+            radius: None,
+        };
+        let f = run_detect_circle(&to_b64(&img), Some(hint)).unwrap();
+        assert!(
+            (f.center[0] - 180.5).abs() < 0.5 && (f.center[1] - 120.25).abs() < 0.5,
+            "{:?}",
+            f.center
+        );
+        assert!((f.radius - 60.0).abs() < 0.7);
+        assert!(f.points.len() >= 30);
+        assert!(
+            run_detect_circle(
+                &to_b64(&GrayImage::from_pixel(100, 100, image::Luma([90]))),
+                None
+            )
+            .is_err()
+        );
+    }
+
+    fn head_calibration() -> HeadCalibration {
+        HeadCalibration {
+            image_size: [W, H],
+            ref_px: [320.0, 240.0],
+            px_to_mm: [[0.1, 0.0], [0.0, -0.1]],
+            offset_mm: [12.5, -30.0],
+            rms_mm: 0.05,
+            observations: 4,
+        }
+    }
+
+    #[test]
+    fn la_camara_del_cabezal_y_los_ajustes_nuevos_sobreviven_al_reinicio() {
+        let tmp = TempDir::new();
+        let mut s = sample_setup();
+        s.head = HeadCamera {
+            enabled: true,
+            calibration: Some(head_calibration()),
+        };
+        s.prefs.grayscale = true;
+        s.prefs.update_on_job_finish = true;
+        s.calibration.as_mut().unwrap().model = tlaku_camera::LensModel::Fisheye;
+        s.calibration.as_mut().unwrap().k4 = 0.002;
+        s.calibration.as_mut().unwrap().view_zoom = 0.6;
+        let saved = store_setup(&tmp.0, s).unwrap();
+        let loaded = load_setup(&tmp.0).unwrap();
+        assert_eq!(loaded, saved);
+        assert!(loaded.head.enabled && loaded.prefs.grayscale && loaded.prefs.update_on_job_finish);
+        assert_eq!(
+            loaded.calibration.unwrap().model,
+            tlaku_camera::LensModel::Fisheye
+        );
+        // Calibración de cabezal inválida: se rechaza al guardar.
+        let mut bad = sample_setup();
+        let mut c = head_calibration();
+        c.px_to_mm = [[0.0, 0.0], [0.0, 0.0]];
+        bad.head.calibration = Some(c);
+        assert!(store_setup(&tmp.0, bad).unwrap_err().contains("escala"));
+        let mut bad = sample_setup();
+        let mut c = head_calibration();
+        c.offset_mm[0] = f64::INFINITY;
+        bad.head.calibration = Some(c);
+        assert!(store_setup(&tmp.0, bad).is_err());
+    }
+
+    #[test]
+    fn un_camera_json_de_antes_de_la_ola_4_se_lee_igual() {
+        let tmp = TempDir::new();
+        fs::create_dir_all(&tmp.0).unwrap();
+        let old = r#"{"version":1,
+          "calibration":{"width":640,"height":480,"fx":620.0,"fy":625.0,"cx":320.0,"cy":240.0,
+            "k1":-0.12,"k2":0.01,"p1":0.0,"p2":0.0,"k3":0.0,"rms_error_px":0.31,"views_used":8},
+          "alignment":null,
+          "prefs":{"device_id":null,"device_label":null,"width":null,"height":null,"opacity":0.5,"visible":true}}"#;
+        fs::write(setup_file(&tmp.0), old).unwrap();
+        let loaded = load_setup(&tmp.0).unwrap();
+        let c = loaded
+            .calibration
+            .expect("la calibración vieja se conserva");
+        assert_eq!(c.model, tlaku_camera::LensModel::BrownConrady);
+        assert_eq!((c.k4, c.view_zoom), (0.0, 1.0));
+        assert!(!loaded.head.enabled && loaded.head.calibration.is_none());
+        assert!(!loaded.prefs.grayscale && loaded.prefs.visible);
+        assert!(!tmp.0.join("camera.json.dañado").exists());
+    }
+
+    #[test]
+    fn la_altura_con_ojo_de_pez_usa_la_focal_de_la_imagen_corregida() {
+        let mut lens = lens_for_k();
+        let plain = corrected_camera(&lens, [W, H]);
+        lens.view_zoom = 0.5;
+        let zoomed = corrected_camera(&lens, [W, H]);
+        assert!((zoomed[0] - 0.5 * plain[0]).abs() < 1e-9 && (zoomed[2] - plain[2]).abs() < 1e-9);
+    }
+
+    #[test]
+    fn calibra_un_ojo_de_pez_sintetico_y_elige_el_modelo() {
+        use tlaku_camera::LensModelChoice;
+        // Cámara de ojo de pez (KB) con un tablero en perspectiva, sin renderizar: se proyectan
+        // las esquinas y se calibra por el motor con el modelo automático.
+        let cam = LensCalibration {
+            width: W,
+            height: H,
+            fx: 330.0,
+            fy: 331.0,
+            cx: 321.0,
+            cy: 241.0,
+            k1: -0.04,
+            k2: 0.012,
+            p1: 0.0,
+            p2: 0.0,
+            k3: 0.0,
+            model: tlaku_camera::LensModel::Fisheye,
+            k4: 0.0,
+            view_zoom: 1.0,
+            rms_error_px: 0.0,
+            views_used: 0,
+        };
+        let specs = [
+            ((20.0, -15.0, 8.0), (-60.0, -30.0, 300.0)),
+            ((-25.0, 12.0, -10.0), (70.0, 40.0, 310.0)),
+            ((8.0, 30.0, 20.0), (0.0, 0.0, 330.0)),
+            ((-15.0, -25.0, 95.0), (-150.0, 50.0, 250.0)),
+            ((30.0, 5.0, -35.0), (160.0, -90.0, 270.0)),
+            ((-30.0, 25.0, 10.0), (-160.0, -110.0, 260.0)),
+            ((12.0, -30.0, 4.0), (150.0, 100.0, 250.0)),
+            ((0.0, 8.0, -6.0), (0.0, 10.0, 320.0)),
+        ];
+        let views: Vec<Vec<Point>> = specs
+            .iter()
+            .map(|&(d, c)| {
+                let p = pose(d, c);
+                let mut v = Vec::new();
+                for j in 0..BOARD[1] {
+                    for i in 0..BOARD[0] {
+                        let (x, y) = (f64::from(i) * SQ, f64::from(j) * SQ);
+                        let q = |r: usize| p.r[r][0] * x + p.r[r][1] * y + p.t[r];
+                        let (xd, yd) = cam.distort_normalized(q(0) / q(2), q(1) / q(2));
+                        v.push(Point::new(cam.fx * xd + cam.cx, cam.fy * yd + cam.cy));
+                    }
+                }
+                v
+            })
+            .collect();
+        let opts = CalibrationOptions {
+            model: LensModelChoice::Auto,
+            ..CalibrationOptions::default()
+        };
+        let rep = tlaku_camera::calibrate_views(&views, BOARD, SQ, (W, H), &opts).unwrap();
+        assert_eq!(
+            rep.calibration.model,
+            tlaku_camera::LensModel::Fisheye,
+            "{:?}",
+            rep.model_scores
+        );
+        assert!(rep.calibration.rms_error_px < 0.05);
+        // El informe viaja a la interfaz con el puntaje de cada modelo.
+        let json = serde_json::to_value(&rep).unwrap();
+        assert_eq!(json["calibration"]["model"], "fisheye");
+        assert!(json["model_scores"].as_array().unwrap().len() == 2);
     }
 }

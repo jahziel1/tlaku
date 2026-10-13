@@ -177,7 +177,7 @@ export const design = {
   'design.virtual.preview': 'Vista previa',
   'design.virtual.previewLabel': 'Vista previa del arreglo virtual: el objeto resaltado y las copias en línea tenue',
   'design.virtual.summary': '{count} piezas (copias virtuales: {extra})',
-  'design.virtual.object': 'Objeto de {w} × {h} mm',
+  'design.virtual.object': 'Objeto de {size}',
   'design.virtual.err.single': 'El arreglo tiene una sola pieza: aumenta las columnas, las filas o las copias.',
   'design.virtual.err.counts': 'Las columnas, las filas y las copias deben ser números enteros de al menos 1.',
   'design.virtual.err.tooMany': 'Son demasiadas piezas; el máximo es {max}.',

@@ -10,6 +10,7 @@ import { entrySources, type CatalogEntry, type Fact } from './catalog';
 import type { CompareField, Comparison, CompareRow } from './compare';
 import type { RankedEntry } from './filter';
 import type { BuiltProfile, Provenance, ProfileField } from './profile';
+import { RuidaHostField } from './RuidaHostField';
 
 // ---------------------------------------------------------------------------
 // Utilidades de presentación
@@ -375,6 +376,9 @@ export interface SaveStepProps {
   name: string;
   onName: (name: string) => void;
   built: BuiltProfile;
+  /** Solo con Ruida: la IP de la controladora, escrita a mano. */
+  host?: string;
+  onHost?: (host: string) => void;
 }
 
 const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
@@ -383,7 +387,7 @@ const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
   default: 'catalog.save.fromDefault',
 };
 
-export function SaveStep({ name, onName, built }: SaveStepProps) {
+export function SaveStep({ name, onName, built, host = '', onHost }: SaveStepProps) {
   const id = useId();
   const { profile: d, provenance } = built;
   const empty = name.trim() === '';
@@ -394,7 +398,7 @@ export function SaveStep({ name, onName, built }: SaveStepProps) {
     ['s_max', 'catalog.field.s_max', showValue(d.s_max)],
     ['baud', 'catalog.detect.baud', String(d.baud)],
     ['origin', 'catalog.fact.origin', t(`catalog.origin.${d.origin}`)],
-  ];
+  ].filter(([f]) => !(d.kind === 'ruida' && (f === 'baud' || f === 's_max'))) as [ProfileField, I18nKey, string][];
   const hasDefaults = rows.some(([f]) => provenance[f] === 'default');
   return (
     <div className="dev-step">
@@ -405,6 +409,7 @@ export function SaveStep({ name, onName, built }: SaveStepProps) {
           {empty ? t('catalog.save.nameRequired') : t('catalog.save.nameHelp')}
         </p>
       </div>
+      {d.kind === 'ruida' && onHost && <RuidaHostField host={host} onHost={onHost} />}
       <section aria-label={t('catalog.save.summary')}>
         <h3 className="mc-sub">{t('catalog.save.summary')}</h3>
         <p className="hint">{t('catalog.save.kind')}: {kindLabel(d.kind)}</p>

@@ -21,7 +21,7 @@ describe('LayerEditor por modo', () => {
 
   it('line con puentes: ancho, cantidad, separación y formas interiores', () => {
     const h = html({ tabs: { ...DEFAULT_TAB_SETTINGS, enabled: true } });
-    for (const label of ['Ancho del puente', 'Cantidad', 'Separación', 'Omitir formas interiores']) expect(h).toContain(label);
+    for (const label of ['Ancho del puente', 'Cantidad', 'Separación', 'Potencia en puentes (%)', 'Omitir formas interiores']) expect(h).toContain(label);
     expect(h).toContain('4 puentes por forma cerrada');
   });
 

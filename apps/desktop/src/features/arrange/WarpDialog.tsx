@@ -4,6 +4,7 @@ import type { DesignObject, Point } from '@/api/types';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { Dialog, Footer } from './Dialog';
 import { DesignPreview, type Outline } from './DesignPreview';
@@ -70,7 +71,6 @@ export function WarpDialog() {
   const apply = async () => {
     if (await runWarp(useStore.getState(), params)) close();
   };
-  const mm = t('arrange.dlg.mm');
   const setCorner = (i: number, axis: 0 | 1, v: number) => {
     const corners = params.corners.map((c) => [...c] as Point) as WarpParams['corners'];
     corners[i]![axis] = v;
@@ -113,15 +113,15 @@ export function WarpDialog() {
             <div className="dg-grid4">
               {CORNER_KEYS.map((k, i) => (
                 <div key={k} className="field-grid">
-                  <NumberField label={t(`design.warp.corner.${k}.x`)} value={params.corners[i]![0]} step={0.5} unit={mm} onCommit={(v) => setCorner(i, 0, v)} />
-                  <NumberField label={t(`design.warp.corner.${k}.y`)} value={params.corners[i]![1]} step={0.5} unit={mm} onCommit={(v) => setCorner(i, 1, v)} />
+                  <LengthField label={t(`design.warp.corner.${k}.x`)} value={params.corners[i]![0]} step={0.5} onCommit={(v) => setCorner(i, 0, v)} />
+                  <LengthField label={t(`design.warp.corner.${k}.y`)} value={params.corners[i]![1]} step={0.5} onCommit={(v) => setCorner(i, 1, v)} />
                 </div>
               ))}
             </div>
             <p className="hint">{t('design.warp.bulgeHint')}</p>
             <div className="dg-grid4">
               {EDGE_KEYS.map((k, i) => (
-                <NumberField key={k} label={t(`design.warp.bulge.${k}`)} value={params.bulge[i]!} step={0.5} unit={mm} onCommit={(v) => setBulge(i, v)} />
+                <LengthField key={k} label={t(`design.warp.bulge.${k}`)} value={params.bulge[i]!} step={0.5} onCommit={(v) => setBulge(i, v)} />
               ))}
             </div>
           </details>

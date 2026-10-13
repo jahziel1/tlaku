@@ -35,6 +35,7 @@ pub mod mem {
     pub const POS_Y: u16 = 0x231;
     pub const BED_X: u16 = 0x026;
     pub const BED_Y: u16 = 0x036;
+    pub const DOC_COUNT: u16 = 0x205;
 }
 
 /// Bits del estado de la máquina (`0x200`), de ruida-pa y MeerK40t (MIT, RDC6442S).
@@ -135,18 +136,45 @@ pub struct Emulator {
     pub jogs: Vec<Command>,
     /// Comandos que no se pudieron decodificar.
     pub decode_errors: usize,
+    /// Valores de memoria que contesta el emulador además de los de estado y posición (ajustes y
+    /// contadores). Se pueden cambiar desde las pruebas.
+    pub mem: std::collections::BTreeMap<u16, u64>,
 }
 
 impl Emulator {
     pub fn new(cfg: EmuConfig) -> Self {
+        // Valores de ejemplo de una RDC6442S (los del emulador de MeerK40t donde existen):
+        // velocidades en µm/s, aceleración en µm/s², tiempos en s y recorrido en m.
+        let mem = [
+            (0x005, 200_000),
+            (0x00C, 20_000),
+            (0x023, 400_000),
+            (0x033, 400_000),
+            (0x025, 3_000_000),
+            (0x035, 3_000_000),
+            (0x201, 7_200),
+            (0x202, 3_600),
+            (0x203, 42),
+            (0x211, 1_800),
+            (0x223, 120),
+            (0x233, 95),
+        ]
+        .into_iter()
+        .collect();
         Emulator {
             cfg,
+            mem,
             ..Default::default()
         }
     }
 
     pub fn config(&self) -> &EmuConfig {
         &self.cfg
+    }
+
+    /// Cambia los fallos a propósito en caliente (para probar qué pasa a mitad de un trabajo).
+    pub fn set_faults(&mut self, faults: EmuFaults) {
+        self.cfg.faults = faults;
     }
 
     fn wire(&self, r: Response) -> Vec<u8> {
@@ -229,7 +257,8 @@ impl Emulator {
             mem::POS_Y => wrap35(self.pos_um.1),
             mem::BED_X => wrap35(self.cfg.bed_um[0]),
             mem::BED_Y => wrap35(self.cfg.bed_um[1]),
-            _ => 0,
+            mem::DOC_COUNT => self.stored.len() as u64,
+            _ => self.mem.get(&addr).copied().unwrap_or(0),
         }
     }
 
@@ -256,6 +285,17 @@ impl Emulator {
                 // `E8 02`: lo que sigue es un documento que se guarda, no un trabajo.
                 Command::Unknown { op: 0xE8, data } if data == [0x02] => {
                     self.transfer = Some(None);
+                }
+                // `E8 01 n`: nombre del documento n (1 en adelante). Contesta `E8 01 n nombre\0`
+                // (formato del emulador de MeerK40t; sin verificar en una máquina real).
+                Command::Unknown { op: 0xE8, data } if data.len() == 3 && data[0] == 0x01 => {
+                    let n = (usize::from(data[1]) << 7) | usize::from(data[2]);
+                    if let Some(doc) = n.checked_sub(1).and_then(|i| self.stored.get(i)) {
+                        let mut reply = vec![0xE8, 0x01, data[1], data[2]];
+                        reply.extend(doc.name.bytes());
+                        reply.push(0);
+                        replies.push(self.cfg.packets.magic.swizzle_all(&reply));
+                    }
                 }
                 Command::FileName(name) if self.transfer.is_some() => {
                     // El documento guardado empieza después del nombre.

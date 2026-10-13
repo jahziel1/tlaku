@@ -99,7 +99,7 @@ fn gradient_grayscale() {
             overscan_mm: 1.5,
             ..Default::default()
         },
-        Sampling::PassThrough,
+        Sampling::Interval(0.25),
     );
 }
 

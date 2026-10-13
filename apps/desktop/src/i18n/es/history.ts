@@ -74,7 +74,7 @@ export const history = {
   'history.doc.unsaved': 'Sin guardar',
   'history.status.objects': '{n} objetos',
   'history.status.objectOne': '1 objeto',
-  'history.status.size': 'Tamaño de la selección: {w} × {h} mm',
+  'history.status.size': 'Tamaño de la selección: {size}',
   'history.status.saved': 'Todo guardado',
   'history.status.shortcuts': 'Atajos de teclado',
 

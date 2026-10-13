@@ -101,3 +101,36 @@ function parseNumber(body: string, fractions: boolean): number | null {
 function safeDiv(a: number, b: number): number {
   return b === 0 ? NaN : a / b;
 }
+
+/**
+ * Texto de un valor en mm para un campo que se edita: sin símbolo, con punto decimal y sin ceros
+ * de más. En mm es el número tal cual; en pulgadas, redondeado a diezmilésimas.
+ */
+export function fieldText(mm: number, unit: LengthUnit): string {
+  if (unit === 'mm') return String(mm);
+  const v = Math.round(toDisplay(mm, unit) * 10_000) / 10_000;
+  return String(Object.is(v, -0) ? 0 : v);
+}
+
+const INCH_STEPS = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1];
+
+/**
+ * Paso de las flechas de un campo cuyo paso en mm es `stepMm`, ya en mm: en pulgadas se redondea
+ * a un paso "bonito" (0,02 in en vez de 0,5 mm = 0,0197 in).
+ */
+export function stepInMm(stepMm: number, unit: LengthUnit): number {
+  if (unit === 'mm') return stepMm;
+  const wanted = stepMm / MM_PER_INCH;
+  const nice = INCH_STEPS.reduce((best, s) => (Math.abs(Math.log(s / wanted)) < Math.abs(Math.log(best / wanted)) ? s : best));
+  return fromDisplay(nice, unit);
+}
+
+/**
+ * `ancho × alto unidad` (por ejemplo `40,0 × 20,5 mm`). `digits` son los decimales en mm; en
+ * pulgadas se usa uno más, porque una pulgada es 25 veces mayor.
+ */
+export function formatSize(width: number, height: number, unit: LengthUnit = 'mm', digits = 1): string {
+  const d = unit === 'in' ? (digits === 0 ? 1 : digits + 1) : digits;
+  const one = (mm: number) => formatLength(mm, unit, { digits: d, symbol: false });
+  return `${one(width)} × ${one(height)} ${unitSymbol(unit)}`;
+}

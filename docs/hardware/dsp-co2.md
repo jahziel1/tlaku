@@ -5,7 +5,7 @@ Investigación para Tlaku (sala limpia). Fecha de consulta: 2026-10-13. Ruida se
 ## 0. Método y límites
 
 - Solo se leyeron descripciones en prosa o tablas: wikis, foros, blog y documentación de LightBurn, tutoriales de distribuidores y manuales.
-- **No se leyó código fuente** de implementaciones existentes. Existen y quedan anotadas como "existe, no leída": K40 Whisperer (GPL), MeerK40t (GPL, incluye `lhystudios`, `moshi` y emulación Ruida), `k40nano` (PyPI), `richard-sim/mpc05ls`, `dumpmol` (London Hackerspace), `pointless.net/hg/mpc6515`.
+- **No se leyó código fuente** de implementaciones existentes. Existen y quedan anotadas como "existe, no leída": K40 Whisperer (GPL), MeerK40t (MIT; verificado después en su LICENSE, incluye `lhystudios`, `moshi` y emulación Ruida), `k40nano` (PyPI), `richard-sim/mpc05ls`, `dumpmol` (London Hackerspace), `pointless.net/hg/mpc6515`.
 - Aviso de procedencia: la wiki de EduTechWiki sobre M2 Nano y Moshiboard resume ingeniería inversa hecha principalmente por el proyecto MeerK40t. Los hechos de protocolo (bytes, comandos, IDs) no son código, pero conviene documentarlos como "observados en la wiki" y validarlos con capturas propias de hardware real o de LaserDRW antes de fiarse.
 - Lo que **no se encontró públicamente**: protocolo de Trocen/AWC, formato UD5, protocolo de TopWisdom, formato `.OUT`, y un manual de usuario de AWC708C. Todo esto está cerrado y solo LightBurn lo implementa (código no público).
 
@@ -76,7 +76,7 @@ Investigación para Tlaku (sala limpia). Fecha de consulta: 2026-10-13. Ruida se
 
 ### Popularidad
 - Es con diferencia la placa más extendida en láseres chinos baratos de 40 W (K40). LightBurn **no** la soporta ("genuinely not a supported controller"; la DSP no ayuda; incluso han reembolsado licencias): https://forum.lightburnsoftware.com/t/laser-not-supported/25768 y https://forum.lightburnsoftware.com/t/laser-not-available-after-using-find-my-laser/8531. LightBurn detecta la placa pero muestra "(Not Supported)".
-- Las alternativas de la comunidad son K40 Whisperer (GPL) y MeerK40t (GPL), ambos de código abierto. Detalles de uso en prosa: https://www.scorchworks.com/K40whisperer/k40whisperer.html.
+- Las alternativas de la comunidad son K40 Whisperer (GPL) y MeerK40t (MIT), ambos de código abierto. Detalles de uso en prosa: https://www.scorchworks.com/K40whisperer/k40whisperer.html.
 
 ### Transporte
 - USB: puente **CH341A/B en modo paralelo EPP 1.9** conectado a un MCU tipo 8051 (LHY730318). VID 0x1A86, PID 0x5512; lectura por el endpoint 0x82 y escritura por 0x02 (https://EduTechWiki.unige.ch/en/Lhystudios_M2_Nano).
@@ -100,7 +100,7 @@ Todo proviene de https://EduTechWiki.unige.ch/en/Lhystudios_M2_Nano y https://fo
 
 ### Viabilidad sin hardware
 - **Media-alta.** Es el único protocolo de este informe con descripción pública suficiente en prosa. Se puede construir un emisor de LHYMICRO-GL y un **simulador de placa** (CH341 falso + intérprete de 12 estados) para pruebas de regresión sin hardware: paquetes, CRC y estados 206/238/207/236 están descritos. El punto débil son las ecuaciones de velocidad (diferencias de ~8.9 % entre placas y el software chino) y el comportamiento de rampa. Riesgo: eso se prueba bien solo con una máquina real; con una mala velocidad no hay daño, pero con el láser siempre hay riesgo físico (por ejemplo láser encendido durante una pausa o un choque contra el final de carrera), por lo que el primer despliegue debe ser con rampas conservadoras y detección de fallo ("fail-safe" a láser apagado ante error de CRC o desconexión).
-- Se recomienda **no leer** el código GPL de Whisperer ni de MeerK40t, y obtener por medios propios: (a) un K40 barato para capturar con Wireshark/usbmon la salida de LaserDRW, o (b) el simulador anterior.
+- Nota posterior: MeerK40t es MIT y el driver de Tlaku (`tlaku-lhymicro`) se apoyó en él con crédito en THIRD_PARTY.md. Whisperer es GPL: no se copió. Para validar sigue siendo útil obtener por medios propios: (a) un K40 barato para capturar con Wireshark/usbmon la salida de LaserDRW, o (b) el simulador anterior.
 
 ## 5. Moshiboard / MoshiDraw
 

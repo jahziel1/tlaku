@@ -25,7 +25,7 @@ Qué firmware entiende Tlaku, en qué estado está cada uno y qué dialecto de G
 | GRBL antiguo (1.1e o anterior, solo `M3`) | GRBL antiguo (sin M4) | Por validar con máquina real | Sin máquina virtual propia. Potencia constante; `G0` no apaga el rayo, así que Tlaku escribe `S0` en los desplazamientos. |
 | GRBL-LPC (Cohesion3D) | GRBL-LPC / Cohesion3D | Por validar con máquina real | Sin máquina virtual propia en la lista de la app. S de 0 a 1. |
 | G-code propio | G-code personalizado | Por validar con máquina real | Tú escribes el dialecto; parte del de GRBL 1.1. |
-| Ruida (CO2 de caja con pantalla) | no es un tipo de perfil | **Experimental, solo CLI** | Ver más abajo. |
+| Ruida (CO2 de caja con pantalla) | Ruida (CO2, por red; experimental) | **Experimental, sin máquina real** | Por red (UDP) con la IP en el perfil. Hay máquina virtual **Ruida (CO2)**. Ver más abajo. |
 | K40 con placa M2 Nano | — | **No soportada** | Con la placa cambiada a GRBL-LPC o Smoothie sí funciona como esas familias. |
 | Galvo (fibra, UV, CO2 galvo; EZCAD) | — | **No soportada** | |
 | Trocen, TopWisdom | — | **No soportada** | |
@@ -33,15 +33,18 @@ Qué firmware entiende Tlaku, en qué estado está cada uno y qué dialecto de G
 
 Las máquinas virtuales que ofrece la app son seis: **Falcon2 Pro**, **GRBL 1.1**, **grblHAL**, **FluidNC**, **Marlin** y **Smoothieware**. Ver [Conectar tu máquina](08-conectar-maquina.md).
 
-## Ruida: experimental y solo por línea de comandos
+## Ruida: experimental
 
-Tlaku puede escribir archivos `.rd` y hablar con una Ruida por red desde el programa `tlaku`, pero:
+Tlaku habla con una controladora Ruida por red desde la app y desde el programa `tlaku`. Está marcado **EXPERIMENTAL**: se probó contra un emulador, **no con una máquina real**. Pruébalo primero con el láser deshabilitado o a potencia 0.
 
-- Está marcado **EXPERIMENTAL** en el propio programa: no se probó con ninguna máquina real.
-- No aparece en el asistente **Agregar máquina** ni en el panel de la máquina.
-- Los subcomandos son `tlaku ruida export-rd` (guardar el archivo), `tlaku ruida send` (enviar por UDP) y `tlaku ruida status` (leer el estado, solo lectura).
-
-Si tienes una Ruida, lo más seguro hoy es seguir usando el software que ya te funciona para ella. Si pruebas `export-rd`, hazlo con el láser deshabilitado o a potencia 0.
+- **Perfil.** En el gestor de máquinas elige el tipo **Ruida (CO2, por red; experimental)** (o ofrécelo desde **Agregar máquina** ▸ «Otro / genérico»). Escribe la **IP** de la controladora (tu equipo debe estar en la misma red /24 y ningún otro programa de láser puede tener abierto el puerto UDP 40200). El **magic** es automático, o lo fijas a mano (0x88 en casi todas). En **Origen** elige la esquina donde la máquina hace su home.
+- **Ejecutar al subir.** Apagado (lo recomendado): el trabajo se **guarda como documento** en la memoria de la controladora y lo inicias desde su panel. Encendido: empieza a ejecutarse en cuanto llega y el láser puede dispararse. El diálogo **Iniciar** dice cuál de los dos pasa.
+- **Conectar** hace una lectura de solo lectura (modelo, tarjeta, magic, cama). Si la cama del perfil no coincide con la de la máquina, no se envía nada hasta corregirla.
+- **Panel Máquina.** Estado y posición, mover el cabezal con el láser apagado, encuadre (siempre con el láser apagado), pausa, reanudar y detener. La sección **Controladora Ruida** lee la información de la máquina (velocidades, aceleración, horas, trabajos, recorrido) y la lista de documentos guardados. Todo es de solo lectura.
+- **Lo que no aplica** (se oculta con el motivo): la consola de G-code, los ajustes en vivo de velocidad y potencia, los ajustes `$` y las macros.
+- **Pendiente a propósito:** escribir ajustes de la controladora, y borrar o ejecutar documentos de su memoria (es riesgoso sin una máquina de pruebas). El rotativo de Ruida se activa en los ajustes de la propia controladora; Tlaku envía la Y en mm de superficie sin escalarla.
+- **Máquina virtual.** **Ruida (CO2)**, al final de la lista de puertos con un perfil Ruida, arranca el emulador y te deja ensayar todo el flujo sin riesgo.
+- Desde la línea de comandos siguen existiendo `tlaku ruida export-rd`, `tlaku ruida send` y `tlaku ruida status`.
 
 ## Marcas del catálogo
 

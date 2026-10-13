@@ -60,6 +60,10 @@ pub struct GcodeOptions {
     /// Un tramo solo en X conserva la F del bloque, y por eso F deja de ser modal solo donde
     /// hay Y.
     pub y_scale: f64,
+    /// Por cada bloque del `Toolpath`, `true` si va con el láser 2. Vacío (o más corto que los
+    /// bloques) = el láser 1. Al cambiar de láser entre bloques se emite `laser1_select` o
+    /// `laser2_select` del dialecto, si lo tiene.
+    pub block_laser2: Vec<bool>,
 }
 
 impl Default for GcodeOptions {
@@ -73,6 +77,7 @@ impl Default for GcodeOptions {
             rapid_feed: None,
             z_invert: false,
             y_scale: 1.0,
+            block_laser2: Vec::new(),
         }
     }
 }
@@ -472,6 +477,14 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
         .iter()
         .filter(|b| !b.moves.is_empty())
         .collect();
+    // El láser de cada bloque que sí se emite (los vacíos se saltan, pero cuentan en el índice).
+    let lasers: Vec<bool> = toolpath
+        .blocks
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| !b.moves.is_empty())
+        .map(|(i, _)| opts.block_laser2.get(i).copied().unwrap_or(false))
+        .collect();
 
     let header = w.comment("Generado por Tlaku");
     w.line(&header);
@@ -488,9 +501,22 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
     }
 
     let mut air_on = false;
-    for block in blocks {
+    let mut laser2 = false;
+    for (i, block) in blocks.iter().enumerate() {
         let label = w.comment(&block.label);
         w.line(&label);
+        let want_laser2 = lasers[i];
+        if want_laser2 != laser2 {
+            let c = if want_laser2 {
+                &d.laser2_select
+            } else {
+                &d.laser1_select
+            };
+            if let Some(c) = c {
+                w.line(c);
+            }
+            laser2 = want_laser2;
+        }
         let next = mode_cmd(d, block.power_mode);
         if next != cmd {
             // S0 deja el láser apagado hasta el siguiente G1 con potencia.
@@ -1006,6 +1032,58 @@ mod tests {
             .map(String::as_str)
             .collect();
         assert_eq!(air, ["M8", "M9", "M8", "M9"]);
+    }
+
+    #[test]
+    fn laser_select_is_emitted_only_when_the_laser_changes() {
+        let mk = |label: &str, x: f64| {
+            block(
+                label,
+                PowerMode::Dynamic,
+                vec![Move::Travel { to: p(x, x) }],
+            )
+        };
+        // El bloque vacío no se emite, pero cuenta en el índice de `block_laser2`.
+        let empty = block("vacío", PowerMode::Dynamic, vec![]);
+        let blocks = vec![
+            mk("A", 1.0),
+            empty,
+            mk("B", 2.0),
+            mk("C", 3.0),
+            mk("D", 4.0),
+        ];
+        let mut opts = GcodeOptions::default();
+        opts.dialect.laser1_select = Some("M114 L1".into());
+        opts.dialect.laser2_select = Some("M114 L2".into());
+        opts.block_laser2 = vec![false, true, true, true, false];
+        let l = gen_lines(blocks.clone(), &opts);
+        let sel: Vec<&str> = l
+            .iter()
+            .filter(|x| x.starts_with("M114"))
+            .map(String::as_str)
+            .collect();
+        // A (láser 1), B y C (láser 2: un solo cambio), D vuelve al 1.
+        assert_eq!(sel, ["M114 L2", "M114 L1"]);
+        let pos = |what: &str| l.iter().position(|x| x == what).unwrap();
+        assert!(pos("M114 L2") > pos("; B") && pos("M114 L2") < pos("; C"));
+        // Sin comandos en el dialecto (o sin capas del láser 2) no se emite nada.
+        let mut none = opts.clone();
+        none.dialect.laser2_select = None;
+        none.dialect.laser1_select = None;
+        assert!(
+            gen_lines(blocks.clone(), &none)
+                .iter()
+                .all(|x| !x.starts_with("M114"))
+        );
+        let all_one = GcodeOptions {
+            block_laser2: Vec::new(),
+            ..opts
+        };
+        assert!(
+            gen_lines(blocks, &all_one)
+                .iter()
+                .all(|x| !x.starts_with("M114"))
+        );
     }
 
     #[test]

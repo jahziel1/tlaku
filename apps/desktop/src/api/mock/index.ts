@@ -4,7 +4,10 @@ import { mockDevices } from './devices';
 import { mockFileio } from './fileio';
 import { mockMaterials } from './materials';
 import { mockNest } from './nest';
+import { mockBundle } from './bundle';
 import { mockPrefs } from './prefs';
+import { mockSettingsBackup } from './settingsBackup';
+import { mockAutomation } from './automation';
 import { mockProbe } from './probe';
 import { mockDesign } from './design';
 import { mockGeometry } from './geometry';
@@ -16,7 +19,7 @@ import { mockVariables } from './variables';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
-import { DEFAULT_MOCK_OPTIONS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
+import { DEFAULT_MOCK_OPTIONS, MOCK_RUIDA_PORT, MOCK_VIRTUAL_NET_PORTS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
 import { sampleDevices, sampleDocument, sampleLayers, sampleObjects } from './sample';
 
 export interface MockApi extends LaserApi {
@@ -86,15 +89,20 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         devices.delete(id);
       }),
 
-    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', ...MOCK_VIRTUAL_PORTS]),
-    connect: ({ port }) => lag(() => ({ firmware: machine.connect(port) })),
+    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', ...MOCK_VIRTUAL_PORTS, ...MOCK_VIRTUAL_NET_PORTS, MOCK_RUIDA_PORT]),
+    connect: ({ port, device }) => lag(() => ({ firmware: machine.connect(port, device?.kind === 'ruida') })),
     disconnect: () => lag(() => machine.disconnect()),
     machineCommand: ({ line }) => lag(() => machine.command(line)),
     machineRealtime: ({ cmd }) => lag(() => machine.realtime(cmd)),
     jog: ({ dx, dy, speed }) => lag(() => machine.jog(dx, dy, [400, 415], speed)),
 
     startJob: ({ doc, device, options: o }) =>
-      lag(() => machine.startJob(mockComputeJob(doc, device, o), device)),
+      lag(() => {
+        const preview = mockComputeJob(doc, device, o);
+        // Ruida guarda el trabajo como documento salvo que el perfil pida ejecutarlo al subir.
+        if (device.kind === 'ruida' && !device.ruida.run_after_upload) return machine.storeDocument();
+        return machine.startJob(preview, device);
+      }),
     pauseJob: () => lag(() => machine.setPaused(true)),
     resumeJob: () => lag(() => machine.setPaused(false)),
     cancelJob: () => lag(() => machine.cancel()),
@@ -103,8 +111,38 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     frameHull: ({ doc, device, options: o }) =>
       lag(() => machine.frameHull(mockComputeJob(doc, device, o).moves)),
     jogTo: ({ x, y, speed }) => lag(() => machine.jogTo(x, y, [400, 415], speed)),
+    jogAxis: ({ axis, delta, speed }) => lag(() => machine.jogAxis(axis, delta, speed, true)),
+    jogAxisTo: ({ axis, pos, speed }) => lag(() => machine.jogAxis(axis, pos, speed, false)),
+    fireTest: ({ power_pct, s_max, duration_ms }) => lag(() => machine.fire(power_pct, s_max, duration_ms)),
     setOverride: ({ kind, percent }) => lag(() => machine.setOverride(kind, percent)),
     simulateFault: ({ fault }) => lag(() => machine.simulateFault(fault)),
+    ruidaInfo: () =>
+      lag(() => {
+        machine.requireConnection();
+        if (!machine.ruida) throw new Error('Esta función es solo de las controladoras Ruida.');
+        return {
+          model: 'RDC6442S',
+          card_id: '0x65106510',
+          magic: 0x88,
+          bed: [600, 400] as [number, number],
+          rapid_mm_s: 200,
+          home_mm_s: 20,
+          axis_max_mm_s: [400, 400] as [number | null, number | null],
+          axis_accel_mm_s2: [3000, 3000] as [number | null, number | null],
+          total_on_s: 7200,
+          total_work_s: 3600,
+          total_laser_s: 1800,
+          total_jobs: 42,
+          travel_m: [120, 95] as [number | null, number | null],
+          documents: machine.storedDocs.length,
+        };
+      }),
+    ruidaFiles: () =>
+      lag(() => {
+        machine.requireConnection();
+        if (!machine.ruida) throw new Error('Esta función es solo de las controladoras Ruida.');
+        return machine.storedDocs.map((name, i) => ({ index: i + 1, name }));
+      }),
 
     ...mockText(lag),
     ...mockVariables(lag),
@@ -118,9 +156,12 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockCamera(lag),
     ...mockMaterials(lag),
     ...mockProbe(lag),
+    ...mockAutomation(lag),
     ...mockDevices(lag),
     ...mockFileio(lag),
     ...mockPrefs(lag),
+    ...mockSettingsBackup(lag),
+    ...mockBundle(lag),
 
     on: (event, handler) => Promise.resolve(machine.on(event, handler)),
   };

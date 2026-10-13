@@ -120,7 +120,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (!s.snapGrid && !s.snapObjects) return null;
       return {
         tol: snapToleranceMM(s.zoom),
-        grid: s.snapGrid ? gridSteps(s.zoom).minor : null,
+        grid: s.snapGrid ? gridSteps(s.zoom, 7, s.prefs.units).minor : null,
         objects: s.snapObjects,
       };
     };

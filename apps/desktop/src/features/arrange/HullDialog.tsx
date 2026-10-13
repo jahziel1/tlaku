@@ -2,7 +2,7 @@ import { TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
-import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { Check, Choice, Dialog, Footer } from './Dialog';
 import { DesignPreview, type Outline } from './DesignPreview';
@@ -74,7 +74,7 @@ export function HullDialog() {
             ]}
             onChange={(k) => patch({ concave: k === 'concave' })}
           />
-          <NumberField label={t('design.hull.maxEdge')} value={params.maxEdge} min={0.1} max={10000} step={1} unit={t('arrange.dlg.mm')} disabled={!params.concave} onCommit={(maxEdge) => patch({ maxEdge })} />
+          <LengthField label={t('design.hull.maxEdge')} value={params.maxEdge} min={0.1} max={10000} step={1} disabled={!params.concave} onCommit={(maxEdge) => patch({ maxEdge })} />
           <p className="hint">{t('design.hull.maxEdgeHint')}</p>
           <Check label={t('design.hull.keep')} checked={params.keepOriginal} onChange={(keepOriginal) => patch({ keepOriginal })} />
         </div>

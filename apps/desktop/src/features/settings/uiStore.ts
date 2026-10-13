@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
-export type SettingsSection = 'general' | 'editing' | 'appearance' | 'files' | 'shortcuts';
+export type SettingsSection = 'general' | 'editing' | 'appearance' | 'files' | 'automation' | 'shortcuts';
 
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'editing', 'appearance', 'files', 'shortcuts'];
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'editing', 'appearance', 'files', 'automation', 'shortcuts'];
 
 interface SettingsUi {
   open: boolean;

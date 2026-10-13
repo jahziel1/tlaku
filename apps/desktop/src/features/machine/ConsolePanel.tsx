@@ -7,6 +7,8 @@ import { selectFirmwareFamily, type LogEntry } from '@/store/machine';
 import { useCommandConfirm } from './CommandConfirm';
 import { hintRisk, commonPrefix, completions } from './completions';
 import { ConsoleHistory } from './consoleHistory';
+import { RuidaNotApplicable } from './RuidaSection';
+import { selectIsRuida } from './ruidaPorts';
 import { classifyLine } from './consoleExplain';
 import { isStatusReport, type FirmwareFamily } from './grblCodes';
 import './machine.css';
@@ -58,6 +60,8 @@ export function ConsolePanel() {
   const connected = useStore((s) => s.connection.connected);
   const family = useStore(selectFirmwareFamily);
   const jobBusy = useStore((s) => s.jobState === 'running' || s.jobState === 'paused');
+  // Ruida no usa G-code: el registro se ve, pero no se pueden mandar líneas.
+  const ruida = useStore(selectIsRuida);
   const clearLog = useStore((s) => s.clearLog);
   const notify = useStore((s) => s.notify);
   const [line, setLine] = useState('');
@@ -149,14 +153,15 @@ export function ConsolePanel() {
         ))}
       </div>
 
-      {connected && (
+      {ruida && <RuidaNotApplicable reason="ruida.console.reason" />}
+      {connected && !ruida && (
         <div className="mc-quick" role="group" aria-label={t('machine.console.quick')}>
           {QUICK.map((q) => (
             <button key={q} type="button" className="chip num" title={t('machine.console.quickHint', { cmd: q })} onClick={() => submit(q)}>{q}</button>
           ))}
         </div>
       )}
-      {hints.length > 0 && connected && (
+      {hints.length > 0 && connected && !ruida && (
         <ul className="mc-hints" role="listbox" aria-label={t('machine.console.suggestions')}>
           {hints.map((h) => {
             const risk = hintRisk(h);
@@ -188,8 +193,8 @@ export function ConsolePanel() {
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
-          disabled={!connected}
-          placeholder={connected ? t('machine.console.placeholder') : t('reason.needMachine')}
+          disabled={!connected || ruida}
+          placeholder={ruida ? t('ruida.console.reason') : connected ? t('machine.console.placeholder') : t('reason.needMachine')}
           title={connected ? undefined : t('reason.needMachine')}
           onChange={(e) => {
             setLine(e.target.value);
@@ -197,7 +202,7 @@ export function ConsolePanel() {
           }}
           onKeyDown={onKeyDown}
         />
-        <button type="submit" className="btn" disabled={!connected || line.trim() === ''} title={connected ? t('machine.console.sendHint') : t('reason.needMachine')}>
+        <button type="submit" className="btn" disabled={!connected || ruida || line.trim() === ''} title={connected ? t('machine.console.sendHint') : t('reason.needMachine')}>
           {t('machine.console.send')}
         </button>
       </form>

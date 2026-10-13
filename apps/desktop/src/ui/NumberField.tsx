@@ -9,19 +9,30 @@ interface Props {
   step?: number;
   unit?: string;
   disabled?: boolean;
+  /** Lee lo escrito y devuelve el valor, o `null` si no se entiende. Por omisión, un número con coma o punto. */
+  parse?: (text: string) => number | null;
+  /** Texto de un valor. Por omisión, el número tal cual. Debe ser estable (`useCallback`) entre renderizados. */
+  format?: (value: number) => string;
 }
 
+const plain = (text: string): number | null => {
+  const n = Number(text.replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+};
+
 /** Campo numérico que confirma con Enter o al salir; Escape lo revierte. */
-export function NumberField({ label, value, onCommit, min, max, step = 1, unit, disabled }: Props) {
+export function NumberField({ label, value, onCommit, min, max, step = 1, unit, disabled, parse = plain, format }: Props) {
   const id = useId();
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
+  const show = (v: number) => (format ? format(v) : String(v));
+  const [text, setText] = useState(show(value));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `show` solo cambia con `format`
+  useEffect(() => setText(show(value)), [value, format]);
 
   const commit = () => {
-    const n = Number(text.replace(',', '.'));
-    if (!Number.isFinite(n)) return setText(String(value));
+    const n = parse(text);
+    if (n === null) return setText(show(value));
     const clamped = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n));
-    setText(String(clamped));
+    setText(show(clamped));
     if (clamped !== value) onCommit(clamped);
   };
 
@@ -40,12 +51,12 @@ export function NumberField({ label, value, onCommit, min, max, step = 1, unit, 
           onBlur={commit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit();
-            else if (e.key === 'Escape') setText(String(value));
+            else if (e.key === 'Escape') setText(show(value));
             else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
               e.preventDefault();
-              const n = Number(text.replace(',', '.')) || 0;
+              const n = parse(text) ?? 0;
               const next = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n + (e.key === 'ArrowUp' ? step : -step)));
-              setText(String(Math.round(next * 1000) / 1000));
+              setText(format ? format(next) : String(Math.round(next * 1000) / 1000));
             }
           }}
         />

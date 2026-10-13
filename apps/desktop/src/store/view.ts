@@ -1,7 +1,6 @@
 import type { Point } from '@/api/types';
-import { applyAffine, objectBounds, unionBounds, type Bounds } from '@/lib/geometry';
-import { virtualCopies } from '@/lib/virtualArray';
-import type { DesignObject } from '@/api/types';
+import { unionBounds, type Bounds } from '@/lib/geometry';
+import { objectBoundsWithCopies } from '@/lib/virtualArray';
 import { setDockTabHidden } from '@/lib/dockLayout';
 import { readPref, writePref } from '@/lib/platform';
 import { fitBounds, zoomAround } from '@/lib/viewport';
@@ -60,19 +59,7 @@ export interface ViewSlice {
   requestTextFocus: () => void;
 }
 
-/** Caja del objeto y de sus copias virtuales (arreglo virtual): lo que ocupa en el trabajo. */
-export function objectBoundsWithCopies(o: DesignObject): Bounds | null {
-  const own = objectBounds(o);
-  if (!own || !o.array) return own;
-  const [[x0, y0], [x1, y1]] = own;
-  const boxes = virtualCopies(o).map((m): Bounds => {
-    const pts = [applyAffine(m, [x0, y0]), applyAffine(m, [x1, y0]), applyAffine(m, [x1, y1]), applyAffine(m, [x0, y1])];
-    const xs = pts.map((p) => p[0]);
-    const ys = pts.map((p) => p[1]);
-    return [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]];
-  });
-  return unionBounds([own, ...boxes]);
-}
+export { objectBoundsWithCopies };
 
 export const DOCK_MIN = 280;
 export const DOCK_MAX = 520;

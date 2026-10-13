@@ -1,4 +1,5 @@
 import type { DeviceProfile, Point, RotaryKind, RotarySettings, ScanOffset } from '@/api/types';
+import { MAX_MACROS, macroProblem } from '@/features/machine/macros';
 import { t } from '@/i18n';
 
 type GcodeDialect = DeviceProfile['dialect'];
@@ -32,6 +33,8 @@ export const DEFAULT_DIALECT: GcodeDialect = {
   comment: 'semicolon',
   dwell: 'p_seconds',
   max_line_len: 127,
+  laser1_select: null,
+  laser2_select: null,
 };
 
 /** Valores por defecto de los campos de la ola 4 (los mismos que `DeviceProfile::default()`). */
@@ -166,9 +169,10 @@ export type DeviceField =
   | 'roller_diameter'
   | 'object_diameter'
   | 'scan_initial_offset'
-  | 'scan_offsets';
+  | 'scan_offsets'
+  | 'macros';
 
-export type DeviceIssue = 'required' | 'positive' | 'integer' | 'tooBig' | 'tooSmall' | 'duplicate';
+export type DeviceIssue = 'required' | 'positive' | 'integer' | 'tooBig' | 'tooSmall' | 'duplicate' | 'macro';
 
 const pos = (n: number) => Number.isFinite(n) && n > 0;
 
@@ -216,6 +220,8 @@ export function validateDevice(d: DeviceProfile): Partial<Record<DeviceField, De
   const rowIssues = scanOffsetRowIssues(d.scan_offsets ?? []);
   const firstBad = rowIssues.find((i) => i !== null);
   if (firstBad) out.scan_offsets = firstBad;
+  const macros = d.macros ?? [];
+  if (macros.length > MAX_MACROS || macros.some((m) => macroProblem(m, d.rx_buffer) !== null)) out.macros = 'macro';
   return out;
 }
 
@@ -372,7 +378,7 @@ export function parseGrblVersion(firmware: string): { major: number; minor: numb
 // ---------------------------------------------------------------------------
 
 /** Tipos en el orden en que se ofrecen. Los textos salen de `devices.kind.<id>`. */
-export const DEVICE_KINDS: readonly DeviceKind[] = ['grbl', 'grbl_hal', 'fluid_nc', 'grbl_lpc', 'grbl_m3', 'smoothie', 'marlin', 'custom_gcode'];
+export const DEVICE_KINDS: readonly DeviceKind[] = ['grbl', 'grbl_hal', 'fluid_nc', 'grbl_lpc', 'grbl_m3', 'smoothie', 'marlin', 'custom_gcode', 'ruida'];
 
 /**
  * Tipos que la app todavía no sabe enviar a la máquina (solo exportar el G-code). Vaciar este
@@ -472,6 +478,9 @@ export function planKindChange(draft: DeviceProfile, defaults: KindDefaults): Ki
 /** Perfil con el nuevo tipo; con `applyValues` además toma los valores del tipo (ver `planKindChange`). */
 export function applyKindChange(draft: DeviceProfile, defaults: KindDefaults, applyValues: boolean): DeviceProfile {
   const next: DeviceProfile = { ...draft, kind: defaults.kind };
+  // Ruida habla UDP a la IP del perfil; los demás tipos no usan UDP.
+  if (defaults.kind === 'ruida' && draft.connection.type !== 'udp') next.connection = { type: 'udp', host: '' };
+  else if (defaults.kind !== 'ruida' && draft.connection.type === 'udp') next.connection = { type: 'serial' };
   if (applyValues) {
     for (const c of planKindChange(draft, defaults)) {
       if (c.field === 'dialect') next.dialect = structuredClone(defaults.dialect);
@@ -518,7 +527,7 @@ const inRange = (n: number, lo: number, hi: number) => Number.isInteger(n) && n 
  */
 export function validateDialect(d: GcodeDialect): Partial<Record<DialectField, DialectIssue>> {
   const out: Partial<Record<DialectField, DialectIssue>> = {};
-  const line = (field: 'constant_on' | 'laser_off' | 'dynamic_on' | 'air_on' | 'air_off' | 'end_sync', required: boolean) => {
+  const line = (field: 'constant_on' | 'laser_off' | 'dynamic_on' | 'air_on' | 'air_off' | 'end_sync' | 'laser1_select' | 'laser2_select', required: boolean) => {
     const v = d[field];
     if (v === null) return;
     if (!isLine(v)) out[field] = 'multiline';
@@ -530,6 +539,8 @@ export function validateDialect(d: GcodeDialect): Partial<Record<DialectField, D
   line('air_on', true);
   line('air_off', true);
   line('end_sync', true);
+  line('laser1_select', true);
+  line('laser2_select', true);
   // Sin `constant_on` el láser solo se enciende con la línea de potencia aparte.
   line('constant_on', false);
   if (d.s_inline && d.constant_on.trim() === '' && !out.constant_on) out.constant_on = 'empty';

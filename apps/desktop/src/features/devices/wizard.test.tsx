@@ -75,7 +75,7 @@ describe('pasos del asistente (render)', () => {
     expect(h).toContain('virtual:falcon2 (virtual)');
     expect(h).toContain('Detectar');
     expect(h).toContain('Ruida');
-    expect(h).toContain('próximamente');
+    expect(h).toContain('Otro / genérico');
     expect(h).toContain('nunca mueve la máquina');
   });
 

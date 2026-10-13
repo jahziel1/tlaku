@@ -148,6 +148,89 @@ pub async fn import_preferences(path: String) -> Result<Value, String> {
         .map_err(|e| format!("La tarea se interrumpió: {e}"))?
 }
 
+// ---------------------------------------------------------------------------
+// Paquetes de usuario `.tlakubundle`
+// ---------------------------------------------------------------------------
+
+/// Marca de un paquete de usuario completo (máquinas, materiales, preferencias).
+pub const USER_BUNDLE_FORMAT: &str = "tlaku-bundle";
+/// Versión del paquete que esta compilación entiende.
+pub const USER_BUNDLE_VERSION: u64 = 1;
+/// Extensión obligatoria al escribir un paquete.
+const USER_BUNDLE_EXT: &str = "tlakubundle";
+/// Un paquete lleva perfiles y materiales; más de esto no es un paquete razonable.
+const USER_BUNDLE_MAX_BYTES: u64 = 32 * 1024 * 1024;
+
+/// Comprueba el sobre de un paquete de usuario: objeto con `format`, `version` y, si existe,
+/// `devices` como arreglo. El contenido de cada sección lo valida la interfaz.
+pub fn check_user_bundle(value: &Value) -> Result<(), String> {
+    let Some(obj) = value.as_object() else {
+        return Err("El paquete no es un objeto JSON.".into());
+    };
+    if obj.get("format").and_then(Value::as_str) != Some(USER_BUNDLE_FORMAT) {
+        return Err("El archivo no es un paquete de Tlaku (.tlakubundle).".into());
+    }
+    match obj.get("version").map(Value::as_u64) {
+        None => return Err("Paquete inválido: falta el campo \"version\".".into()),
+        Some(Some(USER_BUNDLE_VERSION)) => {}
+        Some(_) => {
+            return Err(format!(
+                "Versión de paquete no soportada: {} (esta aplicación entiende la \
+                 {USER_BUNDLE_VERSION}); actualiza la aplicación para abrirlo.",
+                obj["version"]
+            ));
+        }
+    }
+    if obj.get("devices").is_some_and(|d| !d.is_array()) {
+        return Err("Paquete inválido: \"devices\" debe ser una lista.".into());
+    }
+    Ok(())
+}
+
+pub fn export_user_bundle_file(path: &Path, bundle: &Value) -> Result<(), String> {
+    let has_ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case(USER_BUNDLE_EXT));
+    if !has_ext {
+        return Err(format!(
+            "{}: el paquete debe guardarse con la extensión .{USER_BUNDLE_EXT}.",
+            path.display()
+        ));
+    }
+    check_user_bundle(bundle)?;
+    write_atomic(path, &to_text(bundle)?)
+}
+
+pub fn import_user_bundle_file(path: &Path) -> Result<Value, String> {
+    let meta = fs::metadata(path).map_err(|e| io_error(path, &e))?;
+    if meta.len() > USER_BUNDLE_MAX_BYTES {
+        return Err(format!(
+            "{}: el archivo es demasiado grande para ser un paquete de Tlaku.",
+            path.display()
+        ));
+    }
+    let text = fs::read_to_string(path).map_err(|e| io_error(path, &e))?;
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|e| format!("{}: JSON inválido: {e}", path.display()))?;
+    check_user_bundle(&value)?;
+    Ok(value)
+}
+
+#[tauri::command]
+pub async fn export_user_bundle(path: String, bundle: Value) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || export_user_bundle_file(Path::new(&path), &bundle))
+        .await
+        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+}
+
+#[tauri::command]
+pub async fn import_user_bundle(path: String) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || import_user_bundle_file(Path::new(&path)))
+        .await
+        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+}
+
 /// Para cada ruta, si el archivo existe. Sirve para quitar de «recientes» lo que ya no está.
 #[tauri::command]
 pub async fn paths_exist(paths: Vec<String>) -> Result<Vec<bool>, String> {
@@ -269,5 +352,93 @@ mod tests {
                 .unwrap_err()
                 .contains("demasiado grande")
         );
+    }
+
+    fn user_bundle() -> Value {
+        json!({
+            "format": USER_BUNDLE_FORMAT,
+            "version": 1,
+            "created": "2026-01-01T00:00:00.000Z",
+            "app": "0.1.0",
+            "devices": [{"id": "a", "name": "A"}],
+            "active_device": "a",
+            "materials": null,
+            "prefs": null,
+        })
+    }
+
+    #[test]
+    fn paquete_de_usuario_ida_y_vuelta() {
+        let tmp = TempDir::new();
+        let file = tmp.0.join("todo.tlakubundle");
+        export_user_bundle_file(&file, &user_bundle()).unwrap();
+        assert_eq!(import_user_bundle_file(&file).unwrap(), user_bundle());
+        assert!(!tmp.0.join("todo.tlakubundle.tmp").exists());
+    }
+
+    #[test]
+    fn paquete_de_usuario_exige_extension_al_escribir() {
+        let tmp = TempDir::new();
+        let file = tmp.0.join("todo.json");
+        let err = export_user_bundle_file(&file, &user_bundle()).unwrap_err();
+        assert!(err.contains(".tlakubundle"), "{err}");
+        assert!(!file.exists());
+    }
+
+    #[test]
+    fn paquete_de_usuario_rechaza_formato_ajeno_y_devices_mal_formados() {
+        let tmp = TempDir::new();
+        let file = tmp.0.join("x.tlakubundle");
+        let mut ajeno = user_bundle();
+        ajeno["format"] = json!(BUNDLE_FORMAT);
+        assert!(export_user_bundle_file(&file, &ajeno).is_err());
+        fs::write(&file, serde_json::to_string(&ajeno).unwrap()).unwrap();
+        assert!(
+            import_user_bundle_file(&file)
+                .unwrap_err()
+                .contains("no es un paquete")
+        );
+        let mut mal = user_bundle();
+        mal["devices"] = json!({"a": 1});
+        assert!(
+            export_user_bundle_file(&file, &mal)
+                .unwrap_err()
+                .contains("devices")
+        );
+        assert!(check_user_bundle(&json!([1])).is_err());
+    }
+
+    #[test]
+    fn paquete_de_usuario_rechaza_version_futura() {
+        let tmp = TempDir::new();
+        let file = tmp.0.join("futuro.tlakubundle");
+        let mut futuro = user_bundle();
+        futuro["version"] = json!(2);
+        assert!(export_user_bundle_file(&file, &futuro).is_err());
+        fs::write(&file, serde_json::to_string(&futuro).unwrap()).unwrap();
+        let err = import_user_bundle_file(&file).unwrap_err();
+        assert!(err.contains("no soportada"), "{err}");
+        let mut sin = user_bundle();
+        sin.as_object_mut().unwrap().remove("version");
+        assert!(check_user_bundle(&sin).unwrap_err().contains("version"));
+    }
+
+    #[test]
+    fn paquete_de_usuario_rechaza_archivos_enormes_y_rotos() {
+        let tmp = TempDir::new();
+        let file = tmp.0.join("grande.tlakubundle");
+        fs::write(&file, vec![b' '; (USER_BUNDLE_MAX_BYTES + 1) as usize]).unwrap();
+        assert!(
+            import_user_bundle_file(&file)
+                .unwrap_err()
+                .contains("demasiado grande")
+        );
+        fs::write(&file, "{ roto").unwrap();
+        assert!(
+            import_user_bundle_file(&file)
+                .unwrap_err()
+                .contains("JSON inválido")
+        );
+        assert!(import_user_bundle_file(&tmp.0.join("falta.tlakubundle")).is_err());
     }
 }

@@ -6,7 +6,10 @@ import { BAUD_RATES, parseGrblVersion } from '@/lib/device';
 import { selectActiveDevice, useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
 import { useCommandConfirm } from './CommandConfirm';
-import { isVirtualPort, portLabel, VIRTUAL_SPEEDS } from './virtualPort';
+import { connectionAddress, isNetworkConnection } from './DeviceConnectionModel';
+import { RuidaExperimentalBadge } from './RuidaSection';
+import { isUdpPort, portForDevice, portsForDevice } from './ruidaPorts';
+import { isVirtualNetPort, isVirtualPort, portLabel, VIRTUAL_SPEEDS } from './virtualPort';
 import { VirtualBadge } from './VirtualBadge';
 
 /** Perfil, puerto, baudios, conectar/desconectar, versión de firmware y avisos de configuración. */
@@ -32,6 +35,12 @@ export function ConnectionSection() {
   const device = useStore(selectActiveDevice);
   const setActiveDevice = useStore((s) => s.setActiveDevice);
   const { ask, dialog } = useCommandConfirm();
+  // Máquina por red (TCP o WebSocket): se muestra su dirección en lugar de elegir un puerto serie.
+  const netAddress = isNetworkConnection(device.connection) ? connectionAddress(device.connection) : null;
+  // Ruida (UDP): la IP sale del perfil; el selector solo ofrece esa red y la máquina virtual de Ruida.
+  const isRuida = device.kind === 'ruida';
+  const shownPorts = portsForDevice(device, ports);
+  const portValue = portForDevice(device, selectedPort, ports);
 
   useEffect(() => {
     void refreshPorts();
@@ -62,24 +71,37 @@ export function ConnectionSection() {
           <Settings2 size={15} aria-hidden="true" />
         </button>
       </div>
+      {netAddress ? (
+        <>
+          <div className="field">
+            <span id="net-address-label" className="field__label">{t('machine.net.address')}</span>
+            <output aria-labelledby="net-address-label" className="input num mc-netaddr">{netAddress}</output>
+          </div>
+          <p className="hint">{t('machine.net.note', { address: netAddress })}</p>
+        </>
+      ) : (
+        <>
+          <div className="row">
+            <div className="field grow">
+              <label htmlFor="sel-port" className="field__label">{t('machine.port')}</label>
+              <select id="sel-port" className="select" value={portValue ?? ''} disabled={connected} title={connected ? t('machine.disconnectFirst') : undefined} onChange={(e) => setSelectedPort(e.target.value || null)}>
+                {shownPorts.length === 0 && <option value="">{t('machine.noPorts')}</option>}
+                {shownPorts.map((p) => (
+                  <option key={p} value={p}>{portLabel(p)}</option>
+                ))}
+              </select>
+            </div>
+            <button type="button" className="icon-btn icon-btn--boxed" title={connected ? t('machine.disconnectFirst') : t('machine.refreshPorts')} aria-label={t('machine.refreshPorts')} disabled={connected} onClick={() => void refreshPorts()}>
+              <RefreshCw size={15} aria-hidden="true" />
+            </button>
+          </div>
+          {shownPorts.length === 0 && !connected && <p className="hint">{t('machine.noPorts.help')}</p>}
+          {isRuida && !connected && <p className="hint">{t('ruida.experimental.note')}</p>}
+          {isVirtualPort(portValue) && !connected && <p className="hint">{t(isVirtualNetPort(portValue) ? 'machine.virtualnet.note' : 'machine.virtual.note')}</p>}
+        </>
+      )}
       <div className="row">
-        <div className="field grow">
-          <label htmlFor="sel-port" className="field__label">{t('machine.port')}</label>
-          <select id="sel-port" className="select" value={selectedPort ?? ''} disabled={connected} title={connected ? t('machine.disconnectFirst') : undefined} onChange={(e) => setSelectedPort(e.target.value || null)}>
-            {ports.length === 0 && <option value="">{t('machine.noPorts')}</option>}
-            {ports.map((p) => (
-              <option key={p} value={p}>{portLabel(p)}</option>
-            ))}
-          </select>
-        </div>
-        <button type="button" className="icon-btn icon-btn--boxed" title={connected ? t('machine.disconnectFirst') : t('machine.refreshPorts')} aria-label={t('machine.refreshPorts')} disabled={connected} onClick={() => void refreshPorts()}>
-          <RefreshCw size={15} aria-hidden="true" />
-        </button>
-      </div>
-      {ports.length === 0 && !connected && <p className="hint">{t('machine.noPorts.help')}</p>}
-      {isVirtualPort(selectedPort) && !connected && <p className="hint">{t('machine.virtual.note')}</p>}
-      <div className="row">
-        {isVirtualPort(selectedPort) ? (
+        {netAddress || isUdpPort(portValue) ? null : isVirtualPort(portValue) ? (
           <div className="field">
             <label htmlFor="sel-vspeed" className="field__label">{t('machine.virtual.speed')}</label>
             <select id="sel-vspeed" className="select num" value={virtualSpeed} disabled={connected} title={connected ? t('machine.disconnectFirst') : t('machine.virtual.speedHint')} onChange={(e) => setVirtualSpeed(Number(e.target.value))}>
@@ -114,6 +136,7 @@ export function ConnectionSection() {
               : t('machine.notConnected')}
         </span>
         {virtual && <VirtualBadge />}
+        {isRuida && <RuidaExperimentalBadge />}
         {firmware && <span className="num mc-conn__fw" title={t('machine.firmware')}>{firmware}</span>}
       </div>
       {connectionError && !connected && (

@@ -17,3 +17,9 @@ opt-level = 3
 
 [profile.dev.package.i_overlay]
 opt-level = 3
+
+# La calibración de lente (Levenberg-Marquardt con matrices densas) y la corrección de imagen son
+# cálculo puro: en debug tardan decenas de segundos. Se optimizan también en `tauri dev` y en las
+# pruebas.
+[profile.dev.package.tlaku-camera]
+opt-level = 3

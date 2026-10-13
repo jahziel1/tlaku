@@ -13,8 +13,6 @@ pub enum Sampling {
     Interval(f64),
     /// Puntos por pulgada (intervalo = 25.4 / dpi).
     Dpi(f64),
-    /// Sin remuestreo: un píxel de la imagen = un punto.
-    PassThrough,
 }
 
 pub fn interval_from_dpi(dpi: f64) -> f64 {
@@ -46,34 +44,23 @@ pub fn resample_to_mm(
     if !(width_mm.is_finite() && width_mm > 0.0 && height_mm.is_finite() && height_mm > 0.0) {
         return Err(format!("tamaño inválido: {width_mm} x {height_mm} mm"));
     }
-    let (w, h) = match sampling {
-        Sampling::PassThrough => (img.width, img.height),
-        Sampling::Interval(_) | Sampling::Dpi(_) => {
-            let interval = match sampling {
-                Sampling::Interval(i) => i,
-                Sampling::Dpi(d) => interval_from_dpi(d),
-                Sampling::PassThrough => unreachable!(),
-            };
-            if !(interval.is_finite() && interval > 0.0) {
-                return Err(format!("intervalo de línea inválido: {interval} mm"));
-            }
-            let cols = (width_mm / interval).round().max(1.0);
-            let rows = (height_mm / interval).round().max(1.0);
-            if cols * rows > MAX_PIXELS as f64 {
-                return Err(format!(
-                    "la rejilla de {cols} x {rows} puntos es demasiado grande; aumenta el intervalo"
-                ));
-            }
-            (cols as usize, rows as usize)
-        }
+    let interval = match sampling {
+        Sampling::Interval(i) => i,
+        Sampling::Dpi(d) => interval_from_dpi(d),
     };
-    let image = if sampling == Sampling::PassThrough {
-        img.clone()
-    } else {
-        resample(img, w, h)
-    };
+    if !(interval.is_finite() && interval > 0.0) {
+        return Err(format!("intervalo de línea inválido: {interval} mm"));
+    }
+    let cols = (width_mm / interval).round().max(1.0);
+    let rows = (height_mm / interval).round().max(1.0);
+    if cols * rows > MAX_PIXELS as f64 {
+        return Err(format!(
+            "la rejilla de {cols} x {rows} puntos es demasiado grande; aumenta el intervalo"
+        ));
+    }
+    let (w, h) = (cols as usize, rows as usize);
     Ok(Resampled {
-        image,
+        image: resample(img, w, h),
         pixel_size_x_mm: width_mm / w as f64,
         pixel_size_y_mm: height_mm / h as f64,
     })
@@ -204,18 +191,21 @@ mod tests {
     }
 
     #[test]
-    fn pass_through_keeps_pixels() {
+    fn same_grid_keeps_pixels() {
+        // Con el intervalo que da la misma rejilla que la imagen no hay remuestreo.
         let img = GrayF32::from_fn(30, 20, |x, y| (x + y) as f32 / 50.0);
-        let r = resample_to_mm(&img, 15.0, 5.0, Sampling::PassThrough).unwrap();
+        let r = resample_to_mm(&img, 15.0, 5.0, Sampling::Interval(0.5)).unwrap();
+        assert_eq!((r.image.width, r.image.height), (30, 10));
+        let r = resample_to_mm(&img, 15.0, 10.0, Sampling::Interval(0.5)).unwrap();
         assert_eq!(r.image, img);
         assert!((r.pixel_size_x_mm - 0.5).abs() < 1e-12);
-        assert!((r.pixel_size_y_mm - 0.25).abs() < 1e-12);
+        assert!((r.pixel_size_y_mm - 0.5).abs() < 1e-12);
     }
 
     #[test]
     fn invalid_inputs() {
         let img = GrayF32::from_fn(2, 2, |_, _| 0.5);
-        assert!(resample_to_mm(&img, 0.0, 1.0, Sampling::PassThrough).is_err());
+        assert!(resample_to_mm(&img, 0.0, 1.0, Sampling::Interval(0.1)).is_err());
         assert!(resample_to_mm(&img, 1.0, 1.0, Sampling::Interval(0.0)).is_err());
         assert!(resample_to_mm(&img, 1.0, 1.0, Sampling::Dpi(-5.0)).is_err());
         assert!(resample_to_mm(&img, 1e6, 1e6, Sampling::Interval(0.1)).is_err());

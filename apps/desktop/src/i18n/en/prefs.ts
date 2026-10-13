@@ -34,7 +34,7 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.units': 'Length units',
   'prefs.units.mm': 'Millimeters (mm)',
   'prefs.units.in': 'Inches (in)',
-  'prefs.units.hint': 'The design is always stored in millimeters. The chosen unit is used in the fields that already support it and will be extended to the rest.',
+  'prefs.units.hint': 'The design is always stored in millimeters. The chosen unit is used in the numeric bar, rulers, status bar, and the length fields of the dialogs (speeds stay in mm/min).',
   'prefs.nudge.title': 'Arrow keys',
   'prefs.nudgeStep': 'Normal step',
   'prefs.nudgeStepBig': 'Step with Shift',
@@ -125,4 +125,19 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.recovery.recoverFailed': '"{name}" could not be recovered: {error}',
   'prefs.recovery.discardFailed': 'The copy could not be discarded: {error}',
   'prefs.recovery.listFailed': 'Could not check for recovery copies: {error}',
+
+  // ---- UDP automation -----------------------------------------------------------------------
+  'prefs.section.automation': 'Automation',
+  'prefs.automation.enabled': 'Turn on UDP automation',
+  'prefs.automation.hint': 'Lets other programs or scripts on this computer drive Tlaku with text commands (PING, LOAD, START, STATUS, STOP). It only listens on 127.0.0.1: no other computer on the network can connect. The protocol is in docs/app-api.md.',
+  'prefs.automation.port': 'UDP port',
+  'prefs.automation.portUnit': 'UDP',
+  'prefs.automation.allowStart': 'Allow starting from automation',
+  'prefs.automation.allowStart.hint': 'Off, START only opens the start dialog and you decide. On, any program on this computer can start the laser without your confirmation: turn it on only if you trust everything running here.',
+  'prefs.automation.status.on': 'Listening on 127.0.0.1:{port}',
+  'prefs.automation.status.off': 'Off',
+  'prefs.automation.status.error': 'Could not turn on: {error}',
+  'prefs.automation.startAsked': 'An external program asked to start the job. Review the dialog and confirm to begin.',
+  'prefs.automation.startBlocked': 'An external program asked to start the job, but it cannot start: {reason}',
+  'prefs.automation.started': 'Job started by an external program.',
 };

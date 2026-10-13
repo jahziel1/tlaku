@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react';
 import { t } from '@/i18n';
 import { applyAffine, objectBounds } from '@/lib/geometry';
-import { fmt } from '@/lib/platform';
+import { formatSize } from '@/lib/units';
 import { MAX_VIRTUAL_COPIES, virtualArrayIssue, virtualCopies } from '@/lib/virtualArray';
 import { NumberField } from '@/ui/NumberField';
-import { useStore } from '@/store';
+import { LengthField } from '@/ui/LengthField';
+import { usePref, useStore } from '@/store';
 import { centerForRadius, DEFAULT_RADIUS } from './arrays';
 import { Check, Choice, Dialog } from './Dialog';
 import { boxOutline, DesignPreview } from './DesignPreview';
@@ -44,6 +45,7 @@ export function VirtualArrayDialog() {
   }, [objectId]);
 
   const array = useMemo(() => arrayOf(draft), [draft]);
+  const lengthUnit = usePref('units');
   const problem = virtualArrayIssue(array);
   const copies = useMemo(() => (object ? virtualCopies({ ...object, array }) : []), [object, array]);
   const box = object ? objectBounds(object) : null;
@@ -56,7 +58,6 @@ export function VirtualArrayDialog() {
   const total = copies.length + 1;
   const single = problem === null && total === 1;
   const issue = !object ? ('reason' in target ? target.reason : 'arrange.reason.noSelection') : problem ? (`design.virtual.err.${problem}` as const) : single ? 'design.virtual.err.single' : null;
-  const mm = t('arrange.dlg.mm');
 
   const apply = () => {
     if (!object || issue) return;
@@ -122,8 +123,8 @@ export function VirtualArrayDialog() {
                 <NumberField label={t('arrange.grid.rows')} value={draft.rows} min={1} max={500} step={1} onCommit={(v) => patch({ rows: Math.round(v) })} />
               </div>
               <div className="field-grid">
-                <NumberField label={t('design.virtual.gapX')} value={draft.dx} min={-10000} max={10000} step={0.5} unit={mm} onCommit={(dx) => patch({ dx })} />
-                <NumberField label={t('design.virtual.gapY')} value={draft.dy} min={-10000} max={10000} step={0.5} unit={mm} onCommit={(dy) => patch({ dy })} />
+                <LengthField label={t('design.virtual.gapX')} value={draft.dx} min={-10000} max={10000} step={0.5} onCommit={(dx) => patch({ dx })} />
+                <LengthField label={t('design.virtual.gapY')} value={draft.dy} min={-10000} max={10000} step={0.5} onCommit={(dy) => patch({ dy })} />
               </div>
               <p className="hint">{t('design.virtual.gapHint')}</p>
             </>
@@ -135,8 +136,8 @@ export function VirtualArrayDialog() {
               </div>
               <p className="hint">{t('arrange.circular.angleHint')}</p>
               <div className="field-grid">
-                <NumberField label={t('arrange.circular.centerX')} value={draft.centerX} step={1} unit={mm} onCommit={(centerX) => patch({ centerX })} />
-                <NumberField label={t('arrange.circular.centerY')} value={draft.centerY} step={1} unit={mm} onCommit={(centerY) => patch({ centerY })} />
+                <LengthField label={t('arrange.circular.centerX')} value={draft.centerX} step={1} onCommit={(centerX) => patch({ centerX })} />
+                <LengthField label={t('arrange.circular.centerY')} value={draft.centerY} step={1} onCommit={(centerY) => patch({ centerY })} />
               </div>
               <Check label={t('arrange.circular.rotate')} checked={draft.rotate} onChange={(rotate) => patch({ rotate })} />
             </>
@@ -158,7 +159,7 @@ export function VirtualArrayDialog() {
               <strong className="num">{t('design.virtual.summary', { count: total, extra: total - 1 })}</strong>
             </p>
           )}
-          {object && box && <span className="hint num">{t('design.virtual.object', { w: fmt(box[1][0] - box[0][0]), h: fmt(box[1][1] - box[0][1]) })}</span>}
+          {object && box && <span className="hint num">{t('design.virtual.object', { size: formatSize(box[1][0] - box[0][0], box[1][1] - box[0][1], lengthUnit) })}</span>}
         </div>
       </div>
     </Dialog>

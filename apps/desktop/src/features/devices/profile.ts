@@ -60,6 +60,13 @@ export function buildProfile(args: {
     power_mode: dialect.dynamic_on ? 'dynamic' : 'constant',
   };
 
+  if (kind === 'ruida') {
+    // Ruida habla UDP a una IP que se escribe a mano. Cama y home son valores de partida habituales.
+    profile.connection = { type: 'udp', host: '' };
+    profile.bed = [600, 400];
+    profile.origin = 'top_left';
+  }
+
   if (entry) {
     if (entry.bed) {
       profile.bed = [...entry.bed.value];

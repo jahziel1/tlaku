@@ -91,6 +91,13 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
             end_gcode: script(&device.end_gcode),
             rapid_feed: Some(device.rapid_rate),
             z_invert: device.z_invert,
+            // Sin segundo láser en el perfil todas las capas salen con el láser 1 (ver
+            // `dialect_warnings`).
+            block_laser2: if device.laser2 {
+                job.layers.iter().map(|l| l.laser2).collect()
+            } else {
+                Vec::new()
+            },
         },
     )
 }
@@ -109,6 +116,21 @@ pub(crate) fn dialect_warnings(
              aire de las capas se ignora",
             device.name
         ));
+    }
+    if layers.iter().any(|l| l.laser2) {
+        if !device.laser2 {
+            out.push(format!(
+                "la máquina '{}' no tiene segundo láser: las capas que piden el láser 2 salen con \
+                 el láser 1",
+                device.name
+            ));
+        } else if d.laser2_select.is_none() {
+            out.push(format!(
+                "el dialecto de la máquina '{}' no tiene comando para seleccionar el láser 2: las \
+                 capas del láser 2 salen sin cambiar de láser (configúralo en el dialecto de G-code)",
+                device.name
+            ));
+        }
     }
     if device.power_mode == tlaku_doc::PowerMode::Dynamic && d.dynamic_on.is_none() {
         out.push(format!(

@@ -9,6 +9,7 @@ import { t } from '@/i18n';
 import { useStore } from '@/store';
 import { Choice, Dialog } from './Dialog';
 import { useArrangeUi, type AlignReference } from './uiStore';
+import { unitLabel } from './unitLabel';
 import { selectionUnits } from './units';
 
 interface Item {
@@ -87,7 +88,7 @@ export function AlignDialog() {
         <div className="field">
           <label className="field__label" htmlFor="arrange-align-object">{t('arrange.align.object')}</label>
           <select id="arrange-align-object" className="select" value={key?.id ?? ''} onChange={(e) => setAlign('object', e.target.value)}>
-            {units.map((u) => <option key={u.id} value={u.id}>{u.id}</option>)}
+            {units.map((u) => <option key={u.id} value={u.id}>{unitLabel(u)}</option>)}
           </select>
         </div>
       )}

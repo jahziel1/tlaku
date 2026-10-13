@@ -20,14 +20,13 @@ export const nest: { [K in keyof typeof Source]?: string } = {
   'nest.pieces.all': 'Copies of all',
   'nest.pieces.total': '{total} of {max} parts in total',
   'nest.pieces.tooMany': 'Too many parts: the maximum is {max} in total.',
-  'nest.piece.group': '{id} · group of {n}',
-  'nest.piece.copies': 'Copies of {id}',
+  'nest.piece.copies': 'Copies of {name}',
 
   'nest.container.title': 'Container',
-  'nest.container.bed': 'Bed ({w} × {h} mm)',
+  'nest.container.bed': 'Bed ({size})',
   'nest.container.object': 'Material: an object of the document',
   'nest.container.pick': 'Object that acts as material',
-  'nest.container.option': '{id} · layer {layer}',
+  'nest.container.option': '{name} · layer {layer}',
   'nest.container.none': 'There are no other vector objects with a closed outline to use as material.',
   'nest.container.hint': 'The material object is not moved or nested; parts fit inside its outline and avoid its holes.',
 

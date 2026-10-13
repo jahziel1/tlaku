@@ -666,6 +666,9 @@ button.mc-devitem:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+.mc-group[hidden] {
+  display: none;
+}
 .mc-group legend {
   padding: 0 var(--s-3);
   color: var(--text-muted);
@@ -902,4 +905,56 @@ button.mc-devitem:hover {
   display: flex;
   flex-wrap: wrap;
   gap: var(--s-3);
+}
+
+/* ---- Ola 4: macros, posiciones guardadas, ejes extra y disparo de prueba ---- */
+.mc-macrobtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mc-macro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.mc-macro[data-invalid] {
+  border-color: var(--danger, currentColor);
+}
+
+.mc-macros {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mc-poslist {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mc-axes,
+.mc-positions,
+.mc-fire,
+.mc-frameopts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Dirección de red de la máquina (en lugar del selector de puerto). */
+.mc-netaddr {
+  display: flex;
+  align-items: center;
+  user-select: text;
 }

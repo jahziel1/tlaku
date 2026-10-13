@@ -16,14 +16,17 @@ import { help } from './es/help';
 import { history } from './es/history';
 import { layers } from './es/layers';
 import { machine } from './es/machine';
+import { mset } from './es/mset';
 import { materials } from './es/materials';
 import { nodes } from './es/nodes';
 import { preview } from './es/preview';
 import { prefs } from './es/prefs';
+import { bundle } from './es/bundle';
 import { text } from './es/text';
 import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
+import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
 
 export const base = {
@@ -249,7 +252,7 @@ export const base = {
   'preview.empty': 'Importa un diseño para ver el recorrido.',
 
   // ---- barra de estado -----------------------------------------------------------
-  'status.cursor': 'Posición del cursor en milímetros',
+  'status.cursor': 'Posición del cursor',
   'status.zoom': 'Zoom (100 % = tamaño real en pantalla)',
   'status.selected': '{n} seleccionados',
   'status.selectedOne': '1 seleccionado',
@@ -266,6 +269,7 @@ export const es = {
   ...canvas,
   ...layers,
   ...machine,
+  ...mset,
   ...preview,
   ...history,
   ...help,
@@ -277,6 +281,7 @@ export const es = {
   ...nodes,
   ...trace,
   ...nest,
+  ...ruida,
   ...shapes,
   ...camera,
   ...materials,
@@ -284,5 +289,6 @@ export const es = {
   ...fileio,
   ...catalog,
   ...prefs,
+  ...bundle,
   ...art,
 };

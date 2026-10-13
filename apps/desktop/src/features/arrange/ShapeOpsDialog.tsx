@@ -6,6 +6,7 @@ import { errorMessage } from '@/lib/errors';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { cleanupOperands } from './cleanup';
 import { Check, Choice, Dialog, Footer } from './Dialog';
 import { knifeCandidates, resolveKnife, runShapeOp, shapeParams, shapeReason, previewShapeOp } from './shapeOps';
@@ -118,7 +119,7 @@ function OptimizeDialog() {
   return (
     <Shell op="optimize" title={t('shapes.optimize.title')} extraReason={errorOf(preview) ?? (same ? t('shapes.optimize.nothing') : null)}>
       <p className="hint">{t('shapes.optimize.hint')}</p>
-      <NumberField label={t('shapes.optimize.tolerance')} value={params.tolerance} min={0} max={5} step={0.01} unit={t('arrange.dlg.mm')} onCommit={(tolerance) => patch({ tolerance })} />
+      <LengthField label={t('shapes.optimize.tolerance')} value={params.tolerance} min={0} max={5} step={0.01} onCommit={(tolerance) => patch({ tolerance })} />
       <p className="hint">{t('shapes.optimize.toleranceHint')}</p>
       <Check label={t('shapes.optimize.smooth')} checked={params.smooth} onChange={(smooth) => patch({ smooth })} />
       <p className="hint">{t('shapes.optimize.smoothHint')}</p>
@@ -164,7 +165,7 @@ function FilletDialog() {
         ]}
         onChange={(style) => patch({ style })}
       />
-      <NumberField label={t(`shapes.fillet.radius.${params.style}`)} value={params.radius} min={0.01} max={500} step={0.5} unit={t('arrange.dlg.mm')} onCommit={(radius) => patch({ radius })} />
+      <LengthField label={t(`shapes.fillet.radius.${params.style}`)} value={params.radius} min={0.01} max={500} step={0.5} onCommit={(radius) => patch({ radius })} />
       <p className="hint">{t(`shapes.fillet.radiusHint.${params.style}`)}</p>
       <Check
         label={nodeCount > 0 ? t('shapes.fillet.onlyNodes', { n: nodeCount }) : t('shapes.fillet.onlyNodesNone')}
@@ -240,8 +241,8 @@ function SlotsDialog() {
   return (
     <Shell op="resize_slots" title={t('shapes.slots.title')} extraReason={why}>
       <p className="hint">{t('shapes.slots.hint')}</p>
-      <NumberField label={t('shapes.slots.from')} value={params.fromWidth} min={0.05} max={100} step={0.1} unit={t('arrange.dlg.mm')} onCommit={(fromWidth) => patch({ fromWidth })} />
-      <NumberField label={t('shapes.slots.tolerance')} value={params.tolerance} min={0} max={5} step={0.05} unit={t('arrange.dlg.mm')} onCommit={(tolerance) => patch({ tolerance })} />
+      <LengthField label={t('shapes.slots.from')} value={params.fromWidth} min={0.05} max={100} step={0.1} onCommit={(fromWidth) => patch({ fromWidth })} />
+      <LengthField label={t('shapes.slots.tolerance')} value={params.tolerance} min={0} max={5} step={0.05} onCommit={(tolerance) => patch({ tolerance })} />
       {stats && stats.widths.length > 0 && (
         <div className="ar-choice">
           <span className="field__label">{t('shapes.slots.detected')}</span>
@@ -254,7 +255,7 @@ function SlotsDialog() {
           </div>
         </div>
       )}
-      <NumberField label={t('shapes.slots.to')} value={params.toWidth} min={0.05} max={100} step={0.1} unit={t('arrange.dlg.mm')} onCommit={(toWidth) => patch({ toWidth })} />
+      <LengthField label={t('shapes.slots.to')} value={params.toWidth} min={0.05} max={100} step={0.1} onCommit={(toWidth) => patch({ toWidth })} />
       <p className="hint">{t('shapes.slots.toHint')}</p>
       <Choice
         legend={t('shapes.slots.anchor')}

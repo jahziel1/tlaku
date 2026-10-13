@@ -6,7 +6,7 @@ import { t } from '@/i18n';
 import { flattenBez } from '@/lib/bezpath';
 import { errorMessage } from '@/lib/errors';
 import { objectPolylines, pointsBounds } from '@/lib/geometry';
-import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { Check, Choice, Dialog, Footer } from './Dialog';
 import { geometryReason, operandOf, runGeometry } from './geomOps';
@@ -75,7 +75,7 @@ export function OffsetDialog() {
       initialFocus=".field__input"
       footer={<Footer onClose={close} onApply={() => void apply()} disabled={blocked} reason={why} applyLabel={busy ? t('arrange.dlg.working') : undefined} />}
     >
-      <NumberField label={t('arrange.offset.distance')} value={params.distance} min={-500} max={500} step={0.5} unit={t('arrange.dlg.mm')} onCommit={(distance) => patch({ distance })} />
+      <LengthField label={t('arrange.offset.distance')} value={params.distance} min={-500} max={500} step={0.5} onCommit={(distance) => patch({ distance })} />
       <p className="hint">{t('arrange.offset.distanceHint')}</p>
       <Choice<JoinStyle>
         legend={t('arrange.offset.corners')}

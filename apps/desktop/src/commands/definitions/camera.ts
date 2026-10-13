@@ -1,6 +1,9 @@
 import { startCamera, stopCamera, setFrozen } from '@/features/camera/session';
 import { updateCameraPrefs } from '@/features/camera/actions';
 import { openMarksDialog } from '@/features/camera/marksState';
+import { captureBlockedReason, overlayBlockedReason, requestAction } from '@/features/camera/bedImage';
+import { useCenter } from '@/features/camera/centerFinder';
+import { useViewTool } from '@/features/camera/headState';
 import type { CommandDef } from '../types';
 
 /** Comandos de cámara: aparecen solos en el menú Máquina (categoría `camera`). */
@@ -19,7 +22,7 @@ export const cameraCommands: CommandDef[] = [
     id: 'camera.backdrop',
     label: 'camera.cmd.backdrop',
     category: 'camera',
-    enabled: (s) => (s.cameraSetup.alignment ? true : 'camera.reason.noAlignment'),
+    enabled: (s) => (s.cameraSetup.alignment || (s.cameraSetup.head?.enabled && s.cameraSetup.head.calibration) ? true : 'camera.reason.noAlignment'),
     checked: (s) => s.cameraSetup.prefs.visible,
     run: (s) => updateCameraPrefs({ visible: !s.cameraSetup.prefs.visible }),
   },
@@ -42,5 +45,36 @@ export const cameraCommands: CommandDef[] = [
     label: 'camera.cmd.alignMarks',
     category: 'camera',
     run: () => openMarksDialog(),
+  },
+  {
+    id: 'camera.capture',
+    label: 'camera.cmd.capture',
+    category: 'camera',
+    enabled: (s) => captureBlockedReason(s) ?? true,
+    run: () => requestAction('capture'),
+  },
+  {
+    id: 'camera.vectorize',
+    label: 'camera.cmd.vectorize',
+    category: 'camera',
+    enabled: (s) => captureBlockedReason(s) ?? true,
+    run: () => requestAction('vectorize'),
+  },
+  {
+    id: 'camera.updateOverlay',
+    label: 'camera.cmd.updateOverlay',
+    category: 'camera',
+    enabled: (s) => overlayBlockedReason(s) ?? true,
+    run: () => requestAction('overlay'),
+  },
+  {
+    id: 'camera.centerFinder',
+    label: 'camera.cmd.centerFinder',
+    category: 'camera',
+    run: (s) => {
+      s.setDockTab('camera');
+      useCenter.getState().reset();
+      useViewTool.getState().setTool('center');
+    },
   },
 ];

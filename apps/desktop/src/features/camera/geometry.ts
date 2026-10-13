@@ -42,7 +42,7 @@ function normalizer(pts: Vec2[]): Mat3 {
 }
 
 /** Resuelve A·x = b (n x n) por eliminación gaussiana con pivote parcial; `null` si es singular. */
-function solveLinear(a: number[][], b: number[]): number[] | null {
+export function solveLinear(a: number[][], b: number[]): number[] | null {
   const n = b.length;
   const m = a.map((row, i) => [...row, b[i]!]);
   for (let col = 0; col < n; col++) {

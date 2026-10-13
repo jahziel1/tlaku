@@ -8,7 +8,9 @@ import { CameraDialogHost } from '@/features/camera';
 import { DevicesDialogHost } from '@/features/devices';
 import { MaterialsDialogHost } from '@/features/materials';
 import { RecoveryHost } from '@/features/recovery';
+import { BundleHost } from '@/features/bundle';
 import { SettingsHost } from '@/features/settings';
+import { AutomationHost } from '@/features/automation';
 import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
@@ -41,6 +43,8 @@ export function AppShell() {
     <>
       <ShellBody key={language} />
       <SettingsHost />
+      <AutomationHost />
+      <BundleHost />
     </>
   );
 }

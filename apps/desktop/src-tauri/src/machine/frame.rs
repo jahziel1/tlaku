@@ -78,6 +78,75 @@ pub fn hull_lines(
     Ok(lines)
 }
 
+/// Potencia máxima del encuadre con el láser encendido, en % de la S máx. Es solo una guía
+/// visible: no debe marcar el material.
+pub const FRAME_MAX_PCT: f64 = 20.0;
+
+/// Convierte las líneas de un encuadre (con `S0` en cada `G1` y el láser apagado) en un encuadre con
+/// el láser a `power_pct` % de la S máx: enciende el láser (la orden `constant_on` del dialecto,
+/// con `S0`) justo antes del primer `G1`, así el desplazamiento hasta la primera esquina sigue
+/// siendo con el láser apagado, y cambia el `S0` de los `G1` por la potencia pedida. El `M5` final
+/// de las líneas originales apaga el láser. Falla si el dialecto no lleva la potencia dentro de
+/// cada movimiento (no hay forma de apagar el láser en el traslado) o si pasa del límite.
+pub fn low_power(
+    lines: Vec<String>,
+    device: &DeviceProfile,
+    power_pct: f64,
+) -> Result<Vec<String>, String> {
+    if !(power_pct.is_finite() && power_pct > 0.0 && power_pct <= FRAME_MAX_PCT) {
+        return Err(format!(
+            "La potencia del encuadre debe estar entre 0 y {FRAME_MAX_PCT} %."
+        ));
+    }
+    let d = &device.dialect;
+    if !d.s_inline || d.constant_on.trim().is_empty() {
+        return Err(
+            "Este dialecto de G-code no admite encuadrar con el láser encendido; \
+             usa el encuadre con el láser apagado."
+                .into(),
+        );
+    }
+    let s = device.s_max * power_pct / 100.0;
+    if !(s.is_finite() && s > 0.0) {
+        return Err("La S máxima del perfil debe ser mayor que 0.".into());
+    }
+    let s_text = {
+        let t = format!("{s:.*}", usize::from(d.s_decimals));
+        if t.contains('.') {
+            t.trim_end_matches('0').trim_end_matches('.').to_string()
+        } else {
+            t
+        }
+    };
+    let mut out = Vec::with_capacity(lines.len() + 1);
+    let mut lit = false;
+    for line in lines {
+        if line.starts_with("G1") {
+            if !lit {
+                out.push(d.constant_on.clone());
+                lit = true;
+            }
+            let replaced: Vec<String> = line
+                .split(' ')
+                .map(|w| {
+                    if w == "S0" {
+                        format!("S{s_text}")
+                    } else {
+                        w.to_string()
+                    }
+                })
+                .collect();
+            out.push(replaced.join(" "));
+        } else {
+            out.push(line);
+        }
+    }
+    if !lit {
+        return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,5 +233,34 @@ mod tests {
         };
         let e = hull_lines(&triangle_doc(), &small, &o, 1000.0, None).unwrap_err();
         assert!(e.contains("se sale del área de trabajo"), "{e}");
+    }
+
+    #[test]
+    fn low_power_frame_lights_the_laser_only_for_the_edges() {
+        let d = DeviceProfile::default();
+        let base = tlaku_grbl::frame::frame_gcode(
+            tlaku_core::Bounds {
+                min: Point::new(0.0, 0.0),
+                max: Point::new(10.0, 5.0),
+            },
+            1500.0,
+        );
+        let g = low_power(base.clone(), &d, 2.0).unwrap();
+        let first_g1 = g.iter().position(|l| l.starts_with("G1")).unwrap();
+        // El encendido va justo antes del primer G1, después del G0 de aproximación.
+        assert_eq!(g[first_g1 - 1], "M3 S0");
+        assert!(g.iter().position(|l| l.starts_with("G0")).unwrap() < first_g1);
+        // S máx. 1000 y 2 % -> S20 en cada lado; ninguno queda en S0.
+        let sides: Vec<_> = g.iter().filter(|l| l.starts_with("G1")).collect();
+        assert_eq!(sides.len(), 4);
+        assert!(sides.iter().all(|l| l.contains(" S20 ")), "{sides:?}");
+        assert_eq!(g.last().map(String::as_str), Some("M5"));
+        // Pasarse del límite, S inline apagado o un trabajo vacío fallan sin devolver G-code.
+        assert!(low_power(base.clone(), &d, 50.0).is_err());
+        assert!(low_power(base.clone(), &d, 0.0).is_err());
+        assert!(low_power(vec!["M5".into()], &d, 2.0).is_err());
+        let mut no_inline = d.clone();
+        no_inline.dialect.s_inline = false;
+        assert!(low_power(base, &no_inline, 2.0).is_err());
     }
 }

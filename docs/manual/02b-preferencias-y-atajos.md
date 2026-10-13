@@ -32,7 +32,7 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 
 Detalles que conviene saber:
 
-- **Unidades.** El diseño se guarda siempre en milímetros; la unidad que eliges cambia cómo se muestran y se escriben las longitudes. Hoy se aplica en la herramienta **Medir** (ver [Dibujar y editar](03-dibujar-y-editar.md)) y en los campos de esta ventana. La barra numérica y los diálogos siguen en milímetros, aunque aceptan la unidad al escribir (`5in`, `50%`). Los campos de longitud de las preferencias aceptan «5 mm», «0,25 in» o «1/8"».
+- **Unidades.** El diseño se guarda siempre en milímetros; la unidad que eliges cambia cómo se muestran y se escriben las longitudes. Se aplica en la barra numérica (X, Y, ancho y alto), la barra de estado, las reglas y la cuadrícula (en pulgadas, de décima en décima), la herramienta **Medir** (ver [Dibujar y editar](03-dibujar-y-editar.md)), los campos de longitud de los diálogos de Organizar (arreglos, offset, alinear y acomodar piezas) y los de esta ventana. Los campos aceptan la unidad al escribir («5 mm», «0,25 in», «1/8"», «1 1/2 in», `50%`). Las velocidades siguen en mm/min, y los campos de las áreas de máquina y cámara, en mm.
 - **Pasos de las flechas.** Cambian los tres pasos de las flechas del teclado (ver [Dibujar y editar](03-dibujar-y-editar.md)).
 - **Paso de rotación.** Es el que usan el giro con `Mayús` al arrastrar la perilla, los comandos **Girar un paso a la izquierda/derecha** y el campo **Paso de giro** de la barra numérica.
 - **Rejilla.** Con una medida fija, la rejilla menor mide eso y la mayor diez veces más; con el zoom muy alejado se oculta para no saturar la vista.

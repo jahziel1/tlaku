@@ -4,6 +4,8 @@ import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
 import { overrideBlockedReason } from '@/store/machine';
 import { NumberField } from '@/ui/NumberField';
+import { RuidaNotApplicable } from './RuidaSection';
+import { selectIsRuida } from './ruidaPorts';
 
 const MIN = 10;
 const MAX = 200;
@@ -57,6 +59,16 @@ function OverrideRow({ kind, label, hint }: { kind: OverrideKind; label: I18nKey
  * controladora. En Marlin y Smoothieware no existen y los controles quedan deshabilitados.
  */
 export function OverridesSection() {
+  // Ruida no tiene overrides en vivo: se muestra por qué en lugar de los controles.
+  const ruida = useStore(selectIsRuida);
+  if (ruida) {
+    return (
+      <section className="section" aria-labelledby="sec-override">
+        <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+        <RuidaNotApplicable reason="ruida.override.reason" />
+      </section>
+    );
+  }
   return (
     <section className="section" aria-labelledby="sec-override">
       <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>

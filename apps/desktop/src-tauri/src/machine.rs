@@ -1,4 +1,5 @@
-//! Conexión con la máquina GRBL.
+//! Conexión con la máquina GRBL. (La de Ruida vive en [`ruida`] y el despacho entre respaldos, en
+//! [`active`].)
 //!
 //! Un hilo dedicado ("trabajador") es el único dueño del puerto serie. Los comandos de la
 //! interfaz llegan por un canal ([`Handle`]) y el trabajador:
@@ -59,7 +60,10 @@ use tlaku_grbl::streamer::{
     override_plan, parse_creality_error, prepare_line_with,
 };
 
+pub mod active;
+pub mod extras;
 pub mod frame;
+pub mod ruida;
 pub mod virtual_port;
 
 /// Mensaje cuando no hay conexión (o se perdió).
@@ -259,6 +263,11 @@ impl Handle {
     /// Posición de trabajo [x, y] del último reporte de estado.
     pub fn work_pos(&self) -> Option<[f64; 2]> {
         self.shared.status.lock().ok()?.as_ref().map(|s| s.work_pos)
+    }
+
+    /// Último reporte de estado completo (para la automatización: `STATUS`).
+    pub fn status_report(&self) -> Option<StatusReport> {
+        self.shared.status.lock().ok()?.clone()
     }
 
     /// Envía una línea y devuelve la respuesta, que termina en `ok`, `error:N` o `ALARM:N`.
@@ -933,8 +942,8 @@ impl Worker {
             self.reader.feed(&buf[..n]);
         } else if self.silence_exceeded() {
             return Err(Fail::Lost(
-                "la controladora dejó de responder (¿se desconectó el cable USB o se apagó la \
-                 máquina?)"
+                "la controladora dejó de responder (¿se desconectó el cable USB o la red, o se \
+                 apagó la máquina?)"
                     .into(),
             ));
         }
@@ -1019,8 +1028,8 @@ impl Worker {
             }
             if Instant::now() > deadline {
                 return Err(Fail::Lost(
-                    "la controladora dejó de responder (¿se desconectó el cable USB o se apagó \
-                     la máquina?)"
+                    "la controladora dejó de responder (¿se desconectó el cable USB o la red, o se \
+                     apagó la máquina?)"
                         .into(),
                 ));
             }

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { t } from '@/i18n';
-import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { Dialog, Footer } from './Dialog';
 import { selectableObjects, selectCircles } from './special';
@@ -33,8 +33,8 @@ export function SizeSelectDialog() {
     >
       <p className="hint">{t('arrange.circles.hint')}</p>
       <div className="ar-cols">
-        <NumberField label={t('arrange.circles.min')} value={range.min} min={0} max={10000} step={0.1} unit={t('arrange.dlg.mm')} onCommit={(min) => patch({ min })} />
-        <NumberField label={t('arrange.circles.max')} value={range.max} min={0} max={10000} step={0.1} unit={t('arrange.dlg.mm')} onCommit={(max) => patch({ max })} />
+        <LengthField label={t('arrange.circles.min')} value={range.min} min={0} max={10000} step={0.1} onCommit={(min) => patch({ min })} />
+        <LengthField label={t('arrange.circles.max')} value={range.max} min={0} max={10000} step={0.1} onCommit={(max) => patch({ max })} />
       </div>
       <p className="hint" role="status">{t('arrange.circles.count', { n: found.length })}</p>
     </Dialog>

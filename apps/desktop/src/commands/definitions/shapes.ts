@@ -19,9 +19,9 @@ function dialogCommand(id: string, label: CommandDef['label'], op: ShapeOp & Sha
 
 /**
  * Operaciones de forma de la ola 3: recortar, separar, optimizar, redondear esquinas, cortar formas
- * y redimensionar ranuras. Recortar es una herramienta del lienzo: este comando recorta el tramo
- * del último punto donde se hizo clic (`useShapeOps.setLastPoint`); la herramienta debe llamar a
- * `runTrimAt` con el punto de cada clic.
+ * y redimensionar ranuras. Recortar es una herramienta del lienzo (`features/canvas/trimTool.ts`, que
+ * llama a `runTrimAt` con el punto de cada clic); este comando, para quien lo lanza con el
+ * atajo o el menú, recorta el tramo del último punto donde se hizo clic (`useShapeOps.setLastPoint`).
  */
 export const shapeCommands: CommandDef[] = [
   {

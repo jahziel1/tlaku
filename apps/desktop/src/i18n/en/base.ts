@@ -224,7 +224,7 @@ export const base: { [K in keyof typeof Source]?: string } = {
   'preview.empty': 'Import a design to see the toolpath.',
 
   // ---- status bar ---------------------------------------------------------
-  'status.cursor': 'Cursor position in millimeters',
+  'status.cursor': 'Cursor position',
   'status.zoom': 'Zoom (100 % = actual size on screen)',
   'status.selected': '{n} selected',
   'status.selectedOne': '1 selected',

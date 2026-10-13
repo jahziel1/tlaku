@@ -8,7 +8,9 @@
  */
 import { useStore } from '@/store';
 import type { CameraBackdrop } from '@/store/camera';
-import { backdropCorners } from './geometry';
+import { backdropCorners, type Quad } from './geometry';
+import { headCorners } from './head';
+import { selectHeadDoc } from '@/store/machine';
 import { buildConstraints, classifyCameraError, pickDevice, videoInputs, type CameraProblem } from './capture';
 import { createCorrector, type Corrector } from './corrector';
 import { toBedAt } from './height';
@@ -29,6 +31,10 @@ let lastPublish = 0;
 let frameCount = 0;
 let startToken = 0;
 let subscribed = false;
+/** Mosaico de la cámara del cabezal (fondo fijo) con sus esquinas en la cama. */
+let mosaic: { canvas: HTMLCanvasElement; corners: Quad } | null = null;
+/** Esquinas del cuadro congelado cuando la cámara va en el cabezal (la imagen ya no se mueve). */
+let frozenCorners: Quad | null = null;
 
 /** Medidas del último tramo de cuadros (para el diagnóstico de rendimiento). */
 export const stats = { frames: 0, renderMs: 0 };
@@ -87,6 +93,22 @@ export function lensApplies(): boolean {
   return !!c && !!cameraStreamSize && lensFitsStream(c, cameraStreamSize[0], cameraStreamSize[1]);
 }
 
+/** Dibuja el cuadro actual del video corregido; `gray` pasa el resultado a escala de grises. */
+function drawFrame(gray: boolean): boolean {
+  const v = ensureVideo();
+  if (v.readyState < 2 || v.videoWidth === 0) return false;
+  const s = useStore.getState();
+  const size: [number, number] = [v.videoWidth, v.videoHeight];
+  const lens = s.cameraSetup.calibration;
+  const useLens = lens && lensFitsStream(lens, size[0], size[1]) ? lens : null;
+  const [w, h] = useLens ? correctedSize(useLens) : [Math.min(size[0], 1280), Math.round((Math.min(size[0], 1280) * size[1]) / size[0])];
+  const t0 = performance.now();
+  ensureCorrector().render(v, { width: w, height: h, lens: useLens, gray });
+  stats.renderMs += performance.now() - t0;
+  stats.frames++;
+  return true;
+}
+
 function renderFrame(): void {
   const v = ensureVideo();
   if (v.readyState < 2 || v.videoWidth === 0) return;
@@ -96,15 +118,14 @@ function renderFrame(): void {
     s.setCameraState({ cameraStreamSize: size });
   }
   if (s.cameraFrozen) return;
-  const lens = s.cameraSetup.calibration;
-  const useLens = lens && lensFitsStream(lens, size[0], size[1]) ? lens : null;
-  const [w, h] = useLens ? correctedSize(useLens) : [Math.min(size[0], 1280), Math.round((Math.min(size[0], 1280) * size[1]) / size[0])];
-  const t0 = performance.now();
-  ensureCorrector().render(v, { width: w, height: h, lens: useLens });
-  stats.renderMs += performance.now() - t0;
-  stats.frames++;
+  if (!drawFrame(s.cameraSetup.prefs.grayscale === true)) return;
   frameCount++;
   publishBackdrop(false);
+}
+
+/** Cuadros dibujados hasta ahora (sirve para esperar al siguiente). */
+export function framesRendered(): number {
+  return frameCount;
 }
 
 function scheduleNext(): void {
@@ -131,6 +152,7 @@ export function alignmentIsCurrent(): boolean {
  */
 export function publishBackdrop(force: boolean): void {
   const s = useStore.getState();
+  if (s.cameraSetup.head?.enabled) return publishHeadBackdrop(force);
   const { alignment, prefs } = s.cameraSetup;
   const source = s.cameraFrozen && snapshot ? snapshot : stream && corrector ? corrector.canvas : null;
   const visible = prefs.visible && alignment !== null && source !== null && alignmentIsCurrent() && (s.cameraFrozen || lensOk());
@@ -154,6 +176,54 @@ export function publishBackdrop(force: boolean): void {
   s.setCameraBackdrop(backdrop);
 }
 
+/**
+ * Fondo con la cámara en el cabezal: el mosaico si ya se armó (fijo en la cama) o, si no, el cuadro
+ * en vivo, que se mueve con el láser (sus esquinas salen de la calibración del cabezal y de la
+ * posición actual de la máquina).
+ */
+function publishHeadBackdrop(force: boolean): void {
+  const s = useStore.getState();
+  const { prefs, head } = s.cameraSetup;
+  const cal = head?.calibration ?? null;
+  const hide = () => {
+    if (s.cameraBackdrop) s.setCameraBackdrop(null);
+  };
+  if (!prefs.visible || !cal) return hide();
+  const now = performance.now();
+  if (!force && now - lastPublish < BACKDROP_MIN_INTERVAL_MS) return;
+  if (mosaic) {
+    lastPublish = now;
+    s.setCameraBackdrop({
+      source: mosaic.canvas,
+      width: mosaic.canvas.width,
+      height: mosaic.canvas.height,
+      corners: mosaic.corners,
+      opacity: prefs.opacity,
+      frame: ++frameCount,
+    });
+    return;
+  }
+  const source = s.cameraFrozen && snapshot ? snapshot : stream && corrector ? corrector.canvas : null;
+  const space = correctedSpace();
+  const current = !!space && cal.image_size[0] === space[0] && cal.image_size[1] === space[1];
+  const laser = selectHeadDoc(s);
+  const corners = s.cameraFrozen && frozenCorners ? frozenCorners : laser ? headCorners(cal, laser) : null;
+  if (!source || !current || !corners || (!s.cameraFrozen && !lensOk())) return hide();
+  lastPublish = now;
+  const canvas = source as HTMLCanvasElement;
+  s.setCameraBackdrop({ source, width: canvas.width, height: canvas.height, corners, opacity: prefs.opacity, frame: ++frameCount });
+}
+
+/** Deja el mosaico armado como fondo fijo en la cama (`null` lo quita y vuelve el cuadro en vivo). */
+export function setMosaicBackdrop(value: { canvas: HTMLCanvasElement; corners: Quad } | null): void {
+  mosaic = value;
+  publishBackdrop(true);
+}
+
+export function hasMosaic(): boolean {
+  return mosaic !== null;
+}
+
 /** Sin calibración vale cualquier video; con calibración debe tener su proporción. */
 function lensOk(): boolean {
   const { cameraSetup } = useStore.getState();
@@ -166,6 +236,8 @@ function subscribeOnce(): void {
   // Cambios de alineación, opacidad, visibilidad o congelado: se republica sin esperar al video.
   useStore.subscribe((s, prev) => {
     if (s.cameraSetup !== prev.cameraSetup || s.cameraFrozen !== prev.cameraFrozen) publishBackdrop(true);
+    // Con la cámara en el cabezal el cuadro en vivo sigue al láser: cada reporte de posición reubica el fondo.
+    else if (s.status !== prev.status && s.cameraSetup.head?.enabled && !mosaic) publishBackdrop(false);
   });
 }
 
@@ -246,6 +318,12 @@ function stopStream(): void {
   if (video) video.srcObject = null;
 }
 
+/** Cuadro corregido actual como canvas (copia), para armar mosaicos y fondos. */
+export function currentCanvas(): HTMLCanvasElement | null {
+  const src = useStore.getState().cameraFrozen && snapshot ? snapshot : corrector?.canvas;
+  return src && src.width > 0 ? src : null;
+}
+
 export function stopCamera(): void {
   startToken++;
   stopStream();
@@ -265,8 +343,12 @@ export function setFrozen(frozen: boolean): void {
     snapshot.width = src.width;
     snapshot.height = src.height;
     snapshot.getContext('2d')?.drawImage(src, 0, 0);
+    const { cameraSetup } = s;
+    const laser = selectHeadDoc(s);
+    frozenCorners = cameraSetup.head?.enabled && cameraSetup.head.calibration && laser ? headCorners(cameraSetup.head.calibration, laser) : null;
   } else {
     snapshot = null;
+    frozenCorners = null;
   }
   s.setCameraState({ cameraFrozen: frozen });
 }
@@ -304,6 +386,37 @@ export async function grabCorrectedPng(): Promise<{ png: string; width: number; 
   const blob = await new Promise<Blob | null>((res) => src.toBlob(res, 'image/png'));
   if (!blob) return null;
   return { png: await blobToBase64(blob), width: src.width, height: src.height };
+}
+
+/**
+ * Como `grabCorrectedPng` pero siempre a color: con el fondo en escala de grises vuelve a dibujar
+ * el cuadro actual sin gris, lo guarda y restaura el gris. Es lo que se guarda como imagen del
+ * documento (el gris es solo para ver mejor el diseño encima).
+ */
+export async function grabCorrectedColorPng(): Promise<{ png: string; width: number; height: number } | null> {
+  const s = useStore.getState();
+  const gray = s.cameraSetup.prefs.grayscale === true;
+  if (!gray || s.cameraFrozen || !stream) return grabCorrectedPng();
+  if (!drawFrame(false)) return grabCorrectedPng();
+  const pending = grabCorrectedPng();
+  drawFrame(true);
+  return pending;
+}
+
+/**
+ * Renueva el cuadro congelado con uno nuevo: suelta, espera al siguiente cuadro de la cámara y
+ * vuelve a congelar. Sin cámara encendida no hace nada.
+ */
+export async function refreshSnapshot(timeoutMs = 2000): Promise<boolean> {
+  const s = useStore.getState();
+  if (!s.cameraFrozen || s.cameraStatus !== 'live') return false;
+  const before = frameCount;
+  setFrozen(false);
+  const t0 = performance.now();
+  while (frameCount === before && performance.now() - t0 < timeoutMs) await new Promise((r) => setTimeout(r, 40));
+  const fresh = frameCount !== before;
+  setFrozen(true);
+  return fresh;
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

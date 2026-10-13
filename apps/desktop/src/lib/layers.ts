@@ -76,6 +76,7 @@ export function factoryLayer(color: string, name: string, patch: Partial<LayerSe
     fill_grouping: 'all',
     angle_increment: 0,
     sub_layers: [],
+    laser2: false,
     ...patch,
   };
 }

@@ -31,6 +31,8 @@ import type { VectorObject } from '@/bindings/VectorObject';
 import type { VariableText } from '@/bindings/VariableText';
 import type { BufferStatus } from '@/bindings/BufferStatus';
 import type { ConnectResult } from '@/bindings/ConnectResult';
+import type { RuidaFile } from '@/bindings/RuidaFile';
+import type { RuidaInfo } from '@/bindings/RuidaInfo';
 import type { ConnectionEvent } from '@/bindings/ConnectionEvent';
 import type { ExportResult } from '@/bindings/ExportResult';
 import type { JobEvent } from '@/bindings/JobEvent';
@@ -57,8 +59,12 @@ import type { TestParam } from '@/bindings/TestParam';
 import type { Guide } from '@/bindings/Guide';
 import type { GuideAxis } from '@/bindings/GuideAxis';
 import type { StartSpec } from '@/bindings/StartSpec';
+import type { Macro } from '@/bindings/Macro';
+import type { SavedPosition } from '@/bindings/SavedPosition';
 
 export type {
+  Macro,
+  SavedPosition,
   Guide,
   GuideAxis,
   StartSpec,
@@ -92,6 +98,8 @@ export type {
   PathSeg,
   ProgressEvent,
   RealtimeCommand,
+  RuidaFile,
+  RuidaInfo,
   RotaryKind,
   RotarySettings,
   ScanOffset,
@@ -137,6 +145,10 @@ export interface EventMap {
   'machine://log': LogEvent;
   'machine://job': JobEvent;
   'machine://connection': ConnectionEvent;
+  /** Un programa externo pidió abrir un archivo (`LOAD` de la automatización por UDP). */
+  'automation://load': { path: string };
+  /** Pidió iniciar el trabajo (`START`); con `confirmed` el usuario ya lo permitió en Preferencias. */
+  'automation://start': { confirmed: boolean };
 }
 
 export type EventName = keyof EventMap;
@@ -238,6 +250,11 @@ export interface TraceResult {
   warnings: string[];
 }
 
+/** Modelo de la lente: Brown-Conrady (`k1,k2,k3,p1,p2`) u ojo de pez de Kannala-Brandt (`k1..k4`). */
+export type LensModel = 'brown_conrady' | 'fisheye';
+/** Qué modelo ajustar al calibrar: uno fijo o `auto` (elige el motor). */
+export type LensModelChoice = 'auto' | LensModel;
+
 export interface LensCalibration {
   width: number;
   height: number;
@@ -250,8 +267,23 @@ export interface LensCalibration {
   p1: number;
   p2: number;
   k3: number;
+  /** Faltan en las calibraciones guardadas antes del ojo de pez: valen `brown_conrady`, 0 y 1. */
+  model?: LensModel;
+  k4?: number;
+  /** Focal de la imagen corregida respecto de `fx`/`fy` (1 con Brown-Conrady; menor con ojo de pez). */
+  view_zoom?: number;
   rms_error_px: number;
   views_used: number;
+}
+
+/** Cómo le fue a un modelo de lente con las mismas vistas. */
+export interface ModelScore {
+  model: LensModel;
+  /** Error de reproyección rms con todas las vistas (px). */
+  rms_px: number;
+  /** Error rms en vistas reservadas (px); `null` con muy pocas vistas. */
+  cv_rms_px: number | null;
+  chosen: boolean;
 }
 
 export interface CalibrationReport {
@@ -259,6 +291,84 @@ export interface CalibrationReport {
   warnings: string[];
   used_views: number[];
   view_rms_px: number[];
+  /** Puntaje de cada modelo probado (uno solo si se fijó el modelo). Falta en el mock antiguo. */
+  model_scores?: ModelScore[];
+}
+
+/** Una foto corregida de lente con su posición en la cama (píxel con origen en el borde -> mm). */
+export interface BedTile {
+  image_png_base64: string;
+  to_bed: [[number, number, number], [number, number, number], [number, number, number]];
+}
+
+export interface ComposeBedArgs {
+  tiles: BedTile[];
+  bed: [number, number];
+  /** Resolución (px por mm); `null` = la de la foto, con tope. */
+  px_per_mm: number | null;
+  grayscale: boolean;
+  /** Ancho de la rampa de mezcla en los bordes de cada foto (px de la foto). */
+  feather_px: number | null;
+  /** Franja del borde de cada foto que se descarta (px de la foto). */
+  crop_px: number | null;
+  /** `[x0, y0, x1, y1]` en mm; `null` = lo que cubren las fotos dentro de la cama. */
+  rect: [number, number, number, number] | null;
+  /** Carpeta del proyecto; `null` = carpeta temporal. */
+  dir: string | null;
+  stem: string;
+  /** Escribir el PNG (si no, solo vuelve la vista previa). */
+  save: boolean;
+}
+
+/** Imagen compuesta de la cama y dónde queda en el documento. */
+export interface BedImage {
+  /** Archivo escrito; vacío sin `save`. */
+  path: string;
+  width_px: number;
+  height_px: number;
+  size_mm: [number, number];
+  /** Esquina inferior izquierda en el documento (mm). */
+  origin_mm: [number, number];
+  in_temp_dir: boolean;
+  /** Fracción cubierta por alguna foto (0..1). */
+  coverage: number;
+  px_per_mm: number;
+  /** PNG en base64 reducido a un ancho máximo de 1600 px. */
+  preview_png_base64: string;
+}
+
+export interface CircleHint {
+  center: [number, number];
+  radius?: number | null;
+}
+
+/** Círculo hallado en una foto (px, origen en el borde de la imagen). */
+export interface CircleFit {
+  center: [number, number];
+  radius: number;
+  rms_px: number;
+  inliers: number;
+  /** Fracción del contorno visible (0..1). */
+  arc_coverage: number;
+  /** Muestra de puntos del borde: se llevan a mm y allí se vuelve a ajustar el círculo. */
+  points: [number, number][];
+}
+
+/** Calibración de la cámara montada en el cabezal (ver `HeadCalibration` en edit/camera.rs). */
+export interface HeadCalibration {
+  image_size: [number, number];
+  ref_px: [number, number];
+  /** Píxeles a mm, por filas: `[[a, b], [c, d]]`. */
+  px_to_mm: [[number, number], [number, number]];
+  /** Desfase del centro de la imagen respecto del láser (mm). */
+  offset_mm: [number, number];
+  rms_mm: number;
+  observations: number;
+}
+
+export interface HeadCamera {
+  enabled: boolean;
+  calibration: HeadCalibration | null;
 }
 
 type Quad = [Point, Point, Point, Point];
@@ -335,6 +445,10 @@ export interface CameraPrefs {
   visible: boolean;
   /** Grosor del material actual (mm sobre la cama): el fondo se corrige a esa altura. */
   material_height_mm?: number;
+  /** El fondo se muestra en escala de grises. */
+  grayscale?: boolean;
+  /** Refrescar el fondo al terminar un trabajo. */
+  update_on_job_finish?: boolean;
 }
 
 /** Una marca de la disposición con lo que se encontró de ella (`detect_camera_marks`). */
@@ -382,6 +496,8 @@ export interface CameraSetup {
   calibration: LensCalibration | null;
   alignment: CameraAlignment | null;
   prefs: CameraPrefs;
+  /** Cámara montada en el cabezal. Falta en configuraciones anteriores a la ola 4. */
+  head?: HeadCamera;
 }
 
 // ---- Diseño avanzado (ola 3): deformar, contorno envolvente y círculo tangente ----------------------

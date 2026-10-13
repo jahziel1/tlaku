@@ -520,10 +520,39 @@ El panel remoto (UDP 50207) no está implementado: pausa, reanudar, detener, hom
 
 ## 14. Integración en la app y plan de prueba con una máquina real
 
-Falta para integrar (no hecho; fuera de la zona de este trabajo):
-- `DeviceKind::Ruida` y un perfil de máquina con IP, magic ("auto" por defecto), `HomeCorner`, tamaño de cama y velocidad de salto.
-- En `src-tauri/machine`: un hilo de conexión que posea `RuidaSession<UdpLink>`, con comandos de conectar (sondeo), estado periódico (la lectura de 3 direcciones cada 0,5 a 1 s; no consultar durante un envío), enviar (con `Progress` hacia la interfaz y el indicador de cancelación), pausa/reanudar/detener, saltos y encuadre. La confirmación previa y el aviso de modo experimental son obligatorios, igual que en el CLI.
-- Mapear `ComputedJob` a `RuidaJobOptions` como en `export_rd` de `crates/tlaku-cli/src/ruida.rs` (colores de capa, home, cama).
-- Interfaz: elegir "guardar documento" (predeterminado) o "ejecutar", y mostrar el resultado del `D8 01` si falla un envío.
+Estado de la integración: hecha en la ola 4 y **EXPERIMENTAL** (sección 15). Lo que la lista original pedía y dónde quedó:
+
+- `DeviceKind::Ruida`, `DeviceProfile.connection` (`udp`) y `DeviceProfile.ruida` (`magic`, `run_after_upload`) vienen del contrato. El `HomeCorner` es el `origin` del perfil (misma regla: X0 Y0 en la esquina y crecen hacia dentro).
+- Hilo de conexión (`src-tauri/src/machine/ruida.rs`) con sondeo, estado periódico, envío con progreso, pausa/reanudar/detener, saltos y encuadre.
+- `export_rd` pasó de `tlaku-cli` a `tlaku_pipeline::export_rd` / `export_rd_for_device` (el CLI delega).
+- Interfaz: campos del perfil, panel Máquina, aviso previo al envío y etiqueta «Experimental».
 
 Plan de prueba con una máquina real: la sección 10.6, en el orden indicado. Criterios para pasar a "perfil probado" de un modelo: pasos 1 a 3 correctos, el paso 4 sin comportamientos inesperados, y la captura del paso 6 comparada.
+
+## 15. Integración en la app (ola 4)
+
+**Qué hay.** Un perfil `kind = ruida` (IP en `connection.host`; `ruida.magic` fijo o `null` = automático; `ruida.run_after_upload`) conecta por UDP 50200/40200 con un sondeo de solo lectura (`DA 00 05 7E`) que informa modelo, tarjeta, magic y cama. El puerto `virtual:ruida[@N]` arranca el emulador de `tlaku-ruida` en `127.0.0.1` y se conecta por UDP real. Todo vive en `apps/desktop/src-tauri/src/machine/ruida.rs`; la conexión activa (`machine::active`) puede ser GRBL o Ruida y deja un hueco claro para el K40.
+
+| Función | Cómo | Contra el emulador |
+|---|---|---|
+| Conectar y sondear | `RuidaSession::probe`; un ACK de otro magic lo corrige y se avisa | probado |
+| Estado y posición | `status()` cada ~500 ms, no durante la subida; el silencio no es pérdida con un trabajo en marcha | probado |
+| Enviar guardando (M23) | `SendMode::Store`, documento `TLAKUnnn`, no arranca | probado |
+| Enviar ejecutando | `SendMode::Run` + seguimiento del estado hasta el reposo | probado |
+| Fallo a mitad de subida | `D8 01` y aviso (protocolo de 12.12); cancelar interrumpe la subida | probado |
+| Pausa, reanudar, detener | `D8 02/03/01`, también las hechas desde el panel de la máquina | probado |
+| Saltos, ir al origen, encuadre | `D9 10` con opciones 00; el encuadre son cinco saltos sin bloquear el hilo | probado |
+| Información (M25/M26) | lecturas `0x005`, `0x00C`, `0x023/033`, `0x025/035`, `0x201-0x203`, `0x211`, `0x205`, `0x223/233` | probado (valores del emulador) |
+| Lista de documentos (M24) | cuenta `0x205` + `E8 01 n` (solo lectura) | probado (formato del emulador de [MK40]) |
+
+**No verificado con hardware** (todo lo de la tabla, más): que `D8 00` dentro de un documento guardado no arranque; que el estado `0x2` sea «pausa»; la unidad de las direcciones de ajustes (µm/s y µm/s² según [MK40]); la numeración desde 1 y el formato `E8 01 n nombre\0`; que la máquina conteste lecturas con un trabajo en marcha (el foro [FOR3] dice que a veces no); que el home sea el de `origin`; que no haga falta `E5 05`; que `D8 01` (que es lo que usa «soltar» el movimiento continuo del botón Mover) frene un salto sin efectos secundarios.
+
+**Decisiones de seguridad.** Antes de enviar se exige que la cama del perfil coincida con la que informa la máquina (el origen del archivo depende de ella); el diálogo de inicio dice si el trabajo se ejecuta o solo se guarda; el encuadre y los saltos nunca encienden el láser; «Disparo de prueba», consola, overrides y macros son de GRBL y se rechazan con un mensaje. Al desconectar con un trabajo en marcha se manda `D8 01`.
+
+**M24, borrar y ejecutar.** Quedan sin implementar a propósito: `E8 00 n` borra (con 0, todo) y `E8 03 n` selecciona sin garantía de arrancar; la numeración no está confirmada con una máquina real, y un índice equivocado borra o ejecuta otro documento. La lista es solo lectura y lo dice.
+
+**M25, escribir ajustes.** Pendiente a propósito: escribir memoria (`DA 01`) en la controladora sin hardware de prueba puede dejarla inutilizable; `send_job` sigue rechazando cualquier `DA 01`. Se leen los ajustes conocidos y se muestran en solo lectura.
+
+**M28, rotativo DSP.** [dsp-co2.md] (TopWisdom/Trocen) y los foros de LightBurn coinciden en que el rotativo se activa en «Machine Settings» de la controladora, y ninguna fuente de `.rd` ([EDU], [MK40], [RPAC]) describe un comando de rotativo. Por eso Tlaku no escala la Y con `RotarySettings`: manda la Y en mm de superficie, deja la conversión a la controladora y lo anota en el registro. Si en una máquina real el trabajo debe ir ya escalado, es un cambio de `export_rd_for_device` (aplicar `y_scale`), que hoy es privado del pipeline.
+
+**K40.** El respaldo `LhyMicro` se agrega como una variante más de `ActiveMachine` / `Machine` (ver `machine/active.rs`).

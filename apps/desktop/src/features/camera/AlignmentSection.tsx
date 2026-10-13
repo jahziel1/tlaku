@@ -9,6 +9,9 @@ import { ALIGN_ORDER, rectCorners, type Quad, type Vec2 } from './geometry';
 import { fitAlignment } from './setup';
 import { correctedSpace } from './session';
 import { CameraView } from './CameraView';
+import { detectAt, pickPoint, useCenter } from './centerFinder';
+import { addObservation } from './headCal';
+import { useHeadCal, useViewTool } from './headState';
 
 
 type Draft = { px: (Vec2 | null)[]; mm: Vec2[] };
@@ -74,23 +77,52 @@ export function useAlignmentEditor(): AlignmentEditor {
   };
 }
 
-/** Sección de la vista en vivo con los 4 puntos arrastrables. */
+/**
+ * Sección de la vista en vivo. Según la herramienta activa, los clics ponen los 4 puntos de la
+ * alineación (arrastrables), registran la cruz de la calibración del cabezal o marcan el borde de
+ * un objeto redondo para el buscador de centro.
+ */
 export function ViewSection({ editor }: { editor: AlignmentEditor }) {
   const status = useStore((s) => s.cameraStatus);
   const frozen = useStore((s) => s.cameraFrozen);
   useStore((s) => s.cameraSetup.calibration);
   useStore((s) => s.cameraStreamSize);
+  const tool = useViewTool((s) => s.tool);
+  const setTool = useViewTool((s) => s.setTool);
+  const lastObs = useHeadCal((s) => s.obs.at(-1));
+  const measuring = useHeadCal((s) => s.measuring);
+  const picks = useCenter((s) => s.picks);
+  const centerMode = useCenter((s) => s.mode);
+  const live = status === 'live' || frozen;
+
+  const align = tool === 'align';
+  const points: (Vec2 | null)[] = align ? editor.draft.px : tool === 'headMark' ? [lastObs?.px ?? null] : picks.map((p) => p.px);
+  const onPlace = align
+    ? editor.place
+    : tool === 'headMark'
+      ? (p: Vec2) => {
+          if (measuring) addObservation(p);
+        }
+      : (p: Vec2) => (centerMode === 'auto' ? void detectAt(p) : pickPoint(p));
+  const hint: I18nKey | null = align ? null : tool === 'headMark' ? 'camera.view.tool.headMark' : centerMode === 'auto' ? 'camera.view.tool.centerAuto' : 'camera.view.tool.center';
+
   return (
     <section className="section">
       <CameraView
         space={correctedSpace()}
-        points={editor.draft.px}
-        active={editor.active}
-        onPlace={editor.place}
-        onMove={editor.setPoint}
-        onSelect={editor.setActive}
-        live={status === 'live' || frozen}
+        points={points}
+        active={align ? editor.active : -1}
+        onPlace={onPlace}
+        onMove={align ? editor.setPoint : undefined}
+        onSelect={align ? editor.setActive : undefined}
+        live={live}
       />
+      {hint && (
+        <p className="hint cam-tool" role="status">
+          {t(hint)}{' '}
+          <button type="button" className="chip" onClick={() => setTool('align')}>{t('camera.view.tool.back')}</button>
+        </p>
+      )}
     </section>
   );
 }

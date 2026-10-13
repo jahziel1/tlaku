@@ -52,7 +52,14 @@
   border-radius: var(--radius);
   background: var(--bg-sunken);
 }
+.ne-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
 .ne-row .field {
+  flex: 1;
+  min-width: 0;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;

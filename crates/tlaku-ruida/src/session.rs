@@ -41,7 +41,30 @@ pub mod addr {
     pub const POS_Y: u16 = 0x231;
     pub const BED_X: u16 = 0x026;
     pub const BED_Y: u16 = 0x036;
+    /// Velocidad del movimiento rápido (G0), µm/s según el emulador de MeerK40t.
+    pub const G0_SPEED: u16 = 0x005;
+    /// Velocidad de home, µm/s.
+    pub const HOME_SPEED: u16 = 0x00C;
+    /// Velocidad máxima de los ejes X e Y, µm/s.
+    pub const AXIS_MAX_SPEED_X: u16 = 0x023;
+    pub const AXIS_MAX_SPEED_Y: u16 = 0x033;
+    /// Aceleración máxima de los ejes X e Y, µm/s².
+    pub const AXIS_MAX_ACCEL_X: u16 = 0x025;
+    pub const AXIS_MAX_ACCEL_Y: u16 = 0x035;
+    /// Tiempo total encendida, tiempo total de trabajo (s), número de trabajos y tiempo de láser (s).
+    pub const TOTAL_ON_TIME: u16 = 0x201;
+    pub const TOTAL_WORK_TIME: u16 = 0x202;
+    pub const TOTAL_JOBS: u16 = 0x203;
+    pub const TOTAL_LASER_TIME: u16 = 0x211;
+    /// Número de documentos guardados en la memoria de la controladora.
+    pub const DOC_COUNT: u16 = 0x205;
+    /// Recorrido total de los ejes X e Y (m).
+    pub const TRAVEL_X: u16 = 0x223;
+    pub const TRAVEL_Y: u16 = 0x233;
 }
+
+/// Tope de documentos que se listan (las direcciones `0x261..0x2C4` dejan unos 99).
+pub const MAX_LISTED_DOCS: u32 = 99;
 
 /// Bits de `0x200`: ruida-pa y MeerK40t coinciden en el movimiento (`0x01000000`) y el trabajo
 /// (`0x1`); el bit `0x2` es "pausa" para ruida-pa y "fin de parte" para MeerK40t.
@@ -219,6 +242,40 @@ impl MachineStatus {
     }
 }
 
+/// Información de la controladora (solo lectura). Los valores que la máquina no informa (o
+/// informa como 0) quedan en `None`. Direcciones y unidades de ruida.md sección 4.4 y del
+/// emulador de MeerK40t (MIT); **sin verificar con hardware real**.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ControllerInfo {
+    pub probe: ProbeInfo,
+    /// Velocidad del movimiento rápido (G0), mm/s.
+    pub rapid_mm_s: Option<f64>,
+    /// Velocidad de home, mm/s.
+    pub home_mm_s: Option<f64>,
+    /// Velocidad máxima de los ejes X e Y, mm/s.
+    pub axis_max_mm_s: [Option<f64>; 2],
+    /// Aceleración máxima de los ejes X e Y, mm/s².
+    pub axis_accel_mm_s2: [Option<f64>; 2],
+    /// Segundos encendida, segundos de trabajo, trabajos hechos y segundos de láser.
+    pub total_on_s: Option<u64>,
+    pub total_work_s: Option<u64>,
+    pub total_jobs: Option<u64>,
+    pub total_laser_s: Option<u64>,
+    /// Recorrido total de los ejes X e Y, metros.
+    pub travel_m: [Option<u64>; 2],
+    /// Documentos guardados en la memoria.
+    pub documents: Option<u32>,
+}
+
+/// Documento guardado en la memoria de la controladora.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ControllerFile {
+    /// Número del documento (1 en adelante, como lo numera `E8 01`).
+    pub index: u32,
+    /// Nombre; `None` si la máquina no contestó a la consulta de ese documento.
+    pub name: Option<String>,
+}
+
 /// Cómo enviar el trabajo.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SendMode {
@@ -314,6 +371,12 @@ impl<L: PacketLink> RuidaSession<L> {
 
     pub fn magic(&self) -> Magic {
         self.cfg.magic
+    }
+
+    /// Acceso para ajustar tiempos o límites entre operaciones (p. ej. esperas cortas al
+    /// sondear el estado y largas al subir un trabajo). No cambies el magic: usa el sondeo.
+    pub fn config_mut(&mut self) -> &mut SessionConfig {
+        &mut self.cfg
     }
 
     fn pcfg(&self) -> PacketConfig {
@@ -439,10 +502,21 @@ impl<L: PacketLink> RuidaSession<L> {
     /// Lee una dirección de memoria (`DA 00`, solo lectura) y devuelve el valor de 35 bits.
     pub fn read_mem(&mut self, address: u16) -> Result<u64, SessionError> {
         let d = self.datagram(&[Command::MemRead { addr: address }])?;
+        self.query(&d, |s, dg| s.find_reply(dg, address))
+    }
+
+    /// Envía una consulta de solo lectura y espera su respuesta: el ACK llega primero y la
+    /// respuesta en otro datagrama; `pick` extrae el valor de cada datagrama largo (`None` = no es
+    /// la respuesta esperada). Es idempotente, así que se reintenta ante NAK o silencio.
+    fn query<T>(
+        &mut self,
+        datagram: &[u8],
+        mut pick: impl FnMut(&Self, &[u8]) -> Option<T>,
+    ) -> Result<T, SessionError> {
         let mut last = SessionError::Timeout { what: "lectura" };
         for _ in 0..=self.cfg.query_retries {
             self.link.drain()?;
-            self.link.send(&d)?;
+            self.link.send(datagram)?;
             let deadline = Instant::now() + self.cfg.ack_timeout + self.cfg.reply_timeout;
             let mut nak = false;
             while !nak {
@@ -470,7 +544,7 @@ impl<L: PacketLink> RuidaSession<L> {
                     }
                     continue;
                 }
-                if let Some(v) = self.find_reply(&dg, address) {
+                if let Some(v) = pick(self, &dg) {
                     return Ok(v);
                 }
             }
@@ -521,6 +595,112 @@ impl<L: PacketLink> RuidaSession<L> {
         let by = signed35(self.read_mem(addr::BED_Y)?);
         self.bed_um = Some([bx, by]);
         Ok([bx, by])
+    }
+
+    /// Información de la controladora: sondeo más los ajustes y contadores que se conocen. Solo
+    /// lecturas (`DA 00`). Un valor que no contesta queda en `None`; tras el primer silencio no
+    /// se insiste con los demás.
+    pub fn controller_info(&mut self) -> Result<ControllerInfo, SessionError> {
+        let probe = self.probe()?;
+        let mut silent = false;
+        let mut read = |s: &mut Self, a: u16| -> Option<u64> {
+            if silent {
+                return None;
+            }
+            match s.read_mem(a) {
+                Ok(v) => Some(v),
+                Err(SessionError::Timeout { .. }) => {
+                    silent = true;
+                    None
+                }
+                Err(_) => None,
+            }
+        };
+        // Un 0 es "la máquina no informa ese dato", no una velocidad de 0.
+        let nonzero = |v: Option<u64>| v.filter(|&v| v > 0);
+        let per_mille = |v: Option<u64>| nonzero(v).map(|v| v as f64 / 1000.0);
+        let rapid_mm_s = per_mille(read(self, addr::G0_SPEED));
+        let home_mm_s = per_mille(read(self, addr::HOME_SPEED));
+        let axis_max_mm_s = [
+            per_mille(read(self, addr::AXIS_MAX_SPEED_X)),
+            per_mille(read(self, addr::AXIS_MAX_SPEED_Y)),
+        ];
+        let axis_accel_mm_s2 = [
+            per_mille(read(self, addr::AXIS_MAX_ACCEL_X)),
+            per_mille(read(self, addr::AXIS_MAX_ACCEL_Y)),
+        ];
+        let total_on_s = read(self, addr::TOTAL_ON_TIME);
+        let total_work_s = read(self, addr::TOTAL_WORK_TIME);
+        let total_jobs = read(self, addr::TOTAL_JOBS);
+        let total_laser_s = read(self, addr::TOTAL_LASER_TIME);
+        let travel_m = [read(self, addr::TRAVEL_X), read(self, addr::TRAVEL_Y)];
+        let documents = read(self, addr::DOC_COUNT).map(|v| v.min(u64::from(u32::MAX)) as u32);
+        Ok(ControllerInfo {
+            probe,
+            rapid_mm_s,
+            home_mm_s,
+            axis_max_mm_s,
+            axis_accel_mm_s2,
+            total_on_s,
+            total_work_s,
+            total_jobs,
+            total_laser_s,
+            travel_m,
+            documents,
+        })
+    }
+
+    /// Lista los documentos guardados en la memoria: cuenta (`0x205`) y nombre de cada uno con
+    /// `E8 01 n`. Solo lectura. **EXPERIMENTAL**: la numeración (desde 1) y el formato de la
+    /// respuesta (`E8 01 n nombre\0`) salen del emulador de MeerK40t, hecho a partir de capturas
+    /// de RDWorks; no se han visto en una máquina real. No hay borrar ni ejecutar a propósito
+    /// (`E8 00` con 0 borra todo y `E8 03` selecciona sin garantía de arrancar).
+    pub fn list_documents(&mut self) -> Result<Vec<ControllerFile>, SessionError> {
+        let count = self.read_mem(addr::DOC_COUNT)?;
+        let n = count.min(u64::from(MAX_LISTED_DOCS)) as u32;
+        let mut files = Vec::with_capacity(n as usize);
+        let mut silent = false;
+        for index in 1..=n {
+            let name = if silent {
+                None
+            } else {
+                match self.read_document_name(index) {
+                    Ok(name) => Some(name),
+                    Err(SessionError::Timeout { .. }) => {
+                        silent = true;
+                        None
+                    }
+                    Err(_) => None,
+                }
+            };
+            files.push(ControllerFile { index, name });
+        }
+        Ok(files)
+    }
+
+    fn read_document_name(&mut self, index: u32) -> Result<String, SessionError> {
+        let idx = [((index >> 7) & 0x7F) as u8, (index & 0x7F) as u8];
+        let d = packet::build_packet(&[0xE8, 0x01, idx[0], idx[1]], &self.pcfg());
+        self.query(&d, |s, dg| {
+            let plain = s.cfg.magic.unswizzle_all(dg);
+            let at = plain.iter().position(|&b| b == 0xE8)?;
+            let body = plain.get(at..)?;
+            if body.len() < 4 || body[1] != 0x01 || body[2] != idx[0] || body[3] != idx[1] {
+                return None;
+            }
+            let name: String = body[4..]
+                .iter()
+                .take_while(|&&b| b != 0)
+                .map(|&b| {
+                    if (0x20..0x7F).contains(&b) {
+                        b as char
+                    } else {
+                        '?'
+                    }
+                })
+                .collect();
+            Some(name)
+        })
     }
 
     // ------------------------------------------------------------------------------------
@@ -848,6 +1028,18 @@ impl<L: PacketLink> RuidaSession<L> {
     fn jog_unchecked(&mut self, target: Point) -> Result<(), SessionError> {
         let bed = self.bed_mm();
         let (mx, my) = self.cfg.home.to_machine(target, bed);
+        self.jog_machine_unchecked(mx, my)
+    }
+
+    /// Lleva el cabezal a (`x`, `y`) mm del sistema de la máquina (distancias desde el home hacia
+    /// dentro de la cama, las que informa [`MachineStatus::pos_um`]) con el láser apagado.
+    pub fn jog_machine(&mut self, x: f64, y: f64) -> Result<(), SessionError> {
+        self.ensure_idle()?;
+        self.jog_machine_unchecked(x, y)
+    }
+
+    fn jog_machine_unchecked(&mut self, mx: f64, my: f64) -> Result<(), SessionError> {
+        let bed = self.bed_mm();
         let (x, y) = (
             num::mm_to_um(mx).map_err(num_err)?,
             num::mm_to_um(my).map_err(num_err)?,
@@ -1517,6 +1709,118 @@ mod tests {
         assert!(s.status().unwrap().is_idle());
         let e = emu.emulator();
         assert_eq!((e.pauses, e.resumes, e.stops), (1, 1, 1));
+    }
+
+    #[test]
+    fn controller_info_reads_settings_counters_and_only_reads() {
+        let (mut s, _link, emu) = mem_session(EmuConfig::default(), fast_cfg());
+        // Un documento guardado para que la cuenta no sea 0.
+        s.send_job(
+            &square_job(),
+            &SendMode::Store { name: "UNO".into() },
+            &AtomicBool::new(false),
+            &mut no_progress(),
+        )
+        .unwrap();
+        let before = emu.lock().unwrap().received;
+        let info = s.controller_info().unwrap();
+        assert_eq!(info.probe.model, Some("RDC6442S"));
+        assert_eq!(info.probe.bed_mm, Some([600.0, 400.0]));
+        assert_eq!(info.rapid_mm_s, Some(200.0));
+        assert_eq!(info.home_mm_s, Some(20.0));
+        assert_eq!(info.axis_max_mm_s, [Some(400.0), Some(400.0)]);
+        assert_eq!(info.axis_accel_mm_s2, [Some(3000.0), Some(3000.0)]);
+        assert_eq!(
+            (info.total_on_s, info.total_work_s, info.total_jobs),
+            (Some(7200), Some(3600), Some(42))
+        );
+        assert_eq!(info.travel_m, [Some(120), Some(95)]);
+        assert_eq!(info.documents, Some(1));
+        let e = emu.lock().unwrap();
+        assert!(e.received > before);
+        // Todo lo que se envió desde antes de pedir la información son lecturas.
+        let cmds = e.commands().unwrap();
+        assert!(
+            cmds.iter()
+                .rev()
+                .take(e.received - before)
+                .all(|c| matches!(c, Command::MemRead { .. }))
+        );
+    }
+
+    #[test]
+    fn a_zero_setting_is_reported_as_unknown() {
+        let (mut s, _link, emu) = mem_session(EmuConfig::default(), fast_cfg());
+        emu.lock().unwrap().mem.insert(addr::G0_SPEED, 0);
+        let info = s.controller_info().unwrap();
+        assert_eq!(info.rapid_mm_s, None);
+        assert_eq!(info.home_mm_s, Some(20.0));
+    }
+
+    #[test]
+    fn list_documents_reads_the_names_of_the_stored_documents() {
+        let (mut s, _link, emu) = mem_session(EmuConfig::default(), fast_cfg());
+        assert!(s.list_documents().unwrap().is_empty());
+        for name in ["PRIMERO", "SEGUNDO"] {
+            s.send_job(
+                &square_job(),
+                &SendMode::Store { name: name.into() },
+                &AtomicBool::new(false),
+                &mut no_progress(),
+            )
+            .unwrap();
+        }
+        let files = s.list_documents().unwrap();
+        assert_eq!(
+            files,
+            vec![
+                ControllerFile {
+                    index: 1,
+                    name: Some("PRIMERO".into())
+                },
+                ControllerFile {
+                    index: 2,
+                    name: Some("SEGUNDO".into())
+                },
+            ]
+        );
+        // Listar no altera nada: no hay trabajo ni se borró nada.
+        let e = emu.lock().unwrap();
+        assert_eq!(e.stored.len(), 2);
+        assert!(!e.running);
+    }
+
+    #[test]
+    fn listing_over_udp_works_and_a_silent_machine_gives_nameless_entries() {
+        let emu = UdpEmulator::spawn(EmuConfig::default()).unwrap();
+        let link = UdpLink::to_controller_ports(emu.addr().ip(), emu.addr().port(), 0).unwrap();
+        let mut s = RuidaSession::new(link, fast_cfg());
+        s.send_job(
+            &square_job(),
+            &SendMode::Store { name: "UDP".into() },
+            &AtomicBool::new(false),
+            &mut no_progress(),
+        )
+        .unwrap();
+        assert_eq!(s.list_documents().unwrap()[0].name.as_deref(), Some("UDP"));
+        // Una máquina que deja de contestar a los nombres: entradas sin nombre, sin esperar N veces.
+        let silent = EmuConfig {
+            faults: EmuFaults {
+                // 0 y 1: dos lecturas de la cuenta que no hace falta repetir; todo después calla.
+                silent_from: Some(1),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (mut s2, _l, emu2) = mem_session(silent, fast_cfg());
+        emu2.lock().unwrap().stored.push(crate::emu::StoredDoc {
+            name: "X".into(),
+            stream: vec![],
+        });
+        // La lectura de la cuenta (datagrama 0) llega; los nombres no.
+        let files = s2.list_documents().unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].name, None);
     }
 
     #[test]

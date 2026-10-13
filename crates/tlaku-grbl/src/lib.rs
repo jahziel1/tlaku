@@ -4,6 +4,7 @@
 pub mod frame;
 pub mod gcode;
 pub mod link;
+pub mod net;
 pub mod preflight;
 pub mod serial;
 pub mod streamer;

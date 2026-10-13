@@ -43,7 +43,11 @@ function defaultDeps(): RecoveryDeps {
   };
 }
 
-/** Busca copias pendientes (al abrir la app) y abre el diálogo si hay. */
+/**
+ * Busca copias pendientes (al abrir la app o una ventana) y abre el diálogo si hay. El motor solo
+ * lista las huérfanas: las copias de otras ventanas que siguen abiertas no se ofrecen (ver
+ * `LiveCopies` en `src-tauri/src/autosave.rs`).
+ */
 export async function checkRecovery(deps: Pick<RecoveryDeps, 'api' | 'store'> = defaultDeps()): Promise<RecoveryInfo[]> {
   try {
     const items = await deps.api.autosaveList();

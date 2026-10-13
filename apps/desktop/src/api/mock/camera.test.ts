@@ -41,6 +41,48 @@ describe('mock de cámara', () => {
   });
 });
 
+describe('mock de la cámara (ola 4)', () => {
+  const api = createMockApi({ latencyMs: 0 });
+  const imgs = Array.from({ length: 5 }, () => fakePng(1280, 720));
+
+  it('la calibración automática elige Brown-Conrady y el ojo de pez solo si se pide', async () => {
+    const auto = await api.calibrateLens({ images_png_base64: imgs, board: [9, 6], square_mm: 25 });
+    expect(auto.calibration.model).toBe('brown_conrady');
+    expect(auto.model_scores).toHaveLength(2);
+    expect(auto.model_scores!.filter((m) => m.chosen)).toHaveLength(1);
+    const fish = await api.calibrateLens({ images_png_base64: imgs, board: [9, 6], square_mm: 25, model: 'fisheye' });
+    expect(fish.calibration.model).toBe('fisheye');
+    expect(fish.calibration.view_zoom).toBeLessThan(1);
+    expect(fish.model_scores).toHaveLength(1);
+  });
+
+  it('compone la imagen de la cama dentro de la cama y con el tamaño de los píxeles', async () => {
+    // 1280x720 px a 0,25 mm/px: 320x180 mm con la esquina superior izquierda en (40, 250).
+    const tile = { image_png_base64: fakePng(1280, 720), to_bed: [[0.25, 0, 40], [0, -0.25, 250], [0, 0, 1]] as [[number, number, number], [number, number, number], [number, number, number]] };
+    const args = { tiles: [tile], bed: [400, 300] as [number, number], px_per_mm: 2, grayscale: false, feather_px: null, crop_px: null, rect: null, dir: null, stem: 'p', save: true };
+    const a = await api.composeBedImage(args);
+    expect(a.width_px).toBe(640);
+    expect(a.height_px).toBe(360);
+    expect(a.origin_mm[0]).toBeCloseTo(40, 9);
+    expect(a.origin_mm[1]).toBeCloseTo(70, 9);
+    expect(a.size_mm).toEqual([320, 180]);
+    expect(a.path).toMatch(/p-camara-\d+\.png$/);
+    expect((await api.composeBedImage({ ...args, save: false })).path).toBe('');
+    await expect(api.composeBedImage({ ...args, tiles: [] })).rejects.toThrow(/ninguna foto/);
+    const outside = { ...tile, to_bed: [[0.25, 0, 900], [0, -0.25, 900], [0, 0, 1]] as typeof tile.to_bed };
+    await expect(api.composeBedImage({ ...args, tiles: [outside] })).rejects.toThrow(/dentro de la cama/);
+  });
+
+  it('detecta un círculo en el indicio o en el centro de la imagen', async () => {
+    const c = await api.detectCircle({ image_png_base64: fakePng(640, 480), hint: { center: [200, 100], radius: 50 } });
+    expect(c.center).toEqual([200, 100]);
+    expect(c.radius).toBe(50);
+    expect(c.points).toHaveLength(48);
+    const d = await api.detectCircle({ image_png_base64: fakePng(640, 480) });
+    expect(d.center).toEqual([320, 240]);
+  });
+});
+
 describe('mock de la configuración de cámara', () => {
   const memoryStorage = () => {
     const data = new Map<string, string>();

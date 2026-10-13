@@ -1,5 +1,6 @@
 import type { Point } from '@/api/types';
 import type { Bounds } from './geometry';
+import { MM_PER_INCH, formatLength, type LengthUnit } from './units';
 
 /**
  * Relación entre el espacio del documento (mm, Y hacia arriba) y el de pantalla (px, Y hacia abajo).
@@ -45,18 +46,23 @@ export function fitBounds(bounds: Bounds, w: number, h: number, margin = 32): Vi
 }
 
 const STEPS = [0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000];
+/** Pasos en pulgadas (décimas, como las reglas de taller): se pasan a mm al usarlos. */
+const STEPS_IN = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50].map((s) => s * MM_PER_INCH);
 
 /**
  * Pasos de cuadrícula en mm: `minor` es el más pequeño que deja al menos `minPx` entre
- * líneas; `major` es 10 veces `minor`. Coincide con la regla.
+ * líneas; `major` es 10 veces `minor`. Coincide con la regla. En pulgadas los pasos son
+ * décimas de pulgada (0,01, 0,05, 0,1, 0,5, 1...), expresados igualmente en mm.
  */
-export function gridSteps(zoom: number, minPx = 7): { minor: number; major: number } {
-  const minor = STEPS.find((s) => s * zoom >= minPx) ?? STEPS[STEPS.length - 1]!;
+export function gridSteps(zoom: number, minPx = 7, unit: LengthUnit = 'mm'): { minor: number; major: number } {
+  const steps = unit === 'in' ? STEPS_IN : STEPS;
+  const minor = steps.find((s) => s * zoom >= minPx) ?? steps[steps.length - 1]!;
   return { minor, major: minor * 10 };
 }
 
-/** Texto de una cota de la regla (sin ceros de más). */
-export function formatTick(mm: number): string {
+/** Texto de una cota de la regla (sin ceros de más), en mm o en pulgadas (decimales). */
+export function formatTick(mm: number, unit: LengthUnit = 'mm'): string {
+  if (unit === 'in') return formatLength(mm, 'in', { digits: 3, symbol: false, trim: true });
   return Number.isInteger(mm) ? String(mm) : String(Math.round(mm * 100) / 100);
 }
 

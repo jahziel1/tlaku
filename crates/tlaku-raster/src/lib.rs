@@ -236,7 +236,7 @@ mod tests {
         let mut img = GrayF32::from_fn(40, 40, |_, _| 1.0);
         img.data[20 * 40 + 20] = 0.0;
         let base = ProcessOptions {
-            sampling: Sampling::PassThrough,
+            sampling: Sampling::Interval(0.1),
             mode: RasterMode::Threshold(0.5),
             ..Default::default()
         };

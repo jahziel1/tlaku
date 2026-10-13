@@ -511,7 +511,11 @@ mod tests {
         assert!(to_input(&open).unwrap_err().contains("formas abiertas"));
         let none = request(vec![piece("a", 10.0, 10.0, 0)], 50.0, 50.0);
         assert!(to_input(&none).unwrap_err().contains("No hay piezas"));
-        let many = request(vec![piece("a", 1.0, 1.0, 5001)], 50.0, 50.0);
+        let many = request(
+            vec![piece("a", 1.0, 1.0, MAX_INSTANCES as u32 + 1)],
+            50.0,
+            50.0,
+        );
         assert!(to_input(&many).unwrap_err().contains("demasiadas"));
         // Contenedor inválido: lo detecta el motor y se informa en el estado.
         let bad = solve(&request(vec![piece("a", 10.0, 10.0, 1)], 0.0, 50.0));

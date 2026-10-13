@@ -24,6 +24,7 @@ mod place;
 mod preview;
 mod processed;
 mod rotary;
+mod ruida;
 mod scan_offset;
 mod start;
 mod stroke;
@@ -44,6 +45,7 @@ pub use layers::{
 pub use material_test::material_test;
 pub use processed::processed_png;
 pub use rotary::rotary_test;
+pub use ruida::{export_rd, export_rd_for_device, home_for_origin, limits_for_device};
 
 /// Los tipos del documento, para quien solo depende de este crate.
 pub use tlaku_doc as doc;

@@ -51,7 +51,7 @@ export const catalog: { [K in keyof typeof Source]?: string } = {
     'The board was not recognized as GRBL, Marlin, or Smoothie. Try other baud rates, check the cable, or choose "Other / generic" in the next step.',
   'catalog.detect.network.title': 'Network machines',
   'catalog.detect.network.text':
-    'Network controllers (Ruida and similar) cannot be detected automatically. Entering an IP address will be supported soon.',
+    'Network controllers (Ruida, experimental) cannot be detected automatically: skip detection, pick "Other / generic" with the Ruida type, and type its IP address in the last step.',
 
   'catalog.family.grbl': 'GRBL',
   'catalog.family.grbl_hal': 'grblHAL',

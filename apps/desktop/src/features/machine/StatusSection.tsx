@@ -3,6 +3,7 @@ import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
+import { selectIsRuida } from './ruidaPorts';
 import { VirtualBadge } from './VirtualBadge';
 
 export type StateTone = 'ok' | 'accent' | 'warn' | 'danger' | 'off';
@@ -72,6 +73,8 @@ export function StatusSection() {
   const status = useStore((s) => s.status);
   const connected = useStore((s) => s.connection.connected);
   const virtual = useStore(selectIsVirtual);
+  // Ruida no informa avance F ni potencia S en vivo.
+  const ruida = useStore(selectIsRuida);
   const state = connected ? (status?.state ?? 'idle') : null;
   const otherState = state === 'other' ? (status?.other_state ?? null) : null;
   const hint = state === 'other' ? t('machine.stateHint.other', { name: stateLabel(state, otherState) }) : state ? HINTS[state] && t(HINTS[state]) : undefined;
@@ -89,10 +92,12 @@ export function StatusSection() {
         <div className="mc-readout">
           <Pos label={t('machine.pos.work')} pos={connected ? status?.work_pos : undefined} />
           <Pos label={t('machine.pos.machine')} pos={connected ? status?.machine_pos : undefined} />
+          {!ruida && (
           <dl className="kv mc-kv2">
             <div><dt title={t('machine.feed.help')}>F</dt><dd className="num">{connected && status ? Math.round(status.feed) : '—'}</dd></div>
             <div><dt title={t('machine.power.help')}>S</dt><dd className="num">{connected && status ? Math.round(status.spindle) : '—'}</dd></div>
           </dl>
+          )}
         </div>
       </div>
     </section>

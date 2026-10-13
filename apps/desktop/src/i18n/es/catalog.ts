@@ -52,7 +52,7 @@ export const catalog = {
     'La placa no se reconoció como GRBL, Marlin ni Smoothie. Prueba otros baudios, revisa el cable, o elige "Otro / genérico" en el siguiente paso.',
   'catalog.detect.network.title': 'Máquinas de red',
   'catalog.detect.network.text':
-    'Las controladoras de red (Ruida y similares) no se detectan solas: próximamente se podrá escribir su dirección IP.',
+    'Las controladoras de red (Ruida, experimental) no se detectan solas: salta la detección, elige «Otro / genérico» con el tipo Ruida y escribe su dirección IP en el último paso.',
 
   'catalog.family.grbl': 'GRBL',
   'catalog.family.grbl_hal': 'grblHAL',

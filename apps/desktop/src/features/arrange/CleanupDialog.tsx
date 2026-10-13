@@ -1,5 +1,5 @@
 import { t } from '@/i18n';
-import { NumberField } from '@/ui/NumberField';
+import { LengthField } from '@/ui/LengthField';
 import { useStore } from '@/store';
 import { cleanupReason, runCleanup } from './cleanup';
 import { Dialog, Footer } from './Dialog';
@@ -32,7 +32,7 @@ export function CleanupDialog({ op }: { op: CleanupOp }) {
       footer={<Footer onClose={close} onApply={() => void apply()} disabled={blocked} reason={reason === true ? null : t(reason)} applyLabel={busy ? t('arrange.dlg.working') : undefined} />}
     >
       <p className="hint">{t(`arrange.cleanup.hint.${op}`)}</p>
-      <NumberField label={t('arrange.cleanup.tolerance')} value={tolerance} min={0} max={50} step={0.01} unit={t('arrange.dlg.mm')} onCommit={(v) => setTolerance(op, v)} />
+      <LengthField label={t('arrange.cleanup.tolerance')} value={tolerance} min={0} max={50} step={0.01} onCommit={(v) => setTolerance(op, v)} />
       <p className="hint">{t('arrange.cleanup.toleranceHint', { default: CLEANUP_DEFAULTS[op] })}</p>
       <p className="hint">{t('arrange.cleanup.curvesHint')}</p>
     </Dialog>

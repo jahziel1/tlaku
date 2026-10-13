@@ -120,6 +120,14 @@ describe('campos de la Fase 4', () => {
     expect(ok('tab_count', '0')).toBe('layers.err.range');
   });
 
+  it('potencia de puente: de 0 (apagado) a 100', () => {
+    expect(ok('tab_power', '0')).toBe(0);
+    expect(ok('tab_power', '15,5')).toBe(15.5);
+    expect(ok('tab_power', '100')).toBe(100);
+    expect(ok('tab_power', '101')).toBe('layers.err.range');
+    expect(ok('tab_power', '-1')).toBe('layers.err.range');
+  });
+
   it('separación: 0 usa la cantidad, y si no debe superar el ancho del puente', () => {
     expect(ok('tab_spacing', '0', { tabWidth: 2 })).toBe(0);
     expect(ok('tab_spacing', '10', { tabWidth: 2 })).toBe(10);

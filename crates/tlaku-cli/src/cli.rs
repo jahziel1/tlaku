@@ -91,6 +91,11 @@ pub enum Command {
         #[command(subcommand)]
         action: crate::ruida::RuidaCommand,
     },
+    /// Soporte experimental para K40 con placa Lihuiyu M2 Nano (USB): envía, estado y `.egv`.
+    K40 {
+        #[command(subcommand)]
+        action: crate::k40::K40Command,
+    },
     /// Lista los puertos serie disponibles
     Ports,
     /// Lee la versión ($I) y la configuración ($$) de una máquina GRBL sin moverla
@@ -432,6 +437,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
             )
         }
         Command::Ruida { action } => crate::ruida::run(action),
+        Command::K40 { action } => crate::k40::run(action),
         Command::Ports => {
             for p in serial::list_ports().map_err(|e| e.to_string())? {
                 println!("{p}");

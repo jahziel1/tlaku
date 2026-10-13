@@ -9,6 +9,7 @@ import { summarizeJob } from './jobSummary';
 import { useJobPlacement } from './hooks';
 import { Modal } from './Modal';
 import { OriginIllustration } from './OriginIllustration';
+import { ruidaConfirmKey, RuidaStartNotice } from './RuidaNotice';
 import { SelectionOptions } from './SelectionOptions';
 import { placementSummary } from './StartFromSection';
 
@@ -60,7 +61,7 @@ export function StartJobDialog() {
         <>
           <button type="button" className="btn" data-autofocus onClick={close}>{t('machine.dlg.cancel')}</button>
           <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void confirm()}>
-            {t('machine.start.confirm')}
+            {t(ruidaConfirmKey(device) ?? 'machine.start.confirm')}
           </button>
         </>
       }
@@ -113,6 +114,8 @@ export function StartJobDialog() {
           </>
         )}
       </section>
+
+      <RuidaStartNotice device={device} />
 
       <SelectionOptions compact />
 

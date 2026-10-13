@@ -76,6 +76,8 @@ export const machineCommands: CommandDef[] = [
   // $H y $X abren un diálogo que explica el riesgo; nada se envía hasta confirmar.
   { id: 'machine.home', label: 'machine.cmd.home', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'alarm', action: 'home' }) },
   { id: 'machine.unlock', label: 'machine.cmd.unlock', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'alarm', action: 'unlock' }) },
+  // Ajustes `$n` del firmware GRBL: la ventana lee `$$`; escribir exige confirmar cada cambio.
+  { id: 'machine.settings', label: 'mset.cmd', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'machineSettings' }) },
   { id: 'machine.setOrigin', label: 'machine.cmd.setOrigin', category: 'machine', enabled: needMachine, run: (s) => s.setUserOriginHere() },
   { id: 'machine.goOrigin', label: 'machine.cmd.goOrigin', category: 'machine', enabled: canJog, run: (s) => s.goToOrigin() },
   // Posicionar el láser: mientras está activo, un clic en la cama manda allí la cabeza (láser apagado).

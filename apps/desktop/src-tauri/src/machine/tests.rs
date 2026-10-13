@@ -1762,3 +1762,199 @@ fn overrides_with_the_fake_machine_send_one_byte_per_step_and_remember_the_value
     assert_eq!(overrides, [0x90, 0x91, 0x91, 0x93, 0x93, 0x93, 0x93, 0x93]);
     assert_eq!(last_overrides(&rig.sink).map(|o| o.feed), Some(125));
 }
+
+// ---------------------------------------------------------------------------
+// Ejes extra y disparo de prueba
+// ---------------------------------------------------------------------------
+
+#[test]
+fn z_and_u_jogs_send_a_jog_line_and_reject_unknown_axes() {
+    let rig = connect();
+    rig.handle
+        .jog_axis(LinkFamily::Grbl, 'z', -2.5, 300.0)
+        .unwrap();
+    rig.handle
+        .jog_axis_to(LinkFamily::Grbl, 'U', 12.0, 600.0)
+        .unwrap();
+    let lines = rig.fake.lines();
+    // El motor quita los espacios (GRBL los ignora) antes de mandar.
+    assert!(
+        lines.contains(&"$J=G91G21Z-2.5F300".to_string()),
+        "{lines:?}"
+    );
+    assert!(lines.contains(&"$J=G90G21U12F600".to_string()), "{lines:?}");
+    for bad in ['X', 'Y', 'Q', '1'] {
+        assert!(
+            rig.handle
+                .jog_axis(LinkFamily::Grbl, bad, 1.0, 100.0)
+                .is_err(),
+            "{bad}"
+        );
+    }
+    assert!(
+        rig.handle
+            .jog_axis(LinkFamily::Grbl, 'Z', f64::NAN, 100.0)
+            .is_err()
+    );
+    assert!(
+        rig.handle
+            .jog_axis(LinkFamily::Grbl, 'Z', 1.0, 0.0)
+            .is_err()
+    );
+    // Un rechazo de la controladora se explica.
+    rig.fake.set_state("Alarm");
+}
+
+#[test]
+fn a_z_jog_on_marlin_goes_relative_and_returns_to_absolute() {
+    let rig = connect_virtual("virtual:marlin@20");
+    rig.handle
+        .jog_axis(LinkFamily::Marlin, 'Z', 1.0, 300.0)
+        .unwrap();
+    // El sondeo de posición (M114) se intercala: no cuenta.
+    let sent: Vec<String> = emu(&rig)
+        .received_lines()
+        .into_iter()
+        .filter(|l| l != "M114")
+        .collect();
+    let at = sent.iter().position(|l| l.starts_with("G91")).expect("G91");
+    assert!(
+        sent[at + 1].starts_with("G1Z1") || sent[at + 1].starts_with("G1 Z1"),
+        "{sent:?}"
+    );
+    assert_eq!(sent[at + 2], "G90", "{sent:?}");
+}
+
+#[test]
+fn fire_turns_the_laser_on_waits_and_always_ends_with_m5() {
+    let rig = connect();
+    rig.handle.fire(LinkFamily::Grbl, 5.0, 1000.0, 250).unwrap();
+    let lines = rig.fake.lines();
+    let at = lines.iter().position(|l| l == "M3S50").expect("M3 S50");
+    assert_eq!(lines[at + 1], "G4P0.25", "{lines:?}");
+    assert_eq!(lines[at + 2], "M5", "{lines:?}");
+}
+
+#[test]
+fn fire_still_sends_m5_when_the_dwell_fails_and_when_the_laser_cannot_be_confirmed_off() {
+    let rig = connect();
+    // La segunda línea de G-code (la pausa) falla: el M5 sale igual y el error se informa.
+    *rig.fake.fault_at.lock().unwrap() = Some((2, "error:20".into()));
+    let e = rig
+        .handle
+        .fire(LinkFamily::Grbl, 5.0, 1000.0, 100)
+        .unwrap_err();
+    assert!(e.contains("error:20"), "{e}");
+    assert_eq!(rig.fake.lines().last().map(String::as_str), Some("M5"));
+
+    // Si hasta el M5 falla, el mensaje dice claramente que no se pudo confirmar el apagado.
+    let rig = connect();
+    *rig.fake.fault_at.lock().unwrap() = Some((3, "error:20".into()));
+    let e = rig
+        .handle
+        .fire(LinkFamily::Grbl, 5.0, 1000.0, 100)
+        .unwrap_err();
+    assert!(
+        e.contains("no se pudo confirmar") || e.contains("No se pudo confirmar"),
+        "{e}"
+    );
+}
+
+#[test]
+fn fire_refuses_dangerous_values_without_touching_the_machine() {
+    let rig = connect();
+    for (pct, ms, s_max) in [
+        (0.0, 100, 1000.0),
+        (50.0, 100, 1000.0),
+        (f64::NAN, 100, 1000.0),
+        (5.0, 5, 1000.0),
+        (5.0, 60_000, 1000.0),
+        (5.0, 100, 0.0),
+    ] {
+        assert!(
+            rig.handle.fire(LinkFamily::Grbl, pct, s_max, ms).is_err(),
+            "{pct} {ms} {s_max}"
+        );
+    }
+    assert!(rig.fake.lines().iter().all(|l| !l.starts_with('M')));
+}
+
+#[test]
+fn fire_and_axis_jogs_are_refused_while_a_job_runs() {
+    let rig = connect_virtual("virtual:falcon2@1");
+    rig.handle.start_job(long_job(), 127).unwrap();
+    rig.sink
+        .wait("trabajo", |s| s.jobs().contains(&JobState::Started));
+    assert!(rig.handle.fire(LinkFamily::Grbl, 5.0, 1000.0, 100).is_err());
+    assert!(
+        rig.handle
+            .jog_axis(LinkFamily::Grbl, 'Z', 1.0, 100.0)
+            .is_err()
+    );
+    let sent = emu(&rig).received_lines();
+    assert!(
+        !sent
+            .iter()
+            .any(|l| l.starts_with("M3S") || l.starts_with("M3 S")),
+        "{sent:?}"
+    );
+    rig.handle.cancel().unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Por red (Telnet/TCP): la conexión real contra el emulador detrás de un socket
+// ---------------------------------------------------------------------------
+
+#[test]
+fn network_connection_runs_a_job_through_a_real_tcp_socket() {
+    let port = "virtualnet:falcon2@50";
+    let (transport, emu) = crate::netlink::open(port).unwrap().unwrap();
+    let sink = Arc::new(Collect::default());
+    let (conn, info) =
+        Connection::start_with(transport, port, sink.clone(), Timing::default(), emu).unwrap();
+    assert!(info.firmware.contains("Grbl"), "{}", info.firmware);
+    let handle = conn.handle();
+    assert!(handle.is_virtual());
+    sink.wait("estado", |s| !s.statuses().is_empty());
+    handle.start_job(job_lines(), 127).unwrap();
+    sink.wait("trabajo terminado", |s| {
+        s.jobs().contains(&JobState::Finished)
+    });
+    assert_eq!(sink.jobs(), [JobState::Started, JobState::Finished]);
+    let last = sink.progress().last().copied().unwrap();
+    assert_eq!((last.acked, last.total), (6, 6));
+    // La dirección que ve la interfaz es la de la conexión.
+    assert_eq!(
+        sink.connections().first().and_then(|c| c.port.clone()),
+        Some(port.to_string())
+    );
+    // Cerrar la conexión cierra el socket sin colgarse y avisa a la interfaz.
+    conn.close();
+}
+
+#[test]
+fn network_connection_loss_is_reported_as_a_lost_connection() {
+    let port = "virtualnet:grbl11@50";
+    let (transport, emu) = crate::netlink::open(port).unwrap().unwrap();
+    let sink = Arc::new(Collect::default());
+    let (conn, _) =
+        Connection::start_with(transport, port, sink.clone(), Timing::default(), emu).unwrap();
+    sink.wait("estado", |s| !s.statuses().is_empty());
+    // La máquina "se apaga": el servidor cierra el socket.
+    conn.handle()
+        .simulate_fault(tlaku_doc::SimulatedFault::Disconnect)
+        .unwrap();
+    sink.wait("conexión perdida", |s| {
+        s.connections().iter().any(|c| !c.connected)
+    });
+    let lost = sink
+        .connections()
+        .into_iter()
+        .find(|c| !c.connected)
+        .unwrap();
+    assert!(
+        lost.error.as_deref().unwrap_or("").contains("conexión"),
+        "{lost:?}"
+    );
+    conn.close();
+}

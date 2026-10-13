@@ -6,7 +6,7 @@
  * en modo mock, memoria y `localStorage` (api/mock/camera.ts). Aquí solo se valida lo recibido.
  */
 import { getApi, type LaserApi } from '@/api';
-import type { AlignmentSample, HeightModel } from '@/api/types';
+import type { AlignmentSample, HeadCamera, HeadCalibration, HeightModel, LensCalibration } from '@/api/types';
 import { emptyCameraSetup, type CameraAlignment, type CameraPrefs, type CameraSetup } from '@/store/camera';
 import { applyH, homographyFrom4, isConvexQuad, type Mat3, type Quad } from './geometry';
 
@@ -39,6 +39,43 @@ function parseSamples(raw: unknown): AlignmentSample[] {
     });
   }
   return out;
+}
+
+const isMat2 = (v: unknown): v is [[number, number], [number, number]] => Array.isArray(v) && v.length === 2 && v.every(isPair);
+
+/** Calibración guardada: los campos del ojo de pez son opcionales (las de antes no los traen). */
+function parseLens(c: Record<string, unknown>): LensCalibration | null {
+  const fields = ['width', 'height', 'fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3', 'rms_error_px', 'views_used'];
+  if (!fields.every((f) => isNum(c[f])) || (c.width as number) <= 0 || (c.fx as number) <= 0) return null;
+  const lens = { ...c } as unknown as LensCalibration;
+  delete lens.model;
+  delete lens.k4;
+  delete lens.view_zoom;
+  if (c.model === 'fisheye' || c.model === 'brown_conrady') lens.model = c.model;
+  if (isNum(c.k4)) lens.k4 = c.k4;
+  if (isNum(c.view_zoom) && c.view_zoom > 0) lens.view_zoom = c.view_zoom;
+  return lens;
+}
+
+function parseHeadCalibration(raw: unknown): HeadCalibration | null {
+  const c = raw as Record<string, unknown> | null | undefined;
+  if (!c || typeof c !== 'object') return null;
+  if (!isPair(c.image_size) || !isPair(c.ref_px) || !isMat2(c.px_to_mm) || !isPair(c.offset_mm)) return null;
+  return {
+    image_size: c.image_size,
+    ref_px: c.ref_px,
+    px_to_mm: c.px_to_mm,
+    offset_mm: c.offset_mm,
+    rms_mm: isNum(c.rms_mm) ? c.rms_mm : 0,
+    observations: isNum(c.observations) ? c.observations : 0,
+  };
+}
+
+/** Cámara del cabezal; sin ella (configuraciones de antes de la ola 4) está apagada y sin calibrar. */
+export function parseHead(raw: unknown): HeadCamera {
+  const h = raw as Record<string, unknown> | null | undefined;
+  if (!h || typeof h !== 'object') return { enabled: false, calibration: null };
+  return { enabled: h.enabled === true, calibration: parseHeadCalibration(h.calibration) };
 }
 
 function parseHeight(raw: unknown): HeightModel | null {
@@ -102,10 +139,7 @@ export function parseSetup(raw: unknown): CameraSetup {
   if (typeof raw !== 'object' || raw === null) return out;
   const r = raw as Record<string, unknown>;
   const c = r.calibration as Record<string, unknown> | null | undefined;
-  const fields = ['width', 'height', 'fx', 'fy', 'cx', 'cy', 'k1', 'k2', 'p1', 'p2', 'k3', 'rms_error_px', 'views_used'];
-  if (c && typeof c === 'object' && fields.every((f) => isNum(c[f])) && (c.width as number) > 0 && (c.fx as number) > 0) {
-    out.calibration = c as unknown as CameraSetup['calibration'];
-  }
+  if (c && typeof c === 'object') out.calibration = parseLens(c);
   const a = r.alignment as Record<string, unknown> | null | undefined;
   if (a && typeof a === 'object' && isPair(a.image_size) && isQuad(a.image_px) && isQuad(a.bed_mm)) {
     const base = fitAlignment(a.image_size, a.image_px, a.bed_mm);
@@ -121,7 +155,10 @@ export function parseSetup(raw: unknown): CameraSetup {
     opacity: isNum(p.opacity) ? Math.min(1, Math.max(0, p.opacity)) : out.prefs.opacity,
     visible: p.visible === true,
     ...(isNum(p.material_height_mm) && p.material_height_mm > 0 ? { material_height_mm: Math.min(300, p.material_height_mm) } : {}),
+    ...(p.grayscale === true ? { grayscale: true } : {}),
+    ...(p.update_on_job_finish === true ? { update_on_job_finish: true } : {}),
   };
+  out.head = parseHead(r.head);
   return out;
 }
 

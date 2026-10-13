@@ -172,6 +172,7 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.tabs.count': 'Count',
   'layers.tabs.countMin': 'Minimum per shape',
   'layers.tabs.spacing': 'Spacing',
+  'layers.tabs.power': 'Tab power (%)',
   'layers.tabs.skipInner': 'Skip inner shapes',
   'layers.tabs.live.count': '{n} tabs per closed shape',
   'layers.tabs.live.spacing': 'One every {spacing} mm, and at least {n} per shape',
@@ -215,6 +216,7 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.help.tabsCount': 'Tabs spread across each closed shape.',
   'layers.help.tabsCountMin': 'With a fixed spacing, small shapes get at least this many.',
   'layers.help.tabsSpacing': 'Distance between tabs along the outline, in mm. At 0 the count is used instead.',
+  'layers.help.tabsPower': '0 = off: the laser does not touch the tab. A higher value scores the tab without cutting through it (it never exceeds the layer power).',
   'layers.help.tabsSkipInner': 'Holes and inner shapes drop out as scrap: they do not need tabs.',
   'layers.help.zOffset': 'How far the bed rises (or the head lowers) from focus when the layer starts. Positive focuses deeper into the material.',
   'layers.help.zStep': 'Extra millimeters to step down on each pass after the first, for deep cuts. 0 = all passes at the same height.',
@@ -399,4 +401,8 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.cmd.delete': 'Delete the active layer and its objects…',
   'layers.cmd.saveDefaults': 'Save the active layer as defaults',
   'layers.cmd.resetDefaults': 'Reset the defaults for new layers',
+
+  'layers.laser2': 'Laser 2',
+  'layers.help.laser2': 'Runs this layer with the machine’s second laser (the dialect’s selection command is sent).',
+  'layers.help.laser2None': 'This layer asks for laser 2, but the active machine does not have it: it will use laser 1.',
 };

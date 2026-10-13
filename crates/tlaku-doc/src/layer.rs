@@ -297,6 +297,10 @@ pub struct LayerSettings {
     /// y sus propias `sub_layers`.
     #[serde(default)]
     pub sub_layers: Vec<LayerSettings>,
+    /// La capa se ejecuta con el segundo láser (máquinas con `DeviceProfile::laser2`); `false` =
+    /// el láser 1. El motor emite el comando de selección del dialecto al cambiar de láser.
+    #[serde(default)]
+    pub laser2: bool,
 }
 
 impl LayerSettings {
@@ -337,6 +341,7 @@ impl LayerSettings {
             fill_grouping: FillGrouping::All,
             angle_increment: 0.0,
             sub_layers: Vec::new(),
+            laser2: false,
         }
     }
 

@@ -14,13 +14,16 @@ import { help } from './es/help';
 import { history } from './es/history';
 import { layers } from './es/layers';
 import { machine } from './es/machine';
+import { mset } from './es/mset';
 import { nodes } from './es/nodes';
 import { preview } from './es/preview';
 import { prefs } from './es/prefs';
+import { bundle } from './es/bundle';
 import { text } from './es/text';
 import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
+import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
 import { materials } from './es/materials';
 import { arrange as en_arrange } from './en/arrange';
@@ -36,20 +39,23 @@ import { help as en_help } from './en/help';
 import { history as en_history } from './en/history';
 import { layers as en_layers } from './en/layers';
 import { machine as en_machine } from './en/machine';
+import { mset as en_mset } from './en/mset';
 import { materials as en_materials } from './en/materials';
 import { nodes as en_nodes } from './en/nodes';
 import { preview as en_preview } from './en/preview';
 import { prefs as en_prefs } from './en/prefs';
+import { bundle as en_bundle } from './en/bundle';
 import { text as en_text } from './en/text';
 import { trace as en_trace } from './en/trace';
 import { variables as en_variables } from './en/variables';
 import { nest as en_nest } from './en/nest';
+import { ruida as en_ruida } from './en/ruida';
 import { shapes as en_shapes } from './en/shapes';
 import { base as en_base } from './en/base';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { art, canvas, help, history, layers, machine, preview, arrange, design, text, nodes, trace, nest, shapes, camera, materials, devices, catalog, prefs, codes, fileio, variables };
+    const areas = { art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, ruida, shapes, camera, materials, devices, catalog, prefs, bundle, codes, fileio, variables };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -73,12 +79,15 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   history: { es: history, en: en_history },
   layers: { es: layers, en: en_layers },
   machine: { es: machine, en: en_machine },
+  mset: { es: mset, en: en_mset },
   materials: { es: materials, en: en_materials },
   nodes: { es: nodes, en: en_nodes },
   nest: { es: nest, en: en_nest },
+  ruida: { es: ruida, en: en_ruida },
   shapes: { es: shapes, en: en_shapes },
   preview: { es: preview, en: en_preview },
   prefs: { es: prefs, en: en_prefs },
+  bundle: { es: bundle, en: en_bundle },
   text: { es: text, en: en_text },
   trace: { es: trace, en: en_trace },
   variables: { es: variables, en: en_variables },
@@ -112,6 +121,9 @@ const IDENTICAL_OK: Record<string, string> = {
   'machine.virtual.name.smoothie': 'nombre de firmware',
   'preview.legend.overscan': 'término del oficio, igual en ambos idiomas',
   'preview.speed.value': 'multiplicador, igual en ambos idiomas',
+  'ruida.experimental': 'palabra idéntica en ambos idiomas',
+  'ruida.virtual.name': 'nombre de familia de controladoras',
+  'ruida.info.magic': 'término del protocolo, igual en ambos idiomas',
   'prefs.language.es': 'nombre del idioma en su propio idioma',
   'prefs.language.en': 'nombre del idioma en su propio idioma',
 };
@@ -135,7 +147,7 @@ const NOMBRES = new Set(
     'qr', 'data', 'matrix', 'code', 'ean', 'upc', 'svg', 'dxf', 'pdf', 'png', 'jpg', 'bmp', 'dpi', 'tlakuprefs',
     // cognados exactos
     'offset', 'original', 'horizontal', 'vertical', 'firmware', 'general', 'material', 'error', 'no', 'virtual',
-    'overscan', 'kerf', 'gamma', 'zoom', 'codabar', 'mm', 'cm', 'dx', 'dy',
+    'overscan', 'kerf', 'gamma', 'zoom', 'codabar', 'mm', 'cm', 'dx', 'dy', 'macro', 'macros',
   ].map((w) => w.toLowerCase()),
 );
 

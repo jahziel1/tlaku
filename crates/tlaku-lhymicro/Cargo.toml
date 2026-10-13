@@ -1,0 +1,21 @@
+[package]
+name = "tlaku-lhymicro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Driver experimental para placas Lihuiyu M2 Nano (K40): LHYMICRO-GL, paquetes con CRC, CH341 por USB y emulador"
+
+[features]
+default = ["usb"]
+# Transporte USB real (CH341 en modo EPP) con `nusb`, Rust puro y MIT/Apache.
+usb = ["dep:nusb"]
+# Placa simulada para pruebas (siempre disponible en `cargo test`).
+emu = []
+
+[dependencies]
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+nusb = { version = "0.2", optional = true }
+
+[dev-dependencies]
+# Las pruebas de integración (`tests/`) usan la placa simulada.
+tlaku-lhymicro = { path = ".", features = ["emu"] }

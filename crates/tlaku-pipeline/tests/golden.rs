@@ -95,6 +95,52 @@ fn tabs() {
     check("tabs", &doc, &DeviceProfile::default());
 }
 
+/// Un cuadrado de 30 mm con 2 puentes de 3 mm; `bridge` es la potencia de puente de la capa.
+fn bridged_square(bridge: f64) -> Document {
+    let mut layer = cut_layer(RED);
+    layer.tabs.enabled = true;
+    layer.tabs.width = 3.0;
+    layer.tabs.count = 2;
+    layer.tabs.power = bridge;
+    document(
+        vec![rect("pieza", RED, 10.0, 10.0, 30.0, 30.0)],
+        vec![layer],
+    )
+}
+
+#[test]
+fn tabs_bridge_power() {
+    // Capa al 80 % (S800) con puentes al 20 % (S200): los huecos se marcan sin atravesar.
+    let doc = bridged_square(20.0);
+    check("tabs_power", &doc, &DeviceProfile::default());
+    let g = gcode(
+        &compute(&doc, &DeviceProfile::default(), &JobOptions::default()).unwrap(),
+        &DeviceProfile::default(),
+    );
+    assert!(g.contains("S200"), "{g}");
+    assert!(g.contains("S800"), "{g}");
+    // El único S0 es el del encabezado (M4 S0): ningún hueco queda apagado.
+    assert_eq!(g.matches(" S0\n").count(), 1, "{g}");
+}
+
+#[test]
+fn tabs_bridge_power_is_capped_by_the_cut_power_and_zero_keeps_s0() {
+    let device = DeviceProfile::default();
+    let gen_ = |doc: &Document| {
+        gcode(
+            &compute(doc, &device, &JobOptions::default()).unwrap(),
+            &device,
+        )
+    };
+    // Por encima de la capa (80 %) se limita a ella: nunca supera el corte.
+    let capped = gen_(&bridged_square(100.0));
+    assert!(!capped.contains("S1000"), "{capped}");
+    // Con 0 los huecos salen apagados, como antes.
+    let off = gen_(&bridged_square(0.0));
+    assert!(off.matches(" S0\n").count() > 1, "{off}");
+    assert!(!off.contains("S200"), "{off}");
+}
+
 #[test]
 fn z_axis() {
     // Una línea de tres pasadas que baja 0.5 mm por pasada y un relleno con foco propio.

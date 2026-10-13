@@ -1,0 +1,59 @@
+/*
+ * Estilos del diálogo de paquetes de configuración. Solo tokens de src/styles/tokens.css; clases con
+ * prefijo bnd- para no chocar con otras áreas. El marco (.modal, .modal__card...) es el común.
+ */
+
+.bnd-card {
+  width: min(560px, 100%);
+}
+.bnd-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-6);
+  overflow-y: auto;
+  color: var(--text);
+}
+.bnd-meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.bnd-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-chrome);
+}
+.bnd-section[data-off='true'] {
+  opacity: 0.6;
+}
+.bnd-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  font-size: var(--text-md, var(--text-sm));
+  font-weight: 600;
+}
+.bnd-detail {
+  margin: 0 0 0 calc(var(--s-4) + 16px);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.bnd-detail--warn {
+  color: var(--warning, var(--text-muted));
+}
+.bnd-list {
+  margin: 0 0 0 calc(var(--s-4) + 16px);
+  padding-left: var(--s-5);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.bnd-foot {
+  align-items: center;
+}
+.bnd-foot__hint {
+  margin-right: auto;
+}

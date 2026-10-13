@@ -2,18 +2,22 @@
 //! documento; aquí viven el motor y la conexión con la máquina siguiendo `docs/app-api.md`.
 //!
 //! - `engine`: cálculo de trabajos, archivos y perfiles de dispositivo (sin Tauri).
-//! - `machine`: conexión GRBL en un hilo dedicado, con eventos `machine://*` (sin Tauri).
+//! - `machine`: conexión con la máquina (GRBL o Ruida, ver `machine::active`) en un hilo dedicado,
+//!   con eventos `machine://*` (sin Tauri).
 //! - `commands`: manejadores de `invoke` que unen lo anterior con la ventana.
 //! - `edit`: texto, geometría, vectorizado, cámara (fase 3) y materiales (fase 4), un módulo
 //!   por área.
 
+mod automation;
 mod autosave;
 mod commands;
 mod edit;
 mod engine;
 mod machine;
+mod netlink;
 mod prefs;
 mod probe;
+mod settings_backup;
 mod templates;
 mod window;
 
@@ -25,6 +29,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
+        .manage(automation::AutomationState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
             commands::import_file,
@@ -37,6 +42,7 @@ pub fn run() {
             commands::delete_device,
             commands::list_ports,
             probe::probe_port,
+            automation::automation_configure,
             commands::connect,
             commands::disconnect,
             commands::machine_command,
@@ -49,8 +55,13 @@ pub fn run() {
             commands::frame_job,
             commands::frame_hull,
             commands::jog_to,
+            commands::jog_axis,
+            commands::jog_axis_to,
+            commands::fire_test,
             commands::set_override,
             commands::simulate_fault,
+            commands::ruida_info,
+            commands::ruida_files,
             edit::text::list_fonts,
             edit::text::text_outline,
             edit::text::import_shx_fonts,
@@ -75,6 +86,8 @@ pub fn run() {
             edit::camera::calibrate_lens,
             edit::camera::camera_marks,
             edit::camera::detect_camera_marks,
+            edit::camera::compose_bed_image,
+            edit::camera::detect_circle_in_image,
             edit::camera::load_camera_setup,
             edit::camera::save_camera_setup,
             edit::camera::save_board_file,
@@ -101,6 +114,10 @@ pub fn run() {
             templates::save_template,
             templates::load_template,
             templates::delete_template,
+            prefs::export_user_bundle,
+            prefs::import_user_bundle,
+            settings_backup::write_settings_backup,
+            settings_backup::read_settings_backup,
             window::new_window,
         ])
         .build(tauri::generate_context!())

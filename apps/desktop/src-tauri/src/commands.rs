@@ -2,32 +2,36 @@
 //! y en `machine` (conexión). Los pesados corren con `spawn_blocking`, fuera del hilo principal.
 
 use crate::engine::{self, Head};
+use crate::machine::active::{ActiveMachine, Machine};
+use crate::machine::ruida::{self, RuidaConnection, RuidaTiming};
 use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, frame, virtual_port};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tlaku_doc::{
-    ConnectResult, DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview,
-    OverrideKind, RealtimeCommand, SimulatedFault,
+    ConnectResult, DeviceKind, DeviceProfile, Document, ExportResult, GcodeDialect, ImportResult,
+    JobOptions, JobPreview, OverrideKind, RealtimeCommand, SimulatedFault,
 };
-use tlaku_grbl::link::LinkProfile;
+use tlaku_grbl::link::{LinkFamily, LinkProfile};
 use tlaku_grbl::serial::Grbl;
 
-/// Estado administrado por Tauri: la conexión con la máquina (si hay una).
+/// Estado administrado por Tauri: la conexión con la máquina (si hay una). Es una sola, de
+/// cualquier respaldo (GRBL, Ruida...): ver `machine::active`.
 #[derive(Default)]
 pub struct AppState {
-    conn: Mutex<Option<Connection>>,
+    conn: Mutex<Option<ActiveMachine>>,
     /// Hay un `connect` en curso (abrir el puerto tarda ~2 s por el reinicio de la placa).
     connecting: AtomicBool,
 }
 
 impl AppState {
-    /// Mando de la conexión viva. Si la conexión se perdió, la suelta y avisa.
-    fn handle(&self) -> Result<Handle, String> {
+    /// Mando de la conexión viva, de cualquier respaldo. Si la conexión se perdió, la suelta y
+    /// avisa.
+    pub(crate) fn machine(&self) -> Result<Machine, String> {
         let mut g = self.conn.lock().map_err(|_| "estado interno dañado")?;
-        match g.as_ref().map(Connection::handle) {
-            Some(h) if !h.is_closed() => Ok(h),
+        match g.as_ref().map(ActiveMachine::handle) {
+            Some(m) if !m.is_closed() => Ok(m),
             Some(_) => {
                 *g = None;
                 Err(NOT_CONNECTED.into())
@@ -36,9 +40,16 @@ impl AppState {
         }
     }
 
+    /// Mando GRBL de la conexión viva. Con otro respaldo (Ruida) falla explicando que la
+    /// operación es solo de GRBL: así consola, overrides, ajustes `$` y macros no necesitan
+    /// saber de los demás.
+    pub(crate) fn handle(&self) -> Result<Handle, String> {
+        self.machine()?.grbl().cloned()
+    }
+
     /// Posición de trabajo de la cabeza, si hay máquina conectada con estado conocido.
     fn head(&self) -> Head {
-        self.handle().ok().and_then(|h| h.work_pos())
+        self.machine().ok().and_then(|m| m.work_pos())
     }
 
     /// Al cerrar la app: cancela un trabajo en curso y suelta el puerto.
@@ -187,6 +198,9 @@ pub async fn list_ports() -> Result<Vec<String>, String> {
         let mut ports = tlaku_grbl::serial::list_ports()
             .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))?;
         ports.extend(virtual_port::ports());
+        ports.extend(crate::netlink::virtual_ports());
+        // La máquina virtual de Ruida (emulador UDP); la interfaz solo la ofrece con un perfil Ruida.
+        ports.push(ruida::VIRTUAL_PORT.to_string());
         Ok(ports)
     })
     .await
@@ -198,11 +212,12 @@ pub async fn connect(
     state: State<'_, AppState>,
     port: String,
     baud: u32,
+    device: Option<DeviceProfile>,
 ) -> Result<ConnectResult, String> {
     if baud == 0 {
         return Err("Los baudios deben ser mayores que 0.".into());
     }
-    if state.handle().is_ok() {
+    if state.machine().is_ok() {
         return Err(
             "Ya hay una máquina conectada. Desconéctala antes de abrir otro puerto.".into(),
         );
@@ -211,7 +226,28 @@ pub async fn connect(
         return Err("Ya se está conectando con una máquina; espera un momento.".into());
     }
     let sink: Arc<dyn Sink> = Arc::new(TauriSink(app));
+    // Ruida: UDP a la IP del perfil (o su máquina virtual), sin puerto serie.
+    if let Some(device) = device.filter(|d| d.kind == DeviceKind::Ruida) {
+        let result = blocking(move || {
+            RuidaConnection::connect(&device, &port, sink, RuidaTiming::default())
+        })
+        .await;
+        state.connecting.store(false, Ordering::SeqCst);
+        let (conn, info) = result?;
+        *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Ruida(conn));
+        return Ok(info);
+    }
+    if ruida::is_virtual(&port) {
+        state.connecting.store(false, Ordering::SeqCst);
+        return Err("La máquina virtual Ruida solo se abre con un perfil de tipo Ruida.".into());
+    }
     let result = blocking(move || {
+        // Red (Telnet/TCP, WebSocket o máquina virtual por red): sin puerto serie ni espera de
+        // reinicio de la placa.
+        if let Some(opened) = crate::netlink::open(&port) {
+            let (transport, emu) = opened?;
+            return Connection::start_with(transport, &port, sink, Timing::default(), emu);
+        }
         if virtual_port::is_virtual(&port) {
             // Sin puerto serie: un emulador con reloj de pared (la velocidad va en el id).
             return Connection::start_virtual(&port, sink, Timing::default());
@@ -230,7 +266,7 @@ pub async fn connect(
     .await;
     state.connecting.store(false, Ordering::SeqCst);
     let (conn, info) = result?;
-    *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(conn);
+    *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Grbl(conn));
     Ok(info)
 }
 
@@ -251,7 +287,17 @@ pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Ejecuta `f` con el mando de la conexión, fuera del hilo principal.
+/// Ejecuta `f` con el mando de la conexión activa (cualquier respaldo), fuera del hilo principal.
+async fn with_machine<T: Send + 'static>(
+    state: &State<'_, AppState>,
+    f: impl FnOnce(Machine) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let m = state.machine()?;
+    blocking(move || f(m)).await
+}
+
+/// Ejecuta `f` con el mando GRBL de la conexión, fuera del hilo principal. Con Ruida falla
+/// explicando que la operación es solo de GRBL.
 async fn with_handle<T: Send + 'static>(
     state: &State<'_, AppState>,
     f: impl FnOnce(Handle) -> Result<T, String> + Send + 'static,
@@ -273,12 +319,12 @@ pub async fn machine_realtime(
     state: State<'_, AppState>,
     cmd: RealtimeCommand,
 ) -> Result<(), String> {
-    with_handle(&state, move |h| h.realtime(cmd)).await
+    with_machine(&state, move |m| m.realtime(cmd)).await
 }
 
 #[tauri::command]
 pub async fn jog(state: State<'_, AppState>, dx: f64, dy: f64, speed: f64) -> Result<(), String> {
-    with_handle(&state, move |h| h.jog(dx, dy, speed)).await
+    with_machine(&state, move |m| m.jog(dx, dy, speed)).await
 }
 
 #[tauri::command]
@@ -288,6 +334,10 @@ pub async fn start_job(
     device: DeviceProfile,
     options: JobOptions,
 ) -> Result<(), String> {
+    // Ruida: genera el `.rd` y lo sube (guardando o ejecutando, según el perfil).
+    if let Machine::Ruida(r) = state.machine()? {
+        return blocking(move || r.start_job(&doc, &device, &options)).await;
+    }
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::job_lines(&doc, &device, &options, h.work_pos())?;
@@ -305,10 +355,19 @@ pub async fn frame_job(
     device: DeviceProfile,
     options: JobOptions,
     speed: f64,
+    power_pct: Option<f64>,
 ) -> Result<(), String> {
+    // Ruida recorre el rectángulo con el láser apagado; no admite encuadre con potencia baja.
+    if let Machine::Ruida(r) = state.machine()? {
+        return blocking(move || r.frame_job(&doc, &device, &options, speed)).await;
+    }
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::frame_lines(&doc, &device, &options, speed, h.work_pos())?;
+        let lines = match power_pct {
+            Some(p) => frame::low_power(lines, &device, p)?,
+            None => lines,
+        };
         h.frame_link(lines, LinkProfile::for_device(&device))
     })
     .await
@@ -322,10 +381,19 @@ pub async fn frame_hull(
     device: DeviceProfile,
     options: JobOptions,
     speed: f64,
+    power_pct: Option<f64>,
 ) -> Result<(), String> {
+    // Ruida no tiene banda elástica: recorre el rectángulo envolvente.
+    if let Machine::Ruida(r) = state.machine()? {
+        return blocking(move || r.frame_job(&doc, &device, &options, speed)).await;
+    }
     let h = state.handle()?;
     blocking(move || {
         let lines = frame::hull_lines(&doc, &device, &options, speed, h.work_pos())?;
+        let lines = match power_pct {
+            Some(p) => frame::low_power(lines, &device, p)?,
+            None => lines,
+        };
         h.frame_link(lines, LinkProfile::for_device(&device))
     })
     .await
@@ -336,7 +404,59 @@ pub async fn frame_hull(
 /// documento con el origen de la máquina.
 #[tauri::command]
 pub async fn jog_to(state: State<'_, AppState>, x: f64, y: f64, speed: f64) -> Result<(), String> {
-    with_handle(&state, move |h| h.jog_to(x, y, speed)).await
+    with_machine(&state, move |m| m.jog_to(x, y, speed)).await
+}
+
+/// Familia del protocolo de un tipo de máquina (decide cómo se escribe el movimiento y la pausa).
+fn family_of(kind: DeviceKind) -> LinkFamily {
+    LinkProfile::for_kind(kind, &GcodeDialect::for_kind(kind), 127).family
+}
+
+/// Mueve un eje extra (`Z`, `U`...) `delta` mm respecto a donde está. Falla con un trabajo en
+/// curso o en alarma.
+#[tauri::command]
+pub async fn jog_axis(
+    state: State<'_, AppState>,
+    kind: DeviceKind,
+    axis: char,
+    delta: f64,
+    speed: f64,
+) -> Result<(), String> {
+    with_handle(&state, move |h| {
+        h.jog_axis(family_of(kind), axis, delta, speed)
+    })
+    .await
+}
+
+/// Lleva un eje extra a la posición `pos` (coordenadas de trabajo, mm). Lo usa "Enfocar".
+#[tauri::command]
+pub async fn jog_axis_to(
+    state: State<'_, AppState>,
+    kind: DeviceKind,
+    axis: char,
+    pos: f64,
+    speed: f64,
+) -> Result<(), String> {
+    with_handle(&state, move |h| {
+        h.jog_axis_to(family_of(kind), axis, pos, speed)
+    })
+    .await
+}
+
+/// Disparo de prueba del láser: `power_pct` % de `s_max` durante `duration_ms`. Apaga el láser
+/// siempre al terminar, aunque falle.
+#[tauri::command]
+pub async fn fire_test(
+    state: State<'_, AppState>,
+    kind: DeviceKind,
+    power_pct: f64,
+    s_max: f64,
+    duration_ms: u32,
+) -> Result<(), String> {
+    with_handle(&state, move |h| {
+        h.fire(family_of(kind), power_pct, s_max, duration_ms)
+    })
+    .await
 }
 
 /// Lleva el override en vivo de velocidad o potencia a `percent` por ciento (10 a 200). Solo
@@ -352,17 +472,17 @@ pub async fn set_override(
 
 #[tauri::command]
 pub async fn pause_job(state: State<'_, AppState>) -> Result<(), String> {
-    with_handle(&state, |h| h.pause()).await
+    with_machine(&state, |m| m.pause()).await
 }
 
 #[tauri::command]
 pub async fn resume_job(state: State<'_, AppState>) -> Result<(), String> {
-    with_handle(&state, |h| h.resume()).await
+    with_machine(&state, |m| m.resume()).await
 }
 
 #[tauri::command]
 pub async fn cancel_job(state: State<'_, AppState>) -> Result<(), String> {
-    with_handle(&state, |h| h.cancel()).await
+    with_machine(&state, |m| m.cancel()).await
 }
 
 /// Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión) para ver
@@ -373,4 +493,21 @@ pub async fn simulate_fault(
     fault: SimulatedFault,
 ) -> Result<(), String> {
     with_handle(&state, move |h| h.simulate_fault(fault)).await
+}
+
+// ---------------------------------------------------------------------------
+// Ruida (solo lectura; EXPERIMENTAL)
+// ---------------------------------------------------------------------------
+
+/// Información de la controladora Ruida conectada: modelo, tarjeta, cama, velocidades y
+/// contadores (M25 y M26). Solo lectura.
+#[tauri::command]
+pub async fn ruida_info(state: State<'_, AppState>) -> Result<tlaku_doc::RuidaInfo, String> {
+    with_machine(&state, |m| m.ruida()?.info()).await
+}
+
+/// Documentos guardados en la memoria de la controladora Ruida (M24). Solo lectura.
+#[tauri::command]
+pub async fn ruida_files(state: State<'_, AppState>) -> Result<Vec<tlaku_doc::RuidaFile>, String> {
+    with_machine(&state, |m| m.ruida()?.files()).await
 }

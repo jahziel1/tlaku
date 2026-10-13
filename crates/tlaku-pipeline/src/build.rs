@@ -233,6 +233,8 @@ struct Builder<'a> {
     sub: Option<(u32, u32)>,
     /// Hide backlash: los rellenos e imágenes se graban en un solo sentido.
     unidirectional: bool,
+    /// La capa en curso va con el segundo láser.
+    laser2: bool,
 }
 
 impl Builder<'_> {
@@ -242,6 +244,7 @@ impl Builder<'_> {
             report.name = format!("{} · {n}/{total}", report.name);
         }
         report.bounds = block_bounds(&block);
+        report.laser2 = self.laser2;
         if let Some(last) = block.moves.last() {
             self.head = last.to();
         }
@@ -423,12 +426,18 @@ impl Builder<'_> {
                         shape: &step.path,
                         pieces: &pieces,
                         power,
+                        tab_power: tabs.as_ref().map_or(0.0, |t| t.gap_power(power)),
                         scale,
                         depth: depth.as_ref().map_or(0, |d| d[step.item]),
                     };
                     stroke::push_shape(spec, &ctx, &mut sstats, &mut once);
                 }
-                None => tabs::push_shape(&mut once, &pieces, power),
+                None => tabs::push_shape(
+                    &mut once,
+                    &pieces,
+                    power,
+                    tabs.as_ref().map_or(0.0, |t| t.gap_power(power)),
+                ),
             }
         }
         self.warnings
@@ -449,6 +458,13 @@ impl Builder<'_> {
             }
             if let Some(w) = tabs::kerf_warning(&name, spec.options.width_mm, kerf_mm) {
                 self.warnings.push(w);
+            }
+            if spec.power > settings.power_pct {
+                self.warnings.push(format!(
+                    "capa {name}: la potencia de puente ({} %) supera la del corte ({} %); los \
+                     huecos se marcan con la del corte",
+                    spec.power, settings.power_pct
+                ));
             }
         }
         // Etiqueta y ajustes del bloque salen de `from_line_job`; los movimientos, de aquí.
@@ -479,6 +495,7 @@ impl Builder<'_> {
             z_mm: None,
             pass: None,
             sub: None,
+            laser2: false,
         };
         self.push_passes(block, report, settings.passes, z, false);
     }
@@ -561,6 +578,7 @@ impl Builder<'_> {
             z_mm: None,
             pass: None,
             sub: None,
+            laser2: false,
         };
         if varied {
             self.push_series(blocks, report, z);
@@ -841,6 +859,7 @@ impl Builder<'_> {
             z_mm: None,
             pass: None,
             sub: None,
+            laser2: false,
         };
         if varied {
             self.push_series(blocks, report, z);
@@ -1048,12 +1067,14 @@ pub fn build(
         line: LineCtx::default(),
         sub: None,
         unidirectional: optimization.hide_backlash,
+        laser2: false,
     };
     for step in &steps {
         let i = step[0];
         let layer = &work[i];
         let color = layer.color;
         b.sub = layer.position();
+        b.laser2 = layer.settings.laser2;
         match &resolved[i] {
             Resolved::Vector(ResolvedLayer::Line { settings, kerf_mm }) => {
                 let mut paths: Vec<Polyline> = Vec::new();

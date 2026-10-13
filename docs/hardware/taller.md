@@ -336,6 +336,13 @@ coincide con eso. Recomiendo añadir el modelo equidistante de Kannala-Brandt (`
 como segunda opción y elegir entre ambos con una validación cruzada (fotos reservadas), no solo con el RMS global;
 [mía]. También un mapa de error por zona (centro, bordes, esquinas) en el informe.
 
+**Hecho en la ola 4:** el modelo de Kannala-Brandt y la elección automática por validación cruzada están en
+`crates/tlaku-camera/src/calibration.rs`. En la prueba sintética (ojo de pez de 140°, 16 vistas, 0,1 px de ruido) el
+error de reproyección de Brown-Conrady es de 0,56 px —parece bueno— pero su error de posición en un plano a 350 mm es de
+45 mm rms (hasta 108 mm) contra 1,2 mm rms (hasta 3,2 mm) del modelo de ojo de pez; el error en las vistas reservadas
+(0,79 px contra 0,14 px) es lo que delata a Brown-Conrady. El mapa de error por zona sigue pendiente. Todo con cámaras
+sintéticas: falta validarlo con una lente real.
+
 **(b) Parte 3 propuesta: marcas grabadas + corrección de altura.**
 
 *Marcas grabadas.* `camera_marks(bed, n)` genera un `Document` normal (como `material_test`) con 4 cruces

@@ -1,0 +1,12 @@
+/* Conexión del perfil de máquina (serie, TCP, WebSocket) y botón «Probar conexión». */
+.mc-conn-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.mc-test-ok {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--ok);
+}

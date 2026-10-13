@@ -80,6 +80,6 @@ Con el rotativo activo, **Posicionar el láser** (un clic en la cama) se deshabi
 
 ### Lo que no existe
 
-Rotativo para controladoras Ruida, para galvo, corrección de cilindro y eje A aparte no están en Tlaku.
+Rotativo para galvo, corrección de cilindro y eje A aparte no están en Tlaku. Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
 
 Siguiente: [Controladoras soportadas](13-controladoras.md)

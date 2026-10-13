@@ -1,0 +1,16 @@
+; Generado por Tlaku
+G90
+G21
+M4 S0
+; Capa #ff0000 velocidad=600 potencia=80% pasadas=1
+G0 X10 Y10
+G1 X35.5 S800 F600
+G1 X38.5 S200
+G1 X40 S800
+G1 Y40
+G1 X14.5
+G1 X11.5 S200
+G1 X10 S800
+G1 Y10
+M5
+G0 X0 Y0

@@ -442,3 +442,134 @@ fn text_object_roundtrips_and_uses_its_outline() {
     }
     assert!(empty.polylines().is_empty() && empty.bounds().is_none());
 }
+
+fn near(a: [f64; 2], b: [f64; 2]) {
+    assert!(
+        (a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9,
+        "{a:?} != {b:?}"
+    );
+}
+
+fn with_array(array: VirtualArray) -> DesignObject {
+    DesignObject {
+        array: Some(array),
+        ..square("a", Rgb(255, 0, 0), affine::translate(5.0, 5.0))
+    }
+}
+
+#[test]
+fn without_array_there_are_no_copies() {
+    let o = square("a", Rgb(255, 0, 0), affine::IDENTITY);
+    assert!(o.virtual_copies().unwrap().is_empty());
+    assert_eq!(o.bounds_with_copies(), o.bounds());
+}
+
+#[test]
+fn grid_steps_from_edge_to_edge() {
+    // Caja de 10 x 5 mm: paso en X = 10 + 2, paso en Y = 5 + 4.
+    let o = with_array(VirtualArray::Grid {
+        cols: 3,
+        rows: 2,
+        dx: 2.0,
+        dy: 4.0,
+    });
+    let t = o.virtual_copies().unwrap();
+    // 3 x 2 = 6 piezas: 5 copias, la original no se cuenta.
+    assert_eq!(t.len(), 5);
+    near(affine::apply(&t[0], [0.0, 0.0]), [12.0, 0.0]);
+    near(affine::apply(&t[1], [0.0, 0.0]), [24.0, 0.0]);
+    near(affine::apply(&t[2], [0.0, 0.0]), [0.0, 9.0]);
+    near(affine::apply(&t[4], [0.0, 0.0]), [24.0, 9.0]);
+}
+
+#[test]
+fn circular_full_turn_does_not_repeat_the_original() {
+    let o = with_array(VirtualArray::Circular {
+        count: 4,
+        center: [0.0, 0.0],
+        sweep_deg: 360.0,
+        rotate: true,
+    });
+    let t = o.virtual_copies().unwrap();
+    assert_eq!(t.len(), 3);
+    // Cuartos de vuelta antihorarios alrededor del origen.
+    near(affine::apply(&t[0], [10.0, 0.0]), [0.0, 10.0]);
+    near(affine::apply(&t[1], [10.0, 0.0]), [-10.0, 0.0]);
+    near(affine::apply(&t[2], [10.0, 0.0]), [0.0, -10.0]);
+}
+
+#[test]
+fn circular_arc_includes_both_ends_and_can_keep_orientation() {
+    let o = with_array(VirtualArray::Circular {
+        count: 3,
+        center: [0.0, 0.0],
+        sweep_deg: 180.0,
+        rotate: false,
+    });
+    let t = o.virtual_copies().unwrap();
+    assert_eq!(t.len(), 2);
+    // El centro de la caja (10, 7.5) recorre media vuelta; la orientación no cambia.
+    near(affine::apply(&t[1], [10.0, 7.5]), [-10.0, -7.5]);
+    for m in &t {
+        assert_eq!(&m[..4], &[1.0, 0.0, 0.0, 1.0]);
+    }
+}
+
+#[test]
+fn invalid_arrays_are_reported() {
+    let mut o = with_array(VirtualArray::Grid {
+        cols: 0,
+        rows: 2,
+        dx: 0.0,
+        dy: 0.0,
+    });
+    assert!(o.virtual_copies().unwrap_err().contains("al menos 1"));
+    o.array = Some(VirtualArray::Grid {
+        cols: 100,
+        rows: 100,
+        dx: 0.0,
+        dy: 0.0,
+    });
+    assert!(o.virtual_copies().unwrap_err().contains("más de"));
+    o.array = Some(VirtualArray::Circular {
+        count: 3,
+        center: [f64::NAN, 0.0],
+        sweep_deg: 360.0,
+        rotate: true,
+    });
+    assert!(o.virtual_copies().is_err());
+    // Un arreglo inválido no cambia la caja.
+    assert_eq!(o.bounds_with_copies(), o.bounds());
+}
+
+#[test]
+fn bounds_include_the_virtual_copies() {
+    // Objeto de 10 x 5 mm con la esquina en (5, 5).
+    let grid = with_array(VirtualArray::Grid {
+        cols: 3,
+        rows: 2,
+        dx: 2.0,
+        dy: 4.0,
+    });
+    let b = grid.bounds_with_copies().unwrap();
+    close(b.min, 5.0, 5.0);
+    close(b.max, 5.0 + 10.0 + 2.0 * 12.0, 5.0 + 5.0 + 9.0);
+    // La caja propia no cambia.
+    close(grid.bounds().unwrap().max, 15.0, 10.0);
+    let doc = Document {
+        objects: vec![grid],
+        ..Document::default()
+    };
+    close(doc.bounds().unwrap().max, 39.0, 19.0);
+
+    // Circular con giro: el cuarto de vuelta lleva la caja a x negativa.
+    let circ = with_array(VirtualArray::Circular {
+        count: 4,
+        center: [0.0, 0.0],
+        sweep_deg: 360.0,
+        rotate: true,
+    });
+    let b = circ.bounds_with_copies().unwrap();
+    close(b.min, -15.0, -15.0);
+    close(b.max, 15.0, 15.0);
+}

@@ -1,5 +1,6 @@
 import type { DeviceProfile, Document, JobOptions, Point, StartFrom } from '@/api/types';
-import { objectBounds, unionBounds, type Bounds } from '@/lib/geometry';
+import { unionBounds, type Bounds } from '@/lib/geometry';
+import { objectBoundsWithCopies } from '@/lib/virtualArray';
 import { workToDoc } from '@/lib/device';
 
 /**
@@ -105,13 +106,13 @@ export function computeJobPlacement(input: PlacementInput): Placement {
   return finish(rect, target, target);
 }
 
-/** Rectángulo envolvente de lo que sale a la máquina (sin overscan), respetando la selección. */
+/** Rectángulo envolvente de lo que sale a la máquina (sin overscan, con las copias virtuales), respetando la selección. */
 export function designBounds(doc: Pick<Document, 'objects' | 'layers'>, selection: JobOptions['selection']): Bounds | null {
   const outputs = new Set(doc.layers.filter((l) => l.output).map((l) => l.color.toLowerCase()));
   const only = selection ? new Set(selection) : null;
   return unionBounds(
     doc.objects
       .filter((o) => !o.hidden && outputs.has(o.layer.toLowerCase()) && (!only || only.has(o.id)))
-      .map(objectBounds),
+      .map(objectBoundsWithCopies),
   );
 }
