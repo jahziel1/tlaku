@@ -1,4 +1,4 @@
-//! Aplicación de escritorio de LaserSoft (Tauri 2). La interfaz (TypeScript) es dueña del
+//! Aplicación de escritorio de Tlaku (Tauri 2). La interfaz (TypeScript) es dueña del
 //! documento; aquí viven el motor y la conexión con la máquina siguiendo `docs/app-api.md`.
 //!
 //! - `engine`: cálculo de trabajos, archivos y perfiles de dispositivo (sin Tauri).
@@ -40,7 +40,7 @@ pub fn run() {
             commands::frame_job,
         ])
         .build(tauri::generate_context!())
-        .expect("no se pudo iniciar la aplicación LaserSoft");
+        .expect("no se pudo iniciar la aplicación Tlaku");
     app.run(|app, event| {
         // Al salir se cancela un trabajo en curso (pausa y reinicio) antes de soltar el puerto.
         if let RunEvent::Exit = event {

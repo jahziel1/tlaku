@@ -1973,134 +1973,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "laser-cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "laser-core",
- "laser-dxf",
- "laser-fill",
- "laser-geom",
- "laser-grbl",
- "laser-pipeline",
- "laser-plan",
- "laser-raster",
- "laser-sim",
- "laser-svg",
-]
-
-[[package]]
-name = "laser-core"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "laser-doc"
-version = "0.1.0"
-dependencies = [
- "laser-core",
- "serde",
- "serde_json",
- "ts-rs",
-]
-
-[[package]]
-name = "laser-dxf"
-version = "0.1.0"
-dependencies = [
- "dxf",
- "laser-core",
-]
-
-[[package]]
-name = "laser-fill"
-version = "0.1.0"
-dependencies = [
- "laser-core",
-]
-
-[[package]]
-name = "laser-geom"
-version = "0.1.0"
-dependencies = [
- "i_overlay",
- "laser-core",
-]
-
-[[package]]
-name = "laser-grbl"
-version = "0.1.0"
-dependencies = [
- "laser-core",
- "laser-svg",
- "serialport",
-]
-
-[[package]]
-name = "laser-pipeline"
-version = "0.1.0"
-dependencies = [
- "laser-core",
- "laser-doc",
- "laser-dxf",
- "laser-fill",
- "laser-geom",
- "laser-grbl",
- "laser-plan",
- "laser-raster",
- "laser-sim",
- "laser-svg",
- "serde",
-]
-
-[[package]]
-name = "laser-plan"
-version = "0.1.0"
-dependencies = [
- "laser-core",
-]
-
-[[package]]
-name = "laser-raster"
-version = "0.1.0"
-dependencies = [
- "image",
- "laser-core",
-]
-
-[[package]]
-name = "laser-sim"
-version = "0.1.0"
-dependencies = [
- "laser-core",
-]
-
-[[package]]
-name = "laser-svg"
-version = "0.1.0"
-dependencies = [
- "laser-core",
- "usvg",
-]
-
-[[package]]
-name = "lasersoft-desktop"
-version = "0.1.0"
-dependencies = [
- "laser-core",
- "laser-doc",
- "laser-grbl",
- "laser-pipeline",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
-]
-
-[[package]]
 name = "libappindicator"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4139,6 +4011,134 @@ name = "tinyvec"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+
+[[package]]
+name = "tlaku-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "tlaku-core",
+ "tlaku-dxf",
+ "tlaku-fill",
+ "tlaku-geom",
+ "tlaku-grbl",
+ "tlaku-pipeline",
+ "tlaku-plan",
+ "tlaku-raster",
+ "tlaku-sim",
+ "tlaku-svg",
+]
+
+[[package]]
+name = "tlaku-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "tlaku-desktop"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tlaku-core",
+ "tlaku-doc",
+ "tlaku-grbl",
+ "tlaku-pipeline",
+]
+
+[[package]]
+name = "tlaku-doc"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tlaku-core",
+ "ts-rs",
+]
+
+[[package]]
+name = "tlaku-dxf"
+version = "0.1.0"
+dependencies = [
+ "dxf",
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-fill"
+version = "0.1.0"
+dependencies = [
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-geom"
+version = "0.1.0"
+dependencies = [
+ "i_overlay",
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-grbl"
+version = "0.1.0"
+dependencies = [
+ "serialport",
+ "tlaku-core",
+ "tlaku-svg",
+]
+
+[[package]]
+name = "tlaku-pipeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tlaku-core",
+ "tlaku-doc",
+ "tlaku-dxf",
+ "tlaku-fill",
+ "tlaku-geom",
+ "tlaku-grbl",
+ "tlaku-plan",
+ "tlaku-raster",
+ "tlaku-sim",
+ "tlaku-svg",
+]
+
+[[package]]
+name = "tlaku-plan"
+version = "0.1.0"
+dependencies = [
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-raster"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-sim"
+version = "0.1.0"
+dependencies = [
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-svg"
+version = "0.1.0"
+dependencies = [
+ "tlaku-core",
+ "usvg",
+]
 
 [[package]]
 name = "tokio"

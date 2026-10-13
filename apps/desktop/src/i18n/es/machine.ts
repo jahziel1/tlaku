@@ -17,7 +17,7 @@ export const machine = {
   'machine.confirm.exact': 'Se enviará exactamente:',
   'machine.confirm.send': 'Enviar a la máquina',
 
-  // Advertencias por nivel de riesgo (mismas reglas que `lasersoft cmd`)
+  // Advertencias por nivel de riesgo (mismas reglas que `tlaku cmd`)
   'machine.risk.unlock':
     '$X desbloquea la alarma sin hacer home: si la máquina tiene finales de carrera y no haces $H después, la posición puede quedar desconocida y el trabajo saldría desplazado.',
   'machine.risk.home': '$H hace homing: la máquina se moverá hasta los finales de carrera. Despeja el área.',

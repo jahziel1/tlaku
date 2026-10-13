@@ -1,10 +1,10 @@
 use super::*;
-use laser_core::Rgb;
-use laser_doc::affine::IDENTITY;
-use laser_doc::{DesignObject, LayerSettings, ObjectKind, PathData, VectorObject};
+use tlaku_core::Rgb;
+use tlaku_doc::affine::IDENTITY;
+use tlaku_doc::{DesignObject, LayerSettings, ObjectKind, PathData, VectorObject};
 
 fn temp(test: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("lasersoft-desktop-{}-{test}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("tlaku-desktop-{}-{test}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -48,7 +48,7 @@ fn compute_job_returns_a_preview_with_move_times() {
 #[test]
 fn current_position_needs_the_head_and_uses_it() {
     let opts = JobOptions {
-        start_from: laser_doc::StartFrom::CurrentPosition,
+        start_from: tlaku_doc::StartFrom::CurrentPosition,
         job_origin: 6,
         ..JobOptions::default()
     };
@@ -109,7 +109,7 @@ fn job_and_frame_lines_are_ready_to_stream() {
 #[test]
 fn projects_roundtrip_and_reject_bad_files() {
     let dir = temp("project");
-    let path = dir.join("a.lsproj");
+    let path = dir.join("a.tlaku");
     let doc = square_doc();
     save_project(path.to_str().unwrap(), &doc).unwrap();
     assert_eq!(load_project(path.to_str().unwrap()).unwrap(), doc);
@@ -119,8 +119,8 @@ fn projects_roundtrip_and_reject_bad_files() {
             .unwrap_err()
             .contains("versión")
     );
-    assert!(load_project(dir.join("no.lsproj").to_str().unwrap()).is_err());
-    assert!(save_project(dir.join("no/existe/a.lsproj").to_str().unwrap(), &doc).is_err());
+    assert!(load_project(dir.join("no.tlaku").to_str().unwrap()).is_err());
+    assert!(save_project(dir.join("no/existe/a.tlaku").to_str().unwrap(), &doc).is_err());
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn image_paths_lists_only_images() {
         id: "img".into(),
         layer: LayerSettings::IMAGE_COLOR,
         transform: IDENTITY,
-        kind: ObjectKind::Image(laser_doc::ImageObject {
+        kind: ObjectKind::Image(tlaku_doc::ImageObject {
             source_path: "/tmp/foto.png".into(),
             width_px: 4,
             height_px: 4,

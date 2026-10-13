@@ -43,14 +43,14 @@ describe('archivos recientes', () => {
     afterEach(() => vi.unstubAllGlobals());
 
     it('guarda y recarga la lista', () => {
-      useRecents.getState().add('/a/uno.lsproj');
-      useRecents.getState().add('/a/dos.lsproj');
-      expect(JSON.parse(data.get('lasersoft.recent')!)).toEqual(['/a/dos.lsproj', '/a/uno.lsproj']);
+      useRecents.getState().add('/a/uno.tlaku');
+      useRecents.getState().add('/a/dos.tlaku');
+      expect(JSON.parse(data.get('tlaku.recent')!)).toEqual(['/a/dos.tlaku', '/a/uno.tlaku']);
       useRecents.setState({ paths: [] });
       useRecents.getState().reload();
-      expect(useRecents.getState().paths).toEqual(['/a/dos.lsproj', '/a/uno.lsproj']);
+      expect(useRecents.getState().paths).toEqual(['/a/dos.tlaku', '/a/uno.tlaku']);
       useRecents.getState().clear();
-      expect(JSON.parse(data.get('lasersoft.recent')!)).toEqual([]);
+      expect(JSON.parse(data.get('tlaku.recent')!)).toEqual([]);
     });
 
     it('sigue funcionando sin almacenamiento (private mode, bloqueado)', () => {
@@ -63,8 +63,8 @@ describe('archivos recientes', () => {
         },
       });
       expect(() => useRecents.getState().reload()).not.toThrow();
-      expect(() => useRecents.getState().add('/x.lsproj')).not.toThrow();
-      expect(useRecents.getState().paths).toEqual(['/x.lsproj']);
+      expect(() => useRecents.getState().add('/x.tlaku')).not.toThrow();
+      expect(useRecents.getState().paths).toEqual(['/x.tlaku']);
     });
   });
 });
@@ -191,21 +191,21 @@ describe('línea de tiempo del historial', () => {
 describe('rutas y formatos', () => {
   it('reconoce los formatos de importación sin importar mayúsculas', () => {
     for (const f of ['a.svg', 'A.DXF', 'x.png', 'f.jpg', 'f.JPEG', 'b.bmp']) expect(isImportable(f), f).toBe(true);
-    for (const f of ['a.pdf', 'a', '.svg', 'a.lsproj']) expect(isImportable(f), f).toBe(false);
+    for (const f of ['a.pdf', 'a', '.svg', 'a.tlaku']) expect(isImportable(f), f).toBe(false);
   });
   it('nombre, extensión y extensión por defecto', () => {
     expect(baseName('C:\\x\\y\\pieza.svg')).toBe('pieza.svg');
-    expect(baseName('/a/b/c.lsproj')).toBe('c.lsproj');
+    expect(baseName('/a/b/c.tlaku')).toBe('c.tlaku');
     expect(extensionOf('/a/b.c/archivo')).toBe('');
-    expect(withExtension('/a/proyecto', 'lsproj')).toBe('/a/proyecto.lsproj');
-    expect(withExtension('/a/proyecto.lsproj', 'lsproj')).toBe('/a/proyecto.lsproj');
+    expect(withExtension('/a/proyecto', 'tlaku')).toBe('/a/proyecto.tlaku');
+    expect(withExtension('/a/proyecto.tlaku', 'tlaku')).toBe('/a/proyecto.tlaku');
   });
 });
 
 describe('título de la ventana y permisos', () => {
   it('marca los cambios sin guardar', () => {
-    expect(documentTitle(null, false)).toBe('Sin título — LaserSoft');
-    expect(documentTitle('/a/placa.lsproj', true)).toBe('● placa.lsproj — LaserSoft');
+    expect(documentTitle(null, false)).toBe('Sin título — Tlaku');
+    expect(documentTitle('/a/placa.tlaku', true)).toBe('● placa.tlaku — Tlaku');
   });
 
   it('solo se protege el cierre si el permiso de destruir la ventana está declarado', () => {
@@ -258,19 +258,19 @@ describe('importar, abrir y guardar con la API simulada', () => {
     expect(s().doc.objects).toHaveLength(0);
   });
 
-  it('guarda con la extensión .lsproj, limpia el indicador y recuerda el archivo', async () => {
+  it('guarda con la extensión .tlaku, limpia el indicador y recuerda el archivo', async () => {
     await importPaths(['a.png']);
     expect(s().dirty).toBe(true);
     expect(await saveProject(true)).toBe(true);
     expect(s().dirty).toBe(false);
-    expect(s().filePath).toMatch(/\.lsproj$/);
+    expect(s().filePath).toMatch(/\.tlaku$/);
     expect(useRecents.getState().paths[0]).toBe(s().filePath);
   });
 
   it('abrir con cambios y cancelar la pregunta no toca el documento', async () => {
     await importPaths(['a.png']);
     const before = s().doc;
-    const pending = openProject('ejemplos/placa.lsproj');
+    const pending = openProject('ejemplos/placa.tlaku');
     await vi.waitFor(() => expect(usePrompts.getState().current).not.toBeNull());
     usePrompts.getState().answer('cancel');
     expect(await pending).toBe(false);
@@ -279,21 +279,21 @@ describe('importar, abrir y guardar con la API simulada', () => {
 
   it('abrir descartando los cambios reemplaza el documento y limpia el historial', async () => {
     await importPaths(['a.png']);
-    const pending = openProject('ejemplos/placa.lsproj');
+    const pending = openProject('ejemplos/placa.tlaku');
     await vi.waitFor(() => expect(usePrompts.getState().current).not.toBeNull());
     usePrompts.getState().answer('discard');
     expect(await pending).toBe(true);
     expect(s().dirty).toBe(false);
     expect(s().past).toHaveLength(0);
-    expect(s().filePath).toBe('ejemplos/placa.lsproj');
+    expect(s().filePath).toBe('ejemplos/placa.tlaku');
   });
 
   it('un reciente que ya no se puede abrir se quita de la lista y se avisa', async () => {
     const api = createMockApi({ latencyMs: 0 });
     setApi({ ...api, loadProject: () => Promise.reject('No existe el archivo') });
-    useRecents.setState({ paths: ['/x/perdido.lsproj', '/x/otro.lsproj'] });
-    expect(await openRecent('/x/perdido.lsproj')).toBe(false);
-    expect(useRecents.getState().paths).toEqual(['/x/otro.lsproj']);
+    useRecents.setState({ paths: ['/x/perdido.tlaku', '/x/otro.tlaku'] });
+    expect(await openRecent('/x/perdido.tlaku')).toBe(false);
+    expect(useRecents.getState().paths).toEqual(['/x/otro.tlaku']);
     expect(s().notices.at(-1)).toMatchObject({ level: 'error' });
     expect(s().notices.at(-1)!.text).toContain('No existe el archivo');
   });

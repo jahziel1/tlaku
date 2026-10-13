@@ -238,7 +238,7 @@ export interface MachineSlice extends MachineData {
   /** Lee `$$` y guarda los ajustes. Devuelve null si no se pudo. */
   readSettings: (opts?: { silent?: boolean }) => Promise<GrblSettings | null>;
   /**
-   * Envía una línea con las mismas reglas que `lasersoft cmd`: se normaliza (mayúsculas, sin
+   * Envía una línea con las mismas reglas que `tlaku cmd`: se normaliza (mayúsculas, sin
    * espacios ni comentarios) y todo lo que no sea de solo lectura exige `confirmed: true`, que
    * solo da quien ya mostró al usuario exactamente qué se enviará. Devuelve si se envió.
    */

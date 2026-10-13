@@ -6,16 +6,16 @@ export type PickKind = 'import' | 'openProject' | 'saveProject' | 'exportGcode';
 /** Extensiones por tipo de diálogo. */
 const FILTERS: Record<PickKind, { name: string; extensions: string[] }[]> = {
   import: [{ name: 'Diseños', extensions: [...IMPORT_EXTENSIONS] }],
-  openProject: [{ name: 'Proyecto LaserSoft', extensions: ['lsproj'] }],
-  saveProject: [{ name: 'Proyecto LaserSoft', extensions: ['lsproj'] }],
+  openProject: [{ name: 'Proyecto Tlaku', extensions: ['tlaku'] }],
+  saveProject: [{ name: 'Proyecto Tlaku', extensions: ['tlaku'] }],
   exportGcode: [{ name: 'G-code', extensions: ['gcode', 'nc'] }],
 };
 
 /** Rutas ficticias para el modo mock (en el navegador no hay diálogos nativos). */
 const MOCK_PATHS: Record<PickKind, string> = {
   import: 'ejemplos/placa.svg',
-  openProject: 'ejemplos/placa.lsproj',
-  saveProject: 'proyectos/sin-titulo.lsproj',
+  openProject: 'ejemplos/placa.tlaku',
+  saveProject: 'proyectos/sin-titulo.tlaku',
   exportGcode: 'trabajos/placa.gcode',
 };
 

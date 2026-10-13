@@ -16,13 +16,13 @@ Lo marcado "(no verificado)" o "(inferido)" en cada archivo debe confirmarse ant
 
 ```
 crates/
-  laser-core     modelo del documento: formas con curvas, capas, ajustes, trabajo
-  laser-geom     booleanas, offset, kerf, auto-join, cerrar trayectos       (i_overlay / clipper2, cavalier_contours, kurbo)
-  laser-raster   ajustes de imagen, dithering, umbral, escala de grises     (image, imageproc)
-  laser-plan     orden de corte, rellenos por barrido, overscan, tiempo estimado
-  laser-svg      importación SVG (ya existe); luego laser-dxf, imágenes, formato nativo
-  laser-grbl     G-code y envío por serie (ya existe); luego laser-ruida, laser-jcz
-  laser-cli      herramienta de línea de comandos (ya existe)
+  tlaku-core     modelo del documento: formas con curvas, capas, ajustes, trabajo
+  tlaku-geom     booleanas, offset, kerf, auto-join, cerrar trayectos       (i_overlay / clipper2, cavalier_contours, kurbo)
+  tlaku-raster   ajustes de imagen, dithering, umbral, escala de grises     (image, imageproc)
+  tlaku-plan     orden de corte, rellenos por barrido, overscan, tiempo estimado
+  tlaku-svg      importación SVG (ya existe); luego tlaku-dxf, imágenes, formato nativo
+  tlaku-grbl     G-code y envío por serie (ya existe); luego laser-ruida, laser-jcz
+  tlaku-cli      herramienta de línea de comandos (ya existe)
 apps/desktop     Tauri + TypeScript, lienzo WebGL
 ```
 
@@ -73,7 +73,7 @@ de caracteres, verificación de estado antes de enviar, encuadre y consola segur
 
 Pendiente detectado en M1:
 - No probado con hardware real (Falcon2 disponible para pruebas).
-- Recorte real de clip-path/mask en SVG (hoy solo se avisa); se puede hacer con laser-geom.
+- Recorte real de clip-path/mask en SVG (hoy solo se avisa); se puede hacer con tlaku-geom.
 - Planificador: figuras que se solapan sin anidarse pierden la precedencia interior-primero.
 - Estimación: se asume parada entre rápidos y cortes; calibrar contra tiempos reales.
 - Imagen: ángulo de barrido, scanning offset, Newsprint/Halftone/Sketch. Relleno: Offset/Flood fill.

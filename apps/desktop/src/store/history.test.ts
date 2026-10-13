@@ -197,7 +197,7 @@ describe('saltos en el historial', () => {
 describe('cambios sin guardar por referencia', () => {
   it('deshacer hasta lo guardado deja el proyecto limpio', () => {
     load([vector('a', '#ff0000', 0)]);
-    s().markSaved('p.lsproj');
+    s().markSaved('p.tlaku');
     expect(s().dirty).toBe(false);
     s().moveObjects(['a'], 1, 0, 'k');
     expect(s().dirty).toBe(true);
@@ -213,8 +213,8 @@ describe('cambios sin guardar por referencia', () => {
     load([vector('a', '#ff0000', 0)]);
     const saved = s().doc;
     s().moveObjects(['a'], 1, 0, 'k');
-    s().markSaved('p.lsproj', saved);
-    expect(s().filePath).toBe('p.lsproj');
+    s().markSaved('p.tlaku', saved);
+    expect(s().filePath).toBe('p.tlaku');
     expect(s().dirty).toBe(true);
   });
 });

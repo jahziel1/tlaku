@@ -1,0 +1,9 @@
+[package]
+name = "tlaku-geom"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+i_overlay = "9.0.1"
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }

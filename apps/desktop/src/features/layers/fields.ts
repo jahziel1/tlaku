@@ -3,7 +3,7 @@ import type { I18nKey } from '@/i18n';
 /**
  * Campos numéricos del editor de capas: unidad, rango y validación. Un valor inválido se
  * marca en la interfaz y NO se aplica al documento. Los rangos no son más estrictos que los
- * del motor (`laser-pipeline`): lo que él acepta, el editor lo acepta.
+ * del motor (`tlaku-pipeline`): lo que él acepta, el editor lo acepta.
  */
 export type NumericField =
   | 'speed'

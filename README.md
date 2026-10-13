@@ -1,4 +1,4 @@
-# lasersoft
+# tlaku
 
 Software abierto (licencia MIT) para cortadoras y grabadoras láser. El objetivo a largo plazo es
 ofrecer una alternativa libre a los programas comerciales de control láser; hoy es un motor
@@ -15,18 +15,18 @@ comercial. La hoja de ruta está en [docs/spec/00-resumen.md](docs/spec/00-resum
 
 | Crate | Qué hace |
 |---|---|
-| `laser-core` | Modelo del trabajo (puntos, polilíneas, capas, ajustes de corte), orden de corte básico y `Toolpath`, la representación común que consumen los drivers. |
-| `laser-svg` | Importa SVG: curvas a polilíneas en mm con tolerancia, una capa por color. |
-| `laser-dxf` | Importa DXF: entidades a polilíneas en mm, color ACI o true color; avisa de lo que no puede importar. |
-| `laser-geom` | Booleanas, soldar, offset, compensación de kerf, auto-join y cierre de trayectos. |
-| `laser-plan` | Planificador del orden de corte explicable: capas, prioridad, interior antes que contenedor, recorrido corto (2-opt/Or-opt). |
-| `laser-fill` | Modo Fill: relleno por barrido con ángulo, serpentina, crosshatch y overscan. |
-| `laser-raster` | Modo Image: ajustes de imagen, remuestreo, dithering y umbral, barrido de bitmaps. |
-| `laser-sim` | Estimación de tiempo con aceleración por eje y desviación de unión; cálculo físico del overscan. |
-| `laser-grbl` | G-code para GRBL 1.1 (M3/M4), puertos serie y envío por conteo de caracteres. |
-| `laser-doc` | Tipos del contrato con la app (documento, capas, máquina, opciones) en `serde`, exportados a TypeScript con `ts-rs`. |
-| `laser-pipeline` | Documento + máquina a `Toolpath`, estimaciones, límites de la cama y G-code; importa SVG, DXF e imágenes. |
-| `laser-cli` | Binario `lasersoft`; arma un documento con los argumentos y usa `laser-pipeline`. |
+| `tlaku-core` | Modelo del trabajo (puntos, polilíneas, capas, ajustes de corte), orden de corte básico y `Toolpath`, la representación común que consumen los drivers. |
+| `tlaku-svg` | Importa SVG: curvas a polilíneas en mm con tolerancia, una capa por color. |
+| `tlaku-dxf` | Importa DXF: entidades a polilíneas en mm, color ACI o true color; avisa de lo que no puede importar. |
+| `tlaku-geom` | Booleanas, soldar, offset, compensación de kerf, auto-join y cierre de trayectos. |
+| `tlaku-plan` | Planificador del orden de corte explicable: capas, prioridad, interior antes que contenedor, recorrido corto (2-opt/Or-opt). |
+| `tlaku-fill` | Modo Fill: relleno por barrido con ángulo, serpentina, crosshatch y overscan. |
+| `tlaku-raster` | Modo Image: ajustes de imagen, remuestreo, dithering y umbral, barrido de bitmaps. |
+| `tlaku-sim` | Estimación de tiempo con aceleración por eje y desviación de unión; cálculo físico del overscan. |
+| `tlaku-grbl` | G-code para GRBL 1.1 (M3/M4), puertos serie y envío por conteo de caracteres. |
+| `tlaku-doc` | Tipos del contrato con la app (documento, capas, máquina, opciones) en `serde`, exportados a TypeScript con `ts-rs`. |
+| `tlaku-pipeline` | Documento + máquina a `Toolpath`, estimaciones, límites de la cama y G-code; importa SVG, DXF e imágenes. |
+| `tlaku-cli` | Binario `tlaku`; arma un documento con los argumentos y usa `tlaku-pipeline`. |
 
 ## Instalación desde el código fuente
 
@@ -34,14 +34,14 @@ Requiere Rust estable reciente (edition 2024). En Linux, `serialport` necesita
 `libudev-dev` y `pkg-config`.
 
 ```sh
-git clone <url-del-repositorio> lasersoft && cd lasersoft
+git clone <url-del-repositorio> tlaku && cd tlaku
 cargo build --release
-# el binario queda en target/release/lasersoft
+# el binario queda en target/release/tlaku
 ```
 
 ## Uso del CLI
 
-`lasersoft <comando> --help` es la referencia completa de cada comando.
+`tlaku <comando> --help` es la referencia completa de cada comando.
 
 | Comando | Qué hace |
 |---|---|
@@ -54,26 +54,26 @@ cargo build --release
 | `info` | Lee la versión (`$I`) y la configuración (`$$`) de la máquina, sin moverla. |
 
 Ejemplos, ejecutados desde la raíz del repositorio (usan el diseño de prueba
-`crates/laser-cli/tests/fixtures/design.svg`: un contorno rojo y un rectángulo azul):
+`crates/tlaku-cli/tests/fixtures/design.svg`: un contorno rojo y un rectángulo azul):
 
 ```sh
 # SVG -> G-code. Cada color del diseño es una capa: el contorno rojo se corta en dos
 # pasadas a 300 mm/min y el rectángulo azul se rellena a 3000 mm/min.
-target/release/lasersoft gcode crates/laser-cli/tests/fixtures/design.svg -o trabajo.gcode \
+target/release/tlaku gcode crates/tlaku-cli/tests/fixtures/design.svg -o trabajo.gcode \
   --layer "#ff0000:speed=300,power=100,passes=2,air" \
   --layer "#0000ff:mode=fill,interval=0.2,speed=3000,power=30"
 
 # Orden de las capas y de las figuras, con la razón de cada paso (no escribe archivos)
-target/release/lasersoft plan crates/laser-cli/tests/fixtures/design.svg \
+target/release/tlaku plan crates/tlaku-cli/tests/fixtures/design.svg \
   --layer "#ff0000:kerf=0.1" --layer "#0000ff:mode=fill,interval=2"
 
 # Con la máquina conectada: busca el puerto, encuádrala y envía el trabajo
-target/release/lasersoft ports
-target/release/lasersoft frame crates/laser-cli/tests/fixtures/design.svg --port /dev/cu.usbserial-XXXX
-target/release/lasersoft send trabajo.gcode --port /dev/cu.usbserial-XXXX
+target/release/tlaku ports
+target/release/tlaku frame crates/tlaku-cli/tests/fixtures/design.svg --port /dev/cu.usbserial-XXXX
+target/release/tlaku send trabajo.gcode --port /dev/cu.usbserial-XXXX
 
 # Máquina en alarma: lee su versión (sin preguntar) y haz homing (pide confirmación)
-target/release/lasersoft cmd --port /dev/cu.usbserial-XXXX '$I' '$H'
+target/release/tlaku cmd --port /dev/cu.usbserial-XXXX '$I' '$H'
 ```
 
 **Orden de las capas.** Para que la pieza no se suelte antes de grabar, por defecto
@@ -86,7 +86,7 @@ El resumen muestra el orden final y por qué.
 **Antes de enviar.** `send` y `frame` abren el puerto, consultan el estado (`?`) y solo
 transmiten si la máquina está en reposo (`Idle`). En alarma, pausa (`Hold`), puerta abierta o en
 marcha (`Run`) no transmiten nada y explican qué hacer; `$X` (desbloquear) y `$H` (homing) los
-sugieren con el comando exacto de `lasersoft cmd` pero nunca los ejecutan. Ambos piden
+sugieren con el comando exacto de `tlaku cmd` pero nunca los ejecutan. Ambos piden
 confirmación antes de mover la máquina (`--yes` la omite).
 
 **`cmd`.** Cada argumento es un comando, se envían en orden y se detiene en el primer error o
@@ -102,7 +102,7 @@ Otras opciones de `gcode`: `--speed`, `--power`, `--passes`, `--air`, `--mode li
 `--power-mode dynamic|constant` (M4 o M3), `--start-gcode` y `--end-gcode`. Las imágenes
 necesitan `--image-size` y `--image-pos`. `plan` y `frame` aceptan las mismas opciones de diseño.
 
-Sin instalar, se puede usar con `cargo run --bin lasersoft -- <comando>`.
+Sin instalar, se puede usar con `cargo run --bin tlaku -- <comando>`.
 
 ## Pruebas
 
@@ -111,7 +111,7 @@ cargo test --workspace
 ```
 
 Varias pruebas comparan su salida con archivos dorados (`tests/fixtures` de cada crate:
-`laser-grbl`, `laser-fill`, `laser-raster`). Si un cambio es intencional, regenéralos con
+`tlaku-grbl`, `tlaku-fill`, `tlaku-raster`). Si un cambio es intencional, regenéralos con
 `UPDATE_GOLDEN=1 cargo test --workspace` y revisa el diff antes de confirmar. Más detalles en
 [CONTRIBUTING.md](CONTRIBUTING.md).
 

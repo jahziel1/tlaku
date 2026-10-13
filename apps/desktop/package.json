@@ -1,10 +1,10 @@
 {
-  "name": "lasersoft-desktop",
+  "name": "tlaku-desktop",
   "private": true,
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "description": "Aplicación de escritorio de LaserSoft (Tauri v2 + React + TypeScript).",
+  "description": "Aplicación de escritorio de Tlaku (Tauri v2 + React + TypeScript).",
   "engines": {
     "node": ">=22.13.0"
   },

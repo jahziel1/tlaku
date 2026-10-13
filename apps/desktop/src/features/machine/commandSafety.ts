@@ -1,5 +1,5 @@
 /**
- * Reglas de seguridad de la consola. Es un port 1:1 de `crates/laser-cli/src/link.rs`
+ * Reglas de seguridad de la consola. Es un port 1:1 de `crates/tlaku-cli/src/link.rs`
  * (`prepare_line`, `classify`, `parse_command`): lo que el CLI pide confirmar, la app también,
  * y se envía exactamente la línea normalizada que se le muestra al usuario.
  */

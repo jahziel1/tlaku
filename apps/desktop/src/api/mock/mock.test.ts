@@ -85,8 +85,8 @@ describe('diseño y trabajo', () => {
     const m = fast();
     const doc = sampleDocument();
     doc.objects = doc.objects.slice(0, 1);
-    await m.saveProject({ path: 'a.lsproj', doc });
-    expect((await m.loadProject({ path: 'a.lsproj' })).objects).toHaveLength(1);
+    await m.saveProject({ path: 'a.tlaku', doc });
+    expect((await m.loadProject({ path: 'a.tlaku' })).objects).toHaveLength(1);
   });
 
   it('administra perfiles de dispositivo', async () => {

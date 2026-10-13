@@ -57,7 +57,7 @@ cargo test --workspace
 ## Archivos dorados
 
 Algunas pruebas comparan su salida con archivos aprobados en `crates/*/tests/fixtures`
-(`laser-grbl`, `laser-fill`, `laser-raster`). Si un cambio de salida es intencional:
+(`tlaku-grbl`, `tlaku-fill`, `tlaku-raster`). Si un cambio de salida es intencional:
 
 ```sh
 UPDATE_GOLDEN=1 cargo test --workspace

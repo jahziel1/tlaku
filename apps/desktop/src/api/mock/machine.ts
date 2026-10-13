@@ -150,7 +150,7 @@ export class MockMachine {
     if (trimmed === '') throw new Error('La línea está vacía.');
     this.log('out', trimmed);
     let reply: string[];
-    if (trimmed === '$I') reply = ['[VER:1.1h.20190825:LaserSoft simulada]', '[OPT:V,15,128]', 'ok'];
+    if (trimmed === '$I') reply = ['[VER:1.1h.20190825:Tlaku simulada]', '[OPT:V,15,128]', 'ok'];
     else if (trimmed === '$$') reply = ['$22=1', '$30=1000', '$31=0', '$32=1', '$100=80.000', '$101=80.000', '$130=400.000', '$131=415.000', 'ok'];
     else if (trimmed === '$X') {
       this.setAlarm(null);

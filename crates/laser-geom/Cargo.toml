@@ -1,9 +1,0 @@
-[package]
-name = "laser-geom"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[dependencies]
-i_overlay = "9.0.1"
-laser-core = { version = "0.1.0", path = "../laser-core" }

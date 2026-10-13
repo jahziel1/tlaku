@@ -4,7 +4,7 @@
 //! interfaz llegan por un canal ([`Handle`]) y el trabajador:
 //!
 //! - en reposo, sondea `?` cada ~250 ms, emite `machine://status` y registra lo que llegue;
-//! - al empezar un trabajo, comprueba el estado (misma lógica que `lasersoft send`) y le
+//! - al empezar un trabajo, comprueba el estado (misma lógica que `tlaku send`) y le
 //!   entrega el puerto a un `Streamer` (conteo de caracteres) en su propio hilo; mientras tanto
 //!   traduce sus eventos a progreso, estado y registro, y atiende pausa, reanudación y cancelación;
 //! - al terminar el trabajo recupera el puerto y vuelve a sondear;
@@ -14,16 +14,6 @@
 //! Nada aquí depende de Tauri: los eventos salen por [`Sink`], de modo que se prueba con
 //! `memory_pair` sin hardware.
 
-use laser_doc::{
-    BufferStatus, ConnectResult, ConnectionEvent, JobEvent, JobState, LogDir, LogEvent,
-    MachineState, ProgressEvent, RealtimeCommand, StatusReport,
-};
-use laser_grbl::preflight::{Advice, PreflightConfig, outcome_result, preflight_with};
-use laser_grbl::serial::{Grbl, LineReader, Transport};
-use laser_grbl::streamer::{
-    self, Event, Job, Outcome, Realtime, Streamer, StreamerConfig, alarm_message, error_message,
-    prepare_line,
-};
 use std::collections::VecDeque;
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,6 +21,16 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
+use tlaku_doc::{
+    BufferStatus, ConnectResult, ConnectionEvent, JobEvent, JobState, LogDir, LogEvent,
+    MachineState, ProgressEvent, RealtimeCommand, StatusReport,
+};
+use tlaku_grbl::preflight::{Advice, PreflightConfig, outcome_result, preflight_with};
+use tlaku_grbl::serial::{Grbl, LineReader, Transport};
+use tlaku_grbl::streamer::{
+    self, Event, Job, Outcome, Realtime, Streamer, StreamerConfig, alarm_message, error_message,
+    prepare_line,
+};
 
 /// Mensaje cuando no hay conexión (o se perdió).
 pub const NOT_CONNECTED: &str = "No hay máquina conectada. Conéctala desde la pestaña Máquina.";
@@ -282,7 +282,7 @@ impl Connection {
             error: None,
         }));
         let thread = thread::Builder::new()
-            .name("lasersoft-machine".into())
+            .name("tlaku-machine".into())
             .spawn(move || worker.run(transport))
             .map_err(|e| format!("No se pudo iniciar el hilo de la conexión: {e}"))?;
         Ok((
@@ -775,7 +775,7 @@ impl Worker {
         rx_buffer: usize,
         kind: RunKind,
     ) -> Result<Run, StartFail> {
-        // Mismo orden que `lasersoft send`: validar, comprobar el estado y solo entonces enviar.
+        // Mismo orden que `tlaku send`: validar, comprobar el estado y solo entonces enviar.
         if let Err(e) = validate_lines(&lines, rx_buffer) {
             return Err(StartFail::Refused(t, e));
         }
@@ -1038,7 +1038,7 @@ fn jog_error(reply: &str) -> String {
 
 /// Valida el G-code contra el búfer de la controladora antes de tocar la máquina.
 fn validate_lines(lines: &[String], rx_buffer: usize) -> Result<(), String> {
-    laser_grbl::preflight::validate_gcode(&lines.join("\n"), rx_buffer).map(drop)
+    tlaku_grbl::preflight::validate_gcode(&lines.join("\n"), rx_buffer).map(drop)
 }
 
 #[cfg(test)]

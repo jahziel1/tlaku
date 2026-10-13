@@ -3,15 +3,15 @@
 
 use crate::engine::{self, Head};
 use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing};
-use laser_doc::{
-    ConnectResult, DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview,
-    RealtimeCommand,
-};
-use laser_grbl::serial::Grbl;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tlaku_doc::{
+    ConnectResult, DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview,
+    RealtimeCommand,
+};
+use tlaku_grbl::serial::Grbl;
 
 /// Estado administrado por Tauri: la conexión con la máquina (si hay una).
 #[derive(Default)]
@@ -107,8 +107,8 @@ pub fn app_version() -> String {
 pub async fn import_file(app: AppHandle, path: String) -> Result<ImportResult, String> {
     let result = blocking(move || engine::import(&path)).await?;
     let images = result.objects.iter().filter_map(|o| match &o.kind {
-        laser_doc::ObjectKind::Image(i) => Some(PathBuf::from(&i.source_path)),
-        laser_doc::ObjectKind::Vector(_) => None,
+        tlaku_doc::ObjectKind::Image(i) => Some(PathBuf::from(&i.source_path)),
+        tlaku_doc::ObjectKind::Vector(_) => None,
     });
     allow_images(&app, images);
     Ok(result)
@@ -182,7 +182,7 @@ pub async fn delete_device(app: AppHandle, id: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn list_ports() -> Result<Vec<String>, String> {
     blocking(|| {
-        laser_grbl::serial::list_ports()
+        tlaku_grbl::serial::list_ports()
             .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))
     })
     .await

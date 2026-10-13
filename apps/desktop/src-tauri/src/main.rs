@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    lasersoft_desktop_lib::run();
+    tlaku_desktop_lib::run();
 }

@@ -24,7 +24,7 @@ export function fmtClock(totalSeconds: number): string {
 /** Lee una preferencia sin romperse si el almacenamiento no está disponible. */
 export function readPref(key: string): string | null {
   try {
-    return localStorage.getItem(`lasersoft.${key}`);
+    return localStorage.getItem(`tlaku.${key}`);
   } catch {
     return null;
   }
@@ -32,7 +32,7 @@ export function readPref(key: string): string | null {
 
 export function writePref(key: string, value: string): void {
   try {
-    localStorage.setItem(`lasersoft.${key}`, value);
+    localStorage.setItem(`tlaku.${key}`, value);
   } catch {
     /* sin almacenamiento: la preferencia no se recuerda */
   }

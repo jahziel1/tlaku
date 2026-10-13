@@ -7,13 +7,13 @@ import { MenuBar } from './MenuBar';
 
 function Brand() {
   return (
-    <div className="brand" aria-label="LaserSoft">
+    <div className="brand" aria-label="Tlaku">
       <svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
         <path d="M14 50V14h8v28h28v8z" fill="currentColor" />
         <circle cx="44" cy="20" r="5.5" fill="var(--accent)" />
         <path d="M30 34 41 23" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" />
       </svg>
-      <span className="brand__name">LaserSoft</span>
+      <span className="brand__name">Tlaku</span>
     </div>
   );
 }

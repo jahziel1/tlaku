@@ -2,11 +2,11 @@
 //! Los manejadores de `commands.rs` solo adaptan argumentos y llaman aquí; así se prueba sin
 //! ventana.
 
-use laser_core::Point;
-use laser_doc::{DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview};
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use tlaku_core::Point;
+use tlaku_doc::{DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview};
 
 /// Posición de trabajo de la cabeza, `[x, y]`, si se conoce.
 pub type Head = Option<[f64; 2]>;
@@ -48,7 +48,7 @@ pub fn write_atomic(path: &Path, text: &str) -> Result<(), String> {
 /// imágenes sirva después con el protocolo de assets.
 pub fn import(path: &str) -> Result<ImportResult, String> {
     let abs = std::path::absolute(path).map_err(|e| format!("{path}: {e}"))?;
-    laser_pipeline::import_file(&abs)
+    tlaku_pipeline::import_file(&abs)
 }
 
 pub fn save_project(path: &str, doc: &Document) -> Result<(), String> {
@@ -65,8 +65,8 @@ pub fn image_paths(doc: &Document) -> Vec<PathBuf> {
     doc.objects
         .iter()
         .filter_map(|o| match &o.kind {
-            laser_doc::ObjectKind::Image(i) => Some(PathBuf::from(&i.source_path)),
-            laser_doc::ObjectKind::Vector(_) => None,
+            tlaku_doc::ObjectKind::Image(i) => Some(PathBuf::from(&i.source_path)),
+            tlaku_doc::ObjectKind::Vector(_) => None,
         })
         .collect()
 }
@@ -81,7 +81,7 @@ pub fn compute_job(
     options: &JobOptions,
     head: Head,
 ) -> Result<JobPreview, String> {
-    Ok(laser_pipeline::compute_at(doc, device, options, point(head))?.preview)
+    Ok(tlaku_pipeline::compute_at(doc, device, options, point(head))?.preview)
 }
 
 pub fn export_gcode(
@@ -91,8 +91,8 @@ pub fn export_gcode(
     path: &str,
     head: Head,
 ) -> Result<ExportResult, String> {
-    let job = laser_pipeline::compute_at(doc, device, options, point(head))?;
-    let mut text = laser_pipeline::gcode(&job, device);
+    let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
+    let mut text = tlaku_pipeline::gcode(&job, device);
     if !text.ends_with('\n') {
         text.push('\n');
     }
@@ -114,9 +114,9 @@ pub fn job_lines(
     options: &JobOptions,
     head: Head,
 ) -> Result<Vec<String>, String> {
-    let job = laser_pipeline::compute_at(doc, device, options, point(head))?;
-    let text = laser_pipeline::gcode(&job, device);
-    laser_grbl::preflight::validate_gcode(&text, device.rx_buffer as usize)?;
+    let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
+    let text = tlaku_pipeline::gcode(&job, device);
+    tlaku_grbl::preflight::validate_gcode(&text, device.rx_buffer as usize)?;
     Ok(text.lines().map(str::to_string).collect())
 }
 
@@ -131,8 +131,8 @@ pub fn frame_lines(
     if !(speed.is_finite() && speed > 0.0) {
         return Err("La velocidad del encuadre debe ser mayor que 0.".into());
     }
-    let job = laser_pipeline::compute_at(doc, device, options, point(head))?;
-    let lines = laser_pipeline::frame_gcode(&job, device, speed);
+    let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
+    let lines = tlaku_pipeline::frame_gcode(&job, device, speed);
     if lines.is_empty() {
         return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
     }

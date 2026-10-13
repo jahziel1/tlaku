@@ -1,8 +1,0 @@
-[package]
-name = "laser-core"
-version = "0.1.0"
-edition.workspace = true
-license.workspace = true
-
-[dependencies]
-serde = { version = "1.0.229", features = ["derive"] }

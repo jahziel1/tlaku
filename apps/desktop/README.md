@@ -1,12 +1,12 @@
-# LaserSoft Desktop
+# Tlaku Desktop
 
-Aplicación de escritorio de LaserSoft: **Tauri v2 + Vite + React 19 + TypeScript (strict) + zustand**.
+Aplicación de escritorio de Tlaku: **Tauri v2 + Vite + React 19 + TypeScript (strict) + zustand**.
 La interfaz es dueña del documento que se edita; el motor (Rust) recibe el documento completo y
 devuelve resultados. El contrato está en [`docs/app-api.md`](../../docs/app-api.md).
 
 Estado: la interfaz completa funciona contra una máquina y un motor **simulados** (mock) o contra
 el motor real: `src-tauri` implementa todos los comandos y eventos del contrato sobre
-`laser-pipeline` y `laser-grbl`. Ver "Estado" al final.
+`tlaku-pipeline` y `tlaku-grbl`. Ver "Estado" al final.
 
 ![Vista principal](docs/screenshots/01-principal-oscuro.png)
 
@@ -40,7 +40,7 @@ npm run tauri dev                              # ventana nativa con recarga en c
 npm run tauri build -- --debug --no-bundle     # compila la app completa sin empaquetar
 ```
 
-Desde la raíz del repositorio, el crate se compila con `cargo build -p lasersoft-desktop`.
+Desde la raíz del repositorio, el crate se compila con `cargo build -p tlaku-desktop`.
 
 La implementación de la API se elige con `VITE_API=mock|tauri` (por defecto `mock`). Los scripts
 `dev:tauri` y `build:tauri` usan `--mode tauri`, que carga `.env.tauri` con `VITE_API=tauri`.
@@ -60,7 +60,7 @@ Con `VITE_DEMO=off` el modo mock arranca con la cama vacía en lugar del diseño
 
 ```
 apps/desktop/
-  src-tauri/            Crate `lasersoft-desktop` (miembro del workspace de Cargo)
+  src-tauri/            Crate `tlaku-desktop` (miembro del workspace de Cargo)
     capabilities/       Permisos mínimos de Tauri v2 (eventos, diálogos, rutas, ventana)
     src/                engine (motor y archivos), machine (conexión GRBL), commands (invoke)
   src/
@@ -70,7 +70,7 @@ apps/desktop/
       mock/             Implementación simulada en memoria (+ pruebas)
       types.ts          Reexporta src/bindings/ y define JobArgs y EventMap
       index.ts          getApi(): elige mock o tauri según VITE_API
-    bindings/           Tipos generados por ts-rs desde laser-doc. NO editar a mano
+    bindings/           Tipos generados por ts-rs desde tlaku-doc. NO editar a mano
     store/              zustand en slices: document, selection, view, machine, preview, devices (+ notices)
     commands/           Registro central de comandos, atajos y menús (id, etiqueta, atajo, acción)
       definitions/      Un archivo por categoría

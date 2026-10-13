@@ -89,9 +89,9 @@ export async function openRecent(path: string): Promise<boolean> {
 export async function saveProject(asNew: boolean): Promise<boolean> {
   let path = state().filePath;
   if (asNew || !path) {
-    const picked = await pickPath('saveProject', path ?? `${t('doc.untitled')}.lsproj`);
+    const picked = await pickPath('saveProject', path ?? `${t('doc.untitled')}.tlaku`);
     if (!picked) return false;
-    path = withExtension(picked, 'lsproj');
+    path = withExtension(picked, 'tlaku');
   }
   // Lo que se guarda es esta versión; si se edita durante el guardado, el documento sigue sucio.
   const saved = state().doc;

@@ -1,7 +1,7 @@
 /**
  * Tipos del contrato app <-> motor (docs/app-api.md).
  *
- * Todo viene de `src/bindings/` (generado con ts-rs desde el crate `laser-doc`; no editar a
+ * Todo viene de `src/bindings/` (generado con ts-rs desde el crate `tlaku-doc`; no editar a
  * mano): documento, dispositivo, trabajo, resultados de comandos y eventos de la máquina. Aquí se
  * reexportan con los nombres que usa la app y se definen solo las piezas que no cruzan la
  * frontera como tipo propio (`JobArgs`, `EventMap`, `Point`, `Affine`).

@@ -1,8 +1,8 @@
 //! Pruebas de la conexión con una GRBL falsa sobre `memory_pair` (sin hardware).
 
 use super::*;
-use laser_grbl::serial::{MemoryTransport, memory_pair};
 use std::sync::atomic::AtomicUsize;
+use tlaku_grbl::serial::{MemoryTransport, memory_pair};
 
 // ---------------------------------------------------------------------------
 // Apoyos
@@ -413,7 +413,7 @@ fn alarm_message_points_to_the_console_instead_of_the_cli() {
     rig.fake.set_state("Alarm");
     let e = rig.handle.start_job(job_lines(), 127).unwrap_err();
     assert!(e.contains("consola de la pestaña Máquina"), "{e}");
-    assert!(!e.contains("lasersoft"), "{e}");
+    assert!(!e.contains("tlaku"), "{e}");
 }
 
 #[test]
@@ -480,10 +480,10 @@ fn reset_during_a_job_cancels_it() {
 #[test]
 fn frame_runs_without_job_events_or_progress() {
     let rig = connect();
-    let lines = laser_grbl::frame::frame_gcode(
-        laser_core::Bounds {
-            min: laser_core::Point::new(0.0, 0.0),
-            max: laser_core::Point::new(10.0, 5.0),
+    let lines = tlaku_grbl::frame::frame_gcode(
+        tlaku_core::Bounds {
+            min: tlaku_core::Point::new(0.0, 0.0),
+            max: tlaku_core::Point::new(10.0, 5.0),
         },
         1500.0,
     );

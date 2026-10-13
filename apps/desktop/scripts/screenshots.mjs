@@ -66,7 +66,7 @@ await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 await send('Page.navigate', { url });
 await wait(800);
-await evaluate("localStorage.setItem('lasersoft.theme', 'dark')"); // siempre se parte del tema oscuro
+await evaluate("localStorage.setItem('tlaku.theme', 'dark')"); // siempre se parte del tema oscuro
 await send('Page.navigate', { url });
 await wait(2500);
 await evaluate(`document.querySelectorAll('.toast button').forEach(b => b.click())`);

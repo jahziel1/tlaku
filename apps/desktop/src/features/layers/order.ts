@@ -4,7 +4,7 @@ import { countByLayer, type LayerCount } from '@/lib/layers';
 import { colorName, isGuideColor } from '@/lib/palette';
 
 /**
- * Cálculo local del orden de ejecución. Replica las reglas del motor (`laser-pipeline`,
+ * Cálculo local del orden de ejecución. Replica las reglas del motor (`tlaku-pipeline`,
  * `layers.rs`) para mostrar el orden al instante; cuando hay vista previa, el texto del
  * motor (`JobPreview.order_note`) manda.
  */

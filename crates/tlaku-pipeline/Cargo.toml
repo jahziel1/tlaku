@@ -1,0 +1,18 @@
+[package]
+name = "tlaku-pipeline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-doc = { version = "0.1.0", path = "../tlaku-doc" }
+tlaku-dxf = { version = "0.1.0", path = "../tlaku-dxf" }
+tlaku-fill = { version = "0.1.0", path = "../tlaku-fill" }
+tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
+tlaku-grbl = { version = "0.1.0", path = "../tlaku-grbl" }
+tlaku-plan = { version = "0.1.0", path = "../tlaku-plan" }
+tlaku-raster = { version = "0.1.0", path = "../tlaku-raster" }
+tlaku-sim = { version = "0.1.0", path = "../tlaku-sim" }
+tlaku-svg = { version = "0.1.0", path = "../tlaku-svg" }
+serde = { version = "1.0.229", features = ["derive"] }

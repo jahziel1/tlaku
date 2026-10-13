@@ -40,7 +40,7 @@ export const history = {
   'history.unsaved.title': 'Cambios sin guardar',
   'history.unsaved.ask.new': '«{name}» tiene cambios sin guardar. ¿Quieres guardarlos antes de empezar un proyecto nuevo?',
   'history.unsaved.ask.open': '«{name}» tiene cambios sin guardar. ¿Quieres guardarlos antes de abrir otro proyecto?',
-  'history.unsaved.ask.close': '«{name}» tiene cambios sin guardar. ¿Quieres guardarlos antes de cerrar LaserSoft?',
+  'history.unsaved.ask.close': '«{name}» tiene cambios sin guardar. ¿Quieres guardarlos antes de cerrar Tlaku?',
   'history.unsaved.save': 'Guardar',
   'history.unsaved.discard': 'No guardar',
   'history.unsaved.cancel': 'Cancelar',

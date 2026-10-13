@@ -12,7 +12,7 @@ import { guardUnsaved } from './unsaved';
 /** Título de la ventana: marca de cambios sin guardar, nombre del proyecto y de la app. */
 export function documentTitle(path: string | null, dirty: boolean): string {
   const name = path ? baseName(path) : t('doc.untitled');
-  return `${dirty ? '● ' : ''}${name} — LaserSoft`;
+  return `${dirty ? '● ' : ''}${name} — Tlaku`;
 }
 
 // ---- permisos de ventana ----------------------------------------------------------

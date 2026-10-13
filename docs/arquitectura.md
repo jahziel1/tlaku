@@ -2,30 +2,30 @@
 
 El motor es una biblioteca en Rust organizada en crates pequeños. Ninguno conoce la interfaz:
 todo lo que haga la aplicación se puede ejecutar y probar desde la línea de comandos.
-Los crates intermedios (`geom`, `plan`, `fill`, `raster`, `sim`) dependen solo de `laser-core`;
-`laser-pipeline` los une y es lo que usan el CLI y la app de escritorio (ver [app-api.md](app-api.md)).
+Los crates intermedios (`geom`, `plan`, `fill`, `raster`, `sim`) dependen solo de `tlaku-core`;
+`tlaku-pipeline` los une y es lo que usan el CLI y la app de escritorio (ver [app-api.md](app-api.md)).
 
 ## Pipeline
 
 ```mermaid
 flowchart TD
-    SVG[laser-svg<br/>SVG] --> JOB
-    DXF[laser-dxf<br/>DXF] --> JOB
+    SVG[tlaku-svg<br/>SVG] --> JOB
+    DXF[tlaku-dxf<br/>DXF] --> JOB
     IMG[imagen PNG/JPEG/BMP] --> RASTER
 
-    JOB["Job: capas con polilíneas<br/>(laser-core)"] --> GEOM["laser-geom<br/>booleanas, offset, kerf, auto-join"]
-    GEOM --> PLAN["laser-plan<br/>orden de corte explicable"]
-    GEOM --> FILL["laser-fill<br/>relleno por barrido"]
-    RASTER["laser-raster<br/>ajustes, dithering, barrido"]
+    JOB["Job: capas con polilíneas<br/>(tlaku-core)"] --> GEOM["tlaku-geom<br/>booleanas, offset, kerf, auto-join"]
+    GEOM --> PLAN["tlaku-plan<br/>orden de corte explicable"]
+    GEOM --> FILL["tlaku-fill<br/>relleno por barrido"]
+    RASTER["tlaku-raster<br/>ajustes, dithering, barrido"]
 
     PLAN --> TP
     FILL --> TP
     RASTER --> TP
     JOB -. "modo Line directo:<br/>Toolpath::from_line_job" .-> TP
 
-    TP["Toolpath: bloques de Travel y Cut<br/>(laser-core)"] --> SIM["laser-sim<br/>tiempo, overscan, muestreo"]
-    TP --> GCODE["laser-grbl::gcode<br/>G-code M3/M4"]
-    GCODE --> STREAM["laser-grbl::streamer + serial<br/>envío por conteo de caracteres"]
+    TP["Toolpath: bloques de Travel y Cut<br/>(tlaku-core)"] --> SIM["tlaku-sim<br/>tiempo, overscan, muestreo"]
+    TP --> GCODE["tlaku-grbl::gcode<br/>G-code M3/M4"]
+    GCODE --> STREAM["tlaku-grbl::streamer + serial<br/>envío por conteo de caracteres"]
     SIM -. "estimación / vista previa" .-> OUT[(usuario)]
     STREAM --> MACHINE[(máquina GRBL)]
 ```
@@ -36,23 +36,23 @@ Los drivers futuros (Ruida, galvo) también partirán de un `Toolpath`.
 
 | Crate | Responsabilidad |
 |---|---|
-| `laser-core` | Tipos base (`Point`, `Polyline`, `Rgb`), capas, `CutSettings`, `Job`, orden de corte básico (`optimize`) y `Toolpath`. |
-| `laser-svg` | SVG a polilíneas en mm (tolerancia configurable), una capa por color; voltea Y al convertir a `Job`. |
-| `laser-dxf` | DXF a polilíneas en mm con color ACI/true color; no voltea Y; cada omisión genera una advertencia. |
-| `laser-geom` | Booleanas y soldar, offset, compensación de kerf, auto-join, regla par-impar de anidamiento. Trabaja sobre polilíneas. |
-| `laser-plan` | Decide el orden de las figuras (capa, grupo, prioridad, interior primero, recorrido corto) y explica cada paso con un `Reason`. Determinista. |
-| `laser-fill` | Relleno vectorial por barrido con ángulo, serpentina, crosshatch y overscan; produce un `ToolpathBlock`. |
-| `laser-raster` | Imagen a bitmap de potencia (ajustes, remuestreo, dithering/umbral) y barrido a `ToolpathBlock`. |
-| `laser-sim` | Estima el tiempo con aceleración por eje y desviación de unión, calcula el overscan (`v²/2a`) y muestrea la trayectoria. |
-| `laser-grbl` | G-code GRBL 1.1 a partir de un `Toolpath`, puertos serie, envío con conteo de caracteres, pausa y cancelación, y la seguridad previa al envío (`preflight`: solo se transmite en reposo, con consejos para el CLI o la consola de la app; `frame`: G-code del encuadre). |
-| `laser-doc` | Tipos del contrato con la app (`Document`, `LayerSettings`, `DeviceProfile`, `JobOptions`, `JobPreview`...) con `serde` y `ts-rs`, más transformaciones afines y cajas envolventes. No depende del resto del motor. |
-| `laser-pipeline` | De `Document` + `DeviceProfile` + `JobOptions` a `ComputedJob` (`Toolpath`, vista previa, avisos): validación de capas, orden automático, kerf, plan, relleno, imágenes, colocación (`start_from`, `job_origin`), límites de la cama y G-code. También `import_file`. |
-| `laser-cli` | Binario `lasersoft`; traduce los argumentos a un `Document` y delega en `laser-pipeline`. |
-| `lasersoft-desktop` (`apps/desktop/src-tauri`) | App Tauri: comandos y eventos de [app-api.md](app-api.md) sobre `laser-pipeline` y `laser-grbl`; la conexión vive en un hilo dedicado. |
+| `tlaku-core` | Tipos base (`Point`, `Polyline`, `Rgb`), capas, `CutSettings`, `Job`, orden de corte básico (`optimize`) y `Toolpath`. |
+| `tlaku-svg` | SVG a polilíneas en mm (tolerancia configurable), una capa por color; voltea Y al convertir a `Job`. |
+| `tlaku-dxf` | DXF a polilíneas en mm con color ACI/true color; no voltea Y; cada omisión genera una advertencia. |
+| `tlaku-geom` | Booleanas y soldar, offset, compensación de kerf, auto-join, regla par-impar de anidamiento. Trabaja sobre polilíneas. |
+| `tlaku-plan` | Decide el orden de las figuras (capa, grupo, prioridad, interior primero, recorrido corto) y explica cada paso con un `Reason`. Determinista. |
+| `tlaku-fill` | Relleno vectorial por barrido con ángulo, serpentina, crosshatch y overscan; produce un `ToolpathBlock`. |
+| `tlaku-raster` | Imagen a bitmap de potencia (ajustes, remuestreo, dithering/umbral) y barrido a `ToolpathBlock`. |
+| `tlaku-sim` | Estima el tiempo con aceleración por eje y desviación de unión, calcula el overscan (`v²/2a`) y muestrea la trayectoria. |
+| `tlaku-grbl` | G-code GRBL 1.1 a partir de un `Toolpath`, puertos serie, envío con conteo de caracteres, pausa y cancelación, y la seguridad previa al envío (`preflight`: solo se transmite en reposo, con consejos para el CLI o la consola de la app; `frame`: G-code del encuadre). |
+| `tlaku-doc` | Tipos del contrato con la app (`Document`, `LayerSettings`, `DeviceProfile`, `JobOptions`, `JobPreview`...) con `serde` y `ts-rs`, más transformaciones afines y cajas envolventes. No depende del resto del motor. |
+| `tlaku-pipeline` | De `Document` + `DeviceProfile` + `JobOptions` a `ComputedJob` (`Toolpath`, vista previa, avisos): validación de capas, orden automático, kerf, plan, relleno, imágenes, colocación (`start_from`, `job_origin`), límites de la cama y G-code. También `import_file`. |
+| `tlaku-cli` | Binario `tlaku`; traduce los argumentos a un `Document` y delega en `tlaku-pipeline`. |
+| `tlaku-desktop` (`apps/desktop/src-tauri`) | App Tauri: comandos y eventos de [app-api.md](app-api.md) sobre `tlaku-pipeline` y `tlaku-grbl`; la conexión vive en un hilo dedicado. |
 
 ## Contrato de `Toolpath`
 
-`Toolpath` (en `laser-core/src/toolpath.rs`) es lo único que ven los drivers y el simulador:
+`Toolpath` (en `tlaku-core/src/toolpath.rs`) es lo único que ven los drivers y el simulador:
 una lista de `ToolpathBlock`. Cada bloque comparte velocidad (`speed_mm_min`), asistencia de aire
 (`air_assist`) y modo de potencia (`PowerMode`), y contiene una lista de `Move`:
 

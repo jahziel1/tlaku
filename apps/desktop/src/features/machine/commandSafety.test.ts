@@ -30,7 +30,7 @@ function line(raw: string) {
   return r.cmd;
 }
 
-describe('clasificación de seguridad (paridad con lasersoft cmd)', () => {
+describe('clasificación de seguridad (paridad con tlaku cmd)', () => {
   it.each(CLI_TABLE)('%s -> %s', (raw, risk) => {
     expect(line(raw).risk).toBe(risk);
     // Solo lo de solo lectura se envía sin preguntar.

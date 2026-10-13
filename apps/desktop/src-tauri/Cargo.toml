@@ -1,13 +1,13 @@
 [package]
-name = "lasersoft-desktop"
+name = "tlaku-desktop"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Aplicación de escritorio de LaserSoft (Tauri v2)"
+description = "Aplicación de escritorio de Tlaku (Tauri v2)"
 publish = false
 
 [lib]
-name = "lasersoft_desktop_lib"
+name = "tlaku_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -19,7 +19,7 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-laser-core = { version = "0.1.0", path = "../../../crates/laser-core" }
-laser-doc = { version = "0.1.0", path = "../../../crates/laser-doc" }
-laser-grbl = { version = "0.1.0", path = "../../../crates/laser-grbl" }
-laser-pipeline = { version = "0.1.0", path = "../../../crates/laser-pipeline" }
+tlaku-core = { version = "0.1.0", path = "../../../crates/tlaku-core" }
+tlaku-doc = { version = "0.1.0", path = "../../../crates/tlaku-doc" }
+tlaku-grbl = { version = "0.1.0", path = "../../../crates/tlaku-grbl" }
+tlaku-pipeline = { version = "0.1.0", path = "../../../crates/tlaku-pipeline" }
