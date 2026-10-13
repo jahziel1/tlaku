@@ -30,7 +30,7 @@ flowchart TD
     STREAM --> MACHINE[(máquina GRBL)]
 ```
 
-Los drivers futuros (Ruida, galvo) también partirán de un `Toolpath`.
+Los drivers de otras controladoras también parten de un `Toolpath`: `tlaku-ruida` (experimental, controladoras Ruida por UDP o a un archivo `.rd`; ver [hardware/ruida.md](hardware/ruida.md)) ya existe y el galvo queda para después.
 
 ## Responsabilidad de cada crate
 
@@ -45,9 +45,10 @@ Los drivers futuros (Ruida, galvo) también partirán de un `Toolpath`.
 | `tlaku-raster` | Imagen a bitmap de potencia (ajustes, remuestreo, dithering/umbral, semitono, líneas de periódico, boceto) y barrido a `ToolpathBlock` con cualquier ángulo (0° conserva el camino original). |
 | `tlaku-sim` | Estima el tiempo con aceleración por eje y desviación de unión, calcula el overscan (`v²/2a`) y muestrea la trayectoria. |
 | `tlaku-grbl` | G-code GRBL 1.1 a partir de un `Toolpath`, puertos serie, envío con conteo de caracteres, pausa y cancelación, y la seguridad previa al envío (`preflight`: solo se transmite en reposo, con consejos para el CLI o la consola de la app; `frame`: G-code del encuadre). |
+| `tlaku-ruida` | **Experimental, sin probar con una máquina real.** De un `Toolpath` a un archivo `.rd` de controladoras Ruida (vectores y ráster con potencia variable `C7`; el origen depende de la esquina del home, `HomeCorner`), paquetes UDP con checksum, enlace por datagramas (`UdpLink` al puerto 50200 escuchando en el 40200, `MemoryLink` para pruebas) y sesión (`RuidaSession`: sondeo de solo lectura que detecta el magic, envío con progreso y parada segura si falla, estado, pausa, reanudar, detener, saltos con el láser apagado y encuadre). Incluye un emulador de controladora (en memoria y por UDP en localhost; feature `emu`). Depende solo de `tlaku-core`, sin dependencias externas. |
 | `tlaku-doc` | Tipos del contrato con la app (`Document`, `LayerSettings`, `DeviceProfile`, `JobOptions`, `JobPreview`...) con `serde` y `ts-rs`, más transformaciones afines y cajas envolventes. No depende del resto del motor. |
 | `tlaku-pipeline` | De `Document` + `DeviceProfile` + `JobOptions` a `ComputedJob` (`Toolpath`, vista previa, avisos): validación de capas, orden automático, kerf, plan, puentes, relleno, imágenes, eje Z, corrección de barrido, colocación (`start_from`, `job_origin`), límites de la cama, rotativo y G-code. También `import_file` y `material_test`. |
-| `tlaku-cli` | Binario `tlaku`; traduce los argumentos a un `Document` y delega en `tlaku-pipeline`. |
+| `tlaku-cli` | Binario `tlaku`; traduce los argumentos a un `Document` y delega en `tlaku-pipeline`. Para Ruida: `tlaku ruida export-rd | send | status`. |
 | `tlaku-desktop` (`apps/desktop/src-tauri`) | App Tauri: comandos y eventos de [app-api.md](app-api.md) sobre `tlaku-pipeline` y `tlaku-grbl`; la conexión vive en un hilo dedicado. |
 
 ## Contrato de `Toolpath`

@@ -18,6 +18,9 @@ pub enum MachineState {
     Check,
     Home,
     Sleep,
+    /// Estado que Tlaku no conoce (p. ej. `Tool` de grblHAL). La máquina está ocupada, no en
+    /// reposo; el nombre original viaja en [`StatusReport::other_state`].
+    Other,
 }
 
 /// Espacio libre en la controladora.
@@ -37,6 +40,11 @@ pub struct BufferStatus {
 #[ts(export)]
 pub struct StatusReport {
     pub state: MachineState,
+    /// Nombre original del estado cuando `state` es `other` (p. ej. `Tool`), tal como lo
+    /// informó la controladora.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub other_state: Option<String>,
     /// Posición de máquina [x, y], mm.
     pub machine_pos: [f64; 2],
     /// Posición de trabajo [x, y], mm (la misma que usa `jog`).
@@ -96,6 +104,10 @@ pub struct JobEvent {
     pub state: JobState,
     /// Texto en español para mostrar al usuario.
     pub message: String,
+    /// El trabajo terminó con un reset (cancelación, error, falla) con la máquina posiblemente
+    /// en movimiento: la posición puede haberse perdido y conviene hacer homing o fijar el
+    /// origen de nuevo.
+    pub position_lost: bool,
 }
 
 /// Evento `machine://connection`.
@@ -124,6 +136,22 @@ pub enum RealtimeCommand {
     Reset,
     /// 0x85: cancela el jog en curso (la cabeza se detiene sin perder la posición).
     JogCancel,
+}
+
+/// Falla que se puede provocar en una máquina virtual (`simulate_fault`) para ver cómo reacciona
+/// la interfaz. En una máquina real no existe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SimulatedFault {
+    /// `ERROR:05` de Creality: llama detectada; la máquina se detiene.
+    Flame,
+    /// `ERROR:01` de Creality: ángulo anormal (inclinación o vibración).
+    Tilt,
+    /// `ALARM:3`: reinicio durante un movimiento, posición perdida.
+    Alarm3,
+    /// El cable se arranca: la conexión se pierde.
+    Disconnect,
 }
 
 /// Salida de `connect`.

@@ -4419,6 +4419,7 @@ dependencies = [
  "tlaku-camera",
  "tlaku-core",
  "tlaku-doc",
+ "tlaku-emu",
  "tlaku-geom",
  "tlaku-grbl",
  "tlaku-pipeline",

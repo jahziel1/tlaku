@@ -2,7 +2,7 @@ import { House, LockOpen, OctagonAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
-import { homingEnabled } from '@/store/machine';
+import { homingEnabled, selectFirmwareFamily } from '@/store/machine';
 import { alarmAdvice, alarmKey, type AlarmAction, type AlarmTip } from './grblCodes';
 
 const TIP_KEY: Record<AlarmTip, I18nKey> = {
@@ -28,6 +28,7 @@ export function AlarmBanner({ compact }: { compact?: boolean }) {
   const inAlarm = useStore((s) => s.status?.state === 'alarm');
   const code = useStore((s) => s.alarmCode);
   const homing = useStore((s) => homingEnabled(s.settings));
+  const family = useStore(selectFirmwareFamily);
   const openDialog = useStore((s) => s.openDialog);
   const advice = useMemo(() => alarmAdvice(code, homing), [code, homing]);
   if (!inAlarm) return null;
@@ -41,7 +42,7 @@ export function AlarmBanner({ compact }: { compact?: boolean }) {
           <p className="mc-alarm__title">{t('machine.alarm.title')}</p>
           <p>
             {alarm.code !== null && <span className="num mc-alarm__code">ALARM:{alarm.code}</span>}{' '}
-            {t(alarmKey(alarm.code))}
+            {t(alarmKey(alarm.code, family))}
           </p>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { t, type I18nKey } from '@/i18n';
 import { selectActiveDevice, useStore } from '@/store';
 import { commandErrorText } from '@/store/machine';
-import { needsConfirmation, parseCommand, type PreparedCommand, type Risk } from './commandSafety';
+import { isDestructive, needsConfirmation, parseCommand, type PreparedCommand, type Risk } from './commandSafety';
 import { Modal } from './Modal';
 
 /** Advertencia de cada nivel de riesgo: las mismas del CLI (`Risk::warning`). */
@@ -16,9 +16,18 @@ export const RISK_WARNING: Record<Exclude<Risk, 'safe'>, I18nKey> = {
   other: 'machine.risk.other',
 };
 
+/**
+ * Advertencia que acompaña a la confirmación. `$RST=` y `$SLP` no se pueden deshacer: su advertencia
+ * propia reemplaza la genérica de `other`.
+ */
+export function commandWarning(cmd: PreparedCommand): I18nKey | null {
+  if (cmd.kind === 'line' && isDestructive(cmd.text)) return 'machine.risk.destructive';
+  return cmd.risk === 'safe' ? null : RISK_WARNING[cmd.risk];
+}
+
 /** Qué se va a enviar y por qué pide confirmación. */
 export function CommandConfirmDialog({ cmd, onCancel, onConfirm }: { cmd: PreparedCommand; onCancel: () => void; onConfirm: () => void }) {
-  const warning = cmd.risk === 'safe' ? null : RISK_WARNING[cmd.risk];
+  const warning = commandWarning(cmd);
   return (
     <Modal
       title={t('machine.confirm.title')}

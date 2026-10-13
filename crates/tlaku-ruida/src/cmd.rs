@@ -6,11 +6,12 @@
 //! conocido valida su longitud exacta.
 //!
 //! Las variantes se dividen en dos grupos:
-//! - **Confirmadas** (ruida.md sección 4): movimiento y corte, potencia y velocidad, capas, aire,
-//!   fin de archivo y de bloque, control del proceso y lectura de memoria.
-//! - **De estructura** (`Point2`, `PartPoint`, `PartAbs`, `Arr7`, `Small`, `Marker`, `ShortArg`,
-//!   `ElementName`): campos de la cabecera del ejemplo 1 de EduTech cuyo significado exacto
-//!   no está documentado. Se codifican y decodifican sin interpretar.
+//! - **Con significado** (ruida.md sección 4): movimiento y corte, potencia y velocidad, capas,
+//!   aire, fin de archivo y de bloque, control del proceso, saltos (`D9`) y lectura de memoria.
+//! - **De estructura** (`Point2`, `PartPoint`, `PartAbs`, `Copies`, `Small`, `Marker`, `ShortArg`,
+//!   `ElementName`): campos de la cabecera de los archivos de RDWorks. El nombre de cada
+//!   campo sale de ruida-pa y MeerK40t (ambos MIT; ver ruida.md sección 12); se codifican y
+//!   decodifican sin más interpretación.
 //!
 //! Todo lo demás se decodifica como [`Command::Unknown`] (opcode y datos) para poder depurar.
 
@@ -36,8 +37,15 @@ pub enum ProcessOp {
     Pause,
     /// `D8 03` reanudar.
     Resume,
-    /// `D8 10` modo de punto de referencia (el ejemplo 1 empieza con `D8 10` + `F0`).
+    /// `D8 10` coordenadas respecto al cero de la máquina (`REF_POINT_MACHINE` en ruida-pa,
+    /// verificado en una RDC6442S). El ejemplo 1 empieza con `D8 10` + `F0`.
     RefPoint,
+    /// `D8 11` coordenadas respecto al origen del usuario (ancla).
+    RefOrigin,
+    /// `D8 12` coordenadas respecto a la posición actual (la usan los `.rd` de RDWorks).
+    RefCurrent,
+    /// `D8 2A` ir al home XY (ruida-pa y MeerK40t, verificado en RDC6442S).
+    HomeXY,
     /// `D8 2C` home Z.
     HomeZ,
     /// `D8 2D` home U.
@@ -56,6 +64,9 @@ impl ProcessOp {
             ProcessOp::Pause => 0x02,
             ProcessOp::Resume => 0x03,
             ProcessOp::RefPoint => 0x10,
+            ProcessOp::RefOrigin => 0x11,
+            ProcessOp::RefCurrent => 0x12,
+            ProcessOp::HomeXY => 0x2A,
             ProcessOp::HomeZ => 0x2C,
             ProcessOp::HomeU => 0x2D,
             ProcessOp::FocusZ => 0x2E,
@@ -70,10 +81,41 @@ impl ProcessOp {
             0x02 => ProcessOp::Pause,
             0x03 => ProcessOp::Resume,
             0x10 => ProcessOp::RefPoint,
+            0x11 => ProcessOp::RefOrigin,
+            0x12 => ProcessOp::RefCurrent,
+            0x2A => ProcessOp::HomeXY,
             0x2C => ProcessOp::HomeZ,
             0x2D => ProcessOp::HomeU,
             0x2E => ProcessOp::FocusZ,
             other => ProcessOp::Other(other),
+        }
+    }
+}
+
+/// Respecto a qué se interpreta la coordenada de un salto `D9` (byte de opciones). El bit 0 del
+/// byte (`1`/`3`) enciende el "haz de luz" del láser y **no se genera nunca**: un `D9` con ese
+/// bit se decodifica como [`Command::Unknown`] y la comprobación de seguridad lo rechaza.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RapidRef {
+    /// Opciones `00`: coordenada absoluta desde el cero de la máquina.
+    Machine,
+    /// Opciones `02`: desplazamiento desde la posición actual.
+    Current,
+}
+
+impl RapidRef {
+    pub fn byte(self) -> u8 {
+        match self {
+            RapidRef::Machine => 0x00,
+            RapidRef::Current => 0x02,
+        }
+    }
+
+    pub fn from_byte(b: u8) -> Option<Self> {
+        match b {
+            0x00 => Some(RapidRef::Machine),
+            0x02 => Some(RapidRef::Current),
+            _ => None,
         }
     }
 }
@@ -108,12 +150,19 @@ pub enum Command {
         layer: u8,
         raw: u16,
     },
+    /// `C7 P(2)`: potencia inmediata del láser 1 (`IMD_POWER_1`). Fija la potencia de los
+    /// cortes siguientes; así se escribe la potencia por píxel de una imagen (ruida-pa la
+    /// verifica en una RDC6442S y la usa en su relleno ráster).
+    ImmPower(u16),
+    /// `C8 P(2)`: potencia final del láser 1 (`END_POWER_1`). Sin semántica verificada: solo
+    /// se decodifica, nunca se genera.
+    EndPower(u16),
     /// `C9 02 V(5)`: velocidad en µm/s.
     Speed(u64),
     /// `C9 04 capa V(5)`.
     LayerSpeed { layer: u8, um_s: u64 },
     /// `C6 10..13` (intervalo, retardo añadido, retardo de encendido y apagado) y `C6 15/16`
-    /// (aparecen en el ejemplo 1 con valor 0; significado SIN CONFIRMAR): `T(5)`.
+    /// (segundo par de retardos, `LASER_ON/OFF_DELAY2` en ruida-pa): `T(5)`.
     LaserTime { sub: u8, micros: u64 },
     /// `C6 60 láser capa F(5)`: frecuencia en Hz.
     LayerFrequency { laser: u8, layer: u8, hz: u64 },
@@ -135,7 +184,7 @@ pub enum Command {
     LayerColor { layer: u8, color: u64 },
     /// `CA 22 capa`: número máximo de capa.
     MaxLayer(u8),
-    /// `CA 41 capa modo`: modo de trabajo de la parte (SIN CONFIRMAR el significado del modo).
+    /// `CA 41 capa atributos` (`LAYER_ATTRIBUTES` en ruida-pa): 0 en todos los archivos vistos.
     LayerMode { layer: u8, mode: u8 },
 
     // ----- Archivo y proceso -----
@@ -149,14 +198,16 @@ pub enum Command {
     Absolute,
     /// `F0`: fijar punto de referencia.
     SetReference,
-    /// `E5 05 suma(5)`: suma de verificación del archivo (conjunto de bytes SIN CONFIRMAR).
+    /// `E5 05 suma(5)` (`END_JOB`/`SET_FILE_SUM`): suma de verificación del archivo. Ver
+    /// [`crate::rd::FileChecksum`] para qué bytes se suman.
     FileChecksum(u64),
     /// `E7 01 nombre\0`.
     FileName(String),
     /// `DA 00 dirección(2)`: consulta de memoria (solo lectura).
     MemRead { addr: u16 },
-    /// `DA 01 dirección(2) valor(5)...`: escritura de memoria o respuesta de una lectura. En el
-    /// pie del ejemplo 1 lleva dos valores; la sintaxis exacta es SIN CONFIRMAR.
+    /// `DA 01 dirección(2) valor(5)...`: escritura de memoria o respuesta de una lectura (un
+    /// valor). En una escritura lleva dos valores (el pie de los `.rd` de RDWorks escribe la
+    /// longitud de corte en `0x320`).
     MemWrite { addr: u16, values: Vec<u64> },
 
     // ----- Estructura de la cabecera (significado sin documentar) -----
@@ -166,16 +217,36 @@ pub enum Command {
     PartPoint { sub: u8, part: u8, x: i64, y: i64 },
     /// `E7 54/55 n valor(5)`: offset de pluma / de capa.
     PartAbs { sub: u8, n: u8, v: i64 },
-    /// `op sub` + 7 valores de 14 bits con signo: `E7 04`, `E7 08`, `F2 05`.
-    Arr7 { op: u8, sub: u8, v: [i32; 7] },
+    /// Matriz de copias `op sub columnas(2) filas(2) paso_x(5) paso_y(5)`: `E7 04` (trabajo),
+    /// `E7 08` (matriz) y `F2 05` (elemento). Los nombres salen de ruida-pa (`JOB_COPIES`,
+    /// `ARRAY_COPIES`, `ELEMENT_COPIES`); los siete valores "sin sentido" del ejemplo de
+    /// EduTech (`1,1,-1,-710,-7808,4,7597`) son en realidad 1 columna, 1 fila y pasos de
+    /// -90,813 mm y 73,133 mm (el tamaño del dibujo más 3 µm). Con 1x1 los pasos no se usan.
+    Copies {
+        op: u8,
+        sub: u8,
+        cols: u16,
+        rows: u16,
+        step_x: i64,
+        step_y: i64,
+    },
     /// `op sub n`: `E7 05/24/60`, `F1 00/01/02`, `F2 00/01/07`, `CA 03`, `CA 10`.
     Small { op: u8, sub: u8, n: u8 },
-    /// `EB` (sin parámetros; significado SIN CONFIRMAR).
+    /// `EB` (sin parámetros): fin de matriz (`ARRAY_END`, verificado en RDC6442S).
     Marker(u8),
-    /// `EA n`.
+    /// `EA n`: inicio de matriz (`ARRAY_START`).
     ShortArg { op: u8, n: u8 },
-    /// `F2 02` + 10 bytes de 7 bits (nombre de elemento "codificado"; SIN CONFIRMAR).
+    /// `F2 02` + 10 bytes de 7 bits: nombre del elemento, 8 caracteres ASCII empaquetados de
+    /// 4 en 4 en dos valores de 35 bits (ver [`crate::rd::encode_element_name`]).
     ElementName([u8; 10]),
+
+    // ----- Saltos rápidos con el láser apagado (ruida-pa y MeerK40t, verificado en RDC6442S) -----
+    /// `D9 00 opciones X(5)`: salto solo en X.
+    RapidX { rel: RapidRef, v: i64 },
+    /// `D9 01 opciones Y(5)`: salto solo en Y.
+    RapidY { rel: RapidRef, v: i64 },
+    /// `D9 10 opciones X(5) Y(5)`: salto en XY.
+    RapidXY { rel: RapidRef, x: i64, y: i64 },
 
     /// Opcode o subcódigo no reconocido: se conservan los bytes tal cual.
     Unknown { op: u8, data: Vec<u8> },
@@ -332,6 +403,14 @@ impl Command {
                 num::encode_int7(*layer, "capa", out)?;
                 num::encode_power(*raw, out)
             }
+            ImmPower(raw) => {
+                out.push(0xC7);
+                num::encode_power(*raw, out)
+            }
+            EndPower(raw) => {
+                out.push(0xC8);
+                num::encode_power(*raw, out)
+            }
             Speed(v) => {
                 out.extend([0xC9, 0x02]);
                 num::encode_wide(*v, "velocidad", out)
@@ -454,13 +533,20 @@ impl Command {
                 num::encode_int7(*n, "índice", out)?;
                 num::encode_abs(*v, out)
             }
-            Arr7 { op, sub, v } => {
+            Copies {
+                op,
+                sub,
+                cols,
+                rows,
+                step_x,
+                step_y,
+            } => {
                 push_op(*op, out)?;
                 push_data(*sub, "subcódigo", out)?;
-                for &e in v {
-                    num::encode_signed(i64::from(e), 2, "valor de matriz", out)?;
-                }
-                Ok(())
+                num::encode_unsigned(u64::from(*cols), 2, "columnas", out)?;
+                num::encode_unsigned(u64::from(*rows), 2, "filas", out)?;
+                num::encode_abs(*step_x, out)?;
+                num::encode_abs(*step_y, out)
             }
             Small { op, sub, n } => {
                 push_op(*op, out)?;
@@ -478,6 +564,19 @@ impl Command {
                     push_data(x, "nombre de elemento", out)?;
                 }
                 Ok(())
+            }
+            RapidX { rel, v } => {
+                out.extend([0xD9, 0x00, rel.byte()]);
+                num::encode_abs(*v, out)
+            }
+            RapidY { rel, v } => {
+                out.extend([0xD9, 0x01, rel.byte()]);
+                num::encode_abs(*v, out)
+            }
+            RapidXY { rel, x, y } => {
+                out.extend([0xD9, 0x10, rel.byte()]);
+                num::encode_abs(*x, out)?;
+                num::encode_abs(*y, out)
             }
             Unknown { op, data } => {
                 push_op(*op, out)?;
@@ -700,6 +799,15 @@ fn decode_body(op: u8, d: &[u8], base: usize) -> Result<Command, DecodeError> {
             }
             _ => unknown(),
         },
+        0xC7 | 0xC8 => {
+            exact(d, 2, op, base)?;
+            let raw = dec(num::decode_power(d), base)?;
+            if op == 0xC7 {
+                ImmPower(raw)
+            } else {
+                EndPower(raw)
+            }
+        }
         0xC9 => match sub {
             Some(0x02) => {
                 exact(d, 6, op, base)?;
@@ -768,6 +876,27 @@ fn decode_body(op: u8, d: &[u8], base: usize) -> Result<Command, DecodeError> {
             exact(d, 1, op, base)?;
             Process(ProcessOp::from_sub(d[0]))
         }
+        0xD9 => match (sub, d.get(1).copied().and_then(RapidRef::from_byte)) {
+            (Some(0x00 | 0x01), Some(rel)) => {
+                exact(d, 7, op, base)?;
+                let v = abs_at(d, 2, base)?;
+                if d[0] == 0x00 {
+                    RapidX { rel, v }
+                } else {
+                    RapidY { rel, v }
+                }
+            }
+            (Some(0x10), Some(rel)) => {
+                exact(d, 12, op, base)?;
+                RapidXY {
+                    rel,
+                    x: abs_at(d, 2, base)?,
+                    y: abs_at(d, 7, base)?,
+                }
+            }
+            // Opciones con el bit del haz de luz, ejes Z/U u otros subcódigos: sin interpretar.
+            _ => unknown(),
+        },
         0xDA => match sub {
             Some(0x00) => {
                 exact(d, 3, op, base)?;
@@ -848,7 +977,7 @@ fn decode_body(op: u8, d: &[u8], base: usize) -> Result<Command, DecodeError> {
                     v: abs_at(d, 2, base)?,
                 }
             }
-            Some(s @ (0x04 | 0x08)) => arr7(op, s, d, base)?,
+            Some(s @ (0x04 | 0x08)) => copies(op, s, d, base)?,
             Some(s @ (0x05 | 0x24 | 0x60)) => {
                 exact(d, 2, op, base)?;
                 Small {
@@ -915,20 +1044,23 @@ fn decode_body(op: u8, d: &[u8], base: usize) -> Result<Command, DecodeError> {
                     y: abs_at(d, 6, base)?,
                 }
             }
-            Some(0x05) => arr7(op, 0x05, d, base)?,
+            Some(0x05) => copies(op, 0x05, d, base)?,
             _ => unknown(),
         },
         _ => unknown(),
     })
 }
 
-fn arr7(op: u8, sub: u8, d: &[u8], base: usize) -> Result<Command, DecodeError> {
+fn copies(op: u8, sub: u8, d: &[u8], base: usize) -> Result<Command, DecodeError> {
     exact(d, 15, op, base)?;
-    let mut v = [0i32; 7];
-    for (i, slot) in v.iter_mut().enumerate() {
-        *slot = dec(num::decode_signed(&d[1 + 2 * i..3 + 2 * i], 2), base)? as i32;
-    }
-    Ok(Command::Arr7 { op, sub, v })
+    Ok(Command::Copies {
+        op,
+        sub,
+        cols: dec(num::decode_unsigned(&d[1..3], 2), base)? as u16,
+        rows: dec(num::decode_unsigned(&d[3..5], 2), base)? as u16,
+        step_x: abs_at(d, 5, base)?,
+        step_y: abs_at(d, 10, base)?,
+    })
 }
 
 // ----------------------------------------------------------------------------------------
@@ -967,6 +1099,8 @@ impl fmt::Display for Command {
                 lim(*limit),
                 num::power_to_pct(*raw)
             ),
+            ImmPower(raw) => write!(f, "IMD_POWER_1 {:.3}%", num::power_to_pct(*raw)),
+            EndPower(raw) => write!(f, "END_POWER_1 {:.3}%", num::power_to_pct(*raw)),
             Speed(v) => write!(f, "SPEED {:.3}mm/s", *v as f64 / 1000.0),
             LayerSpeed { layer, um_s } => {
                 write!(
@@ -1007,11 +1141,28 @@ impl fmt::Display for Command {
                 mm(*y)
             ),
             PartAbs { sub, n, v } => write!(f, "PART_ABS E7.{sub:02X} n={n} v={}", mm(*v)),
-            Arr7 { op, sub, v } => write!(f, "ARRAY7 {op:02X}.{sub:02X} {v:?}"),
+            Copies {
+                op,
+                sub,
+                cols,
+                rows,
+                step_x,
+                step_y,
+            } => write!(
+                f,
+                "COPIES {op:02X}.{sub:02X} {cols}x{rows} step_x={} step_y={}",
+                mm(*step_x),
+                mm(*step_y)
+            ),
             Small { op, sub, n } => write!(f, "SMALL {op:02X}.{sub:02X} {n}"),
+            Marker(0xEB) => write!(f, "ARRAY_END"),
             Marker(op) => write!(f, "MARKER {op:02X}"),
+            ShortArg { op: 0xEA, n } => write!(f, "ARRAY_START {n}"),
             ShortArg { op, n } => write!(f, "SHORT {op:02X} {n}"),
-            ElementName(b) => write!(f, "ELEMENT_NAME {b:02x?}"),
+            ElementName(b) => write!(f, "ELEMENT_NAME {:?}", crate::rd::decode_element_name(b)),
+            RapidX { rel, v } => write!(f, "RAPID_X {rel:?} {}", mm(*v)),
+            RapidY { rel, v } => write!(f, "RAPID_Y {rel:?} {}", mm(*v)),
+            RapidXY { rel, x, y } => write!(f, "RAPID_XY {rel:?} x={} y={}", mm(*x), mm(*y)),
             Unknown { op, data } => write!(f, "UNKNOWN {op:02X} {data:02x?}"),
         }
     }
@@ -1211,13 +1362,17 @@ mod tests {
                 v: 50_000
             }
         );
-        // Los siete valores que EduTech decodifica como 1,1,-1,-710,-7808,4,7597.
+        // Los "siete valores" que EduTech decodifica como 1,1,-1,-710,-7808,4,7597 son una
+        // matriz de 1 columna x 1 fila con pasos de -90,813 mm y 73,133 mm.
         assert_eq!(
-            one("e7 08 0001 0001 7f7f 7a3a 4300 0004 3b2d"),
-            Command::Arr7 {
+            one("e7 08 0001 0001 7f7f7a3a43 0000043b2d"),
+            Command::Copies {
                 op: 0xE7,
                 sub: 8,
-                v: [1, 1, -1, -710, -7808, 4, 7597]
+                cols: 1,
+                rows: 1,
+                step_x: -90_813,
+                step_y: 73_133
             }
         );
         assert_eq!(
@@ -1234,6 +1389,83 @@ mod tests {
             Command::ElementName(_)
         ));
         assert_eq!(one("ea 00"), Command::ShortArg { op: 0xEA, n: 0 });
+    }
+
+    #[test]
+    fn real_lightburn_file_checksum_message() {
+        // `E5 05` capturado de LightBurn, del README de ruida-pa (licencia MIT, Copyright (c)
+        // 2025 Steve Isaacs; ver THIRD_PARTY.md): la suma es 9 763 961 = 0x94FC79.
+        assert_eq!(
+            one("e5 05 00 04 53 78 79"),
+            Command::FileChecksum(9_763_961)
+        );
+        let mut b = Vec::new();
+        Command::FileChecksum(9_763_961).encode(&mut b).unwrap();
+        assert_eq!(b, hex("e5050004537879"));
+    }
+
+    #[test]
+    fn immediate_power_rapid_moves_and_home() {
+        assert_eq!(one("c7 13 19"), Command::ImmPower(2457));
+        assert_eq!(one("c8 7f 7f"), Command::EndPower(0x3FFF));
+        assert_eq!(one("d8 2a"), Command::Process(ProcessOp::HomeXY));
+        assert_eq!(one("d8 11"), Command::Process(ProcessOp::RefOrigin));
+        assert_eq!(one("d8 12"), Command::Process(ProcessOp::RefCurrent));
+        // Salto XY desde el cero de la máquina (opciones 00) y relativo (02).
+        let xy = Command::RapidXY {
+            rel: RapidRef::Machine,
+            x: 190_610,
+            y: 35_160,
+        };
+        assert_eq!(
+            xy.to_bytes().unwrap(),
+            hex("d9 10 00 00000b5112 0000021258")
+        );
+        assert_eq!(one("d9 10 00 00000b5112 0000021258"), xy);
+        assert_eq!(
+            one("d9 10 02 7f7f7f7f7f 0000000001"),
+            Command::RapidXY {
+                rel: RapidRef::Current,
+                x: -1,
+                y: 1
+            }
+        );
+        assert_eq!(
+            one("d9 00 02 0000000064"),
+            Command::RapidX {
+                rel: RapidRef::Current,
+                v: 100
+            }
+        );
+        assert_eq!(
+            one("d9 01 00 0000000064"),
+            Command::RapidY {
+                rel: RapidRef::Machine,
+                v: 100
+            }
+        );
+        // Con el bit del haz de luz (opciones 01 y 03) no se interpreta: queda como Unknown.
+        for opt in ["01", "03"] {
+            assert!(matches!(
+                one(&format!("d9 10 {opt} 0000000000 0000000000")),
+                Command::Unknown { op: 0xD9, .. }
+            ));
+        }
+    }
+
+    #[test]
+    fn copies_matrix_fields() {
+        let c = Command::Copies {
+            op: 0xF2,
+            sub: 5,
+            cols: 3,
+            rows: 2,
+            step_x: 1_000,
+            step_y: -2_000,
+        };
+        let b = c.to_bytes().unwrap();
+        assert_eq!(b.len(), 16);
+        assert_eq!(decode_one(&b).unwrap().0, c);
     }
 
     #[test]

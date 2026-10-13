@@ -11,13 +11,14 @@ use std::io::{self, BufRead, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 pub use tlaku_grbl::frame::{frame_corners, frame_gcode};
+use tlaku_grbl::preflight::{Advice, JobExpect, preflight_checked};
 pub use tlaku_grbl::preflight::{
     PreflightConfig, check_ready, cmd_hint, io_err, outcome_result, preflight, state_name,
     validate_gcode,
 };
 use tlaku_grbl::streamer::{
-    Event, Realtime, StatusReport, Streamer, StreamerConfig, alarm_message, error_message,
-    prepare_line,
+    Event, POSITION_LOST_NOTE, Realtime, StatusReport, StopInfo, Streamer, StreamerConfig,
+    alarm_message, error_message, prepare_line,
 };
 
 /// Velocidad del encuadre cuando no se indica `--speed`.
@@ -149,19 +150,47 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
         }
     }
     p.end_inline();
-    let (_, outcome) = job
+    let (streamer, outcome) = job
         .join()
         .map_err(|_| "el hilo de envío terminó de forma inesperada".to_string())?;
     let result = outcome_result(&outcome);
+    // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
+    if let Some(stop) = streamer.last_stop() {
+        for note in stop_notes(stop) {
+            writeln!(p.out, "{note}").map_err(|e| e.to_string())?;
+        }
+    }
     if result.is_ok() {
         writeln!(p.out, "Trabajo terminado.").map_err(|e| e.to_string())?;
     }
     result
 }
 
-/// Comprueba que la máquina esté en reposo y, solo entonces, transmite `lines`.
+/// Líneas para el usuario sobre cómo quedó la máquina tras detenerla: si la posición puede
+/// haberse perdido (y qué hacer), la alarma que llegó durante la parada o, si frenó por
+/// completo antes del reset, que la posición se conserva.
+pub fn stop_notes(stop: &StopInfo) -> Vec<String> {
+    let mut notes = Vec::new();
+    if stop.position_maybe_lost {
+        notes.push(POSITION_LOST_NOTE.to_string());
+    } else if stop.settled {
+        notes.push(
+            "La máquina frenó por completo antes del reset: la posición se conserva.".to_string(),
+        );
+    }
+    if let Some(code) = stop.alarm {
+        notes.push(format!(
+            "Durante la parada llegó ALARM:{code}: {}.",
+            alarm_message(code)
+        ));
+    }
+    notes
+}
+
+/// Comprueba que la máquina esté en reposo y, solo entonces, transmite `lines`. No compara
+/// `$30` con la S máx del trabajo; para eso usa [`send_job_for`].
 pub fn send_job<T: Transport + 'static, W: Write>(
-    mut transport: T,
+    transport: T,
     lines: &[String],
     config: StreamerConfig,
     preflight_config: &PreflightConfig,
@@ -169,7 +198,46 @@ pub fn send_job<T: Transport + 'static, W: Write>(
     tty: bool,
     out: &mut W,
 ) -> Result<(), String> {
-    preflight(&mut transport, preflight_config, out)?;
+    send_job_for(
+        transport,
+        lines,
+        config,
+        preflight_config,
+        None,
+        cancel,
+        tty,
+        out,
+    )
+}
+
+/// Como [`send_job`], con la S máx del trabajo: además de exigir el modo láser (`$32=1`), se
+/// avisa si `$30` de la controladora es distinto (la potencia saldría escalada) o si `$#` trae
+/// `nan` en los desplazamientos.
+#[allow(clippy::too_many_arguments)]
+pub fn send_job_for<T: Transport + 'static, W: Write>(
+    mut transport: T,
+    lines: &[String],
+    config: StreamerConfig,
+    preflight_config: &PreflightConfig,
+    s_max: Option<f64>,
+    cancel: &AtomicBool,
+    tty: bool,
+    out: &mut W,
+) -> Result<(), String> {
+    let expect = JobExpect {
+        require_laser_mode: true,
+        s_max,
+        check_parameters: true,
+    };
+    preflight_checked(
+        &mut transport,
+        preflight_config,
+        Advice::Cli {
+            port: &preflight_config.port,
+        },
+        &expect,
+        out,
+    )?;
     writeln!(out, "Enviando {} líneas. Ctrl+C cancela.", lines.len()).map_err(|e| e.to_string())?;
     stream_lines(transport, lines, config, cancel, tty, out)
 }
@@ -762,7 +830,117 @@ mod tests {
             .position(|&b| b == 0x18)
             .expect("sin soft reset");
         assert!(hold < reset);
-        assert!(String::from_utf8(out).unwrap().contains("Cancelando"));
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("Cancelando"), "{text}");
+        // Sin ver la máquina quieta antes del reset, avisa de que la posición puede haberse
+        // perdido y qué hacer.
+        assert!(text.contains("posición puede haberse perdido"), "{text}");
+        assert!(text.contains("homing"), "{text}");
+    }
+
+    #[test]
+    fn stop_notes_say_what_happened_to_the_machine() {
+        let lost = StopInfo {
+            settled: false,
+            position_maybe_lost: true,
+            alarm: Some(3),
+        };
+        let n = stop_notes(&lost);
+        assert_eq!(n.len(), 2);
+        assert!(n[0].contains("posición puede haberse perdido"), "{n:?}");
+        assert!(
+            n[1].contains("ALARM:3") && n[1].contains("perdió la posición"),
+            "{n:?}"
+        );
+
+        let calm = StopInfo {
+            settled: true,
+            position_maybe_lost: false,
+            alarm: None,
+        };
+        let n = stop_notes(&calm);
+        assert_eq!(n.len(), 1);
+        assert!(n[0].contains("la posición se conserva"), "{n:?}");
+    }
+
+    /// GRBL mínima que contesta `?` y `$$` (con `$32=1` y el `$30` dado) y `ok` a lo demás.
+    fn device_with_settings(
+        mut dev: impl Transport + 'static,
+        s30: u32,
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let mut partial = String::new();
+            let mut buf = [0u8; 256];
+            while let Ok(n) = dev.read_timeout(&mut buf, Duration::from_millis(20)) {
+                for &b in &buf[..n] {
+                    match b {
+                        b'?' => {
+                            let _ = dev.write_all(b"<Idle|MPos:0.000,0.000,0.000|FS:0,0>\r\n");
+                        }
+                        b'\n' => {
+                            let line = std::mem::take(&mut partial);
+                            let reply = match line.as_str() {
+                                "$$" => format!("$30={s30}\r\n$32=1\r\nok\r\n"),
+                                "$#" => "[G54:0.000,0.000,0.000]\r\nok\r\n".to_string(),
+                                _ => "ok\r\n".to_string(),
+                            };
+                            let _ = dev.write_all(reply.as_bytes());
+                        }
+                        c => partial.push(c as char),
+                    }
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn send_job_for_warns_when_s_max_differs_from_the_controller() {
+        let (host, dev) = memory_pair();
+        let device = device_with_settings(dev, 1000);
+        let cancel = AtomicBool::new(false);
+        let mut out = Vec::new();
+        let l = lines(&["G90", "G1 X2 Y2 S0 F100"]);
+        send_job_for(
+            host,
+            &l,
+            streamer_config(127),
+            &PreflightConfig::default(),
+            Some(255.0),
+            &cancel,
+            false,
+            &mut out,
+        )
+        .unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(
+            text.contains("Aviso: $30=1000") && text.contains("S máx = 255"),
+            "{text}"
+        );
+        assert!(text.contains("Trabajo terminado"), "{text}");
+        drop(device);
+    }
+
+    #[test]
+    fn send_job_for_is_quiet_when_s_max_matches() {
+        let (host, dev) = memory_pair();
+        let device = device_with_settings(dev, 255);
+        let cancel = AtomicBool::new(false);
+        let mut out = Vec::new();
+        let l = lines(&["G90", "G1 X2 Y2 S0 F100"]);
+        send_job_for(
+            host,
+            &l,
+            streamer_config(127),
+            &PreflightConfig::default(),
+            Some(255.0),
+            &cancel,
+            false,
+            &mut out,
+        )
+        .unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(!text.contains("Aviso"), "{text}");
+        drop(device);
     }
 
     fn report(line: &str) -> StatusReport {

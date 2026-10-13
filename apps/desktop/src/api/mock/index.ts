@@ -1,12 +1,14 @@
 import { mockCamera } from './camera';
+import { mockDevices } from './devices';
 import { mockMaterials } from './materials';
+import { mockProbe } from './probe';
 import { mockGeometry } from './geometry';
 import { mockText } from './text';
 import { mockTrace } from './trace';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
-import { DEFAULT_MOCK_OPTIONS, MockMachine, type MockMachineOptions } from './machine';
+import { DEFAULT_MOCK_OPTIONS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
 import { sampleDevices, sampleDocument, sampleLayers, sampleObjects } from './sample';
 
 export interface MockApi extends LaserApi {
@@ -76,7 +78,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         devices.delete(id);
       }),
 
-    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101']),
+    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', ...MOCK_VIRTUAL_PORTS]),
     connect: ({ port }) => lag(() => ({ firmware: machine.connect(port) })),
     disconnect: () => lag(() => machine.disconnect()),
     machineCommand: ({ line }) => lag(() => machine.command(line)),
@@ -90,12 +92,15 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     cancelJob: () => lag(() => machine.cancel()),
     frameJob: ({ doc, device, options: o }) =>
       lag(() => machine.frame(mockComputeJob(doc, device, o).bounds)),
+    simulateFault: ({ fault }) => lag(() => machine.simulateFault(fault)),
 
     ...mockText(lag),
     ...mockGeometry(lag),
     ...mockTrace(lag),
     ...mockCamera(lag),
     ...mockMaterials(lag),
+    ...mockProbe(lag),
+    ...mockDevices(lag),
 
     on: (event, handler) => Promise.resolve(machine.on(event, handler)),
   };

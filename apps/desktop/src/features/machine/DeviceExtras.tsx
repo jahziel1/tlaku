@@ -1,8 +1,18 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import type { DeviceProfile, RotaryKind, RotarySettings, ScanOffset } from '@/api/types';
 import { t } from '@/i18n';
-import { scanOffsetRowIssues, sortScanOffsets, type DeviceField, type DeviceIssue } from '@/lib/device';
+import { fmt } from '@/lib/platform';
+import {
+  applyRotaryPreset,
+  matchRotaryPreset,
+  ROTARY_PRESETS,
+  rotaryCircumference,
+  scanOffsetRowIssues,
+  sortScanOffsets,
+  type DeviceField,
+  type DeviceIssue,
+} from '@/lib/device';
 import { Field, NumInput } from './DeviceFields';
 
 type Issues = Partial<Record<DeviceField, DeviceIssue>>;
@@ -13,23 +23,50 @@ export type ScanIssue = Extract<DeviceIssue, 'required' | 'positive' | 'duplicat
 const NEW_ROW_SPEED_STEP = 1000;
 const NEW_ROW_FIRST_SPEED = 3000;
 
-/** Casilla del eje Z motorizado: habilita en las capas el desplazamiento y la bajada por pasada. */
+/**
+ * Casilla del eje Z motorizado (habilita en las capas el desplazamiento y la bajada por pasada) y,
+ * con él, la de invertir el sentido de Z en el G-code.
+ */
 export function ZAxisField({ draft, edit }: { draft: DeviceProfile; edit: (patch: Partial<DeviceProfile>) => void }) {
   return (
-    <Field label={t('machine.dev.zAxis')} help="machine.dev.zAxis.help">
-      {({ id, describedBy }) => (
-        <label className="mc-check">
-          <input id={id} type="checkbox" checked={draft.z_axis} aria-describedby={describedBy} onChange={(e) => edit({ z_axis: e.target.checked })} />
-          <span>{t('machine.dev.zAxis.label')}</span>
-        </label>
+    <>
+      <Field label={t('machine.dev.zAxis')} help="machine.dev.zAxis.help">
+        {({ id, describedBy }) => (
+          <label className="mc-check">
+            <input id={id} type="checkbox" checked={draft.z_axis} aria-describedby={describedBy} onChange={(e) => edit({ z_axis: e.target.checked })} />
+            <span>{t('machine.dev.zAxis.label')}</span>
+          </label>
+        )}
+      </Field>
+      {draft.z_axis && (
+        <Field label={t('devices.zInvert')} help="devices.zInvert.help">
+          {({ id, describedBy }) => (
+            <label className="mc-check">
+              <input id={id} type="checkbox" checked={draft.z_invert} aria-describedby={describedBy} onChange={(e) => edit({ z_invert: e.target.checked })} />
+              <span>{t('devices.zInvert.label')}</span>
+            </label>
+          )}
+        </Field>
       )}
-    </Field>
+    </>
   );
 }
 
-/** Rotativo en lugar del eje Y: tipo, mm por vuelta y diámetros. */
-export function RotaryFields({ draft, edit, issues }: { draft: DeviceProfile; edit: (patch: Partial<DeviceProfile>) => void; issues: Issues }) {
+/** Rotativo en lugar del eje Y: modelo, tipo, mm por vuelta, diámetros y espejo. `children` va al final (la prueba de una vuelta). */
+export function RotaryFields({
+  draft,
+  edit,
+  issues,
+  children,
+}: {
+  draft: DeviceProfile;
+  edit: (patch: Partial<DeviceProfile>) => void;
+  issues: Issues;
+  children?: ReactNode;
+}) {
   const r = draft.rotary;
+  const preset = matchRotaryPreset(r);
+  const turn = rotaryCircumference(r);
   const setRotary = (patch: Partial<RotarySettings>) => edit({ rotary: { ...r, ...patch } });
   return (
     <>
@@ -43,6 +80,25 @@ export function RotaryFields({ draft, edit, issues }: { draft: DeviceProfile; ed
       </Field>
       {r.enabled && (
         <>
+          <Field label={t('devices.rotary.preset')} help="devices.rotary.preset.help">
+            {({ id, describedBy }) => (
+              <select
+                id={id}
+                className="select"
+                value={preset?.id ?? ''}
+                aria-describedby={describedBy}
+                onChange={(e) => {
+                  const chosen = ROTARY_PRESETS.find((p) => p.id === e.target.value);
+                  if (chosen) setRotary(applyRotaryPreset(r, chosen));
+                }}
+              >
+                <option value="">{t('devices.rotary.preset.choose')}</option>
+                {ROTARY_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>{t(`devices.rotary.preset.${p.id}`)}</option>
+                ))}
+              </select>
+            )}
+          </Field>
           <div className="field-grid">
             <Field label={t('machine.dev.rotary.kind')} help="machine.dev.rotary.kind.help">
               {({ id, describedBy }) => (
@@ -66,6 +122,16 @@ export function RotaryFields({ draft, edit, issues }: { draft: DeviceProfile; ed
               {({ id, describedBy, invalid }) => <NumInput id={id} unit="mm" value={r.object_diameter} describedBy={describedBy} invalid={invalid} onCommit={(v) => setRotary({ object_diameter: v })} />}
             </Field>
           </div>
+          {turn !== null && <p className="hint">{t('devices.rotary.turn', { mm: fmt(turn, 1) })}</p>}
+          <Field label={t('devices.rotary.mirror')} help="devices.rotary.mirror.help">
+            {({ id, describedBy }) => (
+              <label className="mc-check">
+                <input id={id} type="checkbox" checked={r.mirror} aria-describedby={describedBy} onChange={(e) => setRotary({ mirror: e.target.checked })} />
+                <span>{t('devices.rotary.mirror.label')}</span>
+              </label>
+            )}
+          </Field>
+          {children}
         </>
       )}
     </>
@@ -86,6 +152,7 @@ export function ScanOffsetsTable({ rows, onChange, error }: { rows: ScanOffset[]
   return (
     <div className="mc-field" data-invalid={error || undefined}>
       <p id={helpId} className="hint mc-help">{t('machine.dev.scan.help')}</p>
+      <p className="hint mc-help">{t('devices.scan.measured')}</p>
       {rows.length === 0 ? (
         <p className="hint">{t('machine.dev.scan.empty')}</p>
       ) : (
@@ -121,5 +188,14 @@ export function ScanOffsetsTable({ rows, onChange, error }: { rows: ScanOffset[]
         <button type="button" className="btn" onClick={add}><Plus size={14} aria-hidden="true" />{t('machine.dev.scan.add')}</button>
       </div>
     </div>
+  );
+}
+
+/** Desfase inicial del barrido (`scan_initial_offset`): corre todas las líneas, también las unidireccionales. */
+export function ScanInitialOffsetField({ draft, edit, issues }: { draft: DeviceProfile; edit: (patch: Partial<DeviceProfile>) => void; issues: Issues }) {
+  return (
+    <Field label={t('devices.scan.initial')} help="devices.scan.initial.help" error={issues.scan_initial_offset}>
+      {({ id, describedBy, invalid }) => <NumInput id={id} unit="mm" value={draft.scan_initial_offset} describedBy={describedBy} invalid={invalid} onCommit={(v) => edit({ scan_initial_offset: v })} />}
+    </Field>
   );
 }

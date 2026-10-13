@@ -329,6 +329,35 @@ await key('p', 'KeyP');
 await wait(1800);
 await shot('24-vista-previa-puentes.png');
 
+// 25. Máquina virtual Falcon2 Pro conectada, con el distintivo y la sección de fallas simuladas
+await fresh();
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:falcon2');
+  await st().connect();
+`);
+await wait(1500);
+await shot('25-maquina-virtual.png');
+
+// 26. Asistente "Agregar máquina": paso de detección
+await fresh();
+await app(`await commands.run('machine.addDevice');`);
+await wait(800);
+await shot('26-agregar-maquina.png');
+await closeDialog();
+
+// 27. Tipo de controladora y dialecto en el gestor de dispositivos
+await fresh();
+await app(`await commands.run('machine.devices');`);
+await wait(800);
+await evaluate(`(() => {
+  const el = [...document.querySelectorAll('label, span, legend, div')].find((e) => e.childElementCount === 0 && /tipo de controladora/i.test(e.textContent.trim()));
+  if (el) el.scrollIntoView({ block: 'start' });
+})()`);
+await wait(400);
+await shot('27-dialecto.png');
+await closeDialog();
+
 await send('Browser.close').catch(() => {});
 ws.close();
 proc.kill();

@@ -2,15 +2,16 @@
 //! y en `machine` (conexión). Los pesados corren con `spawn_blocking`, fuera del hilo principal.
 
 use crate::engine::{self, Head};
-use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing};
+use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, virtual_port};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tlaku_doc::{
     ConnectResult, DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview,
-    RealtimeCommand,
+    RealtimeCommand, SimulatedFault,
 };
+use tlaku_grbl::link::LinkProfile;
 use tlaku_grbl::serial::Grbl;
 
 /// Estado administrado por Tauri: la conexión con la máquina (si hay una).
@@ -179,11 +180,14 @@ pub async fn delete_device(app: AppHandle, id: String) -> Result<(), String> {
 // Máquina
 // ---------------------------------------------------------------------------
 
+/// Puertos serie reales y, al final, las máquinas virtuales (`virtual:<perfil>`).
 #[tauri::command]
 pub async fn list_ports() -> Result<Vec<String>, String> {
     blocking(|| {
-        tlaku_grbl::serial::list_ports()
-            .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))
+        let mut ports = tlaku_grbl::serial::list_ports()
+            .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))?;
+        ports.extend(virtual_port::ports());
+        Ok(ports)
     })
     .await
 }
@@ -208,6 +212,10 @@ pub async fn connect(
     }
     let sink: Arc<dyn Sink> = Arc::new(TauriSink(app));
     let result = blocking(move || {
+        if virtual_port::is_virtual(&port) {
+            // Sin puerto serie: un emulador con reloj de pared (la velocidad va en el id).
+            return Connection::start_virtual(&port, sink, Timing::default());
+        }
         // Abrir el puerto reinicia muchas placas: `Grbl::open` espera el saludo y lo descarta.
         let transport = Grbl::open(&port, baud)
             .map_err(|e| {
@@ -283,7 +291,9 @@ pub async fn start_job(
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::job_lines(&doc, &device, &options, h.work_pos())?;
-        h.start_job(lines, device.rx_buffer as usize)
+        // Con la S máx del perfil, la conexión avisa si `$30` de la controladora es distinto. El
+        // enlace (conteo de caracteres o una línea por `ok`) sale del tipo de máquina del perfil.
+        h.start_job_link(lines, LinkProfile::for_device(&device), Some(device.s_max))
     })
     .await
 }
@@ -299,7 +309,7 @@ pub async fn frame_job(
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::frame_lines(&doc, &device, &options, speed, h.work_pos())?;
-        h.frame(lines, device.rx_buffer as usize)
+        h.frame_link(lines, LinkProfile::for_device(&device))
     })
     .await
 }
@@ -317,4 +327,14 @@ pub async fn resume_job(state: State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 pub async fn cancel_job(state: State<'_, AppState>) -> Result<(), String> {
     with_handle(&state, |h| h.cancel()).await
+}
+
+/// Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión) para ver
+/// cómo reacciona la interfaz. Con una máquina real devuelve un error.
+#[tauri::command]
+pub async fn simulate_fault(
+    state: State<'_, AppState>,
+    fault: SimulatedFault,
+) -> Result<(), String> {
+    with_handle(&state, move |h| h.simulate_fault(fault)).await
 }

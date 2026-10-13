@@ -5,7 +5,9 @@
  */
 import { arrange } from './es/arrange';
 import { camera } from './es/camera';
+import { devices } from './es/devices';
 import { canvas } from './es/canvas';
+import { catalog } from './es/catalog';
 import { history } from './es/history';
 import { layers } from './es/layers';
 import { machine } from './es/machine';
@@ -225,4 +227,6 @@ export const es = {
   ...trace,
   ...camera,
   ...materials,
+  ...devices,
+  ...catalog,
 };

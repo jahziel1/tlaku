@@ -7,6 +7,11 @@ import type { MachineState } from "./MachineState";
  */
 export type StatusReport = { state: MachineState, 
 /**
+ * Nombre original del estado cuando `state` es `other` (p. ej. `Tool`), tal como lo
+ * informó la controladora.
+ */
+other_state?: string, 
+/**
  * Posición de máquina [x, y], mm.
  */
 machine_pos: [number, number], 

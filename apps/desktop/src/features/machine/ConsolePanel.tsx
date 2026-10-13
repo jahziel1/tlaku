@@ -3,11 +3,12 @@ import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from '
 import { t } from '@/i18n';
 import { readPref, writePref } from '@/lib/platform';
 import { useStore } from '@/store';
-import type { LogEntry } from '@/store/machine';
+import { selectFirmwareFamily, type LogEntry } from '@/store/machine';
 import { useCommandConfirm } from './CommandConfirm';
 import { hintRisk, commonPrefix, completions } from './completions';
 import { ConsoleHistory } from './consoleHistory';
-import { alarmKey, errorKey, isStatusReport, parseAlarmLine, parseErrorLine } from './grblCodes';
+import { classifyLine } from './consoleExplain';
+import { isStatusReport, type FirmwareFamily } from './grblCodes';
 import './machine.css';
 
 /** Se conserva al cambiar de pestaña (el panel se desmonta) y entre sesiones. */
@@ -26,13 +27,11 @@ const history = loadHistory();
 /** Consultas de solo lectura a un clic. */
 const QUICK = ['$$', '$I', '$G', '$#', 'status'] as const;
 
-const LogLine = memo(function LogLine({ entry }: { entry: LogEntry }) {
+const LogLine = memo(function LogLine({ entry, family }: { entry: LogEntry; family: FirmwareFamily }) {
   const isIn = entry.dir === 'in';
-  const alarm = isIn ? parseAlarmLine(entry.text) : null;
-  const error = isIn ? parseErrorLine(entry.text) : null;
-  // El motor ya agrega la explicación a `error:N` y `ALARM:N`; si llega solo el código, se explica aquí.
-  const bare = /^\s*(ALARM|error):\s*\d+\s*$/i.test(entry.text);
-  const kind = alarm !== null ? 'alarm' : error !== null ? 'error' : isIn && /^ok\b/i.test(entry.text) ? 'ok' : isIn && isStatusReport(entry.text) ? 'status' : 'plain';
+  // El motor ya agrega la explicación a `error:N` y `ALARM:N`; si llega solo el código, se explica aquí
+  // según la familia del firmware. Las fallas `ERROR:NN` de Creality llevan significado y consejo.
+  const { kind, explain } = classifyLine(entry.dir, entry.text, family);
   const Icon = isIn ? ArrowDownLeft : ArrowUpRight;
   return (
     <div className="console__line" data-dir={entry.dir} data-kind={kind}>
@@ -41,8 +40,9 @@ const LogLine = memo(function LogLine({ entry }: { entry: LogEntry }) {
       </span>
       <span className="mc-logtext">
         {entry.text}
-        {bare && alarm !== null && <em className="mc-logexplain">{t(alarmKey(alarm))}</em>}
-        {bare && error !== null && <em className="mc-logexplain">{t(errorKey(error))}</em>}
+        {explain.map((key) => (
+          <em key={key} className="mc-logexplain">{t(key)}</em>
+        ))}
       </span>
     </div>
   );
@@ -56,6 +56,7 @@ export function logToText(entries: readonly { dir: 'in' | 'out'; text: string }[
 export function ConsolePanel() {
   const log = useStore((s) => s.log);
   const connected = useStore((s) => s.connection.connected);
+  const family = useStore(selectFirmwareFamily);
   const jobBusy = useStore((s) => s.jobState === 'running' || s.jobState === 'paused');
   const clearLog = useStore((s) => s.clearLog);
   const notify = useStore((s) => s.notify);
@@ -144,7 +145,7 @@ export function ConsolePanel() {
       >
         {visible.length === 0 && <p className="panel-empty">{t('machine.console.empty')}</p>}
         {visible.map((l) => (
-          <LogLine key={l.id} entry={l} />
+          <LogLine key={l.id} entry={l} family={family} />
         ))}
       </div>
 

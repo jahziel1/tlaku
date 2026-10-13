@@ -3,4 +3,4 @@
 /**
  * Estado de la controladora (`Idle`, `Run`, `Hold`...). En minúsculas en el JSON.
  */
-export type MachineState = "idle" | "run" | "hold" | "jog" | "alarm" | "door" | "check" | "home" | "sleep";
+export type MachineState = "idle" | "run" | "hold" | "jog" | "alarm" | "door" | "check" | "home" | "sleep" | "other";

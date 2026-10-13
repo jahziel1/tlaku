@@ -1,8 +1,9 @@
 import { getApi } from '@/api';
-import type { ConnectionEvent, JobEvent, LogEvent, Point, ProgressEvent, RealtimeCommand, StatusReport } from '@/api/types';
-import { parseAlarmLine, type AlarmAction } from '@/features/machine/grblCodes';
+import type { ConnectionEvent, JobEvent, LogEvent, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
+import { firmwareFamily, parseAlarmLine, type AlarmAction, type FirmwareFamily } from '@/features/machine/grblCodes';
 import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, JOG_STEPS, stepDelta, type JogDir } from '@/features/machine/jogMath';
 import { needsConfirmation, parseCommand, type CommandError } from '@/features/machine/commandSafety';
+import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, portKey, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
 import { t, type I18nKey } from '@/i18n';
 import { parseGrblSettings, workToDoc, type GrblSettings } from '@/lib/device';
 import { errorMessage } from '@/lib/errors';
@@ -47,6 +48,14 @@ export interface MachineData {
   alarmCode: number | null;
   /** Ajustes de GRBL leídos con `$$` (null = todavía no). */
   settings: GrblSettings | null;
+  /**
+   * La posición puede haberse perdido (un reset con la máquina en movimiento, `ALARM:3`). Sobrevive
+   * a la desconexión para avisar al reconectar a la misma máquina; se borra tras un homing, al
+   * fijar el origen de nuevo o al descartar el aviso.
+   */
+  positionLost: boolean;
+  /** Máquina (puerto sin la velocidad virtual) a la que corresponde `positionLost`. */
+  positionLostPort: string | null;
   log: LogEntry[];
   logSeq: number;
   jobStartedAt: number | null;
@@ -75,6 +84,8 @@ export const INITIAL_MACHINE_DATA: MachineData = {
   jobError: null,
   alarmCode: null,
   settings: null,
+  positionLost: false,
+  positionLostPort: null,
   log: [],
   logSeq: 0,
   jobStartedAt: null,
@@ -93,6 +104,11 @@ const JOB_STATE: Record<JobEvent['state'], JobUiState> = {
 
 const busy = (j: JobUiState) => j === 'running' || j === 'paused';
 
+/** Marca la posición como posiblemente perdida en la máquina conectada. */
+function lostHere(m: MachineData): Pick<MachineData, 'positionLost' | 'positionLostPort'> {
+  return { positionLost: true, positionLostPort: portKey(m.connection.port) ?? m.positionLostPort };
+}
+
 /** Aplica un evento a los datos de la máquina. `now` (ms) se pasa de fuera para que sea determinista. */
 export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): MachineData {
   switch (ev.type) {
@@ -103,10 +119,13 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
       // La causa solo se olvida al ver que la alarma terminó (no con un reporte suelto).
       const prev = m.status?.state;
       const left = (prev === 'alarm' || prev === 'home') && state !== 'alarm' && state !== 'home';
+      // Un homing que termina sin alarma vuelve a dar la posición de máquina.
+      const homed = prev === 'home' && state !== 'alarm' && state !== 'home';
       return {
         ...m,
         status: ev.report,
         alarmCode: left ? null : m.alarmCode,
+        ...(homed ? { positionLost: false, positionLostPort: null } : {}),
         ...(failed ? { jobState: 'error' as const, jobPausedAt: null, jobEndedAt: now } : {}),
       };
     }
@@ -120,11 +139,13 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
         log: [...m.log, { ...ev.log, id }].slice(-LOG_LIMIT),
         logSeq: id,
         alarmCode: code ?? m.alarmCode,
+        // ALARM:3 es justo eso: reinicio con la máquina en movimiento.
+        ...(code === 3 ? lostHere(m) : {}),
       };
     }
     case 'job': {
       const state = JOB_STATE[ev.job.state];
-      const next: MachineData = { ...m, jobState: state, jobMessage: ev.job.message };
+      const next: MachineData = { ...m, jobState: state, jobMessage: ev.job.message, ...(ev.job.position_lost ? lostHere(m) : {}) };
       if (ev.job.state === 'started') {
         if (m.jobState === 'paused') {
           // Reanudar: la pausa no cuenta como tiempo de trabajo.
@@ -143,14 +164,26 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
     }
     case 'connection': {
       if (ev.connection.connected) {
-        return { ...m, connection: ev.connection, alarmCode: null, settings: null, jobError: null };
+        // El aviso de posición perdida solo vale para la misma máquina.
+        const same = m.positionLost && m.positionLostPort === portKey(ev.connection.port);
+        return {
+          ...m,
+          connection: ev.connection,
+          alarmCode: null,
+          settings: null,
+          jobError: null,
+          positionLost: same,
+          positionLostPort: same ? m.positionLostPort : null,
+        };
       }
-      // Sin conexión no queda nada vivo: se conserva solo el registro.
+      // Sin conexión no queda nada vivo: se conserva el registro y la posición perdida.
       return {
         ...INITIAL_MACHINE_DATA,
         connection: ev.connection,
         log: m.log,
         logSeq: m.logSeq,
+        positionLost: m.positionLost,
+        positionLostPort: m.positionLostPort,
       };
     }
     case 'settings':
@@ -183,6 +216,16 @@ export function selectAlarm(s: Pick<AppState, 'status' | 'alarmCode'>): { code: 
   return s.status?.state === 'alarm' ? { code: s.alarmCode } : undefined;
 }
 
+/** Familia del firmware conectado: decide cómo se leen los `error:N` y `ALARM:N` extendidos. */
+export function selectFirmwareFamily(s: Pick<AppState, 'firmware'>): FirmwareFamily {
+  return firmwareFamily(s.firmware);
+}
+
+/** ¿La conexión actual es una máquina virtual (emulador)? Nada se graba de verdad. */
+export function selectIsVirtual(s: Pick<AppState, 'connection'>): boolean {
+  return s.connection.connected && isVirtualPort(s.connection.port);
+}
+
 /** Valor de `$22` (homing) si se leyó: true = activado. */
 export function homingEnabled(settings: GrblSettings | null): boolean | null {
   const v = settings?.[22];
@@ -196,7 +239,7 @@ export function jogBlockedReason(s: Pick<AppState, 'connection' | 'jobState' | '
   const state = s.status?.state;
   if (state === 'alarm') return 'machine.reason.alarm';
   if (state === 'hold' || state === 'door') return 'machine.reason.paused';
-  if (state === 'run' || state === 'home' || state === 'check' || state === 'sleep') return 'machine.reason.notIdle';
+  if (state === 'run' || state === 'home' || state === 'check' || state === 'sleep' || state === 'other') return 'machine.reason.notIdle';
   return null;
 }
 
@@ -221,6 +264,8 @@ export interface MachineSlice extends MachineData {
   ports: string[];
   selectedPort: string | null;
   baud: number;
+  /** Veces el tiempo real con que corre una máquina virtual (se recuerda entre sesiones). */
+  virtualSpeed: number;
   /** Paso del jog en mm y velocidad en mm/min (se recuerdan entre sesiones). */
   jogStep: number;
   jogSpeed: number;
@@ -233,6 +278,7 @@ export interface MachineSlice extends MachineData {
   refreshPorts: () => Promise<void>;
   setSelectedPort: (port: string | null) => void;
   setBaud: (baud: number) => void;
+  setVirtualSpeed: (speed: number) => void;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   /** Lee `$$` y guarda los ajustes. Devuelve null si no se pudo. */
@@ -265,6 +311,10 @@ export interface MachineSlice extends MachineData {
   cancelJob: () => Promise<void>;
   frameJob: () => Promise<void>;
   dismissJobError: () => void;
+  /** Descarta el aviso de posición posiblemente perdida. */
+  dismissPositionLost: () => void;
+  /** Provoca una falla en la máquina virtual conectada. */
+  simulateFault: (fault: SimulatedFault) => Promise<void>;
   clearLog: () => void;
 
   openDialog: (dialog: MachineDialog) => void;
@@ -292,6 +342,8 @@ function pickData(s: MachineData): MachineData {
     jobError: s.jobError,
     alarmCode: s.alarmCode,
     settings: s.settings,
+    positionLost: s.positionLost,
+    positionLostPort: s.positionLostPort,
     log: s.log,
     logSeq: s.logSeq,
     jobStartedAt: s.jobStartedAt,
@@ -311,6 +363,11 @@ export function commandErrorText(e: CommandError): string {
     case 'tooLong':
       return t('machine.console.err.tooLong', { text: e.text, max: e.max });
   }
+}
+
+function initialVirtualSpeed(): number {
+  const n = Number(readPref('virtualSpeed'));
+  return (VIRTUAL_SPEEDS as readonly number[]).includes(n) ? n : DEFAULT_VIRTUAL_SPEED;
 }
 
 function initialJogStep(): number {
@@ -373,6 +430,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     ports: [],
     selectedPort: null,
     baud: 115200,
+    virtualSpeed: initialVirtualSpeed(),
     jogStep: initialJogStep(),
     jogSpeed: initialJogSpeed(),
     jogging: false,
@@ -387,16 +445,22 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     setSelectedPort: (selectedPort) => set({ selectedPort }),
     setBaud: (baud) => set({ baud }),
+    setVirtualSpeed: (virtualSpeed) => {
+      writePref('virtualSpeed', String(virtualSpeed));
+      set({ virtualSpeed });
+    },
 
     connect: async () => {
-      const { selectedPort, baud } = get();
+      const { selectedPort, baud, virtualSpeed } = get();
       if (!selectedPort) {
         get().notifyKey('warning', 'machine.noPort');
         return;
       }
       set({ connecting: true });
       try {
-        const { firmware } = await getApi().connect({ port: selectedPort, baud });
+        // La velocidad de una máquina virtual viaja en el id del puerto (`virtual:falcon2@5`).
+        const port = isVirtualPort(selectedPort) ? withVirtualSpeed(selectedPort, virtualSpeed) : selectedPort;
+        const { firmware } = await getApi().connect({ port, baud });
         set({ firmware });
         // Mejor esfuerzo: sirve para el aviso de modo láser y para sugerir $H o $X ante una alarma.
         void get().readSettings({ silent: true });
@@ -450,7 +514,11 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         return false;
       }
       const api = getApi();
-      return guard(() => (cmd.kind === 'realtime' ? api.machineRealtime({ cmd: cmd.name }) : api.machineCommand({ line: cmd.text })));
+      // Marlin y Smoothie separan parámetros con espacios (`M3 S0 I`): se manda la línea tal cual
+      // escribió el usuario y el motor quita solo los comentarios.
+      const keepSpaces = /marlin|smoothie/i.test(s.firmware ?? '');
+      const text = cmd.kind === 'line' && keepSpaces ? line.trim() : cmd.kind === 'line' ? cmd.text : '';
+      return guard(() => (cmd.kind === 'realtime' ? api.machineRealtime({ cmd: cmd.name }) : api.machineCommand({ line: text })));
     },
     realtime: async (cmd) => {
       await guard(() => getApi().machineRealtime({ cmd }));
@@ -511,6 +579,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (!s.connection.connected || !here) return void s.notifyKey('warning', 'reason.needMachine');
       const user_origin: Point = [round3(here[0]), round3(here[1])];
       s.setJobOptions({ user_origin });
+      // Fijar el origen a mano es una de las dos salidas de una posición perdida.
+      s.dismissPositionLost();
       s.notify('success', t('machine.origin.saved', { x: user_origin[0], y: user_origin[1] }));
     },
     clearUserOrigin: () => get().setJobOptions({ user_origin: null }),
@@ -541,6 +611,11 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     frameJob: () => guardJob(() => getApi().frameJob({ ...buildJobArgs(get()), speed: jogSpeedNow() })),
     dismissJobError: () => set({ jobError: null }),
+    dismissPositionLost: () => set({ positionLost: false, positionLostPort: null }),
+    simulateFault: async (fault) => {
+      if (!selectIsVirtual(get())) return void get().notifyKey('warning', 'machine.virtual.onlyVirtual');
+      if (await guard(() => getApi().simulateFault({ fault }))) get().notifyKey('info', 'machine.virtual.faultSent');
+    },
     clearLog: () => set({ log: [] }),
 
     openDialog: (dialog) => {
@@ -566,7 +641,13 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (job.state === 'error') get().notify('error', job.message);
     },
     onConnection: (connection) => {
+      const pending = get().positionLost && !get().connection.connected;
       apply({ type: 'connection', connection });
+      // Reconectó a la misma máquina que quedó con la posición dudosa: conviene hacer homing.
+      if (connection.connected && pending && get().positionLost) {
+        get().notifyKey('warning', 'machine.positionLost.reconnect');
+        apply({ type: 'log', log: { dir: 'in', text: `; ${t('machine.positionLost.reconnect')}` } });
+      }
       if (!connection.connected) set((s) => ({ jogging: false, dialog: s.dialog?.kind === 'devices' ? s.dialog : null }));
       if (connection.error) get().notify('error', connection.error);
     },

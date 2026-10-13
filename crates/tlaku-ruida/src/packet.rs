@@ -3,35 +3,37 @@
 //! Un paquete es un datagrama. La longitud de los datos sale del tamaño del datagrama.
 //! Los paquetes se cortan siempre en límite de comando (ruida.md sección 1.1).
 //!
-//! Dudas de las fuentes, todas configurables aquí:
-//! - el checksum puede ir sobre los bytes antes o después del swizzle ([`ChecksumMode`]);
-//! - el tamaño máximo del datagrama (1472 o 1474 B según la fuente; en la práctica ~1000 B de
-//!   datos);
-//! - los bytes de ACK y NAK (`C6`/`46` en el cable según FabLab, `CC`/`CF` según EduTech).
+//! Resuelto con las fuentes (ruida.md sección 12):
+//! - el checksum es la suma de los bytes **ya swizzleados** (capturas reales de Nova 35 y de
+//!   LightBurn; MeerK40t y ruida-pa lo calculan así). No hay modo alternativo;
+//! - la respuesta de la máquina es un byte lógico (`CC` ACK, `CF` checksum erróneo, `CD` error,
+//!   `CE` keep-alive) que viaja swizzleado con el magic de la máquina: `C6` para 0x88. EduTech
+//!   da el byte lógico y FabLab el del cable;
+//! - tamaño: MeerK40t corta en ~1000 B en límite de comando y la máquina acepta hasta 1472 B de
+//!   datagrama (1470 de datos). Aquí 1000 por defecto y 1470 como tope.
 
 use crate::cmd::{self, DecodeError};
 use crate::swizzle::Magic;
 use std::fmt;
 
-/// Máximo de bytes de datos por paquete que permite este módulo: 1472 B del datagrama (la cifra
-/// menor de las fuentes) menos los 2 del checksum.
+/// Máximo de bytes de datos por paquete que permite este módulo: 1472 B del datagrama menos los
+/// 2 del checksum.
 pub const MAX_DATA_BYTES_LIMIT: usize = 1470;
-/// Tamaño por defecto de los datos de un paquete (recomendación de ruida.md: ~1000 B).
+/// Tamaño por defecto de los datos de un paquete (MeerK40t y ruida-pa: ~1000 B).
 pub const DEFAULT_MAX_DATA_BYTES: usize = 1000;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ChecksumMode {
-    /// Suma de los bytes ya swizzleados ([FAB], [JNW]).
-    #[default]
-    PostSwizzle,
-    /// Suma de los bytes antes del swizzle ([EDU]).
-    PreSwizzle,
-}
+/// ACK: el paquete llegó bien.
+pub const ACK: u8 = 0xCC;
+/// ERR: la máquina detectó un problema con el mensaje.
+pub const ERR: u8 = 0xCD;
+/// ENQ: keep-alive.
+pub const ENQ: u8 = 0xCE;
+/// NAK: el checksum no coincide; reenviar el paquete.
+pub const NAK: u8 = 0xCF;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PacketConfig {
     pub magic: Magic,
-    pub checksum: ChecksumMode,
     /// Bytes de datos por paquete (sin los 2 del checksum), entre 1 y [`MAX_DATA_BYTES_LIMIT`].
     pub max_data_bytes: usize,
 }
@@ -40,7 +42,6 @@ impl Default for PacketConfig {
     fn default() -> Self {
         PacketConfig {
             magic: Magic::default(),
-            checksum: ChecksumMode::default(),
             max_data_bytes: DEFAULT_MAX_DATA_BYTES,
         }
     }
@@ -120,19 +121,17 @@ pub fn checksum16(data: &[u8]) -> u16 {
         .fold(0u16, |acc, &b| acc.wrapping_add(u16::from(b)))
 }
 
-/// Checksum de un paquete según el modo, a partir de los datos en claro.
+/// Checksum de un paquete a partir de los datos en claro: suma de los bytes swizzleados.
 pub fn packet_checksum(plain: &[u8], cfg: &PacketConfig) -> u16 {
-    match cfg.checksum {
-        ChecksumMode::PreSwizzle => checksum16(plain),
-        ChecksumMode::PostSwizzle => checksum16(&cfg.magic.swizzle_all(plain)),
-    }
+    checksum16(&cfg.magic.swizzle_all(plain))
 }
 
 /// Construye un datagrama con un trozo de flujo en claro.
 pub fn build_packet(plain: &[u8], cfg: &PacketConfig) -> Vec<u8> {
-    let mut out = Vec::with_capacity(plain.len() + 2);
-    out.extend(packet_checksum(plain, cfg).to_be_bytes());
-    out.extend(cfg.magic.swizzle_all(plain));
+    let wire = cfg.magic.swizzle_all(plain);
+    let mut out = Vec::with_capacity(wire.len() + 2);
+    out.extend(checksum16(&wire).to_be_bytes());
+    out.extend(wire);
     out
 }
 
@@ -174,12 +173,11 @@ pub fn parse_packet(datagram: &[u8], cfg: &PacketConfig) -> Result<Vec<u8>, Pack
         });
     }
     let found = u16::from_be_bytes([datagram[0], datagram[1]]);
-    let plain = cfg.magic.unswizzle_all(&datagram[2..]);
-    let expected = packet_checksum(&plain, cfg);
+    let expected = checksum16(&datagram[2..]);
     if expected != found {
         return Err(PacketError::ChecksumMismatch { expected, found });
     }
-    Ok(plain)
+    Ok(cfg.magic.unswizzle_all(&datagram[2..]))
 }
 
 /// Interpretación de un byte de respuesta de la controladora.
@@ -187,19 +185,44 @@ pub fn parse_packet(datagram: &[u8], cfg: &PacketConfig) -> Result<Vec<u8>, Pack
 pub enum Response {
     /// Paquete aceptado: enviar el siguiente.
     Ack,
-    /// Checksum rechazado: reintentar (el primer paquete) o abortar.
+    /// Checksum rechazado: el paquete no se aplicó, se puede reenviar tal cual.
     Nak,
-    /// Cualquier otro valor.
+    /// La máquina detectó un problema con el mensaje (FabLab: reintentar solo el primer
+    /// paquete; en los siguientes, abortar).
+    Err,
+    /// Keep-alive.
+    Enq,
+    /// Cualquier otro valor (también un magic equivocado).
     Unknown(u8),
 }
 
-/// ACK: `C6` (cable según FabLab) y `CC` (EduTech). NAK: `46`, `48`, `CD`, `CF` (`48` y `46` son
-/// `CF` y `CD` swizzleados con magic 0x88). SIN CONFIRMAR con hardware.
-pub fn interpret_response(b: u8) -> Response {
-    match b {
-        0xC6 | 0xCC => Response::Ack,
-        0x46 | 0x48 | 0xCD | 0xCF => Response::Nak,
-        other => Response::Unknown(other),
+impl Response {
+    /// Byte lógico de la respuesta (`CC`, `CF`, `CD`, `CE`).
+    pub fn logical(self) -> Option<u8> {
+        match self {
+            Response::Ack => Some(ACK),
+            Response::Nak => Some(NAK),
+            Response::Err => Some(ERR),
+            Response::Enq => Some(ENQ),
+            Response::Unknown(_) => None,
+        }
+    }
+
+    /// Byte tal como viaja por el cable con el magic dado (`C6` para ACK con 0x88).
+    pub fn wire(self, magic: Magic) -> Option<u8> {
+        self.logical().map(|b| magic.swizzle(b))
+    }
+}
+
+/// Interpreta el byte de respuesta **del cable**: se des-swizzlea con el magic y se compara con
+/// los bytes lógicos. ACK `C6`, ERR `46`, NAK `48` y ENQ `47` con el magic 0x88.
+pub fn interpret_response(wire: u8, magic: Magic) -> Response {
+    match magic.unswizzle(wire) {
+        ACK => Response::Ack,
+        NAK => Response::Nak,
+        ERR => Response::Err,
+        ENQ => Response::Enq,
+        _ => Response::Unknown(wire),
     }
 }
 
@@ -215,49 +238,43 @@ mod tests {
     }
 
     #[test]
-    fn checksum_vectors_v7_v8() {
-        // V7: consulta del ID de tarjeta; los dos modos dan sumas distintas (el conflicto).
+    fn real_capture_checksum_is_over_swizzled_bytes() {
+        // Captura de LightBurn publicada en el README de ruida-pa
+        // (https://github.com/StevenIsaacs/ruida-pa, licencia MIT, Copyright (c) 2025 Steve
+        // Isaacs; ver THIRD_PARTY.md):
+        // el datagrama `0261 d4890df7` es `DA 00 05 7E` con magic 0x88. El checksum es la suma
+        // de los bytes del cable (0xD4+0x89+0x0D+0xF7 = 0x0261), no de los datos en claro
+        // (0x015D). Con eso queda resuelto el conflicto entre EduTech y FabLab.
         let q = [0xDA, 0x00, 0x05, 0x7E];
-        let pre = PacketConfig {
-            checksum: ChecksumMode::PreSwizzle,
-            ..Default::default()
-        };
-        let post = PacketConfig::default();
-        assert_eq!(packet_checksum(&q, &pre), 0x015D);
-        assert_eq!(packet_checksum(&q, &post), 0x0261);
-        assert_eq!(build_packet(&q, &pre), [0x01, 0x5D, 0xD4, 0x89, 0x0D, 0xF7]);
-        assert_eq!(
-            build_packet(&q, &post),
-            [0x02, 0x61, 0xD4, 0x89, 0x0D, 0xF7]
-        );
+        let cfg = PacketConfig::default();
+        assert_eq!(build_packet(&q, &cfg), hex("0261 d4890df7"));
+        assert_eq!(packet_checksum(&q, &cfg), 0x0261);
+        assert_eq!(checksum16(&q), 0x015D);
+        assert_eq!(parse_packet(&hex("0261 d4890df7"), &cfg).unwrap(), q);
         // V8: cabecera del ejemplo 1.
         let h = hex("d810 f0 e601 f10200 d800");
-        assert_eq!(packet_checksum(&h, &pre), 0x048A);
-        assert_eq!(packet_checksum(&h, &post), 0x0647);
+        assert_eq!(packet_checksum(&h, &cfg), 0x0647);
     }
 
     #[test]
     fn split_is_on_command_boundaries_and_reassembles() {
         let stream =
             hex("d810 f0 e601 f10200 d800 8800001116500000021256 a800000b51120000021256 d7");
-        for mode in [ChecksumMode::PreSwizzle, ChecksumMode::PostSwizzle] {
-            for max in [11, 12, 16, 25, 1000] {
-                let cfg = PacketConfig {
-                    checksum: mode,
-                    max_data_bytes: max,
-                    ..Default::default()
-                };
-                let packets = split_into_packets(&stream, &cfg).unwrap();
-                let mut joined = Vec::new();
-                for p in &packets {
-                    assert!(p.len() <= cfg.max_datagram());
-                    let plain = parse_packet(p, &cfg).unwrap();
-                    // Cada paquete es un flujo de comandos completo.
-                    cmd::decode_stream(&plain).unwrap();
-                    joined.extend(plain);
-                }
-                assert_eq!(joined, stream, "max {max}");
+        for max in [11, 12, 16, 25, 1000] {
+            let cfg = PacketConfig {
+                max_data_bytes: max,
+                ..Default::default()
+            };
+            let packets = split_into_packets(&stream, &cfg).unwrap();
+            let mut joined = Vec::new();
+            for p in &packets {
+                assert!(p.len() <= cfg.max_datagram());
+                let plain = parse_packet(p, &cfg).unwrap();
+                // Cada paquete es un flujo de comandos completo.
+                cmd::decode_stream(&plain).unwrap();
+                joined.extend(plain);
             }
+            assert_eq!(joined, stream, "max {max}");
         }
         let one = split_into_packets(&stream, &PacketConfig::default()).unwrap();
         assert_eq!(one.len(), 1);
@@ -300,34 +317,41 @@ mod tests {
     }
 
     #[test]
-    fn parse_detects_corruption_and_wrong_mode() {
+    fn parse_detects_corruption() {
         let stream = hex("d810 f0 d7");
-        let post = PacketConfig::default();
-        let pre = PacketConfig {
-            checksum: ChecksumMode::PreSwizzle,
-            ..Default::default()
-        };
-        let p = build_packet(&stream, &post);
-        assert!(parse_packet(&p, &post).is_ok());
-        assert!(matches!(
-            parse_packet(&p, &pre),
-            Err(PacketError::ChecksumMismatch { .. })
-        ));
+        let cfg = PacketConfig::default();
+        let p = build_packet(&stream, &cfg);
+        assert!(parse_packet(&p, &cfg).is_ok());
         let mut bad = p.clone();
         bad[3] ^= 0x01;
         assert!(matches!(
-            parse_packet(&bad, &post),
+            parse_packet(&bad, &cfg),
             Err(PacketError::ChecksumMismatch { .. })
         ));
         assert!(matches!(
-            parse_packet(&[1], &post),
+            parse_packet(&[1], &cfg),
             Err(PacketError::TooShort(1))
         ));
         let long = vec![0u8; 2000];
         assert!(matches!(
-            parse_packet(&long, &post),
+            parse_packet(&long, &cfg),
             Err(PacketError::TooLong { .. })
         ));
+    }
+
+    #[test]
+    fn a_wrong_magic_is_not_caught_by_the_checksum() {
+        // La suma se hace sobre los bytes del cable, así que con otro magic el paquete se
+        // acepta y lo que cambia es la interpretación (por eso el sondeo usa el ACK).
+        let q = [0xDA, 0x00, 0x05, 0x7E];
+        let sender = PacketConfig {
+            magic: Magic(0x11),
+            ..Default::default()
+        };
+        let p = build_packet(&q, &sender);
+        let receiver = PacketConfig::default();
+        let got = parse_packet(&p, &receiver).unwrap();
+        assert_ne!(got, q);
     }
 
     #[test]
@@ -337,13 +361,22 @@ mod tests {
     }
 
     #[test]
-    fn responses() {
-        for b in [0xC6, 0xCC] {
-            assert_eq!(interpret_response(b), Response::Ack);
+    fn responses_are_logical_bytes_swizzled_with_the_magic() {
+        let m = Magic::default();
+        // Cable con 0x88: C6 = ACK (FabLab), 46 = ERR, 48 = NAK, C8 = ENQ.
+        assert_eq!(interpret_response(0xC6, m), Response::Ack);
+        assert_eq!(interpret_response(0x46, m), Response::Err);
+        assert_eq!(interpret_response(0x48, m), Response::Nak);
+        assert_eq!(interpret_response(0xC8, m), Response::Enq);
+        assert_eq!(interpret_response(0x00, m), Response::Unknown(0));
+        // Con otro magic cambian los bytes del cable pero no el significado.
+        for magic in [Magic(0x11), Magic(0x38), Magic(0x77)] {
+            for r in [Response::Ack, Response::Nak, Response::Err, Response::Enq] {
+                let w = r.wire(magic).unwrap();
+                assert_eq!(interpret_response(w, magic), r);
+            }
         }
-        for b in [0x46, 0x48, 0xCD, 0xCF] {
-            assert_eq!(interpret_response(b), Response::Nak);
-        }
-        assert_eq!(interpret_response(0x00), Response::Unknown(0));
+        assert_eq!(Response::Ack.wire(m), Some(0xC6));
+        assert_eq!(Response::Unknown(3).wire(m), None);
     }
 }

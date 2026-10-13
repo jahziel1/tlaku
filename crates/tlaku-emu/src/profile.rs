@@ -132,6 +132,14 @@ pub struct Profile {
     pub laser_off_in_hold: bool,
     /// Interpretación de `$10`: bits de grblHAL (`true`) o los dos bits de GRBL 1.1 (`false`).
     pub hal_status_mask: bool,
+    /// Marlin con `EMERGENCY_PARSER`: `M410`, `M112` y `M108` actúan al instante, aunque haya
+    /// una línea bloqueada esperando sitio en la cola; `M0` pausa hasta `M108`. Sin él, `M410`
+    /// y `M112` se encolan detrás de lo ya enviado y `M0` se ignora (sin LCD).
+    pub emergency_parser: bool,
+    /// Marlin heredado con el láser en una salida de ventilador (`M106 P<n> S<s>` / `M107 P<n>`):
+    /// ese ventilador manda sobre el láser y **`G0` no lo apaga**. `None` = el láser va por
+    /// `M3`/`M4`/`S` (lo normal).
+    pub laser_fan: Option<u32>,
 }
 
 fn s(id: u32, value: f64, decimals: u8) -> Setting {
@@ -224,6 +232,8 @@ impl Profile {
             overrides_in_status: true,
             laser_off_in_hold: false,
             hal_status_mask: false,
+            emergency_parser: false,
+            laser_fan: None,
         }
     }
 
@@ -408,24 +418,53 @@ impl Profile {
         }
     }
 
-    /// Marlin 2.x con función láser, modo inline (`M3 S0 I`, `G1 ... S`): solo banner, `ok`
-    /// por línea, `M115`, `M114`, `M400` y el movimiento. Sin `?`, `!`, `~` ni `$`. Un comando
-    /// desconocido da `echo:Unknown command` y `ok`. Pendiente: `M106/M107`, `M410`, `M112`,
-    /// líneas numeradas con checksum, `Resend`.
+    /// Marlin 2.x con función láser, modo inline (`M3 S0 I`, `G1 ... S`): banner, `ok` por línea,
+    /// `M115` (con `Cap:` de `EXTENDED_CAPABILITIES_REPORT`), `M114`, `M400`, el movimiento,
+    /// `M106/M107`, `M410` (parada rápida, encolada), `M112` (paro total hasta reiniciar), `M0`
+    /// ignorada (sin LCD ni `EMERGENCY_PARSER`) y las líneas numeradas con checksum
+    /// (`N<n> ... *<xor>`) con `Error:` y `Resend: n` ante un fallo. Sin `?`, `!`, `~` ni `$`.
+    /// Un comando desconocido da `echo:Unknown command` y `ok`.
+    ///
+    /// Inferido de la documentación (no de una placa): los textos exactos de `Error:`/`Resend:`
+    /// y que `G0` apague el láser en modo estándar hasta el siguiente `M3`.
     pub fn marlin() -> Self {
         Self {
             banner_connect: lines(&["start", "echo:Marlin 2.1.2.5"]),
             banner_reset: lines(&["start", "echo:Marlin 2.1.2.5"]),
             info: lines(&[
                 "FIRMWARE_NAME:Marlin 2.1.2.5 (Tlaku emulador) PROTOCOL_VERSION:1.0 MACHINE_TYPE:Laser EXTRUDER_COUNT:0",
+                "Cap:AUTOREPORT_POS:0",
+                "Cap:EMERGENCY_PARSER:0",
             ]),
             ..Self::reprap_base("Marlin 2.x (láser)", Family::Marlin, 255.0, 0)
         }
     }
 
+    /// Marlin con `EMERGENCY_PARSER`: `M410`/`M112`/`M108` actúan al instante y `M0` pausa.
+    pub fn marlin_emergency_parser() -> Self {
+        let mut p = Self::marlin();
+        p.name = "Marlin 2.x (láser, EMERGENCY_PARSER)".into();
+        p.info[2] = "Cap:EMERGENCY_PARSER:1".into();
+        p.emergency_parser = true;
+        p
+    }
+
+    /// Marlin heredado con el láser en el ventilador 1 (`M106 P1 S<n>` / `M107 P1`): `G0` no
+    /// lo apaga, de modo que el generador debe apagarlo antes de cada desplazamiento.
+    pub fn marlin_fan_laser() -> Self {
+        let mut p = Self::marlin();
+        p.name = "Marlin 2.x (láser en M106 P1)".into();
+        p.laser_fan = Some(1);
+        p
+    }
+
     /// Smoothieware con `laser_module` (`S` de 0 a 1): banner `Smoothie` (como lo ve LightBurn),
-    /// `ok` por línea, `M115`, `M114`, `M400`. Pendiente: el formato de respuesta a `?`
-    /// (no documentado), `M600/M601`, el módulo `switch`.
+    /// `ok` por línea, `M115`, `M114`, `M400`, `M112` (paro: `!!` hasta `M999`) y `?`.
+    ///
+    /// La respuesta a `?` es `<Idle,MPos:x,y,z,WPos:x,y,z>` (formato con comas de GRBL 0.9,
+    /// cuatro decimales), sin `ok`. **No está confirmada** por la documentación de Smoothie ni
+    /// por una máquina real: es el formato que recuerdan los emisores de la familia y hay que
+    /// contrastarlo. Pendiente: `M600/M601`, el módulo `switch`.
     pub fn smoothie() -> Self {
         Self {
             banner_connect: lines(&["Smoothie"]),
@@ -444,6 +483,8 @@ impl Profile {
             Self::fluidnc(),
             Self::grbl_lpc(),
             Self::marlin(),
+            Self::marlin_emergency_parser(),
+            Self::marlin_fan_laser(),
             Self::smoothie(),
         ]
     }

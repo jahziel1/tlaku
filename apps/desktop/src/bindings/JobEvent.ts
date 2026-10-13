@@ -8,4 +8,10 @@ export type JobEvent = { state: JobState,
 /**
  * Texto en español para mostrar al usuario.
  */
-message: string, };
+message: string, 
+/**
+ * El trabajo terminó con un reset (cancelación, error, falla) con la máquina posiblemente
+ * en movimiento: la posición puede haberse perdido y conviene hacer homing o fijar el
+ * origen de nuevo.
+ */
+position_lost: boolean, };

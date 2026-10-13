@@ -1,8 +1,11 @@
 import { Copy, Download, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { getApi } from '@/api';
 import type { DeviceProfile } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
+import { errorMessage } from '@/lib/errors';
 import {
+  applyKindChange,
   applyProposal,
   BAUD_RATES,
   duplicateDeviceProfile,
@@ -10,14 +13,22 @@ import {
   normalizeDevice,
   proposeFromSettings,
   sameDevice,
+  planKindChange,
   validateDevice,
+  validateDialect,
+  type DeviceKind,
   type DeviceProposal,
+  type KindChange,
+  type KindDefaults,
   type ProposalChange,
 } from '@/lib/device';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { Field, NumInput } from './DeviceFields';
-import { RotaryFields, ScanOffsetsTable, ZAxisField, type ScanIssue } from './DeviceExtras';
+import { DialectEditor } from './DeviceDialect';
+import { RotaryFields, ScanInitialOffsetField, ScanOffsetsTable, ZAxisField, type ScanIssue } from './DeviceExtras';
+import { KindChangeDialog, KindField } from './DeviceKindField';
+import { RotaryTest } from './DeviceRotaryTest';
 import { Modal } from './Modal';
 
 const ORIGINS: { id: DeviceProfile['origin']; label: I18nKey }[] = [
@@ -117,6 +128,7 @@ export function DeviceManager() {
   const setActiveDevice = useStore((s) => s.setActiveDevice);
   const setBaud = useStore((s) => s.setBaud);
   const readSettings = useStore((s) => s.readSettings);
+  const notify = useStore((s) => s.notify);
 
   const [draft, setDraft] = useState<DeviceProfile>(() => {
     const first = devices.find((d) => d.id === activeId) ?? devices[0];
@@ -129,11 +141,15 @@ export function DeviceManager() {
   /** Acción que espera a que el usuario decida qué hacer con los cambios sin guardar. */
   const [guard, setGuard] = useState<{ title: I18nKey; run: () => void } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** Cambio de tipo que espera confirmación porque aplicar sus valores pisaría campos del perfil. */
+  const [kindChange, setKindChange] = useState<{ defaults: KindDefaults; changes: KindChange[] } | null>(null);
 
   const saved = devices.find((d) => d.id === draft.id) ?? null;
   const dirty = isNew || !saved || !sameDevice(draft, normalizeDevice(saved));
   const issues = useMemo(() => validateDevice(draft), [draft]);
-  const invalid = Object.keys(issues).length > 0;
+  // El dialecto solo se edita (y por eso solo se valida) con «G-code personalizado».
+  const dialectIssues = useMemo(() => (draft.kind === 'custom_gcode' ? validateDialect(draft.dialect) : {}), [draft.kind, draft.dialect]);
+  const invalid = Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0;
   const isActive = draft.id === activeId;
 
   // Si la lista cambia desde fuera (otro borrado), el borrador sigue apuntando a un perfil que existe.
@@ -163,6 +179,27 @@ export function DeviceManager() {
       setProposal(null);
     });
 
+  /** Pide al motor los valores del tipo; si pisan algo del perfil, antes pregunta. */
+  const changeKind = async (kind: DeviceKind) => {
+    if (kind === draft.kind) return;
+    let defaults: KindDefaults;
+    try {
+      defaults = await getApi().deviceDefaults({ kind });
+    } catch (e) {
+      notify('error', t('devices.kind.err', { error: errorMessage(e) }));
+      return;
+    }
+    const changes = planKindChange(draft, defaults);
+    if (changes.length === 0) setDraft((d) => applyKindChange(d, defaults, false));
+    else setKindChange({ defaults, changes });
+  };
+  const finishKindChange = (applyValues: boolean) => {
+    if (!kindChange) return;
+    const { defaults } = kindChange;
+    setDraft((d) => applyKindChange(d, defaults, applyValues));
+    setKindChange(null);
+  };
+
   const save = async () => {
     if (invalid) return;
     setSaving(true);
@@ -188,6 +225,15 @@ export function DeviceManager() {
 
   const readBlocked = !connected ? t('reason.needMachine') : jobBusy ? t('reason.jobRunning') : null;
   const deleteBlocked = isNew ? t('machine.dev.notSaved') : devices.length <= 1 ? t('machine.dev.lastOne') : connected && isActive ? t('machine.dev.inUse') : null;
+
+  // La prueba de una vuelta se calcula con el perfil guardado y activo, no con el borrador.
+  const rotaryBlocked: I18nKey | null = dirty
+    ? 'devices.rotary.test.saveFirst'
+    : !isActive
+      ? 'devices.rotary.test.useFirst'
+      : issues.mm_per_rotation || issues.roller_diameter || issues.object_diameter
+        ? 'devices.rotary.test.invalid'
+        : null;
 
   const requestClose = () => afterGuard('machine.dev.discard', close);
 
@@ -272,13 +318,7 @@ export function DeviceManager() {
                 )}
               </Field>
               <div className="field-grid">
-                <Field label={t('machine.dev.kind')} help="machine.dev.kind.help">
-                  {({ id, describedBy }) => (
-                    <select id={id} className="select" value={draft.kind} aria-describedby={describedBy} onChange={(e) => edit({ kind: e.target.value as DeviceProfile['kind'] })}>
-                      <option value="grbl">GRBL</option>
-                    </select>
-                  )}
-                </Field>
+                <KindField kind={draft.kind} onChange={(k) => void changeKind(k)} />
                 <Field label={t('machine.dev.origin')} help="machine.dev.origin.help">
                   {({ id, describedBy }) => (
                     <select id={id} className="select" value={draft.origin} aria-describedby={describedBy} onChange={(e) => edit({ origin: e.target.value as DeviceProfile['origin'] })}>
@@ -321,6 +361,11 @@ export function DeviceManager() {
             </fieldset>
 
             <fieldset className="mc-group">
+              <legend>{t('devices.dialect.title')}</legend>
+              <DialectEditor draft={draft} edit={edit} issues={dialectIssues} />
+            </fieldset>
+
+            <fieldset className="mc-group">
               <legend>{t('machine.dev.group.motion')}</legend>
               <Field label={t('machine.dev.maxRate')} help="machine.dev.maxRate.help" error={issues.max_rate}>
                 {({ id, describedBy, invalid: bad }) => (
@@ -346,11 +391,14 @@ export function DeviceManager() {
             <fieldset className="mc-group">
               <legend>{t('machine.dev.group.axes')}</legend>
               <ZAxisField draft={draft} edit={edit} />
-              <RotaryFields draft={draft} edit={edit} issues={issues} />
+              <RotaryFields draft={draft} edit={edit} issues={issues}>
+                <RotaryTest draft={draft} blocked={rotaryBlocked} />
+              </RotaryFields>
             </fieldset>
 
             <fieldset className="mc-group">
               <legend>{t('machine.dev.group.scan')}</legend>
+              <ScanInitialOffsetField draft={draft} edit={edit} issues={issues} />
               <ScanOffsetsTable rows={draft.scan_offsets} error={issues.scan_offsets as ScanIssue | undefined} onChange={(rows) => edit({ scan_offsets: rows })} />
             </fieldset>
 
@@ -397,6 +445,16 @@ export function DeviceManager() {
         </div>
       </Modal>
 
+      {kindChange && (
+        <KindChangeDialog
+          draft={draft}
+          kind={kindChange.defaults.kind}
+          changes={kindChange.changes}
+          onApply={() => finishKindChange(true)}
+          onKindOnly={() => finishKindChange(false)}
+          onCancel={() => setKindChange(null)}
+        />
+      )}
       {guard && (
         <Modal
           title={t(guard.title)}

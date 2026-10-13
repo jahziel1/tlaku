@@ -1,10 +1,16 @@
 //! Envío de trabajos a GRBL 1.1 con conteo de caracteres, comandos en tiempo
-//! real y parser del reporte de estado.
+//! real y parser del reporte de estado; con un [`LinkProfile`] de Marlin o Smoothieware
+//! envía en ping-pong (una línea por `ok`).
 //!
 //! El conteo de caracteres lleva los bytes que cada línea ocupa en el búfer de
 //! recepción de la controladora y solo envía otra mientras quepa; cada `ok` o
 //! `error:N` libera la línea más antigua. Así el búfer se mantiene lleno sin
 //! desbordarse (a diferencia del modo "una línea por vez", que se entrecorta).
+//!
+//! Qué cambia entre familias (control de flujo, consulta de estado, pausa, cancelación, fin
+//! del trabajo, saludo de reinicio) lo decide el [`LinkProfile`]; `Streamer::new` usa el de
+//! GRBL y se comporta como siempre. Para otro firmware: [`Streamer::with_link`] o
+//! [`Streamer::for_device`].
 
 use std::collections::VecDeque;
 use std::fmt;
@@ -13,6 +19,12 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use tlaku_doc::DeviceProfile;
+
+use crate::link::{
+    CancelStyle, ControlAction, FinishDetection, FlowControl, LinkFamily, LinkProfile,
+    numbered_line,
+};
 use crate::serial::{LineReader, Transport};
 
 /// Espera máxima de cada lectura; acota la latencia de pausa, cancelación y sondeo.
@@ -280,6 +292,53 @@ impl StatusReport {
                 }
                 "Pn" => report.pins = Some(value.trim().to_string()),
                 "A" => report.accessories = Some(value.trim().to_string()),
+                _ => {}
+            }
+        }
+        Some(report)
+    }
+}
+
+impl StatusReport {
+    /// Interpreta el informe de estado con comas de GRBL 0.9 y de Smoothieware:
+    /// `<Idle,MPos:0.0000,0.0000,0.0000,WPos:0.0000,0.0000,0.0000>`. Solo trae estado y
+    /// posiciones. El formato de `?` de Smoothie no está confirmado por su documentación
+    /// (`dialectos-gcode.md`, 3.2, y 7 para GRBL 0.9): contrástalo con una máquina real.
+    pub fn parse_legacy(line: &str) -> Option<Self> {
+        let inner = line.trim().strip_prefix('<')?.strip_suffix('>')?;
+        let mut tokens = inner.split(',');
+        let (state, other_state) = parse_state(tokens.next()?, inner.contains(','))?;
+        let mut report = StatusReport {
+            state,
+            other_state,
+            mpos: None,
+            wpos: None,
+            wco: None,
+            buffer: None,
+            line_number: None,
+            feed: None,
+            spindle: None,
+            overrides: None,
+            pins: None,
+            accessories: None,
+        };
+        // Los valores sin clave pertenecen al campo `clave:` anterior.
+        let mut fields: Vec<(&str, Vec<&str>)> = Vec::new();
+        for t in tokens {
+            match t.split_once(':') {
+                Some((k, v)) => fields.push((k, vec![v])),
+                None => {
+                    if let Some(f) = fields.last_mut() {
+                        f.1.push(t);
+                    }
+                }
+            }
+        }
+        for (key, vals) in fields {
+            let pos = parse_position(&vals.join(","));
+            match key {
+                "MPos" => report.mpos = pos,
+                "WPos" => report.wpos = pos,
                 _ => {}
             }
         }
@@ -583,6 +642,18 @@ pub const CREALITY_RECOVERY: &str = "Corrige la causa y reinicia la máquina con
 /// queda nada. Falla con el carácter ofensor si queda uno que GRBL interpretaría
 /// como comando en tiempo real (`?`, `!`, `~`, no ASCII) o de control.
 pub fn prepare_line(raw: &str) -> Result<String, char> {
+    prepare_line_with(raw, true, true)
+}
+
+/// Como [`prepare_line`] para cualquier familia: `strip_spaces = false` conserva un espacio
+/// entre palabras (Marlin y Smoothie necesitan `M3 S0 I`, no `M3S0I`) y `reject_realtime =
+/// false` admite `?`, `!` y `~` (en Marlin no son comandos en tiempo real). Los caracteres no
+/// ASCII y de control siempre se rechazan.
+pub fn prepare_line_with(
+    raw: &str,
+    strip_spaces: bool,
+    reject_realtime: bool,
+) -> Result<String, char> {
     let mut out = String::with_capacity(raw.len());
     let mut in_paren = false;
     for c in raw.chars() {
@@ -590,11 +661,19 @@ pub fn prepare_line(raw: &str) -> Result<String, char> {
             ';' if !in_paren => break,
             '(' => in_paren = true,
             ')' => in_paren = false,
-            _ if in_paren || c.is_whitespace() => {}
-            '?' | '!' | '~' => return Err(c),
+            _ if in_paren => {}
+            _ if c.is_whitespace() => {
+                if !strip_spaces && !out.is_empty() && !out.ends_with(' ') {
+                    out.push(' ');
+                }
+            }
+            '?' | '!' | '~' if reject_realtime => return Err(c),
             _ if !c.is_ascii() || c.is_control() => return Err(c),
             _ => out.push(c),
         }
+    }
+    if out.ends_with(' ') {
+        out.pop();
     }
     Ok(out)
 }
@@ -642,7 +721,19 @@ struct Prepared {
     /// Escribe en la EEPROM: se envía sola y se espera su `ok` antes de seguir (ver
     /// [`writes_eeprom`]).
     sync: bool,
+    /// Línea del propio streamer (`M110 N0` de las líneas numeradas): no cuenta en el avance.
+    silent: bool,
 }
+
+/// Marca de las líneas pendientes que no son del trabajo (`M0`, `M108`, `M400` de cierre...):
+/// su `ok` libera el búfer pero no cuenta como avance.
+const EXTRA: usize = usize::MAX;
+
+/// Nota cuando se detuvo con una parada rápida (Marlin, Smoothie): no hay reinicio en caliente
+/// ni desaceleración controlada.
+pub const QUICK_STOP_NOTE: &str = "Se detuvo con una parada rápida (M410 en Marlin, M112 en \
+     Smoothie): los motores frenan sin desaceleración y la posición puede haberse perdido. Vuelve \
+     a fijar el origen o haz homing (G28) antes del siguiente trabajo.";
 
 /// ¿La línea (ya sin espacios ni comentarios) escribe en la EEPROM de la controladora? Son
 /// los ajustes `$x=valor` (incluidos `$Nx=`, `$I=` y `$RST=`) y los G-codes `G10`, `G28.1` y
@@ -733,6 +824,26 @@ pub struct StreamerConfig {
     pub hold_poll_interval: Duration,
     /// Máximo que se espera el saludo tras enviar el soft reset.
     pub reset_wait: Duration,
+}
+
+impl StreamerConfig {
+    /// Configuración para un enlace: el búfer RX de GRBL y el sondeo `?` solo con GRBL; en
+    /// Marlin y Smoothie no se sondea durante el trabajo.
+    pub fn for_link(link: &LinkProfile) -> Self {
+        let mut c = Self::default();
+        if let FlowControl::CharCounting { rx_buffer } = link.flow {
+            c.rx_buffer = rx_buffer;
+        }
+        if !link.polls_during_job() {
+            c.status_interval = None;
+        }
+        c
+    }
+
+    /// Configuración para un perfil de máquina (ver [`LinkProfile::for_device`]).
+    pub fn for_device(device: &DeviceProfile) -> Self {
+        Self::for_link(&LinkProfile::for_device(device))
+    }
 }
 
 impl Default for StreamerConfig {
@@ -861,6 +972,7 @@ impl<T: Transport> Job<T> {
 pub struct Streamer<T: Transport> {
     transport: T,
     config: StreamerConfig,
+    link: LinkProfile,
     cmd_tx: Sender<Command>,
     cmd_rx: Receiver<Command>,
     reader: LineReader,
@@ -898,19 +1010,52 @@ struct RunState {
     last_rx: Instant,
     /// Último estado informado por la máquina.
     last_state: Option<MachineState>,
+    /// Líneas propias del streamer al inicio del trabajo (no cuentan en el avance).
+    hidden: usize,
+    /// Ya se envió la orden de cierre (`M400`) y se espera su `ok`.
+    sync_sent: bool,
+    /// Tras un `Resend:` no se envía hasta el `ok` que lo acompaña (o hasta este instante).
+    resend_until: Option<Instant>,
+    /// Reenvíos seguidos sin ningún `ok` entre medias.
+    resends: u32,
 }
 
 impl<T: Transport> Streamer<T> {
+    /// Streamer GRBL (conteo de caracteres con `config.rx_buffer`, `?`, `!`, `~`, `0x18`).
     pub fn new(transport: T, config: StreamerConfig) -> Self {
+        let link = LinkProfile::grbl_with_buffer(config.rx_buffer);
+        Self::with_link(transport, config, link)
+    }
+
+    /// Streamer para el enlace dado (GRBL, Marlin o Smoothieware). El búfer sale de
+    /// `link.flow`; `config.rx_buffer` se ignora. Para Marlin y Smoothie conviene
+    /// [`StreamerConfig::for_link`].
+    pub fn with_link(transport: T, config: StreamerConfig, link: LinkProfile) -> Self {
         let (cmd_tx, cmd_rx) = mpsc::channel();
         Self {
             transport,
             config,
+            link,
             cmd_tx,
             cmd_rx,
             reader: LineReader::default(),
             stop: None,
         }
+    }
+
+    /// Streamer con el enlace y la configuración que corresponden al perfil de máquina
+    /// (`kind`, `dialect` y `rx_buffer`).
+    pub fn for_device(transport: T, device: &DeviceProfile) -> Self {
+        Self::with_link(
+            transport,
+            StreamerConfig::for_device(device),
+            LinkProfile::for_device(device),
+        )
+    }
+
+    /// Enlace en uso.
+    pub fn link(&self) -> &LinkProfile {
+        &self.link
     }
 
     /// Cómo se detuvo la máquina en el último trabajo, si hubo parada (cancelación, error con
@@ -935,16 +1080,30 @@ impl<T: Transport> Streamer<T> {
     }
 
     fn prepare<S: AsRef<str>>(&self, lines: &[S]) -> Result<Vec<Prepared>, StreamError> {
-        let max = self.config.rx_buffer;
+        let max = self.link.flow.max_line_len();
         let mut job = Vec::new();
+        // Con líneas numeradas, la primera fija el contador (`N0 M110 N0*cs`): así `N<n>` es el
+        // índice de la línea en `job` y un `Resend: n` apunta a ella sin cuentas.
+        if self.link.line_numbering.is_some() {
+            job.push(Prepared {
+                text: "M110 N0".into(),
+                source_line: 0,
+                sync: false,
+                silent: true,
+            });
+        }
         for (i, raw) in lines.iter().enumerate() {
             let source_line = i + 1;
-            let text = prepare_line(raw.as_ref())
-                .map_err(|ch| StreamError::InvalidChar { source_line, ch })?;
+            let text = prepare_line_with(
+                raw.as_ref(),
+                self.link.strip_spaces,
+                self.link.reject_realtime_chars,
+            )
+            .map_err(|ch| StreamError::InvalidChar { source_line, ch })?;
             if text.is_empty() {
                 continue;
             }
-            let len = text.len() + 1;
+            let len = self.wire_text_for(job.len(), &text).len() + 1;
             if len > max {
                 return Err(StreamError::LineTooLong {
                     source_line,
@@ -952,14 +1111,23 @@ impl<T: Transport> Streamer<T> {
                     max,
                 });
             }
-            let sync = writes_eeprom(&text);
+            let sync = self.link.eeprom_sync && writes_eeprom(&text);
             job.push(Prepared {
                 text,
                 source_line,
                 sync,
+                silent: false,
             });
         }
         Ok(job)
+    }
+
+    /// Lo que viaja por el cable (sin `\n`) para la línea `index` del trabajo.
+    fn wire_text_for(&self, index: usize, text: &str) -> String {
+        match self.link.line_numbering {
+            Some(n) => numbered_line(index, text, n),
+            None => text.to_string(),
+        }
     }
 
     /// Ejecuta el trabajo en el hilo actual hasta que termine, informando cada
@@ -1011,8 +1179,12 @@ impl<T: Transport> Streamer<T> {
             last_poll: None,
             last_rx: Instant::now(),
             last_state: None,
+            hidden: job.iter().take_while(|p| p.silent).count(),
+            sync_sent: false,
+            resend_until: None,
+            resends: 0,
         };
-        let outcome = if job.is_empty() {
+        let outcome = if job.len() == st.hidden {
             Outcome::Completed { errors: 0 }
         } else {
             loop {
@@ -1025,6 +1197,16 @@ impl<T: Transport> Streamer<T> {
         };
         emit(Event::Finished(outcome.clone()));
         outcome
+    }
+
+    /// Intervalo del sondeo `?` durante el trabajo: solo si el enlace consulta con un byte en
+    /// tiempo real (GRBL). En Marlin y Smoothie no hay sondeo.
+    fn polling(&self) -> Option<Duration> {
+        if self.link.polls_during_job() {
+            self.config.status_interval
+        } else {
+            None
+        }
     }
 
     /// Una vuelta del ciclo: mandos, envío, sondeo, lectura y comprobaciones de fin.
@@ -1040,19 +1222,31 @@ impl<T: Transport> Streamer<T> {
             }
         }
 
+        // Tras un `Resend:` se espera el `ok` que lo acompaña (con un tope de tiempo).
+        if st.resend_until.is_some_and(|t| Instant::now() >= t) {
+            st.resend_until = None;
+        }
         // Tras una línea que escribe en la EEPROM no se envía nada hasta su `ok`.
-        let blocked = st.pending.back().is_some_and(|&(i, _)| job[i].sync);
-        if !st.paused && !blocked && st.next < job.len() {
+        let blocked = st
+            .pending
+            .back()
+            .is_some_and(|&(i, _)| job.get(i).is_some_and(|p| p.sync));
+        if !st.paused && !blocked && st.resend_until.is_none() && st.next < job.len() {
             let mut batch = Vec::new();
             while let Some(line) = job.get(st.next) {
-                let len = line.text.len() + 1;
+                let wire = self.wire_text_for(st.next, &line.text);
+                let len = wire.len() + 1;
                 if line.sync && !st.pending.is_empty() {
                     break;
                 }
-                if st.used + len > self.config.rx_buffer {
+                let fits = match self.link.flow {
+                    FlowControl::CharCounting { rx_buffer } => st.used + len <= rx_buffer,
+                    FlowControl::Window { max_lines, .. } => st.pending.len() < max_lines.max(1),
+                };
+                if !fits {
                     break;
                 }
-                batch.extend_from_slice(line.text.as_bytes());
+                batch.extend_from_slice(wire.as_bytes());
                 batch.push(b'\n');
                 st.pending.push_back((st.next, len));
                 st.used += len;
@@ -1066,7 +1260,7 @@ impl<T: Transport> Streamer<T> {
             }
         }
 
-        let polling = self.config.status_interval;
+        let polling = self.polling();
         if let Some(interval) = polling
             && st.last_poll.is_none_or(|t| t.elapsed() >= interval)
         {
@@ -1086,16 +1280,15 @@ impl<T: Transport> Streamer<T> {
             }
         }
 
-        if st.acked == job.len() && (st.idle_seen || !(self.config.wait_idle && polling.is_some()))
-        {
-            return Ok(Some(Outcome::Completed { errors: st.errors }));
+        if let Some(outcome) = self.check_finished(job, st, polling.is_some())? {
+            return Ok(Some(outcome));
         }
         // `?` no se contesta durante el homing: con una línea `$H` sin responder se espera
         // `home_timeout` en lugar de `silence_timeout`.
         let homing = st
             .pending
             .iter()
-            .any(|&(i, _)| is_homing_line(&job[i].text));
+            .any(|&(i, _)| job.get(i).is_some_and(|p| is_homing_line(&p.text)));
         let allowance = if homing {
             self.config.home_timeout.max(self.config.silence_timeout)
         } else {
@@ -1109,6 +1302,74 @@ impl<T: Transport> Streamer<T> {
         Ok(None)
     }
 
+    /// ¿Terminó el trabajo? GRBL: todas las líneas respondidas y, con sondeo, estado `Idle`.
+    /// Marlin y Smoothie: todas respondidas y el `ok` de `M400` (los `ok` de los movimientos
+    /// llegan al encolarlos, no al ejecutarlos).
+    fn check_finished(
+        &mut self,
+        job: &[Prepared],
+        st: &mut RunState,
+        polling: bool,
+    ) -> io::Result<Option<Outcome>> {
+        if st.acked != job.len() {
+            return Ok(None);
+        }
+        match &self.link.finish {
+            FinishDetection::StatusIdle => {
+                if st.idle_seen || !(self.config.wait_idle && polling) {
+                    return Ok(Some(Outcome::Completed { errors: st.errors }));
+                }
+            }
+            FinishDetection::SyncCommand(cmd) => {
+                if !self.config.wait_idle
+                    || job.last().is_some_and(|l| l.text.eq_ignore_ascii_case(cmd))
+                {
+                    // O no se pide esperar el fin, o la última línea ya es la sincronización.
+                    return Ok(Some(Outcome::Completed { errors: st.errors }));
+                }
+                if !st.sync_sent {
+                    let cmd = cmd.clone();
+                    self.send_extra(&cmd, st)?;
+                    st.sync_sent = true;
+                } else if st.pending.is_empty() {
+                    return Ok(Some(Outcome::Completed { errors: st.errors }));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Envía una línea que no es del trabajo; su `ok` solo libera el búfer.
+    fn send_extra(&mut self, line: &str, st: &mut RunState) -> io::Result<()> {
+        let len = line.len() + 1;
+        self.transport.write_all(format!("{line}\n").as_bytes())?;
+        st.pending.push_back((EXTRA, len));
+        st.used += len;
+        Ok(())
+    }
+
+    /// Ejecuta pausa o reanudación del enlace: bytes en tiempo real, líneas auxiliares o
+    /// "dejar de enviar" (que ya hace `st.paused`).
+    fn run_actions(&mut self, actions: &[ControlAction], st: &mut RunState) -> io::Result<()> {
+        for a in actions {
+            match a {
+                ControlAction::Realtime(b) => self.transport.write_all(&[*b])?,
+                ControlAction::Line(l) => self.send_extra(l, st)?,
+                ControlAction::HostSide => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Detiene la máquina como corresponde al firmware: GRBL con feed hold y soft reset;
+    /// Marlin y Smoothie con su secuencia de parada rápida.
+    fn stop_machine(&mut self, st: &mut RunState, emit: &mut dyn FnMut(Event)) -> io::Result<()> {
+        match self.link.cancel.clone() {
+            CancelStyle::SafeStopReset => self.safe_stop(st, emit),
+            CancelStyle::Sequence(actions) => self.sequence_stop(&actions, st, emit),
+        }
+    }
+
     fn handle_command(
         &mut self,
         cmd: Command,
@@ -1117,27 +1378,106 @@ impl<T: Transport> Streamer<T> {
     ) -> io::Result<Option<Outcome>> {
         match cmd {
             Command::Pause if !st.paused => {
-                self.transport.write_all(&[Realtime::FeedHold.byte()])?;
+                let actions = self.link.pause.clone();
+                self.run_actions(&actions, st)?;
                 st.paused = true;
             }
             Command::Resume if st.paused => {
-                self.transport.write_all(&[Realtime::CycleStart.byte()])?;
+                let actions = self.link.resume.clone();
+                self.run_actions(&actions, st)?;
                 st.paused = false;
             }
             Command::Pause | Command::Resume => {}
             Command::Cancel => {
-                self.safe_stop(st, emit)?;
+                self.stop_machine(st, emit)?;
                 return Ok(Some(Outcome::Cancelled));
             }
             // Reset pedido a propósito por el usuario: sin esperar el fin del hold.
-            Command::Realtime(Realtime::SoftReset) => {
+            Command::Realtime(Realtime::SoftReset) if self.link.family == LinkFamily::Grbl => {
                 let stationary = st.last_state.is_some_and(MachineState::is_stationary);
                 self.reset(st, stationary, emit)?;
                 return Ok(Some(Outcome::Cancelled));
             }
+            // Marlin y Smoothie no tienen reinicio en caliente: se cancela con su secuencia.
+            Command::Realtime(Realtime::SoftReset) => {
+                self.stop_machine(st, emit)?;
+                return Ok(Some(Outcome::Cancelled));
+            }
+            // Overrides y demás bytes son de GRBL: en otro firmware serían basura en la línea.
+            Command::Realtime(_) if self.link.family != LinkFamily::Grbl => {}
             Command::Realtime(r) => self.transport.write_all(&[r.byte()])?,
         }
         Ok(None)
+    }
+
+    /// Parada de Marlin y Smoothie: se deja de enviar, se descarta lo pendiente y se manda la
+    /// secuencia del enlace (`M410` + apagado del láser; `M112` + `M999` + apagado). Tras cada
+    /// línea se espera un `ok` (el de lo pendiente, el suyo o ninguno si el firmware no
+    /// contesta, como tras `M112`): como mucho [`SEQUENCE_ACK_WAIT`] de silencio, y en total
+    /// [`StreamerConfig::hold_timeout`].
+    ///
+    /// Como no hay reinicio en caliente y las órdenes son líneas encoladas, el láser se apaga
+    /// con el comando del dialecto, no al detenerse el movimiento. La posición se da por
+    /// perdida: la parada rápida frena sin desaceleración.
+    fn sequence_stop(
+        &mut self,
+        actions: &[ControlAction],
+        st: &mut RunState,
+        emit: &mut dyn FnMut(Event),
+    ) -> io::Result<()> {
+        st.pending.clear();
+        st.used = 0;
+        st.last_state = None;
+        let deadline = Instant::now() + self.config.hold_timeout;
+        let mut buf = [0u8; 256];
+        let mut waiting = false;
+        let mut quiet_since = Instant::now();
+        let mut acked = false;
+        // Un paso más que las acciones: tras la última línea también se espera su respuesta.
+        for step in 0..=actions.len() {
+            if waiting {
+                // Espera un `ok` (o silencio) antes de mandar la siguiente.
+                while !acked
+                    && Instant::now() < deadline
+                    && quiet_since.elapsed() < SEQUENCE_ACK_WAIT
+                {
+                    let Ok(n) = self.transport.read_timeout(&mut buf, TICK) else {
+                        break;
+                    };
+                    if n > 0 {
+                        quiet_since = Instant::now();
+                    }
+                    self.reader.feed(&buf[..n]);
+                    while let Some(line) = self.reader.next_line() {
+                        if self.link.is_ack(&line) {
+                            acked = true;
+                        } else {
+                            emit(Event::Message(line));
+                        }
+                    }
+                }
+            }
+            let Some(a) = actions.get(step) else { break };
+            match a {
+                ControlAction::Realtime(b) => self.transport.write_all(&[*b])?,
+                ControlAction::Line(l) => {
+                    self.transport.write_all(format!("{l}\n").as_bytes())?;
+                    waiting = true;
+                    acked = false;
+                    quiet_since = Instant::now();
+                }
+                ControlAction::HostSide => {}
+            }
+        }
+        self.reader.clear();
+        let _ = self.transport.clear_input();
+        emit(Event::Message(format!("; {QUICK_STOP_NOTE}")));
+        self.stop = Some(StopInfo {
+            settled: false,
+            position_maybe_lost: true,
+            alarm: None,
+        });
+        Ok(())
     }
 
     /// Detiene la máquina sin perder la posición: feed hold, consulta `?` hasta ver que
@@ -1256,18 +1596,33 @@ impl<T: Transport> Streamer<T> {
         st: &mut RunState,
         emit: &mut dyn FnMut(Event),
     ) -> io::Result<Option<Outcome>> {
+        // Las líneas propias del streamer (`M110 N0`) no cuentan en el avance.
+        let hidden = st.hidden;
         let progress = |st: &RunState| Event::Progress {
-            acked: st.acked,
-            sent: st.next,
-            total: job.len(),
+            acked: st.acked.saturating_sub(hidden),
+            sent: st.next.saturating_sub(hidden),
+            total: job.len() - hidden,
             buffer_used: st.used,
         };
-        if line == "ok" {
-            if let Some((_, len)) = st.pending.pop_front() {
-                st.used -= len;
-                st.acked += 1;
-                emit(progress(st));
+        if self.link.is_ack(line) {
+            // El `ok` que acompaña a un `Resend:` no confirma ninguna línea.
+            if st.resend_until.take().is_some() {
+                return Ok(None);
             }
+            st.resends = 0;
+            if let Some((idx, len)) = st.pending.pop_front() {
+                st.used -= len;
+                if idx != EXTRA {
+                    st.acked += 1;
+                    if !job[idx].silent {
+                        emit(progress(st));
+                    }
+                }
+            }
+        } else if self.link.family == LinkFamily::Marlin
+            && let Some(outcome) = self.handle_marlin_line(line, job, st, emit)
+        {
+            return Ok(outcome);
         } else if let Some(code) = line.strip_prefix("error:") {
             // Minúsculas: el `error:N` de GRBL. El `ERROR:NN` de Creality va más abajo.
             let Ok(code) = code.trim().parse::<u32>() else {
@@ -1283,6 +1638,15 @@ impl<T: Transport> Streamer<T> {
                 return Ok(None);
             };
             st.used -= len;
+            if idx == EXTRA {
+                // Una línea auxiliar (`M0`, `M400`...) rechazada: no es del trabajo.
+                emit(Event::Error {
+                    code,
+                    source_line: None,
+                    text: None,
+                });
+                return Ok(None);
+            }
             st.acked += 1;
             st.errors += 1;
             let source_line = job[idx].source_line;
@@ -1294,7 +1658,7 @@ impl<T: Transport> Streamer<T> {
             emit(progress(st));
             if self.config.error_policy == ErrorPolicy::Stop {
                 // La máquina sigue ejecutando lo que ya tiene en el búfer: se detiene.
-                self.safe_stop(st, emit)?;
+                self.stop_machine(st, emit)?;
                 return Ok(Some(Outcome::LineError { code, source_line }));
             }
         } else if let Some(code) = parse_creality_error(line) {
@@ -1302,7 +1666,7 @@ impl<T: Transport> Streamer<T> {
                 "ERROR:{code:02}: {}",
                 creality_error_message(code)
             )));
-            self.safe_stop(st, emit)?;
+            self.stop_machine(st, emit)?;
             return Ok(Some(Outcome::MachineFault(code)));
         } else if let Some(code) = line.strip_prefix("ALARM:") {
             if let Ok(code) = code.trim().parse::<u32>() {
@@ -1321,7 +1685,7 @@ impl<T: Transport> Streamer<T> {
                 }
                 None => emit(Event::Message(line.to_string())),
             }
-        } else if is_greeting(line) {
+        } else if self.link.is_reset_banner(line) {
             emit(Event::Reset(line.to_string()));
             return Ok(Some(Outcome::Reset(line.to_string())));
         } else {
@@ -1329,7 +1693,69 @@ impl<T: Transport> Streamer<T> {
         }
         Ok(None)
     }
+
+    /// Líneas propias de Marlin: `Resend: N` (reenvía desde la línea N) y `Error:...`.
+    /// `None` = no es una de ellas; `Some(resultado)` = atendida (con el resultado de
+    /// `handle_line`).
+    fn handle_marlin_line(
+        &mut self,
+        line: &str,
+        job: &[Prepared],
+        st: &mut RunState,
+        emit: &mut dyn FnMut(Event),
+    ) -> Option<Option<Outcome>> {
+        let low = line.to_ascii_lowercase();
+        if let Some(rest) = low.strip_prefix("resend:") {
+            let Some(n) = rest
+                .trim()
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| self.link.line_numbering.is_some() && n < job.len())
+            else {
+                emit(Event::Message(line.to_string()));
+                return Some(None);
+            };
+            st.resends += 1;
+            if st.resends > MAX_RESENDS {
+                return Some(Some(Outcome::Disconnected(format!(
+                    "el enlace pierde líneas: la {n} se reenvió {MAX_RESENDS} veces sin éxito \
+                     (cable, baudios o ruido)"
+                ))));
+            }
+            emit(Event::Message(line.to_string()));
+            // Marlin descarta lo que tuviera en cola desde esa línea: se vuelve a enviar todo.
+            st.pending.clear();
+            st.used = 0;
+            st.next = n;
+            st.acked = st.acked.min(n);
+            // El `ok` que sigue al `Resend:` no confirma nada; si no llega, se sigue pasado un rato.
+            st.resend_until = Some(Instant::now() + RESEND_WAIT);
+            return Some(None);
+        }
+        if low.starts_with("error:") {
+            // Una parada total (`M112`, `kill()`) no se recupera sin reiniciar la placa.
+            if low.contains("halted") || low.contains("kill()") {
+                emit(Event::Message(line.to_string()));
+                return Some(Some(Outcome::Reset(line.to_string())));
+            }
+            // Los demás (`checksum mismatch`, `Line Number is not Last Line Number+1`) van
+            // seguidos de `Resend:`; se informan sin más.
+            emit(Event::Message(line.to_string()));
+            return Some(None);
+        }
+        None
+    }
 }
+
+/// Silencio tras el que, al cancelar en Marlin o Smoothie, se sigue con la siguiente orden de
+/// la secuencia aunque la anterior no haya contestado (`M112` no contesta).
+const SEQUENCE_ACK_WAIT: Duration = Duration::from_millis(300);
+
+/// Reenvíos seguidos de una línea (sin un `ok` entre medias) tras los que se abandona.
+const MAX_RESENDS: u32 = 8;
+
+/// Cuánto se espera el `ok` posterior a un `Resend:` antes de reenviar de todos modos.
+const RESEND_WAIT: Duration = Duration::from_millis(500);
 
 /// ¿Es el saludo de la controladora (`Grbl 1.1h [...]`, `GrblHAL ...`)? Compara bytes: el
 /// texto puede traer `U+FFFD` por errores de transmisión (CH340, cables con ruido) y cortarlo
@@ -1420,6 +1846,105 @@ mod tests {
         assert_eq!(prepare_line("G1\u{18}"), Err('\u{18}'));
     }
 
+    #[test]
+    fn prepare_line_with_keeps_single_spaces_for_reprap_firmwares() {
+        assert_eq!(
+            prepare_line_with("  M3   S0 I ; láser", false, false).unwrap(),
+            "M3 S0 I"
+        );
+        assert_eq!(
+            prepare_line_with("G1 (c) X1  Y2", false, false).unwrap(),
+            "G1 X1 Y2"
+        );
+        assert_eq!(prepare_line_with("   ", false, false).unwrap(), "");
+        // Marlin admite `?` y `!`; Smoothie y GRBL los rechazan.
+        assert_eq!(
+            prepare_line_with("M117 Hola!", false, false).unwrap(),
+            "M117 Hola!"
+        );
+        assert_eq!(prepare_line_with("M117 Hola!", false, true), Err('!'));
+        // Lo no ASCII se rechaza siempre.
+        assert_eq!(prepare_line_with("M117 é", false, false), Err('é'));
+        // Con `strip_spaces` es el de GRBL.
+        assert_eq!(
+            prepare_line_with("G1 X1", true, true).unwrap(),
+            prepare_line("G1 X1").unwrap()
+        );
+    }
+
+    /// Lee lo que llegue al extremo de la máquina en `ms` milisegundos.
+    fn read_for(dev: &mut crate::serial::MemoryTransport, ms: u64) -> String {
+        let mut out = Vec::new();
+        let mut buf = [0u8; 256];
+        let end = Instant::now() + Duration::from_millis(ms);
+        while Instant::now() < end {
+            let n = dev
+                .read_timeout(&mut buf, Duration::from_millis(5))
+                .unwrap();
+            out.extend_from_slice(&buf[..n]);
+        }
+        String::from_utf8(out).unwrap()
+    }
+
+    #[test]
+    fn ping_pong_sends_one_line_per_ok_and_closes_with_m400() {
+        use tlaku_doc::GcodeDialect;
+        let (host, mut dev) = memory_pair();
+        let link = LinkProfile::marlin(&GcodeDialect::marlin_inline());
+        let cfg = StreamerConfig::for_link(&link);
+        assert_eq!(cfg.status_interval, None);
+        let job = Streamer::with_link(host, cfg, link)
+            .spawn(&["G90", "G21 ; mm", "", "M3 S0 I"])
+            .unwrap();
+        assert_eq!(read_for(&mut dev, 60), "G90\n");
+        // `ok` con texto (ADVANCED_OK) vale; `echo:` y `busy:` no cuentan.
+        dev.write_all(b"echo:busy: processing\r\nok N0 P15 B3\r\n")
+            .unwrap();
+        assert_eq!(read_for(&mut dev, 60), "G21\n");
+        dev.write_all(b"ok\r\n").unwrap();
+        assert_eq!(read_for(&mut dev, 60), "M3 S0 I\n");
+        dev.write_all(b"ok\r\n").unwrap();
+        // Todas respondidas: cierra con M400 y espera su ok.
+        assert_eq!(read_for(&mut dev, 60), "M400\n");
+        assert!(job.events.recv_timeout(Duration::from_millis(1)).is_ok());
+        dev.write_all(b"ok\r\n").unwrap();
+        let (_, out) = job.join().unwrap();
+        assert_eq!(out, Outcome::Completed { errors: 0 });
+    }
+
+    #[test]
+    fn ping_pong_pause_resume_cancel_use_the_link_actions() {
+        use tlaku_doc::GcodeDialect;
+        let (host, mut dev) = memory_pair();
+        let link = LinkProfile::marlin(&GcodeDialect::marlin_inline());
+        let mut cfg = StreamerConfig::for_link(&link);
+        cfg.hold_timeout = Duration::from_millis(500);
+        let job = Streamer::with_link(host, cfg, link)
+            .spawn(&["G90", "G21", "G0 X1"])
+            .unwrap();
+        assert_eq!(read_for(&mut dev, 60), "G90\n");
+        job.control.pause();
+        dev.write_all(b"ok\r\n").unwrap();
+        // En pausa no se envía la siguiente, y no se escribe `!`.
+        assert_eq!(read_for(&mut dev, 80), "");
+        job.control.resume();
+        assert_eq!(read_for(&mut dev, 60), "G21\n");
+        job.control.cancel();
+        dev.write_all(b"ok\r\nok\r\nok\r\n").unwrap();
+        let (streamer, out) = job.join().unwrap();
+        assert_eq!(out, Outcome::Cancelled);
+        assert_eq!(read_for(&mut dev, 20), "M410\nM5\n");
+        let stop = streamer.last_stop().unwrap();
+        assert!(stop.position_maybe_lost);
+    }
+
+    #[test]
+    fn grbl_link_from_new_matches_the_config_buffer() {
+        let s = streamer(200);
+        assert_eq!(s.link().flow, FlowControl::CharCounting { rx_buffer: 200 });
+        assert_eq!(s.link().family, LinkFamily::Grbl);
+    }
+
     fn streamer(rx_buffer: usize) -> Streamer<crate::serial::MemoryTransport> {
         let (host, _dev) = memory_pair();
         let config = StreamerConfig {
@@ -1492,6 +2017,24 @@ mod tests {
             StatusReport::parse("<Hold|MPos:0,0,0>").unwrap().state,
             MachineState::Hold(None)
         );
+    }
+
+    #[test]
+    fn legacy_comma_report_parses_state_and_positions() {
+        let r = StatusReport::parse_legacy(
+            "<Idle,MPos:1.5000,2.0000,0.0000,WPos:1.0000,2.0000,0.0000>",
+        )
+        .unwrap();
+        assert_eq!(r.state, MachineState::Idle);
+        assert_eq!(r.mpos.unwrap().x, 1.5);
+        assert_eq!(r.wpos.unwrap().y, 2.0);
+        let r = StatusReport::parse_legacy("<Run,MPos:0,0,0>").unwrap();
+        assert_eq!(r.state, MachineState::Run);
+        assert_eq!(r.wpos, None);
+        assert!(StatusReport::parse_legacy("<Nope>").is_none());
+        assert!(StatusReport::parse_legacy("ok").is_none());
+        // El informe de GRBL 1.1 no es de este formato.
+        assert!(StatusReport::parse_legacy("<Idle|MPos:0,0,0>").is_none());
     }
 
     #[test]

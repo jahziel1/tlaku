@@ -11,7 +11,7 @@
 //! - coordenadas dentro de la cama;
 //! - ninguna escritura de memoria (`DA 01`) salvo permiso explícito.
 
-use crate::cmd::{self, Command};
+use crate::cmd::{self, Command, RapidRef};
 use crate::num;
 use std::fmt;
 use tlaku_core::toolpath::{Move, Toolpath};
@@ -234,18 +234,29 @@ pub fn check_commands(
     limits: &SafetyLimits,
     allow_memory_write: bool,
 ) -> Result<(), SafetyError> {
+    check_commands_at(cmds, limits, allow_memory_write, (0, 0))
+}
+
+/// Como [`check_commands`] pero con la posición inicial del cabezal (µm, sistema de la máquina):
+/// los saltos y movimientos relativos se suman a ella.
+pub fn check_commands_at(
+    cmds: &[Command],
+    limits: &SafetyLimits,
+    allow_memory_write: bool,
+    start: (i64, i64),
+) -> Result<(), SafetyError> {
     limits.validate()?;
     let bed_um = [
         (limits.bed_mm[0] * 1000.0).round() as i64,
         (limits.bed_mm[1] * 1000.0).round() as i64,
     ];
     let max_um_s = limits.max_speed_mm_min * 1000.0 / 60.0;
-    let (mut x, mut y) = (0i64, 0i64);
+    let (mut x, mut y) = start;
     let in_bed = |x: i64, y: i64| x >= 0 && y >= 0 && x <= bed_um[0] && y <= bed_um[1];
     let check_pow = |index: usize, raw: u16| {
         let pct = num::power_to_pct(raw);
-        // Un paso de la escala (0,006 %) de tolerancia: el 100 % satura a 16383.
-        if pct > limits.max_power_pct + 100.0 / 16384.0 {
+        // Un paso de la escala (0,006 %) de tolerancia: el 100 % es 16383.
+        if pct > limits.max_power_pct + 100.0 / 16383.0 {
             Err(SafetyError::StreamPower {
                 index,
                 pct,
@@ -274,9 +285,46 @@ pub fn check_commands(
             }
             Command::MoveRelX(d) | Command::CutRelX(d) => (x + i64::from(*d), y),
             Command::MoveRelY(d) | Command::CutRelY(d) => (x, y + i64::from(*d)),
-            Command::LaserPower { raw, .. } | Command::LayerPower { raw, .. } => {
+            Command::RapidXY {
+                rel: RapidRef::Machine,
+                x,
+                y,
+            } => (*x, *y),
+            Command::RapidXY {
+                rel: RapidRef::Current,
+                x: dx,
+                y: dy,
+            } => (x + dx, y + dy),
+            Command::RapidX {
+                rel: RapidRef::Machine,
+                v,
+            } => (*v, y),
+            Command::RapidX {
+                rel: RapidRef::Current,
+                v,
+            } => (x + v, y),
+            Command::RapidY {
+                rel: RapidRef::Machine,
+                v,
+            } => (x, *v),
+            Command::RapidY {
+                rel: RapidRef::Current,
+                v,
+            } => (x, y + v),
+            Command::LaserPower { raw, .. }
+            | Command::LayerPower { raw, .. }
+            | Command::ImmPower(raw)
+            | Command::EndPower(raw) => {
                 check_pow(i, *raw)?;
                 (x, y)
+            }
+            // Un salto `D9` que no es de los conocidos puede llevar el bit del haz de luz
+            // (dispara el láser): nunca se envía.
+            Command::Unknown { op: 0xD9, .. } => {
+                return Err(SafetyError::ForbiddenCommand {
+                    index: i,
+                    what: "un salto D9 con opciones desconocidas (puede encender el láser)".into(),
+                });
             }
             Command::Speed(v) | Command::LayerSpeed { um_s: v, .. } => {
                 check_speed(i, *v)?;

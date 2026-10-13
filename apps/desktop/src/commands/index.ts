@@ -1,6 +1,7 @@
 import { useStore } from '@/store';
 import { arrangeCommands } from './definitions/arrange';
 import { cameraCommands } from './definitions/camera';
+import { deviceCommands } from './definitions/devices';
 import { editCommands } from './definitions/edit';
 import { fileCommands } from './definitions/file';
 import { layerCommands } from './definitions/layers';
@@ -29,6 +30,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...toolCommands,
   ...viewCommands,
   ...machineCommands,
+  ...deviceCommands,
   ...panelCommands,
   ...layerCommands,
   ...previewCommands,

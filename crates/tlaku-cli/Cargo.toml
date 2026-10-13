@@ -18,6 +18,10 @@ tlaku-ruida = { version = "0.1.0", path = "../tlaku-ruida" }
 tlaku-sim = { version = "0.1.0", path = "../tlaku-sim" }
 tlaku-svg = { version = "0.1.0", path = "../tlaku-svg" }
 
+[dev-dependencies]
+# El emulador de controladora Ruida (UDP en localhost) es solo para pruebas.
+tlaku-ruida = { version = "0.1.0", path = "../tlaku-ruida", features = ["emu"] }
+
 [lib]
 name = "tlaku_cli"
 path = "src/lib.rs"

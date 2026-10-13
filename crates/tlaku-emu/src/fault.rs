@@ -55,6 +55,10 @@ pub enum Fault {
     NanOffsets { in_status: bool },
     /// Cambia el terminador de las respuestas (`\r\n` o solo `\n`).
     LineEnding(LineEnding),
+    /// Un byte de la línea que dispara la falla llega alterado (ruido en el cable). En Marlin con
+    /// líneas numeradas el checksum falla: `Error:checksum mismatch` y `Resend: n`. Requiere
+    /// `Trigger::Line`.
+    CorruptLine,
 }
 
 /// Falla programada.

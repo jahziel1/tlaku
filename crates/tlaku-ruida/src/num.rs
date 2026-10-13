@@ -24,8 +24,10 @@ pub const WIDE_LEN: usize = 5;
 
 /// Potencia máxima representable (14 bits).
 pub const POWER_MAX_RAW: u16 = 0x3FFF;
-/// Valores distintos de potencia (2^14): 100 % corresponde a este valor, que se satura.
-const POWER_STEPS: f64 = 16384.0;
+/// Valor crudo del 100 %. La escala es `% * 16383 / 100` truncada: así lo escribe RDWorks en
+/// archivos reales (ruida.md sección 4.2, comprobado con 72 pares porcentaje-valor; con 16384 o
+/// con redondeo al más cercano no coincide) y MeerK40t usa el mismo 16383.
+const POWER_STEPS: f64 = 16383.0;
 
 pub const ABS_MAX: i64 = (1 << 34) - 1;
 pub const ABS_MIN: i64 = -(1 << 34);
@@ -195,8 +197,9 @@ pub fn color_to_rgb(color: u64) -> (u8, u8, u8) {
     )
 }
 
-/// Porcentaje (0 a 100) a potencia cruda: `round(p * 16384 / 100)`. El 100 % da 16384 y se
-/// satura a 0x3FFF a propósito (único caso en que se satura). Fuera de 0..=100 es un error.
+/// Porcentaje (0 a 100) a potencia cruda: `trunc(p * 16383 / 100)`; el 100 % da 0x3FFF. Fuera de
+/// 0..=100 es un error. Truncar (no redondear) coincide con los archivos de RDWorks y nunca
+/// supera el porcentaje pedido.
 pub fn power_from_pct(pct: f64) -> Result<u16, NumError> {
     if !pct.is_finite() {
         return Err(NumError::NotFinite { what: "potencia" });
@@ -207,7 +210,8 @@ pub fn power_from_pct(pct: f64) -> Result<u16, NumError> {
             value: pct.to_string(),
         });
     }
-    let raw = (pct * POWER_STEPS / 100.0).round();
+    // 1e-9: evita que un resultado exacto (p. ej. 100 %) caiga por error de coma flotante.
+    let raw = (pct * POWER_STEPS / 100.0 + 1e-9).floor();
     Ok((raw as u32).min(u32::from(POWER_MAX_RAW)) as u16)
 }
 
@@ -273,12 +277,13 @@ mod tests {
 
     #[test]
     fn vector_v4_power() {
-        // 2457 -> 13 19 (c631 00 1319) = 14,996 %.
+        // 2457 -> 13 19 (c631 00 1319). Es el 15 % de la escala 16383 (EduTech lo leía como
+        // 14,996 % con 16384).
         let b = enc(|o| encode_power(2457, o));
         assert_eq!(b, [0x13, 0x19]);
         assert_eq!(decode_power(&b).unwrap(), 2457);
-        assert_eq!(power_from_pct(14.996).unwrap(), 2457);
-        assert!((power_to_pct(2457) - 14.996).abs() < 1e-3);
+        assert_eq!(power_from_pct(15.0).unwrap(), 2457);
+        assert!((power_to_pct(2457) - 15.0).abs() < 5e-3);
     }
 
     #[test]
@@ -359,7 +364,18 @@ mod tests {
     fn power_pct_edges() {
         assert_eq!(power_from_pct(0.0).unwrap(), 0);
         assert_eq!(power_from_pct(100.0).unwrap(), POWER_MAX_RAW);
-        assert_eq!(power_from_pct(50.0).unwrap(), 8192);
+        assert_eq!(power_from_pct(50.0).unwrap(), 8191);
+        // Pares porcentaje -> bytes del cable que escribe RDWorks (solo como referencia,
+        // ruida.md 4.2): 1 % = 01 23, 2 % = 02 47, 69 % = 58 28, 99 % = 7E 5B.
+        for (pct, bytes) in [
+            (1.0, [0x01, 0x23]),
+            (2.0, [0x02, 0x47]),
+            (69.0, [0x58, 0x28]),
+            (99.0, [0x7E, 0x5B]),
+        ] {
+            let raw = power_from_pct(pct).unwrap();
+            assert_eq!(enc(|o| encode_power(raw, o)), bytes, "{pct} %");
+        }
         assert!(power_from_pct(100.0001).is_err());
         assert!(power_from_pct(-0.1).is_err());
         assert!(power_from_pct(f64::NAN).is_err());

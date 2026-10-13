@@ -26,6 +26,7 @@ export function createTauriApi(): LaserApi {
     saveDevice: (a) => call('saveDevice', a),
     deleteDevice: (a) => call('deleteDevice', a),
     listPorts: () => call('listPorts'),
+    probePort: (a) => call('probePort', a),
     connect: (a) => call('connect', a),
     disconnect: () => call('disconnect'),
     machineCommand: (a) => call('machineCommand', a),
@@ -36,6 +37,7 @@ export function createTauriApi(): LaserApi {
     resumeJob: () => call('resumeJob'),
     cancelJob: () => call('cancelJob'),
     frameJob: (a) => call('frameJob', a),
+    simulateFault: (a) => call('simulateFault', a),
     listFonts: () => call('listFonts'),
     textOutline: (a) => call('textOutline', a),
     geometryOp: (a) => call('geometryOp', a),
@@ -52,6 +54,8 @@ export function createTauriApi(): LaserApi {
     importMaterialLibrary: (a) => call('importMaterialLibrary', a),
     exportMaterialLibrary: (a) => call('exportMaterialLibrary', a),
     materialTest: (a) => call('materialTest', a),
+    deviceDefaults: (a) => call('deviceDefaults', a),
+    rotaryTest: (a) => call('rotaryTest', a),
     on: (event, handler) => listen(event, (e) => handler(e.payload as never)),
   };
 }

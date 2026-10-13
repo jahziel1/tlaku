@@ -1,3 +1,4 @@
+import type { DeviceKind } from '@/bindings/DeviceKind';
 import type {
   ConnectResult,
   DeviceProfile,
@@ -9,6 +10,7 @@ import type {
   JobArgs,
   JobPreview,
   RealtimeCommand,
+  SimulatedFault,
 } from './types';
 import type {
   BezPath,
@@ -27,6 +29,23 @@ import type {
 } from './types';
 
 export type Unlisten = () => void;
+
+/** Familia de firmware que reconoce `probe_port`. */
+export type ProbeFamily = 'grbl' | 'grbl_hal' | 'fluid_nc' | 'grbl_lpc' | 'marlin' | 'smoothie' | 'unknown';
+
+/** Resultado de `probe_port`: lo que dijo la placa al abrir el puerto y a `$I`, `$$` o `M115`. */
+export interface ProbeResult {
+  family: ProbeFamily;
+  /** Nombre y versión legibles; vacío si no se supo. */
+  firmware: string;
+  /** Todo lo que la placa dijo al abrir el puerto, una línea por renglón. */
+  banner: string;
+  /** Respuesta de `$I` o `M115`, sin el `ok` final. */
+  info: string[];
+  /** Ajustes de `$$` con su `$` (`"$30"` -> `"1000"`); null fuera de la familia GRBL o si no contestó. */
+  settings: Record<string, string> | null;
+  suggested_kind: DeviceKind;
+}
 
 /**
  * Contrato único entre la interfaz y el motor (docs/app-api.md).
@@ -53,6 +72,12 @@ export interface LaserApi {
 
   // Máquina
   listPorts(): Promise<string[]>;
+  /**
+   * Detecta la controladora de un puerto sin moverla ni configurarla: escucha el saludo y, como
+   * máximo, envía `?`, `0x18` (solo si no hubo saludo), `$I`, `$$` y `M115`. Los puertos
+   * `virtual:<modelo>` los atiende el emulador. Falla con un mensaje en español si no abre.
+   */
+  probePort(args: { port: string; baud: number }): Promise<ProbeResult>;
   connect(args: { port: string; baud: number }): Promise<ConnectResult>;
   disconnect(): Promise<void>;
   /**
@@ -74,6 +99,8 @@ export interface LaserApi {
   cancelJob(): Promise<void>;
   /** Encuadre con el láser apagado; mismas comprobaciones de estado que `startJob`. */
   frameJob(args: JobArgs & { speed: number }): Promise<void>;
+  /** Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión...). Falla con una máquina real. */
+  simulateFault(args: { fault: SimulatedFault }): Promise<void>;
 
   // Edición (fase 3)
   listFonts(): Promise<FontFamily[]>;
@@ -124,6 +151,15 @@ export interface LaserApi {
   /** Documento con la cuadrícula de prueba (una capa por celda más la de rótulos). */
   materialTest(args: { params: MaterialTestParams }): Promise<Document>;
 
+  // Perfiles de dispositivo (fase 4)
+  /** Perfil de partida de un tipo de controladora (dialecto, `s_max`, modo de potencia y baudios): `DeviceProfile::for_kind`. */
+  deviceDefaults(args: { kind: DeviceProfile['kind'] }): Promise<DeviceProfile>;
+  /**
+   * Prueba de una vuelta del rotativo: un documento con una línea de exactamente una circunferencia
+   * de la pieza. `speed` en mm/min y `power` en %. Falla si el rotativo del perfil está apagado.
+   */
+  rotaryTest(args: { device: DeviceProfile; speed: number; power: number }): Promise<Document>;
+
   /** Suscripción a eventos `machine://*`. Devuelve la función para cancelar. */
   on<K extends EventName>(event: K, handler: (payload: EventMap[K]) => void): Promise<Unlisten>;
 }
@@ -140,6 +176,7 @@ export const COMMAND_NAMES = {
   saveDevice: 'save_device',
   deleteDevice: 'delete_device',
   listPorts: 'list_ports',
+  probePort: 'probe_port',
   connect: 'connect',
   disconnect: 'disconnect',
   machineCommand: 'machine_command',
@@ -150,6 +187,7 @@ export const COMMAND_NAMES = {
   resumeJob: 'resume_job',
   cancelJob: 'cancel_job',
   frameJob: 'frame_job',
+  simulateFault: 'simulate_fault',
   listFonts: 'list_fonts',
   textOutline: 'text_outline',
   geometryOp: 'geometry_op',
@@ -166,6 +204,8 @@ export const COMMAND_NAMES = {
   importMaterialLibrary: 'import_material_library',
   exportMaterialLibrary: 'export_material_library',
   materialTest: 'material_test',
+  deviceDefaults: 'device_defaults',
+  rotaryTest: 'rotary_test',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [

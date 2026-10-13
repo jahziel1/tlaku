@@ -1,5 +1,5 @@
 import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
-import { DEFAULT_DIALECT, DEFAULT_ROTARY } from '@/lib/device';
+import { DEFAULT_ROTARY, dialectForKind } from '@/lib/device';
 import { shapes, translation } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { DesignObject, DeviceProfile, Document, LayerSettings } from '../types';
@@ -89,26 +89,29 @@ export function sampleDocument(): Document {
 
 export function sampleDevices(): DeviceProfile[] {
   return [
+    // Falcon2 22 W según docs/hardware/falcon2.md, sección 7 ("Perfil recomendado"). Las
+    // aceleraciones son las seguras hasta leer $120/$121 de la máquina; el rotativo es el mandril
+    // del Creality Rotary (40 mm por vuelta), apagado.
     {
       id: 'falcon2-22w',
       name: 'Falcon2 22 W',
       kind: 'grbl',
-      dialect: { ...DEFAULT_DIALECT },
+      dialect: dialectForKind('grbl'),
       bed: [400, 415],
       origin: 'bottom_left',
       s_max: 1000,
       power_mode: 'dynamic',
-      accel: [3000, 3000],
-      max_rate: [30000, 30000],
-      rapid_rate: 12000,
+      accel: [1000, 1000],
+      max_rate: [25000, 25000],
+      rapid_rate: 25000,
       baud: 115200,
       rx_buffer: 127,
       start_gcode: '',
-      end_gcode: 'M5',
+      end_gcode: '',
       return_to_origin: true,
       z_axis: false,
       z_invert: false,
-      rotary: { ...DEFAULT_ROTARY },
+      rotary: { ...DEFAULT_ROTARY, kind: 'chuck', mm_per_rotation: 40 },
       scan_offsets: [],
       scan_initial_offset: 0,
     },
@@ -116,7 +119,7 @@ export function sampleDevices(): DeviceProfile[] {
       id: 'taller-co2',
       name: 'Banco pequeño 300 x 200',
       kind: 'grbl',
-      dialect: { ...DEFAULT_DIALECT },
+      dialect: dialectForKind('grbl'),
       bed: [300, 200],
       origin: 'top_left',
       s_max: 255,
@@ -133,6 +136,31 @@ export function sampleDevices(): DeviceProfile[] {
       z_invert: false,
       rotary: { ...DEFAULT_ROTARY },
       scan_offsets: [],
+      scan_initial_offset: 0,
+    },
+    // Un grblHAL de 32 bits, para ver en el gestor un tipo distinto de GRBL. Su dialecto es el de
+    // GRBL 1.1 (como en el motor); el rotativo de rodillos viene con las cifras de xTool.
+    {
+      id: 'grblhal-500',
+      name: 'grblHAL 500 x 500 (diodo)',
+      kind: 'grbl_hal',
+      dialect: dialectForKind('grbl_hal'),
+      bed: [500, 500],
+      origin: 'bottom_left',
+      s_max: 1000,
+      power_mode: 'dynamic',
+      accel: [2000, 2000],
+      max_rate: [30000, 30000],
+      rapid_rate: 30000,
+      baud: 115200,
+      rx_buffer: 255,
+      start_gcode: '',
+      end_gcode: '',
+      return_to_origin: true,
+      z_axis: true,
+      z_invert: false,
+      rotary: { ...DEFAULT_ROTARY },
+      scan_offsets: [{ speed: 6000, offset: 0.2 }],
       scan_initial_offset: 0,
     },
   ];

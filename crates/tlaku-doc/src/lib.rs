@@ -29,7 +29,7 @@ pub use layer::{
 };
 pub use machine::{
     BufferStatus, ConnectResult, ConnectionEvent, ExportResult, JobEvent, JobState, LogDir,
-    LogEvent, MachineState, ProgressEvent, RealtimeCommand, StatusReport,
+    LogEvent, MachineState, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport,
 };
 pub use materials::{
     MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialPreset, MaterialTestParams, TestAxis,

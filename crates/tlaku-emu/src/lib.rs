@@ -73,9 +73,15 @@
 //! - Física real: junction deviation, look-ahead completo, pasos, pérdida de pasos.
 //! - Sondas (`G38.x`), ejes A/B/C, compensación de herramienta, arcos fuera del plano XY, SD,
 //!   WiFi, parking, `$SLP` más allá del estado, líneas de arranque con `Ln`.
-//! - **Marlin y Smoothie** solo en lo básico: banner, `ok` por línea, `M114`, `M115`, `M400`,
-//!   movimiento y láser con `S` en línea. Pendientes: `M106/M107`, `M410/M112/M999`, líneas
-//!   numeradas con checksum y `Resend`, el formato de `?` de Smoothie, `M600/M601`.
+//! - **Marlin y Smoothie** (protocolo RepRap) solo cubren: banner, `ok` por línea, `M115` (con
+//!   `Cap:`), `M114`, `M400`, movimiento, láser con `S` en línea (modo inline sin disparo en
+//!   parado; modo estándar con `G0` que apaga hasta el siguiente `M3`), `M106/M107` (con
+//!   `Profile::marlin_fan_laser` el ventilador manda sobre el láser y `G0` no lo apaga),
+//!   `M410` (encolada, o inmediata con `EMERGENCY_PARSER`), `M112` (paro hasta reiniciar; en
+//!   Smoothie hasta `M999`), `M0`/`M108` con `EMERGENCY_PARSER`, líneas numeradas con checksum
+//!   y `Resend:` (Marlin, con la falla `CorruptLine`) y el `?` de Smoothie. Pendientes:
+//!   `M600/M601`, `M154`, el módulo `switch`. Los textos exactos de `Error:`/`Resend:` y el
+//!   formato de `?` de Smoothie (`<Idle,MPos:...,WPos:...>`) son **inferidos**, no medidos.
 //! - El `ok` anticipado de `G1` de Smoothie ni la cola corta de su planificador (se trata como
 //!   Marlin).
 //!

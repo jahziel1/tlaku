@@ -2,6 +2,8 @@ import type { MachineState } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
+import { selectIsVirtual } from '@/store/machine';
+import { VirtualBadge } from './VirtualBadge';
 
 export type StateTone = 'ok' | 'accent' | 'warn' | 'danger' | 'off';
 
@@ -16,6 +18,7 @@ export function stateTone(state: MachineState | null): StateTone {
     case 'run':
     case 'jog':
     case 'home':
+    case 'other':
       return 'accent';
     case 'alarm':
       return 'danger';
@@ -35,11 +38,21 @@ const HINTS: Partial<Record<MachineState, I18nKey>> = {
   alarm: 'machine.stateHint.alarm',
 };
 
-export function StateBadge({ state }: { state: MachineState | null }) {
+/**
+ * Nombre del estado para mostrar. Un estado que Tlaku no conoce (`other`, p. ej. `Tool` de
+ * grblHAL) se muestra con el nombre original que informó la controladora, si llegó.
+ */
+export function stateLabel(state: MachineState | null, otherState?: string | null): string {
+  if (!state) return t('machine.state.off');
+  if (state === 'other' && otherState) return otherState;
+  return t(`machine.state.${state}`);
+}
+
+export function StateBadge({ state, otherState }: { state: MachineState | null; otherState?: string | null }) {
   return (
     <span className="badge" data-tone={stateTone(state)}>
       <span className="badge__dot" aria-hidden="true" />
-      {state ? t(`machine.state.${state}`) : t('machine.state.off')}
+      {stateLabel(state, otherState)}
     </span>
   );
 }
@@ -58,15 +71,20 @@ function Pos({ label, pos }: { label: string; pos: [number, number] | undefined 
 export function StatusSection() {
   const status = useStore((s) => s.status);
   const connected = useStore((s) => s.connection.connected);
+  const virtual = useStore(selectIsVirtual);
   const state = connected ? (status?.state ?? 'idle') : null;
-  const hint = state ? HINTS[state] : undefined;
+  const otherState = state === 'other' ? (status?.other_state ?? null) : null;
+  const hint = state === 'other' ? t('machine.stateHint.other', { name: stateLabel(state, otherState) }) : state ? HINTS[state] && t(HINTS[state]) : undefined;
   return (
     <section className="section" aria-labelledby="sec-status">
       <h3 id="sec-status" className="panel-title">{t('machine.status')}</h3>
       <div className="readout">
         <div role="status" aria-live="polite" className="mc-state">
-          <StateBadge state={state} />
-          {hint && <p className="hint">{t(hint)}</p>}
+          <div className="mc-state__row">
+            <StateBadge state={state} otherState={otherState} />
+            {virtual && <VirtualBadge />}
+          </div>
+          {hint && <p className="hint">{hint}</p>}
         </div>
         <div className="mc-readout">
           <Pos label={t('machine.pos.work')} pos={connected ? status?.work_pos : undefined} />

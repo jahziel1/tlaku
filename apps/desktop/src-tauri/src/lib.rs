@@ -11,6 +11,7 @@ mod commands;
 mod edit;
 mod engine;
 mod machine;
+mod probe;
 
 use commands::AppState;
 use tauri::{Manager, RunEvent};
@@ -31,6 +32,7 @@ pub fn run() {
             commands::save_device,
             commands::delete_device,
             commands::list_ports,
+            probe::probe_port,
             commands::connect,
             commands::disconnect,
             commands::machine_command,
@@ -41,6 +43,7 @@ pub fn run() {
             commands::resume_job,
             commands::cancel_job,
             commands::frame_job,
+            commands::simulate_fault,
             edit::text::list_fonts,
             edit::text::text_outline,
             edit::geometry::geometry_op,
@@ -57,6 +60,8 @@ pub fn run() {
             edit::materials::import_material_library,
             edit::materials::export_material_library,
             edit::materials::material_test,
+            edit::devices::device_defaults,
+            edit::devices::rotary_test,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar la aplicación Tlaku");

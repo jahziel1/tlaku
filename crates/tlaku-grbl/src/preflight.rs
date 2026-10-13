@@ -5,11 +5,12 @@
 //! `$X`, `$H` ni `~` por cuenta propia. Recibe un `Transport` ya abierto, de modo que se
 //! prueba con `memory_pair` sin hardware.
 
+use crate::link::{LinkFamily, LinkProfile};
 use crate::serial::{LineReader, Transport};
 use crate::streamer::{
     CREALITY_RECOVERY, Firmware, MachineState, Outcome, StatusReport, StreamError,
     alarm_message_for, creality_error_message, error_message_for, parse_parameter_line,
-    prepare_line,
+    prepare_line_with,
 };
 use std::collections::BTreeMap;
 use std::io::{self, Write};
@@ -92,20 +93,32 @@ fn alarm_outcome_hint(fw: Firmware, code: u32) -> &'static str {
 /// Líneas del archivo de G-code, validadas contra el búfer de la controladora antes de
 /// abrir el puerto. Devuelve cuántas líneas con contenido se enviarán.
 pub fn validate_gcode(text: &str, rx_buffer: usize) -> Result<usize, String> {
+    validate_gcode_for(text, &LinkProfile::grbl_with_buffer(rx_buffer))
+}
+
+/// Como [`validate_gcode`] con las reglas del enlace de cada firmware: espacios conservados
+/// en Marlin y Smoothie, `?`/`!`/`~` admitidos en Marlin, línea máxima de su dialecto (con el
+/// `N…*checksum` si se numeran las líneas).
+pub fn validate_gcode_for(text: &str, link: &LinkProfile) -> Result<usize, String> {
+    let max = link.flow.max_line_len();
     let mut count = 0;
     for (i, raw) in text.lines().enumerate() {
         let source_line = i + 1;
-        let line = prepare_line(raw)
+        let line = prepare_line_with(raw, link.strip_spaces, link.reject_realtime_chars)
             .map_err(|ch| StreamError::InvalidChar { source_line, ch }.to_string())?;
         if line.is_empty() {
             continue;
         }
-        let len = line.len() + 1;
-        if len > rx_buffer {
+        // La primera línea numerada es `M110 N0`: el trabajo empieza en la N1.
+        let len = match link.line_numbering {
+            Some(n) => crate::link::numbered_line(count + 1, &line, n).len() + 1,
+            None => line.len() + 1,
+        };
+        if len > max {
             return Err(StreamError::LineTooLong {
                 source_line,
                 len,
-                max: rx_buffer,
+                max,
             }
             .to_string());
         }
@@ -645,6 +658,233 @@ pub fn preflight_checked(
     result
 }
 
+// ---------------------------------------------------------------------------
+// Comprobación por familia de firmware
+// ---------------------------------------------------------------------------
+
+/// Lo que se averigua de Marlin o Smoothieware con `M115`.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ReprapInfo {
+    /// `FIRMWARE_NAME:` (hasta el siguiente campo, sin recortar versiones).
+    pub firmware_name: Option<String>,
+    /// Líneas `Cap:NOMBRE:0/1` (con `EXTENDED_CAPABILITIES_REPORT`).
+    pub caps: BTreeMap<String, bool>,
+    /// Todas las líneas de la respuesta, sin el `ok`.
+    pub lines: Vec<String>,
+}
+
+impl ReprapInfo {
+    /// Interpreta las líneas de la respuesta a `M115`.
+    pub fn parse<S: AsRef<str>>(lines: &[S]) -> Self {
+        let mut info = Self::default();
+        for l in lines {
+            let l = l.as_ref().trim();
+            info.lines.push(l.to_string());
+            if let Some(i) = l.find("FIRMWARE_NAME:") {
+                let rest = &l[i + "FIRMWARE_NAME:".len()..];
+                // Marlin separa los campos con espacios (`... PROTOCOL_VERSION:1.0`); Smoothie
+                // con comas. El nombre llega hasta el siguiente `CLAVE:`.
+                let end = rest
+                    .match_indices(" ")
+                    .find(|(j, _)| {
+                        let word = rest[j + 1..].split_whitespace().next().unwrap_or("");
+                        word.split_once(':').is_some_and(|(k, _)| {
+                            !k.is_empty() && k.bytes().all(|b| b.is_ascii_uppercase() || b == b'_')
+                        })
+                    })
+                    .map_or(rest.len(), |(j, _)| j);
+                info.firmware_name = Some(rest[..end].trim().trim_end_matches(',').to_string());
+            } else if let Some(cap) = l.strip_prefix("Cap:")
+                && let Some((name, v)) = cap.rsplit_once(':')
+                && let Ok(v) = v.trim().parse::<u8>()
+            {
+                info.caps.insert(name.to_string(), v != 0);
+            }
+        }
+        info
+    }
+
+    fn name_lower(&self) -> String {
+        self.firmware_name
+            .as_deref()
+            .unwrap_or("")
+            .to_ascii_lowercase()
+    }
+}
+
+/// Envía `M115` y espera su `ok` (se reenvía cada segundo). Devuelve las líneas de la
+/// respuesta. `Err` con el motivo si no contesta o si contesta como GRBL.
+fn query_m115(
+    t: &mut impl Transport,
+    link: &LinkProfile,
+    timeout: Duration,
+) -> Result<Vec<String>, String> {
+    t.clear_input().map_err(io_err)?;
+    let deadline = Instant::now() + timeout;
+    let mut next_send = Instant::now();
+    let mut reader = LineReader::default();
+    let mut lines = Vec::new();
+    let mut buf = [0u8; 256];
+    loop {
+        let now = Instant::now();
+        if now >= deadline {
+            return Err(format!(
+                "la máquina no respondió a M115 en {:.0} s; revisa que sea el puerto correcto, \
+                 que esté encendida y que use {} (baudios: --baud; Marlin usa 250000 por \
+                 defecto, Smoothie por USB ignora la velocidad)",
+                timeout.as_secs_f64(),
+                link.family_name()
+            ));
+        }
+        if now >= next_send {
+            t.write_all(b"M115\n").map_err(io_err)?;
+            next_send = now + Duration::from_secs(1);
+        }
+        let n = t
+            .read_timeout(&mut buf, Duration::from_millis(50))
+            .map_err(io_err)?;
+        reader.feed(&buf[..n]);
+        while let Some(line) = reader.next_line() {
+            let low = line.to_ascii_lowercase();
+            if low.starts_with("grbl") || low.starts_with("[ver:") || low.starts_with("<") {
+                return Err(format!(
+                    "la máquina contestó como GRBL ({line}), no como {}: el perfil no \
+                     corresponde a su firmware. No se transmitió nada",
+                    link.family_name()
+                ));
+            }
+            if link.is_ack(&line) {
+                return Ok(lines);
+            }
+            if low.starts_with("error") {
+                return Err(format!(
+                    "la máquina rechazó M115 ({line}): no parece {} (un Smoothieware anterior a \
+                     enero de 2018 tampoco la conoce; un GRBL la rechaza con error:20). No se \
+                     transmitió nada",
+                    link.family_name()
+                ));
+            }
+            lines.push(line);
+        }
+    }
+}
+
+/// Comprobación previa para el enlace de `link`. Con GRBL es exactamente [`preflight_checked`]
+/// (estado con `?`, `$32`, `$30`). Con Marlin y Smoothieware comprueba que la máquina responde
+/// a `M115` y que es del firmware esperado, y **avisa** (líneas "Aviso" en `out`) de lo que no
+/// se puede verificar: no hay `?` para saber si está en reposo o en alarma, ni forma de leer
+/// la escala de `S` (`CUTTER_POWER_UNIT`, `Maximum S-value`), el modo inline o el módulo láser.
+pub fn preflight_link(
+    t: &mut impl Transport,
+    config: &PreflightConfig,
+    advice: Advice,
+    expect: &JobExpect,
+    link: &LinkProfile,
+    out: &mut impl Write,
+) -> Result<(), String> {
+    if link.family == LinkFamily::Grbl {
+        return preflight_checked(t, config, advice, expect, out);
+    }
+    let lines = query_m115(t, link, config.status_timeout)?;
+    // Respuestas repetidas por los reenvíos de M115 que aún lleguen.
+    std::thread::sleep(Duration::from_millis(50));
+    let _ = t.clear_input();
+    let info = ReprapInfo::parse(&lines);
+    let me = link.family_name();
+    let name = info.firmware_name.clone();
+    let low = info.name_lower();
+    match (link.family, name.as_deref()) {
+        (LinkFamily::Marlin, Some(n)) if low.contains("smoothie") => {
+            return Err(format!(
+                "la máquina es {n}, no Marlin: el perfil no corresponde a su firmware \
+                 (la cancelación y el rango de S serían distintos). No se transmitió nada"
+            ));
+        }
+        (LinkFamily::Smoothie, Some(n)) if low.contains("marlin") => {
+            return Err(format!(
+                "la máquina es {n}, no Smoothieware: el perfil no corresponde a su firmware \
+                 (S va de 0 a 255 o de 0 a 100, no de 0 a 1). No se transmitió nada"
+            ));
+        }
+        _ => {}
+    }
+    match &name {
+        Some(n) => {
+            let _ = writeln!(out, "Firmware: {n}.");
+        }
+        None => {
+            let _ = writeln!(
+                out,
+                "Aviso: la máquina respondió a M115 pero no informó FIRMWARE_NAME; no se pudo \
+                 comprobar que sea {me}."
+            );
+        }
+    }
+    if name.is_some() && !low.contains(&me.to_ascii_lowercase()[..6]) {
+        let _ = writeln!(
+            out,
+            "Aviso: el firmware no se identifica como {me} ({}); si es una variante, revisa el \
+             perfil.",
+            name.as_deref().unwrap_or("")
+        );
+    }
+    let _ = writeln!(
+        out,
+        "Aviso: {me} no tiene consulta de estado (?): no se pudo comprobar que esté en reposo ni \
+         sin alarma. Asegúrate de que no haya otro trabajo en curso; el progreso se calcula por \
+         los 'ok' recibidos."
+    );
+    if expect.require_laser_mode {
+        let _ = writeln!(
+            out,
+            "Aviso: no se pudo comprobar que el láser esté configurado en {me} ({}).",
+            match link.family {
+                LinkFamily::Marlin => "LASER_FEATURE y, para M3 S0 I, el modo inline",
+                _ => "laser_module_enable y que G0 apague el láser",
+            }
+        );
+    }
+    if let Some(s_max) = expect.s_max {
+        let _ = writeln!(
+            out,
+            "Aviso: no se pudo leer la escala de S de la máquina ({}); el perfil usa S máx = \
+             {s_max}. Si no coincide, la potencia saldría escalada o saturada.",
+            match link.family {
+                LinkFamily::Marlin => "CUTTER_POWER_UNIT: PWM 255, porcentaje 100 o RPM",
+                _ => "Maximum S-value del módulo láser: 1, 100 o 255",
+            }
+        );
+    }
+    if link.family == LinkFamily::Marlin {
+        match info.caps.get("EMERGENCY_PARSER") {
+            Some(true) => {
+                if !link.emergency_parser {
+                    let _ = writeln!(
+                        out,
+                        "Aviso: la máquina tiene EMERGENCY_PARSER; el enlace no lo usa (la \
+                         pausa solo deja de enviar)."
+                    );
+                }
+            }
+            Some(false) => {
+                let _ = writeln!(
+                    out,
+                    "Aviso: Marlin sin EMERGENCY_PARSER: M410 y la pausa se encolan detrás de \
+                     las líneas ya enviadas (un movimiento largo puede tardar en detenerse)."
+                );
+            }
+            None => {
+                let _ = writeln!(
+                    out,
+                    "Aviso: la máquina no informó EMERGENCY_PARSER (sin EXTENDED_CAPABILITIES_REPORT); \
+                     se supone que M410 se encola y tarda en detener un movimiento largo."
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -996,6 +1236,54 @@ mod tests {
         let r = report("<Tool|MPos:0,0,0|FS:0,0,0>");
         let e = check_ready_with(&r, None, None, Advice::Console).unwrap_err();
         assert!(e.contains("no reconoce"), "{e}");
+    }
+
+    #[test]
+    fn reprap_info_reads_the_firmware_name_and_capabilities() {
+        let i = ReprapInfo::parse(&[
+            "FIRMWARE_NAME:Marlin 2.1.2.5 (Tlaku emulador) PROTOCOL_VERSION:1.0 MACHINE_TYPE:Laser",
+            "Cap:EMERGENCY_PARSER:1",
+            "Cap:AUTOREPORT_POS:0",
+        ]);
+        assert_eq!(
+            i.firmware_name.as_deref(),
+            Some("Marlin 2.1.2.5 (Tlaku emulador)")
+        );
+        assert_eq!(i.caps.get("EMERGENCY_PARSER"), Some(&true));
+        assert_eq!(i.caps.get("AUTOREPORT_POS"), Some(&false));
+        let s = ReprapInfo::parse(&["FIRMWARE_NAME:Smoothieware, FIRMWARE_VERSION:1.1 (x)"]);
+        assert_eq!(s.firmware_name.as_deref(), Some("Smoothieware"));
+        assert_eq!(ReprapInfo::parse(&["ok?"]).firmware_name, None);
+    }
+
+    #[test]
+    fn validation_follows_the_link_rules() {
+        use tlaku_doc::GcodeDialect;
+        let marlin = LinkProfile::marlin(&GcodeDialect::marlin_inline());
+        // Espacios conservados; `!` admitido en Marlin.
+        assert_eq!(validate_gcode_for("M3 S0 I\nM117 hola!\n", &marlin), Ok(2));
+        assert!(validate_gcode_for("M117 hola!", &LinkProfile::grbl()).is_err());
+        // Línea de más de 96 bytes.
+        let long = format!("M117 {}", "x".repeat(100));
+        assert!(
+            validate_gcode_for(&long, &marlin)
+                .unwrap_err()
+                .contains("96")
+        );
+        // Con líneas numeradas el prefijo y el checksum cuentan.
+        let numbered = marlin.clone().with_line_numbering();
+        let near = format!("M117 {}", "x".repeat(88));
+        assert!(validate_gcode_for(&near, &marlin).is_ok());
+        assert!(validate_gcode_for(&near, &numbered).is_err());
+        // Smoothie no tiene dato de largo máximo.
+        let smoothie =
+            LinkProfile::smoothie(&GcodeDialect::for_kind(tlaku_doc::DeviceKind::Smoothie));
+        assert!(validate_gcode_for(&long, &smoothie).is_ok());
+        // GRBL, igual que siempre.
+        assert_eq!(
+            validate_gcode("G1 X1\n", 127),
+            validate_gcode_for("G1 X1\n", &LinkProfile::grbl())
+        );
     }
 
     #[test]

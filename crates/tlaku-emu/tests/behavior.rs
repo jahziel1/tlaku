@@ -834,7 +834,8 @@ fn marlin_v7_inline_job() {
     assert!(t.segments().iter().all(|s| s.s_programmed == 128.0));
     let l = r.ask("M115");
     assert!(l[0].starts_with("FIRMWARE_NAME:Marlin"));
-    assert_eq!(l[1], "ok");
+    assert!(l.contains(&"Cap:EMERGENCY_PARSER:0".to_string()));
+    assert_eq!(l.last().map(String::as_str), Some("ok"));
     assert_eq!(
         r.ask("M114"),
         ["X:0.00 Y:0.00 Z:0.00 E:0.00 Count X: 0 Y:0 Z:0", "ok"]

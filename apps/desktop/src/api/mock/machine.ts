@@ -10,6 +10,7 @@ import type {
   Point,
   ProgressEvent,
   RealtimeCommand,
+  SimulatedFault,
   StatusReport,
 } from '../types';
 
@@ -32,6 +33,20 @@ export const DEFAULT_MOCK_OPTIONS: MockMachineOptions = {
   latencyMs: 60,
 };
 
+/** Puertos virtuales que ofrece `list_ports` (los mismos ids que el motor real). */
+export const MOCK_VIRTUAL_PORTS = ['virtual:falcon2', 'virtual:grbl11', 'virtual:grblhal', 'virtual:fluidnc', 'virtual:marlin', 'virtual:smoothie'];
+
+const VIRTUAL_FIRMWARE: Record<string, string> = {
+  falcon2: 'Grbl 1.1f',
+  grbl11: 'Grbl 1.1h',
+  grblhal: 'grblHAL 1.1f',
+  fluidnc: 'FluidNC v3.9.7',
+  marlin: 'Marlin 2.1.2.5',
+  smoothie: 'Smoothieware',
+};
+
+const VIRTUAL_PREFIX = 'virtual:';
+
 /** Máquina GRBL simulada en memoria: emite estado, progreso, registro y conexión. */
 export class MockMachine {
   private handlers = new Map<EventName, Set<(p: never) => void>>();
@@ -42,6 +57,8 @@ export class MockMachine {
 
   connected = false;
   port: string | null = null;
+  /** La conexión es una máquina virtual (puerto `virtual:...`). */
+  virtual = false;
   state: MachineState = 'idle';
   /** Código de ALARM:N activo; null si no hay alarma. */
   alarmCode: number | null = null;
@@ -83,18 +100,21 @@ export class MockMachine {
     if (this.connected) throw new Error('Ya hay una máquina conectada. Desconéctala antes de abrir otro puerto.');
     this.connected = true;
     this.port = port;
+    this.virtual = port.startsWith(VIRTUAL_PREFIX);
     this.state = 'idle';
     this.alarmCode = null;
     this.pos = [0, 0];
+    const firmware = this.virtual ? (VIRTUAL_FIRMWARE[port.slice(VIRTUAL_PREFIX.length).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
     const evt: ConnectionEvent = { connected: true, port, error: null };
     this.emit('machine://connection', evt);
+    if (this.virtual) this.log('in', '; Máquina virtual (emulador): no hay láser ni hardware reales.');
     this.log('in', "Grbl 1.1h ['$' for help]");
     this.statusTimer = setInterval(() => this.emitStatus(), this.opts.statusIntervalMs);
     this.emitStatus();
-    return 'Grbl 1.1h';
+    return firmware;
   }
 
-  disconnect(): void {
+  disconnect(error: string | null = null): void {
     this.stopTimers();
     this.job = null;
     this.alarmCode = null;
@@ -102,8 +122,30 @@ export class MockMachine {
     this.connected = false;
     const port = this.port;
     this.port = null;
+    this.virtual = false;
     this.state = 'idle';
-    this.emit('machine://connection', { connected: false, port, error: null });
+    this.emit('machine://connection', { connected: false, port, error });
+  }
+
+  /** Provoca una falla, solo con una máquina virtual (igual que el motor real). */
+  simulateFault(fault: SimulatedFault): void {
+    this.requireConnection();
+    if (!this.virtual) throw new Error('Simular fallas solo es posible con una máquina virtual; esta es una máquina real.');
+    if (fault === 'disconnect') {
+      this.disconnect('se perdió la conexión con la máquina: la controladora emulada se desconectó');
+      return;
+    }
+    const wasRunning = this.job !== null;
+    if (fault === 'alarm3') {
+      this.triggerAlarm(3);
+      if (wasRunning) this.emit('machine://job', { state: 'error', message: 'ALARM:3: reinicio durante un movimiento: se perdió la posición.', position_lost: true });
+      return;
+    }
+    const [code, text] = fault === 'flame' ? ['05', 'llama detectada: la máquina se detuvo'] : ['01', 'ángulo anormal: el sensor de inclinación o vibración se activó'];
+    this.log('in', `ERROR:${code}: ${text}`);
+    this.clearJob();
+    this.emit('machine://job', { state: 'error', message: `Falla de la máquina ERROR:${code}: ${text}. El trabajo se detuvo (feed hold y soft reset).`, position_lost: false });
+    this.emitStatus();
   }
 
   dispose(): void {
@@ -249,7 +291,7 @@ export class MockMachine {
       paused: false,
     };
     this.state = 'run';
-    this.emit('machine://job', { state: 'started', message: `${total} líneas` } satisfies JobEvent);
+    this.emit('machine://job', { state: 'started', message: `${total} líneas`, position_lost: false } satisfies JobEvent);
     const tick = 100;
     this.jobTimer = setInterval(() => this.tickJob(tick), tick);
   }
@@ -275,7 +317,7 @@ export class MockMachine {
     const job = this.job;
     this.clearJob();
     if (job?.device.return_to_origin) this.pos = [0, 0];
-    this.emit('machine://job', { state: 'finished', message: 'Trabajo terminado.' });
+    this.emit('machine://job', { state: 'finished', message: 'Trabajo terminado.', position_lost: false });
     this.emitStatus();
   }
 
@@ -294,7 +336,7 @@ export class MockMachine {
     this.job.paused = paused;
     this.state = paused ? 'hold' : 'run';
     this.spindle = 0;
-    this.emit('machine://job', { state: paused ? 'paused' : 'started', message: paused ? 'En pausa.' : 'Reanudado.' });
+    this.emit('machine://job', { state: paused ? 'paused' : 'started', message: paused ? 'En pausa.' : 'Reanudado.', position_lost: false });
     this.emitStatus();
   }
 
@@ -310,7 +352,7 @@ export class MockMachine {
       return;
     }
     this.clearJob();
-    this.emit('machine://job', { state: 'cancelled', message });
+    this.emit('machine://job', { state: 'cancelled', message, position_lost: false });
     this.emitStatus();
   }
 

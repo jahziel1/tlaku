@@ -12,6 +12,11 @@
 //!
 //! Los reportes de estado (`?`) no se registran en `machine://log`: solo llegan como estado.
 //!
+//! Máquinas virtuales ([`virtual_port`]). Un puerto `virtual:<perfil>` abre un
+//! `tlaku_emu::VirtualMachine` con reloj de pared en lugar del puerto serie; el resto (estado,
+//! envío, pausa, jog, consola) corre exactamente igual. [`Handle::simulate_fault`] provoca fallas
+//! (llama, alarma 3, desconexión) y solo existe con una máquina virtual.
+//!
 //! Regla del silencio ("conexión perdida"). Con el sondeo activo, sin recibir ni un byte durante
 //! `silence_timeout` (5 s) la conexión se da por perdida, porque en funcionamiento normal GRBL
 //! contesta `?` en 5 a 20 ms. Pero hay dos casos en que el silencio es legítimo, y en ellos
@@ -39,17 +44,21 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, JobEvent, JobState, LogDir, LogEvent,
-    MachineState, ProgressEvent, RealtimeCommand, StatusReport,
+    MachineState, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport,
 };
+use tlaku_grbl::link::{LinkFamily, LinkProfile};
 use tlaku_grbl::preflight::{
-    Advice, JobExpect, PreflightConfig, outcome_result_for, preflight_checked,
+    Advice, JobExpect, PreflightConfig, ReprapInfo, outcome_result_for, preflight_link,
+    validate_gcode_for,
 };
 use tlaku_grbl::serial::{Grbl, LineReader, Transport};
 use tlaku_grbl::streamer::{
     self, Event, Firmware, Job, Outcome, POSITION_LOST_NOTE, Realtime, Streamer, StreamerConfig,
     alarm_message_for, creality_error_message, error_message_for, is_greeting, is_homing_line,
-    parse_creality_error, prepare_line,
+    parse_creality_error, prepare_line_with,
 };
+
+pub mod virtual_port;
 
 /// Mensaje cuando no hay conexión (o se perdió).
 pub const NOT_CONNECTED: &str = "No hay máquina conectada. Conéctala desde la pestaña Máquina.";
@@ -170,7 +179,7 @@ enum Request {
     },
     Start {
         lines: Vec<String>,
-        rx_buffer: usize,
+        link: Box<LinkProfile>,
         s_max: Option<f64>,
         kind: RunKind,
         reply: Reply,
@@ -187,6 +196,8 @@ enum Request {
 pub struct Handle {
     tx: Sender<Request>,
     shared: Arc<Shared>,
+    /// Mando del emulador si la conexión es una máquina virtual.
+    emu: Option<tlaku_emu::Handle>,
 }
 
 impl Handle {
@@ -205,6 +216,29 @@ impl Handle {
     /// `true` si la conexión terminó (a petición o por un fallo).
     pub fn is_closed(&self) -> bool {
         self.shared.dead.load(Ordering::SeqCst)
+    }
+
+    /// `true` si la conexión es una máquina virtual (nada se graba de verdad).
+    pub fn is_virtual(&self) -> bool {
+        self.emu.is_some()
+    }
+
+    /// Provoca una falla en la máquina virtual. Con una máquina real no hace nada y avisa.
+    pub fn simulate_fault(&self, fault: SimulatedFault) -> Result<(), String> {
+        if self.is_closed() {
+            return Err(NOT_CONNECTED.into());
+        }
+        match &self.emu {
+            Some(emu) if self.is_virtual() => {
+                virtual_port::inject(emu, fault);
+                Ok(())
+            }
+            _ => Err(
+                "Simular fallas solo es posible con una máquina virtual; esta es una máquina \
+                 real."
+                    .into(),
+            ),
+        }
     }
 
     /// Posición de trabajo [x, y] del último reporte de estado.
@@ -239,37 +273,57 @@ impl Handle {
     /// Comprueba el estado de la máquina y, solo si está en reposo y en modo láser (`$32=1`),
     /// transmite el G-code. No compara `$30` con la S máx del perfil; para eso usa
     /// [`start_job_for`](Self::start_job_for).
+    #[cfg(test)]
     pub fn start_job(&self, lines: Vec<String>, rx_buffer: usize) -> Result<(), String> {
         self.start_job_for(lines, rx_buffer, None)
     }
 
     /// Como [`start_job`](Self::start_job), con la S máx del perfil: si `$30` de la controladora
     /// es distinto se avisa en el registro (la potencia saldría escalada).
+    #[cfg(test)]
     pub fn start_job_for(
         &self,
         lines: Vec<String>,
         rx_buffer: usize,
         s_max: Option<f64>,
     ) -> Result<(), String> {
-        self.start(lines, rx_buffer, s_max, RunKind::Job)
+        self.start_job_link(lines, LinkProfile::grbl_with_buffer(rx_buffer), s_max)
+    }
+
+    /// Como [`start_job_for`](Self::start_job_for) con el enlace del perfil de la máquina
+    /// ([`LinkProfile::for_device`]): GRBL con conteo de caracteres, o Marlin y Smoothieware con
+    /// una línea por `ok`. Debe coincidir con la familia de la controladora conectada.
+    pub fn start_job_link(
+        &self,
+        lines: Vec<String>,
+        link: LinkProfile,
+        s_max: Option<f64>,
+    ) -> Result<(), String> {
+        self.start(lines, link, s_max, RunKind::Job)
     }
 
     /// Como [`start_job`](Self::start_job) para el encuadre (sin eventos de progreso). El
     /// encuadre va con el láser apagado (M5, S0), así que no exige el modo láser.
+    #[cfg(test)]
     pub fn frame(&self, lines: Vec<String>, rx_buffer: usize) -> Result<(), String> {
-        self.start(lines, rx_buffer, None, RunKind::Frame)
+        self.frame_link(lines, LinkProfile::grbl_with_buffer(rx_buffer))
+    }
+
+    /// Como [`frame`](Self::frame) con el enlace del perfil de la máquina.
+    pub fn frame_link(&self, lines: Vec<String>, link: LinkProfile) -> Result<(), String> {
+        self.start(lines, link, None, RunKind::Frame)
     }
 
     fn start(
         &self,
         lines: Vec<String>,
-        rx_buffer: usize,
+        link: LinkProfile,
         s_max: Option<f64>,
         kind: RunKind,
     ) -> Result<(), String> {
         self.call(|reply| Request::Start {
             lines,
-            rx_buffer,
+            link: Box::new(link),
             s_max,
             kind,
             reply,
@@ -306,25 +360,75 @@ impl Connection {
         sink: Arc<dyn Sink>,
         timing: Timing,
     ) -> Result<(Self, ConnectResult), String> {
+        Self::start_with(transport, port, sink, timing, None)
+    }
+
+    /// Abre la máquina virtual de un puerto `virtual:...` (ver [`virtual_port`]).
+    pub fn start_virtual(
+        port: &str,
+        sink: Arc<dyn Sink>,
+        timing: Timing,
+    ) -> Result<(Self, ConnectResult), String> {
+        let (transport, emu) = virtual_port::open(port)?;
+        Self::start_with(transport, port, sink, timing, Some(emu))
+    }
+
+    /// Como [`start`](Self::start), con el mando del emulador si `transport` es uno.
+    pub fn start_with(
+        transport: Box<dyn Transport>,
+        port: &str,
+        sink: Arc<dyn Sink>,
+        timing: Timing,
+        emu: Option<tlaku_emu::Handle>,
+    ) -> Result<(Self, ConnectResult), String> {
         let mut grbl = Grbl::with_transport(transport);
         let reply = grbl.command("$I", timing.identify_timeout);
         log(sink.as_ref(), LogDir::Out, "$I");
-        let lines = reply.map_err(|e| {
-            format!(
-                "La máquina no respondió a la identificación ($I): {e}. Revisa que sea el puerto \
-                 correcto, que esté encendida, que use GRBL 1.1 y los baudios del perfil."
-            )
-        })?;
-        for l in &lines {
-            log(sink.as_ref(), LogDir::In, l);
+        // Marlin y Smoothieware no conocen `$I` (`echo:Unknown command` o `error`): se prueba
+        // `M115`. Si tampoco contesta, vale el mensaje de siempre.
+        let answered_like_grbl = matches!(&reply, Ok(l) if !looks_like_reprap(l));
+        let reprap = if answered_like_grbl {
+            None
+        } else {
+            if let Ok(l) = &reply {
+                for l in l {
+                    log(sink.as_ref(), LogDir::In, l);
+                }
+            }
+            probe_reprap(&mut grbl, sink.as_ref(), timing.identify_timeout)
+        };
+        let (firmware, family, link_family, emergency_parser) = match reprap {
+            Some(r) => (r.name, Firmware::Unknown, r.family, r.emergency_parser),
+            None => {
+                let lines = reply.map_err(|e| {
+                    format!(
+                        "La máquina no respondió a la identificación ($I): {e}. Revisa que sea el \
+                         puerto correcto, que esté encendida, que use GRBL 1.1 y los baudios del \
+                         perfil."
+                    )
+                })?;
+                for l in &lines {
+                    log(sink.as_ref(), LogDir::In, l);
+                }
+                log(sink.as_ref(), LogDir::In, "ok");
+                let (name, fw) = identify(&lines);
+                (name, fw, LinkFamily::Grbl, false)
+            }
+        };
+        if emu.is_some() {
+            log(
+                sink.as_ref(),
+                LogDir::In,
+                "; Máquina virtual (emulador): no hay láser ni hardware reales.",
+            );
         }
-        log(sink.as_ref(), LogDir::In, "ok");
-        let (firmware, family) = identify(&lines);
 
         let shared = Arc::new(Shared::default());
         let (tx, rx) = mpsc::channel();
         let mut worker = Worker::new(rx, sink.clone(), shared.clone(), timing, port.to_string());
         worker.fw = family;
+        worker.link_family = link_family;
+        worker.emergency_parser = emergency_parser;
         let transport = grbl.into_transport();
         sink.emit(Emit::Connection(ConnectionEvent {
             connected: true,
@@ -337,7 +441,7 @@ impl Connection {
             .map_err(|e| format!("No se pudo iniciar el hilo de la conexión: {e}"))?;
         Ok((
             Self {
-                handle: Handle { tx, shared },
+                handle: Handle { tx, shared, emu },
                 thread: Some(thread),
             },
             ConnectResult { firmware },
@@ -417,6 +521,64 @@ fn firmware_name(lines: &[String]) -> String {
     identify(lines).0
 }
 
+/// ¿La respuesta a `$I` es la de un firmware RepRap (Marlin, Smoothieware) que no lo conoce?
+fn looks_like_reprap(lines: &[String]) -> bool {
+    !lines.iter().any(|l| l.trim_start().starts_with("[VER:"))
+        && lines.iter().any(|l| l.starts_with("echo:"))
+}
+
+/// Lo que se averigua de Marlin o Smoothieware con `M115`.
+struct Reprap {
+    name: String,
+    family: LinkFamily,
+    /// Informa `Cap:EMERGENCY_PARSER:1`: `M0` y `M108` actúan al instante.
+    emergency_parser: bool,
+}
+
+/// Pregunta `M115` y reconoce Marlin o Smoothieware por su `FIRMWARE_NAME`.
+fn probe_reprap(grbl: &mut Grbl, sink: &dyn Sink, timeout: Duration) -> Option<Reprap> {
+    log(sink, LogDir::Out, "M115");
+    let lines = grbl.command("M115", timeout).ok()?;
+    for l in &lines {
+        log(sink, LogDir::In, l);
+    }
+    log(sink, LogDir::In, "ok");
+    let info = ReprapInfo::parse(&lines);
+    let name = info.firmware_name.clone()?;
+    let low = name.to_ascii_lowercase();
+    let family = if low.contains("smoothie") {
+        LinkFamily::Smoothie
+    } else if low.contains("marlin") {
+        LinkFamily::Marlin
+    } else {
+        return None;
+    };
+    Some(Reprap {
+        name,
+        family,
+        emergency_parser: info.caps.get("EMERGENCY_PARSER").copied().unwrap_or(false),
+    })
+}
+
+/// `X:12.00 Y:3.50 Z:0.00 E:0.00 Count ...` (respuesta de `M114`) -> [x, y].
+fn parse_m114(line: &str) -> Option<[f64; 2]> {
+    let field = |key: &str| -> Option<f64> {
+        let i = line.find(key)? + key.len();
+        let rest = &line[i..];
+        let end = rest
+            .find(|c: char| !(c.is_ascii_digit() || matches!(c, '.' | '-' | '+')))
+            .unwrap_or(rest.len());
+        rest[..end].parse().ok()
+    };
+    // `Count X:` también contiene "X:": solo vale la primera aparición, que va antes.
+    Some([field("X:")?, field("Y:")?])
+}
+
+/// ¿Es la confirmación de una línea? GRBL: `ok`. Marlin puede añadir texto (`ok T:20`).
+fn is_ack(family: LinkFamily, line: &str) -> bool {
+    line == "ok" || (family != LinkFamily::Grbl && line.starts_with("ok "))
+}
+
 fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
     sink.emit(Emit::Log(LogEvent {
         dir,
@@ -453,6 +615,9 @@ fn is_critical_alarm(line: &str) -> bool {
         Some(1 | 2)
     ) || line.contains("Reset to continue")
 }
+
+/// Cada cuánto se pide `M114` a una controladora sin `?` (Marlin, Smoothieware) en reposo.
+const REPRAP_POLL: Duration = Duration::from_millis(500);
 
 /// Cada cuánto se manda `?` durante un bloqueo crítico (que probablemente no lo contesta).
 const CRITICAL_POLL: Duration = Duration::from_secs(2);
@@ -515,6 +680,11 @@ struct Worker {
     last: StatusReport,
     /// Familia del firmware, para leer los códigos extendidos.
     fw: Firmware,
+    /// Familia del protocolo: GRBL (`?`, tiempo real) o RepRap (Marlin, Smoothieware: una línea
+    /// por `ok`, sin `?`; la posición se consulta con `M114`).
+    link_family: LinkFamily,
+    /// El Marlin conectado informó `EMERGENCY_PARSER` (pausa con `M0` y `M108`).
+    emergency_parser: bool,
     /// Silencio tolerado ahora mismo (ver la cabecera del módulo).
     quiet: Option<Quiet>,
 }
@@ -522,6 +692,7 @@ struct Worker {
 fn empty_status() -> StatusReport {
     StatusReport {
         state: MachineState::Idle,
+        other_state: None,
         machine_pos: [0.0, 0.0],
         work_pos: [0.0, 0.0],
         feed: 0.0,
@@ -546,9 +717,9 @@ fn convert_state(s: streamer::MachineState) -> MachineState {
         G::Check => MachineState::Check,
         G::Home => MachineState::Home,
         G::Sleep => MachineState::Sleep,
-        // Estado que Tlaku no conoce (p. ej. `Tool` de grblHAL): ocupada, no en reposo. La
-        // interfaz no tiene un estado propio para esto.
-        G::Other => MachineState::Run,
+        // Estado que Tlaku no conoce (p. ej. `Tool` de grblHAL): ocupada, no en reposo. El
+        // nombre original viaja aparte (`other_state`) para que la interfaz lo muestre.
+        G::Other => MachineState::Other,
     }
 }
 
@@ -573,6 +744,8 @@ impl Worker {
             wco: [0.0, 0.0],
             last: empty_status(),
             fw: Firmware::Unknown,
+            link_family: LinkFamily::Grbl,
+            emergency_parser: false,
             quiet: None,
         }
     }
@@ -603,9 +776,15 @@ impl Worker {
     }
 
     fn job_event(&self, state: JobState, message: &str) {
+        self.job_event_at(state, message, false);
+    }
+
+    /// Como [`job_event`](Self::job_event), indicando si la posición puede haberse perdido.
+    fn job_event_at(&self, state: JobState, message: &str, position_lost: bool) {
         self.sink.emit(Emit::Job(JobEvent {
             state,
             message: message.to_string(),
+            position_lost,
         }));
     }
 
@@ -629,6 +808,10 @@ impl Worker {
         }
         let mut s = self.last.clone();
         s.state = convert_state(r.state);
+        s.other_state = r
+            .other_state
+            .clone()
+            .filter(|_| s.state == MachineState::Other);
         match (&r.mpos, &r.wpos) {
             (Some(m), _) => {
                 s.machine_pos = [m.x, m.y];
@@ -660,6 +843,11 @@ impl Worker {
 
     /// ¿Se superó el silencio tolerado? Ver la regla en la cabecera del módulo.
     fn silence_exceeded(&self) -> bool {
+        // Sin `?` no hay sondeo que contestar: la pérdida se detecta con `M114` y con los
+        // errores de E/S.
+        if self.link_family != LinkFamily::Grbl {
+            return false;
+        }
         let elapsed = self.last_rx.elapsed();
         match self.quiet {
             None => elapsed > self.timing.silence_timeout,
@@ -690,7 +878,9 @@ impl Worker {
         } else {
             self.timing.status_interval
         };
-        if self.last_poll.is_none_or(|p| p.elapsed() >= interval) {
+        if self.link_family == LinkFamily::Grbl
+            && self.last_poll.is_none_or(|p| p.elapsed() >= interval)
+        {
             t.write_all(&[Realtime::StatusQuery.byte()])?;
             self.last_poll = Some(Instant::now());
         }
@@ -727,11 +917,11 @@ impl Worker {
                 Request::Disconnect => return Ok(Phase::Done),
                 Request::Start {
                     lines,
-                    rx_buffer,
+                    link,
                     s_max,
                     kind,
                     reply,
-                } => match self.try_start(t, lines, rx_buffer, s_max, kind) {
+                } => match self.try_start(t, lines, *link, s_max, kind) {
                     Ok(run) => {
                         let _ = reply.send(Ok(Vec::new()));
                         return Ok(Phase::Streaming(run));
@@ -748,10 +938,75 @@ impl Worker {
                 other => self.simple_request(&mut *t, other)?,
             }
         }
+        if self.link_family != LinkFamily::Grbl
+            && self
+                .last_poll
+                .is_none_or(|p| p.elapsed() >= REPRAP_POLL.max(self.timing.status_interval))
+        {
+            self.poll_reprap(&mut *t)?;
+        }
         for line in self.pump(&mut *t, self.timing.tick)? {
             self.log(LogDir::In, &describe_line(self.fw, &line));
         }
         Ok(Phase::Idle(t))
+    }
+
+    /// Marlin y Smoothieware no tienen `?`: la posición se pide con `M114` (sin registrar la
+    /// consulta) y se informa como estado en reposo. Si no contesta en el plazo largo
+    /// (`home_timeout`), la conexión se da por perdida.
+    fn poll_reprap(&mut self, t: &mut dyn Transport) -> Result<(), Fail> {
+        self.reader.clear();
+        t.write_all(b"M114\n")?;
+        self.last_poll = Some(Instant::now());
+        // Marlin contesta `M114` en su turno, detrás de los movimientos que aún tenga en cola
+        // (p. ej. tras cancelar un trabajo largo): el plazo es el largo, como en el homing.
+        let deadline = Instant::now() + self.timing.silence_timeout.max(self.timing.home_timeout);
+        let mut pos = None;
+        loop {
+            for l in self.pump(t, self.timing.tick)? {
+                if is_ack(self.link_family, &l) {
+                    if let Some(p) = pos {
+                        self.report_position(p);
+                    }
+                    return Ok(());
+                }
+                match parse_m114(&l) {
+                    Some(p) => pos = Some(p),
+                    None => self.log(LogDir::In, &l),
+                }
+            }
+            if Instant::now() > deadline {
+                return Err(Fail::Lost(
+                    "la controladora dejó de responder (¿se desconectó el cable USB o se apagó \
+                     la máquina?)"
+                        .into(),
+                ));
+            }
+        }
+    }
+
+    /// Estado de una controladora sin `?`: la posición de `M114` y el estado que sabe el
+    /// anfitrión (en marcha, en pausa o en reposo).
+    fn report_position(&mut self, p: [f64; 2]) {
+        self.last.machine_pos = p;
+        self.last.work_pos = p;
+        self.publish_last();
+    }
+
+    /// Cambia el estado informado (solo para controladoras sin `?`) y lo emite.
+    fn set_reported_state(&mut self, state: MachineState) {
+        if self.link_family != LinkFamily::Grbl {
+            self.last.state = state;
+            self.publish_last();
+        }
+    }
+
+    fn publish_last(&mut self) {
+        let s = self.last.clone();
+        if let Ok(mut g) = self.shared.status.lock() {
+            *g = Some(s.clone());
+        }
+        self.sink.emit(Emit::Status(s));
     }
 
     /// Solicitudes que no cambian de fase. Responde siempre; solo devuelve `Err` si se perdió
@@ -792,6 +1047,21 @@ impl Worker {
     }
 
     fn realtime(&mut self, t: &mut dyn Transport, cmd: RealtimeCommand) -> Result<(), Fail> {
+        if self.link_family != LinkFamily::Grbl {
+            // Marlin y Smoothieware no tienen bytes en tiempo real: pausar y cancelar son cosas
+            // del anfitrión durante un trabajo (ver `stream_request`). Fuera de él no hay nada
+            // que detener.
+            return match cmd {
+                RealtimeCommand::Status | RealtimeCommand::JogCancel => Ok(()),
+                RealtimeCommand::Hold | RealtimeCommand::Resume | RealtimeCommand::Reset => {
+                    Err(Fail::Msg(
+                        "Esta controladora no tiene comandos en tiempo real: pausa y cancela \
+                         desde el trabajo en curso."
+                            .into(),
+                    ))
+                }
+            };
+        }
         let (rt, text) = match cmd {
             RealtimeCommand::Status => {
                 // El reporte llega por el flujo normal de estado.
@@ -821,7 +1091,10 @@ impl Worker {
     /// Envía una línea y espera `ok`, `error:N` o `ALARM:N`. Devuelve todas las líneas de
     /// respuesta, la última incluida (los errores con su explicación).
     fn command(&mut self, t: &mut dyn Transport, raw: &str) -> Result<Vec<String>, Fail> {
-        let line = prepare_line(raw).map_err(|ch| {
+        // GRBL ignora los espacios y se quitan para ahorrar búfer; Marlin y Smoothie los
+        // necesitan para separar parámetros (por ejemplo `M3 S0 I`).
+        let grbl = self.link_family == LinkFamily::Grbl;
+        let line = prepare_line_with(raw, grbl, grbl).map_err(|ch| {
             Fail::Msg(format!(
                 "'{raw}' contiene {ch:?}, que GRBL interpretaría como comando en tiempo real. \
                  Para pausar, reanudar o reiniciar usa los botones de la pestaña Máquina."
@@ -878,7 +1151,7 @@ impl Worker {
             for l in lines {
                 let shown = describe_line(self.fw, &l);
                 self.log(LogDir::In, &shown);
-                if l == "ok" {
+                if is_ack(self.link_family, &l) {
                     out.push(l);
                     return Ok(out);
                 }
@@ -931,6 +1204,9 @@ impl Worker {
                 "La velocidad del movimiento debe ser mayor que 0.".into(),
             ));
         }
+        if self.link_family != LinkFamily::Grbl {
+            return self.jog_reprap(t, dx, dy, speed);
+        }
         let line = format!("$J=G91 G21 X{} Y{} F{}", num(dx), num(dy), num(speed));
         let reply = self.exchange(t, &line, self.timing.command_timeout)?;
         match reply.last().map(String::as_str) {
@@ -940,18 +1216,67 @@ impl Worker {
         }
     }
 
+    /// Movimiento relativo sin `$J=` (solo GRBL): `G91`, el movimiento y vuelta a `G90`.
+    fn jog_reprap(
+        &mut self,
+        t: &mut dyn Transport,
+        dx: f64,
+        dy: f64,
+        speed: f64,
+    ) -> Result<(), Fail> {
+        let lines = [
+            "G91".to_string(),
+            format!("G1 X{} Y{} F{}", num(dx), num(dy), num(speed)),
+            "G90".to_string(),
+        ];
+        let mut failure = None;
+        for line in &lines {
+            let reply = self.exchange(t, line, self.timing.command_timeout)?;
+            if failure.is_none()
+                && let Some(last) = reply.last()
+                && !is_ack(self.link_family, last)
+            {
+                failure = Some(last.clone());
+            }
+        }
+        match failure {
+            None => Ok(()),
+            Some(e) => Err(Fail::Msg(jog_error(&e))),
+        }
+    }
+
     // ---- inicio de trabajo -------------------------------------------------
 
     fn try_start(
         &mut self,
         mut t: Box<dyn Transport>,
         lines: Vec<String>,
-        rx_buffer: usize,
+        link: LinkProfile,
         s_max: Option<f64>,
         kind: RunKind,
     ) -> Result<Run, StartFail> {
+        // El perfil de la máquina debe corresponder a la controladora conectada.
+        if link.family != self.link_family {
+            let msg = format!(
+                "el perfil de la máquina es de {} pero la controladora conectada es {}. Elige el \
+                 perfil que corresponde a su firmware. No se transmitió nada.",
+                link.family_name(),
+                match self.link_family {
+                    LinkFamily::Grbl => "GRBL",
+                    LinkFamily::Marlin => "Marlin",
+                    LinkFamily::Smoothie => "Smoothieware",
+                }
+            );
+            return Err(StartFail::Refused(t, capitalize(&msg)));
+        }
+        // Con el `EMERGENCY_PARSER` informado, la pausa de Marlin también manda `M0` y `M108`.
+        let link = if link.family == LinkFamily::Marlin {
+            link.with_emergency_parser(self.emergency_parser)
+        } else {
+            link
+        };
         // Mismo orden que `tlaku send`: validar, comprobar el estado y solo entonces enviar.
-        if let Err(e) = validate_lines(&lines, rx_buffer) {
+        if let Err(e) = validate_lines(&lines, &link) {
             return Err(StartFail::Refused(t, e));
         }
         self.reader.clear();
@@ -962,11 +1287,12 @@ impl Worker {
             s_max,
             check_parameters: true,
         };
-        let checked = preflight_checked(
+        let checked = preflight_link(
             &mut t,
             &self.timing.preflight,
             Advice::Console,
             &expect,
+            &link,
             &mut shown,
         );
         // Los avisos ("Aviso: $30...") no bloquean, pero se dejan en el registro.
@@ -985,14 +1311,13 @@ impl Worker {
         self.last_poll = None;
         let total = lines.len();
         let config = StreamerConfig {
-            rx_buffer,
             silence_timeout: self.timing.silence_timeout,
             home_timeout: self.timing.home_timeout,
             hold_timeout: self.timing.hold_timeout,
             reset_wait: self.timing.reset_wait,
-            ..StreamerConfig::default()
+            ..StreamerConfig::for_link(&link)
         };
-        match Streamer::new(t, config).spawn(&lines) {
+        match Streamer::with_link(t, config, link).spawn(&lines) {
             Ok(job) => {
                 match kind {
                     RunKind::Job => {
@@ -1008,6 +1333,7 @@ impl Worker {
                         "; encuadre: recorrido del rectángulo con el láser apagado",
                     ),
                 }
+                self.set_reported_state(MachineState::Run);
                 Ok(Run {
                     job,
                     kind,
@@ -1067,10 +1393,15 @@ impl Worker {
                     RealtimeCommand::Status => {}
                     RealtimeCommand::Hold => self.pause(run),
                     RealtimeCommand::Resume => self.resume(run),
+                    // Marlin y Smoothieware ignoran los bytes en tiempo real: se cancela el trabajo.
+                    RealtimeCommand::Reset if self.link_family != LinkFamily::Grbl => {
+                        self.cancel(run);
+                    }
                     RealtimeCommand::Reset => {
                         run.cancelling = true;
                         run.job.control.realtime(Realtime::SoftReset);
                     }
+                    RealtimeCommand::JogCancel if self.link_family != LinkFamily::Grbl => {}
                     RealtimeCommand::JogCancel => run.job.control.realtime(Realtime::JogCancel),
                 }
                 ok(reply);
@@ -1084,15 +1415,17 @@ impl Worker {
         }
     }
 
-    fn pause(&self, run: &Run) {
+    fn pause(&mut self, run: &Run) {
         run.job.control.pause();
+        self.set_reported_state(MachineState::Hold);
         if run.kind == RunKind::Job {
             self.job_event(JobState::Paused, "En pausa.");
         }
     }
 
-    fn resume(&self, run: &Run) {
+    fn resume(&mut self, run: &Run) {
         run.job.control.resume();
+        self.set_reported_state(MachineState::Run);
         if run.kind == RunKind::Job {
             self.job_event(JobState::Started, "Reanudado.");
         }
@@ -1176,7 +1509,9 @@ impl Worker {
             .join()
             .map_err(|_| Fail::Lost("el hilo de envío terminó de forma inesperada".into()))?;
         // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
-        let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost);
+        // `ALARM:3` es justo eso: reinicio con la máquina en movimiento.
+        let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost)
+            || matches!(outcome, Outcome::Alarm(3));
         let t = streamer.into_transport();
         self.reader.clear();
         self.last_poll = None;
@@ -1184,6 +1519,7 @@ impl Worker {
         // Un ALARM:1/2 que terminó el trabajo deja la placa bloqueada y callada hasta un
         // reset; tras cualquier otro final ya no hay bloqueo que esperar.
         self.quiet = matches!(outcome, Outcome::Alarm(1 | 2)).then_some(Quiet::CriticalAlarm);
+        self.set_reported_state(MachineState::Idle);
         match (&outcome, kind) {
             (Outcome::Completed { errors: 0 }, RunKind::Job) => {
                 self.job_event(JobState::Finished, "Trabajo terminado.");
@@ -1200,10 +1536,13 @@ impl Worker {
                     msg.push(' ');
                     msg.push_str(POSITION_LOST_NOTE);
                 }
-                self.job_event(JobState::Cancelled, &msg);
+                self.job_event_at(JobState::Cancelled, &msg, position_lost);
             }
             (Outcome::Cancelled, RunKind::Frame) => {
                 self.log(LogDir::In, "; encuadre cancelado");
+                if position_lost {
+                    self.log(LogDir::In, &format!("; {POSITION_LOST_NOTE}"));
+                }
             }
             _ => {
                 let mut msg = outcome_result_for(self.fw, &outcome)
@@ -1214,7 +1553,7 @@ impl Worker {
                     msg.push_str(POSITION_LOST_NOTE);
                 }
                 self.log(LogDir::In, &first_line(&msg));
-                self.job_event(JobState::Error, &msg);
+                self.job_event_at(JobState::Error, &msg, position_lost);
             }
         }
         if let Outcome::Disconnected(m) = outcome {
@@ -1257,8 +1596,16 @@ fn jog_error(reply: &str) -> String {
 }
 
 /// Valida el G-code contra el búfer de la controladora antes de tocar la máquina.
-fn validate_lines(lines: &[String], rx_buffer: usize) -> Result<(), String> {
-    tlaku_grbl::preflight::validate_gcode(&lines.join("\n"), rx_buffer).map(drop)
+fn validate_lines(lines: &[String], link: &LinkProfile) -> Result<(), String> {
+    validate_gcode_for(&lines.join("\n"), link).map(drop)
+}
+
+/// Primera letra en mayúscula.
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

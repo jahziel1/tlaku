@@ -1,6 +1,12 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { t, type I18nKey } from '@/i18n';
-import type { DeviceIssue } from '@/lib/device';
+import type { DeviceIssue, DialectIssue } from '@/lib/device';
+
+/** Texto de un error: los de las plantillas del dialecto viven en `devices.dialect.err`, el resto en `machine.dev.err`. */
+const DIALECT_ISSUES: ReadonlySet<string> = new Set<DialectIssue>(['empty', 'multiline', 'missingS', 'badPlaceholder', 'range', 'lineTooShort', 'airPair']);
+function issueText(error: DeviceIssue | DialectIssue): string {
+  return DIALECT_ISSUES.has(error) ? t(`devices.dialect.err.${error as DialectIssue}`) : t(`machine.dev.err.${error as DeviceIssue}`);
+}
 
 /** Campo con etiqueta, ayuda breve y mensaje de error enlazados al control con `aria-describedby`. */
 export function Field({
@@ -11,7 +17,7 @@ export function Field({
 }: {
   label: string;
   help: I18nKey;
-  error?: DeviceIssue;
+  error?: DeviceIssue | DialectIssue;
   children: (ids: { id: string; describedBy: string; invalid: boolean }) => ReactNode;
 }) {
   const id = useId();
@@ -21,7 +27,7 @@ export function Field({
     <div className="mc-field" data-invalid={error || undefined}>
       <label htmlFor={id} className="field__label">{label}</label>
       {children({ id, describedBy: error ? `${errId} ${helpId}` : helpId, invalid: !!error })}
-      {error && <p id={errId} className="hint hint--danger" role="alert">{t(`machine.dev.err.${error}`)}</p>}
+      {error && <p id={errId} className="hint hint--danger" role="alert">{issueText(error)}</p>}
       <p id={helpId} className="hint mc-help">{t(help)}</p>
     </div>
   );
@@ -38,6 +44,7 @@ export function NumInput({
   label,
   describedBy,
   invalid,
+  readOnly,
 }: {
   id?: string;
   value: number;
@@ -46,6 +53,7 @@ export function NumInput({
   label?: string;
   describedBy?: string;
   invalid?: boolean;
+  readOnly?: boolean;
 }) {
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
@@ -63,6 +71,7 @@ export function NumInput({
         aria-label={label}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
+        readOnly={readOnly}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}

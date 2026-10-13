@@ -98,5 +98,12 @@ Z relativa con regreso, corrección de barrido repartida, rotativo con valores r
 núcleo Ruida con exportación `.rd` (`tlaku-ruida`, sin red); cámara parte 3 (marcas grabadas con
 validación cruzada y corrección por altura). 1105 pruebas en Rust y 940 en la interfaz.
 
-Pendiente de M4: interfaz de dialectos y máquina virtual, envío ping-pong (Marlin/Smoothie), red
-de Ruida, sub-capas, macros, modelo ojo de pez y prueba con hardware real.
+**M4, oleada C (máquinas) terminada:** máquinas virtuales en la app con fallas simuladas; envío
+línea a línea para Marlin y Smoothie; asistente "Agregar máquina" con detección de solo lectura y
+catálogo de 21 modelos con fuentes; selector de tipo de controladora y editor de G-code
+personalizado; Ruida por red (sondeo, envío guardando o ejecutando, estado, pausa, detención)
+desde el CLI, con las dudas del protocolo resueltas leyendo código MIT (ver THIRD_PARTY.md).
+1225 pruebas en Rust y 1072 en la interfaz.
+
+Pendiente de M4: Ruida en la app, sub-capas, macros, modelo ojo de pez, galvo y K40 (M2 Nano), y
+prueba con hardware real.

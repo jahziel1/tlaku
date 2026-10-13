@@ -1,26 +1,27 @@
 //! De `Toolpath` a archivo `.rd` (flujo de comandos Ruida con cabecera, capas, cuerpo y pie).
 //!
-//! La estructura sale del ejemplo 1 de EduTech (ruida.md sección 5), sustituyendo solo los
-//! valores conocidos. No hay una especificación formal: varios campos de la cabecera (matrices,
-//! índices y nombre de elemento, offsets) tienen significado incierto y por eso son opciones con
-//! los valores del ejemplo (marcados `SIN CONFIRMAR`).
+//! La estructura sale de los archivos de RDWorks (ejemplo 1 de EduTech, ruida.md sección 5) y se
+//! contrasta con lo que escriben MeerK40t y ruida-pa (ambos MIT, verificados por ellos en una
+//! RDC6442S; ver ruida.md sección 12): `D8 00` va siempre al principio, el nombre de elemento es
+//! `UNNAMED `, las matrices de copias son 1x1 y la máscara de tubos de `CA 03` es 1.
 //!
 //! Orden del flujo generado:
-//! 1. Arranque: `D8 10`, `F0`, `E6 01`, `F1 02 00` y, opcionalmente, `D8 00`.
+//! 1. Arranque: `D8 10`, `F0`, `E6 01`, `F1 02 00`, `D8 00`.
 //! 2. Cajas del trabajo (`E7 06/03/07/50/51/04/05`).
 //! 3. Cabecera de cada capa (`C9 04`, `C6 31..38`, `CA 06`, `CA 41`, `E7 52/53/61/62`).
-//! 4. `CA 22`, offsets y bloque de elemento (`E7 54/55`, `F1`, `F2`).
+//! 4. `CA 22`, offsets (siempre 0) y bloque de elemento (`E7 54/55`, `F1`, `F2`).
 //! 5. `EA`, `E7 60/13/17/23/24/08`.
-//! 6. Cuerpo de cada capa: `CA 01 00`, `CA 02`, `CA 01 30/10/12|13`, velocidad, potencias,
-//!    `CA 03 0D`, `CA 10 00` y los movimientos.
+//! 6. Cuerpo de cada capa, **en el orden de los bloques**: `CA 01 00`, `CA 02`, `CA 01 30/10`,
+//!    aire, velocidad, retardos, potencias, `CA 03`, `CA 10 00` y los movimientos.
 //! 7. Pie: `EB`, `E7 00`, suma `E5 05` (opcional), `DA 01 06 20` (opcional) y `D7`.
 //!
 //! Cada `ToolpathBlock` con al menos un corte es una capa. Los bloques sin cortes se omiten.
 //!
-//! No soportado todavía: **potencia variable dentro de un bloque** (ráster, overscan con
-//! potencia 0 mezclada con potencia > 0). `C7`/`C8` no tienen semántica documentada, así que un
-//! bloque cuyos cortes no comparten potencia devuelve [`RdError::VariablePower`]. Tampoco el eje
-//! Z ni el rotativo.
+//! **Potencia variable** (ráster, relleno con overscan): si los cortes de un bloque no comparten
+//! potencia, la capa lleva mín = 0 y máx = la mayor del bloque, y antes de cada corte cuya
+//! potencia cambia se emite `C7 P` (potencia inmediata, la que usa ruida-pa para escribir
+//! imágenes). Los cortes con potencia 0 (el overscan) se escriben como saltos con el láser
+//! apagado ([`ZeroPower::Travel`]), como hacen MeerK40t y ruida-pa. No hay eje Z ni rotativo.
 
 use crate::cmd::{self, Command, Limit, ProcessOp};
 use crate::num::{self, NumError};
@@ -33,6 +34,125 @@ use tlaku_core::toolpath::{Move, Toolpath};
 /// Capas posibles (int7).
 pub const MAX_LAYERS: usize = 128;
 
+/// Nombre de elemento que escribe RDWorks en todos los archivos vistos (8 caracteres).
+pub const ELEMENT_NAME: &str = "UNNAMED ";
+
+/// Empaqueta 8 caracteres ASCII para `F2 02`: cuatro caracteres por cada valor de 35 bits
+/// (32 bits útiles, big endian) y cada valor en 5 bytes de 7 bits. `UNNAMED ` da
+/// `05 2A 39 1C 41 04 6A 15 08 20`, los bytes de todos los `.rd` de RDWorks vistos.
+pub fn encode_element_name(name: &str) -> Option<[u8; 10]> {
+    let b = name.as_bytes();
+    if b.len() != 8 || !b.is_ascii() {
+        return None;
+    }
+    let mut out = [0u8; 10];
+    for half in 0..2 {
+        let v = u32::from_be_bytes([
+            b[4 * half],
+            b[4 * half + 1],
+            b[4 * half + 2],
+            b[4 * half + 3],
+        ]);
+        for k in 0..5 {
+            out[5 * half + k] = ((v >> (7 * (4 - k))) & 0x7F) as u8;
+        }
+    }
+    Some(out)
+}
+
+/// Inversa de [`encode_element_name`]; los bytes no imprimibles salen como `?`.
+pub fn decode_element_name(bytes: &[u8; 10]) -> String {
+    let mut s = String::with_capacity(8);
+    for half in 0..2 {
+        let mut v = 0u64;
+        for &b in &bytes[5 * half..5 * half + 5] {
+            v = (v << 7) | u64::from(b & 0x7F);
+        }
+        for c in (v as u32).to_be_bytes() {
+            s.push(if (0x20..0x7F).contains(&c) {
+                c as char
+            } else {
+                '?'
+            });
+        }
+    }
+    s
+}
+
+/// Esquina de la cama donde está el home de la máquina. Las coordenadas de un `.rd` con
+/// `D8 10` (cero de la máquina) son distancias desde el home hacia dentro de la cama
+/// (ruida-pa nombra las cajas como "top right" y MeerK40t necesita "Flip X" en una máquina con
+/// el home a la derecha). Tlaku usa origen abajo a la izquierda con Y hacia arriba, así que el
+/// perfil debe decir dónde está el home. Sin hardware no hay un valor universal: el defecto es
+/// arriba a la izquierda (lo más común) y la prueba 2 de ruida.md 10.6 lo confirma.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HomeCorner {
+    #[default]
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl HomeCorner {
+    fn flips(self) -> (bool, bool) {
+        match self {
+            HomeCorner::TopLeft => (false, true),
+            HomeCorner::TopRight => (true, true),
+            HomeCorner::BottomLeft => (false, false),
+            HomeCorner::BottomRight => (true, false),
+        }
+    }
+
+    /// Punto de Tlaku (mm, abajo-izquierda, Y arriba) a coordenadas de la máquina (mm).
+    pub fn to_machine(self, p: Point, bed_mm: [f64; 2]) -> (f64, f64) {
+        let (fx, fy) = self.flips();
+        (
+            if fx { bed_mm[0] - p.x } else { p.x },
+            if fy { bed_mm[1] - p.y } else { p.y },
+        )
+    }
+
+    /// Inversa de [`HomeCorner::to_machine`].
+    pub fn from_machine(self, x: f64, y: f64, bed_mm: [f64; 2]) -> Point {
+        let (fx, fy) = self.flips();
+        Point::new(
+            if fx { bed_mm[0] - x } else { x },
+            if fy { bed_mm[1] - y } else { y },
+        )
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().replace('_', "-").as_str() {
+            "top-left" | "tl" => Some(HomeCorner::TopLeft),
+            "top-right" | "tr" => Some(HomeCorner::TopRight),
+            "bottom-left" | "bl" => Some(HomeCorner::BottomLeft),
+            "bottom-right" | "br" => Some(HomeCorner::BottomRight),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            HomeCorner::TopLeft => "top-left",
+            HomeCorner::TopRight => "top-right",
+            HomeCorner::BottomLeft => "bottom-left",
+            HomeCorner::BottomRight => "bottom-right",
+        }
+    }
+}
+
+/// Qué hacer con un corte a potencia 0 dentro de un bloque de potencia variable (el overscan).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ZeroPower {
+    /// Salto con el láser apagado (`88/89`): lo que hacen MeerK40t y ruida-pa.
+    #[default]
+    Travel,
+    /// `C7 0` y corte: el cabezal recorre el tramo a la velocidad de la capa con potencia 0.
+    /// Sin verificar en hardware.
+    Cut,
+}
+
 /// Ajustes de una capa que el `Toolpath` no trae.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LayerOptions {
@@ -40,22 +160,26 @@ pub struct LayerOptions {
     pub color: [u8; 3],
     /// Potencia mínima en %. `None` = igual a la máxima (potencia constante). Con valores
     /// distintos la controladora escala con la velocidad (comportamiento de foros, ruida.md 4.2;
-    /// SIN CONFIRMAR).
+    /// ruida-pa lo modela igual: a poca velocidad sube hacia el máximo). Se ignora en los
+    /// bloques de potencia variable.
     pub min_power_pct: Option<f64>,
 }
 
-/// Qué suma `E5 05` lleva al final del trabajo. Duda abierta (ruida.md 4.4): `ruida-pa` dice que
-/// es una suma corrida de los bytes de grabado/corte y de configuración de capa, y su cálculo no
-/// coincide con las capturas de LightBurn (diferencia de 220); el ejemplo de EduTech no la
-/// incluye.
+/// Qué suma `E5 05` lleva al final del trabajo.
+///
+/// MeerK40t (MIT, probado en una RDC6442S) escribe la suma de **todos** los bytes de los
+/// comandos del trabajo más `0xD7`; ruida-pa (MIT) la describe igual (excluye lecturas `DA 00`
+/// y teclas `A7`, y el propio `E5 05`). Con capturas de LightBurn el resultado difiere de forma
+/// constante en 220: falta algún byte por identificar. Los `.rd` de RDWorks no llevan `E5 05`
+/// y funcionan en todas las máquinas, así que el defecto es no emitirlo; no se sabe si el
+/// firmware rechaza una suma errónea (ruida-pa dice que "puede mostrar un mensaje").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FileChecksum {
-    /// No emitir `E5 05` (como el ejemplo de EduTech).
+    /// No emitir `E5 05` (como RDWorks).
     #[default]
     None,
-    /// Suma de los valores de todos los bytes desde el inicio del flujo hasta `E7 00` inclusive,
-    /// sin contar los comandos `DA`. EXPERIMENTAL, SIN CONFIRMAR.
-    SumToEndBlock,
+    /// Suma de los bytes de todos los comandos anteriores más `0xD7` (fórmula de MeerK40t).
+    SumAll,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -64,34 +188,26 @@ pub struct RuidaJobOptions {
     pub limits: SafetyLimits,
     /// Ajustes por bloque del `Toolpath` (mismo índice); los que falten usan los de por defecto.
     pub layers: Vec<LayerOptions>,
-    /// Invierte Y respecto a la altura de la cama (`y' = alto - y`). Por defecto no: el
-    /// sistema de coordenadas de Ruida (origen y signo de Y) no está documentado. SIN CONFIRMAR.
-    pub flip_y: bool,
-    /// Desplazamiento en mm que se suma a todas las coordenadas (después de invertir Y).
+    /// Esquina del home de la máquina (define el origen y el signo de X e Y del archivo).
+    pub home: HomeCorner,
+    /// Desplazamiento en mm que se suma a todas las coordenadas (ya en el sistema de la máquina).
     pub offset_mm: [f64; 2],
     /// Usar movimientos relativos cuando el salto cabe en 14 bits con signo (+-8,191 mm).
     pub use_relative: bool,
     /// Usar `8A/8B/AA/AB` cuando un solo eje cambia. Fuentes menos firmes que `89/A9`: apagado.
     pub use_axis_shortcuts: bool,
-    /// Emitir `D8 00` (iniciar proceso) al principio como el ejemplo. Si la subida se corta,
-    /// la máquina podría haber empezado (ruida.md sección 7). FabLab/JNW lo omiten.
-    pub emit_process_start: bool,
     pub file_checksum: FileChecksum,
     /// Emitir `DA 01 06 20 L L` en el pie, con L = longitud de corte en mm (inferencia propia a
-    /// partir del ejemplo: 327 mm de perímetro). Es una **escritura de memoria**: apagado.
+    /// partir del ejemplo: 327 mm de perímetro). Es una **escritura de memoria** que MeerK40t
+    /// no emite: apagado.
     pub footer_stats: bool,
     /// Potencia de los láseres 2 a 4 en %. 0 por seguridad; el ejemplo usa ~30 %.
     pub secondary_laser_power_pct: f64,
-    /// `E7 54 n` para n = 0 y 1, µm (el ejemplo usa 50 000). SIN CONFIRMAR.
-    pub pen_offset_um: [i64; 2],
-    /// `E7 55 n` para n = 0 y 1, µm (el ejemplo usa 0). SIN CONFIRMAR.
-    pub layer_offset_um: [i64; 2],
-    /// `F1 03 X Y`, µm (el ejemplo usa 50 000, 50 000). SIN CONFIRMAR.
-    pub screen_offset_um: [i64; 2],
-    /// `F2 02`: nombre de elemento "codificado"; por defecto los bytes del ejemplo. SIN CONFIRMAR.
-    pub element_name: [u8; 10],
-    /// `F2 05` y `E7 08`: matriz del elemento; por defecto la del ejemplo. SIN CONFIRMAR.
-    pub element_array: [i32; 7],
+    /// `CA 03 n`: tubos activos al empezar. MeerK40t escribe 1 (solo el láser 1, verificado en
+    /// una RDC6442S); RDWorks escribe 0x0D o 0x0F según la configuración de la máquina.
+    pub laser_tube_start: u8,
+    /// Cortes a potencia 0 de los bloques de potencia variable.
+    pub zero_power: ZeroPower,
 }
 
 impl Default for RuidaJobOptions {
@@ -99,19 +215,15 @@ impl Default for RuidaJobOptions {
         RuidaJobOptions {
             limits: SafetyLimits::default(),
             layers: Vec::new(),
-            flip_y: false,
+            home: HomeCorner::default(),
             offset_mm: [0.0, 0.0],
             use_relative: true,
             use_axis_shortcuts: false,
-            emit_process_start: true,
             file_checksum: FileChecksum::None,
             footer_stats: false,
             secondary_laser_power_pct: 0.0,
-            pen_offset_um: [0, 0],
-            layer_offset_um: [0, 0],
-            screen_offset_um: [0, 0],
-            element_name: [0x05, 0x2A, 0x39, 0x1C, 0x41, 0x04, 0x6A, 0x15, 0x08, 0x20],
-            element_array: [1, 1, -1, -710, -7808, 4, 7597],
+            laser_tube_start: 1,
+            zero_power: ZeroPower::Travel,
         }
     }
 }
@@ -120,12 +232,6 @@ impl Default for RuidaJobOptions {
 pub enum RdError {
     Safety(SafetyError),
     Num(NumError),
-    /// Los cortes de un bloque no comparten potencia (ráster / overscan): no soportado todavía.
-    VariablePower {
-        block: usize,
-        min_pct: f64,
-        max_pct: f64,
-    },
     /// No hay ningún bloque con cortes.
     EmptyJob,
     /// Más bloques con cortes que capas posibles (128).
@@ -144,16 +250,6 @@ impl fmt::Display for RdError {
         match self {
             RdError::Safety(e) => write!(f, "{e}"),
             RdError::Num(e) => write!(f, "{e}"),
-            RdError::VariablePower {
-                block,
-                min_pct,
-                max_pct,
-            } => write!(
-                f,
-                "bloque {block}: la potencia varía entre {min_pct:.2} % y {max_pct:.2} % dentro del bloque; \
-                 el ráster y el overscan con potencia variable aún no están soportados en Ruida \
-                 (C7/C8 sin semántica documentada). Divide el trabajo en capas de potencia constante"
-            ),
             RdError::EmptyJob => write!(f, "el trabajo no tiene ningún corte"),
             RdError::TooManyLayers { layers } => write!(
                 f,
@@ -188,6 +284,8 @@ struct Step {
     cut: bool,
     x: i64,
     y: i64,
+    /// Potencia cruda del corte (solo importa en los bloques de potencia variable).
+    power: u16,
 }
 
 struct LayerPlan {
@@ -196,6 +294,8 @@ struct LayerPlan {
     speed_um_s: u64,
     power_max: u16,
     power_min: u16,
+    /// Los cortes no comparten potencia: se escribe `C7` antes de cada cambio.
+    variable: bool,
     air: bool,
     color: u64,
     steps: Vec<Step>,
@@ -225,13 +325,9 @@ impl BBox {
 }
 
 fn to_um(p: Point, opts: &RuidaJobOptions) -> Result<(i64, i64), NumError> {
-    let y = if opts.flip_y {
-        opts.limits.bed_mm[1] - p.y
-    } else {
-        p.y
-    };
+    let (x, y) = opts.home.to_machine(p, opts.limits.bed_mm);
     Ok((
-        num::mm_to_um(p.x + opts.offset_mm[0])?,
+        num::mm_to_um(x + opts.offset_mm[0])?,
         num::mm_to_um(y + opts.offset_mm[1])?,
     ))
 }
@@ -258,25 +354,22 @@ fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<LayerPlan>, 
             .map(|&p| num::power_from_pct(p))
             .collect::<Result<Vec<_>, _>>()?;
         let (lo, hi) = (*raws.iter().min().unwrap(), *raws.iter().max().unwrap());
-        if lo != hi {
-            let pmin = powers.iter().copied().fold(f64::INFINITY, f64::min);
-            let pmax = powers.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-            return Err(RdError::VariablePower {
-                block: bi,
-                min_pct: pmin,
-                max_pct: pmax,
-            });
-        }
+        let variable = lo != hi;
         let lopt = opts.layers.get(bi).cloned().unwrap_or_default();
-        let power_min = match lopt.min_power_pct {
-            Some(m) => {
-                let r = num::power_from_pct(m)?;
-                if r > hi {
-                    return Err(RdError::MinPowerAboveMax { block: bi });
+        let power_min = if variable {
+            // La capa deja que `C7` mande: mínimo 0 y máximo el mayor del bloque.
+            0
+        } else {
+            match lopt.min_power_pct {
+                Some(m) => {
+                    let r = num::power_from_pct(m)?;
+                    if r > hi {
+                        return Err(RdError::MinPowerAboveMax { block: bi });
+                    }
+                    r
                 }
-                r
+                None => hi,
             }
-            None => hi,
         };
         if plans.len() >= MAX_LAYERS {
             return Err(RdError::TooManyLayers {
@@ -295,10 +388,19 @@ fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<LayerPlan>, 
                 continue;
             }
             last = Some(p);
+            let (cut, power) = match m {
+                Move::Travel { .. } => (false, 0),
+                Move::Cut { power_pct, .. } => {
+                    let raw = num::power_from_pct(*power_pct)?;
+                    let laser = !variable || raw > 0 || opts.zero_power == ZeroPower::Cut;
+                    (laser, raw)
+                }
+            };
             steps.push(Step {
-                cut: matches!(m, Move::Cut { .. }),
+                cut,
                 x: p.0,
                 y: p.1,
+                power,
             });
         }
         plans.push(LayerPlan {
@@ -306,6 +408,7 @@ fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<LayerPlan>, 
             speed_um_s: num::speed_from_mm_min(block.speed_mm_min)?,
             power_max: hi,
             power_min,
+            variable,
             air: block.air_assist,
             color: num::rgb_to_color(lopt.color[0], lopt.color[1], lopt.color[2]),
             steps,
@@ -336,11 +439,31 @@ fn part_point(sub: u8, part: u8, p: (i64, i64)) -> Command {
     }
 }
 
+/// Matriz de una sola copia (1 columna x 1 fila). RDWorks escribe el tamaño del dibujo como paso
+/// (con signos que cambian de un archivo a otro), pero con 1x1 el paso no se usa; MeerK40t
+/// escribe pasos arbitrarios y funciona. Aquí 0.
+fn single_copy(op: u8, sub: u8) -> Command {
+    Command::Copies {
+        op,
+        sub,
+        cols: 1,
+        rows: 1,
+        step_x: 0,
+        step_y: 0,
+    }
+}
+
 /// Instrucciones de movimiento de una capa: relativas si el salto cabe, absolutas si no. La
 /// primera de cada capa es siempre absoluta y la posición se lleva en enteros (sin deriva).
-fn emit_moves(steps: &[Step], opts: &RuidaJobOptions, out: &mut Vec<Command>) {
+/// En las capas de potencia variable, `C7 P` precede a cada corte cuya potencia cambia.
+fn emit_moves(plan: &LayerPlan, opts: &RuidaJobOptions, out: &mut Vec<Command>) {
     let mut pos: Option<(i64, i64)> = None;
-    for s in steps {
+    let mut imm: Option<u16> = None;
+    for s in &plan.steps {
+        if plan.variable && s.cut && imm != Some(s.power) {
+            out.push(Command::ImmPower(s.power));
+            imm = Some(s.power);
+        }
         let rel = match pos {
             Some((px, py)) if opts.use_relative => {
                 let (dx, dy) = (s.x - px, s.y - py);
@@ -394,6 +517,10 @@ fn cut_length_mm(plans: &[LayerPlan]) -> u64 {
 pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Command>, RdError> {
     safety::check_toolpath(tp, &opts.limits)?;
     let sec = num::power_from_pct(opts.secondary_laser_power_pct)?;
+    if opts.laser_tube_start > 0x7F {
+        return Err(RdError::BadOption("laser_tube_start debe caber en 7 bits"));
+    }
+    let name = encode_element_name(ELEMENT_NAME).expect("nombre válido");
     let plans = plan_layers(tp, opts)?;
     let mut job_box = plans[0].bbox;
     for p in &plans[1..] {
@@ -401,7 +528,8 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
     }
     let mut c: Vec<Command> = Vec::new();
 
-    // 1. Arranque.
+    // 1. Arranque. `D8 00` va siempre: está en todos los archivos de RDWorks, en la captura
+    // de Nova 35 y en lo que envían MeerK40t y ruida-pa (verificado en RDC6442S).
     c.push(Command::Process(ProcessOp::RefPoint));
     c.push(Command::SetReference);
     c.push(Command::Absolute);
@@ -410,9 +538,7 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         sub: 0x02,
         n: 0,
     });
-    if opts.emit_process_start {
-        c.push(Command::Process(ProcessOp::Start));
-    }
+    c.push(Command::Process(ProcessOp::Start));
 
     // 2. Cajas del trabajo.
     c.push(point2(0xE7, 0x06, (0, 0)));
@@ -420,11 +546,7 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
     c.push(point2(0xE7, 0x07, job_box.max));
     c.push(point2(0xE7, 0x50, job_box.min));
     c.push(point2(0xE7, 0x51, job_box.max));
-    c.push(Command::Arr7 {
-        op: 0xE7,
-        sub: 0x04,
-        v: [1, 1, 0, 0, 0, 0, 0],
-    });
+    c.push(single_copy(0xE7, 0x04));
     c.push(Command::Small {
         op: 0xE7,
         sub: 0x05,
@@ -469,31 +591,18 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         c.push(part_point(0x62, l, p.bbox.max));
     }
 
-    // 4. Máximo de capa, offsets y bloque de elemento.
+    // 4. Máximo de capa, offsets (todos a 0) y bloque de elemento.
     c.push(Command::MaxLayer(plans.len() as u8 - 1));
-    for n in 0..2u8 {
-        c.push(Command::PartAbs {
-            sub: 0x54,
-            n,
-            v: opts.pen_offset_um[n as usize],
-        });
+    for sub in [0x54, 0x55] {
+        for n in 0..2u8 {
+            c.push(Command::PartAbs { sub, n, v: 0 });
+        }
     }
-    for n in 0..2u8 {
-        c.push(Command::PartAbs {
-            sub: 0x55,
-            n,
-            v: opts.layer_offset_um[n as usize],
-        });
-    }
-    c.push(point2(
-        0xF1,
-        0x03,
-        (opts.screen_offset_um[0], opts.screen_offset_um[1]),
-    ));
+    c.push(point2(0xF1, 0x03, (0, 0)));
     for (op, sub) in [(0xF1, 0x00), (0xF1, 0x01), (0xF2, 0x00), (0xF2, 0x01)] {
         c.push(Command::Small { op, sub, n: 0 });
     }
-    c.push(Command::ElementName(opts.element_name));
+    c.push(Command::ElementName(name));
     c.push(point2(0xF2, 0x03, job_box.min));
     c.push(point2(0xF2, 0x04, job_box.max));
     c.push(point2(0xF2, 0x06, (0, 0)));
@@ -502,11 +611,7 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         sub: 0x07,
         n: 0,
     });
-    c.push(Command::Arr7 {
-        op: 0xF2,
-        sub: 0x05,
-        v: opts.element_array,
-    });
+    c.push(single_copy(0xF2, 0x05));
 
     // 5. Bloque de elemento del cuerpo.
     c.push(Command::ShortArg { op: 0xEA, n: 0 });
@@ -523,11 +628,7 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         sub: 0x24,
         n: 0,
     });
-    c.push(Command::Arr7 {
-        op: 0xE7,
-        sub: 0x08,
-        v: opts.element_array,
-    });
+    c.push(single_copy(0xE7, 0x08));
 
     // 6. Cuerpo de cada capa.
     for p in &plans {
@@ -541,12 +642,14 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
             Command::AirOff
         });
         c.push(Command::Speed(p.speed_um_s));
+        // Retardos de encendido y apagado del láser (`C6 12/13`), a 0: los que escriben
+        // MeerK40t y los archivos de RDWorks. El ejemplo de EduTech usa `C6 15/16`.
         c.push(Command::LaserTime {
-            sub: 0x15,
+            sub: 0x12,
             micros: 0,
         });
         c.push(Command::LaserTime {
-            sub: 0x16,
+            sub: 0x13,
             micros: 0,
         });
         for (laser, mn, mx) in [
@@ -569,23 +672,19 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         c.push(Command::Small {
             op: 0xCA,
             sub: 0x03,
-            n: 0x0D,
+            n: opts.laser_tube_start,
         });
         c.push(Command::Small {
             op: 0xCA,
             sub: 0x10,
             n: 0x00,
         });
-        emit_moves(&p.steps, opts, &mut c);
+        emit_moves(p, opts, &mut c);
     }
 
     // 7. Pie.
     c.push(Command::Marker(0xEB));
     c.push(Command::EndBlock);
-    if opts.file_checksum == FileChecksum::SumToEndBlock {
-        let sum = sum_bytes(&c)?;
-        c.push(Command::FileChecksum(sum));
-    }
     if opts.footer_stats {
         let len = cut_length_mm(&plans);
         c.push(Command::MemWrite {
@@ -593,15 +692,19 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
             values: vec![len, len],
         });
     }
+    if opts.file_checksum == FileChecksum::SumAll {
+        let sum = sum_bytes(&c)? + 0xD7;
+        c.push(Command::FileChecksum(sum));
+    }
     c.push(Command::EndOfFile);
     Ok(c)
 }
 
-/// Suma de los bytes de los comandos (sin `DA`).
+/// Suma de los bytes de los comandos (sin lecturas `DA 00`, que no entran en la suma).
 fn sum_bytes(cmds: &[Command]) -> Result<u64, NumError> {
     let mut sum = 0u64;
     for c in cmds {
-        if matches!(c, Command::MemRead { .. } | Command::MemWrite { .. }) {
+        if matches!(c, Command::MemRead { .. }) {
             continue;
         }
         sum += c.to_bytes()?.iter().map(|&b| u64::from(b)).sum::<u64>();
@@ -683,8 +786,16 @@ mod tests {
             .collect()
     }
 
+    /// Opciones sin cambio de ejes (home abajo a la izquierda): coordenadas = las del `Toolpath`.
+    fn dflt() -> RuidaJobOptions {
+        RuidaJobOptions {
+            home: HomeCorner::BottomLeft,
+            ..Default::default()
+        }
+    }
+
     fn pct(raw: u16) -> f64 {
-        f64::from(raw) * 100.0 / 16384.0
+        f64::from(raw) * 100.0 / 16383.0
     }
 
     fn rect_block(power: f64) -> ToolpathBlock {
@@ -716,11 +827,61 @@ mod tests {
                 min_power_pct: Some(pct(2457)),
             }],
             secondary_laser_power_pct: pct(4914),
-            pen_offset_um: [50_000, 50_000],
-            screen_offset_um: [50_000, 50_000],
             footer_stats: true,
-            ..Default::default()
+            ..dflt()
         }
+    }
+
+    /// El ejemplo 1 con las diferencias **intencionadas** de Tlaku aplicadas, para poder
+    /// compararlo con lo que genera (ver ruida.md sección 12): offsets de pluma y de pantalla
+    /// a 0, retardos `C6 12/13` en vez de `C6 15/16`, `CA 03 01` en vez de `0D` y matrices 1x1
+    /// con pasos 0.
+    fn example_with_tlaku_choices() -> Vec<Command> {
+        cmd::decode_stream(&hex(EXAMPLE_1))
+            .unwrap()
+            .into_iter()
+            .map(|c| match c {
+                Command::PartAbs { sub, n, .. } => Command::PartAbs { sub, n, v: 0 },
+                Command::Point2 {
+                    op: 0xF1,
+                    sub: 0x03,
+                    ..
+                } => Command::Point2 {
+                    op: 0xF1,
+                    sub: 0x03,
+                    x: 0,
+                    y: 0,
+                },
+                Command::LaserTime { sub, micros } => Command::LaserTime {
+                    sub: sub - 3,
+                    micros,
+                },
+                Command::Small {
+                    op: 0xCA,
+                    sub: 0x03,
+                    ..
+                } => Command::Small {
+                    op: 0xCA,
+                    sub: 0x03,
+                    n: 1,
+                },
+                Command::Copies {
+                    op,
+                    sub,
+                    cols,
+                    rows,
+                    ..
+                } if sub != 0x04 => Command::Copies {
+                    op,
+                    sub,
+                    cols,
+                    rows,
+                    step_x: 0,
+                    step_y: 0,
+                },
+                other => other,
+            })
+            .collect()
     }
 
     #[test]
@@ -743,7 +904,7 @@ mod tests {
 
     #[test]
     fn example_1_regenerated_matches_except_for_documented_differences() {
-        let expected = cmd::decode_stream(&hex(EXAMPLE_1)).unwrap();
+        let expected = example_with_tlaku_choices();
         let tp = Toolpath {
             blocks: vec![rect_block(pct(3112))],
         };
@@ -778,18 +939,20 @@ mod tests {
     #[test]
     fn example_with_exact_example_boxes_is_identical_in_bytes() {
         // Si la trayectoria y las cajas coinciden con las del ejemplo, los bytes son idénticos.
-        let expected = hex(EXAMPLE_1);
+        let ex = example_with_tlaku_choices();
         let tp = Toolpath {
             blocks: vec![rect_block(pct(3112))],
         };
         let mut cmds = build_commands(&tp, &example_options()).unwrap();
-        let ex = cmd::decode_stream(&expected).unwrap();
         for (a, b) in cmds.iter_mut().zip(&ex) {
             if matches!(a, Command::Point2 { .. } | Command::PartPoint { .. }) {
                 *a = b.clone();
             }
         }
-        assert_eq!(cmd::encode_stream(&cmds).unwrap(), expected);
+        assert_eq!(
+            cmd::encode_stream(&cmds).unwrap(),
+            cmd::encode_stream(&ex).unwrap()
+        );
     }
 
     #[test]
@@ -797,7 +960,7 @@ mod tests {
         let tp = Toolpath {
             blocks: vec![rect_block(40.0)],
         };
-        let plain = build_rd(&tp, &RuidaJobOptions::default()).unwrap();
+        let plain = build_rd(&tp, &dflt()).unwrap();
         assert!(plain.iter().filter(|&&b| b >= 0x80).count() > 20);
         let cmds = cmd::decode_stream(&plain).unwrap();
         assert!(cmds.iter().all(|c| !matches!(c, Command::Unknown { .. })));
@@ -815,7 +978,7 @@ mod tests {
         let tp = Toolpath {
             blocks: vec![rect_block(50.0)],
         };
-        let cmds = build_commands(&tp, &RuidaJobOptions::default()).unwrap();
+        let cmds = build_commands(&tp, &dflt()).unwrap();
         let raw_of = |laser: u8, limit: Limit| {
             cmds.iter()
                 .find_map(|c| match c {
@@ -828,24 +991,115 @@ mod tests {
                 })
                 .unwrap()
         };
-        assert_eq!(raw_of(1, Limit::Min), 8192);
-        assert_eq!(raw_of(1, Limit::Max), 8192);
+        assert_eq!(raw_of(1, Limit::Min), 8191);
+        assert_eq!(raw_of(1, Limit::Max), 8191);
         assert_eq!(raw_of(2, Limit::Max), 0);
         assert_eq!(raw_of(4, Limit::Min), 0);
     }
 
+    /// Dos filas de un ráster: overscan a potencia 0, tramos de potencia distinta y overscan.
+    fn raster_block() -> ToolpathBlock {
+        let cut = |x: f64, y: f64, p: f64| Move::Cut {
+            to: Point::new(x, y),
+            power_pct: p,
+        };
+        let travel = |x: f64, y: f64| Move::Travel {
+            to: Point::new(x, y),
+        };
+        ToolpathBlock {
+            label: "ráster".into(),
+            speed_mm_min: 6000.0,
+            moves: vec![
+                travel(8.0, 10.0),
+                cut(10.0, 10.0, 0.0),
+                cut(11.0, 10.0, 40.0),
+                cut(12.0, 10.0, 80.0),
+                cut(14.0, 10.0, 0.0),
+                travel(14.0, 10.1),
+                cut(12.0, 10.1, 0.0),
+                cut(11.0, 10.1, 80.0),
+                cut(10.0, 10.1, 40.0),
+                cut(8.0, 10.1, 0.0),
+            ],
+            ..Default::default()
+        }
+    }
+
     #[test]
-    fn variable_power_is_rejected_with_clear_error() {
-        let mut b = rect_block(50.0);
-        b.moves.push(Move::Cut {
-            to: Point::new(10.0, 10.0),
-            power_pct: 0.0,
-        });
-        let tp = Toolpath { blocks: vec![b] };
-        let e = build_rd(&tp, &RuidaJobOptions::default()).unwrap_err();
-        assert!(matches!(e, RdError::VariablePower { block: 0, .. }));
-        let text = e.to_string();
-        assert!(text.contains("no están soportados") || text.contains("aún no"));
+    fn variable_power_uses_imd_power_and_zero_power_travels() {
+        let tp = Toolpath {
+            blocks: vec![raster_block()],
+        };
+        let cmds = build_commands(&tp, &dflt()).unwrap();
+        // Capa con mín 0 y máx = la mayor potencia (80 %).
+        let hi = num::power_from_pct(80.0).unwrap();
+        let lp = |limit: Limit| {
+            cmds.iter()
+                .find_map(|c| match c {
+                    Command::LayerPower {
+                        laser: 1,
+                        limit: l,
+                        raw,
+                        ..
+                    } if *l == limit => Some(*raw),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        assert_eq!((lp(Limit::Min), lp(Limit::Max)), (0, hi));
+        // C7 solo cuando cambia y nunca para potencia 0 (los tramos de overscan son saltos).
+        let imm: Vec<u16> = cmds
+            .iter()
+            .filter_map(|c| match c {
+                Command::ImmPower(r) => Some(*r),
+                _ => None,
+            })
+            .collect();
+        let (p40, p80) = (
+            num::power_from_pct(40.0).unwrap(),
+            num::power_from_pct(80.0).unwrap(),
+        );
+        assert_eq!(imm, [p40, p80, p40]);
+        // Cada corte va precedido por el C7 vigente: se reconstruye la potencia de cada tramo.
+        let (mut cur, mut got) = (None, Vec::new());
+        for c in &cmds {
+            match c {
+                Command::ImmPower(r) => cur = Some(*r),
+                Command::CutRel { .. } | Command::CutAbs { .. } => got.push(cur.unwrap()),
+                _ => {}
+            }
+        }
+        assert_eq!(got, [p40, p80, p80, p40]);
+        // Los tramos a potencia 0 salen como saltos.
+        let travels = cmds
+            .iter()
+            .filter(|c| matches!(c, Command::MoveAbs { .. } | Command::MoveRel { .. }))
+            .count();
+        assert_eq!(travels, 6);
+        // Con `ZeroPower::Cut` el tramo se corta con C7 0.
+        let o = RuidaJobOptions {
+            zero_power: ZeroPower::Cut,
+            ..dflt()
+        };
+        let cmds = build_commands(&tp, &o).unwrap();
+        assert!(cmds.contains(&Command::ImmPower(0)));
+        // Solo quedan los dos saltos de verdad (el primero y el del cambio de fila).
+        let moves = cmds
+            .iter()
+            .filter(|c| matches!(c, Command::MoveAbs { .. } | Command::MoveRel { .. }))
+            .count();
+        assert_eq!(moves, 2);
+        build_rd(&tp, &o).unwrap();
+        build_rd(&tp, &dflt()).unwrap();
+    }
+
+    #[test]
+    fn constant_power_blocks_do_not_use_imd_power() {
+        let tp = Toolpath {
+            blocks: vec![rect_block(50.0)],
+        };
+        let cmds = build_commands(&tp, &dflt()).unwrap();
+        assert!(!cmds.iter().any(|c| matches!(c, Command::ImmPower(_))));
     }
 
     #[test]
@@ -881,7 +1135,7 @@ mod tests {
                 ..Default::default()
             }],
         };
-        let cmds = build_commands(&tp, &RuidaJobOptions::default()).unwrap();
+        let cmds = build_commands(&tp, &dflt()).unwrap();
         let body: Vec<&Command> = cmds
             .iter()
             .filter(|c| {
@@ -924,7 +1178,7 @@ mod tests {
         // Sin relativos si se pide.
         let abs_only = RuidaJobOptions {
             use_relative: false,
-            ..Default::default()
+            ..dflt()
         };
         let cmds = build_commands(&tp, &abs_only).unwrap();
         assert!(!cmds.iter().any(|c| matches!(c, Command::CutRel { .. })));
@@ -953,12 +1207,12 @@ mod tests {
         };
         let o = RuidaJobOptions {
             use_axis_shortcuts: true,
-            ..Default::default()
+            ..dflt()
         };
         let cmds = build_commands(&tp, &o).unwrap();
         assert!(cmds.contains(&Command::CutRelX(1000)));
         assert!(cmds.contains(&Command::CutRelY(1000)));
-        let cmds = build_commands(&tp, &RuidaJobOptions::default()).unwrap();
+        let cmds = build_commands(&tp, &dflt()).unwrap();
         assert!(cmds.contains(&Command::CutRel { dx: 1000, dy: 0 }));
     }
 
@@ -1008,7 +1262,7 @@ mod tests {
     }
 
     #[test]
-    fn flip_and_offset() {
+    fn home_corner_maps_the_axes_and_offset() {
         let tp = Toolpath {
             blocks: vec![ToolpathBlock {
                 speed_mm_min: 1200.0,
@@ -1019,22 +1273,61 @@ mod tests {
                 ..Default::default()
             }],
         };
-        let o = RuidaJobOptions {
-            flip_y: true,
-            offset_mm: [1.0, 0.5],
-            ..Default::default()
-        };
-        let cmds = build_commands(&tp, &o).unwrap();
-        // alto de cama 400: y' = 400 - 30 + 0.5
-        assert!(cmds.contains(&Command::CutAbs {
-            x: 11_000,
-            y: 370_500
-        }));
+        // Cama por defecto 600 x 400.
+        for (home, x, y) in [
+            (HomeCorner::TopLeft, 11_000, 370_500),
+            (HomeCorner::TopRight, 591_000, 370_500),
+            (HomeCorner::BottomLeft, 11_000, 30_500),
+            (HomeCorner::BottomRight, 591_000, 30_500),
+        ] {
+            let o = RuidaJobOptions {
+                home,
+                offset_mm: [1.0, 0.5],
+                ..Default::default()
+            };
+            let cmds = build_commands(&tp, &o).unwrap();
+            // x' = 10 (o 600 - 10) + 1; y' = 400 - 30 (o 30) + 0.5
+            let want = if matches!(home, HomeCorner::TopRight | HomeCorner::BottomRight) {
+                x
+            } else {
+                11_000
+            };
+            assert!(cmds.contains(&Command::CutAbs { x: want, y }), "{home:?}");
+        }
+    }
+
+    #[test]
+    fn home_corner_roundtrip_and_parse() {
+        let bed = [600.0, 400.0];
+        for home in [
+            HomeCorner::TopLeft,
+            HomeCorner::TopRight,
+            HomeCorner::BottomLeft,
+            HomeCorner::BottomRight,
+        ] {
+            let p = Point::new(123.4, 56.7);
+            let (x, y) = home.to_machine(p, bed);
+            let back = home.from_machine(x, y, bed);
+            assert!((back.x - p.x).abs() < 1e-9 && (back.y - p.y).abs() < 1e-9);
+            assert_eq!(HomeCorner::parse(home.name()), Some(home));
+        }
+        assert_eq!(HomeCorner::parse("TOP_LEFT"), Some(HomeCorner::TopLeft));
+        assert_eq!(HomeCorner::parse("centro"), None);
+    }
+
+    #[test]
+    fn element_name_matches_every_rdworks_file() {
+        // Los bytes de f202... del ejemplo 1 de EduTech y de los demás archivos de RDWorks.
+        let bytes = [0x05, 0x2A, 0x39, 0x1C, 0x41, 0x04, 0x6A, 0x15, 0x08, 0x20];
+        assert_eq!(encode_element_name(ELEMENT_NAME), Some(bytes));
+        assert_eq!(decode_element_name(&bytes), "UNNAMED ");
+        assert_eq!(encode_element_name("corto"), None);
+        assert_eq!(encode_element_name("ñññññññ1"), None);
     }
 
     #[test]
     fn rejects_empty_unsafe_and_z() {
-        let o = RuidaJobOptions::default();
+        let o = dflt();
         assert_eq!(
             build_rd(&Toolpath::default(), &o).unwrap_err(),
             RdError::EmptyJob
@@ -1082,7 +1375,7 @@ mod tests {
     fn too_many_layers() {
         let blocks = (0..129).map(|_| rect_block(10.0)).collect();
         assert!(matches!(
-            build_rd(&Toolpath { blocks }, &RuidaJobOptions::default()),
+            build_rd(&Toolpath { blocks }, &dflt()),
             Err(RdError::TooManyLayers { .. })
         ));
     }
@@ -1124,14 +1417,14 @@ mod tests {
     }
 
     #[test]
-    fn file_checksum_is_optional_and_excludes_da() {
+    fn file_checksum_is_optional() {
         let tp = Toolpath {
             blocks: vec![rect_block(10.0)],
         };
-        let none = build_commands(&tp, &RuidaJobOptions::default()).unwrap();
+        let none = build_commands(&tp, &dflt()).unwrap();
         assert!(!none.iter().any(|c| matches!(c, Command::FileChecksum(_))));
         let o = RuidaJobOptions {
-            file_checksum: FileChecksum::SumToEndBlock,
+            file_checksum: FileChecksum::SumAll,
             footer_stats: true,
             ..Default::default()
         };
@@ -1140,28 +1433,65 @@ mod tests {
             .iter()
             .position(|c| matches!(c, Command::FileChecksum(_)))
             .unwrap();
-        assert_eq!(cmds[i - 1], Command::EndBlock);
+        // Va justo antes de D7 y después del pie.
+        assert!(matches!(cmds[i - 1], Command::MemWrite { .. }));
+        assert_eq!(cmds[i + 1], Command::EndOfFile);
         let Command::FileChecksum(s) = cmds[i] else {
             unreachable!()
         };
+        // Fórmula de MeerK40t: suma de todos los bytes anteriores más 0xD7 del fin de archivo.
         let expect: u64 = cmd::encode_stream(&cmds[..i])
             .unwrap()
             .iter()
             .map(|&b| u64::from(b))
-            .sum();
+            .sum::<u64>()
+            + 0xD7;
         assert_eq!(s, expect);
     }
 
     #[test]
-    fn process_start_is_optional() {
+    fn process_start_is_always_written_after_the_reference_setup() {
         let tp = Toolpath {
             blocks: vec![rect_block(10.0)],
         };
+        let cmds = build_commands(&tp, &dflt()).unwrap();
+        // D8 10, F0, E6 01, F1 02 00 y D8 00 (captura de Nova 35, RDWorks, MeerK40t).
+        assert_eq!(cmds[0], Command::Process(ProcessOp::RefPoint));
+        assert_eq!(cmds[4], Command::Process(ProcessOp::Start));
+        assert_eq!(
+            cmds.iter()
+                .filter(|c| **c == Command::Process(ProcessOp::Start))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn laser_tube_mask_and_delays() {
+        let tp = Toolpath {
+            blocks: vec![rect_block(10.0)],
+        };
+        let cmds = build_commands(&tp, &dflt()).unwrap();
+        assert!(cmds.contains(&Command::Small {
+            op: 0xCA,
+            sub: 3,
+            n: 1
+        }));
+        assert!(cmds.contains(&Command::LaserTime {
+            sub: 0x12,
+            micros: 0
+        }));
+        assert!(cmds.contains(&Command::LaserTime {
+            sub: 0x13,
+            micros: 0
+        }));
         let o = RuidaJobOptions {
-            emit_process_start: false,
+            laser_tube_start: 200,
             ..Default::default()
         };
-        let cmds = build_commands(&tp, &o).unwrap();
-        assert!(!cmds.contains(&Command::Process(ProcessOp::Start)));
+        assert!(matches!(
+            build_commands(&tp, &o),
+            Err(RdError::BadOption(_))
+        ));
     }
 }

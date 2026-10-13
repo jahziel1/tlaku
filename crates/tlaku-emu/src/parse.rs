@@ -55,6 +55,14 @@ fn tokenize(text: &str) -> Result<Vec<Word>, u32> {
     Ok(out)
 }
 
+/// Palabras `letra + valor` de una línea ya limpia (para las órdenes RepRap con parámetros).
+pub(crate) fn parse_words(text: &str) -> Result<Vec<(u8, f64)>, u32> {
+    Ok(tokenize(text)?
+        .into_iter()
+        .map(|w| (w.letter, w.value))
+        .collect())
+}
+
 fn idx(letter: u8) -> usize {
     usize::from(letter - b'A')
 }

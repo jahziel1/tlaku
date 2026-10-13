@@ -1,0 +1,245 @@
+/*
+ * Estilos del asistente "Agregar máquina". Solo tokens de src/styles/tokens.css; clases con
+ * prefijo dev- para no chocar con otras áreas. Reutiliza .btn, .field, .input, .select, .badge,
+ * .hint y .warn-line de los estilos base y .mc-table / .mc-sub del área Máquina.
+ */
+
+.dev-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: var(--s-6);
+  background: color-mix(in srgb, var(--bg-app) 72%, transparent);
+}
+.dev-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(860px, 100%);
+  height: min(680px, calc(100vh - 2 * var(--s-6)));
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-chrome);
+  box-shadow: var(--shadow-pop);
+  user-select: text;
+}
+.dev-modal:focus {
+  outline: none;
+}
+.dev-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-5);
+  padding: var(--s-5) var(--s-5) var(--s-4) var(--s-6);
+}
+.dev-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+.dev-steps {
+  display: flex;
+  gap: var(--s-6);
+  margin: 0;
+  padding: 0 var(--s-6) var(--s-4);
+  list-style: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+}
+.dev-steps li[aria-current='step'] {
+  color: var(--text);
+  font-weight: 650;
+}
+.dev-steps li[data-done] {
+  color: var(--text-muted);
+}
+.dev-steps__n {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: var(--s-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: var(--text-xs);
+}
+.dev-steps li[aria-current='step'] .dev-steps__n {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent-ink);
+}
+.dev-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--s-6);
+}
+.dev-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-6);
+  border-top: 1px solid var(--border);
+}
+.dev-foot .grow {
+  flex: 1;
+}
+
+.dev-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.dev-detect-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+.dev-detect-row .grow {
+  flex: 1;
+  min-width: 220px;
+}
+.dev-status {
+  min-height: 1.5em;
+}
+.dev-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.dev-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s-3) var(--s-6);
+  margin: 0;
+}
+.dev-dl dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.dev-dl dd {
+  margin: 0;
+}
+.dev-pre {
+  max-height: 180px;
+  margin: var(--s-4) 0 0;
+  padding: var(--s-4);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+}
+.dev-network {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border);
+}
+
+/* ---- modelo -------------------------------------------------------------------------- */
+
+.dev-model {
+  display: grid;
+  grid-template-columns: minmax(240px, 5fr) minmax(0, 6fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+.dev-model__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.dev-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dev-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.dev-item:hover {
+  background: var(--bg-hover);
+}
+.dev-item[data-checked] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.dev-item:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.dev-item__name {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.dev-model__detail {
+  min-width: 0;
+}
+.dev-facts th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.dev-url {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  overflow-wrap: anywhere;
+}
+.dev-url code {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+.dev-notes {
+  margin: var(--s-4) 0;
+  padding-left: var(--s-6);
+}
+
+/* ---- revisar y guardar ---------------------------------------------------------------- */
+
+.dev-compare th[scope='row'] {
+  text-align: left;
+  font-weight: 500;
+}
+.dev-compare tr[data-status='differs'] td.mc-new {
+  color: var(--warn);
+  font-weight: 650;
+}
+.dev-laser {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+.dev-laser svg {
+  flex: none;
+  margin-top: 2px;
+}
+.dev-default {
+  color: var(--warn);
+}

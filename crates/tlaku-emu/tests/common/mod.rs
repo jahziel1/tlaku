@@ -109,6 +109,7 @@ impl Rig {
 use std::time::Instant;
 
 use tlaku_emu::ScaledClock;
+use tlaku_grbl::link::LinkProfile;
 use tlaku_grbl::streamer::{Control, Event, Outcome, Streamer, StreamerConfig};
 
 /// Controladora con reloj escalado (`speed` segundos simulados por segundo real), banner ya
@@ -177,9 +178,22 @@ pub fn run_job_with(
     cfg: StreamerConfig,
     lines: &[String],
     deadline: Duration,
+    during: impl FnMut(&Control),
+) -> JobRun {
+    let link = LinkProfile::grbl_with_buffer(cfg.rx_buffer);
+    run_job_link(vm, cfg, link, lines, deadline, during)
+}
+
+/// Como [`run_job_with`] con el enlace de otro firmware (Marlin, Smoothie).
+pub fn run_job_link(
+    vm: VirtualMachine,
+    cfg: StreamerConfig,
+    link: LinkProfile,
+    lines: &[String],
+    deadline: Duration,
     mut during: impl FnMut(&Control),
 ) -> JobRun {
-    let streamer = Streamer::new(vm, cfg);
+    let streamer = Streamer::with_link(vm, cfg, link);
     let job = streamer.spawn(lines).expect("líneas válidas");
     let control = job.control.clone();
     let start = Instant::now();

@@ -5,7 +5,9 @@ import { t } from '@/i18n';
 import { objectBounds, unionBounds } from '@/lib/geometry';
 import { fmt, fmtClock, isMac } from '@/lib/platform';
 import { zoomPercent } from '@/lib/viewport';
+import { VirtualBadge, portLabel, stateLabel } from '@/features/machine';
 import { selectActiveDevice, useStore } from '@/store';
+import { selectIsVirtual } from '@/store/machine';
 
 function Cursor() {
   const cursor = useStore((s) => s.cursor);
@@ -60,11 +62,14 @@ function MachineState() {
   const port = useStore((s) => s.connection.port);
   const name = useStore((s) => selectActiveDevice(s).name);
   const state = useStore((s) => s.status?.state);
+  const otherState = useStore((s) => s.status?.other_state);
+  const virtual = useStore(selectIsVirtual);
   return (
     <div className="status__item" role="status">
       <span className="dot" data-tone={connected ? 'ok' : 'off'} aria-hidden="true" />
+      {virtual && <VirtualBadge />}
       {connected ? (
-        <span>{t('status.connected', { name })} <span className="status__muted num">{port} · {t(`machine.state.${state ?? 'idle'}`)}</span></span>
+        <span>{t('status.connected', { name })} <span className="status__muted num">{port && portLabel(port)} · {stateLabel(state ?? 'idle', otherState)}</span></span>
       ) : (
         <span className="status__muted">{t('status.disconnected')}</span>
       )}

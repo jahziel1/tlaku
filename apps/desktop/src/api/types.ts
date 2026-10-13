@@ -39,6 +39,7 @@ import type { LogEvent } from '@/bindings/LogEvent';
 import type { MachineState } from '@/bindings/MachineState';
 import type { ProgressEvent } from '@/bindings/ProgressEvent';
 import type { RealtimeCommand } from '@/bindings/RealtimeCommand';
+import type { SimulatedFault } from '@/bindings/SimulatedFault';
 import type { StatusReport } from '@/bindings/StatusReport';
 import type { FillStyle } from '@/bindings/FillStyle';
 import type { TabSettings } from '@/bindings/TabSettings';
@@ -83,6 +84,7 @@ export type {
   RotaryKind,
   RotarySettings,
   ScanOffset,
+  SimulatedFault,
   StartFrom,
   StatusReport,
   TabSettings,

@@ -1529,7 +1529,7 @@ fn ruida_export_rd_writes_a_decodable_swizzled_file() {
 }
 
 #[test]
-fn ruida_export_rd_rejects_variable_power_fill_with_clear_error() {
+fn ruida_export_rd_writes_variable_power_fill_with_immediate_power() {
     let dir = workdir("ruida_export_rd_fill");
     let rd = dir.join("out.rd");
     let o = run(&[
@@ -1539,12 +1539,52 @@ fn ruida_export_rd_rejects_variable_power_fill_with_clear_error() {
         rd.to_str().unwrap(),
         "--mode",
         "fill",
+        "--home",
+        "bottom-left",
+    ]);
+    assert_ok(&o);
+    let wire = std::fs::read(&rd).unwrap();
+    let plain = tlaku_ruida::rd::from_swizzled(&wire, tlaku_ruida::swizzle::Magic::default());
+    let cmds = tlaku_ruida::cmd::decode_stream(&plain).unwrap();
+    // El relleno lleva overscan a potencia 0: potencia variable con C7 y saltos con el láser apagado.
+    assert!(
+        cmds.iter()
+            .any(|c| matches!(c, tlaku_ruida::cmd::Command::ImmPower(_)))
+    );
+    assert_eq!(cmds.last(), Some(&tlaku_ruida::cmd::Command::EndOfFile));
+}
+
+#[test]
+fn ruida_send_dry_run_and_unreachable_machine() {
+    let o = run(&[
+        "ruida",
+        "send",
+        "127.0.0.1",
+        &fixture("design.svg"),
+        "--mode",
+        "line",
+        "--dry-run",
+    ]);
+    assert_ok(&o);
+    assert!(out(&o).contains("no se conectó"), "{}", out(&o));
+    // Sin máquina: el puerto local es efímero y el remoto no escucha; falla con un mensaje útil.
+    let o = run(&[
+        "ruida",
+        "send",
+        "127.0.0.1",
+        &fixture("design.svg"),
+        "--mode",
+        "line",
+        "--yes",
+        "--port",
+        "9",
+        "--local-port",
+        "0",
+        "--timeout-ms",
+        "50",
+        "--magic",
+        "0x88",
     ]);
     assert!(!o.status.success());
-    assert!(
-        String::from_utf8_lossy(&o.stderr).contains("potencia"),
-        "{}",
-        String::from_utf8_lossy(&o.stderr)
-    );
-    assert!(!rd.exists());
+    assert!(err(&o).contains("sin respuesta"), "{}", err(&o));
 }

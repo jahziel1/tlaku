@@ -214,10 +214,14 @@ impl Grbl {
         let mut buf = [0u8; 256];
         loop {
             while let Some(line) = self.reader.next_line() {
-                if line == "ok" {
+                // `ok` solo en GRBL; Marlin puede añadir texto (`ok T:20`, `ok N3 P15 B3`).
+                if line == "ok" || line.starts_with("ok ") {
                     return Ok(lines);
                 }
-                if line.starts_with("error") || line.starts_with("ALARM") {
+                if line.starts_with("error")
+                    || line.starts_with("Error:")
+                    || line.starts_with("ALARM")
+                {
                     return Err(io::Error::other(format!("'{cmd}' respondió {line}")));
                 }
                 lines.push(line);
