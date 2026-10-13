@@ -1,7 +1,7 @@
 import { JOG_DIRS, type JogDirName } from '@/features/machine/jogMath';
 import type { I18nKey } from '@/i18n';
 import { isJobBusy } from '@/store';
-import { jogBlockedReason, sendBlockedReason } from '@/store/machine';
+import { jogBlockedReason, positionLaserBlockedReason, sendBlockedReason } from '@/store/machine';
 import type { AppState } from '@/store';
 import type { CommandDef } from '../types';
 
@@ -52,6 +52,8 @@ export const machineCommands: CommandDef[] = [
   },
   { id: 'machine.devices', label: 'machine.cmd.devices', category: 'machine', run: (s) => s.openDialog({ kind: 'devices' }) },
   { id: 'machine.frame', label: 'cmd.machine.frame', category: 'machine', shortcuts: ['F'], enabled: canSend, run: (s) => s.frameJob() },
+  // Encuadre de banda elástica: sigue el casco convexo del trabajo (sin el rectángulo vacío de las esquinas).
+  { id: 'machine.frameHull', label: 'machine.cmd.frameHull', category: 'machine', enabled: canSend, run: (s) => s.frameHull() },
   // Iniciar nunca sale directo: abre "¿Láser listo y área despejada?" y solo el botón de ese diálogo envía.
   { id: 'machine.start', label: 'cmd.machine.start', category: 'machine', shortcuts: ['Mod+Enter'], enabled: canSend, run: (s) => s.requestStart() },
   {
@@ -76,5 +78,14 @@ export const machineCommands: CommandDef[] = [
   { id: 'machine.unlock', label: 'machine.cmd.unlock', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'alarm', action: 'unlock' }) },
   { id: 'machine.setOrigin', label: 'machine.cmd.setOrigin', category: 'machine', enabled: needMachine, run: (s) => s.setUserOriginHere() },
   { id: 'machine.goOrigin', label: 'machine.cmd.goOrigin', category: 'machine', enabled: canJog, run: (s) => s.goToOrigin() },
+  // Posicionar el láser: mientras está activo, un clic en la cama manda allí la cabeza (láser apagado).
+  {
+    id: 'machine.positionLaser',
+    label: 'machine.cmd.positionLaser',
+    category: 'machine',
+    enabled: (s) => (s.positioningLaser ? true : (positionLaserBlockedReason(s) ?? true)),
+    checked: (s) => s.positioningLaser,
+    run: (s) => s.setPositioningLaser(!s.positioningLaser),
+  },
   ...jogCommands,
 ];

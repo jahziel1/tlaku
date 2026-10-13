@@ -3,6 +3,7 @@ import type { I18nKey } from '@/i18n';
 import { bezPointCount } from '@/lib/bezpath';
 import { multiplyAffine, transformKind, translateAffine } from '@/lib/geometry';
 import { groupIdsOf, regroupCopies } from '@/lib/groups';
+import { reconcileShapes } from '@/lib/paramShape';
 import { makeLayer, normalizeLayers } from '@/lib/layers';
 import { LAYER_PALETTE, paletteLabel } from '@/lib/palette';
 import type { SliceCreator } from './types';
@@ -189,7 +190,8 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
   /** Aplica un cambio al documento y lo registra en el historial. */
   const commit = (label: I18nKey, change: (doc: Document) => Document, key?: string): void => {
     const { doc, past, savedDoc } = get();
-    const next = change(doc);
+    // Las formas paramétricas conservan sus parámetros coherentes con el contorno (ver `lib/paramShape`).
+    const next = reconcileShapes(doc, change(doc));
     if (next === doc) return;
     const now = Date.now();
     const last = past[past.length - 1];

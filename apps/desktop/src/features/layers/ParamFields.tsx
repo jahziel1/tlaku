@@ -23,6 +23,8 @@ interface NumProps {
   help?: ReactNode;
   ctx?: FieldContext;
   disabled?: boolean;
+  /** Motivo visible por el que está deshabilitado. */
+  reason?: string;
   /** Validación extra que depende del documento (por ejemplo, posición ya usada). */
   extra?: (value: number) => FieldError | null;
   /** Texto bajo el campo, siempre visible (por ejemplo la conversión en vivo). */
@@ -40,7 +42,7 @@ interface NumProps {
  * suben o bajan un paso: Mayús ×10, Alt ÷10); uno inválido se marca y no se aplica. Esc
  * recupera el valor guardado.
  */
-export function NumField({ field, label, value, onApply, help, ctx, disabled, extra, live, unit, compact, toView }: NumProps) {
+export function NumField({ field, label, value, onApply, help, ctx, disabled, reason, extra, live, unit, compact, toView }: NumProps) {
   const id = useId();
   const spec = FIELD_SPECS[field];
   const shown = toView ? toView(value) : value;
@@ -115,6 +117,7 @@ export function NumField({ field, label, value, onApply, help, ctx, disabled, ex
           {t(error.key, error.params)}
         </p>
       )}
+      {disabled && reason && <p className="lyr-live">{reason}</p>}
       {live && <p className="lyr-live num">{live}</p>}
       {help && <Help id={helpId}>{help}</Help>}
     </div>
@@ -158,9 +161,12 @@ interface SelectProps<T extends string> {
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
   help?: ReactNode;
+  disabled?: boolean;
+  /** Motivo visible por el que está deshabilitado. */
+  reason?: string;
 }
 
-export function SelectField<T extends string>({ label, value, options, onChange, help }: SelectProps<T>) {
+export function SelectField<T extends string>({ label, value, options, onChange, help, disabled, reason }: SelectProps<T>) {
   const id = useId();
   return (
     <div className="lyr-field">
@@ -168,7 +174,14 @@ export function SelectField<T extends string>({ label, value, options, onChange,
         <label htmlFor={id} className="lyr-field__label">
           {label}
         </label>
-        <select id={id} className="select lyr-select" value={value} aria-describedby={help ? `${id}-help` : undefined} onChange={(e) => onChange(e.target.value as T)}>
+        <select
+          id={id}
+          className="select lyr-select"
+          value={value}
+          disabled={disabled}
+          aria-describedby={help ? `${id}-help` : undefined}
+          onChange={(e) => onChange(e.target.value as T)}
+        >
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -176,7 +189,51 @@ export function SelectField<T extends string>({ label, value, options, onChange,
           ))}
         </select>
       </div>
+      {disabled && reason && <p className="lyr-live">{reason}</p>}
       {help && <Help id={`${id}-help`}>{help}</Help>}
+    </div>
+  );
+}
+
+/**
+ * Sección plegable (`<details>`): el contenido siempre está en el documento, así que un lector de
+ * pantalla y la búsqueda lo encuentran aunque esté cerrada. Abierta de inicio si trae algo en uso.
+ */
+export function Fold({ title, badge, defaultOpen = false, children }: { title: string; badge?: string; defaultOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details className="lyr-fold" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="lyr-fold__title">
+        <span>{title}</span>
+        {badge && <span className="lyr-feature">{badge}</span>}
+      </summary>
+      <div className="lyr-fold__body">{children}</div>
+    </details>
+  );
+}
+
+/** Interruptor que, encendido, muestra sus campos debajo (con sangría). */
+export function FeatureBlock({
+  label,
+  checked,
+  onChange,
+  help,
+  disabled,
+  reason,
+  children,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  help?: ReactNode;
+  disabled?: boolean;
+  reason?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="lyr-block">
+      <Toggle label={label} checked={checked} onChange={onChange} help={help} disabled={disabled} reason={reason} />
+      {checked && <div className="lyr-block__body">{children}</div>}
     </div>
   );
 }

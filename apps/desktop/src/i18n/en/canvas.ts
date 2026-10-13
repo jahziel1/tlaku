@@ -6,6 +6,9 @@ export const canvas: { [K in keyof typeof Source]?: string } = {
   'canvas.cmd.closePath': 'Close polyline',
   'canvas.cmd.snap': 'Snapping',
   'canvas.cmd.snapGrid': 'Snap to grid',
+  'canvas.cmd.priorityBadges': 'Show cut priority',
+  'canvas.cmd.priorityEarlier': 'Cut earlier (priority -1)',
+  'canvas.cmd.priorityLater': 'Cut later (priority +1)',
   'canvas.cmd.snapObjects': 'Snap to objects and bed',
   'canvas.reason.noPolyline': 'There is no polyline in progress. Draw one with the line tool.',
   'canvas.reason.snapOff': 'Snapping is off.',
@@ -132,13 +135,15 @@ export const canvas: { [K in keyof typeof Source]?: string } = {
   // ---- clipboard between applications ------------------------------------------------------------
   'canvas.history.pasteSvg': 'Paste SVG',
   'canvas.history.shapeProps': 'Edit shape properties',
+  'canvas.history.priority': 'Change cut priority',
+  'canvas.history.powerScale': 'Change power scale',
   'canvas.clip.copied': 'Copied to the system clipboard as SVG.',
   'canvas.clip.copyFailed': 'The system did not allow writing to the clipboard. The selection was copied only within Tlaku.',
   'canvas.clip.skipped': 'The SVG was pasted; {n} elements that are not shapes (text, images, references) were skipped.',
 
   // ---- shape properties -------------------------------------------------------------------------------
   'canvas.shape.title': 'Shape properties',
-  'canvas.shape.close': 'Close shape properties',
+  'canvas.shape.close': 'Close properties',
   'canvas.shape.rect': 'Rectangle',
   'canvas.shape.ellipse': 'Ellipse',
   'canvas.shape.polygon': 'Polygon',
@@ -149,7 +154,19 @@ export const canvas: { [K in keyof typeof Source]?: string } = {
   'canvas.shape.radiusPolyHint': 'Radius of the circle that passes through the vertices, in mm.',
   'canvas.shape.locked': 'Lock',
   'canvas.shape.mixed': 'Some of the selected objects are not editable shapes and will not change.',
-  'canvas.shape.note': 'Editing nodes, joining, or trimming converts the shape to a path. The parameters are not saved in the file.',
+  'canvas.shape.note': 'The parameters are saved in the file. Editing nodes, joining, or trimming converts the shape to a path, and so does non-proportional scaling when the figure stops being regular (polygons, stars, and rounded rectangles).',
+
+  // ---- object cut properties ------------------------------------------------
+  'canvas.obj.title': 'Object properties',
+  'canvas.obj.cut': 'Cut',
+  'canvas.obj.priority': 'Cut priority',
+  'canvas.obj.powerScale': 'Power scale',
+  'canvas.obj.auto': 'Automatic',
+  'canvas.obj.mixed': 'Mixed',
+  'canvas.obj.priorityHint': 'Integer; lower = cut earlier. Empty = automatic.',
+  'canvas.obj.powerScaleHint': 'Percentage of the layer power for this object (0 to 100). Empty = 100 %.',
+  'canvas.obj.help': 'Priority only orders within the layer and only counts if the optimization respects it (Optimization settings). Accepts +1 and -1.',
+  'canvas.obj.badge': 'Cut priority {n}',
 
   // ---- text tool ----------------------------------------------------
   'canvas.text.default': 'Text',

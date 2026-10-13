@@ -3,7 +3,9 @@ import { useMemo } from 'react';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
 import { ExprField } from './ExprField';
-import { editShape, effectiveShape, type ShapeParams, type ShapeType } from './shapeParams';
+import { commonValue, setCutProps, type CutPatch } from './cutProps';
+import { OptionalField } from './OptionalField';
+import { editShape, effectiveShape, type ShapeSpec, type ShapeType } from '@/lib/paramShape';
 
 const TITLES: Record<ShapeType, Parameters<typeof t>[0]> = {
   rect: 'canvas.shape.rect',
@@ -12,17 +14,27 @@ const TITLES: Record<ShapeType, Parameters<typeof t>[0]> = {
   star: 'canvas.shape.star',
 };
 
+/** Prioridad y escala de potencia de la selección (valor común o `'mixed'`). */
+export interface CutValues {
+  priority: number | null | 'mixed';
+  power: number | null | 'mixed';
+}
+
 interface ViewProps {
-  params: ShapeParams;
+  /** Parámetros de la forma seleccionada, o `null` si la selección no son formas del mismo tipo. */
+  params: ShapeSpec | null;
   /** Hay seleccionados objetos que no son formas editables. */
   mixed: boolean;
-  onApply: (patch: Partial<ShapeParams>) => void;
+  /** Propiedades de corte de la selección. */
+  cut?: CutValues;
+  onApply: (patch: Partial<ShapeSpec>) => void;
+  onCut?: (patch: CutPatch) => void;
   onClose: () => void;
   onLock: () => void;
 }
 
 /** Contenido de la ventana: los campos de cada tipo de forma. */
-export function ShapePropsView({ params: first, mixed, onApply, onClose, onLock }: ViewProps) {
+export function ShapePropsView({ params: first, mixed, cut, onApply, onCut, onClose, onLock }: ViewProps) {
   const field = (key: string, label: string, value: number, unit?: string, hintKey?: Parameters<typeof t>[0]) => (
     <ExprField
       key={key}
@@ -30,17 +42,18 @@ export function ShapePropsView({ params: first, mixed, onApply, onClose, onLock 
       unit={unit}
       value={value}
       title={hintKey ? t(hintKey) : undefined}
-      onApply={(v) => onApply({ [key]: key === 'ratio' ? v / 100 : v } as Partial<ShapeParams>)}
+      onApply={(v) => onApply({ [key]: key === 'ratio' ? v / 100 : v } as Partial<ShapeSpec>)}
     />
   );
   return (
-    <section className="shape-props" aria-label={t('canvas.shape.title')}>
+    <section className="shape-props" aria-label={first ? t('canvas.shape.title') : t('canvas.obj.title')}>
       <header className="shape-props__head">
-        <h2 className="shape-props__title">{t(TITLES[first.type])}</h2>
+        <h2 className="shape-props__title">{first ? t(TITLES[first.type]) : t('canvas.obj.title')}</h2>
         <button type="button" className="icon-btn" title={t('canvas.shape.close')} aria-label={t('canvas.shape.close')} onClick={onClose}>
           <X size={14} aria-hidden="true" />
         </button>
       </header>
+      {first && (
       <div className="shape-props__grid">
         {first.type === 'rect' && (
           <>
@@ -71,20 +84,45 @@ export function ShapePropsView({ params: first, mixed, onApply, onClose, onLock 
           </>
         )}
       </div>
+      )}
+      {cut && onCut && (
+        <>
+          <h3 className="shape-props__sub">{t('canvas.obj.cut')}</h3>
+          <div className="shape-props__grid">
+            <OptionalField
+              label={t('canvas.obj.priority')}
+              value={cut.priority}
+              placeholder={t('canvas.obj.auto')}
+              title={t('canvas.obj.priorityHint')}
+              onApply={(v) => onCut({ priority: v })}
+            />
+            <OptionalField
+              label={t('canvas.obj.powerScale')}
+              value={cut.power}
+              placeholder="100"
+              unit="%"
+              title={t('canvas.obj.powerScaleHint')}
+              onApply={(v) => onCut({ power_scale: v })}
+            />
+          </div>
+          <p className="shape-props__note">{t('canvas.obj.help')}</p>
+        </>
+      )}
       <label className="shape-props__check">
         <input type="checkbox" checked={false} onChange={onLock} />
         <span>{t('canvas.shape.locked')}</span>
       </label>
-      {mixed && <p className="shape-props__note">{t('canvas.shape.mixed')}</p>}
-      <p className="shape-props__note">{t('canvas.shape.note')}</p>
+      {first && mixed && <p className="shape-props__note">{t('canvas.shape.mixed')}</p>}
+      {first && <p className="shape-props__note">{t('canvas.shape.note')}</p>}
     </section>
   );
 }
 
 /**
- * Propiedades de forma: edita los parámetros de rectángulos, elipses, polígonos y estrellas
- * mientras sigan siendo formas (no se les hayan editado los nodos). Con varias formas del mismo
- * tipo el cambio se aplica a todas; con tipos distintos no hay campos comunes y no se muestra.
+ * Propiedades del objeto: parámetros de rectángulos, elipses, polígonos y estrellas mientras sigan
+ * siendo formas (no se les hayan editado los nodos), y la prioridad de corte y la escala de
+ * potencia de cualquier selección. Con varias formas del mismo tipo el cambio se aplica a todas;
+ * con tipos distintos no hay campos de forma comunes y solo se muestran los de corte.
  */
 export function ShapeProps() {
   const open = useStore((s) => s.shapePropsOpen);
@@ -102,12 +140,17 @@ export function ShapeProps() {
     }),
     [picked],
   );
+  const cut = useMemo<CutValues>(
+    () => ({ priority: commonValue(picked, (o) => o.priority), power: commonValue(picked, (o) => o.power_scale) }),
+    [picked],
+  );
 
-  if (!open || picked.length === 0 || editable.length === 0) return null;
-  const type = editable[0]!.params.type;
-  if (editable.some((x) => x.params.type !== type)) return null;
+  if (!open || picked.length === 0) return null;
+  const type = editable[0]?.params.type;
+  const sameType = editable.length > 0 && editable.every((x) => x.params.type === type);
+  const shapeParams = sameType ? editable[0]!.params : null;
 
-  const apply = (patch: Partial<ShapeParams>) => {
+  const apply = (patch: Partial<ShapeSpec>) => {
     const byId = new Map(editable.map((x) => [x.obj.id, editShape(x.obj, patch)]));
     useStore.getState().applyDocChange('canvas.history.shapeProps', (doc) => ({
       ...doc,
@@ -120,9 +163,11 @@ export function ShapeProps() {
   };
   return (
     <ShapePropsView
-      params={editable[0]!.params}
+      params={shapeParams}
       mixed={editable.length !== picked.length}
+      cut={cut}
       onApply={apply}
+      onCut={(patch) => setCutProps(useStore.getState(), ids, patch)}
       onClose={() => useStore.getState().setShapePropsOpen(false)}
       onLock={lock}
     />

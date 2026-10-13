@@ -38,7 +38,9 @@ Elige **Polígono** (`G`) o **Estrella** (`Mayús+G`) en la paleta o en **Herram
 
 Un triángulo, un pentágono o un octágono son un polígono de 3, 5 u 8 lados.
 
-La ventana **Propiedades de forma** (**Ver > Propiedades de forma**) se aplica al rectángulo, la elipse, el polígono y la estrella seleccionados; con varias formas del mismo tipo, el cambio las afecta a todas. Mientras no edites los nodos de una forma, sigue siendo "una forma" con sus parámetros; al editar nodos, unir o recortar pasa a ser un trayecto cualquiera. **Los parámetros solo viven en la sesión:** el proyecto guarda los contornos, así que al reabrirlo las formas son trayectos.
+La ventana **Propiedades de forma** (**Ver > Propiedades de forma**) se aplica al rectángulo, la elipse, el polígono y la estrella seleccionados; con varias formas del mismo tipo, el cambio las afecta a todas. Mientras no edites los nodos de una forma, sigue siendo "una forma" con sus parámetros; al editar nodos, unir o recortar pasa a ser un trayecto cualquiera. **Los parámetros se guardan en el proyecto:** al reabrirlo, las formas siguen siendo editables. Escalar una forma cambia sus parámetros (un rectángulo escalado cambia su ancho y alto); si la escala no es proporcional y la figura deja de ser regular (polígono, estrella o rectángulo redondeado), pasa a ser un trayecto.
+
+La misma ventana (**Propiedades del objeto**) tiene los campos **Prioridad de corte** (menor = se corta antes) y **Escala de potencia** (% de la potencia de la capa) para cualquier selección, también con varios objetos; vacío es automática y 100 %. La prioridad solo ordena dentro de la capa y solo cuenta si los Ajustes de optimización la respetan. **Ordenar > Cortar antes / Cortar después** (`Alt+Mayús+[` y `Alt+Mayús+]`) la restan o suman, y **Ver > Mostrar prioridad de corte** dibuja el número sobre cada objeto que la tiene.
 
 ## Medir
 

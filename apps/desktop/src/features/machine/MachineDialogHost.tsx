@@ -1,11 +1,12 @@
 import { useEffect, useId } from 'react';
+import { OptimizationDialog } from '@/features/preview/OptimizationDialog';
 import { useStore } from '@/store';
 import { AlarmActionDialog } from './AlarmActionDialog';
 import { DeviceManager } from './DeviceManager';
 import { StartJobDialog } from './StartJobDialog';
 
 /**
- * Dibuja el diálogo abierto en el slice `machine` (inicio, alarma, dispositivos). Lo monta una sola vez el
+ * Dibuja el diálogo abierto en el slice `machine` (inicio, alarma, dispositivos, optimización). Lo monta una sola vez el
  * AppShell (así el diálogo se ve desde cualquier pestaña); si por error hubiera dos, solo la
  * primera instancia montada dibuja, así nunca hay dos diálogos iguales.
  */
@@ -25,5 +26,7 @@ export function MachineDialogHost() {
       return <AlarmActionDialog action={dialog.action} />;
     case 'devices':
       return <DeviceManager />;
+    case 'optimization':
+      return <OptimizationDialog />;
   }
 }

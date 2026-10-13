@@ -614,6 +614,29 @@ fn plan_and_frame_show_the_layer_order() {
     );
 }
 
+#[test]
+fn optimization_flags_reach_the_planner_and_are_explained() {
+    let svg = fixture("design.svg");
+    let plain = run(&["plan", &svg]);
+    assert_ok(&plain);
+    assert!(!out(&plain).contains("ptimización:"), "{}", out(&plain));
+    let o = run(&[
+        "plan",
+        &svg,
+        "--no-inner-first",
+        "--no-reduce-travel",
+        "--hide-backlash",
+        "--remove-overlaps",
+    ]);
+    assert_ok(&o);
+    let text = out(&o);
+    assert!(text.contains("optimización:"), "{text}");
+    assert!(text.contains("interiores primero apagado"), "{text}");
+    assert!(text.contains("orden original"), "{text}");
+    assert!(text.contains("hide_backlash"), "{text}");
+    assert!(text.contains("tolerancia 0.01 mm"), "{text}");
+}
+
 // ---------------------------------------------------------------------------
 // gcode: errores
 // ---------------------------------------------------------------------------

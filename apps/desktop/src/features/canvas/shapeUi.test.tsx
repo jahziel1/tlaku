@@ -5,7 +5,7 @@ import { MeasureReadout, MeasureView } from './MeasureReadout';
 import { measureShape } from './measure';
 import { patchInteraction } from './interaction';
 import { ShapeProps, ShapePropsView } from './ShapeProps';
-import type { ShapeParams } from './shapeParams';
+import type { ShapeSpec } from '@/lib/paramShape';
 import { rectObj } from './testUtil';
 
 beforeEach(() => {
@@ -32,7 +32,7 @@ describe('propiedades de forma', () => {
   });
 
   it('rectángulo, elipse y estrella tienen cada uno sus campos; avisa si hay objetos no editables', () => {
-    const view = (params: ShapeParams, mixed = false) => renderToString(<ShapePropsView params={params} mixed={mixed} onApply={noop} onClose={noop} onLock={noop} />);
+    const view = (params: ShapeSpec, mixed = false) => renderToString(<ShapePropsView params={params} mixed={mixed} onApply={noop} onClose={noop} onLock={noop} />);
     const rect = view({ type: 'rect', w: 10, h: 5, radius: 1 });
     for (const label of ['Rectángulo', 'Ancho', 'Alto', 'Radio de esquinas']) expect(rect, label).toContain(label);
     const ellipse = view({ type: 'ellipse', w: 10, h: 5 });

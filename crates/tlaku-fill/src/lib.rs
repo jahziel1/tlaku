@@ -1,4 +1,5 @@
-//! Modo Fill: relleno vectorial por barrido (scanline) o por contornos concéntricos.
+//! Modo Fill: relleno vectorial por barrido (scanline), por regiones (flood) o por contornos
+//! concéntricos.
 //!
 //! Recibe polilíneas cerradas en mm y produce un [`ToolpathBlock`] con líneas paralelas,
 //! overscan, serpentina y crosshatch opcionales ([`FillPattern::Scan`]), o con contornos
@@ -10,12 +11,15 @@
 //! es el mismo sin importar cómo se agrupen las formas.
 
 mod cluster;
+mod flood;
 mod offset;
 mod scan;
 
+pub use flood::MAX_SPANS;
 pub use offset::{MAX_LEVELS, MAX_POINTS, MAX_RINGS, MAX_WORK};
 
-use cluster::{BBox, components};
+use cluster::{BBox, components, shapes_interact};
+use flood::{FloodParams, flood};
 use scan::{Frame, push_edges, scan};
 use tlaku_core::toolpath::{Move, PowerMode, ToolpathBlock};
 use tlaku_core::{Point, Polyline};
@@ -43,6 +47,14 @@ pub enum FillPattern {
     /// `crosshatch`, `overscan_mm` y `grouping` no tienen efecto (se validan igual). Falla si el
     /// diseño supera los topes [`MAX_RINGS`], [`MAX_POINTS`], [`MAX_WORK`] o [`MAX_LEVELS`].
     Offset,
+    /// Relleno por regiones: las mismas líneas que [`FillPattern::Scan`] (misma cobertura) pero
+    /// cada región conexa se recorre por separado, en serpentina continua, sin cruzar los
+    /// huecos ni saltar entre islas dentro de una línea. Con muchas islas pequeñas (texto)
+    /// hace muchos menos viajes largos que el barrido global. Usa `interval_mm`, `angle_deg`,
+    /// `bidirectional`, `overscan_mm`, `crosshatch`, `fill_rule` y `grouping`; con
+    /// `bidirectional = false` todos los tramos van en el mismo sentido. Falla si hay más de
+    /// 20 millones de tramos.
+    Flood,
 }
 
 /// Cómo se agrupan las formas al barrer.
@@ -51,9 +63,14 @@ pub enum Grouping {
     /// Una sola barrida sobre todas las formas: cada línea cruza todo lo que encuentre.
     #[default]
     All,
-    /// Cada componente (contorno con sus agujeros, o formas que se solapan) por separado,
-    /// para no recorrer los espacios vacíos entre formas lejanas.
+    /// Cada forma por separado: un contorno con sus agujeros (y lo que contengan), o formas
+    /// que se tocan o se cruzan, se rellena completo antes de pasar a la siguiente, en el
+    /// orden de la entrada. Formas disjuntas aunque sus cajas se monten son formas distintas.
     PerShape,
+    /// Cada grupo del documento por separado, según los ids de [`fill_with_groups`]: todas las
+    /// trayectorias con el mismo id se barren juntas y los grupos van en el orden en que
+    /// aparece su primer id. Sin ids (con [`fill`]) se comporta como [`Grouping::PerShape`].
+    ByGroup,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -127,9 +144,29 @@ pub struct FillResult {
 ///
 /// Las cerradas con menos de 3 puntos, o con coordenadas no finitas, no aportan área y se
 /// omiten sin error. Falla solo si los ajustes son inválidos o el intervalo produciría una
-/// cantidad absurda de líneas.
+/// cantidad absurda de líneas. Equivale a [`fill_with_groups`] sin ids de grupo.
 pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, String> {
+    fill_with_groups(paths, None, settings)
+}
+
+/// Como [`fill`], pero con un id de grupo por trayectoria (`group_ids[i]` es el grupo de
+/// `paths[i]`, abiertas incluidas) que usa [`Grouping::ByGroup`]. Falla si `group_ids` no
+/// tiene la misma longitud que `paths`. Con otra agrupación los ids se ignoran.
+pub fn fill_with_groups(
+    paths: &[Polyline],
+    group_ids: Option<&[u32]>,
+    settings: &FillSettings,
+) -> Result<FillResult, String> {
     settings.validate()?;
+    if let Some(ids) = group_ids
+        && ids.len() != paths.len()
+    {
+        return Err(format!(
+            "se esperaba un id de grupo por trayectoria ({}) y llegaron {}",
+            paths.len(),
+            ids.len()
+        ));
+    }
     let ignored_open: Vec<usize> = paths
         .iter()
         .enumerate()
@@ -137,12 +174,16 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
         .map(|(i, _)| i)
         .collect();
 
-    let polys: Vec<&[Point]> = paths
-        .iter()
-        .filter(|p| p.closed && p.points.len() >= 3)
-        .filter(|p| p.points.iter().all(|q| q.x.is_finite() && q.y.is_finite()))
-        .map(|p| p.points.as_slice())
+    // Índice original de cada trayectoria cerrada y válida, junto con sus puntos.
+    let kept: Vec<usize> = (0..paths.len())
+        .filter(|&i| {
+            let p = &paths[i];
+            p.closed
+                && p.points.len() >= 3
+                && p.points.iter().all(|q| q.x.is_finite() && q.y.is_finite())
+        })
         .collect();
+    let polys: Vec<&[Point]> = kept.iter().map(|&i| paths[i].points.as_slice()).collect();
 
     if settings.pattern == FillPattern::Offset {
         let mut block = ToolpathBlock {
@@ -169,9 +210,11 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
         });
     }
 
+    let flood_mode = settings.pattern == FillPattern::Flood;
     let mut block = ToolpathBlock {
         label: format!(
-            "Relleno intervalo={} ángulo={} potencia={}%{}",
+            "Relleno{} intervalo={} ángulo={} potencia={}%{}",
+            if flood_mode { " por regiones" } else { "" },
             settings.interval_mm,
             settings.angle_deg,
             settings.power_pct,
@@ -194,9 +237,26 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
     }
     let frames: Vec<Frame> = angles.iter().map(|&a| Frame::new(a)).collect();
 
-    let groups = match settings.grouping {
-        Grouping::All => vec![(0..polys.len()).collect()],
-        Grouping::PerShape => components(&bounding_boxes(&polys, frames[0])),
+    let per_shape = || {
+        components(&bounding_boxes(&polys), |i, j| {
+            shapes_interact(polys[i], polys[j])
+        })
+    };
+    let groups: Vec<Vec<usize>> = match (settings.grouping, group_ids) {
+        (Grouping::All, _) => vec![(0..polys.len()).collect()],
+        (Grouping::PerShape, _) | (Grouping::ByGroup, None) => per_shape(),
+        (Grouping::ByGroup, Some(ids)) => {
+            let mut slot: std::collections::HashMap<u32, usize> = std::collections::HashMap::new();
+            let mut groups: Vec<Vec<usize>> = Vec::new();
+            for (k, &orig) in kept.iter().enumerate() {
+                let g = *slot.entry(ids[orig]).or_insert_with(|| {
+                    groups.push(Vec::new());
+                    groups.len() - 1
+                });
+                groups[g].push(k);
+            }
+            groups
+        }
     };
 
     for group in groups.iter().filter(|g: &&Vec<usize>| !g.is_empty()) {
@@ -209,6 +269,17 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
                 if local.iter().all(|p| p.x.is_finite() && p.y.is_finite()) {
                     push_edges(&mut edges, &local);
                 }
+            }
+            if flood_mode {
+                let params = FloodParams {
+                    interval: settings.interval_mm,
+                    rule: settings.fill_rule,
+                    overscan: settings.overscan_mm,
+                    power: settings.power_pct,
+                    bidirectional: settings.bidirectional,
+                };
+                flood(edges, frame, params, &mut block.moves)?;
+                continue;
             }
             let mut writer = LineWriter::new(settings, frame, &mut block.moves);
             scan(
@@ -226,7 +297,8 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
     })
 }
 
-fn bounding_boxes(polys: &[&[Point]], frame: Frame) -> Vec<BBox> {
+/// Cajas envolventes de cada polígono, en coordenadas del diseño.
+fn bounding_boxes(polys: &[&[Point]]) -> Vec<BBox> {
     polys
         .iter()
         .map(|pts| {
@@ -237,11 +309,10 @@ fn bounding_boxes(polys: &[&[Point]], frame: Frame) -> Vec<BBox> {
                 ymax: f64::NEG_INFINITY,
             };
             for &p in *pts {
-                let q = frame.to_local(p);
-                b.xmin = b.xmin.min(q.x);
-                b.xmax = b.xmax.max(q.x);
-                b.ymin = b.ymin.min(q.y);
-                b.ymax = b.ymax.max(q.y);
+                b.xmin = b.xmin.min(p.x);
+                b.xmax = b.xmax.max(p.x);
+                b.ymin = b.ymin.min(p.y);
+                b.ymax = b.ymax.max(p.y);
             }
             b
         })

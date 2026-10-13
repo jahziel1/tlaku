@@ -18,7 +18,7 @@ import { createMeasureTool } from './measureTool';
 import { createNodeTool } from './nodeTool';
 import { cornerNode, handleLines, hasCurves, penDraft, penPath, smoothNode, type PenNode } from './pen';
 import { createPickTool } from './pickTool';
-import { newShapeObject, registerShape, type ShapeParams } from './shapeParams';
+import { newShapeObject, type ShapeSpec } from '@/lib/paramShape';
 import { createTextAt, editText, prefetchFonts } from './textTool';
 import { DRAG_PX, type Mods, type ToolDeps } from './toolDeps';
 import {
@@ -350,7 +350,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const radius = Math.hypot(p[0] - c[0], p[1] - c[1]);
       // El primer vértice apunta al puntero; con Mayús queda hacia arriba.
       const rotation = mods.shift ? 0 : Math.atan2(p[1] - c[1], p[0] - c[0]) - Math.PI / 2;
-      const params: ShapeParams = tool === 'polygon'
+      const params: ShapeSpec = tool === 'polygon'
         ? { type: 'polygon', sides: s.polygonSides, radius, rounding: s.shapeRounding }
         : { type: 'star', points: s.starPoints, outer: radius, ratio: s.starRatio, rounding: s.shapeRounding };
       return { params, radius, rotation };
@@ -735,12 +735,11 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         finishCreate(newShapeObject(id, layer, params, gs.startWorld, rotation), gs.tool);
         return;
       }
-      const { box, w, h, radius, paths } = dragShape(gs.tool, gs.startWorld, gs.end, mods);
+      const { box, w, h, radius } = dragShape(gs.tool, gs.startWorld, gs.end, mods);
       if (w < MIN_SHAPE_MM || h < MIN_SHAPE_MM) return;
-      const obj = newVectorObject(id, layer, paths);
-      const params: ShapeParams = gs.tool === 'rect' ? { type: 'rect', w, h, radius } : { type: 'ellipse', w, h };
-      registerShape(obj, { params, center: [(box[0][0] + box[1][0]) / 2, (box[0][1] + box[1][1]) / 2] });
-      finishCreate(obj, gs.tool);
+      // La forma se guarda centrada en el origen local con sus parámetros en `shape`; la matriz la coloca.
+      const params: ShapeSpec = gs.tool === 'rect' ? { type: 'rect', w, h, radius } : { type: 'ellipse', w, h };
+      finishCreate(newShapeObject(id, layer, params, [(box[0][0] + box[1][0]) / 2, (box[0][1] + box[1][1]) / 2]), gs.tool);
     };
 
     const onLeave = () => {

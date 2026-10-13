@@ -827,6 +827,7 @@ fn bounds_check_covers_every_move() {
         tabs: 0,
         z_mm: None,
         pass: None,
+        sub: None,
     };
     let job = ComputedJob {
         toolpath: tlaku_core::toolpath::Toolpath {
@@ -1159,7 +1160,7 @@ fn lengths(block: &ToolpathBlock) -> (f64, f64) {
         match *mv {
             Move::Cut { power_pct, .. } if power_pct > 0.0 => on += at.dist(to),
             Move::Cut { .. } => off += at.dist(to),
-            Move::Travel { .. } => {}
+            Move::Travel { .. } | Move::Dwell { .. } => {}
         }
         at = to;
     }

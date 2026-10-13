@@ -9,6 +9,8 @@ const hasPreview = (s: AppState) => (s.previewVisible && s.preview !== null && s
  * `Home`/`End` son del desplazamiento de los paneles. Una tecla, un significado.
  */
 export const previewCommands: CommandDef[] = [
+  // Orden de corte y recorridos: se aplican a la vista previa, el encuadre, el envío y la exportación.
+  { id: 'preview.optimization', label: 'preview.cmd.optimization', category: 'machine', run: (s) => s.openDialog({ kind: 'optimization' }) },
   {
     id: 'view.preview',
     label: 'cmd.view.preview',

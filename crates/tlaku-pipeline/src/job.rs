@@ -9,7 +9,8 @@ const BED_EPS_MM: f64 = 1e-6;
 /// Resumen y detalle de un bloque del trabajo (una capa, o una imagen).
 #[derive(Debug, Clone)]
 pub struct LayerReport {
-    /// `#rrggbb`, o `imagen`.
+    /// `#rrggbb` (con ` · 2/3` si es una de las operaciones de una capa con sub-capas), o
+    /// `imagen`.
     pub name: String,
     pub color: tlaku_core::Rgb,
     /// `line`, `fill` o `image`.
@@ -33,6 +34,9 @@ pub struct LayerReport {
     /// `(pasada, total)` cuando la capa se divide en un bloque por pasada (Z distinta en cada
     /// una); `None` si el bloque contiene todas sus pasadas.
     pub pass: Option<(u32, u32)>,
+    /// `(posición, total)` de la operación entre las de su capa, si ésta tiene sub-capas (la
+    /// principal es `1/total`). El nombre también lo lleva ("#rrggbb · 2/3").
+    pub sub: Option<(u32, u32)>,
 }
 
 /// Resultado de calcular un trabajo: lo necesario para mostrarlo y para generar G-code.

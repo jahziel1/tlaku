@@ -17,6 +17,9 @@ import {
   Ellipsis,
   GripVertical,
   SquareDashed,
+  ClipboardPaste,
+  Copy,
+  Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -25,7 +28,7 @@ import { t } from '@/i18n';
 import { countByLayer, layerFeatures, type LayerCount } from '@/lib/layers';
 import { colorName, isGuideColor, readableOn } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
-import { moveLayer, openEditorFor, selectLayerObjects } from './actions';
+import { copyLayerSettings, deleteLayerWithObjects, lockedInLayer, moveLayer, openEditorFor, pasteLayerSettings, selectLayerObjects } from './actions';
 import { LayerEditor } from './LayerEditor';
 import { focusLayerRow, useLayerUi } from './layerUi';
 import { buildExecution, localOrderNote, type ExecEntry } from './order';
@@ -76,7 +79,10 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
   const menuBtn = useRef<HTMLButtonElement>(null);
   const Icon = MODE_ICON[layer.mode];
   const hasZ = useStore((s) => selectActiveDevice(s).z_axis === true);
+  const copied = useLayerUi((s) => s.copied);
+  const lockedCount = useStore((s) => lockedInLayer(s.doc, layer.color));
   const features = layerFeatures(layer, hasZ);
+  const subCount = guide ? 0 : (layer.sub_layers?.length ?? 0);
   const pinned = layer.order !== null;
   const name = layer.name || colorName(layer.color);
 
@@ -101,6 +107,20 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
       icon: <MousePointerClick size={14} />,
       disabledReason: entry.count.total === 0 ? t('layers.reason.noObjects') : undefined,
       onSelect: () => selectLayerObjects(st(), layer.color),
+    },
+    {
+      id: 'copy',
+      label: t('layers.menu.copy'),
+      icon: <Copy size={14} />,
+      disabledReason: guide ? t('layers.reason.guideNoSettings') : undefined,
+      onSelect: () => copyLayerSettings(st(), layer.color),
+    },
+    {
+      id: 'paste',
+      label: t('layers.menu.paste'),
+      icon: <ClipboardPaste size={14} />,
+      disabledReason: guide ? t('layers.reason.guideNoSettings') : !copied ? t('layers.reason.nothingCopied') : undefined,
+      onSelect: () => pasteLayerSettings(st(), layer.color),
     },
     { id: 'rename', label: t('layers.menu.rename'), icon: <Pencil size={14} />, hint: 'F2', onSelect: () => useLayerUi.getState().startRename(layer.color) },
     {
@@ -128,6 +148,13 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
           disabledReason: !entry.runs ? t('layers.reason.notRunning') : undefined,
           onSelect: () => st().updateLayer(layer.color, { order: entry.position }),
         },
+    {
+      id: 'delete',
+      label: t('layers.menu.delete'),
+      icon: <Trash2 size={14} />,
+      disabledReason: lockedCount > 0 ? t('layers.reason.lockedObjects') : undefined,
+      onSelect: () => void deleteLayerWithObjects(useStore.getState, layer.color),
+    },
   ];
 
   const tag = entry.skip
@@ -212,6 +239,11 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
                       {t(`layers.feature.${f}`)}
                     </span>
                   ))}
+                  {subCount > 0 && (
+                    <span className="lyr-feature" title={t('layers.sub.badge.why', { n: subCount })}>
+                      {t('layers.sub.badge', { n: subCount })}
+                    </span>
+                  )}
                 </>
               )}
             </span>

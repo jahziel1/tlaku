@@ -27,7 +27,23 @@ export type NumericField =
   | 'halftone_cell'
   | 'halftone_angle'
   | 'z_offset'
-  | 'z_step';
+  | 'z_step'
+  | 'perf_cut'
+  | 'perf_skip'
+  | 'lead_length'
+  | 'lead_angle'
+  | 'overcut'
+  | 'delay'
+  | 'cut_through_power'
+  | 'cut_through_ms'
+  | 'dot_dwell'
+  | 'dot_spacing'
+  | 'ramp_length'
+  | 'ramp_start'
+  | 'angle_increment'
+  | 'enhance_radius'
+  | 'enhance_amount'
+  | 'denoise';
 
 export interface FieldSpec {
   min: number;
@@ -67,6 +83,25 @@ export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
   halftone_angle: { min: -360, max: 360, step: 1, decimals: 2, unit: '°' },
   z_offset: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },
   z_step: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },
+  // Ola 2. Un tramo de perforación, de entrada o de rampa de 0 no hace nada: debe ser mayor que 0.
+  perf_cut: { min: 0.01, max: 100, step: 0.1, decimals: 3, unit: 'mm', positive: true },
+  perf_skip: { min: 0.01, max: 100, step: 0.1, decimals: 3, unit: 'mm', positive: true },
+  lead_length: { min: 0.01, max: 50, step: 0.5, decimals: 3, unit: 'mm', positive: true },
+  lead_angle: { min: -180, max: 180, step: 5, decimals: 1, unit: '°' },
+  overcut: { min: 0, max: 50, step: 0.1, decimals: 3, unit: 'mm' },
+  // Pausa con el láser encendido, en milisegundos (0 = sin pausa).
+  delay: { min: 0, max: 10000, step: 10, decimals: 0, unit: 'ms' },
+  cut_through_power: { min: 0, max: 100, step: 1, decimals: 1, unit: '%' },
+  cut_through_ms: { min: 0, max: 10000, step: 10, decimals: 0, unit: 'ms' },
+  dot_dwell: { min: 0.01, max: 1000, step: 0.5, decimals: 2, unit: 'ms', positive: true },
+  dot_spacing: { min: 0.01, max: 50, step: 0.1, decimals: 3, unit: 'mm', positive: true },
+  ramp_length: { min: 0.01, max: 50, step: 0.5, decimals: 3, unit: 'mm', positive: true },
+  ramp_start: { min: 0, max: 100, step: 5, decimals: 1, unit: '%' },
+  angle_increment: { min: -360, max: 360, step: 1, decimals: 2, unit: '°' },
+  // Realce de bordes: radio en píxeles de la imagen (0 = apagado) y fuerza de 0 a 1.
+  enhance_radius: { min: 0, max: 20, step: 0.5, decimals: 2, unit: 'px' },
+  enhance_amount: { min: 0, max: 1, step: 0.05, decimals: 2, unit: '' },
+  denoise: { min: 0, max: 20, step: 1, decimals: 1, unit: 'px' },
 };
 
 export interface FieldError {

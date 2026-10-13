@@ -30,8 +30,10 @@ export function startPreviewSync(store: SyncStore, delays: { visibleMs: number; 
   };
 
   const unsub = store.subscribe((s, prev) => {
+    // "Solo la selección" hace que el trabajo dependa de lo que esté seleccionado.
+    const selectionChanged = s.cutSelectionOnly !== prev.cutSelectionOnly || (s.cutSelectionOnly && s.selectedIds !== prev.selectedIds);
     const changed =
-      s.doc !== prev.doc || s.jobOptions !== prev.jobOptions || selectActiveDevice(s) !== selectActiveDevice(prev);
+      s.doc !== prev.doc || s.jobOptions !== prev.jobOptions || selectionChanged || selectActiveDevice(s) !== selectActiveDevice(prev);
     if (changed) {
       s.invalidatePreview();
       schedule(s.previewVisible ? delays.visibleMs : delays.hiddenMs);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { DesignObject, Document } from '@/api/types';
 import { sampleDocument } from '@/api/mock/sample';
 import {
@@ -13,8 +13,15 @@ import {
   dpiToInterval,
   ensureLayerIn,
   intervalToDpi,
+  factoryLayer,
   makeLayer,
   newLayerFor,
+  applyTemplate,
+  layerTemplate,
+  sanitizeLayerTemplate,
+  setLayerDefaults,
+  newSubLayer,
+  MAX_SUB_LAYERS,
 } from './layers';
 import { GUIDE_COLOR } from './palette';
 import { polylineBez } from '@/lib/bezpath';
@@ -153,5 +160,113 @@ describe('rasgos de una capa para la lista', () => {
     expect(layerFeatures(z, true)).toEqual(['z']);
     expect(usesZ(z)).toBe(true);
     expect(usesZ(makeLayer('#f00', 'a'))).toBe(false);
+  });
+});
+
+describe('valores por defecto del usuario (C35)', () => {
+  afterEach(() => setLayerDefaults(null));
+
+  const custom = () => layerTemplate(makeLayer('#000', 'x', { speed: 2400, power: 33, mode: 'fill', ramp: { enabled: true, length_mm: 3, start_pct: 20, outer_only: false } }));
+
+  it('sin valores propios, makeLayer da los de fábrica', () => {
+    expect(makeLayer('#ff0000', 'Rojo')).toEqual(factoryLayer('#ff0000', 'Rojo'));
+  });
+
+  it('makeLayer y newLayerFor los usan, conservando color y nombre', () => {
+    setLayerDefaults(custom());
+    const l = makeLayer('#ff0000', 'Rojo');
+    expect(l).toMatchObject({ color: '#ff0000', name: 'Rojo', speed: 2400, power: 33, mode: 'fill', output: true, visible: true, order: null });
+    expect(l.ramp).toEqual({ enabled: true, length_mm: 3, start_pct: 20, outer_only: false });
+    expect(newLayerFor('#2f7bff')).toMatchObject({ speed: 2400, mode: 'fill' });
+  });
+
+  it('el patch manda sobre los valores por defecto', () => {
+    setLayerDefaults(custom());
+    expect(makeLayer('#f00', 'x', { speed: 100 })).toMatchObject({ speed: 100, power: 33 });
+  });
+
+  it('la capa de guías sigue naciendo sin salida', () => {
+    setLayerDefaults(custom());
+    expect(newLayerFor(GUIDE_COLOR).output).toBe(false);
+  });
+
+  it('completar una capa vieja usa los valores de fábrica, no los del usuario', () => {
+    setLayerDefaults(custom());
+    const vieja: Record<string, unknown> = { ...factoryLayer('#00f', 'Vieja') };
+    for (const k of ['ramp', 'perforation', 'sub_layers', 'overcut']) delete vieja[k];
+    const n = normalizeLayer(vieja as never);
+    expect(n.ramp.enabled).toBe(false);
+    expect(n.speed).toBe(1000);
+    expect(n.sub_layers).toEqual([]);
+  });
+
+  it('las capas que ya existen no cambian al guardar los valores', () => {
+    const before = makeLayer('#f00', 'x');
+    setLayerDefaults(custom());
+    expect(before.speed).toBe(1000);
+  });
+});
+
+describe('plantilla de ajustes de una capa', () => {
+  it('lleva todo menos color, nombre, posición, visibilidad y salida', () => {
+    const l = makeLayer('#f00', 'Rojo', { order: 3, output: false, visible: false, speed: 777 });
+    const t = layerTemplate(l);
+    expect(t.speed).toBe(777);
+    for (const k of ['color', 'name', 'order', 'visible', 'output']) expect(k in t, k).toBe(false);
+  });
+
+  it('applyTemplate conserva la identidad de la capa y no comparte objetos con la plantilla', () => {
+    const t = layerTemplate(makeLayer('#f00', 'Rojo', { speed: 777, sub_layers: [makeLayer('#f00', '', { mode: 'fill' })] }));
+    const dst = makeLayer('#00f', 'Azul', { order: 2, output: false });
+    const out = applyTemplate(dst, t);
+    expect(out).toMatchObject({ color: '#00f', name: 'Azul', order: 2, output: false, speed: 777 });
+    expect(out.sub_layers[0]).toMatchObject({ mode: 'fill', color: '#00f' });
+    expect(out.image).not.toBe(t.image);
+    expect(out.sub_layers[0]).not.toBe(t.sub_layers[0]);
+  });
+});
+
+describe('saneado de valores por defecto leídos del disco', () => {
+  it('lo que no es un objeto no sirve', () => {
+    for (const bad of [null, 5, 'x', [], undefined]) expect(sanitizeLayerTemplate(bad)).toBeNull();
+  });
+
+  it('completa lo que falta y descarta lo que no es del tipo esperado', () => {
+    const t = sanitizeLayerTemplate({ speed: 1500, power: '50', mode: 'laser', fill_style: 'flood', ramp: { enabled: true, length_mm: Number.NaN }, perforation: 7, inventado: 1 })!;
+    expect(t.speed).toBe(1500);
+    expect(t.power).toBe(50); // texto: toma el valor de fábrica
+    expect(t.mode).toBe('line'); // modo desconocido
+    expect(t.fill_style).toBe('flood');
+    expect(t.ramp).toEqual({ enabled: true, length_mm: 1, start_pct: 0, outer_only: false });
+    expect(t.perforation).toEqual(factoryLayer('#000', '').perforation);
+    expect('inventado' in t).toBe(false);
+  });
+
+  it('una plantilla válida pasa sin cambios, también al ir y volver por JSON', () => {
+    const t = layerTemplate(makeLayer('#f00', 'x', { speed: 321, lead_in: { enabled: true, kind: 'arc', length: 2, angle: 30 }, overscan: 3 }));
+    expect(sanitizeLayerTemplate(JSON.parse(JSON.stringify(t)))).toEqual(t);
+  });
+
+  it('limita las operaciones adicionales y las deja sin las suyas', () => {
+    const sub = makeLayer('#f00', '', { sub_layers: [makeLayer('#f00', '')] });
+    const t = sanitizeLayerTemplate({ sub_layers: Array.from({ length: MAX_SUB_LAYERS + 5 }, () => sub) })!;
+    expect(t.sub_layers).toHaveLength(MAX_SUB_LAYERS);
+    expect(t.sub_layers.every((s) => s.sub_layers.length === 0)).toBe(true);
+  });
+});
+
+describe('operaciones adicionales y documentos viejos', () => {
+  it('una operación nueva hereda velocidad, potencia e intervalo de la capa y empieza limpia', () => {
+    const parent = makeLayer('#f00', 'x', { speed: 321, power: 12, interval: 0.2, ramp: { enabled: true, length_mm: 1, start_pct: 0, outer_only: false } });
+    const sub = newSubLayer(parent, 'fill');
+    expect(sub).toMatchObject({ mode: 'fill', speed: 321, power: 12, interval: 0.2, color: '#f00', sub_layers: [] });
+    expect(sub.ramp.enabled).toBe(false);
+  });
+
+  it('normalizeLayer completa los grupos de la ola 2 y las operaciones adicionales incompletas', () => {
+    const vieja: Record<string, unknown> = { ...makeLayer('#f00', 'x'), lead_in: { enabled: true }, sub_layers: [{ color: '#f00', mode: 'fill' }] };
+    const n = normalizeLayer(vieja as never);
+    expect(n.lead_in).toEqual({ enabled: true, kind: 'straight', length: 1, angle: 45 });
+    expect(n.sub_layers[0]).toMatchObject({ mode: 'fill', speed: 1000, ramp: { enabled: false } });
   });
 });

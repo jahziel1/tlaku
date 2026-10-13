@@ -83,6 +83,9 @@ pub fn resample_to_mm(
 /// se reduce, bilineal (alineada a centros de píxel) si se amplía.
 pub fn resample(img: &GrayF32, new_w: usize, new_h: usize) -> GrayF32 {
     assert!(new_w > 0 && new_h > 0, "tamaño destino cero");
+    if (new_w, new_h) == (img.width, img.height) {
+        return img.clone();
+    }
     let wx = axis_weights(img.width, new_w);
     let wy = axis_weights(img.height, new_h);
 

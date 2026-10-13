@@ -5,7 +5,9 @@ use crate::options::{Defaults, ImageParams, LayerOrder, LayerOverride, apply_ima
 use std::path::PathBuf;
 use tlaku_core::Rgb;
 use tlaku_pipeline::doc::affine::translate;
-use tlaku_pipeline::doc::{DeviceProfile, Document, JobOptions, LayerSettings, ObjectKind, Origin};
+use tlaku_pipeline::doc::{
+    DeviceProfile, Document, JobOptions, LayerSettings, ObjectKind, Optimization, Origin,
+};
 use tlaku_pipeline::{ComputedJob, ImportOptions, InputKind, import_file_with, input_kind};
 use tlaku_sim::MachineProfile;
 
@@ -22,6 +24,8 @@ pub struct DesignRequest {
     /// Ancho y alto de la cama, en mm.
     pub bed: (f64, f64),
     pub layer_order: LayerOrder,
+    /// Ajustes de optimización del orden y de los caminos.
+    pub optimization: Optimization,
 }
 
 impl DesignRequest {
@@ -124,6 +128,7 @@ pub fn build(req: &DesignRequest) -> Result<ComputedJob, String> {
     let Prepared { doc, before, after } = prepare(req)?;
     let options = JobOptions {
         layer_order: req.layer_order.into(),
+        optimization: req.optimization.clone(),
         ..JobOptions::default()
     };
     let mut job = tlaku_pipeline::build(&doc, &req.device(), &options, None)?;

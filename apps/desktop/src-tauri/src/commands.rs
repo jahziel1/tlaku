@@ -2,14 +2,14 @@
 //! y en `machine` (conexión). Los pesados corren con `spawn_blocking`, fuera del hilo principal.
 
 use crate::engine::{self, Head};
-use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, virtual_port};
+use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, frame, virtual_port};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tlaku_doc::{
     ConnectResult, DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview,
-    RealtimeCommand, SimulatedFault,
+    OverrideKind, RealtimeCommand, SimulatedFault,
 };
 use tlaku_grbl::link::LinkProfile;
 use tlaku_grbl::serial::Grbl;
@@ -312,6 +312,42 @@ pub async fn frame_job(
         h.frame_link(lines, LinkProfile::for_device(&device))
     })
     .await
+}
+
+/// Encuadre de banda elástica: sigue el casco convexo del trabajo en lugar del rectángulo.
+#[tauri::command]
+pub async fn frame_hull(
+    state: State<'_, AppState>,
+    doc: Document,
+    device: DeviceProfile,
+    options: JobOptions,
+    speed: f64,
+) -> Result<(), String> {
+    let h = state.handle()?;
+    blocking(move || {
+        let lines = frame::hull_lines(&doc, &device, &options, speed, h.work_pos())?;
+        h.frame_link(lines, LinkProfile::for_device(&device))
+    })
+    .await
+}
+
+/// Mueve la cabeza a (`x`, `y`) en coordenadas de trabajo (las de `work_pos`) con el láser
+/// apagado. Para "posicionar el láser" con un clic: la interfaz convierte antes la posición del
+/// documento con el origen de la máquina.
+#[tauri::command]
+pub async fn jog_to(state: State<'_, AppState>, x: f64, y: f64, speed: f64) -> Result<(), String> {
+    with_handle(&state, move |h| h.jog_to(x, y, speed)).await
+}
+
+/// Lleva el override en vivo de velocidad o potencia a `percent` por ciento (10 a 200). Solo
+/// GRBL; con un trabajo en curso también vale.
+#[tauri::command]
+pub async fn set_override(
+    state: State<'_, AppState>,
+    kind: OverrideKind,
+    percent: u32,
+) -> Result<(), String> {
+    with_handle(&state, move |h| h.set_override(kind, percent)).await
 }
 
 #[tauri::command]

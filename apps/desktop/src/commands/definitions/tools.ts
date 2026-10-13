@@ -109,6 +109,14 @@ export const toolCommands: CommandDef[] = [
     run: (s) => s.setShapePropsOpen(!s.shapePropsOpen),
   },
   {
+    // Ver: números pequeños sobre el lienzo con la prioridad de corte de cada objeto que la tiene.
+    id: 'view.priorityBadges',
+    label: 'canvas.cmd.priorityBadges',
+    category: 'view',
+    checked: (s) => s.priorityBadges,
+    run: (s) => s.setPriorityBadges(!s.priorityBadges),
+  },
+  {
     // C: cierra la polilínea en curso uniendo el último punto con el primero. Intro la deja abierta.
     id: 'draw.closePath',
     label: 'canvas.cmd.closePath',

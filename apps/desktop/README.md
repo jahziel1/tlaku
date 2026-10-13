@@ -269,6 +269,8 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Enviar al fondo | `Ctrl+AvPág` o `Ctrl+Mayús+[` |
 |  | Subir un nivel | `RePág` o `Ctrl+]` |
 |  | Bajar un nivel | `AvPág` o `Ctrl+[` |
+|  | Cortar antes (prioridad -1) | `Alt+Mayús+[` |
+|  | Cortar después (prioridad +1) | `Alt+Mayús+]` |
 |  | Bloquear | `Ctrl+L` |
 |  | Desbloquear todo | `Ctrl+Mayús+L` |
 | Vista | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |

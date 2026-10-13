@@ -8,7 +8,8 @@ import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { selectActiveDevice, useStore } from '@/store';
 import { jogBlockedReason } from '@/store/machine';
-import { JOG_DIRS, JOG_STEPS, type JogDirName } from './jogMath';
+import { JOG_DIRS, type JogDirName } from './jogMath';
+import { FinishPositionControls, JogStepsEditor, PositionLaserButton } from './MoveExtras';
 import { onPadKeyDown, useHoldJog } from './useHoldJog';
 
 const ICONS: Record<JogDirName, LucideIcon> = {
@@ -42,6 +43,7 @@ export function JogSection() {
   const why = whyKey ? t(whyKey) : undefined;
   const connected = useStore((s) => s.connection.connected);
   const step = useStore((s) => s.jogStep);
+  const steps = useStore((s) => s.jogSteps);
   const speed = useStore((s) => s.jogSpeed);
   const maxSpeed = useStore((s) => Math.min(...selectActiveDevice(s).max_rate));
   const userOrigin = useStore((s) => s.jobOptions.user_origin);
@@ -51,6 +53,7 @@ export function JogSection() {
   const setHere = useStore((s) => s.setUserOriginHere);
   const clearOrigin = useStore((s) => s.clearUserOrigin);
   const home = useCommand('machine.home');
+  const goOrigin = useCommand('machine.goOrigin');
   const holdProps = useHoldJog();
   const disabled = whyKey !== null;
 
@@ -78,9 +81,9 @@ export function JogSection() {
         </div>
         <div className="mc-jog-side">
           <div className="jog__steps" role="radiogroup" aria-label={t('machine.jog.step')}>
-            {JOG_STEPS.map((s) => (
+            {steps.map((s) => (
               <button key={s} type="button" role="radio" aria-checked={step === s} className="chip num" onClick={() => setStep(s)}>
-                {fmt(s, s < 1 ? 1 : 0)} mm
+                {fmt(s, s < 1 ? (s < 0.1 ? 2 : 1) : Number.isInteger(s) ? 0 : 1)} mm
               </button>
             ))}
           </div>
@@ -88,6 +91,11 @@ export function JogSection() {
         </div>
       </div>
       <p id="jog-help" className="hint">{t('machine.jog.help')}</p>
+      <div className="row">
+        <button type="button" className="btn grow" disabled={!goOrigin.enabled} title={goOrigin.tooltip} onClick={goOrigin.run}>
+          <Crosshair size={14} aria-hidden="true" />{userOrigin ? t('machine.jog.toUserOrigin') : t('machine.jog.toWorkOrigin')}
+        </button>
+      </div>
       <div className="row">
         <button type="button" className="btn grow" disabled={!home.enabled} title={home.tooltip} onClick={home.run}>
           <House size={14} aria-hidden="true" />{home.label}
@@ -104,6 +112,9 @@ export function JogSection() {
           </button>
         </p>
       )}
+      <PositionLaserButton />
+      <JogStepsEditor />
+      <FinishPositionControls />
     </section>
   );
 }

@@ -37,6 +37,8 @@ import type { JobState } from '@/bindings/JobState';
 import type { LogDir } from '@/bindings/LogDir';
 import type { LogEvent } from '@/bindings/LogEvent';
 import type { MachineState } from '@/bindings/MachineState';
+import type { OverrideKind } from '@/bindings/OverrideKind';
+import type { Overrides } from '@/bindings/Overrides';
 import type { ProgressEvent } from '@/bindings/ProgressEvent';
 import type { RealtimeCommand } from '@/bindings/RealtimeCommand';
 import type { SimulatedFault } from '@/bindings/SimulatedFault';
@@ -78,6 +80,8 @@ export type {
   MaterialLibrary,
   MaterialPreset,
   MaterialTestParams,
+  OverrideKind,
+  Overrides,
   PathSeg,
   ProgressEvent,
   RealtimeCommand,

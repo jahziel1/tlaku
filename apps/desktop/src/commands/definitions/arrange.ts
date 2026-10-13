@@ -7,6 +7,7 @@ import { blockBounds, boundsCenter, selectionUnits } from '@/features/arrange/un
 import { equalizeDoc, type EqualizeAxis } from '@/features/arrange/equalize';
 import { reorderObjects, type OrderOp } from '@/features/arrange/order';
 import { flipMatrix, mirrorCopiesDoc, rotateSelectionMatrix, straightLineEnds } from '@/features/arrange/transformOps';
+import { stepPriority } from '@/features/canvas/cutProps';
 import { startPickMode } from '@/features/canvas/pickTool';
 import { canRotate } from '@/features/canvas/transform';
 import type { I18nKey } from '@/i18n';
@@ -286,6 +287,24 @@ const orderCommands: CommandDef[] = (Object.keys(ORDER_KEYS) as OrderOp[]).map((
   },
 }));
 
+/**
+ * Prioridad de corte de los objetos: -1 corta antes, +1 corta después (solo dentro de su capa y si
+ * la optimización respeta la prioridad). Sin prioridad cuenta como 0.
+ */
+const priorityCommands: CommandDef[] = (
+  [
+    { id: 'arrange.priority.earlier', label: 'canvas.cmd.priorityEarlier', keys: ['Alt+Shift+['], delta: -1 },
+    { id: 'arrange.priority.later', label: 'canvas.cmd.priorityLater', keys: ['Alt+Shift+]'], delta: 1 },
+  ] as const
+).map<CommandDef>(({ id, label, keys, delta }) => ({
+  id,
+  label,
+  category: 'arrange',
+  shortcuts: [...keys],
+  enabled: (s) => (s.selectedIds.length === 0 ? 'arrange.reason.noSelection' : true),
+  run: (s) => stepPriority(s, s.selectedIds, delta),
+}));
+
 /** Igualar ancho o alto con el de la primera unidad seleccionada (con `Keep` conserva la proporción). */
 const equalizeCommands: CommandDef[] = (['width', 'height'] as EqualizeAxis[]).flatMap((axis) =>
   [false, true].map<CommandDef>((keep) => ({
@@ -345,6 +364,7 @@ const transformCommands: CommandDef[] = [
   },
   ...rotateCommands,
   ...orderCommands,
+  ...priorityCommands,
   {
     id: 'arrange.lock',
     label: 'cmd.arrange.lock',

@@ -1,4 +1,4 @@
-import type { DesignObject, Document, ImageSettings, LayerSettings, TabSettings } from '@/api/types';
+import type { DesignObject, Document, ImageSettings, LayerMode, LayerSettings, TabSettings } from '@/api/types';
 import { colorName, isGuideColor } from './palette';
 
 /** Mismos valores por defecto que `ImageSettings::default()` del motor (umbral 0-1, no 0-255). */
@@ -27,7 +27,18 @@ export const DEFAULT_TAB_SETTINGS: TabSettings = {
   skip_inner: true,
 };
 
-export function makeLayer(color: string, name: string, patch: Partial<LayerSettings> = {}): LayerSettings {
+/** Máximo de operaciones adicionales (sub-capas) de una capa; con la principal son 11. */
+export const MAX_SUB_LAYERS = 10;
+
+/** Grupos de ajustes anidados de una capa (cada uno es un objeto con sus propios campos). */
+export const NESTED_KEYS = ['image', 'tabs', 'perforation', 'lead_in', 'lead_out', 'cut_through', 'dot_mode', 'ramp'] as const;
+export type NestedKey = (typeof NESTED_KEYS)[number];
+
+/**
+ * Capa con los valores de fábrica (los mismos que `LayerSettings::for_color` del motor). No mira los
+ * valores por defecto del usuario: es la base con que se completa una capa de un documento viejo.
+ */
+export function factoryLayer(color: string, name: string, patch: Partial<LayerSettings> = {}): LayerSettings {
   return {
     color,
     name,
@@ -68,20 +79,133 @@ export function makeLayer(color: string, name: string, patch: Partial<LayerSetti
   };
 }
 
+// ---- valores por defecto del usuario (C35) ------------------------------------------------------
+
+/**
+ * Los ajustes de una capa que se copian, se pegan y se guardan como valores por defecto: todo menos
+ * lo que identifica a la capa (color, nombre, posición fijada) y su estado (visible, con salida).
+ */
+export type LayerTemplate = Omit<LayerSettings, 'color' | 'name' | 'order' | 'visible' | 'output'>;
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Copia independiente de una capa (los objetos anidados no se comparten con la original). */
+function cloneLayer<T extends LayerSettings | LayerTemplate>(l: T): T {
+  const out = { ...l } as Record<string, unknown>;
+  for (const k of NESTED_KEYS) if (isObject(out[k])) out[k] = { ...(out[k] as object) };
+  out.sub_layers = (l.sub_layers ?? []).map((s) => cloneLayer(s));
+  return out as T;
+}
+
+/** Los ajustes copiables de una capa. */
+export function layerTemplate(layer: LayerSettings): LayerTemplate {
+  const { color: _c, name: _n, order: _o, visible: _v, output: _out, ...rest } = cloneLayer(normalizeLayer(layer));
+  return rest;
+}
+
+/** La capa con los ajustes de `template` encima; conserva su color, nombre, posición, visibilidad y salida. */
+export function applyTemplate(layer: LayerSettings, template: LayerTemplate): LayerSettings {
+  const copy = cloneLayer(template);
+  return { ...layer, ...copy, sub_layers: copy.sub_layers.map((s) => ({ ...s, color: layer.color })) };
+}
+
+/** Valores por defecto del usuario; `null` = los de fábrica. Los fija `features/layers/defaults.ts` desde las preferencias. */
+let userDefaults: LayerTemplate | null = null;
+
+export function setLayerDefaults(template: LayerTemplate | null): void {
+  userDefaults = template;
+}
+
+export function getLayerDefaults(): LayerTemplate | null {
+  return userDefaults;
+}
+
+/** Capa nueva: valores de fábrica, encima los valores por defecto del usuario y, al final, `patch`. */
+export function makeLayer(color: string, name: string, patch: Partial<LayerSettings> = {}): LayerSettings {
+  const base = factoryLayer(color, name);
+  return { ...(userDefaults ? applyTemplate(base, userDefaults) : base), ...patch };
+}
+
+/** Valores válidos de los campos de texto con opciones, por ruta. */
+const ENUMS: Record<string, readonly string[]> = {
+  mode: ['line', 'fill', 'image'],
+  fill_style: ['scan', 'offset', 'flood'],
+  fill_grouping: ['all', 'by_shape', 'by_group'],
+  'image.mode': ['threshold', 'floyd', 'jarvis', 'stucki', 'atkinson', 'bayer4', 'grayscale', 'halftone', 'newsprint', 'sketch'],
+  'lead_in.kind': ['straight', 'arc'],
+  'lead_out.kind': ['straight', 'arc'],
+};
+
+/** Mezcla `raw` sobre `base` conservando el tipo de cada campo de `base`; lo que no encaja se descarta. */
+function mergeTyped(base: Record<string, unknown>, raw: Record<string, unknown>, path = ''): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, def] of Object.entries(base)) {
+    const at = path ? `${path}.${key}` : key;
+    const v = raw[key];
+    if (key === 'sub_layers') {
+      const list = Array.isArray(v) ? v : [];
+      out[key] = list
+        .slice(0, MAX_SUB_LAYERS)
+        .filter(isObject)
+        .map((s) => ({ ...mergeTyped(factoryLayer('#000000', '') as unknown as Record<string, unknown>, s), sub_layers: [] }));
+    } else if (key === 'overscan') {
+      out[key] = v === 'auto' || (typeof v === 'number' && Number.isFinite(v) && v >= 0) ? v : def;
+    } else if (key === 'order') {
+      out[key] = null;
+    } else if (isObject(def)) {
+      out[key] = mergeTyped(def, isObject(v) ? v : {}, at);
+    } else if (typeof def === 'number') {
+      out[key] = typeof v === 'number' && Number.isFinite(v) ? v : def;
+    } else if (typeof def === 'boolean') {
+      out[key] = typeof v === 'boolean' ? v : def;
+    } else if (typeof def === 'string') {
+      const allowed = ENUMS[at];
+      out[key] = typeof v === 'string' && (!allowed || allowed.includes(v)) ? v : def;
+    } else {
+      out[key] = def;
+    }
+  }
+  return out;
+}
+
+/**
+ * Valida unos valores por defecto leídos del disco o de un paquete: lo que falta o no es del tipo
+ * esperado toma el valor de fábrica. `null` si no es un objeto.
+ */
+export function sanitizeLayerTemplate(raw: unknown): LayerTemplate | null {
+  if (!isObject(raw)) return null;
+  const merged = mergeTyped(factoryLayer('#000000', '') as unknown as Record<string, unknown>, raw) as unknown as LayerSettings;
+  return layerTemplate(merged);
+}
+
+// ---- sub-capas (operaciones adicionales) ---------------------------------------------------------
+
+/** Operación adicional nueva: valores de fábrica en `mode`, con la velocidad, potencia e intervalo de la capa. */
+export function newSubLayer(parent: LayerSettings, mode: LayerMode): LayerSettings {
+  return factoryLayer(parent.color, '', { mode, speed: parent.speed, power: parent.power, interval: parent.interval, air: parent.air });
+}
+
 /**
  * Completa una capa que llega sin los campos nuevos (documentos viejos, perfiles guardados antes
  * de la Fase 4) con los valores por defecto. Devuelve el mismo objeto si ya estaba completa.
  */
 export function normalizeLayer(layer: Partial<LayerSettings> & { color: string }): LayerSettings {
-  const base = makeLayer(layer.color, layer.name ?? '');
-  const image = { ...base.image, ...layer.image };
-  const tabs = { ...base.tabs, ...layer.tabs };
-  const merged: LayerSettings = { ...base, ...layer, image, tabs };
-  const complete =
-    (Object.keys(base) as (keyof LayerSettings)[]).every((k) => k in layer) &&
-    Object.keys(image).every((k) => k in (layer.image ?? {})) &&
-    Object.keys(tabs).every((k) => k in (layer.tabs ?? {}));
-  return complete ? (layer as LayerSettings) : merged;
+  const base = factoryLayer(layer.color, layer.name ?? '');
+  const merged = { ...base, ...layer } as Record<string, unknown>;
+  let complete = (Object.keys(base) as (keyof LayerSettings)[]).every((k) => k in layer);
+  for (const k of NESTED_KEYS) {
+    const given = (layer as Record<string, unknown>)[k];
+    const def = base[k] as unknown as Record<string, unknown>;
+    merged[k] = { ...def, ...(isObject(given) ? given : {}) };
+    if (!isObject(given) || !Object.keys(def).every((f) => f in given)) complete = false;
+  }
+  const subs = layer.sub_layers ?? [];
+  const normalSubs = subs.map((s) => normalizeLayer(s));
+  if (normalSubs.some((s, i) => s !== subs[i])) {
+    complete = false;
+    merged.sub_layers = normalSubs;
+  }
+  return complete ? (layer as LayerSettings) : (merged as unknown as LayerSettings);
 }
 
 /** Documento con todas sus capas completas; el mismo objeto si no hacía falta tocar ninguna. */

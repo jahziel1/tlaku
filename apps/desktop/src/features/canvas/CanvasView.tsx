@@ -17,6 +17,7 @@ import { createRenderer } from './createRenderer';
 import { MeasureReadout } from './MeasureReadout';
 import type { CanvasPalette, Scene } from './renderer';
 import { Ruler, RULER_SIZE } from './Ruler';
+import { PriorityBadges } from './PriorityBadges';
 import { ShapeProps } from './ShapeProps';
 import { SnapBar } from './SnapBar';
 import { canRotate } from './transform';
@@ -170,6 +171,7 @@ export function CanvasView() {
           <span className="canvas-hud__name">{deviceName}</span>
           <span className="canvas-hud__dim num">{bed[0]} × {bed[1]} mm</span>
         </div>
+        <PriorityBadges />
         <SnapBar />
         <ShapeProps />
         <MeasureReadout />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { selectActiveDevice, useStore } from '@/store';
+import { selectActiveDevice, selectJobSelection, useStore } from '@/store';
 import { computeJobPlacement, designBounds, type Placement } from './placement';
 
 /** Reloj que avanza cada segundo mientras `active` (para el tiempo transcurrido y restante). */
@@ -19,12 +19,16 @@ export function useNow(active: boolean): number {
 export function useJobPlacement(): Placement {
   const doc = useStore((s) => s.doc);
   const options = useStore((s) => s.jobOptions);
+  const selection = useStore(useShallow(selectJobSelection));
+  const useSelectionOrigin = selection !== null && options.use_selection_origin;
   const device = useStore(useShallow((s) => {
     const d = selectActiveDevice(s);
     return { bed: d.bed, origin: d.origin };
   }));
   const head = useStore(useShallow((s) => (s.connection.connected && s.status ? s.status.work_pos : null)));
-  const design = useMemo(() => designBounds(doc, options.selection), [doc, options.selection]);
+  const design = useMemo(() => designBounds(doc, selection), [doc, selection]);
+  // Solo la selección, anclada a la caja de todo el diseño (a menos que se pida su propio origen).
+  const originBox = useMemo(() => (selection !== null && !useSelectionOrigin ? designBounds(doc, null) : design), [doc, selection, useSelectionOrigin, design]);
   return useMemo(
     () =>
       computeJobPlacement({
@@ -34,7 +38,8 @@ export function useJobPlacement(): Placement {
         head,
         device,
         design,
+        originBox,
       }),
-    [options.start_from, options.job_origin, options.user_origin, head, device, design],
+    [options.start_from, options.job_origin, options.user_origin, head, device, design, originBox],
   );
 }

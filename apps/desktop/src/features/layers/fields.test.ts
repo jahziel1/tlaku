@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dpiToInterval } from '@/lib/layers';
+import { dpiToInterval, makeLayer } from '@/lib/layers';
 import { FIELD_SPECS, formatNumber, parseDecimal, validateField, type NumericField } from './fields';
 
 const ok = (field: NumericField, text: string, ctx = {}) => {
@@ -135,5 +135,61 @@ describe('campos de la Fase 4', () => {
     expect(ok('z_offset', '101')).toBe('layers.err.range');
     expect(ok('z_step', '0.2')).toBe(0.2);
     expect(ok('z_step', 'x')).toBe('layers.err.number');
+  });
+});
+
+describe('campos de la ola 2', () => {
+  it('perforación, entrada y rampa: los tramos deben ser mayores que cero', () => {
+    for (const f of ['perf_cut', 'perf_skip', 'lead_length', 'dot_dwell', 'dot_spacing', 'ramp_length'] as const) {
+      expect(ok(f, '0'), f).toBe('layers.err.positive');
+      expect(ok(f, '-1'), f).toBe('layers.err.positive');
+      expect(ok(f, '1,5'), f).toBe(1.5);
+      expect(ok(f, 'x'), f).toBe('layers.err.number');
+    }
+    expect(ok('perf_cut', '101')).toBe('layers.err.range');
+    expect(ok('lead_length', '51')).toBe('layers.err.range');
+    expect(ok('dot_dwell', '1001')).toBe('layers.err.range');
+  });
+
+  it('ángulo de entrada, sobrecorte y pausas tienen su rango', () => {
+    expect(ok('lead_angle', '-45')).toBe(-45);
+    expect(ok('lead_angle', '181')).toBe('layers.err.range');
+    expect(ok('overcut', '0')).toBe(0);
+    expect(ok('overcut', '-0.1')).toBe('layers.err.range');
+    expect(ok('overcut', '51')).toBe('layers.err.range');
+    expect(ok('delay', '0')).toBe(0);
+    expect(ok('delay', '250')).toBe(250);
+    expect(ok('delay', '10001')).toBe('layers.err.range');
+    expect(ok('delay', '-5')).toBe('layers.err.range');
+  });
+
+  it('corte pasante y rampa usan porcentajes de 0 a 100', () => {
+    expect(ok('cut_through_power', '100')).toBe(100);
+    expect(ok('cut_through_power', '101')).toBe('layers.err.range');
+    expect(ok('cut_through_ms', '0')).toBe(0);
+    expect(ok('cut_through_ms', '20000')).toBe('layers.err.range');
+    expect(ok('ramp_start', '0')).toBe(0);
+    expect(ok('ramp_start', '100.5')).toBe('layers.err.range');
+  });
+
+  it('incremento de ángulo, realce y quitar motas', () => {
+    expect(ok('angle_increment', '-15')).toBe(-15);
+    expect(ok('angle_increment', '361')).toBe('layers.err.range');
+    expect(ok('enhance_radius', '0')).toBe(0);
+    expect(ok('enhance_radius', '21')).toBe('layers.err.range');
+    expect(ok('enhance_amount', '0,5')).toBe(0.5);
+    expect(ok('enhance_amount', '1.1')).toBe('layers.err.range');
+    expect(ok('denoise', '3')).toBe(3);
+    expect(ok('denoise', '-1')).toBe('layers.err.range');
+  });
+
+  it('los rangos del editor no son más estrictos que los de los valores por defecto del motor', () => {
+    const d = makeLayer('#f00', 'x');
+    expect(ok('perf_cut', String(d.perforation.cut_mm))).toBe(d.perforation.cut_mm);
+    expect(ok('lead_angle', String(d.lead_in.angle))).toBe(d.lead_in.angle);
+    expect(ok('cut_through_power', String(d.cut_through.power))).toBe(d.cut_through.power);
+    expect(ok('cut_through_ms', String(d.cut_through.ms))).toBe(d.cut_through.ms);
+    expect(ok('dot_dwell', String(d.dot_mode.dwell_ms))).toBe(d.dot_mode.dwell_ms);
+    expect(ok('dot_spacing', String(d.dot_mode.spacing_mm))).toBe(d.dot_mode.spacing_mm);
   });
 });

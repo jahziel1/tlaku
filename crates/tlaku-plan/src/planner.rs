@@ -11,7 +11,7 @@ use crate::improve::{improve, polish};
 use crate::overlap::{Extra, find_overlaps};
 use crate::sched::{input_order, nearest_neighbor};
 use crate::shapes::Shapes;
-use crate::{Level, Plan, PlanItem, PlanOptions, PlanStep, Reason, Warning};
+use crate::{Level, Plan, PlanItem, PlanOptions, PlanStep, Reason, Warning, Winding};
 
 /// Estado compartido entre las etapas. Los vectores son del tamaño de la entrada.
 pub(crate) struct Ctx<'a> {
@@ -189,8 +189,48 @@ fn run(
     (steps, travel)
 }
 
+/// Doble del área con signo (positivo = antihorario con Y hacia arriba).
+fn signed_area2(points: &[Point]) -> f64 {
+    let n = points.len();
+    (0..n)
+        .map(|i| {
+            let (a, b) = (points[i], points[(i + 1) % n]);
+            a.x * b.y - b.x * a.y
+        })
+        .sum()
+}
+
+/// Copia de las figuras con todas las cerradas girando en el sentido `w`.
+fn with_winding(items: &[PlanItem], w: Winding) -> Vec<PlanItem> {
+    items
+        .iter()
+        .map(|it| {
+            let mut it = it.clone();
+            if it.path.closed && it.path.points.len() >= 3 {
+                let area = signed_area2(&it.path.points);
+                let wrong = match w {
+                    Winding::Ccw => area < 0.0,
+                    Winding::Cw => area > 0.0,
+                };
+                if wrong {
+                    it.path.points.reverse();
+                }
+            }
+            it
+        })
+        .collect()
+}
+
 /// Planifica el orden de corte. Ver la documentación del crate para las reglas.
 pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
+    let oriented;
+    let items = match options.closed_winding {
+        Some(w) => {
+            oriented = with_winding(items, w);
+            &oriented[..]
+        }
+        None => items,
+    };
     let n = items.len();
     let mut warnings = Vec::new();
     let mut valid = vec![true; n];

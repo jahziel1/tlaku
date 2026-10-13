@@ -34,6 +34,31 @@ pub struct BufferStatus {
     pub rx: u32,
 }
 
+/// Porcentajes de los overrides en tiempo real activos (campo `Ov:` del reporte de estado de
+/// GRBL). 100 = sin ajuste; el rango que acepta la controladora es 10..=200.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct Overrides {
+    /// Velocidad de avance (corte y grabado).
+    pub feed: u32,
+    /// Movimientos rápidos: 100, 50 o 25.
+    pub rapid: u32,
+    /// Potencia del láser (la S del husillo).
+    pub spindle: u32,
+}
+
+/// Qué override en tiempo real se ajusta con `set_override`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum OverrideKind {
+    /// Velocidad de avance (bytes 0x90 a 0x94).
+    Feed,
+    /// Potencia del láser (bytes 0x99 a 0x9D).
+    Spindle,
+}
+
 /// Evento `machine://status`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -54,6 +79,11 @@ pub struct StatusReport {
     /// S: potencia actual (0..s_max).
     pub spindle: f64,
     pub buffer: BufferStatus,
+    /// Último `Ov:` informado por la controladora (GRBL lo manda de vez en cuando, no en cada
+    /// reporte). `None` mientras no se haya visto, o en Marlin y Smoothieware, que no lo tienen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub overrides: Option<Overrides>,
 }
 
 /// Evento `machine://progress`: líneas confirmadas por la controladora.

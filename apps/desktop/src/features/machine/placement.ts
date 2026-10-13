@@ -36,6 +36,12 @@ export interface PlacementInput {
   device: Pick<DeviceProfile, 'bed' | 'origin'>;
   /** Rectángulo envolvente de lo que se envía (sin overscan); null si no hay nada. */
   design: Bounds | null;
+  /**
+   * Caja de la que sale el punto de anclaje del trabajo. Por omisión es `design`; al enviar solo
+   * la selección sin "usar el origen de la selección" es la caja de todo el diseño, así lo
+   * seleccionado queda donde estaría dentro del diseño completo.
+   */
+  originBox?: Bounds | null;
 }
 
 /** Posición del punto 0..8 dentro del rectángulo: `fx` de izquierda a derecha y `fy` de arriba abajo, 0..1. */
@@ -66,6 +72,7 @@ function overflowOf(rect: Bounds, bed: Point): Placement['overflow'] {
 
 export function computeJobPlacement(input: PlacementInput): Placement {
   const { startFrom, jobOrigin, userOrigin, head, device, design } = input;
+  const originBox = input.originBox ?? design;
   const empty = (status: PlacementStatus): Placement => ({
     status,
     rect: null,
@@ -88,7 +95,7 @@ export function computeJobPlacement(input: PlacementInput): Placement {
   if (!workPoint) return empty(startFrom === 'current_position' ? 'needHead' : 'needUserOrigin');
 
   const target = workToDoc(device, workPoint);
-  const anchor = anchorPoint(design, jobOrigin);
+  const anchor = anchorPoint(originBox ?? design, jobOrigin);
   const dx = target[0] - anchor[0];
   const dy = target[1] - anchor[1];
   const rect: Bounds = [

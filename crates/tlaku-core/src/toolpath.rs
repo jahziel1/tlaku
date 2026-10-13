@@ -13,12 +13,19 @@ pub enum Move {
     /// Movimiento a la velocidad del bloque con el láser a `power_pct` (0-100).
     /// Con potencia 0 sirve para overscan: el cabezal acelera sin disparar.
     Cut { to: Point, power_pct: f64 },
+    /// Pausa de `ms` milisegundos en `to` (que es donde ya está la cabeza) con el láser a
+    /// `power_pct` (0 = apagado). Sirve para el modo punto, el corte pasante y las pausas de
+    /// inicio y fin de trazo. No mueve la cabeza: `to` solo existe para que `Move::to` siga
+    /// dando siempre un punto (cajas, origen de la cama, espejo del rotativo y estimación de
+    /// tiempo lo usan sin tratar la pausa aparte), y los drivers lo ignoran como movimiento.
+    Dwell { to: Point, ms: f64, power_pct: f64 },
 }
 
 impl Move {
+    /// Punto donde termina el movimiento (en `Dwell`, donde se queda la cabeza).
     pub fn to(&self) -> Point {
         match *self {
-            Move::Travel { to } | Move::Cut { to, .. } => to,
+            Move::Travel { to } | Move::Cut { to, .. } | Move::Dwell { to, .. } => to,
         }
     }
 }

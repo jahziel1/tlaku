@@ -62,7 +62,9 @@ pub(crate) fn offset_for_speed(offsets: &[ScanOffset], speed_mm_min: f64) -> f64
 
 fn shift(mv: &mut Move, dx: f64, dy: f64) {
     match mv {
-        Move::Travel { to } | Move::Cut { to, .. } => *to = Point::new(to.x + dx, to.y + dy),
+        Move::Travel { to } | Move::Cut { to, .. } | Move::Dwell { to, .. } => {
+            *to = Point::new(to.x + dx, to.y + dy)
+        }
     }
 }
 

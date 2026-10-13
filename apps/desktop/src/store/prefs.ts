@@ -1,4 +1,5 @@
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
+import { sanitizeLayerTemplate, type LayerTemplate } from '@/lib/layers';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
 import { detectLanguage, setLanguage } from '@/i18n';
 import { readPref, writePref } from '@/lib/platform';
@@ -39,6 +40,17 @@ export interface Prefs {
   autosaveSecs: number;
   /** Cuántos archivos recientes se recuerdan. */
   recentMax: number;
+  /** Modo principiante: el editor de capa oculta los ajustes avanzados (los ya configurados se siguen aplicando). */
+  beginnerMode: boolean;
+  /** Ajustes con que empiezan las capas nuevas; `null` = los de fábrica. Ver `lib/layers.ts` y `features/layers/defaults.ts`. */
+  layerDefaults: LayerTemplate | null;
+  /**
+   * Casillas de la lista de comprobación del diálogo de inicio (máquina): bits aire 1, enfoque 2,
+   * material 4, extractor 8, tapa 16. Ver `features/machine/checklist.ts`.
+   */
+  jobChecklistItems: number;
+  /** El diálogo de inicio exige tener marcadas las casillas de la lista antes de enviar. */
+  jobChecklistRequired: boolean;
 }
 
 export type PrefKey = keyof Prefs;
@@ -46,8 +58,10 @@ export type PrefKey = keyof Prefs;
 type NumberSpec = { kind: 'number'; min: number; max: number; step: number; unit?: 'mm' | 'px' | 'deg' | 's' | 'count'; integer?: boolean };
 type ChoiceSpec<T extends string> = { kind: 'choice'; options: readonly T[] };
 type BoolSpec = { kind: 'bool' };
+/** Valor estructurado (un objeto): `check` lo valida y devuelve el valor saneado, o `null` si no sirve. */
+type JsonSpec<V> = { kind: 'json'; check: (raw: unknown) => { value: V } | null };
 
-type SpecOf<V> = [V] extends [boolean] ? BoolSpec : [V] extends [number] ? NumberSpec : [V] extends [string] ? ChoiceSpec<V & string> : never;
+type SpecOf<V> = [V] extends [boolean] ? BoolSpec : [V] extends [number] ? NumberSpec : [V] extends [string] ? ChoiceSpec<V & string> : JsonSpec<V>;
 export type PrefSpecs = { [K in PrefKey]: SpecOf<Prefs[K]> & { default: Prefs[K] } };
 
 /** Valores de fábrica y límites. Las opciones de un `choice` son textos de i18n en la ventana. */
@@ -65,6 +79,18 @@ export const PREF_SPECS: PrefSpecs = {
   autosave: { kind: 'bool', default: true },
   autosaveSecs: { kind: 'number', min: 10, max: 3600, step: 10, unit: 's', integer: true, default: 60 },
   recentMax: { kind: 'number', min: 0, max: 30, step: 1, unit: 'count', integer: true, default: 10 },
+  beginnerMode: { kind: 'bool', default: false },
+  jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
+  jobChecklistRequired: { kind: 'bool', default: false },
+  layerDefaults: {
+    kind: 'json',
+    default: null,
+    check: (raw) => {
+      if (raw === null) return { value: null };
+      const value = sanitizeLayerTemplate(raw);
+      return value ? { value } : null;
+    },
+  },
 };
 
 export const PREF_KEYS = Object.keys(PREF_SPECS) as PrefKey[];
@@ -73,8 +99,10 @@ export const DEFAULT_PREFS: Prefs = Object.fromEntries(PREF_KEYS.map((k) => [k, 
 
 /** Resultado de leer un valor suelto: el valor ya saneado, o `null` si no es del tipo o rango válido. */
 export function checkPref<K extends PrefKey>(key: K, raw: unknown): { value: Prefs[K] } | null {
-  const spec = PREF_SPECS[key] as NumberSpec | ChoiceSpec<string> | BoolSpec;
+  const spec = PREF_SPECS[key] as NumberSpec | ChoiceSpec<string> | BoolSpec | JsonSpec<unknown>;
   switch (spec.kind) {
+    case 'json':
+      return spec.check(raw) as { value: Prefs[K] } | null;
     case 'bool':
       return typeof raw === 'boolean' ? { value: raw as Prefs[K] } : null;
     case 'choice':
@@ -103,7 +131,8 @@ export function sanitizePrefs(raw: unknown): Prefs {
 }
 
 export function prefsEqual(a: Prefs, b: Prefs): boolean {
-  return PREF_KEYS.every((k) => a[k] === b[k]);
+  // Los valores estructurados (`layerDefaults`) se comparan por contenido.
+  return PREF_KEYS.every((k) => a[k] === b[k] || (typeof a[k] === 'object' && JSON.stringify(a[k]) === JSON.stringify(b[k])));
 }
 
 // ---- copia local para arrancar sin parpadeo --------------------------------------------------------

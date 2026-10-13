@@ -1,5 +1,6 @@
 import type { DesignObject, LayerSettings } from '@/api/types';
 import { nodeCount, parseModel } from '@/features/canvas/nodeedit';
+import { readPref, writePref } from '@/lib/platform';
 import type { SliceCreator } from './types';
 
 /** Un objeto oculto, bloqueado o de una capa invisible no se puede seleccionar. */
@@ -46,6 +47,8 @@ export interface SelectionSlice {
   scaleFromCenter: boolean;
   /** Ventana de propiedades de forma visible (aparece cuando la selección son formas paramétricas). */
   shapePropsOpen: boolean;
+  /** Muestra sobre el lienzo la prioridad de corte de los objetos que la tienen (Ver). */
+  priorityBadges: boolean;
   /**
    * Nodos seleccionados con la herramienta de nodos: por id de objeto, índices planos de nodo
    * (ver `features/canvas/nodeedit`). Solo cuenta lo de objetos que siguen seleccionados.
@@ -73,6 +76,7 @@ export interface SelectionSlice {
   setTransformAllow: (patch: Partial<TransformAllow>) => void;
   setScaleFromCenter: (on: boolean) => void;
   setShapePropsOpen: (open: boolean) => void;
+  setPriorityBadges: (on: boolean) => void;
   setNodeSel: (sel: Record<string, number[]>) => void;
   clearNodeSel: () => void;
   setNodeCorners: (id: string, keys: string[]) => void;
@@ -99,6 +103,7 @@ export const createSelectionSlice: SliceCreator<SelectionSlice> = (set, get) => 
   transformAllow: { move: true, scale: true, rotate: true },
   scaleFromCenter: false,
   shapePropsOpen: true,
+  priorityBadges: readPref('priorityBadges') === '1',
   nodeSel: {},
   nodeCorners: {},
 
@@ -159,6 +164,10 @@ export const createSelectionSlice: SliceCreator<SelectionSlice> = (set, get) => 
   setTransformAllow: (patch) => set((s) => ({ transformAllow: { ...s.transformAllow, ...patch } })),
   setScaleFromCenter: (scaleFromCenter) => set({ scaleFromCenter }),
   setShapePropsOpen: (shapePropsOpen) => set({ shapePropsOpen }),
+  setPriorityBadges: (priorityBadges) => {
+    writePref('priorityBadges', priorityBadges ? '1' : '0');
+    set({ priorityBadges });
+  },
   setNodeSel: (sel) => set({ nodeSel: Object.fromEntries(Object.entries(sel).filter(([, v]) => v.length > 0)) }),
   clearNodeSel: () => set((s) => (Object.keys(s.nodeSel).length ? { nodeSel: {} } : s)),
   setNodeCorners: (id, keys) =>

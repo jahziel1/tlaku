@@ -342,7 +342,7 @@ fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<LayerPlan>, 
             .iter()
             .filter_map(|m| match m {
                 Move::Cut { power_pct, .. } => Some(*power_pct),
-                Move::Travel { .. } => None,
+                Move::Travel { .. } | Move::Dwell { .. } => None,
             })
             .collect();
         if powers.is_empty() {
@@ -379,6 +379,10 @@ fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<LayerPlan>, 
         let mut steps = Vec::new();
         let mut bbox: Option<BBox> = None;
         for m in &block.moves {
+            // El RD que generamos no tiene pausa: se omite (la cabeza ya está en ese punto).
+            if matches!(m, Move::Dwell { .. }) {
+                continue;
+            }
             let p = to_um(m.to(), opts)?;
             match &mut bbox {
                 Some(b) => b.add(p),
@@ -389,7 +393,7 @@ fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<LayerPlan>, 
             }
             last = Some(p);
             let (cut, power) = match m {
-                Move::Travel { .. } => (false, 0),
+                Move::Travel { .. } | Move::Dwell { .. } => (false, 0),
                 Move::Cut { power_pct, .. } => {
                     let raw = num::power_from_pct(*power_pct)?;
                     let laser = !variable || raw > 0 || opts.zero_power == ZeroPower::Cut;
@@ -1214,6 +1218,44 @@ mod tests {
         assert!(cmds.contains(&Command::CutRelY(1000)));
         let cmds = build_commands(&tp, &dflt()).unwrap();
         assert!(cmds.contains(&Command::CutRel { dx: 1000, dy: 0 }));
+    }
+
+    #[test]
+    fn dwells_are_skipped_because_rd_has_no_pause() {
+        let line = |dwells: bool| {
+            let mut moves = vec![Move::Travel {
+                to: Point::new(1.0, 1.0),
+            }];
+            if dwells {
+                moves.push(Move::Dwell {
+                    to: Point::new(1.0, 1.0),
+                    ms: 50.0,
+                    power_pct: 80.0,
+                });
+            }
+            moves.push(Move::Cut {
+                to: Point::new(2.0, 1.0),
+                power_pct: 10.0,
+            });
+            if dwells {
+                moves.push(Move::Dwell {
+                    to: Point::new(2.0, 1.0),
+                    ms: 50.0,
+                    power_pct: 10.0,
+                });
+            }
+            Toolpath {
+                blocks: vec![ToolpathBlock {
+                    speed_mm_min: 1200.0,
+                    moves,
+                    ..Default::default()
+                }],
+            }
+        };
+        assert_eq!(
+            build_commands(&line(true), &dflt()).unwrap(),
+            build_commands(&line(false), &dflt()).unwrap()
+        );
     }
 
     #[test]

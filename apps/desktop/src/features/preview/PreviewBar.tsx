@@ -1,6 +1,7 @@
-import { RotateCw, TriangleAlert, X } from 'lucide-react';
+import { RotateCw, Settings2, TriangleAlert, X } from 'lucide-react';
 import { useMemo } from 'react';
 import { useCommand } from '@/commands/useCommand';
+import { SelectionOptions } from '@/features/machine/SelectionOptions';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
 import { cleanErrorMessage, previewErrorHint } from './errors';
@@ -76,6 +77,7 @@ export function PreviewBar() {
   const error = useStore((s) => s.previewError);
   const hasLayers = useStore((s) => s.doc.layers.length > 0);
   const toggle = useCommand('view.preview');
+  const optimization = useCommand('preview.optimization');
 
   const model = useMemo(() => (preview ? getModel(preview) : null), [preview?.moves]); // eslint-disable-line react-hooks/exhaustive-deps
   const layerNames = useMemo(() => preview?.layers.map((l) => l.summary) ?? [], [preview?.layers]);
@@ -86,10 +88,14 @@ export function PreviewBar() {
       <div className="pv__head">
         <h2 className="pv__title">{t('preview.title')}</h2>
         {busy && <span className="hint" role="status">{preview ? t('preview.updating') : t('preview.computing')}</span>}
+        <button type="button" className="btn pv__opt" onClick={optimization.run} title={optimization.tooltip}>
+          <Settings2 size={14} aria-hidden="true" />{optimization.label}
+        </button>
         <button type="button" className="icon-btn" onClick={toggle.run} title={toggle.tooltip} aria-label={t('preview.close')}>
           <X size={15} aria-hidden="true" />
         </button>
       </div>
+      <SelectionOptions compact />
       {status === 'error' && <ErrorBlock message={error ?? ''} />}
       {preview && model && (
         <>

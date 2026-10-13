@@ -9,6 +9,7 @@ import type {
   ImportResult,
   JobArgs,
   JobPreview,
+  OverrideKind,
   RealtimeCommand,
   SimulatedFault,
 } from './types';
@@ -127,6 +128,23 @@ export interface LaserApi {
   cancelJob(): Promise<void>;
   /** Encuadre con el láser apagado; mismas comprobaciones de estado que `startJob`. */
   frameJob(args: JobArgs & { speed: number }): Promise<void>;
+  /**
+   * Encuadre de banda elástica: como `frameJob` pero siguiendo el casco convexo del trabajo en
+   * lugar del rectángulo. Láser apagado; mismas comprobaciones de estado.
+   */
+  frameHull(args: JobArgs & { speed: number }): Promise<void>;
+  /**
+   * Mueve la cabeza a (`x`, `y`) en coordenadas de TRABAJO de la máquina (las de `work_pos`, ya
+   * convertidas desde el documento con el origen del perfil), en mm y a `speed` mm/min, con el
+   * láser apagado (`$J=G90 G21 X.. Y.. F..`). Falla con un trabajo en curso o en alarma.
+   */
+  jogTo(args: { x: number; y: number; speed: number }): Promise<void>;
+  /**
+   * Lleva el override en vivo de velocidad (`feed`) o potencia (`spindle`) a `percent` por ciento
+   * (10 a 200) con los bytes en tiempo real de GRBL. Vale durante un trabajo. Falla en Marlin y
+   * Smoothieware. El valor vigente llega en `StatusReport.overrides`.
+   */
+  setOverride(args: { kind: OverrideKind; percent: number }): Promise<void>;
   /** Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión...). Falla con una máquina real. */
   simulateFault(args: { fault: SimulatedFault }): Promise<void>;
 
@@ -250,6 +268,9 @@ export const COMMAND_NAMES = {
   resumeJob: 'resume_job',
   cancelJob: 'cancel_job',
   frameJob: 'frame_job',
+  frameHull: 'frame_hull',
+  jogTo: 'jog_to',
+  setOverride: 'set_override',
   simulateFault: 'simulate_fault',
   listFonts: 'list_fonts',
   textOutline: 'text_outline',

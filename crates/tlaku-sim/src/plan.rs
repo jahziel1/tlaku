@@ -28,6 +28,9 @@ pub(crate) struct Seg {
     pub v_in: f64,
     pub v_peak: f64,
     pub v_out: f64,
+    /// Segundos de una pausa (`Move::Dwell`); 0 en un movimiento. La pausa es un segmento de
+    /// longitud cero en el que la máquina está detenida.
+    pub dwell_s: f64,
 }
 
 impl Seg {
@@ -91,7 +94,11 @@ pub(crate) fn plan(tp: &Toolpath, start: Point, profile: &MachineProfile) -> Vec
     }
 
     for (k, s) in segs.iter_mut().enumerate() {
-        profile_segment(s, v[k], v[k + 1]);
+        if s.dwell_s > 0.0 {
+            s.t_cruise = s.dwell_s;
+        } else {
+            profile_segment(s, v[k], v[k + 1]);
+        }
     }
     segs
 }
@@ -110,6 +117,31 @@ fn flatten(tp: &Toolpath, start: Point, p: &MachineProfile) -> Vec<Seg> {
         for mv in &block.moves {
             let this_mv = mv_index;
             mv_index += 1;
+            if let Move::Dwell { ms, power_pct, .. } = *mv {
+                // La pausa se queda donde está la cabeza (el `to` de la IR no mueve nada).
+                if ms.is_finite() && ms > 0.0 {
+                    segs.push(Seg {
+                        from: pos,
+                        to: pos,
+                        len: 0.0,
+                        block: bi,
+                        mv: this_mv,
+                        is_cut: false,
+                        laser_on: power_pct > 0.0,
+                        vmax: 0.0,
+                        accel: 1.0,
+                        dir: (0.0, 0.0),
+                        t_acc: 0.0,
+                        t_cruise: 0.0,
+                        t_dec: 0.0,
+                        v_in: 0.0,
+                        v_peak: 0.0,
+                        v_out: 0.0,
+                        dwell_s: ms / 1000.0,
+                    });
+                }
+                continue;
+            }
             let to = mv.to();
             let len = pos.dist(to);
             if !(len.is_finite() && len > MIN_LEN_MM) {
@@ -120,6 +152,7 @@ fn flatten(tp: &Toolpath, start: Point, p: &MachineProfile) -> Vec<Seg> {
             }
             let dir = ((to.x - pos.x) / len, (to.y - pos.y) / len);
             let (is_cut, laser_on, nominal) = match *mv {
+                Move::Dwell { .. } => continue, // ya tratada arriba
                 Move::Travel { .. } => (false, false, p.rapid_rate_mm_min / 60.0),
                 Move::Cut { power_pct, .. } => {
                     // Velocidad de bloque inválida: se recorre como rápido.
@@ -149,6 +182,7 @@ fn flatten(tp: &Toolpath, start: Point, p: &MachineProfile) -> Vec<Seg> {
                 v_in: 0.0,
                 v_peak: 0.0,
                 v_out: 0.0,
+                dwell_s: 0.0,
             });
             pos = to;
         }
@@ -158,7 +192,7 @@ fn flatten(tp: &Toolpath, start: Point, p: &MachineProfile) -> Vec<Seg> {
 
 /// Velocidad máxima para pasar de `a` a `b` sin detenerse, por desviación de unión.
 fn junction_speed(a: &Seg, b: &Seg, deviation: f64) -> f64 {
-    if a.block != b.block || a.is_cut != b.is_cut {
+    if a.block != b.block || a.is_cut != b.is_cut || a.dwell_s > 0.0 || b.dwell_s > 0.0 {
         return 0.0;
     }
     let cap = a.vmax.min(b.vmax);

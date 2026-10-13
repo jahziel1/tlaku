@@ -393,3 +393,84 @@ fn a_laser_off_cut_gap_is_not_slower_than_a_travel_gap() {
     let with_travel = estimate(&gap(travel), &profile()).total_s;
     assert!(with_cut < with_travel, "{with_cut} >= {with_travel}");
 }
+
+fn dwell(x: f64, y: f64, ms: f64) -> Move {
+    Move::Dwell {
+        to: p(x, y),
+        ms,
+        power_pct: 60.0,
+    }
+}
+
+#[test]
+fn dwell_adds_its_time_and_stops_the_machine() {
+    // Dos cortes de 10 mm a 100 mm/s seguidos; con una pausa de 250 ms en medio la máquina
+    // se detiene (la unión pasa a 0) y se suma el tiempo de la pausa.
+    let moves = |pause: bool| {
+        let mut v = vec![travel(0.0, 0.0), cut(10.0, 0.0)];
+        if pause {
+            v.push(dwell(10.0, 0.0, 250.0));
+        }
+        v.push(cut(20.0, 0.0));
+        v
+    };
+    let plain = estimate(&job(vec![block(6000.0, moves(false))]), &profile());
+    let paused = estimate(&job(vec![block(6000.0, moves(true))]), &profile());
+    // Sin pausa va seguido a 100 mm/s; con pausa frena y vuelve a arrancar (2 x v/a = 0,2 s de
+    // más como máximo) y además espera los 250 ms.
+    assert!(paused.total_s > plain.total_s + 0.25 - 1e-9);
+    assert!(
+        paused.total_s < plain.total_s + 0.25 + 0.2 + 1e-9,
+        "{}",
+        paused.total_s
+    );
+    close(paused.blocks[0].cut_mm, 20.0);
+    close(paused.blocks[0].travel_mm, 0.0);
+}
+
+#[test]
+fn a_dwell_alone_takes_exactly_its_time_and_move_times_has_one_entry_per_move() {
+    let tp = job(vec![block(
+        6000.0,
+        vec![
+            travel(5.0, 5.0),
+            dwell(5.0, 5.0, 500.0),
+            dwell(5.0, 5.0, 1500.0),
+        ],
+    )]);
+    let start = p(5.0, 5.0);
+    close(estimate_from(start, &tp, &profile()).total_s, 2.0);
+    let times = move_times(start, &tp, &profile());
+    assert_eq!(times.len(), 3);
+    close(times[0], 0.0);
+    close(times[1], 0.5);
+    close(times[2], 2.0);
+}
+
+#[test]
+fn bad_dwell_times_add_nothing() {
+    let tp = job(vec![block(
+        6000.0,
+        vec![
+            travel(0.0, 0.0),
+            dwell(0.0, 0.0, f64::NAN),
+            dwell(0.0, 0.0, -5.0),
+        ],
+    )]);
+    close(estimate(&tp, &profile()).total_s, 0.0);
+}
+
+#[test]
+fn sampler_stays_put_and_lit_during_a_dwell() {
+    let tp = job(vec![block(
+        6000.0,
+        vec![travel(0.0, 0.0), dwell(0.0, 0.0, 100.0)],
+    )]);
+    let samples: Vec<_> = sample(&tp, &profile(), 0.02).collect();
+    assert!(samples.len() >= 5);
+    assert!(
+        samples[..samples.len() - 1]
+            .iter()
+            .all(|(_, pos, on)| { pos.x == 0.0 && pos.y == 0.0 && *on })
+    );
+}

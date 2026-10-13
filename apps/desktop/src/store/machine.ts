@@ -1,13 +1,14 @@
 import { getApi } from '@/api';
-import type { ConnectionEvent, JobEvent, LogEvent, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
+import type { ConnectionEvent, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
 import { firmwareFamily, parseAlarmLine, type AlarmAction, type FirmwareFamily } from '@/features/machine/grblCodes';
-import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, JOG_STEPS, stepDelta, type JogDir } from '@/features/machine/jogMath';
+import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, stepDelta, type JogDir } from '@/features/machine/jogMath';
+import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish, writeJogSteps, type FinishPosition } from '@/features/machine/moveSettings';
 import { needsConfirmation, parseCommand, type CommandError } from '@/features/machine/commandSafety';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, portKey, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
 import { t, type I18nKey } from '@/i18n';
-import { parseGrblSettings, workToDoc, type GrblSettings } from '@/lib/device';
+import { docToWork, parseGrblSettings, workToDoc, type GrblSettings } from '@/lib/device';
 import { errorMessage } from '@/lib/errors';
-import { readPref, writePref } from '@/lib/platform';
+import { fmt, readPref, writePref } from '@/lib/platform';
 import { buildJobArgs, hasOutput, isJobBusy, selectActiveDevice } from './selectors';
 import type { AppState, SliceCreator } from './types';
 
@@ -29,7 +30,9 @@ export type MachineDialog =
   /** Confirmación de `$X` (desbloquear) o `$H` (home). */
   | { kind: 'alarm'; action: AlarmAction }
   /** Gestor de dispositivos. */
-  | { kind: 'devices' };
+  | { kind: 'devices' }
+  /** Ajustes de optimización del orden de corte (`features/preview/OptimizationDialog.tsx`). */
+  | { kind: 'optimization' };
 
 // ---------------------------------------------------------------------------
 // Reducer: función pura que aplica un evento `machine://*` a los datos de la máquina
@@ -243,6 +246,29 @@ export function jogBlockedReason(s: Pick<AppState, 'connection' | 'jobState' | '
   return null;
 }
 
+/**
+ * `null` si se puede posicionar el láser con un clic; si no, la clave del motivo. Además de poder
+ * mover el cabezal, hace falta una cama plana: con rotativo la Y es el giro de la pieza.
+ */
+export function positionLaserBlockedReason(s: Pick<AppState, 'connection' | 'jobState' | 'status' | 'devices' | 'activeDeviceId'>): I18nKey | null {
+  const jog = jogBlockedReason(s);
+  if (jog) return jog;
+  return selectActiveDevice(s).rotary.enabled ? 'machine.position.reason.rotary' : null;
+}
+
+/** ¿La controladora conectada admite overrides en tiempo real? Solo GRBL y derivados (Marlin y Smoothieware no). */
+export function overridesSupported(s: Pick<AppState, 'firmware' | 'devices' | 'activeDeviceId'>): boolean {
+  if (/marlin|smoothie/i.test(s.firmware ?? '')) return false;
+  const kind = selectActiveDevice(s).kind;
+  return kind !== 'marlin' && kind !== 'smoothie';
+}
+
+/** `null` si se pueden ajustar velocidad y potencia en vivo; si no, la clave del motivo. */
+export function overrideBlockedReason(s: Pick<AppState, 'connection' | 'firmware' | 'devices' | 'activeDeviceId'>): I18nKey | null {
+  if (!s.connection.connected) return 'reason.needMachine';
+  return overridesSupported(s) ? null : 'machine.override.reason.family';
+}
+
 /** `null` si se puede iniciar o encuadrar; si no, la clave del motivo. */
 export function sendBlockedReason(s: AppState): I18nKey | null {
   if (!s.connection.connected) return 'reason.needMachine';
@@ -269,6 +295,16 @@ export interface MachineSlice extends MachineData {
   /** Paso del jog en mm y velocidad en mm/min (se recuerdan entre sesiones). */
   jogStep: number;
   jogSpeed: number;
+  /** Pasos que ofrece la ventana Mover (configurables, se recuerdan entre sesiones). */
+  jogSteps: number[];
+  /** Qué hace el cabezal al terminar un trabajo (se recuerda entre sesiones). */
+  finish: FinishPosition;
+  /**
+   * Modo "Posicionar el láser": el siguiente clic en la cama manda allí la cabeza, con el láser
+   * apagado. Lo prende el comando `machine.positionLaser` y el lienzo, mientras esté activo, debe
+   * llamar a `positionLaserAt` en cada clic (ver el informe de integración con el lienzo).
+   */
+  positioningLaser: boolean;
   /** Hay un jog continuo en marcha (se mantiene pulsado). */
   jogging: boolean;
   dialog: MachineDialog | null;
@@ -293,6 +329,18 @@ export interface MachineSlice extends MachineData {
 
   setJogStep: (step: number) => void;
   setJogSpeed: (speed: number) => void;
+  /** Cambia los pasos de la ventana Mover; si el paso actual ya no está, pasa al más cercano. */
+  setJogSteps: (steps: number[]) => void;
+  setFinishPosition: (patch: Partial<FinishPosition>) => void;
+  /** Lleva la cabeza a la posición final elegida (la usa el fin del trabajo; también se puede pedir a mano). */
+  goToFinishPosition: () => Promise<void>;
+  /** Mueve la cabeza a una posición del documento (mm, Y arriba), con el láser apagado. */
+  goToDocPoint: (x: number, y: number) => Promise<boolean>;
+  setPositioningLaser: (on: boolean) => void;
+  /** Un clic en la cama en modo "Posicionar el láser": `x`, `y` en mm del documento (Y arriba). */
+  positionLaserAt: (x: number, y: number) => Promise<void>;
+  /** Lleva el override en vivo de velocidad o potencia a `percent` por ciento (10 a 200). */
+  setOverride: (kind: OverrideKind, percent: number) => Promise<void>;
   jog: (dx: number, dy: number, speed?: number) => Promise<void>;
   /** Un paso de jog en una dirección del plano del documento. */
   jogDir: (dir: JogDir, step?: number) => Promise<void>;
@@ -310,6 +358,8 @@ export interface MachineSlice extends MachineData {
   resumeJob: () => Promise<void>;
   cancelJob: () => Promise<void>;
   frameJob: () => Promise<void>;
+  /** Encuadre de banda elástica: sigue el casco convexo del trabajo en vez del rectángulo. */
+  frameHull: () => Promise<void>;
   dismissJobError: () => void;
   /** Descarta el aviso de posición posiblemente perdida. */
   dismissPositionLost: () => void;
@@ -370,9 +420,14 @@ function initialVirtualSpeed(): number {
   return (VIRTUAL_SPEEDS as readonly number[]).includes(n) ? n : DEFAULT_VIRTUAL_SPEED;
 }
 
-function initialJogStep(): number {
+/** El paso guardado, si sigue en la lista; si no, el más cercano al de fábrica. */
+function nearestStep(steps: readonly number[], wanted: number): number {
+  return steps.includes(wanted) ? wanted : steps.reduce((best, s) => (Math.abs(s - wanted) < Math.abs(best - wanted) ? s : best), steps[0] ?? DEFAULT_JOG_STEP);
+}
+
+function initialJogStep(steps: readonly number[]): number {
   const n = Number(readPref('jogStep'));
-  return (JOG_STEPS as readonly number[]).includes(n) ? n : DEFAULT_JOG_STEP;
+  return nearestStep(steps, Number.isFinite(n) && n > 0 ? n : DEFAULT_JOG_STEP);
 }
 
 function initialJogSpeed(): number {
@@ -381,6 +436,22 @@ function initialJogSpeed(): number {
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** Espera `ms` milisegundos. */
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Cuánto se espera a que la máquina quede en reposo para moverla a la posición final. */
+const FINISH_WAIT = { tries: 25, everyMs: 200 } as const;
+
+/** Espera a que la máquina quede en reposo (o se agote la espera) y entonces ejecuta `action`. */
+async function waitIdleThen(get: () => AppState, action: () => Promise<void>): Promise<void> {
+  for (let i = 0; i < FINISH_WAIT.tries; i++) {
+    const s = get();
+    if (!s.connection.connected || get().jobState !== 'finished') return;
+    if (!s.status || s.status.state === 'idle') return action();
+    await sleep(FINISH_WAIT.everyMs);
+  }
+}
 
 export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
   const apply = (ev: MachineEvent) => set((s) => reduceMachine(pickData(s), ev, Date.now()));
@@ -398,7 +469,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
 
   /** Mensaje del motor al rechazar un inicio o un encuadre: se muestra tal cual, también en el panel. */
   const guardJob = async (fn: () => Promise<unknown>): Promise<void> => {
-    set({ jobError: null });
+    // Salir del modo "Posicionar el láser": un clic en la cama no debe mover la cabeza durante el trabajo.
+    set({ jobError: null, positioningLaser: false });
     try {
       await fn();
     } catch (e) {
@@ -431,8 +503,13 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     selectedPort: null,
     baud: 115200,
     virtualSpeed: initialVirtualSpeed(),
-    jogStep: initialJogStep(),
+    ...(() => {
+      const jogSteps = readJogSteps();
+      return { jogSteps, jogStep: initialJogStep(jogSteps) };
+    })(),
     jogSpeed: initialJogSpeed(),
+    finish: readFinish(),
+    positioningLaser: false,
     jogging: false,
     dialog: null,
     dialogHosts: [],
@@ -534,6 +611,63 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       set({ jogSpeed });
     },
 
+    setJogSteps: (steps) => {
+      const jogSteps = sanitizeJogSteps(steps);
+      writeJogSteps(jogSteps);
+      const jogStep = nearestStep(jogSteps, get().jogStep);
+      writePref('jogStep', String(jogStep));
+      set({ jogSteps, jogStep });
+    },
+    setFinishPosition: (patch) => {
+      const finish = sanitizeFinish({ ...get().finish, ...patch });
+      writeFinish(finish);
+      set({ finish });
+    },
+    goToDocPoint: async (x, y) => {
+      const s = get();
+      const why = positionLaserBlockedReason(s);
+      if (why) {
+        s.notify('warning', t(why));
+        return false;
+      }
+      const device = selectActiveDevice(s);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > device.bed[0] || y > device.bed[1]) {
+        s.notify('warning', t('machine.position.outside', { x: fmt(x, 1), y: fmt(y, 1), w: fmt(device.bed[0], 0), h: fmt(device.bed[1], 0) }));
+        return false;
+      }
+      const [wx, wy] = docToWork(device, [x, y]);
+      return guard(() => getApi().jogTo({ x: round3(wx), y: round3(wy), speed: jogSpeedNow() }));
+    },
+    goToFinishPosition: async () => {
+      const s = get();
+      const { mode, x, y } = s.finish;
+      if (mode === 'stay') return;
+      if (mode === 'point') {
+        await s.goToDocPoint(x, y);
+        return;
+      }
+      // Volver al origen: el de usuario si lo hay; si no, el cero de trabajo de la máquina.
+      const target = s.jobOptions.user_origin ?? [0, 0];
+      const why = jogBlockedReason(s);
+      if (why) return void s.notify('warning', t(why));
+      await guard(() => getApi().jogTo({ x: target[0], y: target[1], speed: jogSpeedNow() }));
+    },
+    setPositioningLaser: (on) => {
+      if (!on) return void set({ positioningLaser: false });
+      const why = positionLaserBlockedReason(get());
+      if (why) return void get().notify('warning', t(why));
+      set({ positioningLaser: true });
+    },
+    positionLaserAt: async (x, y) => {
+      if (!get().positioningLaser) return;
+      await get().goToDocPoint(x, y);
+    },
+    setOverride: async (kind, percent) => {
+      const why = overrideBlockedReason(get());
+      if (why) return void get().notify('warning', t(why));
+      await guard(() => getApi().setOverride({ kind, percent: Math.round(percent) }));
+    },
+
     jog: async (dx, dy, speed) => {
       const why = jogBlockedReason(get());
       if (why) return void get().notify('warning', t(why));
@@ -610,6 +744,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       await guard(() => getApi().cancelJob());
     },
     frameJob: () => guardJob(() => getApi().frameJob({ ...buildJobArgs(get()), speed: jogSpeedNow() })),
+    frameHull: () => guardJob(() => getApi().frameHull({ ...buildJobArgs(get()), speed: jogSpeedNow() })),
     dismissJobError: () => set({ jobError: null }),
     dismissPositionLost: () => set({ positionLost: false, positionLostPort: null }),
     simulateFault: async (fault) => {
@@ -637,7 +772,11 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     onLog: (log) => apply({ type: 'log', log }),
     onJob: (job) => {
       apply({ type: 'job', job });
-      if (job.state === 'finished') get().notify('success', job.message);
+      if (job.state === 'finished') {
+        get().notify('success', job.message);
+        // Solo si el trabajo terminó bien: tras una cancelación o un error la cabeza no se mueve sola.
+        if (get().finish.mode !== 'stay') void waitIdleThen(get, () => get().goToFinishPosition());
+      }
       if (job.state === 'error') get().notify('error', job.message);
     },
     onConnection: (connection) => {
@@ -648,7 +787,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         get().notifyKey('warning', 'machine.positionLost.reconnect');
         apply({ type: 'log', log: { dir: 'in', text: `; ${t('machine.positionLost.reconnect')}` } });
       }
-      if (!connection.connected) set((s) => ({ jogging: false, dialog: s.dialog?.kind === 'devices' ? s.dialog : null }));
+      if (!connection.connected) set((s) => ({ jogging: false, positioningLaser: false, dialog: s.dialog?.kind === 'devices' || s.dialog?.kind === 'optimization' ? s.dialog : null }));
       if (connection.error) get().notify('error', connection.error);
     },
   };

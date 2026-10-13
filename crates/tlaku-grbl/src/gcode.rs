@@ -133,6 +133,8 @@ struct Writer<'a> {
     z_invert: bool,
     /// El último comando de potencia fue el apagado explícito (o aún no hubo ninguno).
     off: bool,
+    /// Una pausa pasó el bloque `M4` a `M3` y aún no ha vuelto (ver [`Writer::dwell`]).
+    in_m3: bool,
 }
 
 impl Writer<'_> {
@@ -274,6 +276,65 @@ impl Writer<'_> {
         self.off = false;
     }
 
+    /// Pausa de `ms` con el láser a `power_pct` (`Move::Dwell`): `G4 P<segundos>`.
+    ///
+    /// GRBL en `M4` apaga el láser cuando la cabeza está quieta, así que para disparar parado
+    /// se pasa a `M3` (potencia constante) solo durante la pausa y se vuelve a `M4`, que deja
+    /// `S0` hasta el siguiente `G1`. En `M3` (o sin `M4` en el dialecto) el láser sigue
+    /// encendido con la `S` pedida hasta el siguiente movimiento, como cualquier otro corte. Con
+    /// la potencia en línea aparte (`power_cmd`) se enciende antes de la pausa y se apaga
+    /// después. Con `power_pct` 0 la pausa va con el láser apagado, también en `M3`.
+    ///
+    /// El tiempo se escribe en segundos, como GRBL y Smoothieware (`P`); Marlin lo lee en ms.
+    fn dwell(&mut self, ms: f64, power_pct: f64, s_max: f64, mode: PowerMode, restore: bool) {
+        let Some(secs) = dwell_secs(ms) else {
+            return;
+        };
+        let s = s_value(power_pct, s_max, self.s_decimals);
+        let fire = s != "0";
+        let d = self.d;
+        let swap = fire
+            && mode == PowerMode::Dynamic
+            && d.s_inline
+            && d.dynamic_on.is_some()
+            && !d.constant_on.is_empty();
+        if fire {
+            if swap && !self.in_m3 {
+                let line = with_s(&d.constant_on, &s);
+                self.line(&line);
+                self.in_m3 = true;
+                self.s = Some(s);
+                self.off = false;
+            } else if d.s_inline {
+                if self.s.as_deref() != Some(&s) {
+                    self.line(&format!("S{s}"));
+                    self.s = Some(s);
+                }
+                self.off = false;
+            } else {
+                self.set_power(&s);
+            }
+        } else if mode == PowerMode::Constant && self.hot() {
+            // En M3 la `S` activa seguiría disparando durante la pausa.
+            if d.s_inline {
+                self.line("S0");
+                self.s = Some("0".into());
+            } else {
+                self.set_power("0");
+            }
+        }
+        self.line(&format!("G4 P{secs}"));
+        if self.in_m3 && restore {
+            if let Some(back) = &d.dynamic_on {
+                self.line(back);
+                self.s = Some("0".into());
+            }
+            self.in_m3 = false;
+        } else if fire && !d.s_inline {
+            self.set_power("0");
+        }
+    }
+
     /// Lleva el foco a `depth_mm` (profundidad respecto a la altura inicial) con un movimiento
     /// relativo. Ver el módulo.
     fn z_goto(&mut self, depth_mm: f64) {
@@ -339,6 +400,35 @@ fn mode_cmd(d: &GcodeDialect, mode: PowerMode) -> &str {
     }
 }
 
+/// Segundos de una pausa de `ms`, con el milisegundo como resolución; `None` si no dura nada.
+fn dwell_secs(ms: f64) -> Option<String> {
+    if !(ms.is_finite() && ms > 0.0) {
+        return None;
+    }
+    let secs = num(ms / 1000.0, 3);
+    (secs != "0").then_some(secs)
+}
+
+/// `cmd` con su `S0` cambiado por `S{s}` (o con `S{s}` al final si no lo trae).
+fn with_s(cmd: &str, s: &str) -> String {
+    let mut found = false;
+    let mut parts: Vec<String> = cmd
+        .split_whitespace()
+        .map(|t| {
+            if t == "S0" {
+                found = true;
+                format!("S{s}")
+            } else {
+                t.to_string()
+            }
+        })
+        .collect();
+    if !found {
+        parts.push(format!("S{s}"));
+    }
+    parts.join(" ")
+}
+
 /// Copia un script del usuario línea a línea, sin espacios de sobra ni líneas
 /// vacías al principio o al final.
 fn script(w: &mut Writer, text: &str) {
@@ -368,6 +458,7 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
         z_units: 0,
         z_invert: opts.z_invert,
         off: false,
+        in_m3: false,
     };
     let blocks: Vec<_> = toolpath
         .blocks
@@ -415,7 +506,7 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
         let mut depth = block.z_mm.filter(|z| z.is_finite());
         let feed = (block.speed_mm_min.is_finite() && block.speed_mm_min > 0.0)
             .then_some(block.speed_mm_min);
-        for mv in &block.moves {
+        for (i, mv) in block.moves.iter().enumerate() {
             match *mv {
                 Move::Travel { to } => w.travel(to),
                 Move::Cut { to, power_pct } => {
@@ -423,6 +514,22 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
                         w.z_goto(z);
                     }
                     w.cut(to, power_pct, opts.s_max, feed);
+                }
+                Move::Dwell { ms, power_pct, .. } => {
+                    // Dos pausas con láser seguidas comparten el paso a M3.
+                    let chained = matches!(
+                        block.moves.get(i + 1),
+                        Some(Move::Dwell { ms, power_pct, .. })
+                            if *power_pct > 0.0 && dwell_secs(*ms).is_some()
+                    );
+                    // Disparar parado exige el foco ya puesto; apagado no hace falta.
+                    if power_pct > 0.0
+                        && dwell_secs(ms).is_some()
+                        && let Some(z) = depth.take()
+                    {
+                        w.z_goto(z);
+                    }
+                    w.dwell(ms, power_pct, opts.s_max, block.power_mode, !chained);
                 }
             }
         }
@@ -638,6 +745,137 @@ mod tests {
         assert_eq!(l[i + 1], "M4 S0");
         // S vuelve a emitirse porque el cambio de modo lo dejó en 0.
         assert!(l[i + 2..].iter().any(|x| x.contains("S500")));
+    }
+
+    fn dwell(x: f64, ms: f64, power_pct: f64) -> Move {
+        Move::Dwell {
+            to: p(x, 0.0),
+            ms,
+            power_pct,
+        }
+    }
+
+    fn body(l: &[String], label: &str) -> Vec<String> {
+        let i = l.iter().position(|x| x == &format!("; {label}")).unwrap();
+        l[i + 1..]
+            .iter()
+            .take_while(|x| !x.starts_with("M5"))
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn dwell_in_dynamic_mode_fires_through_m3_and_returns_to_m4() {
+        let b = block(
+            "punto",
+            PowerMode::Dynamic,
+            vec![
+                Move::Travel { to: p(5.0, 0.0) },
+                dwell(5.0, 250.0, 40.0),
+                Move::Cut {
+                    to: p(6.0, 0.0),
+                    power_pct: 0.0,
+                },
+                dwell(6.0, 1.0, 40.0),
+            ],
+        );
+        let l = gen_lines(vec![b], &GcodeOptions::default());
+        assert_eq!(
+            body(&l, "punto"),
+            [
+                "G0 X5 Y0",
+                "M3 S400",
+                "G4 P0.25",
+                "M4 S0",
+                "G1 X6 F6000",
+                "M3 S400",
+                "G4 P0.001",
+                "M4 S0",
+            ]
+        );
+    }
+
+    #[test]
+    fn chained_dwells_share_the_switch_to_m3() {
+        let b = block(
+            "cadena",
+            PowerMode::Dynamic,
+            vec![
+                Move::Travel { to: p(1.0, 0.0) },
+                dwell(1.0, 30.0, 40.0),
+                dwell(1.0, 100.0, 90.0),
+                Move::Cut {
+                    to: p(5.0, 0.0),
+                    power_pct: 40.0,
+                },
+            ],
+        );
+        let l = gen_lines(vec![b], &GcodeOptions::default());
+        assert_eq!(
+            body(&l, "cadena"),
+            [
+                "G0 X1 Y0",
+                "M3 S400",
+                "G4 P0.03",
+                "S900",
+                "G4 P0.1",
+                "M4 S0",
+                "G1 X5 S400 F6000",
+            ]
+        );
+    }
+
+    #[test]
+    fn dwell_in_constant_mode_keeps_the_laser_as_is() {
+        let b = block(
+            "pausa",
+            PowerMode::Constant,
+            vec![
+                Move::Travel { to: p(0.0, 0.0) },
+                dwell(0.0, 100.0, 30.0),
+                Move::Cut {
+                    to: p(10.0, 0.0),
+                    power_pct: 30.0,
+                },
+                dwell(10.0, 20.0, 30.0),
+                // Pausa con el láser apagado aunque la S activa siga en 300.
+                dwell(10.0, 50.0, 0.0),
+            ],
+        );
+        let l = gen_lines(vec![b], &GcodeOptions::default());
+        assert_eq!(
+            body(&l, "pausa"),
+            [
+                "G0 X0 Y0",
+                "S300",
+                "G4 P0.1",
+                "G1 X10 F6000",
+                "G4 P0.02",
+                "S0",
+                "G4 P0.05",
+            ]
+        );
+    }
+
+    #[test]
+    fn dwell_lowers_z_before_firing_and_ignores_bad_times() {
+        let mut b = block(
+            "z",
+            PowerMode::Constant,
+            vec![
+                Move::Travel { to: p(0.0, 0.0) },
+                dwell(0.0, f64::NAN, 50.0),
+                dwell(0.0, -3.0, 50.0),
+                dwell(0.0, 2.0, 50.0),
+            ],
+        );
+        b.z_mm = Some(1.5);
+        let l = gen_lines(vec![b], &GcodeOptions::default());
+        let body = body(&l, "z");
+        assert_eq!(body.iter().filter(|x| x.starts_with("G4")).count(), 1);
+        let z = body.iter().position(|x| x.starts_with("G0 Z")).unwrap();
+        let g4 = body.iter().position(|x| x.starts_with("G4")).unwrap();
+        assert!(z < g4, "{body:?}");
     }
 
     #[test]

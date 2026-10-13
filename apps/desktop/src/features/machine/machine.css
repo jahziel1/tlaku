@@ -795,3 +795,111 @@ button.mc-devitem:hover {
 .mc-jobnote {
   padding: var(--s-3) var(--s-5) 0;
 }
+
+/* ---- ajustes de optimización ---------------------------------------------------------- */
+
+.mc-optgroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.mc-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-4);
+  cursor: pointer;
+}
+.mc-opt input {
+  margin-top: 3px;
+}
+.mc-opt__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mc-opt__label {
+  font-weight: 550;
+}
+.mc-opt__tol {
+  padding-left: var(--s-8, 24px);
+}
+
+/* ---- solo la selección y lista de comprobación -------------------------------------------- */
+
+.mc-selopts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.mc-selopts--compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--s-6);
+}
+.mc-check:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.mc-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.mc-checklist__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.mc-checklist__head .mc-sub {
+  margin: 0;
+}
+.mc-checklist__items,
+.mc-checklist__config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+/* ---- ajustes en vivo, mover y posición final --------------------------------------------- */
+
+.mc-ovr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.mc-ovr__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.mc-ovr__label {
+  font-weight: 550;
+}
+.mc-ovr__controls {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+}
+.mc-ovr__controls .field {
+  flex: 1;
+  min-width: 70px;
+}
+.mc-finish,
+.mc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.mc-modes--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}

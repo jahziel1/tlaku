@@ -116,6 +116,52 @@ una lista de `ToolpathBlock`. Cada bloque comparte velocidad (`speed_mm_min`), a
   de rótulos con una fuente de trazo sencillo propia), así que pasa por el mismo pipeline que
   cualquier diseño.
 
+### Orden, sub-capas y optimización (ola 2)
+
+- **Sub-capas:** cada entrada de `LayerSettings.sub_layers` es otra operación sobre **los mismos
+  objetos** de la capa, con su propio modo y ajustes, que se ejecuta después de la principal.
+  Se ignoran su `color` (usa el de la capa), `name`, `visible`, `order` y sus propias
+  `sub_layers`; su `output` sí cuenta, pero el de la capa manda sobre todas (máximo 11). Cada
+  operación es un bloque con su `LayerReport` (nombre `#rrggbb · 2/3`, la principal es `1/3`) y
+  su fila de vista previa ("sub-capa 2/3"); las pasadas con Z se dividen igual que en una capa.
+  Un objeto que el modo de la sub-capa no admite (p. ej. vector en una sub-capa image) se omite
+  con un solo aviso por sub-capa.
+- **Orden de las sub-capas:** en el orden automático **cada sub-capa se ordena por su propio rol**
+  (grabado, línea, corte), no pegada a su capa. Razón: un contorno de corte en una sub-capa
+  (relleno + corte) suelta la pieza; si siguiera a su capa, otras capas grabarían después sobre
+  una pieza ya suelta. Para no invertir lo que el usuario puso, el rol efectivo de una sub-capa es
+  el mayor entre el suyo y el de las operaciones anteriores de su capa: "capa de corte + sub-capa
+  de grabado" no adelanta el grabado. Con `layer_order = file` cada capa va seguida de sus
+  sub-capas. Una capa con `order=` arrastra a las suyas, que la siguen juntas; las posiciones
+  `order=` cuentan solo las operaciones que no son sub-capas de una capa fijada.
+- **Prioridad y grupo por objeto:** el pipeline lleva por trayectoria su objeto, grupo, prioridad
+  y `power_scale` (`PathMeta` en `place.rs`, paralelo a `LayerWork.paths`) y pasa grupo y
+  prioridad al planificador (`None` = 0). Con grupos anidados (`"g2/g1"`) cuenta el de más afuera,
+  como al seleccionar. Solo ordenan las capas line (el relleno no se reordena por objeto, salvo
+  `FillGrouping::ByGroup`, que recibe un id por grupo, o por objeto si no tiene). Con kerf, que
+  reordena y regrupa las trayectorias, cada resultado hereda los datos de la original más cercana
+  a su primer punto (aproximado si dos objetos distan menos de un kerf).
+- **`JobOptions.optimization`:** `by_group`, `by_priority`, `inner_first`, `best_start`,
+  `choose_direction` y `reduce_travel` van tal cual a `PlanOptions`. `by_layer = false` junta las
+  capas de corte **consecutivas en el orden de ejecución con exactamente los mismos ajustes** (y
+  sin `order=`) en una sola planificación y un solo bloque; capas con ajustes distintos nunca se
+  mezclan, porque un bloque lleva una sola velocidad/potencia. `remove_overlaps` corre
+  `dedupe_paths` por capa line antes del planificador, conservando el trazo de la primera
+  trayectoria en el orden del documento; no se aplica con kerf (las abiertas que deja no se
+  compensan) y se avisa. `hide_backlash` fija el sentido antihorario de todas las formas cerradas
+  (`PlanOptions.closed_winding`), deja las abiertas sin invertir (`choose_direction` se apaga) y
+  graba rellenos e imágenes en un solo sentido; avisa que es más lento. Cuando no son las de por
+  defecto, las opciones activas se explican en `order_note`.
+- **`angle_increment`:** en fill (barrido y regiones) e image, la pasada `k` usa
+  `angle + k * angle_increment`. Como la geometría cambia en cada pasada, cada una se calcula
+  aparte y se reparte como las pasadas con Z: un bloque por pasada si hay `z_step` con eje Z,
+  concatenadas en un solo bloque si no. En el relleno por contornos no aplica (aviso).
+- **Cortar la selección:** `selection` filtra los objetos en `place`; con inicio relativo el
+  origen del trabajo se ancla a la caja de **todo el diseño con salida** y la selección conserva
+  su lugar respecto a él, y con `use_selection_origin` se ancla a la caja de la selección. En modo
+  absoluto, o sin selección, esa opción se ignora con un aviso. Una selección sin nada con salida
+  da un error que lo explica.
+
 ## Convenciones
 
 - **Unidades:** milímetros; velocidades en mm/min; potencia de 0 a 100 %; ángulos en grados en

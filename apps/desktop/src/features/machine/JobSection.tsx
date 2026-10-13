@@ -1,4 +1,4 @@
-import { Crosshair, Pause, Play, Square, TriangleAlert, X } from 'lucide-react';
+import { Crosshair, Pause, Play, Settings2, Spline, Square, TriangleAlert, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
@@ -7,6 +7,7 @@ import { useStore } from '@/store';
 import { jobElapsedSeconds } from '@/store/machine';
 import { useNow } from './hooks';
 import { remainingSeconds } from './jobSummary';
+import { SelectionOptions } from './SelectionOptions';
 import { StartFromSection } from './StartFromSection';
 
 function Progress() {
@@ -52,6 +53,8 @@ function Progress() {
 /** Trabajo: de dónde sale, encuadrar, iniciar, pausar, detener y progreso. */
 export function JobSection() {
   const frame = useCommand('machine.frame');
+  const hull = useCommand('machine.frameHull');
+  const optimization = useCommand('preview.optimization');
   const start = useCommand('machine.start');
   const pause = useCommand('machine.pause');
   const stop = useCommand('machine.stop');
@@ -65,10 +68,22 @@ export function JobSection() {
       <h3 id="sec-job" className="panel-title">{t('machine.job')}</h3>
       <h4 className="mc-sub">{t('machine.startFrom')}</h4>
       <StartFromSection />
+      <h4 className="mc-sub">{t('machine.selection')}</h4>
+      <SelectionOptions />
       <div className="row">
         <button type="button" className="btn grow" disabled={!frame.enabled} title={frame.tooltip} onClick={frame.run}>
           <Crosshair size={15} aria-hidden="true" />{frame.label}
         </button>
+        <button type="button" className="btn grow" disabled={!hull.enabled} title={hull.tooltip} onClick={hull.run}>
+          <Spline size={15} aria-hidden="true" />{hull.label}
+        </button>
+      </div>
+      <div className="row">
+        <button type="button" className="btn grow" onClick={optimization.run} title={optimization.tooltip}>
+          <Settings2 size={15} aria-hidden="true" />{optimization.label}
+        </button>
+      </div>
+      <div className="row">
         <button type="button" className="btn btn--accent grow" disabled={!start.enabled} title={start.tooltip} onClick={start.run}>
           <Play size={15} aria-hidden="true" />{start.label}
         </button>

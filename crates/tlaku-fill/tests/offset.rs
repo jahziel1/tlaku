@@ -23,6 +23,7 @@ fn rings(block: &ToolpathBlock) -> Vec<Vec<Point>> {
         match *m {
             Move::Travel { to } => out.push(vec![to]),
             Move::Cut { to, .. } => out.last_mut().expect("Cut sin Travel previo").push(to),
+            Move::Dwell { .. } => {}
         }
     }
     out

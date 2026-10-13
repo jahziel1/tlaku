@@ -88,7 +88,8 @@ export function replacePaths(doc: Document, changes: ReadonlyMap<string, BezPath
       continue;
     }
     if (paths.length === 0) continue;
-    objects.push({ ...o, kind: { ...o.kind, paths } });
+    // Editar nodos deja de ser una forma paramétrica.
+    objects.push({ ...o, kind: { ...o.kind, paths }, shape: null });
   }
   return { ...doc, objects };
 }

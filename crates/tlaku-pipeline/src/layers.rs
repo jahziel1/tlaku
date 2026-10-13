@@ -1,8 +1,10 @@
 //! Ajustes de capa a ajustes del motor, clasificación y orden automático de capas.
 
 use tlaku_core::{CutSettings, Rgb};
-use tlaku_doc::{FillStyle, ImageMode, LayerMode, LayerOrder, LayerSettings, Overscan};
-use tlaku_fill::{FillPattern, FillSettings};
+use tlaku_doc::{
+    FillGrouping, FillStyle, ImageMode, LayerMode, LayerOrder, LayerSettings, Overscan,
+};
+use tlaku_fill::{FillPattern, FillSettings, Grouping};
 use tlaku_raster::{BayerSize, ImageAdjust, RasterMode, RasterSettings};
 
 /// Tope de pasadas: protege contra errores de dedo que generarían G-code gigantesco.
@@ -95,8 +97,14 @@ pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
                 pattern: match l.fill_style {
                     FillStyle::Scan => FillPattern::Scan,
                     FillStyle::Offset => FillPattern::Offset,
-                    // TODO(ola2): relleno por regiones.
-                    FillStyle::Flood => FillPattern::Scan,
+                    FillStyle::Flood => FillPattern::Flood,
+                },
+                grouping: match l.fill_grouping {
+                    FillGrouping::All => Grouping::All,
+                    FillGrouping::ByShape => Grouping::PerShape,
+                    // Sin ids de grupo por trayectoria el motor lo trata como `ByShape`
+                    // (ver `tlaku_fill::fill_with_groups`).
+                    FillGrouping::ByGroup => Grouping::ByGroup,
                 },
                 ..FillSettings::default()
             };
@@ -112,6 +120,11 @@ pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
 }
 
 fn raster_mode(l: &LayerSettings) -> RasterMode {
+    // Pass-through: el gris de cada píxel es directamente la potencia (negro = máxima), sin
+    // tramado; la imagen se remuestrea al intervalo como siempre.
+    if l.image.pass_through {
+        return RasterMode::Grayscale;
+    }
     match l.image.mode {
         ImageMode::Threshold => RasterMode::Threshold(l.image.threshold as f32),
         ImageMode::Floyd => RasterMode::FloydSteinberg,
@@ -135,15 +148,29 @@ fn raster_mode(l: &LayerSettings) -> RasterMode {
 /// Convierte y valida una capa de imagen. Los errores salen con el prefijo `imagen:`.
 pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
     let img = &l.image;
+    if !(img.denoise.is_finite() && img.denoise >= 0.0) {
+        return Err(format!("imagen: quitar motas inválido: {}", img.denoise));
+    }
     let adjust = ImageAdjust {
         brightness: img.brightness as f32,
         contrast: img.contrast as f32,
         gamma: img.gamma as f32,
         invert: img.invert,
-        ..ImageAdjust::default()
+        enhance_radius_px: img.enhance_radius as f32,
+        enhance_amount: img.enhance_amount as f32,
+        denoise_px: img.denoise.round().min(f64::from(u32::MAX)) as u32,
     };
     adjust.validate().map_err(|e| format!("imagen: {e}"))?;
-    if img.mode == ImageMode::Threshold && !(0.0..=1.0).contains(&img.threshold) {
+    // Pass-through no aplica ningún ajuste: se envía la imagen tal cual.
+    let adjust = if img.pass_through {
+        ImageAdjust::default()
+    } else {
+        adjust
+    };
+    if !img.pass_through
+        && img.mode == ImageMode::Threshold
+        && !(0.0..=1.0).contains(&img.threshold)
+    {
         return Err(format!("imagen: umbral fuera de 0-1: {}", img.threshold));
     }
     let raster = RasterSettings {
@@ -221,6 +248,108 @@ pub fn layer_sequence(
     seq
 }
 
+/// Una operación del trabajo para ordenar: una capa del documento o una de sus sub-capas.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SeqUnit {
+    /// Capa del documento de la que sale.
+    pub parent: usize,
+    /// Es una sub-capa (no la principal).
+    pub sub: bool,
+    pub role: LayerRole,
+    /// Posición forzada (`order=`, desde 1); solo la tienen las capas principales.
+    pub forced: Option<usize>,
+}
+
+/// Rol efectivo de cada operación: el mayor entre el suyo y el de las anteriores de su capa si
+/// es una sub-capa (ver [`unit_sequence`]).
+pub(crate) fn effective_roles(units: &[SeqUnit]) -> Vec<LayerRole> {
+    let mut effective: Vec<LayerRole> = Vec::with_capacity(units.len());
+    for (i, u) in units.iter().enumerate() {
+        let prev = (i > 0 && u.sub && units[i - 1].parent == u.parent).then(|| effective[i - 1]);
+        effective.push(prev.map_or(u.role, |p| p.max(u.role)));
+    }
+    effective
+}
+
+/// Orden de ejecución de las operaciones del trabajo (capas principales y sub-capas, dadas en el
+/// orden del documento: cada capa seguida de sus sub-capas). Devuelve los índices en el orden de
+/// ejecución y cuáles se ordenaron libremente (`movable`; las demás son las sub-capas de una capa
+/// con posición forzada).
+///
+/// Reglas (ver "Decisiones del taller" en `docs/arquitectura.md`):
+/// - Una sub-capa **se ordena por su propio rol**, como cualquier otra capa, y no pegada a su
+///   capa: así un contorno de corte en una sub-capa va al final con los demás cortes y no suelta
+///   la pieza antes de que otras capas graben. Nunca va antes que la operación anterior de su
+///   capa: su rol efectivo es el mayor entre el suyo y el de las anteriores, de modo que "capa de
+///   corte + sub-capa de grabado" conserva el orden que puso el usuario.
+/// - Una capa con posición forzada arrastra a sus sub-capas, que la siguen juntas. Las posiciones
+///   cuentan solo las operaciones de `movable`.
+/// - En el orden del archivo (`LayerOrder::File`) cada capa va seguida de sus sub-capas.
+pub(crate) fn unit_sequence(units: &[SeqUnit], mode: LayerOrder) -> (Vec<usize>, Vec<usize>) {
+    let pinned = |parent: usize| {
+        units
+            .iter()
+            .any(|u| u.parent == parent && !u.sub && u.forced.is_some())
+    };
+    let effective = effective_roles(units);
+    let movable: Vec<usize> = (0..units.len())
+        .filter(|&i| !(units[i].sub && pinned(units[i].parent)))
+        .collect();
+    let roles: Vec<LayerRole> = movable.iter().map(|&i| effective[i]).collect();
+    let forced: Vec<Option<usize>> = movable.iter().map(|&i| units[i].forced).collect();
+    let mut seq = Vec::with_capacity(units.len());
+    for j in layer_sequence(&roles, &forced, mode) {
+        let i = movable[j];
+        seq.push(i);
+        if units[i].forced.is_some() {
+            seq.extend(
+                (i + 1..units.len())
+                    .take_while(|&k| units[k].sub && units[k].parent == units[i].parent),
+            );
+        }
+    }
+    (seq, movable)
+}
+
+/// Dos operaciones hacen lo mismo si solo difieren en lo que no afecta a la salida (color,
+/// nombre, visibilidad, posición y sub-capas).
+pub(crate) fn same_operation(a: &LayerSettings, b: &LayerSettings) -> bool {
+    let mut x = a.clone();
+    x.color = b.color;
+    x.name.clone_from(&b.name);
+    x.visible = b.visible;
+    x.order = b.order;
+    x.sub_layers.clone_from(&b.sub_layers);
+    x == *b
+}
+
+/// Agrupa operaciones de corte consecutivas (en el orden de ejecución) que hacen exactamente lo
+/// mismo y no tienen posición forzada, para planificarlas juntas (`by_layer = false`). Cada
+/// grupo es una lista de índices en `work`; el resto va solo.
+pub(crate) fn merge_steps(
+    order: &[usize],
+    work: &[&LayerSettings],
+    forced: &[Option<usize>],
+) -> Vec<Vec<usize>> {
+    let mut steps: Vec<Vec<usize>> = Vec::new();
+    for &i in order {
+        let can_join = steps.last().is_some_and(|last| {
+            let j = last[0];
+            work[i].mode == LayerMode::Line
+                && work[j].mode == LayerMode::Line
+                && forced[i].is_none()
+                && forced[j].is_none()
+                && same_operation(work[j], work[i])
+        });
+        if can_join {
+            steps.last_mut().unwrap().push(i);
+        } else {
+            steps.push(vec![i]);
+        }
+    }
+    steps
+}
+
 /// Frase que explica el orden elegido, para mostrarla en pantalla. `roles` y `cuts` son solo
 /// de las capas sin posición explícita (`forced` lista las que sí la tienen).
 pub(crate) fn order_note(
@@ -286,4 +415,99 @@ pub(crate) fn order_note(
         note.push_str(&format!("{sep}{}", list.join(", ")));
     }
     note
+}
+
+#[cfg(test)]
+mod mapping_tests {
+    use super::*;
+    use tlaku_doc::{ImageSettings, LayerSettings};
+
+    fn fill_layer() -> LayerSettings {
+        LayerSettings {
+            mode: LayerMode::Fill,
+            ..LayerSettings::default()
+        }
+    }
+
+    fn fill_settings(l: &LayerSettings) -> FillSettings {
+        match resolve_layer(l).unwrap() {
+            ResolvedLayer::Fill { settings, .. } => settings,
+            _ => panic!("debía ser fill"),
+        }
+    }
+
+    #[test]
+    fn fill_style_and_grouping_reach_the_engine() {
+        for (style, pattern) in [
+            (FillStyle::Scan, FillPattern::Scan),
+            (FillStyle::Offset, FillPattern::Offset),
+            (FillStyle::Flood, FillPattern::Flood),
+        ] {
+            let l = LayerSettings {
+                fill_style: style,
+                ..fill_layer()
+            };
+            assert_eq!(fill_settings(&l).pattern, pattern);
+        }
+        for (grouping, want) in [
+            (FillGrouping::All, Grouping::All),
+            (FillGrouping::ByShape, Grouping::PerShape),
+            (FillGrouping::ByGroup, Grouping::ByGroup),
+        ] {
+            let l = LayerSettings {
+                fill_grouping: grouping,
+                ..fill_layer()
+            };
+            assert_eq!(fill_settings(&l).grouping, want);
+        }
+    }
+
+    fn image_layer(f: impl FnOnce(&mut ImageSettings)) -> LayerSettings {
+        let mut l = LayerSettings::for_images();
+        f(&mut l.image);
+        l
+    }
+
+    #[test]
+    fn enhance_and_denoise_reach_the_adjust() {
+        let r = resolve_image(&image_layer(|i| {
+            i.enhance_radius = 1.5;
+            i.enhance_amount = 0.8;
+            i.denoise = 2.0;
+            i.brightness = 0.1;
+        }))
+        .unwrap();
+        assert_eq!(r.adjust.enhance_radius_px, 1.5);
+        assert_eq!(r.adjust.enhance_amount, 0.8);
+        assert_eq!(r.adjust.denoise_px, 2);
+        assert_eq!(r.adjust.brightness, 0.1f32);
+    }
+
+    #[test]
+    fn pass_through_sends_gray_as_power_without_adjusts_or_dither() {
+        let r = resolve_image(&image_layer(|i| {
+            i.pass_through = true;
+            i.mode = ImageMode::Floyd;
+            i.brightness = 0.3;
+            i.invert = true;
+            i.enhance_radius = 1.0;
+            i.enhance_amount = 1.0;
+            i.denoise = 3.0;
+        }))
+        .unwrap();
+        assert_eq!(r.mode, RasterMode::Grayscale);
+        assert_eq!(r.adjust, ImageAdjust::default());
+        // Se remuestrea al intervalo de la capa, no se conserva el tamaño del archivo.
+        assert_eq!(r.interval_mm, 0.1);
+    }
+
+    #[test]
+    fn bad_enhance_and_denoise_values_are_rejected() {
+        let bad =
+            |f: &dyn Fn(&mut ImageSettings)| resolve_image(&image_layer(|i| f(i))).unwrap_err();
+        assert!(bad(&|i| i.enhance_radius = -1.0).contains("enfoque"));
+        assert!(bad(&|i| i.enhance_amount = f64::NAN).contains("enfoque"));
+        assert!(bad(&|i| i.denoise = -2.0).contains("motas"));
+        assert!(bad(&|i| i.denoise = 99.0).contains("motas"));
+    }
 }

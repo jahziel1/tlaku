@@ -1,7 +1,7 @@
 //! Pruebas de comportamiento del planificador sobre la API pública.
 
 use tlaku_core::{Point, Polyline};
-use tlaku_plan::{Blocked, Level, Plan, PlanItem, PlanOptions, Reason, Warning, plan};
+use tlaku_plan::{Blocked, Level, Plan, PlanItem, PlanOptions, Reason, Warning, Winding, plan};
 
 struct Lcg(u64);
 
@@ -1369,6 +1369,7 @@ fn travel_never_exceeds_baseline_random() {
             choose_start_point: r.below(3) != 0,
             choose_direction: r.below(3) != 0,
             improve_passes: r.below(4),
+            closed_winding: [None, Some(Winding::Ccw), Some(Winding::Cw)][r.below(3)],
             start: pt(r.next() * 100.0, r.next() * 100.0),
         };
         let p = plan(&items, &o);
@@ -1668,4 +1669,49 @@ fn first_step_of_a_layer_names_the_overlapped_figure_it_skipped() {
             .to_string()
             .contains("casi toda cae dentro")
     );
+}
+
+// ---- sentido de giro único (hide backlash) ----
+
+fn signed_area2(p: &Polyline) -> f64 {
+    let n = p.points.len();
+    (0..n)
+        .map(|i| {
+            let (a, b) = (p.points[i], p.points[(i + 1) % n]);
+            a.x * b.y - b.x * a.y
+        })
+        .sum()
+}
+
+#[test]
+fn closed_winding_makes_every_closed_shape_turn_the_same_way() {
+    let mut cw = square(20.0, 0.0, 5.0);
+    cw.points.reverse();
+    let items = vec![
+        item(square(0.0, 0.0, 5.0)),
+        item(cw),
+        item(circle(40.0, 0.0, 3.0, 12)),
+        item(line((60.0, 0.0), (70.0, 0.0))),
+    ];
+    for (w, sign) in [(Winding::Ccw, 1.0), (Winding::Cw, -1.0)] {
+        let o = PlanOptions {
+            closed_winding: Some(w),
+            choose_direction: false,
+            ..opts()
+        };
+        let p = plan(&items, &o);
+        assert_eq!(p.steps.len(), 4);
+        for s in &p.steps {
+            if s.path.closed {
+                assert!(signed_area2(&s.path) * sign > 0.0, "{:?}", s.path);
+            } else {
+                // La abierta conserva su sentido (choose_direction apagado).
+                assert_eq!(s.path, items[s.item].path);
+            }
+        }
+    }
+    // Sin la opción, cada una conserva el sentido con que llegó.
+    let p = plan(&items, &opts());
+    let kept = p.steps.iter().find(|s| s.item == 1).unwrap();
+    assert!(signed_area2(&kept.path) < 0.0);
 }

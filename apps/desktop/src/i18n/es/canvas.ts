@@ -5,6 +5,9 @@ export const canvas = {
   'canvas.cmd.snap': 'Ajuste magnético',
   'canvas.cmd.snapGrid': 'Ajustar a la cuadrícula',
   'canvas.cmd.snapObjects': 'Ajustar a objetos y cama',
+  'canvas.cmd.priorityBadges': 'Mostrar prioridad de corte',
+  'canvas.cmd.priorityEarlier': 'Cortar antes (prioridad -1)',
+  'canvas.cmd.priorityLater': 'Cortar después (prioridad +1)',
   'canvas.reason.noPolyline': 'No hay una polilínea en curso. Dibújala con la herramienta de línea.',
   'canvas.reason.snapOff': 'El ajuste magnético está apagado.',
 
@@ -130,13 +133,15 @@ export const canvas = {
   // ---- portapapeles entre aplicaciones ------------------------------------------------------------
   'canvas.history.pasteSvg': 'Pegar SVG',
   'canvas.history.shapeProps': 'Editar propiedades de forma',
+  'canvas.history.priority': 'Cambiar prioridad de corte',
+  'canvas.history.powerScale': 'Cambiar escala de potencia',
   'canvas.clip.copied': 'Copiado como SVG al portapapeles del sistema.',
   'canvas.clip.copyFailed': 'El sistema no dejó escribir en el portapapeles. La selección quedó copiada solo dentro de Tlaku.',
   'canvas.clip.skipped': 'Se pegó el SVG; se omitieron {n} elementos que no son formas (texto, imágenes, referencias).',
 
   // ---- propiedades de forma -------------------------------------------------------------------------------
   'canvas.shape.title': 'Propiedades de forma',
-  'canvas.shape.close': 'Cerrar propiedades de forma',
+  'canvas.shape.close': 'Cerrar propiedades',
   'canvas.shape.rect': 'Rectángulo',
   'canvas.shape.ellipse': 'Elipse',
   'canvas.shape.polygon': 'Polígono',
@@ -147,7 +152,19 @@ export const canvas = {
   'canvas.shape.radiusPolyHint': 'Radio de la circunferencia que pasa por los vértices, en mm.',
   'canvas.shape.locked': 'Bloquear',
   'canvas.shape.mixed': 'Algunos objetos seleccionados no son formas editables y no cambian.',
-  'canvas.shape.note': 'Editar nodos, unir o recortar convierte la forma en trayecto. Los parámetros no se guardan en el archivo.',
+  'canvas.shape.note': 'Los parámetros se guardan en el archivo. Editar nodos, unir o recortar convierte la forma en trayecto, y escalar sin mantener la proporción también si la figura deja de ser regular (polígonos, estrellas y rectángulos redondeados).',
+
+  // ---- propiedades de corte del objeto ------------------------------------------------
+  'canvas.obj.title': 'Propiedades del objeto',
+  'canvas.obj.cut': 'Corte',
+  'canvas.obj.priority': 'Prioridad de corte',
+  'canvas.obj.powerScale': 'Escala de potencia',
+  'canvas.obj.auto': 'Automática',
+  'canvas.obj.mixed': 'Varios',
+  'canvas.obj.priorityHint': 'Entero; menor = se corta antes. Vacío = automática.',
+  'canvas.obj.powerScaleHint': 'Porcentaje de la potencia de la capa para este objeto (0 a 100). Vacío = 100 %.',
+  'canvas.obj.help': 'La prioridad solo ordena dentro de la capa y solo cuenta si la optimización la respeta (Ajustes de optimización). Acepta +1 y -1.',
+  'canvas.obj.badge': 'Prioridad de corte {n}',
 
   // ---- herramienta de texto ----------------------------------------------------
   'canvas.text.default': 'Texto',

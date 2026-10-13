@@ -358,3 +358,6 @@ button.pv__chip[aria-pressed='false'] .pv__swatch {
   flex-direction: column;
   gap: var(--s-2);
 }
+.pv__opt {
+  white-space: nowrap;
+}

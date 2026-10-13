@@ -74,7 +74,12 @@ impl Iterator for Sampler {
             self.idx += 1;
         }
         let s = &self.segs[self.idx];
-        let f = Self::distance_at(s, t - self.starts[self.idx]) / s.len;
+        // Una pausa no recorre nada: la cabeza se queda donde está.
+        let f = if s.len > 0.0 {
+            Self::distance_at(s, t - self.starts[self.idx]) / s.len
+        } else {
+            0.0
+        };
         let p = Point::new(
             s.from.x + (s.to.x - s.from.x) * f,
             s.from.y + (s.to.y - s.from.y) * f,

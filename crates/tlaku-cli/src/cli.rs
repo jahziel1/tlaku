@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tlaku_core::Rgb;
 use tlaku_grbl::serial::{self, Grbl};
-use tlaku_pipeline::doc::{DeviceProfile, PowerMode};
+use tlaku_pipeline::doc::{DeviceProfile, Optimization, PowerMode};
 use tlaku_sim::MachineProfile;
 
 /// Búfer de recepción de GRBL en bytes.
@@ -146,6 +146,30 @@ pub struct DesignArgs {
     /// (kerf, o potencia >= 80 % con varias pasadas) al final; file = el del archivo
     #[arg(long, value_enum, default_value_t = LayerOrder::Auto)]
     layer_order: LayerOrder,
+    /// Optimización: no cortar primero lo que está dentro de otra figura
+    #[arg(long)]
+    no_inner_first: bool,
+    /// Optimización: conservar el orden del archivo en vez de acortar recorridos en vacío
+    #[arg(long)]
+    no_reduce_travel: bool,
+    /// Optimización: las figuras cerradas empiezan en su primer vértice
+    #[arg(long)]
+    no_best_start: bool,
+    /// Optimización: las figuras abiertas no se recorren al revés
+    #[arg(long)]
+    no_choose_direction: bool,
+    /// Optimización: mezclar las capas de corte consecutivas con exactamente los mismos ajustes
+    /// para acortar recorridos (las de ajustes distintos nunca se mezclan)
+    #[arg(long)]
+    mix_layers: bool,
+    /// Optimización: quitar los tramos que se cortarían dos veces dentro de cada capa line;
+    /// tolerancia en mm (0.01 si se omite). No se aplica con kerf
+    #[arg(long, value_name = "MM", num_args = 0..=1, default_missing_value = "0.01", value_parser = parse_f64)]
+    remove_overlaps: Option<f64>,
+    /// Optimización: cerradas siempre en el mismo sentido y rellenos en un solo sentido, para
+    /// esconder el juego mecánico (más lento)
+    #[arg(long)]
+    hide_backlash: bool,
     /// Separación entre líneas de relleno e imagen, en mm
     #[arg(long, value_parser = parse_positive)]
     interval: Option<f64>,
@@ -255,6 +279,17 @@ impl DesignArgs {
             profile,
             bed: self.bed,
             layer_order: self.layer_order,
+            optimization: Optimization {
+                inner_first: !self.no_inner_first,
+                reduce_travel: !self.no_reduce_travel,
+                best_start: !self.no_best_start,
+                choose_direction: !self.no_choose_direction,
+                by_layer: !self.mix_layers,
+                remove_overlaps: self.remove_overlaps.is_some(),
+                overlap_tolerance: self.remove_overlaps.unwrap_or(0.01),
+                hide_backlash: self.hide_backlash,
+                ..Optimization::default()
+            },
         })
     }
 }

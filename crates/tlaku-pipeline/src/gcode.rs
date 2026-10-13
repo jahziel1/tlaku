@@ -29,7 +29,7 @@ fn to_machine(tp: &mut Toolpath, bed: [f64; 2], origin: Origin) {
     let map = |p: Point| point_to_machine(p, bed, origin);
     for mv in tp.blocks.iter_mut().flat_map(|b| &mut b.moves) {
         match mv {
-            Move::Travel { to } | Move::Cut { to, .. } => *to = map(*to),
+            Move::Travel { to } | Move::Cut { to, .. } | Move::Dwell { to, .. } => *to = map(*to),
         }
     }
 }
@@ -57,7 +57,9 @@ fn mirror_y(tp: &mut Toolpath) {
     let sum = lo + hi;
     for mv in tp.blocks.iter_mut().flat_map(|b| &mut b.moves) {
         match mv {
-            Move::Travel { to } | Move::Cut { to, .. } => to.y = sum - to.y,
+            Move::Travel { to } | Move::Cut { to, .. } | Move::Dwell { to, .. } => {
+                to.y = sum - to.y
+            }
         }
     }
 }

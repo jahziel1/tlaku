@@ -1,12 +1,15 @@
 import { Clock, Layers, TriangleAlert, Zap } from 'lucide-react';
+import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { t } from '@/i18n';
 import { fmt, fmtClock } from '@/lib/platform';
-import { selectActiveDevice, useStore } from '@/store';
+import { selectActiveDevice, usePref, useStore } from '@/store';
+import { CHECKLIST_ALL, checklistPending, checklistSatisfied, visibleChecklist, withChecklistItem, CHECKLIST_ITEMS, type ChecklistItem } from './checklist';
 import { summarizeJob } from './jobSummary';
 import { useJobPlacement } from './hooks';
 import { Modal } from './Modal';
 import { OriginIllustration } from './OriginIllustration';
+import { SelectionOptions } from './SelectionOptions';
 import { placementSummary } from './StartFromSection';
 
 /**
@@ -28,7 +31,23 @@ export function StartJobDialog() {
   const ready = previewStatus === 'ready' && preview !== null;
   const summary = ready ? summarizeJob(doc, preview) : null;
   const where = placementSummary(placement, options.start_from, options.job_origin);
-  const canStart = ready && placement.status === 'ok' && placement.fits;
+  // La lista de comprobación: qué casillas se muestran y si hay que marcarlas todas antes de enviar.
+  const mask = usePref('jobChecklistItems');
+  const required = usePref('jobChecklistRequired');
+  const setPref = useStore((s) => s.setPref);
+  const [ticked, setTicked] = useState<ReadonlySet<ChecklistItem['id']>>(new Set());
+  const [configuring, setConfiguring] = useState(false);
+  const toggle = (id: ChecklistItem['id'], on: boolean) =>
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const checklistOk = checklistSatisfied(mask, required, ticked);
+  const pending = checklistPending(mask, ticked);
+  const canStart = ready && placement.status === 'ok' && placement.fits && checklistOk;
+  const blockedWhy = !ready || placement.status !== 'ok' || !placement.fits ? t('machine.start.blocked') : t('machine.checklist.blocked', { n: pending.length });
 
   return (
     <Modal
@@ -40,17 +59,62 @@ export function StartJobDialog() {
       footer={
         <>
           <button type="button" className="btn" data-autofocus onClick={close}>{t('machine.dlg.cancel')}</button>
-          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : t('machine.start.blocked')} onClick={() => void confirm()}>
+          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void confirm()}>
             {t('machine.start.confirm')}
           </button>
         </>
       }
     >
       <ul className="mc-list mc-list--check">
-        {(['machine.start.check1', 'machine.start.check2', 'machine.start.check3', 'machine.start.check4'] as const).map((k) => (
+        {(['machine.start.check2', 'machine.start.check3', 'machine.start.check4'] as const).map((k) => (
           <li key={k}>{t(k)}</li>
         ))}
       </ul>
+
+      <section className="mc-checklist" aria-labelledby="start-checklist">
+        <div className="mc-checklist__head">
+          <h3 id="start-checklist" className="mc-sub">{t('machine.checklist.title')}</h3>
+          <button type="button" className="btn" aria-expanded={configuring} onClick={() => setConfiguring((v) => !v)}>
+            {t(configuring ? 'machine.checklist.done' : 'machine.checklist.configure')}
+          </button>
+        </div>
+        {configuring ? (
+          <div className="mc-checklist__config">
+            {CHECKLIST_ITEMS.map((i) => (
+              <label key={i.id} className="mc-check">
+                <input type="checkbox" checked={(mask & i.bit) !== 0} onChange={(e) => setPref('jobChecklistItems', withChecklistItem(mask, i.bit, e.target.checked))} />
+                {t(i.label)}
+              </label>
+            ))}
+            <label className="mc-check">
+              <input type="checkbox" checked={required} onChange={(e) => setPref('jobChecklistRequired', e.target.checked)} />
+              {t('machine.checklist.required')}
+            </label>
+            <div className="row">
+              <button type="button" className="btn" disabled={mask === CHECKLIST_ALL} onClick={() => setPref('jobChecklistItems', CHECKLIST_ALL)}>{t('machine.checklist.all')}</button>
+            </div>
+            <p className="hint">{t('machine.checklist.config.help')}</p>
+          </div>
+        ) : visibleChecklist(mask).length === 0 ? (
+          <p className="hint">{t('machine.checklist.empty')}</p>
+        ) : (
+          <>
+            <div className="mc-checklist__items">
+              {visibleChecklist(mask).map((i) => (
+                <label key={i.id} className="mc-check">
+                  <input type="checkbox" checked={ticked.has(i.id)} onChange={(e) => toggle(i.id, e.target.checked)} />
+                  {t(i.label)}
+                </label>
+              ))}
+            </div>
+            <p className={required && !checklistOk ? 'hint hint--danger' : 'hint'} role="status">
+              {required ? (checklistOk ? t('machine.checklist.ready') : t('machine.checklist.blocked', { n: pending.length })) : t('machine.checklist.optional')}
+            </p>
+          </>
+        )}
+      </section>
+
+      <SelectionOptions compact />
 
       {previewStatus === 'computing' && <p className="hint" role="status">{t('machine.start.computing')}</p>}
       {previewStatus === 'error' && (

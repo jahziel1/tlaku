@@ -24,6 +24,7 @@ mod place;
 mod preview;
 mod rotary;
 mod scan_offset;
+mod stroke;
 mod tabs;
 mod zaxis;
 

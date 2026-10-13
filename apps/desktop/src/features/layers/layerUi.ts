@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { LayerTemplate } from '@/lib/layers';
 import { readPref, writePref } from '@/lib/platform';
 
 /**
@@ -12,21 +13,26 @@ interface LayerUiState {
   renaming: string | null;
   /** Mostrar la ayuda breve bajo cada parámetro. */
   showHelp: boolean;
+  /** Ajustes copiados de una capa (C06), listos para pegar en otra, y el nombre de la capa de origen. */
+  copied: { template: LayerTemplate; from: string } | null;
   openEditor: (color: string) => void;
   closeEditor: () => void;
   startRename: (color: string) => void;
   stopRename: () => void;
   setShowHelp: (v: boolean) => void;
+  setCopied: (template: LayerTemplate, from: string) => void;
 }
 
 export const useLayerUi = create<LayerUiState>()((set) => ({
   editing: null,
   renaming: null,
   showHelp: readPref('layers.help') !== 'off',
+  copied: null,
   openEditor: (editing) => set({ editing, renaming: null }),
   closeEditor: () => set({ editing: null }),
   startRename: (renaming) => set({ renaming }),
   stopRename: () => set({ renaming: null }),
+  setCopied: (template, from) => set({ copied: { template, from } }),
   setShowHelp: (showHelp) => {
     writePref('layers.help', showHelp ? 'on' : 'off');
     set({ showHelp });

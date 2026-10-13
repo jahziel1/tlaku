@@ -55,6 +55,7 @@ fn dump_block(block: &ToolpathBlock) -> String {
             Move::Cut { to, power_pct } => {
                 writeln!(s, "C {:.3} {:.3} S{:.1}", to.x, to.y, power_pct)
             }
+            Move::Dwell { ms, power_pct, .. } => writeln!(s, "D {ms} S{power_pct:.1}"),
         }
         .unwrap();
     }

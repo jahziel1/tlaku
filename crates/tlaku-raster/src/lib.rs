@@ -175,6 +175,84 @@ mod tests {
     }
 
     #[test]
+    fn process_with_enhance_and_denoise_on_a_million_points_is_fast() {
+        // 100 x 100 mm a 0,1 mm con una fuente de 1000 x 1000 px: realce y quitar motas
+        // activos: en debug el camino sin tramado baja de 1 s.
+        let img = GrayF32::from_fn(1000, 1000, |x, y| {
+            (((x / 7 + y / 5) % 9) as f32 / 8.0 + ((x * 31 + y * 17) % 13) as f32 / 400.0).min(1.0)
+        });
+        for mode in [RasterMode::Grayscale, RasterMode::Stucki] {
+            let opts = ProcessOptions {
+                adjust: ImageAdjust {
+                    enhance_radius_px: 1.5,
+                    enhance_amount: 1.0,
+                    denoise_px: 2,
+                    ..Default::default()
+                },
+                sampling: Sampling::Interval(0.1),
+                mode,
+                ..Default::default()
+            };
+            let t = std::time::Instant::now();
+            let b = process(&img, 100.0, 100.0, &opts).unwrap();
+            let elapsed = t.elapsed();
+            assert_eq!(b.width * b.height, 1_000_000);
+            eprintln!("{mode:?} con realce y quitar motas: {elapsed:?}");
+            // Grayscale es el camino de pass-through; la difusión de error suma su propio coste.
+            let limit = if mode == RasterMode::Grayscale {
+                1.0
+            } else {
+                2.0
+            };
+            assert!(elapsed.as_secs_f64() < limit, "{mode:?} tardó {elapsed:?}");
+        }
+    }
+
+    #[test]
+    fn pass_through_is_grayscale_resampled_to_the_interval() {
+        // Sin ajustes ni tramado: la potencia es 1 - gris, remuestreado a la rejilla.
+        let img = GrayF32::from_fn(40, 40, |x, _| x as f32 / 39.0);
+        let opts = ProcessOptions {
+            sampling: Sampling::Interval(0.5),
+            mode: RasterMode::Grayscale,
+            ..Default::default()
+        };
+        let b = process(&img, 10.0, 10.0, &opts).unwrap();
+        assert_eq!((b.width, b.height), (20, 20));
+        let want = resample::resample(&img, 20, 20);
+        for y in 0..20 {
+            for x in 0..20 {
+                assert!((b.get(x, y) - (1.0 - want.get(x, y))).abs() < 1e-6);
+            }
+        }
+        // Valores intermedios: no se binariza.
+        assert!(b.data.iter().any(|&v| v > 0.1 && v < 0.9));
+    }
+
+    #[test]
+    fn denoise_drops_specks_before_dithering() {
+        let mut img = GrayF32::from_fn(40, 40, |_, _| 1.0);
+        img.data[20 * 40 + 20] = 0.0;
+        let base = ProcessOptions {
+            sampling: Sampling::PassThrough,
+            mode: RasterMode::Threshold(0.5),
+            ..Default::default()
+        };
+        assert_eq!(
+            process(&img, 4.0, 4.0, &base).unwrap().lit_fraction(),
+            1.0 / 1600.0
+        );
+        let clean = ProcessOptions {
+            adjust: ImageAdjust {
+                denoise_px: 1,
+                ..Default::default()
+            },
+            ..base
+        };
+        assert_eq!(process(&img, 4.0, 4.0, &clean).unwrap().lit_fraction(), 0.0);
+    }
+
+    #[test]
     fn process_rejects_bad_options() {
         let img = GrayF32::from_fn(4, 4, |_, _| 0.5);
         let bad_thr = ProcessOptions {

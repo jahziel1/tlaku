@@ -95,6 +95,10 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     cancelJob: () => lag(() => machine.cancel()),
     frameJob: ({ doc, device, options: o }) =>
       lag(() => machine.frame(mockComputeJob(doc, device, o).bounds)),
+    frameHull: ({ doc, device, options: o }) =>
+      lag(() => machine.frameHull(mockComputeJob(doc, device, o).moves)),
+    jogTo: ({ x, y, speed }) => lag(() => machine.jogTo(x, y, [400, 415], speed)),
+    setOverride: ({ kind, percent }) => lag(() => machine.setOverride(kind, percent)),
     simulateFault: ({ fault }) => lag(() => machine.simulateFault(fault)),
 
     ...mockText(lag),

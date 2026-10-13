@@ -1,5 +1,6 @@
 import { getApi } from '@/api';
 import type { JobOptions, JobPreview } from '@/api/types';
+import { DEFAULT_OPTIMIZATION, readOptimization, sanitizeOptimization, sameOptimization, writeOptimization, type Optimization } from '@/features/preview/optimization';
 import { getModel, PLAY_SPEEDS, type PlaySpeed, type PreviewViewOptions } from '@/features/preview/model';
 import { errorMessage } from '@/lib/errors';
 import { readPref, writePref } from '@/lib/platform';
@@ -23,6 +24,12 @@ export interface PreviewSlice {
   /** Opciones visuales del recorrido (el lienzo observa `previewView` y se redibuja al cambiarlas). */
   previewView: PreviewViewOptions;
   jobOptions: JobOptions;
+  /**
+   * "Solo la selección": el trabajo (vista previa, encuadre, envío y exportación) lleva solo lo
+   * seleccionado. Sin selección no tiene efecto y la interfaz lo deshabilita con el motivo; los
+   * ids viajan en `JobOptions.selection` (ver `selectJobOptions`), no se guardan aquí.
+   */
+  cutSelectionOnly: boolean;
 
   computePreview: () => Promise<void>;
   /** Descarta el cálculo en vuelo (su respuesta ya no vale) y marca la vista previa como vencida. */
@@ -36,6 +43,16 @@ export interface PreviewSlice {
   stepPlaySpeed: (dir: 1 | -1) => void;
   setPreviewView: (patch: Partial<PreviewViewOptions>) => void;
   setJobOptions: (patch: Partial<JobOptions>) => void;
+  setCutSelectionOnly: (v: boolean) => void;
+  /** "Usar el origen de la selección": el origen del trabajo es la caja de la selección. */
+  setUseSelectionOrigin: (v: boolean) => void;
+  /**
+   * Cambia opciones de optimización (orden de corte y recorridos) y las recuerda para la próxima
+   * sesión. Se valida: la tolerancia se acota y lo que no sea del tipo correcto se ignora.
+   */
+  setOptimization: (patch: Partial<Optimization>) => void;
+  /** Devuelve la optimización a sus valores de fábrica. */
+  resetOptimization: () => void;
 }
 
 export const DEFAULT_JOB_OPTIONS: JobOptions = {
@@ -44,18 +61,7 @@ export const DEFAULT_JOB_OPTIONS: JobOptions = {
   user_origin: null,
   selection: null,
   layer_order: 'auto',
-  optimization: {
-    by_layer: true,
-    by_group: false,
-    by_priority: true,
-    inner_first: true,
-    best_start: true,
-    choose_direction: true,
-    remove_overlaps: false,
-    overlap_tolerance: 0.01,
-    hide_backlash: false,
-    reduce_travel: true,
-  },
+  optimization: DEFAULT_OPTIMIZATION,
   use_selection_origin: false,
 };
 
@@ -84,7 +90,9 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
       showOverscan: readPref(PREF_OVERSCAN) !== '0',
       highlightLayer: null,
     },
-    jobOptions: DEFAULT_JOB_OPTIONS,
+    // La optimización se recuerda entre sesiones (ver `features/preview/optimization.ts`).
+    jobOptions: { ...DEFAULT_JOB_OPTIONS, optimization: readOptimization() },
+    cutSelectionOnly: false,
 
     computePreview: async () => {
       const mine = ++seq;
@@ -138,5 +146,15 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
     },
 
     setJobOptions: (patch) => set((s) => ({ jobOptions: { ...s.jobOptions, ...patch } })),
+    setCutSelectionOnly: (cutSelectionOnly) => set({ cutSelectionOnly }),
+    setUseSelectionOrigin: (use_selection_origin) => set((s) => ({ jobOptions: { ...s.jobOptions, use_selection_origin } })),
+    setOptimization: (patch) => {
+      const current = get().jobOptions.optimization;
+      const optimization = sanitizeOptimization({ ...current, ...patch });
+      if (sameOptimization(current, optimization)) return;
+      writeOptimization(optimization);
+      set((s) => ({ jobOptions: { ...s.jobOptions, optimization } }));
+    },
+    resetOptimization: () => get().setOptimization(DEFAULT_OPTIMIZATION),
   };
 };

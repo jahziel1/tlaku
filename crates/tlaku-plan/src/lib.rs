@@ -33,11 +33,13 @@
 //!    respetan 1 y 2. Sin `reduce_travel` se conserva el orden original (salvo lo que
 //!    imponen 1 y 2) y no hay mejora.
 //! 4. **Punto de inicio** (cerradas) y **sentido** (abiertas): solo cambian por dónde se
-//!    entra, nunca el orden entre figuras.
+//!    entra, nunca el orden entre figuras. Con `closed_winding` todas las cerradas se giran
+//!    antes de planificar al mismo sentido (ocultar el juego mecánico).
 //!
 //! El resultado es determinista: mismas entradas, mismo plan.
 
 mod contain;
+mod describe;
 mod explain;
 mod geom;
 mod grid;
@@ -51,6 +53,7 @@ use std::fmt;
 
 use tlaku_core::{Point, Polyline};
 
+pub use describe::describe;
 pub use planner::plan;
 
 /// Una trayectoria por planificar con las claves de orden de su objeto.
@@ -77,8 +80,22 @@ pub struct PlanOptions {
     pub choose_direction: bool,
     /// Pasadas de 2-opt + Or-opt (0 desactiva la mejora y el ajuste fino de inicios).
     pub improve_passes: usize,
+    /// Sentido de giro único para todas las figuras cerradas (`None`: el que traigan). Las que
+    /// giran al revés se invierten antes de planificar. Sirve para ocultar el juego mecánico: el
+    /// láser siempre da la vuelta en el mismo sentido. No toca las abiertas; para que además
+    /// conserven su sentido hay que apagar `choose_direction`.
+    pub closed_winding: Option<Winding>,
     /// Posición del cabezal antes del primer corte.
     pub start: Point,
+}
+
+/// Sentido de giro de una figura cerrada, con Y hacia arriba.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Winding {
+    /// Antihorario.
+    Ccw,
+    /// Horario.
+    Cw,
 }
 
 impl Default for PlanOptions {
@@ -94,6 +111,7 @@ impl Default for PlanOptions {
             choose_start_point: true,
             choose_direction: true,
             improve_passes: 3,
+            closed_winding: None,
             start: Point::new(0.0, 0.0),
         }
     }

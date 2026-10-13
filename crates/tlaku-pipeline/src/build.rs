@@ -1,22 +1,26 @@
 use crate::gcode::{dialect_warnings, point_to_machine};
 use crate::job::{ComputedJob, LayerReport, block_bounds, check_device_bounds};
 use crate::layers::{
-    LayerRole, ResolvedImage, ResolvedLayer, classify, layer_sequence, order_note, resolve_image,
-    resolve_layer,
+    LayerRole, ResolvedImage, ResolvedLayer, SeqUnit, classify, effective_roles, merge_steps,
+    order_note, resolve_image, resolve_layer, unit_sequence,
 };
-use crate::place::{LayerWork, PlacedImage, place};
+use crate::place::{LayerWork, PathMeta, PlacedImage, place};
 use crate::preview::preview;
 use crate::rotary;
 use crate::scan_offset;
+use crate::stroke::{self, ShapeCtx, StrokeSpec, StrokeStats};
 use crate::tabs::{self, TabSpec, TabStats};
 use crate::zaxis::{self, LayerZ};
 use std::f64::consts::FRAC_PI_2;
 use std::path::Path;
 use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
 use tlaku_core::{Job, Layer, Point, Polyline, Rgb};
-use tlaku_doc::{DeviceProfile, Document, JobOptions, LayerMode, Overscan, ScanOffset};
+use tlaku_doc::{
+    DeviceProfile, Document, JobOptions, LayerMode, LayerOrder, LayerSettings, Optimization,
+    Overscan, ScanOffset,
+};
 use tlaku_fill::FillPattern;
-use tlaku_plan::{PlanItem, PlanOptions};
+use tlaku_plan::{PlanItem, PlanOptions, Winding};
 use tlaku_raster::{GrayF32, Luma, ProcessOptions, Sampling};
 use tlaku_sim::MachineProfile;
 
@@ -83,6 +87,67 @@ fn flipped(gray: &GrayF32, mirror_x: bool, mirror_y: bool) -> GrayF32 {
     })
 }
 
+/// Datos de la capa line que `build` deja listos antes de llamar a `line_layer`.
+#[derive(Default)]
+struct LineCtx {
+    /// Origen (objeto, grupo, prioridad, escala de potencia) de cada trayectoria que recibe
+    /// `line_layer`; `meta[step.item]` describe al paso del plan `step`.
+    meta: Vec<PathMeta>,
+    /// Las trayectorias antes de compensar el kerf (que las reordena y regrupa).
+    src: Vec<Polyline>,
+    /// Opciones del planificador (la posición de partida la pone `line_layer`).
+    plan: PlanOptions,
+    /// Ajustes de trazo de la capa (perforación, entradas, pausas...); ver `stroke`.
+    stroke: Option<StrokeSpec>,
+}
+
+impl LineCtx {
+    /// Después del kerf las trayectorias cambian de número y de orden: cada una hereda los datos
+    /// de la trayectoria original más cercana a su primer punto (el kerf solo las desplaza `|kerf|`
+    /// a cada lado, así que su origen sigue siendo la más próxima). Es aproximado si dos objetos
+    /// están a menos de un kerf entre sí.
+    fn realign(&mut self, after: &[Polyline]) {
+        let seg_dist = |p: Point, path: &Polyline| -> f64 {
+            let pts = &path.points;
+            let n = pts.len();
+            let count = if path.closed { n } else { n.saturating_sub(1) };
+            if n == 1 {
+                return p.dist(pts[0]);
+            }
+            (0..count)
+                .map(|i| {
+                    let (a, b) = (pts[i], pts[(i + 1) % n]);
+                    let (dx, dy) = (b.x - a.x, b.y - a.y);
+                    let len2 = dx * dx + dy * dy;
+                    let t = if len2 > 0.0 {
+                        (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0.0, 1.0)
+                    } else {
+                        0.0
+                    };
+                    p.dist(Point::new(a.x + t * dx, a.y + t * dy))
+                })
+                .fold(f64::INFINITY, f64::min)
+        };
+        let meta = std::mem::take(&mut self.meta);
+        self.meta = after
+            .iter()
+            .map(|path| {
+                let nearest = path.points.first().and_then(|&p| {
+                    self.src
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, s)| !s.points.is_empty())
+                        .map(|(i, s)| (i, seg_dist(p, s)))
+                        .min_by(|a, b| a.1.total_cmp(&b.1))
+                });
+                nearest
+                    .and_then(|(i, _)| meta.get(i).copied())
+                    .unwrap_or(PathMeta::NONE)
+            })
+            .collect();
+    }
+}
+
 struct Builder<'a> {
     profile: &'a MachineProfile,
     toolpath: Toolpath,
@@ -91,10 +156,19 @@ struct Builder<'a> {
     head: Point,
     scan_offsets: &'a [ScanOffset],
     scan_initial: f64,
+    line: LineCtx,
+    /// `(posición, total)` de la operación en curso si su capa tiene sub-capas.
+    sub: Option<(u32, u32)>,
+    /// Hide backlash: los rellenos e imágenes se graban en un solo sentido.
+    unidirectional: bool,
 }
 
 impl Builder<'_> {
     fn push(&mut self, block: ToolpathBlock, mut report: LayerReport) {
+        if let Some((n, total)) = self.sub {
+            report.sub = Some((n, total));
+            report.name = format!("{} · {n}/{total}", report.name);
+        }
         report.bounds = block_bounds(&block);
         if let Some(last) = block.moves.last() {
             self.head = last.to();
@@ -145,6 +219,39 @@ impl Builder<'_> {
         self.push(block, report);
     }
 
+    /// Como [`Self::push_passes`] cuando cada pasada tiene sus propios movimientos (por
+    /// ejemplo, con incremento de ángulo): `blocks` trae una pasada por elemento. Se reparte
+    /// igual que las pasadas con Z: si `z` pide Z distinta en cada pasada, cada una es su propio
+    /// bloque con su informe; si no, se concatenan en un solo bloque.
+    fn push_series(&mut self, blocks: Vec<ToolpathBlock>, mut report: LayerReport, z: LayerZ) {
+        let passes = blocks.len() as u32;
+        if z.splits(passes) {
+            for (k, mut b) in (0u32..).zip(blocks) {
+                b.z_mm = z.z_at(k);
+                if let Some(zk) = b.z_mm {
+                    b.label
+                        .push_str(&format!(" pasada {}/{passes} z={zk}", k + 1));
+                }
+                let mut r = report.clone();
+                r.passes = 1;
+                r.pass = Some((k + 1, passes));
+                r.z_mm = b.z_mm;
+                r.count = travel_count(&b);
+                self.push(b, r);
+            }
+            return;
+        }
+        let mut all = blocks.into_iter();
+        let Some(mut block) = all.next() else { return };
+        for b in all {
+            block.moves.extend(b.moves);
+        }
+        block.label.push_str(&format!(" pasadas={passes}"));
+        block.z_mm = z.z_at(0);
+        report.z_mm = block.z_mm;
+        self.push(block, report);
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn line_layer(
         &mut self,
@@ -165,6 +272,7 @@ impl Builder<'_> {
                 ));
             }
             paths = tlaku_geom::kerf_compensate(&paths, kerf_mm);
+            self.line.realign(&paths);
         }
         // Los puentes van después del kerf (se parte el contorno ya compensado). Qué formas los
         // admiten se decide con todo el conjunto, porque "dentro de otra" depende de las demás.
@@ -173,19 +281,23 @@ impl Builder<'_> {
             .map(|t| tlaku_geom::tab_eligible(&paths, t.skip_inner));
         let items: Vec<PlanItem> = paths
             .into_iter()
-            .map(|path| PlanItem {
-                path,
-                // Número de la capa en el orden de ejecución, el que muestra el resumen.
-                layer_order: self.layers.len() + 1,
-                group: None,
-                priority: 0,
+            .enumerate()
+            .map(|(i, path)| {
+                let meta = self.line.meta.get(i).copied().unwrap_or(PathMeta::NONE);
+                PlanItem {
+                    path,
+                    // Número de la capa en el orden de ejecución, el que muestra el resumen.
+                    layer_order: self.layers.len() + 1,
+                    group: meta.group,
+                    priority: meta.priority,
+                }
             })
             .collect();
         let plan = tlaku_plan::plan(
             &items,
             &PlanOptions {
                 start: self.head,
-                ..Default::default()
+                ..self.line.plan.clone()
             },
         );
         for w in &plan.warnings {
@@ -199,20 +311,41 @@ impl Builder<'_> {
         }
         // La pieza se planificó como forma cerrada; recién ahora se parte en tramos.
         let mut stats = TabStats::default();
+        let mut sstats = StrokeStats::default();
         let mut once = Vec::new();
+        // Profundidad par/impar de cada forma (exterior o hueco): la usan entradas, salidas y rampa.
+        let depth = self.line.stroke.as_ref().map(|_| {
+            tlaku_geom::nesting_depth(&items.iter().map(|it| it.path.clone()).collect::<Vec<_>>())
+        });
         for step in &plan.steps {
-            match (&tabs, &eligible) {
+            let scale = self
+                .line
+                .meta
+                .get(step.item)
+                .map_or(1.0, |m| m.power_scale / 100.0);
+            let power = stroke::scaled_power(settings.power_pct, scale, &mut sstats);
+            let pieces = match (&tabs, &eligible) {
                 (Some(spec), Some(ok)) if ok[step.item] => {
-                    let pieces = tabs::split(&step.path, spec, &mut stats);
-                    tabs::push_shape(&mut once, &pieces, settings.power_pct);
+                    tabs::split(&step.path, spec, &mut stats)
                 }
-                _ => tabs::push_shape(
-                    &mut once,
-                    std::slice::from_ref(&step.path),
-                    settings.power_pct,
-                ),
+                _ => vec![step.path.clone()],
+            };
+            match &self.line.stroke {
+                Some(spec) => {
+                    let ctx = ShapeCtx {
+                        shape: &step.path,
+                        pieces: &pieces,
+                        power,
+                        scale,
+                        depth: depth.as_ref().map_or(0, |d| d[step.item]),
+                    };
+                    stroke::push_shape(spec, &ctx, &mut sstats, &mut once);
+                }
+                None => tabs::push_shape(&mut once, &pieces, power),
             }
         }
+        self.warnings
+            .extend(sstats.warnings(&name, self.line.stroke.as_ref()));
         if let Some(spec) = &tabs {
             if stats.shapes == 0 {
                 self.warnings.push(format!(
@@ -258,20 +391,96 @@ impl Builder<'_> {
             tabs: stats.placed,
             z_mm: None,
             pass: None,
+            sub: None,
         };
         self.push_passes(block, report, settings.passes, z, false);
     }
 
+    /// Capa fill. Con `angle_increment != 0` y varias pasadas, la pasada `k` barre con el ángulo
+    /// `angle + k * angle_increment` (la geometría cambia en cada pasada, así que cada una se
+    /// calcula aparte); si no, se calcula una vez y se repite, como siempre.
+    #[allow(clippy::too_many_arguments)]
     fn fill_layer(
         &mut self,
         color: Rgb,
         paths: &[Polyline],
-        mut settings: tlaku_fill::FillSettings,
+        settings: tlaku_fill::FillSettings,
         overscan: Overscan,
         passes: u32,
         z: LayerZ,
+        angle_increment: f64,
+        group_ids: &[u32],
     ) -> Result<(), String> {
         let name = color.to_string();
+        let mut varied = angle_increment != 0.0 && passes > 1;
+        if varied && settings.pattern == FillPattern::Offset {
+            self.warnings.push(format!(
+                "capa {name}: angle_increment no aplica al relleno por contornos; se ignora"
+            ));
+            varied = false;
+        }
+        let mut blocks = Vec::new();
+        let mut overscan_mm = 0.0_f64;
+        for k in 0..if varied { passes } else { 1 } {
+            let mut s = settings.clone();
+            if varied {
+                s.angle_deg += angle_increment * f64::from(k);
+            }
+            if self.unidirectional {
+                s.bidirectional = false;
+            }
+            let angle = s.angle_deg;
+            let Some((mut block, mm)) =
+                self.fill_block(&name, paths, group_ids, s, overscan, k == 0)?
+            else {
+                return Ok(());
+            };
+            if varied {
+                block.label.push_str(&format!(" ángulo={angle}"));
+            }
+            overscan_mm = overscan_mm.max(mm);
+            blocks.push(block);
+        }
+        let lines = blocks.iter().map(travel_count).sum();
+        let report = LayerReport {
+            name,
+            color,
+            mode: "fill",
+            count: lines,
+            unit: "líneas",
+            speed_mm_min: settings.speed_mm_min,
+            power: format!("{}%", settings.power_pct),
+            passes,
+            overscan_mm: Some(overscan_mm),
+            plan: None,
+            seconds: 0.0,
+            bounds: None,
+            tabs: 0,
+            z_mm: None,
+            pass: None,
+            sub: None,
+        };
+        if varied {
+            self.push_series(blocks, report, z);
+        } else {
+            let block = blocks.remove(0);
+            self.push_passes(block, report, passes, z, true);
+        }
+        Ok(())
+    }
+
+    /// Los movimientos de una pasada de relleno con `settings` tal cual (su ángulo incluido) y el
+    /// overscan usado; `None` si no produjo ninguna línea. `first` es la primera pasada de la
+    /// capa: los avisos que no dependen del ángulo se dan solo una vez.
+    fn fill_block(
+        &mut self,
+        name: &str,
+        paths: &[Polyline],
+        group_ids: &[u32],
+        mut settings: tlaku_fill::FillSettings,
+        overscan: Overscan,
+        first: bool,
+    ) -> Result<Option<(ToolpathBlock, f64)>, String> {
         if overscan == Overscan::Auto {
             let mut mm = tlaku_sim::overscan_mm(
                 settings.speed_mm_min,
@@ -288,8 +497,11 @@ impl Builder<'_> {
             }
             settings.overscan_mm = mm;
         }
-        let result = tlaku_fill::fill(paths, &settings).map_err(|e| format!("capa {name}: {e}"))?;
-        if !result.ignored_open.is_empty() {
+        // Los ids de grupo solo cuentan con `FillGrouping::ByGroup`; con otra agrupación el motor
+        // los ignora.
+        let result = tlaku_fill::fill_with_groups(paths, Some(group_ids), &settings)
+            .map_err(|e| format!("capa {name}: {e}"))?;
+        if first && !result.ignored_open.is_empty() {
             self.warnings.push(format!(
                 "capa {name}: {} trayectoria(s) abierta(s) ignorada(s): el relleno solo usa trayectorias cerradas",
                 result.ignored_open.len()
@@ -297,12 +509,15 @@ impl Builder<'_> {
         }
         let mut block = result.block;
         if block.moves.is_empty() {
-            self.warnings
-                .push(format!("capa {name}: el relleno no produjo ninguna línea"));
-            return Ok(());
+            if first {
+                self.warnings
+                    .push(format!("capa {name}: el relleno no produjo ninguna línea"));
+            }
+            return Ok(None);
         }
-        // Solo el barrido tiene líneas de ida y vuelta; el relleno por contornos no.
-        if settings.pattern == FillPattern::Scan {
+        // Solo el barrido (y el relleno por regiones, que son las mismas líneas) tiene líneas de
+        // ida y vuelta; el relleno por contornos no.
+        if matches!(settings.pattern, FillPattern::Scan | FillPattern::Flood) {
             let mut angles = vec![settings.angle_deg];
             if settings.crosshatch {
                 angles.push(settings.angle_deg + 90.0);
@@ -314,7 +529,8 @@ impl Builder<'_> {
                 &angles,
                 settings.bidirectional,
             );
-            if settings.bidirectional
+            if first
+                && settings.bidirectional
                 && let Some(w) = scan_offset::overscan_warning(
                     &format!("capa {name}"),
                     self.scan_offsets,
@@ -325,26 +541,7 @@ impl Builder<'_> {
                 self.warnings.push(w);
             }
         }
-        let lines = travel_count(&block);
-        let report = LayerReport {
-            name,
-            color,
-            mode: "fill",
-            count: lines,
-            unit: "líneas",
-            speed_mm_min: settings.speed_mm_min,
-            power: format!("{}%", settings.power_pct),
-            passes,
-            overscan_mm: Some(settings.overscan_mm),
-            plan: None,
-            seconds: 0.0,
-            bounds: None,
-            tabs: 0,
-            z_mm: None,
-            pass: None,
-        };
-        self.push_passes(block, report, passes, z, true);
-        Ok(())
+        Ok(Some((block, settings.overscan_mm)))
     }
 
     fn image(
@@ -353,11 +550,18 @@ impl Builder<'_> {
         img: &PlacedImage,
         r: &ResolvedImage,
         z: LayerZ,
+        angle_increment: f64,
     ) -> Result<(), String> {
         let mut raster = r.raster.clone();
+        if self.unidirectional {
+            raster.bidirectional = false;
+        }
         if r.overscan == Overscan::Auto {
             raster.overscan_mm = tlaku_sim::overscan_mm(raster.speed_mm_min, 0.0, self.profile);
         }
+        // Con incremento de ángulo la pasada `k` barre a `angle + k * incremento`: el bitmap es
+        // el mismo, pero el recorrido cambia en cada pasada.
+        let varied = angle_increment != 0.0 && r.passes > 1;
         let gray = tlaku_raster::gray::load(Path::new(&img.source_path), Luma::default())
             .map_err(|e| format!("{}: {e}", img.source_path))?;
         let gray = flipped(&gray, img.mirror_x, img.mirror_y);
@@ -370,31 +574,49 @@ impl Builder<'_> {
         let (w, h) = img.size_mm;
         let bitmap =
             tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?;
-        let mut block = tlaku_raster::raster_to_block(&bitmap, img.origin, &raster);
-        if block.moves.is_empty() {
-            self.warnings.push(
-                "imagen: no hay ningún punto que grabar (la imagen resultó en blanco)".into(),
-            );
-            return Ok(());
-        }
-        scan_offset::apply(
-            &mut block,
-            self.scan_offsets,
-            self.scan_initial,
-            &[raster.angle_deg],
-            raster.bidirectional,
-        );
-        if raster.bidirectional
-            && let Some(w) = scan_offset::overscan_warning(
-                "imagen",
+        let mut blocks = Vec::new();
+        let mut overscan_mm = raster.overscan_mm;
+        for k in 0..if varied { r.passes } else { 1 } {
+            let mut pass = raster.clone();
+            if varied {
+                pass.angle_deg += angle_increment * f64::from(k);
+                if r.overscan == Overscan::Auto {
+                    pass.overscan_mm = tlaku_sim::overscan_mm(
+                        pass.speed_mm_min,
+                        pass.angle_deg.to_radians(),
+                        self.profile,
+                    );
+                }
+                overscan_mm = overscan_mm.max(pass.overscan_mm);
+            }
+            let mut block = tlaku_raster::raster_to_block(&bitmap, img.origin, &pass);
+            if block.moves.is_empty() {
+                self.warnings.push(
+                    "imagen: no hay ningún punto que grabar (la imagen resultó en blanco)".into(),
+                );
+                return Ok(());
+            }
+            scan_offset::apply(
+                &mut block,
                 self.scan_offsets,
-                raster.speed_mm_min,
-                raster.overscan_mm,
-            )
-        {
-            self.warnings.push(w);
+                self.scan_initial,
+                &[pass.angle_deg],
+                pass.bidirectional,
+            );
+            if k == 0
+                && pass.bidirectional
+                && let Some(w) = scan_offset::overscan_warning(
+                    "imagen",
+                    self.scan_offsets,
+                    pass.speed_mm_min,
+                    pass.overscan_mm,
+                )
+            {
+                self.warnings.push(w);
+            }
+            blocks.push(block);
         }
-        let lines = travel_count(&block);
+        let lines = blocks.iter().map(travel_count).sum();
         let report = LayerReport {
             name: "imagen".into(),
             color,
@@ -404,15 +626,21 @@ impl Builder<'_> {
             speed_mm_min: raster.speed_mm_min,
             power: format!("{}-{}%", raster.min_power_pct, raster.max_power_pct),
             passes: r.passes,
-            overscan_mm: Some(raster.overscan_mm),
+            overscan_mm: Some(overscan_mm),
             plan: None,
             seconds: 0.0,
             bounds: None,
             tabs: 0,
             z_mm: None,
             pass: None,
+            sub: None,
         };
-        self.push_passes(block, report, r.passes, z, true);
+        if varied {
+            self.push_series(blocks, report, z);
+        } else {
+            let block = blocks.remove(0);
+            self.push_passes(block, report, r.passes, z, true);
+        }
         Ok(())
     }
 }
@@ -454,6 +682,21 @@ pub fn build(
     if work.is_empty() {
         return Err(nothing_to_produce(&warnings));
     }
+    let optimization = &options.optimization;
+    if !(optimization.overlap_tolerance.is_finite() && optimization.overlap_tolerance >= 0.0) {
+        return Err(format!(
+            "optimización: overlap_tolerance inválida ({}); debe ser 0 mm o más",
+            optimization.overlap_tolerance
+        ));
+    }
+    let plan_options = plan_options(optimization);
+    if optimization.hide_backlash {
+        warnings.push(
+            "hide_backlash activo: las formas cerradas se cortan siempre en sentido antihorario y \
+             los rellenos e imágenes se graban en un solo sentido; el trabajo es más lento"
+                .into(),
+        );
+    }
 
     // Se validan todas las capas antes de procesar ninguna.
     let resolved = work
@@ -465,10 +708,21 @@ pub fn build(
         .collect::<Result<Vec<_>, _>>()?;
     // Puentes (solo capas line) y Z de cada capa.
     let mut tab_specs = Vec::with_capacity(work.len());
+    let mut stroke_specs = Vec::with_capacity(work.len());
     let mut zs = Vec::with_capacity(work.len());
     for l in work {
+        if !l.settings.angle_increment.is_finite() {
+            return Err(format!(
+                "capa {}: angle_increment inválido: {}",
+                l.color, l.settings.angle_increment
+            ));
+        }
         tab_specs.push(match l.settings.mode {
             LayerMode::Line => tabs::resolve(l.settings)?,
+            _ => None,
+        });
+        stroke_specs.push(match l.settings.mode {
+            LayerMode::Line => stroke::resolve(l.settings)?,
             _ => None,
         });
         zs.push(zaxis::resolve(device, l.settings, &mut warnings)?);
@@ -483,11 +737,13 @@ pub fn build(
     let roles: Vec<LayerRole> = classes.iter().map(|(r, _)| *r).collect();
     let mut forced = Vec::with_capacity(work.len());
     for (i, l) in work.iter().enumerate() {
+        // Las sub-capas siguen a su capa: su `order` se ignora.
         let pos = match l.settings.order {
+            _ if l.sub.is_some() => None,
             Some(0) => {
                 return Err(format!(
                     "capa {}: la posición debe ser un entero desde 1",
-                    l.settings.color
+                    l.color
                 ));
             }
             Some(n) => Some(n as usize),
@@ -496,41 +752,83 @@ pub fn build(
         if let Some(n) = pos
             && let Some(d) = work[..i]
                 .iter()
-                .find(|p| p.settings.order == l.settings.order)
+                .find(|p| p.sub.is_none() && p.settings.order == l.settings.order)
         {
             return Err(format!(
                 "las capas {} y {} piden la misma posición: order={n}",
-                d.settings.color, l.settings.color
+                d.color, l.color
             ));
         }
         forced.push(pos);
     }
 
-    let sequence = layer_sequence(&roles, &forced, options.layer_order);
-    let n = work.len();
+    let units: Vec<SeqUnit> = work
+        .iter()
+        .enumerate()
+        .map(|(i, l)| SeqUnit {
+            parent: l.parent,
+            sub: l.sub.is_some(),
+            role: roles[i],
+            forced: forced[i],
+        })
+        .collect();
+    let (sequence, movable) = unit_sequence(&units, options.layer_order);
+    let effective = effective_roles(&units);
+    let n = movable.len();
     let mut forced_list = Vec::new();
     for (l, pos) in work.iter().zip(&forced) {
         if let Some(pos) = *pos {
-            forced_list.push((l.settings.color, pos));
+            forced_list.push((l.color, pos));
             if pos > n {
                 warnings.push(format!(
                     "capa {}: order={pos} excede el número de capas ({n}); queda al final",
-                    l.settings.color
+                    l.color
                 ));
             }
         }
     }
     forced_list.sort_by_key(|(_, p)| *p);
-    let order_note_text = (n > 1).then(|| {
-        let free = |i: usize| forced[i].is_none();
-        let free_roles: Vec<LayerRole> = (0..n).filter(|&i| free(i)).map(|i| roles[i]).collect();
-        let free_cuts: Vec<(Rgb, &'static str)> = sequence
-            .iter()
-            .filter(|&&i| free(i))
-            .filter_map(|&i| classes[i].1.map(|why| (work[i].settings.color, why)))
-            .collect();
-        order_note(options.layer_order, &free_roles, &free_cuts, &forced_list)
-    });
+    // Con `by_layer = false` se juntan las capas de corte consecutivas que hacen exactamente lo
+    // mismo para planificarlas como una sola.
+    let settings_list: Vec<&LayerSettings> = work.iter().map(|l| l.settings).collect();
+    let steps: Vec<Vec<usize>> = if optimization.by_layer {
+        sequence.iter().map(|&i| vec![i]).collect()
+    } else {
+        merge_steps(&sequence, &settings_list, &forced)
+    };
+    let merged: Vec<Vec<Rgb>> = steps
+        .iter()
+        .filter(|s| s.len() > 1)
+        .map(|s| s.iter().map(|&i| work[i].color).collect())
+        .collect();
+    let has_subs = work.iter().any(|l| l.sub_total > 0);
+    let order_note_text = {
+        let order = (n > 1).then(|| {
+            let free = |i: usize| forced[i].is_none() && movable.contains(&i);
+            let free_roles: Vec<LayerRole> = (0..work.len())
+                .filter(|&i| free(i))
+                .map(|i| effective[i])
+                .collect();
+            let free_cuts: Vec<(Rgb, &'static str)> = sequence
+                .iter()
+                .filter(|&&i| free(i))
+                .filter_map(|&i| classes[i].1.map(|why| (work[i].color, why)))
+                .collect();
+            let mut note = order_note(options.layer_order, &free_roles, &free_cuts, &forced_list);
+            if has_subs && options.layer_order == LayerOrder::Auto {
+                note.push_str(
+                    "; las sub-capas se ordenan por su propio rol, nunca antes que su capa",
+                );
+            }
+            note
+        });
+        let opt = (*optimization != Optimization::default())
+            .then(|| optimization_note(optimization, &plan_options, &merged));
+        match (order, opt) {
+            (Some(o), Some(p)) => Some(format!("{o}; {p}")),
+            (o, p) => o.or(p),
+        }
+    };
 
     let mut b = Builder {
         profile: &profile,
@@ -540,15 +838,56 @@ pub fn build(
         head: placement.start,
         scan_offsets: &device.scan_offsets,
         scan_initial: device.scan_initial_offset,
+        line: LineCtx::default(),
+        sub: None,
+        unidirectional: optimization.hide_backlash,
     };
-    for i in sequence {
+    for step in &steps {
+        let i = step[0];
         let layer = &work[i];
-        let color = layer.settings.color;
+        let color = layer.color;
+        b.sub = layer.position();
         match &resolved[i] {
             Resolved::Vector(ResolvedLayer::Line { settings, kerf_mm }) => {
+                let mut paths: Vec<Polyline> = Vec::new();
+                let mut meta = Vec::new();
+                for &k in step {
+                    paths.extend(work[k].paths.iter().cloned());
+                    meta.extend(work[k].meta.iter().copied());
+                }
+                if optimization.remove_overlaps {
+                    if *kerf_mm != 0.0 {
+                        b.warnings.push(format!(
+                            "capa {color}: remove_overlaps no se aplica con kerf (las formas \
+                             abiertas que deja no se pueden compensar); se corta como está"
+                        ));
+                    } else {
+                        let d = tlaku_geom::dedupe_paths(&paths, optimization.overlap_tolerance);
+                        if d.removed_length > 0.0 {
+                            let cut = d.changed.iter().filter(|&&c| c).count();
+                            b.warnings.push(format!(
+                                "capa {color}: remove_overlaps quitó {:.2} mm de trazo repetido \
+                                 en {cut} trayectoria(s)",
+                                d.removed_length
+                            ));
+                        }
+                        meta = d.origin.iter().map(|&o| meta[o]).collect();
+                        paths = d.paths;
+                    }
+                }
+                b.line = LineCtx {
+                    src: if *kerf_mm != 0.0 {
+                        paths.clone()
+                    } else {
+                        Vec::new()
+                    },
+                    meta,
+                    plan: plan_options.clone(),
+                    stroke: stroke_specs[i].clone(),
+                };
                 b.line_layer(
                     color,
-                    &layer.paths,
+                    &paths,
                     settings.clone(),
                     *kerf_mm,
                     tab_specs[i],
@@ -566,10 +905,12 @@ pub fn build(
                 *overscan,
                 *passes,
                 zs[i],
+                layer.settings.angle_increment,
+                &layer.fill_group_ids(),
             )?,
             Resolved::Image(r) => {
                 for img in &layer.images {
-                    b.image(color, img, r, zs[i])?;
+                    b.image(color, img, r, zs[i], layer.settings.angle_increment)?;
                 }
             }
         }
@@ -623,6 +964,60 @@ pub fn build(
         layers: b.layers,
         preview,
     })
+}
+
+/// Opciones del planificador que salen de los ajustes de optimización del trabajo.
+/// `hide_backlash` fija el sentido de giro de las cerradas y deja las abiertas como vienen.
+fn plan_options(o: &Optimization) -> PlanOptions {
+    PlanOptions {
+        order_by_layer: o.by_layer,
+        order_by_group: o.by_group,
+        order_by_priority: o.by_priority,
+        inner_first: o.inner_first,
+        reduce_travel: o.reduce_travel,
+        choose_start_point: o.best_start,
+        choose_direction: o.choose_direction && !o.hide_backlash,
+        closed_winding: o.hide_backlash.then_some(Winding::Ccw),
+        ..PlanOptions::default()
+    }
+}
+
+/// Frase para la vista previa con las opciones de optimización activas (se da solo cuando no
+/// son las de por defecto). `merged` lista las capas que `by_layer = false` juntó.
+fn optimization_note(o: &Optimization, plan: &PlanOptions, merged: &[Vec<Rgb>]) -> String {
+    let mut parts = tlaku_plan::describe(plan);
+    if !o.by_layer {
+        parts.push(if merged.is_empty() {
+            "sin orden por capa: no hay capas de corte consecutivas con los mismos ajustes que \
+             mezclar (las que tienen ajustes distintos no se mezclan)"
+                .to_string()
+        } else {
+            let list: Vec<String> = merged
+                .iter()
+                .map(|colors| {
+                    colors
+                        .iter()
+                        .map(Rgb::to_string)
+                        .collect::<Vec<_>>()
+                        .join(" + ")
+                })
+                .collect();
+            format!(
+                "sin orden por capa: se mezclaron las capas con los mismos ajustes ({})",
+                list.join("; ")
+            )
+        });
+    }
+    if o.remove_overlaps {
+        parts.push(format!(
+            "tramos repetidos quitados dentro de cada capa de corte (tolerancia {} mm)",
+            o.overlap_tolerance
+        ));
+    }
+    if o.hide_backlash {
+        parts.push("hide_backlash: recorrido en un solo sentido, más lento".to_string());
+    }
+    format!("optimización: {}", parts.join("; "))
 }
 
 fn nothing_to_produce(warnings: &[String]) -> String {

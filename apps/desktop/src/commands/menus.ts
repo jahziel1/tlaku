@@ -42,7 +42,7 @@ export const MENUS: MenuDef[] = [
     label: 'menu.view',
     items: [
       'view.zoomIn', 'view.zoomOut', 'view.fitBed', 'view.fitContent', '-',
-      'view.wireframe', 'view.preview', '-',
+      'view.wireframe', 'view.preview', 'view.priorityBadges', '-',
       'view.snap', 'view.snapGrid', 'view.snapObjects', '-',
       'panel.layers', 'panel.machine', 'panel.console', '-',
       'view.theme',
@@ -51,7 +51,7 @@ export const MENUS: MenuDef[] = [
   {
     id: 'machine',
     label: 'menu.machine',
-    items: ['machine.connect', '-', 'machine.frame', 'machine.start', 'machine.pause', 'machine.stop'],
+    items: ['machine.connect', '-', 'machine.frame', 'machine.frameHull', 'machine.start', 'machine.pause', 'machine.stop', '-', 'machine.positionLaser', 'preview.optimization'],
   },
   {
     id: 'arrange',
@@ -61,6 +61,7 @@ export const MENUS: MenuDef[] = [
       'arrange.rotate.ccw90', 'arrange.rotate.cw90', 'arrange.rotate.ccwStep', 'arrange.rotate.cwStep',
       'arrange.rotate.ccw5', 'arrange.rotate.cw5', 'arrange.twoPoint', '-',
       'arrange.order.front', 'arrange.order.forward', 'arrange.order.backward', 'arrange.order.back', '-',
+      'arrange.priority.earlier', 'arrange.priority.later', '-',
       'arrange.lock', 'arrange.unlockAll', '-',
       'arrange.same.width', 'arrange.same.height', 'arrange.same.widthKeep', 'arrange.same.heightKeep', '-',
       'arrange.xform.move', 'arrange.xform.scale', 'arrange.xform.rotate', 'arrange.xform.center', 'arrange.xform.ratio', '-',

@@ -42,6 +42,37 @@ describe('catálogo de preferencias', () => {
   });
 });
 
+describe('preferencias de capas (ola 2)', () => {
+  it('el modo principiante es un interruptor apagado de fábrica', () => {
+    expect(DEFAULT_PREFS.beginnerMode).toBe(false);
+    expect(sanitizePref('beginnerMode', true)).toBe(true);
+    expect(sanitizePref('beginnerMode', 'sí')).toBe(false);
+  });
+
+  it('layerDefaults vale null de fábrica y acepta una plantilla válida, saneada', () => {
+    expect(DEFAULT_PREFS.layerDefaults).toBeNull();
+    expect(checkPref('layerDefaults', null)).toEqual({ value: null });
+    const t = checkPref('layerDefaults', { speed: 1500, mode: 'raro' })?.value;
+    expect(t).toMatchObject({ speed: 1500, mode: 'line', power: 50 });
+    expect(t && 'color' in t).toBe(false);
+  });
+
+  it('layerDefaults inválido toma el valor de fábrica y sobrevive a un paquete', () => {
+    expect(checkPref('layerDefaults', 7)).toBeNull();
+    expect(sanitizePref('layerDefaults', 'basura')).toBeNull();
+    const saved = sanitizePrefs({ layerDefaults: { speed: 900 } });
+    expect(sanitizePrefs(JSON.parse(JSON.stringify(saved)))).toEqual(saved);
+  });
+
+  it('setPref guarda los valores por defecto y no emite si el contenido es igual', () => {
+    const store = createAppStore();
+    store.getState().setPref('layerDefaults', checkPref('layerDefaults', { speed: 900 })!.value);
+    expect(store.getState().prefs.layerDefaults?.speed).toBe(900);
+    store.getState().resetPrefs();
+    expect(store.getState().prefs.layerDefaults).toBeNull();
+  });
+});
+
 describe('estado de preferencias', () => {
   it('setPref cambia un valor sin tocar los demás y sanea', () => {
     const store = createAppStore();

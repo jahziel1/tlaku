@@ -119,3 +119,28 @@ describe('designBounds', () => {
     expect(designBounds(doc, ['c', 'd'])).toBeNull();
   });
 });
+
+describe('solo la selección: caja de anclaje', () => {
+  // Selección de 20 x 10 dentro de un diseño de 100 x 50; el cabezal está en (200, 100).
+  const selection: PlacementInput['design'] = [[10, 10], [30, 20]];
+  const whole: PlacementInput['design'] = [[0, 0], [100, 50]];
+  const input: PlacementInput = { ...base, startFrom: 'current_position', head: [200, 100], design: selection };
+
+  it('con el origen de la selección, la esquina de la selección queda en el cabezal', () => {
+    const p = computeJobPlacement({ ...input, originBox: selection });
+    expect(p.rect).toEqual([[200, 100], [220, 110]]);
+  });
+
+  it('sin él, la esquina de todo el diseño queda en el cabezal y la selección conserva su lugar', () => {
+    const p = computeJobPlacement({ ...input, originBox: whole });
+    expect(p.rect).toEqual([[210, 110], [230, 120]]);
+  });
+
+  it('sin caja de anclaje aparte se usa la del diseño enviado', () => {
+    expect(computeJobPlacement(input).rect).toEqual(computeJobPlacement({ ...input, originBox: selection }).rect);
+  });
+
+  it('en coordenadas absolutas no cambia nada', () => {
+    expect(computeJobPlacement({ ...input, startFrom: 'absolute', originBox: whole }).rect).toEqual(selection);
+  });
+});

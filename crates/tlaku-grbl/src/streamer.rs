@@ -19,7 +19,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use tlaku_doc::DeviceProfile;
+use tlaku_doc::{DeviceProfile, OverrideKind};
 
 use crate::link::{
     CancelStyle, ControlAction, FinishDetection, FlowControl, LinkFamily, LinkProfile,
@@ -84,6 +84,64 @@ impl Realtime {
             Self::ToggleMist => 0xA1,
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Overrides en tiempo real (velocidad y potencia)
+// ---------------------------------------------------------------------------
+
+/// Límites de los overrides de GRBL, en porcentaje.
+pub const OVERRIDE_MIN: u32 = 10;
+pub const OVERRIDE_MAX: u32 = 200;
+
+/// Bytes en tiempo real que llevan el override de `kind` de `current` a `wanted` por ciento.
+/// GRBL solo sabe subir o bajar de 10 en 10 y de 1 en 1, o volver al 100 %. `current` es el
+/// último valor que informó `Ov:`; sin él se parte de un reinicio al 100 %, así el resultado no
+/// depende de lo que hubiera antes. `wanted` se acota a 10..=200. Nunca devuelve un plan vacío:
+/// aunque el valor visto ya sea el pedido se reinicia y se reajusta, porque ese valor puede ser de
+/// un reporte atrasado.
+pub fn override_plan(kind: OverrideKind, current: Option<u32>, wanted: u32) -> Vec<Realtime> {
+    let wanted = wanted.clamp(OVERRIDE_MIN, OVERRIDE_MAX);
+    let (reset, plus10, minus10, plus1, minus1) = match kind {
+        OverrideKind::Feed => (
+            Realtime::FeedReset,
+            Realtime::FeedPlus10,
+            Realtime::FeedMinus10,
+            Realtime::FeedPlus1,
+            Realtime::FeedMinus1,
+        ),
+        OverrideKind::Spindle => (
+            Realtime::SpindleReset,
+            Realtime::SpindlePlus10,
+            Realtime::SpindleMinus10,
+            Realtime::SpindlePlus1,
+            Realtime::SpindleMinus1,
+        ),
+    };
+    let current = current.map(|c| c.clamp(OVERRIDE_MIN, OVERRIDE_MAX));
+    let mut plan = Vec::new();
+    let base = match current {
+        // Si ya está en el valor pedido no se envía nada: el `Ov:` visto puede ser un reporte
+        // atrasado, así que se reinicia y se vuelve a ajustar, que cuesta pocos bytes.
+        Some(c) if wanted != 100 && c != wanted => c,
+        _ => {
+            plan.push(reset);
+            100
+        }
+    };
+    let (tens, ones, up) = (
+        wanted.abs_diff(base) / 10,
+        wanted.abs_diff(base) % 10,
+        wanted > base,
+    );
+    let (big, small) = if up {
+        (plus10, plus1)
+    } else {
+        (minus10, minus1)
+    };
+    plan.extend(std::iter::repeat_n(big, tens as usize));
+    plan.extend(std::iter::repeat_n(small, ones as usize));
+    plan
 }
 
 // ---------------------------------------------------------------------------
@@ -2017,6 +2075,64 @@ mod tests {
             StatusReport::parse("<Hold|MPos:0,0,0>").unwrap().state,
             MachineState::Hold(None)
         );
+    }
+
+    #[test]
+    fn override_plan_goes_from_the_known_value_to_the_wanted_one() {
+        use Realtime::*;
+        let feed = OverrideKind::Feed;
+        assert_eq!(override_plan(feed, Some(100), 100), [FeedReset]);
+        // Ya en 120: se reinicia y se vuelve a ajustar, por si el valor visto era atrasado.
+        assert_eq!(
+            override_plan(feed, Some(120), 120),
+            [FeedReset, FeedPlus10, FeedPlus10]
+        );
+        assert_eq!(override_plan(feed, Some(100), 130), [FeedPlus10; 3]);
+        assert_eq!(
+            override_plan(feed, Some(100), 87),
+            [FeedMinus10, FeedMinus1, FeedMinus1, FeedMinus1]
+        );
+        assert_eq!(override_plan(feed, Some(150), 100), [FeedReset]);
+        assert_eq!(override_plan(feed, Some(40), 45), [FeedPlus1; 5]);
+    }
+
+    #[test]
+    fn override_plan_without_a_known_value_starts_from_a_reset() {
+        use Realtime::*;
+        assert_eq!(
+            override_plan(OverrideKind::Spindle, None, 100),
+            [SpindleReset]
+        );
+        assert_eq!(
+            override_plan(OverrideKind::Spindle, None, 112),
+            [SpindleReset, SpindlePlus10, SpindlePlus1, SpindlePlus1]
+        );
+    }
+
+    #[test]
+    fn override_plan_clamps_to_the_range_of_grbl_and_uses_the_right_bytes() {
+        let up = override_plan(OverrideKind::Feed, Some(100), 999);
+        assert_eq!(up.len(), 10);
+        assert!(up.iter().all(|r| r.byte() == 0x91));
+        let down = override_plan(OverrideKind::Spindle, Some(100), 0);
+        assert_eq!(down.len(), 9);
+        assert!(down.iter().all(|r| r.byte() == 0x9B));
+        // Aplicar el plan al valor de partida llega exactamente al pedido (el emulador usa la
+        // misma regla de GRBL).
+        for (from, to) in [(100, 37), (13, 200), (55, 56), (200, 10), (100, 100)] {
+            let mut v = from as i64;
+            for r in override_plan(OverrideKind::Feed, Some(from), to) {
+                v = match r {
+                    Realtime::FeedReset => 100,
+                    Realtime::FeedPlus10 => v + 10,
+                    Realtime::FeedMinus10 => v - 10,
+                    Realtime::FeedPlus1 => v + 1,
+                    Realtime::FeedMinus1 => v - 1,
+                    other => panic!("byte inesperado: {other:?}"),
+                };
+            }
+            assert_eq!(v, i64::from(to), "{from} -> {to}");
+        }
     }
 
     #[test]

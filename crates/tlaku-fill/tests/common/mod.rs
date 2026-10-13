@@ -99,6 +99,7 @@ pub fn dump(block: &ToolpathBlock) -> String {
             Move::Cut { to, power_pct } => {
                 s += &format!("G1 X{:.4} Y{:.4} S{:.1}\n", f(to.x), f(to.y), power_pct)
             }
+            Move::Dwell { ms, power_pct, .. } => s += &format!("G4 P{ms} S{power_pct:.1}\n"),
         }
     }
     s

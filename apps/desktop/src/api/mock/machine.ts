@@ -1,3 +1,4 @@
+import { convexHull } from '@/lib/hull';
 import type {
   ConnectionEvent,
   DeviceProfile,
@@ -7,6 +8,7 @@ import type {
   JobPreview,
   LogEvent,
   MachineState,
+  OverrideKind,
   Point,
   ProgressEvent,
   RealtimeCommand,
@@ -65,6 +67,8 @@ export class MockMachine {
   pos: Point = [0, 0];
   feed = 0;
   spindle = 0;
+  /** Overrides en vivo (%); solo GRBL, como en el motor real. */
+  ovr = { feed: 100, rapid: 100, spindle: 100 };
 
   private job: {
     preview: JobPreview;
@@ -104,6 +108,7 @@ export class MockMachine {
     this.state = 'idle';
     this.alarmCode = null;
     this.pos = [0, 0];
+    this.ovr = { feed: 100, rapid: 100, spindle: 100 };
     const firmware = this.virtual ? (VIRTUAL_FIRMWARE[port.slice(VIRTUAL_PREFIX.length).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
     const evt: ConnectionEvent = { connected: true, port, error: null };
     this.emit('machine://connection', evt);
@@ -173,7 +178,25 @@ export class MockMachine {
       feed: this.feed,
       spindle: this.spindle,
       buffer: { planner: 15, rx: 127 },
+      ...(this.hasOverrides() ? { overrides: { ...this.ovr } } : {}),
     };
+  }
+
+  /** Marlin y Smoothieware no tienen overrides en tiempo real. */
+  private hasOverrides(): boolean {
+    return !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
+  }
+
+  /** Lleva el override de velocidad o potencia a `percent` (10 a 200), como los bytes 0x90-0x9D de GRBL. */
+  setOverride(kind: OverrideKind, percent: number): void {
+    this.requireConnection();
+    if (!this.hasOverrides()) {
+      throw new Error('Los ajustes en vivo de velocidad y potencia solo existen en controladoras GRBL: Marlin y Smoothieware no los tienen.');
+    }
+    const value = Math.min(200, Math.max(10, Math.round(percent)));
+    this.ovr[kind] = value;
+    this.log('out', `; override de ${kind === 'feed' ? 'velocidad (feed)' : 'potencia (spindle)'} al ${value} %`);
+    this.emitStatus();
   }
 
   emitStatus(): void {
@@ -245,6 +268,31 @@ export class MockMachine {
       throw new Error(`La máquina rechazó el movimiento (${reply}). Si la máquina está en alarma, desbloquéala con $X o haz homing ($H) desde la consola.`);
     }
     this.pos = [Math.min(bed[0], Math.max(0, this.pos[0] + dx)), Math.min(bed[1], Math.max(0, this.pos[1] + dy))];
+    this.state = 'jog';
+    this.emitStatus();
+    this.jogTimer = setTimeout(() => {
+      this.jogTimer = null;
+      if (this.state === 'jog') {
+        this.state = 'idle';
+        this.emitStatus();
+      }
+    }, 200);
+    this.log('in', 'ok');
+  }
+
+  /** Movimiento absoluto en coordenadas de trabajo (`$J=G90`), con el láser apagado. */
+  jogTo(x: number, y: number, bed: Point, speed = 1500): void {
+    this.requireConnection();
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('La posición de destino no es un número.');
+    if (!(speed > 0)) throw new Error('La velocidad del movimiento debe ser mayor que 0.');
+    this.log('out', `$J=G90 G21 X${x} Y${y} F${speed}`);
+    if (this.alarmCode !== null) {
+      const reply = describeLine('error:9');
+      this.log('in', reply);
+      throw new Error(`La máquina rechazó el movimiento (${reply}). Si la máquina está en alarma, desbloquéala con $X o haz homing ($H) desde la consola.`);
+    }
+    this.pos = [Math.min(bed[0], Math.max(0, x)), Math.min(bed[1], Math.max(0, y))];
     this.state = 'jog';
     this.emitStatus();
     this.jogTimer = setTimeout(() => {
@@ -358,15 +406,30 @@ export class MockMachine {
 
   /** Recorre el rectángulo del trabajo con el láser apagado. */
   frame(bounds: [Point, Point]): void {
+    const [[x0, y0], [x1, y1]] = bounds;
+    this.walk([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]], `encuadre ${x0.toFixed(1)},${y0.toFixed(1)} a ${x1.toFixed(1)},${y1.toFixed(1)}`);
+  }
+
+  /** Encuadre de banda elástica: recorre el casco convexo de los movimientos `[kind, x, y, power]`. */
+  frameHull(moves: number[]): void {
+    const points: Point[] = [];
+    for (let i = 0; i + 3 < moves.length; i += 4) points.push([moves[i + 1]!, moves[i + 2]!]);
+    const hull = convexHull(points);
+    if (hull.length === 0) {
+      this.requireConnection();
+      throw new Error('No hay nada que encuadrar: el trabajo está vacío.');
+    }
+    this.walk([...hull, hull[0]!], `encuadre del contorno (${hull.length} vértices)`);
+  }
+
+  private walk(corners: Point[], note: string): void {
     this.requireConnection();
     if (this.job) throw new Error(BUSY_MESSAGE);
     this.preflight();
-    const [[x0, y0], [x1, y1]] = bounds;
-    const corners: Point[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
     let step = 0;
     this.state = 'run';
     this.feed = 6000;
-    this.log('out', `; encuadre ${x0.toFixed(1)},${y0.toFixed(1)} a ${x1.toFixed(1)},${y1.toFixed(1)}`);
+    this.log('out', `; ${note}`);
     this.frameTimer = setInterval(() => {
       this.pos = corners[Math.min(step, corners.length - 1)]!;
       this.emitStatus();

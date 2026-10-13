@@ -795,6 +795,7 @@ mod tests {
                     let from = last_travel.take().unwrap();
                     dirs.push((to.x - from.x) + (to.y - from.y));
                 }
+                Move::Dwell { .. } => unreachable!("el raster no emite pausas"),
             }
         }
         assert!(dirs.len() > 4);

@@ -10,7 +10,9 @@
 //! `Travel` y `Cut` y entre bloques, y arranca en reposo desde el origen
 //! (o desde el punto que se indique en [`estimate_from`]).
 //!
-//! No modela: tiempo de comunicación, latencia del búfer serie, pausas ni
+//! Una pausa (`Move::Dwell`) detiene la máquina y suma su tiempo tal cual.
+//!
+//! No modela: tiempo de comunicación, latencia del búfer serie ni
 //! el cambio de velocidad por `PowerMode`. Tampoco el eje Z: el `z_mm` de un bloque (cambio
 //! de foco o pasada profunda) no suma tiempo, porque un movimiento de Z entre bloques es
 //! corto frente al trabajo y no hay una velocidad de Z en `MachineProfile`.

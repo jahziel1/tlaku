@@ -23,6 +23,9 @@ fn summary(l: &LayerReport) -> String {
             if l.tabs == 1 { "puente" } else { "puentes" }
         ));
     }
+    if let Some((n, total)) = l.sub {
+        s.push_str(&format!(", sub-capa {n}/{total}"));
+    }
     if let Some((n, total)) = l.pass {
         s.push_str(&format!(", pasada {n}/{total}"));
     }
@@ -69,7 +72,9 @@ pub(crate) fn preview(
     for mv in toolpath.blocks.iter().flat_map(|b| &b.moves) {
         match *mv {
             Move::Travel { to } => moves.extend([0.0, to.x as f32, to.y as f32, 0.0]),
-            Move::Cut { to, power_pct } => {
+            // Una pausa se dibuja como un corte de longitud cero: el contrato de `moves` solo
+            // tiene travel y cut, y el tiempo de la pausa ya está en `move_times`.
+            Move::Cut { to, power_pct } | Move::Dwell { to, power_pct, .. } => {
                 moves.extend([1.0, to.x as f32, to.y as f32, power_pct as f32]);
             }
         }
