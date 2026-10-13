@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { DesignObject, Document } from '@/api/types';
+import { sampleDocument } from '@/api/mock/sample';
 import {
   DEFAULT_IMAGE_SETTINGS,
+  DEFAULT_TAB_SETTINGS,
+  layerFeatures,
+  normalizeLayer,
+  normalizeLayers,
+  usesZ,
   assignObjectsToLayer,
   countByLayer,
   dpiToInterval,
@@ -97,5 +103,55 @@ describe('intervalo y DPI', () => {
     for (const dpi of [100, 150, 254, 300, 500, 1000]) {
       expect(Math.abs(intervalToDpi(dpiToInterval(dpi)) - dpi) / dpi).toBeLessThan(1e-3);
     }
+  });
+});
+
+describe('capas de documentos viejos (Fase 4)', () => {
+  const old = (): Record<string, unknown> => {
+    const l: Record<string, unknown> = { ...makeLayer('#ff0000', 'Rojo') };
+    for (const k of ['fill_style', 'tabs', 'z_offset', 'z_step']) delete l[k];
+    l.image = { mode: 'floyd', threshold: 0.4, brightness: 0, contrast: 0, gamma: 1, invert: false, dot_width: 0 };
+    return l;
+  };
+
+  it('completa lo que falta con los valores por defecto y conserva lo que había', () => {
+    const l = normalizeLayer(old() as never);
+    expect(l.fill_style).toBe('scan');
+    expect(l.tabs).toEqual(DEFAULT_TAB_SETTINGS);
+    expect(l.z_offset).toBe(0);
+    expect(l.z_step).toBe(0);
+    expect(l.image.halftone_cell).toBe(0.5);
+    expect(l.image.halftone_angle).toBe(45);
+    expect(l.image.mode).toBe('floyd');
+    expect(l.image.threshold).toBe(0.4);
+  });
+
+  it('una capa completa vuelve como el mismo objeto', () => {
+    const l = makeLayer('#00f', 'Azul');
+    expect(normalizeLayer(l)).toBe(l);
+  });
+
+  it('normalizeLayers solo crea un documento nuevo si hizo falta', () => {
+    const doc = { ...sampleDocument(), layers: [makeLayer('#00f', 'Azul')] };
+    expect(normalizeLayers(doc)).toBe(doc);
+    const viejo = { ...doc, layers: [old() as never] };
+    const fixed = normalizeLayers(viejo);
+    expect(fixed).not.toBe(viejo);
+    expect(fixed.layers[0]!.tabs.count).toBe(4);
+  });
+});
+
+describe('rasgos de una capa para la lista', () => {
+  it('puentes solo en line, contornos solo en fill, Z solo si la máquina lo tiene', () => {
+    const tabs = { ...DEFAULT_TAB_SETTINGS, enabled: true };
+    expect(layerFeatures(makeLayer('#f00', 'a', { tabs }), false)).toEqual(['tabs']);
+    expect(layerFeatures(makeLayer('#f00', 'a', { mode: 'fill', tabs }), false)).toEqual([]);
+    expect(layerFeatures(makeLayer('#f00', 'a', { mode: 'fill', fill_style: 'offset' }), false)).toEqual(['offset']);
+    expect(layerFeatures(makeLayer('#f00', 'a', { mode: 'line', fill_style: 'offset' }), false)).toEqual([]);
+    const z = makeLayer('#f00', 'a', { z_step: 0.5 });
+    expect(layerFeatures(z, false)).toEqual([]);
+    expect(layerFeatures(z, true)).toEqual(['z']);
+    expect(usesZ(z)).toBe(true);
+    expect(usesZ(makeLayer('#f00', 'a'))).toBe(false);
   });
 });

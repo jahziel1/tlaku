@@ -102,3 +102,38 @@ describe('formatNumber', () => {
     expect(formatNumber(25.4 / 0.1, 1)).toBe('254');
   });
 });
+
+describe('campos de la Fase 4', () => {
+  it('ancho de puente y celda deben ser mayores que cero', () => {
+    expect(ok('tab_width', '0.5')).toBe(0.5);
+    expect(ok('tab_width', '0')).toBe('layers.err.positive');
+    expect(ok('tab_width', '-1')).toBe('layers.err.positive');
+    expect(ok('tab_width', '51')).toBe('layers.err.range');
+    expect(ok('halftone_cell', '0')).toBe('layers.err.positive');
+    expect(ok('halftone_cell', '0,5')).toBe(0.5);
+    expect(ok('halftone_cell', '11')).toBe('layers.err.range');
+  });
+
+  it('cantidad de puentes es entera y al menos 1', () => {
+    expect(ok('tab_count', '4')).toBe(4);
+    expect(ok('tab_count', '2.5')).toBe('layers.err.integer');
+    expect(ok('tab_count', '0')).toBe('layers.err.range');
+  });
+
+  it('separación: 0 usa la cantidad, y si no debe superar el ancho del puente', () => {
+    expect(ok('tab_spacing', '0', { tabWidth: 2 })).toBe(0);
+    expect(ok('tab_spacing', '10', { tabWidth: 2 })).toBe(10);
+    expect(ok('tab_spacing', '2', { tabWidth: 2 })).toBe('layers.err.spacingBelowWidth');
+    expect(ok('tab_spacing', '1', { tabWidth: 2 })).toBe('layers.err.spacingBelowWidth');
+    expect(ok('tab_spacing', '-1')).toBe('layers.err.range');
+  });
+
+  it('ángulo de la rejilla y Z', () => {
+    expect(ok('halftone_angle', '45')).toBe(45);
+    expect(ok('halftone_angle', '400')).toBe('layers.err.range');
+    expect(ok('z_offset', '-2.5')).toBe(-2.5);
+    expect(ok('z_offset', '101')).toBe('layers.err.range');
+    expect(ok('z_step', '0.2')).toBe(0.2);
+    expect(ok('z_step', 'x')).toBe('layers.err.number');
+  });
+});

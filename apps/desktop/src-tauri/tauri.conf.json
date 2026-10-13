@@ -48,16 +48,63 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "dmg",
+      "app",
+      "nsis",
+      "msi",
+      "deb",
+      "appimage"
+    ],
     "category": "GraphicsAndDesign",
-    "shortDescription": "Software libre para grabar y cortar con láser",
+    "publisher": "tlaku contributors",
+    "copyright": "© 2026 tlaku contributors",
     "license": "MIT",
+    "licenseFile": "../../../LICENSE",
+    "shortDescription": "Software libre para grabar y cortar con láser",
+    "longDescription": "Tlaku es software libre (licencia MIT) para preparar y enviar trabajos a cortadoras y grabadoras láser: importa SVG, DXF e imágenes, organiza capas y ajustes de corte, planifica el recorrido, estima el tiempo y controla máquinas GRBL por puerto serie.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "hardenedRuntime": true,
+      "entitlements": "Entitlements.plist"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Spanish",
+          "English"
+        ],
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": [
+          "es-ES",
+          "en-US"
+        ]
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "graphics",
+        "priority": "optional",
+        "depends": [
+          "libudev1"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
   }
 }

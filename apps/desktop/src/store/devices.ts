@@ -1,7 +1,7 @@
 import { getApi } from '@/api';
 import type { DeviceProfile } from '@/api/types';
 import { t } from '@/i18n';
-import { validateDevice } from '@/lib/device';
+import { normalizeDevice, validateDevice } from '@/lib/device';
 import { errorMessage } from '@/lib/errors';
 import type { SliceCreator } from './types';
 
@@ -26,7 +26,8 @@ export const createDevicesSlice: SliceCreator<DevicesSlice> = (set, get) => ({
   loadDevices: async () => {
     set({ devicesLoading: true });
     try {
-      const devices = await getApi().listDevices();
+      // Perfiles guardados antes de la fase 4 llegan sin Z, rotativo ni corrección de barrido.
+      const devices = (await getApi().listDevices()).map(normalizeDevice);
       const wanted = get().doc.device_id ?? get().activeDeviceId;
       const activeDeviceId = devices.find((d) => d.id === wanted)?.id ?? devices[0]?.id ?? null;
       set({ devices, activeDeviceId, devicesLoading: false });

@@ -18,16 +18,20 @@ mod layers;
 mod material_test;
 mod place;
 mod preview;
+mod rotary;
+mod scan_offset;
+mod tabs;
+mod zaxis;
 
 pub use build::{build, compute, compute_at};
 pub use gcode::{frame_gcode, gcode};
 pub use import::{ImportOptions, InputKind, import_file, import_file_with, input_kind};
-pub use job::{ComputedJob, LayerReport, block_bounds, check_bounds};
-pub use material_test::material_test;
+pub use job::{ComputedJob, LayerReport, block_bounds, check_bounds, check_device_bounds};
 pub use layers::{
     LayerRole, MAX_PASSES, ResolvedImage, ResolvedLayer, classify, layer_sequence, resolve_image,
     resolve_layer,
 };
+pub use material_test::material_test;
 
 /// Los tipos del documento, para quien solo depende de este crate.
 pub use tlaku_doc as doc;

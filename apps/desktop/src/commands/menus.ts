@@ -54,6 +54,7 @@ export const MENUS: MenuDef[] = [
     items: [
       'arrange.union', 'arrange.difference', 'arrange.intersection', 'arrange.xor', 'arrange.weld', '-',
       'arrange.offset', '-',
+      'arrange.join', 'arrange.close', 'arrange.dedupe', '-',
       'arrange.align.left', 'arrange.align.hcenter', 'arrange.align.right',
       'arrange.align.top', 'arrange.align.vcenter', 'arrange.align.bottom', '-',
       'arrange.distribute.h', 'arrange.distribute.v', 'arrange.alignDialog', '-',

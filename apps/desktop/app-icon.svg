@@ -1,7 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Ícono original de Tlaku. Una T (glifo de códice) cuyo trazo vertical es el haz de un láser
+       que termina en un punto con un anillo: el punto donde el láser toca el material. -->
   <rect x="64" y="64" width="896" height="896" rx="200" fill="#151920"/>
   <rect x="64" y="64" width="896" height="896" rx="200" fill="none" stroke="#3b4655" stroke-width="12"/>
-  <path d="M250 780V250h120v410h400v120z" fill="#e9edf3"/>
-  <path d="M470 560 700 330" stroke="#8793ff" stroke-width="56" stroke-linecap="round"/>
-  <circle cx="740" cy="290" r="86" fill="#8793ff"/>
+  <!-- barra superior de la T -->
+  <rect x="236" y="238" width="552" height="132" rx="30" fill="#e9edf3"/>
+  <!-- haz -->
+  <rect x="452" y="370" width="120" height="270" fill="#8793ff"/>
+  <!-- punto de impacto y anillo -->
+  <circle cx="512" cy="738" r="150" fill="none" stroke="#8793ff" stroke-width="40"/>
+  <circle cx="512" cy="738" r="74" fill="#e9edf3"/>
 </svg>

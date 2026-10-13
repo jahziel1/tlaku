@@ -357,3 +357,39 @@ fn move_times_are_cumulative_and_end_at_the_total() {
     close(*t.last().unwrap(), estimate(&tp, &profile()).total_s);
     assert!(move_times(p(0.0, 0.0), &job(vec![]), &profile()).is_empty());
 }
+
+#[test]
+fn z_does_not_change_the_estimate() {
+    let moves = vec![travel(0.0, 0.0), cut(50.0, 0.0)];
+    let flat = job(vec![block(3000.0, moves.clone())]);
+    let mut deep = flat.clone();
+    deep.blocks[0].z_mm = Some(12.0);
+    assert_eq!(
+        estimate(&flat, &profile()).total_s,
+        estimate(&deep, &profile()).total_s
+    );
+}
+
+#[test]
+fn a_laser_off_cut_gap_is_not_slower_than_a_travel_gap() {
+    // Hueco de un puente: con Travel la máquina se detiene al cambiar de tipo de movimiento;
+    // con Cut a potencia 0 conserva la velocidad de corte.
+    let gap = |mv: fn(f64, f64) -> Move| {
+        job(vec![block(
+            3000.0,
+            vec![
+                travel(0.0, 0.0),
+                cut(20.0, 0.0),
+                mv(22.0, 0.0),
+                cut(42.0, 0.0),
+            ],
+        )])
+    };
+    let zero_cut = |x: f64, y: f64| Move::Cut {
+        to: p(x, y),
+        power_pct: 0.0,
+    };
+    let with_cut = estimate(&gap(zero_cut), &profile()).total_s;
+    let with_travel = estimate(&gap(travel), &profile()).total_s;
+    assert!(with_cut < with_travel, "{with_cut} >= {with_travel}");
+}

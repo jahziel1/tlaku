@@ -11,11 +11,23 @@
 //!    primero). Ninguna otra opción cruza la frontera de un cubo.
 //! 2. **Interior antes que contenedor** (`inner_first`), dentro de cada cubo. Una figura
 //!    cerrada contiene a otra cerrada o abierta si su caja envolvente y varios vértices de
-//!    muestra caen dentro del polígono y su área es estrictamente mayor (si una figura cae
-//!    en dos contenedores solapados que no se contienen, solo cuenta el de menor área). Es una
-//!    restricción dura: ni el recorrido corto ni la mejora 2-opt la rompen. Si el contenedor
-//!    y el interior quedan en cubos distintos y el contenedor sale antes, gana el nivel y se
-//!    avisa en [`Plan::warnings`] y en el [`Reason`] del contenedor.
+//!    muestra caen dentro del polígono y su área es estrictamente mayor. Es una restricción
+//!    dura: ni el recorrido corto ni la mejora 2-opt la rompen. Si el contenedor y el interior
+//!    quedan en cubos distintos y el contenedor sale antes, gana el nivel y se avisa en
+//!    [`Plan::warnings`] y en el [`Reason`] del contenedor.
+//!
+//!    **Solapes parciales.** La contención solo cubre "cabe entera dentro". Cuando las figuras
+//!    se cruzan, una figura `A` debe cortarse antes que una figura cerrada `B` de mayor rango
+//!    si **más de la mitad** de `A` (de su área; de su longitud si es abierta o no tiene área)
+//!    cae dentro de `B`, o si más de la mitad cae dentro de la unión de varias figuras mayores y
+//!    `B` aporta al menos una cuarta parte (una figura que cruza la costura entre dos piezas).
+//!    Esto incluye a una figura contenida a la vez en dos contenedores que se cruzan entre sí:
+//!    va antes que ambos, no solo que el menor. El rango es (sin área, área, índice), de modo
+//!    que en un solape mutuo va primero la de menor área y, a igual área, la de menor índice:
+//!    las precedencias nunca forman ciclos. La medida es una muestra fija (cuadrícula de 8 x 8
+//!    sobre el área, 16 puntos sobre la longitud), así que es aproximada pero determinista.
+//!    Solo restringe dentro del mismo cubo y tiene un presupuesto de trabajo; si se agota se
+//!    avisa con [`Warning::OverlapAnalysisLimited`].
 //! 3. **Recorrido corto** (`reduce_travel`): vecino más cercano entre los elementos
 //!    "listos" (sin interiores pendientes) y mejora 2-opt/Or-opt que solo acepta cambios que
 //!    respetan 1 y 2. Sin `reduce_travel` se conserva el orden original (salvo lo que
@@ -30,6 +42,7 @@ mod explain;
 mod geom;
 mod grid;
 mod improve;
+mod overlap;
 mod planner;
 mod sched;
 mod shapes;
@@ -113,6 +126,9 @@ pub struct Blocked {
     /// `true`: la figura elegida está dentro de `item` (por eso va antes). `false`: `item`
     /// espera a otros interiores y la elegida no tiene relación con ella.
     pub contains_this: bool,
+    /// La elegida va antes por solape parcial (su mayor parte cae dentro de `item`), no por
+    /// estar entera dentro. Solo con `contains_this`.
+    pub by_overlap: bool,
 }
 
 /// Por qué un paso va donde va. Los índices `usize` son posiciones en la entrada.
@@ -136,6 +152,14 @@ pub enum Reason {
     },
     /// Va antes que `container`, que la contiene y estaba más cerca.
     InnerFirst { container: usize },
+    /// Va antes que `other`, con la que se solapa sin estar contenida del todo: `share_pct` % de
+    /// su muestra (área o longitud) cae dentro de `other`. Con `with_others` la decisión sumó
+    /// otras figuras: en conjunto cubren más de la mitad y `other` aporta al menos un cuarto.
+    OverlapFirst {
+        other: usize,
+        share_pct: u8,
+        with_others: bool,
+    },
     /// La figura más cercana (`distance_mm` hasta su punto más próximo) entre las permitidas.
     /// `blocked`: la figura aún más cercana que debía esperar a sus interiores (la más
     /// cercana de las bloqueadas; si la elegida está dentro de alguna, sale `InnerFirst`).
@@ -167,6 +191,7 @@ fn first_of(
         Some(Blocked {
             item,
             contains_this: true,
+            by_overlap: false,
         }) => write!(
             f,
             "primera figura de {bucket}; va antes que la figura #{item} (la más cercana) \
@@ -174,7 +199,17 @@ fn first_of(
         ),
         Some(Blocked {
             item,
+            contains_this: true,
+            by_overlap: true,
+        }) => write!(
+            f,
+            "primera figura de {bucket}; va antes que la figura #{item} (la más cercana) \
+             porque casi toda cae dentro de ella y lo más sujeto se corta primero"
+        ),
+        Some(Blocked {
+            item,
             contains_this: false,
+            ..
         }) => write!(
             f,
             "primera figura de {bucket}; la figura #{item} estaba más cerca \
@@ -220,6 +255,24 @@ impl fmt::Display for Reason {
                 f,
                 "va antes que la figura #{container}, que la contiene: interiores primero"
             ),
+            Reason::OverlapFirst {
+                other,
+                share_pct,
+                with_others: false,
+            } => write!(
+                f,
+                "va antes que la figura #{other}, con la que se solapa: el {share_pct} % de ella \
+                 cae dentro, así que se corta primero la parte que queda sujeta"
+            ),
+            Reason::OverlapFirst {
+                other,
+                share_pct,
+                with_others: true,
+            } => write!(
+                f,
+                "va antes que la figura #{other}, con la que se solapa: el {share_pct} % de ella \
+                 cae dentro y, junto con otras figuras, queda casi toda sobre material ajeno"
+            ),
             Reason::Nearest {
                 distance_mm,
                 blocked: None,
@@ -264,6 +317,9 @@ impl fmt::Display for Reason {
 pub enum Warning {
     /// Trayectoria vacía o con coordenadas no finitas; no aparece en el plan.
     SkippedInvalid { item: usize },
+    /// Demasiadas figuras grandes y solapadas: se agotó el presupuesto del análisis de solapes
+    /// parciales y algunas relaciones no se evaluaron (la contención estricta sí se aplica).
+    OverlapAnalysisLimited,
     /// `container` se corta antes que su interior `inner` porque `level` manda.
     InnerOverriddenByLevel {
         inner: usize,
@@ -278,6 +334,11 @@ impl fmt::Display for Warning {
             Warning::SkippedInvalid { item } => write!(
                 f,
                 "la figura #{item} está vacía o tiene coordenadas inválidas y se omitió"
+            ),
+            Warning::OverlapAnalysisLimited => write!(
+                f,
+                "hay demasiadas figuras grandes que se solapan: no se analizaron todos los \
+                 solapes parciales y algunas figuras que se cruzan pueden cortarse en cualquier orden"
             ),
             Warning::InnerOverriddenByLevel {
                 inner,

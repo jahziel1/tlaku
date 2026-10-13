@@ -51,6 +51,45 @@ export function makeLayer(color: string, name: string, patch: Partial<LayerSetti
   };
 }
 
+/**
+ * Completa una capa que llega sin los campos nuevos (documentos viejos, perfiles guardados antes
+ * de la Fase 4) con los valores por defecto. Devuelve el mismo objeto si ya estaba completa.
+ */
+export function normalizeLayer(layer: Partial<LayerSettings> & { color: string }): LayerSettings {
+  const base = makeLayer(layer.color, layer.name ?? '');
+  const image = { ...base.image, ...layer.image };
+  const tabs = { ...base.tabs, ...layer.tabs };
+  const merged: LayerSettings = { ...base, ...layer, image, tabs };
+  const complete =
+    (Object.keys(base) as (keyof LayerSettings)[]).every((k) => k in layer) &&
+    Object.keys(image).every((k) => k in (layer.image ?? {})) &&
+    Object.keys(tabs).every((k) => k in (layer.tabs ?? {}));
+  return complete ? (layer as LayerSettings) : merged;
+}
+
+/** Documento con todas sus capas completas; el mismo objeto si no hacía falta tocar ninguna. */
+export function normalizeLayers(doc: Document): Document {
+  const layers = doc.layers.map((l) => normalizeLayer(l));
+  return layers.every((l, i) => l === doc.layers[i]) ? doc : { ...doc, layers };
+}
+
+/** La capa trae ajustes de Z distintos de 0 (que la máquina sin eje Z ignora). */
+export function usesZ(layer: Pick<LayerSettings, 'z_offset' | 'z_step'>): boolean {
+  return (layer.z_offset ?? 0) !== 0 || (layer.z_step ?? 0) !== 0;
+}
+
+/** Rasgos de una capa que conviene ver de un vistazo en la lista. */
+export type LayerFeature = 'tabs' | 'offset' | 'z';
+
+/** Puentes activos (solo en line), relleno por contornos (solo en fill) y Z (si la máquina lo tiene). */
+export function layerFeatures(layer: LayerSettings, machineHasZ: boolean): LayerFeature[] {
+  const out: LayerFeature[] = [];
+  if (layer.mode === 'line' && layer.tabs?.enabled) out.push('tabs');
+  if (layer.mode === 'fill' && layer.fill_style === 'offset') out.push('offset');
+  if (machineHasZ && usesZ(layer)) out.push('z');
+  return out;
+}
+
 /** Capa nueva para un color: con el nombre de la paleta y, si es la de guías, sin salida. */
 export function newLayerFor(color: string): LayerSettings {
   return makeLayer(color, colorName(color), isGuideColor(color) ? { output: false } : {});

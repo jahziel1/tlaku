@@ -1,15 +1,19 @@
-//! Modo Fill: relleno vectorial por barrido (scanline).
+//! Modo Fill: relleno vectorial por barrido (scanline) o por contornos concéntricos.
 //!
 //! Recibe polilíneas cerradas en mm y produce un [`ToolpathBlock`] con líneas paralelas,
-//! overscan, serpentina y crosshatch opcionales. Las trayectorias abiertas no se rellenan y
-//! se reportan en [`FillResult::ignored_open`].
+//! overscan, serpentina y crosshatch opcionales ([`FillPattern::Scan`]), o con contornos
+//! cerrados hacia dentro ([`FillPattern::Offset`], ver el módulo `offset`). Las trayectorias
+//! abiertas no se rellenan y se reportan en [`FillResult::ignored_open`].
 //!
 //! Las líneas de barrido caen en `y = (k + 0.5) * interval` del marco rotado, de modo que
 //! una línea nunca coincide con el borde de una caja alineada con el barrido y el resultado
 //! es el mismo sin importar cómo se agrupen las formas.
 
 mod cluster;
+mod offset;
 mod scan;
+
+pub use offset::{MAX_LEVELS, MAX_POINTS, MAX_RINGS, MAX_WORK};
 
 use cluster::{BBox, components};
 use scan::{Frame, push_edges, scan};
@@ -32,7 +36,12 @@ pub enum FillPattern {
     /// Líneas paralelas a `angle_deg` separadas `interval_mm`.
     #[default]
     Scan,
-    /// Contornos concéntricos hacia dentro separados `interval_mm`.
+    /// Contornos concéntricos hacia dentro separados `interval_mm`: el primero a `interval_mm / 2`
+    /// del borde, de afuera hacia adentro, hasta que la forma desaparece. Cada contorno es un
+    /// trazo cerrado con `Cut` a `power_pct`. Solo usan este patrón `interval_mm`,
+    /// `fill_rule`, `speed_mm_min`, `power_pct` y `air_assist`; `angle_deg`, `bidirectional`,
+    /// `crosshatch`, `overscan_mm` y `grouping` no tienen efecto (se validan igual). Falla si el
+    /// diseño supera los topes [`MAX_RINGS`], [`MAX_POINTS`], [`MAX_WORK`] o [`MAX_LEVELS`].
     Offset,
 }
 
@@ -49,7 +58,7 @@ pub enum Grouping {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FillSettings {
-    /// Separación entre líneas de barrido, en mm (mayor que 0).
+    /// Separación entre líneas de barrido (o entre contornos concéntricos), en mm (mayor que 0).
     pub interval_mm: f64,
     /// 0 = horizontal, 90 = vertical, en sentido antihorario.
     pub angle_deg: f64,
@@ -121,11 +130,6 @@ pub struct FillResult {
 /// cantidad absurda de líneas.
 pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, String> {
     settings.validate()?;
-    if settings.pattern == FillPattern::Offset {
-        // TODO(fase4): relleno por contornos concéntricos.
-        return Err("el relleno por contornos aún no está implementado".into());
-    }
-
     let ignored_open: Vec<usize> = paths
         .iter()
         .enumerate()
@@ -139,6 +143,31 @@ pub fn fill(paths: &[Polyline], settings: &FillSettings) -> Result<FillResult, S
         .filter(|p| p.points.iter().all(|q| q.x.is_finite() && q.y.is_finite()))
         .map(|p| p.points.as_slice())
         .collect();
+
+    if settings.pattern == FillPattern::Offset {
+        let mut block = ToolpathBlock {
+            label: format!(
+                "Relleno por contornos intervalo={} potencia={}%",
+                settings.interval_mm, settings.power_pct
+            ),
+            speed_mm_min: settings.speed_mm_min,
+            air_assist: settings.air_assist,
+            power_mode: PowerMode::Dynamic,
+            moves: Vec::new(),
+            z_mm: None,
+        };
+        offset::offset_fill(
+            &polys,
+            settings.interval_mm,
+            settings.fill_rule,
+            settings.power_pct,
+            &mut block.moves,
+        )?;
+        return Ok(FillResult {
+            block,
+            ignored_open,
+        });
+    }
 
     let mut block = ToolpathBlock {
         label: format!(

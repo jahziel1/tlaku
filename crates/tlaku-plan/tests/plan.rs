@@ -770,7 +770,8 @@ fn first_of_layer_keeps_inner_first_when_nearest_is_blocked() {
             layer: 0,
             blocked: Some(Blocked {
                 item: 0,
-                contains_this: true
+                contains_this: true,
+                by_overlap: false,
             })
         }
     );
@@ -806,7 +807,8 @@ fn first_of_layer_keeps_inner_first_without_reduce_travel() {
         Reason::FirstOfLayer {
             blocked: Some(Blocked {
                 item: 0,
-                contains_this: true
+                contains_this: true,
+                by_overlap: false,
             }),
             ..
         }
@@ -871,7 +873,8 @@ fn first_of_layer_notes_unrelated_blocked_neighbor() {
             layer: 0,
             blocked: Some(Blocked {
                 item: 0,
-                contains_this: false
+                contains_this: false,
+                by_overlap: false,
             })
         }
     );
@@ -1435,4 +1438,234 @@ fn baseline_respects_precedence() {
             }
         }
     }
+}
+
+// ---- solapes parciales ----
+
+/// Opciones sin niveles, para ver solo la regla de precedencia y la cercanía.
+fn flat_opts(start: Point) -> PlanOptions {
+    PlanOptions {
+        order_by_layer: false,
+        order_by_priority: false,
+        start,
+        ..opts()
+    }
+}
+
+#[test]
+fn partial_overlap_cuts_the_mostly_covered_figure_first() {
+    // B (1) queda en un 75 % dentro de A (0) sin estar contenida. A está más cerca del inicio,
+    // pero B se corta antes: de lo contrario A suelta la mayor parte de B.
+    let items = vec![item(square(0.0, 0.0, 40.0)), item(square(25.0, 10.0, 20.0))];
+    let o = flat_opts(pt(-5.0, -5.0));
+    let p = plan(&items, &o);
+    assert_eq!(order(&p), vec![1, 0]);
+    assert!(
+        matches!(
+            p.steps[0].reason,
+            Reason::OverlapFirst {
+                other: 0,
+                with_others: false,
+                ..
+            }
+        ),
+        "{:?}",
+        p.steps[0].reason
+    );
+    let text = p.steps[0].reason.to_string();
+    assert!(
+        text.contains("#0") && text.contains("se solapa") && text.contains("75 %"),
+        "{text}"
+    );
+    // Sin la regla, A (más cercana) iría primero.
+    let free = plan(
+        &items,
+        &PlanOptions {
+            inner_first: false,
+            ..o.clone()
+        },
+    );
+    assert_eq!(order(&free), vec![0, 1]);
+    check_consistency(&items, &o, &p);
+}
+
+#[test]
+fn slight_overlap_leaves_order_free() {
+    let items = vec![item(square(0.0, 0.0, 40.0)), item(square(35.0, 35.0, 40.0))];
+    let o = flat_opts(pt(-5.0, -5.0));
+    assert_eq!(order(&plan(&items, &o)), vec![0, 1]);
+}
+
+#[test]
+fn figure_inside_two_crossing_containers_goes_before_both() {
+    // A (0) y B (1) se cruzan sin contenerse (25 % de A en B). C (2) cae en la intersección:
+    // está dentro de las dos. Con el árbol de contención solo iba antes que A, la menor.
+    let items = vec![
+        item(square(0.0, 0.0, 40.0)),
+        item(square(20.0, 20.0, 60.0)),
+        item(square(25.0, 25.0, 6.0)),
+    ];
+    // Empezar cerca de B para que, sin la regla, B sea la más cercana.
+    let o = flat_opts(pt(85.0, 85.0));
+    let p = plan(&items, &o);
+    assert!(pos_of(&p, 2) < pos_of(&p, 0), "{:?}", order(&p));
+    assert!(pos_of(&p, 2) < pos_of(&p, 1), "{:?}", order(&p));
+    assert_eq!(order(&p)[0], 2);
+    // Ni la mejora ni el orden original lo rompen.
+    for (reduce, passes) in [(false, 0), (true, 0), (true, 3)] {
+        let p = plan(
+            &items,
+            &PlanOptions {
+                reduce_travel: reduce,
+                improve_passes: passes,
+                ..o.clone()
+            },
+        );
+        assert_eq!(order(&p)[0], 2, "reduce={reduce} passes={passes}");
+    }
+}
+
+#[test]
+fn figure_straddling_two_pieces_goes_before_both() {
+    // C (2) cruza la costura entre A (0) y B (1): 40 % en cada una, 80 % en la unión.
+    let items = vec![
+        item(square(0.0, 0.0, 20.0)),
+        item(square(20.0, 0.0, 20.0)),
+        item(square(15.0, 5.0, 10.0)),
+    ];
+    let o = flat_opts(pt(-5.0, 10.0));
+    let p = plan(&items, &o);
+    assert_eq!(order(&p)[0], 2, "{:?}", order(&p));
+    assert!(matches!(
+        p.steps[0].reason,
+        Reason::OverlapFirst {
+            with_others: true,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn mutual_overlap_breaks_ties_deterministically() {
+    // Dos cuadrados iguales con 80 % de solape en cada sentido: sin ciclo, va primero el de
+    // menor índice aunque el otro esté más cerca.
+    let items = vec![item(square(0.0, 0.0, 10.0)), item(square(2.0, 0.0, 10.0))];
+    let o = flat_opts(pt(20.0, 5.0));
+    let p = plan(&items, &o);
+    assert_eq!(order(&p), vec![0, 1]);
+    let swapped = vec![items[1].clone(), items[0].clone()];
+    let p2 = plan(&swapped, &o);
+    assert_eq!(order(&p2), vec![0, 1]);
+}
+
+#[test]
+fn line_mostly_inside_a_shape_goes_first() {
+    // La línea sale un poco de la figura: el 75 % de su longitud está dentro.
+    let items = vec![
+        item(square(0.0, 0.0, 40.0)),
+        item(line((10.0, 20.0), (50.0, 20.0))),
+    ];
+    let o = flat_opts(pt(-5.0, -5.0));
+    let p = plan(&items, &o);
+    assert_eq!(order(&p), vec![1, 0]);
+    assert!(matches!(
+        p.steps[0].reason,
+        Reason::OverlapFirst { other: 0, .. }
+    ));
+    // Si cruza de lado a lado con la mitad dentro, no hay relación.
+    let items = vec![
+        item(square(0.0, 0.0, 40.0)),
+        item(line((20.0, 20.0), (60.0, 20.0))),
+    ];
+    assert_eq!(order(&plan(&items, &o)), vec![0, 1]);
+}
+
+#[test]
+fn overlap_does_not_cross_levels() {
+    // En capas distintas manda el nivel; no hay aviso porque no es contención.
+    let items = vec![
+        layered(square(0.0, 0.0, 40.0), 0),
+        layered(square(25.0, 10.0, 20.0), 1),
+    ];
+    let o = PlanOptions {
+        start: pt(-5.0, -5.0),
+        ..opts()
+    };
+    let p = plan(&items, &o);
+    assert_eq!(order(&p), vec![0, 1]);
+    assert!(p.warnings.is_empty());
+}
+
+/// Cuadrados solapados al azar: sin pánico, permutación válida, determinista y, cuando una
+/// figura cae casi toda en otra mayor, se corta antes.
+#[test]
+fn random_overlapping_squares_never_cycle() {
+    let mut r = Lcg(4242);
+    for case in 0..150 {
+        let n = 3 + r.below(40);
+        let items: Vec<PlanItem> = (0..n)
+            .map(|_| {
+                let s = 4.0 + r.next() * 30.0;
+                item(square(r.next() * 50.0, r.next() * 50.0, s))
+            })
+            .collect();
+        let o = PlanOptions {
+            reduce_travel: r.below(3) != 0,
+            improve_passes: r.below(4),
+            start: pt(r.next() * 80.0, r.next() * 80.0),
+            ..opts()
+        };
+        let p = plan(&items, &o);
+        assert_eq!(p.steps.len(), n, "caso {case}");
+        assert!(p.warnings.is_empty());
+        check_consistency(&items, &o, &p);
+        assert_eq!(p, plan(&items, &o), "caso {case}: no determinista");
+        // Cuadrados de área estrictamente distinta: si el menor está en más de 3/4 de su área
+        // dentro del mayor (cálculo exacto de rectángulos), debe ir antes.
+        for (a, ia) in items.iter().enumerate() {
+            for (b, ib) in items.iter().enumerate() {
+                let (pa, pb) = (&ia.path.points, &ib.path.points);
+                let (sa, sb) = (pa[2].x - pa[0].x, pb[2].x - pb[0].x);
+                if a == b || sa >= sb {
+                    continue;
+                }
+                let w = (pa[2].x.min(pb[2].x) - pa[0].x.max(pb[0].x)).max(0.0);
+                let h = (pa[2].y.min(pb[2].y) - pa[0].y.max(pb[0].y)).max(0.0);
+                if w * h > 0.75 * sa * sa {
+                    assert!(
+                        pos_of(&p, a) < pos_of(&p, b),
+                        "caso {case}: {a} (75 % dentro de {b}) se corta después"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn first_step_of_a_layer_names_the_overlapped_figure_it_skipped() {
+    let items = vec![item(square(0.0, 0.0, 40.0)), item(square(25.0, 10.0, 20.0))];
+    let p = plan(
+        &items,
+        &PlanOptions {
+            start: pt(-5.0, -5.0),
+            ..opts()
+        },
+    );
+    assert_eq!(order(&p), vec![1, 0]);
+    match &p.steps[0].reason {
+        Reason::FirstOfLayer {
+            blocked: Some(b), ..
+        } => {
+            assert_eq!(b.item, 0);
+            assert!(b.contains_this && b.by_overlap);
+        }
+        r => panic!("{r:?}"),
+    }
+    assert!(
+        p.steps[0]
+            .reason
+            .to_string()
+            .contains("casi toda cae dentro")
+    );
 }

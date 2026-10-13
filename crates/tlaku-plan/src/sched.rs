@@ -22,16 +22,19 @@ pub(crate) fn init_marks(ctx: &mut Ctx, members: &[usize]) {
     }
 }
 
-/// Da `i` por cortada; devuelve el contenedor si con esto queda listo.
-pub(crate) fn complete(ctx: &mut Ctx, i: usize) -> Option<usize> {
+/// Da `i` por cortada; devuelve las figuras que con esto quedan listas.
+pub(crate) fn complete(ctx: &mut Ctx, i: usize) -> Vec<usize> {
     ctx.mark[i] = DONE;
-    let parent = ctx.bparent[i]?;
-    ctx.pending[parent] -= 1;
-    if ctx.pending[parent] == 0 {
-        ctx.mark[parent] = READY;
-        return Some(parent);
+    let mut freed = Vec::new();
+    for k in 0..ctx.bouter[i].len() {
+        let outer = ctx.bouter[i][k];
+        ctx.pending[outer] -= 1;
+        if ctx.pending[outer] == 0 {
+            ctx.mark[outer] = READY;
+            freed.push(outer);
+        }
     }
-    None
+    freed
 }
 
 /// Vecino más cercano entre los listos, con vértice de inicio y sentido elegidos.
@@ -86,7 +89,7 @@ pub(crate) fn input_order(ctx: &mut Ctx, members: &[usize], start: Point) -> Vec
             })
             .unwrap();
         ctx.sh.apply_entry(ctx.items, i, pt);
-        if let Some(p) = complete(ctx, i) {
+        for p in complete(ctx, i) {
             ready.push(Reverse(p));
         }
         pos = ctx.sh.exit(i);

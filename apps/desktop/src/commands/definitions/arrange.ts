@@ -1,7 +1,8 @@
 import { moveDoc, alignMoves, bedBounds, centerOnBedMoves, distributeMoves, type AlignKind, type DistributeAxis } from '@/features/arrange/align';
 import { centerForRadius, DEFAULT_RADIUS } from '@/features/arrange/arrays';
+import { cleanupReason } from '@/features/arrange/cleanup';
 import { analyzeSelection, geometryReason, runGeometry } from '@/features/arrange/geomOps';
-import { useArrangeUi, type AlignReference } from '@/features/arrange/uiStore';
+import { useArrangeUi, type AlignReference, type CleanupOp } from '@/features/arrange/uiStore';
 import { blockBounds, boundsCenter, selectionUnits } from '@/features/arrange/units';
 import type { I18nKey } from '@/i18n';
 import { selectActiveDevice } from '@/store';
@@ -59,6 +60,15 @@ const distributeCommands: CommandDef[] = (['h', 'v'] satisfies DistributeAxis[])
     const moves = distributeMoves(selectionUnits(s.doc, s.selectedIds), axis);
     s.applyDocChange(`arrange.history.distribute.${axis}` as I18nKey, (doc) => moveDoc(doc, moves));
   },
+}));
+
+/** Unir, cerrar y quitar duplicados: abren un diálogo pequeño con la tolerancia. */
+const cleanupCommands: CommandDef[] = (['join', 'close', 'dedupe'] satisfies CleanupOp[]).map((op) => ({
+  id: `arrange.${op}`,
+  label: `arrange.cmd.${op}` as I18nKey,
+  category: 'arrange',
+  enabled: (s) => cleanupReason(s, op),
+  run: () => useArrangeUi.getState().open({ kind: 'cleanup', op }),
 }));
 
 const referenceCommands: CommandDef[] = (['selection', 'object', 'bed'] satisfies AlignReference[]).map((ref) => ({
@@ -126,6 +136,7 @@ export const arrangeCommands: CommandDef[] = [
     enabled: (s) => geometryReason(s, 'offset'),
     run: () => useArrangeUi.getState().open({ kind: 'offset' }),
   },
+  ...cleanupCommands,
   // Alinear, distribuir y centrar
   ...alignCommands,
   ...distributeCommands,

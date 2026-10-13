@@ -65,7 +65,7 @@ El proyecto es MIT (decidido 2026-10-12). Las bibliotecas citadas existen en cra
 BSD, Zlib, ISC); una dependencia GPL obligaría a distribuir el binario como GPL (por ejemplo,
 usar vtracer y no potrace). Se automatizará con `cargo-deny`.
 
-## Estado (2026-10-12)
+## Estado (2026-10-13)
 
 **M1 terminado** (motor + CLI): importación SVG/DXF/imagen, modos Line/Fill/Image, kerf,
 planificador explicable, overscan físico, estimación de tiempo, G-code GRBL, envío con conteo
@@ -73,8 +73,21 @@ de caracteres, verificación de estado antes de enviar, encuadre y consola segur
 
 Pendiente detectado en M1:
 - No probado con hardware real (Falcon2 disponible para pruebas).
-- Recorte real de clip-path/mask en SVG (hoy solo se avisa); se puede hacer con tlaku-geom.
-- Planificador: figuras que se solapan sin anidarse pierden la precedencia interior-primero.
+- ~~Recorte real de clip-path/mask en SVG~~ (fase 4; mask es aproximada).
+- ~~Planificador: figuras que se solapan sin anidarse~~ (fase 4).
 - Estimación: se asume parada entre rápidos y cortes; calibrar contra tiempos reales.
-- Imagen: ángulo de barrido, scanning offset, Newsprint/Halftone/Sketch. Relleno: Offset/Flood fill.
+- ~~Imagen: ángulo de barrido, scanning offset, Newsprint/Halftone/Sketch. Relleno: Offset~~
+  (fase 4). Falta Flood fill.
 - Textos de ayuda y errores propios de clap en inglés.
+
+**M2 y M3 terminados** (app Tauri, edición completa) y cámara partes 1-2 (calibración de lente,
+fondo en vivo, alineación de 4 puntos).
+
+**M4, oleada A (sin hardware) terminada:** puentes, eje Z por capa, rotativo (rodillos/mandril),
+corrección de barrido por velocidad, semitono/periódico/boceto, ángulo de barrido en imágenes,
+relleno por contornos, recorte SVG real, planificador con solapes, biblioteca y prueba de
+materiales, unir/cerrar/quitar duplicados, instaladores (GitHub Actions) e ícono propio.
+807 pruebas en Rust y 899 en la interfaz.
+
+Pendiente de M4: Ruida, sub-capas, macros, cámara parte 3 (marcas grabadas, altura) y prueba
+con hardware real de todo lo anterior (Z, rotativo y corrección de barrido sobre todo).

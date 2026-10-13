@@ -7,6 +7,14 @@
 //! La salida es compacta: S y F son modales y las coordenadas X o Y que no
 //! cambian se omiten, lo que reduce mucho el tamaño del G-code de imágenes.
 //! No se usan offsets G54..G59 porque el firmware de Creality no los maneja bien.
+//!
+//! Eje Z: un bloque con `z_mm` empieza con `G0 Z…` (el láser está apagado en un G0). Z es
+//! modal: no se repite si ya está en ese valor. No hay movimientos Z dentro de un bloque.
+//!
+//! Rotativo: con `y_scale != 1` la Y del `Toolpath` está en mm de superficie de la pieza y se
+//! multiplica por `y_scale` para obtener los mm de la controladora. El avance F de un G1 se
+//! reescala por segmento para que la velocidad sobre la superficie sea la del bloque (ver
+//! [`GcodeOptions::y_scale`]).
 
 use std::fmt::Write;
 use tlaku_core::toolpath::{Move, PowerMode, Toolpath};
@@ -23,6 +31,14 @@ pub struct GcodeOptions {
     pub end_gcode: Option<String>,
     /// Decimales máximos de las coordenadas (se quitan los ceros sobrantes).
     pub decimals: usize,
+    /// Mm de la controladora por mm de Y del `Toolpath` (rotativo); 1 = sin rotativo.
+    ///
+    /// Una Y de superficie `y` sale como `y * y_scale`. La velocidad del bloque es sobre la
+    /// superficie, pero GRBL aplica F a la longitud del movimiento en mm de la controladora:
+    /// un tramo con componente Y sale con `F = velocidad * |tramo ctrl| / |tramo superficie|`.
+    /// Un tramo solo en X conserva la F del bloque, y por eso F deja de ser modal solo donde
+    /// hay Y.
+    pub y_scale: f64,
 }
 
 impl Default for GcodeOptions {
@@ -33,6 +49,7 @@ impl Default for GcodeOptions {
             start_gcode: None,
             end_gcode: None,
             decimals: 3,
+            y_scale: 1.0,
         }
     }
 }
@@ -77,8 +94,13 @@ struct Writer {
     decimals: usize,
     x: Option<String>,
     y: Option<String>,
+    z: Option<String>,
     s: Option<String>,
     f: Option<String>,
+    /// Mm de la controladora por mm de Y del `Toolpath`.
+    y_scale: f64,
+    /// Última posición en las coordenadas del `Toolpath` (antes de escalar Y).
+    pos: Option<tlaku_core::Point>,
 }
 
 impl Writer {
@@ -88,13 +110,15 @@ impl Writer {
     }
 
     /// Emite un G0/G1 con solo lo que cambió. No escribe nada si el punto es el
-    /// mismo (tras redondear) o si sus coordenadas no son finitas.
-    fn motion(&mut self, g: &str, to: tlaku_core::Point, s: Option<&str>, f: Option<&str>) {
+    /// mismo (tras redondear) o si sus coordenadas no son finitas. `feed` es la velocidad
+    /// del bloque en mm/min sobre la superficie; con `y_scale != 1` se reescala por tramo.
+    fn motion(&mut self, g: &str, to: tlaku_core::Point, s: Option<&str>, feed: Option<f64>) {
         if !to.x.is_finite() || !to.y.is_finite() {
             return;
         }
+        let from = self.pos.replace(to);
         let x = num(to.x, self.decimals);
-        let y = num(to.y, self.decimals);
+        let y = num(to.y * self.y_scale, self.decimals);
         let dx = self.x.as_deref() != Some(&x);
         let dy = self.y.as_deref() != Some(&y);
         if !dx && !dy {
@@ -113,11 +137,32 @@ impl Writer {
             write!(cmd, " S{s}").unwrap();
             self.s = Some(s.into());
         }
-        if let Some(f) = f.filter(|f| self.f.as_deref() != Some(f)) {
-            write!(cmd, " F{f}").unwrap();
-            self.f = Some(f.into());
+        if let Some(feed) = feed {
+            let f = num(self.scaled_feed(feed, from, to), self.decimals);
+            if self.f.as_deref() != Some(&f) {
+                write!(cmd, " F{f}").unwrap();
+                self.f = Some(f);
+            }
         }
         self.line(&cmd);
+    }
+
+    /// F para un tramo `from -> to` de modo que la velocidad sobre la superficie sea `feed`.
+    fn scaled_feed(
+        &self,
+        feed: f64,
+        from: Option<tlaku_core::Point>,
+        to: tlaku_core::Point,
+    ) -> f64 {
+        let Some(from) = from.filter(|_| self.y_scale != 1.0) else {
+            return feed;
+        };
+        let (dx, dy) = (to.x - from.x, to.y - from.y);
+        let surface = dx.hypot(dy);
+        if surface <= 0.0 {
+            return feed;
+        }
+        feed * dx.hypot(dy * self.y_scale) / surface
     }
 }
 
@@ -148,8 +193,15 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
         decimals: opts.decimals,
         x: None,
         y: None,
+        z: None,
         s: None,
         f: None,
+        y_scale: if opts.y_scale.is_finite() && opts.y_scale > 0.0 {
+            opts.y_scale
+        } else {
+            1.0
+        },
+        pos: None,
     };
     let blocks: Vec<_> = toolpath
         .blocks
@@ -180,14 +232,21 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
             w.line(if block.air_assist { "M8" } else { "M9" });
             air_on = block.air_assist;
         }
-        let f = (block.speed_mm_min.is_finite() && block.speed_mm_min > 0.0)
-            .then(|| num(block.speed_mm_min, opts.decimals));
+        if let Some(z) = block.z_mm.filter(|z| z.is_finite()) {
+            let z = num(z, opts.decimals);
+            if w.z.as_deref() != Some(&z) {
+                w.line(&format!("G0 Z{z}"));
+                w.z = Some(z);
+            }
+        }
+        let feed = (block.speed_mm_min.is_finite() && block.speed_mm_min > 0.0)
+            .then_some(block.speed_mm_min);
         for mv in &block.moves {
             match *mv {
                 Move::Travel { to } => w.motion("G0", to, None, None),
                 Move::Cut { to, power_pct } => {
                     let s = s_value(power_pct, opts.s_max);
-                    w.motion("G1", to, Some(&s), f.as_deref());
+                    w.motion("G1", to, Some(&s), feed);
                 }
             }
         }
@@ -557,5 +616,99 @@ mod tests {
         assert!(l.contains(&"G0 X1.23 Y2".to_string()));
         // Redondeadas iguales: no hay movimiento que emitir.
         assert!(!l.iter().any(|x| x.starts_with("G1")));
+    }
+
+    fn cut(x: f64, y: f64) -> Move {
+        Move::Cut {
+            to: p(x, y),
+            power_pct: 50.0,
+        }
+    }
+
+    #[test]
+    fn z_is_emitted_at_the_start_of_each_block_and_is_modal() {
+        let mut a = block(
+            "A",
+            PowerMode::Dynamic,
+            vec![Move::Travel { to: p(1.0, 1.0) }, cut(2.0, 1.0)],
+        );
+        a.z_mm = Some(1.5);
+        let mut b = a.clone();
+        b.label = "B".into();
+        let mut c = a.clone();
+        c.label = "C".into();
+        c.z_mm = Some(3.0);
+        let mut none = a.clone();
+        none.label = "D".into();
+        none.z_mm = None;
+        let l = gen_lines(vec![a, b, c, none], &GcodeOptions::default());
+        let zs: Vec<&String> = l.iter().filter(|x| x.contains('Z')).collect();
+        // Mismo valor en bloques seguidos: no se repite; sin z_mm no se emite nada.
+        assert_eq!(zs, ["G0 Z1.5", "G0 Z3"]);
+        // Z va después del comentario del bloque y antes de su primer movimiento.
+        let at = |s: &str| l.iter().position(|x| x == s).unwrap();
+        assert!(at("; A") < at("G0 Z1.5") && at("G0 Z1.5") < at("G0 X1 Y1"));
+    }
+
+    #[test]
+    fn rotary_scales_y_and_rescales_the_feed_per_segment() {
+        let b = block(
+            "A",
+            PowerMode::Dynamic,
+            vec![
+                Move::Travel { to: p(0.0, 0.0) },
+                cut(10.0, 0.0),  // solo X: F del bloque
+                cut(10.0, 10.0), // solo Y: F * k
+                cut(13.0, 14.0), // diagonal 3-4-5 en superficie
+            ],
+        );
+        let l = gen_lines(
+            vec![b],
+            &GcodeOptions {
+                y_scale: 2.0,
+                ..Default::default()
+            },
+        );
+        assert!(l.contains(&"G1 X10 S500 F6000".to_string()), "{l:?}");
+        assert!(l.contains(&"G1 Y20 F12000".to_string()), "{l:?}");
+        // |(3, 8)| / |(3, 4)| * 6000 = 10252.804
+        assert!(l.contains(&"G1 X13 Y28 F10252.804".to_string()), "{l:?}");
+    }
+
+    #[test]
+    fn unit_scale_matches_the_plain_output() {
+        let moves = vec![
+            Move::Travel { to: p(0.0, 0.0) },
+            cut(10.0, 5.0),
+            cut(2.0, 9.0),
+        ];
+        let plain = gen_lines(
+            vec![block("A", PowerMode::Dynamic, moves.clone())],
+            &GcodeOptions::default(),
+        );
+        let unit = gen_lines(
+            vec![block("A", PowerMode::Dynamic, moves)],
+            &GcodeOptions {
+                y_scale: 1.0,
+                ..Default::default()
+            },
+        );
+        assert_eq!(plain, unit);
+        assert!(plain.contains(&"G1 X10 Y5 S500 F6000".to_string()));
+    }
+
+    #[test]
+    fn invalid_scale_is_treated_as_one() {
+        let moves = vec![Move::Travel { to: p(0.0, 3.0) }];
+        for k in [0.0, -2.0, f64::NAN, f64::INFINITY] {
+            let l = gen_lines(
+                vec![block("A", PowerMode::Dynamic, moves.clone())],
+                &GcodeOptions {
+                    y_scale: k,
+                    ..Default::default()
+                },
+            );
+            assert!(l.contains(&"G0 X0 Y3".to_string()), "{k}: {l:?}");
+        }
     }
 }

@@ -1,7 +1,9 @@
 use crate::job::ComputedJob;
+use crate::rotary;
 use tlaku_core::toolpath::{Move, PowerMode, Toolpath};
 use tlaku_core::{Bounds, Point};
 use tlaku_doc::{DeviceProfile, Origin};
+use tlaku_grbl::frame::frame_gcode_scaled;
 use tlaku_grbl::gcode::{GcodeOptions, generate};
 
 /// Pasa de coordenadas del documento (origen abajo a la izquierda) a las de la máquina,
@@ -51,6 +53,8 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
     generate(
         &toolpath,
         &GcodeOptions {
+            // Si el rotativo es inválido `compute` ya falló; aquí se cae a Y sin escalar.
+            y_scale: rotary::y_scale(device).unwrap_or(1.0),
             s_max: device.s_max,
             return_to_origin: device.return_to_origin,
             start_gcode: script(&device.start_gcode),
@@ -61,7 +65,8 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
 }
 
 /// G-code del encuadre del trabajo (rectángulo envolvente con overscan, láser apagado) en
-/// coordenadas de la máquina: aplica el mismo cambio de origen que [`gcode`].
+/// coordenadas de la máquina: aplica el mismo cambio de origen y la misma escala de Y del
+/// rotativo que [`gcode`].
 pub fn frame_gcode(job: &ComputedJob, device: &DeviceProfile, speed_mm_min: f64) -> Vec<String> {
     let Some(b) = job.bounds() else {
         return Vec::new();
@@ -72,5 +77,9 @@ pub fn frame_gcode(job: &ComputedJob, device: &DeviceProfile, speed_mm_min: f64)
         min: Point::new(a.x.min(c.x), a.y.min(c.y)),
         max: Point::new(a.x.max(c.x), a.y.max(c.y)),
     };
-    tlaku_grbl::frame::frame_gcode(machine, speed_mm_min)
+    frame_gcode_scaled(
+        machine,
+        speed_mm_min,
+        rotary::y_scale(device).unwrap_or(1.0),
+    )
 }

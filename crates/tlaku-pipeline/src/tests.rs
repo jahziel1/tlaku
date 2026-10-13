@@ -805,6 +805,9 @@ fn bounds_check_covers_every_move() {
         plan: None,
         seconds: 0.0,
         bounds: block_bounds(&block),
+        tabs: 0,
+        z_mm: None,
+        pass: None,
     };
     let job = ComputedJob {
         toolpath: tlaku_core::toolpath::Toolpath {
@@ -1112,4 +1115,604 @@ fn text_with_outline_is_cut_like_a_vector() {
     let b = job.bounds().unwrap();
     point(b.min, 20.0, 20.0);
     point(b.max, 24.0, 26.0);
+}
+
+// ---------------------------------------------------------------------------
+// Fase 4: puentes, eje Z, rotativo y scan offset
+// ---------------------------------------------------------------------------
+
+fn tabbed(layer: LayerSettings) -> LayerSettings {
+    let mut l = layer;
+    l.tabs.enabled = true;
+    l.tabs.width = 2.0;
+    l.tabs.count = 4;
+    l
+}
+
+/// (largo cortado con potencia, largo recorrido con el láser apagado dentro de cortes) del bloque.
+fn lengths(block: &ToolpathBlock) -> (f64, f64) {
+    let mut at = Point::new(0.0, 0.0);
+    let (mut on, mut off) = (0.0, 0.0);
+    for mv in &block.moves {
+        let to = mv.to();
+        match *mv {
+            Move::Cut { power_pct, .. } if power_pct > 0.0 => on += at.dist(to),
+            Move::Cut { .. } => off += at.dist(to),
+            Move::Travel { .. } => {}
+        }
+        at = to;
+    }
+    (on, off)
+}
+
+#[test]
+fn tabs_leave_gaps_crossed_with_the_laser_off() {
+    let d = doc(
+        vec![rect_object("a", RED, 10.0, 10.0, 40.0, 40.0)],
+        vec![tabbed(line_layer(RED))],
+    );
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let (on, off) = lengths(&job.toolpath.blocks[0]);
+    // Perímetro 160 mm con 4 huecos de 2 mm.
+    approx(on, 152.0);
+    approx(off, 8.0);
+    assert_eq!(job.layers[0].tabs, 4);
+    assert!(job.preview.layers[0].summary.contains("4 puentes"));
+    // La vista previa trae los huecos como movimientos con potencia 0 dentro del corte.
+    let gaps = job
+        .preview
+        .moves
+        .chunks(4)
+        .filter(|m| m[0] == 1.0 && m[3] == 0.0)
+        .count();
+    assert_eq!(gaps, 4);
+    // Y el G-code, como G1 con S0.
+    let g = gcode(&job, &device());
+    assert_eq!(
+        g.lines()
+            .filter(|l| l.starts_with("G1") && l.contains("S0"))
+            .count(),
+        4
+    );
+    assert!(
+        job.preview.warnings.is_empty(),
+        "{:?}",
+        job.preview.warnings
+    );
+}
+
+#[test]
+fn tabs_do_not_change_the_planned_order_or_touch_open_and_inner_shapes() {
+    let open = DesignObject {
+        kind: ObjectKind::Vector(VectorObject {
+            paths: vec![BezPath::from(&Polyline {
+                points: vec![Point::new(60.0, 10.0), Point::new(90.0, 10.0)],
+                closed: false,
+            })],
+        }),
+        ..rect_object("open", RED, 0.0, 0.0, 1.0, 1.0)
+    };
+    let objects = vec![
+        rect_object("outer", RED, 10.0, 10.0, 40.0, 40.0),
+        rect_object("hole", RED, 20.0, 20.0, 10.0, 10.0),
+        open,
+    ];
+    let plain = compute(
+        &doc(objects.clone(), vec![line_layer(RED)]),
+        &device(),
+        &JobOptions::default(),
+    )
+    .unwrap();
+    let with = compute(
+        &doc(objects.clone(), vec![tabbed(line_layer(RED))]),
+        &device(),
+        &JobOptions::default(),
+    )
+    .unwrap();
+    let order = |j: &ComputedJob| -> Vec<usize> {
+        j.layers[0]
+            .plan
+            .as_ref()
+            .unwrap()
+            .steps
+            .iter()
+            .map(|s| s.item)
+            .collect()
+    };
+    assert_eq!(order(&plain), order(&with));
+    // Solo el contorno exterior lleva puentes: el agujero y la línea abierta se cortan enteros.
+    assert_eq!(with.layers[0].tabs, 4);
+    let (_, off) = lengths(&with.toolpath.blocks[0]);
+    approx(off, 8.0);
+    // Con skip_inner = false, el agujero también.
+    let mut all = tabbed(line_layer(RED));
+    all.tabs.skip_inner = false;
+    let every = compute(&doc(objects, vec![all]), &device(), &JobOptions::default()).unwrap();
+    assert_eq!(every.layers[0].tabs, 8);
+}
+
+#[test]
+fn tabs_go_after_the_kerf() {
+    let mut l = tabbed(line_layer(RED));
+    l.kerf = 1.0;
+    let d = doc(vec![rect_object("a", RED, 10.0, 10.0, 40.0, 40.0)], vec![l]);
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    // El contorno compensado mide 42x42 (perímetro 168, con esquinas redondeadas un poco menos).
+    let b = job.layers[0].bounds.unwrap();
+    approx(b.max.x - b.min.x, 42.0);
+    assert_eq!(job.layers[0].tabs, 4);
+}
+
+#[test]
+fn tabs_that_do_not_fit_warn_and_bad_values_fail() {
+    let small = doc(
+        vec![
+            rect_object("big", RED, 0.0, 0.0, 40.0, 40.0),
+            rect_object("tiny", RED, 60.0, 0.0, 3.0, 3.0),
+        ],
+        vec![tabbed(line_layer(RED))],
+    );
+    let job = compute(&small, &device(), &JobOptions::default()).unwrap();
+    // El cuadrado de 3 mm (perímetro 12) admite como mucho 3 puentes de 2 mm: 4 + 3.
+    assert_eq!(job.layers[0].tabs, 7);
+    let w = job.preview.warnings.join("\n");
+    assert!(
+        w.contains("#ff0000") && w.contains("no caben") && w.contains("12.00 mm"),
+        "{w}"
+    );
+
+    let mut bad = tabbed(line_layer(RED));
+    bad.tabs.width = 0.0;
+    let e = compute(
+        &doc(vec![rect_object("a", RED, 0.0, 0.0, 9.0, 9.0)], vec![bad]),
+        &device(),
+        &JobOptions::default(),
+    )
+    .unwrap_err();
+    assert!(e.contains("capa #ff0000") && e.contains("puentes"), "{e}");
+
+    // Sin ninguna forma cerrada donde ponerlos, se avisa.
+    let open_only = DesignObject {
+        kind: ObjectKind::Vector(VectorObject {
+            paths: vec![BezPath::from(&Polyline {
+                points: vec![Point::new(0.0, 0.0), Point::new(9.0, 0.0)],
+                closed: false,
+            })],
+        }),
+        ..rect_object("o", RED, 0.0, 0.0, 1.0, 1.0)
+    };
+    let job = compute(
+        &doc(vec![open_only], vec![tabbed(line_layer(RED))]),
+        &device(),
+        &JobOptions::default(),
+    )
+    .unwrap();
+    assert!(
+        job.preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("ninguna forma cerrada"))
+    );
+}
+
+#[test]
+fn tabs_apply_to_every_pass_and_ignore_other_modes() {
+    let mut two = tabbed(line_layer(RED));
+    two.passes = 2;
+    let d = doc(vec![rect_object("a", RED, 0.0, 0.0, 40.0, 40.0)], vec![two]);
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let (_, off) = lengths(&job.toolpath.blocks[0]);
+    approx(off, 16.0);
+    // En una capa fill, los puentes no hacen nada (el ajuste se conserva al cambiar de modo).
+    let fill = LayerSettings {
+        tabs: tabbed(line_layer(RED)).tabs,
+        ..fill_layer(RED)
+    };
+    let d = doc(
+        vec![rect_object("a", RED, 5.0, 5.0, 10.0, 10.0)],
+        vec![fill],
+    );
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    assert_eq!(job.layers[0].tabs, 0);
+}
+
+fn z_device() -> DeviceProfile {
+    DeviceProfile {
+        z_axis: true,
+        ..device()
+    }
+}
+
+#[test]
+fn z_step_makes_one_block_and_one_report_per_pass() {
+    let l = LayerSettings {
+        passes: 3,
+        z_offset: 1.0,
+        z_step: 0.5,
+        ..line_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)], vec![l]);
+    let job = compute(&d, &z_device(), &JobOptions::default()).unwrap();
+    let zs: Vec<_> = job.toolpath.blocks.iter().map(|b| b.z_mm).collect();
+    assert_eq!(zs, [Some(1.0), Some(1.5), Some(2.0)]);
+    // 1:1 entre bloques, informes y filas del resumen.
+    assert_eq!(job.layers.len(), 3);
+    assert_eq!(job.preview.layers.len(), 3);
+    assert!(job.preview.layers[1].summary.contains("pasada 2/3"));
+    assert!(job.preview.layers[1].summary.contains("Z 1.5 mm"));
+    assert!(job.layers.iter().all(|l| l.passes == 1));
+    // El plan se muestra una sola vez.
+    assert!(job.layers[0].plan.is_some() && job.layers[1].plan.is_none());
+    assert!(job.toolpath.blocks.iter().all(|b| b.moves.len() == 5));
+    let g = gcode(&job, &z_device());
+    let zlines: Vec<_> = g.lines().filter(|l| l.contains('Z')).collect();
+    assert_eq!(zlines, ["G0 Z1", "G0 Z1.5", "G0 Z2"]);
+    // Las tres pasadas suman lo mismo que una capa de tres pasadas.
+    let flat = compute(
+        &doc(
+            vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
+            vec![LayerSettings {
+                passes: 3,
+                ..line_layer(RED)
+            }],
+        ),
+        &device(),
+        &JobOptions::default(),
+    )
+    .unwrap();
+    let moves = |j: &ComputedJob| {
+        j.toolpath
+            .blocks
+            .iter()
+            .map(|b| b.moves.len())
+            .sum::<usize>()
+    };
+    assert_eq!(moves(&job), moves(&flat));
+}
+
+#[test]
+fn z_without_step_keeps_the_passes_in_one_block() {
+    let l = LayerSettings {
+        passes: 2,
+        z_offset: 2.5,
+        ..fill_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 5.0, 5.0, 10.0, 10.0)], vec![l]);
+    let job = compute(&d, &z_device(), &JobOptions::default()).unwrap();
+    assert_eq!(job.toolpath.blocks.len(), 1);
+    assert_eq!(job.toolpath.blocks[0].z_mm, Some(2.5));
+    assert_eq!(job.layers[0].passes, 2);
+    // Con eje Z y todo en 0 también se emite el foco (Z0).
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let job = compute(&d, &z_device(), &JobOptions::default()).unwrap();
+    assert_eq!(job.toolpath.blocks[0].z_mm, Some(0.0));
+    assert!(gcode(&job, &z_device()).contains("G0 Z0\n"));
+}
+
+#[test]
+fn z_values_without_a_z_axis_warn_and_emit_nothing() {
+    let l = LayerSettings {
+        passes: 2,
+        z_offset: 1.0,
+        z_step: 0.5,
+        ..line_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)], vec![l]);
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    assert_eq!(job.toolpath.blocks.len(), 1);
+    assert_eq!(job.toolpath.blocks[0].z_mm, None);
+    assert!(
+        job.preview.warnings.iter().any(|w| w.contains("eje Z")),
+        "{:?}",
+        job.preview.warnings
+    );
+    assert!(!gcode(&job, &device()).contains('Z'));
+    // Sin valores de Z no hay nada que avisar.
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    assert!(job.preview.warnings.is_empty());
+}
+
+#[test]
+fn non_finite_z_is_an_error() {
+    let l = LayerSettings {
+        z_step: f64::INFINITY,
+        ..line_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)], vec![l]);
+    let e = compute(&d, &z_device(), &JobOptions::default()).unwrap_err();
+    assert!(e.contains("z_step"), "{e}");
+}
+
+fn rotary_device(kind: tlaku_doc::RotaryKind) -> DeviceProfile {
+    let mut d = device();
+    d.rotary.enabled = true;
+    d.rotary.kind = kind;
+    d.rotary.mm_per_rotation = 360.0;
+    d.rotary.roller_diameter = 20.0;
+    d.rotary.object_diameter = 80.0;
+    d
+}
+
+fn y_of(g: &str, prefix: &str) -> f64 {
+    let l = g.lines().find(|l| l.starts_with(prefix)).unwrap();
+    let y = l.split(' ').find(|w| w.starts_with('Y')).unwrap();
+    y[1..].parse().unwrap()
+}
+
+#[test]
+fn rotary_scales_y_by_roller_or_chuck() {
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let roller = rotary_device(tlaku_doc::RotaryKind::Roller);
+    let job = compute(&d, &roller, &JobOptions::default()).unwrap();
+    let g = gcode(&job, &roller);
+    // 10 mm de superficie * 360 / (pi * 20) con 3 decimales.
+    let k = 360.0 / (std::f64::consts::PI * 20.0);
+    assert!((y_of(&g, "G1 Y") - 10.0 * k).abs() < 1e-3, "{g}");
+    let chuck = rotary_device(tlaku_doc::RotaryKind::Chuck);
+    let g = gcode(&job, &chuck);
+    let k = 360.0 / (std::f64::consts::PI * 80.0);
+    assert!((y_of(&g, "G1 Y") - 10.0 * k).abs() < 1e-3, "{g}");
+    // El trabajo calculado sigue en mm de superficie.
+    approx(job.bounds().unwrap().max.y, 10.0);
+}
+
+#[test]
+fn rotary_frame_uses_the_same_scale() {
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let dev = rotary_device(tlaku_doc::RotaryKind::Roller);
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let k = 360.0 / (std::f64::consts::PI * 20.0);
+    let frame = frame_gcode(&job, &dev, 1500.0);
+    let top = frame
+        .iter()
+        .filter(|l| l.starts_with("G1 X10 Y"))
+        .nth(1)
+        .unwrap();
+    let y: f64 = top.split(' ').find(|w| w.starts_with('Y')).unwrap()[1..]
+        .parse()
+        .unwrap();
+    assert!((y - 10.0 * k).abs() < 1e-3, "{frame:?}");
+    // Sin rotativo, el encuadre queda como antes.
+    assert!(frame_gcode(&job, &device(), 1500.0).contains(&"G1 X10 Y10 S0 F1500".to_string()));
+}
+
+#[test]
+fn rotary_places_the_job_from_controller_coordinates() {
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let dev = rotary_device(tlaku_doc::RotaryKind::Roller);
+    let k = 360.0 / (std::f64::consts::PI * 20.0);
+    // El origen de usuario llega en mm de la controladora: 2 * k equivale a 2 mm de superficie.
+    let opts = JobOptions {
+        start_from: StartFrom::UserOrigin,
+        job_origin: 6,
+        user_origin: Some([5.0, 2.0 * k]),
+        ..Default::default()
+    };
+    let job = compute(&d, &dev, &opts).unwrap();
+    let b = job.bounds().unwrap();
+    point(b.min, 5.0, 2.0);
+    let g = gcode(&job, &dev);
+    assert!(
+        g.contains(&format!("G0 X5 Y{}", (2.0 * k * 1000.0).round() / 1000.0)),
+        "{g}"
+    );
+}
+
+#[test]
+fn rotary_validates_and_warns_about_the_circumference() {
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 50.0)],
+        vec![line_layer(RED)],
+    );
+    for edit in [
+        |d: &mut DeviceProfile| d.rotary.mm_per_rotation = 0.0,
+        |d: &mut DeviceProfile| d.rotary.roller_diameter = 0.0,
+        |d: &mut DeviceProfile| d.rotary.object_diameter = -5.0,
+    ] {
+        let mut dev = rotary_device(tlaku_doc::RotaryKind::Roller);
+        edit(&mut dev);
+        let e = compute(&d, &dev, &JobOptions::default()).unwrap_err();
+        assert!(e.contains("rotativo") && e.contains("mayor que 0"), "{e}");
+    }
+    // Con la pieza de 10 mm de diámetro (circunferencia 31.4) un diseño de 50 mm no cabe.
+    let mut dev = rotary_device(tlaku_doc::RotaryKind::Chuck);
+    dev.rotary.object_diameter = 10.0;
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let w = job.preview.warnings.join("\n");
+    assert!(w.contains("circunferencia") && w.contains("31.42"), "{w}");
+    // Con 80 mm de diámetro sí cabe.
+    let ok = compute(
+        &d,
+        &rotary_device(tlaku_doc::RotaryKind::Chuck),
+        &JobOptions::default(),
+    )
+    .unwrap();
+    assert!(ok.preview.warnings.is_empty());
+}
+
+#[test]
+fn rotary_has_no_y_limit_but_the_bed_x_limit_stays() {
+    let tall = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 600.0)],
+        vec![line_layer(RED)],
+    );
+    // Sin rotativo, 600 mm de alto no caben en la cama de 415.
+    assert!(compute(&tall, &device(), &JobOptions::default()).is_err());
+    let mut dev = rotary_device(tlaku_doc::RotaryKind::Chuck);
+    dev.rotary.object_diameter = 400.0;
+    assert!(compute(&tall, &dev, &JobOptions::default()).is_ok());
+    let wide = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 500.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let e = compute(&wide, &dev, &JobOptions::default()).unwrap_err();
+    assert!(e.contains("se sale del área"), "{e}");
+}
+
+#[test]
+fn rotary_scales_the_y_limits_of_the_estimate() {
+    // Un segmento vertical: con rotativo la Y de la controladora recorre k veces más, así que
+    // con la misma aceleración y velocidad máxima tarda más.
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 1.0, 100.0)],
+        vec![LayerSettings {
+            speed: 12000.0,
+            ..line_layer(RED)
+        }],
+    );
+    let plain = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let mut dev = rotary_device(tlaku_doc::RotaryKind::Roller);
+    dev.rotary.object_diameter = 400.0;
+    let rot = compute(&d, &dev, &JobOptions::default()).unwrap();
+    assert!(rot.preview.total_s > plain.preview.total_s * 2.0);
+}
+
+fn scan_device(offsets: &[(f64, f64)]) -> DeviceProfile {
+    DeviceProfile {
+        scan_offsets: offsets
+            .iter()
+            .map(|&(speed, offset)| tlaku_doc::ScanOffset { speed, offset })
+            .collect(),
+        ..device()
+    }
+}
+
+/// Diferencia punto a punto entre dos bloques con los mismos movimientos.
+fn shifts(a: &ToolpathBlock, b: &ToolpathBlock) -> Vec<(f64, f64)> {
+    assert_eq!(a.moves.len(), b.moves.len());
+    a.moves
+        .iter()
+        .zip(&b.moves)
+        .map(|(m, n)| (n.to().x - m.to().x, n.to().y - m.to().y))
+        .collect()
+}
+
+#[test]
+fn scan_offset_shifts_only_the_return_lines_of_a_fill() {
+    let l = LayerSettings {
+        speed: 3000.0,
+        interval: 2.0,
+        overscan: Overscan::Mm(1.0),
+        ..fill_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)], vec![l]);
+    let base = compute(&d, &device(), &JobOptions::default()).unwrap();
+    // Entre 1000 y 6000 mm/min: a 3000 le toca 0.1 + (0.6 - 0.1) * 2000 / 5000 = 0.3.
+    let dev = scan_device(&[(6000.0, 0.6), (1000.0, 0.1)]);
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
+    assert!(
+        diffs
+            .iter()
+            .all(|&(dx, dy)| dy == 0.0 && (dx.abs() < 1e-12 || (dx - 0.3).abs() < 1e-9))
+    );
+    let moved = diffs.iter().filter(|d| d.0 != 0.0).count();
+    let lines = base.layers[0].count;
+    assert_eq!(lines, 4);
+    // Las líneas 2 y 4 son de vuelta; cada una tiene 4 movimientos (viaje, overscan, corte, overscan).
+    assert_eq!(moved, 2 * 4);
+    // Fuera del rango se usa el extremo: a 300 mm/min, 0.1.
+    let slow = LayerSettings {
+        speed: 300.0,
+        ..fill_layer(RED)
+    };
+    let slow = LayerSettings {
+        interval: 2.0,
+        overscan: Overscan::Mm(1.0),
+        ..slow
+    };
+    let d2 = doc(
+        vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)],
+        vec![slow],
+    );
+    let b2 = compute(&d2, &device(), &JobOptions::default()).unwrap();
+    let j2 = compute(&d2, &dev, &JobOptions::default()).unwrap();
+    let max = shifts(&b2.toolpath.blocks[0], &j2.toolpath.blocks[0])
+        .iter()
+        .map(|d| d.0)
+        .fold(0.0, f64::max);
+    approx(max, 0.1);
+}
+
+#[test]
+fn scan_offset_follows_the_sweep_angle_and_skips_unidirectional_layers() {
+    let angle = 30.0f64;
+    let l = LayerSettings {
+        speed: 1000.0,
+        interval: 2.0,
+        angle,
+        ..fill_layer(RED)
+    };
+    let d = doc(
+        vec![rect_object("a", RED, 20.0, 20.0, 20.0, 20.0)],
+        vec![l.clone()],
+    );
+    let base = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let job = compute(&d, &scan_device(&[(1000.0, 0.5)]), &JobOptions::default()).unwrap();
+    let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
+    let (cx, cy) = (
+        0.5 * angle.to_radians().cos(),
+        0.5 * angle.to_radians().sin(),
+    );
+    assert!(
+        diffs
+            .iter()
+            .all(|&(dx, dy)| (dx.abs() < 1e-9 && dy.abs() < 1e-9)
+                || ((dx - cx).abs() < 1e-9 && (dy - cy).abs() < 1e-9))
+    );
+    assert!(diffs.iter().any(|d| d.0 != 0.0));
+    // Sin bidireccional no hay líneas de vuelta.
+    let uni = LayerSettings {
+        bidirectional: false,
+        ..l
+    };
+    let d = doc(
+        vec![rect_object("a", RED, 20.0, 20.0, 20.0, 20.0)],
+        vec![uni],
+    );
+    let a = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let b = compute(&d, &scan_device(&[(1000.0, 0.5)]), &JobOptions::default()).unwrap();
+    assert_eq!(a.toolpath, b.toolpath);
+}
+
+#[test]
+fn scan_offset_shifts_the_return_rows_of_an_image() {
+    let dir = workdir("scan-image");
+    let path = write_gradient(&dir);
+    let l = LayerSettings {
+        speed: 3000.0,
+        overscan: Overscan::Mm(0.0),
+        interval: 1.0,
+        ..LayerSettings::for_images()
+    };
+    let d = doc(
+        vec![image_object("img", &path, [16.0, 4.0], IDENTITY)],
+        vec![l],
+    );
+    let base = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let job = compute(&d, &scan_device(&[(3000.0, 0.25)]), &JobOptions::default()).unwrap();
+    let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
+    assert!(
+        diffs
+            .iter()
+            .all(|&(dx, dy)| dy == 0.0 && (dx == 0.0 || (dx - 0.25).abs() < 1e-9))
+    );
+    assert!(diffs.iter().any(|d| d.0 != 0.0));
+    std::fs::remove_dir_all(dir).unwrap();
 }

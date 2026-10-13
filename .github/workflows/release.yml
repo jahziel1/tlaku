@@ -1,0 +1,208 @@
+name: Publicar
+
+# Al empujar una etiqueta `v*` compila los instaladores de macOS, Windows y Linux y los sube
+# a un borrador de Release. Guía completa en docs/publicar.md.
+#
+# La firma es opcional. Sin los secretos descritos en docs/publicar.md se publican instaladores
+# sin firmar y el flujo no falla.
+on:
+  push:
+    tags: ["v*"]
+  # Permite probar el flujo a mano (sin crear Release): compila y deja los instaladores como
+  # artefactos del flujo.
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # crear el borrador de Release y subir los instaladores
+
+jobs:
+  verificar:
+    name: Verificar versión
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # La etiqueta vX.Y.Z debe coincidir con las versiones de los tres lugares donde vive.
+      - name: Comparar la etiqueta con las versiones
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          esperada="${GITHUB_REF_NAME#v}"
+          cargo=$(awk '/^\[workspace\.package\]/{f=1;next} /^\[/{f=0} f && /^version *=/{gsub(/[" ]/,"",$0); sub(/^version=/,"",$0); print; exit}' Cargo.toml)
+          tauri=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          npm=$(jq -r .version apps/desktop/package.json)
+          echo "etiqueta=$esperada Cargo.toml=$cargo tauri.conf.json=$tauri package.json=$npm"
+          error=0
+          [ "$cargo" = "$esperada" ] || { echo "::error file=Cargo.toml::version $cargo, se esperaba $esperada"; error=1; }
+          [ "$tauri" = "$esperada" ] || { echo "::error file=apps/desktop/src-tauri/tauri.conf.json::version $tauri, se esperaba $esperada"; error=1; }
+          [ "$npm" = "$esperada" ] || { echo "::error file=apps/desktop/package.json::version $npm, se esperaba $esperada"; error=1; }
+          exit $error
+
+  instaladores:
+    name: ${{ matrix.nombre }}
+    needs: verificar
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: macOS (universal)
+            os: macos-latest
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin
+          - nombre: Windows (MSI y NSIS)
+            os: windows-latest
+            rust_targets: ""
+            args: ""
+          - nombre: Linux (AppImage y deb)
+            # 22.04 y no latest: el AppImage queda enlazado con una glibc más antigua y corre
+            # en más distribuciones.
+            os: ubuntu-22.04
+            rust_targets: ""
+            args: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      # webkit2gtk es la ventana web de Tauri en Linux; libudev-dev y pkg-config los pide
+      # serialport (igual que en ci.yml).
+      - name: Instalar dependencias de Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config libudev-dev libssl-dev \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev patchelf
+
+      - name: Instalar dependencias de la interfaz
+        working-directory: apps/desktop
+        run: npm ci
+
+      # ---- Firma de macOS (opcional) -------------------------------------------------------
+      # Los secretos que no existen llegan como cadena vacía y el empaquetador de Tauri la
+      # trataría como un valor real. Por eso solo se exportan al entorno cuando hay con qué firmar.
+      - name: Preparar la firma de macOS
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_CERTIFICATE_PASSWORD" ] || [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "::notice::Sin certificado de Apple: el instalador de macOS se publica SIN firmar."
+            exit 0
+          fi
+          {
+            # el certificado va en una sola línea (sin saltos de la codificación base64)
+            echo "APPLE_CERTIFICATE=$(printf '%s' "$APPLE_CERTIFICATE" | tr -d '\r\n ')"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+          } >> "$GITHUB_ENV"
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            {
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            } >> "$GITHUB_ENV"
+            echo "::notice::macOS: se firmará y se notarizará."
+          else
+            echo "::notice::macOS: se firmará, pero sin notarizar (faltan APPLE_ID, APPLE_PASSWORD o APPLE_TEAM_ID)."
+          fi
+
+      # ---- Firma de Windows (opcional) -----------------------------------------------------
+      # Importa el .pfx al almacén del usuario y le pasa a Tauri la huella por un archivo de
+      # configuración adicional (--config), sin tocar tauri.conf.json.
+      - name: Preparar la firma de Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            Write-Host "::notice::Sin certificado de Windows: los instaladores se publican SIN firmar."
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'tlaku-firma.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String(($env:WINDOWS_CERTIFICATE -replace '\s', '')))
+          $clave = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $clave
+          Remove-Item $pfx
+          $config = @{ bundle = @{ windows = @{
+            certificateThumbprint = $cert.Thumbprint
+            digestAlgorithm = 'sha256'
+            timestampUrl = 'http://timestamp.digicert.com'
+          } } } | ConvertTo-Json -Depth 5
+          $ruta = (Join-Path $env:RUNNER_TEMP 'tlaku-firma.conf.json')
+          Set-Content -Path $ruta -Value $config
+          "TLAKU_ARGS_FIRMA=--config $($ruta -replace '\\', '/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "::notice::Windows: se firmarán los instaladores."
+
+      - name: Compilar y empaquetar
+        id: tauri
+        uses: tauri-apps/tauri-action@v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          # Actualizaciones automáticas (desactivadas; ver "Actualizaciones" en docs/publicar.md).
+          # Al activarlas, descomenta estas dos líneas:
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          args: ${{ matrix.args }} ${{ env.TLAKU_ARGS_FIRMA }}
+          # Con una etiqueta se crea (o actualiza) el borrador de Release. Lanzado a mano no se
+          # crea Release: solo se compila.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: Tlaku ${{ github.ref_name }}
+          releaseBody: |
+            ## Instalación
+
+            - **macOS**: abre el `.dmg` y arrastra Tlaku a Aplicaciones.
+            - **Windows**: ejecuta el instalador `.exe` (NSIS) o el `.msi`.
+            - **Linux**: instala el `.deb` o marca el `.AppImage` como ejecutable.
+
+            Si el instalador no está firmado, el sistema mostrará una advertencia la primera vez;
+            consulta la sección "Instalación" del README para abrirlo.
+            En Linux, para usar el puerto serie del láser añade tu usuario al grupo `dialout`
+            (ver docs/publicar.md).
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generateReleaseNotes: true
+
+      # Lanzado a mano no hay Release: conserva los instaladores como artefactos.
+      - name: Guardar instaladores como artefactos
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tlaku-${{ runner.os }}
+          path: |
+            target/**/release/bundle/**/*.dmg
+            target/**/release/bundle/**/*.msi
+            target/**/release/bundle/**/*.exe
+            target/**/release/bundle/**/*.deb
+            target/**/release/bundle/**/*.AppImage
+          if-no-files-found: error

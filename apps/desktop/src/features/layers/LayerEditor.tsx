@@ -1,8 +1,8 @@
-import { ArrowLeft, Image as ImageIcon, PaintBucket, Spline } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, PaintBucket, Spline, TriangleAlert } from 'lucide-react';
 import { useId, useRef, useEffect, useState, type KeyboardEvent } from 'react';
-import type { ImageDitherMode, ImageSettings, LayerMode, LayerSettings } from '@/api/types';
+import type { FillStyle, ImageDitherMode, ImageSettings, LayerMode, LayerSettings, TabSettings } from '@/api/types';
 import { t } from '@/i18n';
-import { dpiToInterval, intervalToDpi } from '@/lib/layers';
+import { dpiToInterval, intervalToDpi, normalizeLayer, usesZ } from '@/lib/layers';
 import { colorName, isGuideColor, readableOn } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
 import { Group, NumField, SelectField, Toggle } from './ParamFields';
@@ -15,7 +15,10 @@ const MODES: { mode: LayerMode; icon: typeof Spline }[] = [
   { mode: 'fill', icon: PaintBucket },
   { mode: 'image', icon: ImageIcon },
 ];
-const DITHERS: ImageDitherMode[] = ['threshold', 'floyd', 'jarvis', 'stucki', 'atkinson', 'bayer4', 'grayscale'];
+const DITHERS: ImageDitherMode[] = ['threshold', 'floyd', 'jarvis', 'stucki', 'atkinson', 'bayer4', 'grayscale', 'halftone', 'newsprint', 'sketch'];
+const FILL_STYLES: FillStyle[] = ['scan', 'offset'];
+/** Tramados que usan una rejilla de celdas (tamaño y ángulo). */
+const GRID_DITHERS: ImageDitherMode[] = ['halftone', 'newsprint'];
 /** Overscan inicial al pasar de automático a manual. */
 const MANUAL_OVERSCAN_MM = 2;
 
@@ -24,7 +27,9 @@ const MANUAL_OVERSCAN_MM = 2;
  * conservan en el documento). Cada campo tiene su paso de deshacer; los valores inválidos se
  * marcan y no se aplican. Esc cierra el editor.
  */
-export function LayerEditor({ layer }: { layer: LayerSettings }) {
+export function LayerEditor({ layer: rawLayer }: { layer: LayerSettings }) {
+  // Una capa guardada antes de la Fase 4 puede venir sin los campos nuevos.
+  const layer = normalizeLayer(rawLayer);
   const color = layer.color;
   const guide = isGuideColor(color);
   const headRef = useRef<HTMLHeadingElement>(null);
@@ -32,6 +37,7 @@ export function LayerEditor({ layer }: { layer: LayerSettings }) {
   const layerCount = useStore((s) => s.doc.layers.length);
   const allLayers = useStore((s) => s.doc.layers);
   const maxRate = useStore((s) => selectActiveDevice(s).max_rate[0]);
+  const hasZ = useStore((s) => selectActiveDevice(s).z_axis === true);
   const updateLayer = useStore((s) => s.updateLayer);
   const applyDocChange = useStore((s) => s.applyDocChange);
 
@@ -44,9 +50,19 @@ export function LayerEditor({ layer }: { layer: LayerSettings }) {
       'history.editLayer',
       (doc) => ({
         ...doc,
-        layers: doc.layers.map((l) => (l.color === color ? { ...l, image: { ...l.image, [key]: value } } : l)),
+        layers: doc.layers.map((l) => (l.color === color ? { ...normalizeLayer(l), image: { ...normalizeLayer(l).image, [key]: value } } : l)),
       }),
       `layer:${color}:image.${key}`,
+    );
+
+  const setTabs = (key: keyof TabSettings, value: TabSettings[keyof TabSettings]) =>
+    applyDocChange(
+      'history.editLayer',
+      (doc) => ({
+        ...doc,
+        layers: doc.layers.map((l) => (l.color === color ? { ...normalizeLayer(l), tabs: { ...normalizeLayer(l).tabs, [key]: value } } : l)),
+      }),
+      `layer:${color}:tabs.${key}`,
     );
 
   const close = () => {
@@ -65,6 +81,8 @@ export function LayerEditor({ layer }: { layer: LayerSettings }) {
   const usesRaster = layer.mode !== 'line';
   const img = layer.image;
   const pinned = layer.order !== null;
+  const offsetFill = layer.mode === 'fill' && layer.fill_style === 'offset';
+  const tabs = layer.tabs;
 
   return (
     <section className="lyr-editor panel-scroll" aria-label={t('layers.editor', { name })} onKeyDown={onKeyDown}>
@@ -144,6 +162,38 @@ export function LayerEditor({ layer }: { layer: LayerSettings }) {
             </Group>
           )}
 
+          {layer.mode === 'line' && (
+            <Group title={t('layers.group.tabs')}>
+              <Toggle label={t('layers.tabs.enabled')} checked={tabs.enabled} onChange={(v) => setTabs('enabled', v)} help={t('layers.help.tabsEnabled')} />
+              {tabs.enabled && (
+                <>
+                  <NumField field="tab_width" label={t('layers.tabs.width')} value={tabs.width} onApply={(v) => setTabs('width', v)} help={t('layers.help.tabsWidth')} />
+                  <NumField
+                    field="tab_count"
+                    label={tabs.spacing > 0 ? t('layers.tabs.countMin') : t('layers.tabs.count')}
+                    value={tabs.count}
+                    onApply={(v) => setTabs('count', v)}
+                    help={tabs.spacing > 0 ? t('layers.help.tabsCountMin') : t('layers.help.tabsCount')}
+                    live={
+                      tabs.spacing > 0
+                        ? t('layers.tabs.live.spacing', { spacing: formatNumber(tabs.spacing, 2), n: tabs.count })
+                        : t('layers.tabs.live.count', { n: tabs.count })
+                    }
+                  />
+                  <NumField
+                    field="tab_spacing"
+                    label={t('layers.tabs.spacing')}
+                    value={tabs.spacing}
+                    ctx={{ tabWidth: tabs.width }}
+                    onApply={(v) => setTabs('spacing', v)}
+                    help={t('layers.help.tabsSpacing')}
+                  />
+                  <Toggle label={t('layers.tabs.skipInner')} checked={tabs.skip_inner} onChange={(v) => setTabs('skip_inner', v)} help={t('layers.help.tabsSkipInner')} />
+                </>
+              )}
+            </Group>
+          )}
+
           {usesRaster && (
             <Group title={t('layers.group.scan')}>
               <NumField
@@ -167,17 +217,36 @@ export function LayerEditor({ layer }: { layer: LayerSettings }) {
                 help={t('layers.help.dpi')}
               />
               {layer.mode === 'fill' && (
+                <SelectField<FillStyle>
+                  label={t('layers.fillStyle')}
+                  value={layer.fill_style}
+                  options={FILL_STYLES.map((f) => ({ value: f, label: t(`layers.fillStyle.${f}`) }))}
+                  onChange={(v) => set({ fill_style: v })}
+                  help={t('layers.help.fillStyle')}
+                />
+              )}
+              {offsetFill ? (
+                <p className="lyr-info">{t('layers.fillStyle.offsetNote')}</p>
+              ) : (
                 <>
-                  <NumField field="angle" label={t('layers.angle')} value={layer.angle} onApply={(v) => set({ angle: v })} help={t('layers.help.angle')} />
-                  <Toggle label={t('layers.crosshatch')} checked={layer.crosshatch} onChange={(v) => set({ crosshatch: v })} help={t('layers.help.crosshatch')} />
+                  <NumField
+                    field="angle"
+                    label={isImage ? t('layers.angleImage') : t('layers.angle')}
+                    value={layer.angle}
+                    onApply={(v) => set({ angle: v })}
+                    help={isImage ? t('layers.help.angleImage') : t('layers.help.angle')}
+                  />
+                  {layer.mode === 'fill' && (
+                    <Toggle label={t('layers.crosshatch')} checked={layer.crosshatch} onChange={(v) => set({ crosshatch: v })} help={t('layers.help.crosshatch')} />
+                  )}
+                  <Toggle label={t('layers.bidirectional')} checked={layer.bidirectional} onChange={(v) => set({ bidirectional: v })} help={t('layers.help.bidirectional')} />
+                  <OverscanField
+                    value={layer.overscan}
+                    onAuto={(auto) => set({ overscan: auto ? 'auto' : MANUAL_OVERSCAN_MM })}
+                    onMm={(v) => set({ overscan: v })}
+                  />
                 </>
               )}
-              <Toggle label={t('layers.bidirectional')} checked={layer.bidirectional} onChange={(v) => set({ bidirectional: v })} help={t('layers.help.bidirectional')} />
-              <OverscanField
-                value={layer.overscan}
-                onAuto={(auto) => set({ overscan: auto ? 'auto' : MANUAL_OVERSCAN_MM })}
-                onMm={(v) => set({ overscan: v })}
-              />
             </Group>
           )}
 
@@ -193,11 +262,38 @@ export function LayerEditor({ layer }: { layer: LayerSettings }) {
               {img.mode === 'threshold' && (
                 <NumField field="threshold" label={t('layers.threshold')} value={img.threshold} onApply={(v) => setImage('threshold', v)} help={t('layers.help.threshold')} />
               )}
+              {GRID_DITHERS.includes(img.mode) && (
+                <>
+                  <NumField field="halftone_cell" label={t('layers.halftoneCell')} value={img.halftone_cell} onApply={(v) => setImage('halftone_cell', v)} help={t('layers.help.halftoneCell')} />
+                  <NumField field="halftone_angle" label={t('layers.halftoneAngle')} value={img.halftone_angle} onApply={(v) => setImage('halftone_angle', v)} help={t('layers.help.halftoneAngle')} />
+                </>
+              )}
               <NumField field="brightness" label={t('layers.brightness')} value={img.brightness} onApply={(v) => setImage('brightness', v)} help={t('layers.help.brightness')} />
               <NumField field="contrast" label={t('layers.contrast')} value={img.contrast} onApply={(v) => setImage('contrast', v)} help={t('layers.help.contrast')} />
               <NumField field="gamma" label={t('layers.gamma')} value={img.gamma} onApply={(v) => setImage('gamma', v)} help={t('layers.help.gamma')} />
               <Toggle label={t('layers.invert')} checked={img.invert} onChange={(v) => setImage('invert', v)} help={t('layers.help.invert')} />
               <NumField field="dot_width" label={t('layers.dotWidth')} value={img.dot_width} onApply={(v) => setImage('dot_width', v)} help={t('layers.help.dotWidth')} />
+            </Group>
+          )}
+
+          {(hasZ || usesZ(layer)) && (
+            <Group title={t('layers.group.z')}>
+              {hasZ ? (
+                <>
+                  <NumField field="z_offset" label={t('layers.zOffset')} value={layer.z_offset} onApply={(v) => set({ z_offset: v })} help={t('layers.help.zOffset')} />
+                  <NumField field="z_step" label={t('layers.zStep')} value={layer.z_step} onApply={(v) => set({ z_step: v })} help={t('layers.help.zStep')} />
+                </>
+              ) : (
+                <>
+                  <p className="warn-line" role="status">
+                    <TriangleAlert size={14} aria-hidden="true" />
+                    <span>{t('layers.warn.zNoAxis')}</span>
+                  </p>
+                  <button type="button" className="btn" onClick={() => set({ z_offset: 0, z_step: 0 })}>
+                    {t('layers.zReset')}
+                  </button>
+                </>
+              )}
             </Group>
           )}
 

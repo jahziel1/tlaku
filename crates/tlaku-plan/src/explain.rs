@@ -33,37 +33,97 @@ fn entry_dist(ctx: &Ctx, i: usize, pos: Point, buf: &mut Vec<(usize, usize, Poin
         .fold(f64::INFINITY, f64::min)
 }
 
-/// Contenedor pendiente de `c` (en su cubo) que estaba estrictamente más cerca que `c`.
-/// Si hay varios, el más cercano. Es lo que explica "interiores primero" aunque otra figura
-/// bloqueada no relacionada estuviera aún más cerca.
+/// Figura pendiente que `c` debe preceder (a cualquier distancia en el grafo de precedencias)
+/// y que estaba estrictamente más cerca que `c`. Si hay varias, la más cercana. Devuelve la
+/// figura y el primer salto (`bouter` directo de `c`) por el que se llega. Es lo que explica
+/// "interiores primero" aunque otra figura bloqueada no relacionada estuviera aún más cerca.
 fn closest_container(
-    ctx: &Ctx,
+    ctx: &mut Ctx,
     c: usize,
     pos: Point,
     own_best: f64,
     buf: &mut Vec<(usize, usize, Point)>,
-) -> Option<usize> {
-    let mut best: Option<(f64, usize)> = None;
-    let mut cur = ctx.bparent[c];
-    while let Some(g) = cur {
+) -> Option<(usize, usize)> {
+    ctx.seen_gen = ctx.seen_gen.wrapping_add(1);
+    if ctx.seen_gen == 0 {
+        ctx.seen.fill(0);
+        ctx.seen_gen = 1;
+    }
+    let gen_ = ctx.seen_gen;
+    let mut best: Option<(f64, usize, usize)> = None;
+    let mut stack: Vec<(usize, usize)> = Vec::new();
+    for k in (0..ctx.bouter[c].len()).rev() {
+        let hop = ctx.bouter[c][k];
+        stack.push((hop, hop));
+    }
+    while let Some((g, hop)) = stack.pop() {
+        if ctx.seen[g] == gen_ {
+            continue;
+        }
+        ctx.seen[g] = gen_;
         if ctx.mark[g] != DONE {
             let d = entry_dist(ctx, g, pos, buf);
-            if d < own_best - TIE && best.is_none_or(|(bd, _)| d < bd) {
-                best = Some((d, g));
+            if d < own_best - TIE && best.is_none_or(|(bd, bg, _)| (d, g) < (bd, bg)) {
+                best = Some((d, g, hop));
             }
         }
-        cur = ctx.bparent[g];
+        for k in (0..ctx.bouter[g].len()).rev() {
+            stack.push((ctx.bouter[g][k], hop));
+        }
     }
-    best.map(|(_, g)| g)
+    best.map(|(_, g, hop)| (g, hop))
+}
+
+/// Razón de precedencia de `c` respecto de `g`, alcanzada por el salto directo `hop`.
+fn precedence_reason(ctx: &Ctx, c: usize, g: usize, hop: usize) -> Reason {
+    if is_inside(ctx, c, g) {
+        return Reason::InnerFirst { container: g };
+    }
+    match ctx.extras[c].iter().find(|e| e.outer == hop) {
+        Some(e) => Reason::OverlapFirst {
+            other: hop,
+            share_pct: e.share_pct,
+            with_others: e.with_others,
+        },
+        None => Reason::InnerFirst { container: hop },
+    }
+}
+
+/// `g` está en el grafo de precedencias por encima de `c`; devuelve el primer salto.
+fn reaches(ctx: &mut Ctx, c: usize, g: usize) -> Option<usize> {
+    ctx.seen_gen = ctx.seen_gen.wrapping_add(1);
+    if ctx.seen_gen == 0 {
+        ctx.seen.fill(0);
+        ctx.seen_gen = 1;
+    }
+    let gen_ = ctx.seen_gen;
+    let mut stack: Vec<(usize, usize)> = ctx.bouter[c].iter().map(|&h| (h, h)).collect();
+    while let Some((x, hop)) = stack.pop() {
+        if x == g {
+            return Some(hop);
+        }
+        if ctx.seen[x] == gen_ {
+            continue;
+        }
+        ctx.seen[x] = gen_;
+        stack.extend(ctx.bouter[x].iter().map(|&o| (o, hop)));
+    }
+    None
 }
 
 /// Razón de nivel (primera figura del cubo) enriquecida con la figura más cercana que se
 /// saltó, según la razón de distancia u orden `base`.
 fn with_blocked(level: &Reason, base: &Reason) -> Reason {
     let blocked = match *base {
-        Reason::InnerFirst { container } => Some(Blocked {
-            item: container,
+        Reason::InnerFirst { container: item } => Some(Blocked {
+            item,
             contains_this: true,
+            by_overlap: false,
+        }),
+        Reason::OverlapFirst { other: item, .. } => Some(Blocked {
+            item,
+            contains_this: true,
+            by_overlap: true,
         }),
         Reason::Nearest {
             blocked: Some(item),
@@ -74,6 +134,7 @@ fn with_blocked(level: &Reason, base: &Reason) -> Reason {
         } => Some(Blocked {
             item,
             contains_this: false,
+            by_overlap: false,
         }),
         _ => None,
     };
@@ -137,7 +198,7 @@ pub(crate) fn explain(
                         let ready_d = r.dist2.sqrt();
                         if own_best <= ready_d + TIE {
                             match closest_container(ctx, c, pos, own_best, &mut cands) {
-                                Some(container) => Reason::InnerFirst { container },
+                                Some((g, hop)) => precedence_reason(ctx, c, g, hop),
                                 None => Reason::Nearest {
                                     distance_mm: own_best,
                                     blocked: (a.item != r.item && a.dist2.sqrt() < ready_d - TIE)
@@ -157,10 +218,8 @@ pub(crate) fn explain(
                 let preferred = members[ptr];
                 if preferred == c {
                     Reason::InputOrder { blocked: None }
-                } else if is_inside(ctx, c, preferred) {
-                    Reason::InnerFirst {
-                        container: preferred,
-                    }
+                } else if let Some(hop) = reaches(ctx, c, preferred) {
+                    precedence_reason(ctx, c, preferred, hop)
                 } else {
                     Reason::InputOrder {
                         blocked: Some(preferred),

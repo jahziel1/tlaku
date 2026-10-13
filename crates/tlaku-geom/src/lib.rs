@@ -15,17 +15,21 @@
 //!   infinitos, de área cero) se ignoran; ninguna función entra en pánico.
 
 mod boolean;
+mod dedupe;
 mod join;
 mod kerf;
 mod nesting;
 mod offset;
+mod tabs;
 mod util;
 
 pub use boolean::{BoolOp, boolean, weld};
-pub use join::{auto_join, close_paths};
+pub use dedupe::{DedupeResult, dedupe_paths};
+pub use join::{auto_join, auto_join_tracked, close_paths};
 pub use kerf::{kerf_compensate, kerf_compensate_with};
 pub use nesting::nesting_depth;
 pub use offset::{Join, offset};
+pub use tabs::{MAX_TABS_PER_SHAPE, TabOptions, TabResult, tab_eligible, tab_segments};
 pub use util::{
     Orientation, PointLocation, locate_point, orientation, point_in_polygon,
     remove_redundant_points, signed_area,

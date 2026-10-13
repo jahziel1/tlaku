@@ -4447,6 +4447,7 @@ dependencies = [
 name = "tlaku-fill"
 version = "0.1.0"
 dependencies = [
+ "i_overlay",
  "tlaku-core",
 ]
 
@@ -4513,6 +4514,7 @@ name = "tlaku-svg"
 version = "0.1.0"
 dependencies = [
  "tlaku-core",
+ "tlaku-geom",
  "usvg",
 ]
 

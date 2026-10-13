@@ -284,6 +284,14 @@ button.lyr-main:focus-visible {
   font-size: var(--text-xs);
   line-height: 1.35;
 }
+.lyr-feature {
+  margin-left: var(--s-3);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
 .lyr-meta svg {
   margin-right: var(--s-2);
   vertical-align: -1px;

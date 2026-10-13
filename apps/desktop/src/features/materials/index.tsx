@@ -1,14 +1,26 @@
-import { t } from '@/i18n';
+import { useEffect } from 'react';
+import { loadMaterials } from './actions';
+import { PresetDialogHost } from './PresetDialog';
+import { useMaterials } from './state';
+import { TestDialog } from './TestDialog';
 
-/** Panel de la biblioteca de materiales (pestaña del dock). TODO(fase4). */
-export function MaterialsPanel() {
-  return <div className="materials-panel">{t('materials.panel.empty')}</div>;
-}
+export { MaterialsPanel } from './MaterialsPanel';
 
 /**
  * Punto de montaje del área `materials` (lo monta el shell una sola vez): carga la biblioteca y
- * aloja el diálogo de prueba de materiales. TODO(fase4).
+ * aloja el diálogo de prueba de materiales y el de guardar o editar un ajuste.
  */
 export function MaterialsDialogHost() {
-  return null;
+  const testOpen = useMaterials((s) => s.testOpen);
+
+  useEffect(() => {
+    void loadMaterials();
+  }, []);
+
+  return (
+    <>
+      {testOpen && <TestDialog />}
+      <PresetDialogHost />
+    </>
+  );
 }

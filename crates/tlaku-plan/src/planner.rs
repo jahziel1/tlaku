@@ -8,6 +8,7 @@ use tlaku_core::{Point, Polyline};
 use crate::contain::find_parents;
 use crate::explain::explain;
 use crate::improve::{improve, polish};
+use crate::overlap::{Extra, find_overlaps};
 use crate::sched::{input_order, nearest_neighbor};
 use crate::shapes::Shapes;
 use crate::{Level, Plan, PlanItem, PlanOptions, PlanStep, Reason, Warning};
@@ -19,9 +20,16 @@ pub(crate) struct Ctx<'a> {
     pub sh: Shapes,
     /// Contenedor inmediato (global).
     pub gparent: Vec<Option<usize>>,
-    /// Contenedor más cercano que está en el mismo cubo.
-    pub bparent: Vec<Option<usize>>,
+    /// Precedencias por solape parcial (global): figuras que deben salir antes que `outer`.
+    pub extras: Vec<Vec<Extra>>,
+    /// Todas las figuras del mismo cubo que deben cortarse después de esta: el contenedor más
+    /// cercano que está en el cubo y las de solape parcial. Es un grafo acíclico, no un árbol.
+    pub bouter: Vec<Vec<usize>>,
+    /// Inverso de `bouter`: las figuras que deben cortarse antes que ésta.
     pub bchildren: Vec<Vec<usize>>,
+    /// Marcas de visita reutilizables (ver `explain`).
+    pub seen: Vec<u32>,
+    pub seen_gen: u32,
     pub mark: Vec<u8>,
     pub pending: Vec<u32>,
     pub local: Vec<u32>,
@@ -51,7 +59,7 @@ fn travel_in_order(items: &[PlanItem], order: impl Iterator<Item = usize>, start
 /// índice entre los listos), con los cubos en el orden de niveles.
 fn valid_input_order(
     buckets: &[Vec<usize>],
-    bparent: &[Option<usize>],
+    bouter: &[Vec<usize>],
     bchildren: &[Vec<usize>],
 ) -> Vec<Vec<usize>> {
     let mut pending: Vec<usize> = bchildren.iter().map(Vec::len).collect();
@@ -67,7 +75,7 @@ fn valid_input_order(
             let mut order = Vec::with_capacity(members.len());
             while let Some(Reverse(i)) = ready.pop() {
                 order.push(i);
-                if let Some(p) = bparent[i] {
+                for &p in &bouter[i] {
                     pending[p] -= 1;
                     if pending[p] == 0 {
                         ready.push(Reverse(p));
@@ -229,11 +237,26 @@ pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
 
     // Contención global y restricciones dentro de cada cubo.
     let mut gparent = vec![None; n];
+    let mut extras: Vec<Vec<Extra>> = vec![Vec::new(); n];
     if options.inner_first {
         let ids: Vec<usize> = sorted.clone();
         let paths: Vec<&Polyline> = ids.iter().map(|&i| &items[i].path).collect();
-        for (local, parent) in find_parents(&paths).into_iter().enumerate() {
+        let parents = find_parents(&paths);
+        for (local, &parent) in parents.iter().enumerate() {
             gparent[ids[local]] = parent.map(|p| ids[p]);
+        }
+        let overlaps = find_overlaps(&paths, &parents);
+        for (local, list) in overlaps.extras.into_iter().enumerate() {
+            extras[ids[local]] = list
+                .into_iter()
+                .map(|e| Extra {
+                    outer: ids[e.outer],
+                    ..e
+                })
+                .collect();
+        }
+        if overlaps.truncated {
+            warnings.push(Warning::OverlapAnalysisLimited);
         }
     }
     let mut bparent = vec![None; n];
@@ -265,9 +288,20 @@ pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
         }
     }
 
+    // Solapes parciales: solo restringen dentro del mismo cubo (entre cubos manda el nivel).
+    let mut bouter: Vec<Vec<usize>> = (0..n).map(|i| bparent[i].into_iter().collect()).collect();
+    for i in (0..n).filter(|&i| valid[i]) {
+        for e in &extras[i] {
+            if bucket_of[e.outer] == bucket_of[i] {
+                bouter[i].push(e.outer);
+                bchildren[e.outer].push(i);
+            }
+        }
+    }
+
     // Referencia: el orden de entrada hecho válido (niveles y precedencias), sin rotar el inicio
     // ni invertir el sentido de ninguna figura.
-    let base_orders = valid_input_order(&buckets, &bparent, &bchildren);
+    let base_orders = valid_input_order(&buckets, &bouter, &bchildren);
     let baseline = travel_in_order(items, base_orders.iter().flatten().copied(), options.start);
 
     let mut ctx = Ctx {
@@ -275,8 +309,11 @@ pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
         opts: options,
         sh: Shapes::new(items),
         gparent,
-        bparent,
+        extras,
+        bouter,
         bchildren,
+        seen: vec![0; n],
+        seen_gen: 0,
         mark: vec![0; n],
         pending: vec![0; n],
         local: vec![0; n],

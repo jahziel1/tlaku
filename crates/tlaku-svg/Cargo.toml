@@ -6,4 +6,5 @@ license.workspace = true
 
 [dependencies]
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 usvg = "0.45"

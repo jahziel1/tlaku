@@ -3,7 +3,7 @@ import type { I18nKey } from '@/i18n';
 import { bezPointCount } from '@/lib/bezpath';
 import { multiplyAffine, translateAffine } from '@/lib/geometry';
 import { groupIdsOf, regroupCopies } from '@/lib/groups';
-import { makeLayer } from '@/lib/layers';
+import { makeLayer, normalizeLayers } from '@/lib/layers';
 import { LAYER_PALETTE, paletteLabel } from '@/lib/palette';
 import type { SliceCreator } from './types';
 
@@ -222,7 +222,8 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
 
     newDocument: () => reset({ ...emptyDocument(), device_id: get().doc.device_id }, null),
 
-    replaceDocument: (doc, path) => reset(doc, path),
+    // Documentos de antes de la fase 4 llegan sin puentes, Z ni estilo de relleno.
+    replaceDocument: (doc, path) => reset(normalizeLayers(doc), path),
 
     markSaved: (path, saved) => {
       const savedDoc = saved ?? get().doc;

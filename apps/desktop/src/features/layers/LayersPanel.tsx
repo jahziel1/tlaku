@@ -22,9 +22,9 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import { useShallow } from 'zustand/react/shallow';
 import type { LayerOrder } from '@/api/types';
 import { t } from '@/i18n';
-import { countByLayer, type LayerCount } from '@/lib/layers';
+import { countByLayer, layerFeatures, type LayerCount } from '@/lib/layers';
 import { colorName, isGuideColor, readableOn } from '@/lib/palette';
-import { useStore } from '@/store';
+import { selectActiveDevice, useStore } from '@/store';
 import { moveLayer, openEditorFor, selectLayerObjects } from './actions';
 import { LayerEditor } from './LayerEditor';
 import { focusLayerRow, useLayerUi } from './layerUi';
@@ -75,6 +75,8 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
   const [menu, setMenu] = useState<DOMRect | null>(null);
   const menuBtn = useRef<HTMLButtonElement>(null);
   const Icon = MODE_ICON[layer.mode];
+  const hasZ = useStore((s) => selectActiveDevice(s).z_axis === true);
+  const features = layerFeatures(layer, hasZ);
   const pinned = layer.order !== null;
   const name = layer.name || colorName(layer.color);
 
@@ -205,6 +207,11 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
                   <Icon size={11} aria-hidden="true" />
                   <span className="sr-only">{t(`layers.mode.${layer.mode}`)}: </span>
                   {summary(entry)}
+                  {features.map((f) => (
+                    <span key={f} className="lyr-feature" title={t(`layers.feature.${f}.why`)}>
+                      {t(`layers.feature.${f}`)}
+                    </span>
+                  ))}
                 </>
               )}
             </span>

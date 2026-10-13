@@ -16,6 +16,19 @@ fn summary(l: &LayerReport) -> String {
     if let Some(mm) = l.overscan_mm {
         s.push_str(&format!(", overscan {mm:.2} mm"));
     }
+    if l.tabs > 0 {
+        s.push_str(&format!(
+            ", {} {}",
+            l.tabs,
+            if l.tabs == 1 { "puente" } else { "puentes" }
+        ));
+    }
+    if let Some((n, total)) = l.pass {
+        s.push_str(&format!(", pasada {n}/{total}"));
+    }
+    if let Some(z) = l.z_mm {
+        s.push_str(&format!(", Z {z} mm"));
+    }
     s
 }
 

@@ -7,6 +7,9 @@ export const arrange = {
   'arrange.cmd.xor': 'Diferencia simétrica (XOR)',
   'arrange.cmd.weld': 'Soldar',
   'arrange.cmd.offset': 'Offset…',
+  'arrange.cmd.join': 'Unir trazos…',
+  'arrange.cmd.close': 'Cerrar trayectos…',
+  'arrange.cmd.dedupe': 'Quitar duplicados…',
   'arrange.cmd.align.left': 'Alinear a la izquierda',
   'arrange.cmd.align.hcenter': 'Centrar horizontalmente',
   'arrange.cmd.align.right': 'Alinear a la derecha',
@@ -30,6 +33,8 @@ export const arrange = {
   'arrange.reason.image': 'Las imágenes no se pueden combinar: quítalas de la selección.',
   'arrange.reason.noContour': 'Hay objetos sin contorno (por ejemplo, un texto que aún no se generó): quítalos de la selección.',
   'arrange.reason.open': 'Hay formas abiertas en la selección: ciérralas primero (Cerrar polilínea, C).',
+  'arrange.reason.needVectors': 'Esta operación solo trabaja con objetos vectoriales: quita de la selección las imágenes y los textos.',
+  'arrange.reason.noOpenPaths': 'No hay trazos abiertos en la selección.',
   'arrange.reason.alignNeedTwo': 'Selecciona al menos dos objetos, o elige la cama como referencia.',
   'arrange.reason.distributeNeedThree': 'Selecciona al menos tres objetos para repartirlos con espacio igual.',
   'arrange.reason.busy': 'Hay una operación en curso: espera a que termine.',
@@ -60,6 +65,14 @@ export const arrange = {
   'arrange.msg.empty': 'La operación no dejó ninguna forma, así que no se cambió nada.',
   'arrange.msg.noOverlap': 'Las formas no se cruzan: no hay nada que conservar. No se cambió nada.',
   'arrange.msg.offsetEmpty': 'Con esa distancia la forma desaparece. No se cambió nada.',
+  'arrange.msg.joinNone': 'Ningún extremo está tan cerca de otro: no se unió nada. Prueba con una tolerancia mayor.',
+  'arrange.msg.closeNone': 'Ningún trayecto tiene los extremos tan cerca: no se cerró nada. Prueba con una tolerancia mayor.',
+  'arrange.msg.dedupeNone': 'No hay trazos repetidos ni superpuestos: no se cambió nada.',
+  'arrange.msg.join': 'Se unieron {from} trazos en {to}.',
+  'arrange.msg.joinClosed': 'Se unieron {from} trazos en {to}; cerrados: {closed}.',
+  'arrange.msg.joinOnlyClosed': 'Trayectos cerrados al unir sus extremos: {closed}.',
+  'arrange.msg.close': 'Trayectos cerrados: {n}.',
+  'arrange.msg.dedupe': 'Se quitaron {mm} mm de trazo repetido (objetos modificados: {n}).',
 
   // Diálogos: comunes
   'arrange.dlg.apply': 'Aplicar',
@@ -67,6 +80,17 @@ export const arrange = {
   'arrange.dlg.close': 'Cerrar',
   'arrange.dlg.working': 'Calculando…',
   'arrange.dlg.mm': 'mm',
+
+  // Unir, cerrar y quitar duplicados
+  'arrange.cleanup.title.join': 'Unir trazos',
+  'arrange.cleanup.title.close': 'Cerrar trayectos',
+  'arrange.cleanup.title.dedupe': 'Quitar duplicados',
+  'arrange.cleanup.hint.join': 'Une los trazos abiertos cuyos extremos están a esta distancia o menos, aunque sean de objetos distintos (siempre de la misma capa), y cierra el que termina donde empieza.',
+  'arrange.cleanup.hint.close': 'Cierra cada trayecto abierto cuyo final está a esta distancia o menos de su inicio. No une trayectos distintos: para eso está «Unir trazos».',
+  'arrange.cleanup.hint.dedupe': 'Quita los tramos repetidos o superpuestos dentro de cada capa, para que el láser no corte dos veces la misma línea (por ejemplo, el borde que comparten dos piezas). Se conserva el primero.',
+  'arrange.cleanup.tolerance': 'Tolerancia',
+  'arrange.cleanup.toleranceHint': 'Valor habitual: {default} mm.',
+  'arrange.cleanup.curvesHint': 'Los objetos que cambian se convierten en rectas muy finas; los que no cambian quedan intactos, con sus curvas.',
 
   // Booleanas con forma principal
   'arrange.bool.title.difference': 'Diferencia: A menos B',
@@ -80,8 +104,24 @@ export const arrange = {
   'arrange.bool.roleB': 'B',
   'arrange.bool.summary': 'A: {a}. B: {rest}.',
   'arrange.bool.size': '{w} × {h} mm',
-  'arrange.bool.group': 'Grupo de {n} objetos',
   'arrange.bool.apply': 'Aplicar',
+
+  // Nombre de cada forma en los diálogos (en vez de su id interno)
+  'arrange.label.rect': 'Rectángulo {w}×{h} mm',
+  'arrange.label.square': 'Cuadrado {w} mm',
+  'arrange.label.circle': 'Círculo ⌀ {d} mm',
+  'arrange.label.ellipse': 'Elipse {w}×{h} mm',
+  'arrange.label.polygon': 'Polígono de {n} lados ({w}×{h} mm)',
+  'arrange.label.closed': 'Forma cerrada {w}×{h} mm',
+  'arrange.label.line': 'Línea de {len} mm',
+  'arrange.label.open': 'Trazo abierto {w}×{h} mm',
+  'arrange.label.compound': 'Forma de {n} trazos ({w}×{h} mm)',
+  'arrange.label.text': 'Texto «{text}»',
+  'arrange.label.textEmpty': 'Texto sin contenido',
+  'arrange.label.image': 'Imagen',
+  'arrange.label.imageSized': 'Imagen {w}×{h} mm',
+  'arrange.label.group': 'Grupo ({n})',
+  'arrange.label.empty': 'Objeto vacío',
 
   // Offset
   'arrange.offset.title': 'Offset',

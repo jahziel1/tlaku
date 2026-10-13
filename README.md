@@ -28,7 +28,32 @@ comercial. La hoja de ruta está en [docs/spec/00-resumen.md](docs/spec/00-resum
 | `tlaku-pipeline` | Documento + máquina a `Toolpath`, estimaciones, límites de la cama y G-code; importa SVG, DXF e imágenes. |
 | `tlaku-cli` | Binario `tlaku`; arma un documento con los argumentos y usa `tlaku-pipeline`. |
 
-## Instalación desde el código fuente
+## Instalación
+
+### Descargar la aplicación
+
+Los instaladores están en la página de **Releases** del repositorio (la versión más reciente,
+sección "Assets"):
+
+| Sistema | Archivo |
+|---|---|
+| macOS 11 o posterior (Apple Silicon e Intel) | `.dmg`: ábrelo y arrastra Tlaku a Aplicaciones |
+| Windows 10 o posterior | `.exe` (instalador NSIS) o `.msi` |
+| Linux | `.deb` (`sudo apt install ./Tlaku_*.deb`) o `.AppImage` (`chmod +x` y ejecútalo) |
+
+**Aplicación sin firmar.** Mientras el proyecto no tenga certificados de firma, el sistema avisará
+la primera vez que abras el instalador:
+
+- **macOS:** clic derecho sobre Tlaku > Abrir, o Ajustes del Sistema > Privacidad y seguridad >
+  "Abrir de todos modos". Si dice que la app está dañada:
+  `xattr -dr com.apple.quarantine /Applications/Tlaku.app`.
+- **Windows (SmartScreen):** "Más información" y luego "Ejecutar de todas formas".
+- **Linux:** sin avisos. Para usar el puerto serie del láser, añade tu usuario al grupo
+  `dialout` (`sudo usermod -aG dialout "$USER"`) y vuelve a iniciar sesión.
+
+Más detalle, y cómo se publica cada versión, en [docs/publicar.md](docs/publicar.md).
+
+### Compilar desde el código fuente
 
 Requiere Rust estable reciente (edition 2024). En Linux, `serialport` necesita
 `libudev-dev` y `pkg-config`.
@@ -36,8 +61,20 @@ Requiere Rust estable reciente (edition 2024). En Linux, `serialport` necesita
 ```sh
 git clone <url-del-repositorio> tlaku && cd tlaku
 cargo build --release
-# el binario queda en target/release/tlaku
+# el binario del CLI queda en target/release/tlaku
 ```
+
+Para compilar la aplicación de escritorio hace falta además Node 22.13 o superior y las
+dependencias de Tauri de tu sistema (en Linux, `libwebkit2gtk-4.1-dev` y otras; ver la
+[guía de Tauri](https://v2.tauri.app/start/prerequisites/)):
+
+```sh
+cd apps/desktop
+npm ci
+npm run tauri build     # instaladores en target/release/bundle/
+```
+
+Para desarrollar, `npm run tauri dev`. Detalles en [apps/desktop/README.md](apps/desktop/README.md).
 
 ## Uso del CLI
 

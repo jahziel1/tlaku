@@ -7,6 +7,7 @@ import {
   BAUD_RATES,
   duplicateDeviceProfile,
   newDeviceProfile,
+  normalizeDevice,
   proposeFromSettings,
   sameDevice,
   validateDevice,
@@ -16,6 +17,7 @@ import {
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { Field, NumInput } from './DeviceFields';
+import { RotaryFields, ScanOffsetsTable, ZAxisField, type ScanIssue } from './DeviceExtras';
 import { Modal } from './Modal';
 
 const ORIGINS: { id: DeviceProfile['origin']; label: I18nKey }[] = [
@@ -116,7 +118,10 @@ export function DeviceManager() {
   const setBaud = useStore((s) => s.setBaud);
   const readSettings = useStore((s) => s.readSettings);
 
-  const [draft, setDraft] = useState<DeviceProfile>(() => devices.find((d) => d.id === activeId) ?? devices[0] ?? newDeviceProfile(t('machine.dev.newName'), []));
+  const [draft, setDraft] = useState<DeviceProfile>(() => {
+    const first = devices.find((d) => d.id === activeId) ?? devices[0];
+    return first ? normalizeDevice(first) : newDeviceProfile(t('machine.dev.newName'), []);
+  });
   const [isNew, setIsNew] = useState(devices.length === 0);
   const [proposal, setProposal] = useState<DeviceProposal | null>(null);
   const [reading, setReading] = useState(false);
@@ -126,21 +131,21 @@ export function DeviceManager() {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const saved = devices.find((d) => d.id === draft.id) ?? null;
-  const dirty = isNew || !saved || !sameDevice(draft, saved);
+  const dirty = isNew || !saved || !sameDevice(draft, normalizeDevice(saved));
   const issues = useMemo(() => validateDevice(draft), [draft]);
   const invalid = Object.keys(issues).length > 0;
   const isActive = draft.id === activeId;
 
   // Si la lista cambia desde fuera (otro borrado), el borrador sigue apuntando a un perfil que existe.
   useEffect(() => {
-    if (!isNew && devices.length > 0 && !devices.some((d) => d.id === draft.id)) setDraft(devices.find((d) => d.id === activeId) ?? devices[0]!);
+    if (!isNew && devices.length > 0 && !devices.some((d) => d.id === draft.id)) setDraft(normalizeDevice(devices.find((d) => d.id === activeId) ?? devices[0]!));
   }, [devices, draft.id, isNew, activeId]);
 
   const edit = (patch: Partial<DeviceProfile>) => setDraft((d) => ({ ...d, ...patch }));
   /** Pide confirmación si hay cambios sin guardar antes de hacer `run`. */
   const afterGuard = (title: I18nKey, run: () => void) => (dirty ? setGuard({ title, run }) : run());
   const select = (d: DeviceProfile) => {
-    setDraft(d);
+    setDraft(normalizeDevice(d)); // un perfil guardado antes de la Fase 4 se completa al abrirlo
     setIsNew(false);
     setProposal(null);
   };
@@ -336,6 +341,17 @@ export function DeviceManager() {
               <Field label={t('machine.dev.rapid')} help="machine.dev.rapid.help" error={issues.rapid_rate}>
                 {({ id, describedBy, invalid: bad }) => <NumInput id={id} unit="mm/min" value={draft.rapid_rate} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ rapid_rate: v })} />}
               </Field>
+            </fieldset>
+
+            <fieldset className="mc-group">
+              <legend>{t('machine.dev.group.axes')}</legend>
+              <ZAxisField draft={draft} edit={edit} />
+              <RotaryFields draft={draft} edit={edit} issues={issues} />
+            </fieldset>
+
+            <fieldset className="mc-group">
+              <legend>{t('machine.dev.group.scan')}</legend>
+              <ScanOffsetsTable rows={draft.scan_offsets} error={issues.scan_offsets as ScanIssue | undefined} onChange={(rows) => edit({ scan_offsets: rows })} />
             </fieldset>
 
             <fieldset className="mc-group">

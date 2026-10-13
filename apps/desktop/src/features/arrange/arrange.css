@@ -112,6 +112,19 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+.ar-thumb {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 2px;
+  border-radius: 3px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  overflow: visible;
+}
+.ar-thumb path {
+  stroke-width: 1.5px;
+}
 .ar-swatch {
   width: 10px;
   height: 10px;

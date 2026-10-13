@@ -1,4 +1,4 @@
-import type { DeviceProfile, Point, RotarySettings } from '@/api/types';
+import type { DeviceProfile, Point, RotarySettings, ScanOffset } from '@/api/types';
 
 /** Mismos valores que `RotarySettings::default()` del motor. */
 export const DEFAULT_ROTARY: RotarySettings = {
@@ -30,6 +30,26 @@ export const FALLBACK_DEVICE: DeviceProfile = {
   rotary: { ...DEFAULT_ROTARY },
   scan_offsets: [],
 };
+
+/**
+ * Completa un perfil que llega sin los campos de la Fase 4 (guardado antes de ellos) con los
+ * valores por defecto. Devuelve el mismo objeto si ya estaba completo.
+ */
+export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProfile, 'id' | 'name'>): DeviceProfile {
+  const complete =
+    typeof device.z_axis === 'boolean' &&
+    Array.isArray(device.scan_offsets) &&
+    device.rotary !== undefined &&
+    (Object.keys(DEFAULT_ROTARY) as (keyof RotarySettings)[]).every((k) => k in device.rotary!);
+  if (complete) return device as DeviceProfile;
+  return {
+    ...FALLBACK_DEVICE,
+    ...device,
+    z_axis: device.z_axis ?? false,
+    rotary: { ...DEFAULT_ROTARY, ...device.rotary },
+    scan_offsets: device.scan_offsets ?? [],
+  };
+}
 
 /** Velocidades de comunicación que ofrecen GRBL y sus derivados. */
 export const BAUD_RATES = [9600, 19200, 38400, 57600, 115200, 230400, 250000, 460800] as const;
@@ -82,11 +102,31 @@ export type DeviceField =
   | 'max_rate'
   | 'rapid_rate'
   | 'baud'
-  | 'rx_buffer';
+  | 'rx_buffer'
+  | 'mm_per_rotation'
+  | 'roller_diameter'
+  | 'object_diameter'
+  | 'scan_offsets';
 
-export type DeviceIssue = 'required' | 'positive' | 'integer' | 'tooBig' | 'tooSmall';
+export type DeviceIssue = 'required' | 'positive' | 'integer' | 'tooBig' | 'tooSmall' | 'duplicate';
 
 const pos = (n: number) => Number.isFinite(n) && n > 0;
+
+/** Filas de la tabla de corrección de barrido con problema: velocidad no positiva o repetida. */
+export function scanOffsetRowIssues(rows: readonly ScanOffset[]): (DeviceIssue | null)[] {
+  const count = new Map<number, number>();
+  for (const r of rows) count.set(r.speed, (count.get(r.speed) ?? 0) + 1);
+  return rows.map((r) => {
+    if (!pos(r.speed)) return 'positive';
+    if (!Number.isFinite(r.offset)) return 'required';
+    return (count.get(r.speed) ?? 0) > 1 ? 'duplicate' : null;
+  });
+}
+
+/** Filas ordenadas por velocidad (sin tocar el original). */
+export function sortScanOffsets(rows: readonly ScanOffset[]): ScanOffset[] {
+  return [...rows].sort((a, b) => a.speed - b.speed);
+}
 
 /** Errores del perfil por campo; objeto vacío si es válido. */
 export function validateDevice(d: DeviceProfile): Partial<Record<DeviceField, DeviceIssue>> {
@@ -105,6 +145,16 @@ export function validateDevice(d: DeviceProfile): Partial<Record<DeviceField, De
   if (!pos(d.rx_buffer)) out.rx_buffer = 'positive';
   else if (!Number.isInteger(d.rx_buffer)) out.rx_buffer = 'integer';
   else if (d.rx_buffer < 16) out.rx_buffer = 'tooSmall';
+  // Un perfil viejo puede llegar sin estos campos: se valida lo que hay.
+  const r = d.rotary;
+  if (r?.enabled) {
+    if (!pos(r.mm_per_rotation)) out.mm_per_rotation = 'positive';
+    if (r.kind === 'roller' && !pos(r.roller_diameter)) out.roller_diameter = 'positive';
+    if (!pos(r.object_diameter)) out.object_diameter = 'positive';
+  }
+  const rowIssues = scanOffsetRowIssues(d.scan_offsets ?? []);
+  const firstBad = rowIssues.find((i) => i !== null);
+  if (firstBad) out.scan_offsets = firstBad;
   return out;
 }
 

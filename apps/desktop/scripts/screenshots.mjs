@@ -261,6 +261,74 @@ await app(`st().setDockWidth(520); st().setDockTab('layers');`);
 await wait(500);
 await shot('18-pestanas-ancho.png');
 
+// 19. Panel de materiales con la biblioteca de ejemplo
+await fresh();
+await click('#tab-materials');
+await wait(800);
+await shot('19-materiales.png');
+
+// 20. Prueba de materiales: cuadrícula potencia x velocidad
+await app(`await commands.run('tools.materialTest');`);
+await wait(1500);
+await shot('20-prueba-materiales.png');
+await closeDialog();
+
+// 21. Editor de la capa de corte con puentes activados
+await fresh();
+await app(`
+  const corte = st().doc.layers.find((l) => l.name.includes('Corte'));
+  st().updateLayer(corte.color, { tabs: { ...corte.tabs, enabled: true, count: 4, width: 1 } });
+`);
+await evaluate(`(() => {
+  const row = [...document.querySelectorAll('.lyr-main')].find((e) => e.textContent.includes('Corte'));
+  row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+})()`);
+await wait(600);
+await evaluate(`(() => {
+  const el = [...document.querySelectorAll('h2, h3, h4, legend, .section-title, [class*=title], [class*=head]')].find((e) => e.textContent.trim().startsWith('Puentes'));
+  if (!el) throw new Error('sin la sección Puentes');
+  el.scrollIntoView({ block: 'start' });
+})()`);
+await wait(300);
+await shot('21-capa-puentes.png');
+await closeDialog();
+
+// 22. Perfil de máquina: eje Z, rotativo y corrección de barrido
+await app(`await commands.run('machine.devices');`);
+await wait(800);
+await evaluate(`(() => {
+  const el = [...document.querySelectorAll('label, span, legend, div')].find((e) => e.childElementCount === 0 && e.textContent.trim() === 'Rotativo');
+  if (!el) throw new Error('sin la sección Rotativo');
+  const label = [...document.querySelectorAll('label')].find((e) => e.textContent.includes('Usar un rotativo'));
+  const box = label?.querySelector('input[type=checkbox]');
+  if (box && !box.checked) box.click();
+  el.scrollIntoView({ block: 'start' });
+})()`);
+await wait(400);
+await shot('22-maquina-rotativo.png');
+await closeDialog();
+
+// 23. Quitar duplicados con su tolerancia
+await fresh();
+await app(`
+  st().select(['obj-placa', 'obj-engranaje']);
+  await commands.run('arrange.dedupe');
+`);
+await wait(700);
+await shot('23-quitar-duplicados.png');
+await closeDialog();
+
+// 24. Vista previa con puentes en la capa de corte
+await fresh();
+await app(`
+  const corte = st().doc.layers.find((l) => l.name.includes('Corte'));
+  st().updateLayer(corte.color, { tabs: { ...corte.tabs, enabled: true, count: 4, width: 2 } });
+`);
+await click('.canvas-area');
+await key('p', 'KeyP');
+await wait(1800);
+await shot('24-vista-previa-puentes.png');
+
 await send('Browser.close').catch(() => {});
 ws.close();
 proc.kill();

@@ -55,7 +55,7 @@ function pathHasOpen(path: BezPath): boolean {
 }
 
 /** Información de un `kind` calculada una sola vez (los `kind` son inmutables). */
-function kindInfo(kind: DesignObject['kind']): KindInfo {
+export function kindInfo(kind: DesignObject['kind']): KindInfo {
   let info = kindCache.get(kind);
   if (!info) {
     const paths = kind.type === 'vector' ? kind.paths : kind.type === 'text' ? kind.outline : [];

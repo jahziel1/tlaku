@@ -4,6 +4,7 @@
 //! (Macintosh, 1984) y Bayer (1973).
 
 use crate::gray::GrayF32;
+use crate::{screen, sketch};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BayerSize {
@@ -35,9 +36,15 @@ pub enum RasterMode {
     /// Conserva los niveles: potencia = 1 - gris.
     Grayscale,
     /// Puntos de tamaño variable en celdas de `cell_mm` sobre una rejilla girada `angle_deg`.
-    Halftone { cell_mm: f64, angle_deg: f64 },
+    Halftone {
+        cell_mm: f64,
+        angle_deg: f64,
+    },
     /// Líneas de grosor variable con periodo `cell_mm`, giradas `angle_deg`.
-    Newsprint { cell_mm: f64, angle_deg: f64 },
+    Newsprint {
+        cell_mm: f64,
+        angle_deg: f64,
+    },
     /// Bordes de la imagen.
     Sketch,
 }
@@ -125,10 +132,17 @@ fn bayer_matrix(n: usize) -> Vec<u32> {
     m
 }
 
-/// Convierte la imagen (ya a la resolución final) en potencia 0..1. Con
+/// Convierte la imagen (ya a la resolución final) en potencia 0..1. `pixel_mm` es el
+/// tamaño físico de un píxel `(x, y)`; solo lo usan los modos con unidades en mm
+/// (semitono, newsprint y sketch). Con
 /// `serpentine`, los modos de difusión recorren las filas impares de derecha a
 /// izquierda (con el kernel espejado), lo que reduce las vetas direccionales.
-pub fn to_power(img: &GrayF32, mode: RasterMode, serpentine: bool) -> Vec<f32> {
+pub fn to_power(
+    img: &GrayF32,
+    mode: RasterMode,
+    serpentine: bool,
+    pixel_mm: (f64, f64),
+) -> Vec<f32> {
     match mode {
         RasterMode::Threshold(t) => img
             .data
@@ -153,10 +167,13 @@ pub fn to_power(img: &GrayF32, mode: RasterMode, serpentine: bool) -> Vec<f32> {
             }
             out
         }
-        // TODO(fase4): `process` los rechaza antes de llegar aquí.
-        RasterMode::Halftone { .. } | RasterMode::Newsprint { .. } | RasterMode::Sketch => {
-            vec![0.0; img.data.len()]
+        RasterMode::Halftone { cell_mm, angle_deg } => {
+            screen::halftone(img, cell_mm, angle_deg, pixel_mm)
         }
+        RasterMode::Newsprint { cell_mm, angle_deg } => {
+            screen::newsprint(img, cell_mm, angle_deg, pixel_mm)
+        }
+        RasterMode::Sketch => sketch::sketch(img, pixel_mm),
     }
 }
 
@@ -188,6 +205,11 @@ fn diffuse(img: &GrayF32, kernel: &Kernel, serpentine: bool) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Los modos de este módulo no dependen del tamaño del píxel.
+    fn to_power(img: &GrayF32, mode: RasterMode, serpentine: bool) -> Vec<f32> {
+        super::to_power(img, mode, serpentine, (0.1, 0.1))
+    }
 
     fn flat(v: f32, w: usize, h: usize) -> GrayF32 {
         GrayF32::from_fn(w, h, |_, _| v)

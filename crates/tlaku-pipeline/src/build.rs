@@ -1,16 +1,21 @@
 use crate::gcode::point_to_machine;
-use crate::job::{ComputedJob, LayerReport, block_bounds, check_bounds};
+use crate::job::{ComputedJob, LayerReport, block_bounds, check_device_bounds};
 use crate::layers::{
     LayerRole, ResolvedImage, ResolvedLayer, classify, layer_sequence, order_note, resolve_image,
     resolve_layer,
 };
 use crate::place::{LayerWork, PlacedImage, place};
 use crate::preview::preview;
+use crate::rotary;
+use crate::scan_offset;
+use crate::tabs::{self, TabSpec, TabStats};
+use crate::zaxis::{self, LayerZ};
 use std::f64::consts::FRAC_PI_2;
 use std::path::Path;
 use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
 use tlaku_core::{Job, Layer, Point, Polyline, Rgb};
-use tlaku_doc::{DeviceProfile, Document, JobOptions, LayerMode, Overscan};
+use tlaku_doc::{DeviceProfile, Document, JobOptions, LayerMode, Overscan, ScanOffset};
+use tlaku_fill::FillPattern;
 use tlaku_plan::{PlanItem, PlanOptions};
 use tlaku_raster::{GrayF32, Luma, ProcessOptions, Sampling};
 use tlaku_sim::MachineProfile;
@@ -30,9 +35,12 @@ fn machine_profile(device: &DeviceProfile) -> Result<MachineProfile, String> {
     positive("la aceleración", &device.accel)?;
     positive("la velocidad máxima", &device.max_rate)?;
     positive("la velocidad de movimientos rápidos", &[device.rapid_rate])?;
+    // Con rotativo el trabajo está en mm de superficie: los límites de Y de la controladora se
+    // pasan a superficie para que el tiempo y el overscan sean los reales (ver `rotary`).
+    let k = rotary::y_scale(device)?;
     Ok(MachineProfile {
-        max_rate_mm_min: device.max_rate,
-        accel_mm_s2: device.accel,
+        max_rate_mm_min: [device.max_rate[0], device.max_rate[1] / k],
+        accel_mm_s2: [device.accel[0], device.accel[1] / k],
         rapid_rate_mm_min: device.rapid_rate,
         ..MachineProfile::default()
     })
@@ -47,12 +55,19 @@ fn travel_count(block: &ToolpathBlock) -> usize {
 }
 
 /// Repite los movimientos del bloque una vez por pasada.
-fn repeat_passes(block: &mut ToolpathBlock, passes: u32) {
+fn repeat_moves(block: &mut ToolpathBlock, passes: u32) {
     if passes > 1 {
         let once = block.moves.clone();
         for _ in 1..passes {
             block.moves.extend_from_slice(&once);
         }
+    }
+}
+
+/// Como [`repeat_moves`] y anota las pasadas en la etiqueta.
+fn repeat_passes(block: &mut ToolpathBlock, passes: u32) {
+    if passes > 1 {
+        repeat_moves(block, passes);
         block.label.push_str(&format!(" pasadas={passes}"));
     }
 }
@@ -74,6 +89,7 @@ struct Builder<'a> {
     layers: Vec<LayerReport>,
     warnings: Vec<String>,
     head: Point,
+    scan_offsets: &'a [ScanOffset],
 }
 
 impl Builder<'_> {
@@ -86,12 +102,57 @@ impl Builder<'_> {
         self.layers.push(report);
     }
 
+    /// Agrega el bloque de una capa con sus `passes` pasadas. `block` trae los movimientos de
+    /// una sola pasada. Sin `z_step` (o sin eje Z) las pasadas se repiten dentro del mismo
+    /// bloque; con `z_step` cada pasada es su propio bloque con su Z y su propio informe, para
+    /// conservar la correspondencia 1:1 entre bloques e informes (ver `zaxis`).
+    fn push_passes(
+        &mut self,
+        mut block: ToolpathBlock,
+        mut report: LayerReport,
+        passes: u32,
+        z: LayerZ,
+        label_passes: bool,
+    ) {
+        if z.splits(passes) {
+            for k in 0..passes {
+                let mut b = block.clone();
+                b.z_mm = z.z_at(k);
+                if let Some(zk) = b.z_mm {
+                    b.label
+                        .push_str(&format!(" pasada {}/{passes} z={zk}", k + 1));
+                }
+                let mut r = report.clone();
+                r.passes = 1;
+                r.pass = Some((k + 1, passes));
+                r.z_mm = b.z_mm;
+                if k > 0 {
+                    // El plan y sus explicaciones se muestran una sola vez.
+                    r.plan = None;
+                }
+                self.push(b, r);
+            }
+            return;
+        }
+        if label_passes {
+            repeat_passes(&mut block, passes);
+        } else {
+            repeat_moves(&mut block, passes);
+        }
+        block.z_mm = z.z_at(0);
+        report.z_mm = block.z_mm;
+        self.push(block, report);
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn line_layer(
         &mut self,
         color: Rgb,
         paths: &[Polyline],
         settings: tlaku_core::CutSettings,
         kerf_mm: f64,
+        tabs: Option<TabSpec>,
+        z: LayerZ,
     ) {
         let name = color.to_string();
         let mut paths = paths.to_vec();
@@ -104,6 +165,11 @@ impl Builder<'_> {
             }
             paths = tlaku_geom::kerf_compensate(&paths, kerf_mm);
         }
+        // Los puentes van después del kerf (se parte el contorno ya compensado). Qué formas los
+        // admiten se decide con todo el conjunto, porque "dentro de otra" depende de las demás.
+        let eligible = tabs
+            .as_ref()
+            .map(|t| tlaku_geom::tab_eligible(&paths, t.skip_inner));
         let items: Vec<PlanItem> = paths
             .into_iter()
             .map(|path| PlanItem {
@@ -130,18 +196,48 @@ impl Builder<'_> {
             ));
             return;
         }
-        let ordered = Job {
+        // La pieza se planificó como forma cerrada; recién ahora se parte en tramos.
+        let mut stats = TabStats::default();
+        let mut once = Vec::new();
+        for step in &plan.steps {
+            match (&tabs, &eligible) {
+                (Some(spec), Some(ok)) if ok[step.item] => {
+                    let pieces = tabs::split(&step.path, spec, &mut stats);
+                    tabs::push_shape(&mut once, &pieces, settings.power_pct);
+                }
+                _ => tabs::push_shape(
+                    &mut once,
+                    std::slice::from_ref(&step.path),
+                    settings.power_pct,
+                ),
+            }
+        }
+        if let Some(spec) = &tabs {
+            if stats.shapes == 0 {
+                self.warnings.push(format!(
+                    "capa {name}: los puentes están activos pero no hay ninguna forma cerrada donde ponerlos{}",
+                    if spec.skip_inner {
+                        " (las formas dentro de otra se omiten)"
+                    } else {
+                        ""
+                    }
+                ));
+            }
+            if let Some(w) = stats.warning(&name, spec.options.width_mm) {
+                self.warnings.push(w);
+            }
+        }
+        // Etiqueta y ajustes del bloque salen de `from_line_job`; los movimientos, de aquí.
+        let mut block = Toolpath::from_line_job(&Job {
             layers: vec![Layer {
                 color,
                 settings: settings.clone(),
-                paths: plan
-                    .steps
-                    .iter()
-                    .map(|s| s.path.clone())
-                    .collect::<Vec<Polyline>>(),
+                paths: Vec::new(),
             }],
-        };
-        let block = Toolpath::from_line_job(&ordered).blocks.remove(0);
+        })
+        .blocks
+        .remove(0);
+        block.moves = once;
         let report = LayerReport {
             name,
             color,
@@ -155,8 +251,11 @@ impl Builder<'_> {
             plan: Some(plan),
             seconds: 0.0,
             bounds: None,
+            tabs: stats.placed,
+            z_mm: None,
+            pass: None,
         };
-        self.push(block, report);
+        self.push_passes(block, report, settings.passes, z, false);
     }
 
     fn fill_layer(
@@ -166,6 +265,7 @@ impl Builder<'_> {
         mut settings: tlaku_fill::FillSettings,
         overscan: Overscan,
         passes: u32,
+        z: LayerZ,
     ) -> Result<(), String> {
         let name = color.to_string();
         if overscan == Overscan::Auto {
@@ -197,8 +297,15 @@ impl Builder<'_> {
                 .push(format!("capa {name}: el relleno no produjo ninguna línea"));
             return Ok(());
         }
+        // Solo el barrido tiene líneas de ida y vuelta; el relleno por contornos no.
+        if settings.bidirectional && settings.pattern == FillPattern::Scan {
+            let mut angles = vec![settings.angle_deg];
+            if settings.crosshatch {
+                angles.push(settings.angle_deg + 90.0);
+            }
+            scan_offset::apply(&mut block, self.scan_offsets, &angles);
+        }
         let lines = travel_count(&block);
-        repeat_passes(&mut block, passes);
         let report = LayerReport {
             name,
             color,
@@ -212,12 +319,21 @@ impl Builder<'_> {
             plan: None,
             seconds: 0.0,
             bounds: None,
+            tabs: 0,
+            z_mm: None,
+            pass: None,
         };
-        self.push(block, report);
+        self.push_passes(block, report, passes, z, true);
         Ok(())
     }
 
-    fn image(&mut self, color: Rgb, img: &PlacedImage, r: &ResolvedImage) -> Result<(), String> {
+    fn image(
+        &mut self,
+        color: Rgb,
+        img: &PlacedImage,
+        r: &ResolvedImage,
+        z: LayerZ,
+    ) -> Result<(), String> {
         let mut raster = r.raster.clone();
         if r.overscan == Overscan::Auto {
             raster.overscan_mm = tlaku_sim::overscan_mm(raster.speed_mm_min, 0.0, self.profile);
@@ -241,8 +357,10 @@ impl Builder<'_> {
             );
             return Ok(());
         }
+        if raster.bidirectional {
+            scan_offset::apply(&mut block, self.scan_offsets, &[raster.angle_deg]);
+        }
         let lines = travel_count(&block);
-        repeat_passes(&mut block, r.passes);
         let report = LayerReport {
             name: "imagen".into(),
             color,
@@ -256,8 +374,11 @@ impl Builder<'_> {
             plan: None,
             seconds: 0.0,
             bounds: None,
+            tabs: 0,
+            z_mm: None,
+            pass: None,
         };
-        self.push(block, report);
+        self.push_passes(block, report, r.passes, z, true);
         Ok(())
     }
 }
@@ -273,7 +394,8 @@ enum Resolved {
 /// cabeza; hace falta con `start_from = current_position`.
 ///
 /// `current` y `options.user_origin` vienen en coordenadas de la máquina (las que muestra
-/// GRBL), y aquí se pasan a las del documento según `device.origin`.
+/// GRBL), y aquí se pasan a las del documento según `device.origin` (y, con rotativo, de mm
+/// de la controladora a mm de superficie).
 pub fn build(
     doc: &Document,
     device: &DeviceProfile,
@@ -281,8 +403,11 @@ pub fn build(
     current: Option<Point>,
 ) -> Result<ComputedJob, String> {
     let profile = machine_profile(device)?;
+    let y_scale = rotary::y_scale(device)?;
     let mut warnings = Vec::new();
-    let to_doc = |p: Point| point_to_machine(p, device.bed, device.origin);
+    // Inversa de lo que hace `gcode`: primero se deshace la escala del rotativo y luego el origen.
+    let to_doc =
+        |p: Point| point_to_machine(Point::new(p.x, p.y / y_scale), device.bed, device.origin);
     let options = &JobOptions {
         user_origin: options
             .user_origin
@@ -304,6 +429,16 @@ pub fn build(
             _ => resolve_layer(l.settings).map(Resolved::Vector),
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // Puentes (solo capas line) y Z de cada capa.
+    let mut tab_specs = Vec::with_capacity(work.len());
+    let mut zs = Vec::with_capacity(work.len());
+    for l in work {
+        tab_specs.push(match l.settings.mode {
+            LayerMode::Line => tabs::resolve(l.settings)?,
+            _ => None,
+        });
+        zs.push(zaxis::resolve(device, l.settings, &mut warnings)?);
+    }
     let classes: Vec<_> = resolved
         .iter()
         .map(|r| match r {
@@ -369,22 +504,37 @@ pub fn build(
         layers: Vec::new(),
         warnings,
         head: placement.start,
+        scan_offsets: &device.scan_offsets,
     };
     for i in sequence {
         let layer = &work[i];
         let color = layer.settings.color;
         match &resolved[i] {
             Resolved::Vector(ResolvedLayer::Line { settings, kerf_mm }) => {
-                b.line_layer(color, &layer.paths, settings.clone(), *kerf_mm);
+                b.line_layer(
+                    color,
+                    &layer.paths,
+                    settings.clone(),
+                    *kerf_mm,
+                    tab_specs[i],
+                    zs[i],
+                );
             }
             Resolved::Vector(ResolvedLayer::Fill {
                 settings,
                 overscan,
                 passes,
-            }) => b.fill_layer(color, &layer.paths, settings.clone(), *overscan, *passes)?,
+            }) => b.fill_layer(
+                color,
+                &layer.paths,
+                settings.clone(),
+                *overscan,
+                *passes,
+                zs[i],
+            )?,
             Resolved::Image(r) => {
                 for img in &layer.images {
-                    b.image(color, img, r)?;
+                    b.image(color, img, r, zs[i])?;
                 }
             }
         }
@@ -392,6 +542,24 @@ pub fn build(
 
     if b.toolpath.blocks.is_empty() {
         return Err(nothing_to_produce(&b.warnings));
+    }
+
+    // Con rotativo no hay límite de Y, pero el diseño no debe dar más de una vuelta.
+    if let Some(circumference) = rotary::circumference_mm(device)
+        && let Some(area) = b
+            .layers
+            .iter()
+            .filter_map(|l| l.bounds)
+            .reduce(tlaku_doc::union)
+    {
+        let height = area.max.y - area.min.y;
+        if height > circumference + 1e-6 {
+            b.warnings.push(format!(
+                "el diseño mide {height:.2} mm en Y y la circunferencia de la pieza es \
+                 {circumference:.2} mm (diámetro {} mm): los extremos se encimarán",
+                device.rotary.object_diameter
+            ));
+        }
     }
 
     let estimate = tlaku_sim::estimate_from(placement.start, &b.toolpath, &profile);
@@ -442,6 +610,6 @@ pub fn compute_at(
     current: Option<Point>,
 ) -> Result<ComputedJob, String> {
     let job = build(doc, device, options, current)?;
-    check_bounds(&job, device.bed)?;
+    check_device_bounds(&job, device)?;
     Ok(job)
 }

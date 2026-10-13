@@ -25,6 +25,18 @@ fn cell(p: Point, size: f64) -> (i64, i64) {
 /// - `tolerance` <= 0 o NaN solo une extremos exactamente iguales. Coste
 ///   aproximadamente lineal (rejilla espacial).
 pub fn auto_join(paths: &[Polyline], tolerance: f64) -> Vec<Polyline> {
+    auto_join_tracked(paths, tolerance)
+        .into_iter()
+        .map(|(path, _)| path)
+        .collect()
+}
+
+/// Como [`auto_join`], pero cada resultado va acompañado de los índices (de
+/// `paths`) de las trayectorias de las que proviene, en el orden en que se
+/// unieron: el primero es la semilla. Un resultado con una sola fuente que no
+/// se cerró es idéntico a su entrada; así quien llama sabe qué cambió sin
+/// comparar puntos.
+pub fn auto_join_tracked(paths: &[Polyline], tolerance: f64) -> Vec<(Polyline, Vec<usize>)> {
     let tol = if tolerance.is_finite() && tolerance > 0.0 {
         tolerance
     } else {
@@ -80,13 +92,14 @@ pub fn auto_join(paths: &[Polyline], tolerance: f64) -> Vec<Polyline> {
     let mut out = Vec::new();
     for (seed, path) in paths.iter().enumerate() {
         if !joinable(path) {
-            out.push(path.clone());
+            out.push((path.clone(), vec![seed]));
             continue;
         }
         if used[seed] {
             continue;
         }
         used[seed] = true;
+        let mut sources = vec![seed];
         let mut chain: VecDeque<Point> = path.points.iter().copied().collect();
         loop {
             let tail = nearest(chain[chain.len() - 1], &used).map(|c| (c, true));
@@ -103,6 +116,7 @@ pub fn auto_join(paths: &[Polyline], tolerance: f64) -> Vec<Polyline> {
                 break;
             };
             used[k] = true;
+            sources.push(k);
             let pts = &paths[k].points;
             // Puntos de k en el orden en que se recorren desde el empalme hacia afuera.
             let from_joint: Vec<Point> = if k_at_end {
@@ -123,7 +137,7 @@ pub fn auto_join(paths: &[Polyline], tolerance: f64) -> Vec<Polyline> {
         if closed {
             points.pop();
         }
-        out.push(Polyline { points, closed });
+        out.push((Polyline { points, closed }, sources));
     }
     out
 }

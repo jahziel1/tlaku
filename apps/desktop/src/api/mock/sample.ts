@@ -125,7 +125,7 @@ export function sampleDevices(): DeviceProfile[] {
       start_gcode: '',
       end_gcode: 'M5',
       return_to_origin: false,
-      z_axis: false,
+      z_axis: true,
       rotary: { ...DEFAULT_ROTARY },
       scan_offsets: [],
     },

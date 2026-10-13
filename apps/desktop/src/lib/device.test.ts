@@ -7,11 +7,14 @@ import {
   duplicateDeviceProfile,
   FALLBACK_DEVICE,
   newDeviceProfile,
+  normalizeDevice,
   parseGrblSettings,
   parseGrblVersion,
   proposeFromSettings,
   sameDevice,
+  scanOffsetRowIssues,
   slugify,
+  sortScanOffsets,
   uniqueDeviceId,
   validateDevice,
   workToDoc,
@@ -181,5 +184,54 @@ describe('parseGrblVersion', () => {
     expect(parseGrblVersion('Grbl 0.9j')?.modernEnough).toBe(false);
     expect(parseGrblVersion('Grbl 1.2')?.modernEnough).toBe(true);
     expect(parseGrblVersion('Marlin 2.0')).toBeNull();
+  });
+});
+
+describe('perfiles de la Fase 4', () => {
+  const rotary = (patch = {}) => ({ ...FALLBACK_DEVICE.rotary, enabled: true, ...patch });
+
+  it('un perfil viejo sin los campos nuevos se completa', () => {
+    const viejo: Record<string, unknown> = { ...FALLBACK_DEVICE };
+    for (const k of ['z_axis', 'rotary', 'scan_offsets']) delete viejo[k];
+    const d = normalizeDevice(viejo as never);
+    expect(d.z_axis).toBe(false);
+    expect(d.rotary).toEqual(FALLBACK_DEVICE.rotary);
+    expect(d.scan_offsets).toEqual([]);
+  });
+
+  it('completa un rotativo a medias y conserva lo guardado', () => {
+    const d = normalizeDevice({ ...FALLBACK_DEVICE, rotary: { enabled: true, kind: 'chuck' } as never });
+    expect(d.rotary).toMatchObject({ enabled: true, kind: 'chuck', mm_per_rotation: 360, object_diameter: 80 });
+  });
+
+  it('un perfil completo vuelve como el mismo objeto', () => {
+    expect(normalizeDevice(FALLBACK_DEVICE)).toBe(FALLBACK_DEVICE);
+  });
+
+  it('con el rotativo apagado no se validan sus diámetros', () => {
+    expect(validateDevice(device({ rotary: { ...rotary({ enabled: false }), object_diameter: 0 } }))).toEqual({});
+  });
+
+  it('con el rotativo activo los diámetros y los mm por vuelta deben ser positivos', () => {
+    expect(validateDevice(device({ rotary: rotary({ object_diameter: 0 }) })).object_diameter).toBe('positive');
+    expect(validateDevice(device({ rotary: rotary({ roller_diameter: -1 }) })).roller_diameter).toBe('positive');
+    expect(validateDevice(device({ rotary: rotary({ mm_per_rotation: 0 }) })).mm_per_rotation).toBe('positive');
+  });
+
+  it('el diámetro del rodillo solo importa con rodillos', () => {
+    expect(validateDevice(device({ rotary: rotary({ kind: 'chuck', roller_diameter: 0 }) }))).toEqual({});
+  });
+
+  it('las velocidades de la tabla de barrido son positivas y únicas', () => {
+    expect(validateDevice(device({ scan_offsets: [{ speed: 3000, offset: 0.1 }, { speed: 6000, offset: -0.2 }] }))).toEqual({});
+    expect(validateDevice(device({ scan_offsets: [{ speed: 3000, offset: 0.1 }, { speed: 3000, offset: 0.2 }] })).scan_offsets).toBe('duplicate');
+    expect(validateDevice(device({ scan_offsets: [{ speed: 0, offset: 0 }] })).scan_offsets).toBe('positive');
+    expect(scanOffsetRowIssues([{ speed: 1000, offset: 0 }, { speed: 1000, offset: 1 }, { speed: 2000, offset: 0 }])).toEqual(['duplicate', 'duplicate', null]);
+  });
+
+  it('ordena por velocidad sin tocar el original', () => {
+    const rows = [{ speed: 6000, offset: 1 }, { speed: 2000, offset: 0 }];
+    expect(sortScanOffsets(rows).map((r) => r.speed)).toEqual([2000, 6000]);
+    expect(rows[0]!.speed).toBe(6000);
   });
 });

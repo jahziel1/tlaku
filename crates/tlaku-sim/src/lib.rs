@@ -11,7 +11,9 @@
 //! (o desde el punto que se indique en [`estimate_from`]).
 //!
 //! No modela: tiempo de comunicación, latencia del búfer serie, pausas ni
-//! el cambio de velocidad por `PowerMode`.
+//! el cambio de velocidad por `PowerMode`. Tampoco el eje Z: el `z_mm` de un bloque (cambio
+//! de foco o pasada profunda) no suma tiempo, porque un movimiento de Z entre bloques es
+//! corto frente al trabajo y no hay una velocidad de Z en `MachineProfile`.
 
 mod plan;
 mod profile;

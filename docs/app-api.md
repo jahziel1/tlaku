@@ -323,4 +323,16 @@ Comandos nuevos:
 | `export_material_library` | `path`, `library` | — |
 | `material_test` | `params: MaterialTestParams` | `Document` con la cuadrícula |
 
-`geometry_op` admite además `join`, `close` y `dedupe` con `tolerance` (mm).
+`geometry_op` admite además `join`, `close` y `dedupe` con `tolerance` (mm; por defecto 0.05, 0.5
+y 0.01). Solo aceptan objetos vector y nunca mezclan capas. Devuelven la lista completa de los
+objetos de entrada en su orden: los que no cambian vuelven idénticos (mismo id); cada objeto que
+cambia se sustituye por uno nuevo (`join-N`, `close-N`, `dedupe-N`); un objeto que queda sin trazo
+no vuelve. La interfaz quita los ids que no volvieron y pone los nuevos en su lugar, en un solo
+paso de deshacer.
+
+La biblioteca vive en `materials.json` dentro de la carpeta de configuración de la app (escritura
+atómica; un archivo dañado se aparta como `materials.json.dañado`, uno de versión desconocida da
+error sin tocarlo). Los archivos `.tlakumat` son el mismo JSON de `MaterialLibrary`.
+
+`PreviewLayer.summary` puede incluir ", N puentes", ", pasada k/N" y ", Z x mm". Con `z_step != 0`
+y varias pasadas, una capa produce una fila por pasada.

@@ -16,13 +16,45 @@
 //! - Las trayectorias abiertas no pueden participar: se rechazan diciendo qué objetos son.
 //! - Cada pieza del resultado (contorno exterior con sus agujeros) es un objeto; el resultado de
 //!   una booleana o de `weld` va en la capa del primer operando.
+//!
+//! Limpieza de trazos (`join`, `close`, `dedupe`), con `tolerance` en mm:
+//! - Aceptan trayectorias abiertas (a diferencia de las booleanas) pero no imágenes ni textos
+//!   (un texto que cambiara dejaría de ser texto: conviene convertirlo antes).
+//! - Operan por capa: nunca mezclan objetos de capas distintas. `join` (por defecto 0,05 mm) une
+//!   extremos de trayectorias abiertas, también entre objetos distintos, invirtiendo sentidos si
+//!   hace falta, y marca cerrada la que termina donde empieza. `close` (por defecto 0,5 mm; es
+//!   mayor porque cierra una sola trayectoria consigo misma, donde un hueco de medio milímetro
+//!   casi siempre es un descuido de dibujo y no hay otra pieza a la que confundir) cierra las
+//!   abiertas cuyos extremos distan eso o menos. `dedupe` (por defecto 0,01 mm, el aplanado del
+//!   documento) quita los tramos colineales repetidos o superpuestos entre todos los objetos de
+//!   la capa, conserva el primero y parte los segmentos que se solapan solo en parte.
+//! - Trabajan con las curvas aplanadas (0,01 mm). **Solo los objetos que cambian** pierden sus
+//!   curvas (el resultado son rectas); los que no cambian se devuelven intactos.
+//! - Resultado: la lista completa de objetos de entrada, en su orden, donde cada objeto sin
+//!   cambios aparece idéntico (mismo id) y cada objeto que cambia se sustituye por uno nuevo con
+//!   id `join-N`, `close-N` o `dedupe-N`, capa y grupo de su origen (grupo `None` si las fuentes
+//!   eran de grupos distintos). Los objetos que dejan de tener trazo (un duplicado exacto)
+//!   desaparecen de la lista. Quien llama: los ids de entrada que ya no están en el resultado se
+//!   eliminan, los que siguen se dejan como están y los ids nuevos se insertan donde estaba el
+//!   primero eliminado. `join` fusiona en un solo objeto los que quedaron enlazados por un trazo
+//!   común; `close` y `dedupe` nunca fusionan objetos.
 
 use serde::Deserialize;
+use std::collections::{BTreeSet, HashSet};
 use tlaku_doc::{DesignObject, ObjectKind, VectorObject, affine};
-use tlaku_geom::{BoolOp, Join, Polyline, boolean, offset, signed_area, weld};
+use tlaku_geom::{
+    BoolOp, Join, Polyline, auto_join_tracked, boolean, close_paths, dedupe_paths, offset,
+    signed_area, weld,
+};
 
 /// Error máximo (mm) al aplanar las curvas y en los arcos del offset.
 const TOLERANCE_MM: f64 = 0.01;
+/// Tolerancia por defecto (mm) de `join`: solo extremos que prácticamente se tocan.
+const DEFAULT_JOIN_MM: f64 = 0.05;
+/// Tolerancia por defecto (mm) de `close`: ver la nota del módulo.
+const DEFAULT_CLOSE_MM: f64 = 0.5;
+/// Tolerancia por defecto (mm) de `dedupe`: la del aplanado de curvas.
+const DEFAULT_DEDUPE_MM: f64 = 0.01;
 /// Largo máximo de la punta de una esquina en ángulo, en múltiplos de la distancia.
 const MITER_LIMIT: f64 = 4.0;
 
@@ -35,6 +67,9 @@ pub enum GeometryOp {
     Xor,
     Weld,
     Offset,
+    Join,
+    Close,
+    Dedupe,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -164,6 +199,12 @@ pub fn run(
     distance: Option<f64>,
     join: Option<JoinStyle>,
 ) -> Result<Vec<DesignObject>, String> {
+    if matches!(
+        op,
+        GeometryOp::Join | GeometryOp::Close | GeometryOp::Dedupe
+    ) {
+        return cleanup(op, objects, None);
+    }
     let Some(first) = objects.first() else {
         return Err("No hay objetos sobre los que operar.".into());
     };
@@ -208,10 +249,212 @@ pub fn run(
             }
             Ok(out)
         }
+        GeometryOp::Join | GeometryOp::Close | GeometryOp::Dedupe => cleanup(op, objects, None),
     }
 }
 
-/// Booleanas, soldar y offset. `objects` en coordenadas de documento (cada uno con su
+/// Agrupación de objetos por componentes (unión-búsqueda con compresión de caminos).
+struct Components(Vec<usize>);
+
+impl Components {
+    fn new(n: usize) -> Self {
+        Self((0..n).collect())
+    }
+    fn find(&mut self, i: usize) -> usize {
+        let mut root = i;
+        while self.0[root] != root {
+            root = self.0[root];
+        }
+        let mut cur = i;
+        while self.0[cur] != root {
+            let next = self.0[cur];
+            self.0[cur] = root;
+            cur = next;
+        }
+        root
+    }
+    fn union(&mut self, a: usize, b: usize) {
+        let (ra, rb) = (self.find(a), self.find(b));
+        // La raíz es siempre el menor índice: el objeto nuevo ocupa el lugar del primero.
+        self.0[ra.max(rb)] = ra.min(rb);
+    }
+}
+
+/// Qué pasa con cada objeto de entrada tras una limpieza.
+enum Slot {
+    Keep,
+    Gone,
+    New(Box<DesignObject>),
+}
+
+/// Objeto nuevo en la capa y el grupo de sus fuentes (`members`, índices en `objects`).
+fn replacement(
+    id: String,
+    objects: &[DesignObject],
+    members: &[usize],
+    paths: &[Polyline],
+) -> DesignObject {
+    let first = &objects[members[0]];
+    let same_group = members.iter().all(|&m| objects[m].group == first.group);
+    DesignObject {
+        group: if same_group {
+            first.group.clone()
+        } else {
+            None
+        },
+        hidden: first.hidden,
+        ..vector_object(id, first.layer, paths)
+    }
+}
+
+/// Núcleo de `join`, `close` y `dedupe` (ver la nota del módulo).
+pub fn cleanup(
+    op: GeometryOp,
+    objects: &[DesignObject],
+    tolerance: Option<f64>,
+) -> Result<Vec<DesignObject>, String> {
+    if objects.is_empty() {
+        return Err("No hay objetos sobre los que operar.".into());
+    }
+    let (prefix, default_tol) = match op {
+        GeometryOp::Join => ("join", DEFAULT_JOIN_MM),
+        GeometryOp::Close => ("close", DEFAULT_CLOSE_MM),
+        GeometryOp::Dedupe => ("dedupe", DEFAULT_DEDUPE_MM),
+        _ => return Err("Esta operación no es una limpieza de trazos.".into()),
+    };
+    let tol = tolerance.unwrap_or(default_tol);
+    if !tol.is_finite() || tol < 0.0 {
+        return Err("La tolerancia no es un número válido (debe ser 0 o más).".into());
+    }
+    let unsupported: Vec<String> = objects
+        .iter()
+        .filter(|o| !matches!(o.kind, ObjectKind::Vector(_)))
+        .map(|o| format!("«{}»", o.id))
+        .collect();
+    if !unsupported.is_empty() {
+        return Err(format!(
+            "Solo se pueden limpiar los trazos de objetos vectoriales; quita las imágenes y los textos: {}.",
+            unsupported.join(", ")
+        ));
+    }
+
+    let flat: Vec<Vec<Polyline>> = objects.iter().map(flatten).collect();
+    let mut slots: Vec<Slot> = objects.iter().map(|_| Slot::Keep).collect();
+    let taken: HashSet<&str> = objects.iter().map(|o| o.id.as_str()).collect();
+    let mut counter = 0usize;
+    let mut fresh_id = || loop {
+        counter += 1;
+        let id = format!("{prefix}-{counter}");
+        if !taken.contains(id.as_str()) {
+            break id;
+        }
+    };
+
+    // Capas en orden de aparición; cada una con los índices de sus objetos.
+    let mut layers: Vec<(tlaku_core::Rgb, Vec<usize>)> = Vec::new();
+    for (i, o) in objects.iter().enumerate() {
+        match layers.iter_mut().find(|(l, _)| *l == o.layer) {
+            Some((_, list)) => list.push(i),
+            None => layers.push((o.layer, vec![i])),
+        }
+    }
+
+    for (_, members) in &layers {
+        // Todas las trayectorias de la capa, con el objeto del que vienen.
+        let mut all: Vec<Polyline> = Vec::new();
+        let mut owner: Vec<usize> = Vec::new();
+        for &m in members {
+            for p in &flat[m] {
+                all.push(p.clone());
+                owner.push(m);
+            }
+        }
+        match op {
+            GeometryOp::Join => {
+                let joined = auto_join_tracked(&all, tol);
+                let mut comps = Components::new(objects.len());
+                let mut dirty = vec![false; objects.len()];
+                for (path, sources) in &joined {
+                    for &s in &sources[1..] {
+                        comps.union(owner[sources[0]], owner[s]);
+                    }
+                    // Una sola fuente cambia solo si se cerró sobre sí misma.
+                    if sources.len() > 1 || path.closed != all[sources[0]].closed {
+                        dirty[owner[sources[0]]] = true;
+                    }
+                }
+                let mut dirty_roots = BTreeSet::new();
+                for &m in members {
+                    if dirty[m] {
+                        dirty_roots.insert(comps.find(m));
+                    }
+                }
+                for root in dirty_roots {
+                    let group: Vec<usize> = members
+                        .iter()
+                        .copied()
+                        .filter(|&m| comps.find(m) == root)
+                        .collect();
+                    let paths: Vec<Polyline> = joined
+                        .iter()
+                        .filter(|(_, src)| comps.find(owner[src[0]]) == root)
+                        .map(|(p, _)| p.clone())
+                        .collect();
+                    for &m in &group[1..] {
+                        slots[m] = Slot::Gone;
+                    }
+                    slots[group[0]] =
+                        Slot::New(Box::new(replacement(fresh_id(), objects, &group, &paths)));
+                }
+            }
+            GeometryOp::Close => {
+                for &m in members {
+                    let closed = close_paths(&flat[m], tol);
+                    if closed != flat[m] {
+                        slots[m] =
+                            Slot::New(Box::new(replacement(fresh_id(), objects, &[m], &closed)));
+                    }
+                }
+            }
+            _ => {
+                let result = dedupe_paths(&all, tol);
+                let mut touched = vec![false; objects.len()];
+                for (k, &c) in result.changed.iter().enumerate() {
+                    if c {
+                        touched[owner[k]] = true;
+                    }
+                }
+                for &m in members.iter().filter(|&&m| touched[m]) {
+                    let paths: Vec<Polyline> = result
+                        .paths
+                        .iter()
+                        .zip(&result.origin)
+                        .filter(|(_, o)| owner[**o] == m)
+                        .map(|(p, _)| p.clone())
+                        .collect();
+                    slots[m] = if paths.is_empty() {
+                        Slot::Gone
+                    } else {
+                        Slot::New(Box::new(replacement(fresh_id(), objects, &[m], &paths)))
+                    };
+                }
+            }
+        }
+    }
+
+    Ok(objects
+        .iter()
+        .zip(slots)
+        .filter_map(|(o, slot)| match slot {
+            Slot::Keep => Some(o.clone()),
+            Slot::Gone => None,
+            Slot::New(n) => Some(*n),
+        })
+        .collect())
+}
+
+/// Booleanas, soldar, offset y limpieza de trazos (`join`, `close`, `dedupe`; ver la nota del
+/// módulo). `objects` en coordenadas de documento (cada uno con su
 /// `transform`); el resultado también (transform identidad). Corre fuera del hilo principal.
 #[tauri::command]
 pub async fn geometry_op(
@@ -219,10 +462,16 @@ pub async fn geometry_op(
     objects: Vec<DesignObject>,
     distance: Option<f64>,
     join: Option<JoinStyle>,
+    tolerance: Option<f64>,
 ) -> Result<Vec<DesignObject>, String> {
-    tauri::async_runtime::spawn_blocking(move || run(op, &objects, distance, join))
-        .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    tauri::async_runtime::spawn_blocking(move || match op {
+        GeometryOp::Join | GeometryOp::Close | GeometryOp::Dedupe => {
+            cleanup(op, &objects, tolerance)
+        }
+        _ => run(op, &objects, distance, join),
+    })
+    .await
+    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
 }
 
 #[cfg(test)]
@@ -594,5 +843,296 @@ mod tests {
         .unwrap();
         let esperada = std::f64::consts::PI * 100.0 / 2.0;
         assert!((area(&r) - esperada).abs() < 0.3, "{}", area(&r));
+    }
+
+    // --- Limpieza de trazos: join, close y dedupe ---
+
+    fn trazo(id: &str, layer: Rgb, pts: &[(f64, f64)]) -> DesignObject {
+        let mut o = rect(id, 0.0, 0.0, 1.0, 1.0);
+        o.layer = layer;
+        o.kind = ObjectKind::Vector(VectorObject {
+            paths: vec![BezPath::from(&Polyline {
+                points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+                closed: false,
+            })],
+        });
+        o
+    }
+
+    const ROJO: Rgb = Rgb(255, 0, 0);
+    const AZUL: Rgb = Rgb(0, 0, 255);
+
+    fn ids(objects: &[DesignObject]) -> Vec<&str> {
+        objects.iter().map(|o| o.id.as_str()).collect()
+    }
+
+    fn largo(objects: &[DesignObject]) -> f64 {
+        objects
+            .iter()
+            .flat_map(|o| o.polylines())
+            .map(|p| {
+                let n = p.points.len();
+                let count = if p.closed { n } else { n - 1 };
+                (0..count)
+                    .map(|k| p.points[k].dist(p.points[(k + 1) % n]))
+                    .sum::<f64>()
+            })
+            .sum()
+    }
+
+    #[test]
+    fn join_une_trazos_de_objetos_distintos_e_invierte() {
+        let r = run(
+            GeometryOp::Join,
+            &[
+                trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+                // Va en sentido contrario y queda a 0,03 mm del extremo de a.
+                trazo("b", ROJO, &[(10.0, 10.0), (10.03, 0.0)]),
+            ],
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].id, "join-1");
+        assert_eq!(r[0].layer, ROJO);
+        assert_eq!(r[0].transform, affine::IDENTITY);
+        let paths = r[0].polylines();
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].points.len(), 3);
+        assert!(!paths[0].closed);
+    }
+
+    #[test]
+    fn join_respeta_la_tolerancia_y_el_valor_por_defecto() {
+        let dos = [
+            trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+            trazo("b", ROJO, &[(10.2, 0.0), (20.0, 0.0)]),
+        ];
+        // 0,2 mm de hueco: con 0,05 por defecto no se unen y todo sale intacto.
+        let r = run(GeometryOp::Join, &dos, None, None).unwrap();
+        assert_eq!(r, dos);
+        let r = cleanup(GeometryOp::Join, &dos, Some(0.25)).unwrap();
+        assert_eq!(ids(&r), vec!["join-1"]);
+    }
+
+    #[test]
+    fn join_cierra_el_camino_que_se_cierra_sobre_si_mismo() {
+        let r = run(
+            GeometryOp::Join,
+            &[
+                trazo("l1", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+                trazo("l2", ROJO, &[(10.0, 0.0), (10.0, 10.0)]),
+                trazo("l3", ROJO, &[(10.0, 10.0), (0.0, 10.0)]),
+                trazo("l4", ROJO, &[(0.0, 10.0), (0.0, 0.0)]),
+            ],
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(r.len(), 1);
+        let paths = r[0].polylines();
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].closed);
+        assert!((signed_area(&paths[0].points).abs() - 100.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn join_no_mezcla_capas_ni_toca_lo_que_no_cambia() {
+        let circulo = {
+            let mut c = rect("c", 0.0, 0.0, 1.0, 1.0);
+            let k = 0.552_284_749_830_793_6 * 5.0;
+            let p = |x, y| Point::new(x, y);
+            c.kind = ObjectKind::Vector(VectorObject {
+                paths: vec![BezPath(vec![
+                    tlaku_doc::PathSeg::MoveTo { to: p(5.0, 0.0) },
+                    tlaku_doc::PathSeg::CubicTo {
+                        ctrl1: p(5.0, k),
+                        ctrl2: p(k, 5.0),
+                        to: p(0.0, 5.0),
+                    },
+                    tlaku_doc::PathSeg::Close,
+                ])],
+            });
+            c
+        };
+        let objs = [
+            circulo.clone(),
+            trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+            trazo("b", AZUL, &[(10.0, 0.0), (20.0, 0.0)]),
+            trazo("c2", ROJO, &[(10.0, 0.0), (20.0, 0.0)]),
+        ];
+        let r = run(GeometryOp::Join, &objs, None, None).unwrap();
+        // El círculo (mismo id y mismas curvas) y el azul quedan igual; a y c2 se unen (en rojo)
+        // y ocupan el lugar del primero.
+        assert_eq!(r[0], circulo);
+        assert_eq!(ids(&r), vec!["c", "join-1", "b"]);
+        assert_eq!(r[2], objs[2]);
+        assert_eq!(r[1].layer, ROJO);
+        assert_eq!(r[1].polylines()[0].points.len(), 3);
+    }
+
+    #[test]
+    fn join_conserva_grupo_solo_si_es_comun() {
+        let mut a = trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]);
+        let mut b = trazo("b", ROJO, &[(10.0, 0.0), (20.0, 0.0)]);
+        a.group = Some("g".into());
+        b.group = Some("g".into());
+        let r = run(GeometryOp::Join, &[a.clone(), b.clone()], None, None).unwrap();
+        assert_eq!(r[0].group.as_deref(), Some("g"));
+        b.group = Some("otro".into());
+        let r = run(GeometryOp::Join, &[a, b], None, None).unwrap();
+        assert_eq!(r[0].group, None);
+    }
+
+    #[test]
+    fn close_cierra_dentro_de_la_tolerancia() {
+        // U casi cerrada: hueco de 0,3 mm.
+        let u = trazo(
+            "u",
+            ROJO,
+            &[
+                (0.3, 0.0),
+                (0.0, 0.0),
+                (0.0, 10.0),
+                (10.0, 10.0),
+                (10.0, 0.0),
+                (0.6, 0.0),
+            ],
+        );
+        let r = run(GeometryOp::Close, std::slice::from_ref(&u), None, None).unwrap();
+        assert_eq!(ids(&r), vec!["close-1"]);
+        assert!(r[0].polylines()[0].closed);
+        // Con una tolerancia menor que el hueco no se toca.
+        let r = cleanup(GeometryOp::Close, std::slice::from_ref(&u), Some(0.1)).unwrap();
+        assert_eq!(r, vec![u]);
+    }
+
+    #[test]
+    fn close_no_une_trayectorias_distintas_ni_cierra_lineas() {
+        let objs = [
+            trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+            trazo("b", ROJO, &[(10.0, 0.0), (20.0, 0.0)]),
+            trazo("tres", ROJO, &[(0.0, 5.0), (3.0, 5.0), (0.0, 5.2)]),
+        ];
+        let r = run(GeometryOp::Close, &objs, None, None).unwrap();
+        // Solo la de tres puntos con extremos a 0,2 mm se cierra.
+        assert_eq!(ids(&r), vec!["a", "b", "close-1"]);
+    }
+
+    #[test]
+    fn dedupe_cuadrados_con_borde_comun() {
+        let r = run(
+            GeometryOp::Dedupe,
+            &[
+                rect("a", 0.0, 0.0, 10.0, 10.0),
+                rect("b", 10.0, 0.0, 20.0, 10.0),
+            ],
+            None,
+            None,
+        )
+        .unwrap();
+        // El primero queda intacto; el segundo pierde el borde compartido.
+        assert_eq!(ids(&r), vec!["a", "dedupe-1"]);
+        assert!((largo(&r) - 70.0).abs() < 1e-9, "{}", largo(&r));
+        assert_eq!(r[1].layer, ROJO);
+        assert!(!r[1].polylines()[0].closed);
+    }
+
+    #[test]
+    fn dedupe_parte_el_solape_parcial_y_quita_duplicados_exactos() {
+        let r = run(
+            GeometryOp::Dedupe,
+            &[
+                trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+                trazo("b", ROJO, &[(5.0, 0.0), (15.0, 0.0)]),
+                trazo("c", ROJO, &[(10.0, 0.0), (0.0, 0.0)]),
+            ],
+            None,
+            None,
+        )
+        .unwrap();
+        // c es copia de a: desaparece. b conserva solo [10, 15].
+        assert_eq!(ids(&r), vec!["a", "dedupe-1"]);
+        assert!((largo(&r) - 15.0).abs() < 1e-9);
+        let bb = r[1].bounds().unwrap();
+        assert!((bb.min.x - 10.0).abs() < 1e-9 && (bb.max.x - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn dedupe_no_cruza_capas_y_no_toca_lo_distinto() {
+        let objs = [
+            trazo("a", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+            trazo("b", AZUL, &[(0.0, 0.0), (10.0, 0.0)]),
+            trazo("c", ROJO, &[(0.0, 1.0), (10.0, 1.0)]),
+        ];
+        let r = run(GeometryOp::Dedupe, &objs, None, None).unwrap();
+        assert_eq!(r, objs);
+    }
+
+    #[test]
+    fn dedupe_con_miles_de_objetos() {
+        let mut objs = Vec::new();
+        for i in 0..1500 {
+            let x = (i % 50) as f64 * 3.0;
+            let y = (i / 50) as f64 * 3.0;
+            objs.push(rect(&format!("r{i}"), x, y, x + 3.0, y + 3.0));
+        }
+        let antes = largo(&objs);
+        let r = run(GeometryOp::Dedupe, &objs, None, None).unwrap();
+        // Cada borde interior compartido se corta una sola vez.
+        assert!(largo(&r) < antes);
+        let esperado = 3.0 * (51.0 * 30.0 + 31.0 * 50.0);
+        assert!(
+            (largo(&r) - esperado).abs() < 1e-6,
+            "{} vs {esperado}",
+            largo(&r)
+        );
+    }
+
+    #[test]
+    fn limpieza_rechaza_imagenes_textos_y_tolerancia_invalida() {
+        let mut img = rect("foto", 0.0, 0.0, 1.0, 1.0);
+        img.kind = ObjectKind::Image(tlaku_doc::ImageObject {
+            source_path: "x.png".into(),
+            width_px: 1,
+            height_px: 1,
+            size_mm: [1.0, 1.0],
+        });
+        for op in [GeometryOp::Join, GeometryOp::Close, GeometryOp::Dedupe] {
+            let e = run(op, std::slice::from_ref(&img), None, None).unwrap_err();
+            assert!(e.contains("«foto»"), "{e}");
+            assert!(run(op, &[], None, None).is_err());
+        }
+        let e = cleanup(
+            GeometryOp::Join,
+            &[rect("a", 0.0, 0.0, 1.0, 1.0)],
+            Some(-1.0),
+        )
+        .unwrap_err();
+        assert!(e.contains("tolerancia"));
+        assert!(
+            cleanup(
+                GeometryOp::Dedupe,
+                &[rect("a", 0.0, 0.0, 1.0, 1.0)],
+                Some(f64::NAN)
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn los_ids_nuevos_no_chocan_con_los_existentes() {
+        let r = run(
+            GeometryOp::Join,
+            &[
+                trazo("join-1", ROJO, &[(0.0, 0.0), (10.0, 0.0)]),
+                trazo("join-2", ROJO, &[(10.0, 0.0), (20.0, 0.0)]),
+            ],
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(ids(&r), vec!["join-3"]);
     }
 }

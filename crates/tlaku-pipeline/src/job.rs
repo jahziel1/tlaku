@@ -1,6 +1,6 @@
 use tlaku_core::Bounds;
 use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
-use tlaku_doc::JobPreview;
+use tlaku_doc::{DeviceProfile, JobPreview};
 use tlaku_plan::Plan;
 
 /// Margen (mm) para no rechazar un diseño que toca el borde por error de redondeo.
@@ -26,6 +26,13 @@ pub struct LayerReport {
     pub seconds: f64,
     /// Caja de todos los movimientos, incluido el overscan.
     pub bounds: Option<Bounds>,
+    /// Puentes colocados (solo capas line con puentes).
+    pub tabs: usize,
+    /// Z (mm) al empezar el bloque, si la máquina tiene eje Z.
+    pub z_mm: Option<f64>,
+    /// `(pasada, total)` cuando la capa se divide en un bloque por pasada (Z distinta en cada
+    /// una); `None` si el bloque contiene todas sus pasadas.
+    pub pass: Option<(u32, u32)>,
 }
 
 /// Resultado de calcular un trabajo: lo necesario para mostrarlo y para generar G-code.
@@ -67,6 +74,17 @@ pub fn block_bounds(block: &ToolpathBlock) -> Option<Bounds> {
 /// Verifica que TODOS los movimientos (incluido el overscan) caigan dentro de la cama
 /// `ancho x alto`, con el origen en la esquina inferior izquierda.
 pub fn check_bounds(job: &ComputedJob, bed: [f64; 2]) -> Result<(), String> {
+    check_area(job, bed, true)
+}
+
+/// Como [`check_bounds`] con el perfil de la máquina. Con rotativo la Y no tiene límite de
+/// recorrido (la pieza gira), así que solo se verifica la X; que el diseño quepa en la
+/// circunferencia se avisa al calcular el trabajo (ver `build`).
+pub fn check_device_bounds(job: &ComputedJob, device: &DeviceProfile) -> Result<(), String> {
+    check_area(job, device.bed, !device.rotary.enabled)
+}
+
+fn check_area(job: &ComputedJob, bed: [f64; 2], check_y: bool) -> Result<(), String> {
     let mut problems = Vec::new();
     for (layer, block) in job.layers.iter().zip(&job.toolpath.blocks) {
         let bad_point = block
@@ -83,9 +101,8 @@ pub fn check_bounds(job: &ComputedJob, bed: [f64; 2]) -> Result<(), String> {
         }
         let Some(b) = layer.bounds else { continue };
         if b.min.x < -BED_EPS_MM
-            || b.min.y < -BED_EPS_MM
             || b.max.x > bed[0] + BED_EPS_MM
-            || b.max.y > bed[1] + BED_EPS_MM
+            || (check_y && (b.min.y < -BED_EPS_MM || b.max.y > bed[1] + BED_EPS_MM))
         {
             let os = match layer.overscan_mm {
                 Some(mm) if mm > 0.0 => format!(" (incluye {mm:.2} mm de overscan)"),

@@ -1,5 +1,6 @@
 import { objectPolylines, pointsBounds } from '@/lib/geometry';
-import type { DesignObject, DeviceProfile, Document, JobLayerSummary, JobOptions, JobPreview, Point } from '../types';
+import { normalizeLayer, usesZ } from '@/lib/layers';
+import type { DesignObject, DeviceProfile, Document, JobLayerSummary, JobOptions, JobPreview, LayerSettings, Point, TabSettings } from '../types';
 
 type Move = [kind: 0 | 1, x: number, y: number, power: number];
 
@@ -41,17 +42,85 @@ function fillMoves(objs: DesignObject[], interval: number, power: number, oversc
   return moves;
 }
 
-function lineMoves(objs: DesignObject[], power: number): Move[] {
+/** Contornos concéntricos: copias de cada forma cerrada reducidas hacia el centro de su caja. */
+function offsetMoves(objs: DesignObject[], interval: number, power: number): Move[] {
+  const moves: Move[] = [];
+  for (const { points } of objs.flatMap((o) => objectPolylines(o)).filter((p) => p.closed)) {
+    const b = pointsBounds(points);
+    if (!b) continue;
+    const c: Point = [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2];
+    const half = Math.min(b[1][0] - b[0][0], b[1][1] - b[0][1]) / 2;
+    for (let ring = 0; ring * interval < half; ring++) {
+      const k = 1 - (ring * interval) / half;
+      const pts = points.map((p): Point => [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k]);
+      moves.push([0, pts[0]![0], pts[0]![1], 0]);
+      for (const p of pts.slice(1)) moves.push([1, p[0], p[1], power]);
+      moves.push([1, pts[0]![0], pts[0]![1], power]);
+    }
+  }
+  return moves;
+}
+
+/** Posiciones (mm desde el inicio del contorno) donde empieza cada puente. */
+function tabStarts(length: number, tabs: TabSettings): number[] {
+  const n = tabs.spacing > 0 ? Math.max(tabs.count, Math.floor(length / tabs.spacing)) : tabs.count;
+  return Array.from({ length: n }, (_, i) => ((i + 0.5) * length) / n - tabs.width / 2);
+}
+
+/** Recorre una polilínea y la parte en tramos de corte y huecos (movimientos sin potencia). */
+function polylineWithTabs(points: Point[], closed: boolean, power: number, tabs: TabSettings): Move[] {
+  const path = closed ? [...points, points[0]!] : points;
+  const total = path.slice(1).reduce((acc, p, i) => acc + Math.hypot(p[0] - path[i]![0], p[1] - path[i]![1]), 0);
+  const gaps = tabStarts(total, tabs);
+  const inGap = (d: number) => gaps.some((g) => d >= g && d < g + tabs.width);
+  const moves: Move[] = [[0, path[0]![0], path[0]![1], 0]];
+  let walked = 0;
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]!;
+    const b = path[i]!;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // Se muestrea cada medio milímetro: basta para dibujar los huecos en la simulación.
+    const steps = Math.max(1, Math.ceil(len / 0.5));
+    for (let s = 1; s <= steps; s++) {
+      const u = s / steps;
+      const x = a[0] + (b[0] - a[0]) * u;
+      const y = a[1] + (b[1] - a[1]) * u;
+      const gap = inGap(walked + len * u);
+      moves.push([gap ? 0 : 1, x, y, gap ? 0 : power]);
+    }
+    walked += len;
+  }
+  return moves;
+}
+
+function lineMoves(objs: DesignObject[], power: number, tabs?: TabSettings): Move[] {
   const moves: Move[] = [];
   for (const obj of objs) {
-    for (const { points, closed } of objectPolylines(obj)) {
+    const polys = objectPolylines(obj);
+    for (const { points, closed } of polys) {
       if (points.length < 2) continue;
+      // Con `skip_inner`, las formas dentro de otra (agujeros) no llevan puentes.
+      const inner = polys.some((o) => o.closed && o.points !== points && pointInPoly(points[0]!, o.points));
+      if (tabs?.enabled && tabs.width > 0 && !(tabs.skip_inner && inner)) {
+        moves.push(...polylineWithTabs(points, closed, power, tabs));
+        continue;
+      }
       moves.push([0, points[0]![0], points[0]![1], 0]);
       for (const p of points.slice(1)) moves.push([1, p[0], p[1], power]);
       if (closed) moves.push([1, points[0]![0], points[0]![1], power]);
     }
   }
   return moves;
+}
+
+function pointInPoly(p: Point, poly: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    if (a[1] > p[1] !== b[1] > p[1] && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
 }
 
 function moveLength(moves: Move[], kind: 0 | 1, from: Point): number {
@@ -88,7 +157,12 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
   let total = 0;
   let cursor: Point = [0, 0];
 
-  for (const layer of ordered) {
+  for (const raw of ordered) {
+    // Un documento guardado antes de la Fase 4 llega sin los campos nuevos.
+    const layer: LayerSettings = normalizeLayer(raw);
+    if (usesZ(layer) && !device.z_axis) {
+      warnings.push(`La capa '${layer.name}' tiene ajustes de Z, pero la máquina no tiene eje Z: se ignoran.`);
+    }
     const candidates = doc.objects.filter(
       (o) => o.layer === layer.color && !o.hidden && (!selection || selection.has(o.id)),
     );
@@ -102,7 +176,7 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
     let overscanMm = 0;
     if (layer.mode === 'fill') {
       overscanMm = layer.overscan === 'auto' ? Math.min(6, (layer.speed / 60) ** 2 / (2 * device.accel[0])) : layer.overscan;
-      moves = fillMoves(objs, Math.max(layer.interval, 0.05), power, overscanMm);
+      moves = layer.fill_style === 'offset' ? offsetMoves(objs, Math.max(layer.interval, 0.05), power) : fillMoves(objs, Math.max(layer.interval, 0.05), power, overscanMm);
     } else if (layer.mode === 'image') {
       // Una imagen se barre completa, fila por fila, con potencia variable.
       moves = objs.flatMap((o) => {
@@ -121,7 +195,7 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
         return out;
       });
     } else {
-      moves = lineMoves(objs, power);
+      moves = lineMoves(objs, power, layer.tabs);
     }
     if (moves.length === 0) continue;
 
@@ -143,11 +217,14 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
     if (layer.mode === 'line') {
       const holes = objs.flatMap((o) => objectPolylines(o)).filter((p) => p.closed).length;
       if (holes > 1) explanations.push(`Primero se cortan las ${holes - 1} figuras interiores y al final el contorno, para que la pieza no se mueva.`);
+      if (layer.tabs.enabled) explanations.push(`Se dejan puentes de ${layer.tabs.width} mm sin cortar.`);
       explanations.push('Dentro de cada grupo se elige el vecino más cercano para acortar los recorridos en vacío.');
+    } else if (layer.mode === 'fill' && layer.fill_style === 'offset') {
+      explanations.push(`Contornos concéntricos cada ${layer.interval} mm, de afuera hacia adentro.`);
     } else if (layer.mode === 'fill') {
       explanations.push(`Barrido horizontal cada ${layer.interval} mm, en zigzag; margen de aceleración de ${overscanMm.toFixed(1)} mm a cada lado.`);
     } else {
-      explanations.push('Barrido de la imagen fila por fila con tramado Floyd-Steinberg.');
+      explanations.push(`Barrido de la imagen fila por fila con tramado ${layer.image.mode}, a ${layer.angle}°.`);
     }
 
     summaries.push({

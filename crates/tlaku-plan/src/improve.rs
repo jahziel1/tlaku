@@ -21,7 +21,8 @@ struct Problem {
     flip: Vec<bool>,
     /// Se puede invertir sin romper reglas (cerrada, o abierta con `choose_direction`).
     flippable: Vec<bool>,
-    parent: Vec<u32>,
+    /// Figuras que deben cortarse después de cada una (contenedor y solapes).
+    parent: Vec<Vec<u32>>,
     children: Vec<Vec<u32>>,
     constrained: bool,
     order: Vec<u32>,
@@ -83,14 +84,12 @@ impl Problem {
             if !self.flippable[l] {
                 return false;
             }
-            if self.constrained {
-                let par = self.parent[l];
-                if par != NONE {
-                    let pp = self.pos[par as usize] as usize;
-                    if pp >= i && pp <= j {
-                        return false;
-                    }
-                }
+            if self.constrained
+                && self.parent[l]
+                    .iter()
+                    .any(|&par| (i..=j).contains(&(self.pos[par as usize] as usize)))
+            {
+                return false;
             }
         }
         true
@@ -163,8 +162,9 @@ impl Problem {
         let intra = self.constrained
             && len > 1
             && (s..=e).any(|p| {
-                let par = self.parent[self.order[p] as usize];
-                par != NONE && (s..=e).contains(&(self.pos[par as usize] as usize))
+                self.parent[self.order[p] as usize]
+                    .iter()
+                    .any(|&par| (s..=e).contains(&(self.pos[par as usize] as usize)))
             });
         let can_rev = all_flippable && !intra;
 
@@ -233,11 +233,10 @@ impl Problem {
         if g > e + 1 {
             // Se adelanta a las figuras e+1..g-1: ninguna debe ser contenedor del segmento.
             (s..=e).all(|p| {
-                let par = self.parent[self.order[p] as usize];
-                par == NONE || {
+                self.parent[self.order[p] as usize].iter().all(|&par| {
                     let pp = self.pos[par as usize] as usize;
                     pp <= e || pp >= g
-                }
+                })
             })
         } else if g < s {
             // Se atrasa respecto de g..s-1: ninguna debe estar dentro de una del segmento.
@@ -315,13 +314,13 @@ pub(crate) fn improve(
             .collect(),
         parent: members
             .iter()
-            .map(|&g| ctx.bparent[g].map_or(NONE, |p| ctx.local[p]))
+            .map(|&g| ctx.bouter[g].iter().map(|&p| ctx.local[p]).collect())
             .collect(),
         children: members
             .iter()
             .map(|&g| ctx.bchildren[g].iter().map(|&c| ctx.local[c]).collect())
             .collect(),
-        constrained: members.iter().any(|&g| ctx.bparent[g].is_some()),
+        constrained: members.iter().any(|&g| !ctx.bouter[g].is_empty()),
         order: order.iter().map(|&g| ctx.local[g]).collect(),
         pos: vec![0; m],
         start,

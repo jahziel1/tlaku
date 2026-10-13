@@ -6,8 +6,19 @@ import { Dialog, Footer } from './Dialog';
 import { geometryReason, runGeometry } from './geomOps';
 import { useArrangeUi, type BooleanDialogOp } from './uiStore';
 import { selectionUnits, unitSize, type Unit } from './units';
+import { unitLabel, unitThumbnail } from './unitLabel';
 
-const unitName = (u: Unit): string => (u.objects.length > 1 ? t('arrange.bool.group', { n: u.objects.length }) + ` · ${u.id}` : u.id);
+/** Miniatura del contorno en el color de la capa; si la forma no es simple (imagen, texto, muy detallada), solo la muestra de color. */
+function UnitThumb({ unit }: { unit: Unit }) {
+  const color = unit.objects[0]!.layer;
+  const thumb = useMemo(() => unitThumbnail(unit), [unit]);
+  if (!thumb) return <span className="ar-swatch" style={{ background: color }} aria-hidden="true" />;
+  return (
+    <svg className="ar-thumb" viewBox={`0 0 ${thumb.width} ${thumb.height}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <path d={thumb.d} fill="none" stroke={color} strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
 
 /**
  * Elige la forma principal (A) de una booleana: A se conserva y el resto (B) actúa sobre ella.
@@ -46,14 +57,14 @@ export function BooleanDialog({ op }: { op: BooleanDialogOp }) {
           return (
             <button key={u.id} type="button" role="radio" aria-checked={isA} className="ar-item" onClick={() => setPrimary(u.id)}>
               <span className="ar-item__role" aria-hidden="true">{isA ? t('arrange.bool.roleA') : t('arrange.bool.roleB')}</span>
-              <span className="ar-swatch" style={{ background: u.objects[0]!.layer }} aria-hidden="true" />
-              <span className="ar-item__name">{unitName(u)}</span>
+              <UnitThumb unit={u} />
+              <span className="ar-item__name">{unitLabel(u)}</span>
               <span className="num ar-item__meta">{t('arrange.bool.size', { w: fmt(w), h: fmt(h) })}</span>
             </button>
           );
         })}
       </div>
-      {primary && <p className="hint ar-summary">{t('arrange.bool.summary', { a: unitName(primary), rest: rest.map(unitName).join(', ') })}</p>}
+      {primary && <p className="hint ar-summary">{t('arrange.bool.summary', { a: unitLabel(primary), rest: rest.map(unitLabel).join(', ') })}</p>}
     </Dialog>
   );
 }

@@ -1,30 +1,185 @@
 import type { LaserApi } from '../api';
-import type { MaterialLibrary } from '../types';
+import { makeLayer } from '@/lib/layers';
+import type { DesignObject, Document, LayerSettings, MaterialLibrary, MaterialPreset, MaterialTestParams, TestAxis, TestParam } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
-// TODO(fase4): biblioteca en memoria y cuadrícula de prueba simulada.
+const MAX_COUNT = 30;
+const MAX_PASSES = 1000;
+
+/** Biblioteca de ejemplo del modo mock: materiales típicos con ajustes plausibles para un diodo. */
+export function sampleMaterialLibrary(): MaterialLibrary {
+  const preset = (id: string, material: string, thickness: number | null, title: string, notes: string, patch: Partial<LayerSettings>): MaterialPreset => ({
+    id,
+    material,
+    thickness,
+    title,
+    notes,
+    device_id: null,
+    settings: makeLayer('#000000', title, patch),
+  });
+  return {
+    version: 1,
+    presets: [
+      preset('mat-mdf3-corte', 'MDF', 3, 'Corte', 'Dos pasadas con aire; los bordes quedan oscuros.', { speed: 300, power: 100, passes: 2, air: true }),
+      preset('mat-mdf3-grabado', 'MDF', 3, 'Grabado', 'Relleno suave, buen contraste.', { mode: 'fill', speed: 3000, power: 35, interval: 0.1 }),
+      preset('mat-triplay-corte', 'Contrachapado de abedul', 3, 'Corte', 'Una pasada lenta; limpiar el hollín después.', { speed: 250, power: 100, passes: 1, air: true }),
+      preset('mat-acrilico-corte', 'Acrílico negro', 3, 'Corte', 'Pasadas múltiples; el transparente no se corta con diodo.', { speed: 200, power: 100, passes: 4, air: true }),
+      preset('mat-cuero-grabado', 'Cuero vegetal', null, 'Grabado', 'Potencia baja para no quemarlo.', { mode: 'fill', speed: 4000, power: 25, interval: 0.12 }),
+    ],
+  };
+}
+
+/** Biblioteca que devuelve "importar" en modo mock (un id coincide con la de ejemplo para probar la mezcla). */
+function importedSample(): MaterialLibrary {
+  const base = sampleMaterialLibrary();
+  const mdf = base.presets[0]!;
+  return {
+    version: 1,
+    presets: [
+      { ...mdf, notes: 'Versión del taller vecino: una sola pasada más lenta.', settings: { ...mdf.settings, speed: 150, passes: 1 } },
+      {
+        id: 'mat-balsa-corte',
+        material: 'Balsa',
+        thickness: 2,
+        title: 'Corte',
+        notes: 'Muy ligera; mucha velocidad.',
+        device_id: null,
+        settings: makeLayer('#000000', 'Corte', { speed: 900, power: 60, air: true }),
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Prueba de materiales simulada
+// ---------------------------------------------------------------------------
+
+function axisValues(axis: TestAxis): number[] {
+  return Array.from({ length: axis.count }, (_, i) => {
+    const v = axis.count === 1 ? axis.from : axis.from + ((axis.to - axis.from) * i) / (axis.count - 1);
+    return axis.param === 'passes' ? Math.max(1, Math.round(v)) : v;
+  });
+}
+
+function checkAxis(axis: TestAxis, which: string, mode: MaterialTestParams['mode']): void {
+  if (!Number.isInteger(axis.count) || axis.count < 1 || axis.count > MAX_COUNT) {
+    throw new Error(`Las ${which} deben ser entre 1 y ${MAX_COUNT} (se pidieron ${axis.count}).`);
+  }
+  if (!Number.isFinite(axis.from) || !Number.isFinite(axis.to)) throw new Error(`El rango de las ${which} contiene valores no válidos.`);
+  if (axis.param === 'interval' && mode === 'line') throw new Error(`El intervalo no se usa en modo line; elige otro parámetro para las ${which} o cambia a relleno.`);
+  for (const v of [axis.from, axis.to]) {
+    if (axis.param === 'power' && (v < 0 || v > 100)) throw new Error(`La potencia de las ${which} debe estar entre 0 y 100 % (se pidió ${v}).`);
+    if ((axis.param === 'speed' || axis.param === 'interval') && v <= 0) throw new Error(`Los valores de las ${which} deben ser mayores que 0 (se pidió ${v}).`);
+    if (axis.param === 'passes' && Math.round(v) > MAX_PASSES) throw new Error(`Las pasadas de las ${which} no pueden pasar de ${MAX_PASSES} (se pidió ${v}).`);
+  }
+}
+
+const trim = (v: number, decimals: number) => String(Number(v.toFixed(decimals)));
+
+function shortName(param: TestParam, v: number): string {
+  switch (param) {
+    case 'speed':
+      return `V ${trim(v, 0)}`;
+    case 'power':
+      return `P ${trim(v, 1)}%`;
+    case 'passes':
+      return `Pas ${trim(v, 0)}`;
+    case 'interval':
+      return `Int ${trim(v, 3)}`;
+  }
+}
+
+/** Color único por celda (tonos repartidos por la razón áurea); nunca es negro. */
+function cellColor(n: number): string {
+  const h = ((n * 0.618033988749895) % 1) * 360;
+  const [s, l] = [[0.9, 0.55], [0.7, 0.45], [0.85, 0.65]][n % 3]!;
+  const a = s * Math.min(l, 1 - l);
+  const f = (k: number) => {
+    const c = l - a * Math.max(-1, Math.min((k + h / 30) % 12 - 3, 9 - ((k + h / 30) % 12), 1));
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/**
+ * Cuadrícula equivalente a la del motor, sin rótulos: un rectángulo por celda en su propia capa.
+ * Las filas van de arriba hacia abajo; `origin` es la esquina inferior izquierda.
+ */
+export function mockMaterialTest(p: MaterialTestParams): Document {
+  if (p.mode === 'image') throw new Error('La prueba de materiales solo admite los modos line y fill.');
+  if (p.rows.param === p.cols.param) throw new Error('Las filas y las columnas deben variar parámetros distintos.');
+  checkAxis(p.rows, 'filas', p.mode);
+  checkAxis(p.cols, 'columnas', p.mode);
+  if (!(p.cell[0] > 0 && p.cell[1] > 0)) throw new Error('El tamaño de la celda debe ser mayor que 0 mm.');
+  if (!(p.gap >= 0)) throw new Error('La separación entre celdas no puede ser negativa.');
+
+  const rows = axisValues(p.rows);
+  const cols = axisValues(p.cols);
+  const [cw, ch] = p.cell;
+  const objects: DesignObject[] = [];
+  const layers: LayerSettings[] = [];
+  rows.forEach((rv, i) =>
+    cols.forEach((cv, j) => {
+      const color = cellColor(i * cols.length + j + 1);
+      const x = p.origin[0] + j * (cw + p.gap);
+      const y = p.origin[1] + (rows.length - 1 - i) * (ch + p.gap);
+      const layer: LayerSettings = {
+        ...p.base,
+        color,
+        name: `${shortName(p.rows.param, rv)} · ${shortName(p.cols.param, cv)}`,
+        mode: p.mode,
+        output: true,
+        visible: true,
+        order: null,
+      };
+      for (const [param, v] of [[p.rows.param, rv], [p.cols.param, cv]] as const) {
+        if (param === 'speed') layer.speed = v;
+        else if (param === 'power') layer.power = v;
+        else if (param === 'passes') layer.passes = v;
+        else layer.interval = v;
+      }
+      layers.push(layer);
+      objects.push({
+        id: `cell-${i + 1}-${j + 1}`,
+        layer: color,
+        transform: [1, 0, 0, 1, 0, 0],
+        kind: {
+          type: 'vector',
+          paths: [
+            [
+              { type: 'move_to', to: [x, y] },
+              { type: 'line_to', to: [x + cw, y] },
+              { type: 'line_to', to: [x + cw, y + ch] },
+              { type: 'line_to', to: [x, y + ch] },
+              { type: 'close' },
+            ],
+          ],
+        },
+        locked: false,
+        hidden: false,
+        group: null,
+      });
+    }),
+  );
+  return { version: 2, objects, layers, device_id: null };
+}
+
 export function mockMaterials(
   lag: Lag,
 ): Pick<
   LaserApi,
   'loadMaterialLibrary' | 'saveMaterialLibrary' | 'importMaterialLibrary' | 'exportMaterialLibrary' | 'materialTest'
 > {
-  let library: MaterialLibrary = { version: 1, presets: [] };
+  let library: MaterialLibrary = sampleMaterialLibrary();
   return {
     loadMaterialLibrary: () => lag(() => structuredClone(library)),
     saveMaterialLibrary: ({ library: next }) =>
       lag(() => {
         library = structuredClone(next);
       }),
-    importMaterialLibrary: () =>
-      lag(() => {
-        throw new Error('aún no implementado');
-      }),
+    importMaterialLibrary: () => lag(importedSample),
     exportMaterialLibrary: () => lag(() => undefined),
-    materialTest: () =>
-      lag(() => {
-        throw new Error('aún no implementado');
-      }),
+    materialTest: ({ params }) => lag(() => mockMaterialTest(params)),
   };
 }

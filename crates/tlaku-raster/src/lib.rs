@@ -1,7 +1,8 @@
 //! Procesamiento de imágenes para grabado láser (modo Image).
 //!
 //! Flujo: cargar (`gray`) -> ajustar (`adjust`) -> remuestrear al tamaño físico
-//! (`resample`) -> binarizar o conservar niveles (`dither`) -> `RasterBitmap` ->
+//! (`resample`) -> binarizar o conservar niveles (`dither`, con las tramas de `screen` y
+//! los bordes de `sketch`) -> `RasterBitmap` ->
 //! barrido (`scan::raster_to_block`). `process` encadena los cuatro primeros pasos.
 //!
 //! Unidades: mm. La fila 0 de cualquier imagen o bitmap es la de arriba.
@@ -12,6 +13,8 @@ pub mod dither;
 pub mod gray;
 pub mod resample;
 pub mod scan;
+pub mod screen;
+pub mod sketch;
 
 pub use adjust::ImageAdjust;
 pub use bitmap::RasterBitmap;
@@ -54,16 +57,24 @@ pub fn process(
     {
         return Err(format!("umbral fuera de 0-1: {t}"));
     }
-    if matches!(
-        opts.mode,
-        RasterMode::Halftone { .. } | RasterMode::Newsprint { .. } | RasterMode::Sketch
-    ) {
-        // TODO(fase4): halftone, newsprint y sketch.
-        return Err("este modo de imagen aún no está implementado".into());
+    if let RasterMode::Halftone { cell_mm, angle_deg }
+    | RasterMode::Newsprint { cell_mm, angle_deg } = opts.mode
+    {
+        if !(cell_mm.is_finite() && cell_mm > 0.0) {
+            return Err(format!("tamaño de celda inválido: {cell_mm} mm"));
+        }
+        if !angle_deg.is_finite() {
+            return Err(format!("ángulo de trama inválido: {angle_deg}"));
+        }
     }
     let adjusted = opts.adjust.apply(img);
     let grid = resample::resample_to_mm(&adjusted, width_mm, height_mm, opts.sampling)?;
-    let data = dither::to_power(&grid.image, opts.mode, opts.serpentine);
+    let data = dither::to_power(
+        &grid.image,
+        opts.mode,
+        opts.serpentine,
+        (grid.pixel_size_x_mm, grid.pixel_size_y_mm),
+    );
     RasterBitmap::new(
         grid.image.width,
         grid.image.height,
@@ -92,6 +103,75 @@ mod tests {
         let left: f32 = (0..10).map(|y| b.get(0, y) + b.get(1, y)).sum();
         let right: f32 = (0..10).map(|y| b.get(18, y) + b.get(19, y)).sum();
         assert!(left > right);
+    }
+
+    #[test]
+    fn process_accepts_the_screen_modes() {
+        let img = GrayF32::from_fn(50, 50, |x, _| x as f32 / 49.0);
+        for mode in [
+            RasterMode::Halftone {
+                cell_mm: 1.0,
+                angle_deg: 45.0,
+            },
+            RasterMode::Newsprint {
+                cell_mm: 1.0,
+                angle_deg: 45.0,
+            },
+            RasterMode::Sketch,
+        ] {
+            let opts = ProcessOptions {
+                mode,
+                ..Default::default()
+            };
+            let b = process(&img, 10.0, 10.0, &opts).unwrap();
+            assert_eq!((b.width, b.height), (100, 100));
+            assert!(b.data.iter().all(|&v| v == 0.0 || v == 1.0));
+        }
+    }
+
+    #[test]
+    fn process_rejects_bad_screen_options() {
+        let img = GrayF32::from_fn(4, 4, |_, _| 0.5);
+        for (cell_mm, angle_deg) in [(0.0, 0.0), (-1.0, 0.0), (f64::NAN, 0.0), (1.0, f64::NAN)] {
+            for mode in [
+                RasterMode::Halftone { cell_mm, angle_deg },
+                RasterMode::Newsprint { cell_mm, angle_deg },
+            ] {
+                let opts = ProcessOptions {
+                    mode,
+                    ..Default::default()
+                };
+                assert!(process(&img, 1.0, 1.0, &opts).is_err(), "{mode:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn process_big_image_is_fast() {
+        // 100 x 100 mm a 0.1 mm = 1 millón de puntos; en debug debe bajar de ~1 s.
+        let img = GrayF32::from_fn(400, 400, |x, y| ((x + y) % 400) as f32 / 399.0);
+        for mode in [
+            RasterMode::Halftone {
+                cell_mm: 1.0,
+                angle_deg: 22.0,
+            },
+            RasterMode::Newsprint {
+                cell_mm: 1.0,
+                angle_deg: 22.0,
+            },
+            RasterMode::Sketch,
+        ] {
+            let opts = ProcessOptions {
+                mode,
+                ..Default::default()
+            };
+            let t = std::time::Instant::now();
+            let b = process(&img, 100.0, 100.0, &opts).unwrap();
+            let elapsed = t.elapsed();
+            assert_eq!(b.width * b.height, 1_000_000);
+            assert!(elapsed.as_secs_f64() < 3.0, "{mode:?} tardó {elapsed:?}");
+            eprintln!("{mode:?}: {elapsed:?}");
+        }
     }
 
     #[test]

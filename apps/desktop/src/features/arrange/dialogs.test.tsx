@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { AlignDialog } from './AlignDialog';
 import { ArrayDialog } from './ArrayDialog';
 import { BooleanDialog } from './BooleanDialog';
+import { CleanupDialog } from './CleanupDialog';
 import { ArrangeDialogHost } from './index';
 import { OffsetDialog } from './OffsetDialog';
 
@@ -19,6 +20,15 @@ describe('diálogos de Organizar', () => {
     expect(renderToString(<BooleanDialog op="difference" />)).toContain('Diferencia: A menos B');
     expect(renderToString(<BooleanDialog op="intersection" />)).toContain('Intersección con una forma principal');
     expect(renderToString(<BooleanDialog op="xor" />)).toContain('Selecciona uno o más objetos.');
+  });
+
+  it('unir, cerrar y quitar duplicados piden la tolerancia', () => {
+    const join = renderToString(<CleanupDialog op="join" />);
+    expect(join).toContain('Unir trazos');
+    expect(join).toContain('Tolerancia');
+    expect(join).toContain('Selecciona uno o más objetos.');
+    expect(renderToString(<CleanupDialog op="close" />)).toContain('Cerrar trayectos');
+    expect(renderToString(<CleanupDialog op="dedupe" />)).toContain('Quitar duplicados');
   });
 
   it('offset, alinear y arreglos', () => {

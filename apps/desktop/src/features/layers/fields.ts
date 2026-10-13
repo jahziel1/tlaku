@@ -20,7 +20,14 @@ export type NumericField =
   | 'contrast'
   | 'gamma'
   | 'dot_width'
-  | 'order';
+  | 'order'
+  | 'tab_width'
+  | 'tab_count'
+  | 'tab_spacing'
+  | 'halftone_cell'
+  | 'halftone_angle'
+  | 'z_offset'
+  | 'z_step';
 
 export interface FieldSpec {
   min: number;
@@ -31,6 +38,8 @@ export interface FieldSpec {
   decimals: number;
   unit: string;
   integer?: boolean;
+  /** El valor debe ser mayor que cero (el mínimo es solo un tope práctico): mensaje propio. */
+  positive?: boolean;
 }
 
 export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
@@ -50,6 +59,14 @@ export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
   gamma: { min: 0.1, max: 5, step: 0.05, decimals: 2, unit: '' },
   dot_width: { min: 0, max: 1, step: 0.01, decimals: 3, unit: 'mm' },
   order: { min: 1, max: 999, step: 1, decimals: 0, unit: '', integer: true },
+  tab_width: { min: 0.01, max: 50, step: 0.1, decimals: 3, unit: 'mm', positive: true },
+  tab_count: { min: 1, max: 100, step: 1, decimals: 0, unit: '', integer: true },
+  // 0 = repartir por cantidad.
+  tab_spacing: { min: 0, max: 1000, step: 1, decimals: 2, unit: 'mm' },
+  halftone_cell: { min: 0.05, max: 10, step: 0.05, decimals: 3, unit: 'mm', positive: true },
+  halftone_angle: { min: -360, max: 360, step: 1, decimals: 2, unit: '°' },
+  z_offset: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },
+  z_step: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },
 };
 
 export interface FieldError {
@@ -67,6 +84,8 @@ export interface FieldContext {
   minPower?: number;
   /** Número de capas, tope de la posición fijada. */
   layerCount?: number;
+  /** Largo de los puentes (la separación, si no es 0, debe ser mayor). */
+  tabWidth?: number;
 }
 
 /** Texto numérico con coma o punto decimal; `null` si no es un número finito. */
@@ -88,6 +107,7 @@ export function validateField(field: NumericField, text: string, ctx: FieldConte
   const n = parseDecimal(text);
   if (n === null) return { ok: false, error: { key: 'layers.err.number' } };
   if (spec.integer && !Number.isInteger(n)) return { ok: false, error: { key: 'layers.err.integer' } };
+  if (spec.positive && n <= 0) return { ok: false, error: { key: 'layers.err.positive' } };
   const max = field === 'order' && ctx.layerCount ? Math.max(spec.min, ctx.layerCount) : spec.max;
   if (n < spec.min || n > max) {
     const fmt = (v: number) => formatNumber(v, spec.decimals);
@@ -98,6 +118,9 @@ export function validateField(field: NumericField, text: string, ctx: FieldConte
   }
   if (field === 'power' && ctx.minPower !== undefined && n < ctx.minPower) {
     return { ok: false, error: { key: 'layers.err.powerBelowMin', params: { min: ctx.minPower } } };
+  }
+  if (field === 'tab_spacing' && n > 0 && ctx.tabWidth !== undefined && n <= ctx.tabWidth) {
+    return { ok: false, error: { key: 'layers.err.spacingBelowWidth', params: { width: ctx.tabWidth } } };
   }
   return { ok: true, value: n };
 }

@@ -84,7 +84,9 @@ struct Run {
 /// Por fila con contenido: Travel a `inicio - overscan`, Cut a potencia 0 hasta el primer
 /// tramo, tramos encendidos, Cut a potencia 0 por los huecos y overscan al final. Con
 /// `bidirectional`, la 1.ª fila con contenido va de izquierda a derecha, la 2.ª al revés,
-/// y así. Un tramo más corto que `dot_width_mm` queda como un pulso mínimo centrado.
+/// y así. Con `angle_deg` distinto de 0 las líneas van giradas ese ángulo (ver
+/// `rotated_moves`); con 0 el resultado es el barrido por filas de siempre. Un tramo más
+/// corto que `dot_width_mm` queda como un pulso mínimo centrado.
 pub fn raster_to_block(
     bitmap: &RasterBitmap,
     origin: Point,
@@ -97,36 +99,29 @@ pub fn raster_to_block(
     );
     let max_pct = settings.max_power_pct.clamp(0.0, 100.0);
     let min_pct = settings.min_power_pct.clamp(0.0, max_pct);
-    let overscan = settings.overscan_mm.max(0.0);
-    let half_dot = settings.dot_width_mm.max(0.0) / 2.0;
 
-    let mut moves = Vec::new();
-    let mut scanned = 0usize;
-    for row in 0..bitmap.height {
-        let y = origin.y
-            + (bitmap.height - 1 - row) as f64 * bitmap.pixel_size_y_mm
-            + bitmap.pixel_size_y_mm / 2.0;
-        let runs = row_runs(bitmap, row, origin.x, min_pct, max_pct, half_dot);
-        let (first, last) = match (runs.first(), runs.last()) {
-            (Some(f), Some(l)) => (f.x0, l.x1),
-            _ if settings.skip_blank_rows => continue,
-            _ => (origin.x, origin.x + bitmap.width_mm()),
-        };
-        let reverse = settings.bidirectional && scanned % 2 == 1;
-        scanned += 1;
-        emit_row(&mut moves, y, &runs, (first, last), overscan, reverse);
-    }
+    let angle = normalized_angle(settings.angle_deg);
+    let moves = if angle == 0.0 {
+        horizontal_moves(bitmap, origin, settings, min_pct, max_pct)
+    } else {
+        rotated_moves(bitmap, origin, settings, angle, min_pct, max_pct)
+    };
 
     ToolpathBlock {
         label: format!(
-            "Imagen {}x{} puntos, {:.3}x{:.3} mm, velocidad={} potencia={}-{}%",
+            "Imagen {}x{} puntos, {:.3}x{:.3} mm, velocidad={} potencia={}-{}%{}",
             bitmap.width,
             bitmap.height,
             bitmap.width_mm(),
             bitmap.height_mm(),
             settings.speed_mm_min,
             min_pct,
-            max_pct
+            max_pct,
+            if angle == 0.0 {
+                String::new()
+            } else {
+                format!(" ángulo={angle}")
+            }
         ),
         speed_mm_min: settings.speed_mm_min,
         air_assist: settings.air_assist,
@@ -136,20 +131,156 @@ pub fn raster_to_block(
     }
 }
 
+/// Ángulo en grados dentro de [0, 360); los valores no finitos o casi múltiplos de 360
+/// valen 0 (barrido horizontal clásico).
+fn normalized_angle(deg: f64) -> f64 {
+    if !deg.is_finite() {
+        return 0.0;
+    }
+    let a = deg.rem_euclid(360.0);
+    if a < 1e-9 || 360.0 - a < 1e-9 { 0.0 } else { a }
+}
+
+/// Barrido horizontal: una línea por fila del bitmap.
+fn horizontal_moves(
+    bitmap: &RasterBitmap,
+    origin: Point,
+    settings: &RasterSettings,
+    min_pct: f64,
+    max_pct: f64,
+) -> Vec<Move> {
+    let overscan = settings.overscan_mm.max(0.0);
+    let half_dot = settings.dot_width_mm.max(0.0) / 2.0;
+    let mut moves = Vec::new();
+    let mut scanned = 0usize;
+    for row in 0..bitmap.height {
+        let y = origin.y
+            + (bitmap.height - 1 - row) as f64 * bitmap.pixel_size_y_mm
+            + bitmap.pixel_size_y_mm / 2.0;
+        let runs = row_runs(
+            bitmap.row(row),
+            origin.x,
+            bitmap.pixel_size_x_mm,
+            origin.x + bitmap.width as f64 * bitmap.pixel_size_x_mm,
+            min_pct,
+            max_pct,
+            half_dot,
+        );
+        let (first, last) = match (runs.first(), runs.last()) {
+            (Some(f), Some(l)) => (f.x0, l.x1),
+            _ if settings.skip_blank_rows => continue,
+            _ => (origin.x, origin.x + bitmap.width_mm()),
+        };
+        let reverse = settings.bidirectional && scanned % 2 == 1;
+        scanned += 1;
+        emit_row(
+            &mut moves,
+            &|x| Point::new(x, y),
+            &runs,
+            (first, last),
+            overscan,
+            reverse,
+        );
+    }
+    moves
+}
+
+/// Barrido con líneas giradas `angle` grados (antihorario) alrededor del centro de la
+/// imagen colocada. Las líneas, separadas `pixel_size_y_mm`, se recortan al rectángulo
+/// de la imagen y se muestrean con vecino más cercano cada `pixel_size_x_mm` (el
+/// bitmap no se gira ni se interpola, para no inventar niveles de potencia). La
+/// primera línea es la de más "arriba" respecto de la dirección girada; con 0 grados
+/// sería la fila 0. Dentro de cada línea la coordenada `s` va medida desde el centro
+/// de la imagen a lo largo de la dirección de barrido.
+fn rotated_moves(
+    bitmap: &RasterBitmap,
+    origin: Point,
+    settings: &RasterSettings,
+    angle: f64,
+    min_pct: f64,
+    max_pct: f64,
+) -> Vec<Move> {
+    let overscan = settings.overscan_mm.max(0.0);
+    let half_dot = settings.dot_width_mm.max(0.0) / 2.0;
+    let (w_mm, h_mm) = (bitmap.width_mm(), bitmap.height_mm());
+    let (px, py) = (bitmap.pixel_size_x_mm, bitmap.pixel_size_y_mm);
+    let (hw, hh) = (w_mm / 2.0, h_mm / 2.0);
+    let (cx, cy) = (origin.x + hw, origin.y + hh);
+    let (sin, cos) = angle.to_radians().sin_cos();
+    // Mitad de la extensión del rectángulo proyectada sobre la perpendicular.
+    let extent = hw * sin.abs() + hh * cos.abs();
+    let lines = ((2.0 * extent / py) - 1e-9).ceil().max(1.0) as usize;
+
+    let mut moves = Vec::new();
+    let mut scanned = 0usize;
+    let mut values = Vec::new();
+    for k in (0..lines).rev() {
+        let t = (k as f64 + 0.5 - lines as f64 / 2.0) * py;
+        // Recorte de la recta al rectángulo: |s*cos - t*sin| <= hw y |s*sin + t*cos| <= hh.
+        let Some((lo_x, hi_x)) = slab(cos, -t * sin, hw) else {
+            continue;
+        };
+        let Some((lo_y, hi_y)) = slab(sin, t * cos, hh) else {
+            continue;
+        };
+        let (s0, s1) = (lo_x.max(lo_y), hi_x.min(hi_y));
+        if s1 - s0 < 1e-9 {
+            continue;
+        }
+        let count = (((s1 - s0) / px) - 1e-9).ceil().max(1.0) as usize;
+        let ds = (s1 - s0) / count as f64;
+        values.clear();
+        for j in 0..count {
+            let s = s0 + (j as f64 + 0.5) * ds;
+            let lx = s * cos - t * sin;
+            let ly = s * sin + t * cos;
+            let col = (((lx + hw) / px).floor().max(0.0) as usize).min(bitmap.width - 1);
+            let row = (((hh - ly) / py).floor().max(0.0) as usize).min(bitmap.height - 1);
+            values.push(bitmap.get(col, row));
+        }
+        let runs = row_runs(&values, s0, ds, s1, min_pct, max_pct, half_dot);
+        let (first, last) = match (runs.first(), runs.last()) {
+            (Some(f), Some(l)) => (f.x0, l.x1),
+            _ if settings.skip_blank_rows => continue,
+            _ => (s0, s1),
+        };
+        let reverse = settings.bidirectional && scanned % 2 == 1;
+        scanned += 1;
+        emit_row(
+            &mut moves,
+            &|s| Point::new(cx + s * cos - t * sin, cy + s * sin + t * cos),
+            &runs,
+            (first, last),
+            overscan,
+            reverse,
+        );
+    }
+    moves
+}
+
+/// Valores de `s` con `|a*s + b| <= half`. `None` si no hay ninguno.
+fn slab(a: f64, b: f64, half: f64) -> Option<(f64, f64)> {
+    if a.abs() < 1e-12 {
+        return (b.abs() <= half).then_some((f64::NEG_INFINITY, f64::INFINITY));
+    }
+    let (p, q) = ((-half - b) / a, (half - b) / a);
+    Some((p.min(q), p.max(q)))
+}
+
 /// Longitud mínima de un tramo encendido tras la corrección de ancho de punto.
 const MIN_RUN_MM: f64 = 0.01;
 
-/// Une píxeles consecutivos de igual valor y aplica la corrección de ancho de punto.
+/// Une muestras consecutivas de igual valor y aplica la corrección de ancho de punto.
+/// La muestra `i` cubre `[s0 + i*ds, s0 + (i+1)*ds)`, recortada a `s_end`.
 fn row_runs(
-    bitmap: &RasterBitmap,
-    row: usize,
-    origin_x: f64,
+    data: &[f32],
+    s0: f64,
+    ds: f64,
+    s_end: f64,
     min_pct: f64,
     max_pct: f64,
     half_dot: f64,
 ) -> Vec<Run> {
-    let data = bitmap.row(row);
-    let px = bitmap.pixel_size_x_mm;
     let mut runs = Vec::new();
     let mut i = 0;
     while i < data.len() {
@@ -163,7 +294,7 @@ fn row_runs(
         while i < data.len() && data[i] == v {
             i += 1;
         }
-        let (left, right) = (origin_x + start as f64 * px, origin_x + i as f64 * px);
+        let (left, right) = (s0 + start as f64 * ds, (s0 + i as f64 * ds).min(s_end));
         let (mut x0, mut x1) = (left + half_dot, right - half_dot);
         if x1 - x0 < MIN_RUN_MM {
             // El haz ya es más ancho que el tramo: un pulso corto centrado deja el punto
@@ -181,15 +312,16 @@ fn row_runs(
     runs
 }
 
+/// Emite una línea. `at` convierte la coordenada a lo largo de la línea en un punto
+/// de la máquina; los tramos (`runs`) y `first`/`last` usan esa misma coordenada.
 fn emit_row(
     moves: &mut Vec<Move>,
-    y: f64,
+    at: &dyn Fn(f64) -> Point,
     runs: &[Run],
     (first, last): (f64, f64),
     overscan: f64,
     reverse: bool,
 ) {
-    let at = |x: f64| Point::new(x, y);
     let off = |x: f64| Move::Cut {
         to: at(x),
         power_pct: 0.0,
@@ -500,6 +632,236 @@ mod tests {
             }
             .validate()
             .is_err()
+        );
+    }
+
+    // --- Barrido girado ---
+
+    fn full(w: usize, h: usize, px: f64, py: f64, v: f32) -> RasterBitmap {
+        RasterBitmap::new(w, h, px, py, vec![v; w * h]).unwrap()
+    }
+
+    /// Longitud total (mm) de los tramos con potencia > 0, y si todos los puntos del
+    /// bloque están dentro del rectángulo `[x0, x1] x [y0, y1]`.
+    fn lit_length(blk: &ToolpathBlock, rect: (f64, f64, f64, f64)) -> (f64, bool) {
+        let (x0, y0, x1, y1) = rect;
+        let eps = 1e-6;
+        let mut len = 0.0;
+        let mut inside = true;
+        let mut prev: Option<Point> = None;
+        for m in &blk.moves {
+            let to = m.to();
+            inside &= to.x >= x0 - eps && to.x <= x1 + eps && to.y >= y0 - eps && to.y <= y1 + eps;
+            if let (Move::Cut { power_pct, .. }, Some(p)) = (m, prev)
+                && *power_pct > 0.0
+            {
+                len += (to.x - p.x).hypot(to.y - p.y);
+            }
+            prev = Some(to);
+        }
+        (len, inside)
+    }
+
+    #[test]
+    fn zero_angle_is_the_classic_scan() {
+        let b = bitmap(&[".##..#.", "#..#.##"], 0.7, 0.4);
+        let base = RasterSettings {
+            overscan_mm: 1.0,
+            bidirectional: true,
+            dot_width_mm: 0.2,
+            ..plain()
+        };
+        let classic = raster_to_block(&b, Point::new(3.0, 4.0), &base);
+        for angle in [0.0, 360.0, -360.0, 720.0, f64::NAN, f64::INFINITY] {
+            let s = RasterSettings {
+                angle_deg: angle,
+                ..base.clone()
+            };
+            assert_eq!(
+                raster_to_block(&b, Point::new(3.0, 4.0), &s),
+                classic,
+                "ángulo {angle}"
+            );
+        }
+        assert!(!classic.label.contains("ángulo"));
+    }
+
+    #[test]
+    fn scan_at_90_degrees_runs_along_y() {
+        // 4 columnas x 2 filas de 1 mm, en (10, 20): rectángulo [10, 14] x [20, 22].
+        let b = full(4, 2, 1.0, 1.0, 1.0);
+        let s = RasterSettings {
+            angle_deg: 90.0,
+            ..plain()
+        };
+        let blk = raster_to_block(&b, Point::new(10.0, 20.0), &s);
+        let (len, inside) = lit_length(&blk, (10.0, 20.0, 14.0, 22.0));
+        assert!(inside);
+        assert!((len - 8.0).abs() < 1e-6, "{len}");
+        // 4 líneas, una por columna, de x = 10.5 a 13.5, todas verticales de 2 mm.
+        let travels: Vec<Point> = blk
+            .moves
+            .iter()
+            .filter(|m| matches!(m, Move::Travel { .. }))
+            .map(|m| m.to())
+            .collect();
+        assert_eq!(travels.len(), 4);
+        let mut xs: Vec<f64> = travels.iter().map(|p| p.x).collect();
+        xs.sort_by(f64::total_cmp);
+        for (x, e) in xs.iter().zip([10.5, 11.5, 12.5, 13.5]) {
+            assert!((x - e).abs() < 1e-9, "{xs:?}");
+        }
+        for m in &blk.moves {
+            if let Move::Cut { to, .. } = m {
+                assert!((to.y - 20.0).abs() < 1e-9 || (to.y - 22.0).abs() < 1e-9);
+            }
+        }
+    }
+
+    #[test]
+    fn scan_at_90_degrees_follows_the_image() {
+        // Solo la columna 2 (de 0 a 3) encendida: un único tramo en x = 12.5.
+        let b = bitmap(&["..#.", "..#."], 1.0, 1.0);
+        let s = RasterSettings {
+            angle_deg: 90.0,
+            ..plain()
+        };
+        let blk = raster_to_block(&b, Point::new(10.0, 20.0), &s);
+        assert_eq!(blk.moves.len(), 2);
+        let (a, z) = (blk.moves[0].to(), blk.moves[1].to());
+        assert!((a.x - 12.5).abs() < 1e-9 && (z.x - 12.5).abs() < 1e-9);
+        assert!((a.y - 20.0).abs() < 1e-9 && (z.y - 22.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn scan_at_45_degrees_stays_inside_and_keeps_coverage() {
+        let (w, h, px, py) = (40, 20, 0.5, 0.5);
+        let origin = Point::new(5.0, -3.0);
+        let rect = (5.0, -3.0, 5.0 + 20.0, -3.0 + 10.0);
+        let all = full(w, h, px, py, 1.0);
+        for angle in [45.0, 30.0, 135.0, 200.0, -45.0] {
+            let s = RasterSettings {
+                angle_deg: angle,
+                ..plain()
+            };
+            let blk = raster_to_block(&all, origin, &s);
+            let (len, inside) = lit_length(&blk, rect);
+            assert!(inside, "ángulo {angle}");
+            // Área = longitud barrida x separación de líneas.
+            let area = len * py;
+            assert!(
+                (area - 200.0).abs() / 200.0 < 0.02,
+                "ángulo {angle}: {area}"
+            );
+        }
+        // Mitad izquierda encendida: la mitad del área.
+        let half = RasterBitmap::new(
+            w,
+            h,
+            px,
+            py,
+            (0..w * h).map(|i| ((i % w) < w / 2) as u8 as f32).collect(),
+        )
+        .unwrap();
+        let s = RasterSettings {
+            angle_deg: 45.0,
+            ..plain()
+        };
+        let blk = raster_to_block(&half, origin, &s);
+        let (len, inside) = lit_length(&blk, rect);
+        assert!(inside);
+        assert!((len * py - 100.0).abs() / 100.0 < 0.05, "{}", len * py);
+    }
+
+    #[test]
+    fn rotated_scan_keeps_gray_power_and_alternates_direction() {
+        let b = full(10, 10, 1.0, 1.0, 0.5);
+        let s = RasterSettings {
+            angle_deg: 45.0,
+            bidirectional: true,
+            min_power_pct: 10.0,
+            max_power_pct: 30.0,
+            ..plain()
+        };
+        let blk = raster_to_block(&b, Point::new(0.0, 0.0), &s);
+        assert!(blk.label.contains("ángulo=45"));
+        let mut dirs = Vec::new();
+        let mut last_travel = None;
+        for m in &blk.moves {
+            match m {
+                Move::Travel { to } => last_travel = Some(*to),
+                Move::Cut { to, power_pct } => {
+                    assert!((power_pct - 20.0).abs() < 1e-9);
+                    let from = last_travel.take().unwrap();
+                    dirs.push((to.x - from.x) + (to.y - from.y));
+                }
+            }
+        }
+        assert!(dirs.len() > 4);
+        // Dirección +u (arriba a la derecha) y -u alternadas.
+        for (i, d) in dirs.iter().enumerate() {
+            assert_eq!(*d > 0.0, i % 2 == 0, "línea {i}: {d}");
+        }
+    }
+
+    #[test]
+    fn rotated_overscan_runs_along_the_line() {
+        let b = full(4, 2, 1.0, 1.0, 1.0);
+        let s = RasterSettings {
+            angle_deg: 90.0,
+            overscan_mm: 1.5,
+            ..plain()
+        };
+        let blk = raster_to_block(&b, Point::new(10.0, 20.0), &s);
+        let first = blk.moves[0].to();
+        assert!((first.y - 18.5).abs() < 1e-9, "{first:?}");
+        let last = blk.moves.last().unwrap().to();
+        assert!(
+            blk.moves
+                .iter()
+                .all(|m| m.to().y >= 18.5 - 1e-9 && m.to().y <= 23.5 + 1e-9),
+            "{last:?}"
+        );
+    }
+
+    #[test]
+    fn rotated_blank_lines_and_dot_width() {
+        // Mitad derecha vacía: a 90 grados, las columnas vacías son líneas en blanco.
+        let b = bitmap(&["##..", "##.."], 1.0, 1.0);
+        let skip = RasterSettings {
+            angle_deg: 90.0,
+            ..plain()
+        };
+        assert_eq!(
+            raster_to_block(&b, Point::new(0.0, 0.0), &skip)
+                .moves
+                .iter()
+                .filter(|m| matches!(m, Move::Travel { .. }))
+                .count(),
+            2
+        );
+        let all = RasterSettings {
+            skip_blank_rows: false,
+            ..skip.clone()
+        };
+        assert_eq!(
+            raster_to_block(&b, Point::new(0.0, 0.0), &all)
+                .moves
+                .iter()
+                .filter(|m| matches!(m, Move::Travel { .. }))
+                .count(),
+            4
+        );
+        // Corrección de ancho de punto a lo largo de la línea: tramo [0, 2] -> [0.2, 1.8].
+        let dot = RasterSettings {
+            dot_width_mm: 0.4,
+            ..skip
+        };
+        let blk = raster_to_block(&b, Point::new(0.0, 0.0), &dot);
+        let ys: Vec<f64> = blk.moves.iter().map(|m| m.to().y).collect();
+        assert!(
+            (ys[0] - 0.2).abs() < 1e-9 && (ys[1] - 1.8).abs() < 1e-9,
+            "{ys:?}"
         );
     }
 }
