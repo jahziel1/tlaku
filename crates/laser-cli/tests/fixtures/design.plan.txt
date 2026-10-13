@@ -1,0 +1,7 @@
+Orden automático: grabados primero, líneas al final
+Capa 1 de 2: #0000ff (fill, 1 pasada(s), 5 líneas de barrido)
+  Se barre línea por línea; no hay orden entre figuras que decidir.
+Capa 2 de 2: #ff0000 (line, 1 pasada(s), 2 figuras)
+    1. figura #1 (cerrada, entra por X41.91 Y34.04): primera figura de capa 2; va antes que la figura #0 (la más cercana) porque está dentro de ella y los interiores se cortan primero
+    2. figura #0 (cerrada, entra por X65.00 Y55.00): la más cercana (31.19 mm) entre las que podían cortarse ahora
+  Recorrido en vacío: 86.5 mm (orden original 101.0 mm, ahorro 14.5 mm = 14 %)

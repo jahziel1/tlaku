@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="60mm" viewBox="0 0 100 60">
+  <!-- Capa roja (line): contorno con un agujero. Capa azul (fill): rectángulo relleno. -->
+  <rect x="5" y="5" width="60" height="50" fill="none" stroke="#ff0000"/>
+  <circle cx="35" cy="30" r="8" fill="none" stroke="#ff0000"/>
+  <rect x="75" y="10" width="20" height="10" fill="none" stroke="#0000ff"/>
+</svg>

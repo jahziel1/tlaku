@@ -1,0 +1,9 @@
+[package]
+name = "laser-raster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }
+laser-core = { version = "0.1.0", path = "../laser-core" }

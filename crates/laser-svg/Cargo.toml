@@ -1,0 +1,9 @@
+[package]
+name = "laser-svg"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+laser-core = { version = "0.1.0", path = "../laser-core" }
+usvg = "0.45"
