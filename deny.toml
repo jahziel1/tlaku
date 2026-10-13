@@ -1,0 +1,36 @@
+# Configuración de cargo-deny. Ejecutar: cargo deny check licenses sources
+# El proyecto es MIT: solo se aceptan dependencias con licencias permisivas.
+
+[graph]
+# Se evalúan las dependencias de todas las plataformas que cubre la CI.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+
+[licenses]
+# Lista explícita: cualquier licencia que no esté aquí hace fallar la comprobación.
+# Una dependencia con varias opciones (p. ej. "MIT OR GPL-3.0") pasa si alguna está permitida.
+# GPL, LGPL y AGPL como única opción quedan prohibidas por no estar en la lista.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "0BSD",
+    "Unlicense",
+    "MPL-2.0", # copyleft por archivo; compatible con distribuir un binario MIT
+]
+confidence-threshold = 0.9
+
+[sources]
+# Solo crates.io: nada de git ni registros alternativos.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
