@@ -32,6 +32,7 @@ pub use layers::{
     resolve_layer,
 };
 pub use material_test::material_test;
+pub use rotary::rotary_test;
 
 /// Los tipos del documento, para quien solo depende de este crate.
 pub use tlaku_doc as doc;

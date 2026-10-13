@@ -16,7 +16,8 @@ mod materials;
 mod text;
 
 pub use device::{
-    DeviceKind, DeviceProfile, Origin, PowerMode, RotaryKind, RotarySettings, ScanOffset,
+    CommentStyle, DeviceKind, DeviceProfile, GcodeDialect, Origin, PowerMode, RotaryKind,
+    RotarySettings, ScanOffset,
 };
 pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,

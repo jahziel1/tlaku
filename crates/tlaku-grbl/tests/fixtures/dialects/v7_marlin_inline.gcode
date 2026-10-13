@@ -1,0 +1,15 @@
+; Generado por Tlaku
+G90
+G21
+M3 S0 I
+; Cuadrado
+M8
+G0 X0 Y0 F6000
+G1 X10 S128 F1000
+G1 Y10
+G1 X0
+G1 Y0
+M9
+M5
+G0 X0 Y0 F6000
+M400

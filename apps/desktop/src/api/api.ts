@@ -14,6 +14,7 @@ import type {
   BezPath,
   CalibrationReport,
   CameraSetup,
+  MarksReport,
   DesignObject,
   FontFamily,
   GeometryOpArgs,
@@ -95,6 +96,23 @@ export interface LaserApi {
   saveCameraSetup(args: { setup: CameraSetup }): Promise<CameraSetup>;
   /** Escribe el tablero de calibración (`.svg` o `.pdf`) en la ruta que eligió el usuario. */
   saveBoardFile(args: { path: string; content_base64: string }): Promise<void>;
+  /**
+   * Documento con 4 o 9 cruces en posiciones conocidas de la cama (capa line de baja potencia) para
+   * grabarlas sobre un cartón. La esquina inferior izquierda lleva además un círculo.
+   */
+  cameraMarks(args: { bed: [number, number]; count: 4 | 9 }): Promise<Document>;
+  /**
+   * Busca las marcas en una foto ya corregida de lente, las asigna a sus posiciones, ajusta la
+   * homografía con RANSAC y mide la precisión por validación cruzada. `prior_to_bed` es una
+   * alineación provisional (imagen -> mm, por filas) que afianza la asignación. Los píxeles tienen
+   * el origen en el borde de la imagen, como el resto de la alineación.
+   */
+  detectCameraMarks(args: {
+    image_png_base64: string;
+    bed: [number, number];
+    count: 4 | 9;
+    prior_to_bed: [[number, number, number], [number, number, number], [number, number, number]] | null;
+  }): Promise<MarksReport>;
 
   // Materiales (fase 4)
   /** Biblioteca del usuario (`materials.json`). Sin archivo, una vacía. */
@@ -141,6 +159,8 @@ export const COMMAND_NAMES = {
   loadCameraSetup: 'load_camera_setup',
   saveCameraSetup: 'save_camera_setup',
   saveBoardFile: 'save_board_file',
+  cameraMarks: 'camera_marks',
+  detectCameraMarks: 'detect_camera_marks',
   loadMaterialLibrary: 'load_material_library',
   saveMaterialLibrary: 'save_material_library',
   importMaterialLibrary: 'import_material_library',

@@ -1,9 +1,10 @@
 //! Corrección del desfase entre las líneas de ida y de vuelta de un barrido bidireccional.
 //!
 //! En un barrido bidireccional el láser tarda un poco en responder, así que las líneas que se
-//! recorren al revés quedan corridas respecto de las de ida. El perfil de la máquina guarda ese
-//! corrimiento medido a varias velocidades (`DeviceProfile.scan_offsets`); aquí se corrige como
-//! posproceso del bloque ya generado, sin que el relleno ni el rasterizador lo sepan.
+//! recorren al revés quedan corridas respecto de las de ida. El perfil de la máquina guarda la
+//! separación medida entre ambas a varias velocidades (`DeviceProfile.scan_offsets`); aquí se
+//! corrige como posproceso del bloque ya generado, sin que el relleno ni el rasterizador lo
+//! sepan.
 //!
 //! - Una "línea" es un `Travel` más los movimientos que le siguen hasta el siguiente `Travel`
 //!   (incluido el overscan, que se desplaza junto con ella).
@@ -11,11 +12,18 @@
 //!   del ángulo de la capa (0° = +X, antihorario); con crosshatch hay un segundo barrido a 90°
 //!   y cada línea se compara con el eje con el que más se alinea. Así no depende de cómo se
 //!   reparten las líneas entre formas ni de cuántas hay.
-//! - Las líneas de vuelta se desplazan `offset` mm **en el sentido de barrido** (el de las
-//!   líneas de ida, no el suyo propio). Un offset positivo las adelanta; uno negativo las
-//!   atrasa.
+//! - La separación medida `offset` se **reparte**: las líneas de ida se corren `-offset/2` y las
+//!   de vuelta `+offset/2` a lo largo del sentido de barrido (el de las líneas de ida). Antes
+//!   solo se movían las de vuelta el valor completo y todo el grabado quedaba corrido la mitad
+//!   respecto de los cortes vectoriales; repartido, el centro de cada par ida/vuelta coincide
+//!   con el vector. (LightBurn pide anotar la mitad de lo medido porque desplaza cada línea
+//!   ese valor; el resultado es el mismo.) Un `offset` positivo separa las de vuelta hacia
+//!   delante; uno negativo, hacia atrás.
+//! - `DeviceProfile.scan_initial_offset` mueve **todas** las líneas (también las de un barrido
+//!   unidireccional) ese valor en el sentido de barrido, para alinear el grabado con los cortes.
 //! - El offset de un bloque sale de interpolar linealmente por su velocidad; fuera del rango
 //!   medido se usa el extremo más cercano.
+//! - Las líneas corridas necesitan overscan para entrar ya a velocidad: ver [`overscan_warning`].
 
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, ToolpathBlock};
@@ -58,12 +66,46 @@ fn shift(mv: &mut Move, dx: f64, dy: f64) {
     }
 }
 
-/// Desplaza las líneas de vuelta de `block` según `offsets`. `sweep_angles_deg` son los
-/// ángulos de barrido de la capa (uno, o dos con crosshatch). No hace nada sin muestras
-/// o con un offset de 0.
-pub(crate) fn apply(block: &mut ToolpathBlock, offsets: &[ScanOffset], sweep_angles_deg: &[f64]) {
-    let offset = offset_for_speed(offsets, block.speed_mm_min);
-    if offset == 0.0 || sweep_angles_deg.is_empty() {
+/// Aviso si el overscan es menor que la separación `offset` (en valor absoluto) a esa velocidad:
+/// la línea corrida entra al grabado sin haber llegado a velocidad. Solo importa con barrido
+/// bidireccional; el llamador lo comprueba.
+pub(crate) fn overscan_warning(
+    layer: &str,
+    offsets: &[ScanOffset],
+    speed_mm_min: f64,
+    overscan_mm: f64,
+) -> Option<String> {
+    let offset = offset_for_speed(offsets, speed_mm_min).abs();
+    (offset > 0.0 && overscan_mm + 1e-9 < offset).then(|| {
+        format!(
+            "{layer}: el overscan ({overscan_mm:.2} mm) es menor que la corrección de barrido \
+             ({offset:.2} mm a {speed_mm_min} mm/min): las líneas corridas entran sin llegar a \
+             velocidad; sube el overscan"
+        )
+    })
+}
+
+/// Corrige las líneas de `block` según `offsets` (reparto ±offset/2 si el barrido es
+/// `bidirectional`) y `initial_mm` (todas las líneas). `sweep_angles_deg` son los ángulos de
+/// barrido de la capa (uno, o dos con crosshatch). No hace nada sin muestras ni offset inicial.
+pub(crate) fn apply(
+    block: &mut ToolpathBlock,
+    offsets: &[ScanOffset],
+    initial_mm: f64,
+    sweep_angles_deg: &[f64],
+    bidirectional: bool,
+) {
+    let offset = if bidirectional {
+        offset_for_speed(offsets, block.speed_mm_min)
+    } else {
+        0.0
+    };
+    let initial = if initial_mm.is_finite() {
+        initial_mm
+    } else {
+        0.0
+    };
+    if (offset == 0.0 && initial == 0.0) || sweep_angles_deg.is_empty() {
         return;
     }
     let axes: Vec<(f64, f64)> = sweep_angles_deg
@@ -94,12 +136,24 @@ pub(crate) fn apply(block: &mut ToolpathBlock, offsets: &[ScanOffset], sweep_ang
             .iter()
             .map(|&(ax, ay)| (ax, ay, dir.0 * ax + dir.1 * ay))
             .max_by(|a, b| a.2.abs().total_cmp(&b.2.abs()));
-        if let Some((ax, ay, dot)) = best
-            && dot < 0.0
-        {
-            let (dx, dy) = (ax * offset, ay * offset);
-            for mv in &mut moves[i..end] {
-                shift(mv, dx, dy);
+        if let Some((mut ax, mut ay, dot)) = best {
+            // Una línea sin recorrido no tiene sentido: solo recibe el offset inicial, a lo
+            // largo del primer barrido.
+            if dot == 0.0 {
+                (ax, ay) = axes[0];
+            }
+            let along = if dot < 0.0 {
+                initial + offset / 2.0
+            } else if dot > 0.0 {
+                initial - offset / 2.0
+            } else {
+                initial
+            };
+            if along != 0.0 {
+                let (dx, dy) = (ax * along, ay * along);
+                for mv in &mut moves[i..end] {
+                    shift(mv, dx, dy);
+                }
             }
         }
         i = end;
@@ -166,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn only_return_lines_move_along_the_sweep_axis() {
+    fn the_offset_is_split_half_to_each_direction() {
         // Ida (+X), vuelta (-X), ida (+X); la vuelta lleva overscan que se mueve con ella.
         let mut b = block(
             3000.0,
@@ -183,22 +237,41 @@ mod tests {
                 cut(10.0, 2.0, 50.0),
             ],
         );
-        apply(&mut b, &[so(3000.0, 0.2)], &[0.0]);
+        apply(&mut b, &[so(3000.0, 0.2)], 0.0, &[0.0], true);
         assert_moves(
             &b.moves,
             &[
-                travel(-1.0, 0.0),
-                cut(0.0, 0.0, 0.0),
-                cut(10.0, 0.0, 50.0),
-                cut(11.0, 0.0, 0.0),
-                travel(11.2, 1.0),
-                cut(10.2, 1.0, 0.0),
-                cut(0.2, 1.0, 50.0),
-                cut(-0.8, 1.0, 0.0),
-                travel(-1.0, 2.0),
-                cut(10.0, 2.0, 50.0),
+                travel(-1.1, 0.0),
+                cut(-0.1, 0.0, 0.0),
+                cut(9.9, 0.0, 50.0),
+                cut(10.9, 0.0, 0.0),
+                travel(11.1, 1.0),
+                cut(10.1, 1.0, 0.0),
+                cut(0.1, 1.0, 50.0),
+                cut(-0.9, 1.0, 0.0),
+                travel(-1.1, 2.0),
+                cut(9.9, 2.0, 50.0),
             ],
         );
+    }
+
+    #[test]
+    fn the_centre_of_each_pair_stays_on_the_nominal_line_and_they_end_offset_apart() {
+        // La separación entre los extremos de ida y de vuelta es el offset completo.
+        let mut b = block(
+            1000.0,
+            vec![
+                travel(0.0, 0.0),
+                cut(10.0, 0.0, 50.0),
+                travel(10.0, 1.0),
+                cut(0.0, 1.0, 50.0),
+            ],
+        );
+        apply(&mut b, &[so(1000.0, 0.3)], 0.0, &[0.0], true);
+        let end_forward = b.moves[1].to().x;
+        let end_return = b.moves[3].to().x;
+        assert!((end_return - 0.0 - (end_forward - 10.0) - 0.3).abs() < 1e-12);
+        assert!(((end_forward - 10.0) + (end_return - 0.0)).abs() < 1e-12);
     }
 
     #[test]
@@ -214,22 +287,56 @@ mod tests {
             let mut moves = line(0.0, true);
             moves.extend(line(1.0, false));
             let mut b = block(1000.0, moves.clone());
-            apply(&mut b, &[so(1000.0, 0.3)], &[angle]);
-            // La ida no cambia; la vuelta avanza 0.3 mm hacia el sentido del barrido.
-            assert_moves(&b.moves[..2], &moves[..2]);
-            for (after, before) in b.moves[2..].iter().zip(&moves[2..]) {
+            apply(&mut b, &[so(1000.0, 0.3)], 0.0, &[angle], true);
+            // La ida retrocede 0.15 mm y la vuelta avanza 0.15 mm a lo largo del barrido.
+            for (i, (after, before)) in b.moves.iter().zip(&moves).enumerate() {
+                let k = if i < 2 { -0.15 } else { 0.15 };
                 let (pa, pb) = (after.to(), before.to());
-                assert!((pa.x - pb.x - 0.3 * c).abs() < 1e-9, "{angle}");
-                assert!((pa.y - pb.y - 0.3 * s).abs() < 1e-9, "{angle}");
+                assert!((pa.x - pb.x - k * c).abs() < 1e-9, "{angle}");
+                assert!((pa.y - pb.y - k * s).abs() < 1e-9, "{angle}");
             }
         }
     }
 
     #[test]
-    fn negative_offset_moves_the_return_lines_back() {
+    fn negative_offset_swaps_the_directions() {
         let mut b = block(1000.0, vec![travel(10.0, 0.0), cut(0.0, 0.0, 50.0)]);
-        apply(&mut b, &[so(1000.0, -0.5)], &[0.0]);
-        assert_moves(&b.moves, &[travel(9.5, 0.0), cut(-0.5, 0.0, 50.0)]);
+        apply(&mut b, &[so(1000.0, -0.5)], 0.0, &[0.0], true);
+        assert_moves(&b.moves, &[travel(9.75, 0.0), cut(-0.25, 0.0, 50.0)]);
+    }
+
+    #[test]
+    fn initial_offset_moves_every_line_and_also_unidirectional_sweeps() {
+        let lines = vec![
+            travel(0.0, 0.0),
+            cut(10.0, 0.0, 50.0),
+            travel(10.0, 1.0),
+            cut(0.0, 1.0, 50.0),
+        ];
+        // Con offset de tabla 0.2 (±0.1) y offset inicial 0.5: ida +0.4, vuelta +0.6.
+        let mut b = block(1000.0, lines.clone());
+        apply(&mut b, &[so(1000.0, 0.2)], 0.5, &[0.0], true);
+        assert_moves(
+            &b.moves,
+            &[
+                travel(0.4, 0.0),
+                cut(10.4, 0.0, 50.0),
+                travel(10.6, 1.0),
+                cut(0.6, 1.0, 50.0),
+            ],
+        );
+        // Sin bidireccional solo cuenta el offset inicial, aunque haya tabla.
+        let mut uni = block(1000.0, lines);
+        apply(&mut uni, &[so(1000.0, 0.2)], 0.5, &[0.0], false);
+        assert_moves(
+            &uni.moves,
+            &[
+                travel(0.5, 0.0),
+                cut(10.5, 0.0, 50.0),
+                travel(10.5, 1.0),
+                cut(0.5, 1.0, 50.0),
+            ],
+        );
     }
 
     #[test]
@@ -244,7 +351,7 @@ mod tests {
                 cut(0.0, 0.0, 50.0),
             ],
         );
-        apply(&mut b, &[so(1000.0, 1.0)], &[0.0, 90.0]);
+        apply(&mut b, &[so(1000.0, 2.0)], 0.0, &[0.0, 90.0], true);
         assert_moves(
             &b.moves,
             &[
@@ -260,13 +367,32 @@ mod tests {
     fn nothing_to_do_leaves_the_block_untouched() {
         let moves = vec![travel(10.0, 0.0), cut(0.0, 0.0, 50.0)];
         let mut b = block(1000.0, moves.clone());
-        apply(&mut b, &[], &[0.0]);
-        apply(&mut b, &[so(1000.0, 0.0)], &[0.0]);
-        apply(&mut b, &[so(1000.0, 0.5)], &[]);
+        apply(&mut b, &[], 0.0, &[0.0], true);
+        apply(&mut b, &[so(1000.0, 0.0)], 0.0, &[0.0], true);
+        apply(&mut b, &[so(1000.0, 0.5)], 0.0, &[], true);
+        apply(&mut b, &[so(1000.0, 0.5)], 0.0, &[0.0], false);
+        apply(&mut b, &[], f64::NAN, &[0.0], true);
         assert_eq!(b.moves, moves);
-        // Una línea sin recorrido (punto) no tiene sentido y no se toca.
+        // Una línea sin recorrido no tiene sentido: no recibe el reparto, solo el inicial.
         let mut dot = block(1000.0, vec![travel(1.0, 1.0), cut(1.0, 1.0, 50.0)]);
-        apply(&mut dot, &[so(1000.0, 0.5)], &[0.0]);
+        apply(&mut dot, &[so(1000.0, 0.5)], 0.0, &[0.0], true);
         assert_eq!(dot.moves[0].to(), Point::new(1.0, 1.0));
+        apply(&mut dot, &[], 0.25, &[0.0], true);
+        assert_eq!(dot.moves[0].to(), Point::new(1.25, 1.0));
+    }
+
+    #[test]
+    fn warns_when_the_overscan_is_shorter_than_the_offset() {
+        let t = [so(1000.0, 0.4)];
+        let w = overscan_warning("capa #ff0000", &t, 1000.0, 0.2).unwrap();
+        assert!(
+            w.contains("overscan") && w.contains("0.20") && w.contains("0.40"),
+            "{w}"
+        );
+        assert_eq!(overscan_warning("c", &t, 1000.0, 0.4), None);
+        assert_eq!(overscan_warning("c", &t, 1000.0, 2.0), None);
+        assert_eq!(overscan_warning("c", &[], 1000.0, 0.0), None);
+        // El signo no importa.
+        assert!(overscan_warning("c", &[so(1000.0, -0.4)], 1000.0, 0.0).is_some());
     }
 }

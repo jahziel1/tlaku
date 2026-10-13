@@ -11,6 +11,7 @@ import type { CameraBackdrop } from '@/store/camera';
 import { backdropCorners } from './geometry';
 import { buildConstraints, classifyCameraError, pickDevice, videoInputs, type CameraProblem } from './capture';
 import { createCorrector, type Corrector } from './corrector';
+import { toBedAt } from './height';
 import { correctedSize, lensFitsStream } from './lens';
 import { persistCameraSetup } from './actions';
 
@@ -145,7 +146,8 @@ export function publishBackdrop(force: boolean): void {
     source,
     width: canvas.width,
     height: canvas.height,
-    corners: backdropCorners(alignment.to_bed, alignment.image_size),
+    // La homografía vale a la altura del material actual (corrección por grosor).
+    corners: backdropCorners(toBedAt(alignment, prefs.material_height_mm ?? 0), alignment.image_size),
     opacity: prefs.opacity,
     frame: ++frameCount,
   };
@@ -288,6 +290,20 @@ export async function grabRawPng(maxWidth: number): Promise<{ png: string; scale
   const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
   if (!blob) return null;
   return { png: await blobToBase64(blob), scale, width: v.videoWidth, height: v.videoHeight };
+}
+
+/**
+ * El cuadro corregido de lente que se ve (el congelado, o el actual) como PNG en base64, con su
+ * tamaño en píxeles: es la imagen sobre la que se mide la alineación, así que sus coordenadas son
+ * las de `CameraAlignment`. `null` si aún no hay imagen.
+ */
+export async function grabCorrectedPng(): Promise<{ png: string; width: number; height: number } | null> {
+  const frozen = useStore.getState().cameraFrozen;
+  const src = frozen && snapshot ? snapshot : corrector?.canvas;
+  if (!src || src.width === 0 || src.height === 0) return null;
+  const blob = await new Promise<Blob | null>((res) => src.toBlob(res, 'image/png'));
+  if (!blob) return null;
+  return { png: await blobToBase64(blob), width: src.width, height: src.height };
 }
 
 export function blobToBase64(blob: Blob): Promise<string> {

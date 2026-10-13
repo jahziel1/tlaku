@@ -89,5 +89,14 @@ relleno por contornos, recorte SVG real, planificador con solapes, biblioteca y 
 materiales, unir/cerrar/quitar duplicados, instaladores (GitHub Actions) e ícono propio.
 807 pruebas en Rust y 899 en la interfaz.
 
-Pendiente de M4: Ruida, sub-capas, macros, cámara parte 3 (marcas grabadas, altura) y prueba
-con hardware real de todo lo anterior (Z, rotativo y corrección de barrido sobre todo).
+**M4, oleada B (validación sin hardware) terminada:** investigación de hardware con fuentes en
+`docs/hardware/`; driver GRBL endurecido (ruido serie, `ERROR:NN` de Creality, parada real ante
+`error:N`, cancelación sin ALARM:3, homing sin falso timeout, bloqueo con `$32=0`); emulador de
+controladoras (`tlaku-emu`: GRBL, Falcon2 Pro, grblHAL, FluidNC, GRBL-LPC, Marlin y Smoothie
+básicos); dialectos de G-code (GRBL-M3, grblHAL, FluidNC, GRBL-LPC, Smoothie, Marlin, personalizado);
+Z relativa con regreso, corrección de barrido repartida, rotativo con valores reales y espejo;
+núcleo Ruida con exportación `.rd` (`tlaku-ruida`, sin red); cámara parte 3 (marcas grabadas con
+validación cruzada y corrección por altura). 1105 pruebas en Rust y 940 en la interfaz.
+
+Pendiente de M4: interfaz de dialectos y máquina virtual, envío ping-pong (Marlin/Smoothie), red
+de Ruida, sub-capas, macros, modelo ojo de pez y prueba con hardware real.

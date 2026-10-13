@@ -201,7 +201,15 @@ describe('perfiles de la Fase 4', () => {
 
   it('completa un rotativo a medias y conserva lo guardado', () => {
     const d = normalizeDevice({ ...FALLBACK_DEVICE, rotary: { enabled: true, kind: 'chuck' } as never });
-    expect(d.rotary).toMatchObject({ enabled: true, kind: 'chuck', mm_per_rotation: 360, object_diameter: 80 });
+    expect(d.rotary).toMatchObject({ enabled: true, kind: 'chuck', mm_per_rotation: 32, object_diameter: 80 });
+  });
+
+  it('completa un perfil sin dialecto ni campos de Z y barrido como GRBL 1.1', () => {
+    const { dialect: _d, z_invert: _z, scan_initial_offset: _s, ...old } = FALLBACK_DEVICE;
+    const d = normalizeDevice(old as never);
+    expect(d.dialect).toEqual(FALLBACK_DEVICE.dialect);
+    expect(d.dialect.constant_on).toBe('M3 S0');
+    expect([d.z_invert, d.scan_initial_offset]).toEqual([false, 0]);
   });
 
   it('un perfil completo vuelve como el mismo objeto', () => {

@@ -36,6 +36,17 @@ export type CommandError =
   | { code: 'empty' }
   | { code: 'tooLong'; text: string; max: number };
 
+/**
+ * `$RST=$` / `$RST=#` / `$RST=*` (restauran ajustes, ponen a cero los desplazamientos o borran
+ * toda la EEPROM) y `$SLP` (suspende la máquina hasta un reinicio) son irreversibles o la dejan
+ * inutilizable hasta reiniciar. Siguen clasificándose `other` (paridad con `tlaku cmd`, que ya
+ * pide confirmación), pero la confirmación debería mostrar `machine.risk.destructive`.
+ * `text` es la línea ya normalizada.
+ */
+export function isDestructive(text: string): boolean {
+  return text.startsWith('$RST=') || text === '$SLP';
+}
+
 /** ¿Hay que pedir confirmación antes de enviarlo? Todo lo que no sea de solo lectura. */
 export function needsConfirmation(risk: Risk): boolean {
   return risk !== 'safe';

@@ -42,6 +42,16 @@ impl Collect {
             .collect()
     }
 
+    fn job_messages(&self) -> Vec<String> {
+        self.all()
+            .into_iter()
+            .filter_map(|e| match e {
+                Emit::Job(j) => Some(j.message),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn connections(&self) -> Vec<ConnectionEvent> {
         self.all()
             .into_iter()
@@ -101,6 +111,26 @@ struct Fake {
     mute: Arc<AtomicBool>,
     stop: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
+    /// Respuesta a `$$` (sin el `ok` final).
+    settings: Arc<Mutex<String>>,
+    /// Respuesta a `$#` (sin el `ok` final).
+    params: Arc<Mutex<String>>,
+    /// Bytes que la máquina escribe por su cuenta en cuanto puede.
+    inject: Arc<Mutex<Vec<u8>>>,
+    /// Tras `$H` calla (ni `?` ni nada) estos milisegundos y luego contesta `ok`.
+    home_delay_ms: Arc<AtomicUsize>,
+    /// Bloqueo crítico: ignora todo hasta recibir un soft reset (0x18).
+    locked: Arc<AtomicBool>,
+    /// La n-ésima línea de G-code (no `$`) recibe esta respuesta en lugar de `ok`.
+    fault_at: Arc<Mutex<Option<(usize, String)>>>,
+    /// Tras `!` informa `Hold:1` tres consultas y luego `Hold:0`.
+    brake: Arc<AtomicBool>,
+    /// Con `brake`: nunca llega a `Hold:0` (se queda frenando).
+    never_settle: Arc<AtomicBool>,
+    /// Si el último soft reset llegó cuando aún frenaba (o corría).
+    reset_in_motion: Arc<AtomicBool>,
+    /// Al recibir G-code pasa a `Run` (como una máquina que empieza a moverse).
+    run_on_gcode: Arc<AtomicBool>,
 }
 
 impl Fake {
@@ -113,6 +143,16 @@ impl Fake {
             mute: Arc::default(),
             stop: Arc::default(),
             thread: None,
+            settings: Arc::new(Mutex::new("$22=0\r\n$30=1000\r\n$32=1\r\n".into())),
+            params: Arc::default(),
+            inject: Arc::default(),
+            home_delay_ms: Arc::default(),
+            locked: Arc::default(),
+            fault_at: Arc::default(),
+            brake: Arc::default(),
+            never_settle: Arc::default(),
+            reset_in_motion: Arc::default(),
+            run_on_gcode: Arc::default(),
         };
         let (state, seen, hold, polls, mute, stop) = (
             f.state.clone(),
@@ -122,16 +162,44 @@ impl Fake {
             f.mute.clone(),
             f.stop.clone(),
         );
+        let (settings, params, inject, home_delay, locked) = (
+            f.settings.clone(),
+            f.params.clone(),
+            f.inject.clone(),
+            f.home_delay_ms.clone(),
+            f.locked.clone(),
+        );
+        let (fault_at, brake, never_settle, reset_in_motion, run_on_gcode) = (
+            f.fault_at.clone(),
+            f.brake.clone(),
+            f.never_settle.clone(),
+            f.reset_in_motion.clone(),
+            f.run_on_gcode.clone(),
+        );
         let thread = thread::spawn(move || {
             let mut partial = String::new();
             let mut queued: VecDeque<String> = VecDeque::new();
             let mut buf = [0u8; 256];
+            let mut homing_until: Option<Instant> = None;
+            let mut gcode_lines = 0usize;
+            let mut braking: Option<usize> = None;
             while !stop.load(Ordering::SeqCst) {
                 // Las líneas retenidas se liberan en cuanto se suelta `hold_ok`.
                 if !hold.load(Ordering::SeqCst) {
                     while queued.pop_front().is_some() {
                         let _ = dev.write_all(b"ok\r\n");
                     }
+                }
+                {
+                    let mut raw = inject.lock().unwrap();
+                    if !raw.is_empty() {
+                        let _ = dev.write_all(&raw);
+                        raw.clear();
+                    }
+                }
+                if homing_until.is_some_and(|t| Instant::now() >= t) {
+                    homing_until = None;
+                    let _ = dev.write_all(b"ok\r\n");
                 }
                 let Ok(n) = dev.read_timeout(&mut buf, Duration::from_millis(5)) else {
                     return;
@@ -140,10 +208,24 @@ impl Fake {
                     continue;
                 }
                 for &b in &buf[..n] {
+                    if locked.load(Ordering::SeqCst) && b != 0x18 {
+                        continue;
+                    }
                     match b {
+                        b'?' if homing_until.is_some() => {}
                         b'?' => {
                             polls.fetch_add(1, Ordering::SeqCst);
-                            let st = *state.lock().unwrap();
+                            let st = match braking.as_mut() {
+                                Some(k) => {
+                                    *k += 1;
+                                    if *k <= 3 || never_settle.load(Ordering::SeqCst) {
+                                        "Hold:1"
+                                    } else {
+                                        "Hold:0"
+                                    }
+                                }
+                                None => *state.lock().unwrap(),
+                            };
                             let _ = dev.write_all(
                                 format!("<{st}|MPos:11.000,22.000,0.000|FS:0,0|WCO:1.000,2.000,0.000>\r\n")
                                     .as_bytes(),
@@ -151,25 +233,70 @@ impl Fake {
                         }
                         0x18 => {
                             seen.lock().unwrap().realtime.push(b);
+                            reset_in_motion.store(
+                                braking
+                                    .is_none_or(|k| k <= 3 || never_settle.load(Ordering::SeqCst)),
+                                Ordering::SeqCst,
+                            );
+                            braking = None;
+                            locked.store(false, Ordering::SeqCst);
                             queued.clear();
                             *state.lock().unwrap() = "Idle";
                             let _ = dev.write_all(b"\r\nGrbl 1.1h ['$' for help]\r\n");
                         }
-                        b'!' | b'~' | 0x85 => seen.lock().unwrap().realtime.push(b),
+                        b'!' => {
+                            seen.lock().unwrap().realtime.push(b);
+                            if brake.load(Ordering::SeqCst) {
+                                braking = Some(0);
+                            }
+                        }
+                        b'~' | 0x85 => seen.lock().unwrap().realtime.push(b),
                         b'\n' => {
                             let line = std::mem::take(&mut partial);
                             seen.lock().unwrap().lines.push(line.clone());
+                            let gcode = !line.starts_with('$');
+                            if gcode {
+                                gcode_lines += 1;
+                                if run_on_gcode.load(Ordering::SeqCst) {
+                                    *state.lock().unwrap() = "Run";
+                                }
+                            }
+                            let fault = fault_at
+                                .lock()
+                                .unwrap()
+                                .as_ref()
+                                .filter(|(n, _)| gcode && *n == gcode_lines)
+                                .map(|(_, r)| format!("{r}\r\n"));
                             let reply = match line.as_str() {
-                                "$I" => "[VER:1.1h.20190825:]\r\n[OPT:V,15,128]\r\nok\r\n",
-                                "$$" => "$22=0\r\nok\r\n",
-                                l if l.starts_with("$J=") && l.contains("X999") => "error:15\r\n",
-                                "BAD" => "error:20\r\n",
+                                _ if fault.is_some() => fault.unwrap_or_default(),
+                                "$I" => {
+                                    "[VER:1.1h.20190825:]\r\n[OPT:V,15,128]\r\nok\r\n".to_string()
+                                }
+                                "$$" => format!("{}ok\r\n", settings.lock().unwrap()),
+                                "$#" => format!("{}ok\r\n", params.lock().unwrap()),
+                                "$H" if home_delay.load(Ordering::SeqCst) > 0 => {
+                                    homing_until = Some(
+                                        Instant::now()
+                                            + Duration::from_millis(
+                                                home_delay.load(Ordering::SeqCst) as u64,
+                                            ),
+                                    );
+                                    continue;
+                                }
+                                l if l.starts_with("$J=") && l.contains("X999") => {
+                                    "error:15\r\n".to_string()
+                                }
+                                "BAD" => "error:20\r\n".to_string(),
                                 _ if hold.load(Ordering::SeqCst) && !line.starts_with('$') => {
                                     queued.push_back(line);
                                     continue;
                                 }
-                                _ => "ok\r\n",
+                                _ => "ok\r\n".to_string(),
                             };
+                            // Un límite duro bloquea la placa hasta el soft reset.
+                            if reply.starts_with("ALARM:1") {
+                                locked.store(true, Ordering::SeqCst);
+                            }
                             let _ = dev.write_all(reply.as_bytes());
                         }
                         b'\r' => {}
@@ -180,6 +307,13 @@ impl Fake {
         });
         f.thread = Some(thread);
         f
+    }
+
+    fn say(&self, text: &str) {
+        self.inject
+            .lock()
+            .unwrap()
+            .extend_from_slice(text.as_bytes());
     }
 
     fn set_state(&self, s: &'static str) {
@@ -210,6 +344,8 @@ fn fast() -> Timing {
         silence_timeout: Duration::from_millis(400),
         command_timeout: Duration::from_millis(800),
         home_timeout: Duration::from_secs(2),
+        hold_timeout: Duration::from_millis(400),
+        reset_wait: Duration::from_millis(300),
         identify_timeout: Duration::from_secs(2),
         tick: Duration::from_millis(5),
         progress_interval: Duration::from_millis(1),
@@ -305,7 +441,7 @@ fn a_machine_that_does_not_answer_identification_fails_to_connect() {
 fn commands_return_the_reply_up_to_ok_and_are_logged() {
     let rig = connect();
     let r = rig.handle.command("$$").unwrap();
-    assert_eq!(r, ["$22=0", "ok"]);
+    assert_eq!(r, ["$22=0", "$30=1000", "$32=1", "ok"]);
     let r = rig.handle.command("BAD").unwrap();
     assert_eq!(r, ["error:20: comando G-code no soportado o no válido"]);
     let logs = rig.sink.logs();
@@ -591,4 +727,409 @@ fn status_uses_wpos_when_the_controller_reports_work_coordinates() {
             rx: 100
         }
     );
+}
+
+// ---------------------------------------------------------------------------
+// Firmware, banners reales y reportes raros (grbl.md / falcon2.md)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn firmware_name_and_family_cover_grbl_fluidnc_grblhal_and_the_falcon2() {
+    let id = |lines: &[&str]| identify(&lines.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+    assert_eq!(
+        id(&["[VER:1.1h.20190825:]", "[OPT:V,15,128]"]),
+        ("Grbl 1.1h".into(), Firmware::Grbl)
+    );
+    // Falcon2 Pro: líneas propias de Creality alrededor de `[VER:]`.
+    assert_eq!(
+        id(&[
+            "[VER:1.1f.20220810:]",
+            "[OPT:VHL,127,65536]",
+            "[software versions: CV50-Pro-MASTER-Release V1.0.0 20231129-1024]",
+            "inquire_info->power:22W ,CV50-LASER-22W-Release V3.0.5 20231129-1001",
+        ]),
+        ("Grbl 1.1f".into(), Firmware::Grbl)
+    );
+    assert_eq!(
+        id(&["[VER:3.9 FluidNC v3.9.7:]", "[OPT:MPHS]"]),
+        ("FluidNC v3.9.7".into(), Firmware::FluidNc)
+    );
+    assert_eq!(
+        id(&[
+            "[VER:1.1f.20240101:]",
+            "[OPT:VNM,35,1024,0]",
+            "[NEWOPT:ENUMS,RT+]"
+        ]),
+        ("grblHAL 1.1f".into(), Firmware::GrblHal)
+    );
+    // `$I` que solo devuelve `ok`: nombre genérico.
+    assert_eq!(id(&[]), ("GRBL".into(), Firmware::Unknown));
+    assert_eq!(id(&["[OPT:V,15,128]"]).0, "GRBL");
+}
+
+#[test]
+fn connecting_through_the_whole_falcon2_banner_and_an_info_reply_of_only_ok() {
+    // Banner real de la Falcon2 Pro (falcon2.md, sección 3), llegado antes de la respuesta de `$I`.
+    let banner = "usb connect succeed\r\n\
+        [OK]system start-up CV50-Pro-MASTER-Release V1.0.1 20240325-1042\r\n\
+        [OK] ILmp_app_init OK\r\n[OK] gas_init OK\r\n[MSG:Using cpu_map...esp32-s3]\r\n\
+        Grbl 1.1f ['$' for help]\r\n[OK] ILmp Link connect ok\r\n";
+    let info = "[VER:1.1f.20220810:]\r\n[OPT:VHL,127,65536]\r\n\
+        [software versions: CV50-Pro-MASTER-Release V1.0.0 20231129-1024]\r\n\
+        inquire_info->power:22W ,CV50-LASER-22W-Release V3.0.5 20231129-1001\r\nok\r\n";
+    for (reply, firmware) in [(info, "Grbl 1.1f"), ("ok\r\n", "GRBL")] {
+        let (host, mut dev) = memory_pair();
+        let sink = Arc::new(Collect::default());
+        dev.write_all(banner.as_bytes()).unwrap();
+        dev.write_all(reply.as_bytes()).unwrap();
+        let (conn, result) = Connection::start(Box::new(host), "p", sink.clone(), fast()).unwrap();
+        assert_eq!(result.firmware, firmware);
+        // Ninguna de las líneas de Creality se tomó por el final del comando.
+        assert!(
+            sink.logs()
+                .iter()
+                .any(|(_, t)| t.contains("ILmp Link connect ok") || t == "ok")
+        );
+        conn.close();
+    }
+}
+
+#[test]
+fn a_status_report_with_nan_never_becomes_a_position() {
+    let (host, mut dev) = memory_pair();
+    let sink = Arc::new(Collect::default());
+    dev.write_all(b"[VER:1.1f.20220810:]\r\nok\r\n").unwrap();
+    let (_conn, _) = Connection::start(Box::new(host), "p", sink.clone(), fast()).unwrap();
+    // WCO con nan (G54 dañado en la Falcon2) y luego una MPos con nan.
+    dev.write_all(b"<Run|MPos:5.000,6.000,0.000|FS:100,5|WCO:-nan,1.579,1.619>\r\n")
+        .unwrap();
+    dev.write_all(b"<Run|MPos:nan,6.000,0.000|FS:100,5>\r\n")
+        .unwrap();
+    sink.wait("estado", |s| {
+        s.statuses().iter().any(|x| x.state == MachineState::Run)
+    });
+    for s in sink.statuses() {
+        assert!(
+            s.machine_pos
+                .iter()
+                .chain(&s.work_pos)
+                .all(|v| v.is_finite()),
+            "{s:?}"
+        );
+    }
+    let s = sink
+        .statuses()
+        .into_iter()
+        .find(|x| x.state == MachineState::Run)
+        .unwrap();
+    // Sin WCO válido, la posición de trabajo es la de máquina.
+    assert_eq!((s.machine_pos, s.work_pos), ([5.0, 6.0], [5.0, 6.0]));
+}
+
+#[test]
+fn an_unknown_grblhal_state_is_shown_as_busy_and_blocks_a_new_job() {
+    let rig = connect();
+    rig.fake.set_state("Tool");
+    rig.sink.wait("estado ocupado", |s| {
+        s.statuses()
+            .last()
+            .is_some_and(|x| x.state == MachineState::Run)
+    });
+    let e = rig.handle.start_job(job_lines(), 127).unwrap_err();
+    assert!(
+        e.contains("no reconoce") && e.contains("No se transmitió nada"),
+        "{e}"
+    );
+}
+
+#[test]
+fn extended_codes_are_read_with_the_firmware_family() {
+    // grblHAL: `[NEWOPT:]` en `$I`; ALARM:10 es un paro de emergencia.
+    let (host, mut dev) = memory_pair();
+    let sink = Arc::new(Collect::default());
+    dev.write_all(b"[VER:1.1f.20240101:]\r\n[NEWOPT:ENUMS,RT+]\r\nok\r\n")
+        .unwrap();
+    let (_conn, r) = Connection::start(Box::new(host), "p", sink.clone(), fast()).unwrap();
+    assert_eq!(r.firmware, "grblHAL 1.1f");
+    dev.write_all(b"ALARM:10\r\nerror:50\r\nERROR:06.\r\n")
+        .unwrap();
+    sink.wait("registro", |s| {
+        s.logs().iter().any(|(_, t)| t.starts_with("ERROR:06"))
+    });
+    let logs = sink.logs();
+    let has = |needle: &str| logs.iter().any(|(_, t)| t.contains(needle));
+    assert!(has("ALARM:10: parada de emergencia"), "{logs:?}");
+    assert!(has("error:50: parada de emergencia activa"), "{logs:?}");
+    // `ERROR:06.` de Creality se explica como tal y se normaliza.
+    assert!(has("ERROR:06: lente contaminada"), "{logs:?}");
+
+    // GRBL 1.1 identificado: el mismo ALARM:10 es el autoescuadre.
+    let rig = connect();
+    rig.fake.say("ALARM:10\r\n");
+    rig.sink.wait("alarma", |s| {
+        s.logs().iter().any(|(_, t)| t.starts_with("ALARM:10"))
+    });
+    assert!(
+        rig.sink
+            .logs()
+            .iter()
+            .any(|(_, t)| t.starts_with("ALARM:10") && t.contains("autoescuadre"))
+    );
+
+    // Sin saber el firmware (`$I` solo devuelve `ok`), el texto dice que depende de él.
+    let (host, mut dev) = memory_pair();
+    let sink = Arc::new(Collect::default());
+    dev.write_all(b"ok\r\n").unwrap();
+    let (_conn, r) = Connection::start(Box::new(host), "p", sink.clone(), fast()).unwrap();
+    assert_eq!(r.firmware, "GRBL");
+    dev.write_all(b"ALARM:10\r\n").unwrap();
+    sink.wait("alarma", |s| {
+        s.logs().iter().any(|(_, t)| t.starts_with("ALARM:10"))
+    });
+    assert!(
+        sink.logs()
+            .iter()
+            .any(|(_, t)| t.starts_with("ALARM:10") && t.contains("depende del firmware"))
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Preflight: modo láser y escala de potencia
+// ---------------------------------------------------------------------------
+
+#[test]
+fn laser_mode_off_blocks_the_job_but_not_the_frame() {
+    let rig = connect();
+    *rig.fake.settings.lock().unwrap() = "$22=1\r\n$30=1000\r\n$32=0\r\n".into();
+    let e = rig.handle.start_job(job_lines(), 127).unwrap_err();
+    assert!(e.contains("$32=0") && e.contains("$32=1"), "{e}");
+    assert!(
+        e.contains("G0") && e.contains("No se transmitió nada"),
+        "{e}"
+    );
+    assert!(e.contains("consola de la pestaña Máquina"), "{e}");
+    assert!(rig.sink.jobs().is_empty());
+    assert!(
+        rig.fake.lines().iter().all(|l| l.starts_with('$')),
+        "{:?}",
+        rig.fake.lines()
+    );
+    // El encuadre va con el láser apagado: no necesita el modo láser.
+    rig.handle
+        .frame(vec!["M5".into(), "G0 X1 Y1".into()], 127)
+        .unwrap();
+    rig.sink.wait("encuadre", |s| {
+        s.logs().iter().any(|(_, t)| t == "; encuadre terminado")
+    });
+    // Y la conexión sigue viva para corregirlo desde la consola.
+    assert!(!rig.handle.is_closed());
+}
+
+#[test]
+fn an_s_max_that_differs_from_the_controller_only_warns_in_the_log() {
+    let rig = connect();
+    // GRBL-LPC: `$30=1`.
+    *rig.fake.settings.lock().unwrap() = "$22=0\r\n$30=1.000\r\n$32=1\r\n".into();
+    rig.handle
+        .start_job_for(job_lines(), 127, Some(1000.0))
+        .unwrap();
+    rig.sink.wait("trabajo terminado", |s| {
+        s.jobs().contains(&JobState::Finished)
+    });
+    let logs = rig.sink.logs();
+    assert!(
+        logs.iter().any(|(d, t)| *d == LogDir::In
+            && t.starts_with("Aviso: $30=1 ")
+            && t.contains("S máx = 1000")),
+        "{logs:?}"
+    );
+}
+
+#[test]
+fn nan_in_the_offsets_is_warned_about_before_the_job() {
+    let rig = connect();
+    *rig.fake.params.lock().unwrap() =
+        "[G54:-nan,1.579,1.619]\r\n[G55:0.000,0.000,0.000]\r\n".into();
+    rig.handle.start_job(job_lines(), 127).unwrap();
+    rig.sink.wait("trabajo terminado", |s| {
+        s.jobs().contains(&JobState::Finished)
+    });
+    assert!(
+        rig.sink
+            .logs()
+            .iter()
+            .any(|(_, t)| t.starts_with("Aviso: G54") && t.contains("$RST=#")),
+        "{:?}",
+        rig.sink.logs()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Paradas seguras durante un trabajo
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_creality_fault_stops_the_job_safely_and_explains_it() {
+    let rig = connect();
+    rig.fake.brake.store(true, Ordering::SeqCst);
+    rig.fake.run_on_gcode.store(true, Ordering::SeqCst);
+    *rig.fake.fault_at.lock().unwrap() = Some((3, "ERROR:05".into()));
+    rig.handle.start_job(job_lines(), 127).unwrap();
+    rig.sink
+        .wait("falla", |s| s.jobs().contains(&JobState::Error));
+    let msgs = rig.sink.job_messages();
+    let m = msgs.last().unwrap();
+    assert!(m.contains("ERROR:05") && m.contains("llama"), "{m}");
+    assert!(m.contains("Reset") && !m.contains("error:5"), "{m}");
+    // Feed hold, espera a que frene y solo entonces el reset.
+    assert_eq!(rig.fake.realtime(), [b'!', 0x18]);
+    assert!(!rig.fake.reset_in_motion.load(Ordering::SeqCst));
+    // La conexión sigue y vuelve a estar disponible.
+    assert!(!rig.handle.is_closed());
+    assert_eq!(rig.handle.command("$$").unwrap().last().unwrap(), "ok");
+}
+
+#[test]
+fn an_error_with_the_stop_policy_really_stops_the_machine() {
+    let rig = connect();
+    rig.fake.brake.store(true, Ordering::SeqCst);
+    rig.fake.run_on_gcode.store(true, Ordering::SeqCst);
+    let lines = ["G90", "G21", "BAD", "G0 X1 Y1", "M5"]
+        .map(String::from)
+        .to_vec();
+    rig.handle.start_job(lines, 127).unwrap();
+    rig.sink
+        .wait("error", |s| s.jobs().contains(&JobState::Error));
+    let m = rig.sink.job_messages().pop().unwrap();
+    assert!(
+        m.contains("error:20") && m.contains("línea 3") && m.contains("se detuvo"),
+        "{m}"
+    );
+    // Antes solo se registraba y la máquina seguía con lo que tenía en el búfer.
+    assert_eq!(rig.fake.realtime(), [b'!', 0x18]);
+    assert!(!rig.fake.reset_in_motion.load(Ordering::SeqCst));
+}
+
+#[test]
+fn cancel_waits_for_the_hold_to_finish_before_resetting() {
+    let rig = connect();
+    rig.fake.brake.store(true, Ordering::SeqCst);
+    rig.fake.run_on_gcode.store(true, Ordering::SeqCst);
+    rig.fake.hold_ok.store(true, Ordering::SeqCst);
+    rig.handle.start_job(job_lines(), 127).unwrap();
+    rig.handle.cancel().unwrap();
+    rig.sink
+        .wait("cancelado", |s| s.jobs().contains(&JobState::Cancelled));
+    assert_eq!(rig.fake.realtime(), [b'!', 0x18]);
+    // El reset llegó con la máquina ya quieta: sin ALARM:3 ni aviso de posición.
+    assert!(!rig.fake.reset_in_motion.load(Ordering::SeqCst));
+    let m = rig.sink.job_messages().pop().unwrap();
+    assert!(m.contains("esperó a que frenara"), "{m}");
+    assert!(!m.contains("posición"), "{m}");
+}
+
+#[test]
+fn cancel_that_cannot_wait_warns_that_the_position_may_be_lost() {
+    let rig = connect();
+    rig.fake.brake.store(true, Ordering::SeqCst);
+    rig.fake.run_on_gcode.store(true, Ordering::SeqCst);
+    rig.fake.never_settle.store(true, Ordering::SeqCst);
+    rig.fake.hold_ok.store(true, Ordering::SeqCst);
+    rig.handle.start_job(job_lines(), 127).unwrap();
+    rig.handle.cancel().unwrap();
+    rig.sink
+        .wait("cancelado", |s| s.jobs().contains(&JobState::Cancelled));
+    assert!(rig.fake.reset_in_motion.load(Ordering::SeqCst));
+    let m = rig.sink.job_messages().pop().unwrap();
+    assert!(m.contains("posición puede haberse perdido"), "{m}");
+    assert!(
+        rig.sink
+            .logs()
+            .iter()
+            .any(|(_, t)| t.contains("posición puede haberse perdido")),
+        "{:?}",
+        rig.sink.logs()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Regla del silencio: `$H` y bloqueo crítico no son "conexión perdida"
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_long_homing_silence_is_not_a_lost_connection() {
+    let rig = connect();
+    // 900 ms sin contestar nada (ni `?`), más del doble del plazo normal (400 ms).
+    rig.fake.home_delay_ms.store(900, Ordering::SeqCst);
+    let r = rig.handle.command("$H").unwrap();
+    assert_eq!(r.last().unwrap(), "ok");
+    assert!(!rig.handle.is_closed());
+    assert!(rig.sink.connections().iter().all(|c| c.connected));
+    // Tras el homing vale otra vez el plazo normal.
+    rig.sink
+        .wait("sondeo tras el homing", |s| s.statuses().len() > 3);
+    rig.fake.mute.store(true, Ordering::SeqCst);
+    rig.sink
+        .wait("silencio", |s| s.connections().iter().any(|c| !c.connected));
+}
+
+#[test]
+fn a_hard_limit_lock_is_tolerated_until_the_reset_brings_the_banner() {
+    let rig = connect();
+    rig.sink.wait("estado", |s| !s.statuses().is_empty());
+    rig.fake.locked.store(true, Ordering::SeqCst);
+    rig.fake.say("ALARM:1\r\n[MSG:Reset to continue]\r\n");
+    rig.sink.wait("alarma", |s| {
+        s.logs().iter().any(|(_, t)| t.starts_with("ALARM:1"))
+    });
+    // Más del doble del plazo normal de silencio, sin una sola respuesta a `?`.
+    thread::sleep(Duration::from_millis(1000));
+    assert!(!rig.handle.is_closed(), "{:?}", rig.sink.connections());
+    // Un soft reset desbloquea la placa; llega el saludo y vuelven los reportes.
+    let n = rig.sink.statuses().len();
+    rig.handle.realtime(RealtimeCommand::Reset).unwrap();
+    rig.sink.wait("saludo", |s| {
+        s.logs().iter().any(|(_, t)| t.starts_with("Grbl 1.1h"))
+    });
+    rig.sink
+        .wait("sondeo tras el reset", |s| s.statuses().len() > n + 2);
+    assert!(!rig.handle.is_closed());
+}
+
+#[test]
+fn a_user_reset_while_the_machine_runs_warns_that_the_position_is_lost() {
+    let rig = connect();
+    rig.fake.set_state("Run");
+    rig.sink.wait("estado Run", |s| {
+        s.statuses()
+            .last()
+            .is_some_and(|x| x.state == MachineState::Run)
+    });
+    rig.handle.realtime(RealtimeCommand::Reset).unwrap();
+    assert!(
+        rig.sink
+            .logs()
+            .iter()
+            .any(|(_, t)| t.contains("posición puede haberse perdido")),
+        "{:?}",
+        rig.sink.logs()
+    );
+}
+
+#[test]
+fn a_hard_limit_alarm_that_ends_a_job_does_not_end_the_connection() {
+    let rig = connect();
+    *rig.fake.fault_at.lock().unwrap() = Some((3, "ALARM:1\r\n[MSG:Reset to continue]".into()));
+    rig.handle.start_job(job_lines(), 127).unwrap();
+    rig.sink
+        .wait("alarma", |s| s.jobs().contains(&JobState::Error));
+    let m = rig.sink.job_messages().pop().unwrap();
+    assert!(m.contains("ALARM:1") && m.contains("límite físico"), "{m}");
+    // La placa quedó bloqueada y muda: más del doble del plazo normal sin que se dé por perdida.
+    thread::sleep(Duration::from_millis(1000));
+    assert!(!rig.handle.is_closed(), "{:?}", rig.sink.connections());
+    rig.handle.realtime(RealtimeCommand::Reset).unwrap();
+    let n = rig.sink.statuses().len();
+    rig.sink
+        .wait("sondeo tras el reset", |s| s.statuses().len() > n + 2);
 }

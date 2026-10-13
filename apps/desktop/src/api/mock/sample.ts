@@ -1,5 +1,5 @@
 import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
-import { DEFAULT_ROTARY } from '@/lib/device';
+import { DEFAULT_DIALECT, DEFAULT_ROTARY } from '@/lib/device';
 import { shapes, translation } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { DesignObject, DeviceProfile, Document, LayerSettings } from '../types';
@@ -93,6 +93,7 @@ export function sampleDevices(): DeviceProfile[] {
       id: 'falcon2-22w',
       name: 'Falcon2 22 W',
       kind: 'grbl',
+      dialect: { ...DEFAULT_DIALECT },
       bed: [400, 415],
       origin: 'bottom_left',
       s_max: 1000,
@@ -106,13 +107,16 @@ export function sampleDevices(): DeviceProfile[] {
       end_gcode: 'M5',
       return_to_origin: true,
       z_axis: false,
+      z_invert: false,
       rotary: { ...DEFAULT_ROTARY },
       scan_offsets: [],
+      scan_initial_offset: 0,
     },
     {
       id: 'taller-co2',
       name: 'Banco pequeño 300 x 200',
       kind: 'grbl',
+      dialect: { ...DEFAULT_DIALECT },
       bed: [300, 200],
       origin: 'top_left',
       s_max: 255,
@@ -126,8 +130,10 @@ export function sampleDevices(): DeviceProfile[] {
       end_gcode: 'M5',
       return_to_origin: false,
       z_axis: true,
+      z_invert: false,
       rotary: { ...DEFAULT_ROTARY },
       scan_offsets: [],
+      scan_initial_offset: 0,
     },
   ];
 }

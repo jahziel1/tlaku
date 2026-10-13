@@ -5,7 +5,8 @@
  */
 export type TabSettings = { enabled: boolean, 
 /**
- * Largo de cada puente, en mm.
+ * Largo de cada puente, en mm. El haz se come `2 * |kerf|` de cada uno: con menos de eso no
+ * queda puente (aviso fuerte) y con menos de `4 * |kerf|` queda frágil (aviso suave).
  */
 width: number, 
 /**

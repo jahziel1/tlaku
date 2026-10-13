@@ -4391,6 +4391,7 @@ dependencies = [
  "tlaku-pipeline",
  "tlaku-plan",
  "tlaku-raster",
+ "tlaku-ruida",
  "tlaku-sim",
  "tlaku-svg",
 ]
@@ -4444,6 +4445,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tlaku-emu"
+version = "0.1.0"
+dependencies = [
+ "tlaku-core",
+ "tlaku-doc",
+ "tlaku-grbl",
+ "tlaku-pipeline",
+]
+
+[[package]]
 name = "tlaku-fill"
 version = "0.1.0"
 dependencies = [
@@ -4465,6 +4476,7 @@ version = "0.1.0"
 dependencies = [
  "serialport",
  "tlaku-core",
+ "tlaku-doc",
  "tlaku-svg",
 ]
 
@@ -4499,6 +4511,13 @@ name = "tlaku-raster"
 version = "0.1.0"
 dependencies = [
  "image 0.25.10",
+ "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-ruida"
+version = "0.1.0"
+dependencies = [
  "tlaku-core",
 ]
 

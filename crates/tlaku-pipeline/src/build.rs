@@ -1,4 +1,4 @@
-use crate::gcode::point_to_machine;
+use crate::gcode::{dialect_warnings, point_to_machine};
 use crate::job::{ComputedJob, LayerReport, block_bounds, check_device_bounds};
 use crate::layers::{
     LayerRole, ResolvedImage, ResolvedLayer, classify, layer_sequence, order_note, resolve_image,
@@ -90,6 +90,7 @@ struct Builder<'a> {
     warnings: Vec<String>,
     head: Point,
     scan_offsets: &'a [ScanOffset],
+    scan_initial: f64,
 }
 
 impl Builder<'_> {
@@ -226,6 +227,9 @@ impl Builder<'_> {
             if let Some(w) = stats.warning(&name, spec.options.width_mm) {
                 self.warnings.push(w);
             }
+            if let Some(w) = tabs::kerf_warning(&name, spec.options.width_mm, kerf_mm) {
+                self.warnings.push(w);
+            }
         }
         // Etiqueta y ajustes del bloque salen de `from_line_job`; los movimientos, de aquí.
         let mut block = Toolpath::from_line_job(&Job {
@@ -298,12 +302,28 @@ impl Builder<'_> {
             return Ok(());
         }
         // Solo el barrido tiene líneas de ida y vuelta; el relleno por contornos no.
-        if settings.bidirectional && settings.pattern == FillPattern::Scan {
+        if settings.pattern == FillPattern::Scan {
             let mut angles = vec![settings.angle_deg];
             if settings.crosshatch {
                 angles.push(settings.angle_deg + 90.0);
             }
-            scan_offset::apply(&mut block, self.scan_offsets, &angles);
+            scan_offset::apply(
+                &mut block,
+                self.scan_offsets,
+                self.scan_initial,
+                &angles,
+                settings.bidirectional,
+            );
+            if settings.bidirectional
+                && let Some(w) = scan_offset::overscan_warning(
+                    &format!("capa {name}"),
+                    self.scan_offsets,
+                    settings.speed_mm_min,
+                    settings.overscan_mm,
+                )
+            {
+                self.warnings.push(w);
+            }
         }
         let lines = travel_count(&block);
         let report = LayerReport {
@@ -357,8 +377,22 @@ impl Builder<'_> {
             );
             return Ok(());
         }
-        if raster.bidirectional {
-            scan_offset::apply(&mut block, self.scan_offsets, &[raster.angle_deg]);
+        scan_offset::apply(
+            &mut block,
+            self.scan_offsets,
+            self.scan_initial,
+            &[raster.angle_deg],
+            raster.bidirectional,
+        );
+        if raster.bidirectional
+            && let Some(w) = scan_offset::overscan_warning(
+                "imagen",
+                self.scan_offsets,
+                raster.speed_mm_min,
+                raster.overscan_mm,
+            )
+        {
+            self.warnings.push(w);
         }
         let lines = travel_count(&block);
         let report = LayerReport {
@@ -505,6 +539,7 @@ pub fn build(
         warnings,
         head: placement.start,
         scan_offsets: &device.scan_offsets,
+        scan_initial: device.scan_initial_offset,
     };
     for i in sequence {
         let layer = &work[i];
@@ -544,23 +579,31 @@ pub fn build(
         return Err(nothing_to_produce(&b.warnings));
     }
 
-    // Con rotativo no hay límite de Y, pero el diseño no debe dar más de una vuelta.
-    if let Some(circumference) = rotary::circumference_mm(device)
+    // Con rotativo no hay límite de Y, pero el diseño no debe dar más de una vuelta y la Y de la
+    // controladora no debe pasar del área si los límites por software están activos.
+    if device.rotary.enabled
         && let Some(area) = b
             .layers
             .iter()
             .filter_map(|l| l.bounds)
             .reduce(tlaku_doc::union)
     {
-        let height = area.max.y - area.min.y;
-        if height > circumference + 1e-6 {
-            b.warnings.push(format!(
-                "el diseño mide {height:.2} mm en Y y la circunferencia de la pieza es \
-                 {circumference:.2} mm (diámetro {} mm): los extremos se encimarán",
-                device.rotary.object_diameter
-            ));
+        if let Some(circumference) = rotary::circumference_mm(device) {
+            let height = area.max.y - area.min.y;
+            if height > circumference + 1e-6 {
+                b.warnings.push(format!(
+                    "el diseño mide {height:.2} mm en Y y la circunferencia de la pieza es \
+                     {circumference:.2} mm (diámetro {} mm): los extremos se encimarán",
+                    device.rotary.object_diameter
+                ));
+            }
+        }
+        if let Some(w) = rotary::soft_limit_warning(device, area) {
+            b.warnings.push(w);
         }
     }
+    let notes = dialect_warnings(&b.toolpath, &b.layers, device);
+    b.warnings.extend(notes);
 
     let estimate = tlaku_sim::estimate_from(placement.start, &b.toolpath, &profile);
     for (layer, e) in b.layers.iter_mut().zip(&estimate.blocks) {

@@ -22,7 +22,7 @@ impl Homography {
         }
     }
 
-    fn from_matrix(h: &Matrix3<f64>) -> Self {
+    pub(crate) fn from_matrix(h: &Matrix3<f64>) -> Self {
         let mut m = [[0.0; 3]; 3];
         for (r, row) in m.iter_mut().enumerate() {
             for (c, v) in row.iter_mut().enumerate() {
@@ -32,7 +32,7 @@ impl Homography {
         Self { m }
     }
 
-    fn matrix(&self) -> Matrix3<f64> {
+    pub(crate) fn matrix(&self) -> Matrix3<f64> {
         Matrix3::from_fn(|r, c| self.m[r][c])
     }
 

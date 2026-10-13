@@ -73,17 +73,44 @@ una lista de `ToolpathBlock`. Cada bloque comparte velocidad (`speed_mm_min`), a
 
 - **Puentes:** se calculan después del kerf y del planificador (el orden de corte no cambia con o
   sin puentes). Cada hueco es `Cut` a potencia 0, no `Travel`: así la máquina no frena en cada
-  puente. Nunca ocupan más de la mitad de un contorno; si no caben, se reducen con aviso.
+  puente. Nunca ocupan más de la mitad de un contorno; si no caben, se reducen con aviso. El haz
+  se come `2 * |kerf|` de cada puente (el kerf es el desplazamiento por lado): se avisa con
+  `width < 2 * |kerf|` (no queda puente) y con `width < 4 * |kerf|` (frágil).
 - **Eje Z:** solo con `DeviceProfile.z_axis`. Con `z_step != 0` y varias pasadas, la capa se divide
-  en un bloque por pasada (una fila de vista previa por pasada). El simulador ignora Z. El signo de
-  +Z depende de la máquina.
+  en un bloque por pasada (una fila de vista previa por pasada). El simulador ignora Z.
+  - *Convención interna:* `z_offset`/`z_step` positivos = foco más hacia dentro del material (el
+    cabezal baja o la cama sube), medidos desde la altura del cabezal al empezar el trabajo.
+  - *Relativa, no absoluta:* el G-code usa `G91` / `G0 Z..` / `G90` con la cuenta de lo acumulado.
+    Tlaku no conoce el cero de Z de la máquina (no usa G54/G10), así que la Z absoluta "0 = foco"
+    chocaba el cabezal con la pieza. Se eligió esto frente a una Z absoluta con altura de material
+    declarada porque no exige ningún dato más del usuario.
+  - *Seguridad:* el foco baja justo antes del primer corte del bloque (la aproximación se hace a la
+    altura segura) y vuelve a la altura inicial al terminar cada bloque, así ni los
+    desplazamientos entre capas ni el regreso al origen se hacen con el cabezal bajo. Los
+    movimientos Z son `G0` (con `S0` si el firmware no apaga el láser en `G0`).
+  - *Signo:* `DeviceProfile.z_invert` solo cambia el signo del G-code; sin él, profundidad positiva
+    sale como Z negativa (GRBL: +Z aleja el cabezal).
 - **Rotativo:** el documento y la vista previa quedan en mm de superficie de la pieza; la
   conversión a mm de la controladora se hace solo al generar G-code y encuadre, en Y absoluta
   (sin `G92`). F se reescala por tramo para que la velocidad sobre la superficie sea la pedida.
-  Con rotativo no se valida Y contra la cama; se avisa si el diseño excede la circunferencia.
-- **Corrección de barrido:** posproceso sobre bloques fill (patrón de barrido) e image
-  bidireccionales; las líneas de vuelta se desplazan en el sentido del barrido de ida, con el
-  desfase interpolado por velocidad.
+  Con rotativo no se valida Y contra la cama; se avisa si el diseño excede la circunferencia y si
+  la Y de la controladora pasa del área (soft limits: `ALARM:2`). Con rodillo no se valida el
+  diámetro de la pieza. `mirror` refleja la Y dentro de la caja del trabajo solo en el G-code.
+  Los valores por defecto son los de un accesorio real (rodillo xTool RA2 Pro: 32 mm/vuelta y
+  17 mm; mandril Creality: 40 mm/vuelta). `rotary_test` genera la prueba de una vuelta.
+- **Corrección de barrido:** posproceso sobre bloques fill (patrón de barrido) e image. La
+  separación medida `offset` se reparte: las líneas de ida se corren `-offset/2` y las de vuelta
+  `+offset/2` en el sentido del barrido, con el desfase interpolado por velocidad; así el grabado
+  queda centrado sobre los vectores (antes solo se movían las de vuelta y todo quedaba corrido).
+  `scan_initial_offset` corre todas las líneas, también las unidireccionales. Se avisa si el
+  overscan es menor que |offset|.
+- **Dialectos de G-code:** `DeviceProfile.dialect` (`GcodeDialect`, datos puros) hace que el
+  mismo `generate()` sirva a GRBL, GRBL-M3, grblHAL, FluidNC, GRBL-LPC, Smoothie, Marlin y G-code
+  propio. La escala de `S` se queda en `DeviceProfile.s_max`; el dialecto fija formato y
+  comandos. Si falta al leer un perfil se deriva del `kind`, así un perfil viejo da el mismo
+  G-code. Aviso por limitaciones del dialecto (sin aire, sin potencia dinámica, imágenes con S
+  en línea aparte). `tlaku-grbl` depende de `tlaku-doc` solo por este tipo; el enlace (control de
+  flujo, pausa, estado) sigue pendiente. Ver `docs/hardware/dialectos-gcode.md`.
 - **Prueba de materiales:** `material_test` genera un `Document` normal (una capa por celda y otra
   de rótulos con una fuente de trazo sencillo propia), así que pasa por el mismo pipeline que
   cualquier diseño.

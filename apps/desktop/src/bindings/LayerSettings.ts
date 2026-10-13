@@ -55,11 +55,15 @@ fill_style: FillStyle,
  */
 tabs: TabSettings, 
 /**
- * mm que baja la mesa (o sube el cabezal) respecto al foco al empezar la capa; positivo =
- * enfoca más adentro del material. Solo con `DeviceProfile.z_axis`.
+ * mm que se mueve el foco respecto a la altura del cabezal al empezar el trabajo (la que
+ * el usuario enfocó en la superficie). Positivo = enfoca más **hacia dentro del material**
+ * (el cabezal baja o la cama sube); negativo = lo aleja. El movimiento en Z es relativo y
+ * al terminar la capa vuelve a la altura inicial. `DeviceProfile.z_invert` ajusta el signo
+ * del G-code a la máquina. Solo con `DeviceProfile.z_axis`.
  */
 z_offset: number, 
 /**
- * mm adicionales por cada pasada después de la primera (cortes profundos).
+ * mm adicionales hacia dentro del material por cada pasada después de la primera (cortes
+ * profundos); mismo signo que `z_offset`.
  */
 z_step: number, };

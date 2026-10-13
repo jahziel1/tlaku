@@ -1,7 +1,18 @@
 //! Eje Z por capa: foco (`z_offset`) y bajada por pasada (`z_step`).
 //!
-//! Con `DeviceProfile.z_axis`, cada bloque lleva `z_mm = z_offset + z_step * (pasada - 1)`
-//! (Z absoluta, 0 = foco). Mientras `z_step` sea 0 todas las pasadas comparten Z y la capa
+//! Convención interna: la Z de un bloque es la **profundidad del foco respecto a la altura del
+//! cabezal al empezar el trabajo** (0 = donde el usuario enfocó en la superficie). Positivo =
+//! más hacia dentro del material (el cabezal baja o la cama sube); negativo = hacia fuera. Con
+//! `DeviceProfile.z_axis`, cada bloque lleva `z_mm = z_offset + z_step * (pasada - 1)`.
+//! `DeviceProfile.z_invert` solo cambia el signo de las palabras Z del G-code (ver `tlaku-grbl`):
+//! sin él, profundidad positiva sale como Z negativa (en GRBL +Z aleja el cabezal).
+//!
+//! El G-code es **relativo** (`G91` / `G0 Z..` / `G90`), no absoluto: Tlaku no conoce el cero de
+//! Z de la máquina (no usa G54 ni G10), así que una Z absoluta con "0 = foco" chocaba el
+//! cabezal con la pieza. Cada bloque vuelve a la altura inicial al terminar, antes de cualquier
+//! desplazamiento o del regreso al origen.
+//!
+//! Mientras `z_step` sea 0 todas las pasadas comparten Z y la capa
 //! sigue siendo un solo bloque con las pasadas repetidas. Con `z_step != 0` y más de una
 //! pasada, cada pasada necesita su propia Z y un bloque solo guarda la Z de su inicio, así que
 //! **la capa se divide en un bloque por pasada**, y cada bloque tiene su propio `LayerReport`

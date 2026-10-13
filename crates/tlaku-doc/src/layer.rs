@@ -165,7 +165,8 @@ pub enum FillStyle {
 #[ts(export)]
 pub struct TabSettings {
     pub enabled: bool,
-    /// Largo de cada puente, en mm.
+    /// Largo de cada puente, en mm. El haz se come `2 * |kerf|` de cada uno: con menos de eso no
+    /// queda puente (aviso fuerte) y con menos de `4 * |kerf|` queda frágil (aviso suave).
     pub width: f64,
     /// Puentes por forma cerrada si `spacing` es 0; si no, el mínimo por forma.
     pub count: u32,
@@ -230,11 +231,15 @@ pub struct LayerSettings {
     /// Solo line.
     #[serde(default)]
     pub tabs: TabSettings,
-    /// mm que baja la mesa (o sube el cabezal) respecto al foco al empezar la capa; positivo =
-    /// enfoca más adentro del material. Solo con `DeviceProfile.z_axis`.
+    /// mm que se mueve el foco respecto a la altura del cabezal al empezar el trabajo (la que
+    /// el usuario enfocó en la superficie). Positivo = enfoca más **hacia dentro del material**
+    /// (el cabezal baja o la cama sube); negativo = lo aleja. El movimiento en Z es relativo y
+    /// al terminar la capa vuelve a la altura inicial. `DeviceProfile.z_invert` ajusta el signo
+    /// del G-code a la máquina. Solo con `DeviceProfile.z_axis`.
     #[serde(default)]
     pub z_offset: f64,
-    /// mm adicionales por cada pasada después de la primera (cortes profundos).
+    /// mm adicionales hacia dentro del material por cada pasada después de la primera (cortes
+    /// profundos); mismo signo que `z_offset`.
     #[serde(default)]
     pub z_step: f64,
 }

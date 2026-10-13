@@ -1504,3 +1504,47 @@ fn send_alarm_suggests_the_exact_cmd_invocation() {
     assert!(e.contains("tlaku cmd --port /dev/cu.test '$H'"), "{e}");
     assert!(e.contains("tlaku cmd --port /dev/cu.test '$X'"), "{e}");
 }
+
+#[test]
+fn ruida_export_rd_writes_a_decodable_swizzled_file() {
+    let dir = workdir("ruida_export_rd");
+    let rd = dir.join("out.rd");
+    let o = run(&[
+        "ruida",
+        "export-rd",
+        &fixture("design.svg"),
+        rd.to_str().unwrap(),
+        "--mode",
+        "line",
+    ]);
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let wire = std::fs::read(&rd).unwrap();
+    // El archivo está swizzleado: el último byte es D7 -> 0x60.
+    assert_eq!(*wire.last().unwrap(), 0x60);
+    let plain = tlaku_ruida::rd::from_swizzled(&wire, tlaku_ruida::swizzle::Magic::default());
+    let cmds = tlaku_ruida::cmd::decode_stream(&plain).unwrap();
+    assert_eq!(cmds.last(), Some(&tlaku_ruida::cmd::Command::EndOfFile));
+    // Dos colores = dos capas.
+    assert!(cmds.contains(&tlaku_ruida::cmd::Command::MaxLayer(1)));
+}
+
+#[test]
+fn ruida_export_rd_rejects_variable_power_fill_with_clear_error() {
+    let dir = workdir("ruida_export_rd_fill");
+    let rd = dir.join("out.rd");
+    let o = run(&[
+        "ruida",
+        "export-rd",
+        &fixture("design.svg"),
+        rd.to_str().unwrap(),
+        "--mode",
+        "fill",
+    ]);
+    assert!(!o.status.success());
+    assert!(
+        String::from_utf8_lossy(&o.stderr).contains("potencia"),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    assert!(!rd.exists());
+}

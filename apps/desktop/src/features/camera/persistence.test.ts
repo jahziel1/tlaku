@@ -81,7 +81,18 @@ describe('respaldo por LaserApi', () => {
     };
     expect(await createApiBackend(() => api).load()).toEqual(emptyCameraSetup());
     await createApiBackend(() => api).save(setup);
-    expect(await createApiBackend(() => api).load()).toEqual(setup);
+    const loaded = await createApiBackend(() => api).load();
+    // Con la lente calibrada, el motor (y el mock) agregan el modelo de altura estimado.
+    expect(loaded.alignment?.height?.source).toBe('modelled');
+    expect(loaded.alignment?.samples).toEqual([]);
+    expect({ ...loaded, alignment: { ...loaded.alignment!, height: undefined, method: undefined, samples: undefined, reference_height_mm: undefined } }).toEqual({
+      ...setup,
+      alignment: { ...setup.alignment!, height: undefined, method: undefined, samples: undefined, reference_height_mm: undefined },
+    });
+    // Sin lente no hay modelo: la alineación vuelve exactamente igual.
+    const bare: CameraSetup = { ...setup, calibration: null };
+    await createApiBackend(() => api).save(bare);
+    expect(await createApiBackend(() => api).load()).toEqual(bare);
     api.dispose();
   });
 });

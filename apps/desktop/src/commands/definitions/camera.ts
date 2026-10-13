@@ -1,5 +1,6 @@
 import { startCamera, stopCamera, setFrozen } from '@/features/camera/session';
 import { updateCameraPrefs } from '@/features/camera/actions';
+import { openMarksDialog } from '@/features/camera/marksState';
 import type { CommandDef } from '../types';
 
 /** Comandos de cámara: aparecen solos en el menú Máquina (categoría `camera`). */
@@ -35,5 +36,11 @@ export const cameraCommands: CommandDef[] = [
     label: 'camera.cmd.calibrate',
     category: 'camera',
     run: (s) => s.setCameraCalibrationOpen(true),
+  },
+  {
+    id: 'camera.alignMarks',
+    label: 'camera.cmd.alignMarks',
+    category: 'camera',
+    run: () => openMarksDialog(),
   },
 ];

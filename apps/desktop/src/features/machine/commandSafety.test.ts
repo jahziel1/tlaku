@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classify, gcodeWords, needsConfirmation, parseCommand, prepareLine, type Risk } from './commandSafety';
+import { classify, gcodeWords, isDestructive, needsConfirmation, parseCommand, prepareLine, type Risk } from './commandSafety';
 
 /** Misma tabla que `cmd_asks_for_everything_that_moves_fires_or_changes_settings` del CLI. */
 const CLI_TABLE: [string, Risk][] = [
@@ -56,6 +56,22 @@ describe('clasificación de seguridad (paridad con tlaku cmd)', () => {
 
   it('M5 con otras palabras ya no es el M5 de solo lectura', () => {
     expect(classify('M5S0')).toBe('other');
+  });
+});
+
+describe('comandos destructivos', () => {
+  it('$RST y $SLP piden confirmación y se marcan como destructivos', () => {
+    for (const raw of ['$RST=$', '$RST=#', '$RST=*', '$SLP', '$rst=*', '$slp']) {
+      const cmd = line(raw);
+      expect(needsConfirmation(cmd.risk), raw).toBe(true);
+      expect(isDestructive(cmd.text), raw).toBe(true);
+    }
+  });
+
+  it('el resto no es destructivo', () => {
+    for (const raw of ['$X', '$H', '$$', '$30=1000', '$N0=G54', '$C', 'G0 X1', 'M5']) {
+      expect(isDestructive(line(raw).text), raw).toBe(false);
+    }
   });
 });
 

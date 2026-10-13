@@ -100,6 +100,35 @@ impl TabStats {
     }
 }
 
+/// Aviso del ancho de los puentes frente al kerf de la capa. `kerf_mm` es el desplazamiento por
+/// lado (la mitad del ancho del corte), así que el haz se come `2 * |kerf|` del puente. Fuerte si
+/// `width < 2 * |kerf|` (no queda puente: las piezas se sueltan); suave si `width < 4 * |kerf|`
+/// (queda un puente de menos de un ancho de corte, que se rompe al manipular la placa).
+pub(crate) fn kerf_warning(layer: &str, width_mm: f64, kerf_mm: f64) -> Option<String> {
+    let k = kerf_mm.abs();
+    if !(k.is_finite() && k > 0.0 && width_mm.is_finite()) {
+        return None;
+    }
+    let cut = 2.0 * k;
+    if width_mm < cut {
+        Some(format!(
+            "capa {layer}: los puentes de {width_mm} mm no sobreviven al corte: con kerf {kerf_mm} mm \
+             por lado el haz quita {cut} mm y no queda puente (las piezas se soltarán); usa un ancho \
+             de al menos {} mm",
+            2.0 * cut
+        ))
+    } else if width_mm < 2.0 * cut {
+        Some(format!(
+            "capa {layer}: puentes frágiles: de {width_mm} mm quedan unos {:.2} mm tras el corte \
+             (kerf {kerf_mm} mm por lado); se recomienda un ancho de al menos {} mm",
+            width_mm - cut,
+            2.0 * cut
+        ))
+    } else {
+        None
+    }
+}
+
 /// Agrega a `moves` el recorrido de una forma: `pieces` es el contorno entero (un solo
 /// elemento) o los tramos que dejan los puentes. El primer tramo entra con un `Travel`; los
 /// huecos entre tramos se cruzan con un `Cut` a potencia 0.

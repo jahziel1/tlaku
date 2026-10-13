@@ -1,13 +1,17 @@
 import { Camera, CameraOff, Snowflake } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useCommand } from '@/commands/useCommand';
 import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
+import { NumberField } from '@/ui/NumberField';
 import { RESOLUTIONS } from './capture';
 import { AlignmentSection, ViewSection, useAlignmentEditor } from './AlignmentSection';
 import { clearLens, loadCameraSetup, updateCameraPrefs } from './actions';
 import { rateRms } from './coverage';
+import { heightStatus, maxShiftMm } from './height';
+import { dropHeight, openMarksAsNewDocument } from './marks';
+import { openMarksDialog, useMarks, type MarkCount } from './marksState';
 import { alignmentIsCurrent, lensApplies, refreshDevices } from './session';
 import './camera.css';
 
@@ -24,6 +28,8 @@ export function CameraPanel() {
       <ViewSection editor={editor} />
       <BackdropSection />
       <LensSection />
+      <MarksSection />
+      <HeightSection />
       <AlignmentSection editor={editor} />
     </div>
   );
@@ -157,6 +163,97 @@ function LensSection() {
         <button type="button" className="btn grow" onClick={open.run}>{calibration ? t('camera.lens.recalibrate') : t('camera.lens.calibrate')}</button>
         {calibration && <button type="button" className="btn" onClick={clearLens}>{t('camera.lens.clear')}</button>}
       </div>
+    </section>
+  );
+}
+
+/** Alinear con cruces grabadas: generar el documento, capturar, detectar y medir la precisión. */
+function MarksSection() {
+  const count = useMarks((s) => s.count);
+  const setCount = useMarks((s) => s.setCount);
+  const alignment = useStore((s) => s.cameraSetup.alignment);
+  const [opening, setOpening] = useState(false);
+  const samples = alignment?.method === 'marks' ? (alignment.samples ?? []) : [];
+
+  const generate = async () => {
+    setOpening(true);
+    try {
+      await openMarksAsNewDocument(count);
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  return (
+    <section className="section" aria-label={t('camera.marks.title')}>
+      <h3 className="panel-title">{t('camera.marks.title')}</h3>
+      <p className="hint">{t('camera.marks.help')}</p>
+      <div className="field">
+        <label className="field__label" htmlFor="cam-marks-count">{t('camera.marks.count')}</label>
+        <select id="cam-marks-count" className="select" value={count} onChange={(e) => setCount(Number(e.target.value) as MarkCount)}>
+          <option value={9}>{t('camera.marks.count9')}</option>
+          <option value={4}>{t('camera.marks.count4')}</option>
+        </select>
+      </div>
+      <button type="button" className="btn" disabled={opening} onClick={() => void generate()}>{t('camera.marks.generate')}</button>
+      <p className="hint">{t('camera.marks.generateHint')}</p>
+      <button type="button" className="btn btn--accent" onClick={openMarksDialog}>{t('camera.marks.open')}</button>
+      {alignment && samples.length > 0 && (
+        <>
+          <p className="hint cam-ok" role="status">
+            {t('camera.marks.heights', { list: samples.map((x) => fmt(x.height_mm, 1)).join(', ') })}
+          </p>
+          <ul className="cam-heights" aria-label={t('camera.marks.heights', { list: '' })}>
+            {samples.map((x) => (
+              <li key={x.height_mm}>
+                <button type="button" className="chip" onClick={() => dropHeight(alignment, x.height_mm)} title={t('camera.marks.removeHeight', { h: fmt(x.height_mm, 1) })}>
+                  {fmt(x.height_mm, 1)} mm ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Grosor del material: el fondo de la cámara se corrige a esa altura. */
+function HeightSection() {
+  const alignment = useStore((s) => s.cameraSetup.alignment);
+  const thickness = useStore((s) => s.cameraSetup.prefs.material_height_mm ?? 0);
+  const status = heightStatus(alignment, thickness);
+  const ref = alignment?.reference_height_mm ?? 0;
+  const shift = alignment && thickness !== ref ? maxShiftMm(alignment, thickness) : 0;
+
+  return (
+    <section className="section" aria-label={t('camera.height.title')}>
+      <h3 className="panel-title">{t('camera.height.title')}</h3>
+      <NumberField
+        label={t('camera.height.thickness')}
+        unit="mm"
+        value={thickness}
+        min={0}
+        max={300}
+        step={0.5}
+        disabled={!alignment}
+        onCommit={(v) => updateCameraPrefs({ material_height_mm: v })}
+      />
+      <p className="hint">{t('camera.height.help')}</p>
+      {!alignment && <p className="hint">{t('camera.height.noAlignment')}</p>}
+      {alignment && status.kind === 'none' && <p className="hint">{t('camera.height.none', { ref: fmt(ref, 1) })}</p>}
+      {alignment && status.kind === 'modelled' && <p className="hint">{t('camera.height.modelled')}</p>}
+      {alignment && status.kind === 'measured' && (
+        <p className="hint cam-ok">{t('camera.height.measured', { list: (alignment.samples ?? []).map((x) => fmt(x.height_mm, 1)).join(', ') })}</p>
+      )}
+      {status.kind === 'measured' && status.outside > 0 && (
+        <p className="warn-line" role="alert">
+          {t('camera.height.outside', { mm: fmt(status.outside, 1), min: fmt(status.min, 1), max: fmt(status.max, 1) })}
+        </p>
+      )}
+      {alignment && alignment.height && shift > 0.05 && (
+        <p className="hint num" role="status">{t('camera.height.shift', { mm: fmt(shift, 1), ref: fmt(ref, 1) })}</p>
+      )}
     </section>
   );
 }

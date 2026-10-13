@@ -208,19 +208,65 @@ export interface CalibrationReport {
 
 type Quad = [Point, Point, Point, Point];
 
+type Mat3 = [[number, number, number], [number, number, number], [number, number, number]];
+
+/** Cómo se obtuvo la alineación: 4 puntos a mano o marcas grabadas detectadas en la foto. */
+export type AlignmentMethod = 'manual' | 'marks';
+
+/** Marcas medidas a una altura del material (base de la alineación con marcas). */
+export interface AlignmentSample {
+  /** Altura del plano de las marcas sobre la cama, en mm. */
+  height_mm: number;
+  /** Marcas usadas, en píxeles de la imagen corregida. */
+  image_px: [number, number][];
+  /** Sus posiciones en la cama (mm de documento), en el mismo orden. */
+  bed_mm: [number, number][];
+  /** Error de validación cruzada medido al detectar (mm); informativo. */
+  loo_rms_mm?: number | null;
+  loo_max_mm?: number | null;
+}
+
+/** `measured`: marcas a dos o más alturas; `modelled`: estimado con la matriz de la cámara. */
+export type HeightSource = 'measured' | 'modelled';
+
 /**
- * Alineación manual de 4 puntos entre la imagen corregida y la cama. Los puntos van en píxeles
- * de la imagen corregida (espacio de la calibración) y en mm de documento, en este orden:
- * inferior izquierda, inferior derecha, superior derecha, superior izquierda.
- * Es la misma forma que guarda `camera.json` (src-tauri/src/edit/camera.rs).
+ * Modelo de altura `H(h) = [H1 H2 (H3 + (h - ref)·G)]` de la cama a la imagen: la tercera columna
+ * cambia linealmente con la altura. Lo calcula el motor al guardar la alineación.
+ */
+export interface HeightModel {
+  ref_height_mm: number;
+  /** Cama (mm) -> imagen (px) a `ref_height_mm`, por filas (sin normalizar la escala). */
+  bed_to_image: Mat3;
+  /** Cuánto cambia la tercera columna por mm de altura. */
+  gradient: [number, number, number];
+  source: HeightSource;
+  /** Rango de alturas medido (con `modelled`, solo la altura de referencia). */
+  min_height_mm: number;
+  max_height_mm: number;
+}
+
+/**
+ * Alineación entre la imagen corregida y la cama, manual de 4 puntos o con marcas grabadas. Los
+ * puntos van en píxeles de la imagen corregida (espacio de la calibración) y en mm de documento,
+ * en este orden: inferior izquierda, inferior derecha, superior derecha, superior izquierda. Con
+ * marcas grabadas son las esquinas del rectángulo de las marcas, proyectadas.
+ * Es la misma forma que guarda `camera.json` (src-tauri/src/edit/camera.rs). Los campos opcionales
+ * los rellena siempre el motor; faltan en configuraciones antiguas y en la memoria de la interfaz.
  */
 export interface CameraAlignment {
   image_size: [number, number];
   image_px: Quad;
   bed_mm: Quad;
-  /** Homografía píxel -> mm, por filas. */
-  to_bed: [[number, number, number], [number, number, number], [number, number, number]];
+  /** Homografía píxel -> mm a la altura `reference_height_mm`, por filas. */
+  to_bed: Mat3;
   rms_mm: number;
+  method?: AlignmentMethod;
+  /** Altura (mm sobre la cama) del plano al que corresponde `to_bed`. */
+  reference_height_mm?: number;
+  /** Marcas por altura (vacío en la alineación manual). */
+  samples?: AlignmentSample[];
+  /** Modelo para el grosor del material; `null` si no hay forma de estimarlo. */
+  height?: HeightModel | null;
 }
 
 export interface CameraPrefs {
@@ -232,6 +278,47 @@ export interface CameraPrefs {
   opacity: number;
   /** El fondo estaba visible al cerrar. */
   visible: boolean;
+  /** Grosor del material actual (mm sobre la cama): el fondo se corrige a esa altura. */
+  material_height_mm?: number;
+}
+
+/** Una marca de la disposición con lo que se encontró de ella (`detect_camera_marks`). */
+export interface MarkResult {
+  index: number;
+  /** Posición teórica en la cama (mm). */
+  bed: [number, number];
+  /** Centro detectado en la imagen (px); `null` si no se encontró. */
+  image: [number, number] | null;
+  /** Calidad de la detección (0..1). */
+  confidence: number;
+  /** Participa en el ajuste final. */
+  used: boolean;
+  /** Distancia en la cama (mm) entre la marca proyectada con el ajuste y su posición. */
+  residual_mm: number | null;
+  /** Error de validación cruzada (mm): ajuste sin esta marca. */
+  loo_mm: number | null;
+}
+
+export interface MarksReport {
+  marks: MarkResult[];
+  /** Todos los candidatos con forma de cruz que vio el detector (px). */
+  candidates: [number, number][];
+  /** Homografía imagen -> cama, por filas. */
+  to_bed: Mat3;
+  expected: number;
+  found: number;
+  used: number;
+  /** Error del ajuste (rms, mm) sobre las marcas usadas. */
+  rms_mm: number;
+  max_residual_mm: number;
+  /** Validación cruzada (dejar una fuera); `null` con menos de 5 marcas. */
+  loo_rms_mm: number | null;
+  loo_max_mm: number | null;
+  /** Escala de la imagen en el centro de la disposición (px por mm). */
+  scale_px_per_mm: number;
+  /** Se usó la alineación provisional para asignar. */
+  used_prior: boolean;
+  warnings: string[];
 }
 
 /** Lo que sobrevive al reinicio (archivo `camera.json` en la carpeta de configuración). */

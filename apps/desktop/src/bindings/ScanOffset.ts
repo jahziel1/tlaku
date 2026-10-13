@@ -10,6 +10,10 @@ export type ScanOffset = {
  */
 speed: number, 
 /**
- * mm que se desplazan las líneas de vuelta en el sentido del barrido.
+ * mm de separación **medida** entre los extremos de las líneas de ida y de vuelta (el
+ * número que se lee al mirar el grabado de prueba). Al generar, cada línea se corrige la
+ * mitad: las de ida `-offset/2` y las de vuelta `+offset/2` en el sentido del barrido,
+ * así el grabado queda centrado sobre los vectores. (LightBurn pide aquí la mitad de lo
+ * medido, porque desplaza cada línea ese valor; en Tlaku se anota lo medido.)
  */
 offset: number, };

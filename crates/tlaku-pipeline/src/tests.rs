@@ -41,6 +41,17 @@ fn rect_object(id: &str, layer: Rgb, x: f64, y: f64, w: f64, h: f64) -> DesignOb
     }
 }
 
+fn object_open(id: &str, layer: Rgb, pts: &[(f64, f64)]) -> DesignObject {
+    let mut o = rect_object(id, layer, 0.0, 0.0, 1.0, 1.0);
+    o.kind = ObjectKind::Vector(VectorObject {
+        paths: vec![BezPath::from(&Polyline {
+            points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+            closed: false,
+        })],
+    });
+    o
+}
+
 fn image_object(
     id: &str,
     path: &Path,
@@ -1344,9 +1355,31 @@ fn z_step_makes_one_block_and_one_report_per_pass() {
     // El plan se muestra una sola vez.
     assert!(job.layers[0].plan.is_some() && job.layers[1].plan.is_none());
     assert!(job.toolpath.blocks.iter().all(|b| b.moves.len() == 5));
+    // Z relativa: cada pasada baja (profundidad positiva = Z negativa de GRBL) y vuelve a la
+    // altura inicial; lo emitido suma 0.
     let g = gcode(&job, &z_device());
     let zlines: Vec<_> = g.lines().filter(|l| l.contains('Z')).collect();
-    assert_eq!(zlines, ["G0 Z1", "G0 Z1.5", "G0 Z2"]);
+    assert_eq!(
+        zlines,
+        ["G0 Z-1", "G0 Z1", "G0 Z-1.5", "G0 Z1.5", "G0 Z-2", "G0 Z2"]
+    );
+    // Con z_invert el signo de todas las palabras Z se invierte, y nada más cambia.
+    let inverted = DeviceProfile {
+        z_invert: true,
+        ..z_device()
+    };
+    let gi = gcode(&job, &inverted);
+    assert_eq!(
+        gi.lines().filter(|l| l.contains('Z')).collect::<Vec<_>>(),
+        ["G0 Z1", "G0 Z-1", "G0 Z1.5", "G0 Z-1.5", "G0 Z2", "G0 Z-2"]
+    );
+    let strip = |g: &str| {
+        g.lines()
+            .filter(|l| !l.contains('Z'))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_eq!(strip(&g), strip(&gi));
     // Las tres pasadas suman lo mismo que una capa de tres pasadas.
     let flat = compute(
         &doc(
@@ -1382,14 +1415,15 @@ fn z_without_step_keeps_the_passes_in_one_block() {
     assert_eq!(job.toolpath.blocks.len(), 1);
     assert_eq!(job.toolpath.blocks[0].z_mm, Some(2.5));
     assert_eq!(job.layers[0].passes, 2);
-    // Con eje Z y todo en 0 también se emite el foco (Z0).
+    // Con eje Z y todo en 0 el foco se queda donde está: Z relativa, nada que mover.
     let d = doc(
         vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)],
         vec![line_layer(RED)],
     );
     let job = compute(&d, &z_device(), &JobOptions::default()).unwrap();
     assert_eq!(job.toolpath.blocks[0].z_mm, Some(0.0));
-    assert!(gcode(&job, &z_device()).contains("G0 Z0\n"));
+    let g = gcode(&job, &z_device());
+    assert!(!g.contains('Z') && !g.contains("G91"), "{g}");
 }
 
 #[test]
@@ -1523,13 +1557,36 @@ fn rotary_validates_and_warns_about_the_circumference() {
     for edit in [
         |d: &mut DeviceProfile| d.rotary.mm_per_rotation = 0.0,
         |d: &mut DeviceProfile| d.rotary.roller_diameter = 0.0,
-        |d: &mut DeviceProfile| d.rotary.object_diameter = -5.0,
     ] {
         let mut dev = rotary_device(tlaku_doc::RotaryKind::Roller);
         edit(&mut dev);
         let e = compute(&d, &dev, &JobOptions::default()).unwrap_err();
         assert!(e.contains("rotativo") && e.contains("mayor que 0"), "{e}");
     }
+    // El diámetro de la pieza solo se exige con mandril; con rodillo no afecta al trabajo y,
+    // si no es válido, solo falta el aviso de la circunferencia.
+    let mut chuck = rotary_device(tlaku_doc::RotaryKind::Chuck);
+    chuck.rotary.object_diameter = -5.0;
+    let e = compute(&d, &chuck, &JobOptions::default()).unwrap_err();
+    assert!(e.contains("rotativo") && e.contains("la pieza"), "{e}");
+    let mut roller = rotary_device(tlaku_doc::RotaryKind::Roller);
+    roller.rotary.object_diameter = -5.0;
+    let job = compute(&d, &roller, &JobOptions::default()).unwrap();
+    assert!(
+        job.preview
+            .warnings
+            .iter()
+            .all(|w| !w.contains("circunferencia"))
+    );
+    let mut other = roller.clone();
+    other.rotary.object_diameter = 300.0;
+    assert_eq!(
+        gcode(&job, &roller),
+        gcode(
+            &compute(&d, &other, &JobOptions::default()).unwrap(),
+            &other
+        )
+    );
     // Con la pieza de 10 mm de diámetro (circunferencia 31.4) un diseño de 50 mm no cabe.
     let mut dev = rotary_device(tlaku_doc::RotaryKind::Chuck);
     dev.rotary.object_diameter = 10.0;
@@ -1604,7 +1661,7 @@ fn shifts(a: &ToolpathBlock, b: &ToolpathBlock) -> Vec<(f64, f64)> {
 }
 
 #[test]
-fn scan_offset_shifts_only_the_return_lines_of_a_fill() {
+fn scan_offset_splits_the_correction_between_forward_and_return_lines() {
     let l = LayerSettings {
         speed: 3000.0,
         interval: 2.0,
@@ -1613,29 +1670,31 @@ fn scan_offset_shifts_only_the_return_lines_of_a_fill() {
     };
     let d = doc(vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)], vec![l]);
     let base = compute(&d, &device(), &JobOptions::default()).unwrap();
-    // Entre 1000 y 6000 mm/min: a 3000 le toca 0.1 + (0.6 - 0.1) * 2000 / 5000 = 0.3.
+    // Entre 1000 y 6000 mm/min: a 3000 le toca 0.1 + (0.6 - 0.1) * 2000 / 5000 = 0.3, o sea
+    // -0.15 mm en las líneas de ida y +0.15 mm en las de vuelta.
     let dev = scan_device(&[(6000.0, 0.6), (1000.0, 0.1)]);
     let job = compute(&d, &dev, &JobOptions::default()).unwrap();
     let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
     assert!(
         diffs
             .iter()
-            .all(|&(dx, dy)| dy == 0.0 && (dx.abs() < 1e-12 || (dx - 0.3).abs() < 1e-9))
+            .all(|&(dx, dy)| dy == 0.0 && ((dx + 0.15).abs() < 1e-9 || (dx - 0.15).abs() < 1e-9))
     );
-    let moved = diffs.iter().filter(|d| d.0 != 0.0).count();
     let lines = base.layers[0].count;
     assert_eq!(lines, 4);
     // Las líneas 2 y 4 son de vuelta; cada una tiene 4 movimientos (viaje, overscan, corte, overscan).
-    assert_eq!(moved, 2 * 4);
-    // Fuera del rango se usa el extremo: a 300 mm/min, 0.1.
+    assert_eq!(diffs.iter().filter(|d| d.0 > 0.0).count(), 2 * 4);
+    assert_eq!(diffs.iter().filter(|d| d.0 < 0.0).count(), 2 * 4);
+    // El centro de las líneas coincide con el nominal: el grabado no se corre respecto de los
+    // vectores (antes, las de ida quedaban sin corregir y todo se corría).
+    let total: f64 = diffs.iter().map(|d| d.0).sum();
+    assert!(total.abs() < 1e-9);
+    // Fuera del rango se usa el extremo: a 300 mm/min, 0.1 en total.
     let slow = LayerSettings {
         speed: 300.0,
-        ..fill_layer(RED)
-    };
-    let slow = LayerSettings {
         interval: 2.0,
         overscan: Overscan::Mm(1.0),
-        ..slow
+        ..fill_layer(RED)
     };
     let d2 = doc(
         vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)],
@@ -1647,7 +1706,7 @@ fn scan_offset_shifts_only_the_return_lines_of_a_fill() {
         .iter()
         .map(|d| d.0)
         .fold(0.0, f64::max);
-    approx(max, 0.1);
+    approx(max, 0.05);
 }
 
 #[test]
@@ -1657,6 +1716,7 @@ fn scan_offset_follows_the_sweep_angle_and_skips_unidirectional_layers() {
         speed: 1000.0,
         interval: 2.0,
         angle,
+        overscan: Overscan::Mm(1.0),
         ..fill_layer(RED)
     };
     let d = doc(
@@ -1667,16 +1727,17 @@ fn scan_offset_follows_the_sweep_angle_and_skips_unidirectional_layers() {
     let job = compute(&d, &scan_device(&[(1000.0, 0.5)]), &JobOptions::default()).unwrap();
     let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
     let (cx, cy) = (
-        0.5 * angle.to_radians().cos(),
-        0.5 * angle.to_radians().sin(),
+        0.25 * angle.to_radians().cos(),
+        0.25 * angle.to_radians().sin(),
     );
     assert!(
-        diffs
-            .iter()
-            .all(|&(dx, dy)| (dx.abs() < 1e-9 && dy.abs() < 1e-9)
-                || ((dx - cx).abs() < 1e-9 && (dy - cy).abs() < 1e-9))
+        diffs.iter().all(|&(dx, dy)| {
+            ((dx - cx).abs() < 1e-9 && (dy - cy).abs() < 1e-9)
+                || ((dx + cx).abs() < 1e-9 && (dy + cy).abs() < 1e-9)
+        }),
+        "{diffs:?}"
     );
-    assert!(diffs.iter().any(|d| d.0 != 0.0));
+    assert!(diffs.iter().any(|d| d.0 > 0.0) && diffs.iter().any(|d| d.0 < 0.0));
     // Sin bidireccional no hay líneas de vuelta.
     let uni = LayerSettings {
         bidirectional: false,
@@ -1692,7 +1753,62 @@ fn scan_offset_follows_the_sweep_angle_and_skips_unidirectional_layers() {
 }
 
 #[test]
-fn scan_offset_shifts_the_return_rows_of_an_image() {
+fn scan_initial_offset_moves_every_line_even_without_a_table() {
+    let l = LayerSettings {
+        speed: 1000.0,
+        interval: 2.0,
+        overscan: Overscan::Mm(1.0),
+        bidirectional: false,
+        ..fill_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)], vec![l]);
+    let base = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let dev = DeviceProfile {
+        scan_initial_offset: 0.2,
+        ..device()
+    };
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
+    assert!(
+        diffs
+            .iter()
+            .all(|&(dx, dy)| dy == 0.0 && (dx - 0.2).abs() < 1e-9)
+    );
+}
+
+#[test]
+fn scan_offset_warns_when_the_overscan_is_shorter_than_the_offset() {
+    let l = |overscan| LayerSettings {
+        speed: 3000.0,
+        interval: 2.0,
+        overscan: Overscan::Mm(overscan),
+        ..fill_layer(RED)
+    };
+    let dev = scan_device(&[(3000.0, 0.4)]);
+    let d = doc(
+        vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)],
+        vec![l(0.2)],
+    );
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let w = job.preview.warnings.join("\n");
+    assert!(
+        w.contains("overscan") && w.contains("0.20") && w.contains("0.40"),
+        "{w}"
+    );
+    let d = doc(
+        vec![rect_object("a", RED, 20.0, 20.0, 12.0, 8.0)],
+        vec![l(1.0)],
+    );
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    assert!(
+        job.preview.warnings.is_empty(),
+        "{:?}",
+        job.preview.warnings
+    );
+}
+
+#[test]
+fn scan_offset_shifts_the_rows_of_an_image() {
     let dir = workdir("scan-image");
     let path = write_gradient(&dir);
     let l = LayerSettings {
@@ -1705,14 +1821,240 @@ fn scan_offset_shifts_the_return_rows_of_an_image() {
         vec![image_object("img", &path, [16.0, 4.0], IDENTITY)],
         vec![l],
     );
-    let base = compute(&d, &device(), &JobOptions::default()).unwrap();
-    let job = compute(&d, &scan_device(&[(3000.0, 0.25)]), &JobOptions::default()).unwrap();
+    let base = build(&d, &device(), &JobOptions::default(), None).unwrap();
+    let dev = scan_device(&[(3000.0, 0.25)]);
+    let job = build(&d, &dev, &JobOptions::default(), None).unwrap();
     let diffs = shifts(&base.toolpath.blocks[0], &job.toolpath.blocks[0]);
     assert!(
         diffs
             .iter()
-            .all(|&(dx, dy)| dy == 0.0 && (dx == 0.0 || (dx - 0.25).abs() < 1e-9))
+            .all(|&(dx, dy)| dy == 0.0 && ((dx - 0.125).abs() < 1e-9 || (dx + 0.125).abs() < 1e-9))
     );
-    assert!(diffs.iter().any(|d| d.0 != 0.0));
+    assert!(diffs.iter().any(|d| d.0 > 0.0) && diffs.iter().any(|d| d.0 < 0.0));
+    // Sin overscan, el aviso del overscan menor que el offset.
+    assert!(
+        job.preview.warnings.iter().any(|w| w.contains("overscan")),
+        "{:?}",
+        job.preview.warnings
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Fase 4 (revisión del taller): Z segura, puentes y kerf, espejo del rotativo, dialectos
+// ---------------------------------------------------------------------------
+
+#[test]
+fn z_returns_to_the_start_height_before_the_origin_move() {
+    let l = LayerSettings {
+        passes: 2,
+        z_offset: 1.0,
+        z_step: 0.5,
+        ..line_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 5.0, 5.0, 10.0, 10.0)], vec![l]);
+    let g = gcode(
+        &compute(&d, &z_device(), &JobOptions::default()).unwrap(),
+        &z_device(),
+    );
+    let lines: Vec<&str> = g.lines().collect();
+    // Z es siempre relativa (G91 / G0 Z / G90), solo G0 y sin F ni S, y suma 0.
+    let z: Vec<f64> = lines
+        .iter()
+        .filter_map(|l| l.strip_prefix("G0 Z"))
+        .map(|v| v.parse().unwrap())
+        .collect();
+    assert_eq!(z.iter().sum::<f64>(), 0.0);
+    assert_eq!(lines.iter().filter(|l| **l == "G91").count(), z.len());
+    assert_eq!(lines.iter().filter(|l| **l == "G90").count(), z.len() + 1);
+    assert!(
+        lines
+            .iter()
+            .filter(|l| l.contains('Z'))
+            .all(|l| l.starts_with("G0 Z"))
+    );
+    // La última subida llega antes del regreso al origen.
+    let last_z = lines.iter().rposition(|l| l.starts_with("G0 Z")).unwrap();
+    let origin = lines.iter().position(|l| *l == "G0 X0 Y0").unwrap();
+    assert!(last_z < origin, "{g}");
+}
+
+#[test]
+fn tab_width_is_checked_against_the_kerf() {
+    let tabbed_with = |width: f64, kerf: f64| LayerSettings {
+        kerf,
+        ..LayerSettings {
+            tabs: tlaku_doc::TabSettings {
+                width,
+                ..tabbed(line_layer(RED)).tabs
+            },
+            ..tabbed(line_layer(RED))
+        }
+    };
+    let run = |width: f64, kerf: f64| {
+        let d = doc(
+            vec![rect_object("a", RED, 5.0, 5.0, 30.0, 30.0)],
+            vec![tabbed_with(width, kerf)],
+        );
+        compute(&d, &device(), &JobOptions::default())
+            .unwrap()
+            .preview
+            .warnings
+            .join("\n")
+    };
+    // El kerf es el desplazamiento por lado: el haz quita 2 * kerf del puente.
+    let strong = run(0.1, 0.1);
+    assert!(
+        strong.contains("no sobreviven") && strong.contains("0.2"),
+        "{strong}"
+    );
+    let soft = run(0.3, 0.1);
+    assert!(soft.contains("frágiles") && soft.contains("0.10"), "{soft}");
+    assert_eq!(run(0.4, 0.1), "");
+    // Sin kerf no hay nada que comparar.
+    assert_eq!(run(0.1, 0.0), "");
+}
+
+#[test]
+fn rotary_mirror_reflects_y_inside_the_job_box() {
+    let d = doc(
+        vec![object_open(
+            "a",
+            RED,
+            &[(0.0, 0.0), (5.0, 2.0), (5.0, 10.0)],
+        )],
+        vec![line_layer(RED)],
+    );
+    let mut dev = rotary_device(tlaku_doc::RotaryKind::Chuck);
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let plain = gcode(&job, &dev);
+    dev.rotary.mirror = true;
+    let mirrored = gcode(&job, &dev);
+    let k = 360.0 / (std::f64::consts::PI * 80.0);
+    let ys = |g: &str| -> Vec<f64> {
+        g.lines()
+            .filter(|l| l.starts_with("G0 X") || l.starts_with("G1"))
+            .filter_map(|l| l.split(' ').find(|w| w.starts_with('Y')))
+            .map(|w| w[1..].parse().unwrap())
+            .collect()
+    };
+    // Y de superficie 0, 2, 10 sale como 10, 8, 0 (min + max - y) y luego se escala.
+    let (a, b) = (ys(&plain), ys(&mirrored));
+    assert!((a[0] - 0.0).abs() < 1e-3 && (a[1] - 2.0 * k).abs() < 1e-3);
+    assert!((b[0] - 10.0 * k).abs() < 1e-3 && (b[1] - 8.0 * k).abs() < 1e-3);
+    // El área que ocupa no cambia y el espejo sin rotativo no hace nada.
+    approx(job.bounds().unwrap().max.y, 10.0);
+    let mut flat = device();
+    flat.rotary.mirror = true;
+    let j = compute(&d, &flat, &JobOptions::default()).unwrap();
+    assert_eq!(gcode(&j, &flat), gcode(&j, &device()));
+}
+
+#[test]
+fn rotary_warns_when_the_controller_travel_exceeds_the_soft_limits() {
+    let d = doc(
+        vec![rect_object("a", RED, 0.0, 0.0, 10.0, 100.0)],
+        vec![line_layer(RED)],
+    );
+    // 100 mm de superficie * 5.73 = 573 mm de Y de la controladora > 415 de la cama.
+    let dev = rotary_device(tlaku_doc::RotaryKind::Roller);
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let w = job.preview.warnings.join("\n");
+    assert!(w.contains("ALARM:2") && w.contains("$20=0"), "{w}");
+    // Con una escala realista cabe y no hay aviso.
+    let ok = compute(
+        &d,
+        &DeviceProfile {
+            rotary: tlaku_doc::RotarySettings {
+                enabled: true,
+                ..Default::default()
+            },
+            ..device()
+        },
+        &JobOptions::default(),
+    )
+    .unwrap();
+    assert!(ok.preview.warnings.is_empty(), "{:?}", ok.preview.warnings);
+}
+
+#[test]
+fn rotary_one_turn_test_goes_through_the_normal_pipeline() {
+    let mut dev = rotary_device(tlaku_doc::RotaryKind::Chuck);
+    dev.rotary.mm_per_rotation = 40.0;
+    dev.rotary.object_diameter = 75.0;
+    let doc = rotary_test(&dev, 1200.0, 5.0).unwrap();
+    let job = compute(&doc, &dev, &JobOptions::default()).unwrap();
+    let b = job.bounds().unwrap();
+    approx(b.max.y - b.min.y, std::f64::consts::PI * 75.0);
+}
+
+#[test]
+fn dialect_limits_are_reported() {
+    let d = doc(
+        vec![rect_object("a", RED, 5.0, 5.0, 10.0, 10.0)],
+        vec![LayerSettings {
+            air: true,
+            ..line_layer(RED)
+        }],
+    );
+    // GRBL 1.1: nada que decir.
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    assert!(job.preview.warnings.is_empty());
+    // Sin aire en el dialecto y con potencia dinámica pedida en un firmware que no la tiene.
+    let dev = DeviceProfile {
+        dialect: tlaku_doc::GcodeDialect {
+            air_on: None,
+            air_off: None,
+            dynamic_on: None,
+            ..Default::default()
+        },
+        ..device()
+    };
+    let w = compute(&d, &dev, &JobOptions::default())
+        .unwrap()
+        .preview
+        .warnings
+        .join("\n");
+    assert!(
+        w.contains("aire") && w.contains("potencia constante"),
+        "{w}"
+    );
+    // Un perfil nuevo de Marlin usa su dialecto y no escribe M4.
+    let marlin = DeviceProfile {
+        name: "Marlin".into(),
+        ..DeviceProfile::for_kind(tlaku_doc::DeviceKind::Marlin)
+    };
+    let job = compute(&d, &marlin, &JobOptions::default()).unwrap();
+    assert!(
+        job.preview.warnings.is_empty(),
+        "{:?}",
+        job.preview.warnings
+    );
+    let g = gcode(&job, &marlin);
+    assert!(
+        g.contains("M3 S0 I\n") && !g.contains("M4 S") && g.ends_with("M400\n"),
+        "{g}"
+    );
+    assert!(g.contains("G0 X5 Y5 F12000\n"), "{g}");
+    // Las imágenes con la potencia en una línea aparte salen con manchas: se avisa.
+    let dir = workdir("dialect-image");
+    let path = write_gradient(&dir);
+    let img = doc(
+        vec![image_object("img", &path, [16.0, 4.0], IDENTITY)],
+        vec![LayerSettings::for_images()],
+    );
+    let sep = DeviceProfile {
+        dialect: tlaku_doc::GcodeDialect::marlin_standard(),
+        ..marlin.clone()
+    };
+    let job = build(&img, &sep, &JobOptions::default(), None).unwrap();
+    assert!(
+        job.preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("línea aparte")),
+        "{:?}",
+        job.preview.warnings
+    );
     std::fs::remove_dir_all(dir).unwrap();
 }

@@ -47,6 +47,8 @@ pub fn run() {
             edit::trace::trace_image,
             edit::camera::detect_board,
             edit::camera::calibrate_lens,
+            edit::camera::camera_marks,
+            edit::camera::detect_camera_marks,
             edit::camera::load_camera_setup,
             edit::camera::save_camera_setup,
             edit::camera::save_board_file,

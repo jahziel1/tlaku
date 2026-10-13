@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useStore } from '@/store';
 import { loadCameraSetup } from './actions';
 import { CalibrationDialog } from './CalibrationDialog';
+import { MarksDialog } from './MarksDialog';
+import { useMarks } from './marksState';
 import { startCamera } from './session';
 
 export { CameraPanel } from './CameraPanel';
@@ -13,6 +15,8 @@ export { CameraPanel } from './CameraPanel';
 export function CameraDialogHost() {
   const open = useStore((s) => s.cameraCalibrationOpen);
   const close = useStore((s) => s.setCameraCalibrationOpen);
+  const marksOpen = useMarks((s) => s.open);
+  const closeMarks = useMarks((s) => s.closeDialog);
 
   useEffect(() => {
     void loadCameraSetup().then(() => {
@@ -22,5 +26,10 @@ export function CameraDialogHost() {
     });
   }, []);
 
-  return open ? <CalibrationDialog onClose={() => close(false)} /> : null;
+  return (
+    <>
+      {open && <CalibrationDialog onClose={() => close(false)} />}
+      {marksOpen && <MarksDialog onClose={closeMarks} />}
+    </>
+  );
 }

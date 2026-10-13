@@ -324,6 +324,65 @@ mod tests {
     }
 
     #[test]
+    fn line_reader_survives_invalid_utf8() {
+        // L-3: bytes inválidos (CH340, cables con ruido) no hacen panic ni rompen lo siguiente.
+        let mut r = LineReader::default();
+        r.feed(b"ab\xff\xfe\r\nok\r\n");
+        assert_eq!(r.next_line().as_deref(), Some("ab\u{fffd}\u{fffd}"));
+        assert_eq!(r.next_line().as_deref(), Some("ok"));
+        r.feed(b"\xff\xfe\xfd\n\xc3\n\xe2\x82\ngr\xffok\n");
+        let lines: Vec<_> = std::iter::from_fn(|| r.next_line()).collect();
+        assert_eq!(lines.len(), 4);
+        assert!(lines.iter().all(|l| !l.is_empty()));
+    }
+
+    #[test]
+    fn command_ignores_the_falcon2_banner_lines_around_the_greeting() {
+        // Banner real de la Falcon2 Pro (falcon2.md, sección 3): ninguna línea que no sea
+        // `ok` termina un comando, y `$I` sigue devolviendo sus líneas.
+        let (host, mut dev) = memory_pair();
+        let mut grbl = Grbl::with_transport(Box::new(host));
+        dev.write_all(
+            b"usb connect succeed\r\n\
+              [OK]system start-up CV50-Pro-MASTER-Release V1.0.1 20240325-1042\r\n\
+              [OK] ILmp_app_init OK\r\n[OK] gas_init OK\r\n\
+              [MSG:Using cpu_map\xe2\x80\xa6esp32-s3]\r\n\
+              Grbl 1.1f ['$' for help]\r\n[OK] ILmp Link connect ok\r\n\
+              [VER:1.1f.20220810:]\r\n[OPT:VHL,127,65536]\r\n\
+              [software versions: CV50-Pro-MASTER-Release V1.0.0 20231129-1024]\r\n\
+              inquire_info->power:22W ,CV50-LASER-22W-Release V3.0.5 20231129-1001\r\nok\r\n",
+        )
+        .unwrap();
+        let lines = grbl.command("$I", Duration::from_secs(1)).unwrap();
+        assert!(lines.contains(&"[VER:1.1f.20220810:]".to_string()));
+        assert!(lines.contains(&"[OPT:VHL,127,65536]".to_string()));
+        assert!(lines.iter().any(|l| l.starts_with("inquire_info")));
+        assert_eq!(lines.len(), 11);
+    }
+
+    #[test]
+    fn command_accepts_an_info_reply_that_is_only_ok() {
+        // Un hilo real mostró `$I` devolviendo solo `ok`: lista vacía, no un error.
+        let (host, mut dev) = memory_pair();
+        let mut grbl = Grbl::with_transport(Box::new(host));
+        dev.write_all(b"ok\r\n").unwrap();
+        assert_eq!(
+            grbl.command("$I", Duration::from_secs(1)).unwrap(),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn command_with_garbage_before_the_reply_does_not_panic() {
+        let (host, mut dev) = memory_pair();
+        let mut grbl = Grbl::with_transport(Box::new(host));
+        dev.write_all(b"ab\xff\xfe\r\n[VER:1.1h:]\r\nok\r\n")
+            .unwrap();
+        let lines = grbl.command("$I", Duration::from_secs(1)).unwrap();
+        assert_eq!(lines, ["ab\u{fffd}\u{fffd}", "[VER:1.1h:]"]);
+    }
+
+    #[test]
     fn command_reports_error_and_timeout() {
         let (host, mut dev) = memory_pair();
         let mut grbl = Grbl::with_transport(Box::new(host));

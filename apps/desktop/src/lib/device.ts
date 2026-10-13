@@ -1,12 +1,34 @@
 import type { DeviceProfile, Point, RotarySettings, ScanOffset } from '@/api/types';
 
-/** Mismos valores que `RotarySettings::default()` del motor. */
+type GcodeDialect = DeviceProfile['dialect'];
+
+/** Mismos valores que `RotarySettings::default()` del motor (xTool RA2 Pro: 32 mm/vuelta, rodillo de 17 mm). */
 export const DEFAULT_ROTARY: RotarySettings = {
   enabled: false,
   kind: 'roller',
-  mm_per_rotation: 360,
-  roller_diameter: 20,
+  mm_per_rotation: 32,
+  roller_diameter: 17,
   object_diameter: 80,
+  mirror: false,
+};
+
+/** Mismos valores que `GcodeDialect::default()` del motor (GRBL 1.1). */
+export const DEFAULT_DIALECT: GcodeDialect = {
+  s_decimals: 3,
+  decimals: 3,
+  constant_on: 'M3 S0',
+  dynamic_on: 'M4 S0',
+  laser_off: 'M5',
+  s_inline: true,
+  power_cmd: 'M3 S{s}',
+  g0_laser_off: true,
+  travel_s0: false,
+  feed_on_g0: false,
+  air_on: 'M8',
+  air_off: 'M9',
+  end_sync: null,
+  comment: 'semicolon',
+  max_line_len: 127,
 };
 
 /** Perfil provisional mientras no se ha cargado ninguno (cama de 400 x 400 mm). */
@@ -14,6 +36,7 @@ export const FALLBACK_DEVICE: DeviceProfile = {
   id: 'predeterminado',
   name: 'Máquina GRBL',
   kind: 'grbl',
+  dialect: { ...DEFAULT_DIALECT },
   bed: [400, 400],
   origin: 'bottom_left',
   s_max: 1000,
@@ -27,8 +50,10 @@ export const FALLBACK_DEVICE: DeviceProfile = {
   end_gcode: 'M5',
   return_to_origin: false,
   z_axis: false,
+  z_invert: false,
   rotary: { ...DEFAULT_ROTARY },
   scan_offsets: [],
+  scan_initial_offset: 0,
 };
 
 /**
@@ -38,6 +63,10 @@ export const FALLBACK_DEVICE: DeviceProfile = {
 export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProfile, 'id' | 'name'>): DeviceProfile {
   const complete =
     typeof device.z_axis === 'boolean' &&
+    typeof device.z_invert === 'boolean' &&
+    typeof device.scan_initial_offset === 'number' &&
+    device.dialect !== undefined &&
+    (Object.keys(DEFAULT_DIALECT) as (keyof GcodeDialect)[]).every((k) => k in device.dialect!) &&
     Array.isArray(device.scan_offsets) &&
     device.rotary !== undefined &&
     (Object.keys(DEFAULT_ROTARY) as (keyof RotarySettings)[]).every((k) => k in device.rotary!);
@@ -46,8 +75,12 @@ export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProf
     ...FALLBACK_DEVICE,
     ...device,
     z_axis: device.z_axis ?? false,
+    z_invert: device.z_invert ?? false,
+    // Un perfil sin dialecto es de GRBL 1.1; los campos que falten se completan con esos valores.
+    dialect: { ...DEFAULT_DIALECT, ...device.dialect },
     rotary: { ...DEFAULT_ROTARY, ...device.rotary },
     scan_offsets: device.scan_offsets ?? [],
+    scan_initial_offset: device.scan_initial_offset ?? 0,
   };
 }
 

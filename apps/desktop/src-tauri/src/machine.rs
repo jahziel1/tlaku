@@ -11,6 +11,22 @@
 //! - si el puerto falla o la controladora calla, emite `machine://connection` con el error y termina.
 //!
 //! Los reportes de estado (`?`) no se registran en `machine://log`: solo llegan como estado.
+//!
+//! Regla del silencio ("conexión perdida"). Con el sondeo activo, sin recibir ni un byte durante
+//! `silence_timeout` (5 s) la conexión se da por perdida, porque en funcionamiento normal GRBL
+//! contesta `?` en 5 a 20 ms. Pero hay dos casos en que el silencio es legítimo, y en ellos
+//! no se declara la pérdida:
+//!
+//! - **Homing (`$H`)**: `?` puede no contestarse y el `ok` llega al terminar el ciclo (un
+//!   minuto o más). Mientras haya un `$H` sin responder, el plazo es `home_timeout` (120 s).
+//!   En el trabajo (`Streamer`) rige la misma regla si una de sus líneas es un `$H`.
+//! - **Bloqueo crítico** tras `ALARM:1`/`ALARM:2` o `[MSG:Reset to continue]`: GRBL deja de
+//!   atender `?` hasta un soft reset. No hay plazo: solo se sale al recibir un `ok` o el
+//!   saludo (`Grbl ...`) tras el reset, y entretanto `?` se manda cada 2 s en vez de cada
+//!   250 ms. Un cable arrancado sigue detectándose, porque la lectura o la escritura
+//!   fallan con error de E/S (eso no depende del silencio).
+//!
+//! Fuera de esos dos casos el plazo no cambia.
 //! Nada aquí depende de Tauri: los eventos salen por [`Sink`], de modo que se prueba con
 //! `memory_pair` sin hardware.
 
@@ -25,11 +41,14 @@ use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, JobEvent, JobState, LogDir, LogEvent,
     MachineState, ProgressEvent, RealtimeCommand, StatusReport,
 };
-use tlaku_grbl::preflight::{Advice, PreflightConfig, outcome_result, preflight_with};
+use tlaku_grbl::preflight::{
+    Advice, JobExpect, PreflightConfig, outcome_result_for, preflight_checked,
+};
 use tlaku_grbl::serial::{Grbl, LineReader, Transport};
 use tlaku_grbl::streamer::{
-    self, Event, Job, Outcome, Realtime, Streamer, StreamerConfig, alarm_message, error_message,
-    prepare_line,
+    self, Event, Firmware, Job, Outcome, POSITION_LOST_NOTE, Realtime, Streamer, StreamerConfig,
+    alarm_message_for, creality_error_message, error_message_for, is_greeting, is_homing_line,
+    parse_creality_error, prepare_line,
 };
 
 /// Mensaje cuando no hay conexión (o se perdió).
@@ -79,8 +98,14 @@ pub struct Timing {
     pub silence_timeout: Duration,
     /// Espera de la respuesta a un comando normal.
     pub command_timeout: Duration,
-    /// Espera de la respuesta a `$H` (GRBL contesta `ok` al terminar el homing).
+    /// Espera de la respuesta a `$H` (GRBL contesta `ok` al terminar el homing) y plazo de
+    /// silencio mientras dura (`?` puede no contestarse durante el homing).
     pub home_timeout: Duration,
+    /// Tras un feed hold de cancelación, cuánto se espera a que la máquina termine de frenar
+    /// (`Hold:0`) antes de resetear de todos modos.
+    pub hold_timeout: Duration,
+    /// Cuánto se espera el saludo tras un soft reset de cancelación.
+    pub reset_wait: Duration,
     /// Espera de la respuesta a `$I` al conectar.
     pub identify_timeout: Duration,
     /// Lectura máxima por vuelta del ciclo: acota la latencia de los mandos.
@@ -96,7 +121,9 @@ impl Default for Timing {
             status_interval: Duration::from_millis(250),
             silence_timeout: Duration::from_secs(5),
             command_timeout: Duration::from_secs(5),
-            home_timeout: Duration::from_secs(60),
+            home_timeout: Duration::from_secs(120),
+            hold_timeout: Duration::from_secs(2),
+            reset_wait: Duration::from_millis(500),
             identify_timeout: Duration::from_secs(3),
             tick: Duration::from_millis(20),
             progress_interval: Duration::from_millis(100),
@@ -144,6 +171,7 @@ enum Request {
     Start {
         lines: Vec<String>,
         rx_buffer: usize,
+        s_max: Option<f64>,
         kind: RunKind,
         reply: Reply,
     },
@@ -208,20 +236,41 @@ impl Handle {
         .map(drop)
     }
 
-    /// Comprueba el estado de la máquina y, solo si está en reposo, transmite el G-code.
+    /// Comprueba el estado de la máquina y, solo si está en reposo y en modo láser (`$32=1`),
+    /// transmite el G-code. No compara `$30` con la S máx del perfil; para eso usa
+    /// [`start_job_for`](Self::start_job_for).
     pub fn start_job(&self, lines: Vec<String>, rx_buffer: usize) -> Result<(), String> {
-        self.start(lines, rx_buffer, RunKind::Job)
+        self.start_job_for(lines, rx_buffer, None)
     }
 
-    /// Como [`start_job`](Self::start_job) para el encuadre (sin eventos de progreso).
+    /// Como [`start_job`](Self::start_job), con la S máx del perfil: si `$30` de la controladora
+    /// es distinto se avisa en el registro (la potencia saldría escalada).
+    pub fn start_job_for(
+        &self,
+        lines: Vec<String>,
+        rx_buffer: usize,
+        s_max: Option<f64>,
+    ) -> Result<(), String> {
+        self.start(lines, rx_buffer, s_max, RunKind::Job)
+    }
+
+    /// Como [`start_job`](Self::start_job) para el encuadre (sin eventos de progreso). El
+    /// encuadre va con el láser apagado (M5, S0), así que no exige el modo láser.
     pub fn frame(&self, lines: Vec<String>, rx_buffer: usize) -> Result<(), String> {
-        self.start(lines, rx_buffer, RunKind::Frame)
+        self.start(lines, rx_buffer, None, RunKind::Frame)
     }
 
-    fn start(&self, lines: Vec<String>, rx_buffer: usize, kind: RunKind) -> Result<(), String> {
+    fn start(
+        &self,
+        lines: Vec<String>,
+        rx_buffer: usize,
+        s_max: Option<f64>,
+        kind: RunKind,
+    ) -> Result<(), String> {
         self.call(|reply| Request::Start {
             lines,
             rx_buffer,
+            s_max,
             kind,
             reply,
         })
@@ -270,11 +319,12 @@ impl Connection {
             log(sink.as_ref(), LogDir::In, l);
         }
         log(sink.as_ref(), LogDir::In, "ok");
-        let firmware = firmware_name(&lines);
+        let (firmware, family) = identify(&lines);
 
         let shared = Arc::new(Shared::default());
         let (tx, rx) = mpsc::channel();
-        let worker = Worker::new(rx, sink.clone(), shared.clone(), timing, port.to_string());
+        let mut worker = Worker::new(rx, sink.clone(), shared.clone(), timing, port.to_string());
+        worker.fw = family;
         let transport = grbl.into_transport();
         sink.emit(Emit::Connection(ConnectionEvent {
             connected: true,
@@ -314,23 +364,57 @@ impl Drop for Connection {
     }
 }
 
-/// `Grbl 1.1h` a partir de la línea `[VER:1.1h.20190825:]` de `$I`.
-fn firmware_name(lines: &[String]) -> String {
-    let Some(ver) = lines.iter().find_map(|l| l.trim().strip_prefix("[VER:")) else {
-        return "GRBL".into();
+/// Nombre legible del firmware (`Grbl 1.1h`, `FluidNC v3.9.7`, `grblHAL 1.1f`) y su familia, a
+/// partir de las líneas de `$I`. La familia decide cómo se leen los códigos `error:N` y
+/// `ALARM:N` extendidos. Se toleran líneas ajenas (`[software versions: ...]`,
+/// `inquire_info...` de Creality) y la respuesta vacía.
+fn identify(lines: &[String]) -> (String, Firmware) {
+    let fw = Firmware::detect(lines);
+    let generic = match fw {
+        Firmware::GrblHal => "grblHAL",
+        Firmware::FluidNc => "FluidNC",
+        Firmware::Grbl | Firmware::Unknown => "GRBL",
     };
-    let ver = ver.trim_end_matches(']').split(':').next().unwrap_or("");
+    let Some(ver) = lines.iter().find_map(|l| l.trim().strip_prefix("[VER:")) else {
+        return (generic.into(), fw);
+    };
+    let ver = ver
+        .trim_end_matches(']')
+        .split(':')
+        .next()
+        .unwrap_or("")
+        .trim();
     let ver = match ver.rsplit_once('.') {
         Some((head, build)) if build.len() == 8 && build.bytes().all(|b| b.is_ascii_digit()) => {
             head
         }
         _ => ver,
     };
-    if ver.is_empty() {
-        "GRBL".into()
-    } else {
-        format!("Grbl {ver}")
-    }
+    let name = match fw {
+        // `3.9 FluidNC v3.9.7` -> `FluidNC v3.9.7`.
+        Firmware::FluidNc => {
+            let rest = ver
+                .to_ascii_lowercase()
+                .find("fluidnc")
+                .map_or(ver, |i| &ver[i + "fluidnc".len()..])
+                .trim();
+            if rest.is_empty() {
+                generic.to_string()
+            } else {
+                format!("{generic} {rest}")
+            }
+        }
+        _ if ver.is_empty() => generic.to_string(),
+        Firmware::GrblHal => format!("grblHAL {ver}"),
+        Firmware::Grbl | Firmware::Unknown => format!("Grbl {ver}"),
+    };
+    (name, fw)
+}
+
+/// `Grbl 1.1h` a partir de la línea `[VER:1.1h.20190825:]` de `$I`.
+#[cfg(test)]
+fn firmware_name(lines: &[String]) -> String {
+    identify(lines).0
 }
 
 fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
@@ -340,21 +424,46 @@ fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
     }));
 }
 
-/// `error:N` o `ALARM:N` con su explicación; el resto, tal cual.
-fn describe_line(line: &str) -> String {
+/// `error:N`, `ALARM:N` o `ERROR:NN` de Creality con su explicación; el resto, tal cual.
+fn describe_line(fw: Firmware, line: &str) -> String {
     if let Some(code) = line
         .strip_prefix("error:")
         .and_then(|c| c.trim().parse().ok())
     {
-        format!("{line}: {}", error_message(code))
+        format!("{line}: {}", error_message_for(fw, code))
     } else if let Some(code) = line
         .strip_prefix("ALARM:")
         .and_then(|c| c.trim().parse().ok())
     {
-        format!("{line}: {}", alarm_message(code))
+        format!("{line}: {}", alarm_message_for(fw, code))
+    } else if let Some(code) = parse_creality_error(line) {
+        // Normalizado (`ERROR:06.` -> `ERROR:06`) para que la interfaz lo reconozca.
+        format!("ERROR:{code:02}: {}", creality_error_message(code))
     } else {
         line.to_string()
     }
+}
+
+/// `ALARM:1`/`ALARM:2` y `[MSG:Reset to continue]`: GRBL queda bloqueado y puede dejar de
+/// contestar `?` hasta un soft reset.
+fn is_critical_alarm(line: &str) -> bool {
+    matches!(
+        line.strip_prefix("ALARM:")
+            .and_then(|c| c.trim().parse::<u32>().ok()),
+        Some(1 | 2)
+    ) || line.contains("Reset to continue")
+}
+
+/// Cada cuánto se manda `?` durante un bloqueo crítico (que probablemente no lo contesta).
+const CRITICAL_POLL: Duration = Duration::from_secs(2);
+
+/// Por qué se tolera silencio (ver la regla del silencio en la cabecera del módulo).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Quiet {
+    /// Hay un `$H` sin responder: plazo `home_timeout`.
+    Homing,
+    /// Bloqueo tras `ALARM:1`/`ALARM:2`: sin plazo hasta un `ok` o el saludo.
+    CriticalAlarm,
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +513,10 @@ struct Worker {
     /// Desplazamiento de coordenadas de trabajo (`WCO`), para convertir MPos <-> WPos.
     wco: [f64; 2],
     last: StatusReport,
+    /// Familia del firmware, para leer los códigos extendidos.
+    fw: Firmware,
+    /// Silencio tolerado ahora mismo (ver la cabecera del módulo).
+    quiet: Option<Quiet>,
 }
 
 fn empty_status() -> StatusReport {
@@ -433,6 +546,9 @@ fn convert_state(s: streamer::MachineState) -> MachineState {
         G::Check => MachineState::Check,
         G::Home => MachineState::Home,
         G::Sleep => MachineState::Sleep,
+        // Estado que Tlaku no conoce (p. ej. `Tool` de grblHAL): ocupada, no en reposo. La
+        // interfaz no tiene un estado propio para esto.
+        G::Other => MachineState::Run,
     }
 }
 
@@ -456,6 +572,8 @@ impl Worker {
             last_rx: Instant::now(),
             wco: [0.0, 0.0],
             last: empty_status(),
+            fw: Firmware::Unknown,
+            quiet: None,
         }
     }
 
@@ -540,13 +658,39 @@ impl Worker {
         self.sink.emit(Emit::Status(s));
     }
 
+    /// ¿Se superó el silencio tolerado? Ver la regla en la cabecera del módulo.
+    fn silence_exceeded(&self) -> bool {
+        let elapsed = self.last_rx.elapsed();
+        match self.quiet {
+            None => elapsed > self.timing.silence_timeout,
+            Some(Quiet::Homing) => {
+                elapsed > self.timing.silence_timeout.max(self.timing.home_timeout)
+            }
+            Some(Quiet::CriticalAlarm) => false,
+        }
+    }
+
+    /// Actualiza el silencio tolerado y la familia del firmware con una línea recibida.
+    fn note_line(&mut self, line: &str) {
+        if is_critical_alarm(line) {
+            self.quiet = Some(Quiet::CriticalAlarm);
+        } else if self.quiet == Some(Quiet::CriticalAlarm) && (line == "ok" || is_greeting(line)) {
+            self.quiet = None;
+        }
+        if let Some(fw) = Firmware::from_banner(line) {
+            self.fw = fw;
+        }
+    }
+
     /// Una vuelta de lectura: sondea `?` si toca, lee hasta `wait` y devuelve las líneas que no
     /// son reportes de estado (esos se emiten y no se registran).
     fn pump(&mut self, t: &mut dyn Transport, wait: Duration) -> Result<Vec<String>, Fail> {
-        if self
-            .last_poll
-            .is_none_or(|p| p.elapsed() >= self.timing.status_interval)
-        {
+        let interval = if self.quiet == Some(Quiet::CriticalAlarm) {
+            self.timing.status_interval.max(CRITICAL_POLL)
+        } else {
+            self.timing.status_interval
+        };
+        if self.last_poll.is_none_or(|p| p.elapsed() >= interval) {
             t.write_all(&[Realtime::StatusQuery.byte()])?;
             self.last_poll = Some(Instant::now());
         }
@@ -555,7 +699,7 @@ impl Worker {
         if n > 0 {
             self.last_rx = Instant::now();
             self.reader.feed(&buf[..n]);
-        } else if self.last_rx.elapsed() > self.timing.silence_timeout {
+        } else if self.silence_exceeded() {
             return Err(Fail::Lost(
                 "la controladora dejó de responder (¿se desconectó el cable USB o se apagó la \
                  máquina?)"
@@ -566,7 +710,10 @@ impl Worker {
         while let Some(line) = self.reader.next_line() {
             match streamer::StatusReport::parse(&line) {
                 Some(r) => self.on_status(&r),
-                None => others.push(line),
+                None => {
+                    self.note_line(&line);
+                    others.push(line);
+                }
             }
         }
         Ok(others)
@@ -581,9 +728,10 @@ impl Worker {
                 Request::Start {
                     lines,
                     rx_buffer,
+                    s_max,
                     kind,
                     reply,
-                } => match self.try_start(t, lines, rx_buffer, kind) {
+                } => match self.try_start(t, lines, rx_buffer, s_max, kind) {
                     Ok(run) => {
                         let _ = reply.send(Ok(Vec::new()));
                         return Ok(Phase::Streaming(run));
@@ -601,7 +749,7 @@ impl Worker {
             }
         }
         for line in self.pump(&mut *t, self.timing.tick)? {
-            self.log(LogDir::In, &describe_line(&line));
+            self.log(LogDir::In, &describe_line(self.fw, &line));
         }
         Ok(Phase::Idle(t))
     }
@@ -658,6 +806,15 @@ impl Worker {
         };
         self.log(LogDir::Out, text);
         t.write_all(&[rt.byte()])?;
+        // Un reset en pleno movimiento (o homing) pierde la posición: GRBL lanzará ALARM:3.
+        if rt == Realtime::SoftReset
+            && matches!(
+                self.last.state,
+                MachineState::Run | MachineState::Jog | MachineState::Home
+            )
+        {
+            self.log(LogDir::In, &format!("; {POSITION_LOST_NOTE}"));
+        }
         Ok(())
     }
 
@@ -693,6 +850,23 @@ impl Worker {
         line: &str,
         timeout: Duration,
     ) -> Result<Vec<String>, Fail> {
+        // Durante el homing `?` puede no contestarse: se tolera el silencio hasta `home_timeout`.
+        if is_homing_line(line) && self.quiet.is_none() {
+            self.quiet = Some(Quiet::Homing);
+        }
+        let r = self.exchange_inner(t, line, timeout);
+        if self.quiet == Some(Quiet::Homing) {
+            self.quiet = None;
+        }
+        r
+    }
+
+    fn exchange_inner(
+        &mut self,
+        t: &mut dyn Transport,
+        line: &str,
+        timeout: Duration,
+    ) -> Result<Vec<String>, Fail> {
         self.log(LogDir::Out, line);
         self.reader.clear();
         t.write_all(format!("{line}\n").as_bytes())?;
@@ -702,7 +876,7 @@ impl Worker {
             let lines = self.pump(t, self.timing.tick)?;
             self.urgent_requests(t)?;
             for l in lines {
-                let shown = describe_line(&l);
+                let shown = describe_line(self.fw, &l);
                 self.log(LogDir::In, &shown);
                 if l == "ok" {
                     out.push(l);
@@ -773,6 +947,7 @@ impl Worker {
         mut t: Box<dyn Transport>,
         lines: Vec<String>,
         rx_buffer: usize,
+        s_max: Option<f64>,
         kind: RunKind,
     ) -> Result<Run, StartFail> {
         // Mismo orden que `tlaku send`: validar, comprobar el estado y solo entonces enviar.
@@ -781,9 +956,27 @@ impl Worker {
         }
         self.reader.clear();
         let mut shown = Vec::new();
-        if let Err(msg) =
-            preflight_with(&mut t, &self.timing.preflight, Advice::Console, &mut shown)
+        // El encuadre va con el láser apagado (M5, S0): no necesita el modo láser.
+        let expect = JobExpect {
+            require_laser_mode: kind == RunKind::Job,
+            s_max,
+            check_parameters: true,
+        };
+        let checked = preflight_checked(
+            &mut t,
+            &self.timing.preflight,
+            Advice::Console,
+            &expect,
+            &mut shown,
+        );
+        // Los avisos ("Aviso: $30...") no bloquean, pero se dejan en el registro.
+        for w in String::from_utf8_lossy(&shown)
+            .lines()
+            .filter(|l| l.starts_with("Aviso"))
         {
+            self.log(LogDir::In, w);
+        }
+        if let Err(msg) = checked {
             self.log(LogDir::In, &first_line(&msg));
             // Un fallo de E/S en la consulta no se distingue aquí de una máquina muda: el
             // sondeo normal detectará la pérdida si es real.
@@ -793,6 +986,10 @@ impl Worker {
         let total = lines.len();
         let config = StreamerConfig {
             rx_buffer,
+            silence_timeout: self.timing.silence_timeout,
+            home_timeout: self.timing.home_timeout,
+            hold_timeout: self.timing.hold_timeout,
+            reset_wait: self.timing.reset_wait,
             ..StreamerConfig::default()
         };
         match Streamer::new(t, config).spawn(&lines) {
@@ -935,16 +1132,23 @@ impl Worker {
                 };
                 self.log(
                     LogDir::In,
-                    &format!("error:{code}{at}: {}", error_message(code)),
+                    &format!("error:{code}{at}: {}", error_message_for(self.fw, code)),
                 );
             }
             Event::Alarm(code) => {
                 self.log(
                     LogDir::In,
-                    &format!("ALARM:{code}: {}", alarm_message(code)),
+                    &format!("ALARM:{code}: {}", alarm_message_for(self.fw, code)),
                 );
             }
-            Event::Message(m) | Event::Reset(m) => self.log(LogDir::In, &m),
+            Event::Reset(m) => {
+                self.note_line(&m);
+                self.log(LogDir::In, &m);
+            }
+            Event::Message(m) => {
+                self.note_line(&m);
+                self.log(LogDir::In, &m);
+            }
             Event::Finished(_) => {}
         }
     }
@@ -971,10 +1175,15 @@ impl Worker {
             .job
             .join()
             .map_err(|_| Fail::Lost("el hilo de envío terminó de forma inesperada".into()))?;
+        // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
+        let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost);
         let t = streamer.into_transport();
         self.reader.clear();
         self.last_poll = None;
         self.last_rx = Instant::now();
+        // Un ALARM:1/2 que terminó el trabajo deja la placa bloqueada y callada hasta un
+        // reset; tras cualquier otro final ya no hay bloqueo que esperar.
+        self.quiet = matches!(outcome, Outcome::Alarm(1 | 2)).then_some(Quiet::CriticalAlarm);
         match (&outcome, kind) {
             (Outcome::Completed { errors: 0 }, RunKind::Job) => {
                 self.job_event(JobState::Finished, "Trabajo terminado.");
@@ -982,17 +1191,28 @@ impl Worker {
             (Outcome::Completed { errors: 0 }, RunKind::Frame) => {
                 self.log(LogDir::In, "; encuadre terminado");
             }
-            (Outcome::Cancelled, RunKind::Job) => self.job_event(
-                JobState::Cancelled,
-                "Trabajo cancelado: se envió pausa y reinicio, el láser quedó apagado.",
-            ),
+            (Outcome::Cancelled, RunKind::Job) => {
+                let mut msg = String::from(
+                    "Trabajo cancelado: se envió pausa, se esperó a que frenara y se reinició; \
+                     el láser quedó apagado.",
+                );
+                if position_lost {
+                    msg.push(' ');
+                    msg.push_str(POSITION_LOST_NOTE);
+                }
+                self.job_event(JobState::Cancelled, &msg);
+            }
             (Outcome::Cancelled, RunKind::Frame) => {
                 self.log(LogDir::In, "; encuadre cancelado");
             }
             _ => {
-                let msg = outcome_result(&outcome)
+                let mut msg = outcome_result_for(self.fw, &outcome)
                     .err()
                     .unwrap_or_else(|| "el envío terminó con errores".into());
+                if position_lost {
+                    msg.push(' ');
+                    msg.push_str(POSITION_LOST_NOTE);
+                }
                 self.log(LogDir::In, &first_line(&msg));
                 self.job_event(JobState::Error, &msg);
             }

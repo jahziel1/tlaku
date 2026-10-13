@@ -14,6 +14,12 @@ mm_per_rotation: number,
  */
 roller_diameter: number, 
 /**
- * Diámetro de la pieza en mm (solo `chuck`, y para la vista previa).
+ * Diámetro de la pieza en mm (solo `chuck`, y para la circunferencia que se avisa y la
+ * prueba de una vuelta; con `roller` no afecta al G-code).
  */
-object_diameter: number, };
+object_diameter: number, 
+/**
+ * Refleja la Y del trabajo dentro de su caja (solo en el G-code) cuando el accesorio gira
+ * al revés según el montaje del motor. No cambia el área que ocupa el trabajo.
+ */
+mirror: boolean, };

@@ -6,6 +6,7 @@ export const camera = {
   'camera.cmd.backdrop': 'Mostrar fondo de cámara en el lienzo',
   'camera.cmd.freeze': 'Congelar el cuadro de la cámara',
   'camera.cmd.calibrate': 'Calibrar lente de la cámara…',
+  'camera.cmd.alignMarks': 'Alinear cámara con marcas grabadas…',
   'camera.reason.noAlignment': 'Primero alinea la cámara con la cama (pestaña Cámara).',
   'camera.reason.notLive': 'Enciende la cámara primero.',
 
@@ -150,6 +151,78 @@ export const camera = {
   'camera.board.caption': 'Tlaku: tablero de calibración, {cols} x {rows} esquinas internas, cuadro de {size} mm. Imprime al 100 % (sin ajustar a la página).',
   'camera.board.saveFail': 'No se pudo guardar el tablero: {error}',
   'camera.board.printHint': 'Imprime al 100 % y comprueba con una regla que un cuadro mide {size} mm.',
+
+  // altura del material
+  'camera.height.title': 'Altura del material',
+  'camera.height.thickness': 'Grosor del material',
+  'camera.height.help':
+    'La cámara ve la superficie del material, que está más cerca que la cama, y el fondo se corre según el grosor. Escríbelo para que el fondo coincida con el material.',
+  'camera.height.noAlignment': 'Primero alinea la cámara con la cama.',
+  'camera.height.none':
+    'Sin corrección: la alineación solo vale para la altura en que se hizo ({ref} mm). Alinea con marcas a otra altura, o calibra la lente, para poder corregir el grosor.',
+  'camera.height.modelled':
+    'Corrección estimada con la lente (aproximada). Para más precisión alinea con marcas a una segunda altura, por ejemplo sobre una tabla de 20 mm.',
+  'camera.height.measured': 'Corrección medida con marcas a {list} mm.',
+  'camera.height.outside':
+    'Este grosor está {mm} mm fuera de lo medido ({min} a {max} mm): extrapolar es menos fiable. Alinea a una altura más cercana.',
+  'camera.height.shift': 'Con este grosor el fondo se mueve hasta {mm} mm respecto de la alineación a {ref} mm.',
+
+  // alinear con marcas grabadas (panel y asistente)
+  'camera.marks.title': 'Alinear con marcas grabadas',
+  'camera.marks.help':
+    'Graba cruces en posiciones conocidas de la cama sobre un cartón, fotografíalas sin mover el material y la cámara se alinea sola, con la precisión medida en mm. La alineación manual de 4 puntos sigue disponible.',
+  'camera.marks.count': 'Número de marcas',
+  'camera.marks.count4': '4 marcas (rápido)',
+  'camera.marks.count9': '9 marcas (mide la precisión)',
+  'camera.marks.generate': 'Abrir documento de marcas',
+  'camera.marks.generateHint':
+    'Se abre como documento nuevo, en una capa de baja potencia, con las cruces en el 85 % de la cama. Grábalo con el cartón fijo y no lo muevas después. La esquina inferior izquierda lleva un círculo para fijar la orientación.',
+  'camera.marks.opened': 'Documento de {n} marcas abierto (cama de {w} × {h} mm). Grábalo con baja potencia y vuelve a la pestaña Cámara.',
+  'camera.marks.err.generate': 'No se pudo generar el documento de marcas: {error}',
+  'camera.marks.open': 'Capturar y detectar…',
+  'camera.marks.heights': 'Alturas medidas: {list} mm.',
+  'camera.marks.removeHeight': 'Quitar la captura de {h} mm',
+
+  'camera.marks.dialog.title': 'Alinear con marcas grabadas',
+  'camera.marks.dialog.subtitle': 'Detecta las cruces grabadas en la foto de la cama y mide la precisión de la alineación.',
+  'camera.marks.close': 'Cerrar',
+  'camera.marks.steps.title': 'Cómo hacerlo',
+  'camera.marks.step1': 'Abre el documento de marcas (en el panel) y grábalo sobre un cartón en la cama, con baja potencia.',
+  'camera.marks.step2': 'Sin mover el cartón ni la cámara, enciende la cámara hasta que se vea la cama y pulsa Capturar y detectar.',
+  'camera.marks.step3': 'Revisa las marcas y el error. Si es bueno, pulsa Aceptar. Para corregir el grosor, repite con una tabla de otra altura y su altura aquí.',
+  'camera.marks.height': 'Altura de las marcas',
+  'camera.marks.heightHint': 'Grosor del material donde se grabaron (0 si están sobre la cama).',
+  'camera.marks.noCamera': 'Enciende la cámara para capturar.',
+  'camera.marks.startCamera': 'Encender cámara',
+  'camera.marks.noImage': 'Todavía no hay imagen de la cámara. Enciéndela y espera a que se vea la cama.',
+  'camera.marks.noLens': 'La lente no está calibrada: la precisión baja hacia los bordes. Calibra la lente primero para mejores resultados.',
+  'camera.marks.detect': 'Capturar y detectar',
+  'camera.marks.detecting': 'Detectando…',
+  'camera.marks.fail': 'No se pudieron detectar las marcas: {error}',
+  'camera.marks.mockNote': 'Modo simulado: las marcas y los errores son de ejemplo, no medidos.',
+  'camera.marks.photo': 'Foto de la cama con las marcas encontradas',
+  'camera.marks.legend': 'Verde: marca usada. Ámbar: error alto. Rojo: descartada. Rojo punteado: no encontrada. Gris: candidato descartado.',
+  'camera.marks.result': 'Resultado',
+  'camera.marks.found': 'Marcas usadas: {used} de {expected} ({found} encontradas).',
+  'camera.marks.fit': 'Error del ajuste: {rms} mm (máximo {max} mm).',
+  'camera.marks.loo': 'Precisión real, dejando una marca fuera: {rms} mm en promedio y {max} mm como máximo.',
+  'camera.marks.looNone': 'Con menos de 5 marcas el ajuste es exacto y no se puede medir la precisión. Usa 9 marcas para medirla.',
+  'camera.marks.grade.excellent': 'excelente (menos de 0,3 mm)',
+  'camera.marks.grade.good': 'buena (menos de 0,6 mm)',
+  'camera.marks.grade.fair': 'aceptable (menos de 1 mm)',
+  'camera.marks.grade.poor': 'mala (1 mm o más): conviene repetir',
+  'camera.marks.col.mark': 'Marca',
+  'camera.marks.col.error': 'Error',
+  'camera.marks.col.loo': 'Fuera',
+  'camera.marks.missing': 'no encontrada',
+  'camera.marks.discarded': 'descartada',
+  'camera.marks.accept': 'Aceptar alineación',
+  'camera.marks.retry': 'Descartar y repetir',
+  'camera.marks.accepted': 'Alineación guardada con marcas a {h} mm.',
+  'camera.marks.tooClose':
+    'Ya hay una captura a menos de {gap} mm de esa altura. Usa una altura que difiera al menos {gap} mm, o la misma para reemplazarla.',
+  'camera.marks.tooFew': 'Hacen falta al menos 4 marcas usadas para aceptar.',
+  'camera.marks.sizeChanged': 'La imagen cambió de tamaño desde la captura (cambió la lente o la resolución). Captura de nuevo.',
 
   // errores generales
   'camera.err.load': 'No se pudo leer la configuración de la cámara: {error}',

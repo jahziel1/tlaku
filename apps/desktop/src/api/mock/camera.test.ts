@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMockApi } from './index';
-import { STORAGE_KEY, createSetupStore, pngSize } from './camera';
+import { STORAGE_KEY, createSetupStore, mockMarkPositions, pngSize } from './camera';
 
 /** PNG 1x1 mínimo con la cabecera IHDR cambiada al tamaño pedido (solo se lee la cabecera). */
 function fakePng(w: number, h: number): string {
@@ -67,5 +67,73 @@ describe('mock de la configuración de cámara', () => {
     await expect(api.saveBoardFile({ path: '/x/tablero.pdf', content_base64: '' })).resolves.toBeUndefined();
     await expect(api.saveBoardFile({ path: '/x/tablero.png', content_base64: '' })).rejects.toThrow(/svg o .pdf/);
     api.dispose();
+  });
+});
+
+describe('mock de marcas grabadas y altura', () => {
+  const api = createMockApi({ latencyMs: 0 });
+  const BED: [number, number] = [300, 200];
+
+  it('genera el documento de marcas con una capa line de baja potencia', async () => {
+    const doc = await api.cameraMarks({ bed: BED, count: 9 });
+    expect(doc.objects).toHaveLength(9);
+    expect(doc.layers).toHaveLength(1);
+    expect(doc.layers[0]!.mode).toBe('line');
+    expect(doc.layers[0]!.power).toBeLessThanOrEqual(15);
+    // La marca 1 lleva círculo (3 trazos); las demás, solo la cruz (2).
+    const strokes = doc.objects.map((o) => (o.kind.type === 'vector' ? o.kind.paths.length : 0));
+    expect(strokes).toEqual([3, 2, 2, 2, 2, 2, 2, 2, 2]);
+    expect((await api.cameraMarks({ bed: BED, count: 4 })).objects).toHaveLength(4);
+    await expect(api.cameraMarks({ bed: [20, 20], count: 4 })).rejects.toThrow();
+  });
+
+  it('las posiciones de las marcas cubren el 85 % de la cama, como el motor', () => {
+    const pos = mockMarkPositions(BED, 9);
+    expect(pos[0]).toEqual([22.5, 15]);
+    expect(pos[2]).toEqual([277.5, 185]);
+    expect(pos[8]).toEqual([150, 100]);
+  });
+
+  it('detecta las marcas dentro de la imagen con errores plausibles', async () => {
+    const r = await api.detectCameraMarks({ image_png_base64: fakePng(1280, 720), bed: BED, count: 9, prior_to_bed: null });
+    expect(r.marks).toHaveLength(9);
+    expect(r.used).toBe(9);
+    for (const m of r.marks) {
+      expect(m.image![0]).toBeGreaterThan(0);
+      expect(m.image![0]).toBeLessThan(1280);
+      expect(m.image![1]).toBeGreaterThan(0);
+      expect(m.image![1]).toBeLessThan(720);
+    }
+    expect(r.loo_rms_mm).not.toBeNull();
+    expect(r.loo_max_mm!).toBeLessThan(0.6);
+    const four = await api.detectCameraMarks({ image_png_base64: fakePng(1280, 720), bed: BED, count: 4, prior_to_bed: null });
+    expect(four.loo_rms_mm).toBeNull();
+    expect(four.marks).toHaveLength(4);
+  });
+
+  it('al guardar completa el modelo de altura: medido con dos alturas, estimado con lente, ninguno sin lente', async () => {
+    const det = await api.detectCameraMarks({ image_png_base64: fakePng(1280, 720), bed: BED, count: 9, prior_to_bed: null });
+    const sample = (h: number) => ({ height_mm: h, image_px: det.marks.map((m) => m.image!), bed_mm: det.marks.map((m) => m.bed) });
+    const blank = await api.loadCameraSetup();
+    const lens = (await api.calibrateLens({ images_png_base64: Array(3).fill(fakePng(1280, 720)), board: [9, 6], square_mm: 25 })).calibration;
+    const align = (samples: ReturnType<typeof sample>[]) => ({
+      image_size: [1280, 720] as [number, number],
+      image_px: [det.marks[0]!.image!, det.marks[1]!.image!, det.marks[2]!.image!, det.marks[3]!.image!] as [[number, number], [number, number], [number, number], [number, number]],
+      bed_mm: [det.marks[0]!.bed, det.marks[1]!.bed, det.marks[2]!.bed, det.marks[3]!.bed] as [[number, number], [number, number], [number, number], [number, number]],
+      to_bed: det.to_bed,
+      rms_mm: det.rms_mm,
+      method: 'marks' as const,
+      samples,
+    });
+    const two = await api.saveCameraSetup({ setup: { ...blank, alignment: align([sample(20), sample(0)]), prefs: { ...blank.prefs, material_height_mm: 500 } } });
+    expect(two.alignment!.height!.source).toBe('measured');
+    expect([two.alignment!.height!.min_height_mm, two.alignment!.height!.max_height_mm]).toEqual([0, 20]);
+    expect(two.alignment!.reference_height_mm).toBe(0);
+    expect(two.prefs.material_height_mm).toBe(300);
+    const one = await api.saveCameraSetup({ setup: { ...blank, calibration: lens, alignment: align([sample(0)]) } });
+    expect(one.alignment!.height!.source).toBe('modelled');
+    const none = await api.saveCameraSetup({ setup: { ...blank, alignment: align([sample(0)]) } });
+    expect(none.alignment!.height).toBeNull();
+    await api.saveCameraSetup({ setup: blank });
   });
 });
