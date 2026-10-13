@@ -1,7 +1,11 @@
 import { CanvasView } from '@/features/canvas';
 import { DropOverlay, PromptHost, useCloseGuard, useFileDrop, useWindowTitle } from '@/features/history';
 import { ColorPalette } from '@/features/layers';
+import { ArrangeDialogHost } from '@/features/arrange';
+import { CameraDialogHost } from '@/features/camera';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
+import { TextPanel } from '@/features/text';
+import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
 import { useStore } from '@/store';
 import './shell-extra.css';
@@ -28,6 +32,7 @@ export function AppShell() {
       <main className="shell__main">
         {!machineTab && <AlarmBanner compact />}
         <CanvasView />
+        <TextPanel />
         {previewVisible && <PreviewBar />}
       </main>
       <Dock />
@@ -40,6 +45,9 @@ export function AppShell() {
       <PromptHost />
       <ShortcutsDialog />
       <MachineDialogHost />
+      <ArrangeDialogHost />
+      <TraceDialogHost />
+      <CameraDialogHost />
     </div>
   );
 }

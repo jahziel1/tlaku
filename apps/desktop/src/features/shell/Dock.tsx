@@ -1,6 +1,7 @@
-import { Cpu, History, Layers, Terminal } from 'lucide-react';
+import { Camera, Cpu, History, Layers, Terminal } from 'lucide-react';
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { useCommand } from '@/commands/useCommand';
+import { CameraPanel } from '@/features/camera';
 import { HistoryPanel } from '@/features/history';
 import { ConsolePanel, MachinePanel } from '@/features/machine';
 import { LayersPanel } from '@/features/layers';
@@ -14,6 +15,7 @@ const TABS: { id: DockTab; icon: typeof Layers; cmd: string; label: I18nKey }[] 
   { id: 'machine', icon: Cpu, cmd: 'panel.machine', label: 'dock.machine' },
   { id: 'console', icon: Terminal, cmd: 'panel.console', label: 'dock.console' },
   { id: HISTORY_TAB, icon: History, cmd: 'panel.history', label: 'history.dock.title' },
+  { id: 'camera', icon: Camera, cmd: 'panel.camera', label: 'dock.camera' },
 ];
 
 function Tab({ id, icon: Icon, cmd, label, onKey }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent) => void }) {
@@ -92,6 +94,7 @@ export function Dock() {
         {tab === 'machine' && <MachinePanel />}
         {tab === 'console' && <ConsolePanel />}
         {tab === HISTORY_TAB && <HistoryPanel />}
+        {tab === 'camera' && <CameraPanel />}
       </div>
     </aside>
   );

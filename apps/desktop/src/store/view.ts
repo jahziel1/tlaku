@@ -6,7 +6,7 @@ import { selectActiveDevice, selectSelectedObjects } from './selectors';
 import type { SliceCreator } from './types';
 
 export type Theme = 'dark' | 'light';
-export type DockTab = 'layers' | 'machine' | 'console' | 'history';
+export type DockTab = 'layers' | 'machine' | 'console' | 'history' | 'camera';
 
 export interface ViewSlice {
   zoom: number;

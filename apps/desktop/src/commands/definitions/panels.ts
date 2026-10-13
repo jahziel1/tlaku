@@ -6,6 +6,7 @@ const TABS: [DockTab, string][] = [
   ['layers', 'Mod+1'],
   ['machine', 'Mod+2'],
   ['console', 'Mod+3'],
+  ['camera', 'Mod+5'],
 ];
 
 export const panelCommands: CommandDef[] = TABS.map(([tab, key]) => ({

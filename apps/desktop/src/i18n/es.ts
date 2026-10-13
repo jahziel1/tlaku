@@ -66,6 +66,7 @@ const base = {
   'cmd.panel.layers': 'Mostrar capas',
   'cmd.panel.machine': 'Mostrar máquina',
   'cmd.panel.console': 'Mostrar consola',
+  'cmd.panel.camera': 'Panel de cámara',
 
   // ---- menús y barras -----------------------------------------------------
   'menu.label': 'Menú principal',
@@ -131,6 +132,7 @@ const base = {
   'dock.layers': 'Capas',
   'dock.machine': 'Máquina',
   'dock.console': 'Consola',
+  'dock.camera': 'Cámara',
 
   // ---- capas ----------------------------------------------------------------
   'layers.empty': 'Aún no hay capas. Importa un diseño o elige un color en la franja de abajo.',
