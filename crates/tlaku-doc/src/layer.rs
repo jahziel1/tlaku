@@ -194,6 +194,8 @@ pub struct TabSettings {
     pub spacing: f64,
     /// No poner puentes en las formas que están dentro de otra (huecos).
     pub skip_inner: bool,
+    /// Potencia (%) en los puentes para marcarlos sin atravesar; 0 = apagado.
+    pub power: f64,
 }
 
 impl Default for TabSettings {
@@ -204,6 +206,7 @@ impl Default for TabSettings {
             count: 4,
             spacing: 0.0,
             skip_inner: true,
+            power: 0.0,
         }
     }
 }

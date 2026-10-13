@@ -21,8 +21,9 @@ pub use cut::{
     Ramp, ShapeParams, StartSpec, VariableText, VirtualArray,
 };
 pub use device::{
-    CommentStyle, DeviceKind, DeviceProfile, DwellFormat, GcodeDialect, Origin, PowerMode,
-    RotaryKind, RotarySettings, ScanOffset,
+    CommentStyle, Connection, DeviceKind, DeviceProfile, DwellFormat, GcodeDialect,
+    LhyMicroSettings, Macro, Origin, PowerMode, RotaryKind, RotarySettings, RuidaSettings,
+    SavedPosition, ScanOffset,
 };
 pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,

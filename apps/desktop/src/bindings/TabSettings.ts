@@ -20,4 +20,8 @@ spacing: number,
 /**
  * No poner puentes en las formas que están dentro de otra (huecos).
  */
-skip_inner: boolean, };
+skip_inner: boolean, 
+/**
+ * Potencia (%) en los puentes para marcarlos sin atravesar; 0 = apagado.
+ */
+power: number, };

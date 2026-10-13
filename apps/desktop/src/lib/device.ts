@@ -34,6 +34,20 @@ export const DEFAULT_DIALECT: GcodeDialect = {
   max_line_len: 127,
 };
 
+/** Valores por defecto de los campos de la ola 4 (los mismos que `DeviceProfile::default()`). */
+export const DEVICE_WAVE4_DEFAULTS: Pick<
+  DeviceProfile,
+  'connection' | 'macros' | 'positions' | 'laser2' | 'u_axis' | 'ruida' | 'lhymicro'
+> = {
+  connection: { type: 'serial' },
+  macros: [],
+  positions: [],
+  laser2: false,
+  u_axis: false,
+  ruida: { magic: null, run_after_upload: false },
+  lhymicro: { board: 'M2' },
+};
+
 /** Perfil provisional mientras no se ha cargado ninguno (cama de 400 x 400 mm). */
 export const FALLBACK_DEVICE: DeviceProfile = {
   id: 'predeterminado',
@@ -57,7 +71,9 @@ export const FALLBACK_DEVICE: DeviceProfile = {
   rotary: { ...DEFAULT_ROTARY },
   scan_offsets: [],
   scan_initial_offset: 0,
+  ...DEVICE_WAVE4_DEFAULTS,
 };
+
 
 /**
  * Completa un perfil que llega sin los campos de la Fase 4 (guardado antes de ellos) con los
@@ -68,6 +84,7 @@ export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProf
     typeof device.z_axis === 'boolean' &&
     typeof device.z_invert === 'boolean' &&
     typeof device.scan_initial_offset === 'number' &&
+    (Object.keys(DEVICE_WAVE4_DEFAULTS) as (keyof typeof DEVICE_WAVE4_DEFAULTS)[]).every((k) => k in device) &&
     device.dialect !== undefined &&
     (Object.keys(DEFAULT_DIALECT) as (keyof GcodeDialect)[]).every((k) => k in device.dialect!) &&
     Array.isArray(device.scan_offsets) &&
@@ -84,6 +101,12 @@ export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProf
     rotary: { ...DEFAULT_ROTARY, ...device.rotary },
     scan_offsets: device.scan_offsets ?? [],
     scan_initial_offset: device.scan_initial_offset ?? 0,
+    ...DEVICE_WAVE4_DEFAULTS,
+    ...Object.fromEntries(
+      (Object.keys(DEVICE_WAVE4_DEFAULTS) as (keyof typeof DEVICE_WAVE4_DEFAULTS)[])
+        .filter((k) => device[k] !== undefined)
+        .map((k) => [k, device[k]]),
+    ),
   };
 }
 

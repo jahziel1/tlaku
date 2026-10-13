@@ -12,6 +12,8 @@ export const devices: { [K in keyof typeof Source]?: string } = {
   'devices.kind.smoothie': 'Smoothieware',
   'devices.kind.marlin': 'Marlin',
   'devices.kind.custom_gcode': 'Custom G-code',
+  'devices.kind.ruida': 'Ruida (CO2, network; experimental)',
+  'devices.kind.lhy_micro': 'K40 with M2 Nano (experimental)',
   'devices.kind.exportOnly': 'G-code export only for now',
   'devices.kind.exportOnly.hint': 'With this controller type Tlaku can only export G-code for now; sending directly to the machine is not available yet.',
   'devices.kind.custom.hint': 'It starts from the dialect the profile already has: edit it under "G-code dialect". Choosing this type does not change any other value.',

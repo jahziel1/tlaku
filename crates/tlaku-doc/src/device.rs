@@ -21,6 +21,12 @@ pub enum DeviceKind {
     Marlin,
     /// G-code propio: el usuario edita el dialecto; parte del de GRBL 1.1.
     CustomGcode,
+    /// Controladoras DSP Ruida (CO2): protocolo binario por red (UDP) o archivo `.rd`; no usa
+    /// el dialecto de G-code. Ver `docs/hardware/ruida.md` y el crate `tlaku-ruida`.
+    Ruida,
+    /// Placas Lihuiyu M2 Nano y afines (K40 de serie): protocolo LHYMICRO-GL por USB; no usa
+    /// el dialecto de G-code. Ver `docs/hardware/dsp-co2.md`.
+    LhyMicro,
 }
 
 impl DeviceKind {
@@ -159,6 +165,9 @@ impl GcodeDialect {
             | DeviceKind::FluidNc
             | DeviceKind::GrblLpc
             | DeviceKind::CustomGcode => grbl,
+            // No hablan G-code: el dialecto no se usa, se deja el de GRBL para que el perfil
+            // siga siendo válido si alguien cambia de tipo.
+            DeviceKind::Ruida | DeviceKind::LhyMicro => grbl,
             // Sin `M4`, sin modo láser (`G0` no apaga) y con `S` entera de 0 a 255.
             DeviceKind::GrblM3 => Self {
                 s_decimals: 0,
@@ -364,6 +373,97 @@ pub struct DeviceProfile {
     /// unidireccionales) en el sentido del barrido, para alinear el grabado con los cortes
     /// vectoriales. Positivo = en el sentido de las líneas de ida.
     pub scan_initial_offset: f64,
+    /// Cómo se conecta: puerto serie (el que se elige en el panel), red TCP/WebSocket o UDP.
+    #[serde(default)]
+    pub connection: Connection,
+    /// Comandos guardados del usuario (botones en el panel Máquina).
+    #[serde(default)]
+    pub macros: Vec<Macro>,
+    /// Posiciones guardadas de la cabeza, en coordenadas de la máquina.
+    #[serde(default)]
+    pub positions: Vec<SavedPosition>,
+    /// Segundo láser o eje U (máquinas que los tengan); solo habilitan las opciones de la
+    /// interfaz y del driver que los usan.
+    #[serde(default)]
+    pub laser2: bool,
+    #[serde(default)]
+    pub u_axis: bool,
+    #[serde(default)]
+    pub ruida: RuidaSettings,
+    #[serde(default)]
+    pub lhymicro: LhyMicroSettings,
+}
+
+/// Transporte hacia la controladora.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
+pub enum Connection {
+    /// Puerto serie o USB-serie; el puerto se elige al conectar.
+    #[default]
+    Serial,
+    /// TCP (GRBL por red, FluidNC, grblHAL Ethernet). `port` suele ser 23.
+    Tcp { host: String, port: u16 },
+    /// WebSocket (FluidNC, ESP3D, algunos módulos WiFi).
+    WebSocket { url: String },
+    /// UDP (Ruida por red).
+    Udp { host: String },
+}
+
+/// Comando guardado del usuario: una o varias líneas que se mandan tal cual.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct Macro {
+    pub name: String,
+    /// Una línea por comando.
+    pub gcode: String,
+    /// Pedir confirmación antes de enviarlo.
+    pub confirm: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct SavedPosition {
+    pub name: String,
+    pub x: f64,
+    pub y: f64,
+}
+
+/// Ajustes propios de Ruida.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct RuidaSettings {
+    /// Byte de ofuscación; `None` = detectarlo al conectar (sondeo de solo lectura).
+    pub magic: Option<u8>,
+    /// Al enviar, ejecutar en vez de solo guardar en la memoria de la controladora.
+    pub run_after_upload: bool,
+}
+
+impl Default for RuidaSettings {
+    fn default() -> Self {
+        Self {
+            magic: None,
+            run_after_upload: false,
+        }
+    }
+}
+
+/// Ajustes de las placas Lihuiyu (M2 Nano y afines).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct LhyMicroSettings {
+    /// Modelo de placa (por ejemplo "M2", "M1", "B2"): cambia las ecuaciones de velocidad.
+    pub board: String,
+}
+
+impl Default for LhyMicroSettings {
+    fn default() -> Self {
+        Self { board: "M2".into() }
+    }
 }
 
 /// Forma en disco/red del perfil: igual que [`DeviceProfile`] pero con `dialect` opcional.
@@ -397,6 +497,20 @@ struct DeviceProfileRepr {
     scan_offsets: Vec<ScanOffset>,
     #[serde(default)]
     scan_initial_offset: f64,
+    #[serde(default)]
+    connection: Connection,
+    #[serde(default)]
+    macros: Vec<Macro>,
+    #[serde(default)]
+    positions: Vec<SavedPosition>,
+    #[serde(default)]
+    laser2: bool,
+    #[serde(default)]
+    u_axis: bool,
+    #[serde(default)]
+    ruida: RuidaSettings,
+    #[serde(default)]
+    lhymicro: LhyMicroSettings,
 }
 
 impl<'de> Deserialize<'de> for DeviceProfile {
@@ -429,6 +543,13 @@ impl From<DeviceProfileRepr> for DeviceProfile {
             rotary: r.rotary,
             scan_offsets: r.scan_offsets,
             scan_initial_offset: r.scan_initial_offset,
+            connection: r.connection,
+            macros: r.macros,
+            positions: r.positions,
+            laser2: r.laser2,
+            u_axis: r.u_axis,
+            ruida: r.ruida,
+            lhymicro: r.lhymicro,
         }
     }
 }
@@ -480,6 +601,13 @@ impl Default for DeviceProfile {
             rotary: RotarySettings::default(),
             scan_offsets: Vec::new(),
             scan_initial_offset: 0.0,
+            connection: Connection::Serial,
+            macros: Vec::new(),
+            positions: Vec::new(),
+            laser2: false,
+            u_axis: false,
+            ruida: RuidaSettings::default(),
+            lhymicro: LhyMicroSettings::default(),
         }
     }
 }

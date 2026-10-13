@@ -10,6 +10,8 @@ export const devices = {
   'devices.kind.smoothie': 'Smoothieware',
   'devices.kind.marlin': 'Marlin',
   'devices.kind.custom_gcode': 'G-code personalizado',
+  'devices.kind.ruida': 'Ruida (CO2, por red; experimental)',
+  'devices.kind.lhy_micro': 'K40 con M2 Nano (experimental)',
   'devices.kind.exportOnly': 'solo exportar G-code por ahora',
   'devices.kind.exportOnly.hint': 'Con este tipo de controladora Tlaku solo puede exportar el G-code por ahora; el envío directo a la máquina aún no está disponible.',
   'devices.kind.custom.hint': 'Parte del dialecto que ya tiene el perfil: edítalo en «Dialecto de G-code». Elegir este tipo no cambia ningún otro valor.',

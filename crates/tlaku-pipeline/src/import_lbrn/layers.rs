@@ -464,6 +464,7 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
                 0.0
             },
             skip_inner: layer.flag("skipInnerTabs").unwrap_or(d.skip_inner),
+            power: d.power,
         };
         if layer.flag("manualTabs").unwrap_or(false) {
             // Con puentes manuales LightBurn coloca cada puente a mano; aquí se reparten solos.

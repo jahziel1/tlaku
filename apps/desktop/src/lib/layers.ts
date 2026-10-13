@@ -25,6 +25,7 @@ export const DEFAULT_TAB_SETTINGS: TabSettings = {
   count: 4,
   spacing: 0,
   skip_inner: true,
+  power: 0,
 };
 
 /** Máximo de operaciones adicionales (sub-capas) de una capa; el mismo que `MAX_SUB_LAYERS` del motor (`place.rs`). */
