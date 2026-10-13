@@ -61,6 +61,9 @@ fn vector(id: &str, color: Rgb, paths: Vec<BezPath>) -> DesignObject {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 
@@ -246,6 +249,9 @@ fn text_object(outline: Vec<BezPath>) -> DesignObject {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 
@@ -295,6 +301,9 @@ fn with_image(path: &str) -> Document {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     });
     doc.layers.push(LayerSettings::for_images());
     doc
@@ -570,6 +579,9 @@ fn png_rellena_capas_de_relleno_y_dibuja_imagenes() {
             locked: false,
             hidden: false,
             group: None,
+            priority: None,
+            power_scale: None,
+            shape: None,
         }],
         layers: vec![LayerSettings::for_images()],
         ..Document::default()

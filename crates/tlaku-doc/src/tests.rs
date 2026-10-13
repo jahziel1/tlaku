@@ -26,6 +26,9 @@ fn square(id: &str, layer: Rgb, transform: affine::Transform) -> DesignObject {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 
@@ -44,6 +47,9 @@ fn sample() -> Document {
         locked: true,
         hidden: false,
         group: Some("g1".into()),
+        priority: None,
+        power_scale: None,
+        shape: None,
     };
     Document {
         version: DOC_VERSION,
@@ -403,6 +409,9 @@ fn text_object_roundtrips_and_uses_its_outline() {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     };
     let v = serde_json::to_value(&text).unwrap();
     assert_eq!(v["kind"]["type"], "text");

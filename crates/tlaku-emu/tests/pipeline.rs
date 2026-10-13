@@ -35,6 +35,9 @@ fn rect(id: &str, layer: Rgb, x: f64, y: f64, w: f64, h: f64) -> DesignObject {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 

@@ -1,4 +1,87 @@
 import type { fileio as Source } from '../es/fileio';
 
 /** English for the `fileio` area. Missing keys fall back to Spanish (see `i18n/index.ts`). */
-export const fileio: { [K in keyof typeof Source]?: string } = {};
+export const fileio: { [K in keyof typeof Source]?: string } = {
+  // ---- commands ---------------------------------------------------------------
+  'fileio.cmd.importOptions': 'Import with options…',
+  'fileio.cmd.exportSvg': 'Export SVG…',
+  'fileio.cmd.exportDxf': 'Export DXF…',
+  'fileio.cmd.exportPng': 'Export PNG image…',
+  'fileio.cmd.exportPdf': 'Export PDF…',
+  'fileio.cmd.print': 'Print…',
+  'fileio.reason.empty': 'There are no objects to export.',
+
+  // ---- export dialog -------------------------------------------------
+  'fileio.export.title.svg': 'Export SVG',
+  'fileio.export.title.dxf': 'Export DXF',
+  'fileio.export.title.png': 'Export PNG image',
+  'fileio.export.title.pdf': 'Export PDF',
+  'fileio.export.title.print': 'Print',
+  'fileio.export.accept': 'Export…',
+  'fileio.export.acceptPrint': 'Print',
+  'fileio.export.cancel': 'Cancel',
+  'fileio.scope.legend': 'What to export',
+  'fileio.scope.all': 'The whole design',
+  'fileio.scope.selection': 'Selection only ({n})',
+  'fileio.margin': 'Margin (mm)',
+  'fileio.stroke': 'Stroke width (mm)',
+  'fileio.fillLayers': 'Fill the shapes on fill layers',
+
+  'fileio.svg.hint': 'True measurements in mm, Bézier curves, one group per layer, and text converted to paths.',
+  'fileio.svg.images': 'Images',
+  'fileio.svg.images.embed': 'Embed',
+  'fileio.svg.images.link': 'Link',
+  'fileio.svg.images.skip': 'Do not include',
+  'fileio.svg.keepPosition': 'Keep the bed coordinates',
+
+  'fileio.dxf.hint': 'DXF in mm with one layer per color. Paths made only of curves are exported as exact SPLINEs; paths that mix straight segments and curves are exported as a flattened polyline.',
+  'fileio.dxf.curves': 'Curves',
+  'fileio.dxf.curves.splines': 'Exact curves (SPLINE)',
+  'fileio.dxf.curves.flatten': 'Flatten to polylines',
+  'fileio.dxf.tolerance': 'Tolerance (mm)',
+  'fileio.dxf.trueColor': 'Save the exact color (DXF 2004); without it, only the nearest ACI color is saved',
+
+  'fileio.png.hint': 'The design drawn in each layer\'s color, with the resolution stored in the file.',
+  'fileio.png.dpi': 'Resolution (dpi)',
+  'fileio.png.transparent': 'Transparent background',
+
+  'fileio.pdf.hint': 'Vector PDF at 1:1 scale: when printing, choose actual size (100%) and do not fit to page.',
+  'fileio.pdf.page': 'Page',
+  'fileio.pdf.page.fit': 'Fit to design',
+  'fileio.pdf.page.a4': 'A4',
+  'fileio.pdf.page.a3': 'A3',
+  'fileio.pdf.page.letter': 'Letter',
+  'fileio.pdf.page.legal': 'Legal',
+  'fileio.pdf.images': 'Include images',
+
+  // ---- output file and notices ------------------------------------------------
+  'fileio.save.filter.svg': 'SVG',
+  'fileio.save.filter.dxf': 'DXF',
+  'fileio.save.filter.png': 'PNG image',
+  'fileio.save.filter.pdf': 'PDF',
+  'fileio.notice.exported': 'Exported to {path} ({w} × {h} mm, {size}).',
+  'fileio.notice.exportedWithWarnings': 'Exported to {path} with {w} warning(s).',
+  'fileio.notice.exportFailed': 'Export failed: {error}',
+  'fileio.notice.printed': 'The PDF was opened at 1:1 scale in the system viewer ({path}). Print it at actual size (100%).',
+  'fileio.notice.printFailed': 'Printing failed: {error}',
+
+  // ---- import options dialog --------------------------------------------
+  'fileio.import.title': 'Import options',
+  'fileio.import.files': '{n} file(s)',
+  'fileio.import.accept': 'Import',
+  'fileio.import.cancel': 'Cancel',
+  'fileio.import.scale': 'Scale (%)',
+  'fileio.import.dpi': 'Resolution (dpi) for unitless SVGs and images',
+  'fileio.import.dpi.auto': 'Automatic (96)',
+  'fileio.import.dxfUnit': 'Unit for a DXF without units',
+  'fileio.import.dxfUnit.auto': 'Millimeters (warning)',
+  'fileio.import.dxfUnit.inch': 'Inches',
+  'fileio.import.dxfUnit.cm': 'Centimeters',
+  'fileio.import.group': 'Group everything imported',
+  'fileio.import.layer': 'Target layer for vectors',
+  'fileio.import.layer.auto': 'One layer per color (automatic)',
+  'fileio.import.pdfPage': 'PDF or AI page',
+  'fileio.import.gcode': 'G-code',
+  'fileio.import.gcode.power': 'One layer per power level',
+  'fileio.import.gcode.single': 'A single layer',
+};

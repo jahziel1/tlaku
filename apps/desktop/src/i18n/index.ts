@@ -17,6 +17,17 @@ export function getLanguage(): Language {
   return current;
 }
 
+/** Idioma del sistema: inglés si `navigator.language` empieza por «en»; en cualquier otro caso, español. */
+export function detectLanguage(): Language {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return 'es';
+  return /^en\b/i.test(navigator.language || '') ? 'en' : 'es';
+}
+
+/** Código regional para `Intl` y `localeCompare` según el idioma de la interfaz. */
+export function locale(): string {
+  return current === 'en' ? 'en-US' : 'es';
+}
+
 /**
  * Traduce una clave del diccionario. Los marcadores `{nombre}` se reemplazan con `params`.
  * Todo texto visible de la interfaz sale de aquí. En inglés, una clave sin traducir se muestra

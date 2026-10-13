@@ -1,6 +1,6 @@
 import type { CommandCategory, CommandDef, CommandRegistry } from '@/commands';
 import { formatCombo, normalizeCombo, sameCombos, type ShortcutOverrides } from '@/commands/shortcuts';
-import { t, type I18nKey } from '@/i18n';
+import { t, type I18nKey, locale } from '@/i18n';
 
 /** Fila del editor de atajos: un comando con sus atajos de hoy y los de fábrica. */
 export interface EditorRow {
@@ -46,7 +46,7 @@ export function buildEditorRows(registry: CommandRegistry, mac: boolean): Editor
     };
   });
   const order = (c: CommandCategory) => EDITOR_CATEGORY_ORDER.indexOf(c);
-  return rows.sort((a, b) => order(a.category) - order(b.category) || a.label.localeCompare(b.label, 'es'));
+  return rows.sort((a, b) => order(a.category) - order(b.category) || a.label.localeCompare(b.label, locale()));
 }
 
 /** Todas las palabras de la búsqueda deben aparecer en el nombre, el id o los atajos. */

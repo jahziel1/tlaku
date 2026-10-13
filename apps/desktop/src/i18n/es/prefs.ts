@@ -25,8 +25,8 @@ export const prefs = {
   // ---- General ------------------------------------------------------------------
   'prefs.language': 'Idioma',
   'prefs.language.es': 'Español',
-  'prefs.language.en': 'English (próximamente)',
-  'prefs.language.hint': 'La interfaz ya está preparada para otros idiomas; el inglés llegará en una próxima versión.',
+  'prefs.language.en': 'English',
+  'prefs.language.hint': 'Elige el idioma de la interfaz. Con el tiempo se pueden agregar más idiomas.',
 
   // ---- Edición ------------------------------------------------------------------
   'prefs.units': 'Unidades de longitud',

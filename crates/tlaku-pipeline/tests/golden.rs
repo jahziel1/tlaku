@@ -29,6 +29,9 @@ fn object(id: &str, layer: Rgb, closed: bool, pts: &[(f64, f64)]) -> DesignObjec
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 

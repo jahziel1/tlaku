@@ -1,5 +1,5 @@
 import type { DesignObject, Point } from '@/api/types';
-import { t } from '@/i18n';
+import { t, locale } from '@/i18n';
 import { objectPolylines, pointsBounds } from '@/lib/geometry';
 
 /** Qué es un objeto, a grandes rasgos, para nombrarlo con algo útil en vez de su id interno. */
@@ -21,8 +21,8 @@ const THUMB_SIZE = 100;
 /** Margen alrededor del dibujo (mismas unidades) para que una línea recta tenga caja y el trazo no se corte. */
 const THUMB_PAD = 6;
 
-/** Milímetros con coma decimal y a lo más un decimal ("40", "12,5"). */
-export const mm = (v: number): string => new Intl.NumberFormat('es', { maximumFractionDigits: 1 }).format(v);
+/** Milímetros con el separador decimal del idioma y a lo más un decimal ("40", "12,5"). */
+export const mm = (v: number): string => new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(v);
 
 const dist = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 

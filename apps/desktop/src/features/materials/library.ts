@@ -4,6 +4,7 @@
  */
 import type { LayerSettings, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { normalizeLayer } from '@/lib/layers';
+import { locale } from '@/i18n';
 
 /** Versión del archivo de biblioteca (`MATERIAL_LIBRARY_VERSION` del motor). */
 export const LIBRARY_VERSION = 1;
@@ -186,12 +187,19 @@ export function fold(text: string): string {
   return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 }
 
-const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+const collators = new Map<string, Intl.Collator>();
+/** Comparador alfabético en el idioma de la interfaz (se crea una vez por idioma). */
+function collator(): Intl.Collator {
+  const loc = locale();
+  let c = collators.get(loc);
+  if (!c) collators.set(loc, (c = new Intl.Collator(loc, { sensitivity: 'base', numeric: true })));
+  return c;
+}
 
 /** Grosor en el texto de la interfaz: "3 mm", "0,5 mm" o "". */
 export function thicknessLabel(thickness: number | null, unit = 'mm'): string {
   if (thickness === null) return '';
-  return `${new Intl.NumberFormat('es', { maximumFractionDigits: 3 }).format(thickness)} ${unit}`;
+  return `${new Intl.NumberFormat(locale(), { maximumFractionDigits: 3 }).format(thickness)} ${unit}`;
 }
 
 /**
@@ -213,12 +221,12 @@ export function groupPresets(presets: readonly MaterialPreset[]): MaterialGroup[
     g.byThickness.set(p.thickness, list);
   }
   return [...groups.values()]
-    .sort((a, b) => collator.compare(a.material, b.material))
+    .sort((a, b) => collator().compare(a.material, b.material))
     .map((g) => ({
       material: g.material,
       thicknesses: [...g.byThickness.entries()]
         .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a - b))
-        .map(([thickness, list]) => ({ thickness, presets: [...list].sort((a, b) => collator.compare(a.title, b.title)) })),
+        .map(([thickness, list]) => ({ thickness, presets: [...list].sort((a, b) => collator().compare(a.title, b.title)) })),
     }));
 }
 

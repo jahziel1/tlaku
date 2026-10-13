@@ -95,6 +95,8 @@ pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
                 pattern: match l.fill_style {
                     FillStyle::Scan => FillPattern::Scan,
                     FillStyle::Offset => FillPattern::Offset,
+                    // TODO(ola2): relleno por regiones.
+                    FillStyle::Flood => FillPattern::Scan,
                 },
                 ..FillSettings::default()
             };

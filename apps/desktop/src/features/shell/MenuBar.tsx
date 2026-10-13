@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { commands } from '@/commands';
 import { useCommand } from '@/commands/useCommand';
 import { baseName, openRecent, useRecents } from '@/features/history';
-import { t } from '@/i18n';
+import { t, locale } from '@/i18n';
 import { buildMenus, type ShellMenu } from './menuModel';
 
 const ITEM_SELECTOR = '[role="menuitem"], [role="menuitemcheckbox"]';
@@ -142,9 +142,9 @@ export function MenuBar() {
       default:
         // Escribir una letra salta al siguiente elemento que empiece con ella.
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          const ch = e.key.toLocaleLowerCase('es');
+          const ch = e.key.toLocaleLowerCase(locale());
           const order = [...items.slice(i + 1), ...items.slice(0, i + 1)];
-          order.find((el) => el.textContent?.trim().toLocaleLowerCase('es').startsWith(ch))?.focus();
+          order.find((el) => el.textContent?.trim().toLocaleLowerCase(locale()).startsWith(ch))?.focus();
         }
     }
   };

@@ -29,4 +29,17 @@ halftone_cell: number,
 /**
  * Ángulo de la rejilla en grados (halftone y newsprint).
  */
-halftone_angle: number, };
+halftone_angle: number, 
+/**
+ * Envía la imagen tal cual, sin tramar: cada píxel ya es la potencia (imágenes
+ * preparadas en otro programa).
+ */
+pass_through: boolean, 
+/**
+ * Realce de bordes: radio en px (0 = apagado) y fuerza 0-1.
+ */
+enhance_radius: number, enhance_amount: number, 
+/**
+ * Quita motas de hasta este tamaño en px (0 = apagado).
+ */
+denoise: number, };

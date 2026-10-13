@@ -3,4 +3,4 @@
 /**
  * Cómo se rellena una forma cerrada en modo fill.
  */
-export type FillStyle = "scan" | "offset";
+export type FillStyle = "scan" | "offset" | "flood";

@@ -133,6 +133,9 @@ pub(crate) fn object(layer: Rgb, kind: ObjectKind) -> DesignObject {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 

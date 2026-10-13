@@ -130,7 +130,7 @@ export const devices = {
   'devices.rotary.test.check': 'Qué revisar',
   'devices.rotary.test.check1': 'Marca la pieza donde empieza el trazo. Al terminar, el final de la línea debe caer sobre su principio.',
   'devices.rotary.test.check2': 'Si se queda corto, sube «mm por vuelta»; si se pasa, bájalo (en proporción: nuevo = actual × vuelta esperada ÷ vuelta real). Repite hasta que cierre.',
-  'devices.rotary.test.check3': 'Con rodillos, debe dar una vuelta completa el rodillo motriz, no la pieza; con mandril, la pieza.',
+  'devices.rotary.test.check3': 'Con rodillos o con mandril, la que debe dar exactamente una vuelta es la pieza: el final del trazo cae sobre su principio. Con rodillos, el rodillo motriz gira más o menos según la relación de diámetros.',
   'devices.rotary.test.check4': 'Si el diseño sale invertido, activa «Espejo». Si la máquina da ALARM:2, desactiva los límites por software ($20=0) mientras uses el rotativo.',
   'devices.rotary.test.err': 'No se pudo generar la prueba de una vuelta: {error}',
   'devices.rotary.test.done': 'Prueba de una vuelta lista ({mm} mm de superficie). Revisa el trazo antes de enviarla.',

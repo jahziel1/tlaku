@@ -7,6 +7,7 @@
 pub mod affine;
 // Re-exporta las curvas para quien solo depende de este crate.
 pub use tlaku_core::bezpath::{BezPath, PathSeg};
+mod cut;
 mod device;
 mod document;
 mod job;
@@ -15,6 +16,9 @@ mod machine;
 mod materials;
 mod text;
 
+pub use cut::{
+    CutThrough, DotMode, FillGrouping, Lead, LeadKind, Optimization, Perforation, Ramp, ShapeParams,
+};
 pub use device::{
     CommentStyle, DeviceKind, DeviceProfile, GcodeDialect, Origin, PowerMode, RotaryKind,
     RotarySettings, ScanOffset,

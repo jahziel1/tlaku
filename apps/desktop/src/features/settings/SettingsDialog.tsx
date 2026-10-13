@@ -34,7 +34,7 @@ function GeneralPanel() {
         hint={t('prefs.language.hint')}
         options={[
           { value: 'es', label: t('prefs.language.es') },
-          { value: 'en', label: t('prefs.language.en'), disabled: true },
+          { value: 'en', label: t('prefs.language.en') },
         ]}
       />
     </Group>
@@ -161,6 +161,8 @@ async function resetPrefs(): Promise<void> {
 
 /** Ventana de Preferencias: General, Edición, Apariencia, Archivos y el editor de atajos. */
 export function SettingsDialog() {
+  // Al cambiar el idioma este diálogo sigue abierto: suscribirse hace que se pinte de nuevo ya traducido.
+  usePref('language');
   const titleId = useId();
   const section = useSettingsUi((s) => s.section);
   const setSection = useSettingsUi((s) => s.setSection);

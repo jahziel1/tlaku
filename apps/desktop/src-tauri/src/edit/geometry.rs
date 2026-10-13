@@ -165,6 +165,9 @@ fn vector_object(id: String, layer: tlaku_core::Rgb, piece: &[Polyline]) -> Desi
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 
@@ -500,6 +503,9 @@ mod tests {
             locked: false,
             hidden: false,
             group: None,
+            priority: None,
+            power_scale: None,
+            shape: None,
         }
     }
 

@@ -159,6 +159,7 @@ export const layers = {
   'layers.fillStyle': 'Relleno',
   'layers.fillStyle.scan': 'Barrido',
   'layers.fillStyle.offset': 'Contornos',
+  'layers.fillStyle.flood': 'Por regiones',
   'layers.fillStyle.offsetNote': 'Con contornos no se usan el ángulo, la trama cruzada, el bidireccional ni el overscan: el cabezal sigue la forma en anillos, no en líneas de barrido.',
   'layers.halftoneCell': 'Tamaño de celda',
   'layers.halftoneAngle': 'Ángulo de la rejilla',

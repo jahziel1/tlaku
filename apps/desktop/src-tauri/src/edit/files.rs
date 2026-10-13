@@ -289,6 +289,9 @@ mod tests {
             locked: false,
             hidden: false,
             group: None,
+            priority: None,
+            power_scale: None,
+            shape: None,
         };
         Document {
             objects: vec![obj("a"), obj("b")],

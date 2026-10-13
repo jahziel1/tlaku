@@ -1,10 +1,11 @@
+import { DEFAULT_JOB_OPTIONS } from '@/store/preview';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TAB_SETTINGS } from '@/lib/layers';
 import type { Document, JobOptions, LayerSettings } from '../types';
 import { mockComputeJob } from './job';
 import { sampleDevices, sampleDocument } from './sample';
 
-const options: JobOptions = { start_from: 'absolute', job_origin: 6, user_origin: null, selection: null, layer_order: 'auto' };
+const options: JobOptions = { start_from: 'absolute', job_origin: 6, user_origin: null, selection: null, layer_order: 'auto', optimization: DEFAULT_JOB_OPTIONS.optimization, use_selection_origin: false };
 const device = sampleDevices()[0]!;
 
 /** Documento de ejemplo con `patch` aplicado a la capa de corte (la que tiene más contornos cerrados). */

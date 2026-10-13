@@ -1,5 +1,6 @@
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
+import { detectLanguage, setLanguage } from '@/i18n';
 import { readPref, writePref } from '@/lib/platform';
 import type { SliceCreator } from './types';
 
@@ -16,7 +17,7 @@ export type Language = 'es' | 'en';
 export type ThemePref = 'dark' | 'light';
 
 export interface Prefs {
-  /** Idioma de la interfaz. Hoy solo hay español; el inglés llega después. */
+  /** Idioma de la interfaz. Sin preferencia guardada se usa el del sistema (inglés si empieza por «en»; si no, español). */
   language: Language;
   /** Unidad con la que se muestran y se escriben las longitudes (el documento siempre va en mm). */
   units: LengthUnit;
@@ -96,6 +97,8 @@ export function sanitizePrefs(raw: unknown): Prefs {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const out: Record<string, unknown> = {};
   for (const key of PREF_KEYS) out[key] = sanitizePref(key, src[key]);
+  // Sin idioma guardado (instalación nueva o archivo sin ese campo) manda el del sistema.
+  if (checkPref('language', src.language) === null) out.language = detectLanguage();
   return out as unknown as Prefs;
 }
 
@@ -123,7 +126,7 @@ function readCache(): PrefsData {
     if (theme === 'light' || theme === 'dark') prefs.theme = theme;
     return { prefs, shortcuts: sanitizeOverrides(obj.shortcuts) };
   } catch {
-    return { prefs: { ...DEFAULT_PREFS }, shortcuts: {} };
+    return { prefs: { ...DEFAULT_PREFS, language: detectLanguage() }, shortcuts: {} };
   }
 }
 
@@ -149,6 +152,8 @@ export interface PrefsSlice {
 
 export const createPrefsSlice: SliceCreator<PrefsSlice> = (set, get) => {
   const initial = readCache();
+  // El idioma se aplica antes del primer pintado, con lo que haya en la copia local.
+  setLanguage(initial.prefs.language);
   return {
     prefs: initial.prefs,
     shortcutOverrides: initial.shortcuts,
@@ -157,15 +162,24 @@ export const createPrefsSlice: SliceCreator<PrefsSlice> = (set, get) => {
     setPref: (key, value) => {
       const next = sanitizePref(key, value);
       if (get().prefs[key] === next) return;
+      // El idioma se fija antes de avisar a la interfaz, para que el primer repintado ya salga traducido.
+      if (key === 'language') setLanguage(next as Language);
       set((s) => ({ prefs: { ...s.prefs, [key]: next } }));
     },
-    replacePrefs: (data, loaded = true) =>
+    replacePrefs: (data, loaded = true) => {
+      const prefs = sanitizePrefs(data.prefs);
+      setLanguage(prefs.language);
       set({
-        prefs: sanitizePrefs(data.prefs),
+        prefs,
         shortcutOverrides: sanitizeOverrides(data.shortcuts),
         prefsLoaded: loaded || get().prefsLoaded,
-      }),
-    resetPrefs: () => set({ prefs: { ...DEFAULT_PREFS } }),
+      });
+    },
+    resetPrefs: () => {
+      const prefs = { ...DEFAULT_PREFS, language: detectLanguage() };
+      setLanguage(prefs.language);
+      set({ prefs });
+    },
     setShortcutOverrides: (shortcutOverrides) => set({ shortcutOverrides: sanitizeOverrides(shortcutOverrides) }),
   };
 };

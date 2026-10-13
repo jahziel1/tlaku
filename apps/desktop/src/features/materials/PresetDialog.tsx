@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import type { LayerSettings, MaterialPreset } from '@/api/types';
-import { t } from '@/i18n';
+import { t, locale } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
@@ -32,7 +32,7 @@ export function PresetDialog({ preset, layer, onClose }: Props) {
   const devices = useStore((s) => s.devices);
   const active = useStore(selectActiveDevice);
   const known = useMaterials((s) => s.library.presets);
-  const materials = useMemo(() => [...new Set(known.map((p) => p.material))].sort((a, b) => a.localeCompare(b, 'es')), [known]);
+  const materials = useMemo(() => [...new Set(known.map((p) => p.material))].sort((a, b) => a.localeCompare(b, locale())), [known]);
 
   const [material, setMaterial] = useState(preset?.material ?? '');
   const [thickness, setThickness] = useState(thicknessText(preset?.thickness ?? null));

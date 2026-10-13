@@ -154,6 +154,9 @@ pub fn build_marks_document(bed: [f64; 2], count: u32) -> Result<Document, Strin
             locked: false,
             hidden: false,
             group: None,
+            priority: None,
+            power_scale: None,
+            shape: None,
         });
     }
     Ok(Document {

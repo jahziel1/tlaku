@@ -44,6 +44,19 @@ export const DEFAULT_JOB_OPTIONS: JobOptions = {
   user_origin: null,
   selection: null,
   layer_order: 'auto',
+  optimization: {
+    by_layer: true,
+    by_group: false,
+    by_priority: true,
+    inner_first: true,
+    best_start: true,
+    choose_direction: true,
+    remove_overlaps: false,
+    overlap_tolerance: 0.01,
+    hide_backlash: false,
+    reduce_travel: true,
+  },
+  use_selection_origin: false,
 };
 
 const PREF_TRAVEL = 'preview.showTravel';

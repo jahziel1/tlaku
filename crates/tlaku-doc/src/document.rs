@@ -1,4 +1,5 @@
 use crate::affine::{self, Transform};
+use crate::cut::ShapeParams;
 use crate::layer::LayerSettings;
 use crate::text::TextObject;
 use serde::{Deserialize, Serialize};
@@ -59,6 +60,18 @@ pub struct DesignObject {
     pub hidden: bool,
     /// Grupo plano al que pertenece (los objetos con el mismo id se seleccionan juntos).
     pub group: Option<String>,
+    /// Prioridad en el orden de corte dentro de su capa (menor = antes); `None` = automática.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub priority: Option<i32>,
+    /// Escala de potencia del objeto, % de la potencia de su capa; `None` = 100 %.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub power_scale: Option<f64>,
+    /// Parámetros de la forma si se dibujó como forma paramétrica.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub shape: Option<ShapeParams>,
 }
 
 fn to_point(p: [f64; 2]) -> Point {

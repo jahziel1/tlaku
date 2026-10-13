@@ -147,6 +147,9 @@ pub fn rotary_test(
             locked: false,
             hidden: false,
             group: None,
+            priority: None,
+            power_scale: None,
+            shape: None,
         }],
         layers: vec![LayerSettings {
             name: "Prueba de una vuelta".into(),

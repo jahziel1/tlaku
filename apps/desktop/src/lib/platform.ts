@@ -1,11 +1,13 @@
+import { locale } from '@/i18n';
+
 export function isMac(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 }
 
-/** Formato de número con la configuración regional (coma decimal en español). */
+/** Formato de número con la configuración regional (coma decimal en español, punto en inglés). */
 export function fmt(value: number, digits = 1): string {
-  return new Intl.NumberFormat('es', {
+  return new Intl.NumberFormat(locale(), {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);

@@ -12,6 +12,10 @@ export const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
   dot_width: 0,
   halftone_cell: 0.5,
   halftone_angle: 45,
+  pass_through: false,
+  enhance_radius: 0,
+  enhance_amount: 0,
+  denoise: 0,
 };
 
 /** Mismos valores que `TabSettings::default()` del motor. */
@@ -47,6 +51,19 @@ export function makeLayer(color: string, name: string, patch: Partial<LayerSetti
     tabs: { ...DEFAULT_TAB_SETTINGS },
     z_offset: 0,
     z_step: 0,
+    // Ola 2: mismos valores por defecto que `LayerSettings::for_color` del motor (no cambian nada).
+    perforation: { enabled: false, cut_mm: 1, skip_mm: 1 },
+    lead_in: { enabled: false, kind: 'straight', length: 1, angle: 45 },
+    lead_out: { enabled: false, kind: 'straight', length: 1, angle: 45 },
+    overcut: 0,
+    start_delay_ms: 0,
+    end_delay_ms: 0,
+    cut_through: { enabled: false, power: 100, ms: 100 },
+    dot_mode: { enabled: false, dwell_ms: 1, spacing_mm: 0.5 },
+    ramp: { enabled: false, length_mm: 1, start_pct: 0, outer_only: false },
+    fill_grouping: 'all',
+    angle_increment: 0,
+    sub_layers: [],
     ...patch,
   };
 }

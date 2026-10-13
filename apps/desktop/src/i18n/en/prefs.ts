@@ -1,4 +1,128 @@
 import type { prefs as Source } from '../es/prefs';
 
 /** English for the `prefs` area. Missing keys fall back to Spanish (see `i18n/index.ts`). */
-export const prefs: { [K in keyof typeof Source]?: string } = {};
+export const prefs: { [K in keyof typeof Source]?: string } = {
+  // ---- commands ---------------------------------------------------------------
+  'prefs.cmd.open': 'Preferences…',
+  'prefs.cmd.shortcuts': 'Edit keyboard shortcuts…',
+
+  // ---- preferences window ------------------------------------------------
+  'prefs.title': 'Preferences',
+  'prefs.close': 'Close',
+  'prefs.nav': 'Preferences sections',
+  'prefs.section.general': 'General',
+  'prefs.section.editing': 'Editing',
+  'prefs.section.appearance': 'Appearance',
+  'prefs.section.files': 'Files',
+  'prefs.section.shortcuts': 'Shortcuts',
+  'prefs.import': 'Import…',
+  'prefs.export': 'Export…',
+  'prefs.reset': 'Reset',
+  'prefs.reset.title': 'Reset preferences',
+  'prefs.reset.message': 'All preferences will go back to their factory values. Your keyboard shortcuts are not affected.',
+  'prefs.reset.confirm': 'Reset',
+  'prefs.reset.cancel': 'Cancel',
+  'prefs.footer.hint': 'Changes are saved automatically.',
+
+  // ---- General ------------------------------------------------------------------
+  'prefs.language': 'Language',
+  'prefs.language.es': 'Español',
+  'prefs.language.en': 'English',
+  'prefs.language.hint': 'Choose the language of the interface. More languages can be added over time.',
+
+  // ---- Editing ------------------------------------------------------------------
+  'prefs.units': 'Length units',
+  'prefs.units.mm': 'Millimeters (mm)',
+  'prefs.units.in': 'Inches (in)',
+  'prefs.units.hint': 'The design is always stored in millimeters. The chosen unit is used in the fields that already support it and will be extended to the rest.',
+  'prefs.nudge.title': 'Arrow keys',
+  'prefs.nudgeStep': 'Normal step',
+  'prefs.nudgeStepBig': 'Step with Shift',
+  'prefs.nudgeStepFine': 'Step with Alt',
+  'prefs.rotateStep': 'Rotation step with Shift',
+  'prefs.snapPx': 'Snapping distance',
+  'prefs.duplicateOffset': 'Offset when duplicating and pasting',
+  'prefs.length.hint': 'Accepts units as you type: "5 mm", "0.25 in", "1/8"".',
+
+  // ---- Appearance -----------------------------------------------------------------
+  'prefs.theme': 'Theme',
+  'prefs.theme.dark': 'Dark',
+  'prefs.theme.light': 'Light',
+  'prefs.grid': 'Canvas grid',
+  'prefs.grid.auto': 'Automatic (based on zoom)',
+  'prefs.grid.hint': 'With a fixed size, the minor grid is that size and the major grid is ten times larger; when zoomed far out it is hidden so the view does not get cluttered.',
+
+  // ---- Files ---------------------------------------------------------------------
+  'prefs.autosave': 'Save recovery copies automatically',
+  'prefs.autosaveSecs': 'Interval between copies',
+  'prefs.autosave.hint': 'A copy is only saved when there are unsaved changes, and it is deleted when you save the project or close the application. If Tlaku closes unexpectedly, you are offered the chance to recover it on the next launch.',
+  'prefs.recentMax': 'Recent files to remember',
+  'prefs.recent.clear': 'Clear the recent files list',
+
+  // ---- field units -------------------------------------------------------
+  'prefs.unit.deg': '°',
+  'prefs.unit.px': 'px',
+  'prefs.unit.s': 's',
+  'prefs.unit.count': 'files',
+
+  // ---- shortcuts -------------------------------------------------------------------------
+  'prefs.shortcuts.search': 'Search for a command or a shortcut',
+  'prefs.shortcuts.none': 'No command matches "{q}".',
+  'prefs.shortcuts.unassigned': 'No shortcut',
+  'prefs.shortcuts.custom': 'Custom',
+  'prefs.shortcuts.count': '{n} custom',
+  'prefs.shortcuts.change': 'Change the shortcut',
+  'prefs.shortcuts.add': 'Add another shortcut',
+  'prefs.shortcuts.clear': 'Remove the shortcut',
+  'prefs.shortcuts.restore': 'Restore the default',
+  'prefs.shortcuts.press': 'Press the key combination… (Esc cancels)',
+  'prefs.shortcuts.captureLabel': 'Waiting for the key combination for "{name}"',
+  'prefs.shortcuts.conflict': '"{key}" is already the shortcut for "{name}".',
+  'prefs.shortcuts.steal': 'Take it away and assign it here',
+  'prefs.shortcuts.cancel': 'Cancel',
+  'prefs.shortcuts.restoreAll': 'Restore the defaults',
+  'prefs.shortcuts.restoreAll.title': 'Restore shortcuts',
+  'prefs.shortcuts.restoreAll.message': 'All your changes will be removed and the default shortcuts will return. Continue?',
+  'prefs.shortcuts.import': 'Import shortcuts…',
+  'prefs.shortcuts.export': 'Export shortcuts…',
+  'prefs.shortcuts.hint': 'The shortcuts dialog (F1) and the manual always show the default shortcuts.',
+  'prefs.shortcuts.step.normal': 'normal step',
+  'prefs.shortcuts.step.big': 'large step',
+  'prefs.shortcuts.step.fine': 'fine step',
+
+  // ---- .tlakuprefs files ---------------------------------------------------------------
+  'prefs.file.exportTitle': 'Export preferences',
+  'prefs.file.importTitle': 'Import preferences',
+  'prefs.err.notBundle': 'The file is not a Tlaku preferences bundle.',
+
+  // ---- notices -------------------------------------------------------------------------------
+  'prefs.notice.loadFailed': 'The preferences could not be read: {error}',
+  'prefs.notice.saveFailed': 'The preferences could not be saved: {error}',
+  'prefs.notice.exported': 'Preferences exported to {path}.',
+  'prefs.notice.exportFailed': 'Export failed: {error}',
+  'prefs.notice.imported': 'Imported {name}: {prefs} preferences and shortcuts for {shortcuts} commands.',
+  'prefs.notice.ignoredPrefs': '{n} preferences in the bundle were not understood and were ignored.',
+  'prefs.notice.unknownCommands': '{n} commands in the bundle do not exist in this version; their shortcuts are kept in case they arrive later.',
+  'prefs.notice.importFailed': 'Could not import {name}: {error}',
+
+  // ---- autosave and recovery ------------------------------------------------------------
+  'prefs.autosave.failed': 'The recovery copy could not be saved: {error}',
+  'prefs.recovery.title': 'Unsaved work found',
+  'prefs.recovery.intro': 'Tlaku closed before saving. You can recover the latest automatic copy of each document or discard it.',
+  'prefs.recovery.when': 'Copy from {date}',
+  'prefs.recovery.from': 'Project: {path}',
+  'prefs.recovery.new': 'Document that was never saved',
+  'prefs.recovery.recover': 'Recover',
+  'prefs.recovery.discard': 'Discard',
+  'prefs.recovery.discardAll': 'Discard all',
+  'prefs.recovery.later': 'Decide later',
+  'prefs.recovery.list': 'Recovery copies',
+  'prefs.recovery.discardAll.title': 'Discard copies',
+  'prefs.recovery.discardAll.message': 'Discard all {n} recovery copies? This cannot be undone.',
+  'prefs.recovery.discardAll.confirm': 'Discard',
+  'prefs.recovery.discardAll.cancel': 'Cancel',
+  'prefs.recovery.recovered': '"{name}" was recovered. Save it to keep it.',
+  'prefs.recovery.recoverFailed': '"{name}" could not be recovered: {error}',
+  'prefs.recovery.discardFailed': 'The copy could not be discarded: {error}',
+  'prefs.recovery.listFailed': 'Could not check for recovery copies: {error}',
+};

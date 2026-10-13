@@ -1,3 +1,5 @@
+import { locale } from '@/i18n';
+
 /**
  * Unidades de longitud. El documento, el motor y todas las cuentas internas trabajan siempre en
  * milímetros: las pulgadas son solo una forma de mostrar y de leer lo que escribe el usuario.
@@ -46,7 +48,7 @@ export function formatLength(mm: number, unit: LengthUnit = 'mm', opts: FormatOp
   const { digits = defaultDigits(unit), symbol = true, trim = false } = opts;
   if (!Number.isFinite(mm)) return '—';
   const value = toDisplay(mm, unit);
-  const text = new Intl.NumberFormat('es', {
+  const text = new Intl.NumberFormat(locale(), {
     minimumFractionDigits: trim ? 0 : digits,
     maximumFractionDigits: digits,
     useGrouping: false,

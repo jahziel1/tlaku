@@ -1,3 +1,4 @@
+use crate::cut::Optimization;
 use crate::document::DesignObject;
 use crate::layer::LayerSettings;
 use serde::{Deserialize, Serialize};
@@ -38,6 +39,12 @@ pub struct JobOptions {
     /// Ids de los objetos a enviar; `null` = todo lo que tenga salida.
     pub selection: Option<Vec<String>>,
     pub layer_order: LayerOrder,
+    #[serde(default)]
+    pub optimization: Optimization,
+    /// Con `selection`: el origen del trabajo es la caja de la selección, no la de todo el
+    /// diseño.
+    #[serde(default)]
+    pub use_selection_origin: bool,
 }
 
 impl Default for JobOptions {
@@ -48,6 +55,8 @@ impl Default for JobOptions {
             user_origin: None,
             selection: None,
             layer_order: LayerOrder::Auto,
+            optimization: Optimization::default(),
+            use_selection_origin: false,
         }
     }
 }

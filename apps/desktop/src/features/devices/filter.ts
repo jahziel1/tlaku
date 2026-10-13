@@ -1,6 +1,7 @@
 import type { DeviceKind } from '@/bindings/DeviceKind';
 import type { ProbeFamily, ProbeResult } from '@/api/api';
 import { CATALOG, type CatalogEntry } from './catalog';
+import { locale } from '@/i18n';
 
 /** Lo que se sabe de la máquina detectada, listo para ordenar el catálogo. */
 export interface Detection {
@@ -86,7 +87,7 @@ export function rankCatalog(opts: {
     (a, b) =>
       b.score - a.score ||
       Number(a.entry.generic ?? false) - Number(b.entry.generic ?? false) ||
-      a.entry.brand.localeCompare(b.entry.brand, 'es') ||
-      a.entry.model.localeCompare(b.entry.model, 'es', { numeric: true }),
+      a.entry.brand.localeCompare(b.entry.brand, locale()) ||
+      a.entry.model.localeCompare(b.entry.model, locale(), { numeric: true }),
   );
 }

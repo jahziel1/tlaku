@@ -1,3 +1,4 @@
+use crate::cut::{CutThrough, DotMode, FillGrouping, Lead, Perforation, Ramp};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -120,6 +121,18 @@ pub struct ImageSettings {
     /// Ángulo de la rejilla en grados (halftone y newsprint).
     #[serde(default = "default_halftone_angle")]
     pub halftone_angle: f64,
+    /// Envía la imagen tal cual, sin tramar: cada píxel ya es la potencia (imágenes
+    /// preparadas en otro programa).
+    #[serde(default)]
+    pub pass_through: bool,
+    /// Realce de bordes: radio en px (0 = apagado) y fuerza 0-1.
+    #[serde(default)]
+    pub enhance_radius: f64,
+    #[serde(default)]
+    pub enhance_amount: f64,
+    /// Quita motas de hasta este tamaño en px (0 = apagado).
+    #[serde(default)]
+    pub denoise: f64,
 }
 
 fn default_halftone_cell() -> f64 {
@@ -142,6 +155,10 @@ impl Default for ImageSettings {
             dot_width: 0.0,
             halftone_cell: default_halftone_cell(),
             halftone_angle: default_halftone_angle(),
+            pass_through: false,
+            enhance_radius: 0.0,
+            enhance_amount: 0.0,
+            denoise: 0.0,
         }
     }
 }
@@ -157,6 +174,9 @@ pub enum FillStyle {
     /// Contornos concéntricos hacia dentro, separados `interval`: sin aceleraciones de
     /// barrido, mejor para formas delgadas o letras.
     Offset,
+    /// Barrido que recorre cada región por separado sin cruzar huecos (menos viajes en
+    /// diseños con muchas islas).
+    Flood,
 }
 
 /// Puentes sin cortar que sostienen la pieza en la placa (solo capas line).
@@ -242,6 +262,38 @@ pub struct LayerSettings {
     /// profundos); mismo signo que `z_offset`.
     #[serde(default)]
     pub z_step: f64,
+    /// Solo line.
+    #[serde(default)]
+    pub perforation: Perforation,
+    #[serde(default)]
+    pub lead_in: Lead,
+    #[serde(default)]
+    pub lead_out: Lead,
+    /// mm que se sigue cortando después de cerrar un contorno.
+    #[serde(default)]
+    pub overcut: f64,
+    /// Pausa con el láser encendido al empezar y al terminar cada trazo, ms.
+    #[serde(default)]
+    pub start_delay_ms: f64,
+    #[serde(default)]
+    pub end_delay_ms: f64,
+    #[serde(default)]
+    pub cut_through: CutThrough,
+    #[serde(default)]
+    pub dot_mode: DotMode,
+    #[serde(default)]
+    pub ramp: Ramp,
+    /// Solo fill.
+    #[serde(default)]
+    pub fill_grouping: FillGrouping,
+    /// Grados que se suman al ángulo en cada pasada (fill e image).
+    #[serde(default)]
+    pub angle_increment: f64,
+    /// Operaciones extra sobre los mismos objetos, en orden, después de la principal (por
+    /// ejemplo rellenar y luego contornear). Se ignoran su `color`, `name`, `visible`, `order`
+    /// y sus propias `sub_layers`.
+    #[serde(default)]
+    pub sub_layers: Vec<LayerSettings>,
 }
 
 impl LayerSettings {
@@ -270,6 +322,18 @@ impl LayerSettings {
             tabs: TabSettings::default(),
             z_offset: 0.0,
             z_step: 0.0,
+            perforation: Perforation::default(),
+            lead_in: Lead::default(),
+            lead_out: Lead::default(),
+            overcut: 0.0,
+            start_delay_ms: 0.0,
+            end_delay_ms: 0.0,
+            cut_through: CutThrough::default(),
+            dot_mode: DotMode::default(),
+            ramp: Ramp::default(),
+            fill_grouping: FillGrouping::All,
+            angle_increment: 0.0,
+            sub_layers: Vec::new(),
         }
     }
 

@@ -434,6 +434,9 @@ fn vector_object(id: String, layer: Rgb, paths: Vec<BezPath>) -> DesignObject {
         locked: false,
         hidden: false,
         group: None,
+        priority: None,
+        power_scale: None,
+        shape: None,
     }
 }
 
