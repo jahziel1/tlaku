@@ -25,6 +25,11 @@ export interface ViewSlice {
   snapEnabled: boolean;
   snapGrid: boolean;
   snapObjects: boolean;
+  /**
+   * Contador que sube cuando el lienzo pide el foco del panel de texto (al crear un texto con la
+   * herramienta de texto o al editarlo con doble clic). El panel de texto lo observa y enfoca su campo.
+   */
+  textFocusToken: number;
 
   setViewport: (width: number, height: number) => void;
   setCursor: (p: Point | null) => void;
@@ -43,6 +48,7 @@ export interface ViewSlice {
   toggleSnap: () => void;
   toggleSnapGrid: () => void;
   toggleSnapObjects: () => void;
+  requestTextFocus: () => void;
 }
 
 export const DOCK_MIN = 280;
@@ -82,6 +88,7 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
   snapEnabled: initialFlag('snap', true),
   snapGrid: initialFlag('snapGrid', true),
   snapObjects: initialFlag('snapObjects', true),
+  textFocusToken: 0,
 
   setViewport: (width, height) => {
     set({ viewport: { width, height } });
@@ -137,6 +144,7 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
     writePref('snapGrid', snapGrid ? '1' : '0');
     set({ snapGrid });
   },
+  requestTextFocus: () => set((s) => ({ textFocusToken: s.textFocusToken + 1 })),
   toggleSnapObjects: () => {
     const snapObjects = !get().snapObjects;
     writePref('snapObjects', snapObjects ? '1' : '0');

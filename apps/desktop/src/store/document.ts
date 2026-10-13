@@ -79,6 +79,15 @@ export interface DocumentSlice {
    * `change` debe devolver el mismo objeto si no hay cambios.
    */
   applyDocChange: (label: I18nKey, change: (doc: Document) => Document, key?: string) => void;
+  /**
+   * Cambio SIN paso de deshacer y sin marcar `dirty`, para datos derivados que se regeneran solos
+   * (el contorno de un texto). Aplica el mismo `change` al documento actual, a `savedDoc` y a los
+   * documentos de `past` y `future`, de modo que deshacer, rehacer y guardar siguen coherentes.
+   * `change` se llama con cada documento distinto (una sola vez por documento) y debe devolver el
+   * mismo objeto si no hay nada que cambiar; si quiere compartir los objetos nuevos entre pasos,
+   * que los memorice él.
+   */
+  patchSilently: (change: (doc: Document) => Document) => void;
   undo: () => void;
   redo: () => void;
   /**
@@ -406,6 +415,39 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     },
 
     applyDocChange: (label, change, key) => commit(label, change, key),
+
+    patchSilently: (change) =>
+      set((s) => {
+        // Un mismo documento (por ejemplo `savedDoc` que también está en `past`) da el mismo resultado:
+        // así la comparación por referencia de `dirty` no se rompe.
+        const seen = new Map<Document, Document>();
+        const patch = (d: Document): Document => {
+          let out = seen.get(d);
+          if (!out) {
+            out = change(d);
+            seen.set(d, out);
+          }
+          return out;
+        };
+        const doc = patch(s.doc);
+        const savedDoc = patch(s.savedDoc);
+        let touched = doc !== s.doc || savedDoc !== s.savedDoc;
+        const patchEntries = (list: HistoryEntry[]): HistoryEntry[] => {
+          let any = false;
+          const out = list.map((e) => {
+            const d = patch(e.doc);
+            if (d === e.doc) return e;
+            any = true;
+            return { ...e, doc: d };
+          });
+          touched ||= any;
+          return any ? out : list;
+        };
+        const past = patchEntries(s.past);
+        const future = patchEntries(s.future);
+        if (!touched) return s;
+        return { doc, savedDoc, past, future, dirty: doc !== savedDoc };
+      }),
 
     undo: () => {
       const { past, future, doc, savedDoc } = get();

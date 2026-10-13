@@ -1,7 +1,9 @@
 import type { Affine, DesignObject, DeviceOrigin, JobPreview, LayerSettings, Point } from '@/api/types';
 import type { ViewTransform } from '@/lib/viewport';
 import type { BoxMode } from './hit';
+import type { CameraBackdrop } from '@/store/camera';
 import type { DraftShape } from './interaction';
+import type { NodeOverlay } from './nodeview';
 import type { Guide } from './snap';
 
 /**
@@ -43,6 +45,8 @@ export interface SceneOverlay {
   guides: Guide[];
   draft: DraftShape | null;
   pivot: Point | null;
+  /** Nodos y manejadores de la herramienta de nodos; null si no está activa. */
+  nodes: NodeOverlay | null;
 }
 
 export interface Scene {
@@ -56,12 +60,16 @@ export interface Scene {
   layers: Map<string, LayerSettings>;
   selectedIds: ReadonlySet<string>;
   wireframe: boolean;
+  /** Forma principal (A) de la booleana en el diálogo de Organizar; se resalta distinto a la selección. */
+  primaryId?: string | null;
   /** Si hay vista previa visible, se dibuja encima y el diseño se atenúa. */
   preview: { data: JobPreview; scrub: number } | null;
   palette: CanvasPalette;
   overlay: SceneOverlay;
   /** Posición del cabezal de la máquina en coordenadas de documento (mm), si se conoce. */
   head: Point | null;
+  /** Imagen de la cámara, bajo la cuadrícula y los objetos; null si no hay cámara. */
+  backdrop: CameraBackdrop | null;
 }
 
 /**

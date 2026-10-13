@@ -42,6 +42,9 @@ export function createTauriApi(): LaserApi {
     traceImage: (a) => call('traceImage', a),
     detectBoard: (a) => call('detectBoard', a),
     calibrateLens: (a) => call('calibrateLens', a),
+    loadCameraSetup: () => call('loadCameraSetup'),
+    saveCameraSetup: (a) => call('saveCameraSetup', a),
+    saveBoardFile: (a) => call('saveBoardFile', a),
     on: (event, handler) => listen(event, (e) => handler(e.payload as never)),
   };
 }

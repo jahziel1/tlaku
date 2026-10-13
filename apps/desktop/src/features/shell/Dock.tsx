@@ -1,5 +1,5 @@
 import { Camera, Cpu, History, Layers, Terminal } from 'lucide-react';
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { useCommand } from '@/commands/useCommand';
 import { CameraPanel } from '@/features/camera';
 import { HistoryPanel } from '@/features/history';
@@ -18,7 +18,7 @@ const TABS: { id: DockTab; icon: typeof Layers; cmd: string; label: I18nKey }[] 
   { id: 'camera', icon: Camera, cmd: 'panel.camera', label: 'dock.camera' },
 ];
 
-function Tab({ id, icon: Icon, cmd, label, onKey }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent) => void }) {
+function Tab({ id, icon: Icon, cmd, label, onKey, compact }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent) => void; compact: boolean }) {
   const c = useCommand(cmd);
   return (
     <button
@@ -28,24 +28,57 @@ function Tab({ id, icon: Icon, cmd, label, onKey }: (typeof TABS)[number] & { on
       aria-selected={c.checked}
       aria-controls={`tabpanel-${id}`}
       tabIndex={c.checked ? 0 : -1}
-      className="tab"
+      className={compact ? 'tab tab--icon' : 'tab'}
       title={c.tooltip}
+      // Sin texto visible, el nombre accesible sale de aquí (y el tooltip de `title`).
+      aria-label={compact ? t(label) : undefined}
       onClick={c.run}
       onKeyDown={onKey}
     >
       <Icon size={15} aria-hidden="true" />
-      {t(label)}
+      {!compact && t(label)}
     </button>
   );
 }
 
-/** Panel acoplado a la derecha con pestañas Capas / Máquina / Consola / Historial. */
+/**
+ * ¿Las pestañas con texto caben en el ancho disponible? Si no, pasan a solo ícono. Se mide el
+ * desborde real (la tipografía y los idiomas cambian el ancho) y se recuerda cuánto ocupaban con
+ * texto para volver a mostrarlo en cuanto el panel se ensancha.
+ */
+function useCompactTabs(list: RefObject<HTMLDivElement | null>): boolean {
+  const [compact, setCompact] = useState(false);
+  const needed = useRef(0);
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    const fit = () => {
+      if (!compact) {
+        if (el.scrollWidth > el.clientWidth) {
+          needed.current = el.scrollWidth + parseFloat(getComputedStyle(el).paddingRight);
+          setCompact(true);
+        }
+      } else if (el.clientWidth >= needed.current) {
+        setCompact(false);
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compact, list]);
+  return compact;
+}
+
+/** Panel acoplado a la derecha con pestañas Capas / Máquina / Consola / Historial / Cámara. */
 export function Dock() {
   const tab = useStore((s) => s.dockTab);
   const setTab = useStore((s) => s.setDockTab);
   const width = useStore((s) => s.dockWidth);
   const setWidth = useStore((s) => s.setDockWidth);
   const drag = useRef<{ x: number; w: number } | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const compact = useCompactTabs(listRef);
 
   const onTabKey = (e: KeyboardEvent) => {
     const i = TABS.findIndex((x) => x.id === tab);
@@ -84,9 +117,9 @@ export function Dock() {
           if (e.key === 'ArrowRight') setWidth(width - 16);
         }}
       />
-      <div role="tablist" aria-label={t('dock.label')} className="tabs">
+      <div ref={listRef} role="tablist" aria-label={t('dock.label')} className="tabs">
         {TABS.map((x) => (
-          <Tab key={x.id} {...x} onKey={onTabKey} />
+          <Tab key={x.id} {...x} onKey={onTabKey} compact={compact} />
         ))}
       </div>
       <div role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`} className="dock__body">

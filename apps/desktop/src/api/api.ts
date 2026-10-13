@@ -13,6 +13,7 @@ import type {
 import type {
   BezPath,
   CalibrationReport,
+  CameraSetup,
   DesignObject,
   FontFamily,
   GeometryOpArgs,
@@ -73,7 +74,10 @@ export interface LaserApi {
 
   // Edición (fase 3)
   listFonts(): Promise<FontFamily[]>;
-  /** Contorno del texto; `path` es la trayectoria (en coordenadas de documento) si va sobre una curva. */
+  /**
+   * Contorno del texto. `path` es la trayectoria guía si va sobre una curva, en coordenadas LOCALES
+   * del texto (con la inversa del `transform` del texto aplicada), no de documento.
+   */
   textOutline(args: { text: TextObject; path: BezPath | null }): Promise<TextOutlineResult>;
   /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
   geometryOp(args: GeometryOpArgs): Promise<DesignObject[]>;
@@ -83,6 +87,12 @@ export interface LaserApi {
   /** Esquinas internas del tablero en píxeles, o `null` si no se encontró. */
   detectBoard(args: { image_png_base64: string; board: [number, number] }): Promise<[number, number][] | null>;
   calibrateLens(args: { images_png_base64: string[]; board: [number, number]; square_mm: number }): Promise<CalibrationReport>;
+  /** Calibración, alineación y preferencias guardadas (`camera.json`). Sin archivo, una configuración vacía. */
+  loadCameraSetup(): Promise<CameraSetup>;
+  /** Valida, recalcula la homografía y guarda; devuelve lo guardado. */
+  saveCameraSetup(args: { setup: CameraSetup }): Promise<CameraSetup>;
+  /** Escribe el tablero de calibración (`.svg` o `.pdf`) en la ruta que eligió el usuario. */
+  saveBoardFile(args: { path: string; content_base64: string }): Promise<void>;
 
   /** Suscripción a eventos `machine://*`. Devuelve la función para cancelar. */
   on<K extends EventName>(event: K, handler: (payload: EventMap[K]) => void): Promise<Unlisten>;
@@ -116,6 +126,9 @@ export const COMMAND_NAMES = {
   traceImage: 'trace_image',
   detectBoard: 'detect_board',
   calibrateLens: 'calibrate_lens',
+  loadCameraSetup: 'load_camera_setup',
+  saveCameraSetup: 'save_camera_setup',
+  saveBoardFile: 'save_board_file',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [

@@ -221,8 +221,76 @@ interface TextObject {                // ObjectKind "text"
 | Comando | Entrada | Salida |
 |---|---|---|
 | `list_fonts` | | `{ family: string; styles: string[] }[]` |
-| `text_outline` | `{ text: TextObject, path: BezPath \| null }` | `BezPath[]` |
-| `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento) |
-| `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `BezPath[]` |
-| `calibrate_lens` | `{ images: string[] /* rutas */, board: [number, number], square_mm: number }` | `LensCalibration` (con error de reproyección) |
-| `undistort_frame` | `{ image: string, calibration: LensCalibration }` | `string` (ruta de la imagen corregida) |
+| `text_outline` | `{ text: TextObject, path: BezPath \| null }` | `{ paths: BezPath[], warnings: string[] }` (un `BezPath` por glifo, en coordenadas locales del texto; las advertencias son sustituciones de fuente, caracteres sin glifo o texto que no cabe en la trayectoria) |
+| `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento, transform identidad) |
+| `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `{ paths: BezPath[], warnings: string[] }` |
+| `detect_board` | `{ image_png_base64: string, board: [number, number] }` | `[number, number][] \| null`: esquinas internas del tablero, fila por fila, en píxeles de la imagen; `null` si no se ve completo |
+| `calibrate_lens` | `{ images_png_base64: string[], board: [number, number], square_mm: number }` | `CalibrationReport` |
+| `load_camera_setup` | | `CameraSetup`; sin `camera.json`, una configuración vacía. Un archivo dañado se aparta como `camera.json.dañado` y se devuelve una vacía |
+| `save_camera_setup` | `{ setup: CameraSetup }` | `CameraSetup`: valida, recalcula la homografía de la alineación y escribe `camera.json` (atómico) en la carpeta de configuración |
+| `save_board_file` | `{ path: string, content_base64: string }` | `void`: escribe el tablero de calibración (solo `.svg` o `.pdf`) en la ruta que eligió el usuario |
+
+Todos corren fuera del hilo principal y los argumentos van en `snake_case` (`image_png_base64`, `size_mm`...).
+
+```ts
+interface TraceSettings {
+  threshold: number; invert: boolean; blur_px: number; speckle_px: number;
+  corner_threshold_deg: number; smoothing: number; mode: "spline" | "polygon";
+}
+
+interface LensCalibration {            // modelo de Brown-Conrady
+  width: number; height: number;       // tamaño de las imágenes con que se calibró
+  fx: number; fy: number; cx: number; cy: number;
+  k1: number; k2: number; p1: number; p2: number; k3: number;
+  rms_error_px: number;                // error de reproyección rms, en píxeles
+  views_used: number;
+}
+interface CalibrationReport {
+  calibration: LensCalibration;
+  warnings: string[];                  // vistas descartadas, pocas vistas, error alto...
+  used_views: number[];                // índices (de `images_png_base64`) de las vistas usadas
+  view_rms_px: number[];               // error rms de cada vista usada, en el mismo orden
+}
+// Alineación manual de 4 puntos entre la imagen ya corregida y la cama.
+interface CameraAlignment {
+  image_size: [number, number];
+  image_px: [Point, Point, Point, Point];   // píxeles de la imagen corregida
+  bed_mm: [Point, Point, Point, Point];     // mm de documento, mismo orden
+  to_bed: [[number, number, number], [number, number, number], [number, number, number]]; // homografía px -> mm
+  rms_mm: number;
+}
+interface CameraPrefs { device_id: string | null; device_label: string | null;
+                        width: number | null; height: number | null;
+                        opacity: number /* 0..1 */; visible: boolean }
+interface CameraSetup { version: 1; calibration: LensCalibration | null;
+                        alignment: CameraAlignment | null; prefs: CameraPrefs }
+```
+
+Convenciones que fija el motor:
+
+- **Trayecto del texto en coordenadas locales.** `text_outline` devuelve el contorno en coordenadas
+  locales del texto, y `path` (la curva guía de un texto sobre trayectoria) también debe ir en
+  coordenadas LOCALES del texto: la interfaz lo calcula aplicando la inversa del `transform` del
+  texto a la guía (`transform_texto⁻¹ · transform_guía`). No va en coordenadas de documento. El
+  contorno ya generado (`outline`) no interviene: es justo lo que se recalcula. El pipeline usa el
+  `outline` guardado en el documento, así que abrir un proyecto no necesita el motor de texto.
+- **`geometry_op`.** Los objetos llegan con sus curvas y su `transform` (coordenadas de documento) y
+  el resultado vuelve como objetos vectoriales nuevos con transform identidad. En las booleanas
+  (`union`, `difference`, `intersection`, `xor`) el **primer objeto de la lista es A** y todos los
+  demás forman el conjunto B: `difference` es A menos B, `intersection` es A con la unión de B y
+  `xor` es A contra la unión de B. Quien llama decide cuál es A (la interfaz deja elegirlo; el
+  orden de selección nunca es implícito). Un grupo se manda como un único objeto con todas sus
+  curvas. `weld` une todos en una región (conserva agujeros e islas). `offset` desplaza cada objeto
+  por separado y **conserva la capa de cada objeto**; una booleana o `weld` dejan el resultado en la
+  capa del primer operando. `distance` positiva = hacia afuera. Las trayectorias abiertas no
+  participan: se rechazan diciendo qué objetos son.
+- **Cámara: las imágenes viajan como PNG en base64, no como rutas.** `detect_board` y
+  `calibrate_lens` reciben fotogramas sueltos que la interfaz captura del video (con o sin prefijo
+  `data:image/png;base64,`); el motor no lee archivos del disco para esto. `calibrate_lens` exige al
+  menos 3 vistas con el tablero visible (omite con un aviso las que no lo tienen).
+- **No hay `undistort_frame`.** El video nunca pasa por el motor: la corrección de la lente en vivo
+  se hace en WebGL en el frontend con la `LensCalibration` guardada, y la imagen ya corregida se
+  dibuja bajo el diseño con la homografía de `CameraAlignment`. El motor solo detecta el tablero,
+  calibra y guarda la configuración.
+- **`camera.json`** vive en la carpeta de configuración de la app junto a `devices.json`; en modo
+  mock (navegador) la misma configuración se guarda en memoria y `localStorage`.

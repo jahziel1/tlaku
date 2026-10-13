@@ -2,6 +2,7 @@ import type { Affine, DesignObject, DeviceOrigin, Point, TextObject } from '@/ap
 import { textFont, textLines } from '@/lib/textobj';
 import { gridSteps, worldToScreen, type ViewTransform } from '@/lib/viewport';
 import { boxesIntersect, chunkPath, fillPath, getGeom, visibleBox, type Box, type ObjectGeom } from './geom';
+import { backdropKeyOf, paintBackdrop, sameBackdropKey, type BackdropKey } from './backdrop';
 import { frameRect, handleSpots } from './handles';
 import { ImageCache } from './imageSource';
 import { drawPreview } from './previewLayer';
@@ -59,6 +60,8 @@ export class Canvas2DRenderer implements Renderer {
     this.invalidate();
   });
   private bitmap: ObjectBitmap | null = null;
+  /** Imagen de la cámara ya proyectada (a opacidad plena); solo existe mientras hay cámara. */
+  private backdropLayer: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; key: BackdropKey | null } | null = null;
   private settleTimer = 0;
   private settleNow = false;
 
@@ -85,6 +88,7 @@ export class Canvas2DRenderer implements Renderer {
     this.canvas = null;
     this.ctx = null;
     this.bitmap = null;
+    this.backdropLayer = null;
   }
 
   render(scene: Scene): void {
@@ -104,6 +108,8 @@ export class Canvas2DRenderer implements Renderer {
     } else {
       this.drawHover(ctx, scene, selected);
       this.drawSelection(ctx, scene, selected);
+      this.drawPrimary(ctx, scene);
+      this.drawNodes(ctx, scene);
     }
     this.drawDraft(ctx, scene);
     this.drawGuides(ctx, scene);
@@ -114,7 +120,8 @@ export class Canvas2DRenderer implements Renderer {
 
   // ---- cama y cuadrícula -------------------------------------------------
 
-  private drawBed(ctx: CanvasRenderingContext2D, { view, bed, palette: p, width, height }: Scene): void {
+  private drawBed(ctx: CanvasRenderingContext2D, scene: Scene): void {
+    const { view, bed, palette: p, width, height } = scene;
     const [x0, y0] = worldToScreen(view, [0, 0]);
     const [x1, y1] = worldToScreen(view, [bed.width, bed.height]);
     const left = Math.min(x0, x1);
@@ -124,6 +131,7 @@ export class Canvas2DRenderer implements Renderer {
 
     ctx.fillStyle = p.bed;
     ctx.fillRect(left, top, right - left, bottom - top);
+    this.drawBackdrop(ctx, scene);
 
     // Cuadrícula recortada a la cama; líneas de 1 px físico (alineadas a la mitad del píxel).
     ctx.save();
@@ -175,6 +183,45 @@ export class Canvas2DRenderer implements Renderer {
       ctx.lineTo(ox, oy + dy * t);
     }
     ctx.stroke();
+  }
+
+  /**
+   * Imagen de la cámara bajo la cuadrícula y los objetos. Se proyecta (malla de triángulos, ver
+   * backdrop.ts) en una capa del tamaño de la vista que se reutiliza mientras no cambie el cuadro,
+   * la vista ni las esquinas; solo se compone con su opacidad. Sin cámara no cuesta nada.
+   */
+  private drawBackdrop(ctx: CanvasRenderingContext2D, scene: Scene): void {
+    const b = scene.backdrop;
+    if (!b) {
+      this.backdropLayer = null;
+      return;
+    }
+    const cw = Math.max(1, Math.round(this.w * this.dpr));
+    const ch = Math.max(1, Math.round(this.h * this.dpr));
+    let layer = this.backdropLayer;
+    if (!layer || layer.canvas.width !== cw || layer.canvas.height !== ch) {
+      const canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      const lctx = canvas.getContext('2d');
+      if (!lctx) return;
+      layer = { canvas, ctx: lctx, key: null };
+      this.backdropLayer = layer;
+    }
+    const key = backdropKeyOf(b, scene.view, this.w, this.h, this.dpr);
+    if (!layer.key || !sameBackdropKey(layer.key, key)) {
+      try {
+        paintBackdrop(layer.ctx, b, scene.view, this.w, this.h, this.dpr);
+        layer.key = key;
+      } catch {
+        return; // la imagen aún no se puede leer (cargando o rota): se reintenta en el próximo cuadro
+      }
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = Math.min(1, Math.max(0, b.opacity));
+    ctx.drawImage(layer.canvas, 0, 0);
+    ctx.restore();
   }
 
   /** Marca el origen de la máquina con ejes X (derecha) e Y (arriba). */
@@ -233,7 +280,7 @@ export class Canvas2DRenderer implements Renderer {
 
   private drawObjects(ctx: CanvasRenderingContext2D, scene: Scene): void {
     const { view, width, height, overlay } = scene;
-    const heavy = overlay.live === null && typeof document !== 'undefined' &&
+    const heavy = overlay.live === null && !overlay.nodes?.editing && typeof document !== 'undefined' &&
       this.visibleSegments(scene, visibleBox(view, width, height)) > HEAVY_SEGMENTS;
     if (!heavy) {
       this.paintObjects(ctx, scene, view, width, height, this.dpr, overlay.live);
@@ -429,6 +476,22 @@ export class Canvas2DRenderer implements Renderer {
 
   // ---- selección ------------------------------------------------------------
 
+  /** Forma principal (A) de una booleana: trazo grueso y de otro color que la selección. */
+  private drawPrimary(ctx: CanvasRenderingContext2D, scene: Scene): void {
+    const { primaryId, objects, view, palette: p } = scene;
+    if (!primaryId) return;
+    const obj = objects.find((o) => o.id === primaryId);
+    if (!obj || obj.hidden) return;
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    this.worldTransform(ctx, view, null);
+    ctx.strokeStyle = p.crossing;
+    ctx.lineWidth = 3 / view.zoom;
+    this.strokeGeom(ctx, getGeom(obj), null);
+    ctx.restore();
+  }
+
   private drawSelection(ctx: CanvasRenderingContext2D, scene: Scene, selected: DesignObject[]): void {
     const { view, palette: p, overlay } = scene;
     if (selected.length === 0) return;
@@ -446,6 +509,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.globalAlpha = 0.9;
     if (selected.length <= 400) for (const o of selected) this.strokeGeom(ctx, getGeom(o), null);
     ctx.restore();
+    if (overlay.nodes) return; // con la herramienta de nodos no hay marco de escala ni giro
 
     ctx.save();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -508,6 +572,61 @@ export class Canvas2DRenderer implements Renderer {
           ctx.fillRect(s.x - 3.5, s.y - 3.5, 7, 7);
           ctx.strokeRect(s.x - 3.5, s.y - 3.5, 7, 7);
         }
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---- nodos ---------------------------------------------------------------------------
+
+  /** Nodos (esquina = cuadrado, suave = círculo, simétrico = rombo) y manejadores de la herramienta de nodos. */
+  private drawNodes(ctx: CanvasRenderingContext2D, { view, overlay, palette: p, width, height }: Scene): void {
+    const nodes = overlay.nodes;
+    if (!nodes || (nodes.nodes.length === 0 && nodes.handles.length === 0)) return;
+    const hover = nodes.hover;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = p.selection;
+    ctx.fillStyle = p.workspace;
+    ctx.beginPath();
+    for (const h of nodes.handles) {
+      const [nx, ny] = worldToScreen(view, [h.nx, h.ny]);
+      const [hx, hy] = worldToScreen(view, [h.hx, h.hy]);
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(hx, hy);
+    }
+    ctx.stroke();
+    for (const h of nodes.handles) {
+      const [hx, hy] = worldToScreen(view, [h.hx, h.hy]);
+      const hot = hover?.id === h.id && hover.k === h.k && hover.handle === h.which;
+      ctx.beginPath();
+      ctx.arc(hx, hy, hot ? 5 : 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Primero los sueltos y luego los elegidos, para que queden encima.
+    for (const pass of [false, true]) {
+      for (const n of nodes.nodes) {
+        if (n.selected !== pass) continue;
+        const [sx, sy] = worldToScreen(view, [n.x, n.y]);
+        if (sx < -10 || sy < -10 || sx > width + 10 || sy > height + 10) continue;
+        const hot = hover?.id === n.id && hover.k === n.k && hover.handle === null;
+        const r = hot ? 5.5 : 4.2;
+        ctx.fillStyle = n.selected ? p.selection : p.workspace;
+        ctx.strokeStyle = n.selected ? p.workspace : p.selection;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        if (n.type === 'smooth') ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        else if (n.type === 'symmetric') {
+          ctx.moveTo(sx, sy - r - 1);
+          ctx.lineTo(sx + r + 1, sy);
+          ctx.lineTo(sx, sy + r + 1);
+          ctx.lineTo(sx - r - 1, sy);
+          ctx.closePath();
+        } else ctx.rect(sx - r, sy - r, r * 2, r * 2);
+        ctx.fill();
+        ctx.stroke();
       }
     }
     ctx.restore();

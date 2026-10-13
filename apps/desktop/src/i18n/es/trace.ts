@@ -1,2 +1,56 @@
 /** Textos del área `trace`. Todas las claves empiezan con `trace.` (lo verifica i18n.test.ts). */
-export const trace = {} as const;
+export const trace = {
+  'trace.cmd.image': 'Vectorizar imagen…',
+  'trace.reason.needImage': 'Selecciona una imagen para vectorizarla',
+  'trace.reason.oneImage': 'Selecciona una sola imagen para vectorizarla',
+  'trace.history': 'Vectorizar imagen',
+
+  'trace.title': 'Vectorizar imagen',
+  'trace.subtitle': '{mm} mm · {px} px',
+  'trace.close': 'Cerrar',
+  'trace.cancel': 'Cancelar',
+  'trace.accept': 'Vectorizar',
+
+  'trace.preview.label': 'Vista previa del vectorizado sobre la imagen',
+  'trace.preview.showImage': 'Mostrar la imagen',
+  'trace.preview.zoomIn': 'Acercar',
+  'trace.preview.zoomOut': 'Alejar',
+  'trace.preview.fit': 'Ver completa',
+  'trace.preview.hint': 'Rueda para acercar, arrastra para mover',
+  'trace.preview.computing': 'Calculando…',
+
+  'trace.stats.shapes': '{n} formas',
+  'trace.stats.nodes': '{n} nodos',
+  'trace.stats.none': 'Sin formas',
+  'trace.rough':
+    'Salen muchas formas pequeñas o demasiados nodos y el borde puede quedar áspero. Sube "Eliminar manchas" o el suavizado, o prueba con algo de desenfoque.',
+  'trace.warnings': 'Advertencias',
+  'trace.error': 'No se pudo vectorizar la imagen: {msg}',
+
+  'trace.set.threshold': 'Umbral',
+  'trace.set.threshold.help': 'Se traza lo que sea más oscuro que este brillo.',
+  'trace.set.smoothing': 'Suavizado',
+  'trace.set.smoothing.help': 'Más alto: menos nodos y curvas más largas.',
+  'trace.set.speckle': 'Eliminar manchas',
+  'trace.set.speckle.value': '{px} px ≈ {mm} mm',
+  'trace.set.speckle.off': 'Sin filtrar',
+  'trace.set.speckle.help': 'Descarta manchas y huecos más chicos que este lado.',
+  'trace.set.corner': 'Esquinas',
+  'trace.set.corner.help': 'Los giros más cerrados que este ángulo quedan como esquina viva.',
+  'trace.set.corner.polygonOnly': 'Solo se usa en el modo curvas.',
+  'trace.set.blur': 'Desenfoque',
+  'trace.set.blur.help': 'Alisa los bordes ruidosos antes de trazar.',
+  'trace.set.invert': 'Invertir (trazar lo claro)',
+  'trace.set.mode': 'Modo',
+  'trace.mode.spline': 'Curvas',
+  'trace.mode.polygon': 'Polígono',
+  'trace.set.reset': 'Restablecer ajustes',
+
+  'trace.out.layer': 'Se agregará a la capa {name}',
+  'trace.out.deleteImage': 'Borrar la imagen original',
+  'trace.out.deleteLocked': 'La imagen está bloqueada: no se puede borrar.',
+  'trace.accept.busy': 'Espera a que termine la vista previa.',
+  'trace.accept.error': 'Corrige los ajustes: la vista previa falló.',
+  'trace.accept.empty': 'Con estos ajustes no sale ninguna forma que agregar.',
+  'trace.done': 'Vectorizado: {shapes} formas y {nodes} nodos.',
+} as const;

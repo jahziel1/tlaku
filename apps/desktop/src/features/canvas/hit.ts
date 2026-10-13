@@ -17,9 +17,9 @@ export function isSelectable(obj: DesignObject, layer: LayerSettings | undefined
   return !obj.hidden && !obj.locked && (layer?.visible ?? true);
 }
 
-/** ¿Se rellena el interior (clic dentro lo selecciona)? Capas de relleno e imágenes. */
+/** ¿Se rellena el interior (clic dentro lo selecciona)? Capas de relleno, imágenes y textos (se agarran por las letras). */
 export function isFilled(obj: DesignObject, layer: LayerSettings | undefined): boolean {
-  return obj.kind.type === 'image' || layer?.mode === 'fill';
+  return obj.kind.type === 'image' || obj.kind.type === 'text' || layer?.mode === 'fill';
 }
 
 function distSq(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {

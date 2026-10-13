@@ -13,6 +13,8 @@ import { cursorForHandle, handleSpots, hitHandle, type HandleSpot } from './hand
 import { boxModeFor, HIT_PX, layerLookup, normalizeBox, pickObject, selectByBox, type PickContext } from './hit';
 import { clearGesture, patchInteraction, registerGestureHooks, useInteraction } from './interaction';
 import { boxShapePaths, constrainAngle, constrainDelta, dedupePoints, dragBox, newVectorObject, pickDrawLayer, polylinePaths, type ShapeKind } from './shapes';
+import { createNodeTool } from './nodeTool';
+import { createTextAt, editText, prefetchFonts } from './textTool';
 import { collectSnapTargets, NO_SNAP, snapFeatures, snapMove, snapPoint, snapToleranceMM, type Feature, type SnapOptions, type SnapSet } from './snap';
 import {
   anchorPoint, boundsCenter, boundsOf, boundsSize, canRotate, handlePoint, isIdentity, rotateByPointer, scaleByHandle,
@@ -149,10 +151,17 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       }
     };
 
+    // La herramienta de nodos lleva su propio gesto (ver nodeTool.ts); aquí solo se le pasan los eventos.
+    const nodeTool = createNodeTool({
+      el, st, viewOf, world, capture, release, snapOpts, targetsFor, setTip,
+      pick: (p, tol) => pickObject(pickCtx(), p, tol),
+    });
+
     const cancel = () => {
       if (g) release(g.pointerId);
       g = null;
       poly = null;
+      nodeTool.cancel();
       clearGesture();
     };
 
@@ -386,6 +395,15 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
 
     // ---- eventos del puntero -------------------------------------------------------------------------------------
 
+    /** Herramienta de texto: un clic sobre un texto lo edita; sobre otra cosa, crea uno nuevo ahí. */
+    const downText = (sx: number, sy: number) => {
+      const s = st();
+      const p = world(sx, sy);
+      const hit = pickObject(pickCtx(), p, HIT_PX / s.zoom);
+      if (hit?.kind.type === 'text') editText(s, hit.id);
+      else createTextAt(s, p);
+    };
+
     const onDown = (e: PointerEvent) => {
       if (e.target !== canvas) return;
       if (e.button === 2 && poly) {
@@ -405,6 +423,12 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
           break;
         case 'line':
           downLine(e, sx, sy, mods);
+          break;
+        case 'nodes':
+          nodeTool.down(e, sx, sy, mods);
+          break;
+        case 'text':
+          downText(sx, sy);
           break;
         default:
           downSelect(e, sx, sy, mods);
@@ -464,6 +488,15 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         patchInteraction({ cursor: 'crosshair', hoverId: null });
         return;
       }
+      if (tool === 'text') {
+        patchInteraction({ cursor: 'text', hoverId: null });
+        return;
+      }
+      if (tool === 'nodes') {
+        patchInteraction({ hoverId: null });
+        nodeTool.hover(sx, sy);
+        return;
+      }
       const inter = useInteraction.getState();
       const objs = selectedObjects();
       const frame = boundsOf(objs);
@@ -482,6 +515,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const [sx, sy] = local(e);
       const mods = modsOf(e);
       last = { sx, sy, mods };
+      if (nodeTool.move(e, sx, sy, mods)) return;
       if (g) {
         if (e.pointerId === g.pointerId) update(sx, sy, mods);
         return;
@@ -496,7 +530,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (!hoverFrame) {
         hoverFrame = requestAnimationFrame(() => {
           hoverFrame = 0;
-          if (last && !g) hoverAt(last.sx, last.sy);
+          if (last && !g && !nodeTool.active()) hoverAt(last.sx, last.sy);
         });
       }
     };
@@ -507,6 +541,11 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     };
 
     const onUp = (e: PointerEvent) => {
+      if (nodeTool.active()) {
+        const [nx, ny] = local(e);
+        nodeTool.up(e, nx, ny, modsOf(e));
+        return;
+      }
       if (!g || e.pointerId !== g.pointerId) return;
       const gs = g;
       release(gs.pointerId);
@@ -608,12 +647,30 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (!['Shift', 'Alt', 'Control', 'Meta'].includes(e.key) || !last) return;
       const mods = modsOf(e);
       last = { ...last, mods };
-      if (g?.active) update(last.sx, last.sy, mods);
+      if (nodeTool.active()) nodeTool.refresh(last.sx, last.sy, mods);
+      else if (g?.active) update(last.sx, last.sy, mods);
       else if (poly) showPoly(polyCursor(last.sx, last.sy, mods), last.sx, last.sy);
     };
 
     const onContextMenu = (e: MouseEvent) => {
       if (poly) e.preventDefault();
+    };
+
+    // Doble clic: con nodos, agrega un nodo en el segmento; con Seleccionar, sobre un texto pasa a editarlo.
+    const onDoubleClick = (e: MouseEvent) => {
+      // Tras capturar el puntero, el navegador dirige el doble clic al área y no al lienzo.
+      if (e.target !== canvas && e.target !== el) return;
+      const s = st();
+      const [sx, sy] = local(e);
+      if (s.activeTool === 'nodes') {
+        nodeTool.doubleClick(sx, sy);
+      } else if (s.activeTool === 'select') {
+        const hit = pickObject(pickCtx(), world(sx, sy), HIT_PX / s.zoom);
+        if (hit?.kind.type === 'text') {
+          editText(s, hit.id);
+          s.setTool('text');
+        }
+      }
     };
 
     el.addEventListener('pointerdown', onDown);
@@ -622,6 +679,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     el.addEventListener('pointercancel', cancel);
     el.addEventListener('pointerleave', onLeave);
     el.addEventListener('contextmenu', onContextMenu);
+    el.addEventListener('dblclick', onDoubleClick);
     window.addEventListener('keydown', onKeyCapture, true);
     window.addEventListener('keydown', onModifier);
     window.addEventListener('keyup', onModifier);
@@ -633,7 +691,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const unsub = useStore.subscribe((s, prev) => {
       if (s.activeTool !== prev.activeTool) {
         cancel();
-        patchInteraction({ hoverId: null });
+        patchInteraction({ hoverId: null, nodeHover: null });
+        if (s.activeTool === 'text') prefetchFonts();
       }
       if (s.selectedIds !== prev.selectedIds && useInteraction.getState().rotateMode) {
         const same = s.selectedIds.length === prev.selectedIds.length && s.selectedIds.every((id) => prev.selectedIds.includes(id));
@@ -657,6 +716,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       el.removeEventListener('pointercancel', cancel);
       el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('contextmenu', onContextMenu);
+      el.removeEventListener('dblclick', onDoubleClick);
       window.removeEventListener('keydown', onKeyCapture, true);
       window.removeEventListener('keydown', onModifier);
       window.removeEventListener('keyup', onModifier);

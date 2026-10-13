@@ -46,6 +46,9 @@ pub fn run() {
             edit::trace::trace_image,
             edit::camera::detect_board,
             edit::camera::calibrate_lens,
+            edit::camera::load_camera_setup,
+            edit::camera::save_camera_setup,
+            edit::camera::save_board_file,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar la aplicación Tlaku");

@@ -49,4 +49,8 @@ export const canvas = {
   'canvas.draw.ellipse': 'Dibujar elipse',
   'canvas.draw.line': 'Dibujar línea',
   'canvas.draw.polyline': 'Dibujar polilínea',
+  'canvas.draw.text': 'Crear texto',
+
+  // ---- herramienta de texto ----------------------------------------------------
+  'canvas.text.default': 'Texto',
 } as const;

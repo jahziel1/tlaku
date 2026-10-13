@@ -1,0 +1,294 @@
+/*
+ * Estilos del área Cámara (panel, vista en vivo y asistente de calibración).
+ * Solo tokens de src/styles/tokens.css; clases con prefijo cam- para no chocar con otras áreas.
+ */
+
+.cam-wrap {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cam-ok {
+  color: var(--ok);
+}
+
+/* ---- vista en vivo ---------------------------------------------------------------- */
+
+.cam-view {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  touch-action: none;
+}
+.cam-view__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.cam-view[data-live='false'] .cam-view__canvas {
+  visibility: hidden;
+}
+.cam-view__off,
+.cam-view__warn {
+  position: absolute;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.cam-view__off {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--s-5);
+  text-align: center;
+}
+.cam-view__warn {
+  left: var(--s-3);
+  bottom: var(--s-3);
+  right: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-chrome);
+  color: var(--warn);
+}
+.cam-pt {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-app) 70%, transparent);
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+  cursor: grab;
+  touch-action: none;
+}
+.cam-pt[data-active='true'] {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.cam-pt:active {
+  cursor: grabbing;
+}
+
+/* ---- alineación -------------------------------------------------------------------- */
+
+.cam-points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cam-point {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.cam-point[data-active='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.cam-point[data-set='true'] .cam-point__pick .num {
+  color: var(--ok);
+}
+.cam-point__pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--s-4);
+  width: fit-content;
+}
+.cam-opacity {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.cam-opacity__value {
+  min-width: 4.5ch;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---- asistente de calibración ------------------------------------------------------ */
+
+.modal__card:has(.cam-dialog) {
+  width: min(1040px, 100%);
+  max-height: calc(100vh - 2 * var(--s-6));
+}
+.cam-dialog {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.cam-dialog__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: var(--s-6);
+  min-height: 0;
+  padding: var(--s-6);
+  overflow-y: auto;
+}
+.cam-cal__stage,
+.cam-cal__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.cam-cal__frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.cam-cal__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.cam-cal__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.cam-cal__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+}
+.cam-cal__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.cam-cal__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-bottom: var(--s-5);
+  border-bottom: 1px solid var(--border);
+}
+.cam-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: 0;
+  padding-left: var(--s-6);
+  color: var(--text-muted);
+}
+.cam-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cam-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding-right: var(--s-2);
+}
+.cam-meter {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-sunken);
+}
+.cam-meter__bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 140ms var(--ease);
+}
+.cam-result {
+  border: 1px solid var(--border-strong);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: var(--s-5);
+}
+.cam-result[data-grade='excellent'],
+.cam-result[data-grade='good'] {
+  border-left-color: var(--ok);
+}
+.cam-result[data-grade='fair'] {
+  border-left-color: var(--warn);
+}
+.cam-result[data-grade='poor'] {
+  border-left-color: var(--danger);
+}
+.cam-result__rms {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-4);
+}
+.cam-result__value {
+  font-size: 20px;
+  font-weight: 650;
+}
+.cam-result__grade {
+  color: var(--text-muted);
+  font-weight: 620;
+}
+.cam-kv {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 900px) {
+  .cam-dialog__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- impresión del tablero --------------------------------------------------------- */
+
+#camera-print-root {
+  display: none;
+}
+@media print {
+  html.camera-printing body > *:not(#camera-print-root) {
+    display: none !important;
+  }
+  html.camera-printing,
+  html.camera-printing body {
+    height: auto;
+    overflow: visible;
+    background: white;
+  }
+  html.camera-printing #camera-print-root {
+    display: block;
+  }
+  html.camera-printing #camera-print-root svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}

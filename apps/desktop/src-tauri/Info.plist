@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Tauri lo mezcla con el Info.plist de la app. Sin esta clave macOS cierra la app al pedir la cámara. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Tlaku usa la cámara para ver la cama del láser, calibrar la lente y alinear el diseño con el material.</string>
+</dict>
+</plist>

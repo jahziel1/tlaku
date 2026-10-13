@@ -1,5 +1,6 @@
 import { TOOL_IDS, type ToolId } from '@/store/selection';
 import { cancelGesture, closePolyline, polylineInProgress } from '@/features/canvas/interaction';
+import { NODE_OPS, nodeOpAvailability, runNodeOp, type NodeOp } from '@/features/canvas/nodeActions';
 import type { I18nKey } from '@/i18n';
 import type { CommandDef } from '../types';
 
@@ -34,7 +35,46 @@ const KEYS: Record<ToolId, string[]> = {
  *    punto dibuja una sola línea.
  *  - R `tool.rect` / E `tool.ellipse`: arrastrar; Mayús = cuadrado / círculo. El radio de esquinas
  *    del rectángulo está en la barra numérica.
+ *  - N `tool.nodes`: muestra los nodos y manejadores del objeto vectorial seleccionado. Clic elige
+ *    un nodo (Mayús+clic suma o quita; clic en un segmento elige sus dos nodos; arrastrar sobre
+ *    vacío dibuja una caja de nodos). Arrastrar mueve los nodos elegidos (Mayús = horizontal o
+ *    vertical, Alt = sin ajuste magnético) y arrastrar un manejador lo mueve (Alt = rompe la
+ *    simetría, Mayús = ángulos de 45°). Doble clic en un segmento agrega un nodo sin cambiar la
+ *    forma. Las flechas mueven los nodos elegidos (Mayús 10 mm, Alt 0,1 mm) y Supr o Retroceso los
+ *    borran; la barra de nodos fija X e Y exactas. Con la herramienta de nodos activa, Supr y las
+ *    flechas actúan sobre los nodos elegidos en lugar de sobre el objeto; el resto de teclas de
+ *    nodos solo existen aquí y cada una hace una sola cosa. Esc sale a Seleccionar. Deshacer y
+ *    rehacer funcionan siempre, con nodos elegidos o sin ellos.
+ *  - T `tool.text`: clic en vacío crea un texto ahí; clic en un texto lo selecciona. El doble clic
+ *    sobre un texto con Seleccionar también pasa a editarlo.
  */
+
+/**
+ * Teclas de las operaciones de nodos (solo valen con la herramienta de nodos y nodos elegidos; si
+ * no, el comando está deshabilitado y la tecla no hace nada). Supr, Retroceso y las flechas las
+ * resuelven `edit.delete` y `edit.nudge*` (definitions/edit.ts), que ramifican a los nodos con esta herramienta.
+ */
+const NODE_KEYS: Record<NodeOp, string[]> = {
+  insert: ['I'],
+  delete: [],
+  toLine: ['Shift+L'],
+  toCurve: ['Shift+U'],
+  corner: ['Shift+E'],
+  smooth: ['Shift+S'],
+  symmetric: ['Shift+M'],
+  break: ['B'],
+  join: ['J'],
+  close: ['O'],
+};
+
+const nodeCommands: CommandDef[] = NODE_OPS.map<CommandDef>((op) => ({
+  id: `nodes.${op}`,
+  label: `nodes.cmd.${op}` as I18nKey,
+  category: 'tools',
+  shortcuts: NODE_KEYS[op],
+  enabled: (s) => nodeOpAvailability(s, op),
+  run: (s) => void runNodeOp(s, op),
+}));
 export const toolCommands: CommandDef[] = [
   ...TOOL_IDS.map<CommandDef>((tool) => ({
     id: `tool.${tool}`,
@@ -50,6 +90,7 @@ export const toolCommands: CommandDef[] = [
       s.setTool(tool);
     },
   })),
+  ...nodeCommands,
   {
     // C: cierra la polilínea en curso uniendo el último punto con el primero. Intro la deja abierta.
     id: 'draw.closePath',

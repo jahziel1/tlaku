@@ -12,7 +12,10 @@ el motor real: `src-tauri` implementa todos los comandos y eventos del contrato 
 
 Más capturas en `docs/screenshots/` (se regeneran con `npm run screenshots`): editor de ajustes de
 capa (`03`), vista previa con resultados (`04`), máquina conectada con el diálogo de iniciar (`05`) y
-el trabajo en curso (`06`), consola (`07`), historial (`08`), atajos (`09`) y tema claro (`10`).
+el trabajo en curso (`06`), consola (`07`), historial (`08`), atajos (`09`) y tema claro (`10`). De la
+fase 3: editor de nodos (`11`), panel de texto (`12`), diferencia A menos B (`13`), arreglo circular
+(`14`), vectorizado con vista previa (`15`), asistente de calibración de la cámara (`16`), panel de
+cámara (`17`) y pestañas del panel acoplado con texto (`18`; con poco ancho pasan a solo ícono).
 
 ## Cómo correrla
 
@@ -54,7 +57,7 @@ Con `VITE_DEMO=off` el modo mock arranca con la cama vacía en lugar del diseño
 | `npm run lint` | ESLint |
 | `npm test` | Vitest (registro de comandos, store, mock, lienzo, capas, máquina, vista previa, historial, shell) |
 | `npm run readme` | Regenera la tabla de atajos de este README desde el registro de comandos |
-| `npm run screenshots` | Capturas en `docs/screenshots/` (necesita `npm run dev` en modo mock y Chrome; sin dependencias extra) |
+| `npm run screenshots` | Capturas en `docs/screenshots/` (necesita `npm run dev` en modo mock en marcha, el script no lo arranca, y Chrome; sin dependencias extra) |
 
 ## Estructura
 
@@ -77,7 +80,7 @@ apps/desktop/
     i18n/               es.ts (comunes) y es/<area>.ts (canvas, layers, machine, preview, history) + t()
     lib/                Geometría, viewport (mm <-> px), perfil de dispositivo y coordenadas
                         (`workToDoc`/`docToWork`), paleta y ajustes de capa, utilidades
-    ui/                 Componentes reutilizables (NumberField)
+    ui/                 Componentes reutilizables (NumberField, Modal: diálogo accesible común)
     styles/             Tokens CSS (tema oscuro y claro) y hojas globales; cada área trae su propio .css
     features/           Una carpeta por área, con un dueño cada una (ver abajo)
   scripts/              Utilidades de desarrollo (capturas)
@@ -94,6 +97,10 @@ Dueños de cada área de `src/features/` (lo que es suyo y lo que expone en su `
 | `machine/` | Conexión, estado, mover el cabezal, origen e "Iniciar desde", trabajo, consola, gestor de dispositivos, alarma y sus diálogos | `MachinePanel`, `ConsolePanel`, `MachineDialogHost`, `AlarmBanner` |
 | `preview/` | Vista previa del recorrido, reproducción, resultados por capa y recálculo con debounce | `PreviewBar`, `usePreviewSync` |
 | `history/` | Panel Historial (deshacer/rehacer con etiquetas), archivos (abrir, guardar, importar, exportar, recientes), arrastrar y soltar, aviso de cambios sin guardar, título de la ventana | `HistoryPanel`, `PromptHost`, `DropOverlay` y ganchos de ventana |
+| `text/` | Panel de texto flotante sobre el lienzo, lista de fuentes, contorno del texto al día con el motor (`text_outline`) y convertir a trayectos | `TextPanel`, `loadFonts`, `useFonts`, `convertTextToPaths` |
+| `arrange/` | Menú Organizar: booleanas, offset, alinear y distribuir, centrar y arreglos (rejilla y circular) con sus diálogos | `ArrangeDialogHost`, `useArrangeUi` |
+| `trace/` | Diálogo de vectorizado de imágenes con vista previa y colocación del resultado | `TraceDialogHost` |
+| `camera/` | Cámara: fuente de video, corrección de lente en WebGL, asistente de calibración, alineación con la cama y fondo del lienzo | `CameraPanel`, `CameraDialogHost` |
 
 Los `store/*` son compartidos: cada slice solo escribe en lo suyo. Los textos de cada área viven en
 `src/i18n/es/<area>.ts`.
@@ -148,6 +155,27 @@ Reglas (respuesta a la queja del foro de atajos contradictorios y que "no hacen 
 - **Cmd/Ctrl se reserva para acciones de archivo, edición y vista.** No se sobrecarga como
   modificador de pasos finos: el paso fino usa `Alt`, el grande `Mayús`.
 - Un atajo de un comando deshabilitado no hace nada, y el tooltip del botón dice por qué.
+
+**Editor de nodos (`N`).** Con un objeto vectorial seleccionado muestra sus nodos y manejadores. Clic
+elige un nodo (Mayús+clic suma o quita; clic en un segmento elige sus dos nodos; arrastrar sobre vacío
+dibuja una caja de nodos). Arrastrar mueve los nodos elegidos y los manejadores (Alt rompe la
+simetría); doble clic en un segmento agrega un nodo sin cambiar la forma. La barra de nodos fija la X
+y la Y exactas (en mm de documento) y reúne tipo de nodo, segmento y trayecto. El objeto conserva su
+`transform`: los puntos se editan en coordenadas locales. **Deshacer y rehacer funcionan siempre**, con
+nodos elegidos o sin ellos. Con la herramienta de nodos, `Supr`/`⌫` y las flechas actúan sobre los
+nodos elegidos (si no hay ninguno, siguen borrando o moviendo el objeto); las demás teclas de nodos
+(`I`, `B`, `J`, `O`, `Mayús+L`, `Mayús+U`, `Mayús+E`, `Mayús+S`, `Mayús+M`) solo valen con esa herramienta
+y cada una hace una sola cosa, sin depender de lo que haya bajo el cursor. `Esc` vuelve a Seleccionar.
+Un nodo "esquina" pedido a mano se recuerda solo durante la sesión (el documento no guarda el tipo de nodo:
+al reabrir, manejadores alineados se leen como suaves).
+
+**Texto (`T`).** Clic en vacío crea un texto "Texto" de 10 mm en la capa activa; clic sobre un texto lo
+selecciona; el doble clic sobre un texto con Seleccionar pasa a la herramienta de texto. El lienzo sube
+`textFocusToken` (`store/view.ts`) para que el panel de texto tome el foco.
+
+**Imagen de cámara.** Si `cameraBackdrop` existe, el lienzo la dibuja bajo la cuadrícula y los objetos,
+proyectada sobre sus cuatro esquinas (malla de triángulos con una afín por triángulo; ver
+`features/canvas/backdrop.ts`). Sin cámara no cuesta nada.
 
 La tabla sale del registro de comandos y una prueba (`src/features/shell/readme.test.ts`) falla si
 se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en macOS, `Ctrl` es `⌘`,
@@ -207,7 +235,21 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Texto | `T` |
 |  | Mano (mover la vista) | `H` |
 |  | Medir | `M` |
+|  | Insertar nodo en el punto medio | `I` |
+|  | Segmento a recta | `Mayús+L` |
+|  | Segmento a curva | `Mayús+U` |
+|  | Nodo en esquina | `Mayús+E` |
+|  | Nodo suave | `Mayús+S` |
+|  | Nodo simétrico | `Mayús+M` |
+|  | Romper el trayecto en el nodo | `B` |
+|  | Unir extremos | `J` |
+|  | Cerrar trayecto | `O` |
 |  | Cerrar polilínea | `C` |
+| Organizar | Unión | `Alt+U` |
+|  | Diferencia (A menos B)… | `Alt+D` |
+|  | Soldar | `Alt+W` |
+|  | Offset… | `Alt+O` |
+|  | Centrar en la cama | `Alt+C` |
 | Vista | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |
 |  | Alejar | `Ctrl+-` |
 |  | Ajustar a la cama | `Ctrl+0` |

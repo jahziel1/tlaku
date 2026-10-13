@@ -1,8 +1,26 @@
-/** Punto de montaje del área `camera` (lo monta el shell). Pendiente de implementar. */
-export function CameraDialogHost() {
-  return null;
-}
+import { useEffect } from 'react';
+import { useStore } from '@/store';
+import { loadCameraSetup } from './actions';
+import { CalibrationDialog } from './CalibrationDialog';
+import { startCamera } from './session';
 
-export function CameraPanel() {
-  return null;
+export { CameraPanel } from './CameraPanel';
+
+/**
+ * Punto de montaje del área `camera` (lo monta el shell una sola vez): carga la configuración
+ * guardada, reabre la cámara si el fondo estaba visible al cerrar y aloja el asistente de lente.
+ */
+export function CameraDialogHost() {
+  const open = useStore((s) => s.cameraCalibrationOpen);
+  const close = useStore((s) => s.setCameraCalibrationOpen);
+
+  useEffect(() => {
+    void loadCameraSetup().then(() => {
+      const { cameraSetup, cameraStatus } = useStore.getState();
+      // Se recupera el fondo tras reiniciar sin que el usuario repita nada.
+      if (cameraSetup.prefs.visible && cameraSetup.alignment && cameraStatus === 'off') void startCamera();
+    });
+  }, []);
+
+  return open ? <CalibrationDialog onClose={() => close(false)} /> : null;
 }

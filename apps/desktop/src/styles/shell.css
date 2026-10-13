@@ -246,6 +246,12 @@
 .tab:hover {
   color: var(--text);
 }
+/* Sin sitio para el texto: solo ícono, repartido en todo el ancho (el nombre va en title y aria-label). */
+.tab--icon {
+  flex: 1;
+  justify-content: center;
+  padding: 0 var(--s-3);
+}
 .tab[aria-selected='true'] {
   color: var(--text);
   border-bottom-color: var(--accent);

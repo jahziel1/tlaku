@@ -168,3 +168,39 @@ export interface CalibrationReport {
   used_views: number[];
   view_rms_px: number[];
 }
+
+type Quad = [Point, Point, Point, Point];
+
+/**
+ * Alineación manual de 4 puntos entre la imagen corregida y la cama. Los puntos van en píxeles
+ * de la imagen corregida (espacio de la calibración) y en mm de documento, en este orden:
+ * inferior izquierda, inferior derecha, superior derecha, superior izquierda.
+ * Es la misma forma que guarda `camera.json` (src-tauri/src/edit/camera.rs).
+ */
+export interface CameraAlignment {
+  image_size: [number, number];
+  image_px: Quad;
+  bed_mm: Quad;
+  /** Homografía píxel -> mm, por filas. */
+  to_bed: [[number, number, number], [number, number, number], [number, number, number]];
+  rms_mm: number;
+}
+
+export interface CameraPrefs {
+  device_id: string | null;
+  device_label: string | null;
+  width: number | null;
+  height: number | null;
+  /** Opacidad del fondo en el lienzo (0..1). */
+  opacity: number;
+  /** El fondo estaba visible al cerrar. */
+  visible: boolean;
+}
+
+/** Lo que sobrevive al reinicio (archivo `camera.json` en la carpeta de configuración). */
+export interface CameraSetup {
+  version: number;
+  calibration: LensCalibration | null;
+  alignment: CameraAlignment | null;
+  prefs: CameraPrefs;
+}

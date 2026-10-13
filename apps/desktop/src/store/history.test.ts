@@ -299,6 +299,50 @@ describe('memoria del historial', () => {
   });
 });
 
+describe('patchSilently', () => {
+  const recolor = (d: Document): Document => ({ ...d, objects: d.objects.map((o) => (o.layer === '#00ff00' ? o : { ...o, layer: '#00ff00' })) });
+
+  it('cambia doc, savedDoc, past y future sin crear un paso ni ensuciar', () => {
+    load([vector('a', '#ff0000', 0)]);
+    s().markSaved('/x.tlaku');
+    s().moveObjects(['a'], 1, 0);
+    s().moveObjects(['a'], 2, 0, 'otra');
+    s().undo();
+    const steps = s().past.length;
+    const futureSteps = s().future.length;
+    s().patchSilently(recolor);
+    expect(s().past).toHaveLength(steps);
+    expect(s().future).toHaveLength(futureSteps);
+    expect(s().doc.objects[0]!.layer).toBe('#00ff00');
+    expect(s().savedDoc.objects[0]!.layer).toBe('#00ff00');
+    for (const e of [...s().past, ...s().future]) for (const o of e.doc.objects) expect(o.layer).toBe('#00ff00');
+    s().redo();
+    expect(s().doc.objects[0]!.layer).toBe('#00ff00');
+  });
+
+  it('un documento limpio sigue limpio y uno sucio sigue sucio', () => {
+    load([vector('a', '#ff0000', 0)]);
+    s().markSaved('/x.tlaku');
+    s().patchSilently(recolor);
+    expect(s().dirty).toBe(false);
+    s().moveObjects(['a'], 1, 0);
+    expect(s().dirty).toBe(true);
+    s().patchSilently((d) => ({ ...d, device_id: 'zzz' }));
+    expect(s().dirty).toBe(true);
+    // Si lo guardado también es un paso del historial, deshacer vuelve a un documento limpio.
+    s().undo();
+    expect(s().dirty).toBe(false);
+  });
+
+  it('si change no cambia nada, no toca el estado', () => {
+    load([vector('a', '#ff0000', 0)]);
+    const before = s();
+    s().patchSilently((d) => d);
+    expect(s().doc).toBe(before.doc);
+    expect(s().past).toBe(before.past);
+  });
+});
+
 describe('avisos persistentes', () => {
   it('las advertencias y los errores no se van solos ni los desplaza un aviso efímero', () => {
     expect(isSticky('warning')).toBe(true);

@@ -132,3 +132,29 @@
 .canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='ew-resize'] { cursor: ew-resize; }
 .canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='nwse-resize'] { cursor: nwse-resize; }
 .canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='nesw-resize'] { cursor: nesw-resize; }
+
+/* Barra de nodos: comparte la franja de la barra numérica. */
+.node-bar {
+  align-items: flex-end;
+}
+.node-bar__group {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+/* El texto de estado no cambia el alto de la barra (el lienzo no debe moverse al elegir un nodo). */
+.node-bar__status {
+  align-self: center;
+  flex: 1 1 0;
+  min-width: 9rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='text'] { cursor: text; }

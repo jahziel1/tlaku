@@ -1,0 +1,231 @@
+/*
+ * Estilos de los diálogos de Organizar. Solo tokens de src/styles/tokens.css;
+ * clases con prefijo ar- para no chocar con otras áreas.
+ */
+
+.ar-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  overflow-y: auto;
+}
+.ar-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-width: 0;
+}
+.ar-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s-6);
+}
+@media (max-width: 640px) {
+  .ar-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* pie con motivo: el texto empuja a los botones a la derecha */
+.ar-reason {
+  flex: 1;
+  align-self: center;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+/* opciones excluyentes y casillas */
+.ar-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.ar-choice__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+.ar-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  color: var(--text);
+  font-size: var(--text-md);
+}
+.ar-check input {
+  accent-color: var(--accent);
+}
+
+/* lista de formas para elegir la principal */
+.ar-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.ar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: var(--control-h);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text);
+  text-align: left;
+}
+.ar-item:hover {
+  background: var(--bg-hover);
+}
+.ar-item[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.ar-item__role {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+.ar-item[aria-checked='true'] .ar-item__role {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.ar-item__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ar-item__meta {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.ar-swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 2px;
+  border: 1px solid var(--border-strong);
+}
+.ar-summary {
+  margin: 0;
+}
+
+/* alinear */
+.ar-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.ar-group__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+.ar-group__reason {
+  margin: 0;
+}
+.ar-cmd {
+  gap: var(--s-3);
+}
+
+/* vistas previas */
+.ar-preview-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.ar-preview {
+  width: 100%;
+  height: 220px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--cv-workspace);
+}
+.ar-preview path,
+.ar-preview polygon,
+.ar-preview rect {
+  vector-effect: non-scaling-stroke;
+}
+.ar-preview__bed {
+  fill: var(--cv-bed);
+  stroke: var(--cv-bed-edge);
+  stroke-width: 1px;
+}
+.ar-preview__original {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 1.2px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+.ar-preview__result {
+  fill: var(--cv-selection-fill);
+  stroke: var(--cv-selection);
+  stroke-width: 1.6px;
+  fill-rule: evenodd;
+  vector-effect: non-scaling-stroke;
+}
+.ar-preview__cell {
+  fill: var(--cv-selection-fill);
+  stroke: var(--cv-selection);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.ar-preview__cell--origin {
+  fill: var(--accent-subtle);
+  stroke: var(--accent);
+  stroke-width: 1.8px;
+}
+.ar-preview__cell--warn {
+  stroke: var(--warn);
+}
+.ar-preview__center {
+  fill: var(--cv-origin);
+}
+.ar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-5);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.ar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.ar-legend__line {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--cv-selection);
+}
+.ar-legend__line--original {
+  border-top: 2px dashed var(--text-faint);
+}
+.ar-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.ar-stats strong {
+  color: var(--text);
+  font-weight: 650;
+}

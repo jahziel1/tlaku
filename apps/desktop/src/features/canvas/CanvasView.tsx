@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef } from 'react';
 import { FileUp } from 'lucide-react';
 import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
+import { useArrangeUi } from '@/features/arrange';
 import { selectActiveDevice, useStore, type AppState } from '@/store';
 import { selectHeadDoc } from '@/store/machine';
 import './canvas-overlay.css';
 import { CanvasTip } from './CanvasTip';
 import { useInteraction } from './interaction';
+import { NodeBar } from './NodeBar';
+import { buildNodeOverlay, withPreview } from './nodeview';
 import { NumericBar } from './NumericBar';
 import { readCanvasPalette } from './palette';
 import { createRenderer } from './createRenderer';
@@ -22,6 +25,7 @@ import { ZoomControls } from './ZoomControls';
 const WATCHED: (keyof AppState)[] = [
   'zoom', 'panX', 'panY', 'viewport', 'doc', 'selectedIds', 'wireframe', 'theme',
   'preview', 'previewVisible', 'previewView', 'scrub', 'devices', 'activeDeviceId', 'status', 'connection',
+  'cameraBackdrop', 'nodeSel', 'nodeCorners', 'activeTool',
 ];
 
 // Estructuras derivadas que solo cambian con el documento / la selección: se recalculan por identidad.
@@ -42,6 +46,9 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
   }
   const bed = { width: dev.bed[0], height: dev.bed[1], origin: dev.origin };
   const ix = useInteraction.getState();
+  const nodeMode = s.activeTool === 'nodes';
+  const preview = nodeMode ? ix.nodePreview : null;
+  const objects = preview ? s.doc.objects.map((o) => (preview[o.id] ? withPreview(o, preview[o.id]) : o)) : s.doc.objects;
   const picked = s.selectedIds.length ? s.doc.objects.filter((o) => selSet.has(o.id) && !o.locked) : [];
   return {
     width: s.viewport.width,
@@ -49,10 +56,11 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     dpr,
     view: { zoom: s.zoom, panX: s.panX, panY: s.panY },
     bed,
-    objects: s.doc.objects,
+    objects,
     layers: layersMap,
     selectedIds: selSet,
     wireframe: s.wireframe,
+    primaryId: useArrangeUi.getState().primaryId,
     preview: s.previewVisible && s.preview ? { data: s.preview, scrub: s.scrub } : null,
     palette,
     overlay: {
@@ -65,9 +73,16 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
       guides: ix.guides,
       draft: ix.draft,
       pivot: ix.pivot,
+      nodes: nodeMode
+        ? buildNodeOverlay({
+            objects: s.doc.objects, selectedIds: s.selectedIds, nodeSel: s.nodeSel, nodeCorners: s.nodeCorners,
+            preview: ix.nodePreview, hover: ix.nodeHover,
+          })
+        : null,
     },
     // La posición de trabajo de la máquina se convierte al documento según el origen del perfil.
     head: selectHeadDoc(s),
+    backdrop: s.cameraBackdrop,
   };
 }
 
@@ -78,6 +93,7 @@ export function CanvasView() {
   useCanvasTools(areaRef, canvasRef);
 
   const viewport = useStore((s) => s.viewport);
+  const nodeTool = useStore((s) => s.activeTool === 'nodes');
   const bed = useStore((s) => selectActiveDevice(s).bed);
   const deviceName = useStore((s) => selectActiveDevice(s).name);
   const empty = useStore((s) => s.doc.objects.length === 0);
@@ -119,10 +135,15 @@ export function CanvasView() {
     });
     // La interacción (hover, arrastres, guías) también repinta.
     const unsubInteraction = useInteraction.subscribe(schedule);
+    // La forma principal de una booleana se resalta mientras el diálogo está abierto.
+    const unsubArrange = useArrangeUi.subscribe((s, prev) => {
+      if (s.primaryId !== prev.primaryId) schedule();
+    });
     schedule();
     return () => {
       unsub();
       unsubInteraction();
+      unsubArrange();
       if (frame) cancelAnimationFrame(frame);
       renderer.dispose();
     };
@@ -134,7 +155,7 @@ export function CanvasView() {
 
   return (
     <div className="canvas-view" style={{ ['--ruler' as string]: `${RULER_SIZE}px` }}>
-      <NumericBar />
+      {nodeTool ? <NodeBar /> : <NumericBar />}
       <div className="canvas-corner" aria-hidden="true">mm</div>
       <Ruler axis="x" length={rulerW} bedLength={bedSize.x} />
       <Ruler axis="y" length={rulerH} bedLength={bedSize.y} />

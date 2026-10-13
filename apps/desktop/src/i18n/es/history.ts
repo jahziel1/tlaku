@@ -88,6 +88,8 @@ export const history = {
   'history.shortcuts.cat.tools': 'Herramientas',
   'history.shortcuts.cat.view': 'Vista',
   'history.shortcuts.cat.machine': 'Máquina',
+  'history.shortcuts.cat.arrange': 'Organizar',
+  'history.shortcuts.cat.camera': 'Cámara',
   'history.shortcuts.cat.panels': 'Paneles y ayuda',
   'history.shortcuts.cat.canvas': 'Lienzo (gestos)',
   'history.shortcuts.step.normal': '1 mm',

@@ -1,3 +1,4 @@
+import { NODE_NUDGE, nodeTargets, nudgeNodes, runNodeOp } from '@/features/canvas/nodeActions';
 import { HISTORY_TAB } from '@/features/shell/dockTabs';
 import { useShellUi } from '@/features/shell/uiStore';
 import type { I18nKey } from '@/i18n';
@@ -21,6 +22,12 @@ const needClipboard = (s: AppState): true | I18nKey =>
 /** Ids de todo lo que se puede seleccionar con el área (visible y sin bloquear). */
 const selectable = (s: AppState): string[] => s.doc.objects.filter((o) => !o.hidden && !o.locked).map((o) => o.id);
 
+/**
+ * Con la herramienta de nodos activa y nodos elegidos, Supr y las flechas actúan sobre los nodos
+ * en lugar de sobre el objeto entero (no hay otro oyente de teclado: lo resuelve el comando).
+ */
+const onNodes = (s: AppState): boolean => s.activeTool === 'nodes' && nodeTargets(s).length > 0;
+
 /** Pasos de las flechas en mm: normal, grande (Mayús) y fino (Alt). */
 export const NUDGE_STEPS = { normal: 1, big: 10, fine: 0.1 } as const;
 
@@ -37,6 +44,8 @@ const SIZES = [
   { id: 'fine', prefix: 'Alt+', suffix: '.fine' },
 ] as const;
 
+const ARROW: Record<keyof typeof DIRS, string> = { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown' };
+
 const nudges: CommandDef[] = Object.entries(DIRS).flatMap(([dir, [ux, uy]]) =>
   SIZES.map<CommandDef>((size) => ({
     id: `edit.nudge.${dir}${size.suffix}`,
@@ -46,11 +55,18 @@ const nudges: CommandDef[] = Object.entries(DIRS).flatMap(([dir, [ux, uy]]) =>
     repeatable: true,
     shortcuts: [`${size.prefix}Arrow${dir[0]!.toUpperCase()}${dir.slice(1)}`],
     enabled: (s) => {
+      if (onNodes(s)) return true;
       const picked = selectSelectedObjects(s);
       if (picked.length === 0) return 'reason.noSelection';
       return picked.some((o) => !o.locked) ? true : 'reason.locked';
     },
     run: (s) => {
+      if (onNodes(s)) {
+        const step = NODE_NUDGE[size.id];
+        const ids = nodeTargets(s).map((tg) => `${tg.obj.id}:${tg.sel.join('.')}`).join(',');
+        nudgeNodes(s, [ux * step, uy * step], `nodenudge:${ARROW[dir as keyof typeof DIRS]}:${size.id}:${ids}`);
+        return;
+      }
       const step = NUDGE_STEPS[size.id];
       // `key` funde la ráfaga (dirección, tamaño y selección iguales) en un solo paso del historial.
       s.moveObjects(s.selectedIds, ux * step, uy * step, `nudge:${dir}:${size.id}:${s.selectedIds.join(',')}`);
@@ -107,8 +123,11 @@ export const editCommands: CommandDef[] = [
     label: 'cmd.edit.delete',
     category: 'edit',
     shortcuts: ['Delete', 'Backspace'],
-    enabled: needSelection,
-    run: (s) => s.deleteObjects(s.selectedIds),
+    enabled: (s) => (onNodes(s) ? true : needSelection(s)),
+    run: (s) => {
+      if (onNodes(s)) runNodeOp(s, 'delete');
+      else s.deleteObjects(s.selectedIds);
+    },
   },
   { id: 'edit.copy', label: 'cmd.edit.copy', category: 'edit', shortcuts: ['Mod+C'], enabled: needSelection, run: (s) => void s.copyObjects(s.selectedIds) },
   { id: 'edit.cut', label: 'cmd.edit.cut', category: 'edit', shortcuts: ['Mod+X'], enabled: needMovable, run: (s) => void s.cutObjects(s.selectedIds) },

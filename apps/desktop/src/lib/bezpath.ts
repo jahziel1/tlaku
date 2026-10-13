@@ -122,6 +122,25 @@ export function cubicExtremePoints(p0: Point, c1: Point, c2: Point, p1: Point): 
   ].map((t) => cubicAt(p0, c1, c2, p1, t));
 }
 
+export const lerpPoint = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+
+/** Cúbica como cuatro puntos: inicio, control 1, control 2 y fin. */
+export type CubicPts = [Point, Point, Point, Point];
+
+/**
+ * Divide una cúbica en `t` (de Casteljau). Las dos mitades dibujan exactamente la misma curva:
+ * la izquierda termina donde empieza la derecha (el punto de la curva en `t`).
+ */
+export function splitCubic(p0: Point, c1: Point, c2: Point, p1: Point, t: number): [CubicPts, CubicPts] {
+  const a = lerpPoint(p0, c1, t);
+  const b = lerpPoint(c1, c2, t);
+  const c = lerpPoint(c2, p1, t);
+  const d = lerpPoint(a, b, t);
+  const e = lerpPoint(b, c, t);
+  const m = lerpPoint(d, e, t);
+  return [[p0, a, d, m], [m, e, c, p1]];
+}
+
 /** Una cuadrática elevada a cúbica (mismos extremos). */
 export function quadToCubic(p0: Point, c: Point, p1: Point): [Point, Point] {
   const lerp = (a: Point, b: Point): Point => [a[0] + ((b[0] - a[0]) * 2) / 3, a[1] + ((b[1] - a[1]) * 2) / 3];

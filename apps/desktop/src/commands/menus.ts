@@ -48,5 +48,17 @@ export const MENUS: MenuDef[] = [
     label: 'menu.machine',
     items: ['machine.connect', '-', 'machine.frame', 'machine.start', 'machine.pause', 'machine.stop'],
   },
-  { id: 'arrange', label: 'menu.arrange', items: [] },
+  {
+    id: 'arrange',
+    label: 'menu.arrange',
+    items: [
+      'arrange.union', 'arrange.difference', 'arrange.intersection', 'arrange.xor', 'arrange.weld', '-',
+      'arrange.offset', '-',
+      'arrange.align.left', 'arrange.align.hcenter', 'arrange.align.right',
+      'arrange.align.top', 'arrange.align.vcenter', 'arrange.align.bottom', '-',
+      'arrange.distribute.h', 'arrange.distribute.v', 'arrange.alignDialog', '-',
+      'arrange.alignTo.selection', 'arrange.alignTo.object', 'arrange.alignTo.bed', 'arrange.centerOnBed', '-',
+      'arrange.grid', 'arrange.circular',
+    ],
+  },
 ];

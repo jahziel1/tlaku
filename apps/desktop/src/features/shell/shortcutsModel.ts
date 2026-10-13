@@ -12,7 +12,7 @@ export interface ShortcutRow {
   haystack: string;
 }
 
-export const CATEGORY_ORDER: (CommandCategory | 'canvas')[] = ['file', 'edit', 'tools', 'view', 'machine', 'panels', 'canvas'];
+export const CATEGORY_ORDER: (CommandCategory | 'canvas')[] = ['file', 'edit', 'tools', 'arrange', 'view', 'machine', 'camera', 'panels', 'canvas'];
 
 /** Minúsculas y sin acentos, para que "seleccion" encuentre "Selección". */
 export function normalizeText(text: string): string {

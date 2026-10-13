@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Affine, BezPath, Point } from '@/api/types';
 import type { BoxMode } from './hit';
+import type { EditModel } from './nodeedit';
 import type { Guide } from './snap';
 
 /**
@@ -22,7 +23,16 @@ export interface Tip {
   text: string;
 }
 
-export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline';
+export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes';
+
+/** Resultado vivo de un arrastre de nodos o manejadores: el objeto se dibuja con él hasta soltar. */
+export interface NodePreview {
+  model: EditModel;
+  paths: BezPath[];
+}
+
+/** Lo que hay bajo el puntero con la herramienta de nodos (resalta el nodo o manejador). */
+export type NodeHover = { id: string; k: number; handle: 'in' | 'out' | null } | null;
 
 export interface InteractionState {
   hoverId: string | null;
@@ -42,6 +52,9 @@ export interface InteractionState {
   pivot: Point | null;
   /** Puntos de la polilínea en curso. */
   polyPoints: number;
+  /** Objetos cuyos nodos se están arrastrando, por id (no están en el documento hasta soltar). */
+  nodePreview: Record<string, NodePreview> | null;
+  nodeHover: NodeHover;
 }
 
 const INITIAL: InteractionState = {
@@ -56,6 +69,8 @@ const INITIAL: InteractionState = {
   cursor: 'default',
   pivot: null,
   polyPoints: 0,
+  nodePreview: null,
+  nodeHover: null,
 };
 
 export const useInteraction = create<InteractionState>()(() => ({ ...INITIAL }));
@@ -66,7 +81,9 @@ export function patchInteraction(patch: Partial<InteractionState>): void {
 
 /** Limpia todo lo que dibuja un gesto (conserva hover, cursor y modo giro). */
 export function clearGesture(): void {
-  useInteraction.setState({ gesture: null, live: null, marquee: null, guides: [], draft: null, tip: null, pivot: null, polyPoints: 0 });
+  useInteraction.setState({
+    gesture: null, live: null, marquee: null, guides: [], draft: null, tip: null, pivot: null, polyPoints: 0, nodePreview: null,
+  });
 }
 
 // ---- cancelación y cierre desde el registro de comandos ------------------------------------------
