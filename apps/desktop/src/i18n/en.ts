@@ -1,0 +1,44 @@
+/**
+ * Diccionario en inglés. Mismas claves que `es.ts`, un archivo por área en `en/`. Una clave que
+ * falte aquí se muestra en español (ver `t()`); `i18n.test.ts` exige que no falte ninguna.
+ */
+import type { I18nKey } from './index';
+import { base } from './en/base';
+import { arrange } from './en/arrange';
+import { camera } from './en/camera';
+import { devices } from './en/devices';
+import { fileio } from './en/fileio';
+import { canvas } from './en/canvas';
+import { catalog } from './en/catalog';
+import { codes } from './en/codes';
+import { help } from './en/help';
+import { history } from './en/history';
+import { layers } from './en/layers';
+import { machine } from './en/machine';
+import { materials } from './en/materials';
+import { nodes } from './en/nodes';
+import { preview } from './en/preview';
+import { prefs } from './en/prefs';
+import { text } from './en/text';
+import { trace } from './en/trace';
+
+export const en: { [K in I18nKey]?: string } = {
+  ...base,
+  ...arrange,
+  ...camera,
+  ...devices,
+  ...fileio,
+  ...canvas,
+  ...catalog,
+  ...codes,
+  ...help,
+  ...history,
+  ...layers,
+  ...machine,
+  ...materials,
+  ...nodes,
+  ...preview,
+  ...prefs,
+  ...text,
+  ...trace,
+};

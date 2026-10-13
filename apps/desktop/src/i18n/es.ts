@@ -21,7 +21,7 @@ import { prefs } from './es/prefs';
 import { text } from './es/text';
 import { trace } from './es/trace';
 
-const base = {
+export const base = {
   // ---- comandos -----------------------------------------------------------
   'cmd.file.new': 'Nuevo proyecto',
   'cmd.file.open': 'Abrir proyecto…',
