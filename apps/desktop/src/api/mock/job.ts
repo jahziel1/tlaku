@@ -1,3 +1,4 @@
+import { t } from '@/i18n';
 import { objectPolylines, pointsBounds } from '@/lib/geometry';
 import { normalizeLayer, usesZ } from '@/lib/layers';
 import type { DesignObject, DeviceProfile, Document, JobLayerSummary, JobOptions, JobPreview, LayerSettings, Point, TabSettings } from '../types';
@@ -365,7 +366,7 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
     move_times: moveTimes,
     total_s: total,
     bounds,
-    order_note: summaries.length > 1 ? 'Orden de capas automático: primero las que graban, al final la que corta.' : null,
+    order_note: summaries.length > 1 ? t('layers.order.note.mock') : null,
     warnings,
   };
 }

@@ -74,6 +74,10 @@ Con rodillos debe dar una vuelta completa el rodillo motriz; con mandril, la pie
 
 El rotativo no tiene final de carrera, y su Y de controladora puede pasar de la medida de la cama. Si el trabajo la rebasa, la vista previa avisa en **Advertencias** que, con los límites por software activos (`$20=1`), la máquina daría `ALARM:2`. La solución que propone la app es desactivar los límites (`$20=0`) mientras uses el rotativo. Puedes enviar ese ajuste con la consola ([Enviar trabajos con seguridad](09-enviar-con-seguridad.md)), que te pide confirmación.
 
+### Qué cambia en la ventana Máquina
+
+Con el rotativo activo, **Posicionar el láser** (un clic en la cama) se deshabilita y dice por qué: la Y es el giro de la pieza, no un punto de la cama. Los encuadres (el rectángulo y **Encuadrar contorno**) sí funcionan y usan la escala del rotativo, igual que el trabajo.
+
 ### Lo que no existe
 
 Rotativo para controladoras Ruida, para galvo, corrección de cilindro y eje A aparte no están en Tlaku.

@@ -115,6 +115,10 @@ export const canvas: { [K in keyof typeof Source]?: string } = {
   'canvas.pick.twoPoint.ref': 'Drag from a reference point',
   'canvas.pick.twoPoint.both': '{deg}° · {pct}%',
 
+  // ---- position-laser mode -----------------------------------------------------------------------
+  'canvas.position.tip': 'X {x} · Y {y} mm',
+  'canvas.position.indicator': 'Position the laser: click the bed to move the head there. Esc to exit.',
+
   // ---- special selections -----------------------------------------------------------------------
   'canvas.select.none.open': 'There are no open shapes.',
   'canvas.select.none.openFill': 'There are no open shapes on fill layers.',
@@ -161,7 +165,7 @@ export const canvas: { [K in keyof typeof Source]?: string } = {
   'canvas.obj.cut': 'Cut',
   'canvas.obj.priority': 'Cut priority',
   'canvas.obj.powerScale': 'Power scale',
-  'canvas.obj.auto': 'Automatic',
+  'canvas.obj.auto': 'Auto',
   'canvas.obj.mixed': 'Mixed',
   'canvas.obj.priorityHint': 'Integer; lower = cut earlier. Empty = automatic.',
   'canvas.obj.powerScaleHint': 'Percentage of the layer power for this object (0 to 100). Empty = 100 %.',

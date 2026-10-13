@@ -2,6 +2,49 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Capas y corte: ajustes avanzados, en la próxima versión
+
+Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere el mismo control sobre cómo se corta. Sigue sin probarse con una máquina real: empieza con poca potencia y material de desecho.
+
+### Ajustes de corte (capas de Línea)
+
+- **Corte avanzado** en el editor de capa: **perforación** (corta un tramo y salta otro, ideal para dobleces en cartón), **entrada y salida del contorno** (recta o en arco, para que el arranque no deje marca en el borde), **sobrecorte**, **pausas** al empezar y al terminar, **corte pasante**, **modo punto** y **rampa de potencia**.
+- Las pausas usan `G4`; el **Dialecto de G-code** ahora dice en qué unidad (segundos o milisegundos) las lee tu controladora.
+- Si dos ajustes no se combinan (modo punto con perforación, por ejemplo), el editor lo marca y la vista previa avisa cuál se ignoró.
+
+### Relleno e imagen
+
+- Relleno **por regiones** (menos viajes en vacío con muchas piezas sueltas) y **agrupación** del relleno: todo junto, forma por forma o por grupos.
+- **Incremento de ángulo** entre pasadas.
+- Imágenes: **enviar sin tramar** (pass-through), **realce de bordes** y **quitar motas**.
+
+### Capas
+
+- **Operaciones adicionales (sub-capas)**: rellena y luego contornea la misma forma con una sola capa.
+- **Copiar y pegar ajustes** entre capas, **borrar una capa con sus objetos**, **valores por defecto** propios para las capas nuevas y **Modo principiante** para ocultar los ajustes avanzados.
+- **Prioridad de corte** y **escala de potencia** por objeto (ventana Propiedades del objeto), con números sobre el lienzo para revisarlas.
+- Las formas paramétricas (rectángulo, elipse, polígono y estrella) **guardan sus parámetros en el proyecto**: al reabrirlo se siguen editando.
+
+### Orden del trabajo
+
+- **Ajustes de optimización**: respetar capas, grupos y prioridad, interiores primero, mejor punto de inicio, quitar tramos que se cortarían dos veces y esconder el juego mecánico.
+- **Solo la selección**: vista previa, encuadre, trabajo y G-code con únicamente lo seleccionado, con la opción de usar su propio origen.
+
+### En la máquina
+
+- **Encuadrar contorno** (banda elástica) para piezas largas o en diagonal.
+- **Posicionar el láser**: un clic en la cama lleva el cabezal allí, con el láser apagado.
+- **Ajustes en vivo** de velocidad y potencia durante el trabajo (controladoras GRBL).
+- Ventana Mover: **pasos configurables**, **posición final** (quedarse, volver al origen o ir a un punto) e **ir al origen de trabajo**.
+- **Lista de comprobación** configurable en el diálogo de iniciar (aire, enfoque, material, extractor y tapa), con la opción de exigirla antes de enviar.
+
+### Lo que sigue sin estar
+
+- La **potencia mínima** de una capa de línea todavía no cambia el G-code (solo en imágenes).
+- Los **puentes** se reparten solos: aún no se colocan a mano.
+- El encuadre no se repite en bucle y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
+- El importador de proyectos de LightBurn aún no traduce a estos ajustes el perforado, el modo de puntos, el relleno inundado, el sobrecorte, la rampa ni el corte pasante: se avisa y hay que activarlos a mano.
+
 ## Versión 0.1.0, primera versión pública
 
 Primera versión de la aplicación de escritorio. Es una versión beta: **todavía no se ha probado con una máquina láser real**, solo con el emulador y las máquinas virtuales de la app. Empieza siempre con poca potencia y material de desecho.
@@ -24,6 +67,7 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 - SVG (con recortes reales), DXF, **PDF**, **AI**, **HPGL** (`.plt`), **G-code** e imágenes PNG, JPG, BMP, **WebP**, **TIFF**, **GIF** y **TGA**. Cada color del archivo se vuelve una capa.
 - **Importar con opciones**: escala, DPI, unidad de un DXF, página de un PDF, agrupar y capa destino.
 - Vectorizar una imagen con vista previa.
+- Proyectos de LightBurn (`.lbrn` y `.lbrn2`) con sus capas y ajustes.
 - Los importadores avisan de todo lo que no pudieron traer, en vez de callar.
 
 ### Exportar e imprimir
@@ -58,13 +102,15 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 - Rotativo (rodillo o mandril) y corrección de barrido.
 - Cámara con calibración de lente, alineación y marcas grabadas.
 
+### Idiomas
+
+- Interfaz en español e inglés, con cambio de idioma en vivo desde Preferencias.
+
 ### Ayuda
 
 - Este manual dentro de la app (menú Ayuda, con buscador), atajos de teclado con `F1`, Novedades, Reportar un problema y Acerca de.
 
 ### Lo que viene
 
-- **Importar proyectos de LightBurn** (`.lbrn` y `.lbrn2`) con sus capas y ajustes.
-- **Interfaz en inglés**, con cambio de idioma en vivo desde Preferencias.
-- Más herramientas de diseño (recortar, separar, redondear esquinas, deformar), ajustes de corte avanzados (perforación, lead-in, sub-capas), texto variable y números de serie.
+- Más herramientas de diseño (recortar, separar, redondear esquinas, deformar), texto variable y números de serie.
 - Ruida (CO2) existe solo por línea de comandos y es experimental. Conexión por red, K40 y galvo siguen sin estar.

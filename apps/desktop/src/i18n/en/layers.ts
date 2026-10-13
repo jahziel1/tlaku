@@ -103,6 +103,7 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.order.then': '{n} next',
   'layers.order.last': '{n} last',
   'layers.order.note.auto': 'Automatic order: {parts}',
+  'layers.order.note.mock': 'Automatic layer order: engraving layers first, the cutting layer last.',
   'layers.order.note.file': 'File order: layers run as they appear in the list',
   'layers.order.note.sameKind': 'Automatic order: the list order is kept (all layers are of the same kind).',
   'layers.order.note.pinnedOnly': 'Order set by each layer’s pinned position',

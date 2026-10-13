@@ -69,7 +69,7 @@ function MachineState() {
       <span className="dot" data-tone={connected ? 'ok' : 'off'} aria-hidden="true" />
       {virtual && <VirtualBadge />}
       {connected ? (
-        <span>{t('status.connected', { name })} <span className="status__muted num">{port && portLabel(port)} · {stateLabel(state ?? 'idle', otherState)}</span></span>
+        <span>{t('status.connected', { name })}<span className="status__muted status__detail num">{port && portLabel(port)} · {stateLabel(state ?? 'idle', otherState)}</span></span>
       ) : (
         <span className="status__muted">{t('status.disconnected')}</span>
       )}

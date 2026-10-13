@@ -324,7 +324,10 @@ describe('herramientas nuevas', () => {
   });
 
   it('la ventana de propiedades de forma se conmuta con su comando', async () => {
-    expect(registry.checked('panel.shapeProps')).toBe(true);
+    // Cerrada al arrancar para no tapar el lienzo.
+    expect(registry.checked('panel.shapeProps')).toBe(false);
+    await registry.run('panel.shapeProps');
+    expect(s().shapePropsOpen).toBe(true);
     await registry.run('panel.shapeProps');
     expect(s().shapePropsOpen).toBe(false);
   });

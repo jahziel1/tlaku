@@ -33,7 +33,7 @@
 use std::fmt::Write;
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, PowerMode, Toolpath};
-use tlaku_doc::{CommentStyle, GcodeDialect};
+use tlaku_doc::{CommentStyle, DwellFormat, GcodeDialect};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GcodeOptions {
@@ -276,7 +276,8 @@ impl Writer<'_> {
         self.off = false;
     }
 
-    /// Pausa de `ms` con el láser a `power_pct` (`Move::Dwell`): `G4 P<segundos>`.
+    /// Pausa de `ms` con el láser a `power_pct` (`Move::Dwell`): `G4` con el tiempo en la
+    /// unidad del dialecto (`G4 P<segundos>` en GRBL, `G4 P<ms>` en Marlin).
     ///
     /// GRBL en `M4` apaga el láser cuando la cabeza está quieta, así que para disparar parado
     /// se pasa a `M3` (potencia constante) solo durante la pausa y se vuelve a `M4`, que deja
@@ -285,9 +286,10 @@ impl Writer<'_> {
     /// la potencia en línea aparte (`power_cmd`) se enciende antes de la pausa y se apaga
     /// después. Con `power_pct` 0 la pausa va con el láser apagado, también en `M3`.
     ///
-    /// El tiempo se escribe en segundos, como GRBL y Smoothieware (`P`); Marlin lo lee en ms.
+    /// El tiempo se escribe como pide `GcodeDialect::dwell`: `P` en segundos (GRBL), `P` en
+    /// milisegundos (Marlin, Smoothieware en modo RepRap) o `S` en segundos.
     fn dwell(&mut self, ms: f64, power_pct: f64, s_max: f64, mode: PowerMode, restore: bool) {
-        let Some(secs) = dwell_secs(ms) else {
+        let Some(time) = dwell_word(ms, self.d.dwell) else {
             return;
         };
         let s = s_value(power_pct, s_max, self.s_decimals);
@@ -323,7 +325,7 @@ impl Writer<'_> {
                 self.set_power("0");
             }
         }
-        self.line(&format!("G4 P{secs}"));
+        self.line(&format!("G4 {time}"));
         if self.in_m3 && restore {
             if let Some(back) = &d.dynamic_on {
                 self.line(back);
@@ -400,13 +402,18 @@ fn mode_cmd(d: &GcodeDialect, mode: PowerMode) -> &str {
     }
 }
 
-/// Segundos de una pausa de `ms`, con el milisegundo como resolución; `None` si no dura nada.
-fn dwell_secs(ms: f64) -> Option<String> {
+/// Palabra de tiempo de un `G4` de `ms` milisegundos en el formato del dialecto (`P0.25`, `P250`
+/// o `S0.25`), con el milisegundo como resolución; `None` si no dura nada.
+fn dwell_word(ms: f64, format: DwellFormat) -> Option<String> {
     if !(ms.is_finite() && ms > 0.0) {
         return None;
     }
-    let secs = num(ms / 1000.0, 3);
-    (secs != "0").then_some(secs)
+    let (letter, value) = match format {
+        DwellFormat::PSeconds => ('P', num(ms / 1000.0, 3)),
+        DwellFormat::PMilliseconds => ('P', num(ms.round(), 0)),
+        DwellFormat::SSeconds => ('S', num(ms / 1000.0, 3)),
+    };
+    (value != "0").then(|| format!("{letter}{value}"))
 }
 
 /// `cmd` con su `S0` cambiado por `S{s}` (o con `S{s}` al final si no lo trae).
@@ -520,11 +527,11 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
                     let chained = matches!(
                         block.moves.get(i + 1),
                         Some(Move::Dwell { ms, power_pct, .. })
-                            if *power_pct > 0.0 && dwell_secs(*ms).is_some()
+                            if *power_pct > 0.0 && dwell_word(*ms, d.dwell).is_some()
                     );
                     // Disparar parado exige el foco ya puesto; apagado no hace falta.
                     if power_pct > 0.0
-                        && dwell_secs(ms).is_some()
+                        && dwell_word(ms, d.dwell).is_some()
                         && let Some(z) = depth.take()
                     {
                         w.z_goto(z);

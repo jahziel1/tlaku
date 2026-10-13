@@ -98,7 +98,7 @@
   list-style: none;
 }
 .mc-list--check li::before {
-  content: '□';
+  content: '•';
   margin-right: var(--s-3);
   color: var(--accent-ink);
 }

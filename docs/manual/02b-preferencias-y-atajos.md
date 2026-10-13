@@ -28,6 +28,8 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Archivos | **Intervalo entre copias** | 60 s | 10 a 3600 s |
 | Archivos | **Archivos recientes que se recuerdan** | 10 | 0 a 30 |
 
+![La interfaz en inglés: paneles y menús traducidos al cambiar el idioma en Preferencias; el resumen del orden de capas todavía sale en español porque lo escribe el motor](../../apps/desktop/docs/screenshots/38-english.png)
+
 Detalles que conviene saber:
 
 - **Unidades.** El diseño se guarda siempre en milímetros; la unidad que eliges cambia cómo se muestran y se escriben las longitudes. Hoy se aplica en la herramienta **Medir** (ver [Dibujar y editar](03-dibujar-y-editar.md)) y en los campos de esta ventana. La barra numérica y los diálogos siguen en milímetros, aunque aceptan la unidad al escribir (`5in`, `50%`). Los campos de longitud de las preferencias aceptan «5 mm», «0,25 in» o «1/8"».
@@ -65,7 +67,7 @@ Además:
 
 ## Llevar tu configuración a otro equipo
 
-En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar).
+En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas** y el **Modo principiante** (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)) y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo.
 
 Al importar, Tlaku dice cuántas preferencias y de cuántos comandos son los atajos que entraron. Si el archivo viene de otra versión:
 

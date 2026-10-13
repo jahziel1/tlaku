@@ -162,6 +162,15 @@ export function DialectEditor({ draft, edit, issues }: Props) {
                 </select>
               )}
             </Field>
+            <Field label={t('devices.dialect.dwell')} help="devices.dialect.dwell.help">
+              {({ id, describedBy }) => (
+                <select id={id} className="select" value={d.dwell} disabled={!editable} aria-describedby={describedBy} onChange={(e) => set({ dwell: e.target.value as Dialect['dwell'] })}>
+                  <option value="p_seconds">{t('devices.dialect.dwell.pSeconds')}</option>
+                  <option value="p_milliseconds">{t('devices.dialect.dwell.pMilliseconds')}</option>
+                  <option value="s_seconds">{t('devices.dialect.dwell.sSeconds')}</option>
+                </select>
+              )}
+            </Field>
           </Group>
         </div>
       </details>

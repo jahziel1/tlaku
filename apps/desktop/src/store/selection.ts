@@ -102,7 +102,8 @@ export const createSelectionSlice: SliceCreator<SelectionSlice> = (set, get) => 
   shapeRounding: 0,
   transformAllow: { move: true, scale: true, rotate: true },
   scaleFromCenter: false,
-  shapePropsOpen: true,
+  // Cerrada al arrancar: no tapa el lienzo; se abre con Ver > Propiedades del objeto.
+  shapePropsOpen: false,
   priorityBadges: readPref('priorityBadges') === '1',
   nodeSel: {},
   nodeCorners: {},

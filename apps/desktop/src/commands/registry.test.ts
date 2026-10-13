@@ -106,6 +106,16 @@ describe('ejecución', () => {
   });
 });
 
+describe('Escape y Posicionar el láser', () => {
+  it('Escape apaga el modo sin quitar la selección', async () => {
+    const { registry, store } = makeRegistry();
+    store.setState({ positioningLaser: true, selectedIds: ['a'] });
+    await registry.run('tool.select');
+    expect(store.getState().positioningLaser).toBe(false);
+    expect(store.getState().selectedIds).toEqual(['a']);
+  });
+});
+
 describe('atajos de teclado', () => {
   it('parseCombo valida modificadores y teclas', () => {
     expect(parseCombo('Mod+Shift+Z')).toEqual({ mod: true, alt: false, shift: true, key: 'Z' });

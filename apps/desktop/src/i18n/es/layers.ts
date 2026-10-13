@@ -101,6 +101,7 @@ export const layers = {
   'layers.order.then': '{n} después',
   'layers.order.last': '{n} al final',
   'layers.order.note.auto': 'Orden automático: {parts}',
+  'layers.order.note.mock': 'Orden de capas automático: primero las que graban, al final la que corta.',
   'layers.order.note.file': 'Orden del archivo: se ejecutan como están en la lista',
   'layers.order.note.sameKind': 'Orden automático: se conserva el orden de la lista (todas las capas son del mismo tipo).',
   'layers.order.note.pinnedOnly': 'Orden fijado por la posición de cada capa',

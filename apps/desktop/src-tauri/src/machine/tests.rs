@@ -1642,10 +1642,22 @@ fn feed_and_power_overrides_reach_the_machine_and_come_back_in_the_status() {
     rig.handle.set_override(OverrideKind::Feed, 130).unwrap();
     rig.handle.set_override(OverrideKind::Spindle, 85).unwrap();
     let e = emu(&rig);
+    // El hilo de la conexión escribe los bytes después de que `set_override` vuelve: se espera a
+    // que estén todos antes de compararlos (con carga, la lectura inmediata llegaba antes).
+    let ov_bytes = || -> Vec<u8> {
+        e.realtime_bytes()
+            .into_iter()
+            .filter(|b| *b >= 0x90)
+            .collect()
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while ov_bytes().len() < 9 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
     let rt = e.realtime_bytes();
     // Desde el 100 % que informa la controladora: velocidad +10 tres veces; potencia -10 y -1
     // cinco veces. Sin reinicio, porque ya se conoce el valor de partida.
-    let overrides: Vec<u8> = rt.iter().copied().filter(|b| *b >= 0x90).collect();
+    let overrides = ov_bytes();
     assert_eq!(
         overrides,
         [0x91, 0x91, 0x91, 0x9B, 0x9D, 0x9D, 0x9D, 0x9D, 0x9D],
@@ -1658,6 +1670,10 @@ fn feed_and_power_overrides_reach_the_machine_and_come_back_in_the_status() {
     // Volver al 100 % es un solo byte.
     let before = e.realtime_bytes().len();
     rig.handle.set_override(OverrideKind::Feed, 100).unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while e.realtime_bytes().len() <= before && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
     assert_eq!(e.realtime_bytes()[before..], [0x90]);
     rig.sink.wait("100 % otra vez", |s| {
         last_overrides(s).is_some_and(|o| o.feed == 100 && o.spindle == 85)

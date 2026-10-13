@@ -20,8 +20,8 @@ pub use cut::{
     CutThrough, DotMode, FillGrouping, Lead, LeadKind, Optimization, Perforation, Ramp, ShapeParams,
 };
 pub use device::{
-    CommentStyle, DeviceKind, DeviceProfile, GcodeDialect, Origin, PowerMode, RotaryKind,
-    RotarySettings, ScanOffset,
+    CommentStyle, DeviceKind, DeviceProfile, DwellFormat, GcodeDialect, Origin, PowerMode,
+    RotaryKind, RotarySettings, ScanOffset,
 };
 pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,

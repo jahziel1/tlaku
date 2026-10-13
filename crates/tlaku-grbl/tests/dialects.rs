@@ -7,7 +7,7 @@
 use std::path::Path;
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, PowerMode, Toolpath, ToolpathBlock};
-use tlaku_doc::{CommentStyle, DeviceKind, GcodeDialect};
+use tlaku_doc::{CommentStyle, DeviceKind, DwellFormat, GcodeDialect};
 use tlaku_grbl::gcode::{GcodeOptions, generate};
 
 fn p(x: f64, y: f64) -> Point {
@@ -363,4 +363,63 @@ fn every_preset_respects_its_own_limits() {
             }
         }
     }
+}
+
+/// Un punto (`Move::Dwell`) de 250 ms con el dialecto de cada firmware: `G4 P` va en segundos en
+/// GRBL y familia y en milisegundos en Marlin y Smoothieware; `S` siempre en segundos.
+#[test]
+fn dwell_unit_follows_each_dialect() {
+    let dot = |ms| Toolpath {
+        blocks: vec![ToolpathBlock {
+            label: "Punto".into(),
+            speed_mm_min: 1000.0,
+            air_assist: false,
+            power_mode: PowerMode::Constant,
+            moves: vec![
+                Move::Travel { to: p(5.0, 5.0) },
+                Move::Dwell {
+                    to: p(5.0, 5.0),
+                    ms,
+                    power_pct: 50.0,
+                },
+            ],
+            z_mm: None,
+        }],
+    };
+    let g4 = |d: GcodeDialect, ms: f64, s_max: f64| -> String {
+        generate(&dot(ms), &opts(d, s_max))
+            .lines()
+            .find(|l| l.starts_with("G4"))
+            .unwrap_or("")
+            .to_string()
+    };
+    for (kind, s_max, want) in [
+        (DeviceKind::Grbl, 1000.0, "G4 P0.25"),
+        (DeviceKind::GrblM3, 255.0, "G4 P0.25"),
+        (DeviceKind::GrblHal, 1000.0, "G4 P0.25"),
+        (DeviceKind::FluidNc, 1000.0, "G4 P0.25"),
+        (DeviceKind::GrblLpc, 1.0, "G4 P0.25"),
+        (DeviceKind::CustomGcode, 1000.0, "G4 P0.25"),
+        (DeviceKind::Smoothie, 1.0, "G4 P250"),
+        (DeviceKind::Marlin, 255.0, "G4 P250"),
+    ] {
+        assert_eq!(
+            g4(GcodeDialect::for_kind(kind), 250.0, s_max),
+            want,
+            "{kind:?}"
+        );
+    }
+    // Las variantes de Marlin heredan los milisegundos.
+    assert_eq!(g4(GcodeDialect::marlin_standard(), 250.0, 255.0), "G4 P250");
+    assert_eq!(g4(GcodeDialect::marlin_fan(), 250.0, 255.0), "G4 P250");
+    // Formato propio: segundos en la letra S.
+    let s_secs = GcodeDialect {
+        dwell: DwellFormat::SSeconds,
+        ..GcodeDialect::default()
+    };
+    assert_eq!(g4(s_secs, 250.0, 1000.0), "G4 S0.25");
+    // En milisegundos el valor es entero y una pausa de menos de medio ms no se emite.
+    let ms = GcodeDialect::marlin_inline();
+    assert_eq!(g4(ms.clone(), 1234.6, 255.0), "G4 P1235");
+    assert_eq!(g4(ms, 0.4, 255.0), "");
 }

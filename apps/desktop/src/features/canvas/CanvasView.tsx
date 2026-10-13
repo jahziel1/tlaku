@@ -17,6 +17,7 @@ import { createRenderer } from './createRenderer';
 import { MeasureReadout } from './MeasureReadout';
 import type { CanvasPalette, Scene } from './renderer';
 import { Ruler, RULER_SIZE } from './Ruler';
+import { PositionIndicator } from './PositionIndicator';
 import { PriorityBadges } from './PriorityBadges';
 import { ShapeProps } from './ShapeProps';
 import { SnapBar } from './SnapBar';
@@ -175,6 +176,7 @@ export function CanvasView() {
         <SnapBar />
         <ShapeProps />
         <MeasureReadout />
+        <PositionIndicator />
         <CanvasTip />
         <ZoomControls />
         {empty && (

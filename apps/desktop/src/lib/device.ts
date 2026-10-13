@@ -30,6 +30,7 @@ export const DEFAULT_DIALECT: GcodeDialect = {
   air_off: 'M9',
   end_sync: null,
   comment: 'semicolon',
+  dwell: 'p_seconds',
   max_line_len: 127,
 };
 
@@ -366,6 +367,7 @@ function marlinInline(): GcodeDialect {
     travel_s0: true,
     feed_on_g0: true,
     end_sync: 'M400',
+    dwell: 'p_milliseconds',
     max_line_len: 96,
   };
 }
@@ -377,7 +379,7 @@ export function dialectForKind(kind: DeviceKind): GcodeDialect {
     case 'grbl_m3':
       return { ...grbl, s_decimals: 0, dynamic_on: null, g0_laser_off: false, travel_s0: true };
     case 'smoothie':
-      return { ...grbl, dynamic_on: null, end_sync: 'M400', max_line_len: 0 };
+      return { ...grbl, dynamic_on: null, end_sync: 'M400', dwell: 'p_milliseconds', max_line_len: 0 };
     case 'marlin':
       return marlinInline();
     default:

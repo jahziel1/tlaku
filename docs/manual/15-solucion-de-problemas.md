@@ -128,7 +128,7 @@ Revisa en este orden:
 
 ## Problemas al importar o exportar
 
-- **"Formato no soportado" con un `.lbrn` o `.lbrn2`.** Es lo esperado hoy: el motor de Tlaku sabe leerlos, pero la aplicación todavía no los acepta. Exporta el diseño desde LightBurn a SVG, DXF o PDF (ver [Venir desde LightBurn](14-desde-lightburn.md)).
+- **Importé un `.lbrn` o `.lbrn2` y faltan ajustes de corte.** El aviso de importación lista lo que no pudo traer: perforado, modo de puntos, relleno inundado, sobrecorte, rampa y corte pasante tienen su equivalente en Tlaku, pero el importador todavía no los traduce; vuelve a encenderlos en **Corte avanzado** o en el selector **Relleno** de la capa. Los puentes manuales de LightBurn se reparten solos. Ver [Venir desde LightBurn](14-desde-lightburn.md).
 - **Un PDF o AI llega sin texto o sin fotos.** Solo se importan trayectos: convierte el texto a curvas en el programa de origen y vuelve a exportar. El aviso de importación lo dice. Si el archivo tiene varias páginas, importa la primera; elige otra en **Importar con opciones…**.
 - **"Es un AI antiguo (PostScript)".** Ábrelo en Illustrator y guárdalo con **Crear archivo compatible con PDF**, o expórtalo a PDF o SVG.
 - **Un HPGL o un SVG sale a otro tamaño.** El HPGL no declara su escala (se supone 40 unidades por mm) y un SVG sin unidades usa 96 ppp. Usa **Escala (%)** y **Resolución (ppp)** en **Archivo > Importar con opciones…**; Illustrator suele necesitar 72.

@@ -77,6 +77,7 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
 const IDENTICAL_OK: Record<string, string> = {
   // base / layers / machine / preview / history / help
   'canvas.zoom': 'palabra idéntica en ambos idiomas',
+  'canvas.obj.auto': 'abreviatura idéntica en ambos idiomas',
   'layers.dither.stucki': 'nombre propio del algoritmo',
   'layers.dither.jarvis': 'nombre propio del algoritmo',
   'layers.dither.atkinson': 'nombre propio del algoritmo',

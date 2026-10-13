@@ -18,6 +18,7 @@ import { createMeasureTool } from './measureTool';
 import { createNodeTool } from './nodeTool';
 import { cornerNode, handleLines, hasCurves, penDraft, penPath, smoothNode, type PenNode } from './pen';
 import { createPickTool } from './pickTool';
+import { createPositionTool } from './positionTool';
 import { newShapeObject, type ShapeSpec } from '@/lib/paramShape';
 import { createTextAt, editText, prefetchFonts } from './textTool';
 import { DRAG_PX, type Mods, type ToolDeps } from './toolDeps';
@@ -265,6 +266,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const toolDeps: ToolDeps = { el, st, viewOf, world, capture, release, snapOpts, targetsFor, setTip, snapTo };
     const measureTool = createMeasureTool(toolDeps);
     const pickTool = createPickTool(toolDeps);
+    const positionTool = createPositionTool(toolDeps);
 
     // ---- actualizar gestos -------------------------------------------------------------------------------
 
@@ -499,6 +501,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const [sx, sy] = local(e);
       const mods = modsOf(e);
       last = { sx, sy, mods };
+      // "Posicionar el láser": el clic solo manda la cabeza allí; no selecciona ni arrastra.
+      if (positionTool.down(e, sx, sy, mods)) return;
       if (useInteraction.getState().pick) {
         pickTool.down(e, sx, sy, mods);
         return;
@@ -636,6 +640,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const [sx, sy] = local(e);
       const mods = modsOf(e);
       last = { sx, sy, mods };
+      if (positionTool.move(e, sx, sy, mods)) return;
       if (nodeTool.move(e, sx, sy, mods)) return;
       if (pickTool.move(e, sx, sy, mods)) return;
       if (measureTool.move(e, sx, sy, mods)) return;
@@ -748,6 +753,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         hoverFrame = 0;
       }
       if (!g) patchInteraction({ hoverId: null });
+      if (positionTool.active()) patchInteraction({ tip: null });
     };
 
     // ---- teclado ------------------------------------------------------------------------------------------------------
@@ -834,6 +840,13 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       }
     });
 
+    // Al activar o apagar "Posicionar el láser" cambia el cursor (mira) y se limpia la etiqueta.
+    const unsubPosition = useStore.subscribe((s, prev) => {
+      if (s.positioningLaser === prev.positioningLaser) return;
+      patchInteraction({ cursor: s.positioningLaser ? 'crosshair' : 'default', hoverId: null, tip: null });
+    });
+    if (st().positioningLaser) patchInteraction({ cursor: 'crosshair' });
+
     // El cursor CSS sigue al estado de la interacción.
     const syncCursor = (c: string) => {
       el.dataset.cursor = c;
@@ -859,6 +872,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       unhook();
       unsub();
       unsubCursor();
+      unsubPosition();
       cancel();
     };
   }, [areaRef, canvasRef]);

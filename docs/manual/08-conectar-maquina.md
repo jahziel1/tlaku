@@ -49,7 +49,7 @@ Los tipos de controladora que ofrece la lista son: GRBL 1.1, grblHAL, FluidNC, G
 
 ![Perfil de una máquina con el dialecto de G-code y su vista previa](../../apps/desktop/docs/screenshots/27-dialecto.png)
 
-El **Dialecto de G-code** muestra un resumen (por ejemplo "S 0-1000, M4 dinámico, S en cada G1, aire M8/M9") y una vista previa del G-code. Solo se edita con el tipo **G-code personalizado**; en los demás es de consulta.
+El **Dialecto de G-code** muestra un resumen (por ejemplo "S 0-1000, M4 dinámico, S en cada G1, aire M8/M9") y una vista previa del G-code. Solo se edita con el tipo **G-code personalizado**; en los demás es de consulta. Entre sus datos está el **Tiempo de pausa (G4)**: la unidad con que se escriben las pausas de los ajustes de corte (**Pausa al empezar**, **Pausa al terminar**, **Corte pasante** y **Modo punto**, ver [Capas y ajustes de corte](05-capas-y-ajustes.md)). GRBL lee `G4 P` en segundos; Marlin y Smoothieware (en modo RepRap) lo leen en milisegundos, y Tlaku ya elige la unidad correcta según el tipo de controladora. Una unidad equivocada hace la pausa mil veces más larga o más corta, así que cámbiala solo si tu firmware es raro.
 
 **Leer de la máquina** (con la máquina conectada) envía `$$`, que solo lee, y te propone valores para el perfil. Tú marcas cuáles aplicar; tampoco se guardan hasta **Guardar cambios**.
 
@@ -69,6 +69,8 @@ Avisos que puede darte la sección:
 - Si la conexión se pierde (cable, o la placa calla más de 5 segundos), la app lo avisa.
 
 Si no encuentra el puerto o falla la conexión, mira [Solución de problemas](15-solucion-de-problemas.md).
+
+Ya conectado, la pestaña **Máquina** ofrece también **Mover cabezal** (con pasos configurables, **Posicionar el láser** con un clic en el lienzo y **Posición final**), los botones de encuadre y los **Ajustes en vivo** de velocidad y potencia durante un trabajo. Todo eso está explicado en [Enviar trabajos con seguridad](09-enviar-con-seguridad.md). Los ajustes en vivo solo existen con controladoras de la familia GRBL (no con Marlin ni Smoothieware).
 
 ## Máquina virtual
 

@@ -113,6 +113,10 @@ export const canvas = {
   'canvas.pick.twoPoint.ref': 'Arrastra desde un punto de referencia',
   'canvas.pick.twoPoint.both': '{deg}° · {pct} %',
 
+  // ---- modo Posicionar el láser ------------------------------------------------------------------
+  'canvas.position.tip': 'X {x} · Y {y} mm',
+  'canvas.position.indicator': 'Posicionar el láser: haz clic en la cama para llevar allí el cabezal. Esc para salir.',
+
   // ---- selecciones especiales -----------------------------------------------------------------------
   'canvas.select.none.open': 'No hay formas abiertas.',
   'canvas.select.none.openFill': 'No hay formas abiertas en capas de relleno.',
@@ -159,7 +163,7 @@ export const canvas = {
   'canvas.obj.cut': 'Corte',
   'canvas.obj.priority': 'Prioridad de corte',
   'canvas.obj.powerScale': 'Escala de potencia',
-  'canvas.obj.auto': 'Automática',
+  'canvas.obj.auto': 'Auto',
   'canvas.obj.mixed': 'Varios',
   'canvas.obj.priorityHint': 'Entero; menor = se corta antes. Vacío = automática.',
   'canvas.obj.powerScaleHint': 'Porcentaje de la potencia de la capa para este objeto (0 a 100). Vacío = 100 %.',

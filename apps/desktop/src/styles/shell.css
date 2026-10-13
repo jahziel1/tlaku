@@ -308,6 +308,10 @@
 .status__muted {
   color: var(--text-muted);
 }
+/* Detalle tras el nombre de la máquina: separado con margen, sin depender del espacio del texto. */
+.status__detail {
+  margin-left: var(--s-3);
+}
 
 /* ---- avisos ---------------------------------------------------------------------------- */
 

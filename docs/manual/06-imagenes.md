@@ -22,6 +22,7 @@ Una capa en modo **Imagen** graba punto a punto, variando la potencia según el 
 | **Potencia mínima** | Potencia para los más claros. Con 0 % no marcan nada. |
 | **Intervalo** y **Resolución equivalente** | Distancia entre líneas (0,1 mm = 254 DPI). Más fino, más detalle y más tiempo. Debe parecerse al ancho del punto del haz. |
 | **Ángulo de barrido** | Con 90° la imagen se graba por columnas. |
+| **Incremento de ángulo** | Grados que se suman al ángulo de barrido en cada pasada; solo se nota con 2 o más pasadas (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)). |
 | **Bidireccional**, **Overscan** | Igual que en Relleno. |
 
 ## Tramado
@@ -50,6 +51,22 @@ Se aplican a la imagen antes del tramado:
 - **Gamma** (0,1 a 5): curva de tonos. Mayor que 1 oscurece los medios tonos; menor que 1 los aclara.
 - **Invertir**: intercambia claro y oscuro, útil con negativos o materiales que se aclaran al quemarse.
 - **Ancho del punto** (0 a 1 mm): acorta cada tramo encendido para que las zonas oscuras no engorden. 0 = sin corrección.
+
+## Imagen avanzada
+
+En la sección plegable **Imagen avanzada** del editor de la capa (oculta en el **Modo principiante**) hay tres ajustes más. Se aplican antes del tramado, junto con los de tono.
+
+| Ajuste | Qué hace | Rango |
+|---|---|---|
+| **Realce de bordes: radio** y **fuerza** | Acentúa los bordes (como el "enfoque" de un editor de fotos). El radio es el tamaño, en píxeles de la imagen, de lo que se considera un borde; la fuerza va de 0 (nada) a 1 (máximo). **Hacen falta los dos mayores que 0**; con uno en 0 no pasa nada y el editor lo avisa. | Radio 0 a 20 px; fuerza 0 a 1 |
+| **Quitar motas** | Borra las motas aisladas de hasta ese tamaño, en píxeles, antes de tramar. 0 = apagado. | 0 a 20 px |
+| **Enviar sin tramar (pass-through)** | Cada punto de la imagen ya es la potencia: se envía tal cual, sin tramado ni ajustes de tono. Con esta casilla el tramado, el umbral, el brillo, el contraste, el gamma, invertir, el realce y quitar motas quedan desactivados. | sí o no |
+
+**Ejemplos prácticos**
+
+- **Foto vieja o escaneada, con polvo y manchitas.** Antes de grabar sube **Quitar motas** a 2 o 3 px: las manchas aisladas desaparecen en lugar de salir como puntitos quemados en la madera. Los bloques grandes y los bordes rectos se conservan. Súbelo poco a poco: un valor alto empieza a borrar detalles reales.
+- **Foto blanda o desenfocada.** Un **Realce de bordes** de radio 1 a 2 px y fuerza 0,5 devuelve definición a los contornos (ojos, letras, orillas). Si ves halos o bordes duros, baja la fuerza.
+- **Imagen preparada en otro programa.** Si ya hiciste el tramado o las curvas de tono en un editor de fotos y la imagen en escala de grises es exactamente lo que quieres grabar, activa **Enviar sin tramar**: Tlaku no la toca. El negro se graba a la **Potencia máxima** y el blanco a la mínima. La imagen se sigue remuestreando al **Intervalo** de la capa.
 
 La [vista previa](07-vista-previa.md) muestra las líneas de barrido y el tiempo estimado; con imágenes, el tiempo real puede diferir más que con vectores.
 

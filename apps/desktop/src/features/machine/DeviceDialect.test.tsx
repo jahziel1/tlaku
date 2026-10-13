@@ -74,6 +74,17 @@ describe('editor del dialecto', () => {
     expect(h).toContain('sin modo dinámico');
   });
 
+  it('muestra la unidad de la pausa G4: segundos en GRBL, milisegundos en Marlin, editable solo en personalizado', () => {
+    const grbl = html(device());
+    expect(grbl).toContain('Tiempo de pausa (G4)');
+    expect(grbl).toMatch(/<option value="p_seconds" selected="">/);
+    const marlin = html(device({ ...kindDefaults('marlin'), dialect: dialectForKind('marlin') }));
+    expect(marlin).toMatch(/<option value="p_milliseconds" selected="">/);
+    expect(html(custom({ dwell: 's_seconds' }))).toMatch(/<option value="s_seconds" selected="">/);
+    // Solo se edita con el tipo personalizado.
+    expect(grbl).toMatch(/<select[^>]*disabled[^>]*>(?:(?!<\/select>).)*p_seconds/s);
+  });
+
   it('avisa si el láser puede quedar encendido en los desplazamientos', () => {
     expect(html(custom({ g0_laser_off: false, travel_s0: false }))).toContain('puede quedar encendido');
   });

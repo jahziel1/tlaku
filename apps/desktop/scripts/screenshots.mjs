@@ -73,10 +73,13 @@ const key = async (k, code, modifiers = 0) => {
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, modifiers, text: modifiers || k.length !== 1 ? undefined : k });
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers });
 };
+// Los PNG se guardan al final: la ayuda de la app los importa con `import.meta.glob`, así que escribir
+// uno a mitad de la ejecución hace que Vite recargue módulos y reinicie el estado de la página.
+const shots = new Map();
 const shot = async (name) => {
   const { data } = await send('Page.captureScreenshot', { format: 'png' });
-  writeFileSync(join(out, name), Buffer.from(data, 'base64'));
-  console.log('guardada', name);
+  shots.set(name, Buffer.from(data, 'base64'));
+  console.log('capturada', name);
 };
 
 await send('Page.enable');
@@ -88,6 +91,18 @@ await send('Page.navigate', { url });
 await wait(2500);
 await evaluate(`document.querySelectorAll('.toast button').forEach(b => b.click())`);
 await wait(300);
+
+/** Espera a que el diseño de ejemplo (que carga el mock de forma asíncrona) esté en el documento. */
+const sampleLoaded = () => evaluate(`new Promise((ok, fail) => {
+  const t0 = Date.now();
+  const tick = async () => {
+    const { useStore } = await import('/src/store/index.ts');
+    if (useStore.getState().doc.objects.length > 0) return ok();
+    if (Date.now() - t0 > 20000) return fail(new Error('el diseño de ejemplo no cargó'));
+    setTimeout(tick, 200);
+  };
+  tick();
+})`);
 
 // Atajos: Cmd en macOS y Ctrl en el resto (el registro usa "Mod").
 const MOD = (await evaluate(`/Mac/.test(navigator.platform)`)).result.value ? 4 : 2;
@@ -178,6 +193,7 @@ const fresh = async () => {
   await evaluate("localStorage.setItem('tlaku.theme', 'dark')");
   await send('Page.navigate', { url });
   await wait(2500);
+  await sampleLoaded();
   await evaluate(`document.querySelectorAll('.toast button').forEach(b => b.click())`);
   await wait(300);
 };
@@ -201,6 +217,12 @@ await app(`
   st().setTool('select');
 `);
 await wait(1200);
+// El panel espera a que carguen las fuentes: se sondea hasta 15 s en vez de suponer un tiempo fijo.
+await evaluate(`new Promise((ok, fail) => {
+  const t0 = Date.now();
+  const tick = () => document.querySelector('.text-panel__area') ? ok() : Date.now() - t0 > 15000 ? fail(new Error('sin el panel de texto')) : setTimeout(tick, 200);
+  tick();
+})`);
 await evaluate(`(() => { const a = document.querySelector('.text-panel__area'); a.focus(); a.select(); })()`);
 await type('Tlaku láser');
 await wait(1200);
@@ -398,6 +420,117 @@ await wait(900);
 await shot('32-manual.png');
 await closeDialog();
 
+// ---- Ola 2 (capturas 33 a 38) ---------------------------------------------------------------------------
+
+/** Abre el editor de la capa Corte (doble clic en su fila). */
+const openCutEditor = async () => {
+  await evaluate(`(() => {
+    const row = [...document.querySelectorAll('.lyr-main')].find((e) => e.textContent.includes('Corte'));
+    if (!row) throw new Error('sin la capa Corte');
+    row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  })()`);
+  await wait(600);
+};
+/** Abre la sección plegable `title` del editor de capa (si está cerrada) y la deja a la vista. */
+const openFold = (title) => evaluate(`(() => {
+  const d = [...document.querySelectorAll('details.lyr-fold')].find((e) => e.querySelector('summary')?.textContent.trim().startsWith(${JSON.stringify(title)}));
+  if (!d) throw new Error('sin la sección ${title}');
+  if (!d.open) d.querySelector('summary').click();
+  d.scrollIntoView({ block: 'start' });
+  // El encabezado fijo del editor tapa el borde superior: se sube un poco el contenido.
+  let box = d.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  if (box) box.scrollTop -= 70;
+})()`);
+
+// 33. Editor de capa con "Corte avanzado": perforación y entrada en arco activas
+await fresh();
+await app(`
+  const corte = st().doc.layers.find((l) => l.name.includes('Corte'));
+  st().updateLayer(corte.color, {
+    perforation: { enabled: true, cut_mm: 4, skip_mm: 2 },
+    lead_in: { enabled: true, kind: 'arc', length: 3, angle: 90 },
+  });
+`);
+await openCutEditor();
+await openFold('Corte avanzado');
+await wait(500);
+await shot('33-corte-avanzado.png');
+await closeDialog();
+
+// 34. Operaciones adicionales (sub-capas) de la capa de corte
+await fresh();
+await app(`
+  const corte = st().doc.layers.find((l) => l.name.includes('Corte'));
+  const { addSubLayer } = await import('/src/features/layers/actions.ts');
+  addSubLayer(st(), corte.color, 'line');
+  addSubLayer(st(), corte.color, 'fill');
+`);
+await openCutEditor();
+await evaluate(`(() => {
+  const g = [...document.querySelectorAll('.lyr-group, fieldset, section, div')].find((e) => e.firstElementChild && /^Operaciones adicionales/.test(e.firstElementChild.textContent.trim()) && e.childElementCount < 8);
+  const h = g ?? [...document.querySelectorAll('*')].find((e) => e.childElementCount === 0 && e.textContent.trim() === 'Operaciones adicionales');
+  if (!h) throw new Error('sin Operaciones adicionales');
+  h.scrollIntoView({ block: 'start' });
+  let box = h.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  if (box) box.scrollTop -= 70;
+})()`);
+await wait(500);
+await shot('34-operaciones-adicionales.png');
+await closeDialog();
+
+// 35. Ajustes de optimización del trabajo
+await fresh();
+await app(`void commands.run('preview.optimization');`);
+await wait(800);
+await shot('35-optimizacion.png');
+await closeDialog();
+
+// 36. Diálogo de inicio con el checklist (máquina virtual GRBL 1.1 conectada)
+await fresh();
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:grbl11');
+  await st().connect();
+`);
+await wait(1500);
+await app(`void commands.run('machine.start');`);
+await wait(900);
+await shot('36-checklist-inicio.png');
+await closeDialog();
+
+// 37. Panel Máquina con "Ajustes en vivo" y la máquina virtual conectada
+await fresh();
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:grbl11');
+  await st().connect();
+`);
+await wait(1500);
+await evaluate(`(() => {
+  const el = [...document.querySelectorAll('h2, h3, h4, legend, span, div')].find((e) => e.childElementCount === 0 && e.textContent.trim() === 'Ajustes en vivo');
+  if (!el) throw new Error('sin Ajustes en vivo');
+  el.scrollIntoView({ block: 'center' });
+})()`);
+await wait(500);
+await shot('37-ajustes-en-vivo.png');
+
+// 38. La interfaz en inglés (preferencia de idioma)
+await fresh();
+await app(`st().setPref('language', 'en');`);
+await wait(500);
+// Se recarga con el idioma ya guardado: el cálculo del trabajo (mock) se rehace en inglés.
+await fresh();
+await click('.canvas-area');
+await key('a', 'KeyA', MOD);
+await wait(600);
+await shot('38-english.png');
+await app(`st().setPref('language', 'es');`);
+
+
 await send('Browser.close').catch(() => {});
 ws.close();
 proc.kill();
+for (const [name, png] of shots) writeFileSync(join(out, name), png);
+console.log(`guardadas ${shots.size} capturas en ${out}`);

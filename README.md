@@ -29,7 +29,8 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   rectángulos, elipses, polígonos, estrellas y líneas con curvas Bézier, medir, editor de nodos,
   ajuste magnético a nodos, puntos medios, centros e intersecciones, menú contextual, alinear y
   distribuir, arreglos en rejilla y circulares, copiar y pegar SVG entre programas y deshacer con
-  historial.
+  historial. Las formas paramétricas (rectángulo, elipse, polígono y estrella) guardan sus
+  parámetros en el proyecto y se siguen editando al reabrirlo.
 - **Texto y códigos:** texto con fuentes del sistema (sobre un trayecto, curvado o con las letras
   soldadas), 15 fuentes de una línea (Hershey) y lector de fuentes SHX, y códigos QR, Data Matrix y
   de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar).
@@ -45,19 +46,32 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   `.tlakuprefs` para llevar la configuración a otro equipo, autoguardado y recuperación tras un
   cierre inesperado.
 - **Capas de corte:** modos Línea, Relleno e Imagen; velocidad, potencia, pasadas, intervalo,
-  ángulo, bidireccional, overscan calculado con la física de la máquina, kerf, puentes (tabs),
-  aire, eje Z por capa y por pasada.
+  ángulo, incremento de ángulo, bidireccional, overscan calculado con la física de la máquina,
+  kerf, puentes (tabs), aire, eje Z por capa y por pasada, y relleno por barrido, por contornos o
+  por regiones, con agrupación por forma o por grupo.
+- **Corte avanzado (capas de línea):** perforación (corta y salta, para dobleces), entrada y
+  salida del contorno (recta o en arco), sobrecorte, pausas al empezar y al terminar, corte
+  pasante, modo punto y rampa de potencia.
+- **Organización de las capas:** operaciones adicionales (sub-capas, por ejemplo rellenar y luego
+  contornear), copiar y pegar ajustes, borrar una capa con sus objetos, valores por defecto
+  propios para las capas nuevas y modo principiante. Cada objeto puede llevar su propia
+  prioridad de corte y escala de potencia.
 - **Imagen:** dithering (Floyd-Steinberg, Jarvis, Stucki, Atkinson, Bayer), semitono, periódico,
-  boceto, umbral, escala de grises y ajustes de brillo, contraste y gamma.
-- **Vista previa:** reproducción del recorrido con tiempo estimado y desglose por capa.
+  boceto, umbral, escala de grises, ajustes de brillo, contraste y gamma, enviar sin tramar,
+  realce de bordes y quitar motas.
+- **Vista previa:** reproducción del recorrido con tiempo estimado y desglose por capa, y una
+  ventana de ajustes de optimización (respetar capas, grupos y prioridad, interiores primero,
+  mejor punto de inicio, quitar tramos que se cortarían dos veces, esconder el juego mecánico).
 - **Máquina:** asistente "Agregar máquina" con detección de solo lectura, conexión serie, mover el
-  cabezal, origen y "Iniciar desde", origen del trabajo de 9 puntos, encuadre, pausa y paro,
-  consola con respuestas explicadas y exportar G-code.
+  cabezal (pasos configurables, posicionar el láser con un clic, posición final), origen y
+  "Iniciar desde", origen del trabajo de 9 puntos, enviar solo la selección, encuadre de
+  rectángulo o de contorno, lista de comprobación antes de enviar, ajustes de velocidad y potencia
+  en vivo (GRBL), pausa y paro, consola con respuestas explicadas y exportar G-code.
 - **Taller:** biblioteca de materiales y prueba de materiales, rotativo (rodillo o mandril),
   corrección de barrido (scanning offset), cámara con calibración de lente, alineación y marcas
   grabadas.
 - **Idiomas:** español e inglés, con cambio en vivo.
-- **Ayuda:** manual de usuario de 17 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
+- **Ayuda:** manual de usuario de 19 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
   [docs/manual](docs/manual/00-indice.md), atajos con `F1`, novedades y "Acerca de".
 
 ![Vista previa del trabajo con reproducción y resultados por capa](apps/desktop/docs/screenshots/04-vista-previa.png)
@@ -91,16 +105,19 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 | ![Editor de nodos](apps/desktop/docs/screenshots/11-editor-de-nodos.png) | ![Panel de cámara](apps/desktop/docs/screenshots/17-panel-camara.png) | ![Biblioteca de materiales](apps/desktop/docs/screenshots/19-materiales.png) |
 | Editor de nodos | Cámara | Materiales |
 
-### En camino (próximamente)
+### En camino
 
-Estas funciones están en el plan inmediato y todavía no son parte de la app:
+Estas funciones están en el plan y todavía no son parte de la app:
 
-- Ajustes de corte avanzados (perforación, lead-in y lead-out, sub-capas, prioridad por objeto),
-  cortar solo la selección y más herramientas de diseño (recortar, separar, redondear esquinas,
-  deformar, texto variable y números de serie).
+- Más herramientas de diseño (recortar, separar, redondear esquinas, deformar, nesting, texto
+  variable y números de serie) y puentes que se colocan a mano.
+- Ventana Mover completa (ejes Z y A, posiciones guardadas, Fire y Focus), encuadre en bucle y
+  macros.
 - **Ruida en la aplicación**, conexión por red, K40 y galvo.
+- Pruebas con una máquina real: el corte avanzado, los ajustes en vivo y el resto de las
+  funciones de máquina solo se han validado con el emulador.
 
-El estado real, función por función (119 de las 214 funciones del inventario están hechas), está en
+El estado real, función por función (143 de las 214 funciones del inventario están hechas), está en
 [docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
@@ -283,6 +300,12 @@ Otras opciones de `gcode`: `--speed`, `--power`, `--passes`, `--air`, `--mode li
 `--s-max` (`$30`), `--bed` (área de trabajo, `400x415` por defecto), `--tolerance`, `--no-flip`,
 `--power-mode dynamic|constant` (M4 o M3), `--start-gcode` y `--end-gcode`. Las imágenes
 necesitan `--image-size` y `--image-pos`. `plan` y `frame` aceptan las mismas opciones de diseño.
+
+Los ajustes de optimización de la ventana de la app también son banderas: `--no-inner-first`,
+`--no-reduce-travel`, `--no-best-start`, `--no-choose-direction`, `--mix-layers`,
+`--remove-overlaps[=MM]` y `--hide-backlash`. El resumen y `tlaku plan` explican cuáles están
+cambiadas. Los ajustes de corte avanzados (perforación, entradas, sub-capas...) se usan desde la app;
+el CLI todavía no tiene opciones de `--layer` para ellos.
 
 Sin instalar, se puede usar con `cargo run --bin tlaku -- <comando>`.
 

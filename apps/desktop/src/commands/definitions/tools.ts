@@ -95,6 +95,8 @@ export const toolCommands: CommandDef[] = [
       // Escape primero cancela lo que se esté arrastrando o dibujando; solo si no hay nada en
       // curso quita la selección (y vuelve a Seleccionar) como antes.
       if (tool === 'select' && cancelGesture()) return;
+      // Esc también apaga el modo "Posicionar el láser" (sin tocar la selección).
+      if (tool === 'select' && s.positioningLaser) return s.setPositioningLaser(false);
       if (tool === 'select' && s.activeTool === 'select') s.clearSelection();
       s.setTool(tool);
     },

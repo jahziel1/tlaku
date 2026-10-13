@@ -268,10 +268,10 @@ describe('tipo de controladora', () => {
     expect([m3.dynamic_on, m3.g0_laser_off, m3.travel_s0, m3.s_decimals]).toEqual([null, false, true, 0]);
     // Smoothie: S de 0 a 1, cierre con M400 y sin dato del largo de línea.
     expect(kindDefaults('smoothie')).toMatchObject({ s_max: 1, power_mode: 'constant', baud: 115200 });
-    expect(dialectForKind('smoothie')).toMatchObject({ end_sync: 'M400', max_line_len: 0, dynamic_on: null });
+    expect(dialectForKind('smoothie')).toMatchObject({ end_sync: 'M400', max_line_len: 0, dynamic_on: null, dwell: 'p_milliseconds' });
     // Marlin: inline, F en G0, sin M4, 255, 250000 baudios y líneas cortas.
     expect(kindDefaults('marlin')).toMatchObject({ s_max: 255, power_mode: 'constant', baud: 250000 });
-    expect(dialectForKind('marlin')).toMatchObject({ constant_on: 'M3 S0 I', feed_on_g0: true, travel_s0: true, end_sync: 'M400', max_line_len: 96, s_decimals: 0 });
+    expect(dialectForKind('marlin')).toMatchObject({ constant_on: 'M3 S0 I', feed_on_g0: true, travel_s0: true, end_sync: 'M400', max_line_len: 96, s_decimals: 0, dwell: 'p_milliseconds' });
     // GRBL: el perfil de siempre (potencia dinámica).
     expect(kindDefaults('grbl')).toMatchObject({ s_max: 1000, power_mode: 'dynamic', baud: 115200 });
     expect(kindDefaults('grbl_lpc').s_max).toBe(1);

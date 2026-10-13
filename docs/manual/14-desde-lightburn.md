@@ -12,6 +12,22 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Cut Settings Editor | Ajustes de la capa: doble clic o Intro sobre la capa, o `Alt+Enter` |
 | Line / Fill / Image | Modos **Línea**, **Relleno**, **Imagen** |
 | Offset Fill | Opción **Contornos** de una capa de relleno |
+| Flood Fill | Opción **Por regiones** del selector **Relleno** (sección **Relleno** del editor de una capa de relleno) |
+| Fill Grouping | Selector **Agrupación**: **Todo junto**, **Forma por forma**, **Por grupos** |
+| Angle Increment | **Incremento de ángulo** (grupo **Barrido**, con 2 o más pasadas) |
+| Perforation Mode | **Perforación (corta y salta)** en **Corte avanzado**: **Tramo cortado** y **Tramo saltado** |
+| Lead In / Lead Out | **Entrada al contorno** y **Salida del contorno** (**Recta** o **Arco**) |
+| Overcut | **Sobrecorte** |
+| Start/End Pause, Cut Through | **Pausa al empezar**, **Pausa al terminar** y **Corte pasante** |
+| Dot Mode | **Modo punto** |
+| Ramp Length | **Rampa de potencia** |
+| Sub-Layers | **Operaciones adicionales** (hasta 10 más la principal; no tienen pestañas ni nombre propio) |
+| Pass-Through, Enhance Edges, Denoise (Adjust Image) | **Enviar sin tramar (pass-through)**, **Realce de bordes** y **Quitar motas** en **Imagen avanzada** |
+| Copiar y pegar ajustes de capa, borrar capa | Menú de la fila de la capa: **Copiar ajustes**, **Pegar ajustes**, **Borrar capa y sus objetos…** |
+| Default Layer Settings | **Valores por defecto** al final del editor de capa (un solo juego para todas las capas nuevas) |
+| Beginner Mode | **Modo principiante** del editor de capa (oculta los ajustes avanzados de la capa; no cambia menús ni herramientas) |
+| Cut Order Priority, Power Scale (por objeto) | **Prioridad de corte** y **Escala de potencia** en **Propiedades del objeto**; **Cortar antes / Cortar después** en el menú Organizar |
+| Optimization Settings | **Ajustes de optimización…** (vista previa, panel Máquina y menú Máquina) |
 | Laser (panel) y Move | Pestaña **Máquina** (conexión, mover el cabezal, origen, trabajo) |
 | Console | Pestaña **Consola** |
 | Library | Pestaña **Materiales** (biblioteca de presets) |
@@ -19,6 +35,12 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Trace Image | **Vectorizar imagen…** |
 | Camera | Pestaña **Cámara** |
 | Frame | **Encuadrar** |
+| Rubber Band Frame | **Encuadrar contorno** |
+| Cut Selected Graphics, Use Selection Origin | **Solo la selección** y **Usar el origen de la selección** |
+| Position Laser | **Posicionar el láser** |
+| Adjust Speed / Adjust Power (durante el trabajo) | **Ajustes en vivo**: **Velocidad** y **Potencia** |
+| Set Finish Position | **Posición final** (en **Mover cabezal**) |
+| Job checklist | Lista **Antes de enviar** del diálogo de iniciar, configurable |
 | Start / Pause / Stop | **Iniciar** / **Pausar** / **Detener** |
 | Save GCode | **Exportar G-code…** (menú Archivo) |
 | Export SVG, DXF, imágenes | **Exportar SVG…**, **Exportar DXF…**, **Exportar imagen PNG…** (menú Archivo); además **Exportar PDF…** e **Imprimir…** |
@@ -113,19 +135,21 @@ Diferencias que muerden:
 
 ## Lo que falta o es distinto
 
-Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte, conexión GRBL por USB, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas, arreglos, texto (con fuentes de una línea, curvado y soldado), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, menú contextual, preferencias, atajos configurables, autoguardado, y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
+Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas, arreglos, texto (con fuentes de una línea, curvado y soldado), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, ajustes de velocidad y potencia en vivo, y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
 
 Falta, y no lo prometo si no está en el código:
 
-- **Todo lo de la lista siguiente:** Trim, Break Apart, Fillet, Cut Shapes, Optimizar formas, deformar, nesting, Print & Cut, texto variable y números de serie, sub-capas, perforación, lead-in y overcut, macros, posicionar el láser con clic, ajustes de velocidad en vivo. Están planificados, pero **no** están en el programa.
+- **Todo lo de la lista siguiente:** Trim, Break Apart, Fillet, Cut Shapes, Optimizar formas, deformar, nesting, Print & Cut, texto variable y números de serie, macros. Están planificados, pero **no** están en el programa.
+- **Del corte:** puentes colocados a mano (los de Tlaku se reparten solos), valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min). El encuadre no se repite en bucle ni va con el láser encendido a baja potencia, y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
+- **Del modo principiante:** en Tlaku solo oculta ajustes avanzados del editor de capa; no oculta herramientas ni menús como el de LightBurn.
 - No se pueden ocultar objetos sueltos (sí capas), no hay selección con `Tab` ni sesgar.
 - Las **pulgadas** de las preferencias solo se aplican hoy en Medir y en la ventana de Preferencias; la barra numérica sigue en mm y acepta `5in` o `50%`.
 - Máquinas de red (Wi-Fi, Ethernet), Ruida en la app, K40 con M2 Nano, galvo y fibra: ver [Controladoras soportadas](13-controladoras.md).
-- Solo hay una capa de guías; no hay modo principiante. La interfaz está solo en español.
+- Solo hay una capa de guías.
 
 ## Cómo pasar un diseño
 
-Hay dos caminos: **exportar desde LightBurn a un formato abierto** (lo que funciona hoy en la app) o **traer el proyecto `.lbrn2` completo** (todavía no en la app).
+Hay dos caminos: **exportar desde LightBurn a un formato abierto** (lo que funciona hoy en la app) o **traer el proyecto `.lbrn` o `.lbrn2` completo**, con sus capas y ajustes (más abajo).
 
 ### Con SVG, DXF o PDF (funciona hoy)
 
@@ -155,7 +179,7 @@ Nada se pierde en silencio. Al importar, un aviso lista lo que no pudo traer:
 
 - **Formas de un tipo no soportado:** se omiten y el aviso dice **cuántas y de qué tipo**.
 - **Texto:** si el archivo no trae el contorno de las letras, Tlaku lo genera con tus fuentes (y avisa si la fuente no está instalada y usó otra); el **espaciado de letras y líneas** de LightBurn no se importa.
-- **Ajustes de capa sin equivalente en Tlaku**, solo si estaban activos: perforado, modo de puntos, relleno inundado (flood fill), sobrecorte (overcut), rampa de potencia, pulsos por pulgada (PPI), frecuencia del láser, retardos de encendido y apagado, potencia de atravesado (cut-through), segundo láser, potencia constante, velocidad del soplador y relleno por objeto.
+- **Ajustes de capa que el importador no traduce**, solo si estaban activos: perforado, modo de puntos, relleno inundado (flood fill), sobrecorte (overcut), rampa de potencia, pulsos por pulgada (PPI), frecuencia del láser, retardos de encendido y apagado, potencia de atravesado (cut-through), segundo láser, potencia constante, velocidad del soplador y relleno por objeto. Para seis de ellos (perforado, modo de puntos, relleno inundado, sobrecorte, rampa y potencia de atravesado) Tlaku ya tiene función propia (ver la tabla de equivalencias), pero el importador todavía **no los trae**: tendrás que volver a encenderlos a mano en el editor de la capa.
 - **Relleno + línea** en una sola capa: se importa solo el relleno (crea otra capa de línea si quieres el contorno).
 - **Puentes manuales:** en LightBurn se colocan a mano; aquí se reparten solos, así que revisa su posición.
 - **Capas citadas pero no definidas** en el archivo, un modo de capa o de imagen desconocido, o un archivo guardado con una versión de LightBurn más nueva de las que Tlaku conoce (se intenta leer igual).

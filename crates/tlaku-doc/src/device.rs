@@ -57,6 +57,22 @@ pub enum CommentStyle {
     Parentheses,
 }
 
+/// Unidad y letra del tiempo de `G4` (pausa). GRBL y Smoothieware en modo GRBL leen `P` en
+/// segundos; Marlin (y Smoothieware en modo RepRap, el habitual con láser) lo leen en
+/// milisegundos. Como `S`, ambos lo leen en segundos (enteros en Marlin).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum DwellFormat {
+    /// `G4 P0.25`: segundos con decimales (GRBL y familia).
+    #[default]
+    PSeconds,
+    /// `G4 P250`: milisegundos enteros (Marlin, Smoothieware).
+    PMilliseconds,
+    /// `G4 S0.25`: segundos en la letra `S`.
+    SSeconds,
+}
+
 /// Cómo escribe el G-code una controladora: datos puros que lee el generador de `tlaku-grbl`,
 /// sin código propio por firmware. Solo cubre la generación; el enlace (control de flujo,
 /// pausa, consulta de estado) vive aparte. La escala de `S` es `DeviceProfile.s_max`.
@@ -102,6 +118,8 @@ pub struct GcodeDialect {
     /// último movimiento. `None` = no se emite.
     pub end_sync: Option<String>,
     pub comment: CommentStyle,
+    /// Cómo se escribe el tiempo de `G4` (pausas del perforado y del modo punto).
+    pub dwell: DwellFormat,
     /// Longitud máxima de una línea con su salto, en bytes (127 en GRBL, ~96 en Marlin);
     /// 0 = sin dato. Los comentarios se recortan para no pasarla.
     pub max_line_len: u32,
@@ -125,6 +143,7 @@ impl Default for GcodeDialect {
             air_off: Some("M9".into()),
             end_sync: None,
             comment: CommentStyle::Semicolon,
+            dwell: DwellFormat::PSeconds,
             max_line_len: 127,
         }
     }
@@ -153,6 +172,9 @@ impl GcodeDialect {
             DeviceKind::Smoothie => Self {
                 dynamic_on: None,
                 end_sync: Some("M400".into()),
+                // En el modo RepRap (el que se usa con láser) `G4 P` va en ms; solo en el
+                // modo GRBL de Smoothieware es en segundos.
+                dwell: DwellFormat::PMilliseconds,
                 max_line_len: 0,
                 ..grbl
             },
@@ -170,6 +192,7 @@ impl GcodeDialect {
             travel_s0: true,
             feed_on_g0: true,
             end_sync: Some("M400".into()),
+            dwell: DwellFormat::PMilliseconds,
             max_line_len: 96,
             ..Self::default()
         }
@@ -481,6 +504,31 @@ mod tests {
             },
             "scan_offsets": [{ "speed": 3000.0, "offset": 0.2 }]
         })
+    }
+
+    #[test]
+    fn a_dialect_saved_without_dwell_reads_seconds_and_defaults_follow_the_kind() {
+        let mut v = serde_json::to_value(GcodeDialect::marlin_inline()).unwrap();
+        assert_eq!(v["dwell"], "p_milliseconds");
+        v.as_object_mut().unwrap().remove("dwell");
+        let d: GcodeDialect = serde_json::from_value(v).unwrap();
+        assert_eq!(d.dwell, DwellFormat::PSeconds);
+        for kind in [DeviceKind::Marlin, DeviceKind::Smoothie] {
+            assert_eq!(
+                GcodeDialect::for_kind(kind).dwell,
+                DwellFormat::PMilliseconds
+            );
+        }
+        for kind in [
+            DeviceKind::Grbl,
+            DeviceKind::GrblM3,
+            DeviceKind::GrblHal,
+            DeviceKind::FluidNc,
+            DeviceKind::GrblLpc,
+            DeviceKind::CustomGcode,
+        ] {
+            assert_eq!(GcodeDialect::for_kind(kind).dwell, DwellFormat::PSeconds);
+        }
     }
 
     #[test]

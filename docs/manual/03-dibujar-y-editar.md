@@ -40,7 +40,19 @@ Un triángulo, un pentágono o un octágono son un polígono de 3, 5 u 8 lados.
 
 La ventana **Propiedades de forma** (**Ver > Propiedades de forma**) se aplica al rectángulo, la elipse, el polígono y la estrella seleccionados; con varias formas del mismo tipo, el cambio las afecta a todas. Mientras no edites los nodos de una forma, sigue siendo "una forma" con sus parámetros; al editar nodos, unir o recortar pasa a ser un trayecto cualquiera. **Los parámetros se guardan en el proyecto:** al reabrirlo, las formas siguen siendo editables. Escalar una forma cambia sus parámetros (un rectángulo escalado cambia su ancho y alto); si la escala no es proporcional y la figura deja de ser regular (polígono, estrella o rectángulo redondeado), pasa a ser un trayecto.
 
-La misma ventana (**Propiedades del objeto**) tiene los campos **Prioridad de corte** (menor = se corta antes) y **Escala de potencia** (% de la potencia de la capa) para cualquier selección, también con varios objetos; vacío es automática y 100 %. La prioridad solo ordena dentro de la capa y solo cuenta si los Ajustes de optimización la respetan. **Ordenar > Cortar antes / Cortar después** (`Alt+Mayús+[` y `Alt+Mayús+]`) la restan o suman, y **Ver > Mostrar prioridad de corte** dibuja el número sobre cada objeto que la tiene.
+### Prioridad de corte y escala de potencia por objeto
+
+Con cualquier objeto o selección (también varios a la vez, y no solo formas), la ventana **Propiedades del objeto** (la misma de **Propiedades de forma**; ábrela con **Ver > Propiedades de forma**) ofrece dos campos de **Corte**. Vacío significa "automática" y 100 % respectivamente; si los objetos seleccionados tienen valores distintos, el campo muestra **Varios**.
+
+| Campo | Qué hace | Ejemplo |
+|---|---|---|
+| **Prioridad de corte** | Un entero; menor = se corta antes, dentro de su capa. Acepta `+1` y `-1` para sumar o restar a lo que ya tenía cada objeto. | En una lámina con detalles finos y piezas grandes, dale prioridad 1 a las piezas grandes y deja los detalles finos sin prioridad (cuenta como 0, y menor se corta antes): los detalles se cortan primero, con la lámina todavía firme en su sitio. |
+| **Escala de potencia** | Porcentaje de la potencia de la capa que usa este objeto (0 a 100; vacío = 100 %). | Un nombre grabado más suave que el resto sin crear otra capa: ese objeto con escala de potencia 60 % dentro de la misma capa de grabado. |
+
+- La **prioridad** solo ordena dentro de la capa, vale en capas de **Línea** y **solo cuenta si los Ajustes de optimización la respetan** (lo hacen de fábrica; ver [Vista previa y orden de corte](07-vista-previa.md)). La precedencia es siempre capa, grupo y prioridad.
+- La **escala de potencia** vale en capas de **Línea** y de **Relleno** (no en las de Imagen). Si en un relleno hay objetos con escalas distintas, se rellenan por separado, una vez por escala, y la vista previa lo avisa; si dos objetos de escalas distintas se superponen, lo común se graba dos veces. Un resultado por encima del 100 % se limita a 100 % y también se avisa; con 0 % el objeto no se rellena.
+- **Ordenar > Cortar antes / Cortar después** (`Alt+Mayús+[` y `Alt+Mayús+]`) restan o suman 1 a la prioridad de los objetos seleccionados (sin prioridad cuenta como 0), y **Ver > Mostrar prioridad de corte** dibuja un número pequeño sobre cada objeto que tiene prioridad, para revisarlas de un vistazo.
+- Los **grupos** (`Ctrl/Cmd+G`) también cuentan al cortar: con **Terminar cada grupo antes del siguiente** en los [Ajustes de optimización](07-vista-previa.md), el láser termina un grupo completo antes de pasar a otro, y el relleno **Por grupos** de una capa los rellena juntos (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)). Se usa el grupo de más afuera.
 
 ## Medir
 

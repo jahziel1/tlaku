@@ -283,3 +283,27 @@
   text-align: center;
   box-shadow: 0 0 0 1px var(--bg-raised);
 }
+
+/* ---- aviso del modo Posicionar el láser ----------------------------------------------------------- */
+.canvas-mode {
+  position: absolute;
+  top: var(--s-4);
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  max-width: min(60%, 560px);
+  padding: var(--s-2) var(--s-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-chrome) 94%, transparent);
+  color: var(--text);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+.canvas-mode svg {
+  flex: none;
+  color: var(--accent);
+}

@@ -74,11 +74,6 @@ impl LayerWork<'_> {
         self.paths.is_empty() && self.images.is_empty()
     }
 
-    /// Un id de grupo por trayectoria, para `tlaku_fill::fill_with_groups`.
-    pub fn fill_group_ids(&self) -> Vec<u32> {
-        self.meta.iter().map(|m| m.fill_group).collect()
-    }
-
     /// `(posición, total)` entre las operaciones de su capa, si ésta tiene sub-capas
     /// (la principal es `1/total`).
     pub fn position(&self) -> Option<(u32, u32)> {
