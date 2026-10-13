@@ -44,7 +44,7 @@ function Selection() {
   return (
     <>
       <div className="status__item status__muted">
-        {ids.length > 0 ? t('status.selected', { n: ids.length }) : t('status.nothingSelected')}
+        {ids.length === 0 ? t('status.nothingSelected') : ids.length === 1 ? t('status.selectedOne') : t('status.selected', { n: ids.length })}
       </div>
       {size && (
         <div className="status__item" title={t('history.status.size', { w: fmt(size.w, 2), h: fmt(size.h, 2) })}>
@@ -52,7 +52,7 @@ function Selection() {
           <span className="status__unit">mm</span>
         </div>
       )}
-      <div className="status__item status__muted">{t('history.status.objects', { n: doc.objects.length })}</div>
+      <div className="status__item status__muted">{doc.objects.length === 1 ? t('history.status.objectOne') : t('history.status.objects', { n: doc.objects.length })}</div>
     </>
   );
 }

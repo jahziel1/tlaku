@@ -21,7 +21,7 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Start/End Pause, Cut Through | **Pausa al empezar**, **Pausa al terminar** y **Corte pasante** |
 | Dot Mode | **Modo punto** |
 | Ramp Length | **Rampa de potencia** |
-| Sub-Layers | **Operaciones adicionales** (hasta 10 más la principal; no tienen pestañas ni nombre propio) |
+| Sub-Layers | **Operaciones adicionales** (hasta 11 más la principal; no tienen pestañas ni nombre propio) |
 | Pass-Through, Enhance Edges, Denoise (Adjust Image) | **Enviar sin tramar (pass-through)**, **Realce de bordes** y **Quitar motas** en **Imagen avanzada** |
 | Copiar y pegar ajustes de capa, borrar capa | Menú de la fila de la capa: **Copiar ajustes**, **Pegar ajustes**, **Borrar capa y sus objetos…** |
 | Default Layer Settings | **Valores por defecto** al final del editor de capa (un solo juego para todas las capas nuevas) |
@@ -72,13 +72,37 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Weld, Offset Shapes | **Soldar**, **Offset…** |
 | Close Path, Join, Delete Duplicates | **Cerrar trayectos…**, **Unir trazos…**, **Quitar duplicados…** |
 | Grid Array, Circular Array | **Arreglo en rejilla…**, **Arreglo circular…** |
+| Virtual Array | **Arreglo virtual…** (copias que no son objetos; ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md)) |
+| Copy Along Path | **Copiar a lo largo de un trazo…** (sin escala progresiva) |
+| Move Together, Dock | **Acoplar y mover juntos…** |
+| Nesting | **Acomodar piezas (nesting)…**, en el menú Organizar: cama o material irregular, rotaciones, huecos y tope de tiempo |
+| Auto-Group | **Editar > Agrupar automáticamente por contención**, y la opción del mismo nombre al importar con opciones |
+| Trim Shapes | Herramienta **Recortar formas** (`X`) y **Recortar en el último clic** (`Ctrl/Cmd+K`); ver [Formas avanzadas y deformar](03c-formas-y-deformar.md) |
+| Break Apart | **Separar subtrayectos…** (`Alt+B`): separa por contorno, no por segmento |
+| Optimize Shapes | **Optimizar formas…** (`Alt+Mayús+O`): quita y simplifica nodos con una tolerancia, con conteo antes y después |
+| Fillet, Radius | **Redondear esquinas…**: redondeada, chaflán o mordisco |
+| Cut Shapes | **Cortar formas con una cuchilla…** (`Alt+Mayús+C`) |
+| Resize Slots | **Redimensionar ranuras…** |
+| Warp, Deform | **Deformar…**: cuatro esquinas y cuatro bordes curvos, con presets (sin malla 4×4 ni manijas en el lienzo) |
+| Rubber Band Outline (contorno envolvente) | **Contorno de banda elástica…**: convexo o cóncavo |
+| Tangent Circle | **Círculo tangente…** |
+| Boolean Assistant | **Asistente booleano…** (`Ctrl/Cmd+B`) |
+| Guides | **Guías**: arrastra desde las reglas; **Ver > Guías…** para la posición exacta (sin alineación temporal con `Alt`) |
+| Tabs / Bridges (manuales) | Herramienta **Puentes manuales** (`U`): clic para poner o quitar; sin potencia de puente |
+| Start Point, Reverse Direction | Herramienta **Punto de inicio** (`Q`), **Invertir sentido** y **Quitar inicio y sentido fijados** |
+| Variable Text (serie, CSV, fecha y hora) | **Herramientas > Texto variable…** y el menú **Insertar variable** del panel de texto; ver [Texto variable](04b-texto-variable.md) |
+| Art Library | **Herramientas > Biblioteca de arte**: 41 dibujos propios y tus SVG |
+| Notes, Templates, New Window | Pestaña **Notas** (`Ctrl/Cmd+7`), **Guardar como plantilla…** y **Nuevo desde plantilla…** (menú Archivo), **Nueva ventana** (`Ctrl/Cmd+Mayús+N`) |
+| Dockable windows | Las pestañas del panel derecho se reordenan y se ocultan; no flotan |
+| Set Image Mask, Convert to Bitmap, Save Processed Bitmap, Replace Image | **Recortar imagen con forma**, **Convertir a mapa de bits…**, **Guardar imagen procesada…** y **Reemplazar imagen…** (menú Herramientas); ver [Imágenes](06-imagenes.md) |
+| Trace Image (varias imágenes) | **Vectorizar varios archivos…** |
 | Align y Distribute | Menú **Organizar** y **Alinear y distribuir…** |
 | Preview | **Vista previa** |
 | Wireframe | **Solo contornos** |
 | Undo History | Pestaña **Historial** |
 | Convert to Path (texto) | **Convertir a trayectos** en el panel de texto y en el menú contextual |
 
-Las ventanas de Tlaku no flotan: son pestañas del panel derecho (ver [La interfaz](02-interfaz.md)).
+Las ventanas de Tlaku no flotan: son pestañas del panel derecho, que se pueden reordenar (ver [La interfaz](02-interfaz.md)). La única excepción es la **Biblioteca de arte**, un panel suelto en la esquina del lienzo.
 
 ## Atajos
 
@@ -108,6 +132,9 @@ El esquema de Tlaku es **propio**: no reproduce el de LightBurn, y tú puedes ca
 | Mano | `H` | (verifícalo en tu versión) |
 | Polígono, estrella | `G`, `Mayús+G` | (verifícalo en tu versión) |
 | Medir | `M` | `Alt+M` o `Ctrl+M` (la documentación dice las dos) |
+| Puentes manuales / punto de inicio / recortar formas | `U` / `Q` / `X` | (verifícalo en tu versión) |
+| Asistente booleano / recortar en el último clic | `Ctrl/Cmd+B` / `Ctrl/Cmd+K` | (verifícalo en tu versión) |
+| Nueva ventana | `Ctrl/Cmd+Shift+N` | (verifícalo en tu versión) |
 | Offset | `Alt+O` | `Alt+O` |
 | Soldar | `Alt+W` | `Ctrl+W` |
 | Unión / Diferencia / Intersección | `Alt+U` / `Alt+D` / sin atajo | `Alt` con los signos `+`, `-` y `*` del teclado |
@@ -135,17 +162,19 @@ Diferencias que muerden:
 
 ## Lo que falta o es distinto
 
-Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas, arreglos, texto (con fuentes de una línea, curvado y soldado), [texto variable](04b-texto-variable.md) (serie, CSV, fecha y hora), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, ajustes de velocidad y potencia en vivo, y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
+Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas y su asistente, arreglos (también virtuales y a lo largo de un trazo), acoplar, nesting, recortar, separar, optimizar, redondear esquinas, cortar con una cuchilla, redimensionar ranuras, deformar, guías, notas y plantillas, biblioteca de arte, máscara de imagen, convertir a mapa de bits, vectorizar varias imágenes, texto (con fuentes de una línea, curvado y soldado), [texto variable](04b-texto-variable.md) (serie, CSV, fecha y hora), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, puentes manuales, punto de inicio y sentido, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, ajustes de velocidad y potencia en vivo, y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
 
 Falta, y no lo prometo si no está en el código:
 
-- **Todo lo de la lista siguiente:** Trim, Break Apart, Fillet, Cut Shapes, Optimizar formas, deformar, nesting, Print & Cut, macros. Están planificados, pero **no** están en el programa.
-- **Del corte:** puentes colocados a mano (los de Tlaku se reparten solos), valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min). El encuadre no se repite en bucle ni va con el láser encendido a baja potencia, y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
+- **Todo lo de la lista siguiente:** Print & Cut, tiling y macros. Están planificados, pero **no** están en el programa.
+- **Del diseño:** deformar con manijas en el lienzo o con una malla de 16 puntos (hoy es un diálogo con cuatro esquinas y cuatro bordes), redondear esquinas con un clic por esquina o revertirlo, escala progresiva al copiar a lo largo de un trazo, que **Cortar formas** agrupe las piezas en dentro y fuera, guías temporales de alineación, paneles flotantes y texto variable con valores de ajuste de capa o «hornear» (se logra convirtiendo el texto a trayectos).
+- **Del corte:** potencia de puente y arrastrar puentes ya puestos, valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min). El encuadre no se repite en bucle ni va con el láser encendido a baja potencia, y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
 - **Del modo principiante:** en Tlaku solo oculta ajustes avanzados del editor de capa; no oculta herramientas ni menús como el de LightBurn.
 - No se pueden ocultar objetos sueltos (sí capas), no hay selección con `Tab` ni sesgar.
 - Las **pulgadas** de las preferencias solo se aplican hoy en Medir y en la ventana de Preferencias; la barra numérica sigue en mm y acepta `5in` o `50%`.
 - Máquinas de red (Wi-Fi, Ethernet), Ruida en la app, K40 con M2 Nano, galvo y fibra: ver [Controladoras soportadas](13-controladoras.md).
-- Solo hay una capa de guías.
+- Solo hay una capa de guías (la de la paleta de colores); las guías de las reglas son aparte.
+- **Nueva ventana** no se ha probado en una ventana real (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)).
 
 ## Cómo pasar un diseño
 
@@ -179,9 +208,11 @@ Nada se pierde en silencio. Al importar, un aviso lista lo que no pudo traer:
 
 - **Formas de un tipo no soportado:** se omiten y el aviso dice **cuántas y de qué tipo**.
 - **Texto:** si el archivo no trae el contorno de las letras, Tlaku lo genera con tus fuentes (y avisa si la fuente no está instalada y usó otra); el **espaciado de letras y líneas** de LightBurn no se importa.
-- **Ajustes de capa que el importador no traduce**, solo si estaban activos: perforado, modo de puntos, relleno inundado (flood fill), sobrecorte (overcut), rampa de potencia, pulsos por pulgada (PPI), frecuencia del láser, retardos de encendido y apagado, potencia de atravesado (cut-through), segundo láser, potencia constante, velocidad del soplador y relleno por objeto. Para seis de ellos (perforado, modo de puntos, relleno inundado, sobrecorte, rampa y potencia de atravesado) Tlaku ya tiene función propia (ver la tabla de equivalencias), pero el importador todavía **no los trae**: tendrás que volver a encenderlos a mano en el editor de la capa.
+- **Ajustes de capa sin equivalente en Tlaku**, solo si estaban activos: pulsos por pulgada (PPI), frecuencia del láser, segundo láser, potencia constante, velocidad del soplador y relleno por objeto. No se traducen; hay que decidir a mano qué hacer.
+- **Ajustes avanzados de corte que sí se traducen** (desde la ola 3): perforado, modo de puntos, relleno inundado, sobrecorte, rampa de potencia, pausas de inicio y fin, corte pasante y **sub-capas** (varias definiciones con el mismo índice pasan a **Operaciones adicionales**). Varias conversiones se infirieron de la documentación pública (por ejemplo, el tiempo del corte pasante sale de la pausa de inicio o de fin, la rampa arranca en 0 % y el overscan se interpreta como un porcentaje de la velocidad), así que **verifica cada capa** con la vista previa.
+- **Entradas y salidas del contorno** (lead-in y lead-out): LightBurn no las guarda en la capa de un modo que se conozca, así que quedan apagadas.
 - **Relleno + línea** en una sola capa: se importa solo el relleno (crea otra capa de línea si quieres el contorno).
-- **Puentes manuales:** en LightBurn se colocan a mano; aquí se reparten solos, así que revisa su posición.
+- **Puentes manuales:** la posición de los puentes que pusiste a mano en LightBurn no se importa; aquí se reparten solos según los ajustes de la capa. Si te importa dónde quedan, pon los tuyos con la herramienta **Puentes manuales** (`U`).
 - **Capas citadas pero no definidas** en el archivo, un modo de capa o de imagen desconocido, o un archivo guardado con una versión de LightBurn más nueva de las que Tlaku conoce (se intenta leer igual).
 
 > **Ojo:** aunque los ajustes lleguen, **compruébalos antes de cortar**. La conversión de unidades de overscan se infirió de la documentación pública, y nada de esto se ha probado todavía con una máquina real. Revisa cada capa y mira la **Vista previa**.

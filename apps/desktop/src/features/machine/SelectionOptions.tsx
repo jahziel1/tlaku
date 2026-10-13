@@ -23,7 +23,7 @@ export function SelectionOptions({ compact = false }: { compact?: boolean }) {
       <label className="mc-check" title={noSelection ? t(reasonKey) : t('machine.selection.only.help')}>
         <input type="checkbox" checked={onlyOn} disabled={noSelection} onChange={(e) => setOnly(e.target.checked)} />
         {t('machine.selection.only')}
-        {onlyOn && <span className="hint num">({t('machine.selection.count', { n: count })})</span>}
+        {onlyOn && <span className="hint num">({count === 1 ? t('status.selectedOne') : t('machine.selection.count', { n: count })})</span>}
       </label>
       <label className="mc-check" title={originReason ?? t('machine.selection.origin.help')}>
         <input type="checkbox" checked={onlyOn && useOrigin} disabled={originReason !== undefined} onChange={(e) => setOrigin(e.target.checked)} />

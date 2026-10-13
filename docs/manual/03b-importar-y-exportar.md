@@ -83,4 +83,4 @@ En los cuatro, **Qué exportar** deja elegir **Todo el diseño** o **Solo la sel
 
 Si el sistema bloquea el acceso al portapapeles, Tlaku lo dice y sigue funcionando con su portapapeles interno.
 
-Siguiente: [Texto](04-texto.md)
+Siguiente: [Formas avanzadas y deformar](03c-formas-y-deformar.md)

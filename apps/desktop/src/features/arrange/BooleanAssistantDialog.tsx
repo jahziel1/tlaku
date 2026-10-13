@@ -81,6 +81,7 @@ export function BooleanAssistantDialog() {
       title={t('design.assistant.title')}
       onClose={close}
       wide
+      tall
       initialFocus=".dg-card"
       footer={
         <>
@@ -118,7 +119,7 @@ export function BooleanAssistantDialog() {
               )}
               <span className="dg-card__title">{t(`design.assistant.op.${op}` as I18nKey)}</span>
               <span className="dg-card__hint">{t(`design.assistant.desc.${op}` as I18nKey)}</span>
-              {r?.status === 'ready' && !empty && <span className="dg-card__hint num">{t('design.assistant.pieces', { n: r.count })}</span>}
+              {r?.status === 'ready' && !empty && <span className="dg-card__hint num">{r.count === 1 ? t('design.assistant.pieceOne') : t('design.assistant.pieces', { n: r.count })}</span>}
             </button>
           );
         })}

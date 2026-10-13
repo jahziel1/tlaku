@@ -6,7 +6,7 @@ import { screenToWorld } from '@/lib/viewport';
 import { useStore } from '@/store';
 import { addUserArt, insertArt, loadUserArt, removeUserArt } from './actions';
 import { useArtPanel } from './artStore';
-import { ART_CATEGORIES, BUILTIN_ART, artName, filterArt, svgDataUrl, userItem, type ArtItem } from './catalog';
+import { ART_CATEGORIES, BUILTIN_ART, artName, filterArt, svgDataUrl, thumbnailSvg, userItem, type ArtItem } from './catalog';
 import './art.css';
 
 /** Cuánto hay que mover el puntero para que un clic pase a ser un arrastre. */
@@ -74,10 +74,10 @@ function Tile({ item }: { item: ArtItem }) {
           }
         }}
       >
-        <img src={svgDataUrl(item.svg)} alt="" draggable={false} className="art-tile__img" />
+        <img src={svgDataUrl(thumbnailSvg(item.svg))} alt="" draggable={false} className="art-tile__img" />
         <span className="art-tile__name">{name}</span>
       </button>
-      {ghost && <img src={svgDataUrl(item.svg)} alt="" className="art-ghost" style={{ left: ghost.x, top: ghost.y }} />}
+      {ghost && <img src={svgDataUrl(thumbnailSvg(item.svg))} alt="" className="art-ghost" style={{ left: ghost.x, top: ghost.y }} />}
     </li>
   );
 }

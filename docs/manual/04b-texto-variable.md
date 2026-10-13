@@ -41,6 +41,8 @@ Una `m` minúscula es de **minutos** si va junto a una hora o a segundos (`HH:mm
 
 Se abre desde **Herramientas > Texto variable…** o desde el botón del panel de texto.
 
+![Diálogo Texto variable con el número de serie, la tabla del CSV y Una copia por fila](../../apps/desktop/docs/screenshots/43-texto-variable.png)
+
 - **Número de serie.** El **próximo número**, el **paso** (cuánto sube por trabajo) y los **dígitos** mínimos (rellena con ceros). Con **Anterior** y **Siguiente** mueves el número un paso.
 - **Datos de un CSV.** **Elegir CSV…**, **Volver a leer** y **Quitar**. Se aceptan archivos UTF-8 (con o sin BOM), con separador coma, punto y coma o tabulador (se detecta solo), campos entre comillas dobles y saltos de línea dentro de un campo. La primera fila son los encabezados. Hasta 100 000 filas.
 - **La tabla** muestra las filas y resalta la actual, la que se grabará en el próximo trabajo. Un clic en una fila la elige; también puedes usar **Fila anterior**, **Fila siguiente**, **Al inicio** o **Ir a la fila**.
@@ -54,6 +56,16 @@ Se abre desde **Herramientas > Texto variable…** o desde el botón del panel d
 ## Una copia por fila
 
 Con una etiqueta seleccionada (por ejemplo el texto y su marco), **Una copia por fila** crea el número de copias que indiques en una rejilla (de fábrica, las filas que quedan del CSV). Cada copia toma la fila siguiente: en la tercera, `{csv:Nombre}` pasa a ser `{csv:Nombre@2}`, y lo mismo con `{serie}`. Así grabas muchas etiquetas en **un solo trabajo**. Es un solo paso de deshacer.
+
+## Ejemplos prácticos
+
+**Veinte etiquetas numeradas en un solo trabajo.** Escribe `Pieza {serie:4}` dentro de un marco, selecciona el texto y el marco, y en el diálogo **Texto variable** pon el **Próximo número** en 1. Usa **Una copia por fila** con 20 copias y 5 **por fila**: salen `Pieza 0001` a `Pieza 0020`. Con **Avanzar solo al terminar un trabajo**, al terminar bien el trabajo el próximo número pasa a 21; guarda el proyecto para conservarlo.
+
+**Una etiqueta por persona.** En una hoja de cálculo haz las columnas **Nombre** y **Puesto**, guárdala como CSV, y en Tlaku elige ese archivo con **Elegir CSV…**. Con el texto `{csv:Nombre}` y, abajo, `{csv:Puesto}`, cada trabajo graba una persona y pasa a la siguiente fila. Para grabar todas de una vez, **Una copia por fila** con tantas copias como filas (de fábrica propone las que quedan).
+
+**Fecha de fabricación en cada pieza.** `Hecho el {fecha:d 'de' MMMM 'de' yyyy}` graba, por ejemplo, "Hecho el 13 de octubre de 2026" con la fecha del día en que envías el trabajo, sin tocar nada.
+
+**Una llave que sí es una llave.** `Código {{A}}` se graba como `Código {A}`.
 
 ## Qué falta o es distinto
 

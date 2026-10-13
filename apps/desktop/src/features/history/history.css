@@ -112,6 +112,9 @@
 .modal__card--wide {
   width: min(640px, 100%);
 }
+.modal__card--tall {
+  max-height: min(780px, calc(100vh - 2 * var(--s-6)));
+}
 .modal__head {
   display: flex;
   align-items: center;

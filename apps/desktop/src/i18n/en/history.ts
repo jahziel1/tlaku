@@ -75,6 +75,7 @@ export const history: { [K in keyof typeof Source]?: string } = {
   // ---- title bar and status bar -------------------------------------------
   'history.doc.unsaved': 'Unsaved',
   'history.status.objects': '{n} objects',
+  'history.status.objectOne': '1 object',
   'history.status.size': 'Selection size: {w} × {h} mm',
   'history.status.saved': 'All saved',
   'history.status.shortcuts': 'Keyboard shortcuts',

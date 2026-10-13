@@ -80,6 +80,8 @@
 .vt-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Un rótulo largo puede partirse en dos líneas: los campos se alinean por abajo. */
+  align-items: end;
   gap: var(--s-4);
 }
 .vt-row {

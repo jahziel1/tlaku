@@ -27,6 +27,7 @@ Para editar un texto existente, haz doble clic sobre él con **Seleccionar**, o 
 | **Interlineado** | En múltiplos del tamaño; empieza en 1,2. |
 | **Curvatura** | Grados que abarca el texto sobre un arco (ver "Texto curvado"). |
 | **Soldar letras** | Une en un solo contorno las letras que se tocan (ver "Texto soldado"). |
+| **Insertar variable** | Pone una variable entre llaves (número de serie, dato de un CSV, fecha u hora) donde está el cursor. Ver [Texto variable](04b-texto-variable.md). |
 
 > **Ojo:** Tlaku nunca inventa una negrita o una cursiva. Si la familia no tiene esa variante, usa la más cercana que exista y lo dice en los **Avisos del contorno**. Si la fuente que elegiste no está instalada (por ejemplo, al abrir un proyecto en otro equipo), usa otra y avisa: "La fuente '...' no está instalada; se usa '...'". Revisa el aviso antes de enviar nada.
 
@@ -124,6 +125,6 @@ Si el contenido no es válido para el tipo, el diálogo lo explica y no deja ins
 
 La vista previa muestra los módulos y el tamaño final en mm. **Insertar** pone el código en el **centro de la vista** (o de la cama, si la vista queda fuera) y en la capa activa; el aviso dice las medidas. Abajo del diálogo se ve a qué capa irá.
 
-> **Ojo:** el código es un conjunto de **trayectos ya generados**, no un código editable: para cambiar el contenido o el tipo, borra el insertado e inserta otro (o usa **Deshacer**). Tampoco es un código variable (series o listas): eso todavía no existe. Comprueba **siempre con un lector real** que el código grabado se lee, con tu material y a tu tamaño: un módulo demasiado chico o poco contrastado no se lee aunque el diseño esté bien.
+> **Ojo:** el código es un conjunto de **trayectos ya generados**, no un código editable: para cambiar el contenido o el tipo, borra el insertado e inserta otro (o usa **Deshacer**). Tampoco es un código variable: las series y los datos de un CSV (ver [Texto variable](04b-texto-variable.md)) funcionan en los **textos**, no dentro de un QR o un código de barras. Comprueba **siempre con un lector real** que el código grabado se lee, con tu material y a tu tamaño: un módulo demasiado chico o poco contrastado no se lee aunque el diseño esté bien.
 
-Siguiente: [Capas y ajustes de corte](05-capas-y-ajustes.md)
+Siguiente: [Texto variable](04b-texto-variable.md)

@@ -113,6 +113,7 @@ export function NestDialog() {
       title={t('nest.title')}
       onClose={close}
       wide
+      tall
       initialFocus=".field__input"
       footer={
         <>

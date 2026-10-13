@@ -15,8 +15,11 @@ Lo que dibujas va a la **capa activa** (la marcada en el panel Capas o en la fra
 | Estrella | `Mayús+G` | Arrastra desde el centro. Ver "Polígono y estrella". |
 | Texto | `T` | Clic en un punto vacío crea un texto (ver [Texto](04-texto.md)). |
 | Medir | `M` | Ver "Medir". |
+| Puentes manuales | `U` | Clic sobre un contorno para poner o quitar un puente. Ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md). |
+| Punto de inicio | `Q` | Clic sobre un contorno cerrado para fijar dónde empieza el corte; `Mayús`+clic invierte el sentido. Ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md). |
+| Recortar formas | `X` | Con formas que se cruzan seleccionadas, clic en un tramo para borrarlo. Ver [Formas avanzadas y deformar](03c-formas-y-deformar.md). |
 
-Con **Rectángulo** activo aparece en la barra numérica el campo **Radio de esquinas** (en mm) para los rectángulos que dibujes a continuación.
+Con **Rectángulo** activo aparece en la barra numérica el campo **Radio de esquinas** (en mm) para los rectángulos que dibujes a continuación. Hay una **Biblioteca de arte** con dibujos listos (flechas, marcos, corazones, cajas con encastre...) en **Herramientas > Biblioteca de arte**: ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md).
 
 ### Curvas Bézier
 
@@ -158,7 +161,7 @@ Los textos y las imágenes no tienen nodos: convierte el texto a trayectos para 
 
 ## Agrupar
 
-`Ctrl/Cmd+G` agrupa dos o más objetos; `Ctrl/Cmd+Shift+G` desagrupa. Un grupo se mueve, escala y alinea como un solo objeto. Los grupos pueden **anidarse**: agrupar un grupo con otro objeto crea un grupo dentro de un grupo. Un clic elige siempre el grupo de más afuera, y **desagrupar quita un nivel cada vez**: para tocar un miembro, desagrupa hasta llegar a él.
+`Ctrl/Cmd+G` agrupa dos o más objetos; `Ctrl/Cmd+Shift+G` desagrupa. Un grupo se mueve, escala y alinea como un solo objeto. Los grupos pueden **anidarse**: agrupar un grupo con otro objeto crea un grupo dentro de un grupo. Un clic elige siempre el grupo de más afuera, y **desagrupar quita un nivel cada vez**: para tocar un miembro, desagrupa hasta llegar a él. Si importas piezas con sus agujeros sueltos, **Editar > Agrupar automáticamente por contención** arma un grupo por pieza (ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md)).
 
 ## Menú Organizar
 
@@ -175,6 +178,8 @@ Trabajan con **formas cerradas** de vectores (y textos con contorno); no con im�
 | Soldar | `Alt+W` | Funde en una región las formas que se solapan. Una forma que queda entera dentro de otra cuenta como agujero. |
 
 Intersección y XOR con exactamente dos formas se aplican directo; con más, piden elegir A.
+
+Si dudas cuál operación necesitas, el **Asistente booleano…** (`Ctrl/Cmd+B`) muestra una miniatura del resultado de cada una antes de aplicarla (ver [Formas avanzadas y deformar](03c-formas-y-deformar.md)).
 
 ![Diálogo Diferencia: A menos B para elegir la forma principal](../../apps/desktop/docs/screenshots/13-diferencia.png)
 
@@ -205,6 +210,11 @@ Los seis comandos de alinear (izquierda, centro horizontal, derecha, arriba, cen
 
 Ambos muestran una vista previa y avisan si el arreglo se sale de la cama. El máximo es de 2000 piezas, y puedes **Agrupar el resultado**.
 
+Estos arreglos crean objetos de verdad. Para repetir un solo objeto sin llenar el documento hay un **Arreglo virtual…**, y para repartir copias sobre una curva, **Copiar a lo largo de un trazo…**; también **Acoplar y mover juntos…** y el **nesting** (acomodo automático de piezas en la lámina). Todo eso está en [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md).
+
+### Más operaciones de forma
+
+Recortar, separar, optimizar nodos, redondear esquinas, cortar con una cuchilla, redimensionar ranuras, contorno de banda elástica, círculo tangente y **Deformar** están en [Formas avanzadas y deformar](03c-formas-y-deformar.md).
 ## Menú contextual
 
 **Clic derecho** sobre el lienzo abre un menú con lo que más se usa, sin ir a la barra de menús. Cada entrada muestra su atajo y, si no está disponible, queda gris.

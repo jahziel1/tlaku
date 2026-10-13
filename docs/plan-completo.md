@@ -19,6 +19,8 @@ Estado tras la ola 1 (2026-10-13, `04-cobertura.md` actualizado): **119 hechas, 
 
 Estado tras la ola 2 (2026-10-13, `04-cobertura.md` actualizado): **143 hechas (67 %), 22 parciales, 3 solo en motor o CLI, 46 faltantes** de 214. P0: 62 de 68 hechas (parciales C51, M3, M5, M6, M11, M16; ninguna P0 solo en el motor ni faltante). Por área: diseño y edición 69 hechas, capas, corte e imagen 54 y máquinas y avanzadas 20.
 
+Estado tras la ola 3 (2026-10-13, `04-cobertura.md` actualizado): **165 hechas (77 %), 23 parciales, 3 solo en motor o CLI, 23 faltantes** de 214. P0 sin cambios: 62 de 68 hechas (parciales C51, M3, M5, M6, M11, M16). Por área: diseño y edición 89 hechas, capas, corte e imagen 55 y máquinas y avanzadas 21.
+
 ## Ola 1: base para publicar
 
 P0 pendientes y lo que más frena a quien viene de LightBurn.
@@ -51,7 +53,7 @@ Qué entró, verificado en el código:
 - **Trabajo y control**: diálogo de optimización, encuadre de contorno, posicionar el láser, ajustes de velocidad y potencia en vivo, pasos configurables, posición final y checklist de inicio configurable.
 - **Documento**: las formas paramétricas guardan sus parámetros en el proyecto y cada objeto puede llevar prioridad y escala de potencia.
 
-**Quedó pendiente de la ola** (verificado al actualizar la cobertura): los puentes manuales (C14, D45) y la dirección y el punto de inicio manuales (D57) no entraron; la potencia mínima de una capa de línea (C08) tiene campo en el editor pero el motor solo la usa en imágenes; los valores por defecto son un solo juego para todas las capas (C35, parcial); Adjust Image sin presets (C51, parcial); el encuadre no se repite ni va con láser encendido (M11) y la ventana Mover sigue sin Z, posiciones guardadas, Fire ni Focus (M16); el importador de LightBurn no traduce los ajustes nuevos. Detalle y discrepancias entre el mensaje del commit y el código en [04-cobertura.md](spec/04-cobertura.md).
+**Quedó pendiente de la ola** (verificado al actualizar la cobertura): los puentes manuales (C14, D45) y la dirección y el punto de inicio manuales (D57) no entraron; la potencia mínima de una capa de línea (C08) tiene campo en el editor pero el motor solo la usa en imágenes; los valores por defecto son un solo juego para todas las capas (C35, parcial); Adjust Image sin presets (C51, parcial); el encuadre no se repite ni va con láser encendido (M11) y la ventana Mover sigue sin Z, posiciones guardadas, Fire ni Focus (M16); el importador de LightBurn no traduce los ajustes nuevos. Detalle y discrepancias entre el mensaje del commit y el código en [04-cobertura.md](spec/04-cobertura.md). *Resuelto después, en la ola 3:* los puentes manuales (queda la potencia de puente), la dirección y el punto de inicio manuales, la decisión sobre la potencia mínima en líneas (el campo se oculta y se explica) y el importador de LightBurn con los ajustes avanzados.
 
 Plan original de la ola:
 
@@ -64,6 +66,28 @@ Plan original de la ola:
 | Trabajo | Cortar solo la selección y origen de la selección (M15), encuadre de banda elástica (M12), posicionar el láser con clic (M17), ajuste de velocidad y potencia en vivo (M18), checklist del trabajo (M53) |
 
 ## Ola 3: diseño avanzado
+
+**Terminada el 2026-10-13** (commit `b78790e`, "Ola 3: diseño avanzado"). Se subieron 22 funciones a "hecho" (de 143 a 165 de 214) y 3 pasaron de falta a parcial (D19, D58, D60); los P0 no cambiaron (62 de 68). Los conteos salen de contar las filas de `04-cobertura.md`.
+
+Qué entró, verificado en el código:
+
+- **Operaciones de forma** (`crates/tlaku-geom`, `edit/shape_ops.rs`): recortar con herramienta del lienzo (`X`), separar subtrayectos, optimizar nodos, redondear esquinas (redondeada, chaflán y mordisco), cortar formas con una cuchilla y redimensionar ranuras de encastre.
+- **Diseño avanzado** (`edit/design.rs`, `features/arrange/`): deformar por envolvente de cuatro esquinas y cuatro bordes, contorno de banda elástica, círculo tangente, asistente booleano, copiar a lo largo de un trazo, arreglo virtual (expandido en `place.rs` y con fantasmas en el lienzo), acoplar y agrupar automáticamente por contención.
+- **Nesting real** (`crates/tlaku-nest`): polígonos de no-ajuste con suma de Minkowski, colocación por gravedad, recocido simulado con tope de tiempo, contenedor irregular y piezas en huecos; comando con progreso y cancelación, optimizado también en el perfil dev.
+- **Texto variable**: serie, CSV, fecha y hora, con avance tras el trabajo y una copia por fila.
+- **Lienzo y proyecto**: guías, puentes manuales y punto de inicio y sentido (respetados por el planificador), notas, plantillas, nueva ventana, pestañas reordenables y la biblioteca de arte de 41 dibujos.
+- **Imagen**: máscara con forma, convertir a mapa de bits, guardar la imagen procesada, reemplazar la imagen y vectorizar en lote.
+- **Pendientes de la ola 2 que se cerraron**: la potencia mínima se oculta en las capas de línea con una explicación (decisión, no código nuevo en el motor), el editor valida igual que el motor y el importador de LightBurn trae los ajustes avanzados y las sub-capas.
+
+Cobertura nueva: D31, D42, D46, D47, D49, D55, D56, D57, D59, D64, D65, D67, D69, D71, D74, D76, D78, D80, D81, D82, M38 y C08 pasaron a Hecho; D19, D58 y D60 a Parcial (y D04 sigue Parcial con las pestañas reordenables).
+
+**Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
+
+- *Ola 4*: la **potencia de puente** (C14 y D45, parciales), junto con los ajustes de potencia de la salida de máquina.
+- *Ola 6*: los **paneles flotantes** (D04), las **manijas de deformar en el lienzo** y la **malla 4×4** (D58), la herramienta de clic por esquina del redondeo y revertirlo (D60), las **guías temporales** de alineación (D78) y probar **Nueva ventana** en una ventana real: por lectura del código, la copia de recuperación de una ventana se ofrecería en la otra (D19).
+- El **tiling** (M39) sigue en la ola 5.
+
+Plan original de la ola:
 
 Recortar formas (D49), separar (D55), optimizar formas (D56), deformar (D58), contorno de banda
 elástica (D59), redondear esquinas (D60), asistente booleano (D64), cortar formas (D65), arreglo
@@ -80,7 +104,7 @@ texto variable con números de serie y CSV (D42, M38).
 | Ruida en la app | Perfil con IP, envío a la memoria (M23), lista de archivos del controlador (M24), ajustes de máquina (M25), información del controlador (M26), rotativo DSP (M28) |
 | K40 | Driver M2 Nano (LHYMICRO-GL) con emulador, experimental |
 | Red y conexión | GRBL por TCP y WebSocket (M50), automatización por UDP (M54) |
-| Control | Macros (M20), ventana Mover completa (M16), Z y enfoque (M31), eje U y láser 2 (M32), ajustes de dispositivo completos (M3, M5, M6), encuadre completo (M11), paquetes de usuario `.lbzip` (M4) |
+| Control | Macros (M20), ventana Mover completa (M16), Z y enfoque (M31), eje U y láser 2 (M32), ajustes de dispositivo completos (M3, M5, M6), encuadre completo (M11), paquetes de usuario `.lbzip` (M4), potencia de puente (C14, D45; viene de la ola 3) |
 | Cámara | Overlay, vectorizar desde la cámara, captura (M35), cámara en el cabezal (M36), modelo ojo de pez, buscador de centro (M48) |
 
 ## Ola 5: pro y galvo
@@ -93,6 +117,7 @@ rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47).
 ## Ola 6: calidad y publicación
 
 - Rendimiento del lienzo con diseños grandes (índice espacial, y WebGL si hace falta).
+- Lo que quedó de la ola 3: paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías temporales y la recuperación compartida entre ventanas.
 - Accesibilidad.
 - Manual completo y sitio web con donaciones.
 - Correr el flujo de instaladores en GitHub y activar las actualizaciones automáticas.

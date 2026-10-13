@@ -5,7 +5,7 @@ type Lag = <T>(value: () => T) => Promise<T>;
 
 /** CSV de ejemplo que devuelve el modo simulado para cualquier ruta que no termine en `vacio.csv`. */
 const SAMPLE: CsvTable = {
-  headers: ['Nombre', 'Cargo', 'Codigo'],
+  headers: ['Nombre', 'Cargo', 'Código'],
   rows: [
     ['Ana Torres', 'Jefa de taller', 'A-001'],
     ['Luis Pérez', 'Técnico', 'A-002'],

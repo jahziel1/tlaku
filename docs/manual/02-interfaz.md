@@ -33,8 +33,11 @@ La columna de la izquierda, de arriba abajo:
 | Texto | `T` |
 | Mano (mover la vista) | `H` |
 | Medir | `M` |
+| Puentes manuales | `U` |
+| Punto de inicio | `Q` |
+| Recortar formas | `X` |
 
-Las teclas sueltas funcionan en toda la ventana, salvo mientras escribes en un campo. **Medir** muestra distancias, ángulos y datos de una forma. Cómo se usa cada herramienta está en [Dibujar y editar](03-dibujar-y-editar.md).
+Las teclas sueltas funcionan en toda la ventana, salvo mientras escribes en un campo. **Medir** muestra distancias, ángulos y datos de una forma. Cómo se usa cada herramienta está en [Dibujar y editar](03-dibujar-y-editar.md); las tres últimas, en [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md) y [Formas avanzadas y deformar](03c-formas-y-deformar.md).
 
 ## Lienzo y reglas
 
@@ -44,6 +47,8 @@ El lienzo muestra la cama de la máquina activa (arriba a la izquierda, su nombr
 - **Mover la vista:** botón central, `Espacio` + arrastrar, dos dedos en el trackpad o la herramienta Mano.
 - **Ajuste magnético:** tres interruptores abajo a la izquierda: **Ajuste magnético** (`S`), **Ajustar a la cuadrícula** y **Ajustar a objetos y cama** (nodos, puntos medios, centros e intersecciones). Mantén `Alt` mientras arrastras para suspenderlo solo en ese gesto.
 - **Menú contextual:** clic derecho sobre el lienzo abre las acciones más usadas (ver [Dibujar y editar](03-dibujar-y-editar.md)).
+- **Guías:** arrastra desde una regla para crear una guía que atrae los objetos (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)); doble clic en una regla las lista todas.
+- **Fantasmas:** los objetos con **arreglo virtual** muestran sus copias como contornos tenues (ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md)).
 - **Solo contornos** (`W`) dibuja los objetos sin relleno.
 
 ## Barra numérica
@@ -62,6 +67,9 @@ A la derecha hay un panel con pestañas. Arrastra su borde izquierdo para cambia
 | Historial | `Ctrl/Cmd+4` | pasos para deshacer y rehacer |
 | Cámara | `Ctrl/Cmd+5` | ver [Cámara](10-camara.md) |
 | Materiales | `Ctrl/Cmd+6` | ver [Materiales](11-materiales.md) |
+| Notas | `Ctrl/Cmd+7` | cuaderno del proyecto; se guarda con él y no se envía a la máquina |
+
+Puedes **reordenar** las pestañas arrastrándolas (o con `Alt+Mayús+←` y `→`), ocultar las que no uses y restaurar el orden con el botón **Personalizar pestañas**; el orden se recuerda. Más en [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md).
 
 El panel **Historial** lista cada acción (hasta 200 pasos). Haz clic en un paso para volver a ese punto; lo deshecho se puede recuperar mientras no hagas otra acción. El botón de la papelera vacía el historial sin cambiar el diseño.
 
@@ -78,6 +86,7 @@ Pulsa `?`, `F1` o `Ctrl/Cmd+/` para abrir la lista completa, con buscador (muest
 | Acción | Atajo |
 |---|---|
 | Nuevo, abrir, guardar | `Ctrl/Cmd+N`, `Ctrl/Cmd+O`, `Ctrl/Cmd+S` |
+| Nueva ventana | `Ctrl/Cmd+Shift+N` |
 | Importar diseño | `Ctrl/Cmd+I` |
 | Deshacer, rehacer | `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` (o `Ctrl/Cmd+Y`) |
 | Copiar, cortar, pegar | `Ctrl/Cmd+C`, `Ctrl/Cmd+X`, `Ctrl/Cmd+V` |
@@ -88,6 +97,8 @@ Pulsa `?`, `F1` o `Ctrl/Cmd+/` para abrir la lista completa, con buscador (muest
 | Voltear horizontal, vertical | `Alt+H`, `Alt+V` |
 | Girar 90° a la izquierda, a la derecha | `[`, `]` |
 | Traer al frente, enviar al fondo | `Ctrl/Cmd+RePág`, `Ctrl/Cmd+AvPág` |
+| Asistente booleano, recortar en el último clic | `Ctrl/Cmd+B`, `Ctrl/Cmd+K` |
+| Separar subtrayectos, optimizar formas, cortar con cuchilla | `Alt+B`, `Alt+Shift+O`, `Alt+Shift+C` |
 | Preferencias | `Ctrl/Cmd+,` |
 | Imprimir (PDF a escala 1:1) | `Ctrl/Cmd+P` |
 | Mover la selección | flechas: 1 mm; con `Shift` 10 mm; con `Alt` 0,1 mm |

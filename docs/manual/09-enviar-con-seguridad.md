@@ -84,6 +84,8 @@ Debajo ves una ilustración de la cama con el trabajo, el cabezal y los orígene
 
 Durante el trabajo ves el progreso (porcentaje, **Líneas**, **Transcurrido** y **Restante**) en la pestaña **Máquina**.
 
+> **Si el diseño lleva texto variable:** antes de enviar, Tlaku resuelve las variables con los valores de ese momento. Si alguna no se entiende, el trabajo **no sale** y el aviso dice cuál. Al terminar bien, la serie y la fila del CSV avanzan solas (si lo activaste); un trabajo cancelado o con error no avanza. Ver [Texto variable](04b-texto-variable.md).
+
 ## Pausar y detener
 
 | Acción | Qué hace |

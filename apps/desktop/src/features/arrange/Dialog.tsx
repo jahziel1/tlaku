@@ -11,17 +11,19 @@ interface Props {
   /** Selector del elemento que recibe el foco al abrir. */
   initialFocus?: string;
   wide?: boolean;
+  /** Más alto que el tope habitual (640 px), para diálogos con mucho contenido que no deben desplazarse. */
+  tall?: boolean;
 }
 
 /** Marco común de los diálogos de Organizar: título, cuerpo con formulario y pie con acciones. */
-export function Dialog({ title, onClose, children, footer, initialFocus, wide }: Props) {
+export function Dialog({ title, onClose, children, footer, initialFocus, wide, tall }: Props) {
   const labelId = useId();
   return (
     <Modal
       labelId={labelId}
       onClose={onClose}
       backdropClassName="modal"
-      cardClassName={`modal__card${wide ? ' modal__card--wide' : ''}`}
+      cardClassName={`modal__card${wide ? ' modal__card--wide' : ''}${tall ? ' modal__card--tall' : ''}`}
       initialFocus={initialFocus}
       guardOutside
     >

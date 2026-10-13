@@ -45,16 +45,16 @@ El interruptor **Modo principiante**, justo bajo el título del editor, oculta l
 |---|---|---|
 | **Velocidad** | 1 a 60000 mm/min | Más lento deja más energía en cada milímetro. Avisa si supera el máximo de la máquina activa. |
 | **Potencia** | 0 a 100 % | En modo Imagen se llama **Potencia máxima**. |
-| **Potencia mínima** | 0 a 100 % | En Imagen es la potencia de los tonos más claros. No puede superar la máxima. En Línea el campo aparece solo si el perfil de la máquina usa potencia dinámica (M4). Ver la nota de abajo. |
+| **Potencia mínima** | 0 a 100 % | Solo en capas de **Imagen**: es la potencia de los tonos más claros. No puede superar la máxima. En capas de Línea y Relleno no existe: el campo no aparece. Ver la nota de abajo. |
 | **Pasadas** | 1 a 1000 | Dos pasadas a media potencia suelen cortar más limpio que una a tope. |
 | **Asistencia de aire** | sí o no | Enciende el aire de la máquina durante la capa. |
 
-> **Ojo:** hoy la potencia mínima solo cambia el G-code en capas de **Imagen**. En una capa de Línea el campo se muestra, pero el motor todavía no lo usa para bajar la potencia en las esquinas; no cuentes con él para evitar las marcas más quemadas en las esquinas (para eso, mira la **Rampa de potencia** y la **Entrada al contorno** de más abajo).
+> **Ojo:** la potencia mínima solo cambia el G-code en capas de **Imagen**. En una capa de **Línea** con potencia dinámica (M4) el editor no ofrece el campo y explica por qué: es la propia controladora la que baja la potencia en las esquinas según la velocidad real, y GRBL no permite fijarle un mínimo desde el G-code. Para evitar las marcas más quemadas en las esquinas usa la **Rampa de potencia** y la **Entrada al contorno** de más abajo.
 
 ### Contorno: kerf y puentes (modo Línea)
 
 - **Kerf** (-5 a 5 mm): compensa lo que el haz se come del material. Con un valor positivo el recorrido se desplaza hacia fuera en las piezas y hacia dentro en los agujeros, para que la pieza salga del tamaño dibujado. Solo afecta a contornos cerrados.
-- **Puentes**: con **Dejar puentes sin cortar** la capa deja pequeños tramos sin cortar para que la pieza no se suelte. Defines el **Ancho del puente**, la **Cantidad** por forma cerrada (o una **Separación** fija en mm; con 0 se usa la cantidad) y si se **Omiten formas interiores**. Los puentes aparecen como huecos en la vista previa. Se reparten solos: todavía no se pueden colocar a mano.
+- **Puentes**: con **Dejar puentes sin cortar** la capa deja pequeños tramos sin cortar para que la pieza no se suelte. Defines el **Ancho del puente**, la **Cantidad** por forma cerrada (o una **Separación** fija en mm; con 0 se usa la cantidad) y si se **Omiten formas interiores**. Los puentes aparecen como huecos en la vista previa. Se reparten solos, o los colocas tú con la herramienta **Puentes manuales** (`U`): un objeto con puentes manuales ignora los automáticos de su capa (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)). Todavía no se puede dar a un puente una potencia propia.
 
 ![Sección Puentes del editor de capa](../../apps/desktop/docs/screenshots/21-capa-puentes.png)
 
@@ -133,7 +133,7 @@ Se manejan en la sección **Operaciones adicionales** del editor:
 2. Pulsa su encabezado ("Operación 1: Línea") para editarla con los mismos campos que la capa.
 3. Con las flechas la subes o bajas, y con la papelera la borras.
 
-Hay un máximo de **10 operaciones adicionales** (11 con la principal). Las operaciones usan el color, el nombre, la visibilidad y el interruptor de salida de la capa: si la capa no sale a la máquina, ninguna de sus operaciones sale. Un objeto que una operación no admite por su modo (una imagen en una operación de Línea, por ejemplo) se ignora en esa operación y la vista previa lo avisa.
+Hay un máximo de **11 operaciones adicionales** (12 con la principal), el mismo que admite el motor. Las operaciones usan el color, el nombre, la visibilidad y el interruptor de salida de la capa: si la capa no sale a la máquina, ninguna de sus operaciones sale. Un objeto que una operación no admite por su modo (una imagen en una operación de Línea, por ejemplo) se ignora en esa operación y la vista previa lo avisa.
 
 **Ejemplo: rellenar y luego contornear.** Dibuja un logotipo cerrado en una capa de **Relleno** (grabado a 3000 mm/min y 25 %). Agrega una operación de **Línea** a 400 mm/min y 80 %, con **Entrada al contorno**. La máquina primero graba el interior y después recorta el borde, sin que tengas que duplicar nada ni mantener dos copias del dibujo sincronizadas. Otro uso: una segunda operación de Línea a baja potencia que repasa el borde y lo oscurece.
 

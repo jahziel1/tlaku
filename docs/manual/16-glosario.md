@@ -4,9 +4,12 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 ## A
 
+- **Acoplar (dock)**: pegar piezas entre sí deslizándolas hasta tocar una forma de referencia. Ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md).
 - **Aire asistido**: chorro de aire sobre el punto de corte; apaga llamas y limpia humo. En G-code se enciende con `M8` y se apaga con `M9`. Se activa por capa.
 - **Ajustes en vivo**: cambiar la velocidad o la potencia (de 10 % a 200 %) mientras el trabajo corre, sin recalcular el G-code. Solo en controladoras de la familia GRBL. Ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
 - **Alarma (`ALARM:N`)**: estado en el que la máquina se bloquea por seguridad (límite, reinicio, homing fallido). Se sale con desbloquear o con homing. Ver [Solución de problemas](15-solucion-de-problemas.md).
+- **Arreglo virtual**: un objeto que se corta o graba varias veces sin que existan las copias como objetos; el lienzo las muestra como fantasmas. Ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md).
+- **Asistente booleano**: diálogo que muestra el resultado de cada operación (unión, A menos B, intersección, diferencia simétrica y soldar) antes de aplicarla (`Ctrl/Cmd+B`).
 - **Autoguardado**: copia de recuperación que Tlaku guarda cada minuto (si hay cambios) para ofrecértela si la aplicación se cierra de golpe. No reemplaza a guardar. Ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
 
 ## B
@@ -14,22 +17,26 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Baudios**: velocidad de la conexión por cable USB serie. 115200 en casi todos los GRBL; 250000 en Marlin.
 - **Bidireccional**: relleno que graba tanto de ida como de vuelta. Si las líneas salen desfasadas, hay que corregirlo con la tabla de corrección de barrido del perfil.
 - **Bézier**: curva definida por nodos y manijas. La herramienta **Dibujar línea** la crea con clic y arrastre; **Editar nodos** la afina.
+- **Banda elástica (contorno de)**: forma cerrada que envuelve la selección como una liga estirada; convexa o cóncava. No es lo mismo que **Encuadrar contorno**, que mueve el cabezal.
 
 ## C
 
 - **Cama**: el área de trabajo de la máquina, en mm. Equivale a `$130` y `$131` en GRBL.
 - **Capa**: grupo de objetos del mismo color que comparten ajustes de corte (modo, velocidad, potencia, pasadas...). Tlaku ejecuta las capas en el orden de su lista.
 - **Consola**: pestaña donde ves lo que se envía a la máquina y lo que contesta, y donde puedes escribir comandos.
+- **Contención (agrupar por)**: formar un grupo con cada pieza y los huecos y grabados que quedan dentro de su contorno.
 - **Contornos**: forma de rellenar siguiendo la silueta en anillos, en lugar de líneas de barrido.
 - **Código QR / Data Matrix / de barras**: código que Tlaku genera como formas vectoriales listas para grabar (**Herramientas > Insertar código…**). Ver [Texto](04-texto.md).
 - **Corte pasante**: arranque de cada contorno cerrado con potencia extra durante unos milisegundos, para atravesar material grueso sin dejar un punto quemado. Ver [Capas y ajustes de corte](05-capas-y-ajustes.md).
 - **Curvatura**: grados que abarca un texto sobre un arco. Positivo lo arquea hacia arriba, negativo hacia abajo.
+- **Cuchilla**: la forma cerrada con que **Cortar formas** parte las demás.
 
 ## D
 
 - **Dialecto de G-code**: la forma en que un firmware espera las órdenes (cómo se enciende el láser, el rango de `S`, el aire). Cambia entre GRBL, Marlin y Smoothieware. Ver [Controladoras](13-controladoras.md).
 - **Dithering (tramado)**: truco para grabar fotos con un láser que solo enciende o apaga: simula tonos de gris con puntos. Hay varios algoritmos (Umbral, Floyd-Steinberg, Jarvis, Stucki, entre otros).
 - **DPI / LPI**: densidad de líneas del grabado. A menor **intervalo** entre líneas, más DPI. Tlaku muestra la equivalencia al editar el intervalo (por ejemplo "0,1 mm = 254 DPI"). LPI son líneas por pulgada.
+- **Deformar (warp)**: meter un dibujo en una envolvente de cuatro esquinas y cuatro bordes curvos para arquearlo, abombarlo o darle perspectiva.
 
 ## E
 
@@ -48,6 +55,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 ## G
 
+- **Guías**: líneas de referencia que se arrastran desde las reglas y atraen a los objetos; no se graban. No son la capa de **Guías** de la paleta.
 - **G-code**: el lenguaje de órdenes que entienden las máquinas (`G0` mover rápido, `G1` mover grabando, `M3`/`M4` encender láser). Tlaku lo genera a partir de tu diseño; puedes verlo con **Exportar G-code…**.
 - **GRBL**: el firmware más común en láseres de diodo. Tlaku lo habla por USB. Existen variantes: **grblHAL**, **FluidNC** y **GRBL-LPC**.
 
@@ -75,9 +83,15 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 - **M3 / M4**: órdenes que encienden el láser. `M3` da **potencia constante**; `M4` da **potencia dinámica**, que baja al frenar en las esquinas y evita quemarlas. M4 necesita GRBL 1.1f o posterior con `$32=1`.
 - **Máquina virtual**: emulador dentro de la app para probar sin hardware (puerto `virtual:...`). Puede simular fallas. No graba nada.
+- **Máscara (de imagen)**: forma vectorial que recorta una imagen para que solo se grabe lo que queda dentro.
 - **Modo láser (`$32=1`)**: ajuste de GRBL que enciende y apaga el rayo según el movimiento. Sin él, `M4` no funciona bien.
 - **Modo principiante**: interruptor del editor de capa que oculta los ajustes avanzados sin borrarlos ni desactivarlos.
 - **Modo punto**: en lugar de una línea continua, el láser dispara un punto cada cierta distancia.
+
+## N
+
+- **Nesting**: acomodo automático de piezas para desperdiciar lo menos posible de la lámina o de un material irregular. Ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md).
+- **Notas (del proyecto)**: cuaderno que se guarda con el proyecto y no se envía a la máquina (`Ctrl/Cmd+7`).
 
 ## O
 
@@ -93,15 +107,18 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Pass-through (enviar sin tramar)**: la imagen se envía tal cual, sin tramado ni ajustes de tono; cada punto ya es la potencia.
 - **Perforación**: corte intermitente, con tramos cortados y tramos saltados, para líneas de doblez o piezas que deben quedar unidas.
 - **Planificador**: la parte del programa que decide en qué orden se ejecuta cada paso. En la vista previa puedes ver qué regla decidió cada uno.
+- **Plantilla**: diseño, capas y ajustes guardados como punto de partida para proyectos nuevos (**Archivo > Guardar como plantilla…**).
 - **Posición final**: dónde deja el cabezal al terminar un trabajo bien: quedarse, volver al origen o ir a un punto.
 - **Posicionar el láser**: modo en el que un clic en la cama del lienzo manda el cabezal a ese punto, con el láser apagado.
 - **Potencia mínima / máxima**: en una imagen, la potencia de los puntos más claros y de los más oscuros.
 - **Prioridad de corte**: número que se le da a un objeto para cortarlo antes o después que otros de su capa (menor, antes).
-- **Puentes**: trozos que se dejan sin cortar para que la pieza no se caiga ni se mueva antes de terminar.
+- **Puentes**: trozos que se dejan sin cortar para que la pieza no se caiga ni se mueva antes de terminar, repartidos solos por la capa o colocados a mano con la herramienta `U`.
+- **Punto de inicio**: el lugar donde empieza el corte de un contorno cerrado; se puede fijar a mano con la herramienta `Q`, junto con el sentido.
 - **Preferencias (`.tlakuprefs`)**: tus ajustes y atajos de teclado; se exportan a un archivo `.tlakuprefs` para llevarlos a otro equipo. Ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
 
 ## R
 
+- **Recortar (trim)**: borrar el tramo de un trazo que queda entre dos cruces, con la herramienta `X`.
 - **Rampa de potencia**: la potencia sube poco a poco al empezar un trazo y baja al terminarlo, en lugar de entrar de golpe.
 - **Raster / vector**: raster es un grabado punto a punto (imágenes, rellenos); vector es seguir un trazo (cortes y líneas).
 - **Relleno por regiones (flood fill)**: relleno que recorre cada región del dibujo por separado sin cruzar los espacios vacíos.
@@ -121,6 +138,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 - **Trayecto**: línea o curva vectorial. Un texto se convierte en trayectos para poder editar sus nodos.
 - **Texto soldado**: texto cuyas letras que se tocan o se solapan se funden en un solo contorno (casilla **Soldar letras**).
+- **Texto variable**: texto con llaves (`{serie}`, `{csv:Nombre}`, `{fecha}`) que se cambia por valores al enviar el trabajo. Ver [Texto variable](04b-texto-variable.md).
 
 ## V
 

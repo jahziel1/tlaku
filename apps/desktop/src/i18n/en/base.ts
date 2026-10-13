@@ -227,6 +227,7 @@ export const base: { [K in keyof typeof Source]?: string } = {
   'status.cursor': 'Cursor position in millimeters',
   'status.zoom': 'Zoom (100 % = actual size on screen)',
   'status.selected': '{n} selected',
+  'status.selectedOne': '1 selected',
   'status.nothingSelected': 'Nothing selected',
   'status.connected': '{name} connected',
   'status.disconnected': 'Machine not connected',

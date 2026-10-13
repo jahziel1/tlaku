@@ -252,6 +252,7 @@ export const base = {
   'status.cursor': 'Posición del cursor en milímetros',
   'status.zoom': 'Zoom (100 % = tamaño real en pantalla)',
   'status.selected': '{n} seleccionados',
+  'status.selectedOne': '1 seleccionado',
   'status.nothingSelected': 'Nada seleccionado',
   'status.connected': '{name} conectada',
   'status.disconnected': 'Máquina sin conectar',

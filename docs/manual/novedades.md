@@ -2,7 +2,48 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
-## Capas y corte: ajustes avanzados, en la próxima versión
+## Diseño avanzado, en la próxima versión
+
+Tercera gran tanda: las herramientas de diseño que más se echaban de menos. Sigue sin probarse con una máquina real: revisa siempre la vista previa y empieza con material de desecho.
+
+### Cambiar la forma de un dibujo
+
+- **Recortar formas** (herramienta `X`): clic en un tramo entre dos cruces para borrarlo.
+- **Separar subtrayectos**, **optimizar formas** (menos nodos con una tolerancia), **redondear esquinas** (redondeada, chaflán o mordisco), **cortar formas con una cuchilla** y **redimensionar ranuras** de encastre al grosor real del material.
+- **Deformar** (arco, abombado, pellizco, perspectiva y sesgo, con esquinas y bordes ajustables), **contorno de banda elástica**, **círculo tangente** y el **asistente booleano** (`Ctrl/Cmd+B`), que enseña el resultado de cada operación antes de aplicarla.
+
+### Copias y acomodo
+
+- **Copiar a lo largo de un trazo**, **arreglo virtual** (copias que no son objetos, con fantasmas en el lienzo), **acoplar y mover juntos** y **agrupar automáticamente por contención**.
+- **Nesting**: acomoda piezas en la cama o dentro de un material de forma irregular, con rotaciones, espejo, huecos aprovechables y un tope de tiempo, con progreso, aprovechamiento y vista previa; se puede detener.
+
+### Texto variable
+
+- **Números de serie**, **datos de un CSV**, **fecha y hora** dentro de un texto, con avance al terminar cada trabajo y **una copia por fila**. Mira [Texto variable](04b-texto-variable.md).
+
+### Lienzo y proyecto
+
+- **Guías** que se arrastran desde las reglas, **puentes manuales** (`U`), **punto de inicio y sentido** del corte (`Q`) que el planificador respeta, **notas** del proyecto, **plantillas**, **nueva ventana** y pestañas del panel derecho que se reordenan.
+- **Biblioteca de arte** con 41 dibujos (flechas, marcos, estrellas, corazones, iconos, bordes y cajas con encastre) y tus propios SVG.
+
+### Imágenes
+
+- **Recortar una imagen con una forma** (máscara), **convertir vectores a mapa de bits**, **guardar la imagen procesada**, **reemplazar la imagen** y **vectorizar varios archivos** de una vez.
+
+### Importar proyectos de LightBurn
+
+- El importador ahora trae el **perforado**, el **modo de puntos**, el **relleno inundado**, el **sobrecorte**, la **rampa**, las **pausas**, el **corte pasante** y las **sub-capas** (como operaciones adicionales). Varias conversiones se infirieron de la documentación pública: revisa cada capa.
+- El editor de capas ya no deja escribir valores que el motor rechazaría (ángulos de entrada y salida, corte pasante de 0 ms) y admite el mismo máximo de operaciones adicionales.
+- La **potencia mínima** deja de mostrarse en las capas de línea, con una explicación: la baja de potencia en las esquinas la decide la controladora.
+
+### Lo que sigue sin estar
+
+- **Deformar** se hace desde un diálogo: aún no hay manijas en el lienzo ni malla de 16 puntos.
+- **Redondear esquinas** no tiene la herramienta de clic por esquina; los **puentes manuales** no tienen potencia propia ni se arrastran; no hay guías temporales de alineación ni paneles flotantes.
+- **Nueva ventana** no se ha probado en una ventana real y, con el autoguardado encendido, puede mostrar la copia de la otra ventana como "trabajo sin guardar": elige **Decidir después**.
+- **Tiling** y **Print & Cut** siguen sin estar.
+
+## Capas y corte: ajustes avanzados
 
 Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere el mismo control sobre cómo se corta. Sigue sin probarse con una máquina real: empieza con poca potencia y material de desecho.
 
@@ -40,10 +81,9 @@ Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere 
 
 ### Lo que sigue sin estar
 
-- La **potencia mínima** de una capa de línea todavía no cambia el G-code (solo en imágenes).
-- Los **puentes** se reparten solos: aún no se colocan a mano.
+- La **potencia mínima** de una capa de línea no cambia el G-code (solo en imágenes); desde la tanda siguiente el campo ya no se muestra en esas capas.
 - El encuadre no se repite en bucle y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
-- El importador de proyectos de LightBurn aún no traduce a estos ajustes el perforado, el modo de puntos, el relleno inundado, el sobrecorte, la rampa ni el corte pasante: se avisa y hay que activarlos a mano.
+- *(Resuelto en la tanda de diseño avanzado: los puentes manuales y el importador de proyectos de LightBurn con estos ajustes.)*
 
 ## Versión 0.1.0, primera versión pública
 
@@ -112,5 +152,5 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 
 ### Lo que viene
 
-- Más herramientas de diseño (recortar, separar, redondear esquinas, deformar), texto variable y números de serie.
+- Las herramientas de diseño que se anunciaban aquí (recortar, separar, redondear esquinas, deformar, texto variable y números de serie) llegaron en la tanda de diseño avanzado.
 - Ruida (CO2) existe solo por línea de comandos y es experimental. Conexión por red, K40 y galvo siguen sin estar.

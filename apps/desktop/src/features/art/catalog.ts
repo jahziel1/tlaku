@@ -52,3 +52,15 @@ export function filterArt(items: readonly ArtItem[], category: ArtCategory | 'us
 export function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
+/**
+ * El SVG con el trazo engrosado para verse bien en una miniatura. Los dibujos usan trazos de
+ * 0,2 mm (para el láser): reducidos a 72 px quedan en una fracción de píxel y casi no se ven.
+ * Solo cambia la vista; lo que se inserta en el diseño es el SVG original.
+ */
+export function thumbnailSvg(svg: string): string {
+  const box = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)\s*"/.exec(svg);
+  if (!box) return svg;
+  const stroke = Math.max(Number(box[1]), Number(box[2])) / 40;
+  return stroke > 0 ? svg.replace(/stroke-width="[^"]*"/g, `stroke-width="${stroke.toFixed(2)}"`) : svg;
+}

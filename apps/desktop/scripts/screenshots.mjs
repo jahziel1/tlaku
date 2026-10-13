@@ -529,6 +529,152 @@ await shot('38-english.png');
 await app(`st().setPref('language', 'es');`);
 
 
+// ---- Ola 3: diseño avanzado (capturas 39 a 47) ---------------------------------------------------------
+
+// La captura 18 dejó el panel lateral en su ancho máximo (se guarda en las preferencias): se devuelve al normal.
+await app(`st().setDockWidth(332);`);
+
+// 39. Nesting: la placa, el engranaje y la estrella como piezas, con un resultado calculado
+await fresh();
+await app(`
+  st().select(['obj-placa', 'obj-engranaje', 'obj-estrella']);
+  await commands.run('arrange.nest');
+`);
+await wait(800);
+await clickText('.btn', 'Empezar');
+await wait(4500); // el cálculo del mock es asíncrono
+await shot('39-nesting.png');
+await closeDialog();
+
+// 40. Asistente booleano con las miniaturas de cada operación
+await fresh();
+await app(`
+  st().select(['obj-placa', 'obj-engranaje']);
+  st().fitContent();
+  await commands.run('arrange.boolAssistant');
+`);
+await wait(1200);
+await shot('40-asistente-booleano.png');
+await closeDialog();
+
+// 41. Deformar con vista previa en el lienzo
+await fresh();
+await app(`
+  st().select(['obj-estrella']);
+  st().fitContent();
+  await commands.run('arrange.warp');
+`);
+await wait(800);
+await clickText('.chip', 'Abombar');
+await wait(900);
+await shot('41-deformar.png');
+await closeDialog();
+
+// 42. Arreglo virtual de la estrella: cuadrícula de 3 x 2 con las copias fantasma en el lienzo
+await fresh();
+await app(`
+  st().select(['obj-estrella']);
+  st().fitContent();
+  await commands.run('arrange.virtualArray');
+`);
+await wait(800);
+await app(`
+  const ui = (await import('/src/features/arrange/designUi.ts')).useDesignUi;
+  ui.getState().patchVirtual({ kind: 'grid', cols: 3, rows: 2, dx: 8, dy: 8 });
+`);
+await wait(600);
+await clickText('.modal__foot .btn', 'Asignar');
+await wait(700);
+await app(`st().select(['obj-estrella']); st().fitContent();`);
+await wait(900);
+await shot('42-arreglo-virtual.png');
+
+// 43. Texto variable: un texto con {serie} y {csv:Nombre}, y un CSV de ejemplo (lo simula el mock)
+await fresh();
+await app(`
+  const tt = await import('/src/features/canvas/textTool.ts');
+  tt.createTextAt(st(), [215, 262]);
+  st().setTool('select');
+`);
+await evaluate(`new Promise((ok, fail) => {
+  const t0 = Date.now();
+  const tick = () => document.querySelector('.text-panel__area') ? ok() : Date.now() - t0 > 15000 ? fail(new Error('sin el panel de texto')) : setTimeout(tick, 200);
+  tick();
+})`);
+await evaluate(`(() => { const a = document.querySelector('.text-panel__area'); a.focus(); a.select(); })()`);
+await type('Pieza {serie}: {csv:Nombre}');
+await wait(800);
+await app(`
+  const { editVariableText } = await import('/src/features/variables/settings.ts');
+  const { loadCsv } = await import('/src/features/variables/csvSync.ts');
+  editVariableText({ csv_path: 'ejemplos/etiquetas.csv', csv_row: 1, serial: 7, serial_digits: 3 }, 'csv');
+  await loadCsv('ejemplos/etiquetas.csv');
+  await commands.run('tools.variableText');
+`);
+await wait(1500);
+await shot('43-texto-variable.png');
+await closeDialog();
+
+// 44. Guías en el lienzo: dos verticales y dos horizontales alrededor de la placa
+await fresh();
+await app(`
+  st().addGuide({ axis: 'x', pos: 60 });
+  st().addGuide({ axis: 'x', pos: 280 });
+  st().addGuide({ axis: 'y', pos: 70 });
+  st().addGuide({ axis: 'y', pos: 210 });
+  st().addGuide({ axis: 'x', pos: 170 });
+  st().select([]);
+  st().fitContent();
+`);
+await wait(800);
+await shot('44-guias.png');
+
+// 45. Puentes manuales (cuatro) y flecha de inicio en la placa, con las marcas a la vista
+await fresh();
+await app(`
+  const m = await import('/src/features/canvas/marksOps.ts');
+  st().applyDocChange('canvas.history.tabs', (doc) => {
+    let d = doc;
+    for (const p of [[170, 70], [60, 140], [280, 140], [170, 210]]) d = m.toggleTab(d, 'obj-placa', p, 4).doc;
+    return d;
+  });
+  st().applyDocChange('canvas.history.start', (doc) => m.setStartPoint(doc, 'obj-placa', [280, 100]));
+  const corte = st().doc.layers.find((l) => l.name.includes('Corte'));
+  st().updateLayer(corte.color, { tabs: { ...corte.tabs, enabled: true, width: 6 } });
+  st().select(['obj-placa']);
+  st().setTool('start');
+  st().fitContent();
+`);
+await wait(900);
+await shot('45-puentes-inicio.png');
+
+// 46. Biblioteca de arte abierta
+await fresh();
+await app(`
+  const { useArtPanel } = await import('/src/features/art/artStore.ts');
+  useArtPanel.getState().setOpen(true);
+`);
+await wait(1000);
+await shot('46-biblioteca-arte.png');
+
+// 47. Optimizar formas: un círculo hecho de 360 segmentos (típico de un SVG exportado) con su conteo de nodos
+await fresh();
+await app(`
+  const { polylineBez } = await import('/src/lib/bezpath.ts');
+  const pts = Array.from({ length: 360 }, (_, i) => [335 + 40 * Math.cos((2 * Math.PI * i) / 360), 140 + 40 * Math.sin((2 * Math.PI * i) / 360)]);
+  const engrave = st().doc.layers.find((l) => l.name.includes('Grabado'));
+  st().applyDocChange('canvas.history.tabs', (doc) => ({
+    ...doc,
+    objects: [...doc.objects, { id: 'obj-circulo', layer: engrave.color, transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths: [polylineBez(pts, true)] }, locked: false, hidden: false, group: null }],
+  }));
+  st().select(['obj-circulo']);
+  await commands.run('arrange.optimize');
+`);
+await wait(1200);
+await shot('47-optimizar-formas.png');
+await closeDialog();
+
+
 await send('Browser.close').catch(() => {});
 ws.close();
 proc.kill();

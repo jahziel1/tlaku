@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ImportResult } from '@/api/types';
 import { roundedRectBez } from '@/lib/bezpath';
 import { objectBounds } from '@/lib/geometry';
-import { ART_CATEGORIES, BUILTIN_ART, filterArt, userItem } from './catalog';
+import { ART_CATEGORIES, BUILTIN_ART, filterArt, thumbnailSvg, userItem } from './catalog';
 import { placeArt } from './place';
 
 describe('biblioteca de arte', () => {
@@ -15,6 +15,23 @@ describe('biblioteca de arte', () => {
       expect(i.svg, i.id).toContain('<svg');
       expect(i.es && i.en, i.id).toBeTruthy();
     }
+  });
+
+  it('cada dibujo es solo contorno: sin rellenos y con las formas cerradas salvo las flechas de una línea y las grecas abiertas', () => {
+    const OPEN_OK = new Set(['flechas-simple', 'flechas-doble', 'flechas-curva']);
+    for (const i of BUILTIN_ART) {
+      expect(i.svg, `${i.id} tiene un relleno`).not.toMatch(/fill="(?!none")[^"]*"/);
+      const closed = /<(polygon|rect|circle|ellipse)\b/.test(i.svg) || /\bd="[^"]*[Zz]\s*"/.test(i.svg);
+      expect(closed || OPEN_OK.has(i.id), `${i.id} no tiene contornos cerrados`).toBe(true);
+      if (!OPEN_OK.has(i.id)) expect(i.svg, `${i.id} no debe tener líneas abiertas de adorno`).not.toMatch(/<polyline\b/);
+    }
+  });
+
+  it('la miniatura engrosa el trazo según el tamaño del dibujo y no toca el original', () => {
+    const svg = '<svg viewBox="0 0 80 40"><rect width="10" height="10" fill="none" stroke="#000" stroke-width="0.2"/></svg>';
+    expect(thumbnailSvg(svg)).toContain('stroke-width="2.00"');
+    expect(svg).toContain('stroke-width="0.2"');
+    expect(thumbnailSvg('<svg><path/></svg>')).toBe('<svg><path/></svg>');
   });
 
   it('filtra por categoría y por texto sin acentos, en español o en inglés', () => {

@@ -31,15 +31,26 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   distribuir, arreglos en rejilla y circulares, copiar y pegar SVG entre programas y deshacer con
   historial. Las formas paramétricas (rectángulo, elipse, polígono y estrella) guardan sus
   parámetros en el proyecto y se siguen editando al reabrirlo.
+- **Diseño avanzado:** recortar formas con un clic, separar subtrayectos, optimizar nodos, redondear
+  esquinas (redondeada, chaflán o mordisco), cortar formas con una cuchilla, redimensionar ranuras
+  de encastre al grosor real del material, deformar (arco, abombado, perspectiva y más), contorno
+  de banda elástica, círculo tangente, asistente booleano con miniaturas, copiar a lo largo de un
+  trazo, arreglo virtual (copias que no son objetos), acoplar y mover juntos, agrupar por
+  contención y **nesting** para acomodar piezas en la cama o en un material irregular. Guías desde
+  las reglas, puentes manuales, punto de inicio y sentido del corte, notas, plantillas, nueva
+  ventana, pestañas reordenables y una biblioteca de arte con 41 dibujos.
 - **Texto y códigos:** texto con fuentes del sistema (sobre un trayecto, curvado o con las letras
   soldadas), 15 fuentes de una línea (Hershey) y lector de fuentes SHX, y códigos QR, Data Matrix y
-  de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar).
+  de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar). **Texto variable:** números de
+  serie, datos de un CSV, fecha y hora, con avance tras cada trabajo y una copia por fila.
 - **Operaciones de geometría:** unión, diferencia, intersección, soldar, offset, unir trazos,
   cerrar trayectos y quitar duplicados.
 - **Importar:** proyectos de LightBurn (`.lbrn`, `.lbrn2`) con sus capas y ajustes, SVG (con
   recorte `clip-path` real), DXF, PDF y AI (los trayectos), HPGL, G-code,
-  imágenes (PNG, JPG, BMP, WebP, TIFF, GIF y TGA) y vectorizar una imagen con vista previa; con un
-  diálogo de opciones (escala, DPI, unidad de un DXF, página de un PDF, capa destino).
+  imágenes (PNG, JPG, BMP, WebP, TIFF, GIF y TGA) y vectorizar una imagen (o varias a la vez) con
+  vista previa; con un diálogo de opciones (escala, DPI, unidad de un DXF, página de un PDF, capa
+  destino). Los proyectos de LightBurn traen también el perforado, el modo de puntos, el relleno
+  inundado, el sobrecorte, la rampa, las pausas, el corte pasante y las sub-capas.
 - **Exportar e imprimir:** SVG, DXF, PNG y PDF vectorial a escala 1:1, del diseño completo o de la
   selección, e imprimir a tamaño real.
 - **Preferencias y respaldo:** ventana de preferencias, atajos de teclado configurables, archivos
@@ -58,7 +69,8 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   prioridad de corte y escala de potencia.
 - **Imagen:** dithering (Floyd-Steinberg, Jarvis, Stucki, Atkinson, Bayer), semitono, periódico,
   boceto, umbral, escala de grises, ajustes de brillo, contraste y gamma, enviar sin tramar,
-  realce de bordes y quitar motas.
+  realce de bordes y quitar motas, recortar con una forma (máscara), convertir vectores a mapa de
+  bits y guardar la imagen procesada.
 - **Vista previa:** reproducción del recorrido con tiempo estimado y desglose por capa, y una
   ventana de ajustes de optimización (respetar capas, grupos y prioridad, interiores primero,
   mejor punto de inicio, quitar tramos que se cortarían dos veces, esconder el juego mecánico).
@@ -71,7 +83,7 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   corrección de barrido (scanning offset), cámara con calibración de lente, alineación y marcas
   grabadas.
 - **Idiomas:** español e inglés, con cambio en vivo.
-- **Ayuda:** manual de usuario de 19 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
+- **Ayuda:** manual de usuario de 24 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
   [docs/manual](docs/manual/00-indice.md), atajos con `F1`, novedades y "Acerca de".
 
 ![Vista previa del trabajo con reproducción y resultados por capa](apps/desktop/docs/screenshots/04-vista-previa.png)
@@ -80,7 +92,12 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 
 - **Planificador de corte explicable.** Cada paso del orden de corte indica qué regla lo decidió
   (capa, interior antes que contenedor, solape, cercanía) y los conflictos se avisan en vez de
-  resolverse en silencio. Se ve en la vista previa y con `tlaku plan`.
+  resolverse en silencio. Se ve en la vista previa y con `tlaku plan`; respeta el punto de inicio y
+  el sentido que fijas a mano.
+- **Nesting integrado.** Acomoda piezas en la cama o dentro de un material irregular con polígonos
+  de no-ajuste y búsqueda con tope de tiempo, con rotaciones, espejo y piezas dentro de los huecos
+  de otras; corre en segundo plano con progreso y se puede detener (`tlaku-nest`). El *tiling*
+  (dividir trabajos grandes) **todavía no existe**.
 - **Máquina virtual.** Puedes conectar la app a una máquina simulada (Falcon2 Pro, GRBL, grblHAL,
   FluidNC, Marlin y otras) y provocar fallas a propósito: llama, inclinación, alarma, desconexión.
   Sirve para aprender, probar un flujo completo y reportar errores sin tocar un láser.
@@ -109,15 +126,17 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 
 Estas funciones están en el plan y todavía no son parte de la app:
 
-- Más herramientas de diseño (recortar, separar, redondear esquinas, deformar, nesting, texto
-  variable y números de serie) y puentes que se colocan a mano.
+- Del diseño avanzado: deformar con manijas en el lienzo y con malla de 16 puntos, redondear
+  esquinas con un clic por esquina, potencia de puente, guías temporales de alineación y paneles
+  flotantes. *Tiling* y Print & Cut.
 - Ventana Mover completa (ejes Z y A, posiciones guardadas, Fire y Focus), encuadre en bucle y
   macros.
 - **Ruida en la aplicación**, conexión por red, K40 y galvo.
 - Pruebas con una máquina real: el corte avanzado, los ajustes en vivo y el resto de las
-  funciones de máquina solo se han validado con el emulador.
+  funciones de máquina solo se han validado con el emulador. La ventana nueva tampoco se ha
+  probado en una ventana real.
 
-El estado real, función por función (143 de las 214 funciones del inventario están hechas), está en
+El estado real, función por función (165 de las 214 funciones del inventario están hechas), está en
 [docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
@@ -221,9 +240,10 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 | `tlaku-core` | Modelo del trabajo (puntos, polilíneas, capas, ajustes de corte), orden de corte básico y `Toolpath`, la representación común que consumen los drivers. |
 | `tlaku-svg`, `tlaku-dxf` | Importan SVG y DXF a polilíneas en mm, una capa por color, y avisan de lo que no pueden importar. |
 | `tlaku-lbrn` | Lee proyectos de LightBurn (`.lbrn`, `.lbrn2`) a un modelo neutro: formas, grupos, texto, imágenes y capas. |
-| `tlaku-geom` | Booleanas, soldar, offset, compensación de kerf, auto-join, cierre de trayectos, quitar duplicados y puentes. |
+| `tlaku-geom` | Booleanas, soldar, offset, compensación de kerf, auto-join, cierre de trayectos, quitar duplicados y puentes; recortar, separar, optimizar nodos, redondear esquinas, cortar con cuchilla, ranuras, deformar, casco y círculo tangente. |
+| `tlaku-nest` | Nesting: acomoda piezas en la cama o en un material irregular (polígonos de no-ajuste, colocación voraz y recocido simulado con tope de tiempo). |
 | `tlaku-plan` | Planificador del orden de corte explicable. |
-| `tlaku-fill`, `tlaku-raster` | Relleno por barrido o por contornos; imágenes con dithering y barrido de bitmaps. |
+| `tlaku-fill`, `tlaku-raster` | Relleno por barrido, por contornos o por regiones; imágenes con dithering, máscara con forma y barrido de bitmaps. |
 | `tlaku-trace` | Vectorizado de imágenes. |
 | `tlaku-text` | Texto a contornos con fuentes del sistema, kerning, texto sobre trayecto, curvado y soldado; fuentes de una línea (Hershey incluidas y lector SHX). |
 | `tlaku-codes` | Códigos QR, Data Matrix y de barras como formas vectoriales. |

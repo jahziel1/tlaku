@@ -1,6 +1,6 @@
 # Imágenes
 
-Cómo grabar fotos y dibujos de mapa de bits: importarlos, elegir el tramado, ajustar los tonos y, si lo prefieres, convertirlos en vectores con **Vectorizar imagen**.
+Cómo grabar fotos y dibujos de mapa de bits: importarlos, elegir el tramado, ajustar los tonos, recortarlos con una forma y, si lo prefieres, convertirlos en vectores con **Vectorizar imagen** (o varios a la vez). También cómo hacer el camino inverso, de vectores a imagen.
 
 ## Importar una imagen
 
@@ -92,5 +92,55 @@ La [vista previa](07-vista-previa.md) muestra las líneas de barrido y el tiempo
 | **Invertir (trazar lo claro)** | Traza las zonas claras en vez de las oscuras. |
 
 El resultado queda exactamente sobre la imagen, en la capa activa (o en la primera capa de líneas si la activa es de imagen). El diálogo te dice a qué capa se agregará. Si salen demasiadas formas pequeñas o el borde queda áspero, sube **Eliminar manchas** o el suavizado, o prueba con algo de **Desenfoque**. **Restablecer ajustes** vuelve a los valores iniciales, pensados para logotipos y dibujos.
+
+## Recortar una imagen con una forma
+
+Para grabar solo una parte de la imagen, con la silueta que quieras, usa una **máscara**.
+
+1. Dibuja la forma que recorta (un círculo, un corazón, un texto...) encima de la imagen.
+2. Selecciona **la imagen y la forma** (una sola imagen; puedes sumar varias formas).
+3. **Herramientas > Recortar imagen con forma.**
+
+La imagen se graba solo dentro de la forma y el lienzo la recorta igual. Las formas **se consumen** al aplicarla (pasan a ser la máscara de la imagen). Para volver a la imagen entera, selecciónala y usa **Herramientas > Quitar máscara de la imagen**. Es un paso de **Deshacer**.
+
+**Ejemplo: un retrato en un posavasos redondo.** Importa la foto, dibuja un círculo del diámetro del posavasos centrado en la cara, selecciona los dos y aplica la máscara: se graba solo el círculo.
+
+La máscara es siempre una **forma vectorial** (no hay máscara por brillo). Con una máscara nueva se reemplaza la anterior, y si **reemplazas la imagen** por otro archivo la máscara se descarta.
+
+## Convertir vectores a mapa de bits
+
+El camino inverso a vectorizar: **Herramientas > Convertir a mapa de bits…** dibuja las formas vectoriales seleccionadas en una imagen PNG que se graba como imagen. Sirve para grabar un dibujo vectorial como imagen (con tramado, por ejemplo) o para combinarlo con una foto antes de grabar.
+
+| Ajuste | Qué hace |
+|---|---|
+| **Resolución** | En puntos por pulgada; el diálogo muestra el tamaño en mm y en píxeles, y avisa si la imagen sería demasiado grande. |
+| **Dibujo** | **Relleno** (las formas cerradas salen macizas) o **Contorno** (solo el borde, con su **Grosor del contorno**). |
+| **Negativo** | Formas en blanco sobre negro. |
+| **Reemplazar los vectores por la imagen** | Quita las formas originales (las bloqueadas no se quitan). |
+
+El PNG se guarda **junto al proyecto**. Si el proyecto aún no está guardado, queda en la carpeta temporal y la app lo avisa: guarda el proyecto antes y vuelve a convertir para que la imagen quede a su lado. El PNG sale en negro sobre blanco.
+
+**Ejemplo: grabar una silueta con tramado.** Dibujas una forma, la conviertes a 254 ppp y mandas la imagen a una capa en modo **Imagen** con el tramado que quieras.
+
+## Guardar la imagen procesada y reemplazar la imagen
+
+Con **una** imagen seleccionada hay dos comandos más en **Herramientas**:
+
+- **Guardar imagen procesada…**: escribe un PNG con lo que se grabaría, con los ajustes de brillo, contraste y tramado de su capa y su máscara. Pide que la imagen esté en una capa de modo **Imagen**. Útil para ver el resultado exacto o llevarlo a otro programa.
+- **Reemplazar imagen…**: cambia el archivo de la imagen por otro sin mover nada: conserva el **ancho** y la **posición** y sigue la proporción del nuevo archivo, en la misma capa. La máscara se descarta. Es la forma de corregir una foto en un editor externo y volver a grabarla sin rehacer el trabajo. (La imagen se vuelve a leer al reemplazarla; no hay un comando de "actualizar imagen" aparte.)
+
+## Vectorizar varios archivos
+
+**Herramientas > Vectorizar varios archivos…** aplica los **mismos ajustes** de **Vectorizar una imagen** (más arriba, en esta página) a muchas imágenes de una vez. No hace falta tener nada seleccionado.
+
+1. **Agregar imágenes…** y elige los archivos; los que no se leen como imagen se avisan y no entran.
+2. Los ajustes son los de **Vectorizar imagen** (umbral, suavizado, manchas, esquinas, desenfoque, modo, invertir), con vista previa del archivo que elijas en la lista. Debajo, la **Resolución de las imágenes** (ppp) que define su tamaño.
+3. El diálogo dice a qué capa se agregan. **Vectorizar N imagen(es).**
+4. Una barra muestra el avance; **Detener** corta el lote y no agrega nada.
+
+Cada resultado se coloca en una **fila**: 10 mm de separación y hasta 400 mm de ancho, antes de pasar a la siguiente fila. Los resultados no se escalan al tamaño de ninguna imagen del diseño. Un archivo que falla no detiene al resto: al final se lista cuáles no se vectorizaron. Es un solo paso de **Deshacer**.
+
+**Ejemplo: 12 logotipos de clientes para una placa.** Agrega los 12 PNG, ajusta el umbral viendo uno de ellos, y obtienes los 12 vectores en filas, listos para cortar.
+
 
 Siguiente: [Vista previa y orden de corte](07-vista-previa.md)
