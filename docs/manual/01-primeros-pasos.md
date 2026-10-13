@@ -25,11 +25,11 @@ Al abrir Tlaku verás la cama de la máquina vacía, con el mensaje **La cama es
 ## 3. Importar un diseño
 
 1. Elige **Archivo > Importar diseño…** (`Ctrl/Cmd+I`), o arrastra el archivo sobre la ventana.
-2. Formatos que ofrece hoy el diálogo: SVG, DXF, PNG, JPG y BMP.
+2. Formatos que acepta: SVG, DXF, PDF, AI, HPGL (`.plt`), G-code, y las imágenes PNG, JPG, BMP, WebP, TIFF, GIF y TGA.
 3. Tlaku crea **una capa por cada color** del archivo. Una imagen va a su propia capa gris, en modo **Imagen**.
 4. Si el importador avisa de algo (formas que no pudo leer, por ejemplo), aparece un aviso persistente: léelo y comprueba que el diseño esté completo.
 
-Importar PDF, AI, WebP, TIFF y archivos de LightBurn (`.lbrn`) es **(próximamente)**. Más sobre imágenes en [Imágenes](06-imagenes.md).
+Si necesitas elegir la escala, el DPI, la unidad de un DXF o la página de un PDF, usa **Archivo > Importar con opciones…**. Todos los formatos y sus opciones están en [Importar y exportar](03b-importar-y-exportar.md). Los proyectos de LightBurn (`.lbrn`, `.lbrn2`) también se importan: ver [Venir desde LightBurn](14-desde-lightburn.md). Más sobre imágenes en [Imágenes](06-imagenes.md).
 
 ## 4. Revisar las capas
 
@@ -66,6 +66,8 @@ Nada se graba: el láser es simulado. Para conectar una máquina real, ver [Cone
 
 - **Archivo > Guardar** (`Ctrl/Cmd+S`) guarda el proyecto como `.tlaku`. **Guardar como…** es `Ctrl/Cmd+Shift+S`.
 - **Archivo > Exportar G-code…** (`Ctrl/Cmd+Shift+E`) escribe el trabajo como G-code, por si quieres enviarlo con otro programa. Necesita al menos una capa con salida y objetos.
-- Si cierras con cambios, Tlaku pregunta si quieres guardar. Tlaku todavía no tiene autoguardado: guarda a menudo.
+- Para llevar tu **diseño** a otro programa, **Archivo > Exportar SVG…**, **DXF…**, **imagen PNG…** o **PDF…** (ver [Importar y exportar](03b-importar-y-exportar.md)).
+- Si cierras con cambios, Tlaku pregunta si quieres guardar.
+- **Autoguardado:** mientras trabajas, Tlaku guarda una copia de recuperación cada minuto (si hay cambios). Si la aplicación se cierra de golpe, al abrirla te ofrece **recuperar** tu trabajo. No sustituye a guardar: ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
 
 Siguiente: [La interfaz](02-interfaz.md)

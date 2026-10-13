@@ -23,14 +23,27 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 
 ## Funciones principales
 
-- **Diseño y edición:** lienzo con reglas y cama de la máquina, selección, transformar con
-  manijas o con valores exactos, rectángulos, elipses, líneas, texto con fuentes del sistema
-  (incluido texto sobre un trayecto), editor de nodos, agrupar, alinear y distribuir, arreglos en
-  rejilla y circulares, deshacer con historial.
+- **Diseño y edición:** lienzo con reglas y cama de la máquina, selección (con selecciones
+  especiales), transformar con manijas o con valores exactos, voltear, espejo sobre una línea,
+  giros rápidos y por dos puntos, orden de dibujo, bloquear, grupos anidados, igualar tamaños,
+  rectángulos, elipses, polígonos, estrellas y líneas con curvas Bézier, medir, editor de nodos,
+  ajuste magnético a nodos, puntos medios, centros e intersecciones, menú contextual, alinear y
+  distribuir, arreglos en rejilla y circulares, copiar y pegar SVG entre programas y deshacer con
+  historial.
+- **Texto y códigos:** texto con fuentes del sistema (sobre un trayecto, curvado o con las letras
+  soldadas), 15 fuentes de una línea (Hershey) y lector de fuentes SHX, y códigos QR, Data Matrix y
+  de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar).
 - **Operaciones de geometría:** unión, diferencia, intersección, soldar, offset, unir trazos,
   cerrar trayectos y quitar duplicados.
-- **Importar:** SVG (con recorte `clip-path` real), DXF, imágenes (PNG, JPG, BMP) y vectorizar una
-  imagen con vista previa.
+- **Importar:** proyectos de LightBurn (`.lbrn`, `.lbrn2`) con sus capas y ajustes, SVG (con
+  recorte `clip-path` real), DXF, PDF y AI (los trayectos), HPGL, G-code,
+  imágenes (PNG, JPG, BMP, WebP, TIFF, GIF y TGA) y vectorizar una imagen con vista previa; con un
+  diálogo de opciones (escala, DPI, unidad de un DXF, página de un PDF, capa destino).
+- **Exportar e imprimir:** SVG, DXF, PNG y PDF vectorial a escala 1:1, del diseño completo o de la
+  selección, e imprimir a tamaño real.
+- **Preferencias y respaldo:** ventana de preferencias, atajos de teclado configurables, archivos
+  `.tlakuprefs` para llevar la configuración a otro equipo, autoguardado y recuperación tras un
+  cierre inesperado.
 - **Capas de corte:** modos Línea, Relleno e Imagen; velocidad, potencia, pasadas, intervalo,
   ángulo, bidireccional, overscan calculado con la física de la máquina, kerf, puentes (tabs),
   aire, eje Z por capa y por pasada.
@@ -43,6 +56,9 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 - **Taller:** biblioteca de materiales y prueba de materiales, rotativo (rodillo o mandril),
   corrección de barrido (scanning offset), cámara con calibración de lente, alineación y marcas
   grabadas.
+- **Idiomas:** español e inglés, con cambio en vivo.
+- **Ayuda:** manual de usuario de 17 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
+  [docs/manual](docs/manual/00-indice.md), atajos con `F1`, novedades y "Acerca de".
 
 ![Vista previa del trabajo con reproducción y resultados por capa](apps/desktop/docs/screenshots/04-vista-previa.png)
 
@@ -60,7 +76,8 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   ni hace *homing* por su cuenta, y la consola pide confirmación y explica cada `ALARM:N` y
   `error:N`.
 - **Importadores que avisan.** Unidades ausentes en un DXF, SVG a 96 o a 72 DPI, texto sin contorno,
-  recortes y máscaras: nada se pierde en silencio, cada omisión sale como advertencia.
+  recortes y máscaras, lo que un PDF trae y no es un trayecto, la escala de un HPGL: nada se pierde
+  en silencio, cada omisión sale como advertencia.
 - **Código abierto y formatos abiertos.** Licencia MIT; proyecto `.tlaku` en JSON versionado,
   materiales `.tlakumat`, y todo lo que hace la app se puede ejecutar desde la línea de comandos
   (`tlaku`) y comprobar con pruebas.
@@ -76,10 +93,14 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 
 ### En camino (próximamente)
 
-Estas funciones están en el plan inmediato y todavía no son parte de la app: exportar SVG, DXF e
-imágenes; importar PDF, AI y más formatos de imagen; importar proyectos de LightBurn (`.lbrn`,
-`.lbrn2`); preferencias, autoguardado y atajos configurables; voltear, bloquear y ordenar objetos;
-más herramientas de dibujo; inglés. El estado real, función por función, está en
+Estas funciones están en el plan inmediato y todavía no son parte de la app:
+
+- Ajustes de corte avanzados (perforación, lead-in y lead-out, sub-capas, prioridad por objeto),
+  cortar solo la selección y más herramientas de diseño (recortar, separar, redondear esquinas,
+  deformar, texto variable y números de serie).
+- **Ruida en la aplicación**, conexión por red, K40 y galvo.
+
+El estado real, función por función (119 de las 214 funciones del inventario están hechas), está en
 [docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
@@ -182,18 +203,21 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 |---|---|
 | `tlaku-core` | Modelo del trabajo (puntos, polilíneas, capas, ajustes de corte), orden de corte básico y `Toolpath`, la representación común que consumen los drivers. |
 | `tlaku-svg`, `tlaku-dxf` | Importan SVG y DXF a polilíneas en mm, una capa por color, y avisan de lo que no pueden importar. |
+| `tlaku-lbrn` | Lee proyectos de LightBurn (`.lbrn`, `.lbrn2`) a un modelo neutro: formas, grupos, texto, imágenes y capas. |
 | `tlaku-geom` | Booleanas, soldar, offset, compensación de kerf, auto-join, cierre de trayectos, quitar duplicados y puentes. |
 | `tlaku-plan` | Planificador del orden de corte explicable. |
 | `tlaku-fill`, `tlaku-raster` | Relleno por barrido o por contornos; imágenes con dithering y barrido de bitmaps. |
 | `tlaku-trace` | Vectorizado de imágenes. |
-| `tlaku-text` | Texto a contornos con fuentes del sistema, kerning y texto sobre trayecto. |
+| `tlaku-text` | Texto a contornos con fuentes del sistema, kerning, texto sobre trayecto, curvado y soldado; fuentes de una línea (Hershey incluidas y lector SHX). |
+| `tlaku-codes` | Códigos QR, Data Matrix y de barras como formas vectoriales. |
+| `tlaku-export` | Exporta el diseño a SVG, DXF, PNG y PDF a escala 1:1. |
 | `tlaku-sim` | Estimación de tiempo con aceleración por eje y cálculo físico del overscan. |
 | `tlaku-grbl` | G-code por dialecto, puertos serie, envío con conteo de caracteres y revisión previa. |
 | `tlaku-ruida` | Experimental: archivos `.rd` y sesión por red para controladoras Ruida. |
 | `tlaku-emu` | Emulador de controladoras (GRBL, Falcon2 Pro, grblHAL, FluidNC, GRBL-LPC, Marlin, Smoothie). |
 | `tlaku-camera` | Calibración de lente, alineación y corrección por altura. |
 | `tlaku-doc` | Tipos del contrato con la app, exportados a TypeScript. |
-| `tlaku-pipeline` | Documento y máquina a `Toolpath`, estimaciones, límites de la cama y G-code. |
+| `tlaku-pipeline` | Documento y máquina a `Toolpath`, estimaciones, límites de la cama y G-code; importadores de PDF y AI, HPGL, G-code y LightBurn. |
 | `tlaku-cli` | Binario `tlaku`. |
 
 
@@ -203,7 +227,7 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 
 | Comando | Qué hace |
 |---|---|
-| `gcode` | Convierte un SVG, DXF o imagen (PNG, JPEG, BMP) en G-code para GRBL y muestra el resumen del trabajo (capas, tiempo estimado, área ocupada). |
+| `gcode` | Convierte un SVG, DXF o imagen (PNG, JPEG, BMP) en G-code para GRBL y muestra el resumen del trabajo (capas, tiempo estimado, área ocupada). El motor reconoce además como entrada PDF, AI, HPGL, G-code y LightBurn; la ayuda del CLI aún no los lista. |
 | `plan` | Imprime el orden de capas y de corte con la razón de cada paso, sin generar nada. |
 | `send` | Envía un archivo de G-code a la máquina con conteo de caracteres. Ctrl+C cancela con feed hold y soft reset. |
 | `frame` | Recorre con el láser apagado el rectángulo que ocupa el diseño (incluido el overscan). |

@@ -126,6 +126,20 @@ Revisa en este orden:
 - **Sale espejado o invertido.** El **Origen de la máquina** del perfil no coincide con la esquina real de tu X0 Y0.
 - **Sale desplazado.** Revisa **Iniciar desde** y el punto del trabajo que se ancla: ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
 
+## Problemas al importar o exportar
+
+- **"Formato no soportado" con un `.lbrn` o `.lbrn2`.** Es lo esperado hoy: el motor de Tlaku sabe leerlos, pero la aplicación todavía no los acepta. Exporta el diseño desde LightBurn a SVG, DXF o PDF (ver [Venir desde LightBurn](14-desde-lightburn.md)).
+- **Un PDF o AI llega sin texto o sin fotos.** Solo se importan trayectos: convierte el texto a curvas en el programa de origen y vuelve a exportar. El aviso de importación lo dice. Si el archivo tiene varias páginas, importa la primera; elige otra en **Importar con opciones…**.
+- **"Es un AI antiguo (PostScript)".** Ábrelo en Illustrator y guárdalo con **Crear archivo compatible con PDF**, o expórtalo a PDF o SVG.
+- **Un HPGL o un SVG sale a otro tamaño.** El HPGL no declara su escala (se supone 40 unidades por mm) y un SVG sin unidades usa 96 ppp. Usa **Escala (%)** y **Resolución (ppp)** en **Archivo > Importar con opciones…**; Illustrator suele necesitar 72.
+- **Un DXF sale unas 25 veces más grande o más chico.** Es un DXF sin unidades en pulgadas o milímetros: elige la **Unidad de un DXF sin unidades** en las opciones de importación.
+- **Importé un G-code y quedó en una sola capa (o en muchas).** De fábrica se hace una capa por nivel de potencia; elige **Una sola capa** en las opciones.
+- **"No hay objetos que exportar".** Exportar necesita al menos un objeto visible; revisa que no estén ocultos ni sus capas apagadas.
+- **El PDF o la impresión sale a otra escala.** Imprime desde el visor con **tamaño real (100 %)** y sin **ajustar a la página**.
+- **El código QR no se lee.** Súbele el tamaño o la **Corrección de errores**, ajusta el grabado de la capa para que el contraste sea claro, y evita **Invertir** si tu lector no lo admite. Prueba siempre con un lector real.
+- **Se cerró Tlaku y perdí cambios.** Al volver a abrirlo debería ofrecerte recuperar la copia (ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md)). Si no aparece, revisa que **Guardar copias de recuperación automáticamente** estuviera activo.
+- **Un atajo no hace nada.** Puede que lo hayas cambiado: mira **Editar > Editar atajos de teclado…**. Las teclas sueltas no funcionan mientras escribes en un campo.
+
 ## Si nada de esto sirve
 
 Copia el registro de la consola y usa **Ayuda > Reportar un problema…**. Indica tu firmware (versión que devuelve `$I`), el tipo de controladora del perfil y si lo probaste en la máquina virtual.

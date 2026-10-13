@@ -5,7 +5,7 @@ Cómo grabar fotos y dibujos de mapa de bits: importarlos, elegir el tramado, aj
 ## Importar una imagen
 
 1. **Archivo > Importar diseño…** (`Ctrl/Cmd+I`), o arrastra el archivo sobre la ventana.
-2. Formatos que ofrece hoy el diálogo: PNG, JPG y BMP. WebP, TIFF, GIF y TGA son **(próximamente)** en la interfaz.
+2. Formatos de imagen: PNG, JPG, BMP, **WebP**, **TIFF**, **GIF** y **TGA**. Para elegir la resolución con la que se interpretan, usa **Archivo > Importar con opciones…** (ver [Importar y exportar](03b-importar-y-exportar.md)). Un TIFF o un TGA se convierte a un PNG junto al original, y Tlaku lo avisa.
 3. La imagen aparece con su tamaño a 96 puntos por pulgada (un ancho de 600 px mide 158,75 mm) y va a una capa propia llamada **Imagen**, en modo **Imagen**, a 3000 mm/min.
 
 Cambia el tamaño con **Ancho** y **Alto** de la barra numérica (el candado mantiene la proporción) o arrastrando las manijas. Las imágenes se mueven y se escalan, pero **no se pueden rotar**: gírala en un editor de imágenes antes de importarla.

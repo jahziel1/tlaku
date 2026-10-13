@@ -1,14 +1,14 @@
 # 04 - Cobertura funcional real de Tlaku frente al inventario de LightBurn
 
-Auditoría hecha el 2026-10-13 sobre el código (último commit: `62a8841`, "Fase 4, oleada C"), no sobre los documentos. Para cada una de las 214 funciones de los inventarios [01](01-diseno-edicion.md), [02](02-capas-corte-imagen.md) y [03](03-maquinas-avanzadas.md) se buscó el comando, el componente, la función del motor y sus pruebas. Los conteos del documento [00-resumen.md](00-resumen.md) se contrastaron con el código.
+Auditoría hecha el 2026-10-13 sobre el código (último commit: `62a8841`, "Fase 4, oleada C"), no sobre los documentos, y **actualizada el mismo día tras la ola 1** (commit `736d472`, "Ola 1: base para publicar"): cada fila que tocó la ola se volvió a verificar en el código, no se tomó del mensaje del commit. Para cada una de las 214 funciones de los inventarios [01](01-diseno-edicion.md), [02](02-capas-corte-imagen.md) y [03](03-maquinas-avanzadas.md) se buscó el comando, el componente, la función del motor y sus pruebas. Los conteos del documento [00-resumen.md](00-resumen.md) se contrastaron con el código.
 
 ## Cómo leer este documento
 
 - **Identificadores.** `D` = inventario 01 (diseño y edición, F01-F100), `C` = inventario 02 (capas, corte e imagen, F01-F60), `M` = inventario 03 (máquinas y avanzadas, filas 1-54). Se prefijan porque los inventarios 01 y 02 repiten la numeración `F01...`. El inventario 03 tiene 54 filas, no 53 como declara 00-resumen.md: la fila 21 mezcla prioridades (P0 para G-code, P1 para `.rd`) y 00-resumen no la cuenta. Aquí se cuenta como P0, así que el total real es 214 (68 P0, 86 P1, 60 P2) y no 213 (67/86/60).
 - **Hecho**: funciona de punta a punta (motor más interfaz) y el flujo principal está completo. Las carencias secundarias se anotan como "Menor: ..." en la columna "Qué falta" y no cambian el estado. **Parcial**: falta una parte que un usuario notaría. **Solo motor/CLI**: existe en el motor o en `tlaku` pero la app no lo ofrece. **Falta**: no hay código. **No aplica**: decisión explícita de no hacerlo (ver nota abajo).
 - **Evidencia.** `ui:` = `apps/desktop/src/`; `tauri:` = `apps/desktop/src-tauri/src/`; las rutas `crates/...` son del motor. Una evidencia "ninguna referencia" significa que se buscó por nombre, por comando y por palabra clave en `crates/` y en `apps/desktop/src` y no apareció nada.
-- **Alcance de "Hecho".** Ninguna función de máquina está probada con hardware real (lo declara 00-resumen.md y sigue siendo cierto): "Hecho" significa que funciona contra el emulador (`tlaku-emu`) y las máquinas virtuales de la app, con pruebas automáticas (alrededor de 1180 `#[test]` en Rust y 1050 casos en la interfaz). La promesa de una prueba con la Falcon2 sigue pendiente.
-- **"No aplica": ninguna.** No hay en el repositorio una decisión explícita de descartar una función del inventario. Lo más cercano es el alcance del galvo (EZCAD3/DLC y BSL fuera de alcance, `docs/hardware/galvo.md`), que afecta a M41. Candidatas razonables a marcar "No aplica" cuando se decida: D90 (formatos propietarios `.sc/.scpro2/.mage`), D94 (exportar AI), D99 (`.lbprefs`/`.lbzip`, que Tlaku sustituye con sus propios archivos) y M54 (UDP de LightBurn).
+- **Alcance de "Hecho".** Ninguna función de máquina está probada con hardware real (lo declara 00-resumen.md y sigue siendo cierto): "Hecho" significa que funciona contra el emulador (`tlaku-emu`) y las máquinas virtuales de la app, con pruebas automáticas (alrededor de 1340 `#[test]` en Rust, entre los crates y `src-tauri`, y 1430 casos en la interfaz; de estos, 10 de `i18n.test.ts` fallan hoy por el inglés a medio hacer, ajeno a la ola 1). La promesa de una prueba con la Falcon2 sigue pendiente.
+- **"No aplica": ninguna.** No hay en el repositorio una decisión explícita de descartar una función del inventario. Lo más cercano es el alcance del galvo (EZCAD3/DLC y BSL fuera de alcance, `docs/hardware/galvo.md`), que afecta a M41. Candidatas razonables a marcar "No aplica" cuando se decida: D90 (formatos propietarios `.sc/.scpro2/.mage`), D94 (exportar AI), D99 (`.lbzip`; los `.lbprefs` ya los sustituye `.tlakuprefs`) y M54 (UDP de LightBurn).
 
 ## 1. Resumen
 
@@ -16,43 +16,54 @@ Auditoría hecha el 2026-10-13 sobre el código (último commit: `62a8841`, "Fas
 
 |  | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| P0 | 53 | 13 | 1 | 1 | 0 | 68 |
-| P1 | 30 | 16 | 4 | 36 | 0 | 86 |
-| P2 | 5 | 2 | 1 | 52 | 0 | 60 |
-| Total | 88 | 31 | 6 | 89 | 0 | 214 |
+| P0 | 60 | 7 | 1 | 0 | 0 | 68 |
+| P1 | 47 | 16 | 4 | 19 | 0 | 86 |
+| P2 | 13 | 3 | 1 | 43 | 0 | 60 |
+| Total | 120 | 26 | 6 | 62 | 0 | 214 |
+
+Antes de la ola 1: 88 hechas, 31 parciales, 6 solo motor/CLI y 89 faltantes (P0: 53 / 13 / 1 / 1).
 
 ### Por área
 
 |  | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Diseño y edición | 37 | 14 | 0 | 49 | 0 | 100 |
+| Diseño y edición | 69 | 6 | 0 | 25 | 0 | 100 |
 | Capas, corte e imagen | 37 | 7 | 2 | 14 | 0 | 60 |
-| Máquinas y avanzadas | 14 | 10 | 4 | 26 | 0 | 54 |
+| Máquinas y avanzadas | 14 | 13 | 4 | 23 | 0 | 54 |
 
 ### Por área y prioridad
 
 | Área | Prio | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---|---:|---:|---:|---:|---:|---:|
-| Diseño y edición | P0 | 25 | 6 | 0 | 1 | 0 | 32 |
-| Diseño y edición | P1 | 11 | 6 | 0 | 22 | 0 | 39 |
-| Diseño y edición | P2 | 1 | 2 | 0 | 26 | 0 | 29 |
+| Diseño y edición | P0 | 32 | 0 | 0 | 0 | 0 | 32 |
+| Diseño y edición | P1 | 28 | 4 | 0 | 7 | 0 | 39 |
+| Diseño y edición | P2 | 9 | 2 | 0 | 18 | 0 | 29 |
 | Capas, corte e imagen | P0 | 20 | 2 | 0 | 0 | 0 | 22 |
 | Capas, corte e imagen | P1 | 13 | 5 | 2 | 3 | 0 | 23 |
 | Capas, corte e imagen | P2 | 4 | 0 | 0 | 11 | 0 | 15 |
 | Máquinas y avanzadas | P0 | 8 | 5 | 1 | 0 | 0 | 14 |
-| Máquinas y avanzadas | P1 | 6 | 5 | 2 | 11 | 0 | 24 |
-| Máquinas y avanzadas | P2 | 0 | 0 | 1 | 15 | 0 | 16 |
+| Máquinas y avanzadas | P1 | 6 | 7 | 2 | 9 | 0 | 24 |
+| Máquinas y avanzadas | P2 | 0 | 1 | 1 | 14 | 0 | 16 |
 
-**Lectura rápida.** De 214 funciones, 88 están hechas (41 %), 31 parciales, 6 solo en el motor o el CLI y 89 faltan. En P0 (el MVP) hay 53 de 68 hechas (78 %); 13 parciales, 1 solo motor/CLI y 1 faltan. El corazón de capas, corte e imagen y el control de máquinas GRBL están muy completos; lo que más falta es el entorno de diseño que un usuario de LightBurn espera (voltear, formas, medir, exportar, importar más formatos, menú contextual) y todo lo que rodea al uso diario (preferencias, autoguardado, idioma, ayuda).
+**Lectura rápida.** De 214 funciones, 120 están hechas (56 %), 26 parciales, 6 solo en el motor o el CLI y 62 faltan. En P0 (el MVP) hay 60 de 68 hechas (88 %); 7 parciales (C32, C51, M3, M5, M6, M11, M16), 1 solo motor/CLI (M15) y ninguna falta. Diseño y edición queda con sus 32 P0 completas. Lo que más falta ya no es el entorno de diseño sino las olas 2 a 5 del [plan](../plan-completo.md): ajustes de corte avanzados (perforación, lead-in, sub-capas, prioridad por objeto), diseño avanzado (recortar, separar, deformar, nesting), máquinas (Ruida en la app, K40, red, macros), Print & Cut y galvo. Sigue sin haber ninguna prueba con hardware real.
 
-**Discrepancias con los documentos.**
+**Lo que la ola 1 dejó a medias o no coincide con su mensaje.**
 
-- `README.md` (raíz) sigue diciendo "Fase 1: motor sin interfaz... Todavía no hay interfaz gráfica" y lista solo 12 crates; hoy hay 17 crates, una app Tauri completa e instaladores. Es lo primero que ve un visitante.
-- La herramienta **Medir** (`M`) figura en la paleta y en el menú Herramientas, pero no tiene lógica: el lienzo la trata como Seleccionar (D44).
-- `docs/spec/00-resumen.md` anuncia que M3 "cubre los 67 P0". Con el código en la mano, 53 de los 68 P0 (contando la fila M21) están hechos. Los otros 15: D26 voltear (falta), M15 cortar solo la selección (solo motor) y 13 parciales: D24 rotación rápida, D30 grupos anidados, D32 curvas dibujadas, D77 snapping a nodos, D87 formatos de imagen, D91 opciones de importación, C32 opciones del planificador, C51 Adjust Image, M3 perfiles importables/exportables, M5 y M6 ajustes de dispositivo, M11 encuadre y M16 ventana Mover.
+- **Importar `.lbrn`/`.lbrn2` (D97):** la lista de extensiones de la interfaz no los incluía; corregido al cerrar la ola 1 (`ui:features/history/paths.ts`).
+- **Las unidades en pulgadas** (mensaje: "unidades mm/pulgadas centralizadas") solo se aplican hoy en la herramienta Medir y en los campos de la ventana de Preferencias. La barra numérica, la barra de estado y los diálogos siguen en milímetros (aceptan `5in` al escribir). Por eso D12 queda en "Parcial".
+- **Las formas paramétricas** (rectángulo, elipse, polígono, estrella) conservan sus parámetros solo durante la sesión: el documento guarda trayectos (`features/canvas/shapeParams.ts`). Al reabrir el proyecto ya no se pueden editar en la ventana Propiedades de forma.
+- **Importar PDF y AI** trae solo trayectos: texto con fuentes, imágenes incrustadas, degradados, patrones y recortes se omiten con aviso. Un AI antiguo (PostScript) se rechaza.
+- **El inglés** se completó al cerrar la ola 1 (commit `6ef7abc`): toda la interfaz, con cambio en vivo; faltan los mensajes del motor y el manual.
+- Los enlaces del repositorio y de donaciones del menú Ayuda siguen en `null` (`ui:features/help/links.ts`): la app dice "enlace pendiente de publicar".
+
+**Discrepancias con los documentos que siguen abiertas.**
+
+- `docs/spec/00-resumen.md` anuncia que M3 "cubre los 67 P0". Con el código en la mano, 60 de los 68 P0 (contando la fila M21) están hechos; los 8 restantes: M15 cortar solo la selección (solo motor) y 7 parciales (C32, C51, M3, M5, M6, M11, M16).
 - `tlaku-geom/src/nesting.rs` se llama "nesting", pero solo calcula la profundidad de contención; no hay empaquetado de piezas.
 - El planificador de corte (`tlaku-plan`) soporta grupo y prioridad por objeto, pero `tlaku-pipeline` siempre pasa `priority: 0` y `group: None` (`build.rs:180-181`), así que esas dos palancas no se pueden usar.
 - Funciones que existen en el motor pero no están cableadas: relleno por forma (`Grouping::PerShape`), `Sampling::PassThrough`, `enhance` de Adjust Image, bytes de override del streamer GRBL, `JobOptions.selection`, `remove_redundant_points`.
+
+**Discrepancias resueltas por la ola 1:** el `README.md` de la raíz ya describe la aplicación y los 20 crates; la herramienta Medir ya mide (D44); voltear (D26) ya existe.
 
 ## 2. Tablas por área
 
@@ -65,51 +76,51 @@ Auditoría hecha el 2026-10-13 sobre el código (último commit: `62a8841`, "Fas
 | D03 | Lista de capas (vista de diseño) | P0 | Hecho | Menor: sin "parpadeo" del objeto con clic derecho. | ui:features/layers/LayersPanel.tsx; comando `layer.selectObjects` |
 | D04 | Barras y ventanas acoplables | P1 | Parcial | El panel derecho tiene pestañas y ancho ajustable, pero no se puede arrastrar, flotar, reordenar ni restaurar el diseño. | ui:features/shell/Dock.tsx, store/view.ts |
 | D05 | Barra de estado | P1 | Hecho | Menor: no muestra dx/dy/longitud/ángulo de la herramienta activa. | ui:features/shell/StatusBar.tsx (cursor, zoom, selección y tamaño, máquina) |
-| D06 | Barra Numeric Edits | P0 | Hecho | Menor: sin selector global mm/in (las unidades se escriben en la expresión: `5in`, `50%`). | ui:features/canvas/NumericBar.tsx, expr.ts, ExprField.tsx |
+| D06 | Barra Numeric Edits | P0 | Hecho | Menor: la preferencia de unidades (mm o pulgadas) todavía no llega a esta barra: los campos siguen en mm y aceptan la unidad al escribir (`5in`, `50%`). | ui:features/canvas/NumericBar.tsx, expr.ts, ExprField.tsx; lib/units.ts (`parseLength`) |
 | D07 | Zoom y paneo | P0 | Hecho | Menor: sin "encuadrar selección" (hay ajustar a cama y al diseño). | ui:features/canvas/useViewportControls.ts, ZoomControls.tsx; `view.zoomIn/Out/fitBed/fitContent`, herramienta Mano (`H`) |
 | D08 | Estilo de vista | P1 | Hecho | Menor: sin ajuste de calidad de bordes. | ui:commands/definitions/view.ts (`view.wireframe`, `W`) |
-| D09 | Menú contextual | P1 | Falta | No hay menú contextual en el lienzo (convertir a trayectos, bloquear, agrupar...). Solo existe el menú de fila en la lista de capas. | ui:features/canvas/useCanvasTools.ts:655 (el evento `contextmenu` solo se usa para terminar una polilínea); RowMenu.tsx es de capas |
-| D10 | Atajos por defecto | P0 | Hecho | El esquema es propio (V, N, L, R, E, T, H...) y no reproduce el de LightBurn. Faltan los atajos de funciones que no existen (voltear, rotar 90 grados, orden de dibujo...). | ui:commands/definitions/*.ts, commands/shortcuts.ts; tabla generada en apps/desktop/README.md; diálogo `F1` |
-| D11 | Editor de atajos | P1 | Falta | El diálogo de atajos (F1) solo lista y busca. No se puede reasignar, limpiar, restablecer, exportar ni importar. | ui:features/shell/ShortcutsDialog.tsx; los atajos están fijos en commands/definitions/ |
-| D12 | Preferencias de edición | P1 | Falta | No hay ventana de preferencias: snap fijo a 8 px, paso de flechas fijo (1 / 10 / 0,1 mm), unidades solo mm, sin opción de "volver a Seleccionar". | ui:features/canvas/snap.ts (`SNAP_PX`), commands/definitions/edit.ts (`NUDGE_STEPS`) |
+| D09 | Menú contextual | P1 | Hecho | Menor: el menú de fila de la lista de capas sigue siendo aparte; no hay entradas para copiar ajustes de capa ni convertir formas a trayectos (solo texto). | ui:features/contextmenu/ (model.ts, ContextMenu.tsx, contextmenu.test.tsx), montado en canvas/CanvasView.tsx (`ContextMenuHost`); captura 28-menu-contextual.png. Con objetos: editar texto, convertir a trayectos, vectorizar imagen, cortar/copiar/pegar, agrupar, bloquear, orden, voltear y girar, alinear, selecciones; sobre el fondo: pegar, seleccionar, ajustar la vista |
+| D10 | Atajos por defecto | P0 | Hecho | Menor: el esquema es propio (V, N, L, R, E, G, T, H, M...) y no reproduce el de LightBurn; no hay un perfil "tipo LightBurn" listo. Los atajos ya se reasignan (D11). | ui:commands/definitions/*.ts, commands/shortcuts.ts; tabla generada en apps/desktop/README.md (`npm run readme`); diálogo `F1` |
+| D11 | Editor de atajos | P1 | Hecho | Menor: el diálogo `F1` y el manual muestran siempre los atajos de fábrica, no los personalizados. | ui:features/settings/ShortcutsPanel.tsx, shortcutsModel.ts, commands/shortcuts.ts (`sanitizeOverrides`); buscar, cambiar, añadir otro, quitar, restaurar uno o todos, aviso de conflicto con "quitárselo", exportar e importar (settings.test.ts); Edición > Editar atajos de teclado… |
+| D12 | Preferencias de edición | P1 | Parcial | Ventana Preferencias (`Ctrl/Cmd+,`) con idioma, unidades, pasos de flechas (normal, Mayús, Alt), paso de giro, distancia del imán, desplazamiento al duplicar, tema, rejilla, autoguardado y recientes. Falta que las pulgadas se vean fuera de Medir y de la propia ventana (barra numérica, barra de estado y diálogos siguen en mm), la opción de volver a Seleccionar tras dibujar y el contraste de la rejilla. | ui:features/settings/SettingsDialog.tsx, fields.tsx; store/prefs.ts (`PREF_SPECS`, 12 claves); lib/units.ts; captura 29-preferencias.png |
 | D13 | Deshacer / rehacer | P0 | Hecho | — | ui:store/document.ts (historial con etiquetas y fusión de ráfagas), store/history.test.ts |
 | D14 | Historial de deshacer | P2 | Hecho | Menor: salta a un punto del historial, pero no lo previsualiza antes de saltar. | ui:features/history/HistoryPanel.tsx, timeline.ts; `jumpTo` |
-| D15 | Portapapeles básico | P0 | Hecho | Menor: pega desplazado, no centrado en el cursor. | ui:commands/definitions/edit.ts (copiar, cortar, pegar, pegar en el mismo lugar, duplicar, eliminar) |
-| D16 | Portapapeles entre apps | P1 | Falta | El portapapeles es interno de la app: no lee ni escribe el del sistema (no se pega desde Inkscape/Illustrator/Corel). | ui:store/document.ts `copyObjects` -> `set({ clipboard })` |
-| D17 | Interruptores de transformación | P2 | Falta | No hay interruptores globales de mover/escalar/rotar/sesgar. | ninguna referencia en ui: |
+| D15 | Portapapeles básico | P0 | Hecho | Menor: pega desplazado (`duplicateOffset`, 5 mm por omisión y configurable), no centrado en el cursor. | ui:commands/definitions/edit.ts (copiar, cortar, pegar, pegar en el mismo lugar, duplicar, eliminar) |
+| D16 | Portapapeles entre apps | P1 | Hecho | Menor: solo viaja SVG o texto plano (no imágenes ni los formatos propios de Illustrator o Corel); depende de que el sistema deje usar `navigator.clipboard` y, si no, sigue con el portapapeles interno. | ui:features/canvas/systemClipboard.ts, svgClip.ts (svgClip.test.ts); `edit.copy`/`edit.cut` también escriben SVG, `edit.copySvg` (`Ctrl/Cmd+Alt+C`) avisa; `edit.paste` lee el SVG ajeno o un texto |
+| D17 | Interruptores de transformación | P2 | Hecho | Menor: no hay sesgar (Skew) y por eso tampoco su interruptor. | ui:commands/definitions/arrange.ts (`arrange.xform.move\|scale\|rotate\|center\|ratio`), store `transformAllow`; menú Organizar |
 | D18 | Modo principiante | P2 | Falta | No hay modo principiante. | ninguna referencia en ui: |
 | D19 | Nueva ventana, notas, plantillas | P2 | Falta | Sin segunda ventana, notas de proyecto ni plantillas. | ninguna referencia en ui: |
 | D20 | Selección | P0 | Hecho | Menor: sin Tab para ciclar objetos. | ui:features/canvas/hit.ts, useCanvasTools.ts (caja de izquierda a derecha = contenido, de derecha a izquierda = cruzada; Mayús suma/quita; Esc) |
-| D21 | Selecciones especiales | P1 | Parcial | Solo "invertir selección" y "seleccionar objetos de la capa". Faltan formas abiertas, abiertas en capa de relleno, contenidas, menores que la seleccionada y círculos por tamaño. | ui:commands/definitions/edit.ts (`edit.selectInvert`), layers.ts (`layer.selectObjects`) |
+| D21 | Selecciones especiales | P1 | Hecho | — | ui:commands/definitions/edit.ts (`edit.selectInvert`, `selectOpen`, `selectOpenFill`, `selectLayer`, `selectContained`, `selectSmaller`, `selectCircles`), features/arrange/special.ts, SizeSelectDialog.tsx (`arrange.circles.*`) |
 | D22 | Manejadores de transformación | P0 | Hecho | Menor: no hay sesgar (skew). Escalar y rotar con manijas, Mayús/Alt y Esc sí. | ui:features/canvas/transform.ts, handles.ts, useCanvasTools.ts |
-| D23 | Nudge con flechas | P0 | Hecho | Menor: pasos fijos (1 / 10 / 0,1 mm; LightBurn usa 5 mm) y no configurables. | ui:commands/definitions/edit.ts (`edit.nudge.*`) |
-| D24 | Rotación rápida por teclado | P0 | Parcial | Solo ángulo libre en la barra numérica y pasos de 15 grados con Mayús al arrastrar. No hay teclas de 90/45/10/5 grados (`.` y `,` están ocupadas por la velocidad de la vista previa). | ui:features/canvas/NumericBar.tsx, transform.ts (`rotateByPointer`) |
-| D25 | Rotación/escala por dos puntos | P2 | Falta | Sin rotación/escala por dos puntos. | ninguna referencia en ui: |
-| D26 | Voltear H/V | P0 | Falta | No existe voltear horizontal/vertical (es P0). Solo se consigue un reflejo arrastrando una manija más allá del borde. | ui:commands/definitions/ sin `flip`; features/canvas/transform.test.ts:68 solo prueba el reflejo por arrastre |
-| D27 | Espejo sobre línea | P1 | Falta | Sin espejo sobre una línea. | ninguna referencia en ui: |
-| D28 | Bloquear formas | P1 | Parcial | El modelo ya tiene `locked`/`hidden` y mover, borrar, seleccionar y transformar lo respetan, y `setObjectFlags` existe, pero ningún comando, menú ni botón permite bloquear u ocultar objetos. | ui:store/document.ts (`setObjectFlags`, solo la define); 0 usos en componentes |
-| D29 | Orden de dibujo | P1 | Falta | Sin enviar adelante/atrás ni al frente/fondo. | ninguna referencia en ui: |
-| D30 | Agrupar / desagrupar | P0 | Parcial | Solo grupos planos (un id de grupo por objeto). No hay grupos anidados. | ui:lib/groups.ts, commands/definitions/edit.ts (`edit.group`, `edit.ungroup`) |
+| D23 | Nudge con flechas | P0 | Hecho | Menor: pasos de 1 / 10 / 0,1 mm por omisión (LightBurn usa 5 mm); ya son configurables en Preferencias. | ui:commands/definitions/edit.ts (`edit.nudge.*`); store/prefs.ts (`nudgeStep`, `nudgeStepBig`, `nudgeStepFine`) |
+| D24 | Rotación rápida por teclado | P0 | Hecho | Menor: sin teclas de 10 o 45 grados; `.` y `,` siguen ocupadas por la velocidad de la vista previa. | ui:commands/definitions/arrange.ts (`arrange.rotate.*`: `[` y `]` 90 grados, `Mayús+[`/`]` el paso configurable, 15 por omisión, `Alt+[`/`]` 5 grados); store `rotateStep`; transform-commands.test.ts |
+| D25 | Rotación/escala por dos puntos | P2 | Hecho | — | ui:`arrange.twoPoint` (`Alt+T`), features/canvas/pickTool.ts (pivote, punto de referencia y destino; `Mayús` también escala), lib/geometry.ts; tools.test.ts |
+| D26 | Voltear H/V | P0 | Hecho | Menor: `Ctrl/Cmd+Mayús+V` (el de LightBurn) ya es "pegar en el mismo lugar": el vertical usa `Alt+V`. | ui:`arrange.flip.h` (`Alt+H` o `Ctrl/Cmd+Mayús+H`), `arrange.flip.v` (`Alt+V`), features/arrange/transformOps.ts (`flipMatrix`); transform-commands.test.ts |
+| D27 | Espejo sobre línea | P1 | Hecho | Menor: crea una copia reflejada y deja el original; no hay opción de mover el original. | ui:`arrange.mirrorLine` (`Alt+Mayús+M`), pickTool.ts (modo `mirror`), lib/geometry.ts (`reflectAcrossLine`) |
+| D28 | Bloquear formas | P1 | Hecho | Menor: lo bloqueado no se puede seleccionar con el ratón, así que solo se desbloquea todo de una vez; ocultar objetos sueltos sigue sin comando (`setObjectFlags` no tiene usos en la interfaz). | ui:`arrange.lock` (`Ctrl/Cmd+L`), `arrange.unlockAll` (`Ctrl/Cmd+Mayús+L`); mover, borrar, seleccionar y transformar respetan `locked`; la importación de LightBurn conserva los objetos bloqueados |
+| D29 | Orden de dibujo | P1 | Hecho | — | ui:`arrange.order.front\|back\|forward\|backward` (`Ctrl+RePág`, `Ctrl+AvPág`, `RePág`, `AvPág`), features/arrange/order.ts (`reorderObjects`); menú contextual > Orden de dibujo |
+| D30 | Agrupar / desagrupar | P0 | Hecho | Menor: un clic elige siempre el grupo de más afuera; para tocar un miembro hay que desagrupar un nivel (`Ctrl/Cmd+Mayús+G` quita un nivel cada vez). | ui:lib/groups.ts (cadena `"g1/g2"` dentro de `DesignObject.group`), commands/definitions/edit.ts (`edit.group`, `edit.ungroup`); groups.test.ts |
 | D31 | Auto-group | P2 | Falta | Sin auto-agrupar. | ninguna referencia |
-| D32 | Dibujar líneas / Bézier | P0 | Parcial | Polilíneas clic a clic con cierre (`C`), Mayús a 45 grados y auto-unión (`arrange.join`). Las curvas no se dibujan (clic + arrastre): solo se obtienen editando nodos (segmento a curva). | ui:commands/definitions/tools.ts, features/canvas/useCanvasTools.ts (`downLine`), nodeActions.ts |
-| D33 | Rectángulo y elipse | P0 | Hecho | Menor: el radio de esquina se fija al dibujar y luego la forma es un trayecto (no paramétrica); sin radio negativo ni "desde el centro" con Ctrl. | ui:features/canvas/shapes.ts, NumericBar.tsx (`cornerRadius`) |
-| D34 | Polígono, estrella y afines | P1 | Falta | No hay polígono, estrella ni afines (herramientas de dibujo: seleccionar, nodos, línea, rectángulo, elipse, texto, mano, medir). | ui:store/selection.ts (`TOOL_IDS`) |
-| D35 | Ventana Shape Properties | P1 | Parcial | La barra numérica, el panel de texto y el editor de capa cubren partes; no hay ventana de propiedades por tipo de forma, ni prioridad de corte ni escala de potencia por objeto. | ui:features/canvas/NumericBar.tsx, features/text/TextPanel.tsx |
+| D32 | Dibujar líneas / Bézier | P0 | Hecho | — | ui:features/canvas/pen.ts (pen.test.ts), useCanvasTools.ts (`downLine`: arrastrar al poner un nodo saca las manijas), tools.ts; `Mayús` fija 45 grados también en las manijas |
+| D33 | Rectángulo y elipse | P0 | Hecho | Menor: sin radio negativo ni "desde el centro" con Ctrl. El rectángulo y la elipse son formas editables en la ventana Propiedades de forma mientras no se editen sus nodos; al guardar y reabrir pasan a ser trayectos. | ui:features/canvas/shapes.ts, shapeParams.ts, ShapeProps.tsx, NumericBar.tsx (`cornerRadius`) |
+| D34 | Polígono, estrella y afines | P1 | Hecho | Menor: no hay triángulo, pentágono ni octágono como comandos aparte (se obtienen con 3, 5 u 8 lados) ni estrella de doble radio. Los parámetros viven en la sesión: al reabrir el proyecto la forma es un trayecto. | ui:commands/definitions/tools.ts (`tool.polygon` `G`, `tool.star` `Mayús+G`), features/canvas/shapeParams.ts, shapeParams.test.ts, lib/bezpath.ts (`regularPolygonPoints`, `starPoints`, `roundedPolygonBez`); 3 a 100 lados o puntas, radio interno en % y redondeo |
+| D35 | Ventana Shape Properties | P1 | Parcial | Ventana "Propiedades de forma" (Ver > Propiedades de forma) para rectángulo, elipse, polígono y estrella. Siguen faltando las propiedades de texto e imagen en la misma ventana y la prioridad de corte y la escala de potencia por objeto (ola 2, C31). | ui:features/canvas/ShapeProps.tsx, shapeParams.ts (`editShape`), shapeUi.test.tsx; `panel.shapeProps`; barra numérica y panel de texto |
 | D36 | Crear/editar texto | P0 | Hecho | — | ui:features/text/*, canvas/textTool.ts; crates/tlaku-text (rustybuzz, kerning, ligaduras, varias líneas) |
 | D37 | Opciones de texto | P0 | Hecho | Menor: sin alineación vertical, sin mayúsculas forzadas y sin RTL (árabe/hebreo). | ui:features/text/TextPanel.tsx; crates/tlaku-text/src/spec.rs (`TextSpec`) |
-| D38 | Texto soldado (Welded) | P1 | Parcial | No hay opción de texto soldado: se logra convirtiendo a trayectos y usando Soldar a mano. | ui:features/text/convert.ts + `arrange.weld` |
-| D39 | Texto curvado (Bend) | P1 | Falta | Sin texto curvado (Bend/Distort). Existe texto sobre trayecto, que es otra función. | ninguna referencia |
+| D38 | Texto soldado (Welded) | P1 | Hecho | Menor: no aplica a las fuentes de una línea (no tienen contornos que unir). | ui:features/text/TextPanel.tsx (casilla "Soldar letras", campo `welded` de `TextObject`); crates/tlaku-text/src/effects.rs (`weld_paths`); outline.rs |
+| D39 | Texto curvado (Bend) | P1 | Hecho | Menor: es un arco circular de hasta +-360 grados (no hay deformación libre tipo Distort) y se ignora mientras el texto va sobre un trayecto. | ui:features/text/TextPanel.tsx (campo "Curvatura", `bend_deg`); crates/tlaku-text/src/effects.rs (`bend_path`, `bend_radius`) |
 | D40 | Aplicar path a texto | P1 | Hecho | Menor: sin alineación X/Y sobre el trayecto (hay desplazamiento y voltear lado). | ui:features/text/outlineSync.ts; crates/tlaku-text/src/path_sampler.rs; `text_outline` con `path` |
-| D41 | Gestor de fuentes y SHX | P2 | Parcial | Selector de fuentes del sistema con búsqueda y estilos. Faltan favoritas, ocultar, categorías y fuentes de una línea (SHX / Hershey). | ui:features/text/FontPicker.tsx, fonts.ts; tauri:edit/text.rs (`list_fonts`) |
+| D41 | Gestor de fuentes y SHX | P2 | Hecho | Menor: sin favoritas ni ocultar fuentes; el lector SHX no admite `bigfont` (CJK). | ui:features/text/FontPicker.tsx (sección "Fuentes de una línea"), fonts.ts, shx.ts (`tools.importShxFont`); crates/tlaku-text/src/linefont.rs (15 fuentes Hershey incluidas, `data/hershey/NOTICE.txt`), shx.rs (`shapes 1.0/1.1` y `unifont 1.0`); lineFonts.test.ts |
 | D42 | Texto variable | P1 | Falta | Sin texto variable (fecha/hora, serie, CSV, valores de capa) ni "bake". | ninguna referencia; no hay dependencia `csv` en Cargo.lock |
-| D43 | Códigos de barras y QR | P1 | Falta | Sin QR ni códigos de barras (no hay `qrcode`, `rxing` ni similar en Cargo.lock). | Cargo.lock |
-| D44 | Medir | P1 | Falta | La herramienta Medir está en la paleta, el menú y con la tecla `M`, pero no hace nada: el lienzo la trata como Seleccionar. Es un botón engañoso. | ui:store/selection.ts (`measure` en TOOL_IDS); useCanvasTools.ts `onDown` solo ramifica rect/ellipse/line/nodes/text/pan, el resto cae en `downSelect`; 0 referencias a measure en features/canvas |
+| D43 | Códigos de barras y QR | P1 | Hecho | Menor: el código sale como trayecto ya generado: no se edita después ni es dato variable (D42/M38). Sin PDF417, Aztec ni GS1. | ui:features/codes/* (CodesDialog.tsx, codes.test.ts), commands/definitions/codes.ts (`tools.insertCode`, menú Herramientas > Insertar código…); tauri:edit/codes.rs (`generate_code`); crates/tlaku-codes (QR, Data Matrix, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF, Codabar; 20 pruebas); captura 31-codigo-qr.png |
+| D44 | Medir | P1 | Hecho | — | ui:features/canvas/measureTool.ts, measure.ts (measure.test.ts), MeasureReadout.tsx; `tool.measure` (`M`): distancia, ángulo y Δx/Δy entre dos puntos; un clic en una forma da nodos, trazos, tamaño, perímetro, área, diámetro |
 | D45 | Tabs / puentes | P1 | Parcial | Puentes automáticos por capa line (cantidad o separación, omitir interiores, avisos frente al kerf, vista previa y G-code). Faltan puentes manuales arrastrables y potencia de puente. | crates/tlaku-geom/src/tabs.rs, tlaku-pipeline/src/tabs.rs; ui:features/layers/LayerEditor.tsx |
 | D46 | Círculo tangente | P2 | Falta | Sin círculo tangente. | ninguna referencia |
 | D47 | Biblioteca de arte | P2 | Falta | Sin biblioteca de arte. | ninguna referencia |
 | D48 | Editar nodos | P0 | Hecho | Menor: faltan alinear, recortar y extender nodos. Hay insertar, borrar, línea/curva, suave/esquina/simétrico, romper, unir, cerrar, caja de nodos, X/Y exactas. | ui:features/canvas/nodeTool.ts, nodeedit.ts, nodeActions.ts, NodeBar.tsx |
 | D49 | Trim Shapes | P1 | Falta | Sin Trim Shapes. | ninguna referencia |
-| D50 | Convertir a path | P0 | Hecho | Texto a trayectos (`convertTextToPaths`). Rectángulo y elipse ya son trayectos. No hay códigos de barras que convertir. | ui:features/text/convert.ts |
+| D50 | Convertir a path | P0 | Hecho | Texto a trayectos (`convertTextToPaths`). Rectángulo, elipse, polígono, estrella y códigos QR o de barras ya son trayectos desde que se crean. | ui:features/text/convert.ts |
 | D51 | Auto-Join | P0 | Hecho | — | ui:`arrange.join` (tolerancia 0,05 mm por defecto); crates/tlaku-geom/src/join.rs; geometry_op `join` |
 | D52 | Close Path | P1 | Hecho | — | ui:`arrange.close`; crates/tlaku-geom/src/join.rs (`close_paths`, 0,5 mm por defecto) |
 | D53 | Cerrar con tolerancia | P1 | Hecho | — | ui:features/arrange/CleanupDialog.tsx, cleanup.ts |
@@ -129,36 +140,36 @@ Auditoría hecha el 2026-10-13 sobre el código (último commit: `62a8841`, "Fas
 | D67 | Arreglo virtual | P2 | Falta | Sin arreglo virtual. | ninguna referencia |
 | D68 | Circular Array | P1 | Hecho | — | ui:features/arrange/ArrayDialog.tsx (copias, ángulo, radio, centro, rotar copias) |
 | D69 | Copy Along Path | P2 | Falta | Sin Copy Along Path. | ninguna referencia |
-| D70 | Igualar ancho/alto | P2 | Falta | Sin igualar ancho/alto. | ninguna referencia |
+| D70 | Igualar ancho/alto | P2 | Hecho | — | ui:`arrange.same.width\|height\|widthKeep\|heightKeep` en commands/definitions/arrange.ts, features/arrange/equalize.ts; edit-ops.test.ts |
 | D71 | Resize Slots | P2 | Falta | Sin Resize Slots. | ninguna referencia |
 | D72 | Alinear | P0 | Hecho | — | ui:features/arrange/align.ts, AlignDialog.tsx; `arrange.align.*`, `arrange.alignTo.selection\|object\|bed` |
 | D73 | Distribuir | P1 | Hecho | — | ui:`arrange.distribute.h\|v` |
 | D74 | Move Together y Dock | P2 | Falta | Sin Move Together ni Dock. | ninguna referencia |
 | D75 | Mover selección a posición | P1 | Hecho | — | ui:`arrange.centerOnBed`, `arrange.alignTo.bed` + alinear a bordes de la cama |
 | D76 | Nesting | P2 | Falta | Sin nesting. `tlaku-geom/nesting.rs` solo calcula la profundidad de anidamiento (contención), no empaqueta. | crates/tlaku-geom/src/nesting.rs:82 |
-| D77 | Snapping | P0 | Parcial | Ajusta a bordes y centros de cajas envolventes de objetos, cama y cuadrícula (8 px, Alt lo desactiva). No ajusta a nodos, puntos medios, intersecciones ni líneas, ni tiene modo pegajoso. | ui:features/canvas/snap.ts, SnapBar.tsx; `view.snap*` |
+| D77 | Snapping | P0 | Hecho | Menor: no ajusta a líneas (perpendicular o tangente) ni tiene modo pegajoso; `Alt` solo lo suspende. | ui:features/canvas/snapPoints.ts (nodos, puntos medios, centros e intersecciones; snapPoints.test.ts), snap.ts, SnapBar.tsx; `view.snap*`; distancia en Preferencias (`snapPx`) |
 | D78 | Guías | P2 | Parcial | Existe la capa de guías (nunca sale a la máquina) pero no se arrastran guías desde las reglas ni hay alineación temporal con Alt. | ui:lib/palette.ts (`GUIDE_ENTRY`), features/canvas/Ruler.tsx (solo regla) |
 | D79 | Trace Image | P1 | Hecho | — | ui:features/trace/*; crates/tlaku-trace (vtracer, modo spline/polygon, umbral, manchas, desenfoque, vista previa); tauri:edit/trace.rs |
 | D80 | Trace multiarchivo | P2 | Falta | Sin trazado por lotes. | ninguna referencia |
 | D81 | Máscara / recorte de imagen | P2 | Falta | Sin máscara/recorte de imagen. | ninguna referencia |
 | D82 | Imagen a mapa de bits y opciones de imagen | P2 | Falta | Sin convertir vectores a bitmap ni guardar bitmap procesado. | ninguna referencia |
-| D83 | Importar SVG | P0 | Hecho | Menor: sin selector 96/72 DPI (asume 96 y avisa; detecta Illustrator y sugiere el tamaño a 72 DPI). Recorte `clip-path`/`mask` real, grupos y texto con fuentes instaladas (usvg). | crates/tlaku-svg/src/lib.rs:174-243; tlaku-pipeline/src/import.rs; tauri `import_file` |
-| D84 | Importar DXF | P0 | Hecho | Menor: sin opción de tolerancia de auto-cierre en el importador; el texto se ignora con aviso (como LightBurn). Detecta unidades ($INSUNITS), arcos, elipses, splines, bloques/INSERT, color ACI/true color. | crates/tlaku-dxf/src/lib.rs |
-| D85 | Importar AI | P1 | Falta | Sin importar .ai (el formato moderno es PDF). | crates/tlaku-pipeline/src/import.rs (`input_kind`: solo svg, dxf, png, jpg, jpeg, bmp) |
-| D86 | Importar PDF | P1 | Falta | Sin importar PDF (no hay lopdf/pdfium/mupdf en Cargo.lock). Un .pdf se rechaza con "formato no soportado". | crates/tlaku-pipeline/src/tests.rs:156; ui:features/history/history.test.ts:194 |
-| D87 | Importar imágenes | P0 | Parcial | Solo PNG, JPG y BMP. Faltan GIF, TIFF, TGA y WebP (la crate `image` se compila solo con png, jpeg y bmp). | crates/tlaku-raster/Cargo.toml:8; tlaku-pipeline/src/import.rs |
-| D88 | Importar PLT/HPGL | P2 | Falta | Sin importar PLT/HPGL. | ninguna referencia |
-| D89 | Importar G-code | P2 | Falta | Sin importar G-code como geometría. | ninguna referencia |
+| D83 | Importar SVG | P0 | Hecho | Menor: recorte `clip-path`/`mask` real, grupos y texto con fuentes instaladas (usvg). El DPI de un SVG sin unidades se elige en "Importar con opciones…" (96 por omisión; detecta Illustrator y sugiere el tamaño a 72 DPI). | crates/tlaku-svg/src/lib.rs:174-243; tlaku-pipeline/src/import.rs (`ImportExtras.dpi`); tauri `import_file`, `import_file_with` |
+| D84 | Importar DXF | P0 | Hecho | Menor: sin opción de tolerancia de auto-cierre en el importador; el texto se ignora con aviso (como LightBurn). Detecta unidades ($INSUNITS), arcos, elipses, splines, bloques/INSERT, color ACI/true color; la unidad de un DXF sin unidades se elige en "Importar con opciones…". | crates/tlaku-dxf/src/lib.rs; tlaku-pipeline/src/import.rs (`ImportExtras.dxf_unit_mm`) |
+| D85 | Importar AI | P1 | Hecho | Menor: solo vectores. Un AI antiguo (PostScript) se rechaza con un mensaje que dice cómo convertirlo. Ver D86. | crates/tlaku-pipeline/src/import_pdf.rs (`input_kind`: "ai" va al lector PDF); ui:features/history/paths.ts (`IMPORT_EXTENSIONS`) |
+| D86 | Importar PDF | P1 | Hecho | Menor: solo se importan trayectos. Texto con fuentes, imágenes incrustadas, degradados, patrones y recortes se omiten con aviso. Se elige la página en las opciones de importación; una capa por color. | crates/tlaku-pipeline/src/import_pdf.rs (`lopdf` solo para leer la estructura; intérprete propio de `m l c v y h re`, `cm`, `q`/`Q`, `Do`); import_pdf tests |
+| D87 | Importar imágenes | P0 | Hecho | Menor: TIFF y TGA se convierten a PNG para mostrarse en la ventana (`convert_to_png`). | crates/tlaku-raster/Cargo.toml:8 (`png`, `jpeg`, `bmp`, `webp`, `tiff`, `gif`, `tga`); tlaku-raster/src/gray.rs (`decode_hinted`); tlaku-pipeline/src/import.rs (`input_kind`); history.test.ts:193 |
+| D88 | Importar PLT/HPGL | P2 | Hecho | Menor: supone 40 unidades por mm (0,025 mm) y lo avisa; el tamaño se corrige con la escala de las opciones de importación. Una capa por pluma. | crates/tlaku-pipeline/src/import_hpgl.rs (IN, PU, PD, PA, PR, SP, PC, IP, SC, CI, AA, AR, EA, ER, RA, RR, PE) |
+| D89 | Importar G-code | P2 | Hecho | Menor: solo cuenta lo que quema (G1, G2, G3 con M3/M4 y S mayor que 0); no importa los viajes rápidos G0. | crates/tlaku-pipeline/src/import_gcode.rs (una capa por nivel de potencia, hasta 8, o una sola) |
 | D90 | Otros formatos de máquina | P2 | Falta | Sin importar .rd, .sc, .nc, .mage... (el motor solo escribe .rd). | crates/tlaku-ruida/src/rd.rs es exportación |
-| D91 | Opciones de importación | P0 | Parcial | La importación es automática y sin diálogo: agrupa en capas por color, selecciona y ajusta la vista, y avisa de todo. Faltan opciones (agrupar, centrar, permitir capas T, DPI SVG, unidades DXF, tolerancia de cierre). | ui:features/history/files.ts `importPaths` |
-| D92 | Exportar SVG | P1 | Falta | Sin exportar SVG. | ui:`file.exportGcode` es el único comando de exportación en el menú Archivo |
-| D93 | Exportar DXF | P1 | Falta | Sin exportar DXF. | ninguna referencia (`dxf` crate solo se usa para leer) |
-| D94 | Exportar AI | P2 | Falta | Sin exportar AI. | ninguna referencia |
-| D95 | Exportar imágenes | P2 | Falta | Sin exportar imagen. | ninguna referencia |
-| D96 | Proyecto nativo | P0 | Hecho | Menor: sin plantillas. Formato `.tlaku` (JSON versionado; migra la versión 1 sin pérdida), recientes, aviso de cambios sin guardar al abrir, crear nuevo y cerrar la ventana. | ui:features/history/files.ts, unsaved.ts, windowEvents.ts; tauri `save_project`/`load_project`; docs/app-api.md |
-| D97 | Importar `.lbrn`/`.lbrn2` | P1 | Falta | Sin importar .lbrn/.lbrn2. Es la vía principal de migración. | ninguna referencia en crates/ ni ui: |
-| D98 | Imprimir / PDF | P2 | Falta | Sin imprimir ni exportar a PDF. | ninguna referencia |
-| D99 | Preferencias y bundles | P2 | Falta | Sin importar/exportar preferencias ni bundles. Solo hay import/export de la biblioteca de materiales (`.tlakumat`). | ui:features/materials/files.ts |
+| D91 | Opciones de importación | P0 | Hecho | Menor: sin opción de centrar al importar, de permitir capas T ni de tolerancia de cierre. `Ctrl/Cmd+I` y arrastrar siguen importando sin preguntar; el diálogo está en Archivo > Importar con opciones…. | ui:features/fileio/ImportOptionsDialog.tsx, actions.tsx (`importWithOptions`), types.ts (`ImportDialogOptions`); tauri:edit/files.rs (`import_file_with`); tlaku-pipeline `ImportExtras` (escala, DPI, unidad DXF, agrupar, capa destino, página PDF, G-code por potencia) |
+| D92 | Exportar SVG | P1 | Hecho | — | ui:features/fileio/ExportDialog.tsx, `fileio.exportSvg`; crates/tlaku-export/src/svg.rs (mm reales, curvas Bézier, un grupo por capa, imágenes incrustadas o enlazadas, texto como trayectos); captura 30-exportar.png |
+| D93 | Exportar DXF | P1 | Hecho | Menor: solo mm; la versión es AC1018 (2004) o AC1015 (2000). | ui:`fileio.exportDxf`; crates/tlaku-export/src/dxf_out.rs (LWPOLYLINE y SPLINE, una capa por color, color ACI o true color, tolerancia) |
+| D94 | Exportar AI | P2 | Falta | Sin exportar AI. El PDF vectorial a escala 1:1 (D98) se abre en Illustrator. | ninguna referencia a AI en crates/tlaku-export |
+| D95 | Exportar imágenes | P2 | Hecho | Menor: solo PNG (resolución en ppp, margen, fondo transparente); sin JPG ni BMP. | ui:`fileio.exportPng`; crates/tlaku-export/src/png_out.rs (tiny-skia, curvas exactas, tope de 30 000 px por lado y 100 millones de píxeles) |
+| D96 | Proyecto nativo | P0 | Hecho | Menor: sin plantillas. Formato `.tlaku` (JSON versionado; migra la versión 1 sin pérdida), recientes (10 por omisión, configurable de 0 a 30, quita los que ya no existen), aviso de cambios sin guardar al abrir, crear nuevo y cerrar la ventana, y copia de recuperación automática (ver la tabla de necesidades). | ui:features/history/files.ts, unsaved.ts, recent.ts, windowEvents.ts; tauri `save_project`/`load_project`; docs/app-api.md |
+| D97 | Importar `.lbrn`/`.lbrn2` | P1 | Hecho | Formas, grupos, texto, imágenes, capas y ajustes; lo que no tiene equivalente se avisa. Menor: colores de capa aproximados. | crates/tlaku-lbrn; tlaku-pipeline/src/import_lbrn.rs y import_lbrn/; ui:features/history/paths.ts (`lbrn`, `lbrn2`) |
+| D98 | Imprimir / PDF | P2 | Hecho | Menor: Imprimir genera el PDF a escala 1:1 y lo abre en el visor del sistema; no hay diálogo de impresión propio. | ui:`fileio.print` (`Ctrl/Cmd+P`), `fileio.exportPdf`; features/fileio/actions.tsx (`printDesign`); tauri:edit/files.rs (`print_design`); crates/tlaku-export/src/pdf.rs (hojas A4, A3, Carta, Oficio o ajustada) |
+| D99 | Preferencias y bundles | P2 | Parcial | Se exportan e importan las preferencias y los atajos en un `.tlakuprefs` (con aviso de claves y comandos desconocidos). Faltan los bundles con dispositivos, cámaras y bibliotecas (M4); los materiales siguen en su propio `.tlakumat`. | ui:features/settings/bundle.ts, files.ts, persist.ts; tauri:prefs.rs (`export_preferences`, `import_preferences`); settings.test.ts; features/materials/files.ts |
 | D100 | Arrastrar y soltar archivos | P1 | Hecho | — | ui:features/history/DropOverlay.tsx, windowEvents.ts, history.test.ts |
 
 ### 2.2 Capas, corte e imagen (inventario 02)
@@ -253,7 +264,7 @@ La fila M21 mezcla prioridades (P0 G-code, P1 `.rd`); se cuenta como P0.
 | M19 | Consola | P0 | Hecho | — | ui:features/machine/ConsolePanel.tsx, consoleExplain.ts, commandSafety.ts, grblCodes.ts; tauri `machine_command`, `machine_realtime`; `tlaku cmd` |
 | M20 | Macros | P1 | Falta | Sin macros. | docs/spec/00-resumen.md ("Pendiente de M4") |
 | M21 | Guardar/ejecutar archivos de máquina | P0 | Hecho | G-code (P0): exportar a archivo, atómico, con advertencias. El `.rd` (P1) solo se exporta por CLI (`tlaku ruida`); no hay "ejecutar archivo de máquina". | ui:`file.exportGcode`; tauri `export_gcode`; crates/tlaku-ruida/src/rd.rs; tlaku-cli/src/ruida.rs |
-| M22 | Importar G-code / .rd / .plt / .nc / .hpgl / .sc | P2 | Falta | Sin importar archivos de máquina. | ninguna referencia |
+| M22 | Importar G-code / .rd / .plt / .nc / .hpgl / .sc | P2 | Parcial | G-code, `.nc`, `.plt` y `.hpgl` se importan como geometría (D88, D89). Faltan `.rd` y `.sc`. | crates/tlaku-pipeline/src/import_gcode.rs, import_hpgl.rs; `input_kind` (nc, gcode, gc, ngc, plt, hpgl, hpg) |
 | M23 | Send a la memoria del controlador (DSP) | P1 | Solo motor/CLI | Ruida: enviar guardando en la memoria o ejecutando, solo por CLI y marcado EXPERIMENTAL (sin probar con máquina real). No está en la app. | crates/tlaku-cli/src/ruida.rs; tlaku-ruida/src/session.rs, link.rs |
 | M24 | File List (archivos en controlador) | P1 | Falta | Sin lista de archivos del controlador. | ninguna referencia |
 | M25 | Machine Settings (Ruida/TopWisdom/GRBL) | P1 | Parcial | Lee `$$` para proponer valores de perfil y la consola escribe `$n=v` con confirmación. Sin editor de ajustes del firmware, `.lbset`, respaldo automático ni calibración de ejes; nada para Ruida. | ui:features/machine/DeviceManager.tsx (propuesta), commandSafety.ts; tauri:probe.rs |
@@ -282,8 +293,8 @@ La fila M21 mezcla prioridades (P0 G-code, P1 `.rd`); se cuenta como P0.
 | M48 | Center Finder | P2 | Falta | Sin Center Finder. | ninguna referencia |
 | M49 | Optimization Settings | P1 | Parcial | Igual que C32: planificador completo y explicable, sin panel de opciones en la app. | crates/tlaku-plan; tlaku-pipeline/src/build.rs:186 |
 | M50 | Conexión de red GRBL (TCP) y Ethernet Ruida (UDP) | P1 | Solo motor/CLI | Ruida por UDP (sondeo, envío, estado, pausa, detención) solo desde el CLI y EXPERIMENTAL. La app solo conecta por puerto serie o máquina virtual; GRBL por TCP no existe. | crates/tlaku-ruida/src/link.rs; tlaku-cli/src/ruida.rs; tauri `list_ports`/`connect` (serie y virtual) |
-| M51 | Preferencias | P1 | Falta | No hay ventana de preferencias (autosave, auto-update, cuadrículas, snaps, DPI, importación, cámara, registro de trabajos). Solo hay tema claro/oscuro y archivos recientes. | ui:`view.theme`; features/history/recent.ts |
-| M52 | Multilenguaje | P1 | Falta | Solo español. Las claves están tipadas y centralizadas (`t()`), lo que facilita agregar inglés, pero no hay selector ni otro idioma. | ui:i18n/index.ts ("hoy solo español"), index.html `lang="es"` |
+| M51 | Preferencias | P1 | Parcial | Ventana de Preferencias con 12 ajustes (D12). Faltan actualización automática, DPI por omisión, opciones de importación recordadas, cámara y registro de trabajos. | ui:features/settings/*, store/prefs.ts; tauri:prefs.rs (`preferences.json` en la carpeta de configuración) |
+| M52 | Multilenguaje | P1 | Parcial | Español e inglés completos con cambio en vivo y detección del idioma del sistema; prueba de completitud. Faltan los mensajes del motor (Rust) y el manual en inglés. | ui:i18n/index.ts, i18n/en/, i18n.test.ts |
 | M53 | Job checklist y protecciones | P1 | Parcial | Antes de enviar consulta el estado y no transmite si hay Alarm/Hold/Door/Run...; verifica la cama con overscan; diálogo de confirmación. No hay lista de comprobación configurable ni protección del botón Iniciar. | crates/tlaku-grbl/src/preflight.rs; tauri `start_job`; ui:features/machine/StartJobDialog.tsx |
 | M54 | Automatización por UDP | P2 | Falta | Sin automatización por UDP. | ninguna referencia |
 
@@ -291,22 +302,22 @@ La fila M21 mezcla prioridades (P0 G-code, P1 `.rd`); se cuenta como P0.
 
 | Necesidad | Estado | Detalle y evidencia |
 |---|---|---|
-| Importar PDF | Falta | Un `.pdf` se rechaza ("formato no soportado"). No hay dependencia de PDF en `Cargo.lock`. `input_kind` solo acepta svg, dxf, png, jpg, jpeg, bmp (`crates/tlaku-pipeline/src/import.rs`). |
-| Importar AI / EPS | Falta | Igual que PDF; un AI moderno es un PDF. EPS sin ninguna ruta. |
-| Importar `.lbrn` / `.lbrn2` (migrar desde LightBurn) | Falta | Sin ninguna referencia en el código. Es el mayor freno para migrar: sin esto cada proyecto hay que reconstruirlo desde un SVG. |
-| Exportar SVG / DXF | Falta | Sin ningún exportador. Hoy solo se sale por G-code (`file.exportGcode`), proyecto `.tlaku` y `.rd` por CLI. Quien deja Tlaku no se lleva su diseño en un formato abierto. |
-| Importar imágenes WebP, TIFF, GIF, TGA | Falta | Solo PNG/JPG/BMP: la crate `image` se compila con `features = [png, jpeg, bmp]`. |
-| Fuentes de una línea (SHX / Hershey) | Falta | Solo contornos de fuentes del sistema (`tlaku-text`). Para grabar texto de un solo trazo hay que usar otro programa. |
-| Polígono, estrella | Falta | Las herramientas son seleccionar, nodos, línea, rectángulo, elipse, texto, mano y medir (el último sin función). |
-| QR y códigos de barras | Falta | Sin generador (ninguna dependencia de `qrcode`/`rxing`). |
-| Ventana de preferencias | Falta | No existe. Hay constantes fijas: snap 8 px, pasos de flecha, unidad mm, tema oscuro/claro por comando. |
-| Idioma inglés (y otros) | Falta | Solo español (`ui:i18n/es*`). Las claves tipadas con `t()` hacen viable agregar inglés, y los mensajes del motor (advertencias, errores, ayuda de `clap`) también están en español, lo que hay que externalizar. |
-| Atajos configurables | Falta | Atajos fijos en `commands/definitions`; el diálogo F1 solo los muestra. El registro central de comandos es la base correcta para hacerlos configurables. |
-| Autoguardado y recuperación ante cierre inesperado | Falta | No existe (ninguna referencia a autosave/recuperación). Sí hay aviso de cambios sin guardar al abrir, nuevo y cerrar la ventana (`features/history/unsaved.ts`, `windowEvents.ts`), que no ayuda ante un cierre forzado o una falla. |
-| Archivos recientes | Hecho | Hecho: 10 archivos, quita los que ya no existen (`features/history/recent.ts`, menú Archivo). Se guardan en `localStorage` de la ventana, no en la carpeta de configuración. |
+| Importar PDF | Hecho | Trayectos del contenido de página, una capa por color, con elección de página. Texto con fuentes, imágenes incrustadas, degradados y recortes se omiten con aviso (`crates/tlaku-pipeline/src/import_pdf.rs`, `lopdf` solo para leer la estructura). Antes: "formato no soportado". |
+| Importar AI / EPS | Parcial | AI moderno (compatible con PDF) sí, por el mismo lector; un AI antiguo (PostScript) se rechaza con instrucciones para convertirlo. EPS sigue sin ninguna ruta (`input_kind` no lo reconoce). |
+| Importar `.lbrn` / `.lbrn2` (migrar desde LightBurn) | Solo motor/CLI | El motor lee formas (rectángulo, elipse, trayecto, grupo, texto, imagen incrustada), capas y ajustes (`crates/tlaku-lbrn`, `tlaku-pipeline/src/import_lbrn*`; 9 archivos de prueba), pero **la app lo rechaza**: `.lbrn` y `.lbrn2` no están en `IMPORT_EXTENSIONS` (`ui:features/history/paths.ts:4`). Es el mayor freno para migrar y se arregla con dos extensiones y una prueba. |
+| Exportar SVG / DXF | Hecho | Archivo > Exportar SVG… y Exportar DXF… con diálogo de opciones, todo el diseño o solo la selección (`crates/tlaku-export`, `ui:features/fileio/`). Antes quien dejaba Tlaku solo salía por G-code. También hay PNG y PDF (D95, D98). |
+| Importar imágenes WebP, TIFF, GIF, TGA | Hecho | La crate `image` se compila con `png`, `jpeg`, `bmp`, `webp`, `tiff`, `gif` y `tga` (`crates/tlaku-raster/Cargo.toml:8`); el TGA se reconoce por la extensión porque no tiene firma. |
+| Fuentes de una línea (SHX / Hershey) | Hecho | 15 fuentes Hershey incluidas y lector SHX (`shapes` y `unifont`) para fuentes que el usuario ya tenga (`crates/tlaku-text/src/linefont.rs`, `shx.rs`; `ui:features/text/FontPicker.tsx`, `shx.ts`). Salen como trazos abiertos para una capa de Línea. Sin `bigfont`. |
+| Polígono, estrella | Hecho | Herramientas `G` y `Mayús+G` con ventana Propiedades de forma (D34, D35). |
+| QR y códigos de barras | Hecho | `crates/tlaku-codes` (QR, Data Matrix, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF, Codabar) y `ui:features/codes/`; Herramientas > Insertar código…. El resultado es un trayecto, no un código editable (D43). |
+| Ventana de preferencias | Hecho | Edición > Preferencias… (`Ctrl/Cmd+,`), con 12 ajustes y archivos `.tlakuprefs` (D12, D99, M51). Pendientes: que las pulgadas lleguen a todos los campos y los ajustes de cámara, DPI y registro de trabajos. |
+| Idioma inglés (y otros) | Parcial | Interfaz completa en español e inglés con cambio en vivo (commit `6ef7abc`). Los mensajes del motor (advertencias, errores, ayuda de `clap`) y el manual siguen en español. |
+| Atajos configurables | Hecho | Editor en Preferencias > Atajos y en Edición > Editar atajos de teclado…; se guardan con las preferencias y viajan en el `.tlakuprefs` (D11). No hay un perfil "tipo LightBurn". |
+| Autoguardado y recuperación ante cierre inesperado | Hecho | Una copia cada 60 s por omisión (10 a 3600 s) y solo si hay cambios, en `<datos de la app>/recuperacion/` (hasta 10 copias, 128 MB cada una); se borra al guardar o cerrar con normalidad, y al abrir tras un cierre forzado ofrece recuperar o descartar (`tauri:autosave.rs`, `ui:features/recovery/`, recovery.test.ts). |
+| Archivos recientes | Hecho | Hasta 10 por omisión (0 a 30 en Preferencias), quita los que ya no existen y se puede vaciar la lista (`features/history/recent.ts`, menú Archivo). Se guardan en `localStorage` de la ventana, no en la carpeta de configuración. |
 | Arrastrar y soltar archivos | Hecho | Hecho (`DropOverlay.tsx`), con avisos de formatos no soportados. |
-| Rendimiento con diseños grandes | Parcial | El motor es rápido: medido en esta auditoría con `tlaku` en modo release, 20 000 círculos se planifican y se convierten en 10 MB de G-code en 1,2 s; 5 000 en 0,7 s. En la interfaz no hay mediciones: el lienzo es Canvas2D, con un mapa de bits en caché de toda la escena durante el zoom y el paneo (se repinta completo al cambiar el documento, `canvas2d.ts`), y el "hit-test" recorre linealmente todos los objetos (`hit.ts`, `pickObject`); no hay índice espacial ni pruebas de carga con miles de objetos. La arquitectura prevista en 00-resumen.md era un lienzo WebGL; el actual es 2D. La vista previa tiene una prueba de rendimiento del modelo (`preview/model.test.ts`). |
-| Manual o ayuda | Falta | Solo el diálogo de atajos (F1), textos de ayuda en campos y avisos con motivo. No hay manual, guía de inicio, menú Ayuda, acerca de, ni enlace a documentación. La documentación existente (`docs/`) está dirigida a desarrolladores. |
+| Rendimiento con diseños grandes | Parcial | El motor es rápido: medido en esta auditoría con `tlaku` en modo release, 20 000 círculos se planifican y se convierten en 10 MB de G-code en 1,2 s; 5 000 en 0,7 s. En la interfaz no hay mediciones: el lienzo es Canvas2D, con un mapa de bits en caché de toda la escena durante el zoom y el paneo (se repinta completo al cambiar el documento, `canvas2d.ts`), y el "hit-test" recorre linealmente todos los objetos (`hit.ts`, `pickObject`); no hay índice espacial ni pruebas de carga con miles de objetos. El ajuste magnético a nodos pone un tope por objeto (20 000 segmentos) para mantener ágil el arrastre. La arquitectura prevista en 00-resumen.md era un lienzo WebGL; el actual es 2D. La vista previa tiene una prueba de rendimiento del modelo (`preview/model.test.ts`). |
+| Manual o ayuda | Hecho | Menú Ayuda con Manual de usuario (17 páginas con buscador, dentro de la app y en `docs/manual/`), Atajos de teclado, Novedades, Reportar un problema, Donar y Acerca de (licencia MIT y créditos de `THIRD_PARTY.md`) (`ui:features/help/`, help.test.tsx). Pendiente: los enlaces del repositorio y de donaciones (`links.ts` en `null`). |
 | Instaladores multiplataforma | Hecho | Flujo de GitHub Actions para macOS (universal), Windows (NSIS y MSI) y Linux (AppImage y deb), sin firma (`docs/publicar.md`, `.github/workflows/release.yml`). Aún sin actualizador automático. |
 | Prueba con hardware real | Falta | Ninguna. Todo se validó contra emuladores. Es el principal riesgo para publicar. |
 
@@ -314,45 +325,48 @@ La fila M21 mezcla prioridades (P0 G-code, P1 `.rd`); se cuenta como P0.
 
 Criterio: una primera versión pública (0.x, "beta") debe ser segura de usar sobre una máquina real, no perder el trabajo del usuario y no mostrar nada que no funcione. El resto de LightBurn puede llegar por versiones.
 
+Las listas se escribieron antes de la ola 1; cada punto lleva ahora su estado (**hecho** con la fila de la sección 2, o **pendiente**).
+
 ### 3.1 Imprescindible antes de publicar
 
-1. **Probar con hardware real** (la Falcon2 está disponible): conectar, encuadre, un corte y un grabado, pausa, detención y alarma. Sin esto, todo lo de máquina es teoría. Documentar el resultado y marcar en la app lo que sigue siendo experimental (Ruida).
-2. **Autoguardado y recuperación** tras un cierre inesperado (hoy no existe). Un archivo de recuperación periódico en la carpeta de configuración y la oferta de restaurarlo al abrir.
-3. **Quitar o terminar la herramienta Medir** (D44): es un botón que no hace nada en la paleta y en el menú.
-4. **Voltear horizontal/vertical** (D26, P0) y teclas de rotación rápida (D24). Es una de las acciones más usadas en cualquier diseño y solo se consigue arrastrando una manija.
-5. **Cortar solo la selección** (M15): el motor ya lo soporta (`JobOptions.selection`); falta una casilla en el diálogo de inicio y en el encuadre. Es P0 en el inventario.
-6. **Bloquear/ocultar objetos y orden de dibujo** (D28, D29): el modelo ya los respeta; falta exponerlos (comando, menú contextual del lienzo, botones).
-7. **Exportar SVG y DXF** (D92, D93): para no atrapar al usuario y para pasar piezas a otros programas.
-8. **Importar más imágenes** (WebP, TIFF, GIF; D87), y las **opciones de importación** (D91): DPI 72/96 y unidades DXF elegibles en un diálogo, no solo en avisos.
-9. **Preferencias mínimas** (D12, M51): unidades, pasos de flecha, tolerancia de snap, autoguardado, idioma, "volver a Seleccionar".
-10. **Ayuda mínima**: menú Ayuda con guía de primer uso (conectar, origen, encuadre, iniciar), enlace al manual y la ventana "Acerca de"; actualizar el `README.md` de la raíz (todavía dice que no hay interfaz).
-11. **Menú contextual del lienzo** (D09) y **snapping a nodos/puntos medios/intersecciones** (D77, P0 parcial).
-12. **Curvas dibujadas** (D32, P0): clic + arrastre para crear Bézier; hoy solo se logran convirtiendo segmentos desde el editor de nodos.
+1. **Probar con hardware real** (la Falcon2 está disponible): conectar, encuadre, un corte y un grabado, pausa, detención y alarma. Sin esto, todo lo de máquina es teoría. Documentar el resultado y marcar en la app lo que sigue siendo experimental (Ruida). **Pendiente.**
+2. **Autoguardado y recuperación** tras un cierre inesperado. **Hecho** (sección 2.4).
+3. **Quitar o terminar la herramienta Medir** (D44). **Hecho.**
+4. **Voltear horizontal/vertical** (D26, P0) y teclas de rotación rápida (D24). **Hecho.**
+5. **Cortar solo la selección** (M15): el motor ya lo soporta (`JobOptions.selection`); falta una casilla en el diálogo de inicio y en el encuadre. Es P0. **Pendiente** (ola 2).
+6. **Bloquear y orden de dibujo** (D28, D29). **Hecho**; ocultar objetos sueltos sigue sin comando.
+7. **Exportar SVG y DXF** (D92, D93). **Hecho** (también PNG y PDF).
+8. **Importar más imágenes** (D87) y **opciones de importación** (D91). **Hecho.**
+9. **Preferencias mínimas** (D12, M51). **Hecho** salvo el idioma, "volver a Seleccionar" y las pulgadas en todos los campos.
+10. **Ayuda mínima**: menú Ayuda, manual, Acerca de y `README.md` de la raíz. **Hecho**; faltan publicar los enlaces del repositorio y de donaciones.
+11. **Menú contextual del lienzo** (D09) y **snapping a nodos, puntos medios e intersecciones** (D77). **Hecho.**
+12. **Curvas dibujadas** (D32, P0). **Hecho.**
+13. **Habilitar `.lbrn`/`.lbrn2` en la interfaz** (D97): el importador existe, la lista de extensiones lo rechaza. **Pendiente**, de una línea.
 
 ### 3.2 Importante para que la gente migre desde LightBurn
 
-1. **Importar `.lbrn2` / `.lbrn`** (D97). Sin esto cada migrante empieza de cero. Hay una referencia de estructura MIT (`lbrn2-to-svg`) citada en el inventario; respetar la política de código de terceros (`THIRD_PARTY.md`).
-2. **Importar PDF / AI** (D85, D86) y **exportar AI/PDF** si se puede; el portapapeles entre aplicaciones (D16).
-3. **Atajos configurables y un perfil "tipo LightBurn"** (D10, D11) para que las manos no se pierdan (Ctrl+L, Ctrl+R, Ctrl+E... son distintos hoy).
-4. **Idioma inglés** (M52): el público de LightBurn es en su mayoría anglófono; el foro es en inglés.
-5. **Ruida en la app** (M23, M50, M26 y M24): CO2 es la segunda familia más usada. Hoy es solo CLI y experimental; hay que probarlo con una máquina real, sumarlo al asistente "Agregar máquina" y a la ventana de máquina.
-6. **Conexión por red para GRBL (TCP)** y para Ruida (UDP) en la app (M50).
-7. **Herramientas de forma y edición frecuentes**: polígono/estrella (D34), QR y códigos de barras (D43), Trim (D49), Break Apart (D55), Fillet (D60), Cut Shapes (D65), Optimizar formas (D56), invertir dirección/punto de inicio (D57), igualar tamaños (D70), espejo sobre línea (D27), Medir de verdad (D44).
-8. **Texto**: texto soldado (D38), fuentes de una línea (D41), texto variable / serie / CSV (D42/M38), alineación vertical y RTL (D37).
-9. **Corte**: modo perforación (C13), lead-in/out y overcut (C15/C16), sub-capas (C30), prioridad y escala de potencia por objeto (C31), panel de Optimización (C32/M49), copiar/pegar ajustes y borrar capa (C06), potencia mínima en líneas (C08), velocidad en mm/s (C07).
-10. **Máquina**: macros (M20), posicionar láser con clic (M17), overrides de velocidad/potencia en vivo (M18), Z/Focus en Mover (M16/M31), frame continuo y de casco (M11/M12), importar/exportar perfiles de dispositivo (M3), bundles (M4/D99).
-11. **Print & Cut** (M37) y **tabs manuales** (D45): muy usados en piezas ya impresas y cortes finos.
-12. **Nesting** (D76): hoy no existe pese al nombre del módulo.
-13. **Selecciones especiales** (D21), grupos anidados (D30), menú contextual completo y guías arrastrables (D78).
-14. **Rendimiento de la interfaz** con miles de objetos: medir, y si hace falta pasar el lienzo a WebGL o añadir un índice espacial.
+1. **Importar `.lbrn2` / `.lbrn`** (D97). Motor **hecho** (con referencia de estructura MIT citada en `THIRD_PARTY.md`); falta habilitarlo en la app (punto 13 de arriba).
+2. **Importar PDF / AI** (D85, D86), **exportar PDF** (D98) y el portapapeles entre aplicaciones (D16). **Hecho.** Exportar AI (D94) sigue sin existir.
+3. **Atajos configurables** (D11). **Hecho.** El perfil "tipo LightBurn" (D10: Ctrl+L, Ctrl+R, Ctrl+E...) **pendiente**.
+4. **Idioma inglés** (M52): el público de LightBurn es en su mayoría anglófono. **Pendiente** (hay una base en el árbol).
+5. **Ruida en la app** (M23, M50, M26 y M24): CO2 es la segunda familia más usada. Hoy es solo CLI y experimental. **Pendiente** (ola 4).
+6. **Conexión por red para GRBL (TCP)** y para Ruida (UDP) en la app (M50). **Pendiente** (ola 4).
+7. **Herramientas de forma y edición frecuentes.** **Hechas:** polígono y estrella (D34), QR y códigos de barras (D43), igualar tamaños (D70), espejo sobre línea (D27), Medir (D44). **Pendientes:** Trim (D49), Break Apart (D55), Fillet (D60), Cut Shapes (D65), Optimizar formas (D56), invertir dirección y punto de inicio (D57).
+8. **Texto.** **Hechos:** texto soldado (D38), curvado (D39), fuentes de una línea (D41). **Pendientes:** texto variable / serie / CSV (D42/M38), alineación vertical y RTL (D37).
+9. **Corte:** modo perforación (C13), lead-in/out y overcut (C15/C16), sub-capas (C30), prioridad y escala de potencia por objeto (C31), panel de Optimización (C32/M49), copiar/pegar ajustes y borrar capa (C06), potencia mínima en líneas (C08), velocidad en mm/s (C07). **Pendiente** (ola 2).
+10. **Máquina:** macros (M20), posicionar láser con clic (M17), overrides de velocidad/potencia en vivo (M18), Z/Focus en Mover (M16/M31), frame continuo y de casco (M11/M12), importar/exportar perfiles de dispositivo (M3), bundles de dispositivos, cámaras y bibliotecas (M4). **Pendiente** (olas 2 y 4); las preferencias y los atajos ya viajan en `.tlakuprefs` (D99).
+11. **Print & Cut** (M37) y **tabs manuales** (D45). **Pendiente.**
+12. **Nesting** (D76): hoy no existe pese al nombre del módulo. **Pendiente.**
+13. **Selecciones especiales** (D21) y **grupos anidados** (D30): **hechos.** Menú contextual (D09): **hecho.** **Guías arrastrables** (D78): pendiente.
+14. **Rendimiento de la interfaz** con miles de objetos: medir, y si hace falta pasar el lienzo a WebGL o añadir un índice espacial. **Pendiente** (ola 6).
 
 ### 3.3 Puede esperar
 
 - **Galvo / fibra / EZCAD** (M30, M40-M45, C47, C59, M46): requiere hardware y documentación que no hay; EZCAD3/DLC y BSL ya están fuera de alcance.
-- **Funciones P2 de edición**: warp (D58), casco convexo (D59), círculo tangente (D46), biblioteca de arte (D47), arreglo virtual (D67), copy along path (D69), Resize Slots (D71), Move Together/Dock (D74), trazado por lotes (D80), máscara de imagen (D81), imagen a bitmap (D82), rotación por dos puntos (D25), interruptores de transformación (D17), notas/plantillas/nueva ventana (D19), modo principiante (D18/C60), auto-agrupar (D31), imprimir (D98).
-- **Importadores raros**: PLT/HPGL (D88), G-code (D89), formatos de máquina (D90/M22), exportar imagen (D95).
-- **Control avanzado**: eje U y láser 2 (M32), feeder (M47), Center Finder (M48), cámara en el cabezal (M36), lista de archivos del controlador (M24), automatización UDP (M54), ajustes de controlador DSP (C59).
-- **Corte avanzado**: dot mode (C18), ramp (C20), pausas de inicio/fin (C17), hide backlash (C34), flood fill (C28), incremento de ángulo (C50), modo `PassThrough` y relleno por forma en la app (C48, C27; ya existen en el motor, solo hay que cablearlos).
+- **Funciones P2 de edición:** warp (D58), casco convexo (D59), círculo tangente (D46), biblioteca de arte (D47), arreglo virtual (D67), copy along path (D69), Resize Slots (D71), Move Together/Dock (D74), trazado por lotes (D80), máscara de imagen (D81), imagen a bitmap (D82), notas/plantillas/nueva ventana (D19), modo principiante (D18/C60), auto-agrupar (D31). Ya hechas en la ola 1: interruptores de transformación (D17), rotación por dos puntos (D25), imprimir (D98).
+- **Importadores raros:** formatos propietarios de máquina (D90, y `.rd`/`.sc` de M22), exportar AI (D94). Ya hechos: PLT/HPGL (D88), G-code (D89), exportar imagen (D95).
+- **Control avanzado:** eje U y láser 2 (M32), feeder (M47), Center Finder (M48), cámara en el cabezal (M36), lista de archivos del controlador (M24), automatización UDP (M54), ajustes de controlador DSP (C59).
+- **Corte avanzado:** dot mode (C18), ramp (C20), pausas de inicio/fin (C17), hide backlash (C34), flood fill (C28), incremento de ángulo (C50), modo `PassThrough` y relleno por forma en la app (C48, C27; ya existen en el motor, solo hay que cablearlos).
 - **Tiling** (M39): ventaja competitiva, pero no bloquea la migración.
 - **Historial con previsualización** (D14), calidad de bordes (D08), estimación calibrada con tiempos reales (C58), modelo de lente de ojo de pez (M33), arcos G2/G3 en el G-code (hoy aplana las curvas).
 
@@ -364,13 +378,14 @@ Cada punto está verificado en el código. Donde no se pudo confirmar que LightB
 2. **Emulador de controladoras y máquinas virtuales.** `tlaku-emu` imita GRBL 1.1, Falcon2 Pro, grblHAL, FluidNC, GRBL-LPC, Marlin y Smoothie; la app lo ofrece como puerto (`virtual:falcon2@5`) con fallas simuladas (llama, inclinación, ALARM:3, desconexión). Permite aprender, probar y reportar errores sin máquina. (Verificar: LightBurn no tiene un equivalente conocido.)
 3. **Seguridad antes de mover la máquina.** El envío consulta el estado y se niega si hay Alarm/Hold/Door/Run; la app nunca envía `$X`, `$H` ni `~` por su cuenta; la consola pide confirmación y explica cada `ALARM:N` / `error:N`; el encuadre y el inicio avisan si el overscan sale de la cama *antes* de empezar (queja 02-Q9).
 4. **Overscan por física y encuadre que lo incluye.** Se calcula con la aceleración real de la máquina (`v^2/2a`) en vez de un porcentaje, y el rectángulo del encuadre ya lo contiene.
-5. **Importadores que avisan.** Nada se pierde en silencio: unidades DXF ausentes, SVG a 96 DPI frente a 72 DPI de Illustrator (con el tamaño alternativo), texto sin contorno, recorte `clip-path`/`mask` real, bloques DXF. (Verificar contra LightBurn.)
+5. **Importadores que avisan.** Nada se pierde en silencio: unidades DXF ausentes, SVG a 96 DPI frente a 72 DPI de Illustrator (con el tamaño alternativo), texto sin contorno, recorte `clip-path`/`mask` real, bloques DXF; y, desde la ola 1, lo que un PDF, un HPGL, un G-code o un proyecto de LightBurn trae y Tlaku no puede representar (ajustes de capa sin equivalente, formas omitidas con su cantidad, texto sin contorno). (Verificar contra LightBurn.)
 6. **Código abierto MIT con formatos abiertos y versionados.** Proyecto `.tlaku` (JSON con migraciones), biblioteca de materiales `.tlakumat` versionada que no se pierde (un archivo dañado se aparta y no se sobrescribe), contrato app-motor documentado (`docs/app-api.md`) y todo ejecutable desde el CLI `tlaku` (automatización y pruebas con archivos dorados).
 7. **Dialectos de G-code y catálogo de máquinas.** GRBL, GRBL-M3, grblHAL, FluidNC, GRBL-LPC, Smoothie, Marlin y G-code personalizado con editor de dialecto; asistente "Agregar máquina" con detección de solo lectura y un catálogo de 21 modelos con fuentes; envío línea a línea para Marlin/Smoothie y aviso de posición perdida.
 8. **Cámara con marcas grabadas y validación cruzada.** La precisión se mide (validación de dejar una marca fuera, RANSAC, corrección por altura de material medida a varias alturas), no se estima. (Verificar frente a la alineación de LightBurn.)
 9. **Calibraciones con pruebas medibles.** Scanning offset como separación medida entre ida y vuelta con aviso si el overscan es menor, prueba de una vuelta del rotativo, prueba de materiales por cuadrícula con cualquier par de parámetros (velocidad, potencia, pasadas, intervalo).
 10. **Interfaz que explica.** Ningún botón gris sin motivo (cada comando deshabilitado devuelve la razón), vista previa con reproducción en tiempo real del trabajo (con viajes, overscan, grabado y corte diferenciados) e historial con salto a cualquier punto.
-11. **Velocidad del motor.** Medido en esta auditoría: 20 000 figuras a un G-code de 10 MB en 1,2 s con el planificador completo, sin colgarse (la queja 02-Q1 de LightBurn son cuelgues con diseños complejos).
+11. **Salir sin quedar atrapado.** Exportación a SVG con medidas reales y curvas, DXF con SPLINE exactos, PDF vectorial a escala 1:1 y PNG a la resolución que se elija, con solo la selección si se quiere (`crates/tlaku-export`). Fuentes de una línea Hershey incluidas, sin instalar nada (licencia y créditos en `THIRD_PARTY.md`).
+12. **Velocidad del motor.** Medido en esta auditoría: 20 000 figuras a un G-code de 10 MB en 1,2 s con el planificador completo, sin colgarse (la queja 02-Q1 de LightBurn son cuelgues con diseños complejos).
 
 **No comunicar todavía (aunque se mencionan en los documentos):**
 
@@ -378,4 +393,6 @@ Cada punto está verificado en el código. Donde no se pudo confirmar que LightB
 - *Tiling*: planificado, no existe.
 - *Ruida*: hay archivo `.rd`, sesión UDP y emulador en el motor, pero es experimental, sin hardware real y solo desde el CLI. LightBurn sí soporta Ruida, así que no es una ventaja.
 - *Galvo*: ninguno.
+- *Importar proyectos de LightBurn desde la app*: el motor lo hace, pero la interfaz todavía rechaza `.lbrn`/`.lbrn2` (D97). No presumirlo hasta habilitarlo.
+- *Inglés*: la base existe pero no hay selector funcional.
 

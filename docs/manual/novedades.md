@@ -9,17 +9,32 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 ### Diseño y edición
 
 - Lienzo con la cama de tu máquina, reglas, zoom, ajuste magnético y barra de valores exactos.
-- Herramientas de línea, rectángulo, elipse, texto y editor de nodos.
+- Herramientas de línea (con curvas Bézier), rectángulo, elipse, polígono, estrella, texto, medir y editor de nodos.
+- Voltear, espejo sobre una línea, giros rápidos y por dos puntos, orden de dibujo, bloquear, grupos anidados, igualar tamaños y las selecciones especiales (formas abiertas, círculos por tamaño y más).
+- Menú contextual con clic derecho, ajuste magnético a nodos, puntos medios, centros e intersecciones, y copiar y pegar SVG entre programas.
 - Unión, diferencia, intersección, soldar, offset, alinear, distribuir y arreglos en rejilla y circulares.
 - Unir trazos, cerrar trayectos y quitar duplicados.
-- Texto con fuentes del sistema, también sobre un trayecto.
+- Texto con fuentes del sistema, también sobre un trayecto, **curvado** y con las letras **soldadas**.
+- 15 fuentes de una línea (Hershey) incluidas y lector de fuentes SHX.
+- Códigos QR, Data Matrix y de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar).
 - Deshacer y rehacer con un historial al que puedes saltar.
 
 ### Importar
 
-- SVG (con recortes reales), DXF e imágenes PNG, JPG y BMP. Cada color del archivo se vuelve una capa.
+- SVG (con recortes reales), DXF, **PDF**, **AI**, **HPGL** (`.plt`), **G-code** e imágenes PNG, JPG, BMP, **WebP**, **TIFF**, **GIF** y **TGA**. Cada color del archivo se vuelve una capa.
+- **Importar con opciones**: escala, DPI, unidad de un DXF, página de un PDF, agrupar y capa destino.
 - Vectorizar una imagen con vista previa.
 - Los importadores avisan de todo lo que no pudieron traer, en vez de callar.
+
+### Exportar e imprimir
+
+- Exportar el diseño (todo o solo la selección) a **SVG**, **DXF**, **PNG** y **PDF** vectorial a escala 1:1, y **Imprimir** a tamaño real.
+
+### Preferencias y respaldo
+
+- Ventana de **Preferencias** (`Ctrl/Cmd+,`): unidades, pasos de las flechas, imán, rejilla, tema, autoguardado y archivos recientes.
+- **Atajos de teclado configurables**, con aviso de conflictos, y archivos `.tlakuprefs` para llevar tu configuración a otro equipo.
+- **Autoguardado** y recuperación del trabajo tras un cierre inesperado.
 
 ### Capas y corte
 
@@ -45,8 +60,11 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 
 ### Ayuda
 
-- Este manual dentro de la app (menú Ayuda), atajos de teclado con `F1`, Novedades, Reportar un problema y Acerca de.
+- Este manual dentro de la app (menú Ayuda, con buscador), atajos de teclado con `F1`, Novedades, Reportar un problema y Acerca de.
 
 ### Lo que viene
 
-Exportar SVG y DXF, importar proyectos de LightBurn, preferencias, autoguardado, atajos configurables y más herramientas de dibujo (próximamente). Ruida (CO2) existe solo por línea de comandos y es experimental.
+- **Importar proyectos de LightBurn** (`.lbrn` y `.lbrn2`) con sus capas y ajustes.
+- **Interfaz en inglés**, con cambio de idioma en vivo desde Preferencias.
+- Más herramientas de diseño (recortar, separar, redondear esquinas, deformar), ajustes de corte avanzados (perforación, lead-in, sub-capas), texto variable y números de serie.
+- Ruida (CO2) existe solo por línea de comandos y es experimental. Conexión por red, K40 y galvo siguen sin estar.

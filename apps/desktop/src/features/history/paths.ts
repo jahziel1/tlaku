@@ -1,7 +1,7 @@
 /** Utilidades de rutas y formatos de archivo (sin dependencias de interfaz). */
 
 /** Formatos que sabe importar el motor. */
-export const IMPORT_EXTENSIONS = ['svg', 'dxf', 'png', 'jpg', 'jpeg', 'bmp', 'webp', 'tif', 'tiff', 'gif', 'tga', 'pdf', 'ai', 'plt', 'hpgl', 'hpg', 'nc', 'gcode', 'gc', 'ngc'] as const;
+export const IMPORT_EXTENSIONS = ['svg', 'dxf', 'png', 'jpg', 'jpeg', 'bmp', 'webp', 'tif', 'tiff', 'gif', 'tga', 'pdf', 'ai', 'plt', 'hpgl', 'hpg', 'nc', 'gcode', 'gc', 'ngc', 'lbrn', 'lbrn2'] as const;
 
 /** Nombre corto para mostrar (último tramo de la ruta). */
 export function baseName(path: string): string {
