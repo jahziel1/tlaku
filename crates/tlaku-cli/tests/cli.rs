@@ -711,7 +711,7 @@ fn invalid_options_have_clear_errors() {
 
     let o2 = run(&["gcode", "no_existe.svg", "-o", o]);
     assert_fails(&o2, "no_existe.svg");
-    let pdf = dir.join("a.pdf");
+    let pdf = dir.join("a.cdr");
     std::fs::write(&pdf, b"%PDF").unwrap();
     assert_fails(
         &run(&["gcode", pdf.to_str().unwrap(), "-o", o]),
