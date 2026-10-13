@@ -190,3 +190,39 @@ marcador de posición en el mock. El alcance estático del protocolo (`tauri.con
 home del usuario (sin `Library` ni carpetas ocultas), Documentos, Escritorio, Descargas,
 Imágenes y los volúmenes montados; además `import_file` y `load_project` permiten las rutas
 exactas de las imágenes que devuelven. La CSP ya tiene `img-src ... asset: http://asset.localhost`.
+
+## Fase 3: curvas, grupos, texto, vectorizado y cámara
+
+Versión de documento **2**. `load_project` migra la versión 1 (polilíneas) sin pérdida.
+
+```ts
+// tlaku_core::bezpath::PathSeg (coordenadas locales del objeto, mm)
+type PathSeg =
+  | { type: "move_to"; to: Point } | { type: "line_to"; to: Point }
+  | { type: "quad_to"; ctrl: Point; to: Point }
+  | { type: "cubic_to"; ctrl1: Point; ctrl2: Point; to: Point }
+  | { type: "close" };
+type BezPath = PathSeg[];
+
+interface VectorObject { paths: BezPath[] }          // reemplaza PathData[] de la versión 1
+interface DesignObject { /* ...lo anterior... */ group: string | null }  // grupos planos por id
+
+interface TextObject {                // ObjectKind "text"
+  text: string;                       // admite varias líneas
+  font_family: string; bold: boolean; italic: boolean;
+  size_mm: number;                    // tamaño del em (como en tipografía), no de la mayúscula
+  letter_spacing_mm: number; line_spacing: number;     // interlineado en múltiplos del tamaño
+  align: "left" | "center" | "right";
+  on_path: { object_id: string; offset_mm: number; flip: boolean } | null;
+  outline: BezPath[];                 // contorno ya generado por el motor; el pipeline usa este
+}
+```
+
+| Comando | Entrada | Salida |
+|---|---|---|
+| `list_fonts` | | `{ family: string; styles: string[] }[]` |
+| `text_outline` | `{ text: TextObject, path: BezPath \| null }` | `BezPath[]` |
+| `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento) |
+| `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `BezPath[]` |
+| `calibrate_lens` | `{ images: string[] /* rutas */, board: [number, number], square_mm: number }` | `LensCalibration` (con error de reproyección) |
+| `undistort_frame` | `{ image: string, calibration: LensCalibration }` | `string` (ruta de la imagen corregida) |

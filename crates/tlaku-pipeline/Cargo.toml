@@ -16,3 +16,5 @@ tlaku-raster = { version = "0.1.0", path = "../tlaku-raster" }
 tlaku-sim = { version = "0.1.0", path = "../tlaku-sim" }
 tlaku-svg = { version = "0.1.0", path = "../tlaku-svg" }
 serde = { version = "1.0.229", features = ["derive"] }
+tlaku-text = { version = "0.1.0", path = "../tlaku-text" }
+tlaku-trace = { version = "0.1.0", path = "../tlaku-trace" }

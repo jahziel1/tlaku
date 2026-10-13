@@ -3,6 +3,7 @@
 //! Todas las coordenadas están en milímetros, en el sistema de la máquina
 //! (origen abajo a la izquierda, Y hacia arriba).
 
+pub mod bezpath;
 pub mod optimize;
 pub mod toolpath;
 
