@@ -1,6 +1,6 @@
-import type { DesignObject, Document, ImportResult, LayerSettings } from '@/api/types';
+import type { Affine, DesignObject, Document, ImportResult, LayerSettings } from '@/api/types';
 import type { I18nKey } from '@/i18n';
-import { translateAffine } from '@/lib/geometry';
+import { multiplyAffine, translateAffine } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
 import { LAYER_PALETTE, paletteLabel } from '@/lib/palette';
 import type { SliceCreator } from './types';
@@ -39,6 +39,16 @@ export interface DocumentSlice {
   duplicateObjects: (ids: string[], offset?: number) => string[];
   setObjectFlags: (ids: string[], flags: Partial<Pick<DesignObject, 'locked' | 'hidden'>>) => void;
 
+  /** Aplica `matrix` (en coordenadas de documento) a los objetos no bloqueados. */
+  transformObjects: (ids: string[], matrix: Affine, key?: string) => void;
+  addObjects: (objects: DesignObject[], label?: I18nKey) => void;
+  /** Nuevo orden de capas por color; los colores omitidos conservan su orden relativo al final. */
+  reorderLayers: (colors: string[]) => void;
+  /**
+   * Cambio arbitrario con deshacer, para operaciones propias de cada área (agrupar, booleanas...).
+   * `change` debe devolver el mismo objeto si no hay cambios.
+   */
+  applyDocChange: (label: I18nKey, change: (doc: Document) => Document, key?: string) => void;
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
@@ -186,6 +196,39 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
         objects: doc.objects.map((o) => (set_.has(o.id) ? { ...o, ...flags } : o)),
       }));
     },
+
+    transformObjects: (ids, matrix, key) => {
+      if (ids.length === 0) return;
+      const set_ = new Set(ids);
+      commit(
+        'history.transform',
+        (doc) => ({
+          ...doc,
+          objects: doc.objects.map((o) =>
+            set_.has(o.id) && !o.locked ? { ...o, transform: multiplyAffine(matrix, o.transform) } : o,
+          ),
+        }),
+        key,
+      );
+    },
+
+    addObjects: (objects, label = 'history.add') => {
+      if (objects.length === 0) return;
+      for (const color of new Set(objects.map((o) => o.layer))) get().ensureLayer(color);
+      commit(label, (doc) => ({ ...doc, objects: [...doc.objects, ...objects] }));
+    },
+
+    reorderLayers: (colors) => {
+      const rank = new Map(colors.map((c, i) => [c.toLowerCase(), i]));
+      commit('history.reorderLayers', (doc) => {
+        const layers = [...doc.layers].sort(
+          (a, b) => (rank.get(a.color.toLowerCase()) ?? Infinity) - (rank.get(b.color.toLowerCase()) ?? Infinity),
+        );
+        return layers.every((l, i) => l === doc.layers[i]) ? doc : { ...doc, layers };
+      });
+    },
+
+    applyDocChange: (label, change, key) => commit(label, change, key),
 
     undo: () => {
       const { past, future, doc } = get();

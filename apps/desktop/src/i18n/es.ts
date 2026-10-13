@@ -3,7 +3,13 @@
  * Claves por área: cmd.* (comandos), menu.*, reason.* (por qué algo está deshabilitado),
  * y una sección por panel. Los marcadores `{nombre}` se reemplazan con los parámetros de `t()`.
  */
-export const es = {
+import { canvas } from './es/canvas';
+import { history } from './es/history';
+import { layers } from './es/layers';
+import { machine } from './es/machine';
+import { preview } from './es/preview';
+
+const base = {
   // ---- comandos -----------------------------------------------------------
   'cmd.file.new': 'Nuevo proyecto',
   'cmd.file.open': 'Abrir proyecto…',
@@ -93,6 +99,9 @@ export const es = {
   'history.delete': 'Eliminar',
   'history.duplicate': 'Duplicar',
   'history.editObjects': 'Editar objetos',
+  'history.transform': 'Transformar',
+  'history.add': 'Agregar objetos',
+  'history.reorderLayers': 'Reordenar capas',
   'notice.saved': 'Guardado en {path}',
   'notice.imported': 'Se importaron {n} objetos.',
   'notice.importedWithWarnings': 'Se importaron {n} objetos con {w} advertencias.',
@@ -195,3 +204,6 @@ export const es = {
   'status.estimate': 'Tiempo estimado del trabajo',
   'status.computing': 'calculando',
 } as const;
+
+/** Diccionario completo: la base más un archivo por área en `es/`, para que cada área edite solo el suyo. */
+export const es = { ...base, ...canvas, ...layers, ...machine, ...preview, ...history };

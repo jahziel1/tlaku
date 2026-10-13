@@ -13,6 +13,20 @@ export function translateAffine(m: Affine, dx: number, dy: number): Affine {
   return [m[0], m[1], m[2], m[3], m[4] + dx, m[5] + dy];
 }
 
+/** Composición: primero `inner`, después `outer`. */
+export function multiplyAffine(outer: Affine, inner: Affine): Affine {
+  const [a, b, c, d, e, f] = outer;
+  const [a2, b2, c2, d2, e2, f2] = inner;
+  return [
+    a * a2 + c * b2,
+    b * a2 + d * b2,
+    a * c2 + c * d2,
+    b * c2 + d * d2,
+    a * e2 + c * f2 + e,
+    b * e2 + d * f2 + f,
+  ];
+}
+
 export function translation(dx: number, dy: number): Affine {
   return [1, 0, 0, 1, dx, dy];
 }
