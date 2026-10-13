@@ -9,7 +9,12 @@ layers: Array<PreviewLayer>,
 /**
  * `[kind, x, y, power]` por movimiento; kind 0 = travel, 1 = cut (potencia 0 = overscan).
  */
-moves: Array<number>, total_s: number, 
+moves: Array<number>, 
+/**
+ * Segundos acumulados al terminar cada movimiento (uno por entrada de `moves`, con el
+ * mismo modelo de aceleración que `total_s`); el último vale `total_s`.
+ */
+move_times: Array<number>, total_s: number, 
 /**
  * Esquinas mínima y máxima, con overscan.
  */

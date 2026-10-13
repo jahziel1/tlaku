@@ -9,6 +9,7 @@ import type {
   MachineState,
   Point,
   ProgressEvent,
+  RealtimeCommand,
   StatusReport,
 } from '../types';
 
@@ -37,10 +38,13 @@ export class MockMachine {
   private statusTimer: ReturnType<typeof setInterval> | null = null;
   private jobTimer: ReturnType<typeof setInterval> | null = null;
   private frameTimer: ReturnType<typeof setInterval> | null = null;
+  private jogTimer: ReturnType<typeof setTimeout> | null = null;
 
   connected = false;
   port: string | null = null;
   state: MachineState = 'idle';
+  /** Código de ALARM:N activo; null si no hay alarma. */
+  alarmCode: number | null = null;
   pos: Point = [0, 0];
   feed = 0;
   spindle = 0;
@@ -80,6 +84,7 @@ export class MockMachine {
     this.connected = true;
     this.port = port;
     this.state = 'idle';
+    this.alarmCode = null;
     this.pos = [0, 0];
     const evt: ConnectionEvent = { connected: true, port, error: null };
     this.emit('machine://connection', evt);
@@ -92,6 +97,7 @@ export class MockMachine {
   disconnect(): void {
     this.stopTimers();
     this.job = null;
+    this.alarmCode = null;
     if (!this.connected) return;
     this.connected = false;
     const port = this.port;
@@ -107,7 +113,8 @@ export class MockMachine {
 
   private stopTimers(): void {
     for (const t of [this.statusTimer, this.jobTimer, this.frameTimer]) if (t) clearInterval(t);
-    this.statusTimer = this.jobTimer = this.frameTimer = null;
+    if (this.jogTimer) clearTimeout(this.jogTimer);
+    this.statusTimer = this.jobTimer = this.frameTimer = this.jogTimer = null;
   }
 
   requireConnection(): void {
@@ -135,40 +142,71 @@ export class MockMachine {
 
   command(line: string): string[] {
     this.requireConnection();
-    this.log('out', line);
+    if (this.job) throw new Error(BUSY_MESSAGE);
     const trimmed = line.trim();
+    if (/[?!~]/.test(trimmed)) {
+      throw new Error(`'${trimmed}' contiene un carácter de tiempo real. Para pausar, reanudar o reiniciar usa los botones de la pestaña Máquina.`);
+    }
+    if (trimmed === '') throw new Error('La línea está vacía.');
+    this.log('out', trimmed);
     let reply: string[];
     if (trimmed === '$I') reply = ['[VER:1.1h.20190825:LaserSoft simulada]', '[OPT:V,15,128]', 'ok'];
-    else if (trimmed === '$$') reply = ['$30=1000', '$31=0', '$32=1', '$100=80.000', '$101=80.000', '$130=400.000', '$131=415.000', 'ok'];
-    else if (trimmed === '?') {
-      const s = this.status();
-      reply = [`<${s.state[0]!.toUpperCase()}${s.state.slice(1)}|MPos:${s.machine_pos[0].toFixed(3)},${s.machine_pos[1].toFixed(3)},0.000|FS:${s.feed},${s.spindle}>`, 'ok'];
+    else if (trimmed === '$$') reply = ['$22=1', '$30=1000', '$31=0', '$32=1', '$100=80.000', '$101=80.000', '$130=400.000', '$131=415.000', 'ok'];
+    else if (trimmed === '$X') {
+      this.setAlarm(null);
+      reply = ['[MSG:Caution: Unlocked]', 'ok'];
     } else if (trimmed === '$H') {
       this.pos = [0, 0];
+      this.setAlarm(null);
       reply = ['ok'];
-    } else if (trimmed === '') reply = ['ok'];
+    } else if (this.alarmCode !== null && /^[GMgm]/.test(trimmed)) reply = [describeLine('error:9')];
     else if (/^[$GMgm]/.test(trimmed)) reply = ['ok'];
-    else reply = ['error:20'];
+    else reply = [describeLine('error:20')];
     for (const r of reply) this.log('in', r);
     return reply;
   }
 
-  realtime(cmd: 'status' | 'hold' | 'resume' | 'reset'): void {
+  /** Simula una alarma de la controladora (para desarrollar la interfaz de recuperación). */
+  triggerAlarm(code = 1): void {
+    this.requireConnection();
+    this.clearJob();
+    this.setAlarm(code);
+    this.log('in', describeLine(`ALARM:${code}`));
+  }
+
+  private setAlarm(code: number | null): void {
+    this.alarmCode = code;
+    this.state = code === null ? 'idle' : 'alarm';
+    this.feed = 0;
+    this.spindle = 0;
+    this.emitStatus();
+  }
+
+  realtime(cmd: RealtimeCommand): void {
     this.requireConnection();
     if (cmd === 'status') this.emitStatus();
     else if (cmd === 'hold') this.setPaused(true);
     else if (cmd === 'resume') this.setPaused(false);
     else if (cmd === 'reset') this.cancel('Reinicio de la controladora.');
+    else this.cancel();
   }
 
-  jog(dx: number, dy: number, bed: Point): void {
+  jog(dx: number, dy: number, bed: Point, speed = 1500): void {
     this.requireConnection();
-    if (this.job) throw new Error('No se puede mover a mano mientras hay un trabajo en curso.');
-    this.log('out', `$J=G91 G21 X${dx} Y${dy} F1500`);
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) throw new Error('El desplazamiento no es un número.');
+    if (!(speed > 0)) throw new Error('La velocidad del movimiento debe ser mayor que 0.');
+    this.log('out', `$J=G91 G21 X${dx} Y${dy} F${speed}`);
+    if (this.alarmCode !== null) {
+      const reply = describeLine('error:9');
+      this.log('in', reply);
+      throw new Error(`La máquina rechazó el movimiento (${reply}). Si la máquina está en alarma, desbloquéala con $X o haz homing ($H) desde la consola.`);
+    }
     this.pos = [Math.min(bed[0], Math.max(0, this.pos[0] + dx)), Math.min(bed[1], Math.max(0, this.pos[1] + dy))];
     this.state = 'jog';
     this.emitStatus();
-    setTimeout(() => {
+    this.jogTimer = setTimeout(() => {
+      this.jogTimer = null;
       if (this.state === 'jog') {
         this.state = 'idle';
         this.emitStatus();
@@ -177,12 +215,29 @@ export class MockMachine {
     this.log('in', 'ok');
   }
 
+  /** Misma regla que el motor: solo se transmite con la máquina en reposo. */
+  private preflight(): void {
+    const why: Partial<Record<MachineState, string>> = {
+      alarm:
+        'la máquina está en ALARMA: GRBL no acepta G-code hasta que se resuelva. No se transmitió nada.\n' +
+        'Qué hacer (la app nunca ejecuta estos comandos por su cuenta; los envías tú desde la consola):\n' +
+        '  - si tu máquina tiene finales de carrera (homing): $H (escribe $H en la consola de la pestaña Máquina)\n' +
+        '  - si no los tiene: $X (escribe $X en la consola de la pestaña Máquina)',
+      hold: 'la máquina no está en reposo, está en pausa (Hold): hay un movimiento detenido con feed hold. Reanúdalo o cancélalo con un soft reset antes de enviar otro trabajo. No se transmitió nada.',
+      door: 'la máquina no está en reposo, la puerta o tapa de seguridad está abierta. No se transmitió nada.',
+      run: 'la máquina no está en reposo, está ejecutando un movimiento: ya hay un trabajo en curso. No se transmitió nada.',
+      jog: 'la máquina no está en reposo, está en jog (movimiento manual); espera a que termine. No se transmitió nada.',
+    };
+    const msg = why[this.state];
+    if (msg) throw new Error(msg.charAt(0).toUpperCase() + msg.slice(1));
+  }
+
   // ---- trabajos ---------------------------------------------------------
 
   startJob(preview: JobPreview, device: DeviceProfile): void {
     this.requireConnection();
-    if (this.job) throw new Error('Ya hay un trabajo en curso.');
-    if (this.state === 'alarm') throw new Error('La máquina está en alarma. Desbloquéala antes de iniciar.');
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    this.preflight();
     if (preview.moves.length === 0) throw new Error('El trabajo está vacío: no hay nada que enviar.');
     const total = preview.moves.length / 4;
     this.job = {
@@ -204,7 +259,9 @@ export class MockMachine {
     if (!job || job.paused) return;
     job.elapsedMs += dt;
     const f = Math.min(1, job.elapsedMs / job.durationMs);
-    const i = Math.min(job.total - 1, Math.floor(f * job.total));
+    // Tiempo simulado del trabajo: la posición sigue `move_times`, como la vista previa en tiempo real.
+    const t = f * job.preview.total_s;
+    const i = Math.min(job.total - 1, firstAtOrAfter(job.preview.move_times, t, job.total));
     const m = job.preview.moves;
     this.pos = [m[i * 4 + 1]!, m[i * 4 + 2]!];
     this.feed = m[i * 4]! === 1 ? 1500 : 12000;
@@ -246,7 +303,9 @@ export class MockMachine {
     if (this.frameTimer) clearInterval(this.frameTimer);
     this.frameTimer = null;
     if (!this.job) {
-      this.state = 'idle';
+      // Sin trabajo: cancela un jog o un encuadre; una alarma sigue hasta $X o $H.
+      if (this.state !== 'alarm') this.state = 'idle';
+      this.feed = 0;
       this.emitStatus();
       return;
     }
@@ -258,7 +317,8 @@ export class MockMachine {
   /** Recorre el rectángulo del trabajo con el láser apagado. */
   frame(bounds: [Point, Point]): void {
     this.requireConnection();
-    if (this.job) throw new Error('No se puede encuadrar mientras hay un trabajo en curso.');
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    this.preflight();
     const [[x0, y0], [x1, y1]] = bounds;
     const corners: Point[] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
     let step = 0;
@@ -277,4 +337,37 @@ export class MockMachine {
       }
     }, 450);
   }
+}
+
+/** Mensaje cuando se pide algo con un trabajo en marcha (igual que el motor real). */
+const BUSY_MESSAGE = 'Hay un trabajo en curso. Pausa o cancela antes de enviar otra cosa a la máquina.';
+
+const ERRORS: Record<number, string> = {
+  9: 'G-code bloqueado por alarma o jog',
+  20: 'comando G-code no soportado o no válido',
+};
+const ALARMS: Record<number, string> = {
+  1: 'límite físico activado',
+  3: 'reinicio durante un movimiento: se perdió la posición',
+};
+
+/** `error:N` / `ALARM:N` con su explicación, como las devuelve el motor real. */
+export function describeLine(line: string): string {
+  const err = /^error:(\d+)$/.exec(line);
+  if (err) return `${line}: ${ERRORS[Number(err[1])] ?? 'error desconocido'}`;
+  const alarm = /^ALARM:(\d+)$/.exec(line);
+  if (alarm) return `${line}: ${ALARMS[Number(alarm[1])] ?? 'alarma desconocida'}`;
+  return line;
+}
+
+/** Índice del primer movimiento que termina en `t` segundos o después (búsqueda binaria). */
+function firstAtOrAfter(times: number[], t: number, fallback: number): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid]! < t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo >= times.length ? fallback - 1 : lo;
 }

@@ -1,3 +1,4 @@
+use crate::gcode::point_to_machine;
 use crate::job::{ComputedJob, LayerReport, block_bounds, check_bounds};
 use crate::layers::{
     LayerRole, ResolvedImage, ResolvedLayer, classify, layer_sequence, order_note, resolve_image,
@@ -270,6 +271,9 @@ enum Resolved {
 /// Calcula el trabajo sin verificar los límites de la cama (útil para `plan` o para mostrar
 /// la vista previa de un diseño que no cabe). `current` es la posición de trabajo de la
 /// cabeza; hace falta con `start_from = current_position`.
+///
+/// `current` y `options.user_origin` vienen en coordenadas de la máquina (las que muestra
+/// GRBL), y aquí se pasan a las del documento según `device.origin`.
 pub fn build(
     doc: &Document,
     device: &DeviceProfile,
@@ -278,7 +282,15 @@ pub fn build(
 ) -> Result<ComputedJob, String> {
     let profile = machine_profile(device)?;
     let mut warnings = Vec::new();
-    let placement = place(doc, options, current, &mut warnings)?;
+    let to_doc = |p: Point| point_to_machine(p, device.bed, device.origin);
+    let options = &JobOptions {
+        user_origin: options
+            .user_origin
+            .map(|[x, y]| to_doc(Point::new(x, y)))
+            .map(|p| [p.x, p.y]),
+        ..options.clone()
+    };
+    let placement = place(doc, options, current.map(to_doc), &mut warnings)?;
     let work: &[LayerWork] = &placement.layers;
     if work.is_empty() {
         return Err(nothing_to_produce(&warnings));
@@ -386,10 +398,12 @@ pub fn build(
     for (layer, e) in b.layers.iter_mut().zip(&estimate.blocks) {
         layer.seconds = e.seconds;
     }
+    let move_times = laser_sim::move_times(placement.start, &b.toolpath, &profile);
     let preview = preview(
         &b.toolpath,
         &b.layers,
         estimate.total_s,
+        move_times,
         order_note_text,
         b.warnings,
     );

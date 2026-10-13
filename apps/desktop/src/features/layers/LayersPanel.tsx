@@ -1,132 +1,434 @@
-import { Eye, EyeOff, Image as ImageIcon, PaintBucket, Spline, Zap, ZapOff } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  MousePointerClick,
+  Pencil,
+  PaintBucket,
+  Pin,
+  PinOff,
+  Settings2,
+  SlidersHorizontal,
+  Spline,
+  Zap,
+  ZapOff,
+  Ellipsis,
+  GripVertical,
+  SquareDashed,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { LayerMode, LayerSettings } from '@/api/types';
+import type { LayerOrder } from '@/api/types';
 import { t } from '@/i18n';
-import { NumberField } from '@/ui/NumberField';
-import { LAYER_PALETTE, paletteLabel, readableOn } from '@/lib/palette';
+import { countByLayer, type LayerCount } from '@/lib/layers';
+import { colorName, isGuideColor, readableOn } from '@/lib/palette';
 import { useStore } from '@/store';
+import { moveLayer, openEditorFor, selectLayerObjects } from './actions';
+import { LayerEditor } from './LayerEditor';
+import { focusLayerRow, useLayerUi } from './layerUi';
+import { buildExecution, localOrderNote, type ExecEntry } from './order';
+import { RowMenu, type MenuItem } from './RowMenu';
 
 const MODE_ICON = { line: Spline, fill: PaintBucket, image: ImageIcon } as const;
-const MODES: LayerMode[] = ['line', 'fill', 'image'];
 
-function swatchLabel(color: string): string {
-  const entry = LAYER_PALETTE.find((p) => p.color.toLowerCase() === color.toLowerCase());
-  return entry ? paletteLabel(entry) : '';
+/** Conteos por capa como valores primitivos: el panel solo se repinta si cambian de verdad. */
+function useLayerCounts(): Map<string, LayerCount> {
+  const layers = useStore((s) => s.doc.layers);
+  const flat = useStore(
+    useShallow((s) => {
+      const m = countByLayer(s.doc);
+      return s.doc.layers.flatMap((l) => {
+        const c = m.get(l.color.toLowerCase());
+        return [c?.total ?? 0, c?.live ?? 0];
+      });
+    }),
+  );
+  return useMemo(() => new Map(layers.map((l, i) => [l.color.toLowerCase(), { total: flat[2 * i] ?? 0, live: flat[2 * i + 1] ?? 0 }])), [layers, flat]);
 }
 
-function LayerRow({ layer, active, count }: { layer: LayerSettings; active: boolean; count: number }) {
-  const updateLayer = useStore((s) => s.updateLayer);
-  const selectLayerObjects = useStore((s) => s.selectLayerObjects);
-  const setActiveLayer = useStore((s) => s.setActiveLayer);
+/** Resumen de velocidad, potencia y pasadas de una capa para su fila. */
+function summary(e: ExecEntry): string {
+  const l = e.layer;
+  const power = l.mode === 'image' && l.min_power > 0 ? `${l.min_power}–${l.power} %` : `${l.power} %`;
+  const parts = [`${l.speed} mm/min`, power];
+  if (l.mode !== 'line') parts.push(`${l.interval} mm`);
+  if (l.passes > 1) parts.push(`×${l.passes}`);
+  return parts.join(' · ');
+}
+
+interface RowProps {
+  entry: ExecEntry;
+  active: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  dropMark: 'before' | 'after' | null;
+  dragging: boolean;
+  onGripDown: (e: ReactPointerEvent) => void;
+}
+
+function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, onGripDown }: RowProps) {
+  const { layer } = entry;
+  const guide = isGuideColor(layer.color);
+  const renaming = useLayerUi((s) => s.renaming === layer.color);
+  const [menu, setMenu] = useState<DOMRect | null>(null);
+  const menuBtn = useRef<HTMLButtonElement>(null);
   const Icon = MODE_ICON[layer.mode];
+  const pinned = layer.order !== null;
+  const name = layer.name || colorName(layer.color);
+
+  const openMenu = (rect?: DOMRect) => setMenu(rect ?? menuBtn.current?.getBoundingClientRect() ?? new DOMRect());
+  const closeMenu = (restoreFocus: boolean) => {
+    setMenu(null);
+    if (restoreFocus) menuBtn.current?.focus();
+  };
+
+  const st = () => useStore.getState();
+  const move = (delta: number) => {
+    if (entry.position === null) return;
+    moveLayer(st(), layer.color, entry.position - 1 + delta);
+    focusLayerRow(layer.color);
+  };
+
+  const items: MenuItem[] = [
+    { id: 'edit', label: t('layers.menu.edit'), icon: <Settings2 size={14} />, hint: 'Intro', onSelect: () => openEditorFor(st(), layer.color) },
+    {
+      id: 'select',
+      label: t('layers.menu.select'),
+      icon: <MousePointerClick size={14} />,
+      disabledReason: entry.count.total === 0 ? t('layers.reason.noObjects') : undefined,
+      onSelect: () => selectLayerObjects(st(), layer.color),
+    },
+    { id: 'rename', label: t('layers.menu.rename'), icon: <Pencil size={14} />, hint: 'F2', onSelect: () => useLayerUi.getState().startRename(layer.color) },
+    {
+      id: 'up',
+      label: t('layers.menu.up'),
+      icon: <ArrowUp size={14} />,
+      disabledReason: !entry.runs ? t('layers.reason.notRunning') : !canMoveUp ? t('layers.reason.alreadyFirst') : undefined,
+      hint: 'Alt+↑',
+      onSelect: () => move(-1),
+    },
+    {
+      id: 'down',
+      label: t('layers.menu.down'),
+      icon: <ArrowDown size={14} />,
+      disabledReason: !entry.runs ? t('layers.reason.notRunning') : !canMoveDown ? t('layers.reason.alreadyLast') : undefined,
+      hint: 'Alt+↓',
+      onSelect: () => move(1),
+    },
+    pinned
+      ? { id: 'unpin', label: t('layers.menu.unpin'), icon: <PinOff size={14} />, onSelect: () => st().updateLayer(layer.color, { order: null }) }
+      : {
+          id: 'pin',
+          label: t('layers.menu.pin'),
+          icon: <Pin size={14} />,
+          disabledReason: !entry.runs ? t('layers.reason.notRunning') : undefined,
+          onSelect: () => st().updateLayer(layer.color, { order: entry.position }),
+        },
+  ];
+
+  const tag = entry.skip
+    ? t(`layers.skip.${entry.skip}`)
+    : t(`layers.role.${entry.role}`);
+  const tagWhy = entry.skip
+    ? t(`layers.skip.${entry.skip}.why`)
+    : entry.reason
+      ? t('layers.role.cut.why', { why: t(`layers.cutReason.${entry.reason}`) })
+      : t(`layers.role.${entry.role}.why`);
 
   return (
-    <li className="layer-row" data-active={active} data-hidden={!layer.visible}>
+    <li
+      className="lyr-row"
+      data-active={active}
+      data-hidden={!layer.visible}
+      data-guide={guide}
+      data-run={entry.runs}
+      data-dragging={dragging}
+      data-drop={dropMark ?? undefined}
+      data-layer={layer.color}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openMenu(new DOMRect(e.clientX, e.clientY, 0, 0));
+      }}
+    >
       <button
         type="button"
-        className="layer-row__main"
-        aria-pressed={active}
-        title={t('layers.selectHint')}
-        onClick={(e) => {
-          setActiveLayer(layer.color);
-          selectLayerObjects(layer.color, e.shiftKey);
-        }}
+        className="lyr-grip"
+        aria-label={entry.runs ? t('layers.drag') : t('layers.reason.notRunning')}
+        aria-disabled={!entry.runs}
+        title={entry.runs ? t('layers.dragHint') : t('layers.reason.notRunning')}
+        tabIndex={-1}
+        onPointerDown={entry.runs ? onGripDown : undefined}
       >
-        <span className="swatch" style={{ background: layer.color, color: readableOn(layer.color) }} aria-hidden="true">
-          {swatchLabel(layer.color)}
-        </span>
-        <span className="layer-row__text">
-          <span className="layer-row__name">
-            {layer.name}
-            <span className="layer-row__count num" title={t('layers.objects', { n: count })}>{count}</span>
-          </span>
-          <span className="layer-row__meta num">
-            <Icon size={11} aria-hidden="true" />
-            {t(`layers.mode.${layer.mode}`)} · {layer.speed} mm/min · {layer.power} %
-            {layer.passes > 1 ? ` · ×${layer.passes}` : ''}
-          </span>
-        </span>
+        <GripVertical size={14} aria-hidden="true" />
       </button>
+      <span className="lyr-pos num" title={entry.position !== null ? t('layers.position', { n: entry.position }) : t('layers.reason.notRunning')}>
+        {entry.position ?? '–'}
+        {pinned && <Pin size={9} aria-label={t('layers.pinned', { n: layer.order ?? 0 })} />}
+      </span>
+      {renaming ? (
+        <div className="lyr-main lyr-main--edit">
+          <Swatch color={layer.color} guide={guide} />
+          <RenameInput color={layer.color} value={layer.name} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="lyr-main"
+          data-layer-main={layer.color}
+          aria-current={active ? 'true' : undefined}
+          title={t('layers.rowHint')}
+          onClick={() => st().setActiveLayer(layer.color)}
+          onDoubleClick={() => openEditorFor(st(), layer.color)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              openEditorFor(st(), layer.color);
+            }
+          }}
+        >
+          <Swatch color={layer.color} guide={guide} />
+          <span className="lyr-text">
+            <span className="lyr-name">
+              <span className="lyr-name__text">{name}</span>
+              <span className="lyr-count num" title={t('layers.objects', { n: entry.count.total })}>
+                {entry.count.total}
+                <span className="sr-only"> {t('layers.objectsShort')}</span>
+              </span>
+            </span>
+            <span className="lyr-meta num" title={guide ? undefined : t(`layers.mode.${layer.mode}`)}>
+              {guide ? (
+                t('layers.guideMeta')
+              ) : (
+                <>
+                  <Icon size={11} aria-hidden="true" />
+                  <span className="sr-only">{t(`layers.mode.${layer.mode}`)}: </span>
+                  {summary(entry)}
+                </>
+              )}
+            </span>
+            <span className="lyr-tag" data-kind={entry.skip ? 'skip' : entry.role} title={tagWhy}>
+              {tag}
+            </span>
+          </span>
+        </button>
+      )}
       <button
         type="button"
         className="icon-btn"
         aria-pressed={layer.visible}
         aria-label={layer.visible ? t('layers.hide') : t('layers.show')}
         title={layer.visible ? t('layers.hide') : t('layers.show')}
-        onClick={() => updateLayer(layer.color, { visible: !layer.visible })}
+        onClick={() => st().updateLayer(layer.color, { visible: !layer.visible })}
       >
         {layer.visible ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
       </button>
       <button
         type="button"
         className="icon-btn"
-        aria-pressed={layer.output}
-        aria-label={layer.output ? t('layers.outputOff') : t('layers.outputOn')}
-        title={layer.output ? t('layers.outputOff') : t('layers.outputOn')}
-        onClick={() => updateLayer(layer.color, { output: !layer.output })}
+        aria-pressed={layer.output && !guide}
+        aria-disabled={guide}
+        aria-label={guide ? t('layers.outputGuide') : layer.output ? t('layers.outputOff') : t('layers.outputOn')}
+        title={guide ? t('layers.outputGuide') : layer.output ? t('layers.outputOff') : t('layers.outputOn')}
+        onClick={() => !guide && st().updateLayer(layer.color, { output: !layer.output })}
       >
-        {layer.output ? <Zap size={15} aria-hidden="true" /> : <ZapOff size={15} aria-hidden="true" />}
+        {layer.output && !guide ? <Zap size={15} aria-hidden="true" /> : <ZapOff size={15} aria-hidden="true" />}
       </button>
+      <button
+        ref={menuBtn}
+        type="button"
+        className="icon-btn"
+        aria-haspopup="menu"
+        aria-expanded={menu !== null}
+        aria-label={t('layers.menu.open', { name })}
+        title={t('layers.menu.open', { name })}
+        onClick={() => (menu ? closeMenu(true) : openMenu())}
+      >
+        <Ellipsis size={15} aria-hidden="true" />
+      </button>
+      {menu && <RowMenu items={items} anchor={menu} label={t('layers.menu.label', { name })} onClose={closeMenu} />}
     </li>
   );
 }
 
-/** Ajustes rápidos de la capa activa. El editor completo (relleno, imagen, kerf...) llega después. */
-function LayerEditor({ layer }: { layer: LayerSettings }) {
-  const updateLayer = useStore((s) => s.updateLayer);
+function Swatch({ color, guide }: { color: string; guide: boolean }) {
   return (
-    <section className="layer-editor" aria-label={t('layers.editor', { name: layer.name })}>
-      <h3 className="panel-title">{layer.name}</h3>
-      <div className="seg" role="radiogroup" aria-label={t('layers.mode')}>
-        {MODES.map((m) => {
-          const Icon = MODE_ICON[m];
-          return (
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={layer.mode === m}
-              className="seg__btn"
-              onClick={() => updateLayer(layer.color, { mode: m })}
-            >
-              <Icon size={13} aria-hidden="true" />
-              {t(`layers.mode.${m}`)}
-            </button>
-          );
-        })}
-      </div>
-      <div className="field-grid">
-        <NumberField label={t('layers.speed')} unit="mm/min" value={layer.speed} min={1} max={30000} step={50} onCommit={(v) => updateLayer(layer.color, { speed: v })} />
-        <NumberField label={t('layers.power')} unit="%" value={layer.power} min={0} max={100} step={1} onCommit={(v) => updateLayer(layer.color, { power: v })} />
-        <NumberField label={t('layers.passes')} value={layer.passes} min={1} max={99} onCommit={(v) => updateLayer(layer.color, { passes: Math.round(v) })} />
-        {layer.mode !== 'line' && (
-          <NumberField label={t('layers.interval')} unit="mm" value={layer.interval} min={0.01} max={5} step={0.01} onCommit={(v) => updateLayer(layer.color, { interval: v })} />
-        )}
-      </div>
-    </section>
+    <span className="lyr-swatch" data-guide={guide} style={{ '--sw': color, '--ink': readableOn(color) } as React.CSSProperties} aria-hidden="true">
+      {guide && <SquareDashed size={14} />}
+    </span>
   );
 }
 
+function RenameInput({ color, value }: { color: string; value: string }) {
+  const [text, setText] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+  const finish = (save: boolean) => {
+    const name = text.trim();
+    if (save && name !== '' && name !== value) useStore.getState().updateLayer(color, { name });
+    useLayerUi.getState().stopRename();
+    focusLayerRow(color);
+  };
+  const empty = text.trim() === '';
+  return (
+    <input
+      ref={ref}
+      className="input lyr-rename"
+      value={text}
+      maxLength={60}
+      aria-label={t('layers.rename')}
+      aria-invalid={empty}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => finish(!empty)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+          if (!empty) finish(true);
+        } else if (e.key === 'Escape') finish(false);
+      }}
+    />
+  );
+}
+
+/** Orden de ejecución: la propia lista de capas, de arriba (primero) a abajo (último). */
 export function LayersPanel() {
   const layers = useStore((s) => s.doc.layers);
   const activeLayer = useStore((s) => s.activeLayer);
-  const counts = useStore(
-    useShallow((s) => s.doc.layers.map((l) => s.doc.objects.filter((o) => o.layer === l.color).length)),
-  );
-  const active = layers.find((l) => l.color === activeLayer);
+  const mode = useStore((s) => s.jobOptions.layer_order);
+  const engineNote = useStore((s) => (s.previewStatus === 'ready' ? (s.preview?.order_note ?? null) : null));
+  const editing = useLayerUi((s) => s.editing);
+  const counts = useLayerCounts();
+  const listRef = useRef<HTMLUListElement>(null);
+  const [drag, setDrag] = useState<{ color: string; from: number; to: number } | null>(null);
+
+  const entries = useMemo(() => buildExecution(layers, counts, mode), [layers, counts, mode]);
+  const running = entries.filter((e) => e.runs).length;
+  const note = engineNote ?? localOrderNote(entries, mode);
+  const editor = editing ? layers.find((l) => l.color === editing) : undefined;
+
+  // Arrastrar con el puntero: se sigue en la ventana para no perder el gesto al salir de la fila.
+  useEffect(() => {
+    if (!drag) return;
+    const rowsY = () => [...(listRef.current?.querySelectorAll<HTMLElement>('li[data-run="true"]') ?? [])].map((el) => el.getBoundingClientRect());
+    const onMove = (e: PointerEvent) => {
+      const rects = rowsY();
+      let to = rects.length - 1;
+      for (let i = 0; i < rects.length; i++) {
+        if (e.clientY < rects[i]!.top + rects[i]!.height / 2) {
+          to = i;
+          break;
+        }
+      }
+      setDrag((d) => (d && d.to !== to ? { ...d, to } : d));
+    };
+    const onUp = () => {
+      if (drag.to !== drag.from) moveLayer(useStore.getState(), drag.color, drag.to);
+      setDrag(null);
+      focusLayerRow(drag.color);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setDrag(null);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [drag]);
+
+  const onListKey = (e: KeyboardEvent<HTMLUListElement>) => {
+    const target = e.target as HTMLElement;
+    const color = target.dataset.layerMain;
+    if (color === undefined) return;
+    const mains = [...(listRef.current?.querySelectorAll<HTMLElement>('[data-layer-main]') ?? [])];
+    const i = mains.indexOf(target);
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault(); // Alt+flechas mueven la selección en el lienzo: aquí reordenan la capa
+      const entry = entries.find((x) => x.layer.color === color);
+      if (!entry || entry.position === null) return;
+      moveLayer(useStore.getState(), color, entry.position - 1 + (e.key === 'ArrowUp' ? -1 : 1));
+      focusLayerRow(color);
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      const n = e.key === 'Home' ? 0 : e.key === 'End' ? mains.length - 1 : Math.min(mains.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)));
+      mains[n]?.focus();
+    } else if (e.key === 'F2') {
+      e.preventDefault();
+      useLayerUi.getState().startRename(color);
+    }
+  };
+
+  if (editor) return <LayerEditor layer={editor} />;
 
   return (
     <div className="panel-scroll">
       {layers.length === 0 ? (
         <p className="panel-empty">{t('layers.empty')}</p>
       ) : (
-        <ul className="layer-list">
-          {layers.map((layer, i) => (
-            <LayerRow key={layer.color} layer={layer} active={layer.color === activeLayer} count={counts[i] ?? 0} />
-          ))}
-        </ul>
+        <>
+          <div className="lyr-head">
+            <div className="lyr-head__row">
+              <span id="lyr-order-label" className="lyr-head__title">
+                <SlidersHorizontal size={12} aria-hidden="true" /> {t('layers.order.title')}
+              </span>
+              <OrderModeToggle mode={mode} />
+            </div>
+            <p className="lyr-note" aria-live="polite">
+              {note ?? t('layers.order.note.single')}
+            </p>
+          </div>
+          <ul
+            ref={listRef}
+            className="lyr-list"
+            aria-label={t('layers.list', { n: running })}
+            data-dragging={drag !== null}
+            onKeyDown={onListKey}
+          >
+            {entries.map((entry) => {
+              const idx = entry.position === null ? -1 : entry.position - 1;
+              const mark = drag && idx === drag.to && drag.to !== drag.from ? (drag.to > drag.from ? 'after' : 'before') : null;
+              return (
+                <LayerRow
+                  key={entry.layer.color}
+                  entry={entry}
+                  active={entry.layer.color.toLowerCase() === activeLayer?.toLowerCase()}
+                  canMoveUp={idx > 0}
+                  canMoveDown={idx >= 0 && idx < running - 1}
+                  dropMark={mark}
+                  dragging={drag?.color === entry.layer.color}
+                  onGripDown={(e) => {
+                    e.preventDefault();
+                    setDrag({ color: entry.layer.color, from: idx, to: idx });
+                  }}
+                />
+              );
+            })}
+          </ul>
+          <p className="lyr-foot">{t('layers.keysHint')}</p>
+        </>
       )}
-      {active && <LayerEditor layer={active} />}
+    </div>
+  );
+}
+
+function OrderModeToggle({ mode }: { mode: LayerOrder }) {
+  const setJobOptions = useStore((s) => s.setJobOptions);
+  const opts: LayerOrder[] = ['auto', 'file'];
+  return (
+    <div className="lyr-seg lyr-seg--sm" role="radiogroup" aria-labelledby="lyr-order-label">
+      {opts.map((o) => (
+        <label key={o} title={t(`layers.order.mode.${o}.why`)}>
+          <input type="radio" name="layer-order" checked={mode === o} onChange={() => setJobOptions({ layer_order: o })} />
+          <span>{t(`layers.order.mode.${o}`)}</span>
+        </label>
+      ))}
     </div>
   );
 }

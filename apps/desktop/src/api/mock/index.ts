@@ -76,7 +76,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     disconnect: () => lag(() => machine.disconnect()),
     machineCommand: ({ line }) => lag(() => machine.command(line)),
     machineRealtime: ({ cmd }) => lag(() => machine.realtime(cmd)),
-    jog: ({ dx, dy }) => lag(() => machine.jog(dx, dy, [400, 415])),
+    jog: ({ dx, dy, speed }) => lag(() => machine.jog(dx, dy, [400, 415], speed)),
 
     startJob: ({ doc, device, options: o }) =>
       lag(() => machine.startJob(mockComputeJob(doc, device, o), device)),

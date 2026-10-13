@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockApi, type MockApi } from '@/api/mock';
 import { sampleLayers, sampleObjects } from '@/api/mock/sample';
 import { setApi } from '@/api';
@@ -194,8 +194,7 @@ describe('máquina', () => {
     expect(store.getState().firmware).toMatch(/Grbl/);
     await store.getState().startJob();
     expect(store.getState().jobState).toBe('running');
-    await new Promise((r) => setTimeout(r, 600));
-    expect(store.getState().jobState).toBe('finished');
+    await vi.waitFor(() => expect(store.getState().jobState).toBe('finished'), { timeout: 5000 });
     expect(store.getState().progress?.acked).toBe(store.getState().progress?.total);
     await store.getState().disconnect();
     expect(store.getState().connection.connected).toBe(false);

@@ -1,57 +1,78 @@
-import { worldToScreen } from '@/lib/viewport';
+import { BlockCache, type BlockPaths } from '@/features/preview/blocks';
+import { buildLayerPaths, drawPreviewModel, qualityLevel } from '@/features/preview/draw';
+import { getModel, type PreviewData, type PreviewModel } from '@/features/preview/model';
+import { useStore } from '@/store';
 import type { Scene } from './renderer';
 
 /**
  * Dibuja el recorrido de la vista previa sobre el lienzo. Este archivo es del área de vista
- * previa; el renderer solo lo llama al final de cada cuadro.
+ * previa; el renderer solo lo llama al final de cada cuadro con `drawPreview(ctx, scene)`.
+ * La lógica vive en `features/preview` (modelo, caché por bloques y dibujo); aquí solo se
+ * conectan con `Path2D` y con el estado de la vista previa.
  */
-export function drawPreview(ctx: CanvasRenderingContext2D, { view, preview, palette: p }: Scene): void {
-  if (!preview) return;
-  const m = preview.data.moves;
-  const count = Math.floor(m.length / 4);
-  const upto = Math.floor(count * preview.scrub);
-  const travel = new Path2D();
-  const cut = new Path2D();
-  const engrave = new Path2D();
-  const over = new Path2D();
-  let [sx0, sy0] = worldToScreen(view, [0, 0]);
-  for (let i = 0; i < upto; i++) {
-    const kind = m[i * 4]!;
-    const x = m[i * 4 + 1]!;
-    const y = m[i * 4 + 2]!;
-    const power = m[i * 4 + 3]!;
-    const [sx, sy] = worldToScreen(view, [x, y]);
-    // Potencia >= 60 %: corte; menos: grabado; 0: overscan (el cabezal acelera sin disparar).
-    const target = kind === 0 ? travel : power >= 60 ? cut : power > 0 ? engrave : over;
-    target.moveTo(sx0, sy0);
-    target.lineTo(sx, sy);
-    sx0 = sx;
-    sy0 = sy;
+
+const makePath = () => new Path2D();
+
+interface ModelCaches {
+  blocks: BlockCache<Path2D>;
+  highlight: { layer: number; paths: BlockPaths<Path2D> | null } | null;
+}
+
+const caches = new WeakMap<PreviewModel, ModelCaches>();
+
+function cachesFor(model: PreviewModel): ModelCaches {
+  let c = caches.get(model);
+  if (!c) {
+    c = { blocks: new BlockCache(model, makePath), highlight: null };
+    caches.set(model, c);
   }
-  ctx.save();
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = p.travel;
-  ctx.setLineDash([3, 4]);
-  ctx.stroke(travel);
-  ctx.setLineDash([]);
-  ctx.strokeStyle = p.overscan;
-  ctx.stroke(over);
-  ctx.strokeStyle = p.engrave;
-  ctx.stroke(engrave);
-  ctx.strokeStyle = p.cut;
-  ctx.lineWidth = 1.6;
-  ctx.stroke(cut);
-  if (upto > 0 && upto < count) {
-    ctx.fillStyle = p.head;
-    ctx.beginPath();
-    ctx.arc(sx0, sy0, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = p.head;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(sx0, sy0, 10, 0, Math.PI * 2);
-    ctx.stroke();
+  return c;
+}
+
+export function drawPreview(ctx: CanvasRenderingContext2D, scene: Scene): void {
+  if (!scene.preview) return;
+  const model = getModel(scene.preview.data);
+  if (model.count === 0) return;
+  const c = cachesFor(model);
+  const options = useStore.getState().previewView;
+
+  let highlight: BlockPaths<Path2D> | null = null;
+  if (options.highlightLayer !== null) {
+    if (c.highlight?.layer !== options.highlightLayer) {
+      c.highlight = { layer: options.highlightLayer, paths: buildLayerPaths(model, options.highlightLayer, makePath) };
+    }
+    highlight = c.highlight.paths;
   }
-  ctx.restore();
+
+  drawPreviewModel({
+    ctx,
+    model,
+    cache: c.blocks,
+    factory: makePath,
+    view: scene.view,
+    width: scene.width,
+    height: scene.height,
+    palette: scene.palette,
+    scrub: scene.preview.scrub,
+    options,
+    highlight,
+  });
+}
+
+/**
+ * Construye los trazados pendientes en ratos libres, para que el primer dibujo con el recorrido
+ * completo no se trabe. Se detiene sola si llega otra vista previa. Devuelve la función que cancela.
+ */
+export function warmPreviewCache(data: PreviewData): () => void {
+  if (typeof Path2D === 'undefined') return () => {};
+  const model = getModel(data);
+  const { blocks } = cachesFor(model);
+  const level = qualityLevel(useStore.getState().zoom);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const step = () => {
+    timer = undefined;
+    if (!blocks.warm(6, level)) timer = setTimeout(step, 0);
+  };
+  timer = setTimeout(step, 0);
+  return () => clearTimeout(timer);
 }

@@ -13,10 +13,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
-# Oleada A: solo la cáscara de la app. Los crates del motor (laser-doc, laser-pipeline...)
-# se conectan en la oleada B.
 [dependencies]
-tauri = { version = "2", features = [] }
+# `protocol-asset` habilita asset://, con el que la interfaz muestra las imágenes del diseño.
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+laser-core = { version = "0.1.0", path = "../../../crates/laser-core" }
+laser-doc = { version = "0.1.0", path = "../../../crates/laser-doc" }
+laser-grbl = { version = "0.1.0", path = "../../../crates/laser-grbl" }
+laser-pipeline = { version = "0.1.0", path = "../../../crates/laser-pipeline" }

@@ -82,6 +82,7 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
   const ordered = options.layer_order === 'file' ? layers : [...layers].sort((a, b) => rank(a) - rank(b));
 
   const flat: number[] = [];
+  const moveTimes: number[] = [];
   const summaries: JobLayerSummary[] = [];
   const warnings: string[] = [];
   let total = 0;
@@ -121,12 +122,19 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
     }
     if (moves.length === 0) continue;
 
+    // Tiempo acumulado al final de cada movimiento (sin aceleración: distancia / velocidad).
     const cutMm = moveLength(moves, 1, cursor);
-    const travelMm = moveLength(moves, 0, cursor);
-    const seconds = (cutMm / layer.speed) * 60 * layer.passes + (travelMm / device.rapid_rate) * 60;
+    let seconds = 0;
+    for (let p = 0; p < layer.passes; p++) {
+      for (const m of moves) {
+        const dist = Math.hypot(m[1] - cursor[0], m[2] - cursor[1]);
+        seconds += (dist / (m[0] === 1 ? layer.speed : device.rapid_rate)) * 60;
+        cursor = [m[1], m[2]];
+        flat.push(m[0], m[1], m[2], m[3]);
+        moveTimes.push(total + seconds);
+      }
+    }
     total += seconds;
-    cursor = [moves[moves.length - 1]![1], moves[moves.length - 1]![2]];
-    for (let p = 0; p < layer.passes; p++) for (const m of moves) flat.push(m[0], m[1], m[2], m[3]);
 
     const explanations: string[] = [];
     if (layer.mode === 'line') {
@@ -161,6 +169,7 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
   return {
     layers: summaries,
     moves: flat,
+    move_times: moveTimes,
     total_s: total,
     bounds,
     order_note: summaries.length > 1 ? 'Orden de capas automático: primero las que graban, al final la que corta.' : null,

@@ -1,8 +1,47 @@
-import type { DeviceOrigin, Point } from '@/api/types';
-import { applyAffine, objectBounds, unionBounds } from '@/lib/geometry';
+import type { Affine, DesignObject, DeviceOrigin, Point } from '@/api/types';
 import { gridSteps, worldToScreen, type ViewTransform } from '@/lib/viewport';
+import { boxesIntersect, chunkPath, fillPath, getGeom, visibleBox, type Box, type ObjectGeom } from './geom';
+import { frameRect, handleSpots } from './handles';
+import { ImageCache } from './imageSource';
 import { drawPreview } from './previewLayer';
 import type { CanvasPalette, Renderer, Scene } from './renderer';
+import { boundsOf, keepsAxes, canRotate as selectionCanRotate } from './transform';
+
+/** Ancho de línea de los objetos en px de pantalla (constante: no depende del zoom). */
+const STROKE_PX = 1.4;
+const HOVER_PX = 2.6;
+const DIM_ALPHA = 0.22;
+/** Por encima de este número de segmentos visibles, el diseño se pinta en un bitmap que se reutiliza al hacer zoom o paneo. */
+export const HEAVY_SEGMENTS = 12_000;
+/** Margen extra del bitmap (fracción del lado mayor) para que el paneo no muestre bordes vacíos. */
+const CACHE_MARGIN = 0.2;
+/** Tiempo sin mover la vista tras el cual se repinta nítido (ms). */
+const SETTLE_MS = 120;
+
+interface CacheKey {
+  objects: DesignObject[];
+  layers: Scene['layers'];
+  wireframe: boolean;
+  dim: boolean;
+  w: number;
+  h: number;
+  dpr: number;
+  images: number;
+}
+
+interface ObjectBitmap {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  margin: number;
+  /** Vista con la que se pintó (sin el margen). */
+  view: ViewTransform;
+  key: CacheKey;
+}
+
+function keyEquals(a: CacheKey, b: CacheKey): boolean {
+  return a.objects === b.objects && a.layers === b.layers && a.wireframe === b.wireframe && a.dim === b.dim &&
+    a.w === b.w && a.h === b.h && a.dpr === b.dpr && a.images === b.images;
+}
 
 /** Renderer de referencia en Canvas 2D: cama, cuadrícula, objetos, selección y vista previa. */
 export class Canvas2DRenderer implements Renderer {
@@ -12,6 +51,19 @@ export class Canvas2DRenderer implements Renderer {
   private w = 0;
   private h = 0;
   private dpr = 1;
+  private invalidate: () => void = () => {};
+  private imageVersion = 0;
+  private images = new ImageCache(() => {
+    this.imageVersion++;
+    this.invalidate();
+  });
+  private bitmap: ObjectBitmap | null = null;
+  private settleTimer = 0;
+  private settleNow = false;
+
+  setInvalidate(cb: () => void): void {
+    this.invalidate = cb;
+  }
 
   attach(canvas: HTMLCanvasElement): void {
     this.canvas = canvas;
@@ -28,8 +80,10 @@ export class Canvas2DRenderer implements Renderer {
   }
 
   dispose(): void {
+    if (this.settleTimer) clearTimeout(this.settleTimer);
     this.canvas = null;
     this.ctx = null;
+    this.bitmap = null;
   }
 
   render(scene: Scene): void {
@@ -41,10 +95,20 @@ export class Canvas2DRenderer implements Renderer {
     ctx.fillRect(0, 0, this.w, this.h);
 
     this.drawBed(ctx, scene);
+    const selected = scene.objects.filter((o) => scene.selectedIds.has(o.id));
     this.drawObjects(ctx, scene);
-    if (scene.preview) drawPreview(ctx, scene);
-    else this.drawSelection(ctx, scene);
+    if (scene.preview) {
+      drawPreview(ctx, scene);
+      this.drawPreviewBounds(ctx, scene);
+    } else {
+      this.drawHover(ctx, scene, selected);
+      this.drawSelection(ctx, scene, selected);
+    }
+    this.drawDraft(ctx, scene);
+    this.drawGuides(ctx, scene);
+    this.drawMarquee(ctx, scene);
     this.drawOrigin(ctx, view, scene.bed, p);
+    this.drawHead(ctx, scene);
   }
 
   // ---- cama y cuadrícula -------------------------------------------------
@@ -139,91 +203,407 @@ export class Canvas2DRenderer implements Renderer {
 
   // ---- diseño ------------------------------------------------------------
 
+  /** Contexto en coordenadas de documento (mm) con la vista y, opcionalmente, una matriz viva encima. */
+  private worldTransform(ctx: CanvasRenderingContext2D, view: ViewTransform, live: Affine | null, dpr = this.dpr): number {
+    const k = dpr * view.zoom;
+    ctx.setTransform(k, 0, 0, -k, dpr * view.panX, dpr * view.panY);
+    if (!live) return 1;
+    ctx.transform(live[0], live[1], live[2], live[3], live[4], live[5]);
+    return Math.sqrt(Math.abs(live[0] * live[3] - live[1] * live[2])) || 1;
+  }
+
+  private strokeGeom(ctx: CanvasRenderingContext2D, g: ObjectGeom, vb: Box | null): void {
+    for (const ch of g.chunks) {
+      if (vb && !boxesIntersect(ch.box, vb)) continue;
+      ctx.stroke(chunkPath(g, ch));
+    }
+  }
+
+  /** Segmentos que caen en la vista (sobreestimado: cuenta objetos enteros). */
+  private visibleSegments(scene: Scene, vb: Box): number {
+    let n = 0;
+    for (const obj of scene.objects) {
+      if (obj.hidden) continue;
+      const g = getGeom(obj);
+      if (g.box && boxesIntersect(g.box, vb)) n += g.segments;
+    }
+    return n;
+  }
+
   private drawObjects(ctx: CanvasRenderingContext2D, scene: Scene): void {
-    const { view, objects, layers, wireframe, preview } = scene;
+    const { view, width, height, overlay } = scene;
+    const heavy = overlay.live === null && typeof document !== 'undefined' &&
+      this.visibleSegments(scene, visibleBox(view, width, height)) > HEAVY_SEGMENTS;
+    if (!heavy) {
+      this.paintObjects(ctx, scene, view, width, height, this.dpr, overlay.live);
+      return;
+    }
+    this.drawFromBitmap(ctx, scene);
+  }
+
+  /**
+   * Diseños densos: se pintan una vez en un bitmap con margen y, mientras la vista se mueve, se
+   * reutiliza desplazado y escalado (fluido). Cuando la vista deja de moverse se repinta nítido.
+   */
+  private drawFromBitmap(ctx: CanvasRenderingContext2D, scene: Scene): void {
+    const { view, width, height, overlay } = scene;
+    const dpr = this.dpr;
+    const key: CacheKey = {
+      objects: scene.objects, layers: scene.layers, wireframe: scene.wireframe, dim: scene.preview !== null,
+      w: width, h: height, dpr, images: this.imageVersion,
+    };
+    let bm = this.bitmap;
+    const valid = bm !== null && keyEquals(bm.key, key);
+    const sameView = valid && bm!.view.zoom === view.zoom && bm!.view.panX === view.panX && bm!.view.panY === view.panY;
+    if (!valid || (!sameView && this.settleNow)) {
+      bm = this.rebuildBitmap(scene, key);
+      this.settleNow = false;
+    } else if (!sameView) {
+      this.armSettle(); // se ve el bitmap viejo transformado hasta que la vista se quede quieta
+    }
+    if (!bm) {
+      this.paintObjects(ctx, scene, view, width, height, dpr, overlay.live);
+      return;
+    }
+    const k = view.zoom / bm.view.zoom;
     ctx.save();
-    if (preview) ctx.globalAlpha = 0.22;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.transform(k, 0, 0, k, view.panX - k * (bm.view.panX + bm.margin), view.panY - k * (bm.view.panY + bm.margin));
+    ctx.drawImage(bm.canvas, 0, 0, bm.canvas.width / dpr, bm.canvas.height / dpr);
+    ctx.restore();
+  }
+
+  private rebuildBitmap(scene: Scene, key: CacheKey): ObjectBitmap | null {
+    const { view, width, height } = scene;
+    const dpr = this.dpr;
+    const margin = Math.round(Math.max(width, height) * CACHE_MARGIN);
+    const cw = Math.ceil((width + margin * 2) * dpr);
+    const ch = Math.ceil((height + margin * 2) * dpr);
+    let bm = this.bitmap;
+    if (!bm || bm.canvas.width !== cw || bm.canvas.height !== ch) {
+      const canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      const cctx = canvas.getContext('2d');
+      if (!cctx) return null;
+      bm = { canvas, ctx: cctx, margin, view, key };
+    }
+    bm.margin = margin;
+    bm.view = { zoom: view.zoom, panX: view.panX, panY: view.panY };
+    bm.key = key;
+    bm.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    bm.ctx.clearRect(0, 0, cw, ch);
+    this.paintObjects(bm.ctx, scene, { zoom: view.zoom, panX: view.panX + margin, panY: view.panY + margin }, width + margin * 2, height + margin * 2, dpr, null);
+    this.bitmap = bm;
+    return bm;
+  }
+
+  private armSettle(): void {
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    this.settleTimer = window.setTimeout(() => {
+      this.settleTimer = 0;
+      this.settleNow = true;
+      this.invalidate();
+    }, SETTLE_MS);
+  }
+
+  /** Pinta los objetos de `scene` en `ctx` con la vista dada (la de pantalla o la de un bitmap). */
+  private paintObjects(ctx: CanvasRenderingContext2D, scene: Scene, view: ViewTransform, w: number, h: number, dpr: number, live: Affine | null): void {
+    const { objects, layers, wireframe, preview, selectedIds } = scene;
+    const vb = visibleBox(view, w, h, STROKE_PX * 2);
+    const dim = preview ? DIM_ALPHA : 1;
+    const minSize = 0.35 / view.zoom; // menos de ~1/3 px: no se ve
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    let color = '';
     for (const obj of objects) {
       if (obj.hidden) continue;
-      const layer = layers.get(obj.layer);
+      const layer = layers.get(obj.layer) ?? layers.get(obj.layer.toLowerCase());
       if (layer && !layer.visible) continue;
-      const color = obj.layer;
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineWidth = 1.4;
-      ctx.lineJoin = 'round';
+      const g = getGeom(obj);
+      if (!g.box) continue;
+      const moving = live !== null && selectedIds.has(obj.id);
+      if (!moving) {
+        if (!boxesIntersect(g.box, vb)) continue;
+        if (g.box[2] - g.box[0] < minSize && g.box[3] - g.box[1] < minSize) continue;
+      }
+      if (obj.layer !== color) {
+        color = obj.layer;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+      }
+      const scale = this.worldTransform(ctx, view, moving ? live : null, dpr);
+      ctx.lineWidth = STROKE_PX / (view.zoom * scale);
+      ctx.globalAlpha = dim;
 
-      if (obj.kind.type === 'image') {
-        const [w, h] = obj.kind.size_mm;
-        const a = worldToScreen(view, applyAffine(obj.transform, [0, 0]));
-        const b = worldToScreen(view, applyAffine(obj.transform, [w, h]));
-        const x = Math.min(a[0], b[0]);
-        const y = Math.min(a[1], b[1]);
-        const rw = Math.abs(b[0] - a[0]);
-        const rh = Math.abs(b[1] - a[1]);
-        ctx.globalAlpha = (preview ? 0.22 : 1) * (wireframe ? 0 : 0.16);
-        ctx.fillRect(x, y, rw, rh);
-        ctx.globalAlpha = preview ? 0.22 : 1;
-        ctx.strokeRect(x, y, rw, rh);
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x + rw, y + rh);
-        ctx.moveTo(x + rw, y);
-        ctx.lineTo(x, y + rh);
-        ctx.globalAlpha = (preview ? 0.22 : 1) * 0.35;
-        ctx.stroke();
-        ctx.globalAlpha = preview ? 0.22 : 1;
+      if (g.image) {
+        this.drawImage(ctx, obj, g, wireframe, dim, vb);
         continue;
       }
-
-      ctx.beginPath();
-      for (const path of obj.kind.paths) {
-        path.points.forEach((pt, i) => {
-          const [sx, sy] = worldToScreen(view, applyAffine(obj.transform, pt));
-          if (i === 0) ctx.moveTo(sx, sy);
-          else ctx.lineTo(sx, sy);
-        });
-        if (path.closed) ctx.closePath();
-      }
       if (layer?.mode === 'fill' && !wireframe) {
-        const a = ctx.globalAlpha;
-        ctx.globalAlpha = a * 0.3;
-        ctx.fill('evenodd');
-        ctx.globalAlpha = a;
+        ctx.globalAlpha = dim * 0.3;
+        ctx.fill(fillPath(g), 'evenodd');
+        ctx.globalAlpha = dim;
       }
-      ctx.stroke();
+      this.strokeGeom(ctx, g, moving ? null : vb);
     }
     ctx.restore();
   }
 
-  private drawSelection(ctx: CanvasRenderingContext2D, { view, objects, selectedIds, palette: p }: Scene): void {
-    const picked = objects.filter((o) => selectedIds.has(o.id));
-    const b = unionBounds(picked.map(objectBounds));
-    if (!b) return;
-    const [x0, y0] = worldToScreen(view, [b[0][0], b[1][1]]);
-    const [x1, y1] = worldToScreen(view, [b[1][0], b[0][1]]);
-    const pad = 6;
-    const x = x0 - pad;
-    const y = y0 - pad;
-    const w = x1 - x0 + pad * 2;
-    const h = y1 - y0 + pad * 2;
+  /** Imagen del documento con su transform; si aún no carga (o no hay URL), un marcador con su caja. */
+  private drawImage(ctx: CanvasRenderingContext2D, obj: DesignObject, g: ObjectGeom, wireframe: boolean, dim: number, vb: Box): void {
+    if (obj.kind.type !== 'image') return;
+    const [w, h] = obj.kind.size_mm;
+    const img = wireframe ? null : this.images.get(obj.kind.source_path);
+    if (img) {
+      ctx.save();
+      const [a, b, c, d, e, f] = obj.transform;
+      ctx.transform(a, b, c, d, e, f);
+      ctx.transform(1, 0, 0, -1, 0, h); // el documento tiene Y hacia arriba: la imagen se dibuja derecha
+      ctx.drawImage(img, 0, 0, w, h);
+      ctx.restore();
+    } else if (!wireframe) {
+      ctx.globalAlpha = dim * 0.16;
+      ctx.fill(fillPath(g));
+      ctx.globalAlpha = dim * 0.35;
+      const p = g.polys[0].pts;
+      const x = new Path2D();
+      x.moveTo(p[0], p[1]);
+      x.lineTo(p[4], p[5]);
+      x.moveTo(p[2], p[3]);
+      x.lineTo(p[6], p[7]);
+      ctx.stroke(x);
+      ctx.globalAlpha = dim;
+    }
+    this.strokeGeom(ctx, g, vb);
+  }
+
+  private drawHover(ctx: CanvasRenderingContext2D, scene: Scene, selected: DesignObject[]): void {
+    const { overlay, view, objects, palette: p } = scene;
+    if (!overlay.hoverId || overlay.live || overlay.marquee || overlay.draft) return;
+    if (selected.some((o) => o.id === overlay.hoverId)) return;
+    const obj = objects.find((o) => o.id === overlay.hoverId);
+    if (!obj || obj.hidden) return;
+    const g = getGeom(obj);
     ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    this.worldTransform(ctx, view, null);
+    ctx.strokeStyle = p.selection;
+    ctx.lineWidth = HOVER_PX / view.zoom;
+    this.strokeGeom(ctx, g, null);
+    ctx.restore();
+  }
+
+  // ---- selección ------------------------------------------------------------
+
+  private drawSelection(ctx: CanvasRenderingContext2D, scene: Scene, selected: DesignObject[]): void {
+    const { view, palette: p, overlay } = scene;
+    if (selected.length === 0) return;
+    const live = overlay.live;
+    const base = boundsOf(selected);
+    if (!base) return;
+
+    // Contorno de lo seleccionado, con el mismo trazo que el hover pero más fino.
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const k = this.worldTransform(ctx, view, live);
+    ctx.strokeStyle = p.selection;
+    ctx.lineWidth = 1 / (view.zoom * k);
+    ctx.globalAlpha = 0.9;
+    if (selected.length <= 400) for (const o of selected) this.strokeGeom(ctx, getGeom(o), null);
+    ctx.restore();
+
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (live && !keepsAxes(live)) {
+      // Giro en curso: el marco original, girado.
+      const corners: Point[] = [
+        [base[0][0], base[0][1]], [base[1][0], base[0][1]], [base[1][0], base[1][1]], [base[0][0], base[1][1]],
+      ];
+      ctx.strokeStyle = p.selection;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      corners.forEach((c, i) => {
+        const wx = live[0] * c[0] + live[2] * c[1] + live[4];
+        const wy = live[1] * c[0] + live[3] * c[1] + live[5];
+        const [sx, sy] = worldToScreen(view, [wx, wy]);
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      ctx.closePath();
+      ctx.stroke();
+      if (overlay.pivot) {
+        const [px, py] = worldToScreen(view, overlay.pivot);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(px - 6, py);
+        ctx.lineTo(px + 6, py);
+        ctx.moveTo(px, py - 6);
+        ctx.lineTo(px, py + 6);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+    const b = live ? (boundsOf(selected, live) ?? base) : base;
+    const r = frameRect(b, view);
     ctx.fillStyle = p.selectionFill;
-    ctx.fillRect(x, y, w, h);
+    ctx.fillRect(r.x, r.y, r.w, r.h);
     ctx.strokeStyle = p.selection;
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 4]);
-    ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, w, h);
+    ctx.strokeRect(Math.round(r.x) + 0.5, Math.round(r.y) + 0.5, r.w, r.h);
     ctx.setLineDash([]);
-    ctx.fillStyle = p.workspace;
-    for (const [hx, hy] of [
-      [x, y], [x + w / 2, y], [x + w, y],
-      [x, y + h / 2], [x + w, y + h / 2],
-      [x, y + h], [x + w / 2, y + h], [x + w, y + h],
-    ] as const) {
-      ctx.fillRect(hx - 3.5, hy - 3.5, 7, 7);
-      ctx.strokeRect(hx - 3.5, hy - 3.5, 7, 7);
+    if (!live) {
+      const spots = handleSpots(b, view, { rotateMode: overlay.rotateMode, canRotate: selectionCanRotate(selected) });
+      ctx.fillStyle = p.workspace;
+      for (const s of spots) {
+        if (s.id === 'knob') {
+          ctx.beginPath();
+          ctx.moveTo(s.x, r.y);
+          ctx.lineTo(s.x, s.y + 5);
+          ctx.stroke();
+        }
+        if (s.kind === 'rotate') {
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.id === 'knob' ? 5 : 5.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.fillRect(s.x - 3.5, s.y - 3.5, 7, 7);
+          ctx.strokeRect(s.x - 3.5, s.y - 3.5, 7, 7);
+        }
+      }
     }
+    ctx.restore();
+  }
+
+  // ---- superposiciones ------------------------------------------------------------
+
+  private drawMarquee(ctx: CanvasRenderingContext2D, { view, overlay, palette: p }: Scene): void {
+    const m = overlay.marquee;
+    if (!m) return;
+    const [ax, ay] = worldToScreen(view, m.a);
+    const [bx, by] = worldToScreen(view, m.b);
+    const x = Math.min(ax, bx);
+    const y = Math.min(ay, by);
+    const w = Math.abs(bx - ax);
+    const h = Math.abs(by - ay);
+    const crossing = m.mode === 'crossing';
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = crossing ? p.crossing : p.selection;
+    ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = crossing ? p.crossing : p.selection;
+    ctx.lineWidth = 1;
+    ctx.setLineDash(crossing ? [6, 4] : []); // continua = "dentro"; discontinua = "toca"
+    ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, w, h);
+    ctx.restore();
+  }
+
+  private drawGuides(ctx: CanvasRenderingContext2D, { view, overlay, palette: p }: Scene): void {
+    if (overlay.guides.length === 0) return;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = p.guide;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    for (const g of overlay.guides) {
+      if (g.axis === 'x') {
+        const [sx, sy0] = worldToScreen(view, [g.v, g.lo]);
+        const [, sy1] = worldToScreen(view, [g.v, g.hi]);
+        const x = Math.round(sx) + 0.5;
+        ctx.moveTo(x, sy0 + 4);
+        ctx.lineTo(x, sy1 - 4);
+      } else {
+        const [sx0, sy] = worldToScreen(view, [g.lo, g.v]);
+        const [sx1] = worldToScreen(view, [g.hi, g.v]);
+        const y = Math.round(sy) + 0.5;
+        ctx.moveTo(sx0 - 4, y);
+        ctx.lineTo(sx1 + 4, y);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawDraft(ctx: CanvasRenderingContext2D, { view, overlay, palette: p }: Scene): void {
+    const d = overlay.draft;
+    if (!d) return;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = p.selection;
+    ctx.fillStyle = p.workspace;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    for (const path of d.paths) {
+      ctx.beginPath();
+      path.points.forEach((pt, i) => {
+        const [sx, sy] = worldToScreen(view, pt);
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      });
+      if (path.closed) ctx.closePath();
+      ctx.stroke();
+    }
+    if (d.rubber) {
+      for (const path of d.paths) {
+        // El último punto es el cursor: los vértices fijos llevan un cuadrito.
+        path.points.slice(0, -1).forEach((pt) => {
+          const [sx, sy] = worldToScreen(view, pt);
+          ctx.fillRect(sx - 3, sy - 3, 6, 6);
+          ctx.strokeRect(sx - 3, sy - 3, 6, 6);
+        });
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Rectángulo de encuadre de la vista previa, con overscan incluido. */
+  private drawPreviewBounds(ctx: CanvasRenderingContext2D, { view, preview, palette: p }: Scene): void {
+    if (!preview) return;
+    const [[x0, y0], [x1, y1]] = preview.data.bounds;
+    const [ax, ay] = worldToScreen(view, [x0, y1]);
+    const [bx, by] = worldToScreen(view, [x1, y0]);
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = p.overscan;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([8, 5]);
+    ctx.strokeRect(Math.round(ax) + 0.5, Math.round(ay) + 0.5, bx - ax, by - ay);
+    ctx.restore();
+  }
+
+  /** Marcador de la posición del cabezal: mira y círculo, solo lectura. */
+  private drawHead(ctx: CanvasRenderingContext2D, { view, head, palette: p }: Scene): void {
+    if (!head) return;
+    const [sx, sy] = worldToScreen(view, head);
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = p.head;
+    ctx.fillStyle = p.head;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+    ctx.moveTo(sx - 12, sy);
+    ctx.lineTo(sx - 3, sy);
+    ctx.moveTo(sx + 3, sy);
+    ctx.lineTo(sx + 12, sy);
+    ctx.moveTo(sx, sy - 12);
+    ctx.lineTo(sx, sy - 3);
+    ctx.moveTo(sx, sy + 3);
+    ctx.lineTo(sx, sy + 12);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.8, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 }

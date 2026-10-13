@@ -40,16 +40,24 @@ export interface LaserApi {
   listPorts(): Promise<string[]>;
   connect(args: { port: string; baud: number }): Promise<ConnectResult>;
   disconnect(): Promise<void>;
-  /** Devuelve las líneas de respuesta hasta `ok`. */
+  /**
+   * Devuelve las líneas de respuesta; la última es `ok`, o `error:N: ...` / `ALARM:N: ...` con su
+   * explicación. No acepta `?`, `!` ni `~` (usa `machineRealtime`). Falla con un trabajo en curso.
+   */
   machineCommand(args: { line: string }): Promise<string[]>;
   machineRealtime(args: { cmd: RealtimeCommand }): Promise<void>;
-  /** `$J=` relativo. */
+  /** `$J=G91 G21 X.. Y.. F..` relativo, en mm y mm/min. Falla con un trabajo en curso o en alarma. */
   jog(args: { dx: number; dy: number; speed: number }): Promise<void>;
+  /**
+   * Calcula, comprueba el estado de la máquina y transmite. Rechaza (sin enviar nada y con un
+   * mensaje que explica qué hacer) si la máquina está en Alarm, Hold, Door, Run o Jog.
+   */
   startJob(args: JobArgs): Promise<void>;
   pauseJob(): Promise<void>;
   resumeJob(): Promise<void>;
+  /** Con trabajo: feed hold y soft reset. Sin trabajo: cancela el jog en curso (0x85). */
   cancelJob(): Promise<void>;
-  /** Encuadre con el láser apagado. */
+  /** Encuadre con el láser apagado; mismas comprobaciones de estado que `startJob`. */
   frameJob(args: JobArgs & { speed: number }): Promise<void>;
 
   /** Suscripción a eventos `machine://*`. Devuelve la función para cancelar. */

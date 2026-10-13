@@ -47,6 +47,7 @@ pub(crate) fn preview(
     toolpath: &Toolpath,
     layers: &[LayerReport],
     total_s: f64,
+    move_times: Vec<f64>,
     order_note: Option<String>,
     warnings: Vec<String>,
 ) -> JobPreview {
@@ -68,6 +69,7 @@ pub(crate) fn preview(
     JobPreview {
         layers: layers.iter().map(layer).collect(),
         moves,
+        move_times,
         total_s,
         bounds,
         order_note,

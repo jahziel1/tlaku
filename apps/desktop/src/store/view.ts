@@ -6,7 +6,7 @@ import { selectActiveDevice, selectSelectedObjects } from './selectors';
 import type { SliceCreator } from './types';
 
 export type Theme = 'dark' | 'light';
-export type DockTab = 'layers' | 'machine' | 'console';
+export type DockTab = 'layers' | 'machine' | 'console' | 'history';
 
 export interface ViewSlice {
   zoom: number;
@@ -21,6 +21,10 @@ export interface ViewSlice {
   theme: Theme;
   dockTab: DockTab;
   dockWidth: number;
+  /** Ajuste magnético: interruptor general y por tipo (cuadrícula / objetos y cama). */
+  snapEnabled: boolean;
+  snapGrid: boolean;
+  snapObjects: boolean;
 
   setViewport: (width: number, height: number) => void;
   setCursor: (p: Point | null) => void;
@@ -36,6 +40,9 @@ export interface ViewSlice {
   toggleTheme: () => void;
   setDockTab: (t: DockTab) => void;
   setDockWidth: (w: number) => void;
+  toggleSnap: () => void;
+  toggleSnapGrid: () => void;
+  toggleSnapObjects: () => void;
 }
 
 export const DOCK_MIN = 280;
@@ -49,6 +56,12 @@ function initialTheme(): Theme {
 function initialDock(): number {
   const n = Number(readPref('dockWidth'));
   return Number.isFinite(n) && n >= DOCK_MIN && n <= DOCK_MAX ? n : 332;
+}
+
+/** Preferencia booleana guardada ('1' / '0'); `fallback` si no hay nada. */
+function initialFlag(key: string, fallback: boolean): boolean {
+  const v = readPref(key);
+  return v === '1' ? true : v === '0' ? false : fallback;
 }
 
 export function applyThemeToDocument(theme: Theme): void {
@@ -66,6 +79,9 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
   theme: initialTheme(),
   dockTab: 'layers',
   dockWidth: initialDock(),
+  snapEnabled: initialFlag('snap', true),
+  snapGrid: initialFlag('snapGrid', true),
+  snapObjects: initialFlag('snapObjects', true),
 
   setViewport: (width, height) => {
     set({ viewport: { width, height } });
@@ -110,5 +126,20 @@ export const createViewSlice: SliceCreator<ViewSlice> = (set, get) => ({
     const dockWidth = Math.round(Math.min(DOCK_MAX, Math.max(DOCK_MIN, w)));
     writePref('dockWidth', String(dockWidth));
     set({ dockWidth });
+  },
+  toggleSnap: () => {
+    const snapEnabled = !get().snapEnabled;
+    writePref('snap', snapEnabled ? '1' : '0');
+    set({ snapEnabled });
+  },
+  toggleSnapGrid: () => {
+    const snapGrid = !get().snapGrid;
+    writePref('snapGrid', snapGrid ? '1' : '0');
+    set({ snapGrid });
+  },
+  toggleSnapObjects: () => {
+    const snapObjects = !get().snapObjects;
+    writePref('snapObjects', snapObjects ? '1' : '0');
+    set({ snapObjects });
   },
 });

@@ -1,5 +1,8 @@
-import type { DesignObject, DeviceOrigin, JobPreview, LayerSettings } from '@/api/types';
+import type { Affine, DesignObject, DeviceOrigin, JobPreview, LayerSettings, Point } from '@/api/types';
 import type { ViewTransform } from '@/lib/viewport';
+import type { BoxMode } from './hit';
+import type { DraftShape } from './interaction';
+import type { Guide } from './snap';
 
 /**
  * Colores del lienzo, leídos de los tokens CSS (`--cv-*`) para que sigan al tema.
@@ -21,6 +24,25 @@ export interface CanvasPalette {
   overscan: string;
   head: string;
   ink: string;
+  /** Guías del ajuste magnético. */
+  guide: string;
+  /** Caja de selección "toca" (de derecha a izquierda). */
+  crossing: string;
+}
+
+/** Lo que dibuja la interacción encima del diseño (efímero, no es parte del documento). */
+export interface SceneOverlay {
+  hoverId: string | null;
+  /** Matriz viva de un gesto en curso; se aplica a los objetos seleccionados. */
+  live: Affine | null;
+  /** Hay un gesto de giro: el marco se dibuja orientado y sin manijas. */
+  rotating: boolean;
+  rotateMode: boolean;
+  canRotate: boolean;
+  marquee: { a: Point; b: Point; mode: BoxMode } | null;
+  guides: Guide[];
+  draft: DraftShape | null;
+  pivot: Point | null;
 }
 
 export interface Scene {
@@ -37,6 +59,9 @@ export interface Scene {
   /** Si hay vista previa visible, se dibuja encima y el diseño se atenúa. */
   preview: { data: JobPreview; scrub: number } | null;
   palette: CanvasPalette;
+  overlay: SceneOverlay;
+  /** Posición del cabezal de la máquina en coordenadas de documento (mm), si se conoce. */
+  head: Point | null;
 }
 
 /**
@@ -51,6 +76,8 @@ export interface Renderer {
   resize(width: number, height: number, dpr: number): void;
   render(scene: Scene): void;
   dispose(): void;
+  /** El renderer pide volver a dibujar cuando algo asíncrono termina (una imagen que cargó). */
+  setInvalidate(cb: () => void): void;
 }
 
 export type RendererFactory = () => Renderer;

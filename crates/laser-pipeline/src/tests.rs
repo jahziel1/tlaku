@@ -806,6 +806,7 @@ fn bounds_check_covers_every_move() {
             &laser_core::toolpath::Toolpath::default(),
             &[],
             0.0,
+            vec![],
             None,
             vec![],
         ),
@@ -926,4 +927,63 @@ fn gcode_origin_flips_toward_the_machine_corner() {
     assert!(at(Origin::TopRight).contains("G0 X390 Y395"));
     // El trabajo calculado no cambia: solo la salida.
     assert_eq!(job.bounds().unwrap().min.x, 10.0);
+}
+
+#[test]
+fn preview_has_one_cumulative_time_per_move() {
+    let d = doc(
+        vec![rect_object("a", RED, 10.0, 10.0, 20.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let job = compute(&d, &device(), &JobOptions::default()).unwrap();
+    let p = &job.preview;
+    assert_eq!(p.move_times.len() * 4, p.moves.len());
+    assert!(p.move_times.windows(2).all(|w| w[0] <= w[1]));
+    approx(*p.move_times.last().unwrap(), p.total_s);
+}
+
+#[test]
+fn frame_gcode_follows_the_machine_origin() {
+    let d = doc(
+        vec![rect_object("a", RED, 10.0, 20.0, 30.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let mut dev = device();
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let g = frame_gcode(&job, &dev, 1500.0);
+    assert!(g.contains(&"G0 X10 Y20".to_string()), "{g:?}");
+    assert!(g.contains(&"G1 X40 Y30 S0 F1500".to_string()), "{g:?}");
+    dev.origin = Origin::TopLeft;
+    let g = frame_gcode(&job, &dev, 1500.0);
+    let bed_h = dev.bed[1];
+    assert!(g.contains(&format!("G0 X10 Y{}", bed_h - 30.0)), "{g:?}");
+}
+
+#[test]
+fn user_origin_and_current_position_are_machine_coordinates() {
+    // Con el origen arriba a la izquierda, el punto que muestra GRBL debe coincidir en el
+    // G-code con la esquina elegida del trabajo, no con su reflejo en la cama.
+    let d = doc(
+        vec![rect_object("a", RED, 100.0, 100.0, 30.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let mut dev = device();
+    dev.origin = Origin::TopLeft;
+    let bottom_left = 6;
+    let user = JobOptions {
+        start_from: StartFrom::UserOrigin,
+        job_origin: bottom_left,
+        user_origin: Some([10.0, 12.0]),
+        ..JobOptions::default()
+    };
+    let g = gcode(&compute(&d, &dev, &user).unwrap(), &dev);
+    assert!(g.contains("X10 Y12"), "{g}");
+
+    let current = JobOptions {
+        start_from: StartFrom::CurrentPosition,
+        job_origin: bottom_left,
+        ..JobOptions::default()
+    };
+    let job = compute_at(&d, &dev, &current, Some(Point::new(10.0, 12.0))).unwrap();
+    assert!(gcode(&job, &dev).contains("X10 Y12"));
 }

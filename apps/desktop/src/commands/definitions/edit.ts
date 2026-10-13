@@ -1,3 +1,5 @@
+import { HISTORY_TAB } from '@/features/shell/dockTabs';
+import { useShellUi } from '@/features/shell/uiStore';
 import type { I18nKey } from '@/i18n';
 import { selectSelectedObjects } from '@/store';
 import type { AppState } from '@/store';
@@ -5,6 +7,19 @@ import type { CommandDef } from '../types';
 
 const needSelection = (s: AppState): true | I18nKey => (s.selectedIds.length > 0 ? true : 'reason.noSelection');
 const soon = (): I18nKey => 'reason.soon';
+
+/** Hay algo seleccionado que se pueda cortar (no bloqueado). */
+const needMovable = (s: AppState): true | I18nKey => {
+  const picked = selectSelectedObjects(s);
+  if (picked.length === 0) return 'reason.noSelection';
+  return picked.some((o) => !o.locked) ? true : 'reason.locked';
+};
+
+const needClipboard = (s: AppState): true | I18nKey =>
+  s.clipboard && s.clipboard.objects.length > 0 ? true : 'history.reason.clipboardEmpty';
+
+/** Ids de todo lo que se puede seleccionar con el área (visible y sin bloquear). */
+const selectable = (s: AppState): string[] => s.doc.objects.filter((o) => !o.hidden && !o.locked).map((o) => o.id);
 
 /** Pasos de las flechas en mm: normal, grande (Mayús) y fino (Alt). */
 export const NUDGE_STEPS = { normal: 1, big: 10, fine: 0.1 } as const;
@@ -37,8 +52,8 @@ const nudges: CommandDef[] = Object.entries(DIRS).flatMap(([dir, [ux, uy]]) =>
     },
     run: (s) => {
       const step = NUDGE_STEPS[size.id];
-      // `key` funde pulsaciones seguidas en un solo paso del historial.
-      s.moveObjects(s.selectedIds, ux * step, uy * step, `nudge:${dir}:${size.id}`);
+      // `key` funde la ráfaga (dirección, tamaño y selección iguales) en un solo paso del historial.
+      s.moveObjects(s.selectedIds, ux * step, uy * step, `nudge:${dir}:${size.id}:${s.selectedIds.join(',')}`);
     },
   })),
 );
@@ -60,7 +75,25 @@ export const editCommands: CommandDef[] = [
     enabled: (s) => (s.canRedo() ? true : 'reason.nothingToRedo'),
     run: (s) => s.redo(),
   },
-  { id: 'edit.selectAll', label: 'cmd.edit.selectAll', category: 'edit', shortcuts: ['Mod+A'], run: (s) => s.selectAll() },
+  {
+    id: 'edit.selectAll',
+    label: 'cmd.edit.selectAll',
+    category: 'edit',
+    shortcuts: ['Mod+A'],
+    enabled: (s) => (selectable(s).length > 0 ? true : 'history.reason.emptyDocument'),
+    run: (s) => s.selectAll(),
+  },
+  {
+    id: 'edit.selectInvert',
+    label: 'history.cmd.selectInvert',
+    category: 'edit',
+    shortcuts: ['Mod+Shift+I'],
+    enabled: (s) => (selectable(s).length > 0 ? true : 'history.reason.emptyDocument'),
+    run: (s) => {
+      const picked = new Set(s.selectedIds);
+      s.select(selectable(s).filter((id) => !picked.has(id)));
+    },
+  },
   {
     id: 'edit.duplicate',
     label: 'cmd.edit.duplicate',
@@ -77,11 +110,44 @@ export const editCommands: CommandDef[] = [
     enabled: needSelection,
     run: (s) => s.deleteObjects(s.selectedIds),
   },
+  { id: 'edit.copy', label: 'cmd.edit.copy', category: 'edit', shortcuts: ['Mod+C'], enabled: needSelection, run: (s) => void s.copyObjects(s.selectedIds) },
+  { id: 'edit.cut', label: 'cmd.edit.cut', category: 'edit', shortcuts: ['Mod+X'], enabled: needMovable, run: (s) => void s.cutObjects(s.selectedIds) },
+  {
+    id: 'edit.paste',
+    label: 'cmd.edit.paste',
+    category: 'edit',
+    shortcuts: ['Mod+V'],
+    enabled: needClipboard,
+    run: (s) => s.select(s.pasteObjects()),
+  },
+  {
+    id: 'edit.pasteInPlace',
+    label: 'history.cmd.pasteInPlace',
+    category: 'edit',
+    shortcuts: ['Mod+Shift+V'],
+    enabled: needClipboard,
+    run: (s) => s.select(s.pasteObjects({ inPlace: true })),
+  },
   // Pendientes: el registro ya los reserva para que menús y atajos no se reasignen después.
-  { id: 'edit.copy', label: 'cmd.edit.copy', category: 'edit', shortcuts: ['Mod+C'], enabled: soon, run: () => {} },
-  { id: 'edit.cut', label: 'cmd.edit.cut', category: 'edit', shortcuts: ['Mod+X'], enabled: soon, run: () => {} },
-  { id: 'edit.paste', label: 'cmd.edit.paste', category: 'edit', shortcuts: ['Mod+V'], enabled: soon, run: () => {} },
   { id: 'edit.group', label: 'cmd.edit.group', category: 'edit', shortcuts: ['Mod+G'], enabled: soon, run: () => {} },
   { id: 'edit.ungroup', label: 'cmd.edit.ungroup', category: 'edit', shortcuts: ['Mod+Shift+G'], enabled: soon, run: () => {} },
+  // Paneles y ayuda. `?` (en cualquier distribución de teclado) lo atiende el shell; aquí quedan
+  // los atajos que el registro puede resolver por tecla física.
+  {
+    id: 'panel.history',
+    label: 'history.cmd.panelHistory',
+    category: 'panels',
+    shortcuts: ['Mod+4'],
+    // El historial es una pestaña más del panel acoplado.
+    checked: (s) => s.dockTab === HISTORY_TAB,
+    run: (s) => s.setDockTab(HISTORY_TAB),
+  },
+  {
+    id: 'help.shortcuts',
+    label: 'history.cmd.shortcuts',
+    category: 'panels',
+    shortcuts: ['Mod+/', 'F1', 'Shift+/'],
+    run: () => useShellUi.getState().openShortcuts(),
+  },
   ...nudges,
 ];

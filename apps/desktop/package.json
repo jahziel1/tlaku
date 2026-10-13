@@ -19,7 +19,8 @@
     "screenshots": "node scripts/screenshots.mjs",
     "tauri": "tauri",
     "build:tauri": "tsc --noEmit && vite build --mode tauri",
-    "dev:tauri": "vite --mode tauri"
+    "dev:tauri": "vite --mode tauri",
+    "readme": "UPDATE_README=1 vitest run src/features/shell/readme.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "5.3.0",

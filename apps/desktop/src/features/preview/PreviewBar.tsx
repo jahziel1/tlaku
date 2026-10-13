@@ -1,61 +1,108 @@
-import { TriangleAlert, X } from 'lucide-react';
+import { RotateCw, TriangleAlert, X } from 'lucide-react';
+import { useMemo } from 'react';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
-import { fmtClock } from '@/lib/platform';
 import { useStore } from '@/store';
+import { cleanErrorMessage, previewErrorHint } from './errors';
+import { getModel } from './model';
+import { LayerList, Notes, Stats } from './Results';
+import { Transport } from './Transport';
+import { usePlayback } from './usePlayback';
+import './preview.css';
 
-/** Franja bajo el lienzo con la reproducción del recorrido, el tiempo por capa y las advertencias. */
+function Legend() {
+  const view = useStore((s) => s.previewView);
+  const setView = useStore((s) => s.setPreviewView);
+  const items = [
+    { key: 'travel', label: t('preview.legend.travel'), on: view.showTravel, toggle: () => setView({ showTravel: !view.showTravel }) },
+    { key: 'cut', label: t('preview.legend.cut') },
+    { key: 'engrave', label: t('preview.legend.engrave') },
+    { key: 'overscan', label: t('preview.legend.overscan'), on: view.showOverscan, toggle: () => setView({ showOverscan: !view.showOverscan }) },
+  ] as const;
+  return (
+    <div className="pv__legend" role="group" aria-label={t('preview.legend.title')} title={t('preview.legend.power')}>
+      {items.map((it) =>
+        'toggle' in it ? (
+          <button
+            key={it.key}
+            type="button"
+            className="pv__chip"
+            aria-pressed={it.on}
+            title={it.on ? t('preview.legend.hide', { name: it.label }) : t('preview.legend.show', { name: it.label })}
+            onClick={it.toggle}
+          >
+            <span className={`pv__swatch pv__swatch--${it.key}`} aria-hidden="true" />
+            {it.label}
+          </button>
+        ) : (
+          <span key={it.key} className="pv__chip pv__chip--static">
+            <span className={`pv__swatch pv__swatch--${it.key}`} aria-hidden="true" />
+            {it.label}
+          </span>
+        ),
+      )}
+      <span className="pv__power" aria-hidden="true" />
+      <span className="hint">{t('preview.legend.power')}</span>
+    </div>
+  );
+}
+
+function ErrorBlock({ message }: { message: string }) {
+  const compute = useStore((s) => s.computePreview);
+  const clean = cleanErrorMessage(message) || t('preview.error.generic');
+  const hint = previewErrorHint(clean);
+  return (
+    <div className="pv__error" role="alert">
+      <TriangleAlert size={16} aria-hidden="true" />
+      <div>
+        <p className="pv__error-title">{t('preview.error.title')}</p>
+        <p>{clean}</p>
+        {hint && <p className="hint">{t(hint)}</p>}
+      </div>
+      <button type="button" className="btn" onClick={() => void compute()}>
+        <RotateCw size={14} aria-hidden="true" />
+        {t('preview.error.retry')}
+      </button>
+    </div>
+  );
+}
+
+/** Panel bajo el lienzo: reproducción del recorrido, leyenda, resultados del cálculo y advertencias. */
 export function PreviewBar() {
+  usePlayback();
   const preview = useStore((s) => s.preview);
   const status = useStore((s) => s.previewStatus);
+  const stale = useStore((s) => s.previewStale);
   const error = useStore((s) => s.previewError);
-  const scrub = useStore((s) => s.scrub);
-  const setScrub = useStore((s) => s.setScrub);
-  const layers = useStore((s) => s.doc.layers);
+  const hasLayers = useStore((s) => s.doc.layers.length > 0);
   const toggle = useCommand('view.preview');
 
-  const total = preview?.total_s ?? 0;
+  const model = useMemo(() => (preview ? getModel(preview) : null), [preview?.moves]); // eslint-disable-line react-hooks/exhaustive-deps
+  const layerNames = useMemo(() => preview?.layers.map((l) => l.summary) ?? [], [preview?.layers]);
+  const busy = status === 'computing' || (stale && status !== 'error');
+
   return (
-    <section className="preview-bar" aria-label={t('preview.title')}>
-      <div className="preview-bar__head">
-        <h2 className="preview-bar__title">{t('preview.title')}</h2>
-        {status === 'computing' && <span className="hint">{t('preview.computing')}</span>}
-        {status === 'error' && <span className="hint hint--danger">{error}</span>}
-        <button type="button" className="icon-btn" onClick={toggle.run} title={t('preview.close')} aria-label={t('preview.close')}>
+    <section className="pv" aria-label={t('preview.title')} aria-busy={busy}>
+      <div className="pv__head">
+        <h2 className="pv__title">{t('preview.title')}</h2>
+        {busy && <span className="hint" role="status">{preview ? t('preview.updating') : t('preview.computing')}</span>}
+        <button type="button" className="icon-btn" onClick={toggle.run} title={toggle.tooltip} aria-label={t('preview.close')}>
           <X size={15} aria-hidden="true" />
         </button>
       </div>
-      {preview && (
+      {status === 'error' && <ErrorBlock message={error ?? ''} />}
+      {preview && model && (
         <>
-          <div className="preview-bar__scrub">
-            <label htmlFor="scrub" className="sr-only">{t('preview.scrub')}</label>
-            <input
-              id="scrub"
-              className="range"
-              type="range"
-              min={0}
-              max={1000}
-              value={Math.round(scrub * 1000)}
-              onChange={(e) => setScrub(Number(e.target.value) / 1000)}
-            />
-            <span className="num preview-bar__time">{fmtClock(total * scrub)} / {fmtClock(total)}</span>
+          {model.count > 0 && <Transport model={model} layerNames={layerNames} />}
+          <Legend />
+          <div className="pv__body">
+            <Stats model={model} totalS={preview.total_s} />
+            <LayerList layers={preview.layers} model={model} totalS={preview.total_s} />
           </div>
-          <ul className="preview-bar__layers">
-            {preview.layers.map((l) => (
-              <li key={l.color} title={l.explanations.join(' ')}>
-                <span className="dot" style={{ background: l.color }} aria-hidden="true" />
-                <span className="num">{fmtClock(l.seconds)}</span>
-                <span className="preview-bar__summary">{l.summary}</span>
-              </li>
-            ))}
-          </ul>
-          {preview.order_note && <p className="hint">{preview.order_note}</p>}
-          {preview.warnings.map((w) => (
-            <p key={w} className="warn-line"><TriangleAlert size={14} aria-hidden="true" />{w}</p>
-          ))}
+          <Notes orderNote={preview.order_note} warnings={preview.warnings} />
         </>
       )}
-      {!preview && status === 'idle' && layers.length === 0 && <p className="hint">{t('preview.empty')}</p>}
+      {!preview && status === 'idle' && !hasLayers && <p className="hint">{t('preview.empty')}</p>}
     </section>
   );
 }

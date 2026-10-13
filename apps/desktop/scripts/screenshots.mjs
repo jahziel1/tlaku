@@ -72,7 +72,18 @@ await wait(2500);
 await evaluate(`document.querySelectorAll('.toast button').forEach(b => b.click())`);
 await wait(300);
 
-// 1. Vista principal, tema oscuro
+// Atajos: Cmd en macOS y Ctrl en el resto (el registro usa "Mod").
+const MOD = (await evaluate(`/Mac/.test(navigator.platform)`)).result.value ? 4 : 2;
+const SHIFT = 8;
+const closeDialog = async () => {
+  await key('Escape', 'Escape');
+  await wait(300);
+};
+
+// 1. Vista principal, tema oscuro, con el diseño de ejemplo seleccionado
+await click('.canvas-area');
+await key('a', 'KeyA', MOD);
+await wait(500);
 await shot('01-principal-oscuro.png');
 
 // 2. Menú abierto
@@ -81,34 +92,68 @@ await wait(300);
 await shot('02-menu-archivo.png');
 await key('Escape', 'Escape');
 
-// 3. Vista previa del trabajo (atajo P)
+// 3. Editor de ajustes de capa (doble clic en la fila de Corte)
+await evaluate(`(() => {
+  const row = [...document.querySelectorAll('.lyr-main')].find((e) => e.textContent.includes('Corte'));
+  if (!row) throw new Error('sin la capa Corte');
+  row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+})()`);
+await wait(500);
+await shot('03-editor-de-capa.png');
+await closeDialog();
+
+// 4. Vista previa del trabajo con el panel de resultados (atajo P)
 await click('.canvas-area');
 await key('p', 'KeyP');
-await wait(1200);
-await shot('03-vista-previa.png');
+await wait(1500);
+await shot('04-vista-previa.png');
 await key('p', 'KeyP');
+await wait(300);
 
-// 4. Máquina conectada con un trabajo en curso
+// 5. Máquina conectada con el diálogo de iniciar
 await clickText('.tab', 'Máquina');
 await wait(300);
 await clickText('.btn', 'Conectar');
-await wait(1200);
+await wait(1500);
 await clickText('.btn', 'Iniciar');
+await wait(1200);
+await shot('05-maquina-iniciar.png');
+
+// 6. Trabajo en curso
+await clickText('.mc-modal .btn', 'Iniciar');
 await wait(2500);
-await shot('04-maquina-trabajo.png');
+await shot('06-maquina-trabajo.png');
 await clickText('.btn', 'Detener');
 await wait(400);
 
-// 5. Consola
+// 7. Consola
 await clickText('.tab', 'Consola');
 await wait(300);
-await shot('05-consola.png');
+await shot('07-consola.png');
 
-// 6. Tema claro
+// 8. Historial: unos pasos de edición para que haya qué ver
+await click('.canvas-area');
+await key('ArrowRight', 'ArrowRight', SHIFT);
+await key('ArrowUp', 'ArrowUp', SHIFT);
+await key('d', 'KeyD', MOD);
+await key('ArrowLeft', 'ArrowLeft', SHIFT);
+await key('z', 'KeyZ', MOD);
+await wait(300);
+await clickText('.tab', 'Historial');
+await wait(500);
+await shot('08-historial.png');
+
+// 9. Diálogo de atajos (F1)
+await key('F1', 'F1');
+await wait(500);
+await shot('09-atajos.png');
+await closeDialog();
+
+// 10. Tema claro
 await clickText('.tab', 'Capas');
 await click('button[aria-label="Cambiar a tema claro"]');
 await wait(500);
-await shot('06-principal-claro.png');
+await shot('10-principal-claro.png');
 
 await send('Browser.close').catch(() => {});
 ws.close();

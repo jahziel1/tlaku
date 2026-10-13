@@ -143,11 +143,6 @@ const base = {
   'layers.power': 'Potencia',
   'layers.passes': 'Pasadas',
   'layers.interval': 'Intervalo',
-  'palette.label': 'Colores de capa',
-  'palette.layer': 'Capa {n}',
-  'palette.toolLayer': 'Capa de herramienta {n}',
-  'palette.moveHint': 'Mover la selección a la capa {n}',
-  'palette.pickHint': 'Dibujar en la capa {n}',
 
   // ---- máquina ----------------------------------------------------------------
   'machine.connection': 'Conexión',

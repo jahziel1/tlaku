@@ -1,6 +1,9 @@
-import { Clock, Gauge, MousePointer2 } from 'lucide-react';
+import { Clock, Gauge, Keyboard, MousePointer2 } from 'lucide-react';
+import { useMemo } from 'react';
+import { commands } from '@/commands';
 import { t } from '@/i18n';
-import { fmt, fmtClock } from '@/lib/platform';
+import { objectBounds, unionBounds } from '@/lib/geometry';
+import { fmt, fmtClock, isMac } from '@/lib/platform';
 import { zoomPercent } from '@/lib/viewport';
 import { selectActiveDevice, useStore } from '@/store';
 
@@ -23,6 +26,32 @@ function Zoom() {
       <Gauge size={13} aria-hidden="true" />
       <span className="num">{pct} %</span>
     </div>
+  );
+}
+
+/** Cantidad seleccionada y, si hay selección, su tamaño. El cálculo solo se rehace al cambiar el documento o la selección. */
+function Selection() {
+  const doc = useStore((s) => s.doc);
+  const ids = useStore((s) => s.selectedIds);
+  const size = useMemo(() => {
+    if (ids.length === 0) return null;
+    const picked = new Set(ids);
+    const b = unionBounds(doc.objects.filter((o) => picked.has(o.id)).map(objectBounds));
+    return b ? { w: b[1][0] - b[0][0], h: b[1][1] - b[0][1] } : null;
+  }, [doc, ids]);
+  return (
+    <>
+      <div className="status__item status__muted">
+        {ids.length > 0 ? t('status.selected', { n: ids.length }) : t('status.nothingSelected')}
+      </div>
+      {size && (
+        <div className="status__item" title={t('history.status.size', { w: fmt(size.w, 2), h: fmt(size.h, 2) })}>
+          <span className="num">{fmt(size.w, 2)} × {fmt(size.h, 2)}</span>
+          <span className="status__unit">mm</span>
+        </div>
+      )}
+      <div className="status__item status__muted">{t('history.status.objects', { n: doc.objects.length })}</div>
+    </>
   );
 }
 
@@ -55,16 +84,39 @@ function Estimate() {
   );
 }
 
+/** Estado del documento: guardado o con cambios. Se anuncia a lectores de pantalla al cambiar. */
+function SaveState() {
+  const dirty = useStore((s) => s.dirty);
+  return (
+    <div className="status__item" role="status">
+      <span className="dot" data-tone={dirty ? 'warn' : 'ok'} aria-hidden="true" />
+      <span className={dirty ? undefined : 'status__muted'}>{dirty ? t('history.doc.unsaved') : t('history.status.saved')}</span>
+    </div>
+  );
+}
+
+function ShortcutsButton() {
+  const label = t('history.status.shortcuts');
+  const shortcut = commands.shortcutLabel('help.shortcuts', isMac());
+  return (
+    <button type="button" className="status__btn" title={`${label} (${shortcut})`} aria-label={label} onClick={() => void commands.run('help.shortcuts')}>
+      <Keyboard size={13} aria-hidden="true" />
+      <span>?</span>
+    </button>
+  );
+}
+
 export function StatusBar() {
-  const selected = useStore((s) => s.selectedIds.length);
   return (
     <footer className="status">
       <Cursor />
       <Zoom />
-      <div className="status__item status__muted">{selected > 0 ? t('status.selected', { n: selected }) : t('status.nothingSelected')}</div>
+      <Selection />
       <div className="topbar__spacer" />
+      <SaveState />
       <MachineState />
       <Estimate />
+      <ShortcutsButton />
     </footer>
   );
 }

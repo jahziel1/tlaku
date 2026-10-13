@@ -245,6 +245,7 @@ fn preview_and_import_results_serialize() {
             explanations: vec![],
         }],
         moves: vec![0.0, 1.0, 2.0, 0.0, 1.0, 3.0, 4.0, 50.0],
+        move_times: vec![0.5, 2.0],
         total_s: 2.0,
         bounds: [[0.0, 0.0], [10.0, 5.0]],
         order_note: None,
@@ -254,6 +255,7 @@ fn preview_and_import_results_serialize() {
     assert_eq!(v["layers"][0]["color"], "#0000ff");
     assert!(v["layers"][0]["travel_saved_pct"].is_null());
     assert_eq!(v["moves"].as_array().unwrap().len(), 8);
+    assert_eq!(v["move_times"].as_array().unwrap().len(), 2);
     assert_eq!(serde_json::from_value::<JobPreview>(v).unwrap(), preview);
     let imported = ImportResult {
         objects: sample().objects,

@@ -338,3 +338,21 @@ fn sample_edge_cases() {
     )]);
     assert!(sample(&dark, &pr, 0.01).all(|(_, _, on)| !on));
 }
+
+#[test]
+fn move_times_are_cumulative_and_end_at_the_total() {
+    let tp = job(vec![
+        block(
+            6000.0,
+            vec![travel(0.0, 0.0), cut(100.0, 0.0), cut(100.0, 0.0)],
+        ),
+        block(6000.0, vec![cut(100.0, 50.0)]),
+    ]);
+    let t = move_times(p(0.0, 0.0), &tp, &profile());
+    assert_eq!(t.len(), 4);
+    assert!(t.windows(2).all(|w| w[0] <= w[1]));
+    // El movimiento de longitud cero repite el instante anterior.
+    close(t[1], t[2]);
+    close(*t.last().unwrap(), estimate(&tp, &profile()).total_s);
+    assert!(move_times(p(0.0, 0.0), &job(vec![]), &profile()).is_empty());
+}

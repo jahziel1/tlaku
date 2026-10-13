@@ -44,10 +44,11 @@ Los drivers futuros (Ruida, galvo) también partirán de un `Toolpath`.
 | `laser-fill` | Relleno vectorial por barrido con ángulo, serpentina, crosshatch y overscan; produce un `ToolpathBlock`. |
 | `laser-raster` | Imagen a bitmap de potencia (ajustes, remuestreo, dithering/umbral) y barrido a `ToolpathBlock`. |
 | `laser-sim` | Estima el tiempo con aceleración por eje y desviación de unión, calcula el overscan (`v²/2a`) y muestrea la trayectoria. |
-| `laser-grbl` | G-code GRBL 1.1 a partir de un `Toolpath`, puertos serie y envío con conteo de caracteres, pausa y cancelación. |
+| `laser-grbl` | G-code GRBL 1.1 a partir de un `Toolpath`, puertos serie, envío con conteo de caracteres, pausa y cancelación, y la seguridad previa al envío (`preflight`: solo se transmite en reposo, con consejos para el CLI o la consola de la app; `frame`: G-code del encuadre). |
 | `laser-doc` | Tipos del contrato con la app (`Document`, `LayerSettings`, `DeviceProfile`, `JobOptions`, `JobPreview`...) con `serde` y `ts-rs`, más transformaciones afines y cajas envolventes. No depende del resto del motor. |
 | `laser-pipeline` | De `Document` + `DeviceProfile` + `JobOptions` a `ComputedJob` (`Toolpath`, vista previa, avisos): validación de capas, orden automático, kerf, plan, relleno, imágenes, colocación (`start_from`, `job_origin`), límites de la cama y G-code. También `import_file`. |
 | `laser-cli` | Binario `lasersoft`; traduce los argumentos a un `Document` y delega en `laser-pipeline`. |
+| `lasersoft-desktop` (`apps/desktop/src-tauri`) | App Tauri: comandos y eventos de [app-api.md](app-api.md) sobre `laser-pipeline` y `laser-grbl`; la conexión vive en un hilo dedicado. |
 
 ## Contrato de `Toolpath`
 

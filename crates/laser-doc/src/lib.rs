@@ -9,6 +9,7 @@ mod device;
 mod document;
 mod job;
 mod layer;
+mod machine;
 
 pub use device::{DeviceKind, DeviceProfile, Origin, PowerMode};
 pub use document::{
@@ -17,6 +18,10 @@ pub use document::{
 };
 pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, StartFrom};
 pub use layer::{ImageMode, ImageSettings, LayerMode, LayerSettings, Overscan};
+pub use machine::{
+    BufferStatus, ConnectResult, ConnectionEvent, ExportResult, JobEvent, JobState, LogDir,
+    LogEvent, MachineState, ProgressEvent, RealtimeCommand, StatusReport,
+};
 
 #[cfg(test)]
 mod tests;

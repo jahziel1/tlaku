@@ -1,28 +1,30 @@
 import { useEffect } from 'react';
+import type { JobPreview } from '@/api/types';
+import { warmPreviewCache } from '@/features/canvas/previewLayer';
 import { useStore } from '@/store';
-
-const DEBOUNCE_MS = 400;
+import { startPreviewSync } from './sync';
 
 /**
- * Recalcula el trabajo (estimación de tiempo y vista previa) cuando cambian el documento,
- * el dispositivo o las opciones. Con debounce: no se calcula en cada pulsación de flecha.
- * TODO(oleada B): con el motor real, calcular solo si la vista previa está visible o hace
- * falta la estimación, y cancelar el cálculo anterior si el motor lo permite.
+ * Recalcula el trabajo cuando cambian el documento, las capas o el dispositivo (ver `sync.ts`) y
+ * precalienta la caché de trazados cuando llega un resultado nuevo.
  */
 export function usePreviewSync(): void {
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void useStore.getState().computePreview(), DEBOUNCE_MS);
+    const stop = startPreviewSync(useStore);
+    let cancelWarm = () => {};
+    const warm = (preview: JobPreview | null) => {
+      cancelWarm();
+      cancelWarm = preview ? warmPreviewCache(preview) : () => {};
     };
-    const unsub = useStore.subscribe((s, prev) => {
-      if (s.doc !== prev.doc || s.activeDeviceId !== prev.activeDeviceId || s.jobOptions !== prev.jobOptions) schedule();
+    warm(useStore.getState().preview);
+    const unsubWarm = useStore.subscribe((s, prev) => {
+      // El renuevo de `preview` por cambios visuales conserva `moves`: no hay nada que recalentar.
+      if (s.preview?.moves !== prev.preview?.moves) warm(s.preview);
     });
-    schedule();
     return () => {
-      clearTimeout(timer);
-      unsub();
+      stop();
+      unsubWarm();
+      cancelWarm();
     };
   }, []);
 }

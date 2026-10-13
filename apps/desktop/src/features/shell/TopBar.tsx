@@ -25,7 +25,12 @@ function DocumentName() {
   return (
     <div className="docname" title={path ?? undefined}>
       <span className="docname__text">{name}</span>
-      {dirty && <span className="docname__dirty" role="img" aria-label={t('doc.unsaved')} title={t('doc.unsaved')} />}
+      {dirty && (
+        <>
+          <span className="docname__dirty" aria-hidden="true" />
+          <span className="docname__state" role="status">{t('history.doc.unsaved')}</span>
+        </>
+      )}
     </div>
   );
 }
@@ -40,6 +45,7 @@ export function TopBar() {
       <MenuBar />
       <div className="topbar__sep" role="separator" />
       <div className="topbar__group" role="toolbar" aria-label={t('toolbar.file')}>
+        <CommandButton id="file.new" />
         <CommandButton id="file.open" />
         <CommandButton id="file.save" />
         <CommandButton id="file.import" />

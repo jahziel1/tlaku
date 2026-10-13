@@ -23,7 +23,27 @@
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost",
-      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420"
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420",
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": [
+            "$HOME/**",
+            "$DOCUMENT/**",
+            "$DESKTOP/**",
+            "$DOWNLOAD/**",
+            "$PICTURE/**",
+            "/Volumes/**",
+            "/media/**",
+            "/mnt/**"
+          ],
+          "deny": [
+            "$HOME/Library/**",
+            "$HOME/.*/**"
+          ],
+          "requireLiteralLeadingDot": true
+        }
+      }
     }
   },
   "bundle": {

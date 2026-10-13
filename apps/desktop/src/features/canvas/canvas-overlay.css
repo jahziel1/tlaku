@@ -1,0 +1,134 @@
+/* Barra numérica, ajuste magnético, medidas en vivo y cursores del lienzo. Solo tokens. */
+
+/* La barra es una franja sobre el lienzo (no lo tapa): ocupa la primera fila de la rejilla de .canvas-view. */
+.canvas-view {
+  grid-template-rows: auto var(--ruler, 22px) minmax(0, 1fr);
+}
+.numeric-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-3) var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-chrome);
+}
+
+.anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 10px);
+  grid-template-rows: repeat(3, 10px);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.anchor-grid__cell {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  background: transparent;
+}
+.anchor-grid__cell:hover {
+  background: var(--bg-hover);
+}
+.anchor-grid__cell[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.nbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.nbar-field__label {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.1;
+}
+.nbar-field__box {
+  position: relative;
+}
+.nbar-field__input {
+  width: 92px;
+  height: var(--control-h);
+  padding: 0 2.6em 0 var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text);
+  text-align: right;
+}
+.nbar-field__input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.nbar-field__input[aria-invalid='true'] {
+  border-color: var(--danger);
+  background: var(--danger-subtle);
+}
+.nbar-field__unit {
+  position: absolute;
+  right: var(--s-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+.nbar-lock {
+  width: 28px;
+  height: var(--control-h);
+}
+
+.snap-bar {
+  position: absolute;
+  left: var(--s-4);
+  bottom: var(--s-4);
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-1);
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--bg-chrome) 92%, transparent);
+}
+
+.canvas-tip {
+  position: absolute;
+  z-index: 2;
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-chrome) 92%, transparent);
+  color: var(--text);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* La capa de bienvenida no debe tapar el lienzo: solo su botón recibe el puntero. */
+.canvas-area .canvas-empty {
+  pointer-events: none;
+}
+.canvas-area .canvas-empty .btn {
+  pointer-events: auto;
+}
+
+/* Cursor según lo que hay bajo el puntero (lo fija useCanvasTools). */
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='default'] { cursor: default; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='pointer'] { cursor: pointer; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='move'] { cursor: move; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='crosshair'] { cursor: crosshair; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='grab'] { cursor: grab; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='rotate'] { cursor: alias; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='ns-resize'] { cursor: ns-resize; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='ew-resize'] { cursor: ew-resize; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='nwse-resize'] { cursor: nwse-resize; }
+.canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='nesw-resize'] { cursor: nesw-resize; }

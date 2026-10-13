@@ -8,17 +8,37 @@ import type { SliceCreator } from './types';
 export interface HistoryEntry {
   /** Qué se hizo; se muestra en el historial. */
   label: I18nKey;
-  /** Documento antes de la acción. */
+  /**
+   * En `past`: documento antes de la acción (lo que restaura deshacer).
+   * En `future`: documento después de la acción (lo que restaura rehacer).
+   */
   doc: Document;
   /** Acciones seguidas con la misma clave y poco tiempo entre sí se funden en un paso. */
   key?: string;
   at: number;
+  /**
+   * Puntos de geometría que este paso mantiene vivos y que el documento actual ya no usa
+   * (ver `entryCost`). Sirve para acotar la memoria del historial.
+   */
+  cost?: number;
+}
+
+/** Portapapeles interno: objetos copiados y los ajustes de las capas que usan. */
+export interface ClipboardData {
+  objects: DesignObject[];
+  layers: LayerSettings[];
+  /** Cuántas veces se ha pegado desplazado; cada pegado se corre un poco más. */
+  pastes: number;
 }
 
 export interface DocumentSlice {
   doc: Document;
   filePath: string | null;
+  /** Hay cambios respecto a lo guardado (se calcula por referencia con `savedDoc`). */
   dirty: boolean;
+  /** Documento tal como se guardó o abrió por última vez. */
+  savedDoc: Document;
+  clipboard: ClipboardData | null;
   /** Pasos para deshacer (el último es el más reciente). */
   past: HistoryEntry[];
   future: HistoryEntry[];
@@ -26,8 +46,10 @@ export interface DocumentSlice {
   newDocument: () => void;
   /** Sustituye el documento (abrir proyecto). Vacía el historial. */
   replaceDocument: (doc: Document, path: string | null) => void;
-  markSaved: (path: string) => void;
-  applyImport: (result: ImportResult) => void;
+  /** `saved` es el documento que se escribió (por defecto el actual): si cambió durante el guardado, sigue sucio. */
+  markSaved: (path: string, saved?: Document) => void;
+  /** Agrega lo importado al documento y devuelve los ids finales (pueden cambiar si chocaban). */
+  applyImport: (result: ImportResult) => string[];
 
   updateLayer: (color: string, patch: Partial<LayerSettings>) => void;
   /** Crea la capa si no existe y devuelve sus ajustes. */
@@ -37,6 +59,12 @@ export interface DocumentSlice {
   deleteObjects: (ids: string[]) => void;
   /** Duplica y devuelve los ids nuevos. */
   duplicateObjects: (ids: string[], offset?: number) => string[];
+  /** Copia al portapapeles interno. Devuelve cuántos objetos se copiaron. */
+  copyObjects: (ids: string[]) => number;
+  /** Copia y elimina (los bloqueados no se cortan). Devuelve cuántos objetos se cortaron. */
+  cutObjects: (ids: string[]) => number;
+  /** Pega el portapapeles (desplazado, o en el mismo lugar con `inPlace`) y devuelve los ids nuevos. */
+  pasteObjects: (opts?: { inPlace?: boolean }) => string[];
   setObjectFlags: (ids: string[], flags: Partial<Pick<DesignObject, 'locked' | 'hidden'>>) => void;
 
   /** Aplica `matrix` (en coordenadas de documento) a los objetos no bloqueados. */
@@ -51,12 +79,78 @@ export interface DocumentSlice {
   applyDocChange: (label: I18nKey, change: (doc: Document) => Document, key?: string) => void;
   undo: () => void;
   redo: () => void;
+  /**
+   * Salta a un punto del historial: 0 = estado inicial, `past.length` = estado actual y
+   * `past.length + future.length` = el último paso rehacible.
+   */
+  jumpTo: (position: number) => void;
+  /** Olvida todos los pasos de deshacer y rehacer (libera memoria); el documento no cambia. */
+  clearHistory: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
 }
 
 export const HISTORY_LIMIT = 200;
+/**
+ * Tope de memoria del historial, en puntos de geometría retenidos solo por los pasos.
+ * Cada paso guarda el documento completo, pero con datos inmutables los objetos que no cambian se
+ * comparten por referencia entre pasos: mover, cambiar de capa o ajustar una capa no copia
+ * trayectorias. Lo que sí pesa es la geometría que una acción reemplaza o elimina (booleanas,
+ * recortes, borrar un diseño denso). Un punto [x, y] ocupa unas decenas de bytes en el motor
+ * de JS, así que 2 millones de puntos son del orden de 100 MB.
+ */
+export const HISTORY_POINT_BUDGET = 2_000_000;
 const COALESCE_MS = 800;
+/** Desplazamiento en mm de cada pegado (y de duplicar). */
+export const PASTE_OFFSET = 5;
+
+const pointsCache = new WeakMap<object, number>();
+
+/** Puntos de geometría de un objeto (las imágenes solo guardan la ruta: no pesan). */
+function kindPoints(kind: DesignObject['kind']): number {
+  let n = pointsCache.get(kind);
+  if (n === undefined) {
+    n = kind.type === 'vector' ? kind.paths.reduce((sum, p) => sum + p.points.length, 0) : 0;
+    pointsCache.set(kind, n);
+  }
+  return n;
+}
+
+/**
+ * Memoria que mantiene viva `before` y que `after` ya no usa: puntos de los objetos de `before`
+ * cuya geometría no aparece en `after`, más un pequeño costo por la lista de referencias.
+ * Es O(objetos) y no recorre trayectorias que se comparten.
+ */
+export function entryCost(before: Document, after: Document): number {
+  const afterSet = new Set(after.objects);
+  const beforeSet = new Set(before.objects);
+  const keptKinds = new Set<object>();
+  for (const o of after.objects) if (!beforeSet.has(o)) keptKinds.add(o.kind);
+  let points = 0;
+  for (const o of before.objects) {
+    if (afterSet.has(o) || keptKinds.has(o.kind)) continue;
+    points += kindPoints(o.kind);
+  }
+  return points + before.objects.length / 8;
+}
+
+/** Recorta por cantidad de pasos y por presupuesto de memoria; siempre conserva el paso más reciente. */
+export function trimHistory(past: HistoryEntry[], limit = HISTORY_LIMIT, budget = HISTORY_POINT_BUDGET): HistoryEntry[] {
+  let keepFrom = Math.max(0, past.length - limit);
+  let acc = 0;
+  for (let i = past.length - 1; i >= keepFrom; i--) {
+    acc += past[i]!.cost ?? 0;
+    if (acc > budget && i < past.length - 1) {
+      keepFrom = i + 1;
+      break;
+    }
+  }
+  return keepFrom === 0 ? past : past.slice(keepFrom);
+}
+
+const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+/** Evita que pasos de 0,1 mm acumulen ruido de coma flotante (10,299999...). */
+const roundMove = (m: Affine): Affine => [m[0], m[1], m[2], m[3], round6(m[4]), round6(m[5])];
 
 export function emptyDocument(): Document {
   return { version: 1, objects: [], layers: [], device_id: null };
@@ -75,45 +169,64 @@ export function uniqueId(base: string, taken: Set<string>): string {
 }
 
 export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
+  const initialDoc = emptyDocument();
+
   /** Aplica un cambio al documento y lo registra en el historial. */
   const commit = (label: I18nKey, change: (doc: Document) => Document, key?: string): void => {
-    const { doc, past } = get();
+    const { doc, past, savedDoc } = get();
     const next = change(doc);
     if (next === doc) return;
     const now = Date.now();
     const last = past[past.length - 1];
     const merge = key !== undefined && last?.key === key && now - last.at < COALESCE_MS;
-    const entry: HistoryEntry = merge ? { ...last, at: now } : { label, doc, key, at: now };
-    const trimmed = merge ? past.slice(0, -1) : past.slice(-(HISTORY_LIMIT - 1));
-    set({ doc: next, dirty: true, past: [...trimmed, entry], future: [] });
+    // Al fundir pasos se conserva el documento de antes del primero; solo se recalcula el costo.
+    const base = merge ? last! : { label, doc, key, at: now };
+    const entry: HistoryEntry = { ...base, at: now, cost: entryCost(base.doc, next) };
+    const kept = trimHistory([...(merge ? past.slice(0, -1) : past), entry]);
+    set({ doc: next, dirty: next !== savedDoc, past: kept, future: [] });
   };
 
+  /** Nuevo documento base: lo guardado, el historial y la selección empiezan de cero. */
+  const reset = (doc: Document, filePath: string | null): void => {
+    set({ doc, savedDoc: doc, filePath, dirty: false, past: [], future: [] });
+    get().clearSelection();
+  };
+
+  /** Intercambia el documento actual por el de un paso (deshacer/rehacer) con su costo al día. */
+  const swap = (entry: HistoryEntry, current: Document): HistoryEntry => ({
+    ...entry,
+    doc: current,
+    cost: entryCost(current, entry.doc),
+  });
+
   return {
-    doc: emptyDocument(),
+    doc: initialDoc,
     filePath: null,
     dirty: false,
+    savedDoc: initialDoc,
+    clipboard: null,
     past: [],
     future: [],
 
-    newDocument: () => {
-      set({ doc: { ...emptyDocument(), device_id: get().doc.device_id }, filePath: null, dirty: false, past: [], future: [] });
-      get().clearSelection();
+    newDocument: () => reset({ ...emptyDocument(), device_id: get().doc.device_id }, null),
+
+    replaceDocument: (doc, path) => reset(doc, path),
+
+    markSaved: (path, saved) => {
+      const savedDoc = saved ?? get().doc;
+      set({ filePath: path, savedDoc, dirty: get().doc !== savedDoc });
     },
 
-    replaceDocument: (doc, path) => {
-      set({ doc, filePath: path, dirty: false, past: [], future: [] });
-      get().clearSelection();
-    },
-
-    markSaved: (path) => set({ filePath: path, dirty: false }),
-
-    applyImport: (result) =>
+    applyImport: (result) => {
+      const ids: string[] = [];
       commit('history.import', (doc) => {
+        ids.length = 0;
         const known = new Set(doc.layers.map((l) => l.color.toLowerCase()));
         const taken = new Set(doc.objects.map((o) => o.id));
         const objects = result.objects.map((o) => {
           const id = taken.has(o.id) ? uniqueId(o.id, taken) : o.id;
           taken.add(id);
+          ids.push(id);
           return { ...o, id };
         });
         const newLayers = result.new_layers.filter((l) => !known.has(l.color.toLowerCase()));
@@ -122,7 +235,9 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
           .filter((c) => !known.has(c.toLowerCase()) && !newLayers.some((l) => l.color.toLowerCase() === c.toLowerCase()))
           .map((c) => makeLayer(c, paletteName(c)));
         return { ...doc, objects: [...doc.objects, ...objects], layers: [...doc.layers, ...newLayers, ...extra] };
-      }),
+      });
+      return ids;
+    },
 
     updateLayer: (color, patch) =>
       commit(
@@ -157,7 +272,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
         (doc) => ({
           ...doc,
           objects: doc.objects.map((o) =>
-            set_.has(o.id) && !o.locked ? { ...o, transform: translateAffine(o.transform, dx, dy) } : o,
+            set_.has(o.id) && !o.locked ? { ...o, transform: roundMove(translateAffine(o.transform, dx, dy)) } : o,
           ),
         }),
         key,
@@ -186,6 +301,59 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
           });
         return copies.length ? { ...doc, objects: [...doc.objects, ...copies] } : doc;
       });
+      return created;
+    },
+
+    copyObjects: (ids) => {
+      const set_ = new Set(ids);
+      const { doc } = get();
+      const objects = doc.objects.filter((o) => set_.has(o.id));
+      if (objects.length === 0) return 0;
+      const used = new Set(objects.map((o) => o.layer.toLowerCase()));
+      const layers = doc.layers.filter((l) => used.has(l.color.toLowerCase()));
+      set({ clipboard: { objects, layers, pastes: 0 } });
+      return objects.length;
+    },
+
+    cutObjects: (ids) => {
+      const movable = new Set(get().doc.objects.filter((o) => !o.locked).map((o) => o.id));
+      const cuttable = ids.filter((id) => movable.has(id));
+      const n = get().copyObjects(cuttable);
+      if (n === 0) return 0;
+      // Al cortar, el primer pegado cae donde estaba el original.
+      set((s) => ({ clipboard: s.clipboard && { ...s.clipboard, pastes: -1 } }));
+      commit('history.cut', (doc) => {
+        const gone = new Set(cuttable);
+        return { ...doc, objects: doc.objects.filter((o) => !gone.has(o.id)) };
+      });
+      get().pruneSelection();
+      return n;
+    },
+
+    pasteObjects: ({ inPlace = false } = {}) => {
+      const clip = get().clipboard;
+      if (!clip || clip.objects.length === 0) return [];
+      const offset = inPlace ? 0 : PASTE_OFFSET * (clip.pastes + 1);
+      const created: string[] = [];
+      commit('history.paste', (doc) => {
+        created.length = 0;
+        const taken = new Set(doc.objects.map((o) => o.id));
+        const copies = clip.objects.map((o) => {
+          const id = uniqueId(o.id.replace(/-\d+$/, ''), taken);
+          taken.add(id);
+          created.push(id);
+          const transform = offset === 0 ? o.transform : roundMove(translateAffine(o.transform, offset, offset));
+          return { ...o, id, locked: false, transform };
+        });
+        // Las capas que faltan (otro proyecto, o borradas) se recrean con los ajustes que tenían.
+        const have = new Set(doc.layers.map((l) => l.color.toLowerCase()));
+        const missing = clip.layers.filter((l) => !have.has(l.color.toLowerCase()));
+        const stray = [...new Set(copies.map((o) => o.layer))]
+          .filter((c) => !have.has(c.toLowerCase()) && !missing.some((l) => l.color.toLowerCase() === c.toLowerCase()))
+          .map((c) => makeLayer(c, paletteName(c)));
+        return { ...doc, objects: [...doc.objects, ...copies], layers: [...doc.layers, ...missing, ...stray] };
+      });
+      if (!inPlace) set((s) => ({ clipboard: s.clipboard && { ...s.clipboard, pastes: s.clipboard.pastes + 1 } }));
       return created;
     },
 
@@ -231,20 +399,41 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     applyDocChange: (label, change, key) => commit(label, change, key),
 
     undo: () => {
-      const { past, future, doc } = get();
+      const { past, future, doc, savedDoc } = get();
       const last = past[past.length - 1];
       if (!last) return;
-      set({ doc: last.doc, dirty: true, past: past.slice(0, -1), future: [{ ...last, doc }, ...future] });
+      set({ doc: last.doc, dirty: last.doc !== savedDoc, past: past.slice(0, -1), future: [swap(last, doc), ...future] });
       get().pruneSelection();
     },
 
     redo: () => {
-      const { past, future, doc } = get();
+      const { past, future, doc, savedDoc } = get();
       const next = future[0];
       if (!next) return;
-      set({ doc: next.doc, dirty: true, past: [...past, { ...next, doc }], future: future.slice(1) });
+      set({ doc: next.doc, dirty: next.doc !== savedDoc, past: trimHistory([...past, swap(next, doc)]), future: future.slice(1) });
       get().pruneSelection();
     },
+
+    jumpTo: (position) => {
+      const { past, future, doc, savedDoc } = get();
+      const target = Math.max(0, Math.min(past.length + future.length, Math.round(position)));
+      const now = past.length;
+      if (target === now) return;
+      if (target < now) {
+        // Cada paso deshecho pasa a `future` guardando el documento posterior a él.
+        const undone = past.slice(target).map((e, i, arr) => swap(e, i + 1 < arr.length ? arr[i + 1]!.doc : doc));
+        const nextDoc = past[target]!.doc;
+        set({ doc: nextDoc, dirty: nextDoc !== savedDoc, past: past.slice(0, target), future: [...undone, ...future] });
+      } else {
+        const k = target - now;
+        const redone = future.slice(0, k).map((e, i) => swap(e, i === 0 ? doc : future[i - 1]!.doc));
+        const nextDoc = future[k - 1]!.doc;
+        set({ doc: nextDoc, dirty: nextDoc !== savedDoc, past: trimHistory([...past, ...redone]), future: future.slice(k) });
+      }
+      get().pruneSelection();
+    },
+
+    clearHistory: () => set({ past: [], future: [] }),
 
     canUndo: () => get().past.length > 0,
     canRedo: () => get().future.length > 0,

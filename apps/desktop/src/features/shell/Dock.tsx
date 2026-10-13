@@ -1,19 +1,22 @@
-import { Cpu, Layers, Terminal } from 'lucide-react';
+import { Cpu, History, Layers, Terminal } from 'lucide-react';
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { useCommand } from '@/commands/useCommand';
+import { HistoryPanel } from '@/features/history';
 import { ConsolePanel, MachinePanel } from '@/features/machine';
 import { LayersPanel } from '@/features/layers';
-import { t } from '@/i18n';
+import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
 import { DOCK_MAX, DOCK_MIN, type DockTab } from '@/store/view';
+import { HISTORY_TAB } from './dockTabs';
 
-const TABS: { id: DockTab; icon: typeof Layers; cmd: string }[] = [
-  { id: 'layers', icon: Layers, cmd: 'panel.layers' },
-  { id: 'machine', icon: Cpu, cmd: 'panel.machine' },
-  { id: 'console', icon: Terminal, cmd: 'panel.console' },
+const TABS: { id: DockTab; icon: typeof Layers; cmd: string; label: I18nKey }[] = [
+  { id: 'layers', icon: Layers, cmd: 'panel.layers', label: 'dock.layers' },
+  { id: 'machine', icon: Cpu, cmd: 'panel.machine', label: 'dock.machine' },
+  { id: 'console', icon: Terminal, cmd: 'panel.console', label: 'dock.console' },
+  { id: HISTORY_TAB, icon: History, cmd: 'panel.history', label: 'history.dock.title' },
 ];
 
-function Tab({ id, icon: Icon, cmd, onKey }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent) => void }) {
+function Tab({ id, icon: Icon, cmd, label, onKey }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent) => void }) {
   const c = useCommand(cmd);
   return (
     <button
@@ -29,12 +32,12 @@ function Tab({ id, icon: Icon, cmd, onKey }: (typeof TABS)[number] & { onKey: (e
       onKeyDown={onKey}
     >
       <Icon size={15} aria-hidden="true" />
-      {t(`dock.${id}`)}
+      {t(label)}
     </button>
   );
 }
 
-/** Panel acoplado a la derecha con pestañas Capas / Máquina / Consola. */
+/** Panel acoplado a la derecha con pestañas Capas / Máquina / Consola / Historial. */
 export function Dock() {
   const tab = useStore((s) => s.dockTab);
   const setTab = useStore((s) => s.setDockTab);
@@ -88,6 +91,7 @@ export function Dock() {
         {tab === 'layers' && <LayersPanel />}
         {tab === 'machine' && <MachinePanel />}
         {tab === 'console' && <ConsolePanel />}
+        {tab === HISTORY_TAB && <HistoryPanel />}
       </div>
     </aside>
   );

@@ -1,24 +1,30 @@
 use crate::job::ComputedJob;
-use laser_core::Point;
 use laser_core::toolpath::{Move, PowerMode, Toolpath};
+use laser_core::{Bounds, Point};
 use laser_doc::{DeviceProfile, Origin};
 use laser_grbl::gcode::{GcodeOptions, generate};
 
 /// Pasa de coordenadas del documento (origen abajo a la izquierda) a las de la máquina,
-/// cuyo X0 Y0 está en la esquina `origin` y crecen hacia dentro de la cama.
-fn to_machine(tp: &mut Toolpath, bed: [f64; 2], origin: Origin) {
+/// cuyo X0 Y0 está en la esquina `origin` y crecen hacia dentro de la cama. Es su propia
+/// inversa, así que también pasa de máquina a documento.
+pub(crate) fn point_to_machine(p: Point, bed: [f64; 2], origin: Origin) -> Point {
     let (flip_x, flip_y) = match origin {
-        Origin::BottomLeft => return,
+        Origin::BottomLeft => (false, false),
         Origin::TopLeft => (false, true),
         Origin::BottomRight => (true, false),
         Origin::TopRight => (true, true),
     };
-    let map = |p: Point| {
-        Point::new(
-            if flip_x { bed[0] - p.x } else { p.x },
-            if flip_y { bed[1] - p.y } else { p.y },
-        )
-    };
+    Point::new(
+        if flip_x { bed[0] - p.x } else { p.x },
+        if flip_y { bed[1] - p.y } else { p.y },
+    )
+}
+
+fn to_machine(tp: &mut Toolpath, bed: [f64; 2], origin: Origin) {
+    if origin == Origin::BottomLeft {
+        return;
+    }
+    let map = |p: Point| point_to_machine(p, bed, origin);
     for mv in tp.blocks.iter_mut().flat_map(|b| &mut b.moves) {
         match mv {
             Move::Travel { to } | Move::Cut { to, .. } => *to = map(*to),
@@ -52,4 +58,19 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
             ..GcodeOptions::default()
         },
     )
+}
+
+/// G-code del encuadre del trabajo (rectángulo envolvente con overscan, láser apagado) en
+/// coordenadas de la máquina: aplica el mismo cambio de origen que [`gcode`].
+pub fn frame_gcode(job: &ComputedJob, device: &DeviceProfile, speed_mm_min: f64) -> Vec<String> {
+    let Some(b) = job.bounds() else {
+        return Vec::new();
+    };
+    let a = point_to_machine(b.min, device.bed, device.origin);
+    let c = point_to_machine(b.max, device.bed, device.origin);
+    let machine = Bounds {
+        min: Point::new(a.x.min(c.x), a.y.min(c.y)),
+        max: Point::new(a.x.max(c.x), a.y.max(c.y)),
+    };
+    laser_grbl::frame::frame_gcode(machine, speed_mm_min)
 }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COMMAND_NAMES, EVENT_NAMES } from '../api';
 import { resolveApiKind } from '../index';
 import type { JobOptions, LogEvent, StatusReport } from '../types';
@@ -116,8 +116,7 @@ describe('máquina simulada', () => {
     await m.on('machine://connection', (c) => conn.push(c.connected));
     const { firmware } = await m.connect({ port: '/dev/cu.test', baud: 115200 });
     expect(firmware).toMatch(/Grbl/);
-    await sleep(70);
-    expect(statuses.length).toBeGreaterThan(1);
+    await vi.waitFor(() => expect(statuses.length).toBeGreaterThan(1));
     expect(statuses[0]).toMatchObject({ state: 'idle', machine_pos: [0, 0] });
     const reply = await m.machineCommand({ line: '$I' });
     expect(reply.at(-1)).toBe('ok');
@@ -153,7 +152,7 @@ describe('máquina simulada', () => {
     await m.on('machine://job', (j) => states.push(j.state));
     await m.connect({ port: 'p', baud: 1 });
     await m.startJob(jobArgs());
-    await sleep(800);
+    await vi.waitFor(() => expect(states.at(-1)).toBe('finished'), { timeout: 5000 });
     expect(states[0]).toBe('started');
     expect(states.at(-1)).toBe('finished');
     expect(progress.length).toBeGreaterThan(2);
@@ -182,7 +181,83 @@ describe('máquina simulada', () => {
     await m.connect({ port: 'p', baud: 1 });
     await m.frameJob({ ...jobArgs(), speed: 6000 });
     expect(m.machine.state).toBe('run');
-    await sleep(2400);
+    await vi.waitFor(() => expect(m.machine.state).toBe('idle'), { timeout: 12_000 });
+  }, 15_000);
+});
+
+describe('paridad con el motor real', () => {
+  it('compute_job entrega move_times: uno por movimiento, crecientes y terminando en total_s', async () => {
+    const p = await fast().computeJob(jobArgs());
+    expect(p.move_times).toHaveLength(p.moves.length / 4);
+    expect(p.move_times.every((t, i) => i === 0 || t >= p.move_times[i - 1]!)).toBe(true);
+    expect(p.move_times.at(-1)).toBeCloseTo(p.total_s, 6);
+  });
+
+  it('start_job y frame_job se niegan en Alarm con el consejo de qué hacer, sin iniciar nada', async () => {
+    const m = fast();
+    await m.connect({ port: 'p', baud: 1 });
+    m.machine.triggerAlarm(1);
+    expect(m.machine.state).toBe('alarm');
+    for (const call of [() => m.startJob(jobArgs()), () => m.frameJob({ ...jobArgs(), speed: 1000 })]) {
+      const e = await call().then(
+        () => '',
+        (err: Error) => err.message,
+      );
+      expect(e).toMatch(/ALARMA/);
+      expect(e).toMatch(/No se transmitió nada/);
+      expect(e).toMatch(/\$H/);
+      expect(e).toMatch(/\$X/);
+    }
+    expect(m.machine.state).toBe('alarm');
+  });
+
+  it('el jog se rechaza en alarma y $X desbloquea; $H hace homing', async () => {
+    const m = fast();
+    await m.connect({ port: 'p', baud: 1 });
+    m.machine.triggerAlarm(1);
+    await expect(m.jog({ dx: 1, dy: 1, speed: 500 })).rejects.toThrow(/rechazó el movimiento/);
+    expect((await m.machineCommand({ line: 'G0 X1' })).at(-1)).toMatch(/^error:9: /);
+    expect((await m.machineCommand({ line: '$X' })).at(-1)).toBe('ok');
     expect(m.machine.state).toBe('idle');
+    await m.jog({ dx: 5, dy: 5, speed: 500 });
+    m.machine.triggerAlarm(3);
+    await m.machineCommand({ line: '$H' });
+    expect(m.machine.state).toBe('idle');
+    expect(m.machine.pos).toEqual([0, 0]);
+  });
+
+  it('jog valida los datos y jog_cancel detiene el movimiento sin tocar una alarma', async () => {
+    const m = fast();
+    await m.connect({ port: 'p', baud: 1 });
+    await expect(m.jog({ dx: 1, dy: 1, speed: 0 })).rejects.toThrow(/mayor que 0/);
+    await m.jog({ dx: 10, dy: 0, speed: 800 });
+    expect(m.machine.state).toBe('jog');
+    await m.machineRealtime({ cmd: 'jog_cancel' });
+    expect(m.machine.state).toBe('idle');
+    m.machine.triggerAlarm();
+    await m.machineRealtime({ cmd: 'jog_cancel' });
+    expect(m.machine.state).toBe('alarm');
+  });
+
+  it('los comandos de línea siguen el formato real y se rechazan con un trabajo en curso', async () => {
+    const m = createMockApi({ latencyMs: 0, statusIntervalMs: 20, minJobMs: 5000 });
+    api = m;
+    await m.connect({ port: 'p', baud: 1 });
+    expect(await m.machineCommand({ line: 'ZZ' })).toEqual(['error:20: comando G-code no soportado o no válido']);
+    await expect(m.machineCommand({ line: '!' })).rejects.toThrow(/tiempo real/);
+    await m.startJob(jobArgs());
+    await expect(m.machineCommand({ line: '$$' })).rejects.toThrow(/trabajo en curso/);
+    await expect(m.jog({ dx: 1, dy: 1, speed: 100 })).rejects.toThrow(/trabajo en curso/);
+    await m.cancelJob();
+  });
+
+  it('el trabajo simulado reproduce move_times, emite estado y termina en reposo', async () => {
+    const m = (api = createMockApi({ latencyMs: 0, statusIntervalMs: 15, minJobMs: 400, jobSpeedup: 1e6 }));
+    const seen: [number, number][] = [];
+    await m.on('machine://status', (s) => seen.push(s.machine_pos));
+    await m.connect({ port: 'p', baud: 1 });
+    await m.startJob(jobArgs());
+    await vi.waitFor(() => expect(m.machine.state).toBe('idle'), { timeout: 5000 });
+    expect(seen.length).toBeGreaterThan(5);
   });
 });

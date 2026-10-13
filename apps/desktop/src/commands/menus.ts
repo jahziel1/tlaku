@@ -34,6 +34,7 @@ export const MENUS: MenuDef[] = [
     items: [
       'view.zoomIn', 'view.zoomOut', 'view.fitBed', 'view.fitContent', '-',
       'view.wireframe', 'view.preview', '-',
+      'view.snap', 'view.snapGrid', 'view.snapObjects', '-',
       'panel.layers', 'panel.machine', 'panel.console', '-',
       'view.theme',
     ],

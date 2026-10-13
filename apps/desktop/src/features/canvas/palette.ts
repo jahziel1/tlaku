@@ -15,6 +15,8 @@ const VARS: Record<keyof CanvasPalette, string> = {
   overscan: '--cv-overscan',
   head: '--cv-head',
   ink: '--cv-ink',
+  guide: '--cv-origin',
+  crossing: '--cv-engrave',
 };
 
 /** Lee los colores del lienzo de los tokens CSS vigentes (cambian con el tema). */

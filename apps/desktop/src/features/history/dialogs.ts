@@ -1,13 +1,11 @@
 import { getApiKind } from '@/api';
-import { t } from '@/i18n';
+import { IMPORT_EXTENSIONS } from './paths';
 
 export type PickKind = 'import' | 'openProject' | 'saveProject' | 'exportGcode';
 
 /** Extensiones por tipo de diálogo. */
 const FILTERS: Record<PickKind, { name: string; extensions: string[] }[]> = {
-  import: [
-    { name: 'Diseños', extensions: ['svg', 'dxf', 'png', 'jpg', 'jpeg', 'bmp'] },
-  ],
+  import: [{ name: 'Diseños', extensions: [...IMPORT_EXTENSIONS] }],
   openProject: [{ name: 'Proyecto LaserSoft', extensions: ['lsproj'] }],
   saveProject: [{ name: 'Proyecto LaserSoft', extensions: ['lsproj'] }],
   exportGcode: [{ name: 'G-code', extensions: ['gcode', 'nc'] }],
@@ -33,16 +31,11 @@ export async function pickPath(kind: PickKind, defaultPath?: string): Promise<st
   return dialog.save({ filters, defaultPath });
 }
 
-/** Pregunta si se descartan los cambios sin guardar. */
-export async function confirmDiscard(): Promise<boolean> {
-  if (getApiKind() === 'tauri') {
-    const dialog = await import('@tauri-apps/plugin-dialog');
-    return dialog.ask(t('dialog.discard.message'), {
-      title: t('dialog.discard.title'),
-      kind: 'warning',
-      okLabel: t('dialog.discard.confirm'),
-      cancelLabel: t('dialog.discard.cancel'),
-    });
-  }
-  return window.confirm(t('dialog.discard.message'));
+/** Como `pickPath('import')`, pero permite elegir varios archivos a la vez. */
+export async function pickImportPaths(): Promise<string[]> {
+  if (getApiKind() !== 'tauri') return [MOCK_PATHS.import];
+  const dialog = await import('@tauri-apps/plugin-dialog');
+  const picked = await dialog.open({ multiple: true, directory: false, filters: FILTERS.import });
+  if (Array.isArray(picked)) return picked;
+  return typeof picked === 'string' ? [picked] : [];
 }

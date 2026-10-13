@@ -267,49 +267,6 @@
   border-top: 1px solid var(--border);
   overflow-x: auto;
 }
-.palette {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-.palette__swatch {
-  position: relative;
-  width: 30px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-num);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  cursor: default;
-}
-.palette__swatch[data-tool='true'] {
-  background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0, 0, 0, 0.28) 4px 6px) !important;
-  margin-left: 0;
-}
-.palette__swatch[data-tool='true']:first-of-type {
-  margin-left: var(--s-4);
-}
-.palette__swatch[data-used='true']::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 4px;
-  height: 4px;
-  margin-left: -2px;
-  border-radius: 50%;
-  background: var(--text-muted);
-}
-.palette__swatch[data-active='true'] {
-  outline: 2px solid var(--text);
-  outline-offset: 1px;
-}
-.palette__swatch:hover {
-  transform: translateY(-1px);
-}
 
 /* ---- barra de estado ---------------------------------------------------------------- */
 

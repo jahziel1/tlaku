@@ -9,7 +9,11 @@ function call<T>(name: CommandKey, args?: object): Promise<T> {
   return invoke<T>(COMMAND_NAMES[name], args as InvokeArgs | undefined);
 }
 
-/** Implementación real. Los comandos del motor se conectan en la oleada B; hoy solo `app_version` existe. */
+/**
+ * Implementación real: cada método es el `invoke` del comando homónimo de src-tauri y `on` es
+ * `listen` de los eventos `machine://*`. Los errores de Rust llegan como `string` rechazado
+ * (mensajes en español listos para mostrar).
+ */
 export function createTauriApi(): LaserApi {
   return {
     appVersion: () => call('appVersion'),

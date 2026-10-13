@@ -16,7 +16,7 @@ mod place;
 mod preview;
 
 pub use build::{build, compute, compute_at};
-pub use gcode::gcode;
+pub use gcode::{frame_gcode, gcode};
 pub use import::{ImportOptions, InputKind, import_file, import_file_with, input_kind};
 pub use job::{ComputedJob, LayerReport, block_bounds, check_bounds};
 pub use layers::{

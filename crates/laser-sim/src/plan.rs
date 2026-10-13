@@ -14,6 +14,8 @@ pub(crate) struct Seg {
     pub to: Point,
     pub len: f64,
     pub block: usize,
+    /// Índice del movimiento (contando todos los bloques en orden) que originó el segmento.
+    pub mv: usize,
     pub is_cut: bool,
     pub laser_on: bool,
     /// Velocidad de crucero alcanzable (mm/s) y aceleración (mm/s²) en la dirección.
@@ -102,9 +104,12 @@ fn reach(v0: f64, accel: f64, len: f64) -> f64 {
 fn flatten(tp: &Toolpath, start: Point, p: &MachineProfile) -> Vec<Seg> {
     let mut segs = Vec::new();
     let mut pos = start;
+    let mut mv_index = 0;
     for (bi, block) in tp.blocks.iter().enumerate() {
         let block_speed = block.speed_mm_min / 60.0;
         for mv in &block.moves {
+            let this_mv = mv_index;
+            mv_index += 1;
             let to = mv.to();
             let len = pos.dist(to);
             if !(len.is_finite() && len > MIN_LEN_MM) {
@@ -132,6 +137,7 @@ fn flatten(tp: &Toolpath, start: Point, p: &MachineProfile) -> Vec<Seg> {
                 to,
                 len,
                 block: bi,
+                mv: this_mv,
                 is_cut,
                 laser_on,
                 vmax: nominal.min(axis_v),

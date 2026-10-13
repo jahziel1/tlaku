@@ -74,6 +74,25 @@ pub fn estimate_from(start: Point, tp: &Toolpath, profile: &MachineProfile) -> E
     }
 }
 
+/// Segundos acumulados al terminar cada movimiento del trabajo (todos los bloques en orden,
+/// un valor por `Move`), con el cabezal inicialmente en `start`. Un movimiento de longitud
+/// cero repite el instante anterior; el último valor coincide con `Estimate::total_s`.
+pub fn move_times(start: Point, tp: &Toolpath, profile: &MachineProfile) -> Vec<f64> {
+    let count: usize = tp.blocks.iter().map(|b| b.moves.len()).sum();
+    let segs = plan::plan(tp, start, profile);
+    let mut out = Vec::with_capacity(count);
+    let mut t = 0.0;
+    let mut k = 0;
+    for i in 0..count {
+        while k < segs.len() && segs[k].mv == i {
+            t += segs[k].seconds();
+            k += 1;
+        }
+        out.push(t);
+    }
+    out
+}
+
 /// Distancia (mm) que necesita el cabezal para alcanzar `speed_mm_min` en la
 /// dirección `direction_rad`: v²/(2a). La velocidad se recorta al límite de
 /// los ejes en esa dirección.
