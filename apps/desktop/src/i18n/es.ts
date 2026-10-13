@@ -3,11 +3,16 @@
  * Claves por área: cmd.* (comandos), menu.*, reason.* (por qué algo está deshabilitado),
  * y una sección por panel. Los marcadores `{nombre}` se reemplazan con los parámetros de `t()`.
  */
+import { arrange } from './es/arrange';
+import { camera } from './es/camera';
 import { canvas } from './es/canvas';
 import { history } from './es/history';
 import { layers } from './es/layers';
 import { machine } from './es/machine';
+import { nodes } from './es/nodes';
 import { preview } from './es/preview';
+import { text } from './es/text';
+import { trace } from './es/trace';
 
 const base = {
   // ---- comandos -----------------------------------------------------------
@@ -69,6 +74,7 @@ const base = {
   'menu.tools': 'Herramientas',
   'menu.view': 'Ver',
   'menu.machine': 'Máquina',
+  'menu.arrange': 'Organizar',
   'toolbar.file': 'Archivo',
   'toolbar.edit': 'Edición',
   'toolbar.tools': 'Herramientas',
@@ -201,4 +207,16 @@ const base = {
 } as const;
 
 /** Diccionario completo: la base más un archivo por área en `es/`, para que cada área edite solo el suyo. */
-export const es = { ...base, ...canvas, ...layers, ...machine, ...preview, ...history };
+export const es = {
+  ...base,
+  ...canvas,
+  ...layers,
+  ...machine,
+  ...preview,
+  ...history,
+  ...arrange,
+  ...text,
+  ...nodes,
+  ...trace,
+  ...camera,
+};

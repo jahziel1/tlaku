@@ -23,3 +23,9 @@ tlaku-core = { version = "0.1.0", path = "../../../crates/tlaku-core" }
 tlaku-doc = { version = "0.1.0", path = "../../../crates/tlaku-doc" }
 tlaku-grbl = { version = "0.1.0", path = "../../../crates/tlaku-grbl" }
 tlaku-pipeline = { version = "0.1.0", path = "../../../crates/tlaku-pipeline" }
+tlaku-text = { version = "0.1.0", path = "../../../crates/tlaku-text" }
+tlaku-trace = { version = "0.1.0", path = "../../../crates/tlaku-trace" }
+tlaku-camera = { version = "0.1.0", path = "../../../crates/tlaku-camera" }
+tlaku-geom = { version = "0.1.0", path = "../../../crates/tlaku-geom" }
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }

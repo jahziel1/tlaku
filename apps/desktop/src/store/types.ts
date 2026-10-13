@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand';
+import type { CameraSlice } from './camera';
 import type { DevicesSlice } from './devices';
 import type { DocumentSlice } from './document';
 import type { MachineSlice } from './machine';
@@ -14,7 +15,8 @@ export type AppState = DocumentSlice &
   MachineSlice &
   PreviewSlice &
   DevicesSlice &
-  NoticesSlice;
+  NoticesSlice &
+  CameraSlice;
 
 /** Forma de cada `createXSlice`. Un slice puede leer a los demás con `get()`. */
 export type SliceCreator<T> = StateCreator<AppState, [], [], T>;

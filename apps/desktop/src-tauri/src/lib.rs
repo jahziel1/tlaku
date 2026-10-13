@@ -4,8 +4,10 @@
 //! - `engine`: cálculo de trabajos, archivos y perfiles de dispositivo (sin Tauri).
 //! - `machine`: conexión GRBL en un hilo dedicado, con eventos `machine://*` (sin Tauri).
 //! - `commands`: manejadores de `invoke` que unen lo anterior con la ventana.
+//! - `edit`: texto, geometría, vectorizado y cámara (fase 3), un módulo por área.
 
 mod commands;
+mod edit;
 mod engine;
 mod machine;
 
@@ -38,6 +40,12 @@ pub fn run() {
             commands::resume_job,
             commands::cancel_job,
             commands::frame_job,
+            edit::text::list_fonts,
+            edit::text::text_outline,
+            edit::geometry::geometry_op,
+            edit::trace::trace_image,
+            edit::camera::detect_board,
+            edit::camera::calibrate_lens,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar la aplicación Tlaku");

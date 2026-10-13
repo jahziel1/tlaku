@@ -1,7 +1,7 @@
 import type { I18nKey } from '@/i18n';
 import type { AppState } from '@/store';
 
-export type CommandCategory = 'file' | 'edit' | 'tools' | 'view' | 'machine' | 'panels';
+export type CommandCategory = 'file' | 'edit' | 'tools' | 'view' | 'machine' | 'panels' | 'arrange' | 'camera';
 
 export interface CommandDef {
   /** Identificador estable, `categoria.nombre`. Lo usan menús, barras y atajos. */

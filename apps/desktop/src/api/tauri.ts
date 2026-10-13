@@ -36,6 +36,12 @@ export function createTauriApi(): LaserApi {
     resumeJob: () => call('resumeJob'),
     cancelJob: () => call('cancelJob'),
     frameJob: (a) => call('frameJob', a),
+    listFonts: () => call('listFonts'),
+    textOutline: (a) => call('textOutline', a),
+    geometryOp: (a) => call('geometryOp', a),
+    traceImage: (a) => call('traceImage', a),
+    detectBoard: (a) => call('detectBoard', a),
+    calibrateLens: (a) => call('calibrateLens', a),
     on: (event, handler) => listen(event, (e) => handler(e.payload as never)),
   };
 }

@@ -106,3 +106,65 @@ export interface EventMap {
 }
 
 export type EventName = keyof EventMap;
+
+// ---------------------------------------------------------------------------------------------
+// Fase 3. TODO(bindings): cada área reemplaza estos tipos por los generados con ts-rs desde su
+// crate cuando conecte el backend (texto, geometría, vectorizado y cámara).
+
+export interface FontFamily {
+  family: string;
+  styles: string[];
+}
+
+export interface TextOutlineResult {
+  paths: BezPath[];
+  warnings: string[];
+}
+
+export type GeometryOp = 'union' | 'difference' | 'intersection' | 'xor' | 'weld' | 'offset';
+
+export interface GeometryOpArgs {
+  op: GeometryOp;
+  objects: DesignObject[];
+  /** Solo `offset`: positivo agranda la pieza (los agujeros se encogen). */
+  distance?: number;
+  join?: 'round' | 'miter' | 'bevel';
+}
+
+export interface TraceSettings {
+  threshold: number;
+  invert: boolean;
+  blur_px: number;
+  speckle_px: number;
+  corner_threshold_deg: number;
+  smoothing: number;
+  mode: 'spline' | 'polygon';
+}
+
+export interface TraceResult {
+  paths: BezPath[];
+  warnings: string[];
+}
+
+export interface LensCalibration {
+  width: number;
+  height: number;
+  fx: number;
+  fy: number;
+  cx: number;
+  cy: number;
+  k1: number;
+  k2: number;
+  p1: number;
+  p2: number;
+  k3: number;
+  rms_error_px: number;
+  views_used: number;
+}
+
+export interface CalibrationReport {
+  calibration: LensCalibration;
+  warnings: string[];
+  used_views: number[];
+  view_rms_px: number[];
+}

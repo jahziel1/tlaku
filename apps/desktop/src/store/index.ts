@@ -1,5 +1,6 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { LaserApi } from '@/api';
+import { createCameraSlice } from './camera';
 import { createDevicesSlice } from './devices';
 import { createDocumentSlice } from './document';
 import { createMachineSlice } from './machine';
@@ -22,6 +23,7 @@ export function createAppStore(): UseBoundStore<StoreApi<AppState>> {
     ...createPreviewSlice(...a),
     ...createDevicesSlice(...a),
     ...createNoticesSlice(...a),
+    ...createCameraSlice(...a),
   }));
 }
 

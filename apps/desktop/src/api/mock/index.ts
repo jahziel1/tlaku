@@ -1,3 +1,7 @@
+import { mockCamera } from './camera';
+import { mockGeometry } from './geometry';
+import { mockText } from './text';
+import { mockTrace } from './trace';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
@@ -85,6 +89,11 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     cancelJob: () => lag(() => machine.cancel()),
     frameJob: ({ doc, device, options: o }) =>
       lag(() => machine.frame(mockComputeJob(doc, device, o).bounds)),
+
+    ...mockText(lag),
+    ...mockGeometry(lag),
+    ...mockTrace(lag),
+    ...mockCamera(lag),
 
     on: (event, handler) => Promise.resolve(machine.on(event, handler)),
   };

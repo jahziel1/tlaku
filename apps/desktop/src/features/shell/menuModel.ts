@@ -18,6 +18,8 @@ const CATEGORY_MENU: Record<CommandCategory, string> = {
   view: 'view',
   machine: 'machine',
   panels: 'view',
+  arrange: 'arrange',
+  camera: 'machine',
 };
 
 /** Comandos que el shell agrega a los menús base justo después de otro comando. */
@@ -65,5 +67,6 @@ export function buildMenus(registry: CommandRegistry, base: readonly MenuDef[] =
     target.items.push({ kind: 'command', id: def.id });
     placed.add(def.id);
   }
-  return menus;
+  // Un menú sin comandos (por ejemplo Organizar antes de que su área agregue alguno) no se muestra.
+  return menus.filter((m) => m.items.some((i) => i.kind !== 'separator'));
 }

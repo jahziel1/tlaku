@@ -7,6 +7,10 @@ export interface MenuDef {
   items: (string | '-')[];
 }
 
+/**
+ * Un comando que ningún menú menciona aparece solo al final del menú de su categoría
+ * (features/shell/menuModel.ts), así que cada área puede agregar comandos sin editar este archivo.
+ */
 export const MENUS: MenuDef[] = [
   {
     id: 'file',
@@ -44,4 +48,5 @@ export const MENUS: MenuDef[] = [
     label: 'menu.machine',
     items: ['machine.connect', '-', 'machine.frame', 'machine.start', 'machine.pause', 'machine.stop'],
   },
+  { id: 'arrange', label: 'menu.arrange', items: [] },
 ];

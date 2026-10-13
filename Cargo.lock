@@ -4408,15 +4408,21 @@ dependencies = [
 name = "tlaku-desktop"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "image 0.25.10",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tlaku-camera",
  "tlaku-core",
  "tlaku-doc",
+ "tlaku-geom",
  "tlaku-grbl",
  "tlaku-pipeline",
+ "tlaku-text",
+ "tlaku-trace",
 ]
 
 [[package]]

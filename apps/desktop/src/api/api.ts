@@ -10,6 +10,17 @@ import type {
   JobPreview,
   RealtimeCommand,
 } from './types';
+import type {
+  BezPath,
+  CalibrationReport,
+  DesignObject,
+  FontFamily,
+  GeometryOpArgs,
+  TextObject,
+  TextOutlineResult,
+  TraceResult,
+  TraceSettings,
+} from './types';
 
 export type Unlisten = () => void;
 
@@ -60,6 +71,19 @@ export interface LaserApi {
   /** Encuadre con el láser apagado; mismas comprobaciones de estado que `startJob`. */
   frameJob(args: JobArgs & { speed: number }): Promise<void>;
 
+  // Edición (fase 3)
+  listFonts(): Promise<FontFamily[]>;
+  /** Contorno del texto; `path` es la trayectoria (en coordenadas de documento) si va sobre una curva. */
+  textOutline(args: { text: TextObject; path: BezPath | null }): Promise<TextOutlineResult>;
+  /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
+  geometryOp(args: GeometryOpArgs): Promise<DesignObject[]>;
+  traceImage(args: { path: string; settings: TraceSettings; size_mm: [number, number] }): Promise<TraceResult>;
+
+  // Cámara (fase 3): las imágenes viajan como PNG en base64, sin prefijo data:.
+  /** Esquinas internas del tablero en píxeles, o `null` si no se encontró. */
+  detectBoard(args: { image_png_base64: string; board: [number, number] }): Promise<[number, number][] | null>;
+  calibrateLens(args: { images_png_base64: string[]; board: [number, number]; square_mm: number }): Promise<CalibrationReport>;
+
   /** Suscripción a eventos `machine://*`. Devuelve la función para cancelar. */
   on<K extends EventName>(event: K, handler: (payload: EventMap[K]) => void): Promise<Unlisten>;
 }
@@ -86,6 +110,12 @@ export const COMMAND_NAMES = {
   resumeJob: 'resume_job',
   cancelJob: 'cancel_job',
   frameJob: 'frame_job',
+  listFonts: 'list_fonts',
+  textOutline: 'text_outline',
+  geometryOp: 'geometry_op',
+  traceImage: 'trace_image',
+  detectBoard: 'detect_board',
+  calibrateLens: 'calibrate_lens',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [
