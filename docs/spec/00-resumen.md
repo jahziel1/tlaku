@@ -1,0 +1,80 @@
+# 00 - Resumen consolidado y hoja de ruta
+
+Inventario funcional de LightBurn hecho en sala limpia (solo documentación pública, foro y
+tutoriales; sin código, textos ni íconos de LightBurn). Detalle por área:
+
+| Archivo | Área | Funciones | P0 | P1 | P2 |
+|---|---|---|---|---|---|
+| [01-diseno-edicion.md](01-diseno-edicion.md) | Interfaz, dibujo, edición, importación | 100 | 32 | 39 | 29 |
+| [02-capas-corte-imagen.md](02-capas-corte-imagen.md) | Capas, ajustes de corte, rellenos, imagen, vista previa | 60 | 22 | 23 | 15 |
+| [03-maquinas-avanzadas.md](03-maquinas-avanzadas.md) | Dispositivos, control, cámara, rotary, galvo | 53 | 13 | 24 | 16 |
+| **Total** | | **213** | **67** | **86** | **60** |
+
+Lo marcado "(no verificado)" o "(inferido)" en cada archivo debe confirmarse antes de implementarlo.
+
+## Arquitectura
+
+```
+crates/
+  laser-core     modelo del documento: formas con curvas, capas, ajustes, trabajo
+  laser-geom     booleanas, offset, kerf, auto-join, cerrar trayectos       (i_overlay / clipper2, cavalier_contours, kurbo)
+  laser-raster   ajustes de imagen, dithering, umbral, escala de grises     (image, imageproc)
+  laser-plan     orden de corte, rellenos por barrido, overscan, tiempo estimado
+  laser-svg      importación SVG (ya existe); luego laser-dxf, imágenes, formato nativo
+  laser-grbl     G-code y envío por serie (ya existe); luego laser-ruida, laser-jcz
+  laser-cli      herramienta de línea de comandos (ya existe)
+apps/desktop     Tauri + TypeScript, lienzo WebGL
+```
+
+Regla: el motor no sabe nada de la interfaz. Todo lo que hace la app se puede ejecutar y
+probar desde la línea de comandos con archivos dorados.
+
+## Fases
+
+**M1 - Motor completo sin interfaz.** Formas con curvas (no solo polilíneas), importación
+SVG/DXF/imágenes, modos Line/Fill/Image, dithering (Floyd-Steinberg, Jarvis, Stucki, umbral),
+ajustes de imagen, orden de corte, overscan, estimación de tiempo con modelo de aceleración,
+G-code GRBL M3/M4 y envío con conteo de caracteres probado contra el simulador de GRBL.
+
+**M2 - App básica (primer lanzamiento público).** Lienzo con zoom, selección y transformaciones,
+paleta de colores/capas, editor de ajustes por capa, vista previa, gestor de dispositivos,
+ventana de control (conectar, encuadre, iniciar/pausar/detener, jog, consola, origen de 9
+puntos, "iniciar desde"), deshacer/rehacer, formato de proyecto propio.
+
+**M3 - Edición.** Texto con fuentes del sistema, edición de nodos, booleanas, offset, soldar,
+alinear, arreglos, snapping, auto-join. Con esto se cubren los 67 P0.
+
+**M4 - Taller.** Ruida (red y USB), biblioteca de materiales, test de materiales, kerf, tabs,
+sub-capas, eje Z, rotary, cámara (calibración de lente + homografía), macros.
+
+**M5 - Pro.** Galvo EZCAD2, Print & Cut, texto variable/CSV/números de serie, tiling.
+
+## Dónde podemos superar a LightBurn (quejas del foro)
+
+- **Tiling:** LightBurn 2.1 no lo tiene; trabajos más grandes que la cama se hacen a mano.
+- **Planificador de corte explicable:** la queja más repetida es no entender por qué el orden
+  de corte sale como sale. Mostrar qué regla decidió cada paso.
+- **Offset Fill que no se cuelga** y vista previa de tabs/kerf que coincide con la salida.
+- **Importadores fieles:** unidades ausentes, 72 vs 96 DPI, máscaras de recorte.
+- **El encuadre considera el overscan** para avisar antes de iniciar, no a mitad del trabajo.
+
+## Dependencias y licencia
+
+El proyecto es MIT (decidido 2026-10-12). Las bibliotecas citadas existen en crates.io
+(verificado 2026-10-12). Solo se aceptan dependencias con licencias permisivas (MIT, Apache-2.0,
+BSD, Zlib, ISC); una dependencia GPL obligaría a distribuir el binario como GPL (por ejemplo,
+usar vtracer y no potrace). Se automatizará con `cargo-deny`.
+
+## Estado (2026-10-12)
+
+**M1 terminado** (motor + CLI): importación SVG/DXF/imagen, modos Line/Fill/Image, kerf,
+planificador explicable, overscan físico, estimación de tiempo, G-code GRBL, envío con conteo
+de caracteres, verificación de estado antes de enviar, encuadre y consola segura. 408 pruebas.
+
+Pendiente detectado en M1:
+- No probado con hardware real (Falcon2 disponible para pruebas).
+- Recorte real de clip-path/mask en SVG (hoy solo se avisa); se puede hacer con laser-geom.
+- Planificador: figuras que se solapan sin anidarse pierden la precedencia interior-primero.
+- Estimación: se asume parada entre rápidos y cortes; calibrar contra tiempos reales.
+- Imagen: ángulo de barrido, scanning offset, Newsprint/Halftone/Sketch. Relleno: Offset/Flood fill.
+- Textos de ayuda y errores propios de clap en inglés.
