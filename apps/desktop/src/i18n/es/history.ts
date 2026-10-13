@@ -59,7 +59,7 @@ export const history = {
     'Se importaron {n} objetos de {file}, pero el importador avisó de {w} problemas. Revisa que el diseño esté completo.',
   'history.notice.importedNothing': '{file} no tiene objetos que importar.',
   'history.notice.importFailed': 'No se pudo importar {file}: {error}',
-  'history.notice.unsupported': '{file}: formato no compatible. Se admiten SVG, DXF, PNG, JPG y BMP.',
+  'history.notice.unsupported': '{file}: formato no compatible. Se admiten SVG, DXF, PDF, AI, HPGL, G-code e imágenes (PNG, JPG, BMP, WebP, TIFF, GIF y TGA).',
   'history.notice.exportFailed': 'No se pudo exportar el G-code: {error}',
 
   // ---- arrastrar y soltar ----------------------------------------------------------------

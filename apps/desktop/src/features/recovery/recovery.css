@@ -1,0 +1,40 @@
+/* ---- diálogo de recuperación ------------------------------------------------------------- */
+
+.rec-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--s-6) var(--s-6);
+  overflow-y: auto;
+  list-style: none;
+}
+.rec-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-5) 0;
+  border-top: 1px solid var(--border);
+}
+.rec-item__info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.rec-item__name {
+  overflow: hidden;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-item__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-item__btns {
+  display: flex;
+  flex: none;
+  gap: var(--s-4);
+}

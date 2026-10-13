@@ -1,8 +1,15 @@
-import { NODE_NUDGE, nodeTargets, nudgeNodes, runNodeOp } from '@/features/canvas/nodeActions';
+import { useArrangeUi } from '@/features/arrange/uiStore';
+import {
+  circleDiameter, selectableObjects, selectContained, selectInLayer, selectOpen, selectOpenInFill, selectSmaller,
+} from '@/features/arrange/special';
+import { nodeNudge, nodeTargets, nudgeNodes, runNodeOp } from '@/features/canvas/nodeActions';
+import { copyAsSvg, pasteFromSystem, systemClipboardAvailable } from '@/features/canvas/systemClipboard';
 import { HISTORY_TAB } from '@/features/shell/dockTabs';
 import { useShellUi } from '@/features/shell/uiStore';
 import type { I18nKey } from '@/i18n';
-import { groupDoc, hasGroup, ungroupDoc } from '@/lib/groups';
+import { objectBounds, unionBounds } from '@/lib/geometry';
+import { countUnits, groupDoc, hasGroup, ungroupDoc } from '@/lib/groups';
+import { t } from '@/i18n';
 import { selectSelectedObjects } from '@/store';
 import type { AppState } from '@/store';
 import type { CommandDef } from '../types';
@@ -16,8 +23,25 @@ const needMovable = (s: AppState): true | I18nKey => {
   return picked.some((o) => !o.locked) ? true : 'reason.locked';
 };
 
+/** Selecciona `ids` o avisa que no hay nada. */
+function pick(s: AppState, ids: string[], none: I18nKey): void {
+  if (ids.length === 0) s.notifyKey('info', none);
+  else s.select(ids);
+}
+
+/** Capa "actual": la activa en el panel de capas o, si no, la del primer objeto seleccionado. */
+function currentLayer(s: AppState): string | null {
+  return s.activeLayer ?? selectSelectedObjects(s)[0]?.layer ?? null;
+}
+
 const needClipboard = (s: AppState): true | I18nKey =>
   s.clipboard && s.clipboard.objects.length > 0 ? true : 'history.reason.clipboardEmpty';
+
+/** Copia al portapapeles del sistema como SVG (mejor esfuerzo: si el sistema lo impide, queda el interno). */
+const writeSystem = (s: AppState, ids: readonly string[]): void => {
+  const picked = new Set(ids);
+  void copyAsSvg(s.doc.objects.filter((o) => picked.has(o.id)), s.doc.layers);
+};
 
 /** Ids de todo lo que se puede seleccionar con el área (visible y sin bloquear). */
 const selectable = (s: AppState): string[] => s.doc.objects.filter((o) => !o.hidden && !o.locked).map((o) => o.id);
@@ -28,8 +52,8 @@ const selectable = (s: AppState): string[] => s.doc.objects.filter((o) => !o.hid
  */
 const onNodes = (s: AppState): boolean => s.activeTool === 'nodes' && nodeTargets(s).length > 0;
 
-/** Pasos de las flechas en mm: normal, grande (Mayús) y fino (Alt). */
-export const NUDGE_STEPS = { normal: 1, big: 10, fine: 0.1 } as const;
+/** Pasos de las flechas en mm: normal, grande (Mayús) y fino (Alt). Salen de las preferencias. */
+export const nudgeSteps = (): { normal: number; big: number; fine: number } => nodeNudge();
 
 const DIRS = {
   left: [-1, 0],
@@ -62,12 +86,12 @@ const nudges: CommandDef[] = Object.entries(DIRS).flatMap(([dir, [ux, uy]]) =>
     },
     run: (s) => {
       if (onNodes(s)) {
-        const step = NODE_NUDGE[size.id];
+        const step = nodeNudge()[size.id];
         const ids = nodeTargets(s).map((tg) => `${tg.obj.id}:${tg.sel.join('.')}`).join(',');
         nudgeNodes(s, [ux * step, uy * step], `nodenudge:${ARROW[dir as keyof typeof DIRS]}:${size.id}:${ids}`);
         return;
       }
-      const step = NUDGE_STEPS[size.id];
+      const step = nudgeSteps()[size.id];
       // `key` funde la ráfaga (dirección, tamaño y selección iguales) en un solo paso del historial.
       s.moveObjects(s.selectedIds, ux * step, uy * step, `nudge:${dir}:${size.id}:${s.selectedIds.join(',')}`);
     },
@@ -129,15 +153,53 @@ export const editCommands: CommandDef[] = [
       else s.deleteObjects(s.selectedIds);
     },
   },
-  { id: 'edit.copy', label: 'cmd.edit.copy', category: 'edit', shortcuts: ['Mod+C'], enabled: needSelection, run: (s) => void s.copyObjects(s.selectedIds) },
-  { id: 'edit.cut', label: 'cmd.edit.cut', category: 'edit', shortcuts: ['Mod+X'], enabled: needMovable, run: (s) => void s.cutObjects(s.selectedIds) },
   {
+    id: 'edit.copy',
+    label: 'cmd.edit.copy',
+    category: 'edit',
+    shortcuts: ['Mod+C'],
+    enabled: needSelection,
+    run: (s) => {
+      if (s.copyObjects(s.selectedIds) > 0) writeSystem(s, s.selectedIds);
+    },
+  },
+  {
+    id: 'edit.cut',
+    label: 'cmd.edit.cut',
+    category: 'edit',
+    shortcuts: ['Mod+X'],
+    enabled: needMovable,
+    run: (s) => {
+      const ids = s.selectedIds;
+      if (s.cutObjects(ids) > 0) writeSystem(s, ids);
+    },
+  },
+  {
+    // El SVG lo ven otras aplicaciones; Copiar ya lo escribe también, esto avisa que se hizo.
+    id: 'edit.copySvg',
+    label: 'cmd.edit.copySvg',
+    category: 'edit',
+    shortcuts: ['Mod+Alt+C'],
+    enabled: needSelection,
+    run: async (s) => {
+      s.copyObjects(s.selectedIds);
+      const picked = new Set(s.selectedIds);
+      const ok = await copyAsSvg(s.doc.objects.filter((o) => picked.has(o.id)), s.doc.layers);
+      s.notify(ok ? 'success' : 'warning', t(ok ? 'canvas.clip.copied' : 'canvas.clip.copyFailed'));
+    },
+  },
+  {
+    // Pega lo que haya en el portapapeles del sistema (un SVG o un texto de otra aplicación) o, si
+    // no hay nada ajeno, lo copiado dentro de la app.
     id: 'edit.paste',
     label: 'cmd.edit.paste',
     category: 'edit',
     shortcuts: ['Mod+V'],
-    enabled: needClipboard,
-    run: (s) => s.select(s.pasteObjects()),
+    // Con el portapapeles del sistema a mano puede haber algo ajeno que pegar; sin él, solo el interno.
+    enabled: (s) => (systemClipboardAvailable() ? true : needClipboard(s)),
+    run: async (s) => {
+      if ((await pasteFromSystem(s)) === 'none') s.notifyKey('info', 'history.reason.clipboardEmpty');
+    },
   },
   {
     id: 'edit.pasteInPlace',
@@ -152,7 +214,8 @@ export const editCommands: CommandDef[] = [
     label: 'cmd.edit.group',
     category: 'edit',
     shortcuts: ['Mod+G'],
-    enabled: (s) => (s.doc.objects.filter((o) => s.selectedIds.includes(o.id) && !o.locked).length >= 2 ? true : 'history.reason.groupNeedsTwo'),
+    // Un grupo completo cuenta como un solo objeto: se necesitan dos "unidades" (anida grupos).
+    enabled: (s) => (countUnits(s.doc.objects, s.selectedIds) >= 2 ? true : 'history.reason.groupNeedsTwo'),
     run: (s) => s.applyDocChange('history.group', (doc) => groupDoc(doc, s.selectedIds)),
   },
   {
@@ -162,6 +225,69 @@ export const editCommands: CommandDef[] = [
     shortcuts: ['Mod+Shift+G'],
     enabled: (s) => (hasGroup(s.doc.objects, s.selectedIds) ? true : 'history.reason.noGroup'),
     run: (s) => s.applyDocChange('history.ungroup', (doc) => ungroupDoc(doc, s.selectedIds)),
+  },
+  // Selecciones especiales
+  {
+    id: 'edit.selectOpen',
+    label: 'cmd.edit.selectOpen',
+    category: 'edit',
+    enabled: (s) => (selectable(s).length > 0 ? true : 'history.reason.emptyDocument'),
+    run: (s) => pick(s, selectOpen(selectableObjects(s.doc.objects, s.doc.layers)), 'canvas.select.none.open'),
+  },
+  {
+    id: 'edit.selectOpenFill',
+    label: 'cmd.edit.selectOpenFill',
+    category: 'edit',
+    enabled: (s) => (selectable(s).length > 0 ? true : 'history.reason.emptyDocument'),
+    run: (s) => pick(s, selectOpenInFill(selectableObjects(s.doc.objects, s.doc.layers), s.doc.layers), 'canvas.select.none.openFill'),
+  },
+  {
+    id: 'edit.selectLayer',
+    label: 'cmd.edit.selectLayer',
+    category: 'edit',
+    enabled: (s) => (currentLayer(s) ? true : 'canvas.select.reason.noLayer'),
+    run: (s) => {
+      const color = currentLayer(s);
+      if (color) pick(s, selectInLayer(selectableObjects(s.doc.objects, s.doc.layers), color), 'canvas.select.none.layer');
+    },
+  },
+  {
+    id: 'edit.selectContained',
+    label: 'cmd.edit.selectContained',
+    category: 'edit',
+    enabled: needSelection,
+    run: (s) => {
+      const containers = selectSelectedObjects(s).filter((o) => o.kind.type === 'vector');
+      const found = selectContained(selectableObjects(s.doc.objects, s.doc.layers), containers);
+      if (found.length <= containers.length) s.notifyKey('info', 'canvas.select.none.contained');
+      else s.select(found);
+    },
+  },
+  {
+    id: 'edit.selectSmaller',
+    label: 'cmd.edit.selectSmaller',
+    category: 'edit',
+    enabled: needSelection,
+    run: (s) => {
+      const picked = selectSelectedObjects(s);
+      const box = unionBounds(picked.map(objectBounds));
+      if (!box) return;
+      const limit = (box[1][0] - box[0][0]) * (box[1][1] - box[0][1]);
+      const exclude = new Set(s.selectedIds);
+      pick(s, selectSmaller(selectableObjects(s.doc.objects, s.doc.layers), limit, exclude), 'canvas.select.none.smaller');
+    },
+  },
+  {
+    // Para agujeros de tornillo y similares: círculos de un diámetro exacto o dentro de un rango.
+    id: 'edit.selectCircles',
+    label: 'cmd.edit.selectCircles',
+    category: 'edit',
+    enabled: (s) => (selectable(s).length > 0 ? true : 'history.reason.emptyDocument'),
+    run: (s) => {
+      const d = selectSelectedObjects(s).length === 1 ? circleDiameter(selectSelectedObjects(s)[0]!) : null;
+      useArrangeUi.getState().patchCircles(d ? { min: d, max: d } : {});
+      useArrangeUi.getState().open({ kind: 'circles' });
+    },
   },
   // Paneles y ayuda. `?` (en cualquier distribución de teclado) lo atiende el shell; aquí quedan
   // los atajos que el registro puede resolver por tecla física.

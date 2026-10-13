@@ -1,6 +1,10 @@
 import type { DesignObject, Point } from '@/api/types';
+import { getPref } from '@/store';
 import type { Bounds } from '@/lib/geometry';
-import { getGeom, type Box } from './geom';
+import { getGeom, type Box, type ObjectGeom } from './geom';
+import { collectSnapPoints, intersectionsNear, nearestSnapPoint, type SnapPoint, type SnapPointKind } from './snapPoints';
+
+export type { SnapPoint, SnapPointKind } from './snapPoints';
 
 /**
  * Ajuste magnético predecible:
@@ -10,6 +14,7 @@ import { getGeom, type Box } from './geom';
  *    o la cama ganan a la cuadrícula.
  *  - La cuadrícula es la que se ve (paso menor visible), no una oculta.
  */
+/** Tolerancia de fábrica; la que rige es la preferencia `snapPx`. */
 export const SNAP_PX = 8;
 
 export type SnapKind = 'object' | 'bed' | 'grid';
@@ -25,6 +30,10 @@ export interface SnapTarget {
 export interface SnapSet {
   xs: SnapTarget[];
   ys: SnapTarget[];
+  /** Nodos, puntos medios y centros de los demás objetos (se calculan la primera vez que se piden). */
+  points?: () => SnapPoint[];
+  /** Geometría de los demás objetos cerca de la vista, para hallar intersecciones junto al cursor. */
+  geoms?: ObjectGeom[];
 }
 
 export interface SnapOptions {
@@ -52,7 +61,7 @@ export interface Feature {
   grid: boolean;
 }
 
-export function snapToleranceMM(zoom: number, px = SNAP_PX): number {
+export function snapToleranceMM(zoom: number, px: number = getPref('snapPx')): number {
   return px / zoom;
 }
 
@@ -65,17 +74,37 @@ export function collectSnapTargets(
 ): SnapSet {
   const xs: SnapTarget[] = [];
   const ys: SnapTarget[] = [];
+  const geoms: ObjectGeom[] = [];
   for (const obj of objects) {
     if (obj.hidden || skip.has(obj.id)) continue;
-    const box = getGeom(obj).box;
+    const g = getGeom(obj);
+    const box = g.box;
     if (!box) continue;
     if (region && (box[2] < region[0] || box[0] > region[2] || box[3] < region[1] || box[1] > region[3])) continue;
+    geoms.push(g);
     for (const v of [box[0], (box[0] + box[2]) / 2, box[2]]) xs.push({ v, kind: 'object', lo: box[1], hi: box[3] });
     for (const v of [box[1], (box[1] + box[3]) / 2, box[3]]) ys.push({ v, kind: 'object', lo: box[0], hi: box[2] });
   }
   for (const v of [0, bed.width / 2, bed.width]) xs.push({ v, kind: 'bed', lo: 0, hi: bed.height });
   for (const v of [0, bed.height / 2, bed.height]) ys.push({ v, kind: 'bed', lo: 0, hi: bed.width });
-  return { xs, ys };
+  let cache: SnapPoint[] | null = null;
+  return { xs, ys, geoms, points: () => (cache ??= collectSnapPoints(objects, skip, region)) };
+}
+
+/** Punto de ajuste al que se pegó el cursor (nodo, punto medio, centro o intersección). */
+export interface PointHit {
+  p: Point;
+  kind: SnapPointKind;
+}
+
+/**
+ * Punto de objeto más cercano a `p` dentro de `opts.tol`, o `null`. Solo con el ajuste a objetos
+ * encendido. Las intersecciones se calculan aquí, solo con los trazos que hay junto al cursor.
+ */
+export function snapToPoints(p: Point, set: SnapSet, opts: SnapOptions): PointHit | null {
+  if (!opts.objects || !set.points) return null;
+  const near = [...set.points().filter((sp) => Math.abs(sp.p[0] - p[0]) <= opts.tol && Math.abs(sp.p[1] - p[1]) <= opts.tol), ...intersectionsNear(set.geoms ?? [], p, opts.tol)];
+  return nearestSnapPoint(near, p, opts.tol);
 }
 
 interface Pick {
@@ -111,6 +140,8 @@ export interface SnapResult {
   guides: Guide[];
   /** Hubo ajuste en algún eje. */
   snapped: boolean;
+  /** Si el cursor se pegó a un punto de un objeto, cuál (para dibujar el indicador). */
+  point?: PointHit;
 }
 
 export const NO_SNAP: SnapResult = { dx: 0, dy: 0, guides: [], snapped: false };
@@ -181,8 +212,17 @@ export function snapMove(b: Bounds, set: SnapSet, opts: SnapOptions, axes: { x: 
   return snapFeatures(fx, fy, [b[0][1], b[1][1]], [b[0][0], b[1][0]], set, opts);
 }
 
-/** Ajuste de un punto (cursor al dibujar, manija al escalar). `ex`/`ey` desactivan un eje. */
+/**
+ * Ajuste de un punto (cursor al dibujar, manija al escalar). Un nodo, punto medio, centro o
+ * intersección cercano gana a todo lo demás y deja el punto exacto; si no hay ninguno, cada eje
+ * se pega a las líneas de referencia y a la cuadrícula. `axes` desactiva un eje (solo cuenta en
+ * el segundo caso: un punto de objeto fija los dos).
+ */
 export function snapPoint(p: Point, set: SnapSet, opts: SnapOptions, axes: { x: boolean; y: boolean } = { x: true, y: true }): SnapResult {
+  if (axes.x && axes.y) {
+    const hit = snapToPoints(p, set, opts);
+    if (hit) return { dx: hit.p[0] - p[0], dy: hit.p[1] - p[1], guides: [], snapped: true, point: hit };
+  }
   return snapFeatures(
     axes.x ? [{ v: p[0], grid: true }] : [],
     axes.y ? [{ v: p[1], grid: true }] : [],

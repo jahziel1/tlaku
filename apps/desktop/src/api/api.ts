@@ -18,6 +18,8 @@ import type {
   CameraSetup,
   MarksReport,
   DesignObject,
+  CodeResult,
+  CodeSpec,
   FontFamily,
   GeometryOpArgs,
   MaterialLibrary,
@@ -28,7 +30,33 @@ import type {
   TraceSettings,
 } from './types';
 
+import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
+
 export type Unlisten = () => void;
+
+/** Copia de recuperación del autoguardado (ver `src-tauri/src/autosave.rs`). */
+export interface RecoveryInfo {
+  id: string;
+  /** Nombre para mostrar: el del proyecto o «Sin título». */
+  name: string;
+  /** Proyecto del que viene la copia; null si nunca se guardó. */
+  path: string | null;
+  /** Momento de la copia, en milisegundos desde 1970. */
+  saved_at_ms: number;
+  size_bytes: number;
+}
+
+/** Sobre de `preferences.json` y de los paquetes `.tlakuprefs` (ver `src-tauri/src/prefs.rs`). */
+export interface PrefsFile {
+  version: 1;
+  prefs: Record<string, unknown>;
+  /** Atajos del usuario: id de comando -> atajos (ver `commands/shortcuts.ts`). */
+  shortcuts: Record<string, string[]>;
+}
+
+export interface PrefsBundle extends PrefsFile {
+  format: 'tlaku-prefs';
+}
 
 /** Familia de firmware que reconoce `probe_port`. */
 export type ProbeFamily = 'grbl' | 'grbl_hal' | 'fluid_nc' | 'grbl_lpc' | 'marlin' | 'smoothie' | 'unknown';
@@ -109,6 +137,10 @@ export interface LaserApi {
    * del texto (con la inversa del `transform` del texto aplicada), no de documento.
    */
   textOutline(args: { text: TextObject; path: BezPath | null }): Promise<TextOutlineResult>;
+  /** Importa fuentes SHX de AutoCAD; devuelve los nombres con que quedan disponibles en `listFonts`. */
+  importShxFonts(args: { paths: string[] }): Promise<string[]>;
+  /** QR o código de barras como formas cerradas (rellenables). */
+  generateCode(args: { spec: CodeSpec }): Promise<CodeResult>;
   /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
   geometryOp(args: GeometryOpArgs): Promise<DesignObject[]>;
   traceImage(args: { path: string; settings: TraceSettings; size_mm: [number, number] }): Promise<TraceResult>;
@@ -160,6 +192,37 @@ export interface LaserApi {
    */
   rotaryTest(args: { device: DeviceProfile; speed: number; power: number }): Promise<Document>;
 
+  // Aplicación: preferencias, autoguardado
+  /** Preferencias guardadas (`preferences.json`); null si todavía no hay. */
+  loadPreferences(): Promise<PrefsFile | null>;
+  savePreferences(args: { data: PrefsFile }): Promise<void>;
+  /** Escribe un paquete `.tlakuprefs`. */
+  exportPreferences(args: { path: string; bundle: PrefsBundle }): Promise<void>;
+  /** Lee un paquete `.tlakuprefs`; la interfaz sanea y aplica lo que trae. */
+  importPreferences(args: { path: string }): Promise<PrefsBundle>;
+  /** Para cada ruta, si el archivo existe. */
+  pathsExist(args: { paths: string[] }): Promise<boolean[]>;
+  /** Guarda la copia de recuperación `id` (atómico; recorta las más viejas). */
+  autosaveWrite(args: { id: string; name: string; path: string | null; doc: Document }): Promise<RecoveryInfo>;
+  /** Copias pendientes de recuperar, de la más nueva a la más vieja (las superadas por un guardado se borran). */
+  autosaveList(): Promise<RecoveryInfo[]>;
+  autosaveRead(args: { id: string }): Promise<Document>;
+  autosaveDiscard(args: { id: string }): Promise<void>;
+
+  // Formatos de archivo (ola 1)
+  /**
+   * Importa con las opciones del diálogo de importación (escala, DPI de SVG e imágenes, unidad de
+   * un DXF sin unidades, página del PDF, agrupar, capa destino y G-code por potencia).
+   */
+  importFileWith(args: { path: string; options: Partial<ImportDialogOptions> }): Promise<ImportResult>;
+  /**
+   * Exporta el documento (o solo `selection`, ids de objeto; `null` = todo) a SVG, DXF, PNG o PDF en
+   * `path`. Las opciones que falten en `request` toman su valor por defecto.
+   */
+  exportDesign(args: { doc: Document; selection: string[] | null; path: string; request: ExportRequest }): Promise<ExportSummary>;
+  /** Genera el PDF a escala 1:1 y lo abre en el visor del sistema para imprimirlo. */
+  printDesign(args: { doc: Document; selection: string[] | null; options: Partial<PdfOptions> }): Promise<ExportSummary>;
+
   /** Suscripción a eventos `machine://*`. Devuelve la función para cancelar. */
   on<K extends EventName>(event: K, handler: (payload: EventMap[K]) => void): Promise<Unlisten>;
 }
@@ -190,6 +253,8 @@ export const COMMAND_NAMES = {
   simulateFault: 'simulate_fault',
   listFonts: 'list_fonts',
   textOutline: 'text_outline',
+  importShxFonts: 'import_shx_fonts',
+  generateCode: 'generate_code',
   geometryOp: 'geometry_op',
   traceImage: 'trace_image',
   detectBoard: 'detect_board',
@@ -206,6 +271,18 @@ export const COMMAND_NAMES = {
   materialTest: 'material_test',
   deviceDefaults: 'device_defaults',
   rotaryTest: 'rotary_test',
+  importFileWith: 'import_file_with',
+  exportDesign: 'export_design_file',
+  printDesign: 'print_design',
+  loadPreferences: 'load_preferences',
+  savePreferences: 'save_preferences',
+  exportPreferences: 'export_preferences',
+  importPreferences: 'import_preferences',
+  pathsExist: 'paths_exist',
+  autosaveWrite: 'autosave_write',
+  autosaveList: 'autosave_list',
+  autosaveRead: 'autosave_read',
+  autosaveDiscard: 'autosave_discard',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [

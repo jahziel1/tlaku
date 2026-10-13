@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="1.4.03" FormatVersion="1" MaterialHeight="0" MirrorX="False" MirrorY="False">
+    <CutSetting type="Cut">
+        <index Value="0"/>
+        <name Value="Corte"/>
+        <minPower Value="10"/>
+        <maxPower Value="80"/>
+        <speed Value="10"/>
+        <numPasses Value="2"/>
+        <kerf Value="0.1"/>
+        <zOffset Value="1"/>
+        <zPerPass Value="0.5"/>
+        <runBlower Value="1"/>
+        <priority Value="2"/>
+        <doOutput Value="1"/>
+        <hide Value="0"/>
+        <perforate Value="1"/>
+        <tabsEnabled Value="1"/>
+        <tabSize Value="0.8"/>
+        <tabCount Value="6"/>
+        <tabsUseSpacing Value="0"/>
+        <skipInnerTabs Value="1"/>
+        <manualTabs Value="0"/>
+    </CutSetting>
+    <CutSetting type="Scan">
+        <index Value="1"/>
+        <name Value="Grabado"/>
+        <minPower Value="0"/>
+        <maxPower Value="25"/>
+        <speed Value="100"/>
+        <numPasses Value="1"/>
+        <interval Value="0.15"/>
+        <angle Value="45"/>
+        <crossHatch Value="1"/>
+        <bidir Value="0"/>
+        <overscan Value="1"/>
+        <overscanPercent Value="2.5"/>
+        <runBlower Value="0"/>
+        <priority Value="0"/>
+    </CutSetting>
+    <CutSetting type="Cut">
+        <index Value="2"/>
+        <name Value="Marcas"/>
+        <maxPower Value="5"/>
+        <speed Value="30"/>
+        <priority Value="1"/>
+        <doOutput Value="0"/>
+        <hide Value="1"/>
+    </CutSetting>
+    <CutSetting type="Tool">
+        <index Value="30"/>
+        <name Value="T1"/>
+        <priority Value="0"/>
+    </CutSetting>
+    <Shape Type="Rect" CutIndex="0" W="10" H="10" Cr="0">
+        <XForm>1 0 0 1 20 20</XForm>
+    </Shape>
+    <Shape Type="Rect" CutIndex="1" W="10" H="10" Cr="0">
+        <XForm>1 0 0 1 40 20</XForm>
+    </Shape>
+    <Shape Type="Rect" CutIndex="2" W="10" H="10" Cr="0">
+        <XForm>1 0 0 1 60 20</XForm>
+    </Shape>
+    <Shape Type="Rect" CutIndex="30" W="100" H="100" Cr="0">
+        <XForm>1 0 0 1 50 50</XForm>
+    </Shape>
+</LightBurnProject>

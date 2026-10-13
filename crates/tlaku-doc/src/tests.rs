@@ -396,6 +396,8 @@ fn text_object_roundtrips_and_uses_its_outline() {
                 offset_mm: 2.0,
                 flip: true,
             }),
+            bend_deg: None,
+            welded: None,
             outline: vec![rect_path(4.0, 6.0)],
         }),
         locked: false,

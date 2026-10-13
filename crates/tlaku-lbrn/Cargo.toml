@@ -1,0 +1,10 @@
+[package]
+name = "tlaku-lbrn"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+base64 = "0.22"
+roxmltree = "0.20"
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }

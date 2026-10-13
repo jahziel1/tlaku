@@ -1,0 +1,126 @@
+/** Textos de preferencias, atajos, autoguardado y recuperación. Todas las claves empiezan con `prefs.` (lo verifica i18n.test.ts). */
+export const prefs = {
+  // ---- comandos ---------------------------------------------------------------
+  'prefs.cmd.open': 'Preferencias…',
+  'prefs.cmd.shortcuts': 'Editar atajos de teclado…',
+
+  // ---- ventana de preferencias ------------------------------------------------
+  'prefs.title': 'Preferencias',
+  'prefs.close': 'Cerrar',
+  'prefs.nav': 'Secciones de preferencias',
+  'prefs.section.general': 'General',
+  'prefs.section.editing': 'Edición',
+  'prefs.section.appearance': 'Apariencia',
+  'prefs.section.files': 'Archivos',
+  'prefs.section.shortcuts': 'Atajos',
+  'prefs.import': 'Importar…',
+  'prefs.export': 'Exportar…',
+  'prefs.reset': 'Restablecer',
+  'prefs.reset.title': 'Restablecer preferencias',
+  'prefs.reset.message': 'Todas las preferencias volverán a sus valores de fábrica. Tus atajos de teclado no cambian.',
+  'prefs.reset.confirm': 'Restablecer',
+  'prefs.reset.cancel': 'Cancelar',
+  'prefs.footer.hint': 'Los cambios se guardan solos.',
+
+  // ---- General ------------------------------------------------------------------
+  'prefs.language': 'Idioma',
+  'prefs.language.es': 'Español',
+  'prefs.language.en': 'English (próximamente)',
+  'prefs.language.hint': 'La interfaz ya está preparada para otros idiomas; el inglés llegará en una próxima versión.',
+
+  // ---- Edición ------------------------------------------------------------------
+  'prefs.units': 'Unidades de longitud',
+  'prefs.units.mm': 'Milímetros (mm)',
+  'prefs.units.in': 'Pulgadas (in)',
+  'prefs.units.hint': 'El diseño se guarda siempre en milímetros. La unidad elegida se usa en los campos que ya la admiten y se irá extendiendo al resto.',
+  'prefs.nudge.title': 'Flechas del teclado',
+  'prefs.nudgeStep': 'Paso normal',
+  'prefs.nudgeStepBig': 'Paso con Mayús',
+  'prefs.nudgeStepFine': 'Paso con Alt',
+  'prefs.rotateStep': 'Paso de rotación con Mayús',
+  'prefs.snapPx': 'Distancia del ajuste magnético',
+  'prefs.duplicateOffset': 'Desplazamiento al duplicar y pegar',
+  'prefs.length.hint': 'Acepta unidades al escribir: «5 mm», «0,25 in», «1/8"».',
+
+  // ---- Apariencia -----------------------------------------------------------------
+  'prefs.theme': 'Tema',
+  'prefs.theme.dark': 'Oscuro',
+  'prefs.theme.light': 'Claro',
+  'prefs.grid': 'Rejilla del lienzo',
+  'prefs.grid.auto': 'Automática (según el zoom)',
+  'prefs.grid.hint': 'Con una medida fija, la rejilla menor mide eso y la mayor diez veces más; con zoom muy alejado se oculta para no saturar la vista.',
+
+  // ---- Archivos ---------------------------------------------------------------------
+  'prefs.autosave': 'Guardar copias de recuperación automáticamente',
+  'prefs.autosaveSecs': 'Intervalo entre copias',
+  'prefs.autosave.hint': 'Solo se guarda si hay cambios sin guardar, y la copia se borra al guardar el proyecto o cerrar la aplicación. Si Tlaku se cierra de golpe, al abrirlo se ofrece recuperarla.',
+  'prefs.recentMax': 'Archivos recientes que se recuerdan',
+  'prefs.recent.clear': 'Vaciar la lista de recientes',
+
+  // ---- unidades de los campos -------------------------------------------------------
+  'prefs.unit.deg': '°',
+  'prefs.unit.px': 'px',
+  'prefs.unit.s': 's',
+  'prefs.unit.count': 'archivos',
+
+  // ---- atajos -------------------------------------------------------------------------
+  'prefs.shortcuts.search': 'Buscar un comando o un atajo',
+  'prefs.shortcuts.none': 'Ningún comando coincide con «{q}».',
+  'prefs.shortcuts.unassigned': 'Sin atajo',
+  'prefs.shortcuts.custom': 'Personalizado',
+  'prefs.shortcuts.count': '{n} personalizados',
+  'prefs.shortcuts.change': 'Cambiar el atajo',
+  'prefs.shortcuts.add': 'Añadir otro atajo',
+  'prefs.shortcuts.clear': 'Quitar el atajo',
+  'prefs.shortcuts.restore': 'Restaurar el de fábrica',
+  'prefs.shortcuts.press': 'Pulsa la combinación… (Esc cancela)',
+  'prefs.shortcuts.captureLabel': 'Esperando la combinación de teclas para «{name}»',
+  'prefs.shortcuts.conflict': '«{key}» ya es el atajo de «{name}».',
+  'prefs.shortcuts.steal': 'Quitárselo y asignarlo aquí',
+  'prefs.shortcuts.cancel': 'Cancelar',
+  'prefs.shortcuts.restoreAll': 'Restaurar los de fábrica',
+  'prefs.shortcuts.restoreAll.title': 'Restaurar atajos',
+  'prefs.shortcuts.restoreAll.message': 'Se quitarán todos tus cambios y volverán los atajos de fábrica. ¿Continuar?',
+  'prefs.shortcuts.import': 'Importar atajos…',
+  'prefs.shortcuts.export': 'Exportar atajos…',
+  'prefs.shortcuts.hint': 'El diálogo de atajos (F1) y el manual muestran siempre los atajos de fábrica.',
+  'prefs.shortcuts.step.normal': 'paso normal',
+  'prefs.shortcuts.step.big': 'paso grande',
+  'prefs.shortcuts.step.fine': 'paso fino',
+
+  // ---- archivos .tlakuprefs ---------------------------------------------------------------
+  'prefs.file.exportTitle': 'Exportar preferencias',
+  'prefs.file.importTitle': 'Importar preferencias',
+  'prefs.err.notBundle': 'El archivo no es un paquete de preferencias de Tlaku.',
+
+  // ---- avisos -------------------------------------------------------------------------------
+  'prefs.notice.loadFailed': 'No se pudieron leer las preferencias: {error}',
+  'prefs.notice.saveFailed': 'No se pudieron guardar las preferencias: {error}',
+  'prefs.notice.exported': 'Preferencias exportadas a {path}.',
+  'prefs.notice.exportFailed': 'No se pudo exportar: {error}',
+  'prefs.notice.imported': 'Se importó {name}: {prefs} preferencias y atajos de {shortcuts} comandos.',
+  'prefs.notice.ignoredPrefs': '{n} preferencias del paquete no se entendieron y se ignoraron.',
+  'prefs.notice.unknownCommands': '{n} comandos del paquete no existen en esta versión; sus atajos se conservan por si llegan después.',
+  'prefs.notice.importFailed': 'No se pudo importar {name}: {error}',
+
+  // ---- autoguardado y recuperación ------------------------------------------------------------
+  'prefs.autosave.failed': 'No se pudo guardar la copia de recuperación: {error}',
+  'prefs.recovery.title': 'Se encontró trabajo sin guardar',
+  'prefs.recovery.intro': 'Tlaku se cerró antes de guardar. Puedes recuperar la última copia automática de cada documento o descartarla.',
+  'prefs.recovery.when': 'Copia del {date}',
+  'prefs.recovery.from': 'Proyecto: {path}',
+  'prefs.recovery.new': 'Documento que nunca se guardó',
+  'prefs.recovery.recover': 'Recuperar',
+  'prefs.recovery.discard': 'Descartar',
+  'prefs.recovery.discardAll': 'Descartar todo',
+  'prefs.recovery.later': 'Decidir después',
+  'prefs.recovery.list': 'Copias de recuperación',
+  'prefs.recovery.discardAll.title': 'Descartar copias',
+  'prefs.recovery.discardAll.message': '¿Descartar las {n} copias de recuperación? No se pueden deshacer.',
+  'prefs.recovery.discardAll.confirm': 'Descartar',
+  'prefs.recovery.discardAll.cancel': 'Cancelar',
+  'prefs.recovery.recovered': 'Se recuperó «{name}». Guárdalo para conservarlo.',
+  'prefs.recovery.recoverFailed': 'No se pudo recuperar «{name}»: {error}',
+  'prefs.recovery.discardFailed': 'No se pudo descartar la copia: {error}',
+  'prefs.recovery.listFailed': 'No se pudo revisar si hay copias de recuperación: {error}',
+} as const;

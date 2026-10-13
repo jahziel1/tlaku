@@ -129,3 +129,45 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export const NATIVE_TEXT_COMBOS: ReadonlySet<string> = new Set([
   'Mod+A', 'Mod+C', 'Mod+X', 'Mod+V', 'Mod+Z', 'Mod+Shift+Z', 'Mod+Y',
 ]);
+
+// ---- atajos del usuario ---------------------------------------------------------------------
+
+/**
+ * Atajos que el usuario cambió: id de comando -> lista de atajos que lo reemplaza por completo
+ * (lista vacía = el comando queda sin atajo). Un comando que no aparece conserva el de fábrica.
+ * Se guardan en forma canónica con `Mod`, así el mismo archivo sirve en macOS y en el resto.
+ */
+export type ShortcutOverrides = Record<string, string[]>;
+
+/** Atajo en forma canónica, o `null` si no es válido. */
+export function tryNormalizeCombo(combo: unknown): string | null {
+  if (typeof combo !== 'string') return null;
+  try {
+    return normalizeCombo(combo);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Limpia datos leídos del disco o de un paquete: descarta ids vacíos, atajos inválidos y repetidos.
+ * No sabe qué comandos existen (un paquete puede venir de otra versión): los desconocidos se
+ * conservan y el registro simplemente los ignora.
+ */
+export function sanitizeOverrides(raw: unknown): ShortcutOverrides {
+  const out: ShortcutOverrides = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [id, list] of Object.entries(raw as Record<string, unknown>)) {
+    if (id === '' || !Array.isArray(list)) continue;
+    const combos = [...new Set(list.map(tryNormalizeCombo).filter((c): c is string => c !== null))];
+    out[id] = combos;
+  }
+  return out;
+}
+
+/** ¿Las dos listas de atajos son la misma (sin importar el orden)? */
+export function sameCombos(a: readonly string[], b: readonly string[]): boolean {
+  const x = new Set(a.map(normalizeCombo));
+  const y = new Set(b.map(normalizeCombo));
+  return x.size === y.size && [...x].every((c) => y.has(c));
+}

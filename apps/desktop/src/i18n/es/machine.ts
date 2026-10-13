@@ -416,7 +416,6 @@ export const machine = {
   'machine.dev.name': 'Nombre',
   'machine.dev.name.help': 'Cómo aparece en la lista y en los proyectos.',
   'machine.dev.kind': 'Tipo de controladora',
-  'machine.dev.kind.help': 'Por ahora solo GRBL (el firmware de casi todos los láseres de diodo).',
   'machine.dev.origin': 'Origen de la máquina',
   'machine.dev.origin.help': 'Esquina donde la máquina tiene su X0 Y0. Si es incorrecta, el trabajo sale espejado o invertido.',
   'machine.dev.origin.bottom_left': 'Abajo a la izquierda (lo habitual)',

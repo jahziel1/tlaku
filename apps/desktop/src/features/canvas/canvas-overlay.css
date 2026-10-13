@@ -158,3 +158,98 @@
   white-space: nowrap;
 }
 .canvas-area:not([data-space='true']):not([data-panning='true'])[data-cursor='text'] { cursor: text; }
+
+/* ---- interruptores de transformación ----------------------------------------------------------- */
+.nbar-toggles {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  align-self: flex-end;
+  height: var(--control-h);
+}
+
+/* ---- medición ------------------------------------------------------------------------------------- */
+.measure-readout {
+  position: absolute;
+  left: 50%;
+  bottom: var(--s-5);
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: var(--s-1) var(--s-6);
+  max-width: min(92%, 420px);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop);
+  transform: translateX(-50%);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+.measure-readout__row {
+  display: contents;
+}
+.measure-readout dt {
+  color: var(--text-muted);
+}
+.measure-readout dd {
+  margin: 0;
+  text-align: right;
+  color: var(--text);
+}
+.measure-readout__title {
+  grid-column: 1 / -1;
+  margin: 0 0 var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---- propiedades de forma -------------------------------------------------------------------------- */
+.shape-props {
+  position: absolute;
+  top: var(--s-5);
+  right: var(--s-5);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  width: 218px;
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop);
+}
+.shape-props__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.shape-props__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+.shape-props__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3) var(--s-4);
+}
+.shape-props__grid .nbar-field__input {
+  width: 100%;
+}
+.shape-props__check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--text-sm);
+}
+.shape-props__note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}

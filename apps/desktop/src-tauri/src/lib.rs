@@ -7,10 +7,12 @@
 //! - `edit`: texto, geometría, vectorizado, cámara (fase 3) y materiales (fase 4), un módulo
 //!   por área.
 
+mod autosave;
 mod commands;
 mod edit;
 mod engine;
 mod machine;
+mod prefs;
 mod probe;
 
 use commands::AppState;
@@ -46,6 +48,8 @@ pub fn run() {
             commands::simulate_fault,
             edit::text::list_fonts,
             edit::text::text_outline,
+            edit::text::import_shx_fonts,
+            edit::codes::generate_code,
             edit::geometry::geometry_op,
             edit::trace::trace_image,
             edit::camera::detect_board,
@@ -62,6 +66,18 @@ pub fn run() {
             edit::materials::material_test,
             edit::devices::device_defaults,
             edit::devices::rotary_test,
+            edit::files::import_file_with,
+            edit::files::export_design_file,
+            edit::files::print_design,
+            autosave::autosave_write,
+            autosave::autosave_list,
+            autosave::autosave_read,
+            autosave::autosave_discard,
+            prefs::load_preferences,
+            prefs::save_preferences,
+            prefs::export_preferences,
+            prefs::import_preferences,
+            prefs::paths_exist,
         ])
         .build(tauri::generate_context!())
         .expect("no se pudo iniciar la aplicación Tlaku");

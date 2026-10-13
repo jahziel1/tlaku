@@ -1,18 +1,33 @@
 import type { I18nKey } from '@/i18n';
 import type { AppState } from '@/store';
-import { normalizeCombo, formatCombo } from './shortcuts';
+import { normalizeCombo, formatCombo, sameCombos, tryNormalizeCombo, type ShortcutOverrides } from './shortcuts';
 import type { CommandDef } from './types';
 
 export class ShortcutConflictError extends Error {}
+
+/** Atajos efectivos (fábrica + usuario) para un conjunto de cambios del usuario. */
+interface Resolved {
+  overrides: ShortcutOverrides;
+  byCombo: Map<string, CommandDef>;
+  byId: Map<string, string[]>;
+}
+
+const NO_OVERRIDES: ShortcutOverrides = {};
 
 /**
  * Registro central de comandos. Menús, barras de herramientas, paleta de herramientas y atajos
  * leen de aquí: un comando tiene un solo id, una etiqueta, sus atajos y su acción.
  * Al construirlo se rechazan ids repetidos y atajos asignados a dos comandos.
+ *
+ * Los atajos que el usuario cambia (`shortcutOverrides` del estado) se aplican encima de los de
+ * fábrica (`def.shortcuts`): un comando con cambios usa solo los suyos, y si uno de ellos choca con
+ * un atajo de fábrica de otro comando, gana el del usuario. `def.shortcuts` nunca cambia: el
+ * diálogo de atajos y el README siguen mostrando los de fábrica.
  */
 export class CommandRegistry {
   private byId = new Map<string, CommandDef>();
   private byCombo = new Map<string, CommandDef>();
+  private resolved: Resolved | null = null;
 
   constructor(
     defs: readonly CommandDef[],
@@ -44,9 +59,57 @@ export class CommandRegistry {
     return def;
   }
 
-  /** Comando asignado a un atajo canónico, si lo hay. */
+  /** Atajos efectivos según los cambios del usuario del estado actual. Se recalcula solo si cambian. */
+  private resolve(): Resolved {
+    const overrides = this.getState().shortcutOverrides ?? NO_OVERRIDES;
+    if (this.resolved?.overrides === overrides) return this.resolved;
+    const byCombo = new Map<string, CommandDef>();
+    const byId = new Map<string, string[]>();
+    const claim = (def: CommandDef, raw: string) => {
+      const combo = tryNormalizeCombo(raw);
+      if (combo === null || byCombo.has(combo)) return;
+      byCombo.set(combo, def);
+      byId.set(def.id, [...(byId.get(def.id) ?? []), combo]);
+    };
+    // Primero los comandos con cambios del usuario, para que ganen ante los de fábrica.
+    for (const def of this.byId.values()) {
+      byId.set(def.id, []);
+      for (const raw of overrides[def.id] ?? []) claim(def, raw);
+    }
+    for (const def of this.byId.values()) {
+      if (def.id in overrides) continue;
+      for (const raw of def.shortcuts ?? []) claim(def, raw);
+    }
+    this.resolved = { overrides, byCombo, byId };
+    return this.resolved;
+  }
+
+  /** Comando asignado a un atajo canónico, si lo hay (con los cambios del usuario). */
   match(combo: string): CommandDef | undefined {
-    return this.byCombo.get(combo);
+    return this.resolve().byCombo.get(combo);
+  }
+
+  /** Atajos efectivos de un comando, en forma canónica. */
+  shortcutsOf(id: string): string[] {
+    this.get(id);
+    return this.resolve().byId.get(id) ?? [];
+  }
+
+  /** Atajos de fábrica de un comando, en forma canónica. */
+  factoryShortcuts(id: string): string[] {
+    return (this.get(id).shortcuts ?? []).map(normalizeCombo);
+  }
+
+  /** ¿El usuario cambió los atajos de este comando respecto a los de fábrica? */
+  isCustomized(id: string): boolean {
+    const own = this.getState().shortcutOverrides?.[id];
+    return own !== undefined && !sameCombos(own, this.factoryShortcuts(id));
+  }
+
+  /** Comando que tiene hoy este atajo, salvo `except`. Sirve para avisar de conflictos al reasignar. */
+  conflictOf(combo: string, except?: string): CommandDef | undefined {
+    const def = this.match(normalizeCombo(combo));
+    return def && def.id !== except ? def : undefined;
   }
 
   label(id: string, state: AppState = this.getState()): I18nKey {
@@ -63,9 +126,9 @@ export class CommandRegistry {
     return this.get(id).checked?.(state) ?? false;
   }
 
-  /** Atajo principal, listo para mostrar; cadena vacía si no tiene. */
+  /** Atajo principal (el del usuario si lo cambió), listo para mostrar; cadena vacía si no tiene. */
   shortcutLabel(id: string, mac: boolean): string {
-    const first = this.get(id).shortcuts?.[0];
+    const first = this.shortcutsOf(id)[0];
     return first ? formatCombo(first, mac) : '';
   }
 

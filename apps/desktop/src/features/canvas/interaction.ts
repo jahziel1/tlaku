@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Affine, BezPath, Point } from '@/api/types';
 import type { BoxMode } from './hit';
 import type { EditModel } from './nodeedit';
-import type { Guide } from './snap';
+import type { Guide, SnapPointKind } from './snap';
 
 /**
  * Estado efímero de la interacción con el lienzo (arrastres, guías, borradores). No es parte del
@@ -14,6 +14,36 @@ export interface DraftShape {
   paths: BezPath[];
   /** Polilínea en curso: se dibuja el último tramo hasta el cursor. */
   rubber?: boolean;
+  /** Nodos ya puestos de una curva en curso (se dibujan como cuadritos). */
+  nodes?: Point[];
+  /** Manijas de Bézier a mostrar: pares (nodo, extremo de la manija). */
+  handles?: [Point, Point][];
+}
+
+/** Medición hecha con la herramienta Medir: la línea y, si se hizo clic en una forma, su id. */
+export interface Measurement {
+  a: Point;
+  b: Point;
+  /** Forma sobre la que se hizo clic (sin arrastrar). */
+  objectId: string | null;
+}
+
+/** Indicador del punto al que se pegó el cursor (nodo, punto medio, centro, intersección o cuadrícula). */
+export interface SnapMark {
+  p: Point;
+  kind: SnapPointKind | 'grid';
+  /** Nombre del tipo, ya traducido. */
+  label: string;
+}
+
+/**
+ * Modos de dos pasos que piden puntos al lienzo: elegir la línea de un espejo (A y B) o el pivote
+ * y el punto de referencia de rotar/escalar por dos puntos.
+ */
+export interface PickState {
+  mode: 'mirror' | 'twoPoint';
+  /** Puntos ya fijados (mm). */
+  points: Point[];
 }
 
 export interface Tip {
@@ -23,7 +53,7 @@ export interface Tip {
   text: string;
 }
 
-export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes';
+export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes' | 'pick' | 'measure';
 
 /** Resultado vivo de un arrastre de nodos o manejadores: el objeto se dibuja con él hasta soltar. */
 export interface NodePreview {
@@ -55,6 +85,12 @@ export interface InteractionState {
   /** Objetos cuyos nodos se están arrastrando, por id (no están en el documento hasta soltar). */
   nodePreview: Record<string, NodePreview> | null;
   nodeHover: NodeHover;
+  /** Punto al que está pegado el cursor, para dibujar su indicador. */
+  snapMark: SnapMark | null;
+  /** Última medición (sigue visible hasta Esc o cambiar de herramienta). */
+  measure: Measurement | null;
+  /** Modo de elegir puntos en curso (espejo sobre línea, rotar/escalar por dos puntos). */
+  pick: PickState | null;
 }
 
 const INITIAL: InteractionState = {
@@ -71,6 +107,9 @@ const INITIAL: InteractionState = {
   polyPoints: 0,
   nodePreview: null,
   nodeHover: null,
+  snapMark: null,
+  measure: null,
+  pick: null,
 };
 
 export const useInteraction = create<InteractionState>()(() => ({ ...INITIAL }));
@@ -79,10 +118,11 @@ export function patchInteraction(patch: Partial<InteractionState>): void {
   useInteraction.setState(patch);
 }
 
-/** Limpia todo lo que dibuja un gesto (conserva hover, cursor y modo giro). */
+/** Limpia todo lo que dibuja un gesto (conserva hover, cursor, modo giro y la última medición). */
 export function clearGesture(): void {
   useInteraction.setState({
     gesture: null, live: null, marquee: null, guides: [], draft: null, tip: null, pivot: null, polyPoints: 0, nodePreview: null,
+    snapMark: null, pick: null,
   });
 }
 

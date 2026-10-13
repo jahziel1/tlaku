@@ -1,7 +1,7 @@
 import {
   Circle, Crosshair, FilePlus, FileDown, FileUp, FolderOpen, Hand, Layers, MousePointer2, Moon, Pause,
   Play, Redo2, Ruler, Save, Slash, Square, SquareStop, Sun, Terminal, Type, Undo2, Waypoints, Cpu, Eye, ScanLine,
-  Clipboard, ClipboardPaste, Copy, Grid3x3, History, Keyboard, Magnet, Scissors, SquareDashed,
+  Clipboard, ClipboardPaste, Copy, Grid3x3, Hexagon, History, Keyboard, Magnet, Scissors, SquareDashed, Star,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -25,6 +25,8 @@ export const COMMAND_ICONS: Record<string, LucideIcon> = {
   'tool.line': Slash,
   'tool.rect': Square,
   'tool.ellipse': Circle,
+  'tool.polygon': Hexagon,
+  'tool.star': Star,
   'tool.text': Type,
   'tool.pan': Hand,
   'tool.measure': Ruler,

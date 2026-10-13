@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="0.9.07" MaterialHeight="0">
+    <CutSetting type="Cut">
+        <index Value="0"/>
+        <name Value="C00"/>
+        <speed Value="15"/>
+        <maxPower Value="30"/>
+    </CutSetting>
+    <Shape Type="Path" CutIndex="0">
+        <XForm>1 0 0 1 5 5</XForm>
+        <V vx="0" vy="0"/>
+        <V vx="10" vy="0" c0x="14" c0y="2" c1x="6" c1y="-2"/>
+        <V vx="10" vy="10"/>
+        <P T="L" p0="0" p1="1"/>
+        <P T="B" p0="1" p1="2"/>
+        <P T="L" p0="2" p1="0"/>
+    </Shape>
+</LightBurnProject>

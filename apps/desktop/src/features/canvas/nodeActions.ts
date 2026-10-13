@@ -1,6 +1,6 @@
 import type { Affine, BezPath, DesignObject, Document, Point } from '@/api/types';
 import type { I18nKey } from '@/i18n';
-import type { AppState } from '@/store';
+import { getPref, type AppState } from '@/store';
 import {
   applyPoint, applyVector, breakAtNodes, buildPaths, canBreak, canJoin, closeSubs, deleteNodes, insertMidpoints, insertNode,
   invertAffine, joinEndpoints, moveNodes, nodeAt, openSubsOf, positionKey, positionsOf, rekeyCorners, selectedSegments,
@@ -19,8 +19,12 @@ export type NodeOp = 'insert' | 'delete' | 'toLine' | 'toCurve' | 'corner' | 'sm
 
 export const NODE_OPS: readonly NodeOp[] = ['insert', 'delete', 'toLine', 'toCurve', 'corner', 'smooth', 'symmetric', 'break', 'join', 'close'];
 
-/** Pasos de las flechas en mm (iguales a los de mover objetos). */
-export const NODE_NUDGE = { normal: 1, big: 10, fine: 0.1 } as const;
+/** Pasos de las flechas en mm (los mismos que al mover objetos: preferencias de edición). */
+export const nodeNudge = (): { normal: number; big: number; fine: number } => ({
+  normal: getPref('nudgeStep'),
+  big: getPref('nudgeStepBig'),
+  fine: getPref('nudgeStepFine'),
+});
 
 type NodeState = Pick<AppState, 'doc' | 'selectedIds' | 'nodeSel'>;
 

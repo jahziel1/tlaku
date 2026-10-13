@@ -2,8 +2,12 @@
 //!
 //! La interfaz es dueña del documento; aquí solo se convierte el `TextObject` del contrato a
 //! la `TextSpec` de `tlaku-text` y se devuelven las curvas con sus advertencias.
+//!
+//! `list_fonts` devuelve también las fuentes de una línea (Hershey incluidas y las SHX que el
+//! usuario haya importado), marcadas con `single_line`.
 
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use tlaku_core::bezpath::BezPath;
 use tlaku_doc::{TextAlign, TextObject};
 use tlaku_text::{Align, FontFamily, FontLibrary, OnPathSpec, TextSpec};
@@ -37,6 +41,8 @@ pub fn to_spec(text: &TextObject) -> TextSpec {
             offset_mm: p.offset_mm,
             flip: p.flip,
         }),
+        bend_deg: text.bend_deg.unwrap_or(0.0),
+        welded: text.welded.unwrap_or(false),
     }
 }
 
@@ -53,13 +59,102 @@ pub fn run_outline(
     })
 }
 
-/// Familias instaladas con sus estilos. La primera llamada carga las fuentes del sistema
-/// (puede tardar); las siguientes reutilizan la biblioteca compartida.
+/// Familias instaladas con sus estilos, seguidas de las fuentes de una línea. La primera llamada
+/// carga las fuentes del sistema (puede tardar); las siguientes reutilizan la biblioteca
+/// compartida.
 #[tauri::command]
 pub async fn list_fonts() -> Result<Vec<FontFamily>, String> {
-    tauri::async_runtime::spawn_blocking(|| FontLibrary::system_shared().families())
-        .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))
+    tauri::async_runtime::spawn_blocking(|| {
+        let lib = FontLibrary::system_shared();
+        load_saved_shx(lib);
+        let mut all = lib.families();
+        all.extend(lib.line_families());
+        all
+    })
+    .await
+    .map_err(|e| format!("La tarea se interrumpió: {e}"))
+}
+
+/// Carpeta donde se guardan las fuentes SHX importadas (se pueden fijar en las pruebas).
+fn shx_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("TLAKU_SHX_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    #[cfg(target_os = "macos")]
+    let base =
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"));
+    #[cfg(target_os = "windows")]
+    let base = std::env::var_os("APPDATA").map(PathBuf::from);
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")));
+    base.map(|b| b.join("tlaku").join("fonts-shx"))
+}
+
+/// Carga una sola vez las SHX que el usuario importó en sesiones anteriores.
+fn load_saved_shx(lib: &FontLibrary) {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let Some(dir) = shx_dir() else { return };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("shx"))
+            {
+                // Un archivo dañado no impide cargar los demás.
+                let _ = lib.load_shx_file(&path);
+            }
+        }
+    });
+}
+
+/// Importa fuentes SHX de AutoCAD: las valida, las copia a la carpeta de la aplicación (para
+/// que sigan disponibles) y devuelve los nombres registrados.
+pub fn run_import_shx(
+    lib: &FontLibrary,
+    paths: &[PathBuf],
+    dir: Option<&Path>,
+) -> Result<Vec<String>, String> {
+    if paths.is_empty() {
+        return Err("No se eligió ningún archivo".into());
+    }
+    let mut names = Vec::new();
+    let mut errors = Vec::new();
+    for path in paths {
+        match lib.load_shx_file(path) {
+            Ok(name) => {
+                if let (Some(dir), Some(file)) = (dir, path.file_name()) {
+                    // Que no se pueda guardar no invalida la importación de esta sesión.
+                    if std::fs::create_dir_all(dir).is_ok() {
+                        let _ = std::fs::copy(path, dir.join(file));
+                    }
+                }
+                names.push(name);
+            }
+            Err(e) => errors.push(e),
+        }
+    }
+    if names.is_empty() {
+        return Err(errors.join("; "));
+    }
+    Ok(names)
+}
+
+/// Importa archivos `.shx`. Devuelve los nombres de las fuentes añadidas; si algún archivo no se
+/// pudo leer pero otros sí, solo se informan los buenos.
+#[tauri::command]
+pub async fn import_shx_fonts(paths: Vec<String>) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let paths: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
+        run_import_shx(FontLibrary::system_shared(), &paths, shx_dir().as_deref())
+    })
+    .await
+    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
 }
 
 /// Contorno del texto; `path` es la trayectoria (en el mismo sistema local que el contorno)
@@ -104,6 +199,8 @@ mod tests {
             line_spacing: 1.2,
             align: TextAlign::Left,
             on_path: None,
+            bend_deg: None,
+            welded: None,
             outline: vec![],
         }
     }
@@ -248,9 +345,123 @@ mod tests {
     #[test]
     fn list_fonts_command_runs_and_is_sorted() {
         let fonts = tauri::async_runtime::block_on(list_fonts()).unwrap();
-        let names: Vec<String> = fonts.iter().map(|f| f.family.to_lowercase()).collect();
+        // Primero las del sistema (ordenadas) y al final las de una línea.
+        let names: Vec<String> = fonts
+            .iter()
+            .filter(|f| !f.single_line)
+            .map(|f| f.family.to_lowercase())
+            .collect();
         let mut sorted = names.clone();
         sorted.sort();
         assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn conversion_copies_bend_and_welded() {
+        let mut t = text("x");
+        assert_eq!(to_spec(&t).bend_deg, 0.0);
+        assert!(!to_spec(&t).welded);
+        t.bend_deg = Some(-45.0);
+        t.welded = Some(true);
+        let s = to_spec(&t);
+        assert_eq!(s.bend_deg, -45.0);
+        assert!(s.welded);
+    }
+
+    #[test]
+    fn hershey_text_gives_open_paths() {
+        let mut t = text("Hola");
+        t.font_family = "Hershey Roman Simplex".into();
+        let r = run_outline(&fixture_lib(), &t, None).unwrap();
+        assert_eq!(r.paths.len(), 4);
+        assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+        assert!(
+            r.paths
+                .iter()
+                .all(|p| !p.0.iter().any(|s| matches!(s, PathSeg::Close)))
+        );
+    }
+
+    #[test]
+    fn bend_and_weld_change_the_outline() {
+        let mut t = text("AV");
+        t.letter_spacing_mm = -2.0;
+        let flat = run_outline(&fixture_lib(), &t, None).unwrap();
+        t.welded = Some(true);
+        let welded = run_outline(&fixture_lib(), &t, None).unwrap();
+        assert_eq!(flat.paths.len(), 2);
+        assert_eq!(welded.paths.len(), 1);
+        t.bend_deg = Some(90.0);
+        let bent = run_outline(&fixture_lib(), &t, None).unwrap();
+        assert_ne!(bent.paths, welded.paths);
+    }
+
+    #[test]
+    fn old_documents_without_bend_fields_still_load() {
+        let json = serde_json::json!({
+            "text": "A", "font_family": "Bebas Neue", "bold": false, "italic": false,
+            "size_mm": 10.0, "letter_spacing_mm": 0.0, "line_spacing": 1.2,
+            "align": "left", "on_path": null, "outline": []
+        });
+        let t: TextObject = serde_json::from_value(json).unwrap();
+        assert_eq!(t.bend_deg, None);
+        assert_eq!(t.welded, None);
+        // Sin valores no se escriben.
+        let back = serde_json::to_value(&t).unwrap();
+        assert!(back.get("bend_deg").is_none() && back.get("welded").is_none());
+    }
+
+    #[test]
+    fn list_fonts_ends_with_the_single_line_section() {
+        let fonts = tauri::async_runtime::block_on(list_fonts()).unwrap();
+        let first = fonts.iter().position(|f| f.single_line).unwrap();
+        assert!(fonts[first..].iter().all(|f| f.single_line));
+        assert!(fonts[..first].iter().all(|f| !f.single_line));
+        assert!(fonts.iter().any(|f| f.family == "Hershey Roman Simplex"));
+    }
+
+    /// SHX `unifont` mínimo con una 'L'.
+    fn tiny_shx() -> Vec<u8> {
+        let mut shx = b"AutoCAD-86 unifont 1.0\r\n\x1a".to_vec();
+        shx.extend([2, 0, 0, 0, 20, 0]);
+        shx.extend(b"Prueba\0");
+        shx.extend([4, 1, 0, 0, 0, 0]);
+        let codes = [0x44u8, 0x4C, 0x30, 0];
+        shx.extend(u16::from(b'L').to_le_bytes());
+        shx.extend(((codes.len() + 2) as u16).to_le_bytes());
+        shx.extend([b'x', 0]);
+        shx.extend(codes);
+        shx
+    }
+
+    #[test]
+    fn imports_shx_fonts_and_keeps_a_copy() {
+        let tmp = std::env::temp_dir().join(format!("tlaku-shx-{}", std::process::id()));
+        let src = tmp.join("origen");
+        let dst = tmp.join("guardadas");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("mia.shx"), tiny_shx()).unwrap();
+        std::fs::write(src.join("rota.shx"), b"no es una fuente").unwrap();
+
+        let lib = fixture_lib();
+        let names = run_import_shx(
+            &lib,
+            &[src.join("mia.shx"), src.join("rota.shx")],
+            Some(&dst),
+        )
+        .unwrap();
+        assert_eq!(names, vec!["mia".to_string()]);
+        assert!(dst.join("mia.shx").exists() && !dst.join("rota.shx").exists());
+
+        let mut t = text("LL");
+        t.font_family = "mia".into();
+        let r = run_outline(&lib, &t, None).unwrap();
+        assert_eq!(r.paths.len(), 2);
+
+        // Si todos fallan, es un error con el motivo.
+        let e = run_import_shx(&lib, &[src.join("rota.shx")], None).unwrap_err();
+        assert!(e.contains("SHX"), "{e}");
+        assert!(run_import_shx(&lib, &[], None).is_err());
+        let _ = std::fs::remove_dir_all(tmp);
     }
 }

@@ -16,6 +16,12 @@ export type CleanupOp = 'join' | 'close' | 'dedupe';
  */
 export const CLEANUP_DEFAULTS: Record<CleanupOp, number> = { join: 0.05, close: 0.5, dedupe: 0.01 };
 
+/** Rango de diámetros (mm) del selector de círculos por tamaño. */
+export interface CircleRange {
+  min: number;
+  max: number;
+}
+
 export interface OffsetParams {
   /** Positiva = hacia afuera (la pieza crece y sus agujeros se encogen). */
   distance: number;
@@ -29,7 +35,8 @@ export type ArrangeDialog =
   | { kind: 'cleanup'; op: CleanupOp }
   | { kind: 'grid' }
   | { kind: 'circular' }
-  | { kind: 'align' };
+  | { kind: 'align' }
+  | { kind: 'circles' };
 
 interface ArrangeUi {
   dialog: ArrangeDialog | null;
@@ -48,6 +55,7 @@ interface ArrangeUi {
   cleanup: Record<CleanupOp, number>;
   grid: GridParams;
   circular: CircularParams;
+  circles: CircleRange;
 
   open: (dialog: ArrangeDialog) => void;
   close: () => void;
@@ -58,6 +66,7 @@ interface ArrangeUi {
   setCleanupTolerance: (op: CleanupOp, tolerance: number) => void;
   patchGrid: (patch: Partial<GridParams>) => void;
   patchCircular: (patch: Partial<CircularParams>) => void;
+  patchCircles: (patch: Partial<CircleRange>) => void;
 }
 
 /** Estado de interfaz del área Organizar. Aparte del store de la app porque no es parte del documento. */
@@ -71,6 +80,7 @@ export const useArrangeUi = create<ArrangeUi>()((set) => ({
   cleanup: { ...CLEANUP_DEFAULTS },
   grid: DEFAULT_GRID,
   circular: { ...DEFAULT_CIRCULAR, centerX: 0, centerY: 0 },
+  circles: { min: 3, max: 6 },
 
   open: (dialog) => set({ dialog }),
   close: () => set({ dialog: null, primaryId: null }),
@@ -82,4 +92,5 @@ export const useArrangeUi = create<ArrangeUi>()((set) => ({
   setCleanupTolerance: (op, tolerance) => set((s) => ({ cleanup: { ...s.cleanup, [op]: tolerance } })),
   patchGrid: (patch) => set((s) => ({ grid: { ...s.grid, ...patch } })),
   patchCircular: (patch) => set((s) => ({ circular: { ...s.circular, ...patch } })),
+  patchCircles: (patch) => set((s) => ({ circles: { ...s.circles, ...patch } })),
 }));

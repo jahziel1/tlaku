@@ -8,10 +8,12 @@ import { MenuBar } from './MenuBar';
 function Brand() {
   return (
     <div className="brand" aria-label="Tlaku">
+      {/* El mismo motivo del ícono de la app: la T cuyo trazo es el haz y termina en el punto de impacto. */}
       <svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
-        <path d="M14 50V14h8v28h28v8z" fill="currentColor" />
-        <circle cx="44" cy="20" r="5.5" fill="var(--accent)" />
-        <path d="M30 34 41 23" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" />
+        <rect x="10" y="8" width="44" height="10" rx="2.5" fill="currentColor" />
+        <rect x="27.5" y="18" width="9" height="20" fill="var(--accent)" />
+        <circle cx="32" cy="46" r="11" fill="none" stroke="var(--accent)" strokeWidth="3" />
+        <circle cx="32" cy="46" r="5.5" fill="currentColor" />
       </svg>
       <span className="brand__name">Tlaku</span>
     </div>

@@ -191,6 +191,7 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Guardar como… | `Ctrl+Mayús+S` |
 |  | Importar diseño… | `Ctrl+I` |
 |  | Exportar G-code… | `Ctrl+Mayús+E` |
+|  | Imprimir… | `Ctrl+P` |
 | Edición | Deshacer | `Ctrl+Z` |
 |  | Rehacer | `Ctrl+Mayús+Z` o `Ctrl+Y` |
 |  | Seleccionar todo | `Ctrl+A` |
@@ -199,6 +200,7 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Eliminar | `Supr` o `⌫` |
 |  | Copiar | `Ctrl+C` |
 |  | Cortar | `Ctrl+X` |
+|  | Copiar como SVG | `Ctrl+Alt+C` |
 |  | Pegar | `Ctrl+V` |
 |  | Pegar en el mismo lugar | `Ctrl+Mayús+V` |
 |  | Agrupar | `Ctrl+G` |
@@ -227,11 +229,14 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Elegir capa de la paleta | `Alt+0` |
 |  | Elegir capa de la paleta | `Alt+G` |
 |  | Ajustes de la capa activa… | `Alt+Intro` |
+|  | Preferencias… | `Ctrl+,` |
 | Herramientas | Seleccionar | `V` o `Esc` |
 |  | Editar nodos | `N` |
 |  | Dibujar línea | `L` |
 |  | Rectángulo | `R` |
 |  | Elipse | `E` |
+|  | Polígono | `G` |
+|  | Estrella | `Mayús+G` |
 |  | Texto | `T` |
 |  | Mano (mover la vista) | `H` |
 |  | Medir | `M` |
@@ -250,6 +255,22 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Soldar | `Alt+W` |
 |  | Offset… | `Alt+O` |
 |  | Centrar en la cama | `Alt+C` |
+|  | Voltear horizontal | `Alt+H` o `Ctrl+Mayús+H` |
+|  | Voltear vertical | `Alt+V` |
+|  | Espejo sobre una línea | `Alt+Mayús+M` |
+|  | Girar y escalar por dos puntos | `Alt+T` |
+|  | Girar 90° a la izquierda | `[` |
+|  | Girar 90° a la derecha | `]` |
+|  | Girar un paso a la izquierda | `Mayús+[` |
+|  | Girar un paso a la derecha | `Mayús+]` |
+|  | Girar 5° a la izquierda | `Alt+[` |
+|  | Girar 5° a la derecha | `Alt+]` |
+|  | Traer al frente | `Ctrl+RePág` o `Ctrl+Mayús+]` |
+|  | Enviar al fondo | `Ctrl+AvPág` o `Ctrl+Mayús+[` |
+|  | Subir un nivel | `RePág` o `Ctrl+]` |
+|  | Bajar un nivel | `AvPág` o `Ctrl+[` |
+|  | Bloquear | `Ctrl+L` |
+|  | Desbloquear todo | `Ctrl+Mayús+L` |
 | Vista | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |
 |  | Alejar | `Ctrl+-` |
 |  | Ajustar a la cama | `Ctrl+0` |

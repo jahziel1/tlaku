@@ -212,7 +212,7 @@ export const layers = {
   'layers.help.tabsCountMin': 'Con una separación fija, las formas pequeñas llevan al menos esta cantidad.',
   'layers.help.tabsSpacing': 'Distancia entre puentes a lo largo del contorno, en mm. Con 0 se usa la cantidad.',
   'layers.help.tabsSkipInner': 'Los agujeros y figuras interiores caen como desecho: no necesitan puentes.',
-  'layers.help.zOffset': 'Cuánto baja la mesa (o sube el cabezal) desde el foco al empezar la capa. Positivo enfoca más adentro del material.',
+  'layers.help.zOffset': 'Cuánto sube la mesa (o baja el cabezal) desde el foco al empezar la capa. Positivo enfoca más adentro del material.',
   'layers.help.zStep': 'Milímetros adicionales que se baja en cada pasada después de la primera, para cortes profundos. 0 = todas a la misma altura.',
 
   // ---- tramados de imagen ---------------------------------------------------------------------------

@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import { Lock, LockOpen } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
+import { Lock, LockOpen, Move, RotateCw, Scaling, Target } from 'lucide-react';
+import { useCommand } from '@/commands/useCommand';
 import { t, type I18nKey } from '@/i18n';
-import { useStore } from '@/store';
+import { usePref, useStore } from '@/store';
 import { ExprField } from './ExprField';
 import { useInteraction } from './interaction';
 import {
@@ -13,6 +14,32 @@ const ANCHOR_KEYS = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => `canvas.bar.anchor.${
 function normalizeDeg(d: number): number {
   const r = ((((d + 180) % 360) + 360) % 360) - 180;
   return r === -180 ? 180 : r;
+}
+
+/** Interruptores de transformación: mover, escalar y girar se pueden apagar; escalar desde el centro. */
+function TransformToggles() {
+  const items = [
+    { id: 'arrange.xform.move', Icon: Move },
+    { id: 'arrange.xform.scale', Icon: Scaling },
+    { id: 'arrange.xform.rotate', Icon: RotateCw },
+    { id: 'arrange.xform.center', Icon: Target },
+  ] as const;
+  return (
+    <div className="nbar-toggles" role="group" aria-label={t('canvas.xform.group')}>
+      {items.map(({ id, Icon }) => (
+        <ToggleButton key={id} id={id} icon={<Icon size={14} aria-hidden="true" />} />
+      ))}
+    </div>
+  );
+}
+
+function ToggleButton({ id, icon }: { id: string; icon: ReactNode }) {
+  const cmd = useCommand(id);
+  return (
+    <button type="button" className="icon-btn" aria-pressed={cmd.checked} data-checked={cmd.checked} title={cmd.tooltip} aria-label={cmd.label} onClick={cmd.run}>
+      {icon}
+    </button>
+  );
 }
 
 /**
@@ -27,6 +54,11 @@ export function NumericBar() {
   const lockRatio = useStore((s) => s.lockRatio);
   const tool = useStore((s) => s.activeTool);
   const cornerRadius = useStore((s) => s.cornerRadius);
+  const rotateStep = usePref('rotateStep');
+  const polygonSides = useStore((s) => s.polygonSides);
+  const starPoints = useStore((s) => s.starPoints);
+  const starRatio = useStore((s) => s.starRatio);
+  const shapeRounding = useStore((s) => s.shapeRounding);
   const live = useInteraction((s) => s.live);
 
   const selected = useMemo(() => {
@@ -90,6 +122,28 @@ export function NumericBar() {
         title={empty ? noSel : rotatable ? t('canvas.bar.rotHint') : t('canvas.bar.rotateImage')}
         onApply={(deg) => apply('rot', deg)}
       />
+      <ExprField
+        label={t('canvas.bar.step')}
+        unit="°"
+        mode="angle"
+        value={rotateStep}
+        title={t('canvas.bar.stepHint')}
+        onApply={(deg) => useStore.getState().setPref('rotateStep', deg)}
+      />
+      <TransformToggles />
+      {tool === 'polygon' && (
+        <>
+          <ExprField label={t('canvas.bar.sides')} value={polygonSides} title={t('canvas.bar.sidesHint')} onApply={(n) => useStore.getState().setPolygonSides(n)} />
+          <ExprField label={t('canvas.bar.rounding')} unit="mm" value={shapeRounding} title={t('canvas.bar.roundingHint')} onApply={(r) => useStore.getState().setShapeRounding(r)} />
+        </>
+      )}
+      {tool === 'star' && (
+        <>
+          <ExprField label={t('canvas.bar.points')} value={starPoints} title={t('canvas.bar.pointsHint')} onApply={(n) => useStore.getState().setStarPoints(n)} />
+          <ExprField label={t('canvas.bar.inner')} unit="%" value={Math.round(starRatio * 100)} title={t('canvas.bar.innerHint')} onApply={(p) => useStore.getState().setStarRatio(p / 100)} />
+          <ExprField label={t('canvas.bar.rounding')} unit="mm" value={shapeRounding} title={t('canvas.bar.roundingHint')} onApply={(r) => useStore.getState().setShapeRounding(r)} />
+        </>
+      )}
       {tool === 'rect' && (
         <ExprField
           label={t('canvas.bar.radius')}

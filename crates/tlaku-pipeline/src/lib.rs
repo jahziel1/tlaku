@@ -29,7 +29,10 @@ mod zaxis;
 
 pub use build::{build, compute, compute_at};
 pub use gcode::{frame_gcode, gcode};
-pub use import::{ImportOptions, InputKind, import_file, import_file_with, input_kind};
+pub use import::{
+    ImportExtras, ImportOptions, InputKind, import_file, import_file_extras, import_file_with,
+    input_kind,
+};
 pub use job::{ComputedJob, LayerReport, block_bounds, check_bounds, check_device_bounds};
 pub use layers::{
     LayerRole, MAX_PASSES, ResolvedImage, ResolvedLayer, classify, layer_sequence, resolve_image,

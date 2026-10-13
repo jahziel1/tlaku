@@ -1,0 +1,22 @@
+[package]
+name = "tlaku-export"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Exportación del diseño a SVG, DXF, PNG y PDF"
+
+[dependencies]
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-doc = { version = "0.1.0", path = "../tlaku-doc" }
+tlaku-dxf = { version = "0.1.0", path = "../tlaku-dxf" }
+serde = { version = "1.0.229", features = ["derive"] }
+base64 = "0.22"
+dxf = "0.6.2"
+flate2 = "1"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tiff", "gif", "tga"] }
+tiny-skia = "0.11"
+
+[dev-dependencies]
+tlaku-svg = { version = "0.1.0", path = "../tlaku-svg" }
+lopdf = { version = "0.45", default-features = false }
+tlaku-pipeline = { version = "0.1.0", path = "../tlaku-pipeline" }

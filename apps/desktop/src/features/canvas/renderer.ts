@@ -2,7 +2,7 @@ import type { Affine, DesignObject, DeviceOrigin, JobPreview, LayerSettings, Poi
 import type { ViewTransform } from '@/lib/viewport';
 import type { BoxMode } from './hit';
 import type { CameraBackdrop } from '@/store/camera';
-import type { DraftShape } from './interaction';
+import type { DraftShape, Measurement, SnapMark } from './interaction';
 import type { NodeOverlay } from './nodeview';
 import type { Guide } from './snap';
 
@@ -47,6 +47,10 @@ export interface SceneOverlay {
   pivot: Point | null;
   /** Nodos y manejadores de la herramienta de nodos; null si no está activa. */
   nodes: NodeOverlay | null;
+  /** Indicador del punto al que se pegó el cursor. */
+  snapMark?: SnapMark | null;
+  /** Medición de la herramienta Medir. */
+  measure?: Measurement | null;
 }
 
 export interface Scene {

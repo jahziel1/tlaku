@@ -491,3 +491,344 @@ fn lists_system_families() {
             .all(|w| w[0].family.to_lowercase() <= w[1].family.to_lowercase())
     );
 }
+
+// ---------------------------------------------------------------------------
+// Fuentes de una línea (Hershey), curvado y soldado
+// ---------------------------------------------------------------------------
+
+const SIMPLEX: &str = "Hershey Roman Simplex";
+
+fn line_spec(text: &str) -> TextSpec {
+    TextSpec {
+        text: text.into(),
+        font_family: SIMPLEX.into(),
+        size_mm: 10.0,
+        ..TextSpec::default()
+    }
+}
+
+fn is_open(path: &BezPath) -> bool {
+    !path.0.iter().any(|s| matches!(s, PathSeg::Close))
+        && path
+            .0
+            .iter()
+            .all(|s| matches!(s, PathSeg::MoveTo { .. } | PathSeg::LineTo { .. }))
+}
+
+#[test]
+fn hershey_text_is_open_paths_with_the_right_size() {
+    // No necesita ninguna fuente cargada: las Hershey vienen incluidas.
+    let lib = FontLibrary::new();
+    let out = outline(&lib, &line_spec("H"), None).unwrap();
+    assert_eq!(out.paths.len(), 1);
+    assert!(is_open(&out.paths[0]), "{:?}", out.paths[0]);
+    assert!(out.warnings.is_empty(), "{:?}", out.warnings);
+    let b = bounds_of(&out.paths[0]);
+    // Mayúscula = 0.72 del em; la línea base queda en y = 0.
+    assert!((b.max.y - 7.2).abs() < 1e-9, "{b:?}");
+    assert!(b.min.y.abs() < 1e-9);
+    // 'H' de Roman Simplex: 14 unidades de ancho de 21 de alto.
+    assert!((b.max.x - b.min.x - 14.0 * 7.2 / 21.0).abs() < 1e-9);
+}
+
+#[test]
+fn hershey_size_scales_linearly_and_spacing_applies() {
+    let lib = FontLibrary::new();
+    let base = outline(&lib, &line_spec("HH"), None).unwrap();
+    let mut big = line_spec("HH");
+    big.size_mm = 20.0;
+    let big = outline(&lib, &big, None).unwrap();
+    assert!((big.advance_mm - 2.0 * base.advance_mm).abs() < 1e-9);
+    let mut spaced = line_spec("HH");
+    spaced.letter_spacing_mm = 1.5;
+    let spaced = outline(&lib, &spaced, None).unwrap();
+    assert!((spaced.advance_mm - base.advance_mm - 1.5).abs() < 1e-9);
+    assert_eq!(base.paths.len(), 2);
+}
+
+#[test]
+fn hershey_handles_spanish_and_reports_missing_glyphs() {
+    let lib = FontLibrary::new();
+    let ok = outline(&lib, &line_spec("¿Año? ¡Sí! é ü ç"), None).unwrap();
+    assert!(ok.warnings.is_empty(), "{:?}", ok.warnings);
+    assert!(ok.paths.iter().all(is_open));
+    let missing = outline(&lib, &line_spec("a€b"), None).unwrap();
+    assert_eq!(missing.paths.len(), 2);
+    assert!(missing.warnings.iter().any(|w| w.contains('€')));
+}
+
+#[test]
+fn hershey_bold_and_italic_only_warn() {
+    let lib = FontLibrary::new();
+    let mut s = line_spec("A");
+    s.bold = true;
+    let out = outline(&lib, &s, None).unwrap();
+    assert_eq!(out.paths.len(), 1);
+    assert!(out.warnings.iter().any(|w| w.contains("negrita")));
+}
+
+#[test]
+fn hershey_multiline_and_on_path_work() {
+    let lib = FontLibrary::new();
+    let two = outline(&lib, &line_spec("H\nH"), None).unwrap();
+    let (a, b) = (bounds_of(&two.paths[0]), bounds_of(&two.paths[1]));
+    assert!((a.min.y - b.min.y - 1.2 * 10.0).abs() < 1e-9);
+
+    let mut s = line_spec("HH");
+    s.on_path = Some(OnPathSpec::default());
+    let guide = BezPath(vec![
+        PathSeg::MoveTo {
+            to: Point::new(0.0, 0.0),
+        },
+        PathSeg::LineTo {
+            to: Point::new(100.0, 0.0),
+        },
+    ]);
+    let out = outline(&lib, &s, Some(&guide)).unwrap();
+    assert_eq!(out.paths.len(), 2);
+    assert!(out.paths.iter().all(is_open));
+}
+
+#[test]
+fn user_line_fonts_appear_in_the_catalog() {
+    let lib = FontLibrary::new();
+    let names: Vec<String> = lib.line_families().into_iter().map(|f| f.family).collect();
+    assert!(names.iter().any(|n| n == SIMPLEX));
+    assert!(names.len() >= 12, "{names:?}");
+    assert!(lib.line_families().iter().all(|f| f.single_line));
+    assert!(lib.families().is_empty());
+    assert!(lib.line_font("hershey cursive").is_some());
+    assert!(lib.line_font("Arial").is_none());
+}
+
+fn distance_from_arc_center(out: &[BezPath], x_mid: f64, radius: f64) -> (f64, f64) {
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for p in out {
+        for l in p.flatten(0.001) {
+            for q in l.points {
+                let d = (q.x - x_mid).hypot(q.y + radius);
+                lo = lo.min(d);
+                hi = hi.max(d);
+            }
+        }
+    }
+    (lo, hi)
+}
+
+#[test]
+fn bend_wraps_text_around_an_arc() {
+    let lib = FontLibrary::new();
+    let mut s = line_spec("HHHH");
+    s.align = Align::Center;
+    let flat = outline(&lib, &s, None).unwrap();
+    s.bend_deg = 180.0;
+    let bent = outline(&lib, &s, None).unwrap();
+    assert_eq!(bent.paths.len(), flat.paths.len());
+    assert!(bent.warnings.is_empty(), "{:?}", bent.warnings);
+    // 180° en una línea de ancho w: radio = w / π; centro en (0, -radio).
+    let radius = flat.advance_mm / std::f64::consts::PI;
+    let (lo, hi) = distance_from_arc_center(&bent.paths, 0.0, radius);
+    assert!((lo - radius).abs() < 1e-6, "{lo} vs {radius}");
+    assert!((hi - (radius + 7.2)).abs() < 1e-6, "{hi}");
+    // Positivo = arco hacia arriba: los extremos caen por debajo de la línea base central.
+    let b = bent.bounds.unwrap();
+    assert!(b.min.y < -radius * 0.5, "{b:?}");
+    // Las H centrales quedan rectas: su base está en y ≈ 0.
+    assert!(b.max.y > 7.0);
+}
+
+#[test]
+fn negative_bend_is_the_mirror_image() {
+    let lib = FontLibrary::new();
+    let mut s = line_spec("HHHH");
+    s.align = Align::Center;
+    s.bend_deg = 90.0;
+    let up = outline(&lib, &s, None).unwrap().bounds.unwrap();
+    s.bend_deg = -90.0;
+    let down = outline(&lib, &s, None).unwrap();
+    let down = down.bounds.unwrap();
+    // Positivo: sube el centro y bajan los extremos; negativo: al revés.
+    assert!(up.min.y < -2.0 && up.max.y < 7.3, "{up:?}");
+    assert!(down.max.y > 8.0 && down.min.y > -0.1, "{down:?}");
+}
+
+#[test]
+fn bend_keeps_alignment_anchor_and_ignores_zero() {
+    let lib = FontLibrary::new();
+    let mut s = line_spec("HOLA");
+    let flat = outline(&lib, &s, None).unwrap();
+    s.bend_deg = 1e-9;
+    let same = outline(&lib, &s, None).unwrap();
+    assert_eq!(flat.paths.len(), same.paths.len());
+    s.bend_deg = 60.0;
+    s.align = Align::Left;
+    let left = outline(&lib, &s, None).unwrap().bounds.unwrap();
+    // Alineado a la izquierda el arco se centra en el medio del bloque: el texto no se va lejos.
+    assert!(
+        left.min.x > -5.0 && left.max.x < flat.advance_mm + 5.0,
+        "{left:?}"
+    );
+}
+
+#[test]
+fn bend_is_clamped_and_yields_to_text_on_path() {
+    let lib = FontLibrary::new();
+    let mut s = line_spec("HHHH");
+    s.bend_deg = 720.0;
+    let out = outline(&lib, &s, None).unwrap();
+    assert!(
+        out.warnings.iter().any(|w| w.contains("360")),
+        "{:?}",
+        out.warnings
+    );
+    s.bend_deg = f64::NAN;
+    assert!(outline(&lib, &s, None).is_err());
+
+    let mut s = line_spec("HH");
+    s.bend_deg = 90.0;
+    s.on_path = Some(OnPathSpec::default());
+    let guide = BezPath(vec![
+        PathSeg::MoveTo {
+            to: Point::new(0.0, 0.0),
+        },
+        PathSeg::LineTo {
+            to: Point::new(100.0, 0.0),
+        },
+    ]);
+    let out = outline(&lib, &s, Some(&guide)).unwrap();
+    assert!(out.warnings.iter().any(|w| w.contains("curvatura")));
+    // Con la guía recta no se dobló nada: la base sigue en y = 0.
+    assert!(out.bounds.unwrap().min.y.abs() < 1e-6);
+}
+
+#[test]
+fn bend_works_on_filled_fonts_too() {
+    let lib = fixture_lib();
+    let mut s = spec("OLA");
+    s.align = Align::Center;
+    s.bend_deg = 120.0;
+    let flat = outline(&lib, &spec("OLA"), None).unwrap();
+    let bent = outline(&lib, &s, None).unwrap();
+    assert_eq!(bent.paths.len(), 3);
+    // Siguen siendo contornos cerrados.
+    assert!(
+        bent.paths
+            .iter()
+            .all(|p| p.0.iter().any(|s| matches!(s, PathSeg::Close)))
+    );
+    // Una "O" conserva su agujero.
+    assert_eq!(move_count(&bent.paths[0]), move_count(&flat.paths[0]));
+    // Al curvarse el texto gana altura (los extremos suben o bajan).
+    let (fh, bh) = (
+        flat.bounds.unwrap().max.y - flat.bounds.unwrap().min.y,
+        bent.bounds.unwrap().max.y - bent.bounds.unwrap().min.y,
+    );
+    assert!(bh > fh * 1.2, "{fh} {bh}");
+}
+
+#[test]
+fn welded_text_merges_touching_letters() {
+    let lib = fixture_lib();
+    let mut s = spec("AV");
+    // Espaciado negativo: las letras se solapan.
+    s.letter_spacing_mm = -2.0;
+    let apart = outline(&lib, &s, None).unwrap();
+    assert_eq!(apart.paths.len(), 2);
+    s.welded = true;
+    let welded = outline(&lib, &s, None).unwrap();
+    assert_eq!(
+        welded.paths.len(),
+        1,
+        "las letras que se tocan deben unirse"
+    );
+    assert!(
+        welded.paths[0]
+            .0
+            .iter()
+            .any(|s| matches!(s, PathSeg::Close))
+    );
+    // El área no puede crecer ni encogerse más que el solape.
+    let a = |ps: &[BezPath]| -> f64 {
+        ps.iter()
+            .flat_map(contours)
+            .map(|c| signed_area(&c).abs())
+            .sum()
+    };
+    let (aw, aa) = (a(&welded.paths), a(&apart.paths));
+    assert!(aw < aa && aw > aa * 0.5, "soldado {aw}, suelto {aa}");
+}
+
+#[test]
+fn welded_text_keeps_separate_letters_and_counters() {
+    let lib = fixture_lib();
+    let mut s = spec("OO");
+    s.welded = true;
+    s.letter_spacing_mm = 5.0;
+    let far = outline(&lib, &s, None).unwrap();
+    assert_eq!(far.paths.len(), 2, "sin tocarse no se unen");
+    assert_eq!(move_count(&far.paths[0]), 2, "la O conserva su agujero");
+    s.letter_spacing_mm = -1.0;
+    let near = outline(&lib, &s, None).unwrap();
+    assert_eq!(near.paths.len(), 1);
+    assert_eq!(move_count(&near.paths[0]), 3, "un exterior y dos agujeros");
+}
+
+#[test]
+fn welding_is_skipped_for_single_line_fonts_with_a_warning() {
+    let lib = FontLibrary::new();
+    let mut s = line_spec("HH");
+    s.welded = true;
+    let out = outline(&lib, &s, None).unwrap();
+    assert_eq!(out.paths.len(), 2);
+    assert!(out.paths.iter().all(is_open));
+    assert!(out.warnings.iter().any(|w| w.contains("soldado")));
+}
+
+#[test]
+fn welded_and_bent_text_combine() {
+    let lib = fixture_lib();
+    let mut s = spec("AV");
+    s.letter_spacing_mm = -2.0;
+    s.welded = true;
+    s.align = Align::Center;
+    s.bend_deg = 90.0;
+    let out = outline(&lib, &s, None).unwrap();
+    assert_eq!(out.paths.len(), 1);
+    assert!(out.bounds.is_some());
+}
+
+#[test]
+fn user_shx_font_is_registered_and_used() {
+    // unifont mínimo con la 'L' (arriba 4, derecha 3) y un espacio.
+    let mut shx = b"AutoCAD-86 unifont 1.0\r\n\x1a".to_vec();
+    shx.extend([3, 0, 0, 0, 20, 0]);
+    shx.extend(b"Prueba\0");
+    shx.extend([4, 1, 0, 0, 0, 0]);
+    for (n, codes) in [
+        (u16::from(b'L'), vec![0x44u8, 0x4C, 0x30, 0]),
+        (32, vec![2, 8, 3, 0, 0]),
+    ] {
+        shx.extend(n.to_le_bytes());
+        shx.extend(((codes.len() + 2) as u16).to_le_bytes());
+        shx.extend([b'x', 0]);
+        shx.extend(codes);
+    }
+    let lib = FontLibrary::new();
+    assert_eq!(lib.load_shx_data("Mi SHX", &shx).unwrap(), "Mi SHX");
+    assert!(lib.line_families().iter().any(|f| f.family == "Mi SHX"));
+    let mut s = line_spec("L L");
+    s.font_family = "mi shx".into();
+    let out = outline(&lib, &s, None).unwrap();
+    assert_eq!(out.paths.len(), 2);
+    assert!(out.paths.iter().all(is_open));
+    // Mayúscula de 4 unidades -> 7.2 mm; avance 3 unidades por 'L' y por espacio.
+    let b = out.bounds.unwrap();
+    assert!((b.max.y - 7.2).abs() < 1e-9);
+    assert!(
+        (out.advance_mm - 9.0 * 1.8).abs() < 1e-9,
+        "{}",
+        out.advance_mm
+    );
+    assert!(lib.load_shx_data("malo", b"nada").is_err());
+}

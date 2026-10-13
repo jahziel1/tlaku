@@ -271,3 +271,71 @@ export function flattenBez(path: BezPath, tol = FLATTEN_TOLERANCE_MM): FlatPath[
   finish(false);
   return out;
 }
+
+// ---- polígonos, estrellas y esquinas redondeadas ----------------------------------------------------
+
+/**
+ * Vértices de un polígono regular de `sides` lados inscrito en una circunferencia de radio `r`,
+ * en sentido antihorario. El primer vértice cae en el ángulo `startRad` (por defecto, hacia arriba).
+ */
+export function regularPolygonPoints(cx: number, cy: number, r: number, sides: number, startRad = Math.PI / 2): Point[] {
+  const n = Math.max(3, Math.round(sides));
+  return Array.from({ length: n }, (_, i) => {
+    const t = startRad + (i / n) * Math.PI * 2;
+    return [cx + r * Math.cos(t), cy + r * Math.sin(t)] as Point;
+  });
+}
+
+/** Vértices de una estrella de `points` puntas: alternan el radio exterior y el interior. */
+export function starPoints(cx: number, cy: number, rOuter: number, rInner: number, points: number, startRad = Math.PI / 2): Point[] {
+  const n = Math.max(3, Math.round(points));
+  return Array.from({ length: n * 2 }, (_, i) => {
+    const r = i % 2 === 0 ? rOuter : rInner;
+    const t = startRad + (i / (n * 2)) * Math.PI * 2;
+    return [cx + r * Math.cos(t), cy + r * Math.sin(t)] as Point;
+  });
+}
+
+/**
+ * Polígono cerrado por `points` con las esquinas redondeadas con radio `radius` (mm). Cada
+ * esquina se sustituye por una cúbica que aproxima un arco tangente a los dos lados; el radio de
+ * cada esquina se reduce lo necesario para que el arco no pase de la mitad de un lado vecino
+ * (así dos esquinas contiguas nunca se pisan). Con `radius` 0 son rectas.
+ */
+export function roundedPolygonBez(points: readonly Point[], radius: number): BezPath {
+  const n = points.length;
+  if (n < 3) return polylineBez(points, false);
+  if (radius <= 1e-9) return polylineBez(points, true);
+  const corners = points.map((p, i) => {
+    const prev = points[(i + n - 1) % n]!;
+    const next = points[(i + 1) % n]!;
+    const ux = prev[0] - p[0];
+    const uy = prev[1] - p[1];
+    const vx = next[0] - p[0];
+    const vy = next[1] - p[1];
+    const lu = Math.hypot(ux, uy);
+    const lv = Math.hypot(vx, vy);
+    if (lu < 1e-12 || lv < 1e-12) return null;
+    const u: Point = [ux / lu, uy / lu];
+    const v: Point = [vx / lv, vy / lv];
+    const cos = Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1]));
+    const theta = Math.acos(cos); // ángulo interior entre los dos lados
+    if (theta < 1e-6 || Math.PI - theta < 1e-6) return null; // lados paralelos: no hay esquina
+    const tanHalf = Math.tan(theta / 2);
+    const d = Math.min(radius / tanHalf, lu / 2, lv / 2);
+    const rEff = d * tanHalf;
+    const arc = Math.PI - theta; // cuánto gira la dirección al pasar la esquina
+    const h = (4 / 3) * Math.tan(arc / 4) * rEff; // largo de las asas
+    const t1: Point = [p[0] + u[0] * d, p[1] + u[1] * d];
+    const t2: Point = [p[0] + v[0] * d, p[1] + v[1] * d];
+    return { t1, t2, c1: [t1[0] - u[0] * h, t1[1] - u[1] * h] as Point, c2: [t2[0] - v[0] * h, t2[1] - v[1] * h] as Point, p };
+  });
+  const path: PathSeg[] = [];
+  corners.forEach((c, i) => {
+    const to = c ? c.t1 : points[i]!;
+    path.push(i === 0 ? { type: 'move_to', to } : { type: 'line_to', to });
+    if (c) path.push({ type: 'cubic_to', ctrl1: c.c1, ctrl2: c.c2, to: c.t2 });
+  });
+  path.push({ type: 'close' });
+  return path;
+}

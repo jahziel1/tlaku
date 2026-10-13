@@ -51,6 +51,104 @@ export const canvas = {
   'canvas.draw.polyline': 'Dibujar polilínea',
   'canvas.draw.text': 'Crear texto',
 
+  // ---- ajuste magnético: tipos de punto ----------------------------------------------
+  'canvas.snap.node': 'Nodo',
+  'canvas.snap.mid': 'Punto medio',
+  'canvas.snap.center': 'Centro',
+  'canvas.snap.inter': 'Intersección',
+
+  // ---- curvas, polígonos y estrellas (barra y medidas en vivo) ------------------------
+  'canvas.draw.curve': 'Dibujar curva',
+  'canvas.draw.polygon': 'Dibujar polígono',
+  'canvas.draw.star': 'Dibujar estrella',
+  'canvas.tip.radius': 'Radio {r} mm · Ø {d} mm',
+  'canvas.tip.handle': 'Manija {len} mm',
+  'canvas.bar.step': 'Paso de giro',
+  'canvas.bar.stepHint': 'Grados de la rotación rápida con Mayús+[ y Mayús+]. [ y ] giran 90°; Alt+[ y Alt+] giran 5°.',
+  'canvas.bar.sides': 'Lados',
+  'canvas.bar.sidesHint': 'Cantidad de lados del polígono (3 a 100).',
+  'canvas.bar.points': 'Puntas',
+  'canvas.bar.pointsHint': 'Cantidad de puntas de la estrella (3 a 100).',
+  'canvas.bar.inner': 'Radio interno',
+  'canvas.bar.innerHint': 'Radio interno de la estrella como porcentaje del externo (5 a 95 %).',
+  'canvas.bar.rounding': 'Redondeo',
+  'canvas.bar.roundingHint': 'Radio con el que se redondean las esquinas, en mm. 0 = esquinas vivas.',
+
+  // ---- interruptores de transformación -------------------------------------------------
+  'canvas.xform.group': 'Interruptores de transformación',
+  'canvas.xform.off.move': 'Mover está desactivado. Actívalo en Organizar > Permitir mover.',
+  'canvas.xform.off.scale': 'Escalar está desactivado. Actívalo en Organizar > Permitir escalar.',
+  'canvas.xform.off.rotate': 'Girar está desactivado. Actívalo en Organizar > Permitir girar.',
+
+  // ---- medir ------------------------------------------------------------------------------------------
+  'canvas.measure.tip': '{dist} · {deg}° · Δx {dx} · Δy {dy}',
+  'canvas.measure.title': 'Medida',
+  'canvas.measure.hint': 'Arrastra entre dos puntos para medir, o haz clic en una forma para ver sus datos. Mayús fija 0, 45 o 90°.',
+  'canvas.measure.shape': 'Forma',
+  'canvas.measure.distance': 'Distancia',
+  'canvas.measure.angle': 'Ángulo',
+  'canvas.measure.nodes': 'Nodos',
+  'canvas.measure.segments': 'Trazos',
+  'canvas.measure.segmentsValue': '{lines} rectos, {curves} curvos',
+  'canvas.measure.size': 'Tamaño',
+  'canvas.measure.perimeter': 'Perímetro',
+  'canvas.measure.area': 'Área',
+  'canvas.measure.state': 'Contorno',
+  'canvas.measure.closed': 'Cerrado',
+  'canvas.measure.open': 'Abierto',
+  'canvas.measure.mixed': 'Mixto',
+  'canvas.measure.diameter': 'Diámetro',
+  'canvas.measure.center': 'Centro',
+
+  // ---- espejo sobre una línea y rotar/escalar por dos puntos ----------------------------------
+  'canvas.pick.mirror.help': 'Espejo: haz clic en dos puntos (o arrastra) para trazar la línea del espejo. Esc cancela.',
+  'canvas.pick.mirror.a': 'Primer punto de la línea del espejo',
+  'canvas.pick.mirror.b': 'Segundo punto de la línea del espejo',
+  'canvas.pick.mirror.line': 'Línea de {len} mm',
+  'canvas.pick.twoPoint.help': 'Haz clic en el pivote; luego arrastra desde un punto de referencia hasta donde debe quedar. Mayús también escala. Esc cancela.',
+  'canvas.pick.twoPoint.pivot': 'Haz clic en el pivote',
+  'canvas.pick.twoPoint.ref': 'Arrastra desde un punto de referencia',
+  'canvas.pick.twoPoint.both': '{deg}° · {pct} %',
+
+  // ---- selecciones especiales -----------------------------------------------------------------------
+  'canvas.select.none.open': 'No hay formas abiertas.',
+  'canvas.select.none.openFill': 'No hay formas abiertas en capas de relleno.',
+  'canvas.select.none.layer': 'La capa no tiene objetos que se puedan seleccionar.',
+  'canvas.select.none.contained': 'No hay formas dentro de la seleccionada.',
+  'canvas.select.none.smaller': 'No hay formas más chicas que la selección.',
+  'canvas.select.reason.noLayer': 'Elige una capa en el panel de capas o selecciona un objeto.',
+
+  // ---- menú contextual ----------------------------------------------------------------------------------
+  'canvas.ctx.label': 'Menú contextual del lienzo',
+  'canvas.ctx.editText': 'Editar texto',
+  'canvas.ctx.textToPaths': 'Convertir en trayectos',
+  'canvas.ctx.order': 'Orden de dibujo',
+  'canvas.ctx.transform': 'Voltear y girar',
+  'canvas.ctx.align': 'Alinear',
+  'canvas.ctx.select': 'Seleccionar',
+
+  // ---- portapapeles entre aplicaciones ------------------------------------------------------------
+  'canvas.history.pasteSvg': 'Pegar SVG',
+  'canvas.history.shapeProps': 'Editar propiedades de forma',
+  'canvas.clip.copied': 'Copiado como SVG al portapapeles del sistema.',
+  'canvas.clip.copyFailed': 'El sistema no dejó escribir en el portapapeles. La selección quedó copiada solo dentro de Tlaku.',
+  'canvas.clip.skipped': 'Se pegó el SVG; se omitieron {n} elementos que no son formas (texto, imágenes, referencias).',
+
+  // ---- propiedades de forma -------------------------------------------------------------------------------
+  'canvas.shape.title': 'Propiedades de forma',
+  'canvas.shape.close': 'Cerrar propiedades de forma',
+  'canvas.shape.rect': 'Rectángulo',
+  'canvas.shape.ellipse': 'Elipse',
+  'canvas.shape.polygon': 'Polígono',
+  'canvas.shape.star': 'Estrella',
+  'canvas.shape.radius': 'Radio',
+  'canvas.shape.outer': 'Radio externo',
+  'canvas.shape.radiusHint': 'Radio de las cuatro esquinas, en mm.',
+  'canvas.shape.radiusPolyHint': 'Radio de la circunferencia que pasa por los vértices, en mm.',
+  'canvas.shape.locked': 'Bloquear',
+  'canvas.shape.mixed': 'Algunos objetos seleccionados no son formas editables y no cambian.',
+  'canvas.shape.note': 'Editar nodos, unir o recortar convierte la forma en trayecto. Los parámetros no se guardan en el archivo.',
+
   // ---- herramienta de texto ----------------------------------------------------
   'canvas.text.default': 'Texto',
 } as const;

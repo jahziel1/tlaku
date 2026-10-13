@@ -22,6 +22,9 @@ export function paramsKey(t: TextObject): string {
     t.line_spacing,
     t.align,
     t.on_path && [t.on_path.object_id, t.on_path.offset_mm, t.on_path.flip],
+    // Ausente y 0 / falso son lo mismo: un documento viejo no se regenera al abrirlo.
+    t.bend_deg ?? 0,
+    t.welded ?? false,
   ]);
 }
 

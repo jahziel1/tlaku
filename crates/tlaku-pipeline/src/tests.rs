@@ -1084,6 +1084,8 @@ fn text_object(id: &str, outline: Vec<BezPath>) -> DesignObject {
             line_spacing: 1.0,
             align: tlaku_doc::TextAlign::Left,
             on_path: None,
+            bend_deg: None,
+            welded: None,
             outline,
         }),
         ..rect_object(id, RED, 0.0, 0.0, 1.0, 1.0)

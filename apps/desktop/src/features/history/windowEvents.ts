@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { getApiKind } from '@/api';
 import { t } from '@/i18n';
+import { discardOnClose } from '@/features/recovery/autosave';
 import { useStore } from '@/store';
 import { importPaths, unsavedIo } from './files';
 import { baseName } from './paths';
@@ -79,7 +80,11 @@ export function useCloseGuard(): void {
       const unlisten = await win.onCloseRequested(async (event) => {
         if (!useStore.getState().dirty) return; // se cierra sin preguntar
         event.preventDefault();
-        if (await guardUnsaved('close', unsavedIo)) await win.destroy();
+        if (await guardUnsaved('close', unsavedIo)) {
+          // Cerrar limpiamente (guardando o descartando) borra la copia de recuperación.
+          await discardOnClose();
+          await win.destroy();
+        }
       });
       if (cancelled) unlisten();
       else off = unlisten;

@@ -26,9 +26,10 @@ export function useCommand(id: string): CommandView {
   const avail = useStore((s) => commands.availability(id, s));
   const labelKey = useStore((s) => commands.label(id, s));
   const checked = useStore((s) => commands.checked(id, s));
+  // Atajo principal como texto: cambia si el usuario lo reasigna, y entonces el tooltip se recalcula.
+  const shortcut = useStore(() => commands.shortcutLabel(id, isMac()));
   return useMemo(() => {
     const label = t(labelKey);
-    const shortcut = commands.shortcutLabel(id, isMac());
     const reason = avail === true ? null : t(avail as I18nKey);
     const base = shortcut ? `${label} (${shortcut})` : label;
     return {
@@ -41,5 +42,5 @@ export function useCommand(id: string): CommandView {
       tooltip: reason ? `${base}. ${reason}` : base,
       run: () => void commands.run(id),
     };
-  }, [id, avail, labelKey, checked]);
+  }, [id, avail, labelKey, checked, shortcut]);
 }

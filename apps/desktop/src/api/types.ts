@@ -136,6 +136,37 @@ export type EventName = keyof EventMap;
 export interface FontFamily {
   family: string;
   styles: string[];
+  /** Fuente de un solo trazo (Hershey o SHX): da trayectorias abiertas, no contornos. */
+  single_line?: boolean;
+}
+
+// Códigos QR y de barras (crate tlaku-codes; `generate_code`).
+export type CodeKind = 'qr' | 'data_matrix' | 'code128' | 'code39' | 'ean13' | 'ean8' | 'upc_a' | 'itf' | 'codabar';
+export type QrEcc = 'l' | 'm' | 'q' | 'h';
+
+export interface CodeSpec {
+  kind: CodeKind;
+  data: string;
+  ecc: QrEcc;
+  /** 2D: lado del área de módulos. 1D: ancho de las barras (mm). */
+  size_mm: number;
+  /** 1D: alto de las barras (mm). */
+  height_mm: number;
+  /** Zona en blanco; solo se dibuja al invertir (mm). */
+  margin_mm: number;
+  human_readable: boolean;
+  invert: boolean;
+  /** Fuente de contorno para el texto legible. */
+  font_family: string;
+}
+
+export interface CodeResult {
+  /** Formas cerradas (cada una, un exterior con sus agujeros), en mm con la esquina en (0, 0). */
+  paths: BezPath[];
+  width_mm: number;
+  height_mm: number;
+  modules: number;
+  warnings: string[];
 }
 
 export interface TextOutlineResult {

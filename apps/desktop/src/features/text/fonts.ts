@@ -57,13 +57,20 @@ export function effectiveFont(families: readonly FontFamily[], wanted: string): 
   return { family: pickDefaultFont(families), fellBack: wanted.trim() !== '' };
 }
 
-/** Familias que contienen `query` (sin distinguir mayúsculas); las que empiezan por él van primero. */
-export function filterFonts(families: readonly FontFamily[], query: string): FontFamily[] {
-  const q = norm(query);
-  if (!q) return [...families];
+/** Fuente de un solo trazo (Hershey o SHX): da trayectorias abiertas, no contornos. */
+export const isLineFont = (f: FontFamily): boolean => f.single_line === true;
+
+/** ¿La familia `wanted` es de un solo trazo? Sin lista o sin coincidencia, no. */
+export function isLineFamily(families: readonly FontFamily[], wanted: string): boolean {
+  const hit = matchFamily(families, wanted);
+  return hit ? isLineFont(hit) : false;
+}
+
+function filterGroup(group: readonly FontFamily[], q: string): FontFamily[] {
+  if (!q) return [...group];
   const starts: FontFamily[] = [];
   const contains: FontFamily[] = [];
-  for (const f of families) {
+  for (const f of group) {
     const n = norm(f.family);
     if (n.startsWith(q)) starts.push(f);
     else if (n.includes(q)) contains.push(f);
@@ -71,7 +78,28 @@ export function filterFonts(families: readonly FontFamily[], query: string): Fon
   return [...starts, ...contains];
 }
 
+/**
+ * Familias que contienen `query` (sin distinguir mayúsculas); las que empiezan por él van primero.
+ * Las fuentes del sistema van antes que las de una línea (cada grupo se ordena por separado).
+ */
+export function filterFonts(families: readonly FontFamily[], query: string): FontFamily[] {
+  const q = norm(query);
+  return [...filterGroup(families.filter((f) => !isLineFont(f)), q), ...filterGroup(families.filter(isLineFont), q)];
+}
+
 let cache: Promise<FontFamily[]> | null = null;
+/** Se incrementa al refrescar la lista (por ejemplo tras importar fuentes SHX). */
+let version = 0;
+const listeners = new Set<() => void>();
+
+/** Vuelve a pedir la lista de fuentes al motor y avisa a quien la muestre. */
+export function refreshFonts(): Promise<FontFamily[]> {
+  cache = null;
+  version++;
+  const next = loadFonts();
+  listeners.forEach((l) => l());
+  return next;
+}
 
 /** Lista de fuentes del motor; se pide una sola vez (si falla, la siguiente llamada reintenta). */
 export function loadFonts(): Promise<FontFamily[]> {
@@ -99,6 +127,14 @@ export interface FontsState {
 /** Fuentes disponibles para la interfaz (se cargan al primer uso). */
 export function useFonts(): FontsState {
   const [state, setState] = useState<FontsState>({ fonts: [], loading: true, failed: false });
+  const [seen, setSeen] = useState(version);
+  useEffect(() => {
+    const onChange = () => setSeen(version);
+    listeners.add(onChange);
+    return () => {
+      listeners.delete(onChange);
+    };
+  }, []);
   useEffect(() => {
     let alive = true;
     loadFonts().then(
@@ -108,6 +144,6 @@ export function useFonts(): FontsState {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [seen]);
   return state;
 }

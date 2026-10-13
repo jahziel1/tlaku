@@ -358,6 +358,46 @@ await wait(400);
 await shot('27-dialecto.png');
 await closeDialog();
 
+// 28. Menú contextual sobre la selección
+await fresh();
+await app(`st().select(['obj-engranaje']);`);
+await evaluate(`(() => {
+  const c = document.querySelector('.canvas-area');
+  const r = c.getBoundingClientRect();
+  c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + r.width * 0.35, clientY: r.top + r.height * 0.6 }));
+})()`);
+await wait(600);
+await shot('28-menu-contextual.png');
+await key('Escape', 'Escape');
+
+// 29. Preferencias
+await fresh();
+await app(`void commands.run('prefs.open');`);
+await wait(700);
+await shot('29-preferencias.png');
+await closeDialog();
+
+// 30. Exportar SVG
+await fresh();
+await app(`void commands.run('fileio.exportSvg');`);
+await wait(700);
+await shot('30-exportar.png');
+await closeDialog();
+
+// 31. Insertar código QR
+await fresh();
+await app(`void commands.run('tools.insertCode');`);
+await wait(900);
+await shot('31-codigo-qr.png');
+await closeDialog();
+
+// 32. Manual dentro de la app
+await fresh();
+await app(`void commands.run('help.manual');`);
+await wait(900);
+await shot('32-manual.png');
+await closeDialog();
+
 await send('Browser.close').catch(() => {});
 ws.close();
 proc.kill();

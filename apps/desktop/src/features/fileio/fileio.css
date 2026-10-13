@@ -1,0 +1,48 @@
+/*
+ * Estilos de los diálogos de importar con opciones y exportar. Solo tokens de
+ * src/styles/tokens.css; clases con prefijo fio- para no chocar con otras áreas.
+ */
+
+.fio-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  overflow-y: auto;
+}
+.fio-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+.fio-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.fio-choice__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+.fio-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+.fio-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s-5);
+}
+.fio-select {
+  min-height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+}

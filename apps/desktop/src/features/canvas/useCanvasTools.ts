@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import type { Affine, BezPath, DesignObject, Point } from '@/api/types';
-import { polylineBez } from '@/lib/bezpath';
+import { objectCurves } from '@/lib/geometry';
 import { expandGroups } from '@/lib/groups';
 import { t, type I18nKey } from '@/i18n';
 import { isEditableTarget } from '@/commands/shortcuts';
@@ -12,17 +12,24 @@ import { visibleBox } from './geom';
 import { cursorForHandle, handleSpots, hitHandle, type HandleSpot } from './handles';
 import { boxModeFor, HIT_PX, layerLookup, normalizeBox, pickObject, selectByBox, type PickContext } from './hit';
 import { clearGesture, patchInteraction, registerGestureHooks, useInteraction } from './interaction';
-import { boxShapePaths, constrainAngle, constrainDelta, dedupePoints, dragBox, newVectorObject, pickDrawLayer, polylinePaths, type ShapeKind } from './shapes';
+import { boxShapePaths, constrainAngle, constrainDelta, dragBox, newVectorObject, pickDrawLayer, type ShapeKind } from './shapes';
+import { openContextMenu } from '@/features/contextmenu/uiStore';
+import { createMeasureTool } from './measureTool';
 import { createNodeTool } from './nodeTool';
+import { cornerNode, handleLines, hasCurves, penDraft, penPath, smoothNode, type PenNode } from './pen';
+import { createPickTool } from './pickTool';
+import { newShapeObject, registerShape, type ShapeParams } from './shapeParams';
 import { createTextAt, editText, prefetchFonts } from './textTool';
-import { collectSnapTargets, NO_SNAP, snapFeatures, snapMove, snapPoint, snapToleranceMM, type Feature, type SnapOptions, type SnapSet } from './snap';
+import { DRAG_PX, type Mods, type ToolDeps } from './toolDeps';
+import {
+  collectSnapTargets, NO_SNAP, snapFeatures, snapMove, snapPoint, snapToleranceMM, snapToPoints, type Feature, type SnapOptions, type SnapSet,
+} from './snap';
+import { nearestSnapPoint, objectSnapPoints, type SnapPoint, type SnapPointKind } from './snapPoints';
 import {
   anchorPoint, boundsCenter, boundsOf, boundsSize, canRotate, handlePoint, isIdentity, rotateByPointer, scaleByHandle,
   selectionRotation, translateBy, type HandleId,
 } from './transform';
 
-/** Distancia en px antes de que un clic se convierta en arrastre. */
-const DRAG_PX = 3;
 /** Doble clic al dibujar polilíneas: tiempo (ms) y distancia (px). */
 const DOUBLE_MS = 350;
 const DOUBLE_PX = 6;
@@ -30,11 +37,6 @@ const CLOSE_PX = 8;
 /** Tamaño mínimo (mm) de una forma arrastrada para que se cree. */
 const MIN_SHAPE_MM = 0.05;
 
-interface Mods {
-  shift: boolean;
-  alt: boolean;
-  ctrl: boolean;
-}
 const modsOf = (e: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): Mods => ({
   shift: e.shiftKey,
   alt: e.altKey,
@@ -57,16 +59,18 @@ interface Common {
 
 type Gesture =
   | (Common & { kind: 'press'; hit: DesignObject; wasSelected: boolean; shift: boolean })
-  | (Common & { kind: 'move'; ids: string[]; frame: Bounds2; targets: SnapSet; dx: number; dy: number })
+  | (Common & { kind: 'move'; ids: string[]; frame: Bounds2; targets: SnapSet; dx: number; dy: number; grab: Point | null })
   | (Common & { kind: 'scale'; ids: string[]; frame: Bounds2; handle: HandleId; offset: Point; targets: SnapSet; matrix: Affine })
   | (Common & { kind: 'rotate'; ids: string[]; frame: Bounds2; baseDeg: number; matrix: Affine })
   | (Common & { kind: 'marquee'; shift: boolean })
-  | (Common & { kind: 'draw'; tool: 'rect' | 'ellipse' | 'line'; targets: SnapSet; end: Point });
+  | (Common & { kind: 'draw'; tool: 'rect' | 'ellipse' | 'polygon' | 'star'; targets: SnapSet; end: Point })
+  /** Arrastre de las manijas del nodo recién puesto con la herramienta Línea. */
+  | (Common & { kind: 'pen'; index: number });
 
 type Bounds2 = [Point, Point];
 
 interface Poly {
-  points: Point[];
+  nodes: PenNode[];
   lastAt: number;
   lastScreen: Point;
   targets: SnapSet;
@@ -115,6 +119,11 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         objects: s.snapObjects,
       };
     };
+    const KIND_LABEL: Record<SnapPointKind, I18nKey> = {
+      node: 'canvas.snap.node', mid: 'canvas.snap.mid', center: 'canvas.snap.center', inter: 'canvas.snap.inter',
+    };
+    const markOf = (r: ReturnType<typeof snapPoint>) =>
+      r.point ? { p: r.point.p, kind: r.point.kind, label: t(KIND_LABEL[r.point.kind]) } : null;
     const targetsFor = (skip: ReadonlySet<string>): SnapSet => {
       const s = st();
       const dev = selectActiveDevice(s);
@@ -162,7 +171,16 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       g = null;
       poly = null;
       nodeTool.cancel();
+      measureTool.cancel();
+      pickTool.cancel();
       clearGesture();
+    };
+
+    /** Avisa (sin repetirse) que una transformación está apagada con su interruptor. */
+    const blocked = (kind: 'move' | 'scale' | 'rotate'): boolean => {
+      if (st().transformAllow[kind]) return false;
+      st().notifyKey('info', `canvas.xform.off.${kind}`);
+      return true;
     };
 
     // ---- abrir gestos ----------------------------------------------------------------------------------
@@ -172,6 +190,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const frame = boundsOf(objs);
       if (!frame || objs.length === 0) return;
       const ids = objs.map((o) => o.id);
+      if (blocked(spot.kind === 'rotate' ? 'rotate' : 'scale')) return;
       const startWorld = world(sx, sy);
       const common: Common = { pointerId: e.pointerId, startScreen: [sx, sy], startWorld, active: false };
       if (spot.kind === 'rotate') {
@@ -220,20 +239,32 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       capture(e);
     };
 
-    const downDraw = (e: PointerEvent, tool: 'rect' | 'ellipse' | 'line', sx: number, sy: number, mods: Mods) => {
+    const downDraw = (e: PointerEvent, tool: 'rect' | 'ellipse' | 'polygon' | 'star', sx: number, sy: number, mods: Mods) => {
       const targets = targetsFor(new Set());
-      const raw = world(sx, sy);
-      const opts = snapOpts(mods);
-      const start = opts ? applyPointSnap(raw, targets, opts) : raw;
+      const start = snapTo(world(sx, sy), targets, mods);
       g = { pointerId: e.pointerId, startScreen: [sx, sy], startWorld: start, active: false, kind: 'draw', tool, targets, end: start };
       capture(e);
     };
 
     const applyPointSnap = (p: Point, targets: SnapSet, opts: SnapOptions): Point => {
       const r = snapPoint(p, targets, opts);
-      patchInteraction({ guides: r.guides });
+      patchInteraction({ guides: r.guides, snapMark: markOf(r) });
       return [p[0] + r.dx, p[1] + r.dy];
     };
+
+    /** Pega `p` a puntos de objetos, líneas y cuadrícula (si el ajuste está activo) y marca a dónde. */
+    const snapTo = (p: Point, targets: SnapSet, mods: Mods): Point => {
+      const opts = snapOpts(mods);
+      if (!opts) {
+        patchInteraction({ guides: [], snapMark: null });
+        return p;
+      }
+      return applyPointSnap(p, targets, opts);
+    };
+
+    const toolDeps: ToolDeps = { el, st, viewOf, world, capture, release, snapOpts, targetsFor, setTip, snapTo };
+    const measureTool = createMeasureTool(toolDeps);
+    const pickTool = createPickTool(toolDeps);
 
     // ---- actualizar gestos -------------------------------------------------------------------------------
 
@@ -243,8 +274,15 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       let dy = w[1] - gs.startWorld[1];
       if (mods.shift) [dx, dy] = constrainDelta(dx, dy);
       let guides = NO_SNAP.guides;
+      let mark: ReturnType<typeof markOf> = null;
       const opts = snapOpts(mods);
-      if (opts) {
+      // Moverlo desde un punto (nodo, punto medio, centro): ese punto se pega a los de otros objetos.
+      const pointHit = opts && gs.grab && !mods.shift ? snapToPoints([gs.grab[0] + dx, gs.grab[1] + dy], gs.targets, opts) : null;
+      if (pointHit && gs.grab) {
+        dx = pointHit.p[0] - gs.grab[0];
+        dy = pointHit.p[1] - gs.grab[1];
+        mark = { p: pointHit.p, kind: pointHit.kind, label: t(KIND_LABEL[pointHit.kind]) };
+      } else if (opts) {
         const moved: [Point, Point] = [
           [gs.frame[0][0] + dx, gs.frame[0][1] + dy],
           [gs.frame[1][0] + dx, gs.frame[1][1] + dy],
@@ -257,7 +295,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       }
       gs.dx = dx;
       gs.dy = dy;
-      patchInteraction({ live: translateBy(dx, dy), guides });
+      patchInteraction({ live: translateBy(dx, dy), guides, snapMark: mark });
       setTip(sx, sy, t('canvas.tip.move', { dx: fmtMM(dx), dy: fmtMM(dy) }));
     };
 
@@ -275,7 +313,9 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         p = [p[0] + r.dx, p[1] + r.dy];
         guides = r.guides;
       }
-      const m = scaleByHandle(gs.frame, gs.handle, p, { proportional: !mods.shift, fromCenter: mods.alt });
+      // Con el candado de proporción las esquinas conservan la forma y Mayús la suelta; sin candado, al revés.
+      const s = st();
+      const m = scaleByHandle(gs.frame, gs.handle, p, { proportional: s.lockRatio !== mods.shift, fromCenter: mods.alt !== s.scaleFromCenter });
       gs.matrix = m;
       const [fw, fh] = boundsSize(gs.frame);
       const nw = Math.abs(m[0]) * fw;
@@ -289,35 +329,52 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const w = world(sx, sy);
       // Alt gira alrededor del punto de referencia elegido; por defecto, el centro.
       const center = mods.alt ? anchorPoint(gs.frame, st().anchor) : boundsCenter(gs.frame);
-      const r = rotateByPointer(center, gs.startWorld, w, { stepDeg: mods.shift ? 15 : undefined, baseDeg: gs.baseDeg });
+      const r = rotateByPointer(center, gs.startWorld, w, { stepDeg: mods.shift ? st().prefs.rotateStep : undefined, baseDeg: gs.baseDeg });
       gs.matrix = r.matrix;
       patchInteraction({ live: r.matrix, pivot: center });
       const total = ((gs.baseDeg + r.degrees + 540) % 360) - 180;
       setTip(sx, sy, t('canvas.tip.rotate', { deg: fmt(total, 1) }));
     };
 
-    const drawPaths = (tool: 'rect' | 'ellipse', a: Point, b: Point, mods: Mods): { paths: BezPath[]; w: number; h: number } => {
+    /** Caja y medidas de un rectángulo o una elipse arrastrados de `a` a `b`. */
+    const dragShape = (tool: 'rect' | 'ellipse', a: Point, b: Point, mods: Mods) => {
       const box = dragBox(a, b, { square: mods.shift, fromCenter: false });
       const [w, h] = boundsSize(box);
-      return { paths: boxShapePaths(tool, box, tool === 'rect' ? st().cornerRadius : 0), w, h };
+      const radius = tool === 'rect' ? Math.min(st().cornerRadius, w / 2, h / 2) : 0;
+      return { box, w, h, radius, paths: boxShapePaths(tool, box, radius) };
+    };
+
+    /** Polígono o estrella con el centro en `c` y el radio y giro que marca el puntero en `p`. */
+    const radialShape = (tool: 'polygon' | 'star', c: Point, p: Point, mods: Mods) => {
+      const s = st();
+      const radius = Math.hypot(p[0] - c[0], p[1] - c[1]);
+      // El primer vértice apunta al puntero; con Mayús queda hacia arriba.
+      const rotation = mods.shift ? 0 : Math.atan2(p[1] - c[1], p[0] - c[0]) - Math.PI / 2;
+      const params: ShapeParams = tool === 'polygon'
+        ? { type: 'polygon', sides: s.polygonSides, radius, rounding: s.shapeRounding }
+        : { type: 'star', points: s.starPoints, outer: radius, ratio: s.starRatio, rounding: s.shapeRounding };
+      return { params, radius, rotation };
     };
 
     const updateDraw = (gs: Extract<Gesture, { kind: 'draw' }>, sx: number, sy: number, mods: Mods) => {
       let p = world(sx, sy);
       const opts = snapOpts(mods);
-      if (gs.tool === 'line') {
-        if (mods.shift) p = constrainAngle(gs.startWorld, p);
+      if (gs.tool === 'polygon' || gs.tool === 'star') {
         if (opts) p = applyPointSnap(p, gs.targets, opts);
-        else patchInteraction({ guides: [] });
+        else patchInteraction({ guides: [], snapMark: null });
         gs.end = p;
-        patchInteraction({ draft: { paths: [polylineBez([gs.startWorld, p], false)] } });
-        setTip(sx, sy, lineTip(gs.startWorld, p));
+        const { params, radius, rotation } = radialShape(gs.tool, gs.startWorld, p, mods);
+        if (radius > 1e-9) {
+          const preview = newShapeObject('preview', '#000000', params, gs.startWorld, rotation);
+          patchInteraction({ draft: { paths: objectCurves(preview) } });
+        }
+        setTip(sx, sy, t('canvas.tip.radius', { r: fmtMM(radius), d: fmtMM(radius * 2) }));
         return;
       }
       if (opts) p = applyPointSnap(p, gs.targets, opts);
-      else patchInteraction({ guides: [] });
+      else patchInteraction({ guides: [], snapMark: null });
       gs.end = p;
-      const { paths, w, h } = drawPaths(gs.tool, gs.startWorld, p, mods);
+      const { paths, w, h } = dragShape(gs.tool, gs.startWorld, p, mods);
       patchInteraction({ draft: { paths } });
       const circle = gs.tool === 'ellipse' && Math.abs(w - h) < 1e-6;
       setTip(sx, sy, circle ? t('canvas.tip.circle', { d: fmtMM(w) }) : t('canvas.tip.size', { w: fmtMM(w), h: fmtMM(h) }));
@@ -329,52 +386,71 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       return t('canvas.tip.line', { len: fmtMM(len), deg: fmt(deg, 1) });
     };
 
-    // ---- polilínea ------------------------------------------------------------------------------------------
+    // ---- curvas y polilíneas (herramienta Línea) ------------------------------------------------------------
 
+    /** Punto del siguiente nodo bajo el cursor: Mayús fija 45 grados desde el último y el ajuste magnético lo pega. */
     const polyCursor = (sx: number, sy: number, mods: Mods): Point => {
       if (!poly) return world(sx, sy);
       let p = world(sx, sy);
-      const lastPt = poly.points[poly.points.length - 1];
+      const lastPt = poly.nodes[poly.nodes.length - 1]!.p;
       if (mods.shift) p = constrainAngle(lastPt, p);
-      const opts = snapOpts(mods);
-      if (opts) p = applyPointSnap(p, poly.targets, opts);
-      else patchInteraction({ guides: [] });
-      return p;
+      return snapTo(p, poly.targets, mods);
     };
 
+    /** Dibuja lo puesto, el tramo elástico hasta `cursor` y las manijas del último nodo. */
     const showPoly = (cursor: Point | null, sx = 0, sy = 0) => {
       if (!poly) return;
-      const pts = cursor ? [...poly.points, cursor] : poly.points;
-      patchInteraction({ draft: { paths: [polylineBez(pts, false)], rubber: true }, polyPoints: poly.points.length });
-      if (cursor) setTip(sx, sy, lineTip(poly.points[poly.points.length - 1], cursor));
+      const last = poly.nodes[poly.nodes.length - 1]!;
+      patchInteraction({
+        draft: { paths: [penDraft(poly.nodes, cursor)], rubber: true, nodes: poly.nodes.map((n) => n.p), handles: handleLines(last) },
+        polyPoints: poly.nodes.length,
+      });
+      if (cursor) setTip(sx, sy, lineTip(last.p, cursor));
     };
 
     const createShape = (paths: BezPath[], kind: ShapeKind) => {
       const s = st();
       const layer = pickDrawLayer(s.doc.layers, s.activeLayer);
       const id = uniqueId(kind, new Set(s.doc.objects.map((o) => o.id)));
-      const label = `canvas.draw.${kind}` as I18nKey;
-      s.addObjects([newVectorObject(id, layer, paths)], label);
-      s.select([id]);
+      finishCreate(newVectorObject(id, layer, paths), kind);
+    };
+
+    /** Agrega el objeto recién dibujado, lo selecciona y vuelve a Seleccionar. */
+    const finishCreate = (obj: DesignObject, kind: ShapeKind) => {
+      const s = st();
+      s.addObjects([obj], `canvas.draw.${kind}` as I18nKey);
+      s.select([obj.id]);
       s.setTool('select');
     };
 
     const finishPoly = (close: boolean) => {
-      const pts = poly?.points ?? [];
+      const nodes = poly?.nodes ?? [];
       poly = null;
       clearGesture();
-      const paths = polylinePaths(pts, close);
-      if (!paths) return;
-      createShape(paths, dedupePoints(pts).length === 2 ? 'line' : 'polyline');
+      const path = penPath(nodes, close);
+      if (!path) return;
+      const curved = hasCurves(path);
+      createShape([path], curved ? 'curve' : path.length === 2 ? 'line' : 'polyline');
+    };
+
+    /** Abre el arrastre de manijas del nodo recién puesto (si no se arrastra, queda de esquina). */
+    const beginPenDrag = (e: PointerEvent, sx: number, sy: number, index: number) => {
+      g = { pointerId: e.pointerId, startScreen: [sx, sy], startWorld: world(sx, sy), active: false, kind: 'pen', index };
+      capture(e);
     };
 
     const downLine = (e: PointerEvent, sx: number, sy: number, mods: Mods) => {
       if (!poly) {
-        downDraw(e, 'line', sx, sy, mods);
+        const targets = targetsFor(new Set());
+        const p = snapTo(world(sx, sy), targets, mods);
+        poly = { nodes: [cornerNode(p)], lastAt: performance.now(), lastScreen: [sx, sy], targets };
+        patchInteraction({ gesture: 'polyline', polyPoints: 1 });
+        showPoly(null);
+        beginPenDrag(e, sx, sy, 0);
         return;
       }
       const now = performance.now();
-      const first = poly.points[0];
+      const first = poly.nodes[0]!.p;
       const dblClick = now - poly.lastAt < DOUBLE_MS && Math.hypot(sx - poly.lastScreen[0], sy - poly.lastScreen[1]) < DOUBLE_PX;
       if (dblClick) {
         finishPoly(false);
@@ -383,14 +459,16 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const p = polyCursor(sx, sy, mods);
       const v = viewOf();
       const fs: Point = [first[0] * v.zoom + v.panX, v.panY - first[1] * v.zoom];
-      if (poly.points.length >= 3 && Math.hypot(sx - fs[0], sy - fs[1]) < CLOSE_PX) {
+      // Clic sobre el primer nodo: cierra la forma.
+      if (poly.nodes.length >= 3 && Math.hypot(sx - fs[0], sy - fs[1]) < CLOSE_PX) {
         finishPoly(true);
         return;
       }
-      poly.points.push(p);
+      poly.nodes.push(cornerNode(p));
       poly.lastAt = now;
       poly.lastScreen = [sx, sy];
-      showPoly(p, sx, sy);
+      showPoly(null);
+      beginPenDrag(e, sx, sy, poly.nodes.length - 1);
     };
 
     // ---- eventos del puntero -------------------------------------------------------------------------------------
@@ -410,19 +488,33 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         finishPoly(false);
         return;
       }
+      // Clic derecho con un modo de elegir puntos abierto: lo cancela.
+      if (e.button === 2 && useInteraction.getState().pick) {
+        cancel();
+        return;
+      }
       if (e.button !== 0) return;
       const s = st();
       if (el.dataset.space === 'true' || s.activeTool === 'pan') return;
       const [sx, sy] = local(e);
       const mods = modsOf(e);
       last = { sx, sy, mods };
+      if (useInteraction.getState().pick) {
+        pickTool.down(e, sx, sy, mods);
+        return;
+      }
       switch (s.activeTool) {
         case 'rect':
         case 'ellipse':
+        case 'polygon':
+        case 'star':
           downDraw(e, s.activeTool, sx, sy, mods);
           break;
         case 'line':
           downLine(e, sx, sy, mods);
+          break;
+        case 'measure':
+          measureTool.down(e, sx, sy, mods);
           break;
         case 'nodes':
           nodeTool.down(e, sx, sy, mods);
@@ -445,14 +537,26 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
           g = null;
           return;
         }
+        if (blocked('move')) {
+          g = null;
+          release(gs.pointerId);
+          return;
+        }
         const ids = objs.map((o) => o.id);
-        g = { pointerId: gs.pointerId, startScreen: gs.startScreen, startWorld: gs.startWorld, active: true, kind: 'move', ids, frame, targets: targetsFor(new Set(ids)), dx: 0, dy: 0 };
+        // Si se agarró cerca de un nodo, punto medio o centro de lo seleccionado, ese punto es el que se pega.
+        let grab: Point | null = null;
+        if (objs.length <= 50) {
+          const own: SnapPoint[] = [];
+          for (const o of objs) objectSnapPoints(o, own);
+          grab = nearestSnapPoint(own, gs.startWorld, snapToleranceMM(st().zoom))?.p ?? null;
+        }
+        g = { pointerId: gs.pointerId, startScreen: gs.startScreen, startWorld: gs.startWorld, active: true, kind: 'move', ids, frame, targets: targetsFor(new Set(ids)), dx: 0, dy: 0, grab };
         patchInteraction({ gesture: 'move', hoverId: null });
       } else if (gs.kind === 'move') patchInteraction({ gesture: 'move' });
       else if (gs.kind === 'scale') patchInteraction({ gesture: 'scale' });
       else if (gs.kind === 'rotate') patchInteraction({ gesture: 'rotate', pivot: boundsCenter(gs.frame) });
       else if (gs.kind === 'marquee') patchInteraction({ gesture: 'marquee' });
-      else patchInteraction({ gesture: 'draw' });
+      else if (gs.kind === 'draw') patchInteraction({ gesture: 'draw' });
     };
 
     const update = (sx: number, sy: number, mods: Mods) => {
@@ -473,6 +577,17 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
           break;
         }
         case 'draw': updateDraw(gs, sx, sy, mods); break;
+        case 'pen': {
+          if (!poly) break;
+          const node = poly.nodes[gs.index];
+          if (!node) break;
+          let ptr = world(sx, sy);
+          if (mods.shift) ptr = constrainAngle(node.p, ptr);
+          poly.nodes[gs.index] = smoothNode(node.p, ptr);
+          showPoly(null);
+          setTip(sx, sy, t('canvas.tip.handle', { len: fmtMM(Math.hypot(ptr[0] - node.p[0], ptr[1] - node.p[1])) }));
+          break;
+        }
         default: break;
       }
     };
@@ -484,8 +599,14 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         patchInteraction({ cursor: 'grab', hoverId: null });
         return;
       }
-      if (tool === 'rect' || tool === 'ellipse' || tool === 'line') {
+      if (tool === 'rect' || tool === 'ellipse' || tool === 'line' || tool === 'polygon' || tool === 'star') {
         patchInteraction({ cursor: 'crosshair', hoverId: null });
+        return;
+      }
+      if (tool === 'measure') {
+        // Resalta la forma bajo el cursor: un clic muestra sus datos.
+        const hit = pickObject(pickCtx(), world(sx, sy), HIT_PX / s.zoom);
+        patchInteraction({ cursor: 'crosshair', hoverId: hit?.id ?? null });
         return;
       }
       if (tool === 'text') {
@@ -516,6 +637,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       const mods = modsOf(e);
       last = { sx, sy, mods };
       if (nodeTool.move(e, sx, sy, mods)) return;
+      if (pickTool.move(e, sx, sy, mods)) return;
+      if (measureTool.move(e, sx, sy, mods)) return;
       if (g) {
         if (e.pointerId === g.pointerId) update(sx, sy, mods);
         return;
@@ -546,6 +669,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         nodeTool.up(e, nx, ny, modsOf(e));
         return;
       }
+      if (pickTool.up(e, ...local(e), modsOf(e))) return;
+      if (measureTool.up(e, ...local(e), modsOf(e))) return;
       if (!g || e.pointerId !== g.pointerId) return;
       const gs = g;
       release(gs.pointerId);
@@ -588,33 +713,34 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
             s.select(cur.shift ? [...s.selectedIds, ...ids] : ids);
           }
           break;
-        case 'draw': finishDraw(cur, sx, sy, mods); return;
+        case 'draw': finishDraw(cur, mods); return;
+        case 'pen':
+          // El nodo ya está puesto (con sus manijas si se arrastró): la curva sigue abierta.
+          if (poly) showPoly(polyCursor(sx, sy, mods), sx, sy);
+          return;
         default: break;
       }
       clearGesture();
     };
 
-    const finishDraw = (gs: Extract<Gesture, { kind: 'draw' }>, sx: number, sy: number, mods: Mods) => {
-      if (gs.tool === 'line') {
-        if (!gs.active) {
-          // Clic simple: empieza una polilínea.
-          clearGesture();
-          poly = { points: [gs.startWorld], lastAt: performance.now(), lastScreen: [sx, sy], targets: gs.targets };
-          patchInteraction({ gesture: 'polyline', polyPoints: 1 });
-          showPoly(polyCursor(sx, sy, mods), sx, sy);
-          return;
-        }
-        // Arrastre: una línea de dos puntos.
-        const paths = polylinePaths([gs.startWorld, gs.end], false);
-        clearGesture();
-        if (paths) createShape(paths, 'line');
-        return;
-      }
+    const finishDraw = (gs: Extract<Gesture, { kind: 'draw' }>, mods: Mods) => {
       clearGesture();
       if (!gs.active) return;
-      const { paths, w, h } = drawPaths(gs.tool, gs.startWorld, gs.end, mods);
+      const s = st();
+      const layer = pickDrawLayer(s.doc.layers, s.activeLayer);
+      const id = uniqueId(gs.tool, new Set(s.doc.objects.map((o) => o.id)));
+      if (gs.tool === 'polygon' || gs.tool === 'star') {
+        const { params, radius, rotation } = radialShape(gs.tool, gs.startWorld, gs.end, mods);
+        if (radius < MIN_SHAPE_MM) return;
+        finishCreate(newShapeObject(id, layer, params, gs.startWorld, rotation), gs.tool);
+        return;
+      }
+      const { box, w, h, radius, paths } = dragShape(gs.tool, gs.startWorld, gs.end, mods);
       if (w < MIN_SHAPE_MM || h < MIN_SHAPE_MM) return;
-      createShape(paths, gs.tool);
+      const obj = newVectorObject(id, layer, paths);
+      const params: ShapeParams = gs.tool === 'rect' ? { type: 'rect', w, h, radius } : { type: 'ellipse', w, h };
+      registerShape(obj, { params, center: [(box[0][0] + box[1][0]) / 2, (box[0][1] + box[1][1]) / 2] });
+      finishCreate(obj, gs.tool);
     };
 
     const onLeave = () => {
@@ -636,8 +762,8 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         finishPoly(false);
       } else if (e.key === 'Backspace') {
         e.preventDefault();
-        poly.points.pop();
-        if (poly.points.length === 0) cancel();
+        poly.nodes.pop();
+        if (poly.nodes.length === 0) cancel();
         else if (last) showPoly(polyCursor(last.sx, last.sy, last.mods), last.sx, last.sy);
       }
     };
@@ -652,8 +778,17 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       else if (poly) showPoly(polyCursor(last.sx, last.sy, mods), last.sx, last.sy);
     };
 
+    // Clic derecho: la polilínea en curso se termina (lo hace pointerdown); un modo de elegir puntos se
+    // cancela; en cualquier otro caso se abre el menú contextual, con el objeto de abajo seleccionado.
     const onContextMenu = (e: MouseEvent) => {
-      if (poly) e.preventDefault();
+      e.preventDefault();
+      if (poly || g || useInteraction.getState().pick || nodeTool.active()) return;
+      const [sx, sy] = local(e);
+      const s = st();
+      const at = world(sx, sy);
+      const hit = pickObject(pickCtx(), at, HIT_PX / s.zoom);
+      if (hit && !s.selectedIds.includes(hit.id)) s.select(groupIds(hit.id));
+      openContextMenu({ x: e.clientX, y: e.clientY, at, onObject: hit !== null || s.selectedIds.length > 0 });
     };
 
     // Doble clic: con nodos, agrega un nodo en el segmento; con Seleccionar, sobre un texto pasa a editarlo.
@@ -691,7 +826,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const unsub = useStore.subscribe((s, prev) => {
       if (s.activeTool !== prev.activeTool) {
         cancel();
-        patchInteraction({ hoverId: null, nodeHover: null });
+        patchInteraction({ hoverId: null, nodeHover: null, measure: null });
         if (s.activeTool === 'text') prefetchFonts();
       }
       if (s.selectedIds !== prev.selectedIds && useInteraction.getState().rotateMode) {

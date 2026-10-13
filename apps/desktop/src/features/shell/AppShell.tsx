@@ -5,6 +5,9 @@ import { ArrangeDialogHost } from '@/features/arrange';
 import { CameraDialogHost } from '@/features/camera';
 import { DevicesDialogHost } from '@/features/devices';
 import { MaterialsDialogHost } from '@/features/materials';
+import { RecoveryHost } from '@/features/recovery';
+import { SettingsHost } from '@/features/settings';
+import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
 import { TraceDialogHost } from '@/features/trace';
@@ -44,6 +47,8 @@ export function AppShell() {
       <StatusBar />
       <Toasts />
       <DropOverlay />
+      <SettingsHost />
+      <RecoveryHost />
       <PromptHost />
       <ShortcutsDialog />
       <MachineDialogHost />
@@ -52,6 +57,7 @@ export function AppShell() {
       <CameraDialogHost />
       <MaterialsDialogHost />
       <DevicesDialogHost />
+      <HelpDialogHost />
     </div>
   );
 }

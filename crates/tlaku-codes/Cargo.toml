@@ -1,0 +1,18 @@
+[package]
+name = "tlaku-codes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+barcoders = { version = "2.0.0", default-features = false }
+datamatrix = { version = "0.3.3", default-features = false }
+qrcode = { version = "0.14.1", default-features = false }
+serde = { version = "1.0.229", features = ["derive"] }
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
+tlaku-text = { version = "0.1.0", path = "../tlaku-text" }
+
+[dev-dependencies]
+rqrr = { version = "0.11.0", default-features = false }
+serde_json = "1.0.154"

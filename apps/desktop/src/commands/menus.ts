@@ -15,22 +15,27 @@ export const MENUS: MenuDef[] = [
   {
     id: 'file',
     label: 'menu.file',
-    items: ['file.new', 'file.open', '-', 'file.save', 'file.saveAs', '-', 'file.import', 'file.exportGcode'],
+    items: [
+      'file.new', 'file.open', '-', 'file.save', 'file.saveAs', '-', 'file.import', 'fileio.importOptions', '-',
+      'file.exportGcode', 'fileio.exportSvg', 'fileio.exportDxf', 'fileio.exportPng', 'fileio.exportPdf', '-', 'fileio.print',
+    ],
   },
   {
     id: 'edit',
     label: 'menu.edit',
     items: [
       'edit.undo', 'edit.redo', '-',
-      'edit.cut', 'edit.copy', 'edit.paste', 'edit.duplicate', '-',
+      'edit.cut', 'edit.copy', 'edit.copySvg', 'edit.paste', 'edit.duplicate', '-',
       'edit.selectAll', 'edit.delete', '-',
-      'edit.group', 'edit.ungroup',
+      'edit.selectLayer', 'edit.selectOpen', 'edit.selectOpenFill', 'edit.selectContained', 'edit.selectSmaller', 'edit.selectCircles', '-',
+      'edit.group', 'edit.ungroup', '-',
+      'prefs.open', 'prefs.shortcuts',
     ],
   },
   {
     id: 'tools',
     label: 'menu.tools',
-    items: ['tool.select', 'tool.nodes', '-', 'tool.line', 'tool.rect', 'tool.ellipse', 'tool.text', '-', 'tool.pan', 'tool.measure'],
+    items: ['tool.select', 'tool.nodes', '-', 'tool.line', 'tool.rect', 'tool.ellipse', 'tool.polygon', 'tool.star', 'tool.text', '-', 'tool.pan', 'tool.measure'],
   },
   {
     id: 'view',
@@ -52,6 +57,13 @@ export const MENUS: MenuDef[] = [
     id: 'arrange',
     label: 'menu.arrange',
     items: [
+      'arrange.flip.h', 'arrange.flip.v', 'arrange.mirrorLine', '-',
+      'arrange.rotate.ccw90', 'arrange.rotate.cw90', 'arrange.rotate.ccwStep', 'arrange.rotate.cwStep',
+      'arrange.rotate.ccw5', 'arrange.rotate.cw5', 'arrange.twoPoint', '-',
+      'arrange.order.front', 'arrange.order.forward', 'arrange.order.backward', 'arrange.order.back', '-',
+      'arrange.lock', 'arrange.unlockAll', '-',
+      'arrange.same.width', 'arrange.same.height', 'arrange.same.widthKeep', 'arrange.same.heightKeep', '-',
+      'arrange.xform.move', 'arrange.xform.scale', 'arrange.xform.rotate', 'arrange.xform.center', 'arrange.xform.ratio', '-',
       'arrange.union', 'arrange.difference', 'arrange.intersection', 'arrange.xor', 'arrange.weld', '-',
       'arrange.offset', '-',
       'arrange.join', 'arrange.close', 'arrange.dedupe', '-',

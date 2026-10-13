@@ -33,6 +33,27 @@ export const text = {
   'text.font.default': '{family} (predeterminada)',
   'text.font.styles': 'Estilos: {styles}',
 
+  // ---- fuentes de una línea y SHX -------------------------------------------
+  'text.font.sectionSystem': 'Fuentes del sistema',
+  'text.font.sectionLine': 'Fuentes de una línea',
+  'text.font.lineTitle': 'Fuente de un solo trazo: se graba como línea, no como contorno',
+  'text.line.hint': 'Fuente de una línea: el texto sale como trazos abiertos. Usa una capa en modo Línea para grabarlos. No tiene negrita ni cursiva.',
+  'text.line.credit': 'Fuentes Hershey: creadas por el Dr. A. V. Hershey (U. S. National Bureau of Standards); formato de los datos de James Hurt (Cognition, Inc.).',
+  'text.shx.import': 'Importar fuente SHX…',
+  'text.shx.importTitle': 'Añade fuentes SHX de AutoCAD que ya tengas. Se guardan para próximas sesiones.',
+  'text.shx.pickTitle': 'Elegir fuentes SHX',
+  'text.shx.imported': 'Fuentes SHX importadas: {names}',
+  'text.shx.failed': 'No se pudo importar la fuente SHX: {message}',
+  'text.cmd.importShx': 'Importar fuente SHX…',
+
+  // ---- curvado y soldado -----------------------------------------------------
+  'text.field.bend': 'Curvatura',
+  'text.field.bendHint': 'Grados que abarca el texto sobre un arco. Positivo lo arquea hacia arriba, negativo hacia abajo y 0 lo deja recto.',
+  'text.field.bendIgnored': 'La curvatura se ignora mientras el texto va sobre un trayecto.',
+  'text.field.welded': 'Soldar letras',
+  'text.field.weldedTitle': 'Une en un solo contorno las letras que se tocan o se solapan (útil con fuentes cursivas)',
+  'text.field.weldedLine': 'No aplica a las fuentes de una línea: no tienen contornos que unir.',
+
   // ---- sobre trayecto --------------------------------------------------------
   'text.onPath.enable': 'Sobre trayecto',
   'text.onPath.target': 'Objeto guía',

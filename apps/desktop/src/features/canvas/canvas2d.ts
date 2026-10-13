@@ -1,4 +1,5 @@
 import type { Affine, DesignObject, DeviceOrigin, Point, TextObject } from '@/api/types';
+import { topGroup } from '@/lib/groups';
 import { textFont, textLines } from '@/lib/textobj';
 import { gridSteps, worldToScreen, type ViewTransform } from '@/lib/viewport';
 import { boxesIntersect, chunkPath, fillPath, getGeom, visibleBox, type Box, type ObjectGeom } from './geom';
@@ -111,8 +112,10 @@ export class Canvas2DRenderer implements Renderer {
       this.drawPrimary(ctx, scene);
       this.drawNodes(ctx, scene);
     }
+    this.drawMeasure(ctx, scene);
     this.drawDraft(ctx, scene);
     this.drawGuides(ctx, scene);
+    this.drawSnapMark(ctx, scene);
     this.drawMarquee(ctx, scene);
     this.drawOrigin(ctx, view, scene.bed, p);
     this.drawHead(ctx, scene);
@@ -463,7 +466,8 @@ export class Canvas2DRenderer implements Renderer {
     const obj = objects.find((o) => o.id === overlay.hoverId);
     if (!obj || obj.hidden) return;
     // Un objeto de un grupo resalta todo el grupo (Alt+clic elige uno solo).
-    const hovered = obj.group ? objects.filter((o) => o.group === obj.group && !o.hidden) : [obj];
+    const top = topGroup(obj.group);
+    const hovered = top ? objects.filter((o) => topGroup(o.group) === top && !o.hidden) : [obj];
     ctx.save();
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
@@ -729,15 +733,130 @@ export class Canvas2DRenderer implements Renderer {
       ctx.stroke();
     }
     if (d.rubber) {
-      for (const path of d.paths) {
-        // El último punto es el cursor: los vértices fijos llevan un cuadrito.
-        const verts = path.flatMap((seg) => (seg.type === 'move_to' || seg.type === 'line_to' ? [seg.to] : []));
-        verts.slice(0, -1).forEach((pt) => {
+      if (d.nodes) {
+        // Curva en curso: un cuadrito en cada nodo puesto.
+        for (const pt of d.nodes) {
           const [sx, sy] = worldToScreen(view, pt);
           ctx.fillRect(sx - 3, sy - 3, 6, 6);
           ctx.strokeRect(sx - 3, sy - 3, 6, 6);
-        });
+        }
+      } else {
+        for (const path of d.paths) {
+          // El último punto es el cursor: los vértices fijos llevan un cuadrito.
+          const verts = path.flatMap((seg) => (seg.type === 'move_to' || seg.type === 'line_to' ? [seg.to] : []));
+          verts.slice(0, -1).forEach((pt) => {
+            const [sx, sy] = worldToScreen(view, pt);
+            ctx.fillRect(sx - 3, sy - 3, 6, 6);
+            ctx.strokeRect(sx - 3, sy - 3, 6, 6);
+          });
+        }
       }
+    }
+    if (d.handles) {
+      // Manijas de Bézier: una línea fina del nodo a la manija y un punto en su extremo.
+      ctx.lineWidth = 1;
+      for (const [node, handle] of d.handles) {
+        const [nx, ny] = worldToScreen(view, node);
+        const [hx, hy] = worldToScreen(view, handle);
+        ctx.beginPath();
+        ctx.moveTo(nx, ny);
+        ctx.lineTo(hx, hy);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(hx, hy, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /** Indicador del punto de ajuste: cuadro = nodo, triángulo = punto medio, círculo = centro, aspa = intersección. */
+  private drawSnapMark(ctx: CanvasRenderingContext2D, { view, overlay, palette: p }: Scene): void {
+    const m = overlay.snapMark;
+    if (!m) return;
+    const [x, y] = worldToScreen(view, m.p);
+    const r = 6;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = p.guide;
+    ctx.fillStyle = p.workspace;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    switch (m.kind) {
+      case 'node':
+        ctx.rect(x - r, y - r, r * 2, r * 2);
+        break;
+      case 'mid':
+        ctx.moveTo(x, y - r - 1);
+        ctx.lineTo(x + r + 1, y + r);
+        ctx.lineTo(x - r - 1, y + r);
+        ctx.closePath();
+        break;
+      case 'center':
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        break;
+      case 'inter':
+        ctx.moveTo(x - r, y - r);
+        ctx.lineTo(x + r, y + r);
+        ctx.moveTo(x + r, y - r);
+        ctx.lineTo(x - r, y + r);
+        break;
+      default:
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+    ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = p.guide;
+    if (m.label) ctx.fillText(m.label, x + r + 6, y - r - 4);
+    ctx.restore();
+  }
+
+  /** Línea de medida entre A y B con los catetos Δx y Δy, o el contorno de la forma medida. */
+  private drawMeasure(ctx: CanvasRenderingContext2D, scene: Scene): void {
+    const { view, overlay, palette: p, objects } = scene;
+    const m = overlay.measure;
+    if (!m) return;
+    if (m.objectId) {
+      const obj = objects.find((o) => o.id === m.objectId);
+      if (obj) {
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        this.worldTransform(ctx, view, null);
+        ctx.strokeStyle = p.selection;
+        ctx.lineWidth = 3 / view.zoom;
+        this.strokeGeom(ctx, getGeom(obj), null);
+        ctx.restore();
+      }
+      return;
+    }
+    const [ax, ay] = worldToScreen(view, m.a);
+    const [bx, by] = worldToScreen(view, m.b);
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.strokeStyle = p.selection;
+    ctx.fillStyle = p.selection;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    for (const [x, y] of [[ax, ay], [bx, by]]) {
+      ctx.beginPath();
+      ctx.arc(x!, y!, 3.5, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }

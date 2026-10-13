@@ -1,5 +1,6 @@
 import type { DesignObject, Document } from '@/api/types';
 import { objectBounds, unionBounds, type Bounds } from '@/lib/geometry';
+import { topGroup } from '@/lib/groups';
 
 /**
  * Unidad de organización: un objeto suelto o un grupo completo (un grupo se alinea, distribuye
@@ -21,14 +22,19 @@ export function selectionUnits(doc: Pick<Document, 'objects'>, selectedIds: read
   const byId = new Map(doc.objects.map((o) => [o.id, o]));
   const wanted = new Set(selectedIds);
   const groups = new Set<string>();
-  for (const o of doc.objects) if (o.group && wanted.has(o.id)) groups.add(o.group);
+  for (const o of doc.objects) {
+    const top = topGroup(o.group);
+    if (top && wanted.has(o.id)) groups.add(top);
+  }
 
   const seen = new Set<string>();
   const units: Unit[] = [];
   for (const id of selectedIds) {
     const o = byId.get(id);
     if (!o || seen.has(o.id)) continue;
-    const members = o.group && groups.has(o.group) ? doc.objects.filter((m) => m.group === o.group) : [o];
+    const top = topGroup(o.group);
+    // Con grupos anidados la unidad es el grupo de más afuera.
+    const members = top && groups.has(top) ? doc.objects.filter((m) => topGroup(m.group) === top) : [o];
     for (const m of members) seen.add(m.id);
     if (members.some((m) => m.locked || m.hidden)) continue;
     const bounds = unionBounds(members.map(objectBounds));

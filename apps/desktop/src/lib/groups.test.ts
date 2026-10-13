@@ -5,7 +5,7 @@ import { ALL_COMMANDS } from '@/commands';
 import { CommandRegistry } from '@/commands/registry';
 import { newVectorObject } from '@/features/canvas/shapes';
 import { polylineBez } from './bezpath';
-import { expandGroups, groupDoc, groupIdsOf, groupMembers, regroupCopies, ungroupDoc } from './groups';
+import { countUnits, expandGroups, groupDoc, groupIdsOf, groupMembers, regroupCopies, ungroupDoc } from './groups';
 
 const o = (id: string, patch: Partial<DesignObject> = {}): DesignObject => ({
   ...newVectorObject(id, '#ff0000', [polylineBez([[0, 0], [1, 1]], false)]),
@@ -119,5 +119,52 @@ describe('comandos agrupar / desagrupar', () => {
     const { registry } = setup();
     expect(registry.match('Mod+G')?.id).toBe('edit.group');
     expect(registry.match('Mod+Shift+G')?.id).toBe('edit.ungroup');
+  });
+});
+
+describe('grupos anidados', () => {
+  const four = () => docOf([o('a'), o('b'), o('c'), o('d')]);
+
+  it('agrupar un grupo completo con otro objeto lo anida, y se desagrupa nivel por nivel', () => {
+    const inner = groupDoc(four(), ['a', 'b']); // grupo-1 = a, b
+    const outer = groupDoc(inner, ['a', 'b', 'c']); // grupo-2 contiene a grupo-1 y a c
+    expect(outer.objects.map((x) => x.group)).toEqual(['grupo-2/grupo-1', 'grupo-2/grupo-1', 'grupo-2', null]);
+    expect(groupMembers(outer.objects, 'grupo-2')).toEqual(['a', 'b', 'c']);
+    expect(groupMembers(outer.objects, 'grupo-1')).toEqual(['a', 'b']);
+    // Un clic elige el grupo de más afuera.
+    expect(expandGroups(outer.objects, ['a'])).toEqual(['a', 'b', 'c']);
+    // Desagrupar abre solo el nivel de más afuera.
+    const one = ungroupDoc(outer, ['a']);
+    expect(one.objects.map((x) => x.group)).toEqual(['grupo-1', 'grupo-1', null, null]);
+    expect(expandGroups(one.objects, ['a'])).toEqual(['a', 'b']);
+    const none = ungroupDoc(one, ['a']);
+    expect(none.objects.every((x) => x.group === null)).toBe(true);
+  });
+
+  it('no se agrupa un grupo solo (una sola unidad)', () => {
+    const inner = groupDoc(four(), ['a', 'b']);
+    expect(groupDoc(inner, ['a', 'b'])).toBe(inner);
+    expect(countUnits(inner.objects, ['a', 'b'])).toBe(1);
+    expect(countUnits(inner.objects, ['a', 'b', 'c'])).toBe(2);
+  });
+
+  it('duplicar un grupo anidado conserva la jerarquía con ids propios', () => {
+    const outer = groupDoc(groupDoc(four(), ['a', 'b']), ['a', 'b', 'c']);
+    const copies = regroupCopies(
+      outer.objects.slice(0, 3).map((x) => ({ ...x, id: `${x.id}2` })),
+      groupIdsOf(outer.objects),
+    );
+    const [a2, b2, c2] = copies;
+    expect(a2!.group).toBe(b2!.group);
+    expect(a2!.group?.split('/')).toHaveLength(2);
+    expect(c2!.group).toBe(a2!.group!.split('/')[0]);
+    expect(groupIdsOf(copies).size).toBe(2);
+    for (const id of groupIdsOf(copies)) expect(groupIdsOf(outer.objects).has(id)).toBe(false);
+  });
+
+  it('ids de archivos antiguos (un solo nivel) siguen funcionando', () => {
+    const d = docOf([o('a', { group: 'viejo' }), o('b', { group: 'viejo' }), o('c')]);
+    expect(expandGroups(d.objects, ['b'])).toEqual(['b', 'a']);
+    expect(ungroupDoc(d, ['a']).objects.every((x) => x.group === null)).toBe(true);
   });
 });

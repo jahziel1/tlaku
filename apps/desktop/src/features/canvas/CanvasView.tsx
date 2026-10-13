@@ -3,6 +3,7 @@ import { FileUp } from 'lucide-react';
 import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
 import { useArrangeUi } from '@/features/arrange';
+import { ContextMenuHost } from '@/features/contextmenu';
 import { selectActiveDevice, useStore, type AppState } from '@/store';
 import { selectHeadDoc } from '@/store/machine';
 import './canvas-overlay.css';
@@ -13,8 +14,10 @@ import { buildNodeOverlay, withPreview } from './nodeview';
 import { NumericBar } from './NumericBar';
 import { readCanvasPalette } from './palette';
 import { createRenderer } from './createRenderer';
+import { MeasureReadout } from './MeasureReadout';
 import type { CanvasPalette, Scene } from './renderer';
 import { Ruler, RULER_SIZE } from './Ruler';
+import { ShapeProps } from './ShapeProps';
 import { SnapBar } from './SnapBar';
 import { canRotate } from './transform';
 import { useCanvasTools } from './useCanvasTools';
@@ -73,6 +76,8 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
       guides: ix.guides,
       draft: ix.draft,
       pivot: ix.pivot,
+      snapMark: ix.snapMark,
+      measure: ix.measure,
       nodes: nodeMode
         ? buildNodeOverlay({
             objects: s.doc.objects, selectedIds: s.selectedIds, nodeSel: s.nodeSel, nodeCorners: s.nodeCorners,
@@ -166,6 +171,8 @@ export function CanvasView() {
           <span className="canvas-hud__dim num">{bed[0]} × {bed[1]} mm</span>
         </div>
         <SnapBar />
+        <ShapeProps />
+        <MeasureReadout />
         <CanvasTip />
         <ZoomControls />
         {empty && (
@@ -180,6 +187,7 @@ export function CanvasView() {
           </div>
         )}
       </div>
+      <ContextMenuHost />
     </div>
   );
 }

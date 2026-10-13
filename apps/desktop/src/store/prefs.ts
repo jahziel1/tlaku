@@ -1,0 +1,171 @@
+import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
+import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
+import { readPref, writePref } from '@/lib/platform';
+import type { SliceCreator } from './types';
+
+/**
+ * Preferencias del usuario. Este es el catálogo único: cada clave tiene su valor de fábrica, su
+ * tipo y sus límites, y de ahí salen la ventana de Preferencias, el saneado de lo que se lee del
+ * disco o de un paquete `.tlakuprefs`, y los selectores `usePref` / `getPref` (ver `store/index.ts`).
+ *
+ * Dónde viven: el archivo `preferences.json` de la carpeta de configuración de la app (lo escribe
+ * `features/settings/persist.ts`) y, como copia para arrancar sin parpadeos, `localStorage`.
+ */
+
+export type Language = 'es' | 'en';
+export type ThemePref = 'dark' | 'light';
+
+export interface Prefs {
+  /** Idioma de la interfaz. Hoy solo hay español; el inglés llega después. */
+  language: Language;
+  /** Unidad con la que se muestran y se escriben las longitudes (el documento siempre va en mm). */
+  units: LengthUnit;
+  /** Paso de las flechas, en mm: normal, con Mayús y con Alt. */
+  nudgeStep: number;
+  nudgeStepBig: number;
+  nudgeStepFine: number;
+  /** Paso de la rotación con Mayús mientras se gira, en grados. */
+  rotateStep: number;
+  /** Distancia del ajuste magnético, en píxeles de pantalla. */
+  snapPx: number;
+  /** Desplazamiento de duplicar y de pegar, en mm. */
+  duplicateOffset: number;
+  theme: ThemePref;
+  /** Separación mínima de la rejilla en mm; 0 = automática según el zoom. */
+  gridMm: number;
+  autosave: boolean;
+  /** Cada cuántos segundos se guarda la copia de recuperación. */
+  autosaveSecs: number;
+  /** Cuántos archivos recientes se recuerdan. */
+  recentMax: number;
+}
+
+export type PrefKey = keyof Prefs;
+
+type NumberSpec = { kind: 'number'; min: number; max: number; step: number; unit?: 'mm' | 'px' | 'deg' | 's' | 'count'; integer?: boolean };
+type ChoiceSpec<T extends string> = { kind: 'choice'; options: readonly T[] };
+type BoolSpec = { kind: 'bool' };
+
+type SpecOf<V> = [V] extends [boolean] ? BoolSpec : [V] extends [number] ? NumberSpec : [V] extends [string] ? ChoiceSpec<V & string> : never;
+export type PrefSpecs = { [K in PrefKey]: SpecOf<Prefs[K]> & { default: Prefs[K] } };
+
+/** Valores de fábrica y límites. Las opciones de un `choice` son textos de i18n en la ventana. */
+export const PREF_SPECS: PrefSpecs = {
+  language: { kind: 'choice', options: ['es', 'en'], default: 'es' },
+  units: { kind: 'choice', options: LENGTH_UNITS, default: 'mm' },
+  nudgeStep: { kind: 'number', min: 0.001, max: 100, step: 0.5, unit: 'mm', default: 1 },
+  nudgeStepBig: { kind: 'number', min: 0.001, max: 500, step: 5, unit: 'mm', default: 10 },
+  nudgeStepFine: { kind: 'number', min: 0.001, max: 10, step: 0.05, unit: 'mm', default: 0.1 },
+  rotateStep: { kind: 'number', min: 1, max: 180, step: 5, unit: 'deg', default: 15 },
+  snapPx: { kind: 'number', min: 1, max: 40, step: 1, unit: 'px', integer: true, default: 8 },
+  duplicateOffset: { kind: 'number', min: 0, max: 200, step: 1, unit: 'mm', default: 5 },
+  theme: { kind: 'choice', options: ['dark', 'light'], default: 'dark' },
+  gridMm: { kind: 'number', min: 0, max: 100, step: 1, unit: 'mm', default: 0 },
+  autosave: { kind: 'bool', default: true },
+  autosaveSecs: { kind: 'number', min: 10, max: 3600, step: 10, unit: 's', integer: true, default: 60 },
+  recentMax: { kind: 'number', min: 0, max: 30, step: 1, unit: 'count', integer: true, default: 10 },
+};
+
+export const PREF_KEYS = Object.keys(PREF_SPECS) as PrefKey[];
+
+export const DEFAULT_PREFS: Prefs = Object.fromEntries(PREF_KEYS.map((k) => [k, PREF_SPECS[k].default])) as unknown as Prefs;
+
+/** Resultado de leer un valor suelto: el valor ya saneado, o `null` si no es del tipo o rango válido. */
+export function checkPref<K extends PrefKey>(key: K, raw: unknown): { value: Prefs[K] } | null {
+  const spec = PREF_SPECS[key] as NumberSpec | ChoiceSpec<string> | BoolSpec;
+  switch (spec.kind) {
+    case 'bool':
+      return typeof raw === 'boolean' ? { value: raw as Prefs[K] } : null;
+    case 'choice':
+      return typeof raw === 'string' && spec.options.includes(raw) ? { value: raw as Prefs[K] } : null;
+    case 'number': {
+      if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+      const clamped = Math.min(spec.max, Math.max(spec.min, raw));
+      return { value: (spec.integer ? Math.round(clamped) : Math.round(clamped * 1000) / 1000) as Prefs[K] };
+    }
+  }
+}
+
+/** Valor válido para `key`: el que se pasa (acotado al rango) o, si no sirve, el de fábrica. */
+export function sanitizePref<K extends PrefKey>(key: K, raw: unknown): Prefs[K] {
+  return checkPref(key, raw)?.value ?? PREF_SPECS[key].default;
+}
+
+/** Preferencias completas a partir de datos de cualquier origen: lo inválido o ausente toma el valor de fábrica. */
+export function sanitizePrefs(raw: unknown): Prefs {
+  const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, unknown> = {};
+  for (const key of PREF_KEYS) out[key] = sanitizePref(key, src[key]);
+  return out as unknown as Prefs;
+}
+
+export function prefsEqual(a: Prefs, b: Prefs): boolean {
+  return PREF_KEYS.every((k) => a[k] === b[k]);
+}
+
+// ---- copia local para arrancar sin parpadeo --------------------------------------------------------
+
+const CACHE_KEY = 'prefs';
+
+/** Lo que se guarda en disco y en la copia local. */
+export interface PrefsData {
+  prefs: Prefs;
+  shortcuts: ShortcutOverrides;
+}
+
+function readCache(): PrefsData {
+  try {
+    const raw: unknown = JSON.parse(readPref(CACHE_KEY) ?? 'null');
+    const obj = (raw && typeof raw === 'object' ? raw : {}) as { prefs?: unknown; shortcuts?: unknown };
+    const prefs = sanitizePrefs(obj.prefs);
+    // El tema lo puede cambiar el comando "Cambiar tema" sin pasar por aquí; manda lo último guardado.
+    const theme = readPref('theme');
+    if (theme === 'light' || theme === 'dark') prefs.theme = theme;
+    return { prefs, shortcuts: sanitizeOverrides(obj.shortcuts) };
+  } catch {
+    return { prefs: { ...DEFAULT_PREFS }, shortcuts: {} };
+  }
+}
+
+export function writeCache(data: PrefsData): void {
+  writePref(CACHE_KEY, JSON.stringify(data));
+}
+
+// ---- slice ----------------------------------------------------------------------------------------
+
+export interface PrefsSlice {
+  prefs: Prefs;
+  /** Atajos del usuario encima de los de fábrica (ver `commands/shortcuts.ts`). */
+  shortcutOverrides: ShortcutOverrides;
+  /** `true` cuando ya se leyó `preferences.json`; antes no se escribe nada para no pisarlo. */
+  prefsLoaded: boolean;
+
+  setPref: <K extends PrefKey>(key: K, value: Prefs[K]) => void;
+  /** Sustituye todo (al leer el disco o importar un paquete). Sanea lo que reciba. */
+  replacePrefs: (data: { prefs?: unknown; shortcuts?: unknown }, loaded?: boolean) => void;
+  resetPrefs: () => void;
+  setShortcutOverrides: (overrides: ShortcutOverrides) => void;
+}
+
+export const createPrefsSlice: SliceCreator<PrefsSlice> = (set, get) => {
+  const initial = readCache();
+  return {
+    prefs: initial.prefs,
+    shortcutOverrides: initial.shortcuts,
+    prefsLoaded: false,
+
+    setPref: (key, value) => {
+      const next = sanitizePref(key, value);
+      if (get().prefs[key] === next) return;
+      set((s) => ({ prefs: { ...s.prefs, [key]: next } }));
+    },
+    replacePrefs: (data, loaded = true) =>
+      set({
+        prefs: sanitizePrefs(data.prefs),
+        shortcutOverrides: sanitizeOverrides(data.shortcuts),
+        prefsLoaded: loaded || get().prefsLoaded,
+      }),
+    resetPrefs: () => set({ prefs: { ...DEFAULT_PREFS } }),
+    setShortcutOverrides: (shortcutOverrides) => set({ shortcutOverrides: sanitizeOverrides(shortcutOverrides) }),
+  };
+};

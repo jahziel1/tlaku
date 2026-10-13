@@ -14,6 +14,8 @@ const KEYS: Record<ToolId, string[]> = {
   line: ['L'],
   rect: ['R'],
   ellipse: ['E'],
+  polygon: ['G'],
+  star: ['Shift+G'],
   text: ['T'],
   pan: ['H'],
   measure: ['M'],
@@ -30,11 +32,18 @@ const KEYS: Record<ToolId, string[]> = {
  *    Las manijas escalan (esquinas proporcional, Mayús libre; Alt desde el centro) y la perilla
  *    superior gira (Mayús = pasos de 15°; Alt = alrededor del punto de referencia).
  *    Esc cancela el arrastre en curso; sin arrastre quita la selección.
- *  - L `tool.line`: clic a clic (polilínea). Doble clic, Intro o clic derecho terminan; `C` la
- *    cierra; Retroceso quita el último punto; Mayús fija ángulos de 45°. Arrastrar de punto a
- *    punto dibuja una sola línea.
+ *  - L `tool.line`: clic a clic (segmentos rectos). Arrastrar al poner un nodo saca sus manijas y
+ *    el tramo siguiente sale curvo (Bézier); Mayús fija ángulos de 45° (también en las manijas).
+ *    Un clic sobre el primer nodo cierra la forma. Doble clic, Intro o clic derecho la dejan
+ *    abierta; `C` la cierra; Retroceso quita el último nodo. El cursor se pega a nodos, puntos
+ *    medios, centros e intersecciones (Alt lo suspende).
  *  - R `tool.rect` / E `tool.ellipse`: arrastrar; Mayús = cuadrado / círculo. El radio de esquinas
  *    del rectángulo está en la barra numérica.
+ *  - G `tool.polygon` / Mayús+G `tool.star`: arrastrar desde el centro; el radio y el giro los marca
+ *    el puntero (Mayús = hacia arriba). Lados, puntas, radio interno y redondeo están en la barra
+ *    numérica y, ya dibujada la forma, en su ventana de propiedades.
+ *  - M `tool.measure`: arrastrar entre dos puntos muestra distancia, ángulo y Δx/Δy (Mayús =
+ *    0/45/90°); un clic sobre una forma muestra sus nodos, perímetro y área.
  *  - N `tool.nodes`: muestra los nodos y manejadores del objeto vectorial seleccionado. Clic elige
  *    un nodo (Mayús+clic suma o quita; clic en un segmento elige sus dos nodos; arrastrar sobre
  *    vacío dibuja una caja de nodos). Arrastrar mueve los nodos elegidos (Mayús = horizontal o
@@ -91,6 +100,14 @@ export const toolCommands: CommandDef[] = [
     },
   })),
   ...nodeCommands,
+  {
+    // Ventana de propiedades de forma (parámetros de rectángulos, elipses, polígonos y estrellas).
+    id: 'panel.shapeProps',
+    label: 'cmd.panel.shapeProps',
+    category: 'panels',
+    checked: (s) => s.shapePropsOpen,
+    run: (s) => s.setShapePropsOpen(!s.shapePropsOpen),
+  },
   {
     // C: cierra la polilínea en curso uniendo el último punto con el primero. Intro la deja abierta.
     id: 'draw.closePath',

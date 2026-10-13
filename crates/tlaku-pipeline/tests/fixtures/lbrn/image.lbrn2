@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="1.4.03" FormatVersion="1" MaterialHeight="0" MirrorX="False" MirrorY="False">
+    <CutSetting_Img type="Image">
+        <index Value="0"/>
+        <name Value="C00"/>
+        <minPower Value="5"/>
+        <maxPower Value="35"/>
+        <speed Value="50"/>
+        <interval Value="0.1"/>
+        <dpi Value="254"/>
+        <ditherMode Value="threshold"/>
+        <bidir Value="1"/>
+        <overscan Value="1"/>
+        <overscanPercent Value="2"/>
+    </CutSetting_Img>
+    <Shape Type="Bitmap" CutIndex="0" W="20" H="10" Gamma="1" Contrast="0" Brightness="0" File="/ruta/original/pixeles.png" Data="iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAAAAABawyK/AAAADElEQVR4nGNg+A+FABP2A/1SO5xNAAAAAElFTkSuQmCC">
+        <XForm>1 0 0 1 50 40</XForm>
+    </Shape>
+</LightBurnProject>

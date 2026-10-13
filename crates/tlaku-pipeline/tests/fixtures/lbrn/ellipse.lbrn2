@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="1.4.03" FormatVersion="1" MaterialHeight="0" MirrorX="False" MirrorY="False">
+    <CutSetting type="Cut">
+        <index Value="2"/>
+        <name Value="C02"/>
+        <speed Value="10"/>
+        <maxPower Value="40"/>
+    </CutSetting>
+    <Shape Type="Ellipse" CutIndex="2" Rx="10" Ry="5">
+        <XForm>1 0 0 1 60 40</XForm>
+    </Shape>
+    <Shape Type="Ellipse" CutIndex="2" Rx="10" Ry="5">
+        <XForm>0 1 -1 0 60 100</XForm>
+    </Shape>
+</LightBurnProject>

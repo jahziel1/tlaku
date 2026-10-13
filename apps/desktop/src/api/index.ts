@@ -4,6 +4,7 @@ import { createMockApi } from './mock';
 import { createTauriApi } from './tauri';
 
 export type { LaserApi, Unlisten } from './api';
+export type { PrefsBundle, PrefsFile, RecoveryInfo } from './api';
 export * from './types';
 
 export type ApiKind = 'mock' | 'tauri';

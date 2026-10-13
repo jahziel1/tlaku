@@ -1,0 +1,67 @@
+/* Menú contextual del lienzo. Solo tokens de src/styles/tokens.css. */
+.ctxmenu-host {
+  position: fixed;
+  z-index: 70;
+}
+.ctxmenu {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop);
+}
+.ctxmenu--sub {
+  position: absolute;
+  top: calc(var(--s-2) * -1 - 1px);
+  left: calc(100% - var(--s-2));
+  min-width: 220px;
+}
+/* Cerca del borde derecho los submenús se abren hacia la izquierda. */
+.ctxmenu-host[data-flip] .ctxmenu--sub {
+  left: auto;
+  right: calc(100% - var(--s-2));
+}
+.ctxmenu__group {
+  position: relative;
+}
+.ctxmenu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  width: 100%;
+  padding: var(--s-3) var(--s-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.ctxmenu__item:hover,
+.ctxmenu__item:focus-visible,
+.ctxmenu__item[aria-expanded='true'] {
+  background: var(--bg-hover);
+}
+.ctxmenu__item:focus-visible {
+  outline-offset: -2px;
+}
+.ctxmenu__item[aria-disabled='true'] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.ctxmenu__item[aria-checked='true'] .ctxmenu__text::before {
+  content: '✓ ';
+}
+.ctxmenu__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ctxmenu__sep {
+  height: 1px;
+  margin: var(--s-2) var(--s-3);
+  background: var(--border);
+}

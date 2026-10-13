@@ -190,8 +190,8 @@ describe('línea de tiempo del historial', () => {
 
 describe('rutas y formatos', () => {
   it('reconoce los formatos de importación sin importar mayúsculas', () => {
-    for (const f of ['a.svg', 'A.DXF', 'x.png', 'f.jpg', 'f.JPEG', 'b.bmp']) expect(isImportable(f), f).toBe(true);
-    for (const f of ['a.pdf', 'a', '.svg', 'a.tlaku']) expect(isImportable(f), f).toBe(false);
+    for (const f of ['a.svg', 'A.DXF', 'x.png', 'f.jpg', 'f.JPEG', 'b.bmp', 'a.pdf', 'a.AI', 'a.plt', 'a.nc', 'a.webp', 'a.tif', 'a.gif', 'a.tga']) expect(isImportable(f), f).toBe(true);
+    for (const f of ['a.docx', 'a', '.svg', 'a.tlaku']) expect(isImportable(f), f).toBe(false);
   });
   it('nombre, extensión y extensión por defecto', () => {
     expect(baseName('C:\\x\\y\\pieza.svg')).toBe('pieza.svg');
@@ -253,7 +253,7 @@ describe('importar, abrir y guardar con la API simulada', () => {
   });
 
   it('un formato no admitido se avisa y no importa nada', async () => {
-    expect(await importPaths(['plano.pdf'])).toBe(0);
+    expect(await importPaths(['plano.docx'])).toBe(0);
     expect(s().notices.at(-1)).toMatchObject({ level: 'error' });
     expect(s().doc.objects).toHaveLength(0);
   });

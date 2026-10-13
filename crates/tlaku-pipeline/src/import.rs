@@ -70,6 +70,45 @@ impl Default for ImportOptions {
     }
 }
 
+/// Opciones que elige el usuario en el diálogo de importación (D91). Van aparte de
+/// [`ImportOptions`] para no cambiar quien ya construye esa estructura (el CLI).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportExtras {
+    /// Factor de escala uniforme que se aplica al final (1 = sin cambio).
+    pub scale: f64,
+    /// Resolución (ppp) con la que se interpretan un SVG sin unidades físicas y las imágenes.
+    /// `None` = 96, que es lo que usa el resto de programas por defecto.
+    pub dpi: Option<f64>,
+    /// DXF sin unidades declaradas: mm que vale una unidad del dibujo (25.4 = pulgadas).
+    /// `None` = se supone milímetros, con un aviso.
+    pub dxf_unit_mm: Option<f64>,
+    /// Une todo lo importado en un solo grupo.
+    pub group: bool,
+    /// Pone todos los vectores en la capa de este color en vez de una capa por color.
+    pub target_layer: Option<Rgb>,
+    /// PDF y AI: página a importar, desde 1.
+    pub pdf_page: u32,
+    /// G-code: una capa por nivel de potencia (`true`) o una sola capa (`false`).
+    pub gcode_by_power: bool,
+}
+
+impl Default for ImportExtras {
+    fn default() -> Self {
+        Self {
+            scale: 1.0,
+            dpi: None,
+            dxf_unit_mm: None,
+            group: false,
+            target_layer: None,
+            pdf_page: 1,
+            gcode_by_power: true,
+        }
+    }
+}
+
+/// Comienzo del aviso del importador de DXF cuando el archivo no declara unidades.
+const DXF_NO_UNITS: &str = "El archivo no declara unidades";
+
 /// Resolución con la que se interpreta una imagen sin tamaño físico conocido.
 const IMAGE_DPI: f64 = 96.0;
 
@@ -120,14 +159,58 @@ pub(crate) fn from_curves(layers: Vec<(Rgb, Vec<BezPath>)>, warnings: Vec<String
     }
 }
 
-fn import_image(path: &Path) -> Result<ImportResult, String> {
-    let gray = tlaku_raster::gray::load(path, Luma::default())
+/// Ruta que usará el objeto imagen y el aviso correspondiente. La ventana de la app no sabe
+/// mostrar TIFF ni TGA, así que se convierten a PNG: junto al original (`foto.tlaku.png`) o, si
+/// esa carpeta no se puede escribir, en la carpeta temporal.
+fn displayable_source(path: &Path) -> Result<(std::path::PathBuf, Option<String>), String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    if !matches!(ext.as_str(), "tif" | "tiff" | "tga") {
+        return Ok((path.to_path_buf(), None));
+    }
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("imagen");
+    let beside = path.with_file_name(format!("{stem}.tlaku.png"));
+    if tlaku_raster::gray::convert_to_png(path, &beside).is_ok() {
+        return Ok((
+            beside.clone(),
+            Some(format!(
+                "La ventana no muestra {} directamente: se convirtió a PNG y el diseño usa la \
+                 copia {}. Conserva esa copia junto al proyecto.",
+                ext.to_uppercase(),
+                beside.display()
+            )),
+        ));
+    }
+    let tmp = std::env::temp_dir().join(format!("tlaku-{}-{stem}.png", new_id()));
+    tlaku_raster::gray::convert_to_png(path, &tmp)
         .map_err(|e| format!("{}: {e}", path.display()))?;
-    let mm = |px: usize| px as f64 * 25.4 / IMAGE_DPI;
+    Ok((
+        tmp.clone(),
+        Some(format!(
+            "La ventana no muestra {} directamente y no se pudo escribir junto al original: se \
+             convirtió a PNG en la carpeta temporal ({}). Si cambias de equipo o reinicias, \
+             vuelve a importar la imagen.",
+            ext.to_uppercase(),
+            tmp.display()
+        )),
+    ))
+}
+
+fn import_image(path: &Path, dpi: f64) -> Result<ImportResult, String> {
+    let (source, note) = displayable_source(path)?;
+    let gray = tlaku_raster::gray::load(&source, Luma::default())
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    let mm = |px: usize| px as f64 * 25.4 / dpi;
     let obj = object(
         LayerSettings::IMAGE_COLOR,
         ObjectKind::Image(ImageObject {
-            source_path: path.to_string_lossy().into_owned(),
+            source_path: source.to_string_lossy().into_owned(),
             width_px: gray.width as u32,
             height_px: gray.height as u32,
             size_mm: [mm(gray.width), mm(gray.height)],
@@ -136,7 +219,7 @@ fn import_image(path: &Path) -> Result<ImportResult, String> {
     Ok(ImportResult {
         objects: vec![obj],
         new_layers: vec![LayerSettings::for_images()],
-        warnings: Vec::new(),
+        warnings: note.into_iter().collect(),
     })
 }
 
@@ -150,27 +233,51 @@ pub fn import_file(path: &Path) -> Result<ImportResult, String> {
 }
 
 pub fn import_file_with(path: &Path, opts: &ImportOptions) -> Result<ImportResult, String> {
+    import_file_extras(path, opts, &ImportExtras::default())
+}
+
+/// Como [`import_file_with`], más las opciones del diálogo de importación.
+pub fn import_file_extras(
+    path: &Path,
+    opts: &ImportOptions,
+    extras: &ImportExtras,
+) -> Result<ImportResult, String> {
     let kind = input_kind(path)?;
     if kind == InputKind::Image {
-        return import_image(path);
+        let image_dpi = extras.dpi.filter(|d| d.is_finite() && *d > 0.0);
+        return import_image(path, image_dpi.unwrap_or(IMAGE_DPI))
+            .map(|r| apply_extras(r, extras, 1.0));
     }
     let data = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
     // Formatos que traen sus propias capas o se resuelven en su módulo.
     let own = match kind {
         InputKind::Lbrn => Some(crate::import_lbrn::import(path, &data, opts)),
-        InputKind::Pdf => Some(crate::import_pdf::import(path, &data, opts)),
-        InputKind::Hpgl => Some(crate::import_hpgl::import(path, &data, opts)),
-        InputKind::Gcode => Some(crate::import_gcode::import(path, &data, opts)),
+        InputKind::Pdf => Some(crate::import_pdf::import(path, &data, opts, extras)),
+        InputKind::Hpgl => Some(crate::import_hpgl::import(path, &data, opts, extras)),
+        InputKind::Gcode => Some(crate::import_gcode::import(path, &data, opts, extras)),
         _ => None,
     };
     if let Some(result) = own {
-        return result;
+        // Un proyecto de LightBurn trae sus propias capas: las opciones no lo tocan.
+        return if kind == InputKind::Lbrn {
+            result
+        } else {
+            result.map(|r| apply_extras(r, extras, 1.0))
+        };
     }
-    let (layers, warnings) = match kind {
+    let mut factor = 1.0;
+    let (layers, mut warnings) = match kind {
         InputKind::Svg => {
             let doc = tlaku_svg::import_svg(&data, opts.tolerance_mm)
                 .map_err(|e| format!("{}: SVG inválido: {e}", path.display()))?;
             let warnings = doc.warnings.clone();
+            // El DPI solo cuenta cuando el SVG no trae unidades físicas: usvg ya lo pasó a
+            // 96 ppp, así que se reescala por 96 / ppp.
+            if let Some(dpi) = extras.dpi.filter(|d| d.is_finite() && *d > 0.0)
+                && !svg_has_physical_units(&data)
+            {
+                factor = IMAGE_DPI / dpi;
+            }
             let layers = if opts.keep_curves {
                 doc.into_curves(opts.flip_y)
             } else {
@@ -181,7 +288,16 @@ pub fn import_file_with(path: &Path, opts: &ImportOptions) -> Result<ImportResul
         InputKind::Dxf => {
             let doc = tlaku_dxf::import_dxf(&data, opts.tolerance_mm)
                 .map_err(|e| format!("{}: {e}", path.display()))?;
-            let warnings = doc.warnings.clone();
+            let mut warnings = doc.warnings.clone();
+            if let Some(unit) = extras.dxf_unit_mm.filter(|u| u.is_finite() && *u > 0.0)
+                && let Some(i) = warnings.iter().position(|w| w.starts_with(DXF_NO_UNITS))
+            {
+                factor = unit;
+                warnings[i] = format!(
+                    "El archivo no declara unidades: se interpretó cada unidad como {unit} mm \
+                     por la opción de importación."
+                );
+            }
             (
                 job_layers(doc.into_job(|_| tlaku_core::CutSettings::default())),
                 warnings,
@@ -199,5 +315,283 @@ pub fn import_file_with(path: &Path, opts: &ImportOptions) -> Result<ImportResul
             path.display()
         ));
     }
-    Ok(from_curves(layers, warnings))
+    let mut result = from_curves(layers, Vec::new());
+    result.warnings.append(&mut warnings);
+    Ok(apply_extras(result, extras, factor))
+}
+
+/// `true` si el elemento raíz del SVG declara `width` o `height` con una unidad física
+/// (mm, cm, in, pt, pc, Q). Sin unidades (o en `px`) el tamaño depende de la resolución.
+fn svg_has_physical_units(data: &[u8]) -> bool {
+    let head = &data[..data.len().min(8192)];
+    let text = String::from_utf8_lossy(head);
+    let Some(start) = text.find("<svg") else {
+        return false;
+    };
+    let tag = &text[start..];
+    let tag = &tag[..tag.find('>').unwrap_or(tag.len())];
+    ["width", "height"].iter().any(|attr| {
+        let mut rest = tag;
+        while let Some(i) = rest.find(attr) {
+            let before = rest[..i].chars().next_back();
+            rest = &rest[i + attr.len()..];
+            if before.is_some_and(|c| !c.is_whitespace()) {
+                continue;
+            }
+            let after = rest.trim_start();
+            let Some(after) = after.strip_prefix('=') else {
+                continue;
+            };
+            let after = after.trim_start();
+            let Some(quote) = after.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+                continue;
+            };
+            let value = after[1..].split(quote).next().unwrap_or("").trim();
+            return ["mm", "cm", "in", "pt", "pc", "q"]
+                .iter()
+                .any(|u| value.to_ascii_lowercase().ends_with(u));
+        }
+        false
+    })
+}
+
+/// Escala, capa destino y grupo de las opciones del diálogo. `factor` es la escala propia del
+/// formato (DPI del SVG, unidad del DXF), que se multiplica por `extras.scale`.
+fn apply_extras(mut result: ImportResult, extras: &ImportExtras, factor: f64) -> ImportResult {
+    let scale = factor
+        * if extras.scale.is_finite() && extras.scale > 0.0 {
+            extras.scale
+        } else {
+            1.0
+        };
+    if (scale - 1.0).abs() > 1e-12 {
+        for obj in &mut result.objects {
+            match &mut obj.kind {
+                ObjectKind::Vector(v) => {
+                    for p in &mut v.paths {
+                        *p = p.map_points(|q| tlaku_core::Point::new(q.x * scale, q.y * scale));
+                    }
+                }
+                ObjectKind::Image(i) => {
+                    i.size_mm = [i.size_mm[0] * scale, i.size_mm[1] * scale];
+                }
+                ObjectKind::Text(_) => {}
+            }
+        }
+    }
+    if let Some(color) = extras.target_layer {
+        let mut any = false;
+        for obj in &mut result.objects {
+            if matches!(obj.kind, ObjectKind::Vector(_)) {
+                obj.layer = color;
+                any = true;
+            }
+        }
+        if any {
+            // Solo queda la capa elegida para los vectores (más la de imágenes si la hay).
+            result
+                .new_layers
+                .retain(|l| l.color == LayerSettings::IMAGE_COLOR);
+            result.new_layers.insert(0, LayerSettings::for_color(color));
+        }
+    }
+    if extras.group && result.objects.len() > 1 {
+        let group = format!("grp-{}", new_id());
+        for obj in &mut result.objects {
+            obj.group = Some(group.clone());
+        }
+    }
+    result
+}
+
+/// Arco circular de centro `(cx, cy)` y radio `r`, desde el ángulo `a0` con barrido `sweep`
+/// (radianes, positivo = antihorario), como cúbicas de a lo sumo 90°. El último punto es
+/// exactamente `end`, para que no se acumule error entre arcos consecutivos.
+pub(crate) fn arc_to_cubics(
+    (cx, cy): (f64, f64),
+    r: f64,
+    a0: f64,
+    sweep: f64,
+    end: tlaku_core::Point,
+) -> Vec<tlaku_core::bezpath::PathSeg> {
+    use tlaku_core::Point;
+    use tlaku_core::bezpath::PathSeg;
+    let n = ((sweep.abs() / std::f64::consts::FRAC_PI_2).ceil() as usize).clamp(1, 1024);
+    let step = sweep / n as f64;
+    let k = 4.0 / 3.0 * (step / 4.0).tan();
+    let at = |a: f64| Point::new(cx + r * a.cos(), cy + r * a.sin());
+    let tangent = |a: f64| Point::new(-r * a.sin(), r * a.cos());
+    (0..n)
+        .map(|i| {
+            let (a, b) = (a0 + step * i as f64, a0 + step * (i + 1) as f64);
+            let (p0, p3) = (at(a), at(b));
+            let (t0, t3) = (tangent(a), tangent(b));
+            PathSeg::CubicTo {
+                ctrl1: Point::new(p0.x + k * t0.x, p0.y + k * t0.y),
+                ctrl2: Point::new(p3.x - k * t3.x, p3.y - k * t3.y),
+                to: if i + 1 == n { end } else { p3 },
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod extras_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn workdir(test: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("tlaku-import-{}-{test}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn approx(a: f64, b: f64) {
+        assert!((a - b).abs() < 1e-6, "{a} != {b}");
+    }
+
+    const SVG_PX: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50">
+        <rect x="10" y="10" width="20" height="10" fill="none" stroke="#ff0000"/>
+        <rect x="50" y="10" width="10" height="10" fill="none" stroke="#0000ff"/></svg>"##;
+
+    #[test]
+    fn webp_gif_tiff_y_tga_se_importan_como_imagen() {
+        use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
+        let dir = workdir("formatos");
+        let img = DynamicImage::ImageRgba8(RgbaImage::from_pixel(8, 4, Rgba([10, 20, 30, 255])));
+        for (name, format) in [
+            ("a.webp", ImageFormat::WebP),
+            ("a.gif", ImageFormat::Gif),
+            ("a.tif", ImageFormat::Tiff),
+            ("a.tiff", ImageFormat::Tiff),
+            ("a.tga", ImageFormat::Tga),
+        ] {
+            let path = dir.join(name);
+            img.save_with_format(&path, format).unwrap();
+            let r = import_file(&path).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let ObjectKind::Image(i) = &r.objects[0].kind else {
+                panic!("{name}: debía ser imagen");
+            };
+            assert_eq!((i.width_px, i.height_px), (8, 4), "{name}");
+            // TIFF y TGA se sirven como un PNG que la ventana sí muestra.
+            let shown = Path::new(&i.source_path);
+            if name.ends_with("tif") || name.ends_with("tiff") || name.ends_with("tga") {
+                assert!(
+                    i.source_path.ends_with(".tlaku.png"),
+                    "{name}: {}",
+                    i.source_path
+                );
+                assert!(shown.exists());
+                assert!(r.warnings.iter().any(|w| w.contains("PNG")), "{name}");
+            } else {
+                assert_eq!(shown, dir.join(name));
+                assert!(r.warnings.is_empty());
+            }
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn escala_dpi_capa_destino_y_grupo() {
+        let dir = workdir("extras");
+        let svg = dir.join("a.svg");
+        std::fs::write(&svg, SVG_PX).unwrap();
+        let base = import_file(&svg).unwrap();
+        assert_eq!(base.objects.len(), 2);
+        let w0 = base.objects[0].bounds().unwrap().max.x;
+
+        // 72 ppp en vez de 96: todo sale 96/72 más grande.
+        let r = import_file_extras(
+            &svg,
+            &ImportOptions::default(),
+            &ImportExtras {
+                dpi: Some(72.0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        approx(r.objects[0].bounds().unwrap().max.x, w0 * 96.0 / 72.0);
+
+        // Escala 200 %, todo a una capa y agrupado.
+        let r = import_file_extras(
+            &svg,
+            &ImportOptions::default(),
+            &ImportExtras {
+                scale: 2.0,
+                group: true,
+                target_layer: Some(Rgb(1, 2, 3)),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        approx(r.objects[0].bounds().unwrap().max.x, w0 * 2.0);
+        assert!(r.objects.iter().all(|o| o.layer == Rgb(1, 2, 3)));
+        assert_eq!(r.new_layers.len(), 1);
+        assert_eq!(r.new_layers[0].color, Rgb(1, 2, 3));
+        let g = r.objects[0].group.clone().unwrap();
+        assert!(r.objects.iter().all(|o| o.group.as_deref() == Some(&g)));
+
+        // Con unidades físicas el DPI no cuenta.
+        let mm = dir.join("b.svg");
+        std::fs::write(
+            &mm,
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="0 0 100 50">
+                <rect x="0" y="0" width="100" height="50" stroke="#000"/></svg>"##,
+        )
+        .unwrap();
+        let r = import_file_extras(
+            &mm,
+            &ImportOptions::default(),
+            &ImportExtras {
+                dpi: Some(300.0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        approx(r.objects[0].bounds().unwrap().max.x, 100.0);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn unidad_del_dxf_sin_unidades() {
+        let dir = workdir("dxf");
+        let dxf = dir.join("a.dxf");
+        std::fs::write(
+            &dxf,
+            "0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n0\n20\n0\n11\n10\n21\n0\n0\nENDSEC\n0\nEOF\n",
+        )
+        .unwrap();
+        let mm = import_file(&dxf).unwrap();
+        approx(mm.objects[0].bounds().unwrap().max.x, 10.0);
+        assert!(mm.warnings.iter().any(|w| w.starts_with(DXF_NO_UNITS)));
+        let inch = import_file_extras(
+            &dxf,
+            &ImportOptions::default(),
+            &ImportExtras {
+                dxf_unit_mm: Some(25.4),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        approx(inch.objects[0].bounds().unwrap().max.x, 254.0);
+        assert!(inch.warnings.iter().any(|w| w.contains("25.4 mm")));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn archivos_de_otras_fuentes_pasan_por_el_import_general() {
+        let dir = workdir("hpgl");
+        let plt = dir.join("a.plt");
+        std::fs::write(&plt, "IN;SP1;PU0,0;PD400,0,400,400;").unwrap();
+        let r = import_file(&plt).unwrap();
+        assert_eq!(r.objects.len(), 1);
+        let nc = dir.join("a.nc");
+        std::fs::write(&nc, "M3 S100\nG0 X0 Y0\nG1 X5 Y0\n").unwrap();
+        assert_eq!(import_file(&nc).unwrap().objects.len(), 1);
+        let ai = dir.join("a.ai");
+        std::fs::write(&ai, "%!PS-Adobe-3.0\n").unwrap();
+        assert!(import_file(&ai).unwrap_err().contains("AI antiguo"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

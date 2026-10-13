@@ -1,7 +1,7 @@
 import type { Affine, DesignObject, Document, ImportResult, LayerSettings } from '@/api/types';
 import type { I18nKey } from '@/i18n';
 import { bezPointCount } from '@/lib/bezpath';
-import { multiplyAffine, translateAffine } from '@/lib/geometry';
+import { multiplyAffine, transformKind, translateAffine } from '@/lib/geometry';
 import { groupIdsOf, regroupCopies } from '@/lib/groups';
 import { makeLayer, normalizeLayers } from '@/lib/layers';
 import { LAYER_PALETTE, paletteLabel } from '@/lib/palette';
@@ -69,8 +69,11 @@ export interface DocumentSlice {
   pasteObjects: (opts?: { inPlace?: boolean }) => string[];
   setObjectFlags: (ids: string[], flags: Partial<Pick<DesignObject, 'locked' | 'hidden'>>) => void;
 
-  /** Aplica `matrix` (en coordenadas de documento) a los objetos no bloqueados. */
-  transformObjects: (ids: string[], matrix: Affine, key?: string) => void;
+  /**
+   * Aplica `matrix` (en coordenadas de documento) a los objetos no bloqueados. Respeta los
+   * interruptores de transformación (mover, escalar, girar). `label` nombra el paso en el historial.
+   */
+  transformObjects: (ids: string[], matrix: Affine, key?: string, label?: I18nKey) => void;
   addObjects: (objects: DesignObject[], label?: I18nKey) => void;
   /** Nuevo orden de capas por color; los colores omitidos conservan su orden relativo al final. */
   reorderLayers: (colors: string[]) => void;
@@ -112,7 +115,7 @@ export const HISTORY_LIMIT = 200;
  */
 export const HISTORY_POINT_BUDGET = 2_000_000;
 const COALESCE_MS = 800;
-/** Desplazamiento en mm de cada pegado (y de duplicar). */
+/** Desplazamiento de fábrica en mm de cada pegado y de duplicar; el que rige es la preferencia `duplicateOffset`. */
 export const PASTE_OFFSET = 5;
 
 const pointsCache = new WeakMap<object, number>();
@@ -279,6 +282,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
 
     moveObjects: (ids, dx, dy, key) => {
       if (ids.length === 0 || (dx === 0 && dy === 0)) return;
+      if (!get().transformAllow.move) return void get().notifyKey('info', 'canvas.xform.off.move');
       const set_ = new Set(ids);
       commit(
         'history.move',
@@ -299,7 +303,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
       get().pruneSelection();
     },
 
-    duplicateObjects: (ids, offset = 5) => {
+    duplicateObjects: (ids, offset = get().prefs.duplicateOffset) => {
       const set_ = new Set(ids);
       const taken = new Set(get().doc.objects.map((o) => o.id));
       const created: string[] = [];
@@ -349,7 +353,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     pasteObjects: ({ inPlace = false } = {}) => {
       const clip = get().clipboard;
       if (!clip || clip.objects.length === 0) return [];
-      const offset = inPlace ? 0 : PASTE_OFFSET * (clip.pastes + 1);
+      const offset = inPlace ? 0 : get().prefs.duplicateOffset * (clip.pastes + 1);
       const created: string[] = [];
       commit('history.paste', (doc) => {
         created.length = 0;
@@ -384,11 +388,13 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
       }));
     },
 
-    transformObjects: (ids, matrix, key) => {
+    transformObjects: (ids, matrix, key, label = 'history.transform') => {
       if (ids.length === 0) return;
+      const kind = transformKind(matrix);
+      if (!get().transformAllow[kind]) return void get().notifyKey('info', `canvas.xform.off.${kind}`);
       const set_ = new Set(ids);
       commit(
-        'history.transform',
+        label,
         (doc) => ({
           ...doc,
           objects: doc.objects.map((o) =>

@@ -126,3 +126,62 @@ export const shapes = {
     return pts;
   },
 };
+
+// ---- reflejos y semejanzas (voltear, espejo, rotar/escalar por dos puntos) -----------------------
+
+/** Reflejo izquierda-derecha sobre la vertical x = `cx` (voltear horizontal). */
+export function flipHorizontalAbout(cx: number): Affine {
+  return [-1, 0, 0, 1, 2 * cx, 0];
+}
+
+/** Reflejo arriba-abajo sobre la horizontal y = `cy` (voltear vertical). */
+export function flipVerticalAbout(cy: number): Affine {
+  return [1, 0, 0, -1, 0, 2 * cy];
+}
+
+/**
+ * Reflejo sobre la recta que pasa por `a` y `b`. `null` si los puntos coinciden (no hay recta).
+ * Con θ el ángulo de la recta: la parte lineal es [cos 2θ, sin 2θ; sin 2θ, -cos 2θ].
+ */
+export function reflectAcrossLine(a: Point, b: Point): Affine | null {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-18) return null;
+  const c = (dx * dx - dy * dy) / len2;
+  const s = (2 * dx * dy) / len2;
+  // p' = a + R (p - a)  ->  traslación = a - R a
+  return [c, s, s, -c, a[0] - (c * a[0] + s * a[1]), a[1] - (s * a[0] + -c * a[1])];
+}
+
+/**
+ * Giro (y, si `scale`, también escala) alrededor de `pivot` que lleva el punto `from` hasta la
+ * dirección de `to`. Con `scale` la distancia pivote-`from` pasa a ser la de pivote-`to`.
+ * `null` si algún punto coincide con el pivote.
+ */
+export function twoPointSimilarity(pivot: Point, from: Point, to: Point, scale: boolean): Affine | null {
+  const ax = from[0] - pivot[0];
+  const ay = from[1] - pivot[1];
+  const bx = to[0] - pivot[0];
+  const by = to[1] - pivot[1];
+  const la = Math.hypot(ax, ay);
+  const lb = Math.hypot(bx, by);
+  if (la < 1e-9 || lb < 1e-9) return null;
+  const rot = Math.atan2(by, bx) - Math.atan2(ay, ax);
+  const k = scale ? lb / la : 1;
+  const c = Math.cos(rot) * k;
+  const s = Math.sin(rot) * k;
+  return [c, s, -s, c, pivot[0] - (c * pivot[0] - s * pivot[1]), pivot[1] - (s * pivot[0] + c * pivot[1])];
+}
+
+/**
+ * Qué hace una matriz sobre lo que se transforma, para los interruptores de transformación:
+ * `move` (solo traslación), `rotate` (giro puro, con o sin traslación) o `scale` (todo lo demás:
+ * escala, reflejo o sesgo).
+ */
+export function transformKind(m: Affine, eps = 1e-9): 'move' | 'rotate' | 'scale' {
+  const [a, b, c, d] = m;
+  if (Math.abs(a - 1) < eps && Math.abs(b) < eps && Math.abs(c) < eps && Math.abs(d - 1) < eps) return 'move';
+  const orthonormal = Math.abs(a * a + b * b - 1) < 1e-7 && Math.abs(c * c + d * d - 1) < 1e-7 && Math.abs(a * c + b * d) < 1e-7;
+  return orthonormal && a * d - b * c > 0 ? 'rotate' : 'scale';
+}

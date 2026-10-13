@@ -145,3 +145,96 @@ describe('atajos de teclado', () => {
     expect(isEditableTarget(null)).toBe(false);
   });
 });
+
+describe('atajos del usuario encima de los de fábrica', () => {
+  const base = { label: 'cmd.file.new', category: 'file', run: () => {} } as const;
+  const defs: CommandDef[] = [
+    { ...base, id: 'a', shortcuts: ['Mod+K'] },
+    { ...base, id: 'b', shortcuts: ['Mod+J', 'Mod+Shift+J'] },
+    { ...base, id: 'c' },
+  ];
+
+  it('sin cambios todo sigue como de fábrica', () => {
+    const { registry } = makeRegistry(defs);
+    expect(registry.match('Mod+K')?.id).toBe('a');
+    expect(registry.shortcutsOf('b')).toEqual(['Mod+J', 'Mod+Shift+J']);
+    expect(registry.shortcutsOf('c')).toEqual([]);
+    expect(registry.isCustomized('a')).toBe(false);
+  });
+
+  it('un comando con cambios usa solo los suyos', () => {
+    const { registry, store } = makeRegistry(defs);
+    store.getState().setShortcutOverrides({ b: ['Mod+L'] });
+    expect(registry.match('Mod+L')?.id).toBe('b');
+    expect(registry.match('Mod+J')).toBeUndefined();
+    expect(registry.match('Mod+Shift+J')).toBeUndefined();
+    expect(registry.shortcutsOf('b')).toEqual(['Mod+L']);
+    expect(registry.isCustomized('b')).toBe(true);
+    // Los de fábrica del propio comando siguen disponibles.
+    expect(registry.factoryShortcuts('b')).toEqual(['Mod+J', 'Mod+Shift+J']);
+    expect(registry.get('b').shortcuts).toEqual(['Mod+J', 'Mod+Shift+J']);
+  });
+
+  it('una lista vacía deja el comando sin atajo y libera el de fábrica', () => {
+    const { registry, store } = makeRegistry(defs);
+    store.getState().setShortcutOverrides({ a: [] });
+    expect(registry.match('Mod+K')).toBeUndefined();
+    expect(registry.shortcutLabel('a', false)).toBe('');
+    expect(registry.isCustomized('a')).toBe(true);
+  });
+
+  it('un atajo del usuario gana ante uno de fábrica de otro comando', () => {
+    const { registry, store } = makeRegistry(defs);
+    store.getState().setShortcutOverrides({ c: ['Mod+K'] });
+    expect(registry.match('Mod+K')?.id).toBe('c');
+    expect(registry.shortcutsOf('a')).toEqual([]);
+    expect(registry.conflictOf('Mod+K', 'a')?.id).toBe('c');
+    expect(registry.conflictOf('Mod+K', 'c')).toBeUndefined();
+  });
+
+  it('acepta el atajo en cualquier orden de modificadores e ignora los inválidos', () => {
+    const { registry, store } = makeRegistry(defs);
+    store.getState().setShortcutOverrides({ c: ['Shift+Mod+U', 'cosa rara'] });
+    expect(registry.match('Mod+Shift+U')?.id).toBe('c');
+    expect(registry.shortcutsOf('c')).toEqual(['Mod+Shift+U']);
+  });
+
+  it('ids desconocidos en los cambios no rompen nada', () => {
+    const { registry, store } = makeRegistry(defs);
+    store.getState().setShortcutOverrides({ 'no.existe': ['Mod+Q'] });
+    expect(registry.match('Mod+Q')).toBeUndefined();
+    expect(registry.match('Mod+K')?.id).toBe('a');
+  });
+
+  it('el texto del atajo principal usa el del usuario', () => {
+    const { registry, store } = makeRegistry(defs);
+    store.getState().setShortcutOverrides({ a: ['Mod+Shift+P'] });
+    expect(registry.shortcutLabel('a', false)).toBe('Ctrl+Mayús+P');
+    expect(registry.shortcutLabel('a', true)).toBe('⇧⌘P');
+  });
+
+  it('ejecutar el atajo nuevo corre el comando (no el de fábrica)', async () => {
+    const calls: string[] = [];
+    const tracked: CommandDef[] = [
+      { ...base, id: 'a', shortcuts: ['Mod+K'], run: () => void calls.push('a') },
+      { ...base, id: 'c', run: () => void calls.push('c') },
+    ];
+    const { registry, store } = makeRegistry(tracked);
+    store.getState().setShortcutOverrides({ c: ['Mod+K'] });
+    await registry.run(registry.match('Mod+K')!.id);
+    expect(calls).toEqual(['c']);
+  });
+
+  it('los atajos de fábrica del registro real siguen sin cambios por los del usuario', () => {
+    const { registry, store } = makeRegistry();
+    store.getState().setShortcutOverrides({ 'edit.undo': ['Mod+U'] });
+    expect(registry.match('Mod+U')?.id).toBe('edit.undo');
+    expect(registry.match('Mod+Z')).toBeUndefined();
+    expect(registry.get('edit.undo').shortcuts).toEqual(['Mod+Z']);
+  });
+
+  it('las preferencias se abren con Mod+,', () => {
+    const { registry } = makeRegistry();
+    expect(registry.match('Mod+,')?.id).toBe('prefs.open');
+  });
+});

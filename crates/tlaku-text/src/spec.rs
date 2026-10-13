@@ -36,6 +36,13 @@ pub struct TextSpec {
     pub line_spacing: f64,
     pub align: Align,
     pub on_path: Option<OnPathSpec>,
+    /// Texto curvado: ángulo (grados) que abarca la línea más larga sobre un arco. Positivo
+    /// arquea el texto hacia arriba (centro del arco debajo), negativo hacia abajo, 0 lo
+    /// deja recto. No se combina con `on_path` (que manda). Máximo ±360.
+    pub bend_deg: f64,
+    /// Une en un solo contorno las letras que se tocan o se solapan (fuentes cursivas).
+    /// No aplica a las fuentes de una línea.
+    pub welded: bool,
 }
 
 impl Default for TextSpec {
@@ -50,6 +57,8 @@ impl Default for TextSpec {
             line_spacing: 1.2,
             align: Align::Left,
             on_path: None,
+            bend_deg: 0.0,
+            welded: false,
         }
     }
 }

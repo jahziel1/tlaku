@@ -68,7 +68,7 @@ export function newVectorObject(id: string, layer: string, paths: BezPath[]): De
   return { id, layer, transform: [...IDENTITY], kind: { type: 'vector', paths }, locked: false, hidden: false, group: null };
 }
 
-export type ShapeKind = 'rect' | 'ellipse' | 'line' | 'polyline';
+export type ShapeKind = 'rect' | 'ellipse' | 'line' | 'polyline' | 'curve' | 'polygon' | 'star';
 
 /**
  * Rutas de la forma definida por una caja de arrastre. La elipse y las esquinas redondeadas son

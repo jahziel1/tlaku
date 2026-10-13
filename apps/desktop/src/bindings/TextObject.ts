@@ -21,6 +21,15 @@ size_mm: number, letter_spacing_mm: number,
  */
 line_spacing: number, align: TextAlign, on_path: TextOnPath | null, 
 /**
+ * Texto curvado (Bend): grados que abarca la línea más larga sobre un arco. Positivo
+ * arquea hacia arriba, negativo hacia abajo; ausente o 0 deja el texto recto.
+ */
+bend_deg?: number, 
+/**
+ * Texto soldado (Welded): une en un solo contorno las letras que se tocan.
+ */
+welded?: boolean, 
+/**
  * Contorno ya generado; vacío si todavía no se generó.
  */
 outline: Array<BezPath>, };

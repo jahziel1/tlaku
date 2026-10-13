@@ -189,4 +189,28 @@ export const arrange = {
   'arrange.array.err.single': 'Con una columna y una fila no hay copias: sube alguna de las dos.',
   'arrange.array.err.copies': 'Indica al menos 2 piezas.',
   'arrange.array.err.tooMany': 'Demasiadas piezas: el máximo es {max}.',
+  // ---- voltear, girar, orden, bloqueo e igualar -------------------------------------------------
+  'arrange.history.flip.h': 'Voltear horizontal',
+  'arrange.history.flip.v': 'Voltear vertical',
+  'arrange.history.rotate': 'Girar',
+  'arrange.history.mirror': 'Espejo sobre una línea',
+  'arrange.history.order.front': 'Traer al frente',
+  'arrange.history.order.back': 'Enviar al fondo',
+  'arrange.history.order.forward': 'Subir un nivel',
+  'arrange.history.order.backward': 'Bajar un nivel',
+  'arrange.history.lock': 'Bloquear',
+  'arrange.history.unlock': 'Desbloquear todo',
+  'arrange.history.same.width': 'Igualar ancho',
+  'arrange.history.same.height': 'Igualar alto',
+  'arrange.reason.noLocked': 'No hay objetos bloqueados.',
+  'arrange.reason.orderNoChange': 'Ya están en esa posición.',
+
+  // ---- seleccionar círculos por tamaño -------------------------------------------------------------
+  'arrange.circles.title': 'Seleccionar círculos por tamaño',
+  'arrange.circles.hint': 'Selecciona los círculos cuyo diámetro está en el rango. Para un tamaño exacto, pon el mismo valor en los dos campos.',
+  'arrange.circles.min': 'Diámetro mínimo',
+  'arrange.circles.max': 'Diámetro máximo',
+  'arrange.circles.count': 'Círculos encontrados: {n}',
+  'arrange.circles.none': 'No hay círculos con ese diámetro.',
+  'arrange.circles.apply': 'Seleccionar',
 } as const;

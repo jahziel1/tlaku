@@ -42,6 +42,15 @@ pub struct TextObject {
     pub line_spacing: f64,
     pub align: TextAlign,
     pub on_path: Option<TextOnPath>,
+    /// Texto curvado (Bend): grados que abarca la línea más larga sobre un arco. Positivo
+    /// arquea hacia arriba, negativo hacia abajo; ausente o 0 deja el texto recto.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub bend_deg: Option<f64>,
+    /// Texto soldado (Welded): une en un solo contorno las letras que se tocan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub welded: Option<bool>,
     /// Contorno ya generado; vacío si todavía no se generó.
     pub outline: Vec<BezPath>,
 }

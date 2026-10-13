@@ -7,9 +7,19 @@ function selectable(o: DesignObject, layers: Map<string, LayerSettings>): boolea
   return !o.hidden && !o.locked && (layers.get(o.layer.toLowerCase())?.visible ?? true);
 }
 
-export type ToolId = 'select' | 'nodes' | 'line' | 'rect' | 'ellipse' | 'text' | 'pan' | 'measure';
+export type ToolId = 'select' | 'nodes' | 'line' | 'rect' | 'ellipse' | 'polygon' | 'star' | 'text' | 'pan' | 'measure';
 
-export const TOOL_IDS: readonly ToolId[] = ['select', 'nodes', 'line', 'rect', 'ellipse', 'text', 'pan', 'measure'];
+export const TOOL_IDS: readonly ToolId[] = ['select', 'nodes', 'line', 'rect', 'ellipse', 'polygon', 'star', 'text', 'pan', 'measure'];
+
+/** Interruptores globales de transformación (para evitar accidentes): cada tipo se puede apagar. */
+export interface TransformAllow {
+  move: boolean;
+  scale: boolean;
+  rotate: boolean;
+}
+
+export const MIN_POLYGON_SIDES = 3;
+export const MAX_POLYGON_SIDES = 100;
 
 export interface SelectionSlice {
   selectedIds: string[];
@@ -22,6 +32,20 @@ export interface SelectionSlice {
   lockRatio: boolean;
   /** Radio de esquinas (mm) con el que se dibujan los rectángulos nuevos. */
   cornerRadius: number;
+  /** Lados con los que se dibujan los polígonos nuevos. */
+  polygonSides: number;
+  /** Puntas de las estrellas nuevas. */
+  starPoints: number;
+  /** Radio interno de la estrella como fracción del externo (0.05 a 0.95). */
+  starRatio: number;
+  /** Redondeo (mm) de las esquinas de los polígonos y estrellas nuevos. */
+  shapeRounding: number;
+  /** Interruptores de mover, escalar y girar (apagados, esa transformación no se aplica). */
+  transformAllow: TransformAllow;
+  /** Escalar siempre desde el centro (como mantener Alt al arrastrar una manija). */
+  scaleFromCenter: boolean;
+  /** Ventana de propiedades de forma visible (aparece cuando la selección son formas paramétricas). */
+  shapePropsOpen: boolean;
   /**
    * Nodos seleccionados con la herramienta de nodos: por id de objeto, índices planos de nodo
    * (ver `features/canvas/nodeedit`). Solo cuenta lo de objetos que siguen seleccionados.
@@ -42,6 +66,13 @@ export interface SelectionSlice {
   setAnchor: (anchor: number) => void;
   setLockRatio: (lock: boolean) => void;
   setCornerRadius: (mm: number) => void;
+  setPolygonSides: (n: number) => void;
+  setStarPoints: (n: number) => void;
+  setStarRatio: (ratio: number) => void;
+  setShapeRounding: (mm: number) => void;
+  setTransformAllow: (patch: Partial<TransformAllow>) => void;
+  setScaleFromCenter: (on: boolean) => void;
+  setShapePropsOpen: (open: boolean) => void;
   setNodeSel: (sel: Record<string, number[]>) => void;
   clearNodeSel: () => void;
   setNodeCorners: (id: string, keys: string[]) => void;
@@ -61,6 +92,13 @@ export const createSelectionSlice: SliceCreator<SelectionSlice> = (set, get) => 
   anchor: 6, // abajo a la izquierda: coincide con el origen del documento
   lockRatio: true,
   cornerRadius: 0,
+  polygonSides: 6,
+  starPoints: 5,
+  starRatio: 0.5,
+  shapeRounding: 0,
+  transformAllow: { move: true, scale: true, rotate: true },
+  scaleFromCenter: false,
+  shapePropsOpen: true,
   nodeSel: {},
   nodeCorners: {},
 
@@ -112,6 +150,15 @@ export const createSelectionSlice: SliceCreator<SelectionSlice> = (set, get) => 
   setAnchor: (anchor) => set({ anchor: Math.min(8, Math.max(0, Math.round(anchor))) }),
   setLockRatio: (lockRatio) => set({ lockRatio }),
   setCornerRadius: (mm) => set({ cornerRadius: Math.max(0, Number.isFinite(mm) ? mm : 0) }),
+  setPolygonSides: (n) =>
+    set({ polygonSides: Math.min(MAX_POLYGON_SIDES, Math.max(MIN_POLYGON_SIDES, Math.round(Number.isFinite(n) ? n : 6))) }),
+  setStarPoints: (n) =>
+    set({ starPoints: Math.min(MAX_POLYGON_SIDES, Math.max(MIN_POLYGON_SIDES, Math.round(Number.isFinite(n) ? n : 5))) }),
+  setStarRatio: (ratio) => set({ starRatio: Math.min(0.95, Math.max(0.05, Number.isFinite(ratio) ? ratio : 0.5)) }),
+  setShapeRounding: (mm) => set({ shapeRounding: Math.max(0, Number.isFinite(mm) ? mm : 0) }),
+  setTransformAllow: (patch) => set((s) => ({ transformAllow: { ...s.transformAllow, ...patch } })),
+  setScaleFromCenter: (scaleFromCenter) => set({ scaleFromCenter }),
+  setShapePropsOpen: (shapePropsOpen) => set({ shapePropsOpen }),
   setNodeSel: (sel) => set({ nodeSel: Object.fromEntries(Object.entries(sel).filter(([, v]) => v.length > 0)) }),
   clearNodeSel: () => set((s) => (Object.keys(s.nodeSel).length ? { nodeSel: {} } : s)),
   setNodeCorners: (id, keys) =>

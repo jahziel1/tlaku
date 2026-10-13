@@ -6,11 +6,13 @@ import { createDocumentSlice } from './document';
 import { createMachineSlice } from './machine';
 import { createNoticesSlice } from './notices';
 import { createPreviewSlice } from './preview';
+import { createPrefsSlice, type PrefKey, type Prefs } from './prefs';
 import { createSelectionSlice } from './selection';
 import type { AppState } from './types';
 import { createViewSlice } from './view';
 
 export type { AppState } from './types';
+export { DEFAULT_PREFS, PREF_KEYS, PREF_SPECS, type PrefKey, type Prefs } from './prefs';
 export * from './selectors';
 
 /** Crea un store nuevo (la app usa `useStore`; las pruebas crean el suyo). */
@@ -24,10 +26,24 @@ export function createAppStore(): UseBoundStore<StoreApi<AppState>> {
     ...createDevicesSlice(...a),
     ...createNoticesSlice(...a),
     ...createCameraSlice(...a),
+    ...createPrefsSlice(...a),
   }));
 }
 
 export const useStore = createAppStore();
+
+/**
+ * Preferencia del usuario como estado de React: `const snapPx = usePref('snapPx')`. El componente
+ * solo se vuelve a pintar si cambia ese valor. El catálogo de claves está en `store/prefs.ts`.
+ */
+export function usePref<K extends PrefKey>(key: K): Prefs[K] {
+  return useStore((s) => s.prefs[key]);
+}
+
+/** Preferencia leída fuera de React (comandos, interacción del lienzo). */
+export function getPref<K extends PrefKey>(key: K): Prefs[K] {
+  return useStore.getState().prefs[key];
+}
 
 /**
  * Conecta los eventos `machine://*` del motor con el slice de la máquina.

@@ -4,6 +4,7 @@ import { ArrayDialog } from './ArrayDialog';
 import { BooleanDialog } from './BooleanDialog';
 import { CleanupDialog } from './CleanupDialog';
 import { OffsetDialog } from './OffsetDialog';
+import { SizeSelectDialog } from './SizeSelectDialog';
 
 export { useArrangeUi } from './uiStore';
 
@@ -23,6 +24,8 @@ export function ArrangeDialogHost() {
       return <CleanupDialog key={dialog.op} op={dialog.op} />;
     case 'align':
       return <AlignDialog />;
+    case 'circles':
+      return <SizeSelectDialog />;
     case 'grid':
     case 'circular':
       return <ArrayDialog key={dialog.kind} kind={dialog.kind} />;

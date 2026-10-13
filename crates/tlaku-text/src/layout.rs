@@ -1,6 +1,8 @@
 //! Del texto a curvas: shaping, disposición en líneas y colocación en trayecto.
 
+use crate::effects::{MAX_BEND_DEG, bend_path, bend_radius, has_closed, weld_paths};
 use crate::library::FontLibrary;
+use crate::linefont::LineFont;
 use crate::path_sampler::PathSampler;
 use crate::spec::{Align, TextSpec};
 use serde::Serialize;
@@ -70,8 +72,33 @@ pub fn outline(
         ));
     }
 
-    let choice = lib.resolve(&spec.font_family, spec.bold, spec.italic)?;
-    let mut warnings = choice.warnings.clone();
+    if !spec.bend_deg.is_finite() {
+        return Err("La curvatura del texto no es un número válido".into());
+    }
+
+    let line_font = lib.line_font(&spec.font_family);
+    let (mut warnings, shaped) = match &line_font {
+        Some(font) => {
+            let mut w = Vec::new();
+            if spec.bold || spec.italic {
+                w.push(format!(
+                    "La fuente de una línea '{}' no tiene negrita ni cursiva",
+                    font.name
+                ));
+            }
+            (w, shape_line_font(font, spec))
+        }
+        None => {
+            let choice = lib.resolve(&spec.font_family, spec.bold, spec.italic)?;
+            let w = choice.warnings.clone();
+            let shaped = lib
+                .with_face_data(choice.id, |data, index| {
+                    shape_and_extract(data, index, spec)
+                })
+                .ok_or_else(|| format!("No se pudo leer la fuente '{}'", choice.family))??;
+            (w, shaped)
+        }
+    };
 
     let sampler = match (&spec.on_path, on_path) {
         (None, _) => None,
@@ -88,16 +115,10 @@ pub fn outline(
             Some(s)
         }
     };
-
-    let shaped = lib
-        .with_face_data(choice.id, |data, index| {
-            shape_and_extract(data, index, spec)
-        })
-        .ok_or_else(|| format!("No se pudo leer la fuente '{}'", choice.family))??;
     warnings.extend(shaped.warnings);
 
     let width = shaped.lines.iter().map(|l| l.width).fold(0.0_f64, f64::max);
-    let paths = place(
+    let mut paths = place(
         &shaped.glyph_paths,
         &shaped.lines,
         spec,
@@ -105,6 +126,46 @@ pub fn outline(
         sampler.as_ref(),
         &mut warnings,
     );
+
+    if spec.welded {
+        if line_font.is_some() || !has_closed(&paths) {
+            warnings.push(
+                "El soldado no aplica a las fuentes de una línea: no tienen contornos que unir"
+                    .into(),
+            );
+        } else {
+            paths = weld_paths(&paths);
+        }
+    }
+    if spec.bend_deg != 0.0 {
+        if sampler.is_some() {
+            warnings
+                .push("El texto sobre trayecto ya sigue una curva; se ignora la curvatura".into());
+        } else {
+            let bend = spec.bend_deg.clamp(-MAX_BEND_DEG, MAX_BEND_DEG);
+            if bend != spec.bend_deg {
+                warnings.push(format!("La curvatura se limitó a {bend} grados"));
+            }
+            if let Some(radius) = bend_radius(width, bend) {
+                // Ancla horizontal del arco: el centro del bloque según la alineación.
+                let x_mid = match spec.align {
+                    Align::Left => width / 2.0,
+                    Align::Center => 0.0,
+                    Align::Right => -width / 2.0,
+                };
+                let lowest =
+                    -((shaped.lines.len().max(1) - 1) as f64) * spec.line_spacing * spec.size_mm
+                        - spec.size_mm * 0.3;
+                if radius > 0.0 && radius + lowest <= 0.0 {
+                    warnings.push(
+                        "La curvatura es tan cerrada que el radio es menor que la altura del texto; las letras se aplastan"
+                            .into(),
+                    );
+                }
+                paths = paths.iter().map(|p| bend_path(p, x_mid, radius)).collect();
+            }
+        }
+    }
 
     let bounds = bounds_of(&paths);
     Ok(TextOutline {
@@ -210,6 +271,90 @@ fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped,
         glyph_paths,
         warnings,
     })
+}
+
+/// Relación entre la altura de la mayúscula y el em en las fuentes de una línea. Con ella
+/// `size_mm` significa lo mismo (el em) que en las fuentes de contorno y cambiar de una a otra
+/// mantiene el tamaño visual parecido.
+pub const LINE_FONT_CAP_RATIO: f64 = 0.72;
+
+/// Equivalente de [`shape_and_extract`] para fuentes de un trazo: cada glifo es una sola
+/// trayectoria abierta con varios subtrayectos (uno por trazo), sin cerrar.
+fn shape_line_font(font: &LineFont, spec: &TextSpec) -> Shaped {
+    let unit = spec.size_mm * LINE_FONT_CAP_RATIO / font.cap_units;
+    let normalized = spec
+        .text
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .replace('\t', &" ".repeat(TAB_SPACES));
+
+    let mut missing: BTreeSet<char> = BTreeSet::new();
+    let mut ids: std::collections::HashMap<char, u16> = std::collections::HashMap::new();
+    let mut glyph_paths = std::collections::HashMap::new();
+    let mut lines = Vec::new();
+    for text_line in normalized.split('\n') {
+        let mut placed = Vec::new();
+        let mut pen = 0.0;
+        for (i, ch) in text_line.chars().enumerate() {
+            if i > 0 {
+                pen += spec.letter_spacing_mm;
+            }
+            let Some(glyph) = font.glyph(ch) else {
+                if !ch.is_whitespace() && !ch.is_control() {
+                    missing.insert(ch);
+                }
+                continue;
+            };
+            let next = ids.len() as u16;
+            let id = *ids.entry(ch).or_insert_with(|| {
+                let segs = glyph
+                    .strokes
+                    .iter()
+                    .flat_map(|stroke| {
+                        stroke.iter().enumerate().map(|(k, &(x, y))| {
+                            let to = Point::new(x * unit, y * unit);
+                            if k == 0 {
+                                PathSeg::MoveTo { to }
+                            } else {
+                                PathSeg::LineTo { to }
+                            }
+                        })
+                    })
+                    .collect();
+                glyph_paths.insert(next, BezPath(segs));
+                next
+            });
+            let advance = glyph.advance * unit;
+            placed.push(PlacedGlyph {
+                id: GlyphId(id),
+                pen_x: pen,
+                advance,
+                x_offset: 0.0,
+                y_offset: 0.0,
+            });
+            pen += advance;
+        }
+        lines.push(Line {
+            glyphs: placed,
+            width: pen,
+        });
+    }
+    let mut warnings = Vec::new();
+    if !missing.is_empty() {
+        let list: String = missing
+            .iter()
+            .map(|c| format!("'{c}'"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        warnings.push(format!(
+            "La fuente no tiene glifo para: {list}; esos caracteres se omiten"
+        ));
+    }
+    Shaped {
+        lines,
+        glyph_paths,
+        warnings,
+    }
 }
 
 /// Recoge los comandos de ttf-parser sin aplanar, ya escalados a mm.

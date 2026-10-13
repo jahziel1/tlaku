@@ -9,4 +9,5 @@ fontdb = "0.23"
 rustybuzz = "0.20"
 serde = { version = "1.0.229", features = ["derive"] }
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 ttf-parser = "0.25"

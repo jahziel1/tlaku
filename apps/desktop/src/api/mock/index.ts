@@ -1,6 +1,9 @@
 import { mockCamera } from './camera';
+import { mockCodes } from './codes';
 import { mockDevices } from './devices';
+import { mockFileio } from './fileio';
 import { mockMaterials } from './materials';
+import { mockPrefs } from './prefs';
 import { mockProbe } from './probe';
 import { mockGeometry } from './geometry';
 import { mockText } from './text';
@@ -95,12 +98,15 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     simulateFault: ({ fault }) => lag(() => machine.simulateFault(fault)),
 
     ...mockText(lag),
+    ...mockCodes(lag),
     ...mockGeometry(lag),
     ...mockTrace(lag),
     ...mockCamera(lag),
     ...mockMaterials(lag),
     ...mockProbe(lag),
     ...mockDevices(lag),
+    ...mockFileio(lag),
+    ...mockPrefs(lag),
 
     on: (event, handler) => Promise.resolve(machine.on(event, handler)),
   };

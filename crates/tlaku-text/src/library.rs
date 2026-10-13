@@ -1,15 +1,20 @@
 //! Catálogo de fuentes y selección de cara por familia + negrita + cursiva.
 
+use crate::linefont::{LineFont, builtin_line_font, builtin_line_fonts};
+use crate::shx;
 use fontdb::{Database, ID, Stretch, Style};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock, RwLock};
 
 /// Familia con los estilos disponibles (por ejemplo `["Regular", "Bold", "Italic"]`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FontFamily {
     pub family: String,
     pub styles: Vec<String>,
+    /// Fuente de un solo trazo (Hershey o SHX): da trayectorias abiertas, no contornos.
+    #[serde(default)]
+    pub single_line: bool,
 }
 
 /// Resultado de elegir una cara: la elegida y las advertencias si no es exactamente lo pedido.
@@ -26,6 +31,8 @@ pub struct FaceChoice {
 /// Fuentes disponibles. Se carga una vez y se comparte por referencia.
 pub struct FontLibrary {
     db: Database,
+    /// Fuentes de un trazo cargadas por el usuario (SHX). Las Hershey van siempre incluidas.
+    user_line_fonts: RwLock<Vec<Arc<LineFont>>>,
 }
 
 impl Default for FontLibrary {
@@ -39,6 +46,7 @@ impl FontLibrary {
     pub fn new() -> Self {
         Self {
             db: Database::new(),
+            user_line_fonts: RwLock::new(Vec::new()),
         }
     }
 
@@ -115,9 +123,79 @@ impl FontLibrary {
                 FontFamily {
                     family,
                     styles: styles.into_iter().map(|(_, _, s)| s).collect(),
+                    single_line: false,
                 }
             })
             .collect()
+    }
+
+    /// Fuentes de un trazo disponibles: las Hershey incluidas y las SHX cargadas, ordenadas
+    /// por nombre dentro de cada grupo (primero las incluidas).
+    pub fn line_families(&self) -> Vec<FontFamily> {
+        let entry = |f: &Arc<LineFont>| FontFamily {
+            family: f.name.clone(),
+            styles: vec!["Regular".into()],
+            single_line: true,
+        };
+        let mut out: Vec<FontFamily> = builtin_line_fonts().iter().map(entry).collect();
+        let user = self
+            .user_line_fonts
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        let mut extra: Vec<FontFamily> = user.iter().map(entry).collect();
+        extra.sort_by_key(|f| f.family.to_lowercase());
+        out.extend(extra);
+        out
+    }
+
+    /// Fuente de un trazo por nombre (sin distinguir mayúsculas): primero las del usuario, para
+    /// que puedan sustituir a una incluida.
+    pub fn line_font(&self, name: &str) -> Option<Arc<LineFont>> {
+        let wanted = name.trim().to_lowercase();
+        if wanted.is_empty() {
+            return None;
+        }
+        let user = self
+            .user_line_fonts
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
+        user.iter()
+            .find(|f| f.name.to_lowercase() == wanted)
+            .cloned()
+            .or_else(|| builtin_line_font(&wanted))
+    }
+
+    /// Registra una fuente de un trazo; si ya había una con ese nombre la reemplaza.
+    pub fn add_line_font(&self, font: LineFont) {
+        let wanted = font.name.to_lowercase();
+        let mut user = self
+            .user_line_fonts
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
+        user.retain(|f| f.name.to_lowercase() != wanted);
+        user.push(Arc::new(font));
+    }
+
+    /// Carga una fuente SHX de AutoCAD desde un archivo y devuelve el nombre con que queda
+    /// registrada (el del archivo sin extensión).
+    pub fn load_shx_file(&self, path: &Path) -> Result<String, String> {
+        let data = std::fs::read(path)
+            .map_err(|e| format!("No se pudo leer la fuente '{}': {e}", path.display()))?;
+        let name = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .filter(|s| !s.trim().is_empty())
+            .ok_or("El archivo SHX no tiene nombre")?;
+        self.load_shx_data(&name, &data)
+            .map_err(|e| format!("{e} ('{}')", path.display()))
+    }
+
+    /// Carga una fuente SHX desde bytes con el nombre dado.
+    pub fn load_shx_data(&self, name: &str, data: &[u8]) -> Result<String, String> {
+        let font = shx::parse_shx(name, data)?;
+        let name = font.name.clone();
+        self.add_line_font(font);
+        Ok(name)
     }
 
     /// Elige la cara de `family` más cercana a lo pedido.

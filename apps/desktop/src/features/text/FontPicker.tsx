@@ -1,7 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FontFamily } from '@/api/types';
 import { t } from '@/i18n';
-import { filterFonts } from './fonts';
+import { filterFonts, isLineFont } from './fonts';
 
 /** Máximo de familias que se dibujan a la vez (cada una carga su fuente); la búsqueda acota el resto. */
 const MAX_OPTIONS = 80;
@@ -28,8 +28,17 @@ export function FontPicker({ value, fallback, families, loading, onPick }: Props
   const [active, setActive] = useState(0);
 
   const matches = useMemo(() => filterFonts(families, query), [families, query]);
-  const shown = matches.slice(0, MAX_OPTIONS);
+  // El tope solo recorta las fuentes del sistema: las de una línea son pocas y no deben quedar fuera.
+  const { shown, hidden } = useMemo(() => {
+    const system = matches.filter((f) => !isLineFont(f));
+    const line = matches.filter(isLineFont);
+    return { shown: [...system.slice(0, MAX_OPTIONS), ...line], hidden: Math.max(0, system.length - MAX_OPTIONS) };
+  }, [matches]);
+  const firstLine = shown.findIndex(isLineFont);
+  // Los encabezados solo hacen falta si hay de las dos clases a la vez.
+  const sections = firstLine > 0;
   const shownValue = value.trim() || fallback;
+  const isLineName = families.some((f) => isLineFont(f) && f.family.toLowerCase() === shownValue.toLowerCase());
 
   // Al abrir, la opción activa es la elegida (si está a la vista).
   useEffect(() => {
@@ -103,7 +112,7 @@ export function FontPicker({ value, fallback, families, loading, onPick }: Props
         autoComplete="off"
         spellCheck={false}
         value={open ? query : shownValue}
-        style={open ? undefined : { fontFamily: cssFamily(shownValue) }}
+        style={open || isLineName ? undefined : { fontFamily: cssFamily(shownValue) }}
         onFocus={(e) => {
           setOpen(true);
           e.currentTarget.select();
@@ -120,26 +129,35 @@ export function FontPicker({ value, fallback, families, loading, onPick }: Props
         <ul id={listId} role="listbox" className="fontpick__list" aria-label={t('text.field.font')}>
           {shown.length === 0 && <li className="fontpick__empty">{emptyText}</li>}
           {shown.map((f, i) => (
-            <li
-              key={f.family}
-              id={`${id}-opt-${i}`}
-              role="option"
-              aria-selected={f.family.toLowerCase() === shownValue.toLowerCase()}
-              data-active={i === active || undefined}
-              className="fontpick__opt"
-              title={t('text.font.styles', { styles: f.styles.join(', ') })}
-              style={{ fontFamily: cssFamily(f.family) }}
-              // mousedown evita que el campo pierda el foco (y se cierre) antes del clic
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => pick(f.family)}
-            >
-              {f.family}
-            </li>
+            <Fragment key={f.family}>
+              {sections && i === 0 && (
+                <li role="presentation" className="fontpick__section">{t('text.font.sectionSystem')}</li>
+              )}
+              {sections && i === firstLine && (
+                <li role="presentation" className="fontpick__section">{t('text.font.sectionLine')}</li>
+              )}
+              <li
+                id={`${id}-opt-${i}`}
+                role="option"
+                aria-selected={f.family.toLowerCase() === shownValue.toLowerCase()}
+                data-active={i === active || undefined}
+                data-line={isLineFont(f) || undefined}
+                className="fontpick__opt"
+                title={isLineFont(f) ? t('text.font.lineTitle') : t('text.font.styles', { styles: f.styles.join(', ') })}
+                // Las de una línea se muestran con la interfaz: el navegador no tiene esa fuente.
+                style={isLineFont(f) ? undefined : { fontFamily: cssFamily(f.family) }}
+                // mousedown evita que el campo pierda el foco (y se cierre) antes del clic
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => pick(f.family)}
+              >
+                {f.family}
+              </li>
+            </Fragment>
           ))}
-          {matches.length > shown.length && (
+          {hidden > 0 && (
             <li className="fontpick__empty" aria-hidden="true">
-              {t('text.font.more', { n: matches.length - shown.length })}
+              {t('text.font.more', { n: hidden })}
             </li>
           )}
         </ul>

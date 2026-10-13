@@ -17,6 +17,8 @@ export default defineConfig({
     host: host || false,
     hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
     watch: { ignored: ['**/src-tauri/**'] },
+    // El manual (docs/manual/) y THIRD_PARTY.md viven fuera de apps/desktop y se importan con `?raw`.
+    fs: { allow: ['../..'] },
   },
   build: {
     target: 'es2022',

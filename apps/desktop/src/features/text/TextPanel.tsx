@@ -2,16 +2,18 @@ import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, LoaderCircle, Triangl
 import { useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { TextAlign } from '@/api/types';
+import { CodesDialogHost } from '@/features/codes';
 import { t } from '@/i18n';
 import { objectBounds } from '@/lib/geometry';
 import { useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
 import { convertTextToPaths, editText, guideCandidates } from './convert';
 import { FontPicker } from './FontPicker';
-import { pickDefaultFont, useFonts } from './fonts';
+import { isLineFamily, pickDefaultFont, useFonts } from './fonts';
 import { useOutlineSync } from './outlineSync';
 import { choosePanelSide, PANEL_WIDTH, screenBox } from './placement';
 import { isTextObject, type TextDesignObject } from './signature';
+import { importShxFonts } from './shx';
 import { selectStatus, useTextStatus } from './status';
 import './text.css';
 
@@ -29,8 +31,13 @@ export function TextPanel() {
   useOutlineSync();
   const id = useStore((s) => (s.selectedIds.length === 1 ? s.selectedIds[0]! : null));
   const obj = useStore((s) => (id ? s.doc.objects.find((o) => o.id === id) : undefined));
-  if (!obj || !isTextObject(obj)) return null;
-  return <TextEditor key={obj.id} obj={obj} />;
+  return (
+    <>
+      {/* El diálogo "Insertar código" (portal) lo monta este panel, que el shell ya incluye siempre. */}
+      <CodesDialogHost />
+      {obj && isTextObject(obj) ? <TextEditor key={obj.id} obj={obj} /> : null}
+    </>
+  );
 }
 
 /** Contenido del panel para un texto (exportado para pruebas). */
@@ -59,6 +66,8 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
   }, [obj, view]);
 
   const fallbackFont = useMemo(() => pickDefaultFont(fonts), [fonts]);
+  // Una fuente de un trazo da líneas abiertas: no tiene negrita, cursiva ni contornos que soldar.
+  const lineFont = isLineFamily(fonts, text.font_family.trim() || fallbackFont);
   const onPath = text.on_path;
   const target = onPath?.object_id ?? '';
   const hasOutline = text.outline.length > 0;
@@ -100,7 +109,7 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
           />
         </div>
 
-        <div className="field">
+        <div className="field text-panel__fontrow">
           <span className="field__label">{t('text.field.font')}</span>
           <FontPicker
             value={text.font_family}
@@ -109,13 +118,20 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
             loading={loading}
             onPick={(family) => set({ font_family: family }, 'font')}
           />
+          {lineFont && <p className="hint text-panel__linehint">{t('text.line.hint')}</p>}
+          {/^hershey\b/i.test(text.font_family.trim() || fallbackFont) && (
+            <p className="hint text-panel__linehint">{t('text.line.credit')}</p>
+          )}
+          <button type="button" className="btn" title={t('text.shx.importTitle')} onClick={() => void importShxFonts()}>
+            {t('text.shx.import')}
+          </button>
         </div>
 
         <div className="text-panel__row">
-          <button type="button" className="icon-btn icon-btn--boxed" aria-pressed={text.bold} title={t('text.style.bold')} aria-label={t('text.style.bold')} onClick={() => set({ bold: !text.bold }, 'bold')}>
+          <button type="button" className="icon-btn icon-btn--boxed" aria-pressed={text.bold} disabled={lineFont} title={t('text.style.bold')} aria-label={t('text.style.bold')} onClick={() => set({ bold: !text.bold }, 'bold')}>
             <Bold size={15} aria-hidden="true" />
           </button>
-          <button type="button" className="icon-btn icon-btn--boxed" aria-pressed={text.italic} title={t('text.style.italic')} aria-label={t('text.style.italic')} onClick={() => set({ italic: !text.italic }, 'italic')}>
+          <button type="button" className="icon-btn icon-btn--boxed" aria-pressed={text.italic} disabled={lineFont} title={t('text.style.italic')} aria-label={t('text.style.italic')} onClick={() => set({ italic: !text.italic }, 'italic')}>
             <Italic size={15} aria-hidden="true" />
           </button>
           <span className="text-panel__sep" aria-hidden="true" />
@@ -134,6 +150,29 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
           <NumberField label={t('text.field.lineSpacing')} unit="×" value={text.line_spacing} min={0.1} max={10} step={0.1} onCommit={(v) => set({ line_spacing: v }, 'lines')} />
         </div>
         <p className="hint text-panel__hint">{t('text.field.sizeHint')} {t('text.field.lineSpacingHint')}</p>
+
+        <div className="text-panel__grid text-panel__grid--2">
+          <NumberField
+            label={t('text.field.bend')}
+            unit="°"
+            value={text.bend_deg ?? 0}
+            min={-360}
+            max={360}
+            step={5}
+            disabled={onPath !== null}
+            onCommit={(v) => set({ bend_deg: v === 0 ? undefined : v }, 'bend')}
+          />
+          <label className="text-panel__check text-panel__check--end" title={lineFont ? t('text.field.weldedLine') : t('text.field.weldedTitle')}>
+            <input
+              type="checkbox"
+              checked={text.welded === true}
+              disabled={lineFont}
+              onChange={(e) => set({ welded: e.target.checked ? true : undefined }, 'welded')}
+            />
+            {t('text.field.welded')}
+          </label>
+        </div>
+        <p className="hint text-panel__hint">{onPath !== null ? t('text.field.bendIgnored') : t('text.field.bendHint')}</p>
 
         <fieldset className="text-panel__path">
           <label className="text-panel__check">

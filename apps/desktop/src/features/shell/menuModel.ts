@@ -33,7 +33,16 @@ const INSERT_AFTER: Record<string, string[]> = {
 const HELP_MENU: ShellMenu = {
   id: 'help',
   label: 'history.menu.help',
-  items: [{ kind: 'command', id: 'help.shortcuts' }],
+  items: [
+    { kind: 'command', id: 'help.manual' },
+    { kind: 'command', id: 'help.shortcuts' },
+    { kind: 'command', id: 'help.news' },
+    { kind: 'separator' },
+    { kind: 'command', id: 'help.report' },
+    { kind: 'command', id: 'help.donate' },
+    { kind: 'separator' },
+    { kind: 'command', id: 'help.about' },
+  ],
 };
 
 function toItem(entry: string): ShellMenuItem {

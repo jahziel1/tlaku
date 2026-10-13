@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightBurnProject AppVersion="9.9.99" FormatVersion="7" MaterialHeight="0" MirrorX="False" MirrorY="False">
+    <CutSetting type="Cut">
+        <index Value="0"/>
+        <name Value="C00"/>
+        <speed Value="10"/>
+        <maxPower Value="40"/>
+    </CutSetting>
+    <Shape Type="Rect" CutIndex="0" W="10" H="10" Cr="0">
+        <XForm>1 0 0 1 10 10</XForm>
+    </Shape>
+    <Shape Type="Spline" CutIndex="0">
+        <XForm>1 0 0 1 0 0</XForm>
+    </Shape>
+    <Shape Type="Spline" CutIndex="0">
+        <XForm>1 0 0 1 5 5</XForm>
+    </Shape>
+    <Shape Type="Polygon" CutIndex="0" Sides="6">
+        <XForm>1 0 0 1 5 5</XForm>
+    </Shape>
+</LightBurnProject>

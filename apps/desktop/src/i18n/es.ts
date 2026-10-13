@@ -6,14 +6,18 @@
 import { arrange } from './es/arrange';
 import { camera } from './es/camera';
 import { devices } from './es/devices';
+import { fileio } from './es/fileio';
 import { canvas } from './es/canvas';
 import { catalog } from './es/catalog';
+import { codes } from './es/codes';
+import { help } from './es/help';
 import { history } from './es/history';
 import { layers } from './es/layers';
 import { machine } from './es/machine';
 import { materials } from './es/materials';
 import { nodes } from './es/nodes';
 import { preview } from './es/preview';
+import { prefs } from './es/prefs';
 import { text } from './es/text';
 import { trace } from './es/trace';
 
@@ -49,6 +53,43 @@ const base = {
   'cmd.tool.text': 'Texto',
   'cmd.tool.pan': 'Mano (mover la vista)',
   'cmd.tool.measure': 'Medir',
+  'cmd.tool.polygon': 'Polígono',
+  'cmd.tool.star': 'Estrella',
+  'cmd.panel.shapeProps': 'Propiedades de forma',
+
+  'cmd.edit.copySvg': 'Copiar como SVG',
+  'cmd.edit.selectOpen': 'Seleccionar formas abiertas',
+  'cmd.edit.selectOpenFill': 'Seleccionar abiertas en capas de relleno',
+  'cmd.edit.selectLayer': 'Seleccionar todo en la capa',
+  'cmd.edit.selectContained': 'Seleccionar formas dentro de la seleccionada',
+  'cmd.edit.selectSmaller': 'Seleccionar formas más chicas',
+  'cmd.edit.selectCircles': 'Seleccionar círculos por tamaño…',
+
+  'cmd.arrange.flip.h': 'Voltear horizontal',
+  'cmd.arrange.flip.v': 'Voltear vertical',
+  'cmd.arrange.mirrorLine': 'Espejo sobre una línea',
+  'cmd.arrange.twoPoint': 'Girar y escalar por dos puntos',
+  'cmd.arrange.rotate.ccw90': 'Girar 90° a la izquierda',
+  'cmd.arrange.rotate.cw90': 'Girar 90° a la derecha',
+  'cmd.arrange.rotate.ccwStep': 'Girar un paso a la izquierda',
+  'cmd.arrange.rotate.cwStep': 'Girar un paso a la derecha',
+  'cmd.arrange.rotate.ccw5': 'Girar 5° a la izquierda',
+  'cmd.arrange.rotate.cw5': 'Girar 5° a la derecha',
+  'cmd.arrange.order.front': 'Traer al frente',
+  'cmd.arrange.order.back': 'Enviar al fondo',
+  'cmd.arrange.order.forward': 'Subir un nivel',
+  'cmd.arrange.order.backward': 'Bajar un nivel',
+  'cmd.arrange.lock': 'Bloquear',
+  'cmd.arrange.unlockAll': 'Desbloquear todo',
+  'cmd.arrange.same.width': 'Igualar ancho',
+  'cmd.arrange.same.height': 'Igualar alto',
+  'cmd.arrange.same.widthKeep': 'Igualar ancho (con proporción)',
+  'cmd.arrange.same.heightKeep': 'Igualar alto (con proporción)',
+  'cmd.arrange.xform.move': 'Permitir mover',
+  'cmd.arrange.xform.scale': 'Permitir escalar',
+  'cmd.arrange.xform.rotate': 'Permitir girar',
+  'cmd.arrange.xform.center': 'Escalar desde el centro',
+  'cmd.arrange.xform.ratio': 'Mantener proporción',
 
   'cmd.view.zoomIn': 'Acercar',
   'cmd.view.zoomOut': 'Alejar',
@@ -221,12 +262,16 @@ export const es = {
   ...machine,
   ...preview,
   ...history,
+  ...help,
   ...arrange,
   ...text,
+  ...codes,
   ...nodes,
   ...trace,
   ...camera,
   ...materials,
   ...devices,
+  ...fileio,
   ...catalog,
+  ...prefs,
 };

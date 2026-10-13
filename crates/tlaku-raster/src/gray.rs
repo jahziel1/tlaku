@@ -88,22 +88,96 @@ pub fn from_dynamic(img: &DynamicImage, luma: Luma) -> GrayF32 {
     }
 }
 
-/// Decodifica PNG, JPEG o BMP desde memoria.
+/// Decodifica PNG, JPEG, BMP, WebP, TIFF, GIF o TGA desde memoria.
 pub fn decode(bytes: &[u8], luma: Luma) -> Result<GrayF32, String> {
     let img = image::load_from_memory(bytes).map_err(|e| format!("imagen inválida: {e}"))?;
     Ok(from_dynamic(&img, luma))
 }
 
+/// Como [`decode`], pero con el formato que sugiere la extensión del archivo cuando se conoce:
+/// TGA no tiene firma y no se puede reconocer por su contenido. Si la extensión miente, cae a
+/// reconocer el formato por los bytes.
+pub fn decode_hinted(
+    bytes: &[u8],
+    hint: Option<image::ImageFormat>,
+    luma: Luma,
+) -> Result<GrayF32, String> {
+    if let Some(format) = hint
+        && let Ok(img) = image::load_from_memory_with_format(bytes, format)
+    {
+        return Ok(from_dynamic(&img, luma));
+    }
+    decode(bytes, luma)
+}
+
 pub fn load(path: &Path, luma: Luma) -> Result<GrayF32, String> {
     let bytes =
         std::fs::read(path).map_err(|e| format!("no se pudo leer {}: {e}", path.display()))?;
-    decode(&bytes, luma)
+    decode_hinted(&bytes, image::ImageFormat::from_path(path).ok(), luma)
+}
+
+/// Lee una imagen en cualquier formato soportado y la escribe como PNG en `dst`. Sirve para los
+/// formatos que la ventana de la app no sabe mostrar (TIFF, TGA).
+pub fn convert_to_png(src: &Path, dst: &Path) -> Result<(), String> {
+    let bytes =
+        std::fs::read(src).map_err(|e| format!("no se pudo leer {}: {e}", src.display()))?;
+    let hint = image::ImageFormat::from_path(src).ok();
+    let img = hint
+        .and_then(|f| image::load_from_memory_with_format(&bytes, f).ok())
+        .map(Ok)
+        .unwrap_or_else(|| image::load_from_memory(&bytes))
+        .map_err(|e| format!("no se pudo leer {}: {e}", src.display()))?;
+    img.save_with_format(dst, image::ImageFormat::Png)
+        .map_err(|e| format!("no se pudo escribir {}: {e}", dst.display()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{Rgba, RgbaImage};
+    use image::{ImageFormat, Rgba, RgbaImage};
+
+    /// Imagen de 4x2: la columna 0 negra y el resto blanco, opaca.
+    fn sample() -> DynamicImage {
+        let mut img = RgbaImage::from_pixel(4, 2, Rgba([255, 255, 255, 255]));
+        for y in 0..2 {
+            img.put_pixel(0, y, Rgba([0, 0, 0, 255]));
+        }
+        DynamicImage::ImageRgba8(img)
+    }
+
+    #[test]
+    fn decodes_every_supported_format() {
+        for format in [
+            ImageFormat::Png,
+            ImageFormat::Bmp,
+            ImageFormat::WebP,
+            ImageFormat::Tiff,
+            ImageFormat::Gif,
+            ImageFormat::Tga,
+        ] {
+            let mut bytes = std::io::Cursor::new(Vec::new());
+            sample()
+                .write_to(&mut bytes, format)
+                .unwrap_or_else(|e| panic!("{format:?}: {e}"));
+            let g = decode_hinted(bytes.get_ref(), Some(format), Luma::default())
+                .unwrap_or_else(|e| panic!("{format:?}: {e}"));
+            assert_eq!((g.width, g.height), (4, 2), "{format:?}");
+            assert!(g.get(0, 0) < 0.05, "{format:?}: {}", g.get(0, 0));
+            assert!(g.get(3, 1) > 0.95, "{format:?}: {}", g.get(3, 1));
+        }
+    }
+
+    #[test]
+    fn converts_tiff_to_png() {
+        let dir = std::env::temp_dir().join(format!("tlaku-raster-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (tiff, png) = (dir.join("a.tif"), dir.join("a.png"));
+        sample().save_with_format(&tiff, ImageFormat::Tiff).unwrap();
+        convert_to_png(&tiff, &png).unwrap();
+        let g = load(&png, Luma::default()).unwrap();
+        assert_eq!((g.width, g.height), (4, 2));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn rejects_bad_sizes() {
