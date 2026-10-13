@@ -32,6 +32,9 @@ fn object(id: &str, closed: bool, pts: &[(f64, f64)]) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 

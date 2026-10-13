@@ -48,6 +48,9 @@ fn rect(id: &str, x: f64, y: f64, w: f64, h: f64) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 

@@ -292,6 +292,9 @@ mod tests {
             priority: None,
             power_scale: None,
             shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
         };
         Document {
             objects: vec![obj("a"), obj("b")],

@@ -437,6 +437,9 @@ fn vector_object(id: String, layer: Rgb, paths: Vec<BezPath>) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -610,6 +613,9 @@ pub fn material_test(params: &tlaku_doc::MaterialTestParams) -> Result<Document,
         objects,
         layers,
         device_id: None,
+        notes: String::new(),
+        guides: Vec::new(),
+        variable_text: Default::default(),
     })
 }
 

@@ -29,6 +29,9 @@ fn square(id: &str, layer: Rgb, transform: affine::Transform) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -43,6 +46,7 @@ fn sample() -> Document {
             width_px: 100,
             height_px: 50,
             size_mm: [20.0, 10.0],
+            mask: Vec::new(),
         }),
         locked: true,
         hidden: false,
@@ -50,6 +54,9 @@ fn sample() -> Document {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     };
     Document {
         version: DOC_VERSION,
@@ -64,6 +71,9 @@ fn sample() -> Document {
             LayerSettings::for_images(),
         ],
         device_id: Some("falcon".into()),
+        notes: String::new(),
+        guides: Vec::new(),
+        variable_text: Default::default(),
     }
 }
 
@@ -412,6 +422,9 @@ fn text_object_roundtrips_and_uses_its_outline() {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     };
     let v = serde_json::to_value(&text).unwrap();
     assert_eq!(v["kind"]["type"], "text");

@@ -47,6 +47,9 @@ fn shape(id: &str, layer: Rgb, closed: bool, pts: &[(f64, f64)]) -> DesignObject
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -181,6 +184,7 @@ fn gradient_image(dir: &Path) -> DesignObject {
             width_px: 16,
             height_px: 16,
             size_mm: [8.0, 8.0],
+            mask: Vec::new(),
         }),
         locked: false,
         hidden: false,
@@ -188,6 +192,9 @@ fn gradient_image(dir: &Path) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 

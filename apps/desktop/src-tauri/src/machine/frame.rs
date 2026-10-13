@@ -110,6 +110,9 @@ mod tests {
                 priority: None,
                 power_scale: None,
                 shape: None,
+                start: None,
+                manual_tabs: Vec::new(),
+                array: None,
             }],
             layers: vec![LayerSettings::for_color(red)],
             ..Document::default()

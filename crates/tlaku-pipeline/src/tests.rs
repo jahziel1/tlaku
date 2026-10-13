@@ -41,6 +41,9 @@ fn rect_object(id: &str, layer: Rgb, x: f64, y: f64, w: f64, h: f64) -> DesignOb
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -70,6 +73,7 @@ fn image_object(
             width_px: 16,
             height_px: 16,
             size_mm: size,
+            mask: Vec::new(),
         }),
         locked: false,
         hidden: false,
@@ -77,6 +81,9 @@ fn image_object(
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 

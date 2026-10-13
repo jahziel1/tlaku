@@ -64,6 +64,9 @@ fn vector(id: &str, color: Rgb, paths: Vec<BezPath>) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -252,6 +255,9 @@ fn text_object(outline: Vec<BezPath>) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -297,6 +303,7 @@ fn with_image(path: &str) -> Document {
             width_px: 2,
             height_px: 2,
             size_mm: [20.0, 10.0],
+            mask: Vec::new(),
         }),
         locked: false,
         hidden: false,
@@ -304,6 +311,9 @@ fn with_image(path: &str) -> Document {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     });
     doc.layers.push(LayerSettings::for_images());
     doc
@@ -575,6 +585,7 @@ fn png_rellena_capas_de_relleno_y_dibuja_imagenes() {
                 width_px: 2,
                 height_px: 2,
                 size_mm: [10.0, 10.0],
+                mask: Vec::new(),
             }),
             locked: false,
             hidden: false,
@@ -582,6 +593,9 @@ fn png_rellena_capas_de_relleno_y_dibuja_imagenes() {
             priority: None,
             power_scale: None,
             shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
         }],
         layers: vec![LayerSettings::for_images()],
         ..Document::default()

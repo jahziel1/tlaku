@@ -35,6 +35,9 @@ fn square_doc() -> Document {
             priority: None,
             power_scale: None,
             shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
         }],
         layers: vec![LayerSettings::for_color(red)],
         ..Document::default()
@@ -239,6 +242,7 @@ fn image_paths_lists_only_images() {
             width_px: 4,
             height_px: 4,
             size_mm: [10.0, 10.0],
+            mask: Vec::new(),
         }),
         locked: false,
         hidden: false,
@@ -246,6 +250,9 @@ fn image_paths_lists_only_images() {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     });
     assert_eq!(image_paths(&doc), vec![PathBuf::from("/tmp/foto.png")]);
 }

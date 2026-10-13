@@ -168,6 +168,9 @@ fn vector_object(id: String, layer: tlaku_core::Rgb, piece: &[Polyline]) -> Desi
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -506,6 +509,9 @@ mod tests {
             priority: None,
             power_scale: None,
             shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
         }
     }
 
@@ -781,6 +787,7 @@ mod tests {
             width_px: 1,
             height_px: 1,
             size_mm: [1.0, 1.0],
+            mask: Vec::new(),
         });
         let e = run(GeometryOp::Weld, &[img], None, None).unwrap_err();
         assert!(e.contains("«foto»"));
@@ -1104,6 +1111,7 @@ mod tests {
             width_px: 1,
             height_px: 1,
             size_mm: [1.0, 1.0],
+            mask: Vec::new(),
         });
         for op in [GeometryOp::Join, GeometryOp::Close, GeometryOp::Dedupe] {
             let e = run(op, std::slice::from_ref(&img), None, None).unwrap_err();

@@ -115,6 +115,7 @@ impl Extractor {
                 width_px: *wp,
                 height_px: *hp,
                 size_mm: [w, h],
+                mask: Vec::new(),
             });
         }
         // Se comprueba que se pueda decodificar antes de dejar un archivo inútil en disco.
@@ -128,6 +129,7 @@ impl Extractor {
             width_px: wp,
             height_px: hp,
             size_mm: [w, h],
+            mask: Vec::new(),
         })
     }
 }

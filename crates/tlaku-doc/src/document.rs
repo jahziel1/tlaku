@@ -1,5 +1,5 @@
 use crate::affine::{self, Transform};
-use crate::cut::ShapeParams;
+use crate::cut::{Guide, ShapeParams, StartSpec, VariableText, VirtualArray};
 use crate::layer::LayerSettings;
 use crate::text::TextObject;
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,11 @@ pub struct ImageObject {
     pub width_px: u32,
     pub height_px: u32,
     pub size_mm: [f64; 2],
+    /// Máscara: solo se graba lo que queda dentro de estas curvas (coordenadas locales de la
+    /// imagen, mm, Y hacia arriba); vacío = la imagen completa.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<BezPath>>", optional)]
+    pub mask: Vec<BezPath>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -72,6 +77,19 @@ pub struct DesignObject {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional = nullable)]
     pub shape: Option<ShapeParams>,
+    /// Punto de inicio y sentido elegidos a mano.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub start: Option<StartSpec>,
+    /// Puentes puestos a mano: puntos del documento sobre el contorno (se usa el más cercano).
+    /// Si hay alguno, sustituyen a los automáticos de la capa para este objeto.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<[f64; 2]>>", optional)]
+    pub manual_tabs: Vec<[f64; 2]>,
+    /// Copias virtuales del objeto.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub array: Option<VirtualArray>,
 }
 
 fn to_point(p: [f64; 2]) -> Point {
@@ -157,6 +175,16 @@ pub struct Document {
     /// Orden del archivo: el que usa `layer_order = "file"`.
     pub layers: Vec<LayerSettings>,
     pub device_id: Option<String>,
+    /// Notas del proyecto (texto libre; no se corta).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[ts(as = "Option<String>", optional)]
+    pub notes: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<Guide>>", optional)]
+    pub guides: Vec<Guide>,
+    #[serde(default)]
+    #[ts(as = "Option<VariableText>", optional)]
+    pub variable_text: VariableText,
 }
 
 impl Default for Document {
@@ -166,6 +194,9 @@ impl Default for Document {
             objects: Vec::new(),
             layers: Vec::new(),
             device_id: None,
+            notes: String::new(),
+            guides: Vec::new(),
+            variable_text: Default::default(),
         }
     }
 }

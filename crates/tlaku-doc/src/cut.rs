@@ -210,3 +210,92 @@ impl Default for Optimization {
         }
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Ola 3: diseño avanzado.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum GuideAxis {
+    /// Guía vertical (x fija).
+    X,
+    /// Guía horizontal (y fija).
+    Y,
+}
+
+/// Línea guía del documento: no se corta, sirve para alinear y ajustar.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct Guide {
+    pub axis: GuideAxis,
+    /// mm en coordenadas del documento.
+    pub pos: f64,
+}
+
+/// Punto de inicio y sentido elegidos a mano para un objeto (manda sobre el planificador).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct StartSpec {
+    /// Punto en coordenadas del documento; se usa el punto más cercano del contorno.
+    pub point: Option<[f64; 2]>,
+    /// Recorrer al revés del sentido dibujado.
+    pub reverse: bool,
+}
+
+/// Copias que no existen como objetos: se generan al enviar y en la vista previa.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[ts(export)]
+pub enum VirtualArray {
+    /// `cols` x `rows` copias separadas `dx`, `dy` mm (de borde a borde de la caja).
+    Grid {
+        cols: u32,
+        rows: u32,
+        dx: f64,
+        dy: f64,
+    },
+    /// `count` copias alrededor de `center` (documento), repartidas en `sweep_deg`, girando
+    /// cada copia si `rotate`.
+    Circular {
+        count: u32,
+        center: [f64; 2],
+        sweep_deg: f64,
+        rotate: bool,
+    },
+}
+
+/// Ajustes del texto variable del documento: los textos con `{serie}`, `{csv:columna}`,
+/// `{fecha}`, etc. se resuelven al enviar con estos valores.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct VariableText {
+    /// Próximo número de serie.
+    pub serial: i64,
+    /// Cuánto avanza la serie por cada copia o trabajo.
+    pub serial_step: i64,
+    /// Dígitos mínimos (rellena con ceros).
+    pub serial_digits: u32,
+    /// Ruta del CSV con los datos (columnas por nombre de encabezado).
+    pub csv_path: Option<String>,
+    /// Fila actual del CSV (0 = la primera de datos).
+    pub csv_row: u32,
+    /// Avanzar serie y fila automáticamente al terminar un trabajo.
+    pub advance_after_job: bool,
+}
+
+impl Default for VariableText {
+    fn default() -> Self {
+        Self {
+            serial: 1,
+            serial_step: 1,
+            serial_digits: 0,
+            csv_path: None,
+            csv_row: 0,
+            advance_after_job: true,
+        }
+    }
+}

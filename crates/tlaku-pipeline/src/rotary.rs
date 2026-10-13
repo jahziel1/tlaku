@@ -150,6 +150,9 @@ pub fn rotary_test(
             priority: None,
             power_scale: None,
             shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
         }],
         layers: vec![LayerSettings {
             name: "Prueba de una vuelta".into(),
@@ -158,6 +161,9 @@ pub fn rotary_test(
             ..LayerSettings::for_color(color)
         }],
         device_id: None,
+        notes: String::new(),
+        guides: Vec::new(),
+        variable_text: Default::default(),
     })
 }
 

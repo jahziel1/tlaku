@@ -17,7 +17,8 @@ mod materials;
 mod text;
 
 pub use cut::{
-    CutThrough, DotMode, FillGrouping, Lead, LeadKind, Optimization, Perforation, Ramp, ShapeParams,
+    CutThrough, DotMode, FillGrouping, Guide, GuideAxis, Lead, LeadKind, Optimization, Perforation,
+    Ramp, ShapeParams, StartSpec, VariableText, VirtualArray,
 };
 pub use device::{
     CommentStyle, DeviceKind, DeviceProfile, DwellFormat, GcodeDialect, Origin, PowerMode,

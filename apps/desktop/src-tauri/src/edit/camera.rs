@@ -157,6 +157,9 @@ pub fn build_marks_document(bed: [f64; 2], count: u32) -> Result<Document, Strin
             priority: None,
             power_scale: None,
             shape: None,
+            start: None,
+            manual_tabs: Vec::new(),
+            array: None,
         });
     }
     Ok(Document {
@@ -164,6 +167,9 @@ pub fn build_marks_document(bed: [f64; 2], count: u32) -> Result<Document, Strin
         objects,
         layers: vec![layer],
         device_id: None,
+        notes: String::new(),
+        guides: Vec::new(),
+        variable_text: Default::default(),
     })
 }
 

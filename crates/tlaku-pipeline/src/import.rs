@@ -136,6 +136,9 @@ pub(crate) fn object(layer: Rgb, kind: ObjectKind) -> DesignObject {
         priority: None,
         power_scale: None,
         shape: None,
+        start: None,
+        manual_tabs: Vec::new(),
+        array: None,
     }
 }
 
@@ -217,6 +220,7 @@ fn import_image(path: &Path, dpi: f64) -> Result<ImportResult, String> {
             width_px: gray.width as u32,
             height_px: gray.height as u32,
             size_mm: [mm(gray.width), mm(gray.height)],
+            mask: Vec::new(),
         }),
     );
     Ok(ImportResult {
