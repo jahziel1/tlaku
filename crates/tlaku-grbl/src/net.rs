@@ -781,7 +781,12 @@ mod tests {
             .err()
             .unwrap();
         assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
-        assert!(e.to_string().contains("rechazó la conexión"), "{e}");
+        let msg = e.to_string();
+        assert!(
+            msg.contains("rechazó la conexión")
+                || (cfg!(windows) && msg.contains("no contestó a tiempo")),
+            "{e}"
+        );
         assert!(e.to_string().contains(&port.to_string()), "{e}");
     }
 
@@ -949,7 +954,14 @@ mod tests {
             WebSocketTransport::connect(&format!("ws://127.0.0.1:{port}"), Duration::from_secs(2))
                 .err()
                 .unwrap();
-        assert!(e.to_string().contains("rechazó la conexión"), "{e}");
+        // En Windows, un puerto cerrado en localhost tarda ~2 s en rechazarse (reintenta el SYN), así
+        // que con este plazo puede salir "no contestó a tiempo"; ambos mensajes son correctos.
+        let msg = e.to_string();
+        assert!(
+            msg.contains("rechazó la conexión")
+                || (cfg!(windows) && msg.contains("no contestó a tiempo")),
+            "{e}"
+        );
         let e = WebSocketTransport::connect("wss://127.0.0.1:81", Duration::from_secs(2))
             .err()
             .unwrap();
