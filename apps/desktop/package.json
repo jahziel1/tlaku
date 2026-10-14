@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "screenshots": "node scripts/screenshots.mjs",
+    "smoke:tauri": "bash scripts/smoke-tauri.sh",
     "tauri": "tauri",
     "build:tauri": "tsc --noEmit && vite build --mode tauri",
     "dev:tauri": "vite --mode tauri",

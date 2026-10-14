@@ -1,10 +1,10 @@
 use crate::job::{ComputedJob, LayerReport};
 use crate::rotary;
-use tlaku_core::toolpath::{Move, PowerMode, Toolpath};
+use tlaku_core::toolpath::{PowerMode, Toolpath};
 use tlaku_core::{Bounds, Point};
 use tlaku_doc::{DeviceProfile, Origin};
 use tlaku_grbl::frame::frame_gcode_scaled;
-use tlaku_grbl::gcode::{GcodeOptions, generate};
+use tlaku_grbl::gcode::{GcodeOptions, generate_mapped};
 
 /// Pasa de coordenadas del documento (origen abajo a la izquierda) a las de la máquina,
 /// cuyo X0 Y0 está en la esquina `origin` y crecen hacia dentro de la cama. Es su propia
@@ -22,65 +22,51 @@ pub(crate) fn point_to_machine(p: Point, bed: [f64; 2], origin: Origin) -> Point
     )
 }
 
-fn to_machine(tp: &mut Toolpath, bed: [f64; 2], origin: Origin) {
-    if origin == Origin::BottomLeft {
-        return;
-    }
-    let map = |p: Point| point_to_machine(p, bed, origin);
-    for mv in tp.blocks.iter_mut().flat_map(|b| &mut b.moves) {
-        match mv {
-            Move::Travel { to } | Move::Cut { to, .. } | Move::Dwell { to, .. } => *to = map(*to),
-        }
-    }
-}
-
 fn script(text: &str) -> Option<String> {
     (!text.trim().is_empty()).then(|| text.to_string())
 }
 
-/// Refleja la Y de todos los movimientos dentro de la caja del trabajo (`min + max - y`): la
-/// caja queda igual y el diseño sale espejado en el eje del rotativo.
-fn mirror_y(tp: &mut Toolpath) {
-    let ys = || {
-        tp.blocks
-            .iter()
-            .flat_map(|b| &b.moves)
-            .map(|m| m.to().y)
-            .filter(|y| y.is_finite())
-    };
-    let (lo, hi) = ys().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| {
-        (lo.min(y), hi.max(y))
-    });
-    if lo > hi {
-        return;
-    }
-    let sum = lo + hi;
-    for mv in tp.blocks.iter_mut().flat_map(|b| &mut b.moves) {
-        match mv {
-            Move::Travel { to } | Move::Cut { to, .. } | Move::Dwell { to, .. } => {
-                to.y = sum - to.y
-            }
-        }
-    }
+/// Suma `min + max` de la Y de todos los movimientos (con `map` aplicado): con ella se refleja la
+/// Y dentro de la caja del trabajo (`suma - y`), de modo que la caja queda igual y el diseño sale
+/// espejado en el eje del rotativo. `None` si no hay ninguna Y finita.
+fn mirror_sum(tp: &Toolpath, map: impl Fn(Point) -> Point) -> Option<f64> {
+    let (lo, hi) = tp
+        .blocks
+        .iter()
+        .flat_map(|b| &b.moves)
+        .map(|m| map(m.to()).y)
+        .filter(|y| y.is_finite())
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| {
+            (lo.min(y), hi.max(y))
+        });
+    (lo <= hi).then_some(lo + hi)
 }
 
 /// G-code del trabajo para esa máquina: dialecto del perfil, modo de potencia, S máxima,
 /// origen de la cama, espejo y escala del rotativo, sentido de Z y guiones de inicio y fin.
 pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
-    let mut toolpath = job.toolpath.clone();
+    let toolpath = &job.toolpath;
     let mode = match device.power_mode {
         tlaku_doc::PowerMode::Dynamic => PowerMode::Dynamic,
         tlaku_doc::PowerMode::Constant => PowerMode::Constant,
     };
-    for block in &mut toolpath.blocks {
-        block.power_mode = mode;
-    }
-    to_machine(&mut toolpath, device.bed, device.origin);
-    if device.rotary.enabled && device.rotary.mirror {
-        mirror_y(&mut toolpath);
-    }
-    generate(
-        &toolpath,
+    // Las coordenadas se pasan a las de la máquina al escribir cada punto, sin copiar el
+    // trabajo (con una imagen grande son cientos de MB).
+    let to_machine = |p: Point| point_to_machine(p, device.bed, device.origin);
+    let mirror = if device.rotary.enabled && device.rotary.mirror {
+        mirror_sum(toolpath, to_machine)
+    } else {
+        None
+    };
+    let map = |p: Point| {
+        let p = to_machine(p);
+        match mirror {
+            Some(sum) => Point::new(p.x, sum - p.y),
+            None => p,
+        }
+    };
+    generate_mapped(
+        toolpath,
         &GcodeOptions {
             dialect: device.dialect.clone(),
             // Si el rotativo es inválido `compute` ya falló; aquí se cae a Y sin escalar.
@@ -91,6 +77,7 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
             end_gcode: script(&device.end_gcode),
             rapid_feed: Some(device.rapid_rate),
             z_invert: device.z_invert,
+            merge_tolerance_mm: tlaku_grbl::gcode::DEFAULT_MERGE_TOLERANCE_MM,
             // Sin segundo láser en el perfil todas las capas salen con el láser 1 (ver
             // `dialect_warnings`).
             block_laser2: if device.laser2 {
@@ -99,7 +86,34 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
                 Vec::new()
             },
         },
+        Some(mode),
+        &map,
     )
+}
+
+/// Carga que el trabajo pone al enlace serie de `baud` baudios: líneas por segundo en su tramo más
+/// denso (ventana de 1 s, sobre el trabajo ya fusionado como lo escribe [`gcode`]) y largo medio
+/// de línea del `gcode` generado. Pásala a `tlaku_grbl::preflight::preflight_link_with_load`.
+pub fn link_load(
+    job: &ComputedJob,
+    device: &DeviceProfile,
+    gcode: &str,
+    baud: u32,
+) -> tlaku_grbl::preflight::LinkLoad {
+    // Mismos límites que el estimado de `compute`; con rotativo, en mm de superficie.
+    let k = rotary::y_scale(device).unwrap_or(1.0);
+    let profile = tlaku_sim::MachineProfile {
+        max_rate_mm_min: [device.max_rate[0], device.max_rate[1] / k],
+        accel_mm_s2: [device.accel[0], device.accel[1] / k],
+        rapid_rate_mm_min: device.rapid_rate,
+        ..tlaku_sim::MachineProfile::default()
+    };
+    let compact = tlaku_grbl::gcode::compact_toolpath(
+        &job.toolpath,
+        tlaku_grbl::gcode::DEFAULT_MERGE_TOLERANCE_MM,
+    );
+    let rate = tlaku_sim::line_rate(Point::new(0.0, 0.0), &compact, &profile, 1.0);
+    tlaku_grbl::preflight::LinkLoad::new(baud, rate.peak_per_s, gcode.lines().count(), gcode.len())
 }
 
 /// Avisos que dependen de lo que el dialecto de la máquina no puede hacer.

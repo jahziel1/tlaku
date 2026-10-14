@@ -1,7 +1,7 @@
 //! Opciones del planificador y avisos de optimización.
 
 use tlaku_core::Rgb;
-use tlaku_doc::Optimization;
+use tlaku_doc::{Document, Optimization};
 use tlaku_plan::{PlanOptions, Winding};
 
 /// Opciones del planificador que salen de los ajustes de optimización del trabajo.
@@ -62,13 +62,62 @@ pub(super) fn optimization_note(
     format!("optimización: {}", parts.join("; "))
 }
 
-pub(super) fn nothing_to_produce(warnings: &[String]) -> String {
+/// Mensaje cuando el trabajo no produce nada. Dice por qué si el documento lo deja claro: vacío,
+/// objetos ocultos o capas sin salida (en `.lbrn2`, una capa con `doOutput 0`).
+pub(super) fn nothing_to_produce(doc: &Document, warnings: &[String]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    parts.extend(empty_reason(doc));
+    parts.extend(warnings.iter().cloned());
     format!(
         "no hay nada que producir: {}",
-        if warnings.is_empty() {
+        if parts.is_empty() {
             "el diseño está vacío (o ningún objeto tiene salida)".to_string()
         } else {
-            warnings.join("; ")
+            parts.join("; ")
         }
     )
+}
+
+fn empty_reason(doc: &Document) -> Option<String> {
+    if doc.objects.is_empty() {
+        return Some("el diseño está vacío".into());
+    }
+    let visible: Vec<_> = doc.objects.iter().filter(|o| !o.hidden).collect();
+    if visible.is_empty() {
+        return Some("todos los objetos están ocultos".into());
+    }
+    let off = |color: Rgb| {
+        doc.layers
+            .iter()
+            .find(|l| l.color == color)
+            .is_some_and(|l| !l.output)
+    };
+    if !visible.iter().all(|o| off(o.layer)) {
+        return None;
+    }
+    let mut names: Vec<String> = Vec::new();
+    for o in &visible {
+        let layer = doc.layers.iter().find(|l| l.color == o.layer)?;
+        let name = if layer.name.trim().is_empty() {
+            layer.color.to_string()
+        } else {
+            layer.name.clone()
+        };
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    Some(if names.len() == 1 {
+        format!(
+            "la capa \"{}\" está sin salida (la salida de la capa está desactivada); \
+             actívala para que se corte o grabe",
+            names[0]
+        )
+    } else {
+        format!(
+            "las capas con objetos ({}) están sin salida (la salida está desactivada); \
+             activa la salida de al menos una para que se corte o grabe",
+            names.join(", ")
+        )
+    })
 }

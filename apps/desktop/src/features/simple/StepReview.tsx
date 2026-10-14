@@ -4,6 +4,7 @@ import { summarizeJob } from '@/features/machine/jobSummary';
 import { t } from '@/i18n';
 import { fmtClock } from '@/lib/platform';
 import { useStore } from '@/store';
+import { SimpleReview } from '@/features/review';
 import type { SimpleData } from './hooks';
 import { ProblemList } from './Problems';
 
@@ -50,6 +51,7 @@ export function StepReview({ data }: { data: SimpleData }) {
       </button>
       <p className="hint">{frame.enabled ? t('simple.review.frame.help') : (frame.reason ?? '')}</p>
       <ProblemList step="review" problems={data.problems} />
+      <SimpleReview shown={data.problems.map((p) => p.id)} />
     </>
   );
 }

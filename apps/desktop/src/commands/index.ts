@@ -18,6 +18,7 @@ import { nestCommands } from './definitions/nest';
 import { panelCommands } from './definitions/panels';
 import { prefsCommands } from './definitions/prefs';
 import { printcutCommands } from './definitions/printcut';
+import { reviewCommands } from './definitions/review';
 import { shapeCommands } from './definitions/shapes';
 import { simpleCommands } from './definitions/simple';
 import { previewCommands } from './definitions/preview';
@@ -48,6 +49,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...machineCommands,
   ...machineExtraCommands,
   ...tilingCommands,
+  ...reviewCommands,
   ...deviceCommands,
   ...panelCommands,
   ...layerCommands,

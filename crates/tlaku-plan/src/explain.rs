@@ -11,6 +11,24 @@ use crate::{Blocked, Level, Reason};
 
 /// Tolerancia (mm) para considerar empatadas dos distancias.
 const TIE: f64 = 1e-9;
+#[cfg(test)]
+thread_local! {
+    /// Pruebas: desactiva las podas de `closest_container` (referencia sin poda).
+    pub(crate) static NO_PRUNE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(test)]
+fn pruning() -> bool {
+    !NO_PRUNE.with(|f| f.get())
+}
+
+#[cfg(not(test))]
+fn pruning() -> bool {
+    true
+}
+
+/// Máximo de celdas de la rejilla que se recorren para hallar las figuras cercanas.
+const NEAR_CELLS: usize = 4096;
 
 /// `item` está (a cualquier profundidad) dentro de `container`.
 fn is_inside(ctx: &Ctx, item: usize, container: usize) -> bool {
@@ -42,14 +60,38 @@ fn closest_container(
     c: usize,
     pos: Point,
     own_best: f64,
+    grid: &mut Grid,
     buf: &mut Vec<(usize, usize, Point)>,
 ) -> Option<(usize, usize)> {
+    // Solo cuentan las figuras con un punto de entrada más cerca que `own_best - TIE`: el
+    // disco de ese radio, en la rejilla, dice cuáles (con holgura por el redondeo; la
+    // distancia exacta se calcula después). Si el disco es enorme se prueban todas.
+    let prune = pruning();
+    let radius = own_best - TIE;
+    if prune && (radius <= 0.0 || ctx.bouter[c].is_empty()) {
+        return None;
+    }
     ctx.seen_gen = ctx.seen_gen.wrapping_add(1);
     if ctx.seen_gen == 0 {
         ctx.seen.fill(0);
+        ctx.local.fill(0);
         ctx.seen_gen = 1;
     }
     let gen_ = ctx.seen_gen;
+    let mut near = Vec::new();
+    let near_known = {
+        let mark = &ctx.mark;
+        grid.items_within(
+            pos,
+            radius + 1e-9,
+            NEAR_CELLS,
+            |i| mark[i] == DONE,
+            &mut near,
+        )
+    };
+    for &i in &near {
+        ctx.local[i] = gen_;
+    }
     let mut best: Option<(f64, usize, usize)> = None;
     let mut stack: Vec<(usize, usize)> = Vec::new();
     for k in (0..ctx.bouter[c].len()).rev() {
@@ -62,9 +104,18 @@ fn closest_container(
         }
         ctx.seen[g] = gen_;
         if ctx.mark[g] != DONE {
-            let d = entry_dist(ctx, g, pos, buf);
-            if d < own_best - TIE && best.is_none_or(|(bd, bg, _)| (d, g) < (bd, bg)) {
-                best = Some((d, g, hop));
+            // Cota inferior barata (distancia a la caja de sus entradas, con holgura para el
+            // redondeo): si ya no puede ganar, se evita recorrer todos sus vértices.
+            let lb = ctx.ebox[g].dist_to(pos) - 1e-9;
+            let hopeless = prune
+                && ((near_known && ctx.local[g] != gen_)
+                    || lb >= own_best - TIE
+                    || best.is_some_and(|(bd, _, _)| lb > bd));
+            if !hopeless {
+                let d = entry_dist(ctx, g, pos, buf);
+                if d < own_best - TIE && best.is_none_or(|(bd, bg, _)| (d, g) < (bd, bg)) {
+                    best = Some((d, g, hop));
+                }
             }
         }
         for k in (0..ctx.bouter[g].len()).rev() {
@@ -182,9 +233,9 @@ pub(crate) fn explain(
                 let (ready, all) = {
                     let mark = &ctx.mark;
                     let dead = |i: usize| mark[i] == DONE;
-                    let ready = grid.nearest(pos, &dead, &|i| mark[i] == READY);
+                    let ready = grid.nearest(pos, dead, |i| mark[i] == READY);
                     let all = if has_edges {
-                        grid.nearest(pos, &dead, &|_| true)
+                        grid.nearest(pos, dead, |_| true)
                     } else {
                         ready
                     };
@@ -197,7 +248,7 @@ pub(crate) fn explain(
                     (Some(r), Some(a)) => {
                         let ready_d = r.dist2.sqrt();
                         if own_best <= ready_d + TIE {
-                            match closest_container(ctx, c, pos, own_best, &mut cands) {
+                            match closest_container(ctx, c, pos, own_best, grid, &mut cands) {
                                 Some((g, hop)) => precedence_reason(ctx, c, g, hop),
                                 None => Reason::Nearest {
                                     distance_mm: own_best,

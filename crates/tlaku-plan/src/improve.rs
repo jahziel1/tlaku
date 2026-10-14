@@ -5,6 +5,7 @@ use tlaku_core::Point;
 
 use crate::grid::Grid;
 use crate::planner::Ctx;
+use crate::seq::{ArraySeq, BlockSeq, Seq};
 
 const K: usize = 8;
 const NONE: u32 = u32::MAX;
@@ -14,80 +15,70 @@ const GAIN_EPS: f64 = 1e-9;
 const REPEAT: usize = 8;
 
 /// Problema local con índices 0..m (posición en `members`).
-struct Problem {
+struct Problem<S: Seq> {
     m: usize,
     /// Extremos [a, b]; en las cerradas ambos son el vértice elegido.
     ends: Vec<[Point; 2]>,
-    flip: Vec<bool>,
+    /// Orden, posiciones y sentido de cada figura.
+    seq: S,
     /// Se puede invertir sin romper reglas (cerrada, o abierta con `choose_direction`).
     flippable: Vec<bool>,
     /// Figuras que deben cortarse después de cada una (contenedor y solapes).
     parent: Vec<Vec<u32>>,
     children: Vec<Vec<u32>>,
     constrained: bool,
-    order: Vec<u32>,
-    pos: Vec<u32>,
+    /// Todas se pueden invertir.
+    all_flippable: bool,
     start: Point,
     nbr: Vec<u32>,
 }
 
-impl Problem {
+impl<S: Seq> Problem<S> {
     fn entry(&self, l: usize) -> Point {
-        self.ends[l][self.flip[l] as usize]
+        self.ends[l][self.seq.flip(l) as usize]
     }
 
     fn exit(&self, l: usize) -> Point {
-        self.ends[l][!self.flip[l] as usize]
+        self.ends[l][!self.seq.flip(l) as usize]
     }
 
-    fn prev_exit(&self, p: usize) -> Point {
-        if p == 0 {
-            self.start
-        } else {
-            self.exit(self.order[p - 1] as usize)
-        }
+    /// Punto de salida de `prev` (o el inicio si no hay anterior).
+    fn exit_or_start(&self, prev: Option<usize>) -> Point {
+        prev.map_or(self.start, |l| self.exit(l))
     }
 
-    fn next_entry(&self, p: usize) -> Option<Point> {
-        (p < self.m).then(|| self.entry(self.order[p] as usize))
-    }
-
-    fn set_pos_range(&mut self, lo: usize, hi: usize) {
-        for p in lo..hi {
-            self.pos[self.order[p] as usize] = p as u32;
-        }
-    }
-
-    fn toggle(&mut self, lo: usize, hi: usize) {
-        for p in lo..hi {
-            let l = self.order[p] as usize;
-            self.flip[l] = !self.flip[l];
-        }
-    }
-
-    // ---- 2-opt ----
-
-    /// Ganancia de invertir las posiciones i..=j.
-    fn rev_gain(&self, i: usize, j: usize) -> f64 {
-        let pr = self.prev_exit(i);
-        let (first, last) = (self.order[i] as usize, self.order[j] as usize);
-        let (en_i, ex_j) = (self.entry(first), self.exit(last));
-        let nx = self.next_entry(j + 1);
-        let old = pr.dist(en_i) + nx.map_or(0.0, |n| ex_j.dist(n));
+    /// Ganancia de invertir un tramo con extremos `en_i` (entrada) y `ex_j` (salida), entre
+    /// `pr` (salida de la anterior) y `nx` (entrada de la siguiente). `t1` y `t2` son las
+    /// distancias de los dos lados que se quitan si ya se conocen (`pr`-`en_i` y
+    /// `ex_j`-`nx`): con los mismos operandos dan el mismo valor que calcularlas aquí.
+    fn rev_gain(
+        pr: Point,
+        en_i: Point,
+        ex_j: Point,
+        nx: Option<Point>,
+        t1: Option<f64>,
+        t2: Option<f64>,
+    ) -> f64 {
+        let t1 = t1.unwrap_or_else(|| pr.dist(en_i));
+        let t2 = t2.unwrap_or_else(|| nx.map_or(0.0, |n| ex_j.dist(n)));
+        let old = t1 + t2;
         let new = pr.dist(ex_j) + nx.map_or(0.0, |n| en_i.dist(n));
         old - new
     }
 
     fn rev_feasible(&self, i: usize, j: usize) -> bool {
+        if self.all_flippable && !self.constrained {
+            return true;
+        }
         for p in i..=j {
-            let l = self.order[p] as usize;
+            let l = self.seq.at(p);
             if !self.flippable[l] {
                 return false;
             }
             if self.constrained
                 && self.parent[l]
                     .iter()
-                    .any(|&par| (i..=j).contains(&(self.pos[par as usize] as usize)))
+                    .any(|&par| (i..=j).contains(&(self.seq.pos(par as usize))))
             {
                 return false;
             }
@@ -96,22 +87,25 @@ impl Problem {
     }
 
     fn apply_rev(&mut self, i: usize, j: usize) {
-        self.order[i..=j].reverse();
-        self.toggle(i, j + 1);
-        self.set_pos_range(i, j + 1);
+        self.seq.reverse(i, j, true);
     }
 
     fn try_two_opt_at(&mut self, p: usize) -> bool {
-        let a = self.order[p] as usize;
-        let en = self.flip[a] as usize;
+        let a = self.seq.at(p);
+        let (pa, na) = (self.seq.prev(a), self.seq.next(a));
+        let en = self.seq.flip(a) as usize;
         let ex = 1 - en;
+        // Los lados que unen `a` con sus vecinas se repiten en todos los candidatos.
+        let dn = na.map_or(0.0, |n| self.exit(a).dist(self.entry(n)));
+        let dp = self.exit_or_start(pa).dist(self.entry(a));
         for (kind, end) in [(0, ex), (1, en)] {
             for k in 0..K {
                 let c = self.nbr[(a * 2 + end) * K + k];
                 if c == NONE {
                     break;
                 }
-                let q = self.pos[c as usize] as usize;
+                let c = c as usize;
+                let q = self.seq.pos(c);
                 let (i, j) = match (kind, q > p) {
                     (0, true) => (p + 1, q),
                     (0, false) => (q + 1, p),
@@ -121,7 +115,40 @@ impl Problem {
                 if i > j {
                     continue;
                 }
-                if self.rev_gain(i, j) > GAIN_EPS && self.rev_feasible(i, j) {
+                // Anterior, primera, última y siguiente del tramo i..=j, sin buscar por posición.
+                let gain = match (kind, q > p) {
+                    (0, true) => {
+                        let nx = self.seq.next(c).map(|l| self.entry(l));
+                        let en_i = self.entry(na.unwrap_or(c));
+                        Self::rev_gain(self.exit(a), en_i, self.exit(c), nx, Some(dn), None)
+                    }
+                    (0, false) => {
+                        let nc = self.seq.next(c).unwrap_or(a);
+                        let nx = na.map(|l| self.entry(l));
+                        Self::rev_gain(
+                            self.exit(c),
+                            self.entry(nc),
+                            self.exit(a),
+                            nx,
+                            None,
+                            Some(dn),
+                        )
+                    }
+                    (_, true) => {
+                        let pc = self.seq.prev(c).unwrap_or(a);
+                        let nx = Some(self.entry(c));
+                        let pr = self.exit_or_start(pa);
+                        Self::rev_gain(pr, self.entry(a), self.exit(pc), nx, Some(dp), None)
+                    }
+                    (_, false) => {
+                        let pc = self.seq.prev(c);
+                        let ex_j = self.exit(pa.unwrap_or(c));
+                        let nx = Some(self.entry(a));
+                        let pr = self.exit_or_start(pc);
+                        Self::rev_gain(pr, self.entry(c), ex_j, nx, None, Some(dp))
+                    }
+                };
+                if gain > GAIN_EPS && self.rev_feasible(i, j) {
                     self.apply_rev(i, j);
                     return true;
                 }
@@ -147,30 +174,38 @@ impl Problem {
 
     /// Mueve el segmento s..=e al hueco `g` (entre las posiciones g-1 y g del orden actual),
     /// opcionalmente invertido.
-    fn try_or_opt(&mut self, s: usize, e: usize) -> bool {
+    fn try_or_opt(&mut self, s: usize, e: usize, first: usize, last: usize) -> bool {
         let len = e - s + 1;
-        let (first, last) = (self.order[s] as usize, self.order[e] as usize);
-        let pr = self.prev_exit(s);
-        let nx = self.next_entry(e + 1);
+        let pr = self.exit_or_start(self.seq.prev(first));
+        let nx = self.seq.next(last).map(|l| self.entry(l));
         let (seg_in, seg_out) = (self.entry(first), self.exit(last));
         let rem =
             pr.dist(seg_in) + nx.map_or(0.0, |n| seg_out.dist(n)) - nx.map_or(0.0, |n| pr.dist(n));
         if rem <= GAIN_EPS {
             return false;
         }
-        let all_flippable = (s..=e).all(|p| self.flippable[self.order[p] as usize]);
+        let all_flippable = self.all_flippable || {
+            // Las figuras del segmento: `first`, las siguientes y `last`.
+            let mut ok = self.flippable[first];
+            let mut cur = first;
+            while ok && cur != last {
+                cur = self.seq.next(cur).unwrap_or(last);
+                ok = self.flippable[cur];
+            }
+            ok
+        };
         let intra = self.constrained
             && len > 1
             && (s..=e).any(|p| {
-                self.parent[self.order[p] as usize]
+                self.parent[self.seq.at(p)]
                     .iter()
-                    .any(|&par| (s..=e).contains(&(self.pos[par as usize] as usize)))
+                    .any(|&par| (s..=e).contains(&(self.seq.pos(par as usize))))
             });
         let can_rev = all_flippable && !intra;
 
         let ends = [
-            (first, self.flip[first] as usize),
-            (last, 1 - self.flip[last] as usize),
+            (first, self.seq.flip(first) as usize),
+            (last, 1 - self.seq.flip(last) as usize),
         ];
         for (l, end) in ends {
             for k in 0..K {
@@ -178,7 +213,8 @@ impl Problem {
                 if c == NONE {
                     break;
                 }
-                let q = self.pos[c as usize] as usize;
+                let c = c as usize;
+                let q = self.seq.pos(c);
                 if (s..=e).contains(&q) {
                     continue;
                 }
@@ -190,12 +226,14 @@ impl Problem {
                     let (a, b) = if in_place {
                         (pr, nx)
                     } else {
-                        let a = if g == 0 {
-                            self.start
+                        // `g - 1` y `g` son vecinos de `c` (en la posición `q`).
+                        if g == q {
+                            let a = self.exit_or_start(self.seq.prev(c));
+                            (a, Some(self.entry(c)))
                         } else {
-                            self.exit(self.order[g - 1] as usize)
-                        };
-                        (a, self.next_entry(g))
+                            let a = self.exit(c);
+                            (a, self.seq.next(c).map(|n| self.entry(n)))
+                        }
                     };
                     let gap_old = b.map_or(0.0, |b| a.dist(b));
                     for rev in [false, true] {
@@ -233,16 +271,16 @@ impl Problem {
         if g > e + 1 {
             // Se adelanta a las figuras e+1..g-1: ninguna debe ser contenedor del segmento.
             (s..=e).all(|p| {
-                self.parent[self.order[p] as usize].iter().all(|&par| {
-                    let pp = self.pos[par as usize] as usize;
+                self.parent[self.seq.at(p)].iter().all(|&par| {
+                    let pp = self.seq.pos(par as usize);
                     pp <= e || pp >= g
                 })
             })
         } else if g < s {
             // Se atrasa respecto de g..s-1: ninguna debe estar dentro de una del segmento.
             (s..=e).all(|p| {
-                self.children[self.order[p] as usize].iter().all(|&c| {
-                    let cp = self.pos[c as usize] as usize;
+                self.children[self.seq.at(p)].iter().all(|&c| {
+                    let cp = self.seq.pos(c as usize);
                     cp >= s || cp < g
                 })
             })
@@ -253,31 +291,33 @@ impl Problem {
 
     fn apply_or(&mut self, s: usize, e: usize, g: usize, rev: bool) {
         let len = e - s + 1;
-        let (lo, hi, seg_lo) = if g > e + 1 {
-            self.order[s..g].rotate_left(len);
-            (s, g, g - len)
+        let seg_lo = if g > e + 1 {
+            self.seq.rotate_left(s, g, len);
+            g - len
         } else if g < s {
-            self.order[g..=e].rotate_right(len);
-            (g, e + 1, g)
+            self.seq.rotate_right(g, e + 1, len);
+            g
         } else {
-            (s, e + 1, s)
+            s
         };
         if rev {
-            self.order[seg_lo..seg_lo + len].reverse();
-            self.toggle(seg_lo, seg_lo + len);
+            self.seq.reverse(seg_lo, seg_lo + len - 1, true);
         }
-        self.set_pos_range(lo, hi);
     }
 
     fn or_opt_sweep(&mut self) -> bool {
         let mut any = false;
         for s in 0..self.m {
+            let first = self.seq.at(s);
+            let mut last = first;
             for len in 1..=3 {
-                let e = s + len - 1;
-                if e >= self.m {
-                    break;
+                if len > 1 {
+                    match self.seq.next(last) {
+                        Some(n) => last = n,
+                        None => break,
+                    }
                 }
-                if self.try_or_opt(s, e) {
+                if self.try_or_opt(s, s + len - 1, first, last) {
                     any = true;
                     break;
                 }
@@ -301,58 +341,174 @@ pub(crate) fn improve(
     for (l, &g) in members.iter().enumerate() {
         ctx.local[g] = l as u32;
     }
+    // Las figuras se renumeran por su lugar en el orden de partida ("casilla"): las vecinas en
+    // el espacio quedan cerca en memoria y las consultas dejan de saltar por toda la tabla.
+    // Los vecinos se siguen buscando y desempatando por el número original, así que el
+    // resultado es el mismo que sin renumerar.
+    let lid_of: Vec<u32> = order.iter().map(|&g| ctx.local[g]).collect();
+    let mut slot_of = vec![0u32; m];
+    for (s, &l) in lid_of.iter().enumerate() {
+        slot_of[l as usize] = s as u32;
+    }
+    let ord: Vec<u32> = (0..m as u32).collect();
+    let flip: Vec<bool> = lid_of
+        .iter()
+        .map(|&l| ctx.sh.flip[members[l as usize]])
+        .collect();
+    let ids = Ids { lid_of, slot_of };
+    // Hasta decenas de miles de figuras el arreglo plano es lo más rápido; más allá, invertir
+    // tramos largos lo vuelve cuadrático y se pasa a bloques (mismo resultado).
+    if m < block_min() {
+        solve(
+            ctx,
+            members,
+            order,
+            start,
+            passes,
+            &ids,
+            ArraySeq::new(ord, flip),
+        );
+    } else {
+        let size = block_size(m);
+        solve(
+            ctx,
+            members,
+            order,
+            start,
+            passes,
+            &ids,
+            BlockSeq::new(ord, flip, size),
+        );
+    }
+}
+
+/// Numeración original (posición en `members`) y casilla (lugar en el orden de partida).
+struct Ids {
+    lid_of: Vec<u32>,
+    slot_of: Vec<u32>,
+}
+
+/// Tamaño mínimo del problema para usar [`BlockSeq`].
+#[cfg(not(test))]
+fn block_min() -> usize {
+    BLOCK_MIN
+}
+
+#[cfg(not(test))]
+fn block_size(m: usize) -> usize {
+    ((m as f64).sqrt() as usize).max(64)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Pruebas: fuerza el tamaño de bloque (y el uso de bloques desde 2 figuras).
+    pub(crate) static FORCE_BLOCK: std::cell::Cell<Option<usize>> =
+        const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+fn block_min() -> usize {
+    FORCE_BLOCK.with(|f| if f.get().is_some() { 2 } else { BLOCK_MIN })
+}
+
+#[cfg(test)]
+fn block_size(m: usize) -> usize {
+    FORCE_BLOCK
+        .with(|f| f.get())
+        .unwrap_or(((m as f64).sqrt() as usize).max(64))
+}
+
+const BLOCK_MIN: usize = 40_000;
+
+/// Con al menos tantas figuras, las listas de vecinos se calculan en varios hilos.
+const PAR_MIN: usize = 50_000;
+
+/// Llena `nbr` (K vecinos por extremo de cada casilla, en casillas). Cada consulta es
+/// independiente, así que repartirlas en hilos no cambia el resultado.
+fn fill_neighbors(grid: &Grid, ids: &Ids, ends: &[[Point; 2]], closed: &[bool], nbr: &mut [u32]) {
+    let m = ends.len();
+    let work = |first: usize, out: &mut [u32]| {
+        let mut buf = Vec::new();
+        for (k, slots) in out.chunks_mut(2 * K).enumerate() {
+            let s = first + k;
+            for end in 0..2 {
+                if closed[s] && end == 1 {
+                    slots.copy_within(0..K, K);
+                    continue;
+                }
+                grid.knn(ends[s][end], K, ids.lid_of[s] as usize, &mut buf);
+                for (j, &(_, c)) in buf.iter().enumerate() {
+                    slots[end * K + j] = ids.slot_of[c];
+                }
+            }
+        }
+    };
+    let threads = if m >= PAR_MIN {
+        std::thread::available_parallelism().map_or(1, |n| n.get().min(8))
+    } else {
+        1
+    };
+    if threads <= 1 {
+        work(0, nbr);
+        return;
+    }
+    let per = m.div_ceil(threads);
+    std::thread::scope(|sc| {
+        for (ci, chunk) in nbr.chunks_mut(per * 2 * K).enumerate() {
+            let work = &work;
+            sc.spawn(move || work(ci * per, chunk));
+        }
+    });
+}
+
+fn solve<S: Seq>(
+    ctx: &mut Ctx,
+    members: &[usize],
+    order: &mut [usize],
+    start: Point,
+    passes: usize,
+    ids: &Ids,
+    seq: S,
+) {
+    let m = members.len();
+    // Figura global de cada casilla.
+    let glob: Vec<usize> = ids.lid_of.iter().map(|&l| members[l as usize]).collect();
+    let to_slot = |g: usize| ids.slot_of[ctx.local[g] as usize];
     let mut prob = Problem {
         m,
-        ends: members
-            .iter()
-            .map(|&g| [ctx.sh.a[g], ctx.sh.b[g]])
-            .collect(),
-        flip: members.iter().map(|&g| ctx.sh.flip[g]).collect(),
-        flippable: members
+        ends: glob.iter().map(|&g| [ctx.sh.a[g], ctx.sh.b[g]]).collect(),
+        seq,
+        flippable: glob
             .iter()
             .map(|&g| {
                 ctx.items[g].path.closed || (ctx.opts.choose_direction && !ctx.items[g].locked)
             })
             .collect(),
-        parent: members
+        parent: glob
             .iter()
-            .map(|&g| ctx.bouter[g].iter().map(|&p| ctx.local[p]).collect())
+            .map(|&g| ctx.bouter[g].iter().map(|&p| to_slot(p)).collect())
             .collect(),
-        children: members
+        children: glob
             .iter()
-            .map(|&g| ctx.bchildren[g].iter().map(|&c| ctx.local[c]).collect())
+            .map(|&g| ctx.bchildren[g].iter().map(|&c| to_slot(c)).collect())
             .collect(),
         constrained: members.iter().any(|&g| !ctx.bouter[g].is_empty()),
-        order: order.iter().map(|&g| ctx.local[g]).collect(),
-        pos: vec![0; m],
+        all_flippable: false,
         start,
         nbr: vec![NONE; m * 2 * K],
     };
-    prob.set_pos_range(0, m);
+    prob.all_flippable = prob.flippable.iter().all(|&f| f);
 
+    let closed: Vec<bool> = glob.iter().map(|&g| ctx.items[g].path.closed).collect();
     let mut entries = Vec::with_capacity(m * 2);
-    for (l, &g) in members.iter().enumerate() {
-        entries.push((l, 0, prob.ends[l][0]));
-        if !ctx.items[g].path.closed {
-            entries.push((l, 1, prob.ends[l][1]));
+    for (s, &l) in ids.lid_of.iter().enumerate() {
+        entries.push((l as usize, 0, prob.ends[s][0]));
+        if !closed[s] {
+            entries.push((l as usize, 1, prob.ends[s][1]));
         }
     }
     let grid = Grid::new(&entries);
-    let mut buf = Vec::new();
-    for (l, &g) in members.iter().enumerate() {
-        let closed = ctx.items[g].path.closed;
-        for end in 0..2 {
-            if closed && end == 1 {
-                let (lo, hi) = (l * 2 * K, (l * 2 + 1) * K);
-                prob.nbr.copy_within(lo..lo + K, hi);
-                continue;
-            }
-            grid.knn(prob.ends[l][end], K, l, &mut buf);
-            for (k, &(_, c)) in buf.iter().enumerate() {
-                prob.nbr[(l * 2 + end) * K + k] = c as u32;
-            }
-        }
-    }
+    fill_neighbors(&grid, ids, &prob.ends, &closed, &mut prob.nbr);
 
     for _ in 0..passes {
         let a = prob.two_opt_sweep();
@@ -362,11 +518,11 @@ pub(crate) fn improve(
         }
     }
 
-    for (l, &g) in members.iter().enumerate() {
-        ctx.sh.flip[g] = prob.flip[l];
+    for (s, &g) in glob.iter().enumerate() {
+        ctx.sh.flip[g] = prob.seq.flip(s);
     }
-    for (p, &l) in prob.order.iter().enumerate() {
-        order[p] = members[l as usize];
+    for (p, o) in order.iter_mut().enumerate() {
+        *o = glob[prob.seq.at(p)];
     }
 }
 

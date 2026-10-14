@@ -4,6 +4,8 @@ import { commands } from '@/commands';
 import { t } from '@/i18n';
 import { unionBounds } from '@/lib/geometry';
 import { objectBoundsWithCopies } from '@/lib/virtualArray';
+import { boundsOf } from '@/features/canvas/transform';
+import { objectsByIds } from '@/store/objectIndex';
 import { fmtClock, isMac } from '@/lib/platform';
 import { formatLength, formatSize, unitSymbol } from '@/lib/units';
 import { zoomPercent } from '@/lib/viewport';
@@ -43,8 +45,11 @@ function Selection() {
   const one = (mm: number) => formatLength(mm, units, { digits: units === 'in' ? 3 : 2, symbol: false });
   const size = useMemo(() => {
     if (ids.length === 0) return null;
-    const picked = new Set(ids);
-    const b = unionBounds(doc.objects.filter((o) => picked.has(o.id)).map(objectBoundsWithCopies));
+    // Los objetos sin arreglo usan la caja ya calculada de la geometría del lienzo; los que tienen copias
+    // virtuales, el cálculo exacto con sus copias.
+    const picked = objectsByIds(doc.objects, ids);
+    const plain = picked.filter((o) => !o.array);
+    const b = unionBounds([boundsOf(plain), ...picked.filter((o) => o.array).map(objectBoundsWithCopies)]);
     return b ? { w: b[1][0] - b[0][0], h: b[1][1] - b[0][1] } : null;
   }, [doc, ids]);
   return (

@@ -38,8 +38,20 @@ function movedBox(b: Box, m: Affine): Box {
  * matriz que da `virtualCopies`. Con la vista previa visible no se dibujan (la vista previa ya las incluye).
  * Devuelve cuántas se dibujaron.
  */
+const withArray = new WeakMap<readonly DesignObject[], boolean>();
+
+/** ¿Algún objeto tiene arreglo? Se calcula una vez por lista (sin él, cada cuadro no recorre los 100 000 objetos). */
+function anyArray(objects: readonly DesignObject[]): boolean {
+  let any = withArray.get(objects);
+  if (any === undefined) {
+    any = objects.some((o) => o.array);
+    withArray.set(objects, any);
+  }
+  return any;
+}
+
 export function drawVirtualCopies(ctx: CanvasRenderingContext2D, scene: Scene, dpr: number): number {
-  if (scene.preview) return 0;
+  if (scene.preview || !anyArray(scene.objects)) return 0;
   const { view, width, height, layers, overlay, selectedIds } = scene;
   let drawn = 0;
   let any = false;

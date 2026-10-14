@@ -9,6 +9,7 @@ pub mod files;
 pub mod geometry;
 pub mod materials;
 pub mod nest;
+pub mod review;
 pub mod shape_ops;
 pub mod text;
 pub mod trace;

@@ -3,7 +3,7 @@
 use super::*;
 use std::path::Path;
 use tlaku_doc::affine::IDENTITY;
-use tlaku_doc::{LayerSettings, ObjectKind};
+use tlaku_doc::{JobOptions, LayerSettings, ObjectKind};
 
 #[test]
 fn input_kinds() {
@@ -106,4 +106,83 @@ fn empty_vector_file_is_an_error() {
             .contains("no contiene trayectorias")
     );
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn dxf_sin_trayectorias_conserva_la_causa() {
+    let dir = workdir("dxf-causa");
+    let dxf = dir.join("rellenos.dxf");
+    std::fs::write(
+        &dxf,
+        "0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n\
+         0\nSECTION\n2\nENTITIES\n0\nHATCH\n8\n0\n0\nHATCH\n8\n0\n\
+         0\nTEXT\n8\n0\n10\n0\n20\n0\n30\n0\n40\n2\n1\nhola\n\
+         0\nENDSEC\n0\nEOF\n",
+    )
+    .unwrap();
+    let e = import_file(&dxf).unwrap_err();
+    assert!(e.contains("no contiene trayectorias"), "{e}");
+    assert!(e.contains("2 entidades HATCH"), "{e}");
+    assert!(e.contains("texto"), "{e}");
+    assert!(e.contains("contornos"), "{e}");
+    // El aviso genérico no se repite como causa.
+    assert!(!e.contains("no contiene geometría importable"), "{e}");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// PNG de 1x1 píxel.
+const PNG_1PX: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+#[test]
+fn svg_con_solo_una_imagen_se_importa_como_imagen() {
+    let dir = workdir("svg-imagen");
+    let svg = dir.join("foto.svg");
+    std::fs::write(
+        &svg,
+        format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="30mm" viewBox="0 0 40 30"><image x="5" y="3" width="10" height="8" href="data:image/png;base64,{PNG_1PX}"/></svg>"#
+        ),
+    )
+    .unwrap();
+    let r = import_file(&svg).unwrap();
+    assert_eq!(r.objects.len(), 1);
+    assert_eq!(r.new_layers, vec![LayerSettings::for_images()]);
+    let ObjectKind::Image(img) = &r.objects[0].kind else {
+        panic!("se esperaba una imagen");
+    };
+    assert_eq!((img.width_px, img.height_px), (1, 1));
+    // La imagen de 1x1 px conserva su proporción dentro de la caja de 10 x 8: queda de 8 x 8,
+    // centrada (6 mm desde el borde izquierdo).
+    approx(img.size_mm[0], 8.0);
+    approx(img.size_mm[1], 8.0);
+    assert!(Path::new(&img.source_path).exists());
+    // Y hacia arriba: la imagen está a 30 - 3 - 8 = 19 mm del borde inferior.
+    point(
+        Point::new(r.objects[0].transform[4], r.objects[0].transform[5]),
+        6.0,
+        19.0,
+    );
+    assert!(
+        r.warnings.iter().any(|w| w.contains("solo 1 imagen")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(!r.warnings.iter().any(|w| w.contains("omitida")));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn capa_sin_salida_lo_dice_en_el_error_de_diseno_vacio() {
+    let off = LayerSettings {
+        name: "Corte".into(),
+        output: false,
+        ..line_layer(RED)
+    };
+    let d = doc(vec![rect_object("a", RED, 0.0, 0.0, 10.0, 10.0)], vec![off]);
+    let e = compute(&d, &device(), &JobOptions::default()).unwrap_err();
+    assert!(e.contains("no hay nada que producir"), "{e}");
+    assert!(e.contains("\"Corte\"") && e.contains("sin salida"), "{e}");
+    // Un documento sin objetos sigue diciendo que está vacío.
+    let e = compute(&doc(vec![], vec![]), &device(), &JobOptions::default()).unwrap_err();
+    assert!(e.contains("vacío"), "{e}");
 }

@@ -19,6 +19,9 @@ use tlaku_core::toolpath::{Move, Toolpath};
 /// Margen (mm) para no rechazar un diseño que toca el borde por error de redondeo.
 const BED_EPS_MM: f64 = 1e-6;
 
+/// Velocidad máxima que admite una controladora Ruida (600 mm/s), en mm/min.
+pub const MAX_SPEED_MM_MIN: f64 = 36_000.0;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SafetyLimits {
     /// Ancho y alto de la cama en mm, origen en la esquina de la que parten las coordenadas.
@@ -35,7 +38,7 @@ impl Default for SafetyLimits {
     fn default() -> Self {
         SafetyLimits {
             bed_mm: [600.0, 400.0],
-            max_speed_mm_min: 36_000.0,
+            max_speed_mm_min: MAX_SPEED_MM_MIN,
             max_power_pct: 100.0,
         }
     }

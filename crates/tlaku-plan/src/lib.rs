@@ -40,6 +40,8 @@
 
 mod contain;
 mod describe;
+#[cfg(test)]
+mod equiv;
 mod explain;
 mod geom;
 mod grid;
@@ -47,7 +49,10 @@ mod improve;
 mod overlap;
 mod planner;
 mod sched;
+mod seq;
 mod shapes;
+#[cfg(test)]
+mod testgen;
 
 use std::fmt;
 

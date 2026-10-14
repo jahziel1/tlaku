@@ -74,7 +74,7 @@ Las olas del [plan](../plan-completo.md) 1 a 5 están **terminadas**. Según el 
 [cobertura/README.md](cobertura/README.md) (que sale de contar las filas de sus tablas con un script):
 **175 de 214 funciones hechas (82 %), 27 parciales, 10 solo en el motor o la línea de comandos y
 2 faltantes**; en P0, **64 de 68 hechas** (las 4 parciales son C51, M3, M5 y M6). Las 10 "solo
-motor/CLI" son todas del galvo <!-- GALVO-APP --> y las 2 faltantes son D90 y D94. **Ninguna función de máquina se ha
+motor/CLI" son todas del galvo (hoy ya en la app, ola 6; falta rehacer el recuento) y las 2 faltantes son D90 y D94. **Ninguna función de máquina se ha
 probado con hardware real**: todo se validó con emuladores (`tlaku-emu`, el de Ruida, el de la
 placa K40 y la tarjeta galvo simulada de `tlaku-galvo`), máquinas virtuales e imágenes sintéticas.
 
@@ -85,7 +85,7 @@ placa K40 y la tarjeta galvo simulada de `tlaku-galvo`), máquinas virtuales e i
 | 2 | Capas y corte: trazos, orden y optimización, relleno e imagen, trabajo | Terminada (`ec9cdb4`) | 143 | 62 |
 | 3 | Diseño avanzado: operaciones de forma, nesting real, texto variable, imagen | Terminada (`b78790e`) | 165 | 62 |
 | 4 | Máquinas: Ruida, red, control, cámara y K40 | Terminada (`10c435d`; el K40 en la app, `c6c61a2`) | 173 | 64 |
-| 5 | Pro y galvo: Print & Cut, tiling, alimentador automático y galvo (experimental, solo motor y línea de comandos) <!-- GALVO-APP --> | Terminada (`56e717f`) | 175 | 64 |
+| 5 | Pro y galvo: Print & Cut, tiling, alimentador automático y galvo (experimental; en esa ola solo motor y línea de comandos, y desde la ola 6 también en la app) | Terminada (`56e717f`) | 175 | 64 |
 | 6 | Calidad y publicación | Pendiente | | |
 
 **K40 (M2 Nano).** No es una fila del inventario (LightBurn no lo soporta) y no cuenta en los
@@ -100,7 +100,7 @@ paro de emergencia si detener no se confirma. También sigue disponible por lín
   ajuste sin escala, uniforme o afín (medido con el láser o la cámara), y tramos con solape, marcas
   de alineación, envío por tramos y retomar. LightBurn no tiene tiling. El alimentador automático
   (M47) quedó **parcial**: solo lo usa el tiling con los tramos en una columna.
-- **Galvo, solo motor y línea de comandos** <!-- GALVO-APP --> (M30, M40 a M46, C47, C59): el crate
+- **Galvo** (en la ola 5 solo motor y línea de comandos; desde la ola 6, commit `61ec249`, también en la app) (M30, M40 a M46, C47, C59): el crate
   `tlaku-galvo` (tarjetas JCZ/BJJCZ LMC por USB, solo la `9588:9899`; lista blanca de comandos,
   apagado garantizado ante errores, sin pausa), `tlaku galvo list/status/light/mark` y el trabajo
   galvo del pipeline (parámetros por bloque, sin overscan, bamboleo, grabado 3D por cortes,
@@ -114,7 +114,7 @@ paro de emergencia si detener no se confirma. También sigue disponible por lín
 
 **Lo que queda, según el plan:**
 
-- **Ola 6, calidad y publicación:** el galvo en la app <!-- GALVO-APP --> y lo que no entró de la ola 5
+- **Ola 6, calidad y publicación:** lo que no entró de la ola 5
   (M31, M32, imágenes que giren con Print & Cut, repetir trabajos con el alimentador, quitar los
   duplicados Rust/TypeScript), rendimiento del lienzo con diseños grandes, lo que quedó de la
   ola 3 (paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías

@@ -29,6 +29,7 @@ import { galvo } from './es/galvo';
 import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
+import { review } from './es/review';
 import { tiling } from './es/tiling';
 import { materials } from './es/materials';
 import { simple } from './es/simple';
@@ -61,13 +62,14 @@ import { galvo as en_galvo } from './en/galvo';
 import { lhymicro as en_lhymicro } from './en/lhymicro';
 import { ruida as en_ruida } from './en/ruida';
 import { shapes as en_shapes } from './en/shapes';
+import { review as en_review } from './en/review';
 import { tiling as en_tiling } from './en/tiling';
 import { base as en_base } from './en/base';
 import { simple as en_simple } from './en/simple';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple };
+    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -101,6 +103,7 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   galvo: { es: galvo, en: en_galvo },
   shapes: { es: shapes, en: en_shapes },
   tiling: { es: tiling, en: en_tiling },
+  review: { es: review, en: en_review },
   preview: { es: preview, en: en_preview },
   prefs: { es: prefs, en: en_prefs },
   remote: { es: remote, en: en_remote },

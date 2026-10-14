@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import type { DesignObject } from '@/api/types';
 import { FileUp } from 'lucide-react';
 import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
@@ -7,6 +8,7 @@ import { ContextMenuHost } from '@/features/contextmenu';
 import { selectSceneTiles } from '@/features/tiling/overlay';
 import { useTilingUi } from '@/features/tiling/store';
 import { selectActiveDevice, usePref, useStore, type AppState } from '@/store';
+import { objectIndex, objectsByIds } from '@/store/objectIndex';
 import { formatSize, unitSymbol } from '@/lib/units';
 import { selectHeadDoc } from '@/store/machine';
 import './canvas-overlay.css';
@@ -43,6 +45,27 @@ let layersFor: AppState['doc']['layers'] | null = null;
 let layersMap = new Map<string, AppState['doc']['layers'][number]>();
 let selFor: string[] | null = null;
 let selSet: ReadonlySet<string> = new Set();
+// Objetos seleccionados (y los no bloqueados): se recalculan solo si cambia el arreglo de objetos o la selección.
+let pickFor: { objects: DesignObject[]; ids: string[] } | null = null;
+let pickedAll: DesignObject[] = [];
+let pickedFree: DesignObject[] = [];
+
+/**
+ * ¿Sigue siendo válida la selección tras un cambio del documento? Comprueba solo los ids elegidos (por
+ * índice), sin recorrer los 100 000 objetos como `pruneSelection`; ante la duda dice que no y se poda de verdad.
+ */
+function selectionIntact(s: AppState): boolean {
+  if (s.selectedIds.length === 0 || Object.keys(s.nodeSel).length > 0) return false;
+  const idx = objectIndex(s.doc.objects);
+  if (!idx.unique) return false;
+  const layers = new Map(s.doc.layers.map((l) => [l.color.toLowerCase(), l] as const));
+  for (const id of s.selectedIds) {
+    const i = idx.at.get(id);
+    const o = i === undefined ? undefined : s.doc.objects[i];
+    if (!o || o.hidden || o.locked || !(layers.get(o.layer.toLowerCase())?.visible ?? true)) return false;
+  }
+  return true;
+}
 
 function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
   const dev = selectActiveDevice(s);
@@ -59,7 +82,12 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
   const nodeMode = s.activeTool === 'nodes';
   const preview = nodeMode ? ix.nodePreview : null;
   const objects = preview ? s.doc.objects.map((o) => (preview[o.id] ? withPreview(o, preview[o.id]) : o)) : s.doc.objects;
-  const picked = s.selectedIds.length ? s.doc.objects.filter((o) => selSet.has(o.id) && !o.locked) : [];
+  if (!pickFor || pickFor.objects !== objects || pickFor.ids !== s.selectedIds) {
+    pickFor = { objects, ids: s.selectedIds };
+    pickedAll = s.selectedIds.length ? objectsByIds(objects, s.selectedIds) : [];
+    pickedFree = pickedAll.some((o) => o.locked) ? pickedAll.filter((o) => !o.locked) : pickedAll;
+  }
+  const picked = pickedFree;
   return {
     width: s.viewport.width,
     height: s.viewport.height,
@@ -69,6 +97,7 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     objects,
     layers: layersMap,
     selectedIds: selSet,
+    selected: pickedAll,
     wireframe: s.wireframe,
     primaryId: useArrangeUi.getState().primaryId,
     preview: s.previewVisible && s.preview ? { data: s.preview, scrub: s.scrub } : null,
@@ -146,7 +175,7 @@ export function CanvasView() {
     const unsub = useStore.subscribe((s, prev) => {
       if (s.theme !== prev.theme) palette = readCanvasPalette();
       // Lo seleccionado que se bloquea, se oculta o desaparece deja de estar seleccionado.
-      if (s.doc !== prev.doc) s.pruneSelection();
+      if (s.doc !== prev.doc && !selectionIntact(s)) s.pruneSelection();
       if (WATCHED.some((k) => s[k] !== prev[k])) schedule();
     });
     // La interacción (hover, arrastres, guías) también repinta.

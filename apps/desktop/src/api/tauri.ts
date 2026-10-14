@@ -69,6 +69,7 @@ export function createTauriApi(): LaserApi {
     readCsv: (a) => call('readCsv', a),
     generateCode: (a) => call('generateCode', a),
     geometryOp: (a) => call('geometryOp', a),
+    reviewDesign: (a) => call('reviewDesign', a),
     shapeOp: (a) => call('shapeOp', a),
     warpObjects: (a) => call('warpObjects', a),
     hullOutline: (a) => call('hullOutline', a),

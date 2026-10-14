@@ -31,16 +31,23 @@ impl Builder<'_> {
         // Con incremento de ángulo la pasada `k` barre a `angle + k * incremento`: el bitmap es
         // el mismo, pero el recorrido cambia en cada pasada.
         let varied = angle_increment != 0.0 && r.passes > 1;
-        let gray = tlaku_raster::gray::load(Path::new(&img.source_path), Luma::default())
-            .map_err(|e| format!("{}: {e}", img.source_path))?;
-        let gray = flipped(&gray, img.mirror_x, img.mirror_y);
+        let (w, h) = img.size_mm;
         let opts = ProcessOptions {
             adjust: r.adjust,
             sampling: Sampling::Interval(r.interval_mm),
             mode: r.mode,
             ..Default::default()
         };
-        let (w, h) = img.size_mm;
+        // La imagen se reduce a la rejilla de grabado al cargarla, antes de ajustes y tramado.
+        let (gray, opts) = tlaku_raster::load_for_process(
+            Path::new(&img.source_path),
+            Luma::default(),
+            w,
+            h,
+            &opts,
+        )
+        .map_err(|e| format!("{}: {e}", img.source_path))?;
+        let gray = flipped(gray, img.mirror_x, img.mirror_y);
         let mut bitmap =
             tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?;
         // Máscara de recorte: lo que queda fuera de las formas no se graba.

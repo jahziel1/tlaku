@@ -181,3 +181,39 @@ describe('cajas y rotación de objetos', () => {
     expect(canRotate([])).toBe(false);
   });
 });
+
+describe('boundsOf con la caja guardada por arreglo', () => {
+  const objs = [rectObj('a', 0, 0, 10, 10), rectObj('b', 20, 5, 30, 40), lineObj('c', [-5, 2], [3, -7])];
+
+  it('con matrices que conservan los ejes da lo mismo que transformar los puntos', () => {
+    const mats: Affine[] = [[1, 0, 0, 1, 12, -3], [2, 0, 0, 0.5, 1, 1], [-1, 0, 0, 1, 40, 0], [1, 0, 0, -3, 0, 9]];
+    for (const m of mats) {
+      const fast = boundsOf(objs, m)!;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      // esquinas de las cajas de los tres objetos
+      for (const [x, y] of [[0, 0], [10, 10], [20, 5], [30, 40], [-5, -7], [3, 2]]) {
+        const px = m[0] * x + m[2] * y + m[4];
+        const py = m[1] * x + m[3] * y + m[5];
+        minX = Math.min(minX, px);
+        maxX = Math.max(maxX, px);
+        minY = Math.min(minY, py);
+        maxY = Math.max(maxY, py);
+      }
+      expect(fast[0][0]).toBeCloseTo(minX, 9);
+      expect(fast[0][1]).toBeCloseTo(minY, 9);
+      expect(fast[1][0]).toBeCloseTo(maxX, 9);
+      expect(fast[1][1]).toBeCloseTo(maxY, 9);
+    }
+  });
+
+  it('la caja sin transformar se calcula una vez por arreglo y un arreglo nuevo se recalcula', () => {
+    const first = boundsOf(objs);
+    expect(boundsOf(objs)).toBe(first);
+    const moved = [{ ...objs[0]!, transform: [1, 0, 0, 1, 100, 0] as Affine }, ...objs.slice(1)];
+    expect(boundsOf(moved)![1][0]).toBe(110);
+    expect(first![1][0]).toBe(30);
+  });
+});

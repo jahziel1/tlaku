@@ -22,14 +22,14 @@ pub fn processed_png(
         return Err(format!("tamaño de imagen inválido: {w} x {h} mm"));
     }
     let r = crate::layers::resolve_image(layer)?;
-    let gray = tlaku_raster::gray::load(source, Luma::default())
-        .map_err(|e| format!("{}: {e}", source.display()))?;
     let opts = ProcessOptions {
         adjust: r.adjust,
         sampling: Sampling::Interval(r.interval_mm),
         mode: r.mode,
         ..Default::default()
     };
+    let (gray, opts) = tlaku_raster::load_for_process(source, Luma::default(), w, h, &opts)
+        .map_err(|e| format!("{}: {e}", source.display()))?;
     let mut bitmap =
         tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?;
     let shapes: Vec<Polyline> = mask.iter().flat_map(|p| p.flatten(0.01)).collect();

@@ -106,7 +106,7 @@ pub fn build(
     crate::registration::apply(&mut placement, options.transform.as_ref(), &mut warnings)?;
     let work: &[LayerWork] = &placement.layers;
     if work.is_empty() {
-        return Err(nothing_to_produce(&warnings));
+        return Err(nothing_to_produce(doc, &warnings));
     }
     let optimization = &options.optimization;
     if !(optimization.overlap_tolerance.is_finite() && optimization.overlap_tolerance >= 0.0) {
@@ -374,7 +374,7 @@ pub fn build(
     }
 
     if b.toolpath.blocks.is_empty() {
-        return Err(nothing_to_produce(&b.warnings));
+        return Err(nothing_to_produce(doc, &b.warnings));
     }
 
     // Con rotativo no hay límite de Y, pero el diseño no debe dar más de una vuelta y la Y de la
@@ -402,13 +402,20 @@ pub fn build(
     }
     let notes = dialect_warnings(&b.toolpath, &b.layers, device);
     b.warnings.extend(notes);
+    b.warnings
+        .extend(crate::layers::speed_warnings(work, device));
+    if device.kind == tlaku_doc::DeviceKind::Ruida {
+        b.warnings
+            .extend(crate::ruida::layer_warnings(&b.toolpath, &b.layers, device));
+    }
     if galvo_job.is_some() {
         let notes = galvo::field_warnings(&b.layers, device);
         b.warnings.extend(notes);
     }
 
-    let mut estimate = tlaku_sim::estimate_from(placement.start, &b.toolpath, &profile);
-    let mut move_times = tlaku_sim::move_times(placement.start, &b.toolpath, &profile);
+    // Una sola planificación para el estimado y los tiempos por movimiento.
+    let (mut estimate, mut move_times) =
+        tlaku_sim::estimate_with_times(placement.start, &b.toolpath, &profile, true);
     if galvo_job.is_some() {
         // Repeticiones y pausas de cada bloque; los tiempos por movimiento se reescalan.
         let k = galvo::adjust_estimate(&mut estimate, &b.toolpath.blocks);

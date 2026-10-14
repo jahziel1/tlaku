@@ -7,7 +7,6 @@ use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Job, Rgb};
 use tlaku_doc::affine::IDENTITY;
 use tlaku_doc::{DesignObject, ImageObject, ImportResult, LayerSettings, ObjectKind, VectorObject};
-use tlaku_raster::Luma;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputKind {
@@ -208,21 +207,24 @@ fn displayable_source(path: &Path) -> Result<(std::path::PathBuf, Option<String>
     ))
 }
 
+/// Objeto imagen de `source` a `dpi`. Lee solo la cabecera: no hace falta decodificar la imagen
+/// (que en 100 Mpx cuesta más de 2 GB) para saber su tamaño.
+fn image_kind(source: &Path, shown_as: &Path, dpi: f64) -> Result<ObjectKind, String> {
+    let (w, h) = tlaku_raster::gray::dimensions(source)
+        .map_err(|e| format!("{}: {e}", shown_as.display()))?;
+    let mm = |px: u32| f64::from(px) * 25.4 / dpi;
+    Ok(ObjectKind::Image(ImageObject {
+        source_path: source.to_string_lossy().into_owned(),
+        width_px: w,
+        height_px: h,
+        size_mm: [mm(w), mm(h)],
+        mask: Vec::new(),
+    }))
+}
+
 fn import_image(path: &Path, dpi: f64) -> Result<ImportResult, String> {
     let (source, note) = displayable_source(path)?;
-    let gray = tlaku_raster::gray::load(&source, Luma::default())
-        .map_err(|e| format!("{}: {e}", path.display()))?;
-    let mm = |px: usize| px as f64 * 25.4 / dpi;
-    let obj = object(
-        LayerSettings::IMAGE_COLOR,
-        ObjectKind::Image(ImageObject {
-            source_path: source.to_string_lossy().into_owned(),
-            width_px: gray.width as u32,
-            height_px: gray.height as u32,
-            size_mm: [mm(gray.width), mm(gray.height)],
-            mask: Vec::new(),
-        }),
-    );
+    let obj = object(LayerSettings::IMAGE_COLOR, image_kind(&source, path, dpi)?);
     Ok(ImportResult {
         objects: vec![obj],
         new_layers: vec![LayerSettings::for_images()],
@@ -273,11 +275,15 @@ pub fn import_file_extras(
         };
     }
     let mut factor = 1.0;
+    let mut svg_images = Vec::new();
+    let mut svg_height_mm = 0.0;
     let (layers, mut warnings) = match kind {
         InputKind::Svg => {
-            let doc = tlaku_svg::import_svg(&data, opts.tolerance_mm)
+            let mut doc = tlaku_svg::import_svg(&data, opts.tolerance_mm)
                 .map_err(|e| format!("{}: SVG inválido: {e}", path.display()))?;
             let warnings = doc.warnings.clone();
+            svg_images = std::mem::take(&mut doc.images);
+            svg_height_mm = doc.height_mm;
             // El DPI solo cuenta cuando el SVG no trae unidades físicas: usvg ya lo pasó a
             // 96 ppp, así que se reescala por 96 / ppp.
             if let Some(dpi) = extras.dpi.filter(|d| d.is_finite() && *d > 0.0)
@@ -317,14 +323,133 @@ pub fn import_file_extras(
         | InputKind::Lbrn => unreachable!("se importan arriba"),
     };
     if layers.is_empty() {
-        return Err(format!(
-            "{}: el archivo no contiene trayectorias",
-            path.display()
-        ));
+        // Un SVG que solo trae imágenes incrustadas se importa como imagen.
+        if !svg_images.is_empty() {
+            let result =
+                svg_images_result(path, &svg_images, svg_height_mm, opts.flip_y, warnings)?;
+            return Ok(apply_extras(result, extras, factor));
+        }
+        return Err(empty_error(path, kind, &warnings));
     }
     let mut result = from_curves(layers, Vec::new());
     result.warnings.append(&mut warnings);
     Ok(apply_extras(result, extras, factor))
+}
+
+/// Avisos del importador que explican por qué no salió nada (lo omitido), sin los de escala ni
+/// los genéricos que solo repiten que el archivo no tiene geometría.
+fn cause_warnings(warnings: &[String]) -> Vec<&str> {
+    const NOISE: [&str; 5] = [
+        DXF_NO_UNITS,
+        "El SVG no define width/height",
+        "width/height sin unidades",
+        "El documento no contiene trayectorias importables",
+        "El archivo no contiene geometría importable",
+    ];
+    warnings
+        .iter()
+        .map(String::as_str)
+        .filter(|w| !NOISE.iter().any(|n| w.starts_with(n)))
+        .collect()
+}
+
+/// Error de un archivo sin trayectorias: conserva la causa que el importador ya conoce (textos,
+/// rellenos y cotas omitidos, imágenes, elementos ocultos...) y dice qué hacer.
+fn empty_error(path: &Path, kind: InputKind, warnings: &[String]) -> String {
+    let mut msg = format!("{}: el archivo no contiene trayectorias", path.display());
+    let causes = cause_warnings(warnings);
+    if causes.is_empty() {
+        return msg;
+    }
+    let body = causes.join(" ");
+    msg.push_str(". ");
+    msg.push_str(&body);
+    let hint = if body.contains("contornos") {
+        // Los avisos del propio importador ya dicen cómo arreglarlo.
+        ""
+    } else if body.contains("imagen") {
+        " Exporta la imagen como PNG o JPG e impórtala como imagen."
+    } else {
+        match kind {
+            InputKind::Dxf => {
+                " Convierte esos elementos a contornos (líneas, polilíneas y curvas) en tu \
+                 programa de CAD y vuelve a exportar."
+            }
+            InputKind::Svg => {
+                " Convierte el texto y los objetos a trayectos (contornos) en tu editor y \
+                 vuelve a guardar el SVG."
+            }
+            _ => "",
+        }
+    };
+    msg.push_str(hint);
+    msg
+}
+
+/// Escribe `data` junto a `original` (`<nombre>.tlaku-<tag>.<ext>`) o, si esa carpeta no se
+/// puede escribir, en la carpeta temporal.
+fn write_beside(
+    original: &Path,
+    tag: &str,
+    ext: &str,
+    data: &[u8],
+) -> Result<std::path::PathBuf, String> {
+    let stem = original
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("imagen");
+    let beside = original.with_file_name(format!("{stem}.tlaku-{tag}.{ext}"));
+    if std::fs::write(&beside, data).is_ok() {
+        return Ok(beside);
+    }
+    let tmp = std::env::temp_dir().join(format!("tlaku-{}-{stem}-{tag}.{ext}", new_id()));
+    std::fs::write(&tmp, data).map_err(|e| format!("{}: {e}", tmp.display()))?;
+    Ok(tmp)
+}
+
+/// Un SVG sin trayectorias pero con imágenes incrustadas: cada imagen se guarda como archivo y
+/// se importa como objeto imagen en su posición dentro del SVG.
+fn svg_images_result(
+    path: &Path,
+    images: &[tlaku_svg::EmbeddedImage],
+    height_mm: f64,
+    flip_y: bool,
+    svg_warnings: Vec<String>,
+) -> Result<ImportResult, String> {
+    let mut objects = Vec::new();
+    let mut saved = Vec::new();
+    for (n, img) in images.iter().enumerate() {
+        let file = write_beside(path, &format!("img{}", n + 1), img.ext, &img.data)?;
+        let mut kind = image_kind(&file, path, IMAGE_DPI)?;
+        if let ObjectKind::Image(i) = &mut kind {
+            i.size_mm = [img.width_mm, img.height_mm];
+        }
+        let y = if flip_y {
+            height_mm - img.y_mm - img.height_mm
+        } else {
+            img.y_mm
+        };
+        let mut obj = object(LayerSettings::IMAGE_COLOR, kind);
+        obj.transform = tlaku_doc::affine::translate(img.x_mm, y);
+        objects.push(obj);
+        saved.push(file.display().to_string());
+    }
+    let mut warnings = vec![format!(
+        "El SVG no trae trayectorias, solo {} imagen(es) incrustada(s): se importó como imagen \
+         (copia en {}). Para cortar o grabar contornos hace falta un SVG con trayectos.",
+        images.len(),
+        saved.join(", ")
+    )];
+    // Los avisos que hablan de imágenes omitidas o de falta de trayectorias ya no aplican.
+    warnings.extend(svg_warnings.into_iter().filter(|w| {
+        !w.contains("incrustada(s) omitida(s)")
+            && !w.starts_with("El documento no contiene trayectorias importables")
+    }));
+    Ok(ImportResult {
+        objects,
+        new_layers: vec![LayerSettings::for_images()],
+        warnings,
+    })
 }
 
 /// `true` si el elemento raíz del SVG declara `width` o `height` con una unidad física
@@ -381,6 +506,8 @@ fn apply_extras(mut result: ImportResult, extras: &ImportExtras, factor: f64) ->
                 }
                 ObjectKind::Image(i) => {
                     i.size_mm = [i.size_mm[0] * scale, i.size_mm[1] * scale];
+                    obj.transform[4] *= scale;
+                    obj.transform[5] *= scale;
                 }
                 ObjectKind::Text(_) => {}
             }

@@ -14,6 +14,7 @@ import { mockRemote, type MockRemote } from './remote';
 import { mockProbe } from './probe';
 import { mockDesign } from './design';
 import { mockGeometry } from './geometry';
+import { mockReview } from './review';
 import { mockShapes } from './shapes';
 import { mockText } from './text';
 import { mockTrace } from './trace';
@@ -204,6 +205,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockCodes(lag),
     ...mockGeometry(lag),
     ...mockShapes(lag),
+    ...mockReview(lag),
     ...mockDesign(lag),
     ...mockTrace(lag),
     ...mockTraceExtras(lag),

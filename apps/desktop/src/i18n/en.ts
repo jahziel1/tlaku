@@ -33,6 +33,7 @@ import { galvo } from './en/galvo';
 import { lhymicro } from './en/lhymicro';
 import { ruida } from './en/ruida';
 import { shapes } from './en/shapes';
+import { review } from './en/review';
 import { tiling } from './en/tiling';
 import { simple } from './en/simple';
 
@@ -68,5 +69,6 @@ export const en: { [K in I18nKey]?: string } = {
   ...galvo,
   ...shapes,
   ...tiling,
+  ...review,
   ...simple,
 };

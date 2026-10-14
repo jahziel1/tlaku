@@ -1,5 +1,6 @@
 import type { DesignObject, GuideAxis, LayerSettings, Point } from '@/api/types';
 import type { AppState } from '@/store';
+import { objectsByIds } from '@/store/objectIndex';
 import { nearestOnContour, polyPoints, spanAround, startMark } from './contour';
 import { getGeom } from './geom';
 import type { InteractionState } from './interaction';
@@ -78,26 +79,31 @@ export function startArrow(obj: DesignObject): StartArrow | null {
   return a;
 }
 
-export function buildMarks(s: AppState, ix: Pick<InteractionState, 'guideDrag' | 'guideHover' | 'markHover'>): SceneMarks {
-  const guides: GuideMark[] = [];
-  if (s.showGuides) {
-    const drag = ix.guideDrag;
-    (s.doc.guides ?? []).forEach((g, i) => {
-      if (drag && drag.index === i) {
-        guides.push({ axis: drag.axis, pos: drag.pos, hover: true, remove: drag.remove });
-      } else {
-        guides.push({ axis: g.axis, pos: g.pos, hover: ix.guideHover === i, remove: false });
-      }
-    });
-    if (drag && drag.index === null) guides.push({ axis: drag.axis, pos: drag.pos, hover: true, remove: drag.remove });
-  }
+/** Puentes manuales y flechas de inicio de los objetos; se recalcula solo si cambia el documento, la selección o lo que decide qué flechas se ven. */
+let scanMemo: { objects: DesignObject[]; layers: AppState['doc']['layers']; selected: string[]; start: boolean; tool: string; out: { tabs: TabMark[]; starts: StartArrow[] } } | null = null;
 
+const withTabs = new WeakMap<readonly DesignObject[], boolean>();
+
+function anyTabs(objects: readonly DesignObject[]): boolean {
+  let any = withTabs.get(objects);
+  if (any === undefined) {
+    any = objects.some((o) => (o.manual_tabs?.length ?? 0) > 0);
+    withTabs.set(objects, any);
+  }
+  return any;
+}
+
+function scanObjects(s: AppState): { tabs: TabMark[]; starts: StartArrow[] } {
+  const m = scanMemo;
+  if (m && m.objects === s.doc.objects && m.layers === s.doc.layers && m.selected === s.selectedIds && m.start === s.showStartMarks && m.tool === s.activeTool) return m.out;
   const layers = new Map<string, LayerSettings>(s.doc.layers.map((l) => [l.color.toLowerCase(), l]));
   const tabs: TabMark[] = [];
   const starts: StartArrow[] = [];
   const selected = new Set(s.selectedIds);
   const tool = s.activeTool;
-  for (const o of s.doc.objects) {
+  // Sin puentes manuales en el documento y sin flechas de todos los objetos, solo importan los seleccionados.
+  const onlySelected = !s.showStartMarks && tool !== 'start' && !anyTabs(s.doc.objects);
+  for (const o of onlySelected ? objectsByIds(s.doc.objects, s.selectedIds) : s.doc.objects) {
     if (o.hidden) continue;
     const layer = layers.get(o.layer.toLowerCase());
     if (layer && !layer.visible) continue;
@@ -114,6 +120,26 @@ export function buildMarks(s: AppState, ix: Pick<InteractionState, 'guideDrag' |
       if (a) starts.push(a);
     }
   }
+  const out = { tabs, starts };
+  scanMemo = { objects: s.doc.objects, layers: s.doc.layers, selected: s.selectedIds, start: s.showStartMarks, tool: s.activeTool, out };
+  return out;
+}
+
+export function buildMarks(s: AppState, ix: Pick<InteractionState, 'guideDrag' | 'guideHover' | 'markHover'>): SceneMarks {
+  const guides: GuideMark[] = [];
+  if (s.showGuides) {
+    const drag = ix.guideDrag;
+    (s.doc.guides ?? []).forEach((g, i) => {
+      if (drag && drag.index === i) {
+        guides.push({ axis: drag.axis, pos: drag.pos, hover: true, remove: drag.remove });
+      } else {
+        guides.push({ axis: g.axis, pos: g.pos, hover: ix.guideHover === i, remove: false });
+      }
+    });
+    if (drag && drag.index === null) guides.push({ axis: drag.axis, pos: drag.pos, hover: true, remove: drag.remove });
+  }
+
+  const { tabs, starts } = scanObjects(s);
   if (guides.length === 0 && tabs.length === 0 && starts.length === 0 && !ix.markHover) return EMPTY;
   return { guides, tabs, starts, hover: ix.markHover };
 }

@@ -558,7 +558,7 @@ function mockSlots(objects: DesignObject[], params: ShapeParams): ShapeOpResult 
   return finish(objects, slots, stats);
 }
 
-function mockShapeOp({ op, objects, params = {} }: ShapeOpArgs): ShapeOpResult {
+export function mockShapeOp({ op, objects, params = {} }: ShapeOpArgs): ShapeOpResult {
   if (objects.length === 0) throw new Error('No hay objetos sobre los que operar.');
   const bad = objects.filter((o) => o.kind.type !== 'vector').map((o) => `«${o.id}»`);
   if (bad.length > 0) throw new Error(`Esta operación solo trabaja con trazos vectoriales; convierte los textos a trayecto y quita las imágenes: ${bad.join(', ')}.`);

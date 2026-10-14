@@ -52,7 +52,7 @@ function subtract(a: Bounds, b: Bounds): Bounds | null {
  * caja unida; la intersección, la caja común; la diferencia, A (recortada si B la cruza de lado a
  * lado); el offset, cada caja crecida (con esquinas redondas si se pidió).
  */
-function mockGeometryOp(args: GeometryOpArgs): DesignObject[] {
+export function mockGeometryOp(args: GeometryOpArgs): DesignObject[] {
   // La limpieza de trazos sí admite formas abiertas: no pasa por la validación de las booleanas.
   if (args.op === 'join' || args.op === 'close' || args.op === 'dedupe') return mockCleanup(args);
   const operands = boundsOfOperands(args.objects);

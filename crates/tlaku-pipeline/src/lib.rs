@@ -41,7 +41,7 @@ mod zaxis;
 
 pub use build::{build, compute, compute_at};
 pub use galvo::field_rect;
-pub use gcode::{frame_gcode, gcode};
+pub use gcode::{frame_gcode, gcode, link_load};
 pub use import::{
     ImportExtras, ImportOptions, InputKind, import_file, import_file_extras, import_file_with,
     input_kind,

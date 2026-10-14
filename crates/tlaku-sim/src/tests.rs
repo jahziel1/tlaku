@@ -475,3 +475,122 @@ fn sampler_stays_put_and_lit_during_a_dwell() {
             .all(|(_, pos, on)| { pos.x == 0.0 && pos.y == 0.0 && *on })
     );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Estimado contra simulado (ola 6): casos mínimos de los desvíos del corpus. En los tres el
+// estimador coincide con la cinemática de GRBL calculada a mano; las diferencias que midió el
+// emulador (`tlaku-emu`) vienen de su modelo de uniones (ver `docs/pruebas-estres.md`).
+// ---------------------------------------------------------------------------------------------
+
+/// Perfil típico de un diodo GRBL: 12 000 mm/min por eje, 1 000 mm/s², JD 0,01, búfer de 16.
+fn grbl_profile() -> MachineProfile {
+    MachineProfile::default()
+}
+
+#[test]
+fn block_speed_above_the_axis_limit_is_clamped_like_the_machine_does() {
+    // Capas de LightBurn con 30 000 mm/min sobre una máquina de 12 000: el tiempo es el del
+    // tope, igual que el del bloque pedido a 12 000 (y el emulador, que recorta con `$110`).
+    let line = |speed| {
+        job(vec![block(
+            speed,
+            vec![travel(10.0, 10.0), cut(110.0, 10.0)],
+        )])
+    };
+    let capped = estimate(&line(30_000.0), &grbl_profile()).total_s;
+    let at_max = estimate(&line(12_000.0), &grbl_profile()).total_s;
+    close(capped, at_max);
+    // Y es de verdad el tope: 100 mm a 200 mm/s con a = 1000 (más la aproximación desde 0,0).
+    let approach = estimate(
+        &job(vec![block(12_000.0, vec![travel(10.0, 10.0)])]),
+        &grbl_profile(),
+    );
+    close(capped - approach.total_s, 100.0 / 200.0 + 200.0 / 1000.0);
+    // En diagonal manda el eje que primero llega a su límite: 200 * sqrt(2) mm/s por la
+    // diagonal, no 500 mm/s.
+    let diag = job(vec![block(
+        30_000.0,
+        vec![travel(0.0, 0.0), cut(100.0, 100.0)],
+    )]);
+    let v = 200.0 * 2f64.sqrt();
+    let a = 1000.0 * 2f64.sqrt();
+    close(
+        estimate(&diag, &grbl_profile()).total_s,
+        100.0 * 2f64.sqrt() / v + v / a,
+    );
+}
+
+#[test]
+fn reversing_short_cuts_take_the_rest_to_rest_time() {
+    // Ida y vuelta de 1 mm sobre la misma recta: GRBL llega a velocidad 0 en cada giro de 180
+    // grados, así que cada tramo dura 2 * sqrt(d / a) (triángulo a = 1000). Un modelo de uniones
+    // que deje pasar una velocidad mínima distinta de 0 en el giro (como el del emulador) da
+    // menos.
+    let n = 400;
+    let mut moves = vec![travel(20.0, 20.0)];
+    for i in 0..n {
+        moves.push(cut(if i % 2 == 0 { 21.0 } else { 20.0 }, 20.0));
+    }
+    let tp = job(vec![block(6000.0, moves)]);
+    let approach = estimate(
+        &job(vec![block(6000.0, vec![travel(20.0, 20.0)])]),
+        &grbl_profile(),
+    );
+    let t = estimate(&tp, &grbl_profile()).total_s - approach.total_s;
+    close(t, f64::from(n) * 2.0 * (1.0f64 / 1000.0).sqrt());
+}
+
+#[test]
+fn gentle_polyline_turns_do_not_slow_a_slow_cut() {
+    // Segmentos de 0,157 mm con giros de 30 grados a 860 mm/min (14,3 mm/s): con la desviación
+    // de unión de 0,01 mm la velocidad permitida en cada vértice es sqrt(a * JD * s / (1 - s))
+    // con s = sin(75 grados), unos 16,9 mm/s, mayor que la del corte: no frena. El tiempo es
+    // largo / velocidad más la rampa inicial y final.
+    let (l, v) = (0.157, 860.0 / 60.0);
+    let mut moves = vec![travel(10.0, 10.0)];
+    let (mut x, mut y) = (10.0, 10.0);
+    for i in 0..1500 {
+        let a = (if i % 2 == 0 { 15.0f64 } else { -15.0 }).to_radians();
+        x += l * a.cos();
+        y += l * a.sin();
+        moves.push(cut(x, y));
+    }
+    let tp = job(vec![block(860.0, moves)]);
+    let approach = estimate(
+        &job(vec![block(860.0, vec![travel(10.0, 10.0)])]),
+        &grbl_profile(),
+    );
+    let t = estimate(&tp, &grbl_profile()).total_s - approach.total_s;
+    let expected = 1500.0 * l / v + v / 1000.0;
+    assert!((t - expected).abs() / expected < 0.01, "{t} vs {expected}");
+}
+
+#[test]
+fn line_rate_finds_the_dense_stretch_not_the_average() {
+    // 2 mm largos a 6000 mm/min (100 mm/s) y luego 400 segmentos de 0,05 mm a 600 mm/min
+    // (10 mm/s): el promedio es bajo, pero en el tramo denso salen unas 200 líneas por segundo.
+    let mut moves = vec![travel(0.0, 0.0), cut(100.0, 0.0)];
+    let mut x = 100.0;
+    for _ in 0..400 {
+        x += 0.05;
+        moves.push(cut(x, 0.0));
+    }
+    let tp = job(vec![
+        block(6000.0, moves[..2].to_vec()),
+        block(600.0, {
+            let mut m = vec![travel(100.0, 0.0)];
+            m.extend_from_slice(&moves[2..]);
+            m
+        }),
+    ]);
+    let r = line_rate(Point::new(0.0, 0.0), &tp, &grbl_profile(), 1.0);
+    assert_eq!(r.lines, 401);
+    assert!(r.peak_per_s > 150.0 && r.peak_per_s < 250.0, "{r:?}");
+    assert!(r.mean_per_s < r.peak_per_s * 0.7, "{r:?}");
+}
+
+#[test]
+fn line_rate_of_an_empty_job_is_zero() {
+    let r = line_rate(Point::new(0.0, 0.0), &job(vec![]), &grbl_profile(), 1.0);
+    assert_eq!((r.lines, r.peak_per_s, r.mean_per_s), (0, 0.0, 0.0));
+}

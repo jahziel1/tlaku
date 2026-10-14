@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DesignObject, TextObject } from '@/api/types';
 import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
-import { buildGeom, chunkPath, fillPath, OP_CUBIC, OP_CLOSE } from './geom';
+import { buildGeom, chunkPath, DERIVE_MIN_SEGMENTS, fillPath, getGeom, OP_CUBIC, OP_CLOSE, translateGeom, type ObjectGeom } from './geom';
 import { hitObject, pickObject, selectByBox } from './hit';
 import { ctxFor } from './testUtil';
 import { newVectorObject } from './shapes';
@@ -120,5 +120,92 @@ describe('texto', () => {
     expect(g.box![2]).toBeGreaterThan(10 + 10); // 5 caracteres más largos que 2 em
     expect(g.box![1]).toBeLessThan(20 - 10 * 1.2); // la segunda línea baja
     expect(selectByBox(ctxFor([o]), [0, 0, 300, 300], 'window')).toEqual(['t']);
+  });
+});
+
+describe('geometría de un objeto movido', () => {
+  const close = (a: ArrayLike<number>, b: ArrayLike<number>) => {
+    expect(a.length).toBe(b.length);
+    for (let i = 0; i < a.length; i++) expect(a[i]).toBeCloseTo(b[i]!, 9);
+  };
+  const same = (a: ObjectGeom, b: ObjectGeom) => {
+    expect(a.segments).toBe(b.segments);
+    expect(a.image).toBe(b.image);
+    close(a.box ?? [], b.box ?? []);
+    expect(a.polys).toHaveLength(b.polys.length);
+    a.polys.forEach((p, k) => {
+      const q = b.polys[k]!;
+      close(p.pts, q.pts);
+      close(p.co, q.co);
+      close(p.box, q.box);
+      expect([...p.ops]).toEqual([...q.ops]);
+      expect([...p.coAt]).toEqual([...q.coAt]);
+      expect([...p.ptEnd]).toEqual([...q.ptEnd]);
+      expect(p.closed).toBe(q.closed);
+    });
+    expect(a.chunks).toHaveLength(b.chunks.length);
+    a.chunks.forEach((c, k) => {
+      const d = b.chunks[k]!;
+      close(c.box, d.box);
+      expect([c.poly, c.from, c.to, c.o0, c.o1, c.closing, c.close, c.closed]).toEqual([d.poly, d.from, d.to, d.o0, d.o1, d.closing, d.close, d.closed]);
+    });
+  };
+  /** Un contorno con curvas, rectas y un cierre, de sobra para pasar el umbral. */
+  const big = (): DesignObject => {
+    const pts = Array.from({ length: DERIVE_MIN_SEGMENTS + 500 }, (_, i) => [i * 0.05, Math.sin(i / 7) * 3] as [number, number]);
+    return newVectorObject('big', '#ff0000', [polylineBez(pts, true), ellipseBez(40, 5, 6, 3)]);
+  };
+
+  it('translateGeom da lo mismo que construir la geometría del objeto ya movido', () => {
+    const o = big();
+    const moved: DesignObject = { ...o, transform: [1, 0, 0, 1, 12.5, -7.25] };
+    same(translateGeom(buildGeom(o), 12.5, -7.25), buildGeom(moved));
+    const rotated: DesignObject = { ...o, transform: [0, 1, -1, 0, 3, 4] };
+    same(translateGeom(buildGeom(rotated), -2, 9), buildGeom({ ...rotated, transform: [0, 1, -1, 0, 1, 13] }));
+  });
+
+  it('getGeom deriva la de un objeto grande movido (sin aplanar) y construye la de uno pequeño o girado', () => {
+    const o = big();
+    const g0 = getGeom(o);
+    const moved: DesignObject = { ...o, transform: [1, 0, 0, 1, 30, 20] };
+    const g1 = getGeom(moved);
+    expect(g1).not.toBe(g0);
+    expect(g1.polys[0]!.ops).toBe(g0.polys[0]!.ops); // se comparten las operaciones: no se aplanó otra vez
+    same(g1, buildGeom(moved));
+    // volver atrás (deshacer) también
+    const back: DesignObject = { ...o, transform: [1, 0, 0, 1, 0, 0] };
+    same(getGeom(back), buildGeom(back));
+    // girar cambia la parte lineal: se construye
+    const turned: DesignObject = { ...o, transform: [0, 1, -1, 0, 30, 20] };
+    expect(getGeom(turned).polys[0]!.ops).not.toBe(g0.polys[0]!.ops);
+    same(getGeom(turned), buildGeom(turned));
+    // un objeto pequeño no se deriva
+    const small = newVectorObject('s', '#ff0000', [polylineBez([[0, 0], [1, 0], [1, 1]], true)]);
+    const s0 = getGeom(small);
+    const s1 = getGeom({ ...small, transform: [1, 0, 0, 1, 4, 4] });
+    expect(s1.polys[0]!.ops).not.toBe(s0.polys[0]!.ops);
+  });
+
+  it('los trozos derivados crean su Path2D al dibujarlos (no heredan el del objeto anterior)', () => {
+    const o = big();
+    const g0 = getGeom(o);
+    chunkPath(g0, g0.chunks[0]!, make);
+    const g1 = getGeom({ ...o, transform: [1, 0, 0, 1, 5, 5] });
+    expect(g1.chunks[0]!.path).toBeNull();
+    const p = chunkPath(g1, g1.chunks[0]!, make);
+    const first = callsOf(p)[0]!;
+    expect(first[1]).toBeCloseTo(g0.polys[0]!.pts[0]! + 5, 9);
+  });
+
+  it('con un trayecto de 300 000 nodos derivar es mucho más rápido que construir', () => {
+    const pts = Array.from({ length: 300_000 }, (_, i) => [(i % 1000) * 0.2, Math.floor(i / 1000) * 0.2] as [number, number]);
+    const o = newVectorObject('huge', '#ff0000', [polylineBez(pts, false)]);
+    const t0 = performance.now();
+    const built = buildGeom(o);
+    const buildMs = performance.now() - t0;
+    const t1 = performance.now();
+    translateGeom(built, 1, 1);
+    const deriveMs = performance.now() - t1;
+    expect(deriveMs).toBeLessThan(buildMs / 3);
   });
 });

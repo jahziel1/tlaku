@@ -50,7 +50,7 @@ pub(crate) fn nearest_neighbor(ctx: &mut Ctx, members: &[usize], start: Point) -
     for _ in 0..members.len() {
         let hit = {
             let mark = &ctx.mark;
-            grid.nearest(pos, &|i| mark[i] == DONE, &|i| mark[i] == READY)
+            grid.nearest(pos, |i| mark[i] == DONE, |i| mark[i] == READY)
         };
         // Sin listos solo ocurriría con un ciclo de precedencias, que no se construye.
         let (item, pt) = match hit {

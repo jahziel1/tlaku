@@ -82,6 +82,9 @@ struct Interp {
     uses_power: bool,
     cur: Option<Run>,
     runs: Vec<Run>,
+    /// Avances G1/G2/G3 con movimiento que no se dibujaron por tener potencia 0 (con el husillo
+    /// encendido si el archivo usa M3/M4).
+    zero_power_feeds: usize,
     ignored: Vec<String>,
     non_xy_arcs: usize,
     bad_arcs: usize,
@@ -115,6 +118,7 @@ impl Interp {
             uses_power: power,
             cur: None,
             runs: Vec::new(),
+            zero_power_feeds: 0,
             ignored: Vec::new(),
             non_xy_arcs: 0,
             bad_arcs: 0,
@@ -248,8 +252,18 @@ impl Interp {
         (p.x - self.offset.0, p.y - self.offset.1)
     }
 
+    /// Cuenta un avance con movimiento que no se dibuja por tener potencia 0.
+    fn note_unpowered(&mut self) {
+        if self.power <= 0.0 && (!self.uses_spindle || self.spindle_on) {
+            self.zero_power_feeds += 1;
+        }
+    }
+
     fn draw_line(&mut self, start: Point, target: Point) {
         if !self.laser_on() || start.dist(target) < 1e-9 {
+            if start.dist(target) >= 1e-9 {
+                self.note_unpowered();
+            }
             self.flush();
             return;
         }
@@ -309,6 +323,7 @@ impl Interp {
             return;
         }
         if !self.laser_on() {
+            self.note_unpowered();
             self.flush();
             return;
         }
@@ -370,6 +385,15 @@ impl Interp {
         let name = path.display();
         let mut warnings = Vec::new();
         if self.runs.is_empty() {
+            if self.zero_power_feeds > 0 {
+                return Err(format!(
+                    "{name}: el G-code no dibuja nada con el láser encendido: trae {} avances \
+                     G1/G2/G3 pero con potencia 0 (M3 S0, o sin una S mayor que 0). Fija una \
+                     potencia al generarlo, por ejemplo M3 S500 antes del corte, y vuelve a \
+                     importarlo",
+                    self.zero_power_feeds
+                ));
+            }
             return Err(format!(
                 "{name}: el G-code no dibuja nada con el láser encendido (se buscan G1, G2 y G3 \
                  con M3/M4 y S mayor que 0; los G0 no se dibujan)"
@@ -652,7 +676,16 @@ mod tests {
 
     #[test]
     fn sin_trazos_es_error() {
-        let e = run("M3 S0\nG0 X1 Y1\nG1 X5 Y5\nM5\n").unwrap_err();
+        let e = run("M3 S300\nM5\nG0 X1 Y1\nG1 X5 Y5\n").unwrap_err();
         assert!(e.contains("no dibuja nada"), "{e}");
+        // Con el láser apagado por M5 no hay nada que sugerir sobre la potencia.
+        assert!(!e.contains("potencia 0"), "{e}");
+    }
+
+    #[test]
+    fn potencia_cero_sugiere_fijar_una_potencia() {
+        let e = run("M3 S0\nG0 X1 Y1\nG1 X5 Y5\nG1 X9 Y5\nM5\n").unwrap_err();
+        assert!(e.contains("2 avances") && e.contains("potencia 0"), "{e}");
+        assert!(e.contains("M3 S500"), "{e}");
     }
 }

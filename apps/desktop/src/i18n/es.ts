@@ -32,6 +32,7 @@ import { galvo } from './es/galvo';
 import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
+import { review } from './es/review';
 import { tiling } from './es/tiling';
 import { simple } from './es/simple';
 
@@ -293,6 +294,7 @@ export const es = {
   ...galvo,
   ...shapes,
   ...tiling,
+  ...review,
   ...camera,
   ...materials,
   ...devices,

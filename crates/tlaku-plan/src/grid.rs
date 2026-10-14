@@ -109,6 +109,39 @@ impl Grid {
         }
     }
 
+    /// Distancia de `p` (en la celda `cx, cy`) al borde del bloque de celdas a distancia de
+    /// Chebyshev menor que `r`. Si el bloque se sale de la rejilla por un lado, ese lado no
+    /// limita (no hay entradas más allá): pero los puntos de entrada se recortan a la rejilla,
+    /// así que se usa el mismo borde y sigue siendo una cota válida.
+    fn block_margin(&self, p: Point, cx: usize, cy: usize, r: usize) -> f64 {
+        if r == 0 {
+            return 0.0;
+        }
+        let (lo_x, hi_x) = (
+            self.ox + (cx + 1 - r.min(cx + 1)) as f64 * self.cs,
+            self.ox + (cx + r) as f64 * self.cs,
+        );
+        let (lo_y, hi_y) = (
+            self.oy + (cy + 1 - r.min(cy + 1)) as f64 * self.cs,
+            self.oy + (cy + r) as f64 * self.cs,
+        );
+        let mut m = f64::INFINITY;
+        // Un lado sin celdas más allá de la rejilla no puede esconder entradas.
+        if cx + 1 > r {
+            m = m.min(p.x - lo_x);
+        }
+        if cx + r < self.gx {
+            m = m.min(hi_x - p.x);
+        }
+        if cy + 1 > r {
+            m = m.min(p.y - lo_y);
+        }
+        if cy + r < self.gy {
+            m = m.min(hi_y - p.y);
+        }
+        m
+    }
+
     fn max_ring(&self) -> usize {
         self.gx.max(self.gy)
     }
@@ -119,15 +152,17 @@ impl Grid {
     pub fn nearest(
         &mut self,
         p: Point,
-        dead: &dyn Fn(usize) -> bool,
-        accept: &dyn Fn(usize) -> bool,
+        dead: impl Fn(usize) -> bool,
+        accept: impl Fn(usize) -> bool,
     ) -> Option<Hit> {
         let (cx, cy) = self.cell_of(p);
         let mut best: Option<Hit> = None;
         let mut buf = Vec::new();
         for r in 0..=self.max_ring() {
             if let Some(b) = &best {
-                let lb = r.saturating_sub(1) as f64 * self.cs;
+                // Todo lo que queda fuera del bloque de anillos 0..r está al menos a la
+                // distancia de `p` al borde de ese bloque (con holgura por el redondeo).
+                let lb = (self.block_margin(p, cx, cy, r) - 1e-9 * self.cs).max(0.0);
                 if lb * lb > b.dist2 {
                     break;
                 }
@@ -164,6 +199,51 @@ impl Grid {
             }
         }
         best
+    }
+
+    /// Elementos vivos con algún punto a distancia (euclídea) menor o igual que `r` de `p`,
+    /// sin repetir y sin orden. Devuelve `false` (sin llenar `out`) si el disco toca más de
+    /// `max_cells` celdas: quien llama debe usar otro camino. Descarta de paso los muertos.
+    pub fn items_within(
+        &mut self,
+        p: Point,
+        r: f64,
+        max_cells: usize,
+        dead: impl Fn(usize) -> bool,
+        out: &mut Vec<usize>,
+    ) -> bool {
+        out.clear();
+        let span = |lo: f64, hi: f64, o: f64, n: usize| -> (usize, usize) {
+            let f = |v: f64| (((v - o) * self.inv).floor().max(0.0) as usize).min(n - 1);
+            (f(lo), f(hi))
+        };
+        let (x0, x1) = span(p.x - r, p.x + r, self.ox, self.gx);
+        let (y0, y1) = span(p.y - r, p.y + r, self.oy, self.gy);
+        if (x1 - x0 + 1) * (y1 - y0 + 1) > max_cells {
+            return false;
+        }
+        let r2 = r * r;
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let cell = &mut self.cells[y * self.gx + x];
+                let mut k = 0;
+                while k < cell.len() {
+                    let e = cell[k];
+                    if dead(e.item as usize) {
+                        cell.swap_remove(k);
+                        continue;
+                    }
+                    k += 1;
+                    let (dx, dy) = (e.x - p.x, e.y - p.y);
+                    if dx * dx + dy * dy <= r2 {
+                        out.push(e.item as usize);
+                    }
+                }
+            }
+        }
+        out.sort_unstable();
+        out.dedup();
+        true
     }
 
     /// Los `k` elementos distintos más cercanos a `p` (por su punto más próximo), sin
@@ -235,7 +315,7 @@ mod tests {
         let mut r = Lcg(99);
         for _ in 0..400 {
             let q = Point::new(r.next() * 140.0 - 20.0, r.next() * 90.0 - 20.0);
-            let hit = grid.nearest(q, &|i| dead[i], &|_| true).unwrap();
+            let hit = grid.nearest(q, |i| dead[i], |_| true).unwrap();
             let want = pts
                 .iter()
                 .filter(|(i, _, _)| !dead[*i])
@@ -250,15 +330,38 @@ mod tests {
     }
 
     #[test]
+    fn items_within_matches_brute_force() {
+        let pts = cloud(400, 21);
+        let mut grid = Grid::new(&pts);
+        let dead: Vec<bool> = (0..pts.len()).map(|i| i % 7 == 0).collect();
+        let mut r = Lcg(5);
+        let mut out = Vec::new();
+        for _ in 0..300 {
+            let q = Point::new(r.next() * 160.0 - 30.0, r.next() * 100.0 - 25.0);
+            let rad = r.next() * 30.0;
+            assert!(grid.items_within(q, rad, usize::MAX, |i| dead[i], &mut out));
+            let want: Vec<usize> = pts
+                .iter()
+                .filter(|(i, _, p)| {
+                    !dead[*i] && (p.x - q.x).powi(2) + (p.y - q.y).powi(2) <= rad * rad
+                })
+                .map(|&(i, _, _)| i)
+                .collect();
+            assert_eq!(out, want);
+        }
+        assert!(!grid.items_within(Point::new(50.0, 25.0), 1e6, 4, |_| false, &mut out));
+    }
+
+    #[test]
     fn nearest_respects_accept_filter() {
         let pts = cloud(100, 3);
         let mut grid = Grid::new(&pts);
         let hit = grid
-            .nearest(Point::new(0.0, 0.0), &|_| false, &|i| i % 2 == 1)
+            .nearest(Point::new(0.0, 0.0), |_| false, |i| i % 2 == 1)
             .unwrap();
         assert_eq!(hit.item % 2, 1);
         assert!(
-            grid.nearest(Point::new(0.0, 0.0), &|_| false, &|_| false)
+            grid.nearest(Point::new(0.0, 0.0), |_| false, |_| false)
                 .is_none()
         );
     }
@@ -299,13 +402,13 @@ mod tests {
         let empty = Grid::new(&[]);
         let mut e = empty;
         assert!(
-            e.nearest(Point::new(1.0, 1.0), &|_| false, &|_| true)
+            e.nearest(Point::new(1.0, 1.0), |_| false, |_| true)
                 .is_none()
         );
         let same: Vec<_> = (0..5).map(|i| (i, 0, Point::new(2.0, 2.0))).collect();
         let mut g = Grid::new(&same);
         assert_eq!(
-            g.nearest(Point::new(9.0, 9.0), &|_| false, &|_| true)
+            g.nearest(Point::new(9.0, 9.0), |_| false, |_| true)
                 .unwrap()
                 .item,
             0
@@ -313,7 +416,7 @@ mod tests {
         let line: Vec<_> = (0..50).map(|i| (i, 0, Point::new(i as f64, 3.0))).collect();
         let mut g = Grid::new(&line);
         assert_eq!(
-            g.nearest(Point::new(20.2, 0.0), &|_| false, &|_| true)
+            g.nearest(Point::new(20.2, 0.0), |_| false, |_| true)
                 .unwrap()
                 .item,
             20

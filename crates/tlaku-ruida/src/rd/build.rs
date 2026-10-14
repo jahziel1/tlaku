@@ -107,7 +107,9 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         return Err(RdError::BadOption("laser_tube_start debe caber en 7 bits"));
     }
     let name = encode_element_name(ELEMENT_NAME).expect("nombre válido");
-    let plans = plan_layers(tp, opts)?;
+    let planned = plan_layers(tp, opts)?;
+    planned.check_limit()?;
+    let plans = planned.layers;
     let mut job_box = plans[0].bbox;
     for p in &plans[1..] {
         job_box.union(&p.bbox);

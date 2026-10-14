@@ -16,6 +16,7 @@ import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
 import { NestDialogHost } from '@/features/nest';
+import { ReviewHost } from '@/features/review';
 import { TilingHost } from '@/features/tiling';
 import { PrintCutHost } from '@/features/printcut';
 import { ArtPanelHost } from '@/features/art';
@@ -94,6 +95,7 @@ function ShellBody() {
       <ArtPanelHost />
       <NestDialogHost />
       <TilingHost />
+      <ReviewHost />
       <PrintCutHost />
       <CameraDialogHost />
       <MaterialsDialogHost />

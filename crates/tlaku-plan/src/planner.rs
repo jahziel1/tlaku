@@ -7,10 +7,11 @@ use tlaku_core::{Point, Polyline};
 
 use crate::contain::find_parents;
 use crate::explain::explain;
+use crate::geom::Bbox;
 use crate::improve::{improve, polish};
 use crate::overlap::{Extra, find_overlaps};
 use crate::sched::{input_order, nearest_neighbor};
-use crate::shapes::Shapes;
+use crate::shapes::{Shapes, push_entries};
 use crate::{Level, Plan, PlanItem, PlanOptions, PlanStep, Reason, Warning, Winding};
 
 /// Estado compartido entre las etapas. Los vectores son del tamaño de la entrada.
@@ -33,6 +34,8 @@ pub(crate) struct Ctx<'a> {
     pub mark: Vec<u8>,
     pub pending: Vec<u32>,
     pub local: Vec<u32>,
+    /// Caja de los puntos por los que puede entrar cada figura (ver `push_entries`).
+    pub ebox: Vec<Bbox>,
 }
 
 type Key = (usize, Option<usize>, i32);
@@ -261,7 +264,8 @@ pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
         )
     };
     let mut sorted: Vec<usize> = (0..n).filter(|&i| valid[i]).collect();
-    sorted.sort_by(|&a, &b| key_of(a).cmp(&key_of(b)).then(a.cmp(&b)));
+    // El índice desempata, así que el orden es total y el resultado es el de una estable.
+    sorted.sort_unstable_by_key(|&i| (key_of(i), i));
     let mut buckets: Vec<Vec<usize>> = Vec::new();
     let mut keys: Vec<Key> = Vec::new();
     let mut bucket_of = vec![usize::MAX; n];
@@ -344,6 +348,18 @@ pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
     let base_orders = valid_input_order(&buckets, &bouter, &bchildren);
     let baseline = travel_in_order(items, base_orders.iter().flatten().copied(), options.start);
 
+    let mut ebox = vec![Bbox::of(&[]); n];
+    let mut buf = Vec::new();
+    for i in (0..n).filter(|&i| valid[i]) {
+        buf.clear();
+        push_entries(items, options, i, &mut buf);
+        ebox[i] = buf.iter().fold(Bbox::of(&[]), |b, &(_, _, p)| Bbox {
+            min_x: b.min_x.min(p.x),
+            min_y: b.min_y.min(p.y),
+            max_x: b.max_x.max(p.x),
+            max_y: b.max_y.max(p.y),
+        });
+    }
     let mut ctx = Ctx {
         items,
         opts: options,
@@ -357,6 +373,7 @@ pub fn plan(items: &[PlanItem], options: &PlanOptions) -> Plan {
         mark: vec![0; n],
         pending: vec![0; n],
         local: vec![0; n],
+        ebox,
     };
 
     let (mut steps, mut travel) = run(&mut ctx, &buckets, &keys, &overrides, None);

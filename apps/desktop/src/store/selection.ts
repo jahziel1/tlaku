@@ -1,6 +1,7 @@
 import type { DesignObject, LayerSettings } from '@/api/types';
 import { nodeCount, parseModel } from '@/features/canvas/nodeedit';
 import { readPref, writePref } from '@/lib/platform';
+import { objectIndex } from './objectIndex';
 import type { SliceCreator } from './types';
 
 /** Un objeto oculto, bloqueado o de una capa invisible no se puede seleccionar. */
@@ -132,9 +133,20 @@ export const createSelectionSlice: SliceCreator<SelectionSlice> = (set, get) => 
       return;
     }
     const layers = layerMap(doc.layers);
-    const ok = new Set(doc.objects.filter((o) => selectable(o, layers)).map((o) => o.id));
-    const kept = selectedIds.filter((id) => ok.has(id));
+    const idx = objectIndex(doc.objects);
+    let kept: string[];
+    if (idx.unique) {
+      // Por índice de ids: solo se miran los seleccionados, no los 100 000 objetos del documento.
+      kept = selectedIds.filter((id) => {
+        const i = idx.at.get(id);
+        return i !== undefined && selectable(doc.objects[i]!, layers);
+      });
+    } else {
+      const ok = new Set(doc.objects.filter((o) => selectable(o, layers)).map((o) => o.id));
+      kept = selectedIds.filter((id) => ok.has(id));
+    }
     if (kept.length !== selectedIds.length) set({ selectedIds: kept });
+    if (Object.keys(nodeSel).length === 0) return;
     // Deshacer, rehacer o borrar pueden cambiar cuántos nodos tiene un objeto: lo que ya no existe se descarta.
     const nodes = pruneNodeSel(nodeSel, doc.objects, new Set(kept));
     if (nodes !== nodeSel) set({ nodeSel: nodes });

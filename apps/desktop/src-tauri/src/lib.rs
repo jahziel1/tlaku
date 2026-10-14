@@ -19,15 +19,33 @@ mod prefs;
 mod probe;
 mod remote;
 mod settings_backup;
+pub mod smoke;
 mod templates;
 mod window;
 
 use commands::AppState;
 use tauri::{Manager, RunEvent};
 
+/// Contexto de Tauri (`tauri.conf.json` y los recursos de la interfaz).
+fn app_context() -> tauri::Context {
+    tauri::generate_context!()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app = tauri::Builder::default()
+    let app = build_app(app_context());
+    app.run(|app, event| {
+        // Al salir se cancela un trabajo en curso (pausa y reinicio) antes de soltar el puerto.
+        if let RunEvent::Exit = event {
+            app.state::<AppState>().shutdown();
+        }
+    });
+}
+
+/// La aplicación con todos sus comandos registrados. La comparten `run` y la prueba de humo
+/// (`smoke`), que le pasa un contexto sin ventanas.
+fn build_app(context: tauri::Context) -> tauri::App {
+    tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(automation::AutomationState::default())
@@ -90,6 +108,7 @@ pub fn run() {
             edit::nest::nest_poll,
             edit::nest::nest_cancel,
             edit::shape_ops::shape_op,
+            edit::review::review_design,
             edit::design::warp_objects,
             edit::design::hull_outline,
             edit::design::tangent_circles,
@@ -139,14 +158,8 @@ pub fn run() {
             settings_backup::read_settings_backup,
             window::new_window,
         ])
-        .build(tauri::generate_context!())
-        .expect("no se pudo iniciar la aplicación Tlaku");
-    app.run(|app, event| {
-        // Al salir se cancela un trabajo en curso (pausa y reinicio) antes de soltar el puerto.
-        if let RunEvent::Exit = event {
-            app.state::<AppState>().shutdown();
-        }
-    });
+        .build(context)
+        .expect("no se pudo iniciar la aplicación Tlaku")
 }
 
 #[cfg(test)]

@@ -208,9 +208,13 @@ pub enum RdError {
     Num(NumError),
     /// No hay ningún bloque con cortes.
     EmptyJob,
-    /// Más bloques con cortes que capas posibles (128).
+    /// Más capas de ajustes distintos que capas posibles (128), aun fusionando las vecinas de
+    /// ajustes idénticos.
     TooManyLayers {
+        /// Capas que quedan tras fusionar.
         layers: usize,
+        /// Bloques con cortes del trabajo (antes de fusionar).
+        blocks: usize,
     },
     /// La potencia mínima configurada es mayor que la máxima del bloque.
     MinPowerAboveMax {
@@ -225,9 +229,11 @@ impl fmt::Display for RdError {
             RdError::Safety(e) => write!(f, "{e}"),
             RdError::Num(e) => write!(f, "{e}"),
             RdError::EmptyJob => write!(f, "el trabajo no tiene ningún corte"),
-            RdError::TooManyLayers { layers } => write!(
+            RdError::TooManyLayers { layers, blocks } => write!(
                 f,
-                "el trabajo tiene {layers} capas con cortes y Ruida admite {MAX_LAYERS}"
+                "el trabajo tiene {blocks} capas con cortes ({layers} con ajustes distintos \
+                 entre capas seguidas) y Ruida admite {MAX_LAYERS}: unifica colores o ajustes \
+                 (velocidad, potencia, aire) para que las capas se fusionen"
             ),
             RdError::MinPowerAboveMax { block } => write!(
                 f,

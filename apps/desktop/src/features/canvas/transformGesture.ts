@@ -6,6 +6,7 @@ import { fmt } from '@/lib/platform';
 import { handleSpots, hitHandle, type HandleSpot } from './handles';
 import { HIT_PX, layerLookup, pickObject } from './hit';
 import { patchInteraction, useInteraction } from './interaction';
+import { objectIndex, objectsByIds } from '@/store/objectIndex';
 import { constrainDelta } from './shapes';
 import type { Mods } from './toolDeps';
 import { NO_SNAP, snapFeatures, snapMove, snapToleranceMM, snapToPoints, type Feature } from './snap';
@@ -19,12 +20,21 @@ export function createTransformGesture(ctx: GestureCtx) {
 
   const selectedObjects = (): DesignObject[] => {
     const s = st();
-    const ids = new Set(s.selectedIds);
-    return s.doc.objects.filter((o) => ids.has(o.id) && !o.locked);
+    // Por índice de ids: con 100 000 objetos no se recorre el documento cada vez (se llama en cada hover).
+    // Si no hay bloqueados se devuelve el mismo arreglo guardado (su caja también se guarda por arreglo).
+    const all = objectsByIds(s.doc.objects, s.selectedIds);
+    return all.some((o) => o.locked) ? all.filter((o) => !o.locked) : all;
   };
 
   /** Ids del objeto y de su grupo (solo los seleccionables). */
-  const groupIds = (id: string): string[] => expandGroups(st().doc.objects, [id], isSelectableId);
+  const groupIds = (id: string): string[] => {
+    const objects = st().doc.objects;
+    // Un objeto sin grupo es solo él: no hace falta recorrer los 100 000 objetos buscando a sus compañeros.
+    const idx = objectIndex(objects);
+    const at = idx.unique ? idx.at.get(id) : undefined;
+    if (at !== undefined && !objects[at]!.group) return [id];
+    return expandGroups(objects, [id], isSelectableId);
+  };
 
   const isSelectableId = (o: DesignObject) => !o.hidden && !o.locked && (layerLookup(st().doc.layers)(o.layer)?.visible ?? true);
 

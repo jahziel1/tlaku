@@ -85,3 +85,44 @@ describe('marca de inicio', () => {
     expect(startMark(obj([], false))).toBeNull();
   });
 });
+
+describe('flecha de inicio del trazo tal como se dibujó', () => {
+  /** Lo que daba la implementación general (arco 0 sobre los puntos y las longitudes). */
+  function viaArc(o: DesignObject) {
+    const poly = getGeom(o).polys.findIndex((p) => p.pts.length >= 2);
+    const pts = polyPoints(getGeom(o).polys[poly]!);
+    const closed = getGeom(o).polys[poly]!.closed;
+    const at = pointAtArc(pts, cumulativeLength(pts, closed), closed, 0);
+    return { point: at.point, dir: at.dir, poly };
+  }
+
+  it('da lo mismo que el cálculo por longitud de arco, también con puntos repetidos al inicio y trayectos sin largo', () => {
+    const casos: DesignObject[] = [
+      obj(SQUARE, true),
+      obj(SQUARE, false),
+      obj([[0, 0], [0, 0], [0, 0], [3, 4], [9, 9]], false), // tramos de largo cero al principio
+      obj([[5, 5], [5, 5]], true), // sin largo: dirección por omisión
+      obj([[0, 0], [10, 0], [10, 10]], true, { transform: [0, 1, -1, 0, 5, 5] }), // girado
+    ];
+    for (const o of casos) {
+      const m = startMark(o)!;
+      const want = viaArc(o);
+      expect(m.point[0]).toBeCloseTo(want.point[0], 12);
+      expect(m.point[1]).toBeCloseTo(want.point[1], 12);
+      expect(m.dir[0]).toBeCloseTo(want.dir[0], 12);
+      expect(m.dir[1]).toBeCloseTo(want.dir[1], 12);
+      expect(m.poly).toBe(want.poly);
+      expect(m.fixed).toBe(false);
+    }
+  });
+
+  it('con un trayecto de 200 000 puntos no arma arreglos de puntos (es barato)', () => {
+    const pts: Point[] = Array.from({ length: 200_000 }, (_, i) => [i * 0.001, (i % 7) * 0.01]);
+    const o = obj(pts, false);
+    getGeom(o);
+    const t0 = performance.now();
+    const m = startMark(o)!;
+    expect(performance.now() - t0).toBeLessThan(20);
+    expect(m.point).toEqual([0, 0]);
+  });
+});

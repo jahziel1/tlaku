@@ -1,8 +1,14 @@
 // Prueba de estrés del lienzo en modo mock con Chrome headless (mismo método que screenshots.mjs).
 //
 //   node scripts/canvas-stress.mjs                       # 1 000, 10 000, 50 000 objetos y un trayecto de 1 M de nodos
-//   node scripts/canvas-stress.mjs --only obj-1000       # un solo escenario
+//   node scripts/canvas-stress.mjs --only obj-1000       # un solo escenario (también obj-100000 y path-100k, los extras)
 //   node scripts/canvas-stress.mjs --quick               # solo 1 000 objetos (humo)
+//   node scripts/canvas-stress.mjs --only obj-50000 --steps hover,move-few   # solo esos pasos (la carga siempre corre)
+//
+// Pasos extra de la ola 6B (hover, mover 10 objetos, verificación): mover 10 objetos de un diseño enorme (arrastre, confirmar, deshacer), los tiempos
+// de JavaScript de cada paso (`... JS ms`: lo que tarda en volver el evento de ratón o la acción del store, sin
+// rasterizar; incluye el suelo de ~18 ms del protocolo) y una verificación píxel a píxel de que lo que dejan el
+// arrastre por capas y el repintado por zonas es idéntico a repintar todo (solo con 10 000 objetos o más).
 //
 // Arranca su propio servidor de Vite (puerto 1431, sin recarga en caliente) salvo que se defina
 // APP_URL. Mide, por escenario: carga y primer dibujo, paneo, zoom con la rueda, clic para
@@ -27,6 +33,8 @@ const args = process.argv.slice(2);
 const argOf = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 const only = argOf('--only');
 const quick = args.includes('--quick');
+// --steps hover,move-few : solo esos pasos (además de la carga, que siempre corre)
+const stepsOnly = argOf('--steps')?.split(',');
 const port = 9344;
 const stepTimeoutMs = Number(process.env.STEP_TIMEOUT_S ?? 120) * 1000;
 const out = process.env.OUT ?? join(tmpdir(), 'canvas-stress.json');
@@ -109,6 +117,9 @@ const PAGE_SETUP = `(async () => {
   const { makeLayer } = await import('/src/lib/layers.ts');
   const { newVectorObject } = await import('/src/features/canvas/shapes.ts');
   const { polylineBez } = await import('/src/lib/bezpath.ts');
+  const { translateById } = await import('/src/store/document.ts');
+  const { useInteraction } = await import('/src/features/canvas/interaction.ts');
+  window.__interaction = useInteraction;
   const S = (window.__st = { renders: [], hits: [], useStore });
   const orig = Canvas2DRenderer.prototype.render;
   Canvas2DRenderer.prototype.render = function (scene) {
@@ -139,6 +150,10 @@ const PAGE_SETUP = `(async () => {
       objects.push(newVectorObject('o' + k, COLORS[k % 4], [polylineBez(pts, true)]));
     }
     S.hits = Array.from({ length: 20 }, (_, i) => { const o = objects[Math.floor(((i * 7919) % 1000) / 1000 * n)]; return o.kind.paths[0][0].to; });
+    // Los diez últimos objetos (para mover pocos objetos de un diseño enorme). Son los de más arriba en el orden
+    // del documento: un clic en el último los toma a todos (con la tolerancia de 6 px, un vecino posterior ganaría).
+    S.few = objects.slice(n - 10).map((o) => o.id);
+    S.fewHit = objects[n - 1].kind.paths[0][0].to;
     return objects;
   };
   /** Un solo objeto con un trayecto de \`nodes\` nodos (curva de Hilbert). */
@@ -168,6 +183,11 @@ const PAGE_SETUP = `(async () => {
   S.view = () => { const s = useStore.getState(); const r = document.querySelector('.canvas-area').getBoundingClientRect(); return { zoom: s.zoom, panX: s.panX, panY: s.panY, left: r.left, top: r.top, w: r.width, h: r.height }; };
   S.hitClient = () => { const v = S.view(); return S.hits.map(([x, y]) => [v.left + v.panX + x * v.zoom, v.top + v.panY - y * v.zoom]); };
   S.worldToClient = (x, y) => { const v = S.view(); return [v.left + v.panX + x * v.zoom, v.top + v.panY - y * v.zoom]; };
+  /** Un vértice del último objeto del documento tal como está ahora (los pasos anteriores lo movieron). */
+  S.fewHitNow = () => { const o = useStore.getState().doc.objects.at(-1); const [x, y] = o.kind.paths[0][0].to; const t = o.transform; return [t[0] * x + t[2] * y + t[4], t[1] * x + t[3] * y + t[5]]; };
+  /** Solo la transformación del documento (sin historial ni suscriptores), en ms. */
+  S.pureMove = (ids) => { const d = useStore.getState().doc; const t = performance.now(); translateById(d, ids, 1, 1); return performance.now() - t; };
+  S.hover = () => { const i = window.__interaction; return i ? i.getState().hoverId : null; };
   S.sel = () => useStore.getState().selectedIds.length;
   S.begin = () => { S.renders.length = 0; S.t0 = performance.now(); };
   S.end = async () => { await S.frame(); const total = performance.now() - S.t0; const r = S.renders.slice(); return { ms: total, render_ms: r.reduce((a, b) => a + b, 0), renders: r.length, worst_render_ms: Math.max(0, ...r) }; };
@@ -185,6 +205,11 @@ async function openPage(c) {
     if (useStore.getState().doc.objects.length > 0 && useStore.getState().viewport.width > 0) return ok();
     if (Date.now() - t0 > 20000) return ok(); // sin diseño de ejemplo: seguimos
     setTimeout(tick, 200); }; tick(); })`);
+  // La pregunta de primer uso («¿Es tu primera vez con un láser?») tapa el lienzo y se come los clics: se elige el modo completo.
+  await c.evaluate(`(async () => { const { useStore } = await import('/src/store/index.ts'); useStore.getState().setPref('uiMode', 'full'); })()`);
+  await wait(300);
+  await c.evaluate(`document.querySelectorAll('.toast button').forEach(b => b.click())`); // avisos de la importación de muestra (tapan el rincón de la cama)
+  await wait(300);
   await c.evaluate(PAGE_SETUP);
 }
 
@@ -199,6 +224,7 @@ async function runScenario(sc) {
   const res = { id: sc.id, steps: {}, notes: [] };
   const c = await launch();
   const step = async (name, fn) => {
+    if (stepsOnly && !['baseline', 'load'].includes(name) && !stepsOnly.includes(name)) return;
     const t0 = Date.now();
     try {
       res.steps[name] = await fn();
@@ -211,7 +237,8 @@ async function runScenario(sc) {
     }
   };
   const mouse = (type, x, y, extra = {}) => c.send('Input.dispatchMouseEvent', { type, x, y, button: 'none', buttons: 0, ...extra });
-  const timed = async (fn) => { await c.evaluate('window.__st.begin()'); await fn(); return c.evaluate('window.__st.end()'); };
+  // `call_ms`: lo que tarda `fn` en volver (con eventos de ratón por CDP = los manejadores de JavaScript, sin la rasterización).
+  const timed = async (fn) => { await c.evaluate('window.__st.begin()'); const t0 = performance.now(); await fn(); const call_ms = performance.now() - t0; const r = await c.evaluate('window.__st.end()'); return { ...r, call_ms }; };
   try {
     await openPage(c);
     // 0. suelo del método: dos rAF sin hacer nada
@@ -264,7 +291,7 @@ async function runScenario(sc) {
       await c.evaluate('window.__st.useStore.getState().fitContent()');
       await wait(400);
       const pts = await c.evaluate('window.__st.hitClient()');
-      const ms = [], rms = [];
+      const ms = [], rms = [], cms = [];
       let hits = 0;
       for (const [x, y] of pts) {
         await c.evaluate('window.__st.useStore.getState().clearSelection()');
@@ -273,10 +300,25 @@ async function runScenario(sc) {
           await mouse('mousePressed', x, y, { button: 'left', buttons: 1, clickCount: 1 });
           await mouse('mouseReleased', x, y, { button: 'left', buttons: 0, clickCount: 1 });
         });
-        ms.push(r.ms); rms.push(r.render_ms);
+        ms.push(r.ms); rms.push(r.render_ms); cms.push(r.call_ms);
         if ((await c.evaluate('window.__st.sel()')) > 0) hits++;
       }
-      return { clicks: pts.length, selected: hits, frame_ms: stats(ms), render_ms: stats(rms) };
+      return { clicks: pts.length, selected: hits, frame_ms: stats(ms), render_ms: stats(rms), call_ms: stats(cms) };
+    });
+    // 4b. hover: pasar el ratón (sin botones) sobre 20 bordes de objetos y 5 puntos vacíos; cada medida incluye el hit-test del cuadro
+    await step('hover', async () => {
+      await c.evaluate('window.__st.useStore.getState().clearSelection(); window.__st.useStore.getState().fitContent()');
+      await wait(500);
+      const pts = await c.evaluate('window.__st.hitClient()');
+      const empty = await c.evaluate('[[402, 410], [-3, -3], [200, 420], [405, 200], [-4, 100]].map(([x, y]) => window.__st.worldToClient(x, y))');
+      const ms = [], rms = [], cms = [];
+      let hovered = 0;
+      for (const [x, y] of [...pts, ...empty]) {
+        const r = await timed(() => mouse('mouseMoved', x, y));
+        ms.push(r.ms); rms.push(r.render_ms); cms.push(r.call_ms);
+        if (await c.evaluate('!!window.__st.hover()')) hovered++;
+      }
+      return { points: pts.length + empty.length, hovered, frame_ms: stats(ms), render_ms: stats(rms), call_ms: stats(cms) };
     });
     // 5. rectángulo de selección: pequeño, un cuarto de la cama, toda la cama (cruzando)
     // Siempre se parte de un rincón vacío fuera del diseño (con miles de objetos, un punto interior
@@ -308,20 +350,95 @@ async function runScenario(sc) {
       await wait(300);
       const selAll = await timed(() => c.evaluate('window.__st.useStore.getState().selectAll()'));
       const [hx, hy] = (await c.evaluate('window.__st.hitClient()'))[3];
-      const mv = [], mvr = [];
+      const mv = [], mvr = [], mvc = [];
       await mouse('mouseMoved', hx, hy);
       await mouse('mousePressed', hx, hy, { button: 'left', buttons: 1, clickCount: 1 });
       for (let i = 1; i <= 10; i++) {
         const r = await timed(() => mouse('mouseMoved', hx + i * 4, hy + i * 3, { buttons: 1 }));
-        mv.push(r.ms); mvr.push(r.render_ms);
+        mv.push(r.ms); mvr.push(r.render_ms); mvc.push(r.call_ms);
       }
       const hist0 = await c.evaluate('window.__st.useStore.getState().past.length');
       const up = await timed(() => mouse('mouseReleased', hx + 40, hy + 30, { button: 'left', buttons: 0, clickCount: 1 }));
       const moved = (await c.evaluate('window.__st.useStore.getState().past.length')) > hist0;
       const undo = await timed(() => c.evaluate('window.__st.useStore.getState().undo()'));
       const moveDirect = await timed(() => c.evaluate("(()=>{const s=window.__st.useStore.getState(); s.moveObjects(s.selectedIds, 5, 5, 'stress'); return 0;})()"));
-      return { moved, selected: await c.evaluate('window.__st.sel()'), select_all_ms: +selAll.ms.toFixed(1), drag_frame_ms: stats(mv), drag_render_ms: stats(mvr), commit_ms: +up.ms.toFixed(1), undo_ms: +undo.ms.toFixed(1), move_command_ms: +moveDirect.ms.toFixed(1) };
+      // Solo la acción del store (JavaScript síncrono, sin pintar), tres veces.
+      const sync = [];
+      for (let i = 0; i < 3; i++) sync.push(await c.evaluate("(()=>{const s=window.__st.useStore.getState(); const t=performance.now(); s.moveObjects(s.selectedIds, 1+" + i + ", 1, 'stress-sync'+" + i + "); return performance.now()-t;})()"));
+      const pastBefore = await c.evaluate('window.__st.useStore.getState().past.length');
+      await c.evaluate("(()=>{const s=window.__st.useStore.getState(); s.moveObjects(s.selectedIds, 0.5, 0.5, 'one'); s.moveObjects(s.selectedIds, 0.5, 0.5, 'one'); return 0;})()");
+      const oneStep = (await c.evaluate('window.__st.useStore.getState().past.length')) - pastBefore;
+      const undoSync = await c.evaluate("(()=>{const t=performance.now(); window.__st.useStore.getState().undo(); return performance.now()-t;})()");
+      const pure = await c.evaluate("window.__st.pureMove(window.__st.useStore.getState().selectedIds)");
+      return { move_pure_ms: +pure.toFixed(1), move_sync_ms: stats(sync), undo_sync_ms: +undoSync.toFixed(1), merged_steps: oneStep, drag_call_ms: stats(mvc), commit_call_ms: +up.call_ms.toFixed(1), moved, selected: await c.evaluate('window.__st.sel()'), select_all_ms: +selAll.ms.toFixed(1), drag_frame_ms: stats(mv), drag_render_ms: stats(mvr), commit_ms: +up.ms.toFixed(1), commit_render_ms: +up.render_ms.toFixed(1), undo_ms: +undo.ms.toFixed(1), undo_render_ms: +undo.render_ms.toFixed(1), move_command_ms: +moveDirect.ms.toFixed(1) };
     });
+    // 7. mover pocos objetos (10) de un diseño enorme: arrastre, confirmar y deshacer
+    if (sc.kind === 'objects') {
+      await step('move-few', async () => {
+        await c.evaluate('window.__st.useStore.getState().clearSelection(); window.__st.useStore.getState().fitContent()');
+        await wait(600);
+        await c.evaluate('window.__st.useStore.getState().select(window.__st.few)');
+        await wait(300);
+        const [hx, hy] = await c.evaluate('window.__st.worldToClient(...window.__st.fewHitNow())');
+        const mv = [], mvr = [], mvc = [];
+        await mouse('mouseMoved', hx, hy);
+        await mouse('mousePressed', hx, hy, { button: 'left', buttons: 1, clickCount: 1 });
+        for (let i = 1; i <= 10; i++) {
+          const r = await timed(() => mouse('mouseMoved', hx + i * 4, hy + i * 3, { buttons: 1 }));
+          mv.push(r.ms); mvr.push(r.render_ms); mvc.push(r.call_ms);
+        }
+        const selected = await c.evaluate('window.__st.sel()');
+        const hist0 = await c.evaluate('window.__st.useStore.getState().past.length');
+        const up = await timed(() => mouse('mouseReleased', hx + 40, hy + 30, { button: 'left', buttons: 0, clickCount: 1 }));
+        const moved = (await c.evaluate('window.__st.useStore.getState().past.length')) === hist0 + 1;
+        const undo = await timed(() => c.evaluate('window.__st.useStore.getState().undo()'));
+        const sync = [];
+        for (let i = 0; i < 3; i++) sync.push(await c.evaluate("(()=>{const s=window.__st.useStore.getState(); const t=performance.now(); s.moveObjects(window.__st.few, 1+" + i + ", 1, 'few-sync'+" + i + "); return performance.now()-t;})()"));
+        const nudge = await timed(() => c.evaluate("window.__st.useStore.getState().moveObjects(window.__st.few, 2, 0, 'few-nudge')"));
+        const pure = await c.evaluate('window.__st.pureMove(window.__st.few)');
+        return { selected, move_pure_ms: +pure.toFixed(1), moved_one_step: moved, drag_frame_ms: stats(mv), drag_render_ms: stats(mvr), drag_call_ms: stats(mvc), commit_ms: +up.ms.toFixed(1), commit_render_ms: +up.render_ms.toFixed(1), commit_call_ms: +up.call_ms.toFixed(1), undo_ms: +undo.ms.toFixed(1), move_sync_ms: stats(sync), nudge_ms: +nudge.ms.toFixed(1) };
+      });
+    }
+    // 8. verificación: lo que dejan el arrastre por capas y el repintado por zonas es idéntico, píxel a píxel, a repintar todo
+    if (sc.kind === 'objects' && sc.n >= 10000) {
+      await step('verify', async () => {
+        const snap = () => c.evaluate(`(() => { const cv = document.querySelector('canvas.canvas'); return Array.from(cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data); })()`);
+        // mover la vista y devolverla fuerza un repintado completo con la misma vista (tras asentarse)
+        const full = async () => {
+          await c.evaluate('window.__st.useStore.setState({ panX: window.__st.useStore.getState().panX + 37 })'); await wait(500);
+          await c.evaluate('window.__st.useStore.setState({ panX: window.__st.useStore.getState().panX - 37 })'); await wait(700);
+          return snap();
+        };
+        const same = (a, b) => { let n = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++; return n; };
+        await c.evaluate("(() => { const st = window.__st; const [fx, fy] = st.fewHitNow(); const z = 3.2; st.useStore.setState({ zoom: z, panX: 450 - fx * z, panY: 350 + fy * z }); })()");
+        await wait(800);
+        await c.evaluate('window.__st.useStore.getState().select(window.__st.few)');
+        await wait(600);
+        const [hx, hy] = await c.evaluate('window.__st.worldToClient(...window.__st.fewHitNow())');
+        const drag = async (steps, dx, dy) => {
+          await mouse('mouseMoved', hx, hy);
+          await mouse('mousePressed', hx, hy, { button: 'left', buttons: 1, clickCount: 1 });
+          for (let i = 1; i <= steps; i++) await mouse('mouseMoved', hx + (dx * i) / steps, hy + (dy * i) / steps, { buttons: 1 });
+          await wait(300);
+        };
+        const out = {};
+        await drag(8, 60, 40);
+        await mouse('mouseReleased', hx + 60, hy + 40, { button: 'left', buttons: 0, clickCount: 1 });
+        await wait(500);
+        const afterMove = await snap();
+        out.mover_10 = same(afterMove, await full());
+        await c.evaluate('window.__st.useStore.getState().undo()'); await wait(500);
+        const afterUndo = await snap();
+        out.deshacer = same(afterUndo, await full());
+        await c.evaluate('window.__st.useStore.getState().selectAll()'); await wait(500);
+        await drag(5, 30, 20);
+        await mouse('mouseReleased', hx + 30, hy + 20, { button: 'left', buttons: 0, clickCount: 1 });
+        await wait(800);
+        const afterAll = await snap();
+        out.mover_todo = same(afterAll, await full());
+        return { bytes_distintos: out, bytes_total: afterAll.length };
+      });
+    }
     res.heap_mb = +(await c.evaluate('(performance.memory?.usedJSHeapSize ?? 0) / 1e6')).toFixed(0);
     res.status = 'ok';
   } catch (e) {
@@ -349,11 +466,11 @@ try {
 const f = (x) => (x === undefined || x === null ? '-' : typeof x === 'number' ? String(x) : x);
 const med = (o) => (o && o.median !== undefined ? `${o.median} (p95 ${o.p95}, máx ${o.max})` : '-');
 console.log(`\nSuelo del método (dos cuadros sin trabajo): ${results.map((r) => `${r.id} ${med(r.steps.baseline?.frame_ms)}`).join(' · ')} ms`);
-console.log('\n| escenario | estado | carga (1er cuadro) | render en carga | paneo ms | zoom + ms | zoom - ms | clic ms | clics que seleccionaron |');
-console.log('|---|---|---|---|---|---|---|---|---|');
+console.log('\n| escenario | estado | carga (1er cuadro) | render en carga | paneo ms | zoom + ms | zoom - ms | clic ms | clic JS ms | clics que seleccionaron |');
+console.log('|---|---|---|---|---|---|---|---|---|---|');
 for (const r of results) {
   const s = r.steps;
-  console.log(`| ${r.id} | ${r.status}${r.error ? ' ' + r.error.slice(0, 40) : ''} | ${f(s.load?.first_frame_ms?.toFixed?.(0))} ms | ${f(s.load?.renders?.map((x) => x.toFixed(0)).join('+'))} | ${med(s.pan?.frame_ms)} | ${med(s.zoom?.in_frame_ms)} | ${med(s.zoom?.out_frame_ms)} | ${med(s.click?.frame_ms)} | ${f(s.click?.selected)}/${f(s.click?.clicks)} |`);
+  console.log(`| ${r.id} | ${r.status}${r.error ? ' ' + r.error.slice(0, 40) : ''} | ${f(s.load?.first_frame_ms?.toFixed?.(0))} ms | ${f(s.load?.renders?.map((x) => x.toFixed(0)).join('+'))} | ${med(s.pan?.frame_ms)} | ${med(s.zoom?.in_frame_ms)} | ${med(s.zoom?.out_frame_ms)} | ${med(s.click?.frame_ms)} | ${med(s.click?.call_ms)} | ${f(s.click?.selected)}/${f(s.click?.clicks)} |`);
 }
 console.log('\n| escenario | rectángulo | seleccionados | arrastre ms | soltar ms |');
 console.log('|---|---|---|---|---|');
@@ -362,10 +479,28 @@ for (const r of results) {
     console.log(`| ${r.id} | ${k} | ${v.selected} | ${med(v.drag_frame_ms)} | ${v.release_ms} |`);
   }
 }
-console.log('\n| escenario | mover: seleccionados (movió) | seleccionar todo ms | arrastre ms | confirmar ms | deshacer ms | moveObjects ms |');
-console.log('|---|---|---|---|---|---|---|');
+console.log('\n| escenario | mover: seleccionados (movió) | seleccionar todo ms | arrastre ms | arrastre JS ms | arrastre render ms | confirmar ms | confirmar render ms | confirmar JS ms | deshacer ms | deshacer render ms | moveObjects ms | moveObjects JS ms | solo documento ms | deshacer JS ms | pasos al fundir |');
+console.log('|' + '---|'.repeat(16));
 for (const r of results) {
   const m = r.steps.move;
-  if (m && !m.error) console.log(`| ${r.id} | ${m.selected} (${m.moved}) | ${m.select_all_ms} | ${med(m.drag_frame_ms)} | ${m.commit_ms} | ${m.undo_ms} | ${m.move_command_ms} |`);
+  if (m && !m.error) console.log(`| ${r.id} | ${m.selected} (${m.moved}) | ${m.select_all_ms} | ${med(m.drag_frame_ms)} | ${med(m.drag_call_ms)} | ${med(m.drag_render_ms)} | ${m.commit_ms} | ${m.commit_render_ms} | ${m.commit_call_ms} | ${m.undo_ms} | ${m.undo_render_ms} | ${m.move_command_ms} | ${med(m.move_sync_ms)} | ${m.move_pure_ms} | ${m.undo_sync_ms} | ${m.merged_steps} |`);
+}
+console.log('\n| escenario | hover: puntos | con objeto | cuadro ms | hover JS ms (render) |');
+console.log('|---|---|---|---|---|');
+for (const r of results) {
+  const h = r.steps.hover;
+  if (h && !h.error) console.log(`| ${r.id} | ${h.points} | ${h.hovered} | ${med(h.frame_ms)} | ${med(h.render_ms)} |`);
+}
+console.log('\n| escenario | mover 10 objetos: seleccionados | un solo paso | arrastre ms | arrastre JS ms | confirmar ms | confirmar render ms | confirmar JS ms | deshacer ms | moveObjects JS ms | solo documento ms | empujar ms |');
+console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
+for (const r of results) {
+  const m = r.steps['move-few'];
+  if (m && !m.error) console.log(`| ${r.id} | ${m.selected} | ${m.moved_one_step} | ${med(m.drag_frame_ms)} | ${med(m.drag_call_ms)} | ${m.commit_ms} | ${m.commit_render_ms} | ${m.commit_call_ms} | ${m.undo_ms} | ${med(m.move_sync_ms)} | ${m.move_pure_ms} | ${m.nudge_ms} |`);
+}
+console.log('\n| escenario | verificación (bytes distintos entre lo parchado y repintar todo): mover 10 | deshacer | mover todo |');
+console.log('|---|---|---|---|');
+for (const r of results) {
+  const v = r.steps.verify;
+  if (v && !v.error) console.log(`| ${r.id} | ${v.bytes_distintos.mover_10} | ${v.bytes_distintos.deshacer} | ${v.bytes_distintos.mover_todo} |`);
 }
 console.log(`\nJSON completo: ${out}`);

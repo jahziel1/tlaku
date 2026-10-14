@@ -64,7 +64,20 @@ pub struct GcodeOptions {
     /// bloques) = el láser 1. Al cambiar de láser entre bloques se emite `laser1_select` o
     /// `laser2_select` del dialecto, si lo tiene.
     pub block_laser2: Vec<bool>,
+    /// Tolerancia (mm) con la que se fusionan cortes consecutivos a la misma potencia: un punto
+    /// intermedio se omite si queda a esa distancia o menos de la recta que une los puntos que
+    /// se conservan (cubre también los segmentos más cortos que la tolerancia). Nunca cruza un
+    /// desplazamiento, una pausa, un cambio de potencia ni un corte con potencia 0. 0 (o un valor no
+    /// finito) lo desactiva.
+    /// Por defecto [`DEFAULT_MERGE_TOLERANCE_MM`], menor que la resolución de las máquinas.
+    pub merge_tolerance_mm: f64,
 }
+
+/// Tolerancia de fusión de cortes por defecto (mm); ver [`GcodeOptions::merge_tolerance_mm`].
+/// Con 0,0059 el mapa de Alemania del corpus (4,29 M de líneas) baja 30 % y su largo quemado
+/// cambia 0,09 %; con 0,005 baja 28 %. Los dorados no cambian porque la fusión no toca los
+/// empalmes entre un tramo muy corto y uno muy largo ni los cortes con potencia 0.
+pub const DEFAULT_MERGE_TOLERANCE_MM: f64 = 0.0059;
 
 impl Default for GcodeOptions {
     fn default() -> Self {
@@ -78,8 +91,158 @@ impl Default for GcodeOptions {
             z_invert: false,
             y_scale: 1.0,
             block_laser2: Vec::new(),
+            merge_tolerance_mm: DEFAULT_MERGE_TOLERANCE_MM,
         }
     }
+}
+
+/// El `Toolpath` tal como lo escribe [`generate`] con `merge_tolerance_mm` (cortes ya fusionados).
+/// Sirve para estimar tiempos y líneas por segundo de lo que de verdad recibe la máquina. Copia
+/// el trabajo entero: úsalo solo para análisis, no en el camino de la generación.
+pub fn compact_toolpath(toolpath: &Toolpath, merge_tolerance_mm: f64) -> Toolpath {
+    let mut out = toolpath.clone();
+    for block in &mut out.blocks {
+        if let Some(moves) = merge_cuts(&block.moves, merge_tolerance_mm) {
+            block.moves = moves;
+        }
+    }
+    out
+}
+
+/// Distancia de `p` al segmento `a`-`b` (a `a` si el segmento es un punto).
+fn dist_to_segment(p: Point, a: Point, b: Point) -> f64 {
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    let len2 = dx * dx + dy * dy;
+    if len2 <= 0.0 {
+        return (p.x - a.x).hypot(p.y - a.y);
+    }
+    let t = (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0.0, 1.0);
+    (p.x - (a.x + t * dx)).hypot(p.y - (a.y + t * dy))
+}
+
+/// Cuánto más largo puede ser un lado del vértice que el otro para poder omitirlo.
+const MAX_SIDE_RATIO: f64 = 8.0;
+
+/// `true` si los dos lados de `b` (`a-b` y `b-c`) son de largo parecido (a lo sumo
+/// [`MAX_SIDE_RATIO`] veces, salvo que el corto mida menos que `tol`). Un vértice entre un lado muy largo y otro muy corto es el empalme
+/// de una recta con un arco o un chaflán (la esquina redondeada de un rectángulo): se conserva
+/// aunque quede dentro de la tolerancia, para que las rectas largas terminen exactamente donde
+/// las dibujó el usuario. En el ruido de un trazo digitalizado los lados son parecidos.
+fn balanced(a: Point, b: Point, c: Point, tol: f64) -> bool {
+    let (l1, l2) = (a.dist(b), b.dist(c));
+    let (short, long) = (l1.min(l2), l1.max(l2));
+    // Un lado menor que la tolerancia es un paso más corto que la resolución: siempre se absorbe.
+    short <= tol || long <= short * MAX_SIDE_RATIO
+}
+
+/// Máximo de puntos omitidos seguidos: acota el costo de la comprobación (cuadrático en el
+/// largo de la racha) y el recorte de una curva muy larga y casi recta.
+const MAX_MERGED_RUN: usize = 256;
+
+/// Pérdida máxima de largo por racha fusionada (fracción del largo original). Protege los
+/// trazos con "temblor" (ruido de la digitalización del tamaño de un píxel, que cabe en la
+/// tolerancia pero suma largo): sin este tope, un mapa de Europa en PDF perdía 3,4 % de su largo
+/// quemado (con él, 1,9 %); en un mapa de Alemania sin temblor no cambia nada (0,09 %).
+const MAX_LENGTH_LOSS: f64 = 0.1;
+
+/// Fusiona cortes (`Move::Cut`) consecutivos a la misma potencia cuyos puntos intermedios
+/// quedan a `tol` mm o menos de la recta entre los puntos conservados. Todos los puntos omitidos
+/// se comprueban contra el segmento final, así que el error no se acumula. Un `Travel`, un
+/// `Dwell` o un cambio de potencia cortan la racha, y el primer y el último punto de cada racha
+/// siempre se conservan. Devuelve `None` si no hay nada que fusionar.
+fn merge_cuts(moves: &[Move], tol: f64) -> Option<Vec<Move>> {
+    if !(tol.is_finite() && tol > 0.0) || moves.len() < 3 {
+        return None;
+    }
+    let mut out: Vec<Move> = Vec::with_capacity(moves.len());
+    // Racha abierta: ancla (último punto emitido), potencia, puntos omitidos y candidato.
+    // Sin ancla (inicio del bloque) el primer corte se conserva tal cual: no se sabe de dónde sale.
+    let mut anchor: Option<Point> = None;
+    let mut power = 0.0;
+    let mut open = false;
+    let mut skipped: Vec<Point> = Vec::new();
+    let mut cand = Point::new(0.0, 0.0);
+    // Punto original anterior a `cand`.
+    let mut prev = cand;
+    // Largo de la poligonal original entre el ancla y `cand`.
+    let mut path_len = 0.0;
+    let mut dropped = false;
+    for mv in moves {
+        if let Move::Cut { to, power_pct } = *mv
+            && to.x.is_finite()
+            && to.y.is_finite()
+            && power_pct.is_finite()
+            // Los cortes con potencia 0 (overscan, huecos de las pestañas) se dejan tal cual: sus
+            // vértices marcan dónde empieza y termina algo, aunque no quemen.
+            && power_pct > 0.0
+        {
+            if open
+                && power_pct == power
+                && let Some(a) = anchor
+            {
+                let new_len = path_len + cand.dist(to);
+                let fits = skipped.len() < MAX_MERGED_RUN
+                    && a.dist(to) >= new_len * (1.0 - MAX_LENGTH_LOSS)
+                    && balanced(prev, cand, to, tol)
+                    && dist_to_segment(cand, a, to) <= tol
+                    && skipped.iter().all(|&q| dist_to_segment(q, a, to) <= tol);
+                if fits {
+                    skipped.push(cand);
+                    path_len = new_len;
+                    prev = cand;
+                    cand = to;
+                    dropped = true;
+                    continue;
+                }
+                out.push(Move::Cut {
+                    to: cand,
+                    power_pct: power,
+                });
+                anchor = Some(cand);
+                skipped.clear();
+                path_len = cand.dist(to);
+                prev = cand;
+                cand = to;
+                continue;
+            }
+            if open {
+                out.push(Move::Cut {
+                    to: cand,
+                    power_pct: power,
+                });
+                anchor = Some(cand);
+            }
+            if anchor.is_none() {
+                out.push(*mv);
+                anchor = Some(to);
+                continue;
+            }
+            open = true;
+            power = power_pct;
+            skipped.clear();
+            path_len = anchor.map_or(0.0, |a| a.dist(to));
+            prev = anchor.unwrap_or(to);
+            cand = to;
+            continue;
+        }
+        if open {
+            out.push(Move::Cut {
+                to: cand,
+                power_pct: power,
+            });
+            open = false;
+            skipped.clear();
+        }
+        out.push(*mv);
+        anchor = Some(mv.to());
+    }
+    if open {
+        out.push(Move::Cut {
+            to: cand,
+            power_pct: power,
+        });
+    }
+    dropped.then_some(out)
 }
 
 /// Máximo de decimales que se respeta; más no aporta nada a una máquina de mm.
@@ -450,9 +613,27 @@ fn script(w: &mut Writer, text: &str) {
 }
 
 pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
+    generate_mapped(toolpath, opts, None, &|p| p)
+}
+
+/// Como [`generate`], pero cada punto pasa por `map` al escribirse y, con `power_mode`, todos los
+/// bloques usan ese modo de potencia. Sirve para cambiar de coordenadas (origen de la máquina,
+/// espejo) o de modo sin copiar el `Toolpath`, que con millones de movimientos son cientos de MB.
+/// `map` debe conservar las distancias (traslación, reflexión): la fusión de cortes
+/// ([`GcodeOptions::merge_tolerance_mm`]) se decide antes de aplicarlo.
+pub fn generate_mapped(
+    toolpath: &Toolpath,
+    opts: &GcodeOptions,
+    power_mode: Option<PowerMode>,
+    map: &dyn Fn(Point) -> Point,
+) -> String {
+    let mode_of = |b: &tlaku_core::toolpath::ToolpathBlock| power_mode.unwrap_or(b.power_mode);
     let d = &opts.dialect;
+    // Unos 14 bytes por movimiento (medido en mapas e imágenes): reservar de una vez evita las
+    // duplicaciones del `String`, que con 80 MB de salida llegan a pedir 160 MB y copiarlos.
+    let moves: usize = toolpath.blocks.iter().map(|b| b.moves.len()).sum();
     let mut w = Writer {
-        out: String::new(),
+        out: String::with_capacity(moves.saturating_mul(16).min(1 << 30).saturating_add(1024)),
         d,
         decimals: usize::from(d.decimals),
         s_decimals: usize::from(d.s_decimals),
@@ -493,7 +674,7 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
     if let Some(start) = &opts.start_gcode {
         script(&mut w, start);
     }
-    let first = blocks.first().map_or(PowerMode::Dynamic, |b| b.power_mode);
+    let first = blocks.first().map_or(PowerMode::Dynamic, |b| mode_of(b));
     let mut cmd = mode_cmd(d, first).to_string();
     if !cmd.is_empty() {
         w.line(&cmd);
@@ -517,7 +698,7 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
             }
             laser2 = want_laser2;
         }
-        let next = mode_cmd(d, block.power_mode);
+        let next = mode_cmd(d, mode_of(block));
         if next != cmd {
             // S0 deja el láser apagado hasta el siguiente G1 con potencia.
             cmd = next.to_string();
@@ -539,19 +720,21 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
         let mut depth = block.z_mm.filter(|z| z.is_finite());
         let feed = (block.speed_mm_min.is_finite() && block.speed_mm_min > 0.0)
             .then_some(block.speed_mm_min);
-        for (i, mv) in block.moves.iter().enumerate() {
+        let merged = merge_cuts(&block.moves, opts.merge_tolerance_mm);
+        let moves = merged.as_deref().unwrap_or(&block.moves);
+        for (i, mv) in moves.iter().enumerate() {
             match *mv {
-                Move::Travel { to } => w.travel(to),
+                Move::Travel { to } => w.travel(map(to)),
                 Move::Cut { to, power_pct } => {
                     if let Some(z) = depth.take() {
                         w.z_goto(z);
                     }
-                    w.cut(to, power_pct, opts.s_max, feed);
+                    w.cut(map(to), power_pct, opts.s_max, feed);
                 }
                 Move::Dwell { ms, power_pct, .. } => {
                     // Dos pausas con láser seguidas comparten el paso a M3.
                     let chained = matches!(
-                        block.moves.get(i + 1),
+                        moves.get(i + 1),
                         Some(Move::Dwell { ms, power_pct, .. })
                             if *power_pct > 0.0 && dwell_word(*ms, d.dwell).is_some()
                     );
@@ -562,7 +745,7 @@ pub fn generate(toolpath: &Toolpath, opts: &GcodeOptions) -> String {
                     {
                         w.z_goto(z);
                     }
-                    w.dwell(ms, power_pct, opts.s_max, block.power_mode, !chained);
+                    w.dwell(ms, power_pct, opts.s_max, mode_of(block), !chained);
                 }
             }
         }
@@ -626,6 +809,192 @@ mod tests {
             .lines()
             .map(String::from)
             .collect()
+    }
+
+    fn mcut(x: f64, y: f64, power_pct: f64) -> Move {
+        Move::Cut {
+            to: p(x, y),
+            power_pct,
+        }
+    }
+
+    fn body_of(moves: Vec<Move>, opts: &GcodeOptions) -> Vec<String> {
+        let l = gen_lines(vec![block("B", PowerMode::Dynamic, moves)], opts);
+        let at = l.iter().position(|x| x == "; B").unwrap() + 1;
+        l[at..].to_vec()
+    }
+
+    #[test]
+    fn merge_drops_collinear_and_tiny_steps() {
+        let moves = vec![
+            Move::Travel { to: p(0.0, 0.0) },
+            mcut(1.0, 0.0, 50.0),
+            mcut(2.0, 0.001, 50.0),
+            mcut(3.0, 0.0, 50.0),
+            // Paso de 0,002 mm: queda dentro de la tolerancia.
+            mcut(3.002, 0.0, 50.0),
+            mcut(10.0, 0.0, 50.0),
+        ];
+        let l = body_of(moves, &GcodeOptions::default());
+        assert_eq!(&l[..3], &["G0 X0 Y0", "G1 X10 S500 F6000", "M5"]);
+    }
+
+    #[test]
+    fn merge_keeps_corners_spikes_and_backtracking() {
+        let moves = vec![
+            Move::Travel { to: p(0.0, 0.0) },
+            mcut(5.0, 0.0, 50.0),
+            // Esquina: se conserva.
+            mcut(5.0, 5.0, 50.0),
+            // Ida y vuelta sobre la misma recta: el punto (9, 5) no está en el segmento (5,5)-(6,5).
+            mcut(9.0, 5.0, 50.0),
+            mcut(6.0, 5.0, 50.0),
+        ];
+        let l = body_of(moves, &GcodeOptions::default());
+        assert_eq!(
+            &l[..5],
+            &["G0 X0 Y0", "G1 X5 S500 F6000", "G1 Y5", "G1 X9", "G1 X6"]
+        );
+    }
+
+    #[test]
+    fn merge_never_crosses_power_changes_travels_or_dwells() {
+        let moves = vec![
+            Move::Travel { to: p(0.0, 0.0) },
+            mcut(1.0, 0.0, 50.0),
+            mcut(2.0, 0.0, 60.0),
+            mcut(3.0, 0.0, 60.0),
+            mcut(4.0, 0.0, 40.0),
+            mcut(5.0, 0.0, 40.0),
+            Move::Dwell {
+                to: p(5.0, 0.0),
+                ms: 10.0,
+                power_pct: 30.0,
+            },
+            mcut(6.0, 0.0, 40.0),
+            mcut(7.0, 0.0, 40.0),
+            Move::Travel { to: p(7.0, 1.0) },
+            mcut(8.0, 1.0, 40.0),
+            // Potencia 0 (overscan, huecos de pestañas): se deja tal cual.
+            mcut(9.0, 1.0, 0.0),
+            mcut(10.0, 1.0, 0.0),
+        ];
+        let merged = merge_cuts(&moves, 0.005).unwrap();
+        let tos: Vec<(f64, f64)> = merged.iter().map(|m| (m.to().x, m.to().y)).collect();
+        assert_eq!(
+            tos,
+            vec![
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (3.0, 0.0),
+                (5.0, 0.0),
+                (5.0, 0.0),
+                (7.0, 0.0),
+                (7.0, 1.0),
+                (8.0, 1.0),
+                (9.0, 1.0),
+                (10.0, 1.0)
+            ]
+        );
+        // Los cortes que sobreviven conservan su potencia.
+        assert!(matches!(merged[2], Move::Cut { power_pct, .. } if power_pct == 60.0));
+        assert!(matches!(merged[3], Move::Cut { power_pct, .. } if power_pct == 40.0));
+        assert!(matches!(merged[5], Move::Cut { power_pct, .. } if power_pct == 40.0));
+    }
+
+    fn burn_len(moves: &[Move]) -> f64 {
+        let mut at = None;
+        let mut len = 0.0;
+        for m in moves {
+            if let (Move::Cut { to, power_pct }, Some(from)) = (m, at)
+                && *power_pct > 0.0
+            {
+                len += Point::dist(from, *to);
+            }
+            at = Some(m.to());
+        }
+        len
+    }
+
+    #[test]
+    fn merge_keeps_out_and_back_on_the_same_line() {
+        // B queda sobre la recta A-C pero fuera del segmento: quitarlo dejaría de cortar hasta X30.
+        for (a, b, c) in [(0.0, 30.0, 10.0), (10.0, 30.0, 10.0), (30.0, 0.0, 20.0)] {
+            let moves = vec![
+                Move::Travel { to: p(a, 5.0) },
+                mcut(b, 5.0, 50.0),
+                mcut(c, 5.0, 50.0),
+            ];
+            assert!(merge_cuts(&moves, 0.006).is_none(), "{a} {b} {c}");
+            let l = body_of(moves.clone(), &GcodeOptions::default());
+            assert!(
+                l.iter().any(|x| x.starts_with(&format!("G1 X{b}"))),
+                "{l:?}"
+            );
+            assert_eq!(burn_len(&moves), (b - a).abs() + (c - b).abs());
+        }
+        // También en una racha larga: ida, vuelta y otra vez ida.
+        let moves = vec![
+            Move::Travel { to: p(0.0, 0.0) },
+            mcut(10.0, 0.0, 50.0),
+            mcut(20.0, 0.0, 50.0),
+            mcut(5.0, 0.0, 50.0),
+            mcut(25.0, 0.0, 50.0),
+        ];
+        let merged = merge_cuts(&moves, 0.006).unwrap();
+        assert!((burn_len(&merged) - burn_len(&moves)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn merge_keeps_the_joint_between_a_short_arc_and_a_long_edge() {
+        // (30, 22.1) queda a 0,0059 mm de la cuerda, pero une un tramo de 0,04 mm con uno de
+        // 20 mm: es el empalme de una esquina redondeada y se conserva.
+        let moves = vec![
+            Move::Travel { to: p(30.1, 22.0) },
+            mcut(30.082, 22.058, 90.0),
+            mcut(30.034, 22.094, 90.0),
+            mcut(30.0, 22.1, 90.0),
+            mcut(10.0, 22.1, 90.0),
+        ];
+        let merged = merge_cuts(&moves, DEFAULT_MERGE_TOLERANCE_MM);
+        let kept = merged.as_deref().unwrap_or(&moves);
+        assert!(kept.iter().any(|m| m.to() == p(30.0, 22.1)));
+    }
+
+    #[test]
+    fn merge_does_not_accumulate_error_on_a_slow_curve() {
+        // Arco de radio 100 mm con pasos de 0,5 mm: cada punto se aparta ~0,0003 mm de su vecino,
+        // pero la racha entera no puede apartarse más de la tolerancia de la cuerda.
+        let r = 100.0_f64;
+        let mut moves = vec![Move::Travel { to: p(r, 0.0) }];
+        for i in 1..=400 {
+            let a = f64::from(i) * 0.005;
+            moves.push(mcut(r * a.cos(), r * a.sin(), 40.0));
+        }
+        let tol = 0.005;
+        let merged = merge_cuts(&moves, tol).unwrap();
+        assert!(merged.len() < moves.len());
+        let pts: Vec<Point> = merged.iter().map(Move::to).collect();
+        // Todo punto original queda a `tol` de la polilínea resultante.
+        for m in &moves {
+            let q = m.to();
+            let d = pts
+                .windows(2)
+                .map(|w| dist_to_segment(q, w[0], w[1]))
+                .fold(f64::INFINITY, f64::min);
+            assert!(d <= tol + 1e-9, "punto a {d} mm");
+        }
+    }
+
+    #[test]
+    fn merge_off_with_zero_tolerance() {
+        let moves = vec![
+            Move::Travel { to: p(0.0, 0.0) },
+            mcut(1.0, 0.0, 50.0),
+            mcut(2.0, 0.0, 50.0),
+        ];
+        assert!(merge_cuts(&moves, 0.0).is_none());
+        assert!(merge_cuts(&moves, f64::NAN).is_none());
     }
 
     #[test]
@@ -696,7 +1065,13 @@ mod tests {
                 },
             ],
         );
-        let l = gen_lines(vec![b], &GcodeOptions::default());
+        // Sin fusión: aquí se prueba solo lo modal (Y, S y F omitidos); los dos primeros cortes
+        // son colineales y a la misma potencia, que la fusión unificaría (ver `merge_cuts`).
+        let opts = GcodeOptions {
+            merge_tolerance_mm: 0.0,
+            ..GcodeOptions::default()
+        };
+        let l = gen_lines(vec![b], &opts);
         let body = &l[l.iter().position(|x| x == "; Raster").unwrap() + 1..];
         assert_eq!(
             &body[..7],

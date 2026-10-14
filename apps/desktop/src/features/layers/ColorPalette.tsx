@@ -1,3 +1,4 @@
+import type { DesignObject } from '@/api/types';
 import { Check, SquareDashed } from 'lucide-react';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -16,6 +17,18 @@ function useGuideGuard(): void {
   }, [output]);
 }
 
+const usedMemo = new WeakMap<object, string[]>();
+
+/** Colores de capa en uso; se guarda por lista de objetos (el selector corre en cada actualización del store). */
+function layersUsed(objects: readonly DesignObject[]): string[] {
+  let used = usedMemo.get(objects);
+  if (!used) {
+    used = [...new Set(objects.map((o) => o.layer.toLowerCase()))];
+    usedMemo.set(objects, used);
+  }
+  return used;
+}
+
 /**
  * Franja de colores de capa. Las muestras se identifican por nombre (en el tooltip y para el
  * lector de pantalla), no por número. Con objetos seleccionados, elegir una los mueve a esa
@@ -24,7 +37,7 @@ function useGuideGuard(): void {
 export function ColorPalette() {
   const selectedCount = useStore((s) => s.selectedIds.length);
   const activeLayer = useStore((s) => s.activeLayer);
-  const used = useStore(useShallow((s) => [...new Set(s.doc.objects.map((o) => o.layer.toLowerCase()))]));
+  const used = useStore(useShallow((s) => layersUsed(s.doc.objects)));
   const groupRef = useRef<HTMLDivElement>(null);
   const mac = isMac();
   useGuideGuard();

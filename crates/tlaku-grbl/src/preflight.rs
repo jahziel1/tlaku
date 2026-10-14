@@ -769,6 +769,80 @@ fn query_m115(
     }
 }
 
+/// Lo que el trabajo exige al enlace serie: líneas por segundo en su tramo más denso contra
+/// lo que el baudio deja pasar. Con 115 200 baudios (8N1, 10 bits por byte) pasan 11 520 bytes
+/// por segundo: con líneas de 19 bytes son unas 600 líneas por segundo. Si el trabajo pide más
+/// durante un tramo, la máquina vacía su planificador, se queda esperando líneas y hace pausas
+/// (con el láser encendido en M3 puede dejar marcas).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LinkLoad {
+    /// Velocidad del puerto serie en baudios.
+    pub baud: u32,
+    /// Líneas por segundo que pide el trabajo en su tramo más denso (no el promedio); ver
+    /// `tlaku_sim::line_rate`, con el trabajo ya compactado (`gcode::compact_toolpath`).
+    pub peak_lines_per_s: f64,
+    /// Largo medio de línea en bytes, con su salto de línea.
+    pub mean_line_bytes: f64,
+}
+
+impl LinkLoad {
+    /// Carga de un G-code de `lines` líneas y `bytes` bytes (con saltos de línea).
+    pub fn new(baud: u32, peak_lines_per_s: f64, lines: usize, bytes: usize) -> Self {
+        Self {
+            baud,
+            peak_lines_per_s,
+            mean_line_bytes: if lines > 0 {
+                bytes as f64 / lines as f64
+            } else {
+                0.0
+            },
+        }
+    }
+
+    /// Líneas por segundo que deja pasar el enlace: `baud / 10` bytes entre el largo medio.
+    pub fn capacity_lines_per_s(&self) -> f64 {
+        if self.baud == 0 || !(self.mean_line_bytes.is_finite() && self.mean_line_bytes > 0.0) {
+            return f64::INFINITY;
+        }
+        f64::from(self.baud) / 10.0 / self.mean_line_bytes
+    }
+
+    /// Aviso si el tramo más denso pide más líneas de las que caben en el enlace.
+    pub fn warning(&self) -> Option<String> {
+        let capacity = self.capacity_lines_per_s();
+        if !(self.peak_lines_per_s.is_finite() && self.peak_lines_per_s > capacity) {
+            return None;
+        }
+        let keep = (capacity / self.peak_lines_per_s * 100.0).floor().max(1.0);
+        Some(format!(
+            "Aviso: en su tramo más denso el trabajo pide {:.0} líneas por segundo y el enlace de \
+             {} baudios solo envía unas {:.0} (líneas de {:.0} bytes). La máquina se quedará sin \
+             líneas, hará pausas y pueden quedar marcas en el material. Baja la velocidad de las \
+             capas con más detalle (a menos del {keep:.0} % de la actual), simplifica el diseño o \
+             usa un enlace más rápido (USB nativo, red o más baudios si el firmware los admite).",
+            self.peak_lines_per_s, self.baud, capacity, self.mean_line_bytes,
+        ))
+    }
+}
+
+/// Como [`preflight_link`], y si el trabajo supera lo que permite el enlace (ver [`LinkLoad`])
+/// añade su aviso a `out` (línea "Aviso"). El aviso no bloquea el envío.
+pub fn preflight_link_with_load(
+    t: &mut impl Transport,
+    config: &PreflightConfig,
+    advice: Advice,
+    expect: &JobExpect,
+    link: &LinkProfile,
+    load: Option<&LinkLoad>,
+    out: &mut impl Write,
+) -> Result<(), String> {
+    preflight_link(t, config, advice, expect, link, out)?;
+    if let Some(w) = load.and_then(LinkLoad::warning) {
+        let _ = writeln!(out, "{w}");
+    }
+    Ok(())
+}
+
 /// Comprobación previa para el enlace de `link`. Con GRBL es exactamente [`preflight_checked`]
 /// (estado con `?`, `$32`, `$30`). Con Marlin y Smoothieware comprueba que la máquina responde
 /// a `M115` y que es del firmware esperado, y **avisa** (líneas "Aviso" en `out`) de lo que no
@@ -889,6 +963,69 @@ pub fn preflight_link(
 mod tests {
     use super::*;
     use crate::serial::memory_pair;
+
+    #[test]
+    fn link_load_warns_only_when_the_dense_stretch_exceeds_the_baud() {
+        // 115 200 baudios y líneas de 19 bytes: 11 520 / 19 = 606 líneas por segundo.
+        let ok = LinkLoad::new(115_200, 500.0, 1000, 19_000);
+        assert!((ok.capacity_lines_per_s() - 606.3).abs() < 0.1);
+        assert_eq!(ok.warning(), None);
+        let bad = LinkLoad::new(115_200, 1200.0, 1000, 19_000);
+        let w = bad.warning().unwrap();
+        assert!(w.starts_with("Aviso:"), "{w}");
+        assert!(w.contains("1200 líneas por segundo"), "{w}");
+        assert!(w.contains("606"), "{w}");
+        assert!(w.contains("pausas") && w.contains("marcas"), "{w}");
+        assert!(
+            w.contains("Baja la velocidad") && w.contains("simplifica"),
+            "{w}"
+        );
+        assert!(w.contains("a menos del 50 %"), "{w}");
+        // El mismo trabajo a 921 600 baudios cabe de sobra.
+        assert_eq!(LinkLoad::new(921_600, 1200.0, 1000, 19_000).warning(), None);
+        // Sin datos no hay aviso.
+        assert_eq!(LinkLoad::new(0, 1200.0, 1000, 19_000).warning(), None);
+        assert_eq!(LinkLoad::new(115_200, 1200.0, 0, 0).warning(), None);
+    }
+
+    #[test]
+    fn preflight_with_load_adds_the_warning_after_the_normal_checks() {
+        let (mut host, dev) = memory_pair();
+        let machine = fake_machine(dev, IDLE, Some("$30=1000\r\n$32=1\r\n"), None);
+        let load = LinkLoad::new(115_200, 1500.0, 100, 1900);
+        let mut out = Vec::new();
+        let r = preflight_link_with_load(
+            &mut host,
+            &PreflightConfig::default(),
+            Advice::Console,
+            &JobExpect::default(),
+            &LinkProfile::grbl(),
+            Some(&load),
+            &mut out,
+        );
+        drop(host);
+        let _ = machine.join();
+        let text = String::from_utf8_lossy(&out).to_string();
+        assert!(r.is_ok(), "{r:?} {text}");
+        assert!(text.contains("1500 líneas por segundo"), "{text}");
+        // Sin carga no hay aviso de enlace.
+        let (mut host, dev) = memory_pair();
+        let machine = fake_machine(dev, IDLE, Some("$30=1000\r\n$32=1\r\n"), None);
+        let mut out = Vec::new();
+        preflight_link_with_load(
+            &mut host,
+            &PreflightConfig::default(),
+            Advice::Console,
+            &JobExpect::default(),
+            &LinkProfile::grbl(),
+            None,
+            &mut out,
+        )
+        .unwrap();
+        drop(host);
+        let _ = machine.join();
+        assert!(!String::from_utf8_lossy(&out).contains("líneas por segundo"));
+    }
 
     fn report(line: &str) -> StatusReport {
         StatusReport::parse(line).unwrap()

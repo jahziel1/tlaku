@@ -300,6 +300,7 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Mover a la derecha | `Ctrl+Alt+→` |
 |  | Mover hacia arriba | `Ctrl+Alt+↑` |
 |  | Mover hacia abajo | `Ctrl+Alt+↓` |
+|  | Revisar diseño… | `Ctrl+Alt+R` |
 | Paneles y ayuda | Mostrar historial | `Ctrl+4` |
 |  | Atajos de teclado… | `Ctrl+/` o `F1` o `Mayús+/` |
 |  | Notas del proyecto | `Ctrl+7` |

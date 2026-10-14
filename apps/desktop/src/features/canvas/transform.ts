@@ -160,33 +160,57 @@ export function applyToPoint(m: Affine, [x, y]: Point): Point {
   return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 }
 
-/** Caja de la geometría de `objs` tras aplicar `m` (exacta; recorre puntos solo si hay giro). */
-export function boundsOf(objs: readonly DesignObject[], m: Affine | null = null): Bounds | null {
+const baseBounds = new WeakMap<readonly DesignObject[], Bounds | null>();
+
+/** Caja de la geometría de `objs` sin transformar (se guarda por arreglo: no se recorre dos veces). */
+function boundsOfBase(objs: readonly DesignObject[]): Bounds | null {
+  if (baseBounds.has(objs)) return baseBounds.get(objs)!;
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  const fast = !m || keepsAxes(m);
+  for (const obj of objs) {
+    const b = getGeom(obj).box;
+    if (!b) continue;
+    if (b[0] < minX) minX = b[0];
+    if (b[1] < minY) minY = b[1];
+    if (b[2] > maxX) maxX = b[2];
+    if (b[3] > maxY) maxY = b[3];
+  }
+  const out: Bounds | null = minX === Infinity ? null : [[minX, minY], [maxX, maxY]];
+  baseBounds.set(objs, out);
+  return out;
+}
+
+/**
+ * Caja de la geometría de `objs` tras aplicar `m` (exacta; recorre puntos solo si hay giro).
+ * Los arreglos son inmutables: la caja sin transformar se calcula una vez por arreglo, y una matriz que
+ * conserva los ejes (mover, escalar) solo transforma esa caja, sin recorrer los objetos en cada cuadro de
+ * un arrastre.
+ */
+export function boundsOf(objs: readonly DesignObject[], m: Affine | null = null): Bounds | null {
+  if (!m || keepsAxes(m)) {
+    const base = boundsOfBase(objs);
+    if (!base || !m) return base;
+    const [x0, y0] = applyToPoint(m, base[0]);
+    const [x1, y1] = applyToPoint(m, base[1]);
+    return [[Math.min(x0, x1), Math.min(y0, y1)], [Math.max(x0, x1), Math.max(y0, y1)]];
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
   for (const obj of objs) {
     const g = getGeom(obj);
     if (!g.box) continue;
-    if (fast) {
-      const [x0, y0] = m ? applyToPoint(m, [g.box[0], g.box[1]]) : [g.box[0], g.box[1]];
-      const [x1, y1] = m ? applyToPoint(m, [g.box[2], g.box[3]]) : [g.box[2], g.box[3]];
-      minX = Math.min(minX, x0, x1);
-      maxX = Math.max(maxX, x0, x1);
-      minY = Math.min(minY, y0, y1);
-      maxY = Math.max(maxY, y0, y1);
-    } else {
-      for (const poly of g.polys) {
-        for (let i = 0; i < poly.pts.length; i += 2) {
-          const x = m![0] * poly.pts[i] + m![2] * poly.pts[i + 1] + m![4];
-          const y = m![1] * poly.pts[i] + m![3] * poly.pts[i + 1] + m![5];
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
+    for (const poly of g.polys) {
+      for (let i = 0; i < poly.pts.length; i += 2) {
+        const x = m[0] * poly.pts[i] + m[2] * poly.pts[i + 1] + m[4];
+        const y = m[1] * poly.pts[i] + m[3] * poly.pts[i + 1] + m[5];
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
       }
     }
   }

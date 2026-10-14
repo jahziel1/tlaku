@@ -16,7 +16,7 @@ pub(super) struct Step {
 }
 
 pub(super) struct LayerPlan {
-    /// Índice de capa en el archivo (0 a 127).
+    /// Índice de capa en el archivo (0 a 127; solo es válido si el plan cabe en [`MAX_LAYERS`]).
     pub(super) index: u8,
     pub(super) speed_um_s: u64,
     pub(super) power_max: u16,
@@ -51,6 +51,55 @@ impl BBox {
     }
 }
 
+/// Resultado de planificar las capas: las capas finales y cuántas se fusionaron.
+pub(super) struct Planned {
+    pub(super) layers: Vec<LayerPlan>,
+    /// Bloques con cortes del `Toolpath` (antes de fusionar).
+    pub(super) blocks: usize,
+    /// Capas que desaparecieron al fusionarse con la anterior (`blocks - layers.len()`).
+    pub(super) merged: usize,
+}
+
+impl Planned {
+    /// Falla si, aun fusionadas, hay más capas de las que admite el archivo.
+    pub(super) fn check_limit(&self) -> Result<(), RdError> {
+        if self.layers.len() > MAX_LAYERS {
+            return Err(RdError::TooManyLayers {
+                layers: self.layers.len(),
+                blocks: self.blocks,
+            });
+        }
+        Ok(())
+    }
+}
+
+impl LayerPlan {
+    /// Mismos ajustes que mandan en la máquina (el color es solo una etiqueta y no cuenta).
+    fn same_settings(&self, o: &LayerPlan) -> bool {
+        self.speed_um_s == o.speed_um_s
+            && self.power_max == o.power_max
+            && self.power_min == o.power_min
+            && self.variable == o.variable
+            && self.air == o.air
+    }
+}
+
+/// Fusiona las capas consecutivas de ajustes idénticos: el orden de corte no cambia porque solo
+/// se unen capas vecinas. La capa resultante conserva el color de la primera.
+fn merge_consecutive(plans: Vec<LayerPlan>) -> Vec<LayerPlan> {
+    let mut out: Vec<LayerPlan> = Vec::new();
+    for p in plans {
+        match out.last_mut() {
+            Some(prev) if prev.same_settings(&p) => {
+                prev.steps.extend(p.steps);
+                prev.bbox.union(&p.bbox);
+            }
+            _ => out.push(p),
+        }
+    }
+    out
+}
+
 fn to_um(p: Point, opts: &RuidaJobOptions) -> Result<(i64, i64), NumError> {
     let (x, y) = opts.home.to_machine(p, opts.limits.bed_mm);
     Ok((
@@ -59,11 +108,10 @@ fn to_um(p: Point, opts: &RuidaJobOptions) -> Result<(i64, i64), NumError> {
     ))
 }
 
-pub(super) fn plan_layers(
-    tp: &Toolpath,
-    opts: &RuidaJobOptions,
-) -> Result<Vec<LayerPlan>, RdError> {
-    let mut plans = Vec::new();
+/// Convierte los bloques con cortes en capas. Si hay más de [`MAX_LAYERS`], fusiona las vecinas de
+/// ajustes idénticos; el límite lo comprueba [`Planned::check_limit`], no esta función.
+pub(super) fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Planned, RdError> {
+    let mut plans: Vec<LayerPlan> = Vec::new();
     // Última posición emitida (µm) para descartar movimientos de longitud cero.
     let mut last: Option<(i64, i64)> = None;
     for (bi, block) in tp.blocks.iter().enumerate() {
@@ -101,11 +149,6 @@ pub(super) fn plan_layers(
                 None => hi,
             }
         };
-        if plans.len() >= MAX_LAYERS {
-            return Err(RdError::TooManyLayers {
-                layers: plans.len() + 1,
-            });
-        }
         let mut steps = Vec::new();
         let mut bbox: Option<BBox> = None;
         for m in &block.moves {
@@ -138,7 +181,7 @@ pub(super) fn plan_layers(
             });
         }
         plans.push(LayerPlan {
-            index: plans.len() as u8,
+            index: 0,
             speed_um_s: num::speed_from_mm_min(block.speed_mm_min)?,
             power_max: hi,
             power_min,
@@ -152,5 +195,16 @@ pub(super) fn plan_layers(
     if plans.is_empty() {
         return Err(RdError::EmptyJob);
     }
-    Ok(plans)
+    let blocks = plans.len();
+    if blocks > MAX_LAYERS {
+        plans = merge_consecutive(plans);
+    }
+    for (i, p) in plans.iter_mut().enumerate() {
+        p.index = u8::try_from(i).unwrap_or(u8::MAX);
+    }
+    Ok(Planned {
+        merged: blocks - plans.len(),
+        blocks,
+        layers: plans,
+    })
 }

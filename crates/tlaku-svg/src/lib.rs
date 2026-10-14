@@ -44,6 +44,20 @@ pub struct ImportedCurve {
     pub path: BezPath,
 }
 
+/// Imagen raster incrustada en el SVG (`<image>` con datos `data:`), con su caja en mm.
+#[derive(Debug, Clone)]
+pub struct EmbeddedImage {
+    /// Bytes del archivo de imagen tal como vienen en el SVG.
+    pub data: std::sync::Arc<Vec<u8>>,
+    /// Extensión del formato: `png`, `jpg`, `gif` o `webp`.
+    pub ext: &'static str,
+    /// Esquina superior izquierda de la caja (Y hacia abajo, como el resto del documento).
+    pub x_mm: f64,
+    pub y_mm: f64,
+    pub width_mm: f64,
+    pub height_mm: f64,
+}
+
 /// Documento importado, en coordenadas SVG (origen arriba a la izquierda, Y hacia abajo).
 pub struct SvgDocument {
     pub width_mm: f64,
@@ -52,6 +66,8 @@ pub struct SvgDocument {
     pub paths: Vec<ImportedPath>,
     /// Los mismos subtrayectos sin aplanar, en el mismo orden de aparición.
     pub curves: Vec<ImportedCurve>,
+    /// Imágenes raster incrustadas (no forman parte de `paths` ni de `curves`).
+    pub images: Vec<EmbeddedImage>,
     /// Avisos de importación (escala asumida, elementos omitidos o aproximados).
     pub warnings: Vec<String>,
 }
@@ -77,6 +93,7 @@ pub fn import_svg(data: &[u8], tolerance_mm: f64) -> Result<SvgDocument, usvg::E
         height_mm,
         paths,
         curves,
+        images: stats.embedded,
         warnings,
     })
 }
@@ -85,6 +102,8 @@ pub fn import_svg(data: &[u8], tolerance_mm: f64) -> Result<SvgDocument, usvg::E
 #[derive(Default)]
 struct Stats {
     images: usize,
+    /// Las imágenes raster que se pudieron extraer (no SVG anidados).
+    embedded: Vec<EmbeddedImage>,
     /// Máscaras aproximadas como recorte binario.
     mask_approx: usize,
     /// Máscaras que no se pudieron evaluar y se ignoraron.
@@ -246,7 +265,8 @@ fn build_warnings(
 
     if stats.images > 0 {
         w.push(format!(
-            "{} imagen(es) incrustada(s) omitida(s): las imágenes raster aún no se importan.",
+            "{} imagen(es) incrustada(s) omitida(s): el importador no mezcla imágenes con \
+             trayectorias; importa la imagen como archivo aparte (PNG o JPG) para grabarla.",
             stats.images
         ));
     }
@@ -355,6 +375,32 @@ struct Out<'a> {
     curves: &'a mut Vec<ImportedCurve>,
 }
 
+/// La imagen raster de un nodo `<image>` con su caja en mm; `None` si es un SVG anidado.
+fn embedded_image(img: &usvg::Image) -> Option<EmbeddedImage> {
+    let (data, ext) = match img.kind() {
+        usvg::ImageKind::PNG(d) => (d, "png"),
+        usvg::ImageKind::JPEG(d) => (d, "jpg"),
+        usvg::ImageKind::GIF(d) => (d, "gif"),
+        usvg::ImageKind::WEBP(d) => (d, "webp"),
+        usvg::ImageKind::SVG(_) => return None,
+    };
+    // `abs_bounding_box` de un `<image>` no incluye bien el escalado de su caja; se calcula a
+    // partir de la transformación absoluta, que sí lo trae (ya con el `preserveAspectRatio`).
+    let b = img.bounding_box().transform(img.abs_transform())?;
+    let (w, h) = (
+        f64::from(b.width()) * PX_TO_MM,
+        f64::from(b.height()) * PX_TO_MM,
+    );
+    (w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0).then(|| EmbeddedImage {
+        data: data.clone(),
+        ext,
+        x_mm: f64::from(b.x()) * PX_TO_MM,
+        y_mm: f64::from(b.y()) * PX_TO_MM,
+        width_mm: w,
+        height_mm: h,
+    })
+}
+
 fn collect(group: &Group, tolerance: f64, clip: Option<&Region>, out: &mut Out, stats: &mut Stats) {
     for node in group.children() {
         match node {
@@ -371,7 +417,12 @@ fn collect(group: &Group, tolerance: f64, clip: Option<&Region>, out: &mut Out, 
                     stats.text_empty += 1;
                 }
             }
-            Node::Image(_) => stats.images += 1,
+            Node::Image(img) => {
+                stats.images += 1;
+                if let Some(e) = embedded_image(img) {
+                    stats.embedded.push(e);
+                }
+            }
             Node::Path(p) if !p.is_visible() => stats.invisible_paths += 1,
             Node::Path(p) => {
                 let Some(data) = p.data().clone().transform(p.abs_transform()) else {
@@ -950,6 +1001,28 @@ mod tests {
             r##"{MM_HEAD}{LINE}<image x="0" y="0" width="10" height="10" href="data:image/png;base64,{png}"/></svg>"##
         ));
         assert!(any_has(&w, "1 imagen"), "{w:?}");
+    }
+
+    #[test]
+    fn embedded_image_is_extracted_with_its_box() {
+        let png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+        let svg = format!(
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="30mm" viewBox="0 0 40 30"><image x="5" y="3" width="10" height="8" preserveAspectRatio="none" href="data:image/png;base64,{png}"/></svg>"##
+        );
+        let doc = import_svg(svg.as_bytes(), 0.01).unwrap();
+        assert!(doc.paths.is_empty());
+        assert_eq!(doc.images.len(), 1);
+        let img = &doc.images[0];
+        assert_eq!(img.ext, "png");
+        assert!(img.data.starts_with(&[0x89, b'P', b'N', b'G']));
+        for (got, want) in [
+            (img.x_mm, 5.0),
+            (img.y_mm, 3.0),
+            (img.width_mm, 10.0),
+            (img.height_mm, 8.0),
+        ] {
+            assert!((got - want).abs() < 1e-3, "{got} != {want}");
+        }
     }
 
     fn area(p: &Polyline) -> f64 {

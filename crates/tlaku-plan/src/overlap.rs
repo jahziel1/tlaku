@@ -22,7 +22,7 @@
 
 use tlaku_core::{Point, Polyline};
 
-use crate::geom::{Bbox, TOUCH, area, inside};
+use crate::geom::{Bbox, Polys, TOUCH, area};
 
 const GRID: usize = 8;
 const LINE_SAMPLES: usize = 16;
@@ -51,7 +51,13 @@ pub(crate) struct Overlaps {
 
 /// `parents[i]` es el contenedor inmediato de `paths[i]` (de [`crate::contain::find_parents`]).
 pub(crate) fn find_overlaps(paths: &[&Polyline], parents: &[Option<usize>]) -> Overlaps {
+    find_overlaps_with(paths, parents, true)
+}
+
+/// `indexed = false` prueba punto en polígono sin índice (referencia para las pruebas).
+fn find_overlaps_with(paths: &[&Polyline], parents: &[Option<usize>], indexed: bool) -> Overlaps {
     let n = paths.len();
+    let polys = Polys::new(paths, indexed);
     let mut out = Overlaps {
         extras: vec![Vec::new(); n],
         truncated: false,
@@ -184,7 +190,7 @@ pub(crate) fn find_overlaps(paths: &[&Polyline], parents: &[Option<usize>]) -> O
         }
         cands.sort_unstable();
 
-        let samples = sample_points(paths[i], &boxes[i], has_area(i));
+        let samples = sample_points(&polys, i, &boxes[i], has_area(i));
         if samples.is_empty() {
             continue;
         }
@@ -204,7 +210,7 @@ pub(crate) fn find_overlaps(paths: &[&Polyline], parents: &[Option<usize>]) -> O
                     continue;
                 }
                 work += paths[j].points.len() as u64;
-                if inside(*s, &paths[j].points) {
+                if polys.inside(j, *s) {
                     counts[k] += 1;
                     any = true;
                 }
@@ -242,7 +248,8 @@ fn touches(a: &Bbox, b: &Bbox) -> bool {
 
 /// Puntos que representan a la figura: cuadrícula sobre su área, o puntos repartidos por la
 /// longitud si no tiene área. Determinista.
-fn sample_points(path: &Polyline, b: &Bbox, has_area: bool) -> Vec<Point> {
+fn sample_points(polys: &Polys, i: usize, b: &Bbox, has_area: bool) -> Vec<Point> {
+    let path = polys.path(i);
     if has_area {
         let (w, h) = (b.max_x - b.min_x, b.max_y - b.min_y);
         let mut pts = Vec::with_capacity(GRID * GRID);
@@ -252,7 +259,7 @@ fn sample_points(path: &Polyline, b: &Bbox, has_area: bool) -> Vec<Point> {
                     b.min_x + (gx as f64 + 0.5) / GRID as f64 * w,
                     b.min_y + (gy as f64 + 0.5) / GRID as f64 * h,
                 );
-                if inside(p, &path.points) {
+                if polys.inside(i, p) {
                     pts.push(p);
                 }
             }
@@ -389,6 +396,20 @@ mod tests {
             for x in list {
                 assert!((areas[x.outer], x.outer) > (areas[i], i));
             }
+        }
+    }
+
+    #[test]
+    fn indexed_point_in_polygon_gives_same_overlaps() {
+        for seed in 0..40u64 {
+            let n = 20 + (seed as usize * 11) % 220;
+            let items = crate::testgen::random_items(seed + 1000, n, 1);
+            let paths: Vec<&Polyline> = items.iter().map(|it| &it.path).collect();
+            let parents = crate::contain::find_parents(&paths);
+            let fast = find_overlaps_with(&paths, &parents, true);
+            let slow = find_overlaps_with(&paths, &parents, false);
+            assert_eq!(fast.truncated, slow.truncated, "seed {seed}");
+            assert_eq!(fast.extras, slow.extras, "seed {seed}");
         }
     }
 }

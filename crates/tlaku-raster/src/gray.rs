@@ -60,7 +60,7 @@ pub enum Luma {
 }
 
 impl Luma {
-    fn weights(self) -> [f32; 3] {
+    pub(crate) fn weights(self) -> [f32; 3] {
         match self {
             Luma::Rec709 => [0.2126, 0.7152, 0.0722],
             Luma::Rec601 => [0.299, 0.587, 0.114],
@@ -71,21 +71,7 @@ impl Luma {
 /// Convierte cualquier imagen a gris. El canal alfa se compone sobre blanco
 /// (un píxel transparente queda blanco, es decir, sin grabar).
 pub fn from_dynamic(img: &DynamicImage, luma: Luma) -> GrayF32 {
-    let rgba = img.to_rgba32f();
-    let [wr, wg, wb] = luma.weights();
-    let data = rgba
-        .pixels()
-        .map(|p| {
-            let [r, g, b, a] = p.0;
-            let y = wr * r + wg * g + wb * b;
-            (y * a + (1.0 - a)).clamp(0.0, 1.0)
-        })
-        .collect();
-    GrayF32 {
-        width: rgba.width() as usize,
-        height: rgba.height() as usize,
-        data,
-    }
+    crate::load::dynamic_to_gray(img, luma, usize::MAX, usize::MAX)
 }
 
 /// Decodifica PNG, JPEG, BMP, WebP, TIFF, GIF o TGA desde memoria.
@@ -110,26 +96,15 @@ pub fn decode_hinted(
     decode(bytes, luma)
 }
 
+/// Carga una imagen del disco como gris, completa. Para un trabajo que no necesita toda la
+/// resolución usa [`load_scaled`] (o [`crate::load_for_process`]): ahorra memoria.
 pub fn load(path: &Path, luma: Luma) -> Result<GrayF32, String> {
-    let bytes =
-        std::fs::read(path).map_err(|e| format!("no se pudo leer {}: {e}", path.display()))?;
-    decode_hinted(&bytes, image::ImageFormat::from_path(path).ok(), luma)
+    crate::load::load_scaled(path, luma, usize::MAX, usize::MAX).map(|(g, _)| g)
 }
 
-/// Lee una imagen en cualquier formato soportado y la escribe como PNG en `dst`. Sirve para los
-/// formatos que la ventana de la app no sabe mostrar (TIFF, TGA).
-pub fn convert_to_png(src: &Path, dst: &Path) -> Result<(), String> {
-    let bytes =
-        std::fs::read(src).map_err(|e| format!("no se pudo leer {}: {e}", src.display()))?;
-    let hint = image::ImageFormat::from_path(src).ok();
-    let img = hint
-        .and_then(|f| image::load_from_memory_with_format(&bytes, f).ok())
-        .map(Ok)
-        .unwrap_or_else(|| image::load_from_memory(&bytes))
-        .map_err(|e| format!("no se pudo leer {}: {e}", src.display()))?;
-    img.save_with_format(dst, image::ImageFormat::Png)
-        .map_err(|e| format!("no se pudo escribir {}: {e}", dst.display()))
-}
+pub use crate::load::{
+    DECODE_MAX_ALLOC, convert_to_png, dimensions, dimensions_of_bytes, load_scaled,
+};
 
 #[cfg(test)]
 mod tests {

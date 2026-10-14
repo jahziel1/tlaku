@@ -12,6 +12,12 @@
 //!
 //! Una pausa (`Move::Dwell`) detiene la máquina y suma su tiempo tal cual.
 //!
+//! Frente al emulador (`tlaku-emu`): en los casos con cinemática calculable a mano (recta, tramos
+//! que van y vuelven, giros suaves) el modelo coincide con GRBL. El emulador resuelve las
+//! uniones con otra regla (más lenta con giros medianos a baja velocidad, más rápida con giros
+//! de 180 grados o segmentos muy cortos a velocidad alta), y de ahí los desvíos de +26 % y
+//! -40 % en archivos reales; ver las pruebas del final de `tests.rs`.
+//!
 //! No modela: tiempo de comunicación, latencia del búfer serie ni
 //! el cambio de velocidad por `PowerMode`. Tampoco el eje Z: el `z_mm` de un bloque (cambio
 //! de foco o pasada profunda) no suma tiempo, porque un movimiento de Z entre bloques es
@@ -52,7 +58,30 @@ pub fn estimate(tp: &Toolpath, profile: &MachineProfile) -> Estimate {
 
 /// Como [`estimate`], con el cabezal inicialmente en `start`.
 pub fn estimate_from(start: Point, tp: &Toolpath, profile: &MachineProfile) -> Estimate {
-    let segs = plan::plan(tp, start, profile);
+    estimate_with_times(start, tp, profile, false).0
+}
+
+/// Segundos acumulados al terminar cada movimiento del trabajo (todos los bloques en orden,
+/// un valor por `Move`), con el cabezal inicialmente en `start`. Un movimiento de longitud
+/// cero repite el instante anterior; el último valor coincide con `Estimate::total_s`.
+///
+/// Si también hace falta el [`Estimate`], [`estimate_with_times`] planifica una sola vez.
+pub fn move_times(start: Point, tp: &Toolpath, profile: &MachineProfile) -> Vec<f64> {
+    estimate_with_times(start, tp, profile, true).1
+}
+
+/// El [`Estimate`] y, con `times`, los segundos acumulados de cada movimiento (ver
+/// [`move_times`]; vacío si `times` es `false`), con una sola planificación. Con millones de
+/// movimientos esto evita planificar dos veces y guarda solo 56 bytes por movimiento mientras
+/// planifica.
+pub fn estimate_with_times(
+    start: Point,
+    tp: &Toolpath,
+    profile: &MachineProfile,
+    times: bool,
+) -> (Estimate, Vec<f64>) {
+    let count: usize = tp.blocks.iter().map(|b| b.moves.len()).sum();
+    let plan = plan::plan_lean(tp, start, profile);
     let mut blocks: Vec<BlockEstimate> = tp
         .blocks
         .iter()
@@ -63,38 +92,75 @@ pub fn estimate_from(start: Point, tp: &Toolpath, profile: &MachineProfile) -> E
             travel_mm: 0.0,
         })
         .collect();
-    for s in &segs {
-        let b = &mut blocks[s.block];
-        b.seconds += s.seconds();
+    let mut cumulative = Vec::with_capacity(if times { count } else { 0 });
+    let mut t = 0.0;
+    for (k, s) in plan.segs.iter().enumerate() {
+        let seconds = plan.timing(k).seconds();
+        let b = &mut blocks[s.block as usize];
+        b.seconds += seconds;
         if s.is_cut {
             b.cut_mm += s.len;
         } else {
             b.travel_mm += s.len;
         }
+        if times {
+            // Los movimientos sin segmento (longitud cero) repiten el instante anterior.
+            cumulative.resize(s.mv as usize, t);
+            t += seconds;
+            cumulative.push(t);
+        }
     }
-    Estimate {
-        total_s: blocks.iter().map(|b| b.seconds).sum(),
-        blocks,
+    if times {
+        cumulative.resize(count, t);
     }
+    (
+        Estimate {
+            total_s: blocks.iter().map(|b| b.seconds).sum(),
+            blocks,
+        },
+        cumulative,
+    )
 }
 
-/// Segundos acumulados al terminar cada movimiento del trabajo (todos los bloques en orden,
-/// un valor por `Move`), con el cabezal inicialmente en `start`. Un movimiento de longitud
-/// cero repite el instante anterior; el último valor coincide con `Estimate::total_s`.
-pub fn move_times(start: Point, tp: &Toolpath, profile: &MachineProfile) -> Vec<f64> {
-    let count: usize = tp.blocks.iter().map(|b| b.moves.len()).sum();
-    let segs = plan::plan(tp, start, profile);
-    let mut out = Vec::with_capacity(count);
-    let mut t = 0.0;
-    let mut k = 0;
-    for i in 0..count {
-        while k < segs.len() && segs[k].mv == i {
-            t += segs[k].seconds();
-            k += 1;
+/// Cuántas líneas por segundo de G-code exige un trabajo (una línea por segmento planificado).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LineRate {
+    /// Máximo de líneas por segundo en cualquier ventana de `window_s` segundos del trabajo.
+    pub peak_per_s: f64,
+    /// Líneas entre tiempo total.
+    pub mean_per_s: f64,
+    /// Segmentos (líneas) contados.
+    pub lines: usize,
+}
+
+/// Líneas por segundo que pide el trabajo a la controladora, en promedio y en el tramo más denso
+/// (ventana deslizante de `window_s` segundos; con una ventana mayor que el trabajo, el pico se
+/// divide igualmente entre `window_s`). Cuenta cada movimiento con recorrido y cada pausa; los
+/// de longitud cero no generan línea. El tiempo es el del planificador ([`estimate_from`]), no
+/// el de enviar las líneas.
+pub fn line_rate(start: Point, tp: &Toolpath, profile: &MachineProfile, window_s: f64) -> LineRate {
+    let window = if window_s.is_finite() && window_s > 0.0 {
+        window_s
+    } else {
+        1.0
+    };
+    let plan = plan::plan_lean(tp, start, profile);
+    let mut recent: std::collections::VecDeque<f64> = std::collections::VecDeque::new();
+    let (mut t, mut peak) = (0.0, 0usize);
+    for k in 0..plan.segs.len() {
+        t += plan.timing(k).seconds();
+        recent.push_back(t);
+        while recent.front().is_some_and(|&e| e <= t - window) {
+            recent.pop_front();
         }
-        out.push(t);
+        peak = peak.max(recent.len());
     }
-    out
+    let lines = plan.segs.len();
+    LineRate {
+        peak_per_s: peak as f64 / window,
+        mean_per_s: if t > 0.0 { lines as f64 / t } else { 0.0 },
+        lines,
+    }
 }
 
 /// Distancia (mm) que necesita el cabezal para alcanzar `speed_mm_min` en la

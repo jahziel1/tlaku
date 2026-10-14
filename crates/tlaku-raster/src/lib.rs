@@ -10,7 +10,9 @@
 pub mod adjust;
 pub mod bitmap;
 pub mod dither;
+pub mod downsample;
 pub mod gray;
+mod load;
 pub mod mask;
 pub mod resample;
 pub mod scan;
@@ -69,21 +71,52 @@ pub fn process(
             return Err(format!("ángulo de trama inválido: {angle_deg}"));
         }
     }
+    let (cols, rows) = resample::grid_size(width_mm, height_mm, opts.sampling)?;
     let adjusted = opts.adjust.apply(img);
-    let grid = resample::resample_to_mm(&adjusted, width_mm, height_mm, opts.sampling)?;
-    let data = dither::to_power(
-        &grid.image,
-        opts.mode,
-        opts.serpentine,
-        (grid.pixel_size_x_mm, grid.pixel_size_y_mm),
-    );
-    RasterBitmap::new(
-        grid.image.width,
-        grid.image.height,
-        grid.pixel_size_x_mm,
-        grid.pixel_size_y_mm,
-        data,
-    )
+    // Si la imagen ya está en la rejilla (el caso normal tras `load_for_process`) no se copia.
+    let grid = if (adjusted.width, adjusted.height) == (cols, rows) {
+        adjusted
+    } else {
+        let g = resample::resample(&adjusted, cols, rows);
+        drop(adjusted);
+        g
+    };
+    let pixel = (width_mm / cols as f64, height_mm / rows as f64);
+    let data = dither::to_power(&grid, opts.mode, opts.serpentine, pixel);
+    RasterBitmap::new(grid.width, grid.height, pixel.0, pixel.1, data)
+}
+
+/// Carga `path` para procesarla en un área de `width_mm` x `height_mm` y devuelve el gris
+/// ya reducido a lo que ese trabajo necesita, junto con las opciones a usar con él.
+///
+/// La imagen se remuestrea a la rejilla de grabado (o a algo mayor si ya era menor) **antes** de
+/// los ajustes y del tramado, así que una foto de 100 Mpx para 400 mm a 0,1 mm trabaja con
+/// 4 000 x 4 000 píxeles y no con 10 000 x 10 000. Como los radios de realce y de quitar motas
+/// se dan en píxeles de la imagen original, se reescalan por el factor de reducción para que
+/// actúen sobre el mismo tamaño físico. Una imagen que no hace falta reducir se carga igual
+/// que con [`gray::load`] y las opciones no cambian.
+pub fn load_for_process(
+    path: &std::path::Path,
+    luma: Luma,
+    width_mm: f64,
+    height_mm: f64,
+    opts: &ProcessOptions,
+) -> Result<(GrayF32, ProcessOptions), String> {
+    opts.adjust.validate()?;
+    let (cols, rows) = resample::grid_size(width_mm, height_mm, opts.sampling)?;
+    let (gray, (src_w, src_h)) = gray::load_scaled(path, luma, cols, rows)?;
+    let mut opts = *opts;
+    let fx = src_w as f64 / gray.width as f64;
+    let fy = src_h as f64 / gray.height as f64;
+    let factor = (fx * fy).sqrt();
+    if factor > 1.000_001 {
+        let a = &mut opts.adjust;
+        a.enhance_radius_px = (f64::from(a.enhance_radius_px) / factor) as f32;
+        if a.denoise_px > 0 {
+            a.denoise_px = (f64::from(a.denoise_px) / factor).ceil().max(1.0) as u32;
+        }
+    }
+    Ok((gray, opts))
 }
 
 #[cfg(test)]
@@ -252,6 +285,56 @@ mod tests {
             ..base
         };
         assert_eq!(process(&img, 4.0, 4.0, &clean).unwrap().lit_fraction(), 0.0);
+    }
+
+    #[test]
+    fn load_for_process_reduces_to_the_grid_and_rescales_pixel_radii() {
+        let dir = std::env::temp_dir().join(format!("tlaku-lfp-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("g.png");
+        image::GrayImage::from_fn(200, 100, |x, _| image::Luma([(x as u8).wrapping_mul(3)]))
+            .save(&path)
+            .unwrap();
+        let opts = ProcessOptions {
+            adjust: ImageAdjust {
+                enhance_radius_px: 5.0,
+                enhance_amount: 1.0,
+                denoise_px: 4,
+                ..Default::default()
+            },
+            sampling: Sampling::Interval(0.5),
+            ..Default::default()
+        };
+        // 10 x 5 mm a 0,5 mm = 20 x 10 puntos: la imagen baja a 10 veces menos por eje.
+        let (g, o) = load_for_process(&path, Luma::default(), 10.0, 5.0, &opts).unwrap();
+        assert_eq!((g.width, g.height), (20, 10));
+        assert!((o.adjust.enhance_radius_px - 0.5).abs() < 1e-6);
+        assert_eq!(o.adjust.denoise_px, 1);
+        // Lo mismo que cargar entera y remuestrear (sin ajustes de por medio).
+        let full = gray::load(&path, Luma::default()).unwrap();
+        let want = resample::resample(&full, 20, 10);
+        assert!(
+            g.data
+                .iter()
+                .zip(&want.data)
+                .all(|(a, b)| (a - b).abs() < 1e-5)
+        );
+        // Una imagen menor que la rejilla se carga entera y las opciones no cambian.
+        let (g, o) = load_for_process(&path, Luma::default(), 100.0, 50.0, &opts).unwrap();
+        assert_eq!((g.width, g.height), (200, 100));
+        assert_eq!(o, opts);
+        // Ajustes inválidos fallan antes de leer nada.
+        let bad = ProcessOptions {
+            adjust: ImageAdjust {
+                gamma: -1.0,
+                ..Default::default()
+            },
+            ..opts
+        };
+        assert!(
+            load_for_process(&dir.join("no-existe.png"), Luma::default(), 1.0, 1.0, &bad).is_err()
+        );
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

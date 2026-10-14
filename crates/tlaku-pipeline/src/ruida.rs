@@ -7,13 +7,11 @@
 //! coordenadas crecen hacia dentro de la cama; en Ruida esa esquina es el home (ruida.md 12.10),
 //! así que se traduce uno a uno a [`HomeCorner`].
 
-use crate::job::ComputedJob;
+use crate::job::{ComputedJob, LayerReport};
+use tlaku_core::toolpath::{Move, Toolpath};
 use tlaku_doc::{DeviceProfile, Origin};
-use tlaku_ruida::rd::{self, HomeCorner, LayerOptions, RuidaJobOptions};
-use tlaku_ruida::safety::SafetyLimits;
-
-/// Velocidad máxima que se admite en el archivo cuando el perfil no pide más (600 mm/s).
-const MIN_SPEED_LIMIT_MM_MIN: f64 = 36_000.0;
+use tlaku_ruida::rd::{self, HomeCorner, LayerOptions, MAX_LAYERS, RuidaJobOptions};
+use tlaku_ruida::safety::{MAX_SPEED_MM_MIN, SafetyLimits};
 
 /// Esquina del home de Ruida que corresponde al origen del perfil.
 pub fn home_for_origin(origin: Origin) -> HomeCorner {
@@ -42,12 +40,13 @@ pub fn export_rd(
     )
 }
 
-/// Límites de seguridad con la cama y la velocidad máxima del perfil de la máquina.
+/// Límites de seguridad con la cama del perfil y el máximo del protocolo Ruida (36 000
+/// mm/min). El `max_rate` del perfil no recorta: la controladora tiene su propio máximo. Las
+/// capas más rápidas que el tope se recortan al generar el `.rd` (ver [`export_rd_for_device`]).
 pub fn limits_for_device(device: &DeviceProfile) -> SafetyLimits {
-    let max_rate = device.max_rate[0].max(device.max_rate[1]);
     SafetyLimits {
         bed_mm: device.bed,
-        max_speed_mm_min: max_rate.max(MIN_SPEED_LIMIT_MM_MIN),
+        max_speed_mm_min: MAX_SPEED_MM_MIN,
         ..SafetyLimits::default()
     }
 }
@@ -64,15 +63,10 @@ pub fn export_rd_for_device(
     )
 }
 
-fn rd_with_limits(
-    built: &ComputedJob,
-    home: HomeCorner,
-    limits: SafetyLimits,
-) -> Result<Vec<u8>, String> {
-    let opts = RuidaJobOptions {
+fn job_options(layers: &[LayerReport], home: HomeCorner, limits: SafetyLimits) -> RuidaJobOptions {
+    RuidaJobOptions {
         limits,
-        layers: built
-            .layers
+        layers: layers
             .iter()
             .map(|l| LayerOptions {
                 color: [l.color.0, l.color.1, l.color.2],
@@ -81,8 +75,61 @@ fn rd_with_limits(
             .collect(),
         home,
         ..RuidaJobOptions::default()
-    };
-    rd::build_rd(&built.toolpath, &opts).map_err(|e| e.to_string())
+    }
+}
+
+/// Genera el `.rd`: recorta la velocidad de las capas al máximo de `limits` y, si hay más de 128
+/// capas, fusiona las vecinas de ajustes idénticos (los avisos salen en [`layer_warnings`]).
+fn rd_with_limits(
+    built: &ComputedJob,
+    home: HomeCorner,
+    limits: SafetyLimits,
+) -> Result<Vec<u8>, String> {
+    let opts = job_options(&built.layers, home, limits);
+    let clamped = rd::clamp_speeds(&built.toolpath, limits.max_speed_mm_min);
+    let toolpath = clamped.as_ref().unwrap_or(&built.toolpath);
+    rd::build_rd(toolpath, &opts).map_err(|e| e.to_string())
+}
+
+/// Bloques del trabajo que llevan al menos un corte (los que son una capa del `.rd`).
+fn cutting_blocks(tp: &Toolpath) -> usize {
+    tp.blocks
+        .iter()
+        .filter(|b| b.moves.iter().any(|m| matches!(m, Move::Cut { .. })))
+        .count()
+}
+
+/// Avisos del cálculo para una máquina Ruida: capas que el `.rd` fusionará o que no caben en las
+/// 128 que admite Ruida. Los de velocidad salen de [`crate::layers::speed_warnings`].
+pub(crate) fn layer_warnings(
+    toolpath: &Toolpath,
+    layers: &[LayerReport],
+    device: &DeviceProfile,
+) -> Vec<String> {
+    // Caso común: no hay nada que decir y no se planifica el trabajo entero.
+    if cutting_blocks(toolpath) <= MAX_LAYERS {
+        return Vec::new();
+    }
+    let opts = job_options(
+        layers,
+        home_for_origin(device.origin),
+        limits_for_device(device),
+    );
+    match rd::plan_summary(toolpath, &opts) {
+        Ok(s) if s.fits() => vec![format!(
+            "Ruida admite {MAX_LAYERS} capas y el trabajo tiene {}: al exportar se fusionarán {} \
+             capas vecinas de ajustes idénticos (velocidad, potencia, aire) y quedarán {}; el \
+             orden de corte no cambia",
+            s.blocks, s.merged, s.layers
+        )],
+        Ok(s) => vec![format!(
+            "Ruida admite {MAX_LAYERS} capas y el trabajo tiene {}: aun fusionando {} capas \
+             vecinas de ajustes idénticos quedan {}, así que no se podrá exportar ni enviar. \
+             Unifica colores o ajustes (velocidad, potencia, aire) de capas seguidas",
+            s.blocks, s.merged, s.layers
+        )],
+        Err(e) => vec![format!("Ruida: no se podrá exportar el trabajo: {e}")],
+    }
 }
 
 #[cfg(test)]

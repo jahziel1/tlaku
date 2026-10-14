@@ -70,6 +70,8 @@ export interface Scene {
   objects: DesignObject[];
   layers: Map<string, LayerSettings>;
   selectedIds: ReadonlySet<string>;
+  /** Objetos de `selectedIds` en el orden del documento; si falta, el renderer los busca. */
+  selected?: DesignObject[];
   wireframe: boolean;
   /** Forma principal (A) de la booleana en el diálogo de Organizar; se resalta distinto a la selección. */
   primaryId?: string | null;

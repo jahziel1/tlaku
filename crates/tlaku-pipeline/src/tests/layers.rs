@@ -146,3 +146,202 @@ fn order_note_explains_the_groups() {
         "{note}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Velocidad por encima de la máquina y capas de Ruida
+// ---------------------------------------------------------------------------
+
+fn ruida_device() -> DeviceProfile {
+    DeviceProfile {
+        kind: tlaku_doc::DeviceKind::Ruida,
+        bed: [600.0, 400.0],
+        max_rate: [36_000.0, 36_000.0],
+        ..DeviceProfile::default()
+    }
+}
+
+/// `n` cuadrados de 5 mm, uno por color (rojo creciente y verde creciente).
+fn many_color_doc(n: usize, speed: f64) -> Document {
+    let color = |i: usize| Rgb((i / 256) as u8, (i % 256) as u8, 7);
+    let objects = (0..n)
+        .map(|i| {
+            rect_object(
+                &format!("r{i}"),
+                color(i),
+                (i % 20) as f64 * 10.0,
+                (i / 20) as f64 * 10.0,
+                5.0,
+                5.0,
+            )
+        })
+        .collect();
+    let layers = (0..n)
+        .map(|i| LayerSettings {
+            speed,
+            ..line_layer(color(i))
+        })
+        .collect();
+    doc(objects, layers)
+}
+
+fn warnings(job: &crate::ComputedJob) -> &[String] {
+    &job.preview.warnings
+}
+
+#[test]
+fn layer_faster_than_the_machine_warns_and_leaves_gcode_alone() {
+    let d = DeviceProfile::default();
+    assert_eq!(d.max_rate, [12000.0, 12000.0]);
+    let slow = compute(
+        &many_color_doc(1, 12_000.0),
+        &d,
+        &tlaku_doc::JobOptions::default(),
+    )
+    .unwrap();
+    assert!(
+        warnings(&slow)
+            .iter()
+            .all(|w| !w.contains("llega como máximo"))
+    );
+
+    let fast_doc = many_color_doc(1, 48_000.0);
+    let job = compute(&fast_doc, &d, &tlaku_doc::JobOptions::default()).unwrap();
+    let w: Vec<_> = warnings(&job)
+        .iter()
+        .filter(|w| w.contains("llega como máximo"))
+        .collect();
+    assert_eq!(w.len(), 1, "{:?}", warnings(&job));
+    for needle in [
+        "#00",
+        "48000 mm/min",
+        "12000 mm/min",
+        "irá al máximo",
+        "más oscuro o más quemado",
+    ] {
+        assert!(w[0].contains(needle), "falta {needle:?} en {}", w[0]);
+    }
+    // Solo avisa: el trabajo y su velocidad son los pedidos.
+    assert_eq!(job.toolpath.blocks[0].speed_mm_min, 48_000.0);
+}
+
+#[test]
+fn speed_warning_names_each_fast_layer_and_skips_galvo() {
+    let d = DeviceProfile::default();
+    let mut document = many_color_doc(3, 6000.0);
+    document.layers[1].speed = 30_000.0;
+    document.layers[2].speed = 20_000.0;
+    let job = compute(&document, &d, &tlaku_doc::JobOptions::default()).unwrap();
+    let w: Vec<_> = warnings(&job)
+        .iter()
+        .filter(|w| w.contains("llega como máximo"))
+        .collect();
+    assert_eq!(w.len(), 2);
+    assert!(w[0].contains("30000") && w[1].contains("20000"));
+    let galvo = DeviceProfile {
+        kind: tlaku_doc::DeviceKind::Galvo,
+        ..DeviceProfile::default()
+    };
+    assert!(crate::layers::speed_limit(&galvo).is_none());
+}
+
+#[test]
+fn ruida_layer_over_36000_warns_and_the_rd_clamps_it() {
+    let d = DeviceProfile {
+        max_rate: [60_000.0, 60_000.0],
+        ..ruida_device()
+    };
+    let job = compute(
+        &many_color_doc(1, 48_000.0),
+        &d,
+        &tlaku_doc::JobOptions::default(),
+    )
+    .unwrap();
+    let w: Vec<_> = warnings(&job)
+        .iter()
+        .filter(|w| w.contains("Ruida admite como máximo 36000"))
+        .collect();
+    assert_eq!(w.len(), 1, "{:?}", warnings(&job));
+    assert!(w[0].contains("48000"));
+    // Antes fallaba: ahora el .rd sale con la velocidad recortada a 600 mm/s.
+    let rd = crate::export_rd_for_device(&job, &d).unwrap();
+    let cmds = tlaku_ruida::cmd::decode_stream(&rd).unwrap();
+    assert!(
+        cmds.iter()
+            .any(|c| matches!(c, tlaku_ruida::cmd::Command::Speed(600_000)))
+    );
+    // El trabajo calculado no se toca.
+    assert_eq!(job.toolpath.blocks[0].speed_mm_min, 48_000.0);
+}
+
+#[test]
+fn ruida_does_not_clamp_to_the_profile_max_rate() {
+    let d = DeviceProfile {
+        max_rate: [12_000.0, 12_000.0],
+        ..ruida_device()
+    };
+    // 30 000 mm/min (500 mm/s): pasa el max_rate del perfil, no el de Ruida.
+    let job = compute(
+        &many_color_doc(1, 30_000.0),
+        &d,
+        &tlaku_doc::JobOptions::default(),
+    )
+    .unwrap();
+    let w = warnings(&job);
+    assert!(w.iter().any(|w| w.contains("llega como máximo a 12000")
+        && w.contains("sube la velocidad máxima del perfil")));
+    assert!(w.iter().all(|w| !w.contains("Ruida admite como máximo")));
+    let rd = crate::export_rd_for_device(&job, &d).unwrap();
+    let cmds = tlaku_ruida::cmd::decode_stream(&rd).unwrap();
+    assert!(
+        cmds.iter()
+            .any(|c| matches!(c, tlaku_ruida::cmd::Command::Speed(500_000)))
+    );
+}
+
+#[test]
+fn ruida_129_colors_with_equal_settings_warn_and_export() {
+    let d = ruida_device();
+    let job = compute(
+        &many_color_doc(129, 6000.0),
+        &d,
+        &tlaku_doc::JobOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(job.toolpath.blocks.len(), 129);
+    let w: Vec<_> = warnings(&job)
+        .iter()
+        .filter(|w| w.contains("Ruida admite 128"))
+        .collect();
+    assert_eq!(w.len(), 1, "{:?}", warnings(&job));
+    assert!(
+        w[0].contains("129") && w[0].contains("128 capas vecinas") && w[0].contains("quedarán 1")
+    );
+    let rd = crate::export_rd_for_device(&job, &d).unwrap();
+    assert!(!rd.is_empty());
+    // Con una máquina que no es Ruida no hay aviso.
+    let grbl = compute(
+        &many_color_doc(129, 6000.0),
+        &DeviceProfile::default(),
+        &tlaku_doc::JobOptions::default(),
+    )
+    .unwrap();
+    assert!(warnings(&grbl).iter().all(|w| !w.contains("Ruida")));
+}
+
+#[test]
+fn ruida_129_different_settings_warn_that_it_cannot_export() {
+    let d = ruida_device();
+    let mut document = many_color_doc(129, 6000.0);
+    for (i, l) in document.layers.iter_mut().enumerate() {
+        l.speed = 1000.0 + i as f64 * 10.0;
+    }
+    let job = compute(&document, &d, &tlaku_doc::JobOptions::default()).unwrap();
+    let w: Vec<_> = warnings(&job)
+        .iter()
+        .filter(|w| w.contains("Ruida admite 128"))
+        .collect();
+    assert_eq!(w.len(), 1, "{:?}", warnings(&job));
+    assert!(w[0].contains("no se podrá exportar") && w[0].contains("Unifica colores o ajustes"));
+    let err = crate::export_rd_for_device(&job, &d).unwrap_err();
+    assert!(err.contains("unifica colores o ajustes"), "{err}");
+}

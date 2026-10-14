@@ -13,6 +13,7 @@ import { galvoConfirmKey, GalvoStartNotice } from './GalvoNotice';
 import { lhyConfirmKey, LhyStartNotice } from './LhyNotice';
 import { ruidaConfirmKey, RuidaStartNotice } from './RuidaNotice';
 import { SelectionOptions } from './SelectionOptions';
+import { ReviewNotice } from '@/features/review';
 import { TilingOffer } from '@/features/tiling/TilingOffer';
 import { placementSummary } from './StartFromSection';
 
@@ -124,6 +125,7 @@ export function StartJobDialog() {
 
       <SelectionOptions compact />
       <TilingOffer />
+      <ReviewNotice />
 
       {previewStatus === 'computing' && <p className="hint" role="status">{t('machine.start.computing')}</p>}
       {previewStatus === 'error' && (

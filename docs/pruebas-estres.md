@@ -566,6 +566,23 @@ Ordenadas por impacto en el usuario.
     hit-test y el arrastre del trayecto único (0,3 a 0,37 s). Candidatos: hit-test con índice por trozos
     (ya existen en `geom.ts`) y arrastre con una transformación en el renderer sin reconstruir.
 
+## Después de la ola 6B (2026-10-14)
+
+Arreglos de la lista de prioridades, medidos con `tlaku-bench worker` (release) y `canvas-stress.mjs`:
+
+| Punto | Antes | Después |
+|---|---|---|
+| 1. Interior primero (cálculo) | amhara 29,6 s · cascadia 14,4 s · hooke 11,2 s | 1,1–1,5 s · 0,3 s · 0,6 s; mismo orden, tiempo y recorrido |
+| 2. Imágenes de 60–108 Mpx | importar 1,3–2,3 GB; calcular 17–28 s | importar < 75 MB; calcular 2,5–6 s |
+| 3. Causa al fallar la importación | «no contiene trayectorias» | dice qué se omitió y qué hacer; SVG con solo imagen se importa |
+| 4. Ruida con 129 colores / 48 000 mm/min | no exporta | fusiona capas vecinas iguales; recorta a 36 000 y avisa |
+| 5. Capa más rápida que la máquina | en silencio | aviso al calcular |
+| 6. `reduce_travel`, 1 M de líneas sueltas | 40 s | 4,7 s, mismo resultado |
+| 7. G-code del mapa de Alemania | 4,29 M de líneas | 3,00 M (−30 %), largo −0,09 %; aviso si el enlace no da abasto |
+| 8. Estimado | +26 % / −40 % contra el emulador | el estimador es correcto; el emulador calcula mal las uniones (pendiente en 6C) |
+| 9. TIFF YCbCr y 87 Mpx | error | cargan |
+| 10. Lienzo | clic con 1 M de nodos 280 ms; mover 10 de 100 000 objetos 215 ms | 47 ms; 48 ms. Mover todo con 100 000 sigue en ~400 ms |
+
 ## Cómo repetirlo
 
 ```text

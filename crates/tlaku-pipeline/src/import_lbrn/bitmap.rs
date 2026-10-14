@@ -9,7 +9,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tlaku_doc::ImageObject;
-use tlaku_raster::Luma;
 
 pub(super) struct Extractor {
     preferred: PathBuf,
@@ -118,11 +117,11 @@ impl Extractor {
                 mask: Vec::new(),
             });
         }
-        // Se comprueba que se pueda decodificar antes de dejar un archivo inútil en disco.
-        let gray = tlaku_raster::gray::decode(data, Luma::default())?;
+        // Se comprueba la cabecera antes de dejar un archivo inútil en disco (y no se decodifica
+        // la imagen entera solo para saber su tamaño).
+        let (wp, hp) = tlaku_raster::gray::dimensions_of_bytes(data)?;
         let file = self.write(&format!("img-{key:016x}.{ext}"), data)?;
         let path = file.to_string_lossy().into_owned();
-        let (wp, hp) = (gray.width as u32, gray.height as u32);
         self.done.insert(key, (path.clone(), wp, hp));
         Ok(ImageObject {
             source_path: path,

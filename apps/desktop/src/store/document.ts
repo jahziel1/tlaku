@@ -7,6 +7,7 @@ import { groupIdsOf, regroupCopies } from '@/lib/groups';
 import { reconcileShapes } from '@/lib/paramShape';
 import { makeLayer, normalizeLayers } from '@/lib/layers';
 import { LAYER_PALETTE, paletteLabel } from '@/lib/palette';
+import { objectIndex, shareIndex } from './objectIndex';
 import type { SliceCreator } from './types';
 
 export interface HistoryEntry {
@@ -148,16 +149,31 @@ function kindPoints(kind: DesignObject['kind']): number {
  * Es O(objetos) y no recorre trayectorias que se comparten.
  */
 export function entryCost(before: Document, after: Document): number {
-  const afterSet = new Set(after.objects);
-  const beforeSet = new Set(before.objects);
+  const bo = before.objects;
+  const ao = after.objects;
+  // Misma cantidad de objetos (mover, cambiar de capa, editar): basta comparar posición a posición y
+  // armar los conjuntos solo con lo que cambió, en vez de dos conjuntos de todo el documento.
+  let lost: DesignObject[] = bo;
+  let gained: DesignObject[] = ao;
+  if (bo.length === ao.length) {
+    lost = [];
+    gained = [];
+    for (let i = 0; i < bo.length; i++) {
+      if (bo[i] === ao[i]) continue;
+      lost.push(bo[i]!);
+      gained.push(ao[i]!);
+    }
+  }
+  const beforeSet = new Set(lost);
+  const afterSet = new Set(gained);
   const keptKinds = new Set<object>();
-  for (const o of after.objects) if (!beforeSet.has(o)) keptKinds.add(o.kind);
+  for (const o of gained) if (!beforeSet.has(o)) keptKinds.add(o.kind);
   let points = 0;
-  for (const o of before.objects) {
+  for (const o of lost) {
     if (afterSet.has(o) || keptKinds.has(o.kind)) continue;
     points += kindPoints(o.kind);
   }
-  return points + before.objects.length / 8;
+  return points + bo.length / 8;
 }
 
 /** Recorta por cantidad de pasos y por presupuesto de memoria; siempre conserva el paso más reciente. */
@@ -192,6 +208,34 @@ export function uniqueId(base: string, taken: Set<string>): string {
   let id = `${base}-${i}`;
   while (taken.has(id)) id = `${base}-${++i}`;
   return id;
+}
+
+/**
+ * Documento con los objetos `ids` (no bloqueados) desplazados `dx`, `dy`. Solo toca esos objetos: copia la
+ * lista una vez y reemplaza por posición (índice por id, ver `objectIndex`), así que con 100 000 objetos
+ * mover unos pocos cuesta lo de copiar un arreglo y mover todos, lo de crear sus objetos nuevos.
+ * Los objetos nuevos conservan `kind` (la geometría no se copia) y el arreglo hereda el índice.
+ */
+export function translateById(doc: Document, ids: readonly string[], dx: number, dy: number): Document {
+  const idx = objectIndex(doc.objects);
+  const move = (o: DesignObject): DesignObject => ({ ...o, transform: roundMove(translateAffine(o.transform, dx, dy)) });
+  if (!idx.unique) {
+    // Ids repetidos (no debería pasar): se conserva el comportamiento de recorrer todo.
+    const set = new Set(ids);
+    return { ...doc, objects: doc.objects.map((o) => (set.has(o.id) && !o.locked ? move(o) : o)) };
+  }
+  let objects: DesignObject[] | null = null;
+  for (const id of ids) {
+    const i = idx.at.get(id);
+    if (i === undefined) continue;
+    const o = (objects ?? doc.objects)[i]!;
+    if (o.locked || (objects && objects[i] !== doc.objects[i])) continue; // bloqueado o id repetido en `ids`
+    objects ??= doc.objects.slice();
+    objects[i] = move(o);
+  }
+  if (!objects) return doc;
+  shareIndex(doc.objects, objects);
+  return { ...doc, objects };
 }
 
 export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
@@ -296,17 +340,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     moveObjects: (ids, dx, dy, key) => {
       if (ids.length === 0 || (dx === 0 && dy === 0)) return;
       if (!get().transformAllow.move) return void get().notifyKey('info', 'canvas.xform.off.move');
-      const set_ = new Set(ids);
-      commit(
-        'history.move',
-        (doc) => ({
-          ...doc,
-          objects: doc.objects.map((o) =>
-            set_.has(o.id) && !o.locked ? { ...o, transform: roundMove(translateAffine(o.transform, dx, dy)) } : o,
-          ),
-        }),
-        key,
-      );
+      commit('history.move', (doc) => translateById(doc, ids, dx, dy), key);
     },
 
     deleteObjects: (ids) => {

@@ -1,5 +1,6 @@
 import type { DesignObject, LayerSettings, Point } from '@/api/types';
 import { boxContains, boxesIntersect, eachSegment, getGeom, type Box, type ObjectGeom } from './geom';
+import { INDEX_MIN_OBJECTS, spatialIndexFor } from './spatialIndex';
 
 /** Tolerancia de clic en píxeles de pantalla (no depende del zoom). */
 export const HIT_PX = 6;
@@ -80,6 +81,16 @@ export interface PickContext {
 
 /** Objeto seleccionable bajo el punto (mm). El de más arriba (el último del documento) gana. */
 export function pickObject(ctx: PickContext, p: Point, tol: number): DesignObject | null {
+  if (ctx.objects.length >= INDEX_MIN_OBJECTS) {
+    // Solo los objetos cuya caja (con la tolerancia) contiene el punto; ya vienen de arriba hacia abajo.
+    for (const i of spatialIndexFor(ctx.objects).atPoint(p[0], p[1], tol)) {
+      const obj = ctx.objects[i]!;
+      const layer = ctx.layer(obj.layer);
+      if (!isSelectable(obj, layer)) continue;
+      if (hitObject(getGeom(obj), p[0], p[1], tol, isFilled(obj, layer))) return obj;
+    }
+    return null;
+  }
   for (let i = ctx.objects.length - 1; i >= 0; i--) {
     const obj = ctx.objects[i];
     const layer = ctx.layer(obj.layer);
@@ -142,7 +153,9 @@ function touchesBox(g: ObjectGeom, r: Box, filled: boolean): boolean {
 /** Ids de los objetos seleccionables dentro (`window`) o tocados (`crossing`) por la caja. */
 export function selectByBox(ctx: PickContext, r: Box, mode: BoxMode): string[] {
   const out: string[] = [];
-  for (const obj of ctx.objects) {
+  // Con un rectángulo pequeño sobre un documento enorme, solo se miran los objetos de sus celdas.
+  const list: readonly DesignObject[] = ctx.objects.length >= INDEX_MIN_OBJECTS ? spatialIndexFor(ctx.objects).inBox(r).map((i) => ctx.objects[i]!) : ctx.objects;
+  for (const obj of list) {
     const layer = ctx.layer(obj.layer);
     if (!isSelectable(obj, layer)) continue;
     const g = getGeom(obj);

@@ -56,6 +56,7 @@ import type { AddArtResult, UserArt } from '@/features/art/types';
 import type { BitmapOptions, BitmapResult, ProcessedSummary } from '@/features/trace/types';
 import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
 import type { NestRequest, NestStatus } from '@/features/nest/types';
+import type { Finding, ReviewArgs } from '@/features/review/types';
 
 export type Unlisten = () => void;
 
@@ -380,6 +381,8 @@ export interface LaserApi {
   generateCode(args: { spec: CodeSpec }): Promise<CodeResult>;
   /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
   geometryOp(args: GeometryOpArgs): Promise<DesignObject[]>;
+  /** «Revisar diseño»: analiza el documento y devuelve los hallazgos (no cambia nada); ver `edit/review.rs`. */
+  reviewDesign(args: ReviewArgs): Promise<Finding[]>;
   /** Recortar, separar, optimizar, redondear esquinas, cortar formas y redimensionar ranuras (ola 3). */
   shapeOp(args: ShapeOpArgs): Promise<ShapeOpResult>;
   /** Deforma los objetos con una envolvente de cuatro bordes Bézier; cada uno vuelve con su id, vectorial. */
@@ -591,6 +594,7 @@ export const COMMAND_NAMES = {
   readCsv: 'read_csv',
   generateCode: 'generate_code',
   geometryOp: 'geometry_op',
+  reviewDesign: 'review_design',
   shapeOp: 'shape_op',
   warpObjects: 'warp_objects',
   hullOutline: 'hull_outline',

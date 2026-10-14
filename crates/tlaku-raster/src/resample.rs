@@ -41,6 +41,21 @@ pub fn resample_to_mm(
     height_mm: f64,
     sampling: Sampling,
 ) -> Result<Resampled, String> {
+    let (w, h) = grid_size(width_mm, height_mm, sampling)?;
+    Ok(Resampled {
+        image: resample(img, w, h),
+        pixel_size_x_mm: width_mm / w as f64,
+        pixel_size_y_mm: height_mm / h as f64,
+    })
+}
+
+/// Columnas y filas de la rejilla de grabado de un área de `width_mm` x `height_mm`. Falla con
+/// un mensaje claro si el tamaño o el intervalo no son válidos o la rejilla es enorme.
+pub fn grid_size(
+    width_mm: f64,
+    height_mm: f64,
+    sampling: Sampling,
+) -> Result<(usize, usize), String> {
     if !(width_mm.is_finite() && width_mm > 0.0 && height_mm.is_finite() && height_mm > 0.0) {
         return Err(format!("tamaño inválido: {width_mm} x {height_mm} mm"));
     }
@@ -58,12 +73,7 @@ pub fn resample_to_mm(
             "la rejilla de {cols} x {rows} puntos es demasiado grande; aumenta el intervalo"
         ));
     }
-    let (w, h) = (cols as usize, rows as usize);
-    Ok(Resampled {
-        image: resample(img, w, h),
-        pixel_size_x_mm: width_mm / w as f64,
-        pixel_size_y_mm: height_mm / h as f64,
-    })
+    Ok((cols as usize, rows as usize))
 }
 
 /// Cambia el tamaño en píxeles. Cada eje se trata por separado: promedio por área si

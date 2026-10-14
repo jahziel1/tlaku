@@ -88,8 +88,21 @@ export function removeLayerFrom(doc: Document, color: string): Document {
 }
 
 /** Objetos de la capa que están bloqueados (impiden borrarla). */
+const lockedMemo = new WeakMap<object, Map<string, number>>();
+
+/** Se guarda por lista de objetos: el panel lo pide en cada actualización del store y no debe recorrer el documento cada vez. */
 export function lockedInLayer(doc: Document, color: string): number {
-  return doc.objects.filter((o) => o.locked && sameColor(o.layer, color)).length;
+  let byColor = lockedMemo.get(doc.objects);
+  if (!byColor) {
+    byColor = new Map();
+    lockedMemo.set(doc.objects, byColor);
+  }
+  let n = byColor.get(color);
+  if (n === undefined) {
+    n = doc.objects.filter((o) => o.locked && sameColor(o.layer, color)).length;
+    byColor.set(color, n);
+  }
+  return n;
 }
 
 /**

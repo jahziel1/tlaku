@@ -23,7 +23,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `tlaku-geom` | `boolean`, `offset`, `kerf`, `join`, `dedupe`, `tabs`, `fillet`, `trim`, `split`, `slots`, `knife`, `hull`, `tangent`, `warp`, `simplify`, `nesting` (par-impar) |
 | `tlaku-plan` | Orden de corte: `planner.rs`, `sched.rs`, `improve.rs`, `contain.rs`, `overlap.rs`, `explain.rs`, `describe.rs` |
 | `tlaku-fill` | Relleno: `scan.rs` (barrido), `offset.rs` (contornos), `flood.rs`, `cluster.rs` |
-| `tlaku-raster` | Imagen a potencia: `adjust`, `dither`, `screen` (semitono), `sketch`, `mask`, `resample`, `scan.rs` (barrido a bloque) |
+| `tlaku-raster` | Imagen a potencia: `adjust`, `dither`, `screen` (semitono), `sketch`, `mask`, `resample`, `scan.rs` (barrido a bloque); carga sin materializar la imagen: `load.rs` (cabecera, PNG por filas, TIFF por franjas/teselas con YCbCr, `convert_to_png`) y `downsample.rs`; `load_for_process` reduce a la rejilla antes de ajustar |
 | `tlaku-sim` | Tiempo/overscan: `profile.rs`, `plan.rs`, `sample.rs` |
 | `tlaku-text` | Texto a contornos: `library.rs`, `layout.rs`, `linefont.rs` (Hershey en `data/`), `shx.rs`, `effects.rs`, `path_sampler.rs` |
 | `tlaku-trace` | Vectorizar imagen: `binarize`, `polygon`, `spline` |
@@ -136,6 +136,20 @@ nombre con `grep -rn` dentro de la carpeta.
 | `apps/desktop/src/features/canvas/useCanvasTools.ts` (479) | Hook: 36 `useEffect`, 83 `cancel`, 120 `onDown`, 176 `update`, 209 `hoverAt`, 258 `onMove`, 286 `onUp`, 362 teclado, 387 menú contextual, 399 doble clic; gestos en `gestureState.ts`, `toolSnapping.ts`, `transformGesture.ts`, `shapeGesture.ts`, `polylineGesture.ts` |
 | `apps/desktop/src/features/canvas/canvas2d.ts` (578) | `Canvas2DRenderer` (55-578); funciones de dibujo puras en `overlay2d.ts` (342) |
 
+### Agregado en la ola 6B
+
+| Dónde | Qué |
+|---|---|
+| `crates/tlaku-plan/src/seq.rs` | `Seq` (`ArraySeq`, `BlockSeq` con inversión perezosa) para 2-opt/Or-opt; `geom.rs` tiene `PolyIndex` y `grid.rs` `items_within`. `testgen.rs` y `equiv.rs` son solo de pruebas (rápido contra lento) |
+| `crates/tlaku-raster/src/{load,downsample}.rs` | `load_for_process` (decodifica y reduce a la rejilla de grabado antes de procesar; PNG por filas, TIFF por franjas, YCbCr), `gray::dimensions` (solo cabecera), `convert_to_png` |
+| `crates/tlaku-grbl/src/gcode.rs` | Fusión de cortes casi colineales: `GcodeOptions::merge_tolerance_mm` (`DEFAULT_MERGE_TOLERANCE_MM` = 0,0059; 0 la apaga), `compact_toolpath`, `generate_mapped` |
+| `crates/tlaku-grbl/src/preflight.rs` + `tlaku-sim` | `LinkLoad`, `preflight_link_with_load`; `tlaku_sim::line_rate`; `tlaku_pipeline::link_load`. `tlaku_sim::estimate_with_times` planifica una sola vez |
+| `crates/tlaku-ruida/src/rd/` | Fusión de capas vecinas iguales si hay más de 128 (`plan_summary`, `clamp_speeds`); tope 36 000 mm/min (`safety::MAX_SPEED_MM_MIN`). Avisos de velocidad en `tlaku-pipeline/src/layers.rs` (`speed_warnings`) |
+| `src-tauri/src/edit/review.rs` + `src/features/review/` | Revisar diseño: comando `review_design`; `fixes.ts`, `useReview.ts`, `ReviewPanel.tsx`, `ReviewNotice.tsx` (diálogo de inicio), `SimpleReview.tsx` (modo sencillo) |
+| `src/api/tauri.contract.test.ts` + `src/api/contract/rustCommands.ts` | Prueba de contrato: compara `generate_handler!`/firmas Rust con lo que manda `tauri.ts` |
+| `src-tauri/src/smoke.rs`, `src-tauri/examples/smoke.rs`, `scripts/smoke-tauri.sh` | Prueba de humo con Tauri real (`npm run smoke:tauri`); `lib.rs` separa `build_app`/`app_context` |
+| `src/features/canvas/{spatialIndex,objectDiff,layerBitmap}.ts`, `src/store/objectIndex.ts` | Rejilla para clic/hover/rectángulo, cambios incrementales, bitmap de capa y de selección (arrastre sin retrazar), índice id → posición (`translateById`) |
+
 Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "fn "`):
 `crates/tlaku-pipeline/tests/{orden,galvo}.rs`, `crates/tlaku-plan/tests/plan.rs`,
 `crates/tlaku-cli/tests/cli.rs`, `crates/tlaku-emu/tests/{reprap,behavior}.rs`,
@@ -158,6 +172,8 @@ Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targe
 6. Tipos nuevos de entrada/salida: contrato compartido en `tlaku-doc` (3.6); si solo los usa la UI, en `api/types.ts` o en `features/<área>/types.ts`.
 7. `docs/app-api/<área>.md`: fila/sección del comando, y su fila en la tabla de `docs/app-api/README.md`.
 8. Prueba: Rust en el mismo archivo (`mod tests`) y `api/mock/*.test.ts` o la de la feature.
+9. **Contrato (automático):** `src/api/tauri.contract.test.ts` lee `lib.rs` y las firmas Rust (`src/api/contract/rustCommands.ts`), saca de `LaserApi` las claves que manda la interfaz y llama a `createTauriApi()` con `invoke` interceptado. Falla si un comando falta en `lib.rs` o en `COMMAND_NAMES`, si una clave no es la que Tauri espera (camelCase, o snake_case con `rename_all`) o si un argumento obligatorio de Rust no llega. Si no reconoce una firma, falla en voz alta: ajusta el lector, no la prueba.
+10. **Humo de la app real:** `apps/desktop/scripts/smoke-tauri.sh` (o `npm run smoke:tauri`) arranca Tauri con una ventana oculta y llama por `invoke` a los comandos de solo lectura (`src-tauri/src/smoke.rs`). Si agregas un comando de solo lectura sin argumentos de entorno, añádelo a `calls()`.
 
 ### 3.2 Un evento de máquina (`machine://*`)
 1. Carga serializable: tipo en `tlaku-doc/src/machine.rs` (derive `TS`, ver 3.6) o, si es de un solo driver, en su módulo (como `GalvoEvent` en `machine/galvo/events.rs`).

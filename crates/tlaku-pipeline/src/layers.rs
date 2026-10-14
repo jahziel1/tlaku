@@ -1,8 +1,10 @@
 //! Ajustes de capa a ajustes del motor, clasificación y orden automático de capas.
 
+use crate::place::LayerWork;
 use tlaku_core::{CutSettings, Rgb};
 use tlaku_doc::{
-    FillGrouping, FillStyle, ImageMode, LayerMode, LayerOrder, LayerSettings, Overscan,
+    DeviceKind, DeviceProfile, FillGrouping, FillStyle, ImageMode, LayerMode, LayerOrder,
+    LayerSettings, Overscan,
 };
 use tlaku_fill::{FillPattern, FillSettings, Grouping};
 use tlaku_raster::{BayerSize, ImageAdjust, RasterMode, RasterSettings};
@@ -197,6 +199,65 @@ pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
         overscan: l.overscan,
         passes: l.passes,
     })
+}
+
+/// Velocidad máxima (mm/min) del perfil. `None` si no se usa `max_rate` (galvo, Lihuiyu).
+pub(crate) fn speed_limit(device: &DeviceProfile) -> Option<f64> {
+    if matches!(device.kind, DeviceKind::Galvo | DeviceKind::LhyMicro) {
+        return None;
+    }
+    // Un eje más lento que el otro solo limita los movimientos en su dirección: el aviso
+    // salta cuando la velocidad no la alcanza ningún eje.
+    let machine = device.max_rate[0].max(device.max_rate[1]);
+    (machine.is_finite() && machine > 0.0).then_some(machine)
+}
+
+/// Avisos de las capas que piden más velocidad de la que da la máquina. No cambian la salida:
+/// GRBL limita el avance por su cuenta. En Ruida el `max_rate` del perfil es una suposición (la
+/// controladora tiene el suyo), así que solo se avisa; lo único que se recorta es el máximo
+/// del protocolo (36 000 mm/min) al generar el `.rd`.
+pub(crate) fn speed_warnings(work: &[LayerWork], device: &DeviceProfile) -> Vec<String> {
+    let machine = speed_limit(device);
+    let ruida = device.kind == DeviceKind::Ruida;
+    let mut out = Vec::new();
+    for l in work {
+        let v = l.settings.speed;
+        if !v.is_finite() {
+            continue;
+        }
+        let name = if l.settings.mode == LayerMode::Image {
+            "imagen".to_string()
+        } else {
+            match l.position() {
+                Some((k, n)) => format!("{} · {k}/{n}", l.color),
+                None => l.color.to_string(),
+            }
+        };
+        let cap = tlaku_ruida::safety::MAX_SPEED_MM_MIN;
+        if ruida && v > cap {
+            out.push(format!(
+                "capa {name}: pide {v:.0} mm/min y Ruida admite como máximo {cap:.0} mm/min; el \
+                 archivo .rd usará {cap:.0} mm/min, así que el resultado será más oscuro o más \
+                 quemado de lo previsto"
+            ));
+        }
+        if let Some(max) = machine
+            && v > max
+        {
+            let tail = if ruida {
+                "si tu controladora admite más, sube la velocidad máxima del perfil"
+            } else {
+                "baja la velocidad de la capa o corrige la velocidad máxima del perfil"
+            };
+            out.push(format!(
+                "capa {name}: pide {v:.0} mm/min y la máquina '{}' llega como máximo a {max:.0} \
+                 mm/min; la máquina irá al máximo, así que el resultado será más oscuro o más \
+                 quemado de lo previsto ({tail})",
+                device.name
+            ));
+        }
+    }
+    out
 }
 
 /// Función de una capa en el orden automático. El orden de las variantes es el de ejecución.

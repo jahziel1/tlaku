@@ -16,6 +16,9 @@
 //! 7. Pie: `EB`, `E7 00`, suma `E5 05` (opcional), `DA 01 06 20` (opcional) y `D7`.
 //!
 //! Cada `ToolpathBlock` con al menos un corte es una capa. Los bloques sin cortes se omiten.
+//! Si hay más de [`MAX_LAYERS`], se fusionan las capas **consecutivas** de ajustes idénticos
+//! (velocidad, potencias, aire; el color no cuenta), así el orden de corte no cambia; si aun así
+//! sobran, es [`RdError::TooManyLayers`].
 //!
 //! **Potencia variable** (ráster, relleno con overscan): si los cortes de un bloque no comparten
 //! potencia, la capa lleva mín = 0 y máx = la mayor del bloque, y antes de cada corte cuya
@@ -37,6 +40,53 @@ pub use options::{
     ZeroPower, decode_element_name, encode_element_name,
 };
 use tlaku_core::toolpath::Toolpath;
+
+/// Cuántas capas tendrá el archivo y cuántas se fusionaron (ver [`plan_summary`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LayerSummary {
+    /// Bloques con cortes del trabajo (una capa de Tlaku por bloque).
+    pub blocks: usize,
+    /// Capas Ruida resultantes tras fusionar las vecinas de ajustes idénticos.
+    pub layers: usize,
+    /// Capas que se fusionaron con la anterior (`blocks - layers`).
+    pub merged: usize,
+}
+
+impl LayerSummary {
+    /// Las capas resultantes caben en [`MAX_LAYERS`].
+    pub fn fits(&self) -> bool {
+        self.layers <= MAX_LAYERS
+    }
+}
+
+/// Planifica las capas del `.rd` sin generar el archivo: sirve para avisar al calcular. No
+/// falla por exceso de capas (mira [`LayerSummary::fits`]); sí por un trabajo vacío o con
+/// valores fuera de rango.
+pub fn plan_summary(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<LayerSummary, RdError> {
+    let p = plan::plan_layers(tp, opts)?;
+    Ok(LayerSummary {
+        blocks: p.blocks,
+        layers: p.layers.len(),
+        merged: p.merged,
+    })
+}
+
+/// Copia del trabajo con la velocidad de cada bloque recortada a `max_mm_min`, o `None` si
+/// ningún bloque la supera. Los valores no finitos o no positivos no se tocan (los rechaza la
+/// comprobación de seguridad).
+pub fn clamp_speeds(tp: &Toolpath, max_mm_min: f64) -> Option<Toolpath> {
+    let over = |s: f64| s.is_finite() && s > max_mm_min;
+    if !tp.blocks.iter().any(|b| over(b.speed_mm_min)) {
+        return None;
+    }
+    let mut out = tp.clone();
+    for b in &mut out.blocks {
+        if over(b.speed_mm_min) {
+            b.speed_mm_min = max_mm_min;
+        }
+    }
+    Some(out)
+}
 
 /// Genera los bytes del `.rd` **sin swizzle**. Antes de devolverlos verifica el flujo resultante
 /// contra los límites de seguridad.

@@ -161,13 +161,112 @@ fn rejects_empty_unsafe_and_z() {
     ));
 }
 
+/// Bloques `n` distintos entre sí por la velocidad (ni vecinos ni repetidos se fusionan).
+fn distinct_blocks(n: usize) -> Vec<ToolpathBlock> {
+    (0..n)
+        .map(|i| {
+            let mut b = rect_block(10.0);
+            b.speed_mm_min = 600.0 + i as f64 * 6.0;
+            b
+        })
+        .collect()
+}
+
 #[test]
-fn too_many_layers() {
-    let blocks = (0..129).map(|_| rect_block(10.0)).collect();
+fn identical_layers_beyond_the_limit_are_merged_into_one() {
+    // 129 colores con los mismos ajustes (el caso del SVG de 129 colores).
+    let blocks: Vec<_> = (0..129).map(|_| rect_block(10.0)).collect();
+    let tp = Toolpath { blocks };
+    let o = RuidaJobOptions {
+        layers: (0..129u32)
+            .map(|i| LayerOptions {
+                color: [(i % 256) as u8, 0, 0],
+                min_power_pct: None,
+            })
+            .collect(),
+        ..dflt()
+    };
+    let s = plan_summary(&tp, &o).unwrap();
+    assert_eq!((s.blocks, s.layers, s.merged), (129, 1, 128));
+    assert!(s.fits());
+    let cmds = build_commands(&tp, &o).unwrap();
+    assert!(cmds.contains(&Command::MaxLayer(0)));
+    let cuts = cmds
+        .iter()
+        .filter(|c| matches!(c, Command::CutAbs { .. } | Command::CutRel { .. }))
+        .count();
+    assert_eq!(cuts, 129 * 4);
+    build_rd(&tp, &o).unwrap();
+}
+
+#[test]
+fn merging_only_joins_neighbours_and_keeps_cut_order() {
+    // 100 capas A, una B y otras 100 A: las dos tandas de A no se juntan porque B va en medio.
+    let mut blocks: Vec<_> = (0..100).map(|_| rect_block(10.0)).collect();
+    let mut b = rect_block(10.0);
+    b.speed_mm_min = 1200.0;
+    blocks.push(b);
+    blocks.extend((0..100).map(|_| rect_block(10.0)));
+    let tp = Toolpath { blocks };
+    let s = plan_summary(&tp, &dflt()).unwrap();
+    assert_eq!((s.blocks, s.layers, s.merged), (201, 3, 198));
+    let cmds = build_commands(&tp, &dflt()).unwrap();
+    let speeds: Vec<u64> = cmds
+        .iter()
+        .filter_map(|c| match c {
+            Command::Speed(v) => Some(*v),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(speeds, [100_000, 20_000, 100_000]);
+}
+
+#[test]
+fn small_jobs_are_not_merged() {
+    let blocks: Vec<_> = (0..5).map(|_| rect_block(10.0)).collect();
+    let s = plan_summary(&Toolpath { blocks }, &dflt()).unwrap();
+    assert_eq!((s.blocks, s.layers, s.merged), (5, 5, 0));
+}
+
+#[test]
+fn too_many_distinct_layers_explains_what_to_do() {
+    let tp = Toolpath {
+        blocks: distinct_blocks(129),
+    };
+    let s = plan_summary(&tp, &dflt()).unwrap();
+    assert_eq!((s.layers, s.merged, s.fits()), (129, 0, false));
+    let err = build_rd(&tp, &dflt()).unwrap_err();
     assert!(matches!(
-        build_rd(&Toolpath { blocks }, &dflt()),
-        Err(RdError::TooManyLayers { .. })
+        err,
+        RdError::TooManyLayers {
+            layers: 129,
+            blocks: 129
+        }
     ));
+    let msg = err.to_string();
+    assert!(msg.contains("129") && msg.contains("128"), "{msg}");
+    assert!(msg.contains("unifica colores o ajustes"), "{msg}");
+}
+
+#[test]
+fn clamp_speeds_caps_only_the_blocks_above_the_limit() {
+    let mut fast = rect_block(10.0);
+    fast.speed_mm_min = 48_000.0;
+    let mut slow = rect_block(10.0);
+    slow.speed_mm_min = 6000.0;
+    let tp = Toolpath {
+        blocks: vec![fast, slow],
+    };
+    // Sin recorte, el archivo no se genera (la comprobación de seguridad manda).
+    assert!(matches!(
+        build_rd(&tp, &dflt()),
+        Err(RdError::Safety(SafetyError::Speed { .. }))
+    ));
+    let clamped = clamp_speeds(&tp, 36_000.0).unwrap();
+    assert_eq!(clamped.blocks[0].speed_mm_min, 36_000.0);
+    assert_eq!(clamped.blocks[1].speed_mm_min, 6000.0);
+    build_rd(&clamped, &dflt()).unwrap();
+    assert!(clamp_speeds(&clamped, 36_000.0).is_none());
 }
 
 #[test]

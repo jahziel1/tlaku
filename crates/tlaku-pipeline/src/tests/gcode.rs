@@ -227,3 +227,56 @@ fn dialect_limits_are_reported() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn link_load_warns_for_dense_engraving_but_not_for_a_fused_polyline() {
+    use tlaku_core::toolpath::{Move, PowerMode, Toolpath, ToolpathBlock};
+    let dev = device();
+    let mut job = compute(&tall_rect(), &dev, &JobOptions::default()).unwrap();
+    let block = |moves| ToolpathBlock {
+        label: "prueba".into(),
+        speed_mm_min: 12_000.0,
+        air_assist: false,
+        power_mode: PowerMode::Dynamic,
+        moves,
+        z_mm: None,
+        galvo: None,
+    };
+    // Grabado: puntos de 0,02 mm con potencia que cambia en cada uno (no se puede fusionar).
+    let mut moves = vec![Move::Travel {
+        to: Point::new(10.0, 10.0),
+    }];
+    for i in 1..=3000 {
+        moves.push(Move::Cut {
+            to: Point::new(10.0 + 0.02 * f64::from(i), 10.0),
+            power_pct: if i % 2 == 0 { 20.0 } else { 30.0 },
+        });
+    }
+    job.toolpath = Toolpath {
+        blocks: vec![block(moves)],
+    };
+    let g = gcode(&job, &dev);
+    let load = link_load(&job, &dev, &g, 115_200);
+    assert!(load.peak_lines_per_s > 1000.0, "{load:?}");
+    // El planificador de 16 bloques con segmentos de 0,02 mm solo ve 0,3 mm: unas 1 260 líneas
+    // por segundo, más de las ~800 que caben a 115 200 baudios.
+    let w = load.warning().expect("debe avisar");
+    assert!(w.contains("115200 baudios") && w.contains("pausas"), "{w}");
+    // Los mismos puntos a una sola potencia son una recta: se fusionan en tramos de 256 puntos y no hay aviso.
+    let mut moves = vec![Move::Travel {
+        to: Point::new(10.0, 10.0),
+    }];
+    for i in 1..=3000 {
+        moves.push(Move::Cut {
+            to: Point::new(10.0 + 0.02 * f64::from(i), 10.0),
+            power_pct: 30.0,
+        });
+    }
+    job.toolpath = Toolpath {
+        blocks: vec![block(moves)],
+    };
+    let g = gcode(&job, &dev);
+    assert!(g.lines().count() < 40, "{g}");
+    let load = link_load(&job, &dev, &g, 115_200);
+    assert_eq!(load.warning(), None, "{load:?}");
+}

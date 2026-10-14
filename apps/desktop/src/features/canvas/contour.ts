@@ -124,6 +124,25 @@ export interface StartMark {
 }
 
 /**
+ * Inicio y sentido del trazo tal como se dibujó (el primer tramo con largo). Es lo que da `pointAtArc` en
+ * el arco 0, sin armar el arreglo de puntos ni las longitudes de un trayecto de un millón de nodos.
+ */
+function firstStep(poly: PolyGeom): { point: Point; dir: Point } {
+  const { pts } = poly;
+  const n = pts.length / 2;
+  const first: Point = [pts[0]!, pts[1]!];
+  const segs = n === 1 ? 0 : poly.closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const j = (i + 1) % n;
+    const dx = pts[j * 2]! - pts[i * 2]!;
+    const dy = pts[j * 2 + 1]! - pts[i * 2 + 1]!;
+    const len = Math.hypot(dx, dy);
+    if (len > 0) return { point: [pts[i * 2]!, pts[i * 2 + 1]!], dir: [dx / len, dy / len] };
+  }
+  return { point: first, dir: [1, 0] };
+}
+
+/**
  * Subtrayecto, punto y sentido de la flecha de inicio de un objeto. Igual que el motor: el punto se
  * lleva al contorno **cerrado** más cercano; sin punto, vale el inicio del primer subtrayecto con
  * puntos. `reverse` invierte el sentido. `null` si el objeto no tiene trazo.
@@ -142,6 +161,7 @@ export function startMark(obj: DesignObject): StartMark | null {
     }
   }
   if (poly < 0) return null;
+  if (!spec?.point && !reversed) return { ...firstStep(g.polys[poly]!), poly, fixed: spec !== null, reversed };
   const pts = polyPoints(g.polys[poly]!);
   const closed = g.polys[poly]!.closed;
   const cum = cumulativeLength(pts, closed);

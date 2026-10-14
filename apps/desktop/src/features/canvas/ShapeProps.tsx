@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useMemo } from 'react';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
+import { objectsByIds } from '@/store/objectIndex';
 import { ExprField } from './ExprField';
 import { commonValue, setCutProps, type CutPatch } from './cutProps';
 import { OptionalField } from './OptionalField';
@@ -130,8 +131,7 @@ export function ShapeProps() {
   const objects = useStore((s) => s.doc.objects);
 
   const picked = useMemo(() => {
-    const set = new Set(ids);
-    return objects.filter((o) => set.has(o.id));
+    return objectsByIds(objects, ids);
   }, [ids, objects]);
   const editable = useMemo(
     () => picked.flatMap((o) => {

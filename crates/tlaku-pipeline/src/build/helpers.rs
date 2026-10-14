@@ -63,9 +63,9 @@ pub(super) fn repeat_passes(block: &mut ToolpathBlock, passes: u32) {
     }
 }
 
-pub(super) fn flipped(gray: &GrayF32, mirror_x: bool, mirror_y: bool) -> GrayF32 {
+pub(super) fn flipped(gray: GrayF32, mirror_x: bool, mirror_y: bool) -> GrayF32 {
     if !mirror_x && !mirror_y {
-        return gray.clone();
+        return gray;
     }
     GrayF32::from_fn(gray.width, gray.height, |x, y| {
         let sx = if mirror_x { gray.width - 1 - x } else { x };

@@ -280,7 +280,18 @@ export interface LayerCount {
 }
 
 /** Conteos por color de capa (en minúsculas). */
+const countMemo = new WeakMap<object, { layers: Document['layers']; out: Map<string, LayerCount> }>();
+
+/** Se guarda por lista de objetos y de capas (los paneles lo piden en cada actualización del store). No hay que modificar el resultado. */
 export function countByLayer(doc: Document): Map<string, LayerCount> {
+  const hit = countMemo.get(doc.objects);
+  if (hit && hit.layers === doc.layers) return hit.out;
+  const out = countByLayerRaw(doc);
+  countMemo.set(doc.objects, { layers: doc.layers, out });
+  return out;
+}
+
+function countByLayerRaw(doc: Document): Map<string, LayerCount> {
   const mode = new Map(doc.layers.map((l) => [l.color.toLowerCase(), l.mode]));
   const out = new Map<string, LayerCount>();
   for (const o of doc.objects) {

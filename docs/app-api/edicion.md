@@ -35,6 +35,7 @@ interface TextObject {                // ObjectKind "text"
 | `text_outline` | `{ text: TextObject, path: BezPath \| null }` | `{ paths: BezPath[], warnings: string[] }` (un `BezPath` por glifo, en coordenadas locales del texto; las advertencias son sustituciones de fuente, caracteres sin glifo o texto que no cabe en la trayectoria) |
 | `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento, transform identidad) |
 | `shape_op` | `{ op: "trim" \| "break_apart" \| "optimize" \| "fillet" \| "cut_shapes" \| "resize_slots", objects: DesignObject[], params?: ShapeParams }` | `{ objects: DesignObject[], stats: ShapeStats }` (misma convención de resultado que `join`/`close`/`dedupe`) |
+| `review_design` | `{ doc: Document, bed: [number, number], options?: ReviewOptions }` | `Finding[]` (lo grave primero; solo lee, no cambia nada) |
 | `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `{ paths: BezPath[], warnings: string[] }` |
 | `vectors_to_bitmap` | `{ doc, selection: string[], dir: string \| null, stem, options: { dpi, filled, stroke_mm, invert } }` | `{ path, width_px, height_px, size_mm, origin_mm, in_temp_dir }` |
 | `save_processed_image` | `{ image: ImageObject, layer: LayerSettings, path }` | `{ path, bytes, width_px, height_px }` |
@@ -191,3 +192,14 @@ sigue la misma convención de resultado y devuelve además `stats` (cuántas cos
 antes y después, anchos de ranura detectados, puntos del tramo que se borraría). Cada operación lee
 solo sus campos de `params` (ver `edit/shape_ops.rs`), así que la interfaz puede llamarla sin aplicar
 el resultado para mostrar una vista previa. Solo acepta objetos vectoriales.
+
+`review_design` («Revisar diseño», sin IA) analiza el documento y devuelve hallazgos; los arreglos los
+aplica la interfaz con `geometry_op` (`join`/`close`/`dedupe`) y `shape_op` (`optimize`), cada uno como
+un solo paso de deshacer. `bed` es `[ancho, alto]` en mm. Cada `Finding` trae `key` (estable para el
+mismo contenido), `kind` (`near_closed`, `overlap`, `joinable`, `tiny`, `extra_nodes`, `outside_all`,
+`outside_part`, `text`, `silent_layer`, `hidden_layer`, `image_dpi_high`, `image_dpi_low`), `severity`
+(`serious`, `warning`, `info`), `layer` (`#rrggbb` o `null`), `object_ids`, `fix_ids` (solo si la operación
+necesita más objetos que los afectados: quitar duplicados), `count`, `value`, `detail` y `tolerance` (mm,
+la misma con la que se arregla). `options` (todo opcional): `close_mm` 0,5, `join_mm` 0,1, `dedupe_mm` 0,01,
+`tiny_mm` 0,2, `node_mm` 0,02, `dpi_high` 2 y `dpi_low` 0,5. Los ocultos, las guías y las capas sin salida
+no entran en el análisis geométrico, y los bloqueados tampoco en lo que se arregla editando su trazo.

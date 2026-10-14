@@ -3,6 +3,7 @@ import { Lock, LockOpen, Move, RotateCw, Scaling, Target } from 'lucide-react';
 import { useCommand } from '@/commands/useCommand';
 import { t, type I18nKey } from '@/i18n';
 import { usePref, useStore } from '@/store';
+import { objectsByIds } from '@/store/objectIndex';
 import { ExprField } from './ExprField';
 import { useInteraction } from './interaction';
 import {
@@ -62,8 +63,8 @@ export function NumericBar() {
   const live = useInteraction((s) => s.live);
 
   const selected = useMemo(() => {
-    const set = new Set(ids);
-    return objects.filter((o) => set.has(o.id) && !o.locked);
+    const all = objectsByIds(objects, ids);
+    return all.some((o) => o.locked) ? all.filter((o) => !o.locked) : all;
   }, [ids, objects]);
   const frame = useMemo(() => boundsOf(selected), [selected]);
   const shownFrame = useMemo(() => (live ? boundsOf(selected, live) : frame), [selected, frame, live]);
