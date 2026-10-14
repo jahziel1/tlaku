@@ -138,10 +138,82 @@ fn check(file: &str, actual: &str) {
     }
     let expected = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("falta el dorado {}: {e}", path.display()));
-    assert!(
-        expected == actual,
-        "el dorado {file} no coincide (regenerar solo a propósito con TLAKU_UPDATE_GOLDEN=1)"
-    );
+    if let Err(why) = same_within(&expected, actual, 1e-3) {
+        panic!(
+            "el dorado {file} no coincide: {why} (regenerar solo a propósito con TLAKU_UPDATE_GOLDEN=1)"
+        );
+    }
+}
+
+/// Compara dos textos: lo que no es número debe ser idéntico y cada número puede diferir en
+/// `tol` (absoluto, o relativo para valores grandes). El ajuste de curvas usa coma flotante y los
+/// últimos decimales cambian entre procesadores (ARM frente a x86 en la CI), sin que cambie la forma.
+fn same_within(expected: &str, actual: &str, tol: f64) -> Result<(), String> {
+    fn tokens(s: &str) -> Vec<(bool, &str)> {
+        let mut out = Vec::new();
+        let b = s.as_bytes();
+        let (mut i, mut start) = (0, 0);
+        while i < b.len() {
+            let num_start = b[i].is_ascii_digit()
+                || (b[i] == b'-'
+                    && i + 1 < b.len()
+                    && (b[i + 1].is_ascii_digit() || b[i + 1] == b'.'))
+                || (b[i] == b'.' && i + 1 < b.len() && b[i + 1].is_ascii_digit());
+            if num_start {
+                if start < i {
+                    out.push((false, &s[start..i]));
+                }
+                let n0 = i;
+                i += 1;
+                while i < b.len()
+                    && (b[i].is_ascii_digit()
+                        || b[i] == b'.'
+                        || b[i] == b'e'
+                        || b[i] == b'E'
+                        || ((b[i] == b'-' || b[i] == b'+') && matches!(b[i - 1], b'e' | b'E')))
+                {
+                    i += 1;
+                }
+                out.push((true, &s[n0..i]));
+                start = i;
+            } else {
+                i += 1;
+            }
+        }
+        if start < b.len() {
+            out.push((false, &s[start..]));
+        }
+        out
+    }
+    let (e, a) = (tokens(expected), tokens(actual));
+    if e.len() != a.len() {
+        return Err(format!(
+            "distinta estructura ({} contra {} piezas)",
+            e.len(),
+            a.len()
+        ));
+    }
+    for (k, ((en, et), (an, at))) in e.iter().zip(&a).enumerate() {
+        match (en, an) {
+            (true, true) => {
+                let (x, y): (f64, f64) = (
+                    et.parse().unwrap_or(f64::NAN),
+                    at.parse().unwrap_or(f64::NAN),
+                );
+                // Lo que parece número pero no lo es (una versión «0.6.5») se compara como texto.
+                if x.is_nan() || y.is_nan() {
+                    if et != at {
+                        return Err(format!("pieza {k}: {et:?} contra {at:?}"));
+                    }
+                } else if (x - y).abs() > tol * x.abs().max(1.0) {
+                    return Err(format!("número {k}: {et} contra {at}"));
+                }
+            }
+            (false, false) if et == at => {}
+            _ => return Err(format!("pieza {k}: {et:?} contra {at:?}")),
+        }
+    }
+    Ok(())
 }
 
 #[test]
