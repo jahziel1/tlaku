@@ -60,8 +60,8 @@
   description_es: Actualización de dependencias
 - name: grbl
   color: ededed
-  description_en: GRBL, grblHAL, FluidNC, Marlin and Smoothie machines
-  description_es: Máquinas GRBL, grblHAL, FluidNC, Marlin y Smoothie
+  description_en: GRBL, grblHAL, FluidNC, Marlin, Smoothie
+  description_es: Máquinas GRBL y compatibles
 - name: ruida
   color: ededed
   description_en: Ruida controllers (CO2)
