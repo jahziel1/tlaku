@@ -24,3 +24,6 @@
 *.cor binary
 *.lbrn binary
 *.lbrn2 binary
+
+# Corpus de prueba descargado: se guarda tal cual (su sha256 está en tests/corpus/README.md).
+tests/corpus/** -text
