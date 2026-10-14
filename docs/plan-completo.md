@@ -162,6 +162,15 @@ controlador (C59), y galvo completo con emulador: asistente (M41), encuadre con 
 calibración de lente (M43), temporización (M44), E/S (M45), marcado dividido y repetido (M40),
 rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47). De la ola 4 llegaban además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el autoenfoque y optimizar Z (M31).
 
+## Ola 5.5: fácil y remoto
+
+Agregada a pedido del usuario (2026-10-13), antes de la ola 6 para que esta también la pula.
+
+| Bloque | Qué incluye |
+|---|---|
+| Modo sencillo | Un modo de la misma app, con flujo guiado: abrir o importar, elegir material y qué hacer con cada color (cortar, grabar, ignorar), colocar, revisar con vista previa y encuadre, e iniciar con checklist. Siempre se puede pasar al modo completo. Biblioteca de materiales de ejemplo más completa. |
+| Control desde el celular | Servidor web local en la app de la PC, apagado de fábrica, solo red local, acceso con QR que lleva una clave aleatoria. Desde el navegador del celular: progreso en vivo (porcentaje, tiempo restante, capa, recorrido y posición), pausar, reanudar y detener siempre; **iniciar solo con checklist de seguridad y si el trabajo ya se encuadró en la PC** (decisión del usuario); imagen de la cámara de la cama si hay; aviso al terminar. Funciona con cualquier máquina. |
+
 ## Ola 6: calidad y publicación (lo que sigue)
 
 - Rendimiento del lienzo con diseños grandes (índice espacial, y WebGL si hace falta).
