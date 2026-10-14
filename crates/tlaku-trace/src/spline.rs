@@ -1,12 +1,12 @@
-//! Modo spline: vectoriza con vtracer (binario) y convierte su salida a cúbicas.
+//! Modo spline: vectoriza con el vectorizador binario de `crate::vtracer` (adaptado de vtracer
+//! sobre `visioncortex`) y convierte su salida a cúbicas.
 //!
-//! vtracer no expone sus trayectorias como tipos propios (el crate `visioncortex` no se
-//! reexporta), así que se lee la salida SVG con precisión completa de `f64`. Cada `<path>`
-//! es una forma con su exterior y sus huecos como subtrayectos `M ... C ... Z`.
+//! Se lee la salida SVG con precisión completa de `f64`. Cada `<path>` es una forma con su
+//! exterior y sus huecos como subtrayectos `M ... C ... Z`.
 
 use crate::binarize::Bitmap;
+use crate::vtracer::{self, ColorImage, Config};
 use tlaku_i18n::tr;
-use vtracer::{ColorImage, ColorMode, Config, Hierarchical};
 
 /// Una forma: cada lazo es una lista de nodos cúbicos `(inicio, [(c1, c2, fin), ...])`.
 pub(crate) type CubicLoop = ((f64, f64), Vec<[(f64, f64); 3]>);
@@ -17,7 +17,8 @@ pub(crate) struct SplineParams {
     pub length_threshold: f64,
 }
 
-fn trace_whole(bm: &Bitmap, params: &SplineParams) -> Result<Vec<CubicShape>, String> {
+/// Vectoriza el mapa completo y devuelve el SVG que produce vtracer (modo binario).
+pub(crate) fn vectorize_svg(bm: &Bitmap, params: &SplineParams) -> Result<String, String> {
     let mut pixels = Vec::with_capacity(bm.w * bm.h * 4);
     for &ink in &bm.ink {
         let v = if ink { 0 } else { 255 };
@@ -29,8 +30,6 @@ fn trace_whole(bm: &Bitmap, params: &SplineParams) -> Result<Vec<CubicShape>, St
         height: bm.h,
     };
     let config = Config {
-        color_mode: ColorMode::Binary,
-        hierarchical: Hierarchical::Stacked,
         // Las manchas ya se filtraron antes (incluye huecos pequeños).
         filter_speckle: 0,
         corner_threshold: params.corner_threshold_deg,
@@ -41,7 +40,11 @@ fn trace_whole(bm: &Bitmap, params: &SplineParams) -> Result<Vec<CubicShape>, St
     // vtracer puede entrar en pánico con formas degeneradas: se convierte en error.
     let svg = std::panic::catch_unwind(|| vtracer::convert(img, config))
         .map_err(|_| tr!("trace.spline.failed"))??;
-    let text = svg.to_string();
+    Ok(svg.to_string())
+}
+
+fn trace_whole(bm: &Bitmap, params: &SplineParams) -> Result<Vec<CubicShape>, String> {
+    let text = vectorize_svg(bm, params)?;
     Ok(text.lines().filter_map(parse_path_line).collect())
 }
 

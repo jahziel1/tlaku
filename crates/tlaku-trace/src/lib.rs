@@ -2,7 +2,7 @@
 //! (`BezPath`) listos para cortar o grabar.
 //!
 //! Flujo: alfa sobre blanco, luminancia, desenfoque opcional, umbral, limpieza de manchas y
-//! vectorizado. El modo `spline` usa vtracer y conserva sus cúbicas; el modo `polygon` sigue
+//! vectorizado. El modo `spline` usa un vectorizador adaptado de vtracer y conserva sus cúbicas; el modo `polygon` sigue
 //! el borde de los píxeles y lo simplifica con tolerancia (solo rectas).
 //!
 //! Salida en mm: la fila 0 de la imagen queda arriba, Y crece hacia arriba y el origen es la
@@ -11,8 +11,11 @@
 //! `BezPath` con dos subtrayectos).
 
 mod binarize;
+#[cfg(test)]
+mod golden;
 mod polygon;
 mod spline;
+mod vtracer;
 
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};

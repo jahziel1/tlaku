@@ -26,7 +26,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `tlaku-raster` | Imagen a potencia: `adjust`, `dither`, `screen` (semitono), `sketch`, `mask`, `resample`, `warp` (giro afín de una imagen), `preview` (vista previa entera o por trozo), `scan.rs` (barrido a bloque); carga sin materializar la imagen: `load.rs` (cabecera, PNG por filas, TIFF por franjas/teselas con YCbCr, `convert_to_png`) y `downsample.rs`; `load_for_process` reduce a la rejilla antes de ajustar |
 | `tlaku-sim` | Tiempo/overscan: `profile.rs`, `plan.rs`, `sample.rs` |
 | `tlaku-text` | Texto a contornos: `library.rs`, `layout.rs`, `linefont.rs` (Hershey en `data/`), `shx.rs`, `effects.rs`, `path_sampler.rs` |
-| `tlaku-trace` | Vectorizar imagen: `binarize`, `polygon`, `spline` |
+| `tlaku-trace` | Vectorizar imagen: `binarize`, `polygon`, `spline` (usa `visioncortex` mediante `vtracer/`, la parte de biblioteca de vtracer 0.6.5 adaptada, solo modo binario; ver `THIRD_PARTY.md`); `golden.rs` compara byte a byte con `tests/fixtures/golden_*` |
 | `tlaku-codes` | QR y barras: `encode.rs`, `geometry.rs` |
 | `tlaku-nest` | Nesting: `engine.rs`, `search.rs`, `prep.rs`, `region.rs`, `convex.rs`, `ops.rs` |
 | `tlaku-camera` | Lente/homografía/marcas sin OpenCV: `calibration.rs`, `marks.rs`, `chessboard`, `circle`, `homography`, `height`, `mosaic`, `undistort` |

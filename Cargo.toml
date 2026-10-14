@@ -10,7 +10,7 @@ homepage = "https://github.com/jahziel1/tlaku"
 repository = "https://github.com/jahziel1/tlaku"
 
 # No uses `panic = "abort"` en ningún perfil: tlaku-trace recupera con `catch_unwind` un pánico
-# conocido de vtracer en imágenes con decenas de miles de regiones.
+# conocido de visioncortex en imágenes con decenas de miles de regiones.
 
 # El nesting es cálculo puro y en debug va ~15 veces más lento: se optimiza también en
 # `tauri dev` para que el diálogo responda igual que en la app publicada.
