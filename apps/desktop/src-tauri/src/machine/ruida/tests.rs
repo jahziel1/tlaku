@@ -110,7 +110,8 @@ fn fast() -> RuidaTiming {
     RuidaTiming {
         status_interval: Duration::from_millis(20),
         frame_interval: Duration::from_millis(10),
-        poll_timeout: Duration::from_millis(100),
+        // Holgado para los equipos lentos de la CI (Windows): con 100 ms se perdían respuestas.
+        poll_timeout: Duration::from_millis(300),
         upload_ack: Duration::from_millis(300),
         lost_after: 3,
         start_grace: Duration::from_millis(300),

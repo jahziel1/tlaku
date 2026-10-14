@@ -191,8 +191,10 @@ impl Drop for Server {
 }
 
 fn serve(socket: &UdpSocket, backend: &dyn Backend, allow_start: &AtomicBool, stop: &AtomicBool) {
-    // Un byte más que el máximo para distinguir "cabe justo" de "se pasó".
-    let mut buf = vec![0u8; MAX_DATAGRAM + 1];
+    // Búfer del tamaño máximo de un datagrama UDP: en Windows, si el datagrama no cabe, `recv_from`
+    // falla (WSAEMSGSIZE) en vez de truncarlo, y el aviso "demasiado largo" nunca saldría. Así
+    // siempre se lee entero y `n > MAX_DATAGRAM` distingue "cabe justo" de "se pasó".
+    let mut buf = vec![0u8; 65_536];
     while !stop.load(Ordering::SeqCst) {
         let (n, from) = match socket.recv_from(&mut buf) {
             Ok(r) => r,

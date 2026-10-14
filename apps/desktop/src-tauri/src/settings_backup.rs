@@ -42,6 +42,14 @@ pub fn write_backup(path: &Path, text: &str) -> Result<(), String> {
 /// Lee un respaldo como UTF-8. Rechaza archivos de más de [`MAX_BYTES`] sin leerlos enteros.
 pub fn read_backup(path: &Path) -> Result<String, String> {
     let io = |e: std::io::Error| format!("{}: {e}", path.display());
+    // Se mira antes de abrir: en Windows abrir una carpeta como archivo falla con "acceso denegado"
+    // y el mensaje no diría qué pasa.
+    if fs::metadata(path).is_ok_and(|m| !m.is_file()) {
+        return Err(tr!(
+            "desktop.settings_backup.not_a_file",
+            path = path.display()
+        ));
+    }
     let file = fs::File::open(path).map_err(io)?;
     if !file.metadata().map_err(io)?.is_file() {
         return Err(tr!(

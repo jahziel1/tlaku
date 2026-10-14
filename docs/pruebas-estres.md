@@ -619,6 +619,22 @@ Arreglos de la lista de prioridades, medidos con `tlaku-bench worker` (release) 
 | 9. TIFF YCbCr y 87 Mpx | error | cargan |
 | 10. Lienzo | clic con 1 M de nodos 280 ms; mover 10 de 100 000 objetos 215 ms | 47 ms; 48 ms. Mover todo con 100 000 sigue en ~400 ms |
 
+## Corrida completa tras la ola 6 (2026-10-14, Rust 1.99)
+
+Los mismos archivos reales más los sintéticos (181 ejecuciones en modo línea, con emulador):
+
+| | Primera corrida (ola 5.5) | Tras la ola 6 |
+|---|---|---|
+| Correctas | 156 de 178 | **165 de 181** |
+| Errores controlados | 22 | **16**, todos de archivos sin vectores (DXF solo con sombreados o texto, PDF con solo texto o imagen, AI en PostScript, G-code con potencia 0, un `.lbrn2` con la capa sin salida, un SVG con un SVG anidado); cada uno con mensaje que dice por qué y qué hacer |
+| Pánicos, cierres o cuelgues | 0 | **0** |
+| Fases de más de 10 s | 4 mapas y PDF | **0** |
+| Láser encendido en un rápido (emulador) | 0 | **0** |
+| Estimado contra simulado (trabajos de 20 s o más) | mediana +1,2 %, extremos +26 % y −40 % | **mediana +0,41 %, p90 1,96 %, máximo 9,23 %** |
+
+Lo que antes fallaba y ahora pasa: los dos escudos de 129 colores a Ruida, el proyecto con una capa a
+48 000 mm/min, los dos TIFF grandes y el SVG que solo trae una imagen incrustada.
+
 ## Cómo repetirlo
 
 ```text
