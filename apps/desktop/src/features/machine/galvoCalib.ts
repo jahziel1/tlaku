@@ -1,4 +1,4 @@
-import type { DesignObject, Document, JobOptions, LayerSettings } from '@/api/types';
+import type { DesignObject, DeviceProfile, Document, JobOptions, LayerSettings } from '@/api/types';
 import type { FieldCorrection } from '@/bindings/FieldCorrection';
 import { polylineBez } from '@/lib/bezpath';
 import { makeLayer } from '@/lib/layers';
@@ -37,6 +37,14 @@ export interface CalibMark {
   speedMmS: number;
   frequencyKhz: number;
   pulseWidthNs: number | null;
+}
+
+
+/** Marca de partida de la rejilla: potencia baja a propósito, frecuencia dentro del rango del perfil. */
+export function defaultCalibMark(d: Pick<DeviceProfile, 'galvo'>): CalibMark {
+  const g = d.galvo;
+  const mid = Math.min(Math.max(30, g.freq_min_khz), g.freq_max_khz);
+  return { power: 15, speedMmS: 500, frequencyKhz: mid, pulseWidthNs: g.pulse_widths_ns[0] ?? null };
 }
 
 const square = (cx: number, cy: number, side: number) => {

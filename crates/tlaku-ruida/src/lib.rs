@@ -8,6 +8,7 @@
 //! - [`rd`]: de `Toolpath` a archivo `.rd`.
 //! - [`packet`]: paquetes UDP con checksum de 2 bytes y bytes de ACK.
 //! - [`link`]: enlace por datagramas (`PacketLink`) con `UdpLink` y `MemoryLink`.
+//! - [`settings`]: lista cerrada de ajustes escribibles, respaldo `.tlakuruida` y calibración.
 //! - [`session`]: sondeo, envío de trabajos, estado, pausa/reanudar/detener, saltos y encuadre.
 //! - `emu` (feature `emu` o pruebas): controladora simulada, en memoria y por UDP en localhost.
 //!
@@ -21,6 +22,7 @@ pub mod packet;
 pub mod rd;
 pub mod safety;
 pub mod session;
+pub mod settings;
 pub mod swizzle;
 mod text;
 

@@ -1,51 +1,20 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { DeviceProfile, LaserSource } from '@/api/types';
 import type { CylinderAxis } from '@/bindings/CylinderAxis';
 import type { SplitAxes } from '@/bindings/SplitAxes';
 import type { SplitOrder } from '@/bindings/SplitOrder';
-import { t, type I18nKey } from '@/i18n';
+import { t } from '@/i18n';
 import { NumInput } from './DeviceFields';
+import { Check, GField, Sub } from './GalvoFieldParts';
 import { GalvoExperimentalBadge } from './GalvoNotice';
 import { GalvoInterlockEditor } from './GalvoInterlock';
+import { GalvoRotaryFields } from './GalvoRotaryFields';
+import { warpActive } from './galvoWarp';
+import { useWarpUi } from './galvoWarpState';
 import { SOURCE_WAVELENGTH_NM } from './galvoPorts';
 import { COMMON_FIELDS_MM, formatPulseWidths, GALVO_SOURCES, parsePulseWidths, usesPulseWidth, type GalvoField, type GalvoIssues } from './galvoProfile';
 
 type Edit = (patch: Partial<DeviceProfile>) => void;
-
-/** Campo con etiqueta, ayuda breve y error (un `I18nKey` de `galvo.err.*`) enlazados al control. */
-function GField({ label, help, error, children }: { label: string; help: I18nKey; error?: I18nKey; children: (ids: { id: string; describedBy: string; invalid: boolean }) => ReactNode }) {
-  const id = useId();
-  const helpId = `${id}-help`;
-  const errId = `${id}-err`;
-  return (
-    <div className="mc-field" data-invalid={error || undefined}>
-      <label htmlFor={id} className="field__label">{label}</label>
-      {children({ id, describedBy: error ? `${errId} ${helpId}` : helpId, invalid: !!error })}
-      {error && <p id={errId} className="hint hint--danger" role="alert">{t(error)}</p>}
-      <p id={helpId} className="hint mc-help">{t(help)}</p>
-    </div>
-  );
-}
-
-function Check({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <label className="mc-check">
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-/** Subsección con título y una línea de ayuda. */
-function Sub({ title, help, children }: { title: string; help: I18nKey; children: ReactNode }) {
-  return (
-    <div className="mc-galvo-sub" role="group" aria-label={title}>
-      <h4 className="mc-sub">{title}</h4>
-      <p className="hint">{t(help)}</p>
-      {children}
-    </div>
-  );
-}
 
 /** Lista de anchos de pulso escrita a mano («4, 6, 9»); se confirma al salir del campo. */
 function PulseWidthsInput({ id, describedBy, invalid, value, onCommit }: { id: string; describedBy: string; invalid: boolean; value: number[]; onCommit: (v: number[]) => void }) {
@@ -92,6 +61,9 @@ export function GalvoFields({ draft, edit, issues, calibrate }: { draft: DeviceP
   const setCor = (patch: Partial<typeof cor>) => set({ correction: { ...cor, ...patch } });
   const pair = (v: [number, number], i: 0 | 1, n: number): [number, number] => (i === 0 ? [n, v[1]] : [v[0], n]);
   const pairBool = (v: [boolean, boolean], i: 0 | 1, n: boolean): [boolean, boolean] => (i === 0 ? [n, v[1]] : [v[0], n]);
+  const warpShow = useWarpUi((w) => w.show);
+  const setWarpShow = useWarpUi((w) => w.setShow);
+  const warpOn = warpActive(g);
   const source = g.source;
   const nm = SOURCE_WAVELENGTH_NM[source];
 
@@ -242,7 +214,18 @@ export function GalvoFields({ draft, edit, issues, calibrate }: { draft: DeviceP
             <input id={id} className="input num" value={cor.cor_file ?? ''} aria-describedby={describedBy} placeholder="lens.cor" onChange={(e) => setCor({ cor_file: e.target.value.trim() === '' ? null : e.target.value })} />
           )}
         </GField>
-        {cor.cor_file && <p className="warn-line" role="note">{t('galvo.dev.corFile.warn')}</p>}
+        {cor.cor_file && (
+          <>
+            <p className="warn-line" role="note">{t('galvo.dev.corFile.applied')}</p>
+            <p className="hint">{t('galvo.dev.corFile.warn')}</p>
+            <GField label={t('galvo.dev.corTranspose')} help="galvo.dev.corTranspose.help">
+              {() => <Check label={t('galvo.dev.corTranspose')} checked={cor.cor_transpose} onChange={(v) => setCor({ cor_transpose: v })} />}
+            </GField>
+            <GField label={t('galvo.dev.corInvert')} help="galvo.dev.corInvert.help">
+              {() => <Check label={t('galvo.dev.corInvert')} checked={cor.cor_invert} onChange={(v) => setCor({ cor_invert: v })} />}
+            </GField>
+          </>
+        )}
         {calibrate}
       </Sub>
 
@@ -294,6 +277,9 @@ export function GalvoFields({ draft, edit, issues, calibrate }: { draft: DeviceP
             )}
           </GField>
         )}
+        <GField label={t('galvo.dev.warp.show')} help={warpOn ? 'galvo.dev.warp.help' : 'galvo.dev.warp.inactive'}>
+          {() => <Check label={t('galvo.dev.warp.show')} checked={warpShow} disabled={!warpOn} onChange={setWarpShow} />}
+        </GField>
         <p className="hint">{t('galvo.dev.cylinder.unverified')}</p>
       </Sub>
 
@@ -329,6 +315,9 @@ export function GalvoFields({ draft, edit, issues, calibrate }: { draft: DeviceP
                 )}
               </GField>
             </div>
+            <GField label={t('galvo.dev.split.whole')} help="galvo.dev.split.whole.help">
+              {() => <Check label={t('galvo.dev.split.whole')} checked={g.split.whole_shapes} onChange={(v) => set({ split: { ...g.split, whole_shapes: v } })} />}
+            </GField>
             <GField label={t('galvo.dev.split.pause')} help="galvo.dev.split.pause.help" error={issues.pause_ms}>
               {({ id, describedBy, invalid }) => <NumInput id={id} unit="ms" value={g.split.pause_after_move_ms} describedBy={describedBy} invalid={invalid} onCommit={(v) => set({ split: { ...g.split, pause_after_move_ms: v } })} />}
             </GField>
@@ -353,7 +342,10 @@ export function GalvoFields({ draft, edit, issues, calibrate }: { draft: DeviceP
           </>
         )}
         <p className="hint">{t('galvo.dev.noAxes')}</p>
+        <p className="hint">{t('galvo.dev.split.noFly')}</p>
       </Sub>
+
+      <GalvoRotaryFields draft={draft} edit={edit} issues={issues} />
     </>
   );
 }

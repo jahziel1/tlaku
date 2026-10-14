@@ -519,10 +519,6 @@ button.lyr-main:focus-visible {
 }
 
 /* ---- ola 2: secciones plegables, bloques opcionales, operaciones adicionales ------------------- */
-.lyr-beginner {
-  padding: var(--s-4) var(--s-5);
-  border-bottom: 1px solid var(--border);
-}
 .lyr-fold {
   border-bottom: 1px solid var(--border);
 }

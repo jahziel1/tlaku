@@ -398,3 +398,39 @@ fn pointer_frame_moves_the_head_by_the_red_pointer_offset() {
     let e = frame_gcode_pointer(&job, &dev, 1500.0).unwrap_err();
     assert!(e.contains("puntero rojo"), "{e}");
 }
+
+#[test]
+fn layer_u_offset_moves_u_between_layers_only_with_the_u_axis() {
+    let d = doc(
+        vec![
+            rect_object("a", RED, 10.0, 20.0, 20.0, 40.0),
+            rect_object("b", Rgb(0, 0, 255), 50.0, 20.0, 20.0, 40.0),
+        ],
+        vec![
+            line_layer(RED),
+            LayerSettings {
+                u_offset: 7.5,
+                ..line_layer(Rgb(0, 0, 255))
+            },
+        ],
+    );
+    let mut dev = device();
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    // Sin eje U en el perfil no sale nada y se avisa que la capa lo pide.
+    assert!(!gcode(&job, &dev).contains("G0 U"));
+    assert!(job.preview.warnings.iter().any(|w| w.contains("eje U")));
+    dev.u_axis = true;
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    assert!(job.preview.warnings.iter().all(|w| !w.contains("eje U")));
+    let g = gcode(&job, &dev);
+    let u: Vec<&str> = g.lines().filter(|l| l.starts_with("G0 U")).collect();
+    // Se mueve al empezar la capa azul y se deshace al final, pase lo que pase con el orden.
+    assert_eq!(u, ["G0 U7.5", "G0 U-7.5"], "{g}");
+    // Capas en cero: el G-code es idéntico al de siempre.
+    let flat = doc(
+        d.objects.clone(),
+        vec![line_layer(RED), line_layer(Rgb(0, 0, 255))],
+    );
+    let job = compute(&flat, &dev, &JobOptions::default()).unwrap();
+    assert!(!gcode(&job, &dev).contains("G0 U"));
+}

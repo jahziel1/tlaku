@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useStore } from '@/store';
+import { getPref, useStore } from '@/store';
 import { loadCameraSetup } from './actions';
 import { CalibrationDialog } from './CalibrationDialog';
 import { MarksDialog } from './MarksDialog';
@@ -27,7 +27,7 @@ export function CameraDialogHost() {
     void loadCameraSetup().then(() => {
       const { cameraSetup, cameraStatus } = useStore.getState();
       // Se recupera el fondo tras reiniciar sin que el usuario repita nada.
-      if (cameraSetup.prefs.visible && (cameraSetup.alignment || cameraSetup.head?.calibration) && cameraStatus === 'off') void startCamera();
+      if (getPref('cameraReopen') && cameraSetup.prefs.visible && (cameraSetup.alignment || cameraSetup.head?.calibration) && cameraStatus === 'off') void startCamera();
     });
   }, []);
 

@@ -426,3 +426,8 @@ ol.md__list {
   margin-bottom: var(--s-2);
   font-weight: 600;
 }
+
+.joblog__interrupted {
+  color: var(--warn);
+  font-weight: 600;
+}

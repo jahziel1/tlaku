@@ -1,0 +1,80 @@
+# Etiquetas del repositorio / Repository labels.
+# Fuente de verdad para `scripts/sync-labels.sh`. Color sin «#».
+# description_en / description_es: GitHub solo guarda una descripción (máx. 100 caracteres);
+# el script usa «inglés / español».
+- name: bug
+  color: d73a4a
+  description_en: Something does not work as it should
+  description_es: Algo no funciona como debería
+- name: enhancement
+  color: a2eeef
+  description_en: New feature or improvement
+  description_es: Función nueva o mejora
+- name: machine-report
+  color: 0e8a16
+  description_en: Test report from a real machine
+  description_es: Reporte de prueba en una máquina real
+- name: material-settings
+  color: c5a000
+  description_en: Material settings shared by the community
+  description_es: Ajustes de material de la comunidad
+- name: new-controller
+  color: 5319e7
+  description_en: Request support for a new controller
+  description_es: Soporte para una controladora nueva
+- name: safety
+  color: b60205
+  description_en: Laser or machine safety
+  description_es: Seguridad del láser o de la máquina
+- name: documentation
+  color: 0075ca
+  description_en: Documentation
+  description_es: Documentación
+- name: translation
+  color: 1d76db
+  description_en: Translation (es/en)
+  description_es: Traducción (es/en)
+- name: good first issue
+  color: 7057ff
+  description_en: Good for newcomers
+  description_es: Bueno para empezar
+- name: help wanted
+  color: 008672
+  description_en: Extra help is welcome
+  description_es: Se agradece ayuda
+- name: needs-hardware
+  color: e99695
+  description_en: Needs a real machine to test
+  description_es: Necesita una máquina real para probar
+- name: experimental
+  color: fbca04
+  description_en: Experimental feature, never tested on hardware
+  description_es: Función experimental, sin probar en hardware
+- name: question
+  color: d876e3
+  description_en: A question
+  description_es: Una pregunta
+- name: dependencies
+  color: 0366d6
+  description_en: Dependency updates
+  description_es: Actualización de dependencias
+- name: grbl
+  color: ededed
+  description_en: GRBL, grblHAL, FluidNC, Marlin and Smoothie machines
+  description_es: Máquinas GRBL, grblHAL, FluidNC, Marlin y Smoothie
+- name: ruida
+  color: ededed
+  description_en: Ruida controllers (CO2)
+  description_es: Controladoras Ruida (CO2)
+- name: k40
+  color: ededed
+  description_en: K40 with M2 Nano board
+  description_es: K40 con placa M2 Nano
+- name: galvo
+  color: ededed
+  description_en: Galvo lasers (fiber, UV, CO2)
+  description_es: Láseres galvo (fibra, UV, CO2)
+- name: camera
+  color: ededed
+  description_en: Camera, calibration and alignment
+  description_es: Cámara, calibración y alineación

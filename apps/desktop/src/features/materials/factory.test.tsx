@@ -7,7 +7,7 @@ import { en, es, setLanguage } from '@/i18n';
 import { makeLayer } from '@/lib/layers';
 import { selectActiveDevice, useStore } from '@/store';
 import { applyMaterial, chooseMachineClass, duplicateMaterial, loadMaterials, persistMaterials } from './actions';
-import { classLabel, materialName, titleName, warningText } from './labels';
+import { classLabel, confidenceLabel, materialName, titleName, warningText } from './labels';
 import { emptyLibrary } from './library';
 import { MACHINE_CLASSES, classKind, resolveMachineClass, storedClassFor } from './machineClass';
 import { MaterialsPanelView, type PanelViewProps } from './MaterialsPanel';
@@ -90,6 +90,23 @@ describe('biblioteca de fábrica incluida', () => {
       expect(Object.keys(es)).toContain(k);
       expect(Object.keys(en)).toContain(k);
     }
+  });
+
+  it('los aportes de la comunidad entran al final con confianza «foro» y se muestran como «Comunidad (sin verificar)» en es y en', () => {
+    const data = { revision: 1, materials: { basswood: 'Madera de tilo' }, titles: { cut: 'Corte', engrave: 'Grabado' }, restrictions: [], presets: [] };
+    const entry = {
+      id: 'community.felt.x.engrave.diode_10.9', material: 'felt', material_name: 'Fieltro', role: 'engrave' as const, machine_class: 'diode_10' as const, laser_watts: 10,
+      machine: 'Mi láser', speed: 3000, power: 40, interval: 0.1, source: 'https://github.com/jahziel1/tlaku/issues/9', confidence: 'forum' as const, license: 'CC0-1.0', notes: 'Buen contraste.',
+    };
+    const lib = expandFactory(data, [entry]);
+    const p = lib.presets.at(-1)!;
+    expect(p).toMatchObject({ id: entry.id, material: 'Fieltro', material_key: 'felt', title: 'Grabado', confidence: 'forum', notes: 'Mi láser · Buen contraste.' });
+    expect(p.settings).toMatchObject({ mode: 'fill', speed: 3000, power: 40, interval: 0.1 });
+    expect(materialName(p)).toBe('Fieltro');
+    setLanguage('es');
+    expect(confidenceLabel('forum')).toBe('Comunidad (sin verificar)');
+    setLanguage('en');
+    expect(confidenceLabel('forum')).toBe('Community (unverified)');
   });
 
   it('expandFactory conserva avisos, restricciones y revisión', () => {

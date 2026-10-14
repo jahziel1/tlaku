@@ -168,6 +168,8 @@ impl Machine {
             }
             MoveKind::Rapid => max * f64::from(self.ovr_rapid) / 100.0,
             MoveKind::Jog => (b.feed / 60.0).min(max),
+            // La sonda ignora los overrides: la velocidad de sondeo es la que se programó.
+            MoveKind::Probe => (b.feed / 60.0).min(max),
             _ => ((b.feed / 60.0) * f64::from(self.ovr_feed) / 100.0).min(max),
         };
         v.max(0.1)
@@ -410,7 +412,7 @@ impl Machine {
         }
         match &self.current {
             Some(e) => match e.block.kind {
-                MoveKind::Rapid | MoveKind::Jog | MoveKind::Stationary => None,
+                MoveKind::Rapid | MoveKind::Jog | MoveKind::Probe | MoveKind::Stationary => None,
                 MoveKind::Feed => match mode {
                     SpindleMode::Cw if self.hold.is_some() && self.profile.laser_off_in_hold => {
                         None

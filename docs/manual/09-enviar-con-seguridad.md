@@ -111,7 +111,7 @@ La app indica que en pausa el láser está apagado, pero eso aún no está compr
 
 Si **Detener** ocurre con la máquina en movimiento, la posición puede haberse perdido. Aparece **La posición puede haberse perdido**: con finales de carrera haz **Hacer home ($H)…**; sin ellos, vuelve a fijar el origen a mano. Con Marlin y Smoothieware, cancelar siempre marca la posición como posiblemente perdida.
 
-Si cierras la app con un trabajo en curso, se cancela de la misma forma.
+Si cierras la app con un trabajo en curso, se cancela de la misma forma, pero Tlaku conserva el punto de control y al abrirla de nuevo te ofrece continuar (ver [Continuar un trabajo interrumpido](#continuar-un-trabajo-interrumpido)).
 
 ## Ajustes en vivo: velocidad y potencia
 
@@ -140,6 +140,69 @@ La pestaña **Consola** (`Ctrl/Cmd+3`) es el registro de lo enviado y lo recibid
 - Con las flechas arriba y abajo recorres el historial; `Tab` completa el comando.
 - Las respuestas `error:N` y `ALARM:N` llegan con su explicación. **Ocultar reportes de estado** limpia el ruido de los `?` periódicos, y puedes copiar o borrar el registro.
 
+## Continuar un trabajo interrumpido
+
+Si se va la luz, se cierra la app, se reinicia la computadora o se pierde la conexión a mitad de un grabado, no tienes que empezar de cero: Tlaku puede **continuar desde donde se quedó**. Funciona con GRBL, Marlin y Smoothieware (envían el G-code línea por línea). Otras controladoras tienen sus propias reglas, en la tabla de más abajo.
+
+### Qué guarda la app mientras trabaja
+
+- **Al iniciar un trabajo** guarda un *punto de control* en la carpeta de datos de la aplicación (subcarpeta `interrupted-job/`): el G-code exacto que se envió, el perfil de la máquina, la ruta del proyecto y el origen del trabajo.
+- **Mientras envía**, cada segundo más o menos anota la última línea que la máquina confirmó con `ok`, la posición del cabezal del último reporte de estado y el estado de la máquina en ese momento (modo absoluto o relativo, unidades, `M3` o `M4`, última potencia `S` y velocidad `F`, Z y aire). Lo hace en otro hilo y de forma atómica, así que no frena el envío y un corte a mitad de la escritura no deja un archivo roto.
+- **Se borra** cuando el trabajo termina bien, cuando lo cancelas a propósito con **Detener** o cuando conectas otra máquina.
+- **Se conserva** si hay un error o una alarma, si se pierde la conexión, si cierras la app o si se va la luz.
+
+### Cuándo ofrece continuar
+
+Al abrir la app, y también cuando la conexión se pierde a mitad de un trabajo, aparece un aviso: **El último trabajo se interrumpió al N % (línea L de T). ¿Continuar?** Tiene tres botones:
+
+| Botón | Qué hace |
+|---|---|
+| **Continuar** | Abre el diálogo de reanudación con el punto de reinicio que Tlaku calculó |
+| **Elegir el punto** | Abre el mismo diálogo para que muevas tú el punto de reinicio |
+| **Descartar** | Borra el punto de control; ya no podrás continuar ese trabajo |
+
+Si lo dejas para después, el [Registro de trabajos](#registro-de-trabajos) (**Ayuda > Registro de trabajos…**) marca los trabajos interrumpidos con su porcentaje y trae un botón **Continuar** mientras siga existiendo el punto de control.
+
+### Dónde reiniciar
+
+En GRBL, el `ok` solo significa que la línea entró al búfer de la placa, no que ya se ejecutó: la placa puede tener por delante hasta 127 bytes o 15 bloques (la Falcon2 acepta 127 bloques). Por eso la última línea confirmada casi nunca es la última que se grabó.
+
+- **GRBL.** Tlaku compara la última posición guardada con la geometría de las líneas confirmadas, localiza la línea que el cabezal estaba ejecutando y **retrocede con prudencia**: por omisión 3 líneas o 1,5 mm, lo que quede más atrás (se puede cambiar en el diálogo). Nunca retrocede más allá de un desplazamiento `G0`. En un grabado de imagen retrocede al inicio de la **fila de barrido** en curso.
+- **Marlin y Smoothieware.** No tienen `?`, así que no se sondea la posición durante el trabajo. El punto se estima solo con las líneas confirmadas y retrocede un tramo fijo (unas 24 líneas de movimiento).
+
+En el diálogo de reanudación la vista previa pinta **lo ya hecho** con una línea continua de un color y **lo que falta** con una línea discontinua de otro. Una barra permite mover el punto de reinicio: hacia atrás para repetir un tramo más largo, hacia adelante para repetir menos.
+
+### Pasos obligatorios para reanudar
+
+Todo lo siguiente es obligatorio, y lo exige el motor de la app, no solo la interfaz: sin cumplirlo, el botón de reanudar no se activa.
+
+1. **Home, o confirmar que nada se movió.**
+   - Si la máquina tiene homing (`$22=1`), hay que referenciar con **Hacer home ($H)…**. Una placa que se reinició (al cerrar y abrir el puerto, o por el corte de luz) o que perdió la posición ya no sabe dónde está; sin homing hecho no se reanuda.
+   - Si la placa **no tiene homing**, Tlaku te pide confirmar que la cabeza y el material no se movieron y que el origen es el mismo. La advertencia es clara: si no es así, el resultado saldrá corrido. Marlin y Smoothieware no contestan `$$`, así que con ellos siempre se pide esta confirmación.
+2. **Encuadre del trabajo completo.** Tlaku recorre con el láser apagado el rectángulo del G-code guardado y te pide confirmar que el material sigue en su lugar.
+3. **La lista de comprobación de siempre**, la misma del diálogo de [Iniciar](#4-iniciar).
+4. **Preámbulo generado.** Antes de las líneas del trabajo, Tlaku genera un arranque seguro, en este orden: `M5` (láser apagado), `G90` y `G21`, aire asistido, ajuste de Z si hace falta (solo con eje Z), `G0` hasta el punto de inicio **con el láser apagado** y, solo entonces, el modo `M3` o `M4` con su `S` y su `F` restaurados. Después siguen las líneas del trabajo desde el punto elegido. Sobre ese G-code corre el mismo preflight de siempre, y el motor verifica que el preámbulo no contenga ningún movimiento con el láser encendido.
+
+### Qué pasa según la máquina
+
+| Máquina | Continuar |
+|---|---|
+| **GRBL, Marlin, Smoothieware** | Completo. Requiere que el perfil ponga la potencia `S` dentro de las líneas de movimiento y que `G0` apague el láser. El perfil **GRBL-M3** sin modo láser no lo cumple |
+| **K40** (M2 Nano, LHYMICRO-GL) | **No se puede continuar.** La placa recibe el trabajo en paquetes de 30 bytes y no informa en qué punto va, así que no hay forma segura de saber dónde se cortó. Hay que volver a enviar el trabajo; la app solo avisa |
+| **Ruida** | El trabajo vive en la controladora. Si la app se reinicia, el aviso explica que la máquina sigue sola y que puedes consultar su estado conectándote |
+| **Galvo** | Todavía no aplica; la app solo avisa |
+
+### Límites que conviene conocer
+
+- **El material y la cabeza no deben moverse**, y el origen debe ser el mismo. Si algo se movió, el resultado saldrá corrido.
+- **El reinicio repite un tramo corto.** La posición guardada tiene hasta unos 1,2 segundos de antigüedad (200 ms del sondeo `?` más el intervalo de guardado), así que se repite hasta cerca de 1 segundo de recorrido más el retroceso que hayas configurado. Ese tramo queda grabado dos veces y se ve como una **marca levemente más oscura**; en imágenes puede quedar una **marca leve en la unión**.
+- **Un corte de luz puede hacer que los motores pierdan pasos.** Por eso hacer home y encuadrar no es un trámite: compruébalo a ojo antes de aceptar.
+- **Si el G-code usa `G92`, `G10` o `G28`** no se puede reanudar a mitad, porque cambian el origen o la posición de referencia.
+- **Un trabajo reanudado también deja punto de control**, así que se puede interrumpir y continuar varias veces.
+- **El aire asistido y la Z se restauran**, pero comprueba el enfoque antes de continuar.
+
+> **Consejo:** la primera vez, pruébalo con material de desecho y una máquina virtual ([Conectar tu máquina](08-conectar-maquina.md)). Como el resto del manual, nada de esto se ha probado todavía con una máquina real; la prueba con corte de luz está en la lista de validación con hardware.
+
 ## Registro de trabajos
 
 **Ayuda > Registro de trabajos…** muestra una tabla con los trabajos que **enviaste a una máquina desde esta computadora**: **Fecha**, **Máquina**, **Documento**, **Estimado** (el tiempo que calculó la vista previa al empezar; **—** si no había una al día), **Real** (el tiempo trabajando, sin contar las pausas) y **Resultado**: **Terminado**, **Cancelado** o **Con error**. Sirve para comparar cuánto tardó de verdad con lo estimado, y para acordarte de qué se cortó y cuándo.
@@ -150,6 +213,7 @@ La pestaña **Consola** (`Ctrl/Cmd+3`) es el registro de lo enviado y lo recibid
 - Se guarda **solo en esta computadora**, en el almacenamiento de la aplicación; **no sale de tu equipo**, no viaja en el proyecto ni en los paquetes y no se envía a ningún lado. Las ventanas abiertas de Tlaku lo comparten.
 - Guarda los **últimos 200** trabajos; al pasarse se descartan los más viejos.
 - **Borrar el registro** lo vacía (pide confirmación y no se puede deshacer).
+- Un trabajo que se interrumpió (corte de luz, app cerrada, conexión perdida) se marca como interrumpido con su porcentaje y trae el botón **Continuar** mientras exista el punto de control. Ver [Continuar un trabajo interrumpido](#continuar-un-trabajo-interrumpido).
 - No registra la exportación de G-code ni lo que mandas desde la consola.
 
 ## Exportar G-code

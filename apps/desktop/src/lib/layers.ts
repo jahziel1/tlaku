@@ -77,6 +77,7 @@ export function factoryLayer(color: string, name: string, patch: Partial<LayerSe
     angle_increment: 0,
     sub_layers: [],
     laser2: false,
+    u_offset: 0,
     // Ola 5: mismos valores que `GalvoLayer::default()` (solo los usan las máquinas galvo).
     galvo: {
       frequency_khz: 30,
@@ -136,10 +137,99 @@ export function getLayerDefaults(): LayerTemplate | null {
   return userDefaults;
 }
 
-/** Capa nueva: valores de fábrica, encima los valores por defecto del usuario y, al final, `patch`. */
+// ---- valores por defecto por color y por máquina (C35) -------------------------------------------
+
+/**
+ * Valores por defecto de un color: `device` es el id del perfil de máquina al que valen, o `null`
+ * si valen para ese color en cualquier máquina.
+ */
+export interface ColorDefaults {
+  color: string;
+  device: string | null;
+  template: LayerTemplate;
+}
+
+/** Tope de entradas guardadas (un archivo de preferencias con miles de entradas sería un error). */
+export const MAX_COLOR_DEFAULTS = 256;
+
+const colorKey = (color: string) => color.trim().toLowerCase();
+
+/**
+ * Los valores por defecto que mandan para `color` en la máquina `device`, en este orden: color y
+ * máquina; solo el color (cualquier máquina); el juego general (`general`). `null` = los de fábrica.
+ */
+export function pickLayerDefaults(list: readonly ColorDefaults[], general: LayerTemplate | null, color: string, device: string | null): LayerTemplate | null {
+  const c = colorKey(color);
+  const forColor = list.filter((e) => colorKey(e.color) === c);
+  const exact = device === null ? undefined : forColor.find((e) => e.device === device);
+  return (exact ?? forColor.find((e) => e.device === null))?.template ?? general;
+}
+
+/** Qué nivel de valores por defecto manda para `color` en `device`. */
+export function defaultsLevel(list: readonly ColorDefaults[], general: LayerTemplate | null, color: string, device: string | null): 'machine' | 'color' | 'general' | 'factory' {
+  const c = colorKey(color);
+  const forColor = list.filter((e) => colorKey(e.color) === c);
+  if (device !== null && forColor.some((e) => e.device === device)) return 'machine';
+  if (forColor.some((e) => e.device === null)) return 'color';
+  return general ? 'general' : 'factory';
+}
+
+/** La lista con la entrada de `(color, device)` puesta o reemplazada. */
+export function withColorDefaults(list: readonly ColorDefaults[], color: string, device: string | null, template: LayerTemplate): ColorDefaults[] {
+  const c = colorKey(color);
+  const rest = list.filter((e) => !(colorKey(e.color) === c && e.device === device));
+  return [...rest, { color: c, device, template: cloneLayer(template) }].slice(-MAX_COLOR_DEFAULTS);
+}
+
+/** La lista sin la entrada de `(color, device)`. */
+export function withoutColorDefaults(list: readonly ColorDefaults[], color: string, device: string | null): ColorDefaults[] {
+  const c = colorKey(color);
+  return list.filter((e) => !(colorKey(e.color) === c && e.device === device));
+}
+
+/** Lista de valores por defecto por color; lo que no es una entrada válida se descarta. */
+export function sanitizeColorDefaults(raw: unknown): ColorDefaults[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ColorDefaults[] = [];
+  for (const item of raw) {
+    if (!isObject(item) || typeof item.color !== 'string' || !/^#[0-9a-f]{3,8}$/i.test(item.color.trim())) continue;
+    if (item.device !== null && typeof item.device !== 'string') continue;
+    const template = sanitizeLayerTemplate(item.template);
+    if (!template) continue;
+    const entry = { color: colorKey(item.color), device: item.device as string | null, template };
+    // Una sola entrada por (color, máquina): manda la última.
+    const at = out.findIndex((e) => e.color === entry.color && e.device === entry.device);
+    if (at >= 0) out.splice(at, 1);
+    out.push(entry);
+  }
+  return out.slice(-MAX_COLOR_DEFAULTS);
+}
+
+let colorDefaults: ColorDefaults[] = [];
+/** Máquina activa para elegir entre los valores por defecto (`null` = ninguna). */
+let defaultsDevice: string | null = null;
+
+export function setColorDefaults(list: readonly ColorDefaults[]): void {
+  colorDefaults = [...list];
+}
+
+export function getColorDefaults(): readonly ColorDefaults[] {
+  return colorDefaults;
+}
+
+export function setDefaultsDevice(id: string | null): void {
+  defaultsDevice = id;
+}
+
+export function getDefaultsDevice(): string | null {
+  return defaultsDevice;
+}
+
+/** Capa nueva: valores de fábrica, encima los valores por defecto que manden (máquina y color, color, general) y, al final, `patch`. */
 export function makeLayer(color: string, name: string, patch: Partial<LayerSettings> = {}): LayerSettings {
   const base = factoryLayer(color, name);
-  return { ...(userDefaults ? applyTemplate(base, userDefaults) : base), ...patch };
+  const template = pickLayerDefaults(colorDefaults, userDefaults, color, defaultsDevice);
+  return { ...(template ? applyTemplate(base, template) : base), ...patch };
 }
 
 /** Valores válidos de los campos de texto con opciones, por ruta. */

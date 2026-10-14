@@ -84,9 +84,9 @@ describe('LayerEditor por modo', () => {
 
 /** Los campos con la máquina como dato: así se prueban el modo principiante y la potencia constante. */
 const GRBL: FieldsDevice = { maxRate: 25000, powerMode: 'dynamic', hasZ: false };
-const fields = (patch = {}, beginner = false, device: FieldsDevice = GRBL) => {
+const fields = (patch = {}, device: FieldsDevice = GRBL) => {
   const layer = makeLayer('#ff0000', 'Corte', patch);
-  return renderToString(<LayerFieldsView layer={layer} target={{ color: layer.color, sub: null }} beginner={beginner} device={device} />);
+  return renderToString(<LayerFieldsView layer={layer} target={{ color: layer.color, sub: null }} device={device} />);
 };
 const on = (o: object) => ({ ...o, enabled: true });
 
@@ -181,47 +181,45 @@ describe('potencia mínima en line (C08)', () => {
   });
 
   it('con potencia constante (M3) no hay campo ni explicación', () => {
-    const h = fields({}, false, { ...GRBL, powerMode: 'constant' });
+    const h = fields({}, { ...GRBL, powerMode: 'constant' });
     expect(h).not.toContain('Potencia mínima');
     expect(h).not.toContain('no tiene potencia mínima');
   });
 
   it('en fill no se muestra; en imagen se muestra siempre', () => {
     expect(fields({ mode: 'fill' })).not.toContain('Potencia mínima');
-    expect(fields({ mode: 'image' }, false, { ...GRBL, powerMode: 'constant' })).toContain('Potencia mínima');
+    expect(fields({ mode: 'image' }, { ...GRBL, powerMode: 'constant' })).toContain('Potencia mínima');
   });
 });
 
-describe('modo principiante (C60, D18)', () => {
-  it('oculta los ajustes avanzados de cada modo y deja los básicos', () => {
-    const line = fields({}, true);
-    for (const label of ['Corte avanzado', 'Dejar puentes sin cortar', 'Potencia mínima']) expect(line, label).not.toContain(label);
-    for (const label of ['Velocidad', 'Potencia', 'Pasadas', 'Kerf']) expect(line, label).toContain(label);
-
-    const fill = fields({ mode: 'fill' }, true);
-    for (const label of ['Agrupación', 'Incremento de ángulo', 'Por regiones']) expect(fill, label).not.toContain(label);
-    expect(fill).toContain('Trama cruzada');
-
-    const image = fields({ mode: 'image' }, true);
-    for (const label of ['Imagen avanzada', 'Enviar sin tramar', 'Incremento de ángulo']) expect(image, label).not.toContain(label);
-    expect(image).toContain('Tramado');
-    expect(image).toContain('Brillo');
+describe('ajustes avanzados y ejes (C60, D18)', () => {
+  it('el modo principiante se unió al modo sencillo: el editor ya no trae su interruptor y muestra todo, con lo avanzado plegado', () => {
+    for (const mode of ['line', 'fill', 'image'] as const) {
+      const html = fields({ mode });
+      expect(html, mode).not.toContain('Modo principiante');
+    }
+    const line = fields({});
+    for (const label of ['Corte avanzado', 'Velocidad', 'Potencia', 'Pasadas', 'Kerf']) expect(line, label).toContain(label);
+    // La sección avanzada está cerrada mientras la capa no use nada de ella.
+    expect(fields({ mode: 'image' })).toContain('Imagen avanzada');
   });
 
-  it('oculta el eje Z aunque la máquina lo tenga', () => {
-    expect(fields({}, false, { ...GRBL, hasZ: true })).toContain('Desplazamiento Z');
-    expect(fields({}, true, { ...GRBL, hasZ: true })).not.toContain('Desplazamiento Z');
+  it('el eje Z solo se ofrece si la máquina lo tiene', () => {
+    expect(fields({}, { ...GRBL, hasZ: true })).toContain('Desplazamiento Z');
+    expect(fields({})).not.toContain('Desplazamiento Z');
   });
 
-  it('si la capa ya usa algo avanzado, lo avisa en lugar de ocultarlo en silencio', () => {
-    const base = makeLayer('#f00', 'x');
-    expect(fields({ ramp: on({ ...base.ramp }) }, true)).toContain('modo principiante oculta');
-    expect(fields({}, true)).not.toContain('modo principiante oculta');
-    expect(fields({ ramp: on({ ...base.ramp }) }, false)).not.toContain('modo principiante oculta');
+  it('M32: el desplazamiento de U por capa solo se ofrece con eje U (o si la capa ya lo usa)', () => {
+    expect(fields()).not.toContain('Desplazamiento U');
+    expect(fields({}, { ...GRBL, hasU: true })).toContain('Desplazamiento U');
+    const sinEje = fields({ u_offset: 4 });
+    expect(sinEje).toContain('Desplazamiento U');
+    expect(sinEje).toContain('no tiene eje U');
   });
 
-  it('el editor muestra el interruptor del modo principiante', () => {
-    expect(html()).toContain('Modo principiante');
+  it('el editor ya no trae el interruptor del modo principiante (se unió al modo sencillo)', () => {
+    expect(html()).not.toContain('Modo principiante');
+    expect(html()).toContain('Operaciones adicionales');
   });
 });
 

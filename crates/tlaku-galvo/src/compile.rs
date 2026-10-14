@@ -16,8 +16,9 @@
 //!   centro en `0x8000`. Un punto fuera del campo es un error, no se recorta.
 //! - El resultado se vuelve a validar con `safety::validate_list`.
 //!
-//! Sin verificar con hardware: las unidades de `params`. Ignorados con aviso: asistencia de aire,
-//! Z y el archivo `.cor` (su semántica no está documentada; ver `cor`).
+//! Sin verificar con hardware: las unidades de `params`. Ignorados con aviso: asistencia de aire
+//! y Z. El archivo `.cor` del perfil sí se aplica, en el anfitrión y antes de cuantizar, junto
+//! con la corrección paramétrica (lectura inferida; ver `cor`); nunca se escribe a la tarjeta.
 
 use crate::calib::{CalibError, FieldMap, units_per_mm};
 use crate::cmd::{Delay, ListOp};
@@ -816,8 +817,8 @@ pub fn compile(
         // El recorrido en rojo pasa por donde marcará el láser: se compensa el desfase del puntero.
         b = b.with_pointer_offset(opts.pointer_offset)?;
     }
-    if dev.correction.cor_file.is_some() {
-        b.warnings.push(tr!("galvo.compile.cor_ignored"));
+    if b.map.has_cor() {
+        b.warnings.push(tr!("galvo.compile.cor_applied"));
     }
     b.push(ListOp::Ready)?;
     if params::is_fiber(dev.source) && opts.mo_delay_ms > 0.0 {
@@ -1649,8 +1650,7 @@ mod tests {
 
     #[test]
     fn warnings_cover_ignored_fields() {
-        let mut d = dev();
-        d.correction.cor_file = Some("lente.cor".into());
+        let d = dev();
         let mut b = block(vec![travel(0.0, 0.0), cut(5.0, 0.0, 30.0)], &d);
         b.air_assist = true;
         b.z_mm = Some(3.0);
@@ -1660,7 +1660,77 @@ mod tests {
             &CompileOptions::default(),
         )
         .unwrap();
-        assert_eq!(l.warnings.len(), 3);
+        assert_eq!(l.warnings.len(), 2);
+    }
+
+    /// Escribe un `.cor` de prueba con el mismo desplazamiento en todos los nodos y devuelve su
+    /// ruta (en una carpeta propia del proceso).
+    fn temp_cor(name: &str, dx: f64, dy: f64) -> String {
+        let dir = std::env::temp_dir().join(format!("tlaku-compile-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(name);
+        std::fs::write(&path, crate::cor::test_file(dx, dy)).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    /// Cálculo a mano: con un campo de 100 mm hay 655,36 unidades por mm. Una marca a (10, 0) sin
+    /// `.cor` cae en x = 32768 + 6553,6 = 39321,6, o sea 39322. Con un `.cor` que desplaza todos
+    /// los nodos (655,36, -655,36) unidades, la misma marca cae en 39976,96 (39977) y y = 32768 -
+    /// 655,36 = 32112,64 (32113). El aviso lo dice, y la lista sigue siendo solo de comandos de
+    /// lista permitidos.
+    #[test]
+    fn a_cor_file_shifts_the_quantized_points_and_is_reported() {
+        let mut d = dev();
+        let tp = |d: &GalvoDevice| Toolpath {
+            blocks: vec![block(vec![travel(0.0, 0.0), cut(10.0, 0.0, 30.0)], d)],
+        };
+        let target = |l: &CompiledList| {
+            ops(l)
+                .into_iter()
+                .find_map(|o| match o {
+                    ListOp::MarkTo { x, y, .. } => Some((x, y)),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let plain = compile(&tp(&d), &d, &CompileOptions::default()).unwrap();
+        assert_eq!(target(&plain), (39322, 32768));
+        assert!(plain.warnings.is_empty());
+        d.correction.cor_file = Some(temp_cor("plano.cor", 655.36, -655.36));
+        let l = compile(&tp(&d), &d, &CompileOptions::default()).unwrap();
+        assert_eq!(target(&l), (39977, 32113));
+        assert_eq!(l.warnings.len(), 1, "{:?}", l.warnings);
+        assert!(l.warnings[0].contains(".cor"), "{:?}", l.warnings);
+        for raw in &l.commands {
+            assert!(crate::codes::is_sent(raw.code), "{:#06x}", raw.code);
+        }
+        // Con `cor_invert` el signo se invierte: 32768 + 9 x 655,36 = 38666,24 (38666) y 32768 + 655,36 = 33423,36 (33423).
+        d.correction.cor_invert = true;
+        let l = compile(&tp(&d), &d, &CompileOptions::default()).unwrap();
+        assert_eq!(target(&l), (38666, 33423));
+    }
+
+    /// Un `.cor` que no se puede leer o que no se puede aplicar detiene la compilación: nunca se
+    /// marca con una corrección distinta de la que el perfil pide.
+    #[test]
+    fn an_unreadable_or_unsafe_cor_file_stops_the_job() {
+        let mut d = dev();
+        let tp = Toolpath {
+            blocks: vec![block(vec![travel(0.0, 0.0), cut(5.0, 0.0, 30.0)], &d)],
+        };
+        d.correction.cor_file = Some("/no/existe/lente.cor".into());
+        let e = compile(&tp, &d, &CompileOptions::default()).unwrap_err();
+        assert!(
+            matches!(e, CompileError::Calib(CalibError::Cor(_))),
+            "{e:?}"
+        );
+        d.correction.cor_file = Some(temp_cor("enorme.cor", 5000.0, 0.0));
+        let e = compile(&tp, &d, &CompileOptions::default()).unwrap_err();
+        assert!(
+            matches!(e, CompileError::Calib(CalibError::Cor(_))),
+            "{e:?}"
+        );
+        assert!(e.to_string().contains("2048"), "{e}");
     }
 
     #[test]

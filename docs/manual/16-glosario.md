@@ -97,7 +97,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Máquina virtual**: emulador dentro de la app para probar sin hardware (puerto `virtual:...`). Puede simular fallas. No graba nada.
 - **Máscara (de imagen)**: forma vectorial que recorta una imagen para que solo se grabe lo que queda dentro.
 - **Modo láser (`$32=1`)**: ajuste de GRBL que enciende y apaga el rayo según el movimiento. Sin él, `M4` no funciona bien.
-- **Modo principiante**: interruptor del editor de capa que oculta los ajustes avanzados sin borrarlos ni desactivarlos.
+- **Modo principiante**: otro nombre del [modo sencillo](01b-modo-sencillo.md), la versión guiada que esconde menús, herramientas y ajustes avanzados sin borrarlos ni desactivarlos.
 - **Modo punto**: en lugar de una línea continua, el láser dispara un punto cada cierta distancia.
 
 ## N

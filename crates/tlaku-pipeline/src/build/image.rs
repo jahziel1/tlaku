@@ -136,6 +136,7 @@ impl Builder<'_> {
             pass: None,
             sub: None,
             laser2: false,
+            u_offset_mm: 0.0,
         };
         if varied {
             self.push_series(blocks, report, z);

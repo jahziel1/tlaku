@@ -155,9 +155,15 @@ galvo.compile.power_above = power {pct} % is above the profile maximum ({max} %)
 galvo.compile.air_assist_ignored = block {block}: air assist is ignored on a galvo
 galvo.compile.z_ignored = block {block}: the Z axis is ignored on a galvo
 galvo.compile.dwell_invalid = pause of {ms} ms is invalid
-galvo.compile.cor_ignored = the profile's .cor file is ignored: its format can be read but its semantics are not documented (see cor.rs); the correction is the profile's parametric one
 galvo.compile.adjust_not_number = the frame adjustment must be a number
 galvo.compile.adjust_shift = the frame shift cannot exceed {max} mm
 galvo.compile.adjust_scale = the frame scale must be between {min} and {max}
 galvo.compile.light_thinned = the outline has {total} vertices: 1 in every {keep_every} was kept for the frame
 galvo.compile.light_speed_zero = the profile's frame speed must be greater than 0
+
+# --- wave 6E: applying an EZCAD .cor on the host (cor.rs, calib.rs, compile.rs) ---
+galvo.cor.too_large = the .cor file shifts up to {seen} units and the limit is {limit}: it is not applied (if the units or the orientation are not what is assumed, the beam would leave where the design asks for it)
+galvo.cor.io = the .cor file could not be read: {error}
+galvo.cor.file_too_big = the .cor file is {bytes} bytes and a real .cor is about 34,000 (maximum {max}): it is not read
+galvo.calib.cor = profile .cor file: {error}
+galvo.compile.cor_applied = the profile's .cor file table is applied on the host (it is never written to the board). Its reading is an inference not verified with hardware: check it with the red-pointer frame

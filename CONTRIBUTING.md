@@ -1,51 +1,58 @@
-# Cómo contribuir
+# How to contribute
 
-Gracias por querer ayudar. Estas reglas protegen al proyecto (licencia MIT) y mantienen el código
-fácil de revisar.
+English · [Español](CONTRIBUTING.es.md)
 
-## Sala limpia
+Thank you for wanting to help. These rules protect the project (MIT license) and keep the code easy
+to review. By taking part you accept the [Code of Conduct](CODE_OF_CONDUCT.md). You do not need to
+code to help: testing on a real machine, sharing material settings and translating are very valuable
+contributions (see below).
 
-El comportamiento esperado se documenta a partir de **fuentes públicas** (manuales, foros,
-tutoriales, estándares, documentación de protocolos). Por eso:
+## Clean room
 
-- No copies código, textos, íconos, imágenes ni capturas de pantalla de LightBurn ni de otro
-  programa comercial.
-- No lo descompiles ni lo desensambles, ni analices sus archivos o su tráfico para reproducir
-  su implementación.
-- Si una función se basa en una fuente pública, cítala en la especificación (`docs/spec/`) o en el
-  comentario del código. Lo no verificado se marca como "(no verificado)" o "(inferido)".
-- Escribe tu propia implementación a partir de esa descripción.
+Expected behavior is documented from **public sources** (manuals, forums, tutorials, standards,
+protocol documentation). Therefore:
 
-## Licencias
+- Do not copy code, text, icons, images or screenshots from LightBurn or any other commercial
+  program.
+- Do not decompile or disassemble it, nor analyze its files or its traffic to reproduce its
+  implementation.
+- If a feature is based on a public source, cite it in the specification (`docs/spec/`) or in the code
+  comment. Anything not verified is marked "(no verificado)" or "(inferido)" (unverified / inferred).
+- Write your own implementation from that description.
 
-- **Dependencias.** Solo se aceptan licencias permisivas: MIT, Apache-2.0, BSD-2-Clause,
-  BSD-3-Clause, ISC, Zlib, Unicode-3.0, 0BSD, Unlicense y MPL-2.0 (copyleft por archivo, compatible
-  con distribuir un binario MIT). Con varias licencias alternativas basta con que una sea permisiva.
-  GPL, LGPL y AGPL como única opción están prohibidas. `cargo deny check licenses sources`
-  lo comprueba (configuración en [deny.toml](deny.toml)) y corre en la CI.
-- **Código de terceros.** Puedes leer código abierto de cualquier licencia para entender un
-  protocolo o tomar ideas: los datos de un protocolo y las ideas no tienen derechos de autor.
-  - **Copiar o adaptar** código solo se permite si su licencia es compatible con MIT (MIT,
-    Apache-2.0, BSD, ISC, Zlib). Conserva su aviso de copyright, cita el origen en un comentario y
-    agrégalo a [THIRD_PARTY.md](THIRD_PARTY.md).
-  - **Código GPL/LGPL/AGPL** (GRBL, LaserGRBL, Marlin, etc.): leer sí, copiar o traducir línea por
-    línea no. Escribe tu propia implementación; si te basaste en él para entender algo, cítalo como
-    referencia.
-  - Esto no aplica a LightBurn ni a otros programas comerciales: ver "Sala limpia".
-- Lo que aportes se publica bajo licencia MIT.
+## Licenses
 
-## Estilo
+- **Dependencies.** Only permissive licenses are accepted: MIT, Apache-2.0, BSD-2-Clause,
+  BSD-3-Clause, ISC, Zlib, Unicode-3.0, 0BSD, Unlicense and MPL-2.0 (per-file copyleft, compatible
+  with distributing an MIT binary). With several alternative licenses it is enough that one is
+  permissive. GPL, LGPL and AGPL as the only option are forbidden. `cargo deny check licenses sources`
+  checks it (configuration in [deny.toml](deny.toml)) and runs in CI.
+- **Third-party code.** You may read open source code of any license to understand a protocol or take
+  ideas: protocol data and ideas are not copyrightable.
+  - **Copying or adapting** code is only allowed if its license is compatible with MIT (MIT,
+    Apache-2.0, BSD, ISC, Zlib). Keep its copyright notice, cite the origin in a comment and add it to
+    [THIRD_PARTY.md](THIRD_PARTY.md).
+  - **GPL/LGPL/AGPL code** (GRBL, LaserGRBL, Marlin, etc.): reading is fine, copying or translating
+    line by line is not. Write your own implementation; if you relied on it to understand something,
+    cite it as a reference.
+  - This does not apply to LightBurn or other commercial programs: see "Clean room".
+- What you contribute is published under the MIT license. The exception is community material
+  settings, which are CC0 (see "Contributing machine settings").
 
-- Comentarios y documentación en **español**, concisos y directos.
-- Identificadores (funciones, tipos, variables, archivos) en **inglés**.
-- Unidades en milímetros, origen abajo a la izquierda, Y hacia arriba
-  (ver [docs/arquitectura.md](docs/arquitectura.md)).
-- Formato con `rustfmt` y sin warnings de `clippy`.
-- El motor no depende de la interfaz: todo se debe poder ejecutar y probar desde la línea de comandos.
+## Style
 
-## Requisitos de un PR
+- Comments and documentation in the code base are written in **Spanish**, concise and direct. New
+  user-facing documentation should exist in English and Spanish (see "Translating").
+- Identifiers (functions, types, variables, files) in **English**.
+- Units in millimeters, origin at the bottom left, Y pointing up (see
+  [docs/arquitectura.md](docs/arquitectura.md), in Spanish).
+- Format with `rustfmt` and no `clippy` warnings.
+- The engine does not depend on the interface: everything must be runnable and testable from the
+  command line.
 
-Antes de abrirlo, en la raíz del repositorio:
+## Pull request requirements
+
+Before opening one, from the repository root:
 
 ```sh
 cargo fmt --all -- --check
@@ -53,36 +60,78 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-- Los comandos anteriores deben pasar (la CI los corre en Linux, macOS y Windows).
-- Toda función nueva trae pruebas; los cambios de salida (G-code, rellenos, rasterizado) se
-  cubren con archivos dorados.
-- Si añades una dependencia, indica su licencia y ejecuta `cargo deny check licenses sources`.
-- Explica en la descripción qué cambia y por qué, y la fuente pública si se trata de comportamiento
-  de otro programa.
+- The commands above must pass (CI runs them on Linux, macOS and Windows). If you touch the
+  interface, also `npx tsc --noEmit && npx eslint . && npx vitest run` inside `apps/desktop`.
+- Every new feature comes with tests; output changes (G-code, fills, rasterization) are covered with
+  golden files.
+- If you add a dependency, state its license and run `cargo deny check licenses sources`.
+- Explain in the description what changes and why, and the public source if it is about the behavior
+  of another program. The PR template carries the checklist (tests, clean room, licenses, es/en
+  languages and DCO).
+- Every interface text goes in Spanish **and** English (see "Translating").
+- If the change alters what is sent to the machine, explain how the safety checks (preflight,
+  confirmations, stop) are kept.
 
-## Archivos dorados
+## Golden files
 
-Algunas pruebas comparan su salida con archivos aprobados en `crates/*/tests/fixtures`
-(`tlaku-grbl`, `tlaku-fill`, `tlaku-raster`). Si un cambio de salida es intencional:
+Some tests compare their output with approved files in `crates/*/tests/fixtures` (`tlaku-grbl`,
+`tlaku-fill`, `tlaku-raster`). If an output change is intentional:
 
 ```sh
 UPDATE_GOLDEN=1 cargo test --workspace
-git diff crates/*/tests/fixtures      # revisa cada diferencia
-cargo test --workspace                # debe pasar sin UPDATE_GOLDEN
+git diff crates/*/tests/fixtures      # review every difference
+cargo test --workspace                # must pass without UPDATE_GOLDEN
 ```
 
-Incluye los dorados modificados en el PR y explica por qué cambiaron. Nunca los regeneres para
-"hacer pasar" una prueba sin entender la diferencia.
+Include the modified golden files in the PR and explain why they changed. Never regenerate them just
+to "make a test pass" without understanding the difference.
 
-## Certificado de origen del desarrollador (DCO)
+## Developer Certificate of Origin (DCO)
 
-No hay CLA. Cada commit debe llevar una línea `Signed-off-by` que indica que aceptas el
-[Developer Certificate of Origin 1.1](https://developercertificate.org/): que escribiste el cambio
-o tienes derecho a enviarlo bajo la licencia MIT del proyecto. Se añade con:
+There is no CLA. Every commit must carry a `Signed-off-by` line stating that you accept the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/): that you wrote the change or
+have the right to submit it under the project's MIT license. Add it with:
 
 ```sh
-git commit -s -m "Mensaje del commit"
+git commit -s -m "Commit message"
 ```
 
-Esto agrega `Signed-off-by: Tu Nombre <tu@correo>` con el nombre y correo de tu configuración de
-git. Para firmar commits ya hechos: `git rebase --signoff main` o `git commit --amend -s`.
+This adds `Signed-off-by: Your Name <you@example.com>` using the name and email from your git
+configuration. To sign commits already made: `git rebase --signoff main` or `git commit --amend -s`.
+
+## Contributing machine settings
+
+There are two ways to help without writing code, and both use GitHub forms:
+
+- **Test Tlaku on your real machine.** Everything has only been tested with emulators. Follow the
+  [validation list](docs/validacion-hardware.md) (in Spanish) in order, from safest to riskiest, and
+  report the result with the
+  [Real machine test report](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml)
+  form. Good results are useful too. Use eye protection, scrap material and do not leave the machine
+  alone.
+- **Share material settings.** With the
+  [Share material settings](https://github.com/jahziel1/tlaku/issues/new?template=material_settings.yml)
+  form (or "Share…" in the app's Materials panel). Only share values you tested yourself, and confirm
+  you publish them under the **CC0** license. After review they join the library as "Community
+  (unverified)". The process and the format are in [community/materials](community/materials/README.md).
+  Pasting tables copied from copyrighted manuals or sites is not accepted: only your own tests.
+
+If you are the maintainer and want to turn an issue into a contribution:
+`node scripts/community/issue-to-preset.mjs <number>` and then `cargo test -p tlaku-doc community`.
+
+## Translating
+
+The interface is in **Spanish and English**, and both are required in every change:
+
+- Interface texts (TypeScript): `apps/desktop/src/i18n/es/<area>.ts` and `.../en/<area>.ts`. Every key
+  exists in both and the texts are **not word-for-word copies**: write each language the way it would
+  naturally be said.
+- Engine messages (Rust): `crates/tlaku-i18n/locales/{es,en}/<crate>.txt` (see that crate's README).
+- Documentation: each main file exists in English (`X.md`) and Spanish (`X.es.md`), and each links to
+  the other at the top. The manual lives in `docs/manual/` (Spanish) and `docs/manual/en/` (English),
+  with the same file names. If you change one, update the other or open an issue with the
+  `translation` label.
+- Want to add a new language? Open a [discussion](https://github.com/jahziel1/tlaku/discussions) first
+  to coordinate.
+- Write by hand or with a tool, but **review** the result: unreviewed machine translation is not
+  accepted, especially for safety texts.

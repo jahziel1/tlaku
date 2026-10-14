@@ -168,7 +168,7 @@ pub(crate) fn from_curves(layers: Vec<(Rgb, Vec<BezPath>)>, warnings: Vec<String
     let mut objects = Vec::new();
     let mut new_layers = Vec::new();
     for (color, paths) in layers {
-        objects.push(object(color, ObjectKind::Vector(VectorObject { paths })));
+        objects.push(object(color, ObjectKind::Vector(VectorObject::new(paths))));
         new_layers.push(LayerSettings::for_color(color));
     }
     ImportResult {

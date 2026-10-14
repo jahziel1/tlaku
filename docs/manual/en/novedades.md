@@ -14,7 +14,7 @@ Seventh batch, of polish and of gaps that remained compared with LightBurn. **No
 ### Canvas and editing
 
 - **Warp on canvas** (`Shift+W`): drag the handles of a **bilinear**, **perspective**, or **4×4-point** mesh and see the result live.
-- **Fillet corner by click** (`Shift+F`), with `Alt`+click to **revert** a rounded or bitten corner (the chamfer is not reverted). See [Advanced shapes and warp](03c-formas-y-deformar.md).
+- **Fillet corner by click** (`Shift+F`), with `Alt`+click to **revert** a rounded or bitten corner (the chamfer too, because the object stores the original point). See [Advanced shapes and warp](03c-formas-y-deformar.md).
 - **Floating panels**: pull any tab out into a window over the canvas (double-click the tab), switch the panel's and the tools' side, and **Reset Layout**. See [Guides, tabs, start point, and project](03e-guias-puentes-y-proyecto.md).
 - New preferences: **Return to Select after drawing a shape**, **Grid contrast**, default import resolution, and remembered import options. Preference changes are reflected in the other open windows.
 

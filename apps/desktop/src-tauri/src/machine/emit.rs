@@ -59,6 +59,8 @@ pub struct Timing {
     pub tick: Duration,
     /// Mínimo entre dos eventos de progreso (el último siempre sale).
     pub progress_interval: Duration,
+    /// Cada cuánto se guarda el avance del punto de control del trabajo (ver [`resume`]).
+    pub checkpoint_interval: Duration,
     pub preflight: PreflightConfig,
 }
 
@@ -74,6 +76,7 @@ impl Default for Timing {
             identify_timeout: Duration::from_secs(3),
             tick: Duration::from_millis(20),
             progress_interval: Duration::from_millis(100),
+            checkpoint_interval: resume::CHECKPOINT_INTERVAL,
             preflight: PreflightConfig::default(),
         }
     }

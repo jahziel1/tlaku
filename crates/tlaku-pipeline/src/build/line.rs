@@ -236,6 +236,7 @@ impl Builder<'_> {
             pass: None,
             sub: None,
             laser2: false,
+            u_offset_mm: 0.0,
         };
         self.push_passes(block, report, settings.passes, z, false);
     }

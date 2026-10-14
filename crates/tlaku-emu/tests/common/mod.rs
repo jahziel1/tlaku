@@ -92,6 +92,16 @@ impl Rig {
             .expect("la controladora no contestó a ?")
     }
 
+    /// Hace pasar tiempo hasta que la máquina quede en alarma.
+    pub fn settle_alarm(&mut self) {
+        assert!(
+            self.h
+                .run_until(Duration::from_secs(600), |m| m.alarm().is_some()),
+            "la máquina no entró en alarma: {}",
+            self.h.status_line()
+        );
+    }
+
     /// Hace pasar tiempo hasta que la máquina quede en reposo.
     pub fn settle(&mut self) {
         assert!(

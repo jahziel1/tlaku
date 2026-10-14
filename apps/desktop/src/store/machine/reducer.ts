@@ -29,7 +29,11 @@ export type MachineDialog =
   /** Ventana "Ajustes de la máquina": leer, editar y respaldar los `$n` de GRBL (`features/machine/MachineSettingsDialog.tsx`). */
   | { kind: 'machineSettings' }
   /** Confirmación de una macro del perfil (índice en `DeviceProfile.macros`). */
-  | { kind: 'macro'; index: number };
+  | { kind: 'macro'; index: number }
+  /** «El último trabajo se interrumpió al N %…»: continuar, elegir el punto o descartar (`features/machine/ResumeNotice.tsx`). */
+  | { kind: 'resumeNotice' }
+  /** Reanudación: vista previa hecho/falta, punto de reinicio, home o confirmación, encuadre y lista (`features/machine/ResumeDialog.tsx`). */
+  | { kind: 'resume'; choose: boolean };
 
 // ---------------------------------------------------------------------------
 // Reducer: función pura que aplica un evento `machine://*` a los datos de la máquina

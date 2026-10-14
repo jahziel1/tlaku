@@ -19,4 +19,11 @@ overlap_mm: number,
 /**
  * Pausa tras cada movimiento de la mesa o del rotativo, ms.
  */
-pause_after_move_ms: number, order: SplitOrder, axes: SplitAxes, };
+pause_after_move_ms: number, order: SplitOrder, axes: SplitAxes, 
+/**
+ * Partir formas enteras (Run Whole Shapes): las piezas se cortan por la frontera de las
+ * formas, no por franjas fijas del tamaño del campo. Cada objeto (o grupo) se marca completo
+ * en una sola pieza, y el solape no se usa. Si una forma es más grande que el campo, o el
+ * trabajo lleva imágenes, se vuelve a las franjas con un aviso.
+ */
+whole_shapes: boolean, };

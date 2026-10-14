@@ -263,10 +263,6 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.adv.active': 'in use',
   'layers.group.defaults': 'Defaults',
 
-  // ---- beginner mode --------------------------------------------------------------------------------
-  'layers.beginner': 'Beginner mode',
-  'layers.beginner.help': 'Hides the advanced settings (perforation, lead-in and lead-out, tabs, additional operations, Z axis, pinned position...). Anything already configured is kept and still applied.',
-  'layers.beginner.hiddenInUse': 'This layer uses advanced settings that beginner mode hides. They still apply; turn the mode off to see or change them.',
 
   // ---- minimum power and angle -----------------------------------------------------------------------
   'layers.note.minPowerLine':
@@ -370,9 +366,21 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.defaults.reset': 'Reset',
   'layers.defaults.custom': 'New layers start with your defaults.',
   'layers.defaults.factory': 'New layers start with the factory values.',
-  'layers.defaults.help': 'Saves this layer settings (without color, name or position) so new layers start with them. Existing layers do not change. Reset goes back to the factory values.',
+  'layers.defaults.help': 'Saves this layer settings (without color, name or position) so new layers start with them. Existing layers do not change. You can also save them only for this color, on this machine or on all machines: a new layer takes its color-and-machine values first, then its color values, and finally the general ones. Reset goes back to the factory values.',
   'layers.defaults.saved': 'Defaults saved for new layers.',
   'layers.defaults.restored': 'New layers go back to starting with the factory values.',
+  'layers.defaults.level.machine': "This color on {device} uses the values saved for that machine.",
+  'layers.defaults.level.color': "This color uses the values saved for that color.",
+  'layers.defaults.level.general': "New layers start with your defaults.",
+  'layers.defaults.level.factory': "New layers start with the factory values.",
+  'layers.defaults.saveMachine': "Save for this color on {device}",
+  'layers.defaults.saveColor': "Save for this color (all machines)",
+  'layers.defaults.removeMachine': "Remove this color's values on {device}",
+  'layers.defaults.removeColor': "Remove this color's values (all machines)",
+  'layers.defaults.savedMachine': "Defaults for {color} saved for {device}.",
+  'layers.defaults.savedColor': "Defaults for {color} saved for all machines.",
+  'layers.defaults.removedColor': "Defaults for {color} removed.",
+  'layers.reason.noDevice': "Pick a machine first.",
   'layers.reason.noCustomDefaults': 'The factory values are already in use.',
 
   // ---- row menu: copy, paste and delete -------------------------------------------------------------------------------------------------------
@@ -401,11 +409,16 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   'layers.cmd.pasteSettings': 'Paste settings into the active layer',
   'layers.cmd.delete': 'Delete the active layer and its objects…',
   'layers.cmd.saveDefaults': 'Save the active layer as defaults',
+  'layers.cmd.saveColorMachineDefaults': 'Save the active layer as defaults for its color on this machine',
+  'layers.cmd.saveColorDefaults': 'Save the active layer as defaults for its color (all machines)',
   'layers.cmd.resetDefaults': 'Reset the defaults for new layers',
 
   'layers.laser2': 'Laser 2',
   'layers.help.laser2': 'Runs this layer with the machine’s second laser (the dialect’s selection command is sent).',
   'layers.help.laser2None': 'This layer asks for laser 2, but the active machine does not have it: it will use laser 1.',
+  'layers.uOffset': 'U offset',
+  'layers.help.uOffset': 'How far the U axis moves (relative, laser off) when this layer starts, added to the job’s offset. Between layers only the difference is sent, and when the job ends U returns to where it was. 0 = this layer does not move U.',
+  'layers.help.uOffsetNone': 'This layer asks to move U, but the active machine has no U axis: it is ignored.',
   'layers.preset': 'Image preset',
   'layers.preset.custom': 'Custom',
   'layers.preset.factory': 'Built-in',

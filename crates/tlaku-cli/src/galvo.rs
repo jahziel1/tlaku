@@ -209,6 +209,17 @@ pub struct ProfileArgs {
     /// velocidad de marcado. Sin verificar con hardware
     #[arg(long, value_name = "MM", value_parser = parse_f64)]
     fill_overscan: Option<f64>,
+    /// Archivo de corrección `.cor` de EZCAD: se lee y se aplica en el anfitrión, antes de
+    /// cuantizar. Nunca se escribe en la tarjeta. Su lectura es una inferencia sin verificar con
+    /// hardware: compruébalo con --red-only
+    #[arg(long, value_name = "ARCHIVO")]
+    cor_file: Option<String>,
+    /// Con --cor-file: intercambia los ejes de la rejilla del .cor
+    #[arg(long, requires = "cor_file")]
+    cor_transpose: bool,
+    /// Con --cor-file: aplica los desplazamientos con el signo contrario
+    #[arg(long, requires = "cor_file")]
+    cor_invert: bool,
     /// Corrección de cilindro: diámetro de la pieza en mm (activa la corrección)
     #[arg(long, value_name = "MM", value_parser = parse_positive)]
     cylinder_diameter: Option<f64>,
@@ -255,6 +266,9 @@ impl ProfileArgs {
         d.correction.invert = [self.invert_x, self.invert_y];
         d.correction.swap_xy = self.swap_xy;
         d.correction.rotation_deg = self.rotate;
+        d.correction.cor_file = self.cor_file.clone();
+        d.correction.cor_transpose = self.cor_transpose;
+        d.correction.cor_invert = self.cor_invert;
         d.require_input = self.require_input.map(|c| InputRequirement {
             mask: c.mask,
             value: c.value,
@@ -1667,5 +1681,99 @@ mod tests {
         );
         assert!(r.is_err(), "{out}");
         assert!(!out.contains("Tarjeta:"), "{out}");
+    }
+    #[test]
+    fn split_by_whole_shapes_marks_each_group_in_one_piece_or_warns() {
+        // El diseño: un cuadro de 60 x 50 con un círculo adentro (rojo) y un rectángulo de 20 x 10
+        // (azul) más a la derecha. En un campo de 70 caben los dos grupos por separado.
+        let (r, out) = run_mark(
+            &[
+                "--emu",
+                "--field",
+                "70",
+                "--split-piece",
+                "0",
+                "--split-whole-shapes",
+            ],
+            "s\n",
+        );
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("2 paso(s)"), "{out}");
+        assert_eq!(out.matches("Enviado:").count(), 2, "{out}");
+        assert!(out.contains("0 violaciones"), "{out}");
+        // En un campo de 55 el cuadro (60 mm) no cabe entero: se vuelve a las franjas y se avisa.
+        let (r, out) = run_mark(
+            &[
+                "--emu",
+                "--field",
+                "55",
+                "--split-piece",
+                "0",
+                "--split-whole-shapes",
+            ],
+            "s\ns\ns\n",
+        );
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("no cabe entera"), "{out}");
+    }
+
+    #[test]
+    fn the_rotary_flags_set_the_galvo_rotary() {
+        let GalvoCommand::Mark { sequence, .. } = parse(&[
+            "mark",
+            "d.svg",
+            "--frequency",
+            "30",
+            "--rotary-diameter",
+            "40",
+            "--rotary-axis",
+            "y",
+            "--rotary-reverse",
+            "--rotary-steps",
+            "1600",
+        ]) else {
+            panic!()
+        };
+        let mut machine = DeviceProfile::default();
+        sequence.apply(&mut machine);
+        let r = &machine.galvo.rotary;
+        assert!(r.enabled && r.reverse);
+        assert_eq!(
+            (r.diameter_mm, r.steps_per_rev, r.axis),
+            (40.0, 1600, CylinderAxis::Y)
+        );
+        // El rotativo general no se toca: el galvo tiene el suyo.
+        assert!(!machine.rotary.enabled);
+    }
+
+    #[test]
+    fn a_cor_file_is_applied_on_the_host_and_never_written() {
+        let dir = std::env::temp_dir().join(format!("tlaku-cli-cor-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("lente.cor");
+        let mut b: Vec<u8> = "LMC1COR_1.0"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        b.extend([0, 0]);
+        b.extend(std::iter::repeat_n(0u8, 63 * 8));
+        for _ in 0..65 * 65 {
+            b.extend(120.0_f64.to_le_bytes());
+            b.extend(0.0_f64.to_le_bytes());
+        }
+        std::fs::write(&path, b).unwrap();
+        let file = path.to_string_lossy().into_owned();
+        let (r, out) = run_mark(&["--emu", "--cor-file", file.as_str()], "");
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains(".cor"), "el aviso de que se aplica: {out}");
+        assert!(out.contains("0 violaciones"), "{out}");
+        assert!(out.contains("la fuente terminó apagada"), "{out}");
+        // Un .cor que no existe detiene el trabajo antes de conectar.
+        let (r, out) = run_mark(&["--emu", "--cor-file", "/no/existe/lente.cor"], "");
+        assert!(r.unwrap_err().contains(".cor"), "{out}");
+        assert!(!out.contains("Tarjeta:"), "{out}");
+        // --cor-transpose y --cor-invert exigen --cor-file.
+        assert!(try_parse(&["mark", "d.svg", "--frequency", "30", "--cor-invert"]).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

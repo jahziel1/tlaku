@@ -30,17 +30,21 @@ use tlaku_i18n::tr;
 
 mod config;
 mod control;
+mod docs;
 mod probe;
 mod query;
 mod send;
+mod settings;
 #[cfg(test)]
 mod tests;
 mod types;
 
 pub use config::{MAX_LISTED_DOCS, SessionConfig, SessionError, addr, model_name};
+pub use docs::{DeleteReport, MAX_DOC_NAME, RunReport, valid_doc_name};
+pub use settings::{ApplyReport, VerifiedSetting};
 pub use types::{
-    ControllerFile, ControllerInfo, MachineStatus, ProbeInfo, Progress, SendMode, StopOutcome,
-    UploadError, UploadReport,
+    ControllerFile, ControllerInfo, MachineFeatures, MachineStatus, ProbeInfo, Progress, SendMode,
+    StopOutcome, UploadError, UploadReport,
 };
 
 pub struct RuidaSession<L: PacketLink> {

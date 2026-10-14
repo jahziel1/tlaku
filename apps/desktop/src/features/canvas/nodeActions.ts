@@ -1,5 +1,6 @@
 import type { Affine, BezPath, DesignObject, Document, Point } from '@/api/types';
 import type { I18nKey } from '@/i18n';
+import { pruneCorners } from '@/lib/cornerMarks';
 import { getPref, type AppState } from '@/store';
 import {
   applyPoint, applyVector, breakAtNodes, buildPaths, canBreak, canJoin, closeSubs, deleteNodes, insertMidpoints, insertNode,
@@ -88,8 +89,10 @@ export function replacePaths(doc: Document, changes: ReadonlyMap<string, BezPath
       continue;
     }
     if (paths.length === 0) continue;
-    // Editar nodos deja de ser una forma paramétrica.
-    objects.push({ ...o, kind: { ...o.kind, paths }, shape: null });
+    // Editar nodos deja de ser una forma paramétrica y descarta las esquinas guardadas de la zona editada (D60).
+    const corners = pruneCorners(o.kind.corners, paths);
+    const { corners: _old, ...rest } = o.kind;
+    objects.push({ ...o, kind: corners ? { ...rest, paths, corners } : { ...rest, paths }, shape: null });
   }
   return { ...doc, objects };
 }

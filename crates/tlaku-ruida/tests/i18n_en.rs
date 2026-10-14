@@ -50,3 +50,43 @@ fn safety_and_session_errors_in_english() {
         assert!(e.contains("is not an opcode"), "{e}");
     });
 }
+
+#[test]
+fn settings_and_document_errors_in_english() {
+    use tlaku_ruida::settings::{self, SettingsError};
+    with_locale(Locale::En, || {
+        let e = settings::check_write(0x200, 1).unwrap_err().to_string();
+        assert_eq!(
+            e,
+            "address 0x200 is not in the list of settings Tlaku can write"
+        );
+        let e = settings::check_write(0x005, 5).unwrap_err().to_string();
+        assert!(e.contains("outside the allowed range"), "{e}");
+        let e = settings::calibrate_step(6350, 100.0, 50.0)
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("measuring mistake"), "{e}");
+        assert!(matches!(
+            settings::calibrate_step(6350, 0.0, 1.0),
+            Err(SettingsError::BadMeasure(_))
+        ));
+        assert!(
+            SessionError::NotConfirmed
+                .to_string()
+                .contains("confirmation")
+        );
+        let e = SessionError::DocumentMismatch {
+            index: 2,
+            expected: "A".into(),
+            found: Some("B".into()),
+        }
+        .to_string();
+        assert!(e.contains("is named \"B\", not \"A\""), "{e}");
+    });
+    // En español por defecto.
+    assert!(
+        SessionError::NotConfirmed
+            .to_string()
+            .contains("confirmación")
+    );
+}

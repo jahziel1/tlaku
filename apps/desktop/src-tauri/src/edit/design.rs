@@ -58,7 +58,7 @@ pub struct TangentCircle {
 fn vector_object(source: &DesignObject, paths: Vec<BezPath>) -> DesignObject {
     DesignObject {
         transform: affine::IDENTITY,
-        kind: ObjectKind::Vector(VectorObject { paths }),
+        kind: ObjectKind::Vector(VectorObject::new(paths)),
         // La forma paramétrica, el punto de inicio y los puentes dejan de valer tras deformar.
         shape: None,
         start: None,
@@ -165,7 +165,7 @@ pub fn hull(
         id: "hull-1".into(),
         layer: layer.unwrap_or(first.layer),
         transform: affine::IDENTITY,
-        kind: ObjectKind::Vector(VectorObject { paths: vec![path] }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![path])),
         locked: false,
         hidden: false,
         group: None,
@@ -251,12 +251,10 @@ mod tests {
             id: id.into(),
             layer: Rgb(255, 0, 0),
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&Polyline {
-                    points: points.iter().map(|&(x, y)| pt(x, y)).collect(),
-                    closed,
-                })],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+                points: points.iter().map(|&(x, y)| pt(x, y)).collect(),
+                closed,
+            })])),
             locked: false,
             hidden: false,
             group: Some("g1".into()),

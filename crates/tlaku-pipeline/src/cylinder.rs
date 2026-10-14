@@ -13,6 +13,14 @@
 //!   `c' = D * R sin(theta) / h` y `a' = D * a / h`. En el centro (`theta = 0`, `h = D`) es la
 //!   identidad, como pide una lente F-theta enfocada en la cima.
 //!
+//! **Horizonte.** Un punto solo se puede marcar si el espejo lo ve. En un cilindro cóncavo (el
+//! espejo dentro del tubo) se ve toda la pared hasta los 90 grados de arco. En uno convexo el rayo
+//! tangente desde el espejo toca la superficie donde `cos theta = r / (r + D)` (con `r` el radio
+//! local); más allá, la proyección `c'` baja otra vez (se pliega: dos puntos del diseño caerían en
+//! el mismo lugar del campo) y el punto no es alcanzable. Por eso el ángulo se recorta a
+//! `min(90 grados, acos(r / (r + D)))` y el punto se cuenta como recortado. En ese borde la
+//! proyección vale `r sqrt(D / (D + 2r))`.
+//!
 //! Es un modelo geométrico propio (sala limpia: no se tomó de ningún programa) y **no está
 //! verificado con hardware**; ignora el acoplamiento entre los dos espejos y la forma real del
 //! campo de la lente.
@@ -35,6 +43,19 @@ pub(crate) const MAX_STEP_MM: f64 = 1.0;
 
 /// Más allá de este ángulo (rad) la superficie ya no se ve desde arriba: el punto se recorta.
 const MAX_THETA: f64 = std::f64::consts::FRAC_PI_2;
+
+/// Tolerancia al decidir si un ángulo llegó al horizonte (los redondeos de `c / R`).
+const HORIZON_EPS: f64 = 1e-9;
+
+/// Ángulo máximo (rad) visible desde el espejo para un cilindro de radio local `r` a la distancia
+/// `distance` (ver la nota «Horizonte» del módulo).
+fn horizon(r: f64, distance: f64, concave: bool) -> f64 {
+    if concave {
+        MAX_THETA
+    } else {
+        (r / (r + distance)).acos().min(MAX_THETA)
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Cyl {
@@ -156,7 +177,8 @@ impl Projection {
                 let r_ref = cy.radius;
                 let r = r_ref * k;
                 let raw = c / r_ref;
-                let theta = raw.clamp(-MAX_THETA, MAX_THETA);
+                let limit = horizon(r, cy.distance, cy.concave);
+                let theta = raw.clamp(-limit, limit);
                 let drop = r * (1.0 - theta.cos());
                 let h = if cy.concave {
                     cy.distance - drop
@@ -166,7 +188,11 @@ impl Projection {
                 // En un cóncavo muy cerrado el punto puede quedar a la altura del espejo.
                 let h = h.max(cy.distance * 1e-3);
                 let s = cy.distance / h;
-                (a * s, r * theta.sin() * s, theta == raw)
+                (
+                    a * s,
+                    r * theta.sin() * s,
+                    (raw - theta).abs() <= HORIZON_EPS,
+                )
             }
         };
         let q = match self.axis() {
@@ -428,5 +454,146 @@ mod tests {
         g.taper.axis = CylinderAxis::Y;
         let e = Projection::from_device(&g, Point::new(0.0, 0.0)).unwrap_err();
         assert!(e.contains("mismo eje"), "{e}");
+    }
+    /// Casos de referencia calculados a mano con la fórmula del módulo (ver su documentación):
+    /// `theta = c / R`, `h = D +- R (1 - cos theta)` (más para convexo, menos para cóncavo),
+    /// `s = D / h`, `c' = R sin(theta) s`, `a' = a s`. Los dos primeros usan ángulos con valores
+    /// exactos (90 y 60 grados) para que la cuenta se pueda hacer sin calculadora; el resto son
+    /// la misma cuenta con 10 cifras. Si alguien cambia el modelo, estos números se rompen a
+    /// propósito: el modelo es propio y sin verificar con hardware, y cambiarlo exige decidirlo.
+    #[test]
+    fn hand_computed_reference_points() {
+        let near = |got: f64, want: f64, what: &str| {
+            assert!((got - want).abs() < 1e-8, "{what}: {got} contra {want}");
+        };
+        // 1. Cóncavo, R = 10, D = 100, c = pi R / 2 (90 grados): cos = 0, sin = 1,
+        //    h = 100 - 10 = 90, s = 100 / 90. c' = 10 x 100 / 90 = 11,111...; a = 9 -> a' = 10.
+        let p = cylinder(20.0, 100.0, CylinderAxis::X, true);
+        let c = std::f64::consts::PI * 10.0 / 2.0;
+        let (q, ok) = p.apply(Point::new(50.0 + 9.0, 50.0 + c));
+        assert!(ok);
+        near(q.x - 50.0, 10.0, "1 a'");
+        near(q.y - 50.0, 100.0 / 9.0, "1 c'");
+        // 2. Convexo, R = 30, D = 90, c = pi R / 3 (60 grados): cos = 1/2, sin = raíz(3)/2,
+        //    drop = 15, h = 105, s = 90 / 105 = 6/7. a = 21 -> a' = 18 exacto;
+        //    c' = 30 x (raíz(3)/2) x 6/7 = 22,2692246...
+        let p = cylinder(60.0, 90.0, CylinderAxis::X, false);
+        let c = std::f64::consts::PI * 30.0 / 3.0;
+        let (q, _) = p.apply(Point::new(50.0 + 21.0, 50.0 + c));
+        near(q.x - 50.0, 18.0, "2 a'");
+        near(q.y - 50.0, 22.269_224_668_7, "2 c'");
+        // 3. Cóncavo, mismos datos: drop = -15, h = 75, s = 90 / 75 = 6/5. a = 15 -> a' = 18;
+        //    c' = 30 x (raíz(3)/2) x 6/5 = 31,1769145...
+        let p = cylinder(60.0, 90.0, CylinderAxis::X, true);
+        let (q, _) = p.apply(Point::new(50.0 + 15.0, 50.0 + c));
+        near(q.x - 50.0, 18.0, "3 a'");
+        near(q.y - 50.0, 31.176_914_536_2, "3 c'");
+        // 4. Convexo, R = 30, D = 150, c = 20, a = 10: theta = 2/3, h = 156,4233822,
+        //    a' = 9,5893592, c' = 17,7893105.
+        let p = cylinder(60.0, 150.0, CylinderAxis::X, false);
+        let (q, _) = p.apply(Point::new(60.0, 70.0));
+        near(q.x - 50.0, 9.589_359_206_6, "4 a'");
+        near(q.y - 50.0, 17.789_310_492_4, "4 c'");
+        // 5. Cóncavo, mismos datos: h = 143,5766178, a' = 10,4473836, c' = 19,3810396.
+        let p = cylinder(60.0, 150.0, CylinderAxis::X, true);
+        let (q, _) = p.apply(Point::new(60.0, 70.0));
+        near(q.x - 50.0, 10.447_383_583_3, "5 a'");
+        near(q.y - 50.0, 19.381_039_587_1, "5 c'");
+        // 6. Simétrico: el lado negativo da lo opuesto en la curvatura (c) y lo mismo a lo largo.
+        let p = cylinder(60.0, 150.0, CylinderAxis::X, false);
+        let (q, _) = p.apply(Point::new(60.0, 30.0));
+        near(q.x - 50.0, 9.589_359_206_6, "6 a'");
+        near(q.y - 50.0, -17.789_310_492_4, "6 c'");
+    }
+
+    /// El horizonte de un cilindro convexo es el rayo tangente desde el espejo: `cos theta = R /
+    /// (R + D)`. Ahí la proyección vale `R sqrt(D / (D + 2R))` (se deduce de la fórmula: h = D
+    /// (D + 2R) / (D + R) y sin theta = sqrt(D (D + 2R)) / (D + R)). Con R = 10 y D = 80 son
+    /// 10 x sqrt(0,8) = 8,94427191 y a = 10 se escala por s = D / h = 0,9 a 9. Más allá el punto
+    /// se recorta a ese borde y se cuenta como no visible; justo antes sí se ve.
+    #[test]
+    fn the_convex_horizon_is_the_tangent_ray() {
+        let p = cylinder(20.0, 80.0, CylinderAxis::X, false);
+        let edge = 10.0 * (80.0_f64 / 100.0).sqrt();
+        let theta_t = (10.0_f64 / 90.0).acos();
+        let (q, ok) = p.apply(Point::new(60.0, 50.0 + 10.0 * theta_t));
+        assert!(ok);
+        assert!((q.y - 50.0 - edge).abs() < 1e-9, "{}", q.y - 50.0);
+        assert!((q.x - 50.0 - 9.0).abs() < 1e-9, "{}", q.x - 50.0);
+        for c in [15.0, 25.0, 1000.0] {
+            let (q, ok) = p.apply(Point::new(50.0, 50.0 + c));
+            assert!(!ok, "c = {c}");
+            assert!((q.y - 50.0 - edge).abs() < 1e-9, "c = {c}: {}", q.y - 50.0);
+        }
+        // Antes del horizonte la proyección crece sin plegarse.
+        let mut prev = 0.0;
+        for i in 1..=14 {
+            let (q, ok) = p.apply(Point::new(50.0, 50.0 + f64::from(i)));
+            assert!(ok && q.y - 50.0 > prev, "c = {i}");
+            prev = q.y - 50.0;
+        }
+        // Un cilindro cóncavo ve la pared hasta los 90 grados.
+        let p = cylinder(20.0, 80.0, CylinderAxis::X, true);
+        let (_, ok) = p.apply(Point::new(50.0, 50.0 + std::f64::consts::PI * 10.0 / 2.0));
+        assert!(ok);
+        let (_, ok) = p.apply(Point::new(50.0, 50.0 + 17.0));
+        assert!(!ok);
+    }
+
+    /// Cono más cilindro (cálculo a mano). Cilindro de 60 mm (R = 30) a D = 150, cono de 60 mm
+    /// en el extremo +X a 30 mm en el -X, largo 100, eje X. El factor del cono es 0,5 en a = -50
+    /// y 0,75 en a = 0; el ángulo sigue siendo c / R. Con c = 15 (theta = 0,5) en a = -50:
+    /// r = 15, drop = 15 (1 - cos 0,5) = 1,836261, h = 151,836261, s = 0,987906;
+    /// a' = -49,39530 y c' = 15 sin(0,5) s = 7,104413. En a = 0 con k = 0,75: c' = 10,592567.
+    #[test]
+    fn cone_and_cylinder_combine_with_the_local_radius() {
+        let g = device(
+            CylinderCorrection {
+                enabled: true,
+                diameter_mm: 60.0,
+                mirror_distance_mm: 150.0,
+                axis: CylinderAxis::X,
+                concave: false,
+            },
+            TaperWarp {
+                enabled: true,
+                top_diameter_mm: 60.0,
+                bottom_diameter_mm: 30.0,
+                length_mm: 100.0,
+                axis: CylinderAxis::X,
+                top_at_positive: true,
+            },
+        );
+        let p = Projection::from_device(&g, Point::new(0.0, 0.0))
+            .unwrap()
+            .unwrap();
+        let (q, ok) = p.apply(Point::new(-50.0, 15.0));
+        assert!(ok);
+        assert!((q.y - 7.104_412_679).abs() < 1e-8, "{}", q.y);
+        assert!(
+            (q.x + 50.0 * 150.0 / 151.836_261_572).abs() < 1e-6,
+            "{}",
+            q.x
+        );
+        let (q, _) = p.apply(Point::new(0.0, 15.0));
+        assert!((q.y - 10.592_567_374).abs() < 1e-8, "{}", q.y);
+        // Extremo grueso: k = 1 y es el cilindro solo (cálculo 6 de arriba, a lo largo = 50).
+        let (q, _) = p.apply(Point::new(50.0, 15.0));
+        assert!((q.y - 14.039_041_461).abs() < 1e-8, "{}", q.y);
+        assert!((q.x - 48.805_081_398).abs() < 1e-8, "{}", q.x);
+    }
+
+    /// La cuadrícula de referencia de la vista previa: el centro y su eje no se mueven; todo lo
+    /// demás queda dentro de ±`R sqrt(D / (D + 2R))` en la curvatura (convexo).
+    #[test]
+    fn the_projected_grid_stays_inside_the_horizon_square() {
+        let p = cylinder(60.0, 160.0, CylinderAxis::X, false);
+        let limit = 30.0 * (160.0_f64 / 220.0).sqrt();
+        for i in -20..=20 {
+            let c = f64::from(i) * 2.5;
+            let (q, _) = p.apply(Point::new(50.0, 50.0 + c));
+            assert!((q.y - 50.0).abs() <= limit + 1e-9);
+            assert!((q.x - 50.0).abs() < 1e-12, "el eje no se mueve");
+        }
     }
 }

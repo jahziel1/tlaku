@@ -267,6 +267,9 @@ describe('avisos del galvo', () => {
     expect(moveText(STEP)).toContain('Mesa: X -100');
     expect(moveText({ ...STEP, dx: 0, dy: 0, rotary_deg: -45 })).toBe('Rotativo: -45,0°');
     expect(moveText({ ...STEP, dx: 12.5, dy: 3, rotary_deg: 90 })).toContain('X +12');
+    // Con los pasos del motor por vuelta del rotativo del galvo, el giro también sale en pasos: 45° de 1200 son 150.
+    expect(moveText({ ...STEP, dx: 0, dy: 0, rotary_deg: -45 }, 1200)).toBe('Rotativo: -45,0° (-150 pasos)');
+    expect(moveText({ ...STEP, dx: 0, dy: 0, rotary_deg: 90 }, 1200)).toBe('Rotativo: +90,0° (+300 pasos)');
   });
 
   it('esperar el material: qué mover, la pausa, que el láser disparará y que cerrar detiene', () => {
@@ -339,7 +342,7 @@ describe('perfil del galvo', () => {
     for (const section of ['Lente y fuente', 'Retardos y saltos por defecto', 'Puntero rojo', 'Corrección del campo', 'Cilindro y cono', 'Marcado dividido y repetido']) {
       expect(h, section).toContain(section);
     }
-    for (const label of ['Campo de la lente', 'Fuente láser', 'Potencia de la fuente', 'Rango de frecuencia', 'Potencia máxima permitida', 'Velocidad del encuadre', 'Escala', 'Intercambiar X e Y', 'Barril, trapecio y sesgo', 'Archivo .cor (solo informativo)', 'Repeticiones del marcado']) {
+    for (const label of ['Campo de la lente', 'Fuente láser', 'Potencia de la fuente', 'Rango de frecuencia', 'Potencia máxima permitida', 'Velocidad del encuadre', 'Escala', 'Intercambiar X e Y', 'Barril, trapecio y sesgo', 'Archivo .cor de EZCAD', 'Repeticiones del marcado']) {
       expect(h, label).toContain(label);
     }
     expect(h).toContain('Experimental');
@@ -358,13 +361,79 @@ describe('perfil del galvo', () => {
     expect(html(galvoDevice({ galvo: { ...galvoDevice().galvo, source: 'uv' } }))).toContain('Opcional');
   });
 
-  it('el archivo .cor es solo informativo y avisa que no se aplica', () => {
+  it('el archivo .cor se aplica en el anfitrión y muestra sus ajustes solo cuando hay archivo', () => {
     const d = galvoDevice();
     d.galvo.correction.cor_file = 'lente.cor';
     const h = html(d);
     expect(h).toContain('lente.cor');
-    expect(h).toContain('Tlaku no aplica el archivo .cor');
-    expect(html(galvoDevice())).not.toContain('Tlaku no aplica el archivo .cor');
+    expect(h).toContain('Tlaku lee el .cor al preparar el trabajo');
+    expect(h).toContain('Nunca lo escribe en la tarjeta');
+    expect(h).toContain('Intercambiar los ejes de la tabla');
+    expect(h).toContain('Invertir el signo de la tabla');
+    const none = html(galvoDevice());
+    expect(none).not.toContain('Tlaku lee el .cor');
+    expect(none).not.toContain('Intercambiar los ejes de la tabla');
+  });
+
+  it('el rotativo del galvo tiene su propio editor con diámetro, pasos, eje y sentido', () => {
+    const off = html(galvoDevice());
+    expect(off).toContain('Rotativo del galvo');
+    expect(off).toContain('Marcar sobre una pieza cilíndrica con rotativo');
+    expect(off).not.toContain('Pasos del motor por vuelta');
+    const d = galvoDevice();
+    d.galvo.rotary = { enabled: true, diameter_mm: 100 / Math.PI, steps_per_rev: 1200, axis: 'x', reverse: false };
+    d.galvo.field_mm = 110;
+    const on = html(d);
+    for (const label of ['Diámetro de la pieza', 'Pasos del motor por vuelta', 'Eje de la pieza', 'Invertir el sentido del giro']) expect(on, label).toContain(label);
+    // Una vuelta son 100 mm; una franja del campo (110 mm) son 396° y 1320 pasos.
+    expect(on).toContain('Una vuelta son 100,0 mm de superficie.');
+    expect(on).toContain('396,0° de giro (1320 pasos)');
+    expect(on).toContain('más de 120°');
+    d.galvo.rotary.steps_per_rev = 0;
+    expect(html(d)).toContain('equivale a 396,0° de giro.');
+  });
+
+  it('un perfil con el rotativo general ofrece pasarlo al del galvo', () => {
+    const d = galvoDevice();
+    d.rotary = { ...d.rotary, enabled: true, object_diameter: 40 };
+    const h = html(d);
+    expect(h).toContain('Este perfil usa el rotativo general (diámetro 40,0 mm)');
+    expect(h).toContain('Pasar al rotativo del galvo');
+    d.galvo.rotary.enabled = true;
+    expect(html(d)).not.toContain('Pasar al rotativo del galvo');
+  });
+
+  it('partir por formas enteras aparece con el marcado dividido y se explica', () => {
+    const off = html(galvoDevice());
+    expect(off).not.toContain('Partir por formas enteras');
+    const d = galvoDevice();
+    d.galvo.split.enabled = true;
+    const h = html(d);
+    expect(h).toContain('Partir por formas enteras');
+    expect(h).toContain('cada objeto (o grupo) se marca completo en una sola pieza');
+    // Y se explica por qué no hay marcado al vuelo.
+    expect(h).toContain('El marcado al vuelo');
+  });
+
+  it('la vista previa de la deformación solo se puede activar con cilindro o cono válidos', () => {
+    const off = html(galvoDevice());
+    expect(off).toContain('Activa el cilindro o el cono');
+    const d = galvoDevice();
+    d.galvo.cylinder.enabled = true;
+    const on = html(d);
+    expect(on).toContain('Mostrar la deformación en el lienzo');
+    expect(on).toContain('Dibuja sobre el diseño una rejilla de 10 mm');
+  });
+
+  it('el rotativo del galvo inválido se marca', () => {
+    const d = galvoDevice();
+    d.galvo.rotary = { enabled: true, diameter_mm: 0, steps_per_rev: -3, axis: 'x', reverse: false };
+    const issues = validateGalvoProfile(d);
+    expect(issues.rotary_diameter).toBe('galvo.err.rotaryDiameter');
+    expect(issues.rotary_steps).toBe('galvo.err.rotarySteps');
+    expect(html(d, issues)).toContain('El diámetro de la pieza debe ser mayor que 0.');
+    d.galvo.rotary = { enabled: false, diameter_mm: 0, steps_per_rev: -3, axis: 'x', reverse: false };
+    expect(validateGalvoProfile(d).rotary_diameter).toBeUndefined();
   });
 
   it('cilindro, cono y marcado dividido muestran sus campos solo cuando se activan', () => {
@@ -393,7 +462,8 @@ describe('perfil del galvo', () => {
     setLanguage('en');
     const h = html(galvoDevice());
     expect(h).toContain('Lens and source');
-    expect(h).toContain('.cor file (informational only)');
+    expect(h).toContain('EZCAD .cor file');
+    expect(h).toContain('Galvo rotary');
     setLanguage('es');
   });
 });

@@ -69,7 +69,7 @@ Una taza de 70 mm de diámetro (radio 35 mm), con los espejos a 160 mm de la cim
 | 30 mm | 24,60 mm | 93,0 % |
 | 40 mm | 28,23 mm | 88,7 % |
 
-Fíjate en que los 20 mm de superficie caen a 18,29 mm del centro: el haz tiene que ir **menos lejos** que lo dibujado porque la superficie se curva y se aleja. Cerca de la cima la diferencia es mínima; a los lados, cada milímetro de superficie ocupa cada vez menos campo, hasta que a unos 55 mm de arco (un cuarto de vuelta de esta taza) la superficie ya **no se ve desde arriba** y los puntos se recortan al borde, con un aviso. En la práctica, **no marques más allá de unos 60 º a cada lado de la cima** (unos 36 mm de arco en esta taza): el haz llega muy rasante y la marca se vuelve débil y borrosa.
+Fíjate en que los 20 mm de superficie caen a 18,29 mm del centro: el haz tiene que ir **menos lejos** que lo dibujado porque la superficie se curva y se aleja. Cerca de la cima la diferencia es mínima; a los lados, cada milímetro de superficie ocupa cada vez menos campo, hasta que a unos 49 mm de arco (casi 80 º en esta taza: ahí el rayo tangente desde el espejo roza la superficie) ya **no se ve desde arriba** y los puntos se recortan al borde, con un aviso. En la práctica, **no marques más allá de unos 60 º a cada lado de la cima** (unos 36 mm de arco en esta taza): el haz llega muy rasante y la marca se vuelve débil y borrosa.
 
 Con un cilindro **cóncavo** pasa lo contrario: la superficie se acerca al espejo hacia los bordes, y 20 mm de arco caen a 19,61 mm.
 

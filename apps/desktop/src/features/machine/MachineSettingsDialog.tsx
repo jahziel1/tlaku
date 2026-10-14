@@ -1,5 +1,6 @@
 import { Download, RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getApi } from '@/api';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
@@ -17,6 +18,7 @@ import {
   type BackupDiff,
   type ParsedSettings,
 } from './MachineSettingsLogic';
+import { GrblAxisCalibration } from './GrblAxisCalibration';
 import { outcomeNotice, type SettingsNotice } from './MachineSettingsReport';
 import { MachineSettingsTable, type EditingState } from './MachineSettingsTable';
 import { settingsBlockedReason, verifyWritten, writeSettingLines } from './MachineSettingsWrite';
@@ -82,6 +84,17 @@ export function MachineSettingsDialog() {
   const runWrite = async (lines: string[]) => {
     setEditing(null);
     setNotice(null);
+    // Respaldo automático ANTES de escribir: si no se puede guardar, no se escribe nada.
+    let autoPath: string | null = null;
+    if (data) {
+      try {
+        autoPath = await getApi().grblSettingsAutobackup({ text: buildBackupText(data.settings, firmware, new Date()) });
+      } catch (e) {
+        setNotice({ tone: 'error', text: t('mset.auto.failed', { error: errorMessage(e) }) });
+        setView({ kind: 'list' });
+        return;
+      }
+    }
     setView({ kind: 'busy', done: 0, total: lines.length });
     const outcome = await writeSettingLines(lines, { onProgress: (done, total) => setView({ kind: 'busy', done, total }) });
     let mismatches = null;
@@ -94,7 +107,8 @@ export function MachineSettingsDialog() {
     } catch (e) {
       setLoadError(errorMessage(e));
     }
-    setNotice(outcomeNotice(outcome, family, mismatches));
+    const done = outcomeNotice(outcome, family, mismatches);
+    setNotice(autoPath ? { ...done, details: [...(done.details ?? []), t('mset.auto.saved', { path: autoPath })] } : done);
     setView({ kind: 'list' });
   };
 
@@ -288,6 +302,7 @@ export function MachineSettingsDialog() {
         {data && (
           <>
             <p className="hint">{t('mset.count', { n: data.settings.length, critical: criticalCount })}</p>
+            <GrblAxisCalibration settings={data.settings} disabled={blocked !== null} onUse={(id, text) => { setEditing({ id, text }); setNotice(null); }} />
             <MachineSettingsTable
               settings={data.settings}
               family={family}

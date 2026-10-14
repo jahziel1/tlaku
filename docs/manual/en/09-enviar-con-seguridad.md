@@ -111,7 +111,7 @@ The app indicates that the laser is off while paused, but that has not yet been 
 
 If **Stop** happens while the machine is moving, the position may have been lost. **The position may have been lost** appears: with limit switches do **Home ($H)…**; without them, set the origin again by hand. With Marlin and Smoothieware, cancelling always marks the position as possibly lost.
 
-If you close the app with a job running, it is cancelled in the same way.
+If you close the app with a job running, it is cancelled in the same way, but Tlaku keeps the checkpoint and offers to continue when you open it again (see [Continue an interrupted job](#continue-an-interrupted-job)).
 
 ## Live adjustments: speed and power
 
@@ -140,6 +140,69 @@ The **Console** tab (`Ctrl/Cmd+3`) is the log of what was sent and received, wit
 - With the up and down arrows you browse the history; `Tab` completes the command.
 - `error:N` and `ALARM:N` replies arrive with their explanation. **Hide status reports** clears the noise of the periodic `?` queries, and you can copy or clear the log.
 
+## Continue an interrupted job
+
+If the power goes out, the app closes, the computer restarts, or the connection drops in the middle of an engraving, you do not have to start over: Tlaku can **continue from where it stopped**. It works with GRBL, Marlin, and Smoothieware (which receive the G-code line by line). Other controllers have their own rules, in the table below.
+
+### What the app saves while it works
+
+- **When a job starts** it saves a *checkpoint* in the application's data folder (subfolder `interrupted-job/`): the exact G-code that was sent, the machine profile, the project path, and the job origin.
+- **While sending**, about once a second it records the last line the machine confirmed with `ok`, the head position from the latest status report, and the machine state at that moment (absolute or relative mode, units, `M3` or `M4`, last power `S` and speed `F`, Z, and air). It does this on another thread and atomically, so it does not slow down the sending and a power cut in the middle of the write does not leave a broken file.
+- **It is deleted** when the job finishes successfully, when you cancel on purpose with **Stop**, or when you connect a different machine.
+- **It is kept** if there is an error or an alarm, if the connection is lost, if you close the app, or if the power goes out.
+
+### When it offers to continue
+
+When you open the app, and also when the connection is lost in the middle of a job, a notice appears: **The last job was interrupted at N % (line L of T). Continue?** It has three buttons:
+
+| Button | What it does |
+|---|---|
+| **Continue** | Opens the resume dialog with the restart point Tlaku calculated |
+| **Choose the point** | Opens the same dialog so you can move the restart point yourself |
+| **Discard** | Deletes the checkpoint; you will no longer be able to continue that job |
+
+If you leave it for later, the [Job log](#job-log) (**Help > Job Log…**) marks interrupted jobs with their percentage and has a **Continue** button as long as the checkpoint still exists.
+
+### Where to restart
+
+In GRBL, `ok` only means that the line went into the board's buffer, not that it has already run: the board can have up to 127 bytes or 15 blocks ahead of the head (the Falcon2 accepts 127 blocks). That is why the last confirmed line is almost never the last one that was engraved.
+
+- **GRBL.** Tlaku compares the last saved position with the geometry of the confirmed lines, finds the line the head was running, and **steps back cautiously**: by default 3 lines or 1.5 mm, whichever goes further back (you can change it in the dialog). It never steps back past a `G0` travel move. In an image engraving it steps back to the start of the **scan row** in progress.
+- **Marlin and Smoothieware.** They have no `?`, so the position is not polled during the job. The point is estimated only from the confirmed lines and steps back a fixed stretch (about 24 motion lines).
+
+In the resume dialog the preview paints **what is already done** with a solid line in one color and **what is left** with a dashed line in another. A bar lets you move the restart point: backward to repeat a longer stretch, forward to repeat less.
+
+### Mandatory steps to resume
+
+All of the following is mandatory, and the app's engine enforces it, not just the interface: if it is not met, the resume button does not enable.
+
+1. **Home, or confirm that nothing moved.**
+   - If the machine has homing (`$22=1`), you have to reference it with **Home ($H)…**. A board that restarted (when the port was closed and reopened, or because of the power cut) or that lost its position no longer knows where it is; without homing done, it will not resume.
+   - If the board **has no homing**, Tlaku asks you to confirm that the head and the material did not move and that the origin is the same. The warning is clear: if that is not so, the result will come out shifted. Marlin and Smoothieware do not answer `$$`, so with them this confirmation is always asked for.
+2. **Framing the whole job.** Tlaku traces the rectangle of the saved G-code with the laser off and asks you to confirm that the material is still in place.
+3. **The usual checklist**, the same one from the [Start](#4-starting) dialog.
+4. **Generated preamble.** Before the job's lines, Tlaku generates a safe start, in this order: `M5` (laser off), `G90` and `G21`, assist air, a Z adjustment if needed (only with a Z axis), `G0` to the start point **with the laser off**, and only then the `M3` or `M4` mode with its `S` and `F` restored. The job's lines follow from the chosen point. The usual preflight runs on that G-code, and the engine verifies that the preamble contains no move with the laser on.
+
+### What happens depending on the machine
+
+| Machine | Continue |
+|---|---|
+| **GRBL, Marlin, Smoothieware** | Complete. The profile must put the `S` power inside the motion lines and `G0` must turn the laser off. The **GRBL-M3** profile without laser mode does not meet this |
+| **K40** (M2 Nano, LHYMICRO-GL) | **It cannot be continued.** The board receives the job in 30-byte packets and does not report where it is, so there is no safe way to know where it stopped. You have to send the job again; the app only warns |
+| **Ruida** | The job lives in the controller. If the app restarts, the notice explains that the machine keeps going on its own and that you can check its status by connecting |
+| **Galvo** | Does not apply yet; the app only warns |
+
+### Limits worth knowing
+
+- **The material and the head must not move**, and the origin must be the same. If anything moved, the result will come out shifted.
+- **The restart repeats a short stretch.** The saved position can be up to about 1.2 seconds old (200 ms of the `?` polling plus the save interval), so up to about 1 second of travel is repeated, plus the step back you configured. That stretch is engraved twice and shows as a **slightly darker mark**; in images a **faint mark at the seam** may remain.
+- **A power cut can make the motors lose steps.** That is why homing and framing are not a formality: check by eye before accepting.
+- **If the G-code uses `G92`, `G10`, or `G28`** it cannot be resumed midway, because they change the origin or the reference position.
+- **A resumed job also leaves a checkpoint**, so it can be interrupted and continued several times.
+- **Assist air and Z are restored**, but check the focus before continuing.
+
+> **Tip:** the first time, try it on scrap material and with a virtual machine ([Connecting your machine](08-conectar-maquina.md)). Like the rest of the manual, none of this has been tested with a real machine yet; the power-cut test is in the hardware validation list.
+
 ## Job log
 
 **Help > Job Log…** shows a table with the jobs you **sent to a machine from this computer**: **Date**, **Machine**, **Document**, **Estimate** (the time the preview calculated at the start; **—** if there was no up-to-date one), **Actual** (the time spent working, not counting pauses), and **Result**: **Finished**, **Cancelled**, or **Failed**. It is for comparing how long it really took against the estimate, and for remembering what was cut and when.
@@ -150,6 +213,7 @@ The **Console** tab (`Ctrl/Cmd+3`) is the log of what was sent and received, wit
 - It is stored **only on this computer**, in the application's storage; it **does not leave your computer**, it does not travel in the project or in bundles, and it is not sent anywhere. Open Tlaku windows share it.
 - It keeps the **last 200** jobs; beyond that the oldest are discarded.
 - **Clear the log** empties it (it asks for confirmation and cannot be undone).
+- A job that was interrupted (power cut, app closed, connection lost) is marked as interrupted with its percentage and has the **Continue** button as long as the checkpoint exists. See [Continue an interrupted job](#continue-an-interrupted-job).
 - It does not record G-code export or what you send from the console.
 
 ## Exporting G-code

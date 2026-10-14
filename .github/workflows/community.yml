@@ -1,0 +1,89 @@
+name: Comunidad
+
+# Cuando alguien abre un issue con el formulario «Compartir ajustes de material» (etiqueta
+# `material-settings`), comenta con un resumen de los valores y el aviso de seguridad.
+# When someone opens a "Share material settings" issue, comment with a summary and a safety notice.
+#
+# Qué NO hace: no escribe nada en el repositorio, no ejecuta ni interpola el texto del usuario en
+# comandos (solo se lee como datos dentro de github-script) y no cambia etiquetas ni cierra issues.
+# Convertir el aporte en un archivo de community/materials/ lo hace una persona con
+# scripts/community/issue-to-preset.mjs (ver community/materials/README.md).
+on:
+  issues:
+    types: [opened]
+
+# Permisos mínimos: solo comentar en el issue.
+permissions:
+  issues: write
+
+jobs:
+  resumen:
+    name: Resumen y aviso de seguridad
+    if: ${{ contains(github.event.issue.labels.*.name, 'material-settings') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = String(issue.body ?? '');
+
+            // Cuerpo del formulario: «### Etiqueta» + valor. Solo se leen como texto.
+            const sections = {};
+            for (const part of body.replace(/\r\n/g, '\n').split(/^### +/m).slice(1)) {
+              const nl = part.indexOf('\n');
+              const label = (nl < 0 ? part : part.slice(0, nl)).trim();
+              const value = nl < 0 ? '' : part.slice(nl + 1).trim();
+              sections[label] = value === '_No response_' ? '' : value;
+            }
+            const find = (start) => {
+              const key = Object.keys(sections).find((k) => k.toLowerCase().startsWith(start));
+              return key === undefined ? '' : sections[key];
+            };
+            // Texto del usuario como dato inerte: una línea, corto, sin menciones ni HTML ni enlaces.
+            const clean = (text) =>
+              String(text)
+                .replace(/\s+/g, ' ')
+                .replace(/[<>`|\[\]]/g, '')
+                .replace(/@/g, '@​')
+                .slice(0, 160)
+                .trim() || '—';
+
+            const rows = [
+              ['Laser / Láser', `${clean(find('laser type'))}, ${clean(find('laser power'))} W`],
+              ['Machine / Máquina', clean(find('machine'))],
+              ['Material', `${clean(find('material'))}, ${clean(find('thickness'))} mm`],
+              ['Operation / Operación', clean(find('operation'))],
+              ['Speed / Velocidad', `${clean(find('speed'))} (mm/min)`],
+              ['Power / Potencia', `${clean(find('power'))} %`],
+              ['Passes / Pasadas', clean(find('passes'))],
+              ['Interval / Intervalo', `${clean(find('line interval'))} mm`],
+              ['Air / Aire', clean(find('air assist'))],
+              ['Focus / Enfoque', clean(find('focus'))],
+            ];
+            const confirmed = (find('confirmation').match(/^- \[[xX]\]/gm) ?? []).length;
+            const table = ['| | |', '|---|---|', ...rows.map(([k, v]) => `| ${k} | ${v} |`)].join('\n');
+
+            const comment = [
+              `**Thanks for sharing! / ¡Gracias por compartir!**`,
+              '',
+              table,
+              '',
+              confirmed >= 2
+                ? '- Both confirmations are checked (tested on your machine, CC0). / Las dos confirmaciones están marcadas (probado en tu máquina, CC0).'
+                : '- **Missing confirmations**: the tested-on-my-machine and CC0 boxes must both be checked before this can be added. / **Faltan confirmaciones**: las casillas de probado en mi máquina y CC0 deben estar marcadas para poder agregarlo.',
+              '',
+              '> **Safety / Seguridad.** EN: These are one user\'s values on one machine and have not been verified. Always run a test on scrap material, starting with less power, with eye protection and never leaving the machine alone. ',
+              '> ES: Son valores de un usuario en una máquina y nadie los ha verificado. Haz siempre una prueba en material de desecho, empezando con menos potencia, con protección ocular y sin dejar la máquina sola.',
+              '',
+              'EN: A maintainer will review it. If accepted it joins the material library as "Community (unverified)" (see `community/materials/README.md`).',
+              'ES: Una persona del proyecto lo revisará. Si se acepta, entra a la biblioteca de materiales como «Comunidad (sin verificar)» (ver `community/materials/README.es.md`).',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: comment,
+            });

@@ -30,7 +30,24 @@ emulador UDP de `tlaku-ruida`, no con una máquina real (ver `docs/hardware/ruid
   con cinco saltos y no bloquean (ignoran `power_pct`: no hay encuadre con el láser encendido).
 - Lo que es de GRBL (`machine_command`, `set_override`, ajustes `$`, macros, `jog_axis`, `fire_test`,
   `simulate_fault`) devuelve el error `Esta función es solo de GRBL...`.
-- `ruida_info` → `RuidaInfo` y `ruida_files` → `RuidaFile[]`: solo lectura (M26 y M24).
+- `ruida_info` → `RuidaInfo` y `ruida_files` → `RuidaFile[]`: solo lectura (M26 y M24). `RuidaInfo` incluye (ola 6E) `board_version`, `previous_work`, `control_mode` y las funciones `focus`, `z_return_docking`, `air_assist_mode`.
+
+**Ajustes, documentos y respaldos (ola 6E; EXPERIMENTAL: sin probar con una controladora real).** Todo lo que cambia la máquina pasa por las protecciones de `tlaku_ruida::session` (ver `hardware/ruida.md` sección 16): lista cerrada de direcciones con rango, respaldo previo con fecha en `<configuración>/ruida-backups/`, `confirmed = true` explícito, máquina en reposo y verificación por relectura. Se rechazan con un trabajo o un encuadre en marcha. **Los comandos que escriben** (`ruida_settings_apply`, `ruida_settings_restore`, `ruida_calibrate`, `ruida_file_delete`, `ruida_file_run` y `ruida_prepare_store` con `overwrite = true`) llevan además `experimental_writes: bool`, el valor de la preferencia `ruidaExperimentalWrites` (apagada de fábrica); con `false` el motor las rechaza sin enviar nada.
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `ruida_settings_read` | — | `RuidaControllerSettings` (modelo, tarjeta y los 24 ajustes con clave, dirección, grupo, unidad, valor, rango y nombre en las fuentes) |
+| `ruida_settings_preview` | `changes: RuidaSettingChange[]` (`key`, `value`) | `RuidaSettingsPlan`: solo lo que cambia, con valor actual y nuevo; no escribe |
+| `ruida_settings_preview_file` | `json` (texto de un `.tlakuruida`) | `RuidaSettingsPlan`; avisa si es de otra tarjeta |
+| `ruida_settings_apply` | `changes`, `confirmed` | `RuidaApplyReport` (cambios, ruta del respaldo, `verified[]`, `write_error`, `ok`, `restore_advised`) |
+| `ruida_settings_restore` | `json`, `confirmed` | `RuidaApplyReport`; rechaza un respaldo de otra tarjeta |
+| `ruida_settings_export` | — | texto `.tlakuruida` (la interfaz lo guarda con `write_settings_backup`, que acepta esa extensión) |
+| `ruida_calibrate` | `key` (`x_step`...), `commanded_mm`, `measured_mm` | `RuidaCalibration` (paso actual y propuesto); no escribe |
+| `ruida_backups` / `ruida_backup_text` | — / `name` | `RuidaBackup[]` (más reciente primero) / texto de un respaldo |
+| `ruida_prepare_store` | `name` (`null` = automático), `overwrite` | fija el nombre del próximo trabajo guardado y si puede reemplazar a uno igual; vale para un solo envío y caduca a los 120 s; la interfaz lo llama al confirmar el inicio |
+| `ruida_file_delete` / `ruida_file_run` | `index`, `name`, `confirmed` | `RuidaDocResult`; el motor relee el nombre del documento y no actúa si no coincide; nunca borra «todos» |
+
+`start_job` con un nombre repetido y sin permiso de reemplazar falla sin tocar nada; con el nombre automático elige un `TLAKUnnn` libre. GRBL: `grbl_settings_autobackup(text)` guarda el respaldo automático previo de los ajustes `$` en `<configuración>/grbl-backups/` y devuelve la ruta.
 
 **Despacho.** `AppState` guarda una sola conexión, `machine::active::ActiveMachine` (`Grbl`, `Ruida` o `Lhy`), y los
 comandos pasan por `machine::active::Machine` (`is_closed`, `work_pos`, `jog`, `jog_to`, pausa, reanudar,

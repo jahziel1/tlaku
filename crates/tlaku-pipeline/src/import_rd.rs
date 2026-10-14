@@ -376,7 +376,7 @@ fn layers_result(
         s.air = l.air;
 
         let paths: Vec<BezPath> = l.paths.iter().map(|p| to_path(p, height_mm)).collect();
-        objects.push(object(color, ObjectKind::Vector(VectorObject { paths })));
+        objects.push(object(color, ObjectKind::Vector(VectorObject::new(paths))));
         layers.push(s);
     }
     if recolored > 0 {
@@ -469,6 +469,7 @@ mod tests {
                 .map(|&color| LayerOptions {
                     color,
                     min_power_pct: None,
+                    ..Default::default()
                 })
                 .collect(),
             ..RuidaJobOptions::default()

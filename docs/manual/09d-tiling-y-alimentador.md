@@ -50,6 +50,16 @@ Las **marcas de alineación** son cruces pequeñas (miden el 80 % del solape, co
 
 La alineación fina del material es **física**: usa topes, escuadras o una plantilla, y pega el material. Es lo que más calidad da al empalme.
 
+## Varias columnas: la pausa guiada
+
+Cuando el diseño es más ancho que la cama hay **varias columnas**, y el material hay que moverlo **a mano** de una a otra (el alimentador solo mueve un eje). Al terminar un tramo, si el siguiente está en otra columna o fila, el asistente se detiene y abre un diálogo, por ejemplo **«Mueve el material a la columna 2 de 2»**, que dice qué zona del diseño debe quedar en la cama y trae las **marcas de registro**:
+
+- Son las cruces de alineación que **ya se grabaron** en el solape y que caen dentro del tramo que sigue. Cada una se muestra con su posición en el diseño.
+- **Llevar el puntero** mueve la cabeza (con el láser apagado) al punto de la cama donde esa cruz debe quedar una vez bien puesto el material; si tu máquina tiene puntero rojo y su desfase está en el perfil, el que se lleva ahí es el puntero. Mueve el material a mano hasta que el puntero caiga sobre la cruz grabada.
+- **Ya está colocado: enviar tramo n** cierra el diálogo y manda el tramo. **Saltar** lo da por hecho sin enviarlo y **Más tarde** cierra el diálogo para que coloques el material sin prisa (el botón **Enviar tramo n** del panel sigue ahí).
+
+Hay marcas de registro solo si usaste un **solape mayor que cero** y dejaste activadas las **marcas de alineación**; si no, el diálogo lo dice y tendrás que alinear con el borde del material o con topes. Con el orden **Serpentina** hay menos pausas: la primera fila va de izquierda a derecha y la siguiente al revés, así que al cambiar de fila el siguiente tramo queda en la **misma columna**.
+
 ## Enviar por tramos
 
 En cada tramo el asistente muestra:
@@ -92,7 +102,7 @@ Tlaku valida el G-code (no puede estar vacío, tiene que llevar `{mm}`, no admit
 
 ### Cómo lo usa el tiling
 
-El alimentador solo se usa cuando los tramos van **en una sola columna**, es decir, cuando el diseño cabe a lo ancho y se divide a lo largo. Si hay varias columnas, el panel avisa «El alimentador solo se usa cuando los tramos van en una sola dirección (una columna)» y el material lo mueves tú.
+El alimentador solo avanza el material entre tramos **de la misma columna**: cuando el diseño cabe a lo ancho y se divide a lo largo, o, con varias columnas y el orden **Serpentina**, al pasar de una fila a la siguiente en la misma columna. Cuando el siguiente tramo está en **otra columna**, el avance de un solo eje no alcanza: el asistente se detiene con la [pausa guiada](#varias-columnas-la-pausa-guiada) y el material lo mueves tú. Con el orden por filas y varias columnas el panel avisa «El alimentador solo se usa cuando los tramos van en una sola dirección (una columna)».
 
 Con una sola columna, el flujo cambia:
 
@@ -117,9 +127,9 @@ Si un avance o un trabajo falla, la tanda se detiene en ese punto y el panel dic
 ## Lo que no hace (todavía)
 
 - No hay tiling desde la línea de comandos; es del asistente de la app.
-- Con el tiling, el alimentador solo se usa con los tramos en una columna: el avance es de un solo eje, así que con varias columnas hay que recolocar el material a mano.
+- Con varias columnas, el material se recoloca **a mano**: el asistente solo te guía (pausa y marcas de registro); no mide si quedó bien puesto. Comprueba a ojo que las cruces coincidan antes de enviar.
 - **No** usa el alimentador propio de una controladora DSP (Ruida, Trocen): no hay forma documentada de pedirle el avance, y mover un eje con comandos inventados no es seguro. Con Ruida y K40 la sección **Repetir con el alimentador** no aparece.
 - No parte formas enteras al elegir el borde del tramo: una forma que cruza el borde se corta en dos partes, una en cada tramo.
-- Nada de esto se ha probado con un alimentador real.
+- Nada de esto se ha probado con un alimentador real, ni con el material movido a mano entre columnas.
 
 Siguiente: [Control desde el celular](09e-control-desde-el-celular.md)

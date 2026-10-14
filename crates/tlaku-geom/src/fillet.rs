@@ -40,9 +40,24 @@ pub struct FilletOptions {
     pub style: FilletStyle,
 }
 
+/// Una esquina de recta con recta que `fillet_path` modificó.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FilletCorner {
+    /// La punta original.
+    pub vertex: Point,
+    /// Donde la forma nueva se separa de la recta que llegaba a la punta.
+    pub from: Point,
+    /// Donde la forma nueva se junta con la recta que salía de la punta.
+    pub to: Point,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FilletOutcome {
     pub path: BezPath,
+    /// Cada esquina modificada: la punta original y los dos nodos entre los que quedó la forma
+    /// nueva (arco, chaflán o mordida). Con esto se puede devolver a punta una esquina cuya forma
+    /// no se distingue por geometría (el chaflán).
+    pub corners: Vec<FilletCorner>,
     /// Esquinas modificadas.
     pub rounded: usize,
     /// De ellas, las que se hicieron con un radio menor al pedido para caber.
@@ -178,6 +193,7 @@ struct NodeOut {
 pub fn fillet_path(path: &BezPath, opts: &FilletOptions, only: Option<&[Point]>) -> FilletOutcome {
     let mut out = FilletOutcome {
         path: BezPath(Vec::new()),
+        corners: Vec::new(),
         rounded: 0,
         clamped: 0,
         no_space: 0,
@@ -190,7 +206,7 @@ pub fn fillet_path(path: &BezPath, opts: &FilletOptions, only: Option<&[Point]>)
             continue;
         };
         match fillet_sub(&sub, opts, only) {
-            Some((segs, rounded, clamped, no_space)) => {
+            Some((segs, rounded, clamped, no_space, corners)) => {
                 out.rounded += rounded;
                 out.clamped += clamped;
                 out.no_space += no_space;
@@ -198,6 +214,7 @@ pub fn fillet_path(path: &BezPath, opts: &FilletOptions, only: Option<&[Point]>)
                     out.path.0.extend(subpath.0);
                 } else {
                     out.path.0.extend(segs);
+                    out.corners.extend(corners);
                 }
             }
             None => out.path.0.extend(subpath.0),
@@ -206,11 +223,10 @@ pub fn fillet_path(path: &BezPath, opts: &FilletOptions, only: Option<&[Point]>)
     out
 }
 
-fn fillet_sub(
-    sub: &Sub,
-    opts: &FilletOptions,
-    only: Option<&[Point]>,
-) -> Option<(Vec<PathSeg>, usize, usize, usize)> {
+/// Trazos nuevos de un subtrayecto, esquinas redondeadas, recortadas, sin espacio y sus puntas.
+type SubOutcome = (Vec<PathSeg>, usize, usize, usize, Vec<FilletCorner>);
+
+fn fillet_sub(sub: &Sub, opts: &FilletOptions, only: Option<&[Point]>) -> Option<SubOutcome> {
     let n = sub.nodes.len();
     let edge_count = sub.edges.len();
     let is_line = |e: usize| matches!(sub.edges[e], Edge::Line);
@@ -252,7 +268,7 @@ fn fillet_sub(
     }
     let total = candidate.iter().filter(|&&c| c).count();
     if total == 0 {
-        return Some((Vec::new(), 0, 0, 0));
+        return Some((Vec::new(), 0, 0, 0, Vec::new()));
     }
 
     // Reparto del espacio de cada recta entre sus dos extremos.
@@ -298,6 +314,7 @@ fn fillet_sub(
 
     let mut outs: Vec<NodeOut> = Vec::with_capacity(n);
     let mut rounded = 0usize;
+    let mut corners: Vec<FilletCorner> = Vec::new();
     for i in 0..n {
         let v = sub.nodes[i];
         if !candidate[i] || d[i] < 1e-7 {
@@ -337,6 +354,11 @@ fn fillet_sub(
             }
         };
         rounded += 1;
+        corners.push(FilletCorner {
+            vertex: v,
+            from: t1,
+            to: t2,
+        });
         outs.push(NodeOut {
             enter: t1,
             exit: t2,
@@ -384,5 +406,5 @@ fn fillet_sub(
     if sub.closed {
         segs.push(PathSeg::Close);
     }
-    Some((segs, rounded, clamped, no_space))
+    Some((segs, rounded, clamped, no_space, corners))
 }

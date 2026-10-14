@@ -5,11 +5,15 @@ use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn on_status(&mut self, r: &streamer::StatusReport) {
+        self.statuses += 1;
         if let Some(w) = &r.wco {
             self.wco = [w.x, w.y];
         }
         let mut s = self.last.clone();
         s.state = convert_state(r.state);
+        if s.state == MachineState::Alarm {
+            self.shared.homed.store(false, Ordering::SeqCst);
+        }
         s.other_state = r
             .other_state
             .clone()
@@ -70,6 +74,10 @@ impl Worker {
 
     /// Actualiza el silencio tolerado y la familia del firmware con una línea recibida.
     pub(super) fn note_line(&mut self, line: &str) {
+        if is_greeting(line) {
+            // La placa se reinició: la referencia del homing ya no vale.
+            self.shared.homed.store(false, Ordering::SeqCst);
+        }
         if is_critical_alarm(line) {
             self.quiet = Some(Quiet::CriticalAlarm);
         } else if self.quiet == Some(Quiet::CriticalAlarm) && (line == "ok" || is_greeting(line)) {

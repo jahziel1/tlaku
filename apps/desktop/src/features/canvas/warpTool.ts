@@ -1,4 +1,5 @@
 import type { Point } from '@/api/types';
+import type { SnapSet } from './snap';
 import { designReason, runWarpEnvelope } from '@/features/arrange/designOps';
 import { blockBounds, selectionUnits } from '@/features/arrange/units';
 import { t } from '@/i18n';
@@ -20,6 +21,8 @@ interface Drag {
   before: WarpSession;
   /** Posición de la manija al empezar, para Mayús (mover en horizontal o vertical). */
   from: Point;
+  /** Blancos del imán (nodos, bordes y guías de lo que no se deforma), calculados al agarrar la manija. */
+  targets: SnapSet;
 }
 
 /**
@@ -102,16 +105,25 @@ export function createWarpTool(d: ToolDeps) {
     if (p) d.setTip(sx, sy, t('canvas.warp.tipPoint', { x: p[0].toFixed(2), y: p[1].toFixed(2) }));
   };
 
-  /** Mueve la manija agarrada a la posición del puntero (Mayús = solo en horizontal o vertical). */
+  /**
+   * Mueve la manija agarrada a la posición del puntero. Se pega a la rejilla, a los nodos de los
+   * demás objetos y a las guías con el mismo imán de las otras herramientas (Alt lo desactiva).
+   * Mayús = solo en horizontal o vertical: el imán solo ajusta el eje libre.
+   */
   const dragTo = (sx: number, sy: number, mods: Mods) => {
     const s = session();
     if (!drag || !s) return;
     let p = d.world(sx, sy);
+    let axis: 0 | 1 | null = null;
     if (mods.shift) {
       const dx = Math.abs(p[0] - drag.from[0]);
       const dy = Math.abs(p[1] - drag.from[1]);
-      p = dx >= dy ? [p[0], drag.from[1]] : [drag.from[0], p[1]];
+      axis = dx >= dy ? 1 : 0;
+      p = axis === 1 ? [p[0], drag.from[1]] : [drag.from[0], p[1]];
     }
+    const snapped = d.snapTo(p, drag.targets, mods);
+    if (axis === null) p = snapped;
+    else p = axis === 1 ? [snapped[0], drag.from[1]] : [drag.from[0], snapped[1]];
     setSession(movePoint(s, drag.index, p));
     show();
     tipFor(sx, sy, drag.index);
@@ -162,7 +174,11 @@ export function createWarpTool(d: ToolDeps) {
       const index = hitAt(sx, sy);
       if (index < 0) return;
       const from = handlePoints(s)[index]!;
-      drag = { pointerId: e.pointerId, index, before: s, from };
+      // Lo que se deforma no atrae: las manijas se pegan a lo demás del documento.
+      const state = d.st();
+      const moving = selectionUnits(state.doc, state.selectedIds).flatMap((u) => u.objects.map((o) => o.id));
+      const targets = d.targetsFor(new Set(moving));
+      drag = { pointerId: e.pointerId, index, before: s, from, targets };
       d.capture(e);
       patchWarpEdit({ hot: index });
       patchInteraction({ gesture: 'warp', cursor: 'move' });
@@ -187,7 +203,7 @@ export function createWarpTool(d: ToolDeps) {
       if (!drag || e.pointerId !== drag.pointerId) return false;
       d.release(drag.pointerId);
       drag = null;
-      patchInteraction({ gesture: null, cursor: 'pointer', tip: null });
+      patchInteraction({ gesture: null, cursor: 'pointer', tip: null, guides: [], snapMark: null });
       show();
       return true;
     },
@@ -198,6 +214,7 @@ export function createWarpTool(d: ToolDeps) {
         d.release(drag.pointerId);
         setSession(drag.before);
         drag = null;
+        patchInteraction({ guides: [], snapMark: null });
         show();
       }
       if (useInteraction.getState().gesture === 'warp') clearGesture();

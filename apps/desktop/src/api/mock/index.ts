@@ -11,6 +11,8 @@ import { mockPrefs } from './prefs';
 import { mockSettingsBackup } from './settingsBackup';
 import { mockAutomation } from './automation';
 import { mockRemote, type MockRemote } from './remote';
+import { mockRuida } from './ruida';
+import { mockResume } from './resume';
 import { mockProbe } from './probe';
 import { mockDesign } from './design';
 import { mockGeometry } from './geometry';
@@ -64,6 +66,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     );
   const clone = <T>(v: T): T => structuredClone(v);
   const remoteApi = mockRemote(lag);
+  const ruidaApi = mockRuida(lag, machine);
+  const resumeApi = mockResume(lag, machine);
 
   return {
     machine,
@@ -131,13 +135,14 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     machineRealtime: ({ cmd }) => lag(() => machine.realtime(cmd)),
     jog: ({ dx, dy, speed }) => lag(() => machine.jog(dx, dy, [400, 415], speed)),
 
-    startJob: ({ doc, device, options: o }) =>
+    startJob: ({ doc, device, options: o, document }) =>
       lag(() => {
         const preview = mockComputeJob(doc, device, o);
         // Ruida guarda el trabajo como documento salvo que el perfil pida ejecutarlo al subir.
         if (device.kind === 'ruida' && !device.ruida.run_after_upload) return machine.storeDocument();
         const tile = o.tile ? ` · ${t('tiling.mock.tile', { x: fmt(o.tile.rect[0][0], 0), y: fmt(o.tile.rect[0][1], 0) })}` : '';
-        return machine.startJob(preview, device, tile);
+        machine.startJob(preview, device, tile);
+        if (device.kind !== 'lhy_micro' && device.kind !== 'galvo') resumeApi.begin(preview, device, document ?? null);
       }),
     pauseJob: () => lag(() => machine.setPaused(true)),
     resumeJob: () => lag(() => machine.setPaused(false)),
@@ -147,11 +152,18 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     frameHull: ({ doc, device, options: o }) =>
       lag(() => machine.frameHull(mockComputeJob(doc, device, o).moves)),
     jogTo: ({ x, y, speed }) => lag(() => machine.jogTo(x, y, [400, 415], speed)),
+    probeTouch: ({ dx, dy, feed, retract, confirmed }) => lag(() => machine.probe(dx, dy, feed, retract, confirmed)),
     jogAxis: ({ axis, delta, speed }) => lag(() => machine.jogAxis(axis, delta, speed, true)),
     jogAxisTo: ({ axis, pos, speed }) => lag(() => machine.jogAxis(axis, pos, speed, false)),
     fireTest: ({ power_pct, s_max, duration_ms }) => lag(() => machine.fire(power_pct, s_max, duration_ms)),
     setOverride: ({ kind, percent }) => lag(() => machine.setOverride(kind, percent)),
     simulateFault: ({ fault }) => lag(() => machine.simulateFault(fault)),
+    interruptedJob: resumeApi.interruptedJob,
+    interruptedJobView: resumeApi.interruptedJobView,
+    discardInterruptedJob: resumeApi.discardInterruptedJob,
+    continueCheck: resumeApi.continueCheck,
+    continueFrame: resumeApi.continueFrame,
+    continueJob: resumeApi.continueJob,
     ruidaInfo: () =>
       lag(() => {
         machine.requireConnection();
@@ -171,6 +183,12 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
           total_jobs: 42,
           travel_m: [120, 95] as [number | null, number | null],
           documents: machine.storedDocs.length,
+          board_version: 'TLAKU-EMU',
+          previous_work: 600,
+          control_mode: 0,
+          focus: true,
+          z_return_docking: false,
+          air_assist_mode: 1,
         };
       }),
     ruidaFiles: () =>
@@ -179,6 +197,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         if (!machine.ruida) throw new Error('Esta función es solo de las controladoras Ruida.');
         return machine.storedDocs.map((name, i) => ({ index: i + 1, name }));
       }),
+
+    ...ruidaApi,
 
     lhyPreview: ({ doc, device, options: o }) =>
       lag(() => {

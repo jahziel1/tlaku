@@ -174,12 +174,10 @@ fn vector(id: &str, pts: &[(f64, f64)]) -> DesignObject {
         id: id.into(),
         layer: Rgb(255, 0, 0),
         transform: IDENTITY,
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
-                closed: true,
-            })],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+            closed: true,
+        })])),
         locked: false,
         hidden: false,
         group: None,
@@ -1081,3 +1079,4 @@ fn the_json_shapes_match_the_typescript_contract() {
 }
 
 mod frame6c;
+mod wave6e;

@@ -61,7 +61,7 @@ mod split;
 mod trim;
 mod unfillet;
 
-pub use fillet::{FilletOptions, FilletOutcome, FilletStyle, fillet_path};
+pub use fillet::{FilletCorner, FilletOptions, FilletOutcome, FilletStyle, fillet_path};
 pub use knife::{KnifeCut, cut_closed, cut_open};
 pub use simplify::{OptimizeOptions, node_count, optimize_polyline};
 pub use slots::{SlotAnchor, SlotOptions, SlotReport, resize_slots, slot_widths};

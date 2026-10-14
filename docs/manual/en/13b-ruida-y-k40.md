@@ -14,17 +14,18 @@ Ruida is the controller of most metal-cased CO2 lasers with a screen. Tlaku talk
 - **Send a job.** Tlaku calculates the job, converts it to Ruida's `.rd` format, and uploads it with a progress bar.
 - **Pause, resume, and stop.**
 - **Move the head** with the laser off and **frame** (always with the laser off).
-- **Read information** from the controller (speeds, acceleration, power-on time, jobs done, distance traveled) and the **list of documents** saved in its memory.
+- **Read information** from the controller (speeds, acceleration, power-on time, jobs done, distance traveled, board version and features) and the **list of documents** saved in its memory.
+- **Choose the name** of the document when saving, **run** and **delete** documents in the memory, and **read and write controller settings** with a backup, confirmation and verification (all **experimental**, see "Controller settings and documents").
 - Rehearse everything with the **Ruida (CO2) virtual machine**, without risk.
 
 ### What it does not do
 
-- **It does not write controller settings.** The information and the document list are read-only. Writing the controller's memory without a test machine can leave it unusable, so it was deliberately left pending.
-- **It does not delete or run documents** from its memory (do it from the machine's panel). With a wrong index it would delete or run a different document.
+- **It does not write just anything to the controller:** only a **closed list** of 24 settings, inside a range (see below). It does not touch laser power or frequency, the control mode, inputs and outputs, or the locks.
+- **It does not rename or "delete all".** A document keeps the name it was saved with; deleting is one at a time, with its name confirmed.
 - **It does not use G-code:** the console, live speed and power adjustments, `$` settings, macros, and test fire do not apply (they are hidden, with the reason). Speed and power go inside the job file.
 - **It does not frame with the laser on.**
-- **It does not configure the rotary.** On DSP controllers the rotary is turned on in the machine's own settings; Tlaku sends Y in surface millimeters, without scaling or mirroring it, and says so in the log.
-- **It does not support laser 2 with Ruida** and it does not connect to Trocen or TopWisdom either. `.rd` files **do open** as a design (see [Import and export](03b-importar-y-exportar.md)), but only to recover the geometry and the settings of each layer.
+- **It does not turn the rotary on.** On DSP controllers the rotary is turned on in the machine's own settings; Tlaku sends Y in surface millimeters, without scaling or mirroring it, and says so in the log. It can write its two public settings (pulses and diameter), as numbers with no documented unit.
+- **It does not connect to Trocen or TopWisdom.** A layer's **laser 2** is written to the `.rd` (experimental, untested on a two-laser machine; image layers with laser 2 are rejected). `.rd` files **do open** as a design (see [Import and export](03b-importar-y-exportar.md)), but only to recover the geometry and the settings of each layer.
 
 ### Preparing the profile
 
@@ -35,6 +36,22 @@ Ruida is the controller of most metal-cased CO2 lasers with a screen. Tlaku talk
    - **Run after upload:** leave it **off** (see below).
 3. In **Origin** choose the corner where the machine homes (most commonly, top left). It is an assumption until tested with hardware: first make a small move with the laser off.
 4. Bed: the wizard's starting values (600 × 400 mm) are just that; confirm them with **Read information** when you connect. **If the profile's bed does not match the one the machine reports, Tlaku sends no job** until you fix it, because the file's origin depends on it.
+
+### Controller settings and documents (experimental)
+
+> **EXPERIMENTAL: not tested with a real controller.** Writing a controller's memory can leave it misconfigured. Write down **by hand** every value in its menu before you start.
+
+**Everything that writes is off by default.** To enable it, turn on **Experimental Ruida writes** in the Ruida panel: a dialog explains that the commands were only tested with an emulator, that the public sources disagree on some of them and that they can misconfigure the machine, and asks you to type **ENTIENDO** or tick a box. That preference is never imported from a `.tlakuprefs` bundle. While it is off, the write buttons (settings, calibrate, rotary, restore, **Run**, **Delete** and **Replace**) are disabled and their tooltip says how to enable them, and the engine rejects them too; **reading** the information, the settings and the document list, and **exporting a backup**, always work. On the command line, `tlaku ruida doc <ip> delete|run <number> <name>` requires `--experimental-writes`.
+
+In the **Ruida controller** panel (with the machine connected and no job running):
+
+- **Controller settings…** opens a window with the 24 settings Tlaku can write: rapid and home speed, and per axis the maximum and start speed, acceleration, bed, home offset, panel buttons, emergency stop and the **step** (X, Y, Z and U), plus the two **rotary** ones. Each shows its current value, its address, the public name it has in other projects and the allowed range (a Tlaku safety limit, not the controller's). Speeds are shown in mm/s, accelerations in mm/s² and lengths in mm; the step in µm and the rotary with no unit (no public source gives one).
+- **Writing** always follows the same steps: (1) you type the new value and press **Review the changes**; (2) you see **every current and new value** and tick **"I understand this changes my controller's configuration"** (without the box nothing is written); (3) Tlaku **saves a dated backup** in the configuration folder (`ruida-backups/`; if it cannot save it, it writes nothing), writes one at a time and **reads every value back** to compare it; (4) if anything does not match, the window warns you and offers **Restore the previous backup**.
+- **Backups.** The **Automatic backups** list keeps one before every write; pick one and **Restore…** (it shows the differences, asks for the same box, first saves a backup of the current state and verifies). **Export backup…** saves the current settings to a `.tlakuruida` file (Tlaku's own JSON; it is **not** LightBurn's `.lbset`, whose format has no public description) and **Import backup…** reads it and shows the differences before writing. A backup from another card (another model) is rejected.
+- **Calibrate an axis.** Command the axis to move a known distance (for example 100 mm), measure with a ruler how far it really moved and type it in. Tlaku proposes the new step (current step × measured ÷ commanded), loads it into the table and you write it through the usual review; then repeat the measurement. It rejects corrections over ±25 %, which are almost always a measuring mistake. **If after writing it the error doubles instead of dropping, restore the backup:** the calculation assumes the setting is the length of each step.
+- **Rotary.** Write "Rotary: pulses" and "Rotary: diameter" with the numbers your controller already has in its menu; Tlaku does not calculate them. The rotary is turned on in the controller's panel.
+
+**Documents in memory.** Under "Documents in memory", **Read list** shows each document with **Run** and **Delete**. Each opens a dialog with a confirmation box; **Run** also goes through the **same safety checklist as Start** (air, focus, material...). Before acting, Tlaku reads the document's name again and does nothing if it no longer matches the one you chose. The delete and run commands come from public projects that **disagree with each other**; the first time, test with **a single throwaway document**. When **saving** a job, the **Start** dialog lets you choose the **document name** (1 to 8 letters, digits, "_" or "-"; empty = automatic, which never overwrites another). If a document with that name already exists you must tick **Replace**: Tlaku deletes the old one (with the checks above) and uploads the new one; without it, it fails without touching anything.
 
 ### More than 128 layers and high speeds
 
@@ -60,6 +77,7 @@ It is like this because a job that starts as soon as it arrives can fire the las
 4. **Save a small job** (a 20 mm square) with **Run after upload** off. In **Documents in memory**, **Read list**: it should appear.
 5. **Run it from the machine's panel** with the laser disabled or at power 0, and check that the path is the expected one.
 6. Only then, low power on scrap material.
+7. **Settings** and **deleting/running documents** come last: first a single harmless change and its restore (list in `docs/validacion-hardware.md`, section 5).
 
 From the command line, `tlaku ruida export-rd` (to a `.rd` file, offline), `tlaku ruida send` (over UDP, saves by default; `--run` runs), and `tlaku ruida status` (read-only) still exist.
 

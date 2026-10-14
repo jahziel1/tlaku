@@ -4,6 +4,8 @@ use super::*;
 use tlaku_i18n::tr;
 
 impl Worker {
+    // Un argumento por cosa que lleva `Request::Start`.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn try_start(
         &mut self,
         mut t: Box<dyn Transport>,
@@ -12,6 +14,7 @@ impl Worker {
         s_max: Option<f64>,
         kind: RunKind,
         load: Option<LinkLoad>,
+        checkpoint: Option<Box<resume::CheckpointPlan>>,
     ) -> Result<Run, StartFail> {
         // El perfil de la máquina debe corresponder a la controladora conectada.
         if link.family != self.link_family {
@@ -68,6 +71,7 @@ impl Worker {
             return Err(StartFail::Refused(t, msg));
         }
         self.last_poll = None;
+        let lines = Arc::new(lines);
         let total = lines.len();
         let config = StreamerConfig {
             silence_timeout: self.timing.silence_timeout,
@@ -76,8 +80,12 @@ impl Worker {
             reset_wait: self.timing.reset_wait,
             ..StreamerConfig::for_link(&link)
         };
-        match Streamer::with_link(t, config, link).spawn(&lines) {
+        match Streamer::with_link(t, config, link).spawn(&lines[..]) {
             Ok(job) => {
+                // El punto de control se abre con el envío: el G-code exacto se guarda desde otro hilo.
+                let checkpoint = checkpoint
+                    .filter(|_| kind == RunKind::Job)
+                    .map(|plan| self.open_checkpoint(*plan, lines.clone()));
                 match kind {
                     RunKind::Job => {
                         self.log(
@@ -96,15 +104,52 @@ impl Worker {
                     RunKind::Frame => self.log(LogDir::Out, &tr!("desktop.common.log_frame_start")),
                 }
                 self.set_reported_state(MachineState::Run);
+                self.shared
+                    .running
+                    .store(kind == RunKind::Job, Ordering::SeqCst);
                 Ok(Run {
                     job,
                     kind,
                     last_progress: None,
                     cancelling: false,
+                    checkpoint,
                 })
             }
             // Las líneas ya se validaron: no debería pasar, pero el puerto se habría perdido.
             Err(e) => Err(StartFail::Lost(e.to_string())),
         }
+    }
+
+    /// Arranca el escritor del punto de control con el puerto de esta conexión.
+    fn open_checkpoint(
+        &self,
+        plan: resume::CheckpointPlan,
+        sent: Arc<Vec<String>>,
+    ) -> CheckpointRun {
+        let resume::CheckpointPlan {
+            store,
+            mut meta,
+            original,
+        } = plan;
+        meta.port = self.port.clone();
+        if let Some(r) = &meta.resume {
+            self.log(
+                LogDir::Out,
+                &tr!(
+                    "desktop.resume.log_resuming",
+                    line = r.tail_first + 1,
+                    total = meta.total_lines
+                ),
+            );
+        }
+        let original = original.unwrap_or_else(|| sent.clone());
+        let writer = resume::CheckpointWriter::start(
+            store.clone(),
+            meta,
+            original,
+            sent,
+            self.timing.checkpoint_interval,
+        );
+        CheckpointRun { writer, store }
     }
 }

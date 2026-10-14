@@ -560,17 +560,15 @@ mod virtual_array_tests {
             id: id.into(),
             layer: RED,
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&Polyline {
-                    points: vec![
-                        Point::new(x, y),
-                        Point::new(x + s, y),
-                        Point::new(x + s, y + s),
-                        Point::new(x, y + s),
-                    ],
-                    closed: true,
-                })],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+                points: vec![
+                    Point::new(x, y),
+                    Point::new(x + s, y),
+                    Point::new(x + s, y + s),
+                    Point::new(x, y + s),
+                ],
+                closed: true,
+            })])),
             locked: false,
             hidden: false,
             group: None,

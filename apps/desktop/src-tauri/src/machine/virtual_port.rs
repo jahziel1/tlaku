@@ -7,7 +7,7 @@
 //! velocidad opcional (`@5`) acelera el tiempo simulado; por omisión es ×1 (tiempo real).
 
 use tlaku_doc::SimulatedFault;
-use tlaku_emu::{Fault, Handle, Profile, ScaledClock, Trigger, VirtualMachine};
+use tlaku_emu::{Fault, Handle, ProbeSurface, Profile, ScaledClock, Trigger, VirtualMachine};
 use tlaku_grbl::serial::Transport;
 use tlaku_i18n::tr;
 
@@ -16,6 +16,14 @@ pub const PREFIX: &str = "virtual:";
 
 /// Velocidad máxima aceptada (veces el tiempo real).
 pub const MAX_SPEED: f64 = 100.0;
+
+/// Objeto redondo que las máquinas virtuales GRBL ponen para probar la sonda (M48): un disco
+/// de 30 mm de diámetro centrado en X100 Y100 (coordenadas de máquina). Solo lo toca `G38.x`.
+pub const PROBE_DISC: ProbeSurface = ProbeSurface::Disc {
+    center: [100.0, 100.0],
+    radius: 15.0,
+    top: 10.0,
+};
 
 struct Kind {
     id: &'static str,
@@ -99,6 +107,7 @@ pub fn build(port: &str) -> Result<(VirtualMachine, Handle), String> {
     let (mut vm, handle) = VirtualMachine::builder((kind.profile)())
         .clock(ScaledClock::new(speed))
         .homed(true)
+        .probe_surface(PROBE_DISC)
         .build();
     // Como al abrir un puerto real: el saludo del arranque se descarta.
     vm.clear_input()
@@ -120,6 +129,7 @@ pub fn inject(handle: &Handle, fault: SimulatedFault) {
         },
         SimulatedFault::Alarm3 => Fault::Alarm(3),
         SimulatedFault::Disconnect => Fault::Disconnect,
+        SimulatedFault::PowerCut => Fault::PowerLoss,
     };
     handle.inject(Trigger::Now, f);
 }

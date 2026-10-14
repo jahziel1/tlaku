@@ -365,9 +365,7 @@ pub fn add_alignment_marks(
             id: format!("{MARK_ID_PREFIX}{}", i + 1),
             layer,
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: cross.iter().map(BezPath::from).collect(),
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(cross.iter().map(BezPath::from).collect())),
             locked: false,
             hidden: false,
             group: None,
@@ -708,9 +706,7 @@ mod tests {
             id: id.into(),
             layer: RED,
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: polys.iter().map(BezPath::from).collect(),
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(polys.iter().map(BezPath::from).collect())),
             locked: false,
             hidden: false,
             group: None,

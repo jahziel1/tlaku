@@ -139,6 +139,12 @@ pub struct LayerOptions {
     /// ruida-pa lo modela igual: a poca velocidad sube hacia el máximo). Se ignora en los
     /// bloques de potencia variable.
     pub min_power_pct: Option<f64>,
+    /// La capa va con el segundo láser (`CA 01 11`, "Layer Device=1"; M32). La potencia de la
+    /// capa pasa a las órdenes del láser 2 (`C6 21/22`, `C6 41/42`) y el láser 1 queda con la
+    /// potencia secundaria. **Sin probar con una máquina de dos láseres.** No admite capas de
+    /// potencia variable (imágenes): la orden equivalente de `C7` para el láser 2 no está
+    /// documentada.
+    pub laser2: bool,
 }
 
 /// Qué suma `E5 05` lleva al final del trabajo.
@@ -222,6 +228,10 @@ pub enum RdError {
     MinPowerAboveMax {
         block: usize,
     },
+    /// Una capa del láser 2 con potencia variable (imagen): no se puede generar.
+    Laser2Variable {
+        block: usize,
+    },
     BadOption(&'static str),
 }
 
@@ -239,6 +249,9 @@ impl fmt::Display for RdError {
             )),
             RdError::MinPowerAboveMax { block } => {
                 f.write_str(&tr!("ruida.rd.min_power_above_max", block = block))
+            }
+            RdError::Laser2Variable { block } => {
+                f.write_str(&tr!("ruida.rd.laser2_variable", block = block))
             }
             RdError::BadOption(w) => f.write_str(&tr!("ruida.rd.bad_option", what = text::what(w))),
         }

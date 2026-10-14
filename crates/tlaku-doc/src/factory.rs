@@ -31,13 +31,13 @@ pub const FACTORY_ID_PREFIX: &str = "factory.";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FactoryData {
+pub(crate) struct FactoryData {
     /// Sube cada vez que cambian los datos; la app reinstala la copia si no coincide.
     revision: u32,
     /// Nombre en español de cada material (la interfaz lo traduce con la clave).
-    materials: BTreeMap<String, String>,
+    pub(crate) materials: BTreeMap<String, String>,
     /// Nombre en español de cada operación.
-    titles: BTreeMap<String, String>,
+    pub(crate) titles: BTreeMap<String, String>,
     #[serde(default)]
     restrictions: Vec<MaterialRestriction>,
     presets: Vec<FactoryEntry>,
@@ -45,32 +45,32 @@ struct FactoryData {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FactoryEntry {
-    id: String,
-    material: String,
-    thickness: Option<f64>,
-    role: MaterialRole,
-    title: String,
-    machine_class: MachineClass,
+pub(crate) struct FactoryEntry {
+    pub(crate) id: String,
+    pub(crate) material: String,
+    pub(crate) thickness: Option<f64>,
+    pub(crate) role: MaterialRole,
+    pub(crate) title: String,
+    pub(crate) machine_class: MachineClass,
     /// Si falta: línea para cortar y marcar, relleno para grabar.
-    mode: Option<LayerMode>,
+    pub(crate) mode: Option<LayerMode>,
     /// mm/min.
-    speed: f64,
-    power: f64,
-    min_power: Option<f64>,
-    passes: Option<u32>,
+    pub(crate) speed: f64,
+    pub(crate) power: f64,
+    pub(crate) min_power: Option<f64>,
+    pub(crate) passes: Option<u32>,
     /// mm entre líneas del relleno; si falta se queda el valor normal de la capa.
-    interval: Option<f64>,
+    pub(crate) interval: Option<f64>,
     #[serde(default)]
-    crosshatch: bool,
+    pub(crate) crosshatch: bool,
     #[serde(default)]
-    air: bool,
+    pub(crate) air: bool,
     /// Solo fibra y otras fuentes de galvo.
-    frequency_khz: Option<f64>,
-    source: String,
-    confidence: Confidence,
+    pub(crate) frequency_khz: Option<f64>,
+    pub(crate) source: String,
+    pub(crate) confidence: Confidence,
     #[serde(default)]
-    warnings: Vec<MaterialWarning>,
+    pub(crate) warnings: Vec<MaterialWarning>,
 }
 
 impl FactoryEntry {
@@ -89,6 +89,14 @@ impl FactoryEntry {
                 title = self.title
             )
         })?;
+        Ok(self.expand_with(material, title))
+    }
+
+    /// Expande el ajuste con los nombres ya resueltos (los datos de fábrica los sacan de sus tablas;
+    /// los de la comunidad, de las mismas o del texto que escribió quien los aportó).
+    pub(crate) fn expand_with(&self, material: &str, title: &str) -> MaterialPreset {
+        let material = &material.to_string();
+        let title = &title.to_string();
         let mut settings = LayerSettings::for_color(Rgb(0, 0, 0));
         settings.name = title.clone();
         settings.mode = self.mode.unwrap_or(match self.role {
@@ -107,7 +115,7 @@ impl FactoryEntry {
         if let Some(khz) = self.frequency_khz {
             settings.galvo.frequency_khz = khz;
         }
-        Ok(MaterialPreset {
+        MaterialPreset {
             id: self.id.clone(),
             material: material.clone(),
             thickness: self.thickness,
@@ -122,12 +130,18 @@ impl FactoryEntry {
             material_key: Some(self.material.clone()),
             title_key: Some(self.title.clone()),
             warnings: self.warnings.clone(),
-        })
+        }
     }
 }
 
-/// Lee y valida datos de fábrica en el formato compacto.
+/// Lee y valida datos de fábrica en el formato compacto (sin los aportes de la comunidad).
 pub fn parse_factory(text: &str) -> Result<MaterialLibrary, String> {
+    parse_with_community(text, "[]")
+}
+
+/// Datos de fábrica más los aportes de la comunidad (`community`: una lista JSON de ajustes, ver
+/// [`crate::community`]). Los de la comunidad van después, validados con sus propias reglas.
+pub(crate) fn parse_with_community(text: &str, community: &str) -> Result<MaterialLibrary, String> {
     let data: FactoryData =
         serde_json::from_str(text).map_err(|e| tr!("doc.factory.invalid", error = e))?;
     let presets = data
@@ -135,19 +149,23 @@ pub fn parse_factory(text: &str) -> Result<MaterialLibrary, String> {
         .iter()
         .map(|e| e.expand(&data))
         .collect::<Result<Vec<_>, _>>()?;
-    let library = MaterialLibrary {
+    let mut library = MaterialLibrary {
         version: MATERIAL_LIBRARY_VERSION,
         presets,
         revision: data.revision,
-        restrictions: data.restrictions,
+        restrictions: data.restrictions.clone(),
     };
     check_factory(&library)?;
+    library
+        .presets
+        .extend(crate::community::expand_all(community, &data)?);
     Ok(library)
 }
 
-/// La biblioteca de fábrica incluida en esta versión de la app.
+/// La biblioteca de fábrica incluida en esta versión de la app: los ajustes de fábrica y, al final,
+/// los de la comunidad (`community/materials/*.json` del repositorio, incluidos al compilar).
 pub fn factory_library() -> Result<MaterialLibrary, String> {
-    parse_factory(DATA)
+    parse_with_community(DATA, crate::community::DATA)
 }
 
 fn is_url(text: &str) -> bool {

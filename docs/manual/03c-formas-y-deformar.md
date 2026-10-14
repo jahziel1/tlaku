@@ -73,7 +73,7 @@ Con el modo **Redondear**, pasa el puntero por un vértice de recta con recta: u
 
 ![La barra de Redondear esquinas con clic, una esquina ya redondeada y la vista previa de la siguiente](../../apps/desktop/docs/screenshots/66-redondear-clic.png)
 
-**Revertir una esquina.** Con el modo **Revertir** (o **manteniendo `Alt`** al hacer clic), un clic sobre una esquina **redondeada** o **mordida** la devuelve a punta. Funciona si el arco es **exacto** (el que hizo esta herramienta o el diálogo). **El chaflán no se revierte**: es un tramo recto más y no hay forma de saber cuál era la esquina original; para eso, **Deshacer**. `Alt` también cambia de sentido en el otro modo: con **Revertir** activo, `Alt`+clic vuelve a redondear.
+**Revertir una esquina.** Con el modo **Revertir** (o **manteniendo `Alt`** al hacer clic), un clic sobre una esquina **redondeada** o **mordida** la devuelve a punta. Funciona si el arco es **exacto** (el que hizo esta herramienta o el diálogo). **El chaflán también se revierte**, porque al aplicar un chaflán o un redondeo el objeto **guarda la punta original** (en el proyecto, así que sobrevive a guardar y abrir). Si editas los nodos de esa zona (mueves, borras o agregas un nodo del chaflán o de las rectas que llegan a él), la esquina guardada se descarta y ya no se puede revertir con ese dato; en un objeto sin esquinas guardadas (un archivo de antes) el chaflán sigue sin poder revertirse y queda **Deshacer**. Revertir es un solo paso de **Deshacer**. `Alt` también cambia de sentido en el otro modo: con **Revertir** activo, `Alt`+clic vuelve a redondear.
 
 ## Cortar formas con una cuchilla
 
@@ -153,7 +153,7 @@ Una barra arriba del lienzo elige el tipo:
 
 ![La malla de 4×4 puntos sobre la placa y el engranaje, con varios puntos arrastrados; la forma original se ve punteada](../../apps/desktop/docs/screenshots/65-deformar-lienzo.png)
 
-- **Arrastrar una manija** deforma en vivo. **`Mayús`** mientras arrastras mueve solo en línea recta (horizontal o vertical). Cambiar de tipo conserva la forma que llevas.
+- **Arrastrar una manija** deforma en vivo. Las manijas se **pegan** a la rejilla, a los nodos y bordes de los demás objetos y a las guías con el mismo imán de las otras herramientas (**Ver > Ajuste magnético** y sus opciones de rejilla y objetos, tecla `S`); **`Alt`** lo desactiva mientras arrastras. **`Mayús`** mientras arrastras mueve solo en línea recta (horizontal o vertical) y el imán ajusta solo el eje libre. Cambiar de tipo conserva la forma que llevas.
 - **Intro** o **Aplicar** escribe el resultado, con las curvas recalculadas con exactitud, en **un solo paso de Deshacer**. Mientras calcula, el botón dice **Calculando…**.
 - **Restablecer** devuelve la malla a su sitio; **Cancelar** o **`Esc`** sale sin cambiar nada (a mitad de un arrastre, `Esc` devuelve la manija).
 - Para trabajos de mucha precisión, el diálogo **Deformar…** de arriba, con milímetros exactos en cada esquina, sigue siendo la forma de escribir los números.

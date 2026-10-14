@@ -50,11 +50,13 @@ Para GRBL, grblHAL y FluidNC la app conecta por **TCP / Telnet** o **WebSocket**
 | Láser 2 | G-code generado, con las órdenes del dialecto | Todo, con el firmware que uses |
 | Ojo de pez | Cámaras sintéticas | Una lente real |
 | Cámara en el cabezal y mosaico | Máquina virtual y fotos sintéticas | Una cámara montada en un cabezal |
-| Buscador de centro | Imágenes sintéticas | Una cámara real |
+| Buscador de centro (cámara) | Imágenes sintéticas | Una cámara real |
+| Buscador de centro con el cabezal (sonda `G38`) | Emulador GRBL con una superficie de contacto simulada (`G38.2` a `G38.5`, `[PRB:...]`, `Pn:P`, `ALARM:4` y `ALARM:5`) y máquina virtual con un disco de prueba | Una sonda o placa de contacto real: el pin, cuánto frena tras el contacto y el desvío de la punta |
+| Eje U por capa | G-code generado y pruebas del motor | Un eje U real: el sentido y la distancia |
 | Automatización por UDP | Pruebas del protocolo y de la seguridad de `START` | — (es local; no depende de la máquina) |
 | Print & Cut | Máquina virtual y una hoja impresa simulada (corrida y girada unos milímetros); el ajuste se prueba con marcas generadas | Un láser real y una cámara real; la escala de una impresora de verdad |
 | Tiling | Máquina virtual y pruebas del recorte (trazos, rellenos e imágenes), de la sesión y de retomar | Una máquina real: la alineación de los empalmes depende del material |
-| Alimentador automático | G-code de avance enviado a la máquina virtual | Un alimentador real: el sentido y la distancia del avance |
+| Alimentador automático | G-code de avance enviado a la máquina virtual; con varias columnas, la pausa guiada y las marcas de registro | Un alimentador real: el sentido y la distancia del avance. El alimentador propio de una DSP (Ruida, Trocen) no existe en Tlaku: no hay documentación pública del comando |
 | Galvo (`tlaku galvo`) | Tarjeta simulada propia; no prueba que una tarjeta real interprete igual los parámetros | **Todo, y es lo más delicado: es un láser de clase 4 con haz invisible.** Ver [Seguridad del galvo](13d-galvo-seguridad.md) |
 
 Las máquinas virtuales que ofrece la app son seis (**Falcon2 Pro**, **GRBL 1.1**, **grblHAL**, **FluidNC**, **Marlin** y **Smoothieware**, cada una también **por red**) más **Ruida (CO2)** con un perfil Ruida. Ver [Conectar tu máquina](08-conectar-maquina.md).

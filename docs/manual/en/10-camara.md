@@ -66,6 +66,10 @@ In **Bed alignment**, mark on the image the 4 corners of a sheet of known size (
 
 With the alignment done, tick **Show the camera behind the design**. Adjust the **Opacity** and, if you want, **Freeze frame**: the frame stays as the backdrop even if you turn off the camera, useful for leaving the material in place and designing without the camera on. If the saved alignment is from an image of a different size, the app asks you to align again.
 
+## Camera preferences
+
+The preferences of **each camera** (device, resolution, opacity, grayscale, update when a job finishes, and the manual backdrop adjustment) are in this panel and are saved in the camera's local profile. The **general** ones are in **Edit > Preferences… > General > Camera**: **Reopen the camera on startup** (if the backdrop was visible when you closed, the camera turns on by itself; on by default) and **Maximum image width** (320 to 1920 px, 1280 by default: the width the frame is reduced to for drawing it and for detecting marks and circles; wider gives more detail and asks more of the computer).
+
 ## Material height
 
 The camera sees the material's surface, which is closer than the bed, so the backdrop shifts according to the thickness. In **Material height** type the **Material thickness** (from 0 to 300 mm) and the backdrop is corrected. The app says how reliable the correction is:
@@ -115,6 +119,19 @@ If your camera is mounted on the machine's head, tick **The camera is mounted on
 
 **Center finder** finds the center of a round object with the camera: mark **3 edge points** on the image, or choose **Detect the circle** and click inside the object. It tells you the center and the radius in mm and offers **Move the head to the center** (with the laser off) and **Job origin here** (sets the user origin; then choose "User origin" in "Start from"). *To be validated with real hardware.*
 
-> **Example:** you want to engrave a logo at the center of a round coaster. Turn on the camera with the alignment done, open **Center finder**, choose **Detect the circle**, click inside the coaster, and look at the center and the radius. Press **Job origin here**, and in **Start from** choose **User origin** with the job point at the **center**: the logo ends up centered. If detection fails (it needs to see at least 45 % of the outline), use the **3 edge points**. It does not use the head as a probe: it relies on the camera's alignment, so it is only as accurate as that.
+> **Example:** you want to engrave a logo at the center of a round coaster. Turn on the camera with the alignment done, open **Center finder**, choose **Detect the circle**, click inside the coaster, and look at the center and the radius. Press **Job origin here**, and in **Start from** choose **User origin** with the job point at the **center**: the logo ends up centered. If detection fails (it needs to see at least 45 % of the outline), use the **3 edge points**. This finder does not touch the head: it relies on the camera's alignment, so it is only as accurate as that. If you have no camera, or want to measure with the machine itself, use the next one.
+
+## Center finder with the head
+
+**Machine > Center finder with the head…** finds the center of a round object from three edge points measured by the **machine itself**, with no camera. There are two modes:
+
+- **With a probe or touch plate (G38).** Only with **GRBL** controllers that have a probe wired to the probe input. Put the head **outside** the object, closer to its edge than the travel, and choose which way to touch (up, down, left, or right). Before moving, Tlaku shows the travel, the speed, and the exact G-code (`M5`, `G91`, `G38.3 X30 Y0 F100`, `G90`) and asks you to confirm. The head then moves **slowly with the laser off** until the probe makes contact, stops, and backs off a few millimeters. Repeat from three different sides: at the third point you see the center and the radius.
+- **With the pointer.** Without a probe: take the red pointer (or the head) to a point on the edge with **Move** and press **Save point**; repeat at three well-spread points. You confirm each point. If the profile has a pointer offset, it is taken into account.
+
+Then, as with the camera: **Move the head to the center** (laser off) and **Job origin here**. **Remove the last one** and **Start over** fix a badly placed point.
+
+**Safety.** The factory values are cautious: 100 mm/min speed (maximum 500), 30 mm travel (maximum 100), and 2 mm retract. The laser stays off the whole time, it only moves with the machine idle, and the engine rejects the touch if there was no confirmation. If there is no contact over the whole travel, Tlaku says so ("No contact within 30 mm") and **does not leave the machine in alarm** (it uses `G38.3`, which does not cause one); if the probe was already active at the start, the controller raises `ALARM:4` and you must move the head away and unlock. The contact is taken where the probe tip is: first measure an object of known diameter to learn how much it deviates. *To be validated with real hardware: it was tested with the GRBL emulator, which simulates the probe (`G38.2` to `G38.5`).* The app's virtual GRBL machines include a 30 mm diameter disc centered at X100 Y100 so you can try it without a machine.
+
+> **Example:** you want to center an engraving on a 25 mm coin stuck to the bed. Put the head 10 mm to the left of the edge, choose **To the right**, confirm, and repeat from below and from above. If the diameter it shows is not 25 mm (±0.5 mm), your probe has an offset: write it down.
 
 Next: [Materials](11-materiales.md)

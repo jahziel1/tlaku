@@ -1,6 +1,7 @@
 import type { I18nKey } from '@/i18n';
 import type { AppState } from '@/store';
 import { isJobBusy, selectActiveDevice } from '@/store';
+import { useProbeCenter } from '@/features/machine/probeCenter';
 import { jogBlockedReason } from '@/store/machine';
 import type { CommandDef } from '../types';
 
@@ -26,6 +27,13 @@ const macroReason = (s: AppState, index: number): true | I18nKey => {
 };
 
 export const machineExtraCommands: CommandDef[] = [
+  // Buscador de centro con el cabezal (M48): el diálogo explica por qué no se puede si falta algo.
+  {
+    id: 'machine.probeCenter',
+    label: 'machine.probe.cmd',
+    category: 'machine',
+    run: () => useProbeCenter.getState().openDialog(),
+  },
   ...MACRO_LABELS.map(
     (label, i): CommandDef => ({
       id: `machine.macro${i + 1}`,

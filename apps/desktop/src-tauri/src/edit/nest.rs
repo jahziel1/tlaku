@@ -418,9 +418,7 @@ mod tests {
             id: id.into(),
             layer: tlaku_core::Rgb(255, 0, 0),
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&poly)],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&poly)])),
             locked: false,
             hidden: false,
             group: None,

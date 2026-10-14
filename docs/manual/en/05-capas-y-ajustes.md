@@ -27,9 +27,11 @@ Open the editor with `Enter` on a row. At the top, the **Help** button shows or 
 
 ![Editor of a cut layer with speed, power, passes and air assist](../../../apps/desktop/docs/screenshots/03-editor-de-capa.png)
 
-### Beginner mode
+### Advanced settings and beginner mode
 
-The **Beginner mode** switch, right under the editor's title, hides the advanced settings (advanced cutting, tabs, angle increment, flood fill and grouping, advanced image, additional operations, Z axis and pinned position) so you see only speed, power, passes, interval and little else. **It does not delete anything:** what you had already configured still applies, and if the layer uses something the mode hides, the editor warns you ("This layer uses advanced settings that beginner mode hides"). Turn it off to see or change them. The choice is remembered between sessions.
+The advanced settings (advanced cutting, flood fill and grouping, advanced image) live in **collapsible sections** that open by themselves when the layer already uses something from them, with the **in use** badge. That way the editor shows speed, power, passes and interval first.
+
+**Beginner mode** is no longer a switch in the layer editor: **it is [simple mode](01b-modo-sencillo.md)**, which besides hiding the advanced settings hides the menus, the tools and the panels, and guides you step by step. Turn it on with the button in the top bar or in **Preferences > General > Interface mode**. If you had Beginner mode on and had never chosen a mode, Tlaku starts in simple mode; if you had already chosen one, your choice is kept.
 
 ### Layer mode
 
@@ -154,12 +156,15 @@ Priority is only respected if the **Optimization settings** have it turned on (s
 
 ## Defaults for new layers
 
-The **Defaults** group, at the end of the editor, has two buttons:
+The **Defaults** group, at the end of the editor, has three levels. When you create a layer, the most specific one that exists wins:
 
-- **Save as defaults for new layers** takes this layer's settings (except the color, name, visibility, output and position) and makes the layers you create from now on start with them. Existing layers do not change. It is the way to have your own starting values instead of the factory ones (1000 mm/min and 20 %). There are also commands for this (**Save the active layer as defaults**, **Reset the defaults for new layers**) in **Edit > Edit keyboard shortcuts…**.
-- **Reset** goes back to the factory values.
+1. **This color on this machine** (**Save for this color on [machine]**).
+2. **This color on any machine** (**Save for this color (all machines)**).
+3. **The general set** (**Save as defaults for new layers**).
 
-It is a single set of values for all new layers, without distinguishing color or machine. They are saved with the application's preferences, not with the project. To carry specific settings for a material, use the [material library](11-materiales.md).
+If there is none, the layer starts with the factory values (1000 mm/min and 50 %). Each button takes this layer's settings (except the color, name, visibility, output and position); existing layers do not change. Saving again for the same color and machine replaces what was there. A line under the title says which level applies today for this layer and this machine. **Remove this color's values…** deletes the matching level, and **Reset** puts the general set back to the factory values (it does not touch the color ones). The machine is the active one in the machine list: if you switch machines, new layers start with what you saved for the new one. There are also commands (**Save the active layer as defaults**, **… for its color on this machine**, **… for its color (all machines)** and **Reset the defaults for new layers**) in **Edit > Edit keyboard shortcuts…**.
+
+They are saved with the application's preferences, not with the project, and travel in the `.tlakuprefs` file. To carry specific settings for a material, use the [material library](11-materiales.md).
 
 ## Execution order
 

@@ -285,7 +285,7 @@ d7                                       fin de archivo
 - RDC8445S: TCP 50200, sin checksum de 2 bytes, un cliente a la vez, ACK por escritura (PR de ruida-pa).
 - RDC6445G/EC: solo campo de IP (sin máscara ni puerta de enlace) [FOR2]; la pila de red impone /24 y limita redes grandes [FOR4].
 - RDC6445S, RDC6442G, RDC6442S-B: citadas en foros como conectables por Ethernet con LightBurn; no hay diferencias de protocolo documentadas. https://forum.lightburnsoftware.com/t/connecting-and-setting-up-ruida-rdc6445s/47901 (solo listada por el buscador).
-- Funciones opcionales según firmware/IO: capa 2 láser, eje Z/U, enfoque, puerta (en 0x30F bits de "foco" y "aire", guía rpa).
+- Funciones opcionales según firmware/IO: capa 2 láser, eje Z/U, enfoque, puerta (en `03 0F` (dirección de 14 bits 0x18F, ver sección 16.4) bits de "foco" y "aire", guía rpa).
 - No hay documento por modelo (RDC6442S/G, RDC6445G, RDC6332G): solo el 6442S aparece como ID en un ejemplo de `ruida-pa`. La RDC6332G no aparece en ninguna fuente leída.
 
 ## 7. Seguridad
@@ -549,10 +549,81 @@ Plan de prueba con una máquina real: la sección 10.6, en el orden indicado. Cr
 
 **Decisiones de seguridad.** Antes de enviar se exige que la cama del perfil coincida con la que informa la máquina (el origen del archivo depende de ella); el diálogo de inicio dice si el trabajo se ejecuta o solo se guarda; el encuadre y los saltos nunca encienden el láser; «Disparo de prueba», consola, overrides y macros son de GRBL y se rechazan con un mensaje. Al desconectar con un trabajo en marcha se manda `D8 01`.
 
-**M24, borrar y ejecutar.** Quedan sin implementar a propósito: `E8 00 n` borra (con 0, todo) y `E8 03 n` selecciona sin garantía de arrancar; la numeración no está confirmada con una máquina real, y un índice equivocado borra o ejecuta otro documento. La lista es solo lectura y lo dice.
+**M24, borrar y ejecutar.** Quedaron sin implementar en la ola 4 y se implementaron en la ola 6E con protecciones (sección 16): nombre releído antes de actuar, confirmación, nunca el «borrar todos».
 
-**M25, escribir ajustes.** Pendiente a propósito: escribir memoria (`DA 01`) en la controladora sin hardware de prueba puede dejarla inutilizable; `send_job` sigue rechazando cualquier `DA 01`. Se leen los ajustes conocidos y se muestran en solo lectura.
+**M25, escribir ajustes.** Se implementó en la ola 6E con una lista cerrada, respaldo, confirmación y verificación (sección 16). `send_job` sigue rechazando cualquier `DA 01`: los ajustes tienen su propio camino.
 
-**M28, rotativo DSP.** [dsp-co2.md] (TopWisdom/Trocen) y los foros de LightBurn coinciden en que el rotativo se activa en «Machine Settings» de la controladora, y ninguna fuente de `.rd` ([EDU], [MK40], [RPAC]) describe un comando de rotativo. Por eso Tlaku no escala la Y con `RotarySettings`: manda la Y en mm de superficie, deja la conversión a la controladora y lo anota en el registro. Si en una máquina real el trabajo debe ir ya escalado, es un cambio de `export_rd_for_device` (aplicar `y_scale`), que hoy es privado del pipeline.
+**M28, rotativo DSP.** (La ola 6E añadió la escritura de los dos ajustes públicos del rotativo; ver sección 16.) [dsp-co2.md] (TopWisdom/Trocen) y los foros de LightBurn coinciden en que el rotativo se activa en «Machine Settings» de la controladora, y ninguna fuente de `.rd` ([EDU], [MK40], [RPAC]) describe un comando de rotativo. Por eso Tlaku no escala la Y con `RotarySettings`: manda la Y en mm de superficie, deja la conversión a la controladora y lo anota en el registro. Si en una máquina real el trabajo debe ir ya escalado, es un cambio de `export_rd_for_device` (aplicar `y_scale`), que hoy es privado del pipeline.
 
 **K40.** El respaldo `LhyMicro` se agrega como una variante más de `ActiveMachine` / `Machine` (ver `machine/active.rs`).
+
+
+## 16. Ajustes, documentos y láser 2 (ola 6E; EXPERIMENTAL)
+
+**Estado: solo probado contra el emulador (`tlaku-ruida` con `emu`, por UDP en localhost y en la máquina virtual `virtual:ruida`). Ninguna de estas órdenes se ha visto en una controladora real.** Texto de la interfaz: «EXPERIMENTAL: sin probar con una controladora real».
+
+### 16.1 Reglas de seguridad de todo lo que escribe en la máquina
+
+0. **Desactivado por omisión.** Todo lo de esta sección que escribe (ajustes, restaurar, calibrar, rotativo, borrar, ejecutar y reemplazar documentos) exige la preferencia `ruidaExperimentalWrites` (apagada de fábrica, en `NEVER_IMPORTED`, se activa con un diálogo que pide «ENTIENDO» o una casilla). El motor lo comprueba aparte: los comandos de Tauri reciben `experimental_writes` y `RuidaHandle` rechaza la escritura sin tocar la máquina; la CLI exige `--experimental-writes` (`tlaku ruida doc`). Leer y exportar un respaldo no la necesitan.
+1. **Lista cerrada de direcciones** (`tlaku_ruida::settings::WRITABLE`, 24 ajustes, tabla en 16.3) con rango; cualquier otra dirección se rechaza antes de enviar nada (prueba: estado, posición, ID, bloqueos de tarjeta y de PC, potencia y frecuencia del láser, modo de control, E/S y contadores). Los **rangos son cotas propias de Tlaku**, no del firmware (ninguna fuente los da).
+2. **Respaldo automático** antes de escribir: se lee toda la lista y se guarda en `ruida-backups/ruida-AAAAMMDD-HHMMSS.tlakuruida` (UTC) dentro de la carpeta de configuración de la app. Si el respaldo falla no se escribe nada. Nunca se pisa un respaldo existente.
+3. **Diferencias con confirmación:** el motor exige `confirmed = true` (la interfaz lo manda tras la casilla «Entiendo que esto cambia la configuración de mi controladora» y mostrar cada valor actual y nuevo). Sin confirmar no se hace ni el respaldo.
+4. **Verificación:** tras escribir se vuelve a leer cada valor y se compara; si no coincide (o una escritura falla, y las siguientes no se envían) el informe lo dice y se ofrece restaurar el respaldo.
+5. **Restaurar un respaldo** (automático o un `.tlakuruida` importado) pasa por lo mismo (diferencias, casilla, respaldo del estado actual, verificación) y se **rechaza si es de otra tarjeta** (ID distinto).
+6. La máquina debe estar en reposo y sin trabajo ni encuadre en marcha.
+7. **Borrar y ejecutar documentos** piden confirmación; ejecutar pasa por la lista de comprobación de Iniciar. Antes de cada orden se relee el nombre del documento n y debe ser el confirmado.
+
+### 16.2 Formato de la escritura
+
+`DA 01 hi lo v v`: dirección de 14 bits en dos bytes de 7 bits y **el mismo valor de 35 bits dos veces**. Es la única forma que describen las fuentes: MeerK40t (`rdjob.py`, `set_setting(mem, value)`, escribe `encode_value(value)` dos veces; también el pie de los `.rd` de RDWorks, `DA 01 06 20 L L`) y ruida-pa (`SET_SETTING`, `MEMORY, TBDU35, TBDU35`, marcado «Verified RDC6442S»). **Qué hace la segunda copia no está documentado.** Los valores con signo (desplazamiento de home) van en complemento a dos de 35 bits. La respuesta es el ACK normal.
+
+### 16.3 Ajustes escribibles y su fuente
+
+Direcciones de 14 bits (`DA 00 hi lo` = `hi × 128 + lo`). Fuentes: **[RPAC]** ruida-pa `ruida_protocol.py`, tabla `MT` (MIT); **[EDU]** la tabla de propiedades de https://edutechwiki.unige.ch/en/Ruida (prosa, sin copiar); **[MK40]** MeerK40t `emulator.py` (MIT). Rango = cota propia.
+
+| Dirección | Clave | Nombre en la fuente | Unidad (fuente) | Rango de Tlaku |
+|---|---|---|---|---|
+| 0x005 | `g0_speed` | `MEM_G0_VELOCITY` [RPAC][EDU]; ejemplo 200 000 en [MK40] | µm/s | 1 a 600 mm/s |
+| 0x00C | `home_speed` | `MEM_HOME_VELOCITY` [RPAC][EDU] | µm/s | 1 a 600 mm/s |
+| 0x021 / 0x031 / 0x041 / 0x051 | `x_step`, `y_step`, `z_step`, `u_step` | `MEM_PRECISION_{X,Y,Z,U}` [RPAC] (verificado allí en RDC8445S), «Axis Precision» [EDU] | µm (`dim` en [RPAC]) | 1 a 1 000 000; un cambio no puede pasar del doble ni de la mitad |
+| 0x023 / 0x033 | `x_max_speed`, `y_max_speed` | `MEM_MAX_VELOCITY_{X,Y}` | µm/s | 1 a 600 mm/s |
+| 0x024 / 0x034 | `x_start_speed`, `y_start_speed` | `MEM_START_VELOCITY_{X,Y}` | µm/s | 0 a 100 mm/s |
+| 0x025 / 0x035 | `x_max_accel`, `y_max_accel` | `MEM_MAX_ACC_{X,Y}` | µm/s² | 1 a 50 000 mm/s² |
+| 0x026 / 0x036 | `x_travel`, `y_travel` | `MEM_BED_SIZE_{X,Y}` («Axis Range») | µm | 10 a 3000 mm |
+| 0x027 / 0x037 | `x_button_speed`, `y_button_speed` | `MEM_BTN_START_VEL_{X,Y}` | µm/s | 0 a 100 mm/s |
+| 0x028 / 0x038 | `x_button_accel`, `y_button_accel` | `MEM_BTN_ACC_{X,Y}` | µm/s² | 1 a 50 000 mm/s² |
+| 0x029 / 0x039 | `x_estop_accel`, `y_estop_accel` | `MEM_ESTP_ACC_{X,Y}` | µm/s² | 1 a 50 000 mm/s² |
+| 0x02A / 0x03A | `x_home_offset`, `y_home_offset` | `MEM_HOME_OFFSET_{X,Y}` | µm, con signo | ±1000 mm |
+| 0x11F | `rotary_pulse` | `MEM_ROTATE_PULSE` [RPAC] (bytes `02 1F`), «Rotate Pulse» [EDU] | **sin unidad documentada** | 1 a 100 000 000 |
+| 0x121 | `rotary_diameter` | `MEM_ROTATE_D` [RPAC] (bytes `02 21`), «Rotate D» [EDU] | **sin unidad documentada** | 1 a 100 000 000 |
+
+Las unidades de velocidad, aceleración y longitud salen de que [RPAC] las tipa como `speed` y `dim` (µm) y de los valores de ejemplo de [MK40]. Hay un caso de **dos fuentes que no coinciden**: «Total Laser Work Time» está en 0x211 para [EDU] y [MK40], y en `03 11` (0x191) para [RPAC]; `controller_info` sigue leyendo 0x211.
+
+**No se incluyó** (se deja fuera y se reporta): potencia mínima, máxima, frecuencia PWM y de espera de los láseres (`0x011` a `0x01D`, `0x063` a `0x06C`): las fuentes no dan unidad ni rango y cambian lo que dispara el láser; modo de control del sistema (`0x010`), ajustes del sistema (`0x100`), E/S (`0x004`), tipo de máquina (`0x060`), bloqueos de tarjeta y de PC (`0x181` a `0x187`, `0x591`); el resto de la tabla `MT`. **Cómo se activa el rotativo** no aparece en ninguna fuente pública (solo el diámetro y los pulsos): se hace en el panel de la controladora.
+
+### 16.4 Información de la controladora (M26): verificación de direcciones
+
+Contrastadas con [RPAC], [EDU] y [MK40]: `0x005`, `0x00C`, `0x023/033`, `0x025/035`, `0x201`, `0x202`, `0x203`, `0x205`, `0x223/233` coinciden en las tres o en las dos que las traen; `0x211` (ver arriba) coincide en [EDU] y [MK40]. Se añadieron: `0x208` (duración del trabajo anterior, [RPAC] `MEM_PRE_WORK_TIME`, [EDU] «Pre Work Time»; unidad sin documentar), `0x010` (modo de control: `0x0000` origen, `0x4000` sin retorno, `0x8000` origen absoluto, [EDU]), `0x18F` (funciones de la máquina, `MEM_MACHINE_FEATURES` de [RPAC], verificado allí en RDC8445S: bit 0 foco, bit 3 retorno de Z al muelle, bits 9-10 modo del aire; su dirección de 14 bits es `3 × 128 + 0x0F = 0x18F`, así que la «0x30F» de la sección 6 era la lectura de los bytes `03 0F` como hexadecimal) y `0x2FF` (versión de la placa, una **cadena**: `DA 01 05 7F texto\0`, verificado en RDC6442S por [RPAC]). Siguen sin verificar con hardware real, y así se rotula.
+
+### 16.5 Documentos: formatos y discrepancias entre fuentes
+
+| Orden | MeerK40t (`emulator.py`) | EduTech / ruida-pa | Lo que usa Tlaku |
+|---|---|---|---|
+| `E8 01 n` nombre del documento n | `n` de 14 bits, responde `E8 01 n nombre\0`, numera desde 1 | igual (`FileNumber`, `UINT14`) | igual (ya estaba en la ola 4) |
+| `E8 00` borrar | `E8 00 n(2) m(2)`, 6 bytes; n = número, **0 borra todos**; el significado de m no se da | 12 bytes: dos valores de 35 bits, sin decir qué significan | `E8 00 n(2) 00 00`, **nunca con n = 0** |
+| `E8 03` seleccionar/ejecutar | `E8 03 n(2)`; el emulador vuelca el archivo al cabezal, o sea lo ejecuta | `E8 03 n` con n de un byte (`UINT7`) | `E8 03 n(2)` |
+| `E8 02` + `E7 01 nombre\0` | nombre del archivo que se transfiere | igual | igual (ya estaba) |
+
+Tlaku sigue a MeerK40t porque es la única fuente que dice qué significa cada campo, pero **el emulador de MeerK40t también malinterpreta otras órdenes `E8`** (lee un argumento de `E8 04` que EduTech no tiene), así que su forma de `E8 00` y `E8 03` puede estar equivocada; EduTech y ruida-pa no son independientes entre sí. Por eso: antes de borrar o ejecutar se **relee el nombre del documento n** y se exige que coincida; después de borrar se comprueba que la cuenta (`0x205`) bajó en uno; después de ejecutar se mira si la máquina empezó. **No hay ninguna orden de renombrar** en las fuentes públicas: el nombre se fija al guardar (`E7 01`). Tampoco se sabe si guardar un nombre repetido sobrescribe o duplica; el emulador **duplica**, y por eso Tlaku, para reemplazar, **borra el viejo (con las comprobaciones de arriba) y luego sube el nuevo**. El nombre automático (`TLAKUnnn`) busca uno libre. Nombres: 1 a 8 letras, cifras, `_` o `-` (cota propia).
+
+### 16.6 Calibrar ejes
+
+Del paso actual `p` (`x_step`...), la distancia pedida `c` y la medida `m`: `p_nuevo = redondeo(p × m / c)`; se rechaza una corrección de más de ±25 % (error de medida casi seguro), una distancia fuera de 0 a 10 000 mm y un cambio menor que 1 unidad del ajuste (no se puede corregir con esa resolución). **La dirección del cálculo supone que el valor es la longitud de cada paso** (las fuentes lo rotulan como `dim`, longitud); si fuera pasos por unidad el error se duplicaría: la ventana lo dice y hay que repetir la medición y restaurar el respaldo si empeora. Los pasos por mm que muestra la ventana (`1000 / paso`) valen solo si el valor está en µm. En GRBL, `$100` a `$102` son pasos por mm y la fórmula es la inversa: `nuevo = actual × pedido / medido`.
+
+### 16.7 Láser 2 en el `.rd` (M32)
+
+Selección del láser por capa: `CA 01 10` («Layer Device=0», `LASER_DEVICE_0`) y `CA 01 11` (`LASER_DEVICE_1`), de EduTech, ruida-pa y MeerK40t (`rdjob.py`); ninguna la marca como verificada. Una capa con `laser2` (y un perfil con `laser2 = true`) sale con `CA 01 11`, su potencia pasa a las órdenes del láser 2 (`C6 21/22` en el cuerpo, `C6 41/42` en la cabecera) y el láser 1 queda con la potencia secundaria (0 %). **Inferencia propia:** la máscara de tubos `CA 03 n` de esa capa suma el bit 1 (`n | 0x02`), porque `CA 03 01` (MeerK40t) enciende solo el láser 1 y RDWorks escribe `0x0D`/`0x0F`; sin verificar. Una capa del láser 2 con **potencia variable** (imagen) se rechaza: no hay orden documentada de potencia inmediata para el láser 2. Con un perfil sin segundo láser, las capas salen con el láser 1 y se avisa.
+
+### 16.8 Qué no se hizo por falta de fuente pública
+
+`.lbset` (formato de LightBurn: una búsqueda no encontró descripción pública ni parser de código abierto); escribir potencia, frecuencia y modo de control del láser; activar el rotativo; renombrar un documento existente; «borrar todos»; unidades de `0x208`, `0x11F` y `0x121`; el significado del segundo valor de `DA 01` y del segundo número de `E8 00`; el comando de potencia inmediata del láser 2.

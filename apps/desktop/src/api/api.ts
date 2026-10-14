@@ -17,10 +17,22 @@ import type {
   LhyPreview,
   LhyState,
   OverrideKind,
+  ProbeTouch,
   RealtimeCommand,
+  RuidaApplyReport,
+  RuidaBackup,
+  RuidaCalibration,
+  RuidaControllerSettings,
+  RuidaDocResult,
   RuidaFile,
   RuidaInfo,
+  RuidaSettingChange,
+  RuidaSettingsPlan,
   SimulatedFault,
+  InterruptedJob,
+  ResumeReadiness,
+  ResumeStart,
+  ResumeView,
 } from './types';
 import type {
   BezPath,
@@ -335,7 +347,7 @@ export interface LaserApi {
    * Calcula, comprueba el estado de la máquina y transmite. Rechaza (sin enviar nada y con un
    * mensaje que explica qué hacer) si la máquina está en Alarm, Hold, Door, Run o Jog.
    */
-  startJob(args: JobArgs): Promise<void>;
+  startJob(args: JobArgs & { document?: string | null }): Promise<void>;
   pauseJob(): Promise<void>;
   resumeJob(): Promise<void>;
   /** Con trabajo: feed hold y soft reset. Sin trabajo: cancela el jog en curso (0x85). */
@@ -353,10 +365,62 @@ export interface LaserApi {
    * láser apagado (`$J=G90 G21 X.. Y.. F..`). Falla con un trabajo en curso o en alarma.
    */
   jogTo(args: { x: number; y: number; speed: number }): Promise<void>;
+  /**
+   * Un toque de sonda con el cabezal (M48, `G38.3`; solo GRBL en reposo): avanza como máximo
+   * `(dx, dy)` mm de TRABAJO a `feed` mm/min con el láser apagado, se detiene al tocar y retrocede
+   * `retract` mm. Límites del motor: 100 mm de recorrido, 500 mm/min y 20 mm de retroceso.
+   * `confirmed` debe ser `true` (la interfaz lo manda tras la confirmación del usuario).
+   */
+  probeTouch(args: { dx: number; dy: number; feed: number; retract: number; confirmed: boolean }): Promise<ProbeTouch>;
   /** Ruida (EXPERIMENTAL, solo lectura): modelo, tarjeta, cama, velocidades y contadores de la controladora. */
   ruidaInfo(): Promise<RuidaInfo>;
   /** Ruida (EXPERIMENTAL, solo lectura): documentos guardados en la memoria de la controladora. */
   ruidaFiles(): Promise<RuidaFile[]>;
+  /**
+   * Ruida (M23): nombre con que se guardará el próximo trabajo en la memoria (1 a 8 letras, cifras,
+   * `_` o `-`; `null` = automático) y si puede reemplazar a un documento del mismo nombre (el usuario
+   * lo confirmó; vale para un solo envío). Sin `overwrite`, un nombre repetido hace fallar `startJob`
+   * sin tocar nada.
+   */
+  ruidaPrepareStore(args: { name: string | null; overwrite: boolean; experimental_writes: boolean }): Promise<void>;
+  /**
+   * Ruida (M24, EXPERIMENTAL: sin probar con una controladora real): borra el documento `index` si
+   * se llama `name` (el motor lo comprueba). `confirmed` debe ser `true`. Nunca borra «todos».
+   */
+  ruidaFileDelete(args: { index: number; name: string; confirmed: boolean; experimental_writes: boolean }): Promise<RuidaDocResult>;
+  /**
+   * Ruida (M24, EXPERIMENTAL): ejecuta el documento `index` si se llama `name`. `confirmed` debe ser
+   * `true`; la interfaz lo manda tras la lista de comprobación de seguridad de Iniciar.
+   */
+  ruidaFileRun(args: { index: number; name: string; confirmed: boolean; experimental_writes: boolean }): Promise<RuidaDocResult>;
+  /**
+   * Las escrituras de Ruida (`ruidaSettingsApply`, `ruidaSettingsRestore`, `ruidaCalibrate`, `ruidaFileDelete`,
+   * `ruidaFileRun` y `ruidaPrepareStore` con `overwrite`) llevan `experimental_writes`: el valor de la
+   * preferencia `ruidaExperimentalWrites` (apagada de fábrica). Con `false` el motor las rechaza sin
+   * tocar la máquina.
+   */
+  /** Ruida (M25 y M28, EXPERIMENTAL): lee los ajustes que Tlaku puede escribir (lista cerrada). */
+  ruidaSettingsRead(): Promise<RuidaControllerSettings>;
+  /** Ruida: diferencias (actual y nuevo) de unos cambios, validadas por el motor, sin escribir. */
+  ruidaSettingsPreview(args: { changes: RuidaSettingChange[] }): Promise<RuidaSettingsPlan>;
+  /** Ruida: diferencias de un respaldo `.tlakuruida` (su texto) con la máquina, sin escribir. */
+  ruidaSettingsPreviewFile(args: { json: string }): Promise<RuidaSettingsPlan>;
+  /**
+   * Ruida: escribe ajustes. El motor guarda antes un respaldo con fecha en la carpeta de
+   * configuración, exige `confirmed = true` (casilla «Entiendo que esto cambia la configuración de
+   * mi controladora»), escribe de a uno y vuelve a leer para comparar.
+   */
+  ruidaSettingsApply(args: { changes: RuidaSettingChange[]; confirmed: boolean; experimental_writes: boolean }): Promise<RuidaApplyReport>;
+  /** Ruida: restaura un respaldo `.tlakuruida` (su texto) con las mismas protecciones. */
+  ruidaSettingsRestore(args: { json: string; confirmed: boolean; experimental_writes: boolean }): Promise<RuidaApplyReport>;
+  /** Ruida: texto `.tlakuruida` con los ajustes actuales de la controladora (respaldo manual). */
+  ruidaSettingsExport(): Promise<string>;
+  /** Ruida: paso nuevo de un eje a partir de lo que se pidió mover y lo que se midió (no escribe). */
+  ruidaCalibrate(args: { key: string; commanded_mm: number; measured_mm: number; experimental_writes: boolean }): Promise<RuidaCalibration>;
+  /** Ruida: respaldos automáticos de los ajustes, del más reciente al más antiguo. */
+  ruidaBackups(): Promise<RuidaBackup[]>;
+  /** Ruida: texto de un respaldo automático por el nombre de su archivo. */
+  ruidaBackupText(args: { name: string }): Promise<string>;
   /**
    * K40 con M2 Nano (EXPERIMENTAL): calcula y codifica el trabajo SIN enviarlo y devuelve los avisos
    * del codificador (la potencia se ignora, los grises se binarizan...) y el resumen. No necesita conexión.
@@ -409,6 +473,31 @@ export interface LaserApi {
   setOverride(args: { kind: OverrideKind; percent: number }): Promise<void>;
   /** Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión...). Falla con una máquina real. */
   simulateFault(args: { fault: SimulatedFault }): Promise<void>;
+
+  // Continuar un trabajo interrumpido (corte de luz, app cerrada, conexión perdida)
+  /**
+   * El trabajo interrumpido del que queda punto de control, o `null`. El motor lo guarda mientras envía
+   * (G-code exacto, perfil, origen y el avance cada ~1 s) y lo borra al terminar bien, al cancelar a
+   * propósito o al conectar otra máquina. Ruida, K40 y galvo solo dejan un aviso (`can_resume: false`).
+   */
+  interruptedJob(): Promise<InterruptedJob | null>;
+  /**
+   * El recorrido guardado y el punto de reinicio propuesto: la línea real (comparando la última MPos con
+   * la geometría; `ok` solo dice que la línea entró al búfer) menos `back_lines` líneas o `back_mm` mm
+   * (manda lo que quede más atrás), sin cruzar un `G0` y, en imágenes, al inicio de la fila de barrido.
+   */
+  interruptedJobView(args: { back_lines?: number | null; back_mm?: number | null }): Promise<ResumeView>;
+  /** Descarta el punto de control. */
+  discardInterruptedJob(): Promise<void>;
+  /** Con la máquina conectada: si tiene homing (`$22`) y si ya se hizo desde que perdió la posición. */
+  continueCheck(): Promise<ResumeReadiness>;
+  /** Encuadra el trabajo completo (el rectángulo del G-code guardado) con el láser apagado. */
+  continueFrame(args: { speed: number }): Promise<void>;
+  /**
+   * Continúa el trabajo desde `args.line`. El motor exige homing hecho (o la confirmación de que nada se
+   * movió, sin homing), el encuadre y la lista de comprobación, y rechaza el resto sin tocar la máquina.
+   */
+  continueJob(args: { args: ResumeStart }): Promise<void>;
 
   // Edición (fase 3)
   listFonts(): Promise<FontFamily[]>;
@@ -565,6 +654,12 @@ export interface LaserApi {
   writeSettingsBackup(args: { path: string; text: string }): Promise<void>;
   /** Lee un respaldo de ajustes GRBL como texto UTF-8 (hasta 256 KiB). */
   readSettingsBackup(args: { path: string }): Promise<string>;
+  /**
+   * Respaldo automático de los ajustes `$` de GRBL (M25): guarda el texto en
+   * `grbl-backups/grbl-AAAAMMDD-HHMMSS.tlakuset` de la carpeta de configuración (sin pisar otro) y
+   * devuelve la ruta. La interfaz lo pide justo antes de escribir; si falla, no escribe.
+   */
+  grblSettingsAutobackup(args: { text: string }): Promise<string>;
   /** Guarda la copia de recuperación `id` (atómico; recorta las más viejas). */
   autosaveWrite(args: { id: string; name: string; path: string | null; doc: Document }): Promise<RecoveryInfo>;
   /** Copias pendientes de recuperar, de la más nueva a la más vieja (las superadas por un guardado se borran). */
@@ -637,8 +732,21 @@ export const COMMAND_NAMES = {
   frameJob: 'frame_job',
   frameHull: 'frame_hull',
   jogTo: 'jog_to',
+  probeTouch: 'probe_touch',
   ruidaInfo: 'ruida_info',
   ruidaFiles: 'ruida_files',
+  ruidaPrepareStore: 'ruida_prepare_store',
+  ruidaFileDelete: 'ruida_file_delete',
+  ruidaFileRun: 'ruida_file_run',
+  ruidaSettingsRead: 'ruida_settings_read',
+  ruidaSettingsPreview: 'ruida_settings_preview',
+  ruidaSettingsPreviewFile: 'ruida_settings_preview_file',
+  ruidaSettingsApply: 'ruida_settings_apply',
+  ruidaSettingsRestore: 'ruida_settings_restore',
+  ruidaSettingsExport: 'ruida_settings_export',
+  ruidaCalibrate: 'ruida_calibrate',
+  ruidaBackups: 'ruida_backups',
+  ruidaBackupText: 'ruida_backup_text',
   lhyPreview: 'lhy_preview',
   lhyHome: 'lhy_home',
   lhyState: 'lhy_state',
@@ -655,6 +763,12 @@ export const COMMAND_NAMES = {
   fireTest: 'fire_test',
   setOverride: 'set_override',
   simulateFault: 'simulate_fault',
+  interruptedJob: 'interrupted_job',
+  interruptedJobView: 'interrupted_job_view',
+  discardInterruptedJob: 'discard_interrupted_job',
+  continueCheck: 'continue_check',
+  continueFrame: 'continue_frame',
+  continueJob: 'continue_job',
   listFonts: 'list_fonts',
   textOutline: 'text_outline',
   importShxFonts: 'import_shx_fonts',
@@ -710,6 +824,7 @@ export const COMMAND_NAMES = {
   pathsExist: 'paths_exist',
   writeSettingsBackup: 'write_settings_backup',
   readSettingsBackup: 'read_settings_backup',
+  grblSettingsAutobackup: 'grbl_settings_autobackup',
   autosaveWrite: 'autosave_write',
   autosaveList: 'autosave_list',
   autosaveRead: 'autosave_read',

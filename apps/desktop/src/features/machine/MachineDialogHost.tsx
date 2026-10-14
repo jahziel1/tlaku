@@ -5,8 +5,12 @@ import { AlarmActionDialog } from './AlarmActionDialog';
 import { DeviceManager } from './DeviceManager';
 import { GalvoMoveDialog, GalvoStopModal } from './GalvoNotice';
 import { GalvoSafetyDialog } from './GalvoSafetyDialog';
+import { GalvoWarpOverlay } from './GalvoWarpOverlay';
 import { MacroConfirmDialog } from './MacroButtons';
 import { MachineSettingsDialog } from './MachineSettingsDialog';
+import { ProbeCenterDialog } from './ProbeCenterDialog';
+import { ResumeDialog } from './ResumeDialog';
+import { ResumeNotice } from './ResumeNotice';
 import { StartJobDialog } from './StartJobDialog';
 
 /**
@@ -30,6 +34,8 @@ export function MachineDialogHost() {
       <GalvoSafetyDialog />
       <GalvoMoveDialog />
       <GalvoStopModal />
+      <GalvoWarpOverlay />
+      <ProbeCenterDialog />
       {dialog && <MachineDialog dialog={dialog} />}
     </>
   );
@@ -49,5 +55,9 @@ function MachineDialog({ dialog }: { dialog: NonNullable<AppState['dialog']> }) 
       return <MachineSettingsDialog />;
     case 'macro':
       return <MacroConfirmDialog index={dialog.index} />;
+    case 'resumeNotice':
+      return <ResumeNotice />;
+    case 'resume':
+      return <ResumeDialog choose={dialog.choose} />;
   }
 }

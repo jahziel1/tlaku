@@ -4,6 +4,7 @@
 mod command;
 mod idle;
 mod jog;
+mod probe;
 mod start;
 mod status;
 mod stream;
@@ -86,6 +87,14 @@ pub(super) struct Run {
     kind: RunKind,
     last_progress: Option<Instant>,
     cancelling: bool,
+    /// El punto de control del trabajo (solo trabajos, no encuadres).
+    checkpoint: Option<CheckpointRun>,
+}
+
+/// El escritor del punto de control y su carpeta.
+pub(super) struct CheckpointRun {
+    writer: resume::CheckpointWriter,
+    store: Arc<resume::store::CheckpointStore>,
 }
 
 pub(super) enum Phase {
@@ -109,6 +118,8 @@ pub(super) struct Worker {
     last_rx: Instant,
     /// Desplazamiento de coordenadas de trabajo (`WCO`), para convertir MPos <-> WPos.
     wco: [f64; 2],
+    /// Cuántos reportes de estado se han leído (la sonda espera uno fresco antes de mover).
+    statuses: u64,
     last: StatusReport,
     /// Familia del firmware, para leer los códigos extendidos.
     pub(super) fw: Firmware,
@@ -175,6 +186,7 @@ impl Worker {
             last_poll: None,
             last_rx: Instant::now(),
             wco: [0.0, 0.0],
+            statuses: 0,
             last: empty_status(),
             fw: Firmware::Unknown,
             link_family: LinkFamily::Grbl,

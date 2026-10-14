@@ -52,4 +52,22 @@ travel_m: [number | null, number | null],
 /**
  * Documentos guardados en la memoria.
  */
-documents: number | null, };
+documents: number | null, 
+/**
+ * Versión de la placa (cadena que informa la controladora).
+ */
+board_version: string | null, 
+/**
+ * Duración del trabajo anterior; la unidad no está documentada en ninguna fuente.
+ */
+previous_work: number | null, 
+/**
+ * Modo de control del sistema: `0` origen, `16384` (0x4000) sin retorno, `32768` (0x8000)
+ * origen absoluto, según EduTech.
+ */
+control_mode: number | null, 
+/**
+ * Funciones de la máquina (`MEM_MACHINE_FEATURES` de ruida-pa): foco habilitado, retorno de Z
+ * al muelle y modo del aire (0 a 3).
+ */
+focus: boolean | null, z_return_docking: boolean | null, air_assist_mode: number | null, };

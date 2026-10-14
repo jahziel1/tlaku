@@ -13,7 +13,10 @@
 //!   es el de `RuidaSession::send_job` (Detener `D8 01` y aviso si no se confirmó);
 //! - pausa, reanudar y detener (`D8 02/03/01`), saltos con el láser apagado y encuadre (cuatro
 //!   esquinas, sin bloquear el hilo: las órdenes de detener siguen atendiéndose);
-//! - información y lista de documentos de la controladora, solo lectura.
+//! - información, lista de documentos y ajustes de la controladora. **Escribir ajustes, borrar y
+//!   ejecutar documentos (ola 6E) es EXPERIMENTAL**: lista cerrada de direcciones, respaldo previo
+//!   con fecha (`backup.rs`), confirmación explícita, verificación posterior y restauración;
+//!   ver `worker/settings.rs` y `tlaku_ruida::session::settings`.
 //!
 //! Hay cosas del protocolo que no se conocen y se resolvieron con cautela:
 //!
@@ -29,7 +32,9 @@
 //! Rotativo (M28): la fuente disponible (`docs/hardware/dsp-co2.md`) dice que en las DSP el
 //! rotativo se activa en los ajustes de la controladora. El `.rd` no lleva nada del rotativo, así
 //! que no se escala la Y: el trabajo viaja en mm de superficie y la controladora hace la
-//! conversión. Tlaku solo lo avisa en el registro.
+//! conversión. Tlaku lo avisa en el registro y puede escribir los dos ajustes públicos del
+//! rotativo (`rotary_pulse`, `rotary_diameter`) con las protecciones de arriba; cómo se activa en
+//! la controladora no está en ninguna fuente pública y se hace en su panel.
 
 use super::{Emit, Sink};
 use std::collections::VecDeque;
@@ -77,12 +82,14 @@ pub fn is_virtual(port: &str) -> bool {
     port.split('@').next() == Some(VIRTUAL_PORT)
 }
 
+mod backup;
 mod connection;
 mod handle;
 mod job;
 mod sim;
 mod worker;
 
+pub use backup::{backups_dir, list as list_backups, read as read_backup};
 pub use connection::*;
 pub use handle::*;
 pub use job::*;

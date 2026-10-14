@@ -4,6 +4,7 @@ use super::types::MachineStatus;
 use crate::packet::{self, PacketError, Response};
 use crate::rd::HomeCorner;
 use crate::safety::{SafetyError, SafetyLimits};
+use crate::settings::SettingsError;
 use crate::swizzle::Magic;
 use crate::text;
 use std::time::Duration;
@@ -38,6 +39,17 @@ pub mod addr {
     /// Recorrido total de los ejes X e Y (m).
     pub const TRAVEL_X: u16 = 0x223;
     pub const TRAVEL_Y: u16 = 0x233;
+    /// Duración del trabajo anterior (`MEM_PRE_WORK_TIME` en ruida-pa, "Pre Work Time" en EduTech,
+    /// "Previous Work Time" en MeerK40t); la unidad no está documentada.
+    pub const PREV_WORK_TIME: u16 = 0x208;
+    /// Modo de control del sistema (EduTech: `0x0000` origen, `0x4000` sin retorno, `0x8000`
+    /// origen absoluto).
+    pub const CONTROL_MODE: u16 = 0x010;
+    /// Funciones de la máquina (`MEM_MACHINE_FEATURES`, ruida-pa; bytes `03 0F`, verificado allí
+    /// en una RDC8445S): bit 0 foco, bit 3 retorno de Z al muelle y bits 9 y 10 modo del aire.
+    pub const FEATURES: u16 = 0x18F;
+    /// Versión de la placa (`MEM_MAINBOARD_VERSION`, cadena; ruida-pa la verifica en una RDC6442S).
+    pub const BOARD_VERSION: u16 = 0x2FF;
 }
 
 /// Tope de documentos que se listan (las direcciones `0x261..0x2C4` dejan unos 99).
@@ -123,6 +135,27 @@ pub enum SessionError {
     Busy(MachineStatus),
     /// El usuario canceló.
     Cancelled,
+    /// Un ajuste pedido no cumple la lista cerrada, el rango o la calibración.
+    Settings(SettingsError),
+    /// Operación que cambia la máquina pedida sin la confirmación explícita del usuario.
+    NotConfirmed,
+    /// No se pudo guardar el respaldo previo: no se escribió nada.
+    BackupFailed(String),
+    /// Ya hay un documento con ese nombre y no se pidió sobrescribirlo.
+    NameExists {
+        name: String,
+        index: u32,
+    },
+    /// El documento no existe (índice fuera de 1 a la cuenta).
+    NoSuchDocument {
+        index: u32,
+    },
+    /// El nombre del documento `index` no es el que el usuario confirmó.
+    DocumentMismatch {
+        index: u32,
+        expected: String,
+        found: Option<String>,
+    },
 }
 
 impl fmt::Display for SessionError {
@@ -144,6 +177,36 @@ impl fmt::Display for SessionError {
                 f.write_str(&tr!("ruida.session.busy", state = s.describe_state()))
             }
             SessionError::Cancelled => f.write_str(&tr!("ruida.session.cancelled")),
+            SessionError::Settings(e) => write!(f, "{e}"),
+            SessionError::NotConfirmed => f.write_str(&tr!("ruida.session.not_confirmed")),
+            SessionError::BackupFailed(why) => {
+                f.write_str(&tr!("ruida.session.backup_failed", why = why))
+            }
+            SessionError::NameExists { name, index } => f.write_str(&tr!(
+                "ruida.session.name_exists",
+                name = name,
+                index = index
+            )),
+            SessionError::NoSuchDocument { index } => {
+                f.write_str(&tr!("ruida.session.no_such_document", index = index))
+            }
+            SessionError::DocumentMismatch {
+                index,
+                expected,
+                found,
+            } => match found {
+                Some(found) => f.write_str(&tr!(
+                    "ruida.session.document_mismatch",
+                    index = index,
+                    expected = expected,
+                    found = found
+                )),
+                None => f.write_str(&tr!(
+                    "ruida.session.document_unreadable",
+                    index = index,
+                    expected = expected
+                )),
+            },
         }
     }
 }
@@ -159,6 +222,12 @@ impl From<io::Error> for SessionError {
 impl From<SafetyError> for SessionError {
     fn from(e: SafetyError) -> Self {
         SessionError::Safety(e)
+    }
+}
+
+impl From<SettingsError> for SessionError {
+    fn from(e: SettingsError) -> Self {
+        SessionError::Settings(e)
     }
 }
 

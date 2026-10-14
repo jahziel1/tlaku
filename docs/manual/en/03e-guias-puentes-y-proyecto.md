@@ -74,7 +74,7 @@ Templates are saved in Tlaku's configuration folder, not inside projects.
 
 **File > New window** (`Ctrl/Cmd+Shift+N`) opens another Tlaku window with an **independent document**: it has its own history and selection. What they share is the machine (the connection and the job in progress) and the preferences. It is useful for copying from one project to another or consulting a design while you work on another.
 
-> **Heads up:** the new window has not been tested in a real window yet. Recovery was fixed so that it does not mix windows: each one marks its autosave copy as alive and the **Unsaved work found** notice only offers orphan copies (those of windows already closed). But that fix was checked by reading the code and with registry tests, not with real windows; to be safe, if the notice shows the other window's copy, choose **Decide later** and do **not** recover or discard it while that window is still open with changes. The registry belongs to a single program: two copies of Tlaku open at the same time do not see each other. Save your projects often.
+Recovery does not mix windows: each one marks its autosave copy as alive and the **Unsaved work found** notice only offers orphan copies (those of windows already closed). This is checked with real windows in the application's smoke test (`npm run smoke:tauri`): it opens a second window and checks that it exists and answers, that preferences are shared, that each window only sees the copy of its own document, that closing it leaves its copy available to recover, and that it closes cleanly. Limit: the registry belongs to a single program; two copies of Tlaku open at the same time do not see each other. Save your projects often.
 
 ## Right-hand panel tabs your way
 

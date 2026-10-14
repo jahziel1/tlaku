@@ -45,6 +45,8 @@ The **Shape Properties** window (**View > Shape Properties**) applies to the sel
 
 ### Cut priority and power scale per object
 
+With a single **text** selected, the same window shows its **content**, the **font** (with bold and italic), the size and the spacings; typing in a row merges into one **Undo** step. With a single **image** it shows its **size in pixels**, its size in the design, the **effective resolution** in DPI (the image's pixels per inch it occupies, already with its scale), the layer, the layer's mode and the dithering, and two buttons: **Image settings…** opens the editor of its layer and **Image preview…** opens the [per-image preview](06-imagenes.md). If the layer is not in Image mode, the window says so.
+
 With any object or selection (also several at once, and not only shapes), the **Object properties** window (the same as **Shape Properties**; open it with **View > Shape Properties**) offers two **Cut** fields. Empty means "automatic" and 100 % respectively; if the selected objects have different values, the field shows **Mixed**.
 
 | Field | What it does | Example |

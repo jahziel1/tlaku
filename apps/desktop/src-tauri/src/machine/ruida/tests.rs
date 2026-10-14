@@ -12,6 +12,8 @@ use tlaku_doc::{
 };
 use tlaku_ruida::emu::{EmuConfig, EmuFaults};
 
+mod settings;
+
 // ---------------------------------------------------------------------------
 // Apoyos
 // ---------------------------------------------------------------------------
@@ -139,17 +141,15 @@ fn square_doc() -> Document {
             id: "a".into(),
             layer: red,
             transform: IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&Polyline {
-                    points: vec![
-                        Point::new(10.0, 10.0),
-                        Point::new(30.0, 10.0),
-                        Point::new(30.0, 30.0),
-                        Point::new(10.0, 30.0),
-                    ],
-                    closed: true,
-                })],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+                points: vec![
+                    Point::new(10.0, 10.0),
+                    Point::new(30.0, 10.0),
+                    Point::new(30.0, 30.0),
+                    Point::new(10.0, 30.0),
+                ],
+                closed: true,
+            })])),
             locked: false,
             hidden: false,
             group: None,
@@ -600,7 +600,9 @@ fn a_failure_before_the_first_packet_is_an_error_to_the_caller_not_an_event() {
     let r = rig_with(
         false,
         EmuFaults {
-            lose_packet: Some(6),
+            // El primer paquete del envío (uno más que antes: la comprobación del nombre del
+            // documento lee la cuenta de documentos).
+            lose_packet: Some(7),
             ..EmuFaults::default()
         },
         timing,

@@ -9,6 +9,11 @@ pub(super) struct Shared {
     pub(super) dead: AtomicBool,
     /// Último reporte de estado.
     pub(super) status: Mutex<Option<StatusReport>>,
+    /// Se hizo `$H` con éxito y la placa no se ha reiniciado ni perdido la posición desde
+    /// entonces (condición para reanudar un trabajo en una máquina con homing).
+    pub(super) homed: AtomicBool,
+    /// Hay un trabajo (no un encuadre) transmitiéndose ahora mismo.
+    pub(super) running: AtomicBool,
 }
 
 pub(super) type Reply = Sender<Result<Vec<String>, String>>;
@@ -42,6 +47,14 @@ pub(super) enum Request {
         speed: f64,
         reply: Reply,
     },
+    /// Sondeo de contacto con el cabezal (`G38.3`); ver `worker/probe.rs`.
+    Probe {
+        dx: f64,
+        dy: f64,
+        feed: f64,
+        retract: f64,
+        reply: Reply,
+    },
     /// Ajusta un override en tiempo real (velocidad o potencia) al porcentaje pedido.
     Override {
         kind: OverrideKind,
@@ -55,6 +68,8 @@ pub(super) enum Request {
         kind: RunKind,
         /// Carga que el trabajo pone al enlace serie: si no da abasto, el registro lo avisa.
         load: Option<LinkLoad>,
+        /// Punto de control para poder continuar el trabajo si se interrumpe (solo `RunKind::Job`).
+        checkpoint: Option<Box<resume::CheckpointPlan>>,
         reply: Reply,
     },
     Pause(Reply),
@@ -149,6 +164,27 @@ impl Handle {
             .map(drop)
     }
 
+    /// Un toque de sonda: el cabezal avanza `(dx, dy)` mm de trabajo como máximo a `feed` mm/min
+    /// con el láser apagado, se detiene al tocar y retrocede `retract` mm. Solo GRBL en reposo.
+    /// Los límites (recorrido, velocidad y retroceso) se comprueban aquí antes de enviar nada.
+    pub fn probe(
+        &self,
+        dx: f64,
+        dy: f64,
+        feed: f64,
+        retract: f64,
+    ) -> Result<probe::ProbeTouch, String> {
+        probe::check_args(dx, dy, feed, retract)?;
+        let reply = self.call(|reply| Request::Probe {
+            dx,
+            dy,
+            feed,
+            retract,
+            reply,
+        })?;
+        probe::decode(&reply).ok_or_else(|| tr!("desktop.worker.probe_no_prb"))
+    }
+
     /// Lleva el override de `kind` (velocidad o potencia) a `percent` por ciento (10 a 200).
     /// Solo GRBL: Marlin y Smoothieware no tienen bytes en tiempo real. Vale con o sin trabajo.
     pub fn set_override(&self, kind: OverrideKind, percent: u32) -> Result<(), String> {
@@ -195,6 +231,7 @@ impl Handle {
 
     /// Como [`start_job_link`](Self::start_job_link) con la carga del trabajo sobre el enlace
     /// serie: si supera lo que deja pasar el baudio, la comprobación previa lo avisa (no bloquea).
+    #[cfg(test)]
     pub fn start_job_with_load(
         &self,
         lines: Vec<String>,
@@ -202,7 +239,30 @@ impl Handle {
         s_max: Option<f64>,
         load: Option<LinkLoad>,
     ) -> Result<(), String> {
-        self.start(lines, link, s_max, RunKind::Job, load)
+        self.start(lines, link, s_max, RunKind::Job, load, None)
+    }
+
+    /// Como [`start_job_with_load`](Self::start_job_with_load), llevando el punto de control con
+    /// el que se podrá continuar el trabajo si se interrumpe (ver [`resume`]).
+    pub fn start_job_checkpointed(
+        &self,
+        lines: Vec<String>,
+        link: LinkProfile,
+        s_max: Option<f64>,
+        load: Option<LinkLoad>,
+        plan: Option<resume::CheckpointPlan>,
+    ) -> Result<(), String> {
+        self.start(lines, link, s_max, RunKind::Job, load, plan.map(Box::new))
+    }
+
+    /// Hay un trabajo transmitiéndose: su punto de control no es de uno «interrumpido».
+    pub fn is_running(&self) -> bool {
+        self.shared.running.load(Ordering::SeqCst)
+    }
+
+    /// Se hizo homing y la posición no se ha perdido desde entonces.
+    pub fn is_homed(&self) -> bool {
+        self.shared.homed.load(Ordering::SeqCst)
     }
 
     /// Como [`start_job`](Self::start_job) para el encuadre (sin eventos de progreso). El
@@ -214,7 +274,7 @@ impl Handle {
 
     /// Como [`frame`](Self::frame) con el enlace del perfil de la máquina.
     pub fn frame_link(&self, lines: Vec<String>, link: LinkProfile) -> Result<(), String> {
-        self.start(lines, link, None, RunKind::Frame, None)
+        self.start(lines, link, None, RunKind::Frame, None, None)
     }
 
     fn start(
@@ -224,6 +284,7 @@ impl Handle {
         s_max: Option<f64>,
         kind: RunKind,
         load: Option<LinkLoad>,
+        checkpoint: Option<Box<resume::CheckpointPlan>>,
     ) -> Result<(), String> {
         self.call(|reply| Request::Start {
             lines,
@@ -231,6 +292,7 @@ impl Handle {
             s_max,
             kind,
             load,
+            checkpoint,
             reply,
         })
         .map(drop)

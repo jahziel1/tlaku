@@ -50,11 +50,13 @@ For GRBL, grblHAL, and FluidNC the app connects over **TCP / Telnet** or **WebSo
 | Laser 2 | Generated G-code, with the dialect's commands | Everything, with the firmware you use |
 | Fisheye | Synthetic cameras | A real lens |
 | Head-mounted camera and mosaic | Virtual machine and synthetic photos | A camera mounted on a head |
-| Center finder | Synthetic images | A real camera |
+| Center finder (camera) | Synthetic images | A real camera |
+| Center finder with the head (`G38` probe) | GRBL emulator with a simulated contact surface (`G38.2` to `G38.5`, `[PRB:...]`, `Pn:P`, `ALARM:4` and `ALARM:5`) and a virtual machine with a test disc | A real probe or touch plate: the pin, how far it coasts after contact, and the tip offset |
+| Per-layer U axis | Generated G-code and engine tests | A real U axis: direction and distance |
 | UDP automation | Protocol tests and `START` safety tests | — (it is local; it does not depend on the machine) |
 | Print & Cut | Virtual machine and a simulated printed sheet (shifted and rotated by a few millimeters); the fit is tested with generated marks | A real laser and a real camera; the scale of a real printer |
 | Tiling | Virtual machine and tests of the trimming (strokes, fills, and images), of the session, and of resuming | A real machine: the alignment of the joints depends on the material |
-| Automatic feeder | Advance G-code sent to the virtual machine | A real feeder: the direction and the distance of the advance |
+| Automatic feeder | Advance G-code sent to the virtual machine; with several columns, the guided pause and the registration marks | A real feeder: the direction and the distance of the advance. A DSP's built-in feeder (Ruida, Trocen) does not exist in Tlaku: there is no public documentation of the command |
 | Galvo (`tlaku galvo`) | Own simulated board; it does not prove that a real board interprets the parameters the same way | **Everything, and it is the most delicate: it is a class 4 laser with an invisible beam.** See [Galvo safety](13d-galvo-seguridad.md) |
 
 The app offers six virtual machines (**Falcon2 Pro**, **GRBL 1.1**, **grblHAL**, **FluidNC**, **Marlin**, and **Smoothieware**, each also **over the network**) plus **Ruida (CO2)** with a Ruida profile. See [Connecting your machine](08-conectar-maquina.md).

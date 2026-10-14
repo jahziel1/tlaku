@@ -94,4 +94,6 @@ Tu biblioteca (**Mis materiales**) se guarda sola en tu equipo, en un archivo `m
 
 Los `.tlakumat` sirven para compartir tus ajustes con otras personas o pasarlos a otro equipo. No se importan bibliotecas de otros programas.
 
+**Compartir con la comunidad.** Si un ajuste tuyo te funcionó, usa el botón **Compartir…** de ese ajuste (o Ayuda > «Compartir ajustes de material…»): la app abre tu navegador con el formulario de GitHub ya lleno con la máquina, el material, la velocidad y la potencia. Tú lo revisas y decides si lo publicas; Tlaku no envía nada por su cuenta. Tras una revisión, los ajustes entran a la sección **Comunidad (sin verificar)** de la biblioteca con licencia CC0. Son valores de una persona en una máquina: haz siempre una prueba antes de usarlos.
+
 Siguiente: [Rotativo y eje Z](12-rotativo-y-eje-z.md)

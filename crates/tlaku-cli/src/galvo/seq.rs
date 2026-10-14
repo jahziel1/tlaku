@@ -2,14 +2,14 @@
 //! rotativo galvo (M30). La tarjeta no tiene ejes: entre piezas el programa se detiene, dice cuánto
 //! mover la mesa o girar el rotativo y espera la confirmación de la persona.
 //!
-//! Las piezas salen del mismo cálculo que usa la aplicación (`tlaku_pipeline::job_mark_sequence` y un
-//! `JobOptions::tile` por pieza). Sin verificar con hardware, como todo el galvo.
+//! Las piezas salen del mismo cálculo que usa la aplicación (`tlaku_pipeline::doc_mark_sequence`, un
+//! `JobOptions::tile` por pieza y, con piezas por formas enteras, la selección de objetos). Sin verificar con hardware, como todo el galvo.
 
 use super::*;
 use clap::ValueEnum;
 use tlaku_i18n::tr;
-use tlaku_pipeline::doc::{JobOptions, RotaryKind, SplitAxes, SplitOrder};
-use tlaku_pipeline::{StageMove, job_mark_sequence};
+use tlaku_pipeline::doc::{CylinderAxis, JobOptions, SplitAxes, SplitOrder};
+use tlaku_pipeline::{StageMove, doc_mark_sequence};
 
 /// Orden de las piezas del marcado dividido.
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -55,10 +55,30 @@ pub struct SequenceArgs {
     /// Pausa entre repeticiones en ms
     #[arg(long, value_name = "MS", default_value_t = 0.0, value_parser = parse_f64)]
     repeat_pause: f64,
+    /// Partir por formas enteras: las piezas se cortan por la frontera de las formas y cada forma
+    /// se marca completa en una sola pieza (con --split-piece; el solape no se usa)
+    #[arg(long)]
+    split_whole_shapes: bool,
     /// Rotativo galvo: diámetro de la pieza en mm (activa el rotativo: las piezas son franjas
     /// angulares y entre ellas se pide girar la pieza)
     #[arg(long, value_name = "MM", value_parser = parse_positive)]
     rotary_diameter: Option<f64>,
+    /// Eje de la pieza del rotativo: con x la superficie avanza en Y, con y avanza en X
+    #[arg(long, value_enum, default_value_t = RotaryAxisArg::X)]
+    rotary_axis: RotaryAxisArg,
+    /// Invierte el sentido del giro del rotativo
+    #[arg(long)]
+    rotary_reverse: bool,
+    /// Pasos del motor del rotativo por vuelta (0 = solo se dan grados)
+    #[arg(long, value_name = "PASOS", default_value_t = 0)]
+    rotary_steps: u32,
+}
+
+/// Eje de la pieza del rotativo.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum RotaryAxisArg {
+    X,
+    Y,
 }
 
 impl SequenceArgs {
@@ -90,10 +110,16 @@ impl SequenceArgs {
             g.repeat.increment_mm = [dx, dy];
         }
         g.repeat.pause_ms = self.repeat_pause;
+        g.split.whole_shapes = self.split_whole_shapes;
         if let Some(d) = self.rotary_diameter {
-            machine.rotary.enabled = true;
-            machine.rotary.kind = RotaryKind::Chuck;
-            machine.rotary.object_diameter = d;
+            g.rotary.enabled = true;
+            g.rotary.diameter_mm = d;
+            g.rotary.axis = match self.rotary_axis {
+                RotaryAxisArg::X => CylinderAxis::X,
+                RotaryAxisArg::Y => CylinderAxis::Y,
+            };
+            g.rotary.reverse = self.rotary_reverse;
+            g.rotary.steps_per_rev = self.rotary_steps;
         }
     }
 }
@@ -174,7 +200,7 @@ pub fn steps(planned: &Planned) -> Result<(Vec<SeqStep>, Vec<String>), String> {
     };
     let whole = tlaku_pipeline::compute_at(&designed.doc, machine, &whole_options, None)?;
     warnings.extend(whole.preview.warnings.iter().cloned());
-    let plan = job_mark_sequence(&whole, machine)?;
+    let plan = doc_mark_sequence(&designed.doc, &whole, machine, &whole_options)?;
     warnings.extend(plan.warnings.iter().cloned());
     let repeats = machine.galvo.repeat.count.max(1);
     let pieces = plan
@@ -189,6 +215,11 @@ pub fn steps(planned: &Planned) -> Result<(Vec<SeqStep>, Vec<String>), String> {
     for s in &plan.steps {
         let options = JobOptions {
             tile: s.tile.clone(),
+            // Con piezas por formas enteras, solo los objetos de la pieza (ya sin recorte).
+            selection: s
+                .objects
+                .clone()
+                .or_else(|| designed.options.selection.clone()),
             ..designed.options.clone()
         };
         let job = match tlaku_pipeline::compute_at(&designed.doc, machine, &options, None) {

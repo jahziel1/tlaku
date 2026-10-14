@@ -147,6 +147,9 @@ export const materials = {
 
   // ---- biblioteca de fábrica ---------------------------------------------------
   'materials.section.factory': 'De fábrica',
+  'materials.section.community': 'Comunidad (sin verificar)',
+  'materials.section.community.hint': 'Ajustes que personas de la comunidad probaron en sus máquinas, con licencia CC0. Nadie los ha verificado: haz siempre una prueba.',
+  'materials.section.community.empty': 'Todavía no hay ajustes de la comunidad. ¿Probaste uno en tu máquina? Compártelo con «Compartir…» en uno de tus ajustes.',
   'materials.section.factory.hint': 'Solo lectura, con su fuente. Duplica un ajuste para guardarlo en tus materiales y editarlo.',
   'materials.section.mine': 'Mis materiales',
   'materials.notice.startingPoints': 'Son puntos de partida: haz una prueba de materiales con tu máquina.',
@@ -168,10 +171,10 @@ export const materials = {
   'materials.source.copyFailed': 'No se pudo copiar el enlace. Dirección: {url}',
   'materials.confidence.official': 'Oficial',
   'materials.confidence.guide': 'Guía',
-  'materials.confidence.forum': 'Foro',
+  'materials.confidence.forum': 'Comunidad (sin verificar)',
   'materials.confidence.official.why': 'Tabla publicada por el fabricante.',
   'materials.confidence.guide.why': 'Guía o artículo publicado; no es de tu máquina ni está verificado con ella.',
-  'materials.confidence.forum.why': 'Dato de un foro o de la comunidad, sin verificar.',
+  'materials.confidence.forum.why': 'Dato de la comunidad o de un foro: lo probó una persona en su máquina y nadie lo ha verificado. Haz siempre una prueba.',
   'materials.confidence.label': 'Confianza: {level}',
 
   // ---- operación y clase de máquina ----------------------------------------------

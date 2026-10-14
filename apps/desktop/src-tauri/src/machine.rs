@@ -65,6 +65,8 @@ pub mod extras;
 pub mod frame;
 pub mod galvo;
 pub mod lhymicro;
+pub mod probe;
+pub mod resume;
 pub mod ruida;
 pub mod virtual_port;
 

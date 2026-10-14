@@ -1,0 +1,62 @@
+name: "New controller support / Soporte para una controladora nueva"
+description: "Ask for support for a controller or firmware Tlaku does not handle yet. / Pide soporte para una controladora o firmware que Tlaku aún no maneja."
+title: "[Controller] "
+labels: ["new-controller", "needs-hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN:** Tlaku is a clean-room project. Support is written from **public** protocol documentation, never from decompiled software or captured traffic of commercial programs. Tell us what public information exists.
+
+        **ES:** Tlaku es un proyecto de sala limpia. El soporte se escribe a partir de documentación **pública** del protocolo, nunca de software descompilado ni de tráfico capturado de programas comerciales. Cuéntanos qué información pública existe.
+  - type: input
+    id: controller
+    attributes:
+      label: "Controller or firmware / Controladora o firmware"
+      placeholder: "For example: Trocen AWC708, TopWisdom, EZCAD3, ..."
+    validations:
+      required: true
+  - type: input
+    id: machines
+    attributes:
+      label: "Machines that use it / Máquinas que la usan"
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: "How does it connect? / ¿Cómo se conecta?"
+      options:
+        - "USB serial / USB serie"
+        - "USB direct / USB directo"
+        - "Network (TCP, UDP, WebSocket) / Red (TCP, UDP, WebSocket)"
+        - "SD card or file only / Solo tarjeta SD o archivo"
+        - "I do not know / No sé"
+  - type: textarea
+    id: protocol
+    attributes:
+      label: "Public protocol information / Información pública del protocolo"
+      description: "Links to public documentation, standards, forum threads or open-source projects (with their license). Do not paste code from software you may not copy. / Enlaces a documentación pública, estándares, hilos de foros o proyectos de código abierto (con su licencia). No pegues código de software que no puedes copiar."
+    validations:
+      required: true
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: "Can you test it? / ¿Puedes probarlo?"
+      options:
+        - "Yes, I have the machine and can test / Sí, tengo la máquina y puedo probar"
+        - "Maybe, with help / Quizá, con ayuda"
+        - "No, I do not have one / No, no tengo una"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Anything else / Algo más"
+  - type: checkboxes
+    id: clean_room
+    attributes:
+      label: "Clean room / Sala limpia"
+      options:
+        - label: "The information I give comes from public sources and I did not decompile or copy proprietary software. / La información que doy viene de fuentes públicas y no descompilé ni copié software propietario."
+          required: true

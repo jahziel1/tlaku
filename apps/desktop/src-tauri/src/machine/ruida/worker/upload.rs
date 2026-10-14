@@ -4,7 +4,22 @@ use super::*;
 use tlaku_i18n::tr;
 
 impl<L: PacketLink> Worker<L> {
-    pub(super) fn upload(&mut self, up: Upload) -> Result<(), String> {
+    /// Primer nombre `TLAKUnnn` libre a partir de `first` (como mucho 20 intentos).
+    fn free_auto_name(&mut self, first: &str) -> Result<String, SessionError> {
+        let start: u32 = first
+            .strip_prefix("TLAKU")
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(0);
+        for k in 0..20 {
+            let candidate = format!("TLAKU{:03}", (start + k) % 1000);
+            if self.session.find_document(&candidate)?.is_none() {
+                return Ok(candidate);
+            }
+        }
+        Ok(first.to_string())
+    }
+
+    pub(super) fn upload(&mut self, mut up: Upload) -> Result<(), String> {
         if let Some(e) = self.busy_error() {
             return Err(e);
         }
@@ -28,6 +43,35 @@ impl<L: PacketLink> Worker<L> {
         }
         for note in &up.notes {
             self.log(LogDir::In, &format!("; {note}"));
+        }
+        // Guardar con un nombre que ya existe: o se pidió reemplazarlo (se borra el viejo con las
+        // comprobaciones de siempre) o falla antes de subir nada.
+        if up.auto_name
+            && let SendMode::Store { name } = &mut up.mode
+        {
+            // El nombre automático nunca pisa un documento: se busca uno libre.
+            match self.free_auto_name(name) {
+                Ok(free) => *name = free,
+                Err(e) => {
+                    self.session.config_mut().ack_timeout = self.timing.poll_timeout;
+                    return Err(op_error(e));
+                }
+            }
+        }
+        if !up.auto_name
+            && let SendMode::Store { name } = &up.mode
+        {
+            match self.session.prepare_store(name, up.overwrite) {
+                Ok(Some(index)) => self.log(
+                    LogDir::Out,
+                    &tr!("desktop.ruida.log_replaced", name = name, index = index),
+                ),
+                Ok(None) => {}
+                Err(e) => {
+                    self.session.config_mut().ack_timeout = self.timing.poll_timeout;
+                    return Err(op_error(e));
+                }
+            }
         }
         let log_line = match &up.mode {
             SendMode::Run => tr!("desktop.ruida.log_job_run", bytes = up.rd.len()),

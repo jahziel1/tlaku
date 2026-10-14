@@ -76,6 +76,12 @@ pub struct GcodeOptions {
     /// de U). Al terminar, tras apagar el láser y antes de volver al origen, se deshace. 0 (o un
     /// valor no finito) = U no se toca.
     pub u_offset_mm: f64,
+    /// Por cada bloque del `Toolpath`, mm de U (relativos a donde estaba U al empezar el
+    /// trabajo) con los que se ejecuta, sumados a [`GcodeOptions::u_offset_mm`]. Al empezar el
+    /// bloque se emite solo la diferencia con el U en curso (con el láser apagado) y al terminar
+    /// se deshace el total. Vacío (o más corto que los bloques) = 0: sin cambios. Los valores
+    /// no finitos cuentan como 0.
+    pub block_u_offset: Vec<f64>,
 }
 
 /// Tolerancia de fusión de cortes por defecto (mm); ver [`GcodeOptions::merge_tolerance_mm`].
@@ -98,6 +104,7 @@ impl Default for GcodeOptions {
             block_laser2: Vec::new(),
             merge_tolerance_mm: DEFAULT_MERGE_TOLERANCE_MM,
             u_offset_mm: 0.0,
+            block_u_offset: Vec::new(),
         }
     }
 }
@@ -702,11 +709,30 @@ pub fn generate_mapped(
         w.s = Some("0".into());
     }
 
-    // Desplazamiento U del trabajo (se deshace al final).
-    let u_offset = Some(opts.u_offset_mm).filter(|u| u.is_finite() && *u != 0.0);
-    if let Some(u) = u_offset {
-        w.u_move(u);
+    // Desplazamiento U del trabajo (se deshace al final), más el de cada capa: `u_now` es lo
+    // que U lleva movido desde el inicio.
+    let u_job = Some(opts.u_offset_mm)
+        .filter(|u| u.is_finite())
+        .unwrap_or(0.0);
+    let mut u_now = 0.0;
+    if u_job != 0.0 {
+        w.u_move(u_job);
+        u_now = u_job;
     }
+    // El U de cada bloque que sí se emite (los vacíos se saltan, pero cuentan en el índice).
+    let u_layers: Vec<f64> = toolpath
+        .blocks
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| !b.moves.is_empty())
+        .map(|(i, _)| {
+            opts.block_u_offset
+                .get(i)
+                .copied()
+                .filter(|u| u.is_finite())
+                .unwrap_or(0.0)
+        })
+        .collect();
 
     let mut air_on = false;
     let mut laser2 = false;
@@ -742,6 +768,12 @@ pub fn generate_mapped(
                 w.line(c);
             }
             air_on = want_air;
+        }
+        // El eje U va a la posición de la capa (solo la diferencia, con el láser apagado).
+        let want_u = u_job + u_layers[i];
+        if (want_u - u_now).abs() > 1e-9 {
+            w.u_move(want_u - u_now);
+            u_now = want_u;
         }
         // El foco baja justo antes del primer corte: lo anterior es aproximación.
         let mut depth = block.z_mm.filter(|z| z.is_finite());
@@ -787,8 +819,8 @@ pub fn generate_mapped(
         w.line(&d.laser_off);
     }
     w.off = true;
-    if let Some(u) = u_offset {
-        w.u_move(-u);
+    if u_now != 0.0 {
+        w.u_move(-u_now);
     }
     if opts.return_to_origin {
         let mut cmd = String::from("G0 X0 Y0");
@@ -1755,5 +1787,51 @@ mod tests {
             .map(|(_, l)| l.clone())
             .collect();
         assert_eq!(stripped, plain);
+    }
+
+    #[test]
+    fn layer_u_offsets_emit_only_the_difference_and_undo_the_total() {
+        let moves = |x: f64| vec![Move::Travel { to: p(0.0, 0.0) }, mcut(x, 0.0, 50.0)];
+        let blocks = || {
+            vec![
+                block("A", PowerMode::Dynamic, moves(5.0)),
+                block("B", PowerMode::Dynamic, moves(6.0)),
+                block("C", PowerMode::Dynamic, moves(7.0)),
+            ]
+        };
+        let lines = gen_lines(
+            blocks(),
+            &GcodeOptions {
+                u_offset_mm: 10.0,
+                block_u_offset: vec![0.0, 2.5, 2.5],
+                ..GcodeOptions::default()
+            },
+        );
+        let u_moves: Vec<&String> = lines.iter().filter(|l| l.starts_with("G0 U")).collect();
+        // Trabajo +10 al empezar, la capa B suma 2,5, la C no cambia y al final se deshace todo.
+        assert_eq!(u_moves, ["G0 U10", "G0 U2.5", "G0 U-12.5"]);
+        let at = |text: &str| lines.iter().position(|l| l == text).unwrap();
+        // El movimiento va dentro del bloque B, con el láser apagado (S0), antes de su corte.
+        assert!(at("; B") < at("G0 U2.5") && at("G0 U2.5") < at("; C"));
+        // Sin trabajo, la capa A también puede mover U; volver a 0 a media pieza se emite.
+        let lines = gen_lines(
+            blocks(),
+            &GcodeOptions {
+                block_u_offset: vec![3.0, 0.0, f64::NAN],
+                ..GcodeOptions::default()
+            },
+        );
+        let u_moves: Vec<&String> = lines.iter().filter(|l| l.starts_with("G0 U")).collect();
+        assert_eq!(u_moves, ["G0 U3", "G0 U-3"]);
+        // Todo en cero (o vacío): idéntico a no pedir nada.
+        let zero = gen_lines(
+            blocks(),
+            &GcodeOptions {
+                block_u_offset: vec![0.0; 3],
+                ..GcodeOptions::default()
+            },
+        );
+        assert_eq!(zero, gen_lines(blocks(), &GcodeOptions::default()));
+        assert!(!zero.iter().any(|l| l.contains('U')));
     }
 }

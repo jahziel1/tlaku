@@ -20,9 +20,7 @@ fn square(id: &str, layer: Rgb, transform: affine::Transform) -> DesignObject {
         id: id.into(),
         layer,
         transform,
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![rect_path(10.0, 5.0)],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![rect_path(10.0, 5.0)])),
         locked: false,
         hidden: false,
         group: None,
@@ -222,7 +220,7 @@ fn bounds_of_object_and_document() {
     close(all.max, 23.0, 14.0);
     assert!(Document::default().bounds().is_none());
     let empty = DesignObject {
-        kind: ObjectKind::Vector(VectorObject { paths: vec![] }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![])),
         ..square("e", Rgb(0, 0, 0), affine::IDENTITY)
     };
     assert!(empty.bounds().is_none());
@@ -362,16 +360,14 @@ fn circle_object(transform: affine::Transform) -> DesignObject {
         to: c,
     };
     DesignObject {
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath(vec![
-                PathSeg::MoveTo { to: p(10.0, 0.0) },
-                seg(p(10.0, k), p(k, 10.0), p(0.0, 10.0)),
-                seg(p(-k, 10.0), p(-10.0, k), p(-10.0, 0.0)),
-                seg(p(-10.0, -k), p(-k, -10.0), p(0.0, -10.0)),
-                seg(p(k, -10.0), p(10.0, -k), p(10.0, 0.0)),
-                PathSeg::Close,
-            ])],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath(vec![
+            PathSeg::MoveTo { to: p(10.0, 0.0) },
+            seg(p(10.0, k), p(k, 10.0), p(0.0, 10.0)),
+            seg(p(-k, 10.0), p(-10.0, k), p(-10.0, 0.0)),
+            seg(p(-10.0, -k), p(-k, -10.0), p(0.0, -10.0)),
+            seg(p(k, -10.0), p(10.0, -k), p(10.0, 0.0)),
+            PathSeg::Close,
+        ])])),
         ..square("c", Rgb(0, 0, 0), transform)
     }
 }
@@ -575,4 +571,21 @@ fn bounds_include_the_virtual_copies() {
     let b = circ.bounds_with_copies().unwrap();
     close(b.min, -15.0, -15.0);
     close(b.max, 15.0, 15.0);
+}
+
+#[test]
+fn layer_u_offset_defaults_to_zero_and_roundtrips() {
+    // Un archivo anterior a la ola 6E no trae `u_offset`: sale 0.
+    let mut v: serde_json::Value =
+        serde_json::to_value(LayerSettings::for_color(Rgb(255, 0, 0))).unwrap();
+    v.as_object_mut().unwrap().remove("u_offset");
+    let old: LayerSettings = serde_json::from_value(v).unwrap();
+    assert_eq!(old.u_offset, 0.0);
+    let layer = LayerSettings {
+        u_offset: -3.5,
+        ..LayerSettings::for_color(Rgb(0, 0, 255))
+    };
+    let back: LayerSettings =
+        serde_json::from_str(&serde_json::to_string(&layer).unwrap()).unwrap();
+    assert_eq!(back.u_offset, -3.5);
 }

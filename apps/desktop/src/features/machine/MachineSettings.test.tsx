@@ -129,3 +129,24 @@ describe('botón del panel Máquina', () => {
     expect(h).toContain(useStore.getState().connection.connected ? 'ajustes ($n)' : 'Conecta la máquina');
   });
 });
+
+describe('respaldo automático y calibración de ejes de GRBL', () => {
+  it('el respaldo automático guarda el texto con la fecha en el nombre y devuelve la ruta', async () => {
+    const api = createMockApi({ latencyMs: 0 });
+    setApi(api);
+    const path = await api.grblSettingsAutobackup({ text: '$30=1000\n' });
+    expect(path).toMatch(/grbl-\d{8}-\d{6}\.tlakuset$/);
+    expect(await api.readSettingsBackup({ path })).toBe('$30=1000\n');
+    api.dispose();
+  });
+
+  it('la calibración ofrece X, Y y Z solo si la controladora los informa', async () => {
+    const { GrblAxisCalibration } = await import('./GrblAxisCalibration');
+    const all = parseRawSettings(['$100=80.000', '$101=80.000', '$102=400.000', 'ok']).settings;
+    const h = renderToString(<GrblAxisCalibration settings={all} disabled={false} onUse={noop} />).replace(/<!-- -->/g, '');
+    expect(h).toContain('Calibrar ejes');
+    for (const s of ['X ($100)', 'Y ($101)', 'Z ($102)']) expect(h).toContain(s);
+    const none = renderToString(<GrblAxisCalibration settings={settings} disabled={false} onUse={noop} />);
+    expect(none).toBe('');
+  });
+});

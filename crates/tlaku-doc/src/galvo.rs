@@ -264,6 +264,11 @@ pub struct SplitMarking {
     pub pause_after_move_ms: f64,
     pub order: SplitOrder,
     pub axes: SplitAxes,
+    /// Partir formas enteras (Run Whole Shapes): las piezas se cortan por la frontera de las
+    /// formas, no por franjas fijas del tamaño del campo. Cada objeto (o grupo) se marca completo
+    /// en una sola pieza, y el solape no se usa. Si una forma es más grande que el campo, o el
+    /// trabajo lleva imágenes, se vuelve a las franjas con un aviso.
+    pub whole_shapes: bool,
 }
 
 impl Default for SplitMarking {
@@ -275,6 +280,40 @@ impl Default for SplitMarking {
             pause_after_move_ms: 0.0,
             order: SplitOrder::Snake,
             axes: SplitAxes::Xy,
+            whole_shapes: false,
+        }
+    }
+}
+
+/// Rotativo del galvo (M30): una pieza cilíndrica que se gira a mano o con un motor ajeno a la
+/// tarjeta. Tlaku no la gira: entre franjas pide el giro (en grados y, si se conocen, en pasos del
+/// motor) y espera la confirmación. Sustituye al rotativo general (`DeviceProfile.rotary`), que en
+/// un perfil galvo solo se lee cuando este está apagado, para que los perfiles antiguos sigan igual.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct GalvoRotary {
+    pub enabled: bool,
+    /// Diámetro de la pieza, mm: una vuelta son `pi x diámetro` mm de superficie.
+    pub diameter_mm: f64,
+    /// Pasos del motor del rotativo por vuelta completa de la pieza (con micropasos y reductor);
+    /// 0 = no se sabe y las instrucciones solo dan grados.
+    pub steps_per_rev: u32,
+    /// Eje de la pieza en el sistema del documento: con `x` la superficie avanza en Y (franjas
+    /// horizontales); con `y` avanza en X (franjas verticales).
+    pub axis: CylinderAxis,
+    /// Invierte el sentido del giro (según cómo esté montado el motor o la pieza).
+    pub reverse: bool,
+}
+
+impl Default for GalvoRotary {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            diameter_mm: 50.0,
+            steps_per_rev: 0,
+            axis: CylinderAxis::X,
+            reverse: false,
         }
     }
 }
@@ -301,7 +340,9 @@ impl Default for RepeatMarking {
     }
 }
 
-/// Corrección geométrica del campo (sin archivo `.cor`).
+/// Corrección geométrica del campo: los parámetros propios de Tlaku y, opcionalmente, la tabla de
+/// un `.cor` de EZCAD. Las dos se aplican en el anfitrión antes de cuantizar; Tlaku nunca escribe
+/// el `.cor` ni ninguna tabla en la tarjeta.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case", default)]
 #[ts(export)]
@@ -315,8 +356,14 @@ pub struct FieldCorrection {
     pub bulge: [f64; 2],
     pub trapezoid: [f64; 2],
     pub skew: [f64; 2],
-    /// Ruta de una tabla de corrección `.cor` de EZCAD; `None` = solo los parámetros anteriores.
+    /// Ruta de una tabla de corrección `.cor` de EZCAD (CorFile2); `None` = solo los parámetros
+    /// anteriores. Se lee al preparar el trabajo y se suma después de los parámetros.
     pub cor_file: Option<String>,
+    /// Solo con `cor_file`: intercambia los ejes de la rejilla del `.cor` (la lectura de fila y
+    /// columna es una inferencia sin verificar con hardware; ver `tlaku_galvo::cor`).
+    pub cor_transpose: bool,
+    /// Solo con `cor_file`: aplica los desplazamientos del `.cor` con el signo contrario.
+    pub cor_invert: bool,
 }
 
 impl Default for FieldCorrection {
@@ -331,6 +378,8 @@ impl Default for FieldCorrection {
             trapezoid: [0.0, 0.0],
             skew: [0.0, 0.0],
             cor_file: None,
+            cor_transpose: false,
+            cor_invert: false,
         }
     }
 }
@@ -388,6 +437,8 @@ pub struct GalvoDevice {
     /// Marcado dividido / rotativo galvo y marcado repetido: ver `tlaku_pipeline::mark_sequence`.
     pub split: SplitMarking,
     pub repeat: RepeatMarking,
+    /// Rotativo del galvo (M30); apagado = se mira el rotativo general del perfil.
+    pub rotary: GalvoRotary,
     /// Enclavamiento por una entrada de la tarjeta (M45); `None` = sin enclavamiento.
     pub require_input: Option<InputRequirement>,
     /// Overscan de rellenos e imágenes, mm (M44); 0 = sin overscan (los espejos casi no tienen
@@ -414,6 +465,7 @@ impl Default for GalvoDevice {
             taper: TaperWarp::default(),
             split: SplitMarking::default(),
             repeat: RepeatMarking::default(),
+            rotary: GalvoRotary::default(),
             require_input: None,
             overscan_mm: 0.0,
         }
@@ -479,5 +531,37 @@ mod tests {
         // Una condición a medias toma 0 en lo que falta (no exige nada).
         let r: InputRequirement = serde_json::from_str("{}").unwrap();
         assert_eq!((r.mask, r.value), (0, 0));
+    }
+    /// Un perfil guardado antes de la ola 6E no trae el rotativo del galvo, las formas enteras ni los
+    /// ajustes del `.cor`: se leen apagados y el resto del perfil queda igual.
+    #[test]
+    fn profiles_from_before_wave_6e_load_with_the_new_fields_off() {
+        let old = r#"{ "field_mm": 150.0,
+            "split": { "enabled": true, "piece_mm": 40.0 },
+            "correction": { "scale": [1.01, 1.0], "cor_file": "lente.cor" } }"#;
+        let d: GalvoDevice = serde_json::from_str(old).unwrap();
+        assert_eq!(d.rotary, GalvoRotary::default());
+        assert!(!d.rotary.enabled);
+        assert!(d.split.enabled && !d.split.whole_shapes);
+        assert_eq!(d.split.piece_mm, 40.0);
+        assert_eq!(d.correction.cor_file.as_deref(), Some("lente.cor"));
+        assert!(!d.correction.cor_transpose && !d.correction.cor_invert);
+        assert_eq!(d.correction.scale, [1.01, 1.0]);
+        // El rotativo nuevo ida y vuelta, con sus nombres en snake_case.
+        let r = GalvoRotary {
+            enabled: true,
+            diameter_mm: 42.5,
+            steps_per_rev: 1600,
+            axis: CylinderAxis::Y,
+            reverse: true,
+        };
+        let json = serde_json::to_string(&r).unwrap();
+        assert!(
+            json.contains("\"steps_per_rev\":1600") && json.contains("\"axis\":\"y\""),
+            "{json}"
+        );
+        assert_eq!(serde_json::from_str::<GalvoRotary>(&json).unwrap(), r);
+        let half: GalvoRotary = serde_json::from_str(r#"{ "enabled": true }"#).unwrap();
+        assert_eq!(half.diameter_mm, 50.0);
     }
 }

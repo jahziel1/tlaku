@@ -77,6 +77,38 @@ pub struct ControllerInfo {
     pub travel_m: [Option<u64>; 2],
     /// Documentos guardados en la memoria.
     pub documents: Option<u32>,
+    /// Versión de la placa (cadena), si la máquina la informa.
+    pub board_version: Option<String>,
+    /// Duración del trabajo anterior; unidad sin documentar.
+    pub previous_work: Option<u64>,
+    /// Modo de control del sistema (`0x0000` origen, `0x4000` sin retorno, `0x8000` origen
+    /// absoluto según EduTech).
+    pub control_mode: Option<u64>,
+    /// Funciones de la máquina, decodificadas del valor de `0x18F`.
+    pub features: Option<MachineFeatures>,
+}
+
+/// Bits de `MEM_MACHINE_FEATURES` (ruida-pa, `ruida_protocol.py`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MachineFeatures {
+    pub raw: u64,
+    /// Bit 0: foco habilitado.
+    pub focus: bool,
+    /// Bit 3: retorno de Z al muelle.
+    pub z_return_docking: bool,
+    /// Bits 9 y 10: modo del aire (0 a 3; ruida-pa no nombra los modos).
+    pub air_assist_mode: u8,
+}
+
+impl MachineFeatures {
+    pub fn from_raw(raw: u64) -> Self {
+        MachineFeatures {
+            raw,
+            focus: raw & 0x1 != 0,
+            z_return_docking: raw & 0x8 != 0,
+            air_assist_mode: ((raw >> 9) & 0x3) as u8,
+        }
+    }
 }
 
 /// Documento guardado en la memoria de la controladora.

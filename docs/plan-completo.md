@@ -25,6 +25,8 @@ Estado tras la ola 4 (2026-10-13, `04-cobertura.md` actualizado y recontado con 
 
 Estado tras la ola 5 (2026-10-13, `04-cobertura.md` actualizado y recontado con un script): **175 hechas (82 %), 27 parciales, 10 solo en motor o CLI, 2 faltantes** de 214. P0 sin cambios: 64 de 68 hechas (parciales C51, M3, M5, M6). Por área: diseño y edición 90 hechas, capas, corte e imagen 56 y máquinas y avanzadas 29. Las 10 "solo motor o CLI" son todas del galvo y las 2 faltantes, D90 y D94 (P2).
 
+Estado tras la ola 6E (2026-10-14): **213 hechas, 4 parciales (M25, M28, M40, M47: necesitan hardware o documentación pública), 0 faltantes; P0 68 de 68.** Ola 6E: parciales con emuladores (Ruida con escrituras apagadas de fábrica, galvo, periféricos, diseño), continuar un trabajo interrumpido, y el repositorio público bilingüe con aportes de la comunidad.
+
 Estado tras la ola 6C y la auditoría final de la 6D (2026-10-14, recontado con un script sobre las 217 filas, incluidas M55 a M57 de la ola 5.5): **195 hechas (90 %), 22 parciales, 0 solo en motor o CLI, 0 faltantes**. **P0: 68 de 68 hechas.** Por área: diseño y edición 94 de 100, capas, corte e imagen 59 de 60 y máquinas y avanzadas 42 de 57. El resumen de la ola 6C decía 180 hechas; las filas ya sumaban 182 (D04 y D12 habían pasado a Hecho sin recalcular). La auditoría subió 13 más (M3, M5, M6, M4, M35, M36, D99 y, del galvo, C47, C59, M41, M42, M44 y M45) y pasó M30, M40, M43 y M46 de solo motor/CLI a Parcial. Detalle en [spec/cobertura/auditoria.md](spec/cobertura/auditoria.md).
 
 ## Ola 1: base para publicar
@@ -155,7 +157,8 @@ Cobertura nueva: M37 y M39 pasaron a Hecho. M47 pasó a Parcial. M30, M40, M41, 
 - *Ola 6C, hecho*: las **imágenes giran con el registro de Print & Cut** (se vuelven a muestrear sobre la caja girada), los **presets y la vista previa por imagen** (C51) y **repetir un trabajo con avance del alimentador** (M47, desde el diálogo de inicio, solo GRBL).
 - *Ola 6C, hecho*: **sin duplicados**: el ajuste de Print & Cut (`fit_registration`) y el plan de tiling (`plan_grid`) son solo del motor y la app los llama por comandos; la maqueta de TypeScript queda en `api/mock/` para el modo simulado y se comprueba con los mismos casos JSON que el motor (`crates/tlaku-pipeline/tests/cross/`).
 - *Ola 6*: la **lista de validación con hardware real** gana el galvo: la prueba mínima de `docs/hardware/galvo.md` sección 9 (tarjeta y cabezal sin fuente; medir con osciloscopio que el láser queda apagado al cancelar y al desconectar el USB; verificar las unidades de velocidad, frecuencia, potencia y retardos; y solo entonces la fuente), además de Print & Cut con un láser y una cámara reales, el tiling y el alimentador con una máquina real.
-- *Sin fecha*: el `.cor` de EZCAD (se lee su estructura, no se aplica), el marcado al vuelo, EZCAD3/DLC y BSL (fuera de alcance por falta de documentación).
+- *Ola 6E, hecho*: el `.cor` de EZCAD se aplica en el equipo (nunca se escribe en la tarjeta), el asistente de nueve puntos, el editor propio del rotativo galvo, el marcado dividido por formas enteras y la vista previa de la deformación de cilindro y cono.
+- *Sin fecha*: el marcado al vuelo (sin documentación pública del protocolo y exigiría escribir la configuración de la tarjeta), EZCAD3/DLC y BSL (fuera de alcance por falta de documentación).
 
 Plan original de la ola:
 
@@ -254,11 +257,10 @@ Queda de la 6D (lo hacen otros frentes en paralelo, no se cuentan aquí): accesi
 - M25: escribir los ajustes de Ruida, `.lbset`, respaldo automático y calibrar ejes.
 - M26: información de la controladora Ruida con direcciones y unidades verificadas.
 - M28: escribir el rotativo en la controladora DSP.
-- M30: editor propio del rotativo galvo en el perfil.
 - M32: offset de U por capa y láser 2 con Ruida.
-- M40: marcado dividido de formas enteras y marcado al vuelo del galvo.
-- M43: asistente de nueve puntos y aplicar un `.cor` de EZCAD.
-- M46: vista previa de la deformación de cilindro y cono, y validar el modelo.
+- M40: marcado al vuelo del galvo (sin documentación pública del protocolo).
+- M43: validar la lectura del `.cor` con una tarjeta real.
+- M46: validar el modelo de cilindro y cono con una pieza real.
 - M47: alimentador nativo de una DSP y tiling en varias columnas.
 - M48: buscador de centro tocando tres puntos con el cabezal.
 - M51: preferencias de cámara (la actualización automática es de la beta, en curso).

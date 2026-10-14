@@ -70,6 +70,67 @@ impl<L: PacketLink> Worker<L> {
                 let r = self.files();
                 let _ = reply.send(r);
             }
+            Request::SettingsRead(reply) => {
+                let r = self.settings_read();
+                let _ = reply.send(r);
+            }
+            Request::SettingsPreview(changes, reply) => {
+                let r = self.settings_preview(&changes);
+                let _ = reply.send(r);
+            }
+            Request::SettingsPreviewFile(json, reply) => {
+                let r = self.settings_preview_file(&json);
+                let _ = reply.send(r);
+            }
+            Request::SettingsApply {
+                changes,
+                confirmed,
+                dir,
+                reply,
+            } => {
+                let r = self.settings_apply(&changes, confirmed, &dir);
+                let _ = reply.send(r);
+            }
+            Request::SettingsRestore {
+                json,
+                confirmed,
+                dir,
+                reply,
+            } => {
+                let r = self.settings_restore(&json, confirmed, &dir);
+                let _ = reply.send(r);
+            }
+            Request::SettingsExport(reply) => {
+                let r = self.settings_export();
+                let _ = reply.send(r);
+            }
+            Request::Calibrate {
+                key,
+                commanded_mm,
+                measured_mm,
+                reply,
+            } => {
+                let r = self.calibrate(&key, commanded_mm, measured_mm);
+                let _ = reply.send(r);
+            }
+            Request::FileDelete {
+                index,
+                name,
+                confirmed,
+                reply,
+            } => {
+                let r = self.file_delete(index, &name, confirmed);
+                let _ = reply.send(r);
+            }
+            Request::FileRun {
+                index,
+                name,
+                confirmed,
+                reply,
+            } => {
+                let r = self.file_run(index, &name, confirmed);
+                let _ = reply.send(r);
+            }
             Request::Disconnect => unreachable!("se atiende en el ciclo principal"),
         }
     }

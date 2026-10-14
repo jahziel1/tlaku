@@ -1,0 +1,166 @@
+name: "Real machine test report / Reporte de prueba en una máquina real"
+description: "Tell us how Tlaku worked on your real machine. Good results help too! / Cuéntanos cómo funcionó Tlaku en tu máquina real. ¡Los resultados buenos también ayudan!"
+title: "[Machine report] "
+labels: ["machine-report", "needs-hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN:** Everything in Tlaku has been tested only with emulators. Your report tells us what really works. Follow the levels of the [validation list](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md) (in Spanish) **in order, from safest to riskiest**, and stop at the first level that fails or leaves you in doubt. Wear eye protection for your laser's wavelength, use scrap material and keep your hand near the emergency stop. Tlaku is provided without warranty.
+
+        **ES:** Todo en Tlaku se ha probado solo con emuladores. Tu reporte nos dice qué funciona de verdad. Sigue los niveles de la [lista de validación](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md) **en orden, de lo más seguro a lo más arriesgado**, y detente en el primero que falle o te deje dudas. Usa protección ocular para la longitud de onda de tu láser, material de desecho y la mano cerca del paro de emergencia. Tlaku se ofrece sin garantía.
+
+        Tip / Consejo: in the app, *Help > Share my machine results…* opens this form with the controller and `$I` filled in. / En la app, *Ayuda > Compartir resultados de mi máquina…* abre este formulario con la controladora y `$I` ya llenos.
+  - type: input
+    id: version
+    attributes:
+      label: "Tlaku version / Versión de Tlaku"
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: "Operating system / Sistema operativo"
+    validations:
+      required: true
+  - type: input
+    id: brand
+    attributes:
+      label: "Brand / Marca"
+      placeholder: "Creality"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: "Model / Modelo"
+      description: "Exact model, including laser power. / Modelo exacto, con la potencia del láser."
+      placeholder: "Falcon2 22 W"
+    validations:
+      required: true
+  - type: input
+    id: controller
+    attributes:
+      label: "Controller / Controladora"
+      description: "For example GRBL, grblHAL, FluidNC, Marlin, Smoothie, Ruida, K40 M2 Nano, galvo. / Por ejemplo GRBL, grblHAL, FluidNC, Marlin, Smoothie, Ruida, K40 M2 Nano, galvo."
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: "Firmware"
+      placeholder: "Grbl 1.1f"
+  - type: textarea
+    id: grbl_i
+    attributes:
+      label: "GRBL: output of $I / Salida de $I"
+      description: "Machine panel > Console > Quick queries > $I (read-only). Paste it complete. / Panel Máquina > Consola > Consultas rápidas > $I (solo lectura). Pégala completa."
+      render: text
+  - type: textarea
+    id: grbl_settings
+    attributes:
+      label: "GRBL: output of $$ / Salida de $$"
+      description: "Same place, $$ (read-only). Paste it complete. / En el mismo lugar, $$ (solo lectura). Pégala completa."
+      render: text
+  - type: dropdown
+    id: connection
+    attributes:
+      label: "Connection / Conexión"
+      options:
+        - "USB (serial) / USB (serie)"
+        - "Network (TCP, WebSocket or UDP) / Red (TCP, WebSocket o UDP)"
+        - "USB direct (K40, galvo) / USB directo (K40, galvo)"
+        - "Other / Otra"
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        ## Test levels / Niveles de prueba
+        Choose a result for each level you tried. Levels are described in [section 0](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#0-cómo-usar-esta-lista) and the machine sections: [Falcon2 / GRBL](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#2-creality-falcon2-primero), [other GRBL](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#3-otros-grbl-diodos-genéricos-grblhal-fluidnc-marlin-y-smoothie), [network](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#4-conexión-por-red), [Ruida](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#5-ruida), [K40](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#6-k40-con-placa-m2-nano), [galvo](https://github.com/jahziel1/tlaku/blob/main/docs/validacion-hardware.md#7-galvo-tarjetas-jczbjjcz-lmc).
+
+        Elige un resultado por cada nivel que probaste. Los niveles se describen en la sección 0 y en las secciones de cada máquina (enlaces arriba).
+  - type: dropdown
+    id: n1
+    attributes:
+      label: "N1 Connect and read / Conectar y leer"
+      description: "Connect, read $I and $$ and see the status. Moves nothing. / Conectar, leer $I y $$ y ver el estado. No mueve nada."
+      options:
+        - "Not tested / No probé"
+        - "Worked / Funcionó"
+        - "Failed / Falló"
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: n2
+    attributes:
+      label: "N2 Move without laser / Mover sin láser"
+      description: "Homing and jogging with the laser off. / Homing y mover el cabezal con el láser apagado."
+      options:
+        - "Not tested / No probé"
+        - "Worked / Funcionó"
+        - "Failed / Falló"
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: n3
+    attributes:
+      label: "N3 Framing / Encuadre"
+      description: "Frame a rectangle with the laser off. / Encuadrar un rectángulo con el láser apagado."
+      options:
+        - "Not tested / No probé"
+        - "Worked / Funcionó"
+        - "Failed / Falló"
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: n4
+    attributes:
+      label: "N4 Test fire / Disparo de prueba"
+      description: "Low-power test fire on scrap. / Disparo de prueba a baja potencia sobre material de desecho."
+      options:
+        - "Not tested / No probé"
+        - "Worked / Funcionó"
+        - "Failed / Falló"
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: n5
+    attributes:
+      label: "N5 Small job / Trabajo chico"
+      description: "A small cut or engraving on scrap, including pause and stop. / Un corte o grabado chico sobre desecho, con pausa y paro."
+      options:
+        - "Not tested / No probé"
+        - "Worked / Funcionó"
+        - "Failed / Falló"
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: "Estimated vs real time / Tiempo estimado contra real"
+      description: "Preview estimate and the real time of the small job (Help > Job log…). / Estimado de la vista previa y tiempo real del trabajo chico (Ayuda > Registro de trabajos…)."
+      placeholder: "Estimated 2:10 / Real 2:25"
+  - type: textarea
+    id: problems
+    attributes:
+      label: "Problems and observations / Problemas y observaciones"
+      description: "Anything strange: alarms, wrong directions, lost lines, odd sounds. Paste the console log if something failed. / Cualquier cosa rara: alarmas, sentidos invertidos, líneas perdidas. Pega el registro de la consola si algo falló."
+  - type: textarea
+    id: photos
+    attributes:
+      label: "Photos / Fotos"
+      description: "Photos of the result with a ruler in view, and screenshots. / Fotos del resultado con una regla a la vista, y capturas de pantalla."
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: "Safety / Seguridad"
+      options:
+        - label: "I followed the levels in order and used eye protection and scrap material. / Seguí los niveles en orden y usé protección ocular y material de desecho."
+          required: true

@@ -298,9 +298,7 @@ mod tests {
             id: id.into(),
             layer: Rgb(255, 0, 0),
             transform: IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![square.clone()],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![square.clone()])),
             locked: false,
             hidden: false,
             group: None,

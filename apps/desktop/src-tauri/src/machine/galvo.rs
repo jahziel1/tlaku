@@ -53,7 +53,7 @@ use tlaku_galvo::session::{
 use tlaku_galvo::transport::{LaserSafetyAck, Transport, TransportError, TransportInfo};
 use tlaku_galvo::usb::{self, UsbTimeouts, UsbTransport};
 use tlaku_i18n::tr;
-use tlaku_pipeline::{StageMove, job_mark_sequence};
+use tlaku_pipeline::{StageMove, doc_mark_sequence};
 
 /// Puerto de la máquina virtual galvo.
 pub const VIRTUAL_PORT: &str = "virtual:galvo";

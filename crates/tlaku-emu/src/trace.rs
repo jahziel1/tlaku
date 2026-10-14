@@ -12,6 +12,8 @@ pub enum MoveKind {
     Feed,
     /// `$J=`.
     Jog,
+    /// `G38.x`: el láser nunca dispara.
+    Probe,
     /// Cabeza parada (pausa, `G4`, fin de bloque, `M3` en reposo).
     Stationary,
 }

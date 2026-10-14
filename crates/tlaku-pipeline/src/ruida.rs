@@ -38,6 +38,7 @@ pub fn export_rd(
             bed_mm: [bed.0, bed.1],
             ..SafetyLimits::default()
         },
+        false,
     )
 }
 
@@ -53,6 +54,10 @@ pub fn limits_for_device(device: &DeviceProfile) -> SafetyLimits {
 }
 
 /// Como [`export_rd`] con la cama, el home y el tope de velocidad del perfil de la máquina.
+///
+/// Las capas del láser 2 (`LayerSettings::laser2`) salen con `CA 01 11` solo si el perfil dice
+/// que la máquina tiene segundo láser (`device.laser2`); si no, salen con el láser 1 y
+/// [`layer_warnings`] lo avisa. **Láser 2 sin probar con una máquina de dos láseres (M32).**
 pub fn export_rd_for_device(
     built: &ComputedJob,
     device: &DeviceProfile,
@@ -61,10 +66,16 @@ pub fn export_rd_for_device(
         built,
         home_for_origin(device.origin),
         limits_for_device(device),
+        device.laser2,
     )
 }
 
-fn job_options(layers: &[LayerReport], home: HomeCorner, limits: SafetyLimits) -> RuidaJobOptions {
+fn job_options(
+    layers: &[LayerReport],
+    home: HomeCorner,
+    limits: SafetyLimits,
+    laser2: bool,
+) -> RuidaJobOptions {
     RuidaJobOptions {
         limits,
         layers: layers
@@ -72,6 +83,7 @@ fn job_options(layers: &[LayerReport], home: HomeCorner, limits: SafetyLimits) -
             .map(|l| LayerOptions {
                 color: [l.color.0, l.color.1, l.color.2],
                 min_power_pct: None,
+                laser2: laser2 && l.laser2,
             })
             .collect(),
         home,
@@ -85,8 +97,9 @@ fn rd_with_limits(
     built: &ComputedJob,
     home: HomeCorner,
     limits: SafetyLimits,
+    laser2: bool,
 ) -> Result<Vec<u8>, String> {
-    let opts = job_options(&built.layers, home, limits);
+    let opts = job_options(&built.layers, home, limits, laser2);
     let clamped = rd::clamp_speeds(&built.toolpath, limits.max_speed_mm_min);
     let toolpath = clamped.as_ref().unwrap_or(&built.toolpath);
     rd::build_rd(toolpath, &opts).map_err(|e| e.to_string())
@@ -107,16 +120,21 @@ pub(crate) fn layer_warnings(
     layers: &[LayerReport],
     device: &DeviceProfile,
 ) -> Vec<String> {
-    // Caso común: no hay nada que decir y no se planifica el trabajo entero.
+    let mut out = Vec::new();
+    if !device.laser2 && layers.iter().any(|l| l.laser2) {
+        out.push(tr!("pipeline.ruida.no_laser2", machine = device.name));
+    }
+    // Caso común: no hay nada más que decir y no se planifica el trabajo entero.
     if cutting_blocks(toolpath) <= MAX_LAYERS {
-        return Vec::new();
+        return out;
     }
     let opts = job_options(
         layers,
         home_for_origin(device.origin),
         limits_for_device(device),
+        device.laser2,
     );
-    match rd::plan_summary(toolpath, &opts) {
+    out.extend(match rd::plan_summary(toolpath, &opts) {
         Ok(s) if s.fits() => vec![tr!(
             "pipeline.ruida.layers_merged",
             max = MAX_LAYERS,
@@ -132,7 +150,8 @@ pub(crate) fn layer_warnings(
             layers = s.layers
         )],
         Err(e) => vec![tr!("pipeline.ruida.cannot_export", error = e)],
-    }
+    });
+    out
 }
 
 #[cfg(test)]

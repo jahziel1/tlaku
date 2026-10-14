@@ -5,7 +5,7 @@ import { selectActiveDevice, selectJobSelection, useStore } from '@/store';
 import { designBounds } from '@/features/machine/placement';
 import { defaultTileSize } from './plan';
 import { isComplete, loadSession, sessionKey, type TileSession, type TilingConfig } from './session';
-import type { Bounds, PlanResult } from './types';
+import type { Bounds, MarkSegment, PlanResult } from './types';
 
 /**
  * Fase del asistente:
@@ -32,6 +32,10 @@ export interface TilingUiState {
   /** Se está pidiendo al motor el plan de las opciones actuales. */
   planning: boolean;
   session: TileSession | null;
+  /** Cruces de alineación de la sesión (para las marcas de registro de la guía). */
+  marks: MarkSegment[];
+  /** La guía «mueve el material» está abierta. */
+  guide: boolean;
   /** Avance guardado de una sesión interrumpida que se puede retomar. */
   saved: TileSession | null;
   message: string | null;
@@ -83,6 +87,8 @@ export const useTilingUi = create<TilingUiState>()((set, get) => ({
   plan: null,
   planning: false,
   session: null,
+  marks: [],
+  guide: false,
   saved: null,
   message: null,
   set: (patch) => set(patch),

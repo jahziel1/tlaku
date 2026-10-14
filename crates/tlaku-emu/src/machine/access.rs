@@ -44,6 +44,8 @@ impl Machine {
             g28: [0.0; 3],
             g30: [0.0; 3],
             g92: [0.0; 3],
+            probe_surface: None,
+            probe_last: ([0.0; 3], false),
             gc: Gc::new(pos),
             alarm: None,
             hold: None,
@@ -105,6 +107,27 @@ impl Machine {
     // -----------------------------------------------------------------------
     // Acceso para pruebas
     // -----------------------------------------------------------------------
+
+    /// Pone (o quita) lo que toca la sonda. Se consulta al interpretar cada `G38.x`.
+    pub fn set_probe_surface(&mut self, surface: Option<ProbeSurface>) {
+        self.probe_surface = surface;
+    }
+
+    pub fn probe_surface(&self) -> Option<&ProbeSurface> {
+        self.probe_surface.as_ref()
+    }
+
+    /// ¿Está activo el pin de la sonda (la cabeza toca la superficie)?
+    pub fn probe_pin(&self) -> bool {
+        self.probe_surface
+            .as_ref()
+            .is_some_and(|s| s.contains(self.pos))
+    }
+
+    /// Posición de máquina y resultado de la última sonda (`[PRB:...]`).
+    pub fn last_probe(&self) -> ([f64; 3], bool) {
+        self.probe_last
+    }
 
     pub fn profile(&self) -> &Profile {
         &self.profile
@@ -236,6 +259,13 @@ impl Machine {
 
     pub fn is_connected(&self) -> bool {
         self.connected
+    }
+
+    /// Vuelve a conectar el cable (tras `Fault::Disconnect` o `Fault::PowerLoss`) y descarta lo
+    /// que la controladora había dicho mientras nadie escuchaba.
+    pub fn reconnect(&mut self) {
+        self.connected = true;
+        self.clear_output();
     }
 
     pub fn setting(&self, id: u32) -> f64 {

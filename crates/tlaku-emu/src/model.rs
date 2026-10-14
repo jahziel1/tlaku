@@ -14,6 +14,8 @@ pub(crate) enum MotionMode {
     ArcCcw,
     /// G80: sin modo de movimiento.
     None,
+    /// `G38.2` a `G38.5` (el número es el decimal: 2 a 5).
+    Probe(u8),
 }
 
 /// Estado modal del intérprete de G-code (lo que imprime `$G`).
@@ -106,6 +108,16 @@ pub(crate) enum Action {
     ToolChange,
     /// La línea excede los límites blandos: se responde `ok` y salta `ALARM:2`.
     SoftLimitAlarm,
+    /// Inicio de un ciclo de sonda (tras `Sync`): `ALARM:4` si el pin ya está en el estado de
+    /// llegada (activo para `G38.2`/`G38.3`, suelto para `G38.4`/`G38.5`).
+    ProbeStart { away: bool },
+    /// Fin del ciclo (tras `Sync`): guarda la posición, imprime `[PRB:...]` y, si no hubo
+    /// contacto en `G38.2`/`G38.4`, `ALARM:5`.
+    ProbeEnd {
+        stop: [f64; 3],
+        hit: bool,
+        error_on_miss: bool,
+    },
 }
 
 /// Efectos inmediatos sobre parámetros del controlador.

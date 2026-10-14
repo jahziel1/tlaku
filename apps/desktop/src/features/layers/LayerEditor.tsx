@@ -5,7 +5,8 @@ import { t } from '@/i18n';
 import { normalizeLayer } from '@/lib/layers';
 import { colorName, isGuideColor, readableOn } from '@/lib/palette';
 import { usePref, useStore } from '@/store';
-import { resetLayerDefaults, saveLayerAsDefaults } from './defaults';
+import { selectActiveDevice } from '@/store/selectors';
+import { currentDefaultsLevel, hasColorDefaults, removeColorDefaults, resetLayerDefaults, saveColorDefaults, saveLayerAsDefaults } from './defaults';
 import { LayerFields, ModePicker } from './LayerFields';
 import { NumField, Group, Toggle } from './ParamFields';
 import { focusLayerRow, useLayerUi } from './layerUi';
@@ -25,10 +26,8 @@ export function LayerEditor({ layer: rawLayer }: { layer: LayerSettings }) {
   const guide = isGuideColor(color);
   const headRef = useRef<HTMLHeadingElement>(null);
   const showHelp = useLayerUi((s) => s.showHelp);
-  const beginner = usePref('beginnerMode');
   const layerCount = useStore((s) => s.doc.layers.length);
   const allLayers = useStore((s) => s.doc.layers);
-  const setPref = useStore((s) => s.setPref);
   const { set } = useLayerSetters({ color, sub: null });
 
   useEffect(() => headRef.current?.focus(), []);
@@ -68,10 +67,6 @@ export function LayerEditor({ layer: rawLayer }: { layer: LayerSettings }) {
         </button>
       </header>
 
-      <div className="lyr-beginner">
-        <Toggle label={t('layers.beginner')} checked={beginner} onChange={(v) => setPref('beginnerMode', v)} help={t('layers.beginner.help')} />
-      </div>
-
       <Group title={t('layers.group.general')}>
         <NameField value={layer.name} fallback={colorName(color)} onApply={(v) => set({ name: v })} />
         {guide ? (
@@ -92,33 +87,31 @@ export function LayerEditor({ layer: rawLayer }: { layer: LayerSettings }) {
 
       {!guide && (
         <>
-          <LayerFields layer={layer} target={{ color, sub: null }} beginner={beginner} />
+          <LayerFields layer={layer} target={{ color, sub: null }} />
 
-          {!beginner && <SubLayers layer={layer} />}
+          <SubLayers layer={layer} />
 
-          {!beginner && (
-            <Group title={t('layers.group.order')}>
-              <Toggle
-                label={t('layers.orderPin')}
-                checked={pinned}
-                onChange={(v) => set({ order: v ? firstFreePosition(allLayers, color) : null })}
-                help={t('layers.help.order')}
+          <Group title={t('layers.group.order')}>
+            <Toggle
+              label={t('layers.orderPin')}
+              checked={pinned}
+              onChange={(v) => set({ order: v ? firstFreePosition(allLayers, color) : null })}
+              help={t('layers.help.order')}
+            />
+            {pinned && (
+              <NumField
+                field="order"
+                label={t('layers.orderPosition')}
+                value={layer.order ?? 1}
+                ctx={{ layerCount }}
+                onApply={(v) => set({ order: v })}
+                extra={(v) => {
+                  const other = orderConflict(allLayers, color, v);
+                  return other ? { key: 'layers.err.orderTaken', params: { name: other.name || colorName(other.color) } } : null;
+                }}
               />
-              {pinned && (
-                <NumField
-                  field="order"
-                  label={t('layers.orderPosition')}
-                  value={layer.order ?? 1}
-                  ctx={{ layerCount }}
-                  onApply={(v) => set({ order: v })}
-                  extra={(v) => {
-                    const other = orderConflict(allLayers, color, v);
-                    return other ? { key: 'layers.err.orderTaken', params: { name: other.name || colorName(other.color) } } : null;
-                  }}
-                />
-              )}
-            </Group>
-          )}
+            )}
+          </Group>
 
           <DefaultsGroup color={color} />
         </>
@@ -127,15 +120,27 @@ export function LayerEditor({ layer: rawLayer }: { layer: LayerSettings }) {
   );
 }
 
-/** Guardar los ajustes de esta capa como valores por defecto de las capas nuevas, o volver a los de fábrica (C35). */
+/**
+ * Guardar los ajustes de esta capa como valores por defecto de las capas nuevas (C35): para todas, para
+ * este color en cualquier máquina o para este color en la máquina activa; o volver a los de fábrica.
+ */
 function DefaultsGroup({ color }: { color: string }) {
   const custom = usePref('layerDefaults') !== null;
   const showHelp = useLayerUi((s) => s.showHelp);
   const note = useId();
+  const prefs = useStore((s) => s.prefs);
+  const activeDeviceId = useStore((s) => s.activeDeviceId);
+  const devices = useStore((s) => s.devices);
+  const device = selectActiveDevice({ devices, activeDeviceId }).name;
+  const state = { prefs, activeDeviceId };
+  const level = currentDefaultsLevel(state, color);
+  const hasMachine = hasColorDefaults(state, color, 'machine');
+  const hasColor = hasColorDefaults(state, color, 'color');
+  const noDevice = state.activeDeviceId === null;
   return (
     <Group title={t('layers.group.defaults')}>
       <p id={note} className="lyr-live">
-        {custom ? t('layers.defaults.custom') : t('layers.defaults.factory')}
+        {t(`layers.defaults.level.${level}`, { device: device })}
       </p>
       <div className="lyr-actions">
         <button type="button" className="btn" aria-describedby={note} onClick={() => saveLayerAsDefaults(useStore.getState(), color)}>
@@ -145,7 +150,29 @@ function DefaultsGroup({ color }: { color: string }) {
           {t('layers.defaults.reset')}
         </button>
       </div>
-      {!custom && <p className="lyr-live">{t('layers.reason.noCustomDefaults')}</p>}
+      <div className="lyr-actions">
+        <button type="button" className="btn" disabled={noDevice} title={noDevice ? t('layers.reason.noDevice') : undefined} onClick={() => saveColorDefaults(useStore.getState(), color, 'machine')}>
+          {t('layers.defaults.saveMachine', { device: device })}
+        </button>
+        <button type="button" className="btn" onClick={() => saveColorDefaults(useStore.getState(), color, 'color')}>
+          {t('layers.defaults.saveColor')}
+        </button>
+      </div>
+      {(hasMachine || hasColor) && (
+        <div className="lyr-actions">
+          {hasMachine && (
+            <button type="button" className="btn" onClick={() => removeColorDefaults(useStore.getState(), color, 'machine')}>
+              {t('layers.defaults.removeMachine', { device: device })}
+            </button>
+          )}
+          {hasColor && (
+            <button type="button" className="btn" onClick={() => removeColorDefaults(useStore.getState(), color, 'color')}>
+              {t('layers.defaults.removeColor')}
+            </button>
+          )}
+        </div>
+      )}
+      {!custom && level === 'factory' && <p className="lyr-live">{t('layers.reason.noCustomDefaults')}</p>}
       {showHelp && <p className="lyr-help">{t('layers.defaults.help')}</p>}
     </Group>
   );

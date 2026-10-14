@@ -48,6 +48,21 @@ impl Machine {
         }
     }
 
+    /// Corte de luz: se apaga todo de golpe. La cabeza queda donde estaba (`pos`), pero la
+    /// controladora ya no sabe dónde está (`position_lost`) y el cable deja de contestar.
+    fn power_loss(&mut self) {
+        self.stop_motion();
+        self.do_reset(ResetKind::Quiet);
+        self.homed = false;
+        self.position_lost = true;
+        // Sin luz no hay láser: lo que había quemado hasta aquí queda en el rastro; nada más.
+        self.exec_spindle = (SpindleMode::Off, 0.0);
+        if self.homing_lock() {
+            self.alarm = Some(0);
+        }
+        self.connected = false;
+    }
+
     fn apply_fault(&mut self, fault: Fault) {
         match fault {
             Fault::Noise(bytes) => self.emit_raw(&bytes),
@@ -66,6 +81,7 @@ impl Machine {
             Fault::Alarm(c) => self.raise_alarm(c),
             Fault::Alarm3WithBanner => self.do_reset(ResetKind::Motion),
             Fault::Reboot => self.do_reset(ResetKind::Quiet),
+            Fault::PowerLoss => self.power_loss(),
             Fault::Silence {
                 duration,
                 drop_output,

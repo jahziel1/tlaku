@@ -8,6 +8,8 @@ export const MAX_SCALE = 10;
 /** Topes del motor (`safety.rs`): desfase del puntero rojo y overscan del perfil, en mm. */
 export const MAX_POINTER_OFFSET_MM = 50;
 export const MAX_OVERSCAN_MM = 20;
+/** Tope de pasos por vuelta del rotativo del galvo (solo para cazar un cero de más). */
+export const MAX_ROTARY_STEPS = 10_000_000;
 /** Tope de repeticiones del marcado repetido (el motor: `MAX_REPEATS`). */
 export const MAX_REPEATS = 100_000;
 
@@ -61,7 +63,9 @@ export type GalvoField =
   | 'increment'
   | 'overscan'
   | 'pointer_offset'
-  | 'interlock';
+  | 'interlock'
+  | 'rotary_diameter'
+  | 'rotary_steps';
 
 export type GalvoIssues = Partial<Record<GalvoField, I18nKey>>;
 
@@ -114,6 +118,9 @@ export function validateGalvoProfile(d: Pick<DeviceProfile, 'galvo' | 'origin'> 
   if (!r.increment_mm.every(finite)) out.increment = 'galvo.err.number';
   if (!finite(g.overscan_mm) || g.overscan_mm < 0 || g.overscan_mm > MAX_OVERSCAN_MM) out.overscan = 'galvo.err.overscan';
   if (d.pointer_offset && !d.pointer_offset.every((n) => finite(n) && Math.abs(n) <= MAX_POINTER_OFFSET_MM)) out.pointer_offset = 'galvo.err.pointerOffset';
+  const ro = g.rotary;
+  if (ro.enabled && !pos(ro.diameter_mm)) out.rotary_diameter = 'galvo.err.rotaryDiameter';
+  if (ro.enabled && (!Number.isInteger(ro.steps_per_rev) || ro.steps_per_rev < 0 || ro.steps_per_rev > MAX_ROTARY_STEPS)) out.rotary_steps = 'galvo.err.rotarySteps';
   if (g.require_input && (g.require_input.value & ~g.require_input.mask) !== 0) out.interlock = 'galvo.err.interlock';
   return out;
 }

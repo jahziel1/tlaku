@@ -1,0 +1,76 @@
+name: "Bug report / Reportar un error"
+description: "Something does not work as it should. / Algo no funciona como debería."
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN:** Thank you for reporting. If the problem could make the laser fire where it should not, fail to stop, or move the machine unexpectedly, **do not use this form**: report it privately at [Security](https://github.com/jahziel1/tlaku/security/advisories/new).
+
+        **ES:** Gracias por reportar. Si el problema podría encender el láser donde no debe, no detenerlo o mover la máquina sin querer, **no uses este formulario**: repórtalo en privado en [Seguridad](https://github.com/jahziel1/tlaku/security/advisories/new).
+
+        Tip / Consejo: in the app, *Help > Report a problem…* opens this form with the first fields filled in. / En la app, *Ayuda > Reportar un problema…* abre este formulario con los primeros campos llenos.
+  - type: input
+    id: version
+    attributes:
+      label: "Tlaku version / Versión de Tlaku"
+      description: "Help > About. / Ayuda > Acerca de."
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: "Operating system / Sistema operativo"
+      description: "For example macOS 15, Windows 11, Ubuntu 24.04. / Por ejemplo macOS 15, Windows 11, Ubuntu 24.04."
+    validations:
+      required: true
+  - type: input
+    id: machine
+    attributes:
+      label: "Machine / Máquina"
+      description: "Brand and model, or \"virtual machine\" if you used the simulator. / Marca y modelo, o «máquina virtual» si usaste el simulador."
+      placeholder: "Creality Falcon2 22 W"
+  - type: input
+    id: controller
+    attributes:
+      label: "Controller and firmware / Controladora y firmware"
+      description: "For example GRBL 1.1f, Ruida RDC6445G, K40 M2 Nano. / Por ejemplo GRBL 1.1f, Ruida RDC6445G, K40 M2 Nano."
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to reproduce / Pasos para repetirlo"
+      description: "One by one, as precise as you can. / Uno por uno, lo más precisos que puedas."
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected result / Resultado esperado"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: "Actual result / Resultado obtenido"
+    validations:
+      required: true
+  - type: textarea
+    id: job_log
+    attributes:
+      label: "Job log / Registro de trabajos"
+      description: "Help > Job log… (date, machine, estimated and real time, result). / Ayuda > Registro de trabajos… (fecha, máquina, tiempo estimado y real, resultado)."
+      render: text
+  - type: textarea
+    id: console
+    attributes:
+      label: "Console log / Registro de la consola"
+      description: "Machine panel > Console > Copy the log. Copy it before clearing it or closing the app. Remove anything private. / Panel Máquina > Consola > Copiar el registro. Cópialo antes de borrarlo o cerrar la app. Quita lo privado."
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots and files / Capturas y archivos"
+      description: "Drag images here. You can also attach the .tlaku file or the G-code that triggers it. / Arrastra imágenes aquí. También puedes adjuntar el archivo .tlaku o el G-code que lo provoca."

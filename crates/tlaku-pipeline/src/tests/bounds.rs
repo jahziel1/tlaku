@@ -72,6 +72,7 @@ fn bounds_check_covers_every_move() {
         z_mm: None,
         pass: None,
         sub: None,
+        u_offset_mm: 0.0,
         laser2: false,
     };
     let job = ComputedJob {

@@ -140,9 +140,7 @@ pub fn rotary_test(
             id: "prueba-una-vuelta".into(),
             layer: color,
             transform: IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&line)],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&line)])),
             locked: false,
             hidden: false,
             group: None,

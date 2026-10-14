@@ -37,6 +37,8 @@ pub struct LayerReport {
     pub pass: Option<(u32, u32)>,
     /// El bloque va con el segundo láser (`LayerSettings::laser2`).
     pub laser2: bool,
+    /// Desplazamiento de U (mm) de la capa (`LayerSettings::u_offset`); 0 = el del trabajo.
+    pub u_offset_mm: f64,
     /// `(posición, total)` de la operación entre las de su capa, si ésta tiene sub-capas (la
     /// principal es `1/total`). El nombre también lo lleva ("#rrggbb · 2/3").
     pub sub: Option<(u32, u32)>,

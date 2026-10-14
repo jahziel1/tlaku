@@ -29,8 +29,18 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.language.es': 'Español',
   'prefs.language.en': 'English',
   'prefs.language.hint': 'Choose the language of the interface. More languages can be added over time.',
+  'prefs.uiMode': 'Interface mode',
+  'prefs.uiMode.simple': 'Simple (for beginners)',
+  'prefs.uiMode.full': 'Full',
+  'prefs.uiMode.ask': 'Ask when opening',
+  'prefs.uiMode.hint': 'Simple mode is the beginner mode: it guides you step by step and hides the menus, tools and advanced settings. Your design is the same in both modes; you can also switch with the button in the top bar.',
   'prefs.updateCheckOnStart': 'Check for updates on startup',
   'prefs.updateCheckOnStart.hint': "A few seconds after opening, Tlaku checks whether a new version exists and tells you if so. It only connects to the project's update address and does not send your designs. Off by default.",
+  'prefs.camera.title': 'Camera',
+  'prefs.cameraReopen': 'Reopen the camera on startup',
+  'prefs.cameraReopen.hint': 'If the bed background was visible when Tlaku closed, the camera reopens by itself at startup. Turn it off if you prefer to switch it on yourself.',
+  'prefs.cameraFrameWidth': 'Maximum image width',
+  'prefs.cameraFrameWidth.hint': 'Width (px) the camera frame is reduced to for drawing it and for detecting marks and circles. Wider gives more detail and asks more of the computer; calibrations already made stay valid.',
   'prefs.updateCheckOnStart.unconfigured': 'This build has no automatic updates configured, so the option has no effect.',
 
   // ---- Editing ------------------------------------------------------------------

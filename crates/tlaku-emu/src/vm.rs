@@ -13,6 +13,7 @@ use crate::clock::{AutoClock, Clock};
 use crate::fault::{Fault, Trigger};
 use crate::machine::{LogEntry, Machine, Options, Received};
 use crate::model::StateKind;
+use crate::probe::ProbeSurface;
 use crate::profile::{LineEnding, Profile};
 use crate::trace::LaserTrace;
 
@@ -54,6 +55,7 @@ pub struct Builder {
     opts: Options,
     faults: Vec<(Trigger, Fault)>,
     line_ending: Option<LineEnding>,
+    probe: Option<ProbeSurface>,
 }
 
 impl Builder {
@@ -84,6 +86,12 @@ impl Builder {
     /// Valor inicial de un ajuste `$N`.
     pub fn setting(mut self, id: u32, value: f64) -> Self {
         self.profile = self.profile.with_setting(id, value);
+        self
+    }
+
+    /// Lo que toca la sonda de `G38.x` (coordenadas de máquina). Sin esto nunca hay contacto.
+    pub fn probe_surface(mut self, surface: ProbeSurface) -> Self {
+        self.probe = Some(surface);
         self
     }
 
@@ -134,6 +142,7 @@ impl Builder {
             self.profile.line_ending = le;
         }
         let mut machine = Machine::new(self.profile, self.opts);
+        machine.set_probe_surface(self.probe);
         for (t, f) in self.faults {
             machine.inject(t, f);
         }
@@ -159,6 +168,7 @@ impl VirtualMachine {
             opts: Options::default(),
             faults: Vec::new(),
             line_ending: None,
+            probe: None,
         }
     }
 
@@ -248,6 +258,16 @@ impl Handle {
     /// Posición de máquina.
     pub fn mpos(&self) -> [f64; 3] {
         self.with(|m| m.mpos())
+    }
+
+    /// ¿La cabeza toca la superficie de la sonda (pin `P`)?
+    pub fn probe_pin(&self) -> bool {
+        self.with(|m| m.probe_pin())
+    }
+
+    /// Cambia (o quita) lo que toca la sonda mientras la máquina corre.
+    pub fn set_probe_surface(&self, surface: Option<ProbeSurface>) {
+        self.with(|m| m.set_probe_surface(surface));
     }
 
     /// Posición de trabajo.
@@ -361,6 +381,15 @@ impl Handle {
     /// Programa una falla.
     pub fn inject(&self, trigger: Trigger, fault: Fault) {
         self.with(|m| m.inject(trigger, fault));
+    }
+
+    /// Vuelve a conectar el cable y devuelve un transporte nuevo sobre la MISMA controladora
+    /// (como abrir otra vez el puerto de la misma placa tras un corte de luz o cerrar la app).
+    pub fn reconnect(&self) -> VirtualMachine {
+        self.with(|m| m.reconnect());
+        VirtualMachine {
+            shared: self.shared.clone(),
+        }
     }
 
     /// Desconecta el cable ahora.

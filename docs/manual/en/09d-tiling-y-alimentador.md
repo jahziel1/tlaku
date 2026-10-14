@@ -50,6 +50,16 @@ The **alignment marks** are small crosses (80 % of the overlap in size, with a m
 
 The fine alignment of the material is **physical**: use stops, squares, or a template, and tape the material down. It is what gives the joint the most quality.
 
+## Several columns: the guided pause
+
+When the design is wider than the bed there are **several columns**, and the material has to be moved **by hand** from one to the next (the feeder only moves one axis). When a tile finishes and the next one is in another column or row, the wizard stops and opens a dialog, for example **"Move the material to column 2 of 2"**, which says which area of the design must sit on the bed and brings the **registration marks**:
+
+- These are the alignment crosses that were **already engraved** in the overlap and fall inside the next tile. Each one is shown with its position in the design.
+- **Bring the pointer** moves the head (laser off) to the point on the bed where that cross must land once the material is placed correctly; if your machine has a red pointer and its offset is in the profile, it is the pointer that goes there. Move the material by hand until the pointer lands on the engraved cross.
+- **It is placed: send tile n** closes the dialog and sends the tile. **Skip** marks it done without sending it, and **Later** closes the dialog so you can place the material without hurry (the panel's **Send tile n** button is still there).
+
+There are registration marks only if you used an **overlap greater than zero** and left the **alignment marks** on; otherwise the dialog says so and you will have to align to the edge of the material or to stops. With the **Serpentine** order there are fewer pauses: the first row goes left to right and the next one right to left, so when the row changes the next tile is in the **same column**.
+
 ## Sending in tiles
 
 For each tile the wizard shows:
@@ -92,7 +102,7 @@ Tlaku validates the G-code (it cannot be empty, it must contain `{mm}`, it accep
 
 ### How tiling uses it
 
-The feeder is only used when the tiles run **in a single column**, that is, when the design fits across the width and is split along the length. If there are several columns, the panel warns "The feeder is only used when the tiles run in a single direction (one column)" and you move the material yourself.
+The feeder only advances the material between tiles **of the same column**: when the design fits across the width and is split along the length, or, with several columns and the **Serpentine** order, when going from one row to the next in the same column. When the next tile is in **another column**, a single-axis advance is not enough: the wizard stops with the [guided pause](#several-columns-the-guided-pause) and you move the material. With the by-rows order and several columns the panel warns "The feeder is only used when the tiles run in a single direction (one column)".
 
 With a single column, the flow changes:
 
@@ -117,9 +127,9 @@ If an advance or a job fails, the batch stops at that point and the panel says w
 ## What it does not do (yet)
 
 - There is no tiling from the command line; it belongs to the app's wizard.
-- With tiling, the feeder is only used with the tiles in one column: the advance is single-axis, so with several columns you have to reposition the material by hand.
+- With several columns the material is repositioned **by hand**: the wizard only guides you (pause and registration marks); it does not measure whether it ended up well placed. Check by eye that the crosses coincide before sending.
 - It does **not** use the built-in feeder of a DSP controller (Ruida, Trocen): there is no documented way to request the advance from it, and moving an axis with invented commands is not safe. With Ruida and K40 the **Repeat with the feeder** section does not appear.
 - It does not split whole shapes when choosing the tile's edge: a shape that crosses the edge is cut in two parts, one in each tile.
-- None of this has been tested with a real feeder.
+- None of this has been tested with a real feeder, nor with the material moved by hand between columns.
 
 Next: [Remote control from your phone](09e-control-desde-el-celular.md)

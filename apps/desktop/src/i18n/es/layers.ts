@@ -262,9 +262,6 @@ export const layers = {
   'layers.group.defaults': 'Valores por defecto',
 
   // ---- modo principiante ---------------------------------------------------------------------------
-  'layers.beginner': 'Modo principiante',
-  'layers.beginner.help': 'Oculta los ajustes avanzados (perforación, entradas y salidas, puentes, operaciones adicionales, eje Z, posición fija...). Lo que ya tengas configurado se conserva y se sigue aplicando.',
-  'layers.beginner.hiddenInUse': 'Esta capa usa ajustes avanzados que el modo principiante oculta. Se siguen aplicando; apaga el modo para verlos o cambiarlos.',
 
   // ---- potencia mínima y ángulo ------------------------------------------------------------------------
   'layers.note.minPowerLine':
@@ -368,9 +365,21 @@ export const layers = {
   'layers.defaults.reset': 'Restablecer',
   'layers.defaults.custom': 'Las capas nuevas empiezan con tus valores por defecto.',
   'layers.defaults.factory': 'Las capas nuevas empiezan con los valores de fábrica.',
-  'layers.defaults.help': 'Guarda los ajustes de esta capa (sin color, nombre ni posición) para que las capas nuevas empiecen con ellos. Las capas que ya existen no cambian. Restablecer vuelve a los valores de fábrica.',
+  'layers.defaults.help': 'Guarda los ajustes de esta capa (sin color, nombre ni posición) para que las capas nuevas empiecen con ellos. Las capas que ya existen no cambian. También puedes guardarlos solo para este color, en esta máquina o en todas: al crear una capa mandan primero los de su color y máquina, luego los de su color y al final los generales. Restablecer vuelve a los valores de fábrica.',
   'layers.defaults.saved': 'Valores por defecto guardados para las capas nuevas.',
   'layers.defaults.restored': 'Las capas nuevas vuelven a empezar con los valores de fábrica.',
+  'layers.defaults.level.machine': "Para este color en {device} se usan valores guardados para esa máquina.",
+  'layers.defaults.level.color': "Para este color se usan los valores guardados para ese color.",
+  'layers.defaults.level.general': "Las capas nuevas empiezan con tus valores por defecto.",
+  'layers.defaults.level.factory': "Las capas nuevas empiezan con los valores de fábrica.",
+  'layers.defaults.saveMachine': "Guardar para este color en {device}",
+  'layers.defaults.saveColor': "Guardar para este color (todas las máquinas)",
+  'layers.defaults.removeMachine': "Quitar los de este color en {device}",
+  'layers.defaults.removeColor': "Quitar los de este color (todas las máquinas)",
+  'layers.defaults.savedMachine': "Valores por defecto de {color} guardados para {device}.",
+  'layers.defaults.savedColor': "Valores por defecto de {color} guardados para todas las máquinas.",
+  'layers.defaults.removedColor': "Se quitaron los valores por defecto de {color}.",
+  'layers.reason.noDevice': "Elige primero una máquina.",
   'layers.reason.noCustomDefaults': 'Ya se usan los valores de fábrica.',
 
   // ---- menú de la fila: copiar, pegar y borrar ---------------------------------------------------------------------------
@@ -399,11 +408,16 @@ export const layers = {
   'layers.cmd.pasteSettings': 'Pegar ajustes en la capa activa',
   'layers.cmd.delete': 'Borrar la capa activa y sus objetos…',
   'layers.cmd.saveDefaults': 'Guardar la capa activa como valores por defecto',
+  'layers.cmd.saveColorMachineDefaults': 'Guardar la capa activa como valores por defecto de su color en esta máquina',
+  'layers.cmd.saveColorDefaults': 'Guardar la capa activa como valores por defecto de su color (todas las máquinas)',
   'layers.cmd.resetDefaults': 'Restablecer los valores por defecto de las capas nuevas',
 
   'layers.laser2': 'Láser 2',
   'layers.help.laser2': 'Ejecuta esta capa con el segundo láser de la máquina (se envía la orden de selección del dialecto).',
   'layers.help.laser2None': 'Esta capa pide el láser 2, pero la máquina activa no lo tiene: saldrá con el láser 1.',
+  'layers.uOffset': 'Desplazamiento U',
+  'layers.help.uOffset': 'Cuánto se mueve el eje U (en relativo, láser apagado) al empezar esta capa, sumado al desplazamiento del trabajo. Entre capas solo se envía la diferencia y al terminar el trabajo U vuelve a donde estaba. 0 = esta capa no mueve U.',
+  'layers.help.uOffsetNone': 'Esta capa pide mover U, pero la máquina activa no tiene eje U: se ignora.',
   'layers.preset': 'Preset de imagen',
   'layers.preset.custom': 'Personalizado',
   'layers.preset.factory': 'De fábrica',

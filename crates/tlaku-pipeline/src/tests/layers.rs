@@ -345,3 +345,37 @@ fn ruida_129_different_settings_warn_that_it_cannot_export() {
     let err = crate::export_rd_for_device(&job, &d).unwrap_err();
     assert!(err.contains("unifica colores o ajustes"), "{err}");
 }
+
+#[test]
+fn ruida_laser2_layers_select_device_1_only_when_the_profile_has_a_second_laser() {
+    use tlaku_ruida::cmd::{Command, decode_stream};
+    let mut document = many_color_doc(2, 6000.0);
+    document.layers[1].laser2 = true;
+    let flags = |d: &DeviceProfile| {
+        let job = compute(&document, d, &tlaku_doc::JobOptions::default()).unwrap();
+        let rd = crate::export_rd_for_device(&job, d).unwrap();
+        let flags: Vec<u8> = decode_stream(&rd)
+            .unwrap()
+            .into_iter()
+            .filter_map(|c| match c {
+                Command::LayerFlag(f @ (0x10 | 0x11)) => Some(f),
+                _ => None,
+            })
+            .collect();
+        (flags, warnings(&job).to_vec())
+    };
+    let two = DeviceProfile {
+        laser2: true,
+        ..ruida_device()
+    };
+    let (f, w) = flags(&two);
+    assert_eq!(f, [0x10, 0x11], "{w:?}");
+    assert!(w.iter().all(|w| !w.contains("segundo láser")), "{w:?}");
+    // Sin segundo láser en el perfil: ambas capas con el láser 1 y un aviso.
+    let (f, w) = flags(&ruida_device());
+    assert_eq!(f, [0x10, 0x10]);
+    assert!(
+        w.iter().any(|w| w.contains("no tiene segundo láser")),
+        "{w:?}"
+    );
+}

@@ -4,7 +4,7 @@ Fecha: 2026-10-13. Método de la investigación (secciones 1 a 7): solo se leyer
 prosa o tablas (wikis, artículos, manuales públicos, foros); las fuentes que son solo código se
 anotaron como "existe, no leída". Cada dato lleva su URL.
 
-## Estado (actualizado en la ola 6D, 2026-10-14)
+## Estado (actualizado en la ola 6E, 2026-10-14)
 
 **Hay código, es experimental y solo se probó contra un emulador propio.** Nada se ha probado con
 una tarjeta real: las unidades de los parámetros, los bits de estado, la secuencia de arranque y lo
@@ -22,14 +22,16 @@ las filas M30, M40 a M46, C47 y C59 de [../spec/cobertura/maquinas.md](../spec/c
 | 2. Capturas de EZCAD2 de una tarjeta propia | **No hecha.** En su lugar se leyó código MIT (ver sección 11) |
 | 3. USB y sesión; pruebas 1 a 3 de la sección 9 (sin fuente) | Código hecho (`usb.rs`, `session.rs`, solo la `9588:9899`); **pruebas con tarjeta, pendientes** |
 | 4. Prueba con la fuente conectada y publicación | **Pendiente** (necesita tarjeta, cabezal y fuente) |
-| 5. Marcado al vuelo, rotativo galvo, marcado dividido | Rotativo y marcado dividido: la secuencia está calculada en el pipeline y, desde la ola 6, la app la ejecuta esperando la confirmación de la persona entre piezas; marcado al vuelo y EZCAD3/DLC, no |
+| 5. Marcado al vuelo, rotativo galvo, marcado dividido | Rotativo (con editor propio en el perfil desde la ola 6E) y marcado dividido (por franjas o, desde la 6E, por formas enteras): la secuencia está calculada en el pipeline y la app la ejecuta esperando la confirmación de la persona entre piezas; **marcado al vuelo y EZCAD3/DLC, no** (ver abajo el motivo del primero) |
 
 Qué hace el código: `tlaku galvo list/status/light/mark` (el comando `mark` con `--red-only`,
 `--dry-run`, `--dump` y `--emu`; con hardware real exige `--i-understand-laser-safety`), lista blanca
 de comandos, apagado garantizado ante errores, y el trabajo galvo del pipeline de la sección 8.5.
 Lo que **no** hace, a propósito: escribir la EEPROM, el firmware, la tabla de corrección o la
-configuración de la tarjeta; `LaserSignalOn`; pausa y reanudar (solo se puede detener, ver la
+configuración de la tarjeta (un `.cor` de EZCAD se **aplica en el equipo**, nunca se escribe); `LaserSignalOn`; pausa y reanudar (solo se puede detener, ver la
 sección 5); escribir salidas arbitrarias; marcado al vuelo; ejes y Z; EZCAD3/DLC.
+
+**Marcado al vuelo (ola 6E): fuera, y por qué.** De los comandos de marcado al vuelo solo hay nombre y código en las fuentes MIT (`listFlyEnable` 0x801A, `listFlyDelay` 0x801D, `listFlyWaitInput` 0x801F, `listFlyEncoderCount` 0x8028, `GetFlyWaitCount` 0x002B, `SetFlyRes` 0x0032, `GetFlySpeed` 0x0038): no hay descripción pública de sus parámetros, de cómo se cuenta el encoder ni de cómo la tarjeta compensa el movimiento de la banda. Además `SetFlyRes` es una orden de configuración que MeerK40t manda al iniciar, y escribir la configuración de la tarjeta está prohibido. `codes.rs` los deja `NeverSent` (clase `Config`/`Direct`, política `AXES`) y `tests/wave6e_safety.rs` comprueba que ninguna función nueva los envía. Si algún día hay documentación pública que permita hacerlo sin escribir en la tarjeta, se reabre.
 
 Niveles de confianza: **A** = descrito por una fuente primaria (manual del fabricante) o por
 dos fuentes independientes; **M** = una sola fuente secundaria legible; **B** = foro, fragmento
@@ -369,6 +371,15 @@ confirmarlo con una captura, pero encaja con la IR actual.
   (edutechwiki); la tabla se carga al arrancar la máquina (Bryce). Formato interno de la
   tabla (¿4 bytes por eje?, ¿tipo de dato?, ¿cómo se indexa?): **?**. Que la tarjeta use 63 x 63
   y CorFile2 hable de 65 x 65 indica una conversión intermedia que no conocemos.
+- **Ola 6E, el `.cor` se aplica en el equipo.** Los lectores MIT de galvoplotter y MeerK40t
+  (`_read_float_correction_file`, `_read_int_correction_file`) leen los 65 x 65 pares como enteros en
+  unidades de la tarjeta y los mandan tal cual con `WriteCorTable`/`WriteCorLine`; no los interpretan.
+  Tlaku usa esa misma lectura (nodos cada 1024 unidades, desplazamiento que se **suma**, interpolación
+  bilineal) pero la aplica **antes de cuantizar, en el anfitrión** (`cor.rs` `CorGrid`, `calib.rs`), y no
+  escribe nada. **Inferencias sin verificar:** qué índice del archivo es X, el signo, que los nodos
+  cubran todo el campo y el significado del escalar de la cabecera (no se usa); por eso el perfil trae
+  `cor_transpose` y `cor_invert`, y un archivo que desplace más de 2048 unidades se rechaza. Se
+  valida con el encuadre del puntero rojo (`validacion-hardware.md`, sección 7, fila 9).
 - Parámetros que LightBurn ajusta sin .cor: escala por eje (%), Bulge (distorsión cerca del
   centro), Skew (en bordes/esquinas) y Trapezoid (conicidad de esquinas, "keystone"); los
   importa de markcfg7 de EZCAD2 (GalvoBasicSettings; ConfigureGalvoSettings).

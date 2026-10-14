@@ -148,6 +148,16 @@ impl<L: PacketLink> RuidaSession<L> {
         let total_laser_s = read(self, addr::TOTAL_LASER_TIME);
         let travel_m = [read(self, addr::TRAVEL_X), read(self, addr::TRAVEL_Y)];
         let documents = read(self, addr::DOC_COUNT).map(|v| v.min(u64::from(u32::MAX)) as u32);
+        let previous_work = read(self, addr::PREV_WORK_TIME);
+        let control_mode = read(self, addr::CONTROL_MODE);
+        let features = read(self, addr::FEATURES).map(MachineFeatures::from_raw);
+        let board_version = if silent {
+            None
+        } else {
+            self.read_cstring(addr::BOARD_VERSION)
+                .ok()
+                .filter(|v| !v.is_empty())
+        };
         Ok(ControllerInfo {
             probe,
             rapid_mm_s,
@@ -160,6 +170,33 @@ impl<L: PacketLink> RuidaSession<L> {
             total_laser_s,
             travel_m,
             documents,
+            board_version,
+            previous_work,
+            control_mode,
+            features,
+        })
+    }
+
+    /// Lee una dirección cuya respuesta es una cadena (`DA 01 hi lo texto\0`, p. ej. la versión
+    /// de la placa en `0x2FF`). Solo lectura. Los bytes que no son ASCII imprimible salen como `?`.
+    pub fn read_cstring(&mut self, address: u16) -> Result<String, SessionError> {
+        let d = self.datagram(&[Command::MemRead { addr: address }])?;
+        let (hi, lo) = (((address >> 7) & 0x7F) as u8, (address & 0x7F) as u8);
+        self.query(&d, |s, dg| {
+            let plain = s.cfg.magic.unswizzle_all(dg);
+            let at = plain.windows(4).position(|w| w == [0xDA, 0x01, hi, lo])?;
+            let text: String = plain[at + 4..]
+                .iter()
+                .take_while(|&&b| b != 0 && b < 0x80)
+                .map(|&b| {
+                    if (0x20..0x7F).contains(&b) {
+                        b as char
+                    } else {
+                        '?'
+                    }
+                })
+                .collect();
+            Some(text)
         })
     }
 
@@ -191,7 +228,7 @@ impl<L: PacketLink> RuidaSession<L> {
         Ok(files)
     }
 
-    fn read_document_name(&mut self, index: u32) -> Result<String, SessionError> {
+    pub(super) fn read_document_name(&mut self, index: u32) -> Result<String, SessionError> {
         let idx = [((index >> 7) & 0x7F) as u8, (index & 0x7F) as u8];
         let d = packet::build_packet(&[0xE8, 0x01, idx[0], idx[1]], &self.pcfg());
         self.query(&d, |s, dg| {

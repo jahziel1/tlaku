@@ -6,7 +6,7 @@ import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { fmt, fmtClock } from '@/lib/platform';
-import { useStore } from '@/store';
+import { selectActiveDevice, useStore } from '@/store';
 import { buildJobArgs } from '@/store/selectors';
 import { SOURCE_WAVELENGTH_NM } from './galvoPorts';
 import { Modal } from './Modal';
@@ -39,11 +39,17 @@ export function stepLabel(info: GalvoStepInfo): string {
   return parts.join(' · ');
 }
 
-/** Qué mover antes del paso: «X +100,00 mm · Y 0,00 mm · rotativo +45,0°». */
-export function moveText(info: GalvoStepInfo): string {
+/**
+ * Qué mover antes del paso: «X +100,00 mm · Y 0,00 mm · rotativo +45,0°». Si el rotativo del galvo del perfil activo
+ * conoce los pasos del motor por vuelta, el giro también se da en pasos.
+ */
+export function moveText(info: GalvoStepInfo, stepsPerRev = selectActiveDevice(useStore.getState()).galvo.rotary?.steps_per_rev ?? 0): string {
   const parts: string[] = [];
   if (info.dx !== 0 || info.dy !== 0) parts.push(t('galvo.move.table', { x: signed(info.dx, 2), y: signed(info.dy, 2) }));
-  if (info.rotary_deg !== 0) parts.push(t('galvo.move.rotary', { deg: signed(info.rotary_deg, 1) }));
+  if (info.rotary_deg !== 0) {
+    const deg = signed(info.rotary_deg, 1);
+    parts.push(stepsPerRev > 0 ? t('galvo.move.rotarySteps', { deg, steps: signed(Math.round((info.rotary_deg / 360) * stepsPerRev), 0) }) : t('galvo.move.rotary', { deg }));
+  }
   return parts.join(' · ');
 }
 

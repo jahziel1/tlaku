@@ -35,6 +35,7 @@ mod ruida;
 mod scan_offset;
 mod slice3d;
 mod split;
+mod split_shapes;
 mod start;
 mod stroke;
 mod tabs;
@@ -66,7 +67,11 @@ pub use registration::{
 };
 pub use rotary::rotary_test;
 pub use ruida::{export_rd, export_rd_for_device, home_for_origin, limits_for_device};
-pub use split::{MAX_PIECES, MarkPlan, MarkStep, StageMove, job_mark_sequence, mark_sequence};
+pub use split::{
+    GalvoRotarySetup, MAX_PIECES, MarkPlan, MarkStep, StageMove, galvo_rotary, job_mark_sequence,
+    mark_sequence, mark_sequence_shapes,
+};
+pub use split_shapes::{ShapeScan, ShapeUnit, doc_mark_sequence, scan_shapes};
 pub use tile::{
     MARK_ID_PREFIX, MAX_TILES, PlannedTile, TileError, TileOrder, TilePlan, add_alignment_marks,
     plan_grid, plan_tiles, shift_tiles, tile_marks,

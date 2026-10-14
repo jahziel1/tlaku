@@ -4,6 +4,7 @@ import { t, type I18nKey } from '@/i18n';
 import { fmtClock } from '@/lib/platform';
 import { Modal } from '@/ui/Modal';
 import { X } from 'lucide-react';
+import { useStore } from '@/store';
 import { useHelpUi } from './helpStore';
 import { useJobLog, type JobLogEntry } from './jobLog';
 
@@ -19,7 +20,7 @@ export function deltaLabel(e: Pick<JobLogEntry, 'estimatedS' | 'actualS'>): stri
   return `${pct > 0 ? '+' : ''}${pct} %`;
 }
 
-export function JobRows({ entries }: { entries: JobLogEntry[] }) {
+export function JobRows({ entries, resumableId = null, onContinue }: { entries: JobLogEntry[]; resumableId?: string | null; onContinue?: () => void }) {
   return (
     <tbody>
       {entries.map((e) => {
@@ -35,6 +36,17 @@ export function JobRows({ entries }: { entries: JobLogEntry[] }) {
               <span className={`joblog__result joblog__result--${e.result}`} title={e.message || undefined}>
                 {t(`help.jobLog.result.${e.result}` as I18nKey)}
               </span>
+              {e.interrupted && (
+                <>
+                  {' '}
+                  <span className="joblog__interrupted">{t('machine.resume.log.interrupted', { percent: Math.round(e.interrupted.percent) })}</span>
+                  {onContinue && resumableId === e.interrupted.id && (
+                    <button type="button" className="btn joblog__resume" title={t('machine.resume.log.continueTitle')} onClick={onContinue}>
+                      {t('machine.resume.log.continue')}
+                    </button>
+                  )}
+                </>
+              )}
             </td>
           </tr>
         );
@@ -49,6 +61,14 @@ export function JobLogDialog() {
   const entries = useJobLog((s) => s.entries);
   const refresh = useJobLog((s) => s.refresh);
   const clear = useJobLog((s) => s.clear);
+  // «Continuar» solo mientras siga existiendo el punto de control del trabajo interrumpido.
+  const interrupted = useStore((s) => s.interrupted);
+  const checkInterrupted = useStore((s) => s.checkInterrupted);
+  const openResume = useStore((s) => s.openResume);
+  const canResume = interrupted?.can_resume ? interrupted.id : null;
+  useEffect(() => {
+    void checkInterrupted();
+  }, [checkInterrupted]);
 
   // Otra ventana de la app puede haber anotado un trabajo mientras esta estaba cerrada.
   useEffect(() => {
@@ -94,7 +114,14 @@ export function JobLogDialog() {
                 <th>{t('help.jobLog.col.result')}</th>
               </tr>
             </thead>
-            <JobRows entries={entries} />
+            <JobRows
+              entries={entries}
+              resumableId={canResume}
+              onContinue={() => {
+                close();
+                openResume(false);
+              }}
+            />
           </table>
         )}
       </div>

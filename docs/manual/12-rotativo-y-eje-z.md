@@ -80,6 +80,15 @@ Con el rotativo activo, **Posicionar el láser** (un clic en la cama) se deshabi
 
 ### Lo que no existe
 
-El rotativo para galvo (girar la pieza entre franjas) existe solo como cálculo en el motor; la corrección de cilindro y de cono es una función del galvo y se maneja desde el perfil de una máquina galvo: ver [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md) y [Galvo (experimental)](13c-galvo.md). Un eje A o U aparte solo se puede mover a mano (casilla **Eje U** del perfil y botones en **Mover cabezal**); los trabajos no lo usan. Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
+El rotativo para galvo (girar la pieza entre franjas) existe solo como cálculo en el motor; la corrección de cilindro y de cono es una función del galvo y se maneja desde el perfil de una máquina galvo: ver [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md) y [Galvo (experimental)](13c-galvo.md). Un eje A o U aparte se mueve a mano (casilla **Eje U** del perfil y botones en **Mover cabezal**) y, si quieres, también dentro del trabajo (ver [El eje U en el trabajo y por capa](#el-eje-u-en-el-trabajo-y-por-capa)). Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
+
+## El eje U en el trabajo y por capa
+
+Si tu máquina tiene un eje extra (U) que responde a `G0 U..`, marca **Eje U** en el perfil. Hay dos desplazamientos, los dos relativos y con el láser apagado (Tlaku no conoce el cero de U):
+
+- **Desplazamiento U de los trabajos** (en el perfil): el eje se mueve esa distancia al empezar el trabajo y vuelve al terminar.
+- **Desplazamiento U** de cada **capa** (en el editor de capa, grupo principal): la posición de U con la que se ejecuta esa capa, **sumada** a la del trabajo y relativa a donde estaba U al empezar. Entre dos capas Tlaku manda solo la diferencia, y al final deshace el total. Sirve, por ejemplo, para que cada capa grabe a una altura o en una posición distinta del eje. El campo solo aparece con una máquina con eje U (o si la capa ya trae un valor); si la máquina no tiene eje U, el valor se ignora y la vista previa lo avisa.
+
+Con **0** en todas las capas el G-code es el de siempre. El movimiento sale como `G91`, `G0 U..`, `G90` al empezar la capa, antes de grabar nada. *Por validar con una máquina real con eje U: solo se comprobó el G-code y el emulador.* Esto no es el rotativo: el rotativo sustituye al eje Y.
 
 Siguiente: [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md)

@@ -42,6 +42,8 @@ pub fn build_upload(
         } else {
             Vec::new()
         },
+        overwrite: false,
+        auto_name: true,
     })
 }
 

@@ -25,7 +25,8 @@ export interface CenterPick {
 
 export interface CenterResult {
   circle: Circle;
-  source: CenterMode;
+  /** `three`/`auto`: cámara; `probe`/`pointer`: el cabezal (`machine/probeCenter.ts`). */
+  source: CenterMode | 'probe' | 'pointer';
 }
 
 interface CenterState {

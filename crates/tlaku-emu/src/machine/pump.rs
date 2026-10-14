@@ -221,6 +221,35 @@ impl Machine {
                     }
                     break;
                 }
+                Action::ProbeStart { away } => {
+                    // Debe estar en el estado contrario al de llegada: sin contacto para ir
+                    // hacia la pieza, tocándola para alejarse.
+                    if self.probe_pin() != *away {
+                        self.reply(Ok(()));
+                        self.raise_alarm(4);
+                        return true;
+                    }
+                }
+                Action::ProbeEnd {
+                    stop,
+                    hit,
+                    error_on_miss,
+                } => {
+                    let (stop, hit, error_on_miss) = (*stop, *hit, *error_on_miss);
+                    self.probe_last = (stop, hit);
+                    self.emit_line(&format!(
+                        "[PRB:{},{},{}:{}]",
+                        fmt3(stop[0]),
+                        fmt3(stop[1]),
+                        fmt3(stop[2]),
+                        u8::from(hit)
+                    ));
+                    if !hit && error_on_miss {
+                        self.reply(Ok(()));
+                        self.raise_alarm(5);
+                        return true;
+                    }
+                }
                 Action::SoftLimitAlarm => {
                     self.reply(Ok(()));
                     self.raise_alarm(2);

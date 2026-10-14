@@ -37,6 +37,9 @@ impl Worker {
         self.log(LogDir::Out, &text);
         t.write_all(&[rt.byte()])?;
         // Un reset en pleno movimiento (o homing) pierde la posición: GRBL lanzará ALARM:3.
+        if rt == Realtime::SoftReset {
+            self.shared.homed.store(false, Ordering::SeqCst);
+        }
         if rt == Realtime::SoftReset
             && matches!(
                 self.last.state,
@@ -97,6 +100,12 @@ impl Worker {
         let r = self.exchange_inner(t, line, timeout);
         if self.quiet == Some(Quiet::Homing) {
             self.quiet = None;
+        }
+        // Un `$H` completo deja la máquina referenciada (reanudar un trabajo lo exige).
+        if line.eq_ignore_ascii_case("$H")
+            && matches!(&r, Ok(out) if out.last().is_some_and(|l| l == "ok"))
+        {
+            self.shared.homed.store(true, Ordering::SeqCst);
         }
         r
     }

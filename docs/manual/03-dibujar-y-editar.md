@@ -45,6 +45,8 @@ La ventana **Propiedades de forma** (**Ver > Propiedades de forma**) se aplica a
 
 ### Prioridad de corte y escala de potencia por objeto
 
+Con un solo **texto** seleccionado, la misma ventana muestra su **contenido**, la **fuente** (con negrita y cursiva), el tamaño y los espaciados; escribir seguido se junta en un solo paso de **Deshacer**. Con una sola **imagen**, muestra su **tamaño en píxeles**, su tamaño en el diseño, la **resolución efectiva** en ppp (los píxeles de la imagen por pulgada que ocupa, ya con su escala), la capa, el modo de la capa y el tramado, y dos botones: **Ajustes de imagen…** abre el editor de su capa y **Vista previa de la imagen…** abre la [vista previa por imagen](06-imagenes.md). Si la capa no está en modo Imagen, la ventana lo avisa.
+
 Con cualquier objeto o selección (también varios a la vez, y no solo formas), la ventana **Propiedades del objeto** (la misma de **Propiedades de forma**; ábrela con **Ver > Propiedades de forma**) ofrece dos campos de **Corte**. Vacío significa "automática" y 100 % respectivamente; si los objetos seleccionados tienen valores distintos, el campo muestra **Varios**.
 
 | Campo | Qué hace | Ejemplo |

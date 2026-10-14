@@ -11,7 +11,7 @@ import { connectionPortId } from '@/features/machine/DeviceConnectionModel';
 import { isGalvoUsbPort } from '@/features/machine/galvoPorts';
 import { portForDevice } from '@/features/machine/ruidaPorts';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
-import { noteJobAlarm, noteJobEvent, type JobLogContext } from '@/features/help/jobLog';
+import { noteJobAlarm, noteJobEvent, useJobLog, type JobLogContext } from '@/features/help/jobLog';
 import { t } from '@/i18n';
 import { docToWork, isGrblFamily, parseGrblSettings, type GrblSettings } from '@/lib/device';
 import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
@@ -19,13 +19,14 @@ import { fmt, readPref, writePref } from '@/lib/platform';
 import { buildJobArgs, isJobBusy, selectActiveDevice } from '../selectors';
 import type { AppState, SliceCreator } from '../types';
 import { INITIAL_MACHINE_DATA, jobElapsedSeconds, reduceMachine, type MachineData, type MachineDialog, type MachineEvent } from './reducer';
+import { createResumeActions, type ResumeSlice } from './resume';
 import { selectIsVirtual, jogBlockedReason, positionLaserBlockedReason, overrideBlockedReason, frameMarkOf, sendBlockedReason, type FrameMark } from './selectors';
 
 // ---------------------------------------------------------------------------
 // Slice
 // ---------------------------------------------------------------------------
 
-export interface MachineSlice extends MachineData {
+export interface MachineSlice extends MachineData, ResumeSlice {
   connecting: boolean;
   ports: string[];
   selectedPort: string | null;
@@ -206,6 +207,17 @@ async function waitIdleThen(get: () => AppState, action: () => Promise<void>): P
 }
 
 export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
+  /**
+   * Un trabajo acaba de terminar sin llegar al final: si el motor guardó un punto de control, se anota en el
+   * registro de trabajos (con su porcentaje) para poder continuarlo desde ahí.
+   */
+  const noteInterruption = () => {
+    void get()
+      .checkInterrupted()
+      .then((job) => {
+        if (job) useJobLog.getState().markLatestInterrupted({ id: job.id, percent: job.percent, line: job.done_lines, total: job.total_lines });
+      });
+  };
   const apply = (ev: MachineEvent) => set((s) => reduceMachine(pickData(s), ev, Date.now()));
 
   /** Lo que el registro de trabajos (`features/help/jobLog.ts`) anota de un trabajo: máquina, archivo y tiempos. */
@@ -263,6 +275,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
 
   return {
     ...INITIAL_MACHINE_DATA,
+    ...createResumeActions(set, get),
     connecting: false,
     ports: [],
     selectedPort: null,
@@ -523,7 +536,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       set({ dialog: null });
       await get().startJob();
     },
-    startJob: (tweak) => guardJob(async () => getApi().startJob(await resolveJobArgs(tweak ? tweak(buildJobArgs(get())) : buildJobArgs(get())))),
+    // `document` (la ruta del proyecto) la anota el motor en el punto de control del trabajo.
+    startJob: (tweak) => guardJob(async () => getApi().startJob({ ...(await resolveJobArgs(tweak ? tweak(buildJobArgs(get())) : buildJobArgs(get()))), document: get().filePath ?? null })),
     pauseJob: async () => {
       await guard(() => getApi().pauseJob());
     },
@@ -581,7 +595,10 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       const was = isJobBusy(get());
       apply({ type: 'status', report });
       // Una alarma en pleno trabajo lo da por fallido sin un evento propio: se anota aquí.
-      if (was && get().jobState === 'error') noteJobAlarm(report.state, jobLogContext());
+      if (was && get().jobState === 'error') {
+        noteJobAlarm(report.state, jobLogContext());
+        noteInterruption();
+      }
     },
     onProgress: (progress) => apply({ type: 'progress', progress }),
     onLog: (log) => {
@@ -604,10 +621,18 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         if (get().finish.mode !== 'stay') void waitIdleThen(get, () => get().goToFinishPosition());
       }
       if (job.state === 'error') get().notify('error', job.message);
+      // Error, o cancelado por desconectar con el trabajo en marcha: puede quedar punto de control.
+      if (job.state === 'error' || job.state === 'cancelled') noteInterruption();
     },
     onConnection: (connection) => {
       const pending = get().positionLost && !get().connection.connected;
+      // El motor da el trabajo por fallido justo antes de avisar que la conexión se cayó: vale un trabajo en marcha
+      // o uno que acaba de terminar con error.
+      const s0 = get();
+      const lostMidJob = !connection.connected && connection.error !== null && (isJobBusy(s0) || (s0.jobState === 'error' && s0.jobEndedAt !== null && Date.now() - s0.jobEndedAt < 10_000));
       apply({ type: 'connection', connection });
+      // La conexión se perdió en pleno trabajo (sin cerrar la app): se ofrece continuarlo al volver.
+      if (lostMidJob) void get().checkInterrupted({ open: true });
       get().onGalvoConnection(connection);
       // Reconectó a la misma máquina que quedó con la posición dudosa: conviene hacer homing.
       if (connection.connected && pending && get().positionLost) {

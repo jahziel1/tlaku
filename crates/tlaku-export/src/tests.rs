@@ -57,7 +57,7 @@ fn vector(id: &str, color: Rgb, paths: Vec<BezPath>) -> DesignObject {
         id: id.into(),
         layer: color,
         transform: IDENTITY,
-        kind: ObjectKind::Vector(VectorObject { paths }),
+        kind: ObjectKind::Vector(VectorObject::new(paths)),
         locked: false,
         hidden: false,
         group: None,

@@ -27,6 +27,8 @@ export interface TileSession {
   status: TileStatus[];
   /** Tramo que toca (o se está enviando). */
   current: number;
+  /** Último tramo que se terminó o saltó antes del actual (para guiar el movimiento del material). */
+  last?: number;
   /** Se manda el avance del alimentador entre tramos sin pedir confirmación. */
   feeder: boolean;
   design: Bounds;

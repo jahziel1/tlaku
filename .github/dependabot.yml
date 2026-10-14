@@ -1,0 +1,32 @@
+# Actualizaciones semanales de dependencias, agrupadas para no saturar de PRs.
+# Weekly dependency updates, grouped to avoid a flood of PRs.
+# Las licencias las revisa `cargo deny` en la CI; una actualización con una licencia no permitida falla ahí.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    groups:
+      cargo-minor-and-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: npm
+    directory: "/apps/desktop"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    labels: ["dependencies"]
+    groups:
+      actions:
+        patterns: ["*"]

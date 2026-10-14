@@ -78,7 +78,11 @@ impl Sink for TauriSink {
             Emit::Status(p) => self.0.emit(name, p),
             Emit::Progress(p) => self.0.emit(name, p),
             Emit::Log(p) => self.0.emit(name, p),
-            Emit::Job(p) => self.0.emit(name, p),
+            Emit::Job(p) => {
+                // Un final de trabajo de Ruida, K40 o galvo borra su marcador de «interrumpido».
+                crate::job_resume::on_job_event(&self.0, p.state);
+                self.0.emit(name, p)
+            }
             Emit::Connection(p) => self.0.emit(name, p),
             Emit::Galvo(p) => self.0.emit(name, p),
         };
@@ -86,7 +90,7 @@ impl Sink for TauriSink {
 }
 
 /// Ejecuta `f` en el pool de hilos bloqueantes.
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f)
@@ -260,6 +264,25 @@ pub async fn connect(
     device: Option<DeviceProfile>,
     galvo_ack: Option<galvo::SafetyAck>,
 ) -> Result<ConnectResult, String> {
+    let device_id = device.as_ref().map(|d| d.id.clone());
+    let result = connect_inner(app.clone(), state, port, baud, device, galvo_ack).await;
+    // Pasar a otra máquina descarta el trabajo interrumpido de la anterior.
+    if result.is_ok()
+        && let Some(id) = device_id
+    {
+        crate::job_resume::forget_if_other_machine(&app, &id);
+    }
+    result
+}
+
+async fn connect_inner(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    port: String,
+    baud: u32,
+    device: Option<DeviceProfile>,
+    galvo_ack: Option<galvo::SafetyAck>,
+) -> Result<ConnectResult, String> {
     if baud == 0 {
         return Err(tr!("desktop.common.baud_positive"));
     }
@@ -405,6 +428,25 @@ pub async fn machine_command(
     with_handle(&state, move |h| h.command(&line)).await
 }
 
+/// Un toque de sonda con el cabezal (M48, `G38.3`): avanza `(dx, dy)` mm de trabajo como máximo
+/// a `feed` mm/min con el láser apagado, se detiene al tocar y retrocede `retract` mm. Solo GRBL
+/// en reposo. `confirmed` debe ser `true`: la interfaz lo manda tras mostrar el recorrido y la
+/// velocidad y pedir la confirmación; sin ella no se mueve nada.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn probe_touch(
+    state: State<'_, AppState>,
+    dx: f64,
+    dy: f64,
+    feed: f64,
+    retract: f64,
+    confirmed: bool,
+) -> Result<crate::machine::probe::ProbeTouch, String> {
+    if !confirmed {
+        return Err(tr!("desktop.commands.probe_unconfirmed"));
+    }
+    with_handle(&state, move |h| h.probe(dx, dy, feed, retract)).await
+}
+
 #[tauri::command]
 pub async fn machine_realtime(
     state: State<'_, AppState>,
@@ -418,37 +460,59 @@ pub async fn jog(state: State<'_, AppState>, dx: f64, dy: f64, speed: f64) -> Re
     with_machine(&state, move |m| m.jog(dx, dy, speed)).await
 }
 
+// `document` es la ruta del proyecto (si está guardado): el punto de control de «continuar un
+// trabajo interrumpido» la anota para decir de qué trabajo se trata.
 #[tauri::command]
 pub async fn start_job(
+    app: AppHandle,
     state: State<'_, AppState>,
     doc: Document,
     device: DeviceProfile,
     options: JobOptions,
+    document: Option<String>,
 ) -> Result<(), String> {
-    // Ruida: genera el `.rd` y lo sube (guardando o ejecutando, según el perfil).
+    // Ruida: genera el `.rd` y lo sube (guardando o ejecutando, según el perfil). El trabajo vive en
+    // la controladora: un marcador avisa, si la app se reinicia, que sigue por su cuenta.
     if let Machine::Ruida(r) = state.machine()? {
-        return blocking(move || r.start_job(&doc, &device, &options)).await;
+        let mark = crate::job_resume::begin_marker(&app, &device, &options, document);
+        let result = blocking(move || r.start_job(&doc, &device, &options)).await;
+        crate::job_resume::end_marker(mark, result.is_ok());
+        return result;
     }
     // K40: codifica LHYMICRO-GL y lo envía en el hilo de la conexión (hace home si hace falta).
     if let Machine::Lhy(l) = state.machine()? {
-        return blocking(move || l.start_job(&doc, &device, &options)).await;
+        let mark = crate::job_resume::begin_marker(&app, &device, &options, document);
+        let result = blocking(move || l.start_job(&doc, &device, &options)).await;
+        crate::job_resume::end_marker(mark, result.is_ok());
+        return result;
     }
     // Galvo: marca en el hilo de la conexión (con marcado dividido, repetido o rotativo recorre
     // las piezas y espera que muevas el material entre ellas).
     if let Machine::Galvo(g) = state.machine()? {
-        return blocking(move || g.start_job(&doc, &device, &options, false)).await;
+        let mark = crate::job_resume::begin_marker(&app, &device, &options, document);
+        let result = blocking(move || g.start_job(&doc, &device, &options, false)).await;
+        crate::job_resume::end_marker(mark, result.is_ok());
+        return result;
     }
     let h = state.handle()?;
+    let store = crate::job_resume::store(&app).ok();
     blocking(move || {
-        let job = engine::job_gcode(&doc, &device, &options, h.work_pos())?;
+        let head = h.work_pos();
+        let job = engine::job_gcode(&doc, &device, &options, head)?;
+        // El punto de control (G-code exacto, perfil, origen y avance) permite continuar si se
+        // va la luz o se cierra la app; no retrasa el envío (lo escribe otro hilo).
+        let plan = store.and_then(|s| {
+            crate::machine::resume::plan_for_job(s, &device, &options, document, head, &job.lines)
+        });
         // Con la S máx del perfil, la conexión avisa si `$30` de la controladora es distinto. El
         // enlace (conteo de caracteres o una línea por `ok`) sale del tipo de máquina del perfil.
         // La carga del enlace solo sirve para avisar en el registro; no bloquea el envío.
-        h.start_job_with_load(
+        h.start_job_checkpointed(
             job.lines,
             LinkProfile::for_device(&device),
             Some(device.s_max),
             job.load,
+            plan,
         )
     })
     .await
@@ -642,6 +706,154 @@ pub async fn ruida_info(state: State<'_, AppState>) -> Result<tlaku_doc::RuidaIn
 #[tauri::command]
 pub async fn ruida_files(state: State<'_, AppState>) -> Result<Vec<tlaku_doc::RuidaFile>, String> {
     with_machine(&state, |m| m.ruida()?.files()).await
+}
+
+/// Fija el nombre con que se guardará el próximo trabajo en la memoria de la controladora Ruida
+/// (M23) y si puede reemplazar a un documento del mismo nombre (el usuario lo confirmó; vale para
+/// un solo envío). `name = null` vuelve al nombre automático.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ruida_prepare_store(
+    state: State<'_, AppState>,
+    name: Option<String>,
+    overwrite: bool,
+    experimental_writes: bool,
+) -> Result<(), String> {
+    with_machine(&state, move |m| {
+        m.ruida()?
+            .prepare_store(name, overwrite, experimental_writes)
+    })
+    .await
+}
+
+/// Borra un documento de la memoria de Ruida (M24). Pide confirmación y comprueba el nombre.
+/// EXPERIMENTAL: sin probar con una controladora real.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ruida_file_delete(
+    state: State<'_, AppState>,
+    index: u32,
+    name: String,
+    confirmed: bool,
+    experimental_writes: bool,
+) -> Result<tlaku_doc::RuidaDocResult, String> {
+    with_machine(&state, move |m| {
+        m.ruida()?
+            .file_delete(index, name, confirmed, experimental_writes)
+    })
+    .await
+}
+
+/// Ejecuta un documento de la memoria de Ruida (M24). La interfaz ya pasó la lista de
+/// comprobación de seguridad. EXPERIMENTAL.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ruida_file_run(
+    state: State<'_, AppState>,
+    index: u32,
+    name: String,
+    confirmed: bool,
+    experimental_writes: bool,
+) -> Result<tlaku_doc::RuidaDocResult, String> {
+    with_machine(&state, move |m| {
+        m.ruida()?
+            .file_run(index, name, confirmed, experimental_writes)
+    })
+    .await
+}
+
+/// Todos los ajustes escribibles de la controladora Ruida, leídos (M25, M28). EXPERIMENTAL.
+#[tauri::command]
+pub async fn ruida_settings_read(
+    state: State<'_, AppState>,
+) -> Result<tlaku_doc::RuidaControllerSettings, String> {
+    with_machine(&state, |m| m.ruida()?.settings_read()).await
+}
+
+/// Diferencias (valor actual y nuevo) de unos cambios, sin escribir nada.
+#[tauri::command]
+pub async fn ruida_settings_preview(
+    state: State<'_, AppState>,
+    changes: Vec<tlaku_doc::RuidaSettingChange>,
+) -> Result<tlaku_doc::RuidaSettingsPlan, String> {
+    with_machine(&state, move |m| m.ruida()?.settings_preview(changes)).await
+}
+
+/// Diferencias de un respaldo `.tlakuruida` (su texto) con la máquina, sin escribir nada.
+#[tauri::command]
+pub async fn ruida_settings_preview_file(
+    state: State<'_, AppState>,
+    json: String,
+) -> Result<tlaku_doc::RuidaSettingsPlan, String> {
+    with_machine(&state, move |m| m.ruida()?.settings_preview_file(json)).await
+}
+
+/// Escribe ajustes en la controladora Ruida: respaldo previo con fecha en la carpeta de
+/// configuración, confirmación explícita (`confirmed`), escritura y verificación. EXPERIMENTAL.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ruida_settings_apply(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    changes: Vec<tlaku_doc::RuidaSettingChange>,
+    confirmed: bool,
+    experimental_writes: bool,
+) -> Result<tlaku_doc::RuidaApplyReport, String> {
+    let dir = ruida::backups_dir(&config_dir(&app)?);
+    with_machine(&state, move |m| {
+        m.ruida()?
+            .settings_apply(changes, confirmed, dir, experimental_writes)
+    })
+    .await
+}
+
+/// Restaura un respaldo `.tlakuruida` (su texto) con las mismas protecciones. EXPERIMENTAL.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ruida_settings_restore(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    json: String,
+    confirmed: bool,
+    experimental_writes: bool,
+) -> Result<tlaku_doc::RuidaApplyReport, String> {
+    let dir = ruida::backups_dir(&config_dir(&app)?);
+    with_machine(&state, move |m| {
+        m.ruida()?
+            .settings_restore(json, confirmed, dir, experimental_writes)
+    })
+    .await
+}
+
+/// Texto `.tlakuruida` con los ajustes actuales de la controladora (respaldo manual).
+#[tauri::command]
+pub async fn ruida_settings_export(state: State<'_, AppState>) -> Result<String, String> {
+    with_machine(&state, |m| m.ruida()?.settings_export()).await
+}
+
+/// Calcula el paso de un eje a partir de lo que se pidió mover y lo que se midió.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn ruida_calibrate(
+    state: State<'_, AppState>,
+    key: String,
+    commanded_mm: f64,
+    measured_mm: f64,
+    experimental_writes: bool,
+) -> Result<tlaku_doc::RuidaCalibration, String> {
+    with_machine(&state, move |m| {
+        m.ruida()?
+            .calibrate(key, commanded_mm, measured_mm, experimental_writes)
+    })
+    .await
+}
+
+/// Respaldos automáticos de los ajustes de Ruida, del más reciente al más antiguo.
+#[tauri::command]
+pub async fn ruida_backups(app: AppHandle) -> Result<Vec<tlaku_doc::RuidaBackup>, String> {
+    let dir = ruida::backups_dir(&config_dir(&app)?);
+    blocking(move || Ok(ruida::list_backups(&dir))).await
+}
+
+/// Texto de un respaldo automático por su nombre de archivo.
+#[tauri::command]
+pub async fn ruida_backup_text(app: AppHandle, name: String) -> Result<String, String> {
+    let dir = ruida::backups_dir(&config_dir(&app)?);
+    blocking(move || ruida::read_backup(&dir, &name)).await
 }
 
 // ---------------------------------------------------------------------------

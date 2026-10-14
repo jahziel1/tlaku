@@ -56,6 +56,12 @@
 //!   los `G0` nunca queman; `M3` quema parado (también en hold, a menos que el perfil diga
 //!   `laser_off_in_hold`); `M4` escala con la velocidad y se apaga parado. Con `$32=0` el
 //!   husillo arde también en `G0`. Todo queda en el [`LaserTrace`].
+//! - **Sonda** (`G38.2` a `G38.5`, solo perfiles GRBL): con una [`ProbeSurface`] puesta
+//!   (`Builder::probe_surface` o `Machine::set_probe_surface`) la cabeza se detiene en el punto
+//!   de contacto, se imprime `[PRB:x,y,z:1]`, `$#` repite la última y el reporte `?` trae
+//!   `Pn:P` mientras la cabeza toca. Sin contacto, `G38.2`/`G38.4` dan `ALARM:5` y
+//!   `G38.3`/`G38.5` terminan en el destino con `:0`; si el pin ya está en el estado de llegada,
+//!   `ALARM:4`. El láser nunca dispara durante la sonda. Sin superficie nunca hay contacto.
 //! - **Fallas** ([`Fault`], [`Trigger`]): ruido serie, `ERROR:NN` de Creality (con o sin
 //!   detención), `ALARM:N`, `ALARM:3` con banner, reinicio, silencio (perdiendo o reteniendo lo
 //!   dicho), desconexión, `-nan` en offsets, `\r\n` o `\n`, y respuesta cambiada o perdida de
@@ -75,7 +81,7 @@
 //! - Velocidad en baudios (los bytes llegan al instante) ni la pérdida de caracteres durante
 //!   escrituras en EEPROM.
 //! - Física real: pasos, pérdida de pasos, resonancias.
-//! - Sondas (`G38.x`), ejes A/B/C, compensación de herramienta, arcos fuera del plano XY, SD,
+//! - Ejes A/B/C, compensación de herramienta, arcos fuera del plano XY, SD,
 //!   WiFi, parking, `$SLP` más allá del estado, líneas de arranque con `Ln`.
 //! - **Marlin y Smoothie** (protocolo RepRap) solo cubren: banner, `ok` por línea, `M115` (con
 //!   `Cap:`), `M114`, `M400`, movimiento, láser con `S` en línea (modo inline sin disparo en
@@ -104,6 +110,7 @@ pub mod machine;
 mod model;
 pub mod net;
 mod parse;
+pub mod probe;
 pub mod profile;
 pub mod trace;
 pub mod vm;
@@ -112,6 +119,7 @@ pub use clock::{AutoClock, Clock, ManualClock, ScaledClock};
 pub use fault::{Fault, Scheduled, Trigger};
 pub use machine::{LogEntry, Machine, Options, Received};
 pub use model::StateKind;
+pub use probe::ProbeSurface;
 pub use profile::{Family, LineEnding, Profile, Protocol, Setting};
 pub use trace::{LaserSegment, LaserTrace, MoveKind, SpindleMode};
 pub use vm::{Builder, Handle, VirtualMachine};

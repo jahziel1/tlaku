@@ -17,12 +17,18 @@
 //! 4. sesgo: `x' = x + kx v h`, `y' = y + ky u h`;
 //! 5. desplazamiento `offset` (mm);
 //! 6. intercambio de ejes (`swap_xy`) y negación por eje (`invert`), que describen cómo está
-//!    montado el cabezal.
+//!    montado el cabezal;
+//! 7. la tabla de un `.cor` de EZCAD, si el perfil trae `cor_file`: se suma, en unidades de la
+//!    tarjeta, al punto ya asignado a los ejes (ver [`crate::cor`]; lectura inferida, sin verificar
+//!    con hardware). Se aplica **en el anfitrión**: nunca se escribe a la tarjeta.
 //!
 //! La inversa (para ida y vuelta y vistas previas) se resuelve con Newton sobre la función
 //! directa, que es suave y monótona con los límites permitidos.
 
+use crate::cor::CorGrid;
 use std::fmt;
+use std::path::Path;
+use std::sync::Arc;
 use tlaku_doc::FieldCorrection;
 use tlaku_i18n::tr;
 
@@ -53,6 +59,8 @@ pub enum CalibError {
         axis: char,
         mm: f64,
     },
+    /// El archivo `.cor` del perfil no se pudo leer o no se puede aplicar (mensaje de `cor`).
+    Cor(String),
 }
 
 impl fmt::Display for CalibError {
@@ -93,6 +101,7 @@ impl fmt::Display for CalibError {
                     mm = format!("{mm:.3}")
                 )
             ),
+            CalibError::Cor(e) => write!(f, "{}", tr!("galvo.calib.cor", error = e)),
         }
     }
 }
@@ -129,6 +138,8 @@ pub struct FieldMap {
     c: FieldCorrection,
     sin: f64,
     cos: f64,
+    /// Tabla del `.cor` del perfil, ya leída.
+    cor: Option<Arc<CorGrid>>,
 }
 
 impl FieldMap {
@@ -137,7 +148,32 @@ impl FieldMap {
         Self::new(field_mm, &FieldCorrection::default())
     }
 
+    /// Valida la corrección y, si el perfil trae `cor_file`, lee ese archivo (solo lectura).
     pub fn new(field_mm: f64, c: &FieldCorrection) -> Result<Self, CalibError> {
+        let map = Self::without_cor(field_mm, c)?;
+        match c.cor_file.as_deref().map(str::trim) {
+            Some(path) if !path.is_empty() => {
+                let grid = CorGrid::load(Path::new(path), c.cor_transpose, c.cor_invert)
+                    .map_err(|e| CalibError::Cor(format!("{path}: {e}")))?;
+                Ok(map.with_cor(grid))
+            }
+            _ => Ok(map),
+        }
+    }
+
+    /// Añade la tabla de un `.cor` ya leída (para pruebas y para quien la carga por su cuenta).
+    pub fn with_cor(mut self, grid: CorGrid) -> Self {
+        self.cor = Some(Arc::new(grid));
+        self
+    }
+
+    /// ¿Se aplica la tabla de un `.cor`?
+    pub fn has_cor(&self) -> bool {
+        self.cor.is_some()
+    }
+
+    /// Como [`new`](Self::new) pero sin leer el `.cor` aunque el perfil lo nombre.
+    pub fn without_cor(field_mm: f64, c: &FieldCorrection) -> Result<Self, CalibError> {
         if !(field_mm.is_finite() && field_mm > 0.0) {
             return Err(CalibError::BadField(field_mm));
         }
@@ -176,6 +212,7 @@ impl FieldMap {
             c: c.clone(),
             sin: rad.sin(),
             cos: rad.cos(),
+            cor: None,
         })
     }
 
@@ -222,15 +259,43 @@ impl FieldMap {
         if self.c.swap_xy { (b, a) } else { (a, b) }
     }
 
+    /// Desplazamiento (mm) que suma la tabla del `.cor` a la posición `(a, b)` de los ejes.
+    fn cor_shift(&self, a: f64, b: f64) -> (f64, f64) {
+        let Some(grid) = &self.cor else {
+            return (0.0, 0.0);
+        };
+        let upm = units_per_mm(self.field_mm);
+        let c = f64::from(CENTER);
+        let (dx, dy) = grid.delta_units(c + a * upm, c + b * upm);
+        (dx / upm, dy / upm)
+    }
+
     /// Del diseño (mm desde el centro) a mm de los ejes del galvo.
     pub fn forward(&self, p: (f64, f64)) -> (f64, f64) {
         let (x, y) = self.correct(p.0, p.1);
-        self.to_axes(x, y)
+        let (a, b) = self.to_axes(x, y);
+        let (sa, sb) = self.cor_shift(a, b);
+        (a + sa, b + sb)
     }
 
     /// Inversa de [`forward`](Self::forward). `None` si Newton no converge (no pasa con los
     /// límites que acepta `new`).
     pub fn inverse(&self, q: (f64, f64)) -> Option<(f64, f64)> {
+        // Primero se quita la tabla del `.cor` (suave y pequeña: punto fijo).
+        let q = if self.cor.is_some() {
+            let mut p = q;
+            for _ in 0..50 {
+                let s = self.cor_shift(p.0, p.1);
+                p = (q.0 - s.0, q.1 - s.1);
+            }
+            let s = self.cor_shift(p.0, p.1);
+            if (p.0 + s.0 - q.0).abs().max((p.1 + s.1 - q.1).abs()) > 1e-9 {
+                return None;
+            }
+            p
+        } else {
+            q
+        };
         let (tx, ty) = self.undo_axes(q.0, q.1);
         // Punto de partida: quitar el desplazamiento y suponer lineal.
         let mut x = tx - self.c.offset[0];
@@ -369,6 +434,8 @@ mod tests {
             trapezoid: [0.01, -0.02],
             skew: [0.005, 0.008],
             cor_file: None,
+            cor_transpose: false,
+            cor_invert: false,
         }
     }
 
@@ -463,5 +530,119 @@ mod tests {
             FieldMap::new(-1.0, &FieldCorrection::default()),
             Err(CalibError::BadField(_))
         ));
+    }
+    use crate::cor::{CorFormat, CorTable, GRID};
+
+    /// Tabla de 65 x 65 con el mismo desplazamiento (dx, dy) en todos los nodos.
+    fn flat_cor(dx: f64, dy: f64) -> CorGrid {
+        let t = CorTable {
+            format: CorFormat::Float,
+            scale: 1.0,
+            dx: vec![dx; GRID * GRID],
+            dy: vec![dy; GRID * GRID],
+        };
+        CorGrid::from_table(&t, false, false).unwrap()
+    }
+
+    /// Cálculo a mano: en un campo de 100 mm hay 65536 / 100 = 655,36 unidades por mm. Una tabla
+    /// que desplaza todos los nodos (655,36, -1310,72) unidades suma (+1, -2) mm a cada punto de
+    /// los ejes; el centro pasa de 0x8000 a 32768 + 655,36 = 33423,36, que se cuantiza a 33423,
+    /// y en Y a 32768 - 1310,72 = 31457,28, que se cuantiza a 31457.
+    #[test]
+    fn the_cor_table_is_added_in_card_units_before_quantizing() {
+        let m = FieldMap::without_cor(100.0, &FieldCorrection::default())
+            .unwrap()
+            .with_cor(flat_cor(655.36, -1310.72));
+        assert!(m.has_cor());
+        let q = m.forward((10.0, 20.0));
+        assert!(
+            (q.0 - 11.0).abs() < 1e-9 && (q.1 - 18.0).abs() < 1e-9,
+            "{q:?}"
+        );
+        assert_eq!(m.to_units((0.0, 0.0)).unwrap(), (33423, 31457));
+        // Sin tabla, el centro sigue siendo 0x8000.
+        let plain = FieldMap::without_cor(100.0, &FieldCorrection::default()).unwrap();
+        assert_eq!(plain.to_units((0.0, 0.0)).unwrap(), (0x8000, 0x8000));
+        assert!(!plain.has_cor());
+    }
+
+    /// La tabla actúa sobre los ejes de la tarjeta, o sea después de intercambiarlos y negarlos:
+    /// con `swap_xy` el desplazamiento dx de la tabla mueve el eje que antes era Y del diseño.
+    #[test]
+    fn the_cor_table_acts_on_the_card_axes_after_swapping() {
+        let c = FieldCorrection {
+            swap_xy: true,
+            ..FieldCorrection::default()
+        };
+        let m = FieldMap::without_cor(100.0, &c)
+            .unwrap()
+            .with_cor(flat_cor(655.36, 0.0));
+        // (10, 20) se vuelve (20, 10) en los ejes y la tabla suma 1 mm al primero.
+        let q = m.forward((10.0, 20.0));
+        assert!(
+            (q.0 - 21.0).abs() < 1e-9 && (q.1 - 10.0).abs() < 1e-9,
+            "{q:?}"
+        );
+    }
+
+    #[test]
+    fn the_inverse_undoes_the_cor_table() {
+        // Una tabla que no es plana: crece con la columna.
+        let t = CorTable {
+            format: CorFormat::Float,
+            scale: 1.0,
+            dx: (0..GRID * GRID).map(|i| (i % GRID) as f64 * 4.0).collect(),
+            dy: (0..GRID * GRID).map(|i| (i / GRID) as f64 * -3.0).collect(),
+        };
+        let m = FieldMap::without_cor(110.0, &full())
+            .unwrap()
+            .with_cor(CorGrid::from_table(&t, false, false).unwrap());
+        for i in -4..=4 {
+            for j in -4..=4 {
+                let p = (f64::from(i) * 9.0, f64::from(j) * 9.0);
+                let back = m.inverse(m.forward(p)).expect("converge");
+                assert!(
+                    (back.0 - p.0).abs() < 1e-8 && (back.1 - p.1).abs() < 1e-8,
+                    "{p:?} {back:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_profile_with_a_missing_cor_file_is_an_error_not_a_silent_skip() {
+        let c = FieldCorrection {
+            cor_file: Some("/no/existe/lente.cor".into()),
+            ..FieldCorrection::default()
+        };
+        let e = FieldMap::new(110.0, &c).unwrap_err();
+        assert!(matches!(e, CalibError::Cor(_)), "{e:?}");
+        // Una ruta vacía o en blanco equivale a no tener archivo.
+        for blank in ["", "   "] {
+            let c = FieldCorrection {
+                cor_file: Some(blank.into()),
+                ..FieldCorrection::default()
+            };
+            assert!(!FieldMap::new(110.0, &c).unwrap().has_cor());
+        }
+    }
+    /// Los mismos números están fijados en `apps/desktop/src/features/machine/galvoCalib9.test.ts`:
+    /// la interfaz tiene una copia del modelo (para el asistente de nueve puntos) y las dos pruebas
+    /// juntas impiden que se separen.
+    #[test]
+    fn the_ts_mirror_numbers_are_pinned() {
+        let m = FieldMap::without_cor(110.0, &full()).unwrap();
+        for (p, want) in [
+            ((0.0, 0.0), (-0.4, -0.7)),
+            ((38.5, 38.5), (37.048_664_921, -40.312_345_662)),
+            ((-38.5, 19.25), (17.144_920_998, 39.518_921_697)),
+            ((10.0, -30.0), (-28.923_944_697, -11.425_716_223)),
+        ] {
+            let q = m.forward(p);
+            assert!(
+                (q.0 - want.0).abs() < 1e-8 && (q.1 - want.1).abs() < 1e-8,
+                "{p:?} -> {q:?}"
+            );
+        }
     }
 }

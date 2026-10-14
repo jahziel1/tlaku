@@ -155,9 +155,15 @@ galvo.compile.power_above = potencia {pct} % por encima del máximo del perfil (
 galvo.compile.air_assist_ignored = bloque {block}: la asistencia de aire se ignora en galvo
 galvo.compile.z_ignored = bloque {block}: el eje Z se ignora en galvo
 galvo.compile.dwell_invalid = pausa de {ms} ms inválida
-galvo.compile.cor_ignored = el archivo .cor del perfil se ignora: su formato se puede leer pero su semántica no está documentada (ver cor.rs); la corrección es la paramétrica del perfil
 galvo.compile.adjust_not_number = el ajuste del encuadre debe ser un número
 galvo.compile.adjust_shift = el desplazamiento del encuadre no puede pasar de {max} mm
 galvo.compile.adjust_scale = la escala del encuadre debe estar entre {min} y {max}
 galvo.compile.light_thinned = el contorno tiene {total} vértices: se aligeró 1 de cada {keep_every} para el encuadre
 galvo.compile.light_speed_zero = la velocidad del encuadre del perfil debe ser mayor que 0
+
+# --- ola 6E: aplicar un .cor de EZCAD en el anfitrión (cor.rs, calib.rs, compile.rs) ---
+galvo.cor.too_large = el archivo .cor desplaza hasta {seen} unidades y el límite es {limit}: no se aplica (si las unidades o la orientación no son las que se supone, el haz saldría de donde el diseño lo pide)
+galvo.cor.io = no se pudo leer el archivo .cor: {error}
+galvo.cor.file_too_big = el archivo .cor mide {bytes} bytes y un .cor real mide unos 34 000 (máximo {max}): no se lee
+galvo.calib.cor = archivo .cor del perfil: {error}
+galvo.compile.cor_applied = se aplica la tabla del archivo .cor del perfil en el anfitrión (nunca se escribe en la tarjeta). Su lectura es una inferencia sin verificar con hardware: compruébala con el encuadre del puntero rojo

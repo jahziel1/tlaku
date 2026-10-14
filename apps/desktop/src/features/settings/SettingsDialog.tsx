@@ -7,6 +7,7 @@ import '@/features/history/history.css';
 import { t, type I18nKey } from '@/i18n';
 import { DEFAULT_DOCK_LAYOUT, setDockSide, setToolsSide, type DockSide } from '@/lib/dockLayout';
 import { formatLength } from '@/lib/units';
+import { setUiMode } from '@/features/simple';
 import { usePref, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { AutomationPanel } from '@/features/automation';
@@ -29,8 +30,39 @@ function Group({ title, children }: { title?: I18nKey; children: ReactNode }) {
   );
 }
 
+/**
+ * Modo de la interfaz (D18). El modo sencillo es el modo para principiantes: pasos guiados, sin menús
+ * ni herramientas avanzadas. Cambiarlo aquí hace lo mismo que el botón de la barra superior.
+ */
+function UiModeField() {
+  const id = useId();
+  const mode = usePref('uiMode');
+  const setPref = useStore((s) => s.setPref);
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={id}>{t('prefs.uiMode')}</label>
+      <select
+        id={id}
+        className="select"
+        value={mode}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (next === 'simple' || next === 'full') setUiMode(next);
+          else setPref('uiMode', 'ask');
+        }}
+      >
+        <option value="simple">{t('prefs.uiMode.simple')}</option>
+        <option value="full">{t('prefs.uiMode.full')}</option>
+        <option value="ask">{t('prefs.uiMode.ask')}</option>
+      </select>
+      <p className="hint">{t('prefs.uiMode.hint')}</p>
+    </div>
+  );
+}
+
 function GeneralPanel() {
   return (
+    <>
     <Group>
       <PrefSelect
         k="language"
@@ -41,9 +73,24 @@ function GeneralPanel() {
           { value: 'en', label: t('prefs.language.en') },
         ]}
       />
+      <UiModeField />
       <PrefCheck k="updateCheckOnStart" label="prefs.updateCheckOnStart" />
       <p className="hint">{t('prefs.updateCheckOnStart.hint')}</p>
       {isUpdaterConfigured() ? null : <p className="hint">{t('prefs.updateCheckOnStart.unconfigured')}</p>}
+    </Group>
+    <CameraGroup />
+    </>
+  );
+}
+
+/** Preferencias de la cámara (M51). Las de cada cámara (opacidad, dispositivo, ajuste) están en su panel. */
+function CameraGroup() {
+  return (
+    <Group title="prefs.camera.title">
+      <PrefCheck k="cameraReopen" label="prefs.cameraReopen" />
+      <p className="hint">{t('prefs.cameraReopen.hint')}</p>
+      <PrefNumber k="cameraFrameWidth" label="prefs.cameraFrameWidth" unit="prefs.unit.px" />
+      <p className="hint">{t('prefs.cameraFrameWidth.hint')}</p>
     </Group>
   );
 }

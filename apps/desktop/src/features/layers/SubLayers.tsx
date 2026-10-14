@@ -128,7 +128,7 @@ function SubItem({ layer, sub, index, count, open, onToggle, onMove, onDelete }:
       {open && (
         <div className="lyr-sub__body">
           <ModePicker mode={sub.mode} onChange={(m) => set({ mode: m })} />
-          <LayerFields layer={sub} target={target} beginner={false} />
+          <LayerFields layer={sub} target={target} />
         </div>
       )}
     </li>

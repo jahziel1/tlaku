@@ -2,6 +2,7 @@
 import type { CylinderCorrection } from "./CylinderCorrection";
 import type { FieldCorrection } from "./FieldCorrection";
 import type { GalvoJump } from "./GalvoJump";
+import type { GalvoRotary } from "./GalvoRotary";
 import type { GalvoTiming } from "./GalvoTiming";
 import type { InputRequirement } from "./InputRequirement";
 import type { LaserSource } from "./LaserSource";
@@ -41,6 +42,10 @@ cylinder: CylinderCorrection, taper: TaperWarp,
  * Marcado dividido / rotativo galvo y marcado repetido: ver `tlaku_pipeline::mark_sequence`.
  */
 split: SplitMarking, repeat: RepeatMarking, 
+/**
+ * Rotativo del galvo (M30); apagado = se mira el rotativo general del perfil.
+ */
+rotary: GalvoRotary, 
 /**
  * Enclavamiento por una entrada de la tarjeta (M45); `None` = sin enclavamiento.
  */

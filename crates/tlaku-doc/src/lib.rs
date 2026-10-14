@@ -7,6 +7,7 @@
 pub mod affine;
 // Re-exporta las curvas para quien solo depende de este crate.
 pub use tlaku_core::bezpath::{BezPath, PathSeg};
+mod community;
 mod cut;
 mod device;
 mod document;
@@ -16,10 +17,14 @@ mod job;
 mod layer;
 mod machine;
 mod materials;
+mod resume;
 mod ruida;
 mod text;
 mod virtual_array;
 
+pub use community::{
+    COMMUNITY_ID_PREFIX, COMMUNITY_ISSUES_URL, COMMUNITY_LICENSE, CommunityEntry, issue_number,
+};
 pub use cut::{
     CutThrough, DotMode, FillGrouping, Guide, GuideAxis, Lead, LeadKind, Optimization, Perforation,
     Ramp, ShapeParams, StartSpec, VariableText, VirtualArray,
@@ -30,14 +35,14 @@ pub use device::{
     SavedPosition, ScanOffset, SpeedUnit,
 };
 pub use document::{
-    DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
+    CornerMark, DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
     VectorObject, bounds_of, union,
 };
 pub use factory::{FACTORY_ID_PREFIX, check_factory, factory_library, parse_factory};
 pub use galvo::{
     CylinderAxis, CylinderCorrection, FeederSettings, FieldCorrection, GalvoDevice, GalvoJump,
-    GalvoLayer, GalvoTiming, InputRequirement, LaserSource, RepeatMarking, Slice3d, SplitAxes,
-    SplitMarking, SplitOrder, TaperWarp, TileSpec, Wobble,
+    GalvoLayer, GalvoRotary, GalvoTiming, InputRequirement, LaserSource, RepeatMarking, Slice3d,
+    SplitAxes, SplitMarking, SplitOrder, TaperWarp, TileSpec, Wobble,
 };
 pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, StartFrom};
 pub use layer::{
@@ -52,7 +57,15 @@ pub use materials::{
     Confidence, LaserKind, MATERIAL_LIBRARY_VERSION, MachineClass, MaterialLibrary, MaterialPreset,
     MaterialRestriction, MaterialRole, MaterialTestParams, MaterialWarning, TestAxis, TestParam,
 };
-pub use ruida::{RuidaFile, RuidaInfo};
+pub use resume::{
+    InterruptedJob, ResumeAir, ResumeKind, ResumeModal, ResumePoint, ResumeReadiness,
+    ResumeSpindle, ResumeStart, ResumeView,
+};
+pub use ruida::{
+    RuidaApplyReport, RuidaBackup, RuidaCalibration, RuidaControllerSettings, RuidaDocResult,
+    RuidaFile, RuidaInfo, RuidaPlannedChange, RuidaSetting, RuidaSettingChange, RuidaSettingsPlan,
+    RuidaVerified,
+};
 pub use text::{TextAlign, TextObject, TextOnPath};
 pub use virtual_array::MAX_VIRTUAL_COPIES;
 

@@ -2,6 +2,7 @@
 //! y la subida viven en los submódulos.
 
 mod requests;
+mod settings;
 mod status;
 mod upload;
 
@@ -147,5 +148,11 @@ pub(super) fn to_info(i: ControllerInfo) -> RuidaInfo {
         total_jobs: i.total_jobs.map(|v| u32::try_from(v).unwrap_or(u32::MAX)),
         travel_m: [secs(i.travel_m[0]), secs(i.travel_m[1])],
         documents: i.documents,
+        board_version: i.board_version,
+        previous_work: secs(i.previous_work),
+        control_mode: i.control_mode.map(|v| u32::try_from(v).unwrap_or(u32::MAX)),
+        focus: i.features.map(|f| f.focus),
+        z_return_docking: i.features.map(|f| f.z_return_docking),
+        air_assist_mode: i.features.map(|f| f.air_assist_mode),
     }
 }

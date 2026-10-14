@@ -1,10 +1,18 @@
-import { X } from 'lucide-react';
+import { Bold, Eye, Italic, Settings2, X } from 'lucide-react';
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
 import { objectsByIds } from '@/store/objectIndex';
 import { editText } from '@/features/text/convert';
-import type { TextObject } from '@/api/types';
+import { FontPicker } from '@/features/text/FontPicker';
+import { isLineFamily, pickDefaultFont, useFonts } from '@/features/text/fonts';
+import { ImagePreviewPanel } from '@/features/images/ImagePreviewPanel';
+import { usePreviewUi } from '@/features/images/previewStore';
+import { openEditorFor } from '@/features/layers/actions';
+import { useLayerUi } from '@/features/layers/layerUi';
+import type { FontFamily, TextObject } from '@/api/types';
+import { formatDpi, imageInfo, type ImageInfo } from './imageProps';
 import { ExprField } from './ExprField';
 import { commonValue, setCutProps, type CutPatch } from './cutProps';
 import { OptionalField } from './OptionalField';
@@ -30,9 +38,16 @@ interface ViewProps {
   mixed: boolean;
   /** Propiedades de corte de la selección. */
   cut?: CutValues;
-  /** Texto seleccionado (un solo objeto de texto): tamaño y espaciados; el contenido y la fuente están en el panel de texto. */
-  text?: Pick<TextObject, 'font_family' | 'size_mm' | 'letter_spacing_mm' | 'line_spacing'>;
+  /** Texto seleccionado (un solo objeto de texto): contenido, fuente, tamaño y espaciados. */
+  text?: Pick<TextObject, 'text' | 'font_family' | 'size_mm' | 'letter_spacing_mm' | 'line_spacing' | 'bold' | 'italic'>;
+  /** Fuentes instaladas para el selector (`fallback` es la que se usa si no hay una elegida). */
+  fonts?: { families: FontFamily[]; loading: boolean; fallback: string };
   onText?: (patch: Partial<TextObject>, field: string) => void;
+  /** Imagen seleccionada (una sola): tamaño, resolución, modo y acceso a sus ajustes y su vista previa. */
+  image?: ImageInfo;
+  previewOpen?: boolean;
+  onImageSettings?: () => void;
+  onImagePreview?: () => void;
   onApply: (patch: Partial<ShapeSpec>) => void;
   onCut?: (patch: CutPatch) => void;
   onClose: () => void;
@@ -40,7 +55,7 @@ interface ViewProps {
 }
 
 /** Contenido de la ventana: los campos de cada tipo de forma. */
-export function ShapePropsView({ params: first, mixed, cut, text, onText, onApply, onCut, onClose, onLock }: ViewProps) {
+export function ShapePropsView({ params: first, mixed, cut, text, fonts, onText, image, previewOpen, onImageSettings, onImagePreview, onApply, onCut, onClose, onLock }: ViewProps) {
   const field = (key: string, label: string, value: number, unit?: string, hintKey?: Parameters<typeof t>[0]) => (
     <ExprField
       key={key}
@@ -94,13 +109,77 @@ export function ShapePropsView({ params: first, mixed, cut, text, onText, onAppl
       {text && onText && (
         <>
           <h3 className="shape-props__sub">{t('canvas.obj.text')}</h3>
-          <p className="shape-props__note">{text.font_family}</p>
+          <div className="field">
+            <label className="field__label" htmlFor="shape-props-text">{t('text.field.text')}</label>
+            <textarea
+              id="shape-props-text"
+              className="input shape-props__area"
+              rows={2}
+              value={text.text}
+              placeholder={t('text.field.textPlaceholder')}
+              spellCheck={false}
+              onChange={(e) => onText({ text: e.target.value }, 'text')}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') e.currentTarget.blur();
+              }}
+            />
+          </div>
+          {fonts && (
+            <div className="field">
+              <span className="field__label">{t('text.field.font')}</span>
+              <FontPicker value={text.font_family} fallback={fonts.fallback} families={fonts.families} loading={fonts.loading} onPick={(family) => onText({ font_family: family }, 'font')} />
+              <div className="shape-props__row">
+                <button type="button" className="icon-btn icon-btn--boxed" aria-pressed={text.bold} disabled={isLineFamily(fonts.families, text.font_family.trim() || fonts.fallback)} title={t('text.style.bold')} aria-label={t('text.style.bold')} onClick={() => onText({ bold: !text.bold }, 'bold')}>
+                  <Bold size={15} aria-hidden="true" />
+                </button>
+                <button type="button" className="icon-btn icon-btn--boxed" aria-pressed={text.italic} disabled={isLineFamily(fonts.families, text.font_family.trim() || fonts.fallback)} title={t('text.style.italic')} aria-label={t('text.style.italic')} onClick={() => onText({ italic: !text.italic }, 'italic')}>
+                  <Italic size={15} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          )}
           <div className="shape-props__grid">
             <ExprField label={t('text.field.size')} unit="mm" value={text.size_mm} onApply={(v) => v > 0 && onText({ size_mm: v }, 'size')} />
             <ExprField label={t('text.field.letterSpacing')} unit="mm" value={text.letter_spacing_mm} onApply={(v) => onText({ letter_spacing_mm: v }, 'spacing')} />
             <ExprField label={t('text.field.lineSpacing')} unit="×" value={text.line_spacing} onApply={(v) => v > 0 && onText({ line_spacing: v }, 'lines')} />
           </div>
           <p className="shape-props__note">{t('canvas.obj.textHelp')}</p>
+        </>
+      )}
+      {image && (
+        <>
+          <h3 className="shape-props__sub">{t('canvas.obj.image')}</h3>
+          <dl className="shape-props__facts">
+            <dt>{t('canvas.obj.imagePixels')}</dt>
+            <dd>{t('canvas.obj.imagePixelsValue', { w: image.widthPx, h: image.heightPx })}</dd>
+            <dt>{t('canvas.obj.imageSize')}</dt>
+            <dd>{t('canvas.obj.imageSizeValue', { w: image.widthMm.toFixed(2), h: image.heightMm.toFixed(2) })}</dd>
+            <dt>{t('canvas.obj.imageDpi')}</dt>
+            <dd>{Math.abs(image.dpiX - image.dpiY) <= Math.max(image.dpiX, image.dpiY) * 0.01 ? formatDpi(image.dpiX) : `${formatDpi(image.dpiX)} × ${formatDpi(image.dpiY)}`}</dd>
+            <dt>{t('canvas.obj.imageLayer')}</dt>
+            <dd>{image.layerName || image.layerColor}</dd>
+            <dt>{t('canvas.obj.imageMode')}</dt>
+            <dd>{image.layerMode ? t(`layers.mode.${image.layerMode}` as Parameters<typeof t>[0]) : '–'}</dd>
+            {image.dither && (
+              <>
+                <dt>{t('canvas.obj.imageDither')}</dt>
+                <dd>{t(`layers.dither.${image.dither}` as Parameters<typeof t>[0])}</dd>
+              </>
+            )}
+          </dl>
+          {image.layerDpi !== null ? (
+            <p className="shape-props__note">{t('canvas.obj.imageLayerDpi', { dpi: formatDpi(image.layerDpi) })}</p>
+          ) : (
+            <p className="shape-props__note">{t('canvas.obj.imageNotImageLayer')}</p>
+          )}
+          <div className="shape-props__row">
+            <button type="button" className="btn" onClick={onImageSettings}>
+              <Settings2 size={14} aria-hidden="true" />{t('canvas.obj.imageSettings')}
+            </button>
+            <button type="button" className="btn" aria-pressed={previewOpen} disabled={image.layerMode !== 'image'} title={image.layerMode !== 'image' ? t('canvas.obj.imageNotImageLayer') : t('layers.preview.hint')} onClick={onImagePreview}>
+              <Eye size={14} aria-hidden="true" />{t('layers.preview.open')}
+            </button>
+          </div>
         </>
       )}
       {cut && onCut && (
@@ -159,6 +238,14 @@ export function ShapeProps() {
   );
   // Un único texto: se editan aquí su tamaño y espaciados (lo demás, en el panel de texto).
   const textObj = picked.length === 1 && picked[0]!.kind.type === 'text' ? picked[0]! : null;
+  const imageObj = picked.length === 1 && picked[0]!.kind.type === 'image' ? picked[0]! : null;
+  const imageLayer = useStore((s) => (imageObj ? s.doc.layers.find((l) => l.color === imageObj.layer) : undefined));
+  const info = useMemo(() => (imageObj ? imageInfo(imageObj, imageLayer) : null), [imageObj, imageLayer]);
+  const previewOpen = usePreviewUi((s) => s.open);
+  // Si el editor de la capa está abierto, él ya dibuja el panel de vista previa.
+  const editorShowsPreview = useLayerUi((s) => s.editing !== null && s.editing === imageObj?.layer);
+  const { fonts, loading } = useFonts();
+  const fallbackFont = useMemo(() => pickDefaultFont(fonts), [fonts]);
   const cut = useMemo<CutValues>(
     () => ({ priority: commonValue(picked, (o) => o.priority), power: commonValue(picked, (o) => o.power_scale) }),
     [picked],
@@ -181,16 +268,24 @@ export function ShapeProps() {
     useStore.getState().applyDocChange('arrange.history.lock', (doc) => ({ ...doc, objects: doc.objects.map((o) => (set.has(o.id) ? { ...o, locked: true } : o)) }));
   };
   return (
+    <>
     <ShapePropsView
       params={shapeParams}
       mixed={editable.length !== picked.length}
       cut={cut}
       text={textObj && textObj.kind.type === 'text' ? textObj.kind : undefined}
+      fonts={textObj ? { families: fonts, loading, fallback: fallbackFont } : undefined}
       onText={textObj ? (patch, field) => editText(textObj.id, patch, field) : undefined}
+      image={info ?? undefined}
+      previewOpen={previewOpen}
+      onImageSettings={imageObj ? () => openEditorFor(useStore.getState(), imageObj.layer) : undefined}
+      onImagePreview={imageObj ? () => usePreviewUi.getState().set({ open: !previewOpen, imageId: imageObj.id }) : undefined}
       onApply={apply}
       onCut={(patch) => setCutProps(useStore.getState(), ids, patch)}
       onClose={() => useStore.getState().setShapePropsOpen(false)}
       onLock={lock}
     />
+    {previewOpen && info && imageLayer && !editorShowsPreview && typeof document !== 'undefined' && createPortal(<ImagePreviewPanel layer={imageLayer} />, document.body)}
+    </>
   );
 }

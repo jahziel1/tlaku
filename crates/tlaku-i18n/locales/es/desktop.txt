@@ -89,7 +89,7 @@ desktop.prefs.bundle_devices_not_list = Paquete inválido: "devices" debe ser un
 desktop.prefs.bundle_needs_ext = {path}: el paquete debe guardarse con la extensión .{ext}.
 desktop.prefs.bundle_too_big = {path}: el archivo es demasiado grande para ser un paquete de Tlaku.
 # settings_backup.rs
-desktop.settings_backup.bad_ext = {path}: el respaldo debe guardarse con la extensión .tlakuset o .txt.
+desktop.settings_backup.bad_ext = {path}: el respaldo debe guardarse con la extensión .tlakuset, .tlakuruida o .txt.
 desktop.settings_backup.too_big_write = El respaldo es demasiado grande ({size} bytes; el máximo es {max}).
 desktop.settings_backup.not_a_file = {path}: no es un archivo.
 desktop.settings_backup.too_big_read = {path}: el archivo es demasiado grande para ser un respaldo de ajustes (máximo {max} bytes).
@@ -149,7 +149,7 @@ desktop.galvo.origin_bottom_left = El origen del perfil galvo debe ser «abajo a
 desktop.galvo.profile_invalid = El perfil del galvo no es válido: {err}
 # machine/ruida.rs
 desktop.ruida.experimental = EXPERIMENTAL: el soporte Ruida no se ha probado con una máquina real (docs/hardware/ruida.md). Prueba primero con el láser deshabilitado o a potencia 0.
-desktop.ruida.rotary_note = Rotativo: Ruida lo activa en los ajustes de la propia controladora; Tlaku envía la Y en mm de superficie, sin escalarla ni reflejarla.
+desktop.ruida.rotary_note = Rotativo: Ruida lo activa en los ajustes de la propia controladora; Tlaku envía la Y en mm de superficie, sin escalarla ni reflejarla. Los dos ajustes públicos del rotativo se pueden escribir desde el panel de Ruida (experimental).
 desktop.ruida.grbl_only = Esta función es solo de GRBL: la controladora Ruida no usa G-code ni overrides en vivo.
 # machine/worker (GRBL)
 desktop.worker.connection_lost_io = se perdió la conexión con la máquina: {err}
@@ -519,3 +519,63 @@ desktop.edit.variables.too_big = El CSV pesa más de 50 MB.
 desktop.edit.variables.read_failed = No se pudo leer el CSV «{path}»: {err}
 desktop.edit.variables.missing_columns = Al CSV le faltan columnas que usa el diseño: {missing}. Columnas disponibles: {available}.
 desktop.edit.text.no_file = No se eligió ningún archivo
+
+# ola 6E: sonda de contacto (machine/probe.rs, machine/worker/probe.rs)
+desktop.worker.probe_no_travel = La sonda necesita un recorrido mayor que cero.
+desktop.worker.probe_travel = El recorrido de la sonda no puede pasar de {max} mm.
+desktop.worker.probe_feed = La velocidad de sondeo debe ser mayor que cero y no pasar de {max} mm/min.
+desktop.worker.probe_retract = El retroceso de la sonda debe estar entre 0 y {max} mm.
+desktop.worker.probe_grbl_only = La sonda con G38 solo está disponible con controladoras GRBL.
+desktop.worker.probe_not_idle = La máquina debe estar en reposo (Idle) para usar la sonda.
+desktop.worker.probe_already_touching = La sonda ya está activa antes de empezar ({reply}). Aleja el cabezal del objeto y revisa el cableado de la sonda.
+desktop.worker.probe_no_prb = La controladora no informó el resultado de la sonda ([PRB:...]).
+desktop.worker.log_probe = Sonda: {result} en X{x} Y{y}
+desktop.commands.probe_unconfirmed = La sonda mueve la máquina: hace falta la confirmación del usuario antes de tocar.
+desktop.worker.probe_no_status = La controladora no contestó al reporte de estado antes de sondear.
+# machine/ruida: ajustes, documentos y respaldos (ola 6E; EXPERIMENTAL)
+desktop.ruida.backup_bad_name = «{name}» no es el nombre de un respaldo de ajustes de Ruida
+desktop.ruida.write_error = No se pudo escribir {addr}: {why}. Las escrituras siguientes no se enviaron; restaura el respaldo.
+desktop.ruida.unknown_setting = «{key}» no es un ajuste de Ruida que Tlaku pueda escribir
+desktop.ruida.setting_not_integer = {key}: el valor {value} debe ser un número entero
+desktop.ruida.backup_other_card = El respaldo es de la tarjeta {file} y la máquina es la {machine}: no se podrá restaurar.
+desktop.ruida.not_a_step = «{key}» no es el paso de un eje: solo se calibran X, Y, Z y U
+desktop.ruida.bad_store_name = «{name}» no es un nombre válido: de 1 a 8 letras, cifras, «_» o «-» (sin espacios ni acentos)
+desktop.ruida.log_settings_read = Leyendo los ajustes de la controladora (solo lectura)
+desktop.ruida.log_settings_apply = Escribiendo {n} ajuste(s) en la controladora (con respaldo previo)
+desktop.ruida.log_settings_restore = Restaurando un respaldo de ajustes en la controladora
+desktop.ruida.log_backup_saved = ; respaldo guardado en {path}
+desktop.ruida.log_settings_verified = ; verificado: todos los valores releídos coinciden
+desktop.ruida.log_settings_mismatch = ; AVISO: algún valor no coincide o una escritura falló; restaura el respaldo
+desktop.ruida.log_replaced = Reemplazando el documento «{name}» (número {index}): se borra el anterior antes de subir
+desktop.ruida.log_file_delete = Borrando el documento {index} «{name}» de la memoria de la controladora
+desktop.ruida.log_file_deleted = ; borrado: la cuenta de documentos bajó en uno
+desktop.ruida.log_file_not_deleted = ; AVISO: la cuenta de documentos no bajó; el documento puede seguir ahí
+desktop.ruida.log_file_run = Ejecutando el documento {index} «{name}» de la memoria de la controladora
+desktop.ruida.log_file_not_started = ; AVISO: la máquina no empezó a trabajar; puede que solo haya seleccionado el documento: inícialo desde su panel
+desktop.ruida.job_doc_running = Se está ejecutando el documento «{name}» de la memoria de la controladora.
+desktop.ruida.writes_disabled = Las escrituras experimentales en Ruida están desactivadas: actívalas en la preferencia «Escrituras experimentales en Ruida» (Preferencias > Máquina o el panel de Ruida). Nada se envió a la controladora.
+
+# resume (continuar un trabajo interrumpido)
+desktop.resume.data_dir = No se pudo ubicar la carpeta de datos de la app: {err}
+desktop.resume.nothing_to_resume = No hay un trabajo interrumpido que continuar.
+desktop.resume.not_resumable = Este trabajo no se puede continuar desde Tlaku.
+desktop.resume.note_dialect = El perfil de esta máquina no permite continuar a mitad de un trabajo (la potencia no va en las líneas de movimiento o G0 no apaga el láser).
+desktop.resume.note_no_progress = No se pudo leer el avance guardado: elige a mano desde dónde seguir.
+desktop.resume.note_ruida = Este trabajo vive en la controladora Ruida: la máquina sigue sola, aunque la app se haya cerrado. Conéctate para consultar su estado.
+desktop.resume.note_k40 = Un trabajo de K40 no se puede continuar: la placa M2 Nano recibe el trabajo en paquetes y no informa en qué punto va, así que no hay forma segura de saber dónde se cortó. Hay que volver a enviarlo.
+desktop.resume.note_galvo = Continuar un trabajo interrumpido todavía no aplica al galvo.
+desktop.resume.warn_offsets = El G-code cambia el sistema de coordenadas (G92, G10, G28...): empezar a mitad no reproduciría ese cambio.
+desktop.resume.warn_mismatch = La última posición guardada no coincide con ninguna línea cercana: el punto propuesto es una estimación prudente. Revisa la vista previa.
+desktop.resume.warn_no_progress = No se pudo leer el avance guardado: no hay punto propuesto, elige uno.
+desktop.resume.warn_z = El trabajo mueve el eje Z: el preámbulo lo ajusta {dz} mm para llegar a la altura de ese punto. Comprueba el foco.
+desktop.resume.offsets_unsupported = El G-code usa G92, G10 o G28: no se puede reanudar a mitad.
+desktop.resume.line_out_of_range = La línea de reinicio no existe en el trabajo guardado.
+desktop.resume.dialect_unsupported = El perfil de esta máquina no permite reanudar un trabajo: la potencia tiene que ir en las líneas de movimiento y G0 debe apagar el láser.
+desktop.resume.preamble_comment = Tlaku: continuar desde la línea {line} de {total}
+desktop.resume.preamble_burns = El preámbulo de reanudación encendería el láser durante el desplazamiento. Nada se envió.
+desktop.resume.needs_home = Haz primero el homing: la máquina perdió su posición y el trabajo no puede continuar sin referenciarla. Nada se envió.
+desktop.resume.needs_confirm = Esta máquina no tiene homing: confirma que la cabeza y el material no se movieron y que el origen es el mismo. Nada se envió.
+desktop.resume.needs_frame = Encuadra el trabajo completo y comprueba que el material sigue en su lugar antes de continuar. Nada se envió.
+desktop.resume.needs_checklist = Completa la lista de comprobación antes de continuar. Nada se envió.
+desktop.resume.checkpoint_write_failed = AVISO: no se pudo guardar el punto de control para continuar el trabajo si se interrumpe: {err}
+desktop.resume.log_resuming = Continuando el trabajo desde la línea {line} de {total} (la máquina va primero al punto con el láser apagado)

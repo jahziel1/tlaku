@@ -32,7 +32,17 @@ import type { VectorObject } from '@/bindings/VectorObject';
 import type { VariableText } from '@/bindings/VariableText';
 import type { BufferStatus } from '@/bindings/BufferStatus';
 import type { ConnectResult } from '@/bindings/ConnectResult';
+import type { RuidaApplyReport } from '@/bindings/RuidaApplyReport';
+import type { RuidaBackup } from '@/bindings/RuidaBackup';
+import type { RuidaCalibration } from '@/bindings/RuidaCalibration';
+import type { RuidaControllerSettings } from '@/bindings/RuidaControllerSettings';
+import type { RuidaDocResult } from '@/bindings/RuidaDocResult';
 import type { RuidaFile } from '@/bindings/RuidaFile';
+import type { RuidaPlannedChange } from '@/bindings/RuidaPlannedChange';
+import type { RuidaSetting } from '@/bindings/RuidaSetting';
+import type { RuidaSettingChange } from '@/bindings/RuidaSettingChange';
+import type { RuidaSettingsPlan } from '@/bindings/RuidaSettingsPlan';
+import type { RuidaVerified } from '@/bindings/RuidaVerified';
 import type { RuidaInfo } from '@/bindings/RuidaInfo';
 import type { ConnectionEvent } from '@/bindings/ConnectionEvent';
 import type { ExportResult } from '@/bindings/ExportResult';
@@ -46,6 +56,15 @@ import type { Overrides } from '@/bindings/Overrides';
 import type { ProgressEvent } from '@/bindings/ProgressEvent';
 import type { RealtimeCommand } from '@/bindings/RealtimeCommand';
 import type { SimulatedFault } from '@/bindings/SimulatedFault';
+import type { InterruptedJob } from '@/bindings/InterruptedJob';
+import type { ResumeAir } from '@/bindings/ResumeAir';
+import type { ResumeKind } from '@/bindings/ResumeKind';
+import type { ResumeModal } from '@/bindings/ResumeModal';
+import type { ResumePoint } from '@/bindings/ResumePoint';
+import type { ResumeReadiness } from '@/bindings/ResumeReadiness';
+import type { ResumeSpindle } from '@/bindings/ResumeSpindle';
+import type { ResumeStart } from '@/bindings/ResumeStart';
+import type { ResumeView } from '@/bindings/ResumeView';
 import type { StatusReport } from '@/bindings/StatusReport';
 import type { FillStyle } from '@/bindings/FillStyle';
 import type { TabSettings } from '@/bindings/TabSettings';
@@ -113,12 +132,31 @@ export type {
   PathSeg,
   ProgressEvent,
   RealtimeCommand,
+  RuidaApplyReport,
+  RuidaBackup,
+  RuidaCalibration,
+  RuidaControllerSettings,
+  RuidaDocResult,
   RuidaFile,
   RuidaInfo,
+  RuidaPlannedChange,
+  RuidaSetting,
+  RuidaSettingChange,
+  RuidaSettingsPlan,
+  RuidaVerified,
   RotaryKind,
   RotarySettings,
   ScanOffset,
   SimulatedFault,
+  InterruptedJob,
+  ResumeAir,
+  ResumeKind,
+  ResumeModal,
+  ResumePoint,
+  ResumeReadiness,
+  ResumeSpindle,
+  ResumeStart,
+  ResumeView,
   StartFrom,
   StatusReport,
   TabSettings,
@@ -135,6 +173,16 @@ export type ImageDitherMode = ImageMode;
 export type JobLayerSummary = PreviewLayer;
 
 export type Point = [number, number];
+
+/** Resultado de un toque de sonda (M48). Las posiciones son donde quedó el cabezal al tocar. */
+export interface ProbeTouch {
+  /** El pin de la sonda cambió dentro del recorrido; `false` = no tocó nada. */
+  hit: boolean;
+  /** Posición de máquina [x, y], mm. */
+  machine_pos: Point;
+  /** Posición de trabajo [x, y], mm (la de `work_pos` del reporte de estado). */
+  work_pos: Point;
+}
 
 /** Afín [a b c d e f]: x' = a·x + c·y + e ; y' = b·x + d·y + f */
 export type Affine = DesignObject['transform'];

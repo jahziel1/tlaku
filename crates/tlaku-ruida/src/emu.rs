@@ -10,9 +10,16 @@
 //! - en memoria, con [`Emulator::handle`] o [`Emulator::into_link`] (un `MemoryLink`);
 //! - por UDP en `127.0.0.1` con puertos efímeros, con [`UdpEmulator`].
 //!
+//! También modela la gestión de documentos y ajustes (ola 6E, ver `docs/hardware/ruida.md`
+//! sección 16): escritura de memoria `DA 01 dirección v v` (guarda el primer valor y registra
+//! todas las escrituras en [`Emulator::writes`]), borrar un documento (`E8 00 n(2) m(2)`),
+//! ejecutar uno (`E8 03 n(2)`) y nombres repetidos (se guardan **duplicados**: no hay sobrescritura
+//! implícita, así que quien quiera reemplazar debe borrar antes). Los formatos de `E8 00` y
+//! `E8 03` son los de MeerK40t; las demás fuentes los describen distinto.
+//!
 //! No es la máquina real: la semántica de `D8 00` dentro de un archivo guardado con `E8 02`
-//! (que no arranca) y la de "la red se ignora con un trabajo en marcha" son hipótesis de las
-//! fuentes, sin verificar en hardware.
+//! (que no arranca), la de "la red se ignora con un trabajo en marcha" y la de las escrituras
+//! de memoria son hipótesis de las fuentes, sin verificar en hardware.
 
 use crate::cmd::{self, Command, DecodeError, Limit, ProcessOp, RapidRef};
 use crate::link::MemoryLink;
@@ -36,7 +43,11 @@ pub mod mem {
     pub const BED_X: u16 = 0x026;
     pub const BED_Y: u16 = 0x036;
     pub const DOC_COUNT: u16 = 0x205;
+    pub const BOARD_VERSION: u16 = 0x2FF;
 }
+
+/// Versión de placa que informa el emulador.
+pub const BOARD_VERSION: &str = "TLAKU-EMU";
 
 /// Bits del estado de la máquina (`0x200`), de ruida-pa y MeerK40t (MIT, RDC6442S).
 pub mod status_bits {
@@ -64,6 +75,11 @@ pub struct EmuFaults {
     pub silent_from: Option<usize>,
     /// Mientras hay un trabajo en marcha no contesta a nada (observación de [FOR3]).
     pub ignore_network_while_running: bool,
+    /// Contesta ACK a las escrituras de memoria (`DA 01`) pero no las aplica (firmware que las
+    /// ignora o protege): sirve para probar la verificación posterior.
+    pub ignore_writes: bool,
+    /// Aplica a medias las escrituras: guarda el valor sumándole 1 (una corrupción a propósito).
+    pub corrupt_writes: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -136,6 +152,14 @@ pub struct Emulator {
     pub jogs: Vec<Command>,
     /// Comandos que no se pudieron decodificar.
     pub decode_errors: usize,
+    /// Escrituras de memoria recibidas (`DA 01`): dirección y los dos valores.
+    pub writes: Vec<(u16, u64, u64)>,
+    /// Números (desde 1) de los documentos borrados con `E8 00`, en orden.
+    pub deleted: Vec<usize>,
+    /// Nombres de los documentos que se pidió ejecutar con `E8 03`.
+    pub ran: Vec<String>,
+    /// Flujo del documento en ejecución (`E8 03`), para posicionar el cabezal al terminar.
+    run_stream: Option<Vec<u8>>,
     /// Valores de memoria que contesta el emulador además de los de estado y posición (ajustes y
     /// contadores). Se pueden cambiar desde las pruebas.
     pub mem: std::collections::BTreeMap<u16, u64>,
@@ -145,22 +169,27 @@ impl Emulator {
     pub fn new(cfg: EmuConfig) -> Self {
         // Valores de ejemplo de una RDC6442S (los del emulador de MeerK40t donde existen):
         // velocidades en µm/s, aceleración en µm/s², tiempos en s y recorrido en m.
-        let mem = [
-            (0x005, 200_000),
-            (0x00C, 20_000),
-            (0x023, 400_000),
-            (0x033, 400_000),
-            (0x025, 3_000_000),
-            (0x035, 3_000_000),
-            (0x201, 7_200),
-            (0x202, 3_600),
-            (0x203, 42),
-            (0x211, 1_800),
-            (0x223, 120),
-            (0x233, 95),
-        ]
-        .into_iter()
-        .collect();
+        let mem = setting_defaults()
+            .into_iter()
+            .chain([
+                (0x005, 200_000),
+                (0x00C, 20_000),
+                (0x023, 400_000),
+                (0x033, 400_000),
+                (0x025, 3_000_000),
+                (0x035, 3_000_000),
+                (0x201, 7_200),
+                (0x202, 3_600),
+                (0x203, 42),
+                (0x211, 1_800),
+                (0x223, 120),
+                (0x233, 95),
+                (0x208, 600),
+                (0x010, 0),
+                // Foco habilitado y modo de aire 1.
+                (0x18F, 0x0201),
+            ])
+            .collect();
         Emulator {
             cfg,
             mem,
@@ -262,6 +291,22 @@ impl Emulator {
         }
     }
 
+    /// Aplica una escritura de memoria (salvo que `ignore_writes` la descarte).
+    fn write_mem(&mut self, addr: u16, value: u64) {
+        let f = self.cfg.faults;
+        if f.ignore_writes {
+            return;
+        }
+        let v = if f.corrupt_writes { value + 1 } else { value } & ((1u64 << 35) - 1);
+        match addr {
+            mem::BED_X => self.cfg.bed_um[0] = v as i64,
+            mem::BED_Y => self.cfg.bed_um[1] = v as i64,
+            _ => {
+                self.mem.insert(addr, v);
+            }
+        }
+    }
+
     fn apply(&mut self, plain: &[u8]) -> Vec<Vec<u8>> {
         let cmds = match cmd::decode_stream(plain) {
             Ok(c) => c,
@@ -273,6 +318,21 @@ impl Emulator {
         let mut replies = Vec::new();
         for c in cmds {
             match c {
+                // Escritura de memoria `DA 01 dirección v v` (ajustes; el pie de un `.rd` de
+                // RDWorks usa la misma forma). Se guarda el primer valor.
+                Command::MemWrite { addr, values } if values.len() == 2 => {
+                    self.writes.push((addr, values[0], values[1]));
+                    self.write_mem(addr, values[0]);
+                }
+                // La versión de la placa es una cadena (MeerK40t y ruida-pa): `DA 01 05 7F texto\0`.
+                Command::MemRead {
+                    addr: mem::BOARD_VERSION,
+                } => {
+                    let mut reply = vec![0xDA, 0x01, 0x05, 0x7F];
+                    reply.extend(BOARD_VERSION.bytes());
+                    reply.push(0);
+                    replies.push(self.cfg.packets.magic.swizzle_all(&reply));
+                }
                 Command::MemRead { addr } => {
                     let v = Command::MemWrite {
                         addr,
@@ -297,6 +357,32 @@ impl Emulator {
                         replies.push(self.cfg.packets.magic.swizzle_all(&reply));
                     }
                 }
+                // `E8 00 n(2) m(2)`: borra el documento n (desde 1); 0 los borra todos (formato
+                // del emulador de MeerK40t; Tlaku nunca envía el 0).
+                Command::Unknown { op: 0xE8, data } if data.len() == 5 && data[0] == 0x00 => {
+                    let n = (usize::from(data[1]) << 7) | usize::from(data[2]);
+                    if n == 0 {
+                        self.deleted.extend(1..=self.stored.len());
+                        self.stored.clear();
+                    } else if n <= self.stored.len() {
+                        self.stored.remove(n - 1);
+                        self.deleted.push(n);
+                    }
+                }
+                // `E8 03 n(2)`: ejecuta el documento n (MeerK40t vuelca su contenido al
+                // cabezal). Solo con la máquina libre.
+                Command::Unknown { op: 0xE8, data } if data.len() == 3 && data[0] == 0x03 => {
+                    let n = (usize::from(data[1]) << 7) | usize::from(data[2]);
+                    if let Some(doc) = n.checked_sub(1).and_then(|i| self.stored.get(i))
+                        && !self.running
+                    {
+                        self.ran.push(doc.name.clone());
+                        self.run_stream = Some(doc.stream.clone());
+                        self.running = true;
+                        self.paused = false;
+                        self.complete = false;
+                    }
+                }
                 Command::FileName(name) if self.transfer.is_some() => {
                     // El documento guardado empieza después del nombre.
                     self.transfer = Some(Some(name));
@@ -310,6 +396,7 @@ impl Emulator {
                     }
                 }
                 Command::Process(ProcessOp::Stop) => {
+                    self.run_stream = None;
                     self.running = false;
                     self.paused = false;
                     self.stops += 1;
@@ -363,7 +450,11 @@ impl Emulator {
     /// Da por terminado el trabajo en marcha: el cabezal queda en el último punto y la máquina
     /// libre.
     pub fn finish_job(&mut self) {
-        if let Ok(segs) = self.replay()
+        let segs = match self.run_stream.take() {
+            Some(doc) => cmd::decode_stream(&doc).map(|c| replay(&c)),
+            None => self.replay(),
+        };
+        if let Ok(segs) = segs
             && let Some(last) = segs.last()
         {
             self.pos_um = last.to;
@@ -414,6 +505,34 @@ impl Emulator {
     pub fn to_toolpath(&self) -> Result<Toolpath, DecodeError> {
         Ok(to_toolpath(&replay(&self.commands()?)))
     }
+}
+
+/// Valores de ejemplo de los ajustes de la lista cerrada (`crate::settings`) que no tienen ya uno.
+/// Son inventados para la prueba (pasos de 6350, recorridos de 600 x 400 mm...), no los de una
+/// máquina real.
+fn setting_defaults() -> Vec<(u16, u64)> {
+    crate::settings::WRITABLE
+        .iter()
+        .map(|d| {
+            let v: i64 = match d.key {
+                "g0_speed" | "x_max_speed" | "y_max_speed" => 400_000,
+                "home_speed" => 20_000,
+                "x_step" | "y_step" | "z_step" | "u_step" => 6_350,
+                "x_start_speed" | "y_start_speed" => 8_000,
+                "x_max_accel" | "y_max_accel" => 3_000_000,
+                "x_travel" => 600_000,
+                "y_travel" => 400_000,
+                "x_button_speed" | "y_button_speed" => 10_000,
+                "x_button_accel" | "y_button_accel" => 500_000,
+                "x_estop_accel" | "y_estop_accel" => 5_000_000,
+                "x_home_offset" | "y_home_offset" => 0,
+                "rotary_pulse" => 5_000,
+                "rotary_diameter" => 50_000,
+                _ => 0,
+            };
+            (d.addr, wrap35(v))
+        })
+        .collect()
 }
 
 /// Valor de 35 bits en complemento a dos para devolver una posición con signo.

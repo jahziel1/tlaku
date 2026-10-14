@@ -1,0 +1,16 @@
+# Sin issues en blanco: cada tipo de reporte tiene su formulario (bilingüe).
+# No blank issues: every kind of report has its own (bilingual) form.
+blank_issues_enabled: false
+contact_links:
+  - name: "Question or idea / Pregunta o idea"
+    url: https://github.com/jahziel1/tlaku/discussions
+    about: "Ask questions and talk about ideas in Discussions. / Preguntas y conversación en Discusiones."
+  - name: "Manual (English)"
+    url: https://github.com/jahziel1/tlaku/blob/main/docs/manual/en/00-indice.md
+    about: "Read the user manual in English (some chapters are still Spanish only). / Manual de usuario en inglés (algunos capítulos solo existen en español)."
+  - name: "Manual (Español)"
+    url: https://github.com/jahziel1/tlaku/blob/main/docs/manual/00-indice.md
+    about: "Manual de usuario completo en español. / The full user manual in Spanish."
+  - name: "Security / Seguridad (private / en privado)"
+    url: https://github.com/jahziel1/tlaku/security/advisories/new
+    about: "Report a vulnerability or a laser-safety flaw privately. Do not open a public issue. / Reporta una vulnerabilidad o un fallo de seguridad láser en privado. No abras un issue público."

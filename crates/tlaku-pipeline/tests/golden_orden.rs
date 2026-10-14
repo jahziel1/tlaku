@@ -20,12 +20,10 @@ fn object(id: &str, layer: Rgb, pts: &[(f64, f64)]) -> DesignObject {
         id: id.into(),
         layer,
         transform: IDENTITY,
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
-                closed: true,
-            })],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+            closed: true,
+        })])),
         locked: false,
         hidden: false,
         group: None,

@@ -33,3 +33,14 @@ doc.factory.restriction_no_source = Restriction for "{material}": the source is 
 
 # layer.rs (cont.)
 doc.layer.images = Image
+
+# community.rs
+doc.community.invalid = Invalid community settings: {error}
+doc.community.bad_id = "{id}": the id must start with "community.", end with ".{issue}" (the issue number) and be unique.
+doc.community.bad_source = "{id}": the source must be the address of an issue ({prefix}N).
+doc.community.bad_license = "{id}": the license must be {license}.
+doc.community.bad_confidence = "{id}": the confidence of a community contribution must be "forum".
+doc.community.no_name = "{id}": the material "{material}" is not in the factory library; "material_name" is missing.
+doc.community.bad_title = "{id}": the operation "{title}" does not exist.
+doc.community.bad_class = "{id}": {watts} W corresponds to class {class}.
+doc.community.out_of_range = "{id}": "{field}" is out of range or invalid.

@@ -89,7 +89,7 @@ desktop.prefs.bundle_devices_not_list = Invalid bundle: "devices" must be a list
 desktop.prefs.bundle_needs_ext = {path}: the bundle must be saved with the .{ext} extension.
 desktop.prefs.bundle_too_big = {path}: the file is too large to be a Tlaku bundle.
 # settings_backup.rs
-desktop.settings_backup.bad_ext = {path}: the backup must be saved with the .tlakuset or .txt extension.
+desktop.settings_backup.bad_ext = {path}: the backup must be saved with the .tlakuset, .tlakuruida or .txt extension.
 desktop.settings_backup.too_big_write = The backup is too large ({size} bytes; the maximum is {max}).
 desktop.settings_backup.not_a_file = {path}: not a file.
 desktop.settings_backup.too_big_read = {path}: the file is too large to be a settings backup (maximum {max} bytes).
@@ -149,7 +149,7 @@ desktop.galvo.origin_bottom_left = The galvo profile origin must be "bottom left
 desktop.galvo.profile_invalid = The galvo profile is not valid: {err}
 # machine/ruida.rs
 desktop.ruida.experimental = EXPERIMENTAL: Ruida support has not been tested with a real machine (docs/hardware/ruida.md). Test first with the laser disabled or at power 0.
-desktop.ruida.rotary_note = Rotary: Ruida enables it in the controller's own settings; Tlaku sends Y in surface mm, without scaling or mirroring it.
+desktop.ruida.rotary_note = Rotary: Ruida enables it in the controller's own settings; Tlaku sends Y in surface mm, without scaling or mirroring it. The two public rotary settings can be written from the Ruida panel (experimental).
 desktop.ruida.grbl_only = This function is only for GRBL: the Ruida controller does not use G-code or live overrides.
 # machine/worker (GRBL)
 desktop.worker.connection_lost_io = the connection to the machine was lost: {err}
@@ -519,3 +519,63 @@ desktop.edit.variables.too_big = The CSV is larger than 50 MB.
 desktop.edit.variables.read_failed = Could not read the CSV "{path}": {err}
 desktop.edit.variables.missing_columns = The CSV is missing columns the design uses: {missing}. Available columns: {available}.
 desktop.edit.text.no_file = No file was chosen
+
+# wave 6E: contact probe (machine/probe.rs, machine/worker/probe.rs)
+desktop.worker.probe_no_travel = The probe needs a travel greater than zero.
+desktop.worker.probe_travel = The probe travel cannot exceed {max} mm.
+desktop.worker.probe_feed = The probing speed must be greater than zero and not exceed {max} mm/min.
+desktop.worker.probe_retract = The probe retract must be between 0 and {max} mm.
+desktop.worker.probe_grbl_only = The G38 probe is only available with GRBL controllers.
+desktop.worker.probe_not_idle = The machine must be idle to use the probe.
+desktop.worker.probe_already_touching = The probe is already active before starting ({reply}). Move the head away from the object and check the probe wiring.
+desktop.worker.probe_no_prb = The controller did not report the probe result ([PRB:...]).
+desktop.worker.log_probe = Probe: {result} at X{x} Y{y}
+desktop.commands.probe_unconfirmed = The probe moves the machine: the user must confirm before touching.
+desktop.worker.probe_no_status = The controller did not answer the status report before probing.
+# machine/ruida: settings, documents and backups (wave 6E; EXPERIMENTAL)
+desktop.ruida.backup_bad_name = "{name}" is not the name of a Ruida settings backup
+desktop.ruida.write_error = Could not write {addr}: {why}. The following writes were not sent; restore the backup.
+desktop.ruida.unknown_setting = "{key}" is not a Ruida setting Tlaku can write
+desktop.ruida.setting_not_integer = {key}: the value {value} must be a whole number
+desktop.ruida.backup_other_card = The backup is from card {file} and the machine is {machine}: it cannot be restored.
+desktop.ruida.not_a_step = "{key}" is not an axis step: only X, Y, Z and U can be calibrated
+desktop.ruida.bad_store_name = "{name}" is not a valid name: 1 to 8 letters, digits, "_" or "-" (no spaces or accents)
+desktop.ruida.log_settings_read = Reading the controller settings (read only)
+desktop.ruida.log_settings_apply = Writing {n} setting(s) to the controller (with a backup first)
+desktop.ruida.log_settings_restore = Restoring a settings backup to the controller
+desktop.ruida.log_backup_saved = ; backup saved to {path}
+desktop.ruida.log_settings_verified = ; verified: every value read back matches
+desktop.ruida.log_settings_mismatch = ; WARNING: a value does not match or a write failed; restore the backup
+desktop.ruida.log_replaced = Replacing the document "{name}" (number {index}): the old one is deleted before uploading
+desktop.ruida.log_file_delete = Deleting document {index} "{name}" from the controller's memory
+desktop.ruida.log_file_deleted = ; deleted: the document count dropped by one
+desktop.ruida.log_file_not_deleted = ; WARNING: the document count did not drop; the document may still be there
+desktop.ruida.log_file_run = Running document {index} "{name}" from the controller's memory
+desktop.ruida.log_file_not_started = ; WARNING: the machine did not start working; it may have only selected the document: start it from its panel
+desktop.ruida.job_doc_running = Running the document "{name}" from the controller's memory.
+desktop.ruida.writes_disabled = Experimental Ruida writes are turned off: turn them on with the "Experimental Ruida writes" preference (Preferences > Machine or the Ruida panel). Nothing was sent to the controller.
+
+# resume (continue an interrupted job)
+desktop.resume.data_dir = Could not find the app data folder: {err}
+desktop.resume.nothing_to_resume = There is no interrupted job to continue.
+desktop.resume.not_resumable = This job cannot be continued from Tlaku.
+desktop.resume.note_dialect = This machine's profile does not allow continuing in the middle of a job (power is not on the motion lines, or G0 does not turn the laser off).
+desktop.resume.note_no_progress = The saved progress could not be read: choose by hand where to continue.
+desktop.resume.note_ruida = This job lives in the Ruida controller: the machine keeps running on its own, even if the app was closed. Connect to check its status.
+desktop.resume.note_k40 = A K40 job cannot be continued: the M2 Nano board receives the job in packets and does not report where it is, so there is no safe way to know where it stopped. Send it again.
+desktop.resume.note_galvo = Continuing an interrupted job does not apply to the galvo yet.
+desktop.resume.warn_offsets = The G-code changes the coordinate system (G92, G10, G28...): starting in the middle would not reproduce that change.
+desktop.resume.warn_mismatch = The last saved position does not match any nearby line: the suggested point is a cautious estimate. Check the preview.
+desktop.resume.warn_no_progress = The saved progress could not be read: there is no suggested point, pick one.
+desktop.resume.warn_z = The job moves the Z axis: the preamble adjusts it {dz} mm to reach the height of that point. Check the focus.
+desktop.resume.offsets_unsupported = The G-code uses G92, G10 or G28: it cannot be resumed in the middle.
+desktop.resume.line_out_of_range = The restart line does not exist in the saved job.
+desktop.resume.dialect_unsupported = This machine's profile does not allow resuming a job: power must be on the motion lines and G0 must turn the laser off.
+desktop.resume.preamble_comment = Tlaku: continue from line {line} of {total}
+desktop.resume.preamble_burns = The resume preamble would turn the laser on while travelling. Nothing was sent.
+desktop.resume.needs_home = Home the machine first: it lost its position and the job cannot continue without a reference. Nothing was sent.
+desktop.resume.needs_confirm = This machine has no homing: confirm that the head and the material did not move and that the origin is the same. Nothing was sent.
+desktop.resume.needs_frame = Frame the whole job and check that the material is still in place before continuing. Nothing was sent.
+desktop.resume.needs_checklist = Complete the checklist before continuing. Nothing was sent.
+desktop.resume.checkpoint_write_failed = WARNING: the checkpoint could not be saved, so the job cannot be continued if it is interrupted: {err}
+desktop.resume.log_resuming = Continuing the job from line {line} of {total} (the machine first goes to the point with the laser off)

@@ -4,6 +4,7 @@ import { commands, ALL_COMMANDS, MENUS } from '@/commands';
 import { buildMenus } from '@/features/shell/menuModel';
 import { es, setLanguage } from '@/i18n';
 import { AboutDialog, DonateDialog, HelpDialogHost, ManualReader, ReportDialog } from './HelpDialogs';
+import { ShareMachineDialog, ShareMaterialDialog } from './ShareDialogs';
 import { useHelpUi } from './helpStore';
 import { classifyLink, type Block, type Inline } from './markdown';
 import { MarkdownView } from './MarkdownView';
@@ -11,7 +12,7 @@ import { englishFiles, findPage, indexPages, INDEX_FILE, manualPages, NEWS_FILE,
 import { systemInfo } from './clipboard';
 import { donationLinks, PROJECT_LINKS } from './links';
 
-const HELP_IDS = ['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.checkUpdates', 'help.report', 'help.donate', 'help.about'];
+const HELP_IDS = ['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.checkUpdates', 'help.report', 'help.shareMachine', 'help.shareMaterial', 'help.donate', 'help.about'];
 
 describe('menú Ayuda', () => {
   it('todos los comandos de Ayuda existen y el menú los muestra en orden', () => {
@@ -36,6 +37,8 @@ describe('diálogos de ayuda', () => {
       'help.news': 'news',
       'help.jobLog': 'jobLog',
       'help.report': 'report',
+      'help.shareMachine': 'shareMachine',
+      'help.shareMaterial': 'shareMaterial',
       'help.donate': 'donate',
       'help.checkUpdates': 'update',
       'help.about': 'about',
@@ -53,6 +56,8 @@ describe('diálogos de ayuda', () => {
     expect(renderToStaticMarkup(<ManualReader title={es['help.news.title']} titleId="n" file={NEWS_FILE} single />)).toContain('Novedades');
     expect(renderToStaticMarkup(<ReportDialog />)).toContain(es['help.report.title']);
     expect(renderToStaticMarkup(<DonateDialog />)).toContain(es['help.donate.title']);
+    expect(renderToStaticMarkup(<ShareMachineDialog />)).toContain(es['help.shareMachine.title']);
+    expect(renderToStaticMarkup(<ShareMaterialDialog />)).toContain(es['help.shareMaterial.title']);
   });
 
   it('Acerca de dice la licencia, el significado del nombre y los créditos', () => {
@@ -77,6 +82,7 @@ describe('diálogos de ayuda', () => {
     const saved = { ...PROJECT_LINKS };
     try {
       PROJECT_LINKS.sponsors = 'https://github.com/sponsors/tlaku';
+      PROJECT_LINKS.kofi = '';
       const html = renderToStaticMarkup(<DonateDialog />);
       expect(html).toContain('GitHub Sponsors');
       expect(html).toContain('https://github.com/sponsors/tlaku');

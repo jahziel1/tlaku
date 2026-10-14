@@ -44,6 +44,8 @@ const HELP_MENU: ShellMenu = {
     { kind: 'separator' },
     { kind: 'command', id: 'help.checkUpdates' },
     { kind: 'command', id: 'help.report' },
+    { kind: 'command', id: 'help.shareMachine' },
+    { kind: 'command', id: 'help.shareMaterial' },
     { kind: 'command', id: 'help.donate' },
     { kind: 'separator' },
     { kind: 'command', id: 'help.about' },

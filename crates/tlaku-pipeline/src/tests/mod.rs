@@ -20,17 +20,15 @@ fn rect_object(id: &str, layer: Rgb, x: f64, y: f64, w: f64, h: f64) -> DesignOb
         id: id.into(),
         layer,
         transform: IDENTITY,
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: vec![
-                    Point::new(x, y),
-                    Point::new(x + w, y),
-                    Point::new(x + w, y + h),
-                    Point::new(x, y + h),
-                ],
-                closed: true,
-            })],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: vec![
+                Point::new(x, y),
+                Point::new(x + w, y),
+                Point::new(x + w, y + h),
+                Point::new(x, y + h),
+            ],
+            closed: true,
+        })])),
         locked: false,
         hidden: false,
         group: None,
@@ -45,12 +43,10 @@ fn rect_object(id: &str, layer: Rgb, x: f64, y: f64, w: f64, h: f64) -> DesignOb
 
 fn object_open(id: &str, layer: Rgb, pts: &[(f64, f64)]) -> DesignObject {
     let mut o = rect_object(id, layer, 0.0, 0.0, 1.0, 1.0);
-    o.kind = ObjectKind::Vector(VectorObject {
-        paths: vec![BezPath::from(&Polyline {
-            points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
-            closed: false,
-        })],
-    });
+    o.kind = ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+        points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+        closed: false,
+    })]));
     o
 }
 

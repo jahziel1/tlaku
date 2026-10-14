@@ -185,3 +185,60 @@ fn udp_session_finds_the_magic_and_survives_a_lost_ack_in_a_read() {
     assert!(info.magic_changed);
     assert!(s.status().unwrap().is_idle());
 }
+
+#[test]
+fn controller_info_also_reads_the_version_string_the_features_and_the_control_mode() {
+    let (mut s, _l, emu) = mem_session(EmuConfig::default(), fast_cfg());
+    let info = s.controller_info().unwrap();
+    assert_eq!(info.board_version.as_deref(), Some("TLAKU-EMU"));
+    assert_eq!(info.previous_work, Some(600));
+    assert_eq!(info.control_mode, Some(0));
+    let f = info.features.unwrap();
+    // 0x0201: foco (bit 0) y modo de aire 1 (bits 9 y 10).
+    assert!(f.focus && !f.z_return_docking);
+    assert_eq!(f.air_assist_mode, 1);
+    // Siguen siendo solo lecturas.
+    let e = emu.lock().unwrap();
+    assert!(e.writes.is_empty());
+}
+
+#[test]
+fn machine_features_decode_the_documented_bits() {
+    use crate::session::MachineFeatures;
+    let f = MachineFeatures::from_raw(0x1 | 0x8 | (3 << 9));
+    assert!(f.focus && f.z_return_docking);
+    assert_eq!(f.air_assist_mode, 3);
+    let none = MachineFeatures::from_raw(0);
+    assert!(!none.focus && !none.z_return_docking);
+    assert_eq!(none.air_assist_mode, 0);
+}
+
+#[test]
+fn settings_can_be_applied_and_restored_over_udp_in_localhost() {
+    use crate::settings::{SettingChange, SettingsFile};
+    let emu = UdpEmulator::spawn(EmuConfig::default()).unwrap();
+    let link = UdpLink::to_controller_ports(emu.addr().ip(), emu.addr().port(), 0).unwrap();
+    let mut s = RuidaSession::new(link, fast_cfg());
+    let mut saved = Vec::new();
+    let r = s
+        .apply_settings(
+            &[SettingChange {
+                addr: 0x005,
+                value: 123_000,
+            }],
+            true,
+            &mut |snap| {
+                saved.push(snap.clone());
+                Ok("udp".into())
+            },
+        )
+        .unwrap();
+    assert!(r.is_ok());
+    assert_eq!(emu.emulator().writes, vec![(0x005, 123_000, 123_000)]);
+    let file = SettingsFile::from_snapshot(&saved[0], "t");
+    let back = s
+        .restore_settings(&file, true, &mut |_| Ok("udp2".into()))
+        .unwrap();
+    assert!(back.is_ok());
+    assert_eq!(s.read_settings().unwrap().get(0x005), Some(200_000));
+}

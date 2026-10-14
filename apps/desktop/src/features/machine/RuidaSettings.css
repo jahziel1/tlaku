@@ -1,0 +1,64 @@
+/* Ventana «Ajustes de la controladora» de Ruida (EXPERIMENTAL): se apoya en las clases `mset-*` de MachineSettings.css. */
+
+.rset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-6);
+}
+.rset h3 {
+  margin: var(--s-4) 0 0;
+  font-size: var(--text-sm);
+}
+.rset p {
+  margin: 0;
+}
+.rset-group th[colspan] {
+  background: var(--surface-2, transparent);
+  color: var(--text);
+}
+.rset-edit {
+  width: 9em;
+  text-align: right;
+}
+.rset-source {
+  display: block;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+.rset-cal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s-4);
+}
+.rset-cal label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font-size: var(--text-sm);
+}
+.rset-cal .input {
+  width: 10em;
+}
+.rset-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  font-weight: 600;
+}
+.rset-backups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.rset-backups li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.rset-err {
+  color: var(--danger);
+  font-size: var(--text-xs);
+}

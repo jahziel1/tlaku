@@ -100,6 +100,7 @@ fn example_options() -> RuidaJobOptions {
         layers: vec![LayerOptions {
             color: [0, 0, 0],
             min_power_pct: Some(pct(2457)),
+            ..Default::default()
         }],
         secondary_laser_power_pct: pct(4914),
         footer_stats: true,

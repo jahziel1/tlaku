@@ -23,14 +23,25 @@
 //!   centro de la cama), no su esquina al origen.
 //! - Con rotativo, una vuelta son `pi * object_diameter` mm de superficie.
 //!
-//! No se parten formas enteras ("Run Whole Shapes") ni se hace marcado al vuelo: el recorte es el
-//! del tramo, así que una forma que cruza el borde de una pieza se marca en dos partes.
+//! Por omisión el recorte es el del tramo: una forma que cruza el borde de una pieza se marca en
+//! dos partes. Con `SplitMarking::whole_shapes` las piezas se cortan por la frontera de las formas
+//! (ver `split_shapes`): cada paso lleva entonces los ids de los objetos que marca
+//! ([`MarkStep::objects`]), que la integración pasa como `JobOptions::selection`. El marcado al
+//! vuelo (encoder de banda) no existe: ver `tlaku_galvo`, «Lo que no se hace».
+//!
+//! # Rotativo del galvo (M30)
+//!
+//! Lo define `GalvoDevice::rotary` (diámetro, pasos por vuelta, eje, sentido); si está apagado se
+//! lee el rotativo general del perfil, para que los perfiles antiguos sigan igual (ver
+//! [`galvo_rotary`]). Con el eje `x` la superficie avanza en Y (franjas horizontales); con el eje
+//! `y`, en X (franjas verticales).
 
 use crate::job::ComputedJob;
 use crate::rotary::circumference_mm;
+use crate::split_shapes::ShapeUnit;
 use serde::{Deserialize, Serialize};
 use tlaku_core::{Bounds, Point};
-use tlaku_doc::{DeviceProfile, SplitAxes, SplitOrder, TileSpec};
+use tlaku_doc::{CylinderAxis, DeviceProfile, SplitAxes, SplitOrder, TileSpec};
 use tlaku_i18n::tr;
 
 /// Tope de piezas de un plan (más es casi seguro un tamaño mal escrito).
@@ -56,6 +67,63 @@ impl StageMove {
     }
 }
 
+/// El rotativo que usa un perfil galvo.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GalvoRotarySetup {
+    /// Mm de superficie por vuelta completa.
+    pub circumference: f64,
+    /// Eje de la pieza (con `X` la superficie avanza en Y).
+    pub axis: CylinderAxis,
+    /// El giro positivo va contra el avance de la superficie.
+    pub reverse: bool,
+    /// Pasos del motor por vuelta; 0 = no se sabe.
+    pub steps_per_rev: u32,
+}
+
+impl GalvoRotarySetup {
+    /// Pasos del motor que equivalen a `deg` grados; `None` si no se conocen los pasos por vuelta.
+    pub fn steps_for(&self, deg: f64) -> Option<i64> {
+        (self.steps_per_rev > 0)
+            .then(|| (deg / 360.0 * f64::from(self.steps_per_rev)).round() as i64)
+    }
+}
+
+/// El rotativo de un perfil galvo, o `None` si no hay. Manda `galvo.rotary`; si está apagado se
+/// mira el rotativo general (`DeviceProfile.rotary`, eje `x`, `mirror` como sentido). Falla si el
+/// diámetro no es un número mayor que 0.
+pub fn galvo_rotary(device: &DeviceProfile) -> Result<Option<GalvoRotarySetup>, String> {
+    let r = &device.galvo.rotary;
+    if r.enabled {
+        if !(r.diameter_mm.is_finite() && r.diameter_mm > 0.0) {
+            return Err(tr!(
+                "pipeline.split.rotary_needs_diameter",
+                machine = device.name
+            ));
+        }
+        return Ok(Some(GalvoRotarySetup {
+            circumference: std::f64::consts::PI * r.diameter_mm,
+            axis: r.axis,
+            reverse: r.reverse,
+            steps_per_rev: r.steps_per_rev,
+        }));
+    }
+    if !device.rotary.enabled {
+        return Ok(None);
+    }
+    let circumference = circumference_mm(device).ok_or_else(|| {
+        tr!(
+            "pipeline.split.rotary_needs_diameter",
+            machine = device.name
+        )
+    })?;
+    Ok(Some(GalvoRotarySetup {
+        circumference,
+        axis: CylinderAxis::X,
+        reverse: device.rotary.mirror,
+        steps_per_rev: 0,
+    }))
+}
+
 /// Un paso de la secuencia de marcado.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MarkStep {
@@ -64,6 +132,10 @@ pub struct MarkStep {
     pub piece: usize,
     /// Zona del diseño y su desplazamiento al campo; `None` = el diseño entero, sin recorte.
     pub tile: Option<TileSpec>,
+    /// Con piezas por formas enteras: ids de los objetos que se marcan en este paso (va a
+    /// `JobOptions::selection`); `None` = los que caen en `tile`.
+    #[serde(default)]
+    pub objects: Option<Vec<String>>,
     /// Movimiento previo (el primer paso lo lleva en cero).
     pub stage: StageMove,
     /// Pausa tras el movimiento, ms.
@@ -143,14 +215,38 @@ fn check_positive(name: &str, v: f64) -> Result<(), String> {
     }
 }
 
+/// Una pieza del plan: su rectángulo del diseño y, con formas enteras, los objetos que marca.
+pub(crate) struct Piece {
+    pub rect: [[f64; 2]; 2],
+    pub objects: Option<Vec<String>>,
+}
+
 /// La secuencia de marcado para un diseño de caja `design` (en mm del documento) en `device`.
 ///
 /// - Sin `galvo.split.enabled` hay una sola pieza (el diseño entero, `tile = None`).
 /// - Con él y sin rotativo: cuadrícula de piezas con la mesa moviéndose en `split.axes`.
-/// - Con él y con rotativo (`device.rotary.enabled`): franjas en Y; el ancho debe caber en una
-///   pieza porque el rotativo no mueve X.
+/// - Con él y con rotativo (`galvo_rotary`): franjas a lo largo de la superficie; el otro lado
+///   debe caber en una pieza porque el rotativo no mueve ese eje.
 /// - `galvo.repeat` repite toda la secuencia.
 pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan, String> {
+    plan(design, device, None)
+}
+
+/// Como [`mark_sequence`] pero con la lista de formas del diseño: si `split.whole_shapes` está
+/// activo, las piezas se cortan por la frontera de las formas (ver `split_shapes`).
+pub fn mark_sequence_shapes(
+    design: Bounds,
+    shapes: &[ShapeUnit],
+    device: &DeviceProfile,
+) -> Result<MarkPlan, String> {
+    plan(design, device, Some(shapes))
+}
+
+fn plan(
+    design: Bounds,
+    device: &DeviceProfile,
+    shapes: Option<&[ShapeUnit]>,
+) -> Result<MarkPlan, String> {
     let g = &device.galvo;
     let sp = &g.split;
     let rep = &g.repeat;
@@ -178,20 +274,14 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
             n = rep.count
         ));
     }
-    let rotary = device.rotary.enabled;
-    let circumference = if rotary {
-        Some(circumference_mm(device).ok_or_else(|| {
-            tr!(
-                "pipeline.split.rotary_needs_diameter",
-                machine = device.name
-            )
-        })?)
-    } else {
-        None
-    };
+    let rot = galvo_rotary(device)?;
+    let circumference = rot.map(|r| r.circumference);
+    // Eje de la superficie del rotativo: `X` = la pieza va a lo largo de X y la superficie
+    // avanza en Y.
+    let rot_axis = rot.map_or(CylinderAxis::X, |r| r.axis);
     // Cada pieza: rectángulo del diseño y su centro en el campo.
     let field_center = Point::new(device.bed[0] / 2.0, device.bed[1] / 2.0);
-    let rects: Vec<[[f64; 2]; 2]> = if sp.enabled {
+    let pieces_list: Vec<Piece> = if sp.enabled {
         check_positive(&tr!("pipeline.split.param_field"), g.field_mm)?;
         let side = if sp.piece_mm > 0.0 {
             sp.piece_mm.min(g.field_mm)
@@ -206,17 +296,33 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
             ));
         }
         let (w, h) = (design.max.x - design.min.x, design.max.y - design.min.y);
-        if rotary {
-            if w > side + EPS {
-                return Err(tr!(
-                    "pipeline.split.rotary_too_wide",
-                    w = format!("{w:.2}"),
-                    side = format!("{side:.2}")
-                ));
+        // Qué ejes se pueden partir: (columnas = partir X, filas = partir Y).
+        let (cut_cols, cut_rows) = if rot.is_some() {
+            match rot_axis {
+                CylinderAxis::X => {
+                    if w > side + EPS {
+                        return Err(tr!(
+                            "pipeline.split.rotary_too_wide",
+                            w = format!("{w:.2}"),
+                            side = format!("{side:.2}")
+                        ));
+                    }
+                    (false, true)
+                }
+                CylinderAxis::Y => {
+                    if h > side + EPS {
+                        return Err(tr!(
+                            "pipeline.split.rotary_too_tall",
+                            h = format!("{h:.2}"),
+                            side = format!("{side:.2}")
+                        ));
+                    }
+                    (true, false)
+                }
             }
         } else {
             match sp.axes {
-                SplitAxes::Xy => {}
+                SplitAxes::Xy => (true, true),
                 SplitAxes::X => {
                     if h > side + EPS {
                         return Err(tr!(
@@ -225,6 +331,7 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                             side = format!("{side:.2}")
                         ));
                     }
+                    (true, false)
                 }
                 SplitAxes::Y => {
                     if w > side + EPS {
@@ -234,11 +341,31 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                             side = format!("{side:.2}")
                         ));
                     }
+                    (false, true)
                 }
             }
-        }
+        };
         // Un eje que no se mueve ya cabe en una sola pieza (comprobado arriba).
-        let rects = pieces(design, [side, side], sp.overlap_mm, sp.order)?;
+        let whole = match shapes {
+            Some(list) if sp.whole_shapes => crate::split_shapes::whole_pieces(
+                list,
+                side,
+                (cut_cols, cut_rows),
+                sp.order,
+                &mut warnings,
+            ),
+            _ => None,
+        };
+        let pieces_list = match whole {
+            Some(p) => p,
+            None => pieces(design, [side, side], sp.overlap_mm, sp.order)?
+                .into_iter()
+                .map(|rect| Piece {
+                    rect,
+                    objects: None,
+                })
+                .collect(),
+        };
         if let Some(circ) = circumference {
             let span = side / circ * 360.0;
             if span > 120.0 {
@@ -248,45 +375,64 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                     circ = format!("{circ:.1}")
                 ));
             }
-            let total = (design.max.y - design.min.y) / circ;
-            if total > 1.0 + 1e-9 {
+            let along = match rot_axis {
+                CylinderAxis::X => h,
+                CylinderAxis::Y => w,
+            };
+            if along / circ > 1.0 + 1e-9 {
                 warnings.push(tr!(
                     "pipeline.split.rotary_overlap",
-                    h = format!("{:.2}", design.max.y - design.min.y),
+                    h = format!("{along:.2}"),
                     circ = format!("{circ:.2}")
                 ));
             }
         }
-        rects
+        pieces_list
     } else {
         Vec::new()
     };
+    let rects: Vec<&[[f64; 2]; 2]> = pieces_list.iter().map(|p| &p.rect).collect();
     // Movimiento entre dos centros (de `a` a `b`, ambos en mm del diseño).
     let travel = |a: Point, b: Point| -> StageMove {
-        match circumference {
-            Some(circ) => {
-                let sign = if device.rotary.mirror { -1.0 } else { 1.0 };
+        match (circumference, rot) {
+            (Some(circ), Some(r)) => {
+                let sign = if r.reverse { -1.0 } else { 1.0 };
+                let along = match rot_axis {
+                    CylinderAxis::X => b.y - a.y,
+                    CylinderAxis::Y => b.x - a.x,
+                };
                 StageMove {
                     dx: 0.0,
                     dy: 0.0,
-                    rotary_deg: sign * (b.y - a.y) / circ * 360.0,
+                    rotary_deg: sign * along / circ * 360.0,
                 }
             }
-            None => StageMove {
+            _ => StageMove {
                 dx: a.x - b.x,
                 dy: a.y - b.y,
                 rotary_deg: 0.0,
             },
         }
     };
-    // Avance entre repeticiones: la mesa en X e Y, o con rotativo el giro de la Y.
-    let increment = match circumference {
-        Some(circ) => StageMove {
-            dx: rep.increment_mm[0],
-            dy: 0.0,
-            rotary_deg: rep.increment_mm[1] / circ * 360.0,
-        },
-        None => StageMove {
+    // Avance entre repeticiones: la mesa en X e Y, o con rotativo el giro de la superficie (la
+    // Y con el eje `x`, la X con el eje `y`); el otro eje sigue siendo de la mesa.
+    let increment = match (circumference, rot) {
+        (Some(circ), Some(r)) => {
+            let sign = if r.reverse { -1.0 } else { 1.0 };
+            match rot_axis {
+                CylinderAxis::X => StageMove {
+                    dx: rep.increment_mm[0],
+                    dy: 0.0,
+                    rotary_deg: sign * rep.increment_mm[1] / circ * 360.0,
+                },
+                CylinderAxis::Y => StageMove {
+                    dx: 0.0,
+                    dy: rep.increment_mm[1],
+                    rotary_deg: sign * rep.increment_mm[0] / circ * 360.0,
+                },
+            }
+        }
+        _ => StageMove {
             dx: rep.increment_mm[0],
             dy: rep.increment_mm[1],
             rotary_deg: 0.0,
@@ -320,20 +466,20 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                 };
                 (None, stage, rep.pause_ms)
             } else {
-                let here = center(&rects[piece]);
+                let here = center(rects[piece]);
                 if piece > 0 {
-                    let from = center(&rects[piece - 1]);
+                    let from = center(rects[piece - 1]);
                     (
-                        Some(tile_of(&rects[piece])),
+                        Some(tile_of(rects[piece])),
                         travel(from, here),
                         sp.pause_after_move_ms,
                     )
                 } else if repeat > 0 {
                     // Vuelta a la primera pieza más el avance de la repetición.
-                    let from = center(&rects[rects.len() - 1]);
+                    let from = center(rects[rects.len() - 1]);
                     let back = travel(from, here);
                     (
-                        Some(tile_of(&rects[piece])),
+                        Some(tile_of(rects[piece])),
                         StageMove {
                             dx: back.dx + increment.dx,
                             dy: back.dy + increment.dy,
@@ -342,7 +488,7 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                         rep.pause_ms,
                     )
                 } else {
-                    (Some(tile_of(&rects[piece])), StageMove::default(), 0.0)
+                    (Some(tile_of(rects[piece])), StageMove::default(), 0.0)
                 }
             };
             let pause_ms = if stage.is_zero() { 0.0 } else { pause_ms };
@@ -350,6 +496,7 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                 repeat,
                 piece,
                 tile,
+                objects: pieces_list.get(piece).and_then(|p| p.objects.clone()),
                 stage,
                 pause_ms,
             });
@@ -639,5 +786,113 @@ mod tests {
         d.galvo.field_mm = 1.0;
         let e = mark_sequence(bounds(0.0, 0.0, 1000.0, 1000.0), &d).unwrap_err();
         assert!(e.contains("demasiado"), "{e}");
+    }
+    fn galvo_rotary_device(
+        piece_mm: f64,
+        axis: CylinderAxis,
+        reverse: bool,
+        steps: u32,
+    ) -> DeviceProfile {
+        let mut d = galvo_device(
+            SplitMarking {
+                piece_mm,
+                ..enabled()
+            },
+            RepeatMarking::default(),
+        );
+        d.galvo.rotary = tlaku_doc::GalvoRotary {
+            enabled: true,
+            diameter_mm: 100.0 / std::f64::consts::PI, // 100 mm por vuelta
+            steps_per_rev: steps,
+            axis,
+            reverse,
+        };
+        d
+    }
+
+    /// Cálculo a mano. Una vuelta son 100 mm. Franjas de 25 mm en Y (de arriba abajo): entre dos
+    /// franjas el centro baja 25 mm = un cuarto de vuelta = -90 grados; con 1200 pasos por vuelta
+    /// son -300 pasos. Con el sentido invertido, +90 grados y +300 pasos.
+    #[test]
+    fn galvo_rotary_gives_degrees_and_motor_steps() {
+        let d = galvo_rotary_device(25.0, CylinderAxis::X, false, 1200);
+        let plan = mark_sequence(bounds(0.0, 0.0, 20.0, 100.0), &d).unwrap();
+        assert_eq!(plan.steps.len(), 4);
+        for s in &plan.steps[1..] {
+            assert!((s.stage.rotary_deg + 90.0).abs() < 1e-9, "{:?}", s.stage);
+            assert_eq!((s.stage.dx, s.stage.dy), (0.0, 0.0));
+        }
+        let r = galvo_rotary(&d).unwrap().unwrap();
+        assert!((r.circumference - 100.0).abs() < 1e-9);
+        assert_eq!(r.steps_for(-90.0), Some(-300));
+        assert_eq!(r.steps_for(45.0), Some(150));
+        let d = galvo_rotary_device(25.0, CylinderAxis::X, true, 1200);
+        let plan = mark_sequence(bounds(0.0, 0.0, 20.0, 100.0), &d).unwrap();
+        assert!((plan.steps[1].stage.rotary_deg - 90.0).abs() < 1e-9);
+        // Sin pasos por vuelta solo hay grados.
+        let d = galvo_rotary_device(25.0, CylinderAxis::X, false, 0);
+        assert_eq!(galvo_rotary(&d).unwrap().unwrap().steps_for(90.0), None);
+    }
+
+    /// Con el eje en Y la superficie avanza en X: las franjas son verticales (de izquierda a
+    /// derecha, el centro sube 25 mm en X = +90 grados) y lo que no se mueve es Y.
+    #[test]
+    fn galvo_rotary_on_the_y_axis_strips_along_x() {
+        let d = galvo_rotary_device(25.0, CylinderAxis::Y, false, 0);
+        let plan = mark_sequence(bounds(0.0, 0.0, 100.0, 20.0), &d).unwrap();
+        assert_eq!(plan.steps.len(), 4);
+        let rects: Vec<_> = plan
+            .steps
+            .iter()
+            .map(|s| s.tile.as_ref().unwrap().rect)
+            .collect();
+        assert_eq!(rects[0], [[0.0, 0.0], [25.0, 20.0]]);
+        assert_eq!(rects[3], [[75.0, 0.0], [100.0, 20.0]]);
+        for s in &plan.steps[1..] {
+            assert!((s.stage.rotary_deg - 90.0).abs() < 1e-9, "{:?}", s.stage);
+            assert_eq!((s.stage.dx, s.stage.dy), (0.0, 0.0));
+        }
+        // Un diseño más alto que la pieza no cabe: el rotativo no mueve Y.
+        let e = mark_sequence(bounds(0.0, 0.0, 100.0, 40.0), &d).unwrap_err();
+        assert!(e.contains("no mueve Y"), "{e}");
+        // Y el avance entre repeticiones convierte la X en giro y deja la Y a la mesa.
+        let mut d = galvo_rotary_device(0.0, CylinderAxis::Y, false, 0);
+        d.galvo.split.enabled = false;
+        d.galvo.repeat = RepeatMarking {
+            count: 2,
+            increment_mm: [50.0, 3.0],
+            pause_ms: 0.0,
+        };
+        let plan = mark_sequence(bounds(0.0, 0.0, 10.0, 10.0), &d).unwrap();
+        let s = plan.steps[1].stage;
+        assert!(
+            (s.rotary_deg - 180.0).abs() < 1e-9 && s.dx == 0.0 && s.dy == 3.0,
+            "{s:?}"
+        );
+    }
+
+    /// El rotativo del galvo manda sobre el general; con el suyo apagado se lee el general (los
+    /// perfiles anteriores a la ola 6E siguen igual) y sin ninguno no hay rotativo.
+    #[test]
+    fn the_galvo_rotary_wins_and_the_general_one_is_the_fallback() {
+        let mut d = rotary_device(40.0);
+        let legacy = galvo_rotary(&d).unwrap().unwrap();
+        assert!((legacy.circumference - std::f64::consts::PI * 50.0).abs() < 1e-9);
+        assert_eq!(
+            (legacy.axis, legacy.reverse, legacy.steps_per_rev),
+            (CylinderAxis::X, false, 0)
+        );
+        d.galvo.rotary.enabled = true;
+        d.galvo.rotary.diameter_mm = 20.0;
+        d.galvo.rotary.reverse = true;
+        let mine = galvo_rotary(&d).unwrap().unwrap();
+        assert!((mine.circumference - std::f64::consts::PI * 20.0).abs() < 1e-9);
+        assert!(mine.reverse);
+        // Sin ninguno.
+        let none = galvo_device(enabled(), RepeatMarking::default());
+        assert_eq!(galvo_rotary(&none).unwrap(), None);
+        // Un diámetro inválido es un error, no un rotativo sin vuelta.
+        d.galvo.rotary.diameter_mm = 0.0;
+        assert!(galvo_rotary(&d).is_err());
     }
 }

@@ -42,9 +42,31 @@ interface FactoryData {
   presets: FactoryEntry[];
 }
 
-/** Expande el formato compacto igual que `tlaku_doc::factory_library`: modo por rol, mm/min y valores de la capa normal. */
-export function expandFactory(data: FactoryData): MaterialLibrary {
-  const presets = data.presets.map((e): MaterialPreset => {
+/** Un aporte de la comunidad (`community/materials/*.json`, ver `crates/tlaku-doc/src/community.rs`). */
+export interface CommunityEntry extends Omit<FactoryEntry, 'min_power' | 'crosshatch' | 'warnings' | 'title'> {
+  title?: string;
+  material_name?: string;
+  laser_watts: number;
+  machine: string;
+  notes?: string;
+  license: string;
+  contributor?: string;
+}
+
+// Los aportes de la comunidad, ordenados por nombre de archivo como los reúne `crates/tlaku-doc/build.rs`.
+const communityFiles = import.meta.glob('../../../../../community/materials/*.json', { eager: true, import: 'default' }) as Record<string, CommunityEntry>;
+const communityEntries: CommunityEntry[] = Object.keys(communityFiles).sort().map((k) => communityFiles[k]!);
+
+/** Igual que `community::expand`: el nombre del material sale de la tabla de fábrica o de `material_name`; las notas llevan la máquina. */
+function expandCommunity(e: CommunityEntry, data: FactoryData): FactoryEntry & { notes: string; material_name: string } {
+  const title = e.title ?? e.role;
+  return { ...e, title, notes: e.notes ? `${e.machine.trim()} · ${e.notes.trim()}` : e.machine.trim(), material_name: data.materials[e.material] ?? e.material_name ?? e.material };
+}
+
+/** Expande el formato compacto igual que `tlaku_doc::factory_library`: modo por rol, mm/min y valores de la capa normal. Los aportes de la comunidad van al final. */
+export function expandFactory(data: FactoryData, community: CommunityEntry[] = []): MaterialLibrary {
+  const rows: (FactoryEntry & { notes?: string; material_name?: string })[] = [...data.presets, ...community.map((c) => expandCommunity(c, data))];
+  const presets = rows.map((e): MaterialPreset => {
     const title = data.titles[e.title] ?? e.title;
     const settings = factoryLayer('#000000', title, {
       mode: e.mode ?? (e.role === 'engrave' ? 'fill' : 'line'),
@@ -59,10 +81,10 @@ export function expandFactory(data: FactoryData): MaterialLibrary {
     if (e.frequency_khz !== undefined) settings.galvo = { ...settings.galvo, frequency_khz: e.frequency_khz };
     return {
       id: e.id,
-      material: data.materials[e.material] ?? e.material,
+      material: e.material_name ?? data.materials[e.material] ?? e.material,
       thickness: e.thickness ?? null,
       title,
-      notes: '',
+      notes: e.notes ?? '',
       device_id: null,
       settings,
       role: e.role,
@@ -79,7 +101,7 @@ export function expandFactory(data: FactoryData): MaterialLibrary {
 
 /** Biblioteca de fábrica del modo mock: la misma que trae el motor. */
 export function factoryMaterialLibrary(): MaterialLibrary {
-  return expandFactory(factoryData as unknown as FactoryData);
+  return expandFactory(factoryData as unknown as FactoryData, communityEntries);
 }
 
 /**

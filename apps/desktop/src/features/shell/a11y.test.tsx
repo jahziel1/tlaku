@@ -205,7 +205,7 @@ describe('más superficies: avisos y diálogos de otras áreas', () => {
     await m.unmount();
   });
 
-  const DIALOGS = ['machine.devices', 'machine.addDevice', 'tools.materialTest', 'arrange.grid', 'arrange.alignDialog', 'view.guidesDialog', 'file.newFromTemplate', 'bundle.export', 'tools.insertCode', 'tools.variableText', 'tools.traceBatch', 'help.manual', 'help.report', 'help.jobLog', 'camera.calibrate', 'fileio.print'];
+  const DIALOGS = ['machine.devices', 'machine.addDevice', 'tools.materialTest', 'arrange.grid', 'arrange.alignDialog', 'view.guidesDialog', 'file.newFromTemplate', 'bundle.export', 'tools.insertCode', 'tools.variableText', 'tools.traceBatch', 'help.manual', 'help.report', 'help.shareMachine', 'help.shareMaterial', 'help.jobLog', 'camera.calibrate', 'fileio.print'];
   for (const id of DIALOGS) {
     it(`diálogo de «${id}»: axe y foco dentro`, { timeout: 30000 }, async () => {
       const m = await mountShell();

@@ -15,6 +15,9 @@ At the bottom there are three buttons: **Import…** and **Export…** (see belo
 | Section | Setting | Default | Range |
 |---|---|---|---|
 | General | **Language** | The system's (Spanish or English) | Español or English; it changes instantly, without losing the document. The engine's warnings and errors appear in the chosen language |
+| General | **Interface mode** | Ask when opening | Simple (for beginners), Full or Ask when opening; choosing one does the same as the top-bar button. See [Simple mode](01b-modo-sencillo.md) |
+| General | **Reopen the camera on startup** | Yes | Yes or no; if the camera backdrop was visible when closing, the camera turns on again at startup |
+| General | **Maximum image width** of the camera | 1280 px | 320 to 1920 px; the width the frame is reduced to for drawing it and detecting marks and circles |
 | Editing | **Length units** | Millimeters (mm) | mm or inches (in) |
 | Editing | **Normal step** for the arrow keys | 1 mm | 0.001 to 100 mm |
 | Editing | **Step with Shift** | 10 mm | 0.001 to 500 mm |
@@ -63,7 +66,7 @@ If your measurements come in inches (US plans, 3/4" lumber), change **Length uni
 
 What **stays in millimeters** even if you choose inches: speeds (always mm/min), the layer fields (interval, kerf, Z offset...), the machine and camera areas and the material thickness. If you see a figure in millimeters in one of those fields, it is not a bug: that field does not change unit yet.
 
-If you have two Tlaku windows open, a preference change in one **is reflected in the other** immediately.
+If you have two Tlaku windows open, a preference change in one **is reflected in the other** immediately. This is checked by the real-application smoke test (`npm run smoke:tauri`), which opens a second window and verifies that what one saves the other reads and that the storage change notice reaches the other window.
 
 Preferences live in a `preferences.json` file inside the application's configuration folder, not in the web window, so they survive clearing the embedded browser's data.
 
@@ -93,7 +96,7 @@ Also:
 
 ## Moving your settings to another computer
 
-In the Preferences window, **Export…** saves a `.tlakuprefs` file with all your preferences **and** your shortcuts. **Import…** loads it on another computer (or after reinstalling). The file also carries the preferences that are changed outside this window: the **defaults for new layers** and **Beginner mode** (see [Layers and cut settings](05-capas-y-ajustes.md)) and the setup of the **Before sending** list in the Start dialog (see [Sending jobs safely](09-enviar-con-seguridad.md)). The **Optimization settings** and the **Finish position** are remembered between sessions, but do not travel in this file. To carry your **machines** (with macros and positions), your **material library**, your **cameras** and your **own art** too, use a `.tlakubundle` bundle (**File > Export settings bundle…**; see [Advanced machine control](09b-control-avanzado.md)).
+In the Preferences window, **Export…** saves a `.tlakuprefs` file with all your preferences **and** your shortcuts. **Import…** loads it on another computer (or after reinstalling). The file also carries the preferences that are changed outside this window: the **defaults for new layers**, including those of each color and machine (see [Layers and cut settings](05-capas-y-ajustes.md)), and the **interface mode** (see [Simple mode](01b-modo-sencillo.md)); a bundle from an earlier version with Beginner mode on moves to simple mode if it carried no chosen mode and the setup of the **Before sending** list in the Start dialog (see [Sending jobs safely](09-enviar-con-seguridad.md)). The **Optimization settings** and the **Finish position** are remembered between sessions, but do not travel in this file. To carry your **machines** (with macros and positions), your **material library**, your **cameras** and your **own art** too, use a `.tlakubundle` bundle (**File > Export settings bundle…**; see [Advanced machine control](09b-control-avanzado.md)).
 
 When importing, Tlaku tells you how many preferences came in and for how many commands the shortcuts were. If the file comes from another version:
 

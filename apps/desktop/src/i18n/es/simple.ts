@@ -3,7 +3,7 @@ export const simple = {
   // ---- interruptor de modo ----
   'simple.cmd.toSimple': 'Modo sencillo',
   'simple.cmd.toFull': 'Modo completo',
-  'simple.switch.toSimple.help': 'Pasa a la versión guiada, paso a paso. Tu diseño no cambia.',
+  'simple.switch.toSimple.help': 'Pasa al modo sencillo, para principiantes: la versión guiada, paso a paso. Tu diseño no cambia.',
   'simple.switch.toFull.help': 'Pasa a la versión con todas las herramientas. Tu diseño no cambia.',
 
   // ---- primer arranque ----

@@ -149,6 +149,9 @@ export const materials: { [K in keyof typeof Source]?: string } = {
 
   // ---- factory library ----------------------------------------------------------
   'materials.section.factory': 'Factory',
+  'materials.section.community': 'Community (unverified)',
+  'materials.section.community.hint': 'Settings that people in the community tested on their machines, under the CC0 license. Nobody has verified them: always run a test.',
+  'materials.section.community.empty': 'There are no community settings yet. Did you test one on your machine? Share it with "Share…" on one of your settings.',
   'materials.section.factory.hint': 'Read-only, with their source. Duplicate a setting to save it in your materials and edit it.',
   'materials.section.mine': 'My materials',
   'materials.notice.startingPoints': 'These are starting points: run a material test with your machine.',
@@ -170,10 +173,10 @@ export const materials: { [K in keyof typeof Source]?: string } = {
   'materials.source.copyFailed': 'Could not copy the link. Address: {url}',
   'materials.confidence.official': 'Official',
   'materials.confidence.guide': 'Guide',
-  'materials.confidence.forum': 'Forum',
+  'materials.confidence.forum': 'Community (unverified)',
   'materials.confidence.official.why': 'Table published by the manufacturer.',
   'materials.confidence.guide.why': 'Published guide or article; not made for your machine and not verified with it.',
-  'materials.confidence.forum.why': 'Data from a forum or the community, unverified.',
+  'materials.confidence.forum.why': 'Data from the community or a forum: one person tested it on their machine and nobody has verified it. Always run a test.',
   'materials.confidence.label': 'Confidence: {level}',
 
   // ---- operation and machine class -------------------------------------------------

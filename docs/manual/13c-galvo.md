@@ -16,7 +16,7 @@ Un láser **galvo** mueve el haz con dos espejos giratorios en vez de mover un c
 - **Marcar** el diseño, o recorrerlo entero con el láser deshabilitado y el puntero rojo (`tlaku galvo mark`, con `--red-only`).
 - **Compilar y revisar** el trabajo sin conectar con nada (`--dry-run`), volcar la lista de comandos a un archivo (`--dump`) y probar todo contra la tarjeta simulada (`--emu`).
 
-También hay: parámetros por capa (frecuencia, ancho de pulso, retardos, saltos, repeticiones), bamboleo, [grabado 3D por cortes y corrección de cilindro y cono](12b-grabado-3d-y-cilindro.md), y la secuencia del marcado dividido, repetido y rotativo.
+También hay: parámetros por capa (frecuencia, ancho de pulso, retardos, saltos, repeticiones), bamboleo, [grabado 3D por cortes y corrección de cilindro y cono](12b-grabado-3d-y-cilindro.md), y la secuencia del marcado dividido (por franjas o por formas enteras), repetido y rotativo.
 
 ## Qué tarjetas se aceptan
 
@@ -53,8 +53,30 @@ En **Gestionar dispositivos…**, un perfil galvo tiene su propio grupo **Galvo 
 - **Retardos y saltos** por defecto (cada capa puede usar los suyos con **Sobrescribir retardos**) y la velocidad del **puntero rojo**.
 - **Desfase del puntero rojo** (**X** e **Y**, de −50 a 50 mm): dónde cae el puntero respecto al haz. El encuadre y el recorrido en rojo lo **compensan**, para que el puntero pase por donde marcará el láser. **Una marca real nunca lo usa.** Para medirlo, marca un punto de prueba a baja potencia y mide a qué distancia cae el puntero.
 - **Overscan de rellenos e imágenes** (0 a 20 mm; de fábrica 0). Ver abajo.
-- **Corrección del campo**: escala, desplazamiento y giro, montaje del cabezal (invertir ejes o intercambiar X e Y) y barril, trapecio y sesgo, además de la anotación del archivo `.cor` (solo informativa). Un **asistente de calibración del campo** (en tres pasos: marca una rejilla de dos cuadrados, mídela con una regla y calcula la escala y el barril) afina esos valores; lo que mide es el error que **queda** con la corrección actual, así que repítelo hasta que el error sea pequeño. Es un modelo propio de Tlaku, no verificado con una lente real.
-- **Cilindro y cono**, **marcado dividido y repetido** y **Entradas requeridas** (abajo).
+- **Corrección del campo**: escala, desplazamiento y giro, montaje del cabezal (invertir ejes o intercambiar X e Y) y barril, trapecio y sesgo, además del archivo `.cor` de EZCAD (abajo). Hay dos asistentes de calibración, los dos en el perfil; lo que miden es el error que **queda** con la corrección actual, así que repítelos hasta que el error sea pequeño. Son un modelo propio de Tlaku, no verificado con una lente real:
+  - **Asistente de calibración del campo** (tres pasos): marca una rejilla de dos cuadrados, la mides con una regla y calcula la escala y el barril.
+  - **Asistente de nueve puntos…** (tres pasos): marca una cuadrícula de 3 × 3 cruces (a ±0,35 del campo, con un trazo a la derecha que marca el lado +X), mides dónde cayó cada cruz **respecto de la cruz del centro** (X a la derecha, Y hacia arriba; ya vienen los valores nominales) y calcula la **escala, el giro, el barril y el trapecio** de cada eje, con el error de cada cruz antes y lo que quedaría según el modelo. El giro solo se corrige si lo pides (hace falta medir con la regla alineada con los ejes de la máquina). El desplazamiento, el sesgo y el montaje de los ejes no se tocan. Los valores se aplican al perfil; guárdalo y vuelve a conectar.
+- **Archivo `.cor` de EZCAD (CorFile2)**: escribe la ruta en el perfil y Tlaku lo **lee y lo aplica en el equipo**, antes de convertir a las posiciones de la tarjeta, sumando su tabla (65 × 65 desplazamientos) a la corrección de los parámetros. **Nunca se escribe en la tarjeta**: la tarjeta sigue con la tabla que ya tiene. Si el archivo no se puede leer, o pide desplazar más de 2048 unidades (unos 3 mm en una lente de 100 mm) en algún punto, **el trabajo no empieza**. Ojo: la lectura de la tabla es una **inferencia sin verificar con una tarjeta real** (qué índice es X, el signo, y que los nodos cubran todo el campo). Por eso el perfil trae **Intercambiar los ejes de la tabla** e **Invertir el signo de la tabla**: pruébalo con el **encuadre del puntero rojo** o con una rejilla a potencia baja y deja las casillas que den el menor error. El valor «escala» del archivo no se usa.
+- **Rotativo del galvo**, **cilindro y cono**, **marcado dividido y repetido** y **Entradas requeridas** (abajo).
+
+#### Rotativo del galvo
+
+Para marcar una pieza cilíndrica (taza, anillo, botella) con un rotativo, el perfil tiene su **propio editor del rotativo del galvo** (el rotativo general de los otros tipos de máquina no aparece en un perfil galvo):
+
+- **Diámetro de la pieza**: una vuelta completa son π × diámetro mm de superficie. Con eso cada franja del diseño se convierte en grados de giro.
+- **Pasos del motor por vuelta** (opcional): si lo sabes (con micropasos y reductor), las instrucciones también dan el giro en pasos; con 0, solo en grados.
+- **Eje de la pieza**: con **X** la superficie avanza en Y (franjas horizontales); con **Y** avanza en X (franjas verticales). El otro lado del diseño debe caber en una franja, porque el rotativo no lo mueve.
+- **Invertir el sentido del giro**: si al seguir las instrucciones la pieza gira al revés (según el montaje), actívalo.
+
+Debajo de los campos ves cuántos mm de superficie son una vuelta y cuántos grados (y pasos) es una franja del tamaño del campo, y un aviso si la franja abarca más de 120° (el haz incide muy inclinado en los bordes). **Tlaku no gira el rotativo**: entre franjas se detiene, te dice cuánto girar («Rotativo: -90,0° (-300 pasos)») y espera tu confirmación. Un perfil que ya usaba el rotativo general sigue funcionando igual hasta que lo pases con el botón **Pasar al rotativo del galvo**.
+
+#### Partir por formas enteras
+
+En **Marcado dividido**, la casilla **Partir por formas enteras** corta el diseño en piezas **por la frontera de las formas** en vez de en franjas fijas del tamaño del campo: cada objeto (o grupo) se marca completo en una sola pieza, así que no queda una costura donde una forma cruzaba el borde. Las piezas agrupan formas contiguas mientras quepan en el campo; el solape no se usa. Si una forma es más grande que el campo, o el trabajo lleva imágenes, se vuelve a las franjas y se avisa. Un arreglo virtual cuenta como un solo objeto.
+
+### Vista previa de la deformación (cilindro y cono)
+
+En **Cilindro y cono**, la casilla **Mostrar la deformación en el lienzo** (se activa con un cilindro o un cono válidos) dibuja sobre el diseño una **rejilla de 10 mm deformada** por la corrección: así ves dónde caerán los puntos en el campo plano. En rojo, los tramos que pasan del **horizonte** (el espejo no los ve y se recortan al borde: 90° de arco como máximo y menos en un cilindro convexo, donde el límite es el rayo tangente desde el espejo); punteado, el campo de la lente. La rejilla se pinta sobre el lienzo sin recibir clics. El modelo geométrico es propio de Tlaku y no está verificado con una pieza real; sus fórmulas están fijadas por pruebas con casos calculados a mano.
 
 ### Conectar y marcar
 
@@ -120,6 +142,9 @@ Desde la línea de comandos, el perfil de tu máquina se escribe en cada comando
 | `--jump-speed` | Velocidad de los saltos, en mm/s | 4000 |
 | `--invert-x`, `--invert-y`, `--swap-xy`, `--rotate` | Cómo está montado el cabezal: negar un eje, intercambiarlos o girar el campo (grados, antihorario) | — |
 | `--require-input MASK=VALOR` | Enclavamiento por software (ver [Seguridad del galvo](13d-galvo-seguridad.md)) | — |
+| `--cor-file ARCHIVO`, `--cor-transpose`, `--cor-invert` | Archivo `.cor` de EZCAD que se aplica en el equipo (nunca se escribe en la tarjeta) y las dos casillas de su lectura | — |
+| `--split-piece`, `--split-overlap`, `--split-order`, `--split-axes`, `--split-whole-shapes` | Marcado dividido; `--split-whole-shapes` parte por formas enteras | — |
+| `--rotary-diameter MM`, `--rotary-axis x\|y`, `--rotary-reverse`, `--rotary-steps N` | Rotativo del galvo: diámetro, eje, sentido y pasos del motor por vuelta | — |
 
 Y los parámetros del marcado (`mark`):
 
@@ -162,8 +187,9 @@ Con hardware real, **todo menos `list`** exige la bandera `--i-understand-laser-
 
 - **No hay pausa**: solo se puede detener. Ver [por qué](13d-galvo-seguridad.md).
 - No escribe la **EEPROM**, el firmware, la **tabla de corrección** ni la configuración de la tarjeta. Si tu tarjeta necesita inicializarse, hazlo antes con EZCAD2.
-- No aplica los archivos de corrección **`.cor`** de EZCAD (se lee su estructura, pero no se sabe qué significan los números). La corrección del campo (escala, giro, barril, trapecio, sesgo) la calcula Tlaku en el equipo con un modelo propio, y supone que la tabla de la tarjeta es la identidad.
-- No marca **al vuelo**, no maneja ejes Z ni mesas, y no escribe salidas arbitrarias.
-- No calibra la lente con los **9 puntos** ni los archivos `.cor` de EZCAD (el asistente de la app mide dos cuadrados y calcula escala y barril con un modelo propio), y no importa archivos de configuración de EZCAD.
+- No **escribe** los archivos de corrección **`.cor`** de EZCAD en la tarjeta: los lee y los aplica en el equipo (ver «El perfil galvo»), y supone que la tabla de la tarjeta es la que ya tiene.
+- No marca **al vuelo** (banda transportadora con encoder). Lo dejamos fuera a propósito: no hay documentación pública del protocolo (de los comandos de marcado al vuelo solo se conocen sus nombres y códigos, no sus parámetros ni cómo se compensa el encoder), y para configurarlo habría que **escribir la configuración de la tarjeta** (`SetFlyRes`), que Tlaku nunca hace.
+- No maneja ejes Z ni mesas, y no escribe salidas arbitrarias.
+- No importa archivos de configuración de EZCAD.
 
 Siguiente: [Seguridad del galvo](13d-galvo-seguridad.md)

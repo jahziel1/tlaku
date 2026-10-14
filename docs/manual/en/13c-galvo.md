@@ -53,8 +53,30 @@ In **Manage Devices…**, a galvo profile has its own **Galvo (JCZ/BJJCZ, EZCAD2
 - Default **delays and jumps** (each layer can use its own with **Override delays**) and the **red pointer** speed.
 - **Red pointer offset** (**X** and **Y**, from −50 to 50 mm): where the pointer lands relative to the beam. Framing and the red run **compensate** for it, so that the pointer passes where the laser will mark. **A real mark never uses it.** To measure it, mark a test point at low power and measure how far away the pointer lands.
 - **Fill and image overscan** (0 to 20 mm; 0 by default). See below.
-- **Field correction**: scale, offset, and rotation, head mounting (invert axes or swap X and Y), and barrel, keystone, and skew, plus the note of the `.cor` file (informational only). A **field calibration wizard** (in three steps: mark a grid of two squares, measure it with a ruler, and compute the scale and barrel) fine-tunes those values; what it measures is the error that **remains** with the current correction, so repeat it until the error is small. It is Tlaku's own model, not verified with a real lens.
-- **Cylinder and cone**, **split and repeat marking**, and **Required inputs** (below).
+- **Field correction**: scale, offset, and rotation, head mounting (invert axes or swap X and Y), and barrel, keystone, and skew, plus EZCAD's `.cor` file (below). There are two calibration wizards, both in the profile; what they measure is the error that **remains** with the current correction, so repeat them until the error is small. They are Tlaku's own model, not verified with a real lens:
+  - **Field calibration wizard** (three steps): mark a grid of two squares, measure it with a ruler, and compute the scale and barrel.
+  - **Nine-point wizard…** (three steps): mark a 3 × 3 grid of crosses (at ±0.35 of the field, with a stroke on the right that marks the +X side), measure where each cross landed **relative to the center cross** (X to the right, Y upward; the nominal values are already filled in), and it computes the **scale, rotation, barrel, and keystone** of each axis, with the error of each cross before and what would remain according to the model. Rotation is only corrected if you ask (the ruler must be measured aligned to the machine axes). The offset, skew, and axis mounting are not touched. The values are applied to the profile; save it and reconnect.
+- **EZCAD `.cor` file (CorFile2)**: type its path in the profile and Tlaku **reads and applies it on the computer**, before converting to board positions, adding its table (65 × 65 offsets) to the parameter correction. **It is never written to the board**: the board keeps the table it already has. If the file cannot be read, or asks to shift more than 2048 units (about 3 mm on a 100 mm lens) at any point, **the job does not start**. Note: reading the table is an **inference not verified with a real board** (which index is X, the sign, and that the nodes cover the whole field). That is why the profile has **Swap the table axes** and **Invert the table sign**: try it with the **red-pointer frame** or a low-power grid and keep the checkboxes that give the smallest error. The file's "scale" value is not used.
+- **Galvo rotary**, **cylinder and cone**, **split and repeat marking**, and **Required inputs** (below).
+
+#### Galvo rotary
+
+To mark a cylindrical workpiece (mug, ring, bottle) with a rotary, the profile has its **own galvo rotary editor** (the general rotary of the other machine types does not appear in a galvo profile):
+
+- **Workpiece diameter**: one full turn is π × diameter mm of surface. That turns each strip of the design into degrees of rotation.
+- **Motor steps per turn** (optional): if you know it (with microstepping and gearing), the instructions also give the turn in steps; with 0, in degrees only.
+- **Workpiece axis**: with **X** the surface advances along Y (horizontal strips); with **Y** it advances along X (vertical strips). The other side of the design must fit in one strip, because the rotary does not move it.
+- **Reverse the turning direction**: if following the instructions turns the workpiece the wrong way (depending on the mounting), turn it on.
+
+Below the fields you see how many mm of surface one turn is and how many degrees (and steps) a field-sized strip is, and a warning if the strip spans more than 120° (the beam hits at a steep angle at the edges). **Tlaku does not turn the rotary**: between strips it stops, tells you how far to turn ("Rotary: -90.0° (-300 steps)"), and waits for your confirmation. A profile that already used the general rotary keeps working the same until you move it with the **Move to the galvo rotary** button.
+
+#### Split by whole shapes
+
+In **Split marking**, the **Split by whole shapes** checkbox cuts the design into pieces **at the boundaries of the shapes** instead of in fixed field-sized strips: each object (or group) is marked whole in a single piece, so there is no seam where a shape used to cross the edge. Pieces group adjacent shapes as long as they fit in the field; overlap is not used. If a shape is larger than the field, or the job has images, it falls back to strips and warns. A virtual array counts as a single object.
+
+### Warp preview (cylinder and cone)
+
+In **Cylinder and cone**, the **Show the warp on the canvas** checkbox (enabled with a valid cylinder or cone) draws over the design a **10 mm grid warped** by the correction: you see where the points will land in the flat field. In red, the stretches that pass the **horizon** (the mirror cannot see them and they are clipped to the edge: 90° of arc at most, and less on a convex cylinder, where the limit is the tangent ray from the mirror); dashed, the lens field. The grid is painted over the canvas and takes no clicks. The geometric model is Tlaku's own and is not verified with a real piece; its formulas are pinned by tests with hand-computed cases.
 
 ### Connecting and marking
 
@@ -120,6 +142,9 @@ From the command line, your machine's profile is written in each command:
 | `--jump-speed` | Jump speed, in mm/s | 4000 |
 | `--invert-x`, `--invert-y`, `--swap-xy`, `--rotate` | How the head is mounted: negate an axis, swap them, or rotate the field (degrees, counterclockwise) | — |
 | `--require-input MASK=VALUE` | Software interlock (see [Galvo safety](13d-galvo-seguridad.md)) | — |
+| `--cor-file FILE`, `--cor-transpose`, `--cor-invert` | EZCAD `.cor` file applied on the computer (never written to the board) and the two checkboxes of its reading | — |
+| `--split-piece`, `--split-overlap`, `--split-order`, `--split-axes`, `--split-whole-shapes` | Split marking; `--split-whole-shapes` splits by whole shapes | — |
+| `--rotary-diameter MM`, `--rotary-axis x\|y`, `--rotary-reverse`, `--rotary-steps N` | Galvo rotary: diameter, axis, direction, and motor steps per turn | — |
 
 And the marking parameters (`mark`):
 
@@ -162,8 +187,9 @@ With real hardware, **everything except `list`** requires the `--i-understand-la
 
 - **There is no pause**: it can only be stopped. See [why](13d-galvo-seguridad.md).
 - It does not write the board's **EEPROM**, firmware, **correction table**, or configuration. If your board needs initializing, do it beforehand with EZCAD2.
-- It does not apply EZCAD's **`.cor`** correction files (their structure is read, but it is not known what the numbers mean). Field correction (scale, rotation, barrel, keystone, skew) is calculated by Tlaku on the computer with its own model, and assumes the board's table is the identity.
-- It does not mark **on the fly**, does not drive Z axes or tables, and does not write arbitrary outputs.
-- It does not calibrate the lens with the **9 points** or EZCAD's `.cor` files (the app's wizard measures two squares and computes scale and barrel with its own model), and it does not import EZCAD configuration files.
+- It does not **write** EZCAD's **`.cor`** correction files to the board: it reads them and applies them on the computer (see "The galvo profile"), and assumes the board's table is the one it already has.
+- It does not mark **on the fly** (conveyor belt with an encoder). We left it out on purpose: there is no public documentation of the protocol (for the on-the-fly commands only their names and codes are known, not their parameters or how the encoder is compensated), and configuring it would require **writing the board configuration** (`SetFlyRes`), which Tlaku never does.
+- It does not drive Z axes or tables, and does not write arbitrary outputs.
+- It does not import EZCAD configuration files.
 
 Next: [Galvo safety](13d-galvo-seguridad.md)

@@ -17,6 +17,7 @@ impl Builder<'_> {
         }
         report.bounds = block_bounds(&block);
         report.laser2 = self.laser2;
+        report.u_offset_mm = self.u_offset_mm;
         if let Some(last) = block.moves.last() {
             self.head = last.to();
         }

@@ -11,6 +11,8 @@ export const helpCommands: CommandDef[] = [
   { id: 'help.news', label: 'help.cmd.news', category: 'panels', run: () => useHelpUi.getState().open('news') },
   { id: 'help.checkUpdates', label: 'help.cmd.checkUpdates', category: 'panels', run: openUpdateCheck },
   { id: 'help.report', label: 'help.cmd.report', category: 'panels', run: () => useHelpUi.getState().open('report') },
+  { id: 'help.shareMachine', label: 'help.cmd.shareMachine', category: 'panels', run: () => useHelpUi.getState().open('shareMachine') },
+  { id: 'help.shareMaterial', label: 'help.cmd.shareMaterial', category: 'panels', run: () => useHelpUi.getState().openShareMaterial(null) },
   { id: 'help.donate', label: 'help.cmd.donate', category: 'panels', run: () => useHelpUi.getState().open('donate') },
   { id: 'help.jobLog', label: 'help.cmd.jobLog', category: 'panels', run: () => useHelpUi.getState().open('jobLog') },
   { id: 'help.about', label: 'help.cmd.about', category: 'panels', run: () => useHelpUi.getState().open('about') },

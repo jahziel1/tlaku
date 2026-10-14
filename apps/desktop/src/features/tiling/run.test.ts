@@ -147,13 +147,45 @@ describe('envío por tramos', () => {
     expect(api.machine.fedMm - fed0).toBeGreaterThan(0);
   }, 30000);
 
-  it('con alimentador pero tramos en varias columnas no avanza solo', async () => {
+  it('varias columnas por filas: nunca avanza solo y abre la guía al cambiar de columna', async () => {
     await setup(100, 60, true);
-    ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: false });
+    ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: true, order: 'rows' });
     await planned();
     beginSession();
-    expect(ui().session?.feeder).toBe(false);
-  });
+    await vi.waitFor(() => expect(ui().marks.length).toBeGreaterThan(0));
+    const fed0 = api.machine.fedMm;
+    await sendCurrent();
+    // Del tramo 1 al 2 cambia la columna: pausa guiada, sin avance del alimentador.
+    expect(ui().phase).toBe('place');
+    expect(ui().guide).toBe(true);
+    expect(api.machine.fedMm).toBe(fed0);
+    expect(sent).toHaveLength(1);
+    // Enviar cierra la guía; la del tramo siguiente (otra fila y columna) se abre de nuevo.
+    await sendCurrent();
+    expect(sent).toHaveLength(2);
+    expect(ui().session).toMatchObject({ current: 2, last: 1 });
+    expect(ui().guide).toBe(true);
+
+  }, 20000);
+
+  it('en serpentina el alimentador avanza entre filas de la misma columna y la guía solo sale al cambiar de columna', async () => {
+    await setup(100, 60, true);
+    ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: true, order: 'serpentine' });
+    await planned();
+    beginSession();
+    expect(ui().session?.feeder).toBe(true);
+    await vi.waitFor(() => expect(ui().marks.length).toBeGreaterThan(0));
+    const fed0 = api.machine.fedMm;
+    await sendCurrent(); // tramo 1 -> columna 2: guía
+    expect(ui().guide).toBe(true);
+    await sendCurrent(); // tramo 2, avance del alimentador y tramo 3 solos
+    expect(sent).toHaveLength(3);
+    expect(api.machine.fedMm - fed0).toBeGreaterThan(0);
+    // Del tramo 3 al 4 vuelve a cambiar la columna.
+    expect(ui().phase).toBe('place');
+    expect(ui().guide).toBe(true);
+    expect(ui().session).toMatchObject({ current: 3, last: 2 });
+  }, 30000);
 
   it('retoma una sesión guardada donde se quedó', async () => {
     await setup(100, 60, false);

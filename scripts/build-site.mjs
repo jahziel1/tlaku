@@ -3,7 +3,7 @@
 // `site/config.json`.
 //
 //   node scripts/build-site.mjs [--config site/config.json] [--out site-dist]
-//   node scripts/build-site.mjs --readme            # también llena los marcadores de README.md
+//   node scripts/build-site.mjs --readme            # también llena la sección de apoyo de README.md y README.es.md
 //
 // Marcadores: {{REPO_URL}}, {{SPONSORS_URL}}, {{KOFI_URL}}.
 //
@@ -12,7 +12,9 @@
 // Un valor vacío NO se reemplaza: el marcador queda y el CSS (`a.opt[href^="{{"]`) oculta el botón
 // y muestra el aviso de "aún no hay...". Con un valor, el botón aparece.
 //
-// README (`--readme`, en el mismo archivo): un marcador vacío borra su línea; con valor, lo reemplaza.
+// README (`--readme`): regenera el bloque entre `<!-- support:start -->` y `<!-- support:end -->` de
+// README.md (inglés) y README.es.md (español) con los enlaces de donación que tengan valor.
+// Es idempotente: se puede correr de nuevo cuando cambie la configuración.
 //
 // No usa dependencias externas, solo Node.
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -60,6 +62,30 @@ export function fillMarkdown(text, config, where = 'markdown') {
     .filter((line) => ![...line.matchAll(MARKER)].some(([, name]) => !config[name]))
     .join('\n')
     .replace(MARKER, (all, name) => config[name] || all);
+}
+
+const SUPPORT_START = '<!-- support:start -->';
+const SUPPORT_END = '<!-- support:end -->';
+
+const SUPPORT_TEXT = {
+  en: { none: 'There are no donation accounts yet. When they exist, their links will appear here and in Help > Donate to the project… inside the app.' },
+  es: { none: 'Todavía no hay cuentas de donación. Cuando existan, sus enlaces aparecerán aquí y en Ayuda > Donar al proyecto… dentro de la app.' },
+};
+
+/** Bloque de apoyo de un README (`lang`: 'en' o 'es'): un renglón por enlace configurado, o el aviso de que aún no hay. */
+export function supportBlock(config, lang) {
+  const lines = [];
+  if (config.SPONSORS_URL) lines.push(`- GitHub Sponsors: ${config.SPONSORS_URL}`);
+  if (config.KOFI_URL) lines.push(`- Ko-fi: ${config.KOFI_URL}`);
+  return lines.length ? lines.join('\n') : SUPPORT_TEXT[lang].none;
+}
+
+/** Reemplaza lo que hay entre los marcadores de apoyo; sin marcadores lanza un error. */
+export function fillSupport(text, config, lang, where = 'markdown') {
+  const a = text.indexOf(SUPPORT_START);
+  const b = text.indexOf(SUPPORT_END);
+  if (a < 0 || b < a) throw new Error(`${where}: faltan los marcadores ${SUPPORT_START} y ${SUPPORT_END}`);
+  return `${text.slice(0, a + SUPPORT_START.length)}\n${supportBlock(config, lang)}\n${text.slice(b)}`;
 }
 
 function htmlFiles(dir) {
@@ -112,12 +138,14 @@ function main() {
   for (const key of KEYS) console.log(`  ${key}: ${config[key] || '(vacío: se oculta)'}`);
 
   if (args.includes('--readme')) {
-    const readme = join(root, 'README.md');
-    const before = readFileSync(readme, 'utf8');
-    const after = fillMarkdown(before, config, 'README.md');
-    if (after !== before) {
-      writeFileSync(readme, after);
-      console.log('README.md actualizado.');
+    for (const [name, lang] of [['README.md', 'en'], ['README.es.md', 'es']]) {
+      const readme = join(root, name);
+      const before = readFileSync(readme, 'utf8');
+      const after = fillSupport(before, config, lang, name);
+      if (after !== before) {
+        writeFileSync(readme, after);
+        console.log(`${name} actualizado.`);
+      }
     }
   }
 }

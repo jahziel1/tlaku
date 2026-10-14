@@ -140,3 +140,51 @@ describe('vista del registro', () => {
   });
 });
 
+
+describe('registro de trabajos: trabajos interrumpidos', () => {
+  const entry = (over: Record<string, unknown> = {}) => ({
+    at: Date.now() - 5_000,
+    machine: 'Falcon2',
+    document: 'caja.tlaku',
+    estimatedS: 100,
+    actualS: 4,
+    result: 'error',
+    message: 'Se perdió la conexión',
+    ...over,
+  });
+
+  it('marca el último trabajo que no terminó bien con su porcentaje y lo conserva al releer', () => {
+    useJobLog.getState().append({ id: 'a', ...entry(), result: 'error' } as never);
+    useJobLog.getState().markLatestInterrupted({ id: 'ck1', percent: 42.4, line: 120, total: 285 });
+    const [e] = readJobLog();
+    expect(e!.interrupted).toEqual({ id: 'ck1', percent: 42.4, line: 120, total: 285 });
+  });
+
+  it('no marca un trabajo terminado ni uno viejo', () => {
+    useJobLog.getState().append({ id: 'a', ...entry({ result: 'finished' }) } as never);
+    useJobLog.getState().markLatestInterrupted({ id: 'ck1', percent: 10, line: 1, total: 10 });
+    expect(readJobLog()[0]!.interrupted).toBeUndefined();
+    useJobLog.getState().clear();
+    useJobLog.getState().append({ id: 'b', ...entry({ at: 1_000 }) } as never);
+    useJobLog.getState().markLatestInterrupted({ id: 'ck1', percent: 10, line: 1, total: 10 });
+    expect(readJobLog()[0]!.interrupted).toBeUndefined();
+  });
+
+  it('descarta datos dañados de la interrupción sin perder la entrada', () => {
+    const [e] = sanitizeJobLog([{ ...entry(), interrupted: { id: 5, percent: 'x' } }]);
+    expect(e!.interrupted).toBeUndefined();
+    expect(e!.machine).toBe('Falcon2');
+    const [ok] = sanitizeJobLog([{ ...entry(), interrupted: { id: 'k', percent: 250, line: 3, total: 9 } }]);
+    expect(ok!.interrupted!.percent).toBe(100);
+  });
+
+  it('la tabla muestra el porcentaje y el botón Continuar solo mientras siga existiendo el punto de control', () => {
+    const e = { id: 'a', at: 1, machine: 'M', document: null, estimatedS: null, actualS: 1, result: 'error' as const, message: '', interrupted: { id: 'ck1', percent: 42, line: 1, total: 2 } };
+    const html = (resumable: string | null) => renderToStaticMarkup(<table><JobRows entries={[e]} resumableId={resumable} onContinue={() => undefined} /></table>);
+    expect(html('ck1')).toContain('Interrumpido al 42 %');
+    expect(html('ck1')).toContain('Continuar');
+    expect(html('otro')).toContain('Interrumpido al 42 %');
+    expect(html('otro')).not.toContain('Continuar');
+    expect(html(null)).not.toContain('Continuar');
+  });
+});

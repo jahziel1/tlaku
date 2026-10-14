@@ -73,7 +73,7 @@ With **Round** mode, move the pointer over a line-to-line vertex: a preview show
 
 ![The Click-to-fillet bar, one corner already rounded and the preview of the next one](../../../apps/desktop/docs/screenshots/66-redondear-clic.png)
 
-**Reverting a corner.** With **Revert** mode (or **holding `Alt`** while clicking), a click on a **rounded** or **bitten** corner turns it back into a point. It works if the arc is **exact** (the one made by this tool or the dialog). **A chamfer cannot be reverted**: it is just one more straight segment and there is no way to know which the original corner was; for that, **Undo**. `Alt` also switches direction in the other mode: with **Revert** active, `Alt`+click rounds again.
+**Reverting a corner.** With **Revert** mode (or **holding `Alt`** while clicking), a click on a **rounded** or **bitten** corner turns it back into a point. It works if the arc is **exact** (the one made by this tool or the dialog). **A chamfer can be reverted too**, because when a chamfer or a rounding is applied the object **stores the original point** (in the project, so it survives saving and opening). If you edit the nodes of that area (move, delete or add a node of the chamfer or of the straight sides that reach it), the stored corner is discarded and it can no longer be reverted with that data; on an object without stored corners (an older file) a chamfer still cannot be reverted and **Undo** remains. Reverting is a single **Undo** step. `Alt` also switches direction in the other mode: with **Revert** active, `Alt`+click rounds again.
 
 ## Cut shapes with a blade
 
@@ -153,7 +153,7 @@ A bar above the canvas chooses the type:
 
 ![The 4×4-point mesh over the plate and the gear, with several points dragged; the original shape is dotted](../../../apps/desktop/docs/screenshots/65-deformar-lienzo.png)
 
-- **Dragging a handle** warps live. **`Shift`** while dragging moves only in a straight line (horizontal or vertical). Changing type keeps the shape you have.
+- **Dragging a handle** warps live. Handles **snap** to the grid, to the nodes and edges of the other objects and to the guides with the same magnet as the other tools (**View > Snapping** and its grid and object options, key `S`); **`Alt`** turns it off while you drag. **`Shift`** while dragging moves only in a straight line (horizontal or vertical). Changing type keeps the shape you have.
 - **Enter** or **Apply** writes the result, with the curves recalculated exactly, in **a single Undo step**. While it calculates, the button says **Calculating…**.
 - **Reset** returns the mesh to its place; **Cancel** or **`Esc`** leaves without changing anything (in the middle of a drag, `Esc` returns the handle).
 - For very precise work, the **Warp…** dialog above, with exact millimeters at each corner, is still the way to type the numbers.

@@ -94,4 +94,6 @@ Your library (**My materials**) is saved automatically on your computer, in a `m
 
 `.tlakumat` files are for sharing your settings with other people or moving them to another computer. Libraries from other programs are not imported.
 
+**Sharing with the community.** If one of your settings worked for you, use that setting's **Share…** button (or Help > "Share Material Settings…"): the app opens your browser with the GitHub form already filled in with the machine, the material, the speed and the power. You review it and decide whether to post it; Tlaku sends nothing on its own. After a review, the settings join the **Community (unverified)** section of the library under the CC0 license. They are one person's values on one machine: always run a test before using them.
+
 Next: [Rotary and Z axis](12-rotativo-y-eje-z.md)

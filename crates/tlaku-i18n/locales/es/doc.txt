@@ -33,3 +33,14 @@ doc.factory.restriction_no_source = Restricción de "{material}": falta la fuent
 
 # layer.rs (cont.)
 doc.layer.images = Imagen
+
+# community.rs
+doc.community.invalid = Ajustes de la comunidad inválidos: {error}
+doc.community.bad_id = "{id}": el identificador debe empezar con "community.", terminar con ".{issue}" (el número del issue) y no repetirse.
+doc.community.bad_source = "{id}": la fuente debe ser la dirección de un issue ({prefix}N).
+doc.community.bad_license = "{id}": la licencia debe ser {license}.
+doc.community.bad_confidence = "{id}": la confianza de un aporte de la comunidad debe ser "forum".
+doc.community.no_name = "{id}": el material "{material}" no está en la biblioteca de fábrica; falta "material_name".
+doc.community.bad_title = "{id}": la operación "{title}" no existe.
+doc.community.bad_class = "{id}": {watts} W corresponde a la clase {class}.
+doc.community.out_of_range = "{id}": "{field}" fuera de rango o inválido.

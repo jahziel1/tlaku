@@ -12,6 +12,7 @@ import { feedLines } from './feeder';
 import { beginSession, cancelCurrent, finishSession, resumeSession, restartSession, selectTile, sendCurrent, skipCurrent } from './run';
 import { counts } from './session';
 import { closeTiling, useTilingUi } from './store';
+import { MoveMaterialDialog } from './MoveMaterialDialog';
 import { TilePreview } from './TilePreview';
 import './tiling.css';
 
@@ -114,7 +115,7 @@ function ConfigStep() {
           {feeder && single && (
             <p className="hint" role="status">{t('tiling.feeder.auto', { mm: fmt(advance ?? 0, 1) })}</p>
           )}
-          {feeder && !single && <p className="hint" role="status">{t('tiling.feeder.manual')}</p>}
+          {feeder && !single && <p className="hint" role="status">{t(ready.cols > 1 && config.order === 'serpentine' ? 'tiling.feeder.columns' : 'tiling.feeder.manual')}</p>}
         </>
       )}
       <div className="til-actions">
@@ -144,6 +145,7 @@ function RunStep() {
       <p className="til-progress num" role="status">{t('tiling.progress', { done: c.done, skipped: c.skipped, total: n })}</p>
       <TilePreview design={design} specs={session.specs} status={session.status} current={cur} onPick={busy ? undefined : selectTile} />
 
+      {phase === 'place' && <MoveMaterialDialog />}
       {phase === 'place' && (
         <div className="til-step">
           <h3 className="til-sub">{t('tiling.place.title', { n: cur + 1, total: n })}</h3>

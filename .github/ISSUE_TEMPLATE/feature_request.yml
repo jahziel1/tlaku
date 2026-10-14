@@ -1,0 +1,43 @@
+name: "Feature request / Proponer una función"
+description: "An idea to improve Tlaku. / Una idea para mejorar Tlaku."
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN:** Tlaku is a clean-room project: describe the behavior you need in your own words, with public sources if you have them. Do not paste text, code or screenshots from commercial programs.
+
+        **ES:** Tlaku es un proyecto de sala limpia: describe el comportamiento que necesitas con tus palabras y, si tienes, con fuentes públicas. No pegues textos, código ni capturas de programas comerciales.
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What are you trying to do? / ¿Qué intentas hacer?"
+      description: "The problem or need, not the solution. / El problema o la necesidad, no la solución."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposal / Propuesta"
+      description: "How would you like it to work? / ¿Cómo te gustaría que funcionara?"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives and workarounds / Alternativas y soluciones provisionales"
+  - type: input
+    id: machine
+    attributes:
+      label: "Machine, if it matters / Máquina, si importa"
+      placeholder: "Creality Falcon2 22 W, GRBL 1.1f"
+  - type: dropdown
+    id: help
+    attributes:
+      label: "Can you help? / ¿Puedes ayudar?"
+      options:
+        - "I can test it on a real machine / Puedo probarlo en una máquina real"
+        - "I can write the code / Puedo escribir el código"
+        - "I can help with docs or translation / Puedo ayudar con documentación o traducción"
+        - "I only have the idea / Solo tengo la idea"

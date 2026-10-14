@@ -15,7 +15,7 @@ Laser and Tlaku terms, in alphabetical order, explained in a few lines.
 
 - **Baud rate**: the speed of the USB serial cable connection. 115200 on almost all GRBL machines; 250000 on Marlin.
 - **Bed**: the machine's work area, in mm. Equivalent to `$130` and `$131` in GRBL.
-- **Beginner mode**: a layer-editor switch that hides the advanced settings without deleting or disabling them.
+- **Beginner mode**: another name for [simple mode](01b-modo-sencillo.md), the guided version that hides menus, tools and advanced settings without deleting or disabling them.
 - **Bend**: the degrees a text spans along an arc. Positive arches it upward, negative downward.
 - **Bidirectional**: a fill that engraves both going and returning. If the lines come out misaligned, correct it with the profile's scan correction table.
 - **Blade**: the closed shape with which **Cut shapes** splits the others.

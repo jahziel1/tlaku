@@ -137,7 +137,7 @@ pub(crate) fn import(
             .iter()
             .map(|p| to_path(p, height_mm))
             .collect::<Vec<_>>();
-        objects.push(object(color, ObjectKind::Vector(VectorObject { paths })));
+        objects.push(object(color, ObjectKind::Vector(VectorObject::new(paths))));
         layers.push(s);
     }
 

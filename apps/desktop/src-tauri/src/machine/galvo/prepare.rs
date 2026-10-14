@@ -61,11 +61,12 @@ impl StepInfo {
 /// ¿El trabajo se marca en varios pasos (dividido, repetido o rotativo)?
 pub fn is_sequenced(device: &DeviceProfile) -> bool {
     let g = &device.galvo;
-    g.split.enabled || g.repeat.count > 1 || device.rotary.enabled
+    g.split.enabled || g.repeat.count > 1 || g.rotary.enabled || device.rotary.enabled
 }
 
 /// Calcula el trabajo con el pipeline. Con marcado dividido, repetido o rotativo recorre
-/// `job_mark_sequence`: un paso por pieza y repetición, cada uno con `JobOptions.tile`. Una pieza
+/// `doc_mark_sequence`: un paso por pieza y repetición, cada uno con `JobOptions.tile` (y, con piezas
+/// por formas enteras, `JobOptions.selection` con los objetos de la pieza). Una pieza
 /// sin contenido se omite y su movimiento se suma al del paso siguiente (el material no se mueve
 /// dos veces). Falla en español si el diseño no cabe en el campo o no hay nada que marcar.
 pub fn prepare(
@@ -109,7 +110,7 @@ pub fn prepare(
     };
     let whole = tlaku_pipeline::compute_at(doc, device, &whole_options, None)?;
     warnings.extend(whole.preview.warnings.iter().cloned());
-    let plan = job_mark_sequence(&whole, device)?;
+    let plan = doc_mark_sequence(doc, &whole, device, &whole_options)?;
     warnings.extend(plan.warnings.iter().cloned());
     let repeats = device.galvo.repeat.count.max(1);
     let pieces = plan
@@ -126,6 +127,7 @@ pub fn prepare(
     for s in &plan.steps {
         let step_options = tlaku_doc::JobOptions {
             tile: s.tile.clone(),
+            selection: s.objects.clone().or_else(|| options.selection.clone()),
             ..options.clone()
         };
         let job = match tlaku_pipeline::compute_at(doc, device, &step_options, None) {
@@ -222,7 +224,14 @@ pub fn preview(
     device: &DeviceProfile,
     options: &tlaku_doc::JobOptions,
 ) -> Result<GalvoPreview, String> {
-    let job = prepare(doc, device, options, false)?;
+    let mut job = prepare(doc, device, options, false)?;
+    // El `.cor` del perfil se lee aquí para que un archivo que no sirve se vea en el diálogo de
+    // inicio y no al empezar a marcar (se aplica en el anfitrión; nunca se escribe en la tarjeta).
+    let map = tlaku_galvo::calib::FieldMap::new(device.galvo.field_mm, &device.galvo.correction)
+        .map_err(|e| e.to_string())?;
+    if map.has_cor() {
+        job.warnings.push(tr!("galvo.compile.cor_applied"));
+    }
     let first = job.steps.first().map(|s| s.info.clone());
     Ok(GalvoPreview {
         steps: job.steps.len(),

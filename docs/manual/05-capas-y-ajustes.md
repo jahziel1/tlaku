@@ -27,9 +27,11 @@ Abre el editor con `Intro` en una fila. Arriba, el botón **Ayudas** muestra u o
 
 ![Editor de una capa de corte con velocidad, potencia, pasadas y asistencia de aire](../../apps/desktop/docs/screenshots/03-editor-de-capa.png)
 
-### Modo principiante
+### Ajustes avanzados y modo principiante
 
-El interruptor **Modo principiante**, justo bajo el título del editor, oculta los ajustes avanzados (corte avanzado, puentes, incremento de ángulo, relleno por regiones y agrupación, imagen avanzada, operaciones adicionales, eje Z y posición fija) para que veas solo velocidad, potencia, pasadas, intervalo y poco más. **No borra nada:** lo que ya tenías configurado se sigue aplicando, y si la capa usa algo que el modo oculta, el editor lo avisa ("Esta capa usa ajustes avanzados que el modo principiante oculta"). Apágalo para verlos o cambiarlos. La elección se recuerda entre sesiones.
+Los ajustes avanzados (corte avanzado, relleno por regiones y agrupación, imagen avanzada) están en **secciones plegables** que se abren solas cuando la capa ya usa algo de ellas, con la insignia **en uso**. Así el editor muestra primero velocidad, potencia, pasadas e intervalo.
+
+El **Modo principiante** ya no es un interruptor del editor de capa: **es el [modo sencillo](01b-modo-sencillo.md)**, que además de esconder los ajustes avanzados esconde los menús, las herramientas y los paneles, y te lleva paso a paso. Se activa con el botón de la barra superior o en **Preferencias > General > Modo de la interfaz**. Si tenías el Modo principiante encendido y nunca habías elegido un modo, Tlaku arranca en el modo sencillo; si ya habías elegido uno, se respeta tu elección.
 
 ### Modo de la capa
 
@@ -154,12 +156,15 @@ La prioridad solo se respeta si los **Ajustes de optimización** la tienen encen
 
 ## Valores por defecto de las capas nuevas
 
-El grupo **Valores por defecto**, al final del editor, tiene dos botones:
+El grupo **Valores por defecto**, al final del editor, tiene tres niveles. Al crear una capa manda el más específico que exista:
 
-- **Guardar como valores por defecto para capas nuevas** toma los ajustes de esta capa (menos el color, el nombre, la visibilidad, la salida y la posición) y hace que las capas que crees a partir de ahora empiecen con ellos. Las capas que ya existen no cambian. Es el modo de tener tus propios valores de partida en lugar de los de fábrica (1000 mm/min y 20 %). También hay comandos para esto (**Guardar la capa activa como valores por defecto**, **Restablecer los valores por defecto de las capas nuevas**) en **Editar > Editar atajos de teclado…**.
-- **Restablecer** vuelve a los valores de fábrica.
+1. **Este color en esta máquina** (**Guardar para este color en [máquina]**).
+2. **Este color en cualquier máquina** (**Guardar para este color (todas las máquinas)**).
+3. **El juego general** (**Guardar como valores por defecto para capas nuevas**).
 
-Es un solo juego de valores para todas las capas nuevas, sin distinguir el color ni la máquina. Se guardan con las preferencias de la aplicación, no con el proyecto. Para llevar ajustes concretos de un material, usa la [biblioteca de materiales](11-materiales.md).
+Si no hay ninguno, la capa nace con los valores de fábrica (1000 mm/min y 50 %). Cada botón toma los ajustes de esta capa (menos el color, el nombre, la visibilidad, la salida y la posición); las capas que ya existen no cambian. Guardar de nuevo para el mismo color y máquina reemplaza lo anterior. Una línea bajo el título dice qué nivel manda hoy para esta capa y esta máquina. **Quitar los de este color…** borra el nivel correspondiente, y **Restablecer** vuelve el juego general a los valores de fábrica (no toca los de color). La máquina es la activa de la lista de máquinas: si cambias de máquina, las capas nuevas nacen con lo guardado para la nueva. También hay comandos (**Guardar la capa activa como valores por defecto**, **… de su color en esta máquina**, **… de su color (todas las máquinas)** y **Restablecer los valores por defecto de las capas nuevas**) en **Editar > Editar atajos de teclado…**.
+
+Se guardan con las preferencias de la aplicación, no con el proyecto, y viajan en el archivo `.tlakuprefs`. Para llevar ajustes concretos de un material, usa la [biblioteca de materiales](11-materiales.md).
 
 ## Orden de ejecución
 

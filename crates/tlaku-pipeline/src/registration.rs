@@ -737,17 +737,15 @@ mod tests {
             id: "a".into(),
             layer: RED,
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&Polyline {
-                    points: vec![
-                        Point::new(10.0, 10.0),
-                        Point::new(30.0, 10.0),
-                        Point::new(30.0, 30.0),
-                        Point::new(10.0, 30.0),
-                    ],
-                    closed: true,
-                })],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+                points: vec![
+                    Point::new(10.0, 10.0),
+                    Point::new(30.0, 10.0),
+                    Point::new(30.0, 30.0),
+                    Point::new(10.0, 30.0),
+                ],
+                closed: true,
+            })])),
             locked: false,
             hidden: false,
             group: None,

@@ -10,6 +10,7 @@ import type {
   MachineState,
   OverrideKind,
   Point,
+  ProbeTouch,
   ProgressEvent,
   RealtimeCommand,
   SimulatedFault,
@@ -99,6 +100,8 @@ export class MockMachine {
   /** K40: se conoce la posición del cabezal (se pierde al detener o fallar un trabajo). */
   lhyKnown = false;
   state: MachineState = 'idle';
+  /** Se hizo `$H` desde que se conectó (o desde el último corte de luz): la posición es fiable. */
+  homed = false;
   /** Código de ALARM:N activo; null si no hay alarma. */
   alarmCode: number | null = null;
   pos: Point = [0, 0];
@@ -152,6 +155,7 @@ export class MockMachine {
     this.lhy = !this.ruida && (lhy || port.startsWith('virtual:k40') || port.startsWith('usb:k40:'));
     this.galvo = !this.ruida && !this.lhy && (galvo || port.startsWith('virtual:galvo') || port.startsWith('usb:galvo:'));
     this.lhyKnown = false;
+    this.homed = false;
     this.state = 'idle';
     this.alarmCode = null;
     this.pos = [0, 0];
@@ -188,8 +192,12 @@ export class MockMachine {
   simulateFault(fault: SimulatedFault): void {
     this.requireConnection();
     if (!this.virtual) throw new Error('Simular fallas solo es posible con una máquina virtual; esta es una máquina real.');
-    if (fault === 'disconnect') {
-      this.disconnect('se perdió la conexión con la máquina: la controladora emulada se desconectó');
+    if (fault === 'disconnect' || fault === 'power_cut') {
+      // Como el motor: el trabajo en marcha termina con un error antes de caerse la conexión. Con un corte de
+      // luz la placa además pierde la posición; el punto de control para continuar el trabajo queda.
+      const why = fault === 'disconnect' ? 'la controladora emulada se desconectó' : 'se fue la luz';
+      if (this.job) this.emit('machine://job', { state: 'error', message: `Se perdió la conexión con la máquina: ${why}.`, position_lost: fault === 'power_cut' });
+      this.disconnect(`se perdió la conexión con la máquina: ${why}`);
       return;
     }
     const wasRunning = this.job !== null;
@@ -232,6 +240,11 @@ export class MockMachine {
       buffer: { planner: 15, rx: 127 },
       ...(this.hasOverrides() ? { overrides: { ...this.ovr } } : {}),
     };
+  }
+
+  /** `$22` (homing activado) de los ajustes en memoria. */
+  homingEnabled(): boolean {
+    return Number(this.grblSettings.get(22) ?? '0') !== 0;
   }
 
   /** Marlin y Smoothieware no tienen overrides en tiempo real. */
@@ -280,6 +293,7 @@ export class MockMachine {
       this.setAlarm(null);
       reply = ['[MSG:Caution: Unlocked]', 'ok'];
     } else if (trimmed === '$H') {
+      this.homed = true;
       this.pos = [0, 0];
       this.setAlarm(null);
       reply = ['ok'];
@@ -416,6 +430,45 @@ export class MockMachine {
     this.log('in', 'ok');
   }
 
+  /**
+   * Toque de sonda simulado (M48): contra un disco de 15 mm de radio centrado en (100, 100),
+   * como el de las máquinas virtuales GRBL. Mismos límites que el motor.
+   */
+  probe(dx: number, dy: number, feed: number, retract: number, confirmed: boolean): ProbeTouch {
+    this.requireConnection();
+    if (this.lhy || this.ruida) throw new Error('La sonda con G38 solo está disponible con controladoras GRBL.');
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    if (!confirmed) throw new Error('La sonda mueve la máquina: hace falta la confirmación del usuario antes de tocar.');
+    const travel = Math.hypot(dx, dy);
+    if (!Number.isFinite(travel) || travel < 0.01) throw new Error('La sonda necesita un recorrido mayor que cero.');
+    if (travel > 100) throw new Error('El recorrido de la sonda no puede pasar de 100 mm.');
+    if (!(feed > 0 && feed <= 500)) throw new Error('La velocidad de sondeo debe ser mayor que cero y no pasar de 500 mm/min.');
+    if (!(retract >= 0 && retract <= 20)) throw new Error('El retroceso de la sonda debe estar entre 0 y 20 mm.');
+    if (this.state !== 'idle') throw new Error('La máquina debe estar en reposo (Idle) para usar la sonda.');
+    this.log('out', 'M5');
+    this.log('out', `G38.3 X${dx} Y${dy} F${feed}`);
+    const [cx, cy, r] = [100, 100, 15];
+    const [fx, fy] = [this.pos[0] - cx, this.pos[1] - cy];
+    const a = dx * dx + dy * dy;
+    const b = 2 * (fx * dx + fy * dy);
+    const c = fx * fx + fy * fy - r * r;
+    if (c <= 0) throw new Error('La sonda ya está activa antes de empezar (ALARM:4). Aleja el cabezal del objeto y revisa el cableado de la sonda.');
+    const disc = b * b - 4 * a * c;
+    const t = disc >= 0 ? (-b - Math.sqrt(disc)) / (2 * a) : NaN;
+    const hit = t >= 0 && t <= 1;
+    const k = hit ? t : 1;
+    this.pos = [this.pos[0] + dx * k, this.pos[1] + dy * k];
+    const touch: ProbeTouch = { hit, machine_pos: [...this.pos], work_pos: [...this.pos] };
+    this.log('in', `[PRB:${this.pos[0].toFixed(3)},${this.pos[1].toFixed(3)},0.000:${hit ? 1 : 0}]`);
+    this.log('in', 'ok');
+    if (hit && retract > 0) {
+      const back = Math.min(retract, travel) / travel;
+      this.pos = [this.pos[0] - dx * back, this.pos[1] - dy * back];
+    }
+    this.emitStatus();
+    return touch;
+  }
+
   /** Misma regla que el motor: solo se transmite con la máquina en reposo. */
   private preflight(): void {
     const why: Partial<Record<MachineState, string>> = {
@@ -458,11 +511,34 @@ export class MockMachine {
   /** Documentos guardados en la memoria de la controladora Ruida simulada. */
   readonly storedDocs: string[] = [];
 
+  /** ¿Hay un trabajo corriendo? (Ruida lo usa para rechazar ajustes y borrados). */
+  hasJob(): boolean {
+    return this.job !== null;
+  }
+
+  /** Nombre elegido para el próximo documento y permiso de reemplazar (`ruidaPrepareStore`). */
+  storePlan: { name: string | null; overwrite: boolean } = { name: null, overwrite: false };
+
   /** Ruida sin «ejecutar al subir»: el trabajo queda como documento y no arranca. */
   storeDocument(): void {
     this.requireConnection();
     if (this.job) throw new Error(BUSY_MESSAGE);
-    const name = `TLAKU${String(this.storedDocs.length + 1).padStart(3, '0')}`;
+    const plan = this.storePlan;
+    // El plan (nombre y permiso de reemplazar) vale para un solo envío.
+    this.storePlan = { name: null, overwrite: false };
+    let name = plan.name;
+    if (name === null) {
+      // Nombre automático: el primer `TLAKUnnn` libre.
+      let n = this.storedDocs.length + 1;
+      while (this.storedDocs.includes(`TLAKU${String(n).padStart(3, '0')}`)) n += 1;
+      name = `TLAKU${String(n).padStart(3, '0')}`;
+    } else {
+      const at = this.storedDocs.findIndex((x) => x.toLowerCase() === name!.toLowerCase());
+      if (at >= 0) {
+        if (!plan.overwrite) throw new Error(`ya hay un documento llamado «${name}» (número ${at + 1}) en la memoria de la controladora`);
+        this.storedDocs.splice(at, 1);
+      }
+    }
     this.storedDocs.push(name);
     this.emit('machine://job', { state: 'started', message: 'Enviando el trabajo (1 paquetes).', position_lost: false });
     this.emit('machine://progress', { acked: 1, total: 1 });
@@ -471,6 +547,14 @@ export class MockMachine {
       message: `Documento «${name}» guardado en la memoria de la controladora. No se ejecutó: selecciónalo e inícialo desde el panel de la máquina.`,
       position_lost: false,
     });
+  }
+
+  /** Ruida: ejecuta un documento guardado (dura unos segundos y termina solo). */
+  runStoredDocument(name: string): void {
+    this.requireConnection();
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    this.emit('machine://job', { state: 'started', message: `Se está ejecutando el documento «${name}» de la memoria de la controladora.`, position_lost: false });
+    setTimeout(() => this.emit('machine://job', { state: 'finished', message: 'Trabajo terminado.', position_lost: false }), 1500);
   }
 
   // ---- trabajos ---------------------------------------------------------

@@ -69,7 +69,7 @@ A mug 70 mm in diameter (radius 35 mm), with the mirrors 160 mm from the top. To
 | 30 mm | 24.60 mm | 93.0 % |
 | 40 mm | 28.23 mm | 88.7 % |
 
-Notice that 20 mm of surface land 18.29 mm from the center: the beam has to go **less far** than drawn because the surface curves away. Near the top the difference is minimal; at the sides, each millimeter of surface takes up less and less of the field, until at about 55 mm of arc (a quarter turn of this mug) the surface can **no longer be seen from above** and points are clipped to the edge, with a warning. In practice, **do not mark beyond about 60° on each side of the top** (about 36 mm of arc on this mug): the beam arrives at a very grazing angle and the mark becomes weak and blurry.
+Notice that 20 mm of surface land 18.29 mm from the center: the beam has to go **less far** than drawn because the surface curves away. Near the top the difference is minimal; at the sides, each millimeter of surface takes up less and less of the field, until at about 49 mm of arc (almost 80° on this mug: there the tangent ray from the mirror grazes the surface) it can **no longer be seen from above** and points are clipped to the edge, with a warning. In practice, **do not mark beyond about 60° on each side of the top** (about 36 mm of arc on this mug): the beam arrives at a very grazing angle and the mark becomes weak and blurry.
 
 With a **concave** cylinder the opposite happens: the surface gets closer to the mirror toward the edges, and 20 mm of arc land at 19.61 mm.
 

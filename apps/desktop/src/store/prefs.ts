@@ -1,5 +1,5 @@
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
-import { sanitizeLayerTemplate, type LayerTemplate } from '@/lib/layers';
+import { sanitizeColorDefaults, sanitizeLayerTemplate, type ColorDefaults, type LayerTemplate } from '@/lib/layers';
 import { DEFAULT_DOCK_LAYOUT, sanitizeDockLayout, type DockLayout } from '@/lib/dockLayout';
 import { IMPORT_DPI_DEFAULT, IMPORT_DPI_MAX, IMPORT_DPI_MIN, sanitizeRememberedImport, type RememberedImport } from '@/lib/importOptions';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
@@ -28,6 +28,10 @@ export interface Prefs {
   language: Language;
   /** Buscar actualizaciones unos segundos después de abrir (`features/help/updater.ts`). Apagado de fábrica. */
   updateCheckOnStart: boolean;
+  /** Cámara (M51): reabrir el fondo de la cama al arrancar si estaba visible al cerrar. Encendido de fábrica. */
+  cameraReopen: boolean;
+  /** Cámara (M51): ancho máximo (px) de la imagen corregida que se pinta y se manda al motor para detectar. */
+  cameraFrameWidth: number;
   /** Unidad con la que se muestran y se escriben las longitudes (el documento siempre va en mm). */
   units: LengthUnit;
   /** Paso de las flechas, en mm: normal, con Mayús y con Alt. */
@@ -48,12 +52,18 @@ export interface Prefs {
   autosaveSecs: number;
   /** Cuántos archivos recientes se recuerdan. */
   recentMax: number;
-  /** Modo de la interfaz: sencillo (flujo guiado de 5 pasos) o completo. Ver `features/simple`. */
+  /**
+   * Modo de la interfaz: sencillo (el modo para principiantes: flujo guiado de 5 pasos, sin menús ni
+   * herramientas avanzadas) o completo. Ver `features/simple`.
+   */
   uiMode: UiMode;
-  /** Modo principiante: el editor de capa oculta los ajustes avanzados (los ya configurados se siguen aplicando). */
-  beginnerMode: boolean;
   /** Ajustes con que empiezan las capas nuevas; `null` = los de fábrica. Ver `lib/layers.ts` y `features/layers/defaults.ts`. */
   layerDefaults: LayerTemplate | null;
+  /**
+   * Valores por defecto de capas nuevas por color y, opcionalmente, por máquina. Mandan sobre
+   * `layerDefaults`: primero color y máquina, luego solo color. Ver `lib/layers.ts` (`pickLayerDefaults`).
+   */
+  layerColorDefaults: ColorDefaults[];
   /**
    * Casillas de la lista de comprobación del diálogo de inicio (máquina): bits aire 1, enfoque 2,
    * material 4, extractor 8, tapa 16. Ver `features/machine/checklist.ts`.
@@ -61,6 +71,12 @@ export interface Prefs {
   jobChecklistItems: number;
   /** El diálogo de inicio exige tener marcadas las casillas de la lista antes de enviar. */
   jobChecklistRequired: boolean;
+  /**
+   * Permite las escrituras experimentales en una controladora Ruida: ajustes, calibración, rotativo,
+   * borrar y ejecutar documentos y reemplazar uno existente. Apagada de fábrica y nunca se importa de
+   * un paquete (ver `features/settings/bundle.ts`). Solo probadas con un emulador.
+   */
+  ruidaExperimentalWrites: boolean;
   /**
    * Automatización por UDP: servidor local de comandos de texto (`PING`, `LOAD`, `START`, `STATUS`,
    * `STOP`; ver `docs/app-api/automatizacion.md`). Apagado por omisión; solo escucha en 127.0.0.1.
@@ -105,10 +121,15 @@ type JsonSpec<V> = { kind: 'json'; check: (raw: unknown) => { value: V } | null 
 type SpecOf<V> = [V] extends [boolean] ? BoolSpec : [V] extends [number] ? NumberSpec : [V] extends [string] ? ChoiceSpec<V & string> : JsonSpec<V>;
 export type PrefSpecs = { [K in PrefKey]: SpecOf<Prefs[K]> & { default: Prefs[K] } };
 
+/** Lista vacía compartida (el valor de fábrica de `layerColorDefaults`; nadie la modifica). */
+const NO_COLOR_DEFAULTS: ColorDefaults[] = [];
+
 /** Valores de fábrica y límites. Las opciones de un `choice` son textos de i18n en la ventana. */
 export const PREF_SPECS: PrefSpecs = {
   language: { kind: 'choice', options: ['es', 'en'], default: 'es' },
   updateCheckOnStart: { kind: 'bool', default: false },
+  cameraReopen: { kind: 'bool', default: true },
+  cameraFrameWidth: { kind: 'number', min: 320, max: 1920, step: 160, unit: 'px', integer: true, default: 1280 },
   units: { kind: 'choice', options: LENGTH_UNITS, default: 'mm' },
   nudgeStep: { kind: 'number', min: 0.001, max: 100, step: 0.5, unit: 'mm', default: 1 },
   nudgeStepBig: { kind: 'number', min: 0.001, max: 500, step: 5, unit: 'mm', default: 10 },
@@ -122,9 +143,9 @@ export const PREF_SPECS: PrefSpecs = {
   autosaveSecs: { kind: 'number', min: 10, max: 3600, step: 10, unit: 's', integer: true, default: 60 },
   recentMax: { kind: 'number', min: 0, max: 30, step: 1, unit: 'count', integer: true, default: 10 },
   uiMode: { kind: 'choice', options: ['ask', 'simple', 'full'], default: 'ask' },
-  beginnerMode: { kind: 'bool', default: false },
   jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
   jobChecklistRequired: { kind: 'bool', default: false },
+  ruidaExperimentalWrites: { kind: 'bool', default: false },
   automationEnabled: { kind: 'bool', default: false },
   automationPort: { kind: 'number', min: 1024, max: 65535, step: 1, integer: true, default: 47801 },
   automationAllowStart: { kind: 'bool', default: false },
@@ -158,6 +179,15 @@ export const PREF_SPECS: PrefSpecs = {
       return value ? { value } : null;
     },
   },
+  layerColorDefaults: {
+    kind: 'json',
+    default: NO_COLOR_DEFAULTS,
+    check: (raw) => {
+      if (!Array.isArray(raw)) return null;
+      const value = sanitizeColorDefaults(raw);
+      return { value: value.length ? value : NO_COLOR_DEFAULTS };
+    },
+  },
 };
 
 export const PREF_KEYS = Object.keys(PREF_SPECS) as PrefKey[];
@@ -187,11 +217,21 @@ export function sanitizePref<K extends PrefKey>(key: K, raw: unknown): Prefs[K] 
   return checkPref(key, raw)?.value ?? PREF_SPECS[key].default;
 }
 
+/**
+ * El antiguo «Modo principiante» (`beginnerMode`, solo ocultaba ajustes de capa) se unió al modo
+ * sencillo (D18): quien lo tenía encendido y nunca eligió modo (`ask`) empieza en el sencillo. Quien
+ * ya eligió uno conserva su elección. La clave vieja no se vuelve a escribir.
+ */
+export function migrateBeginnerMode(src: Record<string, unknown>, uiMode: UiMode): UiMode {
+  return src.beginnerMode === true && uiMode === 'ask' ? 'simple' : uiMode;
+}
+
 /** Preferencias completas a partir de datos de cualquier origen: lo inválido o ausente toma el valor de fábrica. */
 export function sanitizePrefs(raw: unknown): Prefs {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const out: Record<string, unknown> = {};
   for (const key of PREF_KEYS) out[key] = sanitizePref(key, src[key]);
+  out.uiMode = migrateBeginnerMode(src, out.uiMode as UiMode);
   // Sin idioma guardado (instalación nueva o archivo sin ese campo) manda el del sistema.
   if (checkPref('language', src.language) === null) out.language = detectLanguage();
   return out as unknown as Prefs;

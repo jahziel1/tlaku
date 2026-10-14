@@ -349,6 +349,7 @@ fn fast() -> Timing {
         identify_timeout: Duration::from_secs(2),
         tick: Duration::from_millis(5),
         progress_interval: Duration::from_millis(1),
+        checkpoint_interval: Duration::from_millis(30),
         preflight: PreflightConfig {
             status_timeout: Duration::from_secs(2),
             settings_timeout: Duration::from_millis(300),
@@ -450,5 +451,7 @@ mod jobs;
 mod jog;
 mod network;
 mod overrides;
+mod probe;
 mod reprap;
+mod resume;
 mod virtual_machine;

@@ -96,6 +96,29 @@ pub enum RuidaCommand {
         #[arg(short, long)]
         yes: bool,
     },
+    /// Borra o ejecuta UN documento de la memoria de una controladora Ruida (EXPERIMENTAL: las
+    /// órdenes solo se probaron contra un emulador y las fuentes públicas no coinciden). Exige
+    /// `--experimental-writes`; sin esa bandera no se abre ni la conexión. Antes de actuar se
+    /// relee el nombre del documento y no se hace nada si no coincide con `<nombre>`.
+    Doc {
+        /// IP de la controladora (en la misma red /24 que este equipo)
+        ip: IpAddr,
+        #[command(flatten)]
+        net: NetArgs,
+        /// Qué hacer con el documento
+        #[arg(value_enum)]
+        action: DocAction,
+        /// Número del documento (desde 1, como en la lista)
+        index: u32,
+        /// Nombre del documento (se comprueba antes de actuar)
+        name: String,
+        /// Acepta que estas órdenes escriben en la controladora y pueden desconfigurarla
+        #[arg(long)]
+        experimental_writes: bool,
+        /// No pedir confirmación
+        #[arg(short, long)]
+        yes: bool,
+    },
     /// Lee el estado de una controladora Ruida: modelo, cama, estado y posición. Solo lectura:
     /// no mueve nada, no enciende el láser ni escribe en la memoria de la máquina.
     Status {
@@ -104,6 +127,15 @@ pub enum RuidaCommand {
         #[command(flatten)]
         net: NetArgs,
     },
+}
+
+/// Qué hace `tlaku ruida doc`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum DocAction {
+    /// Borra el documento
+    Delete,
+    /// Ejecuta el documento (el láser puede dispararse)
+    Run,
 }
 
 fn parse_magic(s: &str) -> Result<u8, String> {
@@ -197,6 +229,29 @@ pub fn run(action: RuidaCommand) -> Result<(), String> {
                 sigint::install(),
                 &mut io::stdin().lock(),
                 &mut stdout,
+            )
+        }
+        RuidaCommand::Doc {
+            ip,
+            net,
+            action,
+            index,
+            name,
+            experimental_writes,
+            yes,
+        } => {
+            // Antes de abrir nada: sin la bandera no hay red.
+            require_writes_flag(experimental_writes)?;
+            let link = open_link(ip, &net)?;
+            doc_with(
+                link,
+                &net,
+                action,
+                index,
+                &name,
+                yes,
+                &mut io::stdin().lock(),
+                &mut io::stdout(),
             )
         }
         RuidaCommand::Status { ip, net } => {
@@ -318,6 +373,78 @@ fn session_error(e: SessionError) -> String {
     match &e {
         SessionError::Timeout { .. } => tr!("cli.ruida.timeout_help", err = e),
         _ => e.to_string(),
+    }
+}
+
+/// Las escrituras de la CLI exigen `--experimental-writes` (misma regla que la preferencia de la app).
+fn require_writes_flag(flag: bool) -> Result<(), String> {
+    if flag {
+        Ok(())
+    } else {
+        Err(tr!("cli.ruida.writes_flag_needed"))
+    }
+}
+
+/// `tlaku ruida doc`: borra o ejecuta un documento, con la máquina en reposo y el nombre releído.
+#[allow(clippy::too_many_arguments)]
+pub fn doc_with<L: PacketLink, R: BufRead, W: Write>(
+    link: L,
+    net: &NetArgs,
+    action: DocAction,
+    index: u32,
+    name: &str,
+    yes: bool,
+    input: &mut R,
+    out: &mut W,
+) -> Result<(), String> {
+    show(out, &experimental())?;
+    let mut session = RuidaSession::new(link, session_config(net, (0.0, 0.0)));
+    let info = session.probe().map_err(session_error)?;
+    show(out, &describe_probe(&info))?;
+    if !yes {
+        let prompt = if action == DocAction::Delete {
+            tr!("cli.ruida.prompt_doc_delete", index = index, name = name)
+        } else {
+            tr!("cli.ruida.prompt_doc_run", index = index, name = name)
+        };
+        let ok = link::confirm(&format!("{prompt} "), input, out).map_err(|e| e.to_string())?;
+        if !ok {
+            return Err(tr!("cli.ruida.nothing_sent"));
+        }
+    }
+    match action {
+        DocAction::Delete => {
+            let r = session
+                .delete_document(index, name, true)
+                .map_err(session_error)?;
+            if r.verified() {
+                show(
+                    out,
+                    &tr!("cli.ruida.doc_deleted", index = index, name = name),
+                )
+            } else {
+                show(
+                    out,
+                    &tr!("cli.ruida.doc_not_deleted", index = index, name = name),
+                )
+            }
+        }
+        DocAction::Run => {
+            let r = session
+                .run_document(index, name, true)
+                .map_err(session_error)?;
+            if r.started {
+                show(
+                    out,
+                    &tr!("cli.ruida.doc_running", index = index, name = name),
+                )
+            } else {
+                show(
+                    out,
+                    &tr!("cli.ruida.doc_not_started", index = index, name = name),
+                )
+            }
+        }
     }
 }
 
@@ -755,5 +882,94 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn doc_commands_need_the_experimental_flag_before_touching_the_network() {
+        assert!(
+            require_writes_flag(false)
+                .unwrap_err()
+                .contains("--experimental-writes")
+        );
+        assert!(require_writes_flag(true).is_ok());
+        // Con la bandera pero sin ella en `run`, nada se manda: la rama de Doc falla antes de abrir el enlace.
+        let r = run(RuidaCommand::Doc {
+            ip: "127.0.0.1".parse().unwrap(),
+            net: net(&[]),
+            action: DocAction::Delete,
+            index: 1,
+            name: "X".into(),
+            experimental_writes: false,
+            yes: true,
+        });
+        assert!(r.unwrap_err().contains("--experimental-writes"));
+    }
+
+    #[test]
+    fn doc_delete_and_run_act_on_the_named_document_only() {
+        let emu = UdpEmulator::spawn(EmuConfig::default()).unwrap();
+        let n = net(&["--home", "bottom-left"]);
+        let link = |emu: &UdpEmulator| {
+            UdpLink::to_controller_ports(emu.addr().ip(), emu.addr().port(), 0).unwrap()
+        };
+        for doc in ["UNO", "DOS"] {
+            emu.emulator().stored.push(tlaku_ruida::emu::StoredDoc {
+                name: doc.into(),
+                stream: Vec::new(),
+            });
+        }
+        let mut out = Vec::new();
+        // Nombre equivocado: error y nada borrado.
+        let err = doc_with(
+            link(&emu),
+            &n,
+            DocAction::Delete,
+            1,
+            "DOS",
+            true,
+            &mut "".as_bytes(),
+            &mut out,
+        )
+        .unwrap_err();
+        assert!(err.contains("UNO"), "{err}");
+        assert!(emu.emulator().deleted.is_empty());
+        // Sin confirmar (responde "n"): nada se envía.
+        let err = doc_with(
+            link(&emu),
+            &n,
+            DocAction::Delete,
+            1,
+            "UNO",
+            false,
+            &mut "n\n".as_bytes(),
+            &mut out,
+        )
+        .unwrap_err();
+        assert!(!err.is_empty());
+        assert!(emu.emulator().deleted.is_empty());
+        doc_with(
+            link(&emu),
+            &n,
+            DocAction::Delete,
+            1,
+            "UNO",
+            true,
+            &mut "".as_bytes(),
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(emu.emulator().deleted, vec![1]);
+        doc_with(
+            link(&emu),
+            &n,
+            DocAction::Run,
+            1,
+            "DOS",
+            true,
+            &mut "".as_bytes(),
+            &mut out,
+        )
+        .unwrap();
+        assert_eq!(emu.emulator().ran, ["DOS"]);
     }
 }

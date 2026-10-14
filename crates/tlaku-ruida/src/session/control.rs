@@ -37,7 +37,7 @@ impl<L: PacketLink> RuidaSession<L> {
         self.wait_idle(self.cfg.long_timeout)
     }
 
-    fn ensure_idle(&mut self) -> Result<(), SessionError> {
+    pub(super) fn ensure_idle(&mut self) -> Result<(), SessionError> {
         if self.cfg.require_idle {
             let st = self.status()?;
             if !st.is_idle() {

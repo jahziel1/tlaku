@@ -34,8 +34,6 @@ const IMAGE_FEATURES: AdvancedFeature[] = ['pass_through', 'enhance', 'denoise']
 interface FieldsProps {
   layer: LayerSettings;
   target: LayerTarget;
-  /** Modo principiante: sin los ajustes avanzados. */
-  beginner: boolean;
 }
 
 /**
@@ -48,6 +46,7 @@ export function LayerFields(props: FieldsProps) {
   const powerMode = useStore((s) => selectActiveDevice(s).power_mode);
   const hasZ = useStore((s) => selectActiveDevice(s).z_axis === true);
   const hasLaser2 = useStore((s) => selectActiveDevice(s).laser2 === true);
+  const hasU = useStore((s) => selectActiveDevice(s).u_axis === true);
   // Galvo: la sección «Galvo» y la velocidad en mm/s solo existen con una máquina galvo.
   const isGalvo = useStore((s) => selectActiveDevice(s).kind === 'galvo');
   const source = useStore((s) => selectActiveDevice(s).galvo.source);
@@ -56,7 +55,7 @@ export function LayerFields(props: FieldsProps) {
   const pulses = useStore((s) => selectActiveDevice(s).galvo.pulse_widths_ns);
   const overscanMm = useStore((s) => selectActiveDevice(s).galvo.overscan_mm);
   const galvo = isGalvo ? { source, freqMinKhz: freqMin, freqMaxKhz: freqMax, pulseWidthsNs: pulses, overscanMm } : undefined;
-  return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ, hasLaser2, galvo }} />;
+  return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ, hasLaser2, hasU, galvo }} />;
 }
 
 /** Lo que los campos necesitan saber de la máquina activa. */
@@ -67,12 +66,14 @@ export interface FieldsDevice {
   hasZ: boolean;
   /** La máquina tiene segundo láser: se ofrece elegirlo por capa. */
   hasLaser2?: boolean;
+  /** La máquina tiene eje U: se ofrece su desplazamiento por capa. */
+  hasU?: boolean;
   /** Máquina galvo: velocidad en mm/s y sección «Galvo»; `undefined` en las demás. */
   galvo?: GalvoUiProfile;
 }
 
 /** `LayerFields` con la máquina como dato (así se prueba sin tocar el estado global). */
-export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps & { device: FieldsDevice }) {
+export function LayerFieldsView({ layer, target, device }: FieldsProps & { device: FieldsDevice }) {
   const { set, setIn } = useLayerSetters(target);
   const { maxRate, powerMode, hasZ } = device;
 
@@ -86,19 +87,12 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
   const used = advancedInUse(layer);
   const usedIn = (list: AdvancedFeature[]) => list.some((f) => used.includes(f));
   const showMinPower = minPowerApplies(layer);
-  const showMinPowerNote = minPowerLineNote(layer, powerMode) && !beginner;
-  const hiddenAdvanced = beginner && used.length > 0;
+  const showMinPowerNote = minPowerLineNote(layer, powerMode);
   const setImage = <K extends keyof LayerSettings['image']>(key: K, value: LayerSettings['image'][K]) => setIn('image', key, value);
   const activeBadge = t('layers.adv.active');
 
   return (
     <>
-      {hiddenAdvanced && (
-        <p className="lyr-info" role="status">
-          {t('layers.beginner.hiddenInUse')}
-        </p>
-      )}
-
       <Group title={t('layers.group.power')}>
         {device.galvo ? (
           // El galvo se piensa en mm/s: se muestra mm/s y se guarda mm/min (mm/s × 60).
@@ -137,9 +131,18 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
         {(device.hasLaser2 || layer.laser2) && (
           <Toggle label={t('layers.laser2')} checked={layer.laser2} onChange={(v) => set({ laser2: v })} help={t(device.hasLaser2 ? 'layers.help.laser2' : 'layers.help.laser2None')} />
         )}
+        {(device.hasU || layer.u_offset !== 0) && (
+          <NumField
+            field="u_offset"
+            label={t('layers.uOffset')}
+            value={layer.u_offset}
+            onApply={(v) => set({ u_offset: v })}
+            help={t(device.hasU ? 'layers.help.uOffset' : 'layers.help.uOffsetNone')}
+          />
+        )}
       </Group>
 
-      {device.galvo && <GalvoLayerSection layer={layer} setIn={setIn} profile={device.galvo} beginner={beginner} />}
+      {device.galvo && <GalvoLayerSection layer={layer} setIn={setIn} profile={device.galvo} />}
 
       {isLine && (
         <Group title={t('layers.group.line')}>
@@ -147,7 +150,7 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
         </Group>
       )}
 
-      {isLine && !beginner && (
+      {isLine && (
         <Group title={t('layers.group.tabs')}>
           <Toggle label={t('layers.tabs.enabled')} checked={tabs.enabled} onChange={(v) => setIn('tabs', 'enabled', v)} help={t('layers.help.tabsEnabled')} />
           {tabs.enabled && (
@@ -220,18 +223,16 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
               <OverscanField value={layer.overscan} onAuto={(auto) => set({ overscan: auto ? 'auto' : MANUAL_OVERSCAN_MM })} onMm={(v) => set({ overscan: v })} />
             </>
           )}
-          {!beginner && (
-            <NumField
-              field="angle_increment"
-              label={t('layers.angleIncrement')}
-              value={layer.angle_increment}
-              onApply={(v) => set({ angle_increment: v })}
-              disabled={rules.angleIncrement !== null}
-              reason={rules.angleIncrement ? t(rules.angleIncrement) : undefined}
-              live={layer.passes < 2 && layer.angle_increment !== 0 ? t('layers.angleIncrement.live') : undefined}
-              help={t('layers.help.angleIncrement')}
-            />
-          )}
+          <NumField
+            field="angle_increment"
+            label={t('layers.angleIncrement')}
+            value={layer.angle_increment}
+            onApply={(v) => set({ angle_increment: v })}
+            disabled={rules.angleIncrement !== null}
+            reason={rules.angleIncrement ? t(rules.angleIncrement) : undefined}
+            live={layer.passes < 2 && layer.angle_increment !== 0 ? t('layers.angleIncrement.live') : undefined}
+            help={t('layers.help.angleIncrement')}
+          />
         </Group>
       )}
 
@@ -286,13 +287,13 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
         </Group>
       )}
 
-      {!beginner && isLine && (
+      {isLine && (
         <Fold title={t('layers.adv.cut')} badge={usedIn(CUT_FEATURES) ? activeBadge : undefined} defaultOpen={usedIn(CUT_FEATURES)}>
           <CutAdvanced layer={layer} rules={rules} set={set} setIn={setIn} />
         </Fold>
       )}
 
-      {!beginner && layer.mode === 'fill' && (
+      {layer.mode === 'fill' && (
         <Fold title={t('layers.adv.fill')} badge={usedIn(FILL_FEATURES) ? activeBadge : undefined} defaultOpen={usedIn(FILL_FEATURES)}>
           <SelectField<FillStyle>
             label={t('layers.fillStyle')}
@@ -311,7 +312,7 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
         </Fold>
       )}
 
-      {!beginner && isImage && (
+      {isImage && (
         <Fold title={t('layers.adv.image')} badge={usedIn(IMAGE_FEATURES) ? activeBadge : undefined} defaultOpen={usedIn(IMAGE_FEATURES)}>
           <Toggle label={t('layers.passThrough')} checked={img.pass_through} onChange={(v) => setImage('pass_through', v)} help={t('layers.help.passThrough')} />
           <NumField
@@ -343,7 +344,7 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
         </Fold>
       )}
 
-      {!beginner && (hasZ || usesZ(layer)) && (
+      {(hasZ || usesZ(layer)) && (
         <Group title={t('layers.group.z')}>
           {hasZ ? (
             <>

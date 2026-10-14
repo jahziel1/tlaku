@@ -166,3 +166,38 @@
   flex-direction: column;
   gap: var(--s-4);
 }
+
+/* Pausa guiada «mueve el material» (columnas) */
+.til-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--backdrop, rgb(0 0 0 / 45%));
+}
+.til-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  width: min(460px, calc(100vw - 2 * var(--s-6)));
+  padding: var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-chrome);
+  box-shadow: var(--shadow-pop);
+}
+.til-marks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.til-marks li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}

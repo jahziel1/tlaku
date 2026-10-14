@@ -253,6 +253,7 @@ pipeline.gcode.pointer_frame_outside = The frame with the red pointer goes outsi
 pipeline.ruida.layers_merged = Ruida supports {max} layers and the job has {blocks}: on export, {merged} neighboring layers with identical settings (speed, power, air) will be merged, leaving {layers}; the cut order does not change
 pipeline.ruida.layers_too_many = Ruida supports {max} layers and the job has {blocks}: even after merging {merged} neighboring layers with identical settings, {layers} remain, so it cannot be exported or sent. Unify the colors or settings (speed, power, air) of consecutive layers
 pipeline.ruida.cannot_export = Ruida: the job cannot be exported: {error}
+pipeline.ruida.no_laser2 = machine '{machine}' has no second laser in its profile: layers that ask for laser 2 are output with laser 1
 
 # preview.rs
 pipeline.preview.paths_one = 1 path
@@ -452,8 +453,17 @@ pipeline.galvo.overscan_ignored = layer {layer}: a galvo does not need overscan;
 pipeline.galvo.wobble_line_only = layer {layer}: wobble only applies to line layers; it is ignored
 pipeline.galvo.wobble_bad_size = layer {layer}: wobble needs a size and step greater than 0 (size {size}, step {step})
 pipeline.galvo.wobble_too_many_points = {label}: wobble would generate too many points (more than {max}); it is skipped (increase the step or shorten the stroke)
-pipeline.galvo.cylinder_clipped = {label}: {n} point(s) of the design fall outside what the mirror can see (more than 90 degrees of arc on the cylinder); they are clipped to the edge
+pipeline.galvo.cylinder_clipped = {label}: {n} point(s) of the design fall outside what the mirror can see (they pass the cylinder's horizon: 90 degrees of arc at most, and less on a convex one); they are clipped to the edge
 pipeline.galvo.layer_outside_field = layer {layer} goes outside the galvo field ({size}x{size} mm): it spans X from {x0} to {x1} mm, Y from {y0} to {y1} mm
 pipeline.galvo.layer_not_finite = layer {layer} has coordinates that are not numbers
 pipeline.galvo.layer_mode_outside_field = layer {layer} ({mode}) goes outside the {size}x{size} mm galvo field: it spans X from {x0} to {x1} mm, Y from {y0} to {y1} mm
 pipeline.galvo.reduce_to_field = shrink the design to fit the field (or enable split marking to break it into pieces)
+
+# wave 6E: per-layer U axis (gcode.rs)
+pipeline.gcode.no_u_axis = machine '{machine}' has no U axis: the layers' U offset is ignored
+
+# --- wave 6E: split marking by whole shapes and the galvo rotary (split.rs, split_shapes.rs) ---
+pipeline.split.rotary_too_tall = the design is {h} mm tall and the piece {side} mm: with the rotary axis on Y the surface advances along X and the rotary does not move Y
+pipeline.split.whole_images = the job has images and they cannot be assigned to a whole piece: it is split into field-sized strips (shapes crossing the edge are marked in two parts)
+pipeline.split.whole_transform = the job has a registration transform (Print & Cut) and cannot be split by shapes: it is split into field-sized strips
+pipeline.split.whole_too_big = the shape "{id}" is {w} x {h} mm and the piece {side} mm: it does not fit whole in the field, it is split into field-sized strips (shapes crossing the edge are marked in two parts)

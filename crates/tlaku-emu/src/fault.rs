@@ -40,6 +40,11 @@ pub enum Fault {
     Alarm3WithBanner,
     /// Reinicio espontáneo en reposo (brownout): solo banner.
     Reboot,
+    /// Corte de luz: la cabeza se queda donde estaba, la placa pierde todo lo que tenía
+    /// (planificador, búfer, offsets `G92`, referencia de homing) y el cable se desconecta. Al
+    /// volver (`Handle::reconnect`) arranca con el banner y, si el homing está activado (`$22`),
+    /// en alarma hasta un `$H`.
+    PowerLoss,
     /// Silencio del enlace durante `duration`: lo que la controladora diga en ese lapso o se
     /// pierde (`drop_output`) o se entrega de golpe al terminar. Lo que el anfitrión envíe sí
     /// se procesa.

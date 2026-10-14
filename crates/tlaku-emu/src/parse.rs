@@ -5,11 +5,12 @@
 //! `G0 G1 G2 G3` (arcos solo en el plano XY, se trocean en segmentos), `G4`, `G10 L2/L20`,
 //! `G17-G19`, `G20/G21`, `G28/G28.1/G30/G30.1`, `G40`, `G43.1/G49`, `G53`, `G54-G59`, `G61`,
 //! `G80`, `G90/G91`, `G91.1`, `G92/G92.1`, `G93/G94`; `M0 M1 M2 M30 M3 M4 M5 M7 M8 M9` (y `M6`
-//! en grblHAL); palabras `F I J K L N P R S T X Y Z`. No se simulan sondas (`G38.x`), ejes
-//! A/B/C ni compensaciones de herramienta.
+//! en grblHAL), `G38.2` a `G38.5` (sondas, solo GRBL); palabras `F I J K L N P R S T X Y Z`.
+//! No se simulan ejes A/B/C ni compensaciones de herramienta.
 
 use crate::machine::Machine;
 use crate::model::{Action, Block, Effect, Gc, MotionMode, Parsed};
+use crate::profile::Protocol;
 use crate::trace::{MoveKind, SpindleMode};
 
 /// Palabra de G-code: letra y valor.
@@ -110,6 +111,8 @@ impl Machine {
         match v10 {
             40 | 100 | 280 | 281 | 300 | 301 | 530 | 920 | 921 => put(&mut g.nonmodal, v10),
             0 | 10 | 20 | 30 | 800 => put(&mut g.motion, v10),
+            // Las sondas son de GRBL; Marlin y Smoothie no las tienen en este emulador.
+            382..=385 if self.profile.protocol != Protocol::PingPong => put(&mut g.motion, v10),
             170 | 180 | 190 => put(&mut g.plane, v10),
             900 | 910 => put(&mut g.distance, v10),
             911 | 400 | 610 => Ok(()),
@@ -153,7 +156,7 @@ impl Machine {
             match w.letter {
                 b'G' => {
                     let v10 = code10(w.value)?;
-                    if v10 % 10 != 0 && !matches!(v10, 281 | 301 | 431 | 911 | 921) {
+                    if v10 % 10 != 0 && !matches!(v10, 281 | 301 | 382..=385 | 431 | 911 | 921) {
                         return Err(23);
                     }
                     self.classify_g(v10, &mut g)?;
@@ -250,6 +253,7 @@ impl Machine {
             Some(20) => Some(MotionMode::ArcCw),
             Some(30) => Some(MotionMode::ArcCcw),
             Some(800) => Some(MotionMode::None),
+            Some(m @ 382..=385) => Some(MotionMode::Probe((m - 380) as u8)),
             _ => None,
         };
         let eff_mode = mode.unwrap_or(gc.motion);
@@ -408,6 +412,27 @@ impl Machine {
                         }
                     }
                     gc.position = target;
+                    axis_used = true;
+                    moves = true;
+                }
+                MotionMode::Probe(n) => {
+                    if !has_axis {
+                        return Err(26);
+                    }
+                    // Sin avance o con tiempo inverso no hay una velocidad de sondeo definida.
+                    if gc.inverse_time || gc.feed <= 0.0 {
+                        return Err(22);
+                    }
+                    if dist(gc.position, target) < 1e-9 {
+                        return Err(33);
+                    }
+                    if self.outside_travel(target) {
+                        soft_alarm = true;
+                    } else {
+                        let cycle = self.probe_cycle(&gc, target, n, val(b'N'));
+                        gc.position = cycle.stop;
+                        motion_actions.extend(cycle.actions);
+                    }
                     axis_used = true;
                     moves = true;
                 }
@@ -664,10 +689,45 @@ impl Machine {
         })
     }
 
+    /// Acciones de un ciclo de sonda de `gc.position` hacia `target` y dónde queda la cabeza.
+    /// `n` es el decimal del código: 2 y 3 hacia la pieza, 4 y 5 alejándose; 2 y 4 dan alarma
+    /// si no hay cambio de estado.
+    fn probe_cycle(&self, gc: &Gc, target: [f64; 3], n: u8, line_n: Option<f64>) -> ProbeCycle {
+        let away = n >= 4;
+        let from = gc.position;
+        let hit_at = self
+            .probe_surface()
+            .and_then(|s| s.transition(from, target, away));
+        let stop = hit_at.unwrap_or(target);
+        let mut actions = vec![Action::Sync, Action::ProbeStart { away }];
+        // El láser nunca dispara en una sonda: el bloque va con el husillo apagado.
+        let off = Gc {
+            spindle: SpindleMode::Off,
+            s: 0.0,
+            ..gc.clone()
+        };
+        if let Some(b) = self.make_block(MoveKind::Probe, from, stop, gc.feed, &off, line_n) {
+            actions.push(Action::Move(Box::new(b)));
+        }
+        actions.push(Action::Sync);
+        actions.push(Action::ProbeEnd {
+            stop,
+            hit: hit_at.is_some(),
+            error_on_miss: n == 2 || n == 4,
+        });
+        ProbeCycle { stop, actions }
+    }
+
     fn rapid_blocks(&self, from: [f64; 3], to: [f64; 3], gc: &Gc) -> Option<Action> {
         self.make_block(MoveKind::Rapid, from, to, 0.0, gc, None)
             .map(|b| Action::Move(Box::new(b)))
     }
+}
+
+/// Resultado de interpretar un `G38.x`: acciones y posición programada al terminar.
+struct ProbeCycle {
+    stop: [f64; 3],
+    actions: Vec<Action>,
 }
 
 /// Puntos de un arco en XY (el último es el destino exacto), con Z interpolada.

@@ -1,7 +1,7 @@
 //! Pruebas de capas, esquina de home, seguridad y pie del archivo.
 
 use super::*;
-use crate::cmd::{self, Command, ProcessOp};
+use crate::cmd::{self, Command, Limit, ProcessOp};
 use crate::safety::SafetyError;
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, Toolpath};
@@ -28,6 +28,7 @@ fn each_block_is_a_layer_and_empty_blocks_are_skipped() {
             LayerOptions {
                 color: [255, 0, 0],
                 min_power_pct: None,
+                ..Default::default()
             },
         ],
         ..Default::default()
@@ -182,6 +183,7 @@ fn identical_layers_beyond_the_limit_are_merged_into_one() {
             .map(|i| LayerOptions {
                 color: [(i % 256) as u8, 0, 0],
                 min_power_pct: None,
+                ..Default::default()
             })
             .collect(),
         ..dflt()
@@ -275,6 +277,7 @@ fn min_power_above_max_is_rejected() {
         layers: vec![LayerOptions {
             color: [0; 3],
             min_power_pct: Some(60.0),
+            ..Default::default()
         }],
         ..Default::default()
     };
@@ -384,4 +387,123 @@ fn laser_tube_mask_and_delays() {
         build_commands(&tp, &o),
         Err(RdError::BadOption(_))
     ));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Láser 2 (M32): `CA 01 11` y la potencia en las órdenes del láser 2.
+
+fn laser2_options(flags: &[bool]) -> RuidaJobOptions {
+    RuidaJobOptions {
+        layers: flags
+            .iter()
+            .map(|&laser2| LayerOptions {
+                laser2,
+                ..Default::default()
+            })
+            .collect(),
+        ..dflt()
+    }
+}
+
+fn body_flags(cmds: &[Command]) -> Vec<u8> {
+    cmds.iter()
+        .filter_map(|c| match c {
+            Command::LayerFlag(f @ (0x10 | 0x11)) => Some(*f),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_laser2_layer_selects_device_1_and_moves_its_power_to_laser_2() {
+    let tp = Toolpath {
+        blocks: vec![rect_block(50.0), rect_block(30.0)],
+    };
+    let cmds = build_commands(&tp, &laser2_options(&[false, true])).unwrap();
+    assert_eq!(body_flags(&cmds), [0x10, 0x11]);
+    let p50 = crate::num::power_from_pct(50.0).unwrap();
+    let p30 = crate::num::power_from_pct(30.0).unwrap();
+    let body_power = |laser: u8, raw: u16| {
+        cmds.iter()
+            .filter(|c| {
+                matches!(c, Command::LaserPower { laser: l, raw: r, limit: Limit::Max }
+                    if *l == laser && *r == raw)
+            })
+            .count()
+    };
+    // Capa 0 (láser 1): 50 % en el láser 1. Capa 1 (láser 2): 30 % en el láser 2 y 0 en el 1.
+    assert_eq!(body_power(1, p50), 1);
+    assert_eq!(body_power(2, p30), 1);
+    assert_eq!(
+        body_power(1, p30),
+        0,
+        "el láser 1 no debe llevar la potencia de la capa 2"
+    );
+    assert_eq!(body_power(2, p50), 0);
+    // La cabecera de la capa 1 también.
+    assert!(cmds.contains(&Command::LayerPower {
+        laser: 2,
+        limit: Limit::Max,
+        layer: 1,
+        raw: p30
+    }));
+    assert!(cmds.contains(&Command::LayerPower {
+        laser: 1,
+        limit: Limit::Max,
+        layer: 1,
+        raw: 0
+    }));
+    // La máscara de tubos de esa capa suma el bit del láser 2; la otra queda igual.
+    let masks: Vec<u8> = cmds
+        .iter()
+        .filter_map(|c| match c {
+            Command::Small {
+                op: 0xCA,
+                sub: 0x03,
+                n,
+            } => Some(*n),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(masks, [1, 3]);
+}
+
+#[test]
+fn without_laser2_layers_the_stream_is_the_same_as_before() {
+    let tp = Toolpath {
+        blocks: vec![rect_block(50.0)],
+    };
+    let a = build_commands(&tp, &laser2_options(&[false])).unwrap();
+    let b = build_commands(&tp, &dflt()).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(body_flags(&a), [0x10]);
+}
+
+#[test]
+fn a_laser2_layer_with_variable_power_is_refused() {
+    let mut block = rect_block(50.0);
+    if let Some(Move::Cut { power_pct, .. }) = block.moves.get_mut(2) {
+        *power_pct = 20.0;
+    }
+    let tp = Toolpath {
+        blocks: vec![block],
+    };
+    assert_eq!(
+        build_commands(&tp, &laser2_options(&[true])),
+        Err(RdError::Laser2Variable { block: 0 })
+    );
+    // El mismo bloque con el láser 1 sí se genera.
+    assert!(build_commands(&tp, &laser2_options(&[false])).is_ok());
+}
+
+#[test]
+fn merging_never_joins_a_laser1_layer_with_a_laser2_layer() {
+    let blocks: Vec<_> = (0..130).map(|_| rect_block(50.0)).collect();
+    let tp = Toolpath { blocks };
+    let mut flags = vec![false; 129];
+    flags.push(true);
+    let cmds = build_commands(&tp, &laser2_options(&flags)).unwrap();
+    // 129 capas del láser 1 se funden en una y la del láser 2 queda aparte.
+    assert!(cmds.contains(&Command::MaxLayer(1)));
+    assert_eq!(body_flags(&cmds), [0x10, 0x11]);
 }

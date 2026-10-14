@@ -9,19 +9,15 @@ import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { isJobBusy } from '@/store/selectors';
 import { NumInput } from './DeviceFields';
-import { buildCalibDocument, calibJobOptions, calibSizes, fitCorrection, type CalibMark, type CalibMeasures, type FitResult } from './galvoCalib';
+import { buildCalibDocument, calibJobOptions, calibSizes, defaultCalibMark, fitCorrection, type CalibMark, type CalibMeasures, type FitResult } from './galvoCalib';
+import { GalvoCalibration9Dialog } from './GalvoCalibration9';
 import { GalvoExperimentalBadge } from './GalvoNotice';
 import { SOURCE_WAVELENGTH_NM } from './galvoPorts';
 import { Modal } from './Modal';
 
-type Step = 'mark' | 'measure' | 'result';
+export { defaultCalibMark };
 
-/** Marca de partida de la rejilla: potencia baja a propósito, frecuencia dentro del rango del perfil. */
-export function defaultCalibMark(d: Pick<DeviceProfile, 'galvo'>): CalibMark {
-  const g = d.galvo;
-  const mid = Math.min(Math.max(30, g.freq_min_khz), g.freq_max_khz);
-  return { power: 15, speedMmS: 500, frequencyKhz: mid, pulseWidthNs: g.pulse_widths_ns[0] ?? null };
-}
+type Step = 'mark' | 'measure' | 'result';
 
 /** Por qué no se puede marcar ahora la rejilla (clave de texto), o `null` si se puede. */
 export function calibBlockedReason(s: { connected: boolean; activeId: string; draftId: string; dirty: boolean; busy: boolean; isGalvo: boolean }): 'galvo.calib.need.connect' | 'galvo.calib.need.active' | 'galvo.calib.need.saved' | 'galvo.calib.need.idle' | null {
@@ -41,6 +37,7 @@ export function GalvoCalibrationButton({ draft, dirty, onApply }: { draft: Devic
   const activeId = useStore((s) => s.activeDeviceId);
   const busy = useStore(isJobBusy);
   const [open, setOpen] = useState(false);
+  const [open9, setOpen9] = useState(false);
   const why = calibBlockedReason({ connected, activeId: activeId ?? '', draftId: draft.id, dirty, busy, isGalvo: draft.kind === 'galvo' });
   return (
     <div className="mc-galvo-calib">
@@ -48,7 +45,21 @@ export function GalvoCalibrationButton({ draft, dirty, onApply }: { draft: Devic
         <Ruler size={14} aria-hidden="true" />
         {t('galvo.calib.open')}
       </button>
+      <button type="button" className="btn" disabled={why !== null} title={why ? t(why) : t('galvo.calib9.open.help')} onClick={() => setOpen9(true)}>
+        <Ruler size={14} aria-hidden="true" />
+        {t('galvo.calib9.open')}
+      </button>
       {why && <p className="hint">{t(why)}</p>}
+      {open9 && (
+        <GalvoCalibration9Dialog
+          device={draft}
+          onClose={() => setOpen9(false)}
+          onApply={(c) => {
+            onApply(c);
+            setOpen9(false);
+          }}
+        />
+      )}
       {open && (
         <GalvoCalibrationDialog
           device={draft}

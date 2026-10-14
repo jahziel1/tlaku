@@ -1,6 +1,6 @@
 {
   "_aviso": "Llena estos valores cuando existan y vuelve a construir el sitio (node scripts/build-site.mjs). Vacío = el botón o enlace se oculta.",
-  "REPO_URL": "",
+  "REPO_URL": "https://github.com/jahziel1/tlaku",
   "SPONSORS_URL": "",
-  "KOFI_URL": ""
+  "KOFI_URL": "https://ko-fi.com/danielmartinez55371"
 }

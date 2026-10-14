@@ -19,7 +19,13 @@ interface DesignObject {
 }
 // el discriminante `type` vive en ObjectKind; VectorObject e ImageObject no lo llevan
 type ObjectKind = ({ type: "vector" } & VectorObject) | ({ type: "image" } & ImageObject);
-interface VectorObject { paths: BezPath[] }
+interface VectorObject {
+  paths: BezPath[];
+  // Esquinas que redondear/achaflanar sustituyó (D60): la punta original y los dos nodos entre los
+  // que quedó la forma, en coordenadas locales. Opcional; solo vale mientras esos nodos no se editen.
+  corners?: CornerMark[];
+}
+interface CornerMark { vertex: [number, number]; from: [number, number]; to: [number, number] }
 interface ImageObject  { source_path: string; width_px: number; height_px: number;
                          size_mm: [number, number] }   // caja local [0,w]x[0,h]; el transform la coloca y escala
 

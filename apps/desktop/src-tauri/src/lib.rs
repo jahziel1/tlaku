@@ -13,6 +13,7 @@ mod autosave;
 mod commands;
 mod edit;
 mod engine;
+mod job_resume;
 mod machine;
 mod netlink;
 mod prefs;
@@ -50,6 +51,14 @@ fn build_app(context: tauri::Context) -> tauri::App {
         .plugin(tauri_plugin_dialog::init())
         // Reiniciar tras instalar una actualización (`features/help/updater.ts`).
         .plugin(tauri_plugin_process::init())
+        // Abrir el navegador con los formularios del proyecto (`features/help/openExternal.ts`). El
+        // permiso de `capabilities/default.json` limita las direcciones a las del repositorio y su sitio;
+        // los enlaces `<a>` no se abren solos (`open_js_links_on_click(false)`): solo lo que la interfaz pide.
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         // El actualizador solo se registra si tauri.conf.json trae su llave pública (ver `updater.rs`).
         .setup(updater::setup)
         .manage(AppState::default())
@@ -82,6 +91,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             commands::connect,
             commands::disconnect,
             commands::machine_command,
+            commands::probe_touch,
             commands::machine_realtime,
             commands::jog,
             commands::start_job,
@@ -98,6 +108,18 @@ fn build_app(context: tauri::Context) -> tauri::App {
             commands::simulate_fault,
             commands::ruida_info,
             commands::ruida_files,
+            commands::ruida_prepare_store,
+            commands::ruida_file_delete,
+            commands::ruida_file_run,
+            commands::ruida_settings_read,
+            commands::ruida_settings_preview,
+            commands::ruida_settings_preview_file,
+            commands::ruida_settings_apply,
+            commands::ruida_settings_restore,
+            commands::ruida_settings_export,
+            commands::ruida_calibrate,
+            commands::ruida_backups,
+            commands::ruida_backup_text,
             commands::lhy_preview,
             commands::lhy_home,
             commands::lhy_state,
@@ -106,6 +128,12 @@ fn build_app(context: tauri::Context) -> tauri::App {
             commands::galvo_red_run,
             commands::galvo_red_light,
             commands::galvo_confirm_move,
+            job_resume::interrupted_job,
+            job_resume::interrupted_job_view,
+            job_resume::discard_interrupted_job,
+            job_resume::continue_check,
+            job_resume::continue_frame,
+            job_resume::continue_job,
             commands::galvo_frame,
             commands::galvo_adjust_frame,
             commands::galvo_verify,
@@ -172,6 +200,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             prefs::import_user_bundle,
             settings_backup::write_settings_backup,
             settings_backup::read_settings_backup,
+            settings_backup::grbl_settings_autobackup,
             window::new_window,
         ])
         .build(context)

@@ -13,7 +13,7 @@ La primera vez que abres Tlaku aparece la pregunta **¿Es tu primera vez con un 
 - **Sí, quiero el modo sencillo** entra al modo sencillo.
 - **No, quiero todas las herramientas** y **Saltar** dejan el modo completo, el de siempre.
 
-La respuesta se guarda y la pregunta no vuelve a salir. Para cambiar de modo cuando quieras, usa el botón de la barra superior: dice **Modo sencillo** cuando estás en el completo y **Modo completo** cuando estás en el sencillo. El cambio **no toca tu diseño**: el documento, las capas y el historial de deshacer son los mismos en los dos modos, solo cambia lo que se muestra. Puedes hacer una parte del trabajo en un modo y seguir en el otro.
+El modo sencillo **es el modo para principiantes** de Tlaku (el «Modo principiante» de otros programas): esconde todo lo avanzado, no solo algunos ajustes. La respuesta se guarda y la pregunta no vuelve a salir. Para cambiar de modo cuando quieras, usa el botón de la barra superior (o **Preferencias > General > Modo de la interfaz**, donde también puedes volver a la opción **Preguntar al abrir**): dice **Modo sencillo** cuando estás en el completo y **Modo completo** cuando estás en el sencillo. El cambio **no toca tu diseño**: el documento, las capas y el historial de deshacer son los mismos en los dos modos, solo cambia lo que se muestra. Puedes hacer una parte del trabajo en un modo y seguir en el otro.
 
 En el modo sencillo se esconden los menús, las herramientas del costado, la paleta de colores y el panel acoplado; el lienzo y la barra superior se quedan, y a la derecha aparece el panel de pasos.
 

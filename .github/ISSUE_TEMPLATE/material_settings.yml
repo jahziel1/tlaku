@@ -1,0 +1,123 @@
+name: "Share material settings / Compartir ajustes de material"
+description: "Share values that worked on your machine for the community library. / Comparte valores que te funcionaron para la biblioteca de la comunidad."
+title: "[Material] "
+labels: ["material-settings"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **EN:** Settings shared here may be added to Tlaku's material library as **unverified community data**, under the CC0 license. Please share only values you tested yourself. Everyone who uses them must run a test first: machines, lenses and materials differ.
+
+        **ES:** Los ajustes que compartas aquí pueden entrar a la biblioteca de materiales de Tlaku como **datos de la comunidad sin verificar**, con licencia CC0. Comparte solo valores que probaste tú. Quien los use debe hacer siempre una prueba: las máquinas, los lentes y los materiales varían.
+
+        Tip / Consejo: in the Materials panel, on one of your own presets, use *Share…* to open this form already filled in. / En el panel Materiales, sobre un ajuste tuyo, usa *Compartir…* para abrir este formulario ya lleno.
+  - type: dropdown
+    id: laser_type
+    attributes:
+      label: "Laser type / Tipo de láser"
+      options:
+        - "Diode / Diodo"
+        - "CO2"
+        - "Fiber / Fibra"
+    validations:
+      required: true
+  - type: input
+    id: laser_watts
+    attributes:
+      label: "Laser power (W) / Potencia del láser (W)"
+      description: "Optical output power in watts, a number. / Potencia óptica en watts, un número."
+      placeholder: "22"
+    validations:
+      required: true
+  - type: input
+    id: machine
+    attributes:
+      label: "Machine / Máquina"
+      placeholder: "Creality Falcon2 22 W"
+    validations:
+      required: true
+  - type: input
+    id: material
+    attributes:
+      label: "Material"
+      description: "Be specific: species, color, brand. / Sé específico: especie, color, marca."
+      placeholder: "Basswood plywood / Contrachapado de tilo"
+    validations:
+      required: true
+  - type: input
+    id: thickness
+    attributes:
+      label: "Thickness (mm) / Grosor (mm)"
+      description: "A number. Leave empty for surface engraving. / Un número. Déjalo vacío para grabar la superficie."
+      placeholder: "3"
+  - type: dropdown
+    id: operation
+    attributes:
+      label: "Operation / Operación"
+      options:
+        - "Cut / Corte"
+        - "Engrave / Grabado"
+        - "Score or mark / Marcado"
+    validations:
+      required: true
+  - type: input
+    id: speed
+    attributes:
+      label: "Speed (mm/min) / Velocidad (mm/min)"
+      description: "A number in mm/min. If you use mm/s, write the unit, for example \"20 mm/s\". / Un número en mm/min. Si usas mm/s, escribe la unidad, por ejemplo «20 mm/s»."
+      placeholder: "500"
+    validations:
+      required: true
+  - type: input
+    id: power
+    attributes:
+      label: "Power (%) / Potencia (%)"
+      description: "0 to 100. / De 0 a 100."
+      placeholder: "100"
+    validations:
+      required: true
+  - type: input
+    id: passes
+    attributes:
+      label: "Passes / Pasadas"
+      placeholder: "1"
+  - type: input
+    id: interval
+    attributes:
+      label: "Line interval (mm) / Intervalo entre líneas (mm)"
+      description: "Only for engraving (fill). / Solo para grabado (relleno)."
+      placeholder: "0.1"
+  - type: dropdown
+    id: air
+    attributes:
+      label: "Air assist / Asistencia de aire"
+      options:
+        - "Yes / Sí"
+        - "No"
+        - "Not sure / No sé"
+  - type: input
+    id: focus
+    attributes:
+      label: "Focus / Enfoque"
+      description: "For example \"on the surface\" or \"2 mm into the material\". / Por ejemplo «en la superficie» o «2 mm dentro del material»."
+  - type: textarea
+    id: result
+    attributes:
+      label: "Result / Resultado"
+      description: "What came out: clean cut, charring, depth, contrast… / Cómo quedó: corte limpio, carbonizado, profundidad, contraste…"
+    validations:
+      required: true
+  - type: textarea
+    id: photo
+    attributes:
+      label: "Photo (optional) / Foto (opcional)"
+      description: "Drag a photo of the result here. / Arrastra aquí una foto del resultado."
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: "Confirmation / Confirmación"
+      options:
+        - label: "I tested these values on my machine. / Probé estos valores en mi máquina."
+          required: true
+        - label: "I authorize publishing them under the CC0 1.0 license (public domain), so the library can be redistributed. / Autorizo publicarlos bajo la licencia CC0 1.0 (dominio público), para que la biblioteca pueda redistribuirse."
+          required: true

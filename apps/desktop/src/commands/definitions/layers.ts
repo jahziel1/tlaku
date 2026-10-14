@@ -1,5 +1,5 @@
 import { copyLayerSettings, deleteLayerWithObjects, lockedInLayer, openEditorFor, pasteLayerSettings, pickPaletteEntry, selectLayerObjects } from '@/features/layers/actions';
-import { resetLayerDefaults, saveLayerAsDefaults } from '@/features/layers/defaults';
+import { resetLayerDefaults, saveColorDefaults, saveLayerAsDefaults } from '@/features/layers/defaults';
 import { useLayerUi } from '@/features/layers/layerUi';
 import { isGuideColor } from '@/lib/palette';
 import { LAYER_PALETTE } from '@/lib/palette';
@@ -92,6 +92,29 @@ export const layerCommands: CommandDef[] = [
       return isGuideColor(layer.color) ? 'layers.reason.guideNoSettings' : true;
     },
     run: (s) => saveLayerAsDefaults(s, activeLayerOf(s)!.color),
+  },
+  {
+    id: 'layer.saveColorMachineDefaults',
+    label: 'layers.cmd.saveColorMachineDefaults',
+    category: 'edit',
+    enabled: (s) => {
+      const layer = activeLayerOf(s);
+      if (!layer) return 'layers.reason.noActiveLayer';
+      if (isGuideColor(layer.color)) return 'layers.reason.guideNoSettings';
+      return s.activeDeviceId ? true : 'layers.reason.noDevice';
+    },
+    run: (s) => saveColorDefaults(s, activeLayerOf(s)!.color, 'machine'),
+  },
+  {
+    id: 'layer.saveColorDefaults',
+    label: 'layers.cmd.saveColorDefaults',
+    category: 'edit',
+    enabled: (s) => {
+      const layer = activeLayerOf(s);
+      if (!layer) return 'layers.reason.noActiveLayer';
+      return isGuideColor(layer.color) ? 'layers.reason.guideNoSettings' : true;
+    },
+    run: (s) => saveColorDefaults(s, activeLayerOf(s)!.color, 'color'),
   },
   {
     id: 'layer.resetDefaults',

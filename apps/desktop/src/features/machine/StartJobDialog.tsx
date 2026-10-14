@@ -14,6 +14,7 @@ import { OriginIllustration } from './OriginIllustration';
 import { galvoConfirmKey, GalvoStartNotice } from './GalvoNotice';
 import { lhyConfirmKey, LhyStartNotice } from './LhyNotice';
 import { ruidaConfirmKey, RuidaStartNotice } from './RuidaNotice';
+import { useRuidaStartGate } from './ruidaStart';
 import { SelectionOptions } from './SelectionOptions';
 import { ReviewNotice } from '@/features/review';
 import { launchRepeat } from '@/features/feeder/RepeatPanel';
@@ -61,13 +62,18 @@ export function StartJobDialog() {
   // Con «Repetir con el alimentador» el botón de inicio manda la tanda entera.
   const repeat = useRepeat((s) => s.config);
   const repeating = repeat.enabled && repeatBlockedReason(device, repeat) === null;
-  const canStart = ready && placement.status === 'ok' && placement.fits && checklistOk && (!repeat.enabled || repeating);
+  // Ruida guarda el trabajo con un nombre: uno repetido pide confirmar el reemplazo.
+  const connected = useStore((s) => s.connection.connected);
+  const ruidaGate = useRuidaStartGate(device, connected);
+  const canStart = ready && placement.status === 'ok' && placement.fits && checklistOk && ruidaGate.ok && (!repeat.enabled || repeating);
   const blockedWhy =
     !ready || placement.status !== 'ok' || !placement.fits
       ? t('machine.start.blocked')
       : !checklistOk
         ? t('machine.checklist.blocked', { n: pending.length })
-        : repeatBlockedReason(device, repeat) ?? t('machine.start.blocked');
+        : !ruidaGate.ok
+          ? t('ruida.name.overwriteNeeded')
+          : repeatBlockedReason(device, repeat) ?? t('machine.start.blocked');
 
   return (
     <Modal
@@ -79,7 +85,7 @@ export function StartJobDialog() {
       footer={
         <>
           <button type="button" className="btn" data-autofocus onClick={close}>{t('machine.dlg.cancel')}</button>
-          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void (repeating ? launchRepeat() : confirm())}>
+          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void (repeating ? launchRepeat() : ruidaGate.commit().then((ok) => (ok ? confirm() : undefined)))}>
             {t(repeating ? 'tiling.repeat.start' : (ruidaConfirmKey(device) ?? lhyConfirmKey(device) ?? galvoConfirmKey(device) ?? 'machine.start.confirm'))}
           </button>
         </>
@@ -134,7 +140,7 @@ export function StartJobDialog() {
         )}
       </section>
 
-      <RuidaStartNotice device={device} />
+      <RuidaStartNotice device={device} gate={ruidaGate} />
       <LhyStartNotice device={device} />
       <GalvoStartNotice device={device} />
 

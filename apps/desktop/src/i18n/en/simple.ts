@@ -3,7 +3,7 @@ export const simple = {
   // ---- mode switch ----
   'simple.cmd.toSimple': 'Simple mode',
   'simple.cmd.toFull': 'Full mode',
-  'simple.switch.toSimple.help': 'Switch to the guided, step-by-step version. Your design does not change.',
+  'simple.switch.toSimple.help': 'Switch to simple mode, for beginners: the guided, step-by-step version. Your design does not change.',
   'simple.switch.toFull.help': 'Switch to the version with all the tools. Your design does not change.',
 
   // ---- first run ----

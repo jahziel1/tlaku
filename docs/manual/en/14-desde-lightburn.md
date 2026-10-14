@@ -26,7 +26,7 @@ Tlaku is an independent program, built from scratch without using LightBurn's co
 | Adjust Image: presets and preview | **Image preset** (7 built-in and your own with **Save as…**) and **Image preview…** per image, without calculating the job; see [Images](06-imagenes.md) |
 | Copy and paste layer settings, delete layer | Layer row menu: **Copy settings**, **Paste settings**, **Delete layer and its objects…** |
 | Default Layer Settings | **Defaults** at the end of the layer editor (a single set for all new layers) |
-| Beginner Mode | **Beginner mode** of the layer editor (hides the layer's advanced settings; does not change menus or tools) |
+| Beginner Mode | **[Simple mode](01b-modo-sencillo.md)** (hides menus, tools and advanced settings, and guides the work step by step; it is Tlaku's beginner mode) |
 | Cut Order Priority, Power Scale (per object) | **Cut priority** and **Power scale** in **Object properties**; **Cut earlier / Cut later** in the Arrange menu |
 | Optimization Settings | **Optimization settings…** (preview, Machine panel, and Machine menu) |
 | Laser (panel) and Move | **Machine** tab (connection, moving the head, origin, job) |
@@ -202,7 +202,7 @@ Missing, and I do not promise it if it is not in the code:
 - **Of beginner mode:** in Tlaku it only hides the layer editor's advanced settings; it does not hide tools or menus as LightBurn's does.
 - Individual objects cannot be hidden (layers can), there is no selection with `Tab`, and no skewing.
 - The **inches** in the preferences apply in the numeric bar, the status bar, the rulers (tenths of an inch), Measure, and the length fields of the Arrange and Nest parts dialogs; fields accept fractions (`3/8"`, `1 1/2 in`) and suffixes (`5mm`, `50%`). Speeds stay in mm/min, and the fields of layers, machine areas, and camera stay in mm.
-- **Galvo (fiber, UV):** **experimental** support for EZCAD2's LMCV4 board, from the app (adding with verification without the laser, profile, framing, overscan, required inputs) and from the command line (`tlaku galvo`), tested only against a simulated board. Read [Galvo safety](13d-galvo-seguridad.md) first. There is no pause (stop only), no 9-point lens calibration, and no `.cor` files, and EZCAD3/DLC and BSL are not supported. Trocen and TopWisdom are not supported. GRBL over the network (TCP and WebSocket) is there; Ruida and the K40 with M2 Nano are experimental and neither has been tested with a real machine: see [Supported controllers](13-controladoras.md).
+- **Galvo (fiber, UV):** **experimental** support for EZCAD2's LMCV4 board, from the app (adding with verification without the laser, profile, framing, overscan, required inputs) and from the command line (`tlaku galvo`), tested only against a simulated board. Read [Galvo safety](13d-galvo-seguridad.md) first. There is no pause (stop only) and no mark on the fly, EZCAD's `.cor` file is applied on the computer (never written to the board) and there is a nine-point wizard, and EZCAD3/DLC and BSL are not supported. Trocen and TopWisdom are not supported. GRBL over the network (TCP and WebSocket) is there; Ruida and the K40 with M2 Nano are experimental and neither has been tested with a real machine: see [Supported controllers](13-controladoras.md).
 - There is only one guides layer (the one in the color palette); the ruler guides are separate.
 - **New window** has not been tested in a real window (see [Guides, tabs, start point, and project](03e-guias-puentes-y-proyecto.md)).
 

@@ -28,6 +28,7 @@ use std::time::Duration;
 
 use crate::fault::Scheduled;
 use crate::model::{Action, Block, Gc};
+use crate::probe::ProbeSurface;
 use crate::profile::{LineEnding, Profile, Setting, format_value};
 use crate::trace::{LaserTrace, SpindleMode};
 
@@ -157,6 +158,10 @@ pub struct Machine {
     pub(crate) g28: [f64; 3],
     pub(crate) g30: [f64; 3],
     pub(crate) g92: [f64; 3],
+    /// Lo que toca la sonda (coordenadas de máquina); `None` = nada al alcance.
+    probe_surface: Option<ProbeSurface>,
+    /// Última sonda: posición de máquina y si hubo contacto (`[PRB:...]` de `$#`).
+    probe_last: ([f64; 3], bool),
     // Estado modal.
     pub(crate) gc: Gc,
     // Sistema.

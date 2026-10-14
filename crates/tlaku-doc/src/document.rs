@@ -17,11 +17,39 @@ pub const DOC_VERSION: u32 = 2;
 pub const FLATTEN_TOLERANCE_MM: f64 = 0.01;
 
 /// Curvas en coordenadas locales del objeto.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub struct VectorObject {
     pub paths: Vec<BezPath>,
+    /// Esquinas que la herramienta de redondear/achaflanar sustituyó por un arco o un chaflán, con
+    /// la punta original: un chaflán es indistinguible de un lado recto por geometría, así que
+    /// «Revertir» necesita este dato. Opcional; se descarta al editar los nodos de la zona.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<CornerMark>>", optional)]
+    pub corners: Vec<CornerMark>,
+}
+
+impl VectorObject {
+    /// Objeto con estas curvas y sin esquinas guardadas.
+    pub fn new(paths: Vec<BezPath>) -> Self {
+        Self {
+            paths,
+            corners: Vec::new(),
+        }
+    }
+}
+
+/// Una esquina de recta con recta que se redondeó, achaflanó o mordió: la punta original
+/// (`vertex`) y los dos nodos donde empieza (`from`) y termina (`to`) la forma que la sustituyó,
+/// todo en coordenadas locales del objeto. Solo vale mientras esos nodos sigan donde estaban.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct CornerMark {
+    pub vertex: [f64; 2],
+    pub from: [f64; 2],
+    pub to: [f64; 2],
 }
 
 /// Imagen enlazada por ruta. Su caja local es `[0, size_mm[0]] x [0, size_mm[1]]` (Y hacia

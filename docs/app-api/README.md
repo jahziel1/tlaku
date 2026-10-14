@@ -20,7 +20,7 @@ Este contrato se partió por área (antes era un solo archivo de 55 KB). Busca e
 | [edicion.md](edicion.md) | Curvas, grupos, texto, vectorizado, operaciones de geometría y de formas y arte; incluye los primeros comandos de cámara de la fase 3 (`detect_board`, `calibrate_lens`, marcas). | 18 |
 | [taller.md](taller.md) | Campos nuevos de capas y perfiles (puentes, Z, rotativo, dialectos G-code) de las fases de taller. | 0 |
 | [materiales.md](materiales.md) | Comandos y contrato de la biblioteca de materiales y la prueba de material. | 6 |
-| [maquinas.md](maquinas.md) | Comandos de máquinas de la fase 4, oleada C (`device_defaults`, `probe_port`, `simulate_fault`). | 4 |
+| [maquinas.md](maquinas.md) | Comandos de máquinas de la fase 4, oleada C (`device_defaults`, `probe_port`, `simulate_fault`) y `probe_touch` (ola 6E). | 11 |
 | [preferencias.md](preferencias.md) | Preferencias, paquetes `.tlakuprefs`, autoguardado, plantillas y ventanas. | 14 |
 | [red.md](red.md) | GRBL por TCP y WebSocket. | 0 |
 | [ruida.md](ruida.md) | Controladoras Ruida por UDP. | 0 |
@@ -40,7 +40,7 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | [edicion.md](edicion.md) | `list_fonts`, `text_outline`, `geometry_op`, `shape_op`, `review_design`, `trace_image`, `vectors_to_bitmap`, `save_processed_image`, `preview_image`, `fit_registration`, `plan_tiles`, `art_import_svg`, `art_list_user`, `art_add_user`, `art_remove_user`, `art_save_user`, `detect_board`, `calibrate_lens`, `load_camera_setup`, `save_camera_setup`, `save_board_file`, `fetch_camera_frame`, `camera_marks`, `detect_camera_marks` |
 | [taller.md](taller.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [materiales.md](materiales.md) | `load_material_library`, `load_factory_materials`, `save_material_library`, `import_material_library`, `export_material_library`, `material_test` |
-| [maquinas.md](maquinas.md) | `device_defaults`, `rotary_test`, `probe_port`, `simulate_fault` |
+| [maquinas.md](maquinas.md) | `device_defaults`, `rotary_test`, `probe_port`, `simulate_fault`, `probe_touch`, `interrupted_job`, `interrupted_job_view`, `discard_interrupted_job`, `continue_check`, `continue_frame`, `continue_job` |
 | [preferencias.md](preferencias.md) | `load_preferences`, `save_preferences`, `export_preferences`, `import_preferences`, `paths_exist`, `set_engine_locale`, `autosave_write`, `autosave_list`, `autosave_read`, `autosave_discard`, `list_templates`, `save_template`, `load_template`, `delete_template`, `new_window` |
 | [red.md](red.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [ruida.md](ruida.md) | (sin tabla de comandos; ver el texto del archivo) |

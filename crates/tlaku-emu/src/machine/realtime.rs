@@ -247,6 +247,9 @@ impl Machine {
                     pins.push('Y');
                 }
             }
+            if self.probe_pin() {
+                pins.push('P');
+            }
             if self.door_open {
                 pins.push('D');
             }

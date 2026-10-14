@@ -247,7 +247,8 @@ impl Machine {
         lines.push(format!("[G30:{}]", f3(self.g30)));
         lines.push(format!("[G92:{}]", f3(self.g92)));
         lines.push("[TLO:0.000]".to_string());
-        lines.push("[PRB:0.000,0.000,0.000:0]".to_string());
+        let (probe, hit) = self.probe_last;
+        lines.push(format!("[PRB:{}:{}]", f3(probe), u8::from(hit)));
         lines
     }
 
@@ -259,6 +260,10 @@ impl Machine {
             MotionMode::ArcCw => "G2",
             MotionMode::ArcCcw => "G3",
             MotionMode::None => "G80",
+            MotionMode::Probe(3) => "G38.3",
+            MotionMode::Probe(4) => "G38.4",
+            MotionMode::Probe(5) => "G38.5",
+            MotionMode::Probe(_) => "G38.2",
         };
         let spindle = match g.spindle {
             SpindleMode::Off => "M5",

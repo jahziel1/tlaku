@@ -1,6 +1,11 @@
 //! Tiempos, la subida ([`Upload`]), solicitudes al hilo y el mando [`RuidaHandle`].
 
 use super::*;
+use std::path::PathBuf;
+use tlaku_doc::{
+    RuidaApplyReport, RuidaCalibration, RuidaControllerSettings, RuidaDocResult,
+    RuidaSettingChange, RuidaSettingsPlan,
+};
 use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
@@ -57,6 +62,11 @@ pub struct Upload {
     pub estimate_s: f64,
     /// Avisos para el registro antes de enviar (p. ej. el rotativo).
     pub notes: Vec<String>,
+    /// Con `Store`: si ya hay un documento con ese nombre, borrarlo antes de subir (el usuario
+    /// lo confirmó). Sin esto, un nombre repetido falla sin tocar nada.
+    pub overwrite: bool,
+    /// Con `Store`: el nombre es el automático. Si ya existe uno igual se elige otro libre.
+    pub auto_name: bool,
 }
 
 pub(super) type Reply<T> = Sender<Result<T, String>>;
@@ -86,8 +96,55 @@ pub(super) enum Request {
     Stop(Reply<()>),
     Info(Reply<Box<RuidaInfo>>),
     Files(Reply<Vec<RuidaFile>>),
+    SettingsRead(Reply<RuidaControllerSettings>),
+    SettingsPreview(Vec<RuidaSettingChange>, Reply<RuidaSettingsPlan>),
+    SettingsPreviewFile(String, Reply<RuidaSettingsPlan>),
+    SettingsApply {
+        changes: Vec<RuidaSettingChange>,
+        confirmed: bool,
+        dir: PathBuf,
+        reply: Reply<RuidaApplyReport>,
+    },
+    SettingsRestore {
+        json: String,
+        confirmed: bool,
+        dir: PathBuf,
+        reply: Reply<RuidaApplyReport>,
+    },
+    SettingsExport(Reply<String>),
+    Calibrate {
+        key: String,
+        commanded_mm: f64,
+        measured_mm: f64,
+        reply: Reply<RuidaCalibration>,
+    },
+    FileDelete {
+        index: u32,
+        name: String,
+        confirmed: bool,
+        reply: Reply<RuidaDocResult>,
+    },
+    FileRun {
+        index: u32,
+        name: String,
+        confirmed: bool,
+        reply: Reply<RuidaDocResult>,
+    },
     Disconnect,
 }
+
+/// Nombre del documento que se guarda y si puede reemplazar a uno existente; lo fija la interfaz
+/// justo al confirmar el inicio (`ruida_prepare_store`). Vale para UN envío y caduca: así un
+/// permiso de reemplazar que quedó de un diálogo cancelado no sirve para un inicio posterior.
+#[derive(Debug, Default, Clone)]
+pub(super) struct StorePlan {
+    pub(super) name: Option<String>,
+    pub(super) overwrite: bool,
+    pub(super) at: Option<Instant>,
+}
+
+/// Cuánto tiempo vale un [`StorePlan`] desde que la interfaz lo fijó.
+pub(super) const STORE_PLAN_TTL: Duration = Duration::from_secs(120);
 
 #[derive(Default)]
 pub(super) struct Shared {
@@ -97,6 +154,7 @@ pub(super) struct Shared {
     pub(super) cancel: AtomicBool,
     pub(super) status: Mutex<Option<StatusReport>>,
     pub(super) virtual_machine: AtomicBool,
+    pub(super) store: Mutex<StorePlan>,
 }
 
 /// Mando de la conexión; se clona y se usa desde cualquier hilo. Las llamadas bloquean hasta que
@@ -105,6 +163,17 @@ pub(super) struct Shared {
 pub struct RuidaHandle {
     pub(super) tx: Sender<Request>,
     pub(super) shared: Arc<Shared>,
+}
+
+/// Las escrituras en la controladora (ajustes, calibración, rotativo, borrar, ejecutar y reemplazar
+/// documentos) solo se aceptan si la app pasó la bandera de la preferencia `ruidaExperimentalWrites`
+/// (apagada de fábrica). Segunda comprobación, independiente de la interfaz.
+fn require_writes(experimental_writes: bool) -> Result<(), String> {
+    if experimental_writes {
+        Ok(())
+    } else {
+        Err(tr!("desktop.ruida.writes_disabled"))
+    }
 }
 
 impl RuidaHandle {
@@ -147,7 +216,20 @@ impl RuidaHandle {
         device: &DeviceProfile,
         options: &tlaku_doc::JobOptions,
     ) -> Result<(), String> {
-        let up = build_upload(doc, device, options, self.work_pos())?;
+        let mut up = build_upload(doc, device, options, self.work_pos())?;
+        // El nombre elegido por el usuario manda sobre el automático. El plan vale para UN envío y
+        // caduca: se consume aquí.
+        if let SendMode::Store { name } = &mut up.mode {
+            let plan =
+                std::mem::take(&mut *self.shared.store.lock().unwrap_or_else(|e| e.into_inner()));
+            if plan.at.is_some_and(|t| t.elapsed() <= STORE_PLAN_TTL) {
+                if let Some(chosen) = plan.name {
+                    *name = chosen;
+                    up.auto_name = false;
+                }
+                up.overwrite = plan.overwrite;
+            }
+        }
         self.upload(up)
     }
 
@@ -230,5 +312,139 @@ impl RuidaHandle {
     /// Documentos guardados en la memoria (M24), solo lectura y experimental.
     pub fn files(&self) -> Result<Vec<RuidaFile>, String> {
         self.call(Request::Files)
+    }
+
+    /// Fija el nombre con que se guardará el próximo trabajo (M23) y si puede reemplazar a un
+    /// documento que ya se llame así (el usuario lo confirmó). `name = None` vuelve al nombre
+    /// automático. Un nombre inválido se rechaza aquí.
+    pub fn prepare_store(
+        &self,
+        name: Option<String>,
+        overwrite: bool,
+        experimental_writes: bool,
+    ) -> Result<(), String> {
+        // Reemplazar borra un documento: es una escritura. Elegir un nombre, no.
+        if overwrite {
+            require_writes(experimental_writes)?;
+        }
+        if let Some(n) = &name
+            && !tlaku_ruida::session::valid_doc_name(n)
+        {
+            return Err(tr!("desktop.ruida.bad_store_name", name = n));
+        }
+        *self.shared.store.lock().unwrap_or_else(|e| e.into_inner()) = StorePlan {
+            name,
+            overwrite,
+            at: Some(Instant::now()),
+        };
+        Ok(())
+    }
+
+    /// Todos los ajustes escribibles, leídos de la controladora (EXPERIMENTAL).
+    pub fn settings_read(&self) -> Result<RuidaControllerSettings, String> {
+        self.call(Request::SettingsRead)
+    }
+
+    /// Diferencias que produciría una petición, sin escribir nada.
+    pub fn settings_preview(
+        &self,
+        changes: Vec<RuidaSettingChange>,
+    ) -> Result<RuidaSettingsPlan, String> {
+        self.call(|reply| Request::SettingsPreview(changes, reply))
+    }
+
+    /// Diferencias de un respaldo `.tlakuruida` (su texto JSON) con la máquina.
+    pub fn settings_preview_file(&self, json: String) -> Result<RuidaSettingsPlan, String> {
+        self.call(|reply| Request::SettingsPreviewFile(json, reply))
+    }
+
+    /// Escribe ajustes: respaldo previo en `dir`, confirmación, escritura y verificación.
+    pub fn settings_apply(
+        &self,
+        changes: Vec<RuidaSettingChange>,
+        confirmed: bool,
+        dir: PathBuf,
+        experimental_writes: bool,
+    ) -> Result<RuidaApplyReport, String> {
+        require_writes(experimental_writes)?;
+        self.call(|reply| Request::SettingsApply {
+            changes,
+            confirmed,
+            dir,
+            reply,
+        })
+    }
+
+    /// Restaura un respaldo `.tlakuruida` con las mismas protecciones que `settings_apply`.
+    pub fn settings_restore(
+        &self,
+        json: String,
+        confirmed: bool,
+        dir: PathBuf,
+        experimental_writes: bool,
+    ) -> Result<RuidaApplyReport, String> {
+        require_writes(experimental_writes)?;
+        self.call(|reply| Request::SettingsRestore {
+            json,
+            confirmed,
+            dir,
+            reply,
+        })
+    }
+
+    /// Texto JSON de un respaldo manual de lo que hay ahora en la máquina.
+    pub fn settings_export(&self) -> Result<String, String> {
+        self.call(Request::SettingsExport)
+    }
+
+    /// Calcula la corrección de un paso de eje a partir de una distancia medida.
+    pub fn calibrate(
+        &self,
+        key: String,
+        commanded_mm: f64,
+        measured_mm: f64,
+        experimental_writes: bool,
+    ) -> Result<RuidaCalibration, String> {
+        require_writes(experimental_writes)?;
+        self.call(|reply| Request::Calibrate {
+            key,
+            commanded_mm,
+            measured_mm,
+            reply,
+        })
+    }
+
+    /// Borra un documento de la memoria (pide confirmación; EXPERIMENTAL).
+    pub fn file_delete(
+        &self,
+        index: u32,
+        name: String,
+        confirmed: bool,
+        experimental_writes: bool,
+    ) -> Result<RuidaDocResult, String> {
+        require_writes(experimental_writes)?;
+        self.call(|reply| Request::FileDelete {
+            index,
+            name,
+            confirmed,
+            reply,
+        })
+    }
+
+    /// Ejecuta un documento de la memoria. La interfaz ya pasó la lista de comprobación.
+    pub fn file_run(
+        &self,
+        index: u32,
+        name: String,
+        confirmed: bool,
+        experimental_writes: bool,
+    ) -> Result<RuidaDocResult, String> {
+        require_writes(experimental_writes)?;
+        self.call(|reply| Request::FileRun {
+            index,
+            name,
+            confirmed,
+            reply,
+        })
     }
 }

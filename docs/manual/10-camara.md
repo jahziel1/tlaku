@@ -66,6 +66,10 @@ En **Alineación con la cama**, marca en la imagen las 4 esquinas de una hoja de
 
 Con la alineación hecha, marca **Mostrar la cámara bajo el diseño**. Ajusta la **Opacidad** y, si quieres, **Congelar cuadro**: el cuadro se queda como fondo aunque apagues la cámara, útil para dejar el material en su sitio y diseñar sin la cámara encendida. Si la alineación guardada es de una imagen de otro tamaño, la app te pide volver a alinear.
 
+## Preferencias de la cámara
+
+Las preferencias de **cada cámara** (dispositivo, resolución, opacidad, escala de grises, actualizar al terminar un trabajo y el ajuste manual del fondo) están en este panel y se guardan en el perfil local de la cámara. Las **generales** están en **Edición > Preferencias… > General > Cámara**: **Reabrir la cámara al iniciar** (si el fondo estaba visible al cerrar, vuelve a encenderse solo; encendida de fábrica) y **Ancho máximo de la imagen** (de 320 a 1920 px, 1280 de fábrica: el ancho al que se reduce el cuadro para pintarlo y para detectar marcas y círculos; más ancho da más detalle y pide más al equipo).
+
 ## Altura del material
 
 La cámara ve la superficie del material, que está más cerca que la cama, así que el fondo se corre según el grosor. En **Altura del material** escribe el **Grosor del material** (de 0 a 300 mm) y el fondo se corrige. La app dice qué tan fiable es la corrección:
@@ -115,6 +119,19 @@ Si tu cámara va montada en el cabezal de la máquina, marca **La cámara está 
 
 **Buscador de centro** encuentra el centro de un objeto redondo con la cámara: marca **3 puntos del borde** en la imagen, o elige **Detectar el círculo** y haz clic dentro del objeto. Te dice el centro y el radio en mm y ofrece **Mover la cabeza al centro** (con el láser apagado) y **Origen del trabajo aquí** (fija el origen de usuario; después elige «Origen de usuario» en «Iniciar desde»). *Por validar con hardware real.*
 
-> **Ejemplo:** quieres grabar un logotipo en el centro de un posavasos redondo. Enciende la cámara con la alineación hecha, abre **Buscador de centro**, elige **Detectar el círculo**, haz clic dentro del posavasos y mira el centro y el radio. Pulsa **Origen del trabajo aquí**, y en **Iniciar desde** elige **Origen de usuario** con el punto del trabajo en el **centro**: el logotipo queda centrado. Si la detección falla (necesita ver al menos el 45 % del contorno), usa los **3 puntos del borde**. No toca el cabezal como sonda: se apoya en la alineación de la cámara, así que es tan exacto como ella.
+> **Ejemplo:** quieres grabar un logotipo en el centro de un posavasos redondo. Enciende la cámara con la alineación hecha, abre **Buscador de centro**, elige **Detectar el círculo**, haz clic dentro del posavasos y mira el centro y el radio. Pulsa **Origen del trabajo aquí**, y en **Iniciar desde** elige **Origen de usuario** con el punto del trabajo en el **centro**: el logotipo queda centrado. Si la detección falla (necesita ver al menos el 45 % del contorno), usa los **3 puntos del borde**. Este buscador no toca el cabezal: se apoya en la alineación de la cámara, así que es tan exacto como ella. Si no tienes cámara, o quieres medir con la propia máquina, usa el siguiente.
+
+## Buscador de centro con el cabezal
+
+**Máquina > Buscador de centro con el cabezal…** halla el centro de un objeto redondo con tres puntos de su borde medidos por la **propia máquina**, sin cámara. Hay dos modos:
+
+- **Con sonda o placa de contacto (G38).** Solo con controladoras **GRBL** que tengan una sonda cableada a la entrada de la sonda. Pon el cabezal **fuera** del objeto, a menos del recorrido de su borde, y elige hacia dónde tocar (arriba, abajo, izquierda o derecha). Antes de mover, Tlaku te muestra el recorrido, la velocidad y el G-code exacto (`M5`, `G91`, `G38.3 X30 Y0 F100`, `G90`) y pide que confirmes. Entonces el cabezal avanza **despacio y con el láser apagado** hasta que la sonda hace contacto, se detiene y retrocede unos milímetros. Repite desde tres lados distintos: al tercer punto ves el centro y el radio.
+- **Con el puntero.** Sin sonda: lleva el puntero rojo (o la cabeza) a un punto del borde con **Mover** y pulsa **Guardar punto**; repite en tres puntos bien repartidos. Cada punto lo confirmas tú. Si el perfil tiene un desfase del puntero, se tiene en cuenta.
+
+Después, igual que con la cámara: **Mover la cabeza al centro** (láser apagado) y **Origen del trabajo aquí**. **Quitar el último** y **Empezar de nuevo** corrigen un punto mal puesto.
+
+**Seguridad.** Los valores de fábrica son prudentes: 100 mm/min de velocidad (tope 500), 30 mm de recorrido (tope 100) y 2 mm de retroceso. El láser queda apagado todo el tiempo, solo se mueve con la máquina en reposo y el motor rechaza el toque si no hubo confirmación. Si no hay contacto en todo el recorrido, Tlaku lo avisa («No hubo contacto en 30 mm») y **no deja la máquina en alarma** (usa `G38.3`, que no la provoca); si la sonda ya estaba activa al empezar, la controladora da `ALARM:4` y hay que alejar el cabezal y desbloquear. El contacto se toma donde está la punta de la sonda: mide primero un objeto de diámetro conocido para saber cuánto se desvía. *Por validar con hardware real: se probó con el emulador de GRBL, que simula la sonda (`G38.2` a `G38.5`).* Las máquinas virtuales GRBL de la app traen un disco de 30 mm de diámetro centrado en X100 Y100 para probarlo sin una máquina.
+
+> **Ejemplo:** quieres centrar un grabado en una moneda de 25 mm pegada en la cama. Coloca el cabezal a 10 mm a la izquierda del borde, elige **Hacia la derecha**, confirma, y repite desde abajo y desde arriba. Si el diámetro que muestra no es 25 mm (±0,5 mm), tu sonda tiene un desvío: anótalo.
 
 Siguiente: [Materiales](11-materiales.md)

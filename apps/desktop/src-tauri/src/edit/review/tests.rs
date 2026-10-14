@@ -38,9 +38,7 @@ fn poly(id: &str, layer: Rgb, pts: &[(f64, f64)], closed: bool) -> DesignObject 
     object(
         id,
         layer,
-        ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&p)],
-        }),
+        ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&p)])),
     )
 }
 

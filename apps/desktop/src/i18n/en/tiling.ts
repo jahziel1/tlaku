@@ -104,4 +104,18 @@ export const tiling = {
   'tiling.repeat.stop': 'Stop',
   'tiling.repeat.close': 'Close',
   'tiling.repeat.closeBusy': 'Stop the repeats to close this',
+  // Wave 6E: several columns (M47)
+  'tiling.feeder.columns': 'With several columns the feeder only advances between rows of the same column (serpentine order). When the column changes the wizard stops and guides you to move the material.',
+  'tiling.move.titleCol': 'Move the material to column {col} of {cols}',
+  'tiling.move.titleRow': 'Move the material to row {row} of {rows}',
+  'tiling.move.titleBoth': 'Move the material to column {col} of {cols}, row {row} of {rows}',
+  'tiling.move.text': 'Before tile {n}: place the material so the area starting at ({x}, {y}) mm of the design sits on the bed, with its lower left corner at the origin plus a {m} mm margin. The feeder cannot make this move.',
+  'tiling.move.align': 'Align with the registration marks: put the pointer on each cross that was already engraved and move the material until they match.',
+  'tiling.move.mark': 'Mark {i}: X {x}, Y {y} mm of the design',
+  'tiling.move.pointer': 'Bring the pointer',
+  'tiling.move.pointerHint': 'Moves the head (laser off) so the pointer lands at X {x}, Y {y} mm on the bed.',
+  'tiling.move.noMarksInOverlap': 'No engraved cross falls inside this tile: there is no registration mark. Use an overlap above zero to get crosses to align with.',
+  'tiling.move.marksOff': 'Alignment marks are off, so there are no registration crosses. Turn them on in the options, or align to the edge of the material.',
+  'tiling.move.ready': 'It is placed: send tile {n}',
+  'tiling.move.later': 'Later',
 } as const;

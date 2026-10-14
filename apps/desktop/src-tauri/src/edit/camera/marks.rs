@@ -42,7 +42,7 @@ pub fn build_marks_document(bed: [f64; 2], count: u32) -> Result<Document, Strin
             id: format!("mark-{}", i + 1),
             layer: MARKS_COLOR,
             transform: IDENTITY,
-            kind: ObjectKind::Vector(VectorObject { paths }),
+            kind: ObjectKind::Vector(VectorObject::new(paths)),
             locked: false,
             hidden: false,
             group: None,

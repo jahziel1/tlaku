@@ -4,4 +4,4 @@
  * Falla que se puede provocar en una máquina virtual (`simulate_fault`) para ver cómo reacciona
  * la interfaz. En una máquina real no existe.
  */
-export type SimulatedFault = "flame" | "tilt" | "alarm3" | "disconnect";
+export type SimulatedFault = "flame" | "tilt" | "alarm3" | "disconnect" | "power_cut";

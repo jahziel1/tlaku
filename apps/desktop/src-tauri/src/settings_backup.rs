@@ -2,7 +2,7 @@
 //!
 //! Rust solo guarda y devuelve el texto, con límites claros: la interfaz decide qué líneas son
 //! ajustes y las valida una por una antes de escribir nada en la máquina. Un respaldo es texto
-//! plano (`.tlakuset` o `.txt`) de pocos KiB; lo que pase de [`MAX_BYTES`] no lo es.
+//! plano (`.tlakuset`, `.tlakuruida` o `.txt`) de pocos KiB; lo que pase de [`MAX_BYTES`] no lo es.
 
 use crate::engine::write_atomic;
 use std::fs;
@@ -14,9 +14,11 @@ use tlaku_i18n::tr;
 pub const MAX_BYTES: usize = 256 * 1024;
 
 fn has_valid_extension(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| e.eq_ignore_ascii_case("tlakuset") || e.eq_ignore_ascii_case("txt"))
+    path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+        ["tlakuset", "tlakuruida", "txt"]
+            .iter()
+            .any(|ok| e.eq_ignore_ascii_case(ok))
+    })
 }
 
 /// Guarda `text` de forma atómica. Exige la extensión `.tlakuset` o `.txt` y un tamaño razonable.
@@ -63,6 +65,55 @@ pub fn read_backup(path: &Path) -> Result<String, String> {
         .map_err(|_| tr!("desktop.settings_backup.not_utf8", path = path.display()))
 }
 
+/// Carpeta de los respaldos automáticos de GRBL, dentro de la de configuración.
+pub const AUTO_DIR: &str = "grbl-backups";
+
+/// Nombre `grbl-AAAAMMDD-HHMMSS.tlakuset` (UTC) de unos segundos Unix.
+pub fn auto_backup_name(unix_secs: u64) -> String {
+    let ruida = tlaku_ruida::settings::backup_file_name(unix_secs);
+    let stamp = ruida
+        .trim_start_matches("ruida-")
+        .trim_end_matches(".tlakuruida");
+    format!("grbl-{stamp}.tlakuset")
+}
+
+/// Guarda el respaldo automático previo a escribir ajustes GRBL: nunca pisa uno existente.
+/// Devuelve la ruta.
+pub fn write_auto_backup(config_dir: &Path, text: &str, unix_secs: u64) -> Result<String, String> {
+    let dir = config_dir.join(AUTO_DIR);
+    fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let name = auto_backup_name(unix_secs);
+    let stem = name.trim_end_matches(".tlakuset").to_string();
+    let mut path = dir.join(&name);
+    let mut n = 2;
+    while path.exists() {
+        path = dir.join(format!("{stem}-{n}.tlakuset"));
+        n += 1;
+    }
+    write_backup(&path, text)?;
+    Ok(path.display().to_string())
+}
+
+/// Respaldo automático de los ajustes `$` de GRBL (M25): la interfaz lo pide justo antes de
+/// escribir; si falla, no se escribe nada.
+#[tauri::command]
+pub async fn grbl_settings_autobackup(
+    app: tauri::AppHandle,
+    text: String,
+) -> Result<String, String> {
+    use tauri::Manager as _;
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| tr!("desktop.common.config_dir", err = e))?;
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    tauri::async_runtime::spawn_blocking(move || write_auto_backup(&dir, &text, secs))
+        .await
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
+}
+
 #[tauri::command]
 pub async fn write_settings_backup(path: String, text: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || write_backup(Path::new(&path), &text))
@@ -104,6 +155,16 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn el_respaldo_automatico_lleva_fecha_y_no_pisa_otro() {
+        let dir = TempDir::new();
+        let a = write_auto_backup(&dir.0, "$0=10\n", 1_700_000_000).unwrap();
+        let b = write_auto_backup(&dir.0, "$0=11\n", 1_700_000_000).unwrap();
+        assert!(a.ends_with("grbl-20231114-221320.tlakuset"), "{a}");
+        assert!(b.ends_with("grbl-20231114-221320-2.tlakuset"), "{b}");
+        assert_eq!(read_backup(Path::new(&a)).unwrap(), "$0=10\n");
     }
 
     const SAMPLE: &str = "; Tlaku: respaldo de ajustes GRBL\n$0=10\n$30=1000\n";

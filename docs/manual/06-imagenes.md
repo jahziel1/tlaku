@@ -75,7 +75,7 @@ La vista previa no incluye el efecto de la máquina al barrer (sobrebarrido, com
 
 ## Imagen avanzada
 
-En la sección plegable **Imagen avanzada** del editor de la capa (oculta en el **Modo principiante**) hay tres ajustes más. Se aplican antes del tramado, junto con los de tono.
+En la sección plegable **Imagen avanzada** del editor de la capa (se abre sola si la capa ya usa algo de ella) hay tres ajustes más. Se aplican antes del tramado, junto con los de tono.
 
 | Ajuste | Qué hace | Rango |
 |---|---|---|

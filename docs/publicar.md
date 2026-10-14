@@ -10,9 +10,10 @@ tres sistemas y los deja en un **borrador** de GitHub Release; tú lo revisas y 
 | Windows | `.exe` (NSIS) y `.msi` | `windows-latest` |
 | Linux | `.AppImage` y `.deb` | `ubuntu-22.04` |
 
-**Primera vez:** el proyecto todavía no tiene repositorio público, cuentas de donación, llaves ni
-certificados. La [lista de pasos para publicar](#pasos-para-publicar-lo-que-tienes-que-hacer-tú) al
-final de este archivo dice qué hacer y en qué orden; todo lo demás ya está preparado.
+**Primera vez:** el repositorio es <https://github.com/jahziel1/tlaku>; todavía faltan las llaves del
+actualizador, las cuentas de donación y los certificados. La
+[lista de pasos para publicar](#pasos-para-publicar-lo-que-tienes-que-hacer-tú) al final de este archivo
+marca lo que ya está hecho y dice qué falta y en qué orden.
 
 La firma de código es **opcional**: sin secretos, el flujo publica instaladores sin firmar y no
 falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-el-usuario-si-no-hay-firma)).
@@ -139,7 +140,7 @@ muestra GitHub para cada archivo adjunto.
 ## Qué ve el usuario si no hay firma
 
 Es normal en un proyecto sin certificados de pago, y la sección "Instalación" del
-[README](../README.md) lo explica al usuario. Resumen:
+[README](../README.es.md) lo explica al usuario. Resumen:
 
 - **macOS (Gatekeeper).** Al abrir aparece "no se puede abrir porque Apple no puede comprobar que
   no contiene software malicioso" (o "está dañado"). Se abre con clic derecho > Abrir, o desde
@@ -229,14 +230,15 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 
 - **Sitio** (`site/`): HTML y CSS estáticos, sin framework ni recursos externos, en español
   (`site/index.html`) y en inglés (`site/en/index.html`). Muestra qué es Tlaku, capturas, funciones,
-  máquinas y su estado, descargas, manual, donaciones y licencia. Los textos dicen lo que hay: lo que
+  máquinas y su estado, la sección «Ayúdanos a probar» (con enlaces a los formularios de GitHub),
+  descargas, manual, donaciones y licencia. Los textos dicen lo que hay: lo que
   no se ha probado con hardware se dice claramente.
 - **Marcadores:** `{{REPO_URL}}`, `{{SPONSORS_URL}}` y `{{KOFI_URL}}`. Se llenan desde
   `site/config.json`:
 
   ```sh
   node scripts/build-site.mjs                  # construye site-dist/ (gitignorado)
-  node scripts/build-site.mjs --readme         # además llena los marcadores del README
+  node scripts/build-site.mjs --readme         # además regenera el bloque de apoyo de README.md y README.es.md
   python3 -m http.server -d site-dist 8000     # para verlo en local
   ```
 
@@ -245,7 +247,8 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 - **GitHub Pages:** `.github/workflows/pages.yml` publica el sitio al empujar a `main`, pero está
   inactivo hasta crear la variable de repositorio `PAGES_ENABLED=true` (paso 6 de la lista de abajo).
 - **Donaciones:** `.github/FUNDING.yml` (botón Sponsor del repositorio; líneas comentadas), sección
-  «Apoyar el proyecto» del README y Ayuda > «Donar al proyecto…» en la app. Los enlaces de la app
+  «Apoyar el proyecto» de los README (el bloque entre `<!-- support:start -->` y `<!-- support:end -->` lo
+  regenera `--readme`; hoy dice que aún no hay cuentas) y Ayuda > «Donar al proyecto…» en la app. Los enlaces de la app
   viven en `apps/desktop/src/features/help/links.ts` (`PROJECT_LINKS`, vacíos por omisión): sin
   ellos, el diálogo dice que el proyecto aún no tiene cuentas de donación.
 
@@ -261,6 +264,11 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 | Prueba de humo (Linux) | arranca la app Tauri real bajo Xvfb (`apps/desktop/scripts/smoke-tauri.sh`) |
 | Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos) |
 
+Las pruebas de Rust incluyen la validación de `community/materials/*.json` (`cargo test -p tlaku-doc
+community`) y las de la interfaz comprueban que los formularios de `.github/ISSUE_TEMPLATE/` tengan los
+ids que la app prellena. El flujo `.github/workflows/community.yml` comenta en los issues de ajustes de
+material (permiso mínimo `issues: write`; no escribe en el repositorio).
+
 Tauri exige que exista `apps/desktop/dist`; en los trabajos de Rust se crea una página vacía de
 relleno y en la prueba de humo se compila la interfaz real. Los flujos no se pueden ejecutar fuera de
 GitHub: se validaron con `actionlint` y ejecutando cada comando en local; la primera ejecución real
@@ -271,37 +279,69 @@ puede revelar ajustes (por ejemplo, paquetes de apt).
 Todo lo siguiente necesita algo que solo tú tienes (cuentas, llaves, dinero). Hazlo en este orden;
 cada paso indica el archivo donde va el valor.
 
-1. **Crear el repositorio** en GitHub (público) y subir el código. Elige organización y nombre; con
-   eso tienes `<url>` = `https://github.com/<organización>/<repositorio>`.
-2. **Poner la URL en el proyecto:**
-   - `homepage = "<url>"` en `[workspace.package]` de `Cargo.toml` (Tauri la usa en el `.deb`).
-   - `repo` e `issues` (`<url>/issues`) en `apps/desktop/src/features/help/links.ts`.
-   - `REPO_URL` en `site/config.json`.
-   - En el README, la dirección del reporte de problemas (busca «PENDIENTE») y el `git clone`.
-3. **Generar las llaves del actualizador** y cargar los secretos (sección
+1. ~~**Crear el repositorio** en GitHub (público) y subir el código.~~ **Hecho:**
+   <https://github.com/jahziel1/tlaku>.
+2. ~~**Poner la URL en el proyecto.**~~ **Hecho:** `homepage` y `repository` en `[workspace.package]` de
+   `Cargo.toml` (el crate de la app los hereda; Tauri usa `homepage` en el `.deb`), `repo` e `issues` en
+   `apps/desktop/src/features/help/links.ts`, `REPO_URL` en `site/config.json` y el `git clone` y los
+   enlaces de los README.
+3. **Configurar el repositorio en la web de GitHub** (no se puede por API desde aquí; ver también los
+   comandos de abajo):
+   - Settings > General > Features: activar **Discussions** y crear categorías (por ejemplo «Preguntas»,
+     «Ideas», «Mostrar y contar», «Máquinas y ajustes»). Los formularios y SUPPORT.md apuntan a
+     `/discussions`.
+   - Settings > Code security: activar **Private vulnerability reporting** (lo usan SECURITY.md y el
+     Código de conducta), Dependabot alerts y Dependabot security updates.
+   - Crear las etiquetas: `scripts/sync-labels.sh` (usa `.github/labels.yml`; necesita `gh auth login`).
+   - Settings > Branches: proteger `main` (CI obligatoria y revisión).
+   - Settings > Actions > General: permitir las acciones; los permisos por omisión del `GITHUB_TOKEN`
+     pueden ser de solo lectura (cada flujo pide los suyos).
+   - Opcional: temas del repositorio (`laser`, `lasercutter`, `grbl`, `tauri`, `rust`, `open-source`).
+4. **Generar las llaves del actualizador** y cargar los secretos (sección
    [Actualizaciones automáticas](#actualizaciones-automáticas)): `npx tauri signer generate -w
    ~/.tauri/tlaku.key`; secretos `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
-   luego `scripts/configure-updater.sh <url> ~/.tauri/tlaku.key.pub` y sube el cambio de
-   `tauri.conf.json`. Guarda la llave privada fuera del repositorio.
-4. **Configurar las donaciones** (opcional, cuando las tengas): abre GitHub Sponsors y/o Ko-fi;
-   llena `SPONSORS_URL` y `KOFI_URL` en `site/config.json`, `sponsors` y `kofi` en `links.ts` y
-   descomenta las líneas de `.github/FUNDING.yml`. Después `node scripts/build-site.mjs --readme`
-   llena la sección «Apoyar el proyecto» del README.
-5. **Certificados de firma** (opcional; sin ellos los instaladores salen sin firmar y funcionan con
+   luego `scripts/configure-updater.sh https://github.com/jahziel1/tlaku ~/.tauri/tlaku.key.pub` y sube
+   el cambio de `tauri.conf.json`. Guarda la llave privada fuera del repositorio. **Pendiente.**
+5. ✓ **Donaciones (Ko-fi, hecho 2026-10-14):** `https://ko-fi.com/danielmartinez55371` en `.github/FUNDING.yml`,
+   `links.ts` (`KOFI_URL`), `site/config.json`, el permiso `opener:allow-open-url` (solo esa página) y los dos
+   README (`node scripts/build-site.mjs --readme`). GitHub Sponsors queda opcional: si se abre, llena
+   `SPONSORS_URL`/`sponsors`, agrega su URL al permiso del opener y descomenta `github:` en `FUNDING.yml`.
+6. **Certificados de firma** (opcional; sin ellos los instaladores salen sin firmar y funcionan con
    advertencias): Apple Developer Program para macOS y un certificado de firma de código (o SignPath)
-   para Windows; los secretos y su formato están en [Firma de código](#firma-de-código).
-6. **Activar el sitio:** Settings > Pages > Source: "GitHub Actions" y, en Settings > Secrets and
+   para Windows; los secretos y su formato están en [Firma de código](#firma-de-código). **Pendiente.**
+7. **Activar el sitio:** Settings > Pages > Source: "GitHub Actions" y, en Settings > Secrets and
    variables > Actions > Variables, crear `PAGES_ENABLED` = `true`. Empuja a `main` (o lanza el flujo
-   "Sitio" a mano).
-7. **Comprobar la CI:** empuja a `main` y revisa que los cinco trabajos de CI pasen; corrige lo que
+   "Sitio" a mano). La dirección será <https://jahziel1.github.io/tlaku/>.
+8. **Comprobar la CI:** empuja a `main` y revisa que los cinco trabajos de CI pasen; corrige lo que
    salga en la primera ejecución real.
-8. **Primera beta:** sube la versión (`0.x.0-beta.1`, en los tres lugares de
+9. **Primera beta:** sube la versión (`0.x.0-beta.1`, en los tres lugares de
    [Sacar una versión](#sacar-una-versión); recuerda que el `.msi` solo admite sufijos numéricos, así
    que para probar Windows usa `0.x.0-1`), etiqueta `v0.x.0-beta.1`, empuja la etiqueta, revisa el
    borrador en Releases, prueba un instalador y publícalo (se marca como pre-lanzamiento).
-9. **Avisar:** con la Release publicada, el enlace «Última versión en GitHub» del sitio ya apunta a
-   algo real. Antes de anunciarlo, repite el recordatorio del README: ninguna función de máquina se ha
-   probado con un láser real.
+10. **Avisar:** con la Release publicada, el enlace «Última versión en GitHub» del sitio ya apunta a
+    algo real. Antes de anunciarlo, repite el recordatorio del README: ninguna función de máquina se ha
+    probado con un láser real, y pide a la comunidad que pruebe con los formularios de
+    [Ayúdanos a probar](../README.es.md#ayúdanos-a-probar-con-máquinas-reales).
+
+### Comandos de `gh` para el primer arranque
+
+```sh
+scripts/sync-labels.sh --dry-run                 # muestra lo que haría
+scripts/sync-labels.sh                           # crea o actualiza las etiquetas
+gh repo edit jahziel1/tlaku --enable-discussions --enable-issues \
+  --description "Free and open source software for laser cutters and engravers / Software libre para láseres" \
+  --homepage "https://jahziel1.github.io/tlaku/" \
+  --add-topic laser --add-topic lasercutter --add-topic grbl --add-topic tauri --add-topic rust
+```
+
+Las categorías de Discussions y el Private vulnerability reporting se activan en la web (Settings).
+
+### Revisar un ajuste de material de la comunidad
+
+Cuando llegue un issue con la etiqueta `material-settings` (el flujo `community.yml` comenta un resumen):
+revisa los valores y la foto; `node scripts/community/issue-to-preset.mjs <número>`; revisa el archivo
+generado en `community/materials/`; `cargo test -p tlaku-doc community`; abre el PR (con `git commit -s`).
+Detalle en [community/materials/README.es.md](../community/materials/README.es.md).
 
 ## Pendiente de decidir
 

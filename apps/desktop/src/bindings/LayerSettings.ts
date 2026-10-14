@@ -106,6 +106,13 @@ sub_layers: Array<LayerSettings>,
  */
 laser2: boolean, 
 /**
+ * Máquinas con `DeviceProfile::u_axis`: posición de U (mm, relativa a donde estaba al
+ * empezar el trabajo) con la que se ejecuta esta capa; se suma al `DeviceProfile::u_offset`
+ * del trabajo. Entre dos capas el motor emite solo la diferencia, y al terminar deshace el
+ * total. 0 = la capa va con el U del trabajo. Sin eje U se ignora.
+ */
+u_offset: number, 
+/**
  * Solo máquinas galvo (y `ppi`, algunas de CO2).
  */
 galvo: GalvoLayer, };

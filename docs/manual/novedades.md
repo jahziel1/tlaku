@@ -14,7 +14,7 @@ Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de
 ### Lienzo y edición
 
 - **Deformar en el lienzo** (`Mayús+W`): arrastra las manijas de una malla **bilineal**, de **perspectiva** o de **4×4 puntos** y ve el resultado en vivo.
-- **Redondear esquinas con un clic** (`Mayús+F`), con `Alt`+clic para **revertir** una esquina redondeada o mordida (el chaflán no se revierte). Mira [Formas avanzadas y deformar](03c-formas-y-deformar.md).
+- **Redondear esquinas con un clic** (`Mayús+F`), con `Alt`+clic para **revertir** una esquina redondeada o mordida (también el chaflán, porque el objeto guarda la punta original). Mira [Formas avanzadas y deformar](03c-formas-y-deformar.md).
 - **Paneles flotantes**: saca cualquier pestaña a una ventana sobre el lienzo (doble clic en la pestaña), cambia de lado el panel y las herramientas, y **Restablecer distribución**. Mira [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md).
 - Preferencias nuevas: **Volver a Seleccionar** tras dibujar una forma, **Contraste de la rejilla**, resolución de importación por omisión y opciones de importación recordadas. Los cambios de preferencias se reflejan en las demás ventanas abiertas.
 

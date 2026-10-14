@@ -6,7 +6,8 @@ import { sendBlockedReason } from '@/store/machine';
 import { sendFeed, waitIdle, watchJobEnd } from '@/features/feeder/jobFlow';
 import { validateFeeder } from './feeder';
 import { withAlignmentMarks, markIds } from './marks';
-import { feedBetween, isSingleDirection } from './plan';
+import { feedBetween } from './plan';
+import { moveBetween } from './guide';
 import { isComplete, loadSession, mark, newSession, nextPending, saveSession, type TileSession } from './session';
 import { requestPlan, useTilingUi } from './store';
 import type { MarkSegment, TileSpec } from './types';
@@ -46,29 +47,39 @@ export function beginSession(): void {
   if (!plan || !plan.ok || !design || planning) return;
   const device = selectActiveDevice(useStore.getState());
   const specs = plan.plan.tiles.map((p) => p.spec);
-  const feeder = device.feeder.enabled && isSingleDirection(plan.plan) && Object.keys(validateFeeder(device.feeder)).length === 0;
+  // El alimentador solo avanza entre tramos de la misma columna (una columna, o filas en serpentina);
+  // al cambiar de columna el material lo mueve la persona con la guía.
+  const feeder = device.feeder.enabled && Object.keys(validateFeeder(device.feeder)).length === 0;
   const session = newSession(specs, design, config, device.id, feeder);
   persist(session);
-  ui().set({ phase: 'place', message: null, saved: null });
+  ui().set({ phase: 'place', message: null, saved: null, guide: false, marks: [] });
+  void loadMarks(session);
+}
+
+/** Carga las cruces de la sesión (marcas de registro de la guía). */
+async function loadMarks(session: TileSession): Promise<void> {
+  const marks = await sessionMarks(session);
+  if (ui().session?.key === session.key) ui().set({ marks });
 }
 
 /** Retoma la sesión guardada donde se quedó (el tramo que estaba en curso vuelve a pedir confirmación). */
 export function resumeSession(): void {
   const saved = ui().saved ?? loadSession();
   if (!saved) return;
-  ui().set({ session: saved, config: saved.config, design: saved.design, phase: 'place', message: null, saved: null });
+  ui().set({ session: saved, config: saved.config, design: saved.design, phase: 'place', message: null, saved: null, guide: false, marks: [] });
+  void loadMarks(saved);
 }
 
 /** Descarta la sesión y vuelve a las opciones. */
 export function restartSession(): void {
   saveSession(null);
-  ui().set({ session: null, phase: 'config', message: null, saved: null });
+  ui().set({ session: null, phase: 'config', message: null, saved: null, guide: false, marks: [] });
 }
 
 /** Cierra el asistente al terminar y borra el avance guardado. */
 export function finishSession(): void {
   saveSession(null);
-  ui().set({ session: null, phase: 'config', message: null, open: false });
+  ui().set({ session: null, phase: 'config', message: null, open: false, guide: false, marks: [] });
 }
 
 /** Elige el tramo `index` (para repetirlo o ir a otro): pasa a pedir la colocación del material. */
@@ -77,7 +88,7 @@ export function selectTile(index: number): void {
   if (!s || index < 0 || index >= s.specs.length) return;
   if (ui().phase === 'sending' || ui().phase === 'feeding') return;
   persist({ ...mark(s, index, 'pending'), current: index });
-  ui().set({ phase: 'place', message: null });
+  ui().set({ phase: 'place', message: null, guide: false });
 }
 
 /** Salta el tramo actual y pasa al siguiente pendiente (o termina). */
@@ -102,16 +113,19 @@ async function advanceFrom(session: TileSession, mayFeed: boolean): Promise<void
     return;
   }
   const from = session.current;
-  persist({ ...session, current: next });
+  persist({ ...session, current: next, last: from });
   const device = selectActiveDevice(useStore.getState());
-  // Alimentador: solo al pasar al tramo contiguo; si no, el material lo coloca la persona.
-  if (mayFeed && session.feeder && next === from + 1) await feedAndSend(session.specs[from]!, session.specs[next]!, device.feeder);
-  else ui().set({ phase: 'place', message: null });
+  // Alimentador: solo al pasar al tramo contiguo y de la misma columna (avance en un solo eje).
+  const feedMm = mayFeed && session.feeder && next === from + 1 ? feedBetween(session.specs[from]!, session.specs[next]!) : null;
+  if (feedMm !== null) return feedAndSend(feedMm, device.feeder);
+  // El material lo coloca la persona: si hay que moverlo a otra columna o fila, se abre la guía.
+  const guided = mayFeed && session.status[from] === 'done' && moveBetween(session.specs, from, next) !== 'none';
+  if (guided && ui().marks.length === 0) ui().set({ marks: await sessionMarks(session) });
+  ui().set({ phase: 'place', message: null, guide: guided });
 }
 
-async function feedAndSend(from: TileSpec, to: TileSpec, feeder: ReturnType<typeof selectActiveDevice>['feeder']): Promise<void> {
-  ui().set({ phase: 'feeding', message: null });
-  const mm = feedBetween(from, to) ?? feeder.feed_mm;
+async function feedAndSend(mm: number, feeder: ReturnType<typeof selectActiveDevice>['feeder']): Promise<void> {
+  ui().set({ phase: 'feeding', message: null, guide: false });
   const failed = await sendFeed(feeder, mm);
   if (failed) return fail(t(failed === 'send' ? 'tiling.err.feed' : 'tiling.err.feedWait'));
   await sendCurrent();
@@ -124,7 +138,7 @@ export async function sendCurrent(): Promise<void> {
   const app = useStore.getState();
   const why = sendBlockedReason(app);
   if (why) return ui().set({ phase: 'place', message: t(why) });
-  ui().set({ phase: 'sending', message: null });
+  ui().set({ phase: 'sending', message: null, guide: false });
   const watcher = watchJobEnd();
   const spec = session.specs[session.current]!;
   try {

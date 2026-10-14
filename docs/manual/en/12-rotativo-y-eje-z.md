@@ -80,6 +80,16 @@ With the rotary active, **Position the laser** (a click on the bed) is disabled 
 
 ### What does not exist
 
-A rotary for galvo (turning the piece between strips) exists only as a calculation in the engine; cylinder and cone correction is a galvo feature and is driven from a galvo machine's profile: see [3D slice engraving, cylinder, and cone](12b-grabado-3d-y-cilindro.md) and [Galvo (experimental)](13c-galvo.md). A separate A or U axis can only be moved by hand (the profile's **U axis** checkbox and the buttons in **Move the head**); jobs do not use it. With a Ruida controller the rotary is turned on in the machine's own settings: Tlaku sends Y in surface mm, without scaling it, and does not write those settings.
+A rotary for galvo (turning the piece between strips) exists only as a calculation in the engine; cylinder and cone correction is a galvo feature and is driven from a galvo machine's profile: see [3D slice engraving, cylinder, and cone](12b-grabado-3d-y-cilindro.md) and [Galvo (experimental)](13c-galvo.md). A separate A or U axis is moved by hand (the profile's **U axis** checkbox and the buttons in **Move the head**) and, if you want, also inside the job (see [The U axis in the job and per layer](#the-u-axis-in-the-job-and-per-layer)). With a Ruida controller the rotary is turned on in the machine's own settings: Tlaku sends Y in surface mm, without scaling it, and does not write those settings.
+
+## The U axis in the job and per layer
+
+If your machine has an extra axis (U) that answers to `G0 U..`, check **U axis** in the profile. There are two offsets, both relative and with the laser off (Tlaku does not know the zero of U):
+
+- **Job U offset** (in the profile): the axis moves that distance when the job starts and returns when it finishes.
+- Each **layer's** **U offset** (in the layer editor, main group): the U position that layer runs at, **added** to the job's and relative to where U was when the job started. Between two layers Tlaku sends only the difference, and at the end it undoes the total. It is useful, for example, to make each layer engrave at a different height or position of the axis. The field only appears with a machine that has a U axis (or if the layer already carries a value); if the machine has no U axis, the value is ignored and the preview warns about it.
+
+With **0** in every layer the G-code is the usual one. The move is written as `G91`, `G0 U..`, `G90` when the layer starts, before engraving anything. *To be validated on a real machine with a U axis: only the G-code and the emulator were checked.* This is not the rotary: the rotary replaces the Y axis.
+
 
 Next: [3D slice engraving, cylinder, and cone](12b-grabado-3d-y-cilindro.md)

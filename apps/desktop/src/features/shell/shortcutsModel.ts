@@ -1,6 +1,6 @@
 import type { CommandCategory, CommandDef, CommandRegistry } from '@/commands';
 import { formatCombo } from '@/commands';
-import { t, type I18nKey } from '@/i18n';
+import { t, type I18nKey, type Language } from '@/i18n';
 
 export interface ShortcutRow {
   id: string;
@@ -38,11 +38,11 @@ const CANVAS_GESTURES: { label: I18nKey; keys: I18nKey }[] = [
  * Filas del diálogo de atajos, generadas del registro: todo comando con atajos, también los
  * ocultos de los menús (flechas), en el orden de las categorías.
  */
-export function buildShortcutRows(registry: CommandRegistry, mac: boolean): ShortcutRow[] {
+export function buildShortcutRows(registry: CommandRegistry, mac: boolean, lang: Language = 'es'): ShortcutRow[] {
   const rows: ShortcutRow[] = [];
   for (const def of registry.list()) {
     if (!def.shortcuts?.length) continue;
-    const keys = def.shortcuts.map((s) => formatCombo(s, mac));
+    const keys = def.shortcuts.map((s) => formatCombo(s, mac, lang));
     const label = labelOf(def);
     rows.push({ id: def.id, category: def.category, label, keys, haystack: normalizeText(`${label} ${keys.join(' ')} ${def.shortcuts.join(' ')}`) });
   }
@@ -73,16 +73,17 @@ export function groupShortcutRows(rows: readonly ShortcutRow[]): { category: Sho
 }
 
 /**
- * Tabla Markdown de atajos para el README (formato Windows/Linux: `Ctrl`, `Mayús`), generada desde
- * las mismas filas del diálogo. La prueba `readme.test.ts` la compara con el README.
+ * Tabla Markdown de atajos para los README (formato Windows/Linux: `Ctrl`, `Mayús`/`Shift`), generada
+ * desde las mismas filas del diálogo y en el idioma activo (`setLanguage`). La prueba `readme.test.ts`
+ * la compara con `README.md` (inglés) y `README.es.md` (español).
  */
 export function shortcutsMarkdown(rows: readonly ShortcutRow[]): string {
   const cell = (text: string) => text.replace(/\|/g, '\\|');
-  const lines = ['| Grupo | Comando | Atajo |', '|---|---|---|'];
+  const lines = [`| ${t('history.shortcuts.md.group')} | ${t('history.shortcuts.md.command')} | ${t('history.shortcuts.md.shortcut')} |`, '|---|---|---|'];
   for (const g of groupShortcutRows(rows)) {
     g.rows.forEach((r, i) => {
       const group = i === 0 ? t(`history.shortcuts.cat.${g.category}` as I18nKey) : '';
-      lines.push(`| ${group} | ${cell(r.label)} | ${r.keys.map((k) => `\`${cell(k)}\``).join(' o ')} |`);
+      lines.push(`| ${group} | ${cell(r.label)} | ${r.keys.map((k) => `\`${cell(k)}\``).join(` ${t('history.shortcuts.md.or')} `)} |`);
     });
   }
   return lines.join('\n');

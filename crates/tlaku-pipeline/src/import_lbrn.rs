@@ -229,7 +229,7 @@ impl Converter {
                 .collect();
             (flat, affine::IDENTITY)
         };
-        let mut obj = object(color, ObjectKind::Vector(VectorObject { paths }));
+        let mut obj = object(color, ObjectKind::Vector(VectorObject::new(paths)));
         obj.transform = transform;
         self.finish(obj, group, locked);
     }

@@ -27,8 +27,18 @@ export const prefs = {
   'prefs.language.es': 'Español',
   'prefs.language.en': 'English',
   'prefs.language.hint': 'Elige el idioma de la interfaz. Con el tiempo se pueden agregar más idiomas.',
+  'prefs.uiMode': 'Modo de la interfaz',
+  'prefs.uiMode.simple': 'Sencillo (para principiantes)',
+  'prefs.uiMode.full': 'Completo',
+  'prefs.uiMode.ask': 'Preguntar al abrir',
+  'prefs.uiMode.hint': 'El modo sencillo es el modo para principiantes: te guía paso a paso y oculta los menús, las herramientas y los ajustes avanzados. Tu diseño es el mismo en los dos modos; también puedes cambiar con el botón de la barra superior.',
   'prefs.updateCheckOnStart': 'Buscar actualizaciones al iniciar',
   'prefs.updateCheckOnStart.hint': 'Unos segundos después de abrir, Tlaku consulta si hay una versión nueva y, si la hay, te lo avisa. Solo se conecta a la dirección de actualizaciones del proyecto y no envía tus diseños. Apagada de fábrica.',
+  'prefs.camera.title': 'Cámara',
+  'prefs.cameraReopen': 'Reabrir la cámara al iniciar',
+  'prefs.cameraReopen.hint': 'Si el fondo de la cama estaba visible al cerrar Tlaku, la cámara se vuelve a abrir sola al arrancar. Apágala si prefieres encenderla tú.',
+  'prefs.cameraFrameWidth': 'Ancho máximo de la imagen',
+  'prefs.cameraFrameWidth.hint': 'Ancho (px) al que se reduce el cuadro de la cámara para pintarlo y para detectar marcas y círculos. Más ancho da más detalle y pide más al equipo; las calibraciones ya hechas siguen valiendo.',
   'prefs.updateCheckOnStart.unconfigured': 'Esta compilación no tiene actualizaciones automáticas configuradas, así que la opción no tiene efecto.',
 
   // ---- Edición ------------------------------------------------------------------

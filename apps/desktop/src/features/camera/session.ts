@@ -8,7 +8,7 @@
  */
 import { getApi } from '@/api';
 import { errorMessage } from '@/lib/errors';
-import { useStore } from '@/store';
+import { getPref, useStore } from '@/store';
 import type { CameraBackdrop } from '@/store/camera';
 import { adjustMatrix, adjustOf } from './adjust';
 import { backdropCorners, type Quad } from './geometry';
@@ -131,7 +131,8 @@ function drawFrame(gray: boolean): boolean {
   const size: [number, number] = [src.w, src.h];
   const lens = s.cameraSetup.calibration;
   const useLens = lens && lensFitsStream(lens, size[0], size[1]) ? lens : null;
-  const [w, h] = useLens ? correctedSize(useLens) : [Math.min(size[0], 1280), Math.round((Math.min(size[0], 1280) * size[1]) / size[0])];
+  const maxW = getPref('cameraFrameWidth');
+  const [w, h] = useLens ? correctedSize(useLens, maxW) : [Math.min(size[0], maxW), Math.round((Math.min(size[0], maxW) * size[1]) / size[0])];
   const t0 = performance.now();
   ensureCorrector().render(src.el, { width: w, height: h, lens: useLens, gray });
   stats.renderMs += performance.now() - t0;

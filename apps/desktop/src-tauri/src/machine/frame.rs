@@ -178,16 +178,14 @@ mod tests {
                 id: "t".into(),
                 layer: red,
                 transform: IDENTITY,
-                kind: ObjectKind::Vector(VectorObject {
-                    paths: vec![BezPath::from(&Polyline {
-                        points: vec![
-                            Point::new(10.0, 10.0),
-                            Point::new(50.0, 10.0),
-                            Point::new(10.0, 40.0),
-                        ],
-                        closed: true,
-                    })],
-                }),
+                kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+                    points: vec![
+                        Point::new(10.0, 10.0),
+                        Point::new(50.0, 10.0),
+                        Point::new(10.0, 40.0),
+                    ],
+                    closed: true,
+                })])),
                 locked: false,
                 hidden: false,
                 group: None,

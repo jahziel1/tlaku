@@ -22,7 +22,7 @@ Tlaku is free software (MIT license) for preparing and sending jobs to laser cut
 - [Guides, tabs, start point and project](03e-guias-puentes-y-proyecto.md): guides from the rulers, manual tabs, start point and cut direction, notes, templates, new window, tabs the way you like them and floating panels, and the art library.
 - [Text](04-texto.md): create text, choose a font (including single-line fonts), curve it, weld it, put it on a path, convert it to paths and insert QR and barcodes.
 - [Variable text](04b-texto-variable.md): serial numbers, data from a CSV, date and time inside a text, how they advance after each job and one copy per CSV row.
-- [Layers and cut settings](05-capas-y-ajustes.md): Line, Fill and Image modes, speed, power, passes, tabs, advanced cutting (perforation, lead-in and lead-out, overcut, pauses, dot mode, ramp), additional operations, defaults, beginner mode and execution order.
+- [Layers and cut settings](05-capas-y-ajustes.md): Line, Fill and Image modes, speed, power, passes, tabs, advanced cutting (perforation, lead-in and lead-out, overcut, pauses, dot mode, ramp), additional operations, defaults (general, per color and per machine), advanced settings and execution order.
 - [Images](06-imagenes.md): import photos, choose the dithering, adjust tones, send without dithering, sharpen edges, remove specks, crop with a shape, image-adjustment presets and their preview, convert vectors to bitmap, save the processed image and trace one or several images.
 
 ## Preparing the job
@@ -34,7 +34,7 @@ Tlaku is free software (MIT license) for preparing and sending jobs to laser cut
 
 - [Connecting your machine](08-conectar-maquina.md): the Add machine wizard, the port, the profile (with default profile, icon, pointer offset, X/Y swap, mm/s, homing on connect, DTR and synchronous sending) and the virtual machine.
 - [Network connection and automation](08b-red-y-automatizacion.md): GRBL over TCP and WebSocket, testing the connection, the virtual machine over the network and UDP automation (protocol and safety).
-- [Sending jobs safely](09-enviar-con-seguridad.md): send only the selection, job origin, move the head and position the laser, framing (also by outline), the Start dialog with its checklist and warnings (slow link, layer faster than the machine), live adjustments, pause, stop, the job log and exporting G-code.
+- [Sending jobs safely](09-enviar-con-seguridad.md): send only the selection, job origin, move the head and position the laser, framing (also by outline), the Start dialog with its checklist and warnings (slow link, layer faster than the machine), live adjustments, pause, stop, continuing an interrupted job (power cut, app closed, connection lost), the job log and exporting G-code.
 - [Advanced machine control](09b-control-avanzado.md): macros, move with Z and U, focus, saved positions, test fire, `$$` settings with backup, low-power and looping framing, laser 2 and `.tlakubundle` bundles.
 - [Print & Cut](09c-print-and-cut.md): print with registration marks and cut right on top of what was printed, step by step with the laser or with the camera, images also rotate with the registration, and what the residual error means.
 - [Tiling and auto feeder](09d-tiling-y-alimentador.md): split a job larger than the bed into sections with overlap and alignment marks, send them one at a time, resume, use an automatic feeder (something LightBurn does not have) and repeat a job N times with an advance between repetitions.

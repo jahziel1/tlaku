@@ -104,4 +104,18 @@ export const tiling = {
   'tiling.repeat.stop': 'Detener',
   'tiling.repeat.close': 'Cerrar',
   'tiling.repeat.closeBusy': 'Detén las repeticiones para poder cerrar',
+  // Ola 6E: varias columnas (M47)
+  'tiling.feeder.columns': 'Con varias columnas el alimentador solo avanza entre filas de la misma columna (orden en serpentina). Al cambiar de columna el asistente se detiene y te guía para mover el material.',
+  'tiling.move.titleCol': 'Mueve el material a la columna {col} de {cols}',
+  'tiling.move.titleRow': 'Mueve el material a la fila {row} de {rows}',
+  'tiling.move.titleBoth': 'Mueve el material a la columna {col} de {cols}, fila {row} de {rows}',
+  'tiling.move.text': 'Antes del tramo {n}: coloca el material de modo que la zona que empieza en ({x}, {y}) mm del diseño quede en la cama, con su esquina inferior izquierda en el origen más {m} mm de margen. El alimentador no puede hacer este movimiento.',
+  'tiling.move.align': 'Alinea con las marcas de registro: pon el puntero sobre cada cruz que ya quedó grabada y mueve el material hasta que coincidan.',
+  'tiling.move.mark': 'Marca {i}: X {x}, Y {y} mm del diseño',
+  'tiling.move.pointer': 'Llevar el puntero',
+  'tiling.move.pointerHint': 'Mueve la cabeza (láser apagado) para que el puntero caiga en X {x}, Y {y} mm de la cama.',
+  'tiling.move.noMarksInOverlap': 'Ninguna cruz grabada cae en este tramo: no hay marca de registro. Usa solape mayor que cero para tener cruces donde alinear.',
+  'tiling.move.marksOff': 'Las marcas de alineación están apagadas, así que no hay cruces de registro. Actívalas al cambiar las opciones, o alinea con el borde del material.',
+  'tiling.move.ready': 'Ya está colocado: enviar tramo {n}',
+  'tiling.move.later': 'Más tarde',
 } as const;

@@ -43,10 +43,18 @@ describe('catálogo de preferencias', () => {
 });
 
 describe('preferencias de capas (ola 2)', () => {
-  it('el modo principiante es un interruptor apagado de fábrica', () => {
-    expect(DEFAULT_PREFS.beginnerMode).toBe(false);
-    expect(sanitizePref('beginnerMode', true)).toBe(true);
-    expect(sanitizePref('beginnerMode', 'sí')).toBe(false);
+  it('el modo principiante se unió al modo sencillo: la clave vieja ya no existe y se traduce', () => {
+    expect(PREF_KEYS).not.toContain('beginnerMode');
+    // Lo tenía encendido y nunca eligió modo: empieza en el sencillo.
+    expect(sanitizePrefs({ beginnerMode: true }).uiMode).toBe('simple');
+    // Si ya eligió, se respeta su elección.
+    expect(sanitizePrefs({ beginnerMode: true, uiMode: 'full' }).uiMode).toBe('full');
+    expect(sanitizePrefs({ beginnerMode: true, uiMode: 'simple' }).uiMode).toBe('simple');
+    // Apagado, o con un valor que no es booleano, no cambia nada.
+    expect(sanitizePrefs({ beginnerMode: false }).uiMode).toBe('ask');
+    expect(sanitizePrefs({ beginnerMode: 'sí' }).uiMode).toBe('ask');
+    // La clave vieja no vuelve a salir al guardar.
+    expect('beginnerMode' in sanitizePrefs({ beginnerMode: true })).toBe(false);
   });
 
   it('layerDefaults vale null de fábrica y acepta una plantilla válida, saneada', () => {

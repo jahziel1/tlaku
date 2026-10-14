@@ -1,6 +1,6 @@
 import type { PrefsBundle, PrefsFile } from '@/api';
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
-import { checkPref, PREF_KEYS, type Prefs } from '@/store/prefs';
+import { checkPref, migrateBeginnerMode, PREF_KEYS, type Prefs } from '@/store/prefs';
 
 /**
  * Paquetes `.tlakuprefs` (D99): un JSON con las preferencias y los atajos del usuario, para
@@ -19,7 +19,7 @@ export const DEFAULT_SHORTCUTS_NAME = `atajos.${BUNDLE_EXTENSION}`;
  * conexiones a internet (buscar actualizaciones). Se exportan, pero al importar se ignoran y cada
  * persona las activa a mano en esta computadora.
  */
-export const NEVER_IMPORTED: ReadonlySet<string> = new Set(['remoteEnabled', 'updateCheckOnStart']);
+export const NEVER_IMPORTED: ReadonlySet<string> = new Set(['remoteEnabled', 'updateCheckOnStart', 'ruidaExperimentalWrites']);
 
 /** Qué parte del estado entra al exportar o se aplica al importar. */
 export type BundleScope = 'all' | 'shortcuts';
@@ -67,6 +67,8 @@ export function applyBundle(
   const incoming = scope === 'all' && bundle.prefs && typeof bundle.prefs === 'object' ? (bundle.prefs as Record<string, unknown>) : {};
   const known = new Set<string>(PREF_KEYS);
   for (const [key, raw] of Object.entries(incoming)) {
+    // El modo principiante de versiones anteriores ya no existe como opción (D18): se traduce abajo.
+    if (key === 'beginnerMode') continue;
     if (!known.has(key) || NEVER_IMPORTED.has(key)) {
       ignoredPrefs++;
       continue;
@@ -78,6 +80,14 @@ export function applyBundle(
     }
     (prefs as Record<string, unknown>)[key] = checked.value;
     appliedPrefs++;
+  }
+
+  if (incoming.uiMode === undefined) {
+    const migrated = migrateBeginnerMode(incoming, prefs.uiMode);
+    if (migrated !== prefs.uiMode) {
+      prefs.uiMode = migrated;
+      appliedPrefs++;
+    }
   }
 
   const hasShortcuts = bundle.shortcuts !== undefined;

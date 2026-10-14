@@ -154,9 +154,9 @@ fn vector_object(id: String, layer: tlaku_core::Rgb, piece: &[Polyline]) -> Desi
         id,
         layer,
         transform: affine::IDENTITY,
-        kind: ObjectKind::Vector(VectorObject {
-            paths: piece.iter().map(tlaku_doc::BezPath::from).collect(),
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(
+            piece.iter().map(tlaku_doc::BezPath::from).collect(),
+        )),
         locked: false,
         hidden: false,
         group: None,
@@ -495,9 +495,7 @@ mod tests {
             id: id.into(),
             layer: Rgb(255, 0, 0),
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&poly)],
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&poly)])),
             locked: false,
             hidden: false,
             group: None,
@@ -755,12 +753,10 @@ mod tests {
     fn rechaza_formas_abiertas_diciendo_cuales() {
         let abierta = {
             let mut o = rect("linea", 0.0, 0.0, 10.0, 10.0);
-            o.kind = ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath::from(&Polyline {
-                    points: vec![Point::new(0.0, 0.0), Point::new(10.0, 10.0)],
-                    closed: false,
-                })],
-            });
+            o.kind = ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+                points: vec![Point::new(0.0, 0.0), Point::new(10.0, 10.0)],
+                closed: false,
+            })]));
             o
         };
         let e = run(
@@ -837,9 +833,7 @@ mod tests {
                 tlaku_doc::PathSeg::Close,
             ];
             let mut o = rect("c", 0.0, 0.0, 1.0, 1.0);
-            o.kind = ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath(segs)],
-            });
+            o.kind = ObjectKind::Vector(VectorObject::new(vec![BezPath(segs)]));
             o
         };
         let r = run(
@@ -858,12 +852,10 @@ mod tests {
     fn trazo(id: &str, layer: Rgb, pts: &[(f64, f64)]) -> DesignObject {
         let mut o = rect(id, 0.0, 0.0, 1.0, 1.0);
         o.layer = layer;
-        o.kind = ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
-                closed: false,
-            })],
-        });
+        o.kind = ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+            closed: false,
+        })]));
         o
     }
 
@@ -951,17 +943,15 @@ mod tests {
             let mut c = rect("c", 0.0, 0.0, 1.0, 1.0);
             let k = 0.552_284_749_830_793_6 * 5.0;
             let p = |x, y| Point::new(x, y);
-            c.kind = ObjectKind::Vector(VectorObject {
-                paths: vec![BezPath(vec![
-                    tlaku_doc::PathSeg::MoveTo { to: p(5.0, 0.0) },
-                    tlaku_doc::PathSeg::CubicTo {
-                        ctrl1: p(5.0, k),
-                        ctrl2: p(k, 5.0),
-                        to: p(0.0, 5.0),
-                    },
-                    tlaku_doc::PathSeg::Close,
-                ])],
-            });
+            c.kind = ObjectKind::Vector(VectorObject::new(vec![BezPath(vec![
+                tlaku_doc::PathSeg::MoveTo { to: p(5.0, 0.0) },
+                tlaku_doc::PathSeg::CubicTo {
+                    ctrl1: p(5.0, k),
+                    ctrl2: p(k, 5.0),
+                    to: p(0.0, 5.0),
+                },
+                tlaku_doc::PathSeg::Close,
+            ])]));
             c
         };
         let objs = [

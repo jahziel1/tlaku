@@ -61,12 +61,10 @@ fn tabs_leave_gaps_crossed_with_the_laser_off() {
 #[test]
 fn tabs_do_not_change_the_planned_order_or_touch_open_and_inner_shapes() {
     let open = DesignObject {
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: vec![Point::new(60.0, 10.0), Point::new(90.0, 10.0)],
-                closed: false,
-            })],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: vec![Point::new(60.0, 10.0), Point::new(90.0, 10.0)],
+            closed: false,
+        })])),
         ..rect_object("open", RED, 0.0, 0.0, 1.0, 1.0)
     };
     let objects = vec![
@@ -150,12 +148,10 @@ fn tabs_that_do_not_fit_warn_and_bad_values_fail() {
 
     // Sin ninguna forma cerrada donde ponerlos, se avisa.
     let open_only = DesignObject {
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: vec![Point::new(0.0, 0.0), Point::new(9.0, 0.0)],
-                closed: false,
-            })],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: vec![Point::new(0.0, 0.0), Point::new(9.0, 0.0)],
+            closed: false,
+        })])),
         ..rect_object("o", RED, 0.0, 0.0, 1.0, 1.0)
     };
     let job = compute(

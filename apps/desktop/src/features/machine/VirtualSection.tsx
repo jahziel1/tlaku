@@ -15,6 +15,7 @@ export const FAULT_LABEL: Record<SimulatedFault, I18nKey> = {
   tilt: 'machine.virtual.fault.tilt',
   alarm3: 'machine.virtual.fault.alarm3',
   disconnect: 'machine.virtual.fault.disconnect',
+  power_cut: 'machine.virtual.fault.power_cut',
 };
 
 /**

@@ -1,8 +1,9 @@
-import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Link2, Pencil, Trash2, TriangleAlert, Upload } from 'lucide-react';
+import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Link2, Pencil, Share2, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import { useEffect, useId, useMemo } from 'react';
 import type { DeviceProfile, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { useCommand, type CommandView } from '@/commands/useCommand';
 import { t, tn } from '@/i18n';
+import { useHelpUi } from '@/features/help/helpStore';
 import { colorName } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
 import {
@@ -145,6 +146,17 @@ function PresetRow({ preset, factory, deviceName, activeLayer, inUse, maxSpeed }
           <Copy size={14} aria-hidden="true" />
         </button>
         {!factory && (
+          <button
+            type="button"
+            className="icon-btn"
+            title={t('help.materials.share')}
+            aria-label={t('help.materials.shareFor', { name })}
+            onClick={() => useHelpUi.getState().openShareMaterial(preset)}
+          >
+            <Share2 size={14} aria-hidden="true" />
+          </button>
+        )}
+        {!factory && (
           <button type="button" className="icon-btn" title={t('materials.delete')} aria-label={t('materials.deleteFor', { name })} onClick={() => void deleteMaterial(preset.id)}>
             <Trash2 size={14} aria-hidden="true" />
           </button>
@@ -215,12 +227,19 @@ export function MaterialsPanelView({
     () => filterPresets(library.presets, { search, deviceId: onlyDevice ? device.id : null }),
     [library.presets, search, onlyDevice, device.id],
   );
+  // Los aportes de la comunidad (confianza «foro») van en su propia sección, aparte de los de fábrica.
   const factoryShown = useMemo(
-    () => filterPresets(factory.presets, { search, deviceId: null, machineClass: onlyClass ? machineClass : null }),
+    () => filterPresets(factory.presets.filter((p) => p.confidence !== 'forum'), { search, deviceId: null, machineClass: onlyClass ? machineClass : null }),
     [factory.presets, search, onlyClass, machineClass],
   );
+  const communityShown = useMemo(
+    () => filterPresets(factory.presets.filter((p) => p.confidence === 'forum'), { search, deviceId: null, machineClass: onlyClass ? machineClass : null }),
+    [factory.presets, search, onlyClass, machineClass],
+  );
+  const communityTotal = useMemo(() => factory.presets.filter((p) => p.confidence === 'forum').length, [factory.presets]);
   const mineGroups = useMemo(() => groupPresets(mine), [mine]);
   const factoryGroups = useMemo(() => groupPresets(factoryShown), [factoryShown]);
+  const communityGroups = useMemo(() => groupPresets(communityShown), [communityShown]);
   const deviceName = (id: string | null) => (id === null ? null : (devices.find((d) => d.id === id)?.name ?? id));
   const kind = laserKindOf(device);
   const restrictions = (factory.restrictions ?? []).filter((r) => r.laser === kind);
@@ -335,6 +354,17 @@ export function MaterialsPanelView({
         <p className="hint">{t('materials.section.factory.hint')}</p>
         {factory.presets.length > 0 && factoryGroups.length === 0 && <p className="hint" role="status">{t('materials.noMatchesIn')}</p>}
         <PresetGroups groups={factoryGroups} factory deviceName={deviceName} activeLayer={activeLayer} layers={layers} maxSpeed={maxSpeed} />
+      </section>
+
+      <section className="section mat-section" aria-label={t('materials.section.community')}>
+        <h3 className="mat-section__title">
+          {t('materials.section.community')}
+          <span className="mat-section__count num">{tn('materials.count', communityShown.length)}</span>
+        </h3>
+        <p className="hint">{t('materials.section.community.hint')}</p>
+        {communityTotal === 0 && factory.presets.length > 0 && <p className="hint">{t('materials.section.community.empty')}</p>}
+        {communityTotal > 0 && communityGroups.length === 0 && <p className="hint" role="status">{t('materials.noMatchesIn')}</p>}
+        <PresetGroups groups={communityGroups} factory deviceName={deviceName} activeLayer={activeLayer} layers={layers} maxSpeed={maxSpeed} />
       </section>
     </div>
   );

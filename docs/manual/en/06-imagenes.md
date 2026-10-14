@@ -75,7 +75,7 @@ The preview does not include the machine's effect when scanning (overscan, offse
 
 ## Advanced image
 
-In the collapsible **Advanced image** section of the layer editor (hidden in **Beginner mode**) there are three more settings. They are applied before dithering, together with the tone ones.
+In the collapsible **Advanced image** section of the layer editor (it opens by itself if the layer already uses something from it) there are three more settings. They are applied before dithering, together with the tone ones.
 
 | Setting | What it does | Range |
 |---|---|---|

@@ -31,10 +31,14 @@
 //! - `resize_slots`: cambia las ranuras de `from_width ± tolerance` a `to_width`. Calcula la
 //!   detección con todas las formas a la vez (un agujero puede estar en otro objeto).
 
+mod corner_marks;
+#[cfg(test)]
+mod corner_tests;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tlaku_core::{Point, Polyline};
-use tlaku_doc::{BezPath, DesignObject, ObjectKind, VectorObject, affine};
+use tlaku_doc::{BezPath, CornerMark, DesignObject, ObjectKind, VectorObject, affine};
 use tlaku_geom::{
     FilletOptions, FilletStyle, OptimizeOptions, SlotAnchor, SlotOptions, break_groups, cut_closed,
     cut_open, fillet_path, node_count, optimize_polyline, resize_slots, signed_area, slot_widths,
@@ -96,7 +100,8 @@ pub struct ShapeParams {
     /// `fillet`: solo las esquinas en estos puntos (mm, documento).
     pub nodes: Option<Vec<[f64; 2]>>,
     /// `fillet`: en vez de redondear, devuelve a punta la esquina redondeada (o mordida) más
-    /// cercana a `point` (a lo más `max_dist` mm; 2 mm por omisión). Los chaflanes no se revierten.
+    /// cercana a `point` (a lo más `max_dist` mm; 2 mm por omisión). Un chaflán solo se revierte si el
+    /// objeto guardó la esquina al aplicarlo (`VectorObject::corners`, D60).
     pub revert: bool,
     /// `cut_shapes`: id de la cuchilla.
     pub knife_id: Option<String>,
@@ -151,12 +156,14 @@ fn xy(p: Point) -> [f64; 2] {
     [p.x, p.y]
 }
 
-/// Objeto vectorial nuevo con los datos de `source` y estos trazos.
+/// Objeto vectorial nuevo con los datos de `source` y estos trazos. Las esquinas guardadas de
+/// `source` (D60) pasan al nuevo en coordenadas de documento mientras sigan valiendo.
 fn vector_object(source: &DesignObject, id: String, paths: Vec<BezPath>) -> DesignObject {
+    let corners = corner_marks::prune(&paths, corner_marks::world_marks(source));
     DesignObject {
         id,
         transform: affine::IDENTITY,
-        kind: ObjectKind::Vector(VectorObject { paths }),
+        kind: ObjectKind::Vector(VectorObject { paths, corners }),
         locked: false,
         // La forma paramétrica, el punto de inicio, los puentes y las copias virtuales dejan de valer.
         shape: None,
@@ -423,13 +430,37 @@ fn unfillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, 
             }
         }
     }
+    // Las esquinas guardadas al aplicar el redondeo o el chaflán (D60) mandan si hay alguna al
+    // alcance del clic: son las únicas que devuelven un chaflán a punta.
+    let mut marked: Option<(usize, corner_marks::Reverted)> = None;
+    for (i, o) in objects.iter().enumerate() {
+        let marks = corner_marks::world_marks(o);
+        if marks.is_empty() {
+            continue;
+        }
+        if let Some(r) = corner_marks::revert_nearest(&o.curves(), &marks, click, max_dist)
+            && marked.as_ref().is_none_or(|(_, m)| r.distance < m.distance)
+        {
+            marked = Some((i, r));
+        }
+    }
     let mut slots: Vec<Slot> = objects.iter().map(|_| Slot::Keep).collect();
     let mut stats = ShapeStats::default();
-    if let Some((i, k, u)) = best {
+    let mut ids = Ids::new("fillet", objects);
+    if let Some((i, r)) = marked {
+        let o = &objects[i];
+        let mut rest = corner_marks::world_marks(o);
+        rest.remove(r.mark);
+        let mut new = vector_object(o, ids.next(), r.paths);
+        if let ObjectKind::Vector(v) = &mut new.kind {
+            v.corners = corner_marks::prune(&v.paths, rest);
+        }
+        stats.count = 1;
+        slots[i] = Slot::New(vec![new]);
+    } else if let Some((i, k, u)) = best {
         let mut paths = objects[i].curves();
         paths[k] = u.path;
         stats.count = 1;
-        let mut ids = Ids::new("fillet", objects);
         slots[i] = Slot::New(vec![vector_object(&objects[i], ids.next(), paths)]);
     }
     Ok(finish(objects, slots, stats))
@@ -460,6 +491,7 @@ fn fillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, St
     let mut stats = ShapeStats::default();
     for (i, o) in objects.iter().enumerate() {
         let mut rounded = 0;
+        let mut made: Vec<CornerMark> = Vec::new();
         let paths: Vec<BezPath> = o
             .curves()
             .iter()
@@ -468,12 +500,19 @@ fn fillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, St
                 rounded += r.rounded;
                 stats.clamped += r.clamped;
                 stats.skipped += r.no_space;
+                made.extend(r.corners.iter().map(corner_marks::mark_of));
                 r.path
             })
             .collect();
         if rounded > 0 {
             stats.count += rounded;
-            slots[i] = Slot::New(vec![vector_object(o, ids.next(), paths)]);
+            let mut new = vector_object(o, ids.next(), paths);
+            // Guarda la punta de cada esquina nueva para poder revertirla (también un chaflán).
+            if let ObjectKind::Vector(v) = &mut new.kind {
+                v.corners.extend(made);
+                v.corners = corner_marks::prune(&v.paths, std::mem::take(&mut v.corners));
+            }
+            slots[i] = Slot::New(vec![new]);
         }
     }
     Ok(finish(objects, slots, stats))
@@ -659,9 +698,7 @@ mod tests {
             id: id.into(),
             layer: Rgb(255, 0, 0),
             transform: affine::IDENTITY,
-            kind: ObjectKind::Vector(VectorObject {
-                paths: polys.iter().map(BezPath::from).collect(),
-            }),
+            kind: ObjectKind::Vector(VectorObject::new(polys.iter().map(BezPath::from).collect())),
             locked: false,
             hidden: false,
             group: Some("g".into()),

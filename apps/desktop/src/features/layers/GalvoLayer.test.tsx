@@ -11,9 +11,9 @@ const device = (galvo: GalvoUiProfile | undefined = PROFILE): FieldsDevice => ({
 const GRBL: FieldsDevice = { maxRate: 25000, powerMode: 'dynamic', hasZ: false };
 
 /** El editor de campos de una capa con la máquina dada. */
-const fields = (patch: Parameters<typeof makeLayer>[2] = {}, dev: FieldsDevice = device(), beginner = false) => {
+const fields = (patch: Parameters<typeof makeLayer>[2] = {}, dev: FieldsDevice = device()) => {
   const layer = makeLayer('#ff0000', 'Marca', patch);
-  return renderToString(<LayerFieldsView layer={layer} target={{ color: layer.color, sub: null }} beginner={beginner} device={dev} />);
+  return renderToString(<LayerFieldsView layer={layer} target={{ color: layer.color, sub: null }} device={dev} />);
 };
 
 const g = (over: Partial<ReturnType<typeof makeLayer>['galvo']> = {}) => ({ ...makeLayer('#f00', 'x').galvo, ...over });
@@ -132,13 +132,6 @@ describe('sección Galvo del editor de capa', () => {
     const on = fields({ mode: 'image', galvo: g({ slice3d: { enabled: true, slices: 16, angle_step_deg: 0 } }) });
     expect(on).toContain('Cortes');
     expect(on).toContain('Ángulo por corte');
-  });
-
-  it('el modo principiante deja solo la frecuencia, el pulso y las repeticiones', () => {
-    const h = fields({ mode: 'image' }, device(), true);
-    expect(h).toContain('Frecuencia');
-    expect(h).toContain('Repeticiones en la tarjeta');
-    for (const hidden of ['Retardos de la capa', 'Bamboleo', 'Pausas y PPI', 'Grabado 3D por cortes']) expect(h).not.toContain(hidden);
   });
 
   it('en inglés', () => {

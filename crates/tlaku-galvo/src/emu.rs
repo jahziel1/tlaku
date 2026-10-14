@@ -126,6 +126,8 @@ pub struct EmuState {
     pub trace: Vec<Seg>,
     /// Todos los inmediatos recibidos, en orden.
     pub immediates: Vec<wire::Raw>,
+    /// Todos los comandos de lista recibidos (de todas las tandas), en orden.
+    pub list_commands: Vec<wire::Raw>,
     pub batches_received: usize,
     /// Cosas que una tarjeta real no aceptaría o que rompen una regla de seguridad.
     pub violations: Vec<String>,
@@ -166,6 +168,7 @@ impl EmuState {
             regs: Regs::default(),
             trace: Vec::new(),
             immediates: Vec::new(),
+            list_commands: Vec::new(),
             batches_received: 0,
             violations: Vec::new(),
             writes: 0,
@@ -230,6 +233,18 @@ impl EmuState {
         self.clock_us / 1e6
     }
 
+    /// Códigos de todo lo recibido (inmediatos y de lista) que Tlaku no tiene permitido enviar
+    /// según `codes::is_sent`: escrituras de configuración, de la tabla de corrección, de EEPROM,
+    /// ejes, marcado al vuelo o códigos desconocidos. Debe estar siempre vacío.
+    pub fn forbidden_commands(&self) -> Vec<u16> {
+        self.immediates
+            .iter()
+            .chain(&self.list_commands)
+            .map(|r| r.code)
+            .filter(|&c| !crate::codes::is_sent(c))
+            .collect()
+    }
+
     /// Comandos inmediatos recibidos con ese código.
     pub fn count_immediates(&self, code: u16) -> usize {
         self.immediates.iter().filter(|r| r.code == code).count()
@@ -292,7 +307,10 @@ impl EmuState {
             return;
         }
         match wire::unpack(bytes) {
-            Ok(cmds) => self.queue.extend(cmds),
+            Ok(cmds) => {
+                self.list_commands.extend(cmds.iter().copied());
+                self.queue.extend(cmds);
+            }
             Err(e) => self.violation(format!("tanda inválida: {e}")),
         }
     }

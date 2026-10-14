@@ -15,6 +15,9 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Sección | Ajuste | De fábrica | Rango |
 |---|---|---|---|
 | General | **Idioma** | El del sistema (español o inglés) | Español o English; cambia al momento, sin perder el documento. Los avisos y errores del motor salen en el idioma elegido |
+| General | **Modo de la interfaz** | Preguntar al abrir | Sencillo (para principiantes), Completo o Preguntar al abrir; elegir uno hace lo mismo que el botón de la barra superior. Ver [Modo sencillo](01b-modo-sencillo.md) |
+| General | **Reabrir la cámara al iniciar** | Sí | Sí o no; si el fondo de la cámara estaba visible al cerrar, la cámara vuelve a encenderse al abrir |
+| General | **Ancho máximo de la imagen** de la cámara | 1280 px | 320 a 1920 px; el ancho al que se reduce el cuadro para pintarlo y detectar marcas y círculos |
 | Edición | **Unidades de longitud** | Milímetros (mm) | mm o pulgadas (in) |
 | Edición | **Paso normal** de las flechas | 1 mm | 0,001 a 100 mm |
 | Edición | **Paso con Mayús** | 10 mm | 0,001 a 500 mm |
@@ -63,7 +66,7 @@ Si tus medidas vienen en pulgadas (planos de EE. UU., madera de 3/4"), cambia **
 
 Qué **sigue en milímetros** aunque elijas pulgadas: las velocidades (siempre mm/min), los campos de las capas (intervalo, kerf, desplazamiento Z...), las áreas de las máquinas y de la cámara y el grosor del material. Si ves una cifra en milímetros en un campo de esas, no es un error: ese campo aún no cambia de unidad.
 
-Si tienes dos ventanas de Tlaku abiertas, un cambio de preferencias en una **se refleja en la otra** al momento.
+Si tienes dos ventanas de Tlaku abiertas, un cambio de preferencias en una **se refleja en la otra** al momento. Esto se comprueba con la prueba de humo de la aplicación real (`npm run smoke:tauri`), que abre una segunda ventana y verifica que lo que una guarda la otra lo lee y que el aviso de cambio del almacenamiento llega de una ventana a la otra.
 
 Las preferencias viven en un archivo `preferences.json` dentro de la carpeta de configuración de la aplicación, no en la ventana web, así que sobreviven a limpiar los datos del navegador integrado.
 
@@ -93,7 +96,7 @@ Además:
 
 ## Llevar tu configuración a otro equipo
 
-En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas** y el **Modo principiante** (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)) y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones), tu **biblioteca de materiales**, tus **cámaras** y tu **arte propio** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)).
+En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas**, también los de cada color y máquina (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)), y el **modo de la interfaz** (ver [Modo sencillo](01b-modo-sencillo.md)); un paquete de una versión anterior con el Modo principiante encendido pasa al modo sencillo si no traía un modo elegido y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones), tu **biblioteca de materiales**, tus **cámaras** y tu **arte propio** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)).
 
 Al importar, Tlaku dice cuántas preferencias y de cuántos comandos son los atajos que entraron. Si el archivo viene de otra versión:
 

@@ -14,8 +14,9 @@ impl Worker {
                     s_max,
                     kind,
                     load,
+                    checkpoint,
                     reply,
-                } => match self.try_start(t, lines, *link, s_max, kind, load) {
+                } => match self.try_start(t, lines, *link, s_max, kind, load, checkpoint) {
                     Ok(run) => {
                         let _ = reply.send(Ok(Vec::new()));
                         return Ok(Phase::Streaming(run));
@@ -118,6 +119,17 @@ impl Worker {
             Request::JogTo { x, y, speed, reply } => {
                 (reply, self.jog_to(t, x, y, speed).map(|()| vec![]))
             }
+            Request::Probe {
+                dx,
+                dy,
+                feed,
+                retract,
+                reply,
+            } => (
+                reply,
+                self.probe(t, dx, dy, feed, retract)
+                    .map(|p| crate::machine::probe::encode(&p)),
+            ),
             Request::Override {
                 kind,
                 percent,

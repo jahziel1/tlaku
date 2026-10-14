@@ -1,9 +1,11 @@
 //! Pruebas de la sesión, agrupadas por tema.
 
 mod control;
+mod docs;
 mod probe;
 mod query;
 mod send;
+mod settings;
 
 use super::*;
 use crate::emu::{EmuConfig, EmuFaults, Emulator, UdpEmulator};

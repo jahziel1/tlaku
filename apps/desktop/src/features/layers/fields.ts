@@ -30,6 +30,7 @@ export type NumericField =
   | 'halftone_angle'
   | 'z_offset'
   | 'z_step'
+  | 'u_offset'
   | 'perf_cut'
   | 'perf_skip'
   | 'lead_length'
@@ -99,6 +100,8 @@ export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
   halftone_angle: { min: -360, max: 360, step: 1, decimals: 2, unit: '°' },
   z_offset: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },
   z_step: { min: -100, max: 100, step: 0.1, decimals: 3, unit: 'mm' },
+  // Eje U (rodillo o segundo eje) por capa: relativo al U del inicio del trabajo.
+  u_offset: { min: -1000, max: 1000, step: 1, decimals: 3, unit: 'mm' },
   // Ola 2. Un tramo de perforación, de entrada o de rampa de 0 no hace nada: debe ser mayor que 0.
   perf_cut: { min: 0.01, max: 100, step: 0.1, decimals: 3, unit: 'mm', positive: true },
   perf_skip: { min: 0.01, max: 100, step: 0.1, decimals: 3, unit: 'mm', positive: true },

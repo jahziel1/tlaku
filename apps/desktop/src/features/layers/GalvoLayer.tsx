@@ -31,8 +31,6 @@ interface Props {
   layer: LayerSettings;
   setIn: SetIn;
   profile: GalvoUiProfile;
-  /** Modo principiante: solo frecuencia, pulso y repeticiones. */
-  beginner: boolean;
 }
 
 const NO_PULSE = '';
@@ -42,7 +40,7 @@ const NO_PULSE = '';
  * propios de la capa, bamboleo, repeticiones y pausas, PPI y grabado 3D por cortes. La velocidad de la
  * capa se edita en mm/s arriba (el galvo se piensa en mm/s) y se guarda en mm/min.
  */
-export function GalvoLayerSection({ layer, setIn, profile, beginner }: Props) {
+export function GalvoLayerSection({ layer, setIn, profile }: Props) {
   const g = layer.galvo;
   const range = freqOutOfRange(g.frequency_khz, profile);
   const pulses = profile.pulseWidthsNs;
@@ -86,54 +84,50 @@ export function GalvoLayerSection({ layer, setIn, profile, beginner }: Props) {
       {!isLine && (profile.overscanMm ?? 0) > 0 && <p className="lyr-live">{t('galvo.layer.overscan.profile', { mm: profile.overscanMm ?? 0 })}</p>}
       <NumField field="galvo_repeat" label={t('galvo.layer.repeat')} value={g.repeat} onApply={(v) => setIn('galvo', 'repeat', v)} help={t('galvo.layer.repeat.help')} />
 
-      {!beginner && (
-        <>
-          <Fold title={t('galvo.layer.timing')} defaultOpen={g.override_timings}>
-            <Toggle label={t('galvo.layer.override')} checked={g.override_timings} onChange={(v) => setIn('galvo', 'override_timings', v)} help={t('galvo.layer.override.help')} />
-            {g.override_timings && (
-              <>
-                <NumField field="galvo_delay" label={t('galvo.layer.laserOn')} value={g.timing.laser_on_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, laser_on_us: v })} help={t('galvo.layer.laserOn.help')} />
-                <NumField field="galvo_delay" label={t('galvo.layer.laserOff')} value={g.timing.laser_off_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, laser_off_us: v })} help={t('galvo.layer.laserOff.help')} />
-                <NumField field="galvo_delay" label={t('galvo.layer.end')} value={g.timing.end_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, end_us: v })} help={t('galvo.layer.end.help')} />
-                <NumField field="galvo_delay" label={t('galvo.layer.polygon')} value={g.timing.polygon_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, polygon_us: v })} help={t('galvo.layer.polygon.help')} />
-                <NumField field="galvo_jump_speed" label={t('galvo.layer.jump.speed')} value={g.jump.speed} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, speed: v })} help={t('galvo.layer.jump.help')} />
-                <NumField field="galvo_jump_delay" label={t('galvo.layer.jump.min')} value={g.jump.delay_min_us} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, delay_min_us: v })} />
-                <NumField field="galvo_jump_delay" label={t('galvo.layer.jump.max')} value={g.jump.delay_max_us} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, delay_max_us: v })} />
-                <NumField field="overscan" label={t('galvo.layer.jump.limit')} value={g.jump.distance_limit} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, distance_limit: v })} help={t('galvo.layer.jump.limit.help')} />
-              </>
-            )}
-          </Fold>
+      <Fold title={t('galvo.layer.timing')} defaultOpen={g.override_timings}>
+        <Toggle label={t('galvo.layer.override')} checked={g.override_timings} onChange={(v) => setIn('galvo', 'override_timings', v)} help={t('galvo.layer.override.help')} />
+        {g.override_timings && (
+          <>
+            <NumField field="galvo_delay" label={t('galvo.layer.laserOn')} value={g.timing.laser_on_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, laser_on_us: v })} help={t('galvo.layer.laserOn.help')} />
+            <NumField field="galvo_delay" label={t('galvo.layer.laserOff')} value={g.timing.laser_off_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, laser_off_us: v })} help={t('galvo.layer.laserOff.help')} />
+            <NumField field="galvo_delay" label={t('galvo.layer.end')} value={g.timing.end_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, end_us: v })} help={t('galvo.layer.end.help')} />
+            <NumField field="galvo_delay" label={t('galvo.layer.polygon')} value={g.timing.polygon_us} onApply={(v) => setIn('galvo', 'timing', { ...g.timing, polygon_us: v })} help={t('galvo.layer.polygon.help')} />
+            <NumField field="galvo_jump_speed" label={t('galvo.layer.jump.speed')} value={g.jump.speed} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, speed: v })} help={t('galvo.layer.jump.help')} />
+            <NumField field="galvo_jump_delay" label={t('galvo.layer.jump.min')} value={g.jump.delay_min_us} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, delay_min_us: v })} />
+            <NumField field="galvo_jump_delay" label={t('galvo.layer.jump.max')} value={g.jump.delay_max_us} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, delay_max_us: v })} />
+            <NumField field="overscan" label={t('galvo.layer.jump.limit')} value={g.jump.distance_limit} onApply={(v) => setIn('galvo', 'jump', { ...g.jump, distance_limit: v })} help={t('galvo.layer.jump.limit.help')} />
+          </>
+        )}
+      </Fold>
 
-          {isLine && (
-            <Fold title={t('galvo.layer.wobble')} defaultOpen={g.wobble.enabled}>
-              <Toggle label={t('galvo.layer.wobble.enable')} checked={g.wobble.enabled} onChange={(v) => setIn('galvo', 'wobble', { ...g.wobble, enabled: v })} help={t('galvo.layer.wobble.help')} />
-              {g.wobble.enabled && (
-                <>
-                  <NumField field="galvo_wobble_size" label={t('galvo.layer.wobble.size')} value={g.wobble.size} onApply={(v) => setIn('galvo', 'wobble', { ...g.wobble, size: v })} help={t('galvo.layer.wobble.size.help')} />
-                  <NumField field="galvo_wobble_step" label={t('galvo.layer.wobble.step')} value={g.wobble.step} onApply={(v) => setIn('galvo', 'wobble', { ...g.wobble, step: v })} help={t('galvo.layer.wobble.step.help')} />
-                </>
-              )}
-            </Fold>
+      {isLine && (
+        <Fold title={t('galvo.layer.wobble')} defaultOpen={g.wobble.enabled}>
+          <Toggle label={t('galvo.layer.wobble.enable')} checked={g.wobble.enabled} onChange={(v) => setIn('galvo', 'wobble', { ...g.wobble, enabled: v })} help={t('galvo.layer.wobble.help')} />
+          {g.wobble.enabled && (
+            <>
+              <NumField field="galvo_wobble_size" label={t('galvo.layer.wobble.size')} value={g.wobble.size} onApply={(v) => setIn('galvo', 'wobble', { ...g.wobble, size: v })} help={t('galvo.layer.wobble.size.help')} />
+              <NumField field="galvo_wobble_step" label={t('galvo.layer.wobble.step')} value={g.wobble.step} onApply={(v) => setIn('galvo', 'wobble', { ...g.wobble, step: v })} help={t('galvo.layer.wobble.step.help')} />
+            </>
           )}
+        </Fold>
+      )}
 
-          <Fold title={t('galvo.layer.pauses')} defaultOpen={g.pause_before_ms > 0 || g.pause_after_ms > 0 || g.ppi > 0}>
-            <NumField field="galvo_pause" label={t('galvo.layer.pauseBefore')} value={g.pause_before_ms} onApply={(v) => setIn('galvo', 'pause_before_ms', v)} help={t('galvo.layer.pauseBefore.help')} />
-            <NumField field="galvo_pause" label={t('galvo.layer.pauseAfter')} value={g.pause_after_ms} onApply={(v) => setIn('galvo', 'pause_after_ms', v)} help={t('galvo.layer.pauseAfter.help')} />
-            <NumField field="galvo_ppi" label={t('galvo.layer.ppi')} value={g.ppi} onApply={(v) => setIn('galvo', 'ppi', v)} help={t('galvo.layer.ppi.help')} live={g.ppi > 0 ? t('galvo.layer.ppi.ignored') : undefined} />
-          </Fold>
+      <Fold title={t('galvo.layer.pauses')} defaultOpen={g.pause_before_ms > 0 || g.pause_after_ms > 0 || g.ppi > 0}>
+        <NumField field="galvo_pause" label={t('galvo.layer.pauseBefore')} value={g.pause_before_ms} onApply={(v) => setIn('galvo', 'pause_before_ms', v)} help={t('galvo.layer.pauseBefore.help')} />
+        <NumField field="galvo_pause" label={t('galvo.layer.pauseAfter')} value={g.pause_after_ms} onApply={(v) => setIn('galvo', 'pause_after_ms', v)} help={t('galvo.layer.pauseAfter.help')} />
+        <NumField field="galvo_ppi" label={t('galvo.layer.ppi')} value={g.ppi} onApply={(v) => setIn('galvo', 'ppi', v)} help={t('galvo.layer.ppi.help')} live={g.ppi > 0 ? t('galvo.layer.ppi.ignored') : undefined} />
+      </Fold>
 
-          {isImage && (
-            <Fold title={t('galvo.layer.slice')} defaultOpen={g.slice3d.enabled}>
-              <Toggle label={t('galvo.layer.slice.enable')} checked={g.slice3d.enabled} onChange={(v) => setIn('galvo', 'slice3d', { ...g.slice3d, enabled: v })} help={t('galvo.layer.slice.help')} />
-              {g.slice3d.enabled && (
-                <>
-                  <NumField field="galvo_slices" label={t('galvo.layer.slice.count')} value={g.slice3d.slices} onApply={(v) => setIn('galvo', 'slice3d', { ...g.slice3d, slices: v })} help={t('galvo.layer.slice.count.help')} />
-                  <NumField field="galvo_angle_step" label={t('galvo.layer.slice.angle')} value={g.slice3d.angle_step_deg} onApply={(v) => setIn('galvo', 'slice3d', { ...g.slice3d, angle_step_deg: v })} help={t('galvo.layer.slice.angle.help')} />
-                </>
-              )}
-            </Fold>
+      {isImage && (
+        <Fold title={t('galvo.layer.slice')} defaultOpen={g.slice3d.enabled}>
+          <Toggle label={t('galvo.layer.slice.enable')} checked={g.slice3d.enabled} onChange={(v) => setIn('galvo', 'slice3d', { ...g.slice3d, enabled: v })} help={t('galvo.layer.slice.help')} />
+          {g.slice3d.enabled && (
+            <>
+              <NumField field="galvo_slices" label={t('galvo.layer.slice.count')} value={g.slice3d.slices} onApply={(v) => setIn('galvo', 'slice3d', { ...g.slice3d, slices: v })} help={t('galvo.layer.slice.count.help')} />
+              <NumField field="galvo_angle_step" label={t('galvo.layer.slice.angle')} value={g.slice3d.angle_step_deg} onApply={(v) => setIn('galvo', 'slice3d', { ...g.slice3d, angle_step_deg: v })} help={t('galvo.layer.slice.angle.help')} />
+            </>
           )}
-        </>
+        </Fold>
       )}
     </Group>
   );

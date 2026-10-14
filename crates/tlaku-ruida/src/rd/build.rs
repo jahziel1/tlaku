@@ -39,6 +39,21 @@ fn single_copy(op: u8, sub: u8) -> Command {
     }
 }
 
+/// Potencia mínima y máxima de cada uno de los cuatro láseres para una capa: la de la capa en el
+/// láser que usa y la secundaria en los demás (0 % por defecto, para que un láser no elegido no
+/// dispare).
+fn laser_powers(p: &LayerPlan, sec: u16) -> [(u8, u16, u16); 4] {
+    let own = (p.power_min, p.power_max);
+    let other = (sec, sec);
+    let (l1, l2) = if p.laser2 { (other, own) } else { (own, other) };
+    [
+        (1, l1.0, l1.1),
+        (2, l2.0, l2.1),
+        (3, sec, sec),
+        (4, sec, sec),
+    ]
+}
+
 /// Instrucciones de movimiento de una capa: relativas si el salto cabe, absolutas si no. La
 /// primera de cada capa es siempre absoluta y la posición se lleva en enteros (sin deriva).
 /// En las capas de potencia variable, `C7 P` precede a cada corte cuya potencia cambia.
@@ -148,12 +163,7 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
             layer: l,
             um_s: p.speed_um_s,
         });
-        for (laser, mn, mx) in [
-            (1, p.power_min, p.power_max),
-            (2, sec, sec),
-            (3, sec, sec),
-            (4, sec, sec),
-        ] {
+        for (laser, mn, mx) in laser_powers(p, sec) {
             // Orden del ejemplo: 1 mín, 1 máx, 2 mín, 2 máx, 3 mín, 3 máx, 4 mín, 4 máx.
             c.push(Command::LayerPower {
                 laser,
@@ -223,7 +233,9 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
         c.push(Command::EndLayer);
         c.push(Command::LayerSelect(p.index));
         c.push(Command::LayerFlag(0x30));
-        c.push(Command::LayerFlag(0x10));
+        // `CA 01 10` / `CA 01 11`: dispositivo (láser) de la capa, 0 o 1 ("Layer Device" en
+        // EduTech, `LASER_DEVICE_0/1` en ruida-pa y MeerK40t; no marcado como verificado).
+        c.push(Command::LayerFlag(if p.laser2 { 0x11 } else { 0x10 }));
         c.push(if p.air {
             Command::AirOn
         } else {
@@ -240,12 +252,7 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
             sub: 0x13,
             micros: 0,
         });
-        for (laser, mn, mx) in [
-            (1, p.power_min, p.power_max),
-            (2, sec, sec),
-            (3, sec, sec),
-            (4, sec, sec),
-        ] {
+        for (laser, mn, mx) in laser_powers(p, sec) {
             c.push(Command::LaserPower {
                 laser,
                 limit: Limit::Min,
@@ -257,10 +264,17 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
                 raw: mx,
             });
         }
+        // `CA 03 n`: máscara de tubos activos (1 = solo el láser 1 en MeerK40t; 0x0F en RDWorks
+        // con cuatro). Una capa del láser 2 añade el bit 1; es una inferencia de la forma de
+        // máscara, sin verificar en una máquina de dos láseres.
         c.push(Command::Small {
             op: 0xCA,
             sub: 0x03,
-            n: opts.laser_tube_start,
+            n: if p.laser2 {
+                opts.laser_tube_start | 0x02
+            } else {
+                opts.laser_tube_start
+            },
         });
         c.push(Command::Small {
             op: 0xCA,

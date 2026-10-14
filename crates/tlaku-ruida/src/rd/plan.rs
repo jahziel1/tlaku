@@ -24,6 +24,8 @@ pub(super) struct LayerPlan {
     /// Los cortes no comparten potencia: se escribe `C7` antes de cada cambio.
     pub(super) variable: bool,
     pub(super) air: bool,
+    /// Capa del segundo láser (`CA 01 11`).
+    pub(super) laser2: bool,
     pub(super) color: u64,
     pub(super) steps: Vec<Step>,
     pub(super) bbox: BBox,
@@ -81,6 +83,7 @@ impl LayerPlan {
             && self.power_min == o.power_min
             && self.variable == o.variable
             && self.air == o.air
+            && self.laser2 == o.laser2
     }
 }
 
@@ -134,6 +137,9 @@ pub(super) fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Plann
         let (lo, hi) = (*raws.iter().min().unwrap(), *raws.iter().max().unwrap());
         let variable = lo != hi;
         let lopt = opts.layers.get(bi).cloned().unwrap_or_default();
+        if lopt.laser2 && variable {
+            return Err(RdError::Laser2Variable { block: bi });
+        }
         let power_min = if variable {
             // La capa deja que `C7` mande: mínimo 0 y máximo el mayor del bloque.
             0
@@ -187,6 +193,7 @@ pub(super) fn plan_layers(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Plann
             power_min,
             variable,
             air: block.air_assist,
+            laser2: lopt.laser2,
             color: num::rgb_to_color(lopt.color[0], lopt.color[1], lopt.color[2]),
             steps,
             bbox: bbox.expect("el bloque tiene al menos un corte"),

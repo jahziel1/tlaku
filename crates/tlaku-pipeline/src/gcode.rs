@@ -110,6 +110,12 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
             u_offset_mm: if device.u_axis { device.u_offset } else { 0.0 },
             // Sin segundo láser en el perfil todas las capas salen con el láser 1 (ver
             // `dialect_warnings`).
+            // Un U por capa solo en máquinas con eje U; si todos son 0 no se emite nada.
+            block_u_offset: if device.u_axis {
+                job.layers.iter().map(|l| l.u_offset_mm).collect()
+            } else {
+                Vec::new()
+            },
             block_laser2: if device.laser2 {
                 job.layers.iter().map(|l| l.laser2).collect()
             } else {
@@ -190,6 +196,9 @@ pub(crate) fn dialect_warnings(
                 machine = device.name
             ));
         }
+    }
+    if !device.u_axis && layers.iter().any(|l| l.u_offset_mm != 0.0) {
+        out.push(tr!("pipeline.gcode.no_u_axis", machine = device.name));
     }
     if device.power_mode == tlaku_doc::PowerMode::Dynamic && d.dynamic_on.is_none() {
         out.push(if d.constant_on.is_empty() {

@@ -13,7 +13,7 @@ The first time you open Tlaku, the question **Is this your first time with a las
 - **Yes, I want simple mode** enters simple mode.
 - **No, I want all the tools** and **Skip** leave you in full mode, the usual one.
 
-Your answer is saved and the question does not appear again. To switch modes whenever you like, use the button in the top bar: it says **Simple mode** when you are in full mode and **Full mode** when you are in simple mode. Switching **does not touch your design**: the document, the layers and the undo history are the same in both modes; only what is shown changes. You can do part of the work in one mode and continue in the other.
+Simple mode **is Tlaku's beginner mode** (the "Beginner mode" of other programs): it hides everything advanced, not just some settings. Your answer is saved and the question does not appear again. To switch modes whenever you like, use the button in the top bar (or **Preferences > General > Interface mode**, where you can also go back to **Ask when opening**): it says **Simple mode** when you are in full mode and **Full mode** when you are in simple mode. Switching **does not touch your design**: the document, the layers and the undo history are the same in both modes; only what is shown changes. You can do part of the work in one mode and continue in the other.
 
 In simple mode the menus, the side tools, the color palette and the docked panel are hidden; the canvas and the top bar stay, and the steps panel appears on the right.
 

@@ -301,6 +301,12 @@ pub struct LayerSettings {
     /// el láser 1. El motor emite el comando de selección del dialecto al cambiar de láser.
     #[serde(default)]
     pub laser2: bool,
+    /// Máquinas con `DeviceProfile::u_axis`: posición de U (mm, relativa a donde estaba al
+    /// empezar el trabajo) con la que se ejecuta esta capa; se suma al `DeviceProfile::u_offset`
+    /// del trabajo. Entre dos capas el motor emite solo la diferencia, y al terminar deshace el
+    /// total. 0 = la capa va con el U del trabajo. Sin eje U se ignora.
+    #[serde(default)]
+    pub u_offset: f64,
     /// Solo máquinas galvo (y `ppi`, algunas de CO2).
     #[serde(default)]
     pub galvo: GalvoLayer,
@@ -345,6 +351,7 @@ impl LayerSettings {
             angle_increment: 0.0,
             sub_layers: Vec::new(),
             laser2: false,
+            u_offset: 0.0,
             galvo: GalvoLayer::default(),
         }
     }

@@ -14,7 +14,9 @@ use tlaku_doc::{
     ImageObject, JobOptions, LaserSource, LayerMode, LayerSettings, ObjectKind, Overscan,
     RepeatMarking, Slice3d, SplitMarking, VectorObject, Wobble,
 };
-use tlaku_pipeline::{ComputedJob, MarkPlan, build, compute, job_mark_sequence, mark_sequence};
+use tlaku_pipeline::{
+    ComputedJob, MarkPlan, build, compute, doc_mark_sequence, job_mark_sequence, mark_sequence,
+};
 
 const RED: Rgb = Rgb(255, 0, 0);
 
@@ -23,12 +25,10 @@ fn object(id: &str, closed: bool, pts: &[(f64, f64)]) -> DesignObject {
         id: id.into(),
         layer: RED,
         transform: IDENTITY,
-        kind: ObjectKind::Vector(VectorObject {
-            paths: vec![BezPath::from(&Polyline {
-                points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
-                closed,
-            })],
-        }),
+        kind: ObjectKind::Vector(VectorObject::new(vec![BezPath::from(&Polyline {
+            points: pts.iter().map(|&(x, y)| Point::new(x, y)).collect(),
+            closed,
+        })])),
         locked: false,
         hidden: false,
         group: None,
@@ -841,6 +841,91 @@ fn split_sequence_from_a_computed_job() {
     }
     // El contorno de 250 x 130 mm mide 760 mm; los solapes repiten algo de trazo, nunca menos.
     assert!(covered >= 760.0 - 1e-6, "{covered}");
+}
+
+/// Piezas por formas enteras (M40) de punta a punta: la secuencia del documento, un trabajo por
+/// pieza con `tile` y `selection` y el resultado. Tres rectángulos de 60 mm en un campo de 110:
+/// con franjas fijas el segundo (x de 90 a 150) cruza el borde de x = 130 y se marca en dos
+/// partes; por formas enteras cada uno va en su pieza y ninguno se parte.
+#[test]
+fn whole_shapes_split_marks_every_shape_in_one_piece() {
+    let mut device = galvo_device();
+    device.bed = [400.0, 400.0];
+    device.galvo.split = SplitMarking {
+        enabled: true,
+        ..SplitMarking::default()
+    };
+    let doc = document(
+        vec![
+            rect("a", 20.0, 100.0, 60.0, 20.0),
+            rect("b", 90.0, 100.0, 60.0, 20.0),
+            rect("c", 170.0, 100.0, 60.0, 20.0),
+        ],
+        layer(|_| {}),
+    );
+    let options = JobOptions::default();
+    let whole_job = build(&doc, &device, &options, None).unwrap();
+    let field = tlaku_pipeline::field_rect(&device);
+    let widths = |plan: &MarkPlan, device: &DeviceProfile| -> Vec<f64> {
+        plan.steps
+            .iter()
+            .map(|s| {
+                let o = JobOptions {
+                    tile: s.tile.clone(),
+                    selection: s.objects.clone(),
+                    ..JobOptions::default()
+                };
+                let piece = build(&doc, device, &o, None).unwrap();
+                let b = piece.bounds().unwrap();
+                assert!(
+                    b.min.x >= field.min.x - 1e-6 && b.max.x <= field.max.x + 1e-6,
+                    "pieza fuera del campo: {b:?}"
+                );
+                b.max.x - b.min.x
+            })
+            .collect()
+    };
+    // Franjas fijas: el rectángulo del medio sale en dos mitades.
+    let plain = doc_mark_sequence(&doc, &whole_job, &device, &options).unwrap();
+    assert!(plain.steps.iter().all(|s| s.objects.is_none()));
+    let w = widths(&plain, &device);
+    // Dos franjas (20..130 y 130..230): la primera lleva a y la mitad de b (110 mm de trazo), la
+    // segunda la otra mitad de b y c (100 mm).
+    assert_eq!(w.len(), 2, "{w:?}");
+    assert!(
+        (w[0] - 110.0).abs() < 1e-6 && (w[1] - 100.0).abs() < 1e-6,
+        "{w:?}"
+    );
+    // Formas enteras: tres piezas, cada rectángulo entero (60 mm).
+    device.galvo.split.whole_shapes = true;
+    let plan = doc_mark_sequence(&doc, &whole_job, &device, &options).unwrap();
+    assert!(plan.warnings.is_empty(), "{:?}", plan.warnings);
+    assert_eq!(plan.steps.len(), 3);
+    let ids: Vec<_> = plan
+        .steps
+        .iter()
+        .map(|s| s.objects.clone().unwrap())
+        .collect();
+    assert_eq!(ids, vec![vec!["a"], vec!["b"], vec!["c"]]);
+    for w in widths(&plan, &device) {
+        assert!((w - 60.0).abs() < 1e-6, "{w}");
+    }
+    // La mesa avanza lo que separa los centros: a (50) a b (120) y b a c (200).
+    assert!((plan.steps[1].stage.dx + 70.0).abs() < 1e-9);
+    assert!((plan.steps[2].stage.dx + 80.0).abs() < 1e-9);
+    // Con una selección del usuario solo entran sus objetos.
+    let only_ac = JobOptions {
+        selection: Some(vec!["a".into(), "c".into()]),
+        ..JobOptions::default()
+    };
+    let job = build(&doc, &device, &only_ac, None).unwrap();
+    let plan = doc_mark_sequence(&doc, &job, &device, &only_ac).unwrap();
+    let ids: Vec<_> = plan
+        .steps
+        .iter()
+        .map(|s| s.objects.clone().unwrap())
+        .collect();
+    assert_eq!(ids, vec![vec!["a"], vec!["c"]]);
 }
 
 #[test]

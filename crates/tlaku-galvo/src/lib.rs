@@ -9,8 +9,10 @@
 //! - [`codes`]: tabla de todos los códigos conocidos con fuente, confianza y política de envío.
 //! - [`cmd`]: comandos tipados; solo existen los que Tlaku envía.
 //! - [`params`]: unidades de la tarjeta (velocidad, frecuencia, potencia, retardos).
-//! - [`calib`]: milímetros a 16 bits centrados en `0x8000` y corrección paramétrica del campo.
-//! - [`cor`]: lectura de la estructura de un `.cor` (sin aplicarlo).
+//! - [`calib`]: milímetros a 16 bits centrados en `0x8000`, corrección paramétrica del campo y
+//!   tabla del `.cor`.
+//! - [`cor`]: lectura de un `.cor` de EZCAD y su tabla de 65 x 65 desplazamientos, que `calib`
+//!   aplica en el anfitrión (nunca se escribe a la tarjeta).
 //! - [`compile`]: de `Toolpath` y `GalvoDevice` a la lista de comandos; encuadres.
 //! - [`safety`]: límites del perfil, validación de listas, lista blanca de inmediatos y
 //!   secuencia de apagado.
@@ -46,8 +48,8 @@
 //!
 //! # Lo que no se hace, a propósito
 //!
-//! Escribir EEPROM o firmware, escribir la tabla de corrección o los parámetros de configuración
-//! de la tarjeta, `LaserSignalOn`, pausa/reanudar, escribir salidas arbitrarias, marcado al vuelo,
+//! Escribir EEPROM o firmware, escribir la tabla de corrección (el `.cor` se aplica en el
+//! anfitrión) o los parámetros de configuración de la tarjeta, `LaserSignalOn`, pausa/reanudar, escribir salidas arbitrarias, marcado al vuelo,
 //! ejes y Z, y tarjetas EZCAD3/DLC.
 
 pub mod calib;

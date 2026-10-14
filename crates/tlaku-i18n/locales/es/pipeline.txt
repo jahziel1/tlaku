@@ -253,6 +253,7 @@ pipeline.gcode.pointer_frame_outside = El encuadre con el puntero rojo se sale d
 pipeline.ruida.layers_merged = Ruida admite {max} capas y el trabajo tiene {blocks}: al exportar se fusionarán {merged} capas vecinas de ajustes idénticos (velocidad, potencia, aire) y quedarán {layers}; el orden de corte no cambia
 pipeline.ruida.layers_too_many = Ruida admite {max} capas y el trabajo tiene {blocks}: aun fusionando {merged} capas vecinas de ajustes idénticos quedan {layers}, así que no se podrá exportar ni enviar. Unifica colores o ajustes (velocidad, potencia, aire) de capas seguidas
 pipeline.ruida.cannot_export = Ruida: no se podrá exportar el trabajo: {error}
+pipeline.ruida.no_laser2 = la máquina '{machine}' no tiene segundo láser en su perfil: las capas que piden el láser 2 salen con el láser 1
 
 # preview.rs
 pipeline.preview.paths_one = 1 trayectoria
@@ -452,8 +453,17 @@ pipeline.galvo.overscan_ignored = capa {layer}: el galvo no necesita overscan; s
 pipeline.galvo.wobble_line_only = capa {layer}: el bamboleo solo se aplica a capas line; se ignora
 pipeline.galvo.wobble_bad_size = capa {layer}: el bamboleo necesita tamaño y paso mayores que 0 (tamaño {size}, paso {step})
 pipeline.galvo.wobble_too_many_points = {label}: el bamboleo generaría demasiados puntos (más de {max}); se omite (aumenta el paso o reduce el trazo)
-pipeline.galvo.cylinder_clipped = {label}: {n} punto(s) del diseño quedan fuera de lo visible desde el espejo (más de 90 grados de arco en el cilindro); se recortan al borde
+pipeline.galvo.cylinder_clipped = {label}: {n} punto(s) del diseño quedan fuera de lo visible desde el espejo (pasan del horizonte del cilindro: 90 grados de arco como máximo y menos en uno convexo); se recortan al borde
 pipeline.galvo.layer_outside_field = la capa {layer} se sale del campo del galvo ({size}x{size} mm): ocupa X de {x0} a {x1} mm, Y de {y0} a {y1} mm
 pipeline.galvo.layer_not_finite = la capa {layer} tiene coordenadas que no son números
 pipeline.galvo.layer_mode_outside_field = la capa {layer} ({mode}) se sale del campo del galvo de {size}x{size} mm: ocupa X de {x0} a {x1} mm, Y de {y0} a {y1} mm
 pipeline.galvo.reduce_to_field = reduce el diseño al campo (o activa el marcado dividido para partirlo en piezas)
+
+# ola 6E: eje U por capa (gcode.rs)
+pipeline.gcode.no_u_axis = la máquina '{machine}' no tiene eje U: el desplazamiento de U de las capas se ignora
+
+# --- ola 6E: marcado dividido por formas enteras y rotativo del galvo (split.rs, split_shapes.rs) ---
+pipeline.split.rotary_too_tall = el diseño mide {h} mm de alto y la pieza {side} mm: con el eje del rotativo en Y la superficie avanza en X y el rotativo no mueve Y
+pipeline.split.whole_images = el trabajo lleva imágenes y no se pueden asignar a una pieza entera: se parte en franjas del tamaño del campo (las formas que cruzan el borde se marcan en dos partes)
+pipeline.split.whole_transform = el trabajo tiene una transformación de registro (Print & Cut) y no se puede partir por formas: se parte en franjas del tamaño del campo
+pipeline.split.whole_too_big = la forma «{id}» mide {w} x {h} mm y la pieza {side} mm: no cabe entera en el campo, se parte en franjas del tamaño del campo (las formas que cruzan el borde se marcan en dos partes)

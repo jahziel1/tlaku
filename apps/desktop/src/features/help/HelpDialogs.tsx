@@ -1,12 +1,13 @@
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getApi } from '@/api';
 import { t } from '@/i18n';
 import { getPref, useStore } from '@/store';
 import { isJobBusy } from '@/store/selectors';
-import { Modal } from '@/ui/Modal';
 import { JobLogDialog } from './JobLogDialog';
 import { CopyButton } from './CopyButton';
+import { Frame } from './HelpFrame';
+import { OpenFormButton, ShareMachineDialog, ShareMaterialDialog, useBugReportUrl } from './ShareDialogs';
 import { systemInfo } from './clipboard';
 import { useHelpUi } from './helpStore';
 import { donationLinks, PROJECT_LINKS } from './links';
@@ -14,37 +15,6 @@ import { MarkdownView, type MarkdownActions } from './MarkdownView';
 import { findPage, indexPages, INDEX_FILE, manualPages, NEWS_FILE, searchPages, thirdPartyBlocks } from './pages';
 import { isMainWindow, scheduleStartupCheck, useUpdateUi, type UpdateInfo, type UpdatePhase } from './updater';
 import './help.css';
-
-/** Marco común: fondo, tarjeta, título y botón de cerrar. */
-function Frame({ id, title, wide, onClose, children, head }: {
-  id: string;
-  title: string;
-  wide?: boolean;
-  onClose: () => void;
-  children: ReactNode;
-  head?: ReactNode;
-}) {
-  return (
-    <Modal
-      labelId={id}
-      onClose={onClose}
-      backdropClassName="help"
-      cardClassName={`help__card${wide ? ' help__card--wide' : ''}`}
-      initialFocus="[data-autofocus], input"
-      closeOnBackdrop
-      guardOutside
-    >
-      <div className="help__head">
-        <h2 id={id} className="help__title">{title}</h2>
-        {head}
-        <button type="button" className="icon-btn" aria-label={t('help.close')} title={t('help.close')} onClick={onClose}>
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
-      {children}
-    </Modal>
-  );
-}
 
 /** Una dirección copiable, o el aviso de que aún no se publica. */
 function LinkRow({ url }: { url: string }) {
@@ -202,6 +172,7 @@ export function ReportDialog() {
   const close = useHelpUi((s) => s.close);
   const version = useAppVersion();
   const info = systemInfo(version ?? null, typeof navigator === 'undefined' ? {} : navigator);
+  const formUrlText = useBugReportUrl(version ?? null);
   return (
     <Frame id="help-report-title" title={t('help.report.title')} onClose={close}>
       <div className="help__scroll help__prose">
@@ -214,11 +185,17 @@ export function ReportDialog() {
           <li>{t('help.report.item4')}</li>
         </ul>
         <p className="help__warnnote">{t('help.report.warning')}</p>
-        <h3 className="help__sub">{t('help.report.info')}</h3>
-        <pre className="md__pre" data-autofocus tabIndex={0} role="region" aria-label={t('help.report.info')}><code>{info}</code></pre>
-        <p><CopyButton text={info} label={t('help.report.copyInfo')} /></p>
         <h3 className="help__sub">{t('help.report.where')}</h3>
+        <p>{t('help.report.prefilled')}</p>
+        <p className="help__actions">
+          <OpenFormButton url={formUrlText} label={t('help.report.open')} autoFocus />
+          <CopyButton text={formUrlText} label={t('help.report.copyForm')} />
+        </p>
+        <p className="hint">{t('help.share.nothingSent')}</p>
         <LinkRow url={PROJECT_LINKS.issues} />
+        <h3 className="help__sub">{t('help.report.info')}</h3>
+        <pre className="md__pre" tabIndex={0} role="region" aria-label={t('help.report.info')}><code>{info}</code></pre>
+        <p><CopyButton text={info} label={t('help.report.copyInfo')} /></p>
         <p className="hint">{t('help.linkNote')}</p>
       </div>
     </Frame>
@@ -240,6 +217,7 @@ export function DonateDialog() {
             {links.map((l) => (
               <div key={l.id} data-donation={l.id}>
                 <p className="help__donor">{l.id === 'sponsors' ? 'GitHub Sponsors' : 'Ko-fi'}</p>
+                <p className="help__linkrow"><OpenFormButton url={l.url} label={t('help.donate.open')} /></p>
                 <LinkRow url={l.url} />
               </div>
             ))}
@@ -365,6 +343,10 @@ export function HelpDialogHost() {
       return <ReportDialog />;
     case 'donate':
       return <DonateDialog />;
+    case 'shareMachine':
+      return <ShareMachineDialog />;
+    case 'shareMaterial':
+      return <ShareMaterialDialog />;
     case 'jobLog':
       return <JobLogDialog />;
     case 'update':

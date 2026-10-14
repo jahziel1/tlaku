@@ -442,9 +442,12 @@ export function DeviceManager() {
               {/* El galvo no mueve Z ni ejes extra; solo el rotativo (galvo rotativo: franjas de la pieza). */}
               {!galvo && <ZAxisField draft={draft} edit={edit} />}
               {!galvo && <ExtraAxesFields draft={draft} edit={edit} />}
-              <RotaryFields draft={draft} edit={edit} issues={issues}>
-                {!galvo && <RotaryTest draft={draft} blocked={rotaryBlocked} />}
-              </RotaryFields>
+              {/* El galvo tiene su propio editor del rotativo (en su sección), con textos que lo explican. */}
+              {!galvo && (
+                <RotaryFields draft={draft} edit={edit} issues={issues}>
+                  <RotaryTest draft={draft} blocked={rotaryBlocked} />
+                </RotaryFields>
+              )}
             </fieldset>
 
             <fieldset className="mc-group" hidden={galvo}>

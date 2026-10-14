@@ -80,6 +80,7 @@ impl Worker {
             Request::Command { reply, .. }
             | Request::Jog { reply, .. }
             | Request::JogTo { reply, .. }
+            | Request::Probe { reply, .. }
             | Request::Start { reply, .. } => {
                 let _ = reply.send(Err(tr!("desktop.worker.job_running")));
             }
@@ -111,6 +112,15 @@ impl Worker {
     pub(super) fn stream_event(&mut self, run: &mut Run, ev: Event) {
         match ev {
             Event::Progress { acked, total, .. } => {
+                if let Some(c) = &run.checkpoint {
+                    c.writer.note_acked(acked);
+                    if let Some(e) = c.writer.take_error() {
+                        self.log(
+                            LogDir::In,
+                            &tr!("desktop.resume.checkpoint_write_failed", err = e),
+                        );
+                    }
+                }
                 if run.kind != RunKind::Job {
                     return;
                 }
@@ -125,7 +135,18 @@ impl Worker {
                     }));
                 }
             }
-            Event::Status(r) => self.on_status(&r),
+            Event::Status(r) => {
+                self.on_status(&r);
+                if let Some(c) = &run.checkpoint {
+                    c.writer.note_status(resume::StatusSnap {
+                        mpos: self.last.machine_pos,
+                        wpos: self.last.work_pos,
+                        wco: self.wco,
+                        planner_free: self.last.buffer.planner,
+                        rx_free: self.last.buffer.rx,
+                    });
+                }
+            }
             Event::Error {
                 code,
                 source_line,
@@ -171,6 +192,12 @@ impl Worker {
                 Ok(_) | Err(RecvTimeoutError::Timeout) => {}
             }
         }
+        self.shared.running.store(false, Ordering::SeqCst);
+        // Desconectar con un trabajo en curso lo detiene, pero no es «cancelar a propósito»: el
+        // punto de control se queda para poder continuarlo (se borra al pasar a otra máquina).
+        if let Some(c) = run.checkpoint {
+            c.writer.finish(resume::Finish::Keep, &c.store);
+        }
         if run.kind == RunKind::Job {
             self.job_event(
                 JobState::Cancelled,
@@ -183,14 +210,34 @@ impl Worker {
     /// El `Streamer` terminó: recupera el puerto y comunica el resultado.
     pub(super) fn finish(&mut self, run: Run) -> Result<Phase, Fail> {
         let kind = run.kind;
+        let checkpoint = run.checkpoint;
+        self.shared.running.store(false, Ordering::SeqCst);
         let (streamer, outcome) = run
             .job
             .join()
             .map_err(|_| Fail::Lost(tr!("desktop.worker.stream_thread_died")))?;
+        // Terminó bien o se canceló a propósito: el punto de control se borra (antes del evento,
+        // para que la interfaz ya lo vea borrado). Cualquier otro final lo conserva.
+        if let Some(c) = checkpoint {
+            let how = match outcome {
+                Outcome::Completed { .. } | Outcome::Cancelled => resume::Finish::Discard,
+                _ => resume::Finish::Keep,
+            };
+            if let Some(e) = c.writer.take_error() {
+                self.log(
+                    LogDir::In,
+                    &tr!("desktop.resume.checkpoint_write_failed", err = e),
+                );
+            }
+            c.writer.finish(how, &c.store);
+        }
         // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
         // `ALARM:3` es justo eso: reinicio con la máquina en movimiento.
         let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost)
             || matches!(outcome, Outcome::Alarm(3));
+        if position_lost {
+            self.shared.homed.store(false, Ordering::SeqCst);
+        }
         let t = streamer.into_transport();
         self.reader.clear();
         self.last_poll = None;

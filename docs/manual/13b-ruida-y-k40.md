@@ -14,17 +14,18 @@ Ruida es la controladora de la mayoría de los láseres de CO2 de caja metálica
 - **Enviar un trabajo.** Tlaku calcula el trabajo, lo convierte al formato `.rd` de Ruida y lo sube con una barra de progreso.
 - **Pausar, reanudar y detener.**
 - **Mover el cabezal** con el láser apagado y **encuadrar** (siempre con el láser apagado).
-- **Leer información** de la controladora (velocidades, aceleración, tiempo encendida, trabajos hechos, recorrido) y la **lista de documentos** guardados en su memoria.
+- **Leer información** de la controladora (velocidades, aceleración, tiempo encendida, trabajos hechos, recorrido, versión de la placa y funciones) y la **lista de documentos** guardados en su memoria.
+- **Elegir el nombre** del documento al guardar, **ejecutar** y **borrar** documentos de la memoria, y **leer y escribir ajustes** de la controladora con respaldo, confirmación y verificación (todo **experimental**, ver «Ajustes y documentos de la controladora»).
 - Ensayar todo con la **máquina virtual Ruida (CO2)**, sin riesgo.
 
 ### Qué no hace
 
-- **No escribe ajustes de la controladora.** La información y la lista de documentos son de solo lectura. Escribir la memoria de la controladora sin una máquina de pruebas puede dejarla inutilizable, así que se dejó pendiente a propósito.
-- **No borra ni ejecuta documentos** de su memoria (hazlo desde el panel de la máquina). Con un índice equivocado se borraría o ejecutaría otro documento.
+- **No escribe cualquier cosa en la controladora:** solo una **lista cerrada** de 24 ajustes y dentro de un rango (ver más abajo). No toca la potencia ni la frecuencia del láser, el modo de control, las entradas y salidas ni los bloqueos.
+- **No renombra ni «borra todos».** Un documento tiene el nombre que se le puso al guardarlo; borrar es de uno en uno, con su nombre confirmado.
 - **No usa G-code:** la consola, los ajustes en vivo de velocidad y potencia, los ajustes `$`, las macros y el disparo de prueba no aplican (se ocultan con el motivo). La velocidad y la potencia van dentro del archivo del trabajo.
 - **No encuadra con el láser encendido.**
-- **No configura el rotativo.** En las controladoras DSP el rotativo se activa en los ajustes de la propia máquina; Tlaku manda la Y en milímetros de superficie, sin escalarla ni reflejarla, y lo avisa en el registro.
-- **No soporta láser 2 con Ruida** y tampoco se conecta a Trocen ni TopWisdom. Los archivos `.rd` **sí se abren** como diseño (ver [Importar y exportar](03b-importar-y-exportar.md)), pero solo para recuperar la geometría y los ajustes de cada capa.
+- **No activa el rotativo.** En las controladoras DSP el rotativo se activa en los ajustes de la propia máquina; Tlaku manda la Y en milímetros de superficie, sin escalarla ni reflejarla, y lo avisa en el registro. Sí puede escribir sus dos ajustes públicos (pulsos y diámetro), como números sin unidad documentada.
+- **No se conecta a Trocen ni TopWisdom.** El **láser 2** de una capa sale en el `.rd` (experimental, sin probar en una máquina de dos láseres; las capas de imagen con láser 2 se rechazan). Los archivos `.rd` **sí se abren** como diseño (ver [Importar y exportar](03b-importar-y-exportar.md)), pero solo para recuperar la geometría y los ajustes de cada capa.
 
 ### Preparar el perfil
 
@@ -35,6 +36,22 @@ Ruida es la controladora de la mayoría de los láseres de CO2 de caja metálica
    - **Ejecutar al subir:** déjalo **apagado** (ver más abajo).
 3. En **Origen** elige la esquina donde la máquina hace su *home* (lo más común, arriba a la izquierda). Es una suposición hasta probar con hardware: haz primero un saltito con el láser apagado.
 4. Cama: los valores de partida del asistente (600 × 400 mm) son solo eso; confírmalos con **Leer información** al conectar. **Si la cama del perfil no coincide con la que informa la máquina, Tlaku no envía ningún trabajo** hasta que la corrijas, porque el origen del archivo depende de ella.
+
+### Ajustes y documentos de la controladora (experimental)
+
+> **EXPERIMENTAL: sin probar con una controladora real.** Escribir la memoria de una controladora puede dejarla mal configurada. Anota **a mano** todos los valores de su menú antes de empezar.
+
+**Todo lo que escribe está apagado de fábrica.** Para habilitarlo, enciende **Escrituras experimentales en Ruida** en el panel de Ruida: un diálogo explica que las órdenes solo se probaron con un emulador, que las fuentes públicas no coinciden en algunas y que pueden desconfigurar la máquina, y pide escribir **ENTIENDO** o marcar una casilla. Esa preferencia nunca se importa de un paquete `.tlakuprefs`. Apagada, los botones de escribir (ajustes, calibrar, rotativo, restaurar, **Ejecutar**, **Borrar** y **Reemplazar**) quedan deshabilitados y su ayuda dice cómo activarlos, y el motor también los rechaza; **leer** la información, los ajustes y la lista de documentos, y **exportar un respaldo**, funcionan siempre. En la línea de comandos, `tlaku ruida doc <ip> delete|run <número> <nombre>` exige `--experimental-writes`.
+
+En el panel **Controladora Ruida** (con la máquina conectada y sin trabajo en marcha):
+
+- **Ajustes de la controladora…** abre una ventana con los 24 ajustes que Tlaku puede escribir: velocidad de movimiento rápido y de home, y por eje la velocidad máxima y de arranque, la aceleración, la cama, el desplazamiento del home, los botones del panel, el paro de emergencia y el **paso** (X, Y, Z y U), más los dos del **rotativo**. Cada uno muestra su valor actual, su dirección, el nombre público que tiene en otros proyectos y el rango permitido (un límite de seguridad de Tlaku, no de la controladora). Las velocidades se ven en mm/s, las aceleraciones en mm/s² y las longitudes en mm; el paso en µm y el rotativo sin unidad (ninguna fuente pública la dice).
+- **Escribir** siempre sigue los mismos pasos: (1) escribes el valor nuevo y pulsas **Revisar los cambios**; (2) ves **cada valor actual y el nuevo** y marcas **«Entiendo que esto cambia la configuración de mi controladora»** (sin la casilla no se escribe nada); (3) Tlaku **guarda un respaldo con la fecha** en la carpeta de configuración (`ruida-backups/`; si no puede guardarlo, no escribe nada), escribe de uno en uno y **vuelve a leer** cada valor para compararlo; (4) si algo no coincide, la ventana lo dice con una advertencia y te ofrece **Restaurar el respaldo previo**.
+- **Respaldos.** La lista **Respaldos automáticos** guarda uno antes de cada escritura; elige uno y **Restaurar…** (muestra las diferencias, pide la misma casilla, guarda antes un respaldo del estado actual y verifica). **Exportar respaldo…** guarda los ajustes actuales en un archivo `.tlakuruida` (JSON propio de Tlaku; **no** es el `.lbset` de LightBurn, cuyo formato no tiene una descripción pública) e **Importar respaldo…** lo lee y te enseña las diferencias antes de escribir. Un respaldo de otra tarjeta (otro modelo) se rechaza.
+- **Calibrar un eje.** Manda mover el eje una distancia conocida (por ejemplo 100 mm), mide con una regla lo que se movió de verdad y escríbelo. Tlaku propone el paso nuevo (paso actual × medido ÷ pedido), lo carga en la tabla y lo escribes con la revisión de siempre; después repite la medición. Rechaza correcciones de más de ±25 %, que casi siempre son un error de medida. **Si tras escribirlo el error se duplica en lugar de bajar, restaura el respaldo:** el cálculo supone que el ajuste es la longitud de cada paso.
+- **Rotativo.** Escribe «Rotativo: pulsos» y «Rotativo: diámetro» con los números que tu controladora ya tiene en su menú; Tlaku no los calcula. El rotativo se activa en el panel de la controladora.
+
+**Documentos de la memoria.** En «Documentos en la memoria», **Leer lista** muestra cada documento con **Ejecutar** y **Borrar**. Cada uno abre un diálogo con una casilla de confirmación; **Ejecutar** pasa además por la **misma lista de comprobación de seguridad que Iniciar** (aire, enfoque, material...). Antes de actuar, Tlaku vuelve a leer el nombre del documento y no hace nada si ya no coincide con el que elegiste. Las órdenes de borrar y ejecutar salen de proyectos públicos que **no coinciden entre sí**; la primera vez prueba con **un solo documento de prueba**. Al **guardar** un trabajo, el diálogo **Iniciar** deja elegir el **nombre del documento** (1 a 8 letras, cifras, «_» o «-»; vacío = automático, que nunca pisa otro). Si ya hay un documento con ese nombre, debes marcar **Reemplazar**: Tlaku borra el viejo (con las comprobaciones de arriba) y sube el nuevo; sin marcarlo, falla sin tocar nada.
 
 ### Más de 128 capas y velocidades altas
 
@@ -60,6 +77,7 @@ Es así porque un trabajo que empieza en cuanto llega puede disparar el láser a
 4. **Guardar un trabajo pequeño** (un cuadrado de 20 mm) con **Ejecutar al subir** apagado. En **Documentos en la memoria**, **Leer lista**: debe aparecer.
 5. **Ejecutarlo desde el panel de la máquina** con el láser deshabilitado o a potencia 0, y comprueba que el recorrido es el esperado.
 6. Solo entonces, potencia baja sobre material de desecho.
+7. Los **ajustes** y el **borrar/ejecutar documentos** son lo último: primero un solo cambio inocuo y su restauración (lista en `docs/validacion-hardware.md`, sección 5).
 
 Desde la línea de comandos siguen existiendo `tlaku ruida export-rd` (a archivo `.rd`, sin conexión), `tlaku ruida send` (por UDP, guarda por defecto; `--run` ejecuta) y `tlaku ruida status` (solo lectura).
 

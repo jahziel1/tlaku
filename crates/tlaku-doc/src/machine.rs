@@ -182,6 +182,9 @@ pub enum SimulatedFault {
     Alarm3,
     /// El cable se arranca: la conexión se pierde.
     Disconnect,
+    /// Corte de luz: la placa se apaga y vuelve sin saber dónde está (pierde la posición) y la
+    /// conexión se pierde. Sirve para probar «continuar un trabajo interrumpido».
+    PowerCut,
 }
 
 /// Salida de `connect`.

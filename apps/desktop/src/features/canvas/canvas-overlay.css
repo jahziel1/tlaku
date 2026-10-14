@@ -256,6 +256,32 @@
   gap: var(--s-3);
   font-size: var(--text-sm);
 }
+.shape-props__area {
+  width: 100%;
+  resize: vertical;
+  min-height: 3.2em;
+}
+.shape-props__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+.shape-props__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s-2) var(--s-4);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.shape-props__facts dt {
+  color: var(--text-muted);
+}
+.shape-props__facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .shape-props__note {
   margin: 0;
   color: var(--text-muted);

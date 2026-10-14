@@ -91,12 +91,21 @@ export function eventToCombo(e: KeyEventLike, mac: boolean): string | null {
 }
 
 /** Texto para mostrar al usuario: `⌘⇧Z` en macOS, `Ctrl+Mayús+Z` en el resto. */
-export function formatCombo(combo: string, mac: boolean): string {
+export function formatCombo(combo: string, mac: boolean, lang: 'es' | 'en' = 'es'): string {
   const p = parseCombo(combo);
-  const key = KEY_LABELS[p.key] ?? p.key;
+  const key = (lang === 'en' ? KEY_LABELS_EN[p.key] : undefined) ?? KEY_LABELS[p.key] ?? p.key;
   if (mac) return `${p.alt ? '⌥' : ''}${p.shift ? '⇧' : ''}${p.mod ? '⌘' : ''}${key}`;
-  return [p.mod && 'Ctrl', p.alt && 'Alt', p.shift && 'Mayús', key].filter(Boolean).join('+');
+  return [p.mod && 'Ctrl', p.alt && 'Alt', p.shift && (lang === 'en' ? 'Shift' : 'Mayús'), key].filter(Boolean).join('+');
 }
+
+/** Nombres de teclas en inglés cuando difieren de los de `KEY_LABELS` (solo se usan al generar el README en inglés). */
+const KEY_LABELS_EN: Record<string, string> = {
+  Delete: 'Del',
+  Enter: 'Enter',
+  Space: 'Space',
+  PageUp: 'PgUp',
+  PageDown: 'PgDn',
+};
 
 const KEY_LABELS: Record<string, string> = {
   Escape: 'Esc',

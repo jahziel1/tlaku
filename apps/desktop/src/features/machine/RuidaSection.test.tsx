@@ -38,6 +38,12 @@ const INFO: RuidaInfo = {
   total_jobs: 42,
   travel_m: [120, 95],
   documents: 2,
+  board_version: 'RD-6442',
+  previous_work: 90,
+  control_mode: 0x4000,
+  focus: true,
+  z_return_docking: false,
+  air_assist_mode: 2,
 };
 
 beforeEach(() => {
@@ -68,6 +74,15 @@ describe('panel de la controladora Ruida', () => {
     expect(h).toContain('Leer lista');
   });
 
+  it('ofrece los ajustes de la controladora marcados como experimentales y deshabilitados sin conexión', () => {
+    const h = renderToString(<RuidaPanel device={ruida()} connected={false} busy={false} />);
+    expect(h).toContain('Ajustes de la controladora…');
+    expect(h).toContain('EXPERIMENTAL: sin probar con una controladora real');
+    expect(h).not.toContain('Escribir los ajustes de la controladora no está disponible');
+    // La lista de documentos ya no es solo de lectura: ejecutar y borrar piden confirmación.
+    expect(h).toContain('Experimental: la numeración');
+  });
+
   it('la insignia dice que es experimental y por qué', () => {
     const h = renderToString(<RuidaExperimentalBadge />);
     expect(h).toContain('Experimental');
@@ -85,6 +100,12 @@ describe('panel de la controladora Ruida', () => {
     expect(rows['Tiempo encendida']).toBe('2 h 05 min');
     expect(rows['Tiempo de láser']).toBe('no informado');
     expect(rows['Documentos guardados']).toBe('2');
+    expect(rows['Versión de la placa']).toBe('RD-6442');
+    expect(rows['Modo de control del sistema']).toBe('sin retorno');
+    expect(rows['Funciones']).toBe('foco, aire: modo 2');
+    const blind = Object.fromEntries(infoRows({ ...INFO, board_version: null, control_mode: null, focus: null, z_return_docking: null, air_assist_mode: null }));
+    expect(blind['Funciones']).toBe('no informado');
+    expect(blind['Modo de control del sistema']).toBe('no informado');
     // Un modelo desconocido se dice así.
     expect(Object.fromEntries(infoRows({ ...INFO, model: null }))['Modelo']).toBe('modelo desconocido');
   });

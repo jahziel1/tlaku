@@ -66,6 +66,8 @@ struct Builder<'a> {
     unidirectional: bool,
     /// La capa en curso va con el segundo láser.
     laser2: bool,
+    /// Desplazamiento de U de la capa en curso (`LayerSettings::u_offset`).
+    u_offset_mm: f64,
     /// Parámetros de galvo de la capa en curso (solo máquinas galvo).
     galvo: Option<galvo::LayerCtx>,
 }
@@ -277,6 +279,7 @@ pub fn build(
         sub: None,
         unidirectional: optimization.hide_backlash,
         laser2: false,
+        u_offset_mm: 0.0,
         galvo: None,
     };
     for step in &steps {
@@ -285,6 +288,7 @@ pub fn build(
         let color = layer.color;
         b.sub = layer.position();
         b.laser2 = layer.settings.laser2;
+        b.u_offset_mm = layer.settings.u_offset;
         b.galvo = galvo::layer_ctx(galvo_job.as_ref(), layer.settings, &mut b.warnings)?;
         match &resolved[i] {
             Resolved::Vector(ResolvedLayer::Line { settings, kerf_mm }) => {

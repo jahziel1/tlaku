@@ -440,7 +440,7 @@ fn vector_object(id: String, layer: Rgb, paths: Vec<BezPath>) -> DesignObject {
         id,
         layer,
         transform: IDENTITY,
-        kind: ObjectKind::Vector(VectorObject { paths }),
+        kind: ObjectKind::Vector(VectorObject::new(paths)),
         locked: false,
         hidden: false,
         group: None,

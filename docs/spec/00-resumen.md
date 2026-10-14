@@ -73,7 +73,7 @@ usar vtracer y no potrace). Se automatizará con `cargo-deny`.
 Las olas del [plan](../plan-completo.md) 1 a 5.5 y las partes 6A a 6C de la ola 6 están **terminadas**; la
 ola 6D (auditoría final, lista de validación con hardware, publicación, accesibilidad e inglés del
 motor) está en curso. Según el recuento de [cobertura/README.md](cobertura/README.md) (que sale de
-contar las filas de sus tablas con un script): **195 de 217 funciones hechas (90 %), 22 parciales,
+contar las filas de sus tablas con un script): **213 de 217 funciones hechas (98 %), 4 parciales (tras la ola 6E),
 0 solo en el motor o la línea de comandos y 0 faltantes**; en P0, **68 de 68 hechas**. Las 10 que
 eran "solo motor/CLI" (todas del galvo) se reclasificaron en la auditoría de la ola 6D: 6 hechas y
 4 parciales. **Ninguna función de máquina se ha probado con hardware real**: todo se validó con

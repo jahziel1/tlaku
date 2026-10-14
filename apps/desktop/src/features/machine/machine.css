@@ -1093,3 +1093,121 @@ button.mc-devitem:hover {
   align-items: center;
   user-select: text;
 }
+
+/* Buscador de centro con el cabezal (M48) */
+.mc-probe__params {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-2, 8px);
+}
+.mc-probe__dirs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 8px);
+  margin: var(--space-2, 8px) 0;
+}
+.mc-probe__confirm {
+  border: 1px solid var(--warn, currentColor);
+  border-radius: 6px;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  margin: var(--space-2, 8px) 0;
+}
+.mc-probe__points {
+  margin: var(--space-2, 8px) 0;
+  padding-left: 1.4em;
+}
+
+/* continuar un trabajo interrumpido (ResumeNotice, ResumeDialog) */
+.mc-resume__lead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-4);
+  margin: 0 0 var(--s-4);
+  font-weight: 600;
+}
+.mc-resume__bar {
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: var(--s-4);
+}
+.mc-resume__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.mc-resume__canvas {
+  --rs-done: var(--ok);
+  --rs-todo: var(--warn);
+  --rs-travel: var(--border);
+  --rs-marker: var(--danger);
+  --rs-bed: var(--cv-bed);
+  display: block;
+  width: 100%;
+  height: 280px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--cv-bed);
+  cursor: crosshair;
+}
+.mc-resume__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6);
+  list-style: none;
+  margin: var(--s-3) 0;
+  padding: 0;
+  color: var(--text-muted);
+}
+.mc-resume__key {
+  display: inline-block;
+  width: 22px;
+  height: 0;
+  margin-right: var(--s-3);
+  vertical-align: middle;
+  border-top: 3px solid var(--ok);
+}
+.mc-resume__key--todo {
+  border-top: 3px dashed var(--warn);
+}
+.mc-resume__key--marker {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--danger);
+  border-radius: 50%;
+}
+.mc-resume__slider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mc-resume__back input {
+  width: 5.5em;
+}
+.mc-resume__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  margin-top: var(--s-5);
+}
+.mc-resume__step {
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.mc-resume__step[data-done='true'] {
+  border-left-color: var(--ok);
+}
+.mc-resume__step h4 {
+  margin: 0 0 var(--s-3);
+  font-size: var(--text-md);
+}
+.mc-resume__step p {
+  margin: 0 0 var(--s-3);
+}
+.joblog__resume {
+  margin-left: var(--s-4);
+}

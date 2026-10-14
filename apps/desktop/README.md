@@ -1,373 +1,378 @@
 # Tlaku Desktop
 
-Aplicación de escritorio de Tlaku: **Tauri v2 + Vite + React 19 + TypeScript (strict) + zustand**.
-La interfaz es dueña del documento que se edita; el motor (Rust) recibe el documento completo y
-devuelve resultados. El contrato está en [`docs/app-api/README.md`](../../docs/app-api/README.md).
+English · [Español](README.es.md)
 
-Estado: la interfaz completa funciona contra una máquina y un motor **simulados** (mock) o contra
-el motor real: `src-tauri` implementa todos los comandos y eventos del contrato sobre
-`tlaku-pipeline` y `tlaku-grbl`. Ver "Estado" al final.
+Tlaku's desktop app: **Tauri v2 + Vite + React 19 + TypeScript (strict) + zustand**.
+The interface owns the document being edited; the engine (Rust) receives the whole document and
+returns results. The contract is in [`docs/app-api/README.md`](../../docs/app-api/README.md) (Spanish).
 
-![Vista principal](docs/screenshots/01-principal-oscuro.png)
+Status: the complete interface works against a **simulated** machine and engine (mock) or against
+the real engine: `src-tauri` implements every command and event of the contract on top of
+`tlaku-pipeline` and `tlaku-grbl`. See "Status" at the end. Nothing has been tested with a real laser
+yet.
 
-Más capturas en `docs/screenshots/` (se regeneran con `npm run screenshots`): editor de ajustes de
-capa (`03`), vista previa con resultados (`04`), máquina conectada con el diálogo de iniciar (`05`) y
-el trabajo en curso (`06`), consola (`07`), historial (`08`), atajos (`09`) y tema claro (`10`). De la
-fase 3: editor de nodos (`11`), panel de texto (`12`), diferencia A menos B (`13`), arreglo circular
-(`14`), vectorizado con vista previa (`15`), asistente de calibración de la cámara (`16`), panel de
-cámara (`17`) y pestañas del panel acoplado con texto (`18`; con poco ancho pasan a solo ícono).
+![Main view](docs/screenshots/01-principal-oscuro.png)
 
-## Cómo correrla
+More screenshots are in `docs/screenshots/` (regenerate them with `npm run screenshots`): layer
+settings editor (`03`), preview with results (`04`), connected machine with the start dialog (`05`)
+and the running job (`06`), console (`07`), history (`08`), shortcuts (`09`) and light theme (`10`).
+From phase 3: node editor (`11`), text panel (`12`), difference A minus B (`13`), circular array
+(`14`), tracing with preview (`15`), camera calibration wizard (`16`), camera panel (`17`) and docked
+panel tabs with text (`18`; with little width they become icon-only).
 
-Requisitos: Node 22.13 o superior, npm 11, Rust estable y, para la app nativa, las herramientas
-de Tauri de tu sistema (en macOS, Xcode).
+## How to run it
+
+Requirements: Node 22.13 or later, npm 11, stable Rust and, for the native app, the Tauri tooling
+for your system (Xcode on macOS).
 
 ```bash
 cd apps/desktop
-npm install            # el .npmrc activa legacy-peer-deps (ver "Notas de dependencias")
+npm install            # .npmrc turns on legacy-peer-deps (see "Dependency notes")
 ```
 
-**Modo mock (navegador, sin Rust).** Es el modo por defecto: se desarrolla la interfaz con datos
-simulados (diseño de ejemplo, vista previa con movimientos, máquina que emite estado y progreso).
+**Mock mode (browser, no Rust).** This is the default: the interface is developed with simulated
+data (sample design, preview with moves, a machine that emits status and progress).
 
 ```bash
 npm run dev            # http://localhost:1420
 ```
 
-**Modo Tauri (app nativa).** Usa `invoke`/`listen` reales: motor, archivos, perfiles de dispositivo
-(`devices.json` en la carpeta de configuración) y la conexión GRBL. Las imágenes del diseño se
-muestran con `imageUrl(path)` de `src/api` (protocolo `asset://`).
+**Tauri mode (native app).** Uses the real `invoke`/`listen`: engine, files, device profiles
+(`devices.json` in the config folder) and the GRBL connection. Design images are shown with
+`imageUrl(path)` from `src/api` (the `asset://` protocol).
 
 ```bash
-npm run tauri dev                              # ventana nativa con recarga en caliente
-npm run tauri build -- --debug --no-bundle     # compila la app completa sin empaquetar
+npm run tauri dev                              # native window with hot reload
+npm run tauri build -- --debug --no-bundle     # builds the whole app without packaging
 ```
 
-Desde la raíz del repositorio, el crate se compila con `cargo build -p tlaku-desktop`.
+From the repository root, the crate is built with `cargo build -p tlaku-desktop`.
 
-La implementación de la API se elige con `VITE_API=mock|tauri` (por defecto `mock`). Los scripts
-`dev:tauri` y `build:tauri` usan `--mode tauri`, que carga `.env.tauri` con `VITE_API=tauri`.
-Con `VITE_DEMO=off` el modo mock arranca con la cama vacía en lugar del diseño de ejemplo.
+The API implementation is chosen with `VITE_API=mock|tauri` (default `mock`). The `dev:tauri` and
+`build:tauri` scripts use `--mode tauri`, which loads `.env.tauri` with `VITE_API=tauri`. With
+`VITE_DEMO=off` mock mode starts with an empty bed instead of the sample design.
 
-| Script | Qué hace |
+| Script | What it does |
 |---|---|
-| `npm run dev` | Vite en modo mock |
-| `npm run build` | `tsc --noEmit` y `vite build` |
-| `npm run typecheck` | TypeScript estricto |
+| `npm run dev` | Vite in mock mode |
+| `npm run build` | `tsc --noEmit` and `vite build` |
+| `npm run typecheck` | Strict TypeScript |
 | `npm run lint` | ESLint |
-| `npm test` | Vitest (registro de comandos, store, mock, lienzo, capas, máquina, vista previa, historial, shell) |
-| `npm run readme` | Regenera la tabla de atajos de este README desde el registro de comandos |
-| `npm run screenshots` | Capturas en `docs/screenshots/` (necesita `npm run dev` en modo mock en marcha, el script no lo arranca, y Chrome; sin dependencias extra) |
+| `npm test` | Vitest (command registry, store, mock, canvas, layers, machine, preview, history, shell) |
+| `npm run readme` | Regenerates the shortcuts table of this README and of the Spanish one (`README.es.md`) from the command registry |
+| `npm run screenshots` | Screenshots in `docs/screenshots/` (needs `npm run dev` in mock mode already running, the script does not start it, and Chrome; no extra dependencies) |
 
-## Estructura
+## Structure
 
 ```
 apps/desktop/
-  src-tauri/            Crate `tlaku-desktop` (miembro del workspace de Cargo)
-    capabilities/       Permisos mínimos de Tauri v2 (eventos, diálogos, rutas, ventana)
-    src/                engine (motor y archivos), machine (conexión GRBL), commands (invoke)
+  src-tauri/            Crate `tlaku-desktop` (member of the Cargo workspace)
+    capabilities/       Minimal Tauri v2 permissions (events, dialogs, paths, window, opener)
+    src/                engine (engine and files), machine (GRBL connection), commands (invoke)
   src/
-    api/                Contrato con el motor
-      api.ts            Interfaz `LaserApi`: TODOS los comandos y eventos de docs/app-api/
-      tauri.ts          Implementación real (invoke / listen)
-      mock/             Implementación simulada en memoria (+ pruebas)
-      types.ts          Reexporta src/bindings/ y define JobArgs y EventMap
-      index.ts          getApi(): elige mock o tauri según VITE_API
-    bindings/           Tipos generados por ts-rs desde tlaku-doc. NO editar a mano
-    store/              zustand en slices: document, selection, view, machine, preview, devices (+ notices)
-    commands/           Registro central de comandos, atajos y menús (id, etiqueta, atajo, acción)
-      definitions/      Un archivo por categoría
-    i18n/               es.ts (comunes) y es/<area>.ts (canvas, layers, machine, preview, history) + t()
-    lib/                Geometría, viewport (mm <-> px), perfil de dispositivo y coordenadas
-                        (`workToDoc`/`docToWork`), paleta y ajustes de capa, utilidades
-    ui/                 Componentes reutilizables (NumberField, Modal: diálogo accesible común)
-    styles/             Tokens CSS (tema oscuro y claro) y hojas globales; cada área trae su propio .css
-    features/           Una carpeta por área, con un dueño cada una (ver abajo)
-  scripts/              Utilidades de desarrollo (capturas)
-  docs/screenshots/     Capturas de la interfaz
+    api/                Contract with the engine
+      api.ts            `LaserApi` interface: ALL commands and events of docs/app-api/
+      tauri.ts          Real implementation (invoke / listen)
+      mock/             In-memory simulated implementation (+ tests)
+      types.ts          Re-exports src/bindings/ and defines JobArgs and EventMap
+      index.ts          getApi(): picks mock or tauri according to VITE_API
+    bindings/           Types generated by ts-rs from tlaku-doc. DO NOT edit by hand
+    store/              zustand in slices: document, selection, view, machine, preview, devices (+ notices)
+    commands/           Central registry of commands, shortcuts and menus (id, label, shortcut, action)
+      definitions/      One file per category
+    i18n/               es/<area>.ts and en/<area>.ts (canvas, layers, machine, preview, history...) + t()
+    lib/                Geometry, viewport (mm <-> px), device profile and coordinates
+                        (`workToDoc`/`docToWork`), palette and layer settings, utilities
+    ui/                 Reusable components (NumberField, Modal: the common accessible dialog)
+    styles/             CSS tokens (dark and light theme) and global sheets; each area ships its own .css
+    features/           One folder per area, each with an owner (see below)
+  scripts/              Development utilities (screenshots)
+  docs/screenshots/     Interface screenshots
 ```
 
-Dueños de cada área de `src/features/` (lo que es suyo y lo que expone en su `index.ts`):
+Owners of each `src/features/` area (what is theirs and what they expose in their `index.ts`):
 
-| Área | Es dueña de | Expone |
+| Area | Owns | Exposes |
 |---|---|---|
-| `shell/` | Layout de la ventana, barra de menús y barra superior, paleta de herramientas, panel acoplado (pestañas), barra de estado, avisos, diálogo de atajos; monta `MachineDialogHost` y el aviso de alarma una sola vez | `AppShell` |
-| `canvas/` | Lienzo (interfaz `Renderer`, Canvas2D), reglas, zoom y paneo, selección, transformaciones, herramientas de dibujo, edición de nodos, ajuste magnético, dibujo de la vista previa y del cabezal | `CanvasView`, `createRenderer` |
-| `layers/` | Lista de capas, editor de ajustes de capa (modo, velocidad, potencia, relleno, imagen), orden de ejecución y franja de colores | `LayersPanel`, `ColorPalette` |
-| `machine/` | Conexión, estado, mover el cabezal, origen e "Iniciar desde", trabajo, consola, gestor de dispositivos, alarma y sus diálogos | `MachinePanel`, `ConsolePanel`, `MachineDialogHost`, `AlarmBanner` |
-| `preview/` | Vista previa del recorrido, reproducción, resultados por capa y recálculo con debounce | `PreviewBar`, `usePreviewSync` |
-| `history/` | Panel Historial (deshacer/rehacer con etiquetas), archivos (abrir, guardar, importar, exportar, recientes), arrastrar y soltar, aviso de cambios sin guardar, título de la ventana | `HistoryPanel`, `PromptHost`, `DropOverlay` y ganchos de ventana |
-| `text/` | Panel de texto flotante sobre el lienzo, lista de fuentes, contorno del texto al día con el motor (`text_outline`) y convertir a trayectos | `TextPanel`, `loadFonts`, `useFonts`, `convertTextToPaths` |
-| `arrange/` | Menú Organizar: booleanas, offset, alinear y distribuir, centrar y arreglos (rejilla y circular) con sus diálogos | `ArrangeDialogHost`, `useArrangeUi` |
-| `trace/` | Diálogo de vectorizado de imágenes con vista previa y colocación del resultado | `TraceDialogHost` |
-| `camera/` | Cámara: fuente de video, corrección de lente en WebGL, asistente de calibración, alineación con la cama y fondo del lienzo | `CameraPanel`, `CameraDialogHost` |
+| `shell/` | Window layout, menu bar and top bar, tool palette, docked panel (tabs), status bar, notices, shortcuts dialog; mounts `MachineDialogHost` and the alarm banner exactly once | `AppShell` |
+| `canvas/` | Canvas (`Renderer` interface, Canvas2D), rulers, zoom and pan, selection, transforms, drawing tools, node editing, snapping, drawing of the preview and of the head | `CanvasView`, `createRenderer` |
+| `layers/` | Layer list, layer settings editor (mode, speed, power, fill, image), execution order and color strip | `LayersPanel`, `ColorPalette` |
+| `machine/` | Connection, status, jogging, origin and "Start from", job, console, device manager, alarm and their dialogs | `MachinePanel`, `ConsolePanel`, `MachineDialogHost`, `AlarmBanner` |
+| `preview/` | Toolpath preview, playback, per-layer results and debounced recalculation | `PreviewBar`, `usePreviewSync` |
+| `history/` | History panel (undo/redo with labels), files (open, save, import, export, recent), drag and drop, unsaved-changes notice, window title | `HistoryPanel`, `PromptHost`, `DropOverlay` and window hooks |
+| `text/` | Floating text panel over the canvas, font list, text outline kept in sync with the engine (`text_outline`) and convert to paths | `TextPanel`, `loadFonts`, `useFonts`, `convertTextToPaths` |
+| `arrange/` | Arrange menu: booleans, offset, align and distribute, center and arrays (grid and circular) with their dialogs | `ArrangeDialogHost`, `useArrangeUi` |
+| `trace/` | Image tracing dialog with preview and placement of the result | `TraceDialogHost` |
+| `camera/` | Camera: video source, WebGL lens correction, calibration wizard, bed alignment and canvas backdrop | `CameraPanel`, `CameraDialogHost` |
 
-Los `store/*` son compartidos: cada slice solo escribe en lo suyo. Los textos de cada área viven en
-`src/i18n/es/<area>.ts`.
+The `store/*` slices are shared: each slice only writes to its own state. The texts of each area live
+in `src/i18n/es/<area>.ts` and `src/i18n/en/<area>.ts`.
 
-### Reglas para quienes sigan trabajando aquí
+### Rules for whoever keeps working here
 
-1. **Cada carpeta de `src/features/` tiene un dueño.** Quien trabaje en `canvas` no edita
-   `layers`, y así. Si necesitas algo de otra carpeta, usa su `index.ts` o pide el cambio.
-2. **No escribas en `src/bindings/`**: lo genera el motor. Si falta un tipo, defínelo temporalmente
-   en `src/api/types.ts` con un `TODO(bindings)`.
-3. **Nada llama a `invoke` ni a `listen` directamente.** Todo pasa por `getApi()` (`src/api`). Si
-   agregas un comando al contrato, agrégalo a `LaserApi`, a `COMMAND_NAMES`, a `tauri.ts` y al mock.
-4. **Estado compartido en `src/store/`**, un archivo por slice. Un slice puede leer a otro con
-   `get()`, pero solo escribe en el suyo (las acciones de otro slice se llaman, no se reimplementan).
-   En componentes, selecciona valores primitivos o usa `useShallow`: el cursor cambia 60 veces por
-   segundo y no debe repintar paneles.
-5. **Comandos, menús, botones y atajos salen de `src/commands/`.** Un comando nuevo va en
-   `definitions/<categoria>.ts`; el registro lanza un error al arrancar si un id o un atajo se repite.
-   Los botones usan `useCommand(id)` o `<CommandButton id>`: etiqueta, atajo y motivo de
-   deshabilitado salen de ahí. Un comando no disponible devuelve la clave del motivo
-   (`enabled: (s) => true | 'reason.xxx'`): **nunca un botón gris sin explicación**.
-6. **Todo texto visible sale del diccionario** (`src/i18n/es.ts` y `src/i18n/es/<area>.ts`) con
-   `t('clave')`. Las claves son tipadas.
-   Los mensajes que vienen del motor (advertencias, resúmenes) ya llegan en español.
-7. **Colores solo con tokens** (`var(--accent)`, ...). Nada de hex en los componentes. El lienzo
-   lee los `--cv-*` con `readCanvasPalette()`. Todo control nuevo debe verse bien en los dos temas
-   y tener foco visible.
-8. **Cambiar de renderer** (por ejemplo a WebGL) es implementar `Renderer`
-   (`features/canvas/renderer.ts`) y devolverlo desde `createRenderer()`. La escena (`Scene`)
-   ya trae todo lo necesario; las reglas y la cuadrícula no dependen del renderer.
-9. **Unidades y coordenadas:** mm, mm/min y %. El documento tiene origen abajo a la izquierda y Y
-   hacia arriba; solo `lib/viewport.ts` convierte a píxeles de pantalla (Y hacia abajo). La
-   posición del cabezal (`work_pos`), `JobOptions.user_origin` y "ir al origen" están en
-   coordenadas de la **máquina** (las que muestra GRBL): la interfaz las guarda y las envía tal
-   cual, y solo para dibujarlas las pasa al documento con `workToDoc` (`lib/device.ts`) según
-   `DeviceProfile.origin`. El motor hace la conversión inversa al calcular el trabajo.
-10. Antes de entregar: `npm run typecheck && npm run lint && npm test && npm run build`.
-    Las pruebas del motor simulado y del store no dependen del reloj real salvo por temporizadores
-    cortos; si agregas flujos con tiempo, usa las opciones de `createMockApi({ ... })`.
+1. **Each folder of `src/features/` has an owner.** Whoever works on `canvas` does not edit
+   `layers`, and so on. If you need something from another folder, use its `index.ts` or ask for the
+   change.
+2. **Do not write in `src/bindings/`**: the engine generates it. If a type is missing, define it
+   temporarily in `src/api/types.ts` with a `TODO(bindings)`.
+3. **Nothing calls `invoke` or `listen` directly.** Everything goes through `getApi()` (`src/api`).
+   If you add a command to the contract, add it to `LaserApi`, to `COMMAND_NAMES`, to `tauri.ts` and
+   to the mock.
+4. **Shared state lives in `src/store/`**, one file per slice. A slice may read another with
+   `get()`, but only writes to its own (actions of another slice are called, not reimplemented). In
+   components, select primitive values or use `useShallow`: the cursor changes 60 times per second
+   and must not repaint panels.
+5. **Commands, menus, buttons and shortcuts come from `src/commands/`.** A new command goes in
+   `definitions/<category>.ts`; the registry throws at startup if an id or a shortcut is repeated.
+   Buttons use `useCommand(id)` or `<CommandButton id>`: label, shortcut and disabled reason come
+   from there. An unavailable command returns the reason key
+   (`enabled: (s) => true | 'reason.xxx'`): **never a gray button without an explanation**.
+6. **All visible text comes from the dictionary** (`src/i18n/es/<area>.ts` and
+   `src/i18n/en/<area>.ts`, always both) with `t('key')`. Keys are typed. Messages that come from the
+   engine (warnings, summaries) arrive in the active language.
+7. **Colors only with tokens** (`var(--accent)`, ...). No hex in components. The canvas reads the
+   `--cv-*` ones with `readCanvasPalette()`. Every new control must look right in both themes and
+   have a visible focus.
+8. **Changing the renderer** (for example to WebGL) means implementing `Renderer`
+   (`features/canvas/renderer.ts`) and returning it from `createRenderer()`. The scene (`Scene`)
+   already carries everything needed; rulers and grid do not depend on the renderer.
+9. **Units and coordinates:** mm, mm/min and %. The document has its origin at the bottom left and Y
+   pointing up; only `lib/viewport.ts` converts to screen pixels (Y down). The head position
+   (`work_pos`), `JobOptions.user_origin` and "go to origin" are in **machine** coordinates (the ones
+   GRBL shows): the interface stores and sends them as they are, and only to draw them does it
+   convert them to the document with `workToDoc` (`lib/device.ts`) according to
+   `DeviceProfile.origin`. The engine does the inverse conversion when it computes the job.
+10. Before handing in: `npm run typecheck && npm run lint && npm test && npm run build`.
+    The tests of the simulated engine and of the store do not depend on the real clock except for
+    short timers; if you add flows with time, use the options of `createMockApi({ ... })`.
 
-## Atajos de teclado
+## Keyboard shortcuts
 
-Se definen una sola vez en `src/commands/definitions/` y se muestran en menús, tooltips y en el
-diálogo de atajos (`F1`, `Ctrl+/` o `?`). `Cmd` en macOS, `Ctrl` en Windows y Linux. Los conflictos
-de atajos son un error al arrancar y lo verifica una prueba.
+They are defined once in `src/commands/definitions/` and shown in menus, tooltips and in the
+shortcuts dialog (`F1`, `Ctrl+/` or `?`). `Cmd` on macOS, `Ctrl` on Windows and Linux. Shortcut
+conflicts are a startup error and a test checks it.
 
-Reglas (respuesta a la queja del foro de atajos contradictorios y que "no hacen nada"):
+Rules (a response to the forum complaint about contradictory shortcuts that "do nothing"):
 
-- **Funcionan en toda la ventana**, no solo con el lienzo enfocado. Las teclas de una sola letra solo
-  se ignoran mientras se escribe en un campo de texto.
-- **Una tecla, un significado.** No hay letras que cambien de función según lo que haya bajo el cursor.
-- **Cmd/Ctrl se reserva para acciones de archivo, edición y vista.** No se sobrecarga como
-  modificador de pasos finos: el paso fino usa `Alt`, el grande `Mayús`.
-- Un atajo de un comando deshabilitado no hace nada, y el tooltip del botón dice por qué.
+- **They work in the whole window**, not only with the canvas focused. Single-letter keys are only
+  ignored while typing in a text field.
+- **One key, one meaning.** No letters change their function depending on what is under the cursor.
+- **Cmd/Ctrl is reserved for file, edit and view actions.** It is not overloaded as a modifier for
+  fine steps: the fine step uses `Alt`, the big one `Shift`.
+- A shortcut of a disabled command does nothing, and the button's tooltip says why.
 
-**Editor de nodos (`N`).** Con un objeto vectorial seleccionado muestra sus nodos y manejadores. Clic
-elige un nodo (Mayús+clic suma o quita; clic en un segmento elige sus dos nodos; arrastrar sobre vacío
-dibuja una caja de nodos). Arrastrar mueve los nodos elegidos y los manejadores (Alt rompe la
-simetría); doble clic en un segmento agrega un nodo sin cambiar la forma. La barra de nodos fija la X
-y la Y exactas (en mm de documento) y reúne tipo de nodo, segmento y trayecto. El objeto conserva su
-`transform`: los puntos se editan en coordenadas locales. **Deshacer y rehacer funcionan siempre**, con
-nodos elegidos o sin ellos. Con la herramienta de nodos, `Supr`/`⌫` y las flechas actúan sobre los
-nodos elegidos (si no hay ninguno, siguen borrando o moviendo el objeto); las demás teclas de nodos
-(`I`, `B`, `J`, `O`, `Mayús+L`, `Mayús+U`, `Mayús+E`, `Mayús+S`, `Mayús+M`) solo valen con esa herramienta
-y cada una hace una sola cosa, sin depender de lo que haya bajo el cursor. `Esc` vuelve a Seleccionar.
-Un nodo "esquina" pedido a mano se recuerda solo durante la sesión (el documento no guarda el tipo de nodo:
-al reabrir, manejadores alineados se leen como suaves).
+**Node editor (`N`).** With a vector object selected it shows its nodes and handles. Click picks a
+node (Shift+click adds or removes; clicking a segment picks its two nodes; dragging over empty space
+draws a node box). Dragging moves the picked nodes and the handles (Alt breaks the symmetry);
+double-click on a segment adds a node without changing the shape. The node bar sets the exact X and Y
+(in document mm) and gathers node type, segment and path. The object keeps its `transform`: points
+are edited in local coordinates. **Undo and redo always work**, with nodes picked or not. With the
+node tool, `Del`/`⌫` and the arrows act on the picked nodes (if there are none, they keep deleting
+or moving the object); the other node keys (`I`, `B`, `J`, `O`, `Shift+L`, `Shift+U`, `Shift+E`,
+`Shift+S`, `Shift+M`) only apply with that tool and each does a single thing, regardless of what is
+under the cursor. `Esc` goes back to Select. A "corner" node requested by hand is remembered only for
+the session (the document does not store the node type: on reopening, aligned handles are read as
+smooth).
 
-**Texto (`T`).** Clic en vacío crea un texto "Texto" de 10 mm en la capa activa; clic sobre un texto lo
-selecciona; el doble clic sobre un texto con Seleccionar pasa a la herramienta de texto. El lienzo sube
-`textFocusToken` (`store/view.ts`) para que el panel de texto tome el foco.
+**Text (`T`).** Clicking on empty space creates a 10 mm "Text" on the active layer; clicking a text
+selects it; double-clicking a text with Select switches to the text tool. The canvas raises
+`textFocusToken` (`store/view.ts`) so the text panel takes focus.
 
-**Imagen de cámara.** Si `cameraBackdrop` existe, el lienzo la dibuja bajo la cuadrícula y los objetos,
-proyectada sobre sus cuatro esquinas (malla de triángulos con una afín por triángulo; ver
-`features/canvas/backdrop.ts`). Sin cámara no cuesta nada.
+**Camera image.** If `cameraBackdrop` exists, the canvas draws it under the grid and the objects,
+projected onto its four corners (a triangle mesh with one affine per triangle; see
+`features/canvas/backdrop.ts`). Without a camera it costs nothing.
 
-La tabla sale del registro de comandos y una prueba (`src/features/shell/readme.test.ts`) falla si
-se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en macOS, `Ctrl` es `⌘`,
-`Alt` es `⌥` y `Mayús` es `⇧`).
+The table comes from the command registry and a test (`src/features/shell/readme.test.ts`) fails if
+it gets out of date; to regenerate it (in this file and in the Spanish one), run `npm run readme`.
+Windows/Linux format (on macOS, `Ctrl` is `⌘`, `Alt` is `⌥` and `Shift` is `⇧`).
 
 <!-- shortcuts:start (generado: npm run readme) -->
 
-| Grupo | Comando | Atajo |
+| Group | Command | Shortcut |
 |---|---|---|
-| Archivo | Nuevo proyecto | `Ctrl+N` |
-|  | Abrir proyecto… | `Ctrl+O` |
-|  | Guardar | `Ctrl+S` |
-|  | Guardar como… | `Ctrl+Mayús+S` |
-|  | Importar diseño… | `Ctrl+I` |
-|  | Exportar G-code… | `Ctrl+Mayús+E` |
-|  | Imprimir… | `Ctrl+P` |
-|  | Nueva ventana | `Ctrl+Mayús+N` |
-| Edición | Deshacer | `Ctrl+Z` |
-|  | Rehacer | `Ctrl+Mayús+Z` o `Ctrl+Y` |
-|  | Seleccionar todo | `Ctrl+A` |
-|  | Invertir selección | `Ctrl+Mayús+I` |
-|  | Duplicar | `Ctrl+D` |
-|  | Eliminar | `Supr` o `⌫` |
-|  | Copiar | `Ctrl+C` |
-|  | Cortar | `Ctrl+X` |
-|  | Copiar como SVG | `Ctrl+Alt+C` |
-|  | Pegar | `Ctrl+V` |
-|  | Pegar en el mismo lugar | `Ctrl+Mayús+V` |
-|  | Agrupar | `Ctrl+G` |
-|  | Desagrupar | `Ctrl+Mayús+G` |
-|  | Mover a la izquierda (1 mm) | `←` |
-|  | Mover a la izquierda (10 mm) | `Mayús+←` |
-|  | Mover a la izquierda (0,1 mm) | `Alt+←` |
-|  | Mover a la derecha (1 mm) | `→` |
-|  | Mover a la derecha (10 mm) | `Mayús+→` |
-|  | Mover a la derecha (0,1 mm) | `Alt+→` |
-|  | Mover hacia arriba (1 mm) | `↑` |
-|  | Mover hacia arriba (10 mm) | `Mayús+↑` |
-|  | Mover hacia arriba (0,1 mm) | `Alt+↑` |
-|  | Mover hacia abajo (1 mm) | `↓` |
-|  | Mover hacia abajo (10 mm) | `Mayús+↓` |
-|  | Mover hacia abajo (0,1 mm) | `Alt+↓` |
-|  | Elegir capa de la paleta | `Alt+1` |
-|  | Elegir capa de la paleta | `Alt+2` |
-|  | Elegir capa de la paleta | `Alt+3` |
-|  | Elegir capa de la paleta | `Alt+4` |
-|  | Elegir capa de la paleta | `Alt+5` |
-|  | Elegir capa de la paleta | `Alt+6` |
-|  | Elegir capa de la paleta | `Alt+7` |
-|  | Elegir capa de la paleta | `Alt+8` |
-|  | Elegir capa de la paleta | `Alt+9` |
-|  | Elegir capa de la paleta | `Alt+0` |
-|  | Elegir capa de la paleta | `Alt+G` |
-|  | Ajustes de la capa activa… | `Alt+Intro` |
-|  | Preferencias… | `Ctrl+,` |
-| Herramientas | Seleccionar | `V` o `Esc` |
-|  | Editar nodos | `N` |
-|  | Dibujar línea | `L` |
-|  | Rectángulo | `R` |
-|  | Elipse | `E` |
-|  | Polígono | `G` |
-|  | Estrella | `Mayús+G` |
-|  | Texto | `T` |
-|  | Mano (mover la vista) | `H` |
-|  | Medir | `M` |
-|  | Puentes manuales | `U` |
-|  | Punto de inicio | `Q` |
-|  | Recortar formas | `X` |
-|  | Deformar en el lienzo | `Mayús+W` |
-|  | Redondear esquinas con clic | `Mayús+F` |
-|  | Insertar nodo en el punto medio | `I` |
-|  | Segmento a recta | `Mayús+L` |
-|  | Segmento a curva | `Mayús+U` |
-|  | Nodo en esquina | `Mayús+E` |
-|  | Nodo suave | `Mayús+S` |
-|  | Nodo simétrico | `Mayús+M` |
-|  | Romper el trayecto en el nodo | `B` |
-|  | Unir extremos | `J` |
-|  | Cerrar trayecto | `O` |
-|  | Cerrar polilínea | `C` |
-| Organizar | Unión | `Alt+U` |
-|  | Diferencia (A menos B)… | `Alt+D` |
-|  | Soldar | `Alt+W` |
+| File | New Project | `Ctrl+N` |
+|  | Open Project… | `Ctrl+O` |
+|  | Save | `Ctrl+S` |
+|  | Save As… | `Ctrl+Shift+S` |
+|  | Import Design… | `Ctrl+I` |
+|  | Export G-code… | `Ctrl+Shift+E` |
+|  | Print… | `Ctrl+P` |
+|  | New window | `Ctrl+Shift+N` |
+| Edit | Undo | `Ctrl+Z` |
+|  | Redo | `Ctrl+Shift+Z` or `Ctrl+Y` |
+|  | Select All | `Ctrl+A` |
+|  | Invert Selection | `Ctrl+Shift+I` |
+|  | Duplicate | `Ctrl+D` |
+|  | Delete | `Del` or `⌫` |
+|  | Copy | `Ctrl+C` |
+|  | Cut | `Ctrl+X` |
+|  | Copy as SVG | `Ctrl+Alt+C` |
+|  | Paste | `Ctrl+V` |
+|  | Paste in Place | `Ctrl+Shift+V` |
+|  | Group | `Ctrl+G` |
+|  | Ungroup | `Ctrl+Shift+G` |
+|  | Nudge Left (1 mm) | `←` |
+|  | Nudge Left (10 mm) | `Shift+←` |
+|  | Nudge Left (0.1 mm) | `Alt+←` |
+|  | Nudge Right (1 mm) | `→` |
+|  | Nudge Right (10 mm) | `Shift+→` |
+|  | Nudge Right (0.1 mm) | `Alt+→` |
+|  | Nudge Up (1 mm) | `↑` |
+|  | Nudge Up (10 mm) | `Shift+↑` |
+|  | Nudge Up (0.1 mm) | `Alt+↑` |
+|  | Nudge Down (1 mm) | `↓` |
+|  | Nudge Down (10 mm) | `Shift+↓` |
+|  | Nudge Down (0.1 mm) | `Alt+↓` |
+|  | Pick Layer from Palette | `Alt+1` |
+|  | Pick Layer from Palette | `Alt+2` |
+|  | Pick Layer from Palette | `Alt+3` |
+|  | Pick Layer from Palette | `Alt+4` |
+|  | Pick Layer from Palette | `Alt+5` |
+|  | Pick Layer from Palette | `Alt+6` |
+|  | Pick Layer from Palette | `Alt+7` |
+|  | Pick Layer from Palette | `Alt+8` |
+|  | Pick Layer from Palette | `Alt+9` |
+|  | Pick Layer from Palette | `Alt+0` |
+|  | Pick Layer from Palette | `Alt+G` |
+|  | Active Layer Settings… | `Alt+Enter` |
+|  | Preferences… | `Ctrl+,` |
+| Tools | Select | `V` or `Esc` |
+|  | Edit Nodes | `N` |
+|  | Draw Line | `L` |
+|  | Rectangle | `R` |
+|  | Ellipse | `E` |
+|  | Polygon | `G` |
+|  | Star | `Shift+G` |
+|  | Text | `T` |
+|  | Pan (move the view) | `H` |
+|  | Measure | `M` |
+|  | Manual tabs | `U` |
+|  | Start point | `Q` |
+|  | Trim shapes | `X` |
+|  | Warp on canvas | `Shift+W` |
+|  | Fillet corner by click | `Shift+F` |
+|  | Insert node at midpoint | `I` |
+|  | Segment to line | `Shift+L` |
+|  | Segment to curve | `Shift+U` |
+|  | Corner node | `Shift+E` |
+|  | Smooth node | `Shift+S` |
+|  | Symmetric node | `Shift+M` |
+|  | Break path at node | `B` |
+|  | Join endpoints | `J` |
+|  | Close path | `O` |
+|  | Close polyline | `C` |
+| Arrange | Union | `Alt+U` |
+|  | Subtract (A minus B)… | `Alt+D` |
+|  | Weld | `Alt+W` |
 |  | Offset… | `Alt+O` |
-|  | Centrar en la cama | `Alt+C` |
-|  | Voltear horizontal | `Alt+H` o `Ctrl+Mayús+H` |
-|  | Voltear vertical | `Alt+V` |
-|  | Espejo sobre una línea | `Alt+Mayús+M` |
-|  | Girar y escalar por dos puntos | `Alt+T` |
-|  | Girar 90° a la izquierda | `[` |
-|  | Girar 90° a la derecha | `]` |
-|  | Girar un paso a la izquierda | `Mayús+[` |
-|  | Girar un paso a la derecha | `Mayús+]` |
-|  | Girar 5° a la izquierda | `Alt+[` |
-|  | Girar 5° a la derecha | `Alt+]` |
-|  | Traer al frente | `Ctrl+RePág` o `Ctrl+Mayús+]` |
-|  | Enviar al fondo | `Ctrl+AvPág` o `Ctrl+Mayús+[` |
-|  | Subir un nivel | `RePág` o `Ctrl+]` |
-|  | Bajar un nivel | `AvPág` o `Ctrl+[` |
-|  | Cortar antes (prioridad -1) | `Alt+Mayús+[` |
-|  | Cortar después (prioridad +1) | `Alt+Mayús+]` |
-|  | Bloquear | `Ctrl+L` |
-|  | Desbloquear todo | `Ctrl+Mayús+L` |
-|  | Asistente booleano… | `Ctrl+B` |
-|  | Recortar en el último clic | `Ctrl+K` |
-|  | Separar subtrayectos… | `Alt+B` |
-|  | Optimizar formas… | `Alt+Mayús+O` |
-|  | Cortar formas con una cuchilla… | `Alt+Mayús+C` |
-| Vista | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |
-|  | Alejar | `Ctrl+-` |
-|  | Ajustar a la cama | `Ctrl+0` |
-|  | Ajustar al diseño | `Ctrl+Mayús+0` |
-|  | Solo contornos | `W` |
-|  | Ajuste magnético | `S` |
-|  | Vista previa | `P` |
-|  | Reproducir el recorrido | `K` |
-|  | Reproducción más lenta | `,` |
-|  | Reproducción más rápida | `.` |
-| Máquina | Encuadrar | `F` |
-|  | Iniciar | `Ctrl+Intro` |
-|  | Pausar | `Ctrl+Mayús+P` |
-|  | Detener | `Ctrl+.` |
-|  | Mover a la izquierda | `Ctrl+Alt+←` |
-|  | Mover a la derecha | `Ctrl+Alt+→` |
-|  | Mover hacia arriba | `Ctrl+Alt+↑` |
-|  | Mover hacia abajo | `Ctrl+Alt+↓` |
-|  | Revisar diseño… | `Ctrl+Alt+R` |
-| Paneles y ayuda | Mostrar historial | `Ctrl+4` |
-|  | Atajos de teclado… | `Ctrl+/` o `F1` o `Mayús+/` |
-|  | Notas del proyecto | `Ctrl+7` |
-|  | Mostrar capas | `Ctrl+1` |
-|  | Mostrar máquina | `Ctrl+2` |
-|  | Mostrar consola | `Ctrl+3` |
-|  | Panel de cámara | `Ctrl+5` |
-|  | Panel de materiales | `Ctrl+6` |
-| Lienzo (gestos) | Zoom en el cursor | `Rueda del ratón` |
-|  | Zoom con el trackpad | `Pellizco` |
-|  | Mover la vista | `Botón central, Espacio + arrastrar o dos dedos` |
+|  | Center on bed | `Alt+C` |
+|  | Flip Horizontal | `Alt+H` or `Ctrl+Shift+H` |
+|  | Flip Vertical | `Alt+V` |
+|  | Mirror Across a Line | `Alt+Shift+M` |
+|  | Rotate and Scale by Two Points | `Alt+T` |
+|  | Rotate 90° Counterclockwise | `[` |
+|  | Rotate 90° Clockwise | `]` |
+|  | Rotate One Step Counterclockwise | `Shift+[` |
+|  | Rotate One Step Clockwise | `Shift+]` |
+|  | Rotate 5° Counterclockwise | `Alt+[` |
+|  | Rotate 5° Clockwise | `Alt+]` |
+|  | Bring to Front | `Ctrl+PgUp` or `Ctrl+Shift+]` |
+|  | Send to Back | `Ctrl+PgDn` or `Ctrl+Shift+[` |
+|  | Bring Forward | `PgUp` or `Ctrl+]` |
+|  | Send Backward | `PgDn` or `Ctrl+[` |
+|  | Cut earlier (priority -1) | `Alt+Shift+[` |
+|  | Cut later (priority +1) | `Alt+Shift+]` |
+|  | Lock | `Ctrl+L` |
+|  | Unlock All | `Ctrl+Shift+L` |
+|  | Boolean assistant… | `Ctrl+B` |
+|  | Trim at last click | `Ctrl+K` |
+|  | Break apart subpaths… | `Alt+B` |
+|  | Optimize shapes… | `Alt+Shift+O` |
+|  | Cut shapes with a blade… | `Alt+Shift+C` |
+| View | Zoom In | `Ctrl+=` or `Ctrl+Shift+=` |
+|  | Zoom Out | `Ctrl+-` |
+|  | Fit to Bed | `Ctrl+0` |
+|  | Fit to Design | `Ctrl+Shift+0` |
+|  | Outlines Only | `W` |
+|  | Snapping | `S` |
+|  | Preview | `P` |
+|  | Play the toolpath | `K` |
+|  | Slower playback | `,` |
+|  | Faster playback | `.` |
+| Machine | Frame | `F` |
+|  | Start | `Ctrl+Enter` |
+|  | Pause | `Ctrl+Shift+P` |
+|  | Stop | `Ctrl+.` |
+|  | Jog left | `Ctrl+Alt+←` |
+|  | Jog right | `Ctrl+Alt+→` |
+|  | Jog up | `Ctrl+Alt+↑` |
+|  | Jog down | `Ctrl+Alt+↓` |
+|  | Review design… | `Ctrl+Alt+R` |
+| Panels and help | Show History | `Ctrl+4` |
+|  | Keyboard Shortcuts… | `Ctrl+/` or `F1` or `Shift+/` |
+|  | Project notes | `Ctrl+7` |
+|  | Show Layers | `Ctrl+1` |
+|  | Show Machine | `Ctrl+2` |
+|  | Show Console | `Ctrl+3` |
+|  | Camera Panel | `Ctrl+5` |
+|  | Materials Panel | `Ctrl+6` |
+| Canvas (gestures) | Zoom at the cursor | `Mouse wheel` |
+|  | Zoom with the trackpad | `Pinch` |
+|  | Pan the view | `Middle button, Space + drag, or two fingers` |
 
 <!-- shortcuts:end -->
 
-## Diseño visual
+## Visual design
 
-Identidad propia de "banco de trabajo": instrumentación precisa, no una copia de ninguna otra
-herramienta.
+Own "workbench" identity: precise instrumentation, not a copy of any other tool.
 
-- **Tema oscuro por defecto** (los talleres suelen tener poca luz) y tema claro. El tema se guarda y
-  se aplica antes de pintar, sin destello. Los tokens están en `src/styles/tokens.css`.
-- **Paleta:** grafito azulado (`#151920` panel, `#0e1115` fondo) y un solo acento, el violeta de un
-  diodo de 450 nm (`#8793ff` en oscuro, `#4650e0` en claro; ≥ 5:1 con su texto). Verde, ámbar y
-  rojo solo para estado. Texto principal ≥ 12:1; secundario ≥ 7:1.
-- **Lienzo de alto contraste:** cama más clara que el área de trabajo, cuadrícula de dos niveles que
-  se adapta al zoom (1/10 mm, 1/10 cm...), marcas de registro en las esquinas y el origen de la
-  máquina en el color de acento. Reglas en mm con cursor.
-- **Tipografía empaquetada localmente** (sin red): Archivo variable (eje de ancho; la interfaz usa
-  94 % y la marca 118 %) y Spline Sans Mono para todo número (coordenadas, tiempos, ajustes), con
-  cifras tabulares para que no bailen al cambiar. Licencia OFL-1.1.
-- Íconos de `lucide-react` (ISC). Foco visible en todo control; se respeta `prefers-reduced-motion`.
-- La franja de colores identifica cada capa por su nombre (Rojo, Azul...) y marca las que están en
-  uso; la última muestra, punteada, es la capa de guías, que nunca se envía a la máquina.
+- **Dark theme by default** (workshops are often dimly lit) and a light theme. The theme is saved and
+  applied before painting, with no flash. The tokens are in `src/styles/tokens.css`.
+- **Palette:** bluish graphite (`#151920` panel, `#0e1115` background) and a single accent, the
+  violet of a 450 nm diode (`#8793ff` in dark, `#4650e0` in light; at least 5:1 against its text).
+  Green, amber and red only for status. Main text at least 12:1; secondary at least 7:1.
+- **High-contrast canvas:** bed lighter than the work area, two-level grid that adapts to zoom (1/10
+  mm, 1/10 cm...), registration marks at the corners and the machine origin in the accent color.
+  Rulers in mm with a cursor.
+- **Locally bundled typography** (no network): Archivo variable (width axis; the interface uses 94 %
+  and the brand 118 %) and Spline Sans Mono for every number (coordinates, times, settings), with
+  tabular figures so they do not jump when they change. OFL-1.1 license.
+- Icons from `lucide-react` (ISC). Visible focus on every control; `prefers-reduced-motion` is
+  respected.
+- The color strip identifies each layer by its name (Red, Blue...) and marks the ones in use; the
+  last swatch, dotted, is the guides layer, which is never sent to the machine.
 
-## Notas de dependencias
+## Dependency notes
 
-- Todo en `package.json` está fijado sin `^` y con versiones publicadas hace más de dos semanas.
-  Licencias MIT, ISC, Apache-2.0 y OFL-1.1 (solo las fuentes).
-- **TypeScript 6.0.3** y no 7.x: `typescript-eslint` 8.71 declara compatibilidad hasta `<6.1`.
-- **`.npmrc` con `legacy-peer-deps=true`**: con npm 11.4 la resolución de los peers opcionales de
-  Vitest falla (`Cannot read properties of null (reading 'edgesOut')`). Revisar al actualizar npm.
+- Everything in `package.json` is pinned without `^` and with versions published more than two weeks
+  ago. Licenses MIT, ISC, Apache-2.0 and OFL-1.1 (fonts only).
+- **TypeScript 6.0.3** and not 7.x: `typescript-eslint` 8.71 declares compatibility up to `<6.1`.
+- **`.npmrc` with `legacy-peer-deps=true`**: with npm 11.4 the resolution of Vitest's optional peers
+  fails (`Cannot read properties of null (reading 'edgesOut')`). Review when updating npm.
 
-## Estado
+## Status
 
-Hecho y cubierto por pruebas:
+Done and covered by tests:
 
-- Lienzo: selección con ratón, transformaciones, herramientas de dibujo, edición de nodos, ajuste
-  magnético, medir, reglas, zoom y paneo; vista previa del recorrido con reproducción y resultados.
-- Capas: lista con orden de ejecución, editor completo de ajustes, franja de colores.
-- Máquina: conexión, estado, mover el cabezal, origen de usuario con los 9 puntos, "Iniciar desde",
-  encuadrar, iniciar con diálogo de confirmación, pausa/detener, consola con confirmación de
-  comandos peligrosos, alarmas con explicación, gestor de dispositivos.
-- Historial visible de deshacer/rehacer, cortar/copiar/pegar, archivos recientes y
-  diálogo de atajos generado del registro.
-- Documento versión 2 (fase 3): las trayectorias son curvas Bézier (`BezPath`; elipses y esquinas
-  redondeadas son cúbicas reales y el lienzo las dibuja con `bezierCurveTo`, nítidas a cualquier
-  zoom; el SVG importado conserva sus curvas), grupos planos (`group`: Ctrl+G / Ctrl+Mayús+G; un
-  clic en un objeto del grupo elige todo el grupo y Alt+clic solo ese objeto) y objetos de texto
-  (se dibuja su `outline`; sin contorno generado se ve un marcador con el texto en fuente del sistema).
-  Los proyectos de la versión 1 se migran al abrirlos.
+- Canvas: mouse selection, transforms, drawing tools, node editing, snapping, measuring, rulers,
+  zoom and pan; toolpath preview with playback and results.
+- Layers: list with execution order, full settings editor, color strip.
+- Machine: connection, status, jogging, user origin with the 9 points, "Start from", framing,
+  starting with a confirmation dialog, pause/stop, console with confirmation of dangerous commands,
+  alarms with an explanation, device manager.
+- Visible undo/redo history, cut/copy/paste, recent files and a shortcuts dialog generated from the
+  registry.
+- Document version 2 (phase 3): paths are Bézier curves (`BezPath`; ellipses and rounded corners are
+  real cubics and the canvas draws them with `bezierCurveTo`, sharp at any zoom; imported SVG keeps
+  its curves), flat groups (`group`: Ctrl+G / Ctrl+Shift+G; a click on an object of the group picks
+  the whole group and Alt+click only that object) and text objects (their `outline` is drawn;
+  without a generated outline a marker with the text in a system font is shown). Version 1 projects
+  are migrated when opened.
 
-Pendiente:
+Pending:
 
-- Renderer WebGL para el lienzo (hoy Canvas2D; la interfaz `Renderer` ya lo permite).
-- Aislar el cálculo de la vista previa del motor real para que solo corra cuando hace falta
-  (hoy se recalcula con debounce ante cualquier cambio del documento).
-- Idiomas distintos del español (el diccionario ya está separado por área).
-- Empaquetado e instaladores firmados (hoy `tauri build --no-bundle`).
+- WebGL renderer for the canvas (today Canvas2D; the `Renderer` interface already allows it).
+- Isolate the preview calculation from the real engine so it only runs when needed (today it is
+  recalculated, debounced, on any document change).
+- More languages besides Spanish and English (the dictionary is already split by area).
+- Packaging and signed installers (today `tauri build --no-bundle`).
