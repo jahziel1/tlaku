@@ -310,6 +310,17 @@ export const CATALOG: readonly CatalogEntry[] = [
   },
 
   {
+    // Galvo con tarjeta JCZ/BJJCZ (EZCAD2, USB 9588:9899): fibra, UV o CO2 galvo. No es GRBL ni usa puerto
+    // serie. No hay datos con fuente de la cama (es el campo de la lente): se piden en el asistente.
+    id: 'galvo-ezcad2',
+    brand: 'Galvo',
+    model: 'Galvo (fibra o UV, EZCAD2)',
+    kind: 'galvo',
+    aliases: ['EZCAD2', 'EZCAD', 'JCZ', 'BJJCZ', 'LMCV4', 'LMC', 'fibra', 'fiber', 'UV', 'MOPA', 'Raycus', 'JPT', 'F-theta'],
+    notes: ['galvo.note.experimental', 'galvo.note.field', 'galvo.note.origin'],
+  },
+
+  {
     id: 'grbl-generic',
     brand: 'GRBL',
     model: 'GRBL genérico (1.1f o posterior)',

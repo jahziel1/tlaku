@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import { selectActiveDevice, useStore } from '@/store';
 import { FRAME_MAX_PCT } from '@/store/moveControl';
 import { NumberField } from '@/ui/NumberField';
+import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 
@@ -21,14 +22,16 @@ export function FrameOptions() {
   const ruida = useStore(selectIsRuida);
   // El K40 también: encuadra con saltos, sin potencia.
   const lhy = useStore(selectIsLhy);
-  const canLaser = useStore((s) => selectActiveDevice(s).dialect.s_inline) && !ruida && !lhy;
+  // El galvo encuadra solo con el puntero rojo (el láser nunca se habilita) y repite solo hasta Detener.
+  const galvo = useStore(selectIsGalvo);
+  const canLaser = useStore((s) => selectActiveDevice(s).dialect.s_inline) && !ruida && !lhy && !galvo;
   return (
     <div className="mc-frameopts">
       <label className="mc-check">
         <input type="checkbox" checked={laser.on} disabled={!canLaser} onChange={(e) => setLaser({ on: e.target.checked })} />
         <span>{t('machine.frame.laserOn')}</span>
       </label>
-      {!canLaser && <p className="hint">{t(lhy ? 'lhymicro.frame.laserOff' : ruida ? 'ruida.frame.laserOff' : 'machine.frame.laserNo')}</p>}
+      {!canLaser && <p className="hint">{t(galvo ? 'galvo.frame.laserOff' : lhy ? 'lhymicro.frame.laserOff' : ruida ? 'ruida.frame.laserOff' : 'machine.frame.laserNo')}</p>}
       {laser.on && (
         <>
           <NumberField label={t('machine.frame.power')} unit="%" value={laser.powerPct} step={0.5} min={0.1} max={FRAME_MAX_PCT} onCommit={(powerPct) => setLaser({ powerPct })} />
@@ -38,10 +41,12 @@ export function FrameOptions() {
           </p>
         </>
       )}
+      {!galvo && (
       <label className="mc-check">
         <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} />
         <span>{t('machine.frame.loop')}</span>
       </label>
+      )}
       {looping && (
         <p className="hint" role="status">
           <Repeat size={13} aria-hidden="true" />{' '}{t('machine.frame.looping')}{' '}

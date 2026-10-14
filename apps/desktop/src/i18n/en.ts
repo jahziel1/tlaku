@@ -28,6 +28,7 @@ import { trace } from './en/trace';
 import { variables } from './en/variables';
 import { nest } from './en/nest';
 import { printcut } from './en/printcut';
+import { galvo } from './en/galvo';
 import { lhymicro } from './en/lhymicro';
 import { ruida } from './en/ruida';
 import { shapes } from './en/shapes';
@@ -61,6 +62,7 @@ export const en: { [K in I18nKey]?: string } = {
   ...printcut,
   ...ruida,
   ...lhymicro,
+  ...galvo,
   ...shapes,
   ...tiling,
 };

@@ -28,6 +28,8 @@ tlaku-pipeline = { version = "0.1.0", path = "../../../crates/tlaku-pipeline" }
 tlaku-ruida = { version = "0.1.0", path = "../../../crates/tlaku-ruida", features = ["emu"] }
 # `emu` incluye la placa simulada con la que funciona la máquina virtual `virtual:k40`.
 tlaku-lhymicro = { version = "0.1.0", path = "../../../crates/tlaku-lhymicro", features = ["emu"] }
+# El galvo (tarjetas JCZ/BJJCZ por USB, EXPERIMENTAL): `usb` abre la tarjeta real; el emulador siempre está.
+tlaku-galvo = { version = "0.1.0", path = "../../../crates/tlaku-galvo" }
 tlaku-text = { version = "0.1.0", path = "../../../crates/tlaku-text" }
 tlaku-trace = { version = "0.1.0", path = "../../../crates/tlaku-trace" }
 tlaku-camera = { version = "0.1.0", path = "../../../crates/tlaku-camera" }

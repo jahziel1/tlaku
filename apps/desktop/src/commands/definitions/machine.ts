@@ -21,7 +21,11 @@ const canRecover = (s: AppState): true | I18nKey => {
 };
 
 /** El K40 (M2 Nano) no usa G-code: `$X` y los ajustes `$` no existen en esa placa. */
-const notLhy = (s: AppState): true | I18nKey => (selectActiveDevice(s).kind === 'lhy_micro' ? 'lhymicro.mset.reason' : true);
+const notLhy = (s: AppState): true | I18nKey => {
+  const kind = selectActiveDevice(s).kind;
+  // El galvo tampoco usa `$X` ni ajustes `$`: no es una máquina GRBL.
+  return kind === 'lhy_micro' ? 'lhymicro.mset.reason' : kind === 'galvo' ? 'galvo.mset.reason' : true;
+};
 
 /**
  * Jog con teclado desde cualquier panel: `Mod+Alt+flecha`. Las flechas solas (y con Mayús o Alt) son
@@ -65,7 +69,8 @@ export const machineCommands: CommandDef[] = [
     labelFor: (s) => (s.jobState === 'paused' ? 'cmd.machine.resume' : 'cmd.machine.pause'),
     category: 'machine',
     shortcuts: ['Mod+Shift+P'],
-    enabled: (s) => (isJobBusy(s) ? true : 'reason.noJob'),
+    // El galvo no tiene pausa a propósito: pausar deja el espejo quieto con el haz encendido. Solo Detener.
+    enabled: (s) => (selectActiveDevice(s).kind === 'galvo' ? 'galvo.pause.reason' : isJobBusy(s) ? true : 'reason.noJob'),
     run: (s) => (s.jobState === 'paused' ? s.resumeJob() : s.pauseJob()),
   },
   {
@@ -83,7 +88,8 @@ export const machineCommands: CommandDef[] = [
     // El home del K40 es la orden IPP de la placa, no `$H`.
     labelFor: (s) => (selectActiveDevice(s).kind === 'lhy_micro' ? 'lhymicro.cmd.home' : 'machine.cmd.home'),
     category: 'machine',
-    enabled: canRecover,
+    // El galvo no tiene home: los espejos no tienen finales de carrera.
+    enabled: (s) => (selectActiveDevice(s).kind === 'galvo' ? 'galvo.home.reason' : canRecover(s)),
     run: (s) => s.openDialog({ kind: 'alarm', action: 'home' }),
   },
   { id: 'machine.unlock', label: 'machine.cmd.unlock', category: 'machine', enabled: (s) => (notLhy(s) === true ? canRecover(s) : notLhy(s)), run: (s) => s.openDialog({ kind: 'alarm', action: 'unlock' }) },

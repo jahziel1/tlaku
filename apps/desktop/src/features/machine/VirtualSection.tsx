@@ -4,6 +4,7 @@ import type { SimulatedFault } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
+import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 import { VirtualBadge } from './VirtualBadge';
@@ -25,9 +26,10 @@ export function VirtualSection() {
   // Las fallas simuladas son de las máquinas GRBL virtuales; la virtual de Ruida no las tiene.
   const ruida = useStore(selectIsRuida);
   const lhy = useStore(selectIsLhy);
+  const galvo = useStore(selectIsGalvo);
   const simulateFault = useStore((s) => s.simulateFault);
   const [fault, setFault] = useState<SimulatedFault | ''>('');
-  if (!virtual || ruida || lhy) return null;
+  if (!virtual || ruida || lhy || galvo) return null;
   return (
     <section className="section mc-virtual" aria-labelledby="sec-virtual">
       <h3 id="sec-virtual" className="panel-title">

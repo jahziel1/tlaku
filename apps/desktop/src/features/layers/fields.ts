@@ -45,7 +45,19 @@ export type NumericField =
   | 'angle_increment'
   | 'enhance_radius'
   | 'enhance_amount'
-  | 'denoise';
+  | 'denoise'
+  | 'galvo_speed'
+  | 'galvo_freq'
+  | 'galvo_repeat'
+  | 'galvo_pause'
+  | 'galvo_ppi'
+  | 'galvo_wobble_size'
+  | 'galvo_wobble_step'
+  | 'galvo_delay'
+  | 'galvo_jump_speed'
+  | 'galvo_jump_delay'
+  | 'galvo_slices'
+  | 'galvo_angle_step';
 
 export interface FieldSpec {
   min: number;
@@ -108,6 +120,24 @@ export const FIELD_SPECS: Record<NumericField, FieldSpec> = {
   enhance_radius: { min: 0, max: 20, step: 0.5, decimals: 2, unit: 'px' },
   enhance_amount: { min: 0, max: 1, step: 0.05, decimals: 2, unit: '' },
   denoise: { min: 0, max: 20, step: 1, decimals: 1, unit: 'px' },
+  // Ola 5, galvo. La velocidad se muestra en mm/s (la capa guarda mm/min = mm/s × 60).
+  galvo_speed: { min: 1, max: 30000, step: 50, decimals: 1, unit: 'mm/s' },
+  galvo_freq: { min: 0.1, max: 4000, step: 1, decimals: 2, unit: 'kHz', positive: true },
+  // El motor acepta de 1 a 100000 repeticiones por capa.
+  galvo_repeat: { min: 1, max: 100000, step: 1, decimals: 0, unit: '', integer: true },
+  galvo_pause: { min: 0, max: 60000, step: 10, decimals: 0, unit: 'ms' },
+  // Pulsos por pulgada: 0 = apagado.
+  galvo_ppi: { min: 0, max: 5000, step: 10, decimals: 1, unit: 'PPI' },
+  // El bamboleo exige tamaño y paso mayores que 0.
+  galvo_wobble_size: { min: 0.01, max: 10, step: 0.05, decimals: 3, unit: 'mm', positive: true },
+  galvo_wobble_step: { min: 0.005, max: 5, step: 0.01, decimals: 3, unit: 'mm', positive: true },
+  // Retardos de la tarjeta: pueden ser negativos.
+  galvo_delay: { min: -10000, max: 10000, step: 10, decimals: 1, unit: 'µs' },
+  galvo_jump_speed: { min: 1, max: 30000, step: 100, decimals: 0, unit: 'mm/s', positive: true },
+  galvo_jump_delay: { min: 0, max: 10000, step: 10, decimals: 0, unit: 'µs' },
+  // De 2 a 256 cortes (8 bits dan como mucho 256 niveles).
+  galvo_slices: { min: 2, max: 256, step: 1, decimals: 0, unit: '', integer: true },
+  galvo_angle_step: { min: -360, max: 360, step: 1, decimals: 2, unit: '°' },
 };
 
 export interface FieldError {

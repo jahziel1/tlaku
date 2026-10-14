@@ -61,8 +61,10 @@ import type { GuideAxis } from '@/bindings/GuideAxis';
 import type { StartSpec } from '@/bindings/StartSpec';
 import type { Macro } from '@/bindings/Macro';
 import type { SavedPosition } from '@/bindings/SavedPosition';
+import type { LaserSource } from '@/bindings/LaserSource';
 
 export type {
+  LaserSource,
   Macro,
   SavedPosition,
   Guide,
@@ -178,6 +180,95 @@ export interface LhyState {
 }
 
 // ---------------------------------------------------------------------------
+// Galvo con tarjeta JCZ/BJJCZ (los devuelve `src-tauri/src/machine/galvo.rs`)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el usuario confirma en el diálogo de seguridad antes de abrir una tarjeta galvo REAL
+ * (`usb:galvo:<n>`). Las tres casillas deben estar marcadas; se pide en cada conexión y no se recuerda.
+ */
+export interface GalvoSafetyAck {
+  /** Gafas con la densidad óptica correcta para la longitud de onda de la fuente. */
+  eyewear: boolean;
+  /** Recinto cerrado. */
+  enclosure: boolean;
+  /** Sabe dónde está el paro de emergencia. */
+  emergency_stop: boolean;
+}
+
+/** Un paso del marcado dividido, repetido o rotativo y lo que hay que hacer antes de marcarlo. */
+export interface GalvoStepInfo {
+  /** Paso actual y total (desde 1). */
+  step: number;
+  steps: number;
+  /** Repetición y pieza dentro de ella (desde 1) y sus totales. */
+  repeat: number;
+  repeats: number;
+  piece: number;
+  pieces: number;
+  /** Cuánto debe moverse el material (la mesa), mm. */
+  dx: number;
+  dy: number;
+  /** Giro del rotativo, grados. */
+  rotary_deg: number;
+  /** Pausa tras confirmar el movimiento, ms. */
+  pause_ms: number;
+}
+
+/** Lo que se sabe de un trabajo galvo antes de enviarlo (`galvo_preview`); no envía nada. */
+export interface GalvoPreview {
+  steps: number;
+  pieces: number;
+  repeats: number;
+  /** Veces que habrá que mover el material (o girar el rotativo) a mano. */
+  manual_moves: number;
+  est_seconds: number;
+  warnings: string[];
+  field_mm: number;
+  source: LaserSource;
+  /** Potencia máxima del perfil (%). */
+  max_power_pct: number;
+}
+
+/** Estado propio de la conexión galvo (`galvo_state`). */
+export interface GalvoState {
+  board: string;
+  vendor_id: number;
+  product_id: number;
+  virtual_machine: boolean;
+  serial: string;
+  version: string;
+  /** Palabra de estado de la tarjeta (sin verificar). */
+  status_raw: number;
+  busy: boolean;
+  ready: boolean;
+  axis: boolean;
+  /** Entradas de la tarjeta (solo lectura). */
+  inputs: number;
+  inputs_known: boolean;
+  /** Hay un trabajo, un encuadre o una espera en curso. */
+  working: boolean;
+  /** El puntero rojo está encendido en su sitio. */
+  red_light_on: boolean;
+  /** El último apagado NO se confirmó: la fuente puede seguir habilitada. */
+  laser_may_be_on: boolean;
+  /** Posición del haz según la última orden de salto (mm del documento). */
+  position: [number, number];
+  position_known: boolean;
+  field_mm: number;
+  source: LaserSource;
+  /** El trabajo espera que muevas el material y confirmes. */
+  waiting_move: GalvoStepInfo | null;
+}
+
+/** Evento `machine://galvo`. */
+export type GalvoEvent =
+  | { kind: 'step'; info: GalvoStepInfo }
+  | { kind: 'wait_move'; info: GalvoStepInfo }
+  | { kind: 'light'; loops: number }
+  | { kind: 'laser_may_be_on'; message: string };
+
+// ---------------------------------------------------------------------------
 // Eventos
 // ---------------------------------------------------------------------------
 
@@ -188,6 +279,8 @@ export interface EventMap {
   'machine://log': LogEvent;
   'machine://job': JobEvent;
   'machine://connection': ConnectionEvent;
+  /** Lo propio del galvo: pasos del marcado dividido, vueltas del encuadre y el aviso de cortar la energía. */
+  'machine://galvo': GalvoEvent;
   /** Un programa externo pidió abrir un archivo (`LOAD` de la automatización por UDP). */
   'automation://load': { path: string };
   /** Pidió iniciar el trabajo (`START`); con `confirmed` el usuario ya lo permitió en Preferencias. */

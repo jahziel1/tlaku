@@ -1,5 +1,5 @@
 import { getApi } from '@/api';
-import type { ConnectionEvent, JobArgs, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
+import type { ConnectionEvent, GalvoSafetyAck, JobArgs, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
 import { firmwareFamily, parseAlarmLine, type AlarmAction, type FirmwareFamily } from '@/features/machine/grblCodes';
 import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, stepDelta, type JogDir } from '@/features/machine/jogMath';
 import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish, writeJogSteps, type FinishPosition } from '@/features/machine/moveSettings';
@@ -7,6 +7,7 @@ import { advanceAfterJob } from '@/features/variables/advance';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { needsConfirmation, parseCommand, type CommandError } from '@/features/machine/commandSafety';
 import { connectionPortId } from '@/features/machine/DeviceConnectionModel';
+import { isGalvoUsbPort } from '@/features/machine/galvoPorts';
 import { portForDevice } from '@/features/machine/ruidaPorts';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, portKey, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
 import { t, type I18nKey } from '@/i18n';
@@ -550,15 +551,23 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         get().notifyKey('warning', 'machine.noPort');
         return;
       }
+      // Galvo con una tarjeta REAL: antes de abrir el USB el usuario confirma la seguridad láser
+      // (gafas, recinto, paro de emergencia). Se pide en cada conexión; no se recuerda.
+      let galvoAck: GalvoSafetyAck | undefined;
+      if (device.kind === 'galvo' && isGalvoUsbPort(selectedPort)) {
+        const ack = await get().requestGalvoAck();
+        if (!ack) return;
+        galvoAck = ack;
+      }
       set({ connecting: true });
       try {
         // La velocidad de una máquina virtual viaja en el id del puerto (`virtual:falcon2@5`).
         const port = isVirtualPort(selectedPort) ? withVirtualSpeed(selectedPort, virtualSpeed) : selectedPort;
-        const { firmware } = await getApi().connect({ port, baud, device });
+        const { firmware } = await getApi().connect({ port, baud, device, ...(galvoAck ? { galvoAck } : {}) });
         set({ firmware });
         // Mejor esfuerzo: sirve para el aviso de modo láser y para sugerir $H o $X ante una alarma.
         // Ruida y el K40 no tienen ajustes `$`: Ruida lee su información desde el panel Máquina.
-        if (device.kind !== 'ruida' && device.kind !== 'lhy_micro') void get().readSettings({ silent: true });
+        if (device.kind !== 'ruida' && device.kind !== 'lhy_micro' && device.kind !== 'galvo') void get().readSettings({ silent: true });
       } catch (e) {
         get().notify('error', errorMessage(e));
       } finally {
@@ -700,8 +709,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (s.jogging) return;
       const why = jogBlockedReason(s);
       if (why) return void s.notify('warning', t(why));
-      // El K40 no tiene jog continuo cancelable (detener la placa pierde la posición): da un paso.
-      if (selectActiveDevice(s).kind === 'lhy_micro') return void (await s.jogDir(dir));
+      // El K40 no tiene jog continuo cancelable (detener la placa pierde la posición): da un paso. El galvo salta a puntos.
+      if (selectActiveDevice(s).kind === 'lhy_micro' || selectActiveDevice(s).kind === 'galvo') return void (await s.jogDir(dir));
       const delta = continuousDelta(selectActiveDevice(s), dir, s.status?.work_pos ?? null);
       if (!delta) return void s.notifyKey('info', 'machine.jog.noRoom');
       set({ jogging: true });
@@ -762,7 +771,9 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     cancelJob: async () => {
       get().stopFrameLoop();
       if (get().jogging) await get().jogStop();
-      await guard(() => getApi().cancelJob());
+      const ok = await guard(() => getApi().cancelJob());
+      // Detener en el galvo apaga también el puntero rojo.
+      if (ok) set({ galvoRedOn: false });
     },
     frameJob: async () => {
       await guardJob(async () => getApi().frameJob({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow(), ...framePower(get()) }));
@@ -807,6 +818,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     onJob: (job) => {
       apply({ type: 'job', job });
+      get().onGalvoJob(job);
       if (job.state === 'finished') {
         get().notify('success', job.message);
         // Texto variable: la serie y la fila del CSV pasan al siguiente trabajo (solo si terminó bien).
@@ -819,6 +831,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     onConnection: (connection) => {
       const pending = get().positionLost && !get().connection.connected;
       apply({ type: 'connection', connection });
+      get().onGalvoConnection(connection);
       // Reconectó a la misma máquina que quedó con la posición dudosa: conviene hacer homing.
       if (connection.connected && pending && get().positionLost) {
         get().notifyKey('warning', 'machine.positionLost.reconnect');

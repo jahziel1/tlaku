@@ -8,7 +8,9 @@ import { useCommandConfirm } from './CommandConfirm';
 import { hintRisk, commonPrefix, completions } from './completions';
 import { ConsoleHistory } from './consoleHistory';
 import { RuidaNotApplicable } from './RuidaSection';
+import { GalvoNotApplicable } from './GalvoNotice';
 import { LhyNotApplicable } from './LhyNotice';
+import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 import { classifyLine } from './consoleExplain';
@@ -66,7 +68,9 @@ export function ConsolePanel() {
   const isRuida = useStore(selectIsRuida);
   // El K40 (M2 Nano) tampoco: habla LHYMICRO-GL por USB.
   const lhy = useStore(selectIsLhy);
-  const ruida = isRuida || lhy;
+  // El galvo (tarjeta JCZ/BJJCZ) tampoco usa G-code: el registro se ve, pero no se mandan líneas.
+  const galvo = useStore(selectIsGalvo);
+  const ruida = isRuida || lhy || galvo;
   const clearLog = useStore((s) => s.clearLog);
   const notify = useStore((s) => s.notify);
   const [line, setLine] = useState('');
@@ -160,6 +164,7 @@ export function ConsolePanel() {
 
       {isRuida && <RuidaNotApplicable reason="ruida.console.reason" />}
       {lhy && <LhyNotApplicable reason="lhymicro.console.reason" />}
+      {galvo && <GalvoNotApplicable reason="galvo.console.reason" />}
       {connected && !ruida && (
         <div className="mc-quick" role="group" aria-label={t('machine.console.quick')}>
           {QUICK.map((q) => (
@@ -200,7 +205,7 @@ export function ConsolePanel() {
           autoCapitalize="off"
           spellCheck={false}
           disabled={!connected || ruida}
-          placeholder={ruida ? t(lhy ? 'lhymicro.console.reason' : 'ruida.console.reason') : connected ? t('machine.console.placeholder') : t('reason.needMachine')}
+          placeholder={ruida ? t(galvo ? 'galvo.console.reason' : lhy ? 'lhymicro.console.reason' : 'ruida.console.reason') : connected ? t('machine.console.placeholder') : t('reason.needMachine')}
           title={connected ? undefined : t('reason.needMachine')}
           onChange={(e) => {
             setLine(e.target.value);

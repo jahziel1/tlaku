@@ -35,6 +35,9 @@ import { ExtraAxesFields } from './ExtraAxesFields';
 import { RotaryFields, ScanInitialOffsetField, ScanOffsetsTable, ZAxisField, type ScanIssue } from './DeviceExtras';
 import { KindChangeDialog, KindField } from './DeviceKindField';
 import { RotaryTest } from './DeviceRotaryTest';
+import { GalvoCalibrationButton } from './GalvoCalibration';
+import { GalvoFields } from './GalvoFields';
+import { validateGalvoProfile } from './galvoProfile';
 import { LhyFields } from './LhyFields';
 import { RuidaFields } from './RuidaFields';
 import { Modal } from './Modal';
@@ -158,14 +161,18 @@ export function DeviceManager() {
   // El dialecto solo se edita (y por eso solo se valida) con «G-code personalizado».
   const dialectIssues = useMemo(() => (draft.kind === 'custom_gcode' ? validateDialect(draft.dialect) : {}), [draft.kind, draft.dialect]);
   // El alimentador es de G-code: en Ruida y K40 la sección está oculta y no cuenta.
-  const feederInvalid = draft.kind !== 'ruida' && draft.kind !== 'lhy_micro' && Object.keys(validateFeeder(draft.feeder)).length > 0;
-  const invalid = feederInvalid || Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0 || connectionIssue(draft.connection) !== null;
+  const feederInvalid = draft.kind !== 'ruida' && draft.kind !== 'lhy_micro' && draft.kind !== 'galvo' && Object.keys(validateFeeder(draft.feeder)).length > 0;
+  // El galvo: la lente, la fuente, los retardos y la corrección tienen sus propias comprobaciones.
+  const galvoIssues = useMemo(() => (draft.kind === 'galvo' ? validateGalvoProfile(draft) : {}), [draft]);
+  const invalid = feederInvalid || Object.keys(galvoIssues).length > 0 || Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0 || connectionIssue(draft.connection) !== null;
   const isActive = draft.id === activeId;
   // Ruida habla por red con su propio protocolo: no usa G-code, S máxima, baudios ni macros.
   const ruida = draft.kind === 'ruida';
   // El K40 con M2 Nano tampoco usa G-code, S máxima, baudios ni macros (habla LHYMICRO-GL por USB).
   const lhy = draft.kind === 'lhy_micro';
-  const noGcode = ruida || lhy;
+  // El galvo (JCZ/BJJCZ) tampoco: habla por USB, la velocidad y la potencia salen de cada capa.
+  const galvo = draft.kind === 'galvo';
+  const noGcode = ruida || lhy || galvo;
 
   // Si la lista cambia desde fuera (otro borrado), el borrador sigue apuntando a un perfil que existe.
   useEffect(() => {
@@ -380,7 +387,7 @@ export function DeviceManager() {
               <DialectEditor draft={draft} edit={edit} issues={dialectIssues} />
             </fieldset>
 
-            <fieldset className="mc-group">
+            <fieldset className="mc-group" hidden={galvo}>
               <legend>{t('machine.dev.group.motion')}</legend>
               <Field label={t('machine.dev.maxRate')} help="machine.dev.maxRate.help" error={issues.max_rate}>
                 {({ id, describedBy, invalid: bad }) => (
@@ -405,14 +412,15 @@ export function DeviceManager() {
 
             <fieldset className="mc-group" hidden={lhy}>
               <legend>{t('machine.dev.group.axes')}</legend>
-              <ZAxisField draft={draft} edit={edit} />
-              <ExtraAxesFields draft={draft} edit={edit} />
+              {/* El galvo no mueve Z ni ejes extra; solo el rotativo (galvo rotativo: franjas de la pieza). */}
+              {!galvo && <ZAxisField draft={draft} edit={edit} />}
+              {!galvo && <ExtraAxesFields draft={draft} edit={edit} />}
               <RotaryFields draft={draft} edit={edit} issues={issues}>
-                <RotaryTest draft={draft} blocked={rotaryBlocked} />
+                {!galvo && <RotaryTest draft={draft} blocked={rotaryBlocked} />}
               </RotaryFields>
             </fieldset>
 
-            <fieldset className="mc-group">
+            <fieldset className="mc-group" hidden={galvo}>
               <legend>{t('machine.dev.group.scan')}</legend>
               <ScanInitialOffsetField draft={draft} edit={edit} issues={issues} />
               <ScanOffsetsTable rows={draft.scan_offsets} error={issues.scan_offsets as ScanIssue | undefined} onChange={(rows) => edit({ scan_offsets: rows })} />
@@ -429,6 +437,13 @@ export function DeviceManager() {
               <fieldset className="mc-group">
                 <legend>{t('lhymicro.dev.group')}</legend>
                 <LhyFields draft={draft} edit={edit} />
+              </fieldset>
+            )}
+
+            {galvo && (
+              <fieldset className="mc-group">
+                <legend>{t('galvo.dev.group')}</legend>
+                <GalvoFields draft={draft} edit={edit} issues={galvoIssues} calibrate={<GalvoCalibrationButton draft={draft} dirty={dirty} onApply={(correction) => edit({ galvo: { ...draft.galvo, correction } })} />} />
               </fieldset>
             )}
 

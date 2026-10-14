@@ -1,12 +1,13 @@
 //! Despacho entre las conexiones posibles con una máquina.
 //!
 //! La app tiene **una** conexión activa ([`ActiveMachine`]) y todas hablan con la interfaz igual:
-//! los eventos `machine://*` ([`super::Sink`]) y las mismas operaciones de control. Hoy hay dos
-//! respaldos:
+//! los eventos `machine://*` ([`super::Sink`]) y las mismas operaciones de control. Los respaldos:
 //!
 //! - GRBL y derivados ([`super::Connection`], trabajador sobre un puerto serie o virtual);
 //! - Ruida por UDP ([`super::ruida::RuidaConnection`]);
-//! - el K40 con placa M2 Nano por USB ([`super::lhymicro::LhyConnection`]).
+//! - el K40 con placa M2 Nano por USB ([`super::lhymicro::LhyConnection`]);
+//! - el galvo con tarjeta JCZ/BJJCZ por USB ([`super::galvo::GalvoConnection`]), sin pausa a
+//!   propósito: solo se puede detener.
 //!
 //! # Cómo se agrega otro respaldo (así se hizo con el K40, LHYMICRO)
 //!
@@ -26,6 +27,7 @@
 //! Las operaciones que solo existen en GRBL (consola, overrides, ajustes `$`, macros) usan
 //! [`Machine::grbl`] y no se tocan.
 
+use super::galvo::{self, GalvoConnection, GalvoHandle};
 use super::lhymicro::{self, LhyConnection, LhyHandle};
 use super::ruida::{self, RuidaConnection, RuidaHandle};
 use super::{Connection, Handle};
@@ -36,6 +38,7 @@ pub enum ActiveMachine {
     Grbl(Connection),
     Ruida(RuidaConnection),
     Lhy(LhyConnection),
+    Galvo(GalvoConnection),
 }
 
 impl ActiveMachine {
@@ -45,6 +48,7 @@ impl ActiveMachine {
             Self::Grbl(c) => Machine::Grbl(c.handle()),
             Self::Ruida(c) => Machine::Ruida(c.handle()),
             Self::Lhy(c) => Machine::Lhy(c.handle()),
+            Self::Galvo(c) => Machine::Galvo(c.handle()),
         }
     }
 
@@ -54,6 +58,7 @@ impl ActiveMachine {
             Self::Grbl(c) => c.close(),
             Self::Ruida(c) => c.close(),
             Self::Lhy(c) => c.close(),
+            Self::Galvo(c) => c.close(),
         }
     }
 }
@@ -64,6 +69,7 @@ pub enum Machine {
     Grbl(Handle),
     Ruida(RuidaHandle),
     Lhy(LhyHandle),
+    Galvo(GalvoHandle),
 }
 
 impl Machine {
@@ -73,6 +79,7 @@ impl Machine {
             Self::Grbl(h) => h.is_closed(),
             Self::Ruida(h) => h.is_closed(),
             Self::Lhy(h) => h.is_closed(),
+            Self::Galvo(h) => h.is_closed(),
         }
     }
 
@@ -82,6 +89,7 @@ impl Machine {
             Self::Grbl(h) => h.work_pos(),
             Self::Ruida(h) => h.work_pos(),
             Self::Lhy(h) => h.work_pos(),
+            Self::Galvo(h) => h.work_pos(),
         }
     }
 
@@ -91,6 +99,7 @@ impl Machine {
             Self::Grbl(h) => h.status_report(),
             Self::Ruida(h) => h.status_report(),
             Self::Lhy(h) => h.status_report(),
+            Self::Galvo(h) => h.status_report(),
         }
     }
 
@@ -100,6 +109,7 @@ impl Machine {
             Self::Grbl(h) => Ok(h),
             Self::Ruida(_) => Err(ruida::GRBL_ONLY.into()),
             Self::Lhy(_) => Err(lhymicro::GRBL_ONLY.into()),
+            Self::Galvo(_) => Err(galvo::GRBL_ONLY.into()),
         }
     }
 
@@ -107,7 +117,7 @@ impl Machine {
     pub fn ruida(&self) -> Result<&RuidaHandle, String> {
         match self {
             Self::Ruida(h) => Ok(h),
-            Self::Grbl(_) | Self::Lhy(_) => {
+            Self::Grbl(_) | Self::Lhy(_) | Self::Galvo(_) => {
                 Err("Esta función es solo de las controladoras Ruida.".into())
             }
         }
@@ -117,8 +127,18 @@ impl Machine {
     pub fn lhy(&self) -> Result<&LhyHandle, String> {
         match self {
             Self::Lhy(h) => Ok(h),
-            Self::Grbl(_) | Self::Ruida(_) => {
+            Self::Grbl(_) | Self::Ruida(_) | Self::Galvo(_) => {
                 Err("Esta función es solo del K40 con placa M2 Nano.".into())
+            }
+        }
+    }
+
+    /// El mando del galvo (tarjeta JCZ/BJJCZ), o un error si la conexión activa es otra.
+    pub fn galvo(&self) -> Result<&GalvoHandle, String> {
+        match self {
+            Self::Galvo(h) => Ok(h),
+            Self::Grbl(_) | Self::Ruida(_) | Self::Lhy(_) => {
+                Err("Esta función es solo de las máquinas galvo (tarjeta JCZ/BJJCZ).".into())
             }
         }
     }
@@ -129,6 +149,7 @@ impl Machine {
             Self::Grbl(h) => h.jog(dx, dy, speed),
             Self::Ruida(h) => h.jog(dx, dy, speed),
             Self::Lhy(h) => h.jog(dx, dy, speed),
+            Self::Galvo(h) => h.jog(dx, dy, speed),
         }
     }
 
@@ -138,6 +159,7 @@ impl Machine {
             Self::Grbl(h) => h.jog_to(x, y, speed),
             Self::Ruida(h) => h.jog_to(x, y, speed),
             Self::Lhy(h) => h.jog_to(x, y, speed),
+            Self::Galvo(h) => h.jog_to(x, y, speed),
         }
     }
 
@@ -146,6 +168,8 @@ impl Machine {
             Self::Grbl(h) => h.pause(),
             Self::Ruida(h) => h.pause(),
             Self::Lhy(h) => h.pause(),
+            // Sin pausa, a propósito: pausar deja el espejo quieto con el haz encendido.
+            Self::Galvo(_) => Err(galvo::NO_PAUSE.into()),
         }
     }
 
@@ -154,6 +178,7 @@ impl Machine {
             Self::Grbl(h) => h.resume(),
             Self::Ruida(h) => h.resume(),
             Self::Lhy(h) => h.resume(),
+            Self::Galvo(_) => Err(galvo::NO_PAUSE.into()),
         }
     }
 
@@ -163,6 +188,7 @@ impl Machine {
             Self::Grbl(h) => h.cancel(),
             Self::Ruida(h) => h.cancel(),
             Self::Lhy(h) => h.cancel(),
+            Self::Galvo(h) => h.cancel(),
         }
     }
 
@@ -183,6 +209,12 @@ impl Machine {
             Self::Lhy(h) => match cmd {
                 RealtimeCommand::Hold => h.pause(),
                 RealtimeCommand::Resume => h.resume(),
+                RealtimeCommand::Reset => h.cancel(),
+                RealtimeCommand::JogCancel | RealtimeCommand::Status => Ok(()),
+            },
+            // El galvo solo traduce detener (Reset); pausa y reanudar no existen.
+            Self::Galvo(h) => match cmd {
+                RealtimeCommand::Hold | RealtimeCommand::Resume => Err(galvo::NO_PAUSE.into()),
                 RealtimeCommand::Reset => h.cancel(),
                 RealtimeCommand::JogCancel | RealtimeCommand::Status => Ok(()),
             },

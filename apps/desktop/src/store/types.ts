@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import type { CameraSlice } from './camera';
 import type { DevicesSlice } from './devices';
 import type { DocumentSlice } from './document';
+import type { GalvoSlice } from './galvo';
 import type { MachineSlice } from './machine';
 import type { MoveControlSlice } from './moveControl';
 import type { NoticesSlice } from './notices';
@@ -15,6 +16,7 @@ export type AppState = DocumentSlice &
   SelectionSlice &
   ViewSlice &
   MachineSlice &
+  GalvoSlice &
   MoveControlSlice &
   PreviewSlice &
   DevicesSlice &

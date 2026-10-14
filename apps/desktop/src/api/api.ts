@@ -6,6 +6,9 @@ import type {
   EventMap,
   EventName,
   ExportResult,
+  GalvoPreview,
+  GalvoSafetyAck,
+  GalvoState,
   ImportResult,
   JobArgs,
   JobPreview,
@@ -178,8 +181,10 @@ export interface LaserApi {
    * Conecta. `device` es el perfil activo: con `kind = ruida` el motor usa su IP (`connection`),
    * su magic y su cama en lugar del puerto serie (`port` solo se usa para `virtual:ruida`). Con
    * `kind = lhy_micro` abre la placa USB `usb:k40:<n>` o la máquina virtual `virtual:k40`.
+   * `kind = galvo` abre la tarjeta USB `usb:galvo:<n>` (EXPERIMENTAL; exige `galvoAck` con las tres
+   * confirmaciones de seguridad, en CADA conexión) o la tarjeta simulada `virtual:galvo`.
    */
-  connect(args: { port: string; baud: number; device?: DeviceProfile }): Promise<ConnectResult>;
+  connect(args: { port: string; baud: number; device?: DeviceProfile; galvoAck?: GalvoSafetyAck }): Promise<ConnectResult>;
   disconnect(): Promise<void>;
   /**
    * Devuelve las líneas de respuesta; la última es `ok`, o `error:N: ...` / `ALARM:N: ...` con su
@@ -224,6 +229,19 @@ export interface LaserApi {
   lhyHome(): Promise<void>;
   /** K40: placa, si se conoce la posición y último código de estado. Falla si la conexión no es un K40. */
   lhyState(): Promise<LhyState>;
+  /**
+   * Galvo (EXPERIMENTAL): calcula el trabajo SIN enviarlo y devuelve los pasos del marcado dividido,
+   * repetido o rotativo, cuántas veces hay que mover el material, el tiempo y los avisos. No necesita conexión.
+   */
+  galvoPreview(args: JobArgs): Promise<GalvoPreview>;
+  /** Galvo: estado de la tarjeta, entradas (solo lectura), puntero rojo y si la fuente puede estar encendida. Falla si la conexión no es galvo. */
+  galvoState(): Promise<GalvoState>;
+  /** Galvo: recorre el trabajo con el láser DESHABILITADO y el puntero rojo; la fuente nunca se arma. */
+  galvoRedRun(args: JobArgs): Promise<void>;
+  /** Galvo: enciende o apaga el puntero rojo en su sitio (la fuente queda deshabilitada). */
+  galvoRedLight(args: { on: boolean }): Promise<void>;
+  /** Galvo: ya moviste el material (o giraste el rotativo): el marcado dividido o repetido sigue. */
+  galvoConfirmMove(): Promise<void>;
   /** Mueve un eje extra (`Z`, `U`, `A`...) `delta` mm respecto a donde está. `kind` decide la sintaxis (GRBL o RepRap). */
   jogAxis(args: { kind: DeviceKind; axis: string; delta: number; speed: number }): Promise<void>;
   /** Lleva un eje extra a la posición `pos` (mm, coordenadas de trabajo); lo usa «Enfocar». */
@@ -442,6 +460,11 @@ export const COMMAND_NAMES = {
   lhyPreview: 'lhy_preview',
   lhyHome: 'lhy_home',
   lhyState: 'lhy_state',
+  galvoPreview: 'galvo_preview',
+  galvoState: 'galvo_state',
+  galvoRedRun: 'galvo_red_run',
+  galvoRedLight: 'galvo_red_light',
+  galvoConfirmMove: 'galvo_confirm_move',
   jogAxis: 'jog_axis',
   jogAxisTo: 'jog_axis_to',
   fireTest: 'fire_test',

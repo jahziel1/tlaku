@@ -3,6 +3,7 @@
 
 use crate::engine::{self, Head};
 use crate::machine::active::{ActiveMachine, Machine};
+use crate::machine::galvo::{self, GalvoConnection, GalvoTimingCfg};
 use crate::machine::lhymicro::{self, LhyConnection, LhyTiming};
 use crate::machine::ruida::{self, RuidaConnection, RuidaTiming};
 use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, frame, virtual_port};
@@ -75,6 +76,7 @@ impl Sink for TauriSink {
             Emit::Log(p) => self.0.emit(name, p),
             Emit::Job(p) => self.0.emit(name, p),
             Emit::Connection(p) => self.0.emit(name, p),
+            Emit::Galvo(p) => self.0.emit(name, p),
         };
     }
 }
@@ -200,12 +202,16 @@ pub async fn list_ports() -> Result<Vec<String>, String> {
             .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))?;
         // Las placas del K40 que haya por USB (`usb:k40:<n>`), antes de las máquinas virtuales.
         ports.extend(lhymicro::usb_ports());
+        // Las tarjetas galvo (BJJCZ 9588:xxxx) que haya por USB (`usb:galvo:<n>`).
+        ports.extend(galvo::usb_ports());
         ports.extend(virtual_port::ports());
         ports.extend(crate::netlink::virtual_ports());
         // La máquina virtual de Ruida (emulador UDP); la interfaz solo la ofrece con un perfil Ruida.
         ports.push(ruida::VIRTUAL_PORT.to_string());
         // La placa simulada del K40; la interfaz solo la ofrece con un perfil K40.
         ports.push(lhymicro::VIRTUAL_PORT.to_string());
+        // La tarjeta galvo simulada; la interfaz solo la ofrece con un perfil galvo.
+        ports.push(galvo::VIRTUAL_PORT.to_string());
         Ok(ports)
     })
     .await
@@ -218,6 +224,7 @@ pub async fn connect(
     port: String,
     baud: u32,
     device: Option<DeviceProfile>,
+    galvo_ack: Option<galvo::SafetyAck>,
 ) -> Result<ConnectResult, String> {
     if baud == 0 {
         return Err("Los baudios deben ser mayores que 0.".into());
@@ -243,7 +250,7 @@ pub async fn connect(
         return Ok(info);
     }
     // K40 (M2 Nano): USB (`usb:k40:<n>`) o su máquina virtual, sin puerto serie.
-    if let Some(device) = device.filter(|d| d.kind == DeviceKind::LhyMicro) {
+    if let Some(device) = device.clone().filter(|d| d.kind == DeviceKind::LhyMicro) {
         let result =
             blocking(move || LhyConnection::connect(&device, &port, sink, LhyTiming::default()))
                 .await;
@@ -251,6 +258,28 @@ pub async fn connect(
         let (conn, info) = result?;
         *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Lhy(conn));
         return Ok(info);
+    }
+    // Galvo (JCZ/BJJCZ): USB (`usb:galvo:<n>`, con el reconocimiento de seguridad de ESTA conexión)
+    // o su tarjeta virtual. Sin el reconocimiento no se toca el USB.
+    if let Some(device) = device.filter(|d| d.kind == DeviceKind::Galvo) {
+        let result = blocking(move || {
+            GalvoConnection::connect(
+                &device,
+                &port,
+                galvo_ack.as_ref(),
+                sink,
+                GalvoTimingCfg::default(),
+            )
+        })
+        .await;
+        state.connecting.store(false, Ordering::SeqCst);
+        let (conn, info) = result?;
+        *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Galvo(conn));
+        return Ok(info);
+    }
+    if galvo::is_virtual(&port) || galvo::usb_index(&port).is_some() {
+        state.connecting.store(false, Ordering::SeqCst);
+        return Err("La tarjeta galvo solo se abre con un perfil de tipo galvo.".into());
     }
     if ruida::is_virtual(&port) {
         state.connecting.store(false, Ordering::SeqCst);
@@ -361,6 +390,11 @@ pub async fn start_job(
     if let Machine::Lhy(l) = state.machine()? {
         return blocking(move || l.start_job(&doc, &device, &options)).await;
     }
+    // Galvo: marca en el hilo de la conexión (con marcado dividido, repetido o rotativo recorre
+    // las piezas y espera que muevas el material entre ellas).
+    if let Machine::Galvo(g) = state.machine()? {
+        return blocking(move || g.start_job(&doc, &device, &options, false)).await;
+    }
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::job_lines(&doc, &device, &options, h.work_pos())?;
@@ -371,7 +405,8 @@ pub async fn start_job(
     .await
 }
 
-#[tauri::command]
+// La interfaz manda los argumentos en snake_case (`power_pct`, `s_max`, `duration_ms`).
+#[tauri::command(rename_all = "snake_case")]
 pub async fn frame_job(
     state: State<'_, AppState>,
     doc: Document,
@@ -388,6 +423,10 @@ pub async fn frame_job(
     if let Machine::Lhy(l) = state.machine()? {
         return blocking(move || l.frame_job(&doc, &device, &options)).await;
     }
+    // Galvo: solo con el puntero rojo (el láser nunca se habilita), en bucle hasta detener.
+    if let Machine::Galvo(g) = state.machine()? {
+        return blocking(move || g.frame_job(&doc, &device, &options, false)).await;
+    }
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::frame_lines(&doc, &device, &options, speed, h.work_pos())?;
@@ -401,7 +440,8 @@ pub async fn frame_job(
 }
 
 /// Encuadre de banda elástica: sigue el casco convexo del trabajo en lugar del rectángulo.
-#[tauri::command]
+// La interfaz manda los argumentos en snake_case (`power_pct`, `s_max`, `duration_ms`).
+#[tauri::command(rename_all = "snake_case")]
 pub async fn frame_hull(
     state: State<'_, AppState>,
     doc: Document,
@@ -417,6 +457,10 @@ pub async fn frame_hull(
     // El K40 tampoco: recorre el rectángulo envolvente.
     if let Machine::Lhy(l) = state.machine()? {
         return blocking(move || l.frame_job(&doc, &device, &options)).await;
+    }
+    // Galvo: el contorno del trabajo con el puntero rojo.
+    if let Machine::Galvo(g) = state.machine()? {
+        return blocking(move || g.frame_job(&doc, &device, &options, true)).await;
     }
     let h = state.handle()?;
     blocking(move || {
@@ -476,7 +520,8 @@ pub async fn jog_axis_to(
 
 /// Disparo de prueba del láser: `power_pct` % de `s_max` durante `duration_ms`. Apaga el láser
 /// siempre al terminar, aunque falle.
-#[tauri::command]
+// La interfaz manda los argumentos en snake_case (`power_pct`, `s_max`, `duration_ms`).
+#[tauri::command(rename_all = "snake_case")]
 pub async fn fire_test(
     state: State<'_, AppState>,
     kind: DeviceKind,
@@ -576,4 +621,51 @@ pub async fn lhy_home(state: State<'_, AppState>) -> Result<(), String> {
 pub async fn lhy_state(state: State<'_, AppState>) -> Result<lhymicro::LhyState, String> {
     let m = state.machine()?;
     Ok(m.lhy()?.state())
+}
+
+// ---------------------------------------------------------------------------
+// Galvo (tarjetas JCZ/BJJCZ por USB; EXPERIMENTAL)
+// ---------------------------------------------------------------------------
+
+/// Calcula el trabajo galvo sin enviarlo: pasos del marcado dividido, repetido o rotativo, veces
+/// que habrá que mover el material, tiempo y avisos del pipeline. No necesita conexión.
+#[tauri::command]
+pub async fn galvo_preview(
+    doc: Document,
+    device: DeviceProfile,
+    options: JobOptions,
+) -> Result<galvo::GalvoPreview, String> {
+    blocking(move || galvo::preview(&doc, &device, &options)).await
+}
+
+/// Estado propio de la conexión galvo: tarjeta, estado, entradas (solo lectura), puntero rojo,
+/// «la fuente puede estar encendida» y si el trabajo espera que muevas el material.
+#[tauri::command]
+pub async fn galvo_state(state: State<'_, AppState>) -> Result<galvo::GalvoState, String> {
+    let m = state.machine()?;
+    Ok(m.galvo()?.state())
+}
+
+/// Recorrido del trabajo con el láser DESHABILITADO y el puntero rojo (la fuente nunca se arma).
+#[tauri::command]
+pub async fn galvo_red_run(
+    state: State<'_, AppState>,
+    doc: Document,
+    device: DeviceProfile,
+    options: JobOptions,
+) -> Result<(), String> {
+    let m = state.machine()?;
+    blocking(move || m.galvo()?.start_job(&doc, &device, &options, true)).await
+}
+
+/// Enciende o apaga el puntero rojo en su sitio (la fuente queda deshabilitada).
+#[tauri::command]
+pub async fn galvo_red_light(state: State<'_, AppState>, on: bool) -> Result<(), String> {
+    with_machine(&state, move |m| m.galvo()?.set_red_light(on)).await
+}
+
+/// El usuario movió el material (o el rotativo): el trabajo dividido o repetido sigue.
+#[tauri::command]
+pub async fn galvo_confirm_move(state: State<'_, AppState>) -> Result<(), String> {
+    with_machine(&state, |m| m.galvo()?.confirm_move()).await
 }

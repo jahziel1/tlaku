@@ -7,6 +7,8 @@ import { jogBlockedReason } from '@/store/machine';
 import { FIRE_LIMITS, U_LETTERS, type ULetter } from '@/store/moveControl';
 import { NumberField } from '@/ui/NumberField';
 import { LhyNotApplicable } from './LhyNotice';
+import { GalvoNotApplicable } from './GalvoNotice';
+import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { MAX_POSITIONS } from './positions';
 import { Modal } from './Modal';
@@ -25,6 +27,16 @@ export function ExtraAxesControls() {
   const setULetter = useStore((s) => s.setULetter);
   const letterId = useId();
   const lhy = useStore(selectIsLhy);
+  const galvo = useStore(selectIsGalvo);
+  // El galvo no tiene Z ni ejes extra: la mesa y el rotativo se mueven a mano.
+  if (galvo) {
+    return (
+      <div className="mc-axes">
+        <h4 className="mc-sub">{t('machine.axes')}</h4>
+        <GalvoNotApplicable reason="galvo.axes.reason" />
+      </div>
+    );
+  }
   // La M2 Nano no tiene Z, U ni aire: se dice por qué en lugar de los controles.
   if (lhy) {
     return (
@@ -177,7 +189,17 @@ export function FireControls() {
   const whyKey = useStore(jogBlockedReason);
   const [open, setOpen] = useState(false);
   const lhy = useStore(selectIsLhy);
-  // El disparo de prueba es de GRBL (M3/M5): la M2 Nano no controla la potencia.
+  const galvo = useStore(selectIsGalvo);
+  // El disparo de prueba es de GRBL (M3/M5): el galvo no lo tiene (para ver dónde caerá la marca hay un recorrido en rojo).
+  if (galvo) {
+    return (
+      <div className="mc-fire">
+        <h4 className="mc-sub">{t('machine.fire')}</h4>
+        <GalvoNotApplicable reason="galvo.fire.reason" />
+      </div>
+    );
+  }
+  // La M2 Nano no controla la potencia por software.
   if (lhy) {
     return (
       <div className="mc-fire">

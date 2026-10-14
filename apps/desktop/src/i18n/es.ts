@@ -27,6 +27,7 @@ import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
 import { printcut } from './es/printcut';
+import { galvo } from './es/galvo';
 import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
@@ -287,6 +288,7 @@ export const es = {
   ...printcut,
   ...ruida,
   ...lhymicro,
+  ...galvo,
   ...shapes,
   ...tiling,
   ...camera,

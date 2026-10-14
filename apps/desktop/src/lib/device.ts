@@ -414,7 +414,7 @@ export function parseGrblVersion(firmware: string): { major: number; minor: numb
 // ---------------------------------------------------------------------------
 
 /** Tipos en el orden en que se ofrecen. Los textos salen de `devices.kind.<id>`. */
-export const DEVICE_KINDS: readonly DeviceKind[] = ['grbl', 'grbl_hal', 'fluid_nc', 'grbl_lpc', 'grbl_m3', 'smoothie', 'marlin', 'custom_gcode', 'ruida', 'lhy_micro'];
+export const DEVICE_KINDS: readonly DeviceKind[] = ['grbl', 'grbl_hal', 'fluid_nc', 'grbl_lpc', 'grbl_m3', 'smoothie', 'marlin', 'custom_gcode', 'ruida', 'lhy_micro', 'galvo'];
 
 /**
  * Tipos que la app todavía no sabe enviar a la máquina (solo exportar el G-code). Vaciar este
@@ -517,6 +517,8 @@ export function applyKindChange(draft: DeviceProfile, defaults: KindDefaults, ap
   // Ruida habla UDP a la IP del perfil; los demás tipos no usan UDP.
   if (defaults.kind === 'ruida' && draft.connection.type !== 'udp') next.connection = { type: 'udp', host: '' };
   else if (defaults.kind !== 'ruida' && draft.connection.type === 'udp') next.connection = { type: 'serial' };
+  // El galvo coloca el campo con las coordenadas del documento: solo vale el origen abajo a la izquierda.
+  if (defaults.kind === 'galvo') next.origin = 'bottom_left';
   if (applyValues) {
     for (const c of planKindChange(draft, defaults)) {
       if (c.field === 'dialect') next.dialect = structuredClone(defaults.dialect);

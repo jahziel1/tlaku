@@ -24,6 +24,7 @@ import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
 import { printcut } from './es/printcut';
+import { galvo } from './es/galvo';
 import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
@@ -53,6 +54,7 @@ import { trace as en_trace } from './en/trace';
 import { variables as en_variables } from './en/variables';
 import { nest as en_nest } from './en/nest';
 import { printcut as en_printcut } from './en/printcut';
+import { galvo as en_galvo } from './en/galvo';
 import { lhymicro as en_lhymicro } from './en/lhymicro';
 import { ruida as en_ruida } from './en/ruida';
 import { shapes as en_shapes } from './en/shapes';
@@ -61,7 +63,7 @@ import { base as en_base } from './en/base';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, shapes, camera, materials, devices, catalog, prefs, bundle, codes, fileio, variables };
+    const areas = { tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, bundle, codes, fileio, variables };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -92,6 +94,7 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   printcut: { es: printcut, en: en_printcut },
   ruida: { es: ruida, en: en_ruida },
   lhymicro: { es: lhymicro, en: en_lhymicro },
+  galvo: { es: galvo, en: en_galvo },
   shapes: { es: shapes, en: en_shapes },
   tiling: { es: tiling, en: en_tiling },
   preview: { es: preview, en: en_preview },
@@ -132,6 +135,11 @@ const IDENTICAL_OK: Record<string, string> = {
   'preview.speed.value': 'multiplicador, igual en ambos idiomas',
   'ruida.experimental': 'palabra idéntica en ambos idiomas',
   'lhymicro.experimental': 'palabra idéntica en ambos idiomas',
+  'galvo.experimental': 'palabra idéntica en ambos idiomas',
+  'galvo.panel.field.value': 'solo cifras, unidades y el nombre de la fuente, igual en ambos idiomas',
+  'galvo.layer.group': 'nombre de la sección, igual en ambos idiomas',
+  'galvo.panel.title': 'nombre de la familia de tarjetas, igual en ambos idiomas',
+  'galvo.dev.group': 'nombre de la familia de tarjetas, igual en ambos idiomas',
   'lhymicro.virtual.name': 'nombre de la máquina',
   'ruida.virtual.name': 'nombre de familia de controladoras',
   'ruida.info.magic': 'término del protocolo, igual en ambos idiomas',

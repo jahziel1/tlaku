@@ -76,6 +76,13 @@ export function buildProfile(args: {
     profile.rapid_rate = 8400;
   }
 
+  if (kind === 'galvo') {
+    // Galvo: la «cama» es el campo de la lente (110 mm de partida), con el origen del documento. Sin
+    // G-code, S máxima ni baudios. Son valores de partida: el asistente pide el campo y la fuente.
+    profile.bed = [profile.galvo.field_mm, profile.galvo.field_mm];
+    profile.origin = 'bottom_left';
+  }
+
   if (entry) {
     if (entry.bed) {
       profile.bed = [...entry.bed.value];

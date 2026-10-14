@@ -4,6 +4,7 @@ import type { DeviceProfile, FillStyle, ImageDitherMode, LayerMode, LayerSetting
 import { t, type I18nKey } from '@/i18n';
 import { dpiToInterval, intervalToDpi, usesZ } from '@/lib/layers';
 import { selectActiveDevice, useStore } from '@/store';
+import { GalvoLayerSection, mmMinToMmS, mmSToMmMin, type GalvoUiProfile } from './GalvoLayer';
 import { FeatureBlock, Fold, Group, NumField, SelectField, Toggle } from './ParamFields';
 import { formatNumber } from './fields';
 import { useLayerUi } from './layerUi';
@@ -45,7 +46,14 @@ export function LayerFields(props: FieldsProps) {
   const powerMode = useStore((s) => selectActiveDevice(s).power_mode);
   const hasZ = useStore((s) => selectActiveDevice(s).z_axis === true);
   const hasLaser2 = useStore((s) => selectActiveDevice(s).laser2 === true);
-  return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ, hasLaser2 }} />;
+  // Galvo: la sección «Galvo» y la velocidad en mm/s solo existen con una máquina galvo.
+  const isGalvo = useStore((s) => selectActiveDevice(s).kind === 'galvo');
+  const source = useStore((s) => selectActiveDevice(s).galvo.source);
+  const freqMin = useStore((s) => selectActiveDevice(s).galvo.freq_min_khz);
+  const freqMax = useStore((s) => selectActiveDevice(s).galvo.freq_max_khz);
+  const pulses = useStore((s) => selectActiveDevice(s).galvo.pulse_widths_ns);
+  const galvo = isGalvo ? { source, freqMinKhz: freqMin, freqMaxKhz: freqMax, pulseWidthsNs: pulses } : undefined;
+  return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ, hasLaser2, galvo }} />;
 }
 
 /** Lo que los campos necesitan saber de la máquina activa. */
@@ -56,6 +64,8 @@ export interface FieldsDevice {
   hasZ: boolean;
   /** La máquina tiene segundo láser: se ofrece elegirlo por capa. */
   hasLaser2?: boolean;
+  /** Máquina galvo: velocidad en mm/s y sección «Galvo»; `undefined` en las demás. */
+  galvo?: GalvoUiProfile;
 }
 
 /** `LayerFields` con la máquina como dato (así se prueba sin tocar el estado global). */
@@ -87,14 +97,19 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
       )}
 
       <Group title={t('layers.group.power')}>
-        <NumField
-          field="speed"
-          label={t('layers.speed')}
-          value={layer.speed}
-          onApply={(v) => set({ speed: v })}
-          help={t('layers.help.speed')}
-          live={layer.speed > maxRate ? t('layers.warn.speed', { max: maxRate }) : undefined}
-        />
+        {device.galvo ? (
+          // El galvo se piensa en mm/s: se muestra mm/s y se guarda mm/min (mm/s × 60).
+          <NumField field="galvo_speed" label={t('galvo.layer.speed')} value={layer.speed} toView={mmMinToMmS} onApply={(v) => set({ speed: mmSToMmMin(v) })} help={t('galvo.layer.speed.help')} />
+        ) : (
+          <NumField
+            field="speed"
+            label={t('layers.speed')}
+            value={layer.speed}
+            onApply={(v) => set({ speed: v })}
+            help={t('layers.help.speed')}
+            live={layer.speed > maxRate ? t('layers.warn.speed', { max: maxRate }) : undefined}
+          />
+        )}
         <NumField
           field="power"
           label={isImage ? t('layers.powerMax') : t('layers.power')}
@@ -120,6 +135,8 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
           <Toggle label={t('layers.laser2')} checked={layer.laser2} onChange={(v) => set({ laser2: v })} help={t(device.hasLaser2 ? 'layers.help.laser2' : 'layers.help.laser2None')} />
         )}
       </Group>
+
+      {device.galvo && <GalvoLayerSection layer={layer} setIn={setIn} profile={device.galvo} beginner={beginner} />}
 
       {isLine && (
         <Group title={t('layers.group.line')}>

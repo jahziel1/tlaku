@@ -1,8 +1,10 @@
 import { useEffect, useId } from 'react';
 import { OptimizationDialog } from '@/features/preview/OptimizationDialog';
-import { useStore } from '@/store';
+import { useStore, type AppState } from '@/store';
 import { AlarmActionDialog } from './AlarmActionDialog';
 import { DeviceManager } from './DeviceManager';
+import { GalvoMoveDialog, GalvoStopModal } from './GalvoNotice';
+import { GalvoSafetyDialog } from './GalvoSafetyDialog';
 import { MacroConfirmDialog } from './MacroButtons';
 import { MachineSettingsDialog } from './MachineSettingsDialog';
 import { StartJobDialog } from './StartJobDialog';
@@ -20,7 +22,20 @@ export function MachineDialogHost() {
 
   useEffect(() => register(id), [register, id]);
 
-  if (!dialog || !isPrimary) return null;
+  if (!isPrimary) return null;
+  // Galvo: el reconocimiento de seguridad de la conexión, mover el material entre pasos y el aviso de
+  // cortar la energía salen sobre cualquier pestaña, estén o no abiertos otros diálogos.
+  return (
+    <>
+      <GalvoSafetyDialog />
+      <GalvoMoveDialog />
+      <GalvoStopModal />
+      {dialog && <MachineDialog dialog={dialog} />}
+    </>
+  );
+}
+
+function MachineDialog({ dialog }: { dialog: NonNullable<AppState['dialog']> }) {
   switch (dialog.kind) {
     case 'start':
       return <StartJobDialog />;

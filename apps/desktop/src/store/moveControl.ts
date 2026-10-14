@@ -289,6 +289,8 @@ export const createMoveControlSlice: SliceCreator<MoveControlSlice> = (set, get)
 
     afterFrameStart: (kind) => {
       if (get().jobError) return void set({ frameLooping: false });
+      // El galvo repite el encuadre solo (en el motor) hasta Detener: el bucle de la interfaz no aplica.
+      if (selectActiveDevice(get()).kind === 'galvo') return void set({ frameKind: kind, frameLooping: false });
       set({ frameKind: kind, frameLooping: get().frameLoop });
     },
     noteFrameLog: (text) => {

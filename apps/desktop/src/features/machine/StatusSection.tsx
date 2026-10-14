@@ -3,6 +3,7 @@ import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
+import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 import { VirtualBadge } from './VirtualBadge';
@@ -77,7 +78,8 @@ export function StatusSection() {
   // Ruida y el K40 no informan avance F ni potencia S en vivo.
   const isRuida = useStore(selectIsRuida);
   const isLhy = useStore(selectIsLhy);
-  const ruida = isRuida || isLhy;
+  const isGalvo = useStore(selectIsGalvo);
+  const ruida = isRuida || isLhy || isGalvo;
   const state = connected ? (status?.state ?? 'idle') : null;
   const otherState = state === 'other' ? (status?.other_state ?? null) : null;
   const hint = state === 'other' ? t('machine.stateHint.other', { name: stateLabel(state, otherState) }) : state ? HINTS[state] && t(HINTS[state]) : undefined;

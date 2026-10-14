@@ -21,12 +21,15 @@ import { mockVariables } from './variables';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
-import { DEFAULT_MOCK_OPTIONS, MOCK_LHY_PORT, MOCK_LHY_USB_PORT, MOCK_RUIDA_PORT, MOCK_VIRTUAL_NET_PORTS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
+import { MockGalvo } from './galvo';
+import { DEFAULT_MOCK_OPTIONS, MOCK_GALVO_PORT, MOCK_GALVO_USB_PORT, MOCK_LHY_PORT, MOCK_LHY_USB_PORT, MOCK_RUIDA_PORT, MOCK_VIRTUAL_NET_PORTS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
 import { sampleDevices, sampleDocument, sampleLayers, sampleObjects } from './sample';
 
 export interface MockApi extends LaserApi {
   /** Para pruebas: acceso a la máquina simulada y limpieza de temporizadores. */
   readonly machine: MockMachine;
+  /** Para pruebas: el galvo simulado (puntero rojo, aviso de energía, confirmaciones de seguridad). */
+  readonly galvo: MockGalvo;
   dispose(): void;
 }
 
@@ -40,6 +43,7 @@ const MOCK_VERSION = '0.1.0-mock';
 export function createMockApi(options: Partial<MockMachineOptions> = {}): MockApi {
   const opts = { ...DEFAULT_MOCK_OPTIONS, ...options };
   const machine = new MockMachine(opts);
+  const galvo = new MockGalvo(machine);
   const devices = new Map<string, DeviceProfile>(sampleDevices().map((d) => [d.id, d]));
   const projects = new Map<string, Document>();
   const lag = <T>(value: () => T): Promise<T> =>
@@ -56,6 +60,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
 
   return {
     machine,
+    galvo,
     dispose: () => machine.dispose(),
 
     appVersion: () => lag(() => MOCK_VERSION),
@@ -91,8 +96,9 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         devices.delete(id);
       }),
 
-    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', MOCK_LHY_USB_PORT, ...MOCK_VIRTUAL_PORTS, ...MOCK_VIRTUAL_NET_PORTS, MOCK_RUIDA_PORT, MOCK_LHY_PORT]),
-    connect: ({ port, device }) => lag(() => ({ firmware: machine.connect(port, device?.kind === 'ruida', device?.kind === 'lhy_micro') })),
+    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', MOCK_LHY_USB_PORT, MOCK_GALVO_USB_PORT, ...MOCK_VIRTUAL_PORTS, ...MOCK_VIRTUAL_NET_PORTS, MOCK_RUIDA_PORT, MOCK_LHY_PORT, MOCK_GALVO_PORT]),
+    connect: ({ port, device, galvoAck }) =>
+      lag(() => ({ firmware: device?.kind === 'galvo' ? galvo.connect(port, device, galvoAck) : machine.connect(port, device?.kind === 'ruida', device?.kind === 'lhy_micro') })),
     disconnect: () => lag(() => machine.disconnect()),
     machineCommand: ({ line }) => lag(() => machine.command(line)),
     machineRealtime: ({ cmd }) => lag(() => machine.realtime(cmd)),
@@ -170,6 +176,24 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
       }),
     lhyHome: () => lag(() => machine.lhyHome()),
     lhyState: () => lag(() => machine.lhyState()),
+
+    galvoPreview: (args) => lag(() => galvo.preview(args)),
+    galvoState: () => lag(() => galvo.state()),
+    galvoRedRun: ({ doc, device, options: o }) =>
+      lag(() => {
+        const preview = mockComputeJob(doc, device, o);
+        machine.startJob(preview, device, 'recorrido en rojo');
+      }),
+    galvoRedLight: ({ on }) =>
+      lag(() => {
+        galvo.state();
+        galvo.redLight = on;
+      }),
+    galvoConfirmMove: () =>
+      lag(() => {
+        if (!galvo.waiting) throw new Error('Ningún paso del trabajo espera que muevas el material.');
+        galvo.waiting = null;
+      }),
 
     ...mockText(lag),
     ...mockVariables(lag),

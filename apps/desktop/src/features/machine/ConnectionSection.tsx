@@ -7,6 +7,8 @@ import { selectActiveDevice, useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
 import { useCommandConfirm } from './CommandConfirm';
 import { connectionAddress, isNetworkConnection } from './DeviceConnectionModel';
+import { GalvoExperimentalBadge } from './GalvoNotice';
+import { isGalvoUsbPort } from './galvoPorts';
 import { LhyExperimentalBadge } from './LhyNotice';
 import { isLhyUsbPort } from './lhyPorts';
 import { RuidaExperimentalBadge } from './RuidaSection';
@@ -43,6 +45,8 @@ export function ConnectionSection() {
   const isRuida = device.kind === 'ruida';
   // K40 (M2 Nano): las placas que el motor encontró por USB y la placa simulada; sin baudios.
   const isLhy = device.kind === 'lhy_micro';
+  // Galvo (JCZ/BJJCZ): las tarjetas USB que el motor encontró y la tarjeta simulada; sin baudios.
+  const isGalvo = device.kind === 'galvo';
   const shownPorts = portsForDevice(device, ports);
   const portValue = portForDevice(device, selectedPort, ports);
 
@@ -103,11 +107,13 @@ export function ConnectionSection() {
           {isRuida && !connected && <p className="hint">{t('ruida.experimental.note')}</p>}
           {isLhy && !connected && <p className="hint">{t('lhymicro.experimental.note')}</p>}
           {isLhy && !connected && <p className="hint">{t('lhymicro.dev.connection')}</p>}
+          {isGalvo && !connected && <p className="hint">{t('galvo.experimental.note')}</p>}
+          {isGalvo && !connected && <p className="hint">{t(isGalvoUsbPort(portValue) ? 'galvo.connect.usbAck' : 'galvo.connect.help')}</p>}
           {isVirtualPort(portValue) && !connected && <p className="hint">{t(isVirtualNetPort(portValue) ? 'machine.virtualnet.note' : 'machine.virtual.note')}</p>}
         </>
       )}
       <div className="row">
-        {netAddress || isUdpPort(portValue) || isLhyUsbPort(portValue) ? null : isVirtualPort(portValue) ? (
+        {netAddress || isUdpPort(portValue) || isLhyUsbPort(portValue) || isGalvoUsbPort(portValue) ? null : isVirtualPort(portValue) ? (
           <div className="field">
             <label htmlFor="sel-vspeed" className="field__label">{t('machine.virtual.speed')}</label>
             <select id="sel-vspeed" className="select num" value={virtualSpeed} disabled={connected} title={connected ? t('machine.disconnectFirst') : t('machine.virtual.speedHint')} onChange={(e) => setVirtualSpeed(Number(e.target.value))}>
@@ -144,6 +150,7 @@ export function ConnectionSection() {
         {virtual && <VirtualBadge />}
         {isRuida && <RuidaExperimentalBadge />}
         {isLhy && <LhyExperimentalBadge />}
+        {isGalvo && <GalvoExperimentalBadge />}
         {firmware && <span className="num mc-conn__fw" title={t('machine.firmware')}>{firmware}</span>}
       </div>
       {connectionError && !connected && (

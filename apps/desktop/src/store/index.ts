@@ -3,6 +3,7 @@ import type { LaserApi } from '@/api';
 import { createCameraSlice } from './camera';
 import { createDevicesSlice } from './devices';
 import { createDocumentSlice } from './document';
+import { createGalvoSlice } from './galvo';
 import { createMachineSlice } from './machine';
 import { createMoveControlSlice } from './moveControl';
 import { createNoticesSlice } from './notices';
@@ -23,6 +24,7 @@ export function createAppStore(): UseBoundStore<StoreApi<AppState>> {
     ...createSelectionSlice(...a),
     ...createViewSlice(...a),
     ...createMachineSlice(...a),
+    ...createGalvoSlice(...a),
     ...createMoveControlSlice(...a),
     ...createPreviewSlice(...a),
     ...createDevicesSlice(...a),
@@ -62,6 +64,7 @@ export async function bindMachineEvents(
     api.on('machine://log', (p) => s().onLog(p)),
     api.on('machine://job', (p) => s().onJob(p)),
     api.on('machine://connection', (p) => s().onConnection(p)),
+    api.on('machine://galvo', (p) => s().onGalvo(p)),
   ]);
   return () => offs.forEach((off) => off());
 }

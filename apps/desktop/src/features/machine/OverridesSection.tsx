@@ -5,7 +5,9 @@ import { useStore } from '@/store';
 import { overrideBlockedReason } from '@/store/machine';
 import { NumberField } from '@/ui/NumberField';
 import { RuidaNotApplicable } from './RuidaSection';
+import { GalvoNotApplicable } from './GalvoNotice';
 import { LhyNotApplicable } from './LhyNotice';
+import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 
@@ -65,6 +67,16 @@ export function OverridesSection() {
   const ruida = useStore(selectIsRuida);
   // Tampoco la M2 Nano del K40: la potencia es la perilla de la máquina.
   const lhy = useStore(selectIsLhy);
+  // Tampoco el galvo: la potencia sale de cada capa y para el láser solo hay Detener.
+  const galvo = useStore(selectIsGalvo);
+  if (galvo) {
+    return (
+      <section className="section" aria-labelledby="sec-override">
+        <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+        <GalvoNotApplicable reason="galvo.override.reason" />
+      </section>
+    );
+  }
   if (lhy) {
     return (
       <section className="section" aria-labelledby="sec-override">

@@ -32,7 +32,7 @@ export const DEFAULT_TAB_SETTINGS: TabSettings = {
 export const MAX_SUB_LAYERS = 11;
 
 /** Grupos de ajustes anidados de una capa (cada uno es un objeto con sus propios campos). */
-export const NESTED_KEYS = ['image', 'tabs', 'perforation', 'lead_in', 'lead_out', 'cut_through', 'dot_mode', 'ramp'] as const;
+export const NESTED_KEYS = ['image', 'tabs', 'perforation', 'lead_in', 'lead_out', 'cut_through', 'dot_mode', 'ramp', 'galvo'] as const;
 export type NestedKey = (typeof NESTED_KEYS)[number];
 
 /**

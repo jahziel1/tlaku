@@ -594,6 +594,94 @@
   border-width: 2px;
 }
 
+/* Galvo (JCZ/BJJCZ): aviso de inicio, fuente que pudo quedar encendida, espera del material, entradas. */
+.mc-galvo-start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.mc-galvo-stop {
+  border-width: 3px;
+}
+
+.mc-galvo-wait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 2px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+.mc-galvo-ack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.mc-galvo-sub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border);
+}
+
+.mc-galvo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+.mc-galvo-calib {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+}
+
+.mc-chips,
+.mc-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+.mc-checks {
+  flex-direction: column;
+}
+.mc-chips .chip[aria-pressed='true'] {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.mc-bits {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--s-1);
+  margin: var(--s-2) 0;
+  padding: 0;
+  list-style: none;
+}
+.mc-bit {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.mc-bit[data-on] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent-ink);
+}
+
 /* ---- gestor de dispositivos ----------------------------------------------------------- */
 
 .mc-modal[data-size='lg'] .mc-modal__body {

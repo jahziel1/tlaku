@@ -3,7 +3,7 @@ import type { AutomationConfig, AutomationStatus } from '@/api/api';
 import { openProject, importPaths } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
-import { getPref, useStore, type Prefs } from '@/store';
+import { getPref, selectActiveDevice, useStore, type Prefs } from '@/store';
 import { sendBlockedReason } from '@/store/machine';
 import { create } from 'zustand';
 
@@ -51,7 +51,8 @@ export function handleAutomationStart(confirmed: boolean): void {
     s.notify('warning', t('prefs.automation.startBlocked', { reason: t(why) }));
     return;
   }
-  if (confirmed && !getPref('jobChecklistRequired')) {
+  // Un galvo (haz invisible, clase 4) nunca arranca sin el diálogo de inicio, aunque la automatización esté permitida.
+  if (confirmed && !getPref('jobChecklistRequired') && selectActiveDevice(s).kind !== 'galvo') {
     s.notify('info', t('prefs.automation.started'));
     void s.startJob();
     return;

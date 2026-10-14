@@ -63,6 +63,7 @@ use tlaku_grbl::streamer::{
 pub mod active;
 pub mod extras;
 pub mod frame;
+pub mod galvo;
 pub mod lhymicro;
 pub mod ruida;
 pub mod virtual_port;
@@ -82,6 +83,8 @@ pub enum Emit {
     Log(LogEvent),
     Job(JobEvent),
     Connection(ConnectionEvent),
+    /// Lo propio del galvo (pasos del marcado dividido, vueltas del encuadre, aviso de energía).
+    Galvo(galvo::GalvoEvent),
 }
 
 impl Emit {
@@ -93,6 +96,7 @@ impl Emit {
             Self::Log(_) => "machine://log",
             Self::Job(_) => "machine://job",
             Self::Connection(_) => "machine://connection",
+            Self::Galvo(_) => "machine://galvo",
         }
     }
 }

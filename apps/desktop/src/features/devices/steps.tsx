@@ -10,6 +10,7 @@ import { entrySources, type CatalogEntry, type Fact } from './catalog';
 import type { CompareField, Comparison, CompareRow } from './compare';
 import type { RankedEntry } from './filter';
 import type { BuiltProfile, Provenance, ProfileField } from './profile';
+import { GalvoSetupField, type GalvoSetup } from './GalvoSetupField';
 import { LhyBoardField } from './LhyBoardField';
 import { RuidaHostField } from './RuidaHostField';
 
@@ -58,6 +59,10 @@ export interface DetectStepProps {
   k40Boards?: string[];
   /** Elegir «K40 con M2 Nano» y pasar al modelo; sin esto no se muestra la parte del K40. */
   onPickK40?: () => void;
+  /** Tarjetas galvo (BJJCZ 9588:xxxx) que el motor encontró por USB (`usb:galvo:<n>`). */
+  galvoBoards?: string[];
+  /** Elegir «Galvo» y pasar al modelo; sin esto no se muestra la parte del galvo. */
+  onPickGalvo?: () => void;
 }
 
 function portLabel(port: string): string {
@@ -116,6 +121,18 @@ export function DetectStep(p: DetectStepProps) {
             <p className="hint" role="status">{t('lhymicro.wizard.none')}</p>
           )}
           <button type="button" className={(p.k40Boards ?? []).length > 0 ? 'btn btn--accent' : 'btn'} onClick={p.onPickK40}>{t('lhymicro.wizard.use')}</button>
+        </section>
+      )}
+      {p.onPickGalvo && (
+        <section className="dev-galvo" aria-labelledby={`${id}-galvo`}>
+          <h3 id={`${id}-galvo`} className="mc-sub"><Info size={13} aria-hidden="true" /> {t('galvo.wizard.title')}</h3>
+          <p className="hint">{t('galvo.wizard.intro')}</p>
+          {(p.galvoBoards ?? []).length > 0 ? (
+            <p className="hint" role="status">{t('galvo.wizard.found', { n: p.galvoBoards?.length ?? 0 })}</p>
+          ) : (
+            <p className="hint" role="status">{t('galvo.wizard.none')}</p>
+          )}
+          <button type="button" className={(p.galvoBoards ?? []).length > 0 ? 'btn btn--accent' : 'btn'} onClick={p.onPickGalvo}>{t('galvo.wizard.use')}</button>
         </section>
       )}
       <section className="dev-network" aria-labelledby={`${id}-net`}>
@@ -399,6 +416,9 @@ export interface SaveStepProps {
   /** Solo con un K40: el modelo de placa. */
   board?: string;
   onBoard?: (board: string) => void;
+  /** Solo con un galvo: la lente (campo) y la fuente. */
+  galvo?: GalvoSetup;
+  onGalvo?: (galvo: GalvoSetup) => void;
 }
 
 const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
@@ -407,7 +427,7 @@ const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
   default: 'catalog.save.fromDefault',
 };
 
-export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2', onBoard }: SaveStepProps) {
+export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2', onBoard, galvo, onGalvo }: SaveStepProps) {
   const id = useId();
   const { profile: d, provenance } = built;
   const empty = name.trim() === '';
@@ -418,7 +438,7 @@ export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2',
     ['s_max', 'catalog.field.s_max', showValue(d.s_max)],
     ['baud', 'catalog.detect.baud', String(d.baud)],
     ['origin', 'catalog.fact.origin', t(`catalog.origin.${d.origin}`)],
-  ].filter(([f]) => !((d.kind === 'ruida' || d.kind === 'lhy_micro') && (f === 'baud' || f === 's_max'))) as [ProfileField, I18nKey, string][];
+  ].filter(([f]) => !((d.kind === 'ruida' || d.kind === 'lhy_micro' || d.kind === 'galvo') && (f === 'baud' || f === 's_max' || (d.kind === 'galvo' && (f === 'max_rate' || f === 'accel'))))) as [ProfileField, I18nKey, string][];
   const hasDefaults = rows.some(([f]) => provenance[f] === 'default');
   return (
     <div className="dev-step">
@@ -431,6 +451,7 @@ export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2',
       </div>
       {d.kind === 'ruida' && onHost && <RuidaHostField host={host} onHost={onHost} />}
       {d.kind === 'lhy_micro' && onBoard && <LhyBoardField board={board} onBoard={onBoard} />}
+      {d.kind === 'galvo' && galvo && onGalvo && <GalvoSetupField setup={galvo} onSetup={onGalvo} />}
       <section aria-label={t('catalog.save.summary')}>
         <h3 className="mc-sub">{t('catalog.save.summary')}</h3>
         <p className="hint">{t('catalog.save.kind')}: {kindLabel(d.kind)}</p>

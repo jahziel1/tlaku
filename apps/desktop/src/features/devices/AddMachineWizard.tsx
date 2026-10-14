@@ -6,6 +6,7 @@ import type { DeviceKind } from '@/bindings/DeviceKind';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { parseGrblVersion } from '@/lib/device';
+import { galvoUsbBoards } from '@/features/machine/galvoPorts';
 import { lhyUsbBoards } from '@/features/machine/lhyPorts';
 import { withoutRuidaPort } from '@/features/machine/ruidaPorts';
 import { useStore } from '@/store';
@@ -14,6 +15,7 @@ import { findEntry } from './catalog';
 import { compareWithMachine, defaultMachineChoices, type CompareField } from './compare';
 import { detectionFrom, rankCatalog } from './filter';
 import { buildProfile } from './profile';
+import { DEFAULT_GALVO_SETUP, type GalvoSetup } from './GalvoSetupField';
 import { DetectStep, ModelStep, OTHER_ID, ReviewStep, SaveStep, type ProbeState } from './steps';
 import { useDevicesWizard } from './wizardStore';
 import './devices.css';
@@ -49,6 +51,8 @@ export function AddMachineWizard() {
   const allPorts = useStore((s) => s.ports);
   const ports = useMemo(() => withoutRuidaPort(allPorts), [allPorts]);
   const k40Boards = useMemo(() => lhyUsbBoards(allPorts), [allPorts]);
+  // Las tarjetas galvo (BJJCZ 9588:9899) también se buscan aparte, por USB.
+  const galvoBoards = useMemo(() => galvoUsbBoards(allPorts), [allPorts]);
   const refreshPorts = useStore((s) => s.refreshPorts);
   const connected = useStore((s) => s.connection.connected);
   const storePort = useStore((s) => s.selectedPort);
@@ -75,6 +79,8 @@ export function AddMachineWizard() {
   const [host, setHost] = useState('');
   /** K40: modelo de placa (la M2 es la de serie). */
   const [board, setBoard] = useState('M2');
+  /** Galvo: la lente (campo) y la fuente. */
+  const [galvo, setGalvo] = useState<GalvoSetup>(DEFAULT_GALVO_SETUP);
   const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   /** Detecciones lanzadas: una respuesta tardía de una anterior se descarta. */
@@ -147,7 +153,14 @@ export function AddMachineWizard() {
         ? { ...built.profile, connection: { type: 'udp' as const, host: host.trim() } }
         : built.profile.kind === 'lhy_micro'
           ? { ...built.profile, lhymicro: { ...built.profile.lhymicro, board } }
-          : built.profile;
+          : built.profile.kind === 'galvo'
+            ? {
+                ...built.profile,
+                // La «cama» del galvo es el campo de la lente.
+                bed: [galvo.field_mm, galvo.field_mm] as [number, number],
+                galvo: { ...built.profile.galvo, field_mm: galvo.field_mm, source: galvo.source },
+              }
+            : built.profile;
     const ok = await saveDevice(profile);
     if (!alive.current) return;
     setSaving(false);
@@ -197,6 +210,11 @@ export function AddMachineWizard() {
               select('k40-m2nano');
               setStep('model');
             }}
+            galvoBoards={galvoBoards}
+            onPickGalvo={() => {
+              select('galvo-ezcad2');
+              setStep('model');
+            }}
           />
         )}
         {step === 'model' && (
@@ -229,7 +247,7 @@ export function AddMachineWizard() {
             oldGrbl={oldGrbl}
           />
         )}
-        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} board={board} onBoard={setBoard} />}
+        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} board={board} onBoard={setBoard} galvo={galvo} onGalvo={setGalvo} />}
       </div>
       <footer className="dev-foot">
         {step === 'detect' && (

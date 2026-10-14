@@ -49,6 +49,12 @@ export const MOCK_LHY_USB_PORT = 'usb:k40:0';
 export const MOCK_LHY_PORT = 'virtual:k40';
 export const LHY_FIRMWARE = 'K40 · placa M2 · M2 Nano simulada · lista (206)';
 const LHY_GRBL_ONLY = 'Esta función es solo de GRBL: la placa M2 Nano del K40 no usa G-code ni overrides en vivo.';
+/** Galvo (JCZ/BJJCZ): una tarjeta USB de ejemplo y la tarjeta simulada (la de `tlaku-galvo`). */
+export const MOCK_GALVO_USB_PORT = 'usb:galvo:0';
+export const MOCK_GALVO_PORT = 'virtual:galvo';
+export const GALVO_FIRMWARE = 'Galvo · LMCV4-FIBER-M · 9588:9899 · virtual';
+export const GALVO_GRBL_ONLY = 'Esta función es solo de GRBL: el galvo no usa G-code ni overrides en vivo.';
+export const GALVO_NO_PAUSE = 'El galvo no tiene pausa: pausar deja el espejo quieto con el haz encendido. Solo se puede detener.';
 const LHY_UNKNOWN_POSITION = 'No se sabe dónde está el cabezal (la M2 Nano no informa su posición, se cuenta desde el home). Haz home primero.';
 
 export const MOCK_VIRTUAL_NET_PORTS = MOCK_VIRTUAL_PORTS.map((p) => p.replace('virtual:', 'virtualnet:'));
@@ -88,6 +94,8 @@ export class MockMachine {
   ruida = false;
   /** La conexión es con la placa M2 Nano de un K40 (sin G-code; la posición se cuenta desde el home). */
   lhy = false;
+  /** La conexión es con una tarjeta galvo JCZ/BJJCZ (sin G-code ni pausa). */
+  galvo = false;
   /** K40: se conoce la posición del cabezal (se pierde al detener o fallar un trabajo). */
   lhyKnown = false;
   state: MachineState = 'idle';
@@ -135,19 +143,20 @@ export class MockMachine {
 
   // ---- conexión ---------------------------------------------------------
 
-  connect(port: string, ruida = false, lhy = false): string {
+  connect(port: string, ruida = false, lhy = false, galvo = false): string {
     if (this.connected) throw new Error('Ya hay una máquina conectada. Desconéctala antes de abrir otro puerto.');
     this.connected = true;
     this.port = port;
     this.virtual = port.startsWith(VIRTUAL_PREFIX) || port.startsWith(VIRTUAL_NET_PREFIX);
     this.ruida = ruida || port.startsWith(MOCK_RUIDA_PORT);
     this.lhy = !this.ruida && (lhy || port.startsWith('virtual:k40') || port.startsWith('usb:k40:'));
+    this.galvo = !this.ruida && !this.lhy && (galvo || port.startsWith('virtual:galvo') || port.startsWith('usb:galvo:'));
     this.lhyKnown = false;
     this.state = 'idle';
     this.alarmCode = null;
     this.pos = [0, 0];
     this.ovr = { feed: 100, rapid: 100, spindle: 100 };
-    const firmware = this.ruida ? RUIDA_FIRMWARE : this.lhy ? LHY_FIRMWARE : this.virtual ? (VIRTUAL_FIRMWARE[port.slice(port.indexOf(':') + 1).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
+    const firmware = this.ruida ? RUIDA_FIRMWARE : this.lhy ? LHY_FIRMWARE : this.galvo ? GALVO_FIRMWARE : this.virtual ? (VIRTUAL_FIRMWARE[port.slice(port.indexOf(':') + 1).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
     const evt: ConnectionEvent = { connected: true, port, error: null };
     this.emit('machine://connection', evt);
     if (this.virtual) this.log('in', '; Máquina virtual (emulador): no hay láser ni hardware reales.');
@@ -169,6 +178,7 @@ export class MockMachine {
     this.virtual = false;
     this.ruida = false;
     this.lhy = false;
+    this.galvo = false;
     this.lhyKnown = false;
     this.state = 'idle';
     this.emit('machine://connection', { connected: false, port, error });
@@ -226,7 +236,7 @@ export class MockMachine {
 
   /** Marlin y Smoothieware no tienen overrides en tiempo real. */
   private hasOverrides(): boolean {
-    return !this.ruida && !this.lhy && !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
+    return !this.ruida && !this.lhy && !this.galvo && !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
   }
 
   /** Lleva el override de velocidad o potencia a `percent` (10 a 200), como los bytes 0x90-0x9D de GRBL. */
@@ -234,6 +244,7 @@ export class MockMachine {
     this.requireConnection();
     if (this.ruida) throw new Error(RUIDA_GRBL_ONLY);
     if (this.lhy) throw new Error(LHY_GRBL_ONLY);
+    if (this.galvo) throw new Error(GALVO_GRBL_ONLY);
     if (!this.hasOverrides()) {
       throw new Error('Los ajustes en vivo de velocidad y potencia solo existen en controladoras GRBL: Marlin y Smoothieware no los tienen.');
     }
@@ -253,6 +264,7 @@ export class MockMachine {
     this.requireConnection();
     if (this.ruida) throw new Error(RUIDA_GRBL_ONLY);
     if (this.lhy) throw new Error(LHY_GRBL_ONLY);
+    if (this.galvo) throw new Error(GALVO_GRBL_ONLY);
     if (this.job) throw new Error(BUSY_MESSAGE);
     const trimmed = line.trim();
     if (/[?!~]/.test(trimmed)) {
@@ -521,6 +533,7 @@ export class MockMachine {
 
   setPaused(paused: boolean): void {
     this.requireConnection();
+    if (this.galvo) throw new Error(GALVO_NO_PAUSE);
     if (!this.job) return;
     this.job.paused = paused;
     this.state = paused ? 'hold' : 'run';
