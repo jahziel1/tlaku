@@ -187,6 +187,8 @@ Agregada a pedido del usuario (2026-10-13), antes de la ola 6 para que esta tamb
 - Manual completo y sitio web con donaciones.
 - Correr el flujo de instaladores en GitHub y activar las actualizaciones automáticas.
 - Repetir la auditoría de cobertura.
+- **Prueba de contrato de comandos:** una prueba automática que compare los argumentos de cada comando de Tauri (Rust) con lo que manda la interfaz (`api.ts`), para que no se repita el fallo de `power_pct`/`s_max`/`duration_ms` (camelCase frente a snake_case), que el modo simulado no detecta. Más una prueba de humo de la app real (Tauri) que llame a cada comando.
+- Quitar las marcas `<!-- GALVO-APP -->` de docs/spec y docs/plan-completo: el galvo ya está en la app (commit `61ec249`).
 - **Revisar diseño** (sin IA): un botón que analiza el diseño antes de enviar y explica lo que encuentra, con arreglo de un clic: trazos abiertos que deberían cerrarse, líneas duplicadas o encimadas, fragmentos diminutos, nodos de sobra, objetos fuera de la cama, textos sin convertir y capas sin salida. Usa las operaciones que ya existen (unir, cerrar, quitar duplicados, optimizar).
 - Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12).
 - Lo que quedó de la ola 5: el galvo en la app <!-- GALVO-APP -->, M31 y M32, que las imágenes giren con el registro de Print & Cut, repetir trabajos con avance del alimentador y quitar los duplicados de Print & Cut y tiling entre Rust y TypeScript (ver el detalle arriba).
