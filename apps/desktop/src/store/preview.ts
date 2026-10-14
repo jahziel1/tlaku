@@ -64,6 +64,8 @@ export const DEFAULT_JOB_OPTIONS: JobOptions = {
   layer_order: 'auto',
   optimization: DEFAULT_OPTIMIZATION,
   use_selection_origin: false,
+  transform: null,
+  tile: null,
 };
 
 const PREF_TRAVEL = 'preview.showTravel';

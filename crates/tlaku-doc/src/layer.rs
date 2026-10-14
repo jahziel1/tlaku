@@ -1,4 +1,5 @@
 use crate::cut::{CutThrough, DotMode, FillGrouping, Lead, Perforation, Ramp};
+use crate::galvo::GalvoLayer;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -301,6 +302,9 @@ pub struct LayerSettings {
     /// el láser 1. El motor emite el comando de selección del dialecto al cambiar de láser.
     #[serde(default)]
     pub laser2: bool,
+    /// Solo máquinas galvo (y `ppi`, algunas de CO2).
+    #[serde(default)]
+    pub galvo: GalvoLayer,
 }
 
 impl LayerSettings {
@@ -342,6 +346,7 @@ impl LayerSettings {
             angle_increment: 0.0,
             sub_layers: Vec::new(),
             laser2: false,
+            galvo: GalvoLayer::default(),
         }
     }
 

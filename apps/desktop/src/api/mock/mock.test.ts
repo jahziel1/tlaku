@@ -12,7 +12,7 @@ afterEach(() => api?.dispose());
 
 const fast = () => (api = createMockApi({ latencyMs: 0, statusIntervalMs: 20, minJobMs: 150, jobSpeedup: 1e6 }));
 const jobArgs = () => {
-  const options: JobOptions = { start_from: 'absolute', job_origin: 6, user_origin: null, selection: null, layer_order: 'auto', optimization: DEFAULT_JOB_OPTIONS.optimization, use_selection_origin: false };
+  const options: JobOptions = { start_from: 'absolute', job_origin: 6, user_origin: null, selection: null, layer_order: 'auto', optimization: DEFAULT_JOB_OPTIONS.optimization, use_selection_origin: false, transform: null, tile: null };
   return { doc: sampleDocument(), device: sampleDevices()[0]!, options };
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

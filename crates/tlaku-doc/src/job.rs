@@ -45,6 +45,13 @@ pub struct JobOptions {
     /// diseño.
     #[serde(default)]
     pub use_selection_origin: bool,
+    /// Transformación extra de todo el trabajo (registro de Print & Cut): afín del documento a
+    /// la cama, aplicada después de colocar.
+    #[serde(default)]
+    pub transform: Option<crate::affine::Transform>,
+    /// Un tramo de un trabajo dividido (tiling).
+    #[serde(default)]
+    pub tile: Option<crate::galvo::TileSpec>,
 }
 
 impl Default for JobOptions {
@@ -57,6 +64,8 @@ impl Default for JobOptions {
             layer_order: LayerOrder::Auto,
             optimization: Optimization::default(),
             use_selection_origin: false,
+            transform: None,
+            tile: None,
         }
     }
 }

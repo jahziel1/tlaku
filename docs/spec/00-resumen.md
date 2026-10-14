@@ -70,6 +70,51 @@ usar vtracer y no potrace). Se automatizará con `cargo-deny`.
 
 ## Estado (2026-10-13)
 
+Las olas del [plan](../plan-completo.md) 1 a 4 están **terminadas**. Según el recuento de
+[04-cobertura.md](04-cobertura.md) (que sale de contar las filas de sus tablas): **173 de 214
+funciones hechas (81 %), 26 parciales y 15 faltantes**; en P0, **64 de 68 hechas** (las 4 parciales
+son C51, M3, M5 y M6). **Ninguna función de máquina se ha probado con hardware real**: todo se
+validó con emuladores (`tlaku-emu`, el de Ruida y el de la placa K40), máquinas virtuales e
+imágenes sintéticas.
+
+| Ola | Tema | Estado | Hechas / 214 | P0 hechas / 68 |
+|---|---|---|---:|---:|
+| (inicio) | M1 a M4, oleadas A a C | Terminada | 88 | 53 |
+| 1 | Base para publicar: edición básica, preferencias y atajos, autoguardado, exportar e importar formatos, texto, QR, manual | Terminada (`736d472`) | 119 | 60 |
+| 2 | Capas y corte: trazos, orden y optimización, relleno e imagen, trabajo | Terminada (`ec9cdb4`) | 143 | 62 |
+| 3 | Diseño avanzado: operaciones de forma, nesting real, texto variable, imagen | Terminada (`b78790e`) | 165 | 62 |
+| 4 | Máquinas: Ruida, red, control, cámara y K40 | Terminada (`10c435d`; el K40 en la app, `c6c61a2`) | 173 | 64 |
+| 5 | Pro y galvo | Pendiente | | |
+| 6 | Calidad y publicación | Pendiente | | |
+
+**K40 (M2 Nano).** No es una fila del inventario (LightBurn no lo soporta) y no cuenta en los
+totales. Está en la app como **experimental, probado solo contra el emulador**: USB directo (no
+serie), home propio, la potencia va con la perilla, sin Z, aire, consola ni overrides, y aviso de
+paro de emergencia si detener no se confirma. También sigue disponible por línea de comandos
+(`tlaku k40`).
+
+**Lo que queda, según el plan:**
+
+- **Ola 5, pro y galvo:** Print & Cut (M37), tiling (M39), alimentador automático (M47), ajustes
+  dependientes del controlador (C59) y galvo completo con emulador: asistente (M41), encuadre con
+  luz roja (M42), calibración de lente (M43), temporización (M44), E/S (M45), marcado dividido y
+  repetido (M40), rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47).
+  De la ola 4 llegan además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el
+  autoenfoque y optimizar Z (M31).
+- **Ola 6, calidad y publicación:** rendimiento del lienzo con diseños grandes, lo que quedó de la
+  ola 3 (paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías
+  temporales, recuperación compartida entre ventanas), accesibilidad, manual completo y sitio web
+  con donaciones, correr el flujo de instaladores y activar las actualizaciones automáticas,
+  repetir la auditoría de cobertura, lo que quedó de la ola 4 (ajustes de dispositivo M3, M5 y M6;
+  cámaras de red y presets, M35; alineación automática de la cámara del cabezal, M36; cámaras en
+  los paquetes, M4; pulgadas en las capas, las máquinas y la cámara, D12) y la **lista de
+  validación con hardware real** de todo lo experimental: Falcon2 y el resto de GRBL, la conexión
+  por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de
+  pez, la cámara en el cabezal y el buscador de centro. Esa prueba con máquinas reales es el
+  principal riesgo para publicar.
+
+### Historia previa a las olas (M1 a M4)
+
 **M1 terminado** (motor + CLI): importación SVG/DXF/imagen, modos Line/Fill/Image, kerf,
 planificador explicable, overscan físico, estimación de tiempo, G-code GRBL, envío con conteo
 de caracteres, verificación de estado antes de enviar, encuadre y consola segura. 408 pruebas.
@@ -107,6 +152,3 @@ catálogo de 21 modelos con fuentes; selector de tipo de controladora y editor d
 personalizado; Ruida por red (sondeo, envío guardando o ejecutando, estado, pausa, detención)
 desde el CLI, con las dudas del protocolo resueltas leyendo código MIT (ver THIRD_PARTY.md).
 1225 pruebas en Rust y 1072 en la interfaz.
-
-Pendiente de M4: Ruida en la app, sub-capas, macros, modelo ojo de pez, galvo y K40 (M2 Nano), y
-prueba con hardware real.

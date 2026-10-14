@@ -128,6 +128,7 @@ pub fn raster_to_block(
         power_mode: settings.power_mode,
         moves,
         z_mm: None,
+        galvo: None,
     }
 }
 

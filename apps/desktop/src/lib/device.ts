@@ -40,7 +40,7 @@ export const DEFAULT_DIALECT: GcodeDialect = {
 /** Valores por defecto de los campos de la ola 4 (los mismos que `DeviceProfile::default()`). */
 export const DEVICE_WAVE4_DEFAULTS: Pick<
   DeviceProfile,
-  'connection' | 'macros' | 'positions' | 'laser2' | 'u_axis' | 'ruida' | 'lhymicro'
+  'connection' | 'macros' | 'positions' | 'laser2' | 'u_axis' | 'ruida' | 'lhymicro' | 'galvo' | 'feeder'
 > = {
   connection: { type: 'serial' },
   macros: [],
@@ -49,6 +49,31 @@ export const DEVICE_WAVE4_DEFAULTS: Pick<
   u_axis: false,
   ruida: { magic: null, run_after_upload: false },
   lhymicro: { board: 'M2' },
+  // Ola 5: mismos valores que `GalvoDevice::default()` y `FeederSettings::default()`.
+  galvo: {
+    field_mm: 110,
+    source: 'fiber_q',
+    watts: 20,
+    freq_min_khz: 20,
+    freq_max_khz: 80,
+    pulse_widths_ns: [],
+    timing: { laser_on_us: 100, laser_off_us: 100, end_us: 300, polygon_us: 100 },
+    jump: { speed: 4000, delay_min_us: 200, delay_max_us: 400, distance_limit: 10 },
+    correction: {
+      scale: [1, 1],
+      offset: [0, 0],
+      rotation_deg: 0,
+      invert: [false, false],
+      swap_xy: false,
+      bulge: [0, 0],
+      trapezoid: [0, 0],
+      skew: [0, 0],
+      cor_file: null,
+    },
+    max_power_pct: 100,
+    light_speed: 2000,
+  },
+  feeder: { enabled: false, feed_gcode: 'G91\nG0 Y{mm}\nG90', feed_mm: 300 },
 };
 
 /** Perfil provisional mientras no se ha cargado ninguno (cama de 400 x 400 mm). */

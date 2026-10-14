@@ -11,6 +11,7 @@ export const devices = {
   'devices.kind.marlin': 'Marlin',
   'devices.kind.custom_gcode': 'G-code personalizado',
   'devices.kind.ruida': 'Ruida (CO2, por red; experimental)',
+  'devices.kind.galvo': 'Galvo de fibra o UV (EZCAD2; experimental)',
   'devices.kind.lhy_micro': 'K40 con M2 Nano (experimental)',
   'devices.kind.exportOnly': 'solo exportar G-code por ahora',
   'devices.kind.exportOnly.hint': 'Con este tipo de controladora Tlaku solo puede exportar el G-code por ahora; el envío directo a la máquina aún no está disponible.',

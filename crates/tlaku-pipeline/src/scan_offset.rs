@@ -179,6 +179,7 @@ mod tests {
             power_mode: PowerMode::Dynamic,
             moves,
             z_mm: None,
+            galvo: None,
         }
     }
 

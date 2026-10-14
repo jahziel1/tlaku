@@ -15,7 +15,7 @@ Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máqui
 ### Ruida y K40 (experimental)
 
 - **Ruida (CO2) en la app**: conectar por IP, enviar el trabajo (por defecto **se guarda en la memoria de la controladora y no arranca**; tú lo inicias desde su panel), pausar, reanudar, detener, mover, encuadrar, leer la información de la máquina y la lista de documentos. Los ajustes de la controladora solo se leen. Hay una máquina virtual **Ruida (CO2)**. Mira [Ruida y K40](13b-ruida-y-k40.md).
-- **K40 con placa M2 Nano**, que LightBurn no soporta: envío por USB, estado de solo lectura y exportar `.egv`, de momento desde la línea de comandos (`tlaku k40`). <!-- K40-APP --> **La potencia no se controla por software: va con la perilla de la máquina.**
+- **K40 con placa M2 Nano**, que LightBurn no soporta: ahora también **en la app** (tipo de máquina «K40 con M2 Nano»): conexión por USB directo, home propio, aviso de lo que la placa ignora antes de enviar, aviso de paro de emergencia si detener no se confirma y máquina virtual `virtual:k40`. Sigue disponible `tlaku k40` (envío, estado de solo lectura, `.egv`). Es **experimental y solo está probado contra el emulador**. **La potencia no se controla por software: va con la perilla de la máquina.**
 
 ### Control de la máquina
 
@@ -42,7 +42,7 @@ Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máqui
 
 ### Lo que sigue sin estar
 
-- Probar todo con hardware real. Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 aún no está en la app. <!-- K40-APP -->
+- Probar todo con hardware real. Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 solo se ha probado contra el emulador, sin placa real.
 - Cámaras de red, presets de cámara y alinear la cámara del cabezal con marcas.
 - Las pulgadas en las capas, las máquinas y la cámara; marcar un perfil como predeterminado; autoenfoque.
 - Galvo, **Print & Cut** y **tiling**.

@@ -109,6 +109,7 @@ export const catalog: { [K in keyof typeof Source]?: string } = {
   'catalog.kind.marlin': 'Marlin 2.x',
   'catalog.kind.custom_gcode': 'Custom G-code',
   'catalog.kind.ruida': 'Ruida (CO2, network)',
+  'catalog.kind.galvo': 'Galvo (fiber or UV)',
   'catalog.kind.lhy_micro': 'K40 with M2 Nano (Lihuiyu)',
   'catalog.origin.bottom_left': 'Bottom left',
   'catalog.origin.top_left': 'Top left',

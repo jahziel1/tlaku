@@ -4,4 +4,4 @@
  * Familia de firmware de la controladora. Decide el dialecto de G-code por defecto
  * ([`GcodeDialect::for_kind`]); el dialecto del perfil se puede editar después.
  */
-export type DeviceKind = "grbl" | "grbl_m3" | "grbl_hal" | "fluid_nc" | "grbl_lpc" | "smoothie" | "marlin" | "custom_gcode" | "ruida" | "lhy_micro";
+export type DeviceKind = "grbl" | "grbl_m3" | "grbl_hal" | "fluid_nc" | "grbl_lpc" | "smoothie" | "marlin" | "custom_gcode" | "ruida" | "lhy_micro" | "galvo";

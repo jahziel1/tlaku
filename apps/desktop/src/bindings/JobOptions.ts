@@ -2,6 +2,7 @@
 import type { LayerOrder } from "./LayerOrder";
 import type { Optimization } from "./Optimization";
 import type { StartFrom } from "./StartFrom";
+import type { TileSpec } from "./TileSpec";
 
 export type JobOptions = { start_from: StartFrom, 
 /**
@@ -18,4 +19,13 @@ selection: Array<string> | null, layer_order: LayerOrder, optimization: Optimiza
  * Con `selection`: el origen del trabajo es la caja de la selección, no la de todo el
  * diseño.
  */
-use_selection_origin: boolean, };
+use_selection_origin: boolean, 
+/**
+ * Transformación extra de todo el trabajo (registro de Print & Cut): afín del documento a
+ * la cama, aplicada después de colocar.
+ */
+transform: [number, number, number, number, number, number] | null, 
+/**
+ * Un tramo de un trabajo dividido (tiling).
+ */
+tile: TileSpec | null, };

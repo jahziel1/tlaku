@@ -617,6 +617,7 @@ mod tests {
             power_mode: mode,
             moves,
             z_mm: None,
+            galvo: None,
         }
     }
 

@@ -52,6 +52,31 @@ pub struct ToolpathBlock {
     /// `None` = no mover Z. Solo en máquinas con eje Z.
     #[serde(default)]
     pub z_mm: Option<f64>,
+    /// Parámetros de pulso y retardos para máquinas galvo; `None` en máquinas de pórtico (GRBL,
+    /// Ruida, K40 y el simulador los ignoran).
+    #[serde(default)]
+    pub galvo: Option<GalvoParams>,
+}
+
+/// Parámetros de un bloque para el driver galvo (ver `docs/hardware/galvo.md`, sección 8.2).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct GalvoParams {
+    pub frequency_khz: f64,
+    pub pulse_width_ns: Option<u32>,
+    /// Retardos en µs: encendido, apagado, final y polígono.
+    pub laser_on_us: f64,
+    pub laser_off_us: f64,
+    pub end_us: f64,
+    pub polygon_us: f64,
+    /// Saltos: mm/s, retardos mín/máx (µs) y distancia límite (mm).
+    pub jump_speed: f64,
+    pub jump_delay_min_us: f64,
+    pub jump_delay_max_us: f64,
+    pub jump_distance_limit: f64,
+    /// Repeticiones del bloque en la tarjeta.
+    pub repeat: u32,
+    pub pause_before_ms: f64,
+    pub pause_after_ms: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -91,6 +116,7 @@ impl Toolpath {
                     power_mode: PowerMode::Dynamic,
                     moves,
                     z_mm: None,
+                    galvo: None,
                 }
             })
             .collect();

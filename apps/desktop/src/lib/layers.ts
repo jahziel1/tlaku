@@ -77,6 +77,19 @@ export function factoryLayer(color: string, name: string, patch: Partial<LayerSe
     angle_increment: 0,
     sub_layers: [],
     laser2: false,
+    // Ola 5: mismos valores que `GalvoLayer::default()` (solo los usan las máquinas galvo).
+    galvo: {
+      frequency_khz: 30,
+      pulse_width_ns: null,
+      override_timings: false,
+      timing: { laser_on_us: 100, laser_off_us: 100, end_us: 300, polygon_us: 100 },
+      jump: { speed: 4000, delay_min_us: 200, delay_max_us: 400, distance_limit: 10 },
+      wobble: { enabled: false, size: 0.2, step: 0.05 },
+      repeat: 1,
+      pause_before_ms: 0,
+      pause_after_ms: 0,
+      ppi: 0,
+    },
     ...patch,
   };
 }

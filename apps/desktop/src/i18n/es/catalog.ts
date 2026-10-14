@@ -110,6 +110,7 @@ export const catalog = {
   'catalog.kind.marlin': 'Marlin 2.x',
   'catalog.kind.custom_gcode': 'G-code propio',
   'catalog.kind.ruida': 'Ruida (CO2, por red)',
+  'catalog.kind.galvo': 'Galvo (fibra o UV)',
   'catalog.kind.lhy_micro': 'K40 con M2 Nano (Lihuiyu)',
   'catalog.origin.bottom_left': 'Abajo a la izquierda',
   'catalog.origin.top_left': 'Arriba a la izquierda',

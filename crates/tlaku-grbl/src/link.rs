@@ -266,7 +266,9 @@ impl LinkProfile {
             | DeviceKind::GrblLpc
             | DeviceKind::CustomGcode => Self::grbl_with_buffer(rx_buffer),
             // No usan este enlace (tienen su propio driver); se deja el de GRBL por completitud.
-            DeviceKind::Ruida | DeviceKind::LhyMicro => Self::grbl_with_buffer(rx_buffer),
+            DeviceKind::Ruida | DeviceKind::LhyMicro | DeviceKind::Galvo => {
+                Self::grbl_with_buffer(rx_buffer)
+            }
         }
     }
 

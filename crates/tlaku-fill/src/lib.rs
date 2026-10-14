@@ -196,6 +196,7 @@ pub fn fill_with_groups(
             power_mode: PowerMode::Dynamic,
             moves: Vec::new(),
             z_mm: None,
+            galvo: None,
         };
         offset::offset_fill(
             &polys,
@@ -229,6 +230,7 @@ pub fn fill_with_groups(
         power_mode: PowerMode::Dynamic,
         moves: Vec::new(),
         z_mm: None,
+        galvo: None,
     };
 
     let mut angles = vec![settings.angle_deg];

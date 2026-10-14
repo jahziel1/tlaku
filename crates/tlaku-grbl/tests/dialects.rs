@@ -34,6 +34,7 @@ fn square(mode: PowerMode) -> Toolpath {
                 cut(0.0, 0.0),
             ],
             z_mm: None,
+            galvo: None,
         }],
     }
 }
@@ -384,6 +385,7 @@ fn dwell_unit_follows_each_dialect() {
                 },
             ],
             z_mm: None,
+            galvo: None,
         }],
     };
     let g4 = |d: GcodeDialect, ms: f64, s_max: f64| -> String {

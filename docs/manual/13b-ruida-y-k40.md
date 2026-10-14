@@ -59,7 +59,19 @@ Desde la línea de comandos siguen existiendo `tlaku ruida export-rd` (a archivo
 
 El **K40** es el láser de CO2 chino barato de 40 W con una placa **M2 Nano** (Lihuiyu). **LightBurn no la soporta**; Tlaku sí, de forma experimental, hablando el protocolo de la placa (LHYMICRO-GL) por USB. Si tu K40 tiene la placa cambiada a GRBL-LPC (Cohesion3D, Mini Gerbil) o Smoothie, **no** necesitas esto: funciona como esas familias.
 
-**Estado: experimental, sin placa real.** Está disponible desde la **línea de comandos** (`tlaku k40`) y, en cuanto se integre, en la app. <!-- K40-APP -->
+**Estado: experimental, probado solo contra el emulador (no hay placa real probada).** Está disponible **en la app** (tipo de máquina «K40 con M2 Nano») y también desde la **línea de comandos** (`tlaku k40`).
+
+### K40 en la app
+
+- **Conexión por USB directo** (chip CH341, `1A86:5512`), **no** por puerto serie. Cierra antes K40 Whisperer, MeerK40t y LaserDRW: solo un programa a la vez puede tener la placa. En Linux hace falta una regla udev y en Windows el controlador WinUSB (ver «Permisos del USB»). En macOS la app lleva el permiso (entitlement) de USB, así que no hay que instalar nada.
+- **Agregar la máquina:** el asistente «Agregar máquina» busca placas por USB sin enviarles nada y ofrece «K40 con M2 Nano». El modelo de placa es la M2 salvo que la tuya lleve otra letra impresa. Si después **cambias el perfil** (placa, cama, origen o velocidad máxima), **hay que reconectar** para que se aplique.
+- **Puertos:** cada placa USB aparece como `usb:k40:<n>` (en la lista se muestra «K40 · placa USB n», desde 1) y la **máquina virtual** como `virtual:k40`: la placa simulada, para practicar sin hardware.
+- **Home propio:** el K40 no informa su posición. Tlaku la cuenta desde el *home* (la orden `IPP`, los finales de carrera). Usa «Hacer home del K40…» del panel Máquina. Si envías un trabajo **sin posición conocida, la app hace home primero**.
+- **La posición se pierde al detener:** si detienes o falla un trabajo, la cuenta se pierde y hay que hacer home otra vez.
+- **Si detener no se confirma:** la app destaca un aviso de **paro de emergencia** («La placa no confirmó la parada»): el cabezal puede seguir en movimiento o el láser encendido. Usa el paro de emergencia de la máquina o abre la tapa.
+- **Potencia:** se ajusta con la **perilla** de la máquina. El diálogo de inicio lo avisa **antes de enviar**, junto con los demás avisos del codificador (aire, Z, pausas omitidas). Los **grises se binarizan**.
+- **Lo que no existe en el K40:** eje Z, eje U, control del aire, consola, ajustes en vivo (overrides), ajustes `$` y disparo de prueba. El encuadre se hace siempre con el láser apagado.
+- **Moshiboard:** esa placa comparte el USB de la M2 Nano pero **no es compatible**; si al conectar la app lo detecta, lo dirá.
 
 ### Lo más importante: la potencia va con la perilla
 
@@ -92,7 +104,7 @@ Opciones útiles: `--bed 300x200` (la cama; de fábrica 300 × 200 mm), `--home 
 6. **Láser a la mínima potencia** sobre cartón o papel de desecho, subiendo la perilla de poco en poco. Mide un cuadrado de 100 mm y compáralo con el diseño.
 7. **Cuenta lo que pasó:** copia la salida del comando y usa **Ayuda > Reportar un problema…**. Un resultado real, bueno o malo, es lo más valioso que puedes aportar.
 
-Con la app, el plan es el mismo; los pasos 3 a 6 se harán desde el perfil «K40 con M2 Nano». <!-- K40-APP -->
+Con la app, el plan es el mismo; los pasos 3 a 6 se hacen desde el perfil «K40 con M2 Nano»: elige la placa `usb:k40:<n>` en el panel Máquina, conecta, haz home y revisa el aviso del diálogo de inicio antes de enviar. Para el paso 1 usa la máquina virtual `virtual:k40`.
 
 ### Permisos del USB
 

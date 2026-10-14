@@ -24,7 +24,7 @@ Esta tabla es lo que hay **en el código**, no lo que recomienda la investigaci�
 | Smoothieware | `Smoothie` | USB serie | Estable en emulador (básico) | Máquina virtual `smoothie` | Todo |
 | G-code personalizado | `CustomGcode` | USB serie | Por validar | El dialecto lo escribe el usuario | Todo |
 | Ruida (RDC644x...) | `Ruida` | UDP | **Experimental** | Emulador UDP propio (`tlaku-ruida`): sondeo, envío guardando o ejecutando, estado, pausa, detener, saltos, encuadre, información y lista de documentos (solo lectura) | Todo: direcciones y unidades de la información, numeración de documentos, home, estados, y el comportamiento ante una subida cortada |
-| K40 con M2 Nano | `LhyMicro` | USB (CH341) | **Experimental**; solo línea de comandos (`tlaku k40`) por ahora <!-- K40-APP --> | Placa simulada (`tlaku-lhymicro`): CRC, paquetes, estados, velocidades por placa contra 1511 vectores de MeerK40t | Todo: el USB real, el home, los tiempos y los códigos de estado |
+| K40 con M2 Nano | `LhyMicro` | USB (CH341) | **Experimental** (solo emulador); en la app y en la línea de comandos (`tlaku k40`) | Placa simulada (`tlaku-lhymicro`): CRC, paquetes, estados, velocidades por placa contra 1511 vectores de MeerK40t | Todo: el USB real, el home, los tiempos y los códigos de estado |
 | Galvo JCZ/BJJCZ (EZCAD2) | — | — | No soportada | — | — |
 | EZCAD3/DLC, BSL, Trocen, TopWisdom | — | — | No soportada | — | — |
 | xTool por Wi-Fi propietario, Glowforge | — | — | No soportada | — | — |

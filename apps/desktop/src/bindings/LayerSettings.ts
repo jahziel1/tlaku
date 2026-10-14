@@ -3,6 +3,7 @@ import type { CutThrough } from "./CutThrough";
 import type { DotMode } from "./DotMode";
 import type { FillGrouping } from "./FillGrouping";
 import type { FillStyle } from "./FillStyle";
+import type { GalvoLayer } from "./GalvoLayer";
 import type { ImageSettings } from "./ImageSettings";
 import type { LayerMode } from "./LayerMode";
 import type { Lead } from "./Lead";
@@ -103,4 +104,8 @@ sub_layers: Array<LayerSettings>,
  * La capa se ejecuta con el segundo láser (máquinas con `DeviceProfile::laser2`); `false` =
  * el láser 1. El motor emite el comando de selección del dialecto al cambiar de láser.
  */
-laser2: boolean, };
+laser2: boolean, 
+/**
+ * Solo máquinas galvo (y `ppi`, algunas de CO2).
+ */
+galvo: GalvoLayer, };

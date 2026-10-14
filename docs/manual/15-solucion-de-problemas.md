@@ -165,7 +165,7 @@ La conexión con Ruida es experimental (ver [Ruida y K40](13b-ruida-y-k40.md)). 
 
 ## El K40 no aparece por USB
 
-El soporte del K40 con M2 Nano es experimental y por ahora funciona desde la línea de comandos (`tlaku k40`) <!-- K40-APP -->; ver [Ruida y K40](13b-ruida-y-k40.md). Si `tlaku k40 list` dice «No hay placas CH341 (USB 1A86:5512) conectadas»:
+El soporte del K40 con M2 Nano es experimental (probado solo contra el emulador) y está en la app y en la línea de comandos (`tlaku k40`); ver [Ruida y K40](13b-ruida-y-k40.md). La conexión es por USB directo, no por puerto serie: en la app, la placa debe aparecer como `usb:k40:<n>` en la lista de puertos del panel Máquina. Si no aparece, o `tlaku k40 list` dice «No hay placas CH341 (USB 1A86:5512) conectadas»:
 
 1. **Cable y energía.** Usa el cable USB que trae la máquina, que la máquina esté encendida, y prueba otro puerto USB del equipo (mejor directo, sin concentrador).
 2. **Otro programa con la placa.** K40 Whisperer, MeerK40t o LaserDRW no pueden tenerla abierta a la vez. Ciérralos.
@@ -177,11 +177,13 @@ El soporte del K40 con M2 Nano es experimental y por ahora funciona desde la lí
 
    recarga con `sudo udevadm control --reload-rules && sudo udevadm trigger` y desconecta y vuelve a conectar la placa. Para comprobar que el sistema la ve: `lsusb | grep 1a86:5512`. (`MODE="0666"` abre la placa a todos los usuarios; para restringirla usa `TAG+="uaccess"` en su lugar.)
 4. **Windows:** la placa debe usar el controlador **WinUSB** (por ejemplo, con Zadig). Con el controlador original del fabricante del chip (WCH) Tlaku no puede abrirla.
-5. **macOS:** no necesita controlador. Si tienes instalado el de WCH, desinstálalo.
-6. **Aparece pero `tlaku k40 status` falla o dice Moshiboard.** Una Moshiboard comparte el mismo USB, pero no es una M2 Nano y Tlaku no la soporta. Si es una M2 Nano y no responde, apaga y enciende la máquina y vuelve a probar.
+5. **macOS:** no necesita controlador (la app lleva el permiso de USB). Si tienes instalado el de WCH, desinstálalo.
+6. **Aparece pero al conectar falla (o `tlaku k40 status` falla) o dice Moshiboard.** Una Moshiboard comparte el mismo USB, pero no es una M2 Nano y Tlaku no la soporta. Si es una M2 Nano y no responde, apaga y enciende la máquina y vuelve a probar.
 7. **Se queda esperando el final del trabajo.** Si tu placa no informa el estado «terminó», prueba `--no-wait-finish`.
 
 Y recuerda: la M2 Nano **no controla la potencia por software**; si el láser no marca, sube la perilla de la máquina, no la potencia de la capa.
+
+Otras dudas del K40 en la app: si el panel dice «Posición desconocida», haz **home** (detener un trabajo la pierde; enviar un trabajo la recupera haciendo home primero). Si cambiaste el perfil (placa, cama, origen), **reconecta**. Si aparece el aviso «La placa no confirmó la parada», usa el **paro de emergencia** de la máquina. La consola, los overrides, los ajustes `$`, Z, U y el aire no existen en el K40.
 
 ## Macros, ajustes `$$` y disparo de prueba
 

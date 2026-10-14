@@ -57,7 +57,7 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | User bundle `.lbzip` | **Archivo > Exportar / Importar paquete de configuración…** (`.tlakubundle`; no abre los `.lbzip`) |
 | Device: tipo de conexión TCP/IP (red) | **Tipo de conexión** del perfil: **Red · TCP / Telnet** o **Red · WebSocket**, con **Probar conexión**; ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
 | Ruida (DSP) | Perfil **Ruida (CO2, por red; experimental)**; ver [Ruida y K40](13b-ruida-y-k40.md). LightBurn lo soporta; en Tlaku es experimental |
-| K40 con M2 Nano | LightBurn no lo soporta. Tlaku: experimental, por ahora desde la línea de comandos (`tlaku k40`) <!-- K40-APP -->; ver [Ruida y K40](13b-ruida-y-k40.md) |
+| K40 con M2 Nano | LightBurn no lo soporta. Tlaku: experimental (solo probado contra el emulador), en la app por USB directo y con `tlaku k40`; la potencia va con la perilla; ver [Ruida y K40](13b-ruida-y-k40.md) |
 | Automatización por UDP | **Preferencias > Automatización** (protocolo propio, no el de LightBurn); ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
 | Camera: Update Overlay, Trace, Capture | **Actualizar la superposición**, **Vectorizar desde la cámara** y **Capturar imagen de la cama** (ver [Cámara](10-camara.md)) |
 | Camera: lente de ojo de pez | **Modelo de lente**: Automático, Brown-Conrady u **Ojo de pez** |

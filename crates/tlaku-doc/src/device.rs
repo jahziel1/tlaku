@@ -1,3 +1,4 @@
+use crate::galvo::{FeederSettings, GalvoDevice};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -27,6 +28,9 @@ pub enum DeviceKind {
     /// Placas Lihuiyu M2 Nano y afines (K40 de serie): protocolo LHYMICRO-GL por USB; no usa
     /// el dialecto de G-code. Ver `docs/hardware/dsp-co2.md`.
     LhyMicro,
+    /// Galvo con tarjeta JCZ/BJJCZ (EZCAD2, LMC por USB): fibra, UV o CO2 galvo. No usa G-code.
+    /// Ver `docs/hardware/galvo.md` y el crate `tlaku-galvo`.
+    Galvo,
 }
 
 impl DeviceKind {
@@ -174,7 +178,7 @@ impl GcodeDialect {
             | DeviceKind::CustomGcode => grbl,
             // No hablan G-code: el dialecto no se usa, se deja el de GRBL para que el perfil
             // siga siendo válido si alguien cambia de tipo.
-            DeviceKind::Ruida | DeviceKind::LhyMicro => grbl,
+            DeviceKind::Ruida | DeviceKind::LhyMicro | DeviceKind::Galvo => grbl,
             // Sin `M4`, sin modo láser (`G0` no apaga) y con `S` entera de 0 a 255.
             DeviceKind::GrblM3 => Self {
                 s_decimals: 0,
@@ -399,6 +403,10 @@ pub struct DeviceProfile {
     pub ruida: RuidaSettings,
     #[serde(default)]
     pub lhymicro: LhyMicroSettings,
+    #[serde(default)]
+    pub galvo: GalvoDevice,
+    #[serde(default)]
+    pub feeder: FeederSettings,
 }
 
 /// Transporte hacia la controladora.
@@ -509,6 +517,10 @@ struct DeviceProfileRepr {
     ruida: RuidaSettings,
     #[serde(default)]
     lhymicro: LhyMicroSettings,
+    #[serde(default)]
+    galvo: GalvoDevice,
+    #[serde(default)]
+    feeder: FeederSettings,
 }
 
 impl<'de> Deserialize<'de> for DeviceProfile {
@@ -548,6 +560,8 @@ impl From<DeviceProfileRepr> for DeviceProfile {
             u_axis: r.u_axis,
             ruida: r.ruida,
             lhymicro: r.lhymicro,
+            galvo: r.galvo,
+            feeder: r.feeder,
         }
     }
 }
@@ -606,6 +620,8 @@ impl Default for DeviceProfile {
             u_axis: false,
             ruida: RuidaSettings::default(),
             lhymicro: LhyMicroSettings::default(),
+            galvo: GalvoDevice::default(),
+            feeder: FeederSettings::default(),
         }
     }
 }

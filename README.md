@@ -86,7 +86,7 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 - **Automatización:** servidor UDP local opcional (apagado de fábrica, solo `127.0.0.1`) para que
   otros programas manden `LOAD`, `START`, `STATUS` y `STOP`; `START` pide confirmación en la app.
 - **Ruida y K40 (experimental):** controladoras Ruida (CO2) por red desde la app, y K40 con placa
-  M2 Nano por USB desde la línea de comandos (`tlaku k40`). <!-- K40-APP -->
+  M2 Nano por USB, desde la app y desde la línea de comandos (`tlaku k40`); la potencia del K40 va con la perilla.
 - **Taller:** biblioteca de materiales y prueba de materiales, rotativo (rodillo o mandril),
   corrección de barrido (scanning offset), cámara con calibración de lente (incluido el modelo de
   ojo de pez), alineación y marcas grabadas, captura y vectorizado de la cama, cámara en el cabezal
@@ -139,8 +139,6 @@ Estas funciones están en el plan y todavía no son parte de la app:
 - Del diseño avanzado: deformar con manijas en el lienzo y con malla de 16 puntos, redondear
   esquinas con un clic por esquina, guías temporales de alineación y paneles flotantes. *Tiling* y
   Print & Cut.
-- **K40 con placa M2 Nano en la aplicación:** hoy solo existe por línea de comandos
-  (`tlaku k40`) y se está integrando. <!-- K40-APP -->
 - De las máquinas: escribir los ajustes de una controladora Ruida y borrar o ejecutar sus
   documentos, cámaras de red y presets de cámara, alinear la cámara del cabezal con marcas, las
   pulgadas en las capas, las máquinas y la cámara, marcar un perfil como predeterminado y
@@ -168,7 +166,7 @@ con hardware real será una Creality Falcon2. Guía completa:
 | Marlin y Smoothie | Estable en emulador (básico); **por validar con máquina real** | Envío línea a línea, aviso de posición perdida y máquina virtual. |
 | GRBL antiguo (sin M4), GRBL-LPC y G-code personalizado | **Por validar con máquina real** | Dialecto propio; sin máquina virtual dedicada. El tipo personalizado trae un editor de dialecto. |
 | Ruida (CO2) | **Experimental**, en la app y por línea de comandos | Por red (UDP): conectar, enviar (por defecto guarda el trabajo en la controladora y no lo arranca), pausa, detener, saltos, encuadre, información y lista de documentos. Probado solo contra un emulador; no escribe ajustes. |
-| K40 con placa M2 Nano | **Experimental**, solo por línea de comandos <!-- K40-APP --> | Protocolo LHYMICRO-GL por USB, probado solo con una placa simulada. LightBurn no la soporta. **La potencia va con la perilla de la máquina**, no por software. |
+| K40 con placa M2 Nano | **Experimental**, en la app y por línea de comandos | Protocolo LHYMICRO-GL por USB directo (no por puerto serie), probado solo contra una placa simulada. LightBurn no la soporta. **La potencia va con la perilla de la máquina**, no por software; los grises se binarizan y no hay Z, aire, consola ni overrides. La posición se cuenta desde el home. |
 | Galvo/fibra (EZCAD), Trocen, TopWisdom | No soportado | Un K40 con la placa cambiada a GRBL-LPC o Smoothie sí puede funcionar. |
 
 ## Instalación
@@ -288,7 +286,7 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 | `ports` | Lista los puertos serie. |
 | `info` | Lee la versión (`$I`) y la configuración (`$$`) de la máquina, sin moverla. |
 | `ruida` | Experimental. `export-rd` escribe un archivo `.rd`; `send` lo manda por UDP a una controladora Ruida (guarda el trabajo, `--run` lo ejecuta); `status` lee su estado. |
-| `k40` | Experimental. `list`, `status` (solo lectura), `send` (con `--dry-run` y `--emu`) y `export-egv` para un K40 con placa M2 Nano. La potencia se ajusta en la máquina. <!-- K40-APP --> |
+| `k40` | Experimental. `list`, `status` (solo lectura), `send` (con `--dry-run` y `--emu`) y `export-egv` para un K40 con placa M2 Nano. La potencia se ajusta en la máquina. |
 
 Ejemplos, ejecutados desde la raíz del repositorio (usan el diseño de prueba
 `crates/tlaku-cli/tests/fixtures/design.svg`: un contorno rojo y un rectángulo azul):

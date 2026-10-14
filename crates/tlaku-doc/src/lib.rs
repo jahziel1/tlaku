@@ -10,6 +10,7 @@ pub use tlaku_core::bezpath::{BezPath, PathSeg};
 mod cut;
 mod device;
 mod document;
+mod galvo;
 mod job;
 mod layer;
 mod machine;
@@ -30,6 +31,10 @@ pub use device::{
 pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
     VectorObject, bounds_of, union,
+};
+pub use galvo::{
+    FeederSettings, FieldCorrection, GalvoDevice, GalvoJump, GalvoLayer, GalvoTiming, LaserSource,
+    TileSpec, Wobble,
 };
 pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, StartFrom};
 pub use layer::{
