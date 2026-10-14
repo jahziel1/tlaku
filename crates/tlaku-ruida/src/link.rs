@@ -51,6 +51,11 @@ impl<T: PacketLink + ?Sized> PacketLink for Box<T> {
     }
 }
 
+fn diag_t() -> std::time::Duration {
+    static T0: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    T0.get_or_init(std::time::Instant::now).elapsed()
+}
+
 /// UDP real contra una controladora.
 pub struct UdpLink {
     socket: UdpSocket,
@@ -100,6 +105,12 @@ impl UdpLink {
 
 impl PacketLink for UdpLink {
     fn send(&mut self, datagram: &[u8]) -> io::Result<()> {
+        eprintln!(
+            "DIAG {:?} send {} bytes {:02X?}",
+            diag_t(),
+            datagram.len(),
+            &datagram[..datagram.len().min(8)]
+        );
         match self.socket.send(datagram) {
             Ok(_) => Ok(()),
             // Un "puerto inalcanzable" de un envío anterior (ICMP) no es un fallo de este.
@@ -123,7 +134,21 @@ impl PacketLink for UdpLink {
             // `set_read_timeout(Some(0))` es un error: mínimo 1 ms.
             self.socket
                 .set_read_timeout(Some(left.max(Duration::from_millis(1))))?;
-            match self.socket.recv(&mut buf) {
+            let res = self.socket.recv(&mut buf);
+            match &res {
+                Ok(n) => eprintln!(
+                    "DIAG {:?} recv ok {} {:02X?}",
+                    diag_t(),
+                    n,
+                    &buf[..(*n).min(8)]
+                ),
+                Err(e) => eprintln!(
+                    "DIAG {:?} recv err {:?} {e} left={left:?}",
+                    diag_t(),
+                    e.kind()
+                ),
+            }
+            match res {
                 Ok(n) => return Ok(Some(buf[..n].to_vec())),
                 Err(e) => match e.kind() {
                     io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => return Ok(None),

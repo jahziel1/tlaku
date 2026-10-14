@@ -435,10 +435,23 @@ fn cancelling_on_purpose_or_finishing_clears_the_checkpoint_but_an_alarm_keeps_i
     let h = b.connect();
     b.start(&h, &lines);
     b.wait_burned(30.0);
-    assert!(
-        b.store.load().is_some(),
-        "durante el trabajo hay punto de control"
-    );
+    if b.store.load().is_none() {
+        let listing = fs::read_dir(&b.dir)
+            .map(|d| {
+                d.flatten()
+                    .map(|e| format!("{:?} {:?}", e.file_name(), e.metadata().map(|m| m.len())))
+                    .collect::<Vec<_>>()
+            })
+            .map_err(|e| e.to_string());
+        panic!(
+            "DIAG dir={listing:?} warn={:?}",
+            b.sink
+                .logs()
+                .into_iter()
+                .filter(|(_, t)| t.contains("AVISO") || t.contains("WARNING"))
+                .collect::<Vec<_>>()
+        );
+    }
     h.cancel().unwrap();
     b.sink
         .wait("cancelado", |s| s.jobs().contains(&JobState::Cancelled));

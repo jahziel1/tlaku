@@ -303,7 +303,18 @@ fn the_writer_does_not_block_the_sender_and_saves_ack_status_and_modal_state() {
     );
     w.note_acked(3);
     std::thread::sleep(Duration::from_millis(80));
-    assert!(store.load().is_some());
+    if store.load().is_none() {
+        let err = w.take_error();
+        let listing = fs::read_dir(&dir)
+            .map(|d| {
+                d.flatten()
+                    .map(|e| format!("{:?} {:?}", e.file_name(), e.metadata().map(|m| m.len())))
+                    .collect::<Vec<_>>()
+            })
+            .map_err(|e| e.to_string());
+        let probe = store.begin(&meta("probe", &lines), Some(&lines));
+        panic!("DIAG err={err:?} dir={listing:?} probe={probe:?}");
+    }
     w.finish(Finish::Discard, &store);
     assert!(store.load().is_none());
     let _ = fs::remove_dir_all(dir);

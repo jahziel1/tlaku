@@ -805,7 +805,8 @@ fn realtime_commands_map_to_the_ruida_equivalents() {
     m.realtime(RealtimeCommand::Resume).unwrap();
     assert!(!r.emu.emulator().paused);
     m.realtime(RealtimeCommand::Status).unwrap();
-    m.realtime(RealtimeCommand::JogCancel).unwrap();
+    m.realtime(RealtimeCommand::JogCancel)
+        .unwrap_or_else(|e| panic!("DIAG {e} logs={}", r.sink.logs()));
     assert!(!r.emu.emulator().running);
     assert!(matches!(m.grbl(), Err(e) if e.contains("solo de GRBL")));
     assert!(m.ruida().is_ok());
