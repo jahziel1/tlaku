@@ -308,18 +308,11 @@ fn the_writer_does_not_block_the_sender_and_saves_ack_status_and_modal_state() {
     while store.load().is_none() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
-    if store.load().is_none() {
-        let err = w.take_error();
-        let listing = fs::read_dir(&dir)
-            .map(|d| {
-                d.flatten()
-                    .map(|e| format!("{:?} {:?}", e.file_name(), e.metadata().map(|m| m.len())))
-                    .collect::<Vec<_>>()
-            })
-            .map_err(|e| e.to_string());
-        let probe = store.begin(&meta("probe", &lines), Some(&lines));
-        panic!("DIAG err={err:?} dir={listing:?} probe={probe:?}");
-    }
+    assert!(
+        store.load().is_some(),
+        "no apareció el punto de control; error de escritura: {:?}",
+        w.take_error()
+    );
     w.finish(Finish::Discard, &store);
     assert!(store.load().is_none());
     let _ = fs::remove_dir_all(dir);

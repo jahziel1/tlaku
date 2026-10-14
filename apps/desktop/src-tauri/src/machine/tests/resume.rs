@@ -441,23 +441,10 @@ fn cancelling_on_purpose_or_finishing_clears_the_checkpoint_but_an_alarm_keeps_i
     while b.store.load().is_none() && std::time::Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }
-    if b.store.load().is_none() {
-        let listing = fs::read_dir(&b.dir)
-            .map(|d| {
-                d.flatten()
-                    .map(|e| format!("{:?} {:?}", e.file_name(), e.metadata().map(|m| m.len())))
-                    .collect::<Vec<_>>()
-            })
-            .map_err(|e| e.to_string());
-        panic!(
-            "DIAG dir={listing:?} warn={:?}",
-            b.sink
-                .logs()
-                .into_iter()
-                .filter(|(_, t)| t.contains("AVISO") || t.contains("WARNING"))
-                .collect::<Vec<_>>()
-        );
-    }
+    assert!(
+        b.store.load().is_some(),
+        "durante el trabajo hay punto de control"
+    );
     h.cancel().unwrap();
     b.sink
         .wait("cancelado", |s| s.jobs().contains(&JobState::Cancelled));
