@@ -21,6 +21,11 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # Los tipos de Node deben coincidir con la versión de Node que usamos (24, en la CI y en
+      # `engines`); un salto mayor de @types/node no aplica hasta cambiar de Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -30,3 +35,6 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    ignore:
+      # Su etiqueta es la versión de Rust y va fija junto con rust-toolchain.toml: se actualiza a mano.
+      - dependency-name: "dtolnay/rust-toolchain"
