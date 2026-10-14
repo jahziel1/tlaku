@@ -27,7 +27,7 @@ jobs:
     name: Verificar versión
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # La etiqueta vX.Y.Z debe coincidir con las versiones de los tres lugares donde vive.
       - name: Comparar la etiqueta con las versiones
@@ -67,9 +67,9 @@ jobs:
             args: ""
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: dtolnay/rust-toolchain@1.120.0
         with:
           targets: ${{ matrix.rust_targets }}
 
@@ -77,7 +77,7 @@ jobs:
         with:
           key: ${{ matrix.os }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -163,7 +163,7 @@ jobs:
 
       - name: Compilar y empaquetar
         id: tauri
-        uses: tauri-apps/tauri-action@v0.6.2
+        uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPIMAGE_EXTRACT_AND_RUN: "1"
@@ -204,7 +204,7 @@ jobs:
       # Lanzado a mano no hay Release: conserva los instaladores como artefactos.
       - name: Guardar instaladores como artefactos
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tlaku-${{ runner.os }}
           path: |
