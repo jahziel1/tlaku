@@ -1506,8 +1506,6 @@ mod tests {
 
     #[test]
     fn cylinder_and_taper_flags_bend_the_marks_and_taper_needs_all_three() {
-        let flat = run_mark(&["--dry-run", "--dump", "/dev/null"], "");
-        flat.0.unwrap_or_else(|e| panic!("{e}\n{}", flat.1));
         let dir = std::env::temp_dir().join(format!("tlaku_galvo_cyl_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let (flat_path, bent_path) = (dir.join("flat.txt"), dir.join("bent.txt"));
