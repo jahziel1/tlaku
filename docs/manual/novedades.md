@@ -2,6 +2,31 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Modo sencillo, materiales de fábrica y control desde el celular, en la próxima versión
+
+Sexta tanda: Tlaku se vuelve más fácil para quien empieza, trae ajustes de partida para los materiales más comunes y deja vigilar un trabajo desde el celular. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, con pruebas automáticas y con un celular simulado.
+
+### Modo sencillo
+
+- **Una versión guiada en cinco pasos**: abrir el diseño, elegir el material, colocarlo, revisar e iniciar. La primera vez, Tlaku pregunta **¿Es tu primera vez con un láser?**; el botón de la barra superior cambia de modo cuando quieras, **sin tocar tu diseño**.
+- **Cortar, Grabar o Ignorar por color**: eliges el material y qué hacer con cada color; Tlaku pone velocidad, potencia y pasadas. Con **Ajustar** (más pasadas, menos quemado, más claro o más oscuro), **Ver números** y **Guardar como mi material**.
+- **Te pregunta los watts de tu láser** ("¿De cuántos watts es tu láser?") para usar los ajustes de la clase correcta; sin saberlo, usa los más prudentes. El acrílico transparente con diodo no deja elegir **Cortar**. Mira [Modo sencillo](01b-modo-sencillo.md).
+
+### Materiales de fábrica
+
+- **134 ajustes de partida** de corte y grabado, en la sección **De fábrica** de la pestaña Materiales (la biblioteca ya no empieza vacía). Cada uno dice su **fuente** (con enlace) y su **confianza** (**Oficial**, **Guía** o **Foro**).
+- **Clase de máquina** (diodo, CO2 o fibra, por potencia) para ver los ajustes de la tuya, y un aviso fijo: **son puntos de partida, no una garantía**. Se duplican a **Mis materiales** para editarlos. Mira [Materiales](11-materiales.md).
+
+### Control desde el celular
+
+- **Ver el avance y pausar o detener desde el celular**, escaneando un código QR en **Preferencias > Control remoto**; sin instalar nada. **Pausar y detener funcionan siempre**; **iniciar** exige el checklist en el celular y que el trabajo esté **encuadrado en la computadora después del último cambio**. El láser galvo nunca se inicia desde el celular.
+- **Apagado de fábrica, solo en tu red local y con una clave que cambia cada vez que abres la app.** **No hay HTTPS**: úsalo solo en una red de confianza. Mira [Control desde el celular](09e-control-desde-el-celular.md).
+- **Límite:** Safari en iPhone y iPad no deja que la página haga vibrar el celular al terminar (el aviso y el pitido sí salen).
+
+### Lo que sigue sin estar
+
+- Probar todo con hardware real y con celulares reales.
+
 ## Pro y galvo, en la próxima versión
 
 Quinta gran tanda: lo que más se pedía para trabajos de producción, y un primer paso hacia los láseres galvo. **Nada de esto se ha probado con una máquina real**: Print & Cut y el tiling se validaron con la máquina virtual, una hoja impresa simulada y fotos sintéticas, y el galvo con una tarjeta simulada que escribimos nosotros.

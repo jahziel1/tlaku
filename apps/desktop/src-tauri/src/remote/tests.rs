@@ -212,6 +212,31 @@ fn the_page_is_public_static_and_has_no_cors() {
 }
 
 #[test]
+fn the_page_keeps_pause_and_stop_in_a_fixed_bar_in_both_languages() {
+    let r = rig(Fake::with(MachineKind::Grbl, MachineState::Idle));
+    let page = send(r.addr, "GET", "/", &[], "").body;
+    // La barra con Pausar/Detener va fija abajo, con la zona segura del iPhone, y fuera del contenido.
+    assert!(
+        page.contains(".dock {\n  position: fixed;")
+            && page.contains("env(safe-area-inset-bottom)")
+    );
+    let bar = page.find("id=\"bar\"").unwrap();
+    let main_end = page.find("</main>").unwrap();
+    assert!(
+        bar > main_end,
+        "la barra no debe estar dentro del contenido que se desplaza"
+    );
+    for id in ["btn-pause", "btn-stop", "stop-hint"] {
+        assert!(page[bar..].contains(&format!("id=\"{id}\"")), "{id}");
+    }
+    // El aviso del segundo toque existe en español y en inglés.
+    assert!(
+        page.contains("stopHint: 'Toca Detener otra vez")
+            && page.contains("stopHint: 'Tap Stop again")
+    );
+}
+
+#[test]
 fn the_host_header_must_be_an_ip_and_the_origin_this_server() {
     let r = rig(Fake::with(MachineKind::Grbl, MachineState::Idle));
     let evil_host = send(r.addr, "GET", "/", &[("Host", "evil.example:80")], "");

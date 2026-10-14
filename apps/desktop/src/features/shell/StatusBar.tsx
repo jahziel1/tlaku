@@ -70,11 +70,15 @@ function MachineState() {
   const state = useStore((s) => s.status?.state);
   const otherState = useStore((s) => s.status?.other_state);
   const virtual = useStore(selectIsVirtual);
+  // Modo sencillo: solo «Falcon2 22 W conectada»; el puerto y el estado de reposo sobran (un estado raro sí se dice).
+  const simple = usePref('uiMode') === 'simple';
   return (
     <div className="status__item" role="status">
       <span className="dot" data-tone={connected ? 'ok' : 'off'} aria-hidden="true" />
       {virtual && <VirtualBadge />}
-      {connected ? (
+      {connected && simple ? (
+        <span>{t('status.connected', { name })}{state && state !== 'idle' && <span className="status__muted status__detail"> · {stateLabel(state, otherState)}</span>}</span>
+      ) : connected ? (
         <span>{t('status.connected', { name })}<span className="status__muted status__detail num">{port && portLabel(port)} · {stateLabel(state ?? 'idle', otherState)}</span></span>
       ) : (
         <span className="status__muted">{t('status.disconnected')}</span>

@@ -16,18 +16,22 @@ import { t } from '@/i18n';
 import { multiplyAffine } from '@/lib/geometry';
 import { selectActiveDevice, useStore } from '@/store';
 import {
+  actionBlock,
   allBox,
   applyActionsToDoc,
+  colorGroups,
   cutBurnLess,
   cutMorePasses,
   designBox,
   fitFactor,
+  impossibleActions,
   knobsOf,
   materialChoices,
   moveToAnchor,
   pickFor,
   sameColor,
   tuneEngrave,
+  validate,
   type Knobs,
   type MaterialChoice,
   type SimpleAction,
@@ -86,6 +90,8 @@ export function currentChoice(): MaterialChoice | null {
 /** El usuario dice de cuántos watts es su láser (la clase más cercana); `null` = no lo sabe. Se recuerda para esa máquina. */
 export function chooseWatts(machineClass: MachineClass | null): void {
   chooseMachineClass(selectActiveDevice(app()).id, machineClass);
+  // Con otra potencia puede cambiar el ajuste elegido; lo que ya no tenga, se quita.
+  reconcile(false);
 }
 
 const layerOf = (doc: Document, color: string): LayerSettings | undefined => doc.layers.find((l) => sameColor(l.color, color));
@@ -145,27 +151,67 @@ export async function openExample(): Promise<boolean> {
 // Paso 2: material y acción por color
 // ---------------------------------------------------------------------------
 
-/** Aplica a las capas reales lo decidido hasta ahora, en un solo paso de deshacer. */
-export function applyAll(): void {
+/** Documento con la salida apagada en estas capas (para un color que se quedó sin acción). */
+const silence = (doc: Document, colors: ReadonlySet<string>): Document => {
+  let changed = false;
+  const layers = doc.layers.map((l) => {
+    if (!colors.has(l.color.toLowerCase()) || !l.output) return l;
+    changed = true;
+    return { ...l, output: false };
+  });
+  return changed ? { ...doc, layers } : doc;
+};
+
+/**
+ * Los colores cuya acción ya no tiene ajuste (otro material, otra máquina u otra potencia) vuelven a
+ * "sin decidir" y su capa queda sin salida: nunca se queda con los valores del material anterior.
+ * Con `reapply`, a los demás se les vuelven a poner los ajustes del material. Todo es un solo paso
+ * de deshacer. Devuelve cuántos colores perdieron su acción.
+ */
+function reconcile(reapply: boolean): number {
   const { actions } = ui();
   const choice = currentChoice();
-  app().applyDocChange('simple.history.apply', (doc) => applyActionsToDoc(doc, actions, choice));
+  const groups = colorGroups(app().doc);
+  const broken = impossibleActions(groups, actions, choice);
+  const gone = new Set(broken.map((g) => g.color.toLowerCase()));
+  const kept = Object.fromEntries(Object.entries(actions).filter(([c]) => !gone.has(c)));
+  if (broken.length > 0) ui().dropActions(broken.map((g) => ({ color: g.color, name: g.name || g.color })));
+  if (!reapply && broken.length === 0) return 0;
+  app().applyDocChange('simple.history.apply', (doc) => silence(reapply ? applyActionsToDoc(doc, kept, choice) : doc, gone));
+  return broken.length;
 }
 
-/** Elige el material: lo que ya se decidió por color se vuelve a aplicar con sus ajustes. */
+/** Elige el material: lo que ya se decidió por color se vuelve a aplicar con sus ajustes; lo que ya no se puede, se quita. */
 export function chooseMaterial(key: string): void {
   ui().setMaterialKey(key);
   ui().clearTune();
-  applyAll();
+  reconcile(true);
 }
 
-/** Elige qué hacer con un color y lo aplica a su capa. */
-export function chooseAction(color: string, action: SimpleAction): void {
+/** Cambia la máquina activa y revisa que lo decidido siga teniendo ajuste. */
+export function changeMachine(id: string): void {
+  app().setActiveDevice(id);
+  ui().clearTune();
+  reconcile(false);
+}
+
+/**
+ * Elige qué hacer con un color y lo aplica a su capa. Si el material de ahora no tiene ajuste para
+ * esa acción (sin ajuste, con restricción, o cortar una imagen) no cambia nada y avisa. Devuelve si se aplicó.
+ */
+export function chooseAction(color: string, action: SimpleAction): boolean {
+  const group = colorGroups(app().doc).find((g) => sameColor(g.color, color));
+  const choice = currentChoice();
+  const why = group ? actionBlock(action, group, choice) : null;
+  if (why) {
+    app().notify('warning', t(why));
+    return false;
+  }
   ui().setAction(color, action);
   ui().setTune(color, 0);
   const only = { [color.toLowerCase()]: action };
-  const choice = currentChoice();
   app().applyDocChange('simple.history.action', (doc) => applyActionsToDoc(doc, only, choice));
+  return true;
 }
 
 /** Cambia velocidad / potencia / pasadas de una capa. Teclear seguido es un solo paso de deshacer. */
@@ -313,5 +359,12 @@ export async function connectVirtual(): Promise<boolean> {
 
 /** El botón Iniciar: abre "¿Láser listo y área despejada?" con la lista de comprobación de siempre. */
 export function startJob(): void {
-  app().requestStart();
+  // Defensa extra: con un color sin ajuste no se abre el diálogo de inicio.
+  const s = app();
+  const problems = validate({ doc: s.doc, device: selectActiveDevice(s), connected: s.connection.connected, choice: currentChoice(), actions: ui().actions });
+  if (problems.some((p) => p.id === 'actionNoSettings')) {
+    s.notify('warning', t('simple.need.actions'));
+    return;
+  }
+  s.requestStart();
 }

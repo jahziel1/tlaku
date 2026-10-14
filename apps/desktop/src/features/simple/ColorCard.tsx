@@ -18,11 +18,11 @@ import {
   setNumber,
 } from './actions';
 import {
+  actionBlock,
   DARK_STEPS,
   MAX_EASY_PASSES,
   knobChanges,
   knobsOf,
-  pickFor,
   thumbnail,
   type ColorGroup,
   type Knobs,
@@ -47,14 +47,7 @@ const DARK_LABEL: Record<number, I18nKey> = {
   3: 'simple.dark.p3',
 };
 
-/** Por qué una acción no está disponible para este color (clave de texto), o `null`. */
-export function actionBlock(action: SimpleAction, group: ColorGroup, choice: MaterialChoice | null): I18nKey | null {
-  if (action === 'ignore') return null;
-  if (action === 'cut' && group.isImage) return 'simple.why.imageNoCut';
-  if (!choice) return 'simple.why.pickMaterial';
-  const why = action === 'cut' ? choice.cutWhy : choice.engraveWhy;
-  return pickFor(choice, action) ? null : (why ?? 'simple.why.noCut');
-}
+export { actionBlock };
 
 /** "Velocidad 300 mm/min" (o mm/s en una máquina galvo). */
 export function speedText(speed: number, galvo: boolean): string {
@@ -226,6 +219,7 @@ export function ColorCard({ group, choice }: { group: ColorGroup; choice: Materi
             aria-pressed={action === id}
             disabled={why !== null}
             title={why ? t(why) : undefined}
+            aria-label={why ? `${t(label)}: ${t(why)}` : undefined}
             onClick={() => chooseAction(group.color, id)}
           >
             <Icon size={20} aria-hidden="true" />
@@ -233,10 +227,6 @@ export function ColorCard({ group, choice }: { group: ColorGroup; choice: Materi
           </button>
         ))}
       </div>
-      {blocked.filter((b) => b.why).map((b) => (
-        <p key={b.id} className="hint simple__why">{t(b.label)}: {t(b.why!)}</p>
-      ))}
-      {!action && <p className="hint">{t('simple.color.choose')}</p>}
       {action === 'ignore' && <p className="hint">{t('simple.color.ignored')}</p>}
       {adjustable && (
         <>

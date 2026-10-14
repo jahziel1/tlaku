@@ -38,6 +38,7 @@ import {
 } from './actions';
 import { needsFirstRun, setUiMode, toggleUiMode } from './mode';
 import {
+  actionBlock,
   advanceBlock,
   colorGroups,
   cutBurnLess,
@@ -48,6 +49,7 @@ import {
   knobsOf,
   layerWithAction,
   materialChoices,
+  materialReasons,
   moveToAnchor,
   roleOf,
   type PickContext,
@@ -55,8 +57,9 @@ import {
   validate,
   type Knobs,
 } from './model';
-import { ChangeList, Swatch, Values, actionBlock } from './ColorCard';
+import { ChangeList, Swatch, Values } from './ColorCard';
 import { SimplePanel } from './SimplePanel';
+import { StepMaterial } from './StepMaterial';
 import { useSimple } from './store';
 
 const RED = '#ff3b4a';
@@ -218,6 +221,38 @@ describe('modelo: color y material', () => {
     expect(co2.restriction).toBeNull();
   });
 
+  it('lo que depende del material se explica una sola vez, bajo el selector, y no en cada tarjeta', () => {
+    const clear = choicesNow().find((c) => c.key.startsWith('acrylic_clear'))!;
+    const doc = sampleDoc();
+    const data = { groups: colorGroups(doc), choices: [clear], choice: clear, problems: [], machine: { kind: 'diode' as const, machineClass: null } };
+    expect(data.groups.length).toBeGreaterThan(2);
+    const html = renderToString(<StepMaterial data={data} />);
+    const count = (text: string) => html.split(text).length - 1;
+    const once = es['simple.reason.restrictedCut'].replace('{laser}', 'diodo');
+    // El acrílico transparente tiene grabado solo para CO2: aquí el motivo es de corte.
+    expect(materialReasons(clear, 'diode')).toHaveLength(1);
+    expect(count(once) + count(es['simple.reason.restrictedNeither'].replace('{laser}', 'diodo'))).toBe(1);
+    // Las tarjetas ya no repiten los motivos como texto (solo en el title y el nombre accesible de cada botón).
+    const visible = html.replace(/<[^>]*>/g, '');
+    expect(visible).not.toContain(es['simple.why.restricted']);
+    expect(visible).not.toContain(es['simple.why.otherMachine']);
+    expect(visible).not.toContain(es['simple.why.noCut']);
+    expect(html).toContain(es['simple.colors.help']);
+    expect(count('Elige qué hacer con este color')).toBe(0);
+    // Los botones desactivados llevan el motivo corto en el nombre accesible.
+    expect(html).toContain(`aria-label="Cortar: ${es['simple.why.restricted']}"`);
+  });
+
+  it('el motivo del material cambia según lo que falte', () => {
+    const [cut, engrave] = sampleMaterialLibrary().presets;
+    const onlyCut = materialChoices(ctx([cut!]))[0]!;
+    expect(materialReasons(onlyCut, 'diode').map((r) => r.key)).toEqual(['simple.reason.noEngrave']);
+    const onlyEngrave = materialChoices(ctx([engrave!]))[0]!;
+    expect(materialReasons(onlyEngrave, 'diode').map((r) => r.key)).toEqual(['simple.reason.noCut']);
+    expect(materialReasons(materialChoices(ctx([cut!, engrave!]))[0]!, 'diode')).toEqual([]);
+    expect(materialReasons(null, 'diode')).toEqual([]);
+  });
+
   it('con la potencia desconocida usa la clase más baja y lo avisa; con la potencia dicha, no', () => {
     const unknown = choicesNow().find((c) => c.material === 'MDF' && c.thickness === 3)!;
     expect(unknown.cut!.powerUnknown).toBe(true);
@@ -325,7 +360,10 @@ describe('modelo: validaciones amigables', () => {
     const found = validate(input(sampleDoc(), { choice, actions: { [RED]: 'cut' } }));
     expect(found.find((x) => x.id === 'startingPoint')).toMatchObject({ level: 'warn', fix: 'test' });
     expect(found.map((x) => x.id)).toEqual(expect.arrayContaining(['warning:range_edge', 'warning:needs_coating']));
-    expect(found.find((x) => x.id === 'warning:range_edge')!.params!.text).toBe(es['materials.warn.range_edge']);
+    expect(found.find((x) => x.id === 'warning:range_edge')!.params!.text).toBe(es['simple.warn.range_edge']);
+    // En palabras simples: sin la jerga de «extremos» de la biblioteca.
+    expect(es['simple.warn.range_edge']).not.toContain('extremo');
+    expect(es['simple.warn.range_edge']).toContain('el más seguro');
     expect(ids(found)).not.toContain('powerUnknown');
     // Aun con ajustes guardados para la máquina, el recordatorio sigue.
     const own = materialChoices(ctx([{ ...cut!, device_id: DEVICE }]))[0]!;
@@ -613,6 +651,104 @@ describe('biblioteca de fábrica y potencia del láser', () => {
     const d = describePick(c.cut!.result, 'diode_10');
     expect(d.key).toBe('materials.pick.class');
     expect(es[d.key]).toContain('{class}');
+  });
+});
+
+describe('una acción sin ajuste en el material no se queda aplicada', () => {
+  const s = () => useStore.getState();
+  const pickLabel = (label: string) => choicesNow().find((c) => c.label === label)!;
+
+  /** Biblioteca solo de fábrica, diodo de 20 W, el diseño de ejemplo y Madera de tilo 3 mm (con corte y grabado). */
+  async function setupTilo() {
+    useMaterials.setState({ library: emptyLibrary() });
+    chooseWatts('diode_20');
+    await importPaths(['ejemplos/placa.svg']);
+    chooseMaterial(pickLabel('Madera de tilo 3 mm').key);
+    expect(chooseAction(RED, 'cut')).toBe(true);
+    expect(chooseAction(BLUE, 'engrave')).toBe(true);
+    expect(chooseAction(AMBER, 'ignore')).toBe(true);
+    expect(chooseAction(GRAY, 'engrave')).toBe(true);
+  }
+
+  it('al cambiar a un material sin grabado, Grabar se quita, la capa se queda sin salida y se avisa', async () => {
+    await setupTilo();
+    expect(pickLabel('Contrachapado de abedul 3 mm').engrave).toBeNull();
+    const before = s().past.length;
+    chooseMaterial(pickLabel('Contrachapado de abedul 3 mm').key);
+    // Un solo paso de deshacer.
+    expect(s().past.length).toBe(before + 1);
+    // Las acciones imposibles vuelven a «sin decidir»; las demás siguen.
+    expect(useSimple.getState().actions).toEqual({ [RED]: 'cut', [AMBER]: 'ignore' });
+    expect(layer(BLUE).output).toBe(false);
+    expect(layer(GRAY).output).toBe(false);
+    // El corte se volvió a aplicar con los valores del abedul (no con los del tilo).
+    expect(layer(RED)).toMatchObject({ speed: 150, power: 100, passes: 4, output: true });
+    // Y se muestra el aviso con los colores afectados.
+    expect(useSimple.getState().dropped.map((d) => d.name)).toEqual(['Grabado', 'Foto']);
+    expect(es['simple.dropped']).toContain('elige otra vez');
+    expect(renderToString(<StepMaterial data={{ groups: [], choices: [], choice: null, problems: [], machine: { kind: 'diode', machineClass: null } }} />)).not.toContain('elige otra vez');
+    // Deshacer devuelve el diseño al estado anterior.
+    s().undo();
+    expect(layer(BLUE)).toMatchObject({ output: true, mode: 'fill', power: 30 });
+  });
+
+  it('volver a decidir un color quita su aviso', async () => {
+    await setupTilo();
+    chooseMaterial(pickLabel('Contrachapado de abedul 3 mm').key);
+    expect(chooseAction(BLUE, 'ignore')).toBe(true);
+    expect(useSimple.getState().dropped.map((d) => d.name)).toEqual(['Foto']);
+  });
+
+  it('cambiar la potencia también quita lo que ya no tiene ajuste', async () => {
+    await setupTilo();
+    // En un diodo de 5 W el tilo 3 mm no tiene corte (solo 2 mm): se usa el más cercano; el grabado sí existe.
+    chooseWatts('diode_5');
+    for (const g of colorGroups(s().doc)) {
+      const a = useSimple.getState().actions[g.color.toLowerCase()];
+      if (a) expect(actionBlock(a, g, currentChoice())).toBeNull();
+    }
+  });
+
+  it('elegir una acción sin ajuste no cambia nada y avisa', async () => {
+    useMaterials.setState({ library: emptyLibrary() });
+    chooseWatts('diode_20');
+    await importPaths(['ejemplos/placa.svg']);
+    chooseMaterial(pickLabel('Contrachapado de abedul 3 mm').key);
+    const { doc, past } = s();
+    const actions = useSimple.getState().actions;
+    expect(chooseAction(BLUE, 'engrave')).toBe(false);
+    expect(s().doc).toBe(doc);
+    expect(s().past).toBe(past);
+    expect(useSimple.getState().actions).toBe(actions);
+    expect(s().notices.at(-1)).toMatchObject({ level: 'warning', text: es[currentChoice()!.engraveWhy!] });
+    // Cortar una imagen tampoco se puede.
+    expect(chooseAction(GRAY, 'cut')).toBe(false);
+    expect(s().doc).toBe(doc);
+    // Sin material elegido, solo se puede ignorar.
+    useSimple.getState().setMaterialKey(null);
+    expect(chooseAction(RED, 'cut')).toBe(false);
+    expect(chooseAction(RED, 'ignore')).toBe(true);
+  });
+
+  it('Iniciar se bloquea si algún color quedó con una acción sin ajuste', async () => {
+    await setupTilo();
+    expect(await connectVirtual()).toBe(true);
+    await vi.waitFor(() => expect(s().status).not.toBeNull());
+    // Se fuerza el estado malo (como si algo hubiera dejado la acción puesta).
+    useSimple.getState().setMaterialKey(pickLabel('Contrachapado de abedul 3 mm').key);
+    const problems = validate({ doc: s().doc, device: selectActiveDevice(s()), connected: true, choice: currentChoice(), actions: useSimple.getState().actions });
+    const p = problems.find((x) => x.id === 'actionNoSettings')!;
+    expect(p.level).toBe('block');
+    expect(String(p.params!.names)).toContain('Grabado');
+    expect(advanceBlock('review', { doc: s().doc, choice: currentChoice(), actions: useSimple.getState().actions, problems, previewReady: true })).toBe('simple.need.actions');
+    startJob();
+    expect(s().dialog).toBeNull();
+    expect(s().notices.at(-1)?.text).toBe(es['simple.need.actions']);
+    // Con una acción válida, sí abre el diálogo de inicio.
+    chooseMaterial(pickLabel('Madera de tilo 3 mm').key);
+    for (const c of [RED, BLUE, GRAY]) useSimple.getState().setAction(c, c === RED ? 'cut' : 'engrave');
+    startJob();
+    expect(s().dialog).toEqual({ kind: 'start' });
   });
 });
 

@@ -7,8 +7,9 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 ## Para empezar
 
 - [Primeros pasos](01-primeros-pasos.md): instalar, importar un diseño, revisar las capas, ver la vista previa, probar con la máquina virtual y guardar.
+- [Modo sencillo](01b-modo-sencillo.md): la versión guiada en cinco pasos para quien nunca ha usado un láser: elegir el material, cortar, grabar o ignorar cada color, ajustar con palabras simples y revisar antes de iniciar.
 - [La interfaz](02-interfaz.md): barra superior, herramientas, lienzo y guías, paneles reordenables, paleta de colores, barra de estado y atajos de teclado.
-- [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md): la ventana de preferencias (con las pulgadas y la automatización por UDP), cambiar atajos, llevar tu configuración a otro equipo y recuperar el trabajo tras un cierre inesperado.
+- [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md): la ventana de preferencias (con las pulgadas, la automatización por UDP y el control remoto), cambiar atajos, llevar tu configuración a otro equipo y recuperar el trabajo tras un cierre inesperado.
 
 ## Diseñar
 
@@ -34,8 +35,9 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 - [Control avanzado de la máquina](09b-control-avanzado.md): macros, mover con Z y U, enfocar, posiciones guardadas, disparo de prueba, ajustes `$$` con respaldo, encuadre a baja potencia y en bucle, láser 2 y paquetes `.tlakubundle`.
 - [Print & Cut](09c-print-and-cut.md): imprimir con marcas de registro y cortar justo sobre lo impreso, paso a paso con el láser o con la cámara, y qué significa el error residual.
 - [Tiling y alimentador automático](09d-tiling-y-alimentador.md): dividir un trabajo más grande que la cama en tramos con solape y marcas de alineación, enviarlos de uno en uno, retomar y usar un alimentador automático (algo que LightBurn no tiene).
+- [Control desde el celular](09e-control-desde-el-celular.md): ver el avance y pausar o detener un trabajo desde el navegador del celular con un código QR; qué se puede y qué no, por qué no hay HTTPS y por qué la clave cambia al reiniciar.
 - [Cámara](10-camara.md): calibrar la lente (también ojo de pez), alinear el diseño con el material, capturar y vectorizar la cama, cámara en el cabezal y buscador de centro.
-- [Materiales](11-materiales.md): biblioteca de ajustes, prueba de materiales e intercambio de archivos `.tlakumat`.
+- [Materiales](11-materiales.md): la biblioteca de fábrica (con su fuente, su confianza y las clases de máquina), tu biblioteca, la prueba de materiales e intercambio de archivos `.tlakumat`.
 - [Rotativo y eje Z](12-rotativo-y-eje-z.md): grabar sobre cilindros y trabajar con una mesa motorizada.
 - [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md): el relieve a partir de un mapa de grises en varias pasadas y la corrección para marcar con galvo sobre tazas y vasos cónicos (hoy en el motor).
 - [Controladoras soportadas](13-controladoras.md): qué controladoras funcionan, qué se probó en emulador y qué queda por validar con hardware, y los dialectos de G-code.

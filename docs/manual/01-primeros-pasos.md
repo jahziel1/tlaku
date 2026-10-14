@@ -70,4 +70,4 @@ Nada se graba: el láser es simulado. Para conectar una máquina real, ver [Cone
 - Si cierras con cambios, Tlaku pregunta si quieres guardar.
 - **Autoguardado:** mientras trabajas, Tlaku guarda una copia de recuperación cada minuto (si hay cambios). Si la aplicación se cierra de golpe, al abrirla te ofrece **recuperar** tu trabajo. No sustituye a guardar: ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
 
-Siguiente: [La interfaz](02-interfaz.md)
+Siguiente: [Modo sencillo](01b-modo-sencillo.md)

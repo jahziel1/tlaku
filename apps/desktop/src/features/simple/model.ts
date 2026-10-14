@@ -5,11 +5,11 @@
  */
 import type { BezPath, DesignObject, DeviceProfile, Document, LaserKind, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset, MaterialRestriction, MaterialRole, MaterialWarning } from '@/api/types';
 import { designBounds } from '@/features/machine/placement';
-import { classLabel, materialName, warningText } from '@/features/materials/labels';
+import { classLabel, materialName } from '@/features/materials/labels';
 import { fold, presetPatch, sameValue, thicknessLabel } from '@/features/materials/library';
 import { effectiveRole, pickPreset, type PickMatch, type PickResult } from '@/features/materials/pick';
 import { FIELD_SPECS } from '@/features/layers/fields';
-import { locale, type I18nKey } from '@/i18n';
+import { locale, t, type I18nKey } from '@/i18n';
 import { normalizeLayer } from '@/lib/layers';
 import { isGuideColor } from '@/lib/palette';
 import { objectPolylines, unionBounds, type Bounds } from '@/lib/geometry';
@@ -215,6 +215,65 @@ export function materialChoices(ctx: PickContext): MaterialChoice[] {
   return choices.sort((a, b) => c.compare(a.material, b.material) || (a.thickness ?? Infinity) - (b.thickness ?? Infinity));
 }
 
+/** Los avisos de los ajustes, en palabras simples (en el modo completo se ven los técnicos de `materials.warn.*`). */
+export const WARN_KEY: Record<MaterialWarning, I18nKey> = {
+  not_cut_with_diode: 'simple.warn.not_cut_with_diode',
+  chrome_leather: 'simple.warn.chrome_leather',
+  needs_coating: 'simple.warn.needs_coating',
+  range_edge: 'simple.warn.range_edge',
+  generic_row: 'simple.warn.generic_row',
+};
+
+/** De dónde salió un ajuste (lo que dice `describePick`), en palabras simples. */
+export const PICK_KEY = {
+  'materials.pick.device': 'simple.pick.device',
+  'materials.pick.class': 'simple.pick.class',
+  'materials.pick.generic': 'simple.pick.generic',
+  'materials.pick.nearest': 'simple.pick.nearest',
+  'materials.pick.powerUnknown': 'simple.pick.powerUnknown',
+  'materials.pick.none': 'simple.pick.none',
+  'materials.pick.restricted': 'simple.pick.restricted',
+} as const satisfies Record<string, I18nKey>;
+
+const LASER_KEY: Record<LaserKind, I18nKey> = { diode: 'simple.laser.diode', co2: 'simple.laser.co2', fiber: 'simple.laser.fiber' };
+
+export interface Reason {
+  key: I18nKey;
+  params?: Record<string, string>;
+}
+
+/**
+ * Lo que impide cortar o grabar y depende del material, no del color. Se muestra una sola vez bajo el
+ * selector de material; las tarjetas de color solo deshabilitan sus botones. Sin ningún ajuste y sin
+ * restricción lo explica el aviso `noSettings` (con su botón a la prueba de materiales).
+ */
+export function materialReasons(choice: MaterialChoice | null, kind: LaserKind | null): Reason[] {
+  if (!choice) return [];
+  const laser = { laser: t(LASER_KEY[kind ?? 'diode']) };
+  const restricted = choice.cutWhy === 'simple.why.restricted';
+  if (!choice.cut && !choice.engrave) return choice.restriction ? [{ key: 'simple.reason.restrictedNeither', params: laser }] : [];
+  if (!choice.cut) return [restricted ? { key: 'simple.reason.restrictedCut', params: laser } : { key: 'simple.reason.noCut' }];
+  if (!choice.engrave) return [{ key: 'simple.reason.noEngrave' }];
+  return [];
+}
+
+/** Por qué una acción no se puede usar con este color y material (clave de texto), o `null` si se puede. */
+export function actionBlock(action: SimpleAction, group: Pick<ColorGroup, 'isImage'>, choice: MaterialChoice | null): I18nKey | null {
+  if (action === 'ignore') return null;
+  if (action === 'cut' && group.isImage) return 'simple.why.imageNoCut';
+  if (!choice) return 'simple.why.pickMaterial';
+  const why = action === 'cut' ? choice.cutWhy : choice.engraveWhy;
+  return pickFor(choice, action) ? null : (why ?? 'simple.why.noCut');
+}
+
+/** Colores cuya acción decidida ya no tiene ajuste con el material y la máquina de ahora. */
+export function impossibleActions(groups: readonly ColorGroup[], actions: Readonly<Record<string, SimpleAction>>, choice: MaterialChoice | null): ColorGroup[] {
+  return groups.filter((g) => {
+    const a = actions[g.color.toLowerCase()];
+    return a !== undefined && actionBlock(a, g, choice) !== null;
+  });
+}
+
 /** El ajuste de un material para una acción (`null` para ignorar). */
 export function pickFor(choice: MaterialChoice | null, action: SimpleAction): RolePick | null {
   if (!choice || action === 'ignore') return null;
@@ -408,7 +467,7 @@ export function validate({ doc, device, connected, choice, actions }: ValidateIn
         });
       }
       for (const w of new Set(picks.flatMap((p) => p.warnings))) {
-        out.push({ id: `warning:${w}`, level: 'warn', key: 'simple.problem.text', params: { text: warningText(w) }, steps: ['material', 'review', 'start'] });
+        out.push({ id: `warning:${w}`, level: 'warn', key: 'simple.problem.text', params: { text: t(WARN_KEY[w]) }, steps: ['material', 'review', 'start'] });
       }
     }
     if (choice.restriction) {
@@ -416,10 +475,23 @@ export function validate({ doc, device, connected, choice, actions }: ValidateIn
         id: 'restricted',
         level: choice.cut || choice.engrave ? 'warn' : 'block',
         key: 'simple.problem.restricted',
-        params: { material: choice.label, text: warningText(choice.restriction.warning) },
-        steps: ['material', 'review', 'start'],
+        params: { material: choice.label, text: t(WARN_KEY[choice.restriction.warning]) },
+        // En el paso del material lo explica `materialReasons`, una sola vez bajo el selector.
+        steps: ['review', 'start'],
       });
     }
+  }
+
+  // Defensa extra: nunca se inicia con un color que cortaría o grabaría sin tener ajuste.
+  const broken = impossibleActions(groups, actions, choice);
+  if (broken.length > 0) {
+    out.push({
+      id: 'actionNoSettings',
+      level: 'block',
+      key: 'simple.problem.actionNoSettings',
+      params: { names: broken.map((g) => g.name || g.color).join(', ') },
+      steps: ['material', 'review', 'start'],
+    });
   }
 
   const texts = active.reduce((n, g) => n + g.texts, 0);
@@ -508,6 +580,7 @@ export function advanceBlock(step: SimpleStep, g: GateInput): I18nKey | null {
     case 'place':
       return g.problems.some((p) => p.id === 'outside') ? 'simple.need.fit' : null;
     case 'review':
+      if (g.problems.some((p) => p.id === 'actionNoSettings')) return 'simple.need.actions';
       return g.previewReady ? null : 'simple.need.preview';
     case 'start':
       return null;

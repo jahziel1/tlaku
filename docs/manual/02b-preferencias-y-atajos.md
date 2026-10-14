@@ -4,9 +4,9 @@ Cómo ajustar Tlaku a tu manera: la ventana de **Preferencias**, el editor de **
 
 ## Abrir las preferencias
 
-Elige **Editar > Preferencias…** o pulsa `Ctrl/Cmd+,`. La ventana tiene seis secciones a la izquierda y **los cambios se guardan solos**: no hay botón de aceptar, solo **Cerrar**.
+Elige **Editar > Preferencias…** o pulsa `Ctrl/Cmd+,`. La ventana tiene siete secciones a la izquierda y **los cambios se guardan solos**: no hay botón de aceptar, solo **Cerrar**.
 
-![Ventana de Preferencias con las secciones General, Edición, Apariencia, Archivos, Automatización y Atajos](../../apps/desktop/docs/screenshots/29-preferencias.png)
+![Ventana de Preferencias con las secciones General, Edición, Apariencia, Archivos, Automatización y Atajos (la captura es anterior a la sección Control remoto)](../../apps/desktop/docs/screenshots/29-preferencias.png)
 
 Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **Restablecer**, que devuelve todas las preferencias a su valor de fábrica tras pedir confirmación. Restablecer **no toca tus atajos de teclado**.
 
@@ -30,6 +30,8 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Automatización | **Activar la automatización por UDP** | No | Sí o no. Ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
 | Automatización | **Puerto UDP** | 47801 | 1024 a 65535 (aparece al activarla) |
 | Automatización | **Permitir iniciar desde automatización** | No | Sí o no. **Encendida, cualquier programa de tu equipo puede arrancar el láser sin que lo confirmes** |
+| Control remoto | **Activar el control remoto desde el celular** | No | Sí o no. Muestra un código QR para abrir una página en el celular, por la red local. Ver [Control desde el celular](09e-control-desde-el-celular.md) |
+| Control remoto | **Puerto** y **Dirección de red** | 47802, automática | Puerto 1024 a 65535; la dirección se elige solo si la computadora está en varias redes |
 
 ![La interfaz en inglés: paneles y menús traducidos al cambiar el idioma en Preferencias; el resumen del orden de capas todavía sale en español porque lo escribe el motor](../../apps/desktop/docs/screenshots/38-english.png)
 

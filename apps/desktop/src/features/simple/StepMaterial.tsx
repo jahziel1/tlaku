@@ -5,8 +5,9 @@ import { selectActiveDevice, useStore } from '@/store';
 import { classWatts, classesOfKind } from '@/features/materials/machineClass';
 import { describePick } from '@/features/materials/pick';
 import type { MachineClass } from '@/api/types';
-import { chooseMaterial, chooseWatts } from './actions';
+import { changeMachine, chooseMaterial, chooseWatts } from './actions';
 import { ColorCard } from './ColorCard';
+import { PICK_KEY, materialReasons } from './model';
 import type { SimpleData } from './hooks';
 import { ProblemList } from './Problems';
 import { useSimple } from './store';
@@ -43,7 +44,8 @@ function PickNotes({ data }: { data: SimpleData }) {
   ].flatMap(([label, pick]) => {
     if (!pick) return [];
     const d = describePick(pick.result, machine.machineClass);
-    return [{ label, text: t(d.key, d.params) }];
+    const key = PICK_KEY[d.key as keyof typeof PICK_KEY];
+    return [{ label, text: t(key, d.params) }];
   });
   return (
     <ul className="simple__picks">
@@ -61,8 +63,9 @@ export function StepMaterial({ data }: { data: SimpleData }) {
   const devices = useStore((s) => s.devices);
   const device = useStore(selectActiveDevice);
   const connected = useStore((s) => s.connection.connected);
-  const setActiveDevice = useStore((s) => s.setActiveDevice);
   const materialKey = useSimple((s) => s.materialKey);
+  const actions = useSimple((s) => s.actions);
+  const dropped = useSimple((s) => s.dropped);
   const { choices, choice, groups, problems } = data;
   return (
     <>
@@ -74,7 +77,7 @@ export function StepMaterial({ data }: { data: SimpleData }) {
           value={device.id}
           disabled={connected}
           title={connected ? t('machine.disconnectFirst') : undefined}
-          onChange={(e) => setActiveDevice(e.target.value)}
+          onChange={(e) => changeMachine(e.target.value)}
         >
           {devices.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
@@ -95,12 +98,22 @@ export function StepMaterial({ data }: { data: SimpleData }) {
         </select>
         {choices.length === 0 && <p className="hint">{t('simple.material.none')}</p>}
         {choice && <p className="hint">{t('simple.material.sets')}</p>}
+        {materialReasons(choice, data.machine.kind).map((r) => (
+          <p key={r.key} className="hint simple__reason" role="status" data-reason={r.key}>{t(r.key, r.params)}</p>
+        ))}
         <PickNotes data={data} />
       </div>
+
+      {dropped.length > 0 && (
+        <p className="simple__problem simple__dropped" data-level="warn" role="status">
+          {t('simple.dropped', { names: dropped.map((d) => d.name).join(', ') })}
+        </p>
+      )}
 
       <ProblemList step="material" problems={problems} />
 
       <h3 className="simple__sub">{t('simple.colors')}</h3>
+      {groups.length > 0 && !groups.some((g) => actions[g.color.toLowerCase()]) && <p className="hint">{t('simple.colors.help')}</p>}
       {groups.length === 0 ? (
         <p className="hint">{t('simple.colors.none')}</p>
       ) : (

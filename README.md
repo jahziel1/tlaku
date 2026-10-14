@@ -23,6 +23,14 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 
 ## Funciones principales
 
+- **Modo sencillo:** una versión guiada para quien empieza, en cinco pasos grandes (abrir, material,
+  colocar, revisar, iniciar). Eliges el material y, por cada color del diseño, **Cortar**, **Grabar**
+  o **Ignorar**; Tlaku pone velocidad, potencia y pasadas a partir de la biblioteca de materiales de
+  fábrica y te pregunta de cuántos watts es tu láser. Se ajusta con palabras simples y se guarda
+  como tu material. La primera vez pregunta si es tu primera vez con un láser, y un botón de la barra
+  superior cambia de modo sin tocar el diseño. Los ajustes son puntos de partida, no una garantía.
+  Mira [Modo sencillo](docs/manual/01b-modo-sencillo.md).
+
 - **Diseño y edición:** lienzo con reglas y cama de la máquina, selección (con selecciones
   especiales), transformar con manijas o con valores exactos, voltear, espejo sobre una línea,
   giros rápidos y por dos puntos, orden de dibujo, bloquear, grupos anidados, igualar tamaños,
@@ -88,6 +96,13 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   (dividir un trabajo más grande que la cama en tramos con solape, marcas de alineación, envío
   por tramos y retomar si se corta) y **alimentador automático** en el perfil de la máquina, que el
   tiling usa entre tramos. Las imágenes no giran con el registro de Print & Cut.
+- **Control desde el celular:** ver el avance de un trabajo y **pausar o detener** desde el navegador
+  del celular, escaneando un código QR en Preferencias (sin instalar nada). **Pausar y detener
+  funcionan siempre**; **iniciar** exige el checklist de seguridad en el celular y que el trabajo se
+  haya encuadrado en la computadora después del último cambio, y un láser galvo nunca se inicia desde
+  el celular. Apagado de fábrica, solo en tu red local y con una clave que cambia cada vez que se
+  abre la app. **No hay HTTPS: úsalo solo en una red de confianza.** Mira
+  [Control desde el celular](docs/manual/09e-control-desde-el-celular.md).
 - **Automatización:** servidor UDP local opcional (apagado de fábrica, solo `127.0.0.1`) para que
   otros programas manden `LOAD`, `START`, `STATUS` y `STOP`; `START` pide confirmación en la app.
 - **Ruida y K40 (experimental):** controladoras Ruida (CO2) por red desde la app, y K40 con placa
@@ -98,13 +113,15 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   haz es invisible**: lee [Seguridad del galvo](docs/manual/13d-galvo-seguridad.md) antes de conectar
   nada. En el motor también hay grabado 3D por cortes, corrección de cilindro y de cono, bamboleo y
   la secuencia del marcado dividido, repetido y rotativo.
-- **Taller:** biblioteca de materiales y prueba de materiales, rotativo (rodillo o mandril),
+- **Taller:** biblioteca de materiales con **134 ajustes de fábrica** (cada uno con su fuente y su nivel de confianza, por clase de máquina: diodo, CO2 y fibra; son puntos de partida), prueba de materiales, rotativo (rodillo o mandril),
   corrección de barrido (scanning offset), cámara con calibración de lente (incluido el modelo de
   ojo de pez), alineación y marcas grabadas, captura y vectorizado de la cama, cámara en el cabezal
   con mosaico y buscador de centro. Pulgadas en la interfaz.
 - **Idiomas:** español e inglés, con cambio en vivo.
-- **Ayuda:** manual de usuario de 32 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
+- **Ayuda:** manual de usuario de 34 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
   [docs/manual](docs/manual/00-indice.md), atajos con `F1`, novedades y "Acerca de".
+
+![El modo sencillo en el paso Material: la potencia del láser, el material y los avisos de puntos de partida](apps/desktop/docs/screenshots/59-simple-material.png)
 
 ![Vista previa del trabajo con reproducción y resultados por capa](apps/desktop/docs/screenshots/04-vista-previa.png)
 
@@ -163,7 +180,7 @@ Estas funciones están en el plan y todavía no son parte de la app:
   el K40 y el resto de las funciones de máquina solo se han validado con emuladores. La ventana
   nueva tampoco se ha probado en una ventana real.
 
-El estado real, función por función (175 de las 214 funciones del inventario están hechas), está en
+El estado real, función por función (178 de las 217 funciones del inventario están hechas), está en
 [docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 

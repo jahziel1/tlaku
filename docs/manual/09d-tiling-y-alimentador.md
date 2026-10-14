@@ -111,4 +111,4 @@ Con una sola columna, el flujo cambia:
 - No parte formas enteras al elegir el borde del tramo: una forma que cruza el borde se corta en dos partes, una en cada tramo.
 - Nada de esto se ha probado con un alimentador real.
 
-Siguiente: [Cámara](10-camara.md)
+Siguiente: [Control desde el celular](09e-control-desde-el-celular.md)

@@ -16,7 +16,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const out = join(here, '..', 'docs', 'screenshots');
+const out = process.env.SCREENSHOTS_OUT ?? join(here, '..', 'docs', 'screenshots'); // SCREENSHOTS_OUT: carpeta de salida alternativa
 const url = process.env.APP_URL ?? 'http://localhost:1420/';
 const port = 9333;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -111,6 +111,12 @@ const closeDialog = async () => {
   await key('Escape', 'Escape');
   await wait(300);
 };
+
+// 58. Primer arranque: "¿Es tu primera vez con un láser?" (aparece mientras `uiMode` es "ask"). Se contesta "No" para que
+// el resto de las capturas salgan con la interfaz completa.
+await shot('58-primer-arranque.png');
+await click('.simple-first__buttons .btn:not(.btn--accent)');
+await wait(300);
 
 // 1. Vista principal, tema oscuro, con el diseño de ejemplo seleccionado
 await click('.canvas-area');
@@ -891,6 +897,159 @@ await wait(800);
 await shot('57-automatizacion.png');
 await closeDialog();
 
+
+// ---- Ola 5.5: modo sencillo, materiales de fábrica y control desde el celular (capturas 58 a 63) --------
+// 58 (la pregunta del primer arranque) se toma al principio del script, antes de la 01: el diálogo solo aparece
+// mientras la preferencia `uiMode` está en "ask", y la captura 01 necesita la interfaz completa sin él.
+
+const setUiMode = (mode) => app(`(await import('/src/features/simple/mode.ts')).setUiMode(${JSON.stringify(mode)})`);
+/** Cambia un `<select>` de React (el valor se asigna con el setter nativo para que el evento llegue). */
+const pickSimple = (n, label) => evaluate(`(() => { const s = [...document.querySelectorAll('.simple select')][${n}]; const o = [...s.options].find(o => o.textContent.trim() === ${JSON.stringify(label)}); if (!o) throw new Error('sin opción ${label}'); const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, o.value); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+/** Modo sencillo en el paso `step` (0 a 4), con 20 W y el material pedido; deja las acciones por color sin decidir. */
+const simpleAt = async (step, material, watts = '20 W') => {
+  await fresh();
+  await app(`
+    const { setUiMode } = await import('/src/features/simple/mode.ts');
+    const { goToStep } = await import('/src/features/simple/actions.ts');
+    setUiMode('simple');
+    goToStep(${step});
+  `);
+  await wait(1200);
+  await pickSimple(1, watts);
+  await wait(300);
+  await pickSimple(2, material);
+  await wait(500);
+};
+/** Cortar el contorno, grabar el relleno y la foto, ignorar las marcas (las capas del diseño de ejemplo). */
+const decideColors = () => app(`
+  const { chooseAction } = await import('/src/features/simple/actions.ts');
+  chooseAction('#ff3b4a', 'cut');
+  chooseAction('#2f7bff', 'engrave');
+  chooseAction('#ffb020', 'ignore');
+  chooseAction('#9aa4b2', 'engrave');
+`);
+
+// 59. Modo sencillo, paso Material: se contestó la potencia (20 W) y se eligió un material con corte y grabado para Diodo 20 W (Madera de tilo 3 mm, de Creality); avisos de "valores de partida"
+await simpleAt(1, 'Madera de tilo 3 mm');
+await decideColors();
+await wait(400);
+await shot('59-simple-material.png');
+
+// 59b. Lo mismo, con "Ajustar" abierto en Corte, un cambio hecho y "Ver números" desplegado (Volver al material / Guardar como mi material)
+await scrollToText('Corte', 'start', 'strong');
+await wait(300);
+await clickText('.simple__color[data-color="#ff3b4a"] .btn', 'Ajustar');
+await wait(300);
+await clickText('.simple__color[data-color="#ff3b4a"] .btn', 'Quema mucho');
+await wait(300);
+await clickText('.simple__color[data-color="#ff3b4a"] summary', 'Ver números');
+await wait(400);
+await scrollToText('Corte', 'start', 'strong');
+await wait(300);
+await shot('59b-simple-ajustar.png');
+
+// 59c. Acrílico transparente con un láser de diodo: "Cortar" no se deja elegir y dice por qué
+await simpleAt(1, 'Acrílico transparente 3 mm');
+await scrollToText('Material', 'start', 'label');
+await wait(300);
+await shot('59c-simple-acrilico.png');
+
+// 60. Paso Revisar: tiempo estimado y vista previa del recorrido; 60b. paso Iniciar con la máquina virtual conectada
+await simpleAt(1, 'Madera de tilo 3 mm');
+await decideColors();
+await app(`(await import('/src/features/simple/actions.ts')).goToStep(3)`);
+await wait(3000);
+await shot('60-simple-revisar.png');
+await app(`(await import('/src/features/simple/actions.ts')).goToStep(4)`);
+await wait(1500);
+await clickText('.simple .btn', 'Probar con la máquina virtual');
+await wait(2500);
+await shot('60b-simple-iniciar.png');
+
+// 61. Panel Materiales con la clase de máquina elegida (Diodo 20 W); 61b. la lista "De fábrica" con confianza y fuente
+await fresh();
+await setUiMode('full');
+await app(`st().setDockTab('materials')`);
+await wait(1500);
+await evaluate(`(() => { const s = document.querySelector('.mat-panel select'); const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; const o = [...s.options].find(o => /20/.test(o.textContent)); set.call(s, o.value); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+await wait(500);
+await shot('61-materiales-clase.png');
+await scrollToText('De fábrica', 'start', 'h3');
+await wait(400);
+await shot('61b-materiales-de-fabrica.png');
+
+// 62. Preferencias > Control remoto con el QR. El mock no sabe dibujar un QR: se le pone uno real (de un enlace de ejemplo)
+const QR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" shape-rendering="crispEdges"><rect width="37" height="37" fill="#fff"/><path d="M2 2h7v1h-7zM12 2h2v1h-2zM17 2h2v1h-2zM20 2h3v1h-3zM24 2h2v1h-2zM28 2h7v1h-7zM2 3h1v1h-1zM8 3h1v1h-1zM10 3h2v1h-2zM15 3h2v1h-2zM19 3h1v1h-1zM22 3h5v1h-5zM28 3h1v1h-1zM34 3h1v1h-1zM2 4h1v1h-1zM4 4h3v1h-3zM8 4h1v1h-1zM10 4h3v1h-3zM15 4h1v1h-1zM18 4h3v1h-3zM22 4h1v1h-1zM25 4h1v1h-1zM28 4h1v1h-1zM30 4h3v1h-3zM34 4h1v1h-1zM2 5h1v1h-1zM4 5h3v1h-3zM8 5h1v1h-1zM10 5h1v1h-1zM12 5h1v1h-1zM14 5h1v1h-1zM17 5h1v1h-1zM25 5h2v1h-2zM28 5h1v1h-1zM30 5h3v1h-3zM34 5h1v1h-1zM2 6h1v1h-1zM4 6h3v1h-3zM8 6h1v1h-1zM11 6h1v1h-1zM14 6h1v1h-1zM17 6h1v1h-1zM20 6h1v1h-1zM23 6h1v1h-1zM26 6h1v1h-1zM28 6h1v1h-1zM30 6h3v1h-3zM34 6h1v1h-1zM2 7h1v1h-1zM8 7h1v1h-1zM11 7h2v1h-2zM14 7h1v1h-1zM16 7h1v1h-1zM18 7h1v1h-1zM22 7h3v1h-3zM26 7h1v1h-1zM28 7h1v1h-1zM34 7h1v1h-1zM2 8h7v1h-7zM10 8h1v1h-1zM12 8h1v1h-1zM14 8h1v1h-1zM16 8h1v1h-1zM18 8h1v1h-1zM20 8h1v1h-1zM22 8h1v1h-1zM24 8h1v1h-1zM26 8h1v1h-1zM28 8h7v1h-7zM10 9h1v1h-1zM12 9h5v1h-5zM23 9h2v1h-2zM26 9h1v1h-1zM2 10h1v1h-1zM8 10h1v1h-1zM10 10h2v1h-2zM13 10h1v1h-1zM17 10h2v1h-2zM22 10h3v1h-3zM26 10h3v1h-3zM31 10h3v1h-3zM3 11h5v1h-5zM9 11h1v1h-1zM13 11h2v1h-2zM18 11h1v1h-1zM20 11h1v1h-1zM22 11h1v1h-1zM25 11h1v1h-1zM27 11h1v1h-1zM29 11h1v1h-1zM31 11h4v1h-4zM2 12h7v1h-7zM12 12h2v1h-2zM20 12h1v1h-1zM23 12h1v1h-1zM30 12h1v1h-1zM32 12h1v1h-1zM34 12h1v1h-1zM2 13h2v1h-2zM12 13h1v1h-1zM14 13h1v1h-1zM16 13h1v1h-1zM18 13h1v1h-1zM21 13h1v1h-1zM24 13h1v1h-1zM26 13h1v1h-1zM29 13h1v1h-1zM31 13h2v1h-2zM2 14h2v1h-2zM5 14h1v1h-1zM8 14h2v1h-2zM11 14h1v1h-1zM14 14h3v1h-3zM18 14h10v1h-10zM30 14h1v1h-1zM34 14h1v1h-1zM2 15h1v1h-1zM11 15h2v1h-2zM15 15h2v1h-2zM18 15h2v1h-2zM22 15h3v1h-3zM26 15h1v1h-1zM31 15h1v1h-1zM33 15h2v1h-2zM2 16h1v1h-1zM4 16h1v1h-1zM8 16h1v1h-1zM10 16h1v1h-1zM14 16h1v1h-1zM16 16h1v1h-1zM20 16h2v1h-2zM23 16h1v1h-1zM25 16h1v1h-1zM31 16h3v1h-3zM2 17h2v1h-2zM5 17h1v1h-1zM7 17h1v1h-1zM11 17h5v1h-5zM17 17h1v1h-1zM19 17h3v1h-3zM25 17h2v1h-2zM29 17h1v1h-1zM31 17h1v1h-1zM34 17h1v1h-1zM4 18h2v1h-2zM8 18h1v1h-1zM12 18h1v1h-1zM15 18h1v1h-1zM21 18h1v1h-1zM23 18h1v1h-1zM25 18h1v1h-1zM29 18h4v1h-4zM34 18h1v1h-1zM2 19h1v1h-1zM4 19h1v1h-1zM6 19h1v1h-1zM13 19h4v1h-4zM18 19h2v1h-2zM23 19h1v1h-1zM26 19h1v1h-1zM29 19h5v1h-5zM4 20h1v1h-1zM7 20h4v1h-4zM14 20h1v1h-1zM17 20h1v1h-1zM21 20h1v1h-1zM31 20h2v1h-2zM34 20h1v1h-1zM3 21h2v1h-2zM6 21h2v1h-2zM10 21h2v1h-2zM14 21h4v1h-4zM19 21h2v1h-2zM22 21h2v1h-2zM26 21h1v1h-1zM28 21h2v1h-2zM31 21h2v1h-2zM34 21h1v1h-1zM3 22h1v1h-1zM7 22h3v1h-3zM11 22h3v1h-3zM16 22h1v1h-1zM18 22h1v1h-1zM21 22h4v1h-4zM31 22h1v1h-1zM33 22h2v1h-2zM2 23h1v1h-1zM6 23h2v1h-2zM9 23h3v1h-3zM13 23h1v1h-1zM15 23h1v1h-1zM18 23h3v1h-3zM22 23h1v1h-1zM24 23h1v1h-1zM26 23h3v1h-3zM31 23h2v1h-2zM2 24h1v1h-1zM4 24h2v1h-2zM8 24h2v1h-2zM12 24h4v1h-4zM17 24h4v1h-4zM22 24h2v1h-2zM26 24h2v1h-2zM29 24h2v1h-2zM32 24h2v1h-2zM2 25h1v1h-1zM4 25h3v1h-3zM9 25h3v1h-3zM14 25h1v1h-1zM19 25h2v1h-2zM24 25h3v1h-3zM28 25h2v1h-2zM32 25h1v1h-1zM2 26h4v1h-4zM7 26h4v1h-4zM13 26h3v1h-3zM17 26h1v1h-1zM19 26h1v1h-1zM21 26h2v1h-2zM25 26h8v1h-8zM34 26h1v1h-1zM10 27h3v1h-3zM14 27h1v1h-1zM16 27h1v1h-1zM18 27h1v1h-1zM20 27h2v1h-2zM25 27h2v1h-2zM30 27h1v1h-1zM32 27h1v1h-1zM2 28h7v1h-7zM17 28h1v1h-1zM20 28h1v1h-1zM22 28h2v1h-2zM25 28h2v1h-2zM28 28h1v1h-1zM30 28h1v1h-1zM32 28h1v1h-1zM2 29h1v1h-1zM8 29h1v1h-1zM14 29h1v1h-1zM16 29h1v1h-1zM21 29h2v1h-2zM26 29h1v1h-1zM30 29h1v1h-1zM32 29h3v1h-3zM2 30h1v1h-1zM4 30h3v1h-3zM8 30h1v1h-1zM14 30h2v1h-2zM17 30h1v1h-1zM20 30h2v1h-2zM23 30h1v1h-1zM25 30h6v1h-6zM34 30h1v1h-1zM2 31h1v1h-1zM4 31h3v1h-3zM8 31h1v1h-1zM11 31h5v1h-5zM18 31h2v1h-2zM22 31h1v1h-1zM24 31h2v1h-2zM27 31h1v1h-1zM29 31h3v1h-3zM2 32h1v1h-1zM4 32h3v1h-3zM8 32h1v1h-1zM11 32h2v1h-2zM18 32h2v1h-2zM22 32h3v1h-3zM28 32h2v1h-2zM32 32h3v1h-3zM2 33h1v1h-1zM8 33h1v1h-1zM11 33h1v1h-1zM13 33h1v1h-1zM16 33h4v1h-4zM21 33h3v1h-3zM25 33h2v1h-2zM28 33h1v1h-1zM32 33h1v1h-1zM2 34h7v1h-7zM10 34h1v1h-1zM12 34h1v1h-1zM15 34h1v1h-1zM18 34h1v1h-1zM21 34h2v1h-2zM25 34h1v1h-1zM29 34h1v1h-1zM31 34h3v1h-3z" fill="#000"/></svg>';
+await fresh();
+await app(`
+  const { useSettingsUi } = await import('/src/features/settings/uiStore.ts');
+  useSettingsUi.getState().openSettings('remote');
+  st().setPref('remoteEnabled', true);
+`);
+await wait(1500);
+await app(`
+  const { useRemote } = await import('/src/features/remote/remote.ts');
+  const s = useRemote.getState().status;
+  if (!s || !s.running) throw new Error('el control remoto no arrancó');
+  useRemote.setState({ status: { ...s, ip: '192.168.1.20', port: 47802, url: 'http://192.168.1.20:47802/', full_url: 'http://192.168.1.20:47802/#k7Qm2xVd9RwP4ZtB8cHn', qr_svg: ${JSON.stringify(QR_SVG)} } });
+`);
+await wait(600);
+await shot('62-control-remoto.png');
+// 62b. Lo que queda debajo: quién está conectado y qué puede hacer el celular
+await evaluate(`(() => { const el = [...document.querySelectorAll('*')].find((e) => e.scrollHeight > e.clientHeight + 40 && /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.closest('[role=dialog]')); if (el) el.scrollTop = el.scrollHeight; })()`);
+await wait(400);
+await shot('62b-control-remoto-reglas.png');
+await closeDialog();
+
+// 63. La página del celular en un viewport de teléfono (390 x 844). Es la página real (`page.html`) servida por el
+// servidor de demostración del motor contra una máquina virtual: se levanta con `cargo test ... demo_server`.
+// Si ya hay uno abierto, REMOTE_DEMO_URL=<enlace con clave> evita compilar y arrancar otro.
+let demo = null;
+let demoUrl = process.env.REMOTE_DEMO_URL ?? '';
+if (!demoUrl) {
+  const root = join(here, '..', '..', '..');
+  demo = spawn(process.env.CARGO ?? 'cargo', ['test', '-p', 'tlaku-desktop', 'demo_server', '--', '--ignored', '--nocapture'], {
+    cwd: root, env: { ...process.env, TLAKU_DEMO_SECS: '300' }, stdio: ['ignore', 'pipe', 'inherit'], detached: true,
+  });
+  let buf = '';
+  demo.stdout.on('data', (d) => { buf += d; const m = /Enlace para el celular: (\S+)/.exec(buf); if (m) demoUrl = m[1]; });
+  for (let i = 0; i < 1200 && !demoUrl; i++) await wait(250); // hasta 5 minutos de compilación
+}
+if (demoUrl) {
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+  await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', acceptLanguage: 'es-MX,es' });
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true });
+  await send('Page.navigate', { url: demoUrl });
+  await wait(3500);
+  // La imagen de la cámara de la demostración es un degradado de relleno: se oculta para no aparentar una cámara real.
+  const hideCam = () => evaluate(`(() => { const c = document.getElementById('cam'); if (c) c.style.display = 'none'; })()`);
+  const scrollEnd = () => evaluate(`window.scrollTo(0, document.body.scrollHeight)`);
+  await hideCam();
+  await shot('63-celular.png');
+  await scrollEnd();
+  await wait(400);
+  await shot('63b-celular-botones.png');
+  await click('#btn-start');
+  await wait(800);
+  await click('#c1'); await click('#c2'); await click('#c3');
+  await wait(300);
+  await shot('63c-celular-checklist.png');
+  await click('#sheet-go');
+  await wait(5000);
+  await hideCam();
+  await evaluate(`window.scrollTo(0, 0)`);
+  await wait(300);
+  await shot('63d-celular-trabajando.png');
+  await scrollEnd();
+  await wait(400);
+  await shot('63e-celular-trabajando-botones.png');
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await send('Emulation.setUserAgentOverride', { userAgent: '' });
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+} else {
+  console.warn('AVISO: no se pudo levantar el servidor de demostración; se omiten las capturas 63.');
+}
+if (demo) { try { process.kill(-demo.pid); } catch { /* ya terminó */ } }
 
 await send('Browser.close').catch(() => {});
 ws.close();

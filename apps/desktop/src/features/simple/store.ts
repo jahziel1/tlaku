@@ -15,21 +15,35 @@ interface SimpleUiState {
   actions: Record<string, SimpleAction>;
   /** Paso de "más claro / más oscuro" por color (0 = el valor del material); `null` = valores escritos a mano. */
   tune: Record<string, number | null>;
+  /** Colores que perdieron su acción al cambiar de material o de máquina (el material nuevo no la tiene). */
+  dropped: { color: string; name: string }[];
   setStep: (step: number) => void;
   setMaterialKey: (key: string | null) => void;
   setAction: (color: string, action: SimpleAction) => void;
+  /** Deja los colores sin decidir y los anota en `dropped`. */
+  dropActions: (items: { color: string; name: string }[]) => void;
   setTune: (color: string, tune: number | null) => void;
   clearTune: () => void;
   reset: () => void;
 }
 
-const INITIAL = { step: 0, materialKey: null, actions: {}, tune: {} };
+const INITIAL = { step: 0, materialKey: null, actions: {}, tune: {}, dropped: [] };
 
 export const useSimple = create<SimpleUiState>()((set) => ({
   ...INITIAL,
   setStep: (step) => set({ step: Math.max(0, Math.min(STEPS.length - 1, step)) }),
   setMaterialKey: (materialKey) => set({ materialKey }),
-  setAction: (color, action) => set((s) => ({ actions: { ...s.actions, [color.toLowerCase()]: action } })),
+  setAction: (color, action) =>
+    set((s) => ({
+      actions: { ...s.actions, [color.toLowerCase()]: action },
+      dropped: s.dropped.filter((d) => d.color.toLowerCase() !== color.toLowerCase()),
+    })),
+  dropActions: (items) =>
+    set((s) => {
+      const gone = new Set(items.map((i) => i.color.toLowerCase()));
+      const actions = Object.fromEntries(Object.entries(s.actions).filter(([c]) => !gone.has(c)));
+      return { actions, dropped: [...s.dropped.filter((d) => !gone.has(d.color.toLowerCase())), ...items] };
+    }),
   setTune: (color, tune) => set((s) => ({ tune: { ...s.tune, [color.toLowerCase()]: tune } })),
   clearTune: () => set({ tune: {} }),
   reset: () => set({ ...INITIAL }),

@@ -65,8 +65,16 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.danger { border-color: var(--bad); color: var(--bad); }
 button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s infinite alternate; }
 @keyframes pulse { to { opacity: .72; } }
-.wide { grid-column: 1 / -1; }
-.reason { grid-column: 1 / -1; font-size: 14px; color: var(--muted); margin: -4px 2px 0; }
+.reason { font-size: 14px; color: var(--muted); margin: 0 2px 8px; }
+.dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  background: var(--card); border-top: 2px solid var(--line); box-shadow: 0 -6px 18px rgba(0,0,0,.18);
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+}
+.dock-in { max-width: 560px; margin: 0 auto; }
+.dock .actions { margin: 0; gap: 10px; }
+.dock button { min-height: 62px; }
+.stop-hint { font-size: 15px; font-weight: 700; color: var(--bad); text-align: center; margin: 0 0 8px; }
 .sheet, .overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.55); }
 .overlay { align-items: center; padding: 18px; }
 .panel { background: var(--card); width: 100%; max-width: 560px; border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 92vh; overflow: auto; }
@@ -124,14 +132,20 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
       <p class="hint" id="camhint"></p>
     </section>
 
+  </main>
+</div>
+
+<div class="dock" id="bar" hidden>
+  <div class="dock-in">
+    <p class="stop-hint" id="stop-hint" hidden></p>
+    <p class="reason" id="pause-reason" hidden></p>
+    <p class="reason" id="start-reason" hidden></p>
     <div class="actions">
       <button id="btn-pause"></button>
       <button id="btn-stop" class="danger"></button>
-      <div class="reason" id="pause-reason" hidden></div>
-      <button id="btn-start" class="primary wide"></button>
-      <div class="reason" id="start-reason" hidden></div>
+      <button id="btn-start" class="primary"></button>
     </div>
-  </main>
+  </div>
 </div>
 
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
@@ -176,7 +190,7 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
       hMachine: 'Máquina', hProgress: 'Avance', hRoute: 'Recorrido', hCam: 'Cámara de la PC',
       camHint: 'La imagen se actualiza cada pocos segundos.',
       elapsed: 'Transcurrido', remaining: 'Tiempo restante', layer: 'Capa', layerOf: '{i} de {n}',
-      pause: 'Pausar', resume: 'Reanudar', stop: 'Detener', stopArmed: 'Toca otra vez para DETENER', start: 'Iniciar trabajo…',
+      pause: 'Pausar', resume: 'Reanudar', stop: 'Detener', stopArmed: 'Toca otra vez para DETENER', stopHint: 'Toca Detener otra vez en menos de 3 segundos para confirmar.', start: 'Iniciar trabajo…',
       st_nomachine: 'Sin máquina', st_alarm: 'Alarma', st_running: 'Trabajando', st_paused: 'En pausa', st_ready: 'Listo',
       st_finished: 'Terminado', st_cancelled: 'Detenido', st_error: 'Falló', st_busy: 'Ocupada', st_home: 'Referenciando', st_jog: 'Moviendo',
       pcOffline: 'La PC no está enviando datos (Tlaku cerrado o sin responder). Detener sigue funcionando.',
@@ -210,7 +224,7 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
       hMachine: 'Machine', hProgress: 'Progress', hRoute: 'Toolpath', hCam: 'PC camera',
       camHint: 'The image refreshes every few seconds.',
       elapsed: 'Elapsed', remaining: 'Time left', layer: 'Layer', layerOf: '{i} of {n}',
-      pause: 'Pause', resume: 'Resume', stop: 'Stop', stopArmed: 'Tap again to STOP', start: 'Start job…',
+      pause: 'Pause', resume: 'Resume', stop: 'Stop', stopArmed: 'Tap again to STOP', stopHint: 'Tap Stop again within 3 seconds to confirm.', start: 'Start job…',
       st_nomachine: 'No machine', st_alarm: 'Alarm', st_running: 'Running', st_paused: 'Paused', st_ready: 'Ready',
       st_finished: 'Finished', st_cancelled: 'Stopped', st_error: 'Failed', st_busy: 'Busy', st_home: 'Homing', st_jog: 'Moving',
       pcOffline: 'The PC is not sending data (Tlaku closed or not responding). Stop still works.',
@@ -323,6 +337,8 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     clearTimeout(retryTimer);
     started = false;
     $('main').hidden = true;
+    $('bar').hidden = true;
+    $('app').style.paddingBottom = '';
     $('login').hidden = false;
     if (kind === 'bad') { $('login-title').textContent = t('loginBad'); $('login-text').textContent = t('loginBadText'); }
     else if (kind === 'locked') { $('login-title').textContent = t('locked'); $('login-text').textContent = t('lockedText'); }
@@ -407,23 +423,28 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     $('remaining').textContent = active ? fmtTime(j.remaining_s) : (ph === 'finished' ? '0:00' : (j.total_s ? fmtTime(j.total_s) : '—'));
     $('layer').textContent = j.layer && active ? t('layerOf', { i: j.layer.index, n: j.layer.count }) : '—';
 
-    // Botones
+    // Barra fija de abajo: Detener siempre a la vista. En marcha o en pausa lleva Pausar/Reanudar y Detener;
+    // en reposo, Detener e Iniciar.
     var caps = S.caps || {};
+    $('bar').hidden = false;
     var bp = $('btn-pause');
     var isPaused = ph === 'paused';
+    bp.hidden = !active;
     bp.textContent = isPaused ? t('resume') : t('pause');
-    bp.disabled = !(active && caps.pause);
+    bp.disabled = !caps.pause;
     var pr2 = $('pause-reason');
-    if (m.connected && caps.pause === false) { pr2.hidden = false; pr2.textContent = reasonText(caps.pause_reason); } else pr2.hidden = true;
-    var bs = $('btn-stop');
-    bs.disabled = !caps.stop;
+    if (active && m.connected && caps.pause === false) { pr2.hidden = false; pr2.textContent = reasonText(caps.pause_reason); } else pr2.hidden = true;
+    $('btn-stop').disabled = !caps.stop;
     renderStop();
     var st = S.start || {};
     var go = $('btn-start');
+    go.hidden = active;
     go.textContent = t('start');
     go.disabled = !st.allowed || busyStart;
     var rs = $('start-reason');
-    if (!st.allowed) { rs.hidden = false; rs.textContent = reasonText(st.reason, st.message); } else rs.hidden = true;
+    if (!active && !st.allowed) { rs.hidden = false; rs.textContent = reasonText(st.reason, st.message); } else rs.hidden = true;
+    // El contenido deja sitio abajo para que la barra no tape nada.
+    $('app').style.paddingBottom = ($('bar').offsetHeight + 24) + 'px';
 
     drawRoute();
     drawHead();
@@ -437,6 +458,9 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     var armed = Date.now() < stopArmedUntil;
     bs.className = 'danger' + (armed ? ' armed' : '');
     bs.textContent = armed ? t('stopArmed') : t('stop');
+    var hint = $('stop-hint');
+    hint.hidden = !armed;
+    hint.textContent = armed ? t('stopHint') : '';
   }
 
   // Recorrido y cabezal
