@@ -162,6 +162,14 @@ controlador (C59), y galvo completo con emulador: asistente (M41), encuadre con 
 calibración de lente (M43), temporización (M44), E/S (M45), marcado dividido y repetido (M40),
 rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47). De la ola 4 llegaban además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el autoenfoque y optimizar Z (M31).
 
+## Prueba de estrés con archivos reales (en paralelo, 2026-10-13)
+
+A pedido del usuario: un corpus de unos 100 diseños reales y pesados (SVG, DXF, PDF, imágenes,
+G-code, LightBurn) más casos sintéticos extremos, pasados de punta a punta (importar, calcular,
+G-code, `.rd` y envío a la máquina virtual) midiendo tiempo, memoria y la diferencia entre el
+tiempo estimado y el simulado; y el lienzo con miles de objetos. El informe
+(`docs/pruebas-estres.md`) da la lista de arreglos para la ola 6.
+
 ## Ola 5.5: fácil y remoto
 
 Agregada a pedido del usuario (2026-10-13), antes de la ola 6 para que esta también la pula.
