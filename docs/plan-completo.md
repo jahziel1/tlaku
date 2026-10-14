@@ -197,7 +197,7 @@ Orden de trabajo (empezó el 2026-10-13):
 | 6A ✓ | Partir archivos grandes (solo mover código) y actualizar `docs/mapa.md` | motor, drivers, app Rust, interfaz y docs |
 | 6B ✓ | Arreglos de la prueba de estrés, prueba de contrato de comandos, Revisar diseño, rendimiento del lienzo | planificador, importación e imágenes, Ruida y avisos de velocidad, G-code y estimado, contrato y humo, Revisar diseño, lienzo |
 | 6C ✓ | Pendientes de las olas 3, 4 y 5 (aviso de enlace en Iniciar, curvas del emulador (`junction_speed` y anticipación de 16 bloques), fijar potencia al importar G-code, duplicados entre drivers de la app, paneles flotantes, deformar, M3/M5/M6, M35, M36, M4, D12, M31/M32, Print & Cut, alimentador, duplicados Rust/TS) | por área |
-| 6D | Accesibilidad, job de CI para `smoke-tauri.sh`, reclasificar el galvo en la cobertura ✓, manual y mensajes en inglés, sitio con donaciones, instaladores y actualizaciones, auditoría final ✓, lista de validación con hardware ✓, beta | por área |
+| 6D ✓ | Accesibilidad ✓, CI con humo de Tauri ✓, galvo reclasificado ✓, manual y mensajes del motor en inglés ✓, sitio con donaciones ✓ (marcadores), actualizador integrado ✓ (inactivo hasta tener llaves), auditoría final ✓, lista de validación con hardware ✓. **Falta solo publicar la beta**: necesita la URL del repositorio (ver `docs/publicar.md`) | por área |
 
 - **Arreglos de la prueba de estrés** (lista completa y criterios en
   [pruebas-estres.md](pruebas-estres.md#prioridades-para-la-ola-6)):
