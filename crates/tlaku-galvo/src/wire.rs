@@ -168,7 +168,12 @@ pub fn unpack(bytes: &[u8]) -> Result<Vec<Raw>, WireError> {
     if !bytes.len().is_multiple_of(CMD_LEN) {
         return Err(WireError::NotMultipleOf12 { got: bytes.len() });
     }
-    bytes.chunks_exact(CMD_LEN).map(Raw::from_bytes).collect()
+    bytes
+        .as_chunks::<CMD_LEN>()
+        .0
+        .iter()
+        .map(|c| Raw::from_bytes(c))
+        .collect()
 }
 
 /// Respuesta de 8 bytes de un comando inmediato como cuatro enteros de 16 bits.

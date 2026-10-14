@@ -69,7 +69,7 @@ pub fn list_art(dir: &Path) -> Result<Vec<UserArt>, String> {
         .filter(|p| p.is_file() && is_svg(p))
         .filter_map(|p| read_art(&p).ok())
         .collect();
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|a| a.name.to_lowercase());
     Ok(out)
 }
 

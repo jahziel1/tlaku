@@ -195,10 +195,10 @@ fn parse_shape(n: Node, ctx: &mut Ctx, depth: usize) -> Option<Shape> {
             ShapeKind::Group(kids)
         }
         "Text" => ShapeKind::Text(parse_text(n, ctx)),
-        "Bitmap" => match parse_bitmap(n, ctx) {
-            Some(b) => ShapeKind::Bitmap(b),
-            None => return None,
-        },
+        "Bitmap" => {
+            let b = parse_bitmap(n, ctx)?;
+            ShapeKind::Bitmap(b)
+        }
         other => ShapeKind::Unknown(other.to_string()),
     };
     Some(Shape {

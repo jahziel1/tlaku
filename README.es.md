@@ -2,6 +2,14 @@
 
 [English](README.md) · Español
 
+[![CI](https://github.com/jahziel1/tlaku/actions/workflows/ci.yml/badge.svg)](https://github.com/jahziel1/tlaku/actions/workflows/ci.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+[![Apoya en Ko-fi](https://img.shields.io/badge/Ko--fi-Apoya%20a%20Tlaku-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/danielmartinez55371)
+
+> **Tlaku es gratis y lo seguirá siendo.** Si te ahorra tiempo o dinero, puedes
+> [invitarle un café al proyecto en Ko-fi](https://ko-fi.com/danielmartinez55371) ☕: paga máquinas de prueba y tiempo de desarrollo.
+> Probarlo en tu máquina y [compartir los resultados](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml) ayuda igual.
+
 **Software libre para cortadoras y grabadoras láser.** Tlaku es una alternativa de código abierto
 (licencia MIT) a los programas comerciales de control láser: diseñas o importas un trabajo, ajustas
 las capas, ves cómo se va a cortar y lo envías a la máquina con revisiones de seguridad antes de

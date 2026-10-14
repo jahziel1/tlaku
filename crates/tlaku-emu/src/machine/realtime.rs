@@ -69,15 +69,13 @@ impl Machine {
                     self.gc.flood = !self.gc.flood;
                 }
             }
-            0xA1 => {
-                if self.profile.m7_enabled
-                    && matches!(
-                        self.state(),
-                        StateKind::Idle | StateKind::Run | StateKind::Hold(_)
-                    )
-                {
-                    self.gc.mist = !self.gc.mist;
-                }
+            0xA1 if self.profile.m7_enabled
+                && matches!(
+                    self.state(),
+                    StateKind::Idle | StateKind::Run | StateKind::Hold(_)
+                ) =>
+            {
+                self.gc.mist = !self.gc.mist;
             }
             _ => {}
         }

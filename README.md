@@ -2,6 +2,14 @@
 
 English · [Español](README.es.md)
 
+[![CI](https://github.com/jahziel1/tlaku/actions/workflows/ci.yml/badge.svg)](https://github.com/jahziel1/tlaku/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Tlaku-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/danielmartinez55371)
+
+> **Tlaku is free and always will be.** If it saves you time or money, you can
+> [buy the project a coffee on Ko-fi](https://ko-fi.com/danielmartinez55371) ☕ — it pays for test machines and development time.
+> Testing on your machine and [sharing the results](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml) helps just as much.
+
 **Free software for laser cutters and engravers.** Tlaku is an open source alternative (MIT license)
 to commercial laser control programs: you design or import a job, adjust the layers, see how it will
 be cut and send it to the machine with safety checks before anything moves.

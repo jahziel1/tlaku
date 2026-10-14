@@ -462,12 +462,12 @@ pub fn load_scaled(path: &Path, luma: Luma, max_w: usize, max_h: usize) -> Resul
     let fail = |e: String| format!("{}: {e}", path.display());
     match sniff(path) {
         Kind::Png => {
-            if let Some(r) = load_png(path, luma, max_w, max_h).map_err(&fail)? {
+            if let Some(r) = load_png(path, luma, max_w, max_h).map_err(fail)? {
                 return Ok(r);
             }
         }
         Kind::Tiff => {
-            if let Some(r) = load_tiff(path, luma, max_w, max_h).map_err(&fail)? {
+            if let Some(r) = load_tiff(path, luma, max_w, max_h).map_err(fail)? {
                 return Ok(r);
             }
         }
@@ -610,7 +610,7 @@ fn write_px(fmt: Fmt, wide: bool, data: &tiff::decoder::DecodingResult, s: usize
     match data {
         D::U8(v) => out.copy_from_slice(&v[s..s + out.len()]),
         D::U16(v) if wide => {
-            for (k, o) in out.chunks_exact_mut(2).enumerate() {
+            for (k, o) in out.as_chunks_mut::<2>().0.iter_mut().enumerate() {
                 o.copy_from_slice(&v[s + k].to_be_bytes());
             }
         }

@@ -1,0 +1,7 @@
+# Versión fija de Rust para que la máquina local, la CI y quien contribuya usen la misma (y los
+# mismos avisos de clippy). Para actualizarla: cambia el número, corre `cargo clippy` y arregla.
+# Pinned Rust version so local builds, CI and contributors share the same compiler and lints.
+[toolchain]
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

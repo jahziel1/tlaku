@@ -80,7 +80,7 @@ impl<W: Write> Progress<'_, W> {
     }
 
     fn progress(&mut self, acked: usize, total: usize) {
-        let pct = if total == 0 { 100 } else { acked * 100 / total };
+        let pct = (acked * 100).checked_div(total).unwrap_or(100);
         if self.tty {
             let due = self
                 .last_draw

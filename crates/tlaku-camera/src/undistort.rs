@@ -132,7 +132,11 @@ impl UndistortMap {
 
     fn remap<const CH: usize>(&self, src: &[u8], out: &mut [u8]) {
         let stride = self.src_size.0 as usize * CH;
-        for (e, dst) in self.table.iter().zip(out.chunks_exact_mut(CH)) {
+        for (e, dst) in self
+            .table
+            .iter()
+            .zip(out.as_chunks_mut::<CH>().0.iter_mut())
+        {
             if e.idx == OUTSIDE {
                 continue;
             }

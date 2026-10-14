@@ -286,7 +286,7 @@ pub fn parse_jhf(name: &str, text: &str) -> Result<LineFont, String> {
         }
         let mut strokes: Vec<Stroke> = Vec::new();
         let mut current: Stroke = Vec::new();
-        for pair in body.chunks_exact(2) {
+        for pair in body.as_chunks::<2>().0 {
             if pair == b" R" {
                 if current.len() > 1 {
                     strokes.push(std::mem::take(&mut current));

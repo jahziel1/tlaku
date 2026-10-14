@@ -142,8 +142,8 @@ pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<StrokeSpec>, String> {
     } else {
         None
     };
-    let lead_in = resolve_lead(&l.lead_in, &tr!("pipeline.stroke.lead_in")).map_err(&err)?;
-    let lead_out = resolve_lead(&l.lead_out, &tr!("pipeline.stroke.lead_out")).map_err(&err)?;
+    let lead_in = resolve_lead(&l.lead_in, &tr!("pipeline.stroke.lead_in")).map_err(err)?;
+    let lead_out = resolve_lead(&l.lead_out, &tr!("pipeline.stroke.lead_out")).map_err(err)?;
     if !(l.overcut.is_finite() && l.overcut >= 0.0) {
         return Err(err(tr!("pipeline.stroke.bad_overcut", value = l.overcut)));
     }

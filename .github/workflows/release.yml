@@ -69,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
         with:
           targets: ${{ matrix.rust_targets }}
 
@@ -190,6 +190,13 @@ jobs:
             consulta la sección "Instalación" del README para abrirlo.
             En Linux, para usar el puerto serie del láser añade tu usuario al grupo `dialout`
             (ver docs/publicar.md).
+
+            ## Apoya el proyecto / Support the project
+
+            Tlaku es gratis. Si te sirve, [invítale un café en Ko-fi](https://ko-fi.com/danielmartinez55371) ☕
+            o [comparte cómo te fue en tu máquina](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml).
+            Tlaku is free. If it helps you, [buy it a coffee on Ko-fi](https://ko-fi.com/danielmartinez55371) ☕
+            or [share how it went on your machine](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml).
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           generateReleaseNotes: true

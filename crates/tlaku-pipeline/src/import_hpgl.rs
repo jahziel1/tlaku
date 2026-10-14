@@ -387,7 +387,7 @@ impl Parser {
     /// Recorre una lista de pares de coordenadas con el modo (absoluto o relativo) y la pluma
     /// actuales.
     fn move_to_all(&mut self, p: &[f64]) {
-        for pair in p.chunks_exact(2) {
+        for pair in p.as_chunks::<2>().0 {
             let target = if self.absolute {
                 self.to_plotter(pair[0], pair[1])
             } else {
