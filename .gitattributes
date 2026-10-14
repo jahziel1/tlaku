@@ -1,0 +1,26 @@
+# Finales de línea LF en todos los sistemas: los archivos dorados de las pruebas (G-code, planes,
+# SVG/DXF de ejemplo) se comparan byte a byte y Windows los convertiría a CRLF al clonar.
+# LF line endings everywhere: golden test files are compared byte for byte.
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.tif binary
+*.tiff binary
+*.bmp binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.rd binary
+*.egv binary
+*.cor binary
+*.lbrn binary
+*.lbrn2 binary
