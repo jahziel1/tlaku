@@ -563,15 +563,35 @@ impl UdpEmulator {
         let thread = std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
             while !s.load(Ordering::SeqCst) {
-                let Ok((n, from)) = socket.recv_from(&mut buf) else {
-                    continue;
+                let (n, from) = match socket.recv_from(&mut buf) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        if !matches!(
+                            err.kind(),
+                            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+                        ) {
+                            eprintln!("DIAGEMU recv_from err {:?} {err}", err.kind());
+                        }
+                        continue;
+                    }
                 };
+                eprintln!(
+                    "DIAGEMU {:?} got {n} bytes from {from}",
+                    crate::link::diag_t()
+                );
                 let replies = e
                     .lock()
                     .unwrap_or_else(|x| x.into_inner())
                     .handle(&buf[..n]);
+                eprintln!(
+                    "DIAGEMU {:?} {} replies",
+                    crate::link::diag_t(),
+                    replies.len()
+                );
                 for r in replies {
-                    let _ = socket.send_to(&r, from);
+                    if let Err(err) = socket.send_to(&r, from) {
+                        eprintln!("DIAGEMU send_to err {:?} {err}", err.kind());
+                    }
                 }
             }
         });

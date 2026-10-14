@@ -51,7 +51,7 @@ impl<T: PacketLink + ?Sized> PacketLink for Box<T> {
     }
 }
 
-fn diag_t() -> std::time::Duration {
+pub(crate) fn diag_t() -> std::time::Duration {
     static T0: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     T0.get_or_init(std::time::Instant::now).elapsed()
 }
