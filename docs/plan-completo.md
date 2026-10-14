@@ -187,6 +187,40 @@ Agregada a pedido del usuario (2026-10-13), antes de la ola 6 para que esta tamb
 - Manual completo y sitio web con donaciones.
 - Correr el flujo de instaladores en GitHub y activar las actualizaciones automáticas.
 - Repetir la auditoría de cobertura.
+- **Revisar diseño** (sin IA): un botón que analiza el diseño antes de enviar y explica lo que encuentra, con arreglo de un clic: trazos abiertos que deberían cerrarse, líneas duplicadas o encimadas, fragmentos diminutos, nodos de sobra, objetos fuera de la cama, textos sin convertir y capas sin salida. Usa las operaciones que ya existen (unir, cerrar, quitar duplicados, optimizar).
 - Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12).
 - Lo que quedó de la ola 5: el galvo en la app <!-- GALVO-APP -->, M31 y M32, que las imágenes giren con el registro de Print & Cut, repetir trabajos con avance del alimentador y quitar los duplicados de Print & Cut y tiling entre Rust y TypeScript (ver el detalle arriba).
 - Lista de validación con hardware real, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, Print & Cut, el tiling y el alimentador, y el galvo (con el plan de prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin fuente).
+
+## Ola 7: asistente con IA (opcional)
+
+Agregada a pedido del usuario (2026-10-13), para después de publicar la beta. Tlaku funciona
+completo sin IA; el asistente se activa a mano.
+
+Qué hace:
+
+- **Ajustes de material:** a partir de una descripción ("MDF de 3 mm, Falcon2 22 W, cortar")
+  propone velocidad, potencia y pasadas, apoyado en la biblioteca de materiales, y genera la
+  prueba de materiales para confirmarlos.
+- **Diagnóstico con foto:** a partir de una foto del resultado (no atravesó, quemado, doble
+  línea…) explica la causa probable y qué ajustar.
+- **Explicar errores y alarmas** de la máquina en lenguaje simple.
+- **Editar el diseño en lenguaje natural** ("centra todo y haz 3 copias en fila").
+- **Preguntas sobre el manual**, respondidas con las páginas de Tlaku y citando la sección.
+- **Diseños sencillos desde texto** (llaveros con nombre, cajas con uniones, letreros).
+
+Reglas:
+
+- **Opcional y apagado de fábrica.** El usuario elige el proveedor: un modelo local (por ejemplo
+  con Ollama) o su propia clave de un servicio en la nube. Tlaku no cobra ni intermedia.
+- **Privacidad:** nunca envía diseños ni fotos sin pedir permiso cada vez.
+- **La IA nunca controla la máquina.** Solo puede usar una lista permitida de comandos de
+  **diseño y documento** (centrar, duplicar, alinear, capas, agrupar, ajustes de capa…). Los
+  comandos de **máquina** (iniciar, encuadrar, mover, home, disparo de prueba, consola, macros) y
+  los de **archivos y sistema** (guardar encima, exportar, preferencias, automatización) no
+  existen para el asistente. Si se le pide iniciar, como mucho abre el diálogo de inicio normal.
+- **Vista previa antes de aplicar** (qué va a hacer, y no cambia nada hasta pulsar Aplicar) y
+  **un solo paso de deshacer** para todo lo que hizo.
+- **Pruebas automáticas** que verifican que ningún comando de máquina, archivo o sistema pueda
+  llegar al asistente, aunque se agreguen comandos nuevos.
+
