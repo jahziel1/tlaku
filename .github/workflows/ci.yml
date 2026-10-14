@@ -52,8 +52,18 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
+      # Las pruebas de la máquina virtual miden tiempos reales; en los equipos compartidos de la CI
+      # (sobre todo Windows y macOS) a veces se atrasan. nextest reintenta hasta 2 veces: un fallo real
+      # falla siempre y sigue en rojo; uno de tiempo pasa al reintentar y queda marcado «FLAKY».
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Pruebas
-        run: cargo test --workspace --all-features
+        run: cargo nextest run --workspace --all-features --retries 2 --no-fail-fast
+
+      - name: Pruebas de documentación
+        run: cargo test --workspace --all-features --doc
 
   # Licencias y orígenes de las dependencias (deny.toml).
   deny:

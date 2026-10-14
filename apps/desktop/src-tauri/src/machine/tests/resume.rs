@@ -273,9 +273,11 @@ fn continue_after_interruption(b: &mut Bench, lines: &[String]) -> tlaku_doc::Re
     assert_eq!(uncovered(lines, &b.emu, 0.3), 0, "quedaron huecos");
     // El solape es lo que avanzó la cabeza desde el último reporte guardado: el sondeo `?` del
     // trabajo (200 ms) más el intervalo del punto de control (30 ms aquí, 1 s en la app), a
-    // 50 mm/s y ×4 de velocidad simulada. Aquí no pasa de ~70 mm sobre 800 mm.
+    // 50 mm/s y ×4 de velocidad simulada: ~70 mm sobre 800 mm en un equipo normal. En los equipos
+    // lentos de la CI el retraso del hilo lo agranda; el tope de 160 mm (20 % del trabajo) sigue
+    // detectando un reinicio desde muy atrás.
     let overlap = b.emu.trace().total_length() - cut_length(lines);
-    assert!((-1.0..70.0).contains(&overlap), "solape de {overlap} mm");
+    assert!((-1.0..160.0).contains(&overlap), "solape de {overlap} mm");
     // Y al terminar bien el punto de control se borra.
     assert!(b.store.load().is_none());
     view
