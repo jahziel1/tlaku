@@ -27,8 +27,13 @@ export function LhyPanel({ connected, state }: { connected: boolean; state: LhyS
       <h3 id="sec-lhy" className="panel-title">
         {t('lhymicro.panel.title')} <LhyExperimentalBadge />
       </h3>
-      <p className="hint">{t('lhymicro.experimental.note')}</p>
-      <p className="hint">{t('lhymicro.power.note')}</p>
+      <div className="warn-line" role="note">
+        <TriangleAlert size={14} aria-hidden="true" />
+        <div>
+          <p>{t('lhymicro.experimental.note')}</p>
+          <p className="warn-line__key">{t('lhymicro.power.note')}</p>
+        </div>
+      </div>
       <p className="hint">{t('lhymicro.panel.noG')}</p>
       {!connected && <p className="hint">{t('lhymicro.panel.needConnect')}</p>}
       {connected && state && (

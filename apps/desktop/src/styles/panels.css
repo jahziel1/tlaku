@@ -29,6 +29,9 @@
   align-items: flex-end;
   gap: var(--s-4);
 }
+.row--center {
+  align-items: center;
+}
 
 /* campos */
 .field {

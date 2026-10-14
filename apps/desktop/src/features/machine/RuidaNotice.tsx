@@ -19,7 +19,7 @@ export function RuidaStartNotice({ device }: { device: Pick<DeviceProfile, 'kind
       <TriangleAlert size={14} aria-hidden="true" />
       <div>
         <p><strong>{t('ruida.start.title')}.</strong> {t('ruida.experimental.note')}</p>
-        <p>{device.ruida.run_after_upload ? t('ruida.start.run') : t('ruida.start.store')}</p>
+        <p className="warn-line__key">{device.ruida.run_after_upload ? t('ruida.start.run') : t('ruida.start.store')}</p>
       </div>
     </section>
   );

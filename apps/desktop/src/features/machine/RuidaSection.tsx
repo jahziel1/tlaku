@@ -99,7 +99,13 @@ export function RuidaPanel({ device, connected, busy }: { device: DeviceProfile;
       <h3 id="sec-ruida" className="panel-title">
         {t('ruida.panel.title')} <RuidaExperimentalBadge />
       </h3>
-      <p className="hint">{t('ruida.experimental.note')}</p>
+      <div className="warn-line" role="note">
+        <TriangleAlert size={14} aria-hidden="true" />
+        <div>
+          <p>{t('ruida.experimental.note')}</p>
+          <p className="warn-line__key">{device.ruida.run_after_upload ? t('ruida.start.run') : t('ruida.start.store')}</p>
+        </div>
+      </div>
       <p className="hint">{t('ruida.panel.noG')}</p>
       {!connected && <p className="hint">{t('ruida.panel.needConnect')}</p>}
 

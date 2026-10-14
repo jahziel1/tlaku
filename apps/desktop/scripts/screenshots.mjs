@@ -675,6 +675,223 @@ await shot('47-optimizar-formas.png');
 await closeDialog();
 
 
+// ---- Ola 4: máquinas (capturas 48 a 57) -----------------------------------------------------------------
+// Todas en modo mock. Los comandos que abren diálogos se llaman sin `await` (la promesa no resuelve hasta cerrarlos).
+
+/**
+ * Mueve el scroll del contenedor desplazable más cercano (nunca el de la página) hasta el primer
+ * elemento hoja cuyo texto empieza por `text`. `block`: 'start' lo pone arriba, 'end' abajo.
+ */
+const scrollToText = (text, block = 'start', selector = 'h2, h3, h4, legend, label, span, div, p') => evaluate(`(() => {
+  const el = [...document.querySelectorAll(${JSON.stringify(selector)})].find((e) => e.childElementCount <= 1 && e.textContent.trim().startsWith(${JSON.stringify(text)}));
+  if (!el) throw new Error('sin ${text}');
+  let box = el.parentElement;
+  while (box && box !== document.body && !(box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  if (!box || box === document.body) return;
+  const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+  box.scrollTop += ${JSON.stringify(block)} === 'end' ? r.bottom - b.bottom + 12 : r.top - b.top - 8;
+})()`);
+
+/** Guarda y activa un perfil derivado del de reserva. */
+const useDevice = (patch) => app(`
+  const { FALLBACK_DEVICE } = await import('/src/lib/device.ts');
+  const dev = { ...FALLBACK_DEVICE, ...${JSON.stringify(patch)} };
+  await st().saveDevice(dev);
+  st().setActiveDevice(dev.id);
+  await st().refreshPorts();
+`);
+
+// 48. Máquina virtual Ruida conectada: sección "Controladora Ruida" con la información y los archivos leídos
+await fresh();
+await useDevice({ id: 'ruida-1', name: 'CO2 Ruida', kind: 'ruida', bed: [600, 400], connection: { type: 'udp', host: '192.168.1.60' } });
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:ruida');
+  await st().connect();
+`);
+await wait(1500);
+await clickText('.btn', 'Leer información');
+await wait(600);
+await clickText('.btn', 'Leer lista');
+await wait(600);
+await scrollToText('Controladora Ruida');
+await wait(400);
+await shot('48-maquina-ruida.png');
+
+// 48b. Lo mismo, desplazado hasta la lista de documentos de la memoria (vacía en la máquina virtual)
+await scrollToText('Documentos en la memoria');
+await wait(300);
+await shot('48b-ruida-documentos.png');
+
+// 49. Máquina virtual K40 (M2 Nano) conectada: panel experimental, sin G-code, sin posición hasta el home
+await fresh();
+await useDevice({ id: 'k40-1', name: 'Mi K40', kind: 'lhy_micro', bed: [300, 200], origin: 'top_left', lhymicro: { board: 'M2' } });
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:k40');
+  await st().connect();
+`);
+await wait(1500);
+await scrollToText('K40 con M2 Nano', 'start', 'h3');
+await wait(300);
+await shot('49-maquina-k40.png');
+
+// 50. Diálogo de inicio de un trabajo K40 con los avisos del codificador (potencia por perilla, grises binarizados)
+await app(`void commands.run('machine.start');`);
+await wait(1200);
+await shot('50-k40-inicio.png');
+await closeDialog();
+
+// 50b. Aviso del paro de emergencia: la placa K40 no confirmó detenerse (se simula el mensaje del motor)
+await fresh();
+await useDevice({ id: 'k40-1', name: 'Mi K40', kind: 'lhy_micro', bed: [300, 200], origin: 'top_left', lhymicro: { board: 'M2' } });
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:k40');
+  await st().connect();
+`);
+await wait(1200);
+await app(`
+  const { useStore: u } = await import('/src/store/index.ts');
+  u.setState({ jobError: 'Detener: NO hubo confirmación de la placa.', jobMessage: 'Detener: NO hubo confirmación de la placa.' });
+`);
+await wait(500);
+await shot('50b-k40-paro-emergencia.png');
+
+// 50c. Diálogo de inicio con Ruida en modo "solo guardar" (el trabajo no arranca solo)
+await fresh();
+await useDevice({ id: 'ruida-1', name: 'CO2 Ruida', kind: 'ruida', bed: [600, 400], connection: { type: 'udp', host: '192.168.1.60' }, ruida: { magic: null, run_after_upload: false } });
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:ruida');
+  await st().connect();
+`);
+await wait(1500);
+await app(`void commands.run('machine.start');`);
+await wait(1200);
+await shot('50c-ruida-solo-guarda.png');
+await closeDialog();
+
+// 50d. Diálogo de inicio del K40 en inglés: los avisos de seguridad caben igual en el otro idioma
+await app(`st().setPref('language', 'en');`);
+await wait(400);
+await fresh();
+await useDevice({ id: 'k40-1', name: 'Mi K40', kind: 'lhy_micro', bed: [300, 200], origin: 'top_left', lhymicro: { board: 'M2' } });
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:k40');
+  await st().connect();
+`);
+await wait(1500);
+await app(`void commands.run('machine.start');`);
+await wait(1200);
+await shot('50d-k40-inicio-en.png');
+await closeDialog();
+await app(`st().setPref('language', 'es');`);
+await wait(400);
+
+// 51. Perfil de máquina con conexión TCP y el botón "Probar conexión"
+await fresh();
+await useDevice({ id: 'grbl-red', name: 'GRBL por red', kind: 'grbl', connection: { type: 'tcp', host: '192.168.1.50', port: 23 } });
+await app(`void commands.run('machine.devices');`);
+await wait(900);
+await scrollToText('Tipo de conexión');
+await wait(300);
+await evaluate(`(() => { const b = [...document.querySelectorAll('.btn')].find((e) => e.textContent.trim().startsWith('Probar conexión')); if (b && !b.disabled) b.click(); })()`);
+await wait(900);
+await shot('51-perfil-tcp.png');
+await closeDialog();
+
+// 52. Editor de macros dentro del perfil (con un riesgo advertido) y los botones en el panel
+await fresh();
+await useDevice({
+  id: 'grbl-macros', name: 'Falcon con macros', kind: 'grbl',
+  macros: [
+    { name: 'Aire encendido', gcode: 'M8', confirm: true },
+    { name: 'Origen de trabajo', gcode: 'G92 X0 Y0', confirm: true },
+    { name: 'Pausa de 2 s', gcode: 'G4 P2', confirm: false },
+  ],
+});
+await app(`void commands.run('machine.devices');`);
+await wait(900);
+await scrollToText('Macros');
+await wait(400);
+await shot('52-editor-macros.png');
+await closeDialog();
+
+// 53. Ajustes de la máquina ($$) con la máquina virtual GRBL 1.1
+await fresh();
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:grbl11');
+  await st().connect();
+`);
+await wait(1500);
+await app(`void commands.run('machine.settings');`);
+await wait(2000);
+await shot('53-ajustes-maquina.png');
+await closeDialog();
+
+// 54. Mover con Z, posiciones guardadas y disparo de prueba (con los botones de macro justo debajo)
+await fresh();
+await useDevice({
+  id: 'grbl-z', name: 'Falcon con Z', kind: 'grbl', z_axis: true,
+  macros: [{ name: 'Aire encendido', gcode: 'M8', confirm: true }, { name: 'Origen de trabajo', gcode: 'G92 X0 Y0', confirm: true }],
+  positions: [{ name: 'Esquina', x: 10, y: 10 }, { name: 'Centro de la cama', x: 200, y: 200 }],
+});
+await app(`
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:grbl11');
+  await st().connect();
+`);
+await wait(1500);
+await scrollToText('Ejes extra', 'start', 'h4');
+await wait(400);
+await shot('54-mover-z-posiciones.png');
+
+// 54b. Disparo de prueba: el diálogo con su doble confirmación
+await clickText('.btn', 'Disparo de prueba');
+await wait(600);
+await shot('54b-disparo-prueba.png');
+await closeDialog();
+
+// 55. Calibración de lente con el selector de modelo (ojo de pez)
+await fresh();
+await app(`
+  st().setDockTab('camera');
+  st().setCameraCalibrationOpen(true);
+`);
+await wait(2500);
+await evaluate(`(() => { const s = document.querySelector('#cam-model'); const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; set.call(s, 'fisheye'); s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+await wait(500);
+await shot('55-calibracion-lente.png');
+await closeDialog();
+
+// 56. Cámara en el cabezal y buscador de centro
+await fresh();
+await app(`
+  st().setDockTab('camera');
+  const { setHeadEnabled } = await import('/src/features/camera/actions.ts');
+  setHeadEnabled(true);
+`);
+await wait(900);
+await scrollToText('Cámara en el cabezal', 'start', 'h3');
+await wait(300);
+await shot('56-camara-cabezal.png');
+
+// 57. Preferencias, sección Automatización
+await fresh();
+await app(`
+  const { useSettingsUi } = await import('/src/features/settings/uiStore.ts');
+  useSettingsUi.getState().openSettings('automation');
+  st().setPref('automationEnabled', true);
+  st().setPref('automationAllowStart', true);
+`);
+await wait(800);
+await shot('57-automatizacion.png');
+await closeDialog();
+
+
 await send('Browser.close').catch(() => {});
 ws.close();
 proc.kill();

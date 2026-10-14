@@ -94,7 +94,7 @@ export function FinishPositionControls() {
           <NumberField label="Y" unit="mm" value={finish.y} min={0} max={device.bed[1]} step={1} onCommit={(y) => set({ y })} />
         </div>
       )}
-      <p className="hint num">
+      <p className="hint">
         {finish.mode === 'stay' && t('machine.finish.stay.help')}
         {finish.mode === 'origin' && (userOrigin ? t('machine.finish.origin.user', { x: fmt(userOrigin[0], 2), y: fmt(userOrigin[1], 2) }) : t('machine.finish.origin.zero'))}
         {finish.mode === 'point' && t('machine.finish.point.help', { x: fmt(finish.x, 1), y: fmt(finish.y, 1) })}

@@ -40,7 +40,7 @@ export const lhymicro: { [K in keyof typeof Source]?: string } = {
   'lhymicro.panel.positionNote':
     'The board does not report its real position: Tlaku counts it from home. If you move the carriage by hand or a step is lost, home again.',
   'lhymicro.panel.unknownWarn':
-    'Nobody knows where the head is: nothing will move until you home. Sending a job homes first.',
+    'The head position is unknown: nothing will move until you home. Sending a job homes first.',
   'lhymicro.panel.lowPower':
     'The board reports insufficient power (239): check the emergency stop, the lid and that the laser power supply is on.',
   'lhymicro.panel.moshiboard':
@@ -70,7 +70,7 @@ export const lhymicro: { [K in keyof typeof Source]?: string } = {
   'lhymicro.start.computing': 'Preparing the job for the board…',
   'lhymicro.start.error': 'The job could not be prepared for the board: {error}',
   'lhymicro.start.homeFirst':
-    'Nobody knows where the head is: it will go to home (limit switches) first and then burn.',
+    'The head position is unknown: it will go to home (limit switches) first and then burn.',
   'lhymicro.start.summary':
     '{packets} packets · {burn} mm burned · {travel} mm of travel · estimated {time}',
   'lhymicro.start.warnings': 'What the board will not do as you asked',

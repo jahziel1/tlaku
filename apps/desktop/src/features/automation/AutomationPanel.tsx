@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react';
 import { t } from '@/i18n';
 import { usePref } from '@/store';
 import { PrefCheck, PrefNumber } from '@/features/settings/fields';
@@ -6,6 +7,7 @@ import { useAutomationStatus } from './automation';
 /** Sección «Automatización» de Preferencias: servidor UDP local, apagado por omisión. */
 export function AutomationPanel() {
   const enabled = usePref('automationEnabled');
+  const allowStart = usePref('automationAllowStart');
   const status = useAutomationStatus((s) => s.status);
   return (
     <>
@@ -29,7 +31,15 @@ export function AutomationPanel() {
       </fieldset>
       <fieldset className="set-group">
         <PrefCheck k="automationAllowStart" label="prefs.automation.allowStart" />
-        <p className="hint">{t('prefs.automation.allowStart.hint')}</p>
+        {/* Con el permiso concedido el aviso pasa a ser de seguridad: ya nadie confirma el inicio. */}
+        {allowStart ? (
+          <p className="warn-line" role="alert">
+            <TriangleAlert size={14} aria-hidden="true" />
+            <span>{t('prefs.automation.allowStart.hint')}</span>
+          </p>
+        ) : (
+          <p className="hint">{t('prefs.automation.allowStart.hint')}</p>
+        )}
       </fieldset>
     </>
   );

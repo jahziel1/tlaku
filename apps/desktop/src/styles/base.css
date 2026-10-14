@@ -262,3 +262,10 @@ select {
   flex: none;
   margin-top: 1px;
 }
+/* Avisos de varias frases (K40, Ruida): un respiro entre párrafos y la frase de seguridad en negrita. */
+.warn-line > div > p + p {
+  margin-top: var(--s-2);
+}
+.warn-line__key {
+  font-weight: 650;
+}

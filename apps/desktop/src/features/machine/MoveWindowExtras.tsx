@@ -38,7 +38,7 @@ export function ExtraAxesControls() {
   const disabled = whyKey !== null;
 
   const axisRow = (axis: 'z' | 'u', label: string) => (
-    <div className="row" role="group" aria-label={label}>
+    <div className="row row--center" role="group" aria-label={label}>
       <span className="field__label grow">{label}</span>
       <button type="button" className="btn" disabled={disabled} title={why ?? t('machine.axis.up', { axis: label, step: fmt(step, 2) })} onClick={() => void jogExtra(axis, 1)}>
         <ArrowUpToLine size={14} aria-hidden="true" />{t('machine.axis.upShort')}
@@ -114,7 +114,7 @@ export function SavedPositions() {
       ) : (
         <ul className="mc-poslist">
           {device.positions.map((p) => (
-            <li key={p.name} className="row">
+            <li key={p.name} className="row row--center">
               <span className="grow">
                 {p.name} <span className="hint num">({fmt(p.x, 1)}, {fmt(p.y, 1)})</span>
               </span>
@@ -194,6 +194,10 @@ export function FireControls() {
         <NumberField label={t('machine.fire.duration')} unit="ms" value={fire.durationMs} step={50} min={FIRE_LIMITS.minMs} max={FIRE_LIMITS.maxMs} onCommit={(durationMs) => setFire({ durationMs })} />
       </div>
       <p className="hint">{t('machine.fire.help', { pct: FIRE_LIMITS.maxPct, ms: FIRE_LIMITS.maxMs })}</p>
+      <p className="warn-line">
+        <TriangleAlert size={14} aria-hidden="true" />
+        <span>{t('machine.fire.panelWarn')}</span>
+      </p>
       <button type="button" className="btn" disabled={whyKey !== null} title={whyKey ? t(whyKey) : t('machine.fire.openHint')} onClick={() => setOpen(true)}>
         <Flame size={14} aria-hidden="true" />{t('machine.fire.open')}
       </button>

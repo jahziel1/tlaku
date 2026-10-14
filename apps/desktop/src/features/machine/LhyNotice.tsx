@@ -112,7 +112,7 @@ export function LhyStartNotice({ device }: { device: Pick<DeviceProfile, 'kind'>
         <TriangleAlert size={14} aria-hidden="true" />
         <div>
           <p><strong>{t('lhymicro.start.title')}.</strong> {t('lhymicro.experimental.note')}</p>
-          <p>{t('lhymicro.power.note')}</p>
+          <p className="warn-line__key">{t('lhymicro.power.note')}</p>
         </div>
       </div>
       <LhyStartBody />
