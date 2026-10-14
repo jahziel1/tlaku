@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest]  # TEMPORAL
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +60,6 @@ jobs:
           tool: cargo-nextest
 
       - name: Pruebas
-        if: false  # TEMPORAL
         run: cargo nextest run --workspace --all-features --retries 2 --no-fail-fast
 
       # Sin `tlaku-desktop`: el script de compilación de Tauri deja en Windows un `msvcrt.lib` vacío
@@ -69,10 +68,9 @@ jobs:
       - name: TEMPORAL estrés punto de control
         if: runner.os == 'Windows'
         continue-on-error: true
-        run: cargo nextest run -p tlaku-desktop --all-features -E "test(/resume/)" --stress-count 15 --retries 0 --no-fail-fast
+        run: cargo nextest run -p tlaku-desktop --all-features -E "test(/resume/)" --stress-count 30 --retries 0 --no-fail-fast
 
       - name: Pruebas de documentación
-        if: false  # TEMPORAL
         run: cargo test --workspace --exclude tlaku-desktop --all-features --doc
 
   # Licencias y orígenes de las dependencias (deny.toml).
