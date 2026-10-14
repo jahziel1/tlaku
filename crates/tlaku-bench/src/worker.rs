@@ -49,7 +49,14 @@ const HOST_LINES_PER_S: f64 = 15_000.0;
 
 static PANIC_MSG: Mutex<String> = Mutex::new(String::new());
 
+/// Memoria residente máxima del proceso hasta ahora, en MB. En Windows no se mide (devuelve 0).
+#[cfg(not(unix))]
+fn peak_rss_mb() -> f64 {
+    0.0
+}
+
 /// Memoria residente máxima del proceso hasta ahora, en MB.
+#[cfg(unix)]
 fn peak_rss_mb() -> f64 {
     // SAFETY: `getrusage` solo escribe en la estructura que le pasamos.
     let mut ru: libc::rusage = unsafe { std::mem::zeroed() };

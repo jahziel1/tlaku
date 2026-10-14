@@ -83,7 +83,9 @@ impl Collect {
     }
 
     fn wait(&self, what: &str, f: impl Fn(&Collect) -> bool) {
-        let end = Instant::now() + Duration::from_secs(5);
+        // Tope amplio: en los equipos lentos de la CI (macOS) la máquina virtual tarda más; una
+        // prueba que pasa no espera de más.
+        let end = Instant::now() + Duration::from_secs(30);
         while !f(self) {
             assert!(Instant::now() < end, "se agotó la espera de: {what}");
             thread::sleep(Duration::from_millis(5));
