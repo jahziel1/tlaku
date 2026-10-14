@@ -129,4 +129,4 @@ Un **paquete** es un solo archivo para llevar tu configuración a otro equipo o 
 
 No se escribe nada hasta que pulses **Aplicar**. No se puede importar mientras hay un trabajo en curso. Faltan las cámaras (calibración y alineación) en el paquete; los materiales siguen pudiendo intercambiarse por separado como `.tlakumat` ([Materiales](11-materiales.md)), y las preferencias y atajos como `.tlakuprefs`.
 
-Siguiente: [Cámara](10-camara.md)
+Siguiente: [Print & Cut](09c-print-and-cut.md)

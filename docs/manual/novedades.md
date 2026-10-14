@@ -2,6 +2,36 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Pro y galvo, en la próxima versión
+
+Quinta gran tanda: lo que más se pedía para trabajos de producción, y un primer paso hacia los láseres galvo. **Nada de esto se ha probado con una máquina real**: Print & Cut y el tiling se validaron con la máquina virtual, una hoja impresa simulada y fotos sintéticas, y el galvo con una tarjeta simulada que escribimos nosotros.
+
+### Print & Cut
+
+- **Cortar justo sobre lo impreso.** Un asistente de tres pasos (**Máquina > Print & Cut…**): agrega marcas de registro de 2 a 4 (cruces o círculos) en las esquinas del diseño, imprímelas a tamaño real y mide dónde quedaron, **con el láser** (las flechas y «Guardar posición») **o con la cámara** (un clic en la imagen alineada).
+- **Ajuste sin escala, de escala uniforme o afín**, con el error de cada marca a la vista antes de aceptar y avisos si la impresión salió escalada, espejada o estirada distinto en cada eje. La vista previa, el encuadre y el trabajo salen movidos según el registro. Mira [Print & Cut](09c-print-and-cut.md).
+- **Límite:** las imágenes se mueven y se escalan con el registro, pero **no giran** (se avisa).
+
+### Tiling y alimentador automático
+
+- **Dividir en tramos** (**Máquina > Dividir en tramos…**): un trabajo más grande que la cama se parte en tramos con solape, por filas o en serpentina, con el plano dibujado en el lienzo. **LightBurn no tiene tiling.**
+- **Marcas de alineación** en las zonas de solape, grabadas en los dos tramos, para colocar el material.
+- **Envío por tramos**: tú mueves el material entre uno y otro, puedes saltar o repetir un tramo, y si se cierra la app o se corta la conexión, **retomas** donde ibas.
+- **Alimentador automático** en el perfil de la máquina: un G-code de avance con `{mm}` que el tiling usa solo entre tramos cuando van en una sola columna. Mira [Tiling y alimentador automático](09d-tiling-y-alimentador.md).
+
+### Galvo (experimental)
+
+- **Láseres de fibra, UV y CO2 galvo** con la tarjeta LMCV4 de EZCAD2 (USB `9588:9899`), **desde la línea de comandos**: `tlaku galvo list`, `status`, `light` (encuadre con el puntero rojo, que nunca enciende el láser) y `mark` (con `--red-only`, `--dry-run` y `--emu` para probar sin máquina). **La interfaz en la app está en camino.**
+- **Pensado para no dañar a nadie**: con hardware real exige `--i-understand-laser-safety`, usa una lista blanca de comandos, apaga la fuente ante cualquier error y **no tiene pausa**, solo detener. Un láser de fibra es clase 4 y su haz es invisible: **lee [Seguridad del galvo](13d-galvo-seguridad.md) antes de conectar nada.** Mira también [Galvo (experimental)](13c-galvo.md).
+- **En el motor**: grabado 3D por cortes (también sirve en pórtico), corrección de cilindro y de cono, bamboleo, y la secuencia del marcado dividido, repetido y rotativo. Mira [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md).
+- **Experimental de verdad**: las unidades de velocidad, frecuencia, potencia y retardos vienen de otros proyectos de código abierto y no están verificadas con una tarjeta real.
+
+### Lo que sigue sin estar
+
+- Probar todo con hardware real, y la prueba mínima del galvo con una tarjeta sin fuente.
+- El galvo en la app, y repetir un trabajo con avance del alimentador.
+- Autoenfoque, y el ajuste de U por capa.
+
 ## Máquinas, en la próxima versión
 
 Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máquina gana lo que más se echaba de menos. **Nada de esto se ha probado con una máquina real**: se validó con emuladores, máquinas virtuales e imágenes sintéticas. Lo marcado *experimental* puede equivocarse con una máquina de verdad: empieza con el láser deshabilitado o a potencia baja, material de desecho y el paro de emergencia al alcance.
@@ -45,7 +75,7 @@ Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máqui
 - Probar todo con hardware real. Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 solo se ha probado contra el emulador, sin placa real.
 - Cámaras de red, presets de cámara y alinear la cámara del cabezal con marcas.
 - Las pulgadas en las capas, las máquinas y la cámara; marcar un perfil como predeterminado; autoenfoque.
-- Galvo, **Print & Cut** y **tiling**.
+- Galvo, **Print & Cut** y **tiling** (llegaron en la tanda siguiente: ver «Pro y galvo»).
 
 ## Diseño avanzado, en la próxima versión
 

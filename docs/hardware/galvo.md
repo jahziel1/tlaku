@@ -1,8 +1,32 @@
 # Galvo (tarjetas JCZ/BJJCZ): investigación de viabilidad
 
-Fecha: 2026-10-13. Estado: investigación, no hay código. Método: sala limpia. Solo se leyeron
-descripciones en prosa o tablas (wikis, artículos, manuales públicos, foros). Las fuentes que
-son solo código se anotan como "existe, no leída". Cada dato lleva su URL.
+Fecha: 2026-10-13. Método de la investigación (secciones 1 a 7): solo se leyeron descripciones en
+prosa o tablas (wikis, artículos, manuales públicos, foros); las fuentes que son solo código se
+anotaron como "existe, no leída". Cada dato lleva su URL.
+
+## Estado (actualizado tras la ola 5, commit `56e717f`)
+
+**Hay código, es experimental y solo se probó contra un emulador propio.** Nada se ha probado con
+una tarjeta real: las unidades de los parámetros, los bits de estado, la secuencia de arranque y lo
+que hace la tarjeta si se cae el USB siguen sin verificar. Por eso el galvo no tiene el aviso de
+"probado" de la sección 9. **Hoy se maneja desde la línea de comandos (`tlaku galvo`) y desde el
+motor; la interfaz en la app está en camino.**
+
+| Etapa de la sección 10 | Estado |
+|---|---|
+| 0. Modelo de datos (`GalvoParams`, `DeviceKind::Galvo`, `GalvoDevice`, `GalvoLayer`) | Hecha (`tlaku-doc`, `tlaku-core`) |
+| 1. Crate `tlaku-galvo` con codec, compilador, calibración, seguridad y emulador; volcado de la lista | Hecha (`crates/tlaku-galvo`, `--dump`); sin vista previa propia |
+| 2. Capturas de EZCAD2 de una tarjeta propia | **No hecha.** En su lugar se leyó código MIT (ver sección 11) |
+| 3. USB y sesión; pruebas 1 a 3 de la sección 9 (sin fuente) | Código hecho (`usb.rs`, `session.rs`, solo la `9588:9899`); **pruebas con tarjeta, pendientes** |
+| 4. Prueba con la fuente conectada y publicación | **Pendiente** (necesita tarjeta, cabezal y fuente) |
+| 5. Marcado al vuelo, rotativo galvo, marcado dividido | Rotativo y marcado dividido: la secuencia está calculada en el pipeline pero nada la ejecuta; marcado al vuelo y EZCAD3/DLC, no |
+
+Qué hace el código: `tlaku galvo list/status/light/mark` (el comando `mark` con `--red-only`,
+`--dry-run`, `--dump` y `--emu`; con hardware real exige `--i-understand-laser-safety`), lista blanca
+de comandos, apagado garantizado ante errores, y el trabajo galvo del pipeline de la sección 8.5.
+Lo que **no** hace, a propósito: escribir la EEPROM, el firmware, la tabla de corrección o la
+configuración de la tarjeta; `LaserSignalOn`; pausa y reanudar (solo se puede detener, ver la
+sección 5); escribir salidas arbitrarias; marcado al vuelo; ejes y Z; EZCAD3/DLC.
 
 Niveles de confianza: **A** = descrito por una fuente primaria (manual del fabricante) o por
 dos fuentes independientes; **M** = una sola fuente secundaria legible; **B** = foro, fragmento
@@ -17,8 +41,11 @@ de buscador o inferencia mía; **?** = no se encontró.
   estado, la secuencia de arranque ni el formato de la tabla de corrección.
 - Esos huecos solo se cierran de dos formas legítimas para nosotros: (a) capturar y describir
   el tráfico de **nuestra propia tarjeta** con EZCAD2 (otra persona implementa desde esa
-  descripción), o (b) probar con hardware real. Leer el código de balor/MeerK40t queda
-  descartado por la regla de sala limpia.
+  descripción), o (b) probar con hardware real. Leer el código de balor/MeerK40t quedaba
+  descartado por la regla de sala limpia. **(Superado en la ola 5: se leyó el código MIT de
+  galvoplotter y de `balormk` de MeerK40t y se reescribió desde cero; ver la sección 11 y
+  `THIRD_PARTY.md`. Los huecos de unidades, estado y arranque se cubrieron con esa fuente, no con
+  una captura, y siguen sin verificarse con una tarjeta.)**
 - Se puede construir y verificar sin hardware la capa pura (codec, compilador de listas,
   geometría, límites de seguridad, emulador propio). **No se puede verificar sin hardware**
   que la tarjeta haga lo que esperamos, y un error aquí puede dañar una fuente láser de fibra
@@ -369,7 +396,7 @@ confirmarlo con una captura, pero encaja con la IR actual.
   9999, solo que ambos están en el INF). Un usuario de Linux dijo que lo resolvió extrayendo
   el firmware del driver de Windows (fragmento del buscador, no verificado). Conf. B.
 - También existe un cargador para otra familia (LMCV2U): https://github.com/safarir/lmcv2u-loader
-  : **existe, no leída** (es código).
+  : **existe, no leída** (es código). **(Ola 5: solo se leyó su README; `load.py` sigue sin leerse.)**
 - Mecanismo genérico de Cypress FX2 (para entender el patrón, no para esta tarjeta): se carga
   la RAM con peticiones vendor 0xA0 y se reenumera
   (https://www.retro11.de/manp/w11/man/cat1/fx2load_wrapper.0.html ,
@@ -450,11 +477,13 @@ Mitigaciones que proponemos (todas verificables por prueba unitaria, salvo las f
   de simulación del trabajo, pero solo con dispositivo (README en prosa:
   https://github.com/tatarize/balor-meerk40t, licencia GPL-3.0; el repositorio **existe, no
   leído** más allá de su README). MeerK40t principal tiene un emulador de Ruida, que es otra
-  familia.
+  familia. **(Ola 5: Tlaku ya tiene su propio emulador de tarjeta LMC, `crates/tlaku-galvo/src/emu.rs`.)**
 - Nota de licencia: docs/spec/03-maquinas-avanzadas.md da MIT a galvoplotter y a balormk de
   MeerK40t. El README del plugin balor-meerk40t dice GPL-3.0 y el artículo de Hackaday no
   indica la licencia de Balor. **No hemos verificado esas licencias**; para la sala limpia
-  trátalas como contaminantes de todos modos: "existe, no leída".
+  trátalas como contaminantes de todos modos: "existe, no leída". **(Ola 5: la licencia MIT de
+  galvoplotter y de MeerK40t se verificó en su `LICENSE`; `balor-meerk40t` es GPL-3.0 y sigue sin
+  leerse.)**
 - Lo que **sí** se puede verificar con certeza sin hardware (ver sección 8.4): codificación
   de bytes, relleno de tandas, matemática de cuantificación a 16 bits, geometría y
   corrección, invariantes de seguridad, cálculo de tiempos y un emulador propio que
@@ -645,13 +674,40 @@ parte geométrica son estables; los parámetros no).
 
 ## 11. Fuentes consultadas y no leídas
 
-Leídas (prosa): las URL citadas arriba. No se pudieron leer por 403/404 y se usaron solo
-resúmenes del buscador: manuales de Raycus en ManualsLib, manual JPT de Thunder Laser, página
-FindLight de DLC y LMCV4, Parallax (XY2-100).
+**Actualizado tras la ola 5.** La investigación original (secciones 1 a 10) se hizo solo con prosa
+y tablas. Para implementar `tlaku-galvo` se leyó además código con licencia MIT, y se anotó en
+`THIRD_PARTY.md`:
 
-Existen, no leídas (son código o tienen riesgo de contaminación): repositorio de Balor
-(https://gitlab.com/bryce15/balor), plugin balor-meerk40t
-(https://github.com/tatarize/balor-meerk40t, solo el README en prosa), MeerK40t
-(https://github.com/meerk40t/meerk40t), galvoplotter (mencionado en docs/spec), cargador
-lmcv2u (https://github.com/safarir/lmcv2u-loader), código de los proyectos de la reversa de
-LightBurn.
+- **Leídas y reescritas desde cero** (el código en Rust es propio; no se copió ningún fragmento, se
+  tomaron **datos del protocolo**):
+  - [galvoplotter](https://github.com/meerk40t/galvoplotter) (MIT, copyright 2023 MeerK40t;
+    licencia verificada en su `LICENSE`): `galvo/consts.py`, `controller.py`, `usb_connection.py` y
+    `mock_connection.py`. De aquí salen la tabla de códigos (`codes.rs`), el formato de 12 bytes y
+    las tandas de 256 comandos rellenas con `listEndOfList` (3072 bytes), los endpoints y el
+    VID:PID (`wire.rs`, `transport.rs`), la disposición de los parámetros de cada comando
+    (`cmd.rs`), las fórmulas de conversión de unidades (`params.rs`), los bits de estado `0x04`
+    (ocupada) y `0x20` (lista) y el orden de armado y de aborto que inspira
+    `safety::shutdown_sequence`, y la estructura binaria de los `.cor` (`cor.rs`, solo lectura).
+  - [MeerK40t](https://github.com/meerk40t/meerk40t) (MIT, copyright 2021 meerk40t),
+    `meerk40t/balormk/controller.py` y `usb_connection.py` (commit `d511944`): segunda fuente que
+    coincide con galvoplotter. Aporta la codificación del retardo de polígono como una sola palabra
+    en pasos de 10 us (galvoplotter usa microsegundos con signo; Tlaku sigue a MeerK40t, que ante
+    la duda da la espera más corta) y los bits de `GetListStatus` (`0x04` en marcha, `0x08` en
+    pausa).
+- **Descargado y no leído su código:** [balor-meerk40t](https://github.com/tatarize/balor-meerk40t)
+  (GPL-3.0 según su `LICENSE`). Todo el protocolo viene de galvoplotter y MeerK40t; de este solo se
+  usó su README en prosa, que ya figuraba en este documento.
+- **Solo el README:** [lmcv2u-loader](https://github.com/safarir/lmcv2u-loader) (sin licencia
+  declarada). De ahí sale que una tarjeta sin firmware enumera como `9588:9880` y como `9588:9899`
+  tras cargar la imagen del FPGA; por eso Tlaku rechaza la `9588:9880` y no carga firmware. No se
+  leyó `load.py`.
+- **Prosa leída** (investigación original): las URL citadas en las secciones 1 a 10. No se pudieron
+  leer por 403/404 y se usaron solo resúmenes del buscador: manuales de Raycus en ManualsLib,
+  manual JPT de Thunder Laser, página FindLight de DLC y LMCV4, Parallax (XY2-100).
+- **Siguen sin leerse** (código o riesgo de contaminación): el repositorio de Balor
+  (https://gitlab.com/bryce15/balor) y el código de los proyectos de la reversa de LightBurn.
+
+**Lo que esto cambia en la confianza.** Los datos de las secciones 2 y 3 que antes eran "?" ahora
+tienen una fuente de código MIT (dos que coinciden en casi todo), pero ninguna es una verificación
+con hardware: la confianza global en implementar el protocolo pasa de **baja** a **media**, y la
+prueba mínima de la sección 9 sigue siendo imprescindible antes de publicar nada con salida real.

@@ -120,4 +120,4 @@ Con la app, el plan es el mismo; los pasos 3 a 6 se hacen desde el perfil «K40 
 
 Cierra antes cualquier otro programa que use la placa (K40 Whisperer, MeerK40t, LaserDRW): solo uno a la vez puede tenerla abierta.
 
-Siguiente: [Venir desde LightBurn](14-desde-lightburn.md)
+Siguiente: [Galvo (experimental)](13c-galvo.md)

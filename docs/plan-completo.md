@@ -23,6 +23,8 @@ Estado tras la ola 3 (2026-10-13, `04-cobertura.md` actualizado): **165 hechas (
 
 Estado tras la ola 4 (2026-10-13, `04-cobertura.md` actualizado y recontado con un script): **173 hechas (81 %), 26 parciales, 0 solo en motor o CLI, 15 faltantes** de 214. P0: 64 de 68 hechas (parciales C51, M3, M5, M6). Por área: diseño y edición 90 hechas, capas, corte e imagen 56 y máquinas y avanzadas 27.
 
+Estado tras la ola 5 (2026-10-13, `04-cobertura.md` actualizado y recontado con un script): **175 hechas (82 %), 27 parciales, 10 solo en motor o CLI, 2 faltantes** de 214. P0 sin cambios: 64 de 68 hechas (parciales C51, M3, M5, M6). Por área: diseño y edición 90 hechas, capas, corte e imagen 56 y máquinas y avanzadas 29. Las 10 "solo motor o CLI" son todas del galvo <!-- GALVO-APP --> y las 2 faltantes, D90 y D94 (P2).
+
 ## Ola 1: base para publicar
 
 P0 pendientes y lo que más frena a quien viene de LightBurn.
@@ -87,7 +89,7 @@ Cobertura nueva: D31, D42, D46, D47, D49, D55, D56, D57, D59, D64, D65, D67, D69
 
 - *Ola 4*: la **potencia de puente** (C14 y D45, parciales), junto con los ajustes de potencia de la salida de máquina. *Resuelto en la ola 4:* la potencia de puente entró y C14 y D45 pasaron a Hecho.
 - *Ola 6*: los **paneles flotantes** (D04), las **manijas de deformar en el lienzo** y la **malla 4×4** (D58), la herramienta de clic por esquina del redondeo y revertirlo (D60), las **guías temporales** de alineación (D78) y probar **Nueva ventana** en una ventana real: por lectura del código, la copia de recuperación de una ventana se ofrecería en la otra (D19).
-- El **tiling** (M39) sigue en la ola 5.
+- El **tiling** (M39) sigue en la ola 5. *Resuelto en la ola 5.*
 
 Plan original de la ola:
 
@@ -116,7 +118,7 @@ Cobertura nueva: M11, M16, M20, M31, M50, M54, D45 y C14 pasaron a Hecho. M4, M2
 
 **Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
 
-- *Ola 5*: el ajuste de U en los trabajos y el láser 2 con Ruida (M32); el autoenfoque y optimizar Z (M31), junto con los ajustes de controlador (C59).
+- *Ola 5*: el ajuste de U en los trabajos y el láser 2 con Ruida (M32); el autoenfoque y optimizar Z (M31), junto con los ajustes de controlador (C59). *En la ola 5:* C59 entró solo para el galvo (motor y línea de comandos, sin interfaz); *M31 y M32 no se tocaron y pasan a la ola 6.*
 - *Ola 6*: lo que falta de los ajustes de dispositivo (M3, M5, M6: marcar por defecto, ordenar, ícono, offset del puntero rojo, unidades de dispositivo y de control, intercambio X/Y, auto-home, DTR y modo síncrono); las cámaras de red y los presets (M35); la alineación automática de la cámara del cabezal (M36); las cámaras en los paquetes de usuario (M4, D99); las pulgadas en las capas, las máquinas y la cámara (D12); y la lista de validación con hardware real de todo lo experimental, que incluye escribir los ajustes de Ruida (M25), borrar o ejecutar sus documentos (M24) y probar el K40.
 
 Plan original de la ola:
@@ -131,12 +133,36 @@ Plan original de la ola:
 
 ## Ola 5: pro y galvo
 
+**Terminada el 2026-10-13** (commit `56e717f`, "Ola 5: pro y galvo"). Se subieron 2 funciones a "hecho" (de 173 a 175 de 214; P0 sin cambios, 64 de 68), 1 pasó de falta a parcial (M47) y 10 de falta a "solo motor/CLI" (todas del galvo). Los conteos salen de contar las filas de `04-cobertura.md` con un script. Todo se validó con la máquina virtual, imágenes sintéticas y una tarjeta galvo simulada: **nada se probó con una máquina real**, y el galvo está marcado experimental.
+
+Qué entró, verificado en el código:
+
+- **Print & Cut (M37, hecho)** (`features/printcut/`, `crates/tlaku-pipeline/src/registration.rs`): asistente flotante de tres pasos (marcas, medir, resultado) con 2 a 4 marcas que el asistente pone en las esquinas del diseño o que se eligen; se miden con el láser (flechas, «Ir a la marca», «Guardar posición») o con un clic sobre la imagen de la cámara alineada; ajuste sin escala, de escala uniforme o afín, con el error de cada marca, avisos de escala, espejo y estirón, y `JobOptions.transform` aplicado al trabajo ya colocado (trayectorias, puentes manuales y punto de inicio), de modo que la vista previa, el encuadre y los límites lo ven.
+- **Tiling (M39, hecho)** (`features/tiling/`, `tile.rs`): tramos con solape, por filas o en serpentina; recorte de líneas, rellenos (booleanas) e imágenes (máscara); marcas de alineación en los solapes; asistente de envío por tramos con saltar, repetir y retomar (el avance queda en el almacenamiento local); `JobOptions.tile`.
+- **Alimentador automático (M47, parcial)**: grupo del perfil (G-code de avance con `{mm}` y avance por defecto) que el tiling usa entre tramos cuando van en una sola columna.
+- **Galvo, solo motor y línea de comandos** <!-- GALVO-APP --> (`crates/tlaku-galvo`, `crates/tlaku-cli/src/galvo.rs`): tarjetas JCZ/BJJCZ LMC por USB (solo la `9588:9899`), codec de 12 bytes y tandas de 256 comandos, tabla de códigos con fuente y confianza, compilador con corrección de campo en el anfitrión, lista blanca de comandos, validación de cada lista, fuente desarmada hasta ejecutar, **secuencia de apagado con reintentos** ante cualquier salida, sin pausa, encuadre con el puntero rojo, emulador con rastro del haz y fallos inyectables, y `tlaku galvo list/status/light/mark` (con `--red-only`, `--dry-run`, `--dump`, `--emu`, `--require-input` y, con hardware real, `--i-understand-laser-safety`).
+- **Pipeline galvo** (`tlaku-pipeline`: `galvo.rs`, `slice3d.rs`, `cylinder.rs`, `split.rs`): `GalvoParams` por bloque, sin overscan, límites del campo, bamboleo, **grabado 3D por cortes** (C47, también en pórtico), **corrección de cilindro y de cono** (M46, modelo propio), y la secuencia del **marcado dividido, repetido y rotativo galvo** (M40, M30; solo calcula, nada la ejecuta).
+- **Documentación**: manual con páginas nuevas (Print & Cut, tiling y alimentador, galvo, seguridad del galvo, grabado 3D y cilindro; ahora 32 páginas) y `docs/hardware/galvo.md` con el estado y las fuentes al día.
+
+Cobertura nueva: M37 y M39 pasaron a Hecho. M47 pasó a Parcial. M30, M40, M41, M42, M43, M44, M45, M46, C47 y C59 pasaron de Falta a Solo motor/CLI. Quedan en Falta solo D90 y D94.
+
+**Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
+
+- *Ola 6*: **integrar el galvo en la app** (tipo de máquina, asistente de alta, calibración de la lente, controles de capa para frecuencia, retardos, bamboleo y 3D, ejecutar el marcado dividido; en curso) <!-- GALVO-APP -->.
+- *Ola 6*: lo que el plan prometía en la ola 5 y **no se tocó**: el autoenfoque y optimizar Z (M31), el ajuste de U en los trabajos y el láser 2 con Ruida (M32). Y repetir un trabajo con avance del alimentador (M47) y el alimentador nativo de una controladora DSP.
+- *Ola 6*: que las **imágenes giren con el registro de Print & Cut** (hoy se mueven y escalan, pero no giran).
+- *Ola 6*: **quitar los duplicados**: el cálculo de Print & Cut (`fit_registration`) y el plan de tiling (`plan_tiles`, `tile_marks`) existen en Rust y en TypeScript; la app usa solo los de TypeScript y las funciones de Rust solo las llaman sus pruebas, sin ninguna prueba que compare los dos lados. Decidir cuál se queda (o añadir una prueba cruzada con casos comunes).
+- *Ola 6*: la **lista de validación con hardware real** gana el galvo: la prueba mínima de `docs/hardware/galvo.md` sección 9 (tarjeta y cabezal sin fuente; medir con osciloscopio que el láser queda apagado al cancelar y al desconectar el USB; verificar las unidades de velocidad, frecuencia, potencia y retardos; y solo entonces la fuente), además de Print & Cut con un láser y una cámara reales, el tiling y el alimentador con una máquina real.
+- *Sin fecha*: el `.cor` de EZCAD (se lee su estructura, no se aplica), el marcado al vuelo, EZCAD3/DLC y BSL (fuera de alcance por falta de documentación).
+
+Plan original de la ola:
+
 Print & Cut (M37), tiling (M39), alimentador automático (M47), ajustes dependientes del
 controlador (C59), y galvo completo con emulador: asistente (M41), encuadre con luz roja (M42),
 calibración de lente (M43), temporización (M44), E/S (M45), marcado dividido y repetido (M40),
-rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47). De la ola 4 llegan además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el autoenfoque y optimizar Z (M31).
+rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47). De la ola 4 llegaban además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el autoenfoque y optimizar Z (M31).
 
-## Ola 6: calidad y publicación
+## Ola 6: calidad y publicación (lo que sigue)
 
 - Rendimiento del lienzo con diseños grandes (índice espacial, y WebGL si hace falta).
 - Lo que quedó de la ola 3: paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías temporales y la recuperación compartida entre ventanas.
@@ -145,4 +171,5 @@ rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47). 
 - Correr el flujo de instaladores en GitHub y activar las actualizaciones automáticas.
 - Repetir la auditoría de cobertura.
 - Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12).
-- Lista de validación con hardware real, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro.
+- Lo que quedó de la ola 5: el galvo en la app <!-- GALVO-APP -->, M31 y M32, que las imágenes giren con el registro de Print & Cut, repetir trabajos con avance del alimentador y quitar los duplicados de Print & Cut y tiling entre Rust y TypeScript (ver el detalle arriba).
+- Lista de validación con hardware real, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, Print & Cut, el tiling y el alimentador, y el galvo (con el plan de prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin fuente).

@@ -83,16 +83,27 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   y potencia en vivo (GRBL), pausa y paro, macros, consola con respuestas explicadas, ajustes `$$`
   de la controladora con respaldo, segundo láser, paquetes de configuración `.tlakubundle` y
   exportar G-code. Potencia de puente en las capas de línea.
+- **Producción:** **Print & Cut** (marcas de registro impresas, medidas con el láser o con la
+  cámara, ajuste sin escala, de escala uniforme o afín con el error de cada marca), **tiling**
+  (dividir un trabajo más grande que la cama en tramos con solape, marcas de alineación, envío
+  por tramos y retomar si se corta) y **alimentador automático** en el perfil de la máquina, que el
+  tiling usa entre tramos. Las imágenes no giran con el registro de Print & Cut.
 - **Automatización:** servidor UDP local opcional (apagado de fábrica, solo `127.0.0.1`) para que
   otros programas manden `LOAD`, `START`, `STATUS` y `STOP`; `START` pide confirmación en la app.
 - **Ruida y K40 (experimental):** controladoras Ruida (CO2) por red desde la app, y K40 con placa
   M2 Nano por USB, desde la app y desde la línea de comandos (`tlaku k40`); la potencia del K40 va con la perilla.
+- **Galvo (experimental):** láseres de fibra, UV y CO2 galvo con la tarjeta LMCV4 de EZCAD2, por USB.
+  Hoy se maneja desde la línea de comandos (`tlaku galvo list/status/light/mark`); la interfaz en la
+  app está en camino. Probado solo contra una tarjeta simulada. Un láser de fibra es **clase 4 y su
+  haz es invisible**: lee [Seguridad del galvo](docs/manual/13d-galvo-seguridad.md) antes de conectar
+  nada. En el motor también hay grabado 3D por cortes, corrección de cilindro y de cono, bamboleo y
+  la secuencia del marcado dividido, repetido y rotativo.
 - **Taller:** biblioteca de materiales y prueba de materiales, rotativo (rodillo o mandril),
   corrección de barrido (scanning offset), cámara con calibración de lente (incluido el modelo de
   ojo de pez), alineación y marcas grabadas, captura y vectorizado de la cama, cámara en el cabezal
   con mosaico y buscador de centro. Pulgadas en la interfaz.
 - **Idiomas:** español e inglés, con cambio en vivo.
-- **Ayuda:** manual de usuario de 27 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
+- **Ayuda:** manual de usuario de 32 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
   [docs/manual](docs/manual/00-indice.md), atajos con `F1`, novedades y "Acerca de".
 
 ![Vista previa del trabajo con reproducción y resultados por capa](apps/desktop/docs/screenshots/04-vista-previa.png)
@@ -105,8 +116,12 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   el sentido que fijas a mano.
 - **Nesting integrado.** Acomoda piezas en la cama o dentro de un material irregular con polígonos
   de no-ajuste y búsqueda con tope de tiempo, con rotaciones, espejo y piezas dentro de los huecos
-  de otras; corre en segundo plano con progreso y se puede detener (`tlaku-nest`). El *tiling*
-  (dividir trabajos grandes) **todavía no existe**.
+  de otras; corre en segundo plano con progreso y se puede detener (`tlaku-nest`).
+- **Tiling (dividir trabajos grandes).** LightBurn no lo tiene: un trabajo más grande que la cama se
+  parte en tramos con solape y marcas de alineación en los empalmes, se envía tramo a tramo (tú
+  mueves el material, o lo hace un alimentador automático) y se puede retomar tras un cierre.
+  Experimental: se probó con la máquina virtual, no con un láser real
+  ([manual](docs/manual/09d-tiling-y-alimentador.md)).
 - **Máquina virtual.** Puedes conectar la app a una máquina simulada (Falcon2 Pro, GRBL, grblHAL,
   FluidNC, Marlin, Ruida y otras), también detrás de un socket TCP local para probar la conexión
   por red, y provocar fallas a propósito: llama, inclinación, alarma, desconexión. Sirve para
@@ -137,18 +152,18 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 Estas funciones están en el plan y todavía no son parte de la app:
 
 - Del diseño avanzado: deformar con manijas en el lienzo y con malla de 16 puntos, redondear
-  esquinas con un clic por esquina, guías temporales de alineación y paneles flotantes. *Tiling* y
-  Print & Cut.
+  esquinas con un clic por esquina, guías temporales de alineación y paneles flotantes.
 - De las máquinas: escribir los ajustes de una controladora Ruida y borrar o ejecutar sus
   documentos, cámaras de red y presets de cámara, alinear la cámara del cabezal con marcas, las
   pulgadas en las capas, las máquinas y la cámara, marcar un perfil como predeterminado y
   autoenfoque.
-- **Galvo** (fibra, UV) y alimentador automático.
+- **Galvo** (fibra, UV) en la app (hoy solo por línea de comandos), y repetir un trabajo con el
+  alimentador automático (hoy solo lo usa el tiling).
 - Pruebas con una máquina real: el corte avanzado, los ajustes en vivo, la conexión por red, Ruida,
   el K40 y el resto de las funciones de máquina solo se han validado con emuladores. La ventana
   nueva tampoco se ha probado en una ventana real.
 
-El estado real, función por función (173 de las 214 funciones del inventario están hechas), está en
+El estado real, función por función (175 de las 214 funciones del inventario están hechas), está en
 [docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
@@ -167,7 +182,8 @@ con hardware real será una Creality Falcon2. Guía completa:
 | GRBL antiguo (sin M4), GRBL-LPC y G-code personalizado | **Por validar con máquina real** | Dialecto propio; sin máquina virtual dedicada. El tipo personalizado trae un editor de dialecto. |
 | Ruida (CO2) | **Experimental**, en la app y por línea de comandos | Por red (UDP): conectar, enviar (por defecto guarda el trabajo en la controladora y no lo arranca), pausa, detener, saltos, encuadre, información y lista de documentos. Probado solo contra un emulador; no escribe ajustes. |
 | K40 con placa M2 Nano | **Experimental**, en la app y por línea de comandos | Protocolo LHYMICRO-GL por USB directo (no por puerto serie), probado solo contra una placa simulada. LightBurn no la soporta. **La potencia va con la perilla de la máquina**, no por software; los grises se binarizan y no hay Z, aire, consola ni overrides. La posición se cuenta desde el home. |
-| Galvo/fibra (EZCAD), Trocen, TopWisdom | No soportado | Un K40 con la placa cambiada a GRBL-LPC o Smoothie sí puede funcionar. |
+| Galvo de fibra, UV o CO2 (tarjeta JCZ/BJJCZ LMCV4, EZCAD2) | **Experimental**, por línea de comandos (`tlaku galvo`); la interfaz en la app está en camino | USB directo, solo la tarjeta `9588:9899`; probado solo contra una tarjeta simulada. Sin pausa (solo detener). **Haz invisible de clase 4**: [lee la seguridad](docs/manual/13d-galvo-seguridad.md) antes de conectar. |
+| Galvo EZCAD3/DLC y BSL, Trocen, TopWisdom | No soportado | Un K40 con la placa cambiada a GRBL-LPC o Smoothie sí puede funcionar. |
 
 ## Instalación
 
@@ -265,6 +281,7 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 | `tlaku-grbl` | G-code por dialecto, puertos serie, envío con conteo de caracteres y revisión previa. |
 | `tlaku-ruida` | Experimental: archivos `.rd` y sesión por red para controladoras Ruida. |
 | `tlaku-lhymicro` | Experimental: K40 con placa Lihuiyu M2 Nano (LHYMICRO-GL por USB) con placa simulada. |
+| `tlaku-galvo` | Experimental: tarjetas galvo JCZ/BJJCZ LMC por USB: codec de 12 bytes, compilador con corrección de campo, lista blanca de comandos, apagado garantizado ante errores, encuadre con el puntero rojo y tarjeta simulada. |
 | `tlaku-emu` | Emulador de controladoras (GRBL, Falcon2 Pro, grblHAL, FluidNC, GRBL-LPC, Marlin, Smoothie). |
 | `tlaku-camera` | Calibración de lente, alineación y corrección por altura. |
 | `tlaku-doc` | Tipos del contrato con la app, exportados a TypeScript. |
@@ -287,6 +304,7 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 | `info` | Lee la versión (`$I`) y la configuración (`$$`) de la máquina, sin moverla. |
 | `ruida` | Experimental. `export-rd` escribe un archivo `.rd`; `send` lo manda por UDP a una controladora Ruida (guarda el trabajo, `--run` lo ejecuta); `status` lee su estado. |
 | `k40` | Experimental. `list`, `status` (solo lectura), `send` (con `--dry-run` y `--emu`) y `export-egv` para un K40 con placa M2 Nano. La potencia se ajusta en la máquina. |
+| `galvo` | Experimental. `list`, `status` (solo lectura), `light` (puntero rojo, nunca enciende el láser) y `mark` (con `--red-only`, `--dry-run`, `--dump` y `--emu`) para tarjetas galvo LMCV4. Con hardware real exige `--i-understand-laser-safety`. |
 
 Ejemplos, ejecutados desde la raíz del repositorio (usan el diseño de prueba
 `crates/tlaku-cli/tests/fixtures/design.svg`: un contorno rojo y un rectángulo azul):

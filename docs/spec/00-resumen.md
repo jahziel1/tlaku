@@ -54,7 +54,7 @@ sub-capas, eje Z, rotary, cámara (calibración de lente + homografía), macros.
 
 ## Dónde podemos superar a LightBurn (quejas del foro)
 
-- **Tiling:** LightBurn 2.1 no lo tiene; trabajos más grandes que la cama se hacen a mano.
+- **Tiling:** LightBurn 2.1 no lo tiene; trabajos más grandes que la cama se hacen a mano. Ya existe en Tlaku (ola 5, probado solo con la máquina virtual).
 - **Planificador de corte explicable:** la queja más repetida es no entender por qué el orden
   de corte sale como sale. Mostrar qué regla decidió cada paso.
 - **Offset Fill que no se cuelga** y vista previa de tabs/kerf que coincide con la salida.
@@ -70,12 +70,13 @@ usar vtracer y no potrace). Se automatizará con `cargo-deny`.
 
 ## Estado (2026-10-13)
 
-Las olas del [plan](../plan-completo.md) 1 a 4 están **terminadas**. Según el recuento de
-[04-cobertura.md](04-cobertura.md) (que sale de contar las filas de sus tablas): **173 de 214
-funciones hechas (81 %), 26 parciales y 15 faltantes**; en P0, **64 de 68 hechas** (las 4 parciales
-son C51, M3, M5 y M6). **Ninguna función de máquina se ha probado con hardware real**: todo se
-validó con emuladores (`tlaku-emu`, el de Ruida y el de la placa K40), máquinas virtuales e
-imágenes sintéticas.
+Las olas del [plan](../plan-completo.md) 1 a 5 están **terminadas**. Según el recuento de
+[04-cobertura.md](04-cobertura.md) (que sale de contar las filas de sus tablas con un script):
+**175 de 214 funciones hechas (82 %), 27 parciales, 10 solo en el motor o la línea de comandos y
+2 faltantes**; en P0, **64 de 68 hechas** (las 4 parciales son C51, M3, M5 y M6). Las 10 "solo
+motor/CLI" son todas del galvo <!-- GALVO-APP --> y las 2 faltantes son D90 y D94. **Ninguna función de máquina se ha
+probado con hardware real**: todo se validó con emuladores (`tlaku-emu`, el de Ruida, el de la
+placa K40 y la tarjeta galvo simulada de `tlaku-galvo`), máquinas virtuales e imágenes sintéticas.
 
 | Ola | Tema | Estado | Hechas / 214 | P0 hechas / 68 |
 |---|---|---|---:|---:|
@@ -84,7 +85,7 @@ imágenes sintéticas.
 | 2 | Capas y corte: trazos, orden y optimización, relleno e imagen, trabajo | Terminada (`ec9cdb4`) | 143 | 62 |
 | 3 | Diseño avanzado: operaciones de forma, nesting real, texto variable, imagen | Terminada (`b78790e`) | 165 | 62 |
 | 4 | Máquinas: Ruida, red, control, cámara y K40 | Terminada (`10c435d`; el K40 en la app, `c6c61a2`) | 173 | 64 |
-| 5 | Pro y galvo | Pendiente | | |
+| 5 | Pro y galvo: Print & Cut, tiling, alimentador automático y galvo (experimental, solo motor y línea de comandos) <!-- GALVO-APP --> | Terminada (`56e717f`) | 175 | 64 |
 | 6 | Calidad y publicación | Pendiente | | |
 
 **K40 (M2 Nano).** No es una fila del inventario (LightBurn no lo soporta) y no cuenta en los
@@ -93,15 +94,29 @@ serie), home propio, la potencia va con la perilla, sin Z, aire, consola ni over
 paro de emergencia si detener no se confirma. También sigue disponible por línea de comandos
 (`tlaku k40`).
 
+**Lo que entró en la ola 5** (verificado en el código, commit `56e717f`):
+
+- **Print & Cut (M37) y tiling (M39), hechos:** asistentes en la app, con marcas de registro y
+  ajuste sin escala, uniforme o afín (medido con el láser o la cámara), y tramos con solape, marcas
+  de alineación, envío por tramos y retomar. LightBurn no tiene tiling. El alimentador automático
+  (M47) quedó **parcial**: solo lo usa el tiling con los tramos en una columna.
+- **Galvo, solo motor y línea de comandos** <!-- GALVO-APP --> (M30, M40 a M46, C47, C59): el crate
+  `tlaku-galvo` (tarjetas JCZ/BJJCZ LMC por USB, solo la `9588:9899`; lista blanca de comandos,
+  apagado garantizado ante errores, sin pausa), `tlaku galvo list/status/light/mark` y el trabajo
+  galvo del pipeline (parámetros por bloque, sin overscan, bamboleo, grabado 3D por cortes,
+  corrección de cilindro y cono, secuencia del marcado dividido, repetido y rotativo). Es
+  **experimental y solo emulador**, con las conversiones de unidades sin verificar.
+- **Discrepancias:** el cálculo de Print & Cut y el plan de tiling están duplicados en Rust y
+  TypeScript (la app usa solo el de TypeScript) y las imágenes no giran con el registro. Detalle en
+  [04-cobertura.md](04-cobertura.md).
+- **No entró:** el autoenfoque y optimizar Z (M31) y el ajuste de U en los trabajos y el láser 2
+  con Ruida (M32), que el plan ponía en la ola 5; pasan a la ola 6.
+
 **Lo que queda, según el plan:**
 
-- **Ola 5, pro y galvo:** Print & Cut (M37), tiling (M39), alimentador automático (M47), ajustes
-  dependientes del controlador (C59) y galvo completo con emulador: asistente (M41), encuadre con
-  luz roja (M42), calibración de lente (M43), temporización (M44), E/S (M45), marcado dividido y
-  repetido (M40), rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47).
-  De la ola 4 llegan además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el
-  autoenfoque y optimizar Z (M31).
-- **Ola 6, calidad y publicación:** rendimiento del lienzo con diseños grandes, lo que quedó de la
+- **Ola 6, calidad y publicación:** el galvo en la app <!-- GALVO-APP --> y lo que no entró de la ola 5
+  (M31, M32, imágenes que giren con Print & Cut, repetir trabajos con el alimentador, quitar los
+  duplicados Rust/TypeScript), rendimiento del lienzo con diseños grandes, lo que quedó de la
   ola 3 (paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías
   temporales, recuperación compartida entre ventanas), accesibilidad, manual completo y sitio web
   con donaciones, correr el flujo de instaladores y activar las actualizaciones automáticas,
@@ -111,7 +126,9 @@ paro de emergencia si detener no se confirma. También sigue disponible por lín
   validación con hardware real** de todo lo experimental: Falcon2 y el resto de GRBL, la conexión
   por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de
   pez, la cámara en el cabezal y el buscador de centro. Esa prueba con máquinas reales es el
-  principal riesgo para publicar.
+  principal riesgo para publicar. La lista incluye ahora Print & Cut, el tiling, el alimentador y
+  el galvo (con la prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin
+  fuente).
 
 ### Historia previa a las olas (M1 a M4)
 

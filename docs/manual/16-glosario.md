@@ -12,6 +12,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Asistente booleano**: diálogo que muestra el resultado de cada operación (unión, A menos B, intersección, diferencia simétrica y soldar) antes de aplicarla (`Ctrl/Cmd+B`).
 - **Automatización por UDP**: servidor local opcional (apagado de fábrica) con el que otros programas de tu equipo mandan a Tlaku comandos de texto como `LOAD` o `STATUS`. Ver [Conexión por red y automatización](08b-red-y-automatizacion.md).
 - **Autoguardado**: copia de recuperación que Tlaku guarda cada minuto (si hay cambios) para ofrecértela si la aplicación se cierra de golpe. No reemplaza a guardar. Ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
+- **Alimentador automático**: cinta o rodillos que avanzan el material solos. Tlaku lo usa entre los tramos del tiling cuando van en una sola columna. Ver [Tiling y alimentador automático](09d-tiling-y-alimentador.md).
 
 ## B
 
@@ -38,6 +39,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Dithering (tramado)**: truco para grabar fotos con un láser que solo enciende o apaga: simula tonos de gris con puntos. Hay varios algoritmos (Umbral, Floyd-Steinberg, Jarvis, Stucki, entre otros).
 - **DPI / LPI**: densidad de líneas del grabado. A menor **intervalo** entre líneas, más DPI. Tlaku muestra la equivalencia al editar el intervalo (por ejemplo "0,1 mm = 254 DPI"). LPI son líneas por pulgada.
 - **Deformar (warp)**: meter un dibujo en una envolvente de cuatro esquinas y cuatro bordes curvos para arquearlo, abombarlo o darle perspectiva.
+- **DO (densidad óptica)**: lo que una gafa de seguridad láser atenúa a una longitud de onda dada. Hace falta la DO que pide tu láser, rotulada junto con la longitud de onda en la propia gafa. Ver [Seguridad del galvo](13d-galvo-seguridad.md).
 
 ## E
 
@@ -47,6 +49,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Entrada y salida (lead-in / lead-out)**: tramo con el que el láser empieza o termina un contorno desde fuera de la pieza, para que la marca del arranque quede en el sobrante y no en el borde.
 - **Escala de potencia**: porcentaje de la potencia de la capa que usa un objeto en particular (0 a 100 %). Se pone en **Propiedades del objeto**.
 - **Estado (`<Idle|...>`)**: informe que la máquina manda cuando se le pregunta con `?`: reposo, en marcha, pausa, alarma, y su posición.
+- **Error residual (Print & Cut)**: lo que sobra, en mm, después de ajustar las marcas: la distancia entre dónde debería estar cada marca con la transformación elegida y dónde la mediste. Mide la coherencia de tus medidas, no la precisión del corte. Con dos marcas y escala uniforme siempre sale casi cero. Ver [Print & Cut](09c-print-and-cut.md).
 
 ## F
 
@@ -59,6 +62,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Guías**: líneas de referencia que se arrastran desde las reglas y atraen a los objetos; no se graban. No son la capa de **Guías** de la paleta.
 - **G-code**: el lenguaje de órdenes que entienden las máquinas (`G0` mover rápido, `G1` mover grabando, `M3`/`M4` encender láser). Tlaku lo genera a partir de tu diseño; puedes verlo con **Exportar G-code…**.
 - **GRBL**: el firmware más común en láseres de diodo. Tlaku lo habla por USB. Existen variantes: **grblHAL**, **FluidNC** y **GRBL-LPC**.
+- **Galvo**: láser que mueve el haz con dos espejos giratorios (fibra, UV o CO2 galvo) y marca a gran velocidad dentro de un campo fijo, sin overscan. En Tlaku es experimental y se maneja hoy desde la línea de comandos. Ver [Galvo (experimental)](13c-galvo.md).
 
 ## H
 
@@ -120,6 +124,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Puentes**: trozos que se dejan sin cortar para que la pieza no se caiga ni se mueva antes de terminar, repartidos solos por la capa o colocados a mano con la herramienta `U`. Con **Potencia en puentes** el láser puede marcarlos sin atravesarlos.
 - **Punto de inicio**: el lugar donde empieza el corte de un contorno cerrado; se puede fijar a mano con la herramienta `Q`, junto con el sentido.
 - **Preferencias (`.tlakuprefs`)**: tus ajustes y atajos de teclado; se exportan a un archivo `.tlakuprefs` para llevarlos a otro equipo. Ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
+- **Print & Cut**: imprimir un diseño con marcas de registro y hacer que el láser corte justo sobre lo impreso, midiendo dónde quedaron las marcas. Ver [Print & Cut](09c-print-and-cut.md).
 
 ## R
 
@@ -145,6 +150,8 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Trayecto**: línea o curva vectorial. Un texto se convierte en trayectos para poder editar sus nodos.
 - **Texto soldado**: texto cuyas letras que se tocan o se solapan se funden en un solo contorno (casilla **Soldar letras**).
 - **Texto variable**: texto con llaves (`{serie}`, `{csv:Nombre}`, `{fecha}`) que se cambia por valores al enviar el trabajo. Ver [Texto variable](04b-texto-variable.md).
+- **Tiling (dividir en tramos)**: partir un trabajo más grande que la cama en tramos con solape y enviarlos de uno en uno. Ver [Tiling y alimentador automático](09d-tiling-y-alimentador.md).
+- **Tramo**: cada una de las partes de un trabajo dividido por el tiling.
 
 ## V
 
