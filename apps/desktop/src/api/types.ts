@@ -1,5 +1,5 @@
 /**
- * Tipos del contrato app <-> motor (docs/app-api.md).
+ * Tipos del contrato app <-> motor (docs/app-api/README.md).
  *
  * Todo viene de `src/bindings/` (generado con ts-rs desde el crate `tlaku-doc`; no editar a
  * mano): documento, dispositivo, trabajo, resultados de comandos y eventos de la máquina. Aquí se

@@ -1,0 +1,239 @@
+//! Transmisión: el trabajador mientras el `Streamer` tiene el puerto, y el cierre del trabajo.
+
+use super::*;
+
+impl Worker {
+    pub(super) fn stream_step(&mut self, mut run: Run) -> Result<Phase, Fail> {
+        while let Some(req) = self.next_request()? {
+            match req {
+                Request::Disconnect => {
+                    run.job.control.cancel();
+                    self.wait_finished(run);
+                    return Ok(Phase::Done);
+                }
+                other => self.stream_request(&mut run, other),
+            }
+        }
+        match run.job.events.recv_timeout(self.timing.tick) {
+            Ok(Event::Finished(_)) | Err(RecvTimeoutError::Disconnected) => self.finish(run),
+            Ok(ev) => {
+                self.stream_event(&mut run, ev);
+                Ok(Phase::Streaming(run))
+            }
+            Err(RecvTimeoutError::Timeout) => Ok(Phase::Streaming(run)),
+        }
+    }
+
+    pub(super) fn stream_request(&mut self, run: &mut Run, req: Request) {
+        let busy = "Hay un trabajo en curso. Pausa o cancela antes de enviar otra cosa a la \
+                    máquina.";
+        let ok = |reply: Reply| {
+            let _ = reply.send(Ok(Vec::new()));
+        };
+        match req {
+            Request::Pause(reply) => {
+                self.pause(run);
+                ok(reply);
+            }
+            Request::Resume(reply) => {
+                self.resume(run);
+                ok(reply);
+            }
+            Request::Cancel(reply) => {
+                self.cancel(run);
+                ok(reply);
+            }
+            Request::Realtime { cmd, reply } => {
+                match cmd {
+                    RealtimeCommand::Status => {}
+                    RealtimeCommand::Hold => self.pause(run),
+                    RealtimeCommand::Resume => self.resume(run),
+                    // Marlin y Smoothieware ignoran los bytes en tiempo real: se cancela el trabajo.
+                    RealtimeCommand::Reset if self.link_family != LinkFamily::Grbl => {
+                        self.cancel(run);
+                    }
+                    RealtimeCommand::Reset => {
+                        run.cancelling = true;
+                        run.job.control.realtime(Realtime::SoftReset);
+                    }
+                    RealtimeCommand::JogCancel if self.link_family != LinkFamily::Grbl => {}
+                    RealtimeCommand::JogCancel => run.job.control.realtime(Realtime::JogCancel),
+                }
+                ok(reply);
+            }
+            // Los overrides son justo para esto: se mandan por el mando del trabajo en curso.
+            Request::Override {
+                kind,
+                percent,
+                reply,
+            } => {
+                let r = self.override_bytes(kind, percent).map(|plan| {
+                    for r in plan {
+                        run.job.control.realtime(r);
+                    }
+                    self.note_override(kind, percent);
+                });
+                let _ = reply.send(match r {
+                    Ok(()) => Ok(Vec::new()),
+                    Err(Fail::Msg(m) | Fail::Lost(m)) => Err(m),
+                });
+            }
+            Request::Command { reply, .. }
+            | Request::Jog { reply, .. }
+            | Request::JogTo { reply, .. }
+            | Request::Start { reply, .. } => {
+                let _ = reply.send(Err(busy.into()));
+            }
+            Request::Disconnect => unreachable!("se atiende antes"),
+        }
+    }
+
+    pub(super) fn pause(&mut self, run: &Run) {
+        run.job.control.pause();
+        self.set_reported_state(MachineState::Hold);
+        if run.kind == RunKind::Job {
+            self.job_event(JobState::Paused, "En pausa.");
+        }
+    }
+
+    pub(super) fn resume(&mut self, run: &Run) {
+        run.job.control.resume();
+        self.set_reported_state(MachineState::Run);
+        if run.kind == RunKind::Job {
+            self.job_event(JobState::Started, "Reanudado.");
+        }
+    }
+
+    pub(super) fn cancel(&self, run: &mut Run) {
+        run.cancelling = true;
+        run.job.control.cancel();
+    }
+
+    pub(super) fn stream_event(&mut self, run: &mut Run, ev: Event) {
+        match ev {
+            Event::Progress { acked, total, .. } => {
+                if run.kind != RunKind::Job {
+                    return;
+                }
+                let due = run
+                    .last_progress
+                    .is_none_or(|t| t.elapsed() >= self.timing.progress_interval);
+                if due || acked == total {
+                    run.last_progress = Some(Instant::now());
+                    self.sink.emit(Emit::Progress(ProgressEvent {
+                        acked: acked.try_into().unwrap_or(u32::MAX),
+                        total: total.try_into().unwrap_or(u32::MAX),
+                    }));
+                }
+            }
+            Event::Status(r) => self.on_status(&r),
+            Event::Error {
+                code,
+                source_line,
+                text,
+            } => {
+                let at = match (source_line, text) {
+                    (Some(l), Some(t)) => format!(" en la línea {l} ({t})"),
+                    _ => String::new(),
+                };
+                self.log(
+                    LogDir::In,
+                    &format!("error:{code}{at}: {}", error_message_for(self.fw, code)),
+                );
+            }
+            Event::Alarm(code) => {
+                self.log(
+                    LogDir::In,
+                    &format!("ALARM:{code}: {}", alarm_message_for(self.fw, code)),
+                );
+            }
+            Event::Reset(m) => {
+                self.note_line(&m);
+                self.log(LogDir::In, &m);
+            }
+            Event::Message(m) => {
+                self.note_line(&m);
+                self.log(LogDir::In, &m);
+            }
+            Event::Finished(_) => {}
+        }
+    }
+
+    /// Espera el fin del envío tras pedir la cancelación.
+    pub(super) fn wait_finished(&mut self, run: Run) {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while Instant::now() < deadline {
+            match run.job.events.recv_timeout(Duration::from_millis(50)) {
+                Ok(Event::Finished(_)) | Err(RecvTimeoutError::Disconnected) => break,
+                Ok(_) | Err(RecvTimeoutError::Timeout) => {}
+            }
+        }
+        if run.kind == RunKind::Job {
+            self.job_event(JobState::Cancelled, "Trabajo cancelado al desconectar.");
+        }
+        let _ = run.job.join();
+    }
+
+    /// El `Streamer` terminó: recupera el puerto y comunica el resultado.
+    pub(super) fn finish(&mut self, run: Run) -> Result<Phase, Fail> {
+        let kind = run.kind;
+        let (streamer, outcome) = run
+            .job
+            .join()
+            .map_err(|_| Fail::Lost("el hilo de envío terminó de forma inesperada".into()))?;
+        // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
+        // `ALARM:3` es justo eso: reinicio con la máquina en movimiento.
+        let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost)
+            || matches!(outcome, Outcome::Alarm(3));
+        let t = streamer.into_transport();
+        self.reader.clear();
+        self.last_poll = None;
+        self.last_rx = Instant::now();
+        // Un ALARM:1/2 que terminó el trabajo deja la placa bloqueada y callada hasta un
+        // reset; tras cualquier otro final ya no hay bloqueo que esperar.
+        self.quiet = matches!(outcome, Outcome::Alarm(1 | 2)).then_some(Quiet::CriticalAlarm);
+        self.set_reported_state(MachineState::Idle);
+        match (&outcome, kind) {
+            (Outcome::Completed { errors: 0 }, RunKind::Job) => {
+                self.job_event(JobState::Finished, "Trabajo terminado.");
+            }
+            (Outcome::Completed { errors: 0 }, RunKind::Frame) => {
+                self.log(LogDir::In, "; encuadre terminado");
+            }
+            (Outcome::Cancelled, RunKind::Job) => {
+                let mut msg = String::from(
+                    "Trabajo cancelado: se envió pausa, se esperó a que frenara y se reinició; \
+                     el láser quedó apagado.",
+                );
+                if position_lost {
+                    msg.push(' ');
+                    msg.push_str(POSITION_LOST_NOTE);
+                }
+                self.job_event_at(JobState::Cancelled, &msg, position_lost);
+            }
+            (Outcome::Cancelled, RunKind::Frame) => {
+                self.log(LogDir::In, "; encuadre cancelado");
+                if position_lost {
+                    self.log(LogDir::In, &format!("; {POSITION_LOST_NOTE}"));
+                }
+            }
+            _ => {
+                let mut msg = outcome_result_for(self.fw, &outcome)
+                    .err()
+                    .unwrap_or_else(|| "el envío terminó con errores".into());
+                if position_lost {
+                    msg.push(' ');
+                    msg.push_str(POSITION_LOST_NOTE);
+                }
+                self.log(LogDir::In, &first_line(&msg));
+                self.job_event_at(JobState::Error, &msg, position_lost);
+            }
+        }
+        if let Outcome::Disconnected(m) = outcome {
+            return Err(Fail::Lost(format!(
+                "se perdió la conexión con la máquina: {m}"
+            )));
+        }
+        Ok(Phase::Idle(t))
+    }
+}

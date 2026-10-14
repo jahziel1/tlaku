@@ -181,7 +181,7 @@ Estas funciones están en el plan y todavía no son parte de la app:
   nueva tampoco se ha probado en una ventana real.
 
 El estado real, función por función (178 de las 217 funciones del inventario están hechas), está en
-[docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
+[docs/spec/cobertura/README.md](docs/spec/cobertura/README.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
 ## Controladoras soportadas
@@ -268,8 +268,8 @@ Tlaku es de todos y lo hace posible quien lo prueba, lo mejora y lo difunde.
 
 - [Manual de usuario](docs/manual/00-indice.md): de los primeros pasos a la solución de problemas.
 - [docs/arquitectura.md](docs/arquitectura.md): pipeline, responsabilidad de cada crate y convenciones.
-- [docs/app-api.md](docs/app-api.md): contrato entre la interfaz y el motor.
-- [docs/spec/00-resumen.md](docs/spec/00-resumen.md) y [04-cobertura.md](docs/spec/04-cobertura.md): inventario funcional y estado real.
+- [docs/app-api/README.md](docs/app-api/README.md): contrato entre la interfaz y el motor.
+- [docs/spec/00-resumen.md](docs/spec/00-resumen.md) y [cobertura](docs/spec/cobertura/README.md): inventario funcional y estado real.
 - [docs/plan-completo.md](docs/plan-completo.md): plan por olas.
 - [docs/hardware/](docs/hardware/): investigación de controladoras y máquinas, con fuentes.
 - [docs/publicar.md](docs/publicar.md): cómo se publica una versión.

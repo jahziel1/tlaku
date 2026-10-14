@@ -2,7 +2,7 @@
 
 Aplicación de escritorio de Tlaku: **Tauri v2 + Vite + React 19 + TypeScript (strict) + zustand**.
 La interfaz es dueña del documento que se edita; el motor (Rust) recibe el documento completo y
-devuelve resultados. El contrato está en [`docs/app-api.md`](../../docs/app-api.md).
+devuelve resultados. El contrato está en [`docs/app-api/README.md`](../../docs/app-api/README.md).
 
 Estado: la interfaz completa funciona contra una máquina y un motor **simulados** (mock) o contra
 el motor real: `src-tauri` implementa todos los comandos y eventos del contrato sobre
@@ -68,7 +68,7 @@ apps/desktop/
     src/                engine (motor y archivos), machine (conexión GRBL), commands (invoke)
   src/
     api/                Contrato con el motor
-      api.ts            Interfaz `LaserApi`: TODOS los comandos y eventos de docs/app-api.md
+      api.ts            Interfaz `LaserApi`: TODOS los comandos y eventos de docs/app-api/
       tauri.ts          Implementación real (invoke / listen)
       mock/             Implementación simulada en memoria (+ pruebas)
       types.ts          Reexporta src/bindings/ y define JobArgs y EventMap

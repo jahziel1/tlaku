@@ -3,7 +3,7 @@
 El motor es una biblioteca en Rust organizada en crates pequeños. Ninguno conoce la interfaz:
 todo lo que haga la aplicación se puede ejecutar y probar desde la línea de comandos.
 Los crates intermedios (`geom`, `plan`, `fill`, `raster`, `sim`) dependen solo de `tlaku-core`;
-`tlaku-pipeline` los une y es lo que usan el CLI y la app de escritorio (ver [app-api.md](app-api.md)).
+`tlaku-pipeline` los une y es lo que usan el CLI y la app de escritorio (ver [app-api/README.md](app-api/README.md)).
 
 ## Pipeline
 
@@ -50,7 +50,7 @@ Los drivers de otras controladoras también parten de un `Toolpath`: `tlaku-ruid
 | `tlaku-doc` | Tipos del contrato con la app (`Document`, `LayerSettings`, `DeviceProfile`, `JobOptions`, `JobPreview`...) con `serde` y `ts-rs`, más transformaciones afines y cajas envolventes. No depende del resto del motor. |
 | `tlaku-pipeline` | De `Document` + `DeviceProfile` + `JobOptions` a `ComputedJob` (`Toolpath`, vista previa, avisos): validación de capas, orden automático, kerf, plan, puentes, relleno, imágenes, eje Z, corrección de barrido, colocación (`start_from`, `job_origin`), límites de la cama, rotativo y G-code. También `import_file` y `material_test`. |
 | `tlaku-cli` | Binario `tlaku`; traduce los argumentos a un `Document` y delega en `tlaku-pipeline`. Para Ruida: `tlaku ruida export-rd | send | status`; para K40 con M2 Nano: `tlaku k40 send | status | list | export-egv` (`--emu` usa la placa simulada). |
-| `tlaku-desktop` (`apps/desktop/src-tauri`) | App Tauri: comandos y eventos de [app-api.md](app-api.md) sobre `tlaku-pipeline` y `tlaku-grbl`; la conexión vive en un hilo dedicado. |
+| `tlaku-desktop` (`apps/desktop/src-tauri`) | App Tauri: comandos y eventos de [app-api/README.md](app-api/README.md) sobre `tlaku-pipeline` y `tlaku-grbl`; la conexión vive en un hilo dedicado. |
 
 ## Contrato de `Toolpath`
 

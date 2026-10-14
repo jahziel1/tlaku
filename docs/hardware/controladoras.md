@@ -11,7 +11,7 @@ Documentos hermanos (los escriben otros agentes; aquí solo se enlazan):
 
 ## Estado de soporte en Tlaku (2026-10-13, tras la ola 4)
 
-Esta tabla es lo que hay **en el código**, no lo que recomienda la investigación. Ninguna fila se ha probado con una máquina real. Detalle y pruebas: [../spec/04-cobertura.md](../spec/04-cobertura.md) y [../manual/13-controladoras.md](../manual/13-controladoras.md).
+Esta tabla es lo que hay **en el código**, no lo que recomienda la investigación. Ninguna fila se ha probado con una máquina real. Detalle y pruebas: [../spec/cobertura/README.md](../spec/cobertura/README.md) y [../manual/13-controladoras.md](../manual/13-controladoras.md).
 
 | Familia | `DeviceKind` | Transporte | Estado | Probado en emulador | Por validar con hardware |
 |---|---|---|---|---|---|

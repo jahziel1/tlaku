@@ -74,7 +74,7 @@ En la computadora, la sección **Control remoto** de Preferencias recuerda estas
 - Cinco claves incorrectas seguidas bloquean esa dirección dos minutos. Las sesiones sin actividad caducan a los 30 minutos y hay un máximo de 8 aparatos.
 - **Detener** y **Pausar** nunca dependen del encuadre ni de la lista de comprobación: la seguridad es que se pueda parar siempre, y arrancar cueste más.
 
-El detalle técnico (rutas, cabeceras, límites) está en el repositorio, en la sección «Control remoto desde el celular» de `docs/app-api.md`.
+El detalle técnico (rutas, cabeceras, límites) está en el repositorio, en la sección «Control remoto desde el celular» de `docs/app-api/control-remoto.md`.
 
 ## Solución de problemas
 

@@ -2,8 +2,8 @@
 
 Léelo antes de tocar nada. Responde "¿dónde está X?" y "¿dónde agrego Y?". Qué hace cada crate y
 las decisiones de diseño están en [arquitectura.md](arquitectura.md) (no se repiten aquí); el
-contrato de comandos y eventos, en [app-api.md](app-api.md) (busca con `grep -n`, no lo leas
-entero). Las líneas son aproximadas (2026-10); si el código cambió, `grep -n` el nombre.
+contrato de comandos y eventos, en [app-api/](app-api/README.md) (su tabla dice en qué archivo de
+área está cada comando; abre solo ese). Las líneas son aproximadas (2026-10, tras partir archivos en la ola 6); si el código cambió, `grep -n` el nombre.
 
 ## 1. Estructura de arriba abajo
 
@@ -78,26 +78,11 @@ Lee con `offset`/`limit`. Cada fila: líneas totales y secciones (`línea:nombre
 
 | Archivo (líneas) | Secciones |
 |---|---|
-| `crates/tlaku-grbl/src/streamer.rs` (2402) | 35 `Realtime`, 103 `override_plan`, 152-410 `MachineState`/`StatusReport` + parseo, 429-650 `Firmware` + mensajes de `error:`/`ALARM:`, 656-692 errores Creality, 702 `prepare_line`, 740 `StreamError`, 851 `StreamerConfig`, 925 `Event`/`Outcome`, 1030-1810 `Streamer`/`RunState` (bucle de envío), 1837 `absorb_line`, 1879 tests |
-| `crates/tlaku-emu/src/machine.rs` (2301) | 34 `Options`, 120 `Machine`, 230-2285 `impl Machine` (RX, planificador, `$`, tiempo real, homing), 2285 tests |
-| `apps/desktop/src-tauri/src/edit/camera.rs` (1987) | 60-134 `detect_board`/`calibrate_lens`, 139-245 marcas, 252-700 `CameraSetup` + `normalize_setup` + archivo, 705-917 `compose_bed_image`, 923 círculo, 939 tests |
-| `crates/tlaku-ruida/src/session.rs` (1848) | 37 `addr`, 85 `SessionConfig`, 136 `SessionError`, 281 `SendMode`, 352-1091 `RuidaSession`, 1105 tests |
-| `apps/desktop/src-tauri/src/machine.rs` (1789) | 80 `Emit`, 114 `Timing`, 220 `Handle`, 396 `Connection`, 522 `identify`, 715 `Worker`; en `impl Worker`: 801 `run`, 853 `on_status`, 970 `idle_step`, 1157 `command`, 1262 `jog`, 1409 `try_start`, 1510 `stream_step`, 1682 `finish` |
-| `apps/desktop/src-tauri/src/machine/galvo.rs` (1726) | 123 `SafetyAck`, 263 `prepare`, 459 `GalvoEvent`, 614 `GalvoHandle`, 869 `GalvoConnection`, 1151 `Worker` (1430 `run_light`, 1541 `run_job`) |
-| `crates/tlaku-lhymicro/src/session.rs` (1643) | 58 `SessionConfig`, 129 `JobControl`, 185 `SessionError`, 385 `LhySession` (497 `probe`, 777 `send_job`, 930 `home`, 1004 `frame`), 1045 tests |
-| `crates/tlaku-camera/src/calibration.rs` (1603) | 38 `LensModel`, 297 `calibrate_lens`, 383 `calibrate_views`, 673-870 ajuste, 1037 `levenberg_marquardt`, 1160 tests |
-| `crates/tlaku-ruida/src/cmd.rs` (1549) | 124 `Command`, 360-720 encode, 728 `decode_body`, 1073 `Display`, 1171 tests |
-| `crates/tlaku-lhymicro/src/encode.rs` (1542) | 39 `HomeCorner`, 110 `EncodeConfig`, 151 `Warning`, 397 `Encoder`, 654 `encode`, 798 tests |
-| `crates/tlaku-ruida/src/rd.rs` (1539) | 89 `HomeCorner`, 186 `RuidaJobOptions`, 335 `plan_layers`, 521 `build_commands`, 721 `build_rd`, 786 tests |
-| `crates/tlaku-camera/src/marks.rs` (1480) | 44 `MarkLayout`, 186 `DetectOptions`, 302 `find_candidates`, 659-777 asignación, 863 `detect_marks`, 1075 tests |
 | `crates/tlaku-galvo/src/compile.rs` (1416) | 34 `FieldOrigin`, 58 `CompileOptions`, 212 `Builder`, 691 `compile`, 793 `compile_light`, 850 tests |
 | `crates/tlaku-pipeline/src/stroke.rs` (1401) | 53 `LeadSpec`, 118 `resolve`, 372 `Stroke`, 685 `push_shape`, 774 `apply_closed`, 849 `ramp`, 922 tests |
 | `crates/tlaku-svg/src/lib.rs` (1342) | 60 `import_svg`, 135 `scan_xml`, 197 `build_warnings`, 580 `clip_path`, 662 `curves`, 785 tests |
-| `crates/tlaku-pipeline/src/build.rs` (1332) | 33 `FillPart`, 163 `LineCtx`, 229 `Builder` (248-886), 898 `build` (898-1250), 1250 `plan_options`, 1314 `compute` |
 | `crates/tlaku-grbl/src/gcode.rs` (1313) | 39 `GcodeOptions`, 121 `Writer`, 452 `generate`, 603 tests |
 | `crates/tlaku-grbl/src/preflight.rs` (1304) | 95 `validate_gcode`, 310 `check_settings`, 455 `alarm_advice`, 585 `preflight`, 777 `preflight_link`, 889 tests |
-| `apps/desktop/src-tauri/src/machine/ruida.rs` (1289) | 81 `RuidaTiming`, 175 `RuidaHandle`, 307 `RuidaConnection`, 591 `VirtualSim`, 659 `Worker`, 1241 `build_upload` |
-| `apps/desktop/src-tauri/src/machine/lhymicro.rs` (1267) | 131 config, 339 `LhyHandle`, 556 `LhyConnection`, 825 `Worker` |
 | `crates/tlaku-cli/src/galvo.rs` (1184) | 209 `GalvoCommand`, 276 `plan`, 452 `run`, 564 `light`, 677 `mark`, 802 tests |
 | `apps/desktop/src-tauri/src/edit/geometry.rs` (1152) | 63 `GeometryOp`, 202 `run`, 317 `cleanup`, 466 `geometry_op`, 484 tests |
 | `crates/tlaku-pipeline/src/import_pdf.rs` (1146) | 36 `import`, 170 `page_geometry`, 213 `ColorSpace`, 437 `Interpreter`, 868 tests |
@@ -111,18 +96,52 @@ Lee con `offset`/`limit`. Cada fila: líneas totales y secciones (`línea:nombre
 | `crates/tlaku-pipeline/src/material_test.rs` (889) | 40 `GLYPHS` (fuente de rótulos), 326 `apply_param`, 484 `material_test` |
 | `crates/tlaku-raster/src/scan.rs` (869) | 8 `RasterSettings`, 90 `raster_to_block`, 196 `rotated_moves`, 276 `row_runs` |
 | `crates/tlaku-pipeline/src/import_hpgl.rs` (820) | 24 `import`, 158 `Parser` |
-| `apps/desktop/src/features/canvas/useCanvasTools.ts` (920) | un solo hook `useCanvasTools` (91-920): ratón, herramientas, atajos del lienzo |
-| `apps/desktop/src/features/canvas/canvas2d.ts` (914) | `Canvas2DRenderer` (54-914) |
-| `apps/desktop/src/store/machine.ts` (884) | 125 `reduceMachine`, 207-320 selectores (`jogBlockedReason`, `sendBlockedReason`), 503 `createMachineSlice` |
 | `apps/desktop/scripts/screenshots.mjs` (899) | 18-190 ayudantes (`shot`, `click`, `evaluate`), 191 fase 3, 423 ola 2, 532 ola 3 (39-47), 678 ola 4 (48-57) |
 | `apps/desktop/src/features/machine/machine.css` (1059) | prefijos `.mc-*`; busca la clase con `grep -n` |
 
+### Partidos en la ola 6 (carpetas por tema; ningún archivo pasa de ~600 líneas)
+
+La API pública no cambió: cada `mod.rs` (o el `.rs` padre) reexporta con `pub use`. Busca el
+nombre con `grep -rn` dentro de la carpeta.
+
+| Carpeta / archivo | Contenido |
+|---|---|
+| `crates/tlaku-grbl/src/streamer/mod.rs` (166) | struct `Streamer`, `RunState`, `Command`/`Control`/`Job`, `mod`/`pub use`; submódulos: `realtime.rs` (`Realtime`, `override_plan`), `status.rs` (`MachineState`, `StatusReport` + parseo, `$#`), `firmware.rs` (`Firmware`, textos `error:`/`ALARM:`, fallas Creality), `lines.rs` (`prepare_line`, `StreamError`), `config.rs` (`StreamerConfig`, `ErrorPolicy`), `events.rs` (`Event`, `Outcome`), `run.rs` (`new`, `run`, `spawn`), `tick.rs` (bucle `tick`), `stop.rs` (`safe_stop`, `sequence_stop`, `absorb_line`), `incoming.rs` (`handle_line`, Marlin), `tests.rs` (523) |
+| `crates/tlaku-emu/src/machine/mod.rs` (256) | struct `Machine`, `Options`, tipos internos; submódulos: `access.rs` (`new`, consultas), `link.rs` (`receive`), `motion.rs` (tiempo, cinemática, láser, límites), `pump.rs` (`exec_line`, `exec_gcode`), `dollar.rs` (`$`, jog, homing), `reprap.rs` (Marlin/Smoothie), `realtime.rs` (tiempo real, estado, alarmas, reset), `faults.rs` (fallas inyectadas) |
+| `crates/tlaku-pipeline/src/build/mod.rs` (454) | `Builder`/`LineCtx`, `build`, `compute`, `compute_at`; submódulos: `builder.rs` (`push*`), `line.rs` (`line_layer`), `fill.rs` (`fill_layer`, partes), `image.rs`, `helpers.rs`, `plan.rs` (`plan_options`) |
+| `crates/tlaku-pipeline/src/tests/mod.rs` (204) | ayudantes (`doc`, `device`, `rect_object`, `three_layers`...) y un archivo por tema: `import`, `layers`, `compute`, `placement`, `bounds`, `images`, `gcode`, `curves`, `tabs`, `zaxis`, `rotary`, `scan_offset`, `power_scale`, `manual` |
+| `crates/tlaku-ruida/src/session/` | `mod.rs` (`RuidaSession`, ACK), `config.rs` (`SessionConfig`, `SessionError`), `types.rs` (`ProbeInfo`, `MachineStatus`, `UploadReport`...), `query.rs` (`status`, `controller_info`, `list_documents`), `probe.rs`, `send.rs` (`send_job`, `try_stop`), `control.rs` (pausa, home, jog, `frame`), `tests/` |
+| `crates/tlaku-ruida/src/cmd/` | `types.rs` (`Command`, `DecodeError`), `encode.rs`, `decode.rs` (`decode_body`, `disassemble`; también `encode_stream`), `display.rs`, `tests.rs` |
+| `crates/tlaku-ruida/src/rd/` | `mod.rs` (`build_rd`, swizzle), `options.rs` (`MAX_LAYERS`, `HomeCorner`, `RuidaJobOptions`, `RdError`), `plan.rs` (`plan_layers`), `build.rs` (`build_commands`), `tests/` |
+| `crates/tlaku-lhymicro/src/session/` | `mod.rs` (`LhySession`), `config.rs`, `control.rs` (`JobControl`), `types.rs` (errores, `JobReport`), `poll.rs` (`probe`, `status`), `realtime.rs` (`stop`), `packets.rs` (envío y CRC), `job.rs` (`send_job`), `motion.rs` (`home`, jog, `frame`), `tests/` |
+| `crates/tlaku-lhymicro/src/encode/` | `mod.rs` (`encode`), `config.rs` (`EncodeConfig`, `HomeCorner`), `errors.rs`, `program.rs` (`Program`), `encoder.rs` (`Encoder`), `tests/` |
+| `crates/tlaku-camera/src/calibration/` | `model.rs` (`LensModel`), `options.rs`, `calibrate.rs` (`calibrate_lens`, `calibrate_views`), `select.rs` (`select_model`), `fit.rs`, `intrinsics.rs`, `lm.rs` (`levenberg_marquardt`), `tests.rs`, `fisheye_tests.rs` |
+| `crates/tlaku-camera/src/marks/` | `layout.rs` (`MarkLayout`), `report.rs` (`DetectOptions`), `candidates.rs`, `refine.rs`, `assign.rs`, `detect.rs` (`detect_marks`), `tests.rs` |
+| `apps/desktop/src-tauri/src/machine.rs` (90) | Doc, `use` comunes, `NOT_CONNECTED`, `mod`/`pub use` de `connection`, `emit`, `handle`, `worker` |
+| `apps/desktop/src-tauri/src/machine/emit.rs` (75) | `Emit`, `Sink`, `Timing` |
+| `apps/desktop/src-tauri/src/machine/handle.rs` (239) | `Shared`, `Reply`, `RunKind`, `Request`, `Handle` |
+| `apps/desktop/src-tauri/src/machine/connection.rs` (237) | `Connection`, `identify`, `probe_reprap`, `parse_m114`, `is_ack` |
+| `apps/desktop/src-tauri/src/machine/worker.rs` (277) | `Worker` (`new`, `run`, `next_request`), `Run`, `Phase`, `Fail`, ayudantes |
+| `apps/desktop/src-tauri/src/machine/worker/{status,idle,command,jog,start,stream}.rs` (124/152/162/166/104/239) | `on_status`/`pump`; `idle_step`/`poll_reprap`; `realtime`/`command`/`exchange`; `jog`/overrides; `try_start`; `stream_step`/`finish` |
+| `apps/desktop/src-tauri/src/machine/tests/mod.rs` (454) + `{connection,jobs,firmware,virtual_machine,reprap,jog,overrides,network}.rs` | Apoyos (`Fake`, `Rig`, `connect_virtual`, `emu`) y pruebas por tema |
+| `apps/desktop/src-tauri/src/machine/galvo.rs` (135) + `galvo/{safety,prepare,events,handle,connection,worker}.rs`, `galvo/worker/{light,job}.rs` | `SafetyAck` (safety), `prepare`/`preview` (prepare), `GalvoEvent` (events), `GalvoHandle`, `GalvoConnection`, `Worker` (`run_light` en light, `run_job` en job) |
+| `apps/desktop/src-tauri/src/machine/ruida.rs` (91) + `ruida/{handle,connection,sim,worker,job}.rs`, `ruida/worker/{status,requests,upload}.rs` | `RuidaHandle`, `RuidaConnection`, `VirtualSim`, `Worker`, `build_upload`/`frame_corners` |
+| `apps/desktop/src-tauri/src/machine/lhymicro.rs` (107) + `lhymicro/{config,handle,connection,worker}.rs`, `lhymicro/worker/{motion,job}.rs` | `session_config`/`encode_config`/`preview` (config), `LhyHandle`, `LhyConnection`, `Worker` |
+| `apps/desktop/src-tauri/src/edit/camera.rs` (68) + `camera/{board,marks,setup,normalize,store,bed_image,circle}.rs` | calibración y tablero; marcas; `CameraSetup` y tipos; `normalize_setup`; archivo `load/save_camera_setup`; `compose_bed_image`; círculo |
+| `apps/desktop/src-tauri/src/edit/camera/tests/mod.rs` + `{board,setup,marks,height,bed_image}.rs` | pruebas por tema |
+| `apps/desktop/src/store/machine/index.ts` (4) | Reexporta `reducer`, `selectors` y `slice`; los imports de fuera no cambian |
+| `apps/desktop/src/store/machine/reducer.ts` (198) | 7 `JobUiState`, 19 `MachineDialog`, 37 `MachineData`, 66 `MachineEvent`, 112 `reduceMachine`, 194 `jobElapsedSeconds` |
+| `apps/desktop/src/store/machine/selectors.ts` (120) | 15 `selectHeadDoc`, 45 `jogBlockedReason`, 59 `positionLaserBlockedReason`, 73 `overrideBlockedReason`, 83 `FrameMark`, 94 `frameMarkOf`, 103 `selectFramed`, 111 `sendBlockedReason` |
+| `apps/desktop/src/store/machine/slice.ts` (582) | 27 `MachineSlice`, 126 `pickData`, 149 `commandErrorText`, 201 `createMachineSlice` |
+| `apps/desktop/src/features/canvas/useCanvasTools.ts` (479) | Hook: 36 `useEffect`, 83 `cancel`, 120 `onDown`, 176 `update`, 209 `hoverAt`, 258 `onMove`, 286 `onUp`, 362 teclado, 387 menú contextual, 399 doble clic; gestos en `gestureState.ts`, `toolSnapping.ts`, `transformGesture.ts`, `shapeGesture.ts`, `polylineGesture.ts` |
+| `apps/desktop/src/features/canvas/canvas2d.ts` (578) | `Canvas2DRenderer` (55-578); funciones de dibujo puras en `overlay2d.ts` (342) |
+
 Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "fn "`):
-`crates/tlaku-pipeline/src/tests.rs`, `tests/{orden,galvo}.rs`, `crates/tlaku-plan/tests/plan.rs`,
+`crates/tlaku-pipeline/tests/{orden,galvo}.rs`, `crates/tlaku-plan/tests/plan.rs`,
 `crates/tlaku-cli/tests/cli.rs`, `crates/tlaku-emu/tests/{reprap,behavior}.rs`,
 `crates/tlaku-grbl/tests/streamer.rs`, `crates/tlaku-text/tests/outline.rs`, `crates/tlaku-geom/src/tests.rs`,
 `crates/tlaku-dxf/src/tests.rs`, `crates/tlaku-export/src/tests.rs`,
-`apps/desktop/src-tauri/src/machine/{tests,ruida/tests,lhymicro/tests,galvo/tests}.rs`, `remote/tests.rs`.
+`apps/desktop/src-tauri/src/machine/{tests/,ruida/tests,lhymicro/tests,galvo/tests}.rs`, `remote/tests.rs`.
 
 ## 3. Recetas: "dónde agrego..."
 
@@ -137,17 +156,17 @@ Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targe
 4. `src/api/tauri.ts`: `miComando: (a) => call('miComando', a),`.
 5. Mock: `src/api/mock/<área>.ts` (o crear `mockXxx(lag)` y esparcirlo con `...mockXxx(lag)` en `mock/index.ts:~202-220`).
 6. Tipos nuevos de entrada/salida: contrato compartido en `tlaku-doc` (3.6); si solo los usa la UI, en `api/types.ts` o en `features/<área>/types.ts`.
-7. `docs/app-api.md`: fila/sección del comando (`grep -n "^## \|^### "` para ubicar el área).
+7. `docs/app-api/<área>.md`: fila/sección del comando, y su fila en la tabla de `docs/app-api/README.md`.
 8. Prueba: Rust en el mismo archivo (`mod tests`) y `api/mock/*.test.ts` o la de la feature.
 
 ### 3.2 Un evento de máquina (`machine://*`)
-1. Carga serializable: tipo en `tlaku-doc/src/machine.rs` (derive `TS`, ver 3.6) o, si es de un solo driver, en su módulo (como `GalvoEvent` en `machine/galvo.rs:~459`).
-2. `src-tauri/src/machine.rs`: variante en `enum Emit` (~80) **y** su nombre en `Emit::name()`; luego `TauriSink::emit` en `commands.rs:~71-79` (un `match` exhaustivo).
+1. Carga serializable: tipo en `tlaku-doc/src/machine.rs` (derive `TS`, ver 3.6) o, si es de un solo driver, en su módulo (como `GalvoEvent` en `machine/galvo/events.rs`).
+2. `src-tauri/src/machine/emit.rs`: variante en `enum Emit` **y** su nombre en `Emit::name()`; luego `TauriSink::emit` en `commands.rs:~71-79` (un `match` exhaustivo).
 3. Emitirlo desde el `Worker` del driver (`self.sink.emit(Emit::...)`; `machine/{ruida,lhymicro,galvo}.rs`).
 4. Frontend: `src/api/types.ts`, entrada en `EventMap` (~289; el tipo `GalvoEvent` vive allí). Si es del grupo común, agregar el nombre a `EVENT_NAMES` en `api/api.ts` (`mock.test.ts` cuenta 10) .
-5. Suscribirlo en `src/store/index.ts:~62-67` (`api.on('machine://x', (p) => s().onX(p))`) y la acción `onX` en el slice (`store/machine.ts` interfaz ~420 + `createMachineSlice` 503, o `store/galvo.ts`); si cambia el estado, el reductor es `reduceMachine` (125).
+5. Suscribirlo en `src/store/index.ts:~62-67` (`api.on('machine://x', (p) => s().onX(p))`) y la acción `onX` en el slice (`store/machine/slice.ts`: `MachineSlice` ~27 + `createMachineSlice` ~201, o `store/galvo.ts`); si cambia el estado, el reductor es `reduceMachine` (`store/machine/reducer.ts:~112`).
 6. Mock: `src/api/mock/machine.ts` (`this.emit('machine://x', payload)`).
-7. `docs/app-api.md`, tabla "Eventos (`listen`)".
+7. `docs/app-api/conexion-y-trabajo.md`, tabla "Eventos (`listen`)".
 
 ### 3.3 Una preferencia
 1. `src/store/prefs.ts`: campo en `interface Prefs` y entrada en `PREF_SPECS` (`bool`/`number`/`choice`/`json`, con valor de fábrica y límites). De ahí salen el saneado, `DEFAULT_PREFS`, `usePref`/`getPref` y el guardado en `preferences.json`.
@@ -179,22 +198,22 @@ Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targe
 
 ### 3.7 Un ajuste de capa
 1. `tlaku-doc/src/layer.rs`: campo en `LayerSettings` (o `ImageSettings`/`TabSettings`) con `#[serde(default)]` y su valor en `impl Default` (~346); en `cut.rs`/`galvo.rs` si es de esos grupos. Regenerar bindings (3.6).
-2. Motor: `tlaku-pipeline` (`build.rs` consume la capa; `layers.rs` valida; `stroke.rs`, `tabs.rs`, `zaxis.rs`... según el ajuste). Fill: `tlaku-fill`; imagen: `tlaku-raster`.
+2. Motor: `tlaku-pipeline` (`build/` consume la capa: `line.rs`, `fill.rs`, `image.rs`; `layers.rs` valida; `stroke.rs`, `tabs.rs`, `zaxis.rs`... según el ajuste). Fill: `tlaku-fill`; imagen: `tlaku-raster`.
 3. `apps/desktop/src/lib/layers.ts`: valor por defecto en `factoryLayer` (~77). Si no debe copiarse a plantillas, ver `layerTemplate` (117).
 4. UI: `features/layers/fields.ts` (`NumericField` + rango en la tabla ~118), `rules.ts` (cuándo se deshabilita y por qué), `LayerFields.tsx` (o `ParamFields.tsx`/`SubLayers.tsx`), texto `layers.*` en `i18n/{es,en}/layers.ts`.
 5. `api/mock/job.ts` si el ajuste cambia la vista previa simulada.
 6. CLI si debe poder pedirse por línea de comandos: `crates/tlaku-cli/src/options.rs` / `cli.rs`.
-7. Pruebas: `tlaku-pipeline/src/tests.rs` o `tests/orden.rs`; `features/layers/*.test.ts(x)`. Si cambia el G-code dorado, ver sección 4.
+7. Pruebas: `tlaku-pipeline/src/tests/<tema>.rs` o `tests/orden.rs`; `features/layers/*.test.ts(x)`. Si cambia el G-code dorado, ver sección 4.
 
 ### 3.8 Un driver o tipo de máquina nuevo
 Modelo a imitar: Ruida (`tlaku-ruida`) o K40 (`tlaku-lhymicro`).
 1. `tlaku-doc/src/device.rs`: variante en `DeviceKind` (+ struct de ajustes con `#[serde(default)]`); bindings (3.6). Si es solo otro dialecto de G-code, basta `GcodeDialect` (`device.rs`) y `tlaku-grbl/src/gcode.rs`.
 2. Crate `crates/tlaku-<x>` (entra solo al workspace): `Toolpath` a protocolo, transporte detrás de un trait, sesión con parada segura, `safety.rs`, feature `emu` con emulador. No decide orden ni relleno (ver contrato en `arquitectura.md`).
-3. `tlaku-pipeline`: módulo de salida (como `ruida.rs`/`galvo.rs`) + rama en `build.rs` (por `device.kind`, ~107) y `pub use` en `lib.rs`.
+3. `tlaku-pipeline`: módulo de salida (como `ruida.rs`/`galvo.rs`) + rama en `build/mod.rs` (por `device.kind`; `grep -n "device.kind"`) y `pub use` en `lib.rs`.
 4. CLI: `tlaku-cli/src/<x>.rs` + subcomando en `cli.rs` (`Command::...` ~101, despacho ~447).
 5. App Rust: `machine/<x>.rs` (`Handle`, `Connection`, `Worker`, `tests.rs`), variantes en `ActiveMachine` y `Machine` de `machine/active.rs`, rama en `commands.rs::connect` (~242-270, por `DeviceKind`), comandos propios en `lib.rs`, `virtual_port.rs` si lleva máquina virtual.
-6. Frontend: `lib/device.ts` (defaults), `features/devices/{catalog,steps,AddMachineWizard}`, `features/machine/{DeviceKindField,ConnectionSection,<X>Section,<X>Fields,<X>Notice}.tsx`, `features/materials/machineClass.ts`, `store/machine.ts` (selectores por familia), `features/machine/virtualPort.ts` (`NAMES`), mock (`api/mock/index.ts`, `machine.ts`), textos `i18n/{es,en}/<x>.ts` (área nueva, ver 3.4).
-7. Docs: `docs/hardware/<x>.md` o `controladoras.md`, `docs/app-api.md`, tabla de crates de `arquitectura.md`.
+6. Frontend: `lib/device.ts` (defaults), `features/devices/{catalog,steps,AddMachineWizard}`, `features/machine/{DeviceKindField,ConnectionSection,<X>Section,<X>Fields,<X>Notice}.tsx`, `features/materials/machineClass.ts`, `store/machine/selectors.ts` (selectores por familia), `features/machine/virtualPort.ts` (`NAMES`), mock (`api/mock/index.ts`, `machine.ts`), textos `i18n/{es,en}/<x>.ts` (área nueva, ver 3.4).
+7. Docs: `docs/hardware/<x>.md` o `controladoras.md`, `docs/app-api/`, tabla de crates de `arquitectura.md`.
 
 ### 3.9 Un formato de importación
 1. Lector: crate propio si es grande (como `tlaku-lbrn`) o `tlaku-pipeline/src/import_<fmt>.rs` (`mod` en `lib.rs`); devuelve `ImportResult` con advertencias, nunca omisiones en silencio.
@@ -235,7 +254,7 @@ Todo antes de entregar: bloque "Verificar" de [CLAUDE.md](../CLAUDE.md).
 | Archivo | Para qué / cuándo leerlo |
 |---|---|
 | `arquitectura.md` | Pipeline, responsabilidad de cada crate, contrato `Toolpath`, decisiones (Z, rotativo, sub-capas, orden), convenciones. Leer al tocar el motor |
-| `app-api.md` (877) | Contrato app-motor: comandos, eventos, conexión, Ruida/K40, remoto. Solo el comando buscado (`grep -n`) |
+| `app-api/` | Contrato app-motor: `README.md` (convenciones y tabla de comandos por área) + un archivo por área. Abre solo el del comando buscado |
 | `mapa.md` | Este archivo |
 | `plan-completo.md` | Plan por fases hasta las 214 funciones; consultar al elegir qué falta |
 | `ideas-mejoras.md` | Backlog de ideas sobre LightBurn; no son compromisos |
@@ -246,7 +265,7 @@ Todo antes de entregar: bloque "Verificar" de [CLAUDE.md](../CLAUDE.md).
 | `spec/01-diseno-edicion.md` | Inventario: interfaz y herramientas de diseño/edición |
 | `spec/02-capas-corte-imagen.md` | Inventario: capas, ajustes de corte, procesamiento de imagen |
 | `spec/03-maquinas-avanzadas.md` | Inventario: conexión y control de máquinas, funciones avanzadas |
-| `spec/04-cobertura.md` | Qué funciones están cubiertas y cuáles no. Solo en tareas de cobertura |
+| `spec/cobertura/` | Qué funciones están cubiertas: `README.md` (totales y áreas) + un archivo por área. Solo en tareas de cobertura |
 | `hardware/grbl.md` | Protocolo GRBL 1.1 y vectores de prueba; al tocar `tlaku-grbl`/streamer/preflight |
 | `hardware/dialectos-gcode.md` | Marlin, Smoothie, grblHAL, FluidNC, GRBL-LPC, GRBL-M3: diferencias; al tocar `GcodeDialect` |
 | `hardware/falcon2.md` | Creality Falcon2: evidencia pública y comparación; al tocar su perfil/emulador |

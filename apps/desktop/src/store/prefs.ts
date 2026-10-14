@@ -58,7 +58,7 @@ export interface Prefs {
   jobChecklistRequired: boolean;
   /**
    * Automatización por UDP: servidor local de comandos de texto (`PING`, `LOAD`, `START`, `STATUS`,
-   * `STOP`; ver `docs/app-api.md`). Apagado por omisión; solo escucha en 127.0.0.1.
+   * `STOP`; ver `docs/app-api/automatizacion.md`). Apagado por omisión; solo escucha en 127.0.0.1.
    */
   automationEnabled: boolean;
   /** Puerto UDP de la automatización (sin privilegios). */

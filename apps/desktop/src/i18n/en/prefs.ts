@@ -130,7 +130,7 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.section.automation': 'Automation',
   'prefs.section.remote': 'Remote control',
   'prefs.automation.enabled': 'Turn on UDP automation',
-  'prefs.automation.hint': 'Lets other programs or scripts on this computer drive Tlaku with text commands (PING, LOAD, START, STATUS, STOP). It only listens on 127.0.0.1: no other computer on the network can connect. The protocol is in docs/app-api.md.',
+  'prefs.automation.hint': 'Lets other programs or scripts on this computer drive Tlaku with text commands (PING, LOAD, START, STATUS, STOP). It only listens on 127.0.0.1: no other computer on the network can connect. The protocol is in docs/app-api/automatizacion.md.',
   'prefs.automation.port': 'UDP port',
   'prefs.automation.portUnit': 'UDP',
   'prefs.automation.allowStart': 'Allow starting from automation',

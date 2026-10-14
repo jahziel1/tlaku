@@ -9,11 +9,13 @@ Reemplazo open source (MIT) de LightBurn. Motor en Rust (`crates/`), app Tauri +
    repositorio entero.
 2. Abre solo los archivos de tu tarea. Busca con `grep -n` y lee el fragmento que necesitas
    (offset/limit); no leas archivos de más de ~500 líneas completos si no hace falta.
-3. **No leas** salvo que la tarea sea sobre ellos: `docs/manual/`, `docs/spec/04-cobertura.md`,
-   `docs/app-api.md` completo (busca el comando con grep), `apps/desktop/src/bindings/` (generado
+3. **No leas** salvo que la tarea sea sobre ellos: `docs/manual/`, `docs/spec/cobertura/` (solo su
+   `README.md` y el archivo de tu área), `docs/app-api/` completo (la tabla de `README.md` dice en qué
+   archivo de área está cada comando), `apps/desktop/src/bindings/` (generado
    por ts-rs), capturas, `crates/*/tests/fixtures/`, `tests/corpus/`, `target/`, `node_modules/` ni los textos de otras áreas
    en `src/i18n/` (solo `es/<área>.ts` y `en/<área>.ts` de la tuya).
-4. Entrega un informe corto: qué cambiaste (archivos), qué verificaste y qué quedó pendiente.
+4. Archivos temporales: en una **subcarpeta propia** del scratchpad (otros agentes usan el mismo).
+5. Entrega un informe corto: qué cambiaste (archivos), qué verificaste y qué quedó pendiente.
 
 ## Reglas que no se negocian
 

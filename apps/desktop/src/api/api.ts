@@ -110,7 +110,7 @@ export interface UserBundle {
   prefs?: PrefsBundle | null;
 }
 
-/** Automatización por UDP (Preferencias): ver `docs/app-api.md` y `src-tauri/src/automation.rs`. */
+/** Automatización por UDP (Preferencias): ver `docs/app-api/automatizacion.md` y `src-tauri/src/automation.rs`. */
 export interface AutomationConfig {
   enabled: boolean;
   /** Puerto UDP en 127.0.0.1 (1024 a 65535). */
@@ -127,7 +127,7 @@ export interface AutomationStatus {
   error: string | null;
 }
 
-/** Control remoto desde el celular (Preferencias): ver `docs/app-api.md` y `src-tauri/src/remote/`. */
+/** Control remoto desde el celular (Preferencias): ver `docs/app-api/control-remoto.md` y `src-tauri/src/remote/`. */
 export interface RemoteConfig {
   enabled: boolean;
   /** Puerto TCP (1024 a 65535). */
@@ -234,7 +234,7 @@ export interface ProbeResult {
 }
 
 /**
- * Contrato único entre la interfaz y el motor (docs/app-api.md).
+ * Contrato único entre la interfaz y el motor (docs/app-api/README.md).
  * Una implementación real (Tauri invoke/listen) y una simulada (mock en memoria).
  * Los componentes y los slices usan siempre esta interfaz, nunca `invoke` directamente.
  */

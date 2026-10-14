@@ -132,6 +132,6 @@ print(tlaku("START"))   # PENDING confirm_in_app: ... -> confirmas en la ventana
 
 Con la casilla apagada, ese `START` deja el diálogo de iniciar abierto en la ventana y tú confirmas con la vista previa delante. Es la forma recomendada de trabajar.
 
-El detalle técnico está en `docs/app-api.md`, sección «Automatización por UDP».
+El detalle técnico está en `docs/app-api/automatizacion.md`, sección «Automatización por UDP».
 
 Siguiente: [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)

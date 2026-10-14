@@ -11,7 +11,7 @@ tutoriales; sin código, textos ni íconos de LightBurn). Detalle por área:
 | **Total** | | **214** | **68** | **86** | **60** |
 
 La fila 21 del inventario 03 mezcla prioridades (P0 para G-code, P1 para `.rd`) y se cuenta como P0;
-por eso son 54 funciones y 68 P0. El detalle de avance está en [04-cobertura.md](04-cobertura.md).
+por eso son 54 funciones y 68 P0. El detalle de avance está en [cobertura/README.md](cobertura/README.md).
 
 Lo marcado "(no verificado)" o "(inferido)" en cada archivo debe confirmarse antes de implementarlo.
 
@@ -71,7 +71,7 @@ usar vtracer y no potrace). Se automatizará con `cargo-deny`.
 ## Estado (2026-10-13)
 
 Las olas del [plan](../plan-completo.md) 1 a 5 están **terminadas**. Según el recuento de
-[04-cobertura.md](04-cobertura.md) (que sale de contar las filas de sus tablas con un script):
+[cobertura/README.md](cobertura/README.md) (que sale de contar las filas de sus tablas con un script):
 **175 de 214 funciones hechas (82 %), 27 parciales, 10 solo en el motor o la línea de comandos y
 2 faltantes**; en P0, **64 de 68 hechas** (las 4 parciales son C51, M3, M5 y M6). Las 10 "solo
 motor/CLI" son todas del galvo <!-- GALVO-APP --> y las 2 faltantes son D90 y D94. **Ninguna función de máquina se ha
@@ -108,7 +108,7 @@ paro de emergencia si detener no se confirma. También sigue disponible por lín
   **experimental y solo emulador**, con las conversiones de unidades sin verificar.
 - **Discrepancias:** el cálculo de Print & Cut y el plan de tiling están duplicados en Rust y
   TypeScript (la app usa solo el de TypeScript) y las imágenes no giran con el registro. Detalle en
-  [04-cobertura.md](04-cobertura.md).
+  [cobertura/README.md](cobertura/README.md).
 - **No entró:** el autoenfoque y optimizar Z (M31) y el ajuste de U en los trabajos y el láser 2
   con Ruida (M32), que el plan ponía en la ola 5; pasan a la ola 6.
 

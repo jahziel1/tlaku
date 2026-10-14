@@ -10,7 +10,7 @@ import { create } from 'zustand';
 /**
  * Automatización por UDP, lado de la interfaz (M54). El motor (`src-tauri/src/automation.rs`) atiende
  * los comandos de texto; lo que depende del documento o de las opciones del trabajo se pide aquí con
- * los eventos `automation://load` y `automation://start`. Protocolo en `docs/app-api.md`.
+ * los eventos `automation://load` y `automation://start`. Protocolo en `docs/app-api/automatizacion.md`.
  */
 
 /** Estado del servidor, para mostrarlo en Preferencias. `null` mientras no se ha configurado. */

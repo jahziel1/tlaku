@@ -1,17 +1,17 @@
 # Plan hasta el software completo
 
 Meta: las 214 funciones del inventario (`docs/spec/01` a `03`) más lo que necesita un usuario real
-(`docs/spec/04-cobertura.md`, "Necesidades fuera del inventario"), **con o sin máquinas para
+(`docs/spec/cobertura/README.md`, "Necesidades fuera del inventario"), **con o sin máquinas para
 probar**.
 
 Reglas:
 
 - Todo lo que dependa de hardware se construye completo y se valida contra emuladores propios
   (`tlaku-emu`, el emulador de Ruida, y los que se agreguen para K40 y galvo). Queda marcado como
-  "por validar con máquina real" en la interfaz y en `docs/spec/04-cobertura.md`, sin bloquear el
+  "por validar con máquina real" en la interfaz y en `docs/spec/cobertura/README.md`, sin bloquear el
   avance.
 - Cada ola termina con todas las pruebas en verde, revisión visual con capturas y un commit.
-- Al final de cada ola se actualiza `04-cobertura.md`.
+- Al final de cada ola se actualiza `docs/spec/cobertura/`.
 
 Estado de partida (2026-10-13): 88 hechas, 31 parciales, 6 solo en motor o CLI, 89 faltantes.
 
@@ -187,6 +187,15 @@ de confianza.
 | Control desde el celular | Servidor web local en la app de la PC, apagado de fábrica, solo red local, acceso con QR que lleva una clave aleatoria. Desde el navegador del celular: progreso en vivo (porcentaje, tiempo restante, capa, recorrido y posición), pausar, reanudar y detener siempre; **iniciar solo con checklist de seguridad y si el trabajo ya se encuadró en la PC** (decisión del usuario); imagen de la cámara de la cama si hay; aviso al terminar. Funciona con cualquier máquina. |
 
 ## Ola 6: calidad y publicación (lo que sigue)
+
+Orden de trabajo (empezó el 2026-10-13):
+
+| Paso | Qué | Agentes en paralelo |
+|---|---|---|
+| 6A | Partir archivos grandes (solo mover código) y actualizar `docs/mapa.md` | motor, drivers, app Rust, interfaz y docs |
+| 6B | Arreglos de la prueba de estrés, prueba de contrato de comandos, Revisar diseño, rendimiento del lienzo | planificador, importación e imágenes, Ruida y avisos de velocidad, G-code y estimado, contrato y humo, Revisar diseño, lienzo |
+| 6C | Pendientes de las olas 3, 4 y 5 (paneles flotantes, deformar, M3/M5/M6, M35, M36, M4, D12, M31/M32, Print & Cut, alimentador, duplicados Rust/TS) | por área |
+| 6D | Accesibilidad, manual y mensajes en inglés, sitio con donaciones, instaladores y actualizaciones, auditoría final, lista de validación con hardware, beta | por área |
 
 - **Arreglos de la prueba de estrés** (lista completa y criterios en
   [pruebas-estres.md](pruebas-estres.md#prioridades-para-la-ola-6)):
