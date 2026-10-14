@@ -96,6 +96,17 @@ impl Bench {
         }
     }
 
+    /// Espera a que el punto de control del trabajo en curso esté en disco. Lo crea el hilo del
+    /// escritor sin bloquear el envío, así que en discos lentos (Windows en la CI, con muchas
+    /// pruebas haciendo `sync_all` a la vez) puede tardar más que en quemar los primeros
+    /// milímetros.
+    fn wait_checkpoint(&self) {
+        let end = Instant::now() + Duration::from_secs(30);
+        while self.store.load().is_none() && Instant::now() < end {
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     /// Las líneas recibidas por la placa desde `from` que no son de consulta (`$...`).
     fn gcode_since(&self, from: usize) -> Vec<String> {
         self.emu.received_lines()[from..]
@@ -435,6 +446,7 @@ fn cancelling_on_purpose_or_finishing_clears_the_checkpoint_but_an_alarm_keeps_i
     let h = b.connect();
     b.start(&h, &lines);
     b.wait_burned(30.0);
+    b.wait_checkpoint();
     assert!(
         b.store.load().is_some(),
         "durante el trabajo hay punto de control"
@@ -507,6 +519,7 @@ fn a_checkpoint_half_written_by_the_power_cut_does_not_break_anything() {
     b.start(&h, &lines);
     b.wait_burned(b.emu.trace().total_length() + 20.0);
     thread::sleep(Duration::from_millis(100));
+    b.wait_checkpoint();
     let fresh = b.store.load().unwrap();
     assert_ne!(fresh.meta.id, torn.meta.id);
 }

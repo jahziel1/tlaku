@@ -68,6 +68,9 @@ impl UdpLink {
             )
         })?;
         socket.connect(remote)?;
+        // Ver `recv_once`: en Windows la lectura espera sin `SO_RCVTIMEO`.
+        #[cfg(windows)]
+        socket.set_nonblocking(true)?;
         Ok(UdpLink { socket, remote })
     }
 
@@ -100,7 +103,7 @@ impl UdpLink {
 
 impl PacketLink for UdpLink {
     fn send(&mut self, datagram: &[u8]) -> io::Result<()> {
-        match self.socket.send(datagram) {
+        match self.send_datagram(datagram) {
             Ok(_) => Ok(()),
             // Un "puerto inalcanzable" de un envío anterior (ICMP) no es un fallo de este.
             Err(e)
@@ -109,7 +112,7 @@ impl PacketLink for UdpLink {
                     io::ErrorKind::ConnectionRefused | io::ErrorKind::ConnectionReset
                 ) =>
             {
-                self.socket.send(datagram).map(|_| ())
+                self.send_datagram(datagram).map(|_| ())
             }
             Err(e) => Err(e),
         }
@@ -120,10 +123,7 @@ impl PacketLink for UdpLink {
         let mut buf = [0u8; RECV_BUF];
         loop {
             let left = deadline.saturating_duration_since(std::time::Instant::now());
-            // `set_read_timeout(Some(0))` es un error: mínimo 1 ms.
-            self.socket
-                .set_read_timeout(Some(left.max(Duration::from_millis(1))))?;
-            match self.socket.recv(&mut buf) {
+            match self.recv_once(&mut buf, deadline) {
                 Ok(n) => return Ok(Some(buf[..n].to_vec())),
                 Err(e) => match e.kind() {
                     io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => return Ok(None),
@@ -140,6 +140,60 @@ impl PacketLink for UdpLink {
                     }
                     _ => return Err(e),
                 },
+            }
+        }
+    }
+}
+
+impl UdpLink {
+    #[cfg(not(windows))]
+    fn send_datagram(&self, datagram: &[u8]) -> io::Result<usize> {
+        self.socket.send(datagram)
+    }
+
+    /// En Windows el socket va sin bloqueo (ver `recv_once`): si el búfer de envío está lleno se
+    /// reintenta un momento en vez de fallar.
+    #[cfg(windows)]
+    fn send_datagram(&self, datagram: &[u8]) -> io::Result<usize> {
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        loop {
+            match self.socket.send(datagram) {
+                Err(e)
+                    if e.kind() == io::ErrorKind::WouldBlock
+                        && std::time::Instant::now() < deadline =>
+                {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                r => return r,
+            }
+        }
+    }
+
+    /// Una lectura bloqueante hasta `deadline`; un plazo vencido es `TimedOut` o `WouldBlock`.
+    #[cfg(not(windows))]
+    fn recv_once(&self, buf: &mut [u8], deadline: std::time::Instant) -> io::Result<usize> {
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        // `set_read_timeout(Some(0))` es un error: mínimo 1 ms.
+        self.socket
+            .set_read_timeout(Some(left.max(Duration::from_millis(1))))?;
+        self.socket.recv(buf)
+    }
+
+    /// En Windows no se usa `SO_RCVTIMEO`: si el plazo vence justo cuando llega un datagrama, la
+    /// lectura se cancela y el datagrama se pierde (el ACK de una parada, por ejemplo). El socket
+    /// va sin bloqueo y se espera en pasos de 1 ms.
+    #[cfg(windows)]
+    fn recv_once(&self, buf: &mut [u8], deadline: std::time::Instant) -> io::Result<usize> {
+        loop {
+            match self.socket.recv(buf) {
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    let left = deadline.saturating_duration_since(std::time::Instant::now());
+                    if left.is_zero() {
+                        return Err(io::ErrorKind::TimedOut.into());
+                    }
+                    std::thread::sleep(left.min(Duration::from_millis(1)));
+                }
+                r => return r,
             }
         }
     }

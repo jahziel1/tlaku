@@ -302,8 +302,17 @@ fn the_writer_does_not_block_the_sender_and_saves_ack_status_and_modal_state() {
         Duration::from_millis(20),
     );
     w.note_acked(3);
-    std::thread::sleep(Duration::from_millis(80));
-    assert!(store.load().is_some());
+    // El hilo guarda el G-code y `meta.json` con `sync_all`: en discos lentos (Windows en la CI)
+    // tarda más de unas decenas de ms. Se espera a que aparezca, sin un plazo fijo corto.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while store.load().is_none() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(
+        store.load().is_some(),
+        "no apareció el punto de control; error de escritura: {:?}",
+        w.take_error()
+    );
     w.finish(Finish::Discard, &store);
     assert!(store.load().is_none());
     let _ = fs::remove_dir_all(dir);

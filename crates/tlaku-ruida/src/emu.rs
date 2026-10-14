@@ -556,6 +556,12 @@ impl UdpEmulator {
     /// Como [`UdpEmulator::spawn`] sobre un emulador ya creado y compartido.
     pub fn spawn_shared(emu: Arc<Mutex<Emulator>>) -> io::Result<Self> {
         let socket = UdpSocket::bind("127.0.0.1:0")?;
+        // En Windows `SO_RCVTIMEO` puede perder un datagrama que llega justo al vencer el plazo
+        // (la lectura se cancela): el socket va sin bloqueo y se sondea cada 1 ms. En el resto,
+        // lectura con plazo de 20 ms.
+        #[cfg(windows)]
+        socket.set_nonblocking(true)?;
+        #[cfg(not(windows))]
         socket.set_read_timeout(Some(Duration::from_millis(20)))?;
         let addr = socket.local_addr()?;
         let stop = Arc::new(AtomicBool::new(false));
@@ -564,6 +570,8 @@ impl UdpEmulator {
             let mut buf = [0u8; 4096];
             while !s.load(Ordering::SeqCst) {
                 let Ok((n, from)) = socket.recv_from(&mut buf) else {
+                    #[cfg(windows)]
+                    std::thread::sleep(Duration::from_millis(1));
                     continue;
                 };
                 let replies = e

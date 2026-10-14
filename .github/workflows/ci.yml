@@ -62,8 +62,11 @@ jobs:
       - name: Pruebas
         run: cargo nextest run --workspace --all-features --retries 2 --no-fail-fast
 
+      # Sin `tlaku-desktop`: el script de compilación de Tauri deja en Windows un `msvcrt.lib` vacío
+      # (para enlazar el runtime de VC estático) y rustdoc lo usa al enlazar las pruebas de otros
+      # crates (`LNK2001 __CxxFrameHandler3`). La app no tiene pruebas de documentación.
       - name: Pruebas de documentación
-        run: cargo test --workspace --all-features --doc
+        run: cargo test --workspace --exclude tlaku-desktop --all-features --doc
 
   # Licencias y orígenes de las dependencias (deny.toml).
   deny:
