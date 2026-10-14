@@ -556,6 +556,12 @@ impl UdpEmulator {
     /// Como [`UdpEmulator::spawn`] sobre un emulador ya creado y compartido.
     pub fn spawn_shared(emu: Arc<Mutex<Emulator>>) -> io::Result<Self> {
         let socket = UdpSocket::bind("127.0.0.1:0")?;
+        // En Windows `SO_RCVTIMEO` puede perder un datagrama que llega justo al vencer el plazo
+        // (la lectura se cancela): el socket va sin bloqueo y se sondea cada 1 ms. En el resto,
+        // lectura con plazo de 20 ms.
+        #[cfg(windows)]
+        socket.set_nonblocking(true)?;
+        #[cfg(not(windows))]
         socket.set_read_timeout(Some(Duration::from_millis(20)))?;
         let addr = socket.local_addr()?;
         let stop = Arc::new(AtomicBool::new(false));
@@ -563,35 +569,17 @@ impl UdpEmulator {
         let thread = std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
             while !s.load(Ordering::SeqCst) {
-                let (n, from) = match socket.recv_from(&mut buf) {
-                    Ok(v) => v,
-                    Err(err) => {
-                        if !matches!(
-                            err.kind(),
-                            io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
-                        ) {
-                            eprintln!("DIAGEMU recv_from err {:?} {err}", err.kind());
-                        }
-                        continue;
-                    }
+                let Ok((n, from)) = socket.recv_from(&mut buf) else {
+                    #[cfg(windows)]
+                    std::thread::sleep(Duration::from_millis(1));
+                    continue;
                 };
-                eprintln!(
-                    "DIAGEMU {:?} got {n} bytes from {from}",
-                    crate::link::diag_t()
-                );
                 let replies = e
                     .lock()
                     .unwrap_or_else(|x| x.into_inner())
                     .handle(&buf[..n]);
-                eprintln!(
-                    "DIAGEMU {:?} {} replies",
-                    crate::link::diag_t(),
-                    replies.len()
-                );
                 for r in replies {
-                    if let Err(err) = socket.send_to(&r, from) {
-                        eprintln!("DIAGEMU send_to err {:?} {err}", err.kind());
-                    }
+                    let _ = socket.send_to(&r, from);
                 }
             }
         });

@@ -68,7 +68,7 @@ jobs:
       # crates (`LNK2001 __CxxFrameHandler3`). La app no tiene pruebas de documentación.
       - name: TEMPORAL estrés Ruida
         continue-on-error: true
-        run: cargo nextest run -p tlaku-desktop --all-features -E "test(/ruida/)" --stress-count 25 --retries 0 --no-fail-fast
+        run: cargo nextest run -p tlaku-desktop --all-features -E "test(/ruida/)" --stress-count 40 --retries 0 --no-fail-fast
 
       - name: Pruebas de documentación
         if: false  # TEMPORAL
