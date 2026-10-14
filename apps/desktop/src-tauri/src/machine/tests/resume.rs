@@ -435,6 +435,12 @@ fn cancelling_on_purpose_or_finishing_clears_the_checkpoint_but_an_alarm_keeps_i
     let h = b.connect();
     b.start(&h, &lines);
     b.wait_burned(30.0);
+    // El hilo del punto de control lo crea sin bloquear el envío: en discos lentos (Windows en la
+    // CI) puede tardar más que lo que se tarda en quemar los primeros milímetros.
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while b.store.load().is_none() && std::time::Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
     if b.store.load().is_none() {
         let listing = fs::read_dir(&b.dir)
             .map(|d| {

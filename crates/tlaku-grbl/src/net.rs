@@ -780,11 +780,16 @@ mod tests {
         let e = TcpTransport::connect("127.0.0.1", port, Duration::from_secs(2))
             .err()
             .unwrap();
-        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+        // En Windows, un puerto cerrado en localhost puede tardar más que el plazo en rechazarse
+        // (reintenta el SYN): sale «tiempo agotado» con su mensaje; ambos son correctos.
+        let timed_out_on_windows = cfg!(windows) && e.kind() == io::ErrorKind::TimedOut;
+        if !timed_out_on_windows {
+            assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+        }
         let msg = e.to_string();
         assert!(
             msg.contains("rechazó la conexión")
-                || (cfg!(windows) && msg.contains("no contestó a tiempo")),
+                || (timed_out_on_windows && msg.contains("no contestó a tiempo")),
             "{e}"
         );
         assert!(e.to_string().contains(&port.to_string()), "{e}");
