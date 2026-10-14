@@ -81,6 +81,8 @@ Puedes ver cómo se muestran estas fallas sin riesgo en la máquina virtual (**S
 
 ## La app no encuentra el puerto
 
+> Si tu máquina se conecta **por red** (TCP, WebSocket o Ruida) no hay puerto serie que buscar: mira más abajo las secciones **La conexión por red falla** y **Ruida no responde**.
+
 1. Revisa que el cable transmita **datos** (algunos solo cargan) y que la máquina esté encendida.
 2. Pulsa **Buscar puertos de nuevo**.
 3. Cierra cualquier otro programa que tenga el puerto abierto (otro software de láser o un monitor serie). Solo uno a la vez puede usarlo.
@@ -125,6 +127,71 @@ Revisa en este orden:
 - **Se sale de la cama.** La sección **Iniciar desde** del panel Máquina avisa "Se sale de la cama" e indica por qué lado.
 - **Sale espejado o invertido.** El **Origen de la máquina** del perfil no coincide con la esquina real de tu X0 Y0.
 - **Sale desplazado.** Revisa **Iniciar desde** y el punto del trabajo que se ancla: ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
+
+## La conexión por red falla
+
+Para GRBL, grblHAL y FluidNC por TCP o WebSocket (ver [Conexión por red y automatización](08b-red-y-automatizacion.md)). Empieza siempre por **Probar conexión** en el perfil: no mueve nada y el mensaje dice qué falló. Los mensajes más comunes:
+
+| Mensaje | Qué revisar |
+|---|---|
+| «No se encontró 'X' en la red» | El nombre no se resuelve (`fluidnc.local` no funciona en todas las redes). Usa la dirección IP |
+| «La máquina en X rechazó la conexión» | El puerto está cerrado o el servicio de red de la placa está apagado. Telnet suele ser el 23; los WebSocket de FluidNC y ESP3D, el 81. Mira la configuración de red de la placa |
+| «X no contestó a tiempo» | Pasaron 5 segundos sin respuesta. ¿Está encendida? ¿Tu equipo y la máquina están en la **misma red**? ¿La IP cambió (el router la reasignó)? Reserva una IP fija |
+| «No se puede llegar a X» | No hay ruta hasta ese equipo: Wi-Fi o cable desconectado, o una red de invitados que aísla los equipos |
+| «X cerró la conexión al abrirla: ¿hay otro programa conectado a ella?» | Muchas placas aceptan un solo cliente a la vez. Cierra la interfaz web de la máquina en el navegador, otra copia de Tlaku u otro programa de láser |
+| «Las conexiones cifradas (wss://) no están soportadas» | Usa una dirección `ws://` |
+| «La máquina respondió, pero no se reconoció el firmware» | Hay conexión, pero el saludo no es de GRBL. Revisa que el puerto sea el de la consola de la controladora y no el de otro servicio |
+
+Otras ideas:
+
+- **Se conecta pero se corta a mitad del trabajo.** Es casi siempre el Wi-Fi: acerca la máquina al router o usa un cable. Una conexión que se cae puede dejar la máquina ejecutando lo que ya tenía en su búfer; ten el paro de emergencia a mano.
+- **No puedes cambiar la dirección en la pestaña Máquina.** Está a propósito: la dirección es del perfil. Abre **Gestionar dispositivos…** y desconéctate primero.
+- **Probar la app sin la red de la máquina:** usa la **Máquina virtual por red**. Si esa conecta, el problema está en la máquina o en tu red, no en Tlaku.
+- **La automatización por UDP no contesta** (`PING` sin respuesta): comprueba que esté activada en **Preferencias > Automatización**, que el estado diga «Escuchando en 127.0.0.1:…» (si el puerto está ocupado lo dice) y que mandes el datagrama a `127.0.0.1`, no a la IP de tu red: solo escucha en tu propio equipo.
+
+## Ruida no responde
+
+La conexión con Ruida es experimental (ver [Ruida y K40](13b-ruida-y-k40.md)). Revisa en este orden:
+
+1. **La IP.** La del perfil debe ser la de la controladora (en su pantalla, en el menú de red). Tu equipo debe estar en la **misma red /24** (por ejemplo, ambos en `192.168.1.x`).
+2. **Otro programa con el puerto.** Si ves «no se pudo abrir el puerto UDP local 40200 (¿hay otro programa de láser abierto?)», cierra LightBurn, otra copia de Tlaku o cualquier otro software de láser: solo uno a la vez puede usar ese puerto UDP.
+3. **El firewall del equipo** puede bloquear UDP. Permite a Tlaku en la red privada.
+4. **El magic.** En **Automático** Tlaku prueba `0x88` y luego los demás conocidos; si tu controladora usa otro, fíjalo **A mano** (`0x88` en casi todas las RDC644x, `0x11` en la 634XG, `0x38` en la RDL9635).
+5. **«Sin respuesta de la máquina»** al conectar o al leer información: la máquina no contestó. Prueba con un cable directo al PC o al router, sin repetidores Wi-Fi. UDP no tiene reintentos y las controladoras Ruida son poco tolerantes a una red lenta.
+6. **La cama no coincide.** Si el aviso dice que la cama del perfil no coincide con la de la máquina, no se enviará ningún trabajo: corrige el tamaño de la cama del perfil con lo que informa la máquina (**Leer información**).
+7. **Durante un trabajo** algunas controladoras ignoran la red; Tlaku no lo toma por una conexión perdida mientras hay un trabajo en marcha.
+8. **«La máquina rechazó el paquete N»** al subir: el trabajo no llegó entero. Tlaku manda *Detener*; revisa la red y vuelve a intentarlo.
+9. **Descartar a Tlaku:** conecta con la máquina virtual **Ruida (CO2)**. Si esa funciona, el problema está en la red o en la controladora.
+
+## El K40 no aparece por USB
+
+El soporte del K40 con M2 Nano es experimental y por ahora funciona desde la línea de comandos (`tlaku k40`) <!-- K40-APP -->; ver [Ruida y K40](13b-ruida-y-k40.md). Si `tlaku k40 list` dice «No hay placas CH341 (USB 1A86:5512) conectadas»:
+
+1. **Cable y energía.** Usa el cable USB que trae la máquina, que la máquina esté encendida, y prueba otro puerto USB del equipo (mejor directo, sin concentrador).
+2. **Otro programa con la placa.** K40 Whisperer, MeerK40t o LaserDRW no pueden tenerla abierta a la vez. Ciérralos.
+3. **Linux: faltan permisos.** Tu usuario necesita una regla de udev. Crea `/etc/udev/rules.d/99-k40.rules` con esta línea:
+
+   ```
+   SUBSYSTEM=="usb", ATTR{idVendor}=="1a86", ATTR{idProduct}=="5512", MODE="0666"
+   ```
+
+   recarga con `sudo udevadm control --reload-rules && sudo udevadm trigger` y desconecta y vuelve a conectar la placa. Para comprobar que el sistema la ve: `lsusb | grep 1a86:5512`. (`MODE="0666"` abre la placa a todos los usuarios; para restringirla usa `TAG+="uaccess"` en su lugar.)
+4. **Windows:** la placa debe usar el controlador **WinUSB** (por ejemplo, con Zadig). Con el controlador original del fabricante del chip (WCH) Tlaku no puede abrirla.
+5. **macOS:** no necesita controlador. Si tienes instalado el de WCH, desinstálalo.
+6. **Aparece pero `tlaku k40 status` falla o dice Moshiboard.** Una Moshiboard comparte el mismo USB, pero no es una M2 Nano y Tlaku no la soporta. Si es una M2 Nano y no responde, apaga y enciende la máquina y vuelve a probar.
+7. **Se queda esperando el final del trabajo.** Si tu placa no informa el estado «terminó», prueba `--no-wait-finish`.
+
+Y recuerda: la M2 Nano **no controla la potencia por software**; si el láser no marca, sube la perilla de la máquina, no la potencia de la capa.
+
+## Macros, ajustes `$$` y disparo de prueba
+
+- **«La macro … se detuvo en …: la máquina contestó …».** La macro envía las líneas una a una y se detiene en la primera que la máquina rechaza. Mira el `error:N` en la sección **Errores `error:N`** de esta página y corrige esa línea en el perfil.
+- **«La macro … no es válida».** Tiene un nombre vacío, ninguna línea, más de 50 líneas, o una línea con `?`, `!` o `~`. El editor de macros marca cuál.
+- **Una macro no hace nada durante un trabajo.** Es a propósito: las macros no se envían mientras hay un trabajo en curso.
+- **Escribí un ajuste `$` y «al releer algunos valores no coinciden».** La controladora dijo `ok` pero guardó otro valor, o solo lo aplica al reiniciar. Reinicia la controladora y pulsa **Releer**. Si te equivocaste, **Restaurar desde archivo…** con el respaldo `.tlakuset` que hiciste antes.
+- **El botón Disparo de prueba está gris.** Necesita la máquina conectada, sin trabajo en curso y en reposo (sin alarma ni pausa). Pasa el cursor para ver el motivo.
+- **«No se pudo confirmar que el láser se apagó».** Reinicia la máquina o corta la energía y revísala antes de seguir. Puede ser una conexión caída justo durante el disparo.
+- **Encuadrar con el láser encendido está deshabilitado.** El dialecto de tu máquina no lleva la potencia dentro de cada movimiento, y entonces no hay forma de apagar el láser en el traslado: solo se puede encuadrar con el láser apagado.
 
 ## Problemas al importar o exportar
 

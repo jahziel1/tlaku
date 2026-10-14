@@ -5,6 +5,8 @@ import { useStore } from '@/store';
 import { overrideBlockedReason } from '@/store/machine';
 import { NumberField } from '@/ui/NumberField';
 import { RuidaNotApplicable } from './RuidaSection';
+import { LhyNotApplicable } from './LhyNotice';
+import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 
 const MIN = 10;
@@ -61,6 +63,16 @@ function OverrideRow({ kind, label, hint }: { kind: OverrideKind; label: I18nKey
 export function OverridesSection() {
   // Ruida no tiene overrides en vivo: se muestra por qué en lugar de los controles.
   const ruida = useStore(selectIsRuida);
+  // Tampoco la M2 Nano del K40: la potencia es la perilla de la máquina.
+  const lhy = useStore(selectIsLhy);
+  if (lhy) {
+    return (
+      <section className="section" aria-labelledby="sec-override">
+        <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+        <LhyNotApplicable reason="lhymicro.override.reason" />
+      </section>
+    );
+  }
   if (ruida) {
     return (
       <section className="section" aria-labelledby="sec-override">

@@ -26,6 +26,8 @@ tlaku-grbl = { version = "0.1.0", path = "../../../crates/tlaku-grbl" }
 tlaku-pipeline = { version = "0.1.0", path = "../../../crates/tlaku-pipeline" }
 # `emu` incluye el emulador UDP con el que funciona la máquina virtual `virtual:ruida`.
 tlaku-ruida = { version = "0.1.0", path = "../../../crates/tlaku-ruida", features = ["emu"] }
+# `emu` incluye la placa simulada con la que funciona la máquina virtual `virtual:k40`.
+tlaku-lhymicro = { version = "0.1.0", path = "../../../crates/tlaku-lhymicro", features = ["emu"] }
 tlaku-text = { version = "0.1.0", path = "../../../crates/tlaku-text" }
 tlaku-trace = { version = "0.1.0", path = "../../../crates/tlaku-trace" }
 tlaku-camera = { version = "0.1.0", path = "../../../crates/tlaku-camera" }

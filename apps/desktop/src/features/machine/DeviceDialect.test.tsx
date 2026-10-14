@@ -13,12 +13,12 @@ const custom = (dialect: Partial<DeviceProfile['dialect']> = {}) => device({ kin
 const html = (d: DeviceProfile) => renderToString(<DialectEditor draft={d} edit={noop} issues={d.kind === 'custom_gcode' ? validateDialect(d.dialect) : {}} />);
 
 describe('selector del tipo de controladora', () => {
-  it('ofrece los tipos con nombres claros (ocho de G-code y Ruida)', () => {
+  it('ofrece los tipos con nombres claros (ocho de G-code, Ruida y K40)', () => {
     const h = renderToString(<KindField kind="grbl" onChange={noop} />);
-    for (const s of ['GRBL 1.1 (la mayoría de láseres de diodo)', 'grblHAL', 'FluidNC', 'GRBL-LPC / Cohesion3D', 'GRBL antiguo (sin M4)', 'Smoothieware', 'Marlin', 'G-code personalizado', 'Ruida (CO2, por red; experimental)']) {
+    for (const s of ['GRBL 1.1 (la mayoría de láseres de diodo)', 'grblHAL', 'FluidNC', 'GRBL-LPC / Cohesion3D', 'GRBL antiguo (sin M4)', 'Smoothieware', 'Marlin', 'G-code personalizado', 'Ruida (CO2, por red; experimental)', 'K40 con M2 Nano (experimental)']) {
       expect(h).toContain(s);
     }
-    expect(h.match(/<option/g)).toHaveLength(9);
+    expect(h.match(/<option/g)).toHaveLength(10);
   });
 
   it('Marlin y Smoothieware ya se pueden enviar: sin el aviso de solo exportar', () => {

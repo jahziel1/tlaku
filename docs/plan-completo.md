@@ -21,6 +21,8 @@ Estado tras la ola 2 (2026-10-13, `04-cobertura.md` actualizado): **143 hechas (
 
 Estado tras la ola 3 (2026-10-13, `04-cobertura.md` actualizado): **165 hechas (77 %), 23 parciales, 3 solo en motor o CLI, 23 faltantes** de 214. P0 sin cambios: 62 de 68 hechas (parciales C51, M3, M5, M6, M11, M16). Por área: diseño y edición 89 hechas, capas, corte e imagen 55 y máquinas y avanzadas 21.
 
+Estado tras la ola 4 (2026-10-13, `04-cobertura.md` actualizado y recontado con un script): **173 hechas (81 %), 26 parciales, 0 solo en motor o CLI, 15 faltantes** de 214. P0: 64 de 68 hechas (parciales C51, M3, M5, M6). Por área: diseño y edición 90 hechas, capas, corte e imagen 56 y máquinas y avanzadas 27.
+
 ## Ola 1: base para publicar
 
 P0 pendientes y lo que más frena a quien viene de LightBurn.
@@ -83,7 +85,7 @@ Cobertura nueva: D31, D42, D46, D47, D49, D55, D56, D57, D59, D64, D65, D67, D69
 
 **Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
 
-- *Ola 4*: la **potencia de puente** (C14 y D45, parciales), junto con los ajustes de potencia de la salida de máquina.
+- *Ola 4*: la **potencia de puente** (C14 y D45, parciales), junto con los ajustes de potencia de la salida de máquina. *Resuelto en la ola 4:* la potencia de puente entró y C14 y D45 pasaron a Hecho.
 - *Ola 6*: los **paneles flotantes** (D04), las **manijas de deformar en el lienzo** y la **malla 4×4** (D58), la herramienta de clic por esquina del redondeo y revertirlo (D60), las **guías temporales** de alineación (D78) y probar **Nueva ventana** en una ventana real: por lectura del código, la copia de recuperación de una ventana se ofrecería en la otra (D19).
 - El **tiling** (M39) sigue en la ola 5.
 
@@ -99,6 +101,27 @@ texto variable con números de serie y CSV (D42, M38).
 
 ## Ola 4: máquinas
 
+**Terminada el 2026-10-13** (commit `10c435d`, "Ola 4: máquinas"). Se subieron 8 funciones a "hecho" (de 165 a 173 de 214; P0 de 62 a 64 de 68), 6 pasaron de falta a parcial y 2 de solo motor/CLI a parcial. Los conteos salen de contar las filas de `04-cobertura.md`. Todo lo de esta ola se validó con emuladores, máquinas virtuales e imágenes sintéticas: **nada se probó con una máquina real**, y Ruida, el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro están marcados experimentales o por validar con hardware.
+
+Qué entró, verificado en el código:
+
+- **Ruida en la app (experimental)**: conexión activa `ActiveMachine`/`Machine` (GRBL o Ruida), conexión UDP con sondeo de solo lectura y magic automático, máquina virtual `virtual:ruida`, subir el trabajo guardándolo en la memoria (por defecto) o ejecutándolo, estado, pausa, reanudar, detener, saltos, encuadre, información de la controladora y lista de documentos en solo lectura; `export_rd` pasó al pipeline.
+- **K40 / M2 Nano (experimental)**: crate `tlaku-lhymicro` con codificador LHYMICRO-GL, CRC, velocidades por placa contrastadas con 1511 vectores de MeerK40t, USB con `nusb`, placa simulada y sesión (pausa, reanudar, detener, home), y `tlaku k40 list/status/send/export-egv`. **Todavía no está en la app**; la integración está en curso. <!-- K40-APP -->
+- **Red y conexión**: GRBL por TCP y WebSocket (`tlaku_grbl::net`), tipo de conexión en el perfil con "Probar conexión", máquina virtual por red (`virtualnet:`) y automatización por UDP local (apagada de fábrica, `START` pide confirmación).
+- **Control**: macros (hasta 10 por perfil), Mover con Z y U, posiciones guardadas, Enfocar, disparo de prueba con doble confirmación, ajustes `$$` con respaldo y restauración, encuadre a baja potencia y en bucle, láser 2, eje U, paquetes `.tlakubundle` y potencia en puentes.
+- **Cámara**: modelo de ojo de pez con elección automática por validación cruzada, captura y vectorizado de la cama, cámara en el cabezal con calibración de desfase y mosaico, y buscador de centro.
+- **Correcciones**: recuperación entre ventanas, copias del arreglo virtual en las cajas, nombres legibles en el nesting y pulgadas en la interfaz (barra de estado, reglas, pasos y diálogos de longitud).
+
+Cobertura nueva: M11, M16, M20, M31, M50, M54, D45 y C14 pasaron a Hecho. M4, M24, M28, M32, M36 y M48 pasaron de Falta a Parcial, y M23 y M26 de Solo motor/CLI a Parcial. M3, M5 y M6 siguen Parciales (el perfil ganó macros, posiciones, eje U, láser 2 y red, pero faltan los ajustes que cada fila enumera). El K40 no tiene fila en el inventario: figura en la sección 2.4 de la cobertura como Solo motor/CLI hasta que esté en la app. <!-- K40-APP -->
+
+**Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
+
+- *Ola 5*: el ajuste de U en los trabajos y el láser 2 con Ruida (M32); el autoenfoque y optimizar Z (M31), junto con los ajustes de controlador (C59).
+- *Ola 6*: lo que falta de los ajustes de dispositivo (M3, M5, M6: marcar por defecto, ordenar, ícono, offset del puntero rojo, unidades de dispositivo y de control, intercambio X/Y, auto-home, DTR y modo síncrono); las cámaras de red y los presets (M35); la alineación automática de la cámara del cabezal (M36); las cámaras en los paquetes de usuario (M4, D99); las pulgadas en las capas, las máquinas y la cámara (D12); y la lista de validación con hardware real de todo lo experimental, que incluye escribir los ajustes de Ruida (M25), borrar o ejecutar sus documentos (M24) y probar el K40.
+- **Sin fecha, pendiente de esta ola:** la integración del K40 en la app (tipo de máquina, conexión USB, panel y diálogo de inicio con el aviso de que la potencia va con la perilla). <!-- K40-APP -->
+
+Plan original de la ola:
+
 | Bloque | Funciones |
 |---|---|
 | Ruida en la app | Perfil con IP, envío a la memoria (M23), lista de archivos del controlador (M24), ajustes de máquina (M25), información del controlador (M26), rotativo DSP (M28) |
@@ -112,7 +135,7 @@ texto variable con números de serie y CSV (D42, M38).
 Print & Cut (M37), tiling (M39), alimentador automático (M47), ajustes dependientes del
 controlador (C59), y galvo completo con emulador: asistente (M41), encuadre con luz roja (M42),
 calibración de lente (M43), temporización (M44), E/S (M45), marcado dividido y repetido (M40),
-rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47).
+rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47). De la ola 4 llegan además el ajuste de U en los trabajos y el láser 2 con Ruida (M32), y el autoenfoque y optimizar Z (M31).
 
 ## Ola 6: calidad y publicación
 
@@ -122,4 +145,5 @@ rotativo galvo (M30), corrección de cilindro (M46) y corte 3D por capas (C47).
 - Manual completo y sitio web con donaciones.
 - Correr el flujo de instaladores en GitHub y activar las actualizaciones automáticas.
 - Repetir la auditoría de cobertura.
-- Lista de validación con hardware real, para cuando haya máquinas.
+- Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12).
+- Lista de validación con hardware real, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro.

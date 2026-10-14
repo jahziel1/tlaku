@@ -19,7 +19,7 @@ import { mockVariables } from './variables';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
-import { DEFAULT_MOCK_OPTIONS, MOCK_RUIDA_PORT, MOCK_VIRTUAL_NET_PORTS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
+import { DEFAULT_MOCK_OPTIONS, MOCK_LHY_PORT, MOCK_LHY_USB_PORT, MOCK_RUIDA_PORT, MOCK_VIRTUAL_NET_PORTS, MOCK_VIRTUAL_PORTS, MockMachine, type MockMachineOptions } from './machine';
 import { sampleDevices, sampleDocument, sampleLayers, sampleObjects } from './sample';
 
 export interface MockApi extends LaserApi {
@@ -89,8 +89,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         devices.delete(id);
       }),
 
-    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', ...MOCK_VIRTUAL_PORTS, ...MOCK_VIRTUAL_NET_PORTS, MOCK_RUIDA_PORT]),
-    connect: ({ port, device }) => lag(() => ({ firmware: machine.connect(port, device?.kind === 'ruida') })),
+    listPorts: () => lag(() => ['/dev/cu.usbserial-1420', '/dev/cu.usbmodem1101', MOCK_LHY_USB_PORT, ...MOCK_VIRTUAL_PORTS, ...MOCK_VIRTUAL_NET_PORTS, MOCK_RUIDA_PORT, MOCK_LHY_PORT]),
+    connect: ({ port, device }) => lag(() => ({ firmware: machine.connect(port, device?.kind === 'ruida', device?.kind === 'lhy_micro') })),
     disconnect: () => lag(() => machine.disconnect()),
     machineCommand: ({ line }) => lag(() => machine.command(line)),
     machineRealtime: ({ cmd }) => lag(() => machine.realtime(cmd)),
@@ -143,6 +143,30 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         if (!machine.ruida) throw new Error('Esta función es solo de las controladoras Ruida.');
         return machine.storedDocs.map((name, i) => ({ index: i + 1, name }));
       }),
+
+    lhyPreview: ({ doc, device, options: o }) =>
+      lag(() => {
+        const preview = mockComputeJob(doc, device, o);
+        // Como el codificador real: cada capa con salida que pide potencia avisa que la placa la ignora.
+        const outputs = doc.layers.filter((l) => l.output && doc.objects.some((ob) => ob.layer === l.color && !ob.hidden));
+        const warnings = outputs.flatMap((l, block) => [
+          { kind: 'power_ignored' as const, block, layer: l.name, value: l.power, fires: false },
+          ...(l.mode === 'image' && l.image.mode === 'grayscale' ? [{ kind: 'gray_thresholded' as const, block, layer: l.name, value: null, fires: false }] : []),
+          ...(l.air ? [{ kind: 'air_assist_ignored' as const, block, layer: l.name, value: null, fires: false }] : []),
+        ]);
+        return {
+          board: device.lhymicro.board.toUpperCase(),
+          warnings,
+          packets: Math.max(1, Math.round(preview.moves.length / 40)),
+          bytes: Math.max(1, Math.round(preview.moves.length / 40)) * 34,
+          est_seconds: preview.total_s,
+          burn_mm: preview.layers.reduce((a, l) => a + l.seconds, 0) * 10,
+          travel_mm: 100,
+          homes_first: !machine.lhyKnown,
+        };
+      }),
+    lhyHome: () => lag(() => machine.lhyHome()),
+    lhyState: () => lag(() => machine.lhyState()),
 
     ...mockText(lag),
     ...mockVariables(lag),

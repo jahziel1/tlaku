@@ -31,7 +31,7 @@ Si la capa tiene ajustes de Z y la máquina no tiene eje Z, ves un aviso y el bo
 - El cero es **donde enfocaste tú**: Tlaku no conoce el cero de Z de la máquina, así que antes de iniciar enfoca a mano sobre la superficie del material. El movimiento de Z se envía **relativo** a esa altura, y cada capa vuelve a ella al terminar.
 - La altura de cada pasada es `Desplazamiento Z + Bajada por pasada × (pasada − 1)`. Con bajada distinta de cero y varias pasadas, la capa se divide en una fila por pasada en la [vista previa](07-vista-previa.md) ("pasada 2/3").
 - **Prueba de sentido:** con un desplazamiento Z de 1 mm, el foco debe entrar 1 mm en el material. Si sale al revés, activa **Invertir Z**. Haz la prueba sin material y con el láser apagado o a potencia mínima.
-- Hoy el tiempo estimado no suma lo que tarda Z en moverse. No hay botones para mover Z a mano en **Mover cabezal** ni autoenfoque.
+- Hoy el tiempo estimado no suma lo que tarda Z en moverse. Con el eje Z activo, **Mover cabezal** tiene los botones **Subir** y **Bajar** y **Enfocar** (lleva Z a una altura de enfoque guardada), explicados en [Control avanzado de la máquina](09b-control-avanzado.md). No hay autoenfoque ni optimizar Z.
 
 ## Rotativo
 
@@ -80,6 +80,6 @@ Con el rotativo activo, **Posicionar el láser** (un clic en la cama) se deshabi
 
 ### Lo que no existe
 
-Rotativo para galvo, corrección de cilindro y eje A aparte no están en Tlaku. Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
+Rotativo para galvo y corrección de cilindro no están en Tlaku. Un eje A o U aparte solo se puede mover a mano (casilla **Eje U** del perfil y botones en **Mover cabezal**); los trabajos no lo usan. Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
 
 Siguiente: [Controladoras soportadas](13-controladoras.md)

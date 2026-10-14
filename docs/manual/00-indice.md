@@ -8,7 +8,7 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 
 - [Primeros pasos](01-primeros-pasos.md): instalar, importar un diseño, revisar las capas, ver la vista previa, probar con la máquina virtual y guardar.
 - [La interfaz](02-interfaz.md): barra superior, herramientas, lienzo y guías, paneles reordenables, paleta de colores, barra de estado y atajos de teclado.
-- [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md): la ventana de preferencias, cambiar atajos, llevar tu configuración a otro equipo y recuperar el trabajo tras un cierre inesperado.
+- [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md): la ventana de preferencias (con las pulgadas y la automatización por UDP), cambiar atajos, llevar tu configuración a otro equipo y recuperar el trabajo tras un cierre inesperado.
 
 ## Diseñar
 
@@ -29,16 +29,19 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 ## La máquina
 
 - [Conectar tu máquina](08-conectar-maquina.md): el asistente Agregar máquina, el puerto, el perfil y la máquina virtual.
+- [Conexión por red y automatización](08b-red-y-automatizacion.md): GRBL por TCP y WebSocket, probar la conexión, la máquina virtual por red y la automatización por UDP (protocolo y seguridad).
 - [Enviar trabajos con seguridad](09-enviar-con-seguridad.md): enviar solo la selección, origen del trabajo, mover el cabezal y posicionar el láser, encuadrar (también por contorno), el diálogo de iniciar con su lista de comprobación, ajustes en vivo, pausa, detener y exportar G-code.
-- [Cámara](10-camara.md): calibrar la lente, alinear el diseño con el material y usar marcas grabadas.
+- [Control avanzado de la máquina](09b-control-avanzado.md): macros, mover con Z y U, enfocar, posiciones guardadas, disparo de prueba, ajustes `$$` con respaldo, encuadre a baja potencia y en bucle, láser 2 y paquetes `.tlakubundle`.
+- [Cámara](10-camara.md): calibrar la lente (también ojo de pez), alinear el diseño con el material, capturar y vectorizar la cama, cámara en el cabezal y buscador de centro.
 - [Materiales](11-materiales.md): biblioteca de ajustes, prueba de materiales e intercambio de archivos `.tlakumat`.
 - [Rotativo y eje Z](12-rotativo-y-eje-z.md): grabar sobre cilindros y trabajar con una mesa motorizada.
-- [Controladoras soportadas](13-controladoras.md): qué controladoras funcionan, con qué nivel de validación, y los dialectos de G-code.
+- [Controladoras soportadas](13-controladoras.md): qué controladoras funcionan, qué se probó en emulador y qué queda por validar con hardware, y los dialectos de G-code.
+- [Ruida y K40](13b-ruida-y-k40.md): las dos familias experimentales: qué hacen, qué no, por qué Ruida solo guarda por defecto, el plan de prueba del K40 y por qué su potencia va con la perilla.
 
 ## Ayuda
 
 - [Venir desde LightBurn](14-desde-lightburn.md): equivalencias de nombres y de atajos (también las herramientas de diseño avanzado, el nesting y el texto variable), qué hay, qué falta, cómo traer un diseño y qué conserva y qué avisa el importador de proyectos de LightBurn.
-- [Solución de problemas](15-solucion-de-problemas.md): alarmas y errores de GRBL, puertos serie, drivers y qué hacer cuando el láser no dispara.
+- [Solución de problemas](15-solucion-de-problemas.md): alarmas y errores de GRBL, puertos serie, drivers, errores de red, Ruida que no responde, K40 que no aparece por USB y qué hacer cuando el láser no dispara.
 - [Glosario](16-glosario.md): los términos de láser y de Tlaku, de kerf a overscan.
 - [Novedades](novedades.md): lo que trae cada versión.
 

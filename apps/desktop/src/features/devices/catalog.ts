@@ -297,6 +297,19 @@ export const CATALOG: readonly CatalogEntry[] = [
   },
 
   {
+    // La placa M2 Nano de serie (Lihuiyu) no es GRBL ni usa puerto serie: habla LHYMICRO-GL por USB.
+    // Solo se escribe la cama que tiene fuente; el home arriba a la izquierda y la velocidad máxima
+    // son valores de partida que `buildProfile` marca como tales.
+    id: 'k40-m2nano',
+    brand: 'K40',
+    model: 'K40 con M2 Nano (Lihuiyu)',
+    kind: 'lhy_micro',
+    aliases: ['M2 Nano', 'Lihuiyu', 'LHYMICRO', 'LaserDRW', 'K40 Whisperer', 'K40'],
+    bed: forum([300, 200], 'https://forum.lightburnsoftware.com/t/cant-get-the-software-to-line-up-with-the-workable-area/17532', 'catalog.note.k40.bedOrder'),
+    notes: ['lhymicro.note.power', 'lhymicro.note.position', 'lhymicro.note.moshiboard'],
+  },
+
+  {
     id: 'grbl-generic',
     brand: 'GRBL',
     model: 'GRBL genérico (1.1f o posterior)',

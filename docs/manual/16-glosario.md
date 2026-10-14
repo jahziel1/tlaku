@@ -10,6 +10,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Alarma (`ALARM:N`)**: estado en el que la máquina se bloquea por seguridad (límite, reinicio, homing fallido). Se sale con desbloquear o con homing. Ver [Solución de problemas](15-solucion-de-problemas.md).
 - **Arreglo virtual**: un objeto que se corta o graba varias veces sin que existan las copias como objetos; el lienzo las muestra como fantasmas. Ver [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md).
 - **Asistente booleano**: diálogo que muestra el resultado de cada operación (unión, A menos B, intersección, diferencia simétrica y soldar) antes de aplicarla (`Ctrl/Cmd+B`).
+- **Automatización por UDP**: servidor local opcional (apagado de fábrica) con el que otros programas de tu equipo mandan a Tlaku comandos de texto como `LOAD` o `STATUS`. Ver [Conexión por red y automatización](08b-red-y-automatizacion.md).
 - **Autoguardado**: copia de recuperación que Tlaku guarda cada minuto (si hay cambios) para ofrecértela si la aplicación se cierra de golpe. No reemplaza a guardar. Ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
 
 ## B
@@ -77,10 +78,13 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 ## K
 
+- **K40**: láser de CO2 chino barato, normalmente con una placa **M2 Nano** que LightBurn no soporta. En Tlaku es experimental y la potencia se ajusta con la perilla de la máquina, no por software. Ver [Ruida y K40](13b-ruida-y-k40.md).
 - **Kerf**: ancho del material que el láser consume al cortar. Se compensa para que la pieza final salga a la medida.
 
 ## M
 
+- **Macro**: botón que manda a la máquina líneas de G-code guardadas en el perfil. Pasa por las reglas de seguridad de la consola. Ver [Control avanzado de la máquina](09b-control-avanzado.md).
+- **Magic (Ruida)**: byte de ofuscación que usa cada modelo de controladora Ruida en sus paquetes; se detecta solo o se fija a mano.
 - **M3 / M4**: órdenes que encienden el láser. `M3` da **potencia constante**; `M4` da **potencia dinámica**, que baja al frenar en las esquinas y evita quemarlas. M4 necesita GRBL 1.1f o posterior con `$32=1`.
 - **Máquina virtual**: emulador dentro de la app para probar sin hardware (puerto `virtual:...`). Puede simular fallas. No graba nada.
 - **Máscara (de imagen)**: forma vectorial que recorta una imagen para que solo se grabe lo que queda dentro.
@@ -103,6 +107,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 ## P
 
+- **Paquete de configuración (`.tlakubundle`)**: archivo con tus máquinas, materiales, preferencias y atajos, para llevar tu configuración a otro equipo. Ver [Control avanzado de la máquina](09b-control-avanzado.md).
 - **Pasada**: cada vez que el láser recorre un mismo trayecto. Varias pasadas cortan más hondo.
 - **Pass-through (enviar sin tramar)**: la imagen se envía tal cual, sin tramado ni ajustes de tono; cada punto ya es la potencia.
 - **Perforación**: corte intermitente, con tramos cortados y tramos saltados, para líneas de doblez o piezas que deben quedar unidas.
@@ -112,7 +117,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Posicionar el láser**: modo en el que un clic en la cama del lienzo manda el cabezal a ese punto, con el láser apagado.
 - **Potencia mínima / máxima**: en una imagen, la potencia de los puntos más claros y de los más oscuros.
 - **Prioridad de corte**: número que se le da a un objeto para cortarlo antes o después que otros de su capa (menor, antes).
-- **Puentes**: trozos que se dejan sin cortar para que la pieza no se caiga ni se mueva antes de terminar, repartidos solos por la capa o colocados a mano con la herramienta `U`.
+- **Puentes**: trozos que se dejan sin cortar para que la pieza no se caiga ni se mueva antes de terminar, repartidos solos por la capa o colocados a mano con la herramienta `U`. Con **Potencia en puentes** el láser puede marcarlos sin atravesarlos.
 - **Punto de inicio**: el lugar donde empieza el corte de un contorno cerrado; se puede fijar a mano con la herramienta `Q`, junto con el sentido.
 - **Preferencias (`.tlakuprefs`)**: tus ajustes y atajos de teclado; se exportan a un archivo `.tlakuprefs` para llevarlos a otro equipo. Ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md).
 
@@ -123,7 +128,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Raster / vector**: raster es un grabado punto a punto (imágenes, rellenos); vector es seguir un trazo (cortes y líneas).
 - **Relleno por regiones (flood fill)**: relleno que recorre cada región del dibujo por separado sin cruzar los espacios vacíos.
 - **Rotativo**: accesorio que gira una pieza cilíndrica, normalmente en lugar del eje Y. Ver [Rotativo y eje Z](12-rotativo-y-eje-z.md).
-- **Ruida**: controladora de muchos láseres de CO2. En Tlaku es experimental y solo por línea de comandos.
+- **Ruida**: controladora de muchos láseres de CO2. En Tlaku es experimental, por red (UDP), y por defecto el trabajo solo se guarda en su memoria. Ver [Ruida y K40](13b-ruida-y-k40.md).
 
 ## S
 
@@ -136,6 +141,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 ## T
 
+- **TCP / Telnet y WebSocket**: las dos formas de conectar una máquina GRBL por red (puerto 23 y `ws://`). Ver [Conexión por red y automatización](08b-red-y-automatizacion.md).
 - **Trayecto**: línea o curva vectorial. Un texto se convierte en trayectos para poder editar sus nodos.
 - **Texto soldado**: texto cuyas letras que se tocan o se solapan se funden en un solo contorno (casilla **Soldar letras**).
 - **Texto variable**: texto con llaves (`{serie}`, `{csv:Nombre}`, `{fecha}`) que se cambia por valores al enviar el trabajo. Ver [Texto variable](04b-texto-variable.md).

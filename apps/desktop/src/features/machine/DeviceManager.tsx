@@ -33,6 +33,7 @@ import { ExtraAxesFields } from './ExtraAxesFields';
 import { RotaryFields, ScanInitialOffsetField, ScanOffsetsTable, ZAxisField, type ScanIssue } from './DeviceExtras';
 import { KindChangeDialog, KindField } from './DeviceKindField';
 import { RotaryTest } from './DeviceRotaryTest';
+import { LhyFields } from './LhyFields';
 import { RuidaFields } from './RuidaFields';
 import { Modal } from './Modal';
 
@@ -158,6 +159,9 @@ export function DeviceManager() {
   const isActive = draft.id === activeId;
   // Ruida habla por red con su propio protocolo: no usa G-code, S máxima, baudios ni macros.
   const ruida = draft.kind === 'ruida';
+  // El K40 con M2 Nano tampoco usa G-code, S máxima, baudios ni macros (habla LHYMICRO-GL por USB).
+  const lhy = draft.kind === 'lhy_micro';
+  const noGcode = ruida || lhy;
 
   // Si la lista cambia desde fuera (otro borrado), el borrador sigue apuntando a un perfil que existe.
   useEffect(() => {
@@ -350,7 +354,7 @@ export function DeviceManager() {
               </Field>
             </fieldset>
 
-            <fieldset className="mc-group" hidden={ruida}>
+            <fieldset className="mc-group" hidden={noGcode}>
               <legend>{t('machine.dev.group.laser')}</legend>
               <div className="field-grid">
                 <Field label={t('machine.dev.sMax')} help="machine.dev.sMax.help" error={issues.s_max}>
@@ -367,7 +371,7 @@ export function DeviceManager() {
               </div>
             </fieldset>
 
-            <fieldset className="mc-group" hidden={ruida}>
+            <fieldset className="mc-group" hidden={noGcode}>
               <legend>{t('devices.dialect.title')}</legend>
               <DialectEditor draft={draft} edit={edit} issues={dialectIssues} />
             </fieldset>
@@ -395,7 +399,7 @@ export function DeviceManager() {
               </Field>
             </fieldset>
 
-            <fieldset className="mc-group">
+            <fieldset className="mc-group" hidden={lhy}>
               <legend>{t('machine.dev.group.axes')}</legend>
               <ZAxisField draft={draft} edit={edit} />
               <ExtraAxesFields draft={draft} edit={edit} />
@@ -417,7 +421,14 @@ export function DeviceManager() {
               </fieldset>
             )}
 
-            <fieldset className="mc-group" hidden={ruida}>
+            {lhy && (
+              <fieldset className="mc-group">
+                <legend>{t('lhymicro.dev.group')}</legend>
+                <LhyFields draft={draft} edit={edit} />
+              </fieldset>
+            )}
+
+            <fieldset className="mc-group" hidden={noGcode}>
               <legend>{t('machine.dev.group.comms')}</legend>
               <DeviceConnection draft={draft} edit={edit} />
               <div className="field-grid">
@@ -436,7 +447,7 @@ export function DeviceManager() {
               </div>
             </fieldset>
 
-            <fieldset className="mc-group" hidden={ruida}>
+            <fieldset className="mc-group" hidden={noGcode}>
               <legend>{t('machine.dev.group.gcode')}</legend>
               <Field label={t('machine.dev.startGcode')} help="machine.dev.startGcode.help">
                 {({ id, describedBy }) => (
@@ -458,7 +469,7 @@ export function DeviceManager() {
               </Field>
             </fieldset>
 
-            <fieldset className="mc-group" hidden={ruida}>
+            <fieldset className="mc-group" hidden={noGcode}>
               <legend>{t('machine.dev.group.macros')}</legend>
               <MacroEditor draft={draft} edit={edit} />
               {issues.macros && <p className="hint hint--danger" role="alert">{t('machine.dev.err.macro')}</p>}

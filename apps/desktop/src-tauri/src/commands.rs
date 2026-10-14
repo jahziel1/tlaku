@@ -3,6 +3,7 @@
 
 use crate::engine::{self, Head};
 use crate::machine::active::{ActiveMachine, Machine};
+use crate::machine::lhymicro::{self, LhyConnection, LhyTiming};
 use crate::machine::ruida::{self, RuidaConnection, RuidaTiming};
 use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, frame, virtual_port};
 use std::path::PathBuf;
@@ -197,10 +198,14 @@ pub async fn list_ports() -> Result<Vec<String>, String> {
     blocking(|| {
         let mut ports = tlaku_grbl::serial::list_ports()
             .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))?;
+        // Las placas del K40 que haya por USB (`usb:k40:<n>`), antes de las máquinas virtuales.
+        ports.extend(lhymicro::usb_ports());
         ports.extend(virtual_port::ports());
         ports.extend(crate::netlink::virtual_ports());
         // La máquina virtual de Ruida (emulador UDP); la interfaz solo la ofrece con un perfil Ruida.
         ports.push(ruida::VIRTUAL_PORT.to_string());
+        // La placa simulada del K40; la interfaz solo la ofrece con un perfil K40.
+        ports.push(lhymicro::VIRTUAL_PORT.to_string());
         Ok(ports)
     })
     .await
@@ -227,7 +232,7 @@ pub async fn connect(
     }
     let sink: Arc<dyn Sink> = Arc::new(TauriSink(app));
     // Ruida: UDP a la IP del perfil (o su máquina virtual), sin puerto serie.
-    if let Some(device) = device.filter(|d| d.kind == DeviceKind::Ruida) {
+    if let Some(device) = device.clone().filter(|d| d.kind == DeviceKind::Ruida) {
         let result = blocking(move || {
             RuidaConnection::connect(&device, &port, sink, RuidaTiming::default())
         })
@@ -237,9 +242,23 @@ pub async fn connect(
         *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Ruida(conn));
         return Ok(info);
     }
+    // K40 (M2 Nano): USB (`usb:k40:<n>`) o su máquina virtual, sin puerto serie.
+    if let Some(device) = device.filter(|d| d.kind == DeviceKind::LhyMicro) {
+        let result =
+            blocking(move || LhyConnection::connect(&device, &port, sink, LhyTiming::default()))
+                .await;
+        state.connecting.store(false, Ordering::SeqCst);
+        let (conn, info) = result?;
+        *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Lhy(conn));
+        return Ok(info);
+    }
     if ruida::is_virtual(&port) {
         state.connecting.store(false, Ordering::SeqCst);
         return Err("La máquina virtual Ruida solo se abre con un perfil de tipo Ruida.".into());
+    }
+    if lhymicro::is_virtual(&port) || lhymicro::usb_index(&port).is_some() {
+        state.connecting.store(false, Ordering::SeqCst);
+        return Err("La placa del K40 solo se abre con un perfil de tipo K40 (M2 Nano).".into());
     }
     let result = blocking(move || {
         // Red (Telnet/TCP, WebSocket o máquina virtual por red): sin puerto serie ni espera de
@@ -338,6 +357,10 @@ pub async fn start_job(
     if let Machine::Ruida(r) = state.machine()? {
         return blocking(move || r.start_job(&doc, &device, &options)).await;
     }
+    // K40: codifica LHYMICRO-GL y lo envía en el hilo de la conexión (hace home si hace falta).
+    if let Machine::Lhy(l) = state.machine()? {
+        return blocking(move || l.start_job(&doc, &device, &options)).await;
+    }
     let h = state.handle()?;
     blocking(move || {
         let lines = engine::job_lines(&doc, &device, &options, h.work_pos())?;
@@ -360,6 +383,10 @@ pub async fn frame_job(
     // Ruida recorre el rectángulo con el láser apagado; no admite encuadre con potencia baja.
     if let Machine::Ruida(r) = state.machine()? {
         return blocking(move || r.frame_job(&doc, &device, &options, speed)).await;
+    }
+    // K40: igual, con el láser apagado y a la velocidad de salto de la placa.
+    if let Machine::Lhy(l) = state.machine()? {
+        return blocking(move || l.frame_job(&doc, &device, &options)).await;
     }
     let h = state.handle()?;
     blocking(move || {
@@ -386,6 +413,10 @@ pub async fn frame_hull(
     // Ruida no tiene banda elástica: recorre el rectángulo envolvente.
     if let Machine::Ruida(r) = state.machine()? {
         return blocking(move || r.frame_job(&doc, &device, &options, speed)).await;
+    }
+    // El K40 tampoco: recorre el rectángulo envolvente.
+    if let Machine::Lhy(l) = state.machine()? {
+        return blocking(move || l.frame_job(&doc, &device, &options)).await;
     }
     let h = state.handle()?;
     blocking(move || {
@@ -510,4 +541,39 @@ pub async fn ruida_info(state: State<'_, AppState>) -> Result<tlaku_doc::RuidaIn
 #[tauri::command]
 pub async fn ruida_files(state: State<'_, AppState>) -> Result<Vec<tlaku_doc::RuidaFile>, String> {
     with_machine(&state, |m| m.ruida()?.files()).await
+}
+
+// ---------------------------------------------------------------------------
+// K40 con placa M2 Nano (LHYMICRO-GL por USB; EXPERIMENTAL)
+// ---------------------------------------------------------------------------
+
+/// Calcula y codifica el trabajo sin enviarlo: devuelve los avisos del codificador (la potencia
+/// se ignora, los grises se binarizan...) para mostrarlos antes de empezar. No necesita conexión;
+/// si la hay, parte de la posición actual del cabezal.
+#[tauri::command]
+pub async fn lhy_preview(
+    state: State<'_, AppState>,
+    doc: Document,
+    device: DeviceProfile,
+    options: JobOptions,
+) -> Result<lhymicro::LhyPreview, String> {
+    let head = state
+        .machine()
+        .ok()
+        .and_then(|m| m.lhy().ok().and_then(|l| l.work_pos()));
+    blocking(move || lhymicro::preview(&doc, &device, &options, head)).await
+}
+
+/// Lleva el cabezal al home (finales de carrera). La placa no informa su posición: se cuenta
+/// desde aquí.
+#[tauri::command]
+pub async fn lhy_home(state: State<'_, AppState>) -> Result<(), String> {
+    with_machine(&state, |m| m.lhy()?.home()).await
+}
+
+/// Estado propio de la conexión K40: placa, si se conoce la posición y el último código de estado.
+#[tauri::command]
+pub async fn lhy_state(state: State<'_, AppState>) -> Result<lhymicro::LhyState, String> {
+    let m = state.machine()?;
+    Ok(m.lhy()?.state())
 }

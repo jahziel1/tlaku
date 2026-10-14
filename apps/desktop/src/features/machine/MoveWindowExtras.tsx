@@ -6,6 +6,8 @@ import { selectActiveDevice, useStore } from '@/store';
 import { jogBlockedReason } from '@/store/machine';
 import { FIRE_LIMITS, U_LETTERS, type ULetter } from '@/store/moveControl';
 import { NumberField } from '@/ui/NumberField';
+import { LhyNotApplicable } from './LhyNotice';
+import { selectIsLhy } from './lhyPorts';
 import { MAX_POSITIONS } from './positions';
 import { Modal } from './Modal';
 
@@ -22,6 +24,16 @@ export function ExtraAxesControls() {
   const uLetter = useStore((s) => s.uLetter);
   const setULetter = useStore((s) => s.setULetter);
   const letterId = useId();
+  const lhy = useStore(selectIsLhy);
+  // La M2 Nano no tiene Z, U ni aire: se dice por qué en lugar de los controles.
+  if (lhy) {
+    return (
+      <div className="mc-axes">
+        <h4 className="mc-sub">{t('machine.axes')}</h4>
+        <LhyNotApplicable reason="lhymicro.axes.reason" />
+      </div>
+    );
+  }
   if (!device.z_axis && !device.u_axis) return null;
   const disabled = whyKey !== null;
 
@@ -164,6 +176,16 @@ export function FireControls() {
   const setFire = useStore((s) => s.setFire);
   const whyKey = useStore(jogBlockedReason);
   const [open, setOpen] = useState(false);
+  const lhy = useStore(selectIsLhy);
+  // El disparo de prueba es de GRBL (M3/M5): la M2 Nano no controla la potencia.
+  if (lhy) {
+    return (
+      <div className="mc-fire">
+        <h4 className="mc-sub">{t('machine.fire')}</h4>
+        <LhyNotApplicable reason="lhymicro.fire.reason" />
+      </div>
+    );
+  }
   return (
     <div className="mc-fire">
       <h4 className="mc-sub">{t('machine.fire')}</h4>

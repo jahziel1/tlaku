@@ -135,6 +135,49 @@ export interface JobArgs {
 }
 
 // ---------------------------------------------------------------------------
+// K40 con placa M2 Nano (los devuelve `src-tauri/src/machine/lhymicro.rs`)
+// ---------------------------------------------------------------------------
+
+/** Qué avisa el codificador LHYMICRO-GL; cada uno tiene su texto en `lhymicro.warn.<kind>`. */
+export type LhyWarningKind = 'power_ignored' | 'gray_thresholded' | 'air_assist_ignored' | 'z_ignored' | 'dwell_skipped';
+
+export interface LhyWarning {
+  kind: LhyWarningKind;
+  /** Número del bloque del trabajo (desde 0). */
+  block: number;
+  /** Nombre de la capa del bloque, si se conoce. */
+  layer: string | null;
+  /** Potencia pedida (%) en `power_ignored`; milisegundos en `dwell_skipped`. */
+  value: number | null;
+  /** Solo en `dwell_skipped`: era un pulso (disparaba el láser) y no una pausa. */
+  fires: boolean;
+}
+
+/** Lo que se sabe de un trabajo antes de enviarlo a un K40 (`lhy_preview`); no envía nada. */
+export interface LhyPreview {
+  board: string;
+  warnings: LhyWarning[];
+  packets: number;
+  bytes: number;
+  /** Tiempo estimado por exceso (s). */
+  est_seconds: number;
+  burn_mm: number;
+  travel_mm: number;
+  /** La posición del cabezal se desconoce: el envío hace home primero. */
+  homes_first: boolean;
+}
+
+/** Estado propio de la conexión K40 (`lhy_state`). */
+export interface LhyState {
+  board: string;
+  virtual_machine: boolean;
+  /** Se conoce la posición del cabezal (se cuenta desde el último home). */
+  position_known: boolean;
+  /** Último código de estado de la placa (206 lista, 238 ocupada, 236 terminó, 239 sin energía...); 0 si no hay lectura. */
+  status_code: number;
+}
+
+// ---------------------------------------------------------------------------
 // Eventos
 // ---------------------------------------------------------------------------
 

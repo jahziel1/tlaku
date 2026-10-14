@@ -9,6 +9,8 @@ import type {
   ImportResult,
   JobArgs,
   JobPreview,
+  LhyPreview,
+  LhyState,
   OverrideKind,
   RealtimeCommand,
   RuidaFile,
@@ -174,7 +176,8 @@ export interface LaserApi {
   automationConfigure(args: { config: AutomationConfig }): Promise<AutomationStatus>;
   /**
    * Conecta. `device` es el perfil activo: con `kind = ruida` el motor usa su IP (`connection`),
-   * su magic y su cama en lugar del puerto serie (`port` solo se usa para `virtual:ruida`).
+   * su magic y su cama en lugar del puerto serie (`port` solo se usa para `virtual:ruida`). Con
+   * `kind = lhy_micro` abre la placa USB `usb:k40:<n>` o la máquina virtual `virtual:k40`.
    */
   connect(args: { port: string; baud: number; device?: DeviceProfile }): Promise<ConnectResult>;
   disconnect(): Promise<void>;
@@ -212,6 +215,15 @@ export interface LaserApi {
   ruidaInfo(): Promise<RuidaInfo>;
   /** Ruida (EXPERIMENTAL, solo lectura): documentos guardados en la memoria de la controladora. */
   ruidaFiles(): Promise<RuidaFile[]>;
+  /**
+   * K40 con M2 Nano (EXPERIMENTAL): calcula y codifica el trabajo SIN enviarlo y devuelve los avisos
+   * del codificador (la potencia se ignora, los grises se binarizan...) y el resumen. No necesita conexión.
+   */
+  lhyPreview(args: JobArgs): Promise<LhyPreview>;
+  /** K40: lleva el cabezal al home (finales de carrera); desde ahí se cuenta la posición. Vuelve al terminar. */
+  lhyHome(): Promise<void>;
+  /** K40: placa, si se conoce la posición y último código de estado. Falla si la conexión no es un K40. */
+  lhyState(): Promise<LhyState>;
   /** Mueve un eje extra (`Z`, `U`, `A`...) `delta` mm respecto a donde está. `kind` decide la sintaxis (GRBL o RepRap). */
   jogAxis(args: { kind: DeviceKind; axis: string; delta: number; speed: number }): Promise<void>;
   /** Lleva un eje extra a la posición `pos` (mm, coordenadas de trabajo); lo usa «Enfocar». */
@@ -427,6 +439,9 @@ export const COMMAND_NAMES = {
   jogTo: 'jog_to',
   ruidaInfo: 'ruida_info',
   ruidaFiles: 'ruida_files',
+  lhyPreview: 'lhy_preview',
+  lhyHome: 'lhy_home',
+  lhyState: 'lhy_state',
   jogAxis: 'jog_axis',
   jogAxisTo: 'jog_axis_to',
   fireTest: 'fire_test',

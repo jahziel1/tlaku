@@ -1,6 +1,6 @@
 # Controladoras: qué soporta LightBurn y qué debería soportar Tlaku
 
-Fecha de investigación: 2026-10-13. Meta del dueño: soportar la mayoría de las controladoras que soporta LightBurn. Hoy Tlaku solo habla GRBL (`DeviceKind::Grbl`).
+Fecha de investigación: 2026-10-13. Meta del dueño: soportar la mayoría de las controladoras que soporta LightBurn. Lo que sigue es la investigación (hecha antes de escribir código); el estado real de lo que Tlaku soporta hoy está en la tabla de abajo, actualizada al cerrar la ola 4.
 
 Documentos hermanos (los escriben otros agentes; aquí solo se enlazan):
 
@@ -8,6 +8,26 @@ Documentos hermanos (los escriben otros agentes; aquí solo se enlazan):
 - Ruida (protocolo, transporte, formato `.rd`): [ruida.md](ruida.md)
 - Creality Falcon2: [falcon2.md](falcon2.md)
 - Inventario funcional de LightBurn (ventanas, cámara, rotativo...): [../spec/03-maquinas-avanzadas.md](../spec/03-maquinas-avanzadas.md)
+
+## Estado de soporte en Tlaku (2026-10-13, tras la ola 4)
+
+Esta tabla es lo que hay **en el código**, no lo que recomienda la investigación. Ninguna fila se ha probado con una máquina real. Detalle y pruebas: [../spec/04-cobertura.md](../spec/04-cobertura.md) y [../manual/13-controladoras.md](../manual/13-controladoras.md).
+
+| Familia | `DeviceKind` | Transporte | Estado | Probado en emulador | Por validar con hardware |
+|---|---|---|---|---|---|
+| GRBL 1.1 (M4) | `Grbl` | USB serie; TCP y WebSocket | Estable en emulador | Flujo completo (`tlaku-emu`, máquina virtual) y conexión por red con sockets de verdad | Todo; la primera prueba será una Falcon2 |
+| GRBL-M3 (antiguo) | `GrblM3` | USB serie | Por validar | Solo el G-code (pruebas del motor); sin máquina virtual propia | Todo |
+| GRBL-LPC (Cohesion3D) | `GrblLpc` | USB serie | Por validar | Solo el G-code; sin máquina virtual propia | Todo |
+| grblHAL | `GrblHal` | USB serie; TCP (Ethernet) | Estable en emulador | Máquina virtual `grblhal` | Todo, incluida la red |
+| FluidNC | `FluidNc` | USB serie; TCP (Telnet); WebSocket | Estable en emulador | Máquina virtual `fluidnc` | Todo, incluida la red |
+| Marlin (láser) | `Marlin` | USB serie | Estable en emulador (básico) | Máquina virtual `marlin` | Todo |
+| Smoothieware | `Smoothie` | USB serie | Estable en emulador (básico) | Máquina virtual `smoothie` | Todo |
+| G-code personalizado | `CustomGcode` | USB serie | Por validar | El dialecto lo escribe el usuario | Todo |
+| Ruida (RDC644x...) | `Ruida` | UDP | **Experimental** | Emulador UDP propio (`tlaku-ruida`): sondeo, envío guardando o ejecutando, estado, pausa, detener, saltos, encuadre, información y lista de documentos (solo lectura) | Todo: direcciones y unidades de la información, numeración de documentos, home, estados, y el comportamiento ante una subida cortada |
+| K40 con M2 Nano | `LhyMicro` | USB (CH341) | **Experimental**; solo línea de comandos (`tlaku k40`) por ahora <!-- K40-APP --> | Placa simulada (`tlaku-lhymicro`): CRC, paquetes, estados, velocidades por placa contra 1511 vectores de MeerK40t | Todo: el USB real, el home, los tiempos y los códigos de estado |
+| Galvo JCZ/BJJCZ (EZCAD2) | — | — | No soportada | — | — |
+| EZCAD3/DLC, BSL, Trocen, TopWisdom | — | — | No soportada | — | — |
+| xTool por Wi-Fi propietario, Glowforge | — | — | No soportada | — | — |
 
 ## 0. Reglas y honestidad de las fuentes
 

@@ -5,9 +5,10 @@
 //! respaldos:
 //!
 //! - GRBL y derivados ([`super::Connection`], trabajador sobre un puerto serie o virtual);
-//! - Ruida por UDP ([`super::ruida::RuidaConnection`]).
+//! - Ruida por UDP ([`super::ruida::RuidaConnection`]);
+//! - el K40 con placa M2 Nano por USB ([`super::lhymicro::LhyConnection`]).
 //!
-//! # Cómo se agrega un tercero (el K40, LHYMICRO)
+//! # Cómo se agrega otro respaldo (así se hizo con el K40, LHYMICRO)
 //!
 //! 1. Una variante en [`ActiveMachine`] (dueña del hilo, con `close`) y otra en [`Machine`] (el
 //!    mando clonable, `Send`).
@@ -25,6 +26,7 @@
 //! Las operaciones que solo existen en GRBL (consola, overrides, ajustes `$`, macros) usan
 //! [`Machine::grbl`] y no se tocan.
 
+use super::lhymicro::{self, LhyConnection, LhyHandle};
 use super::ruida::{self, RuidaConnection, RuidaHandle};
 use super::{Connection, Handle};
 use tlaku_doc::{RealtimeCommand, StatusReport};
@@ -33,6 +35,7 @@ use tlaku_doc::{RealtimeCommand, StatusReport};
 pub enum ActiveMachine {
     Grbl(Connection),
     Ruida(RuidaConnection),
+    Lhy(LhyConnection),
 }
 
 impl ActiveMachine {
@@ -41,6 +44,7 @@ impl ActiveMachine {
         match self {
             Self::Grbl(c) => Machine::Grbl(c.handle()),
             Self::Ruida(c) => Machine::Ruida(c.handle()),
+            Self::Lhy(c) => Machine::Lhy(c.handle()),
         }
     }
 
@@ -49,6 +53,7 @@ impl ActiveMachine {
         match self {
             Self::Grbl(c) => c.close(),
             Self::Ruida(c) => c.close(),
+            Self::Lhy(c) => c.close(),
         }
     }
 }
@@ -58,6 +63,7 @@ impl ActiveMachine {
 pub enum Machine {
     Grbl(Handle),
     Ruida(RuidaHandle),
+    Lhy(LhyHandle),
 }
 
 impl Machine {
@@ -66,6 +72,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.is_closed(),
             Self::Ruida(h) => h.is_closed(),
+            Self::Lhy(h) => h.is_closed(),
         }
     }
 
@@ -74,6 +81,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.work_pos(),
             Self::Ruida(h) => h.work_pos(),
+            Self::Lhy(h) => h.work_pos(),
         }
     }
 
@@ -82,6 +90,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.status_report(),
             Self::Ruida(h) => h.status_report(),
+            Self::Lhy(h) => h.status_report(),
         }
     }
 
@@ -90,6 +99,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => Ok(h),
             Self::Ruida(_) => Err(ruida::GRBL_ONLY.into()),
+            Self::Lhy(_) => Err(lhymicro::GRBL_ONLY.into()),
         }
     }
 
@@ -97,7 +107,19 @@ impl Machine {
     pub fn ruida(&self) -> Result<&RuidaHandle, String> {
         match self {
             Self::Ruida(h) => Ok(h),
-            Self::Grbl(_) => Err("Esta función es solo de las controladoras Ruida.".into()),
+            Self::Grbl(_) | Self::Lhy(_) => {
+                Err("Esta función es solo de las controladoras Ruida.".into())
+            }
+        }
+    }
+
+    /// El mando del K40 (M2 Nano), o un error si la conexión activa es otra.
+    pub fn lhy(&self) -> Result<&LhyHandle, String> {
+        match self {
+            Self::Lhy(h) => Ok(h),
+            Self::Grbl(_) | Self::Ruida(_) => {
+                Err("Esta función es solo del K40 con placa M2 Nano.".into())
+            }
         }
     }
 
@@ -106,6 +128,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.jog(dx, dy, speed),
             Self::Ruida(h) => h.jog(dx, dy, speed),
+            Self::Lhy(h) => h.jog(dx, dy, speed),
         }
     }
 
@@ -114,6 +137,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.jog_to(x, y, speed),
             Self::Ruida(h) => h.jog_to(x, y, speed),
+            Self::Lhy(h) => h.jog_to(x, y, speed),
         }
     }
 
@@ -121,6 +145,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.pause(),
             Self::Ruida(h) => h.pause(),
+            Self::Lhy(h) => h.pause(),
         }
     }
 
@@ -128,6 +153,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.resume(),
             Self::Ruida(h) => h.resume(),
+            Self::Lhy(h) => h.resume(),
         }
     }
 
@@ -136,6 +162,7 @@ impl Machine {
         match self {
             Self::Grbl(h) => h.cancel(),
             Self::Ruida(h) => h.cancel(),
+            Self::Lhy(h) => h.cancel(),
         }
     }
 
@@ -150,6 +177,14 @@ impl Machine {
                 RealtimeCommand::Reset | RealtimeCommand::JogCancel => h.cancel(),
                 // Ruida no tiene un reporte a petición: el estado llega solo cada ~500 ms.
                 RealtimeCommand::Status => Ok(()),
+            },
+            // El K40 traduce lo mismo que Ruida; la placa se consulta sola cada ~500 ms. Cancelar un
+            // jog no existe: los saltos son cortos y detener la placa le haría perder la posición.
+            Self::Lhy(h) => match cmd {
+                RealtimeCommand::Hold => h.pause(),
+                RealtimeCommand::Resume => h.resume(),
+                RealtimeCommand::Reset => h.cancel(),
+                RealtimeCommand::JogCancel | RealtimeCommand::Status => Ok(()),
             },
         }
     }

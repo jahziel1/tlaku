@@ -54,9 +54,13 @@ El interruptor **Modo principiante**, justo bajo el título del editor, oculta l
 ### Contorno: kerf y puentes (modo Línea)
 
 - **Kerf** (-5 a 5 mm): compensa lo que el haz se come del material. Con un valor positivo el recorrido se desplaza hacia fuera en las piezas y hacia dentro en los agujeros, para que la pieza salga del tamaño dibujado. Solo afecta a contornos cerrados.
-- **Puentes**: con **Dejar puentes sin cortar** la capa deja pequeños tramos sin cortar para que la pieza no se suelte. Defines el **Ancho del puente**, la **Cantidad** por forma cerrada (o una **Separación** fija en mm; con 0 se usa la cantidad) y si se **Omiten formas interiores**. Los puentes aparecen como huecos en la vista previa. Se reparten solos, o los colocas tú con la herramienta **Puentes manuales** (`U`): un objeto con puentes manuales ignora los automáticos de su capa (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)). Todavía no se puede dar a un puente una potencia propia.
+- **Puentes**: con **Dejar puentes sin cortar** la capa deja pequeños tramos sin cortar para que la pieza no se suelte. Defines el **Ancho del puente**, la **Cantidad** por forma cerrada (o una **Separación** fija en mm; con 0 se usa la cantidad) y si se **Omiten formas interiores**. Los puentes aparecen como huecos en la vista previa. Se reparten solos, o los colocas tú con la herramienta **Puentes manuales** (`U`): un objeto con puentes manuales ignora los automáticos de su capa (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)). La **Potencia en puentes (%)** (justo debajo) decide qué hace el láser sobre el hueco del puente: con **0** (de fábrica) el láser no lo toca; con un valor mayor **marca el puente sin atravesarlo**.
 
 ![Sección Puentes del editor de capa](../../apps/desktop/docs/screenshots/21-capa-puentes.png)
+
+**Potencia en puentes.** Es un porcentaje **absoluto** de la potencia de la máquina (de 0 a 100), no un porcentaje de la capa, y **nunca supera la potencia de corte del objeto**: si pones 60 % en una capa que corta al 40 %, el puente se marca al 40 %. Vale para todos los puentes de la capa, automáticos o manuales. En la vista previa los puentes con potencia se dibujan como marcado y los de 0 como láser apagado. Mientras marca el puente el láser sigue a la velocidad de corte, sin frenar. Con perforación, el hueco del puente también se cruza con esa potencia.
+
+**Ejemplo: una pieza que sale con un golpe.** Cortas un contrachapado de 3 mm a 80 % con 4 puentes. Con **Potencia en puentes** en `0` la pieza queda sujeta por cuatro puntos enteros que hay que romper o cortar con un cúter. Prueba en un retazo con `10` o `15`: el láser ranura cada puente sin atravesarlo y, si el valor es bueno, la pieza se suelta con un golpe suave. El valor justo depende del material y del láser: busca el más bajo que ranure lo suficiente, sin perforar.
 
 ### Corte avanzado (modo Línea)
 

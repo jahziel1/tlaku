@@ -10,6 +10,7 @@ import { entrySources, type CatalogEntry, type Fact } from './catalog';
 import type { CompareField, Comparison, CompareRow } from './compare';
 import type { RankedEntry } from './filter';
 import type { BuiltProfile, Provenance, ProfileField } from './profile';
+import { LhyBoardField } from './LhyBoardField';
 import { RuidaHostField } from './RuidaHostField';
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,10 @@ export interface DetectStepProps {
   onBaud: (baud: number) => void;
   onRefresh: () => void;
   onDetect: () => void;
+  /** Placas de K40 (M2 Nano) que el motor encontró por USB (`usb:k40:<n>`). */
+  k40Boards?: string[];
+  /** Elegir «K40 con M2 Nano» y pasar al modelo; sin esto no se muestra la parte del K40. */
+  onPickK40?: () => void;
 }
 
 function portLabel(port: string): string {
@@ -101,6 +106,18 @@ export function DetectStep(p: DetectStepProps) {
         )}
         {p.probe.status === 'done' && <ProbeSummary result={p.probe.result} />}
       </div>
+      {p.onPickK40 && (
+        <section className="dev-k40" aria-labelledby={`${id}-k40`}>
+          <h3 id={`${id}-k40`} className="mc-sub"><Info size={13} aria-hidden="true" /> {t('lhymicro.wizard.title')}</h3>
+          <p className="hint">{t('lhymicro.wizard.intro')}</p>
+          {(p.k40Boards ?? []).length > 0 ? (
+            <p className="hint" role="status">{t('lhymicro.wizard.found', { n: p.k40Boards?.length ?? 0 })}</p>
+          ) : (
+            <p className="hint" role="status">{t('lhymicro.wizard.none')}</p>
+          )}
+          <button type="button" className={(p.k40Boards ?? []).length > 0 ? 'btn btn--accent' : 'btn'} onClick={p.onPickK40}>{t('lhymicro.wizard.use')}</button>
+        </section>
+      )}
       <section className="dev-network" aria-labelledby={`${id}-net`}>
         <h3 id={`${id}-net`} className="mc-sub"><Info size={13} aria-hidden="true" /> {t('catalog.detect.network.title')}</h3>
         <p className="hint">{t('catalog.detect.network.text')}</p>
@@ -379,6 +396,9 @@ export interface SaveStepProps {
   /** Solo con Ruida: la IP de la controladora, escrita a mano. */
   host?: string;
   onHost?: (host: string) => void;
+  /** Solo con un K40: el modelo de placa. */
+  board?: string;
+  onBoard?: (board: string) => void;
 }
 
 const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
@@ -387,7 +407,7 @@ const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
   default: 'catalog.save.fromDefault',
 };
 
-export function SaveStep({ name, onName, built, host = '', onHost }: SaveStepProps) {
+export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2', onBoard }: SaveStepProps) {
   const id = useId();
   const { profile: d, provenance } = built;
   const empty = name.trim() === '';
@@ -398,7 +418,7 @@ export function SaveStep({ name, onName, built, host = '', onHost }: SaveStepPro
     ['s_max', 'catalog.field.s_max', showValue(d.s_max)],
     ['baud', 'catalog.detect.baud', String(d.baud)],
     ['origin', 'catalog.fact.origin', t(`catalog.origin.${d.origin}`)],
-  ].filter(([f]) => !(d.kind === 'ruida' && (f === 'baud' || f === 's_max'))) as [ProfileField, I18nKey, string][];
+  ].filter(([f]) => !((d.kind === 'ruida' || d.kind === 'lhy_micro') && (f === 'baud' || f === 's_max'))) as [ProfileField, I18nKey, string][];
   const hasDefaults = rows.some(([f]) => provenance[f] === 'default');
   return (
     <div className="dev-step">
@@ -410,6 +430,7 @@ export function SaveStep({ name, onName, built, host = '', onHost }: SaveStepPro
         </p>
       </div>
       {d.kind === 'ruida' && onHost && <RuidaHostField host={host} onHost={onHost} />}
+      {d.kind === 'lhy_micro' && onBoard && <LhyBoardField board={board} onBoard={onBoard} />}
       <section aria-label={t('catalog.save.summary')}>
         <h3 className="mc-sub">{t('catalog.save.summary')}</h3>
         <p className="hint">{t('catalog.save.kind')}: {kindLabel(d.kind)}</p>

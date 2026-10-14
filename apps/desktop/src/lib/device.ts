@@ -378,7 +378,7 @@ export function parseGrblVersion(firmware: string): { major: number; minor: numb
 // ---------------------------------------------------------------------------
 
 /** Tipos en el orden en que se ofrecen. Los textos salen de `devices.kind.<id>`. */
-export const DEVICE_KINDS: readonly DeviceKind[] = ['grbl', 'grbl_hal', 'fluid_nc', 'grbl_lpc', 'grbl_m3', 'smoothie', 'marlin', 'custom_gcode', 'ruida'];
+export const DEVICE_KINDS: readonly DeviceKind[] = ['grbl', 'grbl_hal', 'fluid_nc', 'grbl_lpc', 'grbl_m3', 'smoothie', 'marlin', 'custom_gcode', 'ruida', 'lhy_micro'];
 
 /**
  * Tipos que la app todavía no sabe enviar a la máquina (solo exportar el G-code). Vaciar este

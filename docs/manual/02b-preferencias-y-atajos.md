@@ -4,9 +4,9 @@ Cómo ajustar Tlaku a tu manera: la ventana de **Preferencias**, el editor de **
 
 ## Abrir las preferencias
 
-Elige **Editar > Preferencias…** o pulsa `Ctrl/Cmd+,`. La ventana tiene cinco secciones a la izquierda y **los cambios se guardan solos**: no hay botón de aceptar, solo **Cerrar**.
+Elige **Editar > Preferencias…** o pulsa `Ctrl/Cmd+,`. La ventana tiene seis secciones a la izquierda y **los cambios se guardan solos**: no hay botón de aceptar, solo **Cerrar**.
 
-![Ventana de Preferencias con las secciones General, Edición, Apariencia, Archivos y Atajos](../../apps/desktop/docs/screenshots/29-preferencias.png)
+![Ventana de Preferencias con las secciones General, Edición, Apariencia, Archivos, Automatización y Atajos](../../apps/desktop/docs/screenshots/29-preferencias.png)
 
 Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **Restablecer**, que devuelve todas las preferencias a su valor de fábrica tras pedir confirmación. Restablecer **no toca tus atajos de teclado**.
 
@@ -27,17 +27,32 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Archivos | **Guardar copias de recuperación automáticamente** | Sí | Sí o no |
 | Archivos | **Intervalo entre copias** | 60 s | 10 a 3600 s |
 | Archivos | **Archivos recientes que se recuerdan** | 10 | 0 a 30 |
+| Automatización | **Activar la automatización por UDP** | No | Sí o no. Ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
+| Automatización | **Puerto UDP** | 47801 | 1024 a 65535 (aparece al activarla) |
+| Automatización | **Permitir iniciar desde automatización** | No | Sí o no. **Encendida, cualquier programa de tu equipo puede arrancar el láser sin que lo confirmes** |
 
 ![La interfaz en inglés: paneles y menús traducidos al cambiar el idioma en Preferencias; el resumen del orden de capas todavía sale en español porque lo escribe el motor](../../apps/desktop/docs/screenshots/38-english.png)
 
 Detalles que conviene saber:
 
-- **Unidades.** El diseño se guarda siempre en milímetros; la unidad que eliges cambia cómo se muestran y se escriben las longitudes. Se aplica en la barra numérica (X, Y, ancho y alto), la barra de estado, las reglas y la cuadrícula (en pulgadas, de décima en décima), la herramienta **Medir** (ver [Dibujar y editar](03-dibujar-y-editar.md)), los campos de longitud de los diálogos de Organizar (arreglos, offset, alinear y acomodar piezas) y los de esta ventana. Los campos aceptan la unidad al escribir («5 mm», «0,25 in», «1/8"», «1 1/2 in», `50%`). Las velocidades siguen en mm/min, y los campos de las áreas de máquina y cámara, en mm.
+- **Unidades.** El diseño se guarda siempre en milímetros; la unidad que eliges cambia cómo se muestran y se escriben las longitudes. Se aplica en la barra numérica (X, Y, ancho y alto), la barra de estado, las reglas y la cuadrícula (en pulgadas, de décima en décima), la herramienta **Medir** (ver [Dibujar y editar](03-dibujar-y-editar.md)), los campos de longitud de los diálogos de Organizar (arreglos, offset, alinear y acomodar piezas) y los de esta ventana. Los campos aceptan la unidad al escribir («5 mm», «0,25 in», «1/8"», «1 1/2 in», `50%`). Las velocidades siguen en mm/min, y los campos de las capas (intervalo, kerf, desplazamiento Z...), de las áreas de máquina y de la cámara, en mm.
 - **Pasos de las flechas.** Cambian los tres pasos de las flechas del teclado (ver [Dibujar y editar](03-dibujar-y-editar.md)).
 - **Paso de rotación.** Es el que usan el giro con `Mayús` al arrastrar la perilla, los comandos **Girar un paso a la izquierda/derecha** y el campo **Paso de giro** de la barra numérica.
 - **Rejilla.** Con una medida fija, la rejilla menor mide eso y la mayor diez veces más; con el zoom muy alejado se oculta para no saturar la vista.
 - **Tema.** Es el mismo ajuste que el botón de sol o luna de la barra superior.
 - **Archivos recientes.** El botón **Vaciar la lista de recientes** borra la lista de **Archivo > Abrir reciente**. Con 0 no se recuerda ninguno.
+
+### Trabajar en pulgadas
+
+Si tus medidas vienen en pulgadas (planos de EE. UU., madera de 3/4"), cambia **Unidades de longitud** a **Pulgadas** y el programa te habla en esa unidad sin que el diseño deje de guardarse en milímetros.
+
+1. **Editar > Preferencias… > Edición > Unidades de longitud**: pulgadas (`in`).
+2. Selecciona un objeto: en la barra numérica, **X**, **Y**, **Ancho** y **Alto** se ven en pulgadas, igual que las reglas (con marcas de décima en décima) y la barra de estado.
+3. Escribe como te sea cómodo. Con pulgadas activas, un número sin unidad son pulgadas, y puedes poner fracciones y mezclar unidades: `3/8"`, `1 1/2 in`, `2.25`, `5mm` (se convierte), `50%` (la mitad del valor actual) o una cuenta como `(10+2)*4`.
+
+> **Ejemplo:** una pieza de 3 1/2 × 2 pulgadas. Selecciona el rectángulo, escribe `3 1/2` en **Ancho** y `2` en **Alto**. Por dentro quedan 88,9 × 50,8 mm. Para dejar 1/8" de separación al acomodar piezas, escribe `1/8"` en **Separación entre piezas** de **Acomodar piezas**.
+
+Qué **sigue en milímetros** aunque elijas pulgadas: las velocidades (siempre mm/min), los campos de las capas (intervalo, kerf, desplazamiento Z...), las áreas de las máquinas y de la cámara y el grosor del material. Si ves una cifra en milímetros en un campo de esas, no es un error: ese campo aún no cambia de unidad.
 
 Las preferencias viven en un archivo `preferences.json` dentro de la carpeta de configuración de la aplicación, no en la ventana web, así que sobreviven a limpiar los datos del navegador integrado.
 
@@ -67,7 +82,7 @@ Además:
 
 ## Llevar tu configuración a otro equipo
 
-En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas** y el **Modo principiante** (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)) y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo.
+En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas** y el **Modo principiante** (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)) y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones) y tu **biblioteca de materiales** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)).
 
 Al importar, Tlaku dice cuántas preferencias y de cuántos comandos son los atajos que entraron. Si el archivo viene de otra versión:
 

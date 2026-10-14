@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import { selectActiveDevice, useStore } from '@/store';
 import { FRAME_MAX_PCT } from '@/store/moveControl';
 import { NumberField } from '@/ui/NumberField';
+import { selectIsLhy } from './lhyPorts';
 import { selectIsRuida } from './ruidaPorts';
 
 /**
@@ -18,14 +19,16 @@ export function FrameOptions() {
   const stop = useStore((s) => s.stopFrameLoop);
   // Ruida encuadra siempre con el láser apagado (cuatro saltos), nunca encendido.
   const ruida = useStore(selectIsRuida);
-  const canLaser = useStore((s) => selectActiveDevice(s).dialect.s_inline) && !ruida;
+  // El K40 también: encuadra con saltos, sin potencia.
+  const lhy = useStore(selectIsLhy);
+  const canLaser = useStore((s) => selectActiveDevice(s).dialect.s_inline) && !ruida && !lhy;
   return (
     <div className="mc-frameopts">
       <label className="mc-check">
         <input type="checkbox" checked={laser.on} disabled={!canLaser} onChange={(e) => setLaser({ on: e.target.checked })} />
         <span>{t('machine.frame.laserOn')}</span>
       </label>
-      {!canLaser && <p className="hint">{t(ruida ? 'ruida.frame.laserOff' : 'machine.frame.laserNo')}</p>}
+      {!canLaser && <p className="hint">{t(lhy ? 'lhymicro.frame.laserOff' : ruida ? 'ruida.frame.laserOff' : 'machine.frame.laserNo')}</p>}
       {laser.on && (
         <>
           <NumberField label={t('machine.frame.power')} unit="%" value={laser.powerPct} step={0.5} min={0.1} max={FRAME_MAX_PCT} onCommit={(powerPct) => setLaser({ powerPct })} />

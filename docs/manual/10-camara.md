@@ -2,11 +2,11 @@
 
 Pon una cámara sobre la cama y Tlaku muestra su imagen como fondo del lienzo, para colocar el diseño justo sobre el material. Para que coincida hace falta corregir la lente, alinear la imagen con la cama y, si quieres precisión, indicar el grosor del material.
 
-> **Ojo:** la cámara se probó con una cámara simulada, no con la cámara de una máquina real. Hoy sirve solo como fondo de referencia: no hay cámara montada en el cabezal, cámaras de red ni vectorizar a partir de la imagen. Usa las cámaras locales que el sistema ofrezca (por ejemplo, una webcam USB).
+> **Ojo:** la cámara se probó con cámaras y fotos simuladas, no con la cámara de una máquina real. Además de servir de fondo de referencia, la imagen puede guardarse en el documento, vectorizarse, armarse como mosaico con una cámara montada en el cabezal y usarse para encontrar el centro de un objeto redondo. Lo que **no** hay: cámaras de red ni presets de cámara (solo las locales que el sistema ofrezca, por ejemplo una webcam USB). Lo marcado *por validar con hardware real* se probó solo con datos sintéticos.
 
 ## El panel Cámara
 
-Abre la pestaña **Cámara** (`Ctrl/Cmd+5`). De arriba abajo trae: fuente de video, vista en vivo, **Fondo en el lienzo**, **Lente**, **Alinear con marcas grabadas**, **Altura del material** y **Alineación con la cama**. Los mismos comandos aparecen en el menú **Máquina**: **Encender cámara**, **Mostrar fondo de cámara en el lienzo**, **Congelar el cuadro de la cámara**, **Calibrar lente de la cámara…** y **Alinear cámara con marcas grabadas…**.
+Abre la pestaña **Cámara** (`Ctrl/Cmd+5`). De arriba abajo trae: fuente de video, vista en vivo, **Fondo en el lienzo**, **Imagen de la cama**, **Lente**, **Alinear con marcas grabadas**, **Altura del material**, **Alineación con la cama**, **Cámara en el cabezal** y **Buscador de centro**. Los mismos comandos aparecen en el menú **Máquina**: **Encender cámara**, **Mostrar fondo de cámara en el lienzo**, **Congelar el cuadro de la cámara**, **Calibrar lente de la cámara…**, **Alinear cámara con marcas grabadas…**, **Capturar imagen de la cama**, **Vectorizar desde la cámara…**, **Actualizar la superposición de la cámara** y **Buscador de centro (cámara)…**.
 
 ![Panel Cámara con la vista en vivo, el fondo, la lente y las marcas grabadas](../../apps/desktop/docs/screenshots/17-panel-camara.png)
 
@@ -68,14 +68,18 @@ Las cámaras de 5 MP que vienen en la tapa de muchas láser de CO2 son de ojo de
 - **Automático (recomendado)**: ajusta los dos modelos y elige el que mejor predice las vistas que reservó, no solo el de menor error de reproyección. Una lente normal se queda en Brown-Conrady.
 - **Brown-Conrady** y **Ojo de pez (Kannala-Brandt)**, para fijar uno.
 
-El resultado muestra el modelo elegido y una tabla con el ajuste y el error en vistas reservadas de cada modelo. Con ojo de pez toma vistas del tablero también en las esquinas de la imagen. La imagen corregida de un ojo de pez muestra un campo más amplio, con menos píxeles por milímetro en el centro. *Por validar con hardware real.*
+El resultado muestra el modelo elegido y una tabla con el ajuste y el error en vistas reservadas de cada modelo. Con ojo de pez toma vistas del tablero también en las esquinas de la imagen. La imagen corregida de un ojo de pez muestra un campo más amplio, con menos píxeles por milímetro en el centro. *Por validar con hardware real: se probó con cámaras sintéticas, no con una lente real.*
+
+> **Ejemplo:** tu cámara de la tapa deja las esquinas de la cama curvas y con errores de varios milímetros aunque en el centro se vea bien. Calibra con el modelo **Automático** y toma vistas del tablero también en las esquinas. En la prueba sintética del proyecto (un ojo de pez de 140°), el modelo normal parecía bueno con 0,56 px de error de reproyección pero se equivocaba hasta 108 mm en el plano; el de ojo de pez, 3,2 mm. Por eso el asistente compara con vistas reservadas y no solo con el error de reproyección.
 
 ## Capturar la imagen de la cama
 
 Con la cámara alineada, **Imagen de la cama** guarda lo que ve la cámara dentro del documento:
 
 - **Capturar imagen de la cama** guarda la foto, ya corregida y alineada, como una imagen del documento en el lugar exacto donde está sobre la cama (con la corrección por grosor del material). Si el proyecto no está guardado, el PNG queda en la carpeta temporal y la app te avisa.
-- **Vectorizar desde la cámara** hace lo mismo y abre enseguida el diálogo de vectorizar sobre esa imagen.
+- **Vectorizar desde la cámara** hace lo mismo y abre enseguida el diálogo de vectorizar sobre esa imagen (ver [Imágenes](06-imagenes.md)).
+
+> **Ejemplo:** pones un dibujo hecho a mano en tinta negra sobre papel en la cama, capturas la imagen y la vectorizas: queda un trayecto que puedes cortar o grabar encima de la pieza real, en su lugar exacto.
 
 En **Fondo en el lienzo** (junto a la opacidad) hay dos ajustes más: **Fondo en escala de grises** (para ver mejor el diseño encima; la imagen que captures también sale en gris) y **Actualizar el fondo al terminar un trabajo** (renueva el cuadro congelado, o repite el recorrido de la cámara del cabezal).
 
@@ -87,10 +91,12 @@ Si tu cámara va montada en el cabezal de la máquina, marca **La cámara está 
 2. Enciende la cámara, conecta la máquina, mueve el cabezal hasta ver la cruz y pulsa **Medir con la cámara**. Haz clic en el centro de la cruz en la imagen.
 3. Pulsa **Siguiente posición**: el cabezal se mueve unos milímetros y vuelves a hacer clic. Con 3 puntos o más se calculan el desfase, la escala y el error; **Guardar calibración** los conserva.
 
-**Actualizar la superposición** recorre la cama en cuadrícula con el láser apagado, toma una foto en cada punto y las une con mezcla en los bordes; el mosaico queda de fondo fijo. Antes de mover la máquina la app pide confirmación y muestra cuántas posiciones son; el recorrido se puede cancelar. Con una selección puedes limitarlo a esa zona. El mismo recorrido se usa en **Capturar imagen de la cama**. *Por validar con hardware real.*
+**Actualizar la superposición** recorre la cama en cuadrícula con el láser apagado, toma una foto en cada punto y las une con mezcla en los bordes; el mosaico queda de fondo fijo. Antes de mover la máquina la app pide confirmación y muestra cuántas posiciones son; el recorrido se puede cancelar. Con una selección puedes limitarlo a esa zona. El mismo recorrido se usa en **Capturar imagen de la cama**. *Por validar con hardware real: probado con la máquina virtual y fotos sintéticas.* Falta la alineación automática del cabezal con marcas.
 
 ## Buscador de centro
 
 **Buscador de centro** encuentra el centro de un objeto redondo con la cámara: marca **3 puntos del borde** en la imagen, o elige **Detectar el círculo** y haz clic dentro del objeto. Te dice el centro y el radio en mm y ofrece **Mover la cabeza al centro** (con el láser apagado) y **Origen del trabajo aquí** (fija el origen de usuario; después elige «Origen de usuario» en «Iniciar desde»). *Por validar con hardware real.*
+
+> **Ejemplo:** quieres grabar un logotipo en el centro de un posavasos redondo. Enciende la cámara con la alineación hecha, abre **Buscador de centro**, elige **Detectar el círculo**, haz clic dentro del posavasos y mira el centro y el radio. Pulsa **Origen del trabajo aquí**, y en **Iniciar desde** elige **Origen de usuario** con el punto del trabajo en el **centro**: el logotipo queda centrado. Si la detección falla (necesita ver al menos el 45 % del contorno), usa los **3 puntos del borde**. No toca el cabezal como sonda: se apoya en la alineación de la cámara, así que es tan exacto como ella.
 
 Siguiente: [Materiales](11-materiales.md)

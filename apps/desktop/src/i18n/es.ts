@@ -26,6 +26,7 @@ import { text } from './es/text';
 import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
+import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
 
@@ -282,6 +283,7 @@ export const es = {
   ...trace,
   ...nest,
   ...ruida,
+  ...lhymicro,
   ...shapes,
   ...camera,
   ...materials,

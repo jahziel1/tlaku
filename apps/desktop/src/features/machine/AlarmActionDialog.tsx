@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
+import { selectIsLhy } from './lhyPorts';
 import { homingEnabled } from '@/store/machine';
 import type { AlarmAction } from './grblCodes';
 import { Modal } from './Modal';
@@ -11,6 +12,9 @@ export function AlarmActionDialog({ action }: { action: AlarmAction }) {
   const confirm = useStore((s) => s.confirmAlarmAction);
   const homing = useStore((s) => homingEnabled(s.settings));
   const line = action === 'unlock' ? '$X' : '$H';
+  // El home del K40 (M2 Nano) es la orden IPP de la placa, no `$H`.
+  const lhy = useStore(selectIsLhy);
+  if (lhy && action === 'home') return <LhyHomeDialog />;
 
   return (
     <Modal
@@ -43,6 +47,36 @@ export function AlarmActionDialog({ action }: { action: AlarmAction }) {
       )}
       <p>{t('machine.confirm.exact')}</p>
       <pre className="mc-code num">{line}</pre>
+    </Modal>
+  );
+}
+
+/** Confirmación del home del K40: mueve el cabezal hasta los finales de carrera; desde ahí se cuenta la posición. */
+function LhyHomeDialog() {
+  const close = useStore((s) => s.closeDialog);
+  const confirm = useStore((s) => s.confirmAlarmAction);
+  return (
+    <Modal
+      title={t('lhymicro.home.title')}
+      tone="danger"
+      onClose={close}
+      footer={
+        <>
+          <button type="button" className="btn" data-autofocus onClick={close}>{t('machine.dlg.cancel')}</button>
+          <button type="button" className="btn btn--danger" onClick={() => void confirm('home')}>
+            {t('lhymicro.home.send')}
+          </button>
+        </>
+      }
+    >
+      <p>{t('lhymicro.home.risk')}</p>
+      <ul className="mc-list">
+        {(['lhymicro.home.check1', 'lhymicro.home.check2'] as const).map((k) => (
+          <li key={k}>{t(k)}</li>
+        ))}
+      </ul>
+      <p>{t('lhymicro.home.exact')}</p>
+      <pre className="mc-code num">IPP</pre>
     </Modal>
   );
 }

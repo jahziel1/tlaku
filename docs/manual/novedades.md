@@ -2,6 +2,51 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Máquinas, en la próxima versión
+
+Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máquina gana lo que más se echaba de menos. **Nada de esto se ha probado con una máquina real**: se validó con emuladores, máquinas virtuales e imágenes sintéticas. Lo marcado *experimental* puede equivocarse con una máquina de verdad: empieza con el láser deshabilitado o a potencia baja, material de desecho y el paro de emergencia al alcance.
+
+### Conexión por red y automatización
+
+- **GRBL por red**: grblHAL con Ethernet y FluidNC por **TCP / Telnet**, y FluidNC y ESP3D por **WebSocket**. Se elige en el perfil, con un botón **Probar conexión** que no mueve nada y errores de red explicados en español. Mira [Conexión por red y automatización](08b-red-y-automatizacion.md).
+- **Máquina virtual por red**: el mismo emulador detrás de un socket TCP local, para ver la conexión por red sin tener la máquina.
+- **Automatización por UDP**: otros programas de tu equipo pueden cargar un diseño, preguntar el estado o detener el trabajo con comandos de texto (`PING`, `LOAD`, `START`, `STATUS`, `STOP`). Está **apagada** de fábrica, solo escucha en `127.0.0.1` y `START` solo abre el diálogo de iniciar salvo que lo permitas tú.
+
+### Ruida y K40 (experimental)
+
+- **Ruida (CO2) en la app**: conectar por IP, enviar el trabajo (por defecto **se guarda en la memoria de la controladora y no arranca**; tú lo inicias desde su panel), pausar, reanudar, detener, mover, encuadrar, leer la información de la máquina y la lista de documentos. Los ajustes de la controladora solo se leen. Hay una máquina virtual **Ruida (CO2)**. Mira [Ruida y K40](13b-ruida-y-k40.md).
+- **K40 con placa M2 Nano**, que LightBurn no soporta: envío por USB, estado de solo lectura y exportar `.egv`, de momento desde la línea de comandos (`tlaku k40`). <!-- K40-APP --> **La potencia no se controla por software: va con la perilla de la máquina.**
+
+### Control de la máquina
+
+- **Macros** (hasta 10 por perfil), con botones y atajos, que pasan por las reglas de seguridad de la consola.
+- **Mover con Z y U**, **Enfocar**, **posiciones guardadas** y **disparo de prueba** (hasta 20 % y 2 s, con doble confirmación). Mira [Control avanzado de la máquina](09b-control-avanzado.md).
+- **Ajustes `$$`** de la controladora con nombre, descripción y marca de crítico, edición con confirmación y **respaldo** `.tlakuset` con restauración por diferencias.
+- **Encuadre a baja potencia** y **en bucle** hasta detener.
+- **Láser 2** por capa y **eje U** para mover a mano.
+- **Paquetes `.tlakubundle`**: tus máquinas (con macros y posiciones), materiales, preferencias y atajos en un solo archivo, con vista previa antes de importar.
+- **Potencia en puentes**: el láser puede marcar el puente sin atravesarlo, para que la pieza se suelte con un golpe. Mira [Capas y ajustes de corte](05-capas-y-ajustes.md).
+
+### Cámara
+
+- **Ojo de pez**: nuevo modelo de lente con elección automática, que se prueba con vistas reservadas. Pensado para las cámaras de la tapa de los láseres de CO2.
+- **Capturar la imagen de la cama** como imagen del documento y **vectorizarla**.
+- **Cámara en el cabezal**: calibración del desfase y mosaico de la cama.
+- **Buscador de centro**: encuentra el centro de un objeto redondo y mueve la cabeza o fija el origen ahí. Mira [Cámara](10-camara.md).
+
+### Pequeñas mejoras
+
+- Las **pulgadas** de las preferencias llegan a la barra de estado, las reglas, los pasos de las flechas y los diálogos de Organizar y de Acomodar piezas, con fracciones (`3/8"`).
+- Las piezas del nesting llevan nombres legibles, y las copias del arreglo virtual cuentan en las cajas del diseño.
+- La copia de recuperación de una ventana ya no se ofrece en otra ventana abierta (corregido leyendo el código y con pruebas; falta comprobarlo con ventanas reales).
+
+### Lo que sigue sin estar
+
+- Probar todo con hardware real. Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 aún no está en la app. <!-- K40-APP -->
+- Cámaras de red, presets de cámara y alinear la cámara del cabezal con marcas.
+- Las pulgadas en las capas, las máquinas y la cámara; marcar un perfil como predeterminado; autoenfoque.
+- Galvo, **Print & Cut** y **tiling**.
+
 ## Diseño avanzado, en la próxima versión
 
 Tercera gran tanda: las herramientas de diseño que más se echaban de menos. Sigue sin probarse con una máquina real: revisa siempre la vista previa y empieza con material de desecho.
@@ -39,8 +84,8 @@ Tercera gran tanda: las herramientas de diseño que más se echaban de menos. Si
 ### Lo que sigue sin estar
 
 - **Deformar** se hace desde un diálogo: aún no hay manijas en el lienzo ni malla de 16 puntos.
-- **Redondear esquinas** no tiene la herramienta de clic por esquina; los **puentes manuales** no tienen potencia propia ni se arrastran; no hay guías temporales de alineación ni paneles flotantes.
-- **Nueva ventana** no se ha probado en una ventana real y, con el autoguardado encendido, puede mostrar la copia de la otra ventana como "trabajo sin guardar": elige **Decidir después**.
+- **Redondear esquinas** no tiene la herramienta de clic por esquina; los **puentes manuales** no se arrastran (la potencia de puente llegó después, ver más arriba); no hay guías temporales de alineación ni paneles flotantes.
+- **Nueva ventana** no se ha probado en una ventana real. Al abrirse, el aviso de trabajo sin guardar podía mostrar la copia de la otra ventana; la ola de máquinas lo corrigió (ver más arriba), pero sigue sin comprobarse con ventanas reales: ante la duda elige **Decidir después**.
 - **Tiling** y **Print & Cut** siguen sin estar.
 
 ## Capas y corte: ajustes avanzados

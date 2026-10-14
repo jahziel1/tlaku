@@ -74,16 +74,25 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 - **Vista previa:** reproducción del recorrido con tiempo estimado y desglose por capa, y una
   ventana de ajustes de optimización (respetar capas, grupos y prioridad, interiores primero,
   mejor punto de inicio, quitar tramos que se cortarían dos veces, esconder el juego mecánico).
-- **Máquina:** asistente "Agregar máquina" con detección de solo lectura, conexión serie, mover el
-  cabezal (pasos configurables, posicionar el láser con un clic, posición final), origen y
-  "Iniciar desde", origen del trabajo de 9 puntos, enviar solo la selección, encuadre de
-  rectángulo o de contorno, lista de comprobación antes de enviar, ajustes de velocidad y potencia
-  en vivo (GRBL), pausa y paro, consola con respuestas explicadas y exportar G-code.
+- **Máquina:** asistente "Agregar máquina" con detección de solo lectura, conexión por puerto
+  serie o **por red** (TCP/Telnet y WebSocket, con "Probar conexión"), mover el cabezal (pasos
+  configurables, ejes Z y U, enfocar, posiciones guardadas, posicionar el láser con un clic,
+  posición final), disparo de prueba con doble confirmación, origen y "Iniciar desde", origen del
+  trabajo de 9 puntos, enviar solo la selección, encuadre de rectángulo o de contorno (también con
+  el láser a baja potencia y en bucle), lista de comprobación antes de enviar, ajustes de velocidad
+  y potencia en vivo (GRBL), pausa y paro, macros, consola con respuestas explicadas, ajustes `$$`
+  de la controladora con respaldo, segundo láser, paquetes de configuración `.tlakubundle` y
+  exportar G-code. Potencia de puente en las capas de línea.
+- **Automatización:** servidor UDP local opcional (apagado de fábrica, solo `127.0.0.1`) para que
+  otros programas manden `LOAD`, `START`, `STATUS` y `STOP`; `START` pide confirmación en la app.
+- **Ruida y K40 (experimental):** controladoras Ruida (CO2) por red desde la app, y K40 con placa
+  M2 Nano por USB desde la línea de comandos (`tlaku k40`). <!-- K40-APP -->
 - **Taller:** biblioteca de materiales y prueba de materiales, rotativo (rodillo o mandril),
-  corrección de barrido (scanning offset), cámara con calibración de lente, alineación y marcas
-  grabadas.
+  corrección de barrido (scanning offset), cámara con calibración de lente (incluido el modelo de
+  ojo de pez), alineación y marcas grabadas, captura y vectorizado de la cama, cámara en el cabezal
+  con mosaico y buscador de centro. Pulgadas en la interfaz.
 - **Idiomas:** español e inglés, con cambio en vivo.
-- **Ayuda:** manual de usuario de 24 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
+- **Ayuda:** manual de usuario de 27 páginas dentro de la aplicación (menú Ayuda, con buscador) y en
   [docs/manual](docs/manual/00-indice.md), atajos con `F1`, novedades y "Acerca de".
 
 ![Vista previa del trabajo con reproducción y resultados por capa](apps/desktop/docs/screenshots/04-vista-previa.png)
@@ -99,8 +108,9 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
   de otras; corre en segundo plano con progreso y se puede detener (`tlaku-nest`). El *tiling*
   (dividir trabajos grandes) **todavía no existe**.
 - **Máquina virtual.** Puedes conectar la app a una máquina simulada (Falcon2 Pro, GRBL, grblHAL,
-  FluidNC, Marlin y otras) y provocar fallas a propósito: llama, inclinación, alarma, desconexión.
-  Sirve para aprender, probar un flujo completo y reportar errores sin tocar un láser.
+  FluidNC, Marlin, Ruida y otras), también detrás de un socket TCP local para probar la conexión
+  por red, y provocar fallas a propósito: llama, inclinación, alarma, desconexión. Sirve para
+  aprender, probar un flujo completo y reportar errores sin tocar un láser.
 - **Revisión de seguridad antes de enviar.** Antes de mover la máquina se consulta su estado y no
   se transmite nada si está en alarma, en pausa, con la puerta abierta o en marcha. Se avisa antes
   de empezar, no a mitad del trabajo, si el overscan se sale de la cama. La app nunca desbloquea
@@ -127,16 +137,20 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 Estas funciones están en el plan y todavía no son parte de la app:
 
 - Del diseño avanzado: deformar con manijas en el lienzo y con malla de 16 puntos, redondear
-  esquinas con un clic por esquina, potencia de puente, guías temporales de alineación y paneles
-  flotantes. *Tiling* y Print & Cut.
-- Ventana Mover completa (ejes Z y A, posiciones guardadas, Fire y Focus), encuadre en bucle y
-  macros.
-- **Ruida en la aplicación**, conexión por red, K40 y galvo.
-- Pruebas con una máquina real: el corte avanzado, los ajustes en vivo y el resto de las
-  funciones de máquina solo se han validado con el emulador. La ventana nueva tampoco se ha
-  probado en una ventana real.
+  esquinas con un clic por esquina, guías temporales de alineación y paneles flotantes. *Tiling* y
+  Print & Cut.
+- **K40 con placa M2 Nano en la aplicación:** hoy solo existe por línea de comandos
+  (`tlaku k40`) y se está integrando. <!-- K40-APP -->
+- De las máquinas: escribir los ajustes de una controladora Ruida y borrar o ejecutar sus
+  documentos, cámaras de red y presets de cámara, alinear la cámara del cabezal con marcas, las
+  pulgadas en las capas, las máquinas y la cámara, marcar un perfil como predeterminado y
+  autoenfoque.
+- **Galvo** (fibra, UV) y alimentador automático.
+- Pruebas con una máquina real: el corte avanzado, los ajustes en vivo, la conexión por red, Ruida,
+  el K40 y el resto de las funciones de máquina solo se han validado con emuladores. La ventana
+  nueva tampoco se ha probado en una ventana real.
 
-El estado real, función por función (165 de las 214 funciones del inventario están hechas), está en
+El estado real, función por función (173 de las 214 funciones del inventario están hechas), está en
 [docs/spec/04-cobertura.md](docs/spec/04-cobertura.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
@@ -150,11 +164,12 @@ con hardware real será una Creality Falcon2. Guía completa:
 | Controladora o firmware | Estado | Notas |
 |---|---|---|
 | GRBL 1.1 (M4) y GRBL-M3, por USB serie | Estable en emulador; **por validar con máquina real** | La mayoría de los láseres de diodo (Creality Falcon2 incluida). Catálogo de 21 modelos con fuentes. |
-| grblHAL y FluidNC | Estable en emulador; **por validar con máquina real** | Dialecto de G-code propio y máquina virtual. |
+| grblHAL y FluidNC | Estable en emulador; **por validar con máquina real** | Dialecto de G-code propio y máquina virtual. Por USB, y por red (TCP/Telnet y WebSocket, probados contra el emulador por sockets de verdad). |
 | Marlin y Smoothie | Estable en emulador (básico); **por validar con máquina real** | Envío línea a línea, aviso de posición perdida y máquina virtual. |
 | GRBL antiguo (sin M4), GRBL-LPC y G-code personalizado | **Por validar con máquina real** | Dialecto propio; sin máquina virtual dedicada. El tipo personalizado trae un editor de dialecto. |
-| Ruida (CO2) | **Experimental**, solo por línea de comandos | Exporta `.rd` y habla por red (UDP); no está en la app. |
-| K40 con placa M2 Nano, galvo/fibra (EZCAD), Trocen, TopWisdom | No soportado | Un K40 con la placa cambiada a GRBL-LPC o Smoothie sí puede funcionar. |
+| Ruida (CO2) | **Experimental**, en la app y por línea de comandos | Por red (UDP): conectar, enviar (por defecto guarda el trabajo en la controladora y no lo arranca), pausa, detener, saltos, encuadre, información y lista de documentos. Probado solo contra un emulador; no escribe ajustes. |
+| K40 con placa M2 Nano | **Experimental**, solo por línea de comandos <!-- K40-APP --> | Protocolo LHYMICRO-GL por USB, probado solo con una placa simulada. LightBurn no la soporta. **La potencia va con la perilla de la máquina**, no por software. |
+| Galvo/fibra (EZCAD), Trocen, TopWisdom | No soportado | Un K40 con la placa cambiada a GRBL-LPC o Smoothie sí puede funcionar. |
 
 ## Instalación
 
@@ -272,6 +287,8 @@ la aplicación (`apps/desktop`, Tauri 2 y React) y el CLI usan los mismos.
 | `cmd` | Envía comandos sueltos de GRBL (`$X`, `$H`, `$I`, G-code...) y muestra la respuesta completa, con errores y alarmas traducidos. |
 | `ports` | Lista los puertos serie. |
 | `info` | Lee la versión (`$I`) y la configuración (`$$`) de la máquina, sin moverla. |
+| `ruida` | Experimental. `export-rd` escribe un archivo `.rd`; `send` lo manda por UDP a una controladora Ruida (guarda el trabajo, `--run` lo ejecuta); `status` lee su estado. |
+| `k40` | Experimental. `list`, `status` (solo lectura), `send` (con `--dry-run` y `--emu`) y `export-egv` para un K40 con placa M2 Nano. La potencia se ajusta en la máquina. <!-- K40-APP --> |
 
 Ejemplos, ejecutados desde la raíz del repositorio (usan el diseño de prueba
 `crates/tlaku-cli/tests/fixtures/design.svg`: un contorno rojo y un rectángulo azul):

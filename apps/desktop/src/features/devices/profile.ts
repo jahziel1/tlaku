@@ -67,6 +67,15 @@ export function buildProfile(args: {
     profile.origin = 'top_left';
   }
 
+  if (kind === 'lhy_micro') {
+    // K40 con M2 Nano: USB, home arriba a la izquierda y un tope de corte de 140 mm/s (8400 mm/min).
+    // Son valores de partida habituales, no datos de la máquina: quedan marcados como tales.
+    profile.bed = [300, 200];
+    profile.origin = 'top_left';
+    profile.max_rate = [8400, 8400];
+    profile.rapid_rate = 8400;
+  }
+
   if (entry) {
     if (entry.bed) {
       profile.bed = [...entry.bed.value];

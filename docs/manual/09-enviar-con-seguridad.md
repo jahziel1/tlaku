@@ -48,6 +48,8 @@ Debajo ves una ilustración de la cama con el trabajo, el cabezal y los orígene
 
 **Hacer home ($H)…** es para máquinas con finales de carrera; antes de moverse te recuerda despejar el área.
 
+Debajo del pad, si el perfil tiene eje Z o eje U, aparecen sus botones **Subir** y **Bajar**; además están **Enfocar**, las **Posiciones guardadas** y el **Disparo de prueba** (que enciende el láser y pide doble confirmación). Todo eso, y las **Macros**, está en [Control avanzado de la máquina](09b-control-avanzado.md).
+
 ### Posicionar el láser con un clic
 
 **Posicionar el láser** (botón en **Mover cabezal**, o menú **Máquina**) te evita hacer clic diez veces en el pad: mientras está activo, **un clic en la cama del lienzo manda el cabezal hasta ese punto**, con el láser apagado (`M5`), a la velocidad de **Mover cabezal**. El cursor cambia a una cruz. Sirve, por ejemplo, para llevar el cabezal sobre una esquina de la pieza y fijar ahí el origen, o para comprobar una marca de la cámara.
@@ -67,7 +69,7 @@ Debajo ves una ilustración de la cama con el trabajo, el cabezal y los orígene
 
 **Encuadrar contorno** (botón junto a Encuadrar y menú **Máquina**) es el encuadre de "banda elástica": en lugar del rectángulo recorre el **contorno convexo** del trabajo, como una liga estirada alrededor de las piezas, también con el láser apagado y a la misma velocidad. Es mejor para piezas largas y en diagonal, donde el rectángulo recorre mucha cama vacía y no deja ver dónde caerá la pieza de verdad. Sigue contando el overscan y respeta **Solo la selección**, el origen del trabajo y el rotativo.
 
-> **Consejo:** el rectángulo es el del conjunto, no el de cada pieza. Y aunque el láser vaya apagado, mantén las gafas puestas y las manos fuera. Todavía no hay opción de repetir el encuadre en bucle ni de recorrerlo con el láser a muy baja potencia.
+> **Consejo:** el rectángulo es el del conjunto, no el de cada pieza. Y aunque el láser vaya apagado, mantén las gafas puestas y las manos fuera. El encuadre también puede repetirse en bucle hasta que pulses **Detener** y, si el dialecto de tu máquina lo permite, recorrerse con el láser encendido a muy baja potencia (hasta 20 %) para verlo sobre el material: ver [Control avanzado de la máquina](09b-control-avanzado.md).
 
 ## 4. Iniciar
 
@@ -83,6 +85,8 @@ Debajo ves una ilustración de la cama con el trabajo, el cabezal y los orígene
 ![Diálogo de iniciar con la lista de comprobación Antes de enviar y las casillas Solo la selección y Usar el origen de la selección](../../apps/desktop/docs/screenshots/36-checklist-inicio.png)
 
 Durante el trabajo ves el progreso (porcentaje, **Líneas**, **Transcurrido** y **Restante**) en la pestaña **Máquina**.
+
+> **Con una controladora Ruida** (experimental) el diálogo es otro: dice si el trabajo se **guardará como documento** en la memoria de la controladora (lo normal, y **no arranca**: lo inicias desde su panel) o si **se ejecutará en cuanto llegue**. Ver [Ruida y K40](13b-ruida-y-k40.md).
 
 > **Si el diseño lleva texto variable:** antes de enviar, Tlaku resuelve las variables con los valores de ese momento. Si alguna no se entiende, el trabajo **no sale** y el aviso dice cuál. Al terminar bien, la serie y la fila del CSV avanzan solas (si lo activaste); un trabajo cancelado o con error no avanza. Ver [Texto variable](04b-texto-variable.md).
 
@@ -132,4 +136,4 @@ Si prefieres enviar con otro programa, **Archivo > Exportar G-code…** (`Ctrl/C
 
 Por línea de comandos, el programa `tlaku` hace lo mismo y más: `tlaku send` (con las mismas comprobaciones), `tlaku frame`, `tlaku cmd` y `tlaku plan`. Ver el README del proyecto.
 
-Siguiente: [Cámara](10-camara.md)
+Siguiente: [Control avanzado de la máquina](09b-control-avanzado.md)

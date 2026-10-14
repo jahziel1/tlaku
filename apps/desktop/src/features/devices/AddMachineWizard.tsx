@@ -6,6 +6,7 @@ import type { DeviceKind } from '@/bindings/DeviceKind';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { parseGrblVersion } from '@/lib/device';
+import { lhyUsbBoards } from '@/features/machine/lhyPorts';
 import { withoutRuidaPort } from '@/features/machine/ruidaPorts';
 import { useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
@@ -43,9 +44,11 @@ export function StepList({ current }: { current: WizardStep }) {
 export function AddMachineWizard() {
   const titleId = useId();
   const close = useDevicesWizard((s) => s.close);
-  // La detección es de puertos serie: la máquina virtual de Ruida no es una opción aquí.
+  // La detección es de puertos serie: ni la máquina virtual de Ruida ni los puertos del K40 son una opción aquí.
+  // Las placas del K40 (M2 Nano) se buscan aparte, por USB.
   const allPorts = useStore((s) => s.ports);
   const ports = useMemo(() => withoutRuidaPort(allPorts), [allPorts]);
+  const k40Boards = useMemo(() => lhyUsbBoards(allPorts), [allPorts]);
   const refreshPorts = useStore((s) => s.refreshPorts);
   const connected = useStore((s) => s.connection.connected);
   const storePort = useStore((s) => s.selectedPort);
@@ -70,6 +73,8 @@ export function AddMachineWizard() {
   const [name, setName] = useState('');
   /** Ruida: IP de la controladora, escrita a mano. */
   const [host, setHost] = useState('');
+  /** K40: modelo de placa (la M2 es la de serie). */
+  const [board, setBoard] = useState('M2');
   const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   /** Detecciones lanzadas: una respuesta tardía de una anterior se descarta. */
@@ -137,7 +142,12 @@ export function AddMachineWizard() {
   const save = async () => {
     if (!nameOk || saving) return;
     setSaving(true);
-    const profile = built.profile.kind === 'ruida' ? { ...built.profile, connection: { type: 'udp' as const, host: host.trim() } } : built.profile;
+    const profile =
+      built.profile.kind === 'ruida'
+        ? { ...built.profile, connection: { type: 'udp' as const, host: host.trim() } }
+        : built.profile.kind === 'lhy_micro'
+          ? { ...built.profile, lhymicro: { ...built.profile.lhymicro, board } }
+          : built.profile;
     const ok = await saveDevice(profile);
     if (!alive.current) return;
     setSaving(false);
@@ -182,6 +192,11 @@ export function AddMachineWizard() {
             onBaud={setProbeBaud}
             onRefresh={() => void refreshPorts()}
             onDetect={() => void detect()}
+            k40Boards={k40Boards}
+            onPickK40={() => {
+              select('k40-m2nano');
+              setStep('model');
+            }}
           />
         )}
         {step === 'model' && (
@@ -214,7 +229,7 @@ export function AddMachineWizard() {
             oldGrbl={oldGrbl}
           />
         )}
-        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} />}
+        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} board={board} onBoard={setBoard} />}
       </div>
       <footer className="dev-foot">
         {step === 'detect' && (

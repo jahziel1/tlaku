@@ -63,6 +63,7 @@ use tlaku_grbl::streamer::{
 pub mod active;
 pub mod extras;
 pub mod frame;
+pub mod lhymicro;
 pub mod ruida;
 pub mod virtual_port;
 

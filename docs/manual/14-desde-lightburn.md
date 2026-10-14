@@ -48,6 +48,20 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Start From: Absolute Coords, Current Position, User Origin | **Iniciar desde**: Coordenadas absolutas, Posición actual, Origen de usuario |
 | Job Origin (los 9 puntos) | Punto del trabajo que se ancla (9 posiciones) |
 | Set Origin | **Fijar origen aquí** |
+| Macros | **Macros** del perfil (hasta 10, con botones y atajos); ver [Control avanzado de la máquina](09b-control-avanzado.md) |
+| Move (Z y U), Fire, Focus | Bloque **Ejes extra** (Subir/Bajar), **Disparo de prueba** (doble confirmación, hasta 20 % y 2 s) y **Enfocar** en **Mover cabezal** |
+| Saved Positions | **Posiciones guardadas** (en el perfil, hasta 20) |
+| Frame con el láser encendido, repetir el frame | **Encuadrar con el láser encendido a baja potencia** y **Repetir el encuadre hasta detener** |
+| Machine Settings (GRBL) | **Ajustes de la máquina…**: los `$n` con respaldo `.tlakuset`; no lee ni escribe los de Ruida |
+| Dual laser (Laser 2) | Casilla **La máquina tiene dos láseres** y opción **Láser 2** por capa |
+| User bundle `.lbzip` | **Archivo > Exportar / Importar paquete de configuración…** (`.tlakubundle`; no abre los `.lbzip`) |
+| Device: tipo de conexión TCP/IP (red) | **Tipo de conexión** del perfil: **Red · TCP / Telnet** o **Red · WebSocket**, con **Probar conexión**; ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
+| Ruida (DSP) | Perfil **Ruida (CO2, por red; experimental)**; ver [Ruida y K40](13b-ruida-y-k40.md). LightBurn lo soporta; en Tlaku es experimental |
+| K40 con M2 Nano | LightBurn no lo soporta. Tlaku: experimental, por ahora desde la línea de comandos (`tlaku k40`) <!-- K40-APP -->; ver [Ruida y K40](13b-ruida-y-k40.md) |
+| Automatización por UDP | **Preferencias > Automatización** (protocolo propio, no el de LightBurn); ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
+| Camera: Update Overlay, Trace, Capture | **Actualizar la superposición**, **Vectorizar desde la cámara** y **Capturar imagen de la cama** (ver [Cámara](10-camara.md)) |
+| Camera: lente de ojo de pez | **Modelo de lente**: Automático, Brown-Conrady u **Ojo de pez** |
+| Center Finder | **Buscador de centro** de la cámara (no toca el cabezal como sonda) |
 | Devices, Find My Laser | **Gestionar dispositivos** y el asistente **Agregar máquina** (paso **Detectar**) |
 | Numeric Edits | Barra numérica sobre el lienzo (X, Y, Ancho, Alto, Rotación) |
 | Create Lines (con curvas) | Herramienta **Dibujar línea** (`L`): clic y arrastre dibuja curvas Bézier |
@@ -88,7 +102,7 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Tangent Circle | **Círculo tangente…** |
 | Boolean Assistant | **Asistente booleano…** (`Ctrl/Cmd+B`) |
 | Guides | **Guías**: arrastra desde las reglas; **Ver > Guías…** para la posición exacta (sin alineación temporal con `Alt`) |
-| Tabs / Bridges (manuales) | Herramienta **Puentes manuales** (`U`): clic para poner o quitar; sin potencia de puente |
+| Tabs / Bridges (manuales) | Herramienta **Puentes manuales** (`U`): clic para poner o quitar; **Potencia en puentes** en el editor de capa |
 | Start Point, Reverse Direction | Herramienta **Punto de inicio** (`Q`), **Invertir sentido** y **Quitar inicio y sentido fijados** |
 | Variable Text (serie, CSV, fecha y hora) | **Herramientas > Texto variable…** y el menú **Insertar variable** del panel de texto; ver [Texto variable](04b-texto-variable.md) |
 | Art Library | **Herramientas > Biblioteca de arte**: 41 dibujos propios y tus SVG |
@@ -162,17 +176,18 @@ Diferencias que muerden:
 
 ## Lo que falta o es distinto
 
-Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas y su asistente, arreglos (también virtuales y a lo largo de un trazo), acoplar, nesting, recortar, separar, optimizar, redondear esquinas, cortar con una cuchilla, redimensionar ranuras, deformar, guías, notas y plantillas, biblioteca de arte, máscara de imagen, convertir a mapa de bits, vectorizar varias imágenes, texto (con fuentes de una línea, curvado y soldado), [texto variable](04b-texto-variable.md) (serie, CSV, fecha y hora), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, puentes manuales, punto de inicio y sentido, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, ajustes de velocidad y potencia en vivo, y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
+Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB y por red (TCP y WebSocket), macros, ejes Z y U, posiciones guardadas, ajustes `$$` con respaldo, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas y su asistente, arreglos (también virtuales y a lo largo de un trazo), acoplar, nesting, recortar, separar, optimizar, redondear esquinas, cortar con una cuchilla, redimensionar ranuras, deformar, guías, notas y plantillas, biblioteca de arte, máscara de imagen, convertir a mapa de bits, vectorizar varias imágenes, texto (con fuentes de una línea, curvado y soldado), [texto variable](04b-texto-variable.md) (serie, CSV, fecha y hora), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, puentes manuales, punto de inicio y sentido, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, encuadre a baja potencia y en bucle, ajustes de velocidad y potencia en vivo, potencia en puentes, cámara con ojo de pez, cámara en el cabezal, buscador de centro, paquetes de configuración, Ruida (experimental) y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
 
 Falta, y no lo prometo si no está en el código:
 
-- **Todo lo de la lista siguiente:** Print & Cut, tiling y macros. Están planificados, pero **no** están en el programa.
+- **Todo lo de la lista siguiente:** Print & Cut y tiling. Están planificados, pero **no** están en el programa.
 - **Del diseño:** deformar con manijas en el lienzo o con una malla de 16 puntos (hoy es un diálogo con cuatro esquinas y cuatro bordes), redondear esquinas con un clic por esquina o revertirlo, escala progresiva al copiar a lo largo de un trazo, que **Cortar formas** agrupe las piezas en dentro y fuera, guías temporales de alineación, paneles flotantes y texto variable con valores de ajuste de capa o «hornear» (se logra convirtiendo el texto a trayectos).
-- **Del corte:** potencia de puente y arrastrar puentes ya puestos, valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min). El encuadre no se repite en bucle ni va con el láser encendido a baja potencia, y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
+- **Del corte:** arrastrar puentes ya puestos, valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min).
+- **De la máquina:** marcar un perfil como predeterminado, ordenarlos y darles ícono; el offset del puntero rojo, las unidades de dispositivo y de control, el intercambio X/Y, el auto-home, DTR y el modo síncrono; el ajuste de U por capa y el offset del segundo láser; el autoenfoque; cámaras de red y presets de cámara; y las cámaras en los paquetes. Con Ruida no se escriben los ajustes de la controladora ni se borran o ejecutan sus documentos, y no se abren `.rd`.
 - **Del modo principiante:** en Tlaku solo oculta ajustes avanzados del editor de capa; no oculta herramientas ni menús como el de LightBurn.
 - No se pueden ocultar objetos sueltos (sí capas), no hay selección con `Tab` ni sesgar.
-- Las **pulgadas** de las preferencias se aplican en la barra numérica, la barra de estado, las reglas (décimas de pulgada), Medir y los campos de longitud de los diálogos de Organizar y de Acomodar piezas; los campos aceptan fracciones (`3/8"`, `1 1/2 in`) y sufijos (`5mm`, `50%`). Las velocidades siguen en mm/min y los campos de las áreas de máquina y cámara, en mm.
-- Máquinas de red (Wi-Fi, Ethernet), Ruida en la app, K40 con M2 Nano, galvo y fibra: ver [Controladoras soportadas](13-controladoras.md).
+- Las **pulgadas** de las preferencias se aplican en la barra numérica, la barra de estado, las reglas (décimas de pulgada), Medir y los campos de longitud de los diálogos de Organizar y de Acomodar piezas; los campos aceptan fracciones (`3/8"`, `1 1/2 in`) y sufijos (`5mm`, `50%`). Las velocidades siguen en mm/min y los campos de las capas, de las áreas de máquina y de cámara, en mm.
+- Galvo y fibra, Trocen y TopWisdom no están soportados. GRBL por red (TCP y WebSocket) está; Ruida y el K40 con M2 Nano son experimentales y ninguno se probó con una máquina real: ver [Controladoras soportadas](13-controladoras.md).
 - Solo hay una capa de guías (la de la paleta de colores); las guías de las reglas son aparte.
 - **Nueva ventana** no se ha probado en una ventana real (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)).
 

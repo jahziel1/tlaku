@@ -1,6 +1,6 @@
 import { JOG_DIRS, type JogDirName } from '@/features/machine/jogMath';
 import type { I18nKey } from '@/i18n';
-import { isJobBusy } from '@/store';
+import { isJobBusy, selectActiveDevice } from '@/store';
 import { jogBlockedReason, positionLaserBlockedReason, sendBlockedReason } from '@/store/machine';
 import type { AppState } from '@/store';
 import type { CommandDef } from '../types';
@@ -19,6 +19,9 @@ const canRecover = (s: AppState): true | I18nKey => {
   if (isJobBusy(s)) return 'reason.jobRunning';
   return true;
 };
+
+/** El K40 (M2 Nano) no usa G-code: `$X` y los ajustes `$` no existen en esa placa. */
+const notLhy = (s: AppState): true | I18nKey => (selectActiveDevice(s).kind === 'lhy_micro' ? 'lhymicro.mset.reason' : true);
 
 /**
  * Jog con teclado desde cualquier panel: `Mod+Alt+flecha`. Las flechas solas (y con Mayús o Alt) son
@@ -74,10 +77,18 @@ export const machineCommands: CommandDef[] = [
     run: (s) => s.cancelJob(),
   },
   // $H y $X abren un diálogo que explica el riesgo; nada se envía hasta confirmar.
-  { id: 'machine.home', label: 'machine.cmd.home', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'alarm', action: 'home' }) },
-  { id: 'machine.unlock', label: 'machine.cmd.unlock', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'alarm', action: 'unlock' }) },
+  {
+    id: 'machine.home',
+    label: 'machine.cmd.home',
+    // El home del K40 es la orden IPP de la placa, no `$H`.
+    labelFor: (s) => (selectActiveDevice(s).kind === 'lhy_micro' ? 'lhymicro.cmd.home' : 'machine.cmd.home'),
+    category: 'machine',
+    enabled: canRecover,
+    run: (s) => s.openDialog({ kind: 'alarm', action: 'home' }),
+  },
+  { id: 'machine.unlock', label: 'machine.cmd.unlock', category: 'machine', enabled: (s) => (notLhy(s) === true ? canRecover(s) : notLhy(s)), run: (s) => s.openDialog({ kind: 'alarm', action: 'unlock' }) },
   // Ajustes `$n` del firmware GRBL: la ventana lee `$$`; escribir exige confirmar cada cambio.
-  { id: 'machine.settings', label: 'mset.cmd', category: 'machine', enabled: canRecover, run: (s) => s.openDialog({ kind: 'machineSettings' }) },
+  { id: 'machine.settings', label: 'mset.cmd', category: 'machine', enabled: (s) => (notLhy(s) === true ? canRecover(s) : notLhy(s)), run: (s) => s.openDialog({ kind: 'machineSettings' }) },
   { id: 'machine.setOrigin', label: 'machine.cmd.setOrigin', category: 'machine', enabled: needMachine, run: (s) => s.setUserOriginHere() },
   { id: 'machine.goOrigin', label: 'machine.cmd.goOrigin', category: 'machine', enabled: canJog, run: (s) => s.goToOrigin() },
   // Posicionar el láser: mientras está activo, un clic en la cama manda allí la cabeza (láser apagado).

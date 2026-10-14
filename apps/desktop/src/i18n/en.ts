@@ -27,6 +27,7 @@ import { text } from './en/text';
 import { trace } from './en/trace';
 import { variables } from './en/variables';
 import { nest } from './en/nest';
+import { lhymicro } from './en/lhymicro';
 import { ruida } from './en/ruida';
 import { shapes } from './en/shapes';
 
@@ -56,5 +57,6 @@ export const en: { [K in I18nKey]?: string } = {
   ...trace,
   ...nest,
   ...ruida,
+  ...lhymicro,
   ...shapes,
 };

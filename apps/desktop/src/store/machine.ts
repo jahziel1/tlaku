@@ -556,8 +556,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         const { firmware } = await getApi().connect({ port, baud, device });
         set({ firmware });
         // Mejor esfuerzo: sirve para el aviso de modo láser y para sugerir $H o $X ante una alarma.
-        // Ruida no tiene ajustes `$`: lee su información desde el panel Máquina.
-        if (device.kind !== 'ruida') void get().readSettings({ silent: true });
+        // Ruida y el K40 no tienen ajustes `$`: Ruida lee su información desde el panel Máquina.
+        if (device.kind !== 'ruida' && device.kind !== 'lhy_micro') void get().readSettings({ silent: true });
       } catch (e) {
         get().notify('error', errorMessage(e));
       } finally {
@@ -699,6 +699,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (s.jogging) return;
       const why = jogBlockedReason(s);
       if (why) return void s.notify('warning', t(why));
+      // El K40 no tiene jog continuo cancelable (detener la placa pierde la posición): da un paso.
+      if (selectActiveDevice(s).kind === 'lhy_micro') return void (await s.jogDir(dir));
       const delta = continuousDelta(selectActiveDevice(s), dir, s.status?.work_pos ?? null);
       if (!delta) return void s.notifyKey('info', 'machine.jog.noRoom');
       set({ jogging: true });
@@ -788,6 +790,11 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     confirmAlarmAction: async (action) => {
       set({ dialog: null });
+      // K40 (M2 Nano): el home es la orden IPP de la placa; `$X` no existe en ella.
+      if (selectActiveDevice(get()).kind === 'lhy_micro') {
+        if (action === 'home' && (await guard(() => getApi().lhyHome()))) get().dismissPositionLost();
+        return;
+      }
       await get().sendLine(action === 'unlock' ? '$X' : '$H', { confirmed: true });
     },
 

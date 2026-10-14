@@ -1,13 +1,13 @@
 # Conectar tu máquina
 
-Cómo darle a Tlaku el perfil de tu láser, abrir el puerto USB y probar todo primero con una máquina virtual. Esta página cubre la conexión; para enviar trabajos ve a [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
+Cómo darle a Tlaku el perfil de tu láser, abrir el puerto USB (o la conexión de red) y probar todo primero con una máquina virtual. Esta página cubre la conexión; para la red y la automatización ve a [Conexión por red y automatización](08b-red-y-automatizacion.md), y para enviar trabajos a [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
 
 > **Ojo, honestidad:** Tlaku **todavía no se ha probado con ninguna máquina real**. Conectar, detectar y enviar se validaron con el emulador `tlaku-emu` y con las máquinas virtuales de la app. Haz tu primera prueba real con material de desecho, potencia baja y sin dejar la máquina sola. Qué controladoras funcionan y en qué estado: [Controladoras soportadas](13-controladoras.md).
 
 ## Dos conceptos: perfil y puerto
 
 - El **perfil** (la lista **Máquina**) describe tu láser: tamaño de cama, origen, S máxima, velocidades, dialecto de G-code. El motor lo usa para calcular y generar el G-code.
-- El **puerto** (la lista **Puerto**) es por donde se habla con la placa. Hoy la app solo conecta por puerto serie (USB) o con una máquina virtual. No hay conexión por red.
+- El **puerto** (la lista **Puerto**) es por donde se habla con la placa por USB. Con una máquina que se conecta **por red** (TCP, WebSocket o Ruida por UDP) no se elige puerto: la dirección es un dato del perfil y la sección **Conexión** la muestra en lugar de la lista de puertos y los baudios ([Conexión por red y automatización](08b-red-y-automatizacion.md)). También hay máquinas virtuales.
 
 Todo esto vive en la pestaña **Máquina** (`Ctrl/Cmd+2`), sección **Conexión**.
 
@@ -24,7 +24,7 @@ La forma más cómoda de crear un perfil. Ábrelo desde el menú **Máquina**, *
 
 El catálogo trae 21 entradas: 18 modelos (Creality Falcon2, Sculpfun, Atomstack, Ortur, xTool, Longer, Neje, Two Trees, K40 con Cohesion3D) y 3 familias genéricas (GRBL, Marlin, Smoothieware). Cada dato dice de dónde sale (**Oficial**, **Tienda o reseña** o **Foro**), y los que ninguna fuente aporta se dejan sin dato para que los leas de tu máquina. Las cifras anunciadas pueden ser distintas en tu unidad: confía en lo que lea la máquina.
 
-> **Consejo:** las máquinas de red (Ruida y similares) no se detectan. Para una Ruida (experimental) elige el tipo **Ruida** en «Otro / genérico» y escribe su IP; K40 con placa M2 Nano, galvo y fibra no están soportados.
+> **Consejo:** las máquinas de red (Ruida y similares) no se detectan: Tlaku no busca máquinas en la red. Para una Ruida (experimental) elige el tipo **Ruida** en «Otro / genérico» y escribe su IP ([Ruida y K40](13b-ruida-y-k40.md)). Para GRBL por red, crea el perfil y elige el tipo de conexión en **Gestionar dispositivos…**. El K40 con placa M2 Nano es experimental y por ahora solo se usa desde la línea de comandos <!-- K40-APP -->; galvo y fibra no están soportados.
 
 ## Opción 2: perfil manual
 
@@ -37,6 +37,7 @@ Para crear o ajustar un perfil a mano: menú **Máquina**, **Gestionar dispositi
 | Dato | Para qué sirve |
 |---|---|
 | **Tipo de controladora** | Define cómo se escribe el G-code y los valores de partida (S máxima, modo de potencia, baudios). Al cambiarlo, Tlaku te muestra qué se pisaría y puedes elegir **Aplicar los valores del tipo** o **Solo cambiar el tipo** |
+| **Tipo de conexión** (grupo **Comunicación**) | **Puerto serie (USB)** de fábrica, **Red · TCP / Telnet** o **Red · WebSocket**, con el botón **Probar conexión**. Ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
 | **Origen de la máquina** | Esquina donde está X0 Y0. Si es incorrecta, el trabajo sale espejado o invertido |
 | **Área de trabajo** | Ancho y alto de la cama en mm ($130 y $131). El motor rechaza lo que no cabe |
 | **S máxima** y **Modo de potencia** | S máxima debe coincidir con `$30`. **Dinámica (M4, recomendada)** exige GRBL 1.1f o posterior con `$32=1`; **Constante (M3)** sirve para firmware antiguo |
@@ -44,8 +45,10 @@ Para crear o ajustar un perfil a mano: menú **Máquina**, **Gestionar dispositi
 | **Baudios**, **Búfer de recepción** | Deben coincidir con la placa (127 bytes en GRBL 1.1). Si la máquina se traba, baja el búfer |
 | **G-code de inicio** y **de fin** | Líneas que se emiten al empezar y terminar cada trabajo. Conviene dejar `M5` al final |
 | **Eje Z**, **Rotativo** | Ver [Rotativo y eje Z](12-rotativo-y-eje-z.md) |
+| **Eje U**, **Segundo láser** | Habilitan mover el eje U y elegir el láser 2 por capa. Ver [Control avanzado de la máquina](09b-control-avanzado.md) |
+| **Macros** | Botones con G-code guardado en el perfil. Ver [Control avanzado de la máquina](09b-control-avanzado.md) |
 
-Los tipos de controladora que ofrece la lista son: GRBL 1.1, grblHAL, FluidNC, GRBL-LPC / Cohesion3D, GRBL antiguo (sin M4), Smoothieware, Marlin y G-code personalizado.
+Los tipos de controladora que ofrece la lista son: GRBL 1.1, grblHAL, FluidNC, GRBL-LPC / Cohesion3D, GRBL antiguo (sin M4), Smoothieware, Marlin, G-code personalizado y Ruida (CO2, por red; experimental).
 
 ![Perfil de una máquina con el dialecto de G-code y su vista previa](../../apps/desktop/docs/screenshots/27-dialecto.png)
 
@@ -56,9 +59,9 @@ El **Dialecto de G-code** muestra un resumen (por ejemplo "S 0-1000, M4 dinámic
 ## Conectar
 
 1. En la pestaña **Máquina**, elige tu perfil en **Máquina**.
-2. Elige el **Puerto**. Si la lista está vacía, conecta el cable USB, instala el driver de la placa (CH340 o FTDI) y pulsa el botón de buscar puertos de nuevo.
-3. Elige los **Baudios** (el perfil ya trae los suyos).
-4. Pulsa **Conectar**. Tarda unos 2 segundos porque la placa se reinicia.
+2. Elige el **Puerto** (si el perfil es de red, en su lugar ves la **Dirección** y este paso no hace falta). Si la lista está vacía, conecta el cable USB, instala el driver de la placa (CH340 o FTDI) y pulsa el botón de buscar puertos de nuevo.
+3. Elige los **Baudios** (el perfil ya trae los suyos; por red no existen).
+4. Pulsa **Conectar**. Por USB tarda unos 2 segundos porque la placa se reinicia; por red conecta más rápido.
 
 Si todo va bien ves "Conectada en ..." y la versión del firmware (por ejemplo `Grbl 1.1h`). Mientras estés conectado no puedes cambiar de perfil, puerto ni baudios: pulsa **Desconectar** primero.
 
@@ -70,11 +73,11 @@ Avisos que puede darte la sección:
 
 Si no encuentra el puerto o falla la conexión, mira [Solución de problemas](15-solucion-de-problemas.md).
 
-Ya conectado, la pestaña **Máquina** ofrece también **Mover cabezal** (con pasos configurables, **Posicionar el láser** con un clic en el lienzo y **Posición final**), los botones de encuadre y los **Ajustes en vivo** de velocidad y potencia durante un trabajo. Todo eso está explicado en [Enviar trabajos con seguridad](09-enviar-con-seguridad.md). Los ajustes en vivo solo existen con controladoras de la familia GRBL (no con Marlin ni Smoothieware).
+Ya conectado, la pestaña **Máquina** ofrece también **Mover cabezal** (con pasos configurables, **Posicionar el láser** con un clic en el lienzo, **Posición final**, ejes Z y U, posiciones guardadas y disparo de prueba), las **Macros**, los botones de encuadre y los **Ajustes en vivo** de velocidad y potencia durante un trabajo. Todo eso está explicado en [Enviar trabajos con seguridad](09-enviar-con-seguridad.md) y en [Control avanzado de la máquina](09b-control-avanzado.md). Los ajustes en vivo solo existen con controladoras de la familia GRBL (no con Marlin ni Smoothieware).
 
 ## Máquina virtual
 
-Al final de la lista **Puerto** hay seis máquinas virtuales, que son un emulador dentro de la app: **Falcon2 Pro**, **GRBL 1.1**, **grblHAL**, **FluidNC**, **Marlin** y **Smoothieware**. Sirven para aprender el flujo completo sin riesgo: no hay láser ni hardware, no se graba nada.
+Al final de la lista **Puerto** hay seis máquinas virtuales, que son un emulador dentro de la app: **Falcon2 Pro**, **GRBL 1.1**, **grblHAL**, **FluidNC**, **Marlin** y **Smoothieware**. Sirven para aprender el flujo completo sin riesgo: no hay láser ni hardware, no se graba nada. Cada una existe también como **Máquina virtual por red**, que escucha en un puerto TCP local y a la que la app se conecta de verdad por un socket, para ver la conexión por red sin tener la máquina; y con un perfil Ruida hay una **Ruida (CO2)** ([Conexión por red y automatización](08b-red-y-automatizacion.md), [Ruida y K40](13b-ruida-y-k40.md)).
 
 ![Conectado a la máquina virtual Falcon2 Pro, con la sección para simular fallas](../../apps/desktop/docs/screenshots/25-maquina-virtual.png)
 
@@ -83,4 +86,4 @@ Al final de la lista **Puerto** hay seis máquinas virtuales, que son un emulado
 - La insignia **VIRTUAL** aparece en el panel **Máquina** y en la barra de estado.
 - La sección **Máquina virtual** tiene **Simular falla**: **Llama detectada (ERROR:05)**, **Inclinación anormal (ERROR:01)**, **Alarma 3 (reinicio en movimiento)** y **Cable desconectado**. Elige una y pulsa **Provocar** para ver cómo reaccionan el banner de alarma, la consola y el trabajo. Esa sección no existe con una máquina real.
 
-Siguiente: [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)
+Siguiente: [Conexión por red y automatización](08b-red-y-automatizacion.md)

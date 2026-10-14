@@ -1,6 +1,8 @@
 import { AlarmBanner } from './AlarmBanner';
 import { ConnectionSection } from './ConnectionSection';
 import { JobSection } from './JobSection';
+import { LhySection } from './LhySection';
+import { LhyStopNotice } from './LhyNotice';
 import { JogSection } from './JogSection';
 import { MacroButtons } from './MacroButtons';
 import { MachineSettingsSection } from './MachineSettingsSection';
@@ -16,10 +18,12 @@ export function MachinePanel() {
   return (
     <div className="panel-scroll">
       <AlarmBanner />
+      <LhyStopNotice />
       <PositionLostNote />
       <ConnectionSection />
       <VirtualSection />
       <RuidaSection />
+      <LhySection />
       <StatusSection />
       <JogSection />
       <MacroButtons />

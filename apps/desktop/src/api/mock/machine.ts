@@ -44,6 +44,13 @@ export const MOCK_RUIDA_PORT = 'virtual:ruida';
 export const RUIDA_FIRMWARE = 'Ruida RDC6442S · tarjeta 0x65106510';
 const RUIDA_GRBL_ONLY = 'Esta función es solo de GRBL: la controladora Ruida no usa G-code ni overrides en vivo.';
 
+/** K40 con M2 Nano: una placa USB de ejemplo y la máquina virtual (la placa simulada de `tlaku-lhymicro`). */
+export const MOCK_LHY_USB_PORT = 'usb:k40:0';
+export const MOCK_LHY_PORT = 'virtual:k40';
+export const LHY_FIRMWARE = 'K40 · placa M2 · M2 Nano simulada · lista (206)';
+const LHY_GRBL_ONLY = 'Esta función es solo de GRBL: la placa M2 Nano del K40 no usa G-code ni overrides en vivo.';
+const LHY_UNKNOWN_POSITION = 'No se sabe dónde está el cabezal (la M2 Nano no informa su posición, se cuenta desde el home). Haz home primero.';
+
 export const MOCK_VIRTUAL_NET_PORTS = MOCK_VIRTUAL_PORTS.map((p) => p.replace('virtual:', 'virtualnet:'));
 
 const VIRTUAL_FIRMWARE: Record<string, string> = {
@@ -79,6 +86,10 @@ export class MockMachine {
   virtual = false;
   /** La conexión es con una controladora Ruida (sin G-code ni overrides). */
   ruida = false;
+  /** La conexión es con la placa M2 Nano de un K40 (sin G-code; la posición se cuenta desde el home). */
+  lhy = false;
+  /** K40: se conoce la posición del cabezal (se pierde al detener o fallar un trabajo). */
+  lhyKnown = false;
   state: MachineState = 'idle';
   /** Código de ALARM:N activo; null si no hay alarma. */
   alarmCode: number | null = null;
@@ -120,21 +131,24 @@ export class MockMachine {
 
   // ---- conexión ---------------------------------------------------------
 
-  connect(port: string, ruida = false): string {
+  connect(port: string, ruida = false, lhy = false): string {
     if (this.connected) throw new Error('Ya hay una máquina conectada. Desconéctala antes de abrir otro puerto.');
     this.connected = true;
     this.port = port;
     this.virtual = port.startsWith(VIRTUAL_PREFIX) || port.startsWith(VIRTUAL_NET_PREFIX);
     this.ruida = ruida || port.startsWith(MOCK_RUIDA_PORT);
+    this.lhy = !this.ruida && (lhy || port.startsWith('virtual:k40') || port.startsWith('usb:k40:'));
+    this.lhyKnown = false;
     this.state = 'idle';
     this.alarmCode = null;
     this.pos = [0, 0];
     this.ovr = { feed: 100, rapid: 100, spindle: 100 };
-    const firmware = this.ruida ? RUIDA_FIRMWARE : this.virtual ? (VIRTUAL_FIRMWARE[port.slice(port.indexOf(':') + 1).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
+    const firmware = this.ruida ? RUIDA_FIRMWARE : this.lhy ? LHY_FIRMWARE : this.virtual ? (VIRTUAL_FIRMWARE[port.slice(port.indexOf(':') + 1).split('@')[0]!] ?? 'Grbl 1.1h') : 'Grbl 1.1h';
     const evt: ConnectionEvent = { connected: true, port, error: null };
     this.emit('machine://connection', evt);
     if (this.virtual) this.log('in', '; Máquina virtual (emulador): no hay láser ni hardware reales.');
-    this.log('in', this.ruida ? 'Ruida RDC6442S (tarjeta 0x65106510), magic 0x88 (detectado), cama 600.0 × 400.0 mm' : "Grbl 1.1h ['$' for help]");
+    this.log('in', this.ruida ? 'Ruida RDC6442S (tarjeta 0x65106510), magic 0x88 (detectado), cama 600.0 × 400.0 mm' : this.lhy ? 'Placa: M2 Nano simulada (USB 1A86:5512); estado: lista (206)' : "Grbl 1.1h ['$' for help]");
+    if (this.lhy) this.log('in', '; La placa no informa su posición: se cuenta desde el home. Haz home antes de mover o enviar (si no, el envío lo hace primero).');
     this.statusTimer = setInterval(() => this.emitStatus(), this.opts.statusIntervalMs);
     this.emitStatus();
     return firmware;
@@ -150,6 +164,8 @@ export class MockMachine {
     this.port = null;
     this.virtual = false;
     this.ruida = false;
+    this.lhy = false;
+    this.lhyKnown = false;
     this.state = 'idle';
     this.emit('machine://connection', { connected: false, port, error });
   }
@@ -206,13 +222,14 @@ export class MockMachine {
 
   /** Marlin y Smoothieware no tienen overrides en tiempo real. */
   private hasOverrides(): boolean {
-    return !this.ruida && !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
+    return !this.ruida && !this.lhy && !/^virtual:(marlin|smoothie)/.test(this.port ?? '');
   }
 
   /** Lleva el override de velocidad o potencia a `percent` (10 a 200), como los bytes 0x90-0x9D de GRBL. */
   setOverride(kind: OverrideKind, percent: number): void {
     this.requireConnection();
     if (this.ruida) throw new Error(RUIDA_GRBL_ONLY);
+    if (this.lhy) throw new Error(LHY_GRBL_ONLY);
     if (!this.hasOverrides()) {
       throw new Error('Los ajustes en vivo de velocidad y potencia solo existen en controladoras GRBL: Marlin y Smoothieware no los tienen.');
     }
@@ -231,6 +248,7 @@ export class MockMachine {
   command(line: string): string[] {
     this.requireConnection();
     if (this.ruida) throw new Error(RUIDA_GRBL_ONLY);
+    if (this.lhy) throw new Error(LHY_GRBL_ONLY);
     if (this.job) throw new Error(BUSY_MESSAGE);
     const trimmed = line.trim();
     if (/[?!~]/.test(trimmed)) {
@@ -299,7 +317,8 @@ export class MockMachine {
     if (this.job) throw new Error(BUSY_MESSAGE);
     if (!Number.isFinite(dx) || !Number.isFinite(dy)) throw new Error('El desplazamiento no es un número.');
     if (!(speed > 0)) throw new Error('La velocidad del movimiento debe ser mayor que 0.');
-    this.log('out', `$J=G91 G21 X${dx} Y${dy} F${speed}`);
+    if (this.lhy && !this.lhyKnown) throw new Error(LHY_UNKNOWN_POSITION);
+    this.log('out', this.lhy ? `; salto relativo X${dx} Y${dy}` : `$J=G91 G21 X${dx} Y${dy} F${speed}`);
     if (this.alarmCode !== null) {
       const reply = describeLine('error:9');
       this.log('in', reply);
@@ -321,6 +340,7 @@ export class MockMachine {
   /** Eje extra (Z, U...): relativo (`delta`) o absoluto. La posición de estos ejes no se informa en el estado. */
   jogAxis(axis: string, value: number, speed: number, relative: boolean): void {
     this.requireConnection();
+    if (this.lhy) throw new Error(LHY_GRBL_ONLY);
     if (this.job) throw new Error(BUSY_MESSAGE);
     if (!/^[ZUABCzuabc]$/.test(axis)) throw new Error(`El eje '${axis}' no es válido; usa uno de ZUABC.`);
     if (!Number.isFinite(value)) throw new Error(relative ? 'El desplazamiento no es un número.' : 'La posición de destino no es un número.');
@@ -337,6 +357,7 @@ export class MockMachine {
   /** Disparo de prueba: M3, pausa y M5 (siempre). */
   fire(powerPct: number, sMax: number, durationMs: number): void {
     this.requireConnection();
+    if (this.lhy) throw new Error(LHY_GRBL_ONLY);
     if (this.job) throw new Error(BUSY_MESSAGE);
     if (!(powerPct > 0 && powerPct <= 20)) throw new Error('La potencia del disparo de prueba debe estar entre 0 y 20 %.');
     if (!(durationMs >= 10 && durationMs <= 2000)) throw new Error('La duración del disparo debe estar entre 10 y 2000 ms.');
@@ -352,7 +373,8 @@ export class MockMachine {
     if (this.job) throw new Error(BUSY_MESSAGE);
     if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('La posición de destino no es un número.');
     if (!(speed > 0)) throw new Error('La velocidad del movimiento debe ser mayor que 0.');
-    this.log('out', `$J=G90 G21 X${x} Y${y} F${speed}`);
+    if (this.lhy && !this.lhyKnown) throw new Error(LHY_UNKNOWN_POSITION);
+    this.log('out', this.lhy ? `; salto absoluto X${x} Y${y}` : `$J=G90 G21 X${x} Y${y} F${speed}`);
     if (this.alarmCode !== null) {
       const reply = describeLine('error:9');
       this.log('in', reply);
@@ -388,6 +410,26 @@ export class MockMachine {
     if (msg) throw new Error(msg.charAt(0).toUpperCase() + msg.slice(1));
   }
 
+  // ---- K40 (M2 Nano) ----------------------------------------------------
+
+  /** Home: el cabezal va a (0, 0) y desde ahí se cuenta la posición. */
+  lhyHome(): void {
+    this.requireConnection();
+    if (!this.lhy) throw new Error('Esta función es solo del K40 con placa M2 Nano.');
+    if (this.job) throw new Error(BUSY_MESSAGE);
+    this.log('out', '; home (IPP): el cabezal va a los finales de carrera');
+    this.pos = [0, 0];
+    this.lhyKnown = true;
+    this.log('in', '; home hecho: el cabezal está en (0, 0)');
+    this.emitStatus();
+  }
+
+  lhyState(): { board: string; virtual_machine: boolean; position_known: boolean; status_code: number } {
+    this.requireConnection();
+    if (!this.lhy) throw new Error('Esta función es solo del K40 con placa M2 Nano.');
+    return { board: 'M2', virtual_machine: this.virtual, position_known: this.lhyKnown, status_code: this.state === 'run' ? 238 : 206 };
+  }
+
   // ---- Ruida ------------------------------------------------------------
 
   /** Documentos guardados en la memoria de la controladora Ruida simulada. */
@@ -415,6 +457,7 @@ export class MockMachine {
     if (this.job) throw new Error(BUSY_MESSAGE);
     this.preflight();
     if (preview.moves.length === 0) throw new Error('El trabajo está vacío: no hay nada que enviar.');
+    if (this.lhy && !this.lhyKnown) this.lhyHome();
     const total = preview.moves.length / 4;
     this.job = {
       preview,
@@ -486,7 +529,17 @@ export class MockMachine {
       return;
     }
     this.clearJob();
-    this.emit('machine://job', { state: 'cancelled', message, position_lost: false });
+    if (this.lhy) {
+      // La placa se detiene y apaga el láser, pero la cuenta de la posición se pierde.
+      this.lhyKnown = false;
+      this.emit('machine://job', {
+        state: 'cancelled',
+        message: 'Trabajo detenido: la placa se detuvo y el láser se apagó. La posición del cabezal se perdió: haz home antes de seguir.',
+        position_lost: true,
+      });
+    } else {
+      this.emit('machine://job', { state: 'cancelled', message, position_lost: false });
+    }
     this.emitStatus();
   }
 
@@ -511,6 +564,7 @@ export class MockMachine {
   private walk(corners: Point[], note: string): void {
     this.requireConnection();
     if (this.job) throw new Error(BUSY_MESSAGE);
+    if (this.lhy && !this.lhyKnown) throw new Error(LHY_UNKNOWN_POSITION);
     this.preflight();
     let step = 0;
     this.state = 'run';

@@ -34,7 +34,7 @@ Un objeto con puentes manuales **ignora los automáticos** de su capa: sus puent
 
 **Ejemplo: una pieza que se mueve al cortar el último lado.** Pon dos puentes, uno en cada lado largo, justo donde la tabla se apoya sobre la rejilla. Al terminar, la pieza queda sujeta por dos puntos que rompes con la mano y lijas.
 
-> **Ojo:** los puentes manuales no tienen potencia propia (no hay "puente a baja potencia") y no se pueden arrastrar: se quitan y se vuelven a poner. Con kerf o con entrada y salida, recuerda que un contorno con puentes ya no es "entero" y no recibe entrada, salida ni sobrecorte.
+> **Ojo:** los puentes manuales usan la **Potencia en puentes** de su capa (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)), igual que los automáticos; no tienen una potencia propia por puente. No se pueden arrastrar: se quitan y se vuelven a poner. Con kerf o con entrada y salida, recuerda que un contorno con puentes ya no es "entero" y no recibe entrada, salida ni sobrecorte.
 
 ## Punto de inicio y sentido
 
@@ -74,7 +74,7 @@ Las plantillas se guardan en la carpeta de configuración de Tlaku, no dentro de
 
 **Archivo > Nueva ventana** (`Ctrl/Cmd+Mayús+N`) abre otra ventana de Tlaku con un **documento independiente**: tiene su propio historial y selección. Lo que comparten es la máquina (la conexión y el trabajo en curso) y las preferencias. Sirve para copiar de un proyecto a otro o consultar un diseño mientras trabajas en otro.
 
-> **Ojo:** la ventana nueva todavía no se ha probado en una ventana real. Con el autoguardado encendido, la segunda ventana puede mostrar al abrir el aviso **Se encontró trabajo sin guardar** con la copia de la primera. Elige **Decidir después**: **no** la recuperes ni la descartes mientras la otra ventana siga abierta con cambios. Guarda tus proyectos con frecuencia.
+> **Ojo:** la ventana nueva todavía no se ha probado en una ventana real. La recuperación se corrigió para que no mezcle ventanas: cada una marca su copia de autoguardado como viva y el aviso **Se encontró trabajo sin guardar** solo ofrece las copias huérfanas (las de ventanas ya cerradas). Pero esa corrección se comprobó leyendo el código y con pruebas del registro, no con ventanas reales; por prudencia, si el aviso muestra la copia de la otra ventana, elige **Decidir después** y **no** la recuperes ni la descartes mientras esa ventana siga abierta con cambios. El registro es de un solo programa: dos copias de Tlaku abiertas a la vez no se ven entre sí. Guarda tus proyectos con frecuencia.
 
 ## Pestañas del panel derecho a tu gusto
 

@@ -6,5 +6,9 @@
 	     firma lo declare. La cámara se usa para ver la cama del láser (ver Info.plist). -->
 	<key>com.apple.security.device.camera</key>
 	<true/>
+	<!-- Y el USB: el K40 con placa M2 Nano (CH341, 1A86:5512) se maneja por USB directo, sin puerto
+	     serie. Sin esto, la app notarizada no puede abrir la placa. -->
+	<key>com.apple.security.device.usb</key>
+	<true/>
 </dict>
 </plist>

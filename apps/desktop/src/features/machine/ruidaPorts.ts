@@ -1,6 +1,7 @@
 import type { DeviceProfile } from '@/api/types';
 import { selectActiveDevice } from '@/store/selectors';
 import type { AppState } from '@/store/types';
+import { isLhyPort, lhyPorts } from './lhyPorts';
 import { baseVirtualPort } from './virtualPort';
 
 /**
@@ -34,9 +35,12 @@ export function udpHost(port: string): string {
   return port.slice(UDP_PREFIX.length);
 }
 
-/** La lista de puertos sin la máquina virtual de Ruida (la de GRBL, el asistente de detección, etc.). */
+/**
+ * La lista de puertos sin las máquinas que no son de serie: la virtual de Ruida y los puertos del
+ * K40 (placas USB y su virtual). Es lo que ven GRBL y derivados y el asistente de detección.
+ */
 export function withoutRuidaPort(ports: readonly string[]): string[] {
-  return ports.filter((p) => !isRuidaVirtualPort(p));
+  return ports.filter((p) => !isRuidaVirtualPort(p) && !isLhyPort(p));
 }
 
 /**
@@ -44,6 +48,8 @@ export function withoutRuidaPort(ports: readonly string[]): string[] {
  * máquina virtual. Los demás tipos: los de siempre, sin la máquina virtual de Ruida.
  */
 export function portsForDevice(device: Pick<DeviceProfile, 'kind' | 'connection'>, ports: readonly string[]): string[] {
+  // K40: las placas USB que encontró el motor y la placa simulada.
+  if (device.kind === 'lhy_micro') return lhyPorts(ports);
   if (device.kind !== 'ruida') return withoutRuidaPort(ports);
   const host = ruidaHost(device);
   return [...(host ? [`${UDP_PREFIX}${host}`] : []), RUIDA_VIRTUAL];
@@ -56,11 +62,15 @@ export function portsForDevice(device: Pick<DeviceProfile, 'kind' | 'connection'
  */
 export function portForDevice(device: Pick<DeviceProfile, 'kind' | 'connection'>, selected: string | null, ports: readonly string[]): string | null {
   const shown = portsForDevice(device, ports);
+  if (device.kind === 'lhy_micro') {
+    // Un resto de otro tipo de máquina no sirve; una placa USB que ya no está tampoco.
+    return selected && shown.includes(selected) ? selected : (shown[0] ?? null);
+  }
   if (device.kind === 'ruida') {
     if (selected && shown.some((p) => baseVirtualPort(p) === baseVirtualPort(selected))) return selected;
     return shown[0] ?? null;
   }
-  return isUdpPort(selected) || isRuidaVirtualPort(selected) ? (shown[0] ?? null) : selected;
+  return isUdpPort(selected) || isRuidaVirtualPort(selected) || isLhyPort(selected) ? (shown[0] ?? null) : selected;
 }
 
 /** `0x88` o `88` -> 0x88; `null` si no es un byte en hexadecimal. */

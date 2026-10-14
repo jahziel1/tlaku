@@ -7,6 +7,8 @@ import { selectActiveDevice, useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
 import { useCommandConfirm } from './CommandConfirm';
 import { connectionAddress, isNetworkConnection } from './DeviceConnectionModel';
+import { LhyExperimentalBadge } from './LhyNotice';
+import { isLhyUsbPort } from './lhyPorts';
 import { RuidaExperimentalBadge } from './RuidaSection';
 import { isUdpPort, portForDevice, portsForDevice } from './ruidaPorts';
 import { isVirtualNetPort, isVirtualPort, portLabel, VIRTUAL_SPEEDS } from './virtualPort';
@@ -39,6 +41,8 @@ export function ConnectionSection() {
   const netAddress = isNetworkConnection(device.connection) ? connectionAddress(device.connection) : null;
   // Ruida (UDP): la IP sale del perfil; el selector solo ofrece esa red y la máquina virtual de Ruida.
   const isRuida = device.kind === 'ruida';
+  // K40 (M2 Nano): las placas que el motor encontró por USB y la placa simulada; sin baudios.
+  const isLhy = device.kind === 'lhy_micro';
   const shownPorts = portsForDevice(device, ports);
   const portValue = portForDevice(device, selectedPort, ports);
 
@@ -97,11 +101,13 @@ export function ConnectionSection() {
           </div>
           {shownPorts.length === 0 && !connected && <p className="hint">{t('machine.noPorts.help')}</p>}
           {isRuida && !connected && <p className="hint">{t('ruida.experimental.note')}</p>}
+          {isLhy && !connected && <p className="hint">{t('lhymicro.experimental.note')}</p>}
+          {isLhy && !connected && <p className="hint">{t('lhymicro.dev.connection')}</p>}
           {isVirtualPort(portValue) && !connected && <p className="hint">{t(isVirtualNetPort(portValue) ? 'machine.virtualnet.note' : 'machine.virtual.note')}</p>}
         </>
       )}
       <div className="row">
-        {netAddress || isUdpPort(portValue) ? null : isVirtualPort(portValue) ? (
+        {netAddress || isUdpPort(portValue) || isLhyUsbPort(portValue) ? null : isVirtualPort(portValue) ? (
           <div className="field">
             <label htmlFor="sel-vspeed" className="field__label">{t('machine.virtual.speed')}</label>
             <select id="sel-vspeed" className="select num" value={virtualSpeed} disabled={connected} title={connected ? t('machine.disconnectFirst') : t('machine.virtual.speedHint')} onChange={(e) => setVirtualSpeed(Number(e.target.value))}>
@@ -137,6 +143,7 @@ export function ConnectionSection() {
         </span>
         {virtual && <VirtualBadge />}
         {isRuida && <RuidaExperimentalBadge />}
+        {isLhy && <LhyExperimentalBadge />}
         {firmware && <span className="num mc-conn__fw" title={t('machine.firmware')}>{firmware}</span>}
       </div>
       {connectionError && !connected && (

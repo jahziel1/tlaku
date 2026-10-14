@@ -583,6 +583,17 @@
   gap: var(--s-2);
 }
 
+/* K40 (M2 Nano): aviso del diálogo de inicio y paro de emergencia sin confirmar. */
+.mc-lhy-start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.mc-lhy-stop {
+  border-width: 2px;
+}
+
 /* ---- gestor de dispositivos ----------------------------------------------------------- */
 
 .mc-modal[data-size='lg'] .mc-modal__body {

@@ -24,6 +24,7 @@ const NAMES: Record<string, I18nKey> = {
   marlin: 'machine.virtual.name.marlin',
   smoothie: 'machine.virtual.name.smoothie',
   ruida: 'ruida.virtual.name',
+  k40: 'lhymicro.virtual.name',
 };
 
 export function isVirtualPort(port: string | null | undefined): boolean {
@@ -63,6 +64,7 @@ export function portKey(port: string | null | undefined): string | null {
 export function portLabel(port: string): string {
   if (/^tcp:\/\//i.test(port)) return port.slice('tcp://'.length);
   if (/^udp:\/\//i.test(port)) return t('ruida.port.net', { host: port.slice('udp://'.length) });
+  if (/^usb:k40:\d+$/.test(port)) return t('lhymicro.port.usb', { n: Number(port.slice('usb:k40:'.length)) + 1 });
   if (!isVirtualPort(port)) return port;
   const net = isVirtualNetPort(port);
   const id = baseVirtualPort(port).slice((net ? VIRTUAL_NET_PREFIX : VIRTUAL_PREFIX).length);
