@@ -95,21 +95,22 @@ fn control_handle_pauses_resumes_and_stops_from_another_thread() {
         }
         assert!(b2.lock().unwrap().is_paused());
         c2.request_resume();
-        let t0 = Instant::now();
-        while c2.state() != JobState::Running {
-            assert!(t0.elapsed() < Duration::from_secs(10), "no reanudó");
-            std::thread::yield_now();
-        }
-        c2.request_stop();
     });
+    // La parada se pide desde el aviso de progreso del paquete siguiente a la reanudación: así no
+    // compite con el final del trabajo (son pocos paquetes) aunque la máquina esté cargada.
+    let mut resumed = false;
     let err = session
         .send_job(&program, &mut |p| {
             if p.packet == 5 {
                 control.request_pause();
+            } else if p.packet == 6 {
+                resumed = true;
+                control.request_stop();
             }
         })
         .unwrap_err();
     helper.join().unwrap();
+    assert!(resumed, "no reanudó después de la pausa");
     assert!(matches!(err.cause, SessionError::Cancelled), "{err}");
     assert_eq!(err.stop, StopOutcome::Acked);
     assert_eq!(session.position_mil(), None);

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MaterialLibrary } from '@/api/types';
+import type { MachineClass, MaterialLibrary } from '@/api/types';
 import { emptyLibrary } from './library';
 import type { TestForm } from './testPlan';
 
@@ -8,6 +8,12 @@ export type EditorTarget = { kind: 'save' } | { kind: 'edit'; id: string };
 
 interface MaterialsUiState {
   library: MaterialLibrary;
+  /** Biblioteca de fábrica (solo lectura); vacía hasta que se lee. */
+  factory: MaterialLibrary;
+  /** Clase de la máquina activa elegida por el usuario; `null` = sin elegir. */
+  machineClass: MachineClass | null;
+  /** Mostrar solo los ajustes de fábrica de la clase de la máquina (y los que no dicen clase). */
+  onlyClass: boolean;
   /** La biblioteca ya se leyó del disco (o se confirmó que no hay). */
   loaded: boolean;
   /** Mensaje si la lectura falló: mientras tanto no se guarda nada para no pisar el archivo. */
@@ -21,6 +27,9 @@ interface MaterialsUiState {
   testForm: TestForm | null;
 
   setLibrary: (library: MaterialLibrary) => void;
+  setFactory: (factory: MaterialLibrary) => void;
+  setMachineClass: (machineClass: MachineClass | null) => void;
+  setOnlyClass: (onlyClass: boolean) => void;
   setLoaded: (loaded: boolean, loadError?: string | null) => void;
   setSearch: (search: string) => void;
   setOnlyDevice: (onlyDevice: boolean) => void;
@@ -37,6 +46,9 @@ interface MaterialsUiState {
  */
 export const useMaterials = create<MaterialsUiState>()((set) => ({
   library: emptyLibrary(),
+  factory: emptyLibrary(),
+  machineClass: null,
+  onlyClass: true,
   loaded: false,
   loadError: null,
   search: '',
@@ -46,6 +58,9 @@ export const useMaterials = create<MaterialsUiState>()((set) => ({
   testForm: null,
 
   setLibrary: (library) => set({ library }),
+  setFactory: (factory) => set({ factory }),
+  setMachineClass: (machineClass) => set({ machineClass }),
+  setOnlyClass: (onlyClass) => set({ onlyClass }),
   setLoaded: (loaded, loadError = null) => set({ loaded, loadError }),
   setSearch: (search) => set({ search }),
   setOnlyDevice: (onlyDevice) => set({ onlyDevice }),

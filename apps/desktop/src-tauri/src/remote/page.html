@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Tlaku</title>
+<style>
+:root {
+  --bg: #f3f4f6; --card: #ffffff; --ink: #111827; --muted: #6b7280; --line: #d1d5db;
+  --accent: #0b6bcb; --accent-ink: #ffffff;
+  --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+  --warn-bg: #fff7e0; --bad-bg: #fde8e8; --ok-bg: #e3f6e8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216; --card: #1a1f26; --ink: #f3f4f6; --muted: #9aa3af; --line: #2f3742;
+    --accent: #4aa3ff; --accent-ink: #06121f;
+    --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    --warn-bg: #3a2e0e; --bad-bg: #3d1717; --ok-bg: #12301c;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body {
+  font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+[hidden] { display: none !important; }
+#app { max-width: 560px; margin: 0 auto; padding: 12px 14px 40px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 2px 10px; }
+header h1 { font-size: 20px; margin: 0; }
+.badge { font-size: 14px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); white-space: nowrap; }
+.badge.off { background: var(--bad-bg); color: var(--bad); }
+.badge.wait { background: var(--warn-bg); color: var(--warn); }
+.note { font-size: 14px; border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; background: var(--warn-bg); color: var(--ink); border: 1px solid var(--warn); }
+.note.bad { background: var(--bad-bg); border-color: var(--bad); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 0 0 12px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.state { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pill { font-size: 22px; font-weight: 700; padding: 6px 14px; border-radius: 12px; background: var(--ok-bg); color: var(--ok); }
+.pill.run { background: var(--accent); color: var(--accent-ink); }
+.pill.hold { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.idle { background: var(--line); color: var(--ink); }
+.who { color: var(--muted); font-size: 15px; margin-top: 6px; word-break: break-word; }
+.pct { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.bar { height: 16px; background: var(--line); border-radius: 8px; overflow: hidden; margin: 10px 0; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+.row { display: flex; justify-content: space-between; gap: 10px; font-size: 16px; font-variant-numeric: tabular-nums; }
+.row span:first-child { color: var(--muted); }
+#route svg { width: 100%; height: auto; max-height: 52vh; display: block; background: var(--bg); border-radius: 10px; }
+#cam img { width: 100%; height: auto; display: block; border-radius: 10px; background: #000; }
+.hint { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 12px; }
+button {
+  font: inherit; font-weight: 700; font-size: 20px; min-height: 68px; border-radius: 16px; border: 2px solid var(--line);
+  background: var(--card); color: var(--ink); padding: 10px 14px; width: 100%; touch-action: manipulation;
+}
+button:active:not(:disabled) { transform: scale(.98); }
+button:disabled { opacity: .45; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.danger { border-color: var(--bad); color: var(--bad); }
+button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s infinite alternate; }
+@keyframes pulse { to { opacity: .72; } }
+.wide { grid-column: 1 / -1; }
+.reason { grid-column: 1 / -1; font-size: 14px; color: var(--muted); margin: -4px 2px 0; }
+.sheet, .overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.55); }
+.overlay { align-items: center; padding: 18px; }
+.panel { background: var(--card); width: 100%; max-width: 560px; border-radius: 20px 20px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 92vh; overflow: auto; }
+.overlay .panel { border-radius: 20px; text-align: center; }
+.panel h2 { font-size: 22px; margin: 0 0 10px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.check { display: flex; gap: 14px; align-items: center; padding: 14px 4px; font-size: 19px; border-top: 1px solid var(--line); }
+.check input { width: 28px; height: 28px; flex: none; accent-color: var(--accent); }
+.big { font-size: 28px; font-weight: 800; margin: 6px 0 14px; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+#toast { position: fixed; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20; background: var(--ink); color: var(--bg); padding: 12px 14px; border-radius: 12px; font-size: 16px; }
+.center { text-align: center; padding: 30px 6px; }
+.center h2 { font-size: 22px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Tlaku</h1>
+    <span class="badge wait" id="conn"></span>
+  </header>
+  <p class="note" id="warn"></p>
+
+  <section id="login" class="card center" hidden>
+    <h2 id="login-title"></h2>
+    <p id="login-text"></p>
+  </section>
+
+  <main id="main" hidden>
+    <p class="note bad" id="offline" hidden></p>
+
+    <section class="card">
+      <h2 id="h-machine"></h2>
+      <div class="state"><span class="pill" id="pill"></span></div>
+      <div class="who" id="who"></div>
+      <div class="who" id="msg"></div>
+    </section>
+
+    <section class="card">
+      <h2 id="h-progress"></h2>
+      <div class="pct" id="pct">0%</div>
+      <div class="bar"><i id="barfill"></i></div>
+      <div class="row"><span id="l-elapsed"></span><b id="elapsed">—</b></div>
+      <div class="row"><span id="l-remaining"></span><b id="remaining">—</b></div>
+      <div class="row"><span id="l-layer"></span><b id="layer">—</b></div>
+    </section>
+
+    <section class="card" id="route" hidden>
+      <h2 id="h-route"></h2>
+      <div id="routebox"></div>
+    </section>
+
+    <section class="card" id="cam" hidden>
+      <h2 id="h-cam"></h2>
+      <img id="camimg" alt="">
+      <p class="hint" id="camhint"></p>
+    </section>
+
+    <div class="actions">
+      <button id="btn-pause"></button>
+      <button id="btn-stop" class="danger"></button>
+      <div class="reason" id="pause-reason" hidden></div>
+      <button id="btn-start" class="primary wide"></button>
+      <div class="reason" id="start-reason" hidden></div>
+    </div>
+  </main>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="panel">
+    <h2 id="sheet-title"></h2>
+    <p id="sheet-job" class="hint"></p>
+    <label class="check"><input type="checkbox" id="c1"><span id="t1"></span></label>
+    <label class="check"><input type="checkbox" id="c2"><span id="t2"></span></label>
+    <label class="check"><input type="checkbox" id="c3"><span id="t3"></span></label>
+    <p class="note" id="sheet-warn"></p>
+    <p class="note bad" id="sheet-err" hidden></p>
+    <div class="actions">
+      <button id="sheet-cancel"></button>
+      <button id="sheet-go" class="primary" disabled></button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
+  <div class="panel">
+    <div class="big" id="alert-title"></div>
+    <p id="alert-text"></p>
+    <button id="alert-ok" class="primary"></button>
+  </div>
+</div>
+
+<div id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Textos (idioma del navegador) -------------------------------------------------------
+  var T = {
+    es: {
+      title: 'Tlaku remoto', connected: 'Conectado', reconnecting: 'Reconectando…', offlineBadge: 'Sin conexión',
+      warn: 'Control remoto. Úsalo solo estando cerca de la máquina y viéndola. Nunca dejes un láser trabajando sin vigilancia.',
+      loginTitle: 'Escanea el código QR', loginText: 'Abre Tlaku en la PC (Preferencias, Control remoto) y escanea el código QR con la cámara del celular. Si la clave se regeneró o te desconectaron, escanéalo otra vez.',
+      loginBad: 'Clave incorrecta o vencida', loginBadText: 'Escanea de nuevo el código QR que muestra Tlaku en la PC.',
+      locked: 'Demasiados intentos', lockedText: 'Espera unos minutos y escanea de nuevo el código QR.',
+      kicked: 'Te desconectaron', kickedText: 'La PC cerró esta sesión. Escanea de nuevo el código QR para volver a entrar.',
+      hMachine: 'Máquina', hProgress: 'Avance', hRoute: 'Recorrido', hCam: 'Cámara de la PC',
+      camHint: 'La imagen se actualiza cada pocos segundos.',
+      elapsed: 'Transcurrido', remaining: 'Tiempo restante', layer: 'Capa', layerOf: '{i} de {n}',
+      pause: 'Pausar', resume: 'Reanudar', stop: 'Detener', stopArmed: 'Toca otra vez para DETENER', start: 'Iniciar trabajo…',
+      st_nomachine: 'Sin máquina', st_alarm: 'Alarma', st_running: 'Trabajando', st_paused: 'En pausa', st_ready: 'Listo',
+      st_finished: 'Terminado', st_cancelled: 'Detenido', st_error: 'Falló', st_busy: 'Ocupada', st_home: 'Referenciando', st_jog: 'Moviendo',
+      pcOffline: 'La PC no está enviando datos (Tlaku cerrado o sin responder). Detener sigue funcionando.',
+      noMachine: 'No hay máquina conectada en la PC.',
+      r_not_connected: 'No hay máquina conectada en la PC.',
+      r_job_active: 'Ya hay un trabajo en curso.',
+      r_not_idle: 'La máquina no está en reposo (alarma, pausa o movimiento).',
+      r_pc_offline: 'La PC no está respondiendo.',
+      r_nothing_to_send: 'No hay nada que enviar: el diseño no tiene capas con salida.',
+      r_galvo: 'El galvo (haz invisible) solo se inicia desde la PC.',
+      r_not_framed: 'Primero encuadra el trabajo en la PC. Cualquier cambio al diseño, a la máquina o a las opciones del trabajo exige encuadrar de nuevo.',
+      r_busy_request: 'Ya hay un inicio en curso desde otro dispositivo.',
+      r_no_pause: 'Esta máquina no tiene pausa: usa Detener.',
+      r_checklist: 'Marca todo el checklist de seguridad.',
+      r_timeout: 'La PC no contestó a tiempo. Revisa Tlaku antes de volver a intentar.',
+      sheetTitle: 'Antes de iniciar', sheetJob: 'Trabajo: {doc} · {time}',
+      c1: 'Estoy junto a la máquina', c2: 'El área está despejada', c3: 'El aire o el extractor están encendidos',
+      sheetWarn: 'Al iniciar, el láser empezará a trabajar. Mantén la vista en la máquina.',
+      cancel: 'Cancelar', go: 'Iniciar', going: 'Esperando a la PC…',
+      doneTitle: '¡Trabajo terminado!', doneText: 'El trabajo terminó correctamente.',
+      failTitle: 'El trabajo falló', failText: 'Revisa la máquina y Tlaku en la PC.', ok: 'Entendido',
+      untitled: 'Sin título', sent: 'Hecho', netErr: 'Sin conexión con la PC'
+    },
+    en: {
+      title: 'Tlaku remote', connected: 'Connected', reconnecting: 'Reconnecting…', offlineBadge: 'Offline',
+      warn: 'Remote control. Use it only while standing near the machine and watching it. Never leave a laser running unattended.',
+      loginTitle: 'Scan the QR code', loginText: 'Open Tlaku on the PC (Preferences, Remote control) and scan the QR code with the phone camera. If the key was regenerated or you were disconnected, scan it again.',
+      loginBad: 'Wrong or expired key', loginBadText: 'Scan the QR code that Tlaku shows on the PC again.',
+      locked: 'Too many attempts', lockedText: 'Wait a few minutes and scan the QR code again.',
+      kicked: 'You were disconnected', kickedText: 'The PC closed this session. Scan the QR code again to get back in.',
+      hMachine: 'Machine', hProgress: 'Progress', hRoute: 'Toolpath', hCam: 'PC camera',
+      camHint: 'The image refreshes every few seconds.',
+      elapsed: 'Elapsed', remaining: 'Time left', layer: 'Layer', layerOf: '{i} of {n}',
+      pause: 'Pause', resume: 'Resume', stop: 'Stop', stopArmed: 'Tap again to STOP', start: 'Start job…',
+      st_nomachine: 'No machine', st_alarm: 'Alarm', st_running: 'Running', st_paused: 'Paused', st_ready: 'Ready',
+      st_finished: 'Finished', st_cancelled: 'Stopped', st_error: 'Failed', st_busy: 'Busy', st_home: 'Homing', st_jog: 'Moving',
+      pcOffline: 'The PC is not sending data (Tlaku closed or not responding). Stop still works.',
+      noMachine: 'No machine is connected on the PC.',
+      r_not_connected: 'No machine is connected on the PC.',
+      r_job_active: 'A job is already running.',
+      r_not_idle: 'The machine is not idle (alarm, pause or motion).',
+      r_pc_offline: 'The PC is not responding.',
+      r_nothing_to_send: 'Nothing to send: the design has no layers with output.',
+      r_galvo: 'The galvo (invisible beam) can only be started from the PC.',
+      r_not_framed: 'Frame the job on the PC first. Any change to the design, the machine or the job options requires framing again.',
+      r_busy_request: 'Another device is already starting a job.',
+      r_no_pause: 'This machine has no pause: use Stop.',
+      r_checklist: 'Tick the whole safety checklist.',
+      r_timeout: 'The PC did not answer in time. Check Tlaku before trying again.',
+      sheetTitle: 'Before starting', sheetJob: 'Job: {doc} · {time}',
+      c1: 'I am next to the machine', c2: 'The area is clear', c3: 'Air assist or the extractor is on',
+      sheetWarn: 'When you start, the laser will begin to work. Keep your eyes on the machine.',
+      cancel: 'Cancel', go: 'Start', going: 'Waiting for the PC…',
+      doneTitle: 'Job finished!', doneText: 'The job finished correctly.',
+      failTitle: 'The job failed', failText: 'Check the machine and Tlaku on the PC.', ok: 'Got it',
+      untitled: 'Untitled', sent: 'Done', netErr: 'No connection to the PC'
+    }
+  };
+  var lang = /^en/i.test(navigator.language || '') ? 'en' : 'es';
+  var L = T[lang];
+  document.documentElement.lang = lang;
+  function t(k, p) {
+    var s = L[k];
+    if (s === undefined) s = T.es[k];
+    if (s === undefined) s = k;
+    if (p) for (var n in p) s = s.replace('{' + n + '}', p[n]);
+    return s;
+  }
+  function $(id) { return document.getElementById(id); }
+
+  // ---- Estado ----------------------------------------------------------------------------------
+  var S = null;            // último estado del servidor
+  var es = null;           // EventSource
+  var lastEvent = 0;
+  var retry = 0;
+  var retryTimer = null;
+  var seenFinished = null, seenError = null;
+  var routeV = -1;
+  var stopArmedUntil = 0, stopTimer = null;
+  var wake = null;
+  var audio = null;
+  var busyStart = false;
+  var started = false;
+
+  document.title = t('title');
+  $('warn').textContent = t('warn');
+  var statics = { 'h-machine': 'hMachine', 'h-progress': 'hProgress', 'h-route': 'hRoute', 'h-cam': 'hCam', camhint: 'camHint',
+    'l-elapsed': 'elapsed', 'l-remaining': 'remaining', 'l-layer': 'layer', 'sheet-title': 'sheetTitle', t1: 'c1', t2: 'c2', t3: 'c3',
+    'sheet-warn': 'sheetWarn', 'sheet-cancel': 'cancel', 'alert-ok': 'ok', 'login-title': 'loginTitle', 'login-text': 'loginText' };
+  for (var id in statics) $(id).textContent = t(statics[id]);
+
+  function setConn(kind) {
+    var b = $('conn');
+    b.className = 'badge' + (kind === 'ok' ? '' : kind === 'wait' ? ' wait' : ' off');
+    b.textContent = kind === 'ok' ? t('connected') : kind === 'wait' ? t('reconnecting') : t('offlineBadge');
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $('toast');
+    el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 4500);
+  }
+
+  function fmtTime(sec) {
+    if (sec === null || sec === undefined || !isFinite(sec)) return '—';
+    sec = Math.max(0, Math.round(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    var mm = (m < 10 && h > 0 ? '0' : '') + m, ss = (s < 10 ? '0' : '') + s;
+    return h > 0 ? h + ':' + mm + ':' + ss : m + ':' + ss;
+  }
+
+  function reasonText(code, fallback) {
+    var k = 'r_' + code;
+    return L[k] !== undefined ? L[k] : (T.es[k] !== undefined ? T.es[k] : (fallback || code));
+  }
+
+  // ---- Red -------------------------------------------------------------------------------------
+  function api(path, method, body, timeoutMs) {
+    var opt = { method: method || 'GET', cache: 'no-store', credentials: 'same-origin', headers: { 'X-Requested-With': 'tlaku' } };
+    if (method === 'POST') {
+      opt.headers['Content-Type'] = 'application/json';
+      opt.body = JSON.stringify(body || {});
+    }
+    var ctl = null, timer = null;
+    if (typeof AbortController !== 'undefined') {
+      ctl = new AbortController(); opt.signal = ctl.signal;
+      timer = setTimeout(function () { ctl.abort(); }, timeoutMs || 15000);
+    }
+    return fetch(path, opt).then(function (r) {
+      clearTimeout(timer);
+      return r.text().then(function (txt) {
+        var data = null;
+        try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = null; }
+        if (r.status === 401) { showLogin('kicked'); }
+        return { status: r.status, ok: r.ok, data: data };
+      });
+    });
+  }
+
+  function showLogin(kind) {
+    stopEvents();
+    clearTimeout(retryTimer);
+    started = false;
+    $('main').hidden = true;
+    $('login').hidden = false;
+    if (kind === 'bad') { $('login-title').textContent = t('loginBad'); $('login-text').textContent = t('loginBadText'); }
+    else if (kind === 'locked') { $('login-title').textContent = t('locked'); $('login-text').textContent = t('lockedText'); }
+    else if (kind === 'kicked') { $('login-title').textContent = t('kicked'); $('login-text').textContent = t('kickedText'); }
+    else { $('login-title').textContent = t('loginTitle'); $('login-text').textContent = t('loginText'); }
+    setConn('off');
+  }
+
+  function stopEvents() {
+    if (es) { es.onerror = null; es.close(); es = null; }
+  }
+
+  function connect() {
+    stopEvents();
+    es = new EventSource('/api/events');
+    es.addEventListener('state', function (e) {
+      try { S = JSON.parse(e.data); } catch (x) { return; }
+      lastEvent = Date.now(); retry = 0;
+      setConn('ok');
+      render();
+    });
+    es.onerror = function () { stopEvents(); setConn('wait'); scheduleProbe(); };
+  }
+
+  function scheduleProbe() {
+    clearTimeout(retryTimer);
+    var wait = Math.min(10000, 1000 * Math.pow(2, retry++));
+    retryTimer = setTimeout(probe, wait);
+  }
+
+  function probe() {
+    api('/api/state').then(function (r) {
+      if (r.status === 401) return;           // showLogin ya se mostró
+      if (r.ok && r.data) { S = r.data; lastEvent = Date.now(); render(); connect(); return; }
+      setConn('wait'); scheduleProbe();
+    }).catch(function () { setConn('wait'); scheduleProbe(); });
+  }
+
+  // Si no llega nada en 25 s (el servidor manda un latido cada 10) se reconecta.
+  setInterval(function () {
+    if (started && es && Date.now() - lastEvent > 25000) { stopEvents(); setConn('wait'); probe(); }
+  }, 5000);
+  window.addEventListener('online', function () { if (started) { retry = 0; probe(); } });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && started) { probe(); if (S && phase() === 'running') requestWake(); }
+  });
+
+  // ---- Dibujo ----------------------------------------------------------------------------------
+  function phase() {
+    if (!S) return 'nomachine';
+    var m = S.machine || {}, j = S.job || {};
+    if (!m.connected) return 'nomachine';
+    if (m.state === 'alarm') return 'alarm';
+    if (j.phase === 'paused' || m.state === 'hold' || m.state === 'door') return 'paused';
+    if (j.phase === 'running') return 'running';
+    if (j.phase === 'finished') return 'finished';
+    if (j.phase === 'error') return 'error';
+    if (j.phase === 'cancelled') return 'cancelled';
+    if (m.state === 'idle' || !m.state) return 'ready';
+    if (m.state === 'home') return 'home';
+    if (m.state === 'jog') return 'jog';
+    return 'busy';
+  }
+
+  function render() {
+    if (!S) return;
+    started = true;
+    $('login').hidden = true; $('main').hidden = false;
+    var ph = phase(), j = S.job || {}, m = S.machine || {};
+    var pill = $('pill');
+    pill.textContent = t('st_' + ph);
+    pill.className = 'pill' + (ph === 'running' ? ' run' : ph === 'paused' ? ' hold' : (ph === 'alarm' || ph === 'error' || ph === 'nomachine') ? ' bad' : (ph === 'ready' || ph === 'finished') ? '' : ' idle');
+    $('who').textContent = [S.device, S.doc].filter(function (x) { return x; }).join(' · ') || (m.connected ? '' : t('noMachine'));
+    $('msg').textContent = ph === 'error' || ph === 'finished' || ph === 'cancelled' ? (j.message || '') : '';
+    $('offline').hidden = S.pc_online; $('offline').textContent = t('pcOffline');
+
+    var pr = ph === 'finished' ? 1 : (j.progress || 0);
+    var active = ph === 'running' || ph === 'paused';
+    $('pct').textContent = Math.round(pr * 100) + '%';
+    $('barfill').style.width = Math.round(pr * 100) + '%';
+    $('elapsed').textContent = active || ph === 'finished' ? fmtTime(j.elapsed_s) : '—';
+    $('remaining').textContent = active ? fmtTime(j.remaining_s) : (ph === 'finished' ? '0:00' : (j.total_s ? fmtTime(j.total_s) : '—'));
+    $('layer').textContent = j.layer && active ? t('layerOf', { i: j.layer.index, n: j.layer.count }) : '—';
+
+    // Botones
+    var caps = S.caps || {};
+    var bp = $('btn-pause');
+    var isPaused = ph === 'paused';
+    bp.textContent = isPaused ? t('resume') : t('pause');
+    bp.disabled = !(active && caps.pause);
+    var pr2 = $('pause-reason');
+    if (m.connected && caps.pause === false) { pr2.hidden = false; pr2.textContent = reasonText(caps.pause_reason); } else pr2.hidden = true;
+    var bs = $('btn-stop');
+    bs.disabled = !caps.stop;
+    renderStop();
+    var st = S.start || {};
+    var go = $('btn-start');
+    go.textContent = t('start');
+    go.disabled = !st.allowed || busyStart;
+    var rs = $('start-reason');
+    if (!st.allowed) { rs.hidden = false; rs.textContent = reasonText(st.reason, st.message); } else rs.hidden = true;
+
+    drawRoute();
+    drawHead();
+    drawCamera();
+    checkAlerts();
+    if (ph === 'running') requestWake(); else releaseWake();
+  }
+
+  function renderStop() {
+    var bs = $('btn-stop');
+    var armed = Date.now() < stopArmedUntil;
+    bs.className = 'danger' + (armed ? ' armed' : '');
+    bs.textContent = armed ? t('stopArmed') : t('stop');
+  }
+
+  // Recorrido y cabezal
+  var NS = 'http://www.w3.org/2000/svg';
+  var svg = null, headG = null, bedW = 0, bedH = 0;
+  function el(name, attrs) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function drawRoute() {
+    var box = $('route');
+    var bed = S.bed;
+    if (!bed) { box.hidden = true; return; }
+    box.hidden = false;
+    if (S.route_v === routeV && svg && bed[0] === bedW && bed[1] === bedH) return;
+    routeV = S.route_v; bedW = bed[0]; bedH = bed[1];
+    var vb = el('svg', { viewBox: '0 0 ' + bedW + ' ' + bedH, role: 'img' });
+    vb.appendChild(el('rect', { x: 0, y: 0, width: bedW, height: bedH, fill: 'none', stroke: 'currentColor', 'stroke-opacity': '.35', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
+    svg = vb;
+    headG = null;
+    var holder = $('routebox');
+    holder.textContent = ''; holder.appendChild(vb);
+    holder.style.color = getComputedStyle(document.body).color;
+    if (S.route_v > 0) {
+      api('/api/route').then(function (r) {
+        if (!r.ok || !r.data || r.data.version !== routeV || svg !== vb) return;
+        var g = el('g', { transform: 'translate(0 ' + bedH + ') scale(1 -1)' });
+        g.appendChild(el('path', { d: r.data.d, fill: 'none', stroke: '#0b6bcb', 'stroke-width': 1.6, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }));
+        vb.appendChild(g);
+        drawHead();
+      }).catch(function () {});
+    }
+  }
+  function drawHead() {
+    if (!svg || !S) return;
+    if (headG && headG.parentNode) headG.parentNode.removeChild(headG);
+    headG = null;
+    if (!S.head) return;
+    var r = Math.max(bedW, bedH) / 28;
+    var g = el('g', { transform: 'translate(' + S.head[0] + ' ' + (bedH - S.head[1]) + ')' });
+    g.appendChild(el('circle', { r: r, fill: '#e11d48', 'fill-opacity': '.85', stroke: '#fff', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
+    g.appendChild(el('path', { d: 'M' + (-r * 1.8) + ' 0H' + (r * 1.8) + 'M0 ' + (-r * 1.8) + 'V' + (r * 1.8), stroke: '#e11d48', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
+    svg.appendChild(g);
+    headG = g;
+  }
+
+  var camV = 0;
+  function drawCamera() {
+    var card = $('cam');
+    if (!S.camera_v) { card.hidden = true; camV = 0; return; }
+    card.hidden = false;
+    if (S.camera_v !== camV) { camV = S.camera_v; $('camimg').src = '/api/camera.jpg?v=' + camV; }
+  }
+
+  // ---- Aviso al terminar -----------------------------------------------------------------------
+  function beep() {
+    try {
+      if (!audio) return;
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.2;
+      o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + 0.35);
+    } catch (e) {}
+  }
+  function unlockAudio() {
+    try {
+      if (!audio) { var C = window.AudioContext || window.webkitAudioContext; if (C) audio = new C(); }
+      if (audio && audio.state === 'suspended') audio.resume();
+    } catch (e) {}
+  }
+  document.addEventListener('pointerdown', unlockAudio, { passive: true });
+  var titleTimer = null;
+  function flashTitle(msg) {
+    clearInterval(titleTimer);
+    var on = false, n = 0;
+    titleTimer = setInterval(function () {
+      document.title = on ? t('title') : msg; on = !on;
+      if (++n > 40) { clearInterval(titleTimer); document.title = t('title'); }
+    }, 800);
+  }
+  function showAlert(ok) {
+    $('alert-title').textContent = ok ? t('doneTitle') : t('failTitle');
+    $('alert-title').className = 'big ' + (ok ? 'ok' : 'bad');
+    $('alert-text').textContent = ok ? t('doneText') : ((S.job && S.job.message) || t('failText'));
+    $('alert').hidden = false;
+    try { if (navigator.vibrate) navigator.vibrate(ok ? [300, 150, 300, 150, 600] : [800, 200, 800, 200, 800]); } catch (e) {}
+    beep();
+    flashTitle(ok ? t('doneTitle') : t('failTitle'));
+  }
+  function checkAlerts() {
+    var j = S.job || {};
+    // La primera lectura solo fija el punto de partida: no se avisa de lo que pasó antes de entrar.
+    if (seenFinished === null) { seenFinished = j.finished_seq || 0; seenError = j.error_seq || 0; return; }
+    if ((j.finished_seq || 0) > seenFinished) { seenFinished = j.finished_seq; showAlert(true); }
+    if ((j.error_seq || 0) > seenError) { seenError = j.error_seq; showAlert(false); }
+  }
+  $('alert-ok').addEventListener('click', function () {
+    $('alert').hidden = true; clearInterval(titleTimer); document.title = t('title');
+    try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
+  });
+
+  function requestWake() {
+    try {
+      if (wake || !navigator.wakeLock) return;
+      navigator.wakeLock.request('screen').then(function (w) { wake = w; w.addEventListener('release', function () { wake = null; }); }).catch(function () {});
+    } catch (e) {}
+  }
+  function releaseWake() { try { if (wake) { wake.release(); wake = null; } } catch (e) {} }
+
+  // ---- Acciones --------------------------------------------------------------------------------
+  function act(path, btn) {
+    if (btn) btn.disabled = true;
+    return api(path, 'POST').then(function (r) {
+      if (!r.ok) toast(reasonText(r.data && r.data.code, r.data && r.data.message));
+      else if (S) { /* el estado nuevo llega por la conexión en vivo */ }
+    }).catch(function () { toast(t('netErr')); }).then(function () { if (btn) btn.disabled = false; render(); });
+  }
+  $('btn-pause').addEventListener('click', function () {
+    act(phase() === 'paused' ? '/api/resume' : '/api/pause', $('btn-pause'));
+  });
+  // Detener: un segundo toque dentro de 3 s. El primero solo arma el botón.
+  $('btn-stop').addEventListener('click', function () {
+    if (Date.now() < stopArmedUntil) {
+      stopArmedUntil = 0; clearTimeout(stopTimer); renderStop();
+      act('/api/stop', $('btn-stop'));
+    } else {
+      stopArmedUntil = Date.now() + 3000; renderStop();
+      clearTimeout(stopTimer);
+      stopTimer = setTimeout(renderStop, 3100);
+      try { if (navigator.vibrate) navigator.vibrate(40); } catch (e) {}
+    }
+  });
+
+  // Iniciar con checklist
+  function checks() { return $('c1').checked && $('c2').checked && $('c3').checked; }
+  ['c1', 'c2', 'c3'].forEach(function (id) {
+    $(id).addEventListener('change', function () { $('sheet-go').disabled = !checks() || busyStart; });
+  });
+  $('btn-start').addEventListener('click', function () {
+    if (!S || !S.start || !S.start.allowed) return;
+    $('c1').checked = $('c2').checked = $('c3').checked = false;
+    $('sheet-go').disabled = true; $('sheet-go').textContent = t('go');
+    $('sheet-err').hidden = true;
+    var total = S.job && S.job.total_s ? fmtTime(S.job.total_s) : '—';
+    $('sheet-job').textContent = t('sheetJob', { doc: S.doc || t('untitled'), time: total });
+    $('sheet').hidden = false;
+  });
+  $('sheet-cancel').addEventListener('click', function () { if (!busyStart) $('sheet').hidden = true; });
+  $('sheet-go').addEventListener('click', function () {
+    if (!checks() || busyStart) return;
+    busyStart = true; $('sheet-go').disabled = true; $('sheet-go').textContent = t('going'); $('sheet-err').hidden = true;
+    api('/api/start', 'POST', { checklist: { nearby: true, clear: true, air: true } }, 70000).then(function (r) {
+      busyStart = false;
+      if (r.ok) { $('sheet').hidden = true; toast(t('sent')); }
+      else {
+        $('sheet-err').hidden = false;
+        $('sheet-err').textContent = reasonText(r.data && r.data.code, r.data && r.data.message);
+        $('sheet-go').textContent = t('go'); $('sheet-go').disabled = !checks();
+      }
+    }).catch(function () {
+      busyStart = false; $('sheet-err').hidden = false; $('sheet-err').textContent = t('netErr');
+      $('sheet-go').textContent = t('go'); $('sheet-go').disabled = !checks();
+    }).then(render);
+  });
+
+  // ---- Arranque --------------------------------------------------------------------------------
+  function boot() {
+    setConn('wait');
+    var token = (location.hash || '').replace(/^#/, '');
+    // La clave sale de la barra de direcciones de inmediato: no queda en el historial.
+    if (token) { try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+    if (token) {
+      api('/api/login', 'POST', { token: token }).then(function (r) {
+        if (r.ok) probe();
+        else showLogin(r.status === 429 ? 'locked' : 'bad');
+      }).catch(function () { setConn('wait'); scheduleProbe(); });
+    } else {
+      api('/api/state').then(function (r) {
+        if (r.status === 401) { showLogin('login'); return; }
+        if (r.ok && r.data) { S = r.data; lastEvent = Date.now(); render(); connect(); } else scheduleProbe();
+      }).catch(function () { setConn('wait'); scheduleProbe(); });
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

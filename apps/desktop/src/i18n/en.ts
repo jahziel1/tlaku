@@ -22,6 +22,7 @@ import { materials } from './en/materials';
 import { nodes } from './en/nodes';
 import { preview } from './en/preview';
 import { prefs } from './en/prefs';
+import { remote } from './en/remote';
 import { bundle } from './en/bundle';
 import { text } from './en/text';
 import { trace } from './en/trace';
@@ -33,6 +34,7 @@ import { lhymicro } from './en/lhymicro';
 import { ruida } from './en/ruida';
 import { shapes } from './en/shapes';
 import { tiling } from './en/tiling';
+import { simple } from './en/simple';
 
 export const en: { [K in I18nKey]?: string } = {
   ...base,
@@ -54,6 +56,7 @@ export const en: { [K in I18nKey]?: string } = {
   ...nodes,
   ...preview,
   ...prefs,
+  ...remote,
   ...bundle,
   ...text,
   ...variables,
@@ -65,4 +68,5 @@ export const en: { [K in I18nKey]?: string } = {
   ...galvo,
   ...shapes,
   ...tiling,
+  ...simple,
 };

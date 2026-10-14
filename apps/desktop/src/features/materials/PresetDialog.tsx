@@ -1,12 +1,14 @@
 import { X } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
-import type { LayerSettings, MaterialPreset } from '@/api/types';
+import type { LayerSettings, MachineClass, MaterialPreset, MaterialRole } from '@/api/types';
 import { t, locale } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { activeLayerOf, savePresetFromActiveLayer, updatePreset } from './actions';
+import { classLabel, roleLabel } from './labels';
 import { formProblem, settingsSummary, type PresetForm } from './library';
+import { MACHINE_CLASSES } from './machineClass';
 import { useMaterials } from './state';
 
 /** Texto de un número para el campo de grosor (sin ceros sobrantes, con coma decimal). */
@@ -28,7 +30,7 @@ interface Props {
 /** Diálogo para guardar la capa activa como material o para editar los datos de uno. */
 export function PresetDialog({ preset, layer, onClose }: Props) {
   const titleId = useId();
-  const ids = { material: useId(), thickness: useId(), title: useId(), notes: useId(), device: useId(), list: useId() };
+  const ids = { material: useId(), thickness: useId(), title: useId(), notes: useId(), device: useId(), list: useId(), role: useId(), cls: useId() };
   const devices = useStore((s) => s.devices);
   const active = useStore(selectActiveDevice);
   const known = useMaterials((s) => s.library.presets);
@@ -40,9 +42,11 @@ export function PresetDialog({ preset, layer, onClose }: Props) {
   const [notes, setNotes] = useState(preset?.notes ?? '');
   // Un material nuevo se vincula por defecto a la máquina con la que se probó.
   const [deviceId, setDeviceId] = useState<string | null>(preset ? preset.device_id : active.id);
+  const [role, setRole] = useState<MaterialRole | null>(preset?.role ?? null);
+  const [machineClass, setMachineClass] = useState<MachineClass | null>(preset?.machine_class ?? null);
   const [refresh, setRefresh] = useState(false);
 
-  const form: PresetForm = { material, thickness: parseThickness(thickness), title, notes, device_id: deviceId };
+  const form: PresetForm = { material, thickness: parseThickness(thickness), title, notes, device_id: deviceId, role, machine_class: machineClass };
   const problem = formProblem(form);
   const source = preset ? preset.settings : layer;
   const unknownDevice = deviceId !== null && !devices.some((d) => d.id === deviceId);
@@ -99,6 +103,20 @@ export function PresetDialog({ preset, layer, onClose }: Props) {
               <option value="">{t('materials.field.device.any')}</option>
               {unknownDevice && <option value={deviceId}>{deviceId}</option>}
               {devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor={ids.role}>{t('materials.field.role')}</label>
+            <select id={ids.role} className="select" value={role ?? ''} onChange={(e) => setRole((e.target.value || null) as MaterialRole | null)}>
+              <option value="">{t('materials.field.role.auto')}</option>
+              {(['cut', 'engrave', 'score'] as const).map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor={ids.cls}>{t('materials.field.class')}</label>
+            <select id={ids.cls} className="select" value={machineClass ?? ''} onChange={(e) => setMachineClass((e.target.value || null) as MachineClass | null)}>
+              <option value="">{t('materials.field.class.any')}</option>
+              {MACHINE_CLASSES.map((c) => <option key={c} value={c}>{classLabel(c)}</option>)}
             </select>
           </div>
           {preset && (

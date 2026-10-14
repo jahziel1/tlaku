@@ -39,3 +39,12 @@ tlaku-geom = { version = "0.1.0", path = "../../../crates/tlaku-geom" }
 tlaku-nest = { version = "0.1.0", path = "../../../crates/tlaku-nest" }
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }
+# Control remoto desde el celular por la red local (ola 5.5, `src/remote/`). Todas son MIT o Apache-2.0.
+# `axum` sirve la página y la API (solo HTTP/1.1, con SSE para los eventos en vivo); `tokio` es el
+# motor asíncrono que Tauri ya trae; `getrandom` da la clave aleatoria; `if-addrs` lista las IP de
+# la red local para elegir en cuál escuchar.
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+tokio = { version = "1", features = ["rt", "net", "time", "sync", "macros"] }
+futures-util = { version = "0.3", default-features = false }
+getrandom = "0.3"
+if-addrs = "0.15"

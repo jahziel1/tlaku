@@ -18,6 +18,7 @@ import { mset } from './es/mset';
 import { nodes } from './es/nodes';
 import { preview } from './es/preview';
 import { prefs } from './es/prefs';
+import { remote } from './es/remote';
 import { bundle } from './es/bundle';
 import { text } from './es/text';
 import { trace } from './es/trace';
@@ -30,6 +31,7 @@ import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
 import { tiling } from './es/tiling';
 import { materials } from './es/materials';
+import { simple } from './es/simple';
 import { arrange as en_arrange } from './en/arrange';
 import { design as en_design } from './en/design';
 import { art as en_art } from './en/art';
@@ -48,6 +50,7 @@ import { materials as en_materials } from './en/materials';
 import { nodes as en_nodes } from './en/nodes';
 import { preview as en_preview } from './en/preview';
 import { prefs as en_prefs } from './en/prefs';
+import { remote as en_remote } from './en/remote';
 import { bundle as en_bundle } from './en/bundle';
 import { text as en_text } from './en/text';
 import { trace as en_trace } from './en/trace';
@@ -60,10 +63,11 @@ import { ruida as en_ruida } from './en/ruida';
 import { shapes as en_shapes } from './en/shapes';
 import { tiling as en_tiling } from './en/tiling';
 import { base as en_base } from './en/base';
+import { simple as en_simple } from './en/simple';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, bundle, codes, fileio, variables };
+    const areas = { tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -99,10 +103,12 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   tiling: { es: tiling, en: en_tiling },
   preview: { es: preview, en: en_preview },
   prefs: { es: prefs, en: en_prefs },
+  remote: { es: remote, en: en_remote },
   bundle: { es: bundle, en: en_bundle },
   text: { es: text, en: en_text },
   trace: { es: trace, en: en_trace },
   variables: { es: variables, en: en_variables },
+  simple: { es: simple, en: en_simple },
 };
 
 /**

@@ -11,6 +11,7 @@ import { RecoveryHost } from '@/features/recovery';
 import { BundleHost } from '@/features/bundle';
 import { SettingsHost } from '@/features/settings';
 import { AutomationHost } from '@/features/automation';
+import { RemoteHost } from '@/features/remote';
 import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
@@ -20,6 +21,7 @@ import { PrintCutHost } from '@/features/printcut';
 import { ArtPanelHost } from '@/features/art';
 import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
+import { FirstRunDialog, SimplePanel, useUiMode } from '@/features/simple';
 import { usePref, useStore } from '@/store';
 import './shell-extra.css';
 import { Dock } from './Dock';
@@ -46,6 +48,7 @@ export function AppShell() {
       <ShellBody key={language} />
       <SettingsHost />
       <AutomationHost />
+      <RemoteHost />
       <BundleHost />
     </>
   );
@@ -56,24 +59,28 @@ function ShellBody() {
   const previewVisible = useStore((s) => s.previewVisible);
   // En la pestaña Máquina ya se muestra la versión completa del aviso de alarma.
   const machineTab = useStore((s) => s.dockTab === 'machine');
+  // Modo sencillo: flujo guiado en lugar de herramientas, panel con pestañas y paleta de capas.
+  const simple = useUiMode() === 'simple';
   useWindowTitle();
   useCloseGuard();
   useFileDrop();
   useShortcutsHotkey();
   return (
-    <div className="shell">
+    <div className={simple ? 'shell shell--simple' : 'shell'}>
       <TopBar />
-      <ToolPalette />
+      {!simple && <ToolPalette />}
       <main className="shell__main">
         {!machineTab && <AlarmBanner compact />}
         <CanvasView />
         <TextPanel />
         {previewVisible && <PreviewBar />}
       </main>
-      <Dock />
-      <div className="shell__palette">
-        <ColorPalette />
-      </div>
+      {simple ? <SimplePanel /> : <Dock />}
+      {!simple && (
+        <div className="shell__palette">
+          <ColorPalette />
+        </div>
+      )}
       <StatusBar />
       <Toasts />
       <DropOverlay />
@@ -93,6 +100,7 @@ function ShellBody() {
       <DevicesDialogHost />
       <HelpDialogHost />
       <TemplatesHost />
+      <FirstRunDialog />
     </div>
   );
 }

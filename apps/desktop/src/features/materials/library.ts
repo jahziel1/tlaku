@@ -2,9 +2,11 @@
  * Lógica pura de la biblioteca de materiales (sin interfaz ni API): agrupar, filtrar, aplicar un
  * ajuste a una capa, crear ajustes desde una capa y mezclar bibliotecas al importar.
  */
-import type { LayerSettings, MaterialLibrary, MaterialPreset } from '@/api/types';
+import type { Confidence, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset, MaterialRole, MaterialWarning } from '@/api/types';
 import { normalizeLayer } from '@/lib/layers';
 import { locale } from '@/i18n';
+import { classLabel, materialName, roleLabel, titleName } from './labels';
+import { MACHINE_CLASSES } from './machineClass';
 
 /** Versión del archivo de biblioteca (`MATERIAL_LIBRARY_VERSION` del motor). */
 export const LIBRARY_VERSION = 1;
@@ -80,6 +82,15 @@ export interface PresetForm {
   title: string;
   notes: string;
   device_id: string | null;
+  /** Para qué sirve; `null` o ausente = se deduce del modo de la capa. */
+  role?: MaterialRole | null;
+  /** Clase de máquina para la que vale; `null` o ausente = ninguna en particular. */
+  machine_class?: MachineClass | null;
+}
+
+/** Campos opcionales del ajuste que dependen del formulario (solo se escriben si tienen valor). */
+export function formExtras(form: Pick<PresetForm, 'role' | 'machine_class'>): Pick<MaterialPreset, 'role' | 'machine_class'> {
+  return { ...(form.role ? { role: form.role } : {}), ...(form.machine_class ? { machine_class: form.machine_class } : {}) };
 }
 
 /** Ajuste nuevo a partir de una capa; los ajustes se copian completos (también color y nombre, que al aplicar se ignoran). */
@@ -92,6 +103,7 @@ export function presetFromLayer(layer: LayerSettings, form: PresetForm, id: stri
     notes: form.notes.trim(),
     device_id: form.device_id,
     settings: structuredClone(normalizeLayer(layer)),
+    ...formExtras(form),
   };
 }
 
@@ -116,6 +128,34 @@ export const idsOf = (presets: readonly MaterialPreset[]): Set<string> => new Se
 /** Copia de un ajuste con id nuevo; el título lleva el sufijo `suffix` para distinguirla. */
 export function duplicatePreset(preset: MaterialPreset, id: string, suffix: string): MaterialPreset {
   return { ...structuredClone(preset), id, title: `${preset.title} ${suffix}`.trim() };
+}
+
+/**
+ * Copia editable de un ajuste de fábrica para "Mis materiales": nombres ya traducidos (sin las
+ * claves de fábrica, que son solo para traducir), y se conservan fuente, confianza, clase, rol y
+ * avisos para que el usuario sepa de dónde salió.
+ */
+export function copyFactoryPreset(preset: MaterialPreset, id: string): MaterialPreset {
+  const { material_key: _m, title_key: _t, ...rest } = structuredClone(preset);
+  return { ...rest, id, material: materialName(preset), title: titleName(preset) };
+}
+
+const ROLES: readonly string[] = ['cut', 'engrave', 'score'];
+const CONFIDENCES: readonly string[] = ['official', 'guide', 'forum'];
+const WARNINGS: readonly string[] = ['not_cut_with_diode', 'chrome_leather', 'needs_coating', 'range_edge', 'generic_row'];
+
+/** Campos nuevos de un ajuste leído de un archivo (rol, clase, fuente, confianza, avisos), solo los válidos. */
+export function presetExtras(p: Record<string, unknown>): Partial<MaterialPreset> {
+  const out: Partial<MaterialPreset> = {};
+  if (typeof p.role === 'string' && ROLES.includes(p.role)) out.role = p.role as MaterialRole;
+  if (typeof p.machine_class === 'string' && (MACHINE_CLASSES as readonly string[]).includes(p.machine_class)) out.machine_class = p.machine_class as MachineClass;
+  if (typeof p.source === 'string' && p.source.trim() !== '') out.source = p.source;
+  if (typeof p.confidence === 'string' && CONFIDENCES.includes(p.confidence)) out.confidence = p.confidence as Confidence;
+  if (Array.isArray(p.warnings)) {
+    const w = p.warnings.filter((x): x is MaterialWarning => typeof x === 'string' && WARNINGS.includes(x));
+    if (w.length > 0) out.warnings = w;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +242,13 @@ export function thicknessLabel(thickness: number | null, unit = 'mm'): string {
   return `${new Intl.NumberFormat(locale(), { maximumFractionDigits: 3 }).format(thickness)} ${unit}`;
 }
 
+const classIndex = (p: MaterialPreset) => (p.machine_class ? MACHINE_CLASSES.indexOf(p.machine_class) : -1);
+
+/** Por operación y, dentro de ella, por clase de máquina de menor a mayor potencia. */
+function comparePresets(a: MaterialPreset, b: MaterialPreset): number {
+  return collator().compare(titleName(a), titleName(b)) || classIndex(a) - classIndex(b);
+}
+
 /**
  * Agrupa por material (sin distinguir mayúsculas ni acentos) y dentro de cada uno por grosor.
  * Materiales por orden alfabético; grosores de menor a mayor, con "sin grosor" al final; ajustes
@@ -210,10 +257,11 @@ export function thicknessLabel(thickness: number | null, unit = 'mm'): string {
 export function groupPresets(presets: readonly MaterialPreset[]): MaterialGroup[] {
   const groups = new Map<string, { material: string; byThickness: Map<number | null, MaterialPreset[]> }>();
   for (const p of presets) {
-    const key = fold(p.material);
+    const name = materialName(p).trim();
+    const key = fold(name);
     let g = groups.get(key);
     if (!g) {
-      g = { material: p.material.trim(), byThickness: new Map() };
+      g = { material: name, byThickness: new Map() };
       groups.set(key, g);
     }
     const list = g.byThickness.get(p.thickness) ?? [];
@@ -226,7 +274,7 @@ export function groupPresets(presets: readonly MaterialPreset[]): MaterialGroup[
       material: g.material,
       thicknesses: [...g.byThickness.entries()]
         .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a - b))
-        .map(([thickness, list]) => ({ thickness, presets: [...list].sort((a, b) => collator().compare(a.title, b.title)) })),
+        .map(([thickness, list]) => ({ thickness, presets: [...list].sort(comparePresets) })),
     }));
 }
 
@@ -234,6 +282,8 @@ export interface PresetFilter {
   search: string;
   /** Solo los ajustes de esta máquina y los que valen para cualquiera. `null` = sin filtro. */
   deviceId: string | null;
+  /** Solo los ajustes de esta clase y los que no dicen de qué clase son. `null`/ausente = sin filtro. */
+  machineClass?: MachineClass | null;
 }
 
 /** Ajustes que cumplen la búsqueda (material, título, notas o grosor) y el filtro de máquina. */
@@ -241,8 +291,10 @@ export function filterPresets(presets: readonly MaterialPreset[], filter: Preset
   const words = fold(filter.search).split(/\s+/).filter(Boolean);
   return presets.filter((p) => {
     if (filter.deviceId !== null && p.device_id !== null && p.device_id !== filter.deviceId) return false;
+    if (filter.machineClass && p.machine_class && p.machine_class !== filter.machineClass) return false;
     if (words.length === 0) return true;
-    const hay = fold(`${p.material} ${p.title} ${p.notes} ${p.thickness ?? ''} ${thicknessLabel(p.thickness)}`);
+    const cls = p.machine_class ? classLabel(p.machine_class) : '';
+    const hay = fold(`${p.material} ${materialName(p)} ${p.title} ${titleName(p)} ${p.role ? roleLabel(p.role) : ''} ${cls} ${p.notes} ${p.thickness ?? ''} ${thicknessLabel(p.thickness)}`);
     return words.every((w) => hay.includes(w));
   });
 }

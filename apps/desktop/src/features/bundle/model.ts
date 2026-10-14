@@ -1,6 +1,6 @@
 import type { DeviceProfile, MaterialLibrary, MaterialPreset, UserBundle } from '@/api';
 import { applyBundle, buildBundle, type BundleChange } from '@/features/settings/bundle';
-import { mergeLibraries, sameValue } from '@/features/materials/library';
+import { mergeLibraries, presetExtras, sameValue } from '@/features/materials/library';
 import { t } from '@/i18n';
 import { normalizeDevice, validateDevice } from '@/lib/device';
 import { normalizeLayer } from '@/lib/layers';
@@ -180,6 +180,7 @@ export function sanitizePresets(raw: unknown): { presets: MaterialPreset[]; inva
       notes: typeof p.notes === 'string' ? p.notes : '',
       device_id: typeof p.device_id === 'string' ? p.device_id : null,
       settings: normalizeLayer({ ...settings, color: typeof settings.color === 'string' ? settings.color : '#000000' }),
+      ...presetExtras(p),
     });
   }
   return { presets, invalid };

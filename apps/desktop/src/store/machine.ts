@@ -278,6 +278,38 @@ export function overrideBlockedReason(s: Pick<AppState, 'connection' | 'firmware
   return overridesSupported(s) ? null : 'machine.override.reason.family';
 }
 
+/**
+ * Lo que había cuando se encuadró el trabajo por última vez (control remoto: el celular solo puede
+ * iniciar un trabajo que ya se encuadró en la PC). Se guardan las referencias de lo que el trabajo
+ * lee, porque el store es inmutable: cualquier cambio crea otro objeto y la marca deja de valer.
+ */
+export interface FrameMark {
+  doc: AppState['doc'];
+  jobOptions: AppState['jobOptions'];
+  device: ReturnType<typeof selectActiveDevice>;
+  /** El evento de conexión: reconectar o cambiar de máquina crea uno nuevo. */
+  connection: ConnectionEvent;
+  /** `selectedIds` si el trabajo es "solo la selección"; `null` si es todo el diseño. */
+  selection: readonly string[] | null;
+}
+
+/** La marca de encuadre del estado de ahora. */
+export function frameMarkOf(s: Pick<AppState, 'doc' | 'jobOptions' | 'devices' | 'activeDeviceId' | 'connection' | 'cutSelectionOnly' | 'selectedIds'>): FrameMark {
+  return { doc: s.doc, jobOptions: s.jobOptions, device: selectActiveDevice(s), connection: s.connection, selection: s.cutSelectionOnly ? s.selectedIds : null };
+}
+
+/**
+ * ¿El trabajo actual ya se encuadró después del último cambio del documento, de la máquina o de las
+ * opciones del trabajo? Es la condición para iniciarlo desde el celular. Mismas causas de cambio que
+ * invalidan la vista previa (`features/preview/sync.ts`), más la conexión.
+ */
+export function selectFramed(s: Pick<AppState, 'framedMark' | 'doc' | 'jobOptions' | 'devices' | 'activeDeviceId' | 'connection' | 'cutSelectionOnly' | 'selectedIds'>): boolean {
+  const m = s.framedMark;
+  if (!m || !s.connection.connected) return false;
+  const now = frameMarkOf(s);
+  return m.doc === now.doc && m.jobOptions === now.jobOptions && m.device === now.device && m.connection === now.connection && m.selection === now.selection;
+}
+
 /** `null` si se puede iniciar o encuadrar; si no, la clave del motivo. */
 export function sendBlockedReason(s: AppState): I18nKey | null {
   if (!s.connection.connected) return 'reason.needMachine';
@@ -370,6 +402,8 @@ export interface MachineSlice extends MachineData {
   frameJob: () => Promise<void>;
   /** Encuadre de banda elástica: sigue el casco convexo del trabajo en vez del rectángulo. */
   frameHull: () => Promise<void>;
+  /** Marca de "encuadrado tras el último cambio" (ver `selectFramed`); null = nunca se encuadró. */
+  framedMark: FrameMark | null;
   dismissJobError: () => void;
   /** Descarta el aviso de posición posiblemente perdida. */
   dismissPositionLost: () => void;
@@ -526,6 +560,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     jogging: false,
     dialog: null,
     dialogHosts: [],
+    framedMark: null,
 
     refreshPorts: async () => {
       await guard(async () => {
@@ -776,11 +811,16 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (ok) set({ galvoRedOn: false });
     },
     frameJob: async () => {
+      // La marca se toma ANTES de esperar al motor: si algo cambia mientras tanto, el encuadre ya no vale.
+      const mark = frameMarkOf(get());
       await guardJob(async () => getApi().frameJob({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow(), ...framePower(get()) }));
+      if (!get().jobError) set({ framedMark: mark });
       get().afterFrameStart('rect');
     },
     frameHull: async () => {
+      const mark = frameMarkOf(get());
       await guardJob(async () => getApi().frameHull({ ...(await resolveJobArgs(buildJobArgs(get()))), speed: jogSpeedNow(), ...framePower(get()) }));
+      if (!get().jobError) set({ framedMark: mark });
       get().afterFrameStart('hull');
     },
     dismissJobError: () => set({ jobError: null }),

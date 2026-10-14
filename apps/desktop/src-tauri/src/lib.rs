@@ -17,6 +17,7 @@ mod machine;
 mod netlink;
 mod prefs;
 mod probe;
+mod remote;
 mod settings_backup;
 mod templates;
 mod window;
@@ -30,6 +31,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(automation::AutomationState::default())
+        .manage(remote::RemoteState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
             commands::import_file,
@@ -43,6 +45,14 @@ pub fn run() {
             commands::list_ports,
             probe::probe_port,
             automation::automation_configure,
+            remote::remote_configure,
+            remote::remote_status,
+            remote::remote_regenerate,
+            remote::remote_kick,
+            remote::remote_update,
+            remote::remote_set_route,
+            remote::remote_camera_frame,
+            remote::remote_start_result,
             commands::connect,
             commands::disconnect,
             commands::machine_command,
@@ -100,6 +110,7 @@ pub fn run() {
             edit::camera::save_camera_setup,
             edit::camera::save_board_file,
             edit::materials::load_material_library,
+            edit::materials::load_factory_materials,
             edit::materials::save_material_library,
             edit::materials::import_material_library,
             edit::materials::export_material_library,

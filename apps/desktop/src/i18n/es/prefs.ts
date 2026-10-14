@@ -126,6 +126,7 @@ export const prefs = {
 
   // ---- Automatización por UDP ---------------------------------------------------------------
   'prefs.section.automation': 'Automatización',
+  'prefs.section.remote': 'Control remoto',
   'prefs.automation.enabled': 'Activar la automatización por UDP',
   'prefs.automation.hint': 'Deja que otros programas o scripts de este equipo controlen Tlaku con comandos de texto (PING, LOAD, START, STATUS, STOP). Solo escucha en 127.0.0.1: ningún otro equipo de la red puede conectarse. El protocolo está en docs/app-api.md.',
   'prefs.automation.port': 'Puerto UDP',

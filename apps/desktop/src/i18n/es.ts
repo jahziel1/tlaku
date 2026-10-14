@@ -21,6 +21,7 @@ import { materials } from './es/materials';
 import { nodes } from './es/nodes';
 import { preview } from './es/preview';
 import { prefs } from './es/prefs';
+import { remote } from './es/remote';
 import { bundle } from './es/bundle';
 import { text } from './es/text';
 import { trace } from './es/trace';
@@ -32,6 +33,7 @@ import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
 import { tiling } from './es/tiling';
+import { simple } from './es/simple';
 
 export const base = {
   // ---- comandos -----------------------------------------------------------
@@ -297,6 +299,8 @@ export const es = {
   ...fileio,
   ...catalog,
   ...prefs,
+  ...remote,
   ...bundle,
   ...art,
+  ...simple,
 };

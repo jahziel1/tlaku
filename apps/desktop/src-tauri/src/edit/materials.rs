@@ -2,6 +2,12 @@
 //!
 //! La biblioteca del usuario vive en `materials.json` dentro de la carpeta de configuración de la
 //! app. Los archivos `.tlakumat` que se importan y exportan son el mismo JSON de `MaterialLibrary`.
+//!
+//! La biblioteca de fábrica (valores de partida con su fuente, ver `tlaku_doc::factory_library`)
+//! viaja dentro del programa y es de solo lectura. Al arrancar se deja una copia en
+//! `materials-factory.json` (la primera vez la instala, y cuando una versión nueva de la app trae
+//! datos distintos la reemplaza). Es un archivo aparte: **nunca toca `materials.json`**, así que
+//! actualizar la fábrica no pisa los ajustes del usuario.
 
 use crate::engine::write_atomic;
 use std::collections::HashSet;
@@ -9,11 +15,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 use tlaku_pipeline::doc::{
-    Document, MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialTestParams,
+    Document, MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialTestParams, factory_library,
 };
 
 /// Archivo de la biblioteca dentro de la carpeta de configuración de la app.
 const LIBRARY_FILE: &str = "materials.json";
+
+/// Copia instalada de la biblioteca de fábrica (aparte de la del usuario).
+const FACTORY_FILE: &str = "materials-factory.json";
 
 fn blocking_error(e: tauri::Error) -> String {
     format!("La tarea se interrumpió: {e}")
@@ -27,6 +36,50 @@ fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
 
 pub fn library_file(config_dir: &Path) -> PathBuf {
     config_dir.join(LIBRARY_FILE)
+}
+
+pub fn factory_file(config_dir: &Path) -> PathBuf {
+    config_dir.join(FACTORY_FILE)
+}
+
+/// Qué pasó con la copia instalada de la biblioteca de fábrica.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FactorySync {
+    /// No había copia (primer arranque): se instaló.
+    Installed,
+    /// La copia era de otra versión o estaba dañada: se reemplazó.
+    Updated,
+    /// Ya estaba al día; no se escribió nada.
+    UpToDate,
+    /// No se pudo escribir la copia (la biblioteca que se devuelve es la del programa de todos modos).
+    Failed(String),
+}
+
+/// Deja al día la copia de la biblioteca de fábrica en `config_dir` y devuelve la que trae esta
+/// versión de la app. Solo toca `materials-factory.json`.
+pub fn sync_factory(config_dir: &Path) -> Result<(MaterialLibrary, FactorySync), String> {
+    let bundled = factory_library()?;
+    let file = factory_file(config_dir);
+    let installed = fs::read_to_string(&file).ok();
+    let current = installed
+        .as_deref()
+        .and_then(|text| serde_json::from_str::<MaterialLibrary>(text).ok())
+        .is_some_and(|lib| lib == bundled);
+    if current {
+        return Ok((bundled, FactorySync::UpToDate));
+    }
+    let result = serde_json::to_string(&bundled)
+        .map_err(|e| format!("No se pudo serializar la biblioteca de fábrica: {e}"))
+        .and_then(|json| {
+            fs::create_dir_all(config_dir).map_err(|e| format!("{}: {e}", config_dir.display()))?;
+            write_atomic(&file, &json)
+        });
+    let status = match (result, installed.is_some()) {
+        (Err(e), _) => FactorySync::Failed(e),
+        (Ok(()), true) => FactorySync::Updated,
+        (Ok(()), false) => FactorySync::Installed,
+    };
+    Ok((bundled, status))
 }
 
 /// Lee una biblioteca desde texto JSON, validando primero la versión (para dar un mensaje claro
@@ -137,6 +190,16 @@ pub async fn load_material_library(app: AppHandle) -> Result<MaterialLibrary, St
         .map_err(blocking_error)?
 }
 
+/// Biblioteca de fábrica de esta versión (solo lectura): instala o actualiza su copia y la devuelve.
+/// Si la copia no se puede escribir, igual se devuelve (el programa trae los datos).
+#[tauri::command]
+pub async fn load_factory_materials(app: AppHandle) -> Result<MaterialLibrary, String> {
+    let dir = config_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || sync_factory(&dir).map(|(library, _)| library))
+        .await
+        .map_err(blocking_error)?
+}
+
 #[tauri::command]
 pub async fn save_material_library(app: AppHandle, library: MaterialLibrary) -> Result<(), String> {
     let dir = config_dir(&app)?;
@@ -202,6 +265,13 @@ mod tests {
             notes: "dos pasadas".into(),
             device_id: None,
             settings: LayerSettings::default(),
+            role: None,
+            machine_class: None,
+            source: None,
+            confidence: None,
+            material_key: None,
+            title_key: None,
+            warnings: Vec::new(),
         }
     }
 
@@ -209,6 +279,8 @@ mod tests {
         MaterialLibrary {
             version: MATERIAL_LIBRARY_VERSION,
             presets: vec![preset("a", "MDF"), preset("b", "Acrílico")],
+            revision: 0,
+            restrictions: Vec::new(),
         }
     }
 
@@ -308,5 +380,110 @@ mod tests {
         let file = tmp.0.join("dup.tlakumat");
         fs::write(&file, serde_json::to_string(&lib).unwrap()).unwrap();
         assert!(read_library_file(&file).unwrap_err().contains("repetido"));
+    }
+
+    // ---- biblioteca de fábrica ------------------------------------------------
+
+    #[test]
+    fn el_primer_arranque_instala_la_biblioteca_de_fabrica() {
+        let tmp = TempDir::new();
+        let (lib, status) = sync_factory(&tmp.0).unwrap();
+        assert_eq!(status, FactorySync::Installed);
+        assert!(lib.presets.len() > 50);
+        // La copia instalada es la misma biblioteca, y no queda el temporal.
+        let text = fs::read_to_string(factory_file(&tmp.0)).unwrap();
+        assert_eq!(serde_json::from_str::<MaterialLibrary>(&text).unwrap(), lib);
+        assert!(!tmp.0.join("materials-factory.json.tmp").exists());
+        // Sin biblioteca del usuario: sigue vacía, no se creó nada a su nombre.
+        assert!(!library_file(&tmp.0).exists());
+        assert_eq!(load_library(&tmp.0).unwrap(), MaterialLibrary::default());
+    }
+
+    #[test]
+    fn un_arranque_con_la_copia_al_dia_no_escribe() {
+        let tmp = TempDir::new();
+        sync_factory(&tmp.0).unwrap();
+        let before = fs::metadata(factory_file(&tmp.0))
+            .unwrap()
+            .modified()
+            .unwrap();
+        let (_, status) = sync_factory(&tmp.0).unwrap();
+        assert_eq!(status, FactorySync::UpToDate);
+        assert_eq!(
+            fs::metadata(factory_file(&tmp.0))
+                .unwrap()
+                .modified()
+                .unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn una_version_nueva_actualiza_la_fabrica_sin_pisar_al_usuario() {
+        let tmp = TempDir::new();
+        // El usuario tiene sus ajustes (uno con el nombre de un material de fábrica).
+        let mut mine = sample();
+        mine.presets.push(preset("mi-mdf", "MDF"));
+        store_library(&tmp.0, &mine).unwrap();
+        let user_before = fs::read(library_file(&tmp.0)).unwrap();
+        // Copia de otra versión de la app: revisión vieja y un ajuste de menos.
+        let (bundled, _) = sync_factory(&tmp.0).unwrap();
+        let mut old = bundled.clone();
+        old.revision = bundled.revision.saturating_sub(1);
+        old.presets.pop();
+        fs::write(factory_file(&tmp.0), serde_json::to_string(&old).unwrap()).unwrap();
+
+        let (lib, status) = sync_factory(&tmp.0).unwrap();
+        assert_eq!(status, FactorySync::Updated);
+        assert_eq!(lib, bundled);
+        let text = fs::read_to_string(factory_file(&tmp.0)).unwrap();
+        assert_eq!(
+            serde_json::from_str::<MaterialLibrary>(&text).unwrap(),
+            bundled
+        );
+        // La biblioteca del usuario quedó byte por byte igual.
+        assert_eq!(fs::read(library_file(&tmp.0)).unwrap(), user_before);
+        assert_eq!(load_library(&tmp.0).unwrap(), mine);
+    }
+
+    #[test]
+    fn una_copia_danada_o_manipulada_se_reinstala() {
+        let tmp = TempDir::new();
+        sync_factory(&tmp.0).unwrap();
+        fs::write(factory_file(&tmp.0), "{ no es json").unwrap();
+        assert_eq!(sync_factory(&tmp.0).unwrap().1, FactorySync::Updated);
+        // Mismo número de revisión pero valores cambiados a mano: se devuelve y se deja la de fábrica.
+        let (bundled, _) = sync_factory(&tmp.0).unwrap();
+        let mut edited = bundled.clone();
+        edited.presets[0].settings.power = 1.0;
+        fs::write(
+            factory_file(&tmp.0),
+            serde_json::to_string(&edited).unwrap(),
+        )
+        .unwrap();
+        let (lib, status) = sync_factory(&tmp.0).unwrap();
+        assert_eq!((status, lib), (FactorySync::Updated, bundled));
+    }
+
+    #[test]
+    fn si_no_se_puede_escribir_la_fabrica_se_devuelve_igual() {
+        let tmp = TempDir::new();
+        // La "carpeta de configuración" es un archivo: no se puede crear nada dentro.
+        fs::create_dir_all(&tmp.0).unwrap();
+        let blocked = tmp.0.join("no-es-carpeta");
+        fs::write(&blocked, "x").unwrap();
+        let (lib, status) = sync_factory(&blocked).unwrap();
+        assert!(matches!(status, FactorySync::Failed(_)));
+        assert!(!lib.presets.is_empty());
+    }
+
+    #[test]
+    fn la_biblioteca_del_usuario_no_lleva_nada_de_la_fabrica() {
+        let tmp = TempDir::new();
+        sync_factory(&tmp.0).unwrap();
+        store_library(&tmp.0, &sample()).unwrap();
+        let user = load_library(&tmp.0).unwrap();
+        assert_eq!(user, sample());
+        assert!(user.presets.iter().all(|p| !p.id.starts_with("factory.")));
     }
 }

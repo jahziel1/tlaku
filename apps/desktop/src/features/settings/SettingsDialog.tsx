@@ -8,6 +8,7 @@ import { formatLength } from '@/lib/units';
 import { usePref, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { AutomationPanel } from '@/features/automation';
+import { RemotePanel } from '@/features/remote';
 import { PrefCheck, PrefLength, PrefNumber, PrefSelect } from './fields';
 import { exportPrefs, importPrefs } from './files';
 import { ShortcutsPanel } from './ShortcutsPanel';
@@ -146,6 +147,7 @@ const PANELS: Record<Exclude<SettingsSection, 'shortcuts'>, () => ReactNode> = {
   appearance: () => <AppearancePanel />,
   files: () => <FilesPanel />,
   automation: () => <AutomationPanel />,
+  remote: () => <RemotePanel />,
 };
 
 async function resetPrefs(): Promise<void> {

@@ -170,9 +170,16 @@ G-code, `.rd` y envío a la máquina virtual) midiendo tiempo, memoria y la dife
 tiempo estimado y el simulado; y el lienzo con miles de objetos. El informe
 (`docs/pruebas-estres.md`) da la lista de arreglos para la ola 6.
 
+**Hecha.** 178 ejecuciones (165 archivos reales y 13 sintéticos) más 4 extremos: ningún pánico,
+cuelgue ni cierre; 22 errores controlados. El emulador no encendió el láser en rápidos en ninguno de
+los 131 trabajos simulados. El estimado queda en +1,2 % de mediana. Se repite sin gastar tokens con
+`scripts/run-stress.sh` (herramienta `crates/tlaku-bench`).
+
 ## Ola 5.5: fácil y remoto
 
 Agregada a pedido del usuario (2026-10-13), antes de la ola 6 para que esta también la pula.
+**Hecha**. Pendiente de probar con un celular real (iPhone y Android). Sin HTTPS: usar solo en redes
+de confianza.
 
 | Bloque | Qué incluye |
 |---|---|
@@ -181,9 +188,28 @@ Agregada a pedido del usuario (2026-10-13), antes de la ola 6 para que esta tamb
 
 ## Ola 6: calidad y publicación (lo que sigue)
 
+- **Arreglos de la prueba de estrés** (lista completa y criterios en
+  [pruebas-estres.md](pruebas-estres.md#prioridades-para-la-ola-6)):
+  1. "Interior primero" con índice espacial: los mapas pesados en menos de 2 s, no 10 a 30 s.
+  2. Memoria de imágenes grandes: leer solo la cabecera al importar, remuestrear antes de tramar y
+     procesar por franjas.
+  3. Conservar los avisos del importador cuando la importación falla.
+  4. Ruida: más de 128 capas y velocidades por encima del máximo, avisando al calcular.
+  5. Avisar cuando una capa pide más velocidad de la que da la máquina.
+  6. `reduce_travel` con rejilla.
+  7. G-code más corto (fusionar segmentos diminutos) y aviso si el enlace no da abasto.
+  8. Revisar el estimado en segmentos cortos y en proyectos de LightBurn.
+  9. TIFF YCbCr y grandes.
+  10. Lienzo con 100 000 objetos.
 - Rendimiento del lienzo con diseños grandes (índice espacial, y WebGL si hace falta).
 - Lo que quedó de la ola 3: paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías temporales y la recuperación compartida entre ventanas.
 - Accesibilidad.
+- **Partir los archivos grandes** para que leerlos cueste menos y los agentes en paralelo no se
+  pisen: `tlaku-pipeline/src/tests.rs`, `tlaku-grbl/src/streamer.rs`, `tlaku-emu/src/machine.rs`,
+  `src-tauri/src/machine.rs`, `machine/tests.rs`, `machine/galvo.rs`, `edit/camera.rs`, las
+  sesiones de Ruida y K40 y `store/machine.ts`, en módulos por tema. Lo mismo con
+  `docs/spec/04-cobertura.md` (resumen corto + un archivo por área) y `docs/app-api.md` (un archivo
+  por área). Después, actualizar `docs/mapa.md`.
 - Manual completo y sitio web con donaciones.
 - Correr el flujo de instaladores en GitHub y activar las actualizaciones automáticas.
 - Repetir la auditoría de cobertura.

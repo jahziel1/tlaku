@@ -1,13 +1,91 @@
 import type { LaserApi } from '../api';
-import { makeLayer } from '@/lib/layers';
-import type { DesignObject, Document, LayerSettings, MaterialLibrary, MaterialPreset, MaterialTestParams, TestAxis, TestParam } from '../types';
+import { factoryLayer, makeLayer } from '@/lib/layers';
+import type { Confidence, DesignObject, Document, LayerMode, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset, MaterialRestriction, MaterialRole, MaterialTestParams, MaterialWarning, TestAxis, TestParam } from '../types';
+// Los mismos datos que usa el motor para la biblioteca de fábrica (formato compacto).
+import factoryData from '../../../../../crates/tlaku-doc/data/materials-default.json';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
 const MAX_COUNT = 30;
 const MAX_PASSES = 1000;
 
-/** Biblioteca de ejemplo del modo mock: materiales típicos con ajustes plausibles para un diodo. */
+// ---------------------------------------------------------------------------
+// Biblioteca de fábrica: el mismo archivo de datos que el motor
+// ---------------------------------------------------------------------------
+
+interface FactoryEntry {
+  id: string;
+  material: string;
+  thickness?: number;
+  role: MaterialRole;
+  title: string;
+  machine_class: MachineClass;
+  mode?: LayerMode;
+  speed: number;
+  power: number;
+  min_power?: number;
+  passes?: number;
+  interval?: number;
+  crosshatch?: boolean;
+  air?: boolean;
+  frequency_khz?: number;
+  source: string;
+  confidence: Confidence;
+  warnings?: MaterialWarning[];
+}
+
+interface FactoryData {
+  revision: number;
+  materials: Record<string, string>;
+  titles: Record<string, string>;
+  restrictions: MaterialRestriction[];
+  presets: FactoryEntry[];
+}
+
+/** Expande el formato compacto igual que `tlaku_doc::factory_library`: modo por rol, mm/min y valores de la capa normal. */
+export function expandFactory(data: FactoryData): MaterialLibrary {
+  const presets = data.presets.map((e): MaterialPreset => {
+    const title = data.titles[e.title] ?? e.title;
+    const settings = factoryLayer('#000000', title, {
+      mode: e.mode ?? (e.role === 'engrave' ? 'fill' : 'line'),
+      speed: e.speed,
+      power: e.power,
+      min_power: e.min_power ?? 0,
+      passes: e.passes ?? 1,
+      air: e.air ?? false,
+      crosshatch: e.crosshatch ?? false,
+      ...(e.interval === undefined ? {} : { interval: e.interval }),
+    });
+    if (e.frequency_khz !== undefined) settings.galvo = { ...settings.galvo, frequency_khz: e.frequency_khz };
+    return {
+      id: e.id,
+      material: data.materials[e.material] ?? e.material,
+      thickness: e.thickness ?? null,
+      title,
+      notes: '',
+      device_id: null,
+      settings,
+      role: e.role,
+      machine_class: e.machine_class,
+      source: e.source,
+      confidence: e.confidence,
+      material_key: e.material,
+      title_key: e.title,
+      ...(e.warnings?.length ? { warnings: e.warnings } : {}),
+    };
+  });
+  return { version: 1, presets, revision: data.revision, ...(data.restrictions.length ? { restrictions: data.restrictions } : {}) };
+}
+
+/** Biblioteca de fábrica del modo mock: la misma que trae el motor. */
+export function factoryMaterialLibrary(): MaterialLibrary {
+  return expandFactory(factoryData as unknown as FactoryData);
+}
+
+/**
+ * Biblioteca del usuario del modo mock: unos materiales propios de ejemplo (la de fábrica va
+ * aparte, ver `factoryMaterialLibrary`). Son ajustes de quien los guardó, sin fuente.
+ */
 export function sampleMaterialLibrary(): MaterialLibrary {
   const preset = (id: string, material: string, thickness: number | null, title: string, notes: string, patch: Partial<LayerSettings>): MaterialPreset => ({
     id,
@@ -169,11 +247,12 @@ export function mockMaterials(
   lag: Lag,
 ): Pick<
   LaserApi,
-  'loadMaterialLibrary' | 'saveMaterialLibrary' | 'importMaterialLibrary' | 'exportMaterialLibrary' | 'materialTest'
+  'loadMaterialLibrary' | 'loadFactoryMaterials' | 'saveMaterialLibrary' | 'importMaterialLibrary' | 'exportMaterialLibrary' | 'materialTest'
 > {
   let library: MaterialLibrary = sampleMaterialLibrary();
   return {
     loadMaterialLibrary: () => lag(() => structuredClone(library)),
+    loadFactoryMaterials: () => lag(factoryMaterialLibrary),
     saveMaterialLibrary: ({ library: next }) =>
       lag(() => {
         library = structuredClone(next);

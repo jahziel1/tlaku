@@ -127,6 +127,95 @@ export interface AutomationStatus {
   error: string | null;
 }
 
+/** Control remoto desde el celular (Preferencias): ver `docs/app-api.md` y `src-tauri/src/remote/`. */
+export interface RemoteConfig {
+  enabled: boolean;
+  /** Puerto TCP (1024 a 65535). */
+  port: number;
+  /** IP de la red local donde escuchar; `null` = la recomendada. */
+  ip: string | null;
+}
+
+/** Una dirección de la red local de este equipo. */
+export interface RemoteAddr {
+  ip: string;
+  /** Interfaz (`en0`, `Wi-Fi`). */
+  name: string;
+  recommended: boolean;
+}
+
+/** Un celular (u otro navegador) conectado al control remoto. */
+export interface RemoteClient {
+  id: string;
+  ip: string;
+  /** Aparato y navegador aproximados (`iPhone · Safari`). */
+  agent: string;
+  /** Cuándo entró, ms desde 1970. */
+  since_ms: number;
+  /** Segundos desde su última actividad. */
+  idle_s: number;
+  connected: boolean;
+}
+
+/** Estado real del control remoto tras aplicar la configuración. */
+export interface RemoteStatus {
+  running: boolean;
+  port: number;
+  ip: string | null;
+  /** Dirección sin la clave. */
+  url: string | null;
+  /** Dirección con la clave (`http://ip:puerto/#clave`): la del QR. */
+  full_url: string | null;
+  /** El QR de `full_url` como SVG. */
+  qr_svg: string | null;
+  error: string | null;
+  addrs: RemoteAddr[];
+  clients: RemoteClient[];
+}
+
+/** Capa en curso, para el celular. */
+export interface RemoteLayer {
+  index: number;
+  count: number;
+  color: string;
+  mode: string;
+}
+
+/** Estado que la ventana informa al servidor remoto (sale de los eventos `machine://*`). */
+export interface RemoteSnapshot {
+  doc_name: string;
+  device_name: string;
+  bed: [number, number] | null;
+  job_state: 'idle' | 'running' | 'paused' | 'finished' | 'cancelled' | 'error';
+  job_message: string;
+  /** 0 a 1. */
+  progress: number;
+  elapsed_s: number;
+  remaining_s: number | null;
+  total_s: number | null;
+  layer: RemoteLayer | null;
+  /** Cabezal en mm del documento. */
+  head: [number, number] | null;
+  has_output: boolean;
+  /** El trabajo se encuadró en la PC después del último cambio. */
+  framed: boolean;
+}
+
+/** Recorrido del trabajo para dibujarlo en el celular. */
+export interface RemoteRoute {
+  bed: [number, number];
+  /** `M x y L x y ...` en mm del documento (Y arriba). */
+  d: string;
+}
+
+/** Respuesta de la ventana a un pedido de inicio del celular. */
+export interface RemoteStartResult {
+  id: number;
+  ok: boolean;
+  code?: string;
+  message?: string;
+}
+
 /** Familia de firmware que reconoce `probe_port`. */
 export type ProbeFamily = 'grbl' | 'grbl_hal' | 'fluid_nc' | 'grbl_lpc' | 'marlin' | 'smoothie' | 'unknown';
 
@@ -177,6 +266,19 @@ export interface LaserApi {
   probePort(args: { port: string; baud: number }): Promise<ProbeResult>;
   /** Enciende, apaga o reconfigura el servidor UDP de automatización (apagado por omisión, solo 127.0.0.1). */
   automationConfigure(args: { config: AutomationConfig }): Promise<AutomationStatus>;
+  /** Enciende, apaga o reconfigura el control remoto desde el celular (apagado de fábrica, solo red local). */
+  remoteConfigure(args: { config: RemoteConfig }): Promise<RemoteStatus>;
+  remoteStatus(): Promise<RemoteStatus>;
+  /** Clave nueva: la anterior deja de valer y los clientes conectados quedan expulsados. */
+  remoteRegenerate(): Promise<RemoteStatus>;
+  /** Desconecta a un cliente. */
+  remoteKick(args: { id: string }): Promise<RemoteStatus>;
+  /** La ventana informa el estado del trabajo al servidor remoto. */
+  remoteUpdate(args: { snapshot: RemoteSnapshot }): Promise<void>;
+  remoteSetRoute(args: { route: RemoteRoute | null }): Promise<void>;
+  /** Un cuadro de la cámara (JPEG en base64; vacío = apagada). Devuelve si algún celular lo espera. */
+  remoteCameraFrame(args: { jpeg_b64: string }): Promise<boolean>;
+  remoteStartResult(args: { result: RemoteStartResult }): Promise<void>;
   /**
    * Conecta. `device` es el perfil activo: con `kind = ruida` el motor usa su IP (`connection`),
    * su magic y su cama en lugar del puerto serie (`port` solo se usa para `virtual:ruida`). Con
@@ -360,6 +462,11 @@ export interface LaserApi {
   // Materiales (fase 4)
   /** Biblioteca del usuario (`materials.json`). Sin archivo, una vacía. */
   loadMaterialLibrary(): Promise<MaterialLibrary>;
+  /**
+   * Biblioteca de fábrica de esta versión: valores de partida de solo lectura, cada uno con su
+   * fuente y confianza. Instala o actualiza su copia aparte; nunca toca la del usuario.
+   */
+  loadFactoryMaterials(): Promise<MaterialLibrary>;
   saveMaterialLibrary(args: { library: MaterialLibrary }): Promise<void>;
   /** Lee un archivo `.tlakumat`; la interfaz decide cómo mezclarlo con la biblioteca actual. */
   importMaterialLibrary(args: { path: string }): Promise<MaterialLibrary>;
@@ -443,6 +550,14 @@ export const COMMAND_NAMES = {
   listPorts: 'list_ports',
   probePort: 'probe_port',
   automationConfigure: 'automation_configure',
+  remoteConfigure: 'remote_configure',
+  remoteStatus: 'remote_status',
+  remoteRegenerate: 'remote_regenerate',
+  remoteKick: 'remote_kick',
+  remoteUpdate: 'remote_update',
+  remoteSetRoute: 'remote_set_route',
+  remoteCameraFrame: 'remote_camera_frame',
+  remoteStartResult: 'remote_start_result',
   connect: 'connect',
   disconnect: 'disconnect',
   machineCommand: 'machine_command',
@@ -500,6 +615,7 @@ export const COMMAND_NAMES = {
   composeBedImage: 'compose_bed_image',
   detectCircle: 'detect_circle_in_image',
   loadMaterialLibrary: 'load_material_library',
+  loadFactoryMaterials: 'load_factory_materials',
   saveMaterialLibrary: 'save_material_library',
   importMaterialLibrary: 'import_material_library',
   exportMaterialLibrary: 'export_material_library',
@@ -537,4 +653,7 @@ export const EVENT_NAMES: readonly EventName[] = [
   'machine://connection',
   'automation://load',
   'automation://start',
+  'remote://clients',
+  'remote://start',
+  'remote://action',
 ];

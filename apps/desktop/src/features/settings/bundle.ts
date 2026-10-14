@@ -14,6 +14,12 @@ export const BUNDLE_EXTENSION = 'tlakuprefs';
 export const DEFAULT_BUNDLE_NAME = `tlaku.${BUNDLE_EXTENSION}`;
 export const DEFAULT_SHORTCUTS_NAME = `atajos.${BUNDLE_EXTENSION}`;
 
+/**
+ * Preferencias que un archivo ajeno nunca enciende: abren el láser a la red (control remoto). Se
+ * exportan, pero al importar se ignoran y cada persona las activa a mano en esta computadora.
+ */
+export const NEVER_IMPORTED: ReadonlySet<string> = new Set(['remoteEnabled']);
+
 /** Qué parte del estado entra al exportar o se aplica al importar. */
 export type BundleScope = 'all' | 'shortcuts';
 
@@ -60,7 +66,7 @@ export function applyBundle(
   const incoming = scope === 'all' && bundle.prefs && typeof bundle.prefs === 'object' ? (bundle.prefs as Record<string, unknown>) : {};
   const known = new Set<string>(PREF_KEYS);
   for (const [key, raw] of Object.entries(incoming)) {
-    if (!known.has(key)) {
+    if (!known.has(key) || NEVER_IMPORTED.has(key)) {
       ignoredPrefs++;
       continue;
     }

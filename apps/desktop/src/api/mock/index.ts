@@ -10,6 +10,7 @@ import { mockBundle } from './bundle';
 import { mockPrefs } from './prefs';
 import { mockSettingsBackup } from './settingsBackup';
 import { mockAutomation } from './automation';
+import { mockRemote, type MockRemote } from './remote';
 import { mockProbe } from './probe';
 import { mockDesign } from './design';
 import { mockGeometry } from './geometry';
@@ -30,6 +31,8 @@ export interface MockApi extends LaserApi {
   readonly machine: MockMachine;
   /** Para pruebas: el galvo simulado (puntero rojo, aviso de energía, confirmaciones de seguridad). */
   readonly galvo: MockGalvo;
+  /** Para pruebas: lo que el control remoto simulado recibió de la ventana. */
+  readonly remote: MockRemote;
   dispose(): void;
 }
 
@@ -57,6 +60,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
       }, opts.latencyMs),
     );
   const clone = <T>(v: T): T => structuredClone(v);
+  const remoteApi = mockRemote(lag);
 
   return {
     machine,
@@ -208,6 +212,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockMaterials(lag),
     ...mockProbe(lag),
     ...mockAutomation(lag),
+    ...remoteApi,
     ...mockDevices(lag),
     ...mockFileio(lag),
     ...mockPrefs(lag),

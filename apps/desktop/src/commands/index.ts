@@ -19,6 +19,7 @@ import { panelCommands } from './definitions/panels';
 import { prefsCommands } from './definitions/prefs';
 import { printcutCommands } from './definitions/printcut';
 import { shapeCommands } from './definitions/shapes';
+import { simpleCommands } from './definitions/simple';
 import { previewCommands } from './definitions/preview';
 import { tilingCommands } from './definitions/tiling';
 import { toolCommands } from './definitions/tools';
@@ -64,6 +65,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...prefsCommands,
   ...bundleCommands,
   ...helpCommands,
+  ...simpleCommands,
 ];
 
 export const commands = new CommandRegistry(ALL_COMMANDS, () => useStore.getState());

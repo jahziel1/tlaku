@@ -10,6 +10,7 @@ pub use tlaku_core::bezpath::{BezPath, PathSeg};
 mod cut;
 mod device;
 mod document;
+mod factory;
 mod galvo;
 mod job;
 mod layer;
@@ -32,6 +33,7 @@ pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
     VectorObject, bounds_of, union,
 };
+pub use factory::{FACTORY_ID_PREFIX, check_factory, factory_library, parse_factory};
 pub use galvo::{
     CylinderAxis, CylinderCorrection, FeederSettings, FieldCorrection, GalvoDevice, GalvoJump,
     GalvoLayer, GalvoTiming, LaserSource, RepeatMarking, Slice3d, SplitAxes, SplitMarking,
@@ -47,8 +49,8 @@ pub use machine::{
     SimulatedFault, StatusReport,
 };
 pub use materials::{
-    MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialPreset, MaterialTestParams, TestAxis,
-    TestParam,
+    Confidence, LaserKind, MATERIAL_LIBRARY_VERSION, MachineClass, MaterialLibrary, MaterialPreset,
+    MaterialRestriction, MaterialRole, MaterialTestParams, MaterialWarning, TestAxis, TestParam,
 };
 pub use ruida::{RuidaFile, RuidaInfo};
 pub use text::{TextAlign, TextObject, TextOnPath};

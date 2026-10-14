@@ -7,6 +7,7 @@
  * frontera como tipo propio (`JobArgs`, `EventMap`, `Point`, `Affine`).
  */
 
+import type { RemoteClient } from './api';
 import type { DeviceProfile } from '@/bindings/DeviceProfile';
 import type { Document } from '@/bindings/Document';
 import type { ImportResult } from '@/bindings/ImportResult';
@@ -51,9 +52,15 @@ import type { TabSettings } from '@/bindings/TabSettings';
 import type { RotaryKind } from '@/bindings/RotaryKind';
 import type { RotarySettings } from '@/bindings/RotarySettings';
 import type { ScanOffset } from '@/bindings/ScanOffset';
+import type { Confidence } from '@/bindings/Confidence';
+import type { LaserKind } from '@/bindings/LaserKind';
+import type { MachineClass } from '@/bindings/MachineClass';
 import type { MaterialLibrary } from '@/bindings/MaterialLibrary';
 import type { MaterialPreset } from '@/bindings/MaterialPreset';
+import type { MaterialRestriction } from '@/bindings/MaterialRestriction';
+import type { MaterialRole } from '@/bindings/MaterialRole';
 import type { MaterialTestParams } from '@/bindings/MaterialTestParams';
+import type { MaterialWarning } from '@/bindings/MaterialWarning';
 import type { TestAxis } from '@/bindings/TestAxis';
 import type { TestParam } from '@/bindings/TestParam';
 import type { Guide } from '@/bindings/Guide';
@@ -64,6 +71,9 @@ import type { SavedPosition } from '@/bindings/SavedPosition';
 import type { LaserSource } from '@/bindings/LaserSource';
 
 export type {
+  Confidence,
+  LaserKind,
+  MachineClass,
   LaserSource,
   Macro,
   SavedPosition,
@@ -94,7 +104,10 @@ export type {
   MachineState,
   MaterialLibrary,
   MaterialPreset,
+  MaterialRestriction,
+  MaterialRole,
   MaterialTestParams,
+  MaterialWarning,
   OverrideKind,
   Overrides,
   PathSeg,
@@ -285,6 +298,12 @@ export interface EventMap {
   'automation://load': { path: string };
   /** Pidió iniciar el trabajo (`START`); con `confirmed` el usuario ya lo permitió en Preferencias. */
   'automation://start': { confirmed: boolean };
+  /** Los celulares conectados al control remoto cambiaron (entró, salió o lo desconectaron). */
+  'remote://clients': { clients: RemoteClient[] };
+  /** Un celular pidió iniciar el trabajo (con su checklist completo); la ventana responde con `remoteStartResult`. */
+  'remote://start': { id: number; client: string };
+  /** Se pausó, reanudó o detuvo el trabajo desde un celular. */
+  'remote://action': { action: 'pause' | 'resume' | 'stop'; client: string };
 }
 
 export type EventName = keyof EventMap;

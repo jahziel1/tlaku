@@ -1,0 +1,74 @@
+/* ---- sección «Control remoto» de Preferencias ---------------------------------------------- */
+
+.remote-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6);
+  align-items: flex-start;
+}
+.remote-qr {
+  flex: none;
+  width: 208px;
+  height: 208px;
+  padding: var(--s-4);
+  border-radius: var(--radius);
+  background: #fff;
+  image-rendering: pixelated;
+}
+.remote-side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 200px;
+}
+.remote-url {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--text-muted);
+}
+.remote-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+}
+.remote-clients {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.remote-client {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.remote-client__who {
+  flex: 1;
+  min-width: 0;
+}
+.remote-client__sub {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.remote-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.remote-dot[data-on='true'] {
+  background: #35c26b;
+}
+.remote-rules {
+  margin: 0;
+  padding-left: var(--s-6);
+  color: var(--text-muted);
+}

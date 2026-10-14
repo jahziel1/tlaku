@@ -1,5 +1,5 @@
 import { getApi, getApiKind } from '@/api';
-import type { Document, LayerSettings, MaterialLibrary, MaterialPreset } from '@/api/types';
+import type { DeviceProfile, Document, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { baseName, withExtension } from '@/features/history/paths';
 import { ensureSaved } from '@/features/history/files';
 import { askChoice } from '@/features/history/prompt';
@@ -7,9 +7,13 @@ import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore, type AppState } from '@/store';
 import { DEFAULT_EXPORT_NAME, downloadText, pickLibraryToOpen, pickLibraryToSave } from './files';
+import { materialName, siteOf, titleName } from './labels';
+import { resolveMachineClass, storeClassFor } from './machineClass';
 import {
   applyPresetChange,
+  copyFactoryPreset,
   duplicatePreset,
+  formExtras,
   idsOf,
   layerMatchesPreset,
   mergeLibraries,
@@ -47,20 +51,31 @@ export function applyReasonFor(layer: LayerSettings | null, preset: MaterialPres
 
 let loading: Promise<void> | null = null;
 
-/** Lee la biblioteca (una vez). Si falla avisa y bloquea el guardado hasta reintentar. */
+/**
+ * Lee la biblioteca del usuario y la de fábrica (una vez). La de fábrica es de solo lectura: si
+ * falla se avisa, pero no impide usar ni guardar la del usuario. Si la del usuario falla se
+ * bloquea el guardado hasta reintentar.
+ */
 export function loadMaterials(force = false): Promise<void> {
   if (ui().loaded && !force) return Promise.resolve();
-  loading ??= getApi()
-    .loadMaterialLibrary()
-    .then((library) => {
-      ui().setLibrary(library);
-      ui().setLoaded(true);
-    })
-    .catch((e: unknown) => {
-      const error = errorMessage(e);
-      ui().setLoaded(false, error);
-      app().notify('error', t('materials.err.load', { error }));
-    })
+  loading ??= Promise.all([
+    getApi()
+      .loadFactoryMaterials()
+      .then((factory) => ui().setFactory(factory))
+      .catch((e: unknown) => app().notify('error', t('materials.err.loadFactory', { error: errorMessage(e) }))),
+    getApi()
+      .loadMaterialLibrary()
+      .then((library) => {
+        ui().setLibrary(library);
+        ui().setLoaded(true);
+      })
+      .catch((e: unknown) => {
+        const error = errorMessage(e);
+        ui().setLoaded(false, error);
+        app().notify('error', t('materials.err.load', { error }));
+      }),
+  ])
+    .then(() => undefined)
     .finally(() => {
       loading = null;
     });
@@ -88,7 +103,36 @@ function mutate(change: (library: MaterialLibrary) => MaterialLibrary): void {
   void persistMaterials();
 }
 
-const presetName = (p: Pick<MaterialPreset, 'material' | 'title'>) => `${p.material} · ${p.title}`;
+const presetName = (p: Pick<MaterialPreset, 'material' | 'title' | 'material_key' | 'title_key'>) => `${materialName(p)} · ${titleName(p)}`;
+
+// ---------------------------------------------------------------------------
+// Clase de la máquina y enlaces de fuente
+// ---------------------------------------------------------------------------
+
+/** Toma la clase de la máquina activa: la que el usuario eligió para ella o la que se deduce del perfil. */
+export function syncMachineClass(device: Pick<DeviceProfile, 'id' | 'kind' | 'galvo'>): void {
+  ui().setMachineClass(resolveMachineClass(device).machineClass);
+}
+
+/** El usuario elige (o borra) la clase de la máquina activa; se recuerda para esa máquina en este equipo. */
+export function chooseMachineClass(deviceId: string, machineClass: MachineClass | null): void {
+  storeClassFor(deviceId, machineClass);
+  ui().setMachineClass(machineClass);
+}
+
+/** Copia al portapapeles la dirección de la fuente de un ajuste. */
+export async function copySourceLink(preset: Pick<MaterialPreset, 'source'>): Promise<boolean> {
+  const url = preset.source;
+  if (!url) return false;
+  try {
+    await navigator.clipboard.writeText(url);
+    app().notify('success', t('materials.source.copied', { url: siteOf(url) }));
+    return true;
+  } catch {
+    app().notify('warning', t('materials.source.copyFailed', { url }));
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Operaciones sobre los ajustes
@@ -111,7 +155,8 @@ export function updatePreset(id: string, form: PresetForm, refreshFromLayer: boo
     ...lib,
     presets: lib.presets.map((p) => {
       if (p.id !== id) return p;
-      const edited = { ...p, material: form.material.trim(), thickness: form.thickness, title: form.title.trim(), notes: form.notes.trim(), device_id: form.device_id };
+      const { role: _r, machine_class: _c, ...kept } = p;
+      const edited = { ...kept, material: form.material.trim(), thickness: form.thickness, title: form.title.trim(), notes: form.notes.trim(), device_id: form.device_id, ...formExtras(form) };
       return layer ? { ...edited, settings: presetFromLayer(layer, form, id).settings } : edited;
     }),
   }));
@@ -119,12 +164,18 @@ export function updatePreset(id: string, form: PresetForm, refreshFromLayer: boo
   if (p) app().notify('success', t('materials.notice.updated', { name: presetName(p) }));
 }
 
+/**
+ * Duplica un ajuste de Mis materiales (con el sufijo "copia") o uno de fábrica (que pasa a Mis
+ * materiales ya traducido, para poder editarlo).
+ */
 export function duplicateMaterial(id: string): void {
-  const source = ui().library.presets.find((p) => p.id === id);
-  if (!source) return;
-  const copy = duplicatePreset(source, uniqueId(idsOf(ui().library.presets)), t('materials.copySuffix'));
+  const own = ui().library.presets.find((p) => p.id === id);
+  const factory = own ? undefined : ui().factory.presets.find((p) => p.id === id);
+  const taken = idsOf(ui().library.presets);
+  const copy = own ? duplicatePreset(own, uniqueId(taken), t('materials.copySuffix')) : factory ? copyFactoryPreset(factory, uniqueId(taken)) : null;
+  if (!copy) return;
   mutate((lib) => ({ ...lib, presets: [...lib.presets, copy] }));
-  app().notify('success', t('materials.notice.duplicated', { name: presetName(copy) }));
+  app().notify('success', t(factory ? 'materials.notice.duplicatedFromFactory' : 'materials.notice.duplicated', { name: presetName(copy) }));
 }
 
 /** Pide confirmación y borra. Devuelve si se borró. */

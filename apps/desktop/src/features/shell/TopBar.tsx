@@ -1,6 +1,7 @@
 import { Moon, Sun } from 'lucide-react';
 import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
+import { ModeSwitch, useUiMode } from '@/features/simple';
 import { useStore } from '@/store';
 import { CommandButton } from './CommandButton';
 import { MenuBar } from './MenuBar';
@@ -41,6 +42,27 @@ export function TopBar() {
   const theme = useStore((s) => s.theme);
   const toggleTheme = useCommand('view.theme');
   const ThemeIcon = theme === 'dark' ? Sun : Moon;
+  const simple = useUiMode() === 'simple';
+  // Modo sencillo: sin menús ni botones avanzados; quedan deshacer, rehacer y el interruptor de modo.
+  if (simple) {
+    return (
+      <header className="topbar topbar--simple">
+        <Brand />
+        <div className="topbar__sep" role="separator" />
+        <div className="topbar__group" role="toolbar" aria-label={t('toolbar.edit')}>
+          <CommandButton id="edit.undo" />
+          <CommandButton id="edit.redo" />
+        </div>
+        <div className="topbar__spacer" />
+        <DocumentName />
+        <div className="topbar__spacer" />
+        <ModeSwitch />
+        <button type="button" className="icon-btn" title={toggleTheme.tooltip} aria-label={theme === 'dark' ? t('theme.toLight') : t('theme.toDark')} onClick={toggleTheme.run}>
+          <ThemeIcon size={17} aria-hidden="true" />
+        </button>
+      </header>
+    );
+  }
   return (
     <header className="topbar">
       <Brand />
@@ -61,6 +83,7 @@ export function TopBar() {
       <div className="topbar__spacer" />
       <DocumentName />
       <div className="topbar__spacer" />
+      <ModeSwitch />
       <button type="button" className="icon-btn" title={toggleTheme.tooltip} aria-label={theme === 'dark' ? t('theme.toLight') : t('theme.toDark')} onClick={toggleTheme.run}>
         <ThemeIcon size={17} aria-hidden="true" />
       </button>

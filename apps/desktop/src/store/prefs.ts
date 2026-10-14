@@ -17,6 +17,8 @@ import type { SliceCreator } from './types';
 
 export type Language = 'es' | 'en';
 export type ThemePref = 'dark' | 'light';
+/** Cómo se muestra la app: `ask` = todavía no se eligió (se pregunta al arrancar), `simple` = flujo guiado, `full` = todas las herramientas. */
+export type UiMode = 'ask' | 'simple' | 'full';
 
 export interface Prefs {
   /** Idioma de la interfaz. Sin preferencia guardada se usa el del sistema (inglés si empieza por «en»; si no, español). */
@@ -41,6 +43,8 @@ export interface Prefs {
   autosaveSecs: number;
   /** Cuántos archivos recientes se recuerdan. */
   recentMax: number;
+  /** Modo de la interfaz: sencillo (flujo guiado de 5 pasos) o completo. Ver `features/simple`. */
+  uiMode: UiMode;
   /** Modo principiante: el editor de capa oculta los ajustes avanzados (los ya configurados se siguen aplicando). */
   beginnerMode: boolean;
   /** Ajustes con que empiezan las capas nuevas; `null` = los de fábrica. Ver `lib/layers.ts` y `features/layers/defaults.ts`. */
@@ -61,6 +65,16 @@ export interface Prefs {
   automationPort: number;
   /** `START` puede iniciar sin confirmar en la interfaz. Apagado por omisión: sin esto, solo abre el diálogo de inicio. */
   automationAllowStart: boolean;
+  /**
+   * Control remoto desde el celular por la red local (`features/remote`, `src-tauri/src/remote`).
+   * Apagado de fábrica; nunca se expone a internet. No se toma de paquetes importados (ver
+   * `features/settings/bundle.ts`): un archivo ajeno no debe poder abrir el láser a la red.
+   */
+  remoteEnabled: boolean;
+  /** Puerto TCP del control remoto (sin privilegios). */
+  remotePort: number;
+  /** IP de la red local donde escuchar; `null` = la recomendada. */
+  remoteIp: string | null;
   /** Orden y visibilidad de las pestañas del panel derecho (arrastrar para reordenar; ver `lib/dockLayout.ts`). */
   dockLayout: DockLayout;
 }
@@ -91,12 +105,20 @@ export const PREF_SPECS: PrefSpecs = {
   autosave: { kind: 'bool', default: true },
   autosaveSecs: { kind: 'number', min: 10, max: 3600, step: 10, unit: 's', integer: true, default: 60 },
   recentMax: { kind: 'number', min: 0, max: 30, step: 1, unit: 'count', integer: true, default: 10 },
+  uiMode: { kind: 'choice', options: ['ask', 'simple', 'full'], default: 'ask' },
   beginnerMode: { kind: 'bool', default: false },
   jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
   jobChecklistRequired: { kind: 'bool', default: false },
   automationEnabled: { kind: 'bool', default: false },
   automationPort: { kind: 'number', min: 1024, max: 65535, step: 1, integer: true, default: 47801 },
   automationAllowStart: { kind: 'bool', default: false },
+  remoteEnabled: { kind: 'bool', default: false },
+  remotePort: { kind: 'number', min: 1024, max: 65535, step: 1, integer: true, default: 47802 },
+  remoteIp: {
+    kind: 'json',
+    default: null,
+    check: (raw) => (raw === null ? { value: null } : typeof raw === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw) ? { value: raw } : null),
+  },
   dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
   layerDefaults: {
     kind: 'json',
