@@ -1,4 +1,4 @@
-//! Exportación del diseño a SVG, DXF, PNG y PDF.
+//! Exportación del diseño a SVG, DXF, PNG, PDF y AI.
 //!
 //! Cada función recibe el documento, una selección opcional (ids de objeto; `None` es todo el
 //! documento) y las opciones del formato, y devuelve los bytes del archivo y los avisos de lo que
@@ -9,6 +9,7 @@
 //! - [`export_dxf`]: AC1018 (o AC1015) con LWPOLYLINE y SPLINE (ver [`DxfOptions`]).
 //! - [`export_png`]: imagen a una resolución en ppp elegida.
 //! - [`export_pdf`]: PDF vectorial a escala 1:1.
+//! - [`export_ai`]: el mismo dibujo como PDF 1.5 con una capa por color (el `.ai` moderno es un PDF).
 //!
 //! Los objetos ocultos, y los de capas ocultas, no se exportan. Un texto sin contorno generado
 //! se omite con un aviso; con contorno sale como trayectos.
@@ -20,7 +21,7 @@ mod scene;
 mod svg;
 
 pub use dxf_out::export_dxf;
-pub use pdf::export_pdf;
+pub use pdf::{export_ai, export_pdf};
 pub use png_out::export_png;
 pub use svg::export_svg;
 

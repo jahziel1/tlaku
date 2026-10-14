@@ -1,7 +1,11 @@
-import type { DeviceProfile, MaterialLibrary, MaterialPreset, UserBundle } from '@/api';
+import type { CameraSetup, DeviceProfile, MaterialLibrary, MaterialPreset, UserBundle } from '@/api';
+import type { UserArt } from '@/features/art/types';
 import { applyBundle, buildBundle, type BundleChange } from '@/features/settings/bundle';
 import { mergeLibraries, presetExtras, sameValue } from '@/features/materials/library';
 import { t } from '@/i18n';
+import { emptyCameraSetup } from '@/store/camera';
+import { buildArtSection, planArt, type ArtPlan } from './art';
+import { buildCamerasSection, camerasChanges, planCameras, type CamerasPlan } from './cameras';
 import { normalizeDevice, validateDevice } from '@/lib/device';
 import { normalizeLayer } from '@/lib/layers';
 import type { ShortcutOverrides } from '@/commands/shortcuts';
@@ -9,7 +13,8 @@ import type { Prefs } from '@/store/prefs';
 
 /**
  * Paquetes de usuario `.tlakubundle`: máquinas (con sus macros y posiciones), biblioteca de
- * materiales, preferencias y atajos, y la máquina activa, en un solo archivo. Esta parte es lógica
+ * materiales, cámaras (calibración, alineación y configuraciones), biblioteca de arte propia,
+ * preferencias y atajos, y la máquina activa, en un solo archivo. Esta parte es lógica
  * pura (sin API ni store): armar el paquete, leerlo con cuidado y calcular qué se aplicaría.
  * Aplicarlo de verdad es de `apply.ts`.
  */
@@ -19,11 +24,11 @@ export const USER_BUNDLE_EXTENSION = 'tlakubundle';
 export const DEFAULT_USER_BUNDLE_NAME = `tlaku.${USER_BUNDLE_EXTENSION}`;
 
 /** Secciones que se pueden exportar y aplicar por separado. */
-export type BundleSection = 'devices' | 'materials' | 'prefs';
-export const BUNDLE_SECTIONS: readonly BundleSection[] = ['devices', 'materials', 'prefs'];
+export type BundleSection = 'devices' | 'materials' | 'cameras' | 'art' | 'prefs';
+export const BUNDLE_SECTIONS: readonly BundleSection[] = ['devices', 'materials', 'cameras', 'art', 'prefs'];
 
 export type SectionChoice = Record<BundleSection, boolean>;
-export const allSections = (value = true): SectionChoice => ({ devices: value, materials: value, prefs: value });
+export const allSections = (value = true): SectionChoice => ({ devices: value, materials: value, cameras: value, art: value, prefs: value });
 
 /** Lo que `buildUserBundle` necesita saber del estado de la aplicación. */
 export interface BundleSource {
@@ -32,14 +37,21 @@ export interface BundleSource {
   library: MaterialLibrary;
   prefs: Prefs;
   shortcuts: ShortcutOverrides;
+  /** Configuración de cámara (sin ella, una vacía). */
+  cameras?: CameraSetup;
+  /** Biblioteca de arte propia (sin ella, vacía). */
+  userArt?: readonly UserArt[];
 }
 
-/** Arma el paquete con las secciones elegidas; las no elegidas quedan en `null` (máquinas: ausentes). */
+/**
+ * Arma el paquete con las secciones elegidas; las no elegidas quedan en `null` (máquinas: ausentes).
+ * Una sección que no se nombra en `sections` cuenta como no elegida.
+ */
 export function buildUserBundle(
   source: BundleSource,
-  opts: { sections?: SectionChoice; app?: string; now?: Date } = {},
+  opts: { sections?: Partial<SectionChoice>; app?: string; now?: Date } = {},
 ): UserBundle {
-  const sections = opts.sections ?? allSections();
+  const sections: Partial<SectionChoice> = opts.sections ?? allSections();
   return {
     format: USER_BUNDLE_FORMAT,
     version: 1,
@@ -47,6 +59,8 @@ export function buildUserBundle(
     app: opts.app ?? '',
     ...(sections.devices ? { devices: structuredClone([...source.devices]), active_device: source.activeDeviceId } : {}),
     materials: sections.materials ? structuredClone(source.library) : null,
+    cameras: sections.cameras ? buildCamerasSection(source.cameras ?? emptyCameraSetup()) : null,
+    art: sections.art ? buildArtSection(source.userArt ?? []) : null,
     prefs: sections.prefs ? buildBundle(source.prefs, source.shortcuts, 'all') : null,
   };
 }
@@ -106,6 +120,8 @@ export interface ImportPlan {
   /** `null` = el paquete no trae esa sección. */
   devices: DevicesPlan | null;
   materials: MaterialsPlan | null;
+  cameras: CamerasPlan | null;
+  art: ArtPlan | null;
   prefs: PrefsPlan | null;
 }
 
@@ -228,6 +244,8 @@ export function planImport(bundle: unknown, current: CurrentState): ImportPlan {
     app: typeof bundle.app === 'string' ? bundle.app : '',
     devices: planDevices(bundle, current),
     materials: planMaterials(bundle, current),
+    cameras: planCameras(bundle.cameras, current.cameras ?? emptyCameraSetup()),
+    art: planArt(bundle.art, current.userArt ?? []),
     prefs: planPrefs(bundle, current),
   };
 }
@@ -240,6 +258,8 @@ export function sectionChanges(plan: ImportPlan): Record<BundleSection, number> 
   return {
     devices: d ? d.added.length + d.replaced.length + (d.activeDevice ? 1 : 0) : 0,
     materials: m ? m.added : 0,
+    cameras: plan.cameras ? camerasChanges(plan.cameras) : 0,
+    art: plan.art ? plan.art.items.length : 0,
     prefs: p ? p.appliedPrefs + p.appliedShortcuts : 0,
   };
 }

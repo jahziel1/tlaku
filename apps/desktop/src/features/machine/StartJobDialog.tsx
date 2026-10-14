@@ -2,11 +2,13 @@ import { Clock, Layers, TriangleAlert, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { t } from '@/i18n';
+import { speedToDisplay, speedUnitLabel } from '@/lib/device';
 import { fmt, fmtClock } from '@/lib/platform';
 import { selectActiveDevice, usePref, useStore } from '@/store';
 import { CHECKLIST_ALL, checklistPending, checklistSatisfied, visibleChecklist, withChecklistItem, CHECKLIST_ITEMS, type ChecklistItem } from './checklist';
 import { summarizeJob } from './jobSummary';
 import { useJobPlacement } from './hooks';
+import { useLinkWarning } from './useLinkWarning';
 import { Modal } from './Modal';
 import { OriginIllustration } from './OriginIllustration';
 import { galvoConfirmKey, GalvoStartNotice } from './GalvoNotice';
@@ -14,6 +16,9 @@ import { lhyConfirmKey, LhyStartNotice } from './LhyNotice';
 import { ruidaConfirmKey, RuidaStartNotice } from './RuidaNotice';
 import { SelectionOptions } from './SelectionOptions';
 import { ReviewNotice } from '@/features/review';
+import { launchRepeat } from '@/features/feeder/RepeatPanel';
+import { repeatBlockedReason, useRepeat } from '@/features/feeder/repeat';
+import { RepeatSection } from '@/features/feeder/RepeatSection';
 import { TilingOffer } from '@/features/tiling/TilingOffer';
 import { placementSummary } from './StartFromSection';
 
@@ -34,6 +39,8 @@ export function StartJobDialog() {
   const placement = useJobPlacement();
 
   const ready = previewStatus === 'ready' && preview !== null;
+  // Solo avisa: si el enlace serie no da abasto, la máquina hará pausas, pero el inicio no se bloquea.
+  const linkWarning = useLinkWarning(ready);
   const summary = ready ? summarizeJob(doc, preview) : null;
   const where = placementSummary(placement, options.start_from, options.job_origin);
   // La lista de comprobación: qué casillas se muestran y si hay que marcarlas todas antes de enviar.
@@ -51,8 +58,16 @@ export function StartJobDialog() {
     });
   const checklistOk = checklistSatisfied(mask, required, ticked);
   const pending = checklistPending(mask, ticked);
-  const canStart = ready && placement.status === 'ok' && placement.fits && checklistOk;
-  const blockedWhy = !ready || placement.status !== 'ok' || !placement.fits ? t('machine.start.blocked') : t('machine.checklist.blocked', { n: pending.length });
+  // Con «Repetir con el alimentador» el botón de inicio manda la tanda entera.
+  const repeat = useRepeat((s) => s.config);
+  const repeating = repeat.enabled && repeatBlockedReason(device, repeat) === null;
+  const canStart = ready && placement.status === 'ok' && placement.fits && checklistOk && (!repeat.enabled || repeating);
+  const blockedWhy =
+    !ready || placement.status !== 'ok' || !placement.fits
+      ? t('machine.start.blocked')
+      : !checklistOk
+        ? t('machine.checklist.blocked', { n: pending.length })
+        : repeatBlockedReason(device, repeat) ?? t('machine.start.blocked');
 
   return (
     <Modal
@@ -64,8 +79,8 @@ export function StartJobDialog() {
       footer={
         <>
           <button type="button" className="btn" data-autofocus onClick={close}>{t('machine.dlg.cancel')}</button>
-          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void confirm()}>
-            {t(ruidaConfirmKey(device) ?? lhyConfirmKey(device) ?? galvoConfirmKey(device) ?? 'machine.start.confirm')}
+          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void (repeating ? launchRepeat() : confirm())}>
+            {t(repeating ? 'tiling.repeat.start' : (ruidaConfirmKey(device) ?? lhyConfirmKey(device) ?? galvoConfirmKey(device) ?? 'machine.start.confirm'))}
           </button>
         </>
       }
@@ -125,6 +140,7 @@ export function StartJobDialog() {
 
       <SelectionOptions compact />
       <TilingOffer />
+      <RepeatSection />
       <ReviewNotice />
 
       {previewStatus === 'computing' && <p className="hint" role="status">{t('machine.start.computing')}</p>}
@@ -149,7 +165,7 @@ export function StartJobDialog() {
                   <li key={l.color}>
                     <span className="mc-swatch" style={{ background: l.color }} aria-hidden="true" />
                     <span className="mc-layers__name">{l.name}</span>
-                    <span className="num mc-layers__meta">{fmt(l.power, 0)} % · {fmt(l.speed, 0)} mm/min{l.passes > 1 ? ` · ${l.passes}×` : ''}</span>
+                    <span className="num mc-layers__meta">{fmt(l.power, 0)} % · {fmt(speedToDisplay(l.speed, device.speed_unit), device.speed_unit === 'mm_per_sec' ? 1 : 0)} {speedUnitLabel(device.speed_unit)}{l.passes > 1 ? ` · ${l.passes}×` : ''}</span>
                   </li>
                 ))}
               </ul>
@@ -167,9 +183,15 @@ export function StartJobDialog() {
         <p className={where.problem ? 'hint hint--danger' : 'hint'}>{where.text}</p>
       </div>
 
-      {summary && summary.warnings.length > 0 && (
+      {((summary && summary.warnings.length > 0) || linkWarning) && (
         <ul className="mc-warnings">
-          {summary.warnings.map((w, i) => (
+          {linkWarning && (
+            <li className="warn-line" data-testid="link-warning">
+              <TriangleAlert size={14} aria-hidden="true" />
+              <span>{linkWarning}</span>
+            </li>
+          )}
+          {summary?.warnings.map((w, i) => (
             <li key={i} className="warn-line">
               <TriangleAlert size={14} aria-hidden="true" />
               <span>{w}</span>

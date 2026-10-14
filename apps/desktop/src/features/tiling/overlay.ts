@@ -1,6 +1,6 @@
-import type { TileSpec } from './plan';
 import type { TileStatus } from './session';
-import { plannedWithMargin, useTilingUi, type TilingUiState } from './store';
+import { useTilingUi, type TilingUiState } from './store';
+import type { TileSpec } from './types';
 
 /** Un tramo tal como lo dibuja el lienzo: rectángulo del documento, número y estado. */
 export interface SceneTile {
@@ -34,7 +34,7 @@ export function selectSceneTiles(s: TilingUiState = useTilingUi.getState()): Sce
     };
   } else if (s.plan?.ok) {
     cacheValue = {
-      tiles: plannedWithMargin(s.plan.plan.tiles, 0).map((p, i) => ({ rect: p.spec.rect, label: i + 1, state: 'preview', current: false })),
+      tiles: s.plan.plan.tiles.map((p, i) => ({ rect: p.spec.rect, label: i + 1, state: 'preview', current: false })),
     };
   } else cacheValue = null;
   return cacheValue;

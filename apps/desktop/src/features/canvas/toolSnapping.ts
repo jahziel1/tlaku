@@ -20,7 +20,7 @@ export function createSnapping(st: () => AppState, viewOf: () => ViewTransform) 
     if (!s.snapGrid && !s.snapObjects) return null;
     return {
       tol: snapToleranceMM(s.zoom),
-      grid: s.snapGrid ? gridSteps(s.zoom, 7, s.prefs.units).minor : null,
+      grid: s.snapGrid ? gridSteps(s.zoom, 7, s.prefs.units, s.prefs.gridMm).minor : null,
       objects: s.snapObjects,
     };
   };

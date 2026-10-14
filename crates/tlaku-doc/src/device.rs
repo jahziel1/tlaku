@@ -338,6 +338,17 @@ pub struct ScanOffset {
     pub offset: f64,
 }
 
+/// Unidad en la que la interfaz muestra y pide las velocidades de la máquina. Solo es de
+/// presentación: internamente (perfil, capas, G-code) todo sigue en mm/min.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SpeedUnit {
+    #[default]
+    MmPerMin,
+    MmPerSec,
+}
+
 /// Perfil de una máquina. Se deserializa con [`DeviceProfileRepr`]: si falta `dialect` se usa
 /// el de su `kind` ([`GcodeDialect::for_kind`]), cosa que `serde(default)` no puede hacer.
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
@@ -407,6 +418,40 @@ pub struct DeviceProfile {
     pub galvo: GalvoDevice,
     #[serde(default)]
     pub feeder: FeederSettings,
+    /// Perfil que se activa al abrir la app (solo uno debería tenerlo; si hay varios gana el
+    /// primero de la lista).
+    #[serde(default)]
+    pub is_default: bool,
+    /// Ícono del perfil en la lista (nombre de un juego fijo de la interfaz); vacío = el del tipo.
+    #[serde(default)]
+    pub icon: String,
+    /// Desfase `[x, y]` en mm entre el puntero rojo y el rayo, en el sistema del documento: el
+    /// puntero cae en `rayo + desfase`. Lo usan el encuadre con puntero y «ir al puntero».
+    #[serde(default)]
+    pub pointer_offset: [f64; 2],
+    /// Unidad con la que se muestran las velocidades (no cambia lo que se guarda ni el G-code).
+    #[serde(default)]
+    pub speed_unit: SpeedUnit,
+    /// Los ejes de la máquina están cruzados: su X recorre el eje Y del documento y su Y el X.
+    /// La salida de G-code y el encuadre intercambian X e Y; `bed` sigue en orientación de
+    /// documento. No se combina con el rotativo (se ignora y se avisa).
+    #[serde(default)]
+    pub swap_xy: bool,
+    /// Al conectar, pedir confirmación y hacer homing (`$H`).
+    #[serde(default)]
+    pub home_on_connect: bool,
+    /// Abrir el puerto serie sin subir DTR para que la placa no se reinicie (si el sistema y la
+    /// biblioteca serie lo permiten; en Linux el controlador lo sube siempre).
+    #[serde(default)]
+    pub no_dtr_reset: bool,
+    /// Envío síncrono: una línea por `ok` en vez de conteo de caracteres. Más lento; sirve con
+    /// placas que pierden bytes con el búfer lleno.
+    #[serde(default)]
+    pub sync_streaming: bool,
+    /// Con `u_axis`: mm que se mueve el eje U al empezar cada trabajo (y que vuelve a deshacer al
+    /// terminar). 0 = no se mueve.
+    #[serde(default)]
+    pub u_offset: f64,
 }
 
 /// Transporte hacia la controladora.
@@ -521,6 +566,24 @@ struct DeviceProfileRepr {
     galvo: GalvoDevice,
     #[serde(default)]
     feeder: FeederSettings,
+    #[serde(default)]
+    is_default: bool,
+    #[serde(default)]
+    icon: String,
+    #[serde(default)]
+    pointer_offset: [f64; 2],
+    #[serde(default)]
+    speed_unit: SpeedUnit,
+    #[serde(default)]
+    swap_xy: bool,
+    #[serde(default)]
+    home_on_connect: bool,
+    #[serde(default)]
+    no_dtr_reset: bool,
+    #[serde(default)]
+    sync_streaming: bool,
+    #[serde(default)]
+    u_offset: f64,
 }
 
 impl<'de> Deserialize<'de> for DeviceProfile {
@@ -562,6 +625,15 @@ impl From<DeviceProfileRepr> for DeviceProfile {
             lhymicro: r.lhymicro,
             galvo: r.galvo,
             feeder: r.feeder,
+            is_default: r.is_default,
+            icon: r.icon,
+            pointer_offset: r.pointer_offset,
+            speed_unit: r.speed_unit,
+            swap_xy: r.swap_xy,
+            home_on_connect: r.home_on_connect,
+            no_dtr_reset: r.no_dtr_reset,
+            sync_streaming: r.sync_streaming,
+            u_offset: r.u_offset,
         }
     }
 }
@@ -622,6 +694,15 @@ impl Default for DeviceProfile {
             lhymicro: LhyMicroSettings::default(),
             galvo: GalvoDevice::default(),
             feeder: FeederSettings::default(),
+            is_default: false,
+            icon: String::new(),
+            pointer_offset: [0.0, 0.0],
+            speed_unit: SpeedUnit::default(),
+            swap_xy: false,
+            home_on_connect: false,
+            no_dtr_reset: false,
+            sync_streaming: false,
+            u_offset: 0.0,
         }
     }
 }
@@ -729,6 +810,31 @@ mod tests {
             offset: 0.4,
         }];
         let json = serde_json::to_string(&d).unwrap();
+        assert_eq!(serde_json::from_str::<DeviceProfile>(&json).unwrap(), d);
+    }
+
+    #[test]
+    fn wave6c_fields_default_to_neutral_and_roundtrip() {
+        // Un perfil viejo carga con todo neutro: nada cambia en su G-code ni en su conexión.
+        let d: DeviceProfile = serde_json::from_value(old_profile_json()).unwrap();
+        assert!(!d.is_default && d.icon.is_empty() && d.pointer_offset == [0.0, 0.0]);
+        assert_eq!(d.speed_unit, SpeedUnit::MmPerMin);
+        assert!(!d.swap_xy && !d.home_on_connect && !d.no_dtr_reset && !d.sync_streaming);
+        assert_eq!(d.u_offset, 0.0);
+        let d = DeviceProfile {
+            is_default: true,
+            icon: "printer".into(),
+            pointer_offset: [1.5, -2.0],
+            speed_unit: SpeedUnit::MmPerSec,
+            swap_xy: true,
+            home_on_connect: true,
+            no_dtr_reset: true,
+            sync_streaming: true,
+            u_offset: 12.5,
+            ..DeviceProfile::default()
+        };
+        let json = serde_json::to_string(&d).unwrap();
+        assert!(json.contains("\"speed_unit\":\"mm_per_sec\""));
         assert_eq!(serde_json::from_str::<DeviceProfile>(&json).unwrap(), d);
     }
 

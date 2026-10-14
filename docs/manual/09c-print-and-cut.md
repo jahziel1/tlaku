@@ -87,7 +87,7 @@ Los avisos que da Tlaku:
 
 ## Límites
 
-- **Las imágenes no giran con el registro.** Si el trabajo incluye una imagen para grabar, se mueve y se escala con el registro, pero **no se gira** (se graba alineada a los ejes) y Tlaku lo avisa. Los vectores sí giran. Con una hoja casi derecha (menos de 0,05 °) no se nota.
+- **Las imágenes giran con el registro.** Si la hoja está torcida, la imagen para grabar se gira con ella (se vuelve a muestrear, así que con un giro grande pierde un poco de nitidez). Su máscara se mueve con ella. Con un giro mínimo (menos de 0,006 °) se graba alineada a los ejes y no cambia nada.
 - No se puede medir con el láser con el rotativo activo.
 - El registro es parte de las **opciones del trabajo** de la sesión, no del archivo del proyecto: no se guarda con él, y si cierras la app o cambias la hoja de sitio, hay que medir otra vez.
 - Se probó con la máquina virtual; con un láser real, empieza con la potencia al mínimo.

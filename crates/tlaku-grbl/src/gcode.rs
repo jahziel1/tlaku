@@ -71,6 +71,11 @@ pub struct GcodeOptions {
     /// finito) lo desactiva.
     /// Por defecto [`DEFAULT_MERGE_TOLERANCE_MM`], menor que la resolución de las máquinas.
     pub merge_tolerance_mm: f64,
+    /// Eje U (máquinas con `DeviceProfile::u_axis`): mm que se mueve al empezar el trabajo, con
+    /// el láser apagado y en relativo (`G91` / `G0 U..` / `G90`, como Z: Tlaku no conoce el cero
+    /// de U). Al terminar, tras apagar el láser y antes de volver al origen, se deshace. 0 (o un
+    /// valor no finito) = U no se toca.
+    pub u_offset_mm: f64,
 }
 
 /// Tolerancia de fusión de cortes por defecto (mm); ver [`GcodeOptions::merge_tolerance_mm`].
@@ -92,6 +97,7 @@ impl Default for GcodeOptions {
             y_scale: 1.0,
             block_laser2: Vec::new(),
             merge_tolerance_mm: DEFAULT_MERGE_TOLERANCE_MM,
+            u_offset_mm: 0.0,
         }
     }
 }
@@ -528,6 +534,21 @@ impl Writer<'_> {
         self.z_units = target;
     }
 
+    /// Mueve el eje U `delta` mm en relativo, con el láser apagado (ver
+    /// [`GcodeOptions::u_offset_mm`]).
+    fn u_move(&mut self, delta: f64) {
+        let u = num(delta, self.decimals);
+        let s0 = self.prepare_travel();
+        self.line("G91");
+        if s0 {
+            self.line(&format!("G0 U{u} S0"));
+            self.s = Some("0".into());
+        } else {
+            self.line(&format!("G0 U{u}"));
+        }
+        self.line("G90");
+    }
+
     /// Línea de comentario según el estilo del dialecto, recortada para no pasar de
     /// `max_line_len` (con su salto de línea). Un salto dentro de la etiqueta la convertiría
     /// en G-code, y los paréntesis cerrarían un comentario `( )`.
@@ -681,6 +702,12 @@ pub fn generate_mapped(
         w.s = Some("0".into());
     }
 
+    // Desplazamiento U del trabajo (se deshace al final).
+    let u_offset = Some(opts.u_offset_mm).filter(|u| u.is_finite() && *u != 0.0);
+    if let Some(u) = u_offset {
+        w.u_move(u);
+    }
+
     let mut air_on = false;
     let mut laser2 = false;
     for (i, block) in blocks.iter().enumerate() {
@@ -760,6 +787,9 @@ pub fn generate_mapped(
         w.line(&d.laser_off);
     }
     w.off = true;
+    if let Some(u) = u_offset {
+        w.u_move(-u);
+    }
     if opts.return_to_origin {
         let mut cmd = String::from("G0 X0 Y0");
         if d.feed_on_g0
@@ -1684,5 +1714,46 @@ mod tests {
             );
             assert!(l.contains(&"G0 X0 Y3".to_string()), "{k}: {l:?}");
         }
+    }
+
+    #[test]
+    fn u_offset_is_relative_around_the_job_and_off_by_default() {
+        let moves = vec![Move::Travel { to: p(0.0, 0.0) }, mcut(5.0, 0.0, 50.0)];
+        let plain = gen_lines(
+            vec![block("B", PowerMode::Dynamic, moves.clone())],
+            &GcodeOptions::default(),
+        );
+        assert!(!plain.iter().any(|l| l.contains('U')));
+        let with_u = gen_lines(
+            vec![block("B", PowerMode::Dynamic, moves)],
+            &GcodeOptions {
+                u_offset_mm: 12.5,
+                ..GcodeOptions::default()
+            },
+        );
+        let at = |text: &str| with_u.iter().position(|l| l == text).unwrap();
+        // U se mueve antes del primer bloque y se deshace después de apagar el láser.
+        assert_eq!(
+            &with_u[at("G0 U12.5") - 1..=at("G0 U12.5") + 1],
+            &["G91", "G0 U12.5", "G90"]
+        );
+        assert!(at("G0 U12.5") < at("; B"));
+        assert_eq!(
+            &with_u[at("G0 U-12.5") - 1..=at("G0 U-12.5") + 1],
+            &["G91", "G0 U-12.5", "G90"]
+        );
+        let home = with_u.iter().rposition(|l| l == "G0 X0 Y0").unwrap();
+        assert!(at("M5") < at("G0 U-12.5") && at("G0 U-12.5") < home);
+        // Quitando las líneas de U, la salida es la de siempre.
+        let stripped: Vec<_> = with_u
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                let (a, b) = (at("G0 U12.5"), at("G0 U-12.5"));
+                !(*i == a - 1 || *i == a || *i == a + 1 || *i == b - 1 || *i == b || *i == b + 1)
+            })
+            .map(|(_, l)| l.clone())
+            .collect();
+        assert_eq!(stripped, plain);
     }
 }

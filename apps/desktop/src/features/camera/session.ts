@@ -6,8 +6,11 @@
  * video cruza el IPC. El fondo del lienzo comparte ese canvas (`preserveDrawingBuffer`) y se
  * republica a ~12 fps como máximo.
  */
+import { getApi } from '@/api';
+import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
 import type { CameraBackdrop } from '@/store/camera';
+import { adjustMatrix, adjustOf } from './adjust';
 import { backdropCorners, type Quad } from './geometry';
 import { headCorners } from './head';
 import { selectHeadDoc } from '@/store/machine';
@@ -16,6 +19,8 @@ import { createCorrector, type Corrector } from './corrector';
 import { toBedAt } from './height';
 import { correctedSize, lensFitsStream } from './lens';
 import { persistCameraSetup } from './actions';
+import { drawNetworkFrame, runNetworkLoop } from './netSource';
+import { parseNetworkUrl } from './networkUrl';
 
 /** Intervalo mínimo entre publicaciones al lienzo (~12 fps). */
 export const BACKDROP_MIN_INTERVAL_MS = 80;
@@ -31,6 +36,8 @@ let lastPublish = 0;
 let frameCount = 0;
 let startToken = 0;
 let subscribed = false;
+/** Cámara de red en marcha: su canvas de origen (reemplaza al video) y la URL. */
+let net: { canvas: HTMLCanvasElement; url: string } | null = null;
 /** Mosaico de la cámara del cabezal (fondo fijo) con sus esquinas en la cama. */
 let mosaic: { canvas: HTMLCanvasElement; corners: Quad } | null = null;
 /** Esquinas del cuadro congelado cuando la cámara va en el cabezal (la imagen ya no se mueve). */
@@ -57,6 +64,29 @@ function ensureVideo(): HTMLVideoElement {
 function ensureCorrector(): Corrector {
   corrector ??= createCorrector();
   return corrector;
+}
+
+/** ¿Hay una fuente de imagen en marcha (cámara local o de red)? */
+function hasSource(): boolean {
+  return stream !== null || net !== null;
+}
+
+/** Cuadro crudo disponible: el video, o el canvas donde se dibujan los cuadros de la cámara de red. */
+function rawSource(): { el: HTMLVideoElement | HTMLCanvasElement; w: number; h: number } | null {
+  if (net) return net.canvas.width > 0 ? { el: net.canvas, w: net.canvas.width, h: net.canvas.height } : null;
+  const v = ensureVideo();
+  return v.readyState < 2 || v.videoWidth === 0 ? null : { el: v, w: v.videoWidth, h: v.videoHeight };
+}
+
+/** La vista cruda para el asistente de calibración: el video, o el canvas de la cámara de red. */
+export function getRawView(): HTMLVideoElement | HTMLCanvasElement {
+  return net ? net.canvas : ensureVideo();
+}
+
+/** Devuelve la vista cruda a su sitio (al cerrar el asistente). */
+export function parkRawView(): void {
+  if (net) net.canvas.remove();
+  parkVideo();
 }
 
 /** El elemento de video crudo, para mostrarlo en el asistente de calibración. */
@@ -95,25 +125,25 @@ export function lensApplies(): boolean {
 
 /** Dibuja el cuadro actual del video corregido; `gray` pasa el resultado a escala de grises. */
 function drawFrame(gray: boolean): boolean {
-  const v = ensureVideo();
-  if (v.readyState < 2 || v.videoWidth === 0) return false;
+  const src = rawSource();
+  if (!src) return false;
   const s = useStore.getState();
-  const size: [number, number] = [v.videoWidth, v.videoHeight];
+  const size: [number, number] = [src.w, src.h];
   const lens = s.cameraSetup.calibration;
   const useLens = lens && lensFitsStream(lens, size[0], size[1]) ? lens : null;
   const [w, h] = useLens ? correctedSize(useLens) : [Math.min(size[0], 1280), Math.round((Math.min(size[0], 1280) * size[1]) / size[0])];
   const t0 = performance.now();
-  ensureCorrector().render(v, { width: w, height: h, lens: useLens, gray });
+  ensureCorrector().render(src.el, { width: w, height: h, lens: useLens, gray });
   stats.renderMs += performance.now() - t0;
   stats.frames++;
   return true;
 }
 
 function renderFrame(): void {
-  const v = ensureVideo();
-  if (v.readyState < 2 || v.videoWidth === 0) return;
+  const src = rawSource();
+  if (!src) return;
   const s = useStore.getState();
-  const size: [number, number] = [v.videoWidth, v.videoHeight];
+  const size: [number, number] = [src.w, src.h];
   if (!s.cameraStreamSize || s.cameraStreamSize[0] !== size[0] || s.cameraStreamSize[1] !== size[1]) {
     s.setCameraState({ cameraStreamSize: size });
   }
@@ -154,7 +184,7 @@ export function publishBackdrop(force: boolean): void {
   const s = useStore.getState();
   if (s.cameraSetup.head?.enabled) return publishHeadBackdrop(force);
   const { alignment, prefs } = s.cameraSetup;
-  const source = s.cameraFrozen && snapshot ? snapshot : stream && corrector ? corrector.canvas : null;
+  const source = s.cameraFrozen && snapshot ? snapshot : hasSource() && corrector ? corrector.canvas : null;
   const visible = prefs.visible && alignment !== null && source !== null && alignmentIsCurrent() && (s.cameraFrozen || lensOk());
   if (!visible || !alignment || !source) {
     if (s.cameraBackdrop) s.setCameraBackdrop(null);
@@ -168,8 +198,8 @@ export function publishBackdrop(force: boolean): void {
     source,
     width: canvas.width,
     height: canvas.height,
-    // La homografía vale a la altura del material actual (corrección por grosor).
-    corners: backdropCorners(toBedAt(alignment, prefs.material_height_mm ?? 0), alignment.image_size),
+    // La homografía vale a la altura del material actual (corrección por grosor), con el ajuste manual.
+    corners: backdropCorners(adjustMatrix(toBedAt(alignment, prefs.material_height_mm ?? 0), alignment.image_size, adjustOf(prefs)), alignment.image_size),
     opacity: prefs.opacity,
     frame: ++frameCount,
   };
@@ -203,7 +233,7 @@ function publishHeadBackdrop(force: boolean): void {
     });
     return;
   }
-  const source = s.cameraFrozen && snapshot ? snapshot : stream && corrector ? corrector.canvas : null;
+  const source = s.cameraFrozen && snapshot ? snapshot : hasSource() && corrector ? corrector.canvas : null;
   const space = correctedSpace();
   const current = !!space && cal.image_size[0] === space[0] && cal.image_size[1] === space[1];
   const laser = selectHeadDoc(s);
@@ -251,8 +281,47 @@ export async function refreshDevices(): Promise<void> {
   }
 }
 
-function setProblem(problem: CameraProblem): void {
-  useStore.getState().setCameraState({ cameraStatus: 'off', cameraProblem: problem });
+function setProblem(problem: CameraProblem, detail: string | null = null): void {
+  useStore.getState().setCameraState({ cameraStatus: 'off', cameraProblem: problem, cameraProblemDetail: detail });
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Enciende la cámara de red: un bucle pide cuadros al motor y los dibuja en un canvas que hace de
+ * "video" para el resto de la sesión. El primer fallo (URL, clave, fuera de la red local) se avisa
+ * de inmediato.
+ */
+function startNetwork(token: number): void {
+  const s = useStore.getState();
+  const parsed = parseNetworkUrl(s.cameraSetup.prefs.network_url ?? '');
+  if (!parsed.ok) return setProblem('noUrl');
+  s.setCameraState({ cameraStatus: 'starting', cameraProblem: null, cameraProblemDetail: null });
+  const mine = { canvas: document.createElement('canvas'), url: parsed.url };
+  net = mine;
+  const current = () => token === startToken && net === mine;
+  void runNetworkLoop(
+    parsed.url,
+    { fetchFrame: (url) => getApi().fetchCameraFrame({ url }), decode: (f) => drawNetworkFrame(f, mine.canvas), sleep },
+    {
+      onFrame: (_size, first) => {
+        if (first) useStore.getState().setCameraState({ cameraStatus: 'live', cameraProblem: null, cameraProblemDetail: null });
+        renderFrame();
+      },
+      onFail: (message) => {
+        if (!current()) return;
+        net = null;
+        setProblem('network', message);
+        publishBackdrop(true);
+      },
+    },
+    current,
+  ).catch((e) => {
+    if (current()) {
+      net = null;
+      setProblem('network', errorMessage(e));
+    }
+  });
 }
 
 /** Enciende la cámara con las preferencias guardadas. Los problemas quedan en el store. */
@@ -261,9 +330,10 @@ export async function startCamera(): Promise<void> {
   const token = ++startToken;
   const s = useStore.getState();
   stopStream();
-  if (!navigator.mediaDevices?.getUserMedia) return setProblem('unsupported');
-  s.setCameraState({ cameraStatus: 'starting', cameraProblem: null });
   const prefs = s.cameraSetup.prefs;
+  if (prefs.source === 'network') return startNetwork(token);
+  if (!navigator.mediaDevices?.getUserMedia) return setProblem('unsupported');
+  s.setCameraState({ cameraStatus: 'starting', cameraProblem: null, cameraProblemDetail: null });
   const open = (deviceId: string | null) =>
     navigator.mediaDevices.getUserMedia(buildConstraints({ deviceId, width: prefs.width, height: prefs.height }));
   let opened: MediaStream;
@@ -315,6 +385,7 @@ function stopStream(): void {
   cancelAnimationFrame(rafId);
   stream?.getTracks().forEach((tr) => tr.stop());
   stream = null;
+  net = null;
   if (video) video.srcObject = null;
 }
 
@@ -329,7 +400,7 @@ export function stopCamera(): void {
   stopStream();
   const s = useStore.getState();
   // Un cuadro congelado conserva su tamaño: sigue sirviendo de fondo con la cámara apagada.
-  s.setCameraState({ cameraStatus: 'off', cameraProblem: null, ...(s.cameraFrozen ? {} : { cameraStreamSize: null }) });
+  s.setCameraState({ cameraStatus: 'off', cameraProblem: null, cameraProblemDetail: null, ...(s.cameraFrozen ? {} : { cameraStreamSize: null }) });
   publishBackdrop(true);
 }
 
@@ -358,20 +429,20 @@ export function setFrozen(frozen: boolean): void {
  * Devuelve también el factor de escala para volver a coordenadas del video.
  */
 export async function grabRawPng(maxWidth: number): Promise<{ png: string; scale: number; width: number; height: number } | null> {
-  const v = ensureVideo();
-  if (v.readyState < 2 || v.videoWidth === 0) return null;
-  const scale = Math.min(1, maxWidth / v.videoWidth);
-  const w = Math.round(v.videoWidth * scale);
-  const h = Math.round(v.videoHeight * scale);
+  const src = rawSource();
+  if (!src) return null;
+  const scale = Math.min(1, maxWidth / src.w);
+  const w = Math.round(src.w * scale);
+  const h = Math.round(src.h * scale);
   const cv = document.createElement('canvas');
   cv.width = w;
   cv.height = h;
   const ctx = cv.getContext('2d');
   if (!ctx) return null;
-  ctx.drawImage(v, 0, 0, w, h);
+  ctx.drawImage(src.el, 0, 0, w, h);
   const blob = await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png'));
   if (!blob) return null;
-  return { png: await blobToBase64(blob), scale, width: v.videoWidth, height: v.videoHeight };
+  return { png: await blobToBase64(blob), scale, width: src.w, height: src.h };
 }
 
 /**
@@ -396,7 +467,7 @@ export async function grabCorrectedPng(): Promise<{ png: string; width: number; 
 export async function grabCorrectedColorPng(): Promise<{ png: string; width: number; height: number } | null> {
   const s = useStore.getState();
   const gray = s.cameraSetup.prefs.grayscale === true;
-  if (!gray || s.cameraFrozen || !stream) return grabCorrectedPng();
+  if (!gray || s.cameraFrozen || !hasSource()) return grabCorrectedPng();
   if (!drawFrame(false)) return grabCorrectedPng();
   const pending = grabCorrectedPng();
   drawFrame(true);

@@ -41,6 +41,7 @@ fn profile() -> MachineProfile {
         rapid_rate_mm_min: 600_000.0,
         junction_deviation_mm: 0.01,
         planner_blocks: None,
+        stop_on_cut_change: true,
     }
 }
 
@@ -282,6 +283,7 @@ fn invalid_speed_and_profile_stay_finite() {
         rapid_rate_mm_min: 0.0,
         junction_deviation_mm: f64::NAN,
         planner_blocks: Some(0),
+        stop_on_cut_change: false,
     };
     let tp = job(vec![block(6000.0, vec![cut(10.0, 0.0), cut(10.0, 10.0)])]);
     let t = estimate(&tp, &bad).total_s;
@@ -479,12 +481,70 @@ fn sampler_stays_put_and_lit_during_a_dwell() {
 // ---------------------------------------------------------------------------------------------
 // Estimado contra simulado (ola 6): casos mínimos de los desvíos del corpus. En los tres el
 // estimador coincide con la cinemática de GRBL calculada a mano; las diferencias que midió el
-// emulador (`tlaku-emu`) vienen de su modelo de uniones (ver `docs/pruebas-estres.md`).
+// emulador (`tlaku-emu`) venían de su modelo de uniones, ya corregido (ver `docs/pruebas-estres.md`).
 // ---------------------------------------------------------------------------------------------
 
-/// Perfil típico de un diodo GRBL: 12 000 mm/min por eje, 1 000 mm/s², JD 0,01, búfer de 16.
+/// Perfil típico de un diodo GRBL: 12 000 mm/min por eje, 1 000 mm/s², JD 0,01, búfer de 15.
+///
+/// Con la parada en los cambios `Travel`/`Cut` activa: estas pruebas restan el tiempo de llegada
+/// al punto de partida del corte, así que el corte debe arrancar desde el reposo.
 fn grbl_profile() -> MachineProfile {
-    MachineProfile::default()
+    MachineProfile {
+        stop_on_cut_change: true,
+        ..MachineProfile::default()
+    }
+}
+
+#[test]
+fn grbl_laser_mode_does_not_stop_between_g0_and_g1() {
+    // 100 mm de salto y 100 mm de corte en la misma recta y a la misma velocidad máxima: GRBL
+    // (modo láser) los encadena como un solo trazo de 200 mm. Una controladora que sincroniza
+    // entre ellos frena en el punto intermedio.
+    let line = |p: &MachineProfile| {
+        let tp = job(vec![block(
+            12_000.0,
+            vec![travel(0.0, 0.0), travel(100.0, 0.0), cut(200.0, 0.0)],
+        )]);
+        estimate(&tp, p).total_s
+    };
+    let chained = MachineProfile::default();
+    assert!(!chained.stop_on_cut_change);
+    let single = estimate(
+        &job(vec![block(
+            12_000.0,
+            vec![travel(0.0, 0.0), travel(200.0, 0.0)],
+        )]),
+        &chained,
+    )
+    .total_s;
+    close(line(&chained), single);
+    let stopping = MachineProfile {
+        stop_on_cut_change: true,
+        ..chained
+    };
+    // Frenar y volver a arrancar en el punto intermedio cuesta v / a = 0,2 s (dos rampas de
+    // 0,2 s en vez de una).
+    close(line(&stopping), single + 0.2);
+}
+
+#[test]
+fn a_cut_to_travel_turn_uses_the_junction_deviation_when_chained() {
+    // En una esquina de 90 grados GRBL pasa a la velocidad de la desviación de unión sea cual sea
+    // el tipo de movimiento; con la parada activa se detiene del todo.
+    let tp = job(vec![block(
+        6000.0,
+        vec![travel(0.0, 0.0), travel(50.0, 0.0), cut(50.0, 50.0)],
+    )]);
+    let chained = estimate(&tp, &MachineProfile::default()).total_s;
+    let stopping = estimate(
+        &tp,
+        &MachineProfile {
+            stop_on_cut_change: true,
+            ..MachineProfile::default()
+        },
+    )
+    .total_s;
+    assert!(chained < stopping, "{chained} contra {stopping}");
 }
 
 #[test]
@@ -524,8 +584,7 @@ fn block_speed_above_the_axis_limit_is_clamped_like_the_machine_does() {
 fn reversing_short_cuts_take_the_rest_to_rest_time() {
     // Ida y vuelta de 1 mm sobre la misma recta: GRBL llega a velocidad 0 en cada giro de 180
     // grados, así que cada tramo dura 2 * sqrt(d / a) (triángulo a = 1000). Un modelo de uniones
-    // que deje pasar una velocidad mínima distinta de 0 en el giro (como el del emulador) da
-    // menos.
+    // que deje pasar una velocidad mínima distinta de 0 en el giro da menos.
     let n = 400;
     let mut moves = vec![travel(20.0, 20.0)];
     for i in 0..n {

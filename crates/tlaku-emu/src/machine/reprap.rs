@@ -63,7 +63,7 @@ impl Machine {
     /// `M410`: detiene los motores sin deceleración y descarta lo encolado (incluida la línea
     /// que esperaba sitio, que no recibe `ok`). **No apaga el láser**: el anfitrión manda `M5`.
     fn quick_stop(&mut self) {
-        self.planner.clear();
+        self.planner_clear();
         self.current = None;
         self.block_done = false;
         self.v = 0.0;

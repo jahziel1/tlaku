@@ -1,4 +1,4 @@
-import { Crosshair, EyeOff, Route, Spline, Square, TriangleAlert } from 'lucide-react';
+import { Crosshair, EyeOff, Route, Square, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getApi } from '@/api';
 import type { GalvoState, GalvoStepInfo } from '@/api/types';
@@ -7,6 +7,8 @@ import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { sendBlockedReason } from '@/store/machine';
 import { GalvoExperimentalBadge, GalvoNotApplicable, moveText, stepLabel } from './GalvoNotice';
+import { GalvoFrameControls, type FrameControlsProps } from './GalvoFrame';
+import { hex4 } from './GalvoInterlock';
 import { GALVO_VID_PID, hex16, inputBits, SOURCE_WAVELENGTH_NM, selectIsGalvo } from './galvoPorts';
 
 /** Cada cuánto se pide el estado de la tarjeta mientras hay conexión (ms). */
@@ -14,8 +16,10 @@ const POLL_MS = 1000;
 
 /** Lo que el panel hace; el panel conectado lo cablea al almacén. */
 export interface GalvoActions {
-  onFrame: () => void;
-  onContour: () => void;
+  /** Encuadra con el puntero rojo la forma pedida; `loops` = vueltas tras las cuales termina solo (`null` = hasta detener). */
+  onFrame: FrameControlsProps['onFrame'];
+  /** Mueve (mm) o escala el encuadre en curso sin detenerlo. */
+  onAdjust: FrameControlsProps['onAdjust'];
   onRedRun: () => void;
   onRedLight: (on: boolean) => void;
   onStop: () => void;
@@ -29,6 +33,8 @@ interface PanelProps {
   step: GalvoStepInfo | null;
   /** Vueltas del encuadre. */
   loops: number;
+  /** El último ajuste en vivo se descartó por salirse del campo. */
+  adjustRejected?: boolean;
   /** Motivo por el que no se puede encuadrar ni marcar ahora (clave ya traducida), o `null`. */
   blocked: string | null;
   actions: GalvoActions;
@@ -68,11 +74,31 @@ export function GalvoInputs({ inputs, known }: { inputs: number; known: boolean 
   );
 }
 
+/** El enclavamiento por entrada del perfil y si ahora se cumple, más el desfase del puntero y el overscan. */
+export function GalvoInterlockStatus({ state }: { state: Pick<GalvoState, 'interlock' | 'pointer_offset' | 'overscan_mm'> }) {
+  const i = state.interlock;
+  const [ox, oy] = state.pointer_offset;
+  return (
+    <div className="mc-galvo-interlock">
+      <h4 className="mc-sub">{t('galvo.panel.interlock')}</h4>
+      {i ? (
+        <p className={i.met ? 'hint num' : 'warn-line num'} role={i.met ? 'status' : 'alert'}>
+          {t(i.met ? 'galvo.panel.interlock.met' : 'galvo.panel.interlock.open', { mask: hex4(i.mask), value: hex4(i.value) })}
+        </p>
+      ) : (
+        <p className="hint">{t('galvo.panel.interlock.none')}</p>
+      )}
+      {(ox !== 0 || oy !== 0) && <p className="hint num">{t('galvo.panel.pointerOffset', { x: fmt(ox, 2), y: fmt(oy, 2) })}</p>}
+      {state.overscan_mm > 0 && <p className="hint num">{t('galvo.panel.overscan', { mm: fmt(state.overscan_mm, 2) })}</p>}
+    </div>
+  );
+}
+
 /**
  * Panel del galvo (EXPERIMENTAL): estado de la tarjeta, encuadre con el puntero rojo (y apagarlo), entradas en
  * solo lectura y lo que no aplica con su motivo. Recibe el estado ya leído para poder probarse por separado.
  */
-export function GalvoPanel({ connected, state, step, loops, blocked, actions }: PanelProps) {
+export function GalvoPanel({ connected, state, step, loops, adjustRejected = false, blocked, actions }: PanelProps) {
   const waiting = state?.waiting_move ?? null;
   const working = !!state?.working;
   return (
@@ -126,16 +152,7 @@ export function GalvoPanel({ connected, state, step, loops, blocked, actions }: 
               <span>{t('galvo.stop.text')}</span>
             </p>
           )}
-          <h4 className="mc-sub">{t('galvo.panel.frame')}</h4>
-          <p className="hint">{t('galvo.panel.frame.help')}</p>
-          <div className="row">
-            <button type="button" className="btn grow" disabled={blocked !== null} title={blocked ?? t('galvo.panel.frame.rect.help')} onClick={actions.onFrame}>
-              <Crosshair size={15} aria-hidden="true" />{t('galvo.panel.frame.rect')}
-            </button>
-            <button type="button" className="btn grow" disabled={blocked !== null} title={blocked ?? t('galvo.panel.frame.contour.help')} onClick={actions.onContour}>
-              <Spline size={15} aria-hidden="true" />{t('galvo.panel.frame.contour')}
-            </button>
-          </div>
+          <GalvoFrameControls state={state} loops={loops} blocked={blocked} adjustRejected={adjustRejected} onFrame={actions.onFrame} onAdjust={actions.onAdjust} />
           <div className="row">
             <button type="button" className="btn grow" disabled={blocked !== null} title={blocked ?? t('galvo.panel.redRun.help')} onClick={actions.onRedRun}>
               <Route size={15} aria-hidden="true" />{t('galvo.panel.redRun')}
@@ -152,8 +169,8 @@ export function GalvoPanel({ connected, state, step, loops, blocked, actions }: 
               <Square size={15} aria-hidden="true" />{t('galvo.panel.stop')}
             </button>
           </div>
-          {working && loops > 0 && !step && <p className="hint num" role="status">{t('galvo.panel.loops', { n: loops })}</p>}
           <GalvoInputs inputs={state.inputs} known={state.inputs_known} />
+          <GalvoInterlockStatus state={state} />
         </>
       )}
       <h4 className="mc-sub">{t('galvo.panel.notApplicable')}</h4>
@@ -178,8 +195,9 @@ export function GalvoSection() {
   const step = useStore((s) => s.galvoStep);
   const loops = useStore((s) => s.galvoLoops);
   const blockedKey = useStore(sendBlockedReason);
-  const frameJob = useStore((s) => s.frameJob);
-  const frameHull = useStore((s) => s.frameHull);
+  const galvoFrame = useStore((s) => s.galvoFrame);
+  const adjustFrame = useStore((s) => s.adjustGalvoFrame);
+  const adjustRejected = useStore((s) => s.galvoAdjustRejected);
   const redRun = useStore((s) => s.galvoRedRun);
   const setRedLight = useStore((s) => s.setGalvoRedLight);
   const cancel = useStore((s) => s.cancelJob);
@@ -212,10 +230,11 @@ export function GalvoSection() {
       state={connected ? state : null}
       step={step}
       loops={loops}
+      adjustRejected={adjustRejected}
       blocked={blocked}
       actions={{
-        onFrame: () => void frameJob(),
-        onContour: () => void frameHull(),
+        onFrame: (shape, count) => void galvoFrame(shape, count),
+        onAdjust: (adj) => void adjustFrame(adj),
         onRedRun: () => void redRun(),
         onRedLight: (on) => void setRedLight(on),
         onStop: () => void cancel(),

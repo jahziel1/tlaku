@@ -1,0 +1,91 @@
+/*
+ * Estilos de los presets de imagen y de su vista previa (C51). Solo tokens de src/styles/tokens.css;
+ * clases con prefijo img- para no chocar con otras áreas.
+ */
+
+.img-presets__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+.img-presets__row .input {
+  flex: 1 1 8em;
+  min-width: 0;
+}
+
+.img-preview {
+  position: fixed;
+  right: var(--s-6);
+  bottom: calc(var(--status-h) + var(--s-5));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  max-width: calc(100vw - 2 * var(--s-6));
+  max-height: calc(100vh - var(--status-h) - var(--topbar-h) - 2 * var(--s-5));
+  overflow: auto;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-chrome);
+  box-shadow: var(--shadow-pop);
+}
+.img-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.img-preview__head .panel-title {
+  margin: 0;
+}
+.img-preview__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.img-preview__view {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  /* Cuadrícula de fondo para distinguir lo apagado (blanco) del borde de la imagen. */
+  background: var(--bg-sunken);
+  touch-action: none;
+}
+.img-preview__view[data-pannable='true'] {
+  cursor: grab;
+}
+.img-preview__view[data-pannable='true']:active {
+  cursor: grabbing;
+}
+.img-preview__img {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+}
+.img-preview__busy {
+  position: absolute;
+  top: var(--s-2);
+  right: var(--s-2);
+  padding: 2px var(--s-3);
+  border-radius: 4px;
+  background: var(--bg-chrome);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.img-preview .hint {
+  margin: 0;
+}
+.img-zoom {
+  display: flex;
+  gap: var(--s-2);
+}
+.img-zoom .btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}

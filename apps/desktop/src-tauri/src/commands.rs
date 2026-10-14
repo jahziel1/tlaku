@@ -16,7 +16,7 @@ use tlaku_doc::{
     JobOptions, JobPreview, OverrideKind, RealtimeCommand, SimulatedFault,
 };
 use tlaku_grbl::link::{LinkFamily, LinkProfile};
-use tlaku_grbl::serial::Grbl;
+use tlaku_grbl::serial::{Grbl, SerialOptions};
 
 /// Estado administrado por Tauri: la conexión con la máquina (si hay una). Es una sola, de
 /// cualquier respaldo (GRBL, Ruida...): ver `machine::active`.
@@ -156,6 +156,19 @@ pub async fn compute_job(
     blocking(move || engine::compute_job(&doc, &device, &options, head)).await
 }
 
+/// Aviso de que el enlace serie del perfil no da abasto para el trabajo (diálogo de inicio).
+/// Solo informa: nunca bloquea el inicio. `None` si el enlace alcanza o no aplica (red, Ruida...).
+#[tauri::command]
+pub async fn job_link_warning(
+    state: State<'_, AppState>,
+    doc: Document,
+    device: DeviceProfile,
+    options: JobOptions,
+) -> Result<Option<String>, String> {
+    let head = state.head();
+    blocking(move || engine::link_warning(&doc, &device, &options, head)).await
+}
+
 #[tauri::command]
 pub async fn export_gcode(
     state: State<'_, AppState>,
@@ -182,6 +195,13 @@ pub async fn list_devices(app: AppHandle) -> Result<Vec<DeviceProfile>, String> 
 pub async fn save_device(app: AppHandle, device: DeviceProfile) -> Result<(), String> {
     let dir = config_dir(&app)?;
     blocking(move || engine::save_device(&dir, device)).await
+}
+
+/// Ordena la lista de perfiles como `ids` (arrastrar o subir y bajar en el gestor).
+#[tauri::command]
+pub async fn reorder_devices(app: AppHandle, ids: Vec<String>) -> Result<(), String> {
+    let dir = config_dir(&app)?;
+    blocking(move || engine::reorder_devices(&dir, &ids)).await
 }
 
 #[tauri::command]
@@ -237,6 +257,10 @@ pub async fn connect(
     if state.connecting.swap(true, Ordering::SeqCst) {
         return Err("Ya se está conectando con una máquina; espera un momento.".into());
     }
+    // Abrir el puerto sin subir DTR (la placa no se reinicia), si el perfil lo pide.
+    let serial_options = SerialOptions {
+        no_dtr_reset: device.as_ref().is_some_and(|d| d.no_dtr_reset),
+    };
     let sink: Arc<dyn Sink> = Arc::new(TauriSink(app));
     // Ruida: UDP a la IP del perfil (o su máquina virtual), sin puerto serie.
     if let Some(device) = device.clone().filter(|d| d.kind == DeviceKind::Ruida) {
@@ -301,7 +325,7 @@ pub async fn connect(
             return Connection::start_virtual(&port, sink, Timing::default());
         }
         // Abrir el puerto reinicia muchas placas: `Grbl::open` espera el saludo y lo descarta.
-        let transport = Grbl::open(&port, baud)
+        let transport = Grbl::open_with(&port, baud, serial_options)
             .map_err(|e| {
                 format!(
                     "No se pudo abrir {port}: {e}. Revisa el cable, que la máquina esté \
@@ -397,10 +421,16 @@ pub async fn start_job(
     }
     let h = state.handle()?;
     blocking(move || {
-        let lines = engine::job_lines(&doc, &device, &options, h.work_pos())?;
+        let job = engine::job_gcode(&doc, &device, &options, h.work_pos())?;
         // Con la S máx del perfil, la conexión avisa si `$30` de la controladora es distinto. El
         // enlace (conteo de caracteres o una línea por `ok`) sale del tipo de máquina del perfil.
-        h.start_job_link(lines, LinkProfile::for_device(&device), Some(device.s_max))
+        // La carga del enlace solo sirve para avisar en el registro; no bloquea el envío.
+        h.start_job_with_load(
+            job.lines,
+            LinkProfile::for_device(&device),
+            Some(device.s_max),
+            job.load,
+        )
     })
     .await
 }
@@ -429,7 +459,9 @@ pub async fn frame_job(
     }
     let h = state.handle()?;
     blocking(move || {
-        let lines = engine::frame_lines(&doc, &device, &options, speed, h.work_pos())?;
+        // Con el láser apagado el que se ve es el puntero rojo: se desfasa su `pointer_offset`.
+        let pointer = power_pct.is_none();
+        let lines = engine::frame_lines(&doc, &device, &options, speed, h.work_pos(), pointer)?;
         let lines = match power_pct {
             Some(p) => frame::low_power(lines, &device, p)?,
             None => lines,
@@ -460,11 +492,16 @@ pub async fn frame_hull(
     }
     // Galvo: el contorno del trabajo con el puntero rojo.
     if let Machine::Galvo(g) = state.machine()? {
-        return blocking(move || g.frame_job(&doc, &device, &options, true)).await;
+        // Casco convexo de lo que se marca (no los trazos).
+        return blocking(move || {
+            g.frame(&doc, &device, &options, galvo::FrameKind::Hull, None, None)
+        })
+        .await;
     }
     let h = state.handle()?;
     blocking(move || {
-        let lines = frame::hull_lines(&doc, &device, &options, speed, h.work_pos())?;
+        let pointer = power_pct.is_none();
+        let lines = frame::hull_lines(&doc, &device, &options, speed, h.work_pos(), pointer)?;
         let lines = match power_pct {
             Some(p) => frame::low_power(lines, &device, p)?,
             None => lines,
@@ -662,6 +699,48 @@ pub async fn galvo_red_run(
 #[tauri::command]
 pub async fn galvo_red_light(state: State<'_, AppState>, on: bool) -> Result<(), String> {
     with_machine(&state, move |m| m.galvo()?.set_red_light(on)).await
+}
+
+/// Encuadre galvo con el puntero rojo de la forma pedida (rectángulo, trazos, casco convexo u
+/// objetos sueltos), en bucle hasta detener o durante `loops` vueltas. El láser nunca se habilita.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn galvo_frame(
+    state: State<'_, AppState>,
+    doc: Document,
+    device: DeviceProfile,
+    options: JobOptions,
+    shape: galvo::FrameKind,
+    loops: Option<u32>,
+    gap_mm: Option<f64>,
+) -> Result<(), String> {
+    let m = state.machine()?;
+    blocking(move || {
+        m.galvo()?
+            .frame(&doc, &device, &options, shape, loops, gap_mm)
+    })
+    .await
+}
+
+/// Mueve (mm) o escala el encuadre galvo en curso sin detenerlo.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn galvo_adjust_frame(
+    state: State<'_, AppState>,
+    dx: f64,
+    dy: f64,
+    scale: f64,
+) -> Result<(), String> {
+    with_machine(&state, move |m| m.galvo()?.adjust_frame(dx, dy, scale)).await
+}
+
+/// Verificación SIN LÁSER de un perfil galvo (asistente de alta): lee la tarjeta y comprueba que el
+/// perfil compila. Con una tarjeta real exige el reconocimiento de seguridad de esta llamada.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn galvo_verify(
+    device: DeviceProfile,
+    port: String,
+    galvo_ack: Option<galvo::SafetyAck>,
+) -> Result<galvo::GalvoVerifyReport, String> {
+    blocking(move || galvo::verify(&device, &port, galvo_ack.as_ref())).await
 }
 
 /// El usuario movió el material (o el rotativo): el trabajo dividido o repetido sigue.

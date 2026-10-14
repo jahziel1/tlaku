@@ -2,7 +2,7 @@
 //! cualquier SVG (de la biblioteca incluida o del usuario) se importa desde su texto.
 
 use super::files::{ImportDialogOptions, import_with_options};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tauri::{AppHandle, Manager};
@@ -12,7 +12,7 @@ use tlaku_doc::ImportResult;
 const MAX_SVG_BYTES: u64 = 2 * 1024 * 1024;
 
 /// Un SVG de la biblioteca del usuario.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserArt {
     /// Nombre del archivo sin la extensión; es su identificador.
     pub name: String,
@@ -125,6 +125,70 @@ pub fn add_art(dir: &Path, paths: &[String]) -> Result<AddArtResult, String> {
     Ok(result)
 }
 
+/// Nombre de archivo seguro para un dibujo que llega con su texto (paquete `.tlakubundle`): sin
+/// rutas, sin la extensión y con un largo razonable. `None` si no queda nada.
+fn clean_art_name(raw: &str) -> Option<String> {
+    let base = raw.trim();
+    let base = base
+        .strip_suffix(".svg")
+        .or_else(|| base.strip_suffix(".SVG"))
+        .unwrap_or(base);
+    let name: String = base
+        .chars()
+        .map(|c| {
+            if c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                '-'
+            } else {
+                c
+            }
+        })
+        .take(80)
+        .collect();
+    let name = name.trim().trim_matches('.').trim().to_string();
+    (!name.is_empty()).then_some(name)
+}
+
+/// Guarda en `dir` dibujos que llegan con su texto (la importación de un paquete). Nunca pisa uno
+/// existente: si el nombre está ocupado entra con otro (`nombre-2`). Cada SVG debe leerse como
+/// dibujo, igual que con [`add_art`].
+pub fn save_art(dir: &Path, items: &[UserArt]) -> Result<AddArtResult, String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let mut result = AddArtResult {
+        added: Vec::new(),
+        errors: Vec::new(),
+    };
+    for item in items {
+        let shown = item.name.clone();
+        let Some(base) = clean_art_name(&item.name) else {
+            result
+                .errors
+                .push(format!("«{shown}»: el nombre no es válido."));
+            continue;
+        };
+        if item.svg.len() as u64 > MAX_SVG_BYTES {
+            result
+                .errors
+                .push(format!("{shown}: el SVG pesa demasiado."));
+            continue;
+        }
+        if let Err(e) = import_svg_text(&item.svg, None) {
+            result.errors.push(format!("{shown}: {e}"));
+            continue;
+        }
+        let name = unique_name(dir, &base);
+        let dst = dir.join(format!("{name}.svg"));
+        if let Err(e) = std::fs::write(&dst, &item.svg) {
+            result.errors.push(format!("{}: {e}", dst.display()));
+            continue;
+        }
+        result.added.push(UserArt {
+            name,
+            svg: item.svg.clone(),
+        });
+    }
+    Ok(result)
+}
+
 /// Borra un SVG de la biblioteca del usuario. `name` es solo el nombre, nunca una ruta.
 pub fn remove_art(dir: &Path, name: &str) -> Result<(), String> {
     if name.is_empty() || name.contains(['/', '\\']) || name.contains("..") {
@@ -177,6 +241,14 @@ pub async fn art_list_user(app: AppHandle) -> Result<Vec<UserArt>, String> {
 pub async fn art_add_user(app: AppHandle, paths: Vec<String>) -> Result<AddArtResult, String> {
     let dir = art_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || add_art(&dir, &paths))
+        .await
+        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn art_save_user(app: AppHandle, items: Vec<UserArt>) -> Result<AddArtResult, String> {
+    let dir = art_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || save_art(&dir, &items))
         .await
         .map_err(|e| format!("La tarea se interrumpió: {e}"))?
 }
@@ -245,6 +317,34 @@ mod tests {
         assert!(remove_art(&lib, "../fuera").is_err());
         remove_art(&lib, "cuadro").unwrap();
         assert_eq!(list_art(&lib).unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(work);
+    }
+
+    #[test]
+    fn guarda_dibujos_que_llegan_con_su_texto_sin_pisar_los_existentes() {
+        let work = scratch("guardar");
+        let lib = work.join("art");
+        let item = |name: &str, svg: &str| UserArt {
+            name: name.into(),
+            svg: svg.into(),
+        };
+        let r = save_art(
+            &lib,
+            &[
+                item("cuadro", SQUARE),
+                item("cuadro", SQUARE),
+                item("../fuera.svg", SQUARE),
+                item("roto", "esto no es un svg"),
+                item("   ", SQUARE),
+            ],
+        )
+        .unwrap();
+        let names: Vec<_> = r.added.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(names, ["cuadro", "cuadro-2", "-fuera"]);
+        assert_eq!(r.errors.len(), 2, "{:?}", r.errors);
+        // Todo quedó dentro de la biblioteca.
+        assert!(!work.join("fuera.svg").exists());
+        assert_eq!(list_art(&lib).unwrap().len(), 3);
         let _ = std::fs::remove_dir_all(work);
     }
 

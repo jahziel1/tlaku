@@ -38,7 +38,7 @@ use tlaku_doc::{BezPath, DesignObject, ObjectKind, VectorObject, affine};
 use tlaku_geom::{
     FilletOptions, FilletStyle, OptimizeOptions, SlotAnchor, SlotOptions, break_groups, cut_closed,
     cut_open, fillet_path, node_count, optimize_polyline, resize_slots, signed_area, slot_widths,
-    split_subpaths, trim_at,
+    split_subpaths, trim_at, unfillet_path,
 };
 
 /// Error máximo (mm) al aplanar las curvas para calcular intersecciones y contornos.
@@ -94,6 +94,9 @@ pub struct ShapeParams {
     pub style: Option<FilletKind>,
     /// `fillet`: solo las esquinas en estos puntos (mm, documento).
     pub nodes: Option<Vec<[f64; 2]>>,
+    /// `fillet`: en vez de redondear, devuelve a punta la esquina redondeada (o mordida) más
+    /// cercana a `point` (a lo más `max_dist` mm; 2 mm por omisión). Los chaflanes no se revierten.
+    pub revert: bool,
     /// `cut_shapes`: id de la cuchilla.
     pub knife_id: Option<String>,
     /// `cut_shapes`: piezas cerradas (regiones) en vez de tramos abiertos. Por defecto sí.
@@ -394,7 +397,43 @@ fn optimize(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, 
 
 // --- redondear esquinas ---
 
+/// Distancia por omisión (mm) del clic a la esquina que se revierte.
+const UNFILLET_DIST_MM: f64 = 2.0;
+
+/// Devuelve a punta la esquina redondeada más cercana al punto (ver `tlaku_geom::unfillet_path`).
+fn unfillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
+    let click = pt(p.point.ok_or("Falta el punto de la esquina.")?);
+    let max_dist = p.max_dist.unwrap_or(UNFILLET_DIST_MM);
+    if !max_dist.is_finite() || max_dist <= 0.0 {
+        return Err("La distancia al clic debe ser un número mayor que 0.".into());
+    }
+    // La esquina más cercana de todos los objetos: (objeto, trayecto, resultado).
+    let mut best: Option<(usize, usize, tlaku_geom::Unfillet)> = None;
+    for (i, o) in objects.iter().enumerate() {
+        for (k, c) in o.curves().iter().enumerate() {
+            if let Some(u) = unfillet_path(c, click, max_dist)
+                && best.as_ref().is_none_or(|b| u.distance < b.2.distance)
+            {
+                best = Some((i, k, u));
+            }
+        }
+    }
+    let mut slots: Vec<Slot> = objects.iter().map(|_| Slot::Keep).collect();
+    let mut stats = ShapeStats::default();
+    if let Some((i, k, u)) = best {
+        let mut paths = objects[i].curves();
+        paths[k] = u.path;
+        stats.count = 1;
+        let mut ids = Ids::new("fillet", objects);
+        slots[i] = Slot::New(vec![vector_object(&objects[i], ids.next(), paths)]);
+    }
+    Ok(finish(objects, slots, stats))
+}
+
 fn fillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
+    if p.revert {
+        return unfillet(objects, p);
+    }
     let radius = p.radius.ok_or("Falta el radio.")?;
     if !radius.is_finite() || radius <= 0.0 {
         return Err("El radio debe ser un número mayor que 0.".into());
@@ -807,6 +846,44 @@ mod tests {
             ..params()
         };
         assert_eq!(run(ShapeOp::Fillet, &[o], &uno).unwrap().stats.count, 1);
+    }
+
+    #[test]
+    fn revertir_un_redondeo_devuelve_la_punta_en_un_solo_objeto() {
+        let o = object("o", &[rect(0.0, 0.0, 10.0, 10.0)]);
+        let round = ShapeParams {
+            radius: Some(2.0),
+            nodes: Some(vec![[10.0, 10.0]]),
+            ..params()
+        };
+        let rounded = run(ShapeOp::Fillet, std::slice::from_ref(&o), &round)
+            .unwrap()
+            .objects;
+        assert_eq!(rounded.len(), 1);
+        assert!(area(&rounded) < 99.9);
+        let back = ShapeParams {
+            revert: true,
+            point: Some([10.0, 10.0]),
+            ..params()
+        };
+        let r = run(ShapeOp::Fillet, &rounded, &back).unwrap();
+        assert_eq!(r.stats.count, 1);
+        assert_eq!(r.objects.len(), 1);
+        assert!((area(&r.objects) - 100.0).abs() < 1e-6);
+        // Sin esquina redondeada cerca no cambia nada (los objetos vuelven igual).
+        let r = run(ShapeOp::Fillet, &r.objects, &back).unwrap();
+        assert_eq!(r.stats.count, 0);
+        // Falta el punto y distancia no válida son errores en español.
+        let sin_punto = ShapeParams {
+            revert: true,
+            ..params()
+        };
+        assert!(run(ShapeOp::Fillet, &rounded, &sin_punto).is_err());
+        let mala = ShapeParams {
+            max_dist: Some(0.0),
+            ..back
+        };
+        assert!(run(ShapeOp::Fillet, &rounded, &mala).is_err());
     }
 
     #[test]

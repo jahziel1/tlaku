@@ -3,6 +3,7 @@ import type { CylinderCorrection } from "./CylinderCorrection";
 import type { FieldCorrection } from "./FieldCorrection";
 import type { GalvoJump } from "./GalvoJump";
 import type { GalvoTiming } from "./GalvoTiming";
+import type { InputRequirement } from "./InputRequirement";
 import type { LaserSource } from "./LaserSource";
 import type { RepeatMarking } from "./RepeatMarking";
 import type { SplitMarking } from "./SplitMarking";
@@ -39,4 +40,14 @@ cylinder: CylinderCorrection, taper: TaperWarp,
 /**
  * Marcado dividido / rotativo galvo y marcado repetido: ver `tlaku_pipeline::mark_sequence`.
  */
-split: SplitMarking, repeat: RepeatMarking, };
+split: SplitMarking, repeat: RepeatMarking, 
+/**
+ * Enclavamiento por una entrada de la tarjeta (M45); `None` = sin enclavamiento.
+ */
+require_input: InputRequirement | null, 
+/**
+ * Overscan de rellenos e imágenes, mm (M44); 0 = sin overscan (los espejos casi no tienen
+ * inercia). Con un valor mayor que 0 las líneas de relleno se alargan y el tramo extra se
+ * recorre con el láser apagado a la velocidad de marcado y sin retardo de salto.
+ */
+overscan_mm: number, };

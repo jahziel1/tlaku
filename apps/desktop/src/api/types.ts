@@ -272,13 +272,56 @@ export interface GalvoState {
   source: LaserSource;
   /** El trabajo espera que muevas el material y confirmes. */
   waiting_move: GalvoStepInfo | null;
+  /** Hay un encuadre con el puntero en curso (se puede mover y escalar en vivo). */
+  framing: boolean;
+  /** Enclavamiento por entrada del perfil y si ahora se cumple; `null` = sin enclavamiento. */
+  interlock: GalvoInterlock | null;
+  /** Desfase del puntero rojo con el que se conectó (mm) y overscan del perfil (mm). */
+  pointer_offset: [number, number];
+  overscan_mm: number;
+}
+
+/** La condición `(entradas & mask) == value` que el perfil exige antes de cada trabajo. */
+export interface GalvoInterlock {
+  mask: number;
+  value: number;
+  /** Se cumple con las últimas entradas leídas. */
+  met: boolean;
+}
+
+/** Qué dibuja el puntero rojo al encuadrar con el galvo. */
+export type GalvoFrameKind = 'rect' | 'contour' | 'hull' | 'objects';
+
+/** Una comprobación de la verificación sin láser (`galvo_verify`). */
+export interface GalvoVerifyCheck {
+  /** `board`, `idle`, `frame` o `interlock`. */
+  id: string;
+  ok: boolean;
+  detail: string;
+}
+
+/** Resultado de `galvo_verify`: lo que dijo la tarjeta (solo lectura) y las comprobaciones. */
+export interface GalvoVerifyReport {
+  board: string;
+  vendor_id: number;
+  product_id: number;
+  virtual_machine: boolean;
+  serial: string;
+  version: string;
+  status_raw: number;
+  busy: boolean;
+  ready: boolean;
+  inputs: number;
+  interlock: GalvoInterlock | null;
+  checks: GalvoVerifyCheck[];
 }
 
 /** Evento `machine://galvo`. */
 export type GalvoEvent =
   | { kind: 'step'; info: GalvoStepInfo }
   | { kind: 'wait_move'; info: GalvoStepInfo }
-  | { kind: 'light'; loops: number }
+  /** `adjust_gen`: versión del último ajuste en vivo aplicado; `adjust_rejected`: el último no cabía en el campo. */
+  | { kind: 'light'; loops: number; adjust_gen: number; adjust_rejected: boolean }
   | { kind: 'laser_may_be_on'; message: string };
 
 // ---------------------------------------------------------------------------
@@ -589,7 +632,22 @@ export interface CameraAlignment {
   height?: HeightModel | null;
 }
 
+/** De dónde viene el video: una cámara local (`getUserMedia`) o una cámara de red (URL). */
+export type CameraSource = 'local' | 'network';
+
 export interface CameraPrefs {
+  /** Fuente del video. Falta en configuraciones antiguas (= `local`). */
+  source?: CameraSource;
+  /**
+   * URL de la cámara de red (`http://...`, snapshot o MJPEG). Puede llevar `usuario:clave@`: se
+   * guarda solo en el perfil local (`camera.json`) y nunca entra en un paquete `.tlakubundle`.
+   */
+  network_url?: string | null;
+  /** Resolución del fondo (puntos por mm) fijada a mano; `null` = la de la alineación. */
+  dpm?: number | null;
+  /** Desplazamiento del fondo (mm) para afinar la alineación a mano. */
+  offset_x_mm?: number;
+  offset_y_mm?: number;
   device_id: string | null;
   device_label: string | null;
   width: number | null;
@@ -645,6 +703,29 @@ export interface MarksReport {
   warnings: string[];
 }
 
+/** Configuración de cámara con nombre: la fuente y los ajustes del fondo. */
+export interface CameraPreset {
+  name: string;
+  source: CameraSource;
+  device_id: string | null;
+  device_label: string | null;
+  width: number | null;
+  height: number | null;
+  /** URL de la cámara de red (puede llevar credenciales: ver `CameraPrefs.network_url`). */
+  network_url: string | null;
+  dpm: number | null;
+  offset_x_mm: number;
+  offset_y_mm: number;
+  grayscale: boolean;
+}
+
+/** Un cuadro de una cámara de red, pedido por el motor (`fetch_camera_frame`). */
+export interface NetworkFrame {
+  /** `image/jpeg`, `image/png` o `image/bmp`. */
+  mime: string;
+  data_base64: string;
+}
+
 /** Lo que sobrevive al reinicio (archivo `camera.json` en la carpeta de configuración). */
 export interface CameraSetup {
   version: number;
@@ -653,6 +734,8 @@ export interface CameraSetup {
   prefs: CameraPrefs;
   /** Cámara montada en el cabezal. Falta en configuraciones anteriores a la ola 4. */
   head?: HeadCamera;
+  /** Configuraciones de cámara con nombre. Falta en configuraciones anteriores a la ola 6. */
+  presets?: CameraPreset[];
 }
 
 // ---- Diseño avanzado (ola 3): deformar, contorno envolvente y círculo tangente ----------------------
@@ -669,7 +752,25 @@ export interface WarpEnvelope {
   top: EnvelopeEdge;
   left: EnvelopeEdge;
   right: EnvelopeEdge;
+  /**
+   * Malla de 4x4 puntos por los que pasa la superficie: `grid[j][i]` es la imagen del punto
+   * `(i/3, j/3)` de la región de origen (`j` sube). Con ella se ignoran los cuatro bordes.
+   */
+  grid?: WarpGrid;
+  /**
+   * Proyección de cuatro esquinas (abajo-izquierda, abajo-derecha, arriba-derecha, arriba-izquierda).
+   * Con ella se ignoran los cuatro bordes; si hay `grid`, manda la malla.
+   */
+  perspective?: [Point, Point, Point, Point];
 }
+
+/** Cuatro filas (de abajo hacia arriba) de cuatro puntos (de izquierda a derecha). */
+export type WarpGrid = [
+  [Point, Point, Point, Point],
+  [Point, Point, Point, Point],
+  [Point, Point, Point, Point],
+  [Point, Point, Point, Point],
+];
 
 export interface WarpArgs {
   /** Objetos en coordenadas de documento; vuelven vectoriales, con el mismo id, y con transform identidad. */
@@ -731,6 +832,8 @@ export interface ShapeParams {
   style?: FilletKind;
   /** `fillet`: solo las esquinas en estos puntos (mm, documento). */
   nodes?: Point[];
+  /** `fillet`: devuelve a punta la esquina redondeada o mordida más cercana a `point` (los chaflanes no se revierten). */
+  revert?: boolean;
   knife_id?: string;
   close_pieces?: boolean;
   keep_knife?: boolean;

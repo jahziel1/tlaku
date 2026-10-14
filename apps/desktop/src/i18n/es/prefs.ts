@@ -41,6 +41,8 @@ export const prefs = {
   'prefs.snapPx': 'Distancia del ajuste magnético',
   'prefs.duplicateOffset': 'Desplazamiento al duplicar y pegar',
   'prefs.length.hint': 'Acepta unidades al escribir: «5 mm», «0,25 in», «1/8"».',
+  'prefs.returnToSelect': 'Volver a Seleccionar tras dibujar una forma',
+  'prefs.returnToSelect.hint': 'Al terminar un rectángulo, una elipse, un polígono, una estrella o una línea, la herramienta pasa a Seleccionar y deja la forma elegida. Apagado, la herramienta sigue activa para dibujar otra.',
 
   // ---- Apariencia -----------------------------------------------------------------
   'prefs.theme': 'Tema',
@@ -49,6 +51,25 @@ export const prefs = {
   'prefs.grid': 'Rejilla del lienzo',
   'prefs.grid.auto': 'Automática (según el zoom)',
   'prefs.grid.hint': 'Con una medida fija, la rejilla menor mide eso y la mayor diez veces más; con zoom muy alejado se oculta para no saturar la vista.',
+  'prefs.gridContrast': 'Contraste de la rejilla',
+  'prefs.gridContrast.low': 'Suave',
+  'prefs.gridContrast.normal': 'Normal',
+  'prefs.gridContrast.high': 'Alto',
+  'prefs.gridContrast.hint': 'Qué tanto se marcan las líneas de la rejilla sobre la cama. Súbelo si no la ves bien en tu pantalla o con el tema claro.',
+  'prefs.dock.title': 'Distribución de la ventana',
+  'prefs.dock.hint': 'Los paneles se acoplan al borde izquierdo o derecho, o flotan sobre el lienzo. También se ajusta desde el botón de personalizar del panel.',
+  'prefs.dock.resetLayout': 'Restablecer distribución',
+  'prefs.dock.resetDone': 'Distribución restablecida.',
+  'prefs.dock.panelSide': 'Panel de pestañas',
+  'prefs.dock.toolsSide': 'Herramientas',
+  'prefs.dock.left': 'Izquierda',
+  'prefs.dock.right': 'Derecha',
+  'prefs.dock.float': 'Sacar a una ventana flotante',
+  'prefs.dock.dockBack': 'Acoplar al panel',
+  'prefs.dock.hintFloat': 'Doble clic en una pestaña la saca a una ventana flotante.',
+  'prefs.dock.moveHint': 'Arrastra para mover; flechas para mover, Mayús+flechas para cambiar el tamaño; doble clic para acoplar.',
+  'prefs.dock.resizeFloat': 'Cambiar el tamaño del panel flotante',
+  'prefs.cmd.resetLayout': 'Restablecer distribución',
 
   // ---- Archivos ---------------------------------------------------------------------
   'prefs.autosave': 'Guardar copias de recuperación automáticamente',
@@ -56,6 +77,13 @@ export const prefs = {
   'prefs.autosave.hint': 'Solo se guarda si hay cambios sin guardar, y la copia se borra al guardar el proyecto o cerrar la aplicación. Si Tlaku se cierra de golpe, al abrirlo se ofrece recuperarla.',
   'prefs.recentMax': 'Archivos recientes que se recuerdan',
   'prefs.recent.clear': 'Vaciar la lista de recientes',
+  'prefs.import.title': 'Importar archivos',
+  'prefs.importDpi': 'Resolución por omisión',
+  'prefs.importDpi.hint': 'Resolución (ppp) con que se importan los SVG sin unidades y las imágenes cuando no eliges otra en el diálogo de importar. 96 es el valor habitual de los programas de dibujo.',
+  'prefs.importRemember': 'Recordar las opciones del diálogo de importar',
+  'prefs.importRemember.hint': 'El diálogo «Importar con opciones» arranca con lo que elegiste la vez anterior (resolución, unidad del DXF, agrupar y capa destino). La escala y la página del PDF siempre empiezan de cero.',
+  'prefs.importForget': 'Olvidar las opciones recordadas',
+  'prefs.unit.dpi': 'ppp',
 
   // ---- unidades de los campos -------------------------------------------------------
   'prefs.unit.deg': '°',

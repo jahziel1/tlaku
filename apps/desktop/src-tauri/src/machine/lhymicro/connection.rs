@@ -2,6 +2,8 @@
 
 use super::*;
 
+pub(super) use crate::machine::common::{Paced, log, virtual_speed};
+
 /// Conexión abierta: el mando y el hilo.
 pub struct LhyConnection {
     handle: LhyHandle,
@@ -172,37 +174,13 @@ impl Drop for LhyConnection {
     }
 }
 
-/// `virtual:k40@5` -> 5 (veces el tiempo real).
-pub(super) fn virtual_speed(port: &str) -> Result<f64, String> {
-    match port.split_once('@') {
-        None => Ok(1.0),
-        Some((_, s)) => match s.parse::<f64>() {
-            Ok(v) if v.is_finite() && v > 0.0 && v <= crate::machine::virtual_port::MAX_SPEED => {
-                Ok(v)
-            }
-            _ => Err(format!(
-                "La velocidad '{s}' de la máquina virtual debe ser un número entre 0 y {} veces \
-                 el tiempo real.",
-                crate::machine::virtual_port::MAX_SPEED
-            )),
-        },
-    }
-}
-
-/// Transporte que duerme `step` en cada lectura: marca el paso del reloj virtual del emulador
-/// (que avanza una vez por consulta de estado) contra el reloj de pared.
-pub(super) struct Paced<T> {
-    pub(super) inner: T,
-    pub(super) step: Duration,
-}
-
 impl<T: Transport> Transport for Paced<T> {
     fn write(&mut self, data: &[u8]) -> Result<(), TransportError> {
         self.inner.write(data)
     }
 
     fn read(&mut self, len: usize) -> Result<Vec<u8>, TransportError> {
-        thread::sleep(self.step);
+        self.pace();
         self.inner.read(len)
     }
 
@@ -253,13 +231,6 @@ pub(super) fn op_error(e: SessionError) -> String {
         SessionError::Busy(_) => format!("{e}. Espera a que termine o pulsa Detener."),
         _ => e.to_string(),
     }
-}
-
-pub(super) fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
-    sink.emit(Emit::Log(LogEvent {
-        dir,
-        text: text.to_string(),
-    }));
 }
 
 pub(super) fn emit_job(sink: &dyn Sink, state: JobState, message: &str, position_lost: bool) {

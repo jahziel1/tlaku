@@ -1,16 +1,26 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setApi } from '@/api';
 import { createMockApi, type MockApi } from '@/api/mock';
+import { mockPlanTiles } from '@/api/mock/tilePlan';
 import type { JobArgs } from '@/api/types';
 import { rectObject } from '@/features/nest/testUtils';
 import { factoryLayer } from '@/lib/layers';
 import { bindMachineEvents, selectActiveDevice, useStore } from '@/store';
-import { alignmentMarks } from './plan';
 import { beginSession, resumeSession, restartSession, selectTile, sendCurrent, skipCurrent, tileJobArgs } from './run';
 import { loadSession } from './session';
 import { closeTiling, openTiling, useTilingUi } from './store';
 
 const ui = () => useTilingUi.getState();
+
+/** Espera a que el motor (aquí la maqueta) responda con el plan de las opciones de ahora. */
+const planned = () => vi.waitFor(() => expect(ui().planning).toBe(false));
+
+/** Las cruces de alineación de un diseño de 100 x 60 en tramos de 55 x 35 con 10 mm de solape. */
+function crosses() {
+  const r = mockPlanTiles({ design: [[0, 0], [100, 60]], size: [55, 35], overlap: 10, order: 'rows', margin: 0 });
+  if (!r.ok) throw new Error(r.error.kind);
+  return r.plan.marks;
+}
 let api: MockApi;
 let sent: JobArgs[];
 let off: () => void;
@@ -24,7 +34,7 @@ vi.stubGlobal('localStorage', {
 });
 
 /** Pone un diseño de `w` x `h` mm, una cama de 60 x 40 y el alimentador como se pida. */
-function setup(w: number, h: number, feeder: boolean) {
+async function setup(w: number, h: number, feeder: boolean) {
   const device = { ...selectActiveDevice(useStore.getState()), bed: [60, 40] as [number, number], feeder: { enabled: feeder, feed_gcode: 'G91\nG0 Y{mm}\nG90', feed_mm: 300 } };
   useStore.setState({
     devices: [device],
@@ -35,6 +45,7 @@ function setup(w: number, h: number, feeder: boolean) {
   });
   restartSession();
   openTiling();
+  await planned();
 }
 
 beforeAll(async () => {
@@ -63,8 +74,9 @@ beforeEach(() => {
 
 describe('envío por tramos', () => {
   it('manda tramo por tramo pidiendo la colocación entre uno y otro, con repetir y saltar', async () => {
-    setup(100, 60, false);
+    await setup(100, 60, false);
     ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: false });
+    await planned();
     const plan = ui().plan;
     expect(plan?.ok ? plan.plan.tiles.length : 0).toBe(4);
     beginSession();
@@ -98,8 +110,9 @@ describe('envío por tramos', () => {
   }, 20000);
 
   it('un tramo rechazado por el motor deja el asistente en «failed» y permite reintentar', async () => {
-    setup(100, 60, false);
+    await setup(100, 60, false);
     ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: false });
+    await planned();
     beginSession();
     const original = api.startJob;
     api.startJob = () => Promise.reject(new Error('preflight: alarma activa'));
@@ -114,8 +127,9 @@ describe('envío por tramos', () => {
   }, 20000);
 
   it('con alimentador y una sola columna avanza el material entre tramos sin pedir confirmación', async () => {
-    setup(50, 150, true);
+    await setup(50, 150, true);
     ui().patchConfig({ size: [55, 70], overlap: 10, margin: 0, marks: false });
+    await planned();
     const plan = ui().plan;
     const rows = plan?.ok ? plan.plan.rows : 0;
     expect(rows).toBeGreaterThan(1);
@@ -134,21 +148,24 @@ describe('envío por tramos', () => {
   }, 30000);
 
   it('con alimentador pero tramos en varias columnas no avanza solo', async () => {
-    setup(100, 60, true);
+    await setup(100, 60, true);
     ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: false });
+    await planned();
     beginSession();
     expect(ui().session?.feeder).toBe(false);
   });
 
   it('retoma una sesión guardada donde se quedó', async () => {
-    setup(100, 60, false);
+    await setup(100, 60, false);
     ui().patchConfig({ size: [55, 35], overlap: 10, margin: 0, marks: false });
+    await planned();
     beginSession();
     await sendCurrent();
     closeTiling();
     // Como tras reiniciar la app: el estado en memoria se pierde y queda lo guardado.
     ui().set({ session: null, phase: 'config', saved: null });
     openTiling();
+    await planned();
     expect(ui().saved?.status[0]).toBe('done');
     resumeSession();
     expect(ui().phase).toBe('place');
@@ -158,6 +175,7 @@ describe('envío por tramos', () => {
     useStore.setState({ doc: { version: 2, device_id: null, layers: [factoryLayer('#ff0000', 'Rojo')], objects: [rectObject('a', 120, 60)] } });
     ui().set({ phase: 'config' });
     openTiling();
+    await planned();
     expect(ui().saved).toBeNull();
   }, 20000);
 });
@@ -172,7 +190,7 @@ describe('tileJobArgs', () => {
   const tile = { rect: [[0, 0], [55, 35]], offset: [1, 1] } as JobArgs['options']['tile'];
 
   it('pone el tramo, fuerza el modo absoluto y añade las marcas en su capa', () => {
-    const marks = alignmentMarks([[0, 0], [100, 60]], [55, 35], 10);
+    const marks = crosses();
     const out = tileJobArgs(args(null), tile!, marks);
     expect(out.options).toMatchObject({ tile, start_from: 'absolute', use_selection_origin: false, selection: null });
     expect(out.doc.objects).toHaveLength(1 + marks.length / 2);
@@ -182,7 +200,7 @@ describe('tileJobArgs', () => {
   });
 
   it('con «Solo la selección» las marcas entran a la selección', () => {
-    const marks = alignmentMarks([[0, 0], [100, 60]], [55, 35], 10);
+    const marks = crosses();
     const out = tileJobArgs(args(['a']), tile!, marks);
     expect(out.options.selection).toEqual(['a', ...out.doc.objects.filter((o) => o.id.startsWith('tile-mark-')).map((o) => o.id)]);
   });

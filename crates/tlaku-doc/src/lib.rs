@@ -27,7 +27,7 @@ pub use cut::{
 pub use device::{
     CommentStyle, Connection, DeviceKind, DeviceProfile, DwellFormat, GcodeDialect,
     LhyMicroSettings, Macro, Origin, PowerMode, RotaryKind, RotarySettings, RuidaSettings,
-    SavedPosition, ScanOffset,
+    SavedPosition, ScanOffset, SpeedUnit,
 };
 pub use document::{
     DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
@@ -36,8 +36,8 @@ pub use document::{
 pub use factory::{FACTORY_ID_PREFIX, check_factory, factory_library, parse_factory};
 pub use galvo::{
     CylinderAxis, CylinderCorrection, FeederSettings, FieldCorrection, GalvoDevice, GalvoJump,
-    GalvoLayer, GalvoTiming, LaserSource, RepeatMarking, Slice3d, SplitAxes, SplitMarking,
-    SplitOrder, TaperWarp, TileSpec, Wobble,
+    GalvoLayer, GalvoTiming, InputRequirement, LaserSource, RepeatMarking, Slice3d, SplitAxes,
+    SplitMarking, SplitOrder, TaperWarp, TileSpec, Wobble,
 };
 pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, StartFrom};
 pub use layer::{

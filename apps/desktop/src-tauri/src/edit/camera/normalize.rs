@@ -151,6 +151,81 @@ pub(super) fn normalize_samples(
     Ok(())
 }
 
+/// Máximo de configuraciones de cámara con nombre.
+pub(super) const MAX_PRESETS: usize = 32;
+/// Largo máximo del nombre de una configuración y de una URL de cámara.
+const MAX_PRESET_NAME: usize = 60;
+const MAX_URL_LEN: usize = 2048;
+/// Tope del desplazamiento manual del fondo (mm) y de la resolución manual (puntos por mm).
+const MAX_OFFSET_MM: f64 = 1000.0;
+const MAX_DPM: f64 = 10_000.0;
+
+/// URL de la cámara de red: sin espacios, `http://` o `https://` y de largo razonable.
+fn check_url(url: Option<String>) -> Result<Option<String>, String> {
+    let Some(url) = url.map(|u| u.trim().to_string()).filter(|u| !u.is_empty()) else {
+        return Ok(None);
+    };
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err("La URL de la cámara de red debe empezar con http://".into());
+    }
+    if url.len() > MAX_URL_LEN || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err("La URL de la cámara de red no es válida.".into());
+    }
+    Ok(Some(url))
+}
+
+fn clean_dpm(v: Option<f64>) -> Option<f64> {
+    v.filter(|d| d.is_finite() && *d > 0.0 && *d <= MAX_DPM)
+}
+
+fn clean_offset(v: f64) -> f64 {
+    if v.is_finite() {
+        v.clamp(-MAX_OFFSET_MM, MAX_OFFSET_MM)
+    } else {
+        0.0
+    }
+}
+
+/// Ajustes de fuente y de fondo de las preferencias, y las configuraciones con nombre.
+fn normalize_sources(setup: &mut CameraSetup) -> Result<(), String> {
+    let prefs = &mut setup.prefs;
+    prefs.network_url = check_url(prefs.network_url.take())?;
+    prefs.dpm = clean_dpm(prefs.dpm);
+    prefs.offset_x_mm = clean_offset(prefs.offset_x_mm);
+    prefs.offset_y_mm = clean_offset(prefs.offset_y_mm);
+    // Última con el mismo nombre (sin distinguir mayúsculas) gana, conservando su lugar.
+    let mut out: Vec<CameraPreset> = Vec::new();
+    for mut p in std::mem::take(&mut setup.presets) {
+        p.name = p.name.trim().to_string();
+        if p.name.is_empty() || p.name.chars().count() > MAX_PRESET_NAME {
+            return Err(format!(
+                "El nombre de una configuración de cámara debe tener entre 1 y {MAX_PRESET_NAME} caracteres."
+            ));
+        }
+        p.network_url = check_url(p.network_url.take())?;
+        p.dpm = clean_dpm(p.dpm);
+        p.offset_x_mm = clean_offset(p.offset_x_mm);
+        p.offset_y_mm = clean_offset(p.offset_y_mm);
+        p.width = p.width.filter(|v| *v > 0);
+        p.height = p.height.filter(|v| *v > 0);
+        match out
+            .iter_mut()
+            .find(|q| q.name.to_lowercase() == p.name.to_lowercase())
+        {
+            Some(q) => *q = p,
+            None => out.push(p),
+        }
+    }
+    if out.len() > MAX_PRESETS {
+        return Err(format!(
+            "Se guardan como máximo {MAX_PRESETS} configuraciones de cámara."
+        ));
+    }
+    setup.presets = out;
+    Ok(())
+}
+
 /// Valida la configuración y recalcula la homografía de la alineación con tlaku-camera.
 pub fn normalize_setup(mut setup: CameraSetup) -> Result<CameraSetup, String> {
     setup.version = SETUP_VERSION;
@@ -191,5 +266,6 @@ pub fn normalize_setup(mut setup: CameraSetup) -> Result<CameraSetup, String> {
     } else {
         0.0
     };
+    normalize_sources(&mut setup)?;
     Ok(setup)
 }

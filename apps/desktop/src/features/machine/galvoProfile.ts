@@ -5,6 +5,9 @@ import type { I18nKey } from '@/i18n';
 export const MAX_NONLINEAR = 0.3;
 export const MIN_SCALE = 0.1;
 export const MAX_SCALE = 10;
+/** Topes del motor (`safety.rs`): desfase del puntero rojo y overscan del perfil, en mm. */
+export const MAX_POINTER_OFFSET_MM = 50;
+export const MAX_OVERSCAN_MM = 20;
 /** Tope de repeticiones del marcado repetido (el motor: `MAX_REPEATS`). */
 export const MAX_REPEATS = 100_000;
 
@@ -55,7 +58,10 @@ export type GalvoField =
   | 'overlap_mm'
   | 'pause_ms'
   | 'repeat_count'
-  | 'increment';
+  | 'increment'
+  | 'overscan'
+  | 'pointer_offset'
+  | 'interlock';
 
 export type GalvoIssues = Partial<Record<GalvoField, I18nKey>>;
 
@@ -67,7 +73,7 @@ const pos = (n: number) => finite(n) && n > 0;
  * (`SafetyLimits::validate`, `calib.rs`, `cylinder.rs`, `split.rs`): lo que él rechazaría al conectar o
  * calcular, la interfaz lo marca antes de guardar.
  */
-export function validateGalvoProfile(d: Pick<DeviceProfile, 'galvo' | 'origin'>): GalvoIssues {
+export function validateGalvoProfile(d: Pick<DeviceProfile, 'galvo' | 'origin'> & Partial<Pick<DeviceProfile, 'pointer_offset'>>): GalvoIssues {
   const g = d.galvo;
   const out: GalvoIssues = {};
   // El galvo coloca el campo con las coordenadas del documento: solo vale el origen abajo a la izquierda.
@@ -106,5 +112,8 @@ export function validateGalvoProfile(d: Pick<DeviceProfile, 'galvo' | 'origin'>)
   const r = g.repeat;
   if (!Number.isInteger(r.count) || r.count < 1 || r.count > MAX_REPEATS) out.repeat_count = 'galvo.err.repeat';
   if (!r.increment_mm.every(finite)) out.increment = 'galvo.err.number';
+  if (!finite(g.overscan_mm) || g.overscan_mm < 0 || g.overscan_mm > MAX_OVERSCAN_MM) out.overscan = 'galvo.err.overscan';
+  if (d.pointer_offset && !d.pointer_offset.every((n) => finite(n) && Math.abs(n) <= MAX_POINTER_OFFSET_MM)) out.pointer_offset = 'galvo.err.pointerOffset';
+  if (g.require_input && (g.require_input.value & ~g.require_input.mask) !== 0) out.interlock = 'galvo.err.interlock';
   return out;
 }

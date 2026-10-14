@@ -335,6 +335,32 @@ impl Default for FieldCorrection {
     }
 }
 
+/// Enclavamiento por software (M45): antes de cada trabajo y de cada encuadre se leen las
+/// entradas de la tarjeta y se exige `(entradas & mask) == value`. Los bits de EMSTOP y de las
+/// alarmas de la fuente no están documentados: quien integra la máquina los mide y los fija aquí.
+/// Con `mask = 0` no se exige nada.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct InputRequirement {
+    /// Qué bits de la palabra de entradas se miran.
+    pub mask: u16,
+    /// Valor que deben tener esos bits; los bits fuera de `mask` deben ser 0.
+    pub value: u16,
+}
+
+impl InputRequirement {
+    /// `true` si las entradas cumplen la condición.
+    pub fn is_met(&self, inputs: u16) -> bool {
+        inputs & self.mask == self.value
+    }
+
+    /// `value` solo puede tener bits dentro de `mask`.
+    pub fn is_valid(&self) -> bool {
+        self.value & !self.mask == 0
+    }
+}
+
 /// Perfil de una máquina galvo.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case", default)]
@@ -362,6 +388,12 @@ pub struct GalvoDevice {
     /// Marcado dividido / rotativo galvo y marcado repetido: ver `tlaku_pipeline::mark_sequence`.
     pub split: SplitMarking,
     pub repeat: RepeatMarking,
+    /// Enclavamiento por una entrada de la tarjeta (M45); `None` = sin enclavamiento.
+    pub require_input: Option<InputRequirement>,
+    /// Overscan de rellenos e imágenes, mm (M44); 0 = sin overscan (los espejos casi no tienen
+    /// inercia). Con un valor mayor que 0 las líneas de relleno se alargan y el tramo extra se
+    /// recorre con el láser apagado a la velocidad de marcado y sin retardo de salto.
+    pub overscan_mm: f64,
 }
 
 impl Default for GalvoDevice {
@@ -382,6 +414,8 @@ impl Default for GalvoDevice {
             taper: TaperWarp::default(),
             split: SplitMarking::default(),
             repeat: RepeatMarking::default(),
+            require_input: None,
+            overscan_mm: 0.0,
         }
     }
 }
@@ -416,4 +450,34 @@ impl Default for FeederSettings {
 pub struct TileSpec {
     pub rect: [[f64; 2]; 2],
     pub offset: [f64; 2],
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Un perfil guardado antes de la ola 6C no trae los campos nuevos: se leen con sus valores
+    /// de siempre (sin enclavamiento y sin overscan).
+    #[test]
+    fn old_galvo_profiles_load_with_the_new_fields_off() {
+        let d: GalvoDevice = serde_json::from_str(r#"{ "field_mm": 150.0 }"#).unwrap();
+        assert_eq!(d.field_mm, 150.0);
+        assert_eq!(d.require_input, None);
+        assert_eq!(d.overscan_mm, 0.0);
+        assert_eq!(GalvoDevice::default().require_input, None);
+    }
+
+    #[test]
+    fn the_interlock_round_trips_and_checks_its_bits() {
+        let d: GalvoDevice =
+            serde_json::from_str(r#"{ "require_input": { "mask": 8, "value": 8 } }"#).unwrap();
+        let r = d.require_input.unwrap();
+        assert!(r.is_valid() && r.is_met(0x0008) && r.is_met(0x00FF) && !r.is_met(0));
+        assert!(!InputRequirement { mask: 1, value: 2 }.is_valid());
+        let json = serde_json::to_string(&d).unwrap();
+        assert_eq!(serde_json::from_str::<GalvoDevice>(&json).unwrap(), d);
+        // Una condición a medias toma 0 en lo que falta (no exige nada).
+        let r: InputRequirement = serde_json::from_str("{}").unwrap();
+        assert_eq!((r.mask, r.value), (0, 0));
+    }
 }

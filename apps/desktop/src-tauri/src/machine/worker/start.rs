@@ -10,6 +10,7 @@ impl Worker {
         link: LinkProfile,
         s_max: Option<f64>,
         kind: RunKind,
+        load: Option<LinkLoad>,
     ) -> Result<Run, StartFail> {
         // El perfil de la máquina debe corresponder a la controladora conectada.
         if link.family != self.link_family {
@@ -43,12 +44,14 @@ impl Worker {
             s_max,
             check_parameters: true,
         };
-        let checked = preflight_link(
+        // El aviso de enlace saturado (solo en trabajos) no bloquea el envío.
+        let checked = preflight_link_with_load(
             &mut t,
             &self.timing.preflight,
             Advice::Console,
             &expect,
             &link,
+            load.as_ref().filter(|_| kind == RunKind::Job),
             &mut shown,
         );
         // Los avisos ("Aviso: $30...") no bloquean, pero se dejan en el registro.

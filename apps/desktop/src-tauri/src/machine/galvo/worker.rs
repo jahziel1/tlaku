@@ -164,7 +164,11 @@ impl Worker {
     fn handle(&mut self, req: Request) {
         match req {
             Request::Run { job, reply } => self.run_job(*job, reply),
-            Request::Light { shape, reply } => self.run_light(&shape, reply),
+            Request::Light {
+                shape,
+                loops,
+                reply,
+            } => self.run_light(&shape, loops, reply),
             Request::RedLight { on, reply } => {
                 let r = self.red_light(on);
                 self.finish(reply, r);

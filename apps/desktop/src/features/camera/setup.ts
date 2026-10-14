@@ -6,7 +6,7 @@
  * en modo mock, memoria y `localStorage` (api/mock/camera.ts). Aquí solo se valida lo recibido.
  */
 import { getApi, type LaserApi } from '@/api';
-import type { AlignmentSample, HeadCamera, HeadCalibration, HeightModel, LensCalibration } from '@/api/types';
+import type { AlignmentSample, CameraPreset, HeadCamera, HeadCalibration, HeightModel, LensCalibration } from '@/api/types';
 import { emptyCameraSetup, type CameraAlignment, type CameraPrefs, type CameraSetup } from '@/store/camera';
 import { applyH, homographyFrom4, isConvexQuad, type Mat3, type Quad } from './geometry';
 
@@ -133,6 +133,35 @@ export function fitAlignment(
   return { image_size: imageSize, image_px: imagePx, bed_mm: bedMm, to_bed: h, rms_mm: rms };
 }
 
+/** Configuraciones de cámara con nombre guardadas; descarta las que no tienen la forma esperada. */
+export function parsePresets(raw: unknown): CameraPreset[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CameraPreset[] = [];
+  const str = (v: unknown) => (typeof v === 'string' && v !== '' ? v : null);
+  const size = (v: unknown) => (isNum(v) && v > 0 ? Math.round(v) : null);
+  for (const r of raw as Record<string, unknown>[]) {
+    if (!r || typeof r !== 'object' || typeof r.name !== 'string' || r.name.trim() === '') continue;
+    const name = r.name.trim();
+    const preset: CameraPreset = {
+      name,
+      source: r.source === 'network' ? 'network' : 'local',
+      device_id: str(r.device_id),
+      device_label: str(r.device_label),
+      width: size(r.width),
+      height: size(r.height),
+      network_url: str(r.network_url),
+      dpm: isNum(r.dpm) && r.dpm > 0 ? r.dpm : null,
+      offset_x_mm: isNum(r.offset_x_mm) ? r.offset_x_mm : 0,
+      offset_y_mm: isNum(r.offset_y_mm) ? r.offset_y_mm : 0,
+      grayscale: r.grayscale === true,
+    };
+    const at = out.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+    if (at >= 0) out[at] = preset;
+    else out.push(preset);
+  }
+  return out;
+}
+
 /** Lee una configuración de cualquier origen; descarta lo que no tiene la forma esperada. */
 export function parseSetup(raw: unknown): CameraSetup {
   const out = emptyCameraSetup();
@@ -157,8 +186,15 @@ export function parseSetup(raw: unknown): CameraSetup {
     ...(isNum(p.material_height_mm) && p.material_height_mm > 0 ? { material_height_mm: Math.min(300, p.material_height_mm) } : {}),
     ...(p.grayscale === true ? { grayscale: true } : {}),
     ...(p.update_on_job_finish === true ? { update_on_job_finish: true } : {}),
+    ...(p.source === 'network' ? { source: 'network' as const } : {}),
+    ...(str(p.network_url) ? { network_url: str(p.network_url) } : {}),
+    ...(isNum(p.dpm) && p.dpm > 0 ? { dpm: p.dpm } : {}),
+    ...(isNum(p.offset_x_mm) && p.offset_x_mm !== 0 ? { offset_x_mm: p.offset_x_mm } : {}),
+    ...(isNum(p.offset_y_mm) && p.offset_y_mm !== 0 ? { offset_y_mm: p.offset_y_mm } : {}),
   };
   out.head = parseHead(r.head);
+  const presets = parsePresets(r.presets);
+  if (presets.length > 0) out.presets = presets;
   return out;
 }
 

@@ -3,21 +3,21 @@ import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore } from '@/store';
 import { sendBlockedReason } from '@/store/machine';
-import { feedLines, validateFeeder } from './feeder';
+import { sendFeed, waitIdle, watchJobEnd } from '@/features/feeder/jobFlow';
+import { validateFeeder } from './feeder';
 import { withAlignmentMarks, markIds } from './marks';
-import { alignmentMarks, feedBetween, isSingleDirection, type MarkSegment, type TileSpec } from './plan';
+import { feedBetween, isSingleDirection } from './plan';
 import { isComplete, loadSession, mark, newSession, nextPending, saveSession, type TileSession } from './session';
-import { plannedWithMargin, useTilingUi } from './store';
-
-/** Espera a que el estado de la máquina sea `idle` (con tope), para no mandar el siguiente tramo en pleno movimiento. */
-const IDLE_WAIT = { tries: 600, everyMs: 200 } as const;
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+import { requestPlan, useTilingUi } from './store';
+import type { MarkSegment, TileSpec } from './types';
 
 const ui = () => useTilingUi.getState();
 
-/** Cruces de alineación de una sesión (vacío si se apagaron). */
-export function sessionMarks(s: TileSession): MarkSegment[] {
-  return s.config.marks ? alignmentMarks(s.design, s.config.size, s.config.overlap) : [];
+/** Cruces de alineación de una sesión (vacío si se apagaron o el motor no las da). */
+export async function sessionMarks(s: TileSession): Promise<MarkSegment[]> {
+  if (!s.config.marks) return [];
+  const r = await requestPlan(s.design, s.config);
+  return r.ok ? r.plan.marks : [];
 }
 
 /** Argumentos del trabajo de un tramo: el documento con las marcas, en modo absoluto y con `tile`. */
@@ -31,42 +31,6 @@ export function tileJobArgs(args: JobArgs, tile: TileSpec, marks: MarkSegment[])
   };
 }
 
-type JobEnd = 'finished' | 'cancelled' | 'error';
-
-/** Promesa del fin del trabajo en curso. Hay que crearla ANTES de iniciarlo. `cancel` suelta la espera. */
-function watchJobEnd(): { done: Promise<JobEnd | 'abandoned'>; cancel: () => void } {
-  let unsub = () => {};
-  let seen = false;
-  let cancel = () => {};
-  const done = new Promise<JobEnd | 'abandoned'>((resolve) => {
-    cancel = () => {
-      unsub();
-      resolve('abandoned');
-    };
-    unsub = useStore.subscribe((s, prev) => {
-      if (s.jobState === prev.jobState) return;
-      if (s.jobState === 'running') seen = true;
-      if (seen && (s.jobState === 'finished' || s.jobState === 'cancelled' || s.jobState === 'error')) {
-        unsub();
-        resolve(s.jobState);
-      }
-    });
-  });
-  return { done, cancel };
-}
-
-async function waitIdle(): Promise<boolean> {
-  // GRBL tarda un reporte en pasar de `run` a `idle`: se da un respiro antes de mirar.
-  await sleep(IDLE_WAIT.everyMs);
-  for (let i = 0; i < IDLE_WAIT.tries; i++) {
-    const s = useStore.getState();
-    if (!s.connection.connected) return false;
-    if (!s.status || s.status.state === 'idle') return true;
-    await sleep(IDLE_WAIT.everyMs);
-  }
-  return false;
-}
-
 function persist(session: TileSession): void {
   ui().set({ session });
   saveSession(session);
@@ -78,10 +42,10 @@ function fail(message: string): void {
 
 /** Empieza una sesión nueva con el plan actual. La primera vez siempre pide confirmación. */
 export function beginSession(): void {
-  const { plan, design, config } = ui();
-  if (!plan || !plan.ok || !design) return;
+  const { plan, design, config, planning } = ui();
+  if (!plan || !plan.ok || !design || planning) return;
   const device = selectActiveDevice(useStore.getState());
-  const specs = plannedWithMargin(plan.plan.tiles, config.margin).map((p) => p.spec);
+  const specs = plan.plan.tiles.map((p) => p.spec);
   const feeder = device.feeder.enabled && isSingleDirection(plan.plan) && Object.keys(validateFeeder(device.feeder)).length === 0;
   const session = newSession(specs, design, config, device.id, feeder);
   persist(session);
@@ -148,11 +112,8 @@ async function advanceFrom(session: TileSession, mayFeed: boolean): Promise<void
 async function feedAndSend(from: TileSpec, to: TileSpec, feeder: ReturnType<typeof selectActiveDevice>['feeder']): Promise<void> {
   ui().set({ phase: 'feeding', message: null });
   const mm = feedBetween(from, to) ?? feeder.feed_mm;
-  const app = useStore.getState();
-  for (const line of feedLines(feeder, mm)) {
-    if (!(await app.sendLine(line, { confirmed: true }))) return fail(t('tiling.err.feed'));
-  }
-  if (!(await waitIdle())) return fail(t('tiling.err.feedWait'));
+  const failed = await sendFeed(feeder, mm);
+  if (failed) return fail(t(failed === 'send' ? 'tiling.err.feed' : 'tiling.err.feedWait'));
   await sendCurrent();
 }
 
@@ -167,7 +128,8 @@ export async function sendCurrent(): Promise<void> {
   const watcher = watchJobEnd();
   const spec = session.specs[session.current]!;
   try {
-    await app.startJob((args) => tileJobArgs(args, spec, sessionMarks(session)));
+    const marks = await sessionMarks(session);
+    await app.startJob((args) => tileJobArgs(args, spec, marks));
   } catch (e) {
     watcher.cancel();
     return fail(errorMessage(e));

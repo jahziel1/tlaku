@@ -50,8 +50,8 @@ use tlaku_doc::{
 };
 use tlaku_grbl::link::{LinkFamily, LinkProfile};
 use tlaku_grbl::preflight::{
-    Advice, JobExpect, PreflightConfig, ReprapInfo, outcome_result_for, preflight_link,
-    validate_gcode_for,
+    Advice, JobExpect, LinkLoad, PreflightConfig, ReprapInfo, outcome_result_for,
+    preflight_link_with_load, validate_gcode_for,
 };
 use tlaku_grbl::serial::{Grbl, LineReader, Transport};
 use tlaku_grbl::streamer::{
@@ -68,6 +68,7 @@ pub mod lhymicro;
 pub mod ruida;
 pub mod virtual_port;
 
+mod common;
 mod connection;
 mod emit;
 mod handle;

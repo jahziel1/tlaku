@@ -43,6 +43,8 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.snapPx': 'Snapping distance',
   'prefs.duplicateOffset': 'Offset when duplicating and pasting',
   'prefs.length.hint': 'Accepts units as you type: "5 mm", "0.25 in", "1/8"".',
+  'prefs.returnToSelect': 'Return to Select after drawing a shape',
+  'prefs.returnToSelect.hint': 'After finishing a rectangle, ellipse, polygon, star or line, the tool switches to Select and leaves the new shape selected. When off, the tool stays active so you can draw another.',
 
   // ---- Appearance -----------------------------------------------------------------
   'prefs.theme': 'Theme',
@@ -51,6 +53,25 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.grid': 'Canvas grid',
   'prefs.grid.auto': 'Automatic (based on zoom)',
   'prefs.grid.hint': 'With a fixed size, the minor grid is that size and the major grid is ten times larger; when zoomed far out it is hidden so the view does not get cluttered.',
+  'prefs.gridContrast': 'Grid contrast',
+  'prefs.gridContrast.low': 'Soft',
+  'prefs.gridContrast.normal': 'Standard',
+  'prefs.gridContrast.high': 'High',
+  'prefs.gridContrast.hint': 'How strongly the grid lines show over the bed. Raise it if you cannot see the grid well on your screen or with the light theme.',
+  'prefs.dock.title': 'Window layout',
+  'prefs.dock.hint': 'Panels dock to the left or right edge, or float over the canvas. You can also adjust it from the panel\'s customize button.',
+  'prefs.dock.resetLayout': 'Reset layout',
+  'prefs.dock.resetDone': 'Layout reset.',
+  'prefs.dock.panelSide': 'Tabbed panel',
+  'prefs.dock.toolsSide': 'Tools',
+  'prefs.dock.left': 'Left',
+  'prefs.dock.right': 'Right',
+  'prefs.dock.float': 'Pop out into a floating window',
+  'prefs.dock.dockBack': 'Dock back into the panel',
+  'prefs.dock.hintFloat': 'Double-click a tab to pop it out into a floating window.',
+  'prefs.dock.moveHint': 'Drag to move; arrow keys move, Shift+arrows resize; double-click to dock.',
+  'prefs.dock.resizeFloat': 'Resize the floating panel',
+  'prefs.cmd.resetLayout': 'Reset Layout',
 
   // ---- Files ---------------------------------------------------------------------
   'prefs.autosave': 'Save recovery copies automatically',
@@ -58,6 +79,13 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.autosave.hint': 'A copy is only saved when there are unsaved changes, and it is deleted when you save the project or close the application. If Tlaku closes unexpectedly, you are offered the chance to recover it on the next launch.',
   'prefs.recentMax': 'Recent files to remember',
   'prefs.recent.clear': 'Clear the recent files list',
+  'prefs.import.title': 'Importing files',
+  'prefs.importDpi': 'Default resolution',
+  'prefs.importDpi.hint': 'Resolution (dpi) used to import unitless SVGs and images when you do not pick another in the import dialog. 96 is the usual value in drawing programs.',
+  'prefs.importRemember': 'Remember the import dialog options',
+  'prefs.importRemember.hint': 'The "Import with options" dialog starts with what you chose last time (resolution, DXF unit, grouping and target layer). Scale and PDF page always start fresh.',
+  'prefs.importForget': 'Forget the remembered options',
+  'prefs.unit.dpi': 'dpi',
 
   // ---- field units -------------------------------------------------------
   'prefs.unit.deg': '°',

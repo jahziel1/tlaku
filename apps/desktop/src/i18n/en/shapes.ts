@@ -109,4 +109,7 @@ export const shapes: { [K in keyof typeof Source]?: string } = {
   'shapes.slots.preview': '{n} slots would change.',
   'shapes.slots.blocked': 'There are slots of that width, but the change would invert an edge.',
   'shapes.slots.nothing': 'No slots of {width} mm were found: pick one of the widths found or raise the tolerance.',
+  'shapes.history.unfillet': 'Revert fillet',
+  'shapes.msg.unfillet': 'Corner turned back into a point.',
+  'shapes.none.unfillet': 'There is no rounded corner to revert there. Only exact arcs (round or bite) can be reverted; a chamfer cannot be told apart from a straight side: use Undo.',
 };

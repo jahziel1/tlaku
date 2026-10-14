@@ -109,10 +109,18 @@ fn job_and_frame_lines_are_ready_to_stream() {
     let d = DeviceProfile::default();
     let lines = job_lines(&square_doc(), &d, &JobOptions::default(), None).unwrap();
     assert!(lines.iter().any(|l| l.starts_with("G1")));
-    let frame = frame_lines(&square_doc(), &d, &JobOptions::default(), 3000.0, None).unwrap();
+    let frame = frame_lines(
+        &square_doc(),
+        &d,
+        &JobOptions::default(),
+        3000.0,
+        None,
+        false,
+    )
+    .unwrap();
     assert!(frame.contains(&"G0 X10 Y10".to_string()), "{frame:?}");
     assert!(frame.iter().all(|l| !l.contains("S100")));
-    assert!(frame_lines(&square_doc(), &d, &JobOptions::default(), 0.0, None).is_err());
+    assert!(frame_lines(&square_doc(), &d, &JobOptions::default(), 0.0, None, false).is_err());
     // Una línea de inicio que no cabe en el búfer se rechaza antes de enviar.
     let mut small = d.clone();
     small.rx_buffer = 6;

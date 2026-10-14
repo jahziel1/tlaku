@@ -7,9 +7,11 @@ import { useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
 import { RESOLUTIONS } from './capture';
 import { AlignmentSection, ViewSection, useAlignmentEditor } from './AlignmentSection';
+import { AdjustSection } from './AdjustSection';
 import { CaptureSection } from './CaptureSection';
 import { CenterSection } from './CenterSection';
 import { HeadConfirm, HeadSection } from './HeadSection';
+import { NetworkUrlField, PresetsSection, SourceKindField } from './NetworkSection';
 import { clearLens, loadCameraSetup, updateCameraPrefs } from './actions';
 import { rateRms } from './coverage';
 import { heightStatus, maxShiftMm } from './height';
@@ -28,9 +30,11 @@ export function CameraPanel() {
   return (
     <div className="panel-scroll cam-panel">
       <SourceSection />
+      <PresetsSection />
       <ViewSection editor={editor} />
       <HeadConfirm />
       <BackdropSection />
+      <AdjustSection />
       <CaptureSection />
       <LensSection />
       <MarksSection />
@@ -51,11 +55,15 @@ function SourceSection() {
   const toggle = useCommand('camera.toggle');
   const resolution = prefs.width && prefs.height ? `${prefs.width}x${prefs.height}` : '';
   const known = devices.some((d) => d.id === prefs.device_id);
+  const network = prefs.source === 'network';
+  const detail = useStore((s) => s.cameraProblemDetail);
 
   return (
     <section className="section" aria-label={t('camera.source.title')}>
       <h3 className="panel-title">{t('camera.source.title')}</h3>
-      <div className="field-grid">
+      <SourceKindField />
+      {network && <NetworkUrlField />}
+      {!network && <div className="field-grid">
         <div className="field">
           <label className="field__label" htmlFor="cam-device">{t('camera.source.device')}</label>
           <select
@@ -86,7 +94,7 @@ function SourceSection() {
             {RESOLUTIONS.map((r) => <option key={r.width} value={`${r.width}x${r.height}`}>{r.width} × {r.height}</option>)}
           </select>
         </div>
-      </div>
+      </div>}
       <div className="row">
         <button type="button" className={`btn grow${status === 'off' ? ' btn--accent' : ''}`} onClick={toggle.run} disabled={status === 'starting'}>
           {status === 'off' ? <Camera size={14} aria-hidden="true" /> : <CameraOff size={14} aria-hidden="true" />}
@@ -95,6 +103,7 @@ function SourceSection() {
       </div>
       {status === 'live' && size && <p className="hint num">{t('camera.source.stream', { w: size[0], h: size[1] })}</p>}
       {problem && <p className="hint hint--danger" role="alert">{t(`camera.problem.${problem}` as I18nKey)}</p>}
+      {problem === 'network' && detail && <p className="hint hint--danger">{detail}</p>}
     </section>
   );
 }

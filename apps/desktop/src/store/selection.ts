@@ -9,9 +9,9 @@ function selectable(o: DesignObject, layers: Map<string, LayerSettings>): boolea
   return !o.hidden && !o.locked && (layers.get(o.layer.toLowerCase())?.visible ?? true);
 }
 
-export type ToolId = 'select' | 'nodes' | 'line' | 'rect' | 'ellipse' | 'polygon' | 'star' | 'text' | 'pan' | 'measure' | 'tabs' | 'start' | 'trim';
+export type ToolId = 'select' | 'nodes' | 'line' | 'rect' | 'ellipse' | 'polygon' | 'star' | 'text' | 'pan' | 'measure' | 'tabs' | 'start' | 'trim' | 'warp' | 'fillet';
 
-export const TOOL_IDS: readonly ToolId[] = ['select', 'nodes', 'line', 'rect', 'ellipse', 'polygon', 'star', 'text', 'pan', 'measure', 'tabs', 'start', 'trim'];
+export const TOOL_IDS: readonly ToolId[] = ['select', 'nodes', 'line', 'rect', 'ellipse', 'polygon', 'star', 'text', 'pan', 'measure', 'tabs', 'start', 'trim', 'warp', 'fillet'];
 
 /** Interruptores globales de transformación (para evitar accidentes): cada tipo se puede apagar. */
 export interface TransformAllow {

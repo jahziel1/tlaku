@@ -9,21 +9,13 @@
 use crate::engine::Head;
 use std::f64::consts::PI;
 use tlaku_core::Point;
-use tlaku_doc::{DeviceProfile, Document, JobOptions, Origin, RotaryKind};
+use tlaku_doc::{DeviceProfile, Document, JobOptions, RotaryKind};
 use tlaku_grbl::frame::frame_hull_gcode;
 
-/// Pasa un punto del documento (origen abajo a la izquierda) a la esquina de origen de la cama.
+/// Pasa un punto del documento (origen abajo a la izquierda) a las coordenadas de la máquina:
+/// esquina de origen de la cama e intercambio X/Y del perfil (igual que el G-code del trabajo).
 fn to_machine(p: Point, device: &DeviceProfile) -> Point {
-    let (flip_x, flip_y) = match device.origin {
-        Origin::BottomLeft => (false, false),
-        Origin::TopLeft => (false, true),
-        Origin::BottomRight => (true, false),
-        Origin::TopRight => (true, true),
-    };
-    Point::new(
-        if flip_x { device.bed[0] - p.x } else { p.x },
-        if flip_y { device.bed[1] - p.y } else { p.y },
-    )
+    tlaku_pipeline::doc_to_machine(p, device)
 }
 
 /// mm de la controladora por mm de superficie en Y (1 sin rotativo). Un rotativo mal
@@ -41,13 +33,16 @@ fn y_scale(device: &DeviceProfile) -> f64 {
     if k.is_finite() && k > 0.0 { k } else { 1.0 }
 }
 
-/// G-code del encuadre del casco convexo del trabajo (láser apagado), listo para transmitir.
+/// G-code del encuadre del casco convexo del trabajo (láser apagado), listo para transmitir. Con
+/// `pointer`, es el puntero rojo el que recorre el casco (la cabeza va desfasada
+/// `DeviceProfile::pointer_offset`) y falla si eso la saca del área de la máquina.
 pub fn hull_lines(
     doc: &Document,
     device: &DeviceProfile,
     options: &JobOptions,
     speed: f64,
     head: Head,
+    pointer: bool,
 ) -> Result<Vec<String>, String> {
     if !(speed.is_finite() && speed > 0.0) {
         return Err("La velocidad del encuadre debe ser mayor que 0.".into());
@@ -69,6 +64,31 @@ pub fn hull_lines(
         });
         for p in &mut points {
             p.y = lo + hi - p.y;
+        }
+    }
+    if pointer {
+        let shift = tlaku_pipeline::pointer_shift(device);
+        let k = y_scale(device);
+        let (w, h) = if tlaku_pipeline::swap_active(device) {
+            (device.bed[1], device.bed[0])
+        } else {
+            (device.bed[0], device.bed[1])
+        };
+        for p in &mut points {
+            p.x -= shift.x;
+            p.y -= shift.y;
+        }
+        let eps = 1e-6;
+        if points
+            .iter()
+            .any(|p| p.x < -eps || p.y < -eps || p.x > w + eps || p.y > h / k + eps)
+        {
+            return Err(format!(
+                "El encuadre con el puntero rojo se sale del área de la máquina '{}': con el \
+                 desfase del puntero ({} mm, {} mm) la cabeza tendría que salir de la cama. \
+                 Acerca el diseño al centro o usa el encuadre con el láser.",
+                device.name, device.pointer_offset[0], device.pointer_offset[1]
+            ));
         }
     }
     let lines = frame_hull_gcode(&points, speed, y_scale(device));
@@ -153,7 +173,7 @@ mod tests {
     use tlaku_core::bezpath::BezPath;
     use tlaku_core::{Polyline, Rgb};
     use tlaku_doc::affine::IDENTITY;
-    use tlaku_doc::{DesignObject, LayerSettings, ObjectKind, VectorObject};
+    use tlaku_doc::{DesignObject, LayerSettings, ObjectKind, Origin, VectorObject};
 
     /// Un documento con un triángulo rectángulo cerrado en la capa roja.
     fn triangle_doc() -> Document {
@@ -197,7 +217,15 @@ mod tests {
     #[test]
     fn hull_frame_follows_the_triangle_not_the_rectangle() {
         let d = DeviceProfile::default();
-        let g = hull_lines(&triangle_doc(), &d, &JobOptions::default(), 3000.0, None).unwrap();
+        let g = hull_lines(
+            &triangle_doc(),
+            &d,
+            &JobOptions::default(),
+            3000.0,
+            None,
+            false,
+        )
+        .unwrap();
         assert_eq!(g.first().map(String::as_str), Some("G90"));
         assert!(visits(&g, "10", "10"), "{g:?}");
         assert!(visits(&g, "50", "10"), "{g:?}");
@@ -214,7 +242,15 @@ mod tests {
             bed: [100.0, 80.0],
             ..DeviceProfile::default()
         };
-        let g = hull_lines(&triangle_doc(), &d, &JobOptions::default(), 3000.0, None).unwrap();
+        let g = hull_lines(
+            &triangle_doc(),
+            &d,
+            &JobOptions::default(),
+            3000.0,
+            None,
+            false,
+        )
+        .unwrap();
         // (10,10) del documento es (90,70) en una máquina con el cero arriba a la derecha.
         assert!(visits(&g, "90", "70"), "{g:?}");
         assert!(visits(&g, "50", "70"), "{g:?}");
@@ -222,16 +258,40 @@ mod tests {
     }
 
     #[test]
+    fn hull_frame_with_the_red_pointer_moves_the_head_by_its_offset() {
+        let d = DeviceProfile {
+            bed: [100.0, 80.0],
+            pointer_offset: [4.0, 2.0],
+            ..DeviceProfile::default()
+        };
+        let o = JobOptions::default();
+        // El puntero cae 4 mm a la derecha y 2 arriba del rayo: para que pase por (10, 10) la
+        // cabeza va a (6, 8). Sin `pointer` el recorrido es el del rayo.
+        let g = hull_lines(&triangle_doc(), &d, &o, 3000.0, None, true).unwrap();
+        assert!(visits(&g, "6", "8"), "{g:?}");
+        assert!(visits(&g, "46", "8"), "{g:?}");
+        let beam = hull_lines(&triangle_doc(), &d, &o, 3000.0, None, false).unwrap();
+        assert!(visits(&beam, "10", "10"), "{beam:?}");
+        // Si el puntero obliga a salirse de la cama, falla en vez de provocar ALARM:2.
+        let edge = DeviceProfile {
+            pointer_offset: [15.0, 0.0],
+            ..d
+        };
+        let e = hull_lines(&triangle_doc(), &edge, &o, 3000.0, None, true).unwrap_err();
+        assert!(e.contains("puntero rojo"), "{e}");
+    }
+
+    #[test]
     fn hull_frame_rejects_bad_speed_empty_jobs_and_designs_outside_the_bed() {
         let d = DeviceProfile::default();
         let o = JobOptions::default();
-        assert!(hull_lines(&triangle_doc(), &d, &o, 0.0, None).is_err());
-        assert!(hull_lines(&Document::default(), &d, &o, 1000.0, None).is_err());
+        assert!(hull_lines(&triangle_doc(), &d, &o, 0.0, None, false).is_err());
+        assert!(hull_lines(&Document::default(), &d, &o, 1000.0, None, false).is_err());
         let small = DeviceProfile {
             bed: [20.0, 20.0],
             ..DeviceProfile::default()
         };
-        let e = hull_lines(&triangle_doc(), &small, &o, 1000.0, None).unwrap_err();
+        let e = hull_lines(&triangle_doc(), &small, &o, 1000.0, None, false).unwrap_err();
         assert!(e.contains("se sale del área de trabajo"), "{e}");
     }
 

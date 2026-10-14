@@ -23,6 +23,35 @@ pub fn export_pdf(
     selection: Option<&[String]>,
     opts: &PdfOptions,
 ) -> Result<Export, String> {
+    render(doc, selection, opts, false)
+}
+
+/// Exporta un `.ai`: el mismo dibujo vectorial a escala 1:1, pero como PDF 1.5 con una capa
+/// (grupo de contenido opcional) por color de capa de Tlaku, que es como Illustrator guarda sus
+/// capas dentro de un PDF. Illustrator abre cualquier PDF aunque lleve la extensión `.ai`; este
+/// archivo **no** trae los datos privados de Illustrator (`PieceInfo`), así que lo abre como un
+/// PDF con sus capas y no como un documento nativo: no conserva ajustes propios de Illustrator
+/// (mesas de trabajo múltiples, símbolos, efectos...). Para un `.ai` nativo hay que guardar el
+/// resultado desde Illustrator.
+pub fn export_ai(
+    doc: &Document,
+    selection: Option<&[String]>,
+    opts: &PdfOptions,
+) -> Result<Export, String> {
+    let mut out = render(doc, selection, opts, true)?;
+    out.warnings.push(
+        "El .ai es un PDF con capas: Illustrator lo abre y conserva las capas y los colores, pero          no es un documento nativo de Illustrator."
+            .into(),
+    );
+    Ok(out)
+}
+
+fn render(
+    doc: &Document,
+    selection: Option<&[String]>,
+    opts: &PdfOptions,
+    ai: bool,
+) -> Result<Export, String> {
     let mut scene = Scene::collect(doc, selection)?;
     let mut warnings = std::mem::take(&mut scene.warnings);
     let page = page_for(&scene, opts, &mut warnings);
@@ -36,6 +65,7 @@ pub fn export_pdf(
     content.push_str("1 J 1 j\n");
     content.push_str(&format!("{} w\n", num(stroke * K)));
     let mut images: Vec<Vec<u8>> = Vec::new(); // objetos de imagen ya escritos
+    let mut layer_names: Vec<String> = Vec::new(); // capas del .ai (grupos de contenido opcional)
     let to_pt = |p: Point| format!("{} {}", num((p.x - page.x0) * K), num((p.y - page.y0) * K));
     for color in scene.layer_colors.clone() {
         let fills = opts.fill_layers && scene.fills(color);
@@ -45,6 +75,14 @@ pub fn export_pdf(
             f64::from(color.2) / 255.0,
         );
         let mut colored = false;
+        if ai {
+            content.push_str(&format!("/OC /Lyr{} BDC\n", layer_names.len()));
+            layer_names.push(
+                scene
+                    .layer_name(color)
+                    .map_or_else(|| color.to_string(), str::to_string),
+            );
+        }
         for it in scene.in_layer(color) {
             if let Some(img) = it.image {
                 if !opts.images {
@@ -87,12 +125,15 @@ pub fn export_pdf(
                 content.push_str(if fills { "B*\n" } else { "S\n" });
             }
         }
+        if ai {
+            content.push_str("EMC\n");
+        }
     }
     if !opts.images && scene.items.iter().any(|i| i.image.is_some()) {
         warnings.push("Las imágenes no se incluyeron en el PDF (opción desactivada).".into());
     }
 
-    let bytes = write_pdf(&page, &content, &images);
+    let bytes = write_pdf(&page, &content, &images, &layer_names, ai);
     Ok(Export {
         bytes,
         size_mm: [page.w, page.h],
@@ -225,8 +266,29 @@ fn image_object(path: &str) -> Result<Vec<u8>, String> {
     Ok(obj)
 }
 
-fn write_pdf(page: &Page, content: &str, images: &[Vec<u8>]) -> Vec<u8> {
-    let mut out: Vec<u8> = b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".to_vec();
+/// Texto PDF en UTF-16BE con marca de orden (`<FEFF...>`), que admite cualquier carácter.
+fn pdf_text(s: &str) -> String {
+    let mut out = String::from("<FEFF");
+    for u in s.encode_utf16() {
+        out.push_str(&format!("{u:04X}"));
+    }
+    out.push('>');
+    out
+}
+
+fn write_pdf(
+    page: &Page,
+    content: &str,
+    images: &[Vec<u8>],
+    layers: &[String],
+    ai: bool,
+) -> Vec<u8> {
+    // Los grupos de contenido opcional (capas) existen desde PDF 1.5.
+    let mut out: Vec<u8> = if ai {
+        b"%PDF-1.5\n%\xE2\xE3\xCF\xD3\n".to_vec()
+    } else {
+        b"%PDF-1.4\n%\xE2\xE3\xCF\xD3\n".to_vec()
+    };
     let mut offsets: Vec<usize> = Vec::new();
     let mut add = |out: &mut Vec<u8>, body: &[u8]| {
         offsets.push(out.len());
@@ -236,16 +298,36 @@ fn write_pdf(page: &Page, content: &str, images: &[Vec<u8>]) -> Vec<u8> {
         out.extend(b"\nendobj\n");
     };
     let first_image = 6;
+    let first_layer = first_image + images.len();
     let xobjects: String = (0..images.len())
         .map(|i| format!("/Im{i} {} 0 R ", first_image + i))
         .collect();
-    add(&mut out, b"<< /Type /Catalog /Pages 2 0 R >>");
+    let refs: String = (0..layers.len())
+        .map(|i| format!("{} 0 R ", first_layer + i))
+        .collect();
+    let properties: String = (0..layers.len())
+        .map(|i| format!("/Lyr{i} {} 0 R ", first_layer + i))
+        .collect();
+    let catalog = if layers.is_empty() {
+        "<< /Type /Catalog /Pages 2 0 R >>".to_string()
+    } else {
+        format!(
+            "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [{refs}] \
+             /D << /Order [{refs}] /ON [{refs}] >> >> >>"
+        )
+    };
+    add(&mut out, catalog.as_bytes());
     add(&mut out, b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+    let props = if layers.is_empty() {
+        String::new()
+    } else {
+        format!("/Properties << {properties}>> ")
+    };
     add(
         &mut out,
         format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Contents 4 0 R \
-             /Resources << /XObject << {xobjects}>> >> >>",
+             /Resources << {props}/XObject << {xobjects}>> >> >>",
             num(page.w * K),
             num(page.h * K)
         )
@@ -260,9 +342,15 @@ fn write_pdf(page: &Page, content: &str, images: &[Vec<u8>]) -> Vec<u8> {
     stream.extend(data);
     stream.extend(b"\nendstream");
     add(&mut out, &stream);
-    add(&mut out, b"<< /Producer (Tlaku) >>");
+    add(&mut out, b"<< /Producer (Tlaku) /Creator (Tlaku) >>");
     for img in images {
         add(&mut out, img);
+    }
+    for name in layers {
+        add(
+            &mut out,
+            format!("<< /Type /OCG /Name {} >>", pdf_text(name)).as_bytes(),
+        );
     }
     let xref = out.len();
     out.extend(format!("xref\n0 {}\n0000000000 65535 f \n", offsets.len() + 1).as_bytes());

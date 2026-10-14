@@ -3,6 +3,7 @@
 use crate::job::LayerReport;
 use crate::layers::ResolvedImage;
 use crate::place::PlacedImage;
+use crate::registration::warp_outline;
 use crate::scan_offset;
 use crate::zaxis::LayerZ;
 use std::path::Path;
@@ -31,7 +32,9 @@ impl Builder<'_> {
         // Con incremento de ángulo la pasada `k` barre a `angle + k * incremento`: el bitmap es
         // el mismo, pero el recorrido cambia en cada pasada.
         let varied = angle_increment != 0.0 && r.passes > 1;
-        let (w, h) = img.size_mm;
+        // Con giro (Print & Cut) la imagen se carga a su tamaño original y se vuelve a muestrear
+        // sobre la caja que ocupa ya girada.
+        let (w, h) = img.warp.as_ref().map_or(img.size_mm, |wp| wp.src_size);
         let opts = ProcessOptions {
             adjust: r.adjust,
             sampling: Sampling::Interval(r.interval_mm),
@@ -48,8 +51,28 @@ impl Builder<'_> {
         )
         .map_err(|e| format!("{}: {e}", img.source_path))?;
         let gray = flipped(gray, img.mirror_x, img.mirror_y);
-        let mut bitmap =
-            tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?;
+        let mut bitmap = if let Some(wp) = &img.warp {
+            let (bw, bh) = img.size_mm;
+            let (cols, rows) = tlaku_raster::resample::grid_size(bw, bh, opts.sampling)?;
+            // Lo de fuera de la imagen es blanco y además se recorta con su contorno.
+            let turned = tlaku_raster::warp::warp_affine(
+                &gray,
+                [wp.src_origin.x, wp.src_origin.y],
+                [w, h],
+                &wp.transform,
+                [img.origin.x, img.origin.y],
+                [bw, bh],
+                cols,
+                rows,
+                1.0,
+            )?;
+            let mut b = tlaku_raster::process(&turned, bw, bh, &opts)
+                .map_err(|e| format!("imagen: {e}"))?;
+            tlaku_raster::apply_mask(&mut b, img.origin, &[warp_outline(wp)]);
+            b
+        } else {
+            tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?
+        };
         // Máscara de recorte: lo que queda fuera de las formas no se graba.
         tlaku_raster::apply_mask(&mut bitmap, img.origin, &img.mask);
         let mut blocks = Vec::new();

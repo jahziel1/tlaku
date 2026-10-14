@@ -34,7 +34,7 @@ use tlaku_core::Point;
 use tlaku_core::toolpath::Toolpath;
 use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, DeviceProfile, JobEvent, JobState, LogDir,
-    LogEvent, MachineState, Origin, ProgressEvent, StatusReport,
+    MachineState, Origin, ProgressEvent, StatusReport,
 };
 use tlaku_lhymicro::emu::{EmuConfig, emulator};
 use tlaku_lhymicro::encode::{EncodeConfig, HomeCorner, Program, Warning, encode, mil_to_mm};

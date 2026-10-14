@@ -4,11 +4,11 @@ import { t } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { acceptRegistration, resetRegistration } from './actions';
-import { computeRegistration } from './flow';
 import { usePrintCut, type PrintCutStep } from './printcutStore';
 import { StepCapture } from './StepCapture';
 import { marksBlockedReason, StepMarks, useMarksMoved } from './StepMarks';
 import { StepResult } from './StepResult';
+import { useRegistration } from './useRegistration';
 import { closestPair, MIN_MARK_DISTANCE_MM } from './marks';
 import './printcut.css';
 
@@ -60,8 +60,8 @@ export function PrintCutPanel() {
   const spread = closestPair(marks.map((m) => m.point));
   const blockedMarks = marksBlockedReason(marks.length, spread, moved);
   const allMeasured = marks.length > 0 && physical.length >= marks.length && physical.every((p) => p !== null);
-  const result = step === 'result' ? computeRegistration(marks, physical, mode) : null;
-  const canAccept = result?.ok === true && !moved;
+  const registration = useRegistration(step === 'result' ? marks : [], physical, mode);
+  const canAccept = registration.status === 'ready' && registration.result.ok && !moved;
 
   const next = () => {
     if (step === 'marks' && !blockedMarks) patch({ step: 'capture', current: 0 });
@@ -89,7 +89,7 @@ export function PrintCutPanel() {
       <div className="pc-body">
         {step === 'marks' && <StepMarks />}
         {step === 'capture' && <StepCapture />}
-        {step === 'result' && <StepResult />}
+        {step === 'result' && <StepResult state={registration} />}
       </div>
       <footer className="pc-foot">
         {nextBlocked && step !== 'result' && marks.length > 0 && (
@@ -110,7 +110,9 @@ export function PrintCutPanel() {
             className="btn btn--accent"
             aria-disabled={!canAccept}
             onClick={() => {
-              if (acceptRegistration()) close();
+              void acceptRegistration().then((ok) => {
+                if (ok) close();
+              });
             }}
           >
             {t('printcut.accept')}

@@ -122,16 +122,42 @@ fn prepare(req: &DesignRequest) -> Result<Prepared, String> {
     })
 }
 
-/// Importa el diseño y arma el `Toolpath` capa por capa, en el orden pedido
-/// (`--layer-order`, `order=N`). No verifica la cama: eso lo hace `check_bounds`.
-pub fn build(req: &DesignRequest) -> Result<ComputedJob, String> {
-    let Prepared { doc, before, after } = prepare(req)?;
-    let options = JobOptions {
+fn job_options(req: &DesignRequest) -> JobOptions {
+    JobOptions {
         layer_order: req.layer_order.into(),
         optimization: req.optimization.clone(),
         ..JobOptions::default()
-    };
-    let mut job = tlaku_pipeline::build(&doc, &req.device(), &options, None)?;
+    }
+}
+
+/// El documento que describen los argumentos, listo para calcularlo por piezas (`compute_at` con
+/// un `JobOptions::tile`), con las opciones del trabajo y las advertencias de la importación.
+pub struct Designed {
+    pub doc: Document,
+    pub options: JobOptions,
+    pub warnings: Vec<String>,
+}
+
+pub fn design(req: &DesignRequest) -> Result<Designed, String> {
+    let Prepared { doc, before, after } = prepare(req)?;
+    Ok(Designed {
+        doc,
+        options: job_options(req),
+        warnings: before.into_iter().chain(after).collect(),
+    })
+}
+
+/// Importa el diseño y arma el `Toolpath` capa por capa, en el orden pedido
+/// (`--layer-order`, `order=N`). No verifica la cama: eso lo hace `check_bounds`.
+pub fn build(req: &DesignRequest) -> Result<ComputedJob, String> {
+    build_for(req, &req.device())
+}
+
+/// Como [`build`] pero con la máquina que se indica (por ejemplo, un perfil galvo con corrección
+/// de cilindro u overscan, que el pipeline aplica según `DeviceProfile::kind`).
+pub fn build_for(req: &DesignRequest, device: &DeviceProfile) -> Result<ComputedJob, String> {
+    let Prepared { doc, before, after } = prepare(req)?;
+    let mut job = tlaku_pipeline::build(&doc, device, &job_options(req), None)?;
     let mut warnings = before;
     warnings.append(&mut job.preview.warnings);
     warnings.extend(after);

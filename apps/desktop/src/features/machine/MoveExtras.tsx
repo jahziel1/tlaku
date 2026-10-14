@@ -2,6 +2,7 @@ import { Check, MousePointerClick, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
+import { hasPointerOffset } from '@/lib/device';
 import { fmt } from '@/lib/platform';
 import { selectActiveDevice, useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
@@ -113,12 +114,22 @@ export function FinishPositionControls() {
 export function PositionLaserButton() {
   const cmd = useCommand('machine.positionLaser');
   const on = useStore((s) => s.positioningLaser);
+  // Con un desfase del puntero rojo en el perfil, el clic puede llevar el puntero (no el rayo) al punto.
+  const pointerOffset = useStore((s) => hasPointerOffset(selectActiveDevice(s)));
+  const atPointer = useStore((s) => s.positionAtPointer);
+  const setAtPointer = useStore((s) => s.setPositionAtPointer);
   return (
     <>
       <button type="button" className={on ? 'btn btn--accent' : 'btn'} aria-pressed={on} disabled={!cmd.enabled && !on} title={cmd.tooltip} onClick={cmd.run}>
         <MousePointerClick size={14} aria-hidden="true" />{cmd.label}
       </button>
       {on && <p className="hint" role="status">{t('machine.position.active')}</p>}
+      {pointerOffset && (
+        <label className="mc-check" title={t('machine.position.pointer.help')}>
+          <input type="checkbox" checked={atPointer} onChange={(e) => setAtPointer(e.target.checked)} />
+          <span>{t('machine.position.pointer')}</span>
+        </label>
+      )}
     </>
   );
 }

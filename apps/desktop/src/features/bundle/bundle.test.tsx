@@ -62,7 +62,7 @@ describe('textos', () => {
 });
 
 describe('buildUserBundle', () => {
-  it('lleva el sobre, las tres secciones y la máquina activa', () => {
+  it('lleva el sobre, las secciones y la máquina activa', () => {
     const now = new Date('2026-01-02T03:04:05.000Z');
     const b = buildUserBundle(source({ library: sampleMaterialLibrary() }), { app: '0.1.0', now });
     expect(b).toMatchObject({ format: 'tlaku-bundle', version: 1, created: '2026-01-02T03:04:05.000Z', app: '0.1.0' });
@@ -246,7 +246,7 @@ describe('ida y vuelta contra el mock', () => {
     useMaterials.setState({ library: emptyLibrary(), loaded: true });
     const plan = planImport(b, await currentState());
     const before = useStore.getState().prefs.snapPx;
-    const result = await applyImport(plan, { devices: false, materials: true, prefs: false });
+    const result = await applyImport(plan, { ...allSections(false), materials: true });
     expect(result.devices).toBeNull();
     expect(result.prefs).toBeNull();
     expect(result.materials!.added).toBeGreaterThan(0);
@@ -280,7 +280,7 @@ describe('ida y vuelta contra el mock', () => {
     const base = createMockApi({ latencyMs: 0 });
     setApi({ ...base, loadMaterialLibrary: () => Promise.reject(new Error('rota')) });
     useMaterials.setState({ library: emptyLibrary(), loaded: false, loadError: null });
-    const result = await applyImport(plan, { devices: false, materials: true, prefs: false });
+    const result = await applyImport(plan, { ...allSections(false), materials: true });
     expect(result.materials).toBeNull();
     expect(useMaterials.getState().library.presets).toHaveLength(0);
     expect(useStore.getState().notices.some((n) => n.level === 'error')).toBe(true);
@@ -290,7 +290,7 @@ describe('ida y vuelta contra el mock', () => {
 describe('diálogo', () => {
   it('la exportación pinta una casilla por sección con su detalle', () => {
     const html = renderToString(<ExportBody choice={allSections()} onChange={() => {}} counts={{ devices: 3, materials: 7 }} />);
-    expect((html.match(/type="checkbox"/g) ?? []).length).toBe(3);
+    expect((html.match(/type="checkbox"/g) ?? []).length).toBe(5);
     expect(html).toContain('Máquinas');
     expect(html).toContain('Materiales');
     expect(html).toContain('Preferencias y atajos');
@@ -313,7 +313,7 @@ describe('diálogo', () => {
     } as UserBundle;
     bundle.devices = [...bundle.devices!, { id: 'roto', name: 'Roto', bed: [0, 0] } as never];
     const plan = planImport(bundle, current({ devices: [a!] }));
-    const html = renderToString(<ImportPreview plan={plan} choice={{ devices: true, materials: false, prefs: true }} onChange={() => {}} />);
+    const html = renderToString(<ImportPreview plan={plan} choice={{ ...allSections(false), devices: true, prefs: true }} onChange={() => {}} />);
     expect(html).toContain('1 nuevas');
     expect(html).toContain('Se reemplazarán: Cambiada');
     expect(html).toContain('1 perfiles descartados');
@@ -326,9 +326,9 @@ describe('diálogo', () => {
     const prefsOnly = buildUserBundle(source(), { sections: { devices: false, materials: false, prefs: true } });
     const plan = planImport(prefsOnly, current());
     const html = renderToString(<ImportPreview plan={plan} choice={allSections()} onChange={() => {}} />);
-    expect((html.match(/disabled=""/g) ?? []).length).toBe(2);
+    expect((html.match(/disabled=""/g) ?? []).length).toBe(4);
     expect(html).toContain('no incluye esta sección');
-    expect(applicableSections(plan, allSections())).toEqual({ devices: false, materials: false, prefs: true });
+    expect(applicableSections(plan, allSections())).toEqual({ ...allSections(false), prefs: true });
   });
 
   it('los comandos abren el diálogo en su modo', async () => {

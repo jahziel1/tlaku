@@ -1,7 +1,7 @@
-import type { DeviceProfile, Document, JobOptions, Point, StartFrom } from '@/api/types';
+import type { Document, JobOptions, Point, StartFrom } from '@/api/types';
 import { unionBounds, type Bounds } from '@/lib/geometry';
 import { objectBoundsWithCopies } from '@/lib/virtualArray';
-import { workToDoc } from '@/lib/device';
+import { workToDoc, type DeviceFrame } from '@/lib/device';
 
 /**
  * Dónde quedará el trabajo respecto a la cama y al cabezal. Es la respuesta a la queja del foro
@@ -34,7 +34,7 @@ export interface PlacementInput {
   userOrigin: Point | null;
   /** Posición actual del cabezal, en posición de trabajo de la máquina; null si no se conoce. */
   head: Point | null;
-  device: Pick<DeviceProfile, 'bed' | 'origin'>;
+  device: DeviceFrame;
   /** Rectángulo envolvente de lo que se envía (sin overscan); null si no hay nada. */
   design: Bounds | null;
   /**

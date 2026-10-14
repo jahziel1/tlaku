@@ -807,3 +807,151 @@ fn pdf_ida_y_vuelta_con_el_importador_de_pdf() {
         assert_close(bounds_of(&got), want, 2e-3);
     }
 }
+
+// ---------------------------------------------------------------------------
+// AI
+// ---------------------------------------------------------------------------
+
+fn ai_options() -> PdfOptions {
+    PdfOptions {
+        margin_mm: 0.0,
+        ..PdfOptions::default()
+    }
+}
+
+#[test]
+fn ai_es_un_pdf_1_5_con_una_capa_por_color() {
+    let doc = sample();
+    let out = export_ai(&doc, None, &ai_options()).unwrap();
+    assert!(out.bytes.starts_with(b"%PDF-1.5"));
+    assert!(
+        out.warnings
+            .iter()
+            .any(|w| w.contains("no es un documento nativo"))
+    );
+    let (pdf, ops, _) = parse_pdf(&out.bytes);
+    // Un grupo de contenido opcional por color de capa, con el nombre de la capa.
+    let catalog = pdf.catalog().unwrap();
+    let props = catalog.get(b"OCProperties").unwrap().as_dict().unwrap();
+    let groups = props.get(b"OCGs").unwrap().as_array().unwrap();
+    assert_eq!(groups.len(), 2);
+    let names: Vec<Vec<u8>> = groups
+        .iter()
+        .map(|g| {
+            let id = g.as_reference().unwrap();
+            let d = pdf.get_dictionary(id).unwrap();
+            assert_eq!(d.get(b"Type").unwrap().as_name().unwrap(), b"OCG");
+            d.get(b"Name").unwrap().as_str().unwrap().to_vec()
+        })
+        .collect();
+    let utf16 = |s: &str| -> Vec<u8> {
+        let mut v = vec![0xFE, 0xFF];
+        for u in s.encode_utf16() {
+            v.extend(u.to_be_bytes());
+        }
+        v
+    };
+    let layer_names: Vec<String> = doc
+        .layers
+        .iter()
+        .filter(|l| [RED, BLUE].contains(&l.color))
+        .map(|l| l.name.clone())
+        .collect();
+    assert_eq!(layer_names.len(), 2);
+    for n in &layer_names {
+        assert!(names.contains(&utf16(n)), "{n}");
+    }
+    // Cada capa envuelve su dibujo entre BDC y EMC, y los trazos son los mismos del PDF.
+    let count = |name: &str| ops.iter().filter(|o| o.operator == name).count();
+    assert_eq!(count("BDC"), 2);
+    assert_eq!(count("EMC"), 2);
+    assert_eq!(count("S"), 3);
+    assert_eq!(count("RG"), 2);
+}
+
+#[test]
+fn ai_ida_y_vuelta_con_el_importador() {
+    let doc = sample();
+    let out = export_ai(&doc, None, &ai_options()).unwrap();
+    let path = std::env::temp_dir().join(format!("tlaku-export-{}-ida.ai", std::process::id()));
+    std::fs::write(&path, &out.bytes).unwrap();
+    let imported = tlaku_pipeline::import_file(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    assert!(imported.warnings.is_empty(), "{:?}", imported.warnings);
+    let b = doc.bounds().unwrap();
+    for color in [RED, BLUE] {
+        let got: Vec<BezPath> = imported
+            .objects
+            .iter()
+            .filter(|o| o.layer == color)
+            .flat_map(|o| o.curves())
+            .collect();
+        let want = bounds_of(&doc_layer_paths(&doc, color));
+        let want = (
+            want.0 - b.min.x,
+            want.1 - b.min.y,
+            want.2 - b.min.x,
+            want.3 - b.min.y,
+        );
+        assert_close(bounds_of(&got), want, 2e-3);
+    }
+}
+
+#[test]
+fn ai_sin_capas_con_dibujo_o_vacio_es_error() {
+    assert!(export_ai(&Document::default(), None, &PdfOptions::default()).is_err());
+}
+
+/// Con los `.ai` reales del corpus (un enlace local, no está en git): importar, exportar como
+/// `.ai`, volver a importar y comprobar que el dibujo ocupa lo mismo. Sin el corpus no hace nada.
+#[test]
+fn ai_ida_y_vuelta_con_el_corpus_local() {
+    let dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/corpus-downloaded/ai");
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return;
+    };
+    let mut checked = 0;
+    for e in entries.flatten() {
+        let path = e.path();
+        if path.extension().and_then(|x| x.to_str()) != Some("ai") {
+            continue;
+        }
+        let Ok(first) = tlaku_pipeline::import_file(&path) else {
+            continue;
+        };
+        let doc = Document {
+            objects: first.objects,
+            layers: first.new_layers,
+            ..Document::default()
+        };
+        let Some(b0) = doc.bounds() else { continue };
+        let out = export_ai(&doc, None, &ai_options()).unwrap();
+        let copy = std::env::temp_dir().join(format!(
+            "tlaku-ai-corpus-{}-{}",
+            std::process::id(),
+            path.file_name().unwrap().to_string_lossy()
+        ));
+        std::fs::write(&copy, &out.bytes).unwrap();
+        let second = tlaku_pipeline::import_file(&copy).unwrap();
+        std::fs::remove_file(&copy).unwrap();
+        let again = Document {
+            objects: second.objects,
+            layers: second.new_layers,
+            ..Document::default()
+        };
+        let b1 = again.bounds().expect("el .ai exportado dibuja algo");
+        let (w0, h0) = (b0.max.x - b0.min.x, b0.max.y - b0.min.y);
+        let (w1, h1) = (b1.max.x - b1.min.x, b1.max.y - b1.min.y);
+        assert!(
+            (w0 - w1).abs() <= 0.01 * w0.max(1.0),
+            "{path:?}: {w0} contra {w1}"
+        );
+        assert!(
+            (h0 - h1).abs() <= 0.01 * h0.max(1.0),
+            "{path:?}: {h0} contra {h1}"
+        );
+        checked += 1;
+    }
+    println!("{checked} archivos .ai del corpus comprobados");
+}

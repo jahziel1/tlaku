@@ -25,12 +25,22 @@ const DEFAULT_WARP_TOLERANCE_MM: f64 = 0.01;
 type EdgeArg = [[f64; 2]; 4];
 
 /// Envolvente del contrato (ver `tlaku_geom::Envelope`).
+///
+/// Con `grid` la deformación es una malla de 4x4 puntos (`tlaku_geom::Warp::mesh`) y con
+/// `perspective`, una proyección de cuatro esquinas (`Warp::perspective`); en ambos casos los
+/// cuatro bordes se ignoran. Si vienen las dos, manda la malla.
 #[derive(Debug, Clone, Deserialize)]
 pub struct EnvelopeArg {
     pub bottom: EdgeArg,
     pub top: EdgeArg,
     pub left: EdgeArg,
     pub right: EdgeArg,
+    /// `grid[j][i]`: imagen del punto `(i/3, j/3)` de la región de origen (`j` sube).
+    #[serde(default)]
+    pub grid: Option<[[[f64; 2]; 4]; 4]>,
+    /// Esquinas de destino: abajo-izquierda, abajo-derecha, arriba-derecha, arriba-izquierda.
+    #[serde(default)]
+    pub perspective: Option<[[f64; 2]; 4]>,
 }
 
 fn edge(e: EdgeArg) -> [Point; 4] {
@@ -54,6 +64,31 @@ fn vector_object(source: &DesignObject, paths: Vec<BezPath>) -> DesignObject {
         manual_tabs: Vec::new(),
         ..source.clone()
     }
+}
+
+fn make_warp(source: Bounds, envelope: &EnvelopeArg) -> Result<Warp, String> {
+    let point = |[x, y]: [f64; 2]| Point::new(x, y);
+    let empty = || "La selección no tiene ancho y alto: no se puede deformar.".to_string();
+    let (w, h) = (source.max.x - source.min.x, source.max.y - source.min.y);
+    if !(w.is_finite() && h.is_finite() && w > 1e-9 && h > 1e-9) {
+        return Err(empty());
+    }
+    if let Some(grid) = envelope.grid {
+        return Warp::mesh(source, grid.map(|row| row.map(point)))
+            .ok_or_else(|| "La malla de deformación tiene puntos que no son números.".to_string());
+    }
+    if let Some(corners) = envelope.perspective {
+        return Warp::perspective(source, corners.map(point)).ok_or_else(|| {
+            "Las esquinas de la perspectiva no forman un cuadrilátero convexo.".to_string()
+        });
+    }
+    let env = Envelope {
+        bottom: edge(envelope.bottom),
+        top: edge(envelope.top),
+        left: edge(envelope.left),
+        right: edge(envelope.right),
+    };
+    Warp::new(source, env).ok_or_else(empty)
 }
 
 /// Núcleo de `warp_objects` (sin Tauri).
@@ -85,14 +120,7 @@ pub fn warp(
         min: Point::new(bounds[0][0], bounds[0][1]),
         max: Point::new(bounds[1][0], bounds[1][1]),
     };
-    let env = Envelope {
-        bottom: edge(envelope.bottom),
-        top: edge(envelope.top),
-        left: edge(envelope.left),
-        right: edge(envelope.right),
-    };
-    let warp = Warp::new(source, env)
-        .ok_or("La selección no tiene ancho y alto: no se puede deformar.")?;
+    let warp = make_warp(source, envelope)?;
     let mut out = Vec::with_capacity(objects.len());
     for o in objects {
         let curves = o.curves();
@@ -259,6 +287,8 @@ mod tests {
             top: line([x0, y1], [x1, y1]),
             left: line([x0, y0], [x0, y1]),
             right: line([x1, y0], [x1, y1]),
+            grid: None,
+            perspective: None,
         }
     }
 
@@ -285,6 +315,55 @@ mod tests {
         let top: Vec<_> = polys[0].points.iter().filter(|p| p.y > 9.99).collect();
         assert!(top.iter().all(|p| p.x >= 5.0 - 1e-6 && p.x <= 15.0 + 1e-6));
         assert!(top.iter().any(|p| (p.x - 5.0).abs() < 1e-6));
+    }
+
+    #[test]
+    fn warp_with_a_mesh_moves_the_inner_points() {
+        let b = [[0.0, 0.0], [30.0, 30.0]];
+        let mut grid = [[[0.0; 2]; 4]; 4];
+        for (j, row) in grid.iter_mut().enumerate() {
+            for (i, p) in row.iter_mut().enumerate() {
+                *p = [10.0 * i as f64, 10.0 * j as f64];
+            }
+        }
+        let mut env = identity(b);
+        env.grid = Some(grid);
+        // Malla uniforme: la identidad.
+        let same = warp(&[rect("a", 5.0, 5.0, 25.0, 25.0)], b, &env, None).unwrap();
+        let bb = same[0].bounds().unwrap();
+        assert!(bb.min.dist(pt(5.0, 5.0)) < 1e-6 && bb.max.dist(pt(25.0, 25.0)) < 1e-6);
+        // Subir el punto (1, 1) 6 mm deforma el objeto y lo hace determinista.
+        grid[1][1][1] += 6.0;
+        env.grid = Some(grid);
+        let a = warp(&[rect("a", 5.0, 5.0, 25.0, 25.0)], b, &env, None).unwrap();
+        let c = warp(&[rect("a", 5.0, 5.0, 25.0, 25.0)], b, &env, None).unwrap();
+        assert_eq!(a, c);
+        assert_ne!(a, same);
+        // Con malla se ignoran los bordes; con valores no finitos hay un error en español.
+        grid[0][0][0] = f64::NAN;
+        env.grid = Some(grid);
+        let e = warp(&[rect("a", 5.0, 5.0, 25.0, 25.0)], b, &env, None).unwrap_err();
+        assert!(e.contains("malla"), "{e}");
+    }
+
+    #[test]
+    fn warp_with_perspective_uses_the_four_corners() {
+        let b = [[0.0, 0.0], [20.0, 10.0]];
+        let mut env = identity(b);
+        env.perspective = Some([[0.0, 0.0], [20.0, 0.0], [15.0, 10.0], [5.0, 10.0]]);
+        let out = warp(&[rect("a", 0.0, 0.0, 20.0, 10.0)], b, &env, None).unwrap();
+        let bb = out[0].bounds().unwrap();
+        assert!(bb.min.dist(pt(0.0, 0.0)) < 1e-6 && bb.max.dist(pt(20.0, 10.0)) < 1e-6);
+        let top: Vec<_> = out[0].polylines()[0]
+            .points
+            .iter()
+            .filter(|p| p.y > 9.99)
+            .cloned()
+            .collect();
+        assert!(top.iter().all(|p| p.x >= 5.0 - 1e-6 && p.x <= 15.0 + 1e-6));
+        env.perspective = Some([[0.0, 0.0], [20.0, 0.0], [2.0, 2.0], [0.0, 10.0]]);
+        let e = warp(&[rect("a", 0.0, 0.0, 20.0, 10.0)], b, &env, None).unwrap_err();
+        assert!(e.contains("convexo"), "{e}");
     }
 
     #[test]

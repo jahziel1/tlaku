@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Point } from '@/api/types';
+import type { Point, WarpGrid } from '@/api/types';
 import { concaveHull } from './concaveHull';
 import { convexHull } from './hull';
-import { identityEnvelope, makeWarp } from './warp';
+import { homography, identityEnvelope, identityGrid, lagrange4, makeWarp } from './warp';
 import type { Bounds } from './geometry';
 
 const box: Bounds = [[0, 0], [20, 10]];
@@ -62,5 +62,57 @@ describe('casco cóncavo (motor simulado)', () => {
     expect(concaveHull(c, 1e6)).toEqual(convexHull(c));
     expect(concaveHull(c, 0)).toEqual(convexHull(c));
     expect(concaveHull(c, Number.NaN)).toEqual(convexHull(c));
+  });
+});
+
+describe('malla de 4x4 puntos', () => {
+  const sq: Bounds = [[0, 0], [30, 30]];
+
+  it('los pesos de Lagrange valen 1 en su nodo, 0 en los demás y suman 1', () => {
+    [0, 1 / 3, 2 / 3, 1].forEach((t, k) => lagrange4(t).forEach((w, i) => expect(w).toBeCloseTo(i === k ? 1 : 0, 12)));
+    expect(lagrange4(0.37).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 12);
+  });
+
+  it('la malla uniforme es la identidad', () => {
+    const warp = makeWarp(sq, { ...identityEnvelope(sq), grid: identityGrid(sq) })!;
+    for (const p of [[0, 0], [30, 30], [7, 21], [13.3, 4.4]] as Point[]) near(warp(p), p);
+  });
+
+  it('la superficie pasa por cada punto de la malla', () => {
+    const grid = identityGrid(sq);
+    grid[1]![1] = [8, 14];
+    grid[2]![1] = [12, 22];
+    grid[0]![3] = [33, -4];
+    const warp = makeWarp(sq, { ...identityEnvelope(sq), grid })!;
+    grid.forEach((row, j) => row.forEach((target, i) => near(warp([10 * i, 10 * j]), target)));
+  });
+
+  it('es determinista', () => {
+    const grid: WarpGrid = identityGrid(sq);
+    grid[2]![2] = [17, 25];
+    const a = makeWarp(sq, { ...identityEnvelope(sq), grid })!;
+    const b = makeWarp(sq, { ...identityEnvelope(sq), grid })!;
+    expect(a([11.1, 22.2])).toEqual(b([11.1, 22.2]));
+  });
+});
+
+describe('perspectiva de cuatro esquinas', () => {
+  const rect: Bounds = [[0, 0], [20, 10]];
+  const quad: [Point, Point, Point, Point] = [[0, 0], [20, 0], [15, 10], [5, 10]];
+
+  it('lleva cada esquina a la suya y conserva las rectas', () => {
+    const warp = makeWarp(rect, { ...identityEnvelope(rect), perspective: quad })!;
+    near(warp([0, 0]), quad[0]);
+    near(warp([20, 0]), quad[1]);
+    near(warp([20, 10]), quad[2]);
+    near(warp([0, 10]), quad[3]);
+    const [a, m, c] = [warp([2, 1]), warp([9, 4]), warp([16, 7])];
+    expect((m[0] - a[0]) * (c[1] - a[1]) - (m[1] - a[1]) * (c[0] - a[0])).toBeCloseTo(0, 9);
+  });
+
+  it('un cuadrilátero cóncavo o degenerado no define proyección', () => {
+    expect(homography([[0, 0], [10, 0], [2, 2], [0, 10]])).toBeNull();
+    expect(homography([[0, 0], [5, 0], [10, 0], [15, 0]])).toBeNull();
+    expect(makeWarp(rect, { ...identityEnvelope(rect), perspective: [[0, 0], [10, 0], [2, 2], [0, 10]] })).toBeNull();
   });
 });

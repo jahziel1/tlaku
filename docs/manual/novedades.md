@@ -2,6 +2,14 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Imágenes, Print & Cut y alimentador, en la próxima versión
+
+- **Presets de imagen** (Foto en madera, Logo de alto contraste y más) que aplican brillo, contraste, gamma, realce y quitar motas de una vez, y los tuyos con **Guardar como…**. Mira [Imágenes](06-imagenes.md).
+- **Vista previa de la imagen**: ve el resultado tramado de una imagen antes de calcular el trabajo, entera o a tamaño real con zoom.
+- **Las imágenes giran con el registro de Print & Cut.**
+- **Repetir un trabajo con el alimentador**: N repeticiones con el avance del alimentador entre una y otra, desde el diálogo de inicio. Mira [Tiling y alimentador](09d-tiling-y-alimentador.md). Solo con máquinas GRBL; el alimentador propio de una controladora DSP sigue sin estar.
+- **Límite:** nada de esto se ha probado con una máquina real.
+
 ## Modo sencillo, materiales de fábrica y control desde el celular, en la próxima versión
 
 Sexta tanda: Tlaku se vuelve más fácil para quien empieza, trae ajustes de partida para los materiales más comunes y deja vigilar un trabajo desde el celular. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, con pruebas automáticas y con un celular simulado.
@@ -35,7 +43,7 @@ Quinta gran tanda: lo que más se pedía para trabajos de producción, y un prim
 
 - **Cortar justo sobre lo impreso.** Un asistente de tres pasos (**Máquina > Print & Cut…**): agrega marcas de registro de 2 a 4 (cruces o círculos) en las esquinas del diseño, imprímelas a tamaño real y mide dónde quedaron, **con el láser** (las flechas y «Guardar posición») **o con la cámara** (un clic en la imagen alineada).
 - **Ajuste sin escala, de escala uniforme o afín**, con el error de cada marca a la vista antes de aceptar y avisos si la impresión salió escalada, espejada o estirada distinto en cada eje. La vista previa, el encuadre y el trabajo salen movidos según el registro. Mira [Print & Cut](09c-print-and-cut.md).
-- **Límite:** las imágenes se mueven y se escalan con el registro, pero **no giran** (se avisa).
+- Las imágenes **giran** con el registro, igual que los vectores.
 
 ### Tiling y alimentador automático
 
@@ -54,7 +62,6 @@ Quinta gran tanda: lo que más se pedía para trabajos de producción, y un prim
 ### Lo que sigue sin estar
 
 - Probar todo con hardware real, y la prueba mínima del galvo con una tarjeta sin fuente.
-- El galvo en la app, y repetir un trabajo con avance del alimentador.
 - Autoenfoque, y el ajuste de U por capa.
 
 ## Máquinas, en la próxima versión

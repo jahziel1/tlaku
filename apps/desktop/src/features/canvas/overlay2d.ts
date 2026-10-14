@@ -191,6 +191,18 @@ export function drawDraft(ctx: CanvasRenderingContext2D, { view, overlay, palett
       }
     }
   }
+  if (d.grips) {
+    // Agarraderas: cuadros llenos con el color de selección; la resaltada, más grande.
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = p.workspace;
+    d.grips.forEach((pt, i) => {
+      const [gx, gy] = worldToScreen(view, pt);
+      const half = i === d.hotGrip ? 6 : 4.5;
+      ctx.fillStyle = i === d.hotGrip ? p.selection : p.workspace;
+      ctx.fillRect(gx - half, gy - half, half * 2, half * 2);
+      ctx.strokeRect(gx - half, gy - half, half * 2, half * 2);
+    });
+  }
   if (d.handles) {
     // Manijas de Bézier: una línea fina del nodo a la manija y un punto en su extremo.
     ctx.lineWidth = 1;

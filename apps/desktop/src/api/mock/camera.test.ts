@@ -179,3 +179,70 @@ describe('mock de marcas grabadas y altura', () => {
     await api.saveCameraSetup({ setup: blank });
   });
 });
+
+describe('mock de cámara: red, configuraciones y ajuste', () => {
+  const api = createMockApi({ latencyMs: 0 });
+  const preset = (name: string, over: Record<string, unknown> = {}) => ({
+    name,
+    source: 'network' as const,
+    device_id: null,
+    device_label: null,
+    width: 0,
+    height: null,
+    network_url: ' http://192.168.1.20/snap.jpg ',
+    dpm: Number.NaN,
+    offset_x_mm: 5000,
+    offset_y_mm: -2,
+    grayscale: false,
+    ...over,
+  });
+
+  it('valida la fuente y el ajuste como el motor al guardar', async () => {
+    const blank = await api.loadCameraSetup();
+    const saved = await api.saveCameraSetup({
+      setup: {
+        ...blank,
+        prefs: { ...blank.prefs, source: 'network', network_url: '  http://u:p@192.168.1.20/s.jpg ', dpm: -4, offset_x_mm: 1e9, offset_y_mm: Number.NaN },
+        presets: [preset('Taller'), preset(' taller '), preset('Otra')],
+      },
+    });
+    expect(saved.prefs).toMatchObject({ source: 'network', network_url: 'http://u:p@192.168.1.20/s.jpg', dpm: null, offset_x_mm: 1000, offset_y_mm: 0 });
+    expect(saved.presets!.map((p) => p.name)).toEqual(['taller', 'Otra']);
+    expect(saved.presets![0]).toMatchObject({ width: null, dpm: null, offset_x_mm: 1000, network_url: 'http://192.168.1.20/snap.jpg' });
+    await expect(api.saveCameraSetup({ setup: { ...blank, prefs: { ...blank.prefs, network_url: 'ftp://x/' } } })).rejects.toThrow('http://');
+    await expect(api.saveCameraSetup({ setup: { ...blank, presets: [preset('  ')] } })).rejects.toThrow('nombre');
+    await expect(api.saveCameraSetup({ setup: { ...blank, presets: Array.from({ length: 33 }, (_, i) => preset(`p${i}`)) } })).rejects.toThrow('32');
+    await api.saveCameraSetup({ setup: blank });
+  });
+
+  it('pide el cuadro con fetch, manda las credenciales como Basic y no las deja en la dirección', async () => {
+    const seen: { url: string; auth: string | null }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: { headers?: Record<string, string> }) => {
+      seen.push({ url, auth: init?.headers?.Authorization ?? null });
+      return new Response(new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' }));
+    }) as unknown as typeof fetch;
+    // FileReader no existe en node: una versión mínima.
+    const realReader = globalThis.FileReader;
+    globalThis.FileReader = class {
+      result: string | null = null;
+      onload: (() => void) | null = null;
+      readAsDataURL() {
+        this.result = 'data:image/jpeg;base64,/9j/';
+        queueMicrotask(() => this.onload?.());
+      }
+    } as unknown as typeof FileReader;
+    try {
+      const frame = await api.fetchCameraFrame({ url: 'http://ana:s%40cr@192.168.1.20:8080/snap.jpg?ch=1' });
+      expect(frame).toEqual({ mime: 'image/jpeg', data_base64: '/9j/' });
+      expect(seen[0]!.url).toBe('http://192.168.1.20:8080/snap.jpg?ch=1');
+      expect(seen[0]!.url).not.toContain('ana');
+      expect(seen[0]!.auth).toBe(`Basic ${btoa('ana:s@cr')}`);
+      await expect(api.fetchCameraFrame({ url: 'https://192.168.1.20/' })).rejects.toThrow('http://');
+      await expect(api.fetchCameraFrame({ url: 'no es una url' })).rejects.toThrow('no es válida');
+    } finally {
+      globalThis.fetch = real;
+      globalThis.FileReader = realReader;
+    }
+  });
+});

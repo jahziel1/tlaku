@@ -12,6 +12,7 @@ import type { RotarySettings } from "./RotarySettings";
 import type { RuidaSettings } from "./RuidaSettings";
 import type { SavedPosition } from "./SavedPosition";
 import type { ScanOffset } from "./ScanOffset";
+import type { SpeedUnit } from "./SpeedUnit";
 
 /**
  * Perfil de una máquina. Se deserializa con [`DeviceProfileRepr`]: si falta `dialect` se usa
@@ -86,4 +87,47 @@ positions: Array<SavedPosition>,
  * Segundo láser o eje U (máquinas que los tengan); solo habilitan las opciones de la
  * interfaz y del driver que los usan.
  */
-laser2: boolean, u_axis: boolean, ruida: RuidaSettings, lhymicro: LhyMicroSettings, galvo: GalvoDevice, feeder: FeederSettings, };
+laser2: boolean, u_axis: boolean, ruida: RuidaSettings, lhymicro: LhyMicroSettings, galvo: GalvoDevice, feeder: FeederSettings, 
+/**
+ * Perfil que se activa al abrir la app (solo uno debería tenerlo; si hay varios gana el
+ * primero de la lista).
+ */
+is_default: boolean, 
+/**
+ * Ícono del perfil en la lista (nombre de un juego fijo de la interfaz); vacío = el del tipo.
+ */
+icon: string, 
+/**
+ * Desfase `[x, y]` en mm entre el puntero rojo y el rayo, en el sistema del documento: el
+ * puntero cae en `rayo + desfase`. Lo usan el encuadre con puntero y «ir al puntero».
+ */
+pointer_offset: [number, number], 
+/**
+ * Unidad con la que se muestran las velocidades (no cambia lo que se guarda ni el G-code).
+ */
+speed_unit: SpeedUnit, 
+/**
+ * Los ejes de la máquina están cruzados: su X recorre el eje Y del documento y su Y el X.
+ * La salida de G-code y el encuadre intercambian X e Y; `bed` sigue en orientación de
+ * documento. No se combina con el rotativo (se ignora y se avisa).
+ */
+swap_xy: boolean, 
+/**
+ * Al conectar, pedir confirmación y hacer homing (`$H`).
+ */
+home_on_connect: boolean, 
+/**
+ * Abrir el puerto serie sin subir DTR para que la placa no se reinicie (si el sistema y la
+ * biblioteca serie lo permiten; en Linux el controlador lo sube siempre).
+ */
+no_dtr_reset: boolean, 
+/**
+ * Envío síncrono: una línea por `ok` en vez de conteo de caracteres. Más lento; sirve con
+ * placas que pierden bytes con el búfer lleno.
+ */
+sync_streaming: boolean, 
+/**
+ * Con `u_axis`: mm que se mueve el eje U al empezar cada trabajo (y que vuelve a deshacer al
+ * terminar). 0 = no se mueve.
+ */
+u_offset: number, };

@@ -10,10 +10,16 @@
 import type { HeadCalibration } from '@/api/types';
 import { solveLinear, type Mat3, type Quad, type Vec2 } from './geometry';
 
-/** Una medición: la marca vista en el píxel `px` con el láser en `laser`. */
+/**
+ * Una medición: la marca vista en el píxel `px` con el láser en `laser`. Con `mark` la observación
+ * trae su propia marca (calibración automática con varias marcas en una foto); sin él vale la
+ * marca única que se pasa al ajuste.
+ */
 export interface HeadObservation {
   laser: Vec2;
   px: Vec2;
+  /** Posición conocida de esta marca (mm de documento). */
+  mark?: Vec2;
 }
 
 /** Punto de la cama (mm) que ve el píxel `p` con el láser en `laser`. */
@@ -77,12 +83,13 @@ export interface HeadFit {
  */
 export function fitHeadCalibration(
   obs: readonly HeadObservation[],
-  mark: Vec2,
+  mark: Vec2 | null,
   imageSize: Vec2,
   refPx: Vec2 = [imageSize[0] / 2, imageSize[1] / 2],
 ): HeadFit | { error: HeadFitError } {
   if (obs.length < 3) return { error: 'tooFew' };
-  if (obs.some((o) => [...o.laser, ...o.px].some((v) => !Number.isFinite(v))) || mark.some((v) => !Number.isFinite(v))) {
+  const markOf = (o: HeadObservation): Vec2 | null => o.mark ?? mark;
+  if (obs.some((o) => [...o.laser, ...o.px, ...(markOf(o) ?? [NaN])].some((v) => !Number.isFinite(v)))) {
     return { error: 'invalid' };
   }
   // Ecuaciones normales de [dx dy 1]·[a b off]ᵀ = mark - L, una vez por eje (misma matriz).
@@ -92,7 +99,7 @@ export function fitHeadCalibration(
   const solve = (axis: 0 | 1): number[] | null => {
     const atb = [0, 0, 0];
     rows.forEach((r, k) => {
-      const y = mark[axis] - obs[k]!.laser[axis];
+      const y = markOf(obs[k]!)![axis] - obs[k]!.laser[axis];
       for (let i = 0; i < 3; i++) atb[i]! += r[i]! * y;
     });
     return solveLinear(ata.map((r) => [...r]), atb);
@@ -106,8 +113,9 @@ export function fitHeadCalibration(
   if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return { error: 'collinear' };
   let sq = 0;
   rows.forEach((r, k) => {
-    const ex = r[0]! * sx[0]! + r[1]! * sx[1]! + sx[2]! - (mark[0] - obs[k]!.laser[0]);
-    const ey = r[0]! * sy[0]! + r[1]! * sy[1]! + sy[2]! - (mark[1] - obs[k]!.laser[1]);
+    const m = markOf(obs[k]!)!;
+    const ex = r[0]! * sx[0]! + r[1]! * sx[1]! + sx[2]! - (m[0] - obs[k]!.laser[0]);
+    const ey = r[0]! * sy[0]! + r[1]! * sy[1]! + sy[2]! - (m[1] - obs[k]!.laser[1]);
     sq += ex * ex + ey * ey;
   });
   return {

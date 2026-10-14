@@ -36,8 +36,8 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | Archivo | Comandos |
 |---|---|
 | [documento.md](documento.md) | (sin tabla de comandos; ver el texto del archivo) |
-| [conexion-y-trabajo.md](conexion-y-trabajo.md) | `import_file`, `compute_job`, `export_gcode`, `save_project`, `load_project`, `list_devices`, `save_device`, `delete_device`, `list_ports`, `connect`, `disconnect`, `machine_command`, `machine_realtime`, `jog`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `frame_job` |
-| [edicion.md](edicion.md) | `list_fonts`, `text_outline`, `geometry_op`, `shape_op`, `review_design`, `trace_image`, `vectors_to_bitmap`, `save_processed_image`, `art_import_svg`, `art_list_user`, `art_add_user`, `art_remove_user`, `detect_board`, `calibrate_lens`, `load_camera_setup`, `save_camera_setup`, `save_board_file`, `camera_marks`, `detect_camera_marks` |
+| [conexion-y-trabajo.md](conexion-y-trabajo.md) | `import_file`, `compute_job`, `export_gcode`, `save_project`, `load_project`, `list_devices`, `save_device`, `delete_device`, `reorder_devices`, `job_link_warning`, `list_ports`, `connect`, `disconnect`, `machine_command`, `machine_realtime`, `jog`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `frame_job` |
+| [edicion.md](edicion.md) | `list_fonts`, `text_outline`, `geometry_op`, `shape_op`, `review_design`, `trace_image`, `vectors_to_bitmap`, `save_processed_image`, `preview_image`, `fit_registration`, `plan_tiles`, `art_import_svg`, `art_list_user`, `art_add_user`, `art_remove_user`, `art_save_user`, `detect_board`, `calibrate_lens`, `load_camera_setup`, `save_camera_setup`, `save_board_file`, `fetch_camera_frame`, `camera_marks`, `detect_camera_marks` |
 | [taller.md](taller.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [materiales.md](materiales.md) | `load_material_library`, `load_factory_materials`, `save_material_library`, `import_material_library`, `export_material_library`, `material_test` |
 | [maquinas.md](maquinas.md) | `device_defaults`, `rotary_test`, `probe_port`, `simulate_fault` |
@@ -47,4 +47,4 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | [k40.md](k40.md) | `lhy_preview`, `lhy_home`, `lhy_state` |
 | [automatizacion.md](automatizacion.md) | `PING`, `START`, `STATUS`, `STOP` |
 | [control-remoto.md](control-remoto.md) | `remote_configure`, `remote_status`, `remote_regenerate`, `remote_kick`, `remote_update`, `remote_set_route`, `remote_camera_frame`, `remote_start_result` |
-| [camara.md](camara.md) | `calibrate_lens`, `compose_bed_image`, `detect_circle_in_image` |
+| [camara.md](camara.md) | `calibrate_lens`, `compose_bed_image`, `detect_circle_in_image`, `fetch_camera_frame` |

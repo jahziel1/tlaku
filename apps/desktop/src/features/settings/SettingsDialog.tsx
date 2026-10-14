@@ -4,6 +4,7 @@ import { askChoice } from '@/features/history/prompt';
 import { useRecents } from '@/features/history/recent';
 import '@/features/history/history.css';
 import { t, type I18nKey } from '@/i18n';
+import { DEFAULT_DOCK_LAYOUT, setDockSide, setToolsSide, type DockSide } from '@/lib/dockLayout';
 import { formatLength } from '@/lib/units';
 import { usePref, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
@@ -72,6 +73,10 @@ function EditingPanel() {
           <PrefLength k="duplicateOffset" label="prefs.duplicateOffset" />
         </div>
       </Group>
+      <Group>
+        <PrefCheck k="returnToSelect" label="prefs.returnToSelect" />
+        <p className="hint">{t('prefs.returnToSelect.hint')}</p>
+      </Group>
     </>
   );
 }
@@ -99,8 +104,53 @@ function AppearancePanel() {
           <GridSelect value={String(grid)} options={gridOptions} onChange={(v) => setPref('gridMm', Number(v))} />
           <p className="hint">{t('prefs.grid.hint')}</p>
         </div>
+        <PrefSelect
+          k="gridContrast"
+          label="prefs.gridContrast"
+          hint={t('prefs.gridContrast.hint')}
+          options={[
+            { value: 'low', label: t('prefs.gridContrast.low') },
+            { value: 'normal', label: t('prefs.gridContrast.normal') },
+            { value: 'high', label: t('prefs.gridContrast.high') },
+          ]}
+        />
       </Group>
+      <LayoutGroup />
     </>
+  );
+}
+
+/** Borde del panel de pestañas y de las herramientas, y el botón para volver a la distribución de fábrica. */
+function LayoutGroup() {
+  const layout = usePref('dockLayout');
+  const setPref = useStore((s) => s.setPref);
+  const sides = [
+    { value: 'left', label: t('prefs.dock.left') },
+    { value: 'right', label: t('prefs.dock.right') },
+  ];
+  return (
+    <Group title="prefs.dock.title">
+      <div className="set-grid">
+        <SideSelect label="prefs.dock.panelSide" value={layout.side} options={sides} onChange={(side) => setPref('dockLayout', setDockSide(layout, side))} />
+        <SideSelect label="prefs.dock.toolsSide" value={layout.toolsSide} options={sides} onChange={(side) => setPref('dockLayout', setToolsSide(layout, side))} />
+      </div>
+      <p className="hint">{t('prefs.dock.hint')}</p>
+      <div>
+        <button type="button" className="btn" onClick={() => setPref('dockLayout', DEFAULT_DOCK_LAYOUT)}>{t('prefs.dock.resetLayout')}</button>
+      </div>
+    </Group>
+  );
+}
+
+function SideSelect({ label, value, options, onChange }: { label: I18nKey; value: DockSide; options: { value: string; label: string }[]; onChange: (v: DockSide) => void }) {
+  const id = useId();
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor={id}>{t(label)}</label>
+      <select id={id} className="select" value={value} onChange={(e) => onChange(e.target.value === 'left' ? 'left' : 'right')}>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
   );
 }
 
@@ -120,6 +170,8 @@ function FilesPanel() {
   const autosave = usePref('autosave');
   const clear = useRecents((s) => s.clear);
   const recent = useRecents((s) => s.paths.length);
+  const setPref = useStore((s) => s.setPref);
+  const remembered = usePref('importOptions') !== null;
   return (
     <>
       <Group>
@@ -135,6 +187,17 @@ function FilesPanel() {
         </div>
         <div>
           <button type="button" className="btn" disabled={recent === 0} onClick={clear}>{t('prefs.recent.clear')}</button>
+        </div>
+      </Group>
+      <Group title="prefs.import.title">
+        <div className="set-grid">
+          <PrefNumber k="importDpi" label="prefs.importDpi" unit="prefs.unit.dpi" />
+        </div>
+        <p className="hint">{t('prefs.importDpi.hint')}</p>
+        <PrefCheck k="importRemember" label="prefs.importRemember" />
+        <p className="hint">{t('prefs.importRemember.hint')}</p>
+        <div>
+          <button type="button" className="btn" disabled={!remembered} onClick={() => setPref('importOptions', null)}>{t('prefs.importForget')}</button>
         </div>
       </Group>
     </>

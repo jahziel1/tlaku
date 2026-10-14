@@ -145,7 +145,7 @@ impl Machine {
     fn jog_cancel_cmd(&mut self) {
         if self.state() == StateKind::Jog {
             self.jog_cancel = true;
-            self.planner.clear();
+            self.planner_clear();
         }
     }
 
@@ -310,7 +310,7 @@ impl Machine {
     // -----------------------------------------------------------------------
 
     pub(super) fn stop_motion(&mut self) {
-        self.planner.clear();
+        self.planner_clear();
         self.current = None;
         self.v = 0.0;
         self.hold = None;
@@ -349,7 +349,7 @@ impl Machine {
         self.in_flight = 0;
         self.line_ctx.bytes = 0;
         self.pending = None;
-        self.planner.clear();
+        self.planner_clear();
         self.current = None;
         self.v = 0.0;
         self.hold = None;
@@ -415,7 +415,7 @@ impl Machine {
                     self.gc = parsed.gc;
                     for a in parsed.actions {
                         match a {
-                            Action::Move(b) => self.planner.push_back(*b),
+                            Action::Move(b) => self.planner_push(*b),
                             Action::ApplySpindle(m, s) => self.exec_spindle = (m, s),
                             _ => {}
                         }

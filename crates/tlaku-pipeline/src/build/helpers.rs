@@ -33,6 +33,7 @@ pub(super) fn machine_profile(device: &DeviceProfile) -> Result<MachineProfile, 
         max_rate_mm_min: [device.max_rate[0], device.max_rate[1] / k],
         accel_mm_s2: [device.accel[0], device.accel[1] / k],
         rapid_rate_mm_min: device.rapid_rate,
+        stop_on_cut_change: !crate::gcode::plans_laser_moves_together(device),
         ..MachineProfile::default()
     })
 }

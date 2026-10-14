@@ -16,6 +16,7 @@ export function mockBundle(lag: Lag): Pick<LaserApi, 'exportUserBundle' | 'impor
     if (b.format !== 'tlaku-bundle') throw new Error('El archivo no es un paquete de Tlaku (.tlakubundle).');
     if (b.version !== 1) throw new Error(`Versión de paquete no soportada: ${String(b.version)} (esta aplicación entiende la 1).`);
     if (b.devices !== undefined && !Array.isArray(b.devices)) throw new Error('Paquete inválido: "devices" debe ser una lista.');
+    // Las secciones nuevas (cámaras, arte) las valida la interfaz; el motor solo pasa su contenido.
   };
 
   return {

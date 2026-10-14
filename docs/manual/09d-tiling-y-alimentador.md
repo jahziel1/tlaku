@@ -104,10 +104,21 @@ Con una sola columna, el flujo cambia:
 
 > **Antes de usarlo, prueba el avance.** Manda a mano un avance corto (por ejemplo `G91`, `G0 Y10`, `G90`) y comprueba **hacia dónde se mueve el material**. El material tiene que avanzar en el sentido que deja bajo el láser la parte siguiente del diseño. Si va al revés, cambia el signo en el G-code (`G0 Y-{mm}`). Tlaku no puede saber cómo está montado tu alimentador. También comprueba que las tres líneas dejan la máquina en modo absoluto (`G90`) al terminar.
 
+## Repetir un trabajo con el alimentador
+
+También sirve sin tiling: para grabar el mismo diseño varias veces sobre un rollo o una cinta, en el diálogo de inicio marca **Repetir el trabajo y avanzar el material entre repeticiones** (solo aparece con una máquina GRBL con el alimentador activado y válido en el perfil).
+
+1. Pon las **Repeticiones** (de 2 a 99) y el **Avance entre repeticiones**. Empieza con el avance del perfil; **Usar el alto del trabajo** lo iguala a la altura de tu diseño.
+2. Debajo ves el resumen con el G-code que se enviará entre una repetición y la siguiente.
+3. **Empezar las repeticiones** confirma **solo la primera**: las demás empiezan solas cuando el material terminó de avanzar y la máquina volvió a reposo. Un panel muestra cuántas van; **Detener** corta la que está grabando y no deja salir más.
+
+Si un avance o un trabajo falla, la tanda se detiene en ese punto y el panel dice por qué. Como con el tiling, **prueba antes el avance a mano** y no dejes la máquina sin vigilar.
+
 ## Lo que no hace (todavía)
 
 - No hay tiling desde la línea de comandos; es del asistente de la app.
-- El alimentador solo se usa dentro del tiling con los tramos en una columna. **No** repite un trabajo N veces con avance entre copias (como el *Feeder* de LightBurn con las controladoras Ruida y Trocen) ni usa el alimentador propio de una controladora DSP.
+- Con el tiling, el alimentador solo se usa con los tramos en una columna: el avance es de un solo eje, así que con varias columnas hay que recolocar el material a mano.
+- **No** usa el alimentador propio de una controladora DSP (Ruida, Trocen): no hay forma documentada de pedirle el avance, y mover un eje con comandos inventados no es seguro. Con Ruida y K40 la sección **Repetir con el alimentador** no aparece.
 - No parte formas enteras al elegir el borde del tramo: una forma que cruza el borde se corta en dos partes, una en cada tramo.
 - Nada de esto se ha probado con un alimentador real.
 

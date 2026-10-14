@@ -157,7 +157,12 @@ fn entry_speeds(segs: &[Lean], p: &MachineProfile) -> Vec<f64> {
     // jmax[k]: velocidad máxima de entrada del segmento k (unión con k-1).
     let mut jmax = vec![0.0; n + 1];
     for k in 1..n {
-        jmax[k] = junction_speed(&segs[k - 1], &segs[k], p.junction_deviation_mm);
+        jmax[k] = junction_speed(
+            &segs[k - 1],
+            &segs[k],
+            p.junction_deviation_mm,
+            p.stop_on_cut_change,
+        );
     }
 
     // Pasada hacia atrás con todo el programa visible.
@@ -282,8 +287,8 @@ fn flatten(
 }
 
 /// Velocidad máxima para pasar de `a` a `b` sin detenerse, por desviación de unión.
-fn junction_speed(a: &Lean, b: &Lean, deviation: f64) -> f64 {
-    if a.block != b.block || a.is_cut != b.is_cut || a.dwell || b.dwell {
+fn junction_speed(a: &Lean, b: &Lean, deviation: f64, stop_on_cut_change: bool) -> f64 {
+    if a.block != b.block || a.dwell || b.dwell || (a.is_cut != b.is_cut && stop_on_cut_change) {
         return 0.0;
     }
     let cap = a.vmax.min(b.vmax);

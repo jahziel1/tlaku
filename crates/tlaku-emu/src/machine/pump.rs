@@ -189,7 +189,7 @@ impl Machine {
                         break;
                     }
                     if let Some(Action::Move(b)) = p.actions.pop_front() {
-                        self.planner.push_back(*b);
+                        self.planner_push(*b);
                     }
                     progressed = true;
                     continue;

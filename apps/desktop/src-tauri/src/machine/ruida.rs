@@ -41,7 +41,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, DeviceProfile, JobEvent, JobState, LogDir,
-    LogEvent, MachineState, ProgressEvent, RuidaFile, RuidaInfo, StatusReport,
+    MachineState, ProgressEvent, RuidaFile, RuidaInfo, StatusReport,
 };
 use tlaku_ruida::emu::{EmuConfig, UdpEmulator};
 use tlaku_ruida::link::{PacketLink, UdpLink};

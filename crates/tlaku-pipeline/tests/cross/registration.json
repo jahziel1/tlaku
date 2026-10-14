@@ -1,0 +1,228 @@
+{
+  "description": "Casos comunes del ajuste de Print & Cut: los comprueban el motor (Rust) y la maqueta de la interfaz (TypeScript) con los mismos datos. Los esperados salen de la transformación con que se generaron las marcas.",
+  "tolerance": 1e-09,
+  "cases": [
+    {
+      "name": "traslación pura con 2 marcas",
+      "mode": "similarity",
+      "pairs": [{"design": [0, 0], "physical": [3, -2]}, {"design": [100, 0], "physical": [103, -2]}],
+      "expect": {
+        "ok": true,
+        "transform": [1, 0, 0, 1, 3, -2],
+        "rotationDeg": 0,
+        "scale": 1,
+        "residualMax": 0,
+        "warnings": []
+      }
+    },
+    {
+      "name": "giro, escala y traslación con 2 marcas",
+      "mode": "similarity",
+      "pairs": [
+        {"design": [5, 5], "physical": [14.91370371996582, 10.114290346899953]},
+        {"design": [155, 105], "physical": [163.32774845361112, 113.40303041956965]}
+      ],
+      "expect": {
+        "ok": true,
+        "transform": [1.0027994066865773, 0.02005866269341308, -0.02005866269341308, 1.0027994066865773, 10.0, 5.0],
+        "rotationDeg": 1.1459155902616465,
+        "scale": 1.003,
+        "residualMax": 0,
+        "warnings": []
+      }
+    },
+    {
+      "name": "rígido con 2 marcas reparte la diferencia",
+      "mode": "rigid",
+      "pairs": [{"design": [0, 0], "physical": [0, 0]}, {"design": [100, 0], "physical": [100.4, 0]}],
+      "expect": {
+        "ok": true,
+        "transform": [1, 0, 0, 1, 0.2, 0],
+        "rotationDeg": 0,
+        "scale": 1.004,
+        "residualMax": 0.2,
+        "warnings": [],
+        "residuals": [0.2, 0.2]
+      }
+    },
+    {
+      "name": "aviso de escala 1 %",
+      "mode": "similarity",
+      "pairs": [{"design": [0, 0], "physical": [0.0, 0.0]}, {"design": [200, 0], "physical": [202.0, 0.0]}],
+      "expect": {
+        "ok": true,
+        "transform": [1.01, 0, 0, 1.01, 0, 0],
+        "rotationDeg": 0,
+        "scale": 1.01,
+        "residualMax": 0,
+        "warnings": [{"kind": "scale"}]
+      }
+    },
+    {
+      "name": "aviso de escala 0,99 en rígido",
+      "mode": "rigid",
+      "pairs": [{"design": [0, 0], "physical": [0.0, 0.0]}, {"design": [200, 0], "physical": [198.0, 0.0]}],
+      "expect": {
+        "ok": true,
+        "scale": 0.99,
+        "warnings": [{"kind": "scale"}]
+      }
+    },
+    {
+      "name": "afín con sesgo y escalas distintas",
+      "mode": "affine",
+      "pairs": [
+        {"design": [0, 0], "physical": [7.0, -3.0]},
+        {"design": [200, 0], "physical": [207.4, -1.0]},
+        {"design": [0, 150], "physical": [6.4, 146.7]}
+      ],
+      "expect": {"ok": true, "transform": [1.002, 0.01, -0.004, 0.998, 7, -3], "residualMax": 0}
+    },
+    {
+      "name": "afín estirada en un eje",
+      "mode": "affine",
+      "pairs": [
+        {"design": [0, 0], "physical": [0.0, 0]},
+        {"design": [200, 0], "physical": [202.4, 0]},
+        {"design": [0, 150], "physical": [0.0, 150]}
+      ],
+      "expect": {
+        "ok": true,
+        "transform": [1.012, 0, 0, 1, 0, 0],
+        "rotationDeg": 0,
+        "residualMax": 0,
+        "warnings": [{"kind": "scale"}, {"kind": "anisotropy"}]
+      }
+    },
+    {
+      "name": "afín espejada",
+      "mode": "affine",
+      "pairs": [
+        {"design": [0, 0], "physical": [200, 0]},
+        {"design": [200, 0], "physical": [0, 0]},
+        {"design": [0, 150], "physical": [200, 150]}
+      ],
+      "expect": {
+        "ok": true,
+        "transform": [-1, 0, 0, 1, 200, 0],
+        "residualMax": 0,
+        "warnings": [{"kind": "mirrored"}]
+      }
+    },
+    {
+      "name": "similitud con 4 marcas",
+      "mode": "similarity",
+      "pairs": [
+        {"design": [0, 0], "physical": [12.0, -4.0]},
+        {"design": [300, 0], "physical": [311.96625063280777, -8.499831251898428]},
+        {"design": [300, 200], "physical": [314.9661381340734, 191.4776691699734]},
+        {"design": [0, 200], "physical": [14.999887501265619, 195.97750042187184]}
+      ],
+      "expect": {
+        "ok": true,
+        "transform": [0.9998875021093592, -0.01499943750632809, 0.01499943750632809, 0.9998875021093592, 12, -4],
+        "rotationDeg": -0.8594366926962348,
+        "scale": 1,
+        "residualMax": 0,
+        "warnings": []
+      }
+    },
+    {
+      "name": "una sola marca",
+      "mode": "similarity",
+      "pairs": [{"design": [0, 0], "physical": [1, 1]}],
+      "expect": {
+        "ok": false,
+        "error": {"kind": "few", "need": 2, "have": 1}
+      }
+    },
+    {
+      "name": "afín con 2 marcas",
+      "mode": "affine",
+      "pairs": [{"design": [0, 0], "physical": [0, 0]}, {"design": [50, 0], "physical": [50, 0]}],
+      "expect": {
+        "ok": false,
+        "error": {"kind": "few", "need": 3, "have": 2}
+      }
+    },
+    {
+      "name": "marcas pegadas en el diseño",
+      "mode": "similarity",
+      "pairs": [{"design": [0, 0], "physical": [0, 0]}, {"design": [0.2, 0], "physical": [50, 0]}],
+      "expect": {
+        "ok": false,
+        "error": {"kind": "close", "a": 1, "b": 2}
+      }
+    },
+    {
+      "name": "marcas pegadas en la cama",
+      "mode": "similarity",
+      "pairs": [{"design": [0, 0], "physical": [0, 0]}, {"design": [50, 0], "physical": [0.5, 0]}],
+      "expect": {
+        "ok": false,
+        "error": {"kind": "close", "a": 1, "b": 2}
+      }
+    },
+    {
+      "name": "tres marcas en línea con la afín",
+      "mode": "affine",
+      "pairs": [
+        {"design": [0, 0], "physical": [1, 1]},
+        {"design": [50, 0], "physical": [51, 1]},
+        {"design": [100, 0], "physical": [101, 1]}
+      ],
+      "expect": {
+        "ok": false,
+        "error": {"kind": "collinear"}
+      }
+    },
+    {
+      "name": "tres marcas en línea con la similitud",
+      "mode": "similarity",
+      "pairs": [
+        {"design": [0, 0], "physical": [1, 1]},
+        {"design": [50, 0], "physical": [51, 1]},
+        {"design": [100, 0], "physical": [101, 1]}
+      ],
+      "expect": {"ok": true, "transform": [1, 0, 0, 1, 1, 1], "rotationDeg": 0, "scale": 1, "residualMax": 0, "warnings": []}
+    }
+  ],
+  "choice": [
+    {
+      "name": "auto con 2 marcas",
+      "choice": "auto",
+      "design": [[0, 0], [50, 0]],
+      "expect": "similarity"
+    },
+    {
+      "name": "auto con 3 marcas",
+      "choice": "auto",
+      "design": [[0, 0], [50, 0], [0, 80]],
+      "expect": "affine"
+    },
+    {
+      "name": "auto con 3 marcas en línea",
+      "choice": "auto",
+      "design": [[0, 0], [50, 0], [100, 0]],
+      "expect": "similarity"
+    },
+    {
+      "name": "afín pedida con 2 marcas",
+      "choice": "affine",
+      "design": [[0, 0], [50, 0]],
+      "expect": "similarity"
+    },
+    {
+      "name": "afín pedida con 4 marcas",
+      "choice": "affine",
+      "design": [[0, 0], [50, 0], [50, 80], [0, 80]],
+      "expect": "affine"
+    },
+    {
+      "name": "rígido con 3 marcas",
+      "choice": "rigid",
+      "design": [[0, 0], [50, 0], [0, 80]],
+      "expect": "rigid"
+    }
+  ]
+}

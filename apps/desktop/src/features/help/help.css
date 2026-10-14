@@ -360,3 +360,39 @@ ol.md__list {
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* ---- registro de trabajos ----------------------------------------------------------------- */
+
+.joblog {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.joblog th,
+.joblog td {
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: baseline;
+}
+.joblog th {
+  color: var(--text-faint);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.joblog td.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.joblog__result {
+  font-weight: 600;
+}
+.joblog__result--finished {
+  color: var(--ok);
+}
+.joblog__result--cancelled {
+  color: var(--warn);
+}
+.joblog__result--error {
+  color: var(--danger);
+}

@@ -76,6 +76,7 @@ export const printcut: { [K in keyof typeof es]: string } = {
   'printcut.capture.missing': 'A mark is still not measured.',
 
   'printcut.result.incomplete': 'Some marks are still not measured.',
+  'printcut.result.computing': 'Working out the fit…',
   'printcut.result.good': 'The registration is good: the error is under {mm} mm.',
   'printcut.result.check': 'The mark error is low, but check the warnings before accepting.',
   'printcut.result.bad': 'The error is high (over {mm} mm). Check the saved positions or measure again.',

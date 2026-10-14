@@ -2,7 +2,7 @@ use crate::job::{ComputedJob, LayerReport};
 use crate::rotary;
 use tlaku_core::toolpath::{PowerMode, Toolpath};
 use tlaku_core::{Bounds, Point};
-use tlaku_doc::{DeviceProfile, Origin};
+use tlaku_doc::{DeviceKind, DeviceProfile, Origin};
 use tlaku_grbl::frame::frame_gcode_scaled;
 use tlaku_grbl::gcode::{GcodeOptions, generate_mapped};
 
@@ -20,6 +20,34 @@ pub(crate) fn point_to_machine(p: Point, bed: [f64; 2], origin: Origin) -> Point
         if flip_x { bed[0] - p.x } else { p.x },
         if flip_y { bed[1] - p.y } else { p.y },
     )
+}
+
+/// El intercambio X/Y del perfil está en uso. Con rotativo se ignora: su Y es el eje del
+/// accesorio y la escala de vueltas no tiene sentido sobre el eje cruzado (`dialect_warnings`
+/// avisa).
+pub fn swap_active(device: &DeviceProfile) -> bool {
+    device.swap_xy && !device.rotary.enabled
+}
+
+/// Pasa un punto del documento a las coordenadas de la máquina: cambio de origen y, con
+/// `swap_xy`, intercambio de X e Y (lo último, así `bed` sigue en orientación de documento).
+pub fn doc_to_machine(p: Point, device: &DeviceProfile) -> Point {
+    let q = point_to_machine(p, device.bed, device.origin);
+    if swap_active(device) {
+        Point::new(q.y, q.x)
+    } else {
+        q
+    }
+}
+
+/// Inversa de [`doc_to_machine`]: de las coordenadas de la máquina a las del documento.
+pub fn machine_to_doc(p: Point, device: &DeviceProfile) -> Point {
+    let q = if swap_active(device) {
+        Point::new(p.y, p.x)
+    } else {
+        p
+    };
+    point_to_machine(q, device.bed, device.origin)
 }
 
 fn script(text: &str) -> Option<String> {
@@ -52,7 +80,7 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
     };
     // Las coordenadas se pasan a las de la máquina al escribir cada punto, sin copiar el
     // trabajo (con una imagen grande son cientos de MB).
-    let to_machine = |p: Point| point_to_machine(p, device.bed, device.origin);
+    let to_machine = |p: Point| doc_to_machine(p, device);
     let mirror = if device.rotary.enabled && device.rotary.mirror {
         mirror_sum(toolpath, to_machine)
     } else {
@@ -78,6 +106,7 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
             rapid_feed: Some(device.rapid_rate),
             z_invert: device.z_invert,
             merge_tolerance_mm: tlaku_grbl::gcode::DEFAULT_MERGE_TOLERANCE_MM,
+            u_offset_mm: if device.u_axis { device.u_offset } else { 0.0 },
             // Sin segundo láser en el perfil todas las capas salen con el láser 1 (ver
             // `dialect_warnings`).
             block_laser2: if device.laser2 {
@@ -89,6 +118,19 @@ pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {
         Some(mode),
         &map,
     )
+}
+
+/// ¿La controladora planifica `G0` y `G1` seguidos sin detenerse al cambiar entre ellos? Es lo que
+/// hace GRBL (y sus derivados grblHAL, FluidNC y grbl-LPC) en modo láser, con `M4`: el rayo lo
+/// gobierna la `S` de cada línea y no hay sincronización entre un salto y un corte, así que la
+/// unión es una esquina más (desviación de unión). Con `M3` (sin `dynamic_on`) o en el resto de
+/// firmwares (Marlin, Smoothie, G-code propio) no hay evidencia de que se encadenen, y el
+/// estimado se detiene en cada cambio, que es lo conservador.
+pub(crate) fn plans_laser_moves_together(device: &DeviceProfile) -> bool {
+    matches!(
+        device.kind,
+        DeviceKind::Grbl | DeviceKind::GrblHal | DeviceKind::FluidNc | DeviceKind::GrblLpc
+    ) && device.dialect.dynamic_on.is_some()
 }
 
 /// Carga que el trabajo pone al enlace serie de `baud` baudios: líneas por segundo en su tramo más
@@ -106,6 +148,7 @@ pub fn link_load(
         max_rate_mm_min: [device.max_rate[0], device.max_rate[1] / k],
         accel_mm_s2: [device.accel[0], device.accel[1] / k],
         rapid_rate_mm_min: device.rapid_rate,
+        stop_on_cut_change: !plans_laser_moves_together(device),
         ..tlaku_sim::MachineProfile::default()
     };
     let compact = tlaku_grbl::gcode::compact_toolpath(
@@ -128,6 +171,13 @@ pub(crate) fn dialect_warnings(
     }
     let d = &device.dialect;
     let mut out = Vec::new();
+    if device.swap_xy && device.rotary.enabled {
+        out.push(format!(
+            "la máquina '{}' tiene el intercambio X/Y y el rotativo activos a la vez: el \
+             intercambio se ignora mientras el rotativo esté encendido",
+            device.name
+        ));
+    }
     if d.air_on.is_none() && toolpath.blocks.iter().any(|b| b.air_assist) {
         out.push(format!(
             "la máquina '{}' no tiene comando de aire en su dialecto de G-code: la asistencia de \
@@ -189,21 +239,85 @@ pub(crate) fn dialect_warnings(
 }
 
 /// G-code del encuadre del trabajo (rectángulo envolvente con overscan, láser apagado) en
-/// coordenadas de la máquina: aplica el mismo cambio de origen y la misma escala de Y del
-/// rotativo que [`gcode`].
+/// coordenadas de la máquina: aplica el mismo cambio de origen, el mismo intercambio X/Y y la
+/// misma escala de Y del rotativo que [`gcode`].
 pub fn frame_gcode(job: &ComputedJob, device: &DeviceProfile, speed_mm_min: f64) -> Vec<String> {
     let Some(b) = job.bounds() else {
         return Vec::new();
     };
-    let a = point_to_machine(b.min, device.bed, device.origin);
-    let c = point_to_machine(b.max, device.bed, device.origin);
-    let machine = Bounds {
-        min: Point::new(a.x.min(c.x), a.y.min(c.y)),
-        max: Point::new(a.x.max(c.x), a.y.max(c.y)),
-    };
     frame_gcode_scaled(
-        machine,
+        machine_bounds(b, device),
         speed_mm_min,
         rotary::y_scale(device).unwrap_or(1.0),
     )
+}
+
+/// Caja del documento en coordenadas de la máquina.
+fn machine_bounds(b: Bounds, device: &DeviceProfile) -> Bounds {
+    let a = doc_to_machine(b.min, device);
+    let c = doc_to_machine(b.max, device);
+    Bounds {
+        min: Point::new(a.x.min(c.x), a.y.min(c.y)),
+        max: Point::new(a.x.max(c.x), a.y.max(c.y)),
+    }
+}
+
+/// Desfase del puntero rojo respecto del rayo, en coordenadas de la máquina: el puntero cae en
+/// `rayo + pointer_shift`. El desfase del perfil está en el sistema del documento; aquí se pasa
+/// por los flips del origen y el intercambio X/Y. Para que el puntero pase por un punto, el
+/// rayo (la cabeza) va a ese punto menos este valor.
+pub fn pointer_shift(device: &DeviceProfile) -> Point {
+    let [ox, oy] = device.pointer_offset;
+    if !(ox.is_finite() && oy.is_finite()) {
+        return Point::new(0.0, 0.0);
+    }
+    let zero = doc_to_machine(Point::new(0.0, 0.0), device);
+    let off = doc_to_machine(Point::new(ox, oy), device);
+    Point::new(off.x - zero.x, off.y - zero.y)
+}
+
+/// Como [`frame_gcode`], pero para que sea el **puntero rojo** (no el rayo) el que recorra el
+/// rectángulo: la cabeza va desfasada `pointer_offset`. Falla si ese recorrido se sale del área
+/// de la máquina (los límites por software darían `ALARM:2`).
+pub fn frame_gcode_pointer(
+    job: &ComputedJob,
+    device: &DeviceProfile,
+    speed_mm_min: f64,
+) -> Result<Vec<String>, String> {
+    let Some(b) = job.bounds() else {
+        return Ok(Vec::new());
+    };
+    let shift = pointer_shift(device);
+    let m = machine_bounds(b, device);
+    let moved = Bounds {
+        min: Point::new(m.min.x - shift.x, m.min.y - shift.y),
+        max: Point::new(m.max.x - shift.x, m.max.y - shift.y),
+    };
+    let (w, h) = if swap_active(device) {
+        (device.bed[1], device.bed[0])
+    } else {
+        (device.bed[0], device.bed[1])
+    };
+    let k = rotary::y_scale(device).unwrap_or(1.0);
+    let eps = 1e-6;
+    if shift != Point::new(0.0, 0.0)
+        && (moved.min.x < -eps
+            || moved.min.y < -eps
+            || moved.max.x > w + eps
+            || moved.max.y > h / k + eps)
+    {
+        return Err(format!(
+            "El encuadre con el puntero rojo se sale del área de la máquina '{}': con el desfase \
+             del puntero ({} mm, {} mm) la cabeza tendría que ir a X {:.1}..{:.1}, Y {:.1}..{:.1}. \
+             Acerca el diseño al centro o usa el encuadre con el láser.",
+            device.name,
+            device.pointer_offset[0],
+            device.pointer_offset[1],
+            moved.min.x,
+            moved.max.x,
+            moved.min.y,
+            moved.max.y
+        ));
+    }
+    Ok(frame_gcode_scaled(moved, speed_mm_min, k))
 }

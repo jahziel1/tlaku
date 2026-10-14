@@ -24,6 +24,28 @@ describe('viewport', () => {
   });
 });
 
+describe('cuadrícula con separación fija (preferencia gridMm)', () => {
+  it('sin valor o con 0 es la automática', () => {
+    expect(gridSteps(2, 7, 'mm', 0)).toEqual(gridSteps(2));
+  });
+  it('usa la separación como paso base cuando cabe', () => {
+    expect(gridSteps(10, 7, 'mm', 5).minor).toBe(5);
+    expect(gridSteps(10, 7, 'mm', 5).major).toBe(50);
+    // Aun con zoom muy alto no hay subdivisiones por debajo de la base.
+    expect(gridSteps(1000, 7, 'mm', 5).minor).toBe(5);
+  });
+  it('al alejar el zoom sube a múltiplos de la base (1, 2, 5, 10...) sin saturar', () => {
+    const g = gridSteps(0.5, 7, 'mm', 5);
+    expect(g.minor).toBe(25);
+    expect(g.minor * 0.5).toBeGreaterThanOrEqual(7);
+    expect(gridSteps(0.1, 7, 'mm', 2).minor).toBe(100);
+  });
+  it('ignora valores no válidos', () => {
+    expect(gridSteps(2, 7, 'mm', -3)).toEqual(gridSteps(2));
+    expect(gridSteps(2, 7, 'mm', Number.NaN)).toEqual(gridSteps(2));
+  });
+});
+
 describe('reglas y cuadrícula en pulgadas', () => {
   it('los pasos son décimas de pulgada, expresadas en mm, y el mayor es 10 veces el menor', () => {
     const g = gridSteps(2, 7, 'in');

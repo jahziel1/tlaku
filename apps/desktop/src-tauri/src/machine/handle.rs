@@ -52,6 +52,8 @@ pub(super) enum Request {
         link: Box<LinkProfile>,
         s_max: Option<f64>,
         kind: RunKind,
+        /// Carga que el trabajo pone al enlace serie: si no da abasto, el registro lo avisa.
+        load: Option<LinkLoad>,
         reply: Reply,
     },
     Pause(Reply),
@@ -186,13 +188,26 @@ impl Handle {
     /// Como [`start_job_for`](Self::start_job_for) con el enlace del perfil de la máquina
     /// ([`LinkProfile::for_device`]): GRBL con conteo de caracteres, o Marlin y Smoothieware con
     /// una línea por `ok`. Debe coincidir con la familia de la controladora conectada.
+    #[cfg(test)]
     pub fn start_job_link(
         &self,
         lines: Vec<String>,
         link: LinkProfile,
         s_max: Option<f64>,
     ) -> Result<(), String> {
-        self.start(lines, link, s_max, RunKind::Job)
+        self.start_job_with_load(lines, link, s_max, None)
+    }
+
+    /// Como [`start_job_link`](Self::start_job_link) con la carga del trabajo sobre el enlace
+    /// serie: si supera lo que deja pasar el baudio, la comprobación previa lo avisa (no bloquea).
+    pub fn start_job_with_load(
+        &self,
+        lines: Vec<String>,
+        link: LinkProfile,
+        s_max: Option<f64>,
+        load: Option<LinkLoad>,
+    ) -> Result<(), String> {
+        self.start(lines, link, s_max, RunKind::Job, load)
     }
 
     /// Como [`start_job`](Self::start_job) para el encuadre (sin eventos de progreso). El
@@ -204,7 +219,7 @@ impl Handle {
 
     /// Como [`frame`](Self::frame) con el enlace del perfil de la máquina.
     pub fn frame_link(&self, lines: Vec<String>, link: LinkProfile) -> Result<(), String> {
-        self.start(lines, link, None, RunKind::Frame)
+        self.start(lines, link, None, RunKind::Frame, None)
     }
 
     fn start(
@@ -213,12 +228,14 @@ impl Handle {
         link: LinkProfile,
         s_max: Option<f64>,
         kind: RunKind,
+        load: Option<LinkLoad>,
     ) -> Result<(), String> {
         self.call(|reply| Request::Start {
             lines,
             link: Box::new(link),
             s_max,
             kind,
+            load,
             reply,
         })
         .map(drop)

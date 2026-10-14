@@ -1,7 +1,9 @@
 import { getApi } from '@/api';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
+import { effectiveImportDpi } from '@/lib/importOptions';
 import { fmtClock } from '@/lib/platform';
+import { DEFAULT_IMPORT_OPTIONS } from '@/features/fileio/types';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { buildJobArgs, useStore } from '@/store';
 import { pickImportPaths, pickPath } from './dialogs';
@@ -109,6 +111,17 @@ export async function saveProject(asNew: boolean): Promise<boolean> {
 }
 
 /**
+ * Importa un archivo con las opciones de fábrica. Si en Preferencias se cambió la resolución por
+ * omisión (SVG sin unidades e imágenes), va por la ruta con opciones para aplicarla.
+ */
+async function importOne(path: string) {
+  const dpi = effectiveImportDpi(null, state().prefs.importDpi);
+  if (dpi === null) return getApi().importFile({ path });
+  const { auto_group: _autoGroup, ...engineOptions } = DEFAULT_IMPORT_OPTIONS;
+  return getApi().importFileWith({ path, options: { ...engineOptions, dpi } });
+}
+
+/**
  * Importa archivos de diseño uno tras otro. Las advertencias del importador salen siempre en un
  * aviso persistente (nunca en silencio). Lo importado queda seleccionado y la vista se ajusta a ello.
  * Devuelve cuántos objetos entraron.
@@ -122,7 +135,7 @@ export async function importPaths(paths: string[]): Promise<number> {
       continue;
     }
     try {
-      const result = await getApi().importFile({ path });
+      const result = await importOne(path);
       const n = result.objects.length;
       if (n === 0) {
         state().notify('warning', t('history.notice.importedNothing', { file }), result.warnings);

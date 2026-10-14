@@ -1,6 +1,6 @@
 import type { DeviceProfile } from '@/api/types';
 import { t } from '@/i18n';
-import { Field } from './DeviceFields';
+import { Field, NumInput } from './DeviceFields';
 
 /** Casillas del eje U y del segundo láser: solo habilitan las opciones que los usan (jog de U, láser por capa). */
 export function ExtraAxesFields({ draft, edit }: { draft: DeviceProfile; edit: (patch: Partial<DeviceProfile>) => void }) {
@@ -14,6 +14,11 @@ export function ExtraAxesFields({ draft, edit }: { draft: DeviceProfile; edit: (
           </label>
         )}
       </Field>
+      {draft.u_axis && (
+        <Field label={t('machine.dev.uOffset')} help="machine.dev.uOffset.help">
+          {({ id, describedBy }) => <NumInput id={id} unit="mm" value={draft.u_offset} describedBy={describedBy} onCommit={(v) => edit({ u_offset: v })} />}
+        </Field>
+      )}
       <Field label={t('machine.dev.laser2')} help="machine.dev.laser2.help">
         {({ id, describedBy }) => (
           <label className="mc-check">

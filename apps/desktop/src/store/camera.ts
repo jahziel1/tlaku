@@ -20,7 +20,7 @@ export interface CameraBackdrop {
 export type { CameraAlignment, CameraPrefs, CameraSetup } from '@/api/types';
 
 export type CameraStatus = 'off' | 'starting' | 'live';
-export type CameraProblemKind = 'denied' | 'none' | 'busy' | 'unsupported' | 'unknown';
+export type CameraProblemKind = 'denied' | 'none' | 'busy' | 'unsupported' | 'unknown' | 'noUrl' | 'network';
 
 export interface CameraDevice {
   id: string;
@@ -46,6 +46,8 @@ export interface CameraSlice {
   cameraSetupLoaded: boolean;
   cameraStatus: CameraStatus;
   cameraProblem: CameraProblemKind | null;
+  /** Detalle del problema de una cámara de red (el texto del motor; nunca lleva la clave). */
+  cameraProblemDetail: string | null;
   cameraDevices: CameraDevice[];
   /** Tamaño real del video que entrega la cámara. */
   cameraStreamSize: [number, number] | null;
@@ -55,7 +57,7 @@ export interface CameraSlice {
 
   setCameraSetup: (setup: CameraSetup, loaded?: boolean) => void;
   setCameraPrefs: (prefs: Partial<CameraPrefs>) => void;
-  setCameraState: (state: Partial<Pick<CameraSlice, 'cameraStatus' | 'cameraProblem' | 'cameraDevices' | 'cameraStreamSize' | 'cameraFrozen'>>) => void;
+  setCameraState: (state: Partial<Pick<CameraSlice, 'cameraStatus' | 'cameraProblem' | 'cameraProblemDetail' | 'cameraDevices' | 'cameraStreamSize' | 'cameraFrozen'>>) => void;
   setCameraCalibrationOpen: (open: boolean) => void;
 }
 
@@ -67,6 +69,7 @@ export const createCameraSlice: SliceCreator<CameraSlice> = (set) => ({
   cameraSetupLoaded: false,
   cameraStatus: 'off',
   cameraProblem: null,
+  cameraProblemDetail: null,
   cameraDevices: [],
   cameraStreamSize: null,
   cameraFrozen: false,

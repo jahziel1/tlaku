@@ -11,6 +11,8 @@ export interface GalvoUiProfile {
   freqMaxKhz: number;
   /** Anchos de pulso del perfil (ns). */
   pulseWidthsNs: number[];
+  /** Overscan de rellenos e imágenes del perfil (mm); 0 o ausente = ninguno. */
+  overscanMm?: number;
 }
 
 /** mm/min de la capa a mm/s que se muestran, y al revés. */
@@ -81,6 +83,7 @@ export function GalvoLayerSection({ layer, setIn, profile, beginner }: Props) {
         </p>
       )}
       {pulseOff && <p className="lyr-live">{t('galvo.layer.pulse.notInList', { ns: g.pulse_width_ns ?? 0 })}</p>}
+      {!isLine && (profile.overscanMm ?? 0) > 0 && <p className="lyr-live">{t('galvo.layer.overscan.profile', { mm: profile.overscanMm ?? 0 })}</p>}
       <NumField field="galvo_repeat" label={t('galvo.layer.repeat')} value={g.repeat} onApply={(v) => setIn('galvo', 'repeat', v)} help={t('galvo.layer.repeat.help')} />
 
       {!beginner && (

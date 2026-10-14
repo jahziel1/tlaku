@@ -1,0 +1,47 @@
+/* Ajustes de perfil de la ola 6C: ícono, perfil predeterminado, puntero rojo, ejes cruzados y enlace. */
+.mc-iconpick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.mc-iconpick__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+}
+.mc-iconpick__btn:hover {
+  background: var(--bg-hover);
+}
+.mc-iconpick__btn[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.mc-devitem__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.mc-devitem__icon {
+  flex: none;
+  color: var(--text-muted);
+}
+.mc-devitem__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mc-devitem__star {
+  flex: none;
+  margin-left: auto;
+  color: var(--accent);
+}
+.mc-devlist__order {
+  display: flex;
+  gap: var(--s-3);
+}

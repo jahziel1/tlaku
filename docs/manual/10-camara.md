@@ -2,11 +2,11 @@
 
 Pon una cámara sobre la cama y Tlaku muestra su imagen como fondo del lienzo, para colocar el diseño justo sobre el material. Para que coincida hace falta corregir la lente, alinear la imagen con la cama y, si quieres precisión, indicar el grosor del material.
 
-> **Ojo:** la cámara se probó con cámaras y fotos simuladas, no con la cámara de una máquina real. Además de servir de fondo de referencia, la imagen puede guardarse en el documento, vectorizarse, armarse como mosaico con una cámara montada en el cabezal y usarse para encontrar el centro de un objeto redondo. Lo que **no** hay: cámaras de red ni presets de cámara (solo las locales que el sistema ofrezca, por ejemplo una webcam USB). Lo marcado *por validar con hardware real* se probó solo con datos sintéticos.
+> **Ojo:** la cámara se probó con cámaras y fotos simuladas, no con la cámara de una máquina real. Además de servir de fondo de referencia, la imagen puede guardarse en el documento, vectorizarse, armarse como mosaico con una cámara montada en el cabezal y usarse para encontrar el centro de un objeto redondo. También se admiten **cámaras de red** (una URL de snapshot o MJPEG de tu red local), **configuraciones de cámara** con nombre y un **ajuste manual** del fondo. Lo marcado *por validar con hardware real* se probó solo con datos sintéticos.
 
 ## El panel Cámara
 
-Abre la pestaña **Cámara** (`Ctrl/Cmd+5`). De arriba abajo trae: fuente de video, vista en vivo, **Fondo en el lienzo**, **Imagen de la cama**, **Lente**, **Alinear con marcas grabadas**, **Altura del material**, **Alineación con la cama**, **Cámara en el cabezal** y **Buscador de centro**. Los mismos comandos aparecen en el menú **Máquina**: **Encender cámara**, **Mostrar fondo de cámara en el lienzo**, **Congelar el cuadro de la cámara**, **Calibrar lente de la cámara…**, **Alinear cámara con marcas grabadas…**, **Capturar imagen de la cama**, **Vectorizar desde la cámara…**, **Actualizar la superposición de la cámara** y **Buscador de centro (cámara)…**.
+Abre la pestaña **Cámara** (`Ctrl/Cmd+5`). De arriba abajo trae: fuente de video, **Configuraciones de cámara**, vista en vivo, **Fondo en el lienzo**, **Ajuste manual del fondo**, **Imagen de la cama**, **Lente**, **Alinear con marcas grabadas**, **Altura del material**, **Alineación con la cama**, **Cámara en el cabezal** y **Buscador de centro**. Los mismos comandos aparecen en el menú **Máquina**: **Encender cámara**, **Mostrar fondo de cámara en el lienzo**, **Congelar el cuadro de la cámara**, **Calibrar lente de la cámara…**, **Alinear cámara con marcas grabadas…**, **Capturar imagen de la cama**, **Vectorizar desde la cámara…**, **Actualizar la superposición de la cámara** y **Buscador de centro (cámara)…**.
 
 ![Panel Cámara con la vista en vivo, el fondo, la lente y las marcas grabadas](../../apps/desktop/docs/screenshots/17-panel-camara.png)
 
@@ -16,6 +16,18 @@ Abre la pestaña **Cámara** (`Ctrl/Cmd+5`). De arriba abajo trae: fuente de vid
 > **Consejo:** usa siempre la misma resolución. La calibración y la alineación se guardan para esa resolución; si cambia, la app avisa y hay que repetirlas.
 
 La configuración (calibración y alineación) se guarda y se conserva al reiniciar.
+
+### Cámara de red
+
+En **Tipo de cámara** elige **Cámara de red (URL)** y pega la dirección de un *snapshot* HTTP (JPEG) o de un flujo MJPEG, por ejemplo `http://192.168.1.20/snapshot.jpg`. Tlaku pide los cuadros a la cámara (unos cuantos por segundo), así que el fondo no es tan fluido como el de una webcam USB.
+
+- **Debe ser de tu red local** (`192.168.x.x`, `10.x.x.x`...) y empezar con `http://`. Tlaku no se conecta a direcciones de internet ni a `https://`.
+- Si la cámara pide usuario y clave, ponlos en la URL (`http://usuario:clave@192.168.1.20/...`; autenticación Basic, no Digest). **Se guardan solo en este equipo**, en el archivo de configuración de la cámara (`camera.json`, en texto plano: protege esa carpeta como cualquier archivo con contraseñas). En el panel se muestran con la clave oculta y **nunca** se incluyen en un paquete `.tlakubundle`.
+- Si no hay imagen, el panel muestra el motivo que dio la cámara (clave rechazada, dirección fuera de la red local, no responde...).
+
+### Configuraciones de cámara
+
+Guarda con un nombre la fuente (cámara local o URL de red), la resolución y el ajuste manual del fondo, y vuelve a ellos con un clic; si la cámara estaba encendida se reabre con la configuración elegida. Hasta 32; guardar con un nombre que ya existe lo actualiza.
 
 ## Paso 1: calibrar la lente
 
@@ -72,6 +84,10 @@ El resultado muestra el modelo elegido y una tabla con el ajuste y el error en v
 
 > **Ejemplo:** tu cámara de la tapa deja las esquinas de la cama curvas y con errores de varios milímetros aunque en el centro se vea bien. Calibra con el modelo **Automático** y toma vistas del tablero también en las esquinas. En la prueba sintética del proyecto (un ojo de pez de 140°), el modelo normal parecía bueno con 0,56 px de error de reproyección pero se equivocaba hasta 108 mm en el plano; el de ojo de pez, 3,2 mm. Por eso el asistente compara con vistas reservadas y no solo con el error de reproyección.
 
+## Ajuste manual del fondo
+
+Si la alineación quedó casi bien pero no del todo, **Ajuste manual del fondo** (con la cámara fija y una alineación guardada) deja afinar a mano: marca **Fijar la resolución a mano** y cambia los **puntos por mm (DPM)** (debajo ves los que da la alineación), y mueve el fondo con el **Desplazamiento X** y **Y** en mm. El ajuste se aplica encima de la alineación, sin cambiarla, y también a la imagen de la cama que captures. **Quitar el ajuste** vuelve a la alineación. No se usa con la cámara en el cabezal.
+
 ## Capturar la imagen de la cama
 
 Con la cámara alineada, **Imagen de la cama** guarda lo que ve la cámara dentro del documento:
@@ -91,7 +107,9 @@ Si tu cámara va montada en el cabezal de la máquina, marca **La cámara está 
 2. Enciende la cámara, conecta la máquina, mueve el cabezal hasta ver la cruz y pulsa **Medir con la cámara**. Haz clic en el centro de la cruz en la imagen.
 3. Pulsa **Siguiente posición**: el cabezal se mueve unos milímetros y vuelves a hacer clic. Con 3 puntos o más se calculan el desfase, la escala y el error; **Guardar calibración** los conserva.
 
-**Actualizar la superposición** recorre la cama en cuadrícula con el láser apagado, toma una foto en cada punto y las une con mezcla en los bordes; el mosaico queda de fondo fijo. Antes de mover la máquina la app pide confirmación y muestra cuántas posiciones son; el recorrido se puede cancelar. Con una selección puedes limitarlo a esa zona. El mismo recorrido se usa en **Capturar imagen de la cama**. *Por validar con hardware real: probado con la máquina virtual y fotos sintéticas.* Falta la alineación automática del cabezal con marcas.
+**Actualizar la superposición** recorre la cama en cuadrícula con el láser apagado, toma una foto en cada punto y las une con mezcla en los bordes; el mosaico queda de fondo fijo. Antes de mover la máquina la app pide confirmación y muestra cuántas posiciones son; el recorrido se puede cancelar. En **Zona del recorrido** eliges recorrer **toda la cama**, **la selección** o **una zona dibujada en el lienzo**: pulsa **Dibujar zona en el lienzo** y arrastra un rectángulo (Esc cancela); queda marcado con líneas punteadas y su tamaño, y el recorrido, la captura y «actualizar al terminar un trabajo» cubren solo esa zona. El mismo recorrido se usa en **Capturar imagen de la cama**. *Por validar con hardware real: probado con la máquina virtual y fotos sintéticas.*
+
+**Alineación automática con marcas.** En lugar de hacer clic en la cruz, **Alineación automática con marcas** calcula el desfase y la escala de una sola foto: **Generar las marcas como documento** abre un cuadro de 9 cruces (de 60 mm de lado como mínimo; puedes cambiar el lado y la esquina) y la primera lleva un círculo. Grábalas sobre un cartón sin moverlo, mueve el cabezal hasta ver las marcas con el círculo a la vista, déjalo quieto y pulsa **Detectar marcas**. Con 4 marcas o más sale la calibración (puedes repetir desde otra posición para afinarla); **Guardar calibración** la conserva. *Por validar con hardware real.*
 
 ## Buscador de centro
 

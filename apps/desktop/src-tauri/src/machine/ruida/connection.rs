@@ -2,6 +2,8 @@
 
 use super::*;
 
+pub(super) use crate::machine::common::{log, virtual_speed};
+
 /// Conexión abierta: el mando y el hilo.
 pub struct RuidaConnection {
     handle: RuidaHandle,
@@ -218,23 +220,6 @@ pub(super) fn host_of(device: &DeviceProfile) -> Result<IpAddr, String> {
         .ok_or_else(|| format!("«{host}» no es una IP ni un nombre que se pueda resolver."))
 }
 
-/// `virtual:ruida@5` -> 5 (veces el tiempo real).
-pub(super) fn virtual_speed(port: &str) -> Result<f64, String> {
-    match port.split_once('@') {
-        None => Ok(1.0),
-        Some((_, s)) => match s.parse::<f64>() {
-            Ok(v) if v.is_finite() && v > 0.0 && v <= crate::machine::virtual_port::MAX_SPEED => {
-                Ok(v)
-            }
-            _ => Err(format!(
-                "La velocidad '{s}' de la máquina virtual debe ser un número entre 0 y {} veces \
-                 el tiempo real.",
-                crate::machine::virtual_port::MAX_SPEED
-            )),
-        },
-    }
-}
-
 pub(super) fn describe_probe(info: &ProbeInfo) -> String {
     format!(
         "Ruida {} (tarjeta 0x{:08X}), magic 0x{:02X}{}, cama {}",
@@ -275,11 +260,4 @@ pub(super) fn op_error(e: SessionError) -> String {
         SessionError::Busy(_) => format!("{e}. Espera a que termine o pulsa Detener."),
         _ => e.to_string(),
     }
-}
-
-pub(super) fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
-    sink.emit(Emit::Log(LogEvent {
-        dir,
-        text: text.to_string(),
-    }));
 }

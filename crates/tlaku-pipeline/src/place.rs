@@ -20,6 +20,39 @@ pub(crate) struct PlacedImage {
     pub mirror_y: bool,
     /// Máscara ya en coordenadas del documento (mm); vacía = la imagen completa.
     pub mask: Vec<Polyline>,
+    /// Giro o deformación que la imagen tiene además de su colocación (Print & Cut con giro). Con
+    /// `Some`, `origin` y `size_mm` son la caja que ocupa ya transformada, no la imagen original.
+    pub warp: Option<ImageWarp>,
+}
+
+/// Cómo se lleva una imagen alineada a los ejes a donde la deja la transformación de Print &
+/// Cut. La imagen se vuelve a muestrear sobre la caja `origin`/`size_mm` de [`PlacedImage`].
+#[derive(Debug, Clone)]
+pub(crate) struct ImageWarp {
+    /// Esquina inferior izquierda de la imagen sin transformar, en mm.
+    pub src_origin: Point,
+    /// Tamaño de la imagen sin transformar, en mm.
+    pub src_size: (f64, f64),
+    /// De las coordenadas de la imagen sin transformar a las finales.
+    pub transform: Transform,
+}
+
+impl ImageWarp {
+    /// Las cuatro esquinas de la imagen ya transformada, en orden antihorario desde la inferior
+    /// izquierda.
+    pub fn corners(&self) -> [Point; 4] {
+        let (o, (w, h)) = (self.src_origin, self.src_size);
+        [
+            Point::new(o.x, o.y),
+            Point::new(o.x + w, o.y),
+            Point::new(o.x + w, o.y + h),
+            Point::new(o.x, o.y + h),
+        ]
+        .map(|c| {
+            let [x, y] = affine::apply(&self.transform, [c.x, c.y]);
+            Point::new(x, y)
+        })
+    }
 }
 
 /// Máximo de sub-capas de una capa (el de la ficha F30: hasta 11).
@@ -146,6 +179,7 @@ fn placed_image(
                 .flatten(0.01)
             })
             .collect(),
+        warp: None,
     })
 }
 

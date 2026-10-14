@@ -43,10 +43,27 @@ pub struct SerialTransport {
     timeout: Duration,
 }
 
+/// Cómo se abre el puerto serie.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SerialOptions {
+    /// Abrir sin subir DTR: muchas placas (Arduino con GRBL) se reinician cuando DTR sube, y
+    /// con esto no. Depende del sistema: en Linux el controlador sube DTR al abrir de todos
+    /// modos, y algunos adaptadores lo suben igual.
+    pub no_dtr_reset: bool,
+}
+
 impl SerialTransport {
     pub fn open(path: &str, baud: u32) -> io::Result<Self> {
+        Self::open_with(path, baud, SerialOptions::default())
+    }
+
+    pub fn open_with(path: &str, baud: u32, options: SerialOptions) -> io::Result<Self> {
         let timeout = Duration::from_millis(100);
-        let port = serialport::new(path, baud).timeout(timeout).open()?;
+        let mut builder = serialport::new(path, baud).timeout(timeout);
+        if options.no_dtr_reset {
+            builder = builder.dtr_on_open(false);
+        }
+        let port = builder.open()?;
         Ok(Self { port, timeout })
     }
 }
@@ -185,10 +202,21 @@ pub struct Grbl {
 
 impl Grbl {
     pub fn open(path: &str, baud: u32) -> io::Result<Self> {
-        let mut grbl = Self::with_transport(Box::new(SerialTransport::open(path, baud)?));
+        Self::open_with(path, baud, SerialOptions::default())
+    }
+
+    /// Como [`open`](Self::open) con opciones del puerto. Sin reinicio por DTR
+    /// (`no_dtr_reset`) no hay saludo que esperar y la espera baja de 2 s a 0,3 s.
+    pub fn open_with(path: &str, baud: u32, options: SerialOptions) -> io::Result<Self> {
+        let mut grbl =
+            Self::with_transport(Box::new(SerialTransport::open_with(path, baud, options)?));
         // Muchas placas se reinician al abrir el puerto; se espera el saludo y se descarta.
         grbl.transport.write_all(b"\r\n\r\n")?;
-        std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(if options.no_dtr_reset {
+            Duration::from_millis(300)
+        } else {
+            Duration::from_secs(2)
+        });
         grbl.transport.clear_input()?;
         Ok(grbl)
     }

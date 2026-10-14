@@ -80,6 +80,22 @@ impl RasterBitmap {
         Ok(out.into_inner())
     }
 
+    /// Recorte rectangular: `w` x `h` puntos desde la columna `x` y la fila `y` (la fila 0 es la
+    /// de arriba). Falla si se sale del bitmap o tiene tamaño cero.
+    pub fn crop(&self, x: usize, y: usize, w: usize, h: usize) -> Result<RasterBitmap, String> {
+        if w == 0 || h == 0 || x + w > self.width || y + h > self.height {
+            return Err(format!(
+                "recorte fuera del bitmap: {w}x{h} desde ({x}, {y}) en {}x{}",
+                self.width, self.height
+            ));
+        }
+        let mut data = Vec::with_capacity(w * h);
+        for row in y..y + h {
+            data.extend_from_slice(&self.data[row * self.width + x..row * self.width + x + w]);
+        }
+        RasterBitmap::new(w, h, self.pixel_size_x_mm, self.pixel_size_y_mm, data)
+    }
+
     /// Reduce la potencia a `levels` niveles (2 = binario). Útil en Grayscale para que
     /// píxeles casi iguales se unan en un solo tramo y el G-code sea más corto.
     pub fn quantize(&mut self, levels: u32) {
@@ -113,6 +129,18 @@ mod tests {
         b.quantize(2);
         assert_eq!(b.data, vec![0.0, 1.0]);
         assert_eq!(b.lit_fraction(), 0.5);
+    }
+
+    #[test]
+    fn crop_takes_the_rectangle_and_rejects_overflow() {
+        let b = RasterBitmap::new(3, 2, 0.5, 0.25, vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5]).unwrap();
+        let c = b.crop(1, 0, 2, 2).unwrap();
+        assert_eq!((c.width, c.height), (2, 2));
+        assert_eq!(c.data, vec![0.1, 0.2, 0.4, 0.5]);
+        assert_eq!((c.pixel_size_x_mm, c.pixel_size_y_mm), (0.5, 0.25));
+        assert!(b.crop(2, 0, 2, 1).is_err());
+        assert!(b.crop(0, 1, 1, 2).is_err());
+        assert!(b.crop(0, 0, 0, 1).is_err());
     }
 
     #[test]

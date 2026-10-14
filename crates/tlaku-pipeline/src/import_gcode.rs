@@ -44,7 +44,7 @@ pub(crate) fn import(
     extras: &ImportExtras,
 ) -> Result<ImportResult, String> {
     let text = String::from_utf8_lossy(data);
-    let mut interp = Interp::new(&text);
+    let mut interp = Interp::new(&text, extras.gcode_default_power);
     for (n, line) in text.lines().enumerate() {
         if n >= MAX_LINES {
             interp.truncated = true;
@@ -80,11 +80,15 @@ struct Interp {
     uses_spindle: bool,
     /// El archivo usa alguna `S`.
     uses_power: bool,
+    /// `S` con el que se toman los avances de potencia 0 (opción del diálogo de importar).
+    default_power: Option<f64>,
     cur: Option<Run>,
     runs: Vec<Run>,
     /// Avances G1/G2/G3 con movimiento que no se dibujaron por tener potencia 0 (con el husillo
     /// encendido si el archivo usa M3/M4).
     zero_power_feeds: usize,
+    /// Avances con potencia 0 que se tomaron como quemados con `default_power`.
+    defaulted_feeds: usize,
     ignored: Vec<String>,
     non_xy_arcs: usize,
     bad_arcs: usize,
@@ -92,7 +96,7 @@ struct Interp {
 }
 
 impl Interp {
-    fn new(text: &str) -> Self {
+    fn new(text: &str, default_power: Option<f64>) -> Self {
         // Un recorrido previo decide si el encendido lo gobierna M3/M4 o solo S.
         let (mut spindle, mut power) = (false, false);
         for line in text.lines() {
@@ -116,9 +120,11 @@ impl Interp {
             power: 0.0,
             uses_spindle: spindle,
             uses_power: power,
+            default_power: default_power.filter(|p| p.is_finite() && *p > 0.0),
             cur: None,
             runs: Vec::new(),
             zero_power_feeds: 0,
+            defaulted_feeds: 0,
             ignored: Vec::new(),
             non_xy_arcs: 0,
             bad_arcs: 0,
@@ -126,11 +132,21 @@ impl Interp {
         }
     }
 
+    /// Potencia con la que quema el avance en curso: la `S` activa o, si es 0, la que el usuario
+    /// eligió para los cortes sin `S`.
+    fn effective_power(&self) -> f64 {
+        if self.power > 0.0 {
+            self.power
+        } else {
+            self.default_power.unwrap_or(0.0)
+        }
+    }
+
     fn laser_on(&self) -> bool {
         if self.uses_spindle {
-            self.spindle_on && self.power > 0.0
+            self.spindle_on && self.effective_power() > 0.0
         } else if self.uses_power {
-            self.power > 0.0
+            self.effective_power() > 0.0
         } else {
             true
         }
@@ -254,7 +270,7 @@ impl Interp {
 
     /// Cuenta un avance con movimiento que no se dibuja por tener potencia 0.
     fn note_unpowered(&mut self) {
-        if self.power <= 0.0 && (!self.uses_spindle || self.spindle_on) {
+        if self.effective_power() <= 0.0 && (!self.uses_spindle || self.spindle_on) {
             self.zero_power_feeds += 1;
         }
     }
@@ -345,7 +361,10 @@ impl Interp {
     /// Añade segmentos dibujados a la trayectoria en curso si continúan donde esta termina y
     /// con la misma potencia; si no, empieza otra.
     fn push_drawn(&mut self, start: Point, segs: Vec<PathSeg>) {
-        let power = self.power;
+        let power = self.effective_power();
+        if self.power <= 0.0 {
+            self.defaulted_feeds += 1;
+        }
         let continues = self.cur.as_ref().is_some_and(|run| {
             (run.power - power).abs() < 1e-9
                 && last_point(&run.path).is_some_and(|p| p.dist(start) < 1e-9)
@@ -390,13 +409,20 @@ impl Interp {
                     "{name}: el G-code no dibuja nada con el láser encendido: trae {} avances \
                      G1/G2/G3 pero con potencia 0 (M3 S0, o sin una S mayor que 0). Fija una \
                      potencia al generarlo, por ejemplo M3 S500 antes del corte, y vuelve a \
-                     importarlo",
+                     importarlo; o usa la opción «potencia para cortes sin S» al importar",
                     self.zero_power_feeds
                 ));
             }
             return Err(format!(
                 "{name}: el G-code no dibuja nada con el láser encendido (se buscan G1, G2 y G3 \
                  con M3/M4 y S mayor que 0; los G0 no se dibujan)"
+            ));
+        }
+        if let (Some(p), true) = (self.default_power, self.defaulted_feeds > 0) {
+            warnings.push(format!(
+                "{} avance(s) del G-code llegaban con potencia 0 y se tomaron como cortes con S{}.",
+                self.defaulted_feeds,
+                fmt_code(p)
             ));
         }
         if !self.uses_spindle {
@@ -687,5 +713,56 @@ mod tests {
         let e = run("M3 S0\nG0 X1 Y1\nG1 X5 Y5\nG1 X9 Y5\nM5\n").unwrap_err();
         assert!(e.contains("2 avances") && e.contains("potencia 0"), "{e}");
         assert!(e.contains("M3 S500"), "{e}");
+    }
+
+    #[test]
+    fn una_potencia_por_omision_rescata_el_gcode_con_m3_s0() {
+        let g = "G90 G21\nM3 S0\nG0 X0 Y0\nG1 X10 Y0\nG1 X10 Y10\nM5\n";
+        // Sin la opción: error que explica cómo salir.
+        let e = run(g).unwrap_err();
+        assert!(
+            e.contains("potencia 0") && e.contains("potencia para cortes sin S"),
+            "{e}"
+        );
+        let with = |p: Option<f64>| {
+            import(
+                Path::new("a.nc"),
+                g.as_bytes(),
+                &ImportOptions::default(),
+                &ImportExtras {
+                    gcode_default_power: p,
+                    ..Default::default()
+                },
+            )
+        };
+        // Una potencia que no es mayor que 0 (o no es un número) no cambia nada.
+        assert!(with(Some(0.0)).is_err() && with(Some(f64::NAN)).is_err());
+        let r = with(Some(500.0)).unwrap();
+        assert_eq!(r.objects.len(), 1);
+        let b = r.objects[0].bounds().unwrap();
+        approx(b.max.x, 10.0);
+        approx(b.max.y, 10.0);
+        assert!(
+            r.warnings.iter().any(|w| w.contains("S500")),
+            "{:?}",
+            r.warnings
+        );
+        // Un archivo con S propia no se toca: la opción solo cubre los cortes de potencia 0.
+        let own = "M3 S300\nG1 X5 Y0\nG1 X5 Y5\n";
+        let r = import(
+            Path::new("a.nc"),
+            own.as_bytes(),
+            &ImportOptions::default(),
+            &ImportExtras {
+                gcode_default_power: Some(900.0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            r.warnings.iter().all(|w| !w.contains("S900")),
+            "{:?}",
+            r.warnings
+        );
     }
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { INDEX_FILE } from './pages';
 
-export type HelpDialog = 'manual' | 'news' | 'about' | 'report' | 'donate';
+export type HelpDialog = 'manual' | 'news' | 'about' | 'report' | 'donate' | 'jobLog';
 
 interface HelpUi {
   dialog: HelpDialog | null;

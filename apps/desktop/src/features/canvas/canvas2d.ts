@@ -197,7 +197,7 @@ export class Canvas2DRenderer implements Renderer {
     ctx.beginPath();
     ctx.rect(left, top, right - left, bottom - top);
     ctx.clip();
-    const { minor, major } = gridSteps(view.zoom, 7, scene.gridUnit);
+    const { minor, major } = gridSteps(view.zoom, 7, scene.gridUnit, scene.gridMm);
     const hair = 1 / this.dpr;
     const snap = (v: number) => Math.round(v * this.dpr) / this.dpr + hair / 2;
     const lines = (step: number, color: string) => {

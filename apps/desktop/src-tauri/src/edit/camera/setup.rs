@@ -63,9 +63,35 @@ pub struct CameraAlignment {
     pub height: Option<HeightModel>,
 }
 
+/// De dónde viene el video: una cámara local (`getUserMedia`) o una cámara de red (URL).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CameraSource {
+    #[default]
+    Local,
+    /// Cámara IP: snapshot HTTP o MJPEG, pedida por el motor (`fetch_camera_frame`).
+    Network,
+}
+
 /// Preferencias de captura y de vista que conviene recordar.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CameraPrefs {
+    /// Fuente del video. Por defecto, la cámara local.
+    #[serde(default)]
+    pub source: CameraSource,
+    /// URL de la cámara de red (`http://...`). Puede llevar `usuario:clave@`: se guarda solo en
+    /// este perfil local (`camera.json`) y nunca entra en un paquete `.tlakubundle`.
+    #[serde(default)]
+    pub network_url: Option<String>,
+    /// Resolución del fondo (puntos por mm) fijada a mano; `None` = la que sale de la alineación.
+    #[serde(default)]
+    pub dpm: Option<f64>,
+    /// Desplazamiento X del fondo (mm) para afinar la alineación a mano.
+    #[serde(default)]
+    pub offset_x_mm: f64,
+    /// Desplazamiento Y del fondo (mm).
+    #[serde(default)]
+    pub offset_y_mm: f64,
     #[serde(default)]
     pub device_id: Option<String>,
     #[serde(default)]
@@ -92,6 +118,11 @@ pub struct CameraPrefs {
 impl Default for CameraPrefs {
     fn default() -> Self {
         Self {
+            source: CameraSource::Local,
+            network_url: None,
+            dpm: None,
+            offset_x_mm: 0.0,
+            offset_y_mm: 0.0,
             device_id: None,
             device_label: None,
             width: None,
@@ -155,6 +186,33 @@ pub(super) fn check_head(h: &HeadCamera) -> Result<(), String> {
     Ok(())
 }
 
+/// Configuración de cámara con nombre: la fuente y los ajustes del fondo.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CameraPreset {
+    pub name: String,
+    #[serde(default)]
+    pub source: CameraSource,
+    #[serde(default)]
+    pub device_id: Option<String>,
+    #[serde(default)]
+    pub device_label: Option<String>,
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
+    /// URL de la cámara de red (puede llevar credenciales; ver [`CameraPrefs::network_url`]).
+    #[serde(default)]
+    pub network_url: Option<String>,
+    #[serde(default)]
+    pub dpm: Option<f64>,
+    #[serde(default)]
+    pub offset_x_mm: f64,
+    #[serde(default)]
+    pub offset_y_mm: f64,
+    #[serde(default)]
+    pub grayscale: bool,
+}
+
 /// Todo lo que sobrevive al reinicio: calibración de lente, alineación y preferencias.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CameraSetup {
@@ -168,6 +226,9 @@ pub struct CameraSetup {
     /// Cámara montada en el cabezal (ola 4).
     #[serde(default)]
     pub head: HeadCamera,
+    /// Configuraciones de cámara con nombre.
+    #[serde(default)]
+    pub presets: Vec<CameraPreset>,
 }
 
 impl Default for CameraSetup {
@@ -178,6 +239,7 @@ impl Default for CameraSetup {
             alignment: None,
             prefs: CameraPrefs::default(),
             head: HeadCamera::default(),
+            presets: Vec::new(),
         }
     }
 }

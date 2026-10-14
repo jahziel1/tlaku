@@ -7,16 +7,18 @@
 //! inscrita, como describe la documentación pública de GRBL). Se planifica con
 //! una pasada hacia atrás y otra hacia adelante, y cada segmento recibe un
 //! perfil trapezoidal o triangular. La máquina se detiene al cambiar entre
-//! `Travel` y `Cut` y entre bloques, y arranca en reposo desde el origen
+//! `Travel` y `Cut` (según el perfil) y entre bloques, y arranca en reposo desde el origen
 //! (o desde el punto que se indique en [`estimate_from`]).
 //!
 //! Una pausa (`Move::Dwell`) detiene la máquina y suma su tiempo tal cual.
 //!
-//! Frente al emulador (`tlaku-emu`): en los casos con cinemática calculable a mano (recta, tramos
-//! que van y vuelven, giros suaves) el modelo coincide con GRBL. El emulador resuelve las
-//! uniones con otra regla (más lenta con giros medianos a baja velocidad, más rápida con giros
-//! de 180 grados o segmentos muy cortos a velocidad alta), y de ahí los desvíos de +26 % y
-//! -40 % en archivos reales; ver las pruebas del final de `tests.rs`.
+//! Frente al emulador (`tlaku-emu`, ver `crates/tlaku-emu/tests/estimate.rs`): en los casos con
+//! cinemática calculable a mano (recta, diagonal, tramos que van y vuelven, giros suaves,
+//! ventana del planificador) ambos coinciden dentro de 2 %, porque el emulador usa la misma
+//! desviación de unión. En GRBL con modo láser `G0` y `G1` seguidos no detienen la máquina
+//! (`MachineProfile::stop_on_cut_change` en `false`); en los demás firmwares el estimado sí se
+//! detiene en cada cambio entre `Travel` y `Cut`, por prudencia. En `lbrnts-repro04` y
+//! `wmc-outline-of-texas-detailed` el estimado queda a -0,6 % y +1,0 % del emulador.
 //!
 //! No modela: tiempo de comunicación, latencia del búfer serie ni
 //! el cambio de velocidad por `PowerMode`. Tampoco el eje Z: el `z_mm` de un bloque (cambio

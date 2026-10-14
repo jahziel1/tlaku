@@ -5059,6 +5059,7 @@ dependencies = [
  "tlaku-doc",
  "tlaku-grbl",
  "tlaku-pipeline",
+ "tlaku-sim",
  "tungstenite",
 ]
 
@@ -5149,6 +5150,7 @@ dependencies = [
  "image 0.25.10",
  "lopdf",
  "serde",
+ "serde_json",
  "tlaku-core",
  "tlaku-doc",
  "tlaku-dxf",
@@ -5156,6 +5158,7 @@ dependencies = [
  "tlaku-geom",
  "tlaku-grbl",
  "tlaku-lbrn",
+ "tlaku-lhymicro",
  "tlaku-plan",
  "tlaku-raster",
  "tlaku-ruida",

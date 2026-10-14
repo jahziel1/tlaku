@@ -12,4 +12,5 @@ tlaku-grbl = { version = "0.1.0", path = "../tlaku-grbl" }
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-doc = { version = "0.1.0", path = "../tlaku-doc" }
 tlaku-pipeline = { version = "0.1.0", path = "../tlaku-pipeline" }
+tlaku-sim = { version = "0.1.0", path = "../tlaku-sim" }
 tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }

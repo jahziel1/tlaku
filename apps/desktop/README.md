@@ -244,6 +244,8 @@ se desactualiza; para regenerarla, `npm run readme`. Formato Windows/Linux (en m
 |  | Puentes manuales | `U` |
 |  | Punto de inicio | `Q` |
 |  | Recortar formas | `X` |
+|  | Deformar en el lienzo | `Mayús+W` |
+|  | Redondear esquinas con clic | `Mayús+F` |
 |  | Insertar nodo en el punto medio | `I` |
 |  | Segmento a recta | `Mayús+L` |
 |  | Segmento a curva | `Mayús+U` |

@@ -186,4 +186,6 @@ export const design = {
   // Agrupar automáticamente
   'design.autoGroup.done': 'Se formaron {n} grupos.',
   'design.autoGroup.none': 'No hay formas contenidas dentro de otras que se puedan agrupar.',
+  'design.warp.onCanvas': 'Editar en el lienzo',
+  'design.warp.onCanvasHint': 'Cierra este diálogo y deja la malla de control sobre el diseño: arrastra las esquinas o los 16 puntos y mira el resultado en vivo.',
 } as const;

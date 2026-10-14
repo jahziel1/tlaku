@@ -12,8 +12,9 @@ impl Worker {
                     link,
                     s_max,
                     kind,
+                    load,
                     reply,
-                } => match self.try_start(t, lines, *link, s_max, kind) {
+                } => match self.try_start(t, lines, *link, s_max, kind, load) {
                     Ok(run) => {
                         let _ = reply.send(Ok(Vec::new()));
                         return Ok(Phase::Streaming(run));

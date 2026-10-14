@@ -1,4 +1,4 @@
-import type { Point, WarpEnvelope } from '@/api/types';
+import type { Point, WarpEnvelope, WarpGrid } from '@/api/types';
 import type { Bounds } from './geometry';
 
 /**
@@ -53,13 +53,96 @@ export function envelopeAt(env: WarpEnvelope, u: number, v: number): Point {
   ];
 }
 
-/** Función de deformación de la región `bounds` a la envolvente, o `null` si la región no tiene ancho y alto. */
+/** Pesos de la interpolación cúbica de Lagrange en los nodos 0, 1/3, 2/3 y 1 (igual que `tlaku_geom`). */
+export function lagrange4(t: number): [number, number, number, number] {
+  const a = t - 1 / 3;
+  const b = t - 2 / 3;
+  const c = t - 1;
+  return [-4.5 * a * b * c, 13.5 * t * b * c, -13.5 * t * a * c, 4.5 * t * a * b];
+}
+
+/** Imagen de `(u, v)` bajo la malla de 4x4 puntos: la superficie pasa por cada uno. */
+export function meshAt(grid: WarpGrid, u: number, v: number): Point {
+  const lu = lagrange4(u);
+  const lv = lagrange4(v);
+  let x = 0;
+  let y = 0;
+  for (let j = 0; j < 4; j++) {
+    for (let i = 0; i < 4; i++) {
+      const p = grid[j]![i]!;
+      const w = lu[i]! * lv[j]!;
+      x += p[0] * w;
+      y += p[1] * w;
+    }
+  }
+  return [x, y];
+}
+
+type Corners = NonNullable<WarpEnvelope['perspective']>;
+
+/**
+ * Coeficientes `[a, b, c, d, e, f, g, h]` de la proyección del cuadrado unidad a las cuatro esquinas
+ * (abajo-izquierda, abajo-derecha, arriba-derecha, arriba-izquierda), o `null` si el cuadrilátero es
+ * degenerado o cóncavo. Es la misma cuenta que `tlaku_geom::Warp::perspective`.
+ */
+export function homography(q: Corners): number[] | null {
+  const [p0, p1, p2, p3] = q;
+  const dx1 = p1[0] - p2[0];
+  const dx2 = p3[0] - p2[0];
+  const dy1 = p1[1] - p2[1];
+  const dy2 = p3[1] - p2[1];
+  const sx = p0[0] - p1[0] + p2[0] - p3[0];
+  const sy = p0[1] - p1[1] + p2[1] - p3[1];
+  if (![...p0, ...p1, ...p2, ...p3].every(Number.isFinite)) return null;
+  const scale = Math.max(1, Math.abs(dx1), Math.abs(dx2), Math.abs(dy1), Math.abs(dy2));
+  let g = 0;
+  let h = 0;
+  if (Math.abs(sx) > 1e-12 * scale || Math.abs(sy) > 1e-12 * scale) {
+    const den = dx1 * dy2 - dx2 * dy1;
+    if (Math.abs(den) <= 1e-12 * scale * scale) return null;
+    g = (sx * dy2 - dx2 * sy) / den;
+    h = (dx1 * sy - sx * dy1) / den;
+  }
+  if ([1, 1 + g, 1 + h, 1 + g + h].some((d) => !Number.isFinite(d) || d <= 1e-6)) return null;
+  return [p1[0] - p0[0] + g * p1[0], p3[0] - p0[0] + h * p3[0], p0[0], p1[1] - p0[1] + g * p1[1], p3[1] - p0[1] + h * p3[1], p0[1], g, h];
+}
+
+/** Imagen de `(u, v)` bajo la proyección `m` (ver `homography`). */
+export function projectiveAt(m: readonly number[], u: number, v: number): Point {
+  const den = m[6]! * u + m[7]! * v + 1;
+  return [(m[0]! * u + m[1]! * v + m[2]!) / den, (m[3]! * u + m[4]! * v + m[5]!) / den];
+}
+
+/**
+ * Función de deformación de la región `bounds` a la envolvente, o `null` si la región no tiene ancho y
+ * alto (o si la proyección de las esquinas no está definida). Manda la malla; luego la perspectiva;
+ * si no, el parche de Coons de los cuatro bordes.
+ */
 export function makeWarp(bounds: Bounds, envelope: WarpEnvelope): ((p: Point) => Point) | null {
   const w = bounds[1][0] - bounds[0][0];
   const h = bounds[1][1] - bounds[0][1];
   if (!(w > 1e-9) || !(h > 1e-9)) return null;
+  const uv = ([x, y]: Point): Point => [(x - bounds[0][0]) / w, (y - bounds[0][1]) / h];
+  if (envelope.grid) {
+    const grid = envelope.grid;
+    return (p) => meshAt(grid, ...uv(p));
+  }
+  if (envelope.perspective) {
+    const m = homography(envelope.perspective);
+    return m ? (p) => projectiveAt(m, ...uv(p)) : null;
+  }
   const env = snapEnvelope(envelope);
-  return ([x, y]) => envelopeAt(env, (x - bounds[0][0]) / w, (y - bounds[0][1]) / h);
+  return (p) => envelopeAt(env, ...uv(p));
+}
+
+/** Malla uniforme sobre la región (la identidad), de abajo hacia arriba y de izquierda a derecha. */
+export function identityGrid(bounds: Bounds): WarpGrid {
+  const [[x0, y0], [x1, y1]] = bounds;
+  const row = (j: number): [Point, Point, Point, Point] => {
+    const y = y0 + ((y1 - y0) * j) / 3;
+    return [0, 1, 2, 3].map((i) => [x0 + ((x1 - x0) * i) / 3, y] as Point) as [Point, Point, Point, Point];
+  };
+  return [row(0), row(1), row(2), row(3)];
 }
 
 /** Envolvente que deja la región tal cual. */

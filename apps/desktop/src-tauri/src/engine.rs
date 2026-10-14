@@ -6,7 +6,10 @@ use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use tlaku_core::Point;
-use tlaku_doc::{DeviceProfile, Document, ExportResult, ImportResult, JobOptions, JobPreview};
+use tlaku_doc::{
+    Connection, DeviceKind, DeviceProfile, Document, ExportResult, ImportResult, JobOptions,
+    JobPreview,
+};
 
 /// Posición de trabajo de la cabeza, `[x, y]`, si se conoce.
 pub type Head = Option<[f64; 2]>;
@@ -105,34 +108,92 @@ pub fn export_gcode(
     })
 }
 
+/// G-code listo para transmitir y lo que exige al enlace serie.
+pub struct JobGcode {
+    pub lines: Vec<String>,
+    /// Carga sobre el enlace serie del perfil; `None` si no aplica (red, USB propio...).
+    pub load: Option<tlaku_grbl::preflight::LinkLoad>,
+}
+
+/// El enlace serie del perfil limita al trabajo (baudios): solo con conexión serie y un firmware
+/// que habla G-code. Por red o con un driver propio (Ruida, K40, galvo) no hay baudios.
+fn serial_gcode_link(device: &DeviceProfile) -> bool {
+    device.connection == Connection::Serial
+        && !matches!(
+            device.kind,
+            DeviceKind::Ruida | DeviceKind::LhyMicro | DeviceKind::Galvo
+        )
+}
+
 /// G-code listo para transmitir: el mismo que `export_gcode`, ya validado contra el búfer de
 /// recepción del dispositivo (una línea que no cabe o con caracteres de tiempo real falla antes de
-/// tocar la máquina).
+/// tocar la máquina), con la carga que pone al enlace serie.
+pub fn job_gcode(
+    doc: &Document,
+    device: &DeviceProfile,
+    options: &JobOptions,
+    head: Head,
+) -> Result<JobGcode, String> {
+    let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
+    let text = tlaku_pipeline::gcode(&job, device);
+    tlaku_grbl::preflight::validate_gcode(&text, device.rx_buffer as usize)?;
+    let load = serial_gcode_link(device)
+        .then(|| tlaku_pipeline::link_load(&job, device, &text, device.baud));
+    Ok(JobGcode {
+        lines: text.lines().map(str::to_string).collect(),
+        load,
+    })
+}
+
+/// Solo las líneas de [`job_gcode`].
+#[cfg(test)]
 pub fn job_lines(
     doc: &Document,
     device: &DeviceProfile,
     options: &JobOptions,
     head: Head,
 ) -> Result<Vec<String>, String> {
-    let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
-    let text = tlaku_pipeline::gcode(&job, device);
-    tlaku_grbl::preflight::validate_gcode(&text, device.rx_buffer as usize)?;
-    Ok(text.lines().map(str::to_string).collect())
+    job_gcode(doc, device, options, head).map(|g| g.lines)
 }
 
-/// G-code del encuadre (láser apagado) del trabajo.
+/// Aviso (sin bloquear) de que el enlace serie del perfil no da abasto para este trabajo: el
+/// que se muestra en el diálogo de inicio. `None` si el enlace alcanza o no aplica.
+pub fn link_warning(
+    doc: &Document,
+    device: &DeviceProfile,
+    options: &JobOptions,
+    head: Head,
+) -> Result<Option<String>, String> {
+    if !serial_gcode_link(device) {
+        return Ok(None);
+    }
+    let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
+    let text = tlaku_pipeline::gcode(&job, device);
+    let load = tlaku_pipeline::link_load(&job, device, &text, device.baud);
+    Ok(load
+        .warning()
+        .map(|w| w.trim_start_matches("Aviso: ").to_string()))
+}
+
+/// G-code del encuadre (láser apagado) del trabajo. Con `pointer`, es el puntero rojo (no el
+/// rayo) el que recorre el rectángulo: la cabeza va desfasada `DeviceProfile::pointer_offset`.
 pub fn frame_lines(
     doc: &Document,
     device: &DeviceProfile,
     options: &JobOptions,
     speed: f64,
     head: Head,
+    pointer: bool,
 ) -> Result<Vec<String>, String> {
     if !(speed.is_finite() && speed > 0.0) {
         return Err("La velocidad del encuadre debe ser mayor que 0.".into());
     }
     let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
-    let lines = tlaku_pipeline::frame_gcode(&job, device, speed);
+    let lines = if pointer {
+        tlaku_pipeline::frame_gcode_pointer(&job, device, speed)?
+    } else {
+        tlaku_pipeline::frame_gcode(&job, device, speed)
+    };
     if lines.is_empty() {
         return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
     }
@@ -167,6 +228,12 @@ fn check_device(d: &DeviceProfile) -> Result<(), String> {
     positive("la aceleración", &d.accel)?;
     positive("la velocidad máxima", &d.max_rate)?;
     positive("la velocidad de movimientos rápidos", &[d.rapid_rate])?;
+    if !d.pointer_offset.iter().all(|v| v.is_finite()) || !d.u_offset.is_finite() {
+        return Err(format!(
+            "Perfil '{}': el desfase del puntero y el desplazamiento U deben ser números.",
+            d.name
+        ));
+    }
     if d.baud == 0 || d.rx_buffer < 16 {
         return Err(format!(
             "Perfil '{}': los baudios y el búfer de recepción (mínimo 16 bytes) deben ser válidos.",
@@ -198,15 +265,36 @@ fn store_devices(config_dir: &Path, devices: &[DeviceProfile]) -> Result<(), Str
     write_atomic(&devices_file(config_dir), &text)
 }
 
-/// Crea o reemplaza el perfil con ese `id`.
+/// Crea o reemplaza el perfil con ese `id`. Si queda como el perfil por defecto, se lo quita a
+/// los demás (solo uno se activa al abrir).
 pub fn save_device(config_dir: &Path, device: DeviceProfile) -> Result<(), String> {
     check_device(&device)?;
     let mut all = list_devices(config_dir)?;
+    let (id, default) = (device.id.clone(), device.is_default);
     match all.iter_mut().find(|d| d.id == device.id) {
         Some(slot) => *slot = device,
         None => all.push(device),
     }
+    if default {
+        for d in all.iter_mut().filter(|d| d.id != id) {
+            d.is_default = false;
+        }
+    }
     store_devices(config_dir, &all)
+}
+
+/// Ordena la lista de perfiles como `ids` (los que no se nombran quedan al final, en su orden).
+/// Un id que no existe se ignora; repetidos cuentan una vez.
+pub fn reorder_devices(config_dir: &Path, ids: &[String]) -> Result<(), String> {
+    let mut rest = list_devices(config_dir)?;
+    let mut sorted = Vec::with_capacity(rest.len());
+    for id in ids {
+        if let Some(i) = rest.iter().position(|d| &d.id == id) {
+            sorted.push(rest.remove(i));
+        }
+    }
+    sorted.extend(rest);
+    store_devices(config_dir, &sorted)
 }
 
 pub fn delete_device(config_dir: &Path, id: &str) -> Result<(), String> {

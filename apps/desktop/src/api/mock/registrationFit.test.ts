@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Affine, Point } from '@/api/types';
 import { applyAffine, multiplyAffine } from '@/lib/geometry';
-import { areCollinear, autoMode, fitRegistration, SCALE_WARN, type MarkPair } from './fit';
+import { SCALE_WARN, type FitMode, type MarkPair } from '@/features/printcut/types';
+import { fitWithMode, mockFitRegistration, resolveFitMode } from './registrationFit';
 
 const rotate = (r: number): Affine => [Math.cos(r), Math.sin(r), -Math.sin(r), Math.cos(r), 0, 0];
 const translate = (x: number, y: number): Affine => [1, 0, 0, 1, x, y];
@@ -22,8 +25,8 @@ function expectClose(a: readonly number[], b: readonly number[], tol: number) {
   a.forEach((v, i) => expect(Math.abs(v - b[i]!), `índice ${i}: ${v} vs ${b[i]}`).toBeLessThanOrEqual(tol));
 }
 
-function fit(pairs: MarkPair[], mode: Parameters<typeof fitRegistration>[1]) {
-  const r = fitRegistration(pairs, mode);
+function fit(pairs: MarkPair[], mode: FitMode) {
+  const r = fitWithMode(pairs, mode);
   if (!r.ok) throw new Error(`ajuste falló: ${r.error.kind}`);
   return r.fit;
 }
@@ -120,24 +123,68 @@ describe('ajuste con 3 o más marcas', () => {
 
 describe('validación', () => {
   it('rechaza pocas marcas, marcas pegadas y números inválidos', () => {
-    expect(fitRegistration([{ design: [0, 0], physical: [1, 1] }], 'similarity')).toEqual({ ok: false, error: { kind: 'few', need: 2, have: 1 } });
-    expect(fitRegistration(pairsOf(translate(0, 0), [[0, 0], [50, 0]]), 'affine')).toEqual({ ok: false, error: { kind: 'few', need: 3, have: 2 } });
-    expect(fitRegistration([{ design: [0, 0], physical: [0, 0] }, { design: [0.2, 0], physical: [50, 0] }], 'similarity')).toEqual({ ok: false, error: { kind: 'close', a: 1, b: 2 } });
-    expect(fitRegistration([{ design: [0, 0], physical: [0, 0] }, { design: [50, 0], physical: [Number.NaN, 0] }], 'similarity')).toEqual({ ok: false, error: { kind: 'nan' } });
+    expect(fitWithMode([{ design: [0, 0], physical: [1, 1] }], 'similarity')).toEqual({ ok: false, error: { kind: 'few', need: 2, have: 1 } });
+    expect(fitWithMode(pairsOf(translate(0, 0), [[0, 0], [50, 0]]), 'affine')).toEqual({ ok: false, error: { kind: 'few', need: 3, have: 2 } });
+    expect(fitWithMode([{ design: [0, 0], physical: [0, 0] }, { design: [0.2, 0], physical: [50, 0] }], 'similarity')).toEqual({ ok: false, error: { kind: 'close', a: 1, b: 2 } });
+    expect(fitWithMode([{ design: [0, 0], physical: [0, 0] }, { design: [50, 0], physical: [Number.NaN, 0] }], 'similarity')).toEqual({ ok: false, error: { kind: 'nan' } });
   });
 
   it('tres marcas en línea no sirven para la afín pero sí para la similitud', () => {
     const line = pairsOf(translate(1, 1), [[0, 0], [50, 0], [100, 0]]);
-    expect(fitRegistration(line, 'affine')).toEqual({ ok: false, error: { kind: 'collinear' } });
-    expect(fitRegistration(line, 'similarity').ok).toBe(true);
-    expect(areCollinear([[0, 0], [50, 0], [100, 0]])).toBe(true);
-    expect(areCollinear([[0, 0], [50, 0], [0, 100]])).toBe(false);
-    expect(areCollinear([[0, 0], [50, 0]])).toBe(false);
+    expect(fitWithMode(line, 'affine')).toEqual({ ok: false, error: { kind: 'collinear' } });
+    expect(fitWithMode(line, 'similarity').ok).toBe(true);
   });
 
-  it('el modo automático depende de cuántas marcas hay', () => {
-    expect(autoMode(2)).toBe('similarity');
-    expect(autoMode(3)).toBe('affine');
-    expect(autoMode(4)).toBe('affine');
+  it('lo que responde la maqueta resuelve el modo antes de ajustar', () => {
+    // La afín con 2 marcas no se puede resolver: el motor la cambia por similitud en vez de fallar.
+    const r = mockFitRegistration(pairsOf(translate(1, 1), [[0, 0], [50, 0]]), 'affine');
+    expect(r.ok && r.fit.mode).toBe('similarity');
+    const auto = mockFitRegistration(pairsOf(translate(1, 1), [[0, 0], [50, 0], [0, 80]]), 'auto');
+    expect(auto.ok && auto.fit.mode).toBe('affine');
+  });
+
+  it('el modo automático depende de cuántas marcas hay y cae a similitud si no hay afín', () => {
+    expect(resolveFitMode('auto', [[0, 0], [50, 0]])).toBe('similarity');
+    expect(resolveFitMode('auto', [[0, 0], [50, 0], [0, 80]])).toBe('affine');
+    expect(resolveFitMode('auto', [[0, 0], [50, 0], [100, 0]])).toBe('similarity');
+    expect(resolveFitMode('affine', [[0, 0], [50, 0]])).toBe('similarity');
+    expect(resolveFitMode('rigid', [[0, 0], [50, 0], [0, 80]])).toBe('rigid');
+  });
+});
+
+/** Los mismos casos que comprueba el motor (`crates/tlaku-pipeline/tests/cross.rs`). */
+describe('casos comunes con el motor', () => {
+  interface Case {
+    name: string;
+    mode: FitMode;
+    pairs: MarkPair[];
+    expect: { ok: boolean; transform?: number[]; rotationDeg?: number; scale?: number; residualMax?: number; residuals?: number[]; warnings?: { kind: string }[]; error?: unknown };
+  }
+  const file = JSON.parse(readFileSync(resolve(__dirname, '../../../../../crates/tlaku-pipeline/tests/cross/registration.json'), 'utf8')) as {
+    tolerance: number;
+    cases: Case[];
+    choice: { name: string; choice: 'auto' | FitMode; design: [number, number][]; expect: FitMode }[];
+  };
+
+  it.each(file.cases.map((c) => [c.name, c] as const))('%s', (_name, c) => {
+    const r = fitWithMode(c.pairs, c.mode);
+    if (!c.expect.ok) {
+      expect(r).toEqual({ ok: false, error: c.expect.error });
+      return;
+    }
+    if (!r.ok) throw new Error(`falló: ${r.error.kind}`);
+    const tol = file.tolerance;
+    const close = (got: readonly number[], want: readonly number[], what: string) =>
+      want.forEach((w, i) => expect(Math.abs(got[i]! - w), `${what}[${i}]: ${got[i]} vs ${w}`).toBeLessThanOrEqual(tol));
+    if (c.expect.transform) close(r.fit.transform, c.expect.transform, 'transform');
+    if (c.expect.rotationDeg !== undefined) close([r.fit.rotationDeg], [c.expect.rotationDeg], 'rotationDeg');
+    if (c.expect.scale !== undefined) close([r.fit.scale], [c.expect.scale], 'scale');
+    if (c.expect.residualMax !== undefined) close([r.fit.residualMax], [c.expect.residualMax], 'residualMax');
+    if (c.expect.residuals) close(r.fit.residuals, c.expect.residuals, 'residuals');
+    if (c.expect.warnings) expect(r.fit.warnings.map((w) => w.kind)).toEqual(c.expect.warnings.map((w) => w.kind));
+  });
+
+  it.each(file.choice.map((c) => [c.name, c] as const))('modo: %s', (_name, c) => {
+    expect(resolveFitMode(c.choice, c.design)).toBe(c.expect);
   });
 });

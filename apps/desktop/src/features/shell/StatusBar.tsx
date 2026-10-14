@@ -5,6 +5,7 @@ import { t } from '@/i18n';
 import { unionBounds } from '@/lib/geometry';
 import { objectBoundsWithCopies } from '@/lib/virtualArray';
 import { boundsOf } from '@/features/canvas/transform';
+import { ToolHint } from '@/features/canvas/ToolHint';
 import { objectsByIds } from '@/store/objectIndex';
 import { fmtClock, isMac } from '@/lib/platform';
 import { formatLength, formatSize, unitSymbol } from '@/lib/units';
@@ -132,6 +133,7 @@ export function StatusBar() {
       <Cursor />
       <Zoom />
       <Selection />
+      <ToolHint />
       <div className="topbar__spacer" />
       <SaveState />
       <MachineState />

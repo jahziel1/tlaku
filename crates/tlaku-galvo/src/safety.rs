@@ -30,6 +30,11 @@ pub const DEFAULT_LASER_BIT: u8 = 0;
 /// Bit del puerto de salida del puntero rojo (galvoplotter `light_pin = 8`; sin verificar).
 pub const DEFAULT_LIGHT_BIT: u8 = 8;
 
+/// Desfase máximo del puntero rojo respecto al haz (mm).
+pub const MAX_POINTER_OFFSET_MM: f64 = 50.0;
+/// Overscan máximo del perfil (mm).
+pub const MAX_OVERSCAN_MM: f64 = 20.0;
+
 /// Qué clase de lista se valida.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ListKind {
@@ -59,6 +64,13 @@ pub struct SafetyLimits {
 impl SafetyLimits {
     /// Límites del perfil. Falla si el perfil no es coherente.
     pub fn from_device(dev: &GalvoDevice) -> Result<Self, SafetyError> {
+        let bad = |why: &'static str| Err(SafetyError::BadLimits(why));
+        if !(dev.overscan_mm.is_finite() && (0.0..=MAX_OVERSCAN_MM).contains(&dev.overscan_mm)) {
+            return bad("el overscan del perfil debe estar entre 0 y 20 mm");
+        }
+        if dev.require_input.is_some_and(|r| !r.is_valid()) {
+            return bad("el enclavamiento por entrada tiene bits de valor fuera de la máscara");
+        }
         let lim = SafetyLimits {
             source: dev.source,
             freq_min_khz: dev.freq_min_khz,

@@ -1,6 +1,6 @@
 /** Captura de video: restricciones de getUserMedia y clasificación de errores. */
 
-export type CameraProblem = 'denied' | 'none' | 'busy' | 'unsupported' | 'unknown';
+export type CameraProblem = 'denied' | 'none' | 'busy' | 'unsupported' | 'unknown' | 'noUrl' | 'network';
 
 export interface Resolution {
   width: number;

@@ -234,13 +234,32 @@ pub fn preview(
     })
 }
 
-/// La forma del encuadre con el puntero rojo: el rectángulo del trabajo o su contorno. Con
-/// marcado dividido se encuadra la primera pieza.
+/// Qué se dibuja con el puntero rojo al encuadrar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FrameKind {
+    /// El rectángulo que ocupa el trabajo.
+    #[default]
+    Rect,
+    /// Los trazos del trabajo.
+    Contour,
+    /// El casco convexo de lo que se marca.
+    Hull,
+    /// Un rectángulo por cada objeto suelto.
+    Objects,
+}
+
+/// Holgura (mm) con la que dos trazos se consideran del mismo objeto al encuadrar objetos sueltos.
+pub const DEFAULT_OBJECT_GAP_MM: f64 = 1.0;
+
+/// La forma del encuadre con el puntero rojo. Con marcado dividido se encuadra la primera pieza.
+/// `gap_mm` solo cuenta para [`FrameKind::Objects`].
 pub fn light_shape(
     doc: &tlaku_doc::Document,
     device: &DeviceProfile,
     options: &tlaku_doc::JobOptions,
-    contour: bool,
+    kind: FrameKind,
+    gap_mm: Option<f64>,
 ) -> Result<LightShape, String> {
     let job = prepare(doc, device, options, true)?;
     let tp = &job
@@ -248,10 +267,13 @@ pub fn light_shape(
         .first()
         .ok_or("No hay nada que encuadrar: el trabajo está vacío.")?
         .toolpath;
-    let shape = if contour {
-        LightShape::contour_of(tp)
-    } else {
-        LightShape::bounds_of(tp)
+    let shape = match kind {
+        FrameKind::Rect => LightShape::bounds_of(tp),
+        FrameKind::Contour => LightShape::contour_of(tp),
+        FrameKind::Hull => LightShape::hull_of(tp),
+        FrameKind::Objects => {
+            LightShape::objects_of(tp, gap_mm.unwrap_or(DEFAULT_OBJECT_GAP_MM)).map(|(s, _)| s)
+        }
     };
     shape.ok_or_else(|| "No hay nada que encuadrar: el trabajo está vacío.".to_string())
 }

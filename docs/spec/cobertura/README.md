@@ -8,17 +8,17 @@ Este documento se partió en un archivo por área (antes era un solo archivo de 
 
 |  | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| P0 | 64 | 4 | 0 | 0 | 0 | 68 |
+| P0 | 65 | 3 | 0 | 0 | 0 | 68 |
 | P1 | 75 | 13 | 0 | 0 | 0 | 88 |
-| P2 | 39 | 10 | 10 | 2 | 0 | 61 |
-| Total | 178 | 27 | 10 | 2 | 0 | 217 |
+| P2 | 40 | 11 | 10 | 0 | 0 | 61 |
+| Total | 180 | 27 | 10 | 0 | 0 | 217 |
 
 ### Por área
 
 |  | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Diseño y edición | 90 | 8 | 0 | 2 | 0 | 100 |
-| Capas, corte e imagen | 56 | 2 | 2 | 0 | 0 | 60 |
+| Diseño y edición | 91 | 9 | 0 | 0 | 0 | 100 |
+| Capas, corte e imagen | 57 | 1 | 2 | 0 | 0 | 60 |
 | Máquinas y avanzadas | 32 | 17 | 8 | 0 | 0 | 57 |
 
 ### Por área y prioridad
@@ -27,15 +27,15 @@ Este documento se partió en un archivo por área (antes era un solo archivo de 
 |---|---|---:|---:|---:|---:|---:|---:|
 | Diseño y edición | P0 | 32 | 0 | 0 | 0 | 0 | 32 |
 | Diseño y edición | P1 | 35 | 4 | 0 | 0 | 0 | 39 |
-| Diseño y edición | P2 | 23 | 4 | 0 | 2 | 0 | 29 |
-| Capas, corte e imagen | P0 | 21 | 1 | 0 | 0 | 0 | 22 |
+| Diseño y edición | P2 | 24 | 5 | 0 | 0 | 0 | 29 |
+| Capas, corte e imagen | P0 | 22 | 0 | 0 | 0 | 0 | 22 |
 | Capas, corte e imagen | P1 | 22 | 1 | 0 | 0 | 0 | 23 |
 | Capas, corte e imagen | P2 | 13 | 0 | 2 | 0 | 0 | 15 |
 | Máquinas y avanzadas | P0 | 11 | 3 | 0 | 0 | 0 | 14 |
 | Máquinas y avanzadas | P1 | 18 | 8 | 0 | 0 | 0 | 26 |
 | Máquinas y avanzadas | P2 | 3 | 6 | 8 | 0 | 0 | 17 |
 
-Antes de la ola 5.5: 175 hechas, 27 parciales, 10 solo motor/CLI y 2 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 5: 173 hechas, 26 parciales, 0 solo motor/CLI y 15 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 4: 165 hechas, 23 parciales, 3 solo motor/CLI y 23 faltantes (P0: 62 / 6 / 0 / 0). Antes de la ola 3: 143 hechas, 22 parciales, 3 solo motor/CLI y 46 faltantes (P0 igual: 62 / 6 / 0 / 0). Antes de la ola 2: 120 hechas, 27 parciales, 6 solo motor/CLI y 61 faltantes contando las filas (el resumen de entonces decía 26 parciales y 62 faltantes: una fila de capas P1 figuraba como Falta en el resumen y como Parcial en su tabla). Antes de la ola 1: 88 hechas, 31 parciales, 6 solo motor/CLI y 89 faltantes (P0: 53 / 13 / 1 / 1).
+Tras la ola 6C: 180 hechas, 27 parciales, 10 solo motor/CLI y 0 faltantes (D94 hecha; D90 parcial). Antes de la ola 5.5: 175 hechas, 27 parciales, 10 solo motor/CLI y 2 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 5: 173 hechas, 26 parciales, 0 solo motor/CLI y 15 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 4: 165 hechas, 23 parciales, 3 solo motor/CLI y 23 faltantes (P0: 62 / 6 / 0 / 0). Antes de la ola 3: 143 hechas, 22 parciales, 3 solo motor/CLI y 46 faltantes (P0 igual: 62 / 6 / 0 / 0). Antes de la ola 2: 120 hechas, 27 parciales, 6 solo motor/CLI y 61 faltantes contando las filas (el resumen de entonces decía 26 parciales y 62 faltantes: una fila de capas P1 figuraba como Falta en el resumen y como Parcial en su tabla). Antes de la ola 1: 88 hechas, 31 parciales, 6 solo motor/CLI y 89 faltantes (P0: 53 / 13 / 1 / 1).
 
 **Lectura rápida.** De 217 funciones, 178 están hechas (82 %), 27 parciales, 10 solo en el motor o el CLI y 2 faltan. En P0 (el MVP) hay 64 de 68 hechas (94 %), igual que tras la ola 4; las 4 parciales son C51, M3, M5 y M6, y no queda ninguna P0 solo en el motor ni faltante. El área de diseño y edición tiene hechas 90 de 100 y el de capas, corte e imagen 56 de 60. En máquinas y avanzadas hay 32 hechas de 57 (de 29 de 54 antes de la ola 5.5, y de 27 antes de la ola 5), 17 parciales y 8 solo en el motor o el CLI. Las dos funciones que faltan son D90 (otros formatos de máquina) y D94 (exportar AI), ambas P2. Las 10 funciones "solo motor/CLI" son todas del galvo (M30, M40 a M46, C47 y C59): existían en el motor y en `tlaku galvo` al cierre de la ola 5; desde la ola 6 (commit `61ec249`) la app también las ofrece (experimental), y la clasificación se rehará en la próxima auditoría. Sigue sin haber ninguna prueba con hardware real: lo que la ola 4 sumó para Ruida, el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, y lo que la ola 5 sumó para el galvo, Print & Cut y el tiling, se probó solo contra emuladores, máquinas virtuales e imágenes sintéticas.
 

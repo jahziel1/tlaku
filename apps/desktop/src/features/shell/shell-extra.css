@@ -280,3 +280,109 @@
   font-size: var(--text-sm);
   white-space: nowrap;
 }
+
+/* ---- distribución: panel a la izquierda, herramientas a la derecha ------------------------- */
+
+.dock--left {
+  border-left: 0;
+  border-right: 1px solid var(--border);
+}
+.dock--left .dock__grip {
+  left: auto;
+  right: -4px;
+}
+.dock--left .dock__grip:hover,
+.dock--left .dock__grip:focus-visible {
+  background: linear-gradient(to left, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px);
+}
+.dock--left .dock__menu {
+  right: auto;
+  left: var(--s-3);
+}
+.shell[data-tools-side='right'] .toolpalette {
+  border-right: 0;
+  border-left: 1px solid var(--border);
+}
+.shell[data-tools-side='right'] .toolpalette .icon-btn[aria-pressed='true']::before {
+  left: auto;
+  right: -7px;
+  border-radius: 3px 0 0 3px;
+}
+.dock__side {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: var(--s-3) 0;
+}
+.dock__side-label {
+  flex: 1;
+}
+.dock__side .icon-btn[aria-checked='true'] {
+  background: var(--accent-subtle, var(--bg-hover));
+  color: var(--accent);
+}
+.dock__menu-row .icon-btn[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+/* ---- paneles flotantes ---------------------------------------------------------------------- */
+
+.floatwin {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-chrome);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+.floatwin__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+  height: 32px;
+  padding: 0 var(--s-3) 0 var(--s-4);
+  background: var(--bg-raised, var(--bg-chrome));
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.floatwin__head:active {
+  cursor: grabbing;
+}
+.floatwin__head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.floatwin__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.floatwin__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.floatwin__grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(135deg, transparent 55%, var(--border-strong) 55%, var(--border-strong) 62%, transparent 62%, transparent 75%, var(--border-strong) 75%, var(--border-strong) 82%, transparent 82%);
+}
+.floatwin__grip:focus-visible {
+  outline: 2px solid var(--accent);
+}

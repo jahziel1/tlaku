@@ -52,6 +52,23 @@ Se aplican a la imagen antes del tramado:
 - **Invertir**: intercambia claro y oscuro, útil con negativos o materiales que se aclaran al quemarse.
 - **Ancho del punto** (0 a 1 mm): acorta cada tramo encendido para que las zonas oscuras no engorden. 0 = sin corrección.
 
+## Presets de imagen
+
+Arriba de los ajustes de tono, el selector **Preset de imagen** aplica de una vez el brillo, el contraste, el gamma, el realce de bordes y quitar motas (un solo paso de deshacer). No cambia el tramado ni el intervalo: esos dependen de tu máquina y del material, no de la foto.
+
+De fábrica vienen **Sin cambios**, **Foto en madera**, **Logo de alto contraste**, **Retrato suave**, **Foto oscura**, **Escaneo sucio** y **Detalle fino**; cada uno explica debajo para qué sirve. Son puntos de partida: pruébalos con la vista previa y ajusta a mano si hace falta, con lo que el selector pasa a **Personalizado**.
+
+Con **Guardar como…** guardas los valores de ahora con el nombre que quieras (hasta 50; si repites un nombre, reemplaza el anterior) y aparecen en **Míos**. **Borrar** quita el que tienes elegido. Tus presets se guardan en este equipo; no viajan dentro del proyecto.
+
+## Vista previa de la imagen
+
+El botón **Vista previa de la imagen…**, al final de los ajustes de la imagen, abre un panel flotante con lo que se grabaría de una imagen de la capa (la seleccionada o la primera; si hay varias, eliges cuál). Se actualiza solo cuando cambias un ajuste, y no calcula todo el trabajo.
+
+- **Entera** ajusta la imagen al visor. Si la rejilla del trabajo es más fina de lo que cabe en pantalla, la vista usa una más gruesa y lo dice: es una aproximación rápida.
+- **Tamaño real**, **200 %** y **400 %** muestran un trozo con la rejilla exacta del trabajo (cada punto es un punto grabado). Arrastra la imagen para moverte.
+
+La vista previa no incluye el efecto de la máquina al barrer (sobrebarrido, compensación de offsets). Para eso está la vista previa del trabajo.
+
 ## Imagen avanzada
 
 En la sección plegable **Imagen avanzada** del editor de la capa (oculta en el **Modo principiante**) hay tres ajustes más. Se aplican antes del tramado, junto con los de tono.

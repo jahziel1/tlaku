@@ -23,7 +23,7 @@ import {
   rateRms,
 } from './coverage';
 import type { Vec2 } from './geometry';
-import { getVideo, grabRawPng, parkVideo, startCamera } from './session';
+import { getRawView, grabRawPng, parkRawView, startCamera } from './session';
 import './camera.css';
 
 /** Ancho máximo del cuadro que se manda a detectar en vivo (el costo crece con los píxeles). */
@@ -62,12 +62,12 @@ export function CalibrationDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    const video = getVideo();
+    const video = getRawView();
     video.className = 'cam-cal__video';
     el.prepend(video);
     return () => {
       video.className = '';
-      parkVideo();
+      parkRawView();
     };
   }, []);
 

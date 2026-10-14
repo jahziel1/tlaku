@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
 import { objectsByIds } from '@/store/objectIndex';
+import { editText } from '@/features/text/convert';
+import type { TextObject } from '@/api/types';
 import { ExprField } from './ExprField';
 import { commonValue, setCutProps, type CutPatch } from './cutProps';
 import { OptionalField } from './OptionalField';
@@ -28,6 +30,9 @@ interface ViewProps {
   mixed: boolean;
   /** Propiedades de corte de la selección. */
   cut?: CutValues;
+  /** Texto seleccionado (un solo objeto de texto): tamaño y espaciados; el contenido y la fuente están en el panel de texto. */
+  text?: Pick<TextObject, 'font_family' | 'size_mm' | 'letter_spacing_mm' | 'line_spacing'>;
+  onText?: (patch: Partial<TextObject>, field: string) => void;
   onApply: (patch: Partial<ShapeSpec>) => void;
   onCut?: (patch: CutPatch) => void;
   onClose: () => void;
@@ -35,7 +40,7 @@ interface ViewProps {
 }
 
 /** Contenido de la ventana: los campos de cada tipo de forma. */
-export function ShapePropsView({ params: first, mixed, cut, onApply, onCut, onClose, onLock }: ViewProps) {
+export function ShapePropsView({ params: first, mixed, cut, text, onText, onApply, onCut, onClose, onLock }: ViewProps) {
   const field = (key: string, label: string, value: number, unit?: string, hintKey?: Parameters<typeof t>[0]) => (
     <ExprField
       key={key}
@@ -85,6 +90,18 @@ export function ShapePropsView({ params: first, mixed, cut, onApply, onCut, onCl
           </>
         )}
       </div>
+      )}
+      {text && onText && (
+        <>
+          <h3 className="shape-props__sub">{t('canvas.obj.text')}</h3>
+          <p className="shape-props__note">{text.font_family}</p>
+          <div className="shape-props__grid">
+            <ExprField label={t('text.field.size')} unit="mm" value={text.size_mm} onApply={(v) => v > 0 && onText({ size_mm: v }, 'size')} />
+            <ExprField label={t('text.field.letterSpacing')} unit="mm" value={text.letter_spacing_mm} onApply={(v) => onText({ letter_spacing_mm: v }, 'spacing')} />
+            <ExprField label={t('text.field.lineSpacing')} unit="×" value={text.line_spacing} onApply={(v) => v > 0 && onText({ line_spacing: v }, 'lines')} />
+          </div>
+          <p className="shape-props__note">{t('canvas.obj.textHelp')}</p>
+        </>
       )}
       {cut && onCut && (
         <>
@@ -140,6 +157,8 @@ export function ShapeProps() {
     }),
     [picked],
   );
+  // Un único texto: se editan aquí su tamaño y espaciados (lo demás, en el panel de texto).
+  const textObj = picked.length === 1 && picked[0]!.kind.type === 'text' ? picked[0]! : null;
   const cut = useMemo<CutValues>(
     () => ({ priority: commonValue(picked, (o) => o.priority), power: commonValue(picked, (o) => o.power_scale) }),
     [picked],
@@ -166,6 +185,8 @@ export function ShapeProps() {
       params={shapeParams}
       mixed={editable.length !== picked.length}
       cut={cut}
+      text={textObj && textObj.kind.type === 'text' ? textObj.kind : undefined}
+      onText={textObj ? (patch, field) => editText(textObj.id, patch, field) : undefined}
       onApply={apply}
       onCut={(patch) => setCutProps(useStore.getState(), ids, patch)}
       onClose={() => useStore.getState().setShapePropsOpen(false)}

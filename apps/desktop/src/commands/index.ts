@@ -3,6 +3,7 @@ import { arrangeCommands } from './definitions/arrange';
 import { designAdvancedCommands } from './definitions/designAdvanced';
 import { bundleCommands } from './definitions/bundle';
 import { cameraCommands } from './definitions/camera';
+import { canvasToolCommands } from './definitions/canvasTools';
 import { codesCommands } from './definitions/codes';
 import { designCommands } from './definitions/design';
 import { deviceCommands } from './definitions/devices';
@@ -44,6 +45,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...fileioCommands,
   ...editCommands,
   ...toolCommands,
+  ...canvasToolCommands,
   ...viewCommands,
   ...designCommands,
   ...machineCommands,

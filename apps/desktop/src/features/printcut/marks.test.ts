@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '@/api/types';
 import { GUIDE_COLOR } from '@/lib/palette';
 import { rectObject } from '@/features/nest/testUtils';
-import { buildPairs, computeRegistration, isGoodFit, nextMissing, resolveMode } from './flow';
+import { buildPairs, computeRegistration, isGoodFit, nextMissing, type ModeChoice } from './flow';
 import { cornerCenters, designBox, marksFromSelection, marksMoved, registrationMarkObjects } from './marks';
 
 const doc = (objects: Document['objects']): Pick<Document, 'objects'> => ({ objects });
@@ -68,12 +68,18 @@ describe('flujo del asistente', () => {
     { ids: ['c'], point: [0, 80] as [number, number] },
   ];
 
-  it('resuelve el modo según las marcas y cae a similitud si no hay forma de resolver la afín', () => {
-    expect(resolveMode('auto', [[0, 0], [10, 0]])).toBe('similarity');
-    expect(resolveMode('auto', marks.map((m) => m.point))).toBe('affine');
-    expect(resolveMode('affine', [[0, 0], [10, 0]])).toBe('similarity');
-    expect(resolveMode('auto', [[0, 0], [50, 0], [100, 0]])).toBe('similarity');
-    expect(resolveMode('rigid', marks.map((m) => m.point))).toBe('rigid');
+  it('el motor resuelve el modo según las marcas y cae a similitud si no hay forma de resolver la afín', async () => {
+    const mode = async (choice: ModeChoice, pts: [number, number][]) => {
+      const ms = pts.map((point, i) => ({ ids: [`m${i}`], point }));
+      const r = await computeRegistration(ms, pts.map(([x, y]) => [x + 1, y + 2] as [number, number]), choice);
+      if (!r?.ok) throw new Error('sin ajuste');
+      return r.fit.mode;
+    };
+    expect(await mode('auto', [[0, 0], [10, 0]])).toBe('similarity');
+    expect(await mode('auto', marks.map((m) => m.point))).toBe('affine');
+    expect(await mode('affine', [[0, 0], [10, 0]])).toBe('similarity');
+    expect(await mode('auto', [[0, 0], [50, 0], [100, 0]])).toBe('similarity');
+    expect(await mode('rigid', marks.map((m) => m.point))).toBe('rigid');
   });
 
   it('busca la siguiente marca sin medir dando la vuelta', () => {
@@ -82,10 +88,10 @@ describe('flujo del asistente', () => {
     expect(nextMissing([[1, 1], [2, 2]], 1)).toBe(1);
   });
 
-  it('no calcula hasta que estén todas medidas', () => {
+  it('no calcula hasta que estén todas medidas', async () => {
     expect(buildPairs(marks, [[1, 1], null, [2, 2]])).toBeNull();
-    expect(computeRegistration(marks, [[1, 1]], 'auto')).toBeNull();
-    const r = computeRegistration(marks, [[3, 2], [103, 2], [3, 82]], 'auto');
+    expect(await computeRegistration(marks, [[1, 1]], 'auto')).toBeNull();
+    const r = await computeRegistration(marks, [[3, 2], [103, 2], [3, 82]], 'auto');
     expect(r?.ok).toBe(true);
     if (r?.ok) {
       expect(r.fit.transform[4]).toBeCloseTo(3, 9);

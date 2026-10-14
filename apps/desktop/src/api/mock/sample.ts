@@ -1,5 +1,5 @@
 import { ellipseBez, polylineBez, roundedRectBez } from '@/lib/bezpath';
-import { DEVICE_WAVE4_DEFAULTS, DEFAULT_ROTARY, dialectForKind } from '@/lib/device';
+import { DEVICE_EXTRA_DEFAULTS, DEFAULT_ROTARY, dialectForKind } from '@/lib/device';
 import { shapes, translation } from '@/lib/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { DesignObject, DeviceProfile, Document, LayerSettings } from '../types';
@@ -114,7 +114,7 @@ export function sampleDevices(): DeviceProfile[] {
       rotary: { ...DEFAULT_ROTARY, kind: 'chuck', mm_per_rotation: 40 },
       scan_offsets: [],
       scan_initial_offset: 0,
-      ...DEVICE_WAVE4_DEFAULTS,
+      ...DEVICE_EXTRA_DEFAULTS,
     },
     {
       id: 'taller-co2',
@@ -138,7 +138,7 @@ export function sampleDevices(): DeviceProfile[] {
       rotary: { ...DEFAULT_ROTARY },
       scan_offsets: [],
       scan_initial_offset: 0,
-      ...DEVICE_WAVE4_DEFAULTS,
+      ...DEVICE_EXTRA_DEFAULTS,
     },
     // Un grblHAL de 32 bits, para ver en el gestor un tipo distinto de GRBL. Su dialecto es el de
     // GRBL 1.1 (como en el motor); el rotativo de rodillos viene con las cifras de xTool.
@@ -164,7 +164,7 @@ export function sampleDevices(): DeviceProfile[] {
       rotary: { ...DEFAULT_ROTARY },
       scan_offsets: [{ speed: 6000, offset: 0.2 }],
       scan_initial_offset: 0,
-      ...DEVICE_WAVE4_DEFAULTS,
+      ...DEVICE_EXTRA_DEFAULTS,
     },
   ];
 }

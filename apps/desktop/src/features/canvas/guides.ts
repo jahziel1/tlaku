@@ -80,7 +80,7 @@ export function snapGuidePos(s: AppState, axis: GuideAxis, pos: number, skipInde
     });
   }
   if (s.snapGrid) {
-    const step = gridSteps(s.zoom, 7, s.prefs.units).minor;
+    const step = gridSteps(s.zoom, 7, s.prefs.units, s.prefs.gridMm).minor;
     consider(Math.round(pos / step) * step);
   }
   return roundGuide(best);

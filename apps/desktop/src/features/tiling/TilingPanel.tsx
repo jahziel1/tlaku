@@ -6,21 +6,28 @@ import { t } from '@/i18n';
 import { selectActiveDevice, useStore } from '@/store';
 import { LengthField } from '@/ui/LengthField';
 import { feedBetween, isSingleDirection, type TileOrder } from './plan';
+import type { TileError } from './types';
 import { feedLines } from './feeder';
 import { beginSession, cancelCurrent, finishSession, resumeSession, restartSession, selectTile, sendCurrent, skipCurrent } from './run';
 import { counts } from './session';
-import { closeTiling, plannedWithMargin, useTilingUi } from './store';
+import { closeTiling, useTilingUi } from './store';
 import { TilePreview } from './TilePreview';
 import './tiling.css';
 
 const ORDERS: TileOrder[] = ['rows', 'serpentine'];
 
 /** Por qué no se puede empezar, o `null` si se puede. */
-export function startBlockedReason(args: { design: unknown; planError: string | null; fits: boolean }): string | null {
+export function startBlockedReason(args: { design: unknown; planError: string | null; fits: boolean; planning?: boolean }): string | null {
   if (!args.design) return t('tiling.reason.nothing');
   if (args.planError) return args.planError;
   if (!args.fits) return t('tiling.err.sizeBed');
+  if (args.planning) return t('tiling.reason.computing');
   return null;
+}
+
+/** Texto del motivo por el que el motor no pudo repartir el diseño. */
+export function planErrorText(e: TileError): string {
+  return t(`tiling.err.${e.kind}` as const);
 }
 
 /** Panel flotante del asistente de tiling (M39): opciones, vista previa y envío tramo por tramo. */
@@ -41,19 +48,19 @@ export function TilingPanel() {
 }
 
 function ConfigStep() {
-  const { config, design, plan, saved, patchConfig } = useTilingUi(useShallow((s) => ({ config: s.config, design: s.design, plan: s.plan, saved: s.saved, patchConfig: s.patchConfig })));
+  const { config, design, plan, planning, saved, patchConfig } = useTilingUi(useShallow((s) => ({ config: s.config, design: s.design, plan: s.plan, planning: s.planning, saved: s.saved, patchConfig: s.patchConfig })));
   const device = useStore(useShallow((s) => {
     const d = selectActiveDevice(s);
     return { bed: d.bed, feeder: d.feeder };
   }));
   const [bedW, bedH] = device.bed;
   const fits = config.size[0] + 2 * config.margin <= bedW + 1e-9 && config.size[1] + 2 * config.margin <= bedH + 1e-9;
-  const planError = plan && !plan.ok ? t(plan.error) : null;
+  const planError = plan && !plan.ok ? planErrorText(plan.error) : null;
   const ready = plan?.ok ? plan.plan : null;
-  const blocked = startBlockedReason({ design, planError, fits });
+  const blocked = startBlockedReason({ design, planError, fits, planning });
   const single = ready ? isSingleDirection(ready) : false;
   const feeder = device.feeder.enabled;
-  const specs = ready ? plannedWithMargin(ready.tiles, config.margin).map((p) => p.spec) : [];
+  const specs = ready ? ready.tiles.map((p) => p.spec) : [];
   const advance = single && specs.length > 1 ? (feedBetween(specs[0]!, specs[1]!) ?? device.feeder.feed_mm) : null;
 
   return (

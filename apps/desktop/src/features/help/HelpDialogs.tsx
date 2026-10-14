@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getApi } from '@/api';
 import { t } from '@/i18n';
 import { Modal } from '@/ui/Modal';
+import { JobLogDialog } from './JobLogDialog';
 import { CopyButton } from './CopyButton';
 import { systemInfo } from './clipboard';
 import { useHelpUi } from './helpStore';
@@ -249,6 +250,8 @@ export function HelpDialogHost() {
       return <ReportDialog />;
     case 'donate':
       return <DonateDialog />;
+    case 'jobLog':
+      return <JobLogDialog />;
     default:
       return null;
   }

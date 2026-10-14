@@ -2,20 +2,22 @@ import { useEffect } from 'react';
 import { getApi } from '@/api';
 import { useRecents } from '@/features/history/recent';
 import { useStore } from '@/store';
-import { loadPrefsFromDisk, startPrefsPersistence, startThemeSync } from './persist';
+import { loadPrefsFromDisk, startPrefsPersistence, startPrefsWindowSync, startThemeSync } from './persist';
 
 /**
  * Arranque de las preferencias (se monta una vez, en `SettingsHost`):
  *  1. lee `preferences.json` y lo aplica;
  *  2. guarda cada cambio (copia local al instante, archivo con una pausa corta);
  *  3. mantiene el tema de la vista igual a la preferencia;
- *  4. aplica el máximo de recientes y quita los archivos que ya no existen.
+ *  4. adopta los cambios que haga otra ventana de la app (preferencias compartidas);
+ *  5. aplica el máximo de recientes y quita los archivos que ya no existen.
  */
 export function usePrefsBoot(): void {
   useEffect(() => {
     const api = getApi();
     const persistence = startPrefsPersistence(api, useStore);
     const stopTheme = startThemeSync(useStore);
+    const stopWindowSync = startPrefsWindowSync(useStore);
     // Un cambio del máximo de recientes recorta la lista al momento.
     const stopRecents = useStore.subscribe((s, prev) => {
       if (s.prefs.recentMax !== prev.prefs.recentMax) useRecents.getState().trim(s.prefs.recentMax);
@@ -38,6 +40,7 @@ export function usePrefsBoot(): void {
       document.removeEventListener('visibilitychange', onHide);
       stopRecents();
       stopTheme();
+      stopWindowSync();
       persistence.stop();
     };
   }, []);

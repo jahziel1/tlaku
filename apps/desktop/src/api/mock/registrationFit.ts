@@ -1,52 +1,14 @@
 import type { Affine, Point } from '@/api/types';
+import type { FitChoice, FitMode, FitResult, FitWarning, MarkPair } from '@/features/printcut/types';
+import { MIN_SEPARATION_MM, SCALE_WARN } from '@/features/printcut/types';
 
 /**
- * Ajuste de Print & Cut: dados pares (marca del diseño, marca física) calcula la transformación
- * del documento a la cama. Es el mismo cálculo que `tlaku_pipeline::fit_registration` (Rust): la
- * app lo necesita al medir para mostrar el error antes de aceptar, y el motor aplica el resultado
- * con `JobOptions.transform`. Si cambia uno, hay que cambiar el otro.
+ * Maqueta del ajuste de Print & Cut para el modo simulado (`npm run dev` sin Tauri y las pruebas).
+ * La app real llama al comando `fit_registration`, cuyo cálculo es `tlaku_pipeline::fit_registration`
+ * (Rust, la única fuente de verdad). Esta copia existe solo para que la maqueta responda igual;
+ * `crates/tlaku-pipeline/tests/cross/registration.json` la comprueba con los mismos casos que al
+ * motor (`registrationFit.test.ts` y `tests/cross.rs`). Si el motor cambia, hay que cambiarla.
  */
-
-/** Desviación de la escala respecto de 1 (fracción) a partir de la cual se avisa: 0,5 %. */
-export const SCALE_WARN = 0.005;
-/** Distancia mínima (mm) entre dos marcas: más cerca no se puede medir el giro. */
-export const MIN_SEPARATION_MM = 1;
-
-export type FitMode = 'rigid' | 'similarity' | 'affine';
-
-export interface MarkPair {
-  design: Point;
-  physical: Point;
-}
-
-export type FitWarning =
-  | { kind: 'mirrored' }
-  | { kind: 'scale'; pct: number }
-  | { kind: 'anisotropy'; xPct: number; yPct: number };
-
-export type FitError =
-  | { kind: 'few'; need: number; have: number }
-  | { kind: 'nan' }
-  | { kind: 'close'; a: number; b: number }
-  | { kind: 'collinear' };
-
-export interface RegistrationFit {
-  transform: Affine;
-  mode: FitMode;
-  /** Giro en grados, antihorario. */
-  rotationDeg: number;
-  /** Escala medida (ver `tlaku_pipeline::RegistrationFit::scale`). */
-  scale: number;
-  scaleXY: [number, number];
-  /** Error de cada marca tras transformar, mm. */
-  residuals: number[];
-  residualRms: number;
-  residualMax: number;
-  warnings: FitWarning[];
-}
-
-export type FitResult = { ok: true; fit: RegistrationFit } | { ok: false; error: FitError };
-
 const dist = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const finite = (p: Point) => Number.isFinite(p[0]) && Number.isFinite(p[1]);
 const apply = (t: Affine, p: Point): Point => [t[0] * p[0] + t[2] * p[1] + t[4], t[1] * p[0] + t[3] * p[1] + t[5]];
@@ -57,12 +19,12 @@ function centroid(points: Point[]): Point {
 }
 
 /** El modo por omisión según cuántas marcas hay: 2 dan similitud, 3 o más afín. */
-export function autoMode(marks: number): FitMode {
+function autoMode(marks: number): FitMode {
   return marks >= 3 ? 'affine' : 'similarity';
 }
 
 /** ¿Los puntos están (casi) en línea recta? Compara el área que abarcan con su largo. */
-export function areCollinear(points: readonly Point[]): boolean {
+function areCollinear(points: readonly Point[]): boolean {
   if (points.length < 3) return false;
   const c = centroid([...points]);
   let sxx = 0;
@@ -84,7 +46,8 @@ export function areCollinear(points: readonly Point[]): boolean {
  * Transformación que lleva los puntos del diseño a los físicos. Rígida y similitud sirven con 2 o
  * más pares (Procrustes en 2D, mínimos cuadrados); la afín pide 3 o más no alineados.
  */
-export function fitRegistration(pairs: readonly MarkPair[], mode: FitMode): FitResult {
+/** El ajuste con un modo ya resuelto (`fit_registration` del motor). */
+export function fitWithMode(pairs: readonly MarkPair[], mode: FitMode): FitResult {
   const need = mode === 'affine' ? 3 : 2;
   if (pairs.length < need) return { ok: false, error: { kind: 'few', need, have: pairs.length } };
   if (pairs.some((p) => !finite(p.design) || !finite(p.physical))) return { ok: false, error: { kind: 'nan' } };
@@ -174,4 +137,16 @@ export function fitRegistration(pairs: readonly MarkPair[], mode: FitMode): FitR
     ok: true,
     fit: { transform: t, mode, rotationDeg: (rotation * 180) / Math.PI, scale, scaleXY, residuals, residualRms, residualMax, warnings },
   };
+}
+
+/** El modo que se usa de verdad (igual que `FitChoice::resolve` del motor). */
+export function resolveFitMode(choice: FitChoice, designPoints: readonly Point[]): FitMode {
+  const wanted = choice === 'auto' ? autoMode(designPoints.length) : choice;
+  if (wanted === 'affine' && (designPoints.length < 3 || areCollinear(designPoints))) return 'similarity';
+  return wanted;
+}
+
+/** Lo que responde la maqueta a `fit_registration`. */
+export function mockFitRegistration(pairs: readonly MarkPair[], choice: FitChoice): FitResult {
+  return fitWithMode(pairs, resolveFitMode(choice, pairs.map((p) => p.design)));
 }

@@ -30,6 +30,16 @@ describe('sección Galvo del editor de capa', () => {
     expect(h).toContain('Repeticiones en la tarjeta');
   });
 
+  it('con overscan en el perfil, las capas de relleno e imagen dicen que lo usan; las de línea, no', () => {
+    const withOverscan = device({ ...PROFILE, overscanMm: 2 });
+    expect(fields({ mode: 'fill' }, withOverscan)).toContain('se usa el del perfil (2 mm)');
+    expect(fields({ mode: 'image' }, withOverscan)).toContain('se usa el del perfil (2 mm)');
+    expect(fields({ mode: 'line' }, withOverscan)).not.toContain('se usa el del perfil');
+    // Sin overscan en el perfil no hay nada que decir.
+    expect(fields({ mode: 'fill' })).not.toContain('se usa el del perfil');
+    expect(fields({ mode: 'fill' }, device({ ...PROFILE, overscanMm: 0 }))).not.toContain('se usa el del perfil');
+  });
+
   it('la velocidad se edita en mm/s y se guarda en mm/min', () => {
     // 60000 mm/min son 1000 mm/s.
     const h = fields({ speed: 60000 });

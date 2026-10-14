@@ -52,19 +52,19 @@ pub struct FilletOutcome {
 }
 
 #[derive(Clone, Copy)]
-enum Edge {
+pub(crate) enum Edge {
     Line,
     Cubic(Point, Point),
 }
 
-struct Sub {
-    nodes: Vec<Point>,
+pub(crate) struct Sub {
+    pub(crate) nodes: Vec<Point>,
     /// `edges[i]` une `nodes[i]` con `nodes[(i + 1) % n]`.
-    edges: Vec<Edge>,
-    closed: bool,
+    pub(crate) edges: Vec<Edge>,
+    pub(crate) closed: bool,
 }
 
-fn parse(sub: &BezPath) -> Option<Sub> {
+pub(crate) fn parse(sub: &BezPath) -> Option<Sub> {
     let mut nodes: Vec<Point> = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
     let mut closed = false;
@@ -123,7 +123,7 @@ fn parse(sub: &BezPath) -> Option<Sub> {
     })
 }
 
-fn unit_from(a: Point, b: Point) -> Point {
+pub(crate) fn unit_from(a: Point, b: Point) -> Point {
     let (dx, dy) = (b.x - a.x, b.y - a.y);
     let l = dx.hypot(dy);
     Point::new(dx / l, dy / l)

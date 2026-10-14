@@ -1,7 +1,7 @@
 //! Pruebas de deformar, contorno envolvente y círculo tangente.
 
 use crate::{
-    Envelope, Point, Polyline, Warp, concave_hull, convex_hull, signed_area, tangent_circles,
+    Envelope, Grid, Point, Polyline, Warp, concave_hull, convex_hull, signed_area, tangent_circles,
     warp_path,
 };
 use tlaku_core::Bounds;
@@ -157,6 +157,167 @@ fn warp_keeps_subpaths_and_open_ends() {
     assert_eq!(flat.len(), 1);
     assert!(!flat[0].closed);
     assert!(flat[0].points.last().unwrap().dist(pt(9.0, 9.0)) < 1e-9);
+}
+
+// ---- malla 4x4 y perspectiva -----------------------------------------------------------------
+
+/// Malla uniforme sobre la región `b` (la identidad).
+fn uniform_grid(b: Bounds) -> Grid {
+    let (w, h) = (b.max.x - b.min.x, b.max.y - b.min.y);
+    std::array::from_fn(|j| {
+        std::array::from_fn(|i| pt(b.min.x + w * i as f64 / 3.0, b.min.y + h * j as f64 / 3.0))
+    })
+}
+
+#[test]
+fn uniform_mesh_is_the_identity() {
+    let b = bounds(2.0, -3.0, 32.0, 17.0);
+    let w = Warp::mesh(b, uniform_grid(b)).unwrap();
+    for k in 0..=10 {
+        for m in 0..=10 {
+            let p = pt(2.0 + 30.0 * k as f64 / 10.0, -3.0 + 20.0 * m as f64 / 10.0);
+            assert!(w.map(p).dist(p) < 1e-9, "{p:?} -> {:?}", w.map(p));
+        }
+    }
+}
+
+#[test]
+fn mesh_surface_passes_through_every_point() {
+    let b = bounds(0.0, 0.0, 30.0, 30.0);
+    let mut g = uniform_grid(b);
+    // Se mueven varios puntos, interiores y de borde.
+    g[1][1] = pt(8.0, 14.0);
+    g[2][1] = pt(12.0, 22.0);
+    g[0][3] = pt(33.0, -4.0);
+    g[3][0] = pt(-2.0, 31.0);
+    let w = Warp::mesh(b, g).unwrap();
+    for (j, row) in g.iter().enumerate() {
+        for (i, target) in row.iter().enumerate() {
+            let src = pt(10.0 * i as f64, 10.0 * j as f64);
+            assert!(w.map(src).dist(*target) < 1e-9, "nodo ({i}, {j})");
+        }
+    }
+}
+
+#[test]
+fn mesh_is_deterministic_and_rejects_bad_input() {
+    let b = bounds(0.0, 0.0, 30.0, 30.0);
+    let mut g = uniform_grid(b);
+    g[1][2] = pt(21.0, 9.0);
+    let (a, c) = (Warp::mesh(b, g).unwrap(), Warp::mesh(b, g).unwrap());
+    let path = rect_path(2.0, 2.0, 28.0, 28.0);
+    assert_eq!(warp_path(&path, &a, 0.01), warp_path(&path, &c, 0.01));
+    g[0][0] = pt(f64::NAN, 0.0);
+    assert!(Warp::mesh(b, g).is_none());
+    let flat = bounds(0.0, 0.0, 0.0, 5.0);
+    assert!(Warp::mesh(flat, uniform_grid(bounds(0.0, 0.0, 1.0, 1.0))).is_none());
+}
+
+#[test]
+fn mesh_moves_a_curve_with_the_surface() {
+    // Una línea horizontal por el centro sigue el punto del centro de la malla.
+    let b = bounds(0.0, 0.0, 30.0, 30.0);
+    let mut g = uniform_grid(b);
+    g[1][1].y += 6.0;
+    g[1][2].y += 6.0;
+    let w = Warp::mesh(b, g).unwrap();
+    let path = BezPath::from(&line(pt(0.0, 10.0), pt(30.0, 10.0)));
+    let out = warp_path(&path, &w, 0.01);
+    let flat = out.flatten(0.002);
+    let ys: Vec<f64> = flat
+        .iter()
+        .flat_map(|p| p.points.iter().map(|q| q.y))
+        .collect();
+    assert!(ys.iter().cloned().fold(f64::MIN, f64::max) > 15.5);
+    assert!(flat[0].points.first().unwrap().dist(pt(0.0, 10.0)) < 1e-9);
+    assert!(flat[0].points.last().unwrap().dist(pt(30.0, 10.0)) < 1e-9);
+    // Cada punto del resultado está sobre la superficie: imagen de algún punto de la recta.
+    for q in flat.iter().flat_map(|p| &p.points) {
+        assert!((0..=600).any(|k| w.map(pt(30.0 * k as f64 / 600.0, 10.0)).dist(*q) < 0.1));
+    }
+}
+
+#[test]
+fn perspective_maps_the_corners_and_keeps_lines_straight() {
+    let b = bounds(0.0, 0.0, 20.0, 10.0);
+    let q = [pt(0.0, 0.0), pt(20.0, 0.0), pt(15.0, 10.0), pt(5.0, 10.0)];
+    let w = Warp::perspective(b, q).unwrap();
+    for (src, dst) in [
+        (pt(0.0, 0.0), q[0]),
+        (pt(20.0, 0.0), q[1]),
+        (pt(20.0, 10.0), q[2]),
+        (pt(0.0, 10.0), q[3]),
+    ] {
+        assert!(w.map(src).dist(dst) < 1e-9, "{src:?}");
+    }
+    // Tres puntos alineados de la región siguen alineados tras la proyección.
+    let (a, m, c) = (
+        w.map(pt(2.0, 1.0)),
+        w.map(pt(9.0, 4.0)),
+        w.map(pt(16.0, 7.0)),
+    );
+    let cross = (m.x - a.x) * (c.y - a.y) - (m.y - a.y) * (c.x - a.x);
+    assert!(cross.abs() < 1e-9, "{cross}");
+    // No es bilineal: el centro del borde inferior-superior no cae en el promedio de las esquinas.
+    let center = w.map(pt(10.0, 5.0));
+    let bilinear = pt(10.0, 5.0);
+    assert!(center.x.is_finite() && center.y.is_finite());
+    assert!((center.y - bilinear.y).abs() > 0.1);
+}
+
+#[test]
+fn perspective_of_a_parallelogram_is_affine() {
+    let b = bounds(0.0, 0.0, 10.0, 10.0);
+    let q = [pt(0.0, 0.0), pt(10.0, 0.0), pt(14.0, 10.0), pt(4.0, 10.0)];
+    let w = Warp::perspective(b, q).unwrap();
+    assert!(w.map(pt(5.0, 5.0)).dist(pt(7.0, 5.0)) < 1e-9);
+}
+
+#[test]
+fn perspective_rejects_degenerate_or_concave_quads() {
+    let b = bounds(0.0, 0.0, 10.0, 10.0);
+    // Dos esquinas juntas.
+    assert!(
+        Warp::perspective(
+            b,
+            [pt(0.0, 0.0), pt(0.0, 0.0), pt(10.0, 10.0), pt(0.0, 10.0)]
+        )
+        .is_none()
+    );
+    // Cuadrilátero cóncavo (punta hacia adentro).
+    let concave = [pt(0.0, 0.0), pt(10.0, 0.0), pt(2.0, 2.0), pt(0.0, 10.0)];
+    assert!(Warp::perspective(b, concave).is_none());
+    // Puntos colineales.
+    let line_q = [pt(0.0, 0.0), pt(5.0, 0.0), pt(10.0, 0.0), pt(15.0, 0.0)];
+    assert!(Warp::perspective(b, line_q).is_none());
+    let nan = [pt(f64::NAN, 0.0), pt(5.0, 0.0), pt(10.0, 5.0), pt(0.0, 5.0)];
+    assert!(Warp::perspective(b, nan).is_none());
+}
+
+#[test]
+fn perspective_warp_path_follows_the_projection() {
+    let b = bounds(0.0, 0.0, 20.0, 10.0);
+    let q = [pt(0.0, 0.0), pt(20.0, 0.0), pt(15.0, 10.0), pt(5.0, 10.0)];
+    let w = Warp::perspective(b, q).unwrap();
+    let out = warp_path(&rect_path(0.0, 0.0, 20.0, 10.0), &w, 0.01);
+    let corners = ends(&out);
+    for c in q {
+        assert!(corners.iter().any(|p| p.dist(c) < 1e-9), "falta {c:?}");
+    }
+    // Los lados siguen rectos: los puntos del lado derecho están sobre la recta q[1]-q[2].
+    for p in out.flatten(0.002).iter().flat_map(|p| &p.points) {
+        let on_edge = |a: Point, z: Point| {
+            let cr = (z.x - a.x) * (p.y - a.y) - (z.y - a.y) * (p.x - a.x);
+            cr.abs() / a.dist(z) < 0.02 && p.dist(a) + p.dist(z) < a.dist(z) + 0.02
+        };
+        assert!(
+            on_edge(q[0], q[1])
+                || on_edge(q[1], q[2])
+                || on_edge(q[2], q[3])
+                || on_edge(q[3], q[0]),
+            "{p:?}"
+        );
+    }
 }
 
 // ---- contorno envolvente ---------------------------------------------------------------------

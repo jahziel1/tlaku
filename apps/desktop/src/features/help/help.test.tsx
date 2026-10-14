@@ -11,7 +11,7 @@ import { findPage, indexPages, INDEX_FILE, manualPages, NEWS_FILE, resolveImage,
 import { systemInfo } from './clipboard';
 import { PROJECT_LINKS } from './links';
 
-const HELP_IDS = ['help.manual', 'help.shortcuts', 'help.news', 'help.report', 'help.donate', 'help.about'];
+const HELP_IDS = ['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.report', 'help.donate', 'help.about'];
 
 describe('menú Ayuda', () => {
   it('todos los comandos de Ayuda existen y el menú los muestra en orden', () => {
@@ -34,6 +34,7 @@ describe('diálogos de ayuda', () => {
     const expected: Record<string, string> = {
       'help.manual': 'manual',
       'help.news': 'news',
+      'help.jobLog': 'jobLog',
       'help.report': 'report',
       'help.donate': 'donate',
       'help.about': 'about',

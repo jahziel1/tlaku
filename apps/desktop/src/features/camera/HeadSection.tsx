@@ -1,12 +1,14 @@
-import { Crosshair, MoveRight } from 'lucide-react';
+import { Crosshair, MoveRight, Square, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useCommand } from '@/commands/useCommand';
 import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
-import { selectActiveDevice, useStore } from '@/store';
+import { formatSize } from '@/lib/units';
+import { selectActiveDevice, usePref, useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
 import { clearHeadCalibration, setHeadEnabled } from './actions';
 import { runAction } from './bedImage';
+import { HeadMarksBlock } from './HeadMarksBlock';
 import {
   currentFit,
   defaultMark,
@@ -18,6 +20,7 @@ import {
 import { estimateScanSeconds, headPxPerMm, planScan } from './head';
 import { clearMosaic, scanRegion } from './headScan';
 import { HEAD_CAL_MIN_OBS, HEAD_CAL_STEP_MM, useHeadCal, useHeadUi, useViewTool, type HeadAction } from './headState';
+import { zoneSize } from './zone';
 import './camera.css';
 
 /** Texto del aviso "por validar con hardware real" que llevan las funciones sin probar en máquina. */
@@ -31,7 +34,8 @@ export function HeadConfirm() {
   const progress = useHeadUi((s) => s.progress);
   const error = useHeadUi((s) => s.error);
   const useSelection = useHeadUi((s) => s.useSelection);
-  const setUseSelection = useHeadUi((s) => s.setUseSelection);
+  const zone = useHeadUi((s) => s.zone);
+  const useZone = useHeadUi((s) => s.useZone);
   const ask = useHeadUi((s) => s.ask);
   const hasSelection = useStore((s) => s.selectedIds.length > 0);
   const cal = useStore((s) => s.cameraSetup.head?.calibration ?? null);
@@ -40,8 +44,8 @@ export function HeadConfirm() {
 
   const plan = useMemo(() => {
     if (!cal || !confirm) return null;
-    return planScan(device.bed, cal, scanRegion(useSelection && hasSelection));
-  }, [cal, confirm, device.bed, useSelection, hasSelection]);
+    return planScan(device.bed, cal, scanRegion(useSelection && hasSelection, useZone ? zone : null));
+  }, [cal, confirm, device.bed, useSelection, hasSelection, useZone, zone]);
 
   if (progress) {
     return (
@@ -70,10 +74,7 @@ export function HeadConfirm() {
           {plan.partial && <p className="hint hint--warn">{t('camera.head.scan.partial')}</p>}
         </>
       )}
-      <label className="mc-check">
-        <input type="checkbox" checked={useSelection && hasSelection} disabled={!hasSelection} onChange={(e) => setUseSelection(e.target.checked)} />
-        {t('camera.head.confirm.selection')}
-      </label>
+      <p className="hint">{t(`camera.head.confirm.area.${useZone && zone ? 'zone' : useSelection && hasSelection ? 'selection' : 'bed'}` as I18nKey)}</p>
       <div className="row cam-wrap">
         <button type="button" className="btn btn--accent grow" disabled={!plan || 'error' in plan} onClick={() => void runAction(confirm as HeadAction)}>
           {t('camera.head.confirm.go')}
@@ -109,6 +110,7 @@ export function HeadSection() {
           <HeadCalibrationBlock />
           <h4 className="cam-subtitle">{t('camera.head.scan.title')}</h4>
           <p className="hint">{t('camera.head.scan.help')}</p>
+          <ScanAreaControls />
           <button type="button" className="btn btn--accent" aria-disabled={!overlay.enabled || running} title={overlay.enabled ? overlay.tooltip : (overlay.reason ?? undefined)} onClick={overlay.enabled && !running ? overlay.run : undefined}>
             <MoveRight size={14} aria-hidden="true" />
             {t('camera.head.scan.update')}
@@ -125,6 +127,57 @@ export function HeadSection() {
       )}
       <Unvalidated k="camera.head.unvalidated" />
     </section>
+  );
+}
+
+/** Qué parte de la cama recorrer: toda, la selección o un rectángulo dibujado en el lienzo. */
+export function ScanAreaControls() {
+  const useSelection = useHeadUi((s) => s.useSelection);
+  const useZone = useHeadUi((s) => s.useZone);
+  const zone = useHeadUi((s) => s.zone);
+  const drawing = useHeadUi((s) => s.drawingZone);
+  const setUseSelection = useHeadUi((s) => s.setUseSelection);
+  const setUseZone = useHeadUi((s) => s.setUseZone);
+  const setZone = useHeadUi((s) => s.setZone);
+  const setDrawing = useHeadUi((s) => s.setDrawingZone);
+  const hasSelection = useStore((s) => s.selectedIds.length > 0);
+  const units = usePref('units');
+  const value = useZone && zone ? 'zone' : useSelection && hasSelection ? 'selection' : 'bed';
+  const choose = (v: 'bed' | 'selection' | 'zone') => {
+    setUseSelection(v === 'selection');
+    setUseZone(v === 'zone');
+  };
+  const size = zone ? zoneSize(zone) : null;
+
+  return (
+    <fieldset className="cam-area" aria-label={t('camera.head.area.title')}>
+      <legend className="field__label">{t('camera.head.area.title')}</legend>
+      <label className="mc-check">
+        <input type="radio" name="cam-scan-area" checked={value === 'bed'} onChange={() => choose('bed')} />
+        {t('camera.head.area.bed')}
+      </label>
+      <label className="mc-check">
+        <input type="radio" name="cam-scan-area" checked={value === 'selection'} disabled={!hasSelection} onChange={() => choose('selection')} />
+        {t('camera.head.area.selection')}
+      </label>
+      <label className="mc-check">
+        <input type="radio" name="cam-scan-area" checked={value === 'zone'} disabled={!zone} onChange={() => choose('zone')} />
+        {size ? t('camera.head.area.zoneSized', { size: formatSize(size[0], size[1], units, 1) }) : t('camera.head.area.zone')}
+      </label>
+      <div className="row cam-wrap">
+        <button type="button" className="btn" aria-pressed={drawing} onClick={() => setDrawing(!drawing)}>
+          <Square size={14} aria-hidden="true" />
+          {drawing ? t('camera.head.area.drawing') : zone ? t('camera.head.area.redraw') : t('camera.head.area.draw')}
+        </button>
+        {zone && (
+          <button type="button" className="btn" onClick={() => setZone(null)}>
+            <Trash2 size={14} aria-hidden="true" />
+            {t('camera.head.area.clear')}
+          </button>
+        )}
+      </div>
+      <p className="hint">{t('camera.head.area.help')}</p>
+    </fieldset>
   );
 }
 
@@ -198,6 +251,7 @@ function HeadCalibrationBlock() {
       {cal && !measuring && (
         <button type="button" className="btn" onClick={clearHeadCalibration}>{t('camera.head.cal.clear')}</button>
       )}
+      <HeadMarksBlock />
     </div>
   );
 }

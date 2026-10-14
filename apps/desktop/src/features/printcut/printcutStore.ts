@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import type { Affine, Point } from '@/api/types';
-import type { FitWarning } from './fit';
 import type { ModeChoice } from './flow';
 import type { DesignMark, MarkCount, MarkKind } from './marks';
+import type { FitWarning } from './types';
 
 export type PrintCutStep = 'marks' | 'capture' | 'result';
 export type CaptureMethod = 'laser' | 'camera';

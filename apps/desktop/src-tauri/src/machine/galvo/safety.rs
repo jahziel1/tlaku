@@ -57,6 +57,9 @@ pub fn session_config(device: &DeviceProfile) -> Result<SessionConfig, String> {
     let mut cfg = SessionConfig::new(device.galvo.clone())
         .map_err(|e| format!("El perfil del galvo no es válido: {e}"))?;
     cfg.origin = FieldOrigin::CenterAt(Point::new(device.bed[0] / 2.0, device.bed[1] / 2.0));
+    // El desfase del puntero (el mismo del perfil de las demás máquinas) lo compensan el encuadre
+    // y el recorrido en rojo; una marca real nunca lo aplica.
+    cfg.pointer_offset = device.pointer_offset;
     Ok(cfg)
 }
 

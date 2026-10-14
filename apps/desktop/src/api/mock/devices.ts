@@ -1,5 +1,5 @@
 import { polylineBez } from '@/lib/bezpath';
-import { DEFAULT_ROTARY, DEVICE_WAVE4_DEFAULTS, kindDefaults } from '@/lib/device';
+import { DEFAULT_ROTARY, DEVICE_EXTRA_DEFAULTS, kindDefaults } from '@/lib/device';
 import { makeLayer } from '@/lib/layers';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
@@ -30,7 +30,7 @@ export function engineDefaultDevice(): DeviceProfile {
     rotary: { ...DEFAULT_ROTARY },
     scan_offsets: [],
     scan_initial_offset: 0,
-    ...DEVICE_WAVE4_DEFAULTS,
+    ...DEVICE_EXTRA_DEFAULTS,
   };
 }
 

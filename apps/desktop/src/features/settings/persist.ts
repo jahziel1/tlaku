@@ -2,7 +2,7 @@ import type { LaserApi } from '@/api';
 import { errorMessage } from '@/lib/errors';
 import { t } from '@/i18n';
 import type { AppState } from '@/store';
-import { writeCache } from '@/store/prefs';
+import { CACHE_STORAGE_KEY, prefsEqual, readCache, writeCache } from '@/store/prefs';
 import { buildFile } from './bundle';
 
 /** Lo mínimo que se necesita del store: leerlo, escribirlo y escucharlo (sirve el store real y el de las pruebas). */
@@ -99,4 +99,24 @@ export function startThemeSync(store: PrefsStore): () => void {
   const initial = store.getState();
   if (initial.prefs.theme !== initial.theme) initial.setTheme(initial.prefs.theme);
   return store.subscribe(reconcile);
+}
+
+/**
+ * Varias ventanas de la app comparten las preferencias: cuando otra ventana guarda la copia local
+ * (`localStorage`), esta la adopta si es distinta. Cada ventana escribe `preferences.json` por su
+ * cuenta con el mismo contenido, así que no hay nada más que sincronizar. Devuelve cómo dejar de escuchar.
+ */
+export function startPrefsWindowSync(store: PrefsStore, target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window): () => void {
+  const onStorage = (e: Event) => {
+    const key = (e as StorageEvent).key;
+    // `key === null` es «se vació el almacenamiento»: no es un cambio de preferencias.
+    if (key !== CACHE_STORAGE_KEY) return;
+    const s = store.getState();
+    if (!s.prefsLoaded) return;
+    const incoming = readCache();
+    if (prefsEqual(incoming.prefs, s.prefs) && JSON.stringify(incoming.shortcuts) === JSON.stringify(s.shortcutOverrides)) return;
+    s.replacePrefs({ prefs: incoming.prefs, shortcuts: incoming.shortcuts });
+  };
+  target.addEventListener('storage', onStorage);
+  return () => target.removeEventListener('storage', onStorage);
 }

@@ -84,14 +84,14 @@ Además:
 
 ## Llevar tu configuración a otro equipo
 
-En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas** y el **Modo principiante** (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)) y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones) y tu **biblioteca de materiales** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)).
+En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas** y el **Modo principiante** (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)) y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones), tu **biblioteca de materiales**, tus **cámaras** y tu **arte propio** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)).
 
 Al importar, Tlaku dice cuántas preferencias y de cuántos comandos son los atajos que entraron. Si el archivo viene de otra versión:
 
 - Las preferencias que esta versión no entiende se **ignoran** y se avisa cuántas fueron.
 - Los atajos de comandos que no existen en esta versión **se conservan**, por si llegan después, y se avisa cuántos son.
 
-Un archivo que no es un paquete de preferencias de Tlaku se rechaza con un mensaje claro. Los materiales tienen su propio archivo (`.tlakumat`, ver [Materiales](11-materiales.md)); los dispositivos y las cámaras todavía no se pueden exportar.
+Un archivo que no es un paquete de preferencias de Tlaku se rechaza con un mensaje claro. Los materiales tienen su propio archivo (`.tlakumat`, ver [Materiales](11-materiales.md)); los dispositivos, las cámaras y el arte propio viajan en el paquete `.tlakubundle`.
 
 ## Autoguardado y recuperación
 

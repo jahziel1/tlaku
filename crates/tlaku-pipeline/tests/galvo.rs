@@ -263,6 +263,45 @@ fn fills_have_no_overscan_on_galvo() {
 }
 
 #[test]
+fn the_profile_can_ask_for_overscan_on_fills_and_the_layer_keeps_its_own() {
+    let mut device = galvo_device();
+    device.galvo.overscan_mm = 3.0;
+    let fill = |own: Overscan| {
+        document(
+            vec![rect("a", 30.0, 30.0, 40.0, 40.0)],
+            layer(|l| {
+                l.mode = LayerMode::Fill;
+                l.interval = 2.0;
+                l.overscan = own;
+            }),
+        )
+    };
+    // Sin overscan propio (automático) se usa el del perfil: los cortes con potencia 0 salen del
+    // dibujo en 3 mm por cada lado y no hay aviso de overscan ignorado.
+    let job = run(&fill(Overscan::Auto), &device);
+    assert_eq!(job.layers[0].overscan_mm, Some(3.0));
+    let b = job.layers[0].bounds.unwrap();
+    assert!(
+        (b.min.x - 27.0).abs() < 1e-6 && (b.max.x - 73.0).abs() < 1e-6,
+        "{b:?}"
+    );
+    assert!(
+        job.toolpath.blocks[0]
+            .moves
+            .iter()
+            .any(|m| matches!(m, Move::Cut { power_pct, .. } if *power_pct == 0.0)),
+        "el overscan sale como cortes con potencia 0"
+    );
+    assert!(!warnings(&job).contains("overscan"), "{}", warnings(&job));
+    // La capa que fija el suyo en mm lo conserva.
+    let own = run(&fill(Overscan::Mm(5.0)), &device);
+    assert_eq!(own.layers[0].overscan_mm, Some(5.0));
+    // El valor por omisión del perfil (0) deja todo como antes.
+    let none = run(&fill(Overscan::Auto), &galvo_device());
+    assert_eq!(none.layers[0].overscan_mm, Some(0.0));
+}
+
+#[test]
 fn limits_are_the_field_and_not_the_bed() {
     // Cama de 400 mm y campo de 110 centrado en (200, 200): el campo va de 145 a 255.
     let mut device = galvo_device();

@@ -3,10 +3,14 @@ import { useEffect, useId, useState } from 'react';
 import { t, locale, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { loadMaterials } from '@/features/materials/actions';
+import { useArtPanel } from '@/features/art/artStore';
+import { loadUserArt } from '@/features/art/actions';
+import { loadCameraSetup } from '@/features/camera/actions';
 import { useMaterials } from '@/features/materials/state';
 import { useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { applyImport, currentState, importBlockedReason } from './apply';
+import { camerasSummary } from './cameras';
 import { baseName, exportUserBundle, pickBundleToOpen, readUserBundle } from './files';
 import {
   allSections,
@@ -53,10 +57,13 @@ function Section({ id, checked, disabled, detail, onChange, children }: {
 // Exportar
 // ---------------------------------------------------------------------------
 
-export function ExportBody({ choice, onChange, counts }: { choice: SectionChoice; onChange: (c: SectionChoice) => void; counts: { devices: number; materials: number } }) {
+export function ExportBody({ choice, onChange, counts }: { choice: SectionChoice; onChange: (c: SectionChoice) => void; counts: { devices: number; materials: number; art?: number; presets?: number; lens?: boolean; alignment?: boolean; head?: boolean } }) {
+  const parts = [counts.lens && t('bundle.export.cameras.lens'), counts.alignment && t('bundle.export.cameras.alignment'), counts.head && t('bundle.export.cameras.head')].filter((x): x is string => !!x);
   const detail: Record<BundleSection, string> = {
     devices: t('bundle.export.devices', { n: counts.devices }),
     materials: t('bundle.export.materials', { n: counts.materials }),
+    cameras: parts.length + (counts.presets ?? 0) > 0 ? t('bundle.export.cameras', { parts: parts.join(', ') || t('bundle.export.cameras.noParts'), n: counts.presets ?? 0 }) : t('bundle.export.cameras.none'),
+    art: t('bundle.export.art', { n: counts.art ?? 0 }),
     prefs: t('bundle.export.prefs'),
   };
   return (
@@ -82,6 +89,8 @@ export function ImportPreview({ plan, choice, onChange }: { plan: ImportPlan; ch
   const d = plan.devices;
   const m = plan.materials;
   const p = plan.prefs?.change;
+  const c = plan.cameras;
+  const a = plan.art;
   const activeName = d?.activeDevice ? ([...d.added, ...d.replaced, ...d.unchanged].find((x) => x.id === d.activeDevice)?.name ?? d.activeDevice) : null;
   return (
     <>
@@ -110,6 +119,32 @@ export function ImportPreview({ plan, choice, onChange }: { plan: ImportPlan; ch
           </>
         )}
       </Section>
+      <Section id="cameras" checked={choice.cameras && !!c} disabled={!c} onChange={toggle('cameras')} detail={c ? undefined : t('bundle.import.absent')}>
+        {c && (
+          <>
+            {([['calibration', c.calibration], ['alignment', c.alignment], ['head', c.head]] as const).map(([part, state]) =>
+              state ? <p key={part} className={`bnd-detail${state === 'replace' ? ' bnd-detail--warn' : ''}`}>{t(`bundle.cameras.${part}.${state}` as I18nKey)}</p> : null,
+            )}
+            {c.cleared.map((part) => <p key={part} className="bnd-detail bnd-detail--warn">{t(`bundle.cameras.cleared.${part}` as I18nKey)}</p>)}
+            {c.presets && <p className="bnd-detail">{t('bundle.cameras.presets', { added: c.presets.added.length, skipped: c.presets.skipped })}</p>}
+            {c.presets && c.presets.renamed > 0 && <p className="bnd-detail">{t('bundle.cameras.renamed', { n: c.presets.renamed })}</p>}
+            {c.presets && c.presets.strippedUrls > 0 && <p className="bnd-detail bnd-detail--warn">{t('bundle.cameras.stripped', { n: c.presets.strippedUrls })}</p>}
+            {c.presets && c.presets.dropped > 0 && <p className="bnd-detail bnd-detail--warn">{t('bundle.cameras.dropped', { n: c.presets.dropped })}</p>}
+            {(c.presets?.invalid ?? 0) + c.invalid.length > 0 && <p className="bnd-detail bnd-detail--warn">{t('bundle.cameras.invalid', { n: (c.presets?.invalid ?? 0) + c.invalid.length })}</p>}
+            {!c.calibration && !c.alignment && !c.head && !c.presets && <p className="bnd-detail">{t('bundle.cameras.empty')}</p>}
+          </>
+        )}
+      </Section>
+      <Section id="art" checked={choice.art && !!a} disabled={!a} onChange={toggle('art')} detail={a ? undefined : t('bundle.import.absent')}>
+        {a && (
+          <>
+            <p className="bnd-detail">{t('bundle.art.summary', { added: a.items.length, skipped: a.skipped })}</p>
+            {a.items.length > 0 && <ul className="bnd-list">{a.items.slice(0, 8).map((x, i) => <li key={`${x.name}-${i}`}>{x.name}</li>)}{a.items.length > 8 && <li>{t('bundle.art.more', { n: a.items.length - 8 })}</li>}</ul>}
+            {a.renamed > 0 && <p className="bnd-detail">{t('bundle.art.renamed', { n: a.renamed })}</p>}
+            {a.invalid > 0 && <p className="bnd-detail bnd-detail--warn">{t('bundle.art.invalid', { n: a.invalid })}</p>}
+          </>
+        )}
+      </Section>
       <Section id="prefs" checked={choice.prefs && !!p} disabled={!p} onChange={toggle('prefs')} detail={p ? undefined : t('bundle.import.absent')}>
         {p && (
           <>
@@ -131,6 +166,8 @@ export function applicableSections(plan: ImportPlan, choice: SectionChoice): Sec
   return {
     devices: choice.devices && plan.devices !== null && changes.devices > 0,
     materials: choice.materials && plan.materials !== null && changes.materials > 0,
+    cameras: choice.cameras && plan.cameras !== null && changes.cameras > 0,
+    art: choice.art && plan.art !== null && changes.art > 0,
     prefs: choice.prefs && plan.prefs !== null,
   };
 }
@@ -226,10 +263,15 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const devices = useStore((s) => s.devices.length);
   const materials = useMaterials((s) => s.library.presets.length);
+  const art = useArtPanel((s) => s.user.length);
+  const camera = useStore((s) => s.cameraSetup);
   const none = !BUNDLE_SECTIONS.some((s) => choice[s]);
-  // El número de materiales sale de la biblioteca; se lee del disco si todavía no se había leído.
+  const cams = camerasSummary(camera);
+  // Los números salen de la biblioteca, la cámara y el arte; se leen del disco si todavía no se habían leído.
   useEffect(() => {
     void loadMaterials();
+    void loadCameraSetup();
+    void loadUserArt();
   }, []);
 
   const doExport = async () => {
@@ -251,7 +293,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   );
   return (
     <Frame title={t('bundle.title.export')} onClose={onClose} foot={foot}>
-      <ExportBody choice={choice} onChange={setChoice} counts={{ devices, materials }} />
+      <ExportBody choice={choice} onChange={setChoice} counts={{ devices, materials, art, presets: cams.presets, lens: cams.lens, alignment: cams.alignment, head: cams.head }} />
     </Frame>
   );
 }

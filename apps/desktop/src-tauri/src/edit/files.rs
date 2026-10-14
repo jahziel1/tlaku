@@ -1,5 +1,5 @@
 //! Comandos del área `fileio` (ola 1, bloque Formatos): importar con las opciones del diálogo,
-//! exportar el diseño a SVG, DXF, PNG y PDF, e imprimir.
+//! exportar el diseño a SVG, DXF, PNG, PDF y AI, e imprimir.
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -7,8 +7,8 @@ use tauri::{AppHandle, Manager};
 use tlaku_core::Rgb;
 use tlaku_doc::{Document, ImportResult, ObjectKind};
 use tlaku_export::{
-    DxfOptions, Export, PdfOptions, PngOptions, SvgOptions, export_dxf, export_pdf, export_png,
-    export_svg,
+    DxfOptions, Export, PdfOptions, PngOptions, SvgOptions, export_ai, export_dxf, export_pdf,
+    export_png, export_svg,
 };
 use tlaku_pipeline::{ImportExtras, ImportOptions, import_file_extras};
 
@@ -31,6 +31,9 @@ pub struct ImportDialogOptions {
     pub pdf_page: u32,
     /// G-code: una capa por nivel de potencia.
     pub gcode_by_power: bool,
+    /// G-code: valor de `S` con el que se toman los cortes de potencia 0 (`M3 S0`); `None` = no
+    /// se dibujan. Se ofrece cuando el archivo importa vacío por eso.
+    pub gcode_default_power: Option<f64>,
 }
 
 impl Default for ImportDialogOptions {
@@ -43,6 +46,7 @@ impl Default for ImportDialogOptions {
             target_layer: None,
             pdf_page: 1,
             gcode_by_power: true,
+            gcode_default_power: None,
         }
     }
 }
@@ -52,7 +56,11 @@ impl ImportDialogOptions {
         if !self.scale_percent.is_finite() || self.scale_percent <= 0.0 {
             return Err(format!("Escala inválida: {} %.", self.scale_percent));
         }
-        for (name, v) in [("DPI", self.dpi), ("Unidad del DXF", self.dxf_unit_mm)] {
+        for (name, v) in [
+            ("DPI", self.dpi),
+            ("Unidad del DXF", self.dxf_unit_mm),
+            ("Potencia para cortes sin S", self.gcode_default_power),
+        ] {
             if let Some(v) = v
                 && (!v.is_finite() || v <= 0.0)
             {
@@ -74,6 +82,7 @@ impl ImportDialogOptions {
             target_layer,
             pdf_page: self.pdf_page.max(1),
             gcode_by_power: self.gcode_by_power,
+            gcode_default_power: self.gcode_default_power,
         })
     }
 }
@@ -96,6 +105,8 @@ pub enum ExportRequest {
     Dxf(DxfOptions),
     Png(PngOptions),
     Pdf(PdfOptions),
+    /// `.ai`: PDF 1.5 con una capa por color (mismas opciones que el PDF).
+    Ai(PdfOptions),
 }
 
 impl ExportRequest {
@@ -105,6 +116,7 @@ impl ExportRequest {
             ExportRequest::Dxf(o) => export_dxf(doc, selection, o),
             ExportRequest::Png(o) => export_png(doc, selection, o),
             ExportRequest::Pdf(o) => export_pdf(doc, selection, o),
+            ExportRequest::Ai(o) => export_ai(doc, selection, o),
         }
     }
 }
@@ -315,7 +327,9 @@ mod tests {
         assert_eq!(o.stroke_mm, SvgOptions::default().stroke_mm);
         let r: ExportRequest = serde_json::from_str(r#"{"format":"pdf","page":"a4"}"#).unwrap();
         assert!(matches!(r, ExportRequest::Pdf(o) if o.page == tlaku_export::PageSize::A4));
-        assert!(serde_json::from_str::<ExportRequest>(r#"{"format":"ai"}"#).is_err());
+        let r: ExportRequest = serde_json::from_str(r#"{"format":"ai"}"#).unwrap();
+        assert!(matches!(r, ExportRequest::Ai(o) if o.page == tlaku_export::PageSize::Fit));
+        assert!(serde_json::from_str::<ExportRequest>(r#"{"format":"cdr"}"#).is_err());
     }
 
     #[test]
@@ -325,6 +339,7 @@ mod tests {
             (r#"{"format":"dxf"}"#, "dxf", b"  0".as_slice()),
             (r#"{"format":"png","dpi":50}"#, "png", b"\x89PNG".as_slice()),
             (r#"{"format":"pdf"}"#, "pdf", b"%PDF".as_slice()),
+            (r#"{"format":"ai"}"#, "ai", b"%PDF-1.5".as_slice()),
         ] {
             let req: ExportRequest = serde_json::from_str(json).unwrap();
             let path = temp(&format!("out.{ext}"));
@@ -338,7 +353,7 @@ mod tests {
             );
             assert_eq!(r.bytes as usize, bytes.len());
             assert!(
-                (r.size_mm[0] - 10.0).abs() < 1e-6 || ext == "png" || ext == "pdf",
+                (r.size_mm[0] - 10.0).abs() < 1e-6 || ext == "png" || ext == "pdf" || ext == "ai",
                 "{ext}"
             );
             std::fs::remove_file(path).unwrap();
@@ -382,9 +397,28 @@ mod tests {
                 target_layer: Some("verde".into()),
                 ..Default::default()
             },
+            ImportDialogOptions {
+                gcode_default_power: Some(0.0),
+                ..Default::default()
+            },
         ] {
             assert!(bad.extras().is_err());
         }
+        // G-code con M3 S0: vacío sin la opción, con ella se importa.
+        let nc = temp("zero.nc");
+        std::fs::write(&nc, "G21\nM3 S0\nG0 X0 Y0\nG1 X10 Y0\nG1 X10 Y10\nM5\n").unwrap();
+        let e = import_with_options(nc.to_str().unwrap(), &ImportDialogOptions::default());
+        assert!(e.unwrap_err().contains("potencia 0"));
+        let r = import_with_options(
+            nc.to_str().unwrap(),
+            &ImportDialogOptions {
+                gcode_default_power: Some(500.0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(r.objects.len(), 1);
+        std::fs::remove_file(nc).unwrap();
         // Se importa de verdad: un HPGL escalado al 200 %.
         let plt = temp("a.plt");
         std::fs::write(&plt, "IN;SP1;PU0,0;PD400,0;").unwrap();
@@ -402,7 +436,7 @@ mod tests {
         // Los valores que faltan en el JSON son los de siempre.
         let d: ImportDialogOptions = serde_json::from_str("{}").unwrap();
         assert_eq!(d.scale_percent, 100.0);
-        assert!(d.gcode_by_power);
+        assert!(d.gcode_by_power && d.gcode_default_power.is_none());
         assert_eq!(d.pdf_page, 1);
     }
 }

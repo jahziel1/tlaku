@@ -1,7 +1,7 @@
 import { applyH, homographyFrom4, invertH, type Mat3, type Quad } from '@/features/camera/geometry';
 import { makeLayer } from '@/lib/layers';
 import type { LaserApi } from '../api';
-import type { BedImage, BezPath, CalibrationReport, CameraAlignment, CameraSetup, CircleFit, DesignObject, Document, HeightModel, MarkResult, MarksReport } from '../types';
+import type { BedImage, BezPath, CalibrationReport, CameraAlignment, CameraPreset, CameraSetup, CircleFit, DesignObject, Document, HeightModel, MarkResult, MarksReport } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
@@ -82,6 +82,81 @@ function wiggle(seed: number, k: number): number {
   return v - Math.floor(v) - 0.5;
 }
 
+const MOCK_MAX_PRESETS = 32;
+
+function checkMockUrl(url: string | null | undefined): string | null {
+  const u = (url ?? '').trim();
+  if (u === '') return null;
+  if (!/^https?:\/\//i.test(u)) throw new Error('La URL de la cámara de red debe empezar con http://');
+  if (u.length > 2048 || /\s/.test(u)) throw new Error('La URL de la cámara de red no es válida.');
+  return u;
+}
+
+const mockDpm = (v: number | null | undefined): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 10_000 ? v : null);
+const mockOffset = (v: number | undefined): number => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1000, Math.max(-1000, v)) : 0);
+
+/** Fuente, ajuste manual y configuraciones con nombre: las mismas reglas que el motor (`normalize_sources`). */
+function normalizeMockSources(out: CameraSetup): void {
+  const p = out.prefs;
+  if (p.source !== undefined) p.source = p.source === 'network' ? 'network' : 'local';
+  p.network_url = checkMockUrl(p.network_url);
+  p.dpm = mockDpm(p.dpm);
+  p.offset_x_mm = mockOffset(p.offset_x_mm);
+  p.offset_y_mm = mockOffset(p.offset_y_mm);
+  if (!out.presets) return;
+  const list: CameraPreset[] = [];
+  for (const raw of out.presets) {
+    const name = raw.name.trim();
+    if (name === '' || [...name].length > 60) throw new Error('El nombre de una configuración de cámara debe tener entre 1 y 60 caracteres.');
+    const preset: CameraPreset = {
+      ...raw,
+      name,
+      network_url: checkMockUrl(raw.network_url),
+      dpm: mockDpm(raw.dpm),
+      offset_x_mm: mockOffset(raw.offset_x_mm),
+      offset_y_mm: mockOffset(raw.offset_y_mm),
+      width: raw.width && raw.width > 0 ? raw.width : null,
+      height: raw.height && raw.height > 0 ? raw.height : null,
+    };
+    const at = list.findIndex((q) => q.name.toLowerCase() === name.toLowerCase());
+    if (at >= 0) list[at] = preset;
+    else list.push(preset);
+  }
+  if (list.length > MOCK_MAX_PRESETS) throw new Error(`Se guardan como máximo ${MOCK_MAX_PRESETS} configuraciones de cámara.`);
+  out.presets = list;
+}
+
+/**
+ * Cuadro de una cámara de red en modo mock: el navegador lo pide directo (sin proxy; si la cámara no
+ * permite CORS fallará, como en el modo real sin motor). Las credenciales de la URL se mandan como
+ * Basic, no en la dirección.
+ */
+async function mockFetchFrame(url: string): Promise<{ mime: string; data_base64: string }> {
+  let target: URL;
+  try {
+    target = new URL(url.trim());
+  } catch {
+    throw new Error('La URL de la cámara no es válida.');
+  }
+  if (target.protocol !== 'http:') throw new Error('La URL de la cámara debe empezar con http://');
+  const headers: Record<string, string> = {};
+  if (target.username) {
+    headers.Authorization = `Basic ${btoa(`${decodeURIComponent(target.username)}:${decodeURIComponent(target.password)}`)}`;
+    target.username = '';
+    target.password = '';
+  }
+  const res = await fetch(target.toString(), { headers });
+  if (!res.ok) throw new Error(`La cámara respondió con el error ${res.status}.`);
+  const blob = await res.blob();
+  const data = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(r.error);
+    r.onload = () => resolve(String(r.result).split(',', 2)[1] ?? '');
+    r.readAsDataURL(blob);
+  });
+  return { mime: blob.type || 'image/jpeg', data_base64: data };
+}
+
 /**
  * Completa lo que calcula el motor al guardar: el modelo de altura (medido con dos alturas, o
  * estimado si hay lente) y el grosor del material acotado. En el mock el "modelo" sale de la
@@ -91,6 +166,7 @@ export function normalizeMockSetup(setup: CameraSetup): CameraSetup {
   const out = structuredClone(setup);
   const h = out.prefs.material_height_mm ?? 0;
   out.prefs.material_height_mm = Number.isFinite(h) ? Math.min(300, Math.max(0, h)) : 0;
+  normalizeMockSources(out);
   const a: CameraAlignment | null = out.alignment;
   if (!a) return out;
   const samples = a.samples ?? [];
@@ -163,7 +239,7 @@ function browserStorage(): Storage | null {
 export function mockCamera(
   lag: Lag,
   setups: SetupStore = createSetupStore(browserStorage()),
-): Pick<LaserApi, 'detectBoard' | 'calibrateLens' | 'loadCameraSetup' | 'saveCameraSetup' | 'saveBoardFile' | 'cameraMarks' | 'detectCameraMarks' | 'composeBedImage' | 'detectCircle'> {
+): Pick<LaserApi, 'detectBoard' | 'calibrateLens' | 'loadCameraSetup' | 'saveCameraSetup' | 'saveBoardFile' | 'fetchCameraFrame' | 'cameraMarks' | 'detectCameraMarks' | 'composeBedImage' | 'detectCircle'> {
   let imageCounter = 0;
   return {
     loadCameraSetup: () => lag(() => setups.load()),
@@ -173,6 +249,8 @@ export function mockCamera(
       lag(() => {
         if (!/\.(svg|pdf)$/i.test(path)) throw new Error('El tablero solo se guarda como .svg o .pdf.');
       }),
+
+    fetchCameraFrame: ({ url }) => mockFetchFrame(url),
 
     cameraMarks: ({ bed, count }) =>
       lag((): Document => {

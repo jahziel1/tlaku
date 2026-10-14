@@ -3,7 +3,7 @@
  * y `crates/tlaku-export`). Los campos van en snake_case, como el resto del contrato.
  */
 
-export type ExportFormat = 'svg' | 'dxf' | 'png' | 'pdf';
+export type ExportFormat = 'svg' | 'dxf' | 'png' | 'pdf' | 'ai';
 
 export type ImageHandling = 'skip' | 'link' | 'embed';
 
@@ -48,7 +48,9 @@ export type ExportRequest =
   | ({ format: 'svg' } & Partial<SvgOptions>)
   | ({ format: 'dxf' } & Partial<DxfOptions>)
   | ({ format: 'png' } & Partial<PngOptions>)
-  | ({ format: 'pdf' } & Partial<PdfOptions>);
+  | ({ format: 'pdf' } & Partial<PdfOptions>)
+  /** `.ai`: PDF 1.5 con una capa por color; mismas opciones que el PDF. */
+  | ({ format: 'ai' } & Partial<PdfOptions>);
 
 export interface ExportSummary {
   path: string;
@@ -78,6 +80,11 @@ export interface ImportDialogOptions {
   pdf_page: number;
   /** G-code: una capa por nivel de potencia (`true`) o una sola capa. */
   gcode_by_power: boolean;
+  /**
+   * G-code: valor de `S` con el que se toman los cortes que llegan con potencia 0 (`M3 S0`); `null` = no se
+   * dibujan. No se recuerda entre importaciones: se ofrece cuando un archivo importa vacío por eso.
+   */
+  gcode_default_power: number | null;
 }
 
 export const DEFAULT_IMPORT_OPTIONS: ImportDialogOptions = {
@@ -89,6 +96,7 @@ export const DEFAULT_IMPORT_OPTIONS: ImportDialogOptions = {
   target_layer: null,
   pdf_page: 1,
   gcode_by_power: true,
+  gcode_default_power: null,
 };
 
 // Los mismos valores por defecto que `Default` de cada estructura en Rust.
@@ -98,4 +106,4 @@ export const DEFAULT_PNG: PngOptions = { dpi: 300, margin_mm: 2, transparent: fa
 export const DEFAULT_PDF: PdfOptions = { page: 'fit', margin_mm: 5, stroke_mm: 0.1, images: true, fill_layers: false };
 
 /** Extensión del archivo de cada formato. */
-export const EXPORT_EXTENSION: Record<ExportFormat, string> = { svg: 'svg', dxf: 'dxf', png: 'png', pdf: 'pdf' };
+export const EXPORT_EXTENSION: Record<ExportFormat, string> = { svg: 'svg', dxf: 'dxf', png: 'png', pdf: 'pdf', ai: 'ai' };

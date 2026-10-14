@@ -11,6 +11,7 @@ tlaku-dxf = { version = "0.1.0", path = "../tlaku-dxf" }
 tlaku-fill = { version = "0.1.0", path = "../tlaku-fill" }
 tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 tlaku-grbl = { version = "0.1.0", path = "../tlaku-grbl" }
+tlaku-lhymicro = { version = "0.1.0", path = "../tlaku-lhymicro", default-features = false }
 tlaku-lbrn = { version = "0.1.0", path = "../tlaku-lbrn" }
 tlaku-plan = { version = "0.1.0", path = "../tlaku-plan" }
 tlaku-raster = { version = "0.1.0", path = "../tlaku-raster" }
@@ -23,4 +24,5 @@ tlaku-trace = { version = "0.1.0", path = "../tlaku-trace" }
 lopdf = { version = "0.45", default-features = false }
 
 [dev-dependencies]
+serde_json = "1.0.154"
 image = { version = "0.25", default-features = false, features = ["png", "bmp", "webp", "tiff", "gif", "tga"] }

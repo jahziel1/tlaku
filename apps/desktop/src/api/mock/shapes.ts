@@ -1,6 +1,7 @@
 import { flattenBez, polylineBez, type BezPath, type FlatPath } from '@/lib/bezpath';
 import { objectCurves, pointsBounds, type Bounds } from '@/lib/geometry';
 import type { LaserApi } from '../api';
+import { unfilletSubs } from './unfillet';
 import type { DesignObject, Point, ShapeOpArgs, ShapeOpResult, ShapeParams, ShapeStats } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
@@ -434,7 +435,28 @@ function filletPoints(pts: Point[], closed: boolean, radius: number, style: stri
   return out;
 }
 
+/** Revertir un redondeo: devuelve a punta la esquina redondeada más cercana al punto, en un solo objeto. */
+function mockUnfillet(objects: DesignObject[], params: ShapeParams): ShapeOpResult {
+  if (!params.point) throw new Error('Falta el punto de la esquina.');
+  const maxDist = params.max_dist ?? 2;
+  if (!Number.isFinite(maxDist) || maxDist <= 0) throw new Error('La distancia al clic debe ser un número mayor que 0.');
+  const slots: Slot[] = objects.map((): Slot => 'keep');
+  const stats = emptyStats();
+  let best: { index: number; subs: BezPath[]; distance: number } | null = null;
+  objects.forEach((o, index) => {
+    const hit = unfilletSubs(subsOf(o), params.point!, maxDist);
+    if (hit && (!best || hit.distance < best.distance)) best = { index, subs: hit.subs, distance: hit.distance };
+  });
+  const found = best as { index: number; subs: BezPath[]; distance: number } | null;
+  if (found) {
+    stats.count = 1;
+    slots[found.index] = [makeObject(objects[found.index]!, idMaker('fillet', objects)(), found.subs)];
+  }
+  return finish(objects, slots, stats);
+}
+
 function mockFillet(objects: DesignObject[], params: ShapeParams): ShapeOpResult {
+  if (params.revert) return mockUnfillet(objects, params);
   const radius = params.radius;
   if (radius === undefined) throw new Error('Falta el radio.');
   if (!Number.isFinite(radius) || radius <= 0) throw new Error('El radio debe ser un número mayor que 0.');

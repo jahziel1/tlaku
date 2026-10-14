@@ -21,6 +21,10 @@ pub enum InputKind {
     Gcode,
     /// Proyectos de LightBurn (`.lbrn`, `.lbrn2`), con sus capas y ajustes.
     Lbrn,
+    /// Trabajos de controladoras Ruida (`.rd`), una capa de Tlaku por capa del archivo.
+    Rd,
+    /// Trabajos de placas Lihuiyu M2 Nano (`.egv`, LHYMICRO-GL), una capa por velocidad.
+    Egv,
 }
 
 pub fn input_kind(path: &Path) -> Result<InputKind, String> {
@@ -39,9 +43,11 @@ pub fn input_kind(path: &Path) -> Result<InputKind, String> {
         "plt" | "hpgl" | "hpg" => Ok(InputKind::Hpgl),
         "nc" | "gcode" | "gc" | "ngc" => Ok(InputKind::Gcode),
         "lbrn" | "lbrn2" => Ok(InputKind::Lbrn),
+        "rd" => Ok(InputKind::Rd),
+        "egv" => Ok(InputKind::Egv),
         _ => Err(format!(
             "{}: formato de entrada no soportado; usa SVG, DXF, PDF, AI, HPGL, G-code, \
-             LightBurn (.lbrn/.lbrn2) o una imagen (PNG, JPG, BMP, WebP, TIFF, GIF, TGA)",
+             LightBurn (.lbrn/.lbrn2), Ruida (.rd), K40 (.egv) o una imagen (PNG, JPG, BMP, WebP, TIFF, GIF, TGA)",
             path.display()
         )),
     }
@@ -89,6 +95,12 @@ pub struct ImportExtras {
     pub pdf_page: u32,
     /// G-code: una capa por nivel de potencia (`true`) o una sola capa (`false`).
     pub gcode_by_power: bool,
+    /// G-code: valor de `S` (en las unidades del archivo) con el que se toman los avances
+    /// `G1`/`G2`/`G3` que llegan con potencia 0 (`M3 S0`, o sin `S`). `None` = no se dibujan
+    /// (el archivo sin una potencia mayor que 0 importa vacío y el error lo explica). Debe ser
+    /// mayor que 0; solo sirve para que esos cortes cuenten como quemados y para agruparlos en
+    /// una capa.
+    pub gcode_default_power: Option<f64>,
 }
 
 impl Default for ImportExtras {
@@ -101,6 +113,7 @@ impl Default for ImportExtras {
             target_layer: None,
             pdf_page: 1,
             gcode_by_power: true,
+            gcode_default_power: None,
         }
     }
 }
@@ -264,6 +277,8 @@ pub fn import_file_extras(
         InputKind::Pdf => Some(crate::import_pdf::import(path, &data, opts, extras)),
         InputKind::Hpgl => Some(crate::import_hpgl::import(path, &data, opts, extras)),
         InputKind::Gcode => Some(crate::import_gcode::import(path, &data, opts, extras)),
+        InputKind::Rd => Some(crate::import_rd::import(path, &data, opts, extras)),
+        InputKind::Egv => Some(crate::import_egv::import(path, &data, opts, extras)),
         _ => None,
     };
     if let Some(result) = own {
@@ -320,6 +335,8 @@ pub fn import_file_extras(
         | InputKind::Pdf
         | InputKind::Hpgl
         | InputKind::Gcode
+        | InputKind::Rd
+        | InputKind::Egv
         | InputKind::Lbrn => unreachable!("se importan arriba"),
     };
     if layers.is_empty() {

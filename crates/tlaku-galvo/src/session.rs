@@ -26,16 +26,16 @@
 use crate::calib::FieldMap;
 use crate::cmd::Imm;
 use crate::compile::{
-    self, CompileError, CompileOptions, CompiledList, FieldOrigin, LightOptions, LightShape,
-    ListStats,
+    self, CompileError, CompileOptions, CompiledList, FieldOrigin, LightAdjust, LightOptions,
+    LightShape, ListStats,
 };
 use crate::params;
 use crate::safety::{self, ImmContext, ListKind, SafetyError, SafetyLimits};
 use crate::transport::{self, Support, Transport, TransportError, TransportInfo};
 use crate::wire;
 use std::fmt;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tlaku_core::Point;
 use tlaku_core::toolpath::Toolpath;
@@ -55,6 +55,9 @@ pub struct SessionConfig {
     pub device: GalvoDevice,
     pub limits: SafetyLimits,
     pub origin: FieldOrigin,
+    /// Dónde cae el puntero rojo respecto al haz, mm (el puntero cae en haz + desfase). Lo
+    /// compensan el encuadre y el recorrido en rojo; una marca real nunca lo aplica.
+    pub pointer_offset: [f64; 2],
     /// Espera entre consultas de estado (0 con la tarjeta simulada).
     pub poll_interval: Duration,
     /// Máximo de espera a que la tarjeta pueda recibir otra tanda.
@@ -73,15 +76,22 @@ pub struct SessionConfig {
 impl SessionConfig {
     pub fn new(device: GalvoDevice) -> Result<Self, SafetyError> {
         let limits = SafetyLimits::from_device(&device)?;
+        // El enclavamiento por entrada del perfil (M45) viaja con la sesión: se exige antes de
+        // cada trabajo y de cada encuadre.
+        let inputs_required = device.require_input.map(|r| InputCheck {
+            mask: r.mask,
+            value: r.value,
+        });
         Ok(SessionConfig {
             device,
             limits,
             origin: FieldOrigin::Center,
+            pointer_offset: [0.0, 0.0],
             poll_interval: Duration::from_millis(5),
             ready_timeout: Duration::from_secs(30),
             execute_after_batches: 3,
             mo_delay_ms: 8.0,
-            inputs_required: None,
+            inputs_required,
             shutdown_retries: 3,
             status_retries: 3,
         })
@@ -98,6 +108,9 @@ pub enum JobState {
 struct ControlInner {
     stop: AtomicBool,
     state: AtomicU8,
+    /// Ajuste pedido al encuadre en curso (mover o escalar en vivo) y su número de versión.
+    adjust: Mutex<LightAdjust>,
+    adjust_gen: AtomicU32,
 }
 
 /// Mando de un trabajo en marcha: se puede clonar y usar desde otro hilo.
@@ -123,6 +136,37 @@ impl JobControl {
     /// Borra una petición de detener anterior para poder lanzar otro trabajo.
     pub fn clear(&self) {
         self.inner.stop.store(false, Ordering::SeqCst);
+    }
+
+    /// Pide mover o escalar el encuadre que está en curso (M42). Se aplica en la vuelta
+    /// siguiente; si el resultado se sale del campo se descarta y el encuadre sigue como estaba
+    /// (lo dice `LightProgress::adjust_rejected`). Devuelve el número de versión del ajuste.
+    pub fn set_light_adjust(&self, adjust: LightAdjust) -> Result<u32, String> {
+        adjust.validate()?;
+        *self
+            .inner
+            .adjust
+            .lock()
+            .map_err(|_| "estado interno dañado".to_string())? = adjust;
+        Ok(self.inner.adjust_gen.fetch_add(1, Ordering::SeqCst) + 1)
+    }
+
+    /// El último ajuste pedido y su versión.
+    pub fn light_adjust(&self) -> (LightAdjust, u32) {
+        let a = self
+            .inner
+            .adjust
+            .lock()
+            .map_or_else(|e| *e.into_inner(), |a| *a);
+        (a, self.inner.adjust_gen.load(Ordering::SeqCst))
+    }
+
+    /// Deja el ajuste en neutro (cada encuadre empieza sin mover ni escalar).
+    fn reset_light_adjust(&self) {
+        if let Ok(mut a) = self.inner.adjust.lock() {
+            *a = LightAdjust::default();
+        }
+        self.inner.adjust_gen.store(0, Ordering::SeqCst);
     }
 
     pub fn state(&self) -> JobState {
@@ -184,6 +228,10 @@ pub struct Progress {
 pub struct LightProgress {
     /// Vueltas completas del encuadre hasta ahora.
     pub loops: u32,
+    /// Versión del último ajuste en vivo que se aplicó (0 = ninguno).
+    pub adjust_gen: u32,
+    /// El último ajuste pedido se descartó porque dejaba el encuadre fuera del campo.
+    pub adjust_rejected: bool,
 }
 
 /// Qué pasó con el intento de dejar la tarjeta en estado seguro.
@@ -623,6 +671,7 @@ impl<T: Transport> GalvoSession<T> {
             },
             mo_delay_ms: self.cfg.mo_delay_ms,
             max_commands: self.cfg.limits.max_commands,
+            pointer_offset: self.cfg.pointer_offset,
             ..CompileOptions::default()
         };
         Ok(compile::compile(tp, &self.cfg.device, &opts)?)
@@ -789,7 +838,8 @@ impl<T: Transport> GalvoSession<T> {
     }
 
     /// Dibuja `shape` con el puntero rojo en bucle hasta que `ctl` pida detener o se alcance
-    /// `max_loops`. Nunca habilita el láser. `progress` se llama tras cada vuelta.
+    /// `max_loops`. Nunca habilita el láser. `progress` se llama tras cada vuelta. Mientras dura,
+    /// `ctl.set_light_adjust` mueve o escala el encuadre en vivo (se aplica entre vueltas).
     pub fn light(
         &mut self,
         shape: &LightShape,
@@ -797,24 +847,15 @@ impl<T: Transport> GalvoSession<T> {
         max_loops: Option<u32>,
         progress: &mut dyn FnMut(LightProgress),
     ) -> Result<LightReport, Box<JobError>> {
-        let list = compile::compile_light(
-            shape,
-            &self.cfg.device,
-            &LightOptions {
-                origin: self.cfg.origin,
-            },
-        )
-        .map_err(|e| self.early(e.into()))?;
-        if let Err(e) = safety::validate_list(&list.commands, ListKind::Light, &self.cfg.limits) {
-            return Err(self.early(e.into()));
-        }
+        let list = self.compile_light_list(shape).map_err(|e| self.early(e))?;
         self.counters = Counters::default();
+        ctl.reset_light_adjust();
         ctl.set_state(JobState::Running);
         let mut report = LightReport {
             loops: 0,
             stopped: false,
         };
-        let result = self.run_light(&list, ctl, max_loops, &mut report, progress);
+        let result = self.run_light(shape, list, ctl, max_loops, &mut report, progress);
         ctl.set_state(JobState::Idle);
         // Detener es la forma normal de terminar un encuadre en bucle.
         if matches!(result, Err(SessionError::Cancelled)) {
@@ -822,6 +863,20 @@ impl<T: Transport> GalvoSession<T> {
         }
         self.finish(result, true)?;
         Ok(report)
+    }
+
+    /// Compila y valida la lista de un encuadre (con el desfase del puntero del perfil).
+    fn compile_light_list(&self, shape: &LightShape) -> Result<CompiledList, SessionError> {
+        let list = compile::compile_light(
+            shape,
+            &self.cfg.device,
+            &LightOptions {
+                origin: self.cfg.origin,
+                pointer_offset: self.cfg.pointer_offset,
+            },
+        )?;
+        safety::validate_list(&list.commands, ListKind::Light, &self.cfg.limits)?;
+        Ok(list)
     }
 
     /// Encuadre de un rectángulo (mm del sistema de la sesión).
@@ -838,7 +893,8 @@ impl<T: Transport> GalvoSession<T> {
 
     fn run_light(
         &mut self,
-        list: &CompiledList,
+        shape: &LightShape,
+        list: CompiledList,
         ctl: &JobControl,
         max_loops: Option<u32>,
         report: &mut LightReport,
@@ -850,9 +906,28 @@ impl<T: Transport> GalvoSession<T> {
             self.send(Imm::FiberSetMo(0))?;
         }
         self.send(Imm::WritePort(0))?;
-        let batches = list.batches();
+        let mut list = list;
+        let mut batches = list.batches();
         self.counters.total = batches.len();
+        let mut seen_gen = 0;
+        let mut applied_gen = 0;
+        let mut rejected = false;
         loop {
+            // Ajuste en vivo: se recompila y se valida; si no cabe en el campo, se descarta.
+            let (adj, gen_now) = ctl.light_adjust();
+            if gen_now != seen_gen {
+                seen_gen = gen_now;
+                match self.compile_light_list(&shape.adjusted(&adj)) {
+                    Ok(new) => {
+                        batches = new.batches();
+                        self.counters.total = batches.len();
+                        list = new;
+                        applied_gen = gen_now;
+                        rejected = false;
+                    }
+                    Err(_) => rejected = true,
+                }
+            }
             self.send(Imm::ResetList)?;
             let mut noop = |_p: Progress| {};
             self.upload_and_run(&batches, false, ctl, &mut noop)?;
@@ -860,6 +935,8 @@ impl<T: Transport> GalvoSession<T> {
             report.loops += 1;
             progress(LightProgress {
                 loops: report.loops,
+                adjust_gen: applied_gen,
+                adjust_rejected: rejected,
             });
             if ctl.stop_requested() {
                 report.stopped = true;
@@ -868,6 +945,8 @@ impl<T: Transport> GalvoSession<T> {
             if max_loops.is_some_and(|m| report.loops >= m) {
                 return Ok(());
             }
+            // El enclavamiento por entrada se vuelve a comprobar en cada vuelta.
+            self.check_inputs()?;
         }
     }
 

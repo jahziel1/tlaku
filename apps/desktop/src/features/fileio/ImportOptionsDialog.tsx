@@ -6,6 +6,8 @@ import { CheckRow, ChoiceRow } from './Fields';
 import './fileio.css';
 import { DEFAULT_IMPORT_OPTIONS, type ImportDialogOptions } from './types';
 
+const DPI_CHOICES = [72, 150, 300];
+
 /** Qué opciones tienen sentido según los formatos de los archivos elegidos. */
 export interface ImportKinds {
   /** SVG o imágenes: el DPI cuenta. */
@@ -38,13 +40,19 @@ interface Props {
   kinds: ImportKinds;
   /** Capas del diseño actual para elegir destino. */
   layers: { color: string; name: string }[];
+  /** Con qué opciones arranca el diálogo (lo recordado de la vez anterior, si hay); si no, las de fábrica. */
+  initial?: ImportDialogOptions;
+  /** Resolución por omisión de las preferencias (ppp), la que vale si se deja «predeterminada». */
+  defaultDpi?: number;
   onDone: (options: ImportDialogOptions | null) => void;
 }
 
 /** Opciones de importación (D91): escala, DPI, unidades del DXF, página del PDF, agrupar y capa destino. */
-export function ImportOptionsDialog({ fileCount, kinds, layers, onDone }: Props) {
+export function ImportOptionsDialog({ fileCount, kinds, layers, initial = DEFAULT_IMPORT_OPTIONS, defaultDpi = 96, onDone }: Props) {
   const labelId = useId();
-  const [o, setO] = useState<ImportDialogOptions>(DEFAULT_IMPORT_OPTIONS);
+  const [o, setO] = useState<ImportDialogOptions>(initial);
+  // Un valor recordado que no es de la lista (por ejemplo, de otra versión) se sigue mostrando.
+  const dpiValues = [...new Set([...DPI_CHOICES, ...(o.dpi === null ? [] : [o.dpi])])].sort((a, b) => a - b);
   const patch = (p: Partial<ImportDialogOptions>) => setO((cur) => ({ ...cur, ...p }));
 
   return (
@@ -67,10 +75,8 @@ export function ImportOptionsDialog({ fileCount, kinds, layers, onDone }: Props)
             legend={t('fileio.import.dpi')}
             value={o.dpi}
             options={[
-              { value: null, label: t('fileio.import.dpi.auto') },
-              { value: 72, label: '72' },
-              { value: 150, label: '150' },
-              { value: 300, label: '300' },
+              { value: null, label: t('fileio.import.dpi.auto', { dpi: defaultDpi }) },
+              ...dpiValues.map((v) => ({ value: v as number | null, label: String(v) })),
             ]}
             onChange={(dpi) => patch({ dpi })}
           />
@@ -100,6 +106,12 @@ export function ImportOptionsDialog({ fileCount, kinds, layers, onDone }: Props)
             ]}
             onChange={(v) => patch({ gcode_by_power: v === 'power' })}
           />
+        )}
+        {kinds.gcode && (
+          <>
+            <NumberField label={t('fileio.import.gcode.defaultPower')} value={o.gcode_default_power ?? 0} min={0} max={100000} step={100} unit="S" onCommit={(v) => patch({ gcode_default_power: v > 0 ? v : null })} />
+            <p className="fio-hint">{t('fileio.import.gcode.defaultPower.help')}</p>
+          </>
         )}
         {kinds.vector && (
           <div className="field">

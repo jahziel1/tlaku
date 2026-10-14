@@ -34,7 +34,10 @@ function mockWarp(args: WarpArgs): DesignObject[] {
   const images = args.objects.filter((o) => o.kind.type === 'image');
   if (images.length) throw new Error(`Las imágenes no se pueden deformar: ${list(images)}.`);
   const warp = makeWarp(args.bounds as Bounds, args.envelope);
-  if (!warp) throw new Error('La selección no tiene ancho y alto: no se puede deformar.');
+  if (!warp) {
+    const flat = !(args.bounds[1][0] - args.bounds[0][0] > 1e-9) || !(args.bounds[1][1] - args.bounds[0][1] > 1e-9);
+    throw new Error(flat ? 'La selección no tiene ancho y alto: no se puede deformar.' : 'Las esquinas de la perspectiva no forman un cuadrilátero convexo.');
+  }
   const step = Math.max(args.bounds[1][0] - args.bounds[0][0], args.bounds[1][1] - args.bounds[0][1]) / 80;
   return args.objects.map((o) => {
     const polys = objectPolylines(o, 0.05);

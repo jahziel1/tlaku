@@ -42,9 +42,9 @@ use tlaku_core::Point;
 use tlaku_core::toolpath::Toolpath;
 use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, DeviceKind, DeviceProfile, JobEvent, JobState,
-    LaserSource, LogDir, LogEvent, MachineState, Origin, ProgressEvent, StatusReport,
+    LaserSource, LogDir, MachineState, Origin, ProgressEvent, StatusReport,
 };
-use tlaku_galvo::compile::{self, FieldOrigin, LightOptions, LightShape};
+use tlaku_galvo::compile::{self, FieldOrigin, LightAdjust, LightOptions, LightShape};
 use tlaku_galvo::emu::{EmuConfig, emulator};
 use tlaku_galvo::session::{
     BoardInfo, GalvoSession, JobControl, JobError, JobState as GalvoJobState, SessionConfig,
@@ -83,21 +83,6 @@ pub fn is_virtual(port: &str) -> bool {
     port.split('@').next() == Some(VIRTUAL_PORT)
 }
 
-/// `virtual:galvo@5` -> 5 (veces el tiempo real); sin velocidad, 1.
-fn virtual_speed(port: &str) -> Result<f64, String> {
-    match port.split_once('@') {
-        None => Ok(1.0),
-        Some((_, s)) => match s.parse::<f64>() {
-            Ok(v) if v.is_finite() && v > 0.0 && v <= super::virtual_port::MAX_SPEED => Ok(v),
-            _ => Err(format!(
-                "La velocidad '{s}' de la máquina virtual debe ser un número entre 0 y {} veces \
-                 el tiempo real.",
-                super::virtual_port::MAX_SPEED
-            )),
-        },
-    }
-}
-
 /// Número de tarjeta de un puerto `usb:galvo:<n>`.
 pub fn usb_index(port: &str) -> Option<usize> {
     port.strip_prefix(USB_PREFIX)?.parse().ok()
@@ -120,8 +105,8 @@ mod prepare;
 mod safety;
 mod worker;
 
-pub use connection::GalvoConnection;
-pub use events::{GalvoEvent, GalvoState, GalvoTimingCfg};
+pub use connection::{GalvoConnection, GalvoVerifyReport, verify};
+pub use events::{GalvoEvent, GalvoInterlock, GalvoState, GalvoTimingCfg};
 pub use handle::GalvoHandle;
 pub use prepare::*;
 pub use safety::*;

@@ -525,6 +525,42 @@ desvíos aparecen en archivos reales con:
 - La longitud quemada que dibuja el emulador coincide con la longitud de corte calculada con menos de
   1 % de diferencia en todos los trabajos.
 
+### Ola 6C: emulador corregido
+
+El emulador calculaba mal tres cosas: la velocidad de unión (`v·cos⁸θ` con mínimo de 2 mm/s en lugar
+de la desviación de unión `$11`), la anticipación (solo miraba el bloque siguiente) y los límites por
+eje (usaba el menor de `$110/$111` y `$120/$121` en todas las direcciones; GRBL proyecta cada tope
+sobre la dirección). Ahora recorre de atrás adelante los bloques del búfer (`planner_blocks`, o
+`Profile::lookahead_blocks` si se quiere una ventana menor) y proyecta los límites por eje.
+Casos mínimos en `crates/tlaku-emu/tests/estimate.rs` (emulador contra estimador y contra la fórmula
+calculada a mano): vaivén de 1 mm x 400 +1,1 %, zigzag de 30 grados a 860 mm/min -0,1 %, diagonal 0 %,
+ventana de 15 y de 127 bloques -0,1 % y -0,9 %.
+
+| archivo | estimado | simulado antes | antes | simulado ahora | ahora |
+|---|---|---|---|---|---|
+| `wmc-outline-of-texas-detailed.svg` | 202,6 s | 256,9 s | +26,8 % | 202,4 s | -0,1 % |
+| `lbrnts-repro04-motor-controller.lbrn2` | 3 130 s | 1 908,8 s | -39,0 % | 2 937,9 s | -6,1 % |
+
+El -6,1 % que quedaba en `repro04` no era del emulador: el estimador detenía la máquina en cada cambio
+de `Travel` a `Cut` y GRBL no (en modo láser solo cambia la potencia), y el relleno a 45 grados alterna
+`G0` y `G1` cortos. Forzando esa parada en el emulador la diferencia bajaba a +0,25 %.
+
+**Estimador corregido.** `MachineProfile::stop_on_cut_change` (nuevo) es `false` por omisión y para los
+firmwares GRBL con modo láser (`M4`: GRBL, grblHAL, FluidNC y grbl-LPC), que encadenan `G0` y `G1` con la
+desviación de unión de cualquier esquina; sigue en `true` (parada en cada cambio) para `M3` sin modo láser,
+Marlin, Smoothie, G-code propio, Ruida, K40 y galvo, de los que no hay evidencia de que se encadenen
+(`plans_laser_moves_together` en `tlaku-pipeline/src/gcode.rs`). La ventana del planificador pasa de 16 a
+15 bloques, como el `Bf` de GRBL y el emulador. Los dorados de G-code no cambian (no llevan tiempo); solo
+cambia el tiempo estimado de los trabajos GRBL con saltos y cortes seguidos.
+
+| archivo | estimado antes | simulado antes | antes | estimado ahora | simulado ahora | ahora |
+|---|---|---|---|---|---|---|
+| `wmc-outline-of-texas-detailed.svg` | 202,6 s | 256,9 s | +26,8 % | 200,3 s | 202,4 s | +1,0 % |
+| `lbrnts-repro04-motor-controller.lbrn2` | 3 130 s | 1 908,8 s | -39,0 % | 2 952,8 s | 2 936,4 s | -0,6 % |
+
+(«Antes» es el emulador original; la columna intermedia, con el emulador ya corregido pero el estimador
+sin tocar, daba -0,1 % y -6,1 %.)
+
 ## Prioridades para la ola 6
 
 Ordenadas por impacto en el usuario.
@@ -579,7 +615,7 @@ Arreglos de la lista de prioridades, medidos con `tlaku-bench worker` (release) 
 | 5. Capa más rápida que la máquina | en silencio | aviso al calcular |
 | 6. `reduce_travel`, 1 M de líneas sueltas | 40 s | 4,7 s, mismo resultado |
 | 7. G-code del mapa de Alemania | 4,29 M de líneas | 3,00 M (−30 %), largo −0,09 %; aviso si el enlace no da abasto |
-| 8. Estimado | +26 % / −40 % contra el emulador | el estimador es correcto; el emulador calcula mal las uniones (pendiente en 6C) |
+| 8. Estimado | +26 % / −40 % contra el emulador | el estimador era correcto; el emulador usa ahora la desviación de unión de GRBL y un planificador con ventana: +26,8 % pasa a +1,0 % y -39,0 % a -0,6 % (ola 6C, abajo) |
 | 9. TIFF YCbCr y 87 Mpx | error | cargan |
 | 10. Lienzo | clic con 1 M de nodos 280 ms; mover 10 de 100 000 objetos 215 ms | 47 ms; 48 ms. Mover todo con 100 000 sigue en ~400 ms |
 

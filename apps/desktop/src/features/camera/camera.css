@@ -377,3 +377,57 @@
   font-weight: 600;
   color: var(--text);
 }
+
+/* ---- cámara de red, ajuste manual y zona del recorrido ------------------------------ */
+
+.cam-url {
+  width: 100%;
+}
+.cam-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.cam-zone[data-drawing] {
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+.cam-zone__rect {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  background: var(--accent-subtle);
+  pointer-events: none;
+}
+.cam-zone__label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateY(-100%);
+  padding: 1px var(--s-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-chrome);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.cam-zone__tip {
+  position: absolute;
+  left: 50%;
+  top: var(--s-3);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-chrome);
+  color: var(--text);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+.cam-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}

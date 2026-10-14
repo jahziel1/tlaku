@@ -1,13 +1,13 @@
 import { CircleCheck, TriangleAlert } from 'lucide-react';
-import { useMemo } from 'react';
 import type { Point } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
-import type { FitError, FitWarning } from './fit';
-import { computeRegistration, GOOD_RESIDUAL_MM, isGoodFit, type ModeChoice } from './flow';
+import { GOOD_RESIDUAL_MM, isGoodFit } from './flow';
 import type { DesignMark } from './marks';
 import { usePrintCut } from './printcutStore';
 import { useMarksMoved } from './StepMarks';
+import type { FitError, FitWarning } from './types';
+import type { RegistrationState } from './useRegistration';
 
 export function warningText(w: FitWarning): string {
   switch (w.kind) {
@@ -33,16 +33,18 @@ export function errorText(e: FitError): string {
 interface ViewProps {
   marks: readonly DesignMark[];
   physical: readonly (Point | null)[];
-  mode: ModeChoice;
+  /** El ajuste que calculó el motor para esas marcas (ver `useRegistration`). */
+  state: RegistrationState;
   /** Las marcas se movieron desde que se eligieron. */
   moved: boolean;
 }
 
 /** Error residual de cada marca y resumen de la transformación, antes de aceptarla. */
-export function ResultView({ marks, physical, mode, moved }: ViewProps) {
-  const result = useMemo(() => computeRegistration(marks, physical, mode), [marks, physical, mode]);
-
-  if (!result) return <p className="warn-line" role="alert">{t('printcut.result.incomplete')}</p>;
+export function ResultView({ marks, physical, state, moved }: ViewProps) {
+  if (state.status === 'incomplete') return <p className="warn-line" role="alert">{t('printcut.result.incomplete')}</p>;
+  if (state.status === 'pending') return <p className="hint" role="status">{t('printcut.result.computing')}</p>;
+  if (state.status === 'failed') return <p className="warn-line" role="alert">{state.message}</p>;
+  const { result } = state;
   if (!result.ok) return <p className="warn-line" role="alert">{errorText(result.error)}</p>;
   const { fit } = result;
   const lowError = isGoodFit(fit.residualMax);
@@ -99,10 +101,9 @@ export function ResultView({ marks, physical, mode, moved }: ViewProps) {
 }
 
 /** Paso 3 conectado al estado del asistente. */
-export function StepResult() {
+export function StepResult({ state }: { state: RegistrationState }) {
   const marks = usePrintCut((s) => s.marks);
   const physical = usePrintCut((s) => s.physical);
-  const mode = usePrintCut((s) => s.mode);
   const moved = useMarksMoved();
-  return <ResultView marks={marks} physical={physical} mode={mode} moved={moved} />;
+  return <ResultView marks={marks} physical={physical} state={state} moved={moved} />;
 }

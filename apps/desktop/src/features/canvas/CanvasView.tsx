@@ -12,6 +12,8 @@ import { objectIndex, objectsByIds } from '@/store/objectIndex';
 import { formatSize, unitSymbol } from '@/lib/units';
 import { selectHeadDoc } from '@/store/machine';
 import './canvas-overlay.css';
+import { FilletBar } from './FilletBar';
+import { WarpBar } from './WarpBar';
 import { CanvasTip } from './CanvasTip';
 import { useInteraction } from './interaction';
 import { NodeBar } from './NodeBar';
@@ -103,6 +105,7 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     preview: s.previewVisible && s.preview ? { data: s.preview, scrub: s.scrub } : null,
     palette,
     gridUnit: s.prefs.units,
+    gridMm: s.prefs.gridMm,
     overlay: {
       hoverId: ix.hoverId,
       live: ix.live,
@@ -149,7 +152,7 @@ export function CanvasView() {
     if (!canvas) return;
     const renderer = createRenderer();
     renderer.attach(canvas);
-    let palette = readCanvasPalette();
+    let palette = readCanvasPalette(document.documentElement, useStore.getState().prefs.gridContrast);
     let frame = 0;
     let lastW = 0;
     let lastH = 0;
@@ -173,7 +176,7 @@ export function CanvasView() {
 
     renderer.setInvalidate(schedule);
     const unsub = useStore.subscribe((s, prev) => {
-      if (s.theme !== prev.theme) palette = readCanvasPalette();
+      if (s.theme !== prev.theme || s.prefs.gridContrast !== prev.prefs.gridContrast) palette = readCanvasPalette(document.documentElement, s.prefs.gridContrast);
       // Lo seleccionado que se bloquea, se oculta o desaparece deja de estar seleccionado.
       if (s.doc !== prev.doc && !selectionIntact(s)) s.pruneSelection();
       if (WATCHED.some((k) => s[k] !== prev[k])) schedule();
@@ -215,6 +218,8 @@ export function CanvasView() {
         </div>
         <PriorityBadges />
         <SnapBar />
+        <WarpBar />
+        <FilletBar />
         <ShapeProps />
         <MeasureReadout />
         <PositionIndicator />

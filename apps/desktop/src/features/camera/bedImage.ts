@@ -14,7 +14,7 @@ import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore, type AppState } from '@/store';
 import { currentMapping, matrixForFrame, MAPPING_PROBLEM_KEY } from './mapping';
 import { grabCorrectedColorPng } from './session';
-import { scanBed, ScanError } from './headScan';
+import { currentScanArea, scanBed, ScanError } from './headScan';
 import { useHeadUi, type HeadAction } from './headState';
 import { refreshOverlayNow } from './refresh';
 
@@ -71,7 +71,7 @@ export async function captureBedImage(): Promise<string | null> {
   try {
     let image: BedImage;
     if (s.cameraSetup.head?.enabled) {
-      const r = await scanBed({ save: true, useSelection: useHeadUi.getState().useSelection });
+      const r = await scanBed({ save: true, ...currentScanArea() });
       if (!r) {
         s.notify('info', t('camera.head.scan.cancelled'));
         return null;

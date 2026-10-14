@@ -186,4 +186,6 @@ export const design = {
   // Auto-group
   'design.autoGroup.done': '{n} groups were formed.',
   'design.autoGroup.none': 'No shapes sit inside other shapes, so there is nothing to group.',
+  'design.warp.onCanvas': 'Edit on canvas',
+  'design.warp.onCanvasHint': 'Closes this dialog and puts the control mesh over the design: drag the corners or the 16 points and watch the result live.',
 } as const;

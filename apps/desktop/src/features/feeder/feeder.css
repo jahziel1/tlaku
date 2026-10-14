@@ -1,0 +1,67 @@
+/*
+ * Repetir con el alimentador (M47): sección del diálogo de inicio y panel de avance. Solo tokens de
+ * src/styles/tokens.css; clases con prefijo rep- para no chocar con otras áreas.
+ */
+
+.rep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--border);
+}
+.rep .mc-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+}
+.rep .hint,
+.rep .warn-line {
+  margin: 0;
+}
+.rep__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+
+.rep-panel {
+  position: fixed;
+  right: var(--s-6);
+  bottom: calc(var(--status-h) + var(--s-5));
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: min(340px, calc(100vw - 2 * var(--s-6)));
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--bg-chrome);
+  box-shadow: var(--shadow-pop);
+}
+.rep-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rep-panel__head .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+}
+.rep-panel__bar {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+}
+.rep-panel p {
+  margin: 0;
+}
+.rep-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+}

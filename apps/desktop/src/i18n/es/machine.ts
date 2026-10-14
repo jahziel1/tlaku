@@ -634,7 +634,7 @@ export const machine = {
   'machine.dev.err.macro': 'Alguna macro no es válida (nombre vacío, sin comandos o con una línea rechazada).',
   'machine.dev.uAxis': 'Eje U',
   'machine.dev.uAxis.label': 'La máquina tiene un eje U (rotativo u otro eje extra)',
-  'machine.dev.uAxis.help': 'Habilita el movimiento del eje U en la ventana Mover. No cambia el G-code de los trabajos.',
+  'machine.dev.uAxis.help': 'Habilita el movimiento del eje U en la ventana Mover y el desplazamiento U de los trabajos.',
   'machine.dev.laser2': 'Segundo láser',
   'machine.dev.laser2.label': 'La máquina tiene dos láseres',
   'machine.dev.laser2.help': 'Cada capa podrá elegir el láser 1 o el 2. Configura las órdenes de selección en «Dialecto de G-code».',
@@ -656,4 +656,8 @@ export const machine = {
   'machine.cmd.macro8': 'Macro 8',
   'machine.cmd.macro9': 'Macro 9',
   'machine.cmd.macro10': 'Macro 10',
+  'machine.dev.uOffset': 'Desplazamiento U de los trabajos',
+  'machine.dev.uOffset.help': 'Cuánto se mueve el eje U al empezar cada trabajo; al terminar se deshace (movimientos relativos con el láser apagado). 0 = U no se toca.',
+  'machine.position.pointer': 'Llevar el puntero rojo al punto',
+  'machine.position.pointer.help': 'El clic manda allí el puntero rojo, no el rayo: la cabeza va al punto menos el desfase del puntero del perfil.',
 } as const;

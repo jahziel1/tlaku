@@ -332,6 +332,33 @@ fn all_lines_arrive_in_order_and_buffer_never_overflows() {
 }
 
 #[test]
+fn sync_streaming_sends_one_line_per_ok_and_still_delivers_everything() {
+    use tlaku_grbl::link::{FlowControl, LinkProfile};
+    let lines = gcode_lines(120);
+    let (mock, host) = Mock::start(MockConfig::default());
+    let link = LinkProfile::grbl().with_sync_streaming();
+    assert!(matches!(
+        link.flow,
+        FlowControl::Window { max_lines: 1, .. }
+    ));
+    let mut streamer = Streamer::with_link(host, fast_config(), link);
+    let mut events = Vec::new();
+    let out = streamer.run(&lines, |e| events.push(e)).unwrap();
+
+    assert_eq!(out, Outcome::Completed { errors: 0 });
+    assert_eq!(with_newlines(mock.lines()), expected(&lines));
+    assert!(!mock.overflowed());
+    // Nunca hay más de una línea en el búfer de la placa (la más larga mide menos de 40 bytes).
+    let longest = expected(&lines).iter().map(String::len).max().unwrap();
+    assert!(
+        mock.max_occupancy() <= longest,
+        "ocupación {} con líneas de hasta {longest}",
+        mock.max_occupancy()
+    );
+    assert_eq!(progress_acked(&events).len(), 120);
+}
+
+#[test]
 fn progress_never_reports_more_bytes_than_the_configured_buffer() {
     let lines = gcode_lines(150);
     let (_mock, host) = Mock::start(MockConfig {

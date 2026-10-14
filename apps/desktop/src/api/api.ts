@@ -7,8 +7,10 @@ import type {
   EventName,
   ExportResult,
   GalvoPreview,
+  GalvoFrameKind,
   GalvoSafetyAck,
   GalvoState,
+  GalvoVerifyReport,
   ImportResult,
   JobArgs,
   JobPreview,
@@ -28,7 +30,10 @@ import type {
   CircleHint,
   ComposeBedArgs,
   LensModelChoice,
+  CameraPreset,
   CameraSetup,
+  HeadCamera,
+  NetworkFrame,
   MarksReport,
   DesignObject,
   ImageObject,
@@ -54,6 +59,9 @@ import type {
 
 import type { AddArtResult, UserArt } from '@/features/art/types';
 import type { BitmapOptions, BitmapResult, ProcessedSummary } from '@/features/trace/types';
+import type { ImagePreview, ImagePreviewArgs } from '@/features/images/types';
+import type { FitChoice, FitResult, MarkPair } from '@/features/printcut/types';
+import type { PlanArgs, PlanResult } from '@/features/tiling/types';
 import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
 import type { NestRequest, NestStatus } from '@/features/nest/types';
 import type { Finding, ReviewArgs } from '@/features/review/types';
@@ -109,6 +117,23 @@ export interface UserBundle {
   active_device?: string | null;
   materials?: MaterialLibrary | null;
   prefs?: PrefsBundle | null;
+  /** Calibración, alineación, cámara del cabezal y configuraciones (sin credenciales ni ids de dispositivo). */
+  cameras?: CamerasBundle | null;
+  /** Biblioteca de arte propia (los SVG con su nombre). */
+  art?: ArtBundle | null;
+}
+
+/** Sección `cameras` de un paquete: ver `features/bundle/cameras.ts`. */
+export interface CamerasBundle {
+  calibration?: CameraSetup['calibration'];
+  alignment?: CameraSetup['alignment'];
+  head?: HeadCamera | null;
+  presets?: CameraPreset[];
+}
+
+/** Sección `art` de un paquete: los SVG de la biblioteca del usuario. */
+export interface ArtBundle {
+  items: UserArt[];
 }
 
 /** Automatización por UDP (Preferencias): ver `docs/app-api/automatizacion.md` y `src-tauri/src/automation.rs`. */
@@ -251,11 +276,18 @@ export interface LaserApi {
   // Trabajo
   computeJob(args: JobArgs): Promise<JobPreview>;
   exportGcode(args: JobArgs & { path: string }): Promise<ExportResult>;
+  /**
+   * Aviso (no bloquea) de que el enlace serie del perfil (baudios) no da abasto para el trabajo en su
+   * tramo más denso. `null` si alcanza o no aplica (red, Ruida, K40, galvo). Lo muestra el diálogo de inicio.
+   */
+  jobLinkWarning(args: JobArgs): Promise<string | null>;
 
   // Dispositivos
   listDevices(): Promise<DeviceProfile[]>;
   saveDevice(args: { device: DeviceProfile }): Promise<void>;
   deleteDevice(args: { id: string }): Promise<void>;
+  /** Ordena la lista de perfiles como `ids` (los que no se nombran quedan al final). */
+  reorderDevices(args: { ids: string[] }): Promise<void>;
 
   // Máquina
   listPorts(): Promise<string[]>;
@@ -345,6 +377,19 @@ export interface LaserApi {
   galvoRedLight(args: { on: boolean }): Promise<void>;
   /** Galvo: ya moviste el material (o giraste el rotativo): el marcado dividido o repetido sigue. */
   galvoConfirmMove(): Promise<void>;
+  /**
+   * Galvo: encuadre con el puntero rojo de la forma pedida (rectángulo, trazos, casco convexo u objetos
+   * sueltos), en bucle hasta detener o durante `loops` vueltas. `gap_mm`: holgura con la que dos trazos son
+   * el mismo objeto (solo con `objects`). El láser nunca se habilita.
+   */
+  galvoFrame(args: JobArgs & { shape: GalvoFrameKind; loops?: number | null; gap_mm?: number | null }): Promise<void>;
+  /** Galvo: mueve (`dx`, `dy` mm) o escala (`scale`, 1 = tamaño real) el encuadre en curso, sin detenerlo. */
+  galvoAdjustFrame(args: { dx: number; dy: number; scale: number }): Promise<void>;
+  /**
+   * Galvo, verificación SIN LÁSER del asistente de alta: lee la tarjeta (solo lectura) y comprueba que el
+   * perfil compila. Con una tarjeta USB real exige el reconocimiento de seguridad de ESTA llamada.
+   */
+  galvoVerify(args: { device: DeviceProfile; port: string; galvo_ack?: GalvoSafetyAck | null }): Promise<GalvoVerifyReport>;
   /** Mueve un eje extra (`Z`, `U`, `A`...) `delta` mm respecto a donde está. `kind` decide la sintaxis (GRBL o RepRap). */
   jogAxis(args: { kind: DeviceKind; axis: string; delta: number; speed: number }): Promise<void>;
   /** Lleva un eje extra a la posición `pos` (mm, coordenadas de trabajo); lo usa «Enfocar». */
@@ -400,6 +445,12 @@ export interface LaserApi {
   vectorsToBitmap(args: { doc: Document; selection: string[]; dir: string | null; stem: string; options: BitmapOptions }): Promise<BitmapResult>;
   /** Guarda como PNG lo que se grabaría de una imagen con los ajustes de imagen de su capa (y su máscara). */
   saveProcessedImage(args: { image: ImageObject; layer: LayerSettings; path: string }): Promise<ProcessedSummary>;
+  /** Vista previa de lo que se grabaría de una imagen con los ajustes de su capa, sin calcular el trabajo (C51). */
+  previewImage(args: ImagePreviewArgs): Promise<ImagePreview>;
+  /** Print & Cut (M37): transformación del diseño a la cama a partir de las marcas medidas; el cálculo es del motor. */
+  fitRegistration(args: { pairs: MarkPair[]; mode: FitChoice }): Promise<FitResult>;
+  /** Tiling (M39): reparte la caja del diseño en tramos con solape y da las cruces de alineación; el cálculo es del motor. */
+  planTiles(args: PlanArgs): Promise<PlanResult>;
   /** Importa el texto de un SVG (curvas, mm); con `target_layer` (`#rrggbb`) todo cae en esa capa. */
   artImportSvg(args: { svg: string; target_layer: string | null }): Promise<ImportResult>;
   /** SVG propios del usuario, en `<configuración>/art/`. */
@@ -407,6 +458,8 @@ export interface LaserApi {
   /** Copia SVG a la biblioteca del usuario; los que no se leen como dibujo se devuelven en `errors`. */
   artAddUser(args: { paths: string[] }): Promise<AddArtResult>;
   artRemoveUser(args: { name: string }): Promise<void>;
+  /** Guarda dibujos que llegan con su texto (importar un paquete). Nunca pisa uno existente: usa otro nombre. */
+  artSaveUser(args: { items: UserArt[] }): Promise<AddArtResult>;
 
   // Nesting: acomodar piezas en la cama o en un material irregular
   /**
@@ -434,6 +487,12 @@ export interface LaserApi {
   saveCameraSetup(args: { setup: CameraSetup }): Promise<CameraSetup>;
   /** Escribe el tablero de calibración (`.svg` o `.pdf`) en la ruta que eligió el usuario. */
   saveBoardFile(args: { path: string; content_base64: string }): Promise<void>;
+  /**
+   * Pide un cuadro a una cámara de red (snapshot HTTP o MJPEG) desde el motor: el navegador no deja
+   * leerlo por CORS. La URL la pone el usuario y debe ser de la red local (`http://`); puede traer
+   * `usuario:clave@` (autenticación Basic).
+   */
+  fetchCameraFrame(args: { url: string }): Promise<NetworkFrame>;
   /**
    * Documento con 4 o 9 cruces en posiciones conocidas de la cama (capa line de baja potencia) para
    * grabarlas sobre un cartón. La esquina inferior izquierda lleva además un círculo.
@@ -550,6 +609,8 @@ export const COMMAND_NAMES = {
   listDevices: 'list_devices',
   saveDevice: 'save_device',
   deleteDevice: 'delete_device',
+  reorderDevices: 'reorder_devices',
+  jobLinkWarning: 'job_link_warning',
   listPorts: 'list_ports',
   probePort: 'probe_port',
   automationConfigure: 'automation_configure',
@@ -583,6 +644,9 @@ export const COMMAND_NAMES = {
   galvoRedRun: 'galvo_red_run',
   galvoRedLight: 'galvo_red_light',
   galvoConfirmMove: 'galvo_confirm_move',
+  galvoFrame: 'galvo_frame',
+  galvoAdjustFrame: 'galvo_adjust_frame',
+  galvoVerify: 'galvo_verify',
   jogAxis: 'jog_axis',
   jogAxisTo: 'jog_axis_to',
   fireTest: 'fire_test',
@@ -602,10 +666,14 @@ export const COMMAND_NAMES = {
   traceImage: 'trace_image',
   vectorsToBitmap: 'vectors_to_bitmap',
   saveProcessedImage: 'save_processed_image',
+  previewImage: 'preview_image',
+  fitRegistration: 'fit_registration',
+  planTiles: 'plan_tiles',
   artImportSvg: 'art_import_svg',
   artListUser: 'art_list_user',
   artAddUser: 'art_add_user',
   artRemoveUser: 'art_remove_user',
+  artSaveUser: 'art_save_user',
   nestStart: 'nest_start',
   nestPoll: 'nest_poll',
   nestCancel: 'nest_cancel',
@@ -614,6 +682,7 @@ export const COMMAND_NAMES = {
   loadCameraSetup: 'load_camera_setup',
   saveCameraSetup: 'save_camera_setup',
   saveBoardFile: 'save_board_file',
+  fetchCameraFrame: 'fetch_camera_frame',
   cameraMarks: 'camera_marks',
   detectCameraMarks: 'detect_camera_marks',
   composeBedImage: 'compose_bed_image',

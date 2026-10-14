@@ -16,7 +16,7 @@ export function mockTraceExtras(
   lag: Lag,
 ): Pick<
   LaserApi,
-  'vectorsToBitmap' | 'saveProcessedImage' | 'artImportSvg' | 'artListUser' | 'artAddUser' | 'artRemoveUser'
+  'vectorsToBitmap' | 'saveProcessedImage' | 'artImportSvg' | 'artListUser' | 'artAddUser' | 'artRemoveUser' | 'artSaveUser'
 > {
   let user: UserArt[] = [];
   return {
@@ -101,6 +101,28 @@ export function mockTraceExtras(
     artRemoveUser: ({ name }) =>
       lag(() => {
         user = user.filter((a) => a.name !== name);
+      }),
+
+    artSaveUser: ({ items }) =>
+      lag(() => {
+        const added: UserArt[] = [];
+        const errors: string[] = [];
+        for (const it of items) {
+          const base = it.name.trim().replace(/\.svg$/i, '').replace(/[/\\:*?"<>|]/g, '-').replace(/^\.+|\.+$/g, '').trim();
+          if (base === '') {
+            errors.push(`«${it.name}»: el nombre no es válido.`);
+            continue;
+          }
+          if (!/<svg[\s>]/i.test(it.svg)) {
+            errors.push(`${it.name}: no es un SVG.`);
+            continue;
+          }
+          let name = base;
+          for (let k = 2; user.some((a) => a.name === name) || added.some((a) => a.name === name); k++) name = `${base}-${k}`;
+          added.push({ name, svg: it.svg });
+        }
+        user = [...user, ...added];
+        return { added, errors };
       }),
   };
 }

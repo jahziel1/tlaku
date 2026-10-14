@@ -5,6 +5,7 @@
  */
 import type { AppState } from '@/store/types';
 import { selectHeadDoc } from '@/store/machine';
+import { adjustMatrix, adjustOf } from './adjust';
 import { applyH, type Mat3, type Vec2 } from './geometry';
 import { headPointMm, headTileToBed } from './head';
 import { toBedAt } from './height';
@@ -45,7 +46,7 @@ export function currentMapping(s: Source, space: [number, number] | null = corre
   }
   if (!alignment) return { ok: false, reason: 'noAlignment' };
   if (alignment.image_size[0] !== space[0] || alignment.image_size[1] !== space[1]) return { ok: false, reason: 'stale' };
-  const matrix = toBedAt(alignment, prefs.material_height_mm ?? 0);
+  const matrix = adjustMatrix(toBedAt(alignment, prefs.material_height_mm ?? 0), alignment.image_size, adjustOf(prefs));
   return { ok: true, kind: 'lid', map: (p) => applyH(matrix, p), matrix, space, laser: null };
 }
 

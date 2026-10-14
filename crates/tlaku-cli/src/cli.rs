@@ -100,7 +100,7 @@ pub enum Command {
     /// encuadre con puntero rojo y marcado. Con hardware real exige --i-understand-laser-safety.
     Galvo {
         #[command(subcommand)]
-        action: crate::galvo::GalvoCommand,
+        action: Box<crate::galvo::GalvoCommand>,
     },
     /// Lista los puertos serie disponibles
     Ports,
@@ -444,7 +444,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
         }
         Command::Ruida { action } => crate::ruida::run(action),
         Command::K40 { action } => crate::k40::run(action),
-        Command::Galvo { action } => crate::galvo::run(action),
+        Command::Galvo { action } => crate::galvo::run(*action),
         Command::Ports => {
             for p in serial::list_ports().map_err(|e| e.to_string())? {
                 println!("{p}");

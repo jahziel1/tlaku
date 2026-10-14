@@ -10,8 +10,10 @@
 //!   trayectorias, el encuadre y la verificación de límites (que salen del trabajo calculado) lo
 //!   ven sin código extra.
 
-use crate::place::Placement;
-use tlaku_core::Point;
+use crate::place::{ImageWarp, PlacedImage, Placement};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use tlaku_core::{Point, Polyline};
 use tlaku_doc::affine::{self, Transform};
 
 /// Desviación de la escala respecto de 1 (fracción) a partir de la cual se avisa: 0,5 %.
@@ -21,14 +23,15 @@ pub const SCALE_WARN: f64 = 0.005;
 pub const MIN_SEPARATION_MM: f64 = 1.0;
 
 /// Una marca: dónde está en el diseño y dónde se midió en la cama, en mm.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct MarkPair {
     pub design: [f64; 2],
     pub physical: [f64; 2],
 }
 
 /// Qué tipo de transformación se busca.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum FitMode {
     /// Solo traslación y rotación (escala 1). Con 2 puntos la diferencia de distancias queda
     /// repartida como residual.
@@ -50,8 +53,138 @@ impl FitMode {
     }
 }
 
+/// Lo que se pide para el ajuste: un modo concreto o «según cuántas marcas haya».
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FitChoice {
+    #[default]
+    Auto,
+    Rigid,
+    Similarity,
+    Affine,
+}
+
+impl FitChoice {
+    /// El modo que se usa de verdad. `Auto` da similitud con 2 marcas y afín con 3 o más. La afín
+    /// no se puede resolver con menos de 3 marcas ni con marcas en línea recta: en esos casos se
+    /// cae a la similitud.
+    pub fn resolve(self, design: &[[f64; 2]]) -> FitMode {
+        let wanted = match self {
+            FitChoice::Auto => FitMode::auto(design.len()),
+            FitChoice::Rigid => FitMode::Rigid,
+            FitChoice::Similarity => FitMode::Similarity,
+            FitChoice::Affine => FitMode::Affine,
+        };
+        if wanted == FitMode::Affine && (design.len() < 3 || are_collinear(design)) {
+            FitMode::Similarity
+        } else {
+            wanted
+        }
+    }
+}
+
+/// ¿Los puntos están (casi) en línea recta? Compara el área que abarcan con su largo. Con menos
+/// de 3 puntos no.
+pub fn are_collinear(points: &[[f64; 2]]) -> bool {
+    if points.len() < 3 {
+        return false;
+    }
+    let c = centroid(points);
+    let (mut sxx, mut sxy, mut syy) = (0.0, 0.0, 0.0);
+    for p in points {
+        let (dx, dy) = (p[0] - c[0], p[1] - c[1]);
+        sxx += dx * dx;
+        sxy += dx * dy;
+        syy += dy * dy;
+    }
+    let det = sxx * syy - sxy * sxy;
+    let energy = sxx + syy;
+    energy < 1e-12 || det <= 1e-9 * energy * energy
+}
+
+/// Por qué no se pudo calcular el ajuste. `Display` da el mensaje en español; la interfaz usa el
+/// tipo para mostrar el suyo en el idioma elegido.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum FitError {
+    /// Faltan marcas: `need` como mínimo, hay `have`.
+    Few { need: usize, have: usize },
+    /// Una marca tiene coordenadas que no son números.
+    Nan,
+    /// Las marcas `a` y `b` (desde 1) están a menos de [`MIN_SEPARATION_MM`].
+    Close { a: usize, b: usize },
+    /// Las marcas están en línea recta y la afín necesita que no lo estén.
+    Collinear,
+}
+
+impl fmt::Display for FitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FitError::Few { need: 3, have } => {
+                write!(f, "la transformación afín pide 3 marcas o más (hay {have})")
+            }
+            FitError::Few { have, .. } => {
+                write!(f, "hacen falta 2 marcas como mínimo (hay {have})")
+            }
+            FitError::Nan => write!(f, "una marca tiene coordenadas que no son números"),
+            FitError::Close { a, b } => write!(
+                f,
+                "las marcas {a} y {b} están demasiado cerca (menos de {MIN_SEPARATION_MM} mm): \
+                 no se puede medir el giro"
+            ),
+            FitError::Collinear => write!(
+                f,
+                "las marcas están en línea recta: la transformación afín necesita \
+                 que no estén alineadas"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for FitError {}
+
+/// Aviso sobre el ajuste. `Display` da el texto en español.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum FitWarning {
+    /// La transformación invierte el diseño (impresión espejada o marcas en otro orden).
+    Mirrored,
+    /// La escala medida (en %) está a más de [`SCALE_WARN`] de 100 %.
+    Scale { pct: f64 },
+    /// Estiramiento distinto en cada eje (en %).
+    Anisotropy {
+        #[serde(rename = "xPct")]
+        x_pct: f64,
+        #[serde(rename = "yPct")]
+        y_pct: f64,
+    },
+}
+
+impl fmt::Display for FitWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FitWarning::Mirrored => write!(
+                f,
+                "la impresión parece espejada (la transformación invierte el diseño): revisa que \
+                 las marcas físicas estén en el mismo orden que las del diseño"
+            ),
+            FitWarning::Scale { pct } => write!(
+                f,
+                "la escala medida es {pct:.2} % (más de {:.1} % lejos de 100 %): la impresión puede \
+                 estar deformada o la referencia es mala; revisa la escala de impresión y las posiciones",
+                SCALE_WARN * 100.0
+            ),
+            FitWarning::Anisotropy { x_pct, y_pct } => write!(
+                f,
+                "la impresión está estirada de forma distinta en cada eje (X {x_pct:.2} %, Y {y_pct:.2} %)"
+            ),
+        }
+    }
+}
+
 /// Resultado del ajuste.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RegistrationFit {
     /// Del documento a la cama; es lo que va en `JobOptions::transform`.
     pub transform: Transform,
@@ -62,6 +195,7 @@ pub struct RegistrationFit {
     /// rígido es la que habría hecho falta (la transformación usa 1), para poder avisar.
     pub scale: f64,
     /// Escala en X y en Y (longitud de las columnas de la matriz).
+    #[serde(rename = "scaleXY")]
     pub scale_xy: [f64; 2],
     /// Error de cada marca tras transformar, en mm (distancia al punto físico).
     pub residuals: Vec<f64>,
@@ -70,7 +204,7 @@ pub struct RegistrationFit {
     /// El peor de `residuals`, en mm.
     pub residual_max: f64,
     /// Avisos para mostrar al usuario (escala, deformación, espejo).
-    pub warnings: Vec<String>,
+    pub warnings: Vec<FitWarning>,
 }
 
 fn finite2(p: [f64; 2]) -> bool {
@@ -94,34 +228,26 @@ fn centroid(points: &[[f64; 2]]) -> [f64; 2] {
 /// Con `Rigid` y `Similarity` sirven 2 o más pares (mínimos cuadrados de Procrustes en 2D);
 /// con `Affine`, 3 o más no alineados. Falla si faltan marcas, no son números, dos marcas
 /// coinciden o (en la afín) están en línea recta.
-pub fn fit_registration(pairs: &[MarkPair], mode: FitMode) -> Result<RegistrationFit, String> {
+pub fn fit_registration(pairs: &[MarkPair], mode: FitMode) -> Result<RegistrationFit, FitError> {
     let need = if mode == FitMode::Affine { 3 } else { 2 };
     if pairs.len() < need {
-        return Err(match mode {
-            FitMode::Affine => format!(
-                "la transformación afín pide 3 marcas o más (hay {})",
-                pairs.len()
-            ),
-            _ => format!("hacen falta 2 marcas como mínimo (hay {})", pairs.len()),
+        return Err(FitError::Few {
+            need,
+            have: pairs.len(),
         });
     }
     if pairs
         .iter()
         .any(|p| !finite2(p.design) || !finite2(p.physical))
     {
-        return Err("una marca tiene coordenadas que no son números".into());
+        return Err(FitError::Nan);
     }
     for (i, a) in pairs.iter().enumerate() {
         for (j, b) in pairs.iter().enumerate().skip(i + 1) {
             if dist(a.design, b.design) < MIN_SEPARATION_MM
                 || dist(a.physical, b.physical) < MIN_SEPARATION_MM
             {
-                return Err(format!(
-                    "las marcas {} y {} están demasiado cerca (menos de {MIN_SEPARATION_MM} mm): \
-                     no se puede medir el giro",
-                    i + 1,
-                    j + 1
-                ));
+                return Err(FitError::Close { a: i + 1, b: j + 1 });
             }
         }
     }
@@ -152,7 +278,7 @@ pub fn fit_registration(pairs: &[MarkPair], mode: FitMode) -> Result<Registratio
         .sum();
     let energy: f64 = a.iter().map(|p| p[0] * p[0] + p[1] * p[1]).sum();
     if energy < 1e-12 {
-        return Err("las marcas del diseño coinciden".into());
+        return Err(FitError::Close { a: 1, b: 2 });
     }
     let theta = cross.atan2(dot);
     let sim_scale = dot.hypot(cross) / energy;
@@ -182,11 +308,7 @@ pub fn fit_registration(pairs: &[MarkPair], mode: FitMode) -> Result<Registratio
             let det = saa[0][0] * saa[1][1] - saa[0][1] * saa[1][0];
             // Cuando las marcas están en línea, el menor valor propio de `saa` es ~0.
             if det.abs() <= 1e-9 * energy * energy {
-                return Err(
-                    "las marcas están en línea recta: la transformación afín necesita \
-                     que no estén alineadas"
-                        .into(),
-                );
+                return Err(FitError::Collinear);
             }
             let inv = [
                 [saa[1][1] / det, -saa[0][1] / det],
@@ -227,29 +349,19 @@ pub fn fit_registration(pairs: &[MarkPair], mode: FitMode) -> Result<Registratio
 
     let mut warnings = Vec::new();
     if det < 0.0 {
-        warnings.push(
-            "la impresión parece espejada (la transformación invierte el diseño): revisa que \
-             las marcas físicas estén en el mismo orden que las del diseño"
-                .to_string(),
-        );
+        warnings.push(FitWarning::Mirrored);
     }
     if (scale - 1.0).abs() > SCALE_WARN {
-        warnings.push(format!(
-            "la escala medida es {:.2} % (más de {:.1} % lejos de 100 %): la impresión puede \
-             estar deformada o la referencia es mala; revisa la escala de impresión y las posiciones",
-            scale * 100.0,
-            SCALE_WARN * 100.0
-        ));
+        warnings.push(FitWarning::Scale { pct: scale * 100.0 });
     }
     if mode == FitMode::Affine
         && det > 0.0
         && (scale_xy[0] - scale_xy[1]).abs() / scale_xy[0].max(scale_xy[1]) > SCALE_WARN
     {
-        warnings.push(format!(
-            "la impresión está estirada de forma distinta en cada eje (X {:.2} %, Y {:.2} %)",
-            scale_xy[0] * 100.0,
-            scale_xy[1] * 100.0
-        ));
+        warnings.push(FitWarning::Anisotropy {
+            x_pct: scale_xy[0] * 100.0,
+            y_pct: scale_xy[1] * 100.0,
+        });
     }
 
     Ok(RegistrationFit {
@@ -265,18 +377,29 @@ pub fn fit_registration(pairs: &[MarkPair], mode: FitMode) -> Result<Registratio
     })
 }
 
+/// Ajuste según lo que pide la persona: resuelve el modo con [`FitChoice::resolve`] (según las
+/// marcas del diseño) y calcula. Es lo que llama la interfaz.
+pub fn fit_with_choice(pairs: &[MarkPair], choice: FitChoice) -> Result<RegistrationFit, FitError> {
+    let design: Vec<[f64; 2]> = pairs.iter().map(|p| p.design).collect();
+    fit_registration(pairs, choice.resolve(&design))
+}
+
 fn map_point(t: &Transform, p: Point) -> Point {
     let [x, y] = affine::apply(t, [p.x, p.y]);
     Point::new(x, y)
 }
 
+/// Giro (en radianes, como `sin`) bajo el cual una imagen se deja alineada a los ejes: 0,006° mueve
+/// el borde de una imagen de 400 mm unos 0,04 mm, menos que un punto de grabado.
+const IMAGE_ROTATION_EPS: f64 = 1e-4;
+
 /// Aplica la transformación de Print & Cut a un trabajo ya colocado: trayectorias, puentes
-/// manuales, imágenes y punto de inicio. Las imágenes se reubican y escalan pero no se giran
-/// (se rasterizan alineadas a los ejes): si la transformación gira, se avisa.
+/// manuales, imágenes y punto de inicio. Una imagen que solo se mueve, escala o refleja sigue
+/// alineada a los ejes; si la transformación la gira o la inclina, guarda el giro en
+/// [`ImageWarp`] y se vuelve a muestrear al trazarla (su caja pasa a ser la de la imagen girada).
 pub(crate) fn apply(
     placement: &mut Placement,
     transform: Option<&Transform>,
-    warnings: &mut Vec<String>,
 ) -> Result<(), String> {
     let Some(t) = transform else {
         return Ok(());
@@ -297,7 +420,6 @@ pub(crate) fn apply(
         return Ok(());
     }
     placement.start = map_point(t, placement.start);
-    let mut rotated_images = 0usize;
     for layer in &mut placement.layers {
         for p in layer.paths.iter_mut().flat_map(|p| &mut p.points) {
             *p = map_point(t, *p);
@@ -306,40 +428,68 @@ pub(crate) fn apply(
             *p = map_point(t, *p);
         }
         for img in &mut layer.images {
-            let center = map_point(
-                t,
-                Point::new(
-                    img.origin.x + img.size_mm.0 / 2.0,
-                    img.origin.y + img.size_mm.1 / 2.0,
-                ),
-            );
-            let (sx, sy) = (t[0].hypot(t[1]), t[2].hypot(t[3]));
-            img.size_mm = (img.size_mm.0 * sx, img.size_mm.1 * sy);
-            img.origin = Point::new(
-                center.x - img.size_mm.0 / 2.0,
-                center.y - img.size_mm.1 / 2.0,
-            );
-            if det < 0.0 {
-                img.mirror_x = !img.mirror_x;
-            }
-            // Más de 0,05° de giro ya mueve el borde de una imagen de 100 mm unos 0,09 mm.
-            if t[1].atan2(t[0]).to_degrees().abs() > 0.05 {
-                rotated_images += 1;
-            }
+            move_image(img, t);
         }
     }
-    if rotated_images > 0 {
-        warnings.push(format!(
-            "Print & Cut: {rotated_images} imagen(es) se reubican y escalan pero no se giran \
-             (se graban alineadas a los ejes); el giro del registro solo se aplica a los vectores"
-        ));
-    }
     Ok(())
+}
+
+fn move_image(img: &mut PlacedImage, t: &Transform) {
+    for p in img.mask.iter_mut().flat_map(|m| &mut m.points) {
+        *p = map_point(t, *p);
+    }
+    if t[1].abs() > IMAGE_ROTATION_EPS || t[2].abs() > IMAGE_ROTATION_EPS {
+        let warp = ImageWarp {
+            src_origin: img.origin,
+            src_size: img.size_mm,
+            transform: *t,
+        };
+        let corners = warp.corners();
+        let (min_x, max_x) = corners.iter().fold((f64::MAX, f64::MIN), |(lo, hi), c| {
+            (lo.min(c.x), hi.max(c.x))
+        });
+        let (min_y, max_y) = corners.iter().fold((f64::MAX, f64::MIN), |(lo, hi), c| {
+            (lo.min(c.y), hi.max(c.y))
+        });
+        img.origin = Point::new(min_x, min_y);
+        img.size_mm = (max_x - min_x, max_y - min_y);
+        img.warp = Some(warp);
+        return;
+    }
+    // Sin giro: se reubica y escala; un reflejo en un eje invierte la imagen en ese eje.
+    let center = map_point(
+        t,
+        Point::new(
+            img.origin.x + img.size_mm.0 / 2.0,
+            img.origin.y + img.size_mm.1 / 2.0,
+        ),
+    );
+    img.size_mm = (img.size_mm.0 * t[0].abs(), img.size_mm.1 * t[3].abs());
+    img.origin = Point::new(
+        center.x - img.size_mm.0 / 2.0,
+        center.y - img.size_mm.1 / 2.0,
+    );
+    if t[0] < 0.0 {
+        img.mirror_x = !img.mirror_x;
+    }
+    if t[3] < 0.0 {
+        img.mirror_y = !img.mirror_y;
+    }
+}
+
+/// El contorno de la imagen ya transformada (un cuadrilátero), para recortar lo que cae fuera
+/// de ella al volver a muestrearla.
+pub(crate) fn warp_outline(warp: &ImageWarp) -> Polyline {
+    Polyline {
+        points: warp.corners().to_vec(),
+        closed: true,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::place::PlacedImage;
     use crate::{build, check_bounds, frame_gcode};
     use tlaku_core::bezpath::BezPath;
     use tlaku_core::{Polyline, Rgb};
@@ -446,14 +596,21 @@ mod tests {
         )
         .unwrap();
         assert!(
-            bad.warnings.iter().any(|w| w.contains("escala")),
+            bad.warnings
+                .iter()
+                .any(|w| matches!(w, FitWarning::Scale { .. })),
             "{:?}",
             bad.warnings
         );
         // También por debajo de 1 y en modo rígido (avisa con la escala que haría falta).
         let small =
             fit_registration(&pairs_of(&affine::scale(0.99, 0.99), &pts), FitMode::Rigid).unwrap();
-        assert!(small.warnings.iter().any(|w| w.contains("escala")));
+        assert!(
+            small
+                .warnings
+                .iter()
+                .any(|w| matches!(w, FitWarning::Scale { .. }))
+        );
         // En modo rígido la transformación no escala.
         near(small.transform[0].hypot(small.transform[1]), 1.0, 1e-9);
     }
@@ -479,7 +636,9 @@ mod tests {
         )
         .unwrap();
         assert!(
-            fit.warnings.iter().any(|w| w.contains("cada eje")),
+            fit.warnings
+                .iter()
+                .any(|w| matches!(w, FitWarning::Anisotropy { .. })),
             "{:?}",
             fit.warnings
         );
@@ -527,7 +686,7 @@ mod tests {
             FitMode::Affine,
         )
         .unwrap();
-        assert!(fit.warnings.iter().any(|w| w.contains("espejada")));
+        assert!(fit.warnings.contains(&FitWarning::Mirrored));
     }
 
     #[test]
@@ -538,19 +697,17 @@ mod tests {
         assert!(fit_registration(&two, FitMode::Affine).is_err());
         // Marcas que coinciden en el diseño o en la cama.
         let same_d = [pair([0.0, 0.0], [0.0, 0.0]), pair([0.2, 0.0], [50.0, 0.0])];
-        assert!(
-            fit_registration(&same_d, FitMode::Similarity)
-                .unwrap_err()
-                .contains("cerca")
+        assert_eq!(
+            fit_registration(&same_d, FitMode::Similarity).unwrap_err(),
+            FitError::Close { a: 1, b: 2 }
         );
         let same_p = [pair([0.0, 0.0], [0.0, 0.0]), pair([50.0, 0.0], [0.5, 0.0])];
         assert!(fit_registration(&same_p, FitMode::Similarity).is_err());
         // Tres marcas en línea recta no sirven para una afín, pero sí para la similitud.
         let line = pairs_of(&affine::IDENTITY, &[[0.0, 0.0], [50.0, 0.0], [100.0, 0.0]]);
-        assert!(
-            fit_registration(&line, FitMode::Affine)
-                .unwrap_err()
-                .contains("línea")
+        assert_eq!(
+            fit_registration(&line, FitMode::Affine).unwrap_err(),
+            FitError::Collinear
         );
         assert!(fit_registration(&line, FitMode::Similarity).is_ok());
         // NaN.
@@ -682,54 +839,252 @@ mod tests {
         );
     }
 
-    #[test]
-    fn images_are_moved_and_scaled_but_a_rotation_is_reported() {
-        use crate::place::{LayerWork, PlacedImage};
-        use std::collections::HashMap;
-        let settings = LayerSettings::for_color(RED);
-        let work = |settings| LayerWork {
+    fn image_work(settings: &LayerSettings) -> crate::place::LayerWork<'_> {
+        crate::place::LayerWork {
             settings,
             color: RED,
             paths: Vec::new(),
             meta: Vec::new(),
-            manual_tabs: HashMap::new(),
+            manual_tabs: std::collections::HashMap::new(),
             images: vec![PlacedImage {
                 source_path: "x.png".into(),
                 origin: Point::new(10.0, 20.0),
                 size_mm: (40.0, 20.0),
                 mirror_x: false,
                 mirror_y: false,
-                mask: Vec::new(),
+                mask: vec![Polyline {
+                    points: vec![
+                        Point::new(10.0, 20.0),
+                        Point::new(20.0, 20.0),
+                        Point::new(20.0, 30.0),
+                    ],
+                    closed: true,
+                }],
+                warp: None,
             }],
             parent: 0,
             sub: None,
             sub_total: 0,
-        };
-        let mut moved = Placement {
-            layers: vec![work(&settings)],
+        }
+    }
+
+    fn moved_by(t: &Transform) -> Placement<'static> {
+        // `settings` vive lo que dura el programa: así el Placement se devuelve sin préstamos.
+        let settings: &'static LayerSettings = Box::leak(Box::new(LayerSettings::for_color(RED)));
+        let mut p = Placement {
+            layers: vec![image_work(settings)],
             start: Point::new(0.0, 0.0),
         };
-        let mut warnings = Vec::new();
-        apply(
-            &mut moved,
-            Some(&affine::translate(2.0, -3.0)),
-            &mut warnings,
+        apply(&mut p, Some(t)).unwrap();
+        p
+    }
+
+    #[test]
+    fn images_are_moved_and_scaled_and_their_mask_follows() {
+        let p = moved_by(&affine::compose(
+            &affine::translate(2.0, -3.0),
+            &affine::scale(2.0, 1.5),
+        ));
+        let img = &p.layers[0].images[0];
+        // Centro (30, 30) -> (62, 42); tamaño (80, 30).
+        near(img.size_mm.0, 80.0, 1e-9);
+        near(img.size_mm.1, 30.0, 1e-9);
+        near(img.origin.x, 22.0, 1e-9);
+        near(img.origin.y, 27.0, 1e-9);
+        assert!(img.warp.is_none());
+        // La máscara también se mueve (antes se quedaba donde estaba).
+        near(img.mask[0].points[0].x, 22.0, 1e-9);
+        near(img.mask[0].points[2].y, 42.0, 1e-9);
+    }
+
+    #[test]
+    fn a_mirroring_transform_flips_the_matching_axis_only() {
+        let img = &moved_by(&affine::scale(-1.0, 1.0)).layers[0].images[0];
+        assert!(img.mirror_x && !img.mirror_y && img.warp.is_none());
+        let img = &moved_by(&affine::scale(1.0, -1.0)).layers[0].images[0];
+        assert!(!img.mirror_x && img.mirror_y && img.warp.is_none());
+    }
+
+    #[test]
+    fn a_rotation_turns_the_image_and_keeps_its_axis_aligned_box() {
+        // 30 grados alrededor del origen: la caja es la envolvente de las cuatro esquinas.
+        let t = affine::rotate(30.0_f64.to_radians());
+        let p = moved_by(&t);
+        let img = &p.layers[0].images[0];
+        let warp = img.warp.as_ref().expect("la imagen gira");
+        assert_eq!(warp.src_size, (40.0, 20.0));
+        near(warp.src_origin.x, 10.0, 1e-12);
+        let corners = warp.corners();
+        let min_x = corners.iter().map(|c| c.x).fold(f64::MAX, f64::min);
+        let max_y = corners.iter().map(|c| c.y).fold(f64::MIN, f64::max);
+        near(img.origin.x, min_x, 1e-9);
+        near(img.origin.y + img.size_mm.1, max_y, 1e-9);
+        // Una caja de 40 x 20 girada 30 grados mide 40·cos + 20·sin de ancho.
+        let (c, s) = (30.0_f64.to_radians().cos(), 30.0_f64.to_radians().sin());
+        near(img.size_mm.0, 40.0 * c + 20.0 * s, 1e-9);
+        near(img.size_mm.1, 40.0 * s + 20.0 * c, 1e-9);
+        // Un giro mínimo (por debajo del umbral) deja la imagen alineada.
+        let tiny = moved_by(&affine::rotate(5e-5));
+        assert!(tiny.layers[0].images[0].warp.is_none());
+    }
+
+    #[test]
+    fn fit_choice_resolves_like_the_wizard() {
+        let two = [[0.0, 0.0], [50.0, 0.0]];
+        let tri = [[0.0, 0.0], [50.0, 0.0], [0.0, 80.0]];
+        let line = [[0.0, 0.0], [50.0, 0.0], [100.0, 0.0]];
+        assert_eq!(FitChoice::Auto.resolve(&two), FitMode::Similarity);
+        assert_eq!(FitChoice::Auto.resolve(&tri), FitMode::Affine);
+        // Tres marcas en línea: la afín no se puede resolver y cae a la similitud.
+        assert_eq!(FitChoice::Auto.resolve(&line), FitMode::Similarity);
+        assert_eq!(FitChoice::Affine.resolve(&two), FitMode::Similarity);
+        assert_eq!(FitChoice::Affine.resolve(&tri), FitMode::Affine);
+        assert_eq!(FitChoice::Rigid.resolve(&tri), FitMode::Rigid);
+        assert_eq!(FitChoice::Similarity.resolve(&line), FitMode::Similarity);
+    }
+
+    #[test]
+    fn collinearity_check() {
+        assert!(are_collinear(&[[0.0, 0.0], [50.0, 0.0], [100.0, 0.0]]));
+        assert!(!are_collinear(&[[0.0, 0.0], [50.0, 0.0], [0.0, 100.0]]));
+        assert!(!are_collinear(&[[0.0, 0.0], [50.0, 0.0]]));
+        assert!(are_collinear(&[[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]));
+    }
+
+    #[test]
+    fn wire_format_matches_what_the_interface_reads() {
+        // Los nombres de campos son el contrato con la interfaz (TypeScript).
+        let t = affine::compose(&affine::translate(1.0, 2.0), &affine::scale(1.02, 1.0));
+        let fit = fit_registration(
+            &pairs_of(&t, &[[0.0, 0.0], [200.0, 0.0], [0.0, 150.0]]),
+            FitMode::Affine,
         )
         .unwrap();
-        let img = &moved.layers[0].images[0];
-        near(img.origin.x, 12.0, 1e-9);
-        near(img.origin.y, 17.0, 1e-9);
-        assert!(warnings.is_empty());
-
-        let mut turned = Placement {
-            layers: vec![work(&settings)],
-            start: Point::new(0.0, 0.0),
-        };
-        apply(&mut turned, Some(&affine::rotate(0.02)), &mut warnings).unwrap();
+        let v = serde_json::to_value(&fit).unwrap();
+        for key in [
+            "transform",
+            "mode",
+            "rotationDeg",
+            "scale",
+            "scaleXY",
+            "residuals",
+            "residualRms",
+            "residualMax",
+            "warnings",
+        ] {
+            assert!(v.get(key).is_some(), "falta {key}: {v}");
+        }
+        assert_eq!(v["mode"], "affine");
         assert!(
-            warnings.iter().any(|w| w.contains("no se giran")),
-            "{warnings:?}"
+            v["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|w| w["kind"] == "anisotropy" && w["xPct"].is_number()),
+            "{v}"
         );
+        let e = serde_json::to_value(FitError::Few { need: 3, have: 2 }).unwrap();
+        assert_eq!(e, serde_json::json!({"kind": "few", "need": 3, "have": 2}));
+        let e = serde_json::to_value(FitError::Close { a: 1, b: 2 }).unwrap();
+        assert_eq!(e, serde_json::json!({"kind": "close", "a": 1, "b": 2}));
+        assert_eq!(
+            serde_json::to_value(FitError::Collinear).unwrap(),
+            serde_json::json!({"kind": "collinear"})
+        );
+        assert_eq!(
+            serde_json::to_value(FitWarning::Mirrored).unwrap(),
+            serde_json::json!({"kind": "mirrored"})
+        );
+        // Y la entrada: el modo en minúsculas y `auto`.
+        let c: FitChoice = serde_json::from_str("\"auto\"").unwrap();
+        assert_eq!(c, FitChoice::Auto);
+        let m: FitMode = serde_json::from_str("\"rigid\"").unwrap();
+        assert_eq!(m, FitMode::Rigid);
+    }
+
+    /// Imagen real que Print & Cut gira: el trabajo se calcula, su caja es la de la imagen girada
+    /// y lo que se graba cambia respecto de la imagen sin girar.
+    #[test]
+    fn a_rotated_image_is_engraved_turned() {
+        use tlaku_doc::{ImageObject, JobOptions as Jo};
+        let dir = std::env::temp_dir().join(format!("tlaku-reg-img-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("barra.png");
+        // 40 x 20 px: la mitad izquierda negra, la derecha blanca.
+        image::GrayImage::from_fn(40, 20, |x, _| image::Luma([if x < 20 { 0 } else { 255 }]))
+            .save(&src)
+            .unwrap();
+        let mut layer = LayerSettings::for_images();
+        layer.interval = 0.5;
+        let color = layer.color;
+        let doc = Document {
+            layers: vec![layer],
+            objects: vec![DesignObject {
+                id: "foto".into(),
+                layer: color,
+                transform: affine::translate(20.0, 20.0),
+                kind: ObjectKind::Image(ImageObject {
+                    source_path: src.to_string_lossy().into_owned(),
+                    width_px: 40,
+                    height_px: 20,
+                    size_mm: [20.0, 10.0],
+                    mask: Vec::new(),
+                }),
+                locked: false,
+                hidden: false,
+                group: None,
+                priority: None,
+                power_scale: None,
+                shape: None,
+                start: None,
+                manual_tabs: Vec::new(),
+                array: None,
+            }],
+            ..Document::default()
+        };
+        let dev = DeviceProfile::default();
+        let plain = build(&doc, &dev, &Jo::default(), None).unwrap();
+        // Giro de 90 grados alrededor del centro de la imagen (30, 25): la caja pasa a 10 x 20.
+        let t = affine::compose(
+            &affine::translate(30.0, 25.0),
+            &affine::compose(
+                &affine::rotate(std::f64::consts::FRAC_PI_2),
+                &affine::translate(-30.0, -25.0),
+            ),
+        );
+        let turned = build(
+            &doc,
+            &dev,
+            &Jo {
+                transform: Some(t),
+                ..Jo::default()
+            },
+            None,
+        )
+        .unwrap();
+        // Lo grabado es la mitad izquierda negra: sin girar es x 20..30, y 20..30; girada 90
+        // grados alrededor de (30, 25) queda abajo, en x 25..35, y 15..25 (el centro baja a y 20).
+        let lit = |job: &crate::ComputedJob| {
+            let mut b = job.bounds().unwrap();
+            // El overscan ensancha el barrido a los lados: se compara solo el centro.
+            b.min.x += 0.0;
+            b.max.x += 0.0;
+            Point::new((b.min.x + b.max.x) / 2.0, (b.min.y + b.max.y) / 2.0)
+        };
+        let c = lit(&turned);
+        near(c.x, 30.0, 0.8);
+        near(c.y, 20.0, 0.8);
+        let c = lit(&plain);
+        near(c.x, 25.0, 0.8);
+        near(c.y, 25.0, 0.8);
+        // Es la mitad de la imagen en ambos casos: 10 mm de alto.
+        let h = |job: &crate::ComputedJob| {
+            let b = job.bounds().unwrap();
+            b.max.y - b.min.y
+        };
+        near(h(&plain), 10.0, 0.6);
+        near(h(&turned), 10.0, 0.6);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

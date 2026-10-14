@@ -228,19 +228,19 @@ export async function runShapeOp(s: AppState, op: ShapeOp, params: ShapeParams =
   const consumed = operands.filter((o) => !returned.has(o.id));
   const fresh = result.objects.filter((r) => !sent.has(r.id));
   if (consumed.length === 0 && fresh.length === 0) {
-    s.notify('info', shapeNothing(op, result.stats));
+    s.notify('info', params.revert ? t('shapes.none.unfillet') : shapeNothing(op, result.stats));
     return false;
   }
   const created: string[] = [];
   const removeIds = new Set(consumed.map((o) => o.id));
-  s.applyDocChange(HISTORY[op], (doc) => {
+  s.applyDocChange(params.revert ? 'shapes.history.unfillet' : HISTORY[op], (doc) => {
     created.length = 0;
     return replaceCleaned(doc, removeIds, fresh, ID_BASE[op], created);
   });
   // Quedan seleccionados los objetos nuevos y, si se conservó, la cuchilla.
   const kept = op === 'cut_shapes' ? result.objects.filter((r) => sent.has(r.id) && r.id === params.knife_id).map((r) => r.id) : [];
   s.select([...kept, ...created]);
-  s.notify('success', shapeSummary(op, result.stats));
+  s.notify('success', params.revert ? t('shapes.msg.unfillet') : shapeSummary(op, result.stats));
   return true;
 }
 

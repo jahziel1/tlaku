@@ -49,12 +49,29 @@ const STEPS = [0.1, 0.5, 1, 5, 10, 50, 100, 500, 1000];
 /** Pasos en pulgadas (décimas, como las reglas de taller): se pasan a mm al usarlos. */
 const STEPS_IN = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50].map((s) => s * MM_PER_INCH);
 
+/** Menor múltiplo `base × {1, 2, 5} × 10^k` que deja al menos `minPx` entre líneas. */
+function fixedMinor(base: number, zoom: number, minPx: number): number {
+  for (let k = 0; k < 12; k++) {
+    for (const m of [1, 2, 5]) {
+      const step = base * m * 10 ** k;
+      if (step * zoom >= minPx) return step;
+    }
+  }
+  return base * 10 ** 12;
+}
+
 /**
  * Pasos de cuadrícula en mm: `minor` es el más pequeño que deja al menos `minPx` entre
  * líneas; `major` es 10 veces `minor`. Coincide con la regla. En pulgadas los pasos son
- * décimas de pulgada (0,01, 0,05, 0,1, 0,5, 1...), expresados igualmente en mm.
+ * décimas de pulgada (0,01, 0,05, 0,1, 0,5, 1...), expresados igualmente en mm. Con `baseMm` > 0
+ * (preferencia «Rejilla») ese es el paso base y solo se multiplica al alejar el zoom.
  */
-export function gridSteps(zoom: number, minPx = 7, unit: LengthUnit = 'mm'): { minor: number; major: number } {
+export function gridSteps(zoom: number, minPx = 7, unit: LengthUnit = 'mm', baseMm = 0): { minor: number; major: number } {
+  if (baseMm > 0 && Number.isFinite(baseMm)) {
+    // Separación fija de las preferencias: es el paso mínimo; al alejar el zoom se usan múltiplos (1, 2, 5, 10...) para no saturar.
+    const minor = fixedMinor(baseMm, zoom, minPx);
+    return { minor, major: minor * 10 };
+  }
   const steps = unit === 'in' ? STEPS_IN : STEPS;
   const minor = steps.find((s) => s * zoom >= minPx) ?? steps[steps.length - 1]!;
   return { minor, major: minor * 10 };

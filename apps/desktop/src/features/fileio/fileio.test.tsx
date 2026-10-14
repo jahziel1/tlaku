@@ -55,7 +55,7 @@ describe('exportar', () => {
     expect(ask).not.toHaveBeenCalled();
   });
 
-  it.each<ExportFormat>(['svg', 'dxf', 'png', 'pdf'])('exporta %s: manda el documento, la ruta con extensión y avisa', async (format) => {
+  it.each<ExportFormat>(['svg', 'dxf', 'png', 'pdf', 'ai'])('exporta %s: manda el documento, la ruta con extensión y avisa', async (format) => {
     s().applyImport(await (await import('@/api')).getApi().importFile({ path: 'a.svg' }));
     expect(exportEnabled(s())).toBe(true);
     const spy = vi.spyOn((await import('@/api')).getApi(), 'exportDesign');
@@ -146,7 +146,7 @@ describe('importar con opciones', () => {
 
 describe('comandos y menús', () => {
   it('registra los comandos con su prefijo y los pone en el menú Archivo', () => {
-    const ids = ['importOptions', 'exportSvg', 'exportDxf', 'exportPng', 'exportPdf', 'print'].map((n) => `fileio.${n}`);
+    const ids = ['importOptions', 'exportSvg', 'exportDxf', 'exportPng', 'exportPdf', 'exportAi', 'print'].map((n) => `fileio.${n}`);
     for (const id of ids) expect(commands.get(id), id).toBeDefined();
     const file = MENUS.find((m) => m.id === 'file')!;
     for (const id of ids) expect(file.items).toContain(id);

@@ -419,6 +419,8 @@ export interface SaveStepProps {
   /** Solo con un galvo: la lente (campo) y la fuente. */
   galvo?: GalvoSetup;
   onGalvo?: (galvo: GalvoSetup) => void;
+  /** Solo con un galvo: las tarjetas USB encontradas (`usb:galvo:<n>`), para elegir cuál verificar. */
+  galvoBoards?: string[];
 }
 
 const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
@@ -427,7 +429,7 @@ const PROVENANCE_TEXT: Record<Provenance, I18nKey> = {
   default: 'catalog.save.fromDefault',
 };
 
-export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2', onBoard, galvo, onGalvo }: SaveStepProps) {
+export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2', onBoard, galvo, onGalvo, galvoBoards }: SaveStepProps) {
   const id = useId();
   const { profile: d, provenance } = built;
   const empty = name.trim() === '';
@@ -451,7 +453,7 @@ export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2',
       </div>
       {d.kind === 'ruida' && onHost && <RuidaHostField host={host} onHost={onHost} />}
       {d.kind === 'lhy_micro' && onBoard && <LhyBoardField board={board} onBoard={onBoard} />}
-      {d.kind === 'galvo' && galvo && onGalvo && <GalvoSetupField setup={galvo} onSetup={onGalvo} />}
+      {d.kind === 'galvo' && galvo && onGalvo && <GalvoSetupField setup={galvo} onSetup={onGalvo} profile={d} boards={galvoBoards} />}
       <section aria-label={t('catalog.save.summary')}>
         <h3 className="mc-sub">{t('catalog.save.summary')}</h3>
         <p className="hint">{t('catalog.save.kind')}: {kindLabel(d.kind)}</p>

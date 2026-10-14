@@ -6,6 +6,7 @@ import { MarksDialog } from './MarksDialog';
 import { useMarks } from './marksState';
 import { startAutoRefresh } from './refresh';
 import { startCamera } from './session';
+import { ZoneOverlay } from './ZoneOverlay';
 
 export { CameraPanel } from './CameraPanel';
 
@@ -34,6 +35,7 @@ export function CameraDialogHost() {
     <>
       {open && <CalibrationDialog onClose={() => close(false)} />}
       {marksOpen && <MarksDialog onClose={closeMarks} />}
+      <ZoneOverlay />
     </>
   );
 }

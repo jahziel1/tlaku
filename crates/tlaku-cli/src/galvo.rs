@@ -2,7 +2,8 @@
 //!
 //! - `list`: dispositivos del fabricante 9588 conectados y si son compatibles (no abre nada).
 //! - `status`: sondeo de solo lectura de la tarjeta.
-//! - `light`: encuadre con el **puntero rojo** (rectángulo o contorno) en bucle hasta Ctrl+C.
+//! - `light`: encuadre con el **puntero rojo** (rectángulo, trazos, casco convexo u objetos
+//!   sueltos) en bucle hasta Ctrl+C o `--loops N`.
 //! - `mark`: marca el diseño. Con `--red-only` hace todo el recorrido con el láser deshabilitado y
 //!   el puntero rojo; con `--dry-run` solo compila.
 //!
@@ -10,6 +11,8 @@
 //! `--i-understand-laser-safety`.
 //!
 //! EXPERIMENTAL: no se ha probado con ninguna tarjeta real (docs/hardware/galvo.md, sección 9).
+
+mod seq;
 
 use crate::cli::DesignArgs;
 use crate::options::{parse_f64, parse_positive};
@@ -22,7 +25,9 @@ use std::time::Duration;
 use tlaku_core::Point;
 use tlaku_core::toolpath::Toolpath;
 use tlaku_galvo::cmd::Describe;
-use tlaku_galvo::compile::{self, CompileOptions, CompiledList, FieldOrigin, LightShape};
+use tlaku_galvo::compile::{
+    self, CompileOptions, CompiledList, FieldOrigin, LightAdjust, LightShape,
+};
 use tlaku_galvo::emu::{self, EmuConfig, EmuHandle};
 use tlaku_galvo::safety::ListKind;
 use tlaku_galvo::session::{
@@ -31,7 +36,9 @@ use tlaku_galvo::session::{
 };
 use tlaku_galvo::transport::{LaserSafetyAck, Support, Transport};
 use tlaku_galvo::usb::{self, UsbTimeouts, UsbTransport};
-use tlaku_pipeline::doc::{GalvoDevice, LaserSource};
+use tlaku_pipeline::doc::{
+    CylinderAxis, DeviceKind, DeviceProfile, GalvoDevice, InputRequirement, LaserSource,
+};
 
 /// Aviso que acompaña a todo lo que toca una tarjeta real.
 const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte galvo no se ha probado con ninguna tarjeta \
@@ -94,6 +101,45 @@ fn parse_range(s: &str) -> Result<(f64, f64), String> {
     Ok((a, b))
 }
 
+/// `X,Y` en mm (admite negativos).
+fn parse_pair(s: &str) -> Result<(f64, f64), String> {
+    let (a, b) = s
+        .split_once(',')
+        .ok_or_else(|| format!("'{s}': usa X,Y en mm, por ejemplo 1.5,-2"))?;
+    Ok((parse_f64(a.trim())?, parse_f64(b.trim())?))
+}
+
+/// Eje del cilindro o del cono.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum AxisArg {
+    /// El cilindro va a lo largo de X (la superficie se curva en Y, como un rotativo)
+    X,
+    /// El cilindro va a lo largo de Y (la superficie se curva en X)
+    Y,
+}
+
+impl From<AxisArg> for CylinderAxis {
+    fn from(a: AxisArg) -> Self {
+        match a {
+            AxisArg::X => CylinderAxis::X,
+            AxisArg::Y => CylinderAxis::Y,
+        }
+    }
+}
+
+/// Qué dibuja el puntero rojo al encuadrar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum ShapeArg {
+    /// El rectángulo que ocupa el trabajo
+    Rect,
+    /// Los trazos del diseño
+    Contour,
+    /// El casco convexo de lo que se marca
+    Hull,
+    /// Un rectángulo por cada objeto suelto
+    Objects,
+}
+
 /// `MASK=VALOR` en hexadecimal (`0x`) o decimal.
 fn parse_input_check(s: &str) -> Result<InputCheck, String> {
     let num = |t: &str| {
@@ -154,6 +200,43 @@ pub struct ProfileArgs {
     /// (por ejemplo 0x0008=0x0008). Los bits de EMSTOP y alarmas no están documentados: mídelos
     #[arg(long, value_name = "MASK=VALOR", value_parser = parse_input_check)]
     require_input: Option<InputCheck>,
+    /// Desfase del puntero rojo respecto al haz en mm, DX,DY (el puntero cae en haz + desfase).
+    /// El encuadre y el recorrido en rojo lo compensan; una marca real nunca lo aplica
+    #[arg(long, value_name = "DX,DY", value_parser = parse_pair, allow_hyphen_values = true)]
+    pointer_offset: Option<(f64, f64)>,
+    /// Overscan de rellenos e imágenes del perfil en mm (el de --overscan de una capa manda sobre
+    /// este): las líneas se alargan y el tramo extra se recorre con el láser apagado a la
+    /// velocidad de marcado. Sin verificar con hardware
+    #[arg(long, value_name = "MM", value_parser = parse_f64)]
+    fill_overscan: Option<f64>,
+    /// Corrección de cilindro: diámetro de la pieza en mm (activa la corrección)
+    #[arg(long, value_name = "MM", value_parser = parse_positive)]
+    cylinder_diameter: Option<f64>,
+    /// Distancia del espejo del galvo a la línea más cercana de la pieza en mm (la focal)
+    #[arg(long, value_name = "MM", default_value_t = 160.0, value_parser = parse_positive)]
+    cylinder_distance: f64,
+    /// Eje del cilindro
+    #[arg(long, value_enum, default_value_t = AxisArg::X)]
+    cylinder_axis: AxisArg,
+    /// Superficie interior (anillo por dentro) en vez de exterior
+    #[arg(long)]
+    cylinder_concave: bool,
+    /// Taper Warp: diámetro del extremo «superior» del cono en mm (con --taper-bottom y
+    /// --taper-length activa la deformación)
+    #[arg(long, value_name = "MM", value_parser = parse_positive, requires_all = ["taper_bottom", "taper_length"])]
+    taper_top: Option<f64>,
+    /// Taper Warp: diámetro del extremo «inferior» en mm
+    #[arg(long, value_name = "MM", value_parser = parse_positive, requires_all = ["taper_top", "taper_length"])]
+    taper_bottom: Option<f64>,
+    /// Taper Warp: largo del cono a lo largo de su eje en mm
+    #[arg(long, value_name = "MM", value_parser = parse_positive, requires_all = ["taper_top", "taper_bottom"])]
+    taper_length: Option<f64>,
+    /// Eje del cono (el mismo que el del cilindro si hay los dos)
+    #[arg(long, value_enum, default_value_t = AxisArg::X)]
+    taper_axis: AxisArg,
+    /// El extremo «superior» está en el lado negativo del eje (por omisión, el positivo)
+    #[arg(long)]
+    taper_top_negative: bool,
 }
 
 impl ProfileArgs {
@@ -172,7 +255,34 @@ impl ProfileArgs {
         d.correction.invert = [self.invert_x, self.invert_y];
         d.correction.swap_xy = self.swap_xy;
         d.correction.rotation_deg = self.rotate;
+        d.require_input = self.require_input.map(|c| InputRequirement {
+            mask: c.mask,
+            value: c.value,
+        });
+        d.overscan_mm = self.fill_overscan.unwrap_or(0.0);
+        if let Some(diameter) = self.cylinder_diameter {
+            d.cylinder.enabled = true;
+            d.cylinder.diameter_mm = diameter;
+            d.cylinder.mirror_distance_mm = self.cylinder_distance;
+            d.cylinder.axis = self.cylinder_axis.into();
+            d.cylinder.concave = self.cylinder_concave;
+        }
+        if let (Some(top), Some(bottom), Some(length)) =
+            (self.taper_top, self.taper_bottom, self.taper_length)
+        {
+            d.taper.enabled = true;
+            d.taper.top_diameter_mm = top;
+            d.taper.bottom_diameter_mm = bottom;
+            d.taper.length_mm = length;
+            d.taper.axis = self.taper_axis.into();
+            d.taper.top_at_positive = !self.taper_top_negative;
+        }
         d
+    }
+
+    /// Desfase del puntero rojo, mm.
+    fn pointer_offset(&self) -> [f64; 2] {
+        self.pointer_offset.map_or([0.0, 0.0], |(x, y)| [x, y])
     }
 }
 
@@ -227,9 +337,22 @@ pub enum GalvoCommand {
         connect: ConnectArgs,
         #[command(flatten)]
         profile: ProfileArgs,
-        /// Dibujar los trazos del diseño en vez de su rectángulo
-        #[arg(long)]
+        /// Dibujar los trazos del diseño en vez de su rectángulo (igual que --shape contour)
+        #[arg(long, conflicts_with = "shape")]
         contour: bool,
+        /// Qué dibujar: rect (por omisión), contour, hull (casco convexo) u objects (un
+        /// rectángulo por objeto suelto)
+        #[arg(long, value_enum)]
+        shape: Option<ShapeArg>,
+        /// Con --shape objects: holgura en mm con la que dos trazos son el mismo objeto
+        #[arg(long, default_value_t = 1.0, value_parser = parse_f64)]
+        gap: f64,
+        /// Mover el encuadre DX,DY mm antes de dibujarlo
+        #[arg(long, value_name = "DX,DY", value_parser = parse_pair, allow_hyphen_values = true)]
+        shift: Option<(f64, f64)>,
+        /// Escalar el encuadre respecto a su centro (1 = tamaño real)
+        #[arg(long, default_value_t = 1.0, value_parser = parse_positive)]
+        scale: f64,
         /// Parar tras N vueltas (por defecto, hasta Ctrl+C)
         #[arg(long)]
         loops: Option<u32>,
@@ -245,6 +368,8 @@ pub enum GalvoCommand {
         profile: ProfileArgs,
         #[command(flatten)]
         params: MarkParams,
+        #[command(flatten)]
+        sequence: seq::SequenceArgs,
         /// Recorre todo el trabajo con el láser DESHABILITADO y el puntero rojo encendido
         #[arg(long)]
         red_only: bool,
@@ -270,6 +395,23 @@ struct Planned {
     device: GalvoDevice,
     origin: FieldOrigin,
     warnings: Vec<String>,
+    /// La máquina con la que se calculó (para recalcular por piezas) y lo que se pidió del diseño.
+    machine: DeviceProfile,
+    request: Option<job::DesignRequest>,
+    params: Option<MarkParams>,
+}
+
+/// Pone los parámetros de marcado de la línea de comandos en todos los bloques.
+fn apply_mark_params(toolpath: &mut Toolpath, device: &GalvoDevice, p: &MarkParams) {
+    let mut gp = compile::params_from_device(device, p.frequency, p.pulse_width);
+    gp.laser_on_us = p.laser_on.unwrap_or(gp.laser_on_us);
+    gp.laser_off_us = p.laser_off.unwrap_or(gp.laser_off_us);
+    gp.polygon_us = p.polygon.unwrap_or(gp.polygon_us);
+    gp.end_us = p.end_delay.unwrap_or(gp.end_us);
+    gp.repeat = p.repeat;
+    for b in &mut toolpath.blocks {
+        b.galvo = Some(gp.clone());
+    }
 }
 
 /// Importa el diseño, ajusta la cama al campo y deja los bloques con sus `GalvoParams`.
@@ -277,6 +419,7 @@ fn plan(
     design: DesignArgs,
     profile: &ProfileArgs,
     params: Option<&MarkParams>,
+    sequence: Option<&seq::SequenceArgs>,
 ) -> Result<Planned, String> {
     let device = profile.device();
     let mut request = design.into_request()?;
@@ -288,19 +431,23 @@ fn plan(
         .defaults
         .speed
         .get_or_insert(params.map_or(DEFAULT_MARK_SPEED, |p| p.mark_speed) * 60.0);
-    let built = job::build(&request)?;
-    tlaku_pipeline::check_bounds(&built, [request.bed.0, request.bed.1])?;
+    // El pipeline hace con un perfil galvo lo suyo: corrección de cilindro y de cono y overscan.
+    let mut machine = request.device();
+    machine.kind = DeviceKind::Galvo;
+    machine.galvo = device.clone();
+    // Marcado dividido, repetido o con rotativo: el trabajo entero puede ser más grande que el
+    // campo; cada pieza se calcula (y se comprueba contra el campo) por separado.
+    let sequenced = sequence.is_some_and(seq::SequenceArgs::active);
+    if let Some(s) = sequence {
+        s.apply(&mut machine);
+    }
+    let built = job::build_for(&request, &machine)?;
+    if !sequenced {
+        tlaku_pipeline::check_bounds(&built, [request.bed.0, request.bed.1])?;
+    }
     let mut toolpath = built.toolpath.clone();
     if let Some(p) = params {
-        let mut gp = compile::params_from_device(&device, p.frequency, p.pulse_width);
-        gp.laser_on_us = p.laser_on.unwrap_or(gp.laser_on_us);
-        gp.laser_off_us = p.laser_off.unwrap_or(gp.laser_off_us);
-        gp.polygon_us = p.polygon.unwrap_or(gp.polygon_us);
-        gp.end_us = p.end_delay.unwrap_or(gp.end_us);
-        gp.repeat = p.repeat;
-        for b in &mut toolpath.blocks {
-            b.galvo = Some(gp.clone());
-        }
+        apply_mark_params(&mut toolpath, &device, p);
     }
     Ok(Planned {
         toolpath,
@@ -308,6 +455,9 @@ fn plan(
         // Convención del pipeline: el campo está centrado en la cama.
         origin: FieldOrigin::CenterAt(Point::new(request.bed.0 / 2.0, request.bed.1 / 2.0)),
         warnings: built.preview.warnings,
+        machine,
+        request: Some(request),
+        params: params.cloned(),
     })
 }
 
@@ -318,6 +468,7 @@ fn session_config(
 ) -> Result<SessionConfig, String> {
     let mut cfg = SessionConfig::new(p.device.clone()).map_err(|e| e.to_string())?;
     cfg.origin = p.origin;
+    cfg.pointer_offset = profile.pointer_offset();
     cfg.inputs_required = profile.require_input;
     if emulated {
         // El tiempo de la tarjeta simulada es virtual: no hay motivo para esperar.
@@ -459,13 +610,24 @@ pub fn run(action: GalvoCommand) -> Result<(), String> {
             connect,
             profile,
             contour,
+            shape,
+            gap,
+            shift,
+            scale,
             loops,
         } => light(
             design,
             LightRequest {
                 connect,
                 profile,
-                contour,
+                shape: if contour {
+                    ShapeArg::Contour
+                } else {
+                    shape.unwrap_or(ShapeArg::Rect)
+                },
+                gap,
+                shift,
+                scale,
                 loops,
             },
             sigint::install(),
@@ -476,6 +638,7 @@ pub fn run(action: GalvoCommand) -> Result<(), String> {
             connect,
             profile,
             params,
+            sequence,
             red_only,
             dry_run,
             dump,
@@ -486,6 +649,7 @@ pub fn run(action: GalvoCommand) -> Result<(), String> {
                 connect,
                 profile,
                 params,
+                sequence,
                 red_only,
                 dry_run,
                 dump,
@@ -528,6 +692,9 @@ fn status<W: Write>(
     let planned = Planned {
         toolpath: Toolpath::default(),
         origin: FieldOrigin::Center,
+        machine: DeviceProfile::for_kind(DeviceKind::Galvo),
+        request: None,
+        params: None,
         device,
         warnings: Vec::new(),
     };
@@ -557,7 +724,10 @@ fn status_with<T: Transport, W: Write>(
 pub struct LightRequest {
     pub connect: ConnectArgs,
     pub profile: ProfileArgs,
-    pub contour: bool,
+    pub shape: ShapeArg,
+    pub gap: f64,
+    pub shift: Option<(f64, f64)>,
+    pub scale: f64,
     pub loops: Option<u32>,
 }
 
@@ -567,13 +737,26 @@ pub fn light<W: Write>(
     cancel: &AtomicBool,
     out: &mut W,
 ) -> Result<(), String> {
-    let planned = plan(design, &req.profile, None)?;
-    let shape = if req.contour {
-        LightShape::contour_of(&planned.toolpath)
-    } else {
-        LightShape::bounds_of(&planned.toolpath)
+    let planned = plan(design, &req.profile, None, None)?;
+    let tp = &planned.toolpath;
+    let mut objects = None;
+    let shape = match req.shape {
+        ShapeArg::Rect => LightShape::bounds_of(tp),
+        ShapeArg::Contour => LightShape::contour_of(tp),
+        ShapeArg::Hull => LightShape::hull_of(tp),
+        ShapeArg::Objects => LightShape::objects_of(tp, req.gap).map(|(s, n)| {
+            objects = Some(n);
+            s
+        }),
     }
     .ok_or("el diseño no tiene movimientos que encuadrar")?;
+    let adjust = LightAdjust {
+        dx: req.shift.map_or(0.0, |s| s.0),
+        dy: req.shift.map_or(0.0, |s| s.1),
+        scale: req.scale,
+    };
+    adjust.validate()?;
+    let shape = shape.adjusted(&adjust);
     for w in &planned.warnings {
         show(out, &format!("Aviso: {w}"))?;
     }
@@ -586,6 +769,38 @@ pub fn light<W: Write>(
             ),
         )?;
     }
+    if let Some(n) = objects {
+        show(out, &format!("Encuadre de {n} objeto(s) suelto(s)."))?;
+    }
+    if !adjust.is_neutral() {
+        show(
+            out,
+            &format!(
+                "Encuadre movido {:.2},{:.2} mm y escalado x{}.",
+                adjust.dx, adjust.dy, adjust.scale
+            ),
+        )?;
+    }
+    let off = req.profile.pointer_offset();
+    if off != [0.0, 0.0] {
+        show(
+            out,
+            &format!(
+                "El puntero se compensa {:.2},{:.2} mm para pasar por donde marcará el láser.",
+                off[0], off[1]
+            ),
+        )?;
+    }
+    // Se valida el encuadre (campo, desfase) antes de tocar la tarjeta.
+    compile::compile_light(
+        &shape,
+        &planned.device,
+        &compile::LightOptions {
+            origin: planned.origin,
+            pointer_offset: req.profile.pointer_offset(),
+        },
+    )
+    .map_err(|e| e.to_string())?;
     show(out, EXPERIMENTAL)?;
     let emulated = req.connect.emu;
     let cfg = session_config(&planned, &req.profile, emulated)?;
@@ -668,10 +883,21 @@ pub struct MarkRequest {
     pub connect: ConnectArgs,
     pub profile: ProfileArgs,
     pub params: MarkParams,
+    pub sequence: seq::SequenceArgs,
     pub red_only: bool,
     pub dry_run: bool,
     pub dump: Option<PathBuf>,
     pub yes: bool,
+}
+
+/// Una lista lista para enviar: la de una pieza (o la del trabajo entero) y lo que pasa antes de ella.
+struct StepList {
+    list: CompiledList,
+    /// «Paso 2 de 6 · pieza 2 de 3»; `None` con un trabajo de una sola pieza.
+    label: Option<String>,
+    /// Qué mover antes de marcarla; `None` si no hay que mover nada.
+    move_text: Option<String>,
+    pause_ms: f64,
 }
 
 pub fn mark<R: BufRead, W: Write>(
@@ -681,7 +907,7 @@ pub fn mark<R: BufRead, W: Write>(
     input: &mut R,
     out: &mut W,
 ) -> Result<(), String> {
-    let planned = plan(design, &req.profile, Some(&req.params))?;
+    let planned = plan(design, &req.profile, Some(&req.params), Some(&req.sequence))?;
     let opts = CompileOptions {
         origin: planned.origin,
         kind: if req.red_only {
@@ -689,18 +915,62 @@ pub fn mark<R: BufRead, W: Write>(
         } else {
             ListKind::Mark
         },
+        pointer_offset: req.profile.pointer_offset(),
         ..CompileOptions::default()
     };
-    let list =
-        compile::compile(&planned.toolpath, &planned.device, &opts).map_err(|e| e.to_string())?;
-    for w in &planned.warnings {
-        show(out, &format!("Aviso: {w}"))?;
+    let compile_one =
+        |tp: &Toolpath| compile::compile(tp, &planned.device, &opts).map_err(|e| e.to_string());
+    let mut lists: Vec<StepList> = Vec::new();
+    if req.sequence.active() {
+        let (steps, warnings) = seq::steps(&planned)?;
+        for w in &warnings {
+            show(out, &format!("Aviso: {w}"))?;
+        }
+        let total = steps.len();
+        show(
+            out,
+            &format!(
+                "El trabajo se marca en {total} paso(s); {} vez/veces tendrás que mover el material \
+                 (la tarjeta no tiene ejes).",
+                steps.iter().filter(|s| s.needs_move()).count()
+            ),
+        )?;
+        for (i, st) in steps.iter().enumerate() {
+            lists.push(StepList {
+                list: compile_one(&st.toolpath)?,
+                label: Some(st.label(i + 1, total)),
+                move_text: st.needs_move().then(|| st.move_text()),
+                pause_ms: st.pause_ms,
+            });
+        }
+    } else {
+        for w in &planned.warnings {
+            show(out, &format!("Aviso: {w}"))?;
+        }
+        lists.push(StepList {
+            list: compile_one(&planned.toolpath)?,
+            label: None,
+            move_text: None,
+            pause_ms: 0.0,
+        });
     }
-    describe_list(&list, out)?;
+    for l in &lists {
+        if let Some(label) = &l.label {
+            show(out, &format!("== {label} =="))?;
+        }
+        describe_list(&l.list, out)?;
+    }
     if let Some(path) = &req.dump {
         let mut text = String::new();
-        for (i, c) in list.commands.iter().enumerate() {
-            text.push_str(&format!("{i:06} {}\n", Describe(c)));
+        for (n, l) in lists.iter().enumerate() {
+            if let Some(label) = &l.label {
+                text.push_str(&format!("# {label}\n"));
+            } else if lists.len() > 1 {
+                text.push_str(&format!("# lista {}\n", n + 1));
+            }
+            for (i, c) in l.list.commands.iter().enumerate() {
+                text.push_str(&format!("{i:06} {}\n", Describe(c)));
+            }
         }
         std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))?;
         show(out, &format!("Lista escrita en {}", path.display()))?;
@@ -721,20 +991,20 @@ pub fn mark<R: BufRead, W: Write>(
             out,
             "Usando la tarjeta simulada (--emu): no se toca el USB.",
         )?;
-        let r = mark_with(t, cfg, &list, &req, cancel, input, out);
+        let r = mark_with(t, cfg, &lists, &req, cancel, input, out);
         describe_emulator(&h, out)?;
         return r;
     }
     // Sin la bandera no se abre ni el USB.
     require_ack(&req.connect)?;
     let t = open_usb(&req.connect)?;
-    mark_with(t, cfg, &list, &req, cancel, input, out)
+    mark_with(t, cfg, &lists, &req, cancel, input, out)
 }
 
 fn mark_with<T: Transport, R: BufRead, W: Write>(
     t: T,
     cfg: SessionConfig,
-    list: &CompiledList,
+    lists: &[StepList],
     req: &MarkRequest,
     cancel: &AtomicBool,
     input: &mut R,
@@ -764,38 +1034,60 @@ fn mark_with<T: Transport, R: BufRead, W: Write>(
             return Err("cancelado: no se envió nada".into());
         }
     }
-    let mut last_step = usize::MAX;
-    let mut progress = |p: Progress| {
-        let pct = p.bytes_sent * 100 / p.bytes_total.max(1);
-        let step = pct / 10;
-        if step != last_step || p.batch == p.batches {
-            last_step = step;
-            let _ = writeln!(out, "  {pct:>3} %  (tanda {}/{})", p.batch, p.batches);
-        }
-    };
     let control = session.control();
-    let result = with_ctrl_c(&control, cancel, || {
-        session.send_job(list, &control, &mut progress)
-    });
-    match result {
-        Ok(r) => show(
-            out,
-            &format!(
-                "Enviado: {} tandas, {} comandos, {} bytes en {:.1} s. {} La fuente se apagó y la \
-                 lista se vació.",
-                r.batches,
-                r.commands,
-                r.bytes,
-                r.elapsed.as_secs_f64(),
-                if r.armed {
-                    "La fuente estuvo armada durante el trabajo."
-                } else {
-                    "La fuente NO se armó."
-                }
-            ),
-        ),
-        Err(e) => Err(format!("falló el marcado: {}", job_error(&e))),
+    for step in lists {
+        if let Some(label) = &step.label {
+            show(out, &format!("== {label} =="))?;
+        }
+        if let Some(text) = &step.move_text {
+            // La tarjeta no tiene ejes: el trabajo espera a que muevas el material y confirmes.
+            show(out, &format!("Mueve el material: {text}."))?;
+            let ok = crate::link::confirm(
+                "¿Ya lo moviste? Al continuar el láser disparará sobre la pieza siguiente. [s/N] ",
+                input,
+                out,
+            )
+            .map_err(|e| e.to_string())?;
+            if !ok {
+                return Err("detenido: no se marcaron los pasos restantes".into());
+            }
+            if !simulated && step.pause_ms > 0.0 {
+                std::thread::sleep(Duration::from_secs_f64(step.pause_ms / 1000.0));
+            }
+        }
+        let mut last_step = usize::MAX;
+        let mut progress = |p: Progress| {
+            let pct = p.bytes_sent * 100 / p.bytes_total.max(1);
+            let step = pct / 10;
+            if step != last_step || p.batch == p.batches {
+                last_step = step;
+                let _ = writeln!(out, "  {pct:>3} %  (tanda {}/{})", p.batch, p.batches);
+            }
+        };
+        let result = with_ctrl_c(&control, cancel, || {
+            session.send_job(&step.list, &control, &mut progress)
+        });
+        match result {
+            Ok(r) => show(
+                out,
+                &format!(
+                    "Enviado: {} tandas, {} comandos, {} bytes en {:.1} s. {} La fuente se apagó y la \
+                     lista se vació.",
+                    r.batches,
+                    r.commands,
+                    r.bytes,
+                    r.elapsed.as_secs_f64(),
+                    if r.armed {
+                        "La fuente estuvo armada durante el trabajo."
+                    } else {
+                        "La fuente NO se armó."
+                    }
+                ),
+            )?,
+            Err(e) => return Err(format!("falló el marcado: {}", job_error(&e))),
+        }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -841,6 +1133,7 @@ mod tests {
             connect,
             profile,
             params,
+            sequence,
             red_only,
             dry_run,
             dump,
@@ -856,6 +1149,7 @@ mod tests {
                 connect,
                 profile,
                 params,
+                sequence,
                 red_only,
                 dry_run,
                 dump,
@@ -893,8 +1187,8 @@ mod tests {
             design,
             connect,
             profile,
-            contour,
             loops,
+            ..
         } = parse(&["light", design.as_str(), "--mode", "line"])
         else {
             panic!()
@@ -904,7 +1198,10 @@ mod tests {
             LightRequest {
                 connect,
                 profile,
-                contour,
+                shape: ShapeArg::Rect,
+                gap: 1.0,
+                shift: None,
+                scale: 1.0,
                 loops,
             },
             &AtomicBool::new(false),
@@ -1005,41 +1302,50 @@ mod tests {
         std::fs::remove_file(&path).ok();
     }
 
-    #[test]
-    fn light_against_the_emulator_draws_with_the_red_pointer_only() {
+    fn run_light(extra: &[&str]) -> (Result<(), String>, String) {
         let design = design_file();
+        let mut args = vec!["light", design.as_str(), "--mode", "line", "--emu"];
+        args.extend(extra);
         let GalvoCommand::Light {
             design,
             connect,
             profile,
             contour,
+            shape,
+            gap,
+            shift,
+            scale,
             loops,
-        } = parse(&[
-            "light",
-            design.as_str(),
-            "--mode",
-            "line",
-            "--emu",
-            "--loops",
-            "2",
-        ])
+        } = parse(&args)
         else {
-            panic!()
+            panic!("no es light")
         };
         let mut out = Vec::new();
-        light(
+        let r = light(
             design,
             LightRequest {
                 connect,
                 profile,
-                contour,
+                shape: if contour {
+                    ShapeArg::Contour
+                } else {
+                    shape.unwrap_or(ShapeArg::Rect)
+                },
+                gap,
+                shift,
+                scale,
                 loops,
             },
             &AtomicBool::new(false),
             &mut out,
-        )
-        .unwrap();
-        let out = String::from_utf8(out).unwrap();
+        );
+        (r, String::from_utf8(out).unwrap())
+    }
+
+    #[test]
+    fn light_against_the_emulator_draws_with_the_red_pointer_only() {
+        let (r, out) = run_light(&["--loops", "2"]);
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
         assert!(out.contains("el láser NO se habilita"), "{out}");
         assert!(out.contains("2 vueltas"), "{out}");
         assert!(out.contains("0 tramos con el haz saliendo"), "{out}");
@@ -1048,40 +1354,52 @@ mod tests {
 
     #[test]
     fn contour_frames_follow_the_design() {
-        let design = design_file();
-        let GalvoCommand::Light {
-            design,
-            connect,
-            profile,
-            contour,
-            loops,
-        } = parse(&[
-            "light",
-            design.as_str(),
-            "--mode",
-            "line",
-            "--emu",
-            "--loops",
-            "1",
-            "--contour",
-        ])
-        else {
-            panic!()
-        };
-        let mut out = Vec::new();
-        light(
-            design,
-            LightRequest {
-                connect,
-                profile,
-                contour,
-                loops,
-            },
-            &AtomicBool::new(false),
-            &mut out,
-        )
-        .unwrap();
-        assert!(String::from_utf8(out).unwrap().contains("1 vueltas"));
+        let (r, out) = run_light(&["--loops", "1", "--contour"]);
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("1 vueltas"), "{out}");
+    }
+
+    #[test]
+    fn hull_and_object_frames_run_and_never_fire() {
+        for shape in ["hull", "objects"] {
+            let (r, out) = run_light(&["--loops", "1", "--shape", shape]);
+            r.unwrap_or_else(|e| panic!("{shape}: {e}\n{out}"));
+            assert!(out.contains("0 tramos con el haz saliendo"), "{out}");
+            assert!(out.contains("terminó apagada"), "{out}");
+        }
+        let (_, out) = run_light(&["--loops", "1", "--shape", "objects"]);
+        assert!(out.contains("objeto(s) suelto(s)"), "{out}");
+        // --contour y --shape se excluyen.
+        assert!(
+            try_parse(&["light", "d.svg", "--contour", "--shape", "hull"]).is_err(),
+            "no se pueden pedir las dos"
+        );
+    }
+
+    #[test]
+    fn a_shifted_and_scaled_frame_is_reported_and_must_fit_the_field() {
+        let (r, out) = run_light(&["--loops", "1", "--shift", "2,-1.5", "--scale", "0.5"]);
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(
+            out.contains("movido 2.00,-1.50 mm y escalado x0.5"),
+            "{out}"
+        );
+        // Fuera del campo (110 mm): se rechaza antes de tocar la tarjeta.
+        let (r, out) = run_light(&["--loops", "1", "--shift", "500,0"]);
+        assert!(r.is_err(), "{out}");
+        assert!(!out.contains("Tarjeta:"), "{out}");
+        let (r, _) = run_light(&["--scale", "100"]);
+        assert!(r.unwrap_err().contains("escala"));
+    }
+
+    #[test]
+    fn the_pointer_offset_is_announced_and_bounded() {
+        let (r, out) = run_light(&["--loops", "1", "--pointer-offset", "1.5,-2"]);
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("se compensa 1.50,-2.00 mm"), "{out}");
+        let (r, _) = run_light(&["--loops", "1", "--pointer-offset", "80,0"]);
+        assert!(r.is_err(), "más de 50 mm no se acepta");
+        assert!(try_parse(&["light", "d.svg", "--pointer-offset", "1"]).is_err());
     }
 
     #[test]
@@ -1092,6 +1410,7 @@ mod tests {
             connect,
             profile,
             params,
+            sequence,
             red_only,
             dry_run,
             dump,
@@ -1115,6 +1434,7 @@ mod tests {
                 connect,
                 profile,
                 params,
+                sequence,
                 red_only,
                 dry_run,
                 dump,
@@ -1180,5 +1500,184 @@ mod tests {
             InputCheck { mask: 12, value: 4 }
         );
         assert!(parse_input_check("8").is_err());
+    }
+
+    #[test]
+    fn cylinder_and_taper_flags_bend_the_marks_and_taper_needs_all_three() {
+        let flat = run_mark(&["--dry-run", "--dump", "/dev/null"], "");
+        flat.0.unwrap_or_else(|e| panic!("{e}\n{}", flat.1));
+        let dir = std::env::temp_dir().join(format!("tlaku_galvo_cyl_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (flat_path, bent_path) = (dir.join("flat.txt"), dir.join("bent.txt"));
+        let (r, out) = run_mark(&["--dry-run", "--dump", flat_path.to_str().unwrap()], "");
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        let (r, out) = run_mark(
+            &[
+                "--dry-run",
+                "--cylinder-diameter",
+                "40",
+                "--cylinder-distance",
+                "120",
+                "--dump",
+                bent_path.to_str().unwrap(),
+            ],
+            "",
+        );
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        let (flat, bent) = (
+            std::fs::read_to_string(&flat_path).unwrap(),
+            std::fs::read_to_string(&bent_path).unwrap(),
+        );
+        assert_ne!(
+            flat, bent,
+            "la corrección de cilindro cambia las coordenadas"
+        );
+        let (r, out) = run_mark(
+            &[
+                "--dry-run",
+                "--taper-top",
+                "40",
+                "--taper-bottom",
+                "30",
+                "--taper-length",
+                "80",
+            ],
+            "",
+        );
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        // El cono pide sus tres medidas.
+        assert!(try_parse(&["status", "--taper-top", "40"]).is_err());
+        assert!(try_parse(&["status", "--taper-top", "40", "--taper-bottom", "30"]).is_err());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn overscan_and_the_interlock_reach_the_profile() {
+        let GalvoCommand::Status { profile, .. } = parse(&[
+            "status",
+            "--fill-overscan",
+            "2.5",
+            "--require-input",
+            "0x0008=0x0008",
+            "--cylinder-diameter",
+            "50",
+            "--cylinder-axis",
+            "y",
+            "--cylinder-concave",
+        ]) else {
+            panic!()
+        };
+        let d = profile.device();
+        assert_eq!(d.overscan_mm, 2.5);
+        assert_eq!(d.require_input.map(|r| (r.mask, r.value)), Some((8, 8)));
+        assert!(d.cylinder.enabled && d.cylinder.concave);
+        assert_eq!(d.cylinder.axis, CylinderAxis::Y);
+        assert_eq!(d.cylinder.mirror_distance_mm, 160.0);
+        assert!(!d.taper.enabled);
+        // Un overscan absurdo se rechaza al armar la sesión, antes de tocar nada.
+        let (r, out) = run_mark(&["--emu", "--fill-overscan", "50"], "");
+        assert!(r.is_err(), "{out}");
+        assert!(!out.contains("Tarjeta:"), "{out}");
+    }
+
+    #[test]
+    fn a_split_job_stops_between_pieces_and_waits_for_the_material() {
+        // 90 mm de ancho en un campo de 70: dos piezas; entre ellas hay que mover la mesa.
+        let (r, out) = run_mark(&["--emu", "--field", "70", "--split-piece", "0"], "s\n");
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("2 paso(s)"), "{out}");
+        assert!(out.contains("Paso 2 de 2 · pieza 2 de 2"), "{out}");
+        assert!(out.contains("Mueve el material: mesa X"), "{out}");
+        assert_eq!(out.matches("Enviado:").count(), 2, "{out}");
+        assert!(out.contains("la fuente terminó apagada"), "{out}");
+        assert!(out.contains("0 violaciones"), "{out}");
+        // Sin confirmar el movimiento, la segunda pieza no se marca.
+        let (r, out) = run_mark(&["--emu", "--field", "70", "--split-piece", "0"], "n\n");
+        assert!(r.unwrap_err().contains("detenido"), "{out}");
+        assert_eq!(out.matches("Enviado:").count(), 1, "{out}");
+        assert!(out.contains("la fuente terminó apagada"), "{out}");
+    }
+
+    #[test]
+    fn a_split_design_is_refused_without_the_flag_and_fits_with_it() {
+        let (r, _) = run_mark(&["--emu", "--field", "70"], "");
+        assert!(
+            r.is_err(),
+            "sin --split-piece el diseño no cabe en el campo"
+        );
+        let (r, out) = run_mark(&["--dry-run", "--field", "70", "--split-piece", "0"], "");
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("Simulacro"), "{out}");
+    }
+
+    #[test]
+    fn repeat_marking_asks_to_advance_the_material_between_repetitions() {
+        let (r, out) = run_mark(
+            &["--emu", "--repeat-count", "3", "--repeat-step", "0,-5"],
+            "s\ns\n",
+        );
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("3 paso(s)"), "{out}");
+        assert!(out.contains("repetición 3 de 3"), "{out}");
+        assert!(out.contains("Y -5.00 mm"), "{out}");
+        assert_eq!(out.matches("Enviado:").count(), 3, "{out}");
+    }
+
+    #[test]
+    fn the_galvo_rotary_turns_the_piece_between_repetitions() {
+        // Pieza de 20 mm de diámetro: 62,83 mm de superficie por vuelta; 31,42 mm de avance son 180°.
+        let (r, out) = run_mark(
+            &[
+                "--emu",
+                "--rotary-diameter",
+                "20",
+                "--repeat-count",
+                "2",
+                "--repeat-step",
+                "0,31.4159",
+            ],
+            "s\n",
+        );
+        r.unwrap_or_else(|e| panic!("{e}\n{out}"));
+        assert!(out.contains("rotativo +180.0°"), "{out}");
+        assert_eq!(out.matches("Enviado:").count(), 2, "{out}");
+        // El rotativo no mueve X: un diseño más ancho que la pieza se rechaza antes de conectar.
+        let (r, out) = run_mark(
+            &["--emu", "--rotary-diameter", "20", "--split-piece", "30"],
+            "",
+        );
+        assert!(r.unwrap_err().contains("rotativo"), "{out}");
+        assert!(!out.contains("Tarjeta:"), "{out}");
+    }
+
+    #[test]
+    fn sequence_flags_are_validated_in_spanish() {
+        assert!(try_parse(&["mark", "d.svg", "--frequency", "30", "--repeat-step", "5"]).is_err());
+        assert!(
+            try_parse(&[
+                "mark",
+                "d.svg",
+                "--frequency",
+                "30",
+                "--rotary-diameter",
+                "0"
+            ])
+            .is_err()
+        );
+        // Un solape igual a la pieza no tiene sentido: el motor lo rechaza antes de conectar.
+        let (r, out) = run_mark(
+            &[
+                "--emu",
+                "--field",
+                "70",
+                "--split-piece",
+                "20",
+                "--split-overlap",
+                "20",
+            ],
+            "",
+        );
+        assert!(r.is_err(), "{out}");
+        assert!(!out.contains("Tarjeta:"), "{out}");
     }
 }

@@ -23,6 +23,9 @@ use tlaku_doc::{
 };
 use tlaku_geom::{BoolOp, boolean, break_groups};
 
+use serde::{Deserialize, Serialize};
+use std::fmt;
+
 /// Tolerancia geométrica para decidir si un trazo recortado quedó vacío, en mm.
 const EPS: f64 = 1e-9;
 /// Máximo de tramos de un plan: más de esto es casi seguro un tamaño de tramo mal escrito.
@@ -33,7 +36,8 @@ const MAX_MARK_MM: f64 = 6.0;
 pub const MARK_ID_PREFIX: &str = "tile-mark-";
 
 /// Orden en que se recorren los tramos. Las filas van de arriba hacia abajo.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum TileOrder {
     /// Todas las filas de izquierda a derecha.
     #[default]
@@ -42,6 +46,49 @@ pub enum TileOrder {
     /// material) recorre menos distancia entre tramos.
     Serpentine,
 }
+
+/// Por qué no se pudo repartir el diseño en tramos. `Display` da el mensaje en español; la
+/// interfaz usa el tipo para mostrar el suyo en el idioma elegido.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TileError {
+    /// Algún valor no es un número.
+    Numbers,
+    /// El diseño no tiene área.
+    Empty,
+    /// El tamaño del tramo no es mayor que 0.
+    Size,
+    /// El solape es negativo.
+    OverlapNegative,
+    /// El solape (mm) no es menor que el lado menor del tramo.
+    #[serde(rename_all = "camelCase")]
+    Overlap { overlap: f64, tile: [f64; 2] },
+    /// Salen más de [`MAX_TILES`] tramos.
+    #[serde(rename_all = "camelCase")]
+    TooMany { count: usize },
+}
+
+impl fmt::Display for TileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TileError::Numbers => write!(f, "tiling: hay valores que no son números"),
+            TileError::Empty => write!(f, "tiling: el diseño no tiene área"),
+            TileError::Size => write!(f, "tiling: el tamaño del tramo debe ser mayor que 0"),
+            TileError::OverlapNegative => write!(f, "tiling: el solape no puede ser negativo"),
+            TileError::Overlap { overlap, tile } => write!(
+                f,
+                "tiling: el solape ({overlap} mm) debe ser menor que el tramo ({} x {} mm)",
+                tile[0], tile[1]
+            ),
+            TileError::TooMany { count } => write!(
+                f,
+                "tiling: {count} tramos son demasiados (el máximo es {MAX_TILES}); revisa el tamaño del tramo"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for TileError {}
 
 /// Cuadrícula de tramos: rangos `(min, max)` de cada columna (X creciente) y de cada fila (de
 /// arriba hacia abajo, es decir Y decreciente).
@@ -67,7 +114,7 @@ fn split_axis(lo: f64, hi: f64, size: f64, overlap: f64) -> Vec<(f64, f64)> {
         .collect()
 }
 
-fn grid(design: Bounds, tile_size: [f64; 2], overlap: f64) -> Result<Grid, String> {
+fn grid(design: Bounds, tile_size: [f64; 2], overlap: f64) -> Result<Grid, TileError> {
     let finite = [
         design.min.x,
         design.min.y,
@@ -80,22 +127,22 @@ fn grid(design: Bounds, tile_size: [f64; 2], overlap: f64) -> Result<Grid, Strin
     .iter()
     .all(|v| v.is_finite());
     if !finite {
-        return Err("tiling: hay valores que no son números".into());
+        return Err(TileError::Numbers);
     }
     if design.max.x <= design.min.x || design.max.y <= design.min.y {
-        return Err("tiling: el diseño no tiene área".into());
+        return Err(TileError::Empty);
     }
     if tile_size[0] <= 0.0 || tile_size[1] <= 0.0 {
-        return Err("tiling: el tamaño del tramo debe ser mayor que 0".into());
+        return Err(TileError::Size);
     }
     if overlap < 0.0 {
-        return Err("tiling: el solape no puede ser negativo".into());
+        return Err(TileError::OverlapNegative);
     }
     if overlap >= tile_size[0].min(tile_size[1]) {
-        return Err(format!(
-            "tiling: el solape ({overlap} mm) debe ser menor que el tramo ({} x {} mm)",
-            tile_size[0], tile_size[1]
-        ));
+        return Err(TileError::Overlap {
+            overlap,
+            tile: tile_size,
+        });
     }
     let cols = split_axis(design.min.x, design.max.x, tile_size[0], overlap);
     // Las filas se numeran de arriba hacia abajo y se parten desde arriba: el tramo sobrante
@@ -105,10 +152,9 @@ fn grid(design: Bounds, tile_size: [f64; 2], overlap: f64) -> Result<Grid, Strin
         .map(|(a, b)| (-b, -a))
         .collect::<Vec<_>>();
     if cols.len() * rows.len() > MAX_TILES {
-        return Err(format!(
-            "tiling: {} tramos son demasiados (el máximo es {MAX_TILES}); revisa el tamaño del tramo",
-            cols.len() * rows.len()
-        ));
+        return Err(TileError::TooMany {
+            count: cols.len() * rows.len(),
+        });
     }
     Ok(Grid { cols, rows })
 }
@@ -125,15 +171,86 @@ pub fn plan_tiles(
     overlap: f64,
     order: TileOrder,
 ) -> Result<Vec<TileSpec>, String> {
+    let g = grid(design, tile_size, overlap).map_err(|e| e.to_string())?;
+    Ok(tiles_of(&g, order).into_iter().map(|t| t.spec).collect())
+}
+
+/// Un tramo del plan con su posición en la cuadrícula.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PlannedTile {
+    pub spec: TileSpec,
+    /// Fila (0 = arriba) y columna (0 = izquierda) en la cuadrícula.
+    pub row: usize,
+    pub col: usize,
+}
+
+/// Plan completo de tiling: los tramos en orden, las dimensiones de la cuadrícula y las marcas de
+/// alineación. Es lo que usa la interfaz para dibujar el plan sobre el lienzo y enviar los tramos.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TilePlan {
+    pub tiles: Vec<PlannedTile>,
+    pub cols: usize,
+    pub rows: usize,
+    /// Rangos `[min, max]` de cada columna (X creciente) y de cada fila (de arriba hacia abajo).
+    pub col_ranges: Vec<[f64; 2]>,
+    pub row_ranges: Vec<[f64; 2]>,
+    /// Segmentos de las cruces de alineación (dos por cruz); vacío sin solape o con un tramo.
+    pub marks: Vec<[[f64; 2]; 2]>,
+}
+
+/// Reparte `design` como [`plan_tiles`] pero devuelve el plan completo, con `margin` mm sumados
+/// al desplazamiento de todos los tramos (el margen de la cama) y las marcas de alineación. Los
+/// errores son estructurados para poder traducirlos.
+pub fn plan_grid(
+    design: Bounds,
+    tile_size: [f64; 2],
+    overlap: f64,
+    order: TileOrder,
+    margin: f64,
+) -> Result<TilePlan, TileError> {
     let g = grid(design, tile_size, overlap)?;
+    if !margin.is_finite() {
+        return Err(TileError::Numbers);
+    }
+    let mut tiles = tiles_of(&g, order);
+    for t in &mut tiles {
+        t.spec.offset[0] += margin;
+        t.spec.offset[1] += margin;
+    }
+    let marks = marks_of(&g, design, overlap)
+        .iter()
+        .map(|seg| {
+            [
+                [seg.points[0].x, seg.points[0].y],
+                [seg.points[1].x, seg.points[1].y],
+            ]
+        })
+        .collect();
+    Ok(TilePlan {
+        tiles,
+        cols: g.cols.len(),
+        rows: g.rows.len(),
+        col_ranges: g.cols.iter().map(|&(a, b)| [a, b]).collect(),
+        row_ranges: g.rows.iter().map(|&(a, b)| [a, b]).collect(),
+        marks,
+    })
+}
+
+fn tiles_of(g: &Grid, order: TileOrder) -> Vec<PlannedTile> {
     let mut out = Vec::with_capacity(g.cols.len() * g.rows.len());
     for (r, &(y0, y1)) in g.rows.iter().enumerate() {
-        let mut row: Vec<TileSpec> = g
+        let mut row: Vec<PlannedTile> = g
             .cols
             .iter()
-            .map(|&(x0, x1)| TileSpec {
-                rect: [[x0, y0], [x1, y1]],
-                offset: [-x0, -y0],
+            .enumerate()
+            .map(|(c, &(x0, x1))| PlannedTile {
+                spec: TileSpec {
+                    rect: [[x0, y0], [x1, y1]],
+                    offset: [-x0, -y0],
+                },
+                row: r,
+                col: c,
             })
             .collect();
         if order == TileOrder::Serpentine && r % 2 == 1 {
@@ -141,7 +258,7 @@ pub fn plan_tiles(
         }
         out.extend(row);
     }
-    Ok(out)
+    out
 }
 
 /// Suma `by` al desplazamiento de todos los tramos (por ejemplo, el margen de la cama).
@@ -161,9 +278,13 @@ pub fn tile_marks(
     tile_size: [f64; 2],
     overlap: f64,
 ) -> Result<Vec<Polyline>, String> {
-    let g = grid(design, tile_size, overlap)?;
+    let g = grid(design, tile_size, overlap).map_err(|e| e.to_string())?;
+    Ok(marks_of(&g, design, overlap))
+}
+
+fn marks_of(g: &Grid, design: Bounds, overlap: f64) -> Vec<Polyline> {
     if overlap <= 0.0 || (g.cols.len() == 1 && g.rows.len() == 1) {
-        return Ok(Vec::new());
+        return Vec::new();
     }
     let size = (overlap * 0.8).min(MAX_MARK_MM);
     let half = size / 2.0;
@@ -196,7 +317,7 @@ pub fn tile_marks(
             add(x, y);
         }
     }
-    Ok(centers
+    centers
         .into_iter()
         .flat_map(|(x, y)| {
             [
@@ -210,7 +331,7 @@ pub fn tile_marks(
                 },
             ]
         })
-        .collect())
+        .collect()
 }
 
 /// Agrega las marcas de alineación al documento como objetos vectoriales de la capa `layer`
@@ -896,6 +1017,7 @@ mod tests {
             mirror_x: false,
             mirror_y: false,
             mask: Vec::new(),
+            warp: None,
         };
         let r = bounds(60.0, 10.0, 160.0, 40.0);
         let clipped = clip_image(&img, r).unwrap();
@@ -1079,5 +1201,61 @@ mod tests {
         let d = bounds(0.0, 0.0, 100.0, 60.0);
         assert!(tile_marks(d, [55.0, 35.0], 0.0).unwrap().is_empty());
         assert!(tile_marks(d, [200.0, 200.0], 5.0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn plan_grid_agrees_with_plan_tiles_and_tile_marks() {
+        let d = bounds(0.0, 0.0, 100.0, 60.0);
+        for order in [TileOrder::Rows, TileOrder::Serpentine] {
+            let plan = plan_grid(d, [55.0, 35.0], 10.0, order, 0.0).unwrap();
+            let specs: Vec<TileSpec> = plan.tiles.iter().map(|t| t.spec.clone()).collect();
+            assert_eq!(specs, plan_tiles(d, [55.0, 35.0], 10.0, order).unwrap());
+            let marks = tile_marks(d, [55.0, 35.0], 10.0).unwrap();
+            assert_eq!(plan.marks.len(), marks.len());
+            for (m, p) in plan.marks.iter().zip(&marks) {
+                assert_eq!(m[0], [p.points[0].x, p.points[0].y]);
+                assert_eq!(m[1], [p.points[1].x, p.points[1].y]);
+            }
+        }
+        // El margen se suma igual que `shift_tiles`.
+        let plan = plan_grid(d, [55.0, 35.0], 10.0, TileOrder::Rows, 5.0).unwrap();
+        let mut shifted = plan_tiles(d, [55.0, 35.0], 10.0, TileOrder::Rows).unwrap();
+        shift_tiles(&mut shifted, [5.0, 5.0]);
+        let got: Vec<TileSpec> = plan.tiles.iter().map(|t| t.spec.clone()).collect();
+        assert_eq!(got, shifted);
+        assert!(plan_grid(d, [55.0, 35.0], 10.0, TileOrder::Rows, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn plan_grid_wire_format_and_error_messages() {
+        let d = bounds(0.0, 0.0, 100.0, 60.0);
+        let v =
+            serde_json::to_value(plan_grid(d, [55.0, 35.0], 10.0, TileOrder::Rows, 0.0).unwrap())
+                .unwrap();
+        for key in ["tiles", "cols", "rows", "colRanges", "rowRanges", "marks"] {
+            assert!(v.get(key).is_some(), "falta {key}");
+        }
+        let first = &v["tiles"][0];
+        assert_eq!(
+            first["spec"]["rect"],
+            serde_json::json!([[0.0, 25.0], [55.0, 60.0]])
+        );
+        assert_eq!(first["row"], 0);
+        let kind = |e: TileError| serde_json::to_value(e).unwrap();
+        assert_eq!(
+            kind(TileError::Numbers),
+            serde_json::json!({"kind": "numbers"})
+        );
+        assert_eq!(
+            kind(TileError::OverlapNegative),
+            serde_json::json!({"kind": "overlapNegative"})
+        );
+        let e = plan_grid(d, [50.0, 50.0], 50.0, TileOrder::Rows, 0.0).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "tiling: el solape (50 mm) debe ser menor que el tramo (50 x 50 mm)"
+        );
+        let order: TileOrder = serde_json::from_str("\"serpentine\"").unwrap();
+        assert_eq!(order, TileOrder::Serpentine);
     }
 }

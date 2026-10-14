@@ -10,8 +10,11 @@
 //!   todas las máquinas; el galvo se piensa en mm/s, así que la interfaz debe mostrar mm/s y
 //!   guardar `mm/s * 60`. En cambio la velocidad de salto (`jump_speed`) ya es mm/s. El driver
 //!   convierte los mm/min del bloque a la unidad de la tarjeta.
-//! - **Sin overscan.** Los espejos tienen poca inercia: rellenos e imágenes salen con overscan 0
-//!   aunque la capa pida otro valor (se avisa).
+//! - **Sin overscan, salvo que el perfil lo pida.** Los espejos tienen poca inercia: rellenos e
+//!   imágenes salen con overscan 0 aunque la capa pida otro valor (se avisa), a menos que el
+//!   perfil fije `GalvoDevice::overscan_mm`: entonces cada capa usa el suyo si es mayor que 0 y
+//!   si no el del perfil, y el driver recorre esos tramos con el láser apagado a la velocidad de
+//!   marcado.
 //! - **Potencia constante.** El modo dinámico no existe en el galvo: los bloques salen con
 //!   `PowerMode::Constant`.
 //! - **Repeticiones.** `GalvoLayer::repeat` va en `GalvoParams::repeat` (la tarjeta repite el
@@ -58,6 +61,11 @@ pub(crate) struct JobCtx {
 }
 
 impl JobCtx {
+    /// Overscan de rellenos e imágenes del perfil, mm (0 = ninguno).
+    pub fn overscan_mm(&self) -> f64 {
+        self.galvo.overscan_mm
+    }
+
     /// `None` si la máquina no es galvo. Valida el campo y la corrección de cilindro y de cono.
     pub fn new(device: &DeviceProfile) -> Result<Option<JobCtx>, String> {
         if device.kind != DeviceKind::Galvo {
@@ -193,10 +201,13 @@ pub(crate) fn layer_ctx(
             "capa {name}: ppi no tiene efecto en una máquina galvo; se ignora"
         ));
     }
-    if l.mode != LayerMode::Line && l.overscan != Overscan::Auto && l.overscan != Overscan::Mm(0.0)
+    if l.mode != LayerMode::Line
+        && dev.overscan_mm <= 0.0
+        && l.overscan != Overscan::Auto
+        && l.overscan != Overscan::Mm(0.0)
     {
         warnings.push(format!(
-            "capa {name}: el galvo no necesita overscan; se ignora"
+            "capa {name}: el galvo no necesita overscan; se ignora (el perfil puede fijar uno)"
         ));
     }
     let wobble = if gl.wobble.enabled {
@@ -275,21 +286,40 @@ impl LayerCtx {
     }
 }
 
-/// Rellenos sin overscan.
-pub(crate) fn no_overscan_layer(r: &mut ResolvedLayer) {
+/// Overscan que usa una capa de relleno o imagen en el galvo: el suyo si lo fijó en mm, y si no el
+/// del perfil (0 = ninguno).
+fn layer_overscan(own: Overscan, profile_mm: f64) -> f64 {
+    match own {
+        Overscan::Mm(v) if v > 0.0 => v,
+        _ => profile_mm.max(0.0),
+    }
+}
+
+/// Rellenos con el overscan del perfil (sin overscan si el perfil no pide ninguno).
+pub(crate) fn overscan_layer(r: &mut ResolvedLayer, profile_mm: f64) {
     if let ResolvedLayer::Fill {
         settings, overscan, ..
     } = r
     {
-        settings.overscan_mm = 0.0;
-        *overscan = Overscan::Mm(0.0);
+        let mm = if profile_mm > 0.0 {
+            layer_overscan(*overscan, profile_mm)
+        } else {
+            0.0
+        };
+        settings.overscan_mm = mm;
+        *overscan = Overscan::Mm(mm);
     }
 }
 
-/// Imágenes sin overscan.
-pub(crate) fn no_overscan_image(r: &mut ResolvedImage) {
-    r.raster.overscan_mm = 0.0;
-    r.overscan = Overscan::Mm(0.0);
+/// Imágenes con el overscan del perfil (sin overscan si el perfil no pide ninguno).
+pub(crate) fn overscan_image(r: &mut ResolvedImage, profile_mm: f64) {
+    let mm = if profile_mm > 0.0 {
+        layer_overscan(r.overscan, profile_mm)
+    } else {
+        0.0
+    };
+    r.raster.overscan_mm = mm;
+    r.overscan = Overscan::Mm(mm);
 }
 
 /// Perfil de tiempo del galvo para el simulador: sin aceleración apreciable de los ejes (los
@@ -308,6 +338,7 @@ pub(crate) fn sim_profile(g: &GalvoDevice) -> MachineProfile {
         rapid_rate_mm_min: jump_mm_min,
         junction_deviation_mm: 0.0,
         planner_blocks: None,
+        stop_on_cut_change: true,
     }
 }
 

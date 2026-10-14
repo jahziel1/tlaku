@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { t } from '@/i18n';
+import { t, type I18nKey } from '@/i18n';
 import { NumberField } from '@/ui/NumberField';
 import { Modal } from '@/ui/Modal';
 import { CheckRow, ChoiceRow, Hint } from './Fields';
@@ -31,10 +31,11 @@ export interface RememberedOptions {
   dxf: DxfOptions;
   png: PngOptions;
   pdf: PdfOptions;
+  ai: PdfOptions;
 }
 
 export function defaultRemembered(): RememberedOptions {
-  return { svg: { ...DEFAULT_SVG }, dxf: { ...DEFAULT_DXF }, png: { ...DEFAULT_PNG }, pdf: { ...DEFAULT_PDF } };
+  return { svg: { ...DEFAULT_SVG }, dxf: { ...DEFAULT_DXF }, png: { ...DEFAULT_PNG }, pdf: { ...DEFAULT_PDF }, ai: { ...DEFAULT_PDF } };
 }
 
 const DPI_PRESETS = [150, 300, 600] as const;
@@ -91,6 +92,7 @@ export function ExportDialog({ format, print = false, selectionCount, initial, o
         {format === 'dxf' && <DxfFields value={opts.dxf} onChange={(p) => patch('dxf', p)} />}
         {format === 'png' && <PngFields value={opts.png} onChange={(p) => patch('png', p)} />}
         {format === 'pdf' && <PdfFields value={opts.pdf} onChange={(p) => patch('pdf', p)} />}
+        {format === 'ai' && <PdfFields value={opts.ai} onChange={(p) => patch('ai', p)} hint="fileio.ai.hint" />}
       </div>
       <div className="modal__foot">
         <button type="button" className="btn" onClick={() => onDone(null)}>{t('fileio.export.cancel')}</button>
@@ -167,10 +169,10 @@ function PngFields({ value, onChange }: FieldsProps<PngOptions>) {
   );
 }
 
-function PdfFields({ value, onChange }: FieldsProps<PdfOptions>) {
+function PdfFields({ value, onChange, hint = 'fileio.pdf.hint' }: FieldsProps<PdfOptions> & { hint?: I18nKey }) {
   return (
     <>
-      <Hint>{t('fileio.pdf.hint')}</Hint>
+      <Hint>{t(hint)}</Hint>
       <ChoiceRow
         legend={t('fileio.pdf.page')}
         value={value.page}

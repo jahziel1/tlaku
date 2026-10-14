@@ -10,7 +10,9 @@
 //! - Planificador de `planner_blocks` bloques: una línea de movimiento recibe `ok` al entrar;
 //!   con el planificador lleno el intérprete se bloquea (y el RX se acumula).
 //! - Estados y comandos en tiempo real de GRBL 1.1 (y extras de grblHAL).
-//! - Cinemática trapezoidal simple, láser M3/M4/M5 con `$32`, rastro del láser.
+//! - Cinemática trapezoidal con planificador de velocidades de GRBL: pasada hacia atrás sobre
+//!   los bloques del búfer (la ventana) y velocidad de unión por desviación de unión (`$11`).
+//!   Láser M3/M4/M5 con `$32`, rastro del láser.
 
 mod access;
 mod dollar;
@@ -33,8 +35,6 @@ use crate::trace::{LaserTrace, SpindleMode};
 const STEP: Duration = Duration::from_millis(1);
 /// Velocidad mínima (mm/s) para que un bloque siempre termine.
 const MIN_SPEED: f64 = 0.5;
-/// Velocidad mínima de paso por una esquina (mm/s).
-const MIN_JUNCTION: f64 = 2.0;
 /// Máximo de bytes crudos de una línea antes de descartar el resto.
 const MAX_RAW_LINE: usize = 2048;
 
@@ -97,6 +97,8 @@ struct Pending {
     awaiting_resume: bool,
     homing: bool,
 }
+
+type PlanKey = (u64, u32, u32, [u64; 7]);
 
 struct Exec {
     block: Block,
@@ -178,6 +180,12 @@ pub struct Machine {
     pos: [f64; 3],
     v: f64,
     planner: VecDeque<Block>,
+    /// Cambia cada vez que se altera el planificador; invalida `plan_cache`.
+    plan_gen: u64,
+    /// Última velocidad de salida calculada por el planificador y la clave con que se calculó.
+    plan_cache: Option<(PlanKey, f64)>,
+    /// Distancia que el último bloque recorrió de más en su paso final (mm).
+    carry: f64,
     current: Option<Exec>,
     block_seq: u64,
     pending: Option<Pending>,

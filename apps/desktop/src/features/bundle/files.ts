@@ -1,4 +1,7 @@
 import { getApi, getApiKind, type UserBundle } from '@/api';
+import { loadUserArt } from '@/features/art/actions';
+import { useArtPanel } from '@/features/art/artStore';
+import { loadCameraSetup } from '@/features/camera/actions';
 import { baseName, withExtension } from '@/features/history/paths';
 import { useMaterials } from '@/features/materials/state';
 import { loadMaterials } from '@/features/materials/actions';
@@ -35,9 +38,19 @@ export async function exportUserBundle(sections: SectionChoice): Promise<boolean
   const s = useStore.getState();
   try {
     if (sections.materials) await loadMaterials();
+    if (sections.cameras) await loadCameraSetup();
+    if (sections.art) await loadUserArt();
     const app = await getApi().appVersion().catch(() => '');
     const bundle = buildUserBundle(
-      { devices: s.devices, activeDeviceId: s.activeDeviceId, library: useMaterials.getState().library, prefs: s.prefs, shortcuts: s.shortcutOverrides },
+      {
+        devices: s.devices,
+        activeDeviceId: s.activeDeviceId,
+        library: useMaterials.getState().library,
+        prefs: s.prefs,
+        shortcuts: s.shortcutOverrides,
+        cameras: useStore.getState().cameraSetup,
+        userArt: useArtPanel.getState().user,
+      },
       { sections, app },
     );
     await getApi().exportUserBundle({ path, bundle });

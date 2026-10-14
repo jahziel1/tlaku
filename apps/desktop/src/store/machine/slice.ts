@@ -11,13 +11,14 @@ import { connectionPortId } from '@/features/machine/DeviceConnectionModel';
 import { isGalvoUsbPort } from '@/features/machine/galvoPorts';
 import { portForDevice } from '@/features/machine/ruidaPorts';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
+import { noteJobAlarm, noteJobEvent, type JobLogContext } from '@/features/help/jobLog';
 import { t } from '@/i18n';
-import { docToWork, parseGrblSettings, type GrblSettings } from '@/lib/device';
+import { docToWork, isGrblFamily, parseGrblSettings, type GrblSettings } from '@/lib/device';
 import { errorMessage } from '@/lib/errors';
 import { fmt, readPref, writePref } from '@/lib/platform';
 import { buildJobArgs, isJobBusy, selectActiveDevice } from '../selectors';
 import type { AppState, SliceCreator } from '../types';
-import { INITIAL_MACHINE_DATA, reduceMachine, type MachineData, type MachineDialog, type MachineEvent } from './reducer';
+import { INITIAL_MACHINE_DATA, jobElapsedSeconds, reduceMachine, type MachineData, type MachineDialog, type MachineEvent } from './reducer';
 import { selectIsVirtual, jogBlockedReason, positionLaserBlockedReason, overrideBlockedReason, frameMarkOf, sendBlockedReason, type FrameMark } from './selectors';
 
 // ---------------------------------------------------------------------------
@@ -76,6 +77,11 @@ export interface MachineSlice extends MachineData {
   /** Mueve la cabeza a una posición del documento (mm, Y arriba), con el láser apagado. */
   goToDocPoint: (x: number, y: number) => Promise<boolean>;
   setPositioningLaser: (on: boolean) => void;
+  /** «Posicionar»: lleva el puntero rojo (en vez del rayo) al punto clicado, usando el desfase del perfil. */
+  positionAtPointer: boolean;
+  setPositionAtPointer: (on: boolean) => void;
+  /** Lleva la cabeza a donde el puntero rojo cae en (`x`, `y`) del documento (rayo = punto - desfase). */
+  goToPointerDocPoint: (x: number, y: number) => Promise<boolean>;
   /** Un clic en la cama en modo "Posicionar el láser": `x`, `y` en mm del documento (Y arriba). */
   positionLaserAt: (x: number, y: number) => Promise<void>;
   /** Lleva el override en vivo de velocidad o potencia a `percent` por ciento (10 a 200). */
@@ -201,6 +207,19 @@ async function waitIdleThen(get: () => AppState, action: () => Promise<void>): P
 export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
   const apply = (ev: MachineEvent) => set((s) => reduceMachine(pickData(s), ev, Date.now()));
 
+  /** Lo que el registro de trabajos (`features/help/jobLog.ts`) anota de un trabajo: máquina, archivo y tiempos. */
+  const jobLogContext = (): JobLogContext => {
+    const s = get();
+    const now = Date.now();
+    return {
+      now,
+      machine: selectActiveDevice(s).name,
+      document: s.filePath ? (s.filePath.split(/[\\/]/).pop() ?? s.filePath) : null,
+      estimatedS: s.previewStatus === 'ready' && s.preview && !s.previewStale ? s.preview.total_s : null,
+      elapsedS: jobElapsedSeconds(s, now),
+    };
+  };
+
   /** Ejecuta una llamada al motor y convierte el rechazo en un aviso. Devuelve si salió bien. */
   const guard = async (fn: () => Promise<unknown>): Promise<boolean> => {
     try {
@@ -255,6 +274,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     jogSpeed: initialJogSpeed(),
     finish: readFinish(),
     positioningLaser: false,
+    positionAtPointer: false,
     jogging: false,
     dialog: null,
     dialogHosts: [],
@@ -301,6 +321,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         // Mejor esfuerzo: sirve para el aviso de modo láser y para sugerir $H o $X ante una alarma.
         // Ruida y el K40 no tienen ajustes `$`: Ruida lee su información desde el panel Máquina.
         if (device.kind !== 'ruida' && device.kind !== 'lhy_micro' && device.kind !== 'galvo') void get().readSettings({ silent: true });
+        // Auto-home al conectar (opción del perfil): nunca sale solo; se pide la misma confirmación que el homing a mano.
+        if (device.home_on_connect && isGrblFamily(device.kind)) get().openDialog({ kind: 'alarm', action: 'home' });
       } catch (e) {
         get().notify('error', errorMessage(e));
       } finally {
@@ -420,7 +442,13 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     positionLaserAt: async (x, y) => {
       if (!get().positioningLaser) return;
-      await get().goToDocPoint(x, y);
+      if (get().positionAtPointer) await get().goToPointerDocPoint(x, y);
+      else await get().goToDocPoint(x, y);
+    },
+    setPositionAtPointer: (on) => set({ positionAtPointer: on }),
+    goToPointerDocPoint: async (x, y) => {
+      const [ox, oy] = selectActiveDevice(get()).pointer_offset ?? [0, 0];
+      return get().goToDocPoint(round3(x - ox), round3(y - oy));
     },
     setOverride: async (kind, percent) => {
       const why = overrideBlockedReason(get());
@@ -548,14 +576,21 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       await get().sendLine(action === 'unlock' ? '$X' : '$H', { confirmed: true });
     },
 
-    onStatus: (report) => apply({ type: 'status', report }),
+    onStatus: (report) => {
+      const was = isJobBusy(get());
+      apply({ type: 'status', report });
+      // Una alarma en pleno trabajo lo da por fallido sin un evento propio: se anota aquí.
+      if (was && get().jobState === 'error') noteJobAlarm(report.state, jobLogContext());
+    },
     onProgress: (progress) => apply({ type: 'progress', progress }),
     onLog: (log) => {
       apply({ type: 'log', log });
       if (log.dir === 'in') get().noteFrameLog(log.text);
     },
     onJob: (job) => {
+      const wasBusy = isJobBusy(get());
       apply({ type: 'job', job });
+      noteJobEvent(wasBusy, job, jobLogContext());
       get().onGalvoJob(job);
       if (job.state === 'finished') {
         get().notify('success', job.message);

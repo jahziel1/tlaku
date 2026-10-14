@@ -1,5 +1,5 @@
 import type { DeviceProfile, Point } from '@/api/types';
-import { docDeltaToWork, workToDoc } from '@/lib/device';
+import { docDeltaToWork, workToDoc, type DeviceFrame } from '@/lib/device';
 
 /** Pasos del jog en mm. */
 export const JOG_STEPS = [0.1, 1, 10, 50] as const;
@@ -56,7 +56,7 @@ export function modifiedStep(step: number, mods: { shift?: boolean; alt?: boolea
 }
 
 /** Desplazamiento relativo de G-code para un paso en la dirección `dir` (según el origen del perfil). */
-export function stepDelta(device: Pick<DeviceProfile, 'origin'>, dir: JogDir, step: number): Point {
+export function stepDelta(device: Pick<DeviceProfile, 'origin'> & Partial<Pick<DeviceProfile, 'swap_xy' | 'rotary'>>, dir: JogDir, step: number): Point {
   const [dx, dy] = docDeltaToWork(device, dir.x * step, dir.y * step);
   return [round3(dx) + 0, round3(dy) + 0]; // `+ 0` evita el -0
 }
@@ -66,7 +66,7 @@ export function stepDelta(device: Pick<DeviceProfile, 'origin'>, dir: JogDir, st
  * (así un jog que no se cancele nunca sale de la cama). Devuelve null si no se conoce la posición
  * o no queda recorrido. `work` es la posición de trabajo de la máquina.
  */
-export function continuousDelta(device: Pick<DeviceProfile, 'bed' | 'origin'>, dir: JogDir, work: Point | null): Point | null {
+export function continuousDelta(device: DeviceFrame, dir: JogDir, work: Point | null): Point | null {
   if (!work) return null;
   const [hx, hy] = workToDoc(device, work);
   const room = (u: number, pos: number, size: number) => (u > 0 ? size - pos : u < 0 ? pos : Infinity);

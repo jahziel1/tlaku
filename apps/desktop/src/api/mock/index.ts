@@ -19,6 +19,8 @@ import { mockShapes } from './shapes';
 import { mockText } from './text';
 import { mockTrace } from './trace';
 import { mockTraceExtras } from './traceExtras';
+import { mockImages } from './images';
+import { mockLayout } from './layout';
 import { mockVariables } from './variables';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, Document } from '../types';
@@ -95,7 +97,25 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     saveDevice: ({ device }) =>
       lag(() => {
         devices.set(device.id, clone(device));
+        // Solo un perfil se activa al abrir: el último en marcarse quita la marca a los demás.
+        if (device.is_default) for (const d of devices.values()) if (d.id !== device.id) d.is_default = false;
       }),
+    reorderDevices: ({ ids }) =>
+      lag(() => {
+        const rest = new Map(devices);
+        const sorted = new Map<string, DeviceProfile>();
+        for (const id of ids) {
+          const d = rest.get(id);
+          if (d) {
+            sorted.set(id, d);
+            rest.delete(id);
+          }
+        }
+        for (const [id, d] of rest) sorted.set(id, d);
+        devices.clear();
+        for (const [id, d] of sorted) devices.set(id, d);
+      }),
+    jobLinkWarning: () => lag(() => null),
     deleteDevice: ({ id }) =>
       lag(() => {
         devices.delete(id);
@@ -199,6 +219,9 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         if (!galvo.waiting) throw new Error('Ningún paso del trabajo espera que muevas el material.');
         galvo.waiting = null;
       }),
+    galvoFrame: ({ shape, loops, gap_mm, ...job }) => lag(() => galvo.frame(job, shape, loops ?? null, gap_mm ?? null)),
+    galvoAdjustFrame: ({ dx, dy, scale }) => lag(() => galvo.adjustFrame(dx, dy, scale)),
+    galvoVerify: ({ device, port, galvo_ack }) => lag(() => galvo.verify(device, port, galvo_ack)),
 
     ...mockText(lag),
     ...mockVariables(lag),
@@ -209,6 +232,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockDesign(lag),
     ...mockTrace(lag),
     ...mockTraceExtras(lag),
+    ...mockImages(lag),
+    ...mockLayout(lag),
     ...mockNest(lag),
     ...mockCamera(lag),
     ...mockMaterials(lag),

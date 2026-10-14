@@ -272,9 +272,14 @@ impl LinkProfile {
         }
     }
 
-    /// Enlace de un perfil de máquina (`kind`, `dialect` y `rx_buffer` del perfil).
+    /// Enlace de un perfil de máquina (`kind`, `dialect`, `rx_buffer` y `sync_streaming` del perfil).
     pub fn for_device(device: &DeviceProfile) -> Self {
-        Self::for_kind(device.kind, &device.dialect, device.rx_buffer as usize)
+        let link = Self::for_kind(device.kind, &device.dialect, device.rx_buffer as usize);
+        if device.sync_streaming {
+            link.with_sync_streaming()
+        } else {
+            link
+        }
     }
 
     /// Activa (o no) el `EMERGENCY_PARSER` de Marlin. Con él, pausar también manda `M0` y
@@ -299,6 +304,17 @@ impl LinkProfile {
     pub fn with_line_numbering(mut self) -> Self {
         if self.family == LinkFamily::Marlin {
             self.line_numbering = Some(LineNumbering);
+        }
+        self
+    }
+
+    /// Envío síncrono: una línea por `ok` en vez de conteo de caracteres. Es más lento (la
+    /// máquina espera entre líneas) pero no depende de contar bytes del búfer, y sirve con placas
+    /// que pierden datos con el búfer lleno. En las familias que ya envían una línea por vez
+    /// (Marlin, Smoothieware) no cambia nada. La longitud máxima de línea sigue siendo el búfer RX.
+    pub fn with_sync_streaming(mut self) -> Self {
+        if let FlowControl::CharCounting { rx_buffer } = self.flow {
+            self.flow = FlowControl::ping_pong(rx_buffer);
         }
         self
     }
@@ -360,6 +376,28 @@ pub fn numbered_line(n: usize, text: &str, _numbering: LineNumbering) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sync_streaming_is_off_by_default_and_ping_pong_when_asked() {
+        let mut dev = DeviceProfile::default();
+        assert_eq!(
+            LinkProfile::for_device(&dev).flow,
+            FlowControl::CharCounting { rx_buffer: 127 }
+        );
+        dev.sync_streaming = true;
+        let l = LinkProfile::for_device(&dev);
+        assert!(l.flow.is_ping_pong());
+        // La longitud máxima de línea sigue siendo el búfer; el resto del enlace no cambia.
+        assert_eq!(l.flow.max_line_len(), 127);
+        assert_eq!(l.ack, LinkProfile::grbl().ack);
+        assert!(l.polls_during_job());
+        // Marlin ya es ping-pong: no cambia.
+        dev.kind = DeviceKind::Marlin;
+        assert_eq!(
+            LinkProfile::for_device(&dev).flow,
+            LinkProfile::marlin(&dev.dialect).flow
+        );
+    }
 
     #[test]
     fn grbl_link_matches_the_historical_behaviour() {

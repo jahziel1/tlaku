@@ -80,26 +80,32 @@ impl Worker {
 
     // ---- encuadre ----------------------------------------------------------
 
-    pub(super) fn run_light(&mut self, shape: &LightShape, reply: Reply<()>) {
+    pub(super) fn run_light(&mut self, shape: &LightShape, loops: Option<u32>, reply: Reply<()>) {
         let ctl = self.shared.control.clone();
         self.log(
             LogDir::Out,
             "; encuadre con el puntero rojo (la fuente NO se habilita); Detener para terminar",
         );
         self.publish(MachineState::Run);
+        self.shared.framing.store(true, Ordering::SeqCst);
         let mut reply = Some(reply);
         let sink = self.sink.clone();
         let every = self.timing.light_interval;
         let mut last_emit: Option<Instant> = None;
-        let result = self.session.light(shape, &ctl, None, &mut |p| {
+        let result = self.session.light(shape, &ctl, loops, &mut |p| {
             if let Some(r) = reply.take() {
                 let _ = r.send(Ok(()));
             }
             if last_emit.is_none_or(|t| t.elapsed() >= every) {
                 last_emit = Some(Instant::now());
-                sink.emit(Emit::Galvo(GalvoEvent::Light { loops: p.loops }));
+                sink.emit(Emit::Galvo(GalvoEvent::Light {
+                    loops: p.loops,
+                    adjust_gen: p.adjust_gen,
+                    adjust_rejected: p.adjust_rejected,
+                }));
             }
         });
+        self.shared.framing.store(false, Ordering::SeqCst);
         self.shared.red_on.store(false, Ordering::SeqCst);
         self.set_position(None);
         self.publish(MachineState::Idle);

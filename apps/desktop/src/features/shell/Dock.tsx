@@ -1,28 +1,11 @@
-import { ArrowDown, ArrowUp, Camera, Cpu, History, Layers, Library, SlidersHorizontal, StickyNote, Terminal } from 'lucide-react';
+import { AppWindow, ArrowDown, ArrowUp, PanelLeft, PanelRight, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { useCommand } from '@/commands/useCommand';
-import { CameraPanel } from '@/features/camera';
-import { HistoryPanel } from '@/features/history';
-import { ConsolePanel, MachinePanel } from '@/features/machine';
-import { LayersPanel } from '@/features/layers';
-import { MaterialsPanel } from '@/features/materials';
 import { t, type I18nKey } from '@/i18n';
-import { DEFAULT_DOCK_LAYOUT, moveDockTab, nudgeDockTab, setDockTabHidden, visibleTabs } from '@/lib/dockLayout';
+import { DEFAULT_DOCK_LAYOUT, dockFloatingTab, floatDockTab, isFloating, moveDockTab, nudgeDockTab, setDockSide, setDockTabHidden, setToolsSide, visibleTabs } from '@/lib/dockLayout';
 import { usePref, useStore } from '@/store';
 import { DOCK_MAX, DOCK_MIN, type DockTab } from '@/store/view';
-import { HISTORY_TAB } from './dockTabs';
-import { NotesPanel } from './NotesPanel';
-
-const TABS: { id: DockTab; icon: typeof Layers; cmd: string; label: I18nKey }[] = [
-  { id: 'layers', icon: Layers, cmd: 'panel.layers', label: 'dock.layers' },
-  { id: 'machine', icon: Cpu, cmd: 'panel.machine', label: 'dock.machine' },
-  { id: 'console', icon: Terminal, cmd: 'panel.console', label: 'dock.console' },
-  { id: HISTORY_TAB, icon: History, cmd: 'panel.history', label: 'history.dock.title' },
-  { id: 'camera', icon: Camera, cmd: 'panel.camera', label: 'dock.camera' },
-  { id: 'materials', icon: Library, cmd: 'panel.materials', label: 'dock.materials' },
-  { id: 'notes', icon: StickyNote, cmd: 'panel.notes', label: 'canvas.dock.notes' },
-];
-const TAB_BY_ID = new Map(TABS.map((x) => [x.id, x]));
+import { PanelBody, TAB_BY_ID, type DockTabDef } from './dockPanels';
 
 /** Qué pestaña se arrastra y sobre cuál va a caer (antes o después de ella). */
 interface DropState {
@@ -39,7 +22,7 @@ interface TabDnd {
   end: () => void;
 }
 
-function Tab({ id, icon: Icon, cmd, label, onKey, compact, dnd }: (typeof TABS)[number] & { onKey: (e: KeyboardEvent, id: DockTab) => void; compact: boolean; dnd: TabDnd }) {
+function Tab({ id, icon: Icon, cmd, label, onKey, compact, dnd, onFloat }: DockTabDef & { onFloat: (id: DockTab) => void; onKey: (e: KeyboardEvent, id: DockTab) => void; compact: boolean; dnd: TabDnd }) {
   const c = useCommand(cmd);
   return (
     <button
@@ -61,6 +44,7 @@ function Tab({ id, icon: Icon, cmd, label, onKey, compact, dnd }: (typeof TABS)[
       // Sin texto visible, el nombre accesible sale de aquí (y el tooltip de `title`).
       aria-label={compact ? t(label) : undefined}
       onClick={c.run}
+      onDoubleClick={() => onFloat(id)}
       onKeyDown={(e) => onKey(e, id)}
     >
       <Icon size={15} aria-hidden="true" />
@@ -98,9 +82,20 @@ function useCompactTabs(list: RefObject<HTMLDivElement | null>): boolean {
   return compact;
 }
 
+/** Saca una pestaña del panel a una ventana flotante y la deja abierta (si no es la última acoplada). */
+function floatTab(id: DockTab): void {
+  const s = useStore.getState();
+  const next = floatDockTab(s.prefs.dockLayout, id);
+  if (next === s.prefs.dockLayout) return;
+  s.setPref('dockLayout', next);
+  s.setDockTab(id);
+}
+
 /**
- * Menú para mostrar u ocultar cada pestaña y cambiar su orden con flechas (lo mismo que arrastrar
- * las pestañas, para teclado y para quien no use el ratón). Se cierra con Esc o al hacer clic fuera.
+ * Menú para personalizar la distribución: mostrar u ocultar cada pestaña, cambiar su orden con
+ * flechas (lo mismo que arrastrar las pestañas, para teclado y para quien no use el ratón), sacarla
+ * a una ventana flotante o devolverla, y elegir el borde del panel y de las herramientas. Se cierra
+ * con Esc o al hacer clic fuera.
  */
 function TabsMenu({ onClose }: { onClose: () => void }) {
   const layout = usePref('dockLayout');
@@ -141,19 +136,34 @@ function TabsMenu({ onClose }: { onClose: () => void }) {
       <ul className="dock__menu-list">
         {layout.order.map((id) => {
           const tab = TAB_BY_ID.get(id)!;
+          const floating = isFloating(layout, id);
           const isShown = shown.includes(id);
+          const checked = isShown || (floating && !layout.hidden.includes(id));
           const i = shown.indexOf(id);
+          const canFloat = floating || (isShown && shown.length > 1);
+          const floatLabel = floating ? t('prefs.dock.dockBack') : t('prefs.dock.float');
           return (
             <li key={id} className="dock__menu-row">
               <label className="dock__menu-check">
                 <input
                   type="checkbox"
-                  checked={isShown}
+                  checked={checked}
                   disabled={isShown && shown.length <= 1}
                   onChange={(e) => hide(id, !e.target.checked)}
                 />
                 <span>{t(tab.label)}</span>
               </label>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-pressed={floating}
+                disabled={!canFloat || (!floating && !isShown)}
+                title={floatLabel}
+                aria-label={`${floatLabel}: ${t(tab.label)}`}
+                onClick={() => (floating ? setPref('dockLayout', dockFloatingTab(layout, id)) : floatTab(id))}
+              >
+                <AppWindow size={14} aria-hidden="true" />
+              </button>
               <button type="button" className="icon-btn" disabled={!isShown || i <= 0} title={t('canvas.dock.moveUp')} aria-label={`${t('canvas.dock.moveUp')}: ${t(tab.label)}`} onClick={() => setPref('dockLayout', nudgeDockTab(layout, id, -1))}>
                 <ArrowUp size={14} aria-hidden="true" />
               </button>
@@ -164,7 +174,9 @@ function TabsMenu({ onClose }: { onClose: () => void }) {
           );
         })}
       </ul>
-      <p className="hint">{t('canvas.dock.hint')}</p>
+      <SideChoice label="prefs.dock.panelSide" value={layout.side} onChange={(side) => setPref('dockLayout', setDockSide(layout, side))} />
+      <SideChoice label="prefs.dock.toolsSide" value={layout.toolsSide} onChange={(side) => setPref('dockLayout', setToolsSide(layout, side))} />
+      <p className="hint">{t('canvas.dock.hint')} {t('prefs.dock.hintFloat')}</p>
       <button type="button" className="btn" onClick={() => setPref('dockLayout', DEFAULT_DOCK_LAYOUT)}>
         {t('canvas.dock.reset')}
       </button>
@@ -172,10 +184,29 @@ function TabsMenu({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Elegir entre el borde izquierdo y el derecho. */
+function SideChoice({ label, value, onChange }: { label: I18nKey; value: 'left' | 'right'; onChange: (side: 'left' | 'right') => void }) {
+  return (
+    <div className="dock__side" role="radiogroup" aria-label={t(label)}>
+      <span className="dock__side-label">{t(label)}</span>
+      {(['left', 'right'] as const).map((side) => {
+        const Icon = side === 'left' ? PanelLeft : PanelRight;
+        const text = t(side === 'left' ? 'prefs.dock.left' : 'prefs.dock.right');
+        return (
+          <button key={side} type="button" role="radio" aria-checked={value === side} className="icon-btn" title={text} aria-label={`${t(label)}: ${text}`} onClick={() => onChange(side)}>
+            <Icon size={14} aria-hidden="true" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
- * Panel acoplado a la derecha con pestañas (Capas, Máquina, Consola, Historial, Cámara, Materiales y
- * Notas). Las pestañas se reordenan arrastrándolas (o con Alt+Mayús+flechas) y se pueden mostrar u
- * ocultar desde el botón de la derecha; el orden y lo oculto se guardan en las preferencias.
+ * Panel acoplado al borde izquierdo o derecho con pestañas (Capas, Máquina, Consola, Historial,
+ * Cámara, Materiales y Notas). Las pestañas se reordenan arrastrándolas (o con Alt+Mayús+flechas),
+ * se pueden mostrar u ocultar desde el botón de personalizar y se sacan a una ventana flotante con
+ * doble clic (o desde ese mismo menú); todo se guarda en las preferencias.
  */
 export function Dock() {
   const tab = useStore((s) => s.dockTab);
@@ -190,14 +221,17 @@ export function Dock() {
   const [menu, setMenu] = useState(false);
   const [dragging, setDragging] = useState<DockTab | null>(null);
   const [drop, setDrop] = useState<DropState | null>(null);
+  const leftSide = layout.side === 'left';
 
   const shown = visibleTabs(layout);
   const list = shown.map((id) => TAB_BY_ID.get(id)!);
-  // Una pestaña oculta (por las preferencias) no puede estar abierta.
+  // Una pestaña oculta (por las preferencias) no puede estar abierta. Si la elegida está flotando,
+  // se ve en su ventana y el panel muestra la primera pestaña acoplada.
   const active: DockTab = shown.includes(tab) ? tab : (shown[0] ?? 'layers');
+  const tabFloating = isFloating(layout, tab) && !layout.hidden.includes(tab);
   useEffect(() => {
-    if (active !== tab) setTab(active);
-  }, [active, tab, setTab]);
+    if (active !== tab && !tabFloating) setTab(active);
+  }, [active, tab, tabFloating, setTab]);
 
   const onTabKey = (e: KeyboardEvent, id: DockTab) => {
     if (e.altKey && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
@@ -245,16 +279,18 @@ export function Dock() {
     },
   };
 
+  // El borde que se arrastra para cambiar el ancho está del lado del lienzo.
+  const dir = leftSide ? -1 : 1;
   const onGripDown = (e: PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { x: e.clientX, w: width };
   };
   const onGripMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (drag.current) setWidth(drag.current.w + (drag.current.x - e.clientX));
+    if (drag.current) setWidth(drag.current.w + dir * (drag.current.x - e.clientX));
   };
 
   return (
-    <aside className="dock" style={{ width }} aria-label={t('dock.label')}>
+    <aside className={leftSide ? 'dock dock--left' : 'dock'} style={{ width }} aria-label={t('dock.label')}>
       <div
         className="dock__grip"
         role="separator"
@@ -268,14 +304,14 @@ export function Dock() {
         onPointerMove={onGripMove}
         onPointerUp={() => (drag.current = null)}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowLeft') setWidth(width + 16);
-          if (e.key === 'ArrowRight') setWidth(width - 16);
+          if (e.key === 'ArrowLeft') setWidth(width + 16 * dir);
+          if (e.key === 'ArrowRight') setWidth(width - 16 * dir);
         }}
       />
       <div className="dock__tabbar">
         <div ref={listRef} role="tablist" aria-label={t('dock.label')} className="tabs">
           {list.map((x) => (
-            <Tab key={x.id} {...x} onKey={onTabKey} compact={compact} dnd={dnd} />
+            <Tab key={x.id} {...x} onKey={onTabKey} compact={compact} dnd={dnd} onFloat={floatTab} />
           ))}
         </div>
         <button
@@ -293,13 +329,7 @@ export function Dock() {
         {menu && <TabsMenu onClose={() => setMenu(false)} />}
       </div>
       <div role="tabpanel" id={`tabpanel-${active}`} aria-labelledby={`tab-${active}`} className="dock__body">
-        {active === 'layers' && <LayersPanel />}
-        {active === 'machine' && <MachinePanel />}
-        {active === 'console' && <ConsolePanel />}
-        {active === HISTORY_TAB && <HistoryPanel />}
-        {active === 'camera' && <CameraPanel />}
-        {active === 'materials' && <MaterialsPanel />}
-        {active === 'notes' && <NotesPanel />}
+        <PanelBody id={active} />
       </div>
     </aside>
   );

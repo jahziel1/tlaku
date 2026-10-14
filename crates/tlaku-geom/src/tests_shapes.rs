@@ -535,3 +535,165 @@ fn ranuras_con_parametros_invalidos_no_cambian_nada() {
     assert_eq!(rep, SlotReport::default());
     assert_eq!(out[0], piece());
 }
+
+// --- revertir un redondeo ---
+
+fn pt_close(a: Point, b: Point) -> bool {
+    a.dist(b) < 1e-6
+}
+
+/// Vértices (nodos) de una trayectoria, sin repetir el de cierre.
+fn nodes_of(path: &BezPath) -> Vec<Point> {
+    let mut v: Vec<Point> = path
+        .0
+        .iter()
+        .filter_map(|s| match *s {
+            PathSeg::MoveTo { to }
+            | PathSeg::LineTo { to }
+            | PathSeg::QuadTo { to, .. }
+            | PathSeg::CubicTo { to, .. } => Some(to),
+            PathSeg::Close => None,
+        })
+        .collect();
+    if v.len() > 1 && v[0].dist(*v.last().unwrap()) < 1e-9 {
+        v.pop();
+    }
+    v
+}
+
+#[test]
+fn unfillet_devuelve_a_punta_una_esquina_redondeada() {
+    let r = fillet_path(&square_path(), &opts(2.0, FilletStyle::Round), None);
+    let back = unfillet_path(&r.path, pt(10.0, 10.0), 3.0).expect("debe revertir");
+    // La esquina (10, 10) vuelve; las otras tres siguen redondeadas.
+    assert!(
+        nodes_of(&back.path)
+            .iter()
+            .any(|p| pt_close(*p, pt(10.0, 10.0)))
+    );
+    let expected = 100.0 - 3.0 * (4.0 - PI);
+    assert!(
+        (area_of(&back.path) - expected).abs() < 0.01,
+        "{}",
+        area_of(&back.path)
+    );
+    // Una distancia razonable al clic (el arco pasa a ~0,83 mm del vértice).
+    assert!(back.distance < 1.0);
+}
+
+#[test]
+fn unfillet_de_las_cuatro_esquinas_recupera_el_cuadrado() {
+    let mut path = fillet_path(&square_path(), &opts(2.0, FilletStyle::Round), None).path;
+    for c in [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)] {
+        path = unfillet_path(&path, pt(c.0, c.1), 3.0)
+            .expect("revierte")
+            .path;
+    }
+    assert!((area_of(&path) - 100.0).abs() < 1e-6);
+    let nodes = nodes_of(&path);
+    assert_eq!(nodes.len(), 4);
+    for c in [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)] {
+        assert!(nodes.iter().any(|p| pt_close(*p, pt(c.0, c.1))), "{c:?}");
+    }
+}
+
+#[test]
+fn unfillet_ida_y_vuelta_de_una_esquina_es_exacta() {
+    let one = fillet_path(
+        &square_path(),
+        &opts(1.5, FilletStyle::Round),
+        Some(&[pt(0.0, 10.0)]),
+    );
+    let back = unfillet_path(&one.path, pt(0.0, 10.0), 2.0).unwrap();
+    assert!((area_of(&back.path) - 100.0).abs() < 1e-6);
+    assert_eq!(nodes_of(&back.path).len(), 4);
+}
+
+#[test]
+fn unfillet_revierte_el_mordisco() {
+    let r = fillet_path(&square_path(), &opts(2.0, FilletStyle::Bite), None);
+    let back = unfillet_path(&r.path, pt(0.0, 0.0), 2.5).expect("el mordisco se revierte");
+    assert!(
+        nodes_of(&back.path)
+            .iter()
+            .any(|p| pt_close(*p, pt(0.0, 0.0)))
+    );
+    let expected = 100.0 - 3.0 * PI;
+    assert!(
+        (area_of(&back.path) - expected).abs() < 0.02,
+        "{}",
+        area_of(&back.path)
+    );
+}
+
+#[test]
+fn unfillet_no_toca_el_chaflan_ni_las_esquinas_vivas() {
+    let ch = fillet_path(&square_path(), &opts(2.0, FilletStyle::Chamfer), None);
+    assert!(unfillet_path(&ch.path, pt(10.0, 10.0), 3.0).is_none());
+    assert!(unfillet_path(&square_path(), pt(10.0, 10.0), 3.0).is_none());
+}
+
+#[test]
+fn unfillet_ignora_un_clic_lejos_y_arcos_que_no_son_exactos() {
+    let r = fillet_path(&square_path(), &opts(2.0, FilletStyle::Round), None);
+    assert!(unfillet_path(&r.path, pt(5.0, 5.0), 1.0).is_none());
+    // Un círculo (cuatro cúbicas sin rectas) no es una esquina.
+    let k = 0.5523;
+    let circle = BezPath(vec![
+        PathSeg::MoveTo { to: pt(1.0, 0.0) },
+        PathSeg::CubicTo {
+            ctrl1: pt(1.0, k),
+            ctrl2: pt(k, 1.0),
+            to: pt(0.0, 1.0),
+        },
+        PathSeg::CubicTo {
+            ctrl1: pt(-k, 1.0),
+            ctrl2: pt(-1.0, k),
+            to: pt(-1.0, 0.0),
+        },
+        PathSeg::CubicTo {
+            ctrl1: pt(-1.0, -k),
+            ctrl2: pt(-k, -1.0),
+            to: pt(0.0, -1.0),
+        },
+        PathSeg::CubicTo {
+            ctrl1: pt(k, -1.0),
+            ctrl2: pt(1.0, -k),
+            to: pt(1.0, 0.0),
+        },
+        PathSeg::Close,
+    ]);
+    assert!(unfillet_path(&circle, pt(1.0, 0.0), 5.0).is_none());
+    // Una curva cualquiera entre dos rectas (no circular) tampoco.
+    let wavy = BezPath(vec![
+        PathSeg::MoveTo { to: pt(0.0, 0.0) },
+        PathSeg::LineTo { to: pt(8.0, 0.0) },
+        PathSeg::CubicTo {
+            ctrl1: pt(10.0, 0.0),
+            ctrl2: pt(10.0, 0.0),
+            to: pt(10.0, 2.0),
+        },
+        PathSeg::LineTo { to: pt(10.0, 10.0) },
+        PathSeg::LineTo { to: pt(0.0, 10.0) },
+        PathSeg::Close,
+    ]);
+    let hit = unfillet_path(&wavy, pt(9.5, 0.5), 2.0);
+    // Esa curva sí es simétrica y pegada a las rectas pero no es un círculo: no se revierte.
+    assert!(hit.is_none(), "{hit:?}");
+}
+
+#[test]
+fn unfillet_en_un_trazo_abierto_y_con_entradas_raras() {
+    let open = BezPath::from(&poly(
+        &[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)],
+        false,
+    ));
+    let r = fillet_path(&open, &opts(2.0, FilletStyle::Round), None);
+    assert_eq!(r.rounded, 2);
+    let back = unfillet_path(&r.path, pt(10.0, 0.0), 2.0).unwrap();
+    let nodes = nodes_of(&back.path);
+    assert!(nodes.iter().any(|p| pt_close(*p, pt(10.0, 0.0))));
+    assert!(unfillet_path(&r.path, pt(10.0, 0.0), 0.0).is_none());
+    assert!(unfillet_path(&r.path, pt(f64::NAN, 0.0), 1.0).is_none());
+    assert!(unfillet_path(&BezPath(Vec::new()), pt(0.0, 0.0), 1.0).is_none());
+}

@@ -10,6 +10,8 @@ import { DEFAULT_JOB_OPTIONS } from '@/store/preview';
 import { acceptRegistration, addRegistrationMarks, goToCurrentMark, laserBedPosition, resetRegistration, saveLaserPosition, savePickedPoint, takeSelectionAsMarks } from './actions';
 import { PrintCutHost, PrintCutPanel } from './PrintCutPanel';
 import { ResultView } from './StepResult';
+import { computeRegistration } from './flow';
+import type { RegistrationState } from './useRegistration';
 import { usePrintCut } from './printcutStore';
 
 const memory = new Map<string, string>();
@@ -125,7 +127,7 @@ describe('asistente Print & Cut: medir y aceptar', () => {
 
     const before = await api.computeJob({ doc: useStore.getState().doc, device: useStore.getState().devices[0]!, options: { ...DEFAULT_JOB_OPTIONS } });
     useStore.getState().setJobOptions({ start_from: 'current_position' });
-    expect(acceptRegistration()).toBe(true);
+    expect(await acceptRegistration()).toBe(true);
     const o = useStore.getState().jobOptions;
     expect(o.start_from).toBe('absolute'); // Print & Cut pide coordenadas absolutas
     for (let i = 0; i < 6; i++) expect(o.transform![i]).toBeCloseTo(sheet[i]!, 1);
@@ -156,26 +158,37 @@ describe('asistente Print & Cut: medir y aceptar', () => {
   it('no acepta si faltan marcas por medir y «ir a la marca» necesita la máquina', async () => {
     addRegistrationMarks('cross', 2);
     savePickedPoint([5, 5]);
-    expect(acceptRegistration()).toBe(false);
+    expect(await acceptRegistration()).toBe(false);
     expect(useStore.getState().jobOptions.transform).toBeNull();
     expect(await goToCurrentMark()).toBe(false);
   });
 
-  it('el paso de resultado muestra el error residual y los avisos de escala', () => {
+  it('el paso de resultado muestra el error residual y los avisos de escala', async () => {
     const marks = [
       { ids: ['a'], point: [0, 0] as [number, number] },
       { ids: ['b'], point: [200, 100] as [number, number] },
     ];
+    const view = async (physical: ([number, number] | null)[], moved = false) => {
+      const result = await computeRegistration(marks, physical, 'auto');
+      const state: RegistrationState = result ? { status: 'ready', result } : { status: 'incomplete' };
+      return renderToString(<ResultView marks={marks} physical={physical} state={state} moved={moved} />);
+    };
     // La hoja salió un 1 % más grande: debe avisar.
-    const html = renderToString(<ResultView marks={marks} physical={[[0, 0], [202, 101]]} mode="auto" moved={false} />);
+    const html = await view([[0, 0], [202, 101]]);
     expect(html).toContain('Error medio');
     expect(html).toContain('Error máximo');
     expect(html).toContain('más de 0,5 %');
     expect(html).toContain('revisa los avisos'); // el error es bajo pero la escala no
-    const good = renderToString(<ResultView marks={marks} physical={[[3, 2], [203, 102]]} mode="auto" moved={false} />);
+    const good = await view([[3, 2], [203, 102]]);
     expect(good).toContain('pc-verdict--ok');
     expect(good).not.toContain('más de 0,5 %');
-    expect(renderToString(<ResultView marks={marks} physical={[[3, 2], null]} mode="auto" moved={false} />)).toContain('Faltan marcas por medir.');
-    expect(renderToString(<ResultView marks={marks} physical={[[3, 2], [203, 102]]} mode="auto" moved />)).toContain('se movieron o se borraron');
+    expect(await view([[3, 2], null])).toContain('Faltan marcas por medir.');
+    expect(await view([[3, 2], [203, 102]], true)).toContain('se movieron o se borraron');
+    // Mientras el motor responde, se dice que se está calculando.
+    const pending = renderToString(<ResultView marks={marks} physical={[[3, 2], [203, 102]]} state={{ status: 'pending' }} moved={false} />);
+    expect(pending).toContain('Calculando el ajuste');
+    // Un ajuste imposible llega como dato, con su motivo.
+    const bad = renderToString(<ResultView marks={marks} physical={[[0, 0], [0, 0]]} state={{ status: 'ready', result: { ok: false, error: { kind: 'few', need: 2, have: 1 } } }} moved={false} />);
+    expect(bad).toContain('role="alert"');
   });
 });

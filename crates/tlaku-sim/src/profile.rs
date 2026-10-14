@@ -14,10 +14,16 @@ pub struct MachineProfile {
     pub rapid_rate_mm_min: f64,
     /// Desviación de unión (`$11`): cuánto puede "cortar" la esquina el cabezal.
     pub junction_deviation_mm: f64,
-    /// Bloques que ve el planificador. `None` mira todo el programa; `Some(16)`
-    /// imita el búfer de GRBL (el cabezal solo garantiza poder frenar dentro de
-    /// esa ventana).
+    /// Bloques que ve el planificador, contando el que se ejecuta. `None` mira todo el programa;
+    /// `Some(15)` imita el búfer de GRBL 1.1 (el `Bf` que informa; el cabezal solo garantiza
+    /// poder frenar dentro de esa ventana).
     pub planner_blocks: Option<usize>,
+    /// La máquina se detiene al pasar de `Travel` a `Cut` y al revés. `false` en GRBL con modo
+    /// láser (`M4`, `$32=1`): `G0` y `G1` seguidos van al planificador sin sincronizar y se
+    /// toman como cualquier otra esquina, con la desviación de unión. `true` en el resto
+    /// (controladoras que sincronizan o encienden el láser entre movimientos, o de las que no
+    /// hay evidencia): es la opción conservadora.
+    pub stop_on_cut_change: bool,
 }
 
 impl Default for MachineProfile {
@@ -28,7 +34,8 @@ impl Default for MachineProfile {
             accel_mm_s2: [1000.0, 1000.0],
             rapid_rate_mm_min: 12000.0,
             junction_deviation_mm: 0.01,
-            planner_blocks: Some(16),
+            planner_blocks: Some(15),
+            stop_on_cut_change: false,
         }
     }
 }
@@ -50,6 +57,7 @@ impl MachineProfile {
             rapid_rate_mm_min: max_rate[0].max(max_rate[1]),
             junction_deviation_mm: get(11, d.junction_deviation_mm),
             planner_blocks: d.planner_blocks,
+            stop_on_cut_change: d.stop_on_cut_change,
         }
         .sanitized()
     }
@@ -90,6 +98,7 @@ impl MachineProfile {
                 d.junction_deviation_mm
             },
             planner_blocks: self.planner_blocks,
+            stop_on_cut_change: self.stop_on_cut_change,
         }
     }
 }

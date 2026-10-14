@@ -636,7 +636,7 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.dev.err.macro': 'A macro is not valid (empty name, no commands or a rejected line).',
   'machine.dev.uAxis': 'U axis',
   'machine.dev.uAxis.label': 'The machine has a U axis (rotary or another extra axis)',
-  'machine.dev.uAxis.help': 'Enables moving the U axis in the Move window. It does not change the job G-code.',
+  'machine.dev.uAxis.help': 'Enables moving the U axis in the Move window and the job U offset.',
   'machine.dev.laser2': 'Second laser',
   'machine.dev.laser2.label': 'The machine has two lasers',
   'machine.dev.laser2.help': 'Each layer will be able to choose laser 1 or 2. Set the selection commands in “G-code dialect”.',
@@ -658,4 +658,8 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.cmd.macro8': 'Macro 8',
   'machine.cmd.macro9': 'Macro 9',
   'machine.cmd.macro10': 'Macro 10',
+  'machine.dev.uOffset': 'Job U offset',
+  'machine.dev.uOffset.help': 'How far the U axis moves at the start of each job; it is undone at the end (relative moves with the laser off). 0 = U is not touched.',
+  'machine.position.pointer': 'Bring the red pointer to the point',
+  'machine.position.pointer.help': 'The click sends the red pointer there, not the beam: the head goes to the point minus the profile’s pointer offset.',
 };

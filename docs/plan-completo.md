@@ -149,9 +149,9 @@ Cobertura nueva: M37 y M39 pasaron a Hecho. M47 pasó a Parcial. M30, M40, M41, 
 **Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
 
 - *Ola 6, hecho* (`61ec249`): **el galvo en la app** (tipo de máquina, asistente de alta, calibración del campo, controles de capa para frecuencia, retardos, bamboleo y 3D, ejecutar el marcado dividido). Falta validarlo con una tarjeta real (ver la lista de validación).
-- *Ola 6*: lo que el plan prometía en la ola 5 y **no se tocó**: el autoenfoque y optimizar Z (M31), el ajuste de U en los trabajos y el láser 2 con Ruida (M32). Y repetir un trabajo con avance del alimentador (M47) y el alimentador nativo de una controladora DSP.
-- *Ola 6*: que las **imágenes giren con el registro de Print & Cut** (hoy se mueven y escalan, pero no giran).
-- *Ola 6*: **quitar los duplicados**: el cálculo de Print & Cut (`fit_registration`) y el plan de tiling (`plan_tiles`, `tile_marks`) existen en Rust y en TypeScript; la app usa solo los de TypeScript y las funciones de Rust solo las llaman sus pruebas, sin ninguna prueba que compare los dos lados. Decidir cuál se queda (o añadir una prueba cruzada con casos comunes).
+- *Ola 6*: lo que el plan prometía en la ola 5 y **no se tocó**: el autoenfoque y optimizar Z (M31), el ajuste de U en los trabajos y el láser 2 con Ruida (M32). Y el alimentador nativo de una controladora DSP (la repetición con avance, hecha en la ola 6C, solo usa el G-code del perfil).
+- *Ola 6C, hecho*: las **imágenes giran con el registro de Print & Cut** (se vuelven a muestrear sobre la caja girada), los **presets y la vista previa por imagen** (C51) y **repetir un trabajo con avance del alimentador** (M47, desde el diálogo de inicio, solo GRBL).
+- *Ola 6C, hecho*: **sin duplicados**: el ajuste de Print & Cut (`fit_registration`) y el plan de tiling (`plan_grid`) son solo del motor y la app los llama por comandos; la maqueta de TypeScript queda en `api/mock/` para el modo simulado y se comprueba con los mismos casos JSON que el motor (`crates/tlaku-pipeline/tests/cross/`).
 - *Ola 6*: la **lista de validación con hardware real** gana el galvo: la prueba mínima de `docs/hardware/galvo.md` sección 9 (tarjeta y cabezal sin fuente; medir con osciloscopio que el láser queda apagado al cancelar y al desconectar el USB; verificar las unidades de velocidad, frecuencia, potencia y retardos; y solo entonces la fuente), además de Print & Cut con un láser y una cámara reales, el tiling y el alimentador con una máquina real.
 - *Sin fecha*: el `.cor` de EZCAD (se lee su estructura, no se aplica), el marcado al vuelo, EZCAD3/DLC y BSL (fuera de alcance por falta de documentación).
 
@@ -194,7 +194,7 @@ Orden de trabajo (empezó el 2026-10-13):
 |---|---|---|
 | 6A ✓ | Partir archivos grandes (solo mover código) y actualizar `docs/mapa.md` | motor, drivers, app Rust, interfaz y docs |
 | 6B ✓ | Arreglos de la prueba de estrés, prueba de contrato de comandos, Revisar diseño, rendimiento del lienzo | planificador, importación e imágenes, Ruida y avisos de velocidad, G-code y estimado, contrato y humo, Revisar diseño, lienzo |
-| 6C | Pendientes de las olas 3, 4 y 5 (aviso de enlace en Iniciar, curvas del emulador (`junction_speed` y anticipación de 16 bloques), fijar potencia al importar G-code, duplicados entre drivers de la app, paneles flotantes, deformar, M3/M5/M6, M35, M36, M4, D12, M31/M32, Print & Cut, alimentador, duplicados Rust/TS) | por área |
+| 6C ✓ | Pendientes de las olas 3, 4 y 5 (aviso de enlace en Iniciar, curvas del emulador (`junction_speed` y anticipación de 16 bloques), fijar potencia al importar G-code, duplicados entre drivers de la app, paneles flotantes, deformar, M3/M5/M6, M35, M36, M4, D12, M31/M32, Print & Cut, alimentador, duplicados Rust/TS) | por área |
 | 6D | Accesibilidad, job de CI para `smoke-tauri.sh`, reclasificar el galvo en la cobertura, manual y mensajes en inglés, sitio con donaciones, instaladores y actualizaciones, auditoría final, lista de validación con hardware, beta | por área |
 
 - **Arreglos de la prueba de estrés** (lista completa y criterios en
@@ -225,7 +225,7 @@ Orden de trabajo (empezó el 2026-10-13):
 - **Prueba de contrato de comandos:** una prueba automática que compare los argumentos de cada comando de Tauri (Rust) con lo que manda la interfaz (`api.ts`), para que no se repita el fallo de `power_pct`/`s_max`/`duration_ms` (camelCase frente a snake_case), que el modo simulado no detecta. Más una prueba de humo de la app real (Tauri) que llame a cada comando.
 - **Revisar diseño** (sin IA): un botón que analiza el diseño antes de enviar y explica lo que encuentra, con arreglo de un clic: trazos abiertos que deberían cerrarse, líneas duplicadas o encimadas, fragmentos diminutos, nodos de sobra, objetos fuera de la cama, textos sin convertir y capas sin salida. Usa las operaciones que ya existen (unir, cerrar, quitar duplicados, optimizar).
 - Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12).
-- Lo que quedó de la ola 5: M31 y M32, que las imágenes giren con el registro de Print & Cut, repetir trabajos con avance del alimentador y quitar los duplicados de Print & Cut y tiling entre Rust y TypeScript (ver el detalle arriba).
+- Lo que quedó de la ola 5: M31 y M32 (lo demás de esta lista, las imágenes que giran con el registro, repetir con el alimentador y los duplicados Rust/TypeScript, quedó hecho en la ola 6C).
 - Lista de validación con hardware real, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, Print & Cut, el tiling y el alimentador, y el galvo (con el plan de prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin fuente).
 
 ## Ola 7: asistente con IA (opcional)

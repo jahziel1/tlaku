@@ -1,0 +1,289 @@
+{
+  "description": "Casos comunes del plan de tiling: los comprueban el motor (Rust) y la maqueta de la interfaz (TypeScript) con los mismos datos, calculados a mano. Las cruces miden min(0,8 x solape, 6) mm.",
+  "tolerance": 1e-09,
+  "cases": [
+    {
+      "name": "un diseño que cabe es un solo tramo llevado al origen",
+      "design": [[10, 20], [60, 50]],
+      "size": [100, 100],
+      "overlap": 5,
+      "order": "rows",
+      "margin": 0,
+      "expect": {
+        "cols": 1,
+        "rows": 1,
+        "colRanges": [[10, 60]],
+        "rowRanges": [[20, 50]],
+        "tiles": [{"rect": [[10, 20], [60, 50]], "offset": [-10, -20], "row": 0, "col": 0}],
+        "marks": []
+      }
+    },
+    {
+      "name": "100 x 60 en tramos de 55 x 35 con 10 mm de solape",
+      "design": [[0, 0], [100, 60]],
+      "size": [55, 35],
+      "overlap": 10,
+      "order": "rows",
+      "margin": 0,
+      "expect": {
+        "cols": 2,
+        "rows": 2,
+        "colRanges": [[0, 55], [45, 100]],
+        "rowRanges": [[25, 60], [0, 35]],
+        "tiles": [
+          {
+            "rect": [[0, 25], [55, 60]],
+            "offset": [0, -25],
+            "row": 0,
+            "col": 0
+          },
+          {
+            "rect": [[45, 25], [100, 60]],
+            "offset": [-45, -25],
+            "row": 0,
+            "col": 1
+          },
+          {
+            "rect": [[0, 0], [55, 35]],
+            "offset": [0, 0],
+            "row": 1,
+            "col": 0
+          },
+          {
+            "rect": [[45, 0], [100, 35]],
+            "offset": [-45, 0],
+            "row": 1,
+            "col": 1
+          }
+        ],
+        "marks": [
+          [[47, 5], [53, 5]],
+          [[50, 2], [50, 8]],
+          [[47, 30], [53, 30]],
+          [[50, 27], [50, 33]],
+          [[47, 55], [53, 55]],
+          [[50, 52], [50, 58]],
+          [[2, 30], [8, 30]],
+          [[5, 27], [5, 33]],
+          [[92, 30], [98, 30]],
+          [[95, 27], [95, 33]]
+        ]
+      }
+    },
+    {
+      "name": "la serpentina invierte una de cada dos filas",
+      "design": [[0, 0], [100, 60]],
+      "size": [55, 35],
+      "overlap": 10,
+      "order": "serpentine",
+      "margin": 0,
+      "expect": {
+        "cols": 2,
+        "rows": 2,
+        "colRanges": [[0, 55], [45, 100]],
+        "rowRanges": [[25, 60], [0, 35]],
+        "tiles": [
+          {
+            "rect": [[0, 25], [55, 60]],
+            "offset": [0, -25],
+            "row": 0,
+            "col": 0
+          },
+          {
+            "rect": [[45, 25], [100, 60]],
+            "offset": [-45, -25],
+            "row": 0,
+            "col": 1
+          },
+          {
+            "rect": [[45, 0], [100, 35]],
+            "offset": [-45, 0],
+            "row": 1,
+            "col": 1
+          },
+          {
+            "rect": [[0, 0], [55, 35]],
+            "offset": [0, 0],
+            "row": 1,
+            "col": 0
+          }
+        ],
+        "marks": [
+          [[47, 5], [53, 5]],
+          [[50, 2], [50, 8]],
+          [[47, 30], [53, 30]],
+          [[50, 27], [50, 33]],
+          [[47, 55], [53, 55]],
+          [[50, 52], [50, 58]],
+          [[2, 30], [8, 30]],
+          [[5, 27], [5, 33]],
+          [[92, 30], [98, 30]],
+          [[95, 27], [95, 33]]
+        ]
+      }
+    },
+    {
+      "name": "el margen de la cama se suma al desplazamiento",
+      "design": [[0, 0], [100, 60]],
+      "size": [55, 35],
+      "overlap": 10,
+      "order": "rows",
+      "margin": 5,
+      "expect": {
+        "cols": 2,
+        "rows": 2,
+        "colRanges": [[0, 55], [45, 100]],
+        "rowRanges": [[25, 60], [0, 35]],
+        "tiles": [
+          {
+            "rect": [[0, 25], [55, 60]],
+            "offset": [5, -20],
+            "row": 0,
+            "col": 0
+          },
+          {
+            "rect": [[45, 25], [100, 60]],
+            "offset": [-40, -20],
+            "row": 0,
+            "col": 1
+          },
+          {
+            "rect": [[0, 0], [55, 35]],
+            "offset": [5, 5],
+            "row": 1,
+            "col": 0
+          },
+          {
+            "rect": [[45, 0], [100, 35]],
+            "offset": [-40, 5],
+            "row": 1,
+            "col": 1
+          }
+        ],
+        "marks": [
+          [[47, 5], [53, 5]],
+          [[50, 2], [50, 8]],
+          [[47, 30], [53, 30]],
+          [[50, 27], [50, 33]],
+          [[47, 55], [53, 55]],
+          [[50, 52], [50, 58]],
+          [[2, 30], [8, 30]],
+          [[5, 27], [5, 33]],
+          [[92, 30], [98, 30]],
+          [[95, 27], [95, 33]]
+        ]
+      }
+    },
+    {
+      "name": "una columna con varias filas (alimentador)",
+      "design": [[0, 0], [50, 200]],
+      "size": [60, 80],
+      "overlap": 10,
+      "order": "rows",
+      "margin": 0,
+      "expect": {
+        "cols": 1,
+        "rows": 3,
+        "colRanges": [[0, 50]],
+        "rowRanges": [[120, 200], [50, 130], [0, 60]],
+        "tiles": [
+          {
+            "rect": [[0, 120], [50, 200]],
+            "offset": [0, -120],
+            "row": 0,
+            "col": 0
+          },
+          {
+            "rect": [[0, 50], [50, 130]],
+            "offset": [0, -50],
+            "row": 1,
+            "col": 0
+          },
+          {
+            "rect": [[0, 0], [50, 60]],
+            "offset": [0, 0],
+            "row": 2,
+            "col": 0
+          }
+        ],
+        "marks": [
+          [[2, 125], [8, 125]],
+          [[5, 122], [5, 128]],
+          [[42, 125], [48, 125]],
+          [[45, 122], [45, 128]],
+          [[2, 55], [8, 55]],
+          [[5, 52], [5, 58]],
+          [[42, 55], [48, 55]],
+          [[45, 52], [45, 58]]
+        ]
+      }
+    },
+    {
+      "name": "sin solape no hay marcas",
+      "design": [[0, 0], [100, 60]],
+      "size": [55, 35],
+      "overlap": 0,
+      "order": "rows",
+      "margin": 0,
+      "expect": {
+        "cols": 2,
+        "rows": 2,
+        "colRanges": [[0, 55], [55, 100]],
+        "rowRanges": [[25, 60], [0, 25]],
+        "marks": []
+      }
+    },
+    {
+      "name": "tres columnas por tres filas con origen negativo",
+      "design": [[3, -7], [321, 190]],
+      "size": [120, 80],
+      "overlap": 4,
+      "order": "rows",
+      "margin": 0,
+      "expect": {
+        "cols": 3,
+        "rows": 3,
+        "colRanges": [[3, 123], [119, 239], [235, 321]],
+        "rowRanges": [[110, 190], [34, 114], [-7, 38]],
+        "marksCount": 24
+      }
+    }
+  ],
+  "errors": [
+    {
+      "name": "tamaño cero",
+      "design": [[0, 0], [100, 100]],
+      "size": [0, 50],
+      "overlap": 0,
+      "expectError": "size"
+    },
+    {
+      "name": "solape igual al tramo",
+      "design": [[0, 0], [100, 100]],
+      "size": [50, 50],
+      "overlap": 50,
+      "expectError": "overlap"
+    },
+    {
+      "name": "solape negativo",
+      "design": [[0, 0], [100, 100]],
+      "size": [50, 50],
+      "overlap": -1,
+      "expectError": "overlapNegative"
+    },
+    {
+      "name": "diseño sin área",
+      "design": [[0, 0], [0, 5]],
+      "size": [50, 50],
+      "overlap": 0,
+      "expectError": "empty"
+    },
+    {
+      "name": "demasiados tramos",
+      "design": [[0, 0], [100, 100]],
+      "size": [0.5, 0.5],
+      "overlap": 0.1,
+      "expectError": "tooMany"
+    }
+  ]
+}

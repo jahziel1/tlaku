@@ -1,6 +1,7 @@
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
 import { sanitizeLayerTemplate, type LayerTemplate } from '@/lib/layers';
 import { DEFAULT_DOCK_LAYOUT, sanitizeDockLayout, type DockLayout } from '@/lib/dockLayout';
+import { IMPORT_DPI_DEFAULT, IMPORT_DPI_MAX, IMPORT_DPI_MIN, sanitizeRememberedImport, type RememberedImport } from '@/lib/importOptions';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
 import { detectLanguage, setLanguage } from '@/i18n';
 import { readPref, writePref } from '@/lib/platform';
@@ -17,6 +18,8 @@ import type { SliceCreator } from './types';
 
 export type Language = 'es' | 'en';
 export type ThemePref = 'dark' | 'light';
+/** Qué tan marcada se ve la rejilla del lienzo respecto de los colores del tema. */
+export type GridContrast = 'low' | 'normal' | 'high';
 /** Cómo se muestra la app: `ask` = todavía no se eligió (se pregunta al arrancar), `simple` = flujo guiado, `full` = todas las herramientas. */
 export type UiMode = 'ask' | 'simple' | 'full';
 
@@ -75,13 +78,23 @@ export interface Prefs {
   remotePort: number;
   /** IP de la red local donde escuchar; `null` = la recomendada. */
   remoteIp: string | null;
-  /** Orden y visibilidad de las pestañas del panel derecho (arrastrar para reordenar; ver `lib/dockLayout.ts`). */
+  /** Orden, visibilidad, borde y paneles flotantes de las pestañas, y borde de las herramientas (ver `lib/dockLayout.ts`). */
   dockLayout: DockLayout;
+  /** Tras dibujar una forma (rectángulo, elipse, polígono, línea...) la herramienta vuelve a Seleccionar. */
+  returnToSelect: boolean;
+  /** Contraste de la rejilla del lienzo respecto del tema. */
+  gridContrast: GridContrast;
+  /** Resolución (ppp) con que se importan los SVG sin unidades y las imágenes cuando no se elige otra. */
+  importDpi: number;
+  /** El diálogo «Importar con opciones» arranca con lo que se eligió la vez anterior. */
+  importRemember: boolean;
+  /** Última elección del diálogo de importar (`null` = todavía ninguna); ver `lib/importOptions.ts`. */
+  importOptions: RememberedImport | null;
 }
 
 export type PrefKey = keyof Prefs;
 
-type NumberSpec = { kind: 'number'; min: number; max: number; step: number; unit?: 'mm' | 'px' | 'deg' | 's' | 'count'; integer?: boolean };
+type NumberSpec = { kind: 'number'; min: number; max: number; step: number; unit?: 'mm' | 'px' | 'deg' | 's' | 'count' | 'dpi'; integer?: boolean };
 type ChoiceSpec<T extends string> = { kind: 'choice'; options: readonly T[] };
 type BoolSpec = { kind: 'bool' };
 /** Valor estructurado (un objeto): `check` lo valida y devuelve el valor saneado, o `null` si no sirve. */
@@ -120,6 +133,19 @@ export const PREF_SPECS: PrefSpecs = {
     check: (raw) => (raw === null ? { value: null } : typeof raw === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw) ? { value: raw } : null),
   },
   dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
+  returnToSelect: { kind: 'bool', default: true },
+  gridContrast: { kind: 'choice', options: ['low', 'normal', 'high'], default: 'normal' },
+  importDpi: { kind: 'number', min: IMPORT_DPI_MIN, max: IMPORT_DPI_MAX, step: 1, unit: 'dpi', integer: true, default: IMPORT_DPI_DEFAULT },
+  importRemember: { kind: 'bool', default: true },
+  importOptions: {
+    kind: 'json',
+    default: null,
+    check: (raw) => {
+      if (raw === null) return { value: null };
+      const value = sanitizeRememberedImport(raw);
+      return value ? { value } : null;
+    },
+  },
   layerDefaults: {
     kind: 'json',
     default: null,
@@ -176,6 +202,8 @@ export function prefsEqual(a: Prefs, b: Prefs): boolean {
 // ---- copia local para arrancar sin parpadeo --------------------------------------------------------
 
 const CACHE_KEY = 'prefs';
+/** Clave completa en `localStorage` (con el prefijo de `readPref`); la usa el aviso `storage` de otras ventanas. */
+export const CACHE_STORAGE_KEY = `tlaku.${CACHE_KEY}`;
 
 /** Lo que se guarda en disco y en la copia local. */
 export interface PrefsData {
@@ -183,7 +211,7 @@ export interface PrefsData {
   shortcuts: ShortcutOverrides;
 }
 
-function readCache(): PrefsData {
+export function readCache(): PrefsData {
   try {
     const raw: unknown = JSON.parse(readPref(CACHE_KEY) ?? 'null');
     const obj = (raw && typeof raw === 'object' ? raw : {}) as { prefs?: unknown; shortcuts?: unknown };

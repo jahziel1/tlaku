@@ -15,8 +15,14 @@ pub enum GalvoEvent {
     /// Hay que mover el material (o girar el rotativo) a mano y confirmar para seguir. El trabajo
     /// espera hasta `galvo_confirm_move` o hasta detener.
     WaitMove { info: StepInfo },
-    /// Una vuelta más del encuadre con el puntero rojo.
-    Light { loops: u32 },
+    /// Una vuelta más del encuadre con el puntero rojo. `adjust_gen` es la versión del último
+    /// ajuste en vivo aplicado (0 = ninguno) y `adjust_rejected` avisa que el último ajuste
+    /// pedido no cabía en el campo y se descartó.
+    Light {
+        loops: u32,
+        adjust_gen: u32,
+        adjust_rejected: bool,
+    },
     /// No se pudo confirmar el apagado: la fuente puede seguir habilitada. Cortar la energía.
     LaserMayBeOn { message: String },
 }
@@ -53,6 +59,22 @@ pub struct GalvoState {
     pub source: LaserSource,
     /// El trabajo espera que muevas el material y confirmes.
     pub waiting_move: Option<StepInfo>,
+    /// Hay un encuadre con el puntero en curso (se puede mover y escalar en vivo).
+    pub framing: bool,
+    /// Enclavamiento por entrada del perfil y si ahora se cumple (M45); `None` = sin enclavamiento.
+    pub interlock: Option<GalvoInterlock>,
+    /// Desfase del puntero rojo con el que se conectó (mm) y overscan del perfil.
+    pub pointer_offset: [f64; 2],
+    pub overscan_mm: f64,
+}
+
+/// La condición `(entradas & mask) == value` que el perfil exige antes de cada trabajo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct GalvoInterlock {
+    pub mask: u16,
+    pub value: u16,
+    /// Se cumple con las últimas entradas leídas.
+    pub met: bool,
 }
 
 // ---------------------------------------------------------------------------

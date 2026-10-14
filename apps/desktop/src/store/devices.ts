@@ -14,6 +14,8 @@ export interface DevicesSlice {
   setActiveDevice: (id: string) => void;
   /** Guarda (crea o reemplaza) un perfil. Devuelve si quedó guardado. */
   saveDevice: (device: DeviceProfile) => Promise<boolean>;
+  /** Ordena la lista como `ids` (el orden se guarda en `devices.json`). Devuelve si se guardó. */
+  reorderDevices: (ids: string[]) => Promise<boolean>;
   /** Borra un perfil. No deja la lista vacía ni borra la máquina conectada. Devuelve si se borró. */
   removeDevice: (id: string) => Promise<boolean>;
 }
@@ -29,7 +31,8 @@ export const createDevicesSlice: SliceCreator<DevicesSlice> = (set, get) => ({
       // Perfiles guardados antes de la fase 4 llegan sin Z, rotativo ni corrección de barrido.
       const devices = (await getApi().listDevices()).map(normalizeDevice);
       const wanted = get().doc.device_id ?? get().activeDeviceId;
-      const activeDeviceId = devices.find((d) => d.id === wanted)?.id ?? devices[0]?.id ?? null;
+      // Sin documento ni perfil activo (al abrir la app) se activa el marcado como predeterminado.
+      const activeDeviceId = devices.find((d) => d.id === wanted)?.id ?? devices.find((d) => d.is_default)?.id ?? devices[0]?.id ?? null;
       set({ devices, activeDeviceId, devicesLoading: false });
       get().fitBed();
     } catch (e) {
@@ -53,6 +56,17 @@ export const createDevicesSlice: SliceCreator<DevicesSlice> = (set, get) => ({
     }
     try {
       await getApi().saveDevice({ device });
+      await get().loadDevices();
+      return true;
+    } catch (e) {
+      get().notify('error', errorMessage(e));
+      return false;
+    }
+  },
+
+  reorderDevices: async (ids) => {
+    try {
+      await getApi().reorderDevices({ ids });
       await get().loadDevices();
       return true;
     } catch (e) {

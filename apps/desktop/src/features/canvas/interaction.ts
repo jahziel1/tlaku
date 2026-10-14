@@ -18,6 +18,9 @@ export interface DraftShape {
   nodes?: Point[];
   /** Manijas de Bézier a mostrar: pares (nodo, extremo de la manija). */
   handles?: [Point, Point][];
+  /** Agarraderas cuadradas (por ejemplo, los puntos de la malla de Deformar); `hotGrip` es la resaltada. */
+  grips?: Point[];
+  hotGrip?: number;
 }
 
 /** Medición hecha con la herramienta Medir: la línea y, si se hizo clic en una forma, su id. */
@@ -65,7 +68,7 @@ export interface GuideDrag {
   remove: boolean;
 }
 
-export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes' | 'pick' | 'measure' | 'guide';
+export type GestureKind = 'move' | 'scale' | 'rotate' | 'marquee' | 'draw' | 'polyline' | 'nodes' | 'pick' | 'measure' | 'guide' | 'warp';
 
 /** Resultado vivo de un arrastre de nodos o manejadores: el objeto se dibuja con él hasta soltar. */
 export interface NodePreview {

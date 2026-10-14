@@ -642,6 +642,42 @@
   gap: var(--s-2);
 }
 
+.mc-interlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+}
+.mc-interlock__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s-2);
+  width: 100%;
+}
+.mc-interlock__bit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font-size: var(--text-xs);
+}
+.mc-interlock__bit[data-rule='high'] .select,
+.mc-interlock__bit[data-rule='low'] .select {
+  border-color: var(--accent);
+}
+
+/* Encuadre del galvo: forma, vueltas, ajuste en vivo. */
+.mc-galvo-frame,
+.mc-galvo-adjust {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.mc-galvo-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-1);
+}
+
 .mc-chips,
 .mc-checks {
   display: flex;

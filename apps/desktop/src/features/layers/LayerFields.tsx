@@ -4,6 +4,8 @@ import type { DeviceProfile, FillStyle, ImageDitherMode, LayerMode, LayerSetting
 import { t, type I18nKey } from '@/i18n';
 import { dpiToInterval, intervalToDpi, usesZ } from '@/lib/layers';
 import { selectActiveDevice, useStore } from '@/store';
+import { ImagePresets } from '@/features/images/ImagePresets';
+import { ImagePreviewButton } from '@/features/images/ImagePreviewPanel';
 import { GalvoLayerSection, mmMinToMmS, mmSToMmMin, type GalvoUiProfile } from './GalvoLayer';
 import { FeatureBlock, Fold, Group, NumField, SelectField, Toggle } from './ParamFields';
 import { formatNumber } from './fields';
@@ -52,7 +54,8 @@ export function LayerFields(props: FieldsProps) {
   const freqMin = useStore((s) => selectActiveDevice(s).galvo.freq_min_khz);
   const freqMax = useStore((s) => selectActiveDevice(s).galvo.freq_max_khz);
   const pulses = useStore((s) => selectActiveDevice(s).galvo.pulse_widths_ns);
-  const galvo = isGalvo ? { source, freqMinKhz: freqMin, freqMaxKhz: freqMax, pulseWidthsNs: pulses } : undefined;
+  const overscanMm = useStore((s) => selectActiveDevice(s).galvo.overscan_mm);
+  const galvo = isGalvo ? { source, freqMinKhz: freqMin, freqMaxKhz: freqMax, pulseWidthsNs: pulses, overscanMm } : undefined;
   return <LayerFieldsView {...props} device={{ maxRate, powerMode, hasZ, hasLaser2, galvo }} />;
 }
 
@@ -235,6 +238,7 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
       {isImage && (
         <Group title={t('layers.group.image')}>
           {rules.imageProcessing && <p className="lyr-info">{t(rules.imageProcessing)}</p>}
+          <ImagePresets layer={layer} target={target} disabled={rules.imageProcessing !== null} />
           <SelectField<ImageDitherMode>
             label={t('layers.imageMode')}
             value={img.mode}
@@ -278,6 +282,7 @@ export function LayerFieldsView({ layer, target, beginner, device }: FieldsProps
           <NumField field="gamma" label={t('layers.gamma')} value={img.gamma} onApply={(v) => setImage('gamma', v)} disabled={rules.imageProcessing !== null} help={t('layers.help.gamma')} />
           <Toggle label={t('layers.invert')} checked={img.invert} onChange={(v) => setImage('invert', v)} disabled={rules.imageProcessing !== null} help={t('layers.help.invert')} />
           <NumField field="dot_width" label={t('layers.dotWidth')} value={img.dot_width} onApply={(v) => setImage('dot_width', v)} help={t('layers.help.dotWidth')} />
+          <ImagePreviewButton layer={layer} disabled={rules.imageProcessing !== null} />
         </Group>
       )}
 

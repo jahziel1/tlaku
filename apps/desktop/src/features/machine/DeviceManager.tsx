@@ -1,4 +1,4 @@
-import { Copy, Download, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { Copy, Download, Plus, Star, Trash2, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getApi } from '@/api';
 import type { DeviceProfile } from '@/api/types';
@@ -25,6 +25,8 @@ import {
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { Field, NumInput } from './DeviceFields';
+import { deviceIcon } from './deviceIcons';
+import { DeviceFrameFields, DeviceIdentityFields, DeviceLinkFields, DeviceOrderButtons, SpeedInput } from './DeviceSettings6C';
 import { DialectEditor } from './DeviceDialect';
 import { DeviceFeederFields } from './DeviceFeeder';
 import { validateFeeder } from './DeviceFeederModel';
@@ -127,6 +129,12 @@ function ProposalPanel({
   );
 }
 
+/** Ícono del perfil en la lista. */
+function ListIcon({ device }: { device: DeviceProfile }) {
+  const Icon = deviceIcon(device);
+  return <Icon className="mc-devitem__icon" size={16} aria-hidden="true" />;
+}
+
 /** Gestor de dispositivos: lista, crear, editar, duplicar, borrar y leer los ajustes de la máquina. */
 export function DeviceManager() {
   const devices = useStore((s) => s.devices);
@@ -136,6 +144,7 @@ export function DeviceManager() {
   const close = useStore((s) => s.closeDialog);
   const saveDevice = useStore((s) => s.saveDevice);
   const removeDevice = useStore((s) => s.removeDevice);
+  const reorderDevices = useStore((s) => s.reorderDevices);
   const setActiveDevice = useStore((s) => s.setActiveDevice);
   const setBaud = useStore((s) => s.setBaud);
   const readSettings = useStore((s) => s.readSettings);
@@ -232,6 +241,15 @@ export function DeviceManager() {
     if (draft.id === useStore.getState().activeDeviceId && !connected) setBaud(draft.baud);
   };
 
+  /** Mueve el perfil seleccionado a la posición `to` de la lista y guarda el orden. */
+  const moveDevice = (to: number) => {
+    const ids = devices.map((d) => d.id);
+    const from = ids.indexOf(draft.id);
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    ids.splice(to, 0, ...ids.splice(from, 1));
+    void reorderDevices(ids);
+  };
+
   const remove = async () => {
     setConfirmDelete(false);
     const next = devices.find((d) => d.id !== draft.id);
@@ -286,8 +304,14 @@ export function DeviceManager() {
               {devices.map((d) => (
                 <li key={d.id}>
                   <button type="button" className="mc-devitem" aria-current={!isNew && d.id === draft.id ? 'true' : undefined} onClick={() => d.id !== draft.id && afterGuard('machine.dev.discard', () => select(d))}>
-                    <span className="mc-devitem__name">{d.name}</span>
-                    <span className="mc-devitem__meta num">{d.bed[0]} × {d.bed[1]} mm{d.id === activeId ? ` · ${t('machine.dev.inUseBadge')}` : ''}</span>
+                    <span className="mc-devitem__row">
+                      <ListIcon device={d} />
+                      <span className="mc-devitem__text">
+                        <span className="mc-devitem__name">{d.name}</span>
+                        <span className="mc-devitem__meta num">{d.bed[0]} × {d.bed[1]} mm{d.id === activeId ? ` · ${t('machine.dev.inUseBadge')}` : ''}</span>
+                      </span>
+                      {d.is_default && <Star className="mc-devitem__star" size={13} aria-label={t('devices.default.badge')} />}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -301,6 +325,7 @@ export function DeviceManager() {
               )}
             </ul>
             <div className="mc-devlist__actions">
+              <DeviceOrderButtons index={isNew ? -1 : devices.findIndex((d) => d.id === draft.id)} count={devices.length} disabled={isNew || devices.length < 2} onMove={moveDevice} />
               <button type="button" className="btn" onClick={create}><Plus size={14} aria-hidden="true" />{t('machine.dev.new')}</button>
               <button type="button" className="btn" onClick={duplicate}><Copy size={14} aria-hidden="true" />{t('machine.dev.duplicate')}</button>
               <button type="button" className="btn btn--danger" disabled={deleteBlocked !== null} title={deleteBlocked ?? undefined} onClick={() => setConfirmDelete(true)}>
@@ -351,6 +376,7 @@ export function DeviceManager() {
                   )}
                 </Field>
               </div>
+              <DeviceIdentityFields draft={draft} edit={edit} />
             </fieldset>
 
             <fieldset className="mc-group">
@@ -363,6 +389,7 @@ export function DeviceManager() {
                   </div>
                 )}
               </Field>
+              {!noGcode && <DeviceFrameFields draft={draft} edit={edit} />}
             </fieldset>
 
             <fieldset className="mc-group" hidden={noGcode}>
@@ -392,8 +419,8 @@ export function DeviceManager() {
               <Field label={t('machine.dev.maxRate')} help="machine.dev.maxRate.help" error={issues.max_rate}>
                 {({ id, describedBy, invalid: bad }) => (
                   <div className="field-grid">
-                    <NumInput id={id} label={t('machine.dev.axisX')} unit="mm/min" value={draft.max_rate[0]} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ max_rate: [v, draft.max_rate[1]] })} />
-                    <NumInput label={t('machine.dev.axisY')} unit="mm/min" value={draft.max_rate[1]} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ max_rate: [draft.max_rate[0], v] })} />
+                    <SpeedInput id={id} label={t('machine.dev.axisX')} unit={draft.speed_unit} value={draft.max_rate[0]} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ max_rate: [v, draft.max_rate[1]] })} />
+                    <SpeedInput label={t('machine.dev.axisY')} unit={draft.speed_unit} value={draft.max_rate[1]} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ max_rate: [draft.max_rate[0], v] })} />
                   </div>
                 )}
               </Field>
@@ -406,7 +433,7 @@ export function DeviceManager() {
                 )}
               </Field>
               <Field label={t('machine.dev.rapid')} help="machine.dev.rapid.help" error={issues.rapid_rate}>
-                {({ id, describedBy, invalid: bad }) => <NumInput id={id} unit="mm/min" value={draft.rapid_rate} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ rapid_rate: v })} />}
+                {({ id, describedBy, invalid: bad }) => <SpeedInput id={id} unit={draft.speed_unit} value={draft.rapid_rate} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ rapid_rate: v })} />}
               </Field>
             </fieldset>
 
@@ -464,6 +491,7 @@ export function DeviceManager() {
                   {({ id, describedBy, invalid: bad }) => <NumInput id={id} unit="B" value={draft.rx_buffer} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ rx_buffer: v })} />}
                 </Field>
               </div>
+              <DeviceLinkFields draft={draft} edit={edit} />
             </fieldset>
 
             <fieldset className="mc-group" hidden={noGcode}>

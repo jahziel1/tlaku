@@ -15,7 +15,7 @@ import { findEntry } from './catalog';
 import { compareWithMachine, defaultMachineChoices, type CompareField } from './compare';
 import { detectionFrom, rankCatalog } from './filter';
 import { buildProfile } from './profile';
-import { DEFAULT_GALVO_SETUP, type GalvoSetup } from './GalvoSetupField';
+import { DEFAULT_GALVO_SETUP, setupPort, type GalvoSetup } from './GalvoSetupField';
 import { DetectStep, ModelStep, OTHER_ID, ReviewStep, SaveStep, type ProbeState } from './steps';
 import { useDevicesWizard } from './wizardStore';
 import './devices.css';
@@ -168,6 +168,8 @@ export function AddMachineWizard() {
     setActiveDevice(profile.id);
     if (!connected) {
       if (probe.status === 'done' && port) setSelectedPort(port);
+      // Galvo: la tarjeta que se verificó (USB o simulada) queda elegida para conectar.
+      if (profile.kind === 'galvo') setSelectedPort(setupPort(galvo, galvoBoards));
       setBaud(profile.baud);
     }
     notify('success', t('catalog.saved', { name: profile.name }));
@@ -247,7 +249,7 @@ export function AddMachineWizard() {
             oldGrbl={oldGrbl}
           />
         )}
-        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} board={board} onBoard={setBoard} galvo={galvo} onGalvo={setGalvo} />}
+        {step === 'save' && <SaveStep name={shownName} onName={(n) => { setName(n); setNameTouched(true); }} built={built} host={host} onHost={setHost} board={board} onBoard={setBoard} galvo={galvo} onGalvo={setGalvo} galvoBoards={galvoBoards} />}
       </div>
       <footer className="dev-foot">
         {step === 'detect' && (

@@ -1,8 +1,11 @@
 import { create } from 'zustand';
+import { getApi } from '@/api';
+import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, selectJobSelection, useStore } from '@/store';
 import { designBounds } from '@/features/machine/placement';
-import { defaultTileSize, planTiles, shiftTiles, type Bounds, type PlanResult, type PlannedTile } from './plan';
+import { defaultTileSize } from './plan';
 import { isComplete, loadSession, sessionKey, type TileSession, type TilingConfig } from './session';
+import type { Bounds, PlanResult } from './types';
 
 /**
  * Fase del asistente:
@@ -21,8 +24,13 @@ export interface TilingUiState {
   config: TilingConfig;
   /** Caja del diseño que se divide (con «Solo la selección», la de la selección). */
   design: Bounds | null;
-  /** Plan con las opciones actuales (sin el margen aplicado). */
+  /**
+   * Plan que calculó el motor para `design` y `config` (los desplazamientos ya llevan el margen).
+   * Mientras `planning` es `true` es el de las opciones anteriores: no hay que enviarlo.
+   */
   plan: PlanResult | null;
+  /** Se está pidiendo al motor el plan de las opciones actuales. */
+  planning: boolean;
   session: TileSession | null;
   /** Avance guardado de una sesión interrumpida que se puede retomar. */
   saved: TileSession | null;
@@ -39,14 +47,32 @@ export function defaultConfig(bed: readonly [number, number]): TilingConfig {
   return { size: defaultTileSize(bed, margin), overlap: DEFAULT_OVERLAP_MM, order: 'rows', marks: true, margin };
 }
 
-/** Plan de las opciones sobre la caja del diseño; `null` si no hay diseño. */
-export function computePlan(design: Bounds | null, config: TilingConfig): PlanResult | null {
-  return design ? planTiles(design, config.size, config.overlap, config.order) : null;
+/** Pide al motor el plan de las opciones sobre la caja del diseño. */
+export function requestPlan(design: Bounds, config: TilingConfig): Promise<PlanResult> {
+  return getApi().planTiles({ design, size: config.size, overlap: config.overlap, order: config.order, margin: config.margin });
 }
 
-/** Tramos listos para enviar: con el margen de la cama sumado al desplazamiento. */
-export function plannedWithMargin(tiles: PlannedTile[], margin: number): PlannedTile[] {
-  return shiftTiles(tiles, [margin, margin]);
+let planSeq = 0;
+
+/**
+ * Recalcula el plan con el diseño y las opciones de ahora. Si llegan varias peticiones juntas solo
+ * vale la última: las demás se descartan al responder.
+ */
+export function refreshPlan(): void {
+  const seq = ++planSeq;
+  const { design, config, set } = useTilingUi.getState();
+  if (!design) return set({ plan: null, planning: false });
+  set({ planning: true });
+  requestPlan(design, config).then(
+    (plan) => {
+      if (seq === planSeq) set({ plan, planning: false });
+    },
+    (e: unknown) => {
+      if (seq !== planSeq) return;
+      set({ plan: null, planning: false });
+      useStore.getState().notify('error', errorMessage(e));
+    },
+  );
 }
 
 export const useTilingUi = create<TilingUiState>()((set, get) => ({
@@ -55,13 +81,14 @@ export const useTilingUi = create<TilingUiState>()((set, get) => ({
   config: defaultConfig([400, 400]),
   design: null,
   plan: null,
+  planning: false,
   session: null,
   saved: null,
   message: null,
   set: (patch) => set(patch),
   patchConfig: (patch) => {
-    const config = { ...get().config, ...patch };
-    set({ config, plan: computePlan(get().design, config) });
+    set({ config: { ...get().config, ...patch } });
+    refreshPlan();
   },
 }));
 
@@ -76,7 +103,8 @@ export function openTiling(): void {
   const stored = loadSession();
   const saved = stored && design && !isComplete(stored) && sessionKey(design, stored.config, device.id) === stored.key ? stored : null;
   const config = saved?.config ?? defaultConfig(device.bed);
-  ui.set({ open: true, phase: 'config', design, config, plan: computePlan(design, config), session: null, saved, message: null });
+  ui.set({ open: true, phase: 'config', design, config, plan: null, session: null, saved, message: null });
+  refreshPlan();
 }
 
 /** Cierra el panel. Una sesión a medias queda guardada y el lienzo deja de mostrar los tramos. */

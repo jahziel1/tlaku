@@ -44,10 +44,14 @@
 //! - **G-code**: el subconjunto de `src/parse.rs` (movimientos, arcos troceados, offsets
 //!   `G10/G92/G54-59`, unidades, `G93`...); lo demás da `error:20` y los fallos de
 //!   sintaxis dan `error:1/2/4/21/22/23/24/25/26/27/28/30/31/32/33/34/35/36`.
-//! - **Movimiento**: perfil trapezoidal con la aceleración `min($120,$121)`, avance programado
-//!   (con override), rápidos a `min($110,$111)` y velocidad de paso por esquinas según el ángulo.
-//!   No hay precisión física: sirve para que el tiempo avance, `Run`/`Idle` se alternen y la
-//!   posición cambie.
+//! - **Movimiento**: perfil trapezoidal con la aceleración y la velocidad máxima de cada eje
+//!   (`$110-$112`, `$120-$122`) proyectadas sobre la dirección del bloque, avance programado
+//!   (con override) y rápidos al tope. Las uniones se pasan a la velocidad de la desviación de
+//!   unión (`$11`) y el planificador recorre de atrás adelante los bloques del búfer
+//!   (`planner_blocks`, o `lookahead_blocks` si el perfil fija una ventana menor): con cinemática
+//!   calculable a mano coincide con el estimador de `tlaku-sim` (ver `tests/estimate.rs`). No
+//!   hay precisión física (pasos, resonancias): sirve para que el tiempo avance, `Run`/`Idle` se
+//!   alternen y la posición cambie.
 //! - **Láser**: encendido según `M3/M4/M5`, `S`, `$30` (saturación) y `$32`. En modo láser
 //!   los `G0` nunca queman; `M3` quema parado (también en hold, a menos que el perfil diga
 //!   `laser_off_in_hold`); `M4` escala con la velocidad y se apaga parado. Con `$32=0` el
@@ -70,7 +74,7 @@
 //!
 //! - Velocidad en baudios (los bytes llegan al instante) ni la pérdida de caracteres durante
 //!   escrituras en EEPROM.
-//! - Física real: junction deviation, look-ahead completo, pasos, pérdida de pasos.
+//! - Física real: pasos, pérdida de pasos, resonancias.
 //! - Sondas (`G38.x`), ejes A/B/C, compensación de herramienta, arcos fuera del plano XY, SD,
 //!   WiFi, parking, `$SLP` más allá del estado, líneas de arranque con `Ln`.
 //! - **Marlin y Smoothie** (protocolo RepRap) solo cubren: banner, `ok` por línea, `M115` (con

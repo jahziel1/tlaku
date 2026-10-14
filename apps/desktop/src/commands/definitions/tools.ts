@@ -9,7 +9,7 @@ import type { CommandDef } from '../types';
  * (no dependen de qué panel tiene el foco). Escape vuelve a Seleccionar.
  */
 /** Herramientas con su texto en el diccionario del área canvas (el resto usa `cmd.tool.*`). */
-const OWN_LABELS: Partial<Record<ToolId, I18nKey>> = { tabs: 'canvas.cmd.toolTabs', start: 'canvas.cmd.toolStart', trim: 'canvas.cmd.toolTrim' };
+const OWN_LABELS: Partial<Record<ToolId, I18nKey>> = { tabs: 'canvas.cmd.toolTabs', start: 'canvas.cmd.toolStart', trim: 'canvas.cmd.toolTrim', warp: 'canvas.cmd.toolWarp', fillet: 'canvas.cmd.toolFillet' };
 
 const KEYS: Record<ToolId, string[]> = {
   select: ['V', 'Escape'],
@@ -25,6 +25,8 @@ const KEYS: Record<ToolId, string[]> = {
   tabs: ['U'],
   start: ['Q'],
   trim: ['X'],
+  warp: ['Shift+W'],
+  fillet: ['Shift+F'],
 };
 
 /**
@@ -70,6 +72,14 @@ const KEYS: Record<ToolId, string[]> = {
  *    (Organizar) también cambia el sentido. El planificador respeta lo fijado.
  *  - X `tool.trim`: con los objetos que se cruzan seleccionados, un clic sobre un tramo entre dos
  *    cruces lo borra (Mayús lo conserva como objeto aparte). Se resalta el tramo al pasar el puntero.
+ *  - Mayús+W `tool.warp`: sobre la selección aparece una malla de control. Con «Bilineal» o «Perspectiva»
+ *    son las 4 esquinas; con «Malla 4×4», 16 puntos por los que pasa la superficie. Arrastrar una
+ *    manija deforma el diseño en vivo (Mayús = solo en horizontal o vertical). Intro o el botón
+ *    Aplicar lo escriben en un solo paso de deshacer; Esc a mitad de un arrastre devuelve la manija,
+ *    y Esc sin arrastre sale de la herramienta sin cambiar nada.
+ *  - Mayús+F `tool.fillet`: con el radio y el tipo de esquina de la barra, un clic sobre un vértice
+ *    (de recta con recta) redondea solo esa esquina. En modo «Revertir», o con Alt, un clic sobre una
+ *    esquina redondeada o mordida la devuelve a punta si el arco es exacto; un chaflán no se revierte.
  *  - T `tool.text`: clic en vacío crea un texto ahí; clic en un texto lo selecciona. El doble clic
  *    sobre un texto con Seleccionar también pasa a editarlo.
  */

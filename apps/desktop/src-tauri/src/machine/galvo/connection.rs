@@ -2,6 +2,8 @@
 
 use super::*;
 
+pub(super) use crate::machine::common::{Paced, log, virtual_speed};
+
 /// Conexión abierta: el mando y el hilo.
 pub struct GalvoConnection {
     handle: GalvoHandle,
@@ -134,6 +136,7 @@ impl GalvoConnection {
             cancel: AtomicBool::new(false),
             laser_may_be_on: AtomicBool::new(false),
             red_on: AtomicBool::new(false),
+            framing: AtomicBool::new(false),
             live: Mutex::new(live),
             status: Mutex::new(None),
             gate: Mutex::new(Gate::default()),
@@ -184,11 +187,167 @@ impl Drop for GalvoConnection {
     }
 }
 
-/// Transporte que duerme `step` en cada lectura: marca el paso del reloj virtual del emulador
-/// (que avanza una vez por consulta de estado) contra el reloj de pared.
-pub(super) struct Paced<T> {
-    pub(super) inner: T,
-    pub(super) step: Duration,
+// ---------------------------------------------------------------------------
+// Verificación sin láser (asistente de alta, M41)
+// ---------------------------------------------------------------------------
+
+/// Una comprobación de la verificación.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct VerifyCheck {
+    /// `board`, `idle`, `profile`, `frame` o `interlock`.
+    pub id: String,
+    pub ok: bool,
+    pub detail: String,
+}
+
+/// Resultado de [`verify`]: lo que dijo la tarjeta y las comprobaciones del perfil.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct GalvoVerifyReport {
+    pub board: String,
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub virtual_machine: bool,
+    pub serial: String,
+    pub version: String,
+    pub status_raw: u16,
+    pub busy: bool,
+    pub ready: bool,
+    pub inputs: u16,
+    pub interlock: Option<GalvoInterlock>,
+    pub checks: Vec<VerifyCheck>,
+}
+
+impl GalvoVerifyReport {
+    /// Todas las comprobaciones salieron bien.
+    #[cfg(test)]
+    pub fn all_ok(&self) -> bool {
+        self.checks.iter().all(|c| c.ok)
+    }
+}
+
+/// Verificación SIN LÁSER de un perfil galvo: abre la tarjeta (la real exige el reconocimiento de
+/// seguridad de ESTA verificación; la virtual no), solo la LEE (serie, versión, estado, entradas) y
+/// comprueba, sin enviar nada, que el perfil se compila: la lista del encuadre del campo. No mueve
+/// los espejos, no enciende el puntero ni la fuente, y la cierra al terminar. Una tarjeta con un
+/// VID:PID desconocido se rechaza antes de enviar nada.
+pub fn verify(
+    device: &DeviceProfile,
+    port: &str,
+    ack: Option<&SafetyAck>,
+) -> Result<GalvoVerifyReport, String> {
+    let cfg = session_config(device)?;
+    let (transport, virtual_machine): (Box<dyn Transport>, bool) = if is_virtual(port) {
+        let (t, _state) = emulator(EmuConfig {
+            source: device.galvo.source,
+            field_mm: device.galvo.field_mm,
+            ..EmuConfig::default()
+        });
+        virtual_speed(port)?;
+        (Box::new(t), true)
+    } else if let Some(index) = usb_index(port) {
+        let token = ack.ok_or_else(|| ACK_REQUIRED.to_string())?.token()?;
+        let t = UsbTransport::open(index, UsbTimeouts::default(), token)
+            .map_err(|e| format!("No se pudo abrir la tarjeta galvo: {e}"))?;
+        (Box::new(t), false)
+    } else {
+        return Err(format!(
+            "«{port}» no es un puerto galvo. Elige una tarjeta USB de la lista o la máquina \
+             virtual."
+        ));
+    };
+    verify_with(transport, cfg, device, virtual_machine)
+}
+
+/// El cuerpo de [`verify`] con el transporte ya abierto: aquí se rechaza una tarjeta con un VID:PID
+/// desconocido (`GalvoSession::new`) antes de enviar nada, y solo se LEE.
+pub(super) fn verify_with(
+    transport: Box<dyn Transport>,
+    cfg: SessionConfig,
+    device: &DeviceProfile,
+    virtual_machine: bool,
+) -> Result<GalvoVerifyReport, String> {
+    let mut session = GalvoSession::new(transport, cfg.clone()).map_err(connect_error)?;
+    let info = session.probe().map_err(connect_error)?;
+    // La sesión solo leyó: al soltarla no hay nada que apagar.
+    drop(session);
+    let mut checks = vec![VerifyCheck {
+        id: "board".into(),
+        ok: true,
+        detail: format!(
+            "{} (USB {:04X}:{:04X})",
+            info.board_name, info.transport.vendor_id, info.transport.product_id
+        ),
+    }];
+    checks.push(VerifyCheck {
+        id: "idle".into(),
+        ok: !info.status.busy,
+        detail: if info.status.busy {
+            "la tarjeta está ocupada con otra lista".into()
+        } else {
+            "la tarjeta está en reposo".into()
+        },
+    });
+    // El perfil: el encuadre del campo (95 % del lado, centrado en la cama) debe compilar, caber
+    // en el campo y pasar el validador de listas, con el desfase del puntero del perfil.
+    let side = device.galvo.field_mm * 0.95;
+    let c = [device.bed[0] / 2.0, device.bed[1] / 2.0];
+    let shape = LightShape::Rect {
+        min: Point::new(c[0] - side / 2.0, c[1] - side / 2.0),
+        max: Point::new(c[0] + side / 2.0, c[1] + side / 2.0),
+    };
+    let frame = compile::compile_light(
+        &shape,
+        &cfg.device,
+        &LightOptions {
+            origin: cfg.origin,
+            pointer_offset: cfg.pointer_offset,
+        },
+    );
+    checks.push(match frame {
+        Ok(l) => VerifyCheck {
+            id: "frame".into(),
+            ok: true,
+            detail: format!(
+                "el encuadre del campo ({side:.0} mm) compila: {} comandos, solo saltos con el \
+                 puntero rojo",
+                l.stats.commands
+            ),
+        },
+        Err(e) => VerifyCheck {
+            id: "frame".into(),
+            ok: false,
+            detail: e.to_string(),
+        },
+    });
+    let interlock = cfg.inputs_required.map(|r| GalvoInterlock {
+        mask: r.mask,
+        value: r.value,
+        met: info.inputs & r.mask == r.value,
+    });
+    if let Some(i) = interlock {
+        checks.push(VerifyCheck {
+            id: "interlock".into(),
+            ok: i.met,
+            detail: format!(
+                "entradas {:#06x}: se exige (entradas & {:#06x}) == {:#06x}",
+                info.inputs, i.mask, i.value
+            ),
+        });
+    }
+    Ok(GalvoVerifyReport {
+        board: info.board_name,
+        vendor_id: info.transport.vendor_id,
+        product_id: info.transport.product_id,
+        virtual_machine,
+        serial: words_hex(&info.serial),
+        version: words_hex(&info.version),
+        status_raw: info.status.raw,
+        busy: info.status.busy,
+        ready: info.status.ready,
+        inputs: info.inputs,
+        interlock,
+        checks,
+    })
 }
 
 impl<T: Transport> Transport for Paced<T> {
@@ -197,7 +356,7 @@ impl<T: Transport> Transport for Paced<T> {
     }
 
     fn read(&mut self) -> Result<[u8; tlaku_galvo::wire::REPLY_LEN], TransportError> {
-        thread::sleep(self.step);
+        self.pace();
         self.inner.read()
     }
 
@@ -263,13 +422,6 @@ pub(super) fn op_error(e: &SessionError) -> String {
 
 pub(super) fn job_error_text(e: &JobError) -> String {
     format!("{e}{}", usb_hint(&e.cause))
-}
-
-pub(super) fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
-    sink.emit(Emit::Log(LogEvent {
-        dir,
-        text: text.to_string(),
-    }));
 }
 
 pub(super) fn emit_job(sink: &dyn Sink, state: JobState, message: &str) {

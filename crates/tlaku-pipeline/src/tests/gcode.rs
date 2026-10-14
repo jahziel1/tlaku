@@ -280,3 +280,121 @@ fn link_load_warns_for_dense_engraving_but_not_for_a_fused_polyline() {
     let load = link_load(&job, &dev, &g, 115_200);
     assert_eq!(load.warning(), None, "{load:?}");
 }
+
+#[test]
+fn swap_xy_exchanges_the_axes_in_gcode_frame_and_machine_inputs() {
+    let d = doc(
+        vec![rect_object("a", RED, 100.0, 100.0, 30.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let dev = device();
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    let plain = gcode(&job, &dev);
+    // Con el valor por omisión nada cambia.
+    assert!(!dev.swap_xy && !plain.contains(" U"), "{plain}");
+    let mut swapped = device();
+    swapped.swap_xy = true;
+    let g = gcode(&job, &swapped);
+    // La esquina (100, 100) del documento sale como X100 Y100; la (130, 110), como X110 Y130
+    // (S y F son modales: Y130 y X110 llegan en líneas distintas).
+    assert!(g.contains("G1 Y130") && g.contains("G1 X110"), "{g}");
+    assert!(!g.contains("X130") && !g.contains("Y110"), "{g}");
+    // El trabajo calculado no cambia, solo la salida.
+    let again = compute(&d, &swapped, &JobOptions::default()).unwrap();
+    assert_eq!(again.bounds(), job.bounds());
+    // Encuadre: la caja también se intercambia.
+    let f = frame_gcode(&job, &swapped, 1500.0);
+    assert!(f.contains(&"G0 X100 Y100".to_string()), "{f:?}");
+    assert!(f.contains(&"G1 X110 Y130 S0 F1500".to_string()), "{f:?}");
+    // El punto de la máquina vuelve al documento por la transformación inversa.
+    assert_eq!(
+        machine_to_doc(doc_to_machine(Point::new(130.0, 110.0), &swapped), &swapped),
+        Point::new(130.0, 110.0)
+    );
+    let mut flipped = swapped.clone();
+    flipped.origin = Origin::TopRight;
+    let p = Point::new(30.0, 55.0);
+    assert_eq!(machine_to_doc(doc_to_machine(p, &flipped), &flipped), p);
+    // Posición actual en coordenadas de la máquina (X110 Y130 = esquina (130, 110)).
+    let current = JobOptions {
+        start_from: StartFrom::CurrentPosition,
+        job_origin: 6,
+        ..JobOptions::default()
+    };
+    let job = compute_at(&d, &swapped, &current, Some(Point::new(110.0, 130.0))).unwrap();
+    assert!(gcode(&job, &swapped).contains("G1 Y130"));
+    // Con rotativo el intercambio se ignora y se avisa.
+    let mut rot = swapped.clone();
+    rot.rotary.enabled = true;
+    assert!(!swap_active(&rot));
+    let job = compute(&d, &rot, &JobOptions::default()).unwrap();
+    assert!(
+        job.preview
+            .warnings
+            .iter()
+            .any(|w| w.contains("intercambio X/Y")),
+        "{:?}",
+        job.preview.warnings
+    );
+}
+
+#[test]
+fn u_offset_goes_to_gcode_only_with_the_u_axis() {
+    let d = doc(
+        vec![rect_object("a", RED, 10.0, 20.0, 20.0, 40.0)],
+        vec![line_layer(RED)],
+    );
+    let mut dev = device();
+    dev.u_offset = 5.0;
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    // Sin eje U en el perfil, el desplazamiento no se emite.
+    assert!(!gcode(&job, &dev).contains("G0 U"));
+    dev.u_axis = true;
+    let g = gcode(&job, &dev);
+    assert!(
+        g.contains("G91\nG0 U5\nG90\n") && g.contains("G91\nG0 U-5\nG90\n"),
+        "{g}"
+    );
+}
+
+#[test]
+fn pointer_frame_moves_the_head_by_the_red_pointer_offset() {
+    let d = doc(
+        vec![rect_object("a", RED, 100.0, 100.0, 30.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let mut dev = device();
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    // Sin desfase, el encuadre del puntero es el del rayo.
+    assert_eq!(
+        frame_gcode_pointer(&job, &dev, 1500.0).unwrap(),
+        frame_gcode(&job, &dev, 1500.0)
+    );
+    // El puntero cae 8 mm a la derecha y 3 mm arriba del rayo: para que pase por la esquina
+    // (100, 100) la cabeza va a (92, 97).
+    dev.pointer_offset = [8.0, 3.0];
+    let g = frame_gcode_pointer(&job, &dev, 1500.0).unwrap();
+    assert!(g.contains(&"G0 X92 Y97".to_string()), "{g:?}");
+    assert!(g.contains(&"G1 X122 Y107 S0 F1500".to_string()), "{g:?}");
+    // Con el origen arriba a la derecha X e Y crecen al revés, pero la cabeza sigue yendo
+    // "contra" el desfase del documento: la caja (92..122, 97..107) sale en X 278..308, Y 308..318.
+    dev.origin = Origin::TopRight;
+    let g = frame_gcode_pointer(&job, &dev, 1500.0).unwrap();
+    assert!(g.contains(&"G0 X278 Y308".to_string()), "{g:?}");
+    assert!(g.contains(&"G1 X308 Y318 S0 F1500".to_string()), "{g:?}");
+    // Con intercambio X/Y: la máquina recibe (Y, X).
+    dev.origin = Origin::BottomLeft;
+    dev.swap_xy = true;
+    let g = frame_gcode_pointer(&job, &dev, 1500.0).unwrap();
+    assert!(g.contains(&"G0 X97 Y92".to_string()), "{g:?}");
+    // Si el recorrido sale del área, falla en vez de provocar ALARM:2.
+    let edge = doc(
+        vec![rect_object("a", RED, 2.0, 2.0, 30.0, 10.0)],
+        vec![line_layer(RED)],
+    );
+    let mut dev = device();
+    dev.pointer_offset = [8.0, 3.0];
+    let job = compute(&edge, &dev, &JobOptions::default()).unwrap();
+    let e = frame_gcode_pointer(&job, &dev, 1500.0).unwrap_err();
+    assert!(e.contains("puntero rojo"), "{e}");
+}

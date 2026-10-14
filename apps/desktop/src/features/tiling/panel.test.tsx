@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { renderToString } from 'react-dom/server';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tilingEnabled } from '@/commands/definitions/tiling';
 import { commands } from '@/commands';
 import { DeviceFeederFields } from '@/features/machine/DeviceFeeder';
@@ -12,11 +12,14 @@ import { selectActiveDevice, useStore } from '@/store';
 import { TilingHost } from './index';
 import { selectSceneTiles } from './overlay';
 import { newSession, mark } from './session';
-import { computePlan, defaultConfig, openTiling, plannedWithMargin, useTilingUi } from './store';
+import { defaultConfig, openTiling, requestPlan, useTilingUi } from './store';
 import { TilingOffer } from './TilingOffer';
 import { TilingPanel } from './TilingPanel';
 
 const BED: [number, number] = [60, 40];
+
+/** Espera a que el motor (aquí la maqueta) responda con el plan de las opciones de ahora. */
+const planned = () => vi.waitFor(() => expect(useTilingUi.getState().planning).toBe(false));
 
 /**
  * `renderToString` lee el estado inicial de los stores (zustand usa `getInitialState` en el
@@ -46,7 +49,7 @@ function setDoc(w: number, h: number, feeder = false) {
 
 beforeEach(() => {
   setLanguage('es');
-  useTilingUi.setState({ open: false, phase: 'config', session: null, saved: null, message: null, plan: null, design: null });
+  useTilingUi.setState({ open: false, phase: 'config', session: null, saved: null, message: null, plan: null, planning: false, design: null });
 });
 
 describe('aviso «no cabe» y comando', () => {
@@ -69,11 +72,13 @@ describe('aviso «no cabe» y comando', () => {
 });
 
 describe('asistente', () => {
-  it('cerrado no pinta nada; abierto muestra las opciones y el plan', () => {
+  it('cerrado no pinta nada; abierto muestra las opciones y el plan', async () => {
     setDoc(100, 60);
     expect(ssr(<TilingHost />)).toBe('');
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [55, 35], overlap: 10, margin: 0 });
+    await planned();
     const out = ssr(<TilingHost />);
     for (const s of ['Dividir en tramos', 'Ancho del tramo', 'Alto del tramo', 'Solape', 'Margen a la cama', 'Por filas', 'Serpentina', 'Marcas de alineación en el solape', '4 tramos (2 columnas × 2 filas)', 'Empezar']) {
       expect(out).toContain(s);
@@ -81,46 +86,56 @@ describe('asistente', () => {
     expect(out.match(/til-preview__tile--preview/g)).toHaveLength(4);
   });
 
-  it('el tamaño por defecto es la cama menos el margen', () => {
+  it('el tamaño por defecto es la cama menos el margen', async () => {
     setDoc(100, 60);
     openTiling();
+    await planned();
     const { config } = useTilingUi.getState();
     expect(config.size).toEqual([BED[0] - 2 * config.margin, BED[1] - 2 * config.margin]);
   });
 
-  it('un tramo que no cabe en la cama bloquea el inicio con su motivo', () => {
+  it('un tramo que no cabe en la cama bloquea el inicio con su motivo', async () => {
     setDoc(100, 60);
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [80, 35] });
+    await planned();
     const out = ssr(<TilingPanel />);
     expect(out).toContain('no cabe en la cama');
     expect(out).toMatch(/<button[^>]*disabled=""[^>]*>Empezar/);
   });
 
-  it('un solape mayor que el tramo se explica', () => {
+  it('un solape mayor que el tramo se explica', async () => {
     setDoc(100, 60);
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [50, 30], overlap: 50 });
+    await planned();
     expect(ssr(<TilingPanel />)).toContain('El solape debe ser menor que el tramo.');
   });
 
-  it('con alimentador y una columna anuncia el avance automático; con varias columnas, no', () => {
+  it('con alimentador y una columna anuncia el avance automático; con varias columnas, no', async () => {
     setDoc(50, 150, true);
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [55, 35], overlap: 10, margin: 0 });
+    await planned();
     expect(ssr(<TilingPanel />)).toContain('el material avanza solo (25');
     setDoc(100, 60, true);
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [55, 35], overlap: 10, margin: 0 });
+    await planned();
     expect(ssr(<TilingPanel />)).toContain('solo se usa cuando los tramos van en una sola dirección');
   });
 
-  it('ofrece retomar un avance guardado', () => {
+  it('ofrece retomar un avance guardado', async () => {
     setDoc(100, 60);
     openTiling();
+    await planned();
     const { plan, design, config } = useTilingUi.getState();
     if (!plan?.ok || !design) throw new Error('sin plan');
-    const specs = plannedWithMargin(plan.plan.tiles, config.margin).map((p) => p.spec);
+    const specs = plan.plan.tiles.map((p) => p.spec);
     const saved = mark(newSession(specs, design, config, 'dev', false), 0, 'done');
     useTilingUi.setState({ saved });
     const out = ssr(<TilingPanel />);
@@ -129,19 +144,19 @@ describe('asistente', () => {
   });
 });
 
-describe('pasos del envío', () => {
-  function session(phase: 'place' | 'sending' | 'feeding' | 'failed' | 'finished', over = {}) {
+describe('pasos del envío', async () => {
+  async function session(phase: 'place' | 'sending' | 'feeding' | 'failed' | 'finished', over = {}) {
     setDoc(100, 60);
     const config = { ...defaultConfig(BED), size: [55, 35] as [number, number], overlap: 10, margin: 0 };
     const design: [[number, number], [number, number]] = [[0, 0], [100, 60]];
-    const plan = computePlan(design, config);
-    if (!plan?.ok) throw new Error('sin plan');
+    const plan = await requestPlan(design, config);
+    if (!plan.ok) throw new Error('sin plan');
     const s = newSession(plan.plan.tiles.map((p) => p.spec), design, config, 'dev', false);
     useTilingUi.setState({ open: true, phase, config, design, plan, session: { ...s, ...over }, message: null });
   }
 
-  it('place: «Coloca el material así…» con el tramo, enviar y saltar', () => {
-    session('place');
+  it('place: «Coloca el material así…» con el tramo, enviar y saltar', async () => {
+    await session('place');
     const out = ssr(<TilingPanel />);
     expect(out).toContain('Tramo 1 de 4: coloca el material así…');
     expect(out).toContain('Enviar tramo 1');
@@ -149,30 +164,31 @@ describe('pasos del envío', () => {
     expect(out).toContain('0 enviados, 0 saltados, 4 en total');
   });
 
-  it('place tras un tramo hecho recuerda alinear las cruces', () => {
-    const s0 = (() => { session('place'); return useTilingUi.getState().session!; })();
-    session('place', { status: mark(s0, 0, 'done').status, current: 1 });
+  it('place tras un tramo hecho recuerda alinear las cruces', async () => {
+    await session('place');
+    const s0 = useTilingUi.getState().session!;
+    await session('place', { status: mark(s0, 0, 'done').status, current: 1 });
     expect(ssr(<TilingPanel />)).toContain('Alinea las cruces');
   });
 
-  it('sending, feeding, failed y finished', () => {
-    session('sending');
+  it('sending, feeding, failed y finished', async () => {
+    await session('sending');
     expect(ssr(<TilingPanel />)).toContain('Enviando tramo 1 de 4…');
-    session('feeding');
+    await session('feeding');
     expect(ssr(<TilingPanel />)).toContain('Avanzando el material…');
-    session('failed');
+    await session('failed');
     useTilingUi.setState({ message: 'alarma activa' });
     const failed = ssr(<TilingPanel />);
     expect(failed).toContain('El tramo 1 no salió');
     expect(failed).toContain('alarma activa');
     expect(failed).toContain('Reintentar tramo 1');
-    session('finished', { status: ['done', 'done', 'skipped', 'done'] });
+    await session('finished', { status: ['done', 'done', 'skipped', 'done'] });
     expect(ssr(<TilingPanel />)).toContain('Se enviaron 3 tramos y se saltaron 1.');
   });
 
-  it('en inglés se traduce', () => {
+  it('en inglés se traduce', async () => {
     setLanguage('en');
-    session('place');
+    await session('place');
     const out = ssr(<TilingPanel />);
     expect(out).toContain('Tile 1 of 4: place the material like this…');
     expect(out).toContain('Send tile 1');
@@ -180,21 +196,25 @@ describe('pasos del envío', () => {
 });
 
 describe('lienzo', () => {
-  it('con el asistente cerrado no hay tramos; abierto, los del plan numerados', () => {
+  it('con el asistente cerrado no hay tramos; abierto, los del plan numerados', async () => {
     setDoc(100, 60);
     expect(selectSceneTiles()).toBeNull();
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [55, 35], overlap: 10, margin: 0 });
+    await planned();
     const scene = selectSceneTiles();
     expect(scene?.tiles.map((t) => [t.label, t.state])).toEqual([[1, 'preview'], [2, 'preview'], [3, 'preview'], [4, 'preview']]);
     // Memoizado: sin cambios devuelve el mismo objeto.
     expect(selectSceneTiles()).toBe(scene);
   });
 
-  it('durante la sesión marca el actual y el avance', () => {
+  it('durante la sesión marca el actual y el avance', async () => {
     setDoc(100, 60);
     openTiling();
+    await planned();
     useTilingUi.getState().patchConfig({ size: [55, 35], overlap: 10, margin: 0 });
+    await planned();
     const { plan, design, config } = useTilingUi.getState();
     if (!plan?.ok || !design) throw new Error('sin plan');
     const s = mark(newSession(plan.plan.tiles.map((p) => p.spec), design, config, 'dev', false), 0, 'done');
@@ -204,7 +224,7 @@ describe('lienzo', () => {
   });
 });
 
-describe('sección del alimentador en el perfil', () => {
+describe('sección del alimentador en el perfil', async () => {
   const draft = (feeder: Partial<typeof FALLBACK_DEVICE.feeder>) => ({ ...FALLBACK_DEVICE, feeder: { ...FALLBACK_DEVICE.feeder, ...feeder } });
   const noop = () => {};
 

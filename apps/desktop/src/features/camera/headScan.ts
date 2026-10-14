@@ -13,7 +13,7 @@ import { selectHeadDoc } from '@/store/machine';
 import { projectDir, projectStem } from '@/features/trace/bitmap';
 import type { Quad, Vec2 } from './geometry';
 import { SCAN_CROP, planScan, headTileToBed, type ScanPlan, type ScanStop } from './head';
-import { useHeadUi } from './headState';
+import { useHeadUi, type ZoneRect } from './headState';
 import { matrixForFrame } from './mapping';
 import { correctedSpace, grabCorrectedColorPng, setMosaicBackdrop } from './session';
 
@@ -123,8 +123,22 @@ export function machineDeps(store: StoreLike = useStore, onProgress?: ScanDeps['
   };
 }
 
-/** Zona a recorrer: la caja de la selección (si se pide) o toda la cama. */
-export function scanRegion(useSelection: boolean): [number, number, number, number] | undefined {
+/** Qué zona de la cama recorrer: la dibujada en el lienzo, la selección o toda la cama. */
+export interface ScanArea {
+  useSelection: boolean;
+  /** Zona dibujada (mm); tiene prioridad sobre la selección. */
+  zone?: ZoneRect | null;
+}
+
+/** La elección actual del panel de Cámara. */
+export function currentScanArea(): ScanArea {
+  const ui = useHeadUi.getState();
+  return ui.useZone && ui.zone ? { useSelection: false, zone: ui.zone } : { useSelection: ui.useSelection, zone: null };
+}
+
+/** Zona a recorrer: la dibujada, la caja de la selección (si se pide) o toda la cama. */
+export function scanRegion(useSelection: boolean, zone: ZoneRect | null = null): [number, number, number, number] | undefined {
+  if (zone) return [...zone];
   if (!useSelection) return undefined;
   const s = useStore.getState();
   const box = unionBounds(selectSelectedObjects(s).map(objectBounds));
@@ -142,14 +156,14 @@ export interface ScanResult {
  * Recorre la cama y compone el mosaico. Con `save` escribe el PNG para el documento; sin él solo
  * se queda la vista previa como fondo. Lanza un error con texto para el usuario.
  */
-export async function scanBed(opts: { save: boolean; useSelection: boolean }, deps?: ScanDeps, store: StoreLike = useStore): Promise<ScanResult | null> {
+export async function scanBed(opts: { save: boolean } & ScanArea, deps?: ScanDeps, store: StoreLike = useStore): Promise<ScanResult | null> {
   const s = store.getState();
   const cal = s.cameraSetup.head?.calibration;
   const space = correctedSpace();
   if (!cal) throw new ScanError(t('camera.mapping.noHeadCalibration'));
   if (!space || cal.image_size[0] !== space[0] || cal.image_size[1] !== space[1]) throw new ScanError(t('camera.mapping.staleHead'));
   const bed = selectActiveDevice(s).bed;
-  const plan = planScan(bed, cal, scanRegion(opts.useSelection));
+  const plan = planScan(bed, cal, scanRegion(opts.useSelection, opts.zone ?? null));
   if ('error' in plan) throw new ScanError(t(`camera.head.plan.${plan.error}`));
   const ui = useHeadUi.getState();
   ui.requestCancel(false);
@@ -219,7 +233,7 @@ export function clearMosaic(): void {
 export async function updateHeadOverlay(): Promise<boolean> {
   const s = useStore.getState();
   try {
-    const r = await scanBed({ save: false, useSelection: useHeadUi.getState().useSelection });
+    const r = await scanBed({ save: false, ...currentScanArea() });
     if (!r) {
       s.notify('info', t('camera.head.scan.cancelled'));
       return false;

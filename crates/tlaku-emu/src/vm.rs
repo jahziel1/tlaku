@@ -109,6 +109,12 @@ impl Builder {
         self
     }
 
+    /// Ventana de bloques del planificador de velocidades (`None` = todo el búfer).
+    pub fn lookahead_blocks(mut self, blocks: Option<usize>) -> Self {
+        self.profile.lookahead_blocks = blocks;
+        self
+    }
+
     /// Terminador de las respuestas.
     pub fn line_ending(mut self, le: LineEnding) -> Self {
         self.line_ending = Some(le);

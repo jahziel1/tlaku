@@ -74,6 +74,7 @@ export const printcut = {
   'printcut.capture.missing': 'Falta medir alguna marca.',
 
   'printcut.result.incomplete': 'Faltan marcas por medir.',
+  'printcut.result.computing': 'Calculando el ajuste…',
   'printcut.result.good': 'El registro es bueno: el error es menor que {mm} mm.',
   'printcut.result.check': 'El error de las marcas es bajo, pero revisa los avisos antes de aceptar.',
   'printcut.result.bad': 'El error es alto (más de {mm} mm). Revisa las posiciones guardadas o vuelve a medir.',

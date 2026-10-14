@@ -17,6 +17,8 @@ pub(super) enum Request {
     /// Encuadre con el puntero rojo en bucle. Responde al terminar la primera vuelta.
     Light {
         shape: Box<LightShape>,
+        /// Vueltas tras las cuales termina solo; `None` = hasta detener.
+        loops: Option<u32>,
         reply: Reply<()>,
     },
     RedLight {
@@ -63,6 +65,8 @@ pub(super) struct Shared {
     pub(super) laser_may_be_on: AtomicBool,
     /// El puntero rojo quedó encendido en su sitio.
     pub(super) red_on: AtomicBool,
+    /// Hay un encuadre en curso (admite mover y escalar en vivo).
+    pub(super) framing: AtomicBool,
     pub(super) live: Mutex<Live>,
     pub(super) status: Mutex<Option<StatusReport>>,
     pub(super) gate: Mutex<Gate>,
@@ -173,6 +177,14 @@ impl GalvoHandle {
             field_mm: sh.cfg.device.field_mm,
             source: sh.cfg.device.source,
             waiting_move: sh.gate.lock().ok().and_then(|g| g.waiting.clone()),
+            framing: sh.framing.load(Ordering::SeqCst),
+            interlock: sh.cfg.inputs_required.map(|c| GalvoInterlock {
+                mask: c.mask,
+                value: c.value,
+                met: inputs_known && inputs & c.mask == c.value,
+            }),
+            pointer_offset: sh.cfg.pointer_offset,
+            overscan_mm: sh.cfg.device.overscan_mm,
         }
     }
 
@@ -183,13 +195,21 @@ impl GalvoHandle {
         if device.kind != DeviceKind::Galvo {
             return Err("El perfil de la máquina no es de tipo galvo.".into());
         }
-        let now = (driver_part(&device.galvo), device.bed);
-        let was = (driver_part(&self.shared.cfg.device), self.shared.bed);
+        let now = (
+            driver_part(&device.galvo),
+            device.bed,
+            device.pointer_offset,
+        );
+        let was = (
+            driver_part(&self.shared.cfg.device),
+            self.shared.bed,
+            self.shared.cfg.pointer_offset,
+        );
         if now != was {
             return Err(
-                "El perfil de la máquina cambió (campo, fuente, límites, corrección o \
-                        cama) desde que te conectaste. Desconecta y vuelve a conectar para \
-                        aplicarlo."
+                "El perfil de la máquina cambió (campo, fuente, límites, corrección, \
+                        enclavamiento, overscan, desfase del puntero o cama) desde que te \
+                        conectaste. Desconecta y vuelve a conectar para aplicarlo."
                     .into(),
             );
         }
@@ -230,23 +250,66 @@ impl GalvoHandle {
         options: &tlaku_doc::JobOptions,
         contour: bool,
     ) -> Result<(), String> {
+        let kind = if contour {
+            FrameKind::Contour
+        } else {
+            FrameKind::Rect
+        };
+        self.frame(doc, device, options, kind, None, None)
+    }
+
+    /// Encuadre con el puntero rojo de la forma pedida (rectángulo, trazos, casco convexo u
+    /// objetos sueltos). `loops`: vueltas tras las cuales termina solo (`None` = hasta detener).
+    pub fn frame(
+        &self,
+        doc: &tlaku_doc::Document,
+        device: &DeviceProfile,
+        options: &tlaku_doc::JobOptions,
+        kind: FrameKind,
+        loops: Option<u32>,
+        gap_mm: Option<f64>,
+    ) -> Result<(), String> {
         self.check_profile(device)?;
         self.ensure_free()?;
-        let shape = light_shape(doc, device, options, contour)?;
-        // Se valida el encuadre (campo) antes de tocar la tarjeta.
+        if loops == Some(0) {
+            return Err("El número de vueltas del encuadre debe ser al menos 1.".into());
+        }
+        if gap_mm.is_some_and(|g| !g.is_finite() || g < 0.0) {
+            return Err("La holgura entre objetos debe ser un número no negativo.".into());
+        }
+        let shape = light_shape(doc, device, options, kind, gap_mm)?;
+        // Se valida el encuadre (campo, desfase del puntero) antes de tocar la tarjeta.
         compile::compile_light(
             &shape,
             &self.shared.cfg.device,
             &LightOptions {
                 origin: self.shared.cfg.origin,
+                pointer_offset: self.shared.cfg.pointer_offset,
             },
         )
         .map_err(|e| e.to_string())?;
         self.arm_request();
         self.call(|reply| Request::Light {
             shape: Box::new(shape),
+            loops,
             reply,
         })
+    }
+
+    /// Mueve (mm) o escala el encuadre que está en curso, sin detenerlo. Se aplica en la vuelta
+    /// siguiente; si el resultado no cabe en el campo se descarta y el encuadre sigue como estaba
+    /// (el evento `light` lo avisa). `scale` es respecto al tamaño original; 1 = sin escalar.
+    pub fn adjust_frame(&self, dx: f64, dy: f64, scale: f64) -> Result<(), String> {
+        if self.is_closed() {
+            return Err(crate::machine::NOT_CONNECTED.into());
+        }
+        if !self.shared.framing.load(Ordering::SeqCst) {
+            return Err("No hay un encuadre en curso que mover o escalar.".into());
+        }
+        self.shared
+            .control
+            .set_light_adjust(LightAdjust { dx, dy, scale })
+            .map(|_| ())
     }
 
     /// Enciende o apaga el puntero rojo en su sitio (la fuente queda deshabilitada).

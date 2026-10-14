@@ -18,6 +18,9 @@ import { smoothNode } from './pen';
 import { createPickTool } from './pickTool';
 import { createPositionTool } from './positionTool';
 import { createTrimTool } from './trimTool';
+import { createFilletTool } from './filletTool';
+import { createWarpTool } from './warpTool';
+import { registerWarpActions } from './warpEditStore';
 import { createTextAt, editText, prefetchFonts } from './textTool';
 import { DRAG_PX, type Mods, type ToolDeps } from './toolDeps';
 import { boundsOf, canRotate, isIdentity } from './transform';
@@ -90,7 +93,11 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       guideTool.cancel();
       marksTool.cancel();
       trimTool.cancel();
+      filletTool.cancel();
+      warpTool.cancel();
       clearGesture();
+      // Deformar guarda su malla entre gestos: se vuelve a dibujar tras limpiar el borrador.
+      if (st().activeTool === 'warp') warpTool.redraw();
     };
 
     const toolDeps: ToolDeps = { el, st, viewOf, world, capture, release, snapOpts, targetsFor, setTip, snapTo };
@@ -105,6 +112,14 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     const guideTool = createGuideTool(toolDeps);
     const marksTool = createMarksTool(toolDeps);
     const trimTool = createTrimTool(toolDeps);
+    const filletTool = createFilletTool({ ...toolDeps, pick: (p, tol) => pickObject(pickCtx(), p, tol) });
+    const warpTool = createWarpTool(toolDeps);
+    const unregisterWarp = registerWarpActions({
+      apply: () => warpTool.apply(),
+      reset: () => warpTool.reset(),
+      setMode: (m) => warpTool.setMode(m),
+      canApply: () => warpTool.canApply(),
+    });
 
     // ---- eventos del puntero -------------------------------------------------------------------------------------
 
@@ -149,6 +164,12 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
           break;
         case 'trim':
           trimTool.down(sx, sy, mods.shift);
+          break;
+        case 'warp':
+          warpTool.down(e, sx, sy);
+          break;
+        case 'fillet':
+          filletTool.down(sx, sy, mods);
           break;
         case 'rect':
         case 'ellipse':
@@ -235,6 +256,14 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
         trimTool.hover(sx, sy);
         return;
       }
+      if (tool === 'warp') {
+        warpTool.hover(sx, sy);
+        return;
+      }
+      if (tool === 'fillet') {
+        filletTool.hover(sx, sy, last?.mods ?? { shift: false, alt: false, ctrl: false });
+        return;
+      }
       if (guideTool.hover(sx, sy)) return;
       if (tool === 'nodes') {
         patchInteraction({ hoverId: null });
@@ -261,6 +290,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       last = { sx, sy, mods };
       if (positionTool.move(e, sx, sy, mods)) return;
       if (nodeTool.move(e, sx, sy, mods)) return;
+      if (warpTool.move(e, sx, sy, mods)) return;
       if (pickTool.move(e, sx, sy, mods)) return;
       if (measureTool.move(e, sx, sy, mods)) return;
       if (guideTool.move(e, sx, sy, mods)) return;
@@ -278,12 +308,13 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (!hoverFrame) {
         hoverFrame = requestAnimationFrame(() => {
           hoverFrame = 0;
-          if (last && !state.g && !nodeTool.active() && !guideTool.active()) hoverAt(last.sx, last.sy);
+          if (last && !state.g && !nodeTool.active() && !guideTool.active() && !warpTool.active()) hoverAt(last.sx, last.sy);
         });
       }
     };
 
     const onUp = (e: PointerEvent) => {
+      if (warpTool.up(e)) return;
       if (nodeTool.active()) {
         const [nx, ny] = local(e);
         nodeTool.up(e, nx, ny, modsOf(e));
@@ -352,6 +383,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       if (!state.g) patchInteraction({ hoverId: null });
       if (st().activeTool === 'tabs' || st().activeTool === 'start') marksTool.leave();
       if (st().activeTool === 'trim') trimTool.leave();
+      if (st().activeTool === 'fillet') filletTool.leave();
       if (positionTool.active()) patchInteraction({ tip: null });
     };
 
@@ -372,11 +404,21 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       }
     };
 
+    // Intro aplica la deformación del lienzo. No es un atajo del registro: atraparía Intro en cualquier botón.
+    const onWarpKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || st().activeTool !== 'warp') return;
+      const target = e.target as HTMLElement | null;
+      if (isEditableTarget(e.target) || target?.closest?.('button, a, select, summary, [role="button"]')) return;
+      e.preventDefault();
+      void warpTool.apply();
+    };
+
     // Cambiar Mayús / Alt / Ctrl a mitad de un gesto actualiza el resultado sin mover el ratón.
     const onModifier = (e: KeyboardEvent) => {
       if (!['Shift', 'Alt', 'Control', 'Meta'].includes(e.key) || !last) return;
       const mods = modsOf(e);
       last = { ...last, mods };
+      if (st().activeTool === 'fillet') filletTool.hover(last.sx, last.sy, mods);
       if (nodeTool.active()) nodeTool.refresh(last.sx, last.sy, mods);
       else if (state.g?.active) update(last.sx, last.sy, mods);
       else if (state.poly) showPoly(polyCursor(last.sx, last.sy, mods), last.sx, last.sy);
@@ -421,6 +463,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
     el.addEventListener('contextmenu', onContextMenu);
     el.addEventListener('dblclick', onDoubleClick);
     window.addEventListener('keydown', onKeyCapture, true);
+    window.addEventListener('keydown', onWarpKey);
     window.addEventListener('keydown', onModifier);
     window.addEventListener('keyup', onModifier);
     window.addEventListener('blur', cancel);
@@ -429,8 +472,13 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
 
     // Cambiar de herramienta o de selección deshace lo pendiente.
     const unsub = useStore.subscribe((s, prev) => {
+      if (s.activeTool === 'warp' && s.activeTool === prev.activeTool && (s.selectedIds !== prev.selectedIds || s.doc.objects !== prev.doc.objects)) {
+        warpTool.refresh();
+      }
       if (s.activeTool !== prev.activeTool) {
         cancel();
+        if (prev.activeTool === 'warp') warpTool.end();
+        if (s.activeTool === 'warp') warpTool.begin();
         patchInteraction({ hoverId: null, nodeHover: null, measure: null, markHover: null, guideHover: null, tip: null });
         if (s.activeTool === 'text') prefetchFonts();
       }
@@ -465,6 +513,7 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       el.removeEventListener('contextmenu', onContextMenu);
       el.removeEventListener('dblclick', onDoubleClick);
       window.removeEventListener('keydown', onKeyCapture, true);
+      window.removeEventListener('keydown', onWarpKey);
       window.removeEventListener('keydown', onModifier);
       window.removeEventListener('keyup', onModifier);
       window.removeEventListener('blur', cancel);
@@ -473,7 +522,9 @@ export function useCanvasTools(areaRef: RefObject<HTMLElement | null>, canvasRef
       unsub();
       unsubCursor();
       unsubPosition();
+      unregisterWarp();
       cancel();
+      warpTool.end();
     };
   }, [areaRef, canvasRef]);
 }

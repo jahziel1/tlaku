@@ -47,3 +47,72 @@ interface CameraSetup { /* ... */ head?: HeadCamera }
 - **Buscador de centro.** Con 3 puntos: circuncírculo en mm; con la detección automática, ajuste por
   mínimos cuadrados a los puntos de borde pasados a mm. Mover al centro usa `jog_to`; fijar el origen escribe
   `user_origin` (coordenadas de trabajo, como «Origen de usuario aquí»).
+
+## Cámaras de red, configuraciones y paquetes (ola 6C)
+
+`camera.json` gana, todos con valor por defecto al leer (un archivo anterior carga igual):
+
+```ts
+type CameraSource = "local" | "network";
+interface CameraPrefs {
+  source?: CameraSource;          // por defecto "local" (getUserMedia)
+  network_url?: string | null;    // http://[usuario:clave@]host[:puerto]/ruta (snapshot JPEG o MJPEG)
+  dpm?: number | null;            // puntos por mm fijados a mano; null = los de la alineación
+  offset_x_mm?: number; offset_y_mm?: number;   // desplazamiento manual del fondo (±1000 mm)
+}
+interface CameraPreset {          // CameraSetup.presets: hasta 32, nombre único sin distinguir mayúsculas
+  name: string; source: CameraSource; device_id; device_label; width; height;
+  network_url: string | null; dpm: number | null; offset_x_mm: number; offset_y_mm: number; grayscale: boolean;
+}
+```
+
+`save_camera_setup` valida la URL (`http://` o `https://`, sin espacios, ≤ 2048), limita `dpm` (> 0 y ≤ 10 000, si no `null`)
+y los desplazamientos, recorta los nombres y deja una sola configuración por nombre (gana la última).
+
+### Cámaras de red
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `fetch_camera_frame` | `{ url: string }` | `NetworkFrame { mime, data_base64 }`: un cuadro `image/jpeg`, `image/png` o `image/bmp` (el tipo sale de los bytes, no del encabezado) |
+
+El navegador de Tauri no puede leer el MJPEG de una cámara IP (CORS, y el lienzo «contaminado» no sube a WebGL), así que la
+petición sale del motor: un cuadro por llamada y la interfaz repite (`netSource.ts`, unos 8 cuadros por segundo como máximo).
+
+- **Solo `http://` y solo red local.** El host se resuelve y **todas** sus direcciones deben ser privadas (10/8, 172.16/12,
+  192.168/16), de enlace local o de bucle (también IPv6 `::1`, `fc00::/7`, `fe80::/10`). Una dirección pública se rechaza sin
+  conectar; `https://` también (no hay TLS).
+- **Snapshot y MJPEG.** Con `Content-Length` o por fragmentos (`chunked`) se lee la imagen entera (máx. 8 MiB). Con
+  `multipart/x-mixed-replace` o un `image/jpeg` sin largo se devuelve el **primer** cuadro completo (por el `Content-Length` de la
+  parte o, si no hay, hasta el primer marcador `FF D9`) y se cierra la conexión.
+- **Credenciales.** `usuario:clave@` en la URL sale como `Authorization: Basic`, nunca en la ruta. La clave no aparece en ningún
+  mensaje de error. La autenticación Digest no se admite (se avisa). Tiempos: 3 s para conectar, 5 s por lectura, 10 s en total.
+- **Dónde queda la clave.** La URL se guarda tal cual en `camera.json`, en la carpeta de configuración **de este equipo**
+  (perfil local). La interfaz la muestra con la clave oculta (`http://usuario:***@...`). **Nunca** viaja en un paquete
+  `.tlakubundle`: al exportar se quitan usuario y clave de cada configuración (`stripCredentials`), y al importar se vuelven a
+  quitar si un archivo ajeno las trae. `camera.json` es texto plano: quien pueda leer la carpeta de configuración puede leerla.
+
+### Ajuste manual del fondo
+
+`dpm`, `offset_x_mm` y `offset_y_mm` se aplican **después** de la alineación sobre la matriz píxel → mm de la cámara fija
+(`features/camera/adjust.ts`): la escala `auto/dpm` es alrededor del punto de la cama que ve el centro de la imagen y luego se suma
+el desplazamiento. Valen para el fondo y para «Capturar imagen de la cama» (misma matriz). No se guardan en la alineación ni se
+usan con la cámara en el cabezal.
+
+### Cámara en el cabezal: marcas y zona
+
+- **Alineación automática con marcas.** Reutiliza `camera_marks` / `detect_camera_marks` con un cuadro de 9 marcas de lado
+  `size` (≥ 60 mm, el mínimo del motor): `camera_marks({ bed: [size, size], count: 9 })` y el documento se mueve a su esquina
+  en la cama. Con el cabezal quieto, `detect_camera_marks({ bed: [size, size], count: 9, prior_to_bed: null })` da el píxel de cada
+  marca usada; cada una es una observación `M = L + offset + A (p - ref)` (con su propia marca `M`) y el mismo ajuste de mínimos
+  cuadrados saca el desfase y la escala. Una foto con 4 o más marcas basta; varias posiciones afinan. Hace falta ver el círculo de la
+  primera marca.
+- **Zona del recorrido.** `scanBed({ save, useSelection, zone })`: `zone` (mm, `[x0, y0, x1, y1]`) tiene prioridad sobre la
+  selección; se recorta a la cama. Es solo del lado de la interfaz (el motor recibe el `rect` de `compose_bed_image`).
+
+### Paquete `.tlakubundle`
+
+Dos secciones opcionales nuevas (el sobre y su versión no cambian; un paquete anterior sigue leyéndose):
+`cameras: { calibration, alignment, head, presets }` (las configuraciones sin credenciales ni `device_id`) y
+`art: { items: { name, svg }[] }` (solo la biblioteca propia, no la incluida). Al importar: la calibración, la alineación y la del
+cabezal **reemplazan** a las locales (si entra una lente distinta y el paquete no trae su alineación, la local se quita); las
+configuraciones y los dibujos **se mezclan** y nunca pisan lo local (nombre repetido con otro contenido → copia con nombre nuevo).

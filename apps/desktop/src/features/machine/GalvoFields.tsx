@@ -6,6 +6,7 @@ import type { SplitOrder } from '@/bindings/SplitOrder';
 import { t, type I18nKey } from '@/i18n';
 import { NumInput } from './DeviceFields';
 import { GalvoExperimentalBadge } from './GalvoNotice';
+import { GalvoInterlockEditor } from './GalvoInterlock';
 import { SOURCE_WAVELENGTH_NM } from './galvoPorts';
 import { COMMON_FIELDS_MM, formatPulseWidths, GALVO_SOURCES, parsePulseWidths, usesPulseWidth, type GalvoField, type GalvoIssues } from './galvoProfile';
 
@@ -173,12 +174,28 @@ export function GalvoFields({ draft, edit, issues, calibrate }: { draft: DeviceP
             </div>
           )}
         </GField>
+        <GField label={t('galvo.dev.overscan')} help="galvo.dev.overscan.help" error={issues.overscan}>
+          {({ id, describedBy, invalid }) => <NumInput id={id} unit="mm" value={g.overscan_mm} describedBy={describedBy} invalid={invalid} onCommit={(v) => set({ overscan_mm: v })} />}
+        </GField>
       </Sub>
 
       <Sub title={t('galvo.dev.pointer')} help="galvo.dev.pointer.help">
         <GField label={t('galvo.dev.lightSpeed')} help="galvo.dev.lightSpeed.help" error={issues.light_speed}>
           {({ id, describedBy, invalid }) => <NumInput id={id} unit="mm/s" value={g.light_speed} describedBy={describedBy} invalid={invalid} onCommit={(v) => set({ light_speed: v })} />}
         </GField>
+        <GField label={t('galvo.dev.pointerOffset')} help="galvo.dev.pointerOffset.help" error={issues.pointer_offset}>
+          {({ id, describedBy, invalid }) => (
+            <div className="field-grid">
+              <NumInput id={id} label="X" unit="mm" value={draft.pointer_offset[0]} describedBy={describedBy} invalid={invalid} onCommit={(v) => edit({ pointer_offset: pair(draft.pointer_offset, 0, v) })} />
+              <NumInput label="Y" unit="mm" value={draft.pointer_offset[1]} describedBy={describedBy} invalid={invalid} onCommit={(v) => edit({ pointer_offset: pair(draft.pointer_offset, 1, v) })} />
+            </div>
+          )}
+        </GField>
+      </Sub>
+
+      <Sub title={t('galvo.dev.interlock')} help="galvo.dev.interlock.help">
+        <GalvoInterlockEditor value={g.require_input} onChange={(v) => set({ require_input: v })} />
+        {issues.interlock && <p className="hint hint--danger" role="alert">{t(issues.interlock)}</p>}
       </Sub>
 
       <Sub title={t('galvo.dev.correction')} help="galvo.dev.correction.help">

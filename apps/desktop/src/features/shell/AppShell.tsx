@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { CanvasView } from '@/features/canvas';
 import { DropOverlay, PromptHost, useCloseGuard, useFileDrop, useWindowTitle } from '@/features/history';
 import { ColorPalette } from '@/features/layers';
@@ -23,9 +23,11 @@ import { ArtPanelHost } from '@/features/art';
 import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
 import { FirstRunDialog, SimplePanel, useUiMode } from '@/features/simple';
+import { shellColumns, type DockLayout } from '@/lib/dockLayout';
 import { usePref, useStore } from '@/store';
 import './shell-extra.css';
 import { Dock } from './Dock';
+import { FloatingPanels } from './FloatingPanels';
 import { ShortcutsDialog, useShortcutsHotkey } from './ShortcutsDialog';
 import { StatusBar } from './StatusBar';
 import { TemplatesHost } from './TemplatesDialog';
@@ -55,6 +57,17 @@ export function AppShell() {
   );
 }
 
+const COLUMN_WIDTH = { tools: 'var(--tools-w)', main: 'minmax(0, 1fr)', dock: 'auto' } as const;
+
+/** Columnas de la ventana según el borde del panel y de las herramientas (preferencia `dockLayout`). */
+export function shellGrid(layout: Pick<DockLayout, 'side' | 'toolsSide'>): CSSProperties {
+  const cols = shellColumns(layout);
+  return {
+    gridTemplateColumns: cols.map((c) => COLUMN_WIDTH[c]).join(' '),
+    gridTemplateAreas: `'top top top' '${cols.join(' ')}' 'palette palette palette' 'status status status'`,
+  };
+}
+
 /** Estructura de la ventana: barra superior, herramientas, lienzo, panel, paleta de capas y estado, más avisos y diálogos. */
 function ShellBody() {
   const previewVisible = useStore((s) => s.previewVisible);
@@ -66,8 +79,9 @@ function ShellBody() {
   useCloseGuard();
   useFileDrop();
   useShortcutsHotkey();
+  const layout = usePref('dockLayout');
   return (
-    <div className={simple ? 'shell shell--simple' : 'shell'}>
+    <div className={simple ? 'shell shell--simple' : 'shell'} style={simple ? undefined : shellGrid(layout)} data-tools-side={simple ? undefined : layout.toolsSide}>
       <TopBar />
       {!simple && <ToolPalette />}
       <main className="shell__main">
@@ -77,6 +91,7 @@ function ShellBody() {
         {previewVisible && <PreviewBar />}
       </main>
       {simple ? <SimplePanel /> : <Dock />}
+      {!simple && <FloatingPanels />}
       {!simple && (
         <div className="shell__palette">
           <ColorPalette />

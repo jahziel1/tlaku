@@ -7,6 +7,11 @@
 //! cada tramo se parte en trozos, se evalúa la deformación en los extremos de cada trozo y en su
 //! tangente (derivada numérica de la deformación) y se vuelve a ajustar una cúbica de Hermite. Si la
 //! cúbica se aparta más de `tolerance` de la curva deformada de verdad, el trozo se parte otra vez.
+//!
+//! Además del parche de Coons hay otras dos superficies, que comparten ese ajuste de curvas:
+//! - `Warp::perspective`: proyección de cuatro esquinas (las rectas siguen siendo rectas).
+//! - `Warp::mesh`: malla de 4x4 puntos por los que pasa la superficie (interpolación cúbica de
+//!   Lagrange en cada eje, determinista y sin pasos iterativos).
 
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{Bounds, Point};
@@ -111,9 +116,100 @@ impl Envelope {
     }
 }
 
-/// Deformación de la región `source` hacia la envolvente `env`.
+/// Malla de control de 4x4 puntos: `grid[j][i]` es la imagen del punto `(i/3, j/3)` del cuadrado
+/// unidad de origen (`i` crece hacia la derecha y `j` hacia arriba).
+pub type Grid = [[Point; 4]; 4];
+
+/// Pesos de la interpolación cúbica de Lagrange en los nodos `0, 1/3, 2/3, 1`.
+fn lagrange(t: f64) -> [f64; 4] {
+    let (a, b, c) = (t - 1.0 / 3.0, t - 2.0 / 3.0, t - 1.0);
+    [
+        -4.5 * a * b * c,
+        13.5 * t * b * c,
+        -13.5 * t * a * c,
+        4.5 * t * a * b,
+    ]
+}
+
+fn mesh_at(g: &Grid, u: f64, v: f64) -> Point {
+    let (lu, lv) = (lagrange(u), lagrange(v));
+    let (mut x, mut y) = (0.0, 0.0);
+    for (j, row) in g.iter().enumerate() {
+        for (i, p) in row.iter().enumerate() {
+            let w = lu[i] * lv[j];
+            x += p.x * w;
+            y += p.y * w;
+        }
+    }
+    Point::new(x, y)
+}
+
+/// Coeficientes `[a, b, c, d, e, f, g, h]` de la proyección
+/// `(x, y) = ((a u + b v + c) / (g u + h v + 1), (d u + e v + f) / (g u + h v + 1))`.
+fn homography(q: &[Point; 4]) -> Option<[f64; 8]> {
+    let (p0, p1, p2, p3) = (q[0], q[1], q[2], q[3]);
+    let (dx1, dx2) = (p1.x - p2.x, p3.x - p2.x);
+    let (dy1, dy2) = (p1.y - p2.y, p3.y - p2.y);
+    let (sx, sy) = (p0.x - p1.x + p2.x - p3.x, p0.y - p1.y + p2.y - p3.y);
+    let scale = [dx1, dx2, dy1, dy2]
+        .iter()
+        .fold(1.0f64, |m, v| m.max(v.abs()));
+    let (g, h) = if sx.abs() <= 1e-12 * scale && sy.abs() <= 1e-12 * scale {
+        (0.0, 0.0)
+    } else {
+        let den = dx1 * dy2 - dx2 * dy1;
+        if den.abs() <= 1e-12 * scale * scale {
+            return None;
+        }
+        ((sx * dy2 - dx2 * sy) / den, (dx1 * sy - sx * dy1) / den)
+    };
+    // El divisor es lineal en (u, v): basta mirarlo en las cuatro esquinas del origen.
+    if [1.0, 1.0 + g, 1.0 + h, 1.0 + g + h]
+        .iter()
+        .any(|d| !d.is_finite() || *d <= 1e-6)
+    {
+        return None;
+    }
+    Some([
+        p1.x - p0.x + g * p1.x,
+        p3.x - p0.x + h * p3.x,
+        p0.x,
+        p1.y - p0.y + g * p1.y,
+        p3.y - p0.y + h * p3.y,
+        p0.y,
+        g,
+        h,
+    ])
+}
+
+fn projective_at(m: &[f64; 8], u: f64, v: f64) -> Point {
+    let den = m[6] * u + m[7] * v + 1.0;
+    Point::new(
+        (m[0] * u + m[1] * v + m[2]) / den,
+        (m[3] * u + m[4] * v + m[5]) / den,
+    )
+}
+
+/// Superficie a la que se lleva el cuadrado unidad de origen.
+enum Surface {
+    Coons(Envelope),
+    Mesh(Box<Grid>),
+    Perspective([f64; 8]),
+}
+
+impl Surface {
+    fn at(&self, u: f64, v: f64) -> Point {
+        match self {
+            Surface::Coons(e) => e.at(u, v),
+            Surface::Mesh(g) => mesh_at(g, u, v),
+            Surface::Perspective(m) => projective_at(m, u, v),
+        }
+    }
+}
+
+/// Deformación de la región `source` hacia una superficie (envolvente, malla o perspectiva).
 pub struct Warp {
-    env: Envelope,
+    surface: Surface,
     source: Bounds,
     w: f64,
     h: f64,
@@ -122,10 +218,38 @@ pub struct Warp {
 impl Warp {
     /// `None` si la región de origen no tiene ancho y alto positivos y finitos.
     pub fn new(source: Bounds, env: Envelope) -> Option<Self> {
+        Self::with_surface(source, Surface::Coons(env.snapped()))
+    }
+
+    /// Malla de 4x4 puntos: la superficie pasa por cada uno (ver [`Grid`]). `None` si la región de
+    /// origen es degenerada o algún punto no es finito.
+    pub fn mesh(source: Bounds, grid: Grid) -> Option<Self> {
+        let finite = grid
+            .iter()
+            .flatten()
+            .all(|p| p.x.is_finite() && p.y.is_finite());
+        if !finite {
+            return None;
+        }
+        Self::with_surface(source, Surface::Mesh(Box::new(grid)))
+    }
+
+    /// Proyección que lleva las esquinas de `source` (abajo-izquierda, abajo-derecha,
+    /// arriba-derecha, arriba-izquierda) a `corners` en ese mismo orden. `None` si el
+    /// cuadrilátero es degenerado o no es convexo (la proyección dejaría de estar definida).
+    pub fn perspective(source: Bounds, corners: [Point; 4]) -> Option<Self> {
+        let finite = corners.iter().all(|p| p.x.is_finite() && p.y.is_finite());
+        if !finite {
+            return None;
+        }
+        Self::with_surface(source, Surface::Perspective(homography(&corners)?))
+    }
+
+    fn with_surface(source: Bounds, surface: Surface) -> Option<Self> {
         let (w, h) = (source.max.x - source.min.x, source.max.y - source.min.y);
         let ok = w.is_finite() && h.is_finite() && w > 1e-9 && h > 1e-9;
-        ok.then(|| Self {
-            env: env.snapped(),
+        ok.then_some(Self {
+            surface,
             source,
             w,
             h,
@@ -142,16 +266,16 @@ impl Warp {
     /// Imagen de un punto del documento.
     pub fn map(&self, p: Point) -> Point {
         let (u, v) = self.uv(p);
-        self.env.at(u, v)
+        self.surface.at(u, v)
     }
 
     /// Jacobiana de la deformación en `p`: `(∂/∂x, ∂/∂y)` de la imagen.
     fn jacobian(&self, p: Point) -> (Point, Point) {
         let (u, v) = self.uv(p);
-        let du = self.env.at(u + DELTA, v);
-        let dm = self.env.at(u - DELTA, v);
-        let dv = self.env.at(u, v + DELTA);
-        let dn = self.env.at(u, v - DELTA);
+        let du = self.surface.at(u + DELTA, v);
+        let dm = self.surface.at(u - DELTA, v);
+        let dv = self.surface.at(u, v + DELTA);
+        let dn = self.surface.at(u, v - DELTA);
         let kx = 1.0 / (2.0 * DELTA * self.w);
         let ky = 1.0 / (2.0 * DELTA * self.h);
         (

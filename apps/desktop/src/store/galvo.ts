@@ -1,8 +1,9 @@
 import { getApi } from '@/api';
-import type { ConnectionEvent, GalvoEvent, GalvoSafetyAck, GalvoStepInfo, JobEvent } from '@/api/types';
+import type { ConnectionEvent, GalvoEvent, GalvoFrameKind, GalvoSafetyAck, GalvoStepInfo, JobEvent } from '@/api/types';
 import { isUnconfirmedStop } from '@/features/machine/galvoPorts';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { errorMessage } from '@/lib/errors';
+import { frameMarkOf } from './machine/selectors';
 import { buildJobArgs } from './selectors';
 import type { SliceCreator } from './types';
 
@@ -19,6 +20,10 @@ export interface GalvoSlice {
   galvoWait: GalvoStepInfo | null;
   /** Vueltas del encuadre con el puntero rojo. */
   galvoLoops: number;
+  /** Versión del último ajuste en vivo del encuadre que la tarjeta aplicó (0 = ninguno). */
+  galvoAdjustGen: number;
+  /** El último ajuste en vivo no cabía en el campo y se descartó. */
+  galvoAdjustRejected: boolean;
   /** El puntero rojo está encendido en su sitio (lo que pidió la interfaz). */
   galvoRedOn: boolean;
   /** Texto del aviso de cortar la energía; `null` = no hay aviso. Solo lo borra `dismissGalvoLaserWarning`. */
@@ -36,6 +41,13 @@ export interface GalvoSlice {
   setGalvoRedLight: (on: boolean) => Promise<void>;
   /** Recorre el trabajo con el láser deshabilitado y el puntero rojo. */
   galvoRedRun: () => Promise<void>;
+  /**
+   * Encuadre con el puntero rojo de la forma pedida; `loops` = vueltas tras las cuales termina solo
+   * (`null` = hasta detener). El láser nunca se habilita.
+   */
+  galvoFrame: (shape: GalvoFrameKind, loops: number | null) => Promise<void>;
+  /** Mueve (mm) o escala el encuadre en curso sin detenerlo; devuelve si la tarjeta lo aceptó. */
+  adjustGalvoFrame: (adjust: { dx: number; dy: number; scale: number }) => Promise<boolean>;
   dismissGalvoLaserWarning: () => void;
 
   // Entrada de eventos (los conectan `bindMachineEvents` y la rama de eventos comunes de `machine`).
@@ -57,6 +69,8 @@ export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
     galvoStep: null,
     galvoWait: null,
     galvoLoops: 0,
+    galvoAdjustGen: 0,
+    galvoAdjustRejected: false,
     galvoRedOn: false,
     galvoLaserWarning: null,
     galvoAckPending: false,
@@ -105,6 +119,27 @@ export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
         get().notify('error', message);
       }
     },
+    galvoFrame: async (shape, loops) => {
+      const mark = frameMarkOf(get());
+      set({ jobError: null, positioningLaser: false, galvoLoops: 0, galvoAdjustGen: 0, galvoAdjustRejected: false });
+      try {
+        await getApi().galvoFrame({ ...(await resolveJobArgs(buildJobArgs(get()))), shape, loops });
+        set({ framedMark: mark });
+      } catch (e) {
+        const message = errorMessage(e);
+        set({ jobError: message });
+        get().notify('error', message);
+      }
+    },
+    adjustGalvoFrame: async (adjust) => {
+      try {
+        await getApi().galvoAdjustFrame(adjust);
+        return true;
+      } catch (e) {
+        get().notify('error', errorMessage(e));
+        return false;
+      }
+    },
     dismissGalvoLaserWarning: () => set({ galvoLaserWarning: null }),
 
     onGalvo: (ev) => {
@@ -116,7 +151,7 @@ export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
           set({ galvoWait: ev.info });
           return;
         case 'light':
-          set({ galvoLoops: ev.loops });
+          set({ galvoLoops: ev.loops, galvoAdjustGen: ev.adjust_gen, galvoAdjustRejected: ev.adjust_rejected });
           return;
         case 'laser_may_be_on':
           set({ galvoLaserWarning: ev.message });
@@ -129,7 +164,7 @@ export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
     },
     onGalvoConnection: (c) => {
       warn(c.error);
-      if (!c.connected) set({ galvoStep: null, galvoWait: null, galvoLoops: 0, galvoRedOn: false });
+      if (!c.connected) set({ galvoStep: null, galvoWait: null, galvoLoops: 0, galvoAdjustGen: 0, galvoAdjustRejected: false, galvoRedOn: false });
     },
   };
 };

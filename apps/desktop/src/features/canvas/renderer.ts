@@ -87,6 +87,8 @@ export interface Scene {
   marks?: SceneMarks;
   /** Unidad de la cuadrícula (mm por omisión): sus líneas siguen a las marcas de la regla. */
   gridUnit?: LengthUnit;
+  /** Separación base de la cuadrícula (preferencia `gridMm`); 0 o ausente = automática según el zoom. */
+  gridMm?: number;
   /** Tramos numerados del asistente de tiling (vista previa o sesión en curso). */
   tiles?: SceneTiles | null;
 }

@@ -78,7 +78,7 @@ impl Collect {
         self.galvo()
             .into_iter()
             .filter_map(|g| match g {
-                GalvoEvent::Light { loops } => Some(loops),
+                GalvoEvent::Light { loops, .. } => Some(loops),
                 _ => None,
             })
             .max()
@@ -990,7 +990,12 @@ fn the_json_shapes_match_the_typescript_contract() {
     .unwrap();
     assert_eq!(v["kind"], "laser_may_be_on");
     assert_eq!(
-        serde_json::to_value(GalvoEvent::Light { loops: 3 }).unwrap()["loops"],
+        serde_json::to_value(GalvoEvent::Light {
+            loops: 3,
+            adjust_gen: 0,
+            adjust_rejected: false
+        })
+        .unwrap()["loops"],
         3
     );
     assert_eq!(
@@ -1031,3 +1036,5 @@ fn the_json_shapes_match_the_typescript_contract() {
     assert!(st["waiting_move"].is_null());
     rig.conn.close();
 }
+
+mod frame6c;

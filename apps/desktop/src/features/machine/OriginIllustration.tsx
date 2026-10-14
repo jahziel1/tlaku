@@ -1,10 +1,10 @@
-import type { DeviceProfile, Point } from '@/api/types';
+import type { Point } from '@/api/types';
 import { t } from '@/i18n';
-import { workToDoc } from '@/lib/device';
+import { workToDoc, type DeviceFrame } from '@/lib/device';
 import { anchorFraction, type Placement } from './placement';
 
 interface Props {
-  device: Pick<DeviceProfile, 'bed' | 'origin'>;
+  device: DeviceFrame;
   placement: Placement;
   /** Punto 0..8 marcado en el rectángulo del trabajo. */
   jobOrigin: number;
@@ -17,7 +17,7 @@ interface Props {
 }
 
 /** Esquina de la cama donde la máquina tiene su X0 Y0, en coordenadas de documento. */
-function machineCorner(device: Pick<DeviceProfile, 'bed' | 'origin'>): Point {
+function machineCorner(device: DeviceFrame): Point {
   return workToDoc(device, [0, 0]);
 }
 

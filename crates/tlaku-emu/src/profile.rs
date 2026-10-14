@@ -93,8 +93,14 @@ pub struct Profile {
     pub info: Vec<String>,
     /// Tamaño declarado del búfer RX; el utilizable es uno menos (búfer circular).
     pub rx_size: usize,
-    /// Bloques del planificador.
+    /// Bloques del planificador (el que se ejecuta cuenta como uno).
     pub planner_blocks: usize,
+    /// Ventana del planificador de velocidades: bloques que mira hacia delante (contando el que
+    /// se ejecuta) para decidir a qué velocidad pasa por cada unión. `None` = todos los del
+    /// búfer (`planner_blocks`), que es lo que hace GRBL; un valor menor modela un firmware que
+    /// planifica con menos bloques de los que guarda. Más allá de la ventana se supone que la
+    /// cabeza debe poder detenerse.
+    pub lookahead_blocks: Option<usize>,
     /// Máximo de caracteres por línea (ya sin espacios ni comentarios); `error:11` si se
     /// supera. 80 en GRBL clásico es lo que recuerda el documento, **no verificado**.
     pub max_line_len: Option<usize>,
@@ -215,6 +221,7 @@ impl Profile {
             info: lines(&["[VER:1.1h.20190825:]", "[OPT:V,15,128]"]),
             rx_size: 128,
             planner_blocks: 15,
+            lookahead_blocks: None,
             max_line_len: Some(80),
             settings: classic_settings(),
             line_ending: LineEnding::CrLf,

@@ -77,6 +77,7 @@ impl Machine {
             self.current = None;
             if self.planner.is_empty() {
                 self.v = 0.0;
+                self.carry = 0.0;
             }
         }
         self.pump();
@@ -133,17 +134,33 @@ impl Machine {
     // Movimiento
     // -----------------------------------------------------------------------
 
-    fn accel(&self) -> f64 {
-        self.setting(120).min(self.setting(121)).max(10.0)
+    /// Límite por eje (`ids` = ajustes X, Y, Z) proyectado sobre la dirección `dir`: el eje que
+    /// primero llega a su tope manda, como en GRBL (en diagonal se puede ir más deprisa que el
+    /// tope de un eje). Un ajuste no positivo usa `fallback`.
+    fn along(&self, ids: [u32; 3], dir: [f64; 3], fallback: f64) -> f64 {
+        let mut best = f64::INFINITY;
+        for (id, u) in ids.into_iter().zip(dir) {
+            let u = u.abs();
+            if u > 1e-9 {
+                let v = self.setting(id);
+                best = best.min(if v > 0.0 { v } else { fallback } / u);
+            }
+        }
+        if best.is_finite() { best } else { fallback }
     }
 
-    fn max_rate_mm_s(&self) -> f64 {
-        let r = self.setting(110).min(self.setting(111));
-        (if r > 0.0 { r } else { 6000.0 }) / 60.0
+    /// Aceleración (mm/s²) al moverse en la dirección `dir`.
+    fn accel_along(&self, dir: [f64; 3]) -> f64 {
+        self.along([120, 121, 122], dir, 10.0).max(10.0)
+    }
+
+    /// Velocidad máxima (mm/s) al moverse en la dirección `dir`.
+    fn max_rate_along(&self, dir: [f64; 3]) -> f64 {
+        self.along([110, 111, 112], dir, 6000.0) / 60.0
     }
 
     fn cruise_speed(&self, b: &Block) -> f64 {
-        let max = self.max_rate_mm_s();
+        let max = self.max_rate_along(b.dir());
         let v = match b.kind {
             // Marlin: G0 y G1 comparten `F`.
             MoveKind::Rapid if b.feed > 0.0 => {
@@ -156,14 +173,81 @@ impl Machine {
         v.max(0.1)
     }
 
+    /// Velocidad máxima (mm/s) con la que se puede pasar de `cur` a `next` sin detenerse, por
+    /// desviación de unión (`$11`).
+    ///
+    /// Es el modelo que describe la documentación pública de GRBL ("Improving grbl: cornering
+    /// algorithm", S. Jeon, wiki de gnea/grbl y la descripción de `$11` en su `settings.md`):
+    /// la esquina se sustituye por un arco tangente a ambos tramos que se aparta del vértice
+    /// como mucho `δ = $11`. Con `θ` el ángulo entre el tramo anterior invertido y el siguiente
+    /// (180 grados = recta, 0 = media vuelta), el radio del arco es `R = δ·sin(θ/2) /
+    /// (1 - sin(θ/2))` y la velocidad `v = sqrt(a·R)`, con `a` la aceleración. Una recta no
+    /// limita (solo las velocidades de los bloques) y una media vuelta obliga a detenerse. Está
+    /// escrito desde esa fórmula, no desde el código de GRBL.
     fn junction_speed(&self, cur: &Block, next: &Block) -> f64 {
-        let c = self.cruise_speed(cur).min(self.cruise_speed(next));
-        let (a, b) = (cur.dir(), next.dir());
-        let cos = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-        if cos >= 0.999 {
-            return c;
+        let cap = self.cruise_speed(cur).min(self.cruise_speed(next));
+        if cur.len <= 1e-9 || next.len <= 1e-9 {
+            return cap;
         }
-        (c * cos.max(0.0).powi(8)).max(MIN_JUNCTION).min(c)
+        let (a, b) = (cur.dir(), next.dir());
+        // Coseno de θ: -1 en una recta, +1 en una media vuelta.
+        let cos_theta = -(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]);
+        if cos_theta <= -0.999_999 {
+            return cap;
+        }
+        if cos_theta >= 0.999_999 {
+            return 0.0;
+        }
+        let sin_half = (0.5 * (1.0 - cos_theta)).max(0.0).sqrt();
+        let accel = self.accel_along(a).min(self.accel_along(b));
+        let radius = self.setting(11).max(0.0) * sin_half / (1.0 - sin_half);
+        (accel * radius).sqrt().min(cap)
+    }
+
+    /// Velocidad (mm/s) con la que el bloque en curso debe llegar a su final: la que deja el
+    /// planificador con los bloques del búfer (ver [`Profile::lookahead_blocks`]). Se recorre
+    /// de atrás adelante: tras el último bloque de la ventana la cabeza debe poder detenerse, y
+    /// cada bloque entra como mucho a la velocidad de su unión y a la desde la que aún puede
+    /// frenar hasta la entrada del siguiente. El resultado se guarda mientras el búfer no
+    /// cambie.
+    fn planned_exit_speed(&mut self, cur: &Block) -> f64 {
+        let key = (
+            self.plan_gen,
+            self.ovr_feed,
+            self.ovr_rapid,
+            [11, 110, 111, 112, 120, 121, 122].map(|id| self.setting(id).to_bits()),
+        );
+        if let Some((k, v)) = self.plan_cache
+            && k == key
+        {
+            return v;
+        }
+        let window = self
+            .profile
+            .lookahead_blocks
+            .unwrap_or(self.profile.planner_blocks)
+            .max(1);
+        let mut entry = 0.0f64;
+        for k in (0..self.planner.len().min(window - 1)).rev() {
+            let prev = if k == 0 { cur } else { &self.planner[k - 1] };
+            let blk = &self.planner[k];
+            let reach = (entry * entry + 2.0 * self.accel_along(blk.dir()) * blk.len).sqrt();
+            entry = self.junction_speed(prev, blk).min(reach);
+        }
+        self.plan_cache = Some((key, entry));
+        entry
+    }
+
+    /// Encola un bloque en el planificador.
+    pub(super) fn planner_push(&mut self, b: Block) {
+        self.planner.push_back(b);
+        self.plan_gen += 1;
+    }
+
+    /// Vacía el planificador.
+    pub(super) fn planner_clear(&mut self) {
+        self.planner.clear();
+        self.plan_gen += 1;
     }
 
     fn stopping(&self) -> bool {
@@ -188,15 +272,15 @@ impl Machine {
             }
             match self.planner.pop_front() {
                 Some(b) => {
+                    self.plan_gen += 1;
                     // Con el láser en un ventilador, lo manda `M106`/`M107`, no el bloque.
                     if self.profile.laser_fan.is_none() {
                         self.exec_spindle = (b.spindle, b.s);
                     }
                     self.block_seq += 1;
-                    self.current = Some(Exec {
-                        block: b,
-                        done: 0.0,
-                    });
+                    // Lo que el bloque anterior recorrió de más en el último paso cuenta aquí.
+                    let done = std::mem::take(&mut self.carry).min(b.len);
+                    self.current = Some(Exec { block: b, done });
                 }
                 None => {
                     self.v = 0.0;
@@ -205,38 +289,51 @@ impl Machine {
             }
         }
         let stopping = self.stopping();
-        let accel = self.accel();
         let (block, done) = {
             let e = self.current.as_ref().expect("bloque en curso");
             (e.block.clone(), e.done)
         };
+        let accel = self.accel_along(block.dir());
         let cruise = self.cruise_speed(&block);
         let remaining = (block.len - done).max(0.0);
         let end_speed = if stopping {
             0.0
         } else {
-            self.planner
-                .front()
-                .map_or(0.0, |n| self.junction_speed(&block, n))
+            self.planned_exit_speed(&block)
         };
-        let limit = (end_speed * end_speed + 2.0 * accel * remaining).sqrt();
-        let target = if stopping { 0.0 } else { cruise.min(limit) };
         let dv = accel * dt;
+        let v0 = self.v;
+        // Mayor velocidad al final del paso desde la que aún se frena hasta `end_speed` en lo
+        // que queda del bloque: con recorrido medio `(v0 + v1) dt / 2` es la raíz de
+        // `v1^2 + a dt v1 + a dt v0 - end^2 - 2 a remaining = 0`.
+        let disc = dv * dv - 4.0 * (dv * v0 - end_speed * end_speed - 2.0 * accel * remaining);
+        let limit = if disc > 0.0 {
+            ((disc.sqrt() - dv) / 2.0).max(end_speed.min(v0))
+        } else {
+            end_speed.min(v0)
+        };
+        let target = if stopping { 0.0 } else { cruise.min(limit) };
         if self.v < target {
             self.v = (self.v + dv).min(target);
         } else {
             self.v = (self.v - dv).max(target);
         }
-        let eff = if stopping {
-            self.v
+        // Con aceleración constante el recorrido del paso es la velocidad media.
+        let step = 0.5 * (v0 + self.v) * dt;
+        let step = if stopping {
+            step
         } else {
-            self.v.max(MIN_SPEED)
+            step.max(MIN_SPEED * dt)
         };
-        let new_done = done + eff * dt;
+        let new_done = done + step;
         if new_done >= block.len - 1e-9 {
             // El bloque se retira tras contabilizar el láser de este último paso.
             self.pos = block.to;
             self.block_done = true;
+            self.carry = (new_done - block.len).max(0.0);
+            // La rampa discreta llega al final con algo de velocidad de más: la unión se pasa a
+            // la velocidad que planificó el planificador (0 en una media vuelta).
+            self.v = self.v.min(end_speed);
         } else {
             let f = new_done / block.len;
             for i in 0..3 {
@@ -253,8 +350,9 @@ impl Machine {
 
     fn finish_jog_cancel(&mut self) {
         self.current = None;
-        self.planner.clear();
+        self.planner_clear();
         self.v = 0.0;
+        self.carry = 0.0;
         self.jog_cancel = false;
         self.gc.position = self.pos;
         // Un jog bloqueado esperando sitio queda cancelado también.

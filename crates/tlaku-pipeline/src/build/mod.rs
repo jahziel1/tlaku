@@ -1,7 +1,7 @@
 //! Del documento a un `ComputedJob`: `build` recorre las capas en orden y delega en `Builder`.
 
 use crate::galvo;
-use crate::gcode::{dialect_warnings, point_to_machine};
+use crate::gcode::{dialect_warnings, machine_to_doc};
 use crate::job::{ComputedJob, LayerReport, check_device_bounds};
 use crate::layers::{
     LayerRole, ResolvedImage, ResolvedLayer, SeqUnit, classify, effective_roles, merge_steps,
@@ -92,8 +92,7 @@ pub fn build(
     let y_scale = rotary::y_scale(device)?;
     let mut warnings = Vec::new();
     // Inversa de lo que hace `gcode`: primero se deshace la escala del rotativo y luego el origen.
-    let to_doc =
-        |p: Point| point_to_machine(Point::new(p.x, p.y / y_scale), device.bed, device.origin);
+    let to_doc = |p: Point| machine_to_doc(Point::new(p.x, p.y / y_scale), device);
     let options = &JobOptions {
         user_origin: options
             .user_origin
@@ -103,7 +102,7 @@ pub fn build(
     };
     let mut placement = place(doc, options, current.map(to_doc), &mut warnings)?;
     // Print & Cut: la transformación del registro se aplica al trabajo ya colocado.
-    crate::registration::apply(&mut placement, options.transform.as_ref(), &mut warnings)?;
+    crate::registration::apply(&mut placement, options.transform.as_ref())?;
     let work: &[LayerWork] = &placement.layers;
     if work.is_empty() {
         return Err(nothing_to_produce(doc, &warnings));
@@ -132,13 +131,15 @@ pub fn build(
             _ => resolve_layer(l.settings).map(Resolved::Vector),
         })
         .collect::<Result<Vec<_>, _>>()?;
-    // Galvo: rellenos e imágenes sin overscan (los espejos casi no tienen inercia).
+    // Galvo: rellenos e imágenes sin overscan (los espejos casi no tienen inercia), salvo que el
+    // perfil pida uno (`overscan_mm`): entonces la capa que no fija el suyo usa el del perfil.
     let galvo_job = galvo::JobCtx::new(device)?;
-    if galvo_job.is_some() {
+    if let Some(gj) = &galvo_job {
+        let os = gj.overscan_mm();
         for r in &mut resolved {
             match r {
-                Resolved::Vector(v) => galvo::no_overscan_layer(v),
-                Resolved::Image(i) => galvo::no_overscan_image(i),
+                Resolved::Vector(v) => galvo::overscan_layer(v, os),
+                Resolved::Image(i) => galvo::overscan_image(i, os),
             }
         }
     }

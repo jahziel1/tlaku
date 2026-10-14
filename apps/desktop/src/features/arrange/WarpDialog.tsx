@@ -68,6 +68,11 @@ export function WarpDialog() {
 
   const blocked = reason !== true || busy || noop || preview.status !== 'ready';
   const why = reason !== true ? t(reason) : noop ? t('design.warp.noop') : preview.status === 'error' ? t('design.warp.error', { msg: preview.msg }) : null;
+  // El modo de edición del lienzo (malla de control con manijas) sustituye a este diálogo.
+  const editOnCanvas = () => {
+    close();
+    useStore.getState().setTool('warp');
+  };
   const apply = async () => {
     if (await runWarp(useStore.getState(), params)) close();
   };
@@ -107,6 +112,9 @@ export function WarpDialog() {
           </div>
           <NumberField label={t('design.warp.amount')} value={amount} min={0} max={100} step={5} unit="%" onCommit={(a) => (preset ? choose(preset, a) : patch({ amount: a }))} />
           <p className="hint">{t('design.warp.hint')}</p>
+          <button type="button" className="btn" disabled={reason !== true} title={t('design.warp.onCanvasHint')} onClick={editOnCanvas}>
+            {t('design.warp.onCanvas')}
+          </button>
           <details className="dg-advanced">
             <summary>{t('design.warp.advanced')}</summary>
             <p className="hint">{t('design.warp.cornersHint')}</p>

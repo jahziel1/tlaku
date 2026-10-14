@@ -83,9 +83,38 @@ export const DEVICE_WAVE4_DEFAULTS: Pick<
     },
     split: { enabled: false, piece_mm: 0, overlap_mm: 0, pause_after_move_ms: 0, order: 'snake', axes: 'xy' },
     repeat: { count: 1, increment_mm: [0, 0], pause_ms: 0 },
+    require_input: null,
+    overscan_mm: 0,
   },
   feeder: { enabled: false, feed_gcode: 'G91\nG0 Y{mm}\nG90', feed_mm: 300 },
 };
+
+/** Valores por defecto de los campos de la ola 6C (los mismos que `DeviceProfile::default()`). */
+export const DEVICE_WAVE6C_DEFAULTS: Pick<
+  DeviceProfile,
+  | 'is_default'
+  | 'icon'
+  | 'pointer_offset'
+  | 'speed_unit'
+  | 'swap_xy'
+  | 'home_on_connect'
+  | 'no_dtr_reset'
+  | 'sync_streaming'
+  | 'u_offset'
+> = {
+  is_default: false,
+  icon: '',
+  pointer_offset: [0, 0],
+  speed_unit: 'mm_per_min',
+  swap_xy: false,
+  home_on_connect: false,
+  no_dtr_reset: false,
+  sync_streaming: false,
+  u_offset: 0,
+};
+
+/** Todos los campos con valor por defecto que un perfil guardado antes puede no traer. */
+export const DEVICE_EXTRA_DEFAULTS = { ...DEVICE_WAVE4_DEFAULTS, ...DEVICE_WAVE6C_DEFAULTS };
 
 /** Perfil provisional mientras no se ha cargado ninguno (cama de 400 x 400 mm). */
 export const FALLBACK_DEVICE: DeviceProfile = {
@@ -110,7 +139,7 @@ export const FALLBACK_DEVICE: DeviceProfile = {
   rotary: { ...DEFAULT_ROTARY },
   scan_offsets: [],
   scan_initial_offset: 0,
-  ...DEVICE_WAVE4_DEFAULTS,
+  ...DEVICE_EXTRA_DEFAULTS,
 };
 
 
@@ -123,7 +152,7 @@ export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProf
     typeof device.z_axis === 'boolean' &&
     typeof device.z_invert === 'boolean' &&
     typeof device.scan_initial_offset === 'number' &&
-    (Object.keys(DEVICE_WAVE4_DEFAULTS) as (keyof typeof DEVICE_WAVE4_DEFAULTS)[]).every((k) => k in device) &&
+    (Object.keys(DEVICE_EXTRA_DEFAULTS) as (keyof typeof DEVICE_EXTRA_DEFAULTS)[]).every((k) => k in device) &&
     device.dialect !== undefined &&
     (Object.keys(DEFAULT_DIALECT) as (keyof GcodeDialect)[]).every((k) => k in device.dialect!) &&
     Array.isArray(device.scan_offsets) &&
@@ -140,13 +169,18 @@ export function normalizeDevice(device: Partial<DeviceProfile> & Pick<DeviceProf
     rotary: { ...DEFAULT_ROTARY, ...device.rotary },
     scan_offsets: device.scan_offsets ?? [],
     scan_initial_offset: device.scan_initial_offset ?? 0,
-    ...DEVICE_WAVE4_DEFAULTS,
+    ...DEVICE_EXTRA_DEFAULTS,
     ...Object.fromEntries(
-      (Object.keys(DEVICE_WAVE4_DEFAULTS) as (keyof typeof DEVICE_WAVE4_DEFAULTS)[])
+      (Object.keys(DEVICE_EXTRA_DEFAULTS) as (keyof typeof DEVICE_EXTRA_DEFAULTS)[])
         .filter((k) => device[k] !== undefined)
         .map((k) => [k, device[k]]),
     ),
   };
+}
+
+/** Familia GRBL (`$H` para el homing, conteo de caracteres, `$$`): las opciones de enlace de GRBL solo cuentan aquí. */
+export function isGrblFamily(kind: DeviceKind): boolean {
+  return kind === 'grbl' || kind === 'grbl_hal' || kind === 'fluid_nc' || kind === 'grbl_lpc' || kind === 'grbl_m3';
 }
 
 /** Velocidades de comunicación que ofrecen GRBL y sus derivados. */
@@ -365,30 +399,71 @@ export function applyProposal(device: DeviceProfile, changes: readonly ProposalC
 // Coordenadas: documento <-> máquina
 // ---------------------------------------------------------------------------
 
-type Frame = Pick<DeviceProfile, 'bed' | 'origin'>;
+/** Lo que hace falta del perfil para pasar de coordenadas de documento a las de la máquina y al revés. */
+export type DeviceFrame = Pick<DeviceProfile, 'bed' | 'origin'> & Partial<Pick<DeviceProfile, 'swap_xy' | 'rotary'>>;
+type Frame = DeviceFrame;
 
 const fromRight = (o: DeviceProfile['origin']) => o === 'bottom_right' || o === 'top_right';
 const fromTop = (o: DeviceProfile['origin']) => o === 'top_left' || o === 'top_right';
 
-/**
- * Posición de trabajo de la máquina (el G-code crece hacia dentro de la cama desde la esquina
- * del perfil) a coordenadas del documento (origen abajo a la izquierda, Y hacia arriba).
- */
-export function workToDoc(device: Frame, p: Point): Point {
-  return [fromRight(device.origin) ? device.bed[0] - p[0] : p[0], fromTop(device.origin) ? device.bed[1] - p[1] : p[1]];
+/** El intercambio X/Y está en uso (con el rotativo encendido se ignora, como en el motor). */
+export function swapActive(device: Partial<Pick<DeviceProfile, 'swap_xy' | 'rotary'>>): boolean {
+  return device.swap_xy === true && device.rotary?.enabled !== true;
 }
 
-/** Inversa de `workToDoc`. */
+/**
+ * Posición de trabajo de la máquina (el G-code crece hacia dentro de la cama desde la esquina
+ * del perfil, con X e Y cruzadas si hay intercambio) a coordenadas del documento (origen abajo a
+ * la izquierda, Y hacia arriba).
+ */
+export function workToDoc(device: Frame, p: Point): Point {
+  const q: Point = swapActive(device) ? [p[1], p[0]] : p;
+  return [fromRight(device.origin) ? device.bed[0] - q[0] : q[0], fromTop(device.origin) ? device.bed[1] - q[1] : q[1]];
+}
+
+/** Inversa de `workToDoc`: primero el cambio de origen y al final el intercambio X/Y. */
 export function docToWork(device: Frame, p: Point): Point {
-  return workToDoc(device, p); // la transformación es su propia inversa
+  const q: Point = [fromRight(device.origin) ? device.bed[0] - p[0] : p[0], fromTop(device.origin) ? device.bed[1] - p[1] : p[1]];
+  return swapActive(device) ? [q[1], q[0]] : q;
 }
 
 /**
  * Desplazamiento de pantalla/documento (X a la derecha, Y arriba) a desplazamiento de G-code
- * relativo (`$J=G91`): se invierte el eje que crece en sentido contrario al del documento.
+ * relativo (`$J=G91`): se invierte el eje que crece en sentido contrario al del documento y,
+ * con intercambio X/Y, se cruzan.
  */
-export function docDeltaToWork(device: Pick<DeviceProfile, 'origin'>, dx: number, dy: number): Point {
-  return [fromRight(device.origin) ? -dx : dx, fromTop(device.origin) ? -dy : dy];
+export function docDeltaToWork(device: Pick<DeviceProfile, 'origin'> & Partial<Pick<DeviceProfile, 'swap_xy' | 'rotary'>>, dx: number, dy: number): Point {
+  const q: Point = [fromRight(device.origin) ? -dx : dx, fromTop(device.origin) ? -dy : dy];
+  return swapActive(device) ? [q[1], q[0]] : q;
+}
+
+// ---------------------------------------------------------------------------
+// Unidades de velocidad (solo para mostrar: el perfil, las capas y el G-code siguen en mm/min)
+// ---------------------------------------------------------------------------
+
+export type SpeedUnit = DeviceProfile['speed_unit'];
+
+export const SPEED_UNITS: readonly SpeedUnit[] = ['mm_per_min', 'mm_per_sec'];
+
+/** Texto de la unidad, por ejemplo `mm/min`. */
+export function speedUnitLabel(unit: SpeedUnit): string {
+  return unit === 'mm_per_sec' ? 'mm/s' : 'mm/min';
+}
+
+/** De mm/min (lo interno) a la unidad con la que se muestra. */
+export function speedToDisplay(mmPerMin: number, unit: SpeedUnit): number {
+  return unit === 'mm_per_sec' ? mmPerMin / 60 : mmPerMin;
+}
+
+/** De la unidad que escribe el usuario a mm/min. */
+export function speedFromDisplay(value: number, unit: SpeedUnit): number {
+  return unit === 'mm_per_sec' ? value * 60 : value;
+}
+
+/** Desfase del puntero rojo respecto del rayo en el sistema del documento (ver `pointer_offset`). */
+export function hasPointerOffset(device: Pick<DeviceProfile, 'pointer_offset'>): boolean {
+  const [x, y] = device.pointer_offset ?? [0, 0];
+  return x !== 0 || y !== 0;
 }
 
 // ---------------------------------------------------------------------------

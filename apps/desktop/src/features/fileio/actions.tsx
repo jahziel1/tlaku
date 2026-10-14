@@ -7,9 +7,12 @@ import { groupIdsOf } from '@/lib/groups';
 import { pickImportPaths } from '@/features/history/dialogs';
 import { resolveDocForOutput } from '@/features/variables/jobResolve';
 import { baseName, extensionOf, isImportable, withExtension } from '@/features/history/paths';
+import { effectiveImportDpi } from '@/lib/importOptions';
 import { useStore, type AppState } from '@/store';
 import { ExportDialog, defaultRemembered, type ExportChoice, type RememberedOptions } from './ExportDialog';
+import { GcodePowerDialog } from './GcodePowerDialog';
 import { ImportOptionsDialog, kindsOf } from './ImportOptionsDialog';
+import { initialImportOptions, rememberedFrom } from './remember';
 import { openDialog } from './host';
 import { EXPORT_EXTENSION, type ExportFormat, type ExportSummary, type ImportDialogOptions } from './types';
 
@@ -21,6 +24,11 @@ export interface FileioIo {
   askImport: (paths: string[]) => Promise<ImportDialogOptions | null>;
   pickSavePath: (format: ExportFormat, defaultName: string) => Promise<string | null>;
   pickImportPaths: () => Promise<string[]>;
+  /**
+   * Un G-code importó vacío porque todos sus cortes llevan potencia 0 (`M3 S0`): pregunta con qué `S`
+   * tomarlos. `null` = no reintentar. Si falta, no se ofrece.
+   */
+  askGcodePower?: (file: string) => Promise<number | null>;
 }
 
 /** Opciones de la última exportación de cada formato (solo de esta sesión). */
@@ -34,12 +42,17 @@ export const defaultIo: FileioIo = {
     if (choice) remembered = choice.options;
     return choice;
   },
-  askImport: (paths) => {
+  askImport: async (paths) => {
     const exts = paths.map(extensionOf);
     const layers = state().doc.layers.filter((l) => l.mode !== 'image').map((l) => ({ color: l.color, name: l.name || l.color }));
-    return openDialog<ImportDialogOptions | null>((done) => (
-      <ImportOptionsDialog fileCount={paths.length} kinds={kindsOf(exts)} layers={layers} onDone={done} />
+    const { importRemember, importOptions, importDpi } = state().prefs;
+    const initial = initialImportOptions(importRemember ? importOptions : null, layers.map((l) => l.color));
+    const chosen = await openDialog<ImportDialogOptions | null>((done) => (
+      <ImportOptionsDialog fileCount={paths.length} kinds={kindsOf(exts)} layers={layers} initial={initial} defaultDpi={importDpi} onDone={done} />
     ));
+    // La última elección se recuerda para la próxima vez (preferencia `importOptions`).
+    if (chosen && importRemember) state().setPref('importOptions', rememberedFrom(chosen));
+    return chosen;
   },
   pickSavePath: async (format, defaultName) => {
     if (getApiKind() !== 'tauri') return `exportes/${defaultName}`;
@@ -50,6 +63,7 @@ export const defaultIo: FileioIo = {
     });
   },
   pickImportPaths,
+  askGcodePower: (file) => openDialog<number | null>((done) => <GcodePowerDialog file={file} onDone={done} />),
 };
 
 /** Se puede exportar si hay algo visible en el diseño. */
@@ -125,6 +139,26 @@ export async function printDesign(io: FileioIo = defaultIo): Promise<boolean> {
   }
 }
 
+/** El error del importador de G-code cuando todos sus cortes llevan potencia 0 (`M3 S0`). */
+export function isGcodeZeroPowerError(message: string): boolean {
+  return /avances\s+G1\/G2\/G3 pero con potencia 0/.test(message);
+}
+
+/**
+ * `importFileWith`; si un G-code falla porque todos sus cortes llevan potencia 0, ofrece fijar una potencia
+ * «para cortes sin S» y lo reintenta una vez con ella.
+ */
+async function importGcodeAware(path: string, file: string, options: Omit<ImportDialogOptions, 'auto_group'>, io: FileioIo) {
+  try {
+    return await getApi().importFileWith({ path, options });
+  } catch (e) {
+    if (!io.askGcodePower || options.gcode_default_power != null || !isGcodeZeroPowerError(errorMessage(e))) throw e;
+    const power = await io.askGcodePower(file);
+    if (power == null || !(power > 0)) throw e;
+    return getApi().importFileWith({ path, options: { ...options, gcode_default_power: power } });
+  }
+}
+
 /**
  * Importa con el diálogo de opciones (escala, DPI, unidades del DXF, página del PDF, agrupar,
  * capa destino). Hace lo mismo que `importPaths` de History (avisos persistentes, selección y
@@ -137,15 +171,17 @@ export async function importWithOptions(io: FileioIo = defaultIo): Promise<numbe
     return ok;
   });
   if (paths.length === 0) return 0;
-  const options = await io.askImport(paths);
-  if (!options) return 0;
+  const asked = await io.askImport(paths);
+  if (!asked) return 0;
+  // «Predeterminada» en el diálogo = la resolución de las preferencias.
+  const options = { ...asked, dpi: effectiveImportDpi(asked.dpi, state().prefs.importDpi) };
   const ids: string[] = [];
   for (const path of paths) {
     const file = baseName(path);
     try {
       // `auto_group` lo resuelve la interfaz; el motor no lo conoce.
       const { auto_group: autoGroup, ...engineOptions } = options;
-      const result = await getApi().importFileWith({ path, options: engineOptions });
+      const result = await importGcodeAware(path, file, engineOptions, io);
       if (autoGroup) {
         const grouped = autoGroupObjects(result.objects, groupIdsOf(state().doc.objects));
         result.objects = grouped.objects;

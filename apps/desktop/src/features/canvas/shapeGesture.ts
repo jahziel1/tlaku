@@ -72,12 +72,12 @@ export function createShapeGesture(ctx: GestureCtx) {
     capture(e);
   };
 
-  /** Agrega el objeto recién dibujado, lo selecciona y vuelve a Seleccionar. */
+  /** Agrega el objeto recién dibujado y lo selecciona; vuelve a Seleccionar si la preferencia `returnToSelect` lo pide. */
   const finishCreate = (obj: DesignObject, kind: ShapeKind) => {
     const s = st();
     s.addObjects([obj], `canvas.draw.${kind}` as I18nKey);
     s.select([obj.id]);
-    s.setTool('select');
+    if (s.prefs.returnToSelect) s.setTool('select');
   };
 
   const finishDraw = (gs: Extract<Gesture, { kind: 'draw' }>, mods: Mods) => {

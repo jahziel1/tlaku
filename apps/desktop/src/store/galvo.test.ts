@@ -216,7 +216,7 @@ describe('eventos del galvo', () => {
     emitGalvo(api, { kind: 'step', info: step });
     expect(store.getState().galvoStep).toEqual(step);
     expect(store.getState().galvoWait).toBeNull();
-    emitGalvo(api, { kind: 'light', loops: 4 });
+    emitGalvo(api, { kind: 'light', loops: 4, adjust_gen: 0, adjust_rejected: false });
     expect(store.getState().galvoLoops).toBe(4);
   });
 

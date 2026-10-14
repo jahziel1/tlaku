@@ -66,6 +66,9 @@ pub struct CompileOptions {
     pub max_commands: usize,
     /// Posición de los espejos al empezar, para calcular el primer salto.
     pub start_units: (u16, u16),
+    /// Desfase del puntero rojo respecto al haz, mm; solo se usa con `ListKind::DryRun`. En una
+    /// marca real no se aplica nunca.
+    pub pointer_offset: [f64; 2],
 }
 
 impl Default for CompileOptions {
@@ -76,6 +79,7 @@ impl Default for CompileOptions {
             mo_delay_ms: 8.0,
             max_commands: safety::DEFAULT_MAX_COMMANDS,
             start_units: (0x8000, 0x8000),
+            pointer_offset: [0.0, 0.0],
         }
     }
 }
@@ -92,6 +96,8 @@ pub struct ListStats {
     pub jump_mm: f64,
     /// Marcas con potencia 0 emitidas como saltos.
     pub zero_power_cuts: usize,
+    /// De ellas, las recorridas como overscan (a la velocidad de marcado y sin retardo de salto).
+    pub overscan_passes: usize,
     /// Estimación de duración, s (movimientos y esperas; sin los retardos de láser).
     pub est_seconds: f64,
     /// Caja de las marcas en el sistema del `Toolpath`.
@@ -228,6 +234,14 @@ struct Builder<'a> {
     jump_mm_s: f64,
     mark_mm_s: f64,
     upmm: f64,
+    /// Desfase (mm) que se resta a cada punto: el del puntero rojo respecto al haz. Solo se usa
+    /// con el puntero (encuadre y recorrido en rojo); en una marca real es siempre 0.
+    shift: (f64, f64),
+    /// Velocidad de salto vigente del bloque (unidades de la tarjeta); un paso de overscan la
+    /// cambia por la de marcado y la restaura antes del siguiente salto.
+    block_jump_u: Option<u16>,
+    /// Velocidad de marcado vigente del bloque (unidades de la tarjeta).
+    block_mark_u: Option<u16>,
 }
 
 impl<'a> Builder<'a> {
@@ -253,7 +267,30 @@ impl<'a> Builder<'a> {
             jump_mm_s: 0.0,
             mark_mm_s: 0.0,
             upmm: units_per_mm(dev.field_mm),
+            shift: (0.0, 0.0),
+            block_jump_u: None,
+            block_mark_u: None,
         })
+    }
+
+    /// Activa el desfase del puntero rojo (solo para listas que no marcan): el puntero cae en
+    /// el haz más `offset`, así que se manda a cada punto menos el desfase.
+    fn with_pointer_offset(mut self, offset: [f64; 2]) -> Result<Self, CompileError> {
+        if !offset.iter().all(|v| v.is_finite())
+            || offset
+                .iter()
+                .any(|v| v.abs() > safety::MAX_POINTER_OFFSET_MM)
+        {
+            return Err(CompileError::BadParam {
+                block: 0,
+                what: format!(
+                    "el desfase del puntero rojo debe estar entre -{max} y {max} mm",
+                    max = safety::MAX_POINTER_OFFSET_MM
+                ),
+            });
+        }
+        self.shift = (offset[0], offset[1]);
+        Ok(self)
     }
 
     fn push(&mut self, op: ListOp) -> Result<(), CompileError> {
@@ -268,7 +305,9 @@ impl<'a> Builder<'a> {
 
     fn units(&self, p: Point) -> Result<(u16, u16), CompileError> {
         let c = self.origin.to_centered(p, self.dev.field_mm);
-        Ok(self.map.to_units(c)?)
+        Ok(self
+            .map
+            .to_units((c.0 - self.shift.0, c.1 - self.shift.1))?)
     }
 
     fn dist_units(&self, to: (u16, u16)) -> f64 {
@@ -319,6 +358,13 @@ impl<'a> Builder<'a> {
         if u == self.pos {
             return Ok(());
         }
+        if let Some(ju) = self.block_jump_u
+            && self.cur.jump_speed != Some(ju)
+        {
+            // Tras un paso de overscan: de vuelta a la velocidad de salto del bloque.
+            self.push(ListOp::JumpSpeed(ju))?;
+            self.cur.jump_speed = Some(ju);
+        }
         let d = self.dist_units(u);
         let dist_mm = d / self.upmm;
         let delay = self.jump_delay(dist_mm, p);
@@ -337,6 +383,47 @@ impl<'a> Builder<'a> {
             self.stats.est_seconds += dist_mm / self.jump_mm_s;
         }
         self.stats.est_seconds += f64::from(delay.us) * 1e-6;
+        self.pos = u;
+        Ok(())
+    }
+
+    /// Overscan (M44): recorre `to` con el láser APAGADO (`JumpTo`, nunca `MarkTo`) a la velocidad
+    /// de marcado y sin retardo de salto, para que los espejos ya vayan a la velocidad del trazo
+    /// cuando el láser se encienda (o sigan a ella al apagarse). Sin verificar con hardware.
+    fn overscan_pass(&mut self, to: Point) -> Result<(), CompileError> {
+        let u = self.units(to)?;
+        self.last_pt = Some(to);
+        if u == self.pos {
+            return Ok(());
+        }
+        let Some(mu) = self.block_mark_u else {
+            return Err(CompileError::BadParam {
+                block: 0,
+                what: "el overscan necesita la velocidad de marcado del bloque".into(),
+            });
+        };
+        if self.cur.jump_speed != Some(mu) {
+            self.push(ListOp::JumpSpeed(mu))?;
+            self.cur.jump_speed = Some(mu);
+        }
+        let no_delay = Delay::from_us(0);
+        if self.cur.delay_jump != Some(no_delay) {
+            self.push(ListOp::JumpDelay(no_delay))?;
+            self.cur.delay_jump = Some(no_delay);
+        }
+        let d = self.dist_units(u);
+        self.push(ListOp::JumpTo {
+            x: u.0,
+            y: u.1,
+            dist: d.round().min(65535.0) as u16,
+        })?;
+        self.stats.jumps += 1;
+        self.stats.overscan_passes += 1;
+        let dist_mm = d / self.upmm;
+        self.stats.jump_mm += dist_mm;
+        if self.mark_mm_s > 0.0 {
+            self.stats.est_seconds += dist_mm / self.mark_mm_s;
+        }
         self.pos = u;
         Ok(())
     }
@@ -490,6 +577,8 @@ impl<'a> Builder<'a> {
         let mu = clamp(mark_u, "la velocidad de marcado", &mut self.warnings);
         self.jump_mm_s = f64::from(ju) / self.upmm * 1000.0;
         self.mark_mm_s = f64::from(mu) / self.upmm * 1000.0;
+        self.block_jump_u = Some(ju);
+        self.block_mark_u = Some(mu);
 
         if self.cur.jump_speed != Some(ju) {
             self.push(ListOp::JumpSpeed(ju))?;
@@ -610,7 +699,11 @@ impl<'a> Builder<'a> {
                         if raw == 0 {
                             self.finish_run()?;
                             self.stats.zero_power_cuts += 1;
-                            self.jump_to(to, p)?;
+                            if self.dev.overscan_mm > 0.0 {
+                                self.overscan_pass(to)?;
+                            } else {
+                                self.jump_to(to, p)?;
+                            }
                             continue;
                         }
                         let u = self.units(to)?;
@@ -701,6 +794,10 @@ pub fn compile(
         return Err(CompileError::Empty);
     }
     let mut b = Builder::new(dev, opts.origin, opts.max_commands, opts.start_units)?;
+    if opts.kind == ListKind::DryRun {
+        // El recorrido en rojo pasa por donde marcará el láser: se compensa el desfase del puntero.
+        b = b.with_pointer_offset(opts.pointer_offset)?;
+    }
     if dev.correction.cor_file.is_some() {
         b.warnings.push(
             "el archivo .cor del perfil se ignora: su formato se puede leer pero su semántica \
@@ -767,6 +864,174 @@ impl LightShape {
         (!lines.is_empty()).then_some(LightShape::Contour(lines))
     }
 
+    /// Puntos donde el trabajo marca: extremos de cada tramo con potencia y puntos con disparo.
+    fn marked_points(tp: &Toolpath) -> Vec<Point> {
+        let mut pts = Vec::new();
+        let mut at: Option<Point> = None;
+        for mv in tp.blocks.iter().flat_map(|b| b.moves.iter()) {
+            match *mv {
+                Move::Cut { to, power_pct } if power_pct > 0.0 => {
+                    pts.extend(at.take());
+                    pts.push(to);
+                }
+                Move::Dwell { to, power_pct, .. } if power_pct > 0.0 => pts.push(to),
+                _ => {}
+            }
+            at = Some(mv.to());
+        }
+        pts
+    }
+
+    /// Casco convexo de lo que el trabajo marca (cerrado). Es un encuadre más ajustado que el
+    /// rectángulo para un diseño en diagonal o redondo. Con un solo punto o puntos alineados da
+    /// el segmento que los une.
+    pub fn hull_of(tp: &Toolpath) -> Option<LightShape> {
+        let hull = convex_hull(Self::marked_points(tp));
+        match hull.len() {
+            0 | 1 => None,
+            2 => Some(LightShape::Contour(vec![hull])),
+            _ => {
+                let mut ring = hull;
+                ring.push(ring[0]);
+                Some(LightShape::Contour(vec![ring]))
+            }
+        }
+    }
+
+    /// Un rectángulo por cada objeto suelto del trabajo: se agrupan los trazos cuyas cajas (con
+    /// `gap_mm` de holgura) se tocan, y cada grupo se encuadra por separado. Devuelve la forma y
+    /// cuántos objetos hay. Los rectángulos se recorren de uno al más cercano.
+    pub fn objects_of(tp: &Toolpath, gap_mm: f64) -> Option<(LightShape, usize)> {
+        let Some(LightShape::Contour(lines)) = Self::contour_of(tp) else {
+            return None;
+        };
+        let gap = if gap_mm.is_finite() {
+            gap_mm.max(0.0)
+        } else {
+            0.0
+        };
+        let mut boxes: Vec<[f64; 4]> = lines
+            .iter()
+            .map(|l| {
+                l.iter()
+                    .fold([f64::MAX, f64::MAX, f64::MIN, f64::MIN], |b, p| {
+                        [b[0].min(p.x), b[1].min(p.y), b[2].max(p.x), b[3].max(p.y)]
+                    })
+            })
+            .collect();
+        // Se funden las cajas que se tocan hasta que ya no haya ninguna.
+        let touches = |a: &[f64; 4], b: &[f64; 4]| {
+            a[0] - gap <= b[2] && b[0] - gap <= a[2] && a[1] - gap <= b[3] && b[1] - gap <= a[3]
+        };
+        loop {
+            let mut merged = false;
+            'scan: for i in 0..boxes.len() {
+                for j in (i + 1)..boxes.len() {
+                    if touches(&boxes[i], &boxes[j]) {
+                        let b = boxes.remove(j);
+                        let a = &mut boxes[i];
+                        *a = [
+                            a[0].min(b[0]),
+                            a[1].min(b[1]),
+                            a[2].max(b[2]),
+                            a[3].max(b[3]),
+                        ];
+                        merged = true;
+                        break 'scan;
+                    }
+                }
+            }
+            if !merged {
+                break;
+            }
+        }
+        let count = boxes.len();
+        // Del más abajo-izquierda al siguiente más cercano.
+        let mut order: Vec<[f64; 4]> = Vec::with_capacity(count);
+        let mut cur = Point::new(f64::MIN, f64::MIN);
+        while !boxes.is_empty() {
+            let (k, _) = boxes
+                .iter()
+                .enumerate()
+                .map(|(k, b)| {
+                    let d = if order.is_empty() {
+                        b[0] + b[1]
+                    } else {
+                        (b[0] - cur.x).hypot(b[1] - cur.y)
+                    };
+                    (k, d)
+                })
+                .min_by(|a, b| a.1.total_cmp(&b.1))?;
+            let b = boxes.remove(k);
+            cur = Point::new(b[0], b[1]);
+            order.push(b);
+        }
+        let rings = order
+            .iter()
+            .map(|b| {
+                vec![
+                    Point::new(b[0], b[1]),
+                    Point::new(b[2], b[1]),
+                    Point::new(b[2], b[3]),
+                    Point::new(b[0], b[3]),
+                    Point::new(b[0], b[1]),
+                ]
+            })
+            .collect();
+        Some((LightShape::Contour(rings), count))
+    }
+
+    /// La misma forma movida y escalada (encuadre en vivo): se escala desde el centro de su caja
+    /// y luego se desplaza. Con el ajuste neutro devuelve una copia.
+    pub fn adjusted(&self, a: &LightAdjust) -> LightShape {
+        if a.is_neutral() {
+            return self.clone();
+        }
+        let (c, _) = self.center_and_extent();
+        let f = |p: Point| {
+            Point::new(
+                c.x + (p.x - c.x) * a.scale + a.dx,
+                c.y + (p.y - c.y) * a.scale + a.dy,
+            )
+        };
+        match self {
+            LightShape::Rect { min, max } => {
+                let (p, q) = (f(*min), f(*max));
+                LightShape::Rect {
+                    min: Point::new(p.x.min(q.x), p.y.min(q.y)),
+                    max: Point::new(p.x.max(q.x), p.y.max(q.y)),
+                }
+            }
+            LightShape::Contour(lines) => LightShape::Contour(
+                lines
+                    .iter()
+                    .map(|l| l.iter().map(|p| f(*p)).collect())
+                    .collect(),
+            ),
+        }
+    }
+
+    /// Centro y tamaño (ancho, alto) de la caja de la forma.
+    pub fn center_and_extent(&self) -> (Point, (f64, f64)) {
+        let (min, max) = match self {
+            LightShape::Rect { min, max } => (*min, *max),
+            LightShape::Contour(lines) => {
+                let mut it = lines.iter().flatten();
+                let first = it.next().copied().unwrap_or(Point::new(0.0, 0.0));
+                it.fold((first, first), |(lo, hi), p| {
+                    (
+                        Point::new(lo.x.min(p.x), lo.y.min(p.y)),
+                        Point::new(hi.x.max(p.x), hi.y.max(p.y)),
+                    )
+                })
+            }
+        };
+        (
+            Point::new((min.x + max.x) / 2.0, (min.y + max.y) / 2.0),
+            (max.x - min.x, max.y - min.y),
+        )
+    }
+
     fn polylines(&self) -> Vec<Vec<Point>> {
         match self {
             LightShape::Rect { min, max } => vec![vec![
@@ -781,12 +1046,93 @@ impl LightShape {
     }
 }
 
+/// Ajuste en vivo del encuadre: desplazamiento (mm) y escala respecto al centro de la forma.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LightAdjust {
+    pub dx: f64,
+    pub dy: f64,
+    pub scale: f64,
+}
+
+impl Default for LightAdjust {
+    fn default() -> Self {
+        LightAdjust {
+            dx: 0.0,
+            dy: 0.0,
+            scale: 1.0,
+        }
+    }
+}
+
+impl LightAdjust {
+    /// Escala mínima y máxima aceptadas (un error de dedo no debe mandar el haz muy lejos).
+    pub const SCALE_RANGE: (f64, f64) = (0.05, 20.0);
+    /// Desplazamiento máximo, mm.
+    pub const MAX_SHIFT_MM: f64 = 1000.0;
+
+    pub fn is_neutral(&self) -> bool {
+        *self == LightAdjust::default()
+    }
+
+    /// Valores finitos y dentro de los rangos.
+    pub fn validate(&self) -> Result<(), String> {
+        if !(self.dx.is_finite() && self.dy.is_finite() && self.scale.is_finite()) {
+            return Err("el ajuste del encuadre debe ser un número".into());
+        }
+        if self.dx.abs() > Self::MAX_SHIFT_MM || self.dy.abs() > Self::MAX_SHIFT_MM {
+            return Err(format!(
+                "el desplazamiento del encuadre no puede pasar de {} mm",
+                Self::MAX_SHIFT_MM
+            ));
+        }
+        if !(Self::SCALE_RANGE.0..=Self::SCALE_RANGE.1).contains(&self.scale) {
+            return Err(format!(
+                "la escala del encuadre debe estar entre {} y {}",
+                Self::SCALE_RANGE.0,
+                Self::SCALE_RANGE.1
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Casco convexo (cadena monótona de Andrew), sin repetir el primer punto; sentido antihorario.
+fn convex_hull(mut pts: Vec<Point>) -> Vec<Point> {
+    pts.retain(|p| p.x.is_finite() && p.y.is_finite());
+    pts.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
+    pts.dedup_by(|a, b| a.x == b.x && a.y == b.y);
+    if pts.len() < 3 {
+        return pts;
+    }
+    let cross =
+        |o: Point, a: Point, b: Point| (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    let mut hull: Vec<Point> = Vec::with_capacity(pts.len() * 2);
+    for &p in &pts {
+        while hull.len() >= 2 && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0 {
+            hull.pop();
+        }
+        hull.push(p);
+    }
+    let lower = hull.len() + 1;
+    for &p in pts.iter().rev().skip(1) {
+        while hull.len() >= lower && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0 {
+            hull.pop();
+        }
+        hull.push(p);
+    }
+    hull.pop();
+    hull
+}
+
 /// Máximo de vértices de un contorno de encuadre (se aligera si lo supera: es solo una guía).
 pub const MAX_LIGHT_POINTS: usize = 4000;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LightOptions {
     pub origin: FieldOrigin,
+    /// Dónde cae el puntero rojo respecto al haz, mm (el puntero cae en haz + desfase). El
+    /// encuadre lo compensa para que el puntero pase por donde marcará el láser.
+    pub pointer_offset: [f64; 2],
 }
 
 /// Compila un encuadre: solo saltos con el puntero rojo; nunca marcas ni potencia.
@@ -822,7 +1168,8 @@ pub fn compile_light(
         opts.origin,
         safety::DEFAULT_MAX_COMMANDS,
         (0x8000, 0x8000),
-    )?;
+    )?
+    .with_pointer_offset(opts.pointer_offset)?;
     b.warnings = warnings;
     let Some(speed) = params::speed_units_f(dev.light_speed, dev.field_mm).filter(|s| *s >= 1.0)
     else {
@@ -837,6 +1184,7 @@ pub fn compile_light(
     b.push(ListOp::WritePort(lim.light_mask()))?;
     b.push(ListOp::JumpSpeed(ju))?;
     b.cur.jump_speed = Some(ju);
+    b.block_jump_u = Some(ju);
     let p = params_from_device(dev, dev.freq_min_khz, None);
     for line in &lines {
         for pt in line {

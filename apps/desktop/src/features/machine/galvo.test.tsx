@@ -62,11 +62,15 @@ const STATE: GalvoState = {
   field_mm: 110,
   source: 'fiber_q',
   waiting_move: null,
+  framing: false,
+  interlock: null,
+  pointer_offset: [0, 0],
+  overscan_mm: 0,
 };
 
 const STEP: GalvoStepInfo = { step: 2, steps: 6, repeat: 1, repeats: 2, piece: 2, pieces: 3, dx: -100, dy: 0, rotary_deg: 0, pause_ms: 500 };
 
-const ACTIONS: GalvoActions = { onFrame: noop, onContour: noop, onRedRun: noop, onRedLight: noop, onStop: noop, onContinue: noop };
+const ACTIONS: GalvoActions = { onFrame: noop, onAdjust: noop, onRedRun: noop, onRedLight: noop, onStop: noop, onContinue: noop };
 
 const panel = (over: Partial<Parameters<typeof GalvoPanel>[0]> = {}) =>
   renderToString(<GalvoPanel connected state={STATE} step={null} loops={0} blocked={null} actions={ACTIONS} {...over} />);
@@ -172,7 +176,7 @@ describe('panel del galvo', () => {
   it('sin poder encuadrar, los botones se deshabilitan con el motivo', () => {
     const h = panel({ blocked: 'No hay nada que enviar.' });
     expect(h).toContain('title="No hay nada que enviar."');
-    expect(h.match(/title="No hay nada que enviar\."[^>]*>|disabled=""[^>]*title="No hay nada que enviar\."/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(h.match(/title="No hay nada que enviar\."[^>]*>|disabled=""[^>]*title="No hay nada que enviar\."/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it('las entradas son de solo lectura y avisan que no hay enclavamiento por software', () => {
@@ -205,8 +209,8 @@ describe('panel del galvo', () => {
 
   it('marcando: dice el paso; encuadrando: cuenta las vueltas', () => {
     expect(panel({ state: { ...STATE, working: true }, step: STEP })).toContain('Marcando Paso 2 de 6');
-    const framing = panel({ state: { ...STATE, working: true }, loops: 7 });
-    expect(framing).toContain('Encuadre en marcha: 7 vueltas');
+    const framing = panel({ state: { ...STATE, working: true, framing: true }, loops: 7 });
+    expect(framing).toContain('Vuelta 7');
   });
 
   it('en inglés', () => {

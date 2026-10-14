@@ -102,9 +102,9 @@ export function sanitizeCount(n: number): MarkCount {
 }
 
 /** Paso 3: guarda la transformación en las opciones del trabajo; la vista previa se recalcula sola. */
-export function acceptRegistration(): boolean {
+export async function acceptRegistration(): Promise<boolean> {
   const ui = usePrintCut.getState();
-  const result = computeRegistration(ui.marks, ui.physical, ui.mode);
+  const result = await computeRegistration(ui.marks, ui.physical, ui.mode);
   const s = useStore.getState();
   if (!result?.ok) return false;
   const { fit } = result;

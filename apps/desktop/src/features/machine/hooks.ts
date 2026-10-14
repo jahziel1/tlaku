@@ -23,7 +23,7 @@ export function useJobPlacement(): Placement {
   const useSelectionOrigin = selection !== null && options.use_selection_origin;
   const device = useStore(useShallow((s) => {
     const d = selectActiveDevice(s);
-    return { bed: d.bed, origin: d.origin };
+    return { bed: d.bed, origin: d.origin, swap_xy: d.swap_xy, rotary: d.rotary };
   }));
   const head = useStore(useShallow((s) => (s.connection.connected && s.status ? s.status.work_pos : null)));
   const design = useMemo(() => designBounds(doc, selection), [doc, selection]);

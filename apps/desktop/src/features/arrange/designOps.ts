@@ -1,5 +1,5 @@
 import { getApi } from '@/api';
-import type { DesignObject, Document, TangentCircle, VirtualArray } from '@/api/types';
+import type { DesignObject, Document, TangentCircle, VirtualArray, WarpEnvelope } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
 import { ellipseBez, flattenBez } from '@/lib/bezpath';
 import { errorMessage } from '@/lib/errors';
@@ -37,11 +37,18 @@ export function designReason(s: Pick<AppState, 'doc' | 'selectedIds'>, min = 1, 
 
 // ---- deformar --------------------------------------------------------------------------------------
 
-/** Pide al motor los objetos deformados con los parámetros; sin deformación devuelve los mismos. */
+/** Pide al motor los objetos deformados por una envolvente (bordes, esquinas con perspectiva o malla de 4x4). */
+export async function requestWarpEnvelope(units: readonly Unit[], envelope: WarpEnvelope): Promise<DesignObject[]> {
+  const bounds = blockBounds(units);
+  if (!bounds) throw new Error(t('arrange.reason.noSelection'));
+  return getApi().warpObjects({ objects: flatObjects(units), bounds, envelope });
+}
+
+/** Pide al motor los objetos deformados con los parámetros del diálogo; sin deformación devuelve los mismos. */
 export async function requestWarp(units: readonly Unit[], params: WarpParams): Promise<DesignObject[]> {
   const bounds = blockBounds(units);
   if (!bounds) throw new Error(t('arrange.reason.noSelection'));
-  return getApi().warpObjects({ objects: flatObjects(units), bounds, envelope: envelopeOf(params, bounds) });
+  return requestWarpEnvelope(units, envelopeOf(params, bounds));
 }
 
 /** Sustituye cada objeto por su versión deformada (mismo id y lugar en el orden de dibujo). */
@@ -50,14 +57,17 @@ export function replaceObjects(doc: Document, results: readonly DesignObject[]):
   return { ...doc, objects: doc.objects.map((o) => by.get(o.id) ?? o) };
 }
 
-export async function runWarp(s: AppState, params: WarpParams): Promise<boolean> {
-  if (isNoWarp(params)) return false;
+/**
+ * Deforma la selección con una envolvente y escribe el resultado en el documento: un solo paso de
+ * deshacer. Lo usan el diálogo y el modo de edición del lienzo. `false` si falló (ya avisó el error).
+ */
+export async function runWarpEnvelope(s: AppState, envelope: WarpEnvelope): Promise<boolean> {
   const units = selectionUnits(s.doc, s.selectedIds);
   const ui = useDesignUi.getState();
   ui.setBusy(true);
   let results: DesignObject[];
   try {
-    results = await requestWarp(units, params);
+    results = await requestWarpEnvelope(units, envelope);
   } catch (e) {
     s.notify('error', errorMessage(e));
     return false;
@@ -66,6 +76,13 @@ export async function runWarp(s: AppState, params: WarpParams): Promise<boolean>
   }
   s.applyDocChange('design.history.warp', (doc) => replaceObjects(doc, results));
   return true;
+}
+
+export async function runWarp(s: AppState, params: WarpParams): Promise<boolean> {
+  if (isNoWarp(params)) return false;
+  const bounds = blockBounds(selectionUnits(s.doc, s.selectedIds));
+  if (!bounds) return false;
+  return runWarpEnvelope(s, envelopeOf(params, bounds));
 }
 
 // ---- contorno envolvente ---------------------------------------------------------------------------

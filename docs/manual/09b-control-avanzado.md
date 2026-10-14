@@ -117,7 +117,7 @@ Si una capa pide el láser 2 y la máquina activa no lo tiene, la capa **sale co
 
 ## Paquetes de configuración (`.tlakubundle`)
 
-Un **paquete** es un solo archivo para llevar tu configuración a otro equipo o compartirla: tus **máquinas** (con sus macros y posiciones guardadas, y cuál es la activa), tu **biblioteca de materiales** y tus **preferencias y atajos**.
+Un **paquete** es un solo archivo para llevar tu configuración a otro equipo o compartirla: tus **máquinas** (con sus macros y posiciones guardadas, y cuál es la activa), tu **biblioteca de materiales**, tus **cámaras** (calibración, alineación y configuraciones), tu **biblioteca de arte propia** y tus **preferencias y atajos**.
 
 **Exportar.** **Archivo > Exportar paquete de configuración…**: marca las secciones que quieras (puedes llevar solo las máquinas, por ejemplo) y guarda.
 
@@ -125,8 +125,10 @@ Un **paquete** es un solo archivo para llevar tu configuración a otro equipo o 
 
 - **Máquinas:** cuántas son nuevas, cuántas reemplazarían a una con el mismo identificador (te dice cuáles) y cuántas no cambian. Los perfiles inválidos se descartan con el motivo.
 - **Materiales:** se **mezclan**, nunca reemplazan lo tuyo: los que ya tienes se conservan y un material distinto con el mismo identificador entra como copia.
+- **Cámaras:** la calibración de la lente, la alineación con la cama y la calibración de la cámara del cabezal **reemplazan** a las que tienes (solo hay una de cada; la vista previa te dice cuáles). Si entra una lente distinta y el paquete no trae su alineación, la tuya se quita porque ya no cuadraría. Las **configuraciones de cámara** con nombre se mezclan y nunca pisan las tuyas. **Las URL de las cámaras de red viajan sin usuario ni clave**: esas credenciales se quedan solo en tu equipo; si un archivo ajeno las trae, también se quitan al importar.
+- **Biblioteca de arte propia:** se mezcla como los materiales; un dibujo con el mismo nombre y otro contenido entra con un nombre nuevo. La biblioteca incluida en Tlaku no viaja (ya la tiene cada instalación).
 - **Preferencias y atajos:** se aplican; las preferencias o los comandos que esta versión no conoce se ignoran o se conservan, y si el paquete trae atajos, reemplazan a los actuales.
 
-No se escribe nada hasta que pulses **Aplicar**. No se puede importar mientras hay un trabajo en curso. Faltan las cámaras (calibración y alineación) en el paquete; los materiales siguen pudiendo intercambiarse por separado como `.tlakumat` ([Materiales](11-materiales.md)), y las preferencias y atajos como `.tlakuprefs`.
+No se escribe nada hasta que pulses **Aplicar**. No se puede importar mientras hay un trabajo en curso. Los materiales siguen pudiendo intercambiarse por separado como `.tlakumat` ([Materiales](11-materiales.md)), y las preferencias y atajos como `.tlakuprefs`.
 
 Siguiente: [Print & Cut](09c-print-and-cut.md)

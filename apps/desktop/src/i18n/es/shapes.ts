@@ -117,4 +117,7 @@ export const shapes = {
   'shapes.slots.preview': 'Se cambiarían {n} ranuras.',
   'shapes.slots.blocked': 'Hay ranuras de ese ancho, pero el cambio dejaría un borde invertido.',
   'shapes.slots.nothing': 'No se encontraron ranuras de {width} mm: elige uno de los anchos encontrados o sube la tolerancia.',
+  'shapes.history.unfillet': 'Revertir redondeo',
+  'shapes.msg.unfillet': 'Esquina devuelta a punta.',
+  'shapes.none.unfillet': 'No hay ninguna esquina redondeada que se pueda revertir ahí. Solo se revierten los arcos exactos (redondeo o mordisco); un chaflán no se puede distinguir de un lado recto: usa Deshacer.',
 } as const;

@@ -228,3 +228,33 @@ fn cancel_that_cannot_wait_warns_that_the_position_may_be_lost() {
         rig.sink.logs()
     );
 }
+
+#[test]
+fn a_saturated_serial_link_is_warned_in_the_log_but_does_not_block_the_job() {
+    use tlaku_grbl::link::LinkProfile;
+    use tlaku_grbl::preflight::LinkLoad;
+    let rig = connect();
+    rig.sink.wait("estado", |s| !s.statuses().is_empty());
+    // 1 500 líneas por segundo de 19 bytes a 115 200 baudios no caben (unas 600).
+    let load = LinkLoad::new(115_200, 1500.0, 100, 1900);
+    assert!(load.warning().is_some());
+    rig.handle
+        .start_job_with_load(
+            job_lines(),
+            LinkProfile::grbl_with_buffer(127),
+            None,
+            Some(load),
+        )
+        .unwrap();
+    rig.sink.wait("trabajo terminado", |s| {
+        s.jobs().contains(&JobState::Finished)
+    });
+    assert!(
+        rig.sink
+            .logs()
+            .iter()
+            .any(|(_, t)| t.starts_with("Aviso") && t.contains("baudios")),
+        "{:?}",
+        rig.sink.logs()
+    );
+}

@@ -6,7 +6,8 @@ import { DEFAULT_JOB_OPTIONS } from '@/store/preview';
 import { rectObject } from '@/features/nest/testUtils';
 import { factoryLayer } from '@/lib/layers';
 import { clipMoves, clipSegment, type Move } from './clip';
-import { planTiles, type TileSpec } from './plan';
+import { mockPlanTiles } from '@/api/mock/tilePlan';
+import type { TileSpec } from './types';
 
 const rectTile = (x0: number, y0: number, x1: number, y1: number, offset: [number, number] = [0, 0]): TileSpec => ({ rect: [[x0, y0], [x1, y1]], offset });
 
@@ -44,8 +45,8 @@ describe('clipMoves', () => {
   });
   it('un cuadrado cortado en 4 tramos suma el perímetro más los solapes', () => {
     const sq: Move[] = [[0, 0, 0, 0], [1, 100, 0, 50], [1, 100, 60, 50], [1, 0, 60, 50], [1, 0, 0, 50]];
-    const r = planTiles([[0, 0], [100, 60]], [55, 35], 10, 'rows');
-    if (!r.ok) throw new Error(r.error);
+    const r = mockPlanTiles({ design: [[0, 0], [100, 60]], size: [55, 35], overlap: 10, order: 'rows', margin: 0 });
+    if (!r.ok) throw new Error(r.error.kind);
     const total = r.plan.tiles.reduce((sum, t) => sum + length(clipMoves(sq, t.spec)), 0);
     expect(total).toBeCloseTo(320 + 40);
   });
@@ -62,8 +63,8 @@ describe('mockComputeJob con tramo', () => {
   const options = (tile: TileSpec | null): JobOptions => ({ ...DEFAULT_JOB_OPTIONS, tile });
 
   it('cada tramo cabe en la cama y el simulador no avisa de que se salga', () => {
-    const r = planTiles([[0, 0], [100, 60]], [55, 35], 10, 'rows');
-    if (!r.ok) throw new Error(r.error);
+    const r = mockPlanTiles({ design: [[0, 0], [100, 60]], size: [55, 35], overlap: 10, order: 'rows', margin: 0 });
+    if (!r.ok) throw new Error(r.error.kind);
     for (const { spec } of r.plan.tiles) {
       const job = mockComputeJob(doc, device, options(spec));
       expect(job.moves.length).toBeGreaterThan(0);
