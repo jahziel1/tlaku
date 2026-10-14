@@ -1,3 +1,5 @@
+import { t } from '@/i18n';
+import { fmt } from '@/lib/platform';
 import { mockCamera } from './camera';
 import { mockCodes } from './codes';
 import { mockDevices } from './devices';
@@ -101,7 +103,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
         const preview = mockComputeJob(doc, device, o);
         // Ruida guarda el trabajo como documento salvo que el perfil pida ejecutarlo al subir.
         if (device.kind === 'ruida' && !device.ruida.run_after_upload) return machine.storeDocument();
-        return machine.startJob(preview, device);
+        const tile = o.tile ? ` · ${t('tiling.mock.tile', { x: fmt(o.tile.rect[0][0], 0), y: fmt(o.tile.rect[0][1], 0) })}` : '';
+        return machine.startJob(preview, device, tile);
       }),
     pauseJob: () => lag(() => machine.setPaused(true)),
     resumeJob: () => lag(() => machine.setPaused(false)),

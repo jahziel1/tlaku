@@ -23,9 +23,11 @@ import { text } from './es/text';
 import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
+import { printcut } from './es/printcut';
 import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
+import { tiling } from './es/tiling';
 import { materials } from './es/materials';
 import { arrange as en_arrange } from './en/arrange';
 import { design as en_design } from './en/design';
@@ -50,14 +52,16 @@ import { text as en_text } from './en/text';
 import { trace as en_trace } from './en/trace';
 import { variables as en_variables } from './en/variables';
 import { nest as en_nest } from './en/nest';
+import { printcut as en_printcut } from './en/printcut';
 import { lhymicro as en_lhymicro } from './en/lhymicro';
 import { ruida as en_ruida } from './en/ruida';
 import { shapes as en_shapes } from './en/shapes';
+import { tiling as en_tiling } from './en/tiling';
 import { base as en_base } from './en/base';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, ruida, lhymicro, shapes, camera, materials, devices, catalog, prefs, bundle, codes, fileio, variables };
+    const areas = { tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, shapes, camera, materials, devices, catalog, prefs, bundle, codes, fileio, variables };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -85,9 +89,11 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   materials: { es: materials, en: en_materials },
   nodes: { es: nodes, en: en_nodes },
   nest: { es: nest, en: en_nest },
+  printcut: { es: printcut, en: en_printcut },
   ruida: { es: ruida, en: en_ruida },
   lhymicro: { es: lhymicro, en: en_lhymicro },
   shapes: { es: shapes, en: en_shapes },
+  tiling: { es: tiling, en: en_tiling },
   preview: { es: preview, en: en_preview },
   prefs: { es: prefs, en: en_prefs },
   bundle: { es: bundle, en: en_bundle },
@@ -131,6 +137,9 @@ const IDENTICAL_OK: Record<string, string> = {
   'ruida.info.magic': 'término del protocolo, igual en ambos idiomas',
   'prefs.language.es': 'nombre del idioma en su propio idioma',
   'prefs.language.en': 'nombre del idioma en su propio idioma',
+  'printcut.title': 'nombre de la función, igual en ambos idiomas',
+  'printcut.cmd.open': 'nombre de la función, igual en ambos idiomas',
+  'printcut.capture.saved': 'solo coordenadas, igual en ambos idiomas',
 };
 
 const placeholders = (text: string): string[] => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();

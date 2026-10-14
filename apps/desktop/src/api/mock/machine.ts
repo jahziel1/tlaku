@@ -94,6 +94,10 @@ export class MockMachine {
   /** Código de ALARM:N activo; null si no hay alarma. */
   alarmCode: number | null = null;
   pos: Point = [0, 0];
+  /** Modo relativo (`G91`) activo por la consola; lo usa el avance del alimentador. */
+  private relative = false;
+  /** Milímetros que el alimentador automático (tiling) ha avanzado el material en esta sesión. */
+  fedMm = 0;
   feed = 0;
   spindle = 0;
   /** Overrides en vivo (%); solo GRBL, como en el motor real. */
@@ -268,7 +272,14 @@ export class MockMachine {
       this.setAlarm(null);
       reply = ['ok'];
     } else if (this.alarmCode !== null && /^[GMgm]/.test(trimmed)) reply = [describeLine('error:9')];
-    else if (/^[$GMgm]/.test(trimmed)) reply = ['ok'];
+    else if (/^G9[01]$/i.test(trimmed)) {
+      this.relative = trimmed.toUpperCase() === 'G91';
+      reply = ['ok'];
+    } else if (this.relative && /^G0?[01](?!\d)/i.test(trimmed) && /Y-?\d/i.test(trimmed)) {
+      // Avance del alimentador automático (tiling): se acumula lo que avanzó el material.
+      this.fedMm += Math.abs(Number(/Y(-?\d+(?:\.\d+)?)/i.exec(trimmed)![1]));
+      reply = ['ok'];
+    } else if (/^[$GMgm]/.test(trimmed)) reply = ['ok'];
     else reply = [describeLine('error:20')];
     for (const r of reply) this.log('in', r);
     return reply;
@@ -452,7 +463,8 @@ export class MockMachine {
 
   // ---- trabajos ---------------------------------------------------------
 
-  startJob(preview: JobPreview, device: DeviceProfile): void {
+  /** `note` se añade al mensaje de inicio (por ejemplo, el tramo de un trabajo dividido). */
+  startJob(preview: JobPreview, device: DeviceProfile, note = ''): void {
     this.requireConnection();
     if (this.job) throw new Error(BUSY_MESSAGE);
     this.preflight();
@@ -468,7 +480,7 @@ export class MockMachine {
       paused: false,
     };
     this.state = 'run';
-    this.emit('machine://job', { state: 'started', message: `${total} líneas`, position_lost: false } satisfies JobEvent);
+    this.emit('machine://job', { state: 'started', message: `${total} líneas${note}`, position_lost: false } satisfies JobEvent);
     const tick = 100;
     this.jobTimer = setInterval(() => this.tickJob(tick), tick);
   }

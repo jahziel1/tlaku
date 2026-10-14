@@ -1,0 +1,5 @@
+r0 p0 rect=[[40.0, 55.0], [70.0, 105.0]] offset=[0.0, -25.0] stage=(0.000,0.000,0.000deg) pausa=0
+r0 p1 rect=[[40.0, 5.0], [70.0, 55.0]] offset=[0.0, 25.0] stage=(0.000,0.000,-143.239deg) pausa=200
+r1 p0 rect=[[40.0, 55.0], [70.0, 105.0]] offset=[0.0, -25.0] stage=(0.000,0.000,171.887deg) pausa=1000
+r1 p1 rect=[[40.0, 5.0], [70.0, 55.0]] offset=[0.0, 25.0] stage=(0.000,0.000,-143.239deg) pausa=200
+aviso: rotativo galvo: cada franja abarca 143 grados de la pieza (circunferencia 125.7 mm): la curvatura distorsiona la marca; usa piezas más chicas (piece_mm) y la corrección de cilindro

@@ -1,0 +1,36 @@
+bloque 'Imagen 4x4 puntos, 16.000x16.000 mm, velocidad=6000 potencia=0-50%' velocidad=6000 modo=Constant aire=false z=None informe='imagen · corte 1/4' segundos=0.670
+  galvo GalvoParams { frequency_khz: 30.0, pulse_width_ns: None, laser_on_us: 100.0, laser_off_us: 100.0, end_us: 300.0, polygon_us: 100.0, jump_speed: 4000.0, jump_delay_min_us: 200.0, jump_delay_max_us: 400.0, jump_distance_limit: 10.0, repeat: 1, pause_before_ms: 10.0, pause_after_ms: 0.0 }
+  T 40.0000 54.0000
+  C 56.0000 54.0000 p=50.00
+  T 56.0000 50.0000
+  C 40.0000 50.0000 p=50.00
+  T 40.0000 46.0000
+  C 56.0000 46.0000 p=50.00
+  T 56.0000 42.0000
+  C 40.0000 42.0000 p=50.00
+bloque 'Imagen 4x4 puntos, 16.000x16.000 mm, velocidad=6000 potencia=0-50% ángulo=45' velocidad=6000 modo=Constant aire=false z=None informe='imagen · corte 2/4' segundos=0.475
+  galvo GalvoParams { frequency_khz: 30.0, pulse_width_ns: None, laser_on_us: 100.0, laser_off_us: 100.0, end_us: 300.0, polygon_us: 100.0, jump_speed: 4000.0, jump_delay_min_us: 200.0, jump_delay_max_us: 400.0, jump_distance_limit: 10.0, repeat: 1, pause_before_ms: 0.0, pause_after_ms: 0.0 }
+  T 40.0000 54.1421
+  C 41.8579 56.0000 p=50.00
+  T 47.5147 56.0000
+  C 40.0000 48.4853 p=50.00
+  T 40.0000 42.8284
+  C 53.1716 56.0000 p=50.00
+  T 50.7314 47.9029
+  C 42.8284 40.0000 p=50.00
+  T 48.4853 40.0000
+  C 50.9902 42.5049 p=50.00
+bloque 'Imagen 4x4 puntos, 16.000x16.000 mm, velocidad=6000 potencia=0-50% ángulo=90' velocidad=6000 modo=Constant aire=false z=None informe='imagen · corte 3/4' segundos=0.323
+  galvo GalvoParams { frequency_khz: 30.0, pulse_width_ns: None, laser_on_us: 100.0, laser_off_us: 100.0, end_us: 300.0, polygon_us: 100.0, jump_speed: 4000.0, jump_delay_min_us: 200.0, jump_delay_max_us: 400.0, jump_distance_limit: 10.0, repeat: 1, pause_before_ms: 0.0, pause_after_ms: 0.0 }
+  T 42.0000 40.0000
+  C 42.0000 56.0000 p=50.00
+  T 46.0000 56.0000
+  C 46.0000 40.0000 p=50.00
+bloque 'Imagen 4x4 puntos, 16.000x16.000 mm, velocidad=6000 potencia=0-50% ángulo=135' velocidad=6000 modo=Constant aire=false z=None informe='imagen · corte 4/4' segundos=0.195
+  galvo GalvoParams { frequency_khz: 30.0, pulse_width_ns: None, laser_on_us: 100.0, laser_off_us: 100.0, end_us: 300.0, polygon_us: 100.0, jump_speed: 4000.0, jump_delay_min_us: 200.0, jump_delay_max_us: 400.0, jump_distance_limit: 10.0, repeat: 1, pause_before_ms: 0.0, pause_after_ms: 20.0 }
+  T 41.8579 40.0000
+  C 40.0000 41.8579 p=50.00
+  T 40.0000 47.5147
+  C 45.0098 42.5049 p=50.00
+  T 45.2686 47.9029
+  C 40.0000 53.1716 p=50.00

@@ -96,6 +96,12 @@ pub enum Command {
         #[command(subcommand)]
         action: crate::k40::K40Command,
     },
+    /// Soporte experimental para láseres galvo (tarjetas JCZ/BJJCZ por USB): lista, estado,
+    /// encuadre con puntero rojo y marcado. Con hardware real exige --i-understand-laser-safety.
+    Galvo {
+        #[command(subcommand)]
+        action: crate::galvo::GalvoCommand,
+    },
     /// Lista los puertos serie disponibles
     Ports,
     /// Lee la versión ($I) y la configuración ($$) de una máquina GRBL sin moverla
@@ -438,6 +444,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
         }
         Command::Ruida { action } => crate::ruida::run(action),
         Command::K40 { action } => crate::k40::run(action),
+        Command::Galvo { action } => crate::galvo::run(action),
         Command::Ports => {
             for p in serial::list_ports().map_err(|e| e.to_string())? {
                 println!("{p}");

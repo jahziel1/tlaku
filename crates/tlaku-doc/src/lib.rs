@@ -33,8 +33,9 @@ pub use document::{
     VectorObject, bounds_of, union,
 };
 pub use galvo::{
-    FeederSettings, FieldCorrection, GalvoDevice, GalvoJump, GalvoLayer, GalvoTiming, LaserSource,
-    TileSpec, Wobble,
+    CylinderAxis, CylinderCorrection, FeederSettings, FieldCorrection, GalvoDevice, GalvoJump,
+    GalvoLayer, GalvoTiming, LaserSource, RepeatMarking, Slice3d, SplitAxes, SplitMarking,
+    SplitOrder, TaperWarp, TileSpec, Wobble,
 };
 pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, StartFrom};
 pub use layer::{

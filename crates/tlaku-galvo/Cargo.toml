@@ -1,0 +1,16 @@
+[package]
+name = "tlaku-galvo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Driver EXPERIMENTAL para tarjetas galvo JCZ/BJJCZ LMC (EZCAD2): comandos de 12 bytes, compilador de listas, seguridad, emulador y USB"
+
+[features]
+default = ["usb"]
+# Transporte USB real con `nusb` (Rust puro, MIT o Apache-2.0; sin libusb).
+usb = ["dep:nusb"]
+
+[dependencies]
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-doc = { version = "0.1.0", path = "../tlaku-doc" }
+nusb = { version = "0.2", optional = true }

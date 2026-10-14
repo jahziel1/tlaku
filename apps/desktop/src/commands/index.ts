@@ -17,8 +17,10 @@ import { materialCommands } from './definitions/materials';
 import { nestCommands } from './definitions/nest';
 import { panelCommands } from './definitions/panels';
 import { prefsCommands } from './definitions/prefs';
+import { printcutCommands } from './definitions/printcut';
 import { shapeCommands } from './definitions/shapes';
 import { previewCommands } from './definitions/preview';
+import { tilingCommands } from './definitions/tiling';
 import { toolCommands } from './definitions/tools';
 import { traceCommands } from './definitions/trace';
 import { variablesCommands } from './definitions/variables';
@@ -44,6 +46,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...designCommands,
   ...machineCommands,
   ...machineExtraCommands,
+  ...tilingCommands,
   ...deviceCommands,
   ...panelCommands,
   ...layerCommands,
@@ -52,6 +55,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...designAdvancedCommands,
   ...shapeCommands,
   ...nestCommands,
+  ...printcutCommands,
   ...traceCommands,
   ...codesCommands,
   ...variablesCommands,

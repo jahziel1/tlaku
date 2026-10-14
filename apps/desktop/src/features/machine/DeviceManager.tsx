@@ -26,6 +26,8 @@ import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { Field, NumInput } from './DeviceFields';
 import { DialectEditor } from './DeviceDialect';
+import { DeviceFeederFields } from './DeviceFeeder';
+import { validateFeeder } from './DeviceFeederModel';
 import { DeviceConnection } from './DeviceConnection';
 import { connectionIssue } from './DeviceConnectionModel';
 import { MacroEditor } from './MacroEditor';
@@ -155,7 +157,9 @@ export function DeviceManager() {
   const issues = useMemo(() => validateDevice(draft), [draft]);
   // El dialecto solo se edita (y por eso solo se valida) con «G-code personalizado».
   const dialectIssues = useMemo(() => (draft.kind === 'custom_gcode' ? validateDialect(draft.dialect) : {}), [draft.kind, draft.dialect]);
-  const invalid = Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0 || connectionIssue(draft.connection) !== null;
+  // El alimentador es de G-code: en Ruida y K40 la sección está oculta y no cuenta.
+  const feederInvalid = draft.kind !== 'ruida' && draft.kind !== 'lhy_micro' && Object.keys(validateFeeder(draft.feeder)).length > 0;
+  const invalid = feederInvalid || Object.keys(issues).length > 0 || Object.keys(dialectIssues).length > 0 || connectionIssue(draft.connection) !== null;
   const isActive = draft.id === activeId;
   // Ruida habla por red con su propio protocolo: no usa G-code, S máxima, baudios ni macros.
   const ruida = draft.kind === 'ruida';
@@ -467,6 +471,11 @@ export function DeviceManager() {
                   </label>
                 )}
               </Field>
+            </fieldset>
+
+            <fieldset className="mc-group" hidden={noGcode}>
+              <legend>{t('tiling.feeder.title')}</legend>
+              <DeviceFeederFields draft={draft} edit={edit} />
             </fieldset>
 
             <fieldset className="mc-group" hidden={noGcode}>

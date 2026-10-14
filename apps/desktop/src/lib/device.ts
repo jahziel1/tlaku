@@ -72,6 +72,17 @@ export const DEVICE_WAVE4_DEFAULTS: Pick<
     },
     max_power_pct: 100,
     light_speed: 2000,
+    cylinder: { enabled: false, diameter_mm: 70, mirror_distance_mm: 160, axis: 'x', concave: false },
+    taper: {
+      enabled: false,
+      top_diameter_mm: 70,
+      bottom_diameter_mm: 50,
+      length_mm: 100,
+      axis: 'x',
+      top_at_positive: true,
+    },
+    split: { enabled: false, piece_mm: 0, overlap_mm: 0, pause_after_move_ms: 0, order: 'snake', axes: 'xy' },
+    repeat: { count: 1, increment_mm: [0, 0], pause_ms: 0 },
   },
   feeder: { enabled: false, feed_gcode: 'G91\nG0 Y{mm}\nG90', feed_mm: 300 },
 };

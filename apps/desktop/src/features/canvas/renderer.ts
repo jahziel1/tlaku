@@ -7,6 +7,7 @@ import type { DraftShape, Measurement, SnapMark } from './interaction';
 import type { SceneMarks } from './marks';
 import type { NodeOverlay } from './nodeview';
 import type { Guide } from './snap';
+import type { SceneTiles } from '@/features/tiling/overlay';
 
 /**
  * Colores del lienzo, leídos de los tokens CSS (`--cv-*`) para que sigan al tema.
@@ -84,6 +85,8 @@ export interface Scene {
   marks?: SceneMarks;
   /** Unidad de la cuadrícula (mm por omisión): sus líneas siguen a las marcas de la regla. */
   gridUnit?: LengthUnit;
+  /** Tramos numerados del asistente de tiling (vista previa o sesión en curso). */
+  tiles?: SceneTiles | null;
 }
 
 /**

@@ -442,6 +442,10 @@ pub(crate) fn place<'a>(
         .as_ref()
         .map(|sel| sel.iter().map(String::as_str).collect());
     let mut work = collect(doc, selected.as_ref(), &groups, warnings)?;
+    // Tiling: solo el tramo pedido, recortado y desplazado (ver `tile.rs`).
+    if let Some(tile) = &options.tile {
+        crate::tile::apply(&mut work, tile, warnings)?;
+    }
     if work.is_empty() && selected.is_some() {
         warnings.push(
             "la selección no incluye ningún objeto con salida (oculto, de una capa sin salida o de un tipo que su capa no admite)"

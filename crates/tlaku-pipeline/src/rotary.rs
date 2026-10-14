@@ -31,8 +31,8 @@ use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Bounds, Point, Polyline, Rgb};
 use tlaku_doc::affine::IDENTITY;
 use tlaku_doc::{
-    DOC_VERSION, DesignObject, DeviceProfile, Document, LayerSettings, ObjectKind, RotaryKind,
-    VectorObject,
+    DOC_VERSION, DesignObject, DeviceKind, DeviceProfile, Document, LayerSettings, ObjectKind,
+    RotaryKind, VectorObject,
 };
 
 /// Factor de mm de la controladora por mm de superficie en Y; 1 si no hay rotativo. Falla si
@@ -40,7 +40,8 @@ use tlaku_doc::{
 /// (con rodillo no se mira el diámetro de la pieza).
 pub(crate) fn y_scale(device: &DeviceProfile) -> Result<f64, String> {
     let r = &device.rotary;
-    if !r.enabled {
+    // En el galvo el rotativo solo gira entre franjas (ver `split`): el trabajo no escala la Y.
+    if !r.enabled || device.kind == DeviceKind::Galvo {
         return Ok(1.0);
     }
     let positive = |name: &str, v: f64| {
@@ -77,6 +78,10 @@ pub(crate) fn circumference_mm(device: &DeviceProfile) -> Option<f64> {
 /// Aviso si la Y de la controladora que recorre el trabajo (`area`, en coordenadas del
 /// documento) se sale del área de la máquina, donde los límites por software dan `ALARM:2`.
 pub(crate) fn soft_limit_warning(device: &DeviceProfile, area: Bounds) -> Option<String> {
+    // Los límites por software son de GRBL; el galvo no tiene ALARM:2.
+    if device.kind == DeviceKind::Galvo {
+        return None;
+    }
     let k = y_scale(device).ok().filter(|_| device.rotary.enabled)?;
     let a = point_to_machine(area.min, device.bed, device.origin);
     let c = point_to_machine(area.max, device.bed, device.origin);

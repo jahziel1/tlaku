@@ -108,6 +108,10 @@ pub(crate) fn dialect_warnings(
     layers: &[LayerReport],
     device: &DeviceProfile,
 ) -> Vec<String> {
+    // El galvo no usa G-code: su dialecto no cuenta.
+    if device.kind == tlaku_doc::DeviceKind::Galvo {
+        return Vec::new();
+    }
     let d = &device.dialect;
     let mut out = Vec::new();
     if d.air_on.is_none() && toolpath.blocks.iter().any(|b| b.air_assist) {

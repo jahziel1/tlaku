@@ -26,9 +26,11 @@ import { text } from './es/text';
 import { trace } from './es/trace';
 import { variables } from './es/variables';
 import { nest } from './es/nest';
+import { printcut } from './es/printcut';
 import { lhymicro } from './es/lhymicro';
 import { ruida } from './es/ruida';
 import { shapes } from './es/shapes';
+import { tiling } from './es/tiling';
 
 export const base = {
   // ---- comandos -----------------------------------------------------------
@@ -282,9 +284,11 @@ export const es = {
   ...nodes,
   ...trace,
   ...nest,
+  ...printcut,
   ...ruida,
   ...lhymicro,
   ...shapes,
+  ...tiling,
   ...camera,
   ...materials,
   ...devices,

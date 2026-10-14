@@ -1,0 +1,168 @@
+/* Asistente de tiling: panel flotante, plano de tramos y aviso «no cabe». Solo tokens. */
+
+.til-panel {
+  position: fixed;
+  top: calc(var(--topbar-h) + var(--s-6));
+  right: var(--s-6);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  width: 340px;
+  max-width: calc(100vw - 2 * var(--s-6));
+  max-height: calc(100vh - var(--topbar-h) - var(--status-h) - 2 * var(--s-6));
+  padding: var(--s-5);
+  overflow-y: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-chrome);
+  box-shadow: var(--shadow-pop);
+}
+.til-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.til-head .panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+}
+.til-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.til-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+.til-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 650;
+}
+.til-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+.til-step p {
+  margin: 0;
+}
+.til-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.til-count,
+.til-progress {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.til-resume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-subtle);
+}
+.til-resume p {
+  margin: 0;
+}
+.til-spin {
+  animation: til-spin 1s linear infinite;
+}
+@keyframes til-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .til-spin {
+    animation: none;
+  }
+}
+
+/* plano de tramos */
+.til-preview {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.til-preview__design {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.til-preview__tile rect {
+  fill: var(--accent-subtle);
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+.til-preview__tile text {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+  pointer-events: none;
+}
+.til-preview__tile--done rect {
+  fill: color-mix(in srgb, var(--ok) 25%, transparent);
+  stroke: var(--ok);
+}
+.til-preview__tile--skipped rect {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-dasharray: 3 3;
+}
+.til-preview__tile--pending rect {
+  stroke-dasharray: 4 3;
+}
+.til-preview__tile.is-current rect {
+  stroke: var(--focus);
+  stroke-width: 2.5;
+  stroke-dasharray: none;
+}
+
+/* aviso «el diseño no cabe» */
+.til-offer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+.til-offer p {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+/* sección «Alimentador automático» del perfil */
+.til-feeder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}

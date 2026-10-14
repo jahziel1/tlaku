@@ -1,0 +1,17 @@
+bloque 'Relleno intervalo=2.5 ángulo=0 potencia=60%' velocidad=9000 modo=Constant aire=false z=None informe='#0000ff' segundos=0.323
+  galvo GalvoParams { frequency_khz: 60.0, pulse_width_ns: None, laser_on_us: -20.0, laser_off_us: 100.0, end_us: 300.0, polygon_us: 100.0, jump_speed: 4000.0, jump_delay_min_us: 200.0, jump_delay_max_us: 400.0, jump_distance_limit: 10.0, repeat: 1, pause_before_ms: 0.0, pause_after_ms: 40.0 }
+  T 40.0000 41.2500
+  C 50.0000 41.2500 p=60.00
+  T 50.0000 43.7500
+  C 40.0000 43.7500 p=60.00
+  T 40.0000 46.2500
+  C 50.0000 46.2500 p=60.00
+  T 50.0000 48.7500
+  C 40.0000 48.7500 p=60.00
+bloque 'Capa #ff0000 velocidad=6000 potencia=40% pasadas=1' velocidad=6000 modo=Constant aire=false z=None informe='#ff0000' segundos=3.307
+  galvo GalvoParams { frequency_khz: 30.0, pulse_width_ns: None, laser_on_us: 100.0, laser_off_us: 100.0, end_us: 250.0, polygon_us: 100.0, jump_speed: 4000.0, jump_delay_min_us: 200.0, jump_delay_max_us: 400.0, jump_distance_limit: 10.0, repeat: 2, pause_before_ms: 100.0, pause_after_ms: 0.0 }
+  T 35.0000 35.0000
+  C 75.0000 35.0000 p=40.00
+  C 75.0000 75.0000 p=40.00
+  C 35.0000 75.0000 p=40.00
+  C 35.0000 35.0000 p=40.00

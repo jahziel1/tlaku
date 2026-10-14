@@ -89,6 +89,7 @@ export function factoryLayer(color: string, name: string, patch: Partial<LayerSe
       pause_before_ms: 0,
       pause_after_ms: 0,
       ppi: 0,
+      slice3d: { enabled: false, slices: 16, angle_step_deg: 0 },
     },
     ...patch,
   };

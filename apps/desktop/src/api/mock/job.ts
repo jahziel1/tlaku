@@ -1,6 +1,7 @@
 import { t } from '@/i18n';
-import { objectPolylines, pointsBounds } from '@/lib/geometry';
+import { applyAffine, objectPolylines, pointsBounds } from '@/lib/geometry';
 import { normalizeLayer, usesZ } from '@/lib/layers';
+import { clipMoves } from '@/features/tiling/clip';
 import type { DesignObject, DeviceProfile, Document, JobLayerSummary, JobOptions, JobPreview, LayerSettings, Point, TabSettings } from '../types';
 
 type Move = [kind: 0 | 1, x: number, y: number, power: number];
@@ -283,6 +284,16 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
         });
       } else {
         moves = lineMoves(objs, op);
+      }
+      // Tiling: solo lo que cae en el tramo, ya desplazado (el motor lo hace sobre la geometría).
+      if (options.tile) moves = clipMoves(moves, options.tile);
+      // Print & Cut: la transformación del registro se aplica al trabajo ya colocado, como en el motor.
+      const registration = options.transform;
+      if (registration) {
+        moves = moves.map((m): Move => {
+          const [x, y] = applyAffine(registration, [m[1], m[2]]);
+          return [m[0], x, y, m[3]];
+        });
       }
       if (moves.length === 0) continue;
 

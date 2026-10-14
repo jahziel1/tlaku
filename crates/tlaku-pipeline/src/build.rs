@@ -1,3 +1,4 @@
+use crate::galvo;
 use crate::gcode::{dialect_warnings, point_to_machine};
 use crate::job::{ComputedJob, LayerReport, block_bounds, check_device_bounds};
 use crate::layers::{
@@ -8,6 +9,7 @@ use crate::place::{LayerWork, PathMeta, PlacedImage, place};
 use crate::preview::preview;
 use crate::rotary;
 use crate::scan_offset;
+use crate::slice3d;
 use crate::start;
 use crate::stroke::{self, ShapeCtx, StrokeSpec, StrokeStats};
 use crate::tabs::{self, TabSpec, TabStats};
@@ -18,8 +20,8 @@ use std::path::Path;
 use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
 use tlaku_core::{Job, Layer, Point, Polyline, Rgb};
 use tlaku_doc::{
-    DeviceProfile, Document, JobOptions, LayerMode, LayerOrder, LayerSettings, Optimization,
-    Overscan, ScanOffset,
+    DeviceKind, DeviceProfile, Document, JobOptions, LayerMode, LayerOrder, LayerSettings,
+    Optimization, Overscan, ScanOffset,
 };
 use tlaku_fill::FillPattern;
 use tlaku_plan::{PlanItem, PlanOptions, Winding};
@@ -101,6 +103,10 @@ fn machine_profile(device: &DeviceProfile) -> Result<MachineProfile, String> {
         }
     };
     positive("el área de trabajo", &device.bed)?;
+    // El galvo no tiene aceleración de ejes: usa su propio perfil de tiempo.
+    if device.kind == DeviceKind::Galvo {
+        return Ok(galvo::sim_profile(&device.galvo));
+    }
     positive("la aceleración", &device.accel)?;
     positive("la velocidad máxima", &device.max_rate)?;
     positive("la velocidad de movimientos rápidos", &[device.rapid_rate])?;
@@ -235,10 +241,15 @@ struct Builder<'a> {
     unidirectional: bool,
     /// La capa en curso va con el segundo láser.
     laser2: bool,
+    /// Parámetros de galvo de la capa en curso (solo máquinas galvo).
+    galvo: Option<galvo::LayerCtx>,
 }
 
 impl Builder<'_> {
-    fn push(&mut self, block: ToolpathBlock, mut report: LayerReport) {
+    fn push(&mut self, mut block: ToolpathBlock, mut report: LayerReport) {
+        if let Some(g) = &self.galvo {
+            g.finish(&mut block, &mut self.warnings);
+        }
         if let Some((n, total)) = self.sub {
             report.sub = Some((n, total));
             report.name = format!("{} · {n}/{total}", report.name);
@@ -903,7 +914,9 @@ pub fn build(
             .map(|p| [p.x, p.y]),
         ..options.clone()
     };
-    let placement = place(doc, options, current.map(to_doc), &mut warnings)?;
+    let mut placement = place(doc, options, current.map(to_doc), &mut warnings)?;
+    // Print & Cut: la transformación del registro se aplica al trabajo ya colocado.
+    crate::registration::apply(&mut placement, options.transform.as_ref(), &mut warnings)?;
     let work: &[LayerWork] = &placement.layers;
     if work.is_empty() {
         return Err(nothing_to_produce(&warnings));
@@ -925,13 +938,23 @@ pub fn build(
     }
 
     // Se validan todas las capas antes de procesar ninguna.
-    let resolved = work
+    let mut resolved = work
         .iter()
         .map(|l| match l.settings.mode {
             LayerMode::Image => resolve_image(l.settings).map(Resolved::Image),
             _ => resolve_layer(l.settings).map(Resolved::Vector),
         })
         .collect::<Result<Vec<_>, _>>()?;
+    // Galvo: rellenos e imágenes sin overscan (los espejos casi no tienen inercia).
+    let galvo_job = galvo::JobCtx::new(device)?;
+    if galvo_job.is_some() {
+        for r in &mut resolved {
+            match r {
+                Resolved::Vector(v) => galvo::no_overscan_layer(v),
+                Resolved::Image(i) => galvo::no_overscan_image(i),
+            }
+        }
+    }
     // Puentes (solo capas line) y Z de cada capa.
     let mut tab_specs = Vec::with_capacity(work.len());
     let mut stroke_specs = Vec::with_capacity(work.len());
@@ -1068,6 +1091,7 @@ pub fn build(
         sub: None,
         unidirectional: optimization.hide_backlash,
         laser2: false,
+        galvo: None,
     };
     for step in &steps {
         let i = step[0];
@@ -1075,6 +1099,7 @@ pub fn build(
         let color = layer.color;
         b.sub = layer.position();
         b.laser2 = layer.settings.laser2;
+        b.galvo = galvo::layer_ctx(galvo_job.as_ref(), layer.settings, &mut b.warnings)?;
         match &resolved[i] {
             Resolved::Vector(ResolvedLayer::Line { settings, kerf_mm }) => {
                 let mut paths: Vec<Polyline> = Vec::new();
@@ -1142,8 +1167,20 @@ pub fn build(
                 layer.settings.angle_increment,
             )?,
             Resolved::Image(r) => {
+                // Con el grabado 3D la imagen sale en varios cortes (uno solo si está apagado).
+                let slices = slice3d::expand(r, &layer.settings.galvo.slice3d)?;
                 for img in &layer.images {
-                    b.image(color, img, r, zs[i], layer.settings.angle_increment)?;
+                    let (first, warned) = (b.toolpath.blocks.len(), b.warnings.len());
+                    for (k, slice) in slices.iter().enumerate() {
+                        let z = slice3d::z_for(zs[i], k, slices.len());
+                        let at = b.layers.len();
+                        b.image(color, img, slice, z, layer.settings.angle_increment)?;
+                        slice3d::name_slice(&mut b.layers[at..], k, slices.len());
+                    }
+                    slice3d::merge_blank_warnings(&mut b.warnings, warned, slices.len());
+                    if slices.len() > 1 {
+                        slice3d::fix_pauses(&mut b.toolpath.blocks[first..]);
+                    }
                 }
             }
         }
@@ -1178,12 +1215,21 @@ pub fn build(
     }
     let notes = dialect_warnings(&b.toolpath, &b.layers, device);
     b.warnings.extend(notes);
+    if galvo_job.is_some() {
+        let notes = galvo::field_warnings(&b.layers, device);
+        b.warnings.extend(notes);
+    }
 
-    let estimate = tlaku_sim::estimate_from(placement.start, &b.toolpath, &profile);
+    let mut estimate = tlaku_sim::estimate_from(placement.start, &b.toolpath, &profile);
+    let mut move_times = tlaku_sim::move_times(placement.start, &b.toolpath, &profile);
+    if galvo_job.is_some() {
+        // Repeticiones y pausas de cada bloque; los tiempos por movimiento se reescalan.
+        let k = galvo::adjust_estimate(&mut estimate, &b.toolpath.blocks);
+        move_times.iter_mut().for_each(|t| *t *= k);
+    }
     for (layer, e) in b.layers.iter_mut().zip(&estimate.blocks) {
         layer.seconds = e.seconds;
     }
-    let move_times = tlaku_sim::move_times(placement.start, &b.toolpath, &profile);
     let preview = preview(
         &b.toolpath,
         &b.layers,

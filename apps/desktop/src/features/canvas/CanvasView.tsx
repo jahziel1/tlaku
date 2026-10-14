@@ -4,6 +4,8 @@ import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
 import { useArrangeUi } from '@/features/arrange';
 import { ContextMenuHost } from '@/features/contextmenu';
+import { selectSceneTiles } from '@/features/tiling/overlay';
+import { useTilingUi } from '@/features/tiling/store';
 import { selectActiveDevice, usePref, useStore, type AppState } from '@/store';
 import { formatSize, unitSymbol } from '@/lib/units';
 import { selectHeadDoc } from '@/store/machine';
@@ -95,6 +97,7 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     head: selectHeadDoc(s),
     backdrop: s.cameraBackdrop,
     marks: buildMarks(s, ix),
+    tiles: selectSceneTiles(),
   };
 }
 
@@ -149,6 +152,8 @@ export function CanvasView() {
     // La interacción (hover, arrastres, guías) también repinta.
     const unsubInteraction = useInteraction.subscribe(schedule);
     // La forma principal de una booleana se resalta mientras el diálogo está abierto.
+    // Los tramos del asistente de tiling.
+    const unsubTiling = useTilingUi.subscribe(schedule);
     const unsubArrange = useArrangeUi.subscribe((s, prev) => {
       if (s.primaryId !== prev.primaryId) schedule();
     });
@@ -157,6 +162,7 @@ export function CanvasView() {
       unsub();
       unsubInteraction();
       unsubArrange();
+      unsubTiling();
       if (frame) cancelAnimationFrame(frame);
       renderer.dispose();
     };

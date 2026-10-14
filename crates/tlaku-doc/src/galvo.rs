@@ -106,6 +106,8 @@ pub struct GalvoLayer {
     pub pause_after_ms: f64,
     /// Pulsos por pulgada (modo PPI de algunas controladoras de CO2); 0 = apagado.
     pub ppi: f64,
+    /// Grabado 3D por cortes (solo capas de imagen); funciona también en máquinas de pórtico.
+    pub slice3d: Slice3d,
 }
 
 impl Default for GalvoLayer {
@@ -121,6 +123,180 @@ impl Default for GalvoLayer {
             pause_before_ms: 0.0,
             pause_after_ms: 0.0,
             ppi: 0.0,
+            slice3d: Slice3d::default(),
+        }
+    }
+}
+
+/// Grabado 3D por cortes (3D Slice): la imagen en grises es un mapa de profundidad (oscuro =
+/// hondo) y se graba en `slices` pasadas con umbrales que bajan de blanco a negro; la pasada `k`
+/// graba los píxeles más oscuros que su umbral. Cada corte es su propio bloque.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct Slice3d {
+    pub enabled: bool,
+    /// Número de cortes (profundidades), de 2 a 256.
+    pub slices: u32,
+    /// Grados que se suman al ángulo de barrido en cada corte (0 = el mismo ángulo).
+    pub angle_step_deg: f64,
+}
+
+impl Default for Slice3d {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            slices: 16,
+            angle_step_deg: 0.0,
+        }
+    }
+}
+
+/// Eje del cilindro o del cono (su generatriz), en el sistema del documento.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CylinderAxis {
+    /// El cilindro va a lo largo de X: la superficie se curva en Y (como un rotativo).
+    #[default]
+    X,
+    /// El cilindro va a lo largo de Y: la superficie se curva en X.
+    Y,
+}
+
+/// Corrección de cilindro (ProjectMark en EZCAD): compensa la curvatura al marcar con el galvo
+/// sobre un cilindro. El diseño se dibuja plano, con la coordenada a lo largo de la curvatura en
+/// mm de arco sobre la superficie; el eje del cilindro pasa por el centro de la cama.
+/// Modelo geométrico propio (proyección en perspectiva desde el espejo; no verificado con
+/// hardware).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct CylinderCorrection {
+    pub enabled: bool,
+    /// Diámetro del cilindro, mm.
+    pub diameter_mm: f64,
+    /// Distancia del espejo del galvo a la línea más cercana de la superficie (la cima de un
+    /// cilindro convexo, el fondo de uno cóncavo), mm. Con la pieza enfocada es la distancia focal.
+    pub mirror_distance_mm: f64,
+    pub axis: CylinderAxis,
+    /// Superficie interior (anillo por dentro) en vez de exterior.
+    pub concave: bool,
+}
+
+impl Default for CylinderCorrection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            diameter_mm: 70.0,
+            mirror_distance_mm: 160.0,
+            axis: CylinderAxis::X,
+            concave: false,
+        }
+    }
+}
+
+/// Deformación para objetos cónicos (Taper Warp): el diseño se dibuja con el diámetro mayor y el
+/// ancho se reduce hacia el extremo más delgado. Solo en mm; no corrige la distancia focal.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct TaperWarp {
+    pub enabled: bool,
+    pub top_diameter_mm: f64,
+    pub bottom_diameter_mm: f64,
+    /// Largo del cono a lo largo de su eje, centrado en la cama, mm.
+    pub length_mm: f64,
+    pub axis: CylinderAxis,
+    /// El extremo "superior" está en el lado positivo del eje (+X o +Y).
+    pub top_at_positive: bool,
+}
+
+impl Default for TaperWarp {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            top_diameter_mm: 70.0,
+            bottom_diameter_mm: 50.0,
+            length_mm: 100.0,
+            axis: CylinderAxis::X,
+            top_at_positive: true,
+        }
+    }
+}
+
+/// Orden en que se marcan las piezas de un diseño más grande que el campo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SplitOrder {
+    /// Filas de arriba abajo, cada una en zigzag (menos recorrido de la mesa).
+    #[default]
+    Snake,
+    /// Filas de arriba abajo, siempre de izquierda a derecha.
+    Rows,
+}
+
+/// Qué ejes de la mesa se pueden mover entre piezas (marcado dividido sin rotativo).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SplitAxes {
+    #[default]
+    Xy,
+    X,
+    Y,
+}
+
+/// Marcado dividido (Split Marking, M40) y rotativo galvo (M30): un diseño mayor que el campo
+/// se parte en piezas del tamaño del campo. Con `DeviceProfile.rotary` activo las piezas son
+/// franjas angulares (el rotativo gira entre ellas); si no, la mesa se mueve en `axes`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct SplitMarking {
+    pub enabled: bool,
+    /// Lado de las piezas, mm; 0 = el campo del galvo (un valor mayor se limita al campo).
+    pub piece_mm: f64,
+    /// Solape entre piezas contiguas, mm.
+    pub overlap_mm: f64,
+    /// Pausa tras cada movimiento de la mesa o del rotativo, ms.
+    pub pause_after_move_ms: f64,
+    pub order: SplitOrder,
+    pub axes: SplitAxes,
+}
+
+impl Default for SplitMarking {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            piece_mm: 0.0,
+            overlap_mm: 0.0,
+            pause_after_move_ms: 0.0,
+            order: SplitOrder::Snake,
+            axes: SplitAxes::Xy,
+        }
+    }
+}
+
+/// Marcado repetido (Repeat Marking, M40): el trabajo (o la secuencia de piezas) se marca
+/// `count` veces; entre repeticiones la mesa avanza `increment_mm` (con rotativo, la Y se
+/// convierte a giro con la circunferencia de la pieza) y se espera `pause_ms`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case", default)]
+#[ts(export)]
+pub struct RepeatMarking {
+    pub count: u32,
+    pub increment_mm: [f64; 2],
+    pub pause_ms: f64,
+}
+
+impl Default for RepeatMarking {
+    fn default() -> Self {
+        Self {
+            count: 1,
+            increment_mm: [0.0, 0.0],
+            pause_ms: 0.0,
         }
     }
 }
@@ -180,6 +356,12 @@ pub struct GalvoDevice {
     pub max_power_pct: f64,
     /// Encuadre con el puntero rojo: velocidad (mm/s).
     pub light_speed: f64,
+    /// Corrección de cilindro y de cono (también para rotativo con galvo).
+    pub cylinder: CylinderCorrection,
+    pub taper: TaperWarp,
+    /// Marcado dividido / rotativo galvo y marcado repetido: ver `tlaku_pipeline::mark_sequence`.
+    pub split: SplitMarking,
+    pub repeat: RepeatMarking,
 }
 
 impl Default for GalvoDevice {
@@ -196,6 +378,10 @@ impl Default for GalvoDevice {
             correction: FieldCorrection::default(),
             max_power_pct: 100.0,
             light_speed: 2000.0,
+            cylinder: CylinderCorrection::default(),
+            taper: TaperWarp::default(),
+            split: SplitMarking::default(),
+            repeat: RepeatMarking::default(),
         }
     }
 }

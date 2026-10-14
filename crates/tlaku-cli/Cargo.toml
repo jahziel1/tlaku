@@ -9,6 +9,7 @@ clap = { version = "4", features = ["derive"] }
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-dxf = { version = "0.1.0", path = "../tlaku-dxf" }
 tlaku-fill = { version = "0.1.0", path = "../tlaku-fill" }
+tlaku-galvo = { version = "0.1.0", path = "../tlaku-galvo" }
 tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 tlaku-grbl = { version = "0.1.0", path = "../tlaku-grbl" }
 tlaku-lhymicro = { version = "0.1.0", path = "../tlaku-lhymicro", features = ["emu"] }

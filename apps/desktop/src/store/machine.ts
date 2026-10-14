@@ -1,5 +1,5 @@
 import { getApi } from '@/api';
-import type { ConnectionEvent, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
+import type { ConnectionEvent, JobArgs, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
 import { firmwareFamily, parseAlarmLine, type AlarmAction, type FirmwareFamily } from '@/features/machine/grblCodes';
 import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, stepDelta, type JogDir } from '@/features/machine/jogMath';
 import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish, writeJogSteps, type FinishPosition } from '@/features/machine/moveSettings';
@@ -361,7 +361,8 @@ export interface MachineSlice extends MachineData {
   /** Abre el diálogo de confirmación de inicio (el trabajo no sale hasta confirmarlo). */
   requestStart: () => void;
   confirmStart: () => Promise<void>;
-  startJob: () => Promise<void>;
+  /** `tweak` ajusta los argumentos antes de enviar (el asistente de tiling pone el tramo y las marcas). */
+  startJob: (tweak?: (args: JobArgs) => JobArgs) => Promise<void>;
   pauseJob: () => Promise<void>;
   resumeJob: () => Promise<void>;
   cancelJob: () => Promise<void>;
@@ -751,7 +752,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       set({ dialog: null });
       await get().startJob();
     },
-    startJob: () => guardJob(async () => getApi().startJob(await resolveJobArgs(buildJobArgs(get())))),
+    startJob: (tweak) => guardJob(async () => getApi().startJob(await resolveJobArgs(tweak ? tweak(buildJobArgs(get())) : buildJobArgs(get())))),
     pauseJob: async () => {
       await guard(() => getApi().pauseJob());
     },

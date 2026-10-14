@@ -85,8 +85,13 @@ pub fn check_bounds(job: &ComputedJob, bed: [f64; 2]) -> Result<(), String> {
 
 /// Como [`check_bounds`] con el perfil de la máquina. Con rotativo la Y no tiene límite de
 /// recorrido (la pieza gira), así que solo se verifica la X; que el diseño quepa en la
-/// circunferencia se avisa al calcular el trabajo (ver `build`).
+/// circunferencia se avisa al calcular el trabajo (ver `build`). En una máquina galvo se
+/// comprueba el campo de la lente (centrado en la cama).
 pub fn check_device_bounds(job: &ComputedJob, device: &DeviceProfile) -> Result<(), String> {
+    // El galvo tiene un campo de lente, no una cama: ver `galvo::check_field`.
+    if device.kind == tlaku_doc::DeviceKind::Galvo {
+        return crate::galvo::check_field(job, device);
+    }
     check_area(job, device.bed, !device.rotary.enabled)
 }
 

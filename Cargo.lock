@@ -4879,6 +4879,7 @@ dependencies = [
  "tlaku-core",
  "tlaku-dxf",
  "tlaku-fill",
+ "tlaku-galvo",
  "tlaku-geom",
  "tlaku-grbl",
  "tlaku-lhymicro",
@@ -4994,6 +4995,15 @@ version = "0.1.0"
 dependencies = [
  "i_overlay",
  "tlaku-core",
+]
+
+[[package]]
+name = "tlaku-galvo"
+version = "0.1.0"
+dependencies = [
+ "nusb",
+ "tlaku-core",
+ "tlaku-doc",
 ]
 
 [[package]]

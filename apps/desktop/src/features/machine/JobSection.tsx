@@ -9,6 +9,7 @@ import { useNow } from './hooks';
 import { remainingSeconds } from './jobSummary';
 import { FrameOptions } from './FrameOptions';
 import { SelectionOptions } from './SelectionOptions';
+import { TilingOffer } from '@/features/tiling/TilingOffer';
 import { StartFromSection } from './StartFromSection';
 
 function Progress() {
@@ -71,6 +72,7 @@ export function JobSection() {
       <StartFromSection />
       <h4 className="mc-sub">{t('machine.selection')}</h4>
       <SelectionOptions />
+      <TilingOffer />
       <div className="row">
         <button type="button" className="btn grow" disabled={!frame.enabled} title={frame.tooltip} onClick={frame.run}>
           <Crosshair size={15} aria-hidden="true" />{frame.label}

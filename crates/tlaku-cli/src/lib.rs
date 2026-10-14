@@ -2,6 +2,7 @@
 //! rasterizado, simulación y GRBL para ir de un archivo de diseño a G-code y a la máquina.
 
 pub mod cli;
+pub mod galvo;
 pub mod job;
 pub mod k40;
 pub mod link;

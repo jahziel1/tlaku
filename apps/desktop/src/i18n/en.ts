@@ -27,9 +27,11 @@ import { text } from './en/text';
 import { trace } from './en/trace';
 import { variables } from './en/variables';
 import { nest } from './en/nest';
+import { printcut } from './en/printcut';
 import { lhymicro } from './en/lhymicro';
 import { ruida } from './en/ruida';
 import { shapes } from './en/shapes';
+import { tiling } from './en/tiling';
 
 export const en: { [K in I18nKey]?: string } = {
   ...base,
@@ -56,7 +58,9 @@ export const en: { [K in I18nKey]?: string } = {
   ...variables,
   ...trace,
   ...nest,
+  ...printcut,
   ...ruida,
   ...lhymicro,
   ...shapes,
+  ...tiling,
 };

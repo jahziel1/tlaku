@@ -8,6 +8,7 @@ import { frameRect, handleSpots } from './handles';
 import { bezToPath2D } from '@/lib/maskClip';
 import { ImageCache } from './imageSource';
 import { drawMarks } from './marksDraw';
+import { drawTiles } from '@/features/tiling/draw';
 import { drawVirtualCopies } from './virtualDraw';
 import { drawPreview } from './previewLayer';
 import type { CanvasPalette, Renderer, Scene } from './renderer';
@@ -120,6 +121,7 @@ export class Canvas2DRenderer implements Renderer {
     this.drawDraft(ctx, scene);
     this.drawGuides(ctx, scene);
     drawMarks(ctx, scene, this.dpr);
+    drawTiles(ctx, scene, this.dpr);
     this.drawSnapMark(ctx, scene);
     this.drawMarquee(ctx, scene);
     this.drawOrigin(ctx, view, scene.bed, p);

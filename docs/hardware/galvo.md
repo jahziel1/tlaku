@@ -575,6 +575,28 @@ aceleración de ejes; tiempos de salto y retardos).
 - Nota de método: las pruebas contra un emulador propio solo prueban que nuestro código es
   consistente con lo que *creemos* que dice el protocolo. No sustituyen la prueba real.
 
+### 8.5 Pipeline galvo (implementado en `tlaku-pipeline`)
+
+- **Bloques.** Con `DeviceKind::Galvo` cada bloque lleva `GalvoParams`: frecuencia y ancho de pulso
+  de la capa; retardos y saltos de la capa solo con `override_timings` y si no del perfil;
+  `repeat` y las pausas de la capa. `PowerMode::Constant`. Avisos si la frecuencia, el pulso o la
+  potencia salen de lo que admite el perfil.
+- **Unidades.** La velocidad de capa y de bloque sigue en mm/min; la interfaz del galvo muestra
+  mm/s y guarda `mm/s * 60`. `jump_speed` es mm/s. Las coordenadas son del documento: el campo
+  (`field_mm`, cuadrado) está centrado en el centro de la cama.
+- **Sin overscan** en rellenos ni imágenes. Los límites son los del campo (`build` avisa,
+  `compute` falla, salvo con `split.enabled`).
+- **Bamboleo.** Espiral por trazo de una capa line: ancho cubierto `size`, avance `step` por vuelta
+  (12 muestras por vuelta). Se aplica sobre los movimientos ya planificados del bloque.
+- **Grabado 3D por cortes (C47).** `GalvoLayer.slice3d`: N cortes de la imagen con umbral
+  `(N-k)/N`, un bloque por corte, con ángulo por corte y Z por corte opcionales; sirve también en
+  pórtico.
+- **Cilindro y cono (M46).** `GalvoDevice.cylinder` y `GalvoDevice.taper`: proyección en
+  perspectiva desde el espejo (ver `cylinder.rs`); modelo propio, sin verificar con hardware.
+- **Marcado dividido, repetido y rotativo galvo (M40, M30).** `tlaku_pipeline::mark_sequence`
+  devuelve las piezas (`TileSpec` para `JobOptions::tile`), el movimiento de la mesa o del
+  rotativo entre ellas y las pausas; el envío es de la integración.
+
 ## 9. Prueba mínima con máquina real antes de publicar
 
 1. Una LMCV4-FIBER-M (u otra tarjeta objetivo) con cabezal galvo alimentado, **sin fuente

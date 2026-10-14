@@ -12,6 +12,7 @@ import { OriginIllustration } from './OriginIllustration';
 import { lhyConfirmKey, LhyStartNotice } from './LhyNotice';
 import { ruidaConfirmKey, RuidaStartNotice } from './RuidaNotice';
 import { SelectionOptions } from './SelectionOptions';
+import { TilingOffer } from '@/features/tiling/TilingOffer';
 import { placementSummary } from './StartFromSection';
 
 /**
@@ -120,6 +121,7 @@ export function StartJobDialog() {
       <LhyStartNotice device={device} />
 
       <SelectionOptions compact />
+      <TilingOffer />
 
       {previewStatus === 'computing' && <p className="hint" role="status">{t('machine.start.computing')}</p>}
       {previewStatus === 'error' && (
