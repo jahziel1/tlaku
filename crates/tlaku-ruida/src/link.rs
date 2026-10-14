@@ -116,19 +116,31 @@ impl PacketLink for UdpLink {
     }
 
     fn recv(&mut self, timeout: Duration) -> io::Result<Option<Vec<u8>>> {
-        // `set_read_timeout(Some(0))` es un error: mínimo 1 ms.
-        self.socket
-            .set_read_timeout(Some(timeout.max(Duration::from_millis(1))))?;
+        let deadline = std::time::Instant::now() + timeout;
         let mut buf = [0u8; RECV_BUF];
-        match self.socket.recv(&mut buf) {
-            Ok(n) => Ok(Some(buf[..n].to_vec())),
-            Err(e) => match e.kind() {
-                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => Ok(None),
-                // ICMP "puerto inalcanzable" (Windows: reset; Linux/macOS: refused). Se trata
-                // como "no llegó nada": el protocolo lo convierte en un timeout con mensaje.
-                io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionRefused => Ok(None),
-                _ => Err(e),
-            },
+        loop {
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            // `set_read_timeout(Some(0))` es un error: mínimo 1 ms.
+            self.socket
+                .set_read_timeout(Some(left.max(Duration::from_millis(1))))?;
+            match self.socket.recv(&mut buf) {
+                Ok(n) => return Ok(Some(buf[..n].to_vec())),
+                Err(e) => match e.kind() {
+                    io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => return Ok(None),
+                    // ICMP "puerto inalcanzable" de un envío ANTERIOR (Windows: reset; Linux/macOS:
+                    // refused). No es la respuesta a lo que esperamos: se sigue esperando lo que
+                    // queda del plazo en vez de darlo por perdido al instante.
+                    io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionRefused => {
+                        if left.is_zero() {
+                            return Ok(None);
+                        }
+                        // Con la máquina apagada el aviso se repite al instante: una pausa corta
+                        // evita girar en vacío mientras se agota el plazo.
+                        std::thread::sleep(left.min(Duration::from_millis(5)));
+                    }
+                    _ => return Err(e),
+                },
+            }
         }
     }
 }
