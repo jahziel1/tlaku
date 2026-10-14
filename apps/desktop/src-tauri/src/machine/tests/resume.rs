@@ -513,6 +513,23 @@ fn a_checkpoint_half_written_by_the_power_cut_does_not_break_anything() {
     b.start(&h, &lines);
     b.wait_burned(b.emu.trace().total_length() + 20.0);
     thread::sleep(Duration::from_millis(100));
+    if b.store.load().is_none() {
+        let listing = fs::read_dir(&b.dir)
+            .map(|d| {
+                d.flatten()
+                    .map(|e| format!("{:?} {:?}", e.file_name(), e.metadata().map(|m| m.len())))
+                    .collect::<Vec<_>>()
+            })
+            .map_err(|e| e.to_string());
+        panic!(
+            "DIAG dir={listing:?} warn={:?}",
+            b.sink
+                .logs()
+                .into_iter()
+                .filter(|(_, t)| t.contains("AVISO") || t.contains("WARNING"))
+                .collect::<Vec<_>>()
+        );
+    }
     let fresh = b.store.load().unwrap();
     assert_ne!(fresh.meta.id, torn.meta.id);
 }
