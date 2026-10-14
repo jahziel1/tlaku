@@ -13,6 +13,7 @@ use tlaku_core::Rgb;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_doc::Document;
 use tlaku_doc::affine::{self, Transform};
+use tlaku_i18n::tr;
 
 pub fn export_svg(
     doc: &Document,
@@ -113,7 +114,7 @@ fn item(
     if let Some(img) = it.image {
         match opts.images {
             ImageHandling::Skip => {
-                warnings.push("Las imágenes no se exportaron (opción desactivada).".into());
+                warnings.push(tr!("export.svg.images_off"));
             }
             ImageHandling::Link | ImageHandling::Embed => {
                 let href = if opts.images == ImageHandling::Embed {
@@ -123,7 +124,7 @@ fn item(
                             base64::engine::general_purpose::STANDARD.encode(bytes)
                         ),
                         Err(e) => {
-                            warnings.push(format!("No se pudo incrustar la imagen: {e}"));
+                            warnings.push(tr!("export.svg.embed_failed", error = e));
                             return;
                         }
                     }

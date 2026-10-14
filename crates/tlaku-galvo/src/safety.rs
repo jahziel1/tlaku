@@ -20,6 +20,7 @@ use crate::params;
 use crate::wire::{Kind, Raw};
 use std::fmt;
 use tlaku_doc::{GalvoDevice, LaserSource};
+use tlaku_i18n::tr;
 
 /// Dwell continuo máximo por defecto (ms).
 pub const DEFAULT_MAX_DWELL_MS: f64 = 5000.0;
@@ -64,12 +65,12 @@ pub struct SafetyLimits {
 impl SafetyLimits {
     /// Límites del perfil. Falla si el perfil no es coherente.
     pub fn from_device(dev: &GalvoDevice) -> Result<Self, SafetyError> {
-        let bad = |why: &'static str| Err(SafetyError::BadLimits(why));
+        let bad = |why: String| Err(SafetyError::BadLimits(why));
         if !(dev.overscan_mm.is_finite() && (0.0..=MAX_OVERSCAN_MM).contains(&dev.overscan_mm)) {
-            return bad("el overscan del perfil debe estar entre 0 y 20 mm");
+            return bad(tr!("galvo.safety.limit_overscan"));
         }
         if dev.require_input.is_some_and(|r| !r.is_valid()) {
-            return bad("el enclavamiento por entrada tiene bits de valor fuera de la máscara");
+            return bad(tr!("galvo.safety.limit_require_input"));
         }
         let lim = SafetyLimits {
             source: dev.source,
@@ -88,34 +89,32 @@ impl SafetyLimits {
 
     /// Comprueba que los límites son coherentes.
     pub fn validate(&self) -> Result<(), SafetyError> {
-        let bad = |why: &'static str| Err(SafetyError::BadLimits(why));
+        let bad = |why: String| Err(SafetyError::BadLimits(why));
         if !(self.freq_min_khz.is_finite() && self.freq_max_khz.is_finite()) {
-            return bad("las frecuencias del perfil no son números");
+            return bad(tr!("galvo.safety.limit_freq_not_numbers"));
         }
         if self.freq_min_khz <= 0.0 || self.freq_min_khz > self.freq_max_khz {
-            return bad("el rango de frecuencia del perfil debe cumplir 0 < mín <= máx");
+            return bad(tr!("galvo.safety.limit_freq_range"));
         }
         if params::period(self.source, self.freq_max_khz).is_none()
             || params::period(self.source, self.freq_min_khz).is_none()
         {
-            return bad("el rango de frecuencia no cabe en el periodo de 16 bits de la tarjeta");
+            return bad(tr!("galvo.safety.limit_freq_period"));
         }
         if !(self.max_power_pct.is_finite()
             && self.max_power_pct > 0.0
             && self.max_power_pct <= 100.0)
         {
-            return bad("la potencia máxima del perfil debe estar entre 0 y 100 %");
+            return bad(tr!("galvo.safety.limit_max_power"));
         }
         if !(self.max_dwell_ms.is_finite() && self.max_dwell_ms > 0.0) {
-            return bad("el dwell máximo debe ser positivo");
+            return bad(tr!("galvo.safety.limit_max_dwell"));
         }
         if self.laser_bit > 15 || self.light_bit > 15 || self.laser_bit == self.light_bit {
-            return bad(
-                "los bits del láser y del puntero rojo deben ser distintos y menores que 16",
-            );
+            return bad(tr!("galvo.safety.limit_bits"));
         }
         if self.source == LaserSource::FiberMopa && self.pulse_widths_ns.is_empty() {
-            return bad("una fuente MOPA necesita la lista de anchos de pulso del perfil");
+            return bad(tr!("galvo.safety.limit_mopa_pulses"));
         }
         Ok(())
     }
@@ -142,7 +141,7 @@ impl SafetyLimits {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SafetyError {
-    BadLimits(&'static str),
+    BadLimits(String),
     /// La lista está vacía o no empieza con `listReadyMark`.
     MissingReady,
     /// Falta `listEndOfList`.
@@ -178,7 +177,7 @@ pub enum SafetyError {
     /// Marca o disparo sin haber fijado todo lo necesario.
     Unprepared {
         index: usize,
-        missing: &'static str,
+        missing: String,
     },
     ZeroSpeed {
         index: usize,
@@ -213,77 +212,80 @@ pub enum SafetyError {
     /// Un inmediato que no se puede enviar en este momento.
     ImmediateRefused {
         name: &'static str,
-        why: &'static str,
+        why: String,
     },
 }
 
 impl fmt::Display for SafetyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use SafetyError::*;
-        match self {
-            BadLimits(w) => write!(f, "perfil de seguridad inválido: {w}"),
-            MissingReady => write!(f, "la lista no empieza con listReadyMark"),
-            MissingEnd => write!(f, "la lista no termina en listEndOfList"),
-            AfterEnd { index } => {
-                write!(f, "comando {index} después de listEndOfList")
-            }
+        let text = match self {
+            BadLimits(w) => tr!("galvo.safety.bad_limits", why = w),
+            MissingReady => tr!("galvo.safety.missing_ready"),
+            MissingEnd => tr!("galvo.safety.missing_end"),
+            AfterEnd { index } => tr!("galvo.safety.after_end", index = index),
             TooLong { commands, max } => {
-                write!(f, "la lista tiene {commands} comandos (máximo {max})")
+                tr!("galvo.safety.too_long", commands = commands, max = max)
             }
-            NotAListCommand { index, code } => {
-                write!(f, "el comando {index} ({code:#06x}) no es de lista")
-            }
-            Forbidden { index, code } => write!(
-                f,
-                "comando {index}: el código {code:#06x} ({}) no se envía nunca desde Tlaku",
-                codes::name(*code)
+            NotAListCommand { index, code } => tr!(
+                "galvo.safety.not_a_list_command",
+                index = index,
+                code = format!("{code:#06x}")
+            ),
+            Forbidden { index, code } => tr!(
+                "galvo.safety.forbidden",
+                index = index,
+                code = format!("{code:#06x}"),
+                name = codes::name(*code)
             ),
             NotAllowedHere { index, name } => {
-                write!(
-                    f,
-                    "comando {index}: {name} no se permite en esta clase de lista"
-                )
+                tr!("galvo.safety.not_allowed_here", index = index, name = name)
             }
-            WrongSource { index, name } => write!(
-                f,
-                "comando {index}: {name} no corresponde al tipo de fuente del perfil"
-            ),
-            Unprepared { index, missing } => write!(
-                f,
-                "comando {index}: marca o disparo sin haber fijado {missing}"
-            ),
-            ZeroSpeed { index } => write!(f, "comando {index}: velocidad 0"),
-            ZeroPowerMark { index } => {
-                write!(f, "comando {index}: marca con potencia efectiva 0")
+            WrongSource { index, name } => {
+                tr!("galvo.safety.wrong_source", index = index, name = name)
             }
-            PowerAbove { index, pct, max } => write!(
-                f,
-                "comando {index}: potencia {pct:.1} % por encima del máximo del perfil ({max} %)"
+            Unprepared { index, missing } => {
+                tr!("galvo.safety.unprepared", index = index, missing = missing)
+            }
+            ZeroSpeed { index } => tr!("galvo.safety.zero_speed", index = index),
+            ZeroPowerMark { index } => tr!("galvo.safety.zero_power_mark", index = index),
+            PowerAbove { index, pct, max } => tr!(
+                "galvo.safety.power_above",
+                index = index,
+                pct = format!("{pct:.1}"),
+                max = max
             ),
             FrequencyOutside {
                 index,
                 khz,
                 min,
                 max,
-            } => write!(
-                f,
-                "comando {index}: frecuencia {khz:.2} kHz fuera del rango del perfil ({min} a {max} kHz)"
+            } => tr!(
+                "galvo.safety.frequency_outside",
+                index = index,
+                khz = format!("{khz:.2}"),
+                min = min,
+                max = max
             ),
-            PulseNotAllowed { index, ns } => write!(
-                f,
-                "comando {index}: ancho de pulso {ns} ns que no está en la lista del perfil"
+            PulseNotAllowed { index, ns } => {
+                tr!("galvo.safety.pulse_not_allowed", index = index, ns = ns)
+            }
+            DwellTooLong { index, ms, max } => tr!(
+                "galvo.safety.dwell_too_long",
+                index = index,
+                ms = format!("{ms:.0}"),
+                max = format!("{max:.0}")
             ),
-            DwellTooLong { index, ms, max } => write!(
-                f,
-                "comando {index}: disparo continuo de {ms:.0} ms (máximo {max:.0} ms)"
+            BadPort { index, value } => tr!(
+                "galvo.safety.bad_port",
+                index = index,
+                value = format!("{value:#06x}")
             ),
-            BadPort { index, value } => write!(
-                f,
-                "comando {index}: salida {value:#06x} no permitida (solo 0, el bit del láser o \
-                 el del puntero rojo, nunca juntos)"
-            ),
-            ImmediateRefused { name, why } => write!(f, "{name} rechazado: {why}"),
-        }
+            ImmediateRefused { name, why } => {
+                tr!("galvo.safety.immediate_refused", name = name, why = why)
+            }
+        };
+        write!(f, "{text}")
     }
 }
 
@@ -317,27 +319,27 @@ struct State {
 }
 
 impl State {
-    fn missing_for_fire(&self, lim: &SafetyLimits, kind: ListKind) -> Option<&'static str> {
+    fn missing_for_fire(&self, lim: &SafetyLimits, kind: ListKind) -> Option<String> {
         if !self.jump_speed {
-            return Some("la velocidad de salto");
+            return Some(tr!("galvo.safety.missing_jump_speed"));
         }
         if !self.mark_speed {
-            return Some("la velocidad de marcado");
+            return Some(tr!("galvo.safety.missing_mark_speed"));
         }
         if !(self.delay_on && self.delay_off && self.delay_poly) {
-            return Some("los retardos de encendido, apagado y polígono");
+            return Some(tr!("galvo.safety.missing_delays"));
         }
         if self.freq_period.is_none() {
-            return Some("la frecuencia");
+            return Some(tr!("galvo.safety.missing_frequency"));
         }
         if self.power.is_none() {
-            return Some("la potencia");
+            return Some(tr!("galvo.safety.missing_power"));
         }
         if lim.requires_pulse_width() && !self.pulse {
-            return Some("el ancho de pulso");
+            return Some(tr!("galvo.safety.missing_pulse_width"));
         }
         if kind == ListKind::Mark && !self.port_laser {
-            return Some("el puerto del láser");
+            return Some(tr!("galvo.safety.missing_laser_port"));
         }
         None
     }
@@ -416,7 +418,7 @@ pub fn validate_list(
                 if !st.jump_speed {
                     return Err(SafetyError::Unprepared {
                         index,
-                        missing: "la velocidad de salto",
+                        missing: tr!("galvo.safety.missing_jump_speed"),
                     });
                 }
                 rep.jumps += 1;
@@ -482,7 +484,7 @@ pub fn validate_list(
                 let Some(p) = st.freq_period else {
                     return Err(SafetyError::Unprepared {
                         index,
-                        missing: "la frecuencia antes de la potencia",
+                        missing: tr!("galvo.safety.missing_frequency_before_power"),
                     });
                 };
                 // potencia% = razón x kHz / 200 = razón x 50 / periodo; una unidad de tolerancia.
@@ -556,24 +558,22 @@ pub struct ImmContext {
 
 /// Revisa un inmediato antes de enviarlo. Todo lo que no esté en la lista blanca se rechaza.
 pub fn check_immediate(imm: &Imm, lim: &SafetyLimits, ctx: ImmContext) -> Result<(), SafetyError> {
-    let refuse = |why: &'static str| {
+    let refuse = |why: String| {
         Err(SafetyError::ImmediateRefused {
             name: codes::name(imm.to_raw().code),
             why,
         })
     };
     match *imm {
-        Imm::Unknown(_) => refuse("el código no está en la lista blanca"),
-        Imm::EnableLaser if !ctx.arming_allowed => {
-            refuse("solo se habilita el láser durante un marcado real")
-        }
+        Imm::Unknown(_) => refuse(tr!("galvo.safety.refuse_unknown_code")),
+        Imm::EnableLaser if !ctx.arming_allowed => refuse(tr!("galvo.safety.refuse_enable_laser")),
         Imm::FiberSetMo(v) => {
             if v > 1 {
-                refuse("el valor del MO debe ser 0 o 1")
+                refuse(tr!("galvo.safety.refuse_mo_value"))
             } else if !params::is_fiber(lim.source) {
-                refuse("la fuente del perfil no es de fibra")
+                refuse(tr!("galvo.safety.refuse_not_fiber"))
             } else if v == 1 && !ctx.arming_allowed {
-                refuse("solo se abre el MO durante un marcado real")
+                refuse(tr!("galvo.safety.refuse_open_mo"))
             } else {
                 Ok(())
             }
@@ -585,13 +585,13 @@ pub fn check_immediate(imm: &Imm, lim: &SafetyLimits, ctx: ImmContext) -> Result
                 if ctx.arming_allowed {
                     Ok(())
                 } else {
-                    refuse("el bit del láser solo se escribe durante un marcado real")
+                    refuse(tr!("galvo.safety.refuse_laser_bit"))
                 }
             } else {
-                refuse("solo se escribe 0, el bit del láser o el del puntero rojo")
+                refuse(tr!("galvo.safety.refuse_port_values"))
             }
         }
-        Imm::GotoXY { .. } if ctx.armed => refuse("la fuente está armada"),
+        Imm::GotoXY { .. } if ctx.armed => refuse(tr!("galvo.safety.refuse_armed")),
         _ => Ok(()),
     }
 }

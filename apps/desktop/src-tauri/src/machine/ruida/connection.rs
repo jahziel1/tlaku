@@ -2,7 +2,8 @@
 
 use super::*;
 
-pub(super) use crate::machine::common::{log, virtual_speed};
+pub(super) use crate::machine::common::{frame_done_log, log, virtual_speed};
+use tlaku_i18n::tr;
 
 /// Conexión abierta: el mando y el hilo.
 pub struct RuidaConnection {
@@ -45,21 +46,16 @@ impl RuidaConnection {
                 ],
                 ..EmuConfig::default()
             })
-            .map_err(|e| format!("No se pudo iniciar la máquina virtual Ruida: {e}"))?;
+            .map_err(|e| tr!("desktop.ruida.virtual_start_failed", err = e))?;
             let addr = server.addr();
-            let link = UdpLink::to_controller_ports(addr.ip(), addr.port(), 0).map_err(|e| {
-                format!("No se pudo abrir el enlace local de la máquina virtual: {e}")
-            })?;
+            let link = UdpLink::to_controller_ports(addr.ip(), addr.port(), 0)
+                .map_err(|e| tr!("desktop.ruida.virtual_link_failed", err = e))?;
             let sim = VirtualSim::new(server, speed);
             Self::start(link, cfg, port, sink, timing, Some(sim), device)
         } else {
             let ip = host_of(device)?;
-            let link = UdpLink::to_controller(ip).map_err(|e| {
-                format!(
-                    "No se pudo abrir el puerto UDP local 40200: {e}. Cierra cualquier otro \
-                     programa de láser que lo use."
-                )
-            })?;
+            let link = UdpLink::to_controller(ip)
+                .map_err(|e| tr!("desktop.ruida.udp_port_failed", err = e))?;
             Self::start(
                 link,
                 cfg,
@@ -93,15 +89,15 @@ impl RuidaConnection {
             c.reply_timeout = timing.poll_timeout;
             c.query_retries = 1;
         }
-        log(sink.as_ref(), LogDir::Out, "; sondeo Ruida (solo lectura)");
+        log(sink.as_ref(), LogDir::Out, &tr!("desktop.ruida.log_probe"));
         log(sink.as_ref(), LogDir::In, &describe_probe(&probe));
         if probe.magic_changed || auto_magic {
             log(
                 sink.as_ref(),
                 LogDir::In,
-                &format!(
-                    "; magic 0x{:02X} detectado: puedes fijarlo en el perfil de la máquina",
-                    probe.magic.0
+                &tr!(
+                    "desktop.ruida.log_magic_detected",
+                    magic = format!("{:02X}", probe.magic.0)
                 ),
             );
         }
@@ -111,29 +107,28 @@ impl RuidaConnection {
             log(
                 sink.as_ref(),
                 LogDir::In,
-                &format!(
-                    "; AVISO: la cama que informa la máquina ({w:.0} × {h:.0} mm) no coincide \
-                     con la del perfil ({:.0} × {:.0} mm); no se enviarán trabajos hasta que la \
-                     corrijas, porque el origen del archivo depende de ella",
-                    device.bed[0], device.bed[1]
+                &tr!(
+                    "desktop.ruida.log_bed_mismatch",
+                    w = format!("{w:.0}"),
+                    h = format!("{h:.0}"),
+                    pw = format!("{:.0}", device.bed[0]),
+                    ph = format!("{:.0}", device.bed[1])
                 ),
             );
         }
         if device.rotary.enabled {
-            log(sink.as_ref(), LogDir::In, &format!("; {ROTARY_NOTE}"));
+            log(sink.as_ref(), LogDir::In, &format!("; {}", rotary_note()));
         }
-        log(sink.as_ref(), LogDir::In, &format!("; {EXPERIMENTAL}"));
+        log(sink.as_ref(), LogDir::In, &format!("; {}", experimental()));
         if sim.is_some() {
-            log(
-                sink.as_ref(),
-                LogDir::In,
-                "; Máquina virtual (emulador Ruida): no hay láser ni hardware reales.",
-            );
+            log(sink.as_ref(), LogDir::In, &tr!("desktop.ruida.log_virtual"));
         }
-        let firmware = format!(
-            "Ruida {} · tarjeta 0x{:08X}",
-            probe.model.unwrap_or("modelo desconocido"),
-            probe.card_id
+        let firmware = tr!(
+            "desktop.ruida.firmware",
+            model = probe
+                .model
+                .map_or_else(|| tr!("desktop.ruida.unknown_model"), str::to_string),
+            card = format!("{:08X}", probe.card_id)
         );
 
         let shared = Arc::new(Shared::default());
@@ -163,7 +158,7 @@ impl RuidaConnection {
         let thread = thread::Builder::new()
             .name("tlaku-ruida".into())
             .spawn(move || worker.run())
-            .map_err(|e| format!("No se pudo iniciar el hilo de la conexión: {e}"))?;
+            .map_err(|e| tr!("desktop.machine.thread_failed", err = e))?;
         Ok((
             Self {
                 handle: RuidaHandle { tx, shared },
@@ -202,11 +197,7 @@ pub(super) fn host_of(device: &DeviceProfile) -> Result<IpAddr, String> {
     let host = match &device.connection {
         tlaku_doc::Connection::Udp { host } if !host.trim().is_empty() => host.trim(),
         _ => {
-            return Err(
-                "El perfil Ruida necesita la IP de la controladora (conexión UDP). Escríbela \
-                 en el perfil de la máquina."
-                    .into(),
-            );
+            return Err(tr!("desktop.ruida.needs_ip"));
         }
     };
     if let Ok(ip) = host.parse::<IpAddr>() {
@@ -217,47 +208,51 @@ pub(super) fn host_of(device: &DeviceProfile) -> Result<IpAddr, String> {
         .ok()
         .and_then(|mut it| it.find(|a| a.is_ipv4()))
         .map(|a| a.ip())
-        .ok_or_else(|| format!("«{host}» no es una IP ni un nombre que se pueda resolver."))
+        .ok_or_else(|| tr!("desktop.ruida.bad_host", host = host))
 }
 
 pub(super) fn describe_probe(info: &ProbeInfo) -> String {
-    format!(
-        "Ruida {} (tarjeta 0x{:08X}), magic 0x{:02X}{}, cama {}",
-        info.model.unwrap_or("modelo desconocido"),
-        info.card_id,
-        info.magic.0,
-        if info.magic_changed {
-            " (detectado)"
-        } else {
-            ""
-        },
-        match info.bed_mm {
-            Some([w, h]) => format!("{w:.1} × {h:.1} mm"),
-            None => "no informada".into(),
-        }
-    )
+    let model = info
+        .model
+        .map_or_else(|| tr!("desktop.ruida.unknown_model"), str::to_string);
+    let card = format!("{:08X}", info.card_id);
+    let magic = format!("{:02X}", info.magic.0);
+    let bed = match info.bed_mm {
+        Some([w, h]) => format!("{w:.1} × {h:.1} mm"),
+        None => tr!("desktop.ruida.not_reported"),
+    };
+    if info.magic_changed {
+        tr!(
+            "desktop.ruida.probe_line_detected",
+            model = model,
+            card = card,
+            magic = magic,
+            bed = bed
+        )
+    } else {
+        tr!(
+            "desktop.ruida.probe_line",
+            model = model,
+            card = card,
+            magic = magic,
+            bed = bed
+        )
+    }
 }
 
 /// Error del sondeo al conectar, con lo que conviene revisar.
 pub(super) fn connect_error(e: SessionError) -> String {
     match &e {
-        SessionError::Timeout { .. } => format!(
-            "La controladora Ruida no contesta ({e}). Revisa la IP, que el equipo esté en la \
-             misma red /24 que la máquina, que ningún otro programa de láser tenga abierto el \
-             puerto UDP 40200 y el magic del perfil."
-        ),
-        _ => format!("No se pudo hablar con la controladora Ruida: {e}"),
+        SessionError::Timeout { .. } => tr!("desktop.ruida.no_reply", err = e),
+        _ => tr!("desktop.ruida.talk_failed", err = e),
     }
 }
 
 /// Error de una operación en marcha, con la pista de la red si es un silencio.
 pub(super) fn op_error(e: SessionError) -> String {
     match &e {
-        SessionError::Timeout { .. } => format!(
-            "{e}. Algunas controladoras ignoran la red mientras ejecutan un trabajo: usa el panel \
-             de la máquina o el paro de emergencia."
-        ),
-        SessionError::Busy(_) => format!("{e}. Espera a que termine o pulsa Detener."),
+        SessionError::Timeout { .. } => tr!("desktop.ruida.op_silent", err = e),
+        SessionError::Busy(_) => tr!("desktop.ruida.op_busy", err = e),
         _ => e.to_string(),
     }
 }

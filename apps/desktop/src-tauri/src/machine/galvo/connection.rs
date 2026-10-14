@@ -3,6 +3,7 @@
 use super::*;
 
 pub(super) use crate::machine::common::{Paced, log, virtual_speed};
+use tlaku_i18n::tr;
 
 /// Conexión abierta: el mando y el hilo.
 pub struct GalvoConnection {
@@ -67,9 +68,9 @@ impl GalvoConnection {
             )
         } else if let Some(index) = usb_index(port) {
             // El reconocimiento de seguridad se exige antes de abrir nada.
-            let token = ack.ok_or_else(|| ACK_REQUIRED.to_string())?.token()?;
+            let token = ack.ok_or_else(ack_required)?.token()?;
             let transport = UsbTransport::open(index, UsbTimeouts::default(), token)
-                .map_err(|e| format!("No se pudo abrir la tarjeta galvo: {e}"))?;
+                .map_err(|e| tr!("desktop.galvo.open_failed", err = e))?;
             Self::start(
                 Box::new(transport),
                 cfg,
@@ -80,10 +81,7 @@ impl GalvoConnection {
                 false,
             )
         } else {
-            Err(format!(
-                "«{port}» no es un puerto galvo. Elige una tarjeta USB de la lista o la máquina \
-                 virtual."
-            ))
+            Err(tr!("desktop.galvo.not_galvo_port", port = port))
         }
     }
 
@@ -99,28 +97,34 @@ impl GalvoConnection {
         virtual_machine: bool,
     ) -> Result<(Self, ConnectResult), String> {
         let mut session = GalvoSession::new(transport, cfg.clone()).map_err(connect_error)?;
-        log(sink.as_ref(), LogDir::Out, "; sondeo galvo (solo lectura)");
+        log(sink.as_ref(), LogDir::Out, &tr!("desktop.galvo.log_probe"));
         let info = session.probe().map_err(connect_error)?;
         for line in describe_info(&info) {
             log(sink.as_ref(), LogDir::In, &line);
         }
-        log(sink.as_ref(), LogDir::In, &format!("; {EXPERIMENTAL}"));
+        log(sink.as_ref(), LogDir::In, &format!("; {}", experimental()));
         if virtual_machine {
-            log(
-                sink.as_ref(),
-                LogDir::In,
-                "; Máquina virtual (tarjeta simulada): no hay láser ni hardware reales.",
-            );
+            log(sink.as_ref(), LogDir::In, &tr!("desktop.galvo.log_virtual"));
         }
         let serial = words_hex(&info.serial);
         let version = words_hex(&info.version);
-        let firmware = format!(
-            "Galvo · {} · {:04X}:{:04X}{}",
-            info.board_name,
-            info.transport.vendor_id,
-            info.transport.product_id,
-            if virtual_machine { " · virtual" } else { "" }
+        let usb_id = format!(
+            "{:04X}:{:04X}",
+            info.transport.vendor_id, info.transport.product_id
         );
+        let firmware = if virtual_machine {
+            tr!(
+                "desktop.galvo.firmware_virtual",
+                board = info.board_name,
+                usb = usb_id
+            )
+        } else {
+            tr!(
+                "desktop.galvo.firmware",
+                board = info.board_name,
+                usb = usb_id
+            )
+        };
         let live = Live {
             status_raw: info.status.raw,
             busy: info.status.busy,
@@ -170,7 +174,7 @@ impl GalvoConnection {
         let thread = thread::Builder::new()
             .name("tlaku-galvo".into())
             .spawn(move || worker.run())
-            .map_err(|e| format!("No se pudo iniciar el hilo de la conexión: {e}"))?;
+            .map_err(|e| tr!("desktop.machine.thread_failed", err = e))?;
         Ok((
             Self {
                 handle: GalvoHandle { tx, shared },
@@ -245,15 +249,12 @@ pub fn verify(
         virtual_speed(port)?;
         (Box::new(t), true)
     } else if let Some(index) = usb_index(port) {
-        let token = ack.ok_or_else(|| ACK_REQUIRED.to_string())?.token()?;
+        let token = ack.ok_or_else(ack_required)?.token()?;
         let t = UsbTransport::open(index, UsbTimeouts::default(), token)
-            .map_err(|e| format!("No se pudo abrir la tarjeta galvo: {e}"))?;
+            .map_err(|e| tr!("desktop.galvo.open_failed", err = e))?;
         (Box::new(t), false)
     } else {
-        return Err(format!(
-            "«{port}» no es un puerto galvo. Elige una tarjeta USB de la lista o la máquina \
-             virtual."
-        ));
+        return Err(tr!("desktop.galvo.not_galvo_port", port = port));
     };
     verify_with(transport, cfg, device, virtual_machine)
 }
@@ -282,9 +283,9 @@ pub(super) fn verify_with(
         id: "idle".into(),
         ok: !info.status.busy,
         detail: if info.status.busy {
-            "la tarjeta está ocupada con otra lista".into()
+            tr!("desktop.galvo.verify_busy")
         } else {
-            "la tarjeta está en reposo".into()
+            tr!("desktop.galvo.verify_idle")
         },
     });
     // El perfil: el encuadre del campo (95 % del lado, centrado en la cama) debe compilar, caber
@@ -307,10 +308,10 @@ pub(super) fn verify_with(
         Ok(l) => VerifyCheck {
             id: "frame".into(),
             ok: true,
-            detail: format!(
-                "el encuadre del campo ({side:.0} mm) compila: {} comandos, solo saltos con el \
-                 puntero rojo",
-                l.stats.commands
+            detail: tr!(
+                "desktop.galvo.verify_frame_ok",
+                side = format!("{side:.0}"),
+                commands = l.stats.commands
             ),
         },
         Err(e) => VerifyCheck {
@@ -328,9 +329,11 @@ pub(super) fn verify_with(
         checks.push(VerifyCheck {
             id: "interlock".into(),
             ok: i.met,
-            detail: format!(
-                "entradas {:#06x}: se exige (entradas & {:#06x}) == {:#06x}",
-                info.inputs, i.mask, i.value
+            detail: tr!(
+                "desktop.galvo.verify_interlock",
+                inputs = format!("{:#06x}", info.inputs),
+                mask = format!("{:#06x}", i.mask),
+                value = format!("{:#06x}", i.value)
             ),
         });
     }
@@ -371,57 +374,72 @@ pub(super) fn words_hex(w: &[u16; 4]) -> String {
 
 pub(super) fn describe_info(info: &BoardInfo) -> Vec<String> {
     let t = &info.transport;
+    let yes_no = |v: bool| {
+        if v {
+            tr!("desktop.galvo.yes")
+        } else {
+            tr!("desktop.galvo.no")
+        }
+    };
     let mut out = vec![
-        format!(
-            "Tarjeta: {} (USB {:04X}:{:04X}); serie {}; versión {}",
-            info.board_name,
-            t.vendor_id,
-            t.product_id,
-            words_hex(&info.serial),
-            words_hex(&info.version)
+        tr!(
+            "desktop.galvo.board_line",
+            board = info.board_name,
+            usb = format!("{:04X}:{:04X}", t.vendor_id, t.product_id),
+            serial = words_hex(&info.serial),
+            version = words_hex(&info.version)
         ),
-        format!(
-            "Estado: {:#06x} (ocupada: {}, lista: {}); entradas: {:#06x}",
-            info.status.raw,
-            if info.status.busy { "sí" } else { "no" },
-            if info.status.ready { "sí" } else { "no" },
-            info.inputs
+        tr!(
+            "desktop.galvo.status_line",
+            raw = format!("{:#06x}", info.status.raw),
+            busy = yes_no(info.status.busy),
+            ready = yes_no(info.status.ready),
+            inputs = format!("{:#06x}", info.inputs)
         ),
     ];
-    out.extend(info.notes.iter().map(|n| format!("; AVISO: {n}")));
+    out.extend(
+        info.notes
+            .iter()
+            .map(|n| tr!("desktop.lhymicro.log_note", note = n)),
+    );
     out
 }
 
 /// Error del sondeo al conectar, con lo que conviene revisar.
 pub(super) fn connect_error(e: SessionError) -> String {
     match &e {
-        SessionError::UnknownBoard { .. } => {
-            format!("{e}. Tlaku solo habla con la LMCV4-FIBER-M (USB 9588:9899).")
-        }
-        _ => format!(
-            "No se pudo hablar con la tarjeta galvo: {e}{}",
-            usb_hint(&e)
-        ),
+        SessionError::UnknownBoard { .. } => tr!("desktop.galvo.unknown_board", err = e),
+        _ if usb_silence(&e) => tr!("desktop.galvo.talk_failed_usb", err = e),
+        _ => tr!("desktop.galvo.talk_failed", err = e),
     }
 }
 
-pub(super) fn usb_hint(e: &SessionError) -> &'static str {
-    match e {
-        SessionError::Transport(_) | SessionError::Timeout { .. } => {
-            ". Comprueba el cable USB, que la máquina esté encendida y que EZCAD, LightBurn o \
-             MeerK40t no tengan la tarjeta abierta"
-        }
-        _ => "",
-    }
+/// ¿El fallo es un silencio del USB (cable, máquina apagada o tarjeta ocupada por otro programa)?
+pub(super) fn usb_silence(e: &SessionError) -> bool {
+    matches!(e, SessionError::Transport(_) | SessionError::Timeout { .. })
 }
 
 /// Error de una operación en marcha, con la pista del USB si es un silencio.
 pub(super) fn op_error(e: &SessionError) -> String {
-    format!("{e}{}", usb_hint(e))
+    if usb_silence(e) {
+        tr!("desktop.galvo.op_failed_usb", err = e)
+    } else {
+        e.to_string()
+    }
 }
 
+/// Texto de un fallo de trabajo, con la pista del USB si es un silencio. Si no se confirmó el
+/// apagado de la fuente lleva el código estable `stop_unconfirmed` (ver [`STOP_UNCONFIRMED`]).
 pub(super) fn job_error_text(e: &JobError) -> String {
-    format!("{e}{}", usb_hint(&e.cause))
+    let text = if usb_silence(&e.cause) {
+        tr!("desktop.galvo.op_failed_usb", err = e)
+    } else {
+        e.to_string()
+    };
+    match e.code() {
+        Some(code) => tlaku_i18n::coded(code, text),
+        None => text,
+    }
 }
 
 pub(super) fn emit_job(sink: &dyn Sink, state: JobState, message: &str) {

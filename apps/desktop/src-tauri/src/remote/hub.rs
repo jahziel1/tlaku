@@ -22,12 +22,13 @@
 //!   comprobar el encuadre: la lógica de inicio no se duplica aquí.
 
 use super::auth::{Auth, ClientView};
-use crate::machine::{NOT_CONNECTED, galvo};
+use crate::machine::{galvo, not_connected};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tlaku_doc::{MachineState, StatusReport};
+use tlaku_i18n::tr;
 use tokio::sync::{oneshot, watch};
 
 /// Si la interfaz no informa en este tiempo se la da por ausente y no se permite iniciar.
@@ -231,22 +232,19 @@ impl ActionError {
 }
 
 /// Por qué no se puede iniciar ahora.
-pub fn start_reason_text(code: &str) -> &'static str {
+pub fn start_reason_text(code: &str) -> String {
     match code {
-        "not_connected" => NOT_CONNECTED,
-        "job_active" => "Ya hay un trabajo en curso.",
-        "not_idle" => "La máquina no está en reposo (alarma, pausa o movimiento).",
-        "pc_offline" => "Tlaku en la PC no está respondiendo. Revisa que siga abierto.",
-        "nothing_to_send" => "No hay nada que enviar: el diseño no tiene capas con salida.",
-        "galvo" => "El galvo (haz invisible) solo se inicia desde la PC.",
-        "not_framed" => {
-            "Primero encuadra el trabajo en la PC. Cualquier cambio al diseño, a la máquina o a \
-             las opciones del trabajo exige encuadrar de nuevo."
-        }
-        "busy_request" => "Ya hay un inicio en curso desde otro dispositivo.",
-        "checklist" => "Marca todo el checklist de seguridad para iniciar.",
-        "timeout" => "La PC no contestó a tiempo. Revisa Tlaku antes de volver a intentar.",
-        _ => "No se puede iniciar ahora.",
+        "not_connected" => not_connected(),
+        "job_active" => tr!("desktop.remote.reason_job_active"),
+        "not_idle" => tr!("desktop.remote.reason_not_idle"),
+        "pc_offline" => tr!("desktop.remote.reason_pc_offline"),
+        "nothing_to_send" => tr!("desktop.remote.reason_nothing_to_send"),
+        "galvo" => tr!("desktop.remote.reason_galvo"),
+        "not_framed" => tr!("desktop.remote.reason_not_framed"),
+        "busy_request" => tr!("desktop.remote.reason_busy_request"),
+        "checklist" => tr!("desktop.remote.reason_checklist"),
+        "timeout" => tr!("desktop.remote.reason_timeout"),
+        _ => tr!("desktop.remote.reason_default"),
     }
 }
 
@@ -358,21 +356,21 @@ impl Core {
                 None => g.route = None,
                 Some(r) => {
                     if r.d.len() > MAX_ROUTE_BYTES {
-                        return Err("El recorrido es demasiado grande para el celular.".into());
+                        return Err(tr!("desktop.remote.route_too_big"));
                     }
                     if !r
                         .d
                         .chars()
                         .all(|c| c.is_ascii_digit() || " .-MLZ,e".contains(c))
                     {
-                        return Err("El recorrido tiene caracteres no válidos.".into());
+                        return Err(tr!("desktop.remote.route_bad_chars"));
                     }
                     if !(r.bed[0].is_finite()
                         && r.bed[1].is_finite()
                         && r.bed[0] > 0.0
                         && r.bed[1] > 0.0)
                     {
-                        return Err("La cama del recorrido no es válida.".into());
+                        return Err(tr!("desktop.remote.route_bad_bed"));
                     }
                     g.route_version += 1;
                     let version = g.route_version;
@@ -400,10 +398,10 @@ impl Core {
     /// interfaz deja de mandarla.
     pub fn set_camera(&self, jpeg: Vec<u8>, now: Instant) -> Result<bool, String> {
         if jpeg.len() > MAX_CAMERA_BYTES {
-            return Err("La imagen de la cámara es demasiado grande.".into());
+            return Err(tr!("desktop.remote.camera_too_big"));
         }
         if !jpeg.starts_with(&[0xff, 0xd8, 0xff]) {
-            return Err("La imagen de la cámara no es un JPEG.".into());
+            return Err(tr!("desktop.remote.camera_not_jpeg"));
         }
         let wanted = self.auth.connected_count(now) > 0;
         if wanted {
@@ -479,14 +477,14 @@ impl Core {
     fn require_machine(&self) -> Result<MachineInfo, ActionError> {
         self.control
             .machine()
-            .ok_or_else(|| ActionError::new("not_connected", NOT_CONNECTED))
+            .ok_or_else(|| ActionError::new("not_connected", not_connected()))
     }
 
     /// Pausa. No existe en el galvo.
     pub fn pause(&self, client: &str) -> Result<(), ActionError> {
         let m = self.require_machine()?;
         if m.kind == MachineKind::Galvo {
-            return Err(ActionError::new("no_pause", galvo::NO_PAUSE));
+            return Err(ActionError::new("no_pause", galvo::no_pause()));
         }
         self.control
             .pause()
@@ -498,7 +496,7 @@ impl Core {
     pub fn resume(&self, client: &str) -> Result<(), ActionError> {
         let m = self.require_machine()?;
         if m.kind == MachineKind::Galvo {
-            return Err(ActionError::new("no_pause", galvo::NO_PAUSE));
+            return Err(ActionError::new("no_pause", galvo::no_pause()));
         }
         self.control
             .resume()

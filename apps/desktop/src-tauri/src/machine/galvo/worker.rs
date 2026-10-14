@@ -5,6 +5,7 @@ mod job;
 mod light;
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Hilo
@@ -55,14 +56,12 @@ impl Worker {
             self.shared.red_on.store(false, Ordering::SeqCst);
             if outcome == StopOutcome::Unconfirmed {
                 self.shared.laser_may_be_on.store(true, Ordering::SeqCst);
-                let note = format!(
-                    "{UNCONFIRMED_MARK} de que la fuente quedara apagada: puede seguir habilitada. \
-                     Corta la energía de la fuente láser y usa el paro de emergencia."
-                );
-                error = Some(match error {
+                let note = tr!("desktop.galvo.close_unconfirmed");
+                let text = match error {
                     Some(e) => format!("{e}. {note}"),
                     None => note,
-                });
+                };
+                error = Some(tlaku_i18n::coded(STOP_UNCONFIRMED, text));
             }
         }
         self.shared.dead.store(true, Ordering::SeqCst);
@@ -141,17 +140,11 @@ impl Worker {
             }
             Err(SessionError::Transport(
                 e @ (TransportError::Disconnected | TransportError::Io(_)),
-            )) => Err(format!(
-                "se perdió la conexión con la tarjeta galvo: {e}. Revisa el cable USB y que la \
-                 máquina siga encendida"
-            )),
+            )) => Err(tr!("desktop.galvo.link_lost_io", err = e)),
             Err(e) => {
                 self.failures += 1;
                 if self.failures >= self.timing.lost_after {
-                    Err(format!(
-                        "se perdió la conexión con la tarjeta galvo ({e}). Revisa el cable USB y \
-                         que la máquina siga encendida"
-                    ))
+                    Err(tr!("desktop.galvo.link_lost", err = e))
                 } else {
                     Ok(())
                 }
@@ -199,11 +192,7 @@ impl Worker {
     /// Anota que la fuente pudo quedar habilitada y lo hace saber (registro y evento propio).
     fn note_laser_may_be_on(&self, message: &str) {
         self.shared.laser_may_be_on.store(true, Ordering::SeqCst);
-        self.log(
-            LogDir::In,
-            "; AVISO: la fuente pudo quedar habilitada: CORTA LA ENERGÍA de la fuente láser, \
-             abre la tapa o usa el paro de emergencia",
-        );
+        self.log(LogDir::In, &tr!("desktop.galvo.log_laser_may_be_on"));
         self.sink.emit(Emit::Galvo(GalvoEvent::LaserMayBeOn {
             message: message.to_string(),
         }));

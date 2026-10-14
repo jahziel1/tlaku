@@ -24,6 +24,7 @@
 
 use std::fmt;
 use tlaku_doc::FieldCorrection;
+use tlaku_i18n::tr;
 
 /// Posiciones por eje.
 pub const AXIS_STEPS: f64 = 65536.0;
@@ -41,10 +42,10 @@ const MAX_SCALE: f64 = 10.0;
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalibError {
     BadField(f64),
-    NonFinite(&'static str),
+    NonFinite(String),
     BadScale(f64),
     NonlinearTooLarge {
-        what: &'static str,
+        what: String,
         value: f64,
     },
     /// El punto corregido cae fuera de las 65536 posiciones del eje.
@@ -58,22 +59,39 @@ impl fmt::Display for CalibError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CalibError::BadField(v) => {
+                write!(f, "{}", tr!("galvo.calib.bad_field", v = v))
+            }
+            CalibError::NonFinite(w) => write!(f, "{}", tr!("galvo.calib.non_finite", what = w)),
+            CalibError::BadScale(v) => {
                 write!(
                     f,
-                    "el campo de la lente debe ser un número positivo (llegó {v} mm)"
+                    "{}",
+                    tr!(
+                        "galvo.calib.bad_scale",
+                        v = v,
+                        min = MIN_SCALE,
+                        max = MAX_SCALE
+                    )
                 )
-            }
-            CalibError::NonFinite(w) => write!(f, "{w} no es un número finito"),
-            CalibError::BadScale(v) => {
-                write!(f, "escala {v} fuera de rango ({MIN_SCALE} a {MAX_SCALE})")
             }
             CalibError::NonlinearTooLarge { what, value } => write!(
                 f,
-                "{what} = {value} fuera de rango (máximo ±{MAX_NONLINEAR})"
+                "{}",
+                tr!(
+                    "galvo.calib.nonlinear_too_large",
+                    what = what,
+                    value = value,
+                    max = MAX_NONLINEAR
+                )
             ),
             CalibError::OutOfField { axis, mm } => write!(
                 f,
-                "el punto cae fuera del campo de la lente en {axis} ({mm:.3} mm desde el centro)"
+                "{}",
+                tr!(
+                    "galvo.calib.out_of_field",
+                    axis = axis,
+                    mm = format!("{mm:.3}")
+                )
             ),
         }
     }
@@ -90,7 +108,7 @@ pub fn units_per_mm(field_mm: f64) -> f64 {
 /// campo; un punto en el borde exacto se satura.
 pub fn mm_to_units(mm: f64, field_mm: f64, axis: char) -> Result<u16, CalibError> {
     if !(mm.is_finite() && field_mm.is_finite() && field_mm > 0.0) {
-        return Err(CalibError::NonFinite("la posición"));
+        return Err(CalibError::NonFinite(tr!("galvo.calib.what_position")));
     }
     let u = f64::from(CENTER) + mm * units_per_mm(field_mm);
     if !(-0.5..=65535.0 + EDGE_SLACK + 1e-9).contains(&u) {
@@ -123,7 +141,7 @@ impl FieldMap {
         if !(field_mm.is_finite() && field_mm > 0.0) {
             return Err(CalibError::BadField(field_mm));
         }
-        let finite = |v: f64, w: &'static str| {
+        let finite = |v: f64, w: String| {
             if v.is_finite() {
                 Ok(())
             } else {
@@ -131,22 +149,22 @@ impl FieldMap {
             }
         };
         for v in c.scale {
-            finite(v, "la escala")?;
+            finite(v, tr!("galvo.calib.what_scale"))?;
             if !(MIN_SCALE..=MAX_SCALE).contains(&v) {
                 return Err(CalibError::BadScale(v));
             }
         }
         for v in c.offset {
-            finite(v, "el desplazamiento")?;
+            finite(v, tr!("galvo.calib.what_offset"))?;
         }
-        finite(c.rotation_deg, "el giro")?;
+        finite(c.rotation_deg, tr!("galvo.calib.what_rotation"))?;
         for (vals, what) in [
-            (c.bulge, "barril"),
-            (c.trapezoid, "trapecio"),
-            (c.skew, "sesgo"),
+            (c.bulge, tr!("galvo.calib.what_barrel")),
+            (c.trapezoid, tr!("galvo.calib.what_trapezoid")),
+            (c.skew, tr!("galvo.calib.what_skew")),
         ] {
             for v in vals {
-                finite(v, what)?;
+                finite(v, what.clone())?;
                 if v.abs() > MAX_NONLINEAR {
                     return Err(CalibError::NonlinearTooLarge { what, value: v });
                 }

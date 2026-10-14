@@ -2,8 +2,10 @@
 
 use crate::num::NumError;
 use crate::safety::{SafetyError, SafetyLimits};
+use crate::text;
 use std::fmt;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Capas posibles (int7).
 pub const MAX_LAYERS: usize = 128;
@@ -228,18 +230,17 @@ impl fmt::Display for RdError {
         match self {
             RdError::Safety(e) => write!(f, "{e}"),
             RdError::Num(e) => write!(f, "{e}"),
-            RdError::EmptyJob => write!(f, "el trabajo no tiene ningún corte"),
-            RdError::TooManyLayers { layers, blocks } => write!(
-                f,
-                "el trabajo tiene {blocks} capas con cortes ({layers} con ajustes distintos \
-                 entre capas seguidas) y Ruida admite {MAX_LAYERS}: unifica colores o ajustes \
-                 (velocidad, potencia, aire) para que las capas se fusionen"
-            ),
-            RdError::MinPowerAboveMax { block } => write!(
-                f,
-                "bloque {block}: la potencia mínima configurada supera la potencia del bloque"
-            ),
-            RdError::BadOption(w) => write!(f, "opción inválida: {w}"),
+            RdError::EmptyJob => f.write_str(&tr!("ruida.rd.empty_job")),
+            RdError::TooManyLayers { layers, blocks } => f.write_str(&tr!(
+                "ruida.rd.too_many_layers",
+                blocks = blocks,
+                layers = layers,
+                max = MAX_LAYERS
+            )),
+            RdError::MinPowerAboveMax { block } => {
+                f.write_str(&tr!("ruida.rd.min_power_above_max", block = block))
+            }
+            RdError::BadOption(w) => f.write_str(&tr!("ruida.rd.bad_option", what = text::what(w))),
         }
     }
 }

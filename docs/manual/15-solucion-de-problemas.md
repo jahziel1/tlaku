@@ -185,6 +185,15 @@ Y recuerda: la M2 Nano **no controla la potencia por software**; si el láser no
 
 Otras dudas del K40 en la app: si el panel dice «Posición desconocida», haz **home** (detener un trabajo la pierde; enviar un trabajo la recupera haciendo home primero). Si cambiaste el perfil (placa, cama, origen), **reconecta**. Si aparece el aviso «La placa no confirmó la parada», usa el **paro de emergencia** de la máquina. La consola, los overrides, los ajustes `$`, Z, U y el aire no existen en el K40.
 
+## Avisos al calcular o al iniciar un trabajo
+
+- **«El enlace serie no da abasto».** El trabajo pide más líneas por segundo de las que caben en tu cable a esos baudios: la máquina se quedaría sin líneas, haría pausas y podría marcar el material. Baja la velocidad de las capas con más detalle (el aviso dice a qué fracción), simplifica el diseño (**Revisar diseño**, **Optimizar formas**) o usa un enlace más rápido (USB nativo, red). Ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
+- **«La capa pide X mm/min y la máquina llega como máximo a Y».** La velocidad de la capa supera la del perfil. La máquina irá al máximo y el resultado será más oscuro; baja la velocidad de la capa, o corrige la velocidad máxima del perfil si está mal puesta.
+- **«Ruida admite 128 capas…».** Tu diseño tiene demasiados colores con ajustes distintos para el archivo `.rd`. Unifica colores o ajustes de capas seguidas; ver [Ruida y K40](13b-ruida-y-k40.md). Una velocidad por encima de 36 000 mm/min se recorta a ese tope.
+- **Revisar diseño encontró algo grave.** Objetos fuera de la cama o una capa sin salida. Pulsa **Ver**: [Revisar diseño](07b-revisar-diseno.md).
+- **Mi placa se reinicia (y pierde la posición) cada vez que conecto.** En el perfil, marca **Abrir el puerto serie sin subir DTR**. En Linux, y con algunos adaptadores, no tendrá efecto. Ver [Conectar tu máquina](08-conectar-maquina.md#ajustes-del-perfil-que-conviene-conocer).
+- **La placa pierde líneas o da `error:` sueltos a mitad del trabajo.** Baja el **Búfer de recepción** del perfil; si no basta, prueba el **Envío síncrono** (más lento).
+
 ## Macros, ajustes `$$` y disparo de prueba
 
 - **«La macro … se detuvo en …: la máquina contestó …».** La macro envía las líneas una a una y se detiene en la primera que la máquina rechaza. Mira el `error:N` en la sección **Errores `error:N`** de esta página y corrige esa línea en el perfil.
@@ -197,11 +206,16 @@ Otras dudas del K40 en la app: si el panel dice «Posición desconocida», haz *
 
 ## Problemas al importar o exportar
 
-- **Importé un `.lbrn` o `.lbrn2` y faltan ajustes de corte.** El aviso de importación lista lo que no pudo traer: perforado, modo de puntos, relleno inundado, sobrecorte, rampa y corte pasante tienen su equivalente en Tlaku, pero el importador todavía no los traduce; vuelve a encenderlos en **Corte avanzado** o en el selector **Relleno** de la capa. Los puentes manuales de LightBurn se reparten solos. Ver [Venir desde LightBurn](14-desde-lightburn.md).
+- **Importé un `.lbrn` o `.lbrn2` y faltan ajustes de corte.** El aviso de importación lista lo que no pudo traer. El importador sí traduce el perforado, el modo de puntos, el relleno inundado, el sobrecorte, la rampa, las pausas, el corte pasante y las sub-capas (varias conversiones son inferidas: revisa cada capa en **Corte avanzado** y en el selector **Relleno**). Lo que no tiene equivalente (PPI, frecuencia del láser, segundo láser, potencia constante, velocidad del soplador, relleno por objeto y entradas y salidas del contorno) se avisa y hay que ponerlo a mano. Los puentes manuales de LightBurn se reparten solos. Ver [Venir desde LightBurn](14-desde-lightburn.md).
 - **Un PDF o AI llega sin texto o sin fotos.** Solo se importan trayectos: convierte el texto a curvas en el programa de origen y vuelve a exportar. El aviso de importación lo dice. Si el archivo tiene varias páginas, importa la primera; elige otra en **Importar con opciones…**.
 - **"Es un AI antiguo (PostScript)".** Ábrelo en Illustrator y guárdalo con **Crear archivo compatible con PDF**, o expórtalo a PDF o SVG.
 - **Un HPGL o un SVG sale a otro tamaño.** El HPGL no declara su escala (se supone 40 unidades por mm) y un SVG sin unidades usa 96 ppp. Usa **Escala (%)** y **Resolución (ppp)** en **Archivo > Importar con opciones…**; Illustrator suele necesitar 72.
 - **Un DXF sale unas 25 veces más grande o más chico.** Es un DXF sin unidades en pulgadas o milímetros: elige la **Unidad de un DXF sin unidades** en las opciones de importación.
+- **"El archivo no contiene trayectorias".** Lee el resto del mensaje: dice **qué se omitió** (por ejemplo, «se omitieron 3 HATCH y 12 TEXT» en un DXF, o texto y formas sin contorno en un SVG) y qué hacer: convertirlo a contornos o trayectos en el programa de origen y volver a exportar. Ver [Importar y exportar](03b-importar-y-exportar.md).
+- **Importé un SVG y apareció una imagen en vez de líneas.** Si el SVG no trae trayectos pero sí imágenes incrustadas, se importa como imagen y lo dice; las copias quedan junto al SVG (`nombre.tlaku-img1.png`…). Para cortar contornos hace falta un SVG con trayectos.
+- **Una foto TIFF no carga.** Los TIFF grandes y los YCbCr ya cargan. Si el mensaje habla de memoria o de un formato que no entiende, guarda la imagen como PNG desde tu editor e impórtala de nuevo.
+- **Importé un `.rd` o un `.egv` y sale desplazado o reflejado.** Esos formatos no guardan el origen de la máquina: Tlaku supone el home arriba a la izquierda y lo avisa. Muévelo o refléjalo. En un `.egv` tampoco viene la potencia: ajústala en cada capa.
+- **El G-code importa vacío: «El G-code no tiene cortes con potencia».** Todos sus avances llegan con `M3 S0`. Acepta **Importar con esa potencia** en el diálogo y revisa el resultado.
 - **Importé un G-code y quedó en una sola capa (o en muchas).** De fábrica se hace una capa por nivel de potencia; elige **Una sola capa** en las opciones.
 - **"No hay objetos que exportar".** Exportar necesita al menos un objeto visible; revisa que no estén ocultos ni sus capas apagadas.
 - **El PDF o la impresión sale a otra escala.** Imprime desde el visor con **tamaño real (100 %)** y sin **ajustar a la página**.
@@ -213,4 +227,4 @@ Otras dudas del K40 en la app: si el panel dice «Posición desconocida», haz *
 
 Copia el registro de la consola y usa **Ayuda > Reportar un problema…**. Indica tu firmware (versión que devuelve `$I`), el tipo de controladora del perfil y si lo probaste en la máquina virtual.
 
-Siguiente: [Glosario](16-glosario.md)
+Siguiente: [Rendimiento con diseños grandes](15b-rendimiento.md)

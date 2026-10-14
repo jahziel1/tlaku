@@ -1,6 +1,7 @@
 //! Salida en pantalla: resumen del trabajo y plan de corte explicado.
 
 use std::fmt::Write;
+use tlaku_i18n::tr;
 use tlaku_pipeline::{ComputedJob, LayerReport};
 use tlaku_plan::PlanStep;
 
@@ -21,18 +22,56 @@ pub fn format_duration(seconds: f64) -> String {
     }
 }
 
-fn plural(n: usize, one: &str, many: &str) -> String {
-    format!("{n} {}", if n == 1 { one } else { many })
+/// "1 trayectoria" / "3 trayectorias" (cada idioma tiene su par de claves).
+fn paths_count(n: usize) -> String {
+    if n == 1 {
+        tr!("cli.report.paths_one", n = n)
+    } else {
+        tr!("cli.report.paths_other", n = n)
+    }
+}
+
+fn lines_count(n: usize) -> String {
+    if n == 1 {
+        tr!("cli.report.lines_one", n = n)
+    } else {
+        tr!("cli.report.lines_other", n = n)
+    }
+}
+
+fn shapes_count(n: usize) -> String {
+    if n == 1 {
+        tr!("cli.report.shapes_one", n = n)
+    } else {
+        tr!("cli.report.shapes_other", n = n)
+    }
+}
+
+fn sweep_lines_count(n: usize) -> String {
+    if n == 1 {
+        tr!("cli.report.sweep_lines_one", n = n)
+    } else {
+        tr!("cli.report.sweep_lines_other", n = n)
+    }
 }
 
 fn layer_line(n: usize, l: &LayerReport) -> String {
     let count = match (l.unit, l.count) {
-        ("trayectorias", n) => plural(n, "trayectoria", "trayectorias"),
-        (_, n) => plural(n, "línea", "líneas"),
+        ("trayectorias", n) => paths_count(n),
+        (_, n) => lines_count(n),
     };
     let mut s = format!(
-        "  {n}. {:<8} {:<5} {:<15} {} mm/min, {}, {} pasada(s)",
-        l.name, l.mode, count, l.speed_mm_min, l.power, l.passes
+        "  {}",
+        tr!(
+            "cli.report.layer_line",
+            n = n,
+            name = format!("{:<8}", l.name),
+            mode = format!("{:<5}", l.mode),
+            count = format!("{count:<15}"),
+            speed = l.speed_mm_min,
+            power = l.power,
+            passes = l.passes
+        )
     );
     if let Some(mm) = l.overscan_mm {
         let _ = write!(s, ", overscan {mm:.2} mm");
@@ -41,18 +80,22 @@ fn layer_line(n: usize, l: &LayerReport) -> String {
     if let Some(plan) = &l.plan {
         let _ = write!(
             s,
-            "\n              recorrido en vacío: {:.1} mm (orden original {:.1} mm, ahorro {:.1} mm = {:.0} %)",
-            plan.travel_mm,
-            plan.baseline_travel_mm,
-            plan.saved_mm(),
-            plan.saved_pct()
+            "\n              {}",
+            tr!(
+                "cli.report.layer_travel",
+                travel = format!("{:.1}", plan.travel_mm),
+                baseline = format!("{:.1}", plan.baseline_travel_mm),
+                saved = format!("{:.1}", plan.saved_mm()),
+                pct = format!("{:.0}", plan.saved_pct())
+            )
         );
     }
     s
 }
 
 pub fn summary(built: &ComputedJob) -> String {
-    let mut out = String::from("Capas (en el orden en que se ejecutan):\n");
+    let mut out = tr!("cli.report.layers_header");
+    out.push('\n');
     for (i, l) in built.layers.iter().enumerate() {
         out.push_str(&layer_line(i + 1, l));
         out.push('\n');
@@ -62,18 +105,27 @@ pub fn summary(built: &ComputedJob) -> String {
     }
     let _ = writeln!(
         out,
-        "Tiempo total estimado: {}",
-        format_duration(built.preview.total_s)
+        "{}",
+        tr!(
+            "cli.report.total_time",
+            time = format_duration(built.preview.total_s)
+        )
     );
     if let Some(b) = built.bounds() {
         let _ = writeln!(
             out,
-            "Área ocupada (con overscan): X {:.2} a {:.2} mm, Y {:.2} a {:.2} mm",
-            b.min.x, b.max.x, b.min.y, b.max.y
+            "{}",
+            tr!(
+                "cli.report.occupied_area",
+                x0 = format!("{:.2}", b.min.x),
+                x1 = format!("{:.2}", b.max.x),
+                y0 = format!("{:.2}", b.min.y),
+                y1 = format!("{:.2}", b.max.y)
+            )
         );
     }
     if !built.preview.warnings.is_empty() {
-        out.push_str("Advertencias:\n");
+        let _ = writeln!(out, "{}", tr!("cli.report.warnings_header"));
         for w in &built.preview.warnings {
             let _ = writeln!(out, "  - {w}");
         }
@@ -102,23 +154,36 @@ pub fn order_line(built: &ComputedJob) -> String {
         .map(|(i, l)| format!("{}. {} ({})", i + 1, l.name, l.mode))
         .collect();
     format!(
-        "Capas en orden: {}. {}\n",
-        names.join(", "),
-        capitalize(note)
+        "{}\n",
+        tr!(
+            "cli.report.layers_in_order",
+            names = names.join(", "),
+            note = capitalize(note)
+        )
     )
 }
 
 fn step_line(n: usize, s: &PlanStep) -> String {
     let p = s.path.start();
-    format!(
-        "  {:>3}. figura #{} ({}, entra por X{:.2} Y{:.2}): {}",
-        n,
-        s.item,
-        if s.path.closed { "cerrada" } else { "abierta" },
-        p.x,
-        p.y,
-        s.reason
-    )
+    let (x, y) = (format!("{:.2}", p.x), format!("{:.2}", p.y));
+    let text = if s.path.closed {
+        tr!(
+            "cli.report.step_closed",
+            item = s.item,
+            x = x,
+            y = y,
+            reason = s.reason
+        )
+    } else {
+        tr!(
+            "cli.report.step_open",
+            item = s.item,
+            x = x,
+            y = y,
+            reason = s.reason
+        )
+    };
+    format!("  {n:>3}. {text}")
 }
 
 /// Orden de corte con la razón de cada paso. Las figuras se numeran desde 0 dentro de su capa,
@@ -129,18 +194,22 @@ pub fn plan_text(built: &ComputedJob) -> String {
         let _ = writeln!(out, "{}", capitalize(note));
     }
     for (i, l) in built.layers.iter().enumerate() {
+        let count = match l.unit {
+            "trayectorias" => shapes_count(l.count),
+            _ => sweep_lines_count(l.count),
+        };
         let _ = writeln!(
             out,
-            "Capa {} de {}: {} ({}, {} pasada(s), {})",
-            i + 1,
-            built.layers.len(),
-            l.name,
-            l.mode,
-            l.passes,
-            match l.unit {
-                "trayectorias" => plural(l.count, "figura", "figuras"),
-                _ => plural(l.count, "línea de barrido", "líneas de barrido"),
-            }
+            "{}",
+            tr!(
+                "cli.report.plan_layer",
+                n = i + 1,
+                total = built.layers.len(),
+                name = l.name,
+                mode = l.mode,
+                passes = l.passes,
+                count = count
+            )
         );
         match &l.plan {
             Some(plan) => {
@@ -149,23 +218,23 @@ pub fn plan_text(built: &ComputedJob) -> String {
                 }
                 let _ = writeln!(
                     out,
-                    "  Recorrido en vacío: {:.1} mm (orden original {:.1} mm, ahorro {:.1} mm = {:.0} %)",
-                    plan.travel_mm,
-                    plan.baseline_travel_mm,
-                    plan.saved_mm(),
-                    plan.saved_pct()
+                    "  {}",
+                    tr!(
+                        "cli.report.plan_travel",
+                        travel = format!("{:.1}", plan.travel_mm),
+                        baseline = format!("{:.1}", plan.baseline_travel_mm),
+                        saved = format!("{:.1}", plan.saved_mm()),
+                        pct = format!("{:.0}", plan.saved_pct())
+                    )
                 );
             }
             None => {
-                let _ = writeln!(
-                    out,
-                    "  Se barre línea por línea; no hay orden entre figuras que decidir."
-                );
+                let _ = writeln!(out, "  {}", tr!("cli.report.plan_sweep"));
             }
         }
     }
     if !built.preview.warnings.is_empty() {
-        out.push_str("Advertencias:\n");
+        let _ = writeln!(out, "{}", tr!("cli.report.warnings_header"));
         for w in &built.preview.warnings {
             let _ = writeln!(out, "  - {w}");
         }

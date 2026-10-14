@@ -1,14 +1,15 @@
 //! Home, saltos, encuadre y parada en reposo.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn jog(&mut self, dx: f64, dy: f64) -> Result<(), String> {
         if !(dx.is_finite() && dy.is_finite()) {
-            return Err("El desplazamiento no es válido.".into());
+            return Err(tr!("desktop.common.offset_invalid"));
         }
         let Some([x, y]) = self.machine_pos() else {
-            return Err(UNKNOWN_POSITION.into());
+            return Err(unknown_position());
         };
         self.jog_to(x + dx, y + dy)
     }
@@ -16,17 +17,14 @@ impl Worker {
     /// Salto absoluto a un punto en mm del sistema de la máquina.
     pub(super) fn jog_to(&mut self, x: f64, y: f64) -> Result<(), String> {
         if !(x.is_finite() && y.is_finite()) {
-            return Err("La posición no es válida.".into());
+            return Err(tr!("desktop.common.position_invalid"));
         }
         let target = self.home.from_machine_mm((x, y), self.bed);
         self.publish(MachineState::Jog);
         let r = self.session.jog_to(target);
         self.publish(MachineState::Idle);
         if r.is_err() && self.machine_pos().is_none() {
-            self.log(
-                LogDir::In,
-                "; AVISO: el salto falló y la posición del cabezal quedó desconocida: haz home",
-            );
+            self.log(LogDir::In, &tr!("desktop.lhymicro.log_jog_failed"));
         }
         r.map_err(op_error)
     }
@@ -34,14 +32,11 @@ impl Worker {
     pub(super) fn frame(&mut self, corners: Vec<(f64, f64)>, reply: Reply<()>) {
         self.shared.cancel.store(false, Ordering::SeqCst);
         if self.machine_pos().is_none() {
-            self.finish(reply, Err(UNKNOWN_POSITION.into()));
+            self.finish(reply, Err(unknown_position()));
             return;
         }
         if corners.is_empty() {
-            self.finish(
-                reply,
-                Err("No hay nada que encuadrar: el trabajo está vacío.".into()),
-            );
+            self.finish(reply, Err(tr!("desktop.common.nothing_to_frame")));
             return;
         }
         // Se valida todo el recorrido antes de mover nada.
@@ -55,16 +50,15 @@ impl Worker {
         }) {
             self.finish(
                 reply,
-                Err(format!(
-                    "El encuadre pasa por ({x:.2}, {y:.2}) mm, que queda fuera de la cama."
+                Err(tr!(
+                    "desktop.lhymicro.frame_outside_bed",
+                    x = format!("{x:.2}"),
+                    y = format!("{y:.2}")
                 )),
             );
             return;
         }
-        self.log(
-            LogDir::Out,
-            "; encuadre: recorrido del rectángulo con el láser apagado",
-        );
+        self.log(LogDir::Out, &tr!("desktop.common.log_frame_start"));
         let _ = reply.send(Ok(()));
         self.publish(MachineState::Run);
         let mut aborted = false;
@@ -77,20 +71,20 @@ impl Worker {
             if let Err(e) = self.session.jog_to(target) {
                 self.log(
                     LogDir::In,
-                    &format!("; encuadre interrumpido: {}", op_error(e)),
+                    &tr!("desktop.lhymicro.log_frame_interrupted", err = op_error(e)),
                 );
                 aborted = true;
                 break;
             }
         }
         if self.cancelled() {
-            self.log(LogDir::In, "; encuadre detenido por el usuario");
+            self.log(LogDir::In, &tr!("desktop.lhymicro.log_frame_stopped"));
             let _ = self.stop_idle();
         } else if aborted {
             self.publish(MachineState::Idle);
         } else {
             self.publish(MachineState::Idle);
-            self.log(LogDir::In, "; encuadre terminado");
+            self.log(LogDir::In, &frame_done_log());
         }
         self.shared.cancel.store(false, Ordering::SeqCst);
     }
@@ -101,22 +95,14 @@ impl Worker {
         self.publish(MachineState::Idle);
         match outcome {
             StopOutcome::Acked => {
-                self.log(
-                    LogDir::Out,
-                    "; detener (I, IUS1P): la placa lo confirmó y el láser quedó apagado. La \
-                     posición del cabezal se perdió: haz home antes de seguir",
-                );
+                self.log(LogDir::Out, &tr!("desktop.lhymicro.log_stop_acked"));
                 Ok(())
             }
             StopOutcome::Unconfirmed => {
-                self.log(
-                    LogDir::In,
-                    "; AVISO: la placa no confirmó detenerse ni apagar el láser: usa el paro de \
-                     emergencia o abre la tapa",
-                );
-                Err(format!(
-                    "{UNCONFIRMED_MARK} de que la placa se detuviera ni de que el láser se \
-                     apagara. Usa el paro de emergencia o abre la tapa."
+                self.log(LogDir::In, &tr!("desktop.lhymicro.log_stop_unconfirmed"));
+                Err(tlaku_i18n::coded(
+                    STOP_UNCONFIRMED,
+                    tr!("desktop.lhymicro.stop_unconfirmed"),
                 ))
             }
         }

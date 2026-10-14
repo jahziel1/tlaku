@@ -23,6 +23,7 @@ use crate::wire::{self, BATCH_BYTES, BATCH_CMDS, CMD_LEN, REPLY_LEN};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 use tlaku_doc::LaserSource;
+use tlaku_i18n::tr;
 
 /// Bit de "ocupada" en la palabra 3 de las respuestas (galvoplotter).
 pub const STATUS_BUSY: u16 = 0x04;
@@ -455,7 +456,7 @@ impl Transport for EmuTransport {
     fn info(&self) -> TransportInfo {
         let s = lock(&self.state);
         TransportInfo {
-            name: "tarjeta simulada".into(),
+            name: tr!("galvo.emu.board_name"),
             vendor_id: s.cfg.vendor_id,
             product_id: s.cfg.product_id,
             emulated: true,

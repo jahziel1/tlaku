@@ -1,6 +1,6 @@
 import { FolderOpen, Shapes, Sparkles } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { t, type I18nKey } from '@/i18n';
+import { t, tn, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { openArtLibrary, openExample, openFile } from './actions';
@@ -21,6 +21,12 @@ function BigChoice({ icon: Icon, title, text, onClick }: { icon: LucideIcon; tit
 export function StepOpen({ data }: { data: SimpleData }) {
   const doc = useStore((s) => s.doc);
   const box = designBox(doc);
+  const objects = data.groups.reduce((a, g) => a + g.count, 0);
+  const size = box ? `${fmt(box[1][0] - box[0][0], 0)} × ${fmt(box[1][1] - box[0][1], 0)} mm` : '—';
+  const haveText =
+    data.groups.length === 1 && objects !== 1
+      ? t('simple.open.haveOneColor', { n: objects, size })
+      : tn('simple.open.have', objects, { colors: data.groups.length, size });
   return (
     <>
       <div className="simple__choices">
@@ -29,13 +35,7 @@ export function StepOpen({ data }: { data: SimpleData }) {
         <BigChoice icon={Sparkles} title="simple.open.example" text="simple.open.example.text" onClick={() => void openExample()} />
       </div>
       <p className="simple__status" role="status" data-ok={data.groups.length > 0}>
-        {data.groups.length === 0
-          ? t('simple.open.empty')
-          : t('simple.open.have', {
-              n: data.groups.reduce((a, g) => a + g.count, 0),
-              colors: data.groups.length,
-              size: box ? `${fmt(box[1][0] - box[0][0], 0)} × ${fmt(box[1][1] - box[0][1], 0)} mm` : '—',
-            })}
+        {data.groups.length === 0 ? t('simple.open.empty') : haveText}
       </p>
     </>
   );

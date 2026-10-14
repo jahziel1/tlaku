@@ -22,6 +22,7 @@ use tlaku_core::toolpath::Move;
 use tlaku_core::{Point, Polyline};
 use tlaku_doc::LayerSettings;
 use tlaku_geom::{MAX_TABS_PER_SHAPE, TabOptions, TabResult, tab_segments};
+use tlaku_i18n::tr;
 
 /// Puentes ya validados de una capa line.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -46,32 +47,25 @@ pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<TabSpec>, String> {
     if !t.enabled {
         return Ok(None);
     }
-    let err = |m: String| format!("capa {}: puentes: {m}", l.color);
+    let err = |m: String| tr!("pipeline.tabs.layer_error", layer = l.color, error = m);
     if !(t.width.is_finite() && t.width > 0.0) {
-        return Err(err(format!("el ancho debe ser mayor que 0: {}", t.width)));
+        return Err(err(tr!("pipeline.tabs.bad_width", value = t.width)));
     }
     if !(t.spacing.is_finite() && t.spacing >= 0.0) {
-        return Err(err(format!(
-            "la separación debe ser 0 o mayor: {}",
-            t.spacing
-        )));
+        return Err(err(tr!("pipeline.tabs.bad_spacing", value = t.spacing)));
     }
     if !(t.power.is_finite() && (0.0..=100.0).contains(&t.power)) {
-        return Err(err(format!(
-            "la potencia de puente debe estar entre 0 y 100: {}",
-            t.power
-        )));
+        return Err(err(tr!("pipeline.tabs.bad_power", value = t.power)));
     }
     if t.count as usize > MAX_TABS_PER_SHAPE {
-        return Err(err(format!(
-            "demasiados puentes por forma ({}); el máximo es {MAX_TABS_PER_SHAPE}",
-            t.count
+        return Err(err(tr!(
+            "pipeline.tabs.too_many",
+            n = t.count,
+            max = MAX_TABS_PER_SHAPE
         )));
     }
     if t.count == 0 && t.spacing == 0.0 {
-        return Err(err(
-            "indica cuántos puentes (count) o cada cuántos mm (spacing)".into(),
-        ));
+        return Err(err(tr!("pipeline.tabs.need_count_or_spacing")));
     }
     Ok(Some(TabSpec {
         options: TabOptions {
@@ -114,11 +108,13 @@ impl TabStats {
         }
         let none = self.short.iter().filter(|s| s.1 == 0).count();
         let shortest = self.short.iter().map(|s| s.2).fold(f64::INFINITY, f64::min);
-        Some(format!(
-            "capa {name}: los puentes de {width_mm} mm no caben en {} forma(s) (el contorno más \
-             corto mide {shortest:.2} mm); {none} se cortan sin puentes y el resto con menos de los \
-             pedidos. Los puentes no ocupan más de la mitad del contorno",
-            self.short.len()
+        Some(tr!(
+            "pipeline.tabs.dont_fit",
+            name = name,
+            width = width_mm,
+            n = self.short.len(),
+            shortest = format!("{shortest:.2}"),
+            none = none
         ))
     }
 }
@@ -134,18 +130,22 @@ pub(crate) fn kerf_warning(layer: &str, width_mm: f64, kerf_mm: f64) -> Option<S
     }
     let cut = 2.0 * k;
     if width_mm < cut {
-        Some(format!(
-            "capa {layer}: los puentes de {width_mm} mm no sobreviven al corte: con kerf {kerf_mm} mm \
-             por lado el haz quita {cut} mm y no queda puente (las piezas se soltarán); usa un ancho \
-             de al menos {} mm",
-            2.0 * cut
+        Some(tr!(
+            "pipeline.tabs.kerf_eats_tab",
+            layer = layer,
+            width = width_mm,
+            kerf = kerf_mm,
+            cut = cut,
+            min = 2.0 * cut
         ))
     } else if width_mm < 2.0 * cut {
-        Some(format!(
-            "capa {layer}: puentes frágiles: de {width_mm} mm quedan unos {:.2} mm tras el corte \
-             (kerf {kerf_mm} mm por lado); se recomienda un ancho de al menos {} mm",
-            width_mm - cut,
-            2.0 * cut
+        Some(tr!(
+            "pipeline.tabs.kerf_fragile",
+            layer = layer,
+            width = width_mm,
+            left = format!("{:.2}", width_mm - cut),
+            kerf = kerf_mm,
+            min = 2.0 * cut
         ))
     } else {
         None

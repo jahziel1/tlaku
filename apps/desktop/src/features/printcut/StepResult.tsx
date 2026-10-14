@@ -71,7 +71,7 @@ export function ResultView({ marks, physical, state, moved }: ViewProps) {
         <dt>{t('printcut.result.fit')}</dt>
         <dd>{t(`printcut.mode.${fit.mode}` as I18nKey)}</dd>
       </dl>
-      <table className="pc-table num">
+      <table className="pc-table num" aria-label={t('a11y.table.printcut')}>
         <thead>
           <tr>
             <th scope="col">{t('printcut.result.mark')}</th>

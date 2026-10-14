@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 dxf = "0.6.2"
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }

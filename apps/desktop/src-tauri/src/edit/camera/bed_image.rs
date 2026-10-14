@@ -43,16 +43,16 @@ pub(super) fn decode_rgb(b64: &str) -> Result<image::RgbImage, String> {
     let raw = b64.split_once(',').map_or(b64, |(_, rest)| rest).trim();
     let bytes = STANDARD
         .decode(raw)
-        .map_err(|e| format!("La imagen no es base64 válido: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.bad_base64", err = e))?;
     Ok(image::load_from_memory(&bytes)
-        .map_err(|e| format!("No se pudo decodificar la imagen: {e}"))?
+        .map_err(|e| tr!("desktop.edit.camera.decode_failed", err = e))?
         .to_rgb8())
 }
 
 pub(super) fn encode_png(img: &image::RgbImage) -> Result<Vec<u8>, String> {
     let mut cur = std::io::Cursor::new(Vec::new());
     img.write_to(&mut cur, image::ImageFormat::Png)
-        .map_err(|e| format!("No se pudo codificar el PNG: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.encode_png", err = e))?;
     Ok(cur.into_inner())
 }
 
@@ -99,22 +99,25 @@ pub struct ComposeArgs {
 /// Compone las fotos en una imagen alineada con la cama y, si se pide, la guarda como PNG.
 pub fn run_compose_bed(tiles: &[BedTile], args: &ComposeArgs) -> Result<BedImage, String> {
     if tiles.is_empty() {
-        return Err("No hay ninguna foto que componer.".into());
+        return Err(tr!("desktop.edit.camera.no_photos"));
     }
     if tiles.len() > 400 {
-        return Err("Son demasiadas fotos (máximo 400).".into());
+        return Err(tr!("desktop.edit.camera.too_many_photos", max = 400));
     }
     if !(args.bed[0] > 0.0 && args.bed[1] > 0.0) {
-        return Err("El tamaño de la cama no es válido.".into());
+        return Err(tr!("desktop.edit.camera.bad_bed_size"));
     }
     let images = tiles
         .iter()
         .enumerate()
-        .map(|(i, t)| decode_rgb(&t.image_png_base64).map_err(|e| format!("Foto {}: {e}", i + 1)))
+        .map(|(i, t)| {
+            decode_rgb(&t.image_png_base64)
+                .map_err(|e| tr!("desktop.edit.camera.photo_error", n = i + 1, err = e))
+        })
         .collect::<Result<Vec<_>, _>>()?;
     for (i, t) in tiles.iter().enumerate() {
         if t.to_bed.iter().flatten().any(|v| !v.is_finite()) {
-            return Err(format!("La posición de la foto {} no es válida.", i + 1));
+            return Err(tr!("desktop.edit.camera.bad_photo_position", n = i + 1));
         }
     }
     let refs: Vec<Tile> = images
@@ -128,7 +131,7 @@ pub fn run_compose_bed(tiles: &[BedTile], args: &ComposeArgs) -> Result<BedImage
     let rect = match args.rect {
         Some(r) => r,
         None => tlaku_camera::covered_rect(&refs, args.bed)
-            .ok_or("Ninguna foto cae dentro de la cama: revisa la alineación de la cámara.")?,
+            .ok_or_else(|| tr!("desktop.edit.camera.no_photo_in_bed"))?,
     };
     let native = refs
         .iter()
@@ -215,5 +218,5 @@ pub async fn compose_bed_image(
         )
     })
     .await
-    .map_err(blocking_error)?
+    .map_err(crate::edit::task_interrupted)?
 }

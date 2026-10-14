@@ -7,6 +7,7 @@ use tlaku_doc::{
     LayerSettings, Overscan,
 };
 use tlaku_fill::{FillPattern, FillSettings, Grouping};
+use tlaku_i18n::tr;
 use tlaku_raster::{BayerSize, ImageAdjust, RasterMode, RasterSettings};
 
 /// Tope de pasadas: protege contra errores de dedo que generarían G-code gigantesco.
@@ -16,7 +17,8 @@ pub const MAX_PASSES: u32 = 1000;
 const CUT_POWER_PCT: f64 = 80.0;
 
 pub(crate) const KERF_REASON: &str = "kerf";
-pub(crate) const POWER_REASON: &str = "potencia ≥ 80 % con varias pasadas";
+/// Marca (no es texto de pantalla): `order_note` la traduce.
+pub(crate) const POWER_REASON: &str = "power80";
 
 /// Capa line o fill ya resuelta, lista para ejecutarse.
 #[derive(Debug, Clone, PartialEq)]
@@ -47,11 +49,13 @@ pub struct ResolvedImage {
 
 fn check_passes(passes: u32) -> Result<(), String> {
     if passes == 0 {
-        return Err("las pasadas deben ser al menos 1".into());
+        return Err(tr!("pipeline.layers.passes_min"));
     }
     if passes > MAX_PASSES {
-        return Err(format!(
-            "demasiadas pasadas ({passes}); el máximo es {MAX_PASSES}"
+        return Err(tr!(
+            "pipeline.layers.passes_max",
+            passes = passes,
+            max = MAX_PASSES
         ));
     }
     Ok(())
@@ -66,7 +70,7 @@ fn overscan_mm(o: Overscan) -> f64 {
 
 /// Convierte y valida una capa line o fill. Los errores salen con el prefijo `capa #rrggbb:`.
 pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
-    let err = |m: String| format!("capa {}: {m}", l.color);
+    let err = |m: String| tr!("pipeline.layers.layer_error", layer = l.color, error = m);
     match l.mode {
         LayerMode::Line => {
             let settings = CutSettings {
@@ -78,7 +82,7 @@ pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
             settings.validate().map_err(err)?;
             check_passes(settings.passes).map_err(err)?;
             if !l.kerf.is_finite() {
-                return Err(err(format!("kerf inválido: {}", l.kerf)));
+                return Err(err(tr!("pipeline.layers.bad_kerf", value = l.kerf)));
             }
             Ok(ResolvedLayer::Line {
                 settings,
@@ -117,7 +121,7 @@ pub fn resolve_layer(l: &LayerSettings) -> Result<ResolvedLayer, String> {
                 passes: l.passes,
             })
         }
-        LayerMode::Image => Err(err("es una capa de imagen".into())),
+        LayerMode::Image => Err(err(tr!("pipeline.layers.is_image_layer"))),
     }
 }
 
@@ -151,7 +155,10 @@ fn raster_mode(l: &LayerSettings) -> RasterMode {
 pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
     let img = &l.image;
     if !(img.denoise.is_finite() && img.denoise >= 0.0) {
-        return Err(format!("imagen: quitar motas inválido: {}", img.denoise));
+        return Err(tr!(
+            "pipeline.layers.image_bad_denoise",
+            value = img.denoise
+        ));
     }
     let adjust = ImageAdjust {
         brightness: img.brightness as f32,
@@ -162,7 +169,9 @@ pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
         enhance_amount: img.enhance_amount as f32,
         denoise_px: img.denoise.round().min(f64::from(u32::MAX)) as u32,
     };
-    adjust.validate().map_err(|e| format!("imagen: {e}"))?;
+    adjust
+        .validate()
+        .map_err(|e| tr!("pipeline.common.image_error", error = e))?;
     // Pass-through no aplica ningún ajuste: se envía la imagen tal cual.
     let adjust = if img.pass_through {
         ImageAdjust::default()
@@ -173,7 +182,10 @@ pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
         && img.mode == ImageMode::Threshold
         && !(0.0..=1.0).contains(&img.threshold)
     {
-        return Err(format!("imagen: umbral fuera de 0-1: {}", img.threshold));
+        return Err(tr!(
+            "pipeline.layers.image_bad_threshold",
+            value = img.threshold
+        ));
     }
     let raster = RasterSettings {
         speed_mm_min: l.speed,
@@ -186,11 +198,16 @@ pub fn resolve_image(l: &LayerSettings) -> Result<ResolvedImage, String> {
         angle_deg: l.angle,
         ..RasterSettings::default()
     };
-    raster.validate().map_err(|e| format!("imagen: {e}"))?;
+    raster
+        .validate()
+        .map_err(|e| tr!("pipeline.common.image_error", error = e))?;
     if !(l.interval.is_finite() && l.interval > 0.0) {
-        return Err(format!("imagen: intervalo inválido: {}", l.interval));
+        return Err(tr!(
+            "pipeline.layers.image_bad_interval",
+            value = l.interval
+        ));
     }
-    check_passes(l.passes).map_err(|e| format!("imagen: {e}"))?;
+    check_passes(l.passes).map_err(|e| tr!("pipeline.common.image_error", error = e))?;
     Ok(ResolvedImage {
         adjust,
         mode: raster_mode(l),
@@ -226,7 +243,7 @@ pub(crate) fn speed_warnings(work: &[LayerWork], device: &DeviceProfile) -> Vec<
             continue;
         }
         let name = if l.settings.mode == LayerMode::Image {
-            "imagen".to_string()
+            tr!("pipeline.common.image_label")
         } else {
             match l.position() {
                 Some((k, n)) => format!("{} · {k}/{n}", l.color),
@@ -235,26 +252,34 @@ pub(crate) fn speed_warnings(work: &[LayerWork], device: &DeviceProfile) -> Vec<
         };
         let cap = tlaku_ruida::safety::MAX_SPEED_MM_MIN;
         if ruida && v > cap {
-            out.push(format!(
-                "capa {name}: pide {v:.0} mm/min y Ruida admite como máximo {cap:.0} mm/min; el \
-                 archivo .rd usará {cap:.0} mm/min, así que el resultado será más oscuro o más \
-                 quemado de lo previsto"
+            out.push(tr!(
+                "pipeline.layers.speed_over_ruida",
+                name = name,
+                speed = format!("{v:.0}"),
+                cap = format!("{cap:.0}")
             ));
         }
         if let Some(max) = machine
             && v > max
         {
-            let tail = if ruida {
-                "si tu controladora admite más, sube la velocidad máxima del perfil"
+            let (speed, max) = (format!("{v:.0}"), format!("{max:.0}"));
+            out.push(if ruida {
+                tr!(
+                    "pipeline.layers.speed_over_machine_ruida",
+                    name = name,
+                    speed = speed,
+                    machine = device.name,
+                    max = max
+                )
             } else {
-                "baja la velocidad de la capa o corrige la velocidad máxima del perfil"
-            };
-            out.push(format!(
-                "capa {name}: pide {v:.0} mm/min y la máquina '{}' llega como máximo a {max:.0} \
-                 mm/min; la máquina irá al máximo, así que el resultado será más oscuro o más \
-                 quemado de lo previsto ({tail})",
-                device.name
-            ));
+                tr!(
+                    "pipeline.layers.speed_over_machine",
+                    name = name,
+                    speed = speed,
+                    machine = device.name,
+                    max = max
+                )
+            });
         }
     }
     out
@@ -420,60 +445,70 @@ pub(crate) fn order_note(
     forced: &[(Rgb, usize)],
 ) -> String {
     let mut note = match mode {
-        LayerOrder::File => "orden del archivo (--layer-order file)".to_string(),
+        LayerOrder::File => tr!("pipeline.layers.order_file"),
         LayerOrder::Auto => {
             let names = [
-                (LayerRole::Engrave, "grabados"),
-                (LayerRole::Line, "líneas"),
-                (LayerRole::Cut, "cortes"),
+                (LayerRole::Engrave, tr!("pipeline.layers.role_engraves")),
+                (LayerRole::Line, tr!("pipeline.layers.role_lines")),
+                (LayerRole::Cut, tr!("pipeline.layers.role_cuts")),
             ];
             let present: Vec<&str> = names
                 .iter()
                 .filter(|(r, _)| roles.contains(r))
-                .map(|(_, n)| *n)
+                .map(|(_, n)| n.as_str())
                 .collect();
             if roles.is_empty() {
-                "orden fijado con order=".to_string()
+                tr!("pipeline.layers.order_fixed")
             } else if present.len() < 2 {
-                let why = if roles.len() > 1 {
-                    " (todas las capas son del mismo tipo)"
+                if roles.len() > 1 {
+                    tr!("pipeline.layers.order_auto_file_same_type")
                 } else {
-                    ""
-                };
-                format!("orden automático: se conserva el orden del archivo{why}")
+                    tr!("pipeline.layers.order_auto_file")
+                }
             } else {
                 let last = present.len() - 1;
                 let parts: Vec<String> = present
                     .iter()
                     .enumerate()
                     .map(|(i, n)| match i {
-                        0 => format!("{n} primero"),
-                        i if i == last => format!("{n} al final"),
-                        _ => format!("{n} después"),
+                        0 => tr!("pipeline.layers.order_first", role = n),
+                        i if i == last => tr!("pipeline.layers.order_last", role = n),
+                        _ => tr!("pipeline.layers.order_then", role = n),
                     })
                     .collect();
-                format!("orden automático: {}", parts.join(", "))
+                tr!("pipeline.layers.order_auto", parts = parts.join(", "))
             }
         }
     };
     if mode == LayerOrder::Auto && !cuts.is_empty() {
         let list: Vec<String> = cuts
             .iter()
-            .map(|(c, why)| format!("{c} por {why}"))
+            .map(|(c, why)| {
+                let why = match *why {
+                    POWER_REASON => tr!("pipeline.layers.reason_power"),
+                    KERF_REASON => tr!("pipeline.layers.reason_kerf"),
+                    other => other.to_string(),
+                };
+                tr!("pipeline.layers.cut_by", color = c, why = why)
+            })
             .collect();
-        note.push_str(&format!(" (corte: {})", list.join("; ")));
+        note.push(' ');
+        note.push_str(&tr!("pipeline.layers.cut_list", list = list.join("; ")));
     }
     if !forced.is_empty() {
         let list: Vec<String> = forced
             .iter()
-            .map(|(c, n)| format!("{c} en la posición {n}"))
+            .map(|(c, n)| tr!("pipeline.layers.at_position", color = c, n = n))
             .collect();
-        let sep = if roles.is_empty() {
-            ": "
+        let list = list.join(", ");
+        if roles.is_empty() {
+            note.push_str(&format!(": {list}"));
         } else {
-            "; order= explícito: "
-        };
-        note.push_str(&format!("{sep}{}", list.join(", ")));
+            note.push_str(&format!(
+                "; {}",
+                tr!("pipeline.layers.explicit_order", list = list)
+            ));
+        }
     }
     note
 }

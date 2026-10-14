@@ -58,7 +58,7 @@ export function KindChangeBody({ draft, changes }: { draft: DeviceProfile; chang
   return (
     <>
       <p>{t('devices.kind.dlg.text')}</p>
-      <table className="mc-table dv-kindtable">
+      <table className="mc-table dv-kindtable" aria-label={t('a11y.table.kinds')}>
         <thead>
           <tr>
             <th scope="col">{t('devices.kind.dlg.field')}</th>

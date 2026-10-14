@@ -11,7 +11,9 @@
 //! - Velocidad: 5 bytes, µm/s.
 //! - Tiempo (µs), frecuencia (Hz): 5 bytes. Color: 5 bytes con 24 bits útiles BBGGRR.
 
+use crate::text;
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Bytes de una coordenada absoluta.
 pub const ABS_LEN: usize = 5;
@@ -49,20 +51,22 @@ pub enum NumError {
 impl fmt::Display for NumError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NumError::OutOfRange { what, value } => {
-                write!(f, "{what}: el valor {value} no cabe en el formato Ruida")
+            NumError::OutOfRange { what, value } => f.write_str(&tr!(
+                "ruida.num.out_of_range",
+                what = text::what(what),
+                value = value
+            )),
+            NumError::NotFinite { what } => {
+                f.write_str(&tr!("ruida.num.not_finite", what = text::what(what)))
             }
-            NumError::NotFinite { what } => write!(f, "{what}: el valor no es finito"),
             NumError::Truncated { needed, found } => {
-                write!(
-                    f,
-                    "datos truncados: se necesitan {needed} bytes y hay {found}"
-                )
+                f.write_str(&tr!("ruida.num.truncated", needed = needed, found = found))
             }
-            NumError::BadDataByte { index, byte } => write!(
-                f,
-                "el byte {index} (0x{byte:02X}) tiene el bit 7 en 1 y no puede ser un dato"
-            ),
+            NumError::BadDataByte { index, byte } => f.write_str(&tr!(
+                "ruida.num.bad_data_byte",
+                index = index,
+                byte = format!("{byte:02X}")
+            )),
         }
     }
 }

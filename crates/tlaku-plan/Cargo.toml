@@ -6,3 +6,4 @@ license.workspace = true
 
 [dependencies]
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }

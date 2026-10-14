@@ -27,7 +27,7 @@ terminada en `\n`, enviado al origen.
 | `STATUS` | `STATUS connected=0` o `STATUS connected=1 state=<idle\|run\|hold\|alarm...> x=<mm> y=<mm>` | Estado de la máquina y posición de trabajo |
 | `STOP` | `OK` | Detiene el trabajo (feed hold y soft reset; sin trabajo, cancela el jog). Siempre se atiende si hay máquina conectada |
 
-Errores: `ERR <código>: <texto en español>`. Códigos: `not_connected`, `busy`, `not_found`, `bad_argument`,
+Errores: `ERR <código>: <texto>` (el texto sale en el idioma de la app; compara por el código, que es estable). Códigos: `not_connected`, `busy`, `not_found`, `bad_argument`,
 `bad_text`, `too_long`, `empty`, `unknown_command`, `failed`.
 
 **Seguridad de `START`:**

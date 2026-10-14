@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use tlaku_core::{Point, Polyline};
 use tlaku_doc::affine::{self, Transform};
+use tlaku_i18n::tr;
 
 /// Desviación de la escala respecto de 1 (fracción) a partir de la cual se avisa: 0,5 %.
 pub const SCALE_WARN: f64 = 0.005;
@@ -121,29 +122,34 @@ impl fmt::Display for FitError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             FitError::Few { need: 3, have } => {
-                write!(f, "la transformación afín pide 3 marcas o más (hay {have})")
+                write!(
+                    f,
+                    "{}",
+                    tr!("pipeline.registration.few_affine", have = have)
+                )
             }
             FitError::Few { have, .. } => {
-                write!(f, "hacen falta 2 marcas como mínimo (hay {have})")
+                write!(f, "{}", tr!("pipeline.registration.few", have = have))
             }
-            FitError::Nan => write!(f, "una marca tiene coordenadas que no son números"),
+            FitError::Nan => write!(f, "{}", tr!("pipeline.registration.nan")),
             FitError::Close { a, b } => write!(
                 f,
-                "las marcas {a} y {b} están demasiado cerca (menos de {MIN_SEPARATION_MM} mm): \
-                 no se puede medir el giro"
+                "{}",
+                tr!(
+                    "pipeline.registration.close",
+                    a = a,
+                    b = b,
+                    min = MIN_SEPARATION_MM
+                )
             ),
-            FitError::Collinear => write!(
-                f,
-                "las marcas están en línea recta: la transformación afín necesita \
-                 que no estén alineadas"
-            ),
+            FitError::Collinear => write!(f, "{}", tr!("pipeline.registration.collinear")),
         }
     }
 }
 
 impl std::error::Error for FitError {}
 
-/// Aviso sobre el ajuste. `Display` da el texto en español.
+/// Aviso sobre el ajuste. `Display` da el texto en el idioma activo del motor.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum FitWarning {
@@ -163,20 +169,24 @@ pub enum FitWarning {
 impl fmt::Display for FitWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FitWarning::Mirrored => write!(
-                f,
-                "la impresión parece espejada (la transformación invierte el diseño): revisa que \
-                 las marcas físicas estén en el mismo orden que las del diseño"
-            ),
+            FitWarning::Mirrored => write!(f, "{}", tr!("pipeline.registration.mirrored")),
             FitWarning::Scale { pct } => write!(
                 f,
-                "la escala medida es {pct:.2} % (más de {:.1} % lejos de 100 %): la impresión puede \
-                 estar deformada o la referencia es mala; revisa la escala de impresión y las posiciones",
-                SCALE_WARN * 100.0
+                "{}",
+                tr!(
+                    "pipeline.registration.scale",
+                    pct = format!("{pct:.2}"),
+                    tolerance = format!("{:.1}", SCALE_WARN * 100.0)
+                )
             ),
             FitWarning::Anisotropy { x_pct, y_pct } => write!(
                 f,
-                "la impresión está estirada de forma distinta en cada eje (X {x_pct:.2} %, Y {y_pct:.2} %)"
+                "{}",
+                tr!(
+                    "pipeline.registration.anisotropy",
+                    x = format!("{x_pct:.2}"),
+                    y = format!("{y_pct:.2}")
+                )
             ),
         }
     }
@@ -405,16 +415,11 @@ pub(crate) fn apply(
         return Ok(());
     };
     if !affine::is_finite(t) {
-        return Err(
-            "la transformación de Print & Cut no es válida (tiene valores que no son números)"
-                .into(),
-        );
+        return Err(tr!("pipeline.registration.transform_invalid"));
     }
     let det = t[0] * t[3] - t[1] * t[2];
     if det.abs() < 1e-12 {
-        return Err(
-            "la transformación de Print & Cut colapsa el diseño (determinante cero)".into(),
-        );
+        return Err(tr!("pipeline.registration.transform_collapses"));
     }
     if affine::is_identity(t) {
         return Ok(());

@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
 import { ModeSwitch, useUiMode } from '@/features/simple';
 import { useStore } from '@/store';
+import { Toolbar } from '@/ui/Toolbar';
 import { CommandButton } from './CommandButton';
 import { MenuBar } from './MenuBar';
 
@@ -49,10 +50,10 @@ export function TopBar() {
       <header className="topbar topbar--simple">
         <Brand />
         <div className="topbar__sep" role="separator" />
-        <div className="topbar__group" role="toolbar" aria-label={t('toolbar.edit')}>
+        <Toolbar className="topbar__group" label={t('toolbar.edit')}>
           <CommandButton id="edit.undo" />
           <CommandButton id="edit.redo" />
-        </div>
+        </Toolbar>
         <div className="topbar__spacer" />
         <DocumentName />
         <div className="topbar__spacer" />
@@ -68,18 +69,18 @@ export function TopBar() {
       <Brand />
       <MenuBar />
       <div className="topbar__sep" role="separator" />
-      <div className="topbar__group" role="toolbar" aria-label={t('toolbar.file')}>
+      <Toolbar className="topbar__group" label={t('toolbar.file')}>
         <CommandButton id="file.new" />
         <CommandButton id="file.open" />
         <CommandButton id="file.save" />
         <CommandButton id="file.import" />
         <CommandButton id="file.exportGcode" />
-      </div>
+      </Toolbar>
       <div className="topbar__sep" role="separator" />
-      <div className="topbar__group" role="toolbar" aria-label={t('toolbar.edit')}>
+      <Toolbar className="topbar__group" label={t('toolbar.edit')}>
         <CommandButton id="edit.undo" />
         <CommandButton id="edit.redo" />
-      </div>
+      </Toolbar>
       <div className="topbar__spacer" />
       <DocumentName />
       <div className="topbar__spacer" />
@@ -88,11 +89,11 @@ export function TopBar() {
         <ThemeIcon size={17} aria-hidden="true" />
       </button>
       <div className="topbar__sep" role="separator" />
-      <div className="topbar__group topbar__group--actions" role="toolbar" aria-label={t('toolbar.job')}>
+      <Toolbar className="topbar__group topbar__group--actions" label={t('toolbar.job')}>
         <CommandButton id="view.preview" variant="labeled" />
         <CommandButton id="machine.frame" variant="labeled" />
         <CommandButton id="machine.start" variant="labeled" accent />
-      </div>
+      </Toolbar>
     </header>
   );
 }

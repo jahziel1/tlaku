@@ -33,6 +33,7 @@ use tlaku_core::{Bounds, Point};
 use tlaku_doc::{
     DeviceKind, DeviceProfile, GalvoDevice, LaserSource, LayerMode, LayerSettings, Overscan, Wobble,
 };
+use tlaku_i18n::tr;
 use tlaku_sim::{Estimate, MachineProfile};
 
 /// Margen (mm) para no rechazar un diseño que toca el borde del campo por error de redondeo.
@@ -73,14 +74,20 @@ impl JobCtx {
         }
         let g = &device.galvo;
         if !(g.field_mm.is_finite() && g.field_mm > 0.0) {
-            return Err(format!(
-                "la máquina '{}': el campo del galvo debe ser mayor que 0 mm (es {})",
-                device.name, g.field_mm
+            return Err(tr!(
+                "pipeline.galvo.bad_field",
+                machine = device.name,
+                field = g.field_mm
             ));
         }
         let center = Point::new(device.bed[0] / 2.0, device.bed[1] / 2.0);
-        let projection = crate::cylinder::Projection::from_device(g, center)
-            .map_err(|e| format!("la máquina '{}': {e}", device.name))?;
+        let projection = crate::cylinder::Projection::from_device(g, center).map_err(|e| {
+            tr!(
+                "pipeline.galvo.machine_error",
+                machine = device.name,
+                err = e
+            )
+        })?;
         Ok(Some(JobCtx {
             galvo: g.clone(),
             projection,
@@ -100,7 +107,12 @@ fn finite_non_negative(layer: &LayerSettings, name: &str, v: f64) -> Result<(), 
     if v.is_finite() && v >= 0.0 {
         Ok(())
     } else {
-        Err(format!("capa {}: {name} inválido: {v}", layer.color))
+        Err(tr!(
+            "pipeline.galvo.invalid_value",
+            layer = layer.color,
+            name = name,
+            value = v
+        ))
     }
 }
 
@@ -113,48 +125,71 @@ pub(crate) fn layer_ctx(
 ) -> Result<Option<LayerCtx>, String> {
     let Some(job) = job else {
         if l.galvo.wobble.enabled && l.mode == LayerMode::Line {
-            warnings.push(format!(
-                "capa {}: el bamboleo solo funciona con máquinas galvo; se ignora",
-                l.color
-            ));
+            warnings.push(tr!("pipeline.galvo.wobble_needs_galvo", layer = l.color));
         }
         return Ok(None);
     };
     let (gl, dev) = (&l.galvo, &job.galvo);
     let name = l.color;
     if !(gl.frequency_khz.is_finite() && gl.frequency_khz > 0.0) {
-        return Err(format!(
-            "capa {name}: frecuencia inválida: {} kHz",
-            gl.frequency_khz
+        return Err(tr!(
+            "pipeline.galvo.bad_frequency",
+            layer = name,
+            khz = gl.frequency_khz
         ));
     }
     if gl.repeat == 0 || gl.repeat > MAX_REPEAT {
-        return Err(format!(
-            "capa {name}: repeat debe estar entre 1 y {MAX_REPEAT} (es {})",
-            gl.repeat
+        return Err(tr!(
+            "pipeline.galvo.bad_repeat",
+            layer = name,
+            max = MAX_REPEAT,
+            repeat = gl.repeat
         ));
     }
-    finite_non_negative(l, "pausa antes", gl.pause_before_ms)?;
-    finite_non_negative(l, "pausa después", gl.pause_after_ms)?;
+    finite_non_negative(
+        l,
+        &tr!("pipeline.galvo.what_pause_before"),
+        gl.pause_before_ms,
+    )?;
+    finite_non_negative(
+        l,
+        &tr!("pipeline.galvo.what_pause_after"),
+        gl.pause_after_ms,
+    )?;
     if gl.override_timings {
         let t = &gl.timing;
         for (n, v) in [
-            ("laser_on", t.laser_on_us),
-            ("laser_off", t.laser_off_us),
-            ("end", t.end_us),
-            ("polygon", t.polygon_us),
-            ("retardo mínimo de salto", gl.jump.delay_min_us),
-            ("retardo máximo de salto", gl.jump.delay_max_us),
-            ("distancia límite de salto", gl.jump.distance_limit),
+            ("laser_on".to_string(), t.laser_on_us),
+            ("laser_off".to_string(), t.laser_off_us),
+            ("end".to_string(), t.end_us),
+            ("polygon".to_string(), t.polygon_us),
+            (
+                tr!("pipeline.galvo.what_jump_delay_min"),
+                gl.jump.delay_min_us,
+            ),
+            (
+                tr!("pipeline.galvo.what_jump_delay_max"),
+                gl.jump.delay_max_us,
+            ),
+            (
+                tr!("pipeline.galvo.what_jump_distance"),
+                gl.jump.distance_limit,
+            ),
         ] {
             if !v.is_finite() {
-                return Err(format!("capa {name}: retardo '{n}' inválido: {v}"));
+                return Err(tr!(
+                    "pipeline.galvo.bad_delay",
+                    layer = name,
+                    delay = n,
+                    value = v
+                ));
             }
         }
         if !(gl.jump.speed.is_finite() && gl.jump.speed > 0.0) {
-            return Err(format!(
-                "capa {name}: velocidad de salto inválida: {}",
-                gl.jump.speed
+            return Err(tr!(
+                "pipeline.galvo.bad_jump_speed",
+                layer = name,
+                speed = gl.jump.speed
             ));
         }
     }
@@ -162,9 +197,12 @@ pub(crate) fn layer_ctx(
     if dev.freq_max_khz > 0.0
         && (gl.frequency_khz < dev.freq_min_khz || gl.frequency_khz > dev.freq_max_khz)
     {
-        warnings.push(format!(
-            "capa {name}: la frecuencia de {} kHz está fuera del rango de la fuente ({}-{} kHz)",
-            gl.frequency_khz, dev.freq_min_khz, dev.freq_max_khz
+        warnings.push(tr!(
+            "pipeline.galvo.frequency_outside",
+            layer = name,
+            khz = gl.frequency_khz,
+            min = dev.freq_min_khz,
+            max = dev.freq_max_khz
         ));
     }
     let pulse = match (dev.source, gl.pulse_width_ns) {
@@ -173,57 +211,57 @@ pub(crate) fn layer_ctx(
                 && !dev.pulse_widths_ns.is_empty()
                 && !dev.pulse_widths_ns.contains(&w)
             {
-                warnings.push(format!(
-                    "capa {name}: el ancho de pulso de {w} ns no está entre los de la fuente \
-                     ({:?} ns)",
-                    dev.pulse_widths_ns
+                warnings.push(tr!(
+                    "pipeline.galvo.pulse_not_in_source",
+                    layer = name,
+                    ns = w,
+                    list = format!("{:?}", dev.pulse_widths_ns)
                 ));
             }
             p
         }
         (_, Some(w)) => {
-            warnings.push(format!(
-                "capa {name}: la fuente de la máquina no tiene ancho de pulso ajustable; se \
-                 ignora el de {w} ns"
+            warnings.push(tr!(
+                "pipeline.galvo.pulse_not_adjustable",
+                layer = name,
+                ns = w
             ));
             None
         }
         (_, None) => None,
     };
     if l.power > dev.max_power_pct {
-        warnings.push(format!(
-            "capa {name}: la potencia de {} % supera el límite de la máquina ({} %)",
-            l.power, dev.max_power_pct
+        warnings.push(tr!(
+            "pipeline.galvo.power_above",
+            layer = name,
+            power = l.power,
+            max = dev.max_power_pct
         ));
     }
     if gl.ppi > 0.0 {
-        warnings.push(format!(
-            "capa {name}: ppi no tiene efecto en una máquina galvo; se ignora"
-        ));
+        warnings.push(tr!("pipeline.galvo.ppi_ignored", layer = name));
     }
     if l.mode != LayerMode::Line
         && dev.overscan_mm <= 0.0
         && l.overscan != Overscan::Auto
         && l.overscan != Overscan::Mm(0.0)
     {
-        warnings.push(format!(
-            "capa {name}: el galvo no necesita overscan; se ignora (el perfil puede fijar uno)"
-        ));
+        warnings.push(tr!("pipeline.galvo.overscan_ignored", layer = name));
     }
     let wobble = if gl.wobble.enabled {
         if l.mode != LayerMode::Line {
-            warnings.push(format!(
-                "capa {name}: el bamboleo solo se aplica a capas line; se ignora"
-            ));
+            warnings.push(tr!("pipeline.galvo.wobble_line_only", layer = name));
             None
         } else if !(gl.wobble.size.is_finite()
             && gl.wobble.size > 0.0
             && gl.wobble.step.is_finite()
             && gl.wobble.step > 0.0)
         {
-            return Err(format!(
-                "capa {name}: el bamboleo necesita tamaño y paso mayores que 0 (tamaño {}, paso {})",
-                gl.wobble.size, gl.wobble.step
+            return Err(tr!(
+                "pipeline.galvo.wobble_bad_size",
+                layer = name,
+                size = gl.wobble.size,
+                step = gl.wobble.step
             ));
         } else {
             Some(gl.wobble.clone())
@@ -264,20 +302,20 @@ impl LayerCtx {
         if let Some(w) = &self.wobble {
             match wobble_moves(&block.moves, w) {
                 Some(moves) => block.moves = moves,
-                None => warnings.push(format!(
-                    "{}: el bamboleo generaría demasiados puntos (más de {MAX_WOBBLE_POINTS}); \
-                     se omite (aumenta el paso o reduce el trazo)",
-                    block.label
+                None => warnings.push(tr!(
+                    "pipeline.galvo.wobble_too_many_points",
+                    label = block.label,
+                    max = MAX_WOBBLE_POINTS
                 )),
             }
         }
         if let Some(p) = &self.projection {
             let clipped = p.project_moves(&mut block.moves);
             if clipped > 0 {
-                warnings.push(format!(
-                    "{}: {clipped} punto(s) del diseño quedan fuera de lo visible desde el espejo \
-                     (más de 90 grados de arco en el cilindro); se recortan al borde",
-                    block.label
+                warnings.push(tr!(
+                    "pipeline.galvo.cylinder_clipped",
+                    label = block.label,
+                    n = clipped
                 ));
             }
         }
@@ -373,10 +411,14 @@ pub(crate) fn field_warnings(layers: &[LayerReport], device: &DeviceProfile) -> 
         .iter()
         .filter_map(|l| l.bounds.filter(|&b| outside(b, f)).map(|b| (l, b)))
         .map(|(l, b)| {
-            format!(
-                "la capa {} se sale del campo del galvo ({size:.0}x{size:.0} mm): ocupa X de \
-                 {:.2} a {:.2} mm, Y de {:.2} a {:.2} mm",
-                l.name, b.min.x, b.max.x, b.min.y, b.max.y
+            tr!(
+                "pipeline.galvo.layer_outside_field",
+                layer = l.name,
+                size = format!("{size:.0}"),
+                x0 = format!("{:.2}", b.min.x),
+                x1 = format!("{:.2}", b.max.x),
+                y0 = format!("{:.2}", b.min.y),
+                y1 = format!("{:.2}", b.max.y)
             )
         })
         .collect()
@@ -398,6 +440,7 @@ pub(crate) fn check_field(job: &ComputedJob, device: &DeviceProfile) -> Result<(
     let f = field_rect(device);
     let size = device.galvo.field_mm;
     let mut problems = Vec::new();
+    let mut overflow = false;
     for (layer, block) in job.layers.iter().zip(&job.toolpath.blocks) {
         if block
             .moves
@@ -405,29 +448,36 @@ pub(crate) fn check_field(job: &ComputedJob, device: &DeviceProfile) -> Result<(
             .map(Move::to)
             .any(|p| !(p.x.is_finite() && p.y.is_finite()))
         {
-            problems.push(format!(
-                "la capa {} tiene coordenadas que no son números",
-                layer.name
-            ));
+            problems.push(tr!("pipeline.galvo.layer_not_finite", layer = layer.name));
             continue;
         }
         let Some(b) = layer.bounds else { continue };
         if outside(b, f) {
-            problems.push(format!(
-                "la capa {} ({}) se sale del campo del galvo de {size:.0}x{size:.0} mm: ocupa X de \
-                 {:.2} a {:.2} mm, Y de {:.2} a {:.2} mm",
-                layer.name, layer.mode, b.min.x, b.max.x, b.min.y, b.max.y
+            overflow = true;
+            problems.push(tr!(
+                "pipeline.galvo.layer_mode_outside_field",
+                layer = layer.name,
+                mode = layer.mode,
+                size = format!("{size:.0}"),
+                x0 = format!("{:.2}", b.min.x),
+                x1 = format!("{:.2}", b.max.x),
+                y0 = format!("{:.2}", b.min.y),
+                y1 = format!("{:.2}", b.max.y)
             ));
         }
     }
     if problems.is_empty() {
         Ok(())
     } else {
-        problems.push(
-            "reduce el diseño al campo (o activa el marcado dividido para partirlo en piezas)"
-                .into(),
-        );
-        Err(problems.join("\n"))
+        problems.push(tr!("pipeline.galvo.reduce_to_field"));
+        let text = problems.join("\n");
+        // Como la cama en `job::check_bounds`: solo el desborde lleva código (`bed_overflow`), y la
+        // interfaz muestra la misma pista de mover el diseño. Unas coordenadas que no son números no.
+        Err(if overflow {
+            tlaku_i18n::coded("bed_overflow", text)
+        } else {
+            text
+        })
     }
 }
 

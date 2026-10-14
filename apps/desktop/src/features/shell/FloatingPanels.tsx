@@ -1,5 +1,5 @@
 import { PanelRightClose } from 'lucide-react';
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { t } from '@/i18n';
 import { dockFloatingTab, fitFloatRect, FLOAT_MAX_H, FLOAT_MAX_W, FLOAT_MIN_H, FLOAT_MIN_W, setFloatRect, shownFloating, type FloatRect, type FloatingPanel } from '@/lib/dockLayout';
 import { usePref, useStore } from '@/store';
@@ -71,6 +71,7 @@ function FloatingWindow({ panel, bounds, z, onRaise }: { panel: FloatingPanel; b
   };
   const dockBack = () => setPref('dockLayout', dockFloatingTab(useStore.getState().prefs.dockLayout, panel.id));
   const Icon = tab.icon;
+  const hintId = useId();
 
   return (
     <section
@@ -81,9 +82,16 @@ function FloatingWindow({ panel, bounds, z, onRaise }: { panel: FloatingPanel; b
       style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h, zIndex: z }}
       onPointerDownCapture={() => onRaise(panel.id)}
     >
+      {/* Asa de teclado: la cabecera se enfoca y las flechas la mueven (Mayús+flechas cambian el tamaño). */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <header
         className="floatwin__head"
+        role="group"
+        aria-label={t('a11y.float.handle', { name: t(tab.label) })}
+        aria-describedby={`${hintId}`}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight"
         title={t('prefs.dock.moveHint')}
         onPointerDown={begin('move')}
         onPointerMove={move}
@@ -93,6 +101,7 @@ function FloatingWindow({ panel, bounds, z, onRaise }: { panel: FloatingPanel; b
         onDoubleClick={(e) => !(e.target as Element).closest('button') && dockBack()}
       >
         <Icon size={14} aria-hidden="true" />
+        <span id={hintId} className="sr-only">{t('prefs.dock.moveHint')}</span>
         <span className="floatwin__title">{t(tab.label)}</span>
         <button type="button" className="icon-btn" title={t('prefs.dock.dockBack')} aria-label={`${t('prefs.dock.dockBack')}: ${t(tab.label)}`} onClick={dockBack}>
           <PanelRightClose size={14} aria-hidden="true" />
@@ -105,6 +114,13 @@ function FloatingWindow({ panel, bounds, z, onRaise }: { panel: FloatingPanel; b
         className="floatwin__grip"
         role="separator"
         aria-label={t('prefs.dock.resizeFloat')}
+        aria-valuemin={FLOAT_MIN_W}
+        aria-valuemax={FLOAT_MAX_W}
+        aria-valuenow={Math.round(rect.w)}
+        aria-valuetext={`${Math.round(rect.w)} × ${Math.round(rect.h)} px`}
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+        // Separador enfocable (patrón de ventana divisoria): las flechas cambian el tamaño.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         onPointerDown={begin('resize')}
         onPointerMove={move}

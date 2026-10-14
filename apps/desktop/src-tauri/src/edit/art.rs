@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tauri::{AppHandle, Manager};
 use tlaku_doc::ImportResult;
+use tlaku_i18n::tr;
 
 /// Tamaño máximo de un SVG de la biblioteca.
 const MAX_SVG_BYTES: u64 = 2 * 1024 * 1024;
@@ -30,7 +31,7 @@ fn art_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
         .map(|d| d.join("art"))
-        .map_err(|e| format!("No se encontró la carpeta de configuración: {e}"))
+        .map_err(crate::edit::config_dir_missing)
 }
 
 fn is_svg(path: &Path) -> bool {
@@ -41,11 +42,11 @@ fn is_svg(path: &Path) -> bool {
 fn read_art(path: &Path) -> Result<UserArt, String> {
     let meta = std::fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?;
     if meta.len() > MAX_SVG_BYTES {
-        return Err(format!(
-            "{}: el SVG pesa demasiado ({} KB; el máximo es {} KB).",
-            path.display(),
-            meta.len() / 1024,
-            MAX_SVG_BYTES / 1024
+        return Err(tr!(
+            "desktop.edit.art.too_big",
+            path = path.display(),
+            kb = meta.len() / 1024,
+            max = MAX_SVG_BYTES / 1024
         ));
     }
     let svg = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -99,7 +100,7 @@ pub fn add_art(dir: &Path, paths: &[String]) -> Result<AddArtResult, String> {
         if !is_svg(src) {
             result
                 .errors
-                .push(format!("{shown}: no es un archivo SVG."));
+                .push(tr!("desktop.edit.art.not_svg", name = shown));
             continue;
         }
         let art = match read_art(src) {
@@ -162,13 +163,13 @@ pub fn save_art(dir: &Path, items: &[UserArt]) -> Result<AddArtResult, String> {
         let Some(base) = clean_art_name(&item.name) else {
             result
                 .errors
-                .push(format!("«{shown}»: el nombre no es válido."));
+                .push(tr!("desktop.edit.art.invalid_name", name = shown));
             continue;
         };
         if item.svg.len() as u64 > MAX_SVG_BYTES {
             result
                 .errors
-                .push(format!("{shown}: el SVG pesa demasiado."));
+                .push(tr!("desktop.edit.art.too_big_short", name = shown));
             continue;
         }
         if let Err(e) = import_svg_text(&item.svg, None) {
@@ -192,7 +193,7 @@ pub fn save_art(dir: &Path, items: &[UserArt]) -> Result<AddArtResult, String> {
 /// Borra un SVG de la biblioteca del usuario. `name` es solo el nombre, nunca una ruta.
 pub fn remove_art(dir: &Path, name: &str) -> Result<(), String> {
     if name.is_empty() || name.contains(['/', '\\']) || name.contains("..") {
-        return Err(format!("Nombre de dibujo inválido: «{name}»."));
+        return Err(tr!("desktop.edit.art.bad_name", name = name));
     }
     let path = dir.join(format!("{name}.svg"));
     std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))
@@ -214,7 +215,7 @@ pub fn import_svg_text(svg: &str, target_layer: Option<&str>) -> Result<ImportRe
     let _ = std::fs::remove_file(&path);
     let result = result?;
     if result.objects.is_empty() {
-        return Err("El SVG no tiene trayectos que insertar.".into());
+        return Err(tr!("desktop.edit.art.no_paths"));
     }
     Ok(result)
 }
@@ -226,7 +227,7 @@ pub async fn art_import_svg(
 ) -> Result<ImportResult, String> {
     tauri::async_runtime::spawn_blocking(move || import_svg_text(&svg, target_layer.as_deref()))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -234,7 +235,7 @@ pub async fn art_list_user(app: AppHandle) -> Result<Vec<UserArt>, String> {
     let dir = art_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || list_art(&dir))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -242,7 +243,7 @@ pub async fn art_add_user(app: AppHandle, paths: Vec<String>) -> Result<AddArtRe
     let dir = art_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || add_art(&dir, &paths))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -250,7 +251,7 @@ pub async fn art_save_user(app: AppHandle, items: Vec<UserArt>) -> Result<AddArt
     let dir = art_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || save_art(&dir, &items))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -258,7 +259,7 @@ pub async fn art_remove_user(app: AppHandle, name: String) -> Result<(), String>
     let dir = art_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || remove_art(&dir, &name))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

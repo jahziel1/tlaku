@@ -1,6 +1,7 @@
 //! Preparación del trabajo (`prepare`), vista previa y forma del encuadre.
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Trabajo preparado (secuencia de pasos)
@@ -74,7 +75,7 @@ pub fn prepare(
     red_only: bool,
 ) -> Result<PreparedJob, String> {
     if device.kind != DeviceKind::Galvo {
-        return Err("El perfil de la máquina no es de tipo galvo.".into());
+        return Err(tr!("desktop.galvo.profile_not_galvo"));
     }
     let mut warnings = Vec::new();
     if !is_sequenced(device) {
@@ -129,11 +130,15 @@ pub fn prepare(
         };
         let job = match tlaku_pipeline::compute_at(doc, device, &step_options, None) {
             Ok(j) => j,
-            Err(e) if e.starts_with("no hay nada que producir") && s.tile.is_some() => {
-                warnings.push(format!(
-                    "La pieza {} de la repetición {} no tiene nada que marcar: se omite.",
-                    s.piece + 1,
-                    s.repeat + 1
+            // i18n-acoplado: texto de tlaku-pipeline (`msg_is` lo reconoce en cualquier idioma).
+            Err(e)
+                if tlaku_i18n::msg_is(&e, "pipeline.build_plan.nothing_to_produce")
+                    && s.tile.is_some() =>
+            {
+                warnings.push(tr!(
+                    "desktop.galvo.piece_skipped",
+                    piece = s.piece + 1,
+                    repeat = s.repeat + 1
                 ));
                 carried = StageMove {
                     dx: carried.dx + s.stage.dx,
@@ -172,9 +177,7 @@ pub fn prepare(
         });
     }
     if steps.is_empty() {
-        return Err(
-            "no hay nada que producir: ninguna pieza del marcado dividido tiene contenido".into(),
-        );
+        return Err(tr!("desktop.galvo.no_piece_content"));
     }
     // El primer paso se marca con la mesa ya colocada: no lleva movimiento (aunque lo hayan
     // arrastrado piezas vacías, que tampoco se marcan).
@@ -265,7 +268,7 @@ pub fn light_shape(
     let tp = &job
         .steps
         .first()
-        .ok_or("No hay nada que encuadrar: el trabajo está vacío.")?
+        .ok_or_else(|| tr!("desktop.common.nothing_to_frame"))?
         .toolpath;
     let shape = match kind {
         FrameKind::Rect => LightShape::bounds_of(tp),
@@ -275,5 +278,5 @@ pub fn light_shape(
             LightShape::objects_of(tp, gap_mm.unwrap_or(DEFAULT_OBJECT_GAP_MM)).map(|(s, _)| s)
         }
     };
-    shape.ok_or_else(|| "No hay nada que encuadrar: el trabajo está vacío.".to_string())
+    shape.ok_or_else(|| tr!("desktop.common.nothing_to_frame"))
 }

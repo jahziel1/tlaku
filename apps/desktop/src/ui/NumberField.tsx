@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import { stepFromKey } from './stepKey';
 
 interface Props {
   label: string;
@@ -44,6 +45,11 @@ export function NumberField({ label, value, onCommit, min, max, step = 1, unit, 
           id={id}
           className="field__input num"
           inputMode="decimal"
+          role="spinbutton"
+          aria-valuenow={value}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuetext={show(value)}
           value={text}
           disabled={disabled}
           step={step}
@@ -52,10 +58,10 @@ export function NumberField({ label, value, onCommit, min, max, step = 1, unit, 
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit();
             else if (e.key === 'Escape') setText(show(value));
-            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            else {
+              const next = stepFromKey(e, parse(text) ?? 0, step, min, max);
+              if (next === null) return;
               e.preventDefault();
-              const n = parse(text) ?? 0;
-              const next = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n + (e.key === 'ArrowUp' ? step : -step)));
               setText(format ? format(next) : String(Math.round(next * 1000) / 1000));
             }
           }}

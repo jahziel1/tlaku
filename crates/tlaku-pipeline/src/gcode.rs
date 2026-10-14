@@ -5,6 +5,7 @@ use tlaku_core::{Bounds, Point};
 use tlaku_doc::{DeviceKind, DeviceProfile, Origin};
 use tlaku_grbl::frame::frame_gcode_scaled;
 use tlaku_grbl::gcode::{GcodeOptions, generate_mapped};
+use tlaku_i18n::tr;
 
 /// Pasa de coordenadas del documento (origen abajo a la izquierda) a las de la máquina,
 /// cuyo X0 Y0 está en la esquina `origin` y crecen hacia dentro de la cama. Es su propia
@@ -172,67 +173,51 @@ pub(crate) fn dialect_warnings(
     let d = &device.dialect;
     let mut out = Vec::new();
     if device.swap_xy && device.rotary.enabled {
-        out.push(format!(
-            "la máquina '{}' tiene el intercambio X/Y y el rotativo activos a la vez: el \
-             intercambio se ignora mientras el rotativo esté encendido",
-            device.name
+        out.push(tr!(
+            "pipeline.gcode.swap_with_rotary",
+            machine = device.name
         ));
     }
     if d.air_on.is_none() && toolpath.blocks.iter().any(|b| b.air_assist) {
-        out.push(format!(
-            "la máquina '{}' no tiene comando de aire en su dialecto de G-code: la asistencia de \
-             aire de las capas se ignora",
-            device.name
-        ));
+        out.push(tr!("pipeline.gcode.no_air_command", machine = device.name));
     }
     if layers.iter().any(|l| l.laser2) {
         if !device.laser2 {
-            out.push(format!(
-                "la máquina '{}' no tiene segundo láser: las capas que piden el láser 2 salen con \
-                 el láser 1",
-                device.name
-            ));
+            out.push(tr!("pipeline.gcode.no_laser2", machine = device.name));
         } else if d.laser2_select.is_none() {
-            out.push(format!(
-                "el dialecto de la máquina '{}' no tiene comando para seleccionar el láser 2: las \
-                 capas del láser 2 salen sin cambiar de láser (configúralo en el dialecto de G-code)",
-                device.name
+            out.push(tr!(
+                "pipeline.gcode.no_laser2_select",
+                machine = device.name
             ));
         }
     }
     if device.power_mode == tlaku_doc::PowerMode::Dynamic && d.dynamic_on.is_none() {
-        out.push(format!(
-            "la máquina '{}' no tiene potencia dinámica en su dialecto: se usa potencia constante{}",
-            device.name,
-            if d.constant_on.is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", d.constant_on)
-            }
-        ));
+        out.push(if d.constant_on.is_empty() {
+            tr!("pipeline.gcode.no_dynamic_power", machine = device.name)
+        } else {
+            tr!(
+                "pipeline.gcode.no_dynamic_power_with",
+                machine = device.name,
+                command = d.constant_on
+            )
+        });
     }
     if layers.iter().any(|l| l.mode == "image") {
         if !d.s_inline {
-            out.push(format!(
-                "la máquina '{}' pone la potencia en una línea aparte: cada cambio de S frena el \
-                 cabezal y el grabado de imágenes sale con manchas; usa un dialecto con S en línea",
-                device.name
-            ));
+            out.push(tr!("pipeline.gcode.s_not_inline", machine = device.name));
         } else if device.kind == tlaku_doc::DeviceKind::GrblM3 {
-            out.push(format!(
-                "la máquina '{}' es GRBL sin modo láser: cada cambio de S pausa el movimiento y \
-                 el grabado de imágenes sale con manchas; actualiza a GRBL 1.1f o posterior",
-                device.name
+            out.push(tr!(
+                "pipeline.gcode.grbl_no_laser_mode",
+                machine = device.name
             ));
         }
     }
     if d.s_decimals == 0 && device.s_max < 100.0 {
-        out.push(format!(
-            "la máquina '{}' escribe S sin decimales pero su S máxima es {}: la potencia solo \
-             tiene {} nivel(es); sube la S máxima o los decimales de S",
-            device.name,
-            device.s_max,
-            device.s_max.max(0.0).round() as u64 + 1
+        out.push(tr!(
+            "pipeline.gcode.s_few_levels",
+            machine = device.name,
+            s_max = device.s_max,
+            levels = device.s_max.max(0.0).round() as u64 + 1
         ));
     }
     out
@@ -306,17 +291,18 @@ pub fn frame_gcode_pointer(
             || moved.max.x > w + eps
             || moved.max.y > h / k + eps)
     {
-        return Err(format!(
-            "El encuadre con el puntero rojo se sale del área de la máquina '{}': con el desfase \
-             del puntero ({} mm, {} mm) la cabeza tendría que ir a X {:.1}..{:.1}, Y {:.1}..{:.1}. \
-             Acerca el diseño al centro o usa el encuadre con el láser.",
-            device.name,
-            device.pointer_offset[0],
-            device.pointer_offset[1],
-            moved.min.x,
-            moved.max.x,
-            moved.min.y,
-            moved.max.y
+        return Err(tlaku_i18n::coded(
+            "bed_overflow",
+            tr!(
+                "pipeline.gcode.pointer_frame_outside",
+                machine = device.name,
+                ox = device.pointer_offset[0],
+                oy = device.pointer_offset[1],
+                x0 = format!("{:.1}", moved.min.x),
+                x1 = format!("{:.1}", moved.max.x),
+                y0 = format!("{:.1}", moved.min.y),
+                y1 = format!("{:.1}", moved.max.y)
+            ),
         ));
     }
     Ok(frame_gcode_scaled(moved, speed_mm_min, k))

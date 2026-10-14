@@ -12,6 +12,7 @@ use crate::calibration::LensCalibration;
 use image::{ImageBuffer, Pixel};
 use std::path::{Path, PathBuf};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 const OUTSIDE: u32 = u32::MAX;
 
@@ -38,10 +39,10 @@ impl UndistortMap {
     pub fn new(calib: &LensCalibration, out_size: (u32, u32)) -> Result<Self, String> {
         calib.validate()?;
         if out_size.0 == 0 || out_size.1 == 0 {
-            return Err("el tamaño de salida de la corrección no puede ser 0".into());
+            return Err(tr!("camera.undistort.zero_output"));
         }
         if calib.width < 2 || calib.height < 2 {
-            return Err("la imagen calibrada es demasiado pequeña".into());
+            return Err(tr!("camera.undistort.calib_small"));
         }
         let sx = f64::from(out_size.0) / f64::from(calib.width);
         let sy = f64::from(out_size.1) / f64::from(calib.height);
@@ -106,12 +107,12 @@ impl UndistortMap {
         P: Pixel<Subpixel = u8>,
     {
         if (img.width(), img.height()) != self.src_size {
-            return Err(format!(
-                "la imagen mide {}x{} pero la calibración es de {}x{}",
-                img.width(),
-                img.height(),
-                self.src_size.0,
-                self.src_size.1
+            return Err(tr!(
+                "camera.undistort.size_mismatch",
+                w = img.width(),
+                h = img.height(),
+                calib_w = self.src_size.0,
+                calib_h = self.src_size.1
             ));
         }
         let ch = P::CHANNEL_COUNT as usize;
@@ -123,10 +124,10 @@ impl UndistortMap {
             2 => self.remap::<2>(src, &mut out),
             3 => self.remap::<3>(src, &mut out),
             4 => self.remap::<4>(src, &mut out),
-            _ => return Err("número de canales no soportado".into()),
+            _ => return Err(tr!("camera.undistort.channels")),
         }
         ImageBuffer::from_raw(self.out_size.0, self.out_size.1, out)
-            .ok_or_else(|| "tamaño de búfer inconsistente al corregir la imagen".to_string())
+            .ok_or_else(|| tr!("camera.undistort.buffer"))
     }
 
     fn remap<const CH: usize>(&self, src: &[u8], out: &mut [u8]) {
@@ -182,7 +183,13 @@ pub fn undistorted_path(input: &Path) -> PathBuf {
 /// Lee `input`, corrige la distorsión y guarda un PNG en `output`.
 pub fn undistort_file(input: &Path, output: &Path, calib: &LensCalibration) -> Result<(), String> {
     let img = image::open(input)
-        .map_err(|e| format!("no se pudo abrir {}: {e}", input.display()))?
+        .map_err(|e| {
+            tr!(
+                "camera.undistort.open_failed",
+                path = input.display(),
+                error = e
+            )
+        })?
         .to_rgb8();
     let size = (img.width(), img.height());
     // Si la imagen tiene otra resolución que la calibración, se reescala el modelo.
@@ -193,8 +200,13 @@ pub fn undistort_file(input: &Path, output: &Path, calib: &LensCalibration) -> R
     };
     let map = UndistortMap::new(&calib, size)?;
     let out = map.undistort(&img)?;
-    out.save(output)
-        .map_err(|e| format!("no se pudo guardar {}: {e}", output.display()))
+    out.save(output).map_err(|e| {
+        tr!(
+            "camera.undistort.save_failed",
+            path = output.display(),
+            error = e
+        )
+    })
 }
 
 /// Misma lente a otra resolución (mismo campo de visión).

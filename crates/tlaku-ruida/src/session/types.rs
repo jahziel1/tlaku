@@ -4,6 +4,7 @@ use super::config::SessionError;
 use crate::swizzle::Magic;
 use std::fmt;
 use tlaku_core::Point;
+use tlaku_i18n::{Arg, tr};
 
 /// Bits de `0x200`: ruida-pa y MeerK40t coinciden en el movimiento (`0x01000000`) y el trabajo
 /// (`0x1`); el bit `0x2` es "pausa" para ruida-pa y "fin de parte" para MeerK40t.
@@ -43,12 +44,12 @@ impl MachineStatus {
         !self.running && !self.moving
     }
 
-    pub fn describe_state(&self) -> &'static str {
+    pub fn describe_state(&self) -> String {
         match (self.running, self.paused, self.moving) {
-            (true, true, _) => "trabajo en pausa",
-            (true, false, _) => "trabajo en marcha",
-            (false, _, true) => "moviéndose",
-            _ => "en reposo",
+            (true, true, _) => tr!("ruida.session.state_paused"),
+            (true, false, _) => tr!("ruida.session.state_running"),
+            (false, _, true) => tr!("ruida.session.state_moving"),
+            _ => tr!("ruida.session.state_idle"),
         }
     }
 }
@@ -138,23 +139,17 @@ pub struct UploadError {
 
 impl fmt::Display for UploadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} (paquetes confirmados: {} de {})",
-            self.cause, self.packets_sent, self.packets_total
-        )?;
-        match self.stop {
-            StopOutcome::NotNeeded => write!(
-                f,
-                ". El documento guardado queda incompleto: bórralo desde el panel de la máquina"
-            ),
-            StopOutcome::Acked => write!(f, ". Se mandó Detener (D8 01) y la máquina lo confirmó"),
-            StopOutcome::Unconfirmed => write!(
-                f,
-                ". Se mandó Detener (D8 01) pero la máquina no lo confirmó: puede estar \
-                 ejecutando el trabajo incompleto; pulsa Stop en su panel o usa el paro de emergencia"
-            ),
-        }
+        let key = match self.stop {
+            StopOutcome::NotNeeded => "ruida.session.upload_failed_incomplete",
+            StopOutcome::Acked => "ruida.session.upload_failed_stopped",
+            StopOutcome::Unconfirmed => "ruida.session.upload_failed_unconfirmed",
+        };
+        let args = [
+            ("cause", Arg::new(&self.cause)),
+            ("sent", Arg::new(&self.packets_sent)),
+            ("total", Arg::new(&self.packets_total)),
+        ];
+        f.write_str(&tlaku_i18n::translate(key, &args))
     }
 }
 

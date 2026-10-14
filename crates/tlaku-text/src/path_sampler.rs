@@ -2,6 +2,7 @@
 
 use tlaku_core::Point;
 use tlaku_core::bezpath::BezPath;
+use tlaku_i18n::tr;
 
 /// Tolerancia de aplanado de la trayectoria (mm).
 const FLATTEN_TOL_MM: f64 = 0.005;
@@ -19,7 +20,7 @@ impl PathSampler {
         let lines = path.flatten(FLATTEN_TOL_MM);
         let ignored_extra = lines.len() > 1;
         let Some(line) = lines.into_iter().next() else {
-            return Err("La trayectoria del texto no tiene segmentos".into());
+            return Err(tr!("text.path_sampler.no_segments"));
         };
         let mut points = line.points;
         if line.closed {
@@ -36,7 +37,7 @@ impl PathSampler {
             cum.push(acc);
         }
         if acc <= 1e-9 {
-            return Err("La trayectoria del texto tiene longitud cero".into());
+            return Err(tr!("text.path_sampler.zero_length"));
         }
         Ok((
             Self {

@@ -4,6 +4,7 @@
 use crate::options::{Defaults, ImageParams, LayerOrder, LayerOverride, apply_image, apply_layer};
 use std::path::PathBuf;
 use tlaku_core::Rgb;
+use tlaku_i18n::tr;
 use tlaku_pipeline::doc::affine::translate;
 use tlaku_pipeline::doc::{
     DeviceProfile, Document, JobOptions, LayerSettings, ObjectKind, Optimization, Origin,
@@ -54,15 +55,15 @@ fn prepare(req: &DesignRequest) -> Result<Prepared, String> {
     let kind = input_kind(&req.input)?;
     for (i, (c, _)) in req.overrides.iter().enumerate() {
         if req.overrides[..i].iter().any(|(d, _)| d == c) {
-            return Err(format!("la capa {c} aparece más de una vez en --layer"));
+            return Err(tr!("cli.job.layer_repeated", layer = c));
         }
     }
     let mut before = Vec::new();
     let mut after = Vec::new();
     if kind != InputKind::Image && !req.image.given.is_empty() {
-        before.push(format!(
-            "se ignoraron las opciones de imagen ({}) porque la entrada no es una imagen",
-            req.image.given.join(", ")
+        before.push(tr!(
+            "cli.job.image_options_ignored",
+            options = req.image.given.join(", ")
         ));
     }
 
@@ -78,13 +79,10 @@ fn prepare(req: &DesignRequest) -> Result<Prepared, String> {
     let mut layers: Vec<LayerSettings> = Vec::new();
     if kind == InputKind::Image {
         if !req.overrides.is_empty() {
-            before.push("se ignoró --layer: una imagen no tiene capas por color".into());
+            before.push(tr!("cli.job.layer_ignored_for_image"));
         }
         let (Some((w, h)), Some((x, y))) = (req.image.size, req.image.pos) else {
-            return Err(
-                "las imágenes requieren --image-size ANCHOxALTO y --image-pos X,Y (en mm; la posición es la esquina inferior izquierda)"
-                    .into(),
-            );
+            return Err(tr!("cli.job.image_needs_size_pos"));
         };
         for obj in &mut imported.objects {
             if let ObjectKind::Image(img) = &mut obj.kind {
@@ -103,9 +101,10 @@ fn prepare(req: &DesignRequest) -> Result<Prepared, String> {
         for (c, _) in &req.overrides {
             if !layers.iter().any(|l| l.color == *c) {
                 let list: Vec<String> = layers.iter().map(|l| l.color.to_string()).collect();
-                after.push(format!(
-                    "la capa {c} de --layer no existe en el diseño (capas: {})",
-                    list.join(", ")
+                after.push(tr!(
+                    "cli.job.layer_not_in_design",
+                    layer = c,
+                    layers = list.join(", ")
                 ));
             }
         }

@@ -8,6 +8,7 @@ export const help: { [K in keyof typeof Source]?: string } = {
   'help.cmd.donate': 'Donate to the Project…',
   'help.cmd.about': 'About Tlaku',
   'help.cmd.jobLog': 'Job Log…',
+  'help.cmd.checkUpdates': 'Check for Updates…',
   'help.jobLog.title': 'Job log',
   'help.jobLog.intro': 'The jobs you sent to a machine from this computer. The log is kept only here and never leaves your computer.',
   'help.jobLog.empty': 'No jobs logged yet. They show up here when one finishes, is cancelled or fails.',
@@ -82,4 +83,29 @@ export const help: { [K in keyof typeof Source]?: string } = {
   'help.donate.text':
     'Tlaku is open source (MIT) and has no company behind it: it is sustained by donations. They pay for testing on real machines, installer signing certificates and the time to keep developing it. Donating is voluntary: the program is the same with or without a donation.',
   'help.donate.where': 'Where to donate',
+  'help.donate.none':
+    'The project does not have donation accounts yet. When it does, their links will appear here. Meanwhile, what helps most is using Tlaku, trying it with your machine and reporting what you find.',
+
+  'help.update.title': 'Updates',
+  'help.update.checking': 'Checking for updates…',
+  'help.update.unconfigured': 'Automatic updates are not configured in this build.',
+  'help.update.unconfiguredHint': 'To update, download the new version from the project page and install it over this one.',
+  'help.update.current': 'Tlaku is up to date: you have the latest version.',
+  'help.update.available': 'A new version is available: Tlaku {version}',
+  'help.update.yours': 'You have version {current}.',
+  'help.update.notes': "What's in this version",
+  'help.update.noNotes': 'This version comes with no notes.',
+  'help.update.verified': "The download is checked against the project's signature before it is installed.",
+  'help.update.install': 'Download and install',
+  'help.update.later': 'Not now',
+  'help.update.busy': 'A job is running: finish it before installing the update.',
+  'help.update.downloading': 'Downloading the update…',
+  'help.update.downloadingPct': 'Downloading the update… {percent}%',
+  'help.update.installed': 'The update is installed. Restart Tlaku to use it.',
+  'help.update.installedHint': 'Save your work before restarting. On Windows the installer may close Tlaku by itself.',
+  'help.update.restart': 'Restart now',
+  'help.update.restartLater': 'Later',
+  'help.update.error': 'The update could not be completed: {error}',
+  'help.update.retry': 'Try again',
+
 };

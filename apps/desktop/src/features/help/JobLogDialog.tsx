@@ -83,7 +83,7 @@ export function JobLogDialog() {
         {entries.length === 0 ? (
           <p className="hint" data-autofocus tabIndex={-1}>{t('help.jobLog.empty')}</p>
         ) : (
-          <table className="joblog" data-autofocus tabIndex={-1}>
+          <table className="joblog" data-autofocus tabIndex={-1} aria-label={t('a11y.table.log')}>
             <thead>
               <tr>
                 <th>{t('help.jobLog.col.date')}</th>

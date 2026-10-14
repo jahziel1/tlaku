@@ -17,6 +17,7 @@ function call<T>(name: CommandKey, args?: object): Promise<T> {
 export function createTauriApi(): LaserApi {
   return {
     appVersion: () => call('appVersion'),
+    setEngineLocale: (a) => call('setEngineLocale', a),
     importFile: (a) => call('importFile', a),
     saveProject: (a) => call('saveProject', a),
     loadProject: (a) => call('loadProject', a),

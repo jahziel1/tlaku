@@ -1,6 +1,7 @@
 //! Comandos de consola, tiempo real y el intercambio línea/`ok`.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn realtime(
@@ -15,11 +16,7 @@ impl Worker {
             return match cmd {
                 RealtimeCommand::Status | RealtimeCommand::JogCancel => Ok(()),
                 RealtimeCommand::Hold | RealtimeCommand::Resume | RealtimeCommand::Reset => {
-                    Err(Fail::Msg(
-                        "Esta controladora no tiene comandos en tiempo real: pausa y cancela \
-                         desde el trabajo en curso."
-                            .into(),
-                    ))
+                    Err(Fail::Msg(tr!("desktop.worker.no_realtime")))
                 }
             };
         }
@@ -30,12 +27,14 @@ impl Worker {
                 self.last_poll = Some(Instant::now());
                 return Ok(());
             }
-            RealtimeCommand::Hold => (Realtime::FeedHold, "! (pausa, feed hold)"),
-            RealtimeCommand::Resume => (Realtime::CycleStart, "~ (reanudar, cycle start)"),
-            RealtimeCommand::Reset => (Realtime::SoftReset, "Ctrl+X (reinicio, soft reset)"),
-            RealtimeCommand::JogCancel => (Realtime::JogCancel, "0x85 (cancelar movimiento)"),
+            RealtimeCommand::Hold => (Realtime::FeedHold, tr!("desktop.worker.log_hold")),
+            RealtimeCommand::Resume => (Realtime::CycleStart, tr!("desktop.worker.log_resume")),
+            RealtimeCommand::Reset => (Realtime::SoftReset, tr!("desktop.worker.log_reset")),
+            RealtimeCommand::JogCancel => {
+                (Realtime::JogCancel, tr!("desktop.worker.log_jog_cancel"))
+            }
         };
-        self.log(LogDir::Out, text);
+        self.log(LogDir::Out, &text);
         t.write_all(&[rt.byte()])?;
         // Un reset en pleno movimiento (o homing) pierde la posición: GRBL lanzará ALARM:3.
         if rt == Realtime::SoftReset
@@ -44,7 +43,7 @@ impl Worker {
                 MachineState::Run | MachineState::Jog | MachineState::Home
             )
         {
-            self.log(LogDir::In, &format!("; {POSITION_LOST_NOTE}"));
+            self.log(LogDir::In, &format!("; {}", position_lost_note()));
         }
         Ok(())
     }
@@ -60,18 +59,21 @@ impl Worker {
         // necesitan para separar parámetros (por ejemplo `M3 S0 I`).
         let grbl = self.link_family == LinkFamily::Grbl;
         let line = prepare_line_with(raw, grbl, grbl).map_err(|ch| {
-            Fail::Msg(format!(
-                "'{raw}' contiene {ch:?}, que GRBL interpretaría como comando en tiempo real. \
-                 Para pausar, reanudar o reiniciar usa los botones de la pestaña Máquina."
+            Fail::Msg(tr!(
+                "desktop.worker.realtime_char",
+                raw = raw,
+                ch = format!("{ch:?}")
             ))
         })?;
         if line.is_empty() {
-            return Err(Fail::Msg("La línea está vacía.".into()));
+            return Err(Fail::Msg(tr!("desktop.worker.line_empty")));
         }
         let max = streamer::StreamerConfig::default().rx_buffer;
         if line.len() + 1 > max {
-            return Err(Fail::Msg(format!(
-                "'{line}' no cabe en el búfer de la controladora ({max} bytes)."
+            return Err(Fail::Msg(tr!(
+                "desktop.worker.line_too_long",
+                line = line,
+                max = max
             )));
         }
         let timeout = if line.eq_ignore_ascii_case("$H") {
@@ -127,9 +129,10 @@ impl Worker {
                 out.push(l);
             }
             if Instant::now() > deadline {
-                return Err(Fail::Msg(format!(
-                    "La máquina no respondió a '{line}' en {:.0} s.",
-                    timeout.as_secs_f64()
+                return Err(Fail::Msg(tr!(
+                    "desktop.worker.no_reply",
+                    line = line,
+                    secs = format!("{:.0}", timeout.as_secs_f64())
                 )));
             }
         }

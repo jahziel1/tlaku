@@ -201,7 +201,7 @@ export function Result({ report, onAccept }: { report: MarksReport; onAccept: ()
         <p className="warn-line">{t('camera.marks.looNone')}</p>
       )}
       {report.warnings.map((w, i) => <p key={i} className="warn-line">{w}</p>)}
-      <table className="cam-marks__table">
+      <table className="cam-marks__table" aria-label={t('a11y.table.marks')}>
         <thead>
           <tr>
             <th scope="col">{t('camera.marks.col.mark')}</th>

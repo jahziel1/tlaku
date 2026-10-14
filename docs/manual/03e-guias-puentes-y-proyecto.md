@@ -1,6 +1,6 @@
 # Guías, puentes, punto de inicio y proyecto
 
-Ayudas para colocar y cortar con más control: **guías** que atraen los objetos, **puentes manuales** que dejas donde tú quieres, el **punto de inicio y el sentido** de cada corte, las **notas** y **plantillas** del proyecto, una segunda **ventana**, las pestañas del panel derecho a tu gusto y la **biblioteca de arte** con dibujos listos. Todo lo que cambia el diseño es un paso de **Deshacer** (`Ctrl/Cmd+Z`). Los atajos se escriben con `Ctrl/Cmd`: `Cmd` en macOS, `Ctrl` en Windows y Linux.
+Ayudas para colocar y cortar con más control: **guías** que atraen los objetos, **puentes manuales** que dejas donde tú quieres, el **punto de inicio y el sentido** de cada corte, las **notas** y **plantillas** del proyecto, una segunda **ventana**, las pestañas del panel derecho a tu gusto (también como paneles flotantes) y la **biblioteca de arte** con dibujos listos. Todo lo que cambia el diseño es un paso de **Deshacer** (`Ctrl/Cmd+Z`). Los atajos se escriben con `Ctrl/Cmd`: `Cmd` en macOS, `Ctrl` en Windows y Linux.
 
 ## Guías
 
@@ -84,7 +84,22 @@ Las pestañas del panel derecho (**Capas**, **Máquina**, **Consola**, **Histori
 - El botón **Personalizar pestañas** muestra cada una con **Mover antes** y **Mover después**, y deja **ocultar** las que no uses (siempre queda al menos una visible).
 - **Restaurar orden y pestañas** vuelve al orden de fábrica.
 
-El orden se guarda en las preferencias. Todavía no hay paneles flotantes ni se pueden mover las barras de herramientas.
+El orden se guarda en las preferencias.
+
+### Paneles flotantes y distribución de la ventana
+
+Cualquier pestaña se puede **sacar a una ventana flotante** que se queda sobre el lienzo, para tener a la vista, por ejemplo, el **Historial** o la **Consola** mientras dibujas:
+
+- **Doble clic en la pestaña** la saca a una ventana flotante. En el botón **Personalizar pestañas** cada pestaña tiene también **Sacar a una ventana flotante**. La última pestaña acoplada no se puede sacar: siempre queda al menos una en el panel.
+- **Arrastra la barra de título** para moverla y la esquina de abajo a la derecha para cambiar su tamaño. Con el teclado: **flechas** para mover y **Mayús+flechas** para cambiar el tamaño. La ventana siempre queda dentro de la de Tlaku.
+- **Doble clic en la barra de título**, o el botón **Acoplar al panel**, la devuelve a su sitio en el orden de las pestañas.
+- Se pueden tener varias flotantes a la vez; la última que tocas queda arriba.
+
+![El Historial como panel flotante sobre el lienzo; las demás pestañas siguen en el panel de la derecha](../../apps/desktop/docs/screenshots/67-panel-flotante.png)
+
+El panel de pestañas y la paleta de herramientas también cambian de lado. En **Editar > Preferencias… > Apariencia > Distribución de la ventana** (y en el mismo botón de **Personalizar pestañas**) eliges **Panel de pestañas** y **Herramientas**: **Izquierda** o **Derecha**. **Restablecer distribución** (también un comando, del mismo nombre) devuelve todo a lo de fábrica: pestañas en su orden, el panel a la derecha, las herramientas a la izquierda y ningún panel flotante.
+
+La distribución se guarda en las preferencias, así que viaja con tu [paquete de configuración](09b-control-avanzado.md) y se comparte entre las ventanas abiertas de Tlaku. Lo que **no** se puede mover son las barras de herramientas de arriba.
 
 ## Biblioteca de arte
 

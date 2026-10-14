@@ -2,6 +2,7 @@ import { Plus, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Point } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
+import { useReturnFocus } from '@/ui/useReturnFocus';
 import { screenToWorld } from '@/lib/viewport';
 import { useStore } from '@/store';
 import { addUserArt, insertArt, loadUserArt, removeUserArt } from './actions';
@@ -84,6 +85,7 @@ function Tile({ item }: { item: ArtItem }) {
 
 /** Panel flotante "Biblioteca de arte": formas listas para insertar con un clic o arrastrándolas al lienzo. */
 export function ArtPanel() {
+  useReturnFocus();
   const titleId = useId();
   const { category, query, user, error, setCategory, setQuery, setOpen } = useArtPanel();
 
@@ -108,7 +110,7 @@ export function ArtPanel() {
   ];
 
   return (
-    <aside className="art-panel" role="dialog" aria-labelledby={titleId}>
+    <section className="art-panel" role="dialog" aria-labelledby={titleId}>
       <header className="art-head">
         <h2 id={titleId} className="art-title">{t('art.title')}</h2>
         <button type="button" className="icon-btn" title={t('art.close')} aria-label={t('art.close')} onClick={() => setOpen(false)}>
@@ -160,7 +162,7 @@ export function ArtPanel() {
         )}
       </footer>
       <p className="hint art-folder">{t('art.user.folder')}</p>
-    </aside>
+    </section>
   );
 }
 

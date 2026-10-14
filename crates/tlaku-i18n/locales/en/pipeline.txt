@@ -1,0 +1,459 @@
+# Mensajes de tlaku-pipeline (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: pipeline.<módulo>.<qué> = plantilla
+
+# import_egv.rs
+pipeline.import_egv.no_motion = {name}: this does not look like a LHYMICRO-GL .egv file: the data stream contains no moves
+pipeline.import_egv.no_cut = {name}: the .egv file does not cut anything with the laser on
+pipeline.import_egv.no_cut_raster = {name}: the .egv file does not cut anything with the laser on (it only contains a raster engraving, which is not imported as vectors)
+pipeline.import_egv.no_power = The .egv file does not store power: the layers use the default power; adjust it.
+pipeline.import_egv.assumed_m2 = An M2 board was assumed to convert the speed codes, with home at the top left (Y was flipped relative to the default profile bed).
+pipeline.import_egv.raster_skipped = Skipped {n} raster engraving move(s) (G): they are not imported as vectors.
+pipeline.import_egv.bad_speeds = {n} speed code(s) were not understood and were ignored.
+pipeline.import_egv.no_speed = Some cuts have no speed code: they were set to 20 mm/s.
+
+# import.rs
+pipeline.import.unsupported_format = {path}: unsupported input format; use SVG, DXF, PDF, AI, HPGL, G-code, LightBurn (.lbrn/.lbrn2), Ruida (.rd), K40 (.egv) or an image (PNG, JPG, BMP, WebP, TIFF, GIF, TGA)
+pipeline.import.image_converted = The window cannot display {ext} directly: it was converted to PNG and the design uses the copy {copy}. Keep that copy next to the project.
+pipeline.import.image_converted_temp = The window cannot display {ext} directly and the copy could not be written next to the original: it was converted to PNG in the temporary folder ({copy}). If you switch computers or restart, import the image again.
+pipeline.import.invalid_svg = {path}: invalid SVG: {error}
+pipeline.import.dxf_unit_forced = The file does not declare units: each unit was read as {unit} mm because of the import option.
+pipeline.import.no_paths = {path}: the file contains no paths
+pipeline.import.no_paths_causes = {path}: the file contains no paths. {causes}
+pipeline.import.hint_image = Export the image as PNG or JPG and import it as an image.
+pipeline.import.hint_dxf = Convert those elements to outlines (lines, polylines and curves) in your CAD program and export again.
+pipeline.import.hint_svg = Convert the text and objects to paths (outlines) in your editor and save the SVG again.
+pipeline.import.svg_only_images = The SVG has no paths, only {n} embedded image(s): it was imported as an image (copy at {files}). To cut or engrave outlines you need an SVG with paths.
+
+# import_gcode.rs
+pipeline.import_gcode.zero_power = {name}: the G-code draws nothing with the laser on: it has {n} G1/G2/G3 moves but with power 0 (M3 S0, or no S greater than 0). Set a power when generating it, for example M3 S500 before the cut, and import it again; or use the "Power for cuts without S" option when importing
+pipeline.import_gcode.nothing_drawn = {name}: the G-code draws nothing with the laser on (it looks for G1, G2 and G3 moves with M3/M4 and S greater than 0; G0 moves are not drawn)
+pipeline.import_gcode.defaulted_feeds = {n} G-code move(s) came with power 0 and were taken as cuts with S{s}.
+pipeline.import_gcode.no_spindle = The G-code uses neither M3 nor M4: every move with S greater than 0 was treated as laser on.
+pipeline.import_gcode.no_spindle_no_power = The G-code uses no M3, M4 or S: all G1, G2 and G3 moves were imported.
+pipeline.import_gcode.many_levels = The G-code uses {n} power levels: they were spread across {max} layers. If it is an image engraving, import it as an image, not as G-code.
+pipeline.import_gcode.ignored_codes = Ignored G-code commands: {codes}.
+pipeline.import_gcode.non_xy_arcs = {n} arc(s) outside the XY plane (G18/G19) were skipped.
+pipeline.import_gcode.bad_arcs = {n} arc(s) without a valid center were imported as straight lines.
+pipeline.import_gcode.truncated = The G-code is very long: only the first {max} lines were interpreted.
+
+# import_hpgl.rs
+pipeline.import_hpgl.no_strokes = {name}: the HPGL file contains no strokes (there is no PD or PA with the pen down)
+pipeline.import_hpgl.assumed_units = HPGL: assumed 40 units per mm (0.025 mm). If the size does not match, fix it with the scale in the import options.
+pipeline.import_hpgl.labels_skipped = Skipped {n} text label(s) (LB): convert them to outlines before exporting to HPGL.
+pipeline.import_hpgl.ignored_commands = Ignored HPGL commands: {commands}.
+pipeline.import_hpgl.isotropic_scale = Isotropic SC: it was treated as independent X and Y scales; check the proportions.
+pipeline.import_hpgl.scale_without_ip = SC without IP: the size it maps to is unknown, so it was ignored.
+
+# import_rd.rs
+pipeline.import_rd.not_rd = {name}: this does not look like a Ruida .rd file: none of the known obfuscation keys gives a valid command stream
+pipeline.import_rd.unusual_key = The .rd file uses obfuscation key 0x{key} (not the usual 0x88).
+pipeline.import_rd.unknown_commands = {n} command(s) in the .rd file were not recognized and were ignored.
+pipeline.import_rd.no_cuts = {name}: the .rd file contains no cuts (there is no A8/A9/AA/AB with the laser on)
+pipeline.import_rd.recolored = {n} layer(s) in the .rd file had no color or repeated one: each was given a distinct color.
+pipeline.import_rd.variable_power = Layer {n} varies its power within the layer (fill or image): it was imported with the maximum power ({pct} %) and without the overscan stretches at power 0.
+pipeline.import_rd.no_speed = Layers {layers} do not declare a speed: {speed} mm/min was used.
+pipeline.import_rd.assumed_origin = Ruida: the origin was assumed to be at the top left with Y pointing down, and Y was flipped (default profile bed). If your machine has a different origin, the drawing may come out shifted or mirrored.
+
+# import_lbrn.rs
+pipeline.import_lbrn.newer_format = Unknown LightBurn format version (FormatVersion {version}, saved with {app}): an attempt is made to read it, but some information may be missing
+pipeline.import_lbrn.unknown_app_version = an unidentified version
+pipeline.import_lbrn.text_note_one = Text: {note} (in 1 text object)
+pipeline.import_lbrn.text_note_other = Text: {note} (in {n} text objects)
+pipeline.import_lbrn.omitted_shapes_one = Skipped 1 shape of type "{ty}" (not supported)
+pipeline.import_lbrn.omitted_shapes_other = Skipped {n} shapes of type "{ty}" (not supported)
+pipeline.import_lbrn.empty_project = {path}: the LightBurn project contains no shapes or layers
+pipeline.import_lbrn.layers_only = The project contains no importable shapes: only the layers were imported
+pipeline.import_lbrn.image_skipped = Skipped an embedded image of {w} x {h} mm: {error}
+
+# import_lbrn/bitmap.rs
+pipeline.import_lbrn_bitmap.save_failed = the image could not be saved in "{preferred}" ({first}) or in "{fallback}" ({error})
+pipeline.import_lbrn_bitmap.saved_in_fallback = Could not write next to the project ({first}); the embedded images were saved in "{fallback}"
+pipeline.import_lbrn_bitmap.unknown_format = unrecognized image format
+
+# import_lbrn/text.rs
+pipeline.import_lbrn_text.spacing = LightBurn letter/line spacing (LS/LnS) is not imported (its units are not documented); normal spacing is used
+pipeline.import_lbrn_text.font_substituted = the font "{font}" is not installed; the outline was generated with "{family}"
+pipeline.import_lbrn_text.no_outline = the file has no outline and it could not be generated with the installed fonts (is "{font}" missing?); it stays without an outline until you regenerate it in the editor
+
+# import_lbrn/layers.rs
+pipeline.import_lbrn_layers.undefined_layer = Layer {layer} is not defined in the file; the default settings are used
+pipeline.import_lbrn_layers.images_only = Layer "{layer}" contains only images: it is imported in image mode
+pipeline.import_lbrn_layers.images_moved = There are images in layer "{layer}", which also contains vectors: they go to layer "{target}"
+pipeline.import_lbrn_layers.quoted_name = "{name}"
+pipeline.import_lbrn_layers.and_more = {list} and {more} more
+pipeline.import_lbrn_layers.note_for_layers = {note} (layers: {layers})
+pipeline.import_lbrn_layers.sub_type_mismatch = sub-layer {n} is of a type ({kind}) that cannot be combined with the layer; it is ignored
+pipeline.import_lbrn_layers.too_many_subs = there are more than {max} sub-layers; the extra ones are ignored
+pipeline.import_lbrn_layers.sub_prefix = sub-layer {n}: {note}
+pipeline.import_lbrn_layers.fill_plus_line = "Fill + Line" does not exist in a single layer; only the fill is imported (create another line layer if you also want the outline)
+pipeline.import_lbrn_layers.unknown_mode = unknown layer mode "{mode}"; it is imported as a line
+pipeline.import_lbrn_layers.manual_tabs = LightBurn tabs are placed by hand and here they are spread automatically (check their position)
+pipeline.import_lbrn_layers.ramp_no_length = the power ramp has no length; it is ignored
+pipeline.import_lbrn_layers.through_no_time = the cut-through has no time; {ms} ms is used
+pipeline.import_lbrn_layers.unknown_image_mode = unknown image mode "{mode}"; Stucki is used
+pipeline.import_lbrn_layers.ignored_ppi = pulses per inch (PPI)
+pipeline.import_lbrn_layers.ignored_frequency = laser frequency
+pipeline.import_lbrn_layers.ignored_laser2 = second laser
+pipeline.import_lbrn_layers.ignored_constant_power = constant power
+pipeline.import_lbrn_layers.ignored_blower = blower speed
+pipeline.import_lbrn_layers.ignored_scan_individual = fill per object (scanOpt individual)
+pipeline.import_lbrn_layers.ignored_feature = "{what}" has no equivalent in Tlaku and is ignored
+
+# import_pdf.rs
+pipeline.import_pdf.legacy_ai = {name}: this is a legacy AI file (PostScript) and cannot be read. Open it in Illustrator and save it with "Create PDF Compatible File", or export it to PDF or SVG.
+pipeline.import_pdf.not_pdf = {name}: this does not look like a PDF (the %PDF- header is missing)
+pipeline.import_pdf.password = {name}: the PDF is password protected
+pipeline.import_pdf.invalid = {name}: invalid PDF: {error}
+pipeline.import_pdf.no_pages = {name}: the PDF has no pages
+pipeline.import_pdf.no_such_page = {name}: the PDF has {n} pages; page {page} does not exist
+pipeline.import_pdf.multi_page = The PDF has {n} pages: only page {page} was imported.
+pipeline.import_pdf.page_unreadable = {name}: could not read the page content: {error}
+pipeline.import_pdf.page_garbled = {name}: the page content is unreadable: {error}
+pipeline.import_pdf.no_vectors = {name}: page {page} contains no vector paths
+pipeline.import_pdf.text_blocks = The PDF contains {n} text block(s) with fonts: they were skipped because they are not outlines. Convert them to outlines (curves) in the source program and export again.
+pipeline.import_pdf.images_skipped = Skipped {n} embedded image(s) in the PDF: only vectors are imported.
+pipeline.import_pdf.shadings_skipped = Skipped {n} gradient(s) or pattern(s): they are not paths.
+pipeline.import_pdf.clips_ignored = The PDF uses {n} clipping path(s) that are not applied: the geometry is imported in full.
+pipeline.import_pdf.unsupported_colors = {n} path(s) with a color space that is not evaluated were skipped.
+pipeline.import_pdf.white_background = Skipped the white page background.
+pipeline.import_pdf.too_deep = Nested forms are too deep: the rest was ignored.
+pipeline.import_pdf.too_big = The page content is too large: only part of it was interpreted.
+
+# --- resto del pipeline ---
+
+# slice3d.rs
+pipeline.slice3d.blank = image: there is no point to engrave (the image turned out blank)
+pipeline.slice3d.slice_count = image: 3D engraving needs between {min} and {max} slices (got {n})
+pipeline.slice3d.bad_angle = image: invalid angle per slice: {angle}
+pipeline.slice3d.slice_name = {name} · slice {k}/{total}
+pipeline.slice3d.some_blank = image: {blank} of {total} 3D slices have no point to engrave
+
+# comunes
+pipeline.common.layer_label = layer {name}
+pipeline.common.image_label = image
+pipeline.common.image_error = image: {error}
+
+# build/fill.rs
+pipeline.build_fill.angle_increment_offset = layer {name}: angle_increment does not apply to offset (contour) fill; it is ignored
+pipeline.build_fill.scale_clamped = layer {name}: the power scale of {n} object(s) is above 100 %: it is limited to 100 %
+pipeline.build_fill.scale_zero = layer {name}: {n} object(s) with power 0 (power scale 0 %) are not filled
+pipeline.build_fill.several_scales = layer {name}: the objects have {n} different power scales; they are filled separately (once per scale)
+pipeline.build_fill.scales_overlap = layer {name}: some objects with different power scales overlap; each scale is filled on its own, so the shared area is engraved twice (a hole from another scale is not respected)
+pipeline.build_fill.open_ignored = layer {name}: {n} open path(s) ignored: fill only uses closed paths
+pipeline.build_fill.no_lines = layer {name}: the fill produced no lines
+pipeline.build_fill.layer_error = layer {name}: {error}
+
+# build/line.rs
+pipeline.build_line.open_no_kerf = layer {name}: {n} open path(s) are not kerf-compensated
+pipeline.build_line.manual_tabs_off = layer {name}: some objects have manual tabs, but the layer's tabs are turned off (turn them on for the manual tabs to be used)
+pipeline.build_line.plan_warning = layer {name}: {warning}
+pipeline.build_line.nothing_to_cut = layer {name}: no path left to cut
+pipeline.build_line.tabs_no_shape = layer {name}: tabs are on but there is no closed shape to put them on
+pipeline.build_line.tabs_no_shape_inner = layer {name}: tabs are on but there is no closed shape to put them on (shapes inside another are skipped)
+pipeline.build_line.tab_power_high = layer {name}: the tab power ({tab} %) is higher than the cut power ({cut} %); the gaps are marked with the cut power
+
+# job.rs
+pipeline.job.bad_coordinates = layer {name} has coordinates that are not numbers
+pipeline.job.outside_bed = layer {name} ({mode}) goes outside the {w}x{h} mm work area (bed): it spans X from {x0} to {x1} mm, Y from {y0} to {y1} mm
+pipeline.job.outside_bed_overscan = layer {name} ({mode}) goes outside the {w}x{h} mm work area (bed): it spans X from {x0} to {x1} mm, Y from {y0} to {y1} mm (includes {os} mm of overscan)
+pipeline.job.move_inside = move the design inside the bed (or use a machine with a larger work area)
+
+# build/plan.rs
+pipeline.build_plan.no_layer_order_nothing = no per-layer order: there are no consecutive cut layers with the same settings to merge (layers with different settings are not merged)
+pipeline.build_plan.no_layer_order_merged = no per-layer order: layers with the same settings were merged ({list})
+pipeline.build_plan.overlaps_removed = repeated segments removed within each cut layer (tolerance {tolerance} mm)
+pipeline.build_plan.hide_backlash = hide_backlash: travel in one direction only, slower
+pipeline.build_plan.optimization = optimization: {parts}
+pipeline.build_plan.nothing_to_produce = nothing to produce: {reason}
+pipeline.build_plan.empty_or_no_output = the design is empty (or no object has output)
+pipeline.build_plan.empty_design = the design is empty
+pipeline.build_plan.all_hidden = all objects are hidden
+pipeline.build_plan.layer_no_output = layer "{name}" has no output (the layer's output is turned off); turn it on so it is cut or engraved
+pipeline.build_plan.layers_no_output = the layers with objects ({names}) have no output (output is turned off); turn on the output of at least one so it is cut or engraved
+
+# build/mod.rs
+pipeline.build_mod.bad_overlap_tolerance = optimization: invalid overlap_tolerance ({value}); it must be 0 mm or more
+pipeline.build_mod.hide_backlash = hide_backlash is on: closed shapes are always cut counterclockwise and fills and images are engraved in one direction only; the job is slower
+pipeline.build_mod.bad_angle_increment = layer {layer}: invalid angle_increment: {value}
+pipeline.build_mod.bad_position = layer {layer}: the position must be an integer starting at 1
+pipeline.build_mod.same_position = layers {a} and {b} ask for the same position: order={n}
+pipeline.build_mod.position_too_high = layer {layer}: order={pos} exceeds the number of layers ({n}); it goes last
+pipeline.build_mod.sub_layers_order = sub-layers are ordered by their own role, never before their layer
+
+# build/helpers.rs
+pipeline.build_helpers.must_be_positive = machine '{machine}': {name} must be greater than 0
+pipeline.build_helpers.bed = the work area
+pipeline.build_helpers.accel = the acceleration
+pipeline.build_helpers.max_rate = the maximum speed
+pipeline.build_helpers.rapid_rate = the rapid-move speed
+
+# rotary.rs
+pipeline.rotary.must_be_positive = machine '{machine}': rotary: {name} must be greater than 0
+pipeline.rotary.mm_per_rotation = mm per revolution
+pipeline.rotary.roller_diameter = the roller diameter
+pipeline.rotary.object_diameter = the workpiece diameter
+pipeline.rotary.test_layer = One-turn test
+pipeline.rotary.test_needs_rotary = turn on the rotary of machine '{machine}' to generate the one-revolution test
+pipeline.rotary.test_needs_diameter = machine '{machine}': the workpiece diameter must be greater than 0 to compute the test circumference
+pipeline.rotary.test_bad_speed = the test speed must be greater than 0: {speed}
+pipeline.rotary.test_bad_power = the test power must be between 0 and 100 %: {power}
+
+# cylinder.rs
+pipeline.cylinder.must_be_positive = {name} must be greater than 0 (it is {value})
+pipeline.cylinder.cyl_diameter = cylinder correction: the diameter
+pipeline.cylinder.cyl_mirror_distance = cylinder correction: the mirror distance
+pipeline.cylinder.cone_top = cone: the top diameter
+pipeline.cylinder.cone_bottom = cone: the bottom diameter
+pipeline.cylinder.cone_length = cone: the length
+pipeline.cylinder.axis_mismatch = the cylinder correction and the cone correction must use the same axis
+
+# layers.rs
+pipeline.layers.passes_min = passes must be at least 1
+pipeline.layers.passes_max = too many passes ({passes}); the maximum is {max}
+pipeline.layers.layer_error = layer {layer}: {error}
+pipeline.layers.bad_kerf = invalid kerf: {value}
+pipeline.layers.is_image_layer = it is an image layer
+pipeline.layers.image_bad_denoise = image: invalid despeckle value: {value}
+pipeline.layers.image_bad_threshold = image: threshold outside 0-1: {value}
+pipeline.layers.image_bad_interval = image: invalid interval: {value}
+pipeline.layers.speed_over_ruida = layer {name}: asks for {speed} mm/min and Ruida allows at most {cap} mm/min; the .rd file will use {cap} mm/min, so the result will be darker or more burnt than expected
+pipeline.layers.speed_over_machine = layer {name}: asks for {speed} mm/min and machine '{machine}' reaches at most {max} mm/min; the machine will run at its maximum, so the result will be darker or more burnt than expected (lower the layer speed or fix the profile's maximum speed)
+pipeline.layers.speed_over_machine_ruida = layer {name}: asks for {speed} mm/min and machine '{machine}' reaches at most {max} mm/min; the machine will run at its maximum, so the result will be darker or more burnt than expected (if your controller allows more, raise the profile's maximum speed)
+pipeline.layers.order_file = file order (--layer-order file)
+pipeline.layers.order_fixed = order set with order=
+pipeline.layers.order_auto_file = automatic order: the file order is kept
+pipeline.layers.order_auto_file_same_type = automatic order: the file order is kept (all layers are of the same type)
+pipeline.layers.role_engraves = engravings
+pipeline.layers.role_lines = lines
+pipeline.layers.role_cuts = cuts
+pipeline.layers.order_first = {role} first
+pipeline.layers.order_last = {role} last
+pipeline.layers.order_then = {role} next
+pipeline.layers.order_auto = automatic order: {parts}
+pipeline.layers.reason_kerf = kerf
+pipeline.layers.reason_power = power ≥ 80 % with several passes
+pipeline.layers.cut_by = {color} because of {why}
+pipeline.layers.cut_list = (cut: {list})
+pipeline.layers.at_position = {color} at position {n}
+pipeline.layers.explicit_order = explicit order=: {list}
+
+# gcode.rs
+pipeline.gcode.swap_with_rotary = machine '{machine}' has both X/Y swap and the rotary turned on: the swap is ignored while the rotary is on
+pipeline.gcode.no_air_command = machine '{machine}' has no air command in its G-code dialect: the layers' air assist is ignored
+pipeline.gcode.no_laser2 = machine '{machine}' has no second laser: layers that ask for laser 2 are output with laser 1
+pipeline.gcode.no_laser2_select = the dialect of machine '{machine}' has no command to select laser 2: laser 2 layers are output without switching lasers (set it in the G-code dialect)
+pipeline.gcode.no_dynamic_power = machine '{machine}' has no dynamic power in its dialect: constant power is used
+pipeline.gcode.no_dynamic_power_with = machine '{machine}' has no dynamic power in its dialect: constant power is used ({command})
+pipeline.gcode.s_not_inline = machine '{machine}' puts the power on a separate line: every S change stops the head and image engraving comes out with smudges; use a dialect with inline S
+pipeline.gcode.grbl_no_laser_mode = machine '{machine}' is GRBL without laser mode: every S change pauses the motion and image engraving comes out with smudges; update to GRBL 1.1f or later
+pipeline.gcode.s_few_levels = machine '{machine}' writes S without decimals but its maximum S is {s_max}: power has only {levels} level(s); raise the maximum S or the S decimals
+pipeline.gcode.pointer_frame_outside = The frame with the red pointer goes outside the work area of machine '{machine}': with the pointer offset ({ox} mm, {oy} mm) the head would have to go to X {x0}..{x1}, Y {y0}..{y1}. Move the design closer to the center or use the frame with the laser.
+
+# ruida.rs
+pipeline.ruida.layers_merged = Ruida supports {max} layers and the job has {blocks}: on export, {merged} neighboring layers with identical settings (speed, power, air) will be merged, leaving {layers}; the cut order does not change
+pipeline.ruida.layers_too_many = Ruida supports {max} layers and the job has {blocks}: even after merging {merged} neighboring layers with identical settings, {layers} remain, so it cannot be exported or sent. Unify the colors or settings (speed, power, air) of consecutive layers
+pipeline.ruida.cannot_export = Ruida: the job cannot be exported: {error}
+
+# preview.rs
+pipeline.preview.paths_one = 1 path
+pipeline.preview.paths_other = {n} paths
+pipeline.preview.lines_one = 1 line
+pipeline.preview.lines_other = {n} lines
+pipeline.preview.summary = {count}, {speed} mm/min, {power}, {passes} pass(es)
+pipeline.preview.overscan = overscan {mm} mm
+pipeline.preview.tabs_one = 1 tab
+pipeline.preview.tabs_other = {n} tabs
+pipeline.preview.sub_layer = sub-layer {n}/{total}
+pipeline.preview.pass = pass {n}/{total}
+pipeline.preview.z = Z {z} mm
+pipeline.preview.shape_closed = shape #{item} (closed): {reason}
+pipeline.preview.shape_open = shape #{item} (open): {reason}
+
+# processed.rs
+pipeline.processed.bad_size = invalid image size: {w} x {h} mm
+
+# place.rs
+pipeline.place.image_bad_size = image '{id}': invalid size {w}x{h} mm
+pipeline.place.image_transform = image '{id}': only scale, mirror and translation are supported (no rotation or skew)
+pipeline.place.image_no_area = image '{id}': the scale leaves the image with no area
+pipeline.place.ignored = {error}; it is ignored
+pipeline.place.text_no_outline = object '{id}' skipped: the text has no generated outline
+pipeline.place.vector_ignored = vector object '{id}' ignored: layer {layer} is in {mode} mode
+pipeline.place.image_ignored = image object '{id}' ignored: layer {layer} is in {mode} mode
+pipeline.place.text_ignored = text object '{id}' ignored: layer {layer} is in {mode} mode
+pipeline.place.too_many_sublayers = layer {layer}: too many sub-layers ({n}); the maximum is {max}
+pipeline.place.missing_layer = object '{id}' uses layer {layer}, which does not exist in the document
+pipeline.place.bad_transform = object '{id}' has an invalid transform
+pipeline.place.bad_power_scale = object '{id}': invalid power_scale ({value}); it must be a % greater than or equal to 0
+pipeline.place.copies_ignored = {error}; the copies are ignored
+pipeline.place.in_copies = {warning} (in the copies of the virtual array)
+pipeline.place.sublayer_skipped = layer {layer}, sub-layer {sub}: {n} object(s) ignored because it does not support {mode} mode
+pipeline.place.bad_job_origin = job_origin outside 0-8: {value}
+pipeline.place.duplicate_id = the document repeats the object id '{id}'
+pipeline.place.selection_missing = the selection includes '{id}', which does not exist in the document
+pipeline.place.selection_origin_no_selection = use_selection_origin is ignored: there is no selection (use `selection` to cut only some objects)
+pipeline.place.selection_origin_absolute = use_selection_origin is ignored: absolute mode uses the document coordinates
+pipeline.place.selection_empty = the selection includes no object with output (hidden, on a layer with output off, or of a type its layer does not support)
+pipeline.place.no_current_position = the machine's current position is missing (connect it to work from the current position)
+pipeline.place.no_user_origin = the user origin (user_origin) is missing
+pipeline.place.bad_start_point = the job start point is not a number
+
+# stroke.rs
+pipeline.stroke.lead_bad_length = {what}: the length must be greater than 0: {value}
+pipeline.stroke.lead_bad_angle = {what}: the {unit} must be between 0 and {max} degrees: {value}
+pipeline.stroke.lead_angle = angle
+pipeline.stroke.lead_sweep = sweep
+pipeline.stroke.lead_in = lead-in
+pipeline.stroke.lead_out = lead-out
+pipeline.stroke.layer_error = layer {layer}: {error}
+pipeline.stroke.perforation_bad = perforation: the cut ({cut}) and the gap ({skip}) must be greater than 0 mm
+pipeline.stroke.perforation_too_fine = perforation: the {period} mm pattern is too fine (minimum {min} mm)
+pipeline.stroke.bad_overcut = invalid overcut: {value}
+pipeline.stroke.bad_start_delay = invalid start delay: {value} ms
+pipeline.stroke.bad_end_delay = invalid end delay: {value} ms
+pipeline.stroke.cut_through_bad = cut through: power 0-100 % and a time greater than 0 ms (got {power} % and {ms} ms)
+pipeline.stroke.dot_bad = dot mode: a time greater than 0 ms and a spacing of at least {min} mm (got {ms} ms and {mm} mm)
+pipeline.stroke.ramp_bad = ramp: a length greater than 0 mm and a starting power of 0-100 % (got {mm} mm and {pct} %)
+pipeline.stroke.dot_ignores_perforation = dot mode ignores perforation: the dots are already intermittent
+pipeline.stroke.dot_ignores_ramp = dot mode ignores the ramp: every dot fires at the layer power
+pipeline.stroke.dot_ignores_leads = dot mode ignores lead-in, lead-out and overcut: there is no line to extend
+pipeline.stroke.dot_ignores_pauses = dot mode ignores the delays and cut through: every dot already has its own dwell
+pipeline.stroke.layer_warning = layer {name}: {message}
+pipeline.stroke.shortened = {n} lead-in(s) or lead-out(s) were shortened so they do not cross the shape
+pipeline.stroke.dropped = {n} lead-in(s) or lead-out(s) were skipped: they do not fit without crossing the shape
+pipeline.stroke.open_skipped = {n} open path(s) without lead-in, lead-out or overcut: they only apply to closed contours
+pipeline.stroke.tabbed_skipped = {n} shape(s) with tabs without lead-in, lead-out or overcut: they are not a whole closed contour
+pipeline.stroke.overcut_clamped = the overcut of {n} contour(s) went past the perimeter and was limited to one turn
+pipeline.stroke.too_fine = {n} path(s) too long for the requested pattern (more than {max} segments or dots): they are cut without perforation or dots
+pipeline.stroke.power_clamped = the power scale of {n} path(s) is above 100 %: it is limited to 100 %
+
+# tabs.rs
+pipeline.tabs.layer_error = layer {layer}: tabs: {error}
+pipeline.tabs.bad_width = the width must be greater than 0: {value}
+pipeline.tabs.bad_spacing = the spacing must be 0 or greater: {value}
+pipeline.tabs.bad_power = the tab power must be between 0 and 100: {value}
+pipeline.tabs.too_many = too many tabs per shape ({n}); the maximum is {max}
+pipeline.tabs.need_count_or_spacing = set how many tabs (count) or how many mm apart (spacing)
+pipeline.tabs.dont_fit = layer {name}: the {width} mm tabs do not fit in {n} shape(s) (the shortest contour measures {shortest} mm); {none} are cut without tabs and the rest with fewer than requested. Tabs never take more than half of the contour
+pipeline.tabs.kerf_eats_tab = layer {layer}: the {width} mm tabs do not survive the cut: with {kerf} mm of kerf per side the beam removes {cut} mm and no tab is left (the pieces will come loose); use a width of at least {min} mm
+pipeline.tabs.kerf_fragile = layer {layer}: fragile tabs: of {width} mm only about {left} mm remain after the cut (kerf {kerf} mm per side); a width of at least {min} mm is recommended
+
+# zaxis.rs
+pipeline.zaxis.bad_value = layer {layer}: invalid {name}: {value}
+pipeline.zaxis.ignored_no_axis = layer {layer}: z_offset and z_step are ignored because machine '{machine}' has no Z axis
+
+# split.rs
+pipeline.split.too_many_pieces = split marking: {cols}x{rows} pieces is too many (maximum {max}); check the size
+pipeline.split.must_be_positive = {name} must be greater than 0 (it is {value})
+pipeline.split.param_overlap = the overlap
+pipeline.split.param_pause_move = the pause after the move
+pipeline.split.param_piece = the piece size
+pipeline.split.param_pause_repeat = the pause between repeats
+pipeline.split.param_field = the galvo field
+pipeline.split.bad_param = split/repeat marking: invalid {name}: {value}
+pipeline.split.increment_not_number = repeat marking: the step must be a number
+pipeline.split.bad_repeats = repeat marking: the repeats must be between 1 and {max} (got {n})
+pipeline.split.rotary_needs_diameter = machine '{machine}': the workpiece diameter must be greater than 0 for the rotary
+pipeline.split.overlap_too_big = split marking: the overlap ({overlap} mm) must be smaller than the piece ({side} mm)
+pipeline.split.rotary_too_wide = galvo rotary: the design is {w} mm wide and the piece is {side} mm; the rotary does not move X (use an X stage or reduce the design)
+pipeline.split.too_tall_for_x = split marking: the design is {h} mm tall and the stage only moves in X (piece of {side} mm)
+pipeline.split.too_wide_for_y = split marking: the design is {w} mm wide and the stage only moves in Y (piece of {side} mm)
+pipeline.split.rotary_curvature = galvo rotary: each strip spans {span} degrees of the workpiece (circumference {circ} mm): the curvature distorts the mark; use smaller pieces (piece_mm) and the cylinder correction
+pipeline.split.rotary_overlap = galvo rotary: the design is {h} mm in Y and the circumference is {circ} mm: the ends will overlap
+pipeline.split.too_many_steps = split and repeat marking: {pieces} pieces times {repeats} repeats exceed the maximum of {max} steps
+pipeline.split.no_motion = the job has no moves to split
+
+# tile.rs
+pipeline.tile.numbers = tiling: some values are not numbers
+pipeline.tile.empty = tiling: the design has no area
+pipeline.tile.size = tiling: the tile size must be greater than 0
+pipeline.tile.overlap_negative = tiling: the overlap cannot be negative
+pipeline.tile.overlap = tiling: the overlap ({overlap} mm) must be smaller than the tile ({w} x {h} mm)
+pipeline.tile.too_many = tiling: {count} tiles is too many (the maximum is {max}); check the tile size
+pipeline.tile.rect_not_numbers = tile: the rectangle or the offset are not numbers
+pipeline.tile.rect_no_area = tile: the rectangle ({x0}, {y0})-({x1}, {y1}) has no area
+pipeline.tile.empty_tile = the tile contains no part of the design
+
+# registration.rs
+pipeline.registration.few_affine = the affine transform needs 3 or more marks (there are {have})
+pipeline.registration.few = at least 2 marks are needed (there are {have})
+pipeline.registration.nan = a mark has coordinates that are not numbers
+pipeline.registration.close = marks {a} and {b} are too close together (less than {min} mm): the rotation cannot be measured
+pipeline.registration.collinear = the marks are in a straight line: the affine transform needs them not to be aligned
+pipeline.registration.mirrored = the print looks mirrored (the transform flips the design): check that the physical marks are in the same order as the design's marks
+pipeline.registration.scale = the measured scale is {pct} % (more than {tolerance} % away from 100 %): the print may be distorted or the reference is bad; check the print scale and the positions
+pipeline.registration.anisotropy = the print is stretched differently on each axis (X {x} %, Y {y} %)
+pipeline.registration.transform_invalid = the Print & Cut transform is not valid (it has values that are not numbers)
+pipeline.registration.transform_collapses = the Print & Cut transform collapses the design (zero determinant)
+
+# material_test.rs
+pipeline.material_test.param_speed = the speed
+pipeline.material_test.param_power = the power
+pipeline.material_test.param_passes = the passes
+pipeline.material_test.param_interval = the interval
+pipeline.material_test.rows = rows
+pipeline.material_test.cols = columns
+pipeline.material_test.bad_count = The number of {which} must be between 1 and {max} (got {n}).
+pipeline.material_test.bad_range = The range of the {which} contains invalid values.
+pipeline.material_test.interval_in_line = The interval is not used in line mode; pick another parameter for the {which} or switch to fill.
+pipeline.material_test.bad_power = The power of the {which} must be between 0 and 100 % (got {value}).
+pipeline.material_test.needs_positive = For {what} of the {which}, a value greater than 0 is needed (got {value}).
+pipeline.material_test.too_many_passes = The passes of the {which} cannot exceed {max} (got {value}).
+pipeline.material_test.bad_mode = The material test only supports the line and fill modes.
+pipeline.material_test.same_param = Rows and columns must vary different parameters.
+pipeline.material_test.bad_cell = The cell size must be greater than 0 mm.
+pipeline.material_test.bad_gap = The gap between cells cannot be negative.
+pipeline.material_test.bad_origin = The grid origin is not valid.
+pipeline.material_test.bad_label_speed = The label speed must be greater than 0.
+pipeline.material_test.bad_label_power = The label power must be between 0 and 100 %.
+pipeline.material_test.cell_too_narrow = With labels, the cell must be at least {min} mm wide (or increase the gap).
+pipeline.material_test.cell_too_short = With labels, the cell must be at least {min} mm tall (or increase the gap).
+pipeline.material_test.labels_layer = Labels
+pipeline.material_test.short_speed = S {n}
+pipeline.material_test.short_power = P {n}%
+pipeline.material_test.short_passes = Pass {n}
+pipeline.material_test.short_interval = Int {n}
+pipeline.material_test.axis_speed = S MM/MIN
+pipeline.material_test.axis_power = P %
+pipeline.material_test.axis_passes = PASS
+pipeline.material_test.axis_interval = INT MM
+
+# scan_offset.rs
+pipeline.scan_offset.overscan_short = {layer}: the overscan ({overscan} mm) is smaller than the scan offset correction ({offset} mm at {speed} mm/min): the shifted lines enter without reaching speed; raise the overscan
+
+# build/mod.rs (cont.)
+pipeline.build_mod.overlaps_with_kerf = layer {layer}: remove_overlaps does not apply with kerf (the open shapes it leaves cannot be compensated); it is cut as is
+pipeline.build_mod.overlaps_removed = layer {layer}: remove_overlaps removed {mm} mm of repeated stroke in {n} path(s)
+pipeline.build_mod.rotary_overlap = the design is {height} mm in Y and the workpiece circumference is {circumference} mm (diameter {diameter} mm): the ends will overlap
+
+# rotary.rs (cont.)
+pipeline.rotary.soft_limits = rotary: the controller's Y travels from {lo} to {hi} mm and the area of machine '{machine}' is {bed_y} mm in Y: with soft limits on ($20=1) it would trigger ALARM:2. The rotary has no limit switch; turn them off ($20=0) while you use it
+
+# --- galvo.rs ---
+pipeline.galvo.bad_field = machine '{machine}': the galvo field must be greater than 0 mm (it is {field})
+pipeline.galvo.machine_error = machine '{machine}': {err}
+pipeline.galvo.invalid_value = layer {layer}: invalid {name}: {value}
+pipeline.galvo.wobble_needs_galvo = layer {layer}: wobble only works on galvo machines; it is ignored
+pipeline.galvo.bad_frequency = layer {layer}: invalid frequency: {khz} kHz
+pipeline.galvo.bad_repeat = layer {layer}: repeat must be between 1 and {max} (it is {repeat})
+pipeline.galvo.what_pause_before = pause before
+pipeline.galvo.what_pause_after = pause after
+pipeline.galvo.what_jump_delay_min = minimum jump delay
+pipeline.galvo.what_jump_delay_max = maximum jump delay
+pipeline.galvo.what_jump_distance = jump distance limit
+pipeline.galvo.bad_delay = layer {layer}: invalid delay '{delay}': {value}
+pipeline.galvo.bad_jump_speed = layer {layer}: invalid jump speed: {speed}
+pipeline.galvo.frequency_outside = layer {layer}: the frequency of {khz} kHz is outside the source's range ({min}-{max} kHz)
+pipeline.galvo.pulse_not_in_source = layer {layer}: the pulse width of {ns} ns is not among the source's ({list} ns)
+pipeline.galvo.pulse_not_adjustable = layer {layer}: the machine's source has no adjustable pulse width; the {ns} ns one is ignored
+pipeline.galvo.power_above = layer {layer}: the power of {power} % exceeds the machine's limit ({max} %)
+pipeline.galvo.ppi_ignored = layer {layer}: ppi has no effect on a galvo machine; it is ignored
+pipeline.galvo.overscan_ignored = layer {layer}: a galvo does not need overscan; it is ignored (the profile can set one)
+pipeline.galvo.wobble_line_only = layer {layer}: wobble only applies to line layers; it is ignored
+pipeline.galvo.wobble_bad_size = layer {layer}: wobble needs a size and step greater than 0 (size {size}, step {step})
+pipeline.galvo.wobble_too_many_points = {label}: wobble would generate too many points (more than {max}); it is skipped (increase the step or shorten the stroke)
+pipeline.galvo.cylinder_clipped = {label}: {n} point(s) of the design fall outside what the mirror can see (more than 90 degrees of arc on the cylinder); they are clipped to the edge
+pipeline.galvo.layer_outside_field = layer {layer} goes outside the galvo field ({size}x{size} mm): it spans X from {x0} to {x1} mm, Y from {y0} to {y1} mm
+pipeline.galvo.layer_not_finite = layer {layer} has coordinates that are not numbers
+pipeline.galvo.layer_mode_outside_field = layer {layer} ({mode}) goes outside the {size}x{size} mm galvo field: it spans X from {x0} to {x1} mm, Y from {y0} to {y1} mm
+pipeline.galvo.reduce_to_field = shrink the design to fit the field (or enable split marking to break it into pieces)

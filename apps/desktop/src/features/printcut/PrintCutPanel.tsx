@@ -1,6 +1,7 @@
 import { RotateCcw, X } from 'lucide-react';
 import { useEffect, useId } from 'react';
 import { t } from '@/i18n';
+import { useReturnFocus } from '@/ui/useReturnFocus';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
 import { acceptRegistration, resetRegistration } from './actions';
@@ -36,6 +37,7 @@ function ActiveBanner() {
 
 /** Asistente flotante de Print & Cut: no bloquea el lienzo, porque hay que elegir marcas y mover el láser. */
 export function PrintCutPanel() {
+  useReturnFocus();
   const titleId = useId();
   const step = usePrintCut((s) => s.step);
   const marks = usePrintCut((s) => s.marks);
@@ -70,7 +72,7 @@ export function PrintCutPanel() {
   const nextBlocked = step === 'marks' ? blockedMarks : step === 'capture' && !allMeasured ? 'printcut.capture.missing' : null;
 
   return (
-    <aside className="pc-panel" role="dialog" aria-labelledby={titleId}>
+    <section className="pc-panel" role="dialog" aria-labelledby={titleId}>
       <header className="pc-head">
         <h2 id={titleId} className="pc-title">{t('printcut.title')}</h2>
         <button type="button" className="icon-btn" title={t('printcut.close')} aria-label={t('printcut.close')} onClick={close}>
@@ -119,7 +121,7 @@ export function PrintCutPanel() {
           </button>
         )}
       </footer>
-    </aside>
+    </section>
   );
 }
 

@@ -1,6 +1,7 @@
 //! Del perfil a la sesión, aviso previo al envío y estado publicado.
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Del perfil a la sesión
@@ -19,12 +20,8 @@ pub fn home_for_origin(origin: Origin) -> HomeCorner {
 
 /// Modelo de placa del perfil.
 pub fn board_of(device: &DeviceProfile) -> Result<Board, String> {
-    Board::parse(&device.lhymicro.board).ok_or_else(|| {
-        format!(
-            "El modelo de placa «{}» no existe. Usa A, B, B1, B2, M, M1, M2 (la de serie) o M3.",
-            device.lhymicro.board
-        )
-    })
+    Board::parse(&device.lhymicro.board)
+        .ok_or_else(|| tr!("desktop.lhymicro.bad_board", board = device.lhymicro.board))
 }
 
 /// Velocidad máxima de corte (mm/s) a partir del tope del perfil (mm/min); 140 mm/s si el perfil

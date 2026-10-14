@@ -5,6 +5,7 @@ use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Bounds, Rgb};
 use tlaku_doc::affine::Transform;
 use tlaku_doc::{DesignObject, Document, ImageObject, LayerMode, ObjectKind, union};
+use tlaku_i18n::tr;
 
 /// Un objeto a exportar.
 pub(crate) struct Item<'a> {
@@ -50,9 +51,9 @@ impl<'a> Scene<'a> {
                 },
                 ObjectKind::Text(t) => {
                     if t.outline.is_empty() {
-                        warnings.push(format!(
-                            "El texto «{}» no tiene contorno generado y se omitió.",
-                            t.text.lines().next().unwrap_or("").trim()
+                        warnings.push(tr!(
+                            "export.scene.text_no_outline",
+                            text = t.text.lines().next().unwrap_or("").trim()
                         ));
                         continue;
                     }
@@ -73,15 +74,13 @@ impl<'a> Scene<'a> {
             items.push(item);
         }
         if hidden > 0 {
-            warnings.push(format!(
-                "{hidden} objeto(s) oculto(s) o de capas ocultas no se exportaron."
-            ));
+            warnings.push(tr!("export.scene.hidden", n = hidden));
         }
         let Some(bounds) = bounds else {
             return Err(if selection.is_some() {
-                "La selección no tiene nada que exportar.".into()
+                tr!("export.scene.nothing_selection")
             } else {
-                "El diseño no tiene nada que exportar.".into()
+                tr!("export.scene.nothing_design")
             });
         };
         let mut layer_colors: Vec<Rgb> = doc

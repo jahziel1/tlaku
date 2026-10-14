@@ -1,8 +1,9 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Minus, Plus, RotateCcw } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type KeyboardEvent } from 'react';
 import type { GalvoFrameKind, GalvoState } from '@/api/types';
 import { t } from '@/i18n';
 import { fmt } from '@/lib/platform';
+import { stepFromKey } from '@/ui/stepKey';
 
 /** Ajuste en vivo del encuadre: desplazamiento (mm) y escala respecto al tamaño real. */
 export interface LiveAdjust {
@@ -84,6 +85,13 @@ export function GalvoFrameControls({ state, loops, blocked, adjustRejected = fal
     onAdjust(next);
   };
   const live = framing && !blocked;
+  // ↑/↓: suman o restan repeticiones (entero, 1..9999); desde «∞» (vacío) parten de 1.
+  const onLoopsKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    const next = stepFromKey(e, typeof parsed === 'number' ? parsed : 1, 1, 1, 9999);
+    if (next === null) return;
+    e.preventDefault();
+    setLoopsText(String(Math.round(next)));
+  };
   return (
     <div className="mc-galvo-frame">
       <h4 className="mc-sub">{t('galvo.panel.frame')}</h4>
@@ -100,7 +108,7 @@ export function GalvoFrameControls({ state, loops, blocked, adjustRejected = fal
         </div>
         <div className="mc-field" data-invalid={parsed === 'invalid' || undefined}>
           <label htmlFor={`${id}-loops`} className="field__label">{t('galvo.panel.frame.loops')}</label>
-          <input id={`${id}-loops`} className="input num" inputMode="numeric" value={loopsText} placeholder="∞" aria-invalid={parsed === 'invalid' || undefined} aria-describedby={`${id}-loops-help`} disabled={framing} onChange={(e) => setLoopsText(e.target.value)} />
+          <input id={`${id}-loops`} className="input num" inputMode="numeric" value={loopsText} placeholder="∞" aria-invalid={parsed === 'invalid' || undefined} aria-describedby={`${id}-loops-help`} disabled={framing} onChange={(e) => setLoopsText(e.target.value)} onKeyDown={onLoopsKey} />
           <p id={`${id}-loops-help`} className="hint mc-help">{t('galvo.panel.frame.loops.help')}</p>
         </div>
       </div>

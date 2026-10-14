@@ -1,0 +1,111 @@
+# Mensajes de tlaku-camera (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: camera.<módulo>.<qué> = plantilla
+
+# calibration/calibrate.rs
+camera.calibrate.no_images = no se indicó ninguna imagen para calibrar
+camera.calibrate.size_mismatch = la imagen {n} mide {w}x{h} y la primera {first_w}x{first_h}; todas deben tener el mismo tamaño
+camera.calibrate.image_skipped = imagen {n}: {error}; se omite
+camera.calibrate.few_boards = solo {found} de {total} imágenes tienen el tablero visible; se necesitan al menos 3 (ideal 5 o más, con el tablero inclinado y en las esquinas)
+camera.calibrate.open_failed = no se pudo abrir {path}: {error}
+camera.calibrate.few_views = se necesitan al menos 3 vistas del tablero (hay {n})
+camera.calibrate.bad_square = el tamaño del cuadro debe ser mayor que 0 mm
+camera.calibrate.corner_count = la vista {n} tiene {found} esquinas y se esperaban {expected}
+camera.calibrate.no_model = no se pudo ajustar ningún modelo de lente
+camera.calibrate.view_dropped = vista {n} descartada: error de reproyección {rms} px frente a una mediana de {median} px (¿tablero movido, desenfocado o mal detectado?)
+camera.calibrate.image_dropped = imagen {n} descartada: error de reproyección {rms} px frente a una mediana de {median} px (¿tablero movido, desenfocado o mal detectado?)
+camera.calibrate.few_useful = solo {n} vistas útiles; con 5 o más (tablero inclinado y cerca de las esquinas) la calibración es más fiable
+camera.calibrate.fisheye_chosen = se eligió el modelo de ojo de pez: error en vistas reservadas {fisheye} px frente a {brown} px con Brown-Conrady
+camera.calibrate.brown_failed = Brown-Conrady no logró ajustar estas vistas; se usa el modelo de ojo de pez
+camera.calibrate.fisheye_failed = el modelo de ojo de pez no logró ajustar estas vistas; se usa Brown-Conrady
+camera.calibrate.high_error = el error de reproyección es alto ({rms} px); revisa el enfoque, que el tablero esté plano y el tamaño del cuadro
+
+# calibration/fit.rs
+camera.fit.view_homography = no se pudo calcular la homografía de una vista: {error}
+camera.fit.singular_camera = matriz de cámara inicial no invertible
+camera.fit.fisheye_no_converge = el modelo de ojo de pez no convergió; toma más vistas, con el tablero inclinado y cerca de las esquinas
+camera.fit.no_converge = la calibración no convergió; toma más vistas con el tablero inclinado
+
+# calibration/intrinsics.rs
+camera.intrinsics.focal_unknown = no se pudo estimar la distancia focal: las vistas son demasiado parecidas; inclina el tablero en distintas direcciones
+
+# calibration/model.rs
+camera.model.fisheye = ojo de pez (Kannala-Brandt)
+camera.model.zero_size = la calibración tiene un tamaño de imagen nulo
+camera.model.not_finite = la calibración contiene valores no finitos
+camera.model.bad_focal = la calibración tiene una distancia focal no positiva
+camera.model.bad_zoom = la calibración tiene un factor de vista fuera de rango
+
+# calibration/select.rs
+camera.select.no_converge = sin convergencia
+
+# chessboard.rs
+camera.chessboard.not_found = no se encontró el tablero de {cols}x{rows} esquinas; verifica la iluminación y que se vea completo
+camera.chessboard.too_small = el tablero debe tener al menos 2x3 esquinas internas (se pidió {cols}x{rows})
+camera.chessboard.image_small = la imagen es demasiado pequeña ({w}x{h})
+camera.chessboard.grid_larger = se detectó una cuadrícula mayor que {cols}x{rows} esquinas; revisa el tamaño del tablero indicado
+
+# circle.rs
+camera.circle.image_small = la imagen es demasiado pequeña para buscar un círculo
+camera.circle.no_edges = no se ven bordes en la imagen; mejora el contraste o la iluminación
+camera.circle.not_found = no se encontró ningún círculo en la imagen
+camera.circle.partial = solo se ve el {pct} % del contorno; el círculo debe verse casi completo
+
+# height.rs
+camera.height.bad_camera = la matriz de la cámara no es válida
+camera.height.singular_camera = la matriz de la cámara es singular
+camera.height.degenerate_alignment = la alineación es degenerada para estimar la altura
+camera.height.degenerate_alignment_short = la alineación es degenerada
+camera.height.degenerate_points = los puntos de las marcas son degenerados
+camera.height.need_two_heights = hacen falta marcas a dos alturas distintas para el modelo de altura
+camera.height.point_mismatch = cada altura necesita tantos puntos de imagen como de cama
+camera.height.few_marks = la altura de {height} mm tiene menos de 4 marcas
+camera.height.not_finite = hay valores no finitos en las marcas
+camera.height.span_small = las alturas deben diferir al menos {min} mm (difieren {span} mm)
+camera.height.svd_failed = falló la descomposición SVD del modelo de altura
+camera.height.degenerate_marks = las marcas son degeneradas para el modelo de altura (colineales o repetidas)
+camera.height.norm_singular = normalización de la imagen no invertible
+camera.height.model_not_finite = el modelo de altura no es finito
+
+# homography.rs
+camera.homography.singular = la homografía es singular y no se puede invertir
+camera.homography.all_equal = los puntos son degenerados (todos coinciden)
+camera.homography.few_pairs = se necesitan al menos 4 pares de puntos para la homografía (hay {n})
+camera.homography.not_finite = hay puntos con coordenadas no finitas
+camera.homography.svd_failed = falló la descomposición SVD de la homografía
+camera.homography.collinear = los puntos son degenerados (colineales o repetidos); usa marcas bien repartidas
+camera.homography.norm_singular = normalización del destino no invertible
+camera.homography.not_finite_result = la homografía resultante no es finita
+camera.homography.ransac_no_sample = RANSAC no encontró ninguna muestra válida
+camera.homography.no_consensus = no hay consenso: solo {count} de {n} pares concuerdan; revisa las marcas o sube el umbral
+camera.homography.count_mismatch = hay {image} puntos de imagen y {bed} de cama; deben coincidir
+
+# marks/detect.rs
+camera.detect.image_small = la imagen es demasiado pequeña para buscar marcas
+camera.detect.few_candidates = no se encontraron suficientes marcas en la imagen (se vieron {n} y hacen falta al menos 4); revisa la iluminación, el enfoque y que las marcas estén dentro del encuadre
+camera.detect.layout_unknown = no se pudo reconocer la disposición de las marcas (¿son de otro documento, o la imagen está espejada?); con una alineación manual de 4 puntos previa la búsqueda es más fiable
+camera.detect.no_alignment = las marcas encontradas no definen una alineación: {error}
+camera.detect.few_refined = solo se pudo medir con precisión el centro de {n} marcas (hacen falta 4); las líneas grabadas son muy tenues o están desenfocadas: sube un poco la potencia o enfoca
+camera.detect.incoherent = las marcas no son coherentes entre sí; revisa que se hayan grabado completas
+camera.detect.found_some = Se encontraron {found} de {total} marcas.
+camera.detect.discarded = {n} marca(s) se descartaron por no concordar con las demás.
+camera.detect.high_residual = Hay un error de {error} mm en alguna marca (se recomienda menos de {max} mm).
+
+# marks/layout.rs
+camera.layout.bad_count = se pueden generar 4 o 9 marcas (se pidieron {count})
+camera.layout.bed_small = la cama debe medir al menos {min} mm por lado para las marcas
+
+# mosaic.rs
+camera.mosaic.no_photos = no hay ninguna foto que componer
+camera.mosaic.bad_rect = el rectángulo a componer no es válido
+camera.mosaic.bad_resolution = la resolución de la imagen debe ser mayor que 0
+camera.mosaic.too_big = la imagen sería de {w} x {h} píxeles; baja la resolución
+camera.mosaic.infinite = una foto se proyecta al infinito: revisa su alineación
+
+# undistort.rs
+camera.undistort.zero_output = el tamaño de salida de la corrección no puede ser 0
+camera.undistort.calib_small = la imagen calibrada es demasiado pequeña
+camera.undistort.size_mismatch = la imagen mide {w}x{h} pero la calibración es de {calib_w}x{calib_h}
+camera.undistort.channels = número de canales no soportado
+camera.undistort.buffer = tamaño de búfer inconsistente al corregir la imagen
+camera.undistort.open_failed = no se pudo abrir {path}: {error}
+camera.undistort.save_failed = no se pudo guardar {path}: {error}

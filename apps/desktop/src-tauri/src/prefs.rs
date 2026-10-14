@@ -13,6 +13,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
+use tlaku_i18n::tr;
 
 const FILE: &str = "preferences.json";
 /// Versión del sobre que esta compilación entiende.
@@ -25,7 +26,7 @@ const MAX_BYTES: u64 = 1024 * 1024;
 fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
-        .map_err(|e| format!("No se encontró la carpeta de configuración: {e}"))
+        .map_err(|e| tr!("desktop.common.config_dir", err = e))
 }
 
 fn io_error(path: &Path, e: &std::io::Error) -> String {
@@ -35,15 +36,15 @@ fn io_error(path: &Path, e: &std::io::Error) -> String {
 /// Comprueba que `value` es un sobre de preferencias que esta versión puede leer.
 pub fn check_envelope(value: &Value) -> Result<(), String> {
     let Some(obj) = value.as_object() else {
-        return Err("Las preferencias no son un objeto JSON.".into());
+        return Err(tr!("desktop.prefs.not_object"));
     };
     match obj.get("version").map(Value::as_u64) {
-        None => Err("Preferencias inválidas: falta el campo \"version\".".into()),
+        None => Err(tr!("desktop.prefs.no_version")),
         Some(Some(PREFS_VERSION)) => Ok(()),
-        Some(_) => Err(format!(
-            "Versión de preferencias no soportada: {} (esta aplicación entiende la \
-             {PREFS_VERSION}); actualiza la aplicación para abrirlas.",
-            obj["version"]
+        Some(_) => Err(tr!(
+            "desktop.prefs.unsupported_version",
+            version = obj["version"],
+            current = PREFS_VERSION
         )),
     }
 }
@@ -53,24 +54,22 @@ fn check_bundle(value: &Value) -> Result<(), String> {
     if value.get("format").and_then(Value::as_str) == Some(BUNDLE_FORMAT) {
         Ok(())
     } else {
-        Err("El archivo no es un paquete de preferencias de Tlaku (.tlakuprefs).".into())
+        Err(tr!("desktop.prefs.not_bundle"))
     }
 }
 
 fn read_json(path: &Path) -> Result<Value, String> {
     let meta = fs::metadata(path).map_err(|e| io_error(path, &e))?;
     if meta.len() > MAX_BYTES {
-        return Err(format!(
-            "{}: el archivo es demasiado grande para ser de preferencias.",
-            path.display()
-        ));
+        return Err(tr!("desktop.prefs.file_too_big", path = path.display()));
     }
     let text = fs::read_to_string(path).map_err(|e| io_error(path, &e))?;
-    serde_json::from_str(&text).map_err(|e| format!("{}: JSON inválido: {e}", path.display()))
+    serde_json::from_str(&text)
+        .map_err(|e| tr!("desktop.prefs.invalid_json", path = path.display(), err = e))
 }
 
 fn to_text(value: &Value) -> Result<String, String> {
-    serde_json::to_string_pretty(value).map_err(|e| format!("No se pudo serializar: {e}"))
+    serde_json::to_string_pretty(value).map_err(|e| tr!("desktop.prefs.serialize_failed", err = e))
 }
 
 /// Lee las preferencias guardadas; `None` si todavía no hay. Un archivo dañado se aparta como
@@ -89,9 +88,10 @@ pub fn load(dir: &Path) -> Result<Option<Value>, String> {
         Err(e) => {
             let aside = dir.join(format!("{FILE}.dañado"));
             let _ = fs::rename(&file, &aside);
-            Err(format!(
-                "Las preferencias estaban dañadas y se apartaron en {} ({e}).",
-                aside.display()
+            Err(tr!(
+                "desktop.prefs.corrupt_moved",
+                path = aside.display(),
+                err = e
             ))
         }
     }
@@ -123,7 +123,7 @@ pub async fn load_preferences(app: AppHandle) -> Result<Option<Value>, String> {
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || load(&dir))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]
@@ -131,21 +131,21 @@ pub async fn save_preferences(app: AppHandle, data: Value) -> Result<(), String>
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || store(&dir, &data))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]
 pub async fn export_preferences(path: String, bundle: Value) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || export_bundle(Path::new(&path), &bundle))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]
 pub async fn import_preferences(path: String) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || import_bundle(Path::new(&path)))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 // ---------------------------------------------------------------------------
@@ -165,24 +165,24 @@ const USER_BUNDLE_MAX_BYTES: u64 = 32 * 1024 * 1024;
 /// `devices` como arreglo. El contenido de cada sección lo valida la interfaz.
 pub fn check_user_bundle(value: &Value) -> Result<(), String> {
     let Some(obj) = value.as_object() else {
-        return Err("El paquete no es un objeto JSON.".into());
+        return Err(tr!("desktop.prefs.bundle_not_object"));
     };
     if obj.get("format").and_then(Value::as_str) != Some(USER_BUNDLE_FORMAT) {
-        return Err("El archivo no es un paquete de Tlaku (.tlakubundle).".into());
+        return Err(tr!("desktop.prefs.bundle_wrong_format"));
     }
     match obj.get("version").map(Value::as_u64) {
-        None => return Err("Paquete inválido: falta el campo \"version\".".into()),
+        None => return Err(tr!("desktop.prefs.bundle_no_version")),
         Some(Some(USER_BUNDLE_VERSION)) => {}
         Some(_) => {
-            return Err(format!(
-                "Versión de paquete no soportada: {} (esta aplicación entiende la \
-                 {USER_BUNDLE_VERSION}); actualiza la aplicación para abrirlo.",
-                obj["version"]
+            return Err(tr!(
+                "desktop.prefs.bundle_unsupported_version",
+                version = obj["version"],
+                current = USER_BUNDLE_VERSION
             ));
         }
     }
     if obj.get("devices").is_some_and(|d| !d.is_array()) {
-        return Err("Paquete inválido: \"devices\" debe ser una lista.".into());
+        return Err(tr!("desktop.prefs.bundle_devices_not_list"));
     }
     Ok(())
 }
@@ -193,9 +193,10 @@ pub fn export_user_bundle_file(path: &Path, bundle: &Value) -> Result<(), String
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case(USER_BUNDLE_EXT));
     if !has_ext {
-        return Err(format!(
-            "{}: el paquete debe guardarse con la extensión .{USER_BUNDLE_EXT}.",
-            path.display()
+        return Err(tr!(
+            "desktop.prefs.bundle_needs_ext",
+            path = path.display(),
+            ext = USER_BUNDLE_EXT
         ));
     }
     check_user_bundle(bundle)?;
@@ -205,14 +206,11 @@ pub fn export_user_bundle_file(path: &Path, bundle: &Value) -> Result<(), String
 pub fn import_user_bundle_file(path: &Path) -> Result<Value, String> {
     let meta = fs::metadata(path).map_err(|e| io_error(path, &e))?;
     if meta.len() > USER_BUNDLE_MAX_BYTES {
-        return Err(format!(
-            "{}: el archivo es demasiado grande para ser un paquete de Tlaku.",
-            path.display()
-        ));
+        return Err(tr!("desktop.prefs.bundle_too_big", path = path.display()));
     }
     let text = fs::read_to_string(path).map_err(|e| io_error(path, &e))?;
     let value: Value = serde_json::from_str(&text)
-        .map_err(|e| format!("{}: JSON inválido: {e}", path.display()))?;
+        .map_err(|e| tr!("desktop.prefs.invalid_json", path = path.display(), err = e))?;
     check_user_bundle(&value)?;
     Ok(value)
 }
@@ -221,14 +219,14 @@ pub fn import_user_bundle_file(path: &Path) -> Result<Value, String> {
 pub async fn export_user_bundle(path: String, bundle: Value) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || export_user_bundle_file(Path::new(&path), &bundle))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]
 pub async fn import_user_bundle(path: String) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || import_user_bundle_file(Path::new(&path)))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 /// Para cada ruta, si el archivo existe. Sirve para quitar de «recientes» lo que ya no está.
@@ -238,7 +236,7 @@ pub async fn paths_exist(paths: Vec<String>) -> Result<Vec<bool>, String> {
         paths.iter().map(|p| Path::new(p).is_file()).collect()
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))
+    .map_err(|e| tr!("desktop.common.task_interrupted", err = e))
 }
 
 #[cfg(test)]

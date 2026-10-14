@@ -8,26 +8,39 @@
 use crate::link::{LinkFamily, LinkProfile};
 use crate::serial::{LineReader, Transport};
 use crate::streamer::{
-    CREALITY_RECOVERY, Firmware, MachineState, Outcome, StatusReport, StreamError,
-    alarm_message_for, creality_error_message, error_message_for, parse_parameter_line,
+    Firmware, MachineState, Outcome, StatusReport, StreamError, alarm_message_for,
+    creality_error_message, creality_recovery, error_message_for, parse_parameter_line,
     prepare_line_with,
 };
 use std::collections::BTreeMap;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
+
+/// ¿La línea de la salida del preflight es un aviso (empieza con «Aviso» o «Warning»)? Los avisos
+/// no bloquean el envío; las apps los dejan en el registro. No depende del idioma activo.
+pub fn is_warning_line(line: &str) -> bool {
+    tlaku_i18n::Locale::ALL.iter().any(|l| {
+        line.starts_with(&tlaku_i18n::translate_in(
+            *l,
+            "grbl.preflight.warning_prefix",
+            &[],
+        ))
+    })
+}
 
 pub fn state_name(s: MachineState) -> String {
     match s {
-        MachineState::Idle => "reposo".into(),
-        MachineState::Run => "en marcha".into(),
-        MachineState::Hold(_) => "en pausa".into(),
-        MachineState::Jog => "jog".into(),
-        MachineState::Alarm => "ALARMA".into(),
-        MachineState::Door(_) => "puerta abierta".into(),
-        MachineState::Check => "verificación".into(),
-        MachineState::Home => "homing".into(),
-        MachineState::Sleep => "suspendida".into(),
-        MachineState::Other => "otro estado".into(),
+        MachineState::Idle => tr!("grbl.preflight.state_idle"),
+        MachineState::Run => tr!("grbl.preflight.state_run"),
+        MachineState::Hold(_) => tr!("grbl.preflight.state_hold"),
+        MachineState::Jog => tr!("grbl.preflight.state_jog"),
+        MachineState::Alarm => tr!("grbl.preflight.state_alarm"),
+        MachineState::Door(_) => tr!("grbl.preflight.state_door"),
+        MachineState::Check => tr!("grbl.preflight.state_check"),
+        MachineState::Home => tr!("grbl.preflight.state_home"),
+        MachineState::Sleep => tr!("grbl.preflight.state_sleep"),
+        MachineState::Other => tr!("grbl.preflight.state_other"),
     }
 }
 
@@ -41,52 +54,52 @@ pub fn outcome_result(outcome: &Outcome) -> Result<(), String> {
 pub fn outcome_result_for(fw: Firmware, outcome: &Outcome) -> Result<(), String> {
     match outcome {
         Outcome::Completed { errors: 0 } => Ok(()),
-        Outcome::Completed { errors } => Err(format!("terminó con {errors} error(es)")),
-        Outcome::Cancelled => Err("trabajo cancelado: feed hold, espera a que frenara y soft \
-             reset (el láser queda apagado)"
-            .into()),
-        Outcome::LineError { code, source_line } => {
-            let hint = if *code == 9 {
-                "; si la máquina está en alarma, desbloquéala con $X o haz homing"
-            } else {
-                ""
-            };
-            Err(format!(
-                "error:{code} en la línea {source_line} del archivo: {}{hint}. El trabajo se \
-                 detuvo (feed hold y soft reset): la máquina seguía ejecutando lo que ya tenía \
-                 en el búfer y la línea rechazada no aplicó su S, F ni M3/M4",
-                error_message_for(fw, *code)
-            ))
+        Outcome::Completed { errors } => {
+            Err(tr!("grbl.preflight.finished_with_errors", errors = errors))
         }
-        Outcome::MachineFault(code) => Err(format!(
-            "falla de la máquina ERROR:{code:02}: {}. El trabajo se detuvo (feed hold y soft \
-             reset). {CREALITY_RECOVERY}",
-            creality_error_message(*code)
+        Outcome::Cancelled => Err(tr!("grbl.preflight.cancelled")),
+        Outcome::LineError { code, source_line } => {
+            let msg = error_message_for(fw, *code);
+            Err(if *code == 9 {
+                tr!(
+                    "grbl.preflight.line_error_locked",
+                    code = code,
+                    line = source_line,
+                    msg = msg
+                )
+            } else {
+                tr!(
+                    "grbl.preflight.line_error",
+                    code = code,
+                    line = source_line,
+                    msg = msg
+                )
+            })
+        }
+        Outcome::MachineFault(code) => Err(tr!(
+            "grbl.preflight.machine_fault",
+            code = format!("{code:02}"),
+            msg = creality_error_message(*code),
+            recovery = creality_recovery()
         )),
-        Outcome::Alarm(code) => Err(format!(
-            "ALARM:{code}: {}. {}",
-            alarm_message_for(fw, *code),
-            alarm_outcome_hint(fw, *code)
+        Outcome::Alarm(code) => Err(tr!(
+            "grbl.preflight.alarm_outcome",
+            code = code,
+            msg = alarm_message_for(fw, *code),
+            hint = alarm_outcome_hint(fw, *code)
         )),
-        Outcome::Reset(msg) => Err(format!(
-            "la controladora se reinició a mitad del trabajo ({msg}); el trabajo quedó incompleto"
-        )),
-        Outcome::Disconnected(msg) => Err(format!("se perdió la conexión con la máquina: {msg}")),
+        Outcome::Reset(msg) => Err(tr!("grbl.preflight.reset_midjob", msg = msg)),
+        Outcome::Disconnected(msg) => Err(tr!("grbl.preflight.disconnected", msg = msg)),
     }
 }
 
 /// Qué hacer tras un `ALARM:N` durante el envío.
-fn alarm_outcome_hint(fw: Firmware, code: u32) -> &'static str {
+fn alarm_outcome_hint(fw: Firmware, code: u32) -> String {
     match (fw, code) {
-        (Firmware::GrblHal, 10) => {
-            "Suelta el paro de emergencia; solo entonces desbloquea con $X (o reinicia)"
-        }
-        (Firmware::GrblHal, 11) => "Haz homing con $H",
-        (_, 3) => {
-            "La posición se perdió: revisa la alimentación, el cable USB y los sensores de la \
-             máquina; con finales de carrera haz $H antes de continuar"
-        }
-        _ => "Revisa la máquina; para continuar desbloquea con $X",
+        (Firmware::GrblHal, 10) => tr!("grbl.preflight.alarm_hint_hal_10"),
+        (Firmware::GrblHal, 11) => tr!("grbl.preflight.alarm_hint_hal_11"),
+        (_, 3) => tr!("grbl.preflight.alarm_hint_3"),
+        _ => tr!("grbl.preflight.alarm_hint_default"),
     }
 }
 
@@ -125,7 +138,7 @@ pub fn validate_gcode_for(text: &str, link: &LinkProfile) -> Result<usize, Strin
         count += 1;
     }
     if count == 0 {
-        return Err("el archivo no contiene ninguna línea de G-code".into());
+        return Err(tr!("grbl.preflight.no_gcode_lines"));
     }
     Ok(count)
 }
@@ -150,14 +163,14 @@ impl Default for PreflightConfig {
         Self {
             status_timeout: Duration::from_secs(3),
             settings_timeout: Duration::from_secs(2),
-            port: "<puerto>".into(),
+            port: tr!("grbl.preflight.port_placeholder"),
         }
     }
 }
 
 /// Texto de un fallo de E/S con la máquina.
 pub fn io_err(e: io::Error) -> String {
-    format!("error al hablar con la máquina: {e}")
+    tr!("grbl.preflight.io_error", e = e)
 }
 
 /// Envía `?` y espera el reporte de estado. Devuelve también las demás líneas recibidas
@@ -175,10 +188,9 @@ fn query_status(
     loop {
         let now = Instant::now();
         if now >= deadline {
-            return Err(format!(
-                "la máquina no respondió a la consulta de estado (?) en {:.0} s; revisa que sea \
-                 el puerto correcto, que esté encendida y que use GRBL 1.1 (baudios: --baud)",
-                timeout.as_secs_f64()
+            return Err(tr!(
+                "grbl.preflight.status_timeout",
+                secs = format!("{:.0}", timeout.as_secs_f64())
             ));
         }
         if now >= next_poll {
@@ -314,51 +326,35 @@ pub fn check_settings(
 ) -> Result<Vec<String>, String> {
     let mut warnings = Vec::new();
     if expect.require_laser_mode {
-        let fix = format!("Actívalo y vuelve a intentarlo: {}.", advice.run("$32=1"));
+        let fix = tr!("grbl.preflight.enable_laser_fix", cmd = advice.run("$32=1"));
         match settings.get(32) {
             Some(1.0) => {}
             Some(0.0) => {
-                return Err(format!(
-                    "el modo láser está desactivado ($32=0). Con él GRBL trata M3/M4 como un \
-                     husillo de fresadora: el láser quedaría encendido durante los movimientos \
-                     rápidos (G0), quemaría entre trazos y el movimiento se detendría en cada \
-                     cambio de S. No se transmitió nada. {fix}"
-                ));
+                return Err(tr!("grbl.preflight.laser_mode_off", fix = fix));
             }
             Some(2.0) => {
-                return Err(format!(
-                    "la controladora está en modo torno ($32=2, grblHAL), no en modo láser. No \
-                     se transmitió nada. {fix}"
-                ));
+                return Err(tr!("grbl.preflight.laser_mode_lathe", fix = fix));
             }
             Some(v) => {
-                return Err(format!(
-                    "$32={v} no es el modo láser ($32=1): el láser podría quedar encendido en \
-                     los movimientos rápidos. No se transmitió nada. {fix}"
-                ));
+                return Err(tr!("grbl.preflight.laser_mode_other", v = v, fix = fix));
             }
-            None => warnings.push(
-                "Aviso: la controladora no informó $32; no se pudo comprobar que el modo láser \
-                 esté activado."
-                    .into(),
-            ),
+            None => warnings.push(tr!("grbl.preflight.warn_no_32")),
         }
     }
     if let Some(expected) = expect.s_max {
         match settings.get(30) {
             Some(v) if (v - expected).abs() > 1e-6 => {
                 let pct = if v > 0.0 { expected / v * 100.0 } else { 0.0 };
-                warnings.push(format!(
-                    "Aviso: $30={v} en la controladora pero el perfil usa S máx = {expected}: \
-                     la potencia saldría escalada (S={expected} equivale al {pct:.0} % de la \
-                     controladora). Haz que coincidan, cambiando el perfil o con {} (GRBL-LPC \
-                     usa $30=1).",
-                    advice.run(&format!("$30={expected}"))
+                warnings.push(tr!(
+                    "grbl.preflight.warn_s_max_mismatch",
+                    v = v,
+                    expected = expected,
+                    pct = format!("{pct:.0}"),
+                    cmd = advice.run(&format!("$30={expected}"))
                 ));
             }
             Some(_) => {}
-            None => warnings
-                .push("Aviso: la controladora no informó $30; no se pudo comprobar S máx.".into()),
+            None => warnings.push(tr!("grbl.preflight.warn_no_30")),
         }
     }
     Ok(warnings)
@@ -378,11 +374,9 @@ pub fn parameter_warnings<S: AsRef<str>>(lines: &[S]) -> Vec<String> {
     if broken.is_empty() {
         return Vec::new();
     }
-    vec![format!(
-        "Aviso: {} de la controladora tiene valores no numéricos (nan) y se ignoran. Tlaku no \
-         usa G54-G59, así que el trabajo no depende de ellos; si otro programa los necesita, \
-         $RST=# los restablece (borra los desplazamientos guardados: decídelo tú).",
-        broken.join(", ")
+    vec![tr!(
+        "grbl.preflight.warn_nan_offsets",
+        names = broken.join(", ")
     )]
 }
 
@@ -416,39 +410,25 @@ impl Advice<'_> {
     fn run(self, command: &str) -> String {
         match self {
             Self::Cli { port } => cmd_hint(port, command),
-            Self::Console => format!("escribe {command} en la consola de la pestaña Máquina"),
+            Self::Console => tr!("grbl.preflight.advice_console", command = command),
         }
     }
 
     /// Quién envía los comandos de recuperación (nunca el envío de trabajos).
-    fn who(self) -> &'static str {
+    fn who(self) -> String {
         match self {
-            Self::Cli { .. } => {
-                "send nunca ejecuta estos comandos por su cuenta; tlaku cmd pide \
-                 confirmación antes de enviarlos"
-            }
-            Self::Console => {
-                "la app nunca ejecuta estos comandos por su cuenta; los envías tú desde la \
-                 consola"
-            }
+            Self::Cli { .. } => tr!("grbl.preflight.advice_who_cli"),
+            Self::Console => tr!("grbl.preflight.advice_who_console"),
         }
     }
 }
 
 fn unlock_text(advice: Advice) -> String {
-    format!(
-        "$X desbloquea la alarma sin mover la máquina, pero no comprueba la posición: úsalo \
-         solo si el cabezal está libre y sin obstáculos. Ejecútalo con: {}",
-        advice.run("$X")
-    )
+    tr!("grbl.preflight.unlock_text", cmd = advice.run("$X"))
 }
 
 fn home_text(advice: Advice) -> String {
-    format!(
-        "$H hace homing (el cabezal se mueve hasta los finales de carrera) y recupera la \
-         posición de origen. Ejecútalo con: {}",
-        advice.run("$H")
-    )
+    tr!("grbl.preflight.home_text", cmd = advice.run("$H"))
 }
 
 /// Qué sugerir según la causa de la alarma (si se conoce) y si el homing está activado ($22).
@@ -458,19 +438,16 @@ fn alarm_advice(code: Option<u32>, homing: Option<bool>, advice: Advice) -> Vec<
     let (unlock, home) = (unlock.as_str(), home.as_str());
     let by_homing = |lost: Vec<String>| -> Vec<String> {
         let rest = match homing {
-            Some(false) => vec![
-                line("el homing está desactivado ($22=0): lo normal es desbloquear con $X"),
-                line(unlock),
-            ],
+            Some(false) => vec![line(&tr!("grbl.preflight.advice_homing_off")), line(unlock)],
             Some(true) => vec![
-                line("el homing está activado ($22=1): lo normal es hacer $H"),
+                line(&tr!("grbl.preflight.advice_homing_on")),
                 line(home),
                 line(unlock),
             ],
             None => vec![
-                line("si tu máquina tiene finales de carrera (homing): $H"),
+                line(&tr!("grbl.preflight.advice_if_limits")),
                 line(home),
-                line("si no los tiene: $X"),
+                line(&tr!("grbl.preflight.advice_if_no_limits")),
                 line(unlock),
             ],
         };
@@ -479,37 +456,30 @@ fn alarm_advice(code: Option<u32>, homing: Option<bool>, advice: Advice) -> Vec<
     match (code, homing) {
         (Some(4 | 5), _) => vec![line(unlock)],
         (Some(6..=9), _) => vec![
-            line("revisa la puerta, los finales de carrera y su cableado; después repite $H"),
+            line(&tr!("grbl.preflight.advice_check_door")),
             line(home),
             line(unlock),
         ],
         (Some(1 | 2), Some(false)) => {
-            vec![line("aparta el cabezal del límite a mano"), line(unlock)]
+            vec![line(&tr!("grbl.preflight.advice_move_head")), line(unlock)]
         }
         (Some(1 | 2), _) => vec![
-            line("aparta el cabezal del límite a mano; luego $X para desbloquear"),
-            line("con homing activado, haz después $H para recuperar la posición"),
+            line(&tr!("grbl.preflight.advice_move_head_unlock")),
+            line(&tr!("grbl.preflight.advice_homing_after")),
         ],
         // Reinicio durante un movimiento: la posición se perdió. En la Falcon2 es lo más
         // frecuente en los foros y se atribuye a la alimentación, el USB o un sensor.
         (Some(3), _) => by_homing(vec![
-            line("la posición se perdió: no confíes en el origen actual"),
-            line(
-                "la causa más común (sobre todo en la Falcon2) es la alimentación débil o \
-                 inestable, el cable USB o un sensor (inclinación, llama, tapa) que reinicia la \
-                 placa: prueba otra fuente y otro cable USB",
-            ),
+            line(&tr!("grbl.preflight.advice_pos_lost")),
+            line(&tr!("grbl.preflight.advice_pos_lost_cause")),
         ]),
         // ALARM:10 cambia de significado según el firmware; ALARM:11 es solo de grblHAL.
         (Some(10), _) => vec![
-            line("si es grblHAL: parada de emergencia; suelta el botón y solo entonces desbloquea"),
-            line("si es GRBL 1.1: autoescuadre sin segundo final de carrera; revisa los finales"),
+            line(&tr!("grbl.preflight.advice_hal_estop")),
+            line(&tr!("grbl.preflight.advice_grbl_square")),
             line(unlock),
         ],
-        (Some(11), _) => vec![
-            line("grblHAL pide homing antes de aceptar movimientos"),
-            line(home),
-        ],
+        (Some(11), _) => vec![line(&tr!("grbl.preflight.advice_hal_homing")), line(home)],
         _ => by_homing(Vec::new()),
     }
 }
@@ -533,50 +503,34 @@ pub fn check_ready_with(
     homing: Option<bool>,
     advice: Advice,
 ) -> Result<(), String> {
-    let why = match report.state {
+    let key = match report.state {
         MachineState::Idle => return Ok(()),
         MachineState::Alarm => {
-            let mut msg = String::from(
-                "la máquina está en ALARMA: GRBL no acepta G-code hasta que se resuelva. \
-                 No se transmitió nada.",
-            );
+            let mut msg = tr!("grbl.preflight.alarm_state");
             if let Some(c) = code {
-                msg.push_str(&format!(
-                    "\nCausa: ALARM:{c}, {}.",
-                    alarm_message_for(Firmware::Unknown, c)
+                msg.push('\n');
+                msg.push_str(&tr!(
+                    "grbl.preflight.alarm_cause",
+                    code = c,
+                    msg = alarm_message_for(Firmware::Unknown, c)
                 ));
             }
-            msg.push_str(&format!("\nQué hacer ({}):\n", advice.who()));
+            msg.push('\n');
+            msg.push_str(&tr!("grbl.preflight.alarm_what_to_do", who = advice.who()));
+            msg.push('\n');
             msg.push_str(&alarm_advice(code, homing, advice).join("\n"));
             return Err(msg);
         }
-        MachineState::Hold(_) => {
-            "está en pausa (Hold): hay un movimiento detenido con feed hold. Reanúdalo con ~ \
-             (cycle start) o cancélalo con un soft reset (Ctrl+X) antes de enviar otro trabajo"
-        }
-        MachineState::Door(_) => {
-            "la puerta o tapa de seguridad está abierta (o se acaba de cerrar). Ciérrala y \
-             reanuda con ~; si sigue igual, haz un soft reset (Ctrl+X)"
-        }
-        MachineState::Run => {
-            "está ejecutando un movimiento: ya hay un trabajo en curso. Espera a que termine \
-             (estado en reposo) o cancélalo antes de enviar otro"
-        }
-        MachineState::Jog => "está en jog (movimiento manual); espera a que termine",
-        MachineState::Home => "está haciendo homing; espera a que termine",
-        MachineState::Check => {
-            "está en modo de verificación ($C): no ejecutaría nada. Sal de ese modo con $C o \
-             con un soft reset (Ctrl+X)"
-        }
-        MachineState::Sleep => "está suspendida (sleep); despiértala con un soft reset (Ctrl+X)",
-        MachineState::Other => {
-            "está en un estado que Tlaku no reconoce (p. ej. cambio de herramienta de grblHAL); \
-             termínalo en la máquina o haz un soft reset (Ctrl+X)"
-        }
+        MachineState::Hold(_) => tr!("grbl.preflight.not_idle_hold"),
+        MachineState::Door(_) => tr!("grbl.preflight.not_idle_door"),
+        MachineState::Run => tr!("grbl.preflight.not_idle_run"),
+        MachineState::Jog => tr!("grbl.preflight.not_idle_jog"),
+        MachineState::Home => tr!("grbl.preflight.not_idle_home"),
+        MachineState::Check => tr!("grbl.preflight.not_idle_check"),
+        MachineState::Sleep => tr!("grbl.preflight.not_idle_sleep"),
+        MachineState::Other => tr!("grbl.preflight.not_idle_other"),
     };
-    Err(format!(
-        "la máquina no está en reposo, {why}. No se transmitió nada."
-    ))
+    Err(key)
 }
 
 /// Consulta el estado con `?` y solo da el visto bueno si la máquina está en reposo.
@@ -614,7 +568,14 @@ pub fn preflight_checked(
     out: &mut impl Write,
 ) -> Result<(), String> {
     let (report, others) = query_status(t, config.status_timeout)?;
-    let _ = writeln!(out, "Estado de la máquina: {}.", state_name(report.state));
+    let _ = writeln!(
+        out,
+        "{}",
+        tr!(
+            "grbl.preflight.machine_state",
+            state = state_name(report.state)
+        )
+    );
     let code = others
         .iter()
         .find_map(|l| l.strip_prefix("ALARM:")?.trim().parse::<u32>().ok());
@@ -637,11 +598,7 @@ pub fn preflight_checked(
                 Err(e) => result = Err(e),
             },
             None => {
-                let _ = writeln!(
-                    out,
-                    "Aviso: la controladora no contestó a $$; no se pudo comprobar el modo \
-                     láser ($32) ni S máx ($30)."
-                );
+                let _ = writeln!(out, "{}", tr!("grbl.preflight.warn_no_settings"));
             }
         }
     }
@@ -728,12 +685,10 @@ fn query_m115(
     loop {
         let now = Instant::now();
         if now >= deadline {
-            return Err(format!(
-                "la máquina no respondió a M115 en {:.0} s; revisa que sea el puerto correcto, \
-                 que esté encendida y que use {} (baudios: --baud; Marlin usa 250000 por \
-                 defecto, Smoothie por USB ignora la velocidad)",
-                timeout.as_secs_f64(),
-                link.family_name()
+            return Err(tr!(
+                "grbl.preflight.m115_timeout",
+                secs = format!("{:.0}", timeout.as_secs_f64()),
+                family = link.family_name()
             ));
         }
         if now >= next_send {
@@ -747,21 +702,20 @@ fn query_m115(
         while let Some(line) = reader.next_line() {
             let low = line.to_ascii_lowercase();
             if low.starts_with("grbl") || low.starts_with("[ver:") || low.starts_with("<") {
-                return Err(format!(
-                    "la máquina contestó como GRBL ({line}), no como {}: el perfil no \
-                     corresponde a su firmware. No se transmitió nada",
-                    link.family_name()
+                return Err(tr!(
+                    "grbl.preflight.m115_is_grbl",
+                    line = line,
+                    family = link.family_name()
                 ));
             }
             if link.is_ack(&line) {
                 return Ok(lines);
             }
             if low.starts_with("error") {
-                return Err(format!(
-                    "la máquina rechazó M115 ({line}): no parece {} (un Smoothieware anterior a \
-                     enero de 2018 tampoco la conoce; un GRBL la rechaza con error:20). No se \
-                     transmitió nada",
-                    link.family_name()
+                return Err(tr!(
+                    "grbl.preflight.m115_rejected",
+                    line = line,
+                    family = link.family_name()
                 ));
             }
             lines.push(line);
@@ -814,13 +768,13 @@ impl LinkLoad {
             return None;
         }
         let keep = (capacity / self.peak_lines_per_s * 100.0).floor().max(1.0);
-        Some(format!(
-            "Aviso: en su tramo más denso el trabajo pide {:.0} líneas por segundo y el enlace de \
-             {} baudios solo envía unas {:.0} (líneas de {:.0} bytes). La máquina se quedará sin \
-             líneas, hará pausas y pueden quedar marcas en el material. Baja la velocidad de las \
-             capas con más detalle (a menos del {keep:.0} % de la actual), simplifica el diseño o \
-             usa un enlace más rápido (USB nativo, red o más baudios si el firmware los admite).",
-            self.peak_lines_per_s, self.baud, capacity, self.mean_line_bytes,
+        Some(tr!(
+            "grbl.preflight.warn_link_load",
+            peak = format!("{:.0}", self.peak_lines_per_s),
+            baud = self.baud,
+            capacity = format!("{capacity:.0}"),
+            bytes = format!("{:.0}", self.mean_line_bytes),
+            keep = format!("{keep:.0}")
         ))
     }
 }
@@ -869,90 +823,67 @@ pub fn preflight_link(
     let low = info.name_lower();
     match (link.family, name.as_deref()) {
         (LinkFamily::Marlin, Some(n)) if low.contains("smoothie") => {
-            return Err(format!(
-                "la máquina es {n}, no Marlin: el perfil no corresponde a su firmware \
-                 (la cancelación y el rango de S serían distintos). No se transmitió nada"
-            ));
+            return Err(tr!("grbl.preflight.not_marlin", name = n));
         }
         (LinkFamily::Smoothie, Some(n)) if low.contains("marlin") => {
-            return Err(format!(
-                "la máquina es {n}, no Smoothieware: el perfil no corresponde a su firmware \
-                 (S va de 0 a 255 o de 0 a 100, no de 0 a 1). No se transmitió nada"
-            ));
+            return Err(tr!("grbl.preflight.not_smoothie", name = n));
         }
         _ => {}
     }
     match &name {
         Some(n) => {
-            let _ = writeln!(out, "Firmware: {n}.");
+            let _ = writeln!(out, "{}", tr!("grbl.preflight.firmware_line", name = n));
         }
         None => {
             let _ = writeln!(
                 out,
-                "Aviso: la máquina respondió a M115 pero no informó FIRMWARE_NAME; no se pudo \
-                 comprobar que sea {me}."
+                "{}",
+                tr!("grbl.preflight.warn_no_firmware_name", me = me)
             );
         }
     }
     if name.is_some() && !low.contains(&me.to_ascii_lowercase()[..6]) {
         let _ = writeln!(
             out,
-            "Aviso: el firmware no se identifica como {me} ({}); si es una variante, revisa el \
-             perfil.",
-            name.as_deref().unwrap_or("")
+            "{}",
+            tr!(
+                "grbl.preflight.warn_firmware_mismatch",
+                me = me,
+                name = name.as_deref().unwrap_or("")
+            )
         );
     }
     let _ = writeln!(
         out,
-        "Aviso: {me} no tiene consulta de estado (?): no se pudo comprobar que esté en reposo ni \
-         sin alarma. Asegúrate de que no haya otro trabajo en curso; el progreso se calcula por \
-         los 'ok' recibidos."
+        "{}",
+        tr!("grbl.preflight.warn_no_status_query", me = me)
     );
     if expect.require_laser_mode {
-        let _ = writeln!(
-            out,
-            "Aviso: no se pudo comprobar que el láser esté configurado en {me} ({}).",
-            match link.family {
-                LinkFamily::Marlin => "LASER_FEATURE y, para M3 S0 I, el modo inline",
-                _ => "laser_module_enable y que G0 apague el láser",
-            }
-        );
+        let msg = match link.family {
+            LinkFamily::Marlin => tr!("grbl.preflight.warn_laser_unchecked_marlin", me = me),
+            _ => tr!("grbl.preflight.warn_laser_unchecked_smoothie", me = me),
+        };
+        let _ = writeln!(out, "{msg}");
     }
     if let Some(s_max) = expect.s_max {
-        let _ = writeln!(
-            out,
-            "Aviso: no se pudo leer la escala de S de la máquina ({}); el perfil usa S máx = \
-             {s_max}. Si no coincide, la potencia saldría escalada o saturada.",
-            match link.family {
-                LinkFamily::Marlin => "CUTTER_POWER_UNIT: PWM 255, porcentaje 100 o RPM",
-                _ => "Maximum S-value del módulo láser: 1, 100 o 255",
-            }
-        );
+        let msg = match link.family {
+            LinkFamily::Marlin => tr!("grbl.preflight.warn_s_scale_marlin", s_max = s_max),
+            _ => tr!("grbl.preflight.warn_s_scale_smoothie", s_max = s_max),
+        };
+        let _ = writeln!(out, "{msg}");
     }
     if link.family == LinkFamily::Marlin {
         match info.caps.get("EMERGENCY_PARSER") {
             Some(true) => {
                 if !link.emergency_parser {
-                    let _ = writeln!(
-                        out,
-                        "Aviso: la máquina tiene EMERGENCY_PARSER; el enlace no lo usa (la \
-                         pausa solo deja de enviar)."
-                    );
+                    let _ = writeln!(out, "{}", tr!("grbl.preflight.warn_emergency_unused"));
                 }
             }
             Some(false) => {
-                let _ = writeln!(
-                    out,
-                    "Aviso: Marlin sin EMERGENCY_PARSER: M410 y la pausa se encolan detrás de \
-                     las líneas ya enviadas (un movimiento largo puede tardar en detenerse)."
-                );
+                let _ = writeln!(out, "{}", tr!("grbl.preflight.warn_no_emergency"));
             }
             None => {
-                let _ = writeln!(
-                    out,
-                    "Aviso: la máquina no informó EMERGENCY_PARSER (sin EXTENDED_CAPABILITIES_REPORT); \
-                     se supone que M410 se encola y tarda en detener un movimiento largo."
-                );
+                let _ = writeln!(out, "{}", tr!("grbl.preflight.warn_emergency_unknown"));
             }
         }
     }

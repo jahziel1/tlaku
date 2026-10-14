@@ -36,6 +36,7 @@ use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, DeviceProfile, JobEvent, JobState, LogDir,
     MachineState, Origin, ProgressEvent, StatusReport,
 };
+use tlaku_i18n::tr;
 use tlaku_lhymicro::emu::{EmuConfig, emulator};
 use tlaku_lhymicro::encode::{EncodeConfig, HomeCorner, Program, Warning, encode, mil_to_mm};
 use tlaku_lhymicro::session::{
@@ -53,23 +54,26 @@ pub const VIRTUAL_PORT: &str = "virtual:k40";
 /// Prefijo de los puertos USB reales: `usb:k40:<n>` es la placa número `n` de la lista.
 pub const USB_PREFIX: &str = "usb:k40:";
 
-/// Texto que delata, dentro del mensaje de un trabajo, que detener NO se confirmó. La interfaz
-/// lo busca para destacar el aviso del paro de emergencia (viene de `JobError`).
-pub const UNCONFIRMED_MARK: &str = "NO hubo confirmación";
+/// Código estable (`tlaku_i18n::coded`) del mensaje de un trabajo o de una conexión cuando detener
+/// NO se confirmó. La interfaz lo reconoce con `errorCode` (`ENGINE_ERROR.lhyStopUnconfirmed`) para
+/// destacar el aviso del paro de emergencia; el texto cambia con el idioma, el código no. Se decide
+/// por el tipo de error (`JobError::laser_may_be_on`, `StopOutcome::Unconfirmed`), nunca por su texto.
+pub const STOP_UNCONFIRMED: &str = "lhymicro_stop_unconfirmed";
 
 /// Aviso que acompaña a todo lo que toca una placa real.
-pub const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte del K40 (M2 Nano) no se ha probado con \
-una placa real. La M2 Nano de serie no controla la potencia por software: se ajusta con la perilla \
-del K40. Ten el paro de emergencia al alcance y prueba primero con el láser deshabilitado o muy \
-débil.";
+pub fn experimental() -> String {
+    tr!("desktop.lhymicro.experimental")
+}
 
 /// Mensaje cuando una operación solo existe en GRBL.
-pub const GRBL_ONLY: &str = "Esta función es solo de GRBL: la placa M2 Nano del K40 no usa G-code \
-ni overrides en vivo.";
+pub fn grbl_only() -> String {
+    tr!("desktop.lhymicro.grbl_only")
+}
 
 /// Mensaje cuando no se sabe dónde está el cabezal.
-pub const UNKNOWN_POSITION: &str = "No se sabe dónde está el cabezal (la M2 Nano no informa su \
-posición, se cuenta desde el home). Haz home primero.";
+pub fn unknown_position() -> String {
+    tr!("desktop.lhymicro.unknown_position")
+}
 
 /// ¿Es el puerto de la máquina virtual K40 (con o sin `@velocidad`)?
 pub fn is_virtual(port: &str) -> bool {

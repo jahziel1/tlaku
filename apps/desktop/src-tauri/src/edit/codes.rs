@@ -23,7 +23,7 @@ pub async fn generate_code(spec: CodeSpec) -> Result<CodeOutput, String> {
         }
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

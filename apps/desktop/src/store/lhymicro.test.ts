@@ -148,3 +148,25 @@ describe('K40 en la tienda de la máquina', () => {
     await expect(api.lhyHome()).rejects.toThrow(/solo del K40/);
   });
 });
+
+describe('K40: parada sin confirmar', () => {
+  it('se detecta por el código del motor en español y en inglés, y el texto se muestra sin él', async () => {
+    const { store } = await setup();
+    store.getState().onJob({ state: 'error', message: '[lhymicro_stop_unconfirmed] cancelado (paquetes confirmados: 1 de 9). NO hubo confirmación', position_lost: true });
+    expect(store.getState().stopUnconfirmed).toBe(true);
+    expect(store.getState().jobMessage).toBe('cancelado (paquetes confirmados: 1 de 9). NO hubo confirmación');
+    // Un mensaje posterior sin el código lo borra.
+    store.getState().onJob({ state: 'cancelled', message: 'Job stopped: the board stopped and the laser turned off.', position_lost: true });
+    expect(store.getState().stopUnconfirmed).toBe(false);
+    // En inglés: sigue reconociéndose, y el texto no lleva el código.
+    store.getState().onJob({ state: 'error', message: '[lhymicro_stop_unconfirmed] canceled (packets confirmed: 1 of 9). There was NO confirmation that the board stopped', position_lost: true });
+    expect(store.getState().stopUnconfirmed).toBe(true);
+    expect(store.getState().jobMessage).toBe('canceled (packets confirmed: 1 of 9). There was NO confirmation that the board stopped');
+  });
+
+  it('el texto sin código no activa el aviso', async () => {
+    const { store } = await setup();
+    store.getState().onJob({ state: 'error', message: 'There was NO confirmation that the board stopped', position_lost: true });
+    expect(store.getState().stopUnconfirmed).toBe(false);
+  });
+});

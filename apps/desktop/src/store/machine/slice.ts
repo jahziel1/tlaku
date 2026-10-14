@@ -14,7 +14,7 @@ import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, VIRTUAL_SPEEDS, withVirtualSpeed 
 import { noteJobAlarm, noteJobEvent, type JobLogContext } from '@/features/help/jobLog';
 import { t } from '@/i18n';
 import { docToWork, isGrblFamily, parseGrblSettings, type GrblSettings } from '@/lib/device';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
 import { fmt, readPref, writePref } from '@/lib/platform';
 import { buildJobArgs, isJobBusy, selectActiveDevice } from '../selectors';
 import type { AppState, SliceCreator } from '../types';
@@ -137,6 +137,7 @@ function pickData(s: MachineData): MachineData {
     progress: s.progress,
     jobState: s.jobState,
     jobMessage: s.jobMessage,
+    stopUnconfirmed: s.stopUnconfirmed,
     jobError: s.jobError,
     alarmCode: s.alarmCode,
     settings: s.settings,
@@ -234,12 +235,12 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
   /** Mensaje del motor al rechazar un inicio o un encuadre: se muestra tal cual, también en el panel. */
   const guardJob = async (fn: () => Promise<unknown>): Promise<void> => {
     // Salir del modo "Posicionar el láser": un clic en la cama no debe mover la cabeza durante el trabajo.
-    set({ jobError: null, positioningLaser: false });
+    set({ jobError: null, stopUnconfirmed: false, positioningLaser: false });
     try {
       await fn();
     } catch (e) {
       const message = errorMessage(e);
-      set({ jobError: message });
+      set({ jobError: message, stopUnconfirmed: isStopUnconfirmed(e) });
       get().notify('error', message);
     }
   };
@@ -585,13 +586,16 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     onProgress: (progress) => apply({ type: 'progress', progress }),
     onLog: (log) => {
       apply({ type: 'log', log });
+      // El texto crudo trae el código de la línea (`[frame_done] ...`): el bucle del encuadre lo lee.
       if (log.dir === 'in') get().noteFrameLog(log.text);
     },
-    onJob: (job) => {
+    onJob: (raw) => {
       const wasBusy = isJobBusy(get());
-      apply({ type: 'job', job });
+      apply({ type: 'job', job: raw });
+      // El mensaje del motor puede traer un código estable al inicio: lo que se muestra y se anota va limpio.
+      const job = { ...raw, message: errorMessage(raw.message) };
       noteJobEvent(wasBusy, job, jobLogContext());
-      get().onGalvoJob(job);
+      get().onGalvoJob(raw);
       if (job.state === 'finished') {
         get().notify('success', job.message);
         // Texto variable: la serie y la fila del CSV pasan al siguiente trabajo (solo si terminó bien).
@@ -611,7 +615,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         apply({ type: 'log', log: { dir: 'in', text: `; ${t('machine.positionLost.reconnect')}` } });
       }
       if (!connection.connected) set((s) => ({ jogging: false, frameLooping: false, positioningLaser: false, dialog: s.dialog?.kind === 'devices' || s.dialog?.kind === 'optimization' ? s.dialog : null }));
-      if (connection.error) get().notify('error', connection.error);
+      if (connection.error) get().notify('error', errorMessage(connection.error));
     },
   };
 };

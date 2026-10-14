@@ -1,0 +1,2 @@
+# Mensajes de tlaku-bench (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: bench.<módulo>.<qué> = plantilla

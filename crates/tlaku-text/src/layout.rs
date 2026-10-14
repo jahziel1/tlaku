@@ -9,6 +9,7 @@ use serde::Serialize;
 use std::collections::BTreeSet;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{Bounds, Point};
+use tlaku_i18n::tr;
 use ttf_parser::{GlyphId, OutlineBuilder, Tag};
 
 /// Distancias menores que esto (mm) se consideran el mismo punto.
@@ -57,23 +58,20 @@ pub fn outline(
     on_path: Option<&BezPath>,
 ) -> Result<TextOutline, String> {
     if !(spec.size_mm.is_finite() && spec.size_mm > 0.0) {
-        return Err(format!(
-            "El tamaño del texto debe ser mayor que 0 mm (recibido {})",
-            spec.size_mm
-        ));
+        return Err(tr!("text.layout.bad_size", value = spec.size_mm));
     }
     if !spec.letter_spacing_mm.is_finite() {
-        return Err("El espaciado entre letras no es un número válido".into());
+        return Err(tr!("text.layout.bad_letter_spacing"));
     }
     if !(spec.line_spacing.is_finite() && spec.line_spacing > 0.0) {
-        return Err(format!(
-            "El interlineado debe ser mayor que 0 (recibido {})",
-            spec.line_spacing
+        return Err(tr!(
+            "text.layout.bad_line_spacing",
+            value = spec.line_spacing
         ));
     }
 
     if !spec.bend_deg.is_finite() {
-        return Err("La curvatura del texto no es un número válido".into());
+        return Err(tr!("text.layout.bad_bend"));
     }
 
     let line_font = lib.line_font(&spec.font_family);
@@ -81,10 +79,7 @@ pub fn outline(
         Some(font) => {
             let mut w = Vec::new();
             if spec.bold || spec.italic {
-                w.push(format!(
-                    "La fuente de una línea '{}' no tiene negrita ni cursiva",
-                    font.name
-                ));
+                w.push(tr!("text.layout.line_font_style", name = font.name));
             }
             (w, shape_line_font(font, spec))
         }
@@ -95,7 +90,7 @@ pub fn outline(
                 .with_face_data(choice.id, |data, index| {
                     shape_and_extract(data, index, spec)
                 })
-                .ok_or_else(|| format!("No se pudo leer la fuente '{}'", choice.family))??;
+                .ok_or_else(|| tr!("text.layout.font_unreadable", family = choice.family))??;
             (w, shaped)
         }
     };
@@ -103,14 +98,12 @@ pub fn outline(
     let sampler = match (&spec.on_path, on_path) {
         (None, _) => None,
         (Some(_), None) => {
-            return Err("El texto está en trayecto pero no se recibió la trayectoria".into());
+            return Err(tr!("text.layout.missing_path"));
         }
         (Some(op), Some(path)) => {
             let (s, extra) = PathSampler::new(path, op.flip)?;
             if extra {
-                warnings.push(
-                    "La trayectoria tiene varios subtrayectos; solo se usa el primero".into(),
-                );
+                warnings.push(tr!("text.layout.many_subpaths"));
             }
             Some(s)
         }
@@ -129,22 +122,18 @@ pub fn outline(
 
     if spec.welded {
         if line_font.is_some() || !has_closed(&paths) {
-            warnings.push(
-                "El soldado no aplica a las fuentes de una línea: no tienen contornos que unir"
-                    .into(),
-            );
+            warnings.push(tr!("text.layout.weld_line_font"));
         } else {
             paths = weld_paths(&paths);
         }
     }
     if spec.bend_deg != 0.0 {
         if sampler.is_some() {
-            warnings
-                .push("El texto sobre trayecto ya sigue una curva; se ignora la curvatura".into());
+            warnings.push(tr!("text.layout.bend_on_path"));
         } else {
             let bend = spec.bend_deg.clamp(-MAX_BEND_DEG, MAX_BEND_DEG);
             if bend != spec.bend_deg {
-                warnings.push(format!("La curvatura se limitó a {bend} grados"));
+                warnings.push(tr!("text.layout.bend_clamped", bend = bend));
             }
             if let Some(radius) = bend_radius(width, bend) {
                 // Ancla horizontal del arco: el centro del bloque según la alineación.
@@ -157,10 +146,7 @@ pub fn outline(
                     -((shaped.lines.len().max(1) - 1) as f64) * spec.line_spacing * spec.size_mm
                         - spec.size_mm * 0.3;
                 if radius > 0.0 && radius + lowest <= 0.0 {
-                    warnings.push(
-                        "La curvatura es tan cerrada que el radio es menor que la altura del texto; las letras se aplastan"
-                            .into(),
-                    );
+                    warnings.push(tr!("text.layout.bend_too_tight"));
                 }
                 paths = paths.iter().map(|p| bend_path(p, x_mid, radius)).collect();
             }
@@ -185,11 +171,11 @@ struct Shaped {
 }
 
 fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped, String> {
-    let face = rustybuzz::Face::from_slice(data, index)
-        .ok_or("La fuente está dañada o su formato no es compatible")?;
+    let face =
+        rustybuzz::Face::from_slice(data, index).ok_or_else(|| tr!("text.layout.face_damaged"))?;
     let upem = f64::from(face.units_per_em());
     if upem <= 0.0 {
-        return Err("La fuente declara un tamaño de em inválido".into());
+        return Err(tr!("text.layout.bad_em"));
     }
     let scale = spec.size_mm / upem;
 
@@ -262,9 +248,7 @@ fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped,
             .map(|c| format!("'{c}'"))
             .collect::<Vec<_>>()
             .join(" ");
-        warnings.push(format!(
-            "La fuente no tiene glifo para: {list}; esos caracteres se omiten"
-        ));
+        warnings.push(tr!("text.layout.missing_glyphs", list = list));
     }
     Ok(Shaped {
         lines,
@@ -346,9 +330,7 @@ fn shape_line_font(font: &LineFont, spec: &TextSpec) -> Shaped {
             .map(|c| format!("'{c}'"))
             .collect::<Vec<_>>()
             .join(" ");
-        warnings.push(format!(
-            "La fuente no tiene glifo para: {list}; esos caracteres se omiten"
-        ));
+        warnings.push(tr!("text.layout.missing_glyphs", list = list));
     }
     Shaped {
         lines,
@@ -556,15 +538,19 @@ fn place(
         let end = offset + block_width;
         if s.closed {
             if block_width > s.length() + EPS_MM {
-                warnings.push(format!(
-                    "El texto ({block_width:.2} mm) es más largo que la trayectoria cerrada ({:.2} mm); se solapará",
-                    s.length()
+                warnings.push(tr!(
+                    "text.layout.longer_than_closed",
+                    text = format!("{block_width:.2}"),
+                    path = format!("{:.2}", s.length())
                 ));
             }
         } else if skipped > 0 || end > s.length() + EPS_MM || offset < -EPS_MM {
-            warnings.push(format!(
-                "El texto no cabe en la trayectoria ({block_width:.2} mm de texto desde {offset:.2} mm sobre {:.2} mm de largo); se omiten {skipped} glifos",
-                s.length()
+            warnings.push(tr!(
+                "text.layout.does_not_fit",
+                text = format!("{block_width:.2}"),
+                offset = format!("{offset:.2}"),
+                path = format!("{:.2}", s.length()),
+                skipped = skipped
             ));
         }
     }

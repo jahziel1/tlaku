@@ -1,10 +1,19 @@
+import { getLanguage, type Language } from '@/i18n';
 import { documentTitle, normalizeSearch, parseMarkdown, searchText, type Block } from './markdown';
 
 /**
  * Páginas del manual. Los .md viven en docs/manual/ (se leen en GitHub igual que aquí) y entran en
- * el paquete de la app como texto con `?raw`. `THIRD_PARTY.md` alimenta los créditos.
+ * el paquete de la app como texto con `?raw`. La traducción al inglés vive en docs/manual/en/ con los
+ * mismos nombres de archivo; si falta un capítulo en inglés, se muestra el español.
+ * `THIRD_PARTY.md` alimenta los créditos.
  */
 const RAW_PAGES = import.meta.glob('../../../../../docs/manual/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+const RAW_PAGES_EN = import.meta.glob('../../../../../docs/manual/en/*.md', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -44,12 +53,28 @@ export function buildPages(raw: Record<string, string>): ManualPage[] {
     .sort((a, b) => a.file.localeCompare(b.file));
 }
 
-let cache: ManualPage[] | null = null;
+/**
+ * Texto de cada capítulo en un idioma: en inglés, el capítulo traducido si existe y, si no, el español.
+ * Las claves son rutas; solo importa el nombre del archivo, que es el mismo en los dos idiomas.
+ */
+export function rawPagesFor(lang: Language, es: Record<string, string>, en: Record<string, string>): Record<string, string> {
+  if (lang !== 'en') return es;
+  const translated = new Set(Object.keys(en).map(baseName));
+  const missing = Object.fromEntries(Object.entries(es).filter(([path]) => !translated.has(baseName(path))));
+  return { ...missing, ...en };
+}
 
-/** Todas las páginas, ordenadas por nombre de archivo (el prefijo numérico fija el orden). */
+/** Nombres de los capítulos que ya tienen traducción al inglés. */
+export function englishFiles(): string[] {
+  return Object.keys(RAW_PAGES_EN).map(baseName).sort();
+}
+
+const cache: Partial<Record<Language, ManualPage[]>> = {};
+
+/** Todas las páginas en el idioma de la interfaz, ordenadas por nombre de archivo (el prefijo numérico fija el orden). */
 export function manualPages(): ManualPage[] {
-  cache ??= buildPages(RAW_PAGES);
-  return cache;
+  const lang = getLanguage();
+  return (cache[lang] ??= buildPages(rawPagesFor(lang, RAW_PAGES, RAW_PAGES_EN)));
 }
 
 /** Páginas del manual que van en el índice lateral: sin "novedades", que tiene su propio menú. */

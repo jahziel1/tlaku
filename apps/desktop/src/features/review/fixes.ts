@@ -3,7 +3,7 @@ import type { DesignObject, Document } from '@/api/types';
 import { replaceCleaned, type CleanupOp } from '@/features/arrange/cleanup';
 import { textToVector } from '@/features/text/convert';
 import type { I18nKey } from '@/i18n';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
 import { useReviewUi } from './store';
@@ -203,5 +203,5 @@ export function fixSafe(findings: readonly Finding[]): Promise<boolean> {
 export function selectFinding(f: Finding): void {
   const s = useStore.getState();
   s.select(f.object_ids);
-  s.notify('info', t('review.msg.selected', { n: f.object_ids.length }));
+  s.notify('info', tn('review.msg.selected', f.object_ids.length));
 }

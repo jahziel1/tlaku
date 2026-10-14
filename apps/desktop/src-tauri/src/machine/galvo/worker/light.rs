@@ -1,6 +1,7 @@
 //! Puntero rojo, saltos y encuadre.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn red_light(&mut self, on: bool) -> Result<(), String> {
@@ -10,10 +11,10 @@ impl Worker {
                 self.shared.red_on.store(on, Ordering::SeqCst);
                 self.log(
                     LogDir::Out,
-                    if on {
-                        "; puntero rojo encendido (la fuente sigue deshabilitada)"
+                    &if on {
+                        tr!("desktop.galvo.log_red_on")
                     } else {
-                        "; puntero rojo apagado"
+                        tr!("desktop.galvo.log_red_off")
                     },
                 );
                 if !on {
@@ -24,7 +25,7 @@ impl Worker {
             Err(e) => {
                 self.shared.red_on.store(false, Ordering::SeqCst);
                 let msg = job_error_text(&e);
-                self.log(LogDir::In, &format!("; {msg}"));
+                self.log(LogDir::In, &format!("; {}", tlaku_i18n::split_code(&msg).1));
                 if e.laser_may_be_on() {
                     self.note_laser_may_be_on(&msg);
                 }
@@ -61,17 +62,12 @@ impl Worker {
         match outcome {
             StopOutcome::Acked | StopOutcome::NotNeeded => {
                 self.note_safe();
-                self.log(
-                    LogDir::Out,
-                    "; detener: la tarjeta confirmó el apagado de la fuente y del puntero",
-                );
+                self.log(LogDir::Out, &tr!("desktop.galvo.log_stop_acked"));
                 Ok(())
             }
             StopOutcome::Unconfirmed => {
-                let msg = format!(
-                    "{UNCONFIRMED_MARK} de que la fuente se apagara. Corta la energía de la \
-                     fuente láser y usa el paro de emergencia."
-                );
+                let msg =
+                    tlaku_i18n::coded(STOP_UNCONFIRMED, tr!("desktop.galvo.stop_unconfirmed"));
                 self.note_laser_may_be_on(&msg);
                 Err(msg)
             }
@@ -82,10 +78,7 @@ impl Worker {
 
     pub(super) fn run_light(&mut self, shape: &LightShape, loops: Option<u32>, reply: Reply<()>) {
         let ctl = self.shared.control.clone();
-        self.log(
-            LogDir::Out,
-            "; encuadre con el puntero rojo (la fuente NO se habilita); Detener para terminar",
-        );
+        self.log(LogDir::Out, &tr!("desktop.galvo.log_light_start"));
         self.publish(MachineState::Run);
         self.shared.framing.store(true, Ordering::SeqCst);
         let mut reply = Some(reply);
@@ -114,10 +107,7 @@ impl Worker {
                 self.note_safe();
                 self.log(
                     LogDir::In,
-                    &format!(
-                        "; encuadre terminado: {} vueltas; puntero rojo apagado",
-                        report.loops
-                    ),
+                    &tr!("desktop.galvo.log_light_done", loops = report.loops),
                 );
                 if let Some(r) = reply.take() {
                     self.finish(r, Ok(()));
@@ -127,7 +117,7 @@ impl Worker {
             }
             Err(e) => {
                 let msg = job_error_text(&e);
-                self.log(LogDir::In, &format!("; {msg}"));
+                self.log(LogDir::In, &format!("; {}", tlaku_i18n::split_code(&msg).1));
                 if e.laser_may_be_on() {
                     self.note_laser_may_be_on(&msg);
                 } else {

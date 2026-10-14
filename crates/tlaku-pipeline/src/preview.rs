@@ -1,36 +1,50 @@
 use crate::job::LayerReport;
 use tlaku_core::toolpath::{Move, Toolpath};
 use tlaku_doc::{JobPreview, PreviewLayer};
+use tlaku_i18n::tr;
 
 fn summary(l: &LayerReport) -> String {
     let count = match (l.unit, l.count) {
-        ("trayectorias", 1) => "1 trayectoria".to_string(),
-        ("trayectorias", n) => format!("{n} trayectorias"),
-        (_, 1) => "1 línea".to_string(),
-        (_, n) => format!("{n} líneas"),
+        ("trayectorias", 1) => tr!("pipeline.preview.paths_one"),
+        ("trayectorias", n) => tr!("pipeline.preview.paths_other", n = n),
+        (_, 1) => tr!("pipeline.preview.lines_one"),
+        (_, n) => tr!("pipeline.preview.lines_other", n = n),
     };
-    let mut s = format!(
-        "{count}, {} mm/min, {}, {} pasada(s)",
-        l.speed_mm_min, l.power, l.passes
+    let mut s = tr!(
+        "pipeline.preview.summary",
+        count = count,
+        speed = l.speed_mm_min,
+        power = l.power,
+        passes = l.passes
     );
     if let Some(mm) = l.overscan_mm {
-        s.push_str(&format!(", overscan {mm:.2} mm"));
-    }
-    if l.tabs > 0 {
         s.push_str(&format!(
-            ", {} {}",
-            l.tabs,
-            if l.tabs == 1 { "puente" } else { "puentes" }
+            ", {}",
+            tr!("pipeline.preview.overscan", mm = format!("{mm:.2}"))
         ));
     }
+    if l.tabs > 0 {
+        s.push_str(", ");
+        s.push_str(&if l.tabs == 1 {
+            tr!("pipeline.preview.tabs_one")
+        } else {
+            tr!("pipeline.preview.tabs_other", n = l.tabs)
+        });
+    }
     if let Some((n, total)) = l.sub {
-        s.push_str(&format!(", sub-capa {n}/{total}"));
+        s.push_str(&format!(
+            ", {}",
+            tr!("pipeline.preview.sub_layer", n = n, total = total)
+        ));
     }
     if let Some((n, total)) = l.pass {
-        s.push_str(&format!(", pasada {n}/{total}"));
+        s.push_str(&format!(
+            ", {}",
+            tr!("pipeline.preview.pass", n = n, total = total)
+        ));
     }
     if let Some(z) = l.z_mm {
-        s.push_str(&format!(", Z {z} mm"));
+        s.push_str(&format!(", {}", tr!("pipeline.preview.z", z = z)));
     }
     s
 }
@@ -40,12 +54,19 @@ fn layer(l: &LayerReport) -> PreviewLayer {
         plan.steps
             .iter()
             .map(|s| {
-                format!(
-                    "figura #{} ({}): {}",
-                    s.item,
-                    if s.path.closed { "cerrada" } else { "abierta" },
-                    s.reason
-                )
+                if s.path.closed {
+                    tr!(
+                        "pipeline.preview.shape_closed",
+                        item = s.item,
+                        reason = s.reason
+                    )
+                } else {
+                    tr!(
+                        "pipeline.preview.shape_open",
+                        item = s.item,
+                        reason = s.reason
+                    )
+                }
             })
             .collect()
     });

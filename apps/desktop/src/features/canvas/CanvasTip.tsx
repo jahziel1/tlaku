@@ -1,9 +1,6 @@
 import { useStore } from '@/store';
 import { useInteraction } from './interaction';
-
-/** Ancho y alto aproximados de la etiqueta, para voltearla cuando no cabe junto al borde. */
-const TIP_W = 200;
-const TIP_H = 30;
+import { TIP_H, TIP_W } from './tipPlacement';
 
 /** Medidas en vivo junto al cursor mientras se arrastra o se dibuja. */
 export function CanvasTip() {

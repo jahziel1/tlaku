@@ -27,6 +27,7 @@ mod clip;
 use clip::{LineClip, Region};
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{CutSettings, Job, Layer, Point, Polyline, Rgb};
+use tlaku_i18n::tr;
 use usvg::tiny_skia_path::{self, PathSegment};
 use usvg::{ClipPath, Group, Mask, MaskType, Node, Paint, Transform};
 
@@ -233,90 +234,54 @@ fn build_warnings(
         .iter()
         .any(|d| matches!(d, Dim::Missing | Dim::Relative))
     {
-        let origin = if xml.has_viewbox {
-            "del viewBox"
+        w.push(if xml.has_viewbox {
+            tr!("svg.lib.no_size_viewbox", size = size)
         } else {
-            "del contenido"
-        };
-        w.push(format!(
-            "El SVG no define width/height absolutos (faltan o están en %, em o ex): \
-             el tamaño se tomó {origin} a 96 DPI, resultado {size}. Verifica la escala."
-        ));
+            tr!("svg.lib.no_size_content", size = size)
+        });
     }
     if dims.contains(&Dim::Pixels) {
         let true_mm = (width_mm * 4.0 / 3.0, height_mm * 4.0 / 3.0);
-        let extra = if xml.illustrator {
-            format!(
-                "Detectado Adobe Illustrator: suele exportar a 72 DPI, así que el tamaño real \
-                 sería {:.1} x {:.1} mm (133 % del mostrado); escala al 133 % para corregirlo.",
-                true_mm.0, true_mm.1
+        let (true_w, true_h) = (format!("{:.1}", true_mm.0), format!("{:.1}", true_mm.1));
+        w.push(if xml.illustrator {
+            tr!(
+                "svg.lib.px_illustrator",
+                size = size,
+                w = true_w,
+                h = true_h
             )
         } else {
-            format!(
-                "Si viene de Illustrator (72 DPI) el tamaño real sería {:.1} x {:.1} mm \
-                 (133 % del mostrado); si en cambio se ve a 133 % en otro programa, escala al 75 %.",
-                true_mm.0, true_mm.1
-            )
-        };
-        w.push(format!(
-            "width/height sin unidades o en px: se interpretó a 96 DPI, tamaño resultante {size}. {extra}"
-        ));
+            tr!("svg.lib.px_other", size = size, w = true_w, h = true_h)
+        });
     }
 
     if stats.images > 0 {
-        w.push(format!(
-            "{} imagen(es) incrustada(s) omitida(s): el importador no mezcla imágenes con \
-             trayectorias; importa la imagen como archivo aparte (PNG o JPG) para grabarla.",
-            stats.images
-        ));
+        w.push(tr!("svg.lib.images_skipped", n = stats.images));
     }
     if stats.mask_approx > 0 {
-        w.push(format!(
-            "{} grupo(s) con máscara (mask): se aplicó como recorte binario de su geometría \
-             opaca (aproximación; se ignora la transparencia gradual).",
-            stats.mask_approx
-        ));
+        w.push(tr!("svg.lib.mask_approx", n = stats.mask_approx));
     }
     if stats.mask_unsupported > 0 {
-        w.push(format!(
-            "{} grupo(s) con máscara que no se pudo evaluar (degradados, patrones, imágenes, \
-             trazos o recortes dentro de la máscara): se ignoró la máscara y las trayectorias \
-             se importan completas.",
-            stats.mask_unsupported
-        ));
+        w.push(tr!("svg.lib.mask_unsupported", n = stats.mask_unsupported));
     }
     if stats.non_color_paints > 0 {
-        w.push(format!(
-            "{} trayectoria(s) con degradado o patrón en relleno o trazo: se usó negro como color de capa.",
-            stats.non_color_paints
-        ));
+        w.push(tr!("svg.lib.non_color_paints", n = stats.non_color_paints));
     }
     let missing_text = xml.text_elements.saturating_sub(stats.text_with_paths);
     if missing_text > 0 || stats.text_empty > 0 {
-        w.push(format!(
-            "{} texto(s) sin trayectorias: no se encontró una fuente disponible, convierte el \
-             texto a curvas antes de exportar.",
-            missing_text.max(stats.text_empty)
+        w.push(tr!(
+            "svg.lib.text_without_paths",
+            n = missing_text.max(stats.text_empty)
         ));
     }
     if stats.invisible_paths > 0 {
-        w.push(format!(
-            "{} trayectoria(s) con visibility oculta omitida(s).",
-            stats.invisible_paths
-        ));
+        w.push(tr!("svg.lib.invisible_paths", n = stats.invisible_paths));
     }
     if xml.hidden_elements > 0 {
-        w.push(format!(
-            "{} elemento(s) con display:none omitido(s).",
-            xml.hidden_elements
-        ));
+        w.push(tr!("svg.lib.hidden_elements", n = xml.hidden_elements));
     }
     if no_paths {
-        w.push(
-            "El documento no contiene trayectorias importables: revisa si el contenido es \
-             solo texto, imágenes o elementos ocultos."
-                .into(),
-        );
+        w.push(tr!("svg.lib.no_paths"));
     }
     w
 }

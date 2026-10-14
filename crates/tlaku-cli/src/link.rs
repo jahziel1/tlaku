@@ -17,15 +17,18 @@ pub use tlaku_grbl::preflight::{
     validate_gcode,
 };
 use tlaku_grbl::streamer::{
-    Event, POSITION_LOST_NOTE, Realtime, StatusReport, StopInfo, Streamer, StreamerConfig,
-    alarm_message, error_message, prepare_line,
+    Event, Realtime, StatusReport, StopInfo, Streamer, StreamerConfig, alarm_message,
+    error_message, prepare_line,
 };
+use tlaku_i18n::tr;
 
 /// Velocidad del encuadre cuando no se indica `--speed`.
 pub const DEFAULT_FRAME_SPEED: f64 = 3000.0;
 
 /// Pregunta de seguridad antes de mover la máquina.
-pub const READY_PROMPT: &str = "¿El láser está listo y el área despejada? [s/N] ";
+pub fn ready_prompt() -> String {
+    format!("{} ", tr!("cli.link.ready_prompt"))
+}
 
 /// Muestra `prompt` y lee una línea; solo "s", "si", "sí", "y" o "yes" confirman.
 /// Sin entrada (fin de archivo) o con cualquier otra cosa, se rechaza.
@@ -66,6 +69,16 @@ impl<W: Write> Progress<'_, W> {
         }
     }
 
+    fn progress_text(&self, pct: usize, acked: usize, total: usize) -> String {
+        tr!(
+            "cli.link.progress",
+            pct = format!("{pct:>3}"),
+            acked = acked,
+            total = total,
+            state = self.state
+        )
+    }
+
     fn progress(&mut self, acked: usize, total: usize) {
         let pct = if total == 0 { 100 } else { acked * 100 / total };
         if self.tty {
@@ -73,22 +86,14 @@ impl<W: Write> Progress<'_, W> {
                 .last_draw
                 .is_none_or(|t| t.elapsed() >= Duration::from_millis(100));
             if due || acked == total {
-                let _ = write!(
-                    self.out,
-                    "\r  {pct:>3} %  ({acked}/{total} líneas)  estado: {}   ",
-                    self.state
-                );
+                let _ = write!(self.out, "\r  {}   ", self.progress_text(pct, acked, total));
                 let _ = self.out.flush();
                 self.last_draw = Some(Instant::now());
                 self.drawn_inline = true;
             }
         } else if pct / 10 > self.last_step || (acked == total && self.last_step < 10) {
             self.last_step = pct / 10;
-            let _ = writeln!(
-                self.out,
-                "  {pct:>3} %  ({acked}/{total} líneas)  estado: {}",
-                self.state
-            );
+            let _ = writeln!(self.out, "  {}", self.progress_text(pct, acked, total));
         }
     }
 
@@ -113,7 +118,7 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
     let mut p = Progress {
         out,
         tty,
-        state: "iniciando".into(),
+        state: tr!("cli.link.state_starting"),
         last_draw: None,
         last_step: 0,
         drawn_inline: false,
@@ -123,7 +128,7 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
         if cancel.load(Ordering::SeqCst) && !cancel_sent {
             cancel_sent = true;
             job.control.cancel();
-            p.line("Cancelando: feed hold y soft reset...");
+            p.line(&tr!("cli.link.cancelling"));
         }
         match job.events.recv_timeout(Duration::from_millis(50)) {
             Ok(Event::Progress { acked, total, .. }) => p.progress(acked, total),
@@ -133,26 +138,36 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
                 source_line,
                 text,
             }) => {
-                let at = match (source_line, text) {
-                    (Some(l), Some(t)) => format!(" en la línea {l} ({t})"),
-                    _ => String::new(),
-                };
-                p.line(&format!("error:{code}{at}: {}", error_message(code)));
+                let msg = error_message(code);
+                p.line(&match (source_line, text) {
+                    (Some(l), Some(t)) => {
+                        tr!(
+                            "cli.link.error_at_line",
+                            code = code,
+                            line = l,
+                            text = t,
+                            msg = msg
+                        )
+                    }
+                    _ => tr!("cli.link.error", code = code, msg = msg),
+                });
             }
             Ok(Event::Alarm(code)) => {
-                p.line(&format!("ALARM:{code}: {}", alarm_message(code)));
+                p.line(&tr!(
+                    "cli.link.alarm",
+                    code = code,
+                    msg = alarm_message(code)
+                ));
             }
-            Ok(Event::Message(m)) => p.line(&format!("máquina: {m}")),
-            Ok(Event::Reset(m)) => p.line(&format!("la controladora se reinició: {m}")),
+            Ok(Event::Message(m)) => p.line(&tr!("cli.link.machine_message", msg = m)),
+            Ok(Event::Reset(m)) => p.line(&tr!("cli.link.controller_reset", msg = m)),
             Ok(Event::Finished(_)) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
     p.end_inline();
-    let (streamer, outcome) = job
-        .join()
-        .map_err(|_| "el hilo de envío terminó de forma inesperada".to_string())?;
+    let (streamer, outcome) = job.join().map_err(|_| tr!("cli.link.send_thread_died"))?;
     let result = outcome_result(&outcome);
     // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
     if let Some(stop) = streamer.last_stop() {
@@ -161,7 +176,7 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
         }
     }
     if result.is_ok() {
-        writeln!(p.out, "Trabajo terminado.").map_err(|e| e.to_string())?;
+        writeln!(p.out, "{}", tr!("cli.link.job_done")).map_err(|e| e.to_string())?;
     }
     result
 }
@@ -172,16 +187,15 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
 pub fn stop_notes(stop: &StopInfo) -> Vec<String> {
     let mut notes = Vec::new();
     if stop.position_maybe_lost {
-        notes.push(POSITION_LOST_NOTE.to_string());
+        notes.push(tlaku_grbl::streamer::position_lost_note());
     } else if stop.settled {
-        notes.push(
-            "La máquina frenó por completo antes del reset: la posición se conserva.".to_string(),
-        );
+        notes.push(tr!("cli.link.settled"));
     }
     if let Some(code) = stop.alarm {
-        notes.push(format!(
-            "Durante la parada llegó ALARM:{code}: {}.",
-            alarm_message(code)
+        notes.push(tr!(
+            "cli.link.alarm_during_stop",
+            code = code,
+            msg = alarm_message(code)
         ));
     }
     notes
@@ -238,7 +252,7 @@ pub fn send_job_for<T: Transport + 'static, W: Write>(
         &expect,
         out,
     )?;
-    writeln!(out, "Enviando {} líneas. Ctrl+C cancela.", lines.len()).map_err(|e| e.to_string())?;
+    writeln!(out, "{}", tr!("cli.link.sending", n = lines.len())).map_err(|e| e.to_string())?;
     stream_lines(transport, lines, config, cancel, tty, out)
 }
 
@@ -251,15 +265,19 @@ pub fn streamer_config(rx_buffer: usize) -> StreamerConfig {
 }
 
 pub fn frame_description(b: Bounds, speed_mm_min: f64) -> String {
-    let mut s = String::from("Encuadre (incluye el overscan), con el láser apagado:\n");
+    let mut s = tr!("cli.link.frame_header");
+    s.push('\n');
     for (name, x, y) in frame_corners(b) {
         s.push_str(&format!("  {name:<19} X{x:.2} Y{y:.2}\n"));
     }
     s.push_str(&format!(
-        "  tamaño {:.2} x {:.2} mm, velocidad {} mm/min\n",
-        b.max.x - b.min.x,
-        b.max.y - b.min.y,
-        speed_mm_min
+        "  {}\n",
+        tr!(
+            "cli.link.frame_size",
+            w = format!("{:.2}", b.max.x - b.min.x),
+            h = format!("{:.2}", b.max.y - b.min.y),
+            speed = speed_mm_min
+        )
     ));
     s
 }
@@ -289,25 +307,15 @@ pub enum Risk {
 
 impl Risk {
     /// Advertencia que se muestra antes de confirmar; `None` si no hace falta confirmar.
-    pub fn warning(self) -> Option<&'static str> {
+    pub fn warning(self) -> Option<String> {
         match self {
             Self::Safe => None,
-            Self::Unlock => Some(
-                "$X desbloquea la alarma sin hacer home: si la máquina tiene finales de \
-                 carrera y no haces $H después, la posición puede quedar desconocida y el \
-                 trabajo saldría desplazado.",
-            ),
-            Self::Home => Some(
-                "$H hace homing: la máquina se moverá hasta los finales de carrera. \
-                 Despeja el área.",
-            ),
-            Self::Moves => Some("Este comando mueve la máquina."),
-            Self::Laser => Some("Este comando enciende el láser (y puede mover la máquina)."),
-            Self::Setting => Some("Este comando cambia un ajuste guardado en la controladora."),
-            Self::Other => Some(
-                "No es un comando de solo lectura: puede mover la máquina, encender el láser \
-                 o cambiar su configuración.",
-            ),
+            Self::Unlock => Some(tr!("cli.link.risk_unlock")),
+            Self::Home => Some(tr!("cli.link.risk_home")),
+            Self::Moves => Some(tr!("cli.link.risk_moves")),
+            Self::Laser => Some(tr!("cli.link.risk_laser")),
+            Self::Setting => Some(tr!("cli.link.risk_setting")),
+            Self::Other => Some(tr!("cli.link.risk_other")),
         }
     }
 }
@@ -420,19 +428,21 @@ pub fn parse_command(arg: &str, rx_buffer: usize) -> Result<Cmd, String> {
     }
     let text = prepare_line(arg)
         .map_err(|ch| {
-            format!(
-                "'{arg}' contiene '{}', un carácter de tiempo real; usa los nombres status, \
-                 hold, resume o reset",
-                ch.escape_default()
+            tr!(
+                "cli.link.realtime_char",
+                arg = arg,
+                ch = ch.escape_default()
             )
         })?
         .to_uppercase();
     if text.is_empty() {
-        return Err(format!("'{arg}' no contiene ningún comando"));
+        return Err(tr!("cli.link.empty_command", arg = arg));
     }
     if text.len() + 1 > rx_buffer {
-        return Err(format!(
-            "'{text}' no cabe en el búfer de la controladora ({rx_buffer} bytes)"
+        return Err(tr!(
+            "cli.link.command_too_long",
+            text = text,
+            rx_buffer = rx_buffer
         ));
     }
     let risk = classify(&text);
@@ -454,10 +464,14 @@ pub fn confirm_commands(
         let Some(warning) = cmd.risk().warning() else {
             continue;
         };
-        writeln!(out, "Se enviará exactamente: {}", cmd.shown()).map_err(|e| e.to_string())?;
-        writeln!(out, "Advertencia: {warning}").map_err(|e| e.to_string())?;
-        if !confirm("¿Enviarlo? [s/N] ", input, out).map_err(|e| e.to_string())? {
-            return Err("cancelado: no se envió nada a la máquina".into());
+        writeln!(out, "{}", tr!("cli.link.will_send", cmd = cmd.shown()))
+            .map_err(|e| e.to_string())?;
+        writeln!(out, "{}", tr!("cli.link.warning", warning = warning))
+            .map_err(|e| e.to_string())?;
+        if !confirm(&format!("{} ", tr!("cli.link.send_prompt")), input, out)
+            .map_err(|e| e.to_string())?
+        {
+            return Err(tr!("cli.link.nothing_sent"));
         }
     }
     Ok(())
@@ -542,7 +556,7 @@ fn exchange(
             return Some(Ok(()));
         }
         if let Some(msg) = translate(&line) {
-            return Some(Err(format!("'{text}' respondió {msg}")));
+            return Some(Err(tr!("cli.link.command_replied", text = text, msg = msg)));
         }
         let _ = writeln!(out, "{line}");
         None
@@ -550,9 +564,10 @@ fn exchange(
     match end {
         Some(Ok(())) => writeln!(out, "ok").map_err(w),
         Some(Err(e)) => Err(e),
-        None => Err(format!(
-            "sin respuesta a '{text}' en {:.0} s; revisa la máquina (puede seguir ejecutándolo)",
-            timeout.as_secs_f64()
+        None => Err(tr!(
+            "cli.link.no_response",
+            text = text,
+            secs = format!("{:.0}", timeout.as_secs_f64())
         )),
     }
 }
@@ -573,13 +588,18 @@ fn show_status(
         })?;
         if let Some((line, r)) = found {
             writeln!(out, "{line}").map_err(|e| e.to_string())?;
-            writeln!(out, "Estado: {}", state_name(r.state)).map_err(|e| e.to_string())?;
+            writeln!(
+                out,
+                "{}",
+                tr!("cli.link.state_line", state = state_name(r.state))
+            )
+            .map_err(|e| e.to_string())?;
             return Ok(());
         }
     }
-    Err(format!(
-        "la máquina no respondió a la consulta de estado (?) en {:.0} s",
-        timeout.as_secs_f64()
+    Err(tr!(
+        "cli.link.status_timeout",
+        secs = format!("{:.0}", timeout.as_secs_f64())
     ))
 }
 
@@ -607,7 +627,7 @@ fn run_realtime(
             t.write_all(&[rt.byte()]).map_err(io_err)?;
             // El reporte confirma el efecto; si no llega, la orden ya salió.
             if show_status(t, reader, config.status_timeout, out).is_err() {
-                writeln!(out, "(enviado; la máquina no devolvió su estado)").map_err(w)?;
+                writeln!(out, "{}", tr!("cli.link.sent_no_state")).map_err(w)?;
             }
             Ok(())
         }
@@ -637,7 +657,7 @@ pub fn run_commands(
                 };
                 exchange(t, &mut reader, text, timeout, out)?;
                 if *risk == Risk::Laser {
-                    writeln!(out, "Aviso: el láser sigue encendido hasta que envíes M5.")
+                    writeln!(out, "{}", tr!("cli.link.laser_still_on"))
                         .map_err(|e| e.to_string())?;
                 }
             }
@@ -704,7 +724,7 @@ mod tests {
     fn confirmation_answers() {
         let ask = |a: &str| {
             let mut out = Vec::new();
-            let r = confirm(READY_PROMPT, &mut a.as_bytes(), &mut out).unwrap();
+            let r = confirm(&ready_prompt(), &mut a.as_bytes(), &mut out).unwrap();
             assert!(
                 String::from_utf8(out)
                     .unwrap()

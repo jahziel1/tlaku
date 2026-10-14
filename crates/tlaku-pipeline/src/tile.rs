@@ -22,6 +22,7 @@ use tlaku_doc::{
     DesignObject, Document, LayerMode, LayerSettings, ObjectKind, TileSpec, VectorObject,
 };
 use tlaku_geom::{BoolOp, boolean, break_groups};
+use tlaku_i18n::tr;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -47,8 +48,8 @@ pub enum TileOrder {
     Serpentine,
 }
 
-/// Por qué no se pudo repartir el diseño en tramos. `Display` da el mensaje en español; la
-/// interfaz usa el tipo para mostrar el suyo en el idioma elegido.
+/// Por qué no se pudo repartir el diseño en tramos. `Display` da el mensaje en el idioma
+/// activo del motor; la interfaz usa el tipo para mostrar el suyo en el idioma elegido.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum TileError {
@@ -71,18 +72,24 @@ pub enum TileError {
 impl fmt::Display for TileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TileError::Numbers => write!(f, "tiling: hay valores que no son números"),
-            TileError::Empty => write!(f, "tiling: el diseño no tiene área"),
-            TileError::Size => write!(f, "tiling: el tamaño del tramo debe ser mayor que 0"),
-            TileError::OverlapNegative => write!(f, "tiling: el solape no puede ser negativo"),
+            TileError::Numbers => write!(f, "{}", tr!("pipeline.tile.numbers")),
+            TileError::Empty => write!(f, "{}", tr!("pipeline.tile.empty")),
+            TileError::Size => write!(f, "{}", tr!("pipeline.tile.size")),
+            TileError::OverlapNegative => write!(f, "{}", tr!("pipeline.tile.overlap_negative")),
             TileError::Overlap { overlap, tile } => write!(
                 f,
-                "tiling: el solape ({overlap} mm) debe ser menor que el tramo ({} x {} mm)",
-                tile[0], tile[1]
+                "{}",
+                tr!(
+                    "pipeline.tile.overlap",
+                    overlap = overlap,
+                    w = tile[0],
+                    h = tile[1]
+                )
             ),
             TileError::TooMany { count } => write!(
                 f,
-                "tiling: {count} tramos son demasiados (el máximo es {MAX_TILES}); revisa el tamaño del tramo"
+                "{}",
+                tr!("pipeline.tile.too_many", count = count, max = MAX_TILES)
             ),
         }
     }
@@ -615,11 +622,15 @@ fn validate(tile: &TileSpec) -> Result<Bounds, String> {
     let [[x0, y0], [x1, y1]] = tile.rect;
     let all = [x0, y0, x1, y1, tile.offset[0], tile.offset[1]];
     if !all.iter().all(|v| v.is_finite()) {
-        return Err("tramo: el rectángulo o el desplazamiento no son números".into());
+        return Err(tr!("pipeline.tile.rect_not_numbers"));
     }
     if x1 <= x0 || y1 <= y0 {
-        return Err(format!(
-            "tramo: el rectángulo ({x0}, {y0})-({x1}, {y1}) no tiene área"
+        return Err(tr!(
+            "pipeline.tile.rect_no_area",
+            x0 = x0,
+            y0 = y0,
+            x1 = x1,
+            y1 = y1
         ));
     }
     Ok(Bounds {
@@ -671,7 +682,7 @@ pub(crate) fn apply(
     }
     work.retain(|l| !l.is_empty());
     if work.is_empty() {
-        warnings.push("el tramo no contiene ninguna parte del diseño".into());
+        warnings.push(tr!("pipeline.tile.empty_tile"));
     }
     Ok(())
 }

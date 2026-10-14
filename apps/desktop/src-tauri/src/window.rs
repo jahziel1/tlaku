@@ -29,7 +29,7 @@ pub async fn new_window(app: AppHandle) -> Result<String, String> {
         .inner_size(1440.0, 900.0)
         .min_inner_size(1100.0, 680.0)
         .build()
-        .map_err(|e| format!("No se pudo abrir la ventana nueva: {e}"))?;
+        .map_err(|e| tlaku_i18n::tr!("desktop.window.open_failed", err = e))?;
     Ok(label)
 }
 

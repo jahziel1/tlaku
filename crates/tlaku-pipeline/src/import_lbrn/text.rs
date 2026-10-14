@@ -14,6 +14,7 @@ use tlaku_core::Point;
 use tlaku_core::bezpath::BezPath;
 use tlaku_doc::affine::{self, Transform};
 use tlaku_doc::{ObjectKind, TextAlign, TextObject};
+use tlaku_i18n::tr;
 use tlaku_lbrn::TextShape;
 use tlaku_text::{Align, FontLibrary, TextSpec};
 
@@ -70,11 +71,7 @@ pub(super) fn convert(t: &TextShape, world: &Transform) -> Converted {
         _ => TextAlign::Center,
     };
     if t.letter_spacing != 0.0 || t.line_spacing != 0.0 {
-        warnings.push(
-            "el espaciado de letras/líneas de LightBurn (LS/LnS) no se importa (sus unidades no \
-             están documentadas); se usa el espaciado normal"
-                .into(),
-        );
+        warnings.push(tr!("pipeline.import_lbrn_text.spacing"));
     }
 
     let mut outline: Vec<BezPath> = Vec::new();
@@ -112,9 +109,10 @@ pub(super) fn convert(t: &TextShape, world: &Transform) -> Converted {
                 && !out.paths.is_empty()
             {
                 if family != t.family {
-                    warnings.push(format!(
-                        "la fuente «{}» no está instalada; el contorno se generó con «{family}»",
-                        t.family
+                    warnings.push(tr!(
+                        "pipeline.import_lbrn_text.font_substituted",
+                        font = t.family,
+                        family = family
                     ));
                 }
                 generated = Some(out);
@@ -126,11 +124,7 @@ pub(super) fn convert(t: &TextShape, world: &Transform) -> Converted {
                 outline = out.paths;
                 warnings.extend(out.warnings);
             }
-            None => warnings.push(format!(
-                "el archivo no trae el contorno y no se pudo generar con las fuentes instaladas \
-                 (¿falta «{}»?); queda sin contorno hasta regenerarlo en el editor",
-                t.family
-            )),
+            None => warnings.push(tr!("pipeline.import_lbrn_text.no_outline", font = t.family)),
         }
     }
 

@@ -37,6 +37,7 @@ use tlaku_doc::{
     CutThrough, DotMode, FillStyle, ImageMode, LayerMode, LayerSettings, Overscan, Perforation,
     Ramp, TabSettings,
 };
+use tlaku_i18n::tr;
 use tlaku_lbrn::{Layer, Project, Shape, ShapeKind, TOOL_LAYER_FIRST};
 
 /// Color de Tlaku de cada capa de LightBurn `C00`..`C29`.
@@ -206,8 +207,9 @@ impl Layers {
             settings.name = format!("T{}", index - TOOL_LAYER_FIRST + 1);
             settings.output = false;
         } else {
-            self.warnings.push(format!(
-                "La capa C{index:02} no está definida en el archivo; se usan los ajustes por defecto"
+            self.warnings.push(tr!(
+                "pipeline.import_lbrn_layers.undefined_layer",
+                layer = format!("C{index:02}")
             ));
         }
         self.by_index.insert(index, self.entries.len());
@@ -227,9 +229,9 @@ impl Layers {
             let e = &mut self.entries[k].0;
             e.mode = LayerMode::Image;
             e.image = tlaku_doc::ImageSettings::default();
-            self.warnings.push(format!(
-                "La capa «{}» solo lleva imágenes: se importa en modo imagen",
-                self.entries[k].0.name
+            self.warnings.push(tr!(
+                "pipeline.import_lbrn_layers.images_only",
+                layer = self.entries[k].0.name
             ));
             return color;
         }
@@ -244,9 +246,10 @@ impl Layers {
         }
         self.used.insert(c);
         self.image_fallback = Some(c);
-        self.warnings.push(format!(
-            "Hay imágenes en la capa «{}», que también lleva vectores: van a la capa «{}»",
-            self.entries[k].0.name, layer.name
+        self.warnings.push(tr!(
+            "pipeline.import_lbrn_layers.images_moved",
+            layer = self.entries[k].0.name,
+            target = layer.name
         ));
         self.entries.push((layer, 10_000, 0));
         c
@@ -279,16 +282,26 @@ impl Layers {
         out.extend(tool);
         let mut warnings = self.warnings;
         for (note, names) in self.notes {
-            let shown: Vec<String> = names.iter().take(4).map(|n| format!("«{n}»")).collect();
+            let shown: Vec<String> = names
+                .iter()
+                .take(4)
+                .map(|n| tr!("pipeline.import_lbrn_layers.quoted_name", name = n))
+                .collect();
             let more = names.len().saturating_sub(4);
-            warnings.push(format!(
-                "{note} (capas: {}{})",
-                shown.join(", "),
-                if more > 0 {
-                    format!(" y {more} más")
-                } else {
-                    String::new()
-                }
+            let list = shown.join(", ");
+            let list = if more > 0 {
+                tr!(
+                    "pipeline.import_lbrn_layers.and_more",
+                    list = list,
+                    more = more
+                )
+            } else {
+                list
+            };
+            warnings.push(tr!(
+                "pipeline.import_lbrn_layers.note_for_layers",
+                note = note,
+                layers = list
             ));
         }
         (out, warnings)
@@ -326,19 +339,24 @@ fn convert(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
             let (mut s, _, w) = convert_one(sub, color);
             let n = main.sub_layers.len() + 1;
             if sub.is_tool() || (s.mode == LayerMode::Image) != (main.mode == LayerMode::Image) {
-                warns.push(format!(
-                    "la sub-capa {n} es de un tipo ({}) que no se puede combinar con la capa; se ignora",
-                    sub.kind
+                warns.push(tr!(
+                    "pipeline.import_lbrn_layers.sub_type_mismatch",
+                    n = n,
+                    kind = sub.kind
                 ));
                 continue;
             }
             if main.sub_layers.len() >= MAX_SUB_LAYERS {
-                warns.push(format!(
-                    "hay más de {MAX_SUB_LAYERS} sub-capas; se ignoran las sobrantes"
+                warns.push(tr!(
+                    "pipeline.import_lbrn_layers.too_many_subs",
+                    max = MAX_SUB_LAYERS
                 ));
                 break;
             }
-            warns.extend(w.into_iter().map(|w| format!("sub-capa {n}: {w}")));
+            warns.extend(
+                w.into_iter()
+                    .map(|w| tr!("pipeline.import_lbrn_layers.sub_prefix", n = n, note = w)),
+            );
             // Una sub-capa no lleva color, orden ni sub-capas propias.
             s.color = main.color;
             s.order = None;
@@ -368,19 +386,15 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
         s.fill_style = FillStyle::Offset;
     } else if kind == "scan+cut" || kind.contains("fill+line") || kind.contains("scan+") {
         s.mode = LayerMode::Fill;
-        warns.push(
-            "«Relleno + línea» no existe en una sola capa; se importa solo el relleno (crea otra \
-             capa de línea si también quieres el contorno)"
-                .into(),
-        );
+        warns.push(tr!("pipeline.import_lbrn_layers.fill_plus_line"));
     } else if kind == "scan" || kind == "fill" {
         s.mode = LayerMode::Fill;
     } else if kind == "cut" || kind == "line" {
         s.mode = LayerMode::Line;
     } else {
-        warns.push(format!(
-            "modo de capa «{}» desconocido; se importa como línea",
-            layer.kind
+        warns.push(tr!(
+            "pipeline.import_lbrn_layers.unknown_mode",
+            mode = layer.kind
         ));
     }
     if tool {
@@ -468,11 +482,7 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
         };
         if layer.flag("manualTabs").unwrap_or(false) {
             // Con puentes manuales LightBurn coloca cada puente a mano; aquí se reparten solos.
-            warns.push(
-                "los puentes de LightBurn se colocan a mano y aquí se reparten solos (revisa su \
-                 posición)"
-                    .into(),
-            );
+            warns.push(tr!("pipeline.import_lbrn_layers.manual_tabs"));
         }
     }
 
@@ -509,7 +519,7 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
             outer_only: on("rampOuter"),
         };
         if ramp_on && positive("rampLength").is_none() {
-            warns.push("la rampa de potencia no tiene largo; se ignora".into());
+            warns.push(tr!("pipeline.import_lbrn_layers.ramp_no_length"));
         }
         let delay = |k: &str| layer.num(k).filter(|v| *v > 0.0).unwrap_or(0.0);
         let (start, end) = (delay("startDelay"), delay("endDelay"));
@@ -526,9 +536,9 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
                 ms: if ms > 0.0 { ms } else { d.ms },
             };
             if ms <= 0.0 {
-                warns.push(format!(
-                    "el corte pasante no trae su tiempo; se usan {} ms",
-                    d.ms
+                warns.push(tr!(
+                    "pipeline.import_lbrn_layers.through_no_time",
+                    ms = d.ms
                 ));
             }
         } else {
@@ -544,8 +554,9 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
         if let Some(mode) = layer.text("ditherMode") {
             match dither_mode(mode) {
                 Some(m) => s.image.mode = m,
-                None => warns.push(format!(
-                    "modo de imagen «{mode}» desconocido; se usa Stucki"
+                None => warns.push(tr!(
+                    "pipeline.import_lbrn_layers.unknown_image_mode",
+                    mode = mode
                 )),
             }
         }
@@ -558,29 +569,29 @@ fn convert_one(layer: &Layer, color: Rgb) -> (LayerSettings, i32, Vec<String>) {
     }
 
     // Lo que no tiene equivalente, solo si está activo.
-    let mut ignored: Vec<&str> = Vec::new();
+    let mut ignored: Vec<String> = Vec::new();
     if on("enablePPI") {
-        ignored.push("pulsos por pulgada (PPI)");
+        ignored.push(tr!("pipeline.import_lbrn_layers.ignored_ppi"));
     }
     if on("overrideFrequency") {
-        ignored.push("frecuencia del láser");
+        ignored.push(tr!("pipeline.import_lbrn_layers.ignored_frequency"));
     }
     if on("enableLaser2") {
-        ignored.push("segundo láser");
+        ignored.push(tr!("pipeline.import_lbrn_layers.ignored_laser2"));
     }
     if on("forceConstantPower") {
-        ignored.push("potencia constante");
+        ignored.push(tr!("pipeline.import_lbrn_layers.ignored_constant_power"));
     }
     if on("blowerSpeedOverride") {
-        ignored.push("velocidad del soplador");
+        ignored.push(tr!("pipeline.import_lbrn_layers.ignored_blower"));
     }
     if layer.text("scanOpt").is_some_and(|v| v == "individual") && s.mode == LayerMode::Fill {
-        ignored.push("relleno por objeto (scanOpt individual)");
+        ignored.push(tr!("pipeline.import_lbrn_layers.ignored_scan_individual"));
     }
     warns.extend(
         ignored
             .into_iter()
-            .map(|what| format!("«{what}» no tiene equivalente en Tlaku y se ignora")),
+            .map(|what| tr!("pipeline.import_lbrn_layers.ignored_feature", what = what)),
     );
     let priority = layer.num("priority").map_or(0, |v| v as i32);
     (s, priority, warns)

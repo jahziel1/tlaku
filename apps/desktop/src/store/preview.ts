@@ -2,7 +2,7 @@ import { getApi } from '@/api';
 import type { JobOptions, JobPreview } from '@/api/types';
 import { DEFAULT_OPTIMIZATION, readOptimization, sanitizeOptimization, sameOptimization, writeOptimization, type Optimization } from '@/features/preview/optimization';
 import { getModel, PLAY_SPEEDS, type PlaySpeed, type PreviewViewOptions } from '@/features/preview/model';
-import { errorMessage } from '@/lib/errors';
+import { errorCode, errorMessage } from '@/lib/errors';
 import { readPref, writePref } from '@/lib/platform';
 import { hasTemplates, resolveJobArgs } from '@/features/variables/jobResolve';
 import { buildJobArgs } from './selectors';
@@ -14,6 +14,8 @@ export interface PreviewSlice {
   preview: JobPreview | null;
   previewStatus: PreviewStatus;
   previewError: string | null;
+  /** Código estable del error del motor (`errorCode`), o `null` si no trae uno. */
+  previewErrorCode: string | null;
   /** El documento, las capas o el dispositivo cambiaron desde el último cálculo que se aplicó. */
   previewStale: boolean;
   /** La vista previa se dibuja encima del diseño. */
@@ -83,6 +85,7 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
     preview: null,
     previewStatus: 'idle',
     previewError: null,
+    previewErrorCode: null,
     previewStale: true,
     previewVisible: false,
     scrub: 1,
@@ -99,7 +102,7 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
 
     computePreview: async () => {
       const mine = ++seq;
-      set({ previewStatus: 'computing', previewError: null, previewStale: false });
+      set({ previewStatus: 'computing', previewError: null, previewErrorCode: null, previewStale: false });
       try {
         // Los textos con variables se resuelven con los valores de ahora antes de calcular.
         const base = buildJobArgs(get());
@@ -114,7 +117,7 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
         }));
       } catch (e) {
         if (mine !== seq) return;
-        set({ previewStatus: 'error', previewError: errorMessage(e), preview: null, playing: false });
+        set({ previewStatus: 'error', previewError: errorMessage(e), previewErrorCode: errorCode(e), preview: null, playing: false });
       }
     },
 

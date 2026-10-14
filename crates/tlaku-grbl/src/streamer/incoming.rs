@@ -137,9 +137,10 @@ impl<T: Transport> Streamer<T> {
             };
             st.resends += 1;
             if st.resends > MAX_RESENDS {
-                return Some(Some(Outcome::Disconnected(format!(
-                    "el enlace pierde líneas: la {n} se reenvió {MAX_RESENDS} veces sin éxito \
-                     (cable, baudios o ruido)"
+                return Some(Some(Outcome::Disconnected(tr!(
+                    "grbl.stream.resend_limit",
+                    n = n,
+                    max = MAX_RESENDS
                 ))));
             }
             emit(Event::Message(line.to_string()));

@@ -3,7 +3,7 @@ import type { DeviceProfile, Document, LayerSettings, MachineClass, MaterialLibr
 import { baseName, withExtension } from '@/features/history/paths';
 import { ensureSaved } from '@/features/history/files';
 import { askChoice } from '@/features/history/prompt';
-import { t, type I18nKey } from '@/i18n';
+import { t, tn, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore, type AppState } from '@/store';
 import { DEFAULT_EXPORT_NAME, downloadText, pickLibraryToOpen, pickLibraryToSave } from './files';
@@ -248,11 +248,11 @@ export async function exportMaterials(): Promise<boolean> {
     if (getApiKind() === 'tauri') {
       const path = withExtension(picked, 'tlakumat');
       await getApi().exportMaterialLibrary({ path, library });
-      app().notify('success', t('materials.notice.exported', { n: library.presets.length, path }));
+      app().notify('success', tn('materials.notice.exported', library.presets.length, { path }));
     } else {
       // En el navegador no hay disco: se descarga el mismo JSON que escribiría el motor.
       downloadText(DEFAULT_EXPORT_NAME, JSON.stringify(library, null, 2));
-      app().notify('success', t('materials.notice.exported', { n: library.presets.length, path: DEFAULT_EXPORT_NAME }));
+      app().notify('success', tn('materials.notice.exported', library.presets.length, { path: DEFAULT_EXPORT_NAME }));
     }
     return true;
   } catch (e) {

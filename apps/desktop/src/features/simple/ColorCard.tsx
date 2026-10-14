@@ -4,7 +4,7 @@ import type { LayerSettings } from '@/api/types';
 import { mmMinToMmS, mmSToMmMin } from '@/features/layers/GalvoLayer';
 import { NumField } from '@/features/layers/ParamFields';
 import { minPowerApplies } from '@/features/layers/rules';
-import { t, type I18nKey } from '@/i18n';
+import { t, tn, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { selectActiveDevice, useStore } from '@/store';
 import {
@@ -206,7 +206,7 @@ export function ColorCard({ group, choice }: { group: ColorGroup; choice: Materi
         <Swatch group={group} doc={doc} />
         <div className="simple__color-name">
           <strong>{group.name || group.color}</strong>
-          <span className="hint">{t(group.isImage ? 'simple.color.images' : 'simple.color.shapes', { n: group.count })}</span>
+          <span className="hint">{tn(group.isImage ? 'simple.color.images' : 'simple.color.shapes', group.count)}</span>
         </div>
       </div>
       <div className="simple__actions" role="group" aria-label={t('simple.actions.for', { name: group.name || group.color })}>

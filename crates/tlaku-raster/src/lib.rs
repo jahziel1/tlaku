@@ -7,6 +7,8 @@
 //!
 //! Unidades: mm. La fila 0 de cualquier imagen o bitmap es la de arriba.
 
+use tlaku_i18n::tr;
+
 pub mod adjust;
 pub mod bitmap;
 pub mod dither;
@@ -62,16 +64,16 @@ pub fn process(
     if let RasterMode::Threshold(t) = opts.mode
         && !(0.0..=1.0).contains(&t)
     {
-        return Err(format!("umbral fuera de 0-1: {t}"));
+        return Err(tr!("raster.lib.threshold", value = t));
     }
     if let RasterMode::Halftone { cell_mm, angle_deg }
     | RasterMode::Newsprint { cell_mm, angle_deg } = opts.mode
     {
         if !(cell_mm.is_finite() && cell_mm > 0.0) {
-            return Err(format!("tamaño de celda inválido: {cell_mm} mm"));
+            return Err(tr!("raster.lib.cell_size", value = cell_mm));
         }
         if !angle_deg.is_finite() {
-            return Err(format!("ángulo de trama inválido: {angle_deg}"));
+            return Err(tr!("raster.lib.screen_angle", value = angle_deg));
         }
     }
     let (cols, rows) = resample::grid_size(width_mm, height_mm, opts.sampling)?;

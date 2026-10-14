@@ -2,7 +2,7 @@ import { getApi, getApiKind } from '@/api';
 import type { Document } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
 import { autoGroupObjects } from '@/lib/autogroup';
-import { errorMessage } from '@/lib/errors';
+import { ENGINE_ERROR, errorCode, errorMessage } from '@/lib/errors';
 import { groupIdsOf } from '@/lib/groups';
 import { pickImportPaths } from '@/features/history/dialogs';
 import { resolveDocForOutput } from '@/features/variables/jobResolve';
@@ -139,9 +139,9 @@ export async function printDesign(io: FileioIo = defaultIo): Promise<boolean> {
   }
 }
 
-/** El error del importador de G-code cuando todos sus cortes llevan potencia 0 (`M3 S0`). */
-export function isGcodeZeroPowerError(message: string): boolean {
-  return /avances\s+G1\/G2\/G3 pero con potencia 0/.test(message);
+/** El error del importador de G-code cuando todos sus cortes llevan potencia 0 (`M3 S0`): se reconoce por su código. */
+export function isGcodeZeroPowerError(e: unknown): boolean {
+  return errorCode(e) === ENGINE_ERROR.gcodeZeroPower;
 }
 
 /**
@@ -152,7 +152,7 @@ async function importGcodeAware(path: string, file: string, options: Omit<Import
   try {
     return await getApi().importFileWith({ path, options });
   } catch (e) {
-    if (!io.askGcodePower || options.gcode_default_power != null || !isGcodeZeroPowerError(errorMessage(e))) throw e;
+    if (!io.askGcodePower || options.gcode_default_power != null || !isGcodeZeroPowerError(e)) throw e;
     const power = await io.askGcodePower(file);
     if (power == null || !(power > 0)) throw e;
     return getApi().importFileWith({ path, options: { ...options, gcode_default_power: power } });

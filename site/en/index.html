@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tlaku: free software for laser cutters and engravers</title>
+  <meta name="description" content="Tlaku is an open source (MIT) alternative to commercial laser control software. No machine feature has been tested with a real laser yet.">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="alternate" hreflang="es" href="../">
+  <link rel="alternate" hreflang="en" href="./">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="../favicon.svg" alt="" width="30" height="30">Tlaku</a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#what">What it is</a>
+        <a href="#features">Features</a>
+        <a href="#machines">Machines</a>
+        <a href="#downloads">Downloads</a>
+        <a href="#manual">Manual</a>
+        <a href="#support">Support</a>
+        <a class="lang" href="../" hreflang="es" lang="es">Español</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero" id="what">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Open source · MIT license</p>
+          <h1>Free software for laser cutters and engravers</h1>
+          <p class="lead">Tlaku is an open source alternative to commercial laser control software: you design or import a job, adjust the layers, see how it will be cut and send it to the machine with safety checks before anything moves.</p>
+          <p class="notice"><strong>Status:</strong> the desktop app is complete, but <strong>no machine feature has been tested with a real laser yet</strong>. Everything was validated with a controller emulator and with virtual machines inside the app. Treat every job as a test: low power, scrap material and your hand near the stop button.</p>
+          <p class="actions">
+            <a class="btn primary" href="#downloads">Downloads</a>
+            <a class="btn" href="#manual">Manual</a>
+          </p>
+        </div>
+        <figure class="shot">
+          <img src="../img/38-english.png" width="1440" height="900" alt="Tlaku main window in English.">
+          <figcaption>Main window (the app also comes in Spanish).</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-name">
+      <div class="wrap">
+        <h2 id="h-name">What it is and who it is for</h2>
+        <p>The name comes from the Nahuatl <em>tlacuilo</em>: the painter-scribe who drew and wrote the codices. A tlacuilo turned ideas into marks on a surface; Tlaku turns a design into the movements of a laser.</p>
+        <p>It is for people with a diode or CO2 laser cutter or engraver who want an open program that explains what it does, especially those coming from other laser control software and those just starting. The manual includes a guide for switching.</p>
+        <p>The project is clean-room: no code, text, icons or screenshots from commercial programs are copied.</p>
+        <p class="note-lang">The interface is available in Spanish and English. The manual is currently written in Spanish.</p>
+      </div>
+    </section>
+
+    <section id="features" aria-labelledby="h-features">
+      <div class="wrap">
+        <h2 id="h-features">Main features</h2>
+        <ul class="cards">
+          <li><h3>Simple mode</h3><p>Five guided steps: open, material, place, review and start. Settings come from a material library and are starting points, not a guarantee.</p></li>
+          <li><h3>Design and editing</h3><p>Canvas with rulers and the machine bed, shapes, node editor, align and distribute, arrays, boolean operations and undo with history.</p></li>
+          <li><h3>Import and export</h3><p>LightBurn projects, SVG, DXF, PDF and AI (the paths), HPGL, G-code and images. Exports SVG, DXF, PNG and PDF at 1:1 scale. Whatever cannot be imported is reported as a warning, never dropped silently.</p></li>
+          <li><h3>Text and codes</h3><p>System fonts, 15 single-line fonts, QR, Data Matrix and barcodes, and variable text (serial numbers, CSV data).</p></li>
+          <li><h3>Layers and preview</h3><p>Line, fill and image modes. The cut planner says which rule decided each step of the order, and the preview estimates the time.</p></li>
+          <li><h3>Nesting and tiling</h3><p>Fits parts on the bed or on an irregular material. Splitting a job larger than the bed into tiles (tiling) is experimental: it was only tried with the virtual machine.</p></li>
+          <li><h3>Virtual machine</h3><p>Connect the app to a simulated machine and trigger faults on purpose (flame, alarm, disconnection) to learn or report bugs without touching a laser.</p></li>
+          <li><h3>Safety check</h3><p>Before sending, the machine state is queried and nothing is transmitted if it is in alarm, paused or has the door open. The app never unlocks or homes the machine on its own.</p></li>
+          <li><h3>Materials and camera</h3><p>Factory material library with its sources, a material test and camera calibration.</p></li>
+          <li><h3>Command line</h3><p>What the app does can also be run with the <code>tlaku</code> program and checked with automated tests.</p></li>
+        </ul>
+        <div class="gallery">
+          <figure class="shot">
+            <img src="../img/59-simple-material.png" width="1440" height="900" loading="lazy" alt="Simple mode, step 2: choose machine, laser power and material, with a notice that the values are starting points.">
+            <figcaption>Simple mode, step 2: material and what to do with each color (screenshot in Spanish).</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../img/04-vista-previa.png" width="1440" height="900" loading="lazy" alt="Job preview: toolpath simulation on the canvas, estimated time and per-layer breakdown.">
+            <figcaption>Preview with estimated time and per-layer breakdown (Spanish).</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../img/19-materiales.png" width="1440" height="900" loading="lazy" alt="Material library with its factory settings.">
+            <figcaption>Material library (Spanish).</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../img/11-editor-de-nodos.png" width="1440" height="900" loading="lazy" alt="Node editor on a shape of the design.">
+            <figcaption>Node editor (Spanish).</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../img/39-nesting.png" width="1440" height="900" loading="lazy" alt="Nesting dialog: copies of each part, container, rotations and a preview with bed utilization.">
+            <figcaption>Fit parts (nesting) (Spanish).</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../img/25-maquina-virtual.png" width="1440" height="900" loading="lazy" alt="Virtual machine connected, with the simulated faults panel.">
+            <figcaption>Virtual machine with simulated faults (Spanish).</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="machines" aria-labelledby="h-machines">
+      <div class="wrap">
+        <h2 id="h-machines">Supported machines and their status</h2>
+        <p><strong>None has been tested on a real machine.</strong> “Emulator” means it works end to end against the app's emulator and virtual machines, with automated tests. The first hardware test will be with a Creality Falcon2.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Controller</th><th scope="col">Status</th><th scope="col">Notes</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">GRBL 1.1 (M4) and GRBL-M3, over USB serial</th><td><span class="tag">Emulator</span> <span class="tag warn">Not tested on hardware</span></td><td>Most diode lasers. Catalog of 21 models with their sources.</td></tr>
+              <tr><th scope="row">grblHAL and FluidNC</th><td><span class="tag">Emulator</span> <span class="tag warn">Not tested on hardware</span></td><td>Over USB and over the network (TCP/Telnet and WebSocket, tested against an emulator over real sockets).</td></tr>
+              <tr><th scope="row">Marlin and Smoothie</th><td><span class="tag">Emulator (basic)</span> <span class="tag warn">Not tested on hardware</span></td><td>Line-by-line sending, lost-position warning and virtual machine.</td></tr>
+              <tr><th scope="row">Old GRBL (no M4), GRBL-LPC and custom G-code</th><td><span class="tag warn">Not tested on hardware</span></td><td>Own dialect, with a dialect editor. No dedicated virtual machine.</td></tr>
+              <tr><th scope="row">Ruida (CO2)</th><td><span class="tag warn">Experimental, not tested on hardware</span></td><td>Over the network (UDP): connect, send (by default it stores the job on the controller and does not start it), pause, stop, framing. Tested only against an emulator; it does not write settings.</td></tr>
+              <tr><th scope="row">K40 with M2 Nano board</th><td><span class="tag warn">Experimental, not tested on hardware</span></td><td>Direct USB, tested only against a simulated board. Power is set with the machine's knob, not by software; no Z, air assist or console.</td></tr>
+              <tr><th scope="row">Fiber, UV or CO2 galvo (JCZ/BJJCZ LMCV4 board)</th><td><span class="tag warn">Experimental, not tested on hardware</span></td><td>Command line only; the interface is still to come. Only the <code>9588:9899</code> board. Invisible class 4 beam: read the safety guide in the manual before connecting.</td></tr>
+              <tr><th scope="row">Galvo EZCAD3/DLC and BSL, Trocen, TopWisdom</th><td><span class="tag none">Not supported</span></td><td>A K40 whose board was swapped for GRBL-LPC or Smoothie can work.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="downloads" aria-labelledby="h-downloads">
+      <div class="wrap">
+        <h2 id="h-downloads">Downloads</h2>
+        <ul class="dl">
+          <li><strong>macOS 11 or later</strong><span>Apple Silicon and Intel. <code>.dmg</code>: open it and drag Tlaku to Applications.</span></li>
+          <li><strong>Windows 10 or later</strong><span><code>.exe</code> (NSIS installer) or <code>.msi</code>.</span></li>
+          <li><strong>Linux</strong><span><code>.deb</code> or <code>.AppImage</code> (mark it as executable).</span></li>
+        </ul>
+        <div class="optgroup">
+          <p class="actions"><a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Latest release on GitHub</a></p>
+          <p class="fallback">There is no public download address yet. When the first version is published, the link will appear here.</p>
+        </div>
+        <p class="notice">Until the project has code-signing certificates, the macOS and Windows installers are unsigned and the system will show a warning the first time (Gatekeeper on macOS, SmartScreen on Windows). The README explains how to open them. This is an early-stage application with no hardware testing: use it with care.</p>
+        <p>On Linux, to use the laser's serial port you need to add your user to the <code>dialout</code> group.</p>
+      </div>
+    </section>
+
+    <section id="manual" aria-labelledby="h-manual">
+      <div class="wrap">
+        <h2 id="h-manual">Manual</h2>
+        <p>The user manual goes from first steps to troubleshooting, and includes a guide for people coming from other laser control programs. It is also inside the app, under Help &gt; User Manual. It is currently written in Spanish.</p>
+        <div class="optgroup">
+          <p class="actions"><a class="btn opt" href="{{REPO_URL}}/tree/main/docs/manual">Open the manual (docs/manual)</a></p>
+          <p class="fallback">The manual lives in the <code>docs/manual</code> folder of the repository, which does not have a public address yet.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="support" aria-labelledby="h-support">
+      <div class="wrap">
+        <h2 id="h-support">Support the project</h2>
+        <p>Tlaku has no company behind it. Donations, if any, go toward testing on real machines, paying for installer code-signing certificates and time for development. Donating is voluntary: the program is the same with or without a donation.</p>
+        <p>What helps most today is trying Tlaku with a real machine and telling us what happened.</p>
+        <div class="optgroup">
+          <p class="actions">
+            <a class="btn primary opt" href="{{SPONSORS_URL}}">GitHub Sponsors</a>
+            <a class="btn opt" href="{{KOFI_URL}}">Ko-fi</a>
+          </p>
+          <p class="fallback">The project does not have donation accounts yet.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="license" aria-labelledby="h-license">
+      <div class="wrap">
+        <h2 id="h-license">License</h2>
+        <p>Tlaku is free software under the <strong>MIT</strong> license. Dependencies must have permissive licenses, and an automated check verifies this on every change.</p>
+        <p class="optgroup"><a class="opt" href="{{REPO_URL}}/blob/main/LICENSE">License text</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>Tlaku · free software under the MIT license · © 2026 tlaku contributors</p>
+      <p>Screenshots are from the application itself. This site uses no cookies, trackers or external resources.</p>
+    </div>
+  </footer>
+</body>
+</html>

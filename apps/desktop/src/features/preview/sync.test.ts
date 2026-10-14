@@ -76,11 +76,13 @@ describe('cálculo de la vista previa: respuestas obsoletas', () => {
     setApi(api);
     const store = createAppStore();
     const p = store.getState().computePreview();
-    pending[0]!.reject('El trabajo, con el margen de overscan, se sale de la cama.');
+    pending[0]!.reject('[bed_overflow] El trabajo, con el margen de overscan, se sale de la cama.');
     await p;
     const s = store.getState();
     expect(s.previewStatus).toBe('error');
     expect(s.previewError).toContain('se sale de la cama');
+    expect(s.previewError).not.toContain('[bed_overflow]');
+    expect(s.previewErrorCode).toBe('bed_overflow');
     expect(s.preview).toBeNull();
   });
 });

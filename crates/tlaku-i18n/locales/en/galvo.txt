@@ -1,0 +1,163 @@
+# Mensajes de tlaku-galvo (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: galvo.<módulo>.<qué> = plantilla
+# --- calib.rs ---
+galvo.calib.bad_field = the lens field must be a positive number (got {v} mm)
+galvo.calib.non_finite = {what} is not a finite number
+galvo.calib.bad_scale = scale {v} is out of range ({min} to {max})
+galvo.calib.nonlinear_too_large = {what} = {value} is out of range (maximum ±{max})
+galvo.calib.out_of_field = the point falls outside the lens field on {axis} ({mm} mm from the center)
+galvo.calib.what_position = the position
+galvo.calib.what_scale = the scale
+galvo.calib.what_offset = the offset
+galvo.calib.what_rotation = the rotation
+galvo.calib.what_barrel = barrel
+galvo.calib.what_trapezoid = trapezoid
+galvo.calib.what_skew = skew
+
+# --- cor.rs ---
+galvo.cor.truncated = truncated .cor file: {needed} bytes are needed and there are {got}
+galvo.cor.not_finite = the .cor file contains a value that is not a number
+
+# --- wire.rs ---
+galvo.wire.bad_length = a command is {len} bytes long and {got} arrived
+galvo.wire.not_multiple = {got} bytes is not a multiple of {len}
+galvo.wire.not_a_list_command = command {index} (code {code}) is not a list command
+
+# --- transport.rs ---
+galvo.transport.timeout = USB timeout
+galvo.transport.disconnected = the board was disconnected from USB
+galvo.transport.io = USB error: {msg}
+galvo.transport.reject_clone = clone seen on a forum: it is not known whether it uses the same protocol
+galvo.transport.reject_needs_firmware = it needs the FPGA firmware loaded, which Tlaku does not do (it never writes to the board)
+galvo.transport.reject_firmware_board = possible firmware-loading board; not verified
+galvo.transport.reject_unknown_ids = unknown VID:PID: Tlaku does not talk to it
+galvo.transport.unknown_ids = unknown VID:PID
+galvo.transport.name_clone = BJJCZ clone ({ids})
+galvo.transport.name_no_firmware = FIBER/CO2-V board with no firmware loaded ({ids})
+galvo.transport.name_inf = EZCAD2 INF ({ids})
+
+# --- usb.rs ---
+galvo.usb.candidate_supported = #{index} {ids} {name} (bus {bus}, address {address}) - supported (EXPERIMENTAL)
+galvo.usb.candidate_rejected = #{index} {ids} {name} (bus {bus}, address {address}) - rejected: {why}
+galvo.usb.no_device = no board found (USB {ids}). Check the USB cable and make sure the machine is powered on
+galvo.usb.unsupported = board {ids} is not supported: {why}
+galvo.usb.permission = no permission to open the board: {msg}. On Linux add a udev rule; on Windows bind the board to the WinUSB driver with Zadig
+galvo.usb.busy = the board is in use: {msg}. Close EZCAD, LightBurn, MeerK40t or any other program that has it open
+galvo.usb.other = could not open the board: {msg}
+galvo.usb.unknown_board = unknown
+
+# --- emu.rs ---
+galvo.emu.board_name = simulated board
+
+# --- safety.rs ---
+galvo.safety.bad_limits = invalid safety profile: {why}
+galvo.safety.limit_overscan = the profile overscan must be between 0 and 20 mm
+galvo.safety.limit_require_input = the input interlock has value bits outside the mask
+galvo.safety.limit_freq_not_numbers = the profile frequencies are not numbers
+galvo.safety.limit_freq_range = the profile frequency range must satisfy 0 < min <= max
+galvo.safety.limit_freq_period = the frequency range does not fit in the board's 16-bit period
+galvo.safety.limit_max_power = the profile maximum power must be between 0 and 100 %
+galvo.safety.limit_max_dwell = the maximum dwell must be positive
+galvo.safety.limit_bits = the laser and red pointer bits must be different and less than 16
+galvo.safety.limit_mopa_pulses = a MOPA source needs the profile's list of pulse widths
+galvo.safety.missing_ready = the list does not start with listReadyMark
+galvo.safety.missing_end = the list does not end with listEndOfList
+galvo.safety.after_end = command {index} after listEndOfList
+galvo.safety.too_long = the list has {commands} commands (maximum {max})
+galvo.safety.not_a_list_command = command {index} ({code}) is not a list command
+galvo.safety.forbidden = command {index}: code {code} ({name}) is never sent by Tlaku
+galvo.safety.not_allowed_here = command {index}: {name} is not allowed in this kind of list
+galvo.safety.wrong_source = command {index}: {name} does not match the profile's source type
+galvo.safety.unprepared = command {index}: mark or fire before {missing} was set
+galvo.safety.zero_speed = command {index}: speed is 0
+galvo.safety.zero_power_mark = command {index}: mark with an effective power of 0
+galvo.safety.power_above = command {index}: power {pct} % is above the profile maximum ({max} %)
+galvo.safety.frequency_outside = command {index}: frequency {khz} kHz is outside the profile range ({min} to {max} kHz)
+galvo.safety.pulse_not_allowed = command {index}: pulse width {ns} ns is not in the profile's list
+galvo.safety.dwell_too_long = command {index}: continuous firing of {ms} ms (maximum {max} ms)
+galvo.safety.bad_port = command {index}: output {value} is not allowed (only 0, the laser bit or the red pointer bit, never both together)
+galvo.safety.immediate_refused = {name} refused: {why}
+galvo.safety.missing_jump_speed = the jump speed
+galvo.safety.missing_mark_speed = the mark speed
+galvo.safety.missing_delays = the laser-on, laser-off and polygon delays
+galvo.safety.missing_frequency = the frequency
+galvo.safety.missing_power = the power
+galvo.safety.missing_pulse_width = the pulse width
+galvo.safety.missing_laser_port = the laser port
+galvo.safety.missing_frequency_before_power = the frequency before the power
+galvo.safety.refuse_unknown_code = the code is not on the allowlist
+galvo.safety.refuse_enable_laser = the laser is only enabled during a real mark
+galvo.safety.refuse_mo_value = the MO value must be 0 or 1
+galvo.safety.refuse_not_fiber = the profile's source is not a fiber laser
+galvo.safety.refuse_open_mo = the MO is only opened during a real mark
+galvo.safety.refuse_laser_bit = the laser bit is only written during a real mark
+galvo.safety.refuse_port_values = only 0, the laser bit or the red pointer bit may be written
+galvo.safety.refuse_armed = the source is armed
+galvo.safety.refuse_use_frame = a frame is sent with frame or light
+
+# --- session.rs ---
+galvo.session.poisoned = internal state corrupted
+galvo.session.timeout = timed out waiting for {what}
+galvo.session.wait_ready = the board to be ready for another batch
+galvo.session.wait_idle = the end of execution
+galvo.session.unknown_board = board {ids} is not supported: {why}
+galvo.session.busy = the board is busy with another job
+galvo.session.cancelled = cancelled
+galvo.session.bad_reply = unexpected reply from the board: {what}
+galvo.session.interlock_open = the interlock is not closed: inputs {inputs}, required (inputs & {mask}) == {value}
+galvo.session.shutdown_unconfirmed = the job finished but the source shutdown could not be confirmed
+galvo.session.job_not_touched = {cause} (batches sent: {sent} of {total}). The board was not touched
+galvo.session.job_stopped = {cause} (batches sent: {sent} of {total}). The source was turned off and the list was cleared
+galvo.session.job_unconfirmed = {cause} (batches sent: {sent} of {total}). An attempt was made to turn the source off but there was NO confirmation: it may still be enabled. Open the lid or use the emergency stop
+galvo.session.note_experimental = EXPERIMENTAL: the protocol has not been verified on our own hardware.
+galvo.session.note_no_init = Tlaku does not initialize the board or write its correction table: field correction is done on the host and assumes the board's table is the identity.
+galvo.session.note_interlock_bits = The source's EMSTOP and alarm bits are not documented: the software cannot check the interlock except with --require-input.
+galvo.session.note_simulated = SIMULATED board: there is no hardware behind it.
+
+# --- compile.rs ---
+galvo.compile.missing_params = block {block} has no galvo parameters (frequency, delays...)
+galvo.compile.bad_param = block {block}: {what}
+galvo.compile.too_many_commands = the job exceeds the maximum of {max} commands
+galvo.compile.empty = the job has no moves
+galvo.compile.wrong_kind = a frame is compiled with compile_light
+galvo.compile.pointer_offset = the red pointer offset must be between -{max} and {max} mm
+galvo.compile.overscan_needs_speed = overscan needs the block's mark speed
+galvo.compile.freq_invalid = the frequency is not valid
+galvo.compile.freq_out_of_range = frequency {khz} kHz is outside the profile range ({min} to {max} kHz)
+galvo.compile.freq_period = the frequency does not fit in the board's period
+galvo.compile.mopa_needs_pulse = a MOPA source needs the pulse width
+galvo.compile.source_no_pulse = this source does not use a pulse width ({ns} ns was requested)
+galvo.compile.pulse_not_in_list = pulse width {ns} ns is not in the profile's list {list}
+galvo.compile.pulse_too_big = pulse width is too large
+galvo.compile.what_laser_on_delay = the laser-on delay
+galvo.compile.what_laser_off_delay = the laser-off delay
+galvo.compile.what_end_delay = the end delay
+galvo.compile.what_polygon_delay = the polygon delay
+galvo.compile.what_jump_delay_min = the minimum jump delay
+galvo.compile.what_jump_delay_max = the maximum jump delay
+galvo.compile.what_jump_distance = the jump distance limit
+galvo.compile.what_pause_before = the pause before
+galvo.compile.what_pause_after = the pause after
+galvo.compile.what_jump_speed = the jump speed
+galvo.compile.what_mark_speed = the mark speed
+galvo.compile.not_a_number = {what} is not a number
+galvo.compile.delay_out_of_range = {what} is outside ±65535 us
+galvo.compile.jump_delays_invalid = invalid jump delays (0 <= min <= max <= 65535 us)
+galvo.compile.delays_negative = the end and polygon delays and the pauses cannot be negative
+galvo.compile.mark_speed_zero = the mark speed must be greater than 0
+galvo.compile.mark_speed_low = mark speed {speed} mm/s is too low for the board (minimum 1 unit/ms)
+galvo.compile.jump_speed_zero = the jump speed must be greater than 0
+galvo.compile.jump_speed_low = jump speed is too low for the board
+galvo.compile.too_many_repeats = {n} repeats (maximum {max})
+galvo.compile.speed_clamped = block {block}: {what} was clamped to the board's maximum
+galvo.compile.power_invalid = power {pct} % is invalid
+galvo.compile.power_above = power {pct} % is above the profile maximum ({max} %)
+galvo.compile.air_assist_ignored = block {block}: air assist is ignored on a galvo
+galvo.compile.z_ignored = block {block}: the Z axis is ignored on a galvo
+galvo.compile.dwell_invalid = pause of {ms} ms is invalid
+galvo.compile.cor_ignored = the profile's .cor file is ignored: its format can be read but its semantics are not documented (see cor.rs); the correction is the profile's parametric one
+galvo.compile.adjust_not_number = the frame adjustment must be a number
+galvo.compile.adjust_shift = the frame shift cannot exceed {max} mm
+galvo.compile.adjust_scale = the frame scale must be between {min} and {max}
+galvo.compile.light_thinned = the outline has {total} vertices: 1 in every {keep_every} was kept for the frame
+galvo.compile.light_speed_zero = the profile's frame speed must be greater than 0

@@ -26,6 +26,7 @@ use crate::num;
 use crate::packet::{self, PacketConfig, Response};
 use crate::swizzle::Magic;
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 
 mod config;
 mod control;
@@ -81,7 +82,7 @@ impl<L: PacketLink> RuidaSession<L> {
 
     fn datagram(&self, cmds: &[Command]) -> Result<Vec<u8>, SessionError> {
         let plain = cmd::encode_stream(cmds)
-            .map_err(|e| SessionError::Protocol(format!("comando inválido: {e}")))?;
+            .map_err(|e| SessionError::Protocol(tr!("ruida.session.invalid_command", e = e)))?;
         Ok(packet::build_packet(&plain, &self.pcfg()))
     }
 
@@ -163,11 +164,11 @@ impl<L: PacketLink> RuidaSession<L> {
                     return Err(SessionError::Timeout { what: "ACK" });
                 }
                 Some(Response::Unknown(b)) => {
-                    return Err(SessionError::Protocol(format!(
-                        "respuesta inesperada 0x{b:02X} al paquete {}; ¿el magic (0x{:02X}) es \
-                         el de esta máquina?",
-                        index + 1,
-                        self.cfg.magic.0
+                    return Err(SessionError::Protocol(tr!(
+                        "ruida.session.unexpected_reply_packet",
+                        byte = format!("{b:02X}"),
+                        packet = index + 1,
+                        magic = format!("{:02X}", self.cfg.magic.0)
                     )));
                 }
                 None => {

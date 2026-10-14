@@ -1,0 +1,8 @@
+[package]
+name = "tlaku-i18n"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Mensajes del motor de Tlaku en varios idiomas (catálogos de texto y macro tr!)"
+
+[dependencies]

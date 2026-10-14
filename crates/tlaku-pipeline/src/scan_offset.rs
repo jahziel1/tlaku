@@ -28,6 +28,7 @@
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, ToolpathBlock};
 use tlaku_doc::ScanOffset;
+use tlaku_i18n::tr;
 
 /// Offset (mm) para `speed_mm_min`: interpolación lineal entre las muestras ordenadas por
 /// velocidad; por debajo de la primera o por encima de la última, el valor del extremo.
@@ -79,10 +80,12 @@ pub(crate) fn overscan_warning(
 ) -> Option<String> {
     let offset = offset_for_speed(offsets, speed_mm_min).abs();
     (offset > 0.0 && overscan_mm + 1e-9 < offset).then(|| {
-        format!(
-            "{layer}: el overscan ({overscan_mm:.2} mm) es menor que la corrección de barrido \
-             ({offset:.2} mm a {speed_mm_min} mm/min): las líneas corridas entran sin llegar a \
-             velocidad; sube el overscan"
+        tr!(
+            "pipeline.scan_offset.overscan_short",
+            layer = layer,
+            overscan = format!("{overscan_mm:.2}"),
+            offset = format!("{offset:.2}"),
+            speed = speed_mm_min
         )
     })
 }

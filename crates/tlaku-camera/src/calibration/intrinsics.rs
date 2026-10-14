@@ -5,6 +5,7 @@ use super::model::distort_with;
 use crate::homography::Homography;
 use nalgebra::{DMatrix, DVector, Matrix3, Rotation3, Vector3};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Solución cerrada de Zhang con sesgo nulo, trabajando en píxeles centrados y
 /// escalados para mejorar el condicionamiento. Si falla, reintenta con el punto
@@ -117,7 +118,7 @@ pub(super) fn initial_intrinsics(
             return Ok(back((1.0 / u).sqrt(), (1.0 / v).sqrt(), 0.0, 0.0));
         }
     }
-    Err("no se pudo estimar la distancia focal: las vistas son demasiado parecidas; inclina el tablero en distintas direcciones".into())
+    Err(tr!("camera.intrinsics.focal_unknown"))
 }
 
 pub(super) fn pose_from_homography(hm: &Homography, k_inv: &Matrix3<f64>) -> [f64; 6] {

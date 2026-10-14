@@ -5,6 +5,7 @@
 //! antes de ajustar y tramar, para que el tramado actúe sobre los puntos finales.
 
 use crate::gray::GrayF32;
+use tlaku_i18n::tr;
 
 /// Transformación afín `[a, b, c, d, e, f]`: `x' = a·x + c·y + e`, `y' = b·x + d·y + f`
 /// (el mismo orden que `tlaku_doc::affine::Transform`).
@@ -50,9 +51,9 @@ pub fn warp_affine(
     rows: usize,
     fill: f32,
 ) -> Result<GrayF32, String> {
-    let inv = invert(forward).ok_or("la transformación de la imagen no es invertible")?;
+    let inv = invert(forward).ok_or_else(|| tr!("raster.warp.not_invertible"))?;
     if cols == 0 || rows == 0 {
-        return Err("la rejilla destino no puede tener tamaño cero".into());
+        return Err(tr!("raster.warp.zero_grid"));
     }
     let (px, py) = (dst_size[0] / cols as f64, dst_size[1] / rows as f64);
     let (kx, ky) = (

@@ -311,6 +311,14 @@ fn limits_are_the_field_and_not_the_bed() {
     let outside = document(vec![rect("a", 100.0, 100.0, 30.0, 30.0)], layer(|_| {}));
     let e = compute(&outside, &device, &JobOptions::default()).unwrap_err();
     assert!(e.contains("campo del galvo"), "{e}");
+    // El desborde lleva el mismo código que el de la cama, para que la interfaz muestre la misma pista.
+    assert_eq!(tlaku_i18n::split_code(&e).0, Some("bed_overflow"), "{e}");
+    assert!(tlaku_i18n::split_code(&e).1.starts_with("la capa "), "{e}");
+    let en = tlaku_i18n::with_locale(tlaku_i18n::Locale::En, || {
+        compute(&outside, &device, &JobOptions::default()).unwrap_err()
+    });
+    assert_eq!(tlaku_i18n::split_code(&en).0, Some("bed_overflow"), "{en}");
+    assert!(en.contains("mm galvo field"), "{en}");
     // `build` no falla pero avisa.
     let job = build(&outside, &device, &JobOptions::default(), None).unwrap();
     assert!(
@@ -860,4 +868,32 @@ fn rotary_galvo_and_repeat_sequence_golden() {
     let plan = mark_sequence(bounds, &device).unwrap();
     assert_eq!(plan.steps.len(), 4);
     golden("galvo_rotary", &describe(&plan));
+}
+
+#[test]
+fn galvo_messages_come_out_in_english() {
+    use tlaku_i18n::{Locale, with_locale};
+    let mut device = galvo_device();
+    device.bed = [400.0, 400.0];
+    let outside = document(vec![rect("a", 100.0, 100.0, 30.0, 30.0)], layer(|_| {}));
+    let e = with_locale(Locale::En, || {
+        compute(&outside, &device, &JobOptions::default()).unwrap_err()
+    });
+    assert!(e.contains("goes outside the"), "{e}");
+    assert!(e.contains("galvo field"), "{e}");
+    assert!(e.contains("shrink the design to fit the field"), "{e}");
+    assert!(!e.contains("se sale"), "{e}");
+    let w = with_locale(Locale::En, || {
+        warnings(&build(&outside, &device, &JobOptions::default(), None).unwrap())
+    });
+    assert!(w.contains("goes outside the galvo field"), "{w}");
+    // Un error de capa de la capa: frecuencia inválida.
+    let bad = document(
+        vec![rect("a", 150.0, 150.0, 10.0, 10.0)],
+        layer(|l| l.galvo.frequency_khz = f64::NAN),
+    );
+    let e = with_locale(Locale::En, || {
+        compute(&bad, &device, &JobOptions::default()).unwrap_err()
+    });
+    assert!(e.contains("invalid frequency"), "{e}");
 }

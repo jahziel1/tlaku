@@ -3,10 +3,12 @@
 use crate::encode::{EncodeError, Warning};
 use crate::packet::FrameError;
 use crate::status::{Status, StatusReport};
+use crate::text;
 use crate::transport::{TransportError, TransportInfo};
 use std::fmt;
 use std::time::Duration;
 use tlaku_core::Point;
+use tlaku_i18n::{Arg, tr};
 
 #[derive(Debug)]
 pub enum SessionError {
@@ -52,46 +54,38 @@ impl fmt::Display for SessionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SessionError::Transport(e) => write!(f, "{e}"),
-            SessionError::Timeout { what } => write!(f, "sin respuesta de la placa ({what})"),
-            SessionError::CrcRepeated { packet } => write!(
-                f,
-                "la placa rechazó el paquete {} por CRC varias veces seguidas (¿cable USB \
-                 defectuoso o interferencias?)",
-                packet + 1
-            ),
-            SessionError::LowPower => write!(
-                f,
-                "la placa informa energía insuficiente (239): revisa el paro de emergencia, la \
-                 tapa y que la fuente del láser esté encendida"
-            ),
-            SessionError::NotM2Nano { code } => write!(
-                f,
-                "esta placa responde con el código {code}, que no existe en la M2 Nano: parece \
-                 una Moshiboard (mismo USB 1A86:5512). Tlaku no la soporta todavía"
-            ),
-            SessionError::NoStatus(s) => write!(
-                f,
-                "la placa no devuelve un estado utilizable ({})",
-                s.describe()
-            ),
-            SessionError::Busy(s) => write!(f, "la placa no está en reposo ({})", s.describe()),
-            SessionError::UnknownPosition => write!(
-                f,
-                "no se sabe dónde está el cabezal: haz home primero (la M2 Nano no informa su \
-                 posición)"
-            ),
-            SessionError::StartMismatch { expected, found } => write!(
-                f,
-                "el trabajo se codificó desde {expected:?} mil y el cabezal está en {found:?}"
-            ),
-            SessionError::OutOfBed { x_mm, y_mm } => {
-                write!(f, "({x_mm:.2}, {y_mm:.2}) mm queda fuera de la cama")
+            SessionError::Timeout { what } => {
+                f.write_str(&tr!("lhymicro.session.timeout", what = text::what(what)))
             }
-            SessionError::JobActive => write!(f, "ya hay un trabajo en marcha"),
+            SessionError::CrcRepeated { packet } => {
+                f.write_str(&tr!("lhymicro.session.crc_repeated", packet = packet + 1))
+            }
+            SessionError::LowPower => f.write_str(&tr!("lhymicro.session.low_power")),
+            SessionError::NotM2Nano { code } => {
+                f.write_str(&tr!("lhymicro.session.not_m2nano", code = code))
+            }
+            SessionError::NoStatus(s) => {
+                f.write_str(&tr!("lhymicro.session.no_status", state = s.describe()))
+            }
+            SessionError::Busy(s) => {
+                f.write_str(&tr!("lhymicro.session.busy", state = s.describe()))
+            }
+            SessionError::UnknownPosition => f.write_str(&tr!("lhymicro.session.unknown_position")),
+            SessionError::StartMismatch { expected, found } => f.write_str(&tr!(
+                "lhymicro.session.start_mismatch",
+                expected = format!("{expected:?}"),
+                found = format!("{found:?}")
+            )),
+            SessionError::OutOfBed { x_mm, y_mm } => f.write_str(&tr!(
+                "lhymicro.session.out_of_bed",
+                x = format!("{x_mm:.2}"),
+                y = format!("{y_mm:.2}")
+            )),
+            SessionError::JobActive => f.write_str(&tr!("lhymicro.session.job_active")),
             SessionError::Encode(e) => write!(f, "{e}"),
             SessionError::Frame(e) => write!(f, "{e}"),
-            SessionError::BadProgram(m) => write!(f, "{m}"),
-            SessionError::Cancelled => write!(f, "cancelado por el usuario"),
+            SessionError::BadProgram(m) => f.write_str(&text::what(m)),
+            SessionError::Cancelled => f.write_str(&tr!("lhymicro.session.cancelled")),
         }
     }
 }
@@ -176,19 +170,16 @@ impl JobError {
 
 impl fmt::Display for JobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} (paquetes confirmados: {} de {})",
-            self.cause, self.packets_sent, self.packets_total
-        )?;
-        match self.stop {
-            StopOutcome::Acked => write!(f, ". Se detuvo la placa y se apagó el láser"),
-            StopOutcome::Unconfirmed => write!(
-                f,
-                ". Se intentó detener la placa y apagar el láser pero NO hubo confirmación: \
-                 puede seguir en marcha. Usa el paro de emergencia o abre la tapa"
-            ),
-        }
+        let key = match self.stop {
+            StopOutcome::Acked => "lhymicro.session.job_failed_stopped",
+            StopOutcome::Unconfirmed => "lhymicro.session.job_failed_unconfirmed",
+        };
+        let args = [
+            ("cause", Arg::new(&self.cause)),
+            ("sent", Arg::new(&self.packets_sent)),
+            ("total", Arg::new(&self.packets_total)),
+        ];
+        f.write_str(&tlaku_i18n::translate(key, &args))
     }
 }
 

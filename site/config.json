@@ -1,0 +1,6 @@
+{
+  "_aviso": "Llena estos valores cuando existan y vuelve a construir el sitio (node scripts/build-site.mjs). Vacío = el botón o enlace se oculta.",
+  "REPO_URL": "",
+  "SPONSORS_URL": "",
+  "KOFI_URL": ""
+}

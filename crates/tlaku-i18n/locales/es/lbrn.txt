@@ -1,0 +1,22 @@
+# Mensajes de tlaku-lbrn (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: lbrn.<módulo>.<qué> = plantilla
+
+# parse.rs
+lbrn.parse.bad_xform = Una forma trae un XForm inválido; se usa la identidad
+lbrn.parse.not_utf8 = no es texto UTF-8: un proyecto de LightBurn es XML
+lbrn.parse.bad_xml = no es un XML válido de LightBurn ({error}); ¿el archivo está dañado o comprimido?
+lbrn.parse.not_project = no es un proyecto de LightBurn: el elemento raíz es <{root}>
+lbrn.parse.layer_no_index = Una capa (CutSetting) sin número de índice se omite
+lbrn.parse.repeated = {msg} ({n} veces)
+lbrn.parse.rect_invalid = Un Rect sin W/H válidos se omite
+lbrn.parse.ellipse_invalid = Una Ellipse sin Rx/Ry válidos se omite
+lbrn.parse.groups_too_deep = Se omitieron grupos anidados a demasiada profundidad
+lbrn.parse.bad_vertices = Se omitieron vértices ilegibles en una trayectoria
+lbrn.parse.unknown_primitive = Primitiva de trayectoria '{prim}' desconocida: se omite
+lbrn.parse.path_empty = Se omitieron trayectorias sin vértices o sin primitivas
+lbrn.parse.bezier_straight = Curvas Bézier sin manejadores se importaron como rectas
+lbrn.parse.missing_vertex = Se omitieron segmentos que citan un vértice inexistente
+lbrn.parse.path_no_segments = Se omitieron trayectorias sin segmentos
+lbrn.parse.bitmap_invalid = Un Bitmap sin W/H válidos se omite
+lbrn.parse.bitmap_no_image = Un Bitmap sin imagen incrustada se omite
+lbrn.parse.bitmap_bad_image = Un Bitmap con la imagen incrustada ilegible (base64 inválido) se omite

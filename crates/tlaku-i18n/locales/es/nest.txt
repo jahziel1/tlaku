@@ -1,0 +1,11 @@
+# Mensajes de tlaku-nest (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: nest.<módulo>.<qué> = plantilla
+
+# lib.rs
+nest.lib.no_pieces = No hay piezas que acomodar.
+nest.lib.too_many = Son demasiadas piezas ({n}); el máximo es {max} entre originales y copias.
+nest.lib.empty_piece = La pieza {n} no tiene un contorno cerrado con área.
+nest.lib.invalid_container = El contenedor no tiene un área válida: revisa el tamaño de la cama o el contorno del material.
+nest.lib.option_rotation_step = Opción inválida: el paso de rotación debe estar entre 1 y 180 grados.
+nest.lib.option_spacing = Opción inválida: la separación no puede ser negativa.
+nest.lib.option_margin = Opción inválida: el margen no puede ser negativo.

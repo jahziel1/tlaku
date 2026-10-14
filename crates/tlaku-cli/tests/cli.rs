@@ -30,6 +30,7 @@ fn run(args: &[&str]) -> Output {
 
 fn run_with_stdin(args: &[&str], stdin: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_tlaku"))
+        .env("TLAKU_LANG", "es")
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

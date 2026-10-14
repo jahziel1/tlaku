@@ -50,7 +50,10 @@ export function Modal({
     if (!el) return;
     const previous = document.activeElement as HTMLElement | null;
     const first = fallbackFocus === 'first' ? el.querySelector<HTMLElement>(FOCUSABLE) : null;
-    (el.querySelector<HTMLElement>(initialFocus) ?? first ?? el).focus();
+    // Un elemento de foco inicial deshabilitado no puede recibir el foco: se pasa al primero enfocable.
+    const wanted = el.querySelector<HTMLElement>(initialFocus);
+    const usable = wanted && !(wanted as HTMLButtonElement).disabled ? wanted : null;
+    (usable ?? first ?? (wanted ? el.querySelector<HTMLElement>(FOCUSABLE) : null) ?? el).focus();
     // Si el foco se pierde fuera del diálogo (clic en el fondo), las teclas no llegan a los atajos globales.
     const guard = (e: globalThis.KeyboardEvent) => {
       if (el.contains(e.target as Node) || passRef.current?.(e)) return;
@@ -93,6 +96,7 @@ export function Modal({
   const tree = (
     <div
       className={backdropClassName}
+      role="presentation"
       onKeyDown={onKeyDown}
       onMouseDown={(e) => {
         if (e.target !== e.currentTarget) return;

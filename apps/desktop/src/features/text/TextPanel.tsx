@@ -243,7 +243,7 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
         {status.error && (
           <p className="warn-line text-panel__error" role="alert">
             <TriangleAlert size={14} aria-hidden="true" />
-            <span>{status.error.startsWith('El objeto guía') ? status.error : t('text.status.error', { message: status.error })}</span>
+            <span>{status.error === t('text.onPath.missing') ? status.error : t('text.status.error', { message: status.error })}</span>
           </p>
         )}
         {status.warnings.length > 0 && (

@@ -6,6 +6,7 @@ use crate::link::PacketLink;
 use crate::packet;
 use crate::safety;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tlaku_i18n::tr;
 
 impl<L: PacketLink> RuidaSession<L> {
     // ------------------------------------------------------------------------------------
@@ -33,14 +34,15 @@ impl<L: PacketLink> RuidaSession<L> {
             })
         };
         let cmds = cmd::decode_stream(plain).map_err(|e| {
-            early(SessionError::Protocol(format!(
-                "el trabajo no es válido: {e}"
+            early(SessionError::Protocol(tr!(
+                "ruida.session.job_invalid",
+                e = e
             )))
         })?;
         if cmds.last() != Some(&Command::EndOfFile) {
-            return Err(early(SessionError::Protocol(
-                "el trabajo no termina en D7 (fin de archivo)".into(),
-            )));
+            return Err(early(SessionError::Protocol(tr!(
+                "ruida.session.job_no_eof"
+            ))));
         }
         safety::check_commands(&cmds, &self.cfg.limits, false).map_err(|e| early(e.into()))?;
         if let SendMode::Store { name } = mode
@@ -48,9 +50,9 @@ impl<L: PacketLink> RuidaSession<L> {
                 || name.len() > 40
                 || name.bytes().any(|b| !(0x20..0x7F).contains(&b)))
         {
-            return Err(early(SessionError::Protocol(
-                "el nombre del documento debe tener de 1 a 40 caracteres ASCII imprimibles".into(),
-            )));
+            return Err(early(SessionError::Protocol(tr!(
+                "ruida.session.bad_doc_name"
+            ))));
         }
         if self.cfg.require_idle {
             let st = self.status().map_err(early)?;

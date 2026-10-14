@@ -1,6 +1,7 @@
 //! Movimientos manuales (`jog`, `jog_to`) y overrides.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn jog(
@@ -11,12 +12,10 @@ impl Worker {
         speed: f64,
     ) -> Result<(), Fail> {
         if !(dx.is_finite() && dy.is_finite()) {
-            return Err(Fail::Msg("El desplazamiento no es un número.".into()));
+            return Err(Fail::Msg(tr!("desktop.common.offset_not_number")));
         }
         if !(speed.is_finite() && speed > 0.0) {
-            return Err(Fail::Msg(
-                "La velocidad del movimiento debe ser mayor que 0.".into(),
-            ));
+            return Err(Fail::Msg(tr!("desktop.common.move_speed")));
         }
         if self.link_family != LinkFamily::Grbl {
             return self.jog_reprap(t, dx, dy, speed);
@@ -26,7 +25,7 @@ impl Worker {
         match reply.last().map(String::as_str) {
             Some("ok") => Ok(()),
             Some(e) => Err(Fail::Msg(jog_error(e))),
-            None => Err(Fail::Msg("La máquina no respondió al movimiento.".into())),
+            None => Err(Fail::Msg(tr!("desktop.worker.move_no_reply"))),
         }
     }
 
@@ -39,12 +38,10 @@ impl Worker {
         speed: f64,
     ) -> Result<(), Fail> {
         if !(x.is_finite() && y.is_finite()) {
-            return Err(Fail::Msg("La posición de destino no es un número.".into()));
+            return Err(Fail::Msg(tr!("desktop.common.target_not_number")));
         }
         if !(speed.is_finite() && speed > 0.0) {
-            return Err(Fail::Msg(
-                "La velocidad del movimiento debe ser mayor que 0.".into(),
-            ));
+            return Err(Fail::Msg(tr!("desktop.common.move_speed")));
         }
         // `M5` primero: el láser va apagado aunque una orden de la consola lo hubiera dejado
         // encendido (el jog no lo apaga).
@@ -84,10 +81,7 @@ impl Worker {
         percent: u32,
     ) -> Result<Vec<Realtime>, Fail> {
         if self.link_family != LinkFamily::Grbl {
-            return Err(Fail::Msg(
-                "Los ajustes en vivo de velocidad y potencia solo existen en controladoras GRBL:                  Marlin y Smoothieware no los tienen."
-                    .into(),
-            ));
+            return Err(Fail::Msg(tr!("desktop.worker.no_overrides")));
         }
         let current = self.last.overrides.map(|o| match kind {
             OverrideKind::Feed => o.feed,
@@ -99,14 +93,11 @@ impl Worker {
     /// Registra el override y recuerda el valor pedido hasta el próximo `Ov:` de la controladora.
     pub(super) fn note_override(&mut self, kind: OverrideKind, percent: u32) {
         let percent = percent.clamp(streamer::OVERRIDE_MIN, streamer::OVERRIDE_MAX);
-        let (name, what) = match kind {
-            OverrideKind::Feed => ("velocidad", "feed"),
-            OverrideKind::Spindle => ("potencia", "spindle"),
+        let text = match kind {
+            OverrideKind::Feed => tr!("desktop.worker.log_override_feed", percent = percent),
+            OverrideKind::Spindle => tr!("desktop.worker.log_override_spindle", percent = percent),
         };
-        self.log(
-            LogDir::Out,
-            &format!("; override de {name} ({what}) al {percent} %"),
-        );
+        self.log(LogDir::Out, &text);
         let mut o = self.last.overrides.unwrap_or(Overrides {
             feed: 100,
             rapid: 100,

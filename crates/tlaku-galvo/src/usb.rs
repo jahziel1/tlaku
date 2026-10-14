@@ -12,14 +12,15 @@
 //! [`LaserSafetyAck`]. No se carga firmware ni se escribe nada de configuración.
 
 use crate::transport::{
-    EP_IN, EP_OUT, LaserSafetyAck, PRODUCT_ID, Support, Transport, TransportError, TransportInfo,
-    VENDOR_ID, identify,
+    EP_IN, EP_OUT, LaserSafetyAck, PRODUCT_ID, Reject, Support, Transport, TransportError,
+    TransportInfo, VENDOR_ID, identify,
 };
 use crate::wire::REPLY_LEN;
 use nusb::transfer::{Buffer, Bulk, In, Out, TransferError};
 use nusb::{Endpoint, MaybeFuture};
 use std::fmt;
 use std::time::Duration;
+use tlaku_i18n::tr;
 
 /// Esperas del USB.
 #[derive(Debug, Clone, Copy)]
@@ -54,15 +55,27 @@ pub struct UsbCandidate {
 
 impl fmt::Display for UsbCandidate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "#{} {:04X}:{:04X} {} (bus {}, dirección {}) - ",
-            self.index, self.vendor_id, self.product_id, self.name, self.bus_id, self.address
-        )?;
-        match self.support {
-            Support::Supported => write!(f, "compatible (EXPERIMENTAL)"),
-            Support::Rejected(why) => write!(f, "rechazada: {why}"),
-        }
+        let ids = format!("{:04X}:{:04X}", self.vendor_id, self.product_id);
+        let text = match self.support {
+            Support::Supported => tr!(
+                "galvo.usb.candidate_supported",
+                index = self.index,
+                ids = ids,
+                name = self.name,
+                bus = self.bus_id,
+                address = self.address
+            ),
+            Support::Rejected(why) => tr!(
+                "galvo.usb.candidate_rejected",
+                index = self.index,
+                ids = ids,
+                name = self.name,
+                bus = self.bus_id,
+                address = self.address,
+                why = why.message()
+            ),
+        };
+        write!(f, "{text}")
     }
 }
 
@@ -85,8 +98,11 @@ impl fmt::Display for OpenError {
         match self {
             OpenError::NoDevice => write!(
                 f,
-                "no se encontró ninguna tarjeta (USB {VENDOR_ID:04X}:{PRODUCT_ID:04X}). Comprueba \
-                 el cable USB y que la máquina esté encendida"
+                "{}",
+                tr!(
+                    "galvo.usb.no_device",
+                    ids = format!("{VENDOR_ID:04X}:{PRODUCT_ID:04X}")
+                )
             ),
             OpenError::Unsupported {
                 vendor_id,
@@ -94,19 +110,16 @@ impl fmt::Display for OpenError {
                 why,
             } => write!(
                 f,
-                "la tarjeta {vendor_id:04X}:{product_id:04X} no es compatible: {why}"
+                "{}",
+                tr!(
+                    "galvo.usb.unsupported",
+                    ids = format!("{vendor_id:04X}:{product_id:04X}"),
+                    why = why
+                )
             ),
-            OpenError::Permission(m) => write!(
-                f,
-                "sin permiso para abrir la tarjeta: {m}. En Linux agrega una regla de udev; en \
-                 Windows asocia la tarjeta al controlador WinUSB con Zadig"
-            ),
-            OpenError::Busy(m) => write!(
-                f,
-                "la tarjeta está en uso: {m}. Cierra EZCAD, LightBurn, MeerK40t o cualquier otro \
-                 programa que la tenga abierta"
-            ),
-            OpenError::Other(m) => write!(f, "no se pudo abrir la tarjeta: {m}"),
+            OpenError::Permission(m) => write!(f, "{}", tr!("galvo.usb.permission", msg = m)),
+            OpenError::Busy(m) => write!(f, "{}", tr!("galvo.usb.busy", msg = m)),
+            OpenError::Other(m) => write!(f, "{}", tr!("galvo.usb.other", msg = m)),
         }
     }
 }
@@ -142,13 +155,13 @@ pub fn list_boards() -> Result<Vec<UsbCandidate>, OpenError> {
                 product_id: d.product_id(),
                 product: d.product_string().map(str::to_string),
                 serial: d.serial_number().map(str::to_string),
-                support: known.map_or(
-                    Support::Rejected("VID:PID desconocido: Tlaku no habla con él"),
-                    |k| k.support,
-                ),
+                support: known.map_or(Support::Rejected(Reject::UnknownIds), |k| k.support),
                 name: known.map_or_else(
-                    || d.product_string().unwrap_or("desconocida").to_string(),
-                    |k| k.name.to_string(),
+                    || {
+                        d.product_string()
+                            .map_or_else(|| tr!("galvo.usb.unknown_board"), str::to_string)
+                    },
+                    |k| k.display_name(),
                 ),
             }
         })
@@ -182,14 +195,14 @@ impl UsbTransport {
                 return Err(OpenError::Unsupported {
                     vendor_id: vid,
                     product_id: pid,
-                    why: why.into(),
+                    why: why.message(),
                 });
             }
             None => {
                 return Err(OpenError::Unsupported {
                     vendor_id: vid,
                     product_id: pid,
-                    why: "VID:PID desconocido".into(),
+                    why: tr!("galvo.transport.unknown_ids"),
                 });
             }
         }

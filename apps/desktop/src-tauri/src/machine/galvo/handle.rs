@@ -1,6 +1,7 @@
 //! Solicitudes al hilo, estado compartido y el mando [`GalvoHandle`].
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Mando
@@ -93,14 +94,14 @@ pub struct GalvoHandle {
 impl GalvoHandle {
     fn call<T>(&self, build: impl FnOnce(Reply<T>) -> Request) -> Result<T, String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         let (tx, rx) = mpsc::channel();
         self.tx
             .send(build(tx))
-            .map_err(|_| crate::machine::NOT_CONNECTED.to_string())?;
+            .map_err(|_| crate::machine::not_connected())?;
         rx.recv()
-            .map_err(|_| "Se perdió la conexión con la máquina.".to_string())?
+            .map_err(|_| tr!("desktop.machine.connection_lost"))?
     }
 
     pub fn is_closed(&self) -> bool {
@@ -120,11 +121,7 @@ impl GalvoHandle {
     /// Falla si el hilo está ocupado: las órdenes de movimiento y de inicio solo valen en reposo.
     fn ensure_free(&self) -> Result<(), String> {
         if self.working() {
-            Err(
-                "La máquina está ocupada (trabajo, encuadre o salto en curso). Espera a que \
-                 termine o detenla."
-                    .into(),
-            )
+            Err(tr!("desktop.galvo.busy"))
         } else {
             Ok(())
         }
@@ -193,7 +190,7 @@ impl GalvoHandle {
     /// calcula el pipeline y pueden cambiar sin reconectar.
     fn check_profile(&self, device: &DeviceProfile) -> Result<(), String> {
         if device.kind != DeviceKind::Galvo {
-            return Err("El perfil de la máquina no es de tipo galvo.".into());
+            return Err(tr!("desktop.galvo.profile_not_galvo"));
         }
         let now = (
             driver_part(&device.galvo),
@@ -206,12 +203,7 @@ impl GalvoHandle {
             self.shared.cfg.pointer_offset,
         );
         if now != was {
-            return Err(
-                "El perfil de la máquina cambió (campo, fuente, límites, corrección, \
-                        enclavamiento, overscan, desfase del puntero o cama) desde que te \
-                        conectaste. Desconecta y vuelve a conectar para aplicarlo."
-                    .into(),
-            );
+            return Err(tr!("desktop.galvo.profile_changed"));
         }
         Ok(())
     }
@@ -272,10 +264,10 @@ impl GalvoHandle {
         self.check_profile(device)?;
         self.ensure_free()?;
         if loops == Some(0) {
-            return Err("El número de vueltas del encuadre debe ser al menos 1.".into());
+            return Err(tr!("desktop.galvo.loops_min"));
         }
         if gap_mm.is_some_and(|g| !g.is_finite() || g < 0.0) {
-            return Err("La holgura entre objetos debe ser un número no negativo.".into());
+            return Err(tr!("desktop.galvo.gap_invalid"));
         }
         let shape = light_shape(doc, device, options, kind, gap_mm)?;
         // Se valida el encuadre (campo, desfase del puntero) antes de tocar la tarjeta.
@@ -301,10 +293,10 @@ impl GalvoHandle {
     /// (el evento `light` lo avisa). `scale` es respecto al tamaño original; 1 = sin escalar.
     pub fn adjust_frame(&self, dx: f64, dy: f64, scale: f64) -> Result<(), String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         if !self.shared.framing.load(Ordering::SeqCst) {
-            return Err("No hay un encuadre en curso que mover o escalar.".into());
+            return Err(tr!("desktop.galvo.no_frame_running"));
         }
         self.shared
             .control
@@ -318,13 +310,9 @@ impl GalvoHandle {
         // borraría un «detener» en vuelo): para apagarlo todo está Detener.
         if self.working() {
             return Err(if on {
-                "La máquina está ocupada (trabajo, encuadre o salto en curso). Espera a que \
-                 termine o detenla."
-                    .into()
+                tr!("desktop.galvo.busy")
             } else {
-                "Hay un trabajo o un encuadre en curso: pulsa Detener, que apaga la fuente y el \
-                 puntero."
-                    .into()
+                tr!("desktop.galvo.job_running_press_stop")
             });
         }
         self.arm_request();
@@ -335,7 +323,7 @@ impl GalvoHandle {
     /// del centro del campo si no hay ninguna.
     pub fn jog(&self, dx: f64, dy: f64, _speed_mm_min: f64) -> Result<(), String> {
         if !(dx.is_finite() && dy.is_finite()) {
-            return Err("El desplazamiento no es válido.".into());
+            return Err(tr!("desktop.common.offset_invalid"));
         }
         let base = self
             .work_pos()
@@ -346,15 +334,19 @@ impl GalvoHandle {
     /// Salto absoluto del haz (mm del documento) con la fuente desarmada. Debe caer en el campo.
     pub fn jog_to(&self, x: f64, y: f64, _speed_mm_min: f64) -> Result<(), String> {
         if !(x.is_finite() && y.is_finite()) {
-            return Err("La posición no es válida.".into());
+            return Err(tr!("desktop.common.position_invalid"));
         }
         self.ensure_free()?;
         let f = field_bounds(self.shared.bed, self.shared.cfg.device.field_mm);
         if x < f.min.x || x > f.max.x || y < f.min.y || y > f.max.y {
-            return Err(format!(
-                "El punto ({x:.2}, {y:.2}) mm queda fuera del campo del galvo (X de {:.1} a \
-                 {:.1}, Y de {:.1} a {:.1} mm).",
-                f.min.x, f.max.x, f.min.y, f.max.y
+            return Err(tr!(
+                "desktop.galvo.point_outside_field",
+                x = format!("{x:.2}"),
+                y = format!("{y:.2}"),
+                x0 = format!("{:.1}", f.min.x),
+                x1 = format!("{:.1}", f.max.x),
+                y0 = format!("{:.1}", f.min.y),
+                y1 = format!("{:.1}", f.max.y)
             ));
         }
         self.arm_request();
@@ -364,15 +356,15 @@ impl GalvoHandle {
     /// El usuario ya movió el material (o el rotativo): el trabajo sigue con la pieza siguiente.
     pub fn confirm_move(&self) -> Result<(), String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         let mut g = self
             .shared
             .gate
             .lock()
-            .map_err(|_| "estado interno dañado")?;
+            .map_err(|_| tr!("desktop.common.internal_state"))?;
         if g.waiting.is_none() {
-            return Err("Ningún paso del trabajo espera que muevas el material.".into());
+            return Err(tr!("desktop.galvo.no_step_waiting"));
         }
         g.confirmed = true;
         self.shared.gate_cv.notify_all();
@@ -384,7 +376,7 @@ impl GalvoHandle {
     /// como evento. En reposo detiene y apaga en el acto.
     pub fn cancel(&self) -> Result<(), String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         self.shared.cancel.store(true, Ordering::SeqCst);
         self.shared.control.request_stop();

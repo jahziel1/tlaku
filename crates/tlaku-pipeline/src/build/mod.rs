@@ -21,6 +21,7 @@ use tlaku_doc::{
     DeviceProfile, Document, JobOptions, LayerMode, LayerOrder, LayerSettings, Optimization,
     ScanOffset,
 };
+use tlaku_i18n::tr;
 use tlaku_plan::PlanOptions;
 use tlaku_sim::MachineProfile;
 
@@ -109,18 +110,14 @@ pub fn build(
     }
     let optimization = &options.optimization;
     if !(optimization.overlap_tolerance.is_finite() && optimization.overlap_tolerance >= 0.0) {
-        return Err(format!(
-            "optimización: overlap_tolerance inválida ({}); debe ser 0 mm o más",
-            optimization.overlap_tolerance
+        return Err(tr!(
+            "pipeline.build_mod.bad_overlap_tolerance",
+            value = optimization.overlap_tolerance
         ));
     }
     let plan_options = plan_options(optimization);
     if optimization.hide_backlash {
-        warnings.push(
-            "hide_backlash activo: las formas cerradas se cortan siempre en sentido antihorario y \
-             los rellenos e imágenes se graban en un solo sentido; el trabajo es más lento"
-                .into(),
-        );
+        warnings.push(tr!("pipeline.build_mod.hide_backlash"));
     }
 
     // Se validan todas las capas antes de procesar ninguna.
@@ -149,9 +146,10 @@ pub fn build(
     let mut zs = Vec::with_capacity(work.len());
     for l in work {
         if !l.settings.angle_increment.is_finite() {
-            return Err(format!(
-                "capa {}: angle_increment inválido: {}",
-                l.color, l.settings.angle_increment
+            return Err(tr!(
+                "pipeline.build_mod.bad_angle_increment",
+                layer = l.color,
+                value = l.settings.angle_increment
             ));
         }
         tab_specs.push(match l.settings.mode {
@@ -178,10 +176,7 @@ pub fn build(
         let pos = match l.settings.order {
             _ if l.sub.is_some() => None,
             Some(0) => {
-                return Err(format!(
-                    "capa {}: la posición debe ser un entero desde 1",
-                    l.color
-                ));
+                return Err(tr!("pipeline.build_mod.bad_position", layer = l.color));
             }
             Some(n) => Some(n as usize),
             None => None,
@@ -191,9 +186,11 @@ pub fn build(
                 .iter()
                 .find(|p| p.sub.is_none() && p.settings.order == l.settings.order)
         {
-            return Err(format!(
-                "las capas {} y {} piden la misma posición: order={n}",
-                d.color, l.color
+            return Err(tr!(
+                "pipeline.build_mod.same_position",
+                a = d.color,
+                b = l.color,
+                n = n
             ));
         }
         forced.push(pos);
@@ -217,9 +214,11 @@ pub fn build(
         if let Some(pos) = *pos {
             forced_list.push((l.color, pos));
             if pos > n {
-                warnings.push(format!(
-                    "capa {}: order={pos} excede el número de capas ({n}); queda al final",
-                    l.color
+                warnings.push(tr!(
+                    "pipeline.build_mod.position_too_high",
+                    layer = l.color,
+                    pos = pos,
+                    n = n
                 ));
             }
         }
@@ -253,9 +252,8 @@ pub fn build(
                 .collect();
             let mut note = order_note(options.layer_order, &free_roles, &free_cuts, &forced_list);
             if has_subs && options.layer_order == LayerOrder::Auto {
-                note.push_str(
-                    "; las sub-capas se ordenan por su propio rol, nunca antes que su capa",
-                );
+                note.push_str("; ");
+                note.push_str(&tr!("pipeline.build_mod.sub_layers_order"));
             }
             note
         });
@@ -302,18 +300,17 @@ pub fn build(
                 }
                 if optimization.remove_overlaps {
                     if *kerf_mm != 0.0 {
-                        b.warnings.push(format!(
-                            "capa {color}: remove_overlaps no se aplica con kerf (las formas \
-                             abiertas que deja no se pueden compensar); se corta como está"
-                        ));
+                        b.warnings
+                            .push(tr!("pipeline.build_mod.overlaps_with_kerf", layer = color));
                     } else {
                         let d = tlaku_geom::dedupe_paths(&paths, optimization.overlap_tolerance);
                         if d.removed_length > 0.0 {
                             let cut = d.changed.iter().filter(|&&c| c).count();
-                            b.warnings.push(format!(
-                                "capa {color}: remove_overlaps quitó {:.2} mm de trazo repetido \
-                                 en {cut} trayectoria(s)",
-                                d.removed_length
+                            b.warnings.push(tr!(
+                                "pipeline.build_mod.overlaps_removed",
+                                layer = color,
+                                mm = format!("{:.2}", d.removed_length),
+                                n = cut
                             ));
                         }
                         meta = d.origin.iter().map(|&o| meta[o]).collect();
@@ -390,10 +387,11 @@ pub fn build(
         if let Some(circumference) = rotary::circumference_mm(device) {
             let height = area.max.y - area.min.y;
             if height > circumference + 1e-6 {
-                b.warnings.push(format!(
-                    "el diseño mide {height:.2} mm en Y y la circunferencia de la pieza es \
-                     {circumference:.2} mm (diámetro {} mm): los extremos se encimarán",
-                    device.rotary.object_diameter
+                b.warnings.push(tr!(
+                    "pipeline.build_mod.rotary_overlap",
+                    height = format!("{height:.2}"),
+                    circumference = format!("{circumference:.2}"),
+                    diameter = device.rotary.object_diameter
                 ));
             }
         }

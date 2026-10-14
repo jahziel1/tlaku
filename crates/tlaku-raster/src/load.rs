@@ -14,6 +14,7 @@ use image::{DynamicImage, ImageFormat, ImageReader, Limits};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::Path;
+use tlaku_i18n::tr;
 
 /// Memoria máxima, en bytes, que se concede a un decodificador de `image` (lo que ocupa la
 /// imagen decodificada). El valor por defecto de la biblioteca (512 MiB) rechazaba imágenes
@@ -26,8 +27,6 @@ const TIFF_TABLE_LIMIT: usize = 64 << 20;
 
 /// Gris cargado y tamaño original `(ancho, alto)` de la imagen.
 pub type Scaled = (GrayF32, (usize, usize));
-
-const PNG_SUGGESTION: &str = "guarda la imagen como PNG desde tu editor e impórtala de nuevo";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
@@ -60,7 +59,7 @@ fn sniff(path: &Path) -> Kind {
 fn open(path: &Path) -> Result<BufReader<File>, String> {
     File::open(path)
         .map(BufReader::new)
-        .map_err(|e| format!("no se pudo leer {}: {e}", path.display()))
+        .map_err(|e| tr!("raster.load.read_failed", path = path.display(), error = e))
 }
 
 fn limits() -> Limits {
@@ -73,29 +72,25 @@ fn limits() -> Limits {
 fn image_error(e: &image::ImageError) -> String {
     let text = e.to_string();
     if matches!(e, image::ImageError::Limits(_)) || text.contains("emory limit") {
-        return format!(
-            "la imagen no cabe en el límite de memoria del decodificador ({} MiB); reduce su \
-             tamaño o {PNG_SUGGESTION}",
-            DECODE_MAX_ALLOC >> 20
-        );
+        return tr!("raster.load.memory_limit", mib = DECODE_MAX_ALLOC >> 20);
     }
     if text.contains("Tiff") || text.contains("TIFF") {
-        return format!("{text}. Si es un TIFF poco común, {PNG_SUGGESTION}");
+        return tr!("raster.load.rare_tiff", error = text);
     }
-    format!("imagen inválida: {text}")
+    tr!("raster.load.invalid_image", error = text)
 }
 
 fn tiff_error(e: &tiff::TiffError) -> String {
     match e {
         tiff::TiffError::LimitsExceeded => {
-            format!("el TIFF excede el límite de memoria del decodificador; {PNG_SUGGESTION}")
+            tr!("raster.load.tiff_memory")
         }
-        other => format!("no se pudo leer el TIFF ({other}); {PNG_SUGGESTION}"),
+        other => tr!("raster.load.tiff_read", error = other),
     }
 }
 
 fn png_error(e: &png::DecodingError) -> String {
-    format!("PNG inválido: {e}")
+    tr!("raster.load.invalid_png", error = e)
 }
 
 /// Tamaño en píxeles (ancho, alto) leyendo solo la cabecera.
@@ -122,9 +117,9 @@ pub fn dimensions(path: &Path) -> Result<(u32, u32), String> {
             (true, Some(f)) => r.set_format(f),
             (true, None) => continue,
             (false, _) => {
-                r = r
-                    .with_guessed_format()
-                    .map_err(|e| format!("no se pudo leer {}: {e}", path.display()))?;
+                r = r.with_guessed_format().map_err(|e| {
+                    tr!("raster.load.read_failed", path = path.display(), error = e)
+                })?;
             }
         }
         match r.into_dimensions() {
@@ -132,17 +127,14 @@ pub fn dimensions(path: &Path) -> Result<(u32, u32), String> {
             Err(e) => last = Some(e),
         }
     }
-    Err(last.map_or_else(
-        || "formato de imagen no reconocido".into(),
-        |e| image_error(&e),
-    ))
+    Err(last.map_or_else(|| tr!("raster.load.unknown_format"), |e| image_error(&e)))
 }
 
 /// Tamaño en píxeles de una imagen en memoria, leyendo solo su cabecera.
 pub fn dimensions_of_bytes(bytes: &[u8]) -> Result<(u32, u32), String> {
     ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()
-        .map_err(|e| format!("imagen inválida: {e}"))?
+        .map_err(|e| tr!("raster.load.invalid_image", error = e))?
         .into_dimensions()
         .map_err(|e| image_error(&e))
 }
@@ -301,7 +293,7 @@ fn load_png(path: &Path, luma: Luma, max_w: usize, max_h: usize) -> Result<Optio
         y += 1;
     }
     if y < h {
-        return Err(format!("PNG truncado: {y} de {h} filas"));
+        return Err(tr!("raster.load.png_truncated", y = y, h = h));
     }
     Ok(Some((ds.finish(), (w, h))))
 }
@@ -425,9 +417,7 @@ fn check_chunk(c: &Chunk, fmt: Fmt) -> Result<(), String> {
         _ => 0,
     };
     if len < c.w * c.h * fmt.samples() {
-        return Err(format!(
-            "el TIFF trae un trozo incompleto; {PNG_SUGGESTION}"
-        ));
+        return Err(tr!("raster.load.tiff_chunk"));
     }
     Ok(())
 }
@@ -503,7 +493,7 @@ fn decode_with_image(path: &Path) -> Result<DynamicImage, String> {
     }
     let mut r = ImageReader::new(open(path)?)
         .with_guessed_format()
-        .map_err(|e| format!("no se pudo leer: {e}"))?;
+        .map_err(|e| tr!("raster.load.read_failed_nopath", error = e))?;
     r.limits(limits());
     match r.decode() {
         Ok(img) => Ok(img),
@@ -522,10 +512,10 @@ pub fn convert_to_png(src: &Path, dst: &Path) -> Result<(), String> {
     {
         return r;
     }
-    let img =
-        decode_with_image(src).map_err(|e| format!("no se pudo leer {}: {e}", src.display()))?;
+    let img = decode_with_image(src)
+        .map_err(|e| tr!("raster.load.read_failed", path = src.display(), error = e))?;
     img.save_with_format(dst, ImageFormat::Png)
-        .map_err(|e| format!("no se pudo escribir {}: {e}", dst.display()))
+        .map_err(|e| tr!("raster.load.write_failed", path = dst.display(), error = e))
 }
 
 /// `None` si el TIFF no se puede recorrer por trozos (el llamador usa `image`).
@@ -535,7 +525,7 @@ fn tiff_to_png(src: &Path, dst: &Path) -> Option<Result<(), String>> {
 }
 
 fn tiff_to_png_inner(t: &mut TiffSource, src: &Path, dst: &Path) -> Result<(), String> {
-    let fail = |e: String| format!("no se pudo leer {}: {e}", src.display());
+    let fail = |e: String| tr!("raster.load.read_failed", path = src.display(), error = e);
     let (color, out_samples) = match t.fmt {
         Fmt::Gray => (png::ColorType::Grayscale, 1),
         Fmt::GrayA => (png::ColorType::GrayscaleAlpha, 2),
@@ -544,8 +534,8 @@ fn tiff_to_png_inner(t: &mut TiffSource, src: &Path, dst: &Path) -> Result<(), S
     };
     let bytes = if t.wide { 2 } else { 1 };
     let px = out_samples * bytes;
-    let file =
-        File::create(dst).map_err(|e| format!("no se pudo escribir {}: {e}", dst.display()))?;
+    let file = File::create(dst)
+        .map_err(|e| tr!("raster.load.write_failed", path = dst.display(), error = e))?;
     let mut enc = png::Encoder::new(BufWriter::new(file), t.width as u32, t.height as u32);
     enc.set_color(color);
     enc.set_depth(if t.wide {
@@ -554,7 +544,8 @@ fn tiff_to_png_inner(t: &mut TiffSource, src: &Path, dst: &Path) -> Result<(), S
         png::BitDepth::Eight
     });
     enc.set_compression(png::Compression::Fast);
-    let werr = |e: png::EncodingError| format!("no se pudo escribir {}: {e}", dst.display());
+    let werr =
+        |e: png::EncodingError| tr!("raster.load.write_failed", path = dst.display(), error = e);
     let mut writer = enc.write_header().map_err(werr)?;
     let mut stream = writer.stream_writer().map_err(werr)?;
 
@@ -568,7 +559,7 @@ fn tiff_to_png_inner(t: &mut TiffSource, src: &Path, dst: &Path) -> Result<(), S
     let flush = |band: &mut Vec<u8>, rows: usize, stream: &mut dyn std::io::Write| {
         stream
             .write_all(&band[..rows * stride])
-            .map_err(|e| format!("no se pudo escribir {}: {e}", dst.display()))
+            .map_err(|e| tr!("raster.load.write_failed", path = dst.display(), error = e))
     };
     for i in 0..t.count {
         let c = t.chunk(i).map_err(fail)?;
@@ -581,7 +572,7 @@ fn tiff_to_png_inner(t: &mut TiffSource, src: &Path, dst: &Path) -> Result<(), S
         if band_rows == 0 {
             band_y0 = c.y0;
             if band_y0 != next_row {
-                return Err(fail("el TIFF trae sus trozos desordenados".into()));
+                return Err(fail(tr!("raster.load.tiff_order")));
             }
         }
         band_rows = band_rows.max(c.h);

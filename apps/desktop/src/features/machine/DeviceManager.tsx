@@ -77,7 +77,7 @@ function ProposalPanel({
       {proposal.nothingFound && <p className="warn-line"><TriangleAlert size={14} aria-hidden="true" /><span>{t('machine.dev.read.nothing')}</span></p>}
       {proposal.inSync && <p className="hint">{t('machine.dev.read.inSync')}</p>}
       {proposal.changes.length > 0 && (
-        <table className="mc-table">
+        <table className="mc-table" aria-label={t('a11y.table.devices')}>
           <thead>
             <tr>
               <th scope="col"><span className="sr-only">{t('machine.dev.read.apply')}</span></th>

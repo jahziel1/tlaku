@@ -267,6 +267,8 @@ export interface ProbeResult {
 export interface LaserApi {
   /** Comando de prueba de src-tauri. */
   appVersion(): Promise<string>;
+  /** Idioma de los avisos y errores del motor; se llama al arrancar y al cambiar la preferencia `language`. */
+  setEngineLocale(args: { locale: 'es' | 'en' }): Promise<void>;
 
   // Archivos y proyecto
   importFile(args: { path: string }): Promise<ImportResult>;
@@ -601,6 +603,7 @@ export interface LaserApi {
 /** Nombres de comando tal como los ve `invoke` (snake_case). */
 export const COMMAND_NAMES = {
   appVersion: 'app_version',
+  setEngineLocale: 'set_engine_locale',
   importFile: 'import_file',
   saveProject: 'save_project',
   loadProject: 'load_project',

@@ -11,7 +11,7 @@ tutoriales; sin código, textos ni íconos de LightBurn). Detalle por área:
 | **Total** | | **214** | **68** | **86** | **60** |
 
 La fila 21 del inventario 03 mezcla prioridades (P0 para G-code, P1 para `.rd`) y se cuenta como P0;
-por eso son 54 funciones y 68 P0. El detalle de avance está en [cobertura/README.md](cobertura/README.md).
+por eso son 54 funciones y 68 P0. La ola 5.5 agregó tres funciones que ningún inventario traía (M55 a M57), así que la cobertura cuenta 217. El detalle de avance está en [cobertura/README.md](cobertura/README.md).
 
 Lo marcado "(no verificado)" o "(inferido)" en cada archivo debe confirmarse antes de implementarlo.
 
@@ -68,25 +68,29 @@ El proyecto es MIT (decidido 2026-10-12). Las bibliotecas citadas existen en cra
 BSD, Zlib, ISC); una dependencia GPL obligaría a distribuir el binario como GPL (por ejemplo,
 usar vtracer y no potrace). Se automatizará con `cargo-deny`.
 
-## Estado (2026-10-13)
+## Estado (2026-10-14)
 
-Las olas del [plan](../plan-completo.md) 1 a 5 están **terminadas**. Según el recuento de
-[cobertura/README.md](cobertura/README.md) (que sale de contar las filas de sus tablas con un script):
-**175 de 214 funciones hechas (82 %), 27 parciales, 10 solo en el motor o la línea de comandos y
-2 faltantes**; en P0, **64 de 68 hechas** (las 4 parciales son C51, M3, M5 y M6). Las 10 "solo
-motor/CLI" son todas del galvo (hoy ya en la app, ola 6; falta rehacer el recuento) y las 2 faltantes son D90 y D94. **Ninguna función de máquina se ha
-probado con hardware real**: todo se validó con emuladores (`tlaku-emu`, el de Ruida, el de la
-placa K40 y la tarjeta galvo simulada de `tlaku-galvo`), máquinas virtuales e imágenes sintéticas.
+Las olas del [plan](../plan-completo.md) 1 a 5.5 y las partes 6A a 6C de la ola 6 están **terminadas**; la
+ola 6D (auditoría final, lista de validación con hardware, publicación, accesibilidad e inglés del
+motor) está en curso. Según el recuento de [cobertura/README.md](cobertura/README.md) (que sale de
+contar las filas de sus tablas con un script): **195 de 217 funciones hechas (90 %), 22 parciales,
+0 solo en el motor o la línea de comandos y 0 faltantes**; en P0, **68 de 68 hechas**. Las 10 que
+eran "solo motor/CLI" (todas del galvo) se reclasificaron en la auditoría de la ola 6D: 6 hechas y
+4 parciales. **Ninguna función de máquina se ha probado con hardware real**: todo se validó con
+emuladores (`tlaku-emu`, el de Ruida, el de la placa K40 y la tarjeta galvo simulada de
+`tlaku-galvo`), máquinas virtuales e imágenes sintéticas. Lo que hay que probar, en orden de riesgo,
+está en [../validacion-hardware.md](../validacion-hardware.md).
 
-| Ola | Tema | Estado | Hechas / 214 | P0 hechas / 68 |
+| Ola | Tema | Estado | Hechas | P0 hechas / 68 |
 |---|---|---|---:|---:|
-| (inicio) | M1 a M4, oleadas A a C | Terminada | 88 | 53 |
-| 1 | Base para publicar: edición básica, preferencias y atajos, autoguardado, exportar e importar formatos, texto, QR, manual | Terminada (`736d472`) | 119 | 60 |
-| 2 | Capas y corte: trazos, orden y optimización, relleno e imagen, trabajo | Terminada (`ec9cdb4`) | 143 | 62 |
-| 3 | Diseño avanzado: operaciones de forma, nesting real, texto variable, imagen | Terminada (`b78790e`) | 165 | 62 |
-| 4 | Máquinas: Ruida, red, control, cámara y K40 | Terminada (`10c435d`; el K40 en la app, `c6c61a2`) | 173 | 64 |
-| 5 | Pro y galvo: Print & Cut, tiling, alimentador automático y galvo (experimental; en esa ola solo motor y línea de comandos, y desde la ola 6 también en la app) | Terminada (`56e717f`) | 175 | 64 |
-| 6 | Calidad y publicación | Pendiente | | |
+| (inicio) | M1 a M4, oleadas A a C | Terminada | 88 / 214 | 53 |
+| 1 | Base para publicar: edición básica, preferencias y atajos, autoguardado, exportar e importar formatos, texto, QR, manual | Terminada (`736d472`) | 119 / 214 | 60 |
+| 2 | Capas y corte: trazos, orden y optimización, relleno e imagen, trabajo | Terminada (`ec9cdb4`) | 143 / 214 | 62 |
+| 3 | Diseño avanzado: operaciones de forma, nesting real, texto variable, imagen | Terminada (`b78790e`) | 165 / 214 | 62 |
+| 4 | Máquinas: Ruida, red, control, cámara y K40 | Terminada (`10c435d`; el K40 en la app, `c6c61a2`) | 173 / 214 | 64 |
+| 5 | Pro y galvo: Print & Cut, tiling, alimentador automático y galvo (experimental; en esa ola solo motor y línea de comandos, y desde la ola 6 también en la app) | Terminada (`56e717f`) | 175 / 214 | 64 |
+| 5.5 | Fácil y remoto: modo sencillo, control desde el celular, materiales de fábrica | Terminada (`e3be229`) | 178 / 217 | 64 |
+| 6 | Calidad y publicación (6A archivos partidos, 6B estrés y contrato, 6C parciales, 6D auditoría y beta) | 6A a 6C terminadas (`b9a3136`); 6D en curso | 195 / 217 | 68 |
 
 **K40 (M2 Nano).** No es una fila del inventario (LightBurn no lo soporta) y no cuenta en los
 totales. Está en la app como **experimental, probado solo contra el emulador**: USB directo (no
@@ -106,29 +110,28 @@ paro de emergencia si detener no se confirma. También sigue disponible por lín
   galvo del pipeline (parámetros por bloque, sin overscan, bamboleo, grabado 3D por cortes,
   corrección de cilindro y cono, secuencia del marcado dividido, repetido y rotativo). Es
   **experimental y solo emulador**, con las conversiones de unidades sin verificar.
-- **Discrepancias:** el cálculo de Print & Cut y el plan de tiling están duplicados en Rust y
-  TypeScript (la app usa solo el de TypeScript) y las imágenes no giran con el registro. Detalle en
-  [cobertura/README.md](cobertura/README.md).
-- **No entró:** el autoenfoque y optimizar Z (M31) y el ajuste de U en los trabajos y el láser 2
-  con Ruida (M32), que el plan ponía en la ola 5; pasan a la ola 6.
+- **Discrepancias de entonces, resueltas en la ola 6C:** el cálculo de Print & Cut y el plan de
+  tiling estaban duplicados en Rust y TypeScript (ahora la app usa solo el del motor) y las
+  imágenes no giraban con el registro (ahora giran). Detalle en
+  [cobertura/auditoria.md](cobertura/auditoria.md).
+- **No entró en la ola 5:** el autoenfoque y optimizar Z (M31) y el ajuste de U en los trabajos y
+  el láser 2 con Ruida (M32). En la ola 6C entró el desplazamiento de U por trabajo; siguen
+  pendientes el autoenfoque (Menor en M31), el offset de U por capa y el láser 2 con Ruida.
 
 **Lo que queda, según el plan:**
 
-- **Ola 6, calidad y publicación:** lo que no entró de la ola 5
-  (M31, M32, imágenes que giren con Print & Cut, repetir trabajos con el alimentador, quitar los
-  duplicados Rust/TypeScript), rendimiento del lienzo con diseños grandes, lo que quedó de la
-  ola 3 (paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías
-  temporales, recuperación compartida entre ventanas), accesibilidad, manual completo y sitio web
-  con donaciones, correr el flujo de instaladores y activar las actualizaciones automáticas,
-  repetir la auditoría de cobertura, lo que quedó de la ola 4 (ajustes de dispositivo M3, M5 y M6;
-  cámaras de red y presets, M35; alineación automática de la cámara del cabezal, M36; cámaras en
-  los paquetes, M4; pulgadas en las capas, las máquinas y la cámara, D12) y la **lista de
-  validación con hardware real** de todo lo experimental: Falcon2 y el resto de GRBL, la conexión
-  por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de
-  pez, la cámara en el cabezal y el buscador de centro. Esa prueba con máquinas reales es el
-  principal riesgo para publicar. La lista incluye ahora Print & Cut, el tiling, el alimentador y
-  el galvo (con la prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin
-  fuente).
+- **Ola 6D, en curso:** accesibilidad, un job de CI para la prueba de humo de Tauri, manual y
+  mensajes del motor en inglés, sitio web con donaciones, correr el flujo de instaladores y activar
+  las actualizaciones automáticas. Hecho en esta ola: la auditoría final de cobertura (2026-10-14) y
+  la **lista de validación con hardware real**, [../validacion-hardware.md](../validacion-hardware.md),
+  que cubre la Falcon2 y el resto de GRBL (con DTR, envío síncrono, intercambio X/Y, desfase del
+  puntero y home al conectar), la conexión por red, Ruida (incluido escribir ajustes y borrar o
+  ejecutar documentos), el K40, el galvo (plan de `docs/hardware/galvo.md` sección 9, empezando por
+  la tarjeta sin fuente), la cámara (ojo de pez, cámara de red, cámara en el cabezal y buscador de
+  centro), Print & Cut, el tiling, el alimentador, el control desde el celular y la prueba de humo
+  de Tauri en Windows y Linux. Esa prueba con máquinas reales es el principal riesgo para publicar.
+- **Después de la beta:** los 22 parciales de [cobertura/auditoria.md](cobertura/auditoria.md)
+  (sección 2) y la ola 7, el asistente con IA.
 
 ### Historia previa a las olas (M1 a M4)
 

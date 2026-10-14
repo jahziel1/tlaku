@@ -34,6 +34,7 @@ use tlaku_doc::{
     DOC_VERSION, DesignObject, DeviceKind, DeviceProfile, Document, LayerSettings, ObjectKind,
     RotaryKind, VectorObject,
 };
+use tlaku_i18n::tr;
 
 /// Factor de mm de la controladora por mm de superficie en Y; 1 si no hay rotativo. Falla si
 /// el rotativo está activo y alguno de los valores que usa su tipo no es un número mayor que 0
@@ -48,20 +49,21 @@ pub(crate) fn y_scale(device: &DeviceProfile) -> Result<f64, String> {
         if v.is_finite() && v > 0.0 {
             Ok(())
         } else {
-            Err(format!(
-                "la máquina '{}': rotativo: {name} debe ser mayor que 0",
-                device.name
+            Err(tr!(
+                "pipeline.rotary.must_be_positive",
+                machine = device.name,
+                name = name
             ))
         }
     };
-    positive("mm por vuelta", r.mm_per_rotation)?;
+    positive(&tr!("pipeline.rotary.mm_per_rotation"), r.mm_per_rotation)?;
     let diameter = match r.kind {
         RotaryKind::Roller => {
-            positive("el diámetro del rodillo", r.roller_diameter)?;
+            positive(&tr!("pipeline.rotary.roller_diameter"), r.roller_diameter)?;
             r.roller_diameter
         }
         RotaryKind::Chuck => {
-            positive("el diámetro de la pieza", r.object_diameter)?;
+            positive(&tr!("pipeline.rotary.object_diameter"), r.object_diameter)?;
             r.object_diameter
         }
     };
@@ -90,11 +92,12 @@ pub(crate) fn soft_limit_warning(device: &DeviceProfile, area: Bounds) -> Option
     if hi <= bed_y + 1e-6 && lo >= -1e-6 {
         return None;
     }
-    Some(format!(
-        "rotativo: la Y de la controladora recorre de {lo:.1} a {hi:.1} mm y el área de la \
-         máquina '{}' mide {bed_y} mm en Y: con los límites por software activos ($20=1) saldría \
-         ALARM:2. El rotativo no tiene final de carrera; desactívalos ($20=0) mientras lo uses",
-        device.name
+    Some(tr!(
+        "pipeline.rotary.soft_limits",
+        lo = format!("{lo:.1}"),
+        hi = format!("{hi:.1}"),
+        machine = device.name,
+        bed_y = bed_y
     ))
 }
 
@@ -111,28 +114,19 @@ pub fn rotary_test(
     power_pct: f64,
 ) -> Result<Document, String> {
     if !device.rotary.enabled {
-        return Err(format!(
-            "activa el rotativo de la máquina '{}' para generar la prueba de una vuelta",
-            device.name
+        return Err(tr!(
+            "pipeline.rotary.test_needs_rotary",
+            machine = device.name
         ));
     }
     y_scale(device)?;
-    let circumference = circumference_mm(device).ok_or_else(|| {
-        format!(
-            "la máquina '{}': el diámetro de la pieza debe ser mayor que 0 para calcular la \
-             circunferencia de la prueba",
-            device.name
-        )
-    })?;
+    let circumference = circumference_mm(device)
+        .ok_or_else(|| tr!("pipeline.rotary.test_needs_diameter", machine = device.name))?;
     if !(speed_mm_min.is_finite() && speed_mm_min > 0.0) {
-        return Err(format!(
-            "la velocidad de la prueba debe ser mayor que 0: {speed_mm_min}"
-        ));
+        return Err(tr!("pipeline.rotary.test_bad_speed", speed = speed_mm_min));
     }
     if !(power_pct.is_finite() && power_pct > 0.0 && power_pct <= 100.0) {
-        return Err(format!(
-            "la potencia de la prueba debe estar entre 0 y 100 %: {power_pct}"
-        ));
+        return Err(tr!("pipeline.rotary.test_bad_power", power = power_pct));
     }
     let color = Rgb(255, 0, 0);
     let x = 10.0f64.min(device.bed[0] / 2.0);
@@ -160,7 +154,7 @@ pub fn rotary_test(
             array: None,
         }],
         layers: vec![LayerSettings {
-            name: "Prueba de una vuelta".into(),
+            name: tr!("pipeline.rotary.test_layer"),
             speed: speed_mm_min,
             power: power_pct,
             ..LayerSettings::for_color(color)
@@ -303,6 +297,19 @@ mod tests {
             .map(|w| w[1..].parse::<f64>().unwrap())
             .fold(0.0, f64::max);
         assert!((top - 360.0 * 60.0 / 20.0).abs() < 1e-2, "{top}");
+    }
+
+    #[test]
+    fn one_turn_test_layer_name_follows_the_language() {
+        let d = device(RotaryKind::Chuck);
+        assert_eq!(
+            rotary_test(&d, 1500.0, 5.0).unwrap().layers[0].name,
+            "Prueba de una vuelta"
+        );
+        let en = tlaku_i18n::with_locale(tlaku_i18n::Locale::En, || {
+            rotary_test(&d, 1500.0, 5.0).unwrap()
+        });
+        assert_eq!(en.layers[0].name, "One-turn test");
     }
 
     #[test]

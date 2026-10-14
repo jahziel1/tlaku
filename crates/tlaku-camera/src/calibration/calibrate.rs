@@ -9,6 +9,7 @@ use crate::chessboard::find_chessboard;
 use image::GrayImage;
 use std::path::Path;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Detecta el tablero en cada imagen y calibra. Las imágenes sin tablero se omiten
 /// con un aviso; hacen falta al menos 3 vistas válidas.
@@ -27,7 +28,7 @@ pub fn calibrate_lens_with(
     opts: &CalibrationOptions,
 ) -> Result<CalibrationReport, String> {
     let Some(first) = images.first() else {
-        return Err("no se indicó ninguna imagen para calibrar".into());
+        return Err(tr!("camera.calibrate.no_images"));
     };
     let size = (first.width(), first.height());
     let mut warnings = Vec::new();
@@ -35,13 +36,13 @@ pub fn calibrate_lens_with(
     let mut map: Vec<usize> = Vec::new();
     for (i, img) in images.iter().enumerate() {
         if (img.width(), img.height()) != size {
-            return Err(format!(
-                "la imagen {} mide {}x{} y la primera {}x{}; todas deben tener el mismo tamaño",
-                i + 1,
-                img.width(),
-                img.height(),
-                size.0,
-                size.1
+            return Err(tr!(
+                "camera.calibrate.size_mismatch",
+                n = i + 1,
+                w = img.width(),
+                h = img.height(),
+                first_w = size.0,
+                first_h = size.1
             ));
         }
         match find_chessboard(img, board) {
@@ -49,29 +50,21 @@ pub fn calibrate_lens_with(
                 views.push(pts);
                 map.push(i);
             }
-            Err(e) => warnings.push(format!("imagen {}: {e}; se omite", i + 1)),
+            Err(e) => warnings.push(tr!("camera.calibrate.image_skipped", n = i + 1, error = e)),
         }
     }
     if views.len() < 3 {
-        return Err(format!(
-            "solo {} de {} imágenes tienen el tablero visible; se necesitan al menos 3 (ideal 5 o más, con el tablero inclinado y en las esquinas)",
-            views.len(),
-            images.len()
+        return Err(tr!(
+            "camera.calibrate.few_boards",
+            found = views.len(),
+            total = images.len()
         ));
     }
-    let mut report = calibrate_views(&views, board, square_mm, size, opts)?;
+    // Los avisos de vistas descartadas usan el número de la imagen original (base 1), no el de
+    // la vista detectada: `map` traduce de una a otra.
+    let mut report = calibrate_views_inner(&views, board, square_mm, size, opts, Some(&map))?;
     // Reasignar los índices a la lista de imágenes original.
     report.used_views = report.used_views.iter().map(|&k| map[k]).collect();
-    for w in &mut report.warnings {
-        for (k, &orig) in map.iter().enumerate().rev() {
-            // Los avisos de vistas descartadas dicen "vista N " (base 1, sobre las
-            // vistas detectadas); se reescriben con el número de imagen original.
-            *w = w.replace(
-                &format!("vista {} ", k + 1),
-                &format!("imagen {} ", orig + 1),
-            );
-        }
-    }
     warnings.extend(std::mem::take(&mut report.warnings));
     report.warnings = warnings;
     Ok(report)
@@ -85,8 +78,13 @@ pub fn calibrate_lens_files<P: AsRef<Path>>(
 ) -> Result<CalibrationReport, String> {
     let mut images = Vec::with_capacity(paths.len());
     for p in paths {
-        let img = image::open(p.as_ref())
-            .map_err(|e| format!("no se pudo abrir {}: {e}", p.as_ref().display()))?;
+        let img = image::open(p.as_ref()).map_err(|e| {
+            tr!(
+                "camera.calibrate.open_failed",
+                path = p.as_ref().display(),
+                error = e
+            )
+        })?;
         images.push(img.to_luma8());
     }
     calibrate_lens(&images, board, square_mm)
@@ -105,26 +103,36 @@ pub fn calibrate_views(
     size: (u32, u32),
     opts: &CalibrationOptions,
 ) -> Result<CalibrationReport, String> {
+    calibrate_views_inner(views, board, square_mm, size, opts, None)
+}
+
+/// `image_of`: si las vistas salen de una lista de imágenes, a qué imagen corresponde cada vista
+/// (los avisos nombran la imagen en lugar de la vista).
+fn calibrate_views_inner(
+    views: &[Vec<Point>],
+    board: [u32; 2],
+    square_mm: f64,
+    size: (u32, u32),
+    opts: &CalibrationOptions,
+    image_of: Option<&[usize]>,
+) -> Result<CalibrationReport, String> {
     let (cols, rows) = (board[0] as usize, board[1] as usize);
     if views.len() < 3 {
-        return Err(format!(
-            "se necesitan al menos 3 vistas del tablero (hay {})",
-            views.len()
-        ));
+        return Err(tr!("camera.calibrate.few_views", n = views.len()));
     }
     if !(square_mm.is_finite() && square_mm > 0.0) {
-        return Err("el tamaño del cuadro debe ser mayor que 0 mm".into());
+        return Err(tr!("camera.calibrate.bad_square"));
     }
     if let Some((i, v)) = views
         .iter()
         .enumerate()
         .find(|(_, v)| v.len() != cols * rows)
     {
-        return Err(format!(
-            "la vista {} tiene {} esquinas y se esperaban {}",
-            i + 1,
-            v.len(),
-            cols * rows
+        return Err(tr!(
+            "camera.calibrate.corner_count",
+            n = i + 1,
+            found = v.len(),
+            expected = cols * rows
         ));
     }
     let obj: Vec<[f64; 2]> = (0..rows)
@@ -149,7 +157,7 @@ pub fn calibrate_views(
         first
             .iter()
             .find_map(|(_, r)| r.as_ref().err().cloned())
-            .unwrap_or_else(|| "no se pudo ajustar ningún modelo de lente".into())
+            .unwrap_or_else(|| tr!("camera.calibrate.no_model"))
     })?;
     let mut current = first
         .into_iter()
@@ -173,10 +181,21 @@ pub fn calibrate_views(
         trial.remove(worst);
         match run(leader, &trial) {
             Ok(f) if f.rms < 0.6 * current.rms => {
-                warnings.push(format!(
-                    "vista {} descartada: error de reproyección {:.2} px frente a una mediana de {:.2} px (¿tablero movido, desenfocado o mal detectado?)",
-                    active[worst] + 1, worst_rms, median
-                ));
+                let (rms, med) = (format!("{worst_rms:.2}"), format!("{median:.2}"));
+                warnings.push(match image_of {
+                    Some(map) => tr!(
+                        "camera.calibrate.image_dropped",
+                        n = map[active[worst]] + 1,
+                        rms = rms,
+                        median = med
+                    ),
+                    None => tr!(
+                        "camera.calibrate.view_dropped",
+                        n = active[worst] + 1,
+                        rms = rms,
+                        median = med
+                    ),
+                });
                 active = trial;
                 current = f;
             }
@@ -184,10 +203,7 @@ pub fn calibrate_views(
         }
     }
     if active.len() < 5 {
-        warnings.push(format!(
-            "solo {} vistas útiles; con 5 o más (tablero inclinado y cerca de las esquinas) la calibración es más fiable",
-            active.len()
-        ));
+        warnings.push(tr!("camera.calibrate.few_useful", n = active.len()));
     }
 
     // Con el conjunto final de vistas se compara cada modelo (ajuste y validación cruzada).
@@ -221,17 +237,13 @@ pub fn calibrate_views(
         let brown = scores.iter().find(|s| s.model == LensModel::BrownConrady);
         let fish = scores.iter().find(|s| s.model == LensModel::Fisheye);
         match (brown, fish) {
-            (Some(b), Some(f)) if chosen == LensModel::Fisheye => warnings.push(format!(
-                "se eligió el modelo de ojo de pez: error en vistas reservadas {} px frente a {} px con Brown-Conrady",
-                fmt_score(f.cv_rms_px.unwrap_or(f.rms_px)),
-                fmt_score(b.cv_rms_px.unwrap_or(b.rms_px)),
+            (Some(b), Some(f)) if chosen == LensModel::Fisheye => warnings.push(tr!(
+                "camera.calibrate.fisheye_chosen",
+                fisheye = fmt_score(f.cv_rms_px.unwrap_or(f.rms_px)),
+                brown = fmt_score(b.cv_rms_px.unwrap_or(b.rms_px)),
             )),
-            (None, Some(_)) => warnings.push(
-                "Brown-Conrady no logró ajustar estas vistas; se usa el modelo de ojo de pez".into(),
-            ),
-            (Some(_), None) => warnings.push(
-                "el modelo de ojo de pez no logró ajustar estas vistas; se usa Brown-Conrady".into(),
-            ),
+            (None, Some(_)) => warnings.push(tr!("camera.calibrate.brown_failed")),
+            (Some(_), None) => warnings.push(tr!("camera.calibrate.fisheye_failed")),
             _ => {}
         }
     }
@@ -241,9 +253,9 @@ pub fn calibrate_views(
         .map(|(_, f)| f)
         .expect("el modelo elegido ajustó");
     if current.rms > 1.0 {
-        warnings.push(format!(
-            "el error de reproyección es alto ({:.2} px); revisa el enfoque, que el tablero esté plano y el tamaño del cuadro",
-            current.rms
+        warnings.push(tr!(
+            "camera.calibrate.high_error",
+            rms = format!("{:.2}", current.rms)
         ));
     }
     let p = &current.intr;

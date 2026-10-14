@@ -10,9 +10,9 @@ use super::*;
 
 /// Nota cuando se detuvo con una parada rápida (Marlin, Smoothie): no hay reinicio en caliente
 /// ni desaceleración controlada.
-pub const QUICK_STOP_NOTE: &str = "Se detuvo con una parada rápida (M410 en Marlin, M112 en \
-     Smoothie): los motores frenan sin desaceleración y la posición puede haberse perdido. Vuelve \
-     a fijar el origen o haz homing (G28) antes del siguiente trabajo.";
+pub fn quick_stop_note() -> String {
+    tr!("grbl.stream.quick_stop_note")
+}
 
 /// Silencio tras el que, al cancelar en Marlin o Smoothie, se sigue con la siguiente orden de
 /// la secuencia aunque la anterior no haya contestado (`M112` no contesta).
@@ -133,7 +133,7 @@ impl<T: Transport> Streamer<T> {
         }
         self.reader.clear();
         let _ = self.transport.clear_input();
-        emit(Event::Message(format!("; {QUICK_STOP_NOTE}")));
+        emit(Event::Message(format!("; {}", quick_stop_note())));
         self.stop = Some(StopInfo {
             settled: false,
             position_maybe_lost: true,
@@ -241,7 +241,7 @@ impl<T: Transport> Streamer<T> {
         st.last_state = None;
         let position_maybe_lost = !stationary || alarm == Some(3);
         if position_maybe_lost {
-            emit(Event::Message(format!("; {POSITION_LOST_NOTE}")));
+            emit(Event::Message(format!("; {}", position_lost_note())));
         }
         self.stop = Some(StopInfo {
             settled: stationary,

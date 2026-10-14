@@ -5,8 +5,10 @@ use crate::packet::{self, PacketError, Response};
 use crate::rd::HomeCorner;
 use crate::safety::{SafetyError, SafetyLimits};
 use crate::swizzle::Magic;
+use crate::text;
 use std::time::Duration;
 use std::{fmt, io};
+use tlaku_i18n::tr;
 
 /// Direcciones de memoria de solo lectura que usa la sesión (ruida.md sección 4.4).
 pub mod addr {
@@ -126,25 +128,22 @@ pub enum SessionError {
 impl fmt::Display for SessionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SessionError::Io(e) => write!(f, "error de red: {e}"),
-            SessionError::Timeout { what } => write!(f, "sin respuesta de la máquina ({what})"),
-            SessionError::Rejected { response, packet } => write!(
-                f,
-                "la máquina rechazó el paquete {} ({})",
-                packet + 1,
-                match response {
-                    Response::Nak => "checksum rechazado",
-                    Response::Err => "error de mensaje",
-                    _ => "respuesta inesperada",
-                }
-            ),
+            SessionError::Io(e) => f.write_str(&tr!("ruida.session.io", e = e)),
+            SessionError::Timeout { what } => {
+                f.write_str(&tr!("ruida.session.timeout", what = text::what(what)))
+            }
+            SessionError::Rejected { response, packet } => f.write_str(&match response {
+                Response::Nak => tr!("ruida.session.rejected_nak", packet = packet + 1),
+                Response::Err => tr!("ruida.session.rejected_err", packet = packet + 1),
+                _ => tr!("ruida.session.rejected_other", packet = packet + 1),
+            }),
             SessionError::Protocol(m) => write!(f, "{m}"),
             SessionError::Safety(e) => write!(f, "{e}"),
             SessionError::Packet(e) => write!(f, "{e}"),
             SessionError::Busy(s) => {
-                write!(f, "la máquina no está en reposo ({})", s.describe_state())
+                f.write_str(&tr!("ruida.session.busy", state = s.describe_state()))
             }
-            SessionError::Cancelled => write!(f, "cancelado por el usuario"),
+            SessionError::Cancelled => f.write_str(&tr!("ruida.session.cancelled")),
         }
     }
 }

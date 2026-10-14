@@ -10,6 +10,7 @@ mod geom;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::f64::consts::TAU;
+use tlaku_i18n::tr;
 
 use dxf::entities::{Entity, EntityType, Insert, LwPolyline, Polyline as DxfPolyline, Spline};
 use dxf::enums::Units;
@@ -104,24 +105,18 @@ fn unit_to_mm(units: Units) -> Option<f64> {
 /// `tolerance_mm` es el error máximo permitido al aproximar curvas con rectas.
 pub fn import_dxf(bytes: &[u8], tolerance_mm: f64) -> Result<DxfDocument, String> {
     if !tolerance_mm.is_finite() || tolerance_mm <= 0.0 {
-        return Err(format!(
-            "tolerancia inválida: {tolerance_mm} (debe ser un número mayor que 0)"
-        ));
+        return Err(tr!("dxf.lib.bad_tolerance", value = tolerance_mm));
     }
     if bytes.trim_ascii().is_empty() {
-        return Err("el archivo DXF está vacío".to_string());
+        return Err(tr!("dxf.lib.empty"));
     }
-    let drawing = Drawing::load(&mut &bytes[..]).map_err(|e| format!("DXF inválido: {e}"))?;
+    let drawing = Drawing::load(&mut &bytes[..]).map_err(|e| tr!("dxf.lib.invalid", error = e))?;
 
     let mut warnings = Vec::new();
     let unit = match unit_to_mm(drawing.header.default_drawing_units) {
         Some(scale) => scale,
         None => {
-            warnings.push(
-                "El archivo no declara unidades ($INSUNITS ausente o 0): se supone milímetros. \
-                 Si el tamaño sale unas 25,4 veces menor de lo esperado, el diseño está en pulgadas."
-                    .to_string(),
-            );
+            warnings.push(tr!("dxf.lib.no_units"));
             1.0
         }
     };
@@ -168,7 +163,7 @@ pub fn import_dxf(bytes: &[u8], tolerance_mm: f64) -> Result<DxfDocument, String
 
     warnings.extend(importer.stats.into_warnings());
     if importer.out.is_empty() {
-        warnings.push("El archivo no contiene geometría importable.".to_string());
+        warnings.push(tr!("dxf.lib.no_geometry"));
     }
     Ok(DxfDocument {
         paths: importer.out,
@@ -214,67 +209,91 @@ struct Stats {
 impl Stats {
     fn into_warnings(self) -> Vec<String> {
         let mut w = Vec::new();
-        let mut skipped = |n: usize, what: &str| {
-            if n > 0 {
-                let (verb, noun) = if n == 1 {
-                    ("Se omitió", "entidad")
-                } else {
-                    ("Se omitieron", "entidades")
-                };
-                w.push(format!("{verb} {n} {noun} {what}."));
-            }
-        };
-        skipped(
+        // Una frase completa por cantidad (singular y plural) y por causa: no se arma por trozos.
+        macro_rules! skipped {
+            ($n:expr, $one:literal, $other:literal) => {
+                if $n == 1 {
+                    w.push(tr!($one, n = $n));
+                } else if $n > 1 {
+                    w.push(tr!($other, n = $n));
+                }
+            };
+        }
+        skipped!(
             self.text,
-            "de texto (TEXT/MTEXT); conviértelo a contornos antes de exportar",
+            "dxf.lib.skipped_text_one",
+            "dxf.lib.skipped_text_other"
         );
-        skipped(self.dimensions, "DIMENSION (cotas)");
-        skipped(self.hatch, "HATCH (rellenos)");
-        skipped(self.meshes, "de malla (POLYLINE 3D de superficie)");
-        skipped(self.paper_space, "del espacio papel");
-        skipped(self.hidden, "invisibles");
-        skipped(self.layer_off, "en capas apagadas");
-        skipped(
+        skipped!(
+            self.dimensions,
+            "dxf.lib.skipped_dimension_one",
+            "dxf.lib.skipped_dimension_other"
+        );
+        skipped!(
+            self.hatch,
+            "dxf.lib.skipped_hatch_one",
+            "dxf.lib.skipped_hatch_other"
+        );
+        skipped!(
+            self.meshes,
+            "dxf.lib.skipped_mesh_one",
+            "dxf.lib.skipped_mesh_other"
+        );
+        skipped!(
+            self.paper_space,
+            "dxf.lib.skipped_paper_space_one",
+            "dxf.lib.skipped_paper_space_other"
+        );
+        skipped!(
+            self.hidden,
+            "dxf.lib.skipped_hidden_one",
+            "dxf.lib.skipped_hidden_other"
+        );
+        skipped!(
+            self.layer_off,
+            "dxf.lib.skipped_layer_off_one",
+            "dxf.lib.skipped_layer_off_other"
+        );
+        skipped!(
             self.invalid,
-            "con coordenadas no válidas o geometría degenerada",
+            "dxf.lib.skipped_invalid_one",
+            "dxf.lib.skipped_invalid_other"
         );
         if !self.other.is_empty() {
             let total: usize = self.other.values().sum();
-            let detail: Vec<String> = self
+            let detail = self
                 .other
                 .iter()
                 .map(|(k, n)| format!("{k}: {n}"))
-                .collect();
-            skipped(
-                total,
-                &format!("de tipos no soportados ({})", detail.join(", ")),
-            );
+                .collect::<Vec<_>>()
+                .join(", ");
+            if total == 1 {
+                w.push(tr!("dxf.lib.skipped_other_one", n = total, detail = detail));
+            } else {
+                w.push(tr!(
+                    "dxf.lib.skipped_other_other",
+                    n = total,
+                    detail = detail
+                ));
+            }
         }
         if self.spline_fit_only > 0 {
-            w.push(format!(
-                "{} SPLINE sin puntos de control se aproximaron uniendo sus puntos de ajuste con rectas.",
-                self.spline_fit_only
-            ));
+            w.push(tr!("dxf.lib.spline_fit_only", n = self.spline_fit_only));
         }
         for name in &self.missing_blocks {
-            w.push(format!(
-                "El bloque '{name}' no existe: su INSERT se omitió."
-            ));
+            w.push(tr!("dxf.lib.block_missing", name = name));
         }
         for name in &self.cyclic_blocks {
-            w.push(format!(
-                "El bloque '{name}' se contiene a sí mismo: se cortó el ciclo."
-            ));
+            w.push(tr!("dxf.lib.block_cyclic", name = name));
         }
         if self.too_deep {
-            w.push(format!(
-                "Bloques anidados a más de {MAX_DEPTH} niveles: se omitió el resto."
-            ));
+            w.push(tr!("dxf.lib.blocks_too_deep", max = MAX_DEPTH));
         }
         if self.array_too_big > 0 {
-            w.push(format!(
-                "{} INSERT con arreglos de más de {MAX_ARRAY} copias se omitieron.",
-                self.array_too_big
+            w.push(tr!(
+                "dxf.lib.array_too_big",
+                n = self.array_too_big,
+                max = MAX_ARRAY
             ));
         }
         w

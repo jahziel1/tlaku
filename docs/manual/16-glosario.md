@@ -25,6 +25,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 - **Cama**: el área de trabajo de la máquina, en mm. Equivale a `$130` y `$131` en GRBL.
 - **Capa**: grupo de objetos del mismo color que comparten ajustes de corte (modo, velocidad, potencia, pasadas...). Tlaku ejecuta las capas en el orden de su lista.
+- **Casco convexo**: el polígono convexo mínimo que envuelve un conjunto de formas, como una liga estirada alrededor. Es el encuadre de **Encuadrar contorno** y una de las formas del encuadre del galvo. Ver [Galvo (experimental)](13c-galvo.md).
 - **Consola**: pestaña donde ves lo que se envía a la máquina y lo que contesta, y donde puedes escribir comandos.
 - **Contención (agrupar por)**: formar un grupo con cada pieza y los huecos y grabados que quedan dentro de su contorno.
 - **Contornos**: forma de rellenar siguiendo la silueta en anillos, en lugar de líneas de barrido.
@@ -36,6 +37,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 ## D
 
 - **Dialecto de G-code**: la forma en que un firmware espera las órdenes (cómo se enciende el láser, el rango de `S`, el aire). Cambia entre GRBL, Marlin y Smoothieware. Ver [Controladoras](13-controladoras.md).
+- **DTR**: una señal del puerto serie que muchas placas Arduino usan para reiniciarse al abrir el puerto. El perfil puede abrirlo sin subirla (**Abrir el puerto serie sin subir DTR**). Ver [Conectar tu máquina](08-conectar-maquina.md).
 - **Dithering (tramado)**: truco para grabar fotos con un láser que solo enciende o apaga: simula tonos de gris con puntos. Hay varios algoritmos (Umbral, Floyd-Steinberg, Jarvis, Stucki, entre otros).
 - **DPI / LPI**: densidad de líneas del grabado. A menor **intervalo** entre líneas, más DPI. Tlaku muestra la equivalencia al editar el intervalo (por ejemplo "0,1 mm = 254 DPI"). LPI son líneas por pulgada.
 - **Deformar (warp)**: meter un dibujo en una envolvente de cuatro esquinas y cuatro bordes curvos para arquearlo, abombarlo o darle perspectiva.
@@ -43,6 +45,7 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 
 ## E
 
+- **Enclavamiento por entrada** (galvo): exigir que una entrada de la tarjeta (tapa, paro de emergencia) tenga cierto estado antes de cada trabajo y cada encuadre. Ver [Galvo (experimental)](13c-galvo.md).
 - **Encuadrar contorno**: encuadre de "banda elástica": recorre con el láser apagado el contorno convexo del trabajo en vez del rectángulo. Ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
 - **Encuadrar**: recorrer con el cabezal el rectángulo del trabajo, con el láser apagado, para comprobar dónde caerá. Es el botón **Encuadrar**.
 - **Eje Z**: altura del cabezal o de la cama. Algunas capas pueden moverlo.
@@ -62,10 +65,11 @@ Términos de láser y de Tlaku, en orden alfabético, explicados en pocas línea
 - **Guías**: líneas de referencia que se arrastran desde las reglas y atraen a los objetos; no se graban. No son la capa de **Guías** de la paleta.
 - **G-code**: el lenguaje de órdenes que entienden las máquinas (`G0` mover rápido, `G1` mover grabando, `M3`/`M4` encender láser). Tlaku lo genera a partir de tu diseño; puedes verlo con **Exportar G-code…**.
 - **GRBL**: el firmware más común en láseres de diodo. Tlaku lo habla por USB. Existen variantes: **grblHAL**, **FluidNC** y **GRBL-LPC**.
-- **Galvo**: láser que mueve el haz con dos espejos giratorios (fibra, UV o CO2 galvo) y marca a gran velocidad dentro de un campo fijo, sin overscan. En Tlaku es experimental y se maneja hoy desde la línea de comandos. Ver [Galvo (experimental)](13c-galvo.md).
+- **Galvo**: láser que mueve el haz con dos espejos giratorios (fibra, UV o CO2 galvo) y marca a gran velocidad dentro de un campo fijo, sin overscan de fábrica. En Tlaku es experimental y se maneja desde la app y desde la línea de comandos. Ver [Galvo (experimental)](13c-galvo.md).
 
 ## H
 
+- **Hallazgo**: una cosa que **Revisar diseño** encontró y que conviene ver (una figura casi cerrada, líneas duplicadas, un objeto fuera de la cama...). Se puede arreglar, seleccionar o ignorar. Ver [Revisar diseño](07b-revisar-diseno.md).
 - **Homing (`$H`)**: la máquina busca sus finales de carrera para saber dónde está. Solo vale en máquinas que los tienen y con `$22=1`. Antes de hacerlo, despeja el área.
 - **Hershey**: familia de fuentes de una línea de uso libre, de las que Tlaku incluye 15.
 - **HPGL**: lenguaje de plotters y cortadoras de vinilo (`.plt`, `.hpgl`). Tlaku lo importa como trazos, una capa por pluma. Ver [Importar y exportar](03b-importar-y-exportar.md).

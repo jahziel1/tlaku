@@ -44,11 +44,12 @@
   --bg-sunken: #0f1216;
   --bg-hover: #242c38;
   --border: #272f3b;
-  --border-strong: #3b4655;
+  /* Borde de controles: 3:1 contra los fondos (WCAG 1.4.11). `--border` es solo separador decorativo. */
+  --border-strong: #69788c;
 
   --text: #e9edf3;
   --text-muted: #a1acbb;
-  --text-faint: #8190a2;
+  --text-faint: #8795a7;
 
   --accent: #8793ff;
   --accent-hover: #a2acff;
@@ -85,7 +86,7 @@
 
   --ruler-bg: #121720;
   --ruler-ink: #a1acbb;
-  --ruler-tick: #4a5666;
+  --ruler-tick: #627084;
 }
 
 /* Tema claro */
@@ -97,11 +98,12 @@
   --bg-sunken: #e8ecf1;
   --bg-hover: #e4e8ee;
   --border: #d2d8e1;
-  --border-strong: #a9b3c1;
+  /* Borde de controles: 3:1 contra los fondos (WCAG 1.4.11). `--border` es solo separador decorativo. */
+  --border-strong: #6c7a8f;
 
   --text: #141922;
   --text-muted: #465162;
-  --text-faint: #5b6879;
+  --text-faint: #556273;
 
   --accent: #4650e0;
   --accent-hover: #3a43cc;
@@ -110,8 +112,8 @@
   --on-accent: #ffffff;
   --focus: #2630c8;
 
-  --ok: #0b8a63;
-  --warn: #946200;
+  --ok: #067552;
+  --warn: #8c5c00;
   --danger: #c32f3a;
   --danger-subtle: rgba(195, 47, 58, 0.1);
   --on-danger: #ffffff;
@@ -120,7 +122,7 @@
 
   --cv-workspace: #ccd3de;
   --cv-bed: #ffffff;
-  --cv-bed-edge: #6c7a8f;
+  --cv-bed-edge: #5d6b82;
   --cv-grid-minor: rgba(40, 62, 105, 0.1);
   --cv-grid-major: rgba(40, 62, 105, 0.26);
   --cv-origin: #4650e0;
@@ -128,7 +130,7 @@
   --cv-selection-fill: rgba(70, 80, 224, 0.07);
   --cv-travel: rgba(60, 75, 100, 0.5);
   --cv-cut: #10131c;
-  --cv-engrave: #0b8a63;
+  --cv-engrave: #067552;
   --cv-overscan: rgba(70, 80, 224, 0.55);
   --cv-head: #4650e0;
   --cv-ink: #141922;
@@ -137,5 +139,5 @@
 
   --ruler-bg: #eaedf2;
   --ruler-ink: #465162;
-  --ruler-tick: #94a0b2;
+  --ruler-tick: #76839a;
 }

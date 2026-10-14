@@ -46,7 +46,7 @@ Debajo ves una ilustración de la cama con el trabajo, el cabezal y los orígene
 3. Cuando el cabezal esté donde quieres que empiece el trabajo, pulsa **Fijar origen aquí**. Solo lo guarda la app; no se envía nada a la máquina. **Borrar el origen de usuario** lo quita.
 4. El botón central del pad, y el botón **Ir al origen de trabajo (X0 Y0)**, llevan el cabezal al cero de trabajo o, si hay origen de usuario, a ese origen (el botón entonces dice **Ir al origen de usuario**).
 
-**Hacer home ($H)…** es para máquinas con finales de carrera; antes de moverse te recuerda despejar el área.
+**Hacer home ($H)…** es para máquinas con finales de carrera; antes de moverse te recuerda despejar el área. Si el perfil tiene marcado **Ofrecer el homing ($H) al conectar** (ver [Conectar tu máquina](08-conectar-maquina.md#ajustes-del-perfil-que-conviene-conocer)), al conectar se abre esa misma confirmación: **nunca se envía solo**, y puedes cancelarla.
 
 Debajo del pad, si el perfil tiene eje Z o eje U, aparecen sus botones **Subir** y **Bajar**; además están **Enfocar**, las **Posiciones guardadas** y el **Disparo de prueba** (que enciende el láser y pide doble confirmación). Todo eso, y las **Macros**, está en [Control avanzado de la máquina](09b-control-avanzado.md).
 
@@ -57,6 +57,7 @@ Debajo del pad, si el perfil tiene eje Z o eje U, aparecen sus botones **Subir**
 - Se apaga con `Esc`, volviendo a pulsar el botón o al desconectar la máquina; y se apaga solo cuando empieza un trabajo, para que un clic no mueva el cabezal a mitad del corte. Mientras está activo, el lienzo no selecciona ni arrastra nada y una etiqueta junto al cursor muestra las coordenadas del punto.
 - Necesita la máquina conectada y en reposo, y una cama plana: **con el rotativo activo está deshabilitado**, porque la Y es el giro de la pieza y no un punto de la cama.
 - Si haces clic fuera de la cama, avisa ("El punto X …, Y … queda fuera de la cama") y no se mueve.
+- **Llevar el puntero rojo al punto.** Si el perfil de tu máquina tiene un **Desfase del puntero rojo** (el puntero no cae exactamente sobre el rayo; ver [Conectar tu máquina](08-conectar-maquina.md#ajustes-del-perfil-que-conviene-conocer)), junto al botón aparece la casilla **Llevar el puntero rojo al punto**. Con ella marcada, el clic manda allí el **puntero**, no el rayo: la cabeza va al punto menos el desfase. Es lo que quieres para poner el puntero sobre una esquina de la pieza. Con el desfase en 0 y 0, la casilla no aparece.
 
 ### Pasos de movimiento y posición final
 
@@ -66,6 +67,8 @@ Debajo del pad, si el perfil tiene eje Z o eje U, aparecen sus botones **Subir**
 ## 3. Encuadrar
 
 **Encuadrar** (`F`, o el botón de la barra superior) recorre con el láser **apagado** el rectángulo que ocupa todo el trabajo, overscan incluido. Sirve para ver si el diseño cae donde quieres y dentro del material. Va a la velocidad que tengas en **Mover cabezal**, con `M5` y `S0`.
+
+Si el perfil tiene un **Desfase del puntero rojo**, el encuadre con el láser **apagado** lo compensa solo: así es el **puntero**, y no el rayo, el que recorre el borde del trabajo. (El encuadre con el láser encendido a baja potencia no lo compensa, porque ahí lo que se ve es el rayo.)
 
 **Encuadrar contorno** (botón junto a Encuadrar y menú **Máquina**) es el encuadre de "banda elástica": en lugar del rectángulo recorre el **contorno convexo** del trabajo, como una liga estirada alrededor de las piezas, también con el láser apagado y a la misma velocidad. Es mejor para piezas largas y en diagonal, donde el rectángulo recorre mucha cama vacía y no deja ver dónde caerá la pieza de verdad. Sigue contando el overscan y respeta **Solo la selección**, el origen del trabajo y el rotativo.
 
@@ -79,6 +82,13 @@ Debajo del pad, si el perfil tiene eje Z o eje U, aparecen sus botones **Subir**
 4. El diálogo resume el **Tiempo estimado**, las **Capas** (potencia, velocidad y pasadas de cada una), la **Potencia máxima** y dónde quedará el trabajo, además de las advertencias del cálculo.
 5. El diálogo repite **Solo la selección** y **Usar el origen de la selección**, por si quieres cambiarlas antes de empezar.
 6. **Cancelar** es el botón con el foco. **Iniciar trabajo** se activa solo cuando el resumen ya está calculado y el trabajo cabe en la cama; si no, dice "Espera al resumen del trabajo y corrige lo marcado en rojo".
+
+Entre las advertencias del cálculo pueden salir cuatro que conviene entender:
+
+- **Revisar diseño encontró N cosas que conviene ver antes de enviar** (con un enlace **Ver**): algo grave en el diseño, como objetos fuera de la cama o una capa sin salida. No bloquea el envío. Ver [Revisar diseño](07b-revisar-diseno.md).
+- **El enlace serie no da abasto.** Con USB serie (GRBL, Marlin, Smoothieware), el cable manda como máximo `baudios ÷ 10` bytes por segundo (a 115 200 baudios, unos 11 520). Si en su tramo más denso el trabajo pide más líneas por segundo de las que caben (curvas muy finas a mucha velocidad, o un mapa con millones de segmentos), la máquina **se queda sin líneas, hace pausas y puede dejar marcas** en el material. El aviso dice cuántas líneas por segundo pide, cuántas caben y a **qué fracción de la velocidad** habría que bajar esa capa. Qué hacer: baja la velocidad de las capas con más detalle, simplifica el diseño (**Optimizar formas**, [Revisar diseño](07b-revisar-diseno.md)) o usa un enlace más rápido (USB nativo, red o más baudios si tu firmware los admite). No bloquea el envío; también queda anotado en la consola. Tlaku además **fusiona los cortes casi alineados** del G-code (con una tolerancia de unos 6 µm) para escribir menos líneas sin cambiar el recorrido.
+- **Capa más rápida que la máquina.** Si una capa pide, por ejemplo, 48 000 mm/min y la velocidad máxima del perfil es 12 000, el aviso dice que la máquina irá al máximo y el resultado saldrá **más oscuro o más quemado** de lo previsto. Baja la velocidad de la capa o corrige la velocidad máxima del perfil si está mal puesta. No cambia la salida: la controladora limita el avance por su cuenta.
+- **Avisos de Ruida** (tope de 36 000 mm/min y más de 128 capas): ver [Ruida y K40](13b-ruida-y-k40.md).
 
 ![Diálogo de confirmación con el resumen del trabajo](../../apps/desktop/docs/screenshots/05-maquina-iniciar.png)
 
@@ -117,7 +127,7 @@ Para qué sirve, con un ejemplo: empiezas a cortar contrachapado y ves que en un
 
 ## Alarmas
 
-Si la máquina entra en alarma, aparece un banner rojo en la pestaña **Máquina**: **La máquina está en alarma**, con el código (`ALARM:N`), su explicación en español y **Qué hacer**, según si tu máquina tiene homing activado (`$22`). Los botones son **Desbloquear ($X)…** y **Hacer home ($H)…**: cada uno abre un diálogo con su riesgo y una lista de comprobación, y solo envía al confirmar. `$X` desbloquea sin comprobar la posición; `$H` mueve el cabezal hasta los finales de carrera, así que úsalo solo si tu máquina los tiene. Las causas de cada código están en [Solución de problemas](15-solucion-de-problemas.md).
+Si la máquina entra en alarma, aparece un banner rojo en la pestaña **Máquina**: **La máquina está en alarma**, con el código (`ALARM:N`), su explicación y **Qué hacer**, según si tu máquina tiene homing activado (`$22`). Los botones son **Desbloquear ($X)…** y **Hacer home ($H)…**: cada uno abre un diálogo con su riesgo y una lista de comprobación, y solo envía al confirmar. `$X` desbloquea sin comprobar la posición; `$H` mueve el cabezal hasta los finales de carrera, así que úsalo solo si tu máquina los tiene. Las causas de cada código están en [Solución de problemas](15-solucion-de-problemas.md).
 
 ## Consola segura
 
@@ -129,6 +139,18 @@ La pestaña **Consola** (`Ctrl/Cmd+3`) es el registro de lo enviado y lo recibid
 - Durante un trabajo solo se aceptan `status`, `hold`, `resume` y `reset`.
 - Con las flechas arriba y abajo recorres el historial; `Tab` completa el comando.
 - Las respuestas `error:N` y `ALARM:N` llegan con su explicación. **Ocultar reportes de estado** limpia el ruido de los `?` periódicos, y puedes copiar o borrar el registro.
+
+## Registro de trabajos
+
+**Ayuda > Registro de trabajos…** muestra una tabla con los trabajos que **enviaste a una máquina desde esta computadora**: **Fecha**, **Máquina**, **Documento**, **Estimado** (el tiempo que calculó la vista previa al empezar; **—** si no había una al día), **Real** (el tiempo trabajando, sin contar las pausas) y **Resultado**: **Terminado**, **Cancelado** o **Con error**. Sirve para comparar cuánto tardó de verdad con lo estimado, y para acordarte de qué se cortó y cuándo.
+
+![El Registro de trabajos con cuatro trabajos: dos terminados, uno cancelado y uno con error](../../apps/desktop/docs/screenshots/69-registro-de-trabajos.png)
+
+- Un trabajo se anota **cuando termina, se cancela o falla**; una pausa y su reanudación no cuentan como trabajos nuevos.
+- Se guarda **solo en esta computadora**, en el almacenamiento de la aplicación; **no sale de tu equipo**, no viaja en el proyecto ni en los paquetes y no se envía a ningún lado. Las ventanas abiertas de Tlaku lo comparten.
+- Guarda los **últimos 200** trabajos; al pasarse se descartan los más viejos.
+- **Borrar el registro** lo vacía (pide confirmación y no se puede deshacer).
+- No registra la exportación de G-code ni lo que mandas desde la consola.
 
 ## Exportar G-code
 

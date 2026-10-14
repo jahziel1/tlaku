@@ -52,6 +52,7 @@ use tlaku_galvo::session::{
 };
 use tlaku_galvo::transport::{LaserSafetyAck, Transport, TransportError, TransportInfo};
 use tlaku_galvo::usb::{self, UsbTimeouts, UsbTransport};
+use tlaku_i18n::tr;
 use tlaku_pipeline::{StageMove, job_mark_sequence};
 
 /// Puerto de la máquina virtual galvo.
@@ -60,23 +61,26 @@ pub const VIRTUAL_PORT: &str = "virtual:galvo";
 /// Prefijo de los puertos USB reales: `usb:galvo:<n>` es la tarjeta número `n` de la lista.
 pub const USB_PREFIX: &str = "usb:galvo:";
 
-/// Texto que delata, dentro del mensaje de un trabajo, que detener NO se confirmó. La interfaz lo
-/// busca para destacar el aviso de cortar la energía de la fuente (viene de `JobError`).
-pub const UNCONFIRMED_MARK: &str = "NO hubo confirmación";
+/// Código estable (`tlaku_i18n::coded`) del mensaje de un trabajo o de una conexión cuando detener
+/// NO se confirmó. La interfaz lo reconoce con `errorCode` (`ENGINE_ERROR.galvoStopUnconfirmed`)
+/// para destacar el aviso de cortar la energía de la fuente; el texto cambia con el idioma, el
+/// código no. Es el mismo que antepone `JobError::code()` en `tlaku-galvo`.
+pub const STOP_UNCONFIRMED: &str = tlaku_galvo::session::STOP_UNCONFIRMED_CODE;
 
 /// Aviso que acompaña a todo lo que toca una tarjeta real.
-pub const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte galvo no se ha probado con ninguna \
-tarjeta real. Una fibra es láser clase 4 y su haz es INVISIBLE: usa gafas con la longitud de onda \
-y la DO correctas, recinto cerrado y ten el paro de emergencia al alcance. Prueba primero sin la \
-fuente conectada.";
+pub fn experimental() -> String {
+    tr!("desktop.galvo.experimental")
+}
 
 /// Mensaje cuando una operación solo existe en GRBL.
-pub const GRBL_ONLY: &str = "Esta función es solo de GRBL: el galvo no usa G-code ni overrides en \
-vivo.";
+pub fn grbl_only() -> String {
+    tr!("desktop.galvo.grbl_only")
+}
 
 /// Mensaje cuando se pide pausar o reanudar: no existe, a propósito.
-pub const NO_PAUSE: &str = "El galvo no tiene pausa: pausar deja el espejo quieto con el haz \
-encendido. Solo se puede detener.";
+pub fn no_pause() -> String {
+    tr!("desktop.galvo.no_pause")
+}
 
 /// ¿Es el puerto de la máquina virtual galvo (con o sin `@velocidad`)?
 pub fn is_virtual(port: &str) -> bool {

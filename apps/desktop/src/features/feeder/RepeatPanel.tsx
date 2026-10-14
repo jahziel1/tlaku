@@ -2,6 +2,7 @@ import { Repeat, X } from 'lucide-react';
 import { createRoot, type Root } from 'react-dom/client';
 import { t } from '@/i18n';
 import { fmt } from '@/lib/platform';
+import { useReturnFocus } from '@/ui/useReturnFocus';
 import { isRepeating, resetRepeat, startRepeat, stopRepeat, useRepeat } from './repeat';
 import './feeder.css';
 
@@ -9,6 +10,7 @@ import './feeder.css';
 export function RepeatPanel({ onClose }: { onClose: () => void }) {
   const { phase, index, done, total, message, config } = useRepeat();
   const running = phase === 'sending' || phase === 'feeding';
+  useReturnFocus();
   const line =
     phase === 'sending'
       ? t('tiling.repeat.sending', { i: index + 1, n: total })
@@ -22,7 +24,15 @@ export function RepeatPanel({ onClose }: { onClose: () => void }) {
               ? t('tiling.repeat.failed', { i: index + 1, why: message ?? t('tiling.err.job') })
               : '';
   return (
-    <section className="rep-panel" role="dialog" aria-label={t('tiling.repeat.panel')} data-phase={phase}>
+    <section
+      className="rep-panel"
+      role="dialog"
+      aria-label={t('tiling.repeat.panel')}
+      data-phase={phase}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && !running) onClose();
+      }}
+    >
       <header className="rep-panel__head">
         <h2 className="panel-title"><Repeat size={15} aria-hidden="true" />{t('tiling.repeat.panel')}</h2>
         <button type="button" className="icon-btn" disabled={running} aria-label={t('tiling.repeat.close')} title={running ? t('tiling.repeat.closeBusy') : t('tiling.repeat.close')} onClick={onClose}>

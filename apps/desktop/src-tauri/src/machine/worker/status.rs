@@ -1,6 +1,7 @@
 //! Estado del trabajador: reportes `?`, silencio y lectura del puerto.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn on_status(&mut self, r: &streamer::StatusReport) {
@@ -103,11 +104,7 @@ impl Worker {
             self.last_rx = Instant::now();
             self.reader.feed(&buf[..n]);
         } else if self.silence_exceeded() {
-            return Err(Fail::Lost(
-                "la controladora dejó de responder (¿se desconectó el cable USB o la red, o se \
-                 apagó la máquina?)"
-                    .into(),
-            ));
+            return Err(Fail::Lost(tr!("desktop.worker.controller_silent")));
         }
         let mut others = Vec::new();
         while let Some(line) = self.reader.next_line() {

@@ -329,10 +329,10 @@ fn usb_needs_the_full_safety_acknowledgement_before_touching_usb() {
     ];
     // Sin reconocimiento y con reconocimientos incompletos: el mismo error, antes de abrir nada.
     let r = GalvoConnection::connect(&d, "usb:galvo:0", None, sink.clone(), fast());
-    assert_eq!(r.err().as_deref(), Some(ACK_REQUIRED));
+    assert_eq!(r.err(), Some(ack_required()));
     for ack in partial {
         let r = GalvoConnection::connect(&d, "usb:galvo:0", Some(&ack), sink.clone(), fast());
-        assert_eq!(r.err().as_deref(), Some(ACK_REQUIRED), "{ack:?}");
+        assert_eq!(r.err(), Some(ack_required()), "{ack:?}");
         assert!(ack.token().is_err());
     }
     // El token solo existe con las tres confirmaciones.
@@ -450,10 +450,7 @@ fn stopping_a_mark_cancels_it_and_switches_everything_off() {
     });
     assert!(!rig.sink.job_states().contains(&JobState::Finished));
     let msg = rig.sink.jobs().last().unwrap().message.clone();
-    assert!(
-        msg.contains("detenido") && !msg.contains(UNCONFIRMED_MARK),
-        "{msg}"
-    );
+    assert!(msg.contains("detenido") && !has_stop_code(&msg), "{msg}");
     {
         let e = lock(&rig.emu);
         assert!(e.violations.is_empty(), "{:?}", e.violations);
@@ -834,7 +831,7 @@ fn a_dropped_usb_mid_job_flags_that_the_source_may_be_on() {
             rig.sink.jobs().last().unwrap().message.clone()
         }
     };
-    assert!(msg.contains(UNCONFIRMED_MARK), "{msg}");
+    assert!(has_stop_code(&msg), "{msg}");
     assert!(rig.handle.state().laser_may_be_on);
     assert!(rig.sink.may_be_on_events() >= 1);
     assert!(rig.sink.logs().contains("CORTA LA ENERGÍA"));
@@ -847,7 +844,48 @@ fn a_dropped_usb_mid_job_flags_that_the_source_may_be_on() {
     rig.conn.close();
     let last = sink.connections().pop().unwrap();
     assert!(!last.connected);
-    assert!(last.error.unwrap_or_default().contains(UNCONFIRMED_MARK));
+    assert!(has_stop_code(&last.error.unwrap_or_default()));
+}
+
+/// ¿El mensaje lleva el código estable de «detener NO se confirmó»? (la interfaz lo reconoce así,
+/// en cualquier idioma).
+fn has_stop_code(msg: &str) -> bool {
+    tlaku_i18n::split_code(msg).0 == Some(STOP_UNCONFIRMED)
+}
+
+#[test]
+fn the_unconfirmed_stop_is_still_detected_and_shown_in_english() {
+    use tlaku_i18n::{Locale, split_code, with_locale};
+    let e = JobError {
+        cause: SessionError::Cancelled,
+        batches_sent: 1,
+        batches_total: 2,
+        stop: StopOutcome::Unconfirmed,
+    };
+    let msg = with_locale(Locale::En, || job_error_text(&e));
+    // La interfaz reconoce el aviso por el código, igual en español que en inglés.
+    assert!(has_stop_code(&msg), "{msg}");
+    assert_eq!(
+        split_code(&msg).0,
+        Some(tlaku_galvo::session::STOP_UNCONFIRMED_CODE)
+    );
+    // El texto propio de la parada en reposo sale en inglés, con el mismo código.
+    let own = with_locale(Locale::En, || {
+        tlaku_i18n::coded(STOP_UNCONFIRMED, tr!("desktop.galvo.stop_unconfirmed"))
+    });
+    assert!(has_stop_code(&own), "{own}");
+    assert!(
+        split_code(&own).1.starts_with("There was NO confirmation"),
+        "{own}"
+    );
+    // Una parada confirmada no lleva el código.
+    let ok = JobError {
+        stop: StopOutcome::Acked,
+        ..e
+    };
+    assert!(!has_stop_code(&with_locale(Locale::En, || job_error_text(
+        &ok
+    ))));
 }
 
 #[test]
@@ -866,7 +904,7 @@ fn a_confirmed_stop_clears_the_laser_warning() {
 
 #[test]
 fn the_unconfirmed_text_matches_what_the_driver_says() {
-    // La interfaz busca `UNCONFIRMED_MARK` en el mensaje: debe ser parte del texto del driver.
+    // La interfaz reconoce el aviso por el código estable del mensaje (no por su texto).
     let e = JobError {
         cause: SessionError::Cancelled,
         batches_sent: 1,
@@ -874,7 +912,12 @@ fn the_unconfirmed_text_matches_what_the_driver_says() {
         stop: StopOutcome::Unconfirmed,
     };
     assert!(e.laser_may_be_on());
-    assert!(job_error_text(&e).contains(UNCONFIRMED_MARK));
+    let text = job_error_text(&e);
+    assert!(has_stop_code(&text), "{text}");
+    assert_eq!(
+        tlaku_i18n::split_code(&text).0,
+        Some(tlaku_galvo::session::STOP_UNCONFIRMED_CODE)
+    );
 }
 
 // ---------------------------------------------------------------------------

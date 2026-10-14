@@ -2,7 +2,7 @@ import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Link2, Pencil
 import { useEffect, useId, useMemo } from 'react';
 import type { DeviceProfile, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { useCommand, type CommandView } from '@/commands/useCommand';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
 import {
@@ -330,7 +330,7 @@ export function MaterialsPanelView({
       <section className="section mat-section" aria-label={t('materials.section.factory')}>
         <h3 className="mat-section__title">
           {t('materials.section.factory')}
-          <span className="mat-section__count num">{t('materials.count', { n: factoryShown.length })}</span>
+          <span className="mat-section__count num">{tn('materials.count', factoryShown.length)}</span>
         </h3>
         <p className="hint">{t('materials.section.factory.hint')}</p>
         {factory.presets.length > 0 && factoryGroups.length === 0 && <p className="hint" role="status">{t('materials.noMatchesIn')}</p>}

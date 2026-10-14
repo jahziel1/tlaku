@@ -16,6 +16,7 @@ use crate::homography::Homography;
 use nalgebra::{DMatrix, Matrix3, Vector3};
 use serde::{Deserialize, Serialize};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Diferencia mínima entre la altura más baja y la más alta para estimar el modelo (mm).
 pub const MIN_HEIGHT_SPAN_MM: f64 = 2.0;
@@ -108,12 +109,12 @@ impl HeightModel {
     ) -> Result<Self, String> {
         let [fx, fy, cx, cy] = k;
         if !(fx > 0.0 && fy > 0.0 && k.iter().all(|v| v.is_finite())) {
-            return Err("la matriz de la cámara no es válida".into());
+            return Err(tr!("camera.height.bad_camera"));
         }
         let kmat = Matrix3::new(fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0);
         let kinv = kmat
             .try_inverse()
-            .ok_or("la matriz de la cámara es singular")?;
+            .ok_or_else(|| tr!("camera.height.singular_camera"))?;
         let p = bed_to_image.matrix();
         let a1: Vector3<f64> = kinv * p.column(0);
         let a2: Vector3<f64> = kinv * p.column(1);
@@ -124,13 +125,13 @@ impl HeightModel {
         let (a1, a2) = (a1 * sign, a2 * sign);
         let mu = (a1.norm() + a2.norm()) / 2.0;
         if !mu.is_finite() || mu < 1e-12 {
-            return Err("la alineación es degenerada para estimar la altura".into());
+            return Err(tr!("camera.height.degenerate_alignment"));
         }
         let r1 = a1.normalize();
         // Gram-Schmidt: r2 ortogonal a r1 (la alineación con ruido no es exactamente ortonormal).
         let r2 = (a2 - r1 * r1.dot(&a2))
             .try_normalize(1e-12)
-            .ok_or("la alineación es degenerada")?;
+            .ok_or_else(|| tr!("camera.height.degenerate_alignment_short"))?;
         let mut r3 = r1.cross(&r2);
         // Subir el material lo acerca a la cámara (z de la cámara disminuye).
         if r3.z > 0.0 {
@@ -160,7 +161,7 @@ fn similarity(pts: &[Point]) -> Result<Similarity, String> {
     let cy = pts.iter().map(|p| p.y).sum::<f64>() / n;
     let mean = pts.iter().map(|p| (p.x - cx).hypot(p.y - cy)).sum::<f64>() / n;
     if !mean.is_finite() || mean < 1e-12 {
-        return Err("los puntos de las marcas son degenerados".into());
+        return Err(tr!("camera.height.degenerate_points"));
     }
     Ok(Similarity {
         c: Point::new(cx, cy),
@@ -195,16 +196,16 @@ impl Similarity {
 /// `[c1 c2 c3 + h·g]`: solo cambia `c3`) y la altura se escala a `[0, 1]`.
 pub fn fit_height_model(samples: &[HeightSample]) -> Result<HeightFit, String> {
     if samples.len() < 2 {
-        return Err("hacen falta marcas a dos alturas distintas para el modelo de altura".into());
+        return Err(tr!("camera.height.need_two_heights"));
     }
     for s in samples {
         if s.image_px.len() != s.bed_mm.len() {
-            return Err("cada altura necesita tantos puntos de imagen como de cama".into());
+            return Err(tr!("camera.height.point_mismatch"));
         }
         if s.image_px.len() < 4 {
-            return Err(format!(
-                "la altura de {:.1} mm tiene menos de 4 marcas",
-                s.height_mm
+            return Err(tr!(
+                "camera.height.few_marks",
+                height = format!("{:.1}", s.height_mm)
             ));
         }
         let finite = s
@@ -213,7 +214,7 @@ pub fn fit_height_model(samples: &[HeightSample]) -> Result<HeightFit, String> {
             .chain(&s.bed_mm)
             .all(|p| p.x.is_finite() && p.y.is_finite());
         if !finite || !s.height_mm.is_finite() {
-            return Err("hay valores no finitos en las marcas".into());
+            return Err(tr!("camera.height.not_finite"));
         }
     }
     let h_min = samples
@@ -226,8 +227,10 @@ pub fn fit_height_model(samples: &[HeightSample]) -> Result<HeightFit, String> {
         .fold(f64::NEG_INFINITY, f64::max);
     let span = h_max - h_min;
     if span < MIN_HEIGHT_SPAN_MM {
-        return Err(format!(
-            "las alturas deben diferir al menos {MIN_HEIGHT_SPAN_MM} mm (difieren {span:.1} mm)"
+        return Err(tr!(
+            "camera.height.span_small",
+            min = MIN_HEIGHT_SPAN_MM,
+            span = format!("{span:.1}")
         ));
     }
 
@@ -263,18 +266,14 @@ pub fn fit_height_model(samples: &[HeightSample]) -> Result<HeightFit, String> {
         }
     }
     let svd = a.svd(false, true);
-    let v_t = svd
-        .v_t
-        .ok_or("falló la descomposición SVD del modelo de altura")?;
+    let v_t = svd.v_t.ok_or_else(|| tr!("camera.height.svd_failed"))?;
     let sv = &svd.singular_values;
     let mut order: Vec<usize> = (0..sv.len()).collect();
     order.sort_by(|&i, &j| sv[j].total_cmp(&sv[i]));
     let smallest = order[order.len() - 1];
     let second = order[order.len() - 2];
     if sv[second] <= 1e-9 * sv[order[0]].max(1e-300) {
-        return Err(
-            "las marcas son degeneradas para el modelo de altura (colineales o repetidas)".into(),
-        );
+        return Err(tr!("camera.height.degenerate_marks"));
     }
     let theta: Vec<f64> = (0..12).map(|i| v_t[(smallest, i)]).collect();
     let col = |m: usize| Vector3::new(theta[3 * m], theta[3 * m + 1], theta[3 * m + 2]);
@@ -283,11 +282,11 @@ pub fn fit_height_model(samples: &[HeightSample]) -> Result<HeightFit, String> {
     let ti_inv = ti
         .matrix()
         .try_inverse()
-        .ok_or("normalización de la imagen no invertible")?;
+        .ok_or_else(|| tr!("camera.height.norm_singular"))?;
     let m0 = ti_inv * n0 * tb.matrix();
     let g = ti_inv * gn / span;
     if !m0.iter().chain(g.iter()).all(|v| v.is_finite()) {
-        return Err("el modelo de altura no es finito".into());
+        return Err(tr!("camera.height.model_not_finite"));
     }
     // Escala: tercera componente de la tercera columna a +1 si es posible (solo estética;
     // el signo global es arbitrario y así el modelo tiene w > 0 cerca de la cama).

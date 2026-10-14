@@ -3,6 +3,7 @@
 
 use clap::ValueEnum;
 use tlaku_core::Rgb;
+use tlaku_i18n::tr;
 pub use tlaku_pipeline::doc::Overscan;
 use tlaku_pipeline::doc::{ImageMode, LayerSettings};
 
@@ -84,7 +85,7 @@ pub fn parse_f64(s: &str) -> Result<f64, String> {
         .parse::<f64>()
         .ok()
         .filter(|v| v.is_finite())
-        .ok_or_else(|| format!("'{s}' no es un número válido"))
+        .ok_or_else(|| tr!("cli.options.not_a_number", value = s))
 }
 
 pub fn parse_positive(s: &str) -> Result<f64, String> {
@@ -92,7 +93,7 @@ pub fn parse_positive(s: &str) -> Result<f64, String> {
     if v > 0.0 {
         Ok(v)
     } else {
-        Err(format!("'{s}' debe ser mayor que 0"))
+        Err(tr!("cli.options.must_be_positive", value = s))
     }
 }
 
@@ -102,19 +103,17 @@ pub fn parse_overscan(s: &str) -> Result<Overscan, String> {
     }
     match parse_f64(s) {
         Ok(v) if v >= 0.0 => Ok(Overscan::Mm(v)),
-        Ok(_) => Err(format!("overscan negativo: '{s}'")),
-        Err(_) => Err(format!(
-            "overscan inválido '{s}': usa \"auto\" o un número en mm"
-        )),
+        Ok(_) => Err(tr!("cli.options.overscan_negative", value = s)),
+        Err(_) => Err(tr!("cli.options.overscan_invalid", value = s)),
     }
 }
 
 /// `ANCHOxALTO` en mm, ambos mayores que 0 (acepta `x`, `X` y `×`).
 pub fn parse_size(s: &str) -> Result<(f64, f64), String> {
-    let (w, h) = s.split_once(['x', 'X', '×']).ok_or_else(|| {
-        format!("formato esperado: ANCHOxALTO (por ejemplo 400x415), recibí '{s}'")
-    })?;
-    let both = |v: &str| parse_positive(v).map_err(|_| format!("tamaño inválido '{s}'"));
+    let (w, h) = s
+        .split_once(['x', 'X', '×'])
+        .ok_or_else(|| tr!("cli.options.size_format", value = s))?;
+    let both = |v: &str| parse_positive(v).map_err(|_| tr!("cli.options.size_invalid", value = s));
     Ok((both(w)?, both(h)?))
 }
 
@@ -122,8 +121,8 @@ pub fn parse_size(s: &str) -> Result<(f64, f64), String> {
 pub fn parse_pos(s: &str) -> Result<(f64, f64), String> {
     let (x, y) = s
         .split_once(',')
-        .ok_or_else(|| format!("formato esperado: X,Y (por ejemplo 10,20), recibí '{s}'"))?;
-    let c = |v: &str| parse_f64(v).map_err(|_| format!("posición inválida '{s}'"));
+        .ok_or_else(|| tr!("cli.options.pos_format", value = s))?;
+    let c = |v: &str| parse_f64(v).map_err(|_| tr!("cli.options.pos_invalid", value = s));
     Ok((c(x)?, c(y)?))
 }
 
@@ -131,16 +130,16 @@ fn parse_layer_mode(v: &str) -> Result<LayerMode, String> {
     match v {
         "line" => Ok(LayerMode::Line),
         "fill" => Ok(LayerMode::Fill),
-        _ => Err(format!("modo '{v}' desconocido: usa line o fill")),
+        _ => Err(tr!("cli.options.unknown_mode", value = v)),
     }
 }
 
 /// `"#rrggbb:clave=valor,..."`. Claves con valor: mode, speed, power, passes, interval,
 /// angle, overscan, kerf, order. Claves sin valor: air, noair, crosshatch, nocrosshatch, bidir, nobidir.
 pub fn parse_layer(s: &str) -> Result<(Rgb, LayerOverride), String> {
-    let (color, opts) = s.split_once(':').ok_or(
-        "formato esperado: #rrggbb:clave=valor,... (por ejemplo \"#ff0000:speed=300,power=80\")",
-    )?;
+    let (color, opts) = s
+        .split_once(':')
+        .ok_or_else(|| tr!("cli.options.layer_format"))?;
     let mut o = LayerOverride::default();
     for kv in opts.split(',').map(str::trim).filter(|kv| !kv.is_empty()) {
         let (k, v) = match kv.split_once('=') {
@@ -148,19 +147,21 @@ pub fn parse_layer(s: &str) -> Result<(Rgb, LayerOverride), String> {
             None => (kv, None),
         };
         let value = || {
-            v.ok_or_else(|| format!("la clave '{k}' necesita un valor ({k}=...)"))
-                .and_then(|v| parse_f64(v).map_err(|e| format!("valor inválido en '{kv}': {e}")))
+            v.ok_or_else(|| tr!("cli.options.key_needs_value", key = k))
+                .and_then(|v| {
+                    parse_f64(v).map_err(|e| tr!("cli.options.invalid_value", kv = kv, err = e))
+                })
         };
         let flag = |on: bool, target: &mut Option<bool>| match v {
             None => {
                 *target = Some(on);
                 Ok(())
             }
-            Some(_) => Err(format!("la clave '{k}' no lleva valor")),
+            Some(_) => Err(tr!("cli.options.key_takes_no_value", key = k)),
         };
         match k {
             "mode" => {
-                let v = v.ok_or("la clave 'mode' necesita un valor (mode=line|fill)")?;
+                let v = v.ok_or_else(|| tr!("cli.options.mode_needs_value"))?;
                 o.mode = Some(parse_layer_mode(v)?);
             }
             "speed" => o.speed = Some(value()?),
@@ -168,7 +169,7 @@ pub fn parse_layer(s: &str) -> Result<(Rgb, LayerOverride), String> {
             "passes" => {
                 let n = value()?;
                 if n.fract() != 0.0 || n < 0.0 {
-                    return Err(format!("valor inválido en '{kv}': deben ser enteros"));
+                    return Err(tr!("cli.options.passes_not_integer", kv = kv));
                 }
                 o.passes = Some(n.min(f64::from(u32::MAX)) as u32);
             }
@@ -178,14 +179,12 @@ pub fn parse_layer(s: &str) -> Result<(Rgb, LayerOverride), String> {
             "order" => {
                 let n = value()?;
                 if n.fract() != 0.0 || n < 1.0 {
-                    return Err(format!(
-                        "valor inválido en '{kv}': la posición debe ser un entero desde 1"
-                    ));
+                    return Err(tr!("cli.options.order_not_integer", kv = kv));
                 }
                 o.order = Some(n.min(f64::from(u32::MAX)) as usize);
             }
             "overscan" => {
-                let v = v.ok_or("la clave 'overscan' necesita un valor (mm o auto)")?;
+                let v = v.ok_or_else(|| tr!("cli.options.overscan_needs_value"))?;
                 o.overscan = Some(parse_overscan(v)?);
             }
             "air" => flag(true, &mut o.air)?,
@@ -195,10 +194,7 @@ pub fn parse_layer(s: &str) -> Result<(Rgb, LayerOverride), String> {
             "bidir" => flag(true, &mut o.bidir)?,
             "nobidir" => flag(false, &mut o.bidir)?,
             _ => {
-                return Err(format!(
-                    "clave desconocida '{k}'; claves válidas: mode, speed, power, passes, air, noair, \
-                     interval, angle, crosshatch, bidir, nobidir, overscan, kerf, order"
-                ));
+                return Err(tr!("cli.options.unknown_key", key = k));
             }
         }
     }
@@ -220,11 +216,12 @@ pub fn apply_layer(
     // Claves que solo tienen sentido en un modo: se rechazan en vez de ignorarse.
     let only = |key: &str, present: bool, wanted: LayerMode| -> Result<(), String> {
         if present && mode != wanted {
-            return Err(format!(
-                "capa {}: la clave '{key}' solo aplica en modo {} (esta capa es {})",
-                s.color,
-                wanted.name(),
-                mode.name()
+            return Err(tr!(
+                "cli.options.key_wrong_mode",
+                layer = s.color,
+                key = key,
+                wanted = wanted.name(),
+                mode = mode.name()
             ));
         }
         Ok(())
@@ -309,7 +306,7 @@ pub fn apply_image(
     img: &ImageParams,
 ) -> Result<LayerSettings, String> {
     if img.threshold.is_some() && img.mode != Some(ImageModeArg::Threshold) {
-        return Err("--threshold solo aplica con --image-mode threshold".into());
+        return Err(tr!("cli.options.threshold_needs_mode"));
     }
     s.speed = defaults.speed.unwrap_or(s.speed);
     s.power = defaults.power.unwrap_or(s.power);

@@ -22,6 +22,7 @@ use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{Point, Rgb};
 use tlaku_doc::ImportResult;
 use tlaku_doc::affine::{self, IDENTITY, Transform};
+use tlaku_i18n::tr;
 
 /// 1 punto PDF en mm.
 const PT_TO_MM: f64 = 25.4 / 72.0;
@@ -41,19 +42,14 @@ pub(crate) fn import(
 ) -> Result<ImportResult, String> {
     let name = path.display();
     if data.starts_with(b"%!PS-Adobe") || data.starts_with(b"%!") {
-        return Err(format!(
-            "{name}: es un AI antiguo (PostScript) y no se puede leer. Ábrelo en Illustrator y \
-             guárdalo con \"Crear archivo compatible con PDF\", o expórtalo a PDF o SVG."
-        ));
+        return Err(tr!("pipeline.import_pdf.legacy_ai", name = name));
     }
     // Algunos generadores anteponen unos bytes al `%PDF-`; el lector los tolera.
     if !data[..data.len().min(1024)]
         .windows(5)
         .any(|w| w == b"%PDF-")
     {
-        return Err(format!(
-            "{name}: no parece un PDF (falta la cabecera %PDF-)"
-        ));
+        return Err(tr!("pipeline.import_pdf.not_pdf", name = name));
     }
     let options = LoadOptions {
         password: Some(String::new()),
@@ -62,9 +58,9 @@ pub(crate) fn import(
     let doc = Document::load_mem_with_options(data, options).map_err(|e| {
         let text = e.to_string();
         if text.to_lowercase().contains("password") {
-            format!("{name}: el PDF está protegido con contraseña")
+            tr!("pipeline.import_pdf.password", name = name)
         } else {
-            format!("{name}: PDF inválido: {text}")
+            tr!("pipeline.import_pdf.invalid", name = name, error = text)
         }
     })?;
     import_document(path, &doc, extras.pdf_page)
@@ -74,20 +70,23 @@ fn import_document(path: &Path, doc: &Document, page_number: u32) -> Result<Impo
     let name = path.display();
     let pages = doc.get_pages();
     if pages.is_empty() {
-        return Err(format!("{name}: el PDF no tiene páginas"));
+        return Err(tr!("pipeline.import_pdf.no_pages", name = name));
     }
     let wanted = page_number.max(1);
     let (&number, &page_id) = pages.get_key_value(&wanted).ok_or_else(|| {
-        format!(
-            "{name}: el PDF tiene {} páginas; no existe la {wanted}",
-            pages.len()
+        tr!(
+            "pipeline.import_pdf.no_such_page",
+            name = name,
+            n = pages.len(),
+            page = wanted
         )
     })?;
     let mut warnings = Vec::new();
     if pages.len() > 1 {
-        warnings.push(format!(
-            "El PDF tiene {} páginas: solo se importó la página {number}.",
-            pages.len()
+        warnings.push(tr!(
+            "pipeline.import_pdf.multi_page",
+            n = pages.len(),
+            page = number
         ));
     }
 
@@ -102,9 +101,15 @@ fn import_document(path: &Path, doc: &Document, page_number: u32) -> Result<Impo
 
     let content = doc
         .get_page_content_with_limit(page_id, MAX_STREAM_BYTES)
-        .map_err(|e| format!("{name}: no se pudo leer el contenido de la página: {e}"))?;
+        .map_err(|e| {
+            tr!(
+                "pipeline.import_pdf.page_unreadable",
+                name = name,
+                error = e
+            )
+        })?;
     let ops = Content::decode(&content)
-        .map_err(|e| format!("{name}: contenido de página ilegible: {e}"))?
+        .map_err(|e| tr!("pipeline.import_pdf.page_garbled", name = name, error = e))?
         .operations;
 
     let resources = inherited(doc, page_id, b"Resources")
@@ -116,8 +121,10 @@ fn import_document(path: &Path, doc: &Document, page_number: u32) -> Result<Impo
 
     let layers = interp.layers;
     if layers.is_empty() {
-        let mut why = vec![format!(
-            "{name}: la página {number} no contiene trayectorias vectoriales"
+        let mut why = vec![tr!(
+            "pipeline.import_pdf.no_vectors",
+            name = name,
+            page = number
         )];
         why.extend(warnings);
         return Err(why.join(". "));
@@ -788,49 +795,34 @@ impl<'a> Interpreter<'a> {
 
     fn finish(&self, warnings: &mut Vec<String>) {
         if self.text_ops > 0 {
-            warnings.push(format!(
-                "El PDF contiene {} bloque(s) de texto con fuentes: se omitieron porque no son \
-                 contornos. Conviértelos a contornos (curvas) en el programa de origen y vuelve a \
-                 exportar.",
-                self.text_ops
-            ));
+            warnings.push(tr!("pipeline.import_pdf.text_blocks", n = self.text_ops));
         }
         if self.images > 0 {
-            warnings.push(format!(
-                "Se omitieron {} imagen(es) incrustada(s) del PDF: solo se importan los vectores.",
-                self.images
-            ));
+            warnings.push(tr!("pipeline.import_pdf.images_skipped", n = self.images));
         }
         if self.shadings + self.patterns > 0 {
-            warnings.push(format!(
-                "Se omitieron {} degradado(s) o patrón(es): no son trayectorias.",
-                self.shadings + self.patterns
+            warnings.push(tr!(
+                "pipeline.import_pdf.shadings_skipped",
+                n = self.shadings + self.patterns
             ));
         }
         if self.clips > 0 {
-            warnings.push(format!(
-                "El PDF usa {} recorte(s) (clip) que no se aplican: la geometría se importa \
-                 completa.",
-                self.clips
-            ));
+            warnings.push(tr!("pipeline.import_pdf.clips_ignored", n = self.clips));
         }
         if self.unsupported_colors > 0 {
-            warnings.push(format!(
-                "{} trayectoria(s) con un espacio de color que no se evalúa se omitieron.",
-                self.unsupported_colors
+            warnings.push(tr!(
+                "pipeline.import_pdf.unsupported_colors",
+                n = self.unsupported_colors
             ));
         }
         if self.skipped_backgrounds > 0 {
-            warnings.push("Se omitió el fondo blanco de la página.".into());
+            warnings.push(tr!("pipeline.import_pdf.white_background"));
         }
         if self.too_deep {
-            warnings.push("Formularios anidados demasiado profundos: se ignoró el resto.".into());
+            warnings.push(tr!("pipeline.import_pdf.too_deep"));
         }
         if self.budget_exhausted {
-            warnings.push(
-                "El contenido de la página es demasiado grande: se interpretó solo una parte."
-                    .into(),
-            );
+            warnings.push(tr!("pipeline.import_pdf.too_big"));
         }
     }
 }

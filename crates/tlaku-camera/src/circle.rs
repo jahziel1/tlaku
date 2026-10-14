@@ -12,6 +12,7 @@ use image::GrayImage;
 use nalgebra::{Matrix3, Vector3};
 use serde::{Deserialize, Serialize};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Lo que el usuario sabe del círculo: un punto dentro (o cerca del centro) y, si quiere, el
 /// radio aproximado.
@@ -140,7 +141,7 @@ fn fit_circle(pts: &[[f64; 2]]) -> Option<(f64, f64, f64)> {
 pub fn detect_circle(img: &GrayImage, hint: Option<CircleHint>) -> Result<CircleFit, String> {
     let (w0, h0) = (f64::from(img.width()), f64::from(img.height()));
     if img.width() < 32 || img.height() < 32 {
-        return Err("la imagen es demasiado pequeña para buscar un círculo".into());
+        return Err(tr!("camera.circle.image_small"));
     }
     let scale = (WORK_SIZE / w0.max(h0)).min(1.0);
     let small;
@@ -158,7 +159,7 @@ pub fn detect_circle(img: &GrayImage, hint: Option<CircleHint>) -> Result<Circle
     let (w, h) = (work.width() as usize, work.height() as usize);
     let edges = sobel_edges(work);
     if edges.pts.len() < 30 {
-        return Err("no se ven bordes en la imagen; mejora el contraste o la iluminación".into());
+        return Err(tr!("camera.circle.no_edges"));
     }
     let min_side = w.min(h) as f64;
     let (rmin, rmax) = match hint.and_then(|h| h.radius) {
@@ -206,7 +207,7 @@ pub fn detect_circle(img: &GrayImage, hint: Option<CircleHint>) -> Result<Circle
         }
     }
     if best.0 < 8.0 {
-        return Err("no se encontró ningún círculo en la imagen".into());
+        return Err(tr!("camera.circle.not_found"));
     }
     let (c0x, c0y) = (best.1 as f64, best.2 as f64);
 
@@ -234,7 +235,7 @@ pub fn detect_circle(img: &GrayImage, hint: Option<CircleHint>) -> Result<Circle
         }
     }
     if best_h < 8.0 || r0 == 0 {
-        return Err("no se encontró ningún círculo en la imagen".into());
+        return Err(tr!("camera.circle.not_found"));
     }
 
     // Refinado en la imagen original: se repiten los bordes allí para no perder precisión.
@@ -269,7 +270,7 @@ pub fn detect_circle(img: &GrayImage, hint: Option<CircleHint>) -> Result<Circle
                 cy = y;
                 r = rr;
             }
-            None => return Err("no se encontró ningún círculo en la imagen".into()),
+            None => return Err(tr!("camera.circle.not_found")),
         }
     }
     // Los puntos de borde de Sobel están en el centro del píxel; el origen de la alineación es
@@ -289,9 +290,9 @@ pub fn detect_circle(img: &GrayImage, hint: Option<CircleHint>) -> Result<Circle
     }
     let coverage = sectors.iter().filter(|&&s| s).count() as f64 / SECTORS as f64;
     if coverage < MIN_COVERAGE || inliers.len() < 24 {
-        return Err(format!(
-            "solo se ve el {:.0} % del contorno; el círculo debe verse casi completo",
-            coverage * 100.0
+        return Err(tr!(
+            "camera.circle.partial",
+            pct = format!("{:.0}", coverage * 100.0)
         ));
     }
     // Muestra repartida por ángulo: un punto por sector como máximo, hasta 48.

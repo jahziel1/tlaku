@@ -15,6 +15,7 @@
 use crate::{Luma, ProcessOptions, RasterBitmap, Sampling, apply_mask, process, resample};
 use std::path::Path;
 use tlaku_core::{Point, Polyline};
+use tlaku_i18n::tr;
 
 /// Menor y mayor `max_px` admitidos.
 pub const MIN_PREVIEW_PX: u32 = 32;
@@ -86,8 +87,12 @@ pub fn preview(
         });
     };
     if ![x0, y0, x1, y1].iter().all(|v| v.is_finite()) || x1 <= x0 || y1 <= y0 {
-        return Err(format!(
-            "región de la vista previa inválida: ({x0}, {y0})-({x1}, {y1}) mm"
+        return Err(tr!(
+            "raster.preview.bad_region",
+            x0 = x0,
+            y0 = y0,
+            x1 = x1,
+            y1 = y1
         ));
     }
     // Columnas y filas (la fila 0 es la de arriba) que cubren la región, dentro del bitmap.

@@ -2,7 +2,8 @@
 
 use super::*;
 
-pub(super) use crate::machine::common::{Paced, log, virtual_speed};
+pub(super) use crate::machine::common::{Paced, frame_done_log, log, virtual_speed};
+use tlaku_i18n::tr;
 
 /// Conexión abierta: el mando y el hilo.
 pub struct LhyConnection {
@@ -62,13 +63,10 @@ impl LhyConnection {
             )
         } else if let Some(index) = usb_index(port) {
             let transport = UsbTransport::open(index, UsbTimeouts::default())
-                .map_err(|e| format!("No se pudo abrir la placa del K40: {e}"))?;
+                .map_err(|e| tr!("desktop.lhymicro.open_failed", err = e))?;
             Self::start(Box::new(transport), cfg, port, sink, timing, false)
         } else {
-            Err(format!(
-                "«{port}» no es un puerto de K40. Elige una placa USB de la lista o la máquina \
-                 virtual."
-            ))
+            Err(tr!("desktop.lhymicro.not_k40_port", port = port))
         }
     }
 
@@ -82,43 +80,41 @@ impl LhyConnection {
         virtual_machine: bool,
     ) -> Result<(Self, ConnectResult), String> {
         let mut session = LhySession::new(transport, cfg.clone());
-        log(sink.as_ref(), LogDir::Out, "; sondeo K40 (solo lectura)");
+        log(
+            sink.as_ref(),
+            LogDir::Out,
+            &tr!("desktop.lhymicro.log_probe"),
+        );
         let info = session.probe().map_err(connect_error)?;
         for line in describe_info(&info) {
             log(sink.as_ref(), LogDir::In, &line);
         }
         if matches!(info.status.status, Status::NoReply) {
             // El USB abre pero la placa no contesta: no hay con qué hablar.
-            return Err(
-                "La placa del K40 no devuelve ningún estado (código 0). Comprueba que la \
-                        máquina esté encendida, el cable USB y que ningún otro programa (K40 \
-                        Whisperer, MeerK40t, LaserDRW) tenga la placa abierta."
-                    .into(),
-            );
+            return Err(tr!("desktop.lhymicro.no_status"));
         }
-        log(sink.as_ref(), LogDir::In, &format!("; {EXPERIMENTAL}"));
+        log(sink.as_ref(), LogDir::In, &format!("; {}", experimental()));
         log(
             sink.as_ref(),
             LogDir::In,
-            "; La placa no informa su posición: se cuenta desde el home. Haz home antes de mover \
-             o enviar (si no, el envío lo hace primero).",
+            &tr!("desktop.lhymicro.log_position_unknown"),
         );
         if virtual_machine {
             log(
                 sink.as_ref(),
                 LogDir::In,
-                "; Máquina virtual (emulador de la M2 Nano): no hay láser ni hardware reales.",
+                &tr!("desktop.lhymicro.log_virtual"),
             );
         }
-        let firmware = format!(
-            "K40 · placa {} · {} · {}",
-            cfg.board.name(),
-            if info.transport.name.is_empty() {
+        let firmware = tr!(
+            "desktop.lhymicro.firmware",
+            board = cfg.board.name(),
+            transport = if info.transport.name.is_empty() {
                 "CH341"
             } else {
                 &info.transport.name
             },
-            info.status.status.describe()
+            status = info.status.status.describe()
         );
 
         let shared = Arc::new(Shared {
@@ -157,7 +153,7 @@ impl LhyConnection {
         let thread = thread::Builder::new()
             .name("tlaku-lhymicro".into())
             .spawn(move || worker.run())
-            .map_err(|e| format!("No se pudo iniciar el hilo de la conexión: {e}"))?;
+            .map_err(|e| tr!("desktop.machine.thread_failed", err = e))?;
         Ok((
             Self {
                 handle: LhyHandle { tx, shared },
@@ -191,45 +187,65 @@ impl<T: Transport> Transport for Paced<T> {
 
 pub(super) fn describe_info(info: &BoardInfo) -> Vec<String> {
     let t = &info.transport;
-    let mut out = vec![format!(
-        "Placa: {} (USB {:04X}:{:04X}{}); estado: {}",
-        if t.name.is_empty() { "CH341" } else { &t.name },
-        t.vendor_id,
-        t.product_id,
-        t.chip_version
-            .map(|v| format!(", chip CH341 versión 0x{v:02X}"))
-            .unwrap_or_default(),
-        info.status.status.describe()
-    )];
-    out.extend(info.notes.iter().map(|n| format!("; AVISO: {n}")));
+    let name = if t.name.is_empty() { "CH341" } else { &t.name };
+    let vid_pid = format!("{:04X}:{:04X}", t.vendor_id, t.product_id);
+    let status = info.status.status.describe();
+    let first = match t.chip_version {
+        Some(v) => tr!(
+            "desktop.lhymicro.board_line_chip",
+            name = name,
+            usb = vid_pid,
+            chip = format!("0x{v:02X}"),
+            status = status
+        ),
+        None => tr!(
+            "desktop.lhymicro.board_line",
+            name = name,
+            usb = vid_pid,
+            status = status
+        ),
+    };
+    let mut out = vec![first];
+    out.extend(
+        info.notes
+            .iter()
+            .map(|n| tr!("desktop.lhymicro.log_note", note = n)),
+    );
     out
 }
 
 /// Error del sondeo al conectar, con lo que conviene revisar.
 pub(super) fn connect_error(e: SessionError) -> String {
     match &e {
-        SessionError::NotM2Nano { .. } => format!(
-            "{e}. Una Moshiboard no es compatible con este soporte: Tlaku solo habla con la M2 \
-             Nano y sus hermanas (A, B, M...)."
-        ),
-        SessionError::Transport(_) | SessionError::Timeout { .. } => format!(
-            "No se pudo hablar con la placa del K40: {e}. Comprueba el cable USB, que la máquina \
-             esté encendida y que ningún otro programa (K40 Whisperer, MeerK40t, LaserDRW) tenga \
-             la placa abierta."
-        ),
-        _ => format!("No se pudo hablar con la placa del K40: {e}"),
+        SessionError::NotM2Nano { .. } => tr!("desktop.lhymicro.not_m2nano", err = e),
+        SessionError::Transport(_) | SessionError::Timeout { .. } => {
+            tr!("desktop.lhymicro.talk_failed_usb", err = e)
+        }
+        _ => tr!("desktop.lhymicro.talk_failed", err = e),
     }
 }
 
 /// Error de una operación en marcha, con la pista del USB si es un silencio.
 pub(super) fn op_error(e: SessionError) -> String {
     match &e {
-        SessionError::UnknownPosition => UNKNOWN_POSITION.to_string(),
-        SessionError::Transport(_) | SessionError::Timeout { .. } => format!(
-            "{e}. Comprueba el cable USB y que ningún otro programa tenga la placa abierta."
-        ),
-        SessionError::Busy(_) => format!("{e}. Espera a que termine o pulsa Detener."),
+        SessionError::UnknownPosition => unknown_position(),
+        SessionError::Transport(_) | SessionError::Timeout { .. } => {
+            tr!("desktop.lhymicro.op_failed_usb", err = e)
+        }
+        SessionError::Busy(_) => tr!("desktop.lhymicro.op_busy", err = e),
         _ => e.to_string(),
+    }
+}
+
+/// Texto de un trabajo que falló o se detuvo. Si la placa no confirmó detenerse (el láser pudo
+/// quedar encendido), lleva el código estable [`STOP_UNCONFIRMED`] al inicio: la interfaz lo
+/// reconoce por el código —que se decide por el tipo de error, no por su texto— en cualquier idioma.
+pub(super) fn job_error_text(e: &tlaku_lhymicro::session::JobError) -> String {
+    let text = e.to_string();
+    if e.laser_may_be_on() {
+        tlaku_i18n::coded(STOP_UNCONFIRMED, text)
+    } else {
+        text
     }
 }
 

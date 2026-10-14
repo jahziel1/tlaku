@@ -57,6 +57,7 @@ mod testgen;
 use std::fmt;
 
 use tlaku_core::{Point, Polyline};
+use tlaku_i18n::tr;
 
 pub use describe::describe;
 pub use planner::plan;
@@ -136,10 +137,10 @@ pub enum Level {
 
 impl fmt::Display for Level {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Level::Layer => "capa",
-            Level::Group => "grupo",
-            Level::Priority => "prioridad",
+        f.write_str(&match self {
+            Level::Layer => tr!("plan.level.layer"),
+            Level::Group => tr!("plan.level.group"),
+            Level::Priority => tr!("plan.level.priority"),
         })
     }
 }
@@ -209,40 +210,28 @@ pub enum Reason {
 /// además qué figura más cercana se saltó y por qué.
 fn first_of(
     f: &mut fmt::Formatter<'_>,
-    bucket: fmt::Arguments<'_>,
-    rule: &str,
+    bucket: String,
+    rule: String,
     blocked: &Option<Blocked>,
 ) -> fmt::Result {
-    match blocked {
-        None => write!(f, "primera figura de {bucket}: {rule}"),
+    f.write_str(&match blocked {
+        None => tr!("plan.reason.first", bucket = bucket, rule = rule),
         Some(Blocked {
             item,
             contains_this: true,
             by_overlap: false,
-        }) => write!(
-            f,
-            "primera figura de {bucket}; va antes que la figura #{item} (la más cercana) \
-             porque está dentro de ella y los interiores se cortan primero"
-        ),
+        }) => tr!("plan.reason.first_inside", bucket = bucket, item = item),
         Some(Blocked {
             item,
             contains_this: true,
             by_overlap: true,
-        }) => write!(
-            f,
-            "primera figura de {bucket}; va antes que la figura #{item} (la más cercana) \
-             porque casi toda cae dentro de ella y lo más sujeto se corta primero"
-        ),
+        }) => tr!("plan.reason.first_overlap", bucket = bucket, item = item),
         Some(Blocked {
             item,
             contains_this: false,
             ..
-        }) => write!(
-            f,
-            "primera figura de {bucket}; la figura #{item} estaba más cerca \
-             pero debe esperar a sus interiores"
-        ),
-    }
+        }) => tr!("plan.reason.first_blocked", bucket = bucket, item = item),
+    })
 }
 
 impl fmt::Display for Reason {
@@ -250,8 +239,8 @@ impl fmt::Display for Reason {
         match self {
             Reason::FirstOfLayer { layer, blocked } => first_of(
                 f,
-                format_args!("capa {layer}"),
-                "las capas se cortan en su orden",
+                tr!("plan.reason.bucket_layer", layer = layer),
+                tr!("plan.reason.rule_layer"),
                 blocked,
             ),
             Reason::FirstOfGroup {
@@ -259,8 +248,8 @@ impl fmt::Display for Reason {
                 blocked,
             } => first_of(
                 f,
-                format_args!("grupo {g}"),
-                "los grupos se cortan en su orden dentro de la capa",
+                tr!("plan.reason.bucket_group", group = g),
+                tr!("plan.reason.rule_group"),
                 blocked,
             ),
             Reason::FirstOfGroup {
@@ -268,73 +257,62 @@ impl fmt::Display for Reason {
                 blocked,
             } => first_of(
                 f,
-                format_args!("figuras sin grupo"),
-                "las figuras sin grupo van antes que los grupos",
+                tr!("plan.reason.bucket_ungrouped"),
+                tr!("plan.reason.rule_ungrouped"),
                 blocked,
             ),
             Reason::FirstOfPriority { priority, blocked } => first_of(
                 f,
-                format_args!("prioridad {priority}"),
-                "la prioridad menor se corta antes",
+                tr!("plan.reason.bucket_priority", priority = priority),
+                tr!("plan.reason.rule_priority"),
                 blocked,
             ),
-            Reason::InnerFirst { container } => write!(
-                f,
-                "va antes que la figura #{container}, que la contiene: interiores primero"
-            ),
+            Reason::InnerFirst { container } => {
+                f.write_str(&tr!("plan.reason.inner_first", container = container))
+            }
             Reason::OverlapFirst {
                 other,
                 share_pct,
                 with_others: false,
-            } => write!(
-                f,
-                "va antes que la figura #{other}, con la que se solapa: el {share_pct} % de ella \
-                 cae dentro, así que se corta primero la parte que queda sujeta"
-            ),
+            } => f.write_str(&tr!(
+                "plan.reason.overlap_first",
+                other = other,
+                share_pct = share_pct
+            )),
             Reason::OverlapFirst {
                 other,
                 share_pct,
                 with_others: true,
-            } => write!(
-                f,
-                "va antes que la figura #{other}, con la que se solapa: el {share_pct} % de ella \
-                 cae dentro y, junto con otras figuras, queda casi toda sobre material ajeno"
-            ),
+            } => f.write_str(&tr!(
+                "plan.reason.overlap_first_others",
+                other = other,
+                share_pct = share_pct
+            )),
             Reason::Nearest {
                 distance_mm,
                 blocked: None,
-            } => write!(
-                f,
-                "la más cercana ({distance_mm:.2} mm) entre las que podían cortarse ahora"
-            ),
+            } => f.write_str(&tr!(
+                "plan.reason.nearest",
+                distance_mm = format!("{distance_mm:.2}")
+            )),
             Reason::Nearest {
                 distance_mm,
                 blocked: Some(b),
-            } => write!(
-                f,
-                "la más cercana ({distance_mm:.2} mm) entre las que podían cortarse ahora; \
-                 la figura #{b} estaba más cerca pero debe esperar a sus interiores"
-            ),
-            Reason::InputOrder { blocked: None } => {
-                write!(
-                    f,
-                    "sigue el orden original (reducir recorrido está apagado)"
-                )
+            } => f.write_str(&tr!(
+                "plan.reason.nearest_blocked",
+                distance_mm = format!("{distance_mm:.2}"),
+                blocked = b
+            )),
+            Reason::InputOrder { blocked: None } => f.write_str(&tr!("plan.reason.input_order")),
+            Reason::InputOrder { blocked: Some(b) } => {
+                f.write_str(&tr!("plan.reason.input_order_blocked", blocked = b))
             }
-            Reason::InputOrder { blocked: Some(b) } => write!(
-                f,
-                "sigue el orden original; la figura #{b} iba antes pero debe esperar a sus interiores"
-            ),
-            Reason::Improved => write!(
-                f,
-                "la mejora de recorrido (2-opt/Or-opt, inicio y sentido) la dejó aquí porque \
-                 acorta el total, aunque no es la figura más cercana"
-            ),
-            Reason::LevelOverridesInner { inner, level } => write!(
-                f,
-                "sale antes que su interior #{inner} porque el orden por {level} \
-                 tiene precedencia sobre interiores primero"
-            ),
+            Reason::Improved => f.write_str(&tr!("plan.reason.improved")),
+            Reason::LevelOverridesInner { inner, level } => f.write_str(&tr!(
+                "plan.reason.level_overrides_inner",
+                inner = inner,
+                level = level
+            )),
         }
     }
 }
@@ -357,26 +335,20 @@ pub enum Warning {
 
 impl fmt::Display for Warning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Warning::SkippedInvalid { item } => write!(
-                f,
-                "la figura #{item} está vacía o tiene coordenadas inválidas y se omitió"
-            ),
-            Warning::OverlapAnalysisLimited => write!(
-                f,
-                "hay demasiadas figuras grandes que se solapan: no se analizaron todos los \
-                 solapes parciales y algunas figuras que se cruzan pueden cortarse en cualquier orden"
-            ),
+        f.write_str(&match self {
+            Warning::SkippedInvalid { item } => tr!("plan.warning.skipped_invalid", item = item),
+            Warning::OverlapAnalysisLimited => tr!("plan.warning.overlap_limited"),
             Warning::InnerOverriddenByLevel {
                 inner,
                 container,
                 level,
-            } => write!(
-                f,
-                "la figura #{container} se corta antes que su interior #{inner}: \
-                 el orden por {level} tiene precedencia sobre interiores primero"
+            } => tr!(
+                "plan.warning.inner_overridden",
+                container = container,
+                inner = inner,
+                level = level
             ),
-        }
+        })
     }
 }
 

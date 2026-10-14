@@ -98,11 +98,9 @@ pub fn pick_addr(wanted: Option<&str>, available: &[LocalAddr]) -> Result<Ipv4Ad
     let chosen = wanted
         .and_then(|w| available.iter().find(|a| a.ip == w.trim()))
         .or_else(|| available.first());
-    chosen.and_then(|a| a.ip.parse().ok()).ok_or_else(|| {
-        "Este equipo no está conectado a una red local (Wi-Fi o cable). Conéctalo a la misma \
-             red que el celular."
-            .to_string()
-    })
+    chosen
+        .and_then(|a| a.ip.parse().ok())
+        .ok_or_else(|| tlaku_i18n::tr!("desktop.remote.no_network"))
 }
 
 #[cfg(test)]

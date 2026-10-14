@@ -2,6 +2,7 @@
 //! enfoque (máscara de enfoque) e inversión.
 
 use crate::gray::GrayF32;
+use tlaku_i18n::tr;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ImageAdjust {
@@ -46,30 +47,31 @@ impl Default for ImageAdjust {
 impl ImageAdjust {
     pub fn validate(&self) -> Result<(), String> {
         if !(-1.0..=1.0).contains(&self.brightness) {
-            return Err(format!("brillo fuera de -1..1: {}", self.brightness));
+            return Err(tr!("raster.adjust.brightness", value = self.brightness));
         }
         if !(-1.0..=1.0).contains(&self.contrast) {
-            return Err(format!("contraste fuera de -1..1: {}", self.contrast));
+            return Err(tr!("raster.adjust.contrast", value = self.contrast));
         }
         if !(self.gamma.is_finite() && self.gamma > 0.0) {
-            return Err(format!("gamma debe ser mayor que 0: {}", self.gamma));
+            return Err(tr!("raster.adjust.gamma", value = self.gamma));
         }
         if !(self.enhance_radius_px.is_finite() && self.enhance_radius_px >= 0.0) {
-            return Err(format!(
-                "radio de enfoque inválido: {}",
-                self.enhance_radius_px
+            return Err(tr!(
+                "raster.adjust.enhance_radius",
+                value = self.enhance_radius_px
             ));
         }
         if !(self.enhance_amount.is_finite() && self.enhance_amount >= 0.0) {
-            return Err(format!(
-                "cantidad de enfoque inválida: {}",
-                self.enhance_amount
+            return Err(tr!(
+                "raster.adjust.enhance_amount",
+                value = self.enhance_amount
             ));
         }
         if self.denoise_px > MAX_DENOISE_PX {
-            return Err(format!(
-                "quitar motas admite hasta {MAX_DENOISE_PX} px: {}",
-                self.denoise_px
+            return Err(tr!(
+                "raster.adjust.denoise",
+                max = MAX_DENOISE_PX,
+                value = self.denoise_px
             ));
         }
         Ok(())

@@ -30,6 +30,7 @@ use std::net::{IpAddr, SocketAddr, TcpListener};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 use tokio::sync::oneshot;
 
 const PAGE: &str = include_str!("page.html");
@@ -88,14 +89,18 @@ fn auth_error(e: &AuthError) -> Response {
         AuthError::Unauthorized => fail(
             StatusCode::UNAUTHORIZED,
             "unauthorized",
-            "Falta iniciar sesión.",
+            &tr!("desktop.remote.login_required"),
         ),
-        AuthError::BadToken => fail(StatusCode::UNAUTHORIZED, "bad_token", "Clave incorrecta."),
+        AuthError::BadToken => fail(
+            StatusCode::UNAUTHORIZED,
+            "bad_token",
+            &tr!("desktop.remote.bad_key"),
+        ),
         AuthError::Locked { retry_after_s } => {
             let mut r = fail(
                 StatusCode::TOO_MANY_REQUESTS,
                 "locked",
-                "Demasiados intentos con una clave incorrecta. Espera unos minutos.",
+                &tr!("desktop.remote.locked"),
             );
             if let Ok(v) = HeaderValue::from_str(&retry_after_s.to_string()) {
                 r.headers_mut().insert(header::RETRY_AFTER, v);
@@ -179,7 +184,7 @@ async fn gate(ConnectInfo(peer): ConnectInfo<SocketAddr>, req: Request, next: Ne
         return fail(
             StatusCode::FORBIDDEN,
             "not_local",
-            "Solo se acepta la red local.",
+            &tr!("desktop.remote.only_local"),
         );
     }
     let h = req.headers();
@@ -187,7 +192,7 @@ async fn gate(ConnectInfo(peer): ConnectInfo<SocketAddr>, req: Request, next: Ne
         return fail(
             StatusCode::BAD_REQUEST,
             "bad_host",
-            "Usa la dirección IP que muestra Tlaku.",
+            &tr!("desktop.remote.use_ip"),
         );
     }
     if req.method() != Method::GET && req.method() != Method::HEAD {
@@ -196,7 +201,7 @@ async fn gate(ConnectInfo(peer): ConnectInfo<SocketAddr>, req: Request, next: Ne
             return fail(
                 StatusCode::FORBIDDEN,
                 "bad_origin",
-                "Petición no permitida.",
+                &tr!("desktop.remote.request_not_allowed"),
             );
         }
     }
@@ -277,7 +282,11 @@ async fn nothing() -> StatusCode {
 }
 
 async fn not_found() -> Response {
-    fail(StatusCode::NOT_FOUND, "not_found", "No existe.")
+    fail(
+        StatusCode::NOT_FOUND,
+        "not_found",
+        &tr!("desktop.remote.not_found"),
+    )
 }
 
 #[derive(serde::Deserialize)]
@@ -293,7 +302,11 @@ async fn login(
     body: Bytes,
 ) -> Response {
     let Ok(parsed) = serde_json::from_slice::<LoginBody>(&body) else {
-        return fail(StatusCode::BAD_REQUEST, "bad_request", "Falta la clave.");
+        return fail(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            &tr!("desktop.remote.missing_key"),
+        );
     };
     let result = sh.core.auth.login(
         peer.ip(),
@@ -335,7 +348,7 @@ async fn camera(State(sh): State<Shared>) -> Response {
         None => fail(
             StatusCode::NOT_FOUND,
             "no_camera",
-            "La cámara de la PC no está encendida.",
+            &tr!("desktop.remote.camera_off"),
         ),
     }
 }
@@ -353,7 +366,7 @@ async fn blocking_action(
         Err(_) => fail(
             StatusCode::INTERNAL_SERVER_ERROR,
             "failed",
-            "La acción se interrumpió.",
+            &tr!("desktop.remote.action_interrupted"),
         ),
     }
 }
@@ -387,7 +400,7 @@ async fn start(
         return fail(
             StatusCode::BAD_REQUEST,
             "bad_request",
-            "Petición mal formada.",
+            &tr!("desktop.remote.bad_request"),
         );
     };
     let (id, rx): (u64, oneshot::Receiver<StartOutcome>) =
@@ -415,7 +428,7 @@ async fn start(
             fail(
                 StatusCode::GATEWAY_TIMEOUT,
                 "timeout",
-                super::hub::start_reason_text("timeout"),
+                &super::hub::start_reason_text("timeout"),
             )
         }
     }
@@ -447,7 +460,7 @@ async fn events(State(sh): State<Shared>, Extension(me): Extension<Authed>) -> R
         return fail(
             StatusCode::SERVICE_UNAVAILABLE,
             "too_many",
-            "Demasiadas conexiones abiertas.",
+            &tr!("desktop.remote.too_many_streams"),
         );
     }
     if !sh.core.auth.stream_open(&me.id, Instant::now()) {

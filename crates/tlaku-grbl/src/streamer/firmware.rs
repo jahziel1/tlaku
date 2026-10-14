@@ -1,5 +1,7 @@
 //! Familia del firmware y textos de `error:N`, `ALARM:N` y fallas de Creality.
 
+use tlaku_i18n::tr;
+
 // ---------------------------------------------------------------------------
 // Mensajes de error y alarma
 // ---------------------------------------------------------------------------
@@ -55,116 +57,112 @@ impl Firmware {
 }
 
 /// Descripción de un `error:N` de GRBL 1.1 (1 a 17 y 20 a 38), válida en todas las familias.
-fn classic_error(code: u32) -> Option<&'static str> {
+fn classic_error(code: u32) -> Option<String> {
     Some(match code {
-        1 => "falta la letra del comando G-code",
-        2 => "formato de número incorrecto",
-        3 => "comando '$' no válido",
-        4 => "valor negativo no permitido",
-        5 => "ajuste desactivado",
-        6 => "pulso de paso demasiado corto",
-        7 => "fallo al leer la memoria no volátil",
-        8 => "la máquina no está en reposo",
-        9 => "G-code bloqueado por alarma o jog",
-        10 => "límite blando excedido",
-        11 => "línea demasiado larga para el búfer de la controladora",
-        12 => "velocidad de pasos máxima excedida",
-        13 => "puerta abierta",
-        14 => "longitud de línea excedida",
-        15 => "recorrido del jog excedido",
-        16 => "comando de jog no válido",
-        17 => "el modo láser requiere salida PWM",
-        20 => "comando G-code no soportado o no válido",
-        21 => "varios comandos del mismo grupo modal en una línea",
-        22 => "velocidad de avance sin definir",
-        23 => "el comando requiere un valor entero",
-        24 => "dos comandos usan palabras de eje a la vez",
-        25 => "palabra G-code repetida",
-        26 => "el comando requiere palabras de eje",
-        27 => "número de línea no válido",
-        28 => "falta un valor requerido",
-        29 => "G59.x no soportado",
-        30 => "G53 solo es válido con G0 y G1",
-        31 => "hay palabras de eje que ningún comando usa",
-        32 => "G2/G3 requieren al menos un eje del plano",
-        33 => "destino del movimiento no válido",
-        34 => "radio de arco no válido",
-        35 => "G2/G3 requieren al menos un desplazamiento del plano",
-        36 => "hay palabras con valor sin usar",
-        37 => "compensación de herramienta G43.1 no asignada al eje configurado",
-        38 => "número de herramienta mayor al máximo",
+        1 => tr!("grbl.firmware.classic_1"),
+        2 => tr!("grbl.firmware.classic_2"),
+        3 => tr!("grbl.firmware.classic_3"),
+        4 => tr!("grbl.firmware.classic_4"),
+        5 => tr!("grbl.firmware.classic_5"),
+        6 => tr!("grbl.firmware.classic_6"),
+        7 => tr!("grbl.firmware.classic_7"),
+        8 => tr!("grbl.firmware.classic_8"),
+        9 => tr!("grbl.firmware.classic_9"),
+        10 => tr!("grbl.firmware.classic_10"),
+        11 => tr!("grbl.firmware.classic_11"),
+        12 => tr!("grbl.firmware.classic_12"),
+        13 => tr!("grbl.firmware.classic_13"),
+        14 => tr!("grbl.firmware.classic_14"),
+        15 => tr!("grbl.firmware.classic_15"),
+        16 => tr!("grbl.firmware.classic_16"),
+        17 => tr!("grbl.firmware.classic_17"),
+        20 => tr!("grbl.firmware.classic_20"),
+        21 => tr!("grbl.firmware.classic_21"),
+        22 => tr!("grbl.firmware.classic_22"),
+        23 => tr!("grbl.firmware.classic_23"),
+        24 => tr!("grbl.firmware.classic_24"),
+        25 => tr!("grbl.firmware.classic_25"),
+        26 => tr!("grbl.firmware.classic_26"),
+        27 => tr!("grbl.firmware.classic_27"),
+        28 => tr!("grbl.firmware.classic_28"),
+        29 => tr!("grbl.firmware.classic_29"),
+        30 => tr!("grbl.firmware.classic_30"),
+        31 => tr!("grbl.firmware.classic_31"),
+        32 => tr!("grbl.firmware.classic_32"),
+        33 => tr!("grbl.firmware.classic_33"),
+        34 => tr!("grbl.firmware.classic_34"),
+        35 => tr!("grbl.firmware.classic_35"),
+        36 => tr!("grbl.firmware.classic_36"),
+        37 => tr!("grbl.firmware.classic_37"),
+        38 => tr!("grbl.firmware.classic_38"),
         _ => return None,
     })
 }
 
 /// `error:N` de grblHAL por encima de GRBL 1.1 (nombres de su API pública; la documentación
 /// consultada no trae descripciones, así que los textos son una traducción fiel del nombre).
-fn hal_error(code: u32) -> Option<&'static str> {
+fn hal_error(code: u32) -> Option<String> {
     Some(match code {
-        18 => "la entrada de reset debe estar desactivada",
-        19 => "valor no positivo",
-        39 => "valor de G-code fuera de rango",
-        40 => "cambio de herramienta pendiente",
-        41 => "el husillo no está en marcha",
-        42 => "plano no válido",
-        43 => "avance máximo excedido",
-        44 => "velocidad del husillo fuera de rango",
-        45 => "límites activados",
-        46 => "hace falta homing ($H)",
-        47 => "error de herramienta",
-        48 => "conflicto entre palabras de valor",
-        49 => "autodiagnóstico fallido",
-        50 => "parada de emergencia activa",
-        51 => "fallo de motor",
-        52 => "valor del ajuste fuera de rango",
-        53 => "ajuste desactivado",
-        54 => "posición de retracción no válida",
-        55 => "configuración de homing no válida",
-        56 => "sistema de coordenadas bloqueado",
-        57 => "delimitador inesperado",
-        58 => "puerto auxiliar no disponible",
-        60..=66 => "error de la tarjeta SD o del sistema de ficheros",
-        70 => "fallo al iniciar Bluetooth",
-        71..=76 => "error en una expresión del G-code",
-        77..=79 => "acceso denegado o autenticación requerida",
-        80..=83 => "error de flujo de control (macro, sintaxis, pila o memoria)",
-        84..=89 => "error de ficheros o de herramienta en el husillo",
-        90..=92 => "error de compensación de cortador",
+        18 => tr!("grbl.firmware.hal_18"),
+        19 => tr!("grbl.firmware.hal_19"),
+        39 => tr!("grbl.firmware.hal_39"),
+        40 => tr!("grbl.firmware.hal_40"),
+        41 => tr!("grbl.firmware.hal_41"),
+        42 => tr!("grbl.firmware.hal_42"),
+        43 => tr!("grbl.firmware.hal_43"),
+        44 => tr!("grbl.firmware.hal_44"),
+        45 => tr!("grbl.firmware.hal_45"),
+        46 => tr!("grbl.firmware.hal_46"),
+        47 => tr!("grbl.firmware.hal_47"),
+        48 => tr!("grbl.firmware.hal_48"),
+        49 => tr!("grbl.firmware.hal_49"),
+        50 => tr!("grbl.firmware.hal_50"),
+        51 => tr!("grbl.firmware.hal_51"),
+        52 => tr!("grbl.firmware.hal_52"),
+        53 => tr!("grbl.firmware.hal_53"),
+        54 => tr!("grbl.firmware.hal_54"),
+        55 => tr!("grbl.firmware.hal_55"),
+        56 => tr!("grbl.firmware.hal_56"),
+        57 => tr!("grbl.firmware.hal_57"),
+        58 => tr!("grbl.firmware.hal_58"),
+        60..=66 => tr!("grbl.firmware.hal_60_to_66"),
+        70 => tr!("grbl.firmware.hal_70"),
+        71..=76 => tr!("grbl.firmware.hal_71_to_76"),
+        77..=79 => tr!("grbl.firmware.hal_77_to_79"),
+        80..=83 => tr!("grbl.firmware.hal_80_to_83"),
+        84..=89 => tr!("grbl.firmware.hal_84_to_89"),
+        90..=92 => tr!("grbl.firmware.hal_90_to_92"),
         _ => return None,
     })
 }
 
 /// `error:N` de FluidNC por encima de GRBL 1.1 ([T]: lista de terceros, sin confirmar con su
 /// documentación oficial). FluidNC ofrece `$E=N` para consultar el texto en la propia máquina.
-fn fluidnc_error(code: u32) -> Option<&'static str> {
+fn fluidnc_error(code: u32) -> Option<String> {
     Some(match code {
-        19 => "homing de un solo eje no permitido",
-        39 => "el parámetro P es demasiado grande (va en segundos, no en milisegundos)",
-        60..=69 => "error de la tarjeta SD",
-        70 | 71 => "fallo al iniciar Bluetooth o WiFi",
-        80 | 81 => "ajuste fuera de rango o valor no válido",
-        90 => "fallo al enviar un mensaje",
-        100 | 101 => "fallo al guardar o leer un ajuste",
-        110 => "falló la autenticación",
-        120 => "otra interfaz está ocupada",
-        152 => "configuración no válida",
+        19 => tr!("grbl.firmware.fluidnc_19"),
+        39 => tr!("grbl.firmware.fluidnc_39"),
+        60..=69 => tr!("grbl.firmware.fluidnc_60_to_69"),
+        70 | 71 => tr!("grbl.firmware.fluidnc_70_71"),
+        80 | 81 => tr!("grbl.firmware.fluidnc_80_81"),
+        90 => tr!("grbl.firmware.fluidnc_90"),
+        100 | 101 => tr!("grbl.firmware.fluidnc_100_101"),
+        110 => tr!("grbl.firmware.fluidnc_110"),
+        120 => tr!("grbl.firmware.fluidnc_120"),
+        152 => tr!("grbl.firmware.fluidnc_152"),
         _ => return None,
     })
 }
 
-/// Texto de un `error:N` extendido cuyo significado depende del firmware.
-const EXTENDED_ERROR: &str = "error extendido del firmware (grblHAL o FluidNC): su significado depende de la familia; \
-     en FluidNC consulta $E=N";
-
 /// Descripción breve de un `error:N` sin conocer el firmware. Los códigos de GRBL 1.1 tienen
 /// su texto; los extendidos (18, 19 y desde el 39) devuelven un texto genérico, porque cambian
 /// de significado según la familia. Ver [`error_message_for`].
-pub fn error_message(code: u32) -> &'static str {
+pub fn error_message(code: u32) -> String {
     error_message_for(Firmware::Unknown, code)
 }
 
 /// Descripción breve de un `error:N` según la familia del firmware.
-pub fn error_message_for(fw: Firmware, code: u32) -> &'static str {
+pub fn error_message_for(fw: Firmware, code: u32) -> String {
     if let Some(m) = classic_error(code) {
         return m;
     }
@@ -173,58 +171,53 @@ pub fn error_message_for(fw: Firmware, code: u32) -> &'static str {
         Firmware::FluidNc => fluidnc_error(code),
         Firmware::Grbl | Firmware::Unknown => None,
     }
-    .unwrap_or(if code >= 18 && fw != Firmware::Grbl {
-        EXTENDED_ERROR
-    } else {
-        "error desconocido"
+    .unwrap_or_else(|| {
+        if code >= 18 && fw != Firmware::Grbl {
+            tr!("grbl.firmware.extended_error")
+        } else {
+            tr!("grbl.firmware.unknown_error")
+        }
     })
 }
 
 /// Descripción de un `ALARM:N` sin conocer el firmware. El 10 es ambiguo (autoescuadre en
 /// GRBL 1.1, paro de emergencia en grblHAL); ver [`alarm_message_for`].
-pub fn alarm_message(code: u32) -> &'static str {
+pub fn alarm_message(code: u32) -> String {
     alarm_message_for(Firmware::Unknown, code)
 }
 
 /// Descripción breve de un `ALARM:N` según la familia del firmware.
-pub fn alarm_message_for(fw: Firmware, code: u32) -> &'static str {
+pub fn alarm_message_for(fw: Firmware, code: u32) -> String {
     match code {
-        1 => "límite físico activado",
-        2 => "el movimiento excede el recorrido de la máquina",
-        3 => "reinicio durante un movimiento: se perdió la posición",
-        4 => "fallo de sonda: estado inicial inesperado",
-        5 => "fallo de sonda: sin contacto",
-        6 => "fallo de homing: reinicio durante el ciclo",
-        7 => "fallo de homing: puerta abierta durante el ciclo",
-        8 => "fallo de homing: no se pudo liberar el final de carrera",
-        9 => "fallo de homing: no se encontró el final de carrera",
+        1 => tr!("grbl.firmware.alarm_1"),
+        2 => tr!("grbl.firmware.alarm_2"),
+        3 => tr!("grbl.firmware.alarm_3"),
+        4 => tr!("grbl.firmware.alarm_4"),
+        5 => tr!("grbl.firmware.alarm_5"),
+        6 => tr!("grbl.firmware.alarm_6"),
+        7 => tr!("grbl.firmware.alarm_7"),
+        8 => tr!("grbl.firmware.alarm_8"),
+        9 => tr!("grbl.firmware.alarm_9"),
         10 => match fw {
-            Firmware::Grbl => {
-                "fallo de homing: no se encontró el segundo final de carrera (autoescuadre)"
-            }
-            Firmware::GrblHal => {
-                "parada de emergencia activa: suelta el botón antes de desbloquear"
-            }
-            Firmware::FluidNc => "fallo del control del husillo (típicamente RS485)",
-            Firmware::Unknown => {
-                "depende del firmware: parada de emergencia (grblHAL), fallo del control del \
-                 husillo (FluidNC) o autoescuadre sin segundo final de carrera (GRBL 1.1)"
-            }
+            Firmware::Grbl => tr!("grbl.firmware.alarm_10_grbl"),
+            Firmware::GrblHal => tr!("grbl.firmware.alarm_10_hal"),
+            Firmware::FluidNc => tr!("grbl.firmware.alarm_10_fluidnc"),
+            Firmware::Unknown => tr!("grbl.firmware.alarm_10_unknown"),
         },
         // Solo grblHAL define estos números (nombres de su API pública, sin descripciones).
-        11 => "(grblHAL) hace falta homing ($H)",
-        12 => "(grblHAL) límites activados",
-        13 => "(grblHAL) protección de sonda",
-        14 => "(grblHAL) fallo del husillo: no alcanzó la velocidad o falló su control",
-        15 => "(grblHAL) autoescuadre: no se encontró el segundo final de carrera al acercarse",
-        16 => "(grblHAL) autodiagnóstico fallido",
-        17 => "(grblHAL) fallo de motor (lazo cerrado)",
-        18 => "(grblHAL) fallo de homing",
-        19 => "(grblHAL) excepción de Modbus",
-        20 => "(grblHAL) excepción del expansor de E/S",
-        21 => "(grblHAL) fallo de la memoria no volátil",
-        22 => "(grblHAL) desbordamiento de búfer",
-        _ => "alarma desconocida",
+        11 => tr!("grbl.firmware.alarm_11"),
+        12 => tr!("grbl.firmware.alarm_12"),
+        13 => tr!("grbl.firmware.alarm_13"),
+        14 => tr!("grbl.firmware.alarm_14"),
+        15 => tr!("grbl.firmware.alarm_15"),
+        16 => tr!("grbl.firmware.alarm_16"),
+        17 => tr!("grbl.firmware.alarm_17"),
+        18 => tr!("grbl.firmware.alarm_18"),
+        19 => tr!("grbl.firmware.alarm_19"),
+        20 => tr!("grbl.firmware.alarm_20"),
+        21 => tr!("grbl.firmware.alarm_21"),
+        22 => tr!("grbl.firmware.alarm_22"),
+        _ => tr!("grbl.firmware.unknown_alarm"),
     }
 }
 
@@ -250,26 +243,24 @@ pub fn parse_creality_error(line: &str) -> Option<u32> {
 }
 
 /// Significado de un `ERROR:NN` de Creality según su tabla oficial (resumida).
-pub fn creality_error_message(code: u32) -> &'static str {
+pub fn creality_error_message(code: u32) -> String {
     match code {
-        1 => "ángulo anormal: el sensor de inclinación o vibración se activó",
-        2 => "no hay archivo G-code en la raíz de la tarjeta TF",
-        4 => "sin flujo de aire: revisa la bomba, la perilla de caudal y el tubo",
-        5 => "llama detectada (alarma de llama, $154)",
-        6 => "lente contaminada (alarma de lente, $155): límpiala",
-        7 => "módulo láser demasiado caliente",
-        8..=12 => {
-            "fallo de un sensor del módulo (presión de aire, llama, lente, temperatura o \
-             cortocircuito del diodo láser)"
-        }
-        13 => "temperatura alta de la CPU del módulo láser",
-        14 => "temperatura alta de la CPU del anfitrión",
-        24 => "máquina no sellada: cierra la tapa y el cajón",
-        25 => "bomba de aire anormal",
-        _ => "falla propia de la máquina (código de Creality sin descripción conocida)",
+        1 => tr!("grbl.firmware.creality_1"),
+        2 => tr!("grbl.firmware.creality_2"),
+        4 => tr!("grbl.firmware.creality_4"),
+        5 => tr!("grbl.firmware.creality_5"),
+        6 => tr!("grbl.firmware.creality_6"),
+        7 => tr!("grbl.firmware.creality_7"),
+        8..=12 => tr!("grbl.firmware.creality_8_to_12"),
+        13 => tr!("grbl.firmware.creality_13"),
+        14 => tr!("grbl.firmware.creality_14"),
+        24 => tr!("grbl.firmware.creality_24"),
+        25 => tr!("grbl.firmware.creality_25"),
+        _ => tr!("grbl.firmware.creality_unknown"),
     }
 }
 
 /// Qué hacer ante un `ERROR:NN` de Creality. Tlaku no envía `$X` ni nada por su cuenta.
-pub const CREALITY_RECOVERY: &str = "Corrige la causa y reinicia la máquina con su botón Reset \
-     (y Start en el panel si lo pide); Tlaku no la desbloquea por su cuenta.";
+pub fn creality_recovery() -> String {
+    tr!("grbl.firmware.creality_recovery")
+}

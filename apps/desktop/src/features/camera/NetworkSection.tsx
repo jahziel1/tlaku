@@ -91,9 +91,12 @@ export function NetworkUrlField() {
   );
 }
 
+const NO_PRESETS: never[] = [];
+
 /** Configuraciones de cámara con nombre: guardar la actual y volver a una guardada. */
 export function PresetsSection() {
-  const presets = useStore((s) => s.cameraSetup.presets ?? []);
+  // Un `[]` nuevo en cada lectura haría que el selector nunca se estabilice (bucle de renderizado).
+  const presets = useStore((s) => s.cameraSetup.presets ?? NO_PRESETS);
   const prefs = useStore((s) => s.cameraSetup.prefs);
   const [name, setName] = useState('');
   const [selected, setSelected] = useState('');

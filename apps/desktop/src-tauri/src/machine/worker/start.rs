@@ -1,6 +1,7 @@
 //! Inicio de un trabajo o encuadre: comprobaciones previas y entrega del puerto al `Streamer`.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn try_start(
@@ -14,17 +15,16 @@ impl Worker {
     ) -> Result<Run, StartFail> {
         // El perfil de la máquina debe corresponder a la controladora conectada.
         if link.family != self.link_family {
-            let msg = format!(
-                "el perfil de la máquina es de {} pero la controladora conectada es {}. Elige el \
-                 perfil que corresponde a su firmware. No se transmitió nada.",
-                link.family_name(),
-                match self.link_family {
+            let msg = tr!(
+                "desktop.worker.profile_mismatch",
+                profile = link.family_name(),
+                connected = match self.link_family {
                     LinkFamily::Grbl => "GRBL",
                     LinkFamily::Marlin => "Marlin",
                     LinkFamily::Smoothie => "Smoothieware",
                 }
             );
-            return Err(StartFail::Refused(t, capitalize(&msg)));
+            return Err(StartFail::Refused(t, msg));
         }
         // Con el `EMERGENCY_PARSER` informado, la pausa de Marlin también manda `M0` y `M108`.
         let link = if link.family == LinkFamily::Marlin {
@@ -57,7 +57,7 @@ impl Worker {
         // Los avisos ("Aviso: $30...") no bloquean, pero se dejan en el registro.
         for w in String::from_utf8_lossy(&shown)
             .lines()
-            .filter(|l| l.starts_with("Aviso"))
+            .filter(|l| tlaku_grbl::preflight::is_warning_line(l))
         {
             self.log(LogDir::In, w);
         }
@@ -80,17 +80,20 @@ impl Worker {
             Ok(job) => {
                 match kind {
                     RunKind::Job => {
-                        self.log(LogDir::Out, &format!("; trabajo: {total} líneas de G-code"));
-                        self.job_event(JobState::Started, &format!("Enviando {total} líneas."));
+                        self.log(
+                            LogDir::Out,
+                            &tr!("desktop.worker.log_job_lines", total = total),
+                        );
+                        self.job_event(
+                            JobState::Started,
+                            &tr!("desktop.worker.job_sending", total = total),
+                        );
                         self.sink.emit(Emit::Progress(ProgressEvent {
                             acked: 0,
                             total: total.try_into().unwrap_or(u32::MAX),
                         }));
                     }
-                    RunKind::Frame => self.log(
-                        LogDir::Out,
-                        "; encuadre: recorrido del rectángulo con el láser apagado",
-                    ),
+                    RunKind::Frame => self.log(LogDir::Out, &tr!("desktop.common.log_frame_start")),
                 }
                 self.set_reported_state(MachineState::Run);
                 Ok(Run {

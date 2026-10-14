@@ -5,6 +5,7 @@
 //! es una forma con su exterior y sus huecos como subtrayectos `M ... C ... Z`.
 
 use crate::binarize::Bitmap;
+use tlaku_i18n::tr;
 use vtracer::{ColorImage, ColorMode, Config, Hierarchical};
 
 /// Una forma: cada lazo es una lista de nodos cúbicos `(inicio, [(c1, c2, fin), ...])`.
@@ -39,7 +40,7 @@ fn trace_whole(bm: &Bitmap, params: &SplineParams) -> Result<Vec<CubicShape>, St
     };
     // vtracer puede entrar en pánico con formas degeneradas: se convierte en error.
     let svg = std::panic::catch_unwind(|| vtracer::convert(img, config))
-        .map_err(|_| "El vectorizador falló con esta imagen".to_string())??;
+        .map_err(|_| tr!("trace.spline.failed"))??;
     let text = svg.to_string();
     Ok(text.lines().filter_map(parse_path_line).collect())
 }
@@ -130,10 +131,7 @@ pub(crate) fn trace_splines(
         .map(|b| (b.2 - b.0 + 3) * (b.3 - b.1 + 3))
         .sum();
     if total > 400_000_000 {
-        return Err(
-            "La imagen tiene demasiadas formas para vectorizarla; sube speckle_px o el desenfoque"
-                .into(),
-        );
+        return Err(tr!("trace.spline.too_many_shapes"));
     }
     let mut out = Vec::new();
     let mut failed = 0;
@@ -171,7 +169,7 @@ pub(crate) fn trace_splines(
         }
     }
     if failed > 0 {
-        warnings.push(format!("{failed} formas no se pudieron vectorizar"));
+        warnings.push(tr!("trace.spline.shapes_failed", n = failed));
     }
     Ok(out)
 }

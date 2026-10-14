@@ -22,6 +22,7 @@ pub mod rd;
 pub mod safety;
 pub mod session;
 pub mod swizzle;
+mod text;
 
 #[cfg(any(test, feature = "emu"))]
 pub mod emu;

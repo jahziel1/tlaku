@@ -30,7 +30,8 @@ function Toast({ notice }: { notice: Notice }) {
   const shown = hidden ? details.slice(0, DETAILS_SHOWN) : details;
 
   return (
-    <li
+    // Foco y puntero solo pausan el cierre automático; no son controles.
+    <div
       className="toast"
       data-level={notice.level}
       data-sticky={notice.sticky}
@@ -57,15 +58,16 @@ function Toast({ notice }: { notice: Notice }) {
       <button type="button" className="icon-btn" aria-label={t('toast.dismiss')} title={t('toast.dismiss')} onClick={() => dismiss(notice.id)}>
         <X size={14} aria-hidden="true" />
       </button>
-    </li>
+    </div>
   );
 }
 
 export function Toasts() {
   const notices = useStore((s) => s.notices);
   return (
-    <ul className="toasts" aria-label={t('toast.label')}>
+    // `div` y no `ul`: cada aviso es una región viva (`role="alert"`/`status`), que no puede ser un `<li>`.
+    <div className="toasts" role="group" aria-label={t('toast.label')}>
       {notices.map((n) => <Toast key={n.id} notice={n} />)}
-    </ul>
+    </div>
   );
 }

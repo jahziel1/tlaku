@@ -8,6 +8,7 @@ use crate::homography::{Homography, ImageToBed, RansacOptions, estimate_homograp
 use crate::imgproc::{FloatImage, gaussian_blur};
 use image::GrayImage;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Detección completa
@@ -26,7 +27,7 @@ pub fn detect_marks(
 ) -> Result<MarksReport, String> {
     let (w, h) = (img.width() as usize, img.height() as usize);
     if w < 64 || h < 64 {
-        return Err("la imagen es demasiado pequeña para buscar marcas".into());
+        return Err(tr!("camera.detect.image_small"));
     }
     let m = layout.marks.len();
     let off = opts.pixel_offset;
@@ -35,11 +36,7 @@ pub fn detect_marks(
     let grad = Grad::new(&blurred);
     let cands = find_candidates(&blurred, &grad, 2 * m + 6);
     if cands.len() < 4 {
-        return Err(format!(
-            "no se encontraron suficientes marcas en la imagen (se vieron {} y hacen falta al menos 4); \
-             revisa la iluminación, el enfoque y que las marcas estén dentro del encuadre",
-            cands.len()
-        ));
+        return Err(tr!("camera.detect.few_candidates", n = cands.len()));
     }
 
     // Asignación.
@@ -61,11 +58,8 @@ pub fn detect_marks(
     }
     let assign = match assign {
         Some(a) => a,
-        None => assign_blind(layout, &cands, &blurred, (w, h)).ok_or(
-            "no se pudo reconocer la disposición de las marcas (¿son de otro documento, o la \
-             imagen está espejada?); con una alineación manual de 4 puntos previa la búsqueda \
-             es más fiable",
-        )?,
+        None => assign_blind(layout, &cands, &blurred, (w, h))
+            .ok_or_else(|| tr!("camera.detect.layout_unknown"))?,
     };
     let mut warnings = Vec::new();
 
@@ -77,7 +71,7 @@ pub fn detect_marks(
         .collect();
     let init_pairs: Vec<(Point, Point)> = init.iter().map(|&(j, p)| (p, layout.marks[j])).collect();
     let init_h = estimate_homography(&init_pairs)
-        .map_err(|e| format!("las marcas encontradas no definen una alineación: {e}"))?;
+        .map_err(|e| tr!("camera.detect.no_alignment", error = e))?;
 
     // Refinamiento de cada marca: se ajustan las rectas de sus dos brazos y se intersectan.
     // Las direcciones y el tamaño en píxeles salen de la alineación inicial.
@@ -107,10 +101,7 @@ pub fn detect_marks(
     }
     let refined_count = refined.iter().flatten().count();
     if refined_count < 4 {
-        return Err(format!(
-            "solo se pudo medir con precisión el centro de {refined_count} marcas (hacen falta 4); \
-             las líneas grabadas son muy tenues o están desenfocadas: sube un poco la potencia o enfoca"
-        ));
+        return Err(tr!("camera.detect.few_refined", n = refined_count));
     }
 
     // Ajuste con RANSAC sobre las posiciones refinadas (en coordenadas de salida).
@@ -132,9 +123,7 @@ pub fn detect_marks(
     }
     let used_count = used_flags.iter().filter(|&&u| u).count();
     if used_count < 4 {
-        return Err(
-            "las marcas no son coherentes entre sí; revisa que se hayan grabado completas".into(),
-        );
+        return Err(tr!("camera.detect.incoherent"));
     }
 
     // Residuos y validación cruzada.
@@ -190,18 +179,17 @@ pub fn detect_marks(
 
     let found = present.len();
     if found < m {
-        warnings.push(format!("Se encontraron {found} de {m} marcas."));
+        warnings.push(tr!("camera.detect.found_some", found = found, total = m));
     }
     if used_count < found {
-        warnings.push(format!(
-            "{} marca(s) se descartaron por no concordar con las demás.",
-            found - used_count
-        ));
+        warnings.push(tr!("camera.detect.discarded", n = found - used_count));
     }
     let judge = loo_max_mm.unwrap_or(max_residual_mm);
     if judge > RESIDUAL_WARN_MM {
-        warnings.push(format!(
-            "Hay un error de {judge:.2} mm en alguna marca (se recomienda menos de {RESIDUAL_WARN_MM} mm)."
+        warnings.push(tr!(
+            "camera.detect.high_residual",
+            error = format!("{judge:.2}"),
+            max = RESIDUAL_WARN_MM
         ));
     }
 

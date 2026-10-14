@@ -36,15 +36,15 @@ use tlaku_galvo::session::{
 };
 use tlaku_galvo::transport::{LaserSafetyAck, Support, Transport};
 use tlaku_galvo::usb::{self, UsbTimeouts, UsbTransport};
+use tlaku_i18n::tr;
 use tlaku_pipeline::doc::{
     CylinderAxis, DeviceKind, DeviceProfile, GalvoDevice, InputRequirement, LaserSource,
 };
 
 /// Aviso que acompaña a todo lo que toca una tarjeta real.
-const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte galvo no se ha probado con ninguna tarjeta \
-real. Una fibra es láser clase 4 y su haz es INVISIBLE: usa gafas con la longitud de onda y la DO \
-correctas, recinto cerrado con enclavamiento y un obturador, y ten el paro de emergencia al \
-alcance. Primero prueba sin la fuente conectada (docs/hardware/galvo.md, sección 9).";
+fn experimental() -> String {
+    tr!("cli.galvo.experimental")
+}
 
 /// La cama de GRBL por defecto de `DesignArgs` no sirve para un galvo: se usa el campo.
 const GRBL_DEFAULT_BED: (f64, f64) = (400.0, 415.0);
@@ -93,10 +93,10 @@ impl From<SourceArg> for LaserSource {
 fn parse_range(s: &str) -> Result<(f64, f64), String> {
     let (a, b) = s
         .split_once('-')
-        .ok_or_else(|| format!("'{s}': usa MIN-MAX, por ejemplo 20-80"))?;
+        .ok_or_else(|| tr!("cli.galvo.range_format", value = s))?;
     let (a, b) = (parse_positive(a)?, parse_positive(b)?);
     if a > b {
-        return Err(format!("'{s}': el mínimo es mayor que el máximo"));
+        return Err(tr!("cli.galvo.range_order", value = s));
     }
     Ok((a, b))
 }
@@ -105,7 +105,7 @@ fn parse_range(s: &str) -> Result<(f64, f64), String> {
 fn parse_pair(s: &str) -> Result<(f64, f64), String> {
     let (a, b) = s
         .split_once(',')
-        .ok_or_else(|| format!("'{s}': usa X,Y en mm, por ejemplo 1.5,-2"))?;
+        .ok_or_else(|| tr!("cli.galvo.pair_format", value = s))?;
     Ok((parse_f64(a.trim())?, parse_f64(b.trim())?))
 }
 
@@ -148,14 +148,14 @@ fn parse_input_check(s: &str) -> Result<InputCheck, String> {
             Some(h) => u16::from_str_radix(h, 16),
             None => t.parse::<u16>(),
         }
-        .map_err(|_| format!("'{t}' no es un entero de 16 bits"))
+        .map_err(|_| tr!("cli.galvo.not_u16", value = t))
     };
     let (m, v) = s
         .split_once('=')
-        .ok_or_else(|| format!("'{s}': usa MASK=VALOR, por ejemplo 0x0008=0x0008"))?;
+        .ok_or_else(|| tr!("cli.galvo.mask_format", value = s))?;
     let (mask, value) = (num(m)?, num(v)?);
     if value & !mask != 0 {
-        return Err(format!("'{s}': VALOR tiene bits fuera de MASK"));
+        return Err(tr!("cli.galvo.mask_bits", value = s));
     }
     Ok(InputCheck { mask, value })
 }
@@ -389,6 +389,10 @@ fn show<W: Write>(out: &mut W, text: &str) -> Result<(), String> {
     writeln!(out, "{text}").map_err(|e| e.to_string())
 }
 
+fn show_warning<W: Write>(out: &mut W, warning: &str) -> Result<(), String> {
+    show(out, &tr!("cli.galvo.warning", warning = warning))
+}
+
 /// Un trabajo preparado: el diseño convertido y el perfil.
 struct Planned {
     toolpath: Toolpath,
@@ -484,10 +488,7 @@ fn job_error(e: &JobError) -> String {
         tlaku_galvo::session::SessionError::Transport(_)
             | tlaku_galvo::session::SessionError::Timeout { .. }
     ) {
-        s.push_str(
-            ". Comprueba el cable USB, que la máquina esté encendida y que EZCAD, LightBurn o \
-             MeerK40t no tengan la tarjeta abierta",
-        );
+        s = tr!("cli.galvo.usb_help", err = s);
     }
     s
 }
@@ -496,13 +497,7 @@ fn require_ack(connect: &ConnectArgs) -> Result<LaserSafetyAck, String> {
     if connect.i_understand_laser_safety {
         Ok(LaserSafetyAck::i_understand_laser_safety())
     } else {
-        Err(
-            "con hardware real hace falta --i-understand-laser-safety: un láser de fibra es clase \
-             4 y su haz es invisible. Lee docs/hardware/galvo.md (gafas con la DO correcta, \
-             recinto, obturador, paro de emergencia) y prueba primero sin la fuente conectada. \
-             Para probar sin máquina usa --emu"
-                .into(),
-        )
+        Err(tr!("cli.galvo.need_safety_ack"))
     }
 }
 
@@ -515,41 +510,44 @@ fn describe_info<W: Write>(info: &BoardInfo, out: &mut W) -> Result<(), String> 
     let t = &info.transport;
     show(
         out,
-        &format!(
-            "Tarjeta: {} (USB {:04X}:{:04X})",
-            info.board_name, t.vendor_id, t.product_id
+        &tr!(
+            "cli.galvo.board",
+            name = info.board_name,
+            usb = format!("{:04X}:{:04X}", t.vendor_id, t.product_id)
         ),
     )?;
     show(
         out,
-        &format!(
-            "Serie: {:04x}{:04x}{:04x}{:04x}  Versión: {:04x}:{:04x}:{:04x}",
-            info.serial[0],
-            info.serial[1],
-            info.serial[2],
-            info.serial[3],
-            info.version[0],
-            info.version[1],
-            info.version[2]
+        &tr!(
+            "cli.galvo.serial",
+            serial = format!(
+                "{:04x}{:04x}{:04x}{:04x}",
+                info.serial[0], info.serial[1], info.serial[2], info.serial[3]
+            ),
+            version = format!(
+                "{:04x}:{:04x}:{:04x}",
+                info.version[0], info.version[1], info.version[2]
+            )
         ),
     )?;
+    let state = if info.status.busy {
+        tr!("cli.galvo.state_busy")
+    } else {
+        tr!("cli.galvo.state_idle")
+    };
     show(
         out,
-        &format!(
-            "Estado: {} (bits {:#06x}: ocupada={}, lista={})  Entradas: {:#06x}",
-            if info.status.busy {
-                "ocupada"
-            } else {
-                "en reposo"
-            },
-            info.status.raw,
-            info.status.busy,
-            info.status.ready,
-            info.inputs
+        &tr!(
+            "cli.galvo.state",
+            state = state,
+            raw = format!("{:#06x}", info.status.raw),
+            busy = info.status.busy,
+            ready = info.status.ready,
+            inputs = format!("{:#06x}", info.inputs)
         ),
     )?;
     for n in &info.notes {
-        show(out, &format!("Nota: {n}"))?;
+        show(out, &tr!("cli.galvo.note", note = n))?;
     }
     Ok(())
 }
@@ -558,23 +556,21 @@ fn describe_list<W: Write>(l: &CompiledList, out: &mut W) -> Result<(), String> 
     let s = &l.stats;
     show(
         out,
-        &format!(
-            "Lista de la tarjeta: {} comandos en {} tandas de 256; {} marcas ({:.1} mm), {} saltos \
-             ({:.1} mm), {} disparos en un punto, {} cortes con potencia 0 emitidos como salto; \
-             tiempo estimado {} (sin retardos de láser).",
-            s.commands,
-            s.batches,
-            s.marks,
-            s.mark_mm,
-            s.jumps,
-            s.jump_mm,
-            s.dots,
-            s.zero_power_cuts,
-            crate::report::format_duration(s.est_seconds),
+        &tr!(
+            "cli.galvo.list",
+            commands = s.commands,
+            batches = s.batches,
+            marks = s.marks,
+            mark_mm = format!("{:.1}", s.mark_mm),
+            jumps = s.jumps,
+            jump_mm = format!("{:.1}", s.jump_mm),
+            dots = s.dots,
+            zero_power = s.zero_power_cuts,
+            time = crate::report::format_duration(s.est_seconds)
         ),
     )?;
     for w in &l.warnings {
-        show(out, &format!("Aviso: {w}"))?;
+        show_warning(out, w)?;
     }
     Ok(())
 }
@@ -583,19 +579,18 @@ fn describe_emulator<W: Write>(h: &EmuHandle, out: &mut W) -> Result<(), String>
     let s = emu::lock(h);
     show(
         out,
-        &format!(
-            "Emulador: {} tandas recibidas, {} tramos con el haz saliendo, {} saltos (ninguno \
-             disparó), {:.2} s virtuales; la fuente terminó {}; {} violaciones del protocolo.",
-            s.batches_received,
-            s.emitted().len(),
-            s.jumps().len(),
-            s.elapsed_s(),
-            if s.laser_safe() {
-                "apagada"
+        &tr!(
+            "cli.galvo.emu_summary",
+            batches = s.batches_received,
+            emitted = s.emitted().len(),
+            jumps = s.jumps().len(),
+            secs = format!("{:.2}", s.elapsed_s()),
+            source = if s.laser_safe() {
+                tr!("cli.galvo.emu_source_off")
             } else {
-                "HABILITADA"
+                tr!("cli.galvo.emu_source_on")
             },
-            s.violations.len(),
+            violations = s.violations.len()
         ),
     )
 }
@@ -665,20 +660,13 @@ pub fn run(action: GalvoCommand) -> Result<(), String> {
 fn list<W: Write>(out: &mut W) -> Result<(), String> {
     let boards = usb::list_boards().map_err(|e| e.to_string())?;
     if boards.is_empty() {
-        return show(
-            out,
-            "No hay dispositivos BJJCZ (USB 9588:xxxx) conectados. Comprueba el cable y que la \
-             máquina esté encendida.",
-        );
+        return show(out, &tr!("cli.galvo.no_boards"));
     }
     for b in &boards {
         show(out, &b.to_string())?;
     }
     if boards.iter().all(|b| b.support != Support::Supported) {
-        show(
-            out,
-            "Ninguno es compatible: Tlaku solo habla con la LMCV4-FIBER-M (9588:9899).",
-        )?;
+        show(out, &tr!("cli.galvo.none_supported"))?;
     }
     Ok(())
 }
@@ -714,10 +702,7 @@ fn status_with<T: Transport, W: Write>(
     let mut s = GalvoSession::new(t, cfg).map_err(|e| e.to_string())?;
     let info = s.probe().map_err(|e| e.to_string())?;
     describe_info(&info, out)?;
-    show(
-        out,
-        "Solo se enviaron consultas. Nada se movió ni se escribió.",
-    )
+    show(out, &tr!("cli.galvo.read_only"))
 }
 
 /// Todo lo que pide `tlaku galvo light`.
@@ -749,7 +734,7 @@ pub fn light<W: Write>(
             s
         }),
     }
-    .ok_or("el diseño no tiene movimientos que encuadrar")?;
+    .ok_or_else(|| tr!("cli.galvo.light_no_motion"))?;
     let adjust = LightAdjust {
         dx: req.shift.map_or(0.0, |s| s.0),
         dy: req.shift.map_or(0.0, |s| s.1),
@@ -758,26 +743,32 @@ pub fn light<W: Write>(
     adjust.validate()?;
     let shape = shape.adjusted(&adjust);
     for w in &planned.warnings {
-        show(out, &format!("Aviso: {w}"))?;
+        show_warning(out, w)?;
     }
     if let LightShape::Rect { min, max } = &shape {
         show(
             out,
-            &format!(
-                "Encuadre: X {:.2} a {:.2} mm, Y {:.2} a {:.2} mm (campo de {} mm).",
-                min.x, max.x, min.y, max.y, planned.device.field_mm
+            &tr!(
+                "cli.galvo.light_rect",
+                x0 = format!("{:.2}", min.x),
+                x1 = format!("{:.2}", max.x),
+                y0 = format!("{:.2}", min.y),
+                y1 = format!("{:.2}", max.y),
+                field = planned.device.field_mm
             ),
         )?;
     }
     if let Some(n) = objects {
-        show(out, &format!("Encuadre de {n} objeto(s) suelto(s)."))?;
+        show(out, &tr!("cli.galvo.light_objects", n = n))?;
     }
     if !adjust.is_neutral() {
         show(
             out,
-            &format!(
-                "Encuadre movido {:.2},{:.2} mm y escalado x{}.",
-                adjust.dx, adjust.dy, adjust.scale
+            &tr!(
+                "cli.galvo.light_adjusted",
+                dx = format!("{:.2}", adjust.dx),
+                dy = format!("{:.2}", adjust.dy),
+                scale = adjust.scale
             ),
         )?;
     }
@@ -785,9 +776,10 @@ pub fn light<W: Write>(
     if off != [0.0, 0.0] {
         show(
             out,
-            &format!(
-                "El puntero se compensa {:.2},{:.2} mm para pasar por donde marcará el láser.",
-                off[0], off[1]
+            &tr!(
+                "cli.galvo.pointer_offset",
+                dx = format!("{:.2}", off[0]),
+                dy = format!("{:.2}", off[1])
             ),
         )?;
     }
@@ -801,7 +793,7 @@ pub fn light<W: Write>(
         },
     )
     .map_err(|e| e.to_string())?;
-    show(out, EXPERIMENTAL)?;
+    show(out, &experimental())?;
     let emulated = req.connect.emu;
     let cfg = session_config(&planned, &req.profile, emulated)?;
     if emulated {
@@ -810,10 +802,7 @@ pub fn light<W: Write>(
             field_mm: planned.device.field_mm,
             ..EmuConfig::default()
         });
-        show(
-            out,
-            "Usando la tarjeta simulada (--emu): no se toca el USB.",
-        )?;
+        show(out, &tr!("cli.galvo.using_emulator"))?;
         let r = light_with(t, cfg, &shape, req.loops, cancel, out);
         describe_emulator(&h, out)?;
         return r;
@@ -852,14 +841,11 @@ fn light_with<T: Transport, W: Write>(
     let mut session = GalvoSession::new(t, cfg).map_err(|e| e.to_string())?;
     let info = session.probe().map_err(|e| e.to_string())?;
     describe_info(&info, out)?;
-    show(
-        out,
-        "Dibujando con el puntero rojo; el láser NO se habilita. Ctrl+C para detener.",
-    )?;
+    show(out, &tr!("cli.galvo.light_drawing"))?;
     let control = session.control();
     let mut progress = |p: LightProgress| {
         if p.loops == 1 || p.loops.is_multiple_of(10) {
-            let _ = writeln!(out, "  vuelta {}", p.loops);
+            let _ = writeln!(out, "  {}", tr!("cli.galvo.light_loop", n = p.loops));
         }
     };
     let result = with_ctrl_c(&control, cancel, || {
@@ -868,13 +854,13 @@ fn light_with<T: Transport, W: Write>(
     match result {
         Ok(r) => show(
             out,
-            &format!(
-                "Encuadre terminado: {} vueltas{}. Puntero rojo apagado.",
-                r.loops,
-                if r.stopped { " (detenido)" } else { "" }
-            ),
+            &if r.stopped {
+                tr!("cli.galvo.light_done_stopped", loops = r.loops)
+            } else {
+                tr!("cli.galvo.light_done", loops = r.loops)
+            },
         ),
-        Err(e) => Err(format!("falló el encuadre: {}", job_error(&e))),
+        Err(e) => Err(tr!("cli.galvo.light_failed", err = job_error(&e))),
     }
 }
 
@@ -924,15 +910,15 @@ pub fn mark<R: BufRead, W: Write>(
     if req.sequence.active() {
         let (steps, warnings) = seq::steps(&planned)?;
         for w in &warnings {
-            show(out, &format!("Aviso: {w}"))?;
+            show_warning(out, w)?;
         }
         let total = steps.len();
         show(
             out,
-            &format!(
-                "El trabajo se marca en {total} paso(s); {} vez/veces tendrás que mover el material \
-                 (la tarjeta no tiene ejes).",
-                steps.iter().filter(|s| s.needs_move()).count()
+            &tr!(
+                "cli.galvo.mark_steps",
+                total = total,
+                moves = steps.iter().filter(|s| s.needs_move()).count()
             ),
         )?;
         for (i, st) in steps.iter().enumerate() {
@@ -945,7 +931,7 @@ pub fn mark<R: BufRead, W: Write>(
         }
     } else {
         for w in &planned.warnings {
-            show(out, &format!("Aviso: {w}"))?;
+            show_warning(out, w)?;
         }
         lists.push(StepList {
             list: compile_one(&planned.toolpath)?,
@@ -966,19 +952,19 @@ pub fn mark<R: BufRead, W: Write>(
             if let Some(label) = &l.label {
                 text.push_str(&format!("# {label}\n"));
             } else if lists.len() > 1 {
-                text.push_str(&format!("# lista {}\n", n + 1));
+                text.push_str(&format!("# {}\n", tr!("cli.galvo.dump_list", n = n + 1)));
             }
             for (i, c) in l.list.commands.iter().enumerate() {
                 text.push_str(&format!("{i:06} {}\n", Describe(c)));
             }
         }
         std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))?;
-        show(out, &format!("Lista escrita en {}", path.display()))?;
+        show(out, &tr!("cli.galvo.dump_written", path = path.display()))?;
     }
     if req.dry_run {
-        return show(out, "Simulacro (--dry-run): no se conectó con la tarjeta.");
+        return show(out, &tr!("cli.galvo.dry_run"));
     }
-    show(out, EXPERIMENTAL)?;
+    show(out, &experimental())?;
     let emulated = req.connect.emu;
     let cfg = session_config(&planned, &req.profile, emulated)?;
     if emulated {
@@ -987,10 +973,7 @@ pub fn mark<R: BufRead, W: Write>(
             field_mm: planned.device.field_mm,
             ..EmuConfig::default()
         });
-        show(
-            out,
-            "Usando la tarjeta simulada (--emu): no se toca el USB.",
-        )?;
+        show(out, &tr!("cli.galvo.using_emulator"))?;
         let r = mark_with(t, cfg, &lists, &req, cancel, input, out);
         describe_emulator(&h, out)?;
         return r;
@@ -1014,24 +997,16 @@ fn mark_with<T: Transport, R: BufRead, W: Write>(
     let info = session.probe().map_err(|e| e.to_string())?;
     describe_info(&info, out)?;
     if info.status.busy {
-        return Err("la tarjeta está ocupada con otro trabajo".into());
+        return Err(tr!("cli.galvo.board_busy"));
     }
     let simulated = info.transport.emulated;
     if req.red_only {
-        show(
-            out,
-            "--red-only: el trabajo se recorre con el láser DESHABILITADO y el puntero rojo.",
-        )?;
+        show(out, &tr!("cli.galvo.red_only"))?;
     } else if !req.yes && !simulated {
-        let ok = crate::link::confirm(
-            "El láser DISPARARÁ. ¿Gafas puestas, recinto cerrado, obturador y paro de emergencia \
-             listos, y el material correcto bajo el haz? [s/N] ",
-            input,
-            out,
-        )
-        .map_err(|e| e.to_string())?;
+        let ok = crate::link::confirm(&format!("{} ", tr!("cli.galvo.prompt")), input, out)
+            .map_err(|e| e.to_string())?;
         if !ok {
-            return Err("cancelado: no se envió nada".into());
+            return Err(tr!("cli.galvo.nothing_sent"));
         }
     }
     let control = session.control();
@@ -1041,15 +1016,12 @@ fn mark_with<T: Transport, R: BufRead, W: Write>(
         }
         if let Some(text) = &step.move_text {
             // La tarjeta no tiene ejes: el trabajo espera a que muevas el material y confirmes.
-            show(out, &format!("Mueve el material: {text}."))?;
-            let ok = crate::link::confirm(
-                "¿Ya lo moviste? Al continuar el láser disparará sobre la pieza siguiente. [s/N] ",
-                input,
-                out,
-            )
-            .map_err(|e| e.to_string())?;
+            show(out, &tr!("cli.galvo.move_material", text = text))?;
+            let ok =
+                crate::link::confirm(&format!("{} ", tr!("cli.galvo.moved_prompt")), input, out)
+                    .map_err(|e| e.to_string())?;
             if !ok {
-                return Err("detenido: no se marcaron los pasos restantes".into());
+                return Err(tr!("cli.galvo.stopped"));
             }
             if !simulated && step.pause_ms > 0.0 {
                 std::thread::sleep(Duration::from_secs_f64(step.pause_ms / 1000.0));
@@ -1061,30 +1033,46 @@ fn mark_with<T: Transport, R: BufRead, W: Write>(
             let step = pct / 10;
             if step != last_step || p.batch == p.batches {
                 last_step = step;
-                let _ = writeln!(out, "  {pct:>3} %  (tanda {}/{})", p.batch, p.batches);
+                let _ = writeln!(
+                    out,
+                    "  {}",
+                    tr!(
+                        "cli.galvo.progress",
+                        pct = format!("{pct:>3}"),
+                        batch = p.batch,
+                        batches = p.batches
+                    )
+                );
             }
         };
         let result = with_ctrl_c(&control, cancel, || {
             session.send_job(&step.list, &control, &mut progress)
         });
         match result {
-            Ok(r) => show(
-                out,
-                &format!(
-                    "Enviado: {} tandas, {} comandos, {} bytes en {:.1} s. {} La fuente se apagó y la \
-                     lista se vació.",
-                    r.batches,
-                    r.commands,
-                    r.bytes,
-                    r.elapsed.as_secs_f64(),
-                    if r.armed {
-                        "La fuente estuvo armada durante el trabajo."
+            Ok(r) => {
+                let secs = format!("{:.1}", r.elapsed.as_secs_f64());
+                show(
+                    out,
+                    &if r.armed {
+                        tr!(
+                            "cli.galvo.sent_armed",
+                            batches = r.batches,
+                            commands = r.commands,
+                            bytes = r.bytes,
+                            secs = secs
+                        )
                     } else {
-                        "La fuente NO se armó."
-                    }
-                ),
-            )?,
-            Err(e) => return Err(format!("falló el marcado: {}", job_error(&e))),
+                        tr!(
+                            "cli.galvo.sent_not_armed",
+                            batches = r.batches,
+                            commands = r.commands,
+                            bytes = r.bytes,
+                            secs = secs
+                        )
+                    },
+                )?;
+            }
+            Err(e) => return Err(tr!("cli.galvo.mark_failed", err = job_error(&e))),
         }
     }
     Ok(())

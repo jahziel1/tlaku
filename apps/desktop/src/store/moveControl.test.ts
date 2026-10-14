@@ -199,3 +199,38 @@ describe('encuadre', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('líneas del registro con código del motor', () => {
+  it('el bucle del encuadre se guía por el código, también con el motor en inglés', async () => {
+    const { api, store } = await setup();
+    const spy = vi.spyOn(api, 'frameJob');
+    store.getState().setFrameLoop(true);
+    await store.getState().frameJob();
+    expect(store.getState().frameLooping).toBe(true);
+    store.getState().noteFrameLog('[frame_done] ; frame finished');
+    await vi.waitFor(() => expect(spy).toHaveBeenCalledTimes(2), { timeout: 2000 });
+    // Cancelado (en inglés): el bucle se detiene.
+    store.getState().noteFrameLog('[frame_cancelled] ; frame cancelled');
+    expect(store.getState().frameLooping).toBe(false);
+  });
+
+  it('el texto sin código no cuenta', async () => {
+    const { api, store } = await setup();
+    const spy = vi.spyOn(api, 'frameJob');
+    store.getState().setFrameLoop(true);
+    await store.getState().frameJob();
+    store.getState().noteFrameLog('; frame finished');
+    store.getState().noteFrameLog('; encuadre terminado');
+    await new Promise((r) => setTimeout(r, 600));
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('la consola muestra la línea sin el código', async () => {
+    const { api, store } = await setup();
+    store.getState().setFrameLoop(true);
+    await store.getState().frameJob();
+    store.getState().onLog({ dir: 'in', text: '[frame_done] ; frame finished' });
+    expect(store.getState().log.at(-1)?.text).toBe('; frame finished');
+    void api;
+  });
+});

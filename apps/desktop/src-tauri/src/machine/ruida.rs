@@ -43,6 +43,7 @@ use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, DeviceProfile, JobEvent, JobState, LogDir,
     MachineState, ProgressEvent, RuidaFile, RuidaInfo, StatusReport,
 };
+use tlaku_i18n::tr;
 use tlaku_ruida::emu::{EmuConfig, UdpEmulator};
 use tlaku_ruida::link::{PacketLink, UdpLink};
 use tlaku_ruida::packet::PacketConfig;
@@ -57,16 +58,19 @@ use tlaku_ruida::swizzle::{MAGIC_DEFAULT, Magic};
 pub const VIRTUAL_PORT: &str = "virtual:ruida";
 
 /// Aviso que acompaña a todo lo que toca una máquina real.
-pub const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte Ruida no se ha probado con una máquina \
-real (docs/hardware/ruida.md). Prueba primero con el láser deshabilitado o a potencia 0.";
+pub fn experimental() -> String {
+    tr!("desktop.ruida.experimental")
+}
 
 /// Nota del rotativo (M28): la controladora lo gestiona por su cuenta.
-pub const ROTARY_NOTE: &str = "Rotativo: Ruida lo activa en los ajustes de la propia \
-controladora; Tlaku envía la Y en mm de superficie, sin escalarla ni reflejarla.";
+pub fn rotary_note() -> String {
+    tr!("desktop.ruida.rotary_note")
+}
 
 /// Mensaje cuando una operación solo existe en GRBL.
-pub const GRBL_ONLY: &str = "Esta función es solo de GRBL: la controladora Ruida no usa G-code \
-ni overrides en vivo.";
+pub fn grbl_only() -> String {
+    tr!("desktop.ruida.grbl_only")
+}
 
 /// ¿Es el puerto de la máquina virtual Ruida (con o sin `@velocidad`)?
 pub fn is_virtual(port: &str) -> bool {

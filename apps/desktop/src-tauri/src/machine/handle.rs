@@ -1,6 +1,7 @@
 //! Estado compartido, solicitudes al trabajador y el mando [`Handle`] de la conexión GRBL.
 
 use super::*;
+use tlaku_i18n::tr;
 
 #[derive(Default)]
 pub(super) struct Shared {
@@ -75,14 +76,12 @@ pub struct Handle {
 impl Handle {
     fn call(&self, build: impl FnOnce(Reply) -> Request) -> Result<Vec<String>, String> {
         if self.is_closed() {
-            return Err(NOT_CONNECTED.into());
+            return Err(not_connected());
         }
         let (tx, rx) = mpsc::channel();
-        self.tx
-            .send(build(tx))
-            .map_err(|_| NOT_CONNECTED.to_string())?;
+        self.tx.send(build(tx)).map_err(|_| not_connected())?;
         rx.recv()
-            .map_err(|_| "Se perdió la conexión con la máquina.".to_string())?
+            .map_err(|_| tr!("desktop.machine.connection_lost"))?
     }
 
     /// `true` si la conexión terminó (a petición o por un fallo).
@@ -98,18 +97,14 @@ impl Handle {
     /// Provoca una falla en la máquina virtual. Con una máquina real no hace nada y avisa.
     pub fn simulate_fault(&self, fault: SimulatedFault) -> Result<(), String> {
         if self.is_closed() {
-            return Err(NOT_CONNECTED.into());
+            return Err(not_connected());
         }
         match &self.emu {
             Some(emu) if self.is_virtual() => {
                 virtual_port::inject(emu, fault);
                 Ok(())
             }
-            _ => Err(
-                "Simular fallas solo es posible con una máquina virtual; esta es una máquina \
-                 real."
-                    .into(),
-            ),
+            _ => Err(tr!("desktop.machine.simulate_needs_virtual")),
         }
     }
 

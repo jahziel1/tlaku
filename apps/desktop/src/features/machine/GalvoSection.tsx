@@ -37,6 +37,11 @@ interface PanelProps {
   adjustRejected?: boolean;
   /** Motivo por el que no se puede encuadrar ni marcar ahora (clave ya traducida), o `null`. */
   blocked: string | null;
+  /**
+   * Motivo que cuenta para el ajuste en vivo del encuadre. Con un encuadre en curso la máquina está en «run» por el propio
+   * encuadre, y eso no debe apagar los botones de ajuste: por omisión es `blocked`.
+   */
+  frameBlocked?: string | null;
   actions: GalvoActions;
 }
 
@@ -98,7 +103,7 @@ export function GalvoInterlockStatus({ state }: { state: Pick<GalvoState, 'inter
  * Panel del galvo (EXPERIMENTAL): estado de la tarjeta, encuadre con el puntero rojo (y apagarlo), entradas en
  * solo lectura y lo que no aplica con su motivo. Recibe el estado ya leído para poder probarse por separado.
  */
-export function GalvoPanel({ connected, state, step, loops, adjustRejected = false, blocked, actions }: PanelProps) {
+export function GalvoPanel({ connected, state, step, loops, adjustRejected = false, blocked, frameBlocked = blocked, actions }: PanelProps) {
   const waiting = state?.waiting_move ?? null;
   const working = !!state?.working;
   return (
@@ -152,7 +157,7 @@ export function GalvoPanel({ connected, state, step, loops, adjustRejected = fal
               <span>{t('galvo.stop.text')}</span>
             </p>
           )}
-          <GalvoFrameControls state={state} loops={loops} blocked={blocked} adjustRejected={adjustRejected} onFrame={actions.onFrame} onAdjust={actions.onAdjust} />
+          <GalvoFrameControls state={state} loops={loops} blocked={frameBlocked} adjustRejected={adjustRejected} onFrame={actions.onFrame} onAdjust={actions.onAdjust} />
           <div className="row">
             <button type="button" className="btn grow" disabled={blocked !== null} title={blocked ?? t('galvo.panel.redRun.help')} onClick={actions.onRedRun}>
               <Route size={15} aria-hidden="true" />{t('galvo.panel.redRun')}
@@ -224,6 +229,8 @@ export function GalvoSection() {
   }, [isGalvo, connected, jobState, machineState, waitStep]);
   if (!isGalvo) return null;
   const blocked = blockedKey ? t(blockedKey) : null;
+  // Encuadrando, la máquina figura «en marcha» (es el propio encuadre): eso no bloquea el ajuste en vivo.
+  const frameBlocked = state?.framing && blockedKey === 'machine.reason.notIdle' ? null : blocked;
   return (
     <GalvoPanel
       connected={connected}
@@ -232,6 +239,7 @@ export function GalvoSection() {
       loops={loops}
       adjustRejected={adjustRejected}
       blocked={blocked}
+      frameBlocked={frameBlocked}
       actions={{
         onFrame: (shape, count) => void galvoFrame(shape, count),
         onAdjust: (adj) => void adjustFrame(adj),

@@ -1,0 +1,66 @@
+# Mensajes de tlaku-raster (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: raster.<módulo>.<qué> = plantilla
+
+# adjust.rs
+raster.adjust.brightness = brillo fuera de -1..1: {value}
+raster.adjust.contrast = contraste fuera de -1..1: {value}
+raster.adjust.gamma = gamma debe ser mayor que 0: {value}
+raster.adjust.enhance_radius = radio de enfoque inválido: {value}
+raster.adjust.enhance_amount = cantidad de enfoque inválida: {value}
+raster.adjust.denoise = quitar motas admite hasta {max} px: {value}
+
+# bitmap.rs
+raster.bitmap.zero_size = el bitmap no puede tener tamaño cero
+raster.bitmap.data_len = se esperaban {expected} puntos y llegaron {got}
+raster.bitmap.dot_size = el tamaño de punto debe ser positivo
+raster.bitmap.too_big = el bitmap no cabe en una imagen
+raster.bitmap.png_encode = no se pudo codificar el PNG: {error}
+raster.bitmap.crop = recorte fuera del bitmap: {w}x{h} desde ({x}, {y}) en {bw}x{bh}
+
+# downsample.rs
+raster.downsample.zero_size = la imagen no puede tener tamaño cero
+raster.downsample.too_big = la imagen es demasiado grande
+
+# gray.rs
+raster.gray.zero_size = la imagen no puede tener tamaño cero
+raster.gray.data_len = se esperaban {expected} píxeles y llegaron {got}
+
+# lib.rs
+raster.lib.threshold = umbral fuera de 0-1: {value}
+raster.lib.cell_size = tamaño de celda inválido: {value} mm
+raster.lib.screen_angle = ángulo de trama inválido: {value}
+
+# load.rs
+raster.load.read_failed = no se pudo leer {path}: {error}
+raster.load.read_failed_nopath = no se pudo leer: {error}
+raster.load.write_failed = no se pudo escribir {path}: {error}
+raster.load.memory_limit = la imagen no cabe en el límite de memoria del decodificador ({mib} MiB); reduce su tamaño o guarda la imagen como PNG desde tu editor e impórtala de nuevo
+raster.load.rare_tiff = {error}. Si es un TIFF poco común, guarda la imagen como PNG desde tu editor e impórtala de nuevo
+raster.load.invalid_image = imagen inválida: {error}
+raster.load.tiff_memory = el TIFF excede el límite de memoria del decodificador; guarda la imagen como PNG desde tu editor e impórtala de nuevo
+raster.load.tiff_read = no se pudo leer el TIFF ({error}); guarda la imagen como PNG desde tu editor e impórtala de nuevo
+raster.load.invalid_png = PNG inválido: {error}
+raster.load.unknown_format = formato de imagen no reconocido
+raster.load.png_truncated = PNG truncado: {y} de {h} filas
+raster.load.tiff_chunk = el TIFF trae un trozo incompleto; guarda la imagen como PNG desde tu editor e impórtala de nuevo
+raster.load.tiff_order = el TIFF trae sus trozos desordenados
+
+# preview.rs
+raster.preview.bad_region = región de la vista previa inválida: ({x0}, {y0})-({x1}, {y1}) mm
+
+# resample.rs
+raster.resample.bad_size = tamaño inválido: {w} x {h} mm
+raster.resample.bad_interval = intervalo de línea inválido: {value} mm
+raster.resample.grid_too_big = la rejilla de {cols} x {rows} puntos es demasiado grande; aumenta el intervalo
+
+# scan.rs
+raster.scan.speed = velocidad inválida: {value}
+raster.scan.min_power = potencia mínima fuera de 0-100 %: {value}
+raster.scan.max_power = potencia máxima fuera de 0-100 %: {value}
+raster.scan.power_order = la potencia mínima supera a la máxima
+raster.scan.overscan = overscan inválido: {value}
+raster.scan.dot_width = ancho de punto inválido: {value}
+
+# warp.rs
+raster.warp.not_invertible = la transformación de la imagen no es invertible
+raster.warp.zero_grid = la rejilla destino no puede tener tamaño cero

@@ -14,7 +14,9 @@
 
 use crate::cmd::{self, DecodeError};
 use crate::swizzle::Magic;
+use crate::text;
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Máximo de bytes de datos por paquete que permite este módulo: 1472 B del datagrama menos los
 /// 2 del checksum.
@@ -73,20 +75,25 @@ pub enum PacketError {
 impl fmt::Display for PacketError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PacketError::BadConfig(w) => write!(f, "configuración de paquetes inválida: {w}"),
-            PacketError::CommandTooLarge { offset, len, max } => write!(
-                f,
-                "el comando en el byte {offset} ocupa {len} bytes y el paquete admite {max}"
-            ),
-            PacketError::Decode(e) => write!(f, "{e}"),
-            PacketError::TooShort(n) => write!(f, "datagrama de {n} bytes: falta el checksum"),
-            PacketError::TooLong { len, max } => {
-                write!(f, "datagrama de {len} bytes, el máximo es {max}")
+            PacketError::BadConfig(w) => {
+                f.write_str(&tr!("ruida.packet.bad_config", what = text::what(w)))
             }
-            PacketError::ChecksumMismatch { expected, found } => write!(
-                f,
-                "checksum 0x{found:04X} en el paquete y 0x{expected:04X} calculado"
-            ),
+            PacketError::CommandTooLarge { offset, len, max } => f.write_str(&tr!(
+                "ruida.packet.command_too_large",
+                offset = offset,
+                len = len,
+                max = max
+            )),
+            PacketError::Decode(e) => write!(f, "{e}"),
+            PacketError::TooShort(n) => f.write_str(&tr!("ruida.packet.too_short", n = n)),
+            PacketError::TooLong { len, max } => {
+                f.write_str(&tr!("ruida.packet.too_long", len = len, max = max))
+            }
+            PacketError::ChecksumMismatch { expected, found } => f.write_str(&tr!(
+                "ruida.packet.checksum",
+                found = format!("{found:04X}"),
+                expected = format!("{expected:04X}")
+            )),
         }
     }
 }

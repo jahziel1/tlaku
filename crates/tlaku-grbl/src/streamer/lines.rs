@@ -1,6 +1,7 @@
 //! Preparación de líneas de G-code y su validación antes de enviarlas.
 
 use std::fmt;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Preparación de líneas
@@ -67,14 +68,17 @@ impl fmt::Display for StreamError {
                 source_line,
                 len,
                 max,
-            } => write!(
-                f,
-                "la línea {source_line} ocupa {len} bytes y el búfer de la controladora es de {max}"
-            ),
-            Self::InvalidChar { source_line, ch } => write!(
-                f,
-                "la línea {source_line} contiene {ch:?}, que GRBL interpretaría como comando en tiempo real"
-            ),
+            } => f.write_str(&tr!(
+                "grbl.stream.line_too_long",
+                line = source_line,
+                len = len,
+                max = max
+            )),
+            Self::InvalidChar { source_line, ch } => f.write_str(&tr!(
+                "grbl.stream.invalid_char",
+                line = source_line,
+                ch = format!("{ch:?}")
+            )),
         }
     }
 }

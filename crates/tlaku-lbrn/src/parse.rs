@@ -9,6 +9,7 @@ use roxmltree::Node;
 use std::collections::{BTreeMap, HashMap};
 use tlaku_core::Point;
 use tlaku_core::bezpath::BezPath;
+use tlaku_i18n::tr;
 
 /// Profundidad máxima de grupos anidados (protege contra archivos hostiles).
 const MAX_DEPTH: usize = 64;
@@ -54,7 +55,7 @@ fn xform(n: Node, ctx: &mut Ctx) -> Transform {
     match <[f64; 6]>::try_from(vals) {
         Ok(t) if t.iter().all(|v| v.is_finite()) => t,
         _ => {
-            ctx.count("Una forma trae un XForm inválido; se usa la identidad");
+            ctx.count(tr!("lbrn.parse.bad_xform"));
             IDENTITY
         }
     }
@@ -63,17 +64,11 @@ fn xform(n: Node, ctx: &mut Ctx) -> Transform {
 /// Lee un proyecto. `data` es el XML completo (con o sin BOM UTF-8).
 pub fn parse(data: &[u8]) -> Result<Project, String> {
     let data = data.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(data);
-    let text = std::str::from_utf8(data)
-        .map_err(|_| "no es texto UTF-8: un proyecto de LightBurn es XML".to_string())?;
-    let doc = roxmltree::Document::parse(text).map_err(|e| {
-        format!("no es un XML válido de LightBurn ({e}); ¿el archivo está dañado o comprimido?")
-    })?;
+    let text = std::str::from_utf8(data).map_err(|_| tr!("lbrn.parse.not_utf8"))?;
+    let doc = roxmltree::Document::parse(text).map_err(|e| tr!("lbrn.parse.bad_xml", error = e))?;
     let root = doc.root_element();
     if !root.has_tag_name("LightBurnProject") {
-        return Err(format!(
-            "no es un proyecto de LightBurn: el elemento raíz es <{}>",
-            root.tag_name().name()
-        ));
+        return Err(tr!("lbrn.parse.not_project", root = root.tag_name().name()));
     }
 
     let mut ctx = Ctx::default();
@@ -90,7 +85,7 @@ pub fn parse(data: &[u8]) -> Result<Project, String> {
                         layers.push(layer);
                     }
                 } else {
-                    ctx.count("Una capa (CutSetting) sin número de índice se omite");
+                    ctx.count(tr!("lbrn.parse.layer_no_index"));
                 }
             }
             "Shape" => {
@@ -105,7 +100,7 @@ pub fn parse(data: &[u8]) -> Result<Project, String> {
     let mut warnings = ctx.warnings;
     for (msg, n) in ctx.counted {
         warnings.push(if n > 1 {
-            format!("{msg} ({n} veces)")
+            tr!("lbrn.parse.repeated", msg = msg, n = n)
         } else {
             msg
         });
@@ -163,7 +158,7 @@ fn parse_shape(n: Node, ctx: &mut Ctx, depth: usize) -> Option<Shape> {
     let kind = match ty {
         "Rect" => {
             let (Some(w), Some(h)) = (attr_f64(n, "W"), attr_f64(n, "H")) else {
-                ctx.count("Un Rect sin W/H válidos se omite");
+                ctx.count(tr!("lbrn.parse.rect_invalid"));
                 return None;
             };
             ShapeKind::Rect {
@@ -174,7 +169,7 @@ fn parse_shape(n: Node, ctx: &mut Ctx, depth: usize) -> Option<Shape> {
         }
         "Ellipse" => {
             let (Some(rx), Some(ry)) = (attr_f64(n, "Rx"), attr_f64(n, "Ry")) else {
-                ctx.count("Una Ellipse sin Rx/Ry válidos se omite");
+                ctx.count(tr!("lbrn.parse.ellipse_invalid"));
                 return None;
             };
             ShapeKind::Ellipse { rx, ry }
@@ -186,7 +181,7 @@ fn parse_shape(n: Node, ctx: &mut Ctx, depth: usize) -> Option<Shape> {
         },
         "Group" => {
             if depth >= MAX_DEPTH {
-                ctx.count("Se omitieron grupos anidados a demasiada profundidad");
+                ctx.count(tr!("lbrn.parse.groups_too_deep"));
                 return None;
             }
             let kids = child(n, "Children")
@@ -228,7 +223,7 @@ fn parse_path(n: Node, ctx: &mut Ctx) -> Option<BezPath> {
     {
         let (v, bad) = parse_verts(t);
         if bad > 0 {
-            ctx.count("Se omitieron vértices ilegibles en una trayectoria");
+            ctx.count(tr!("lbrn.parse.bad_vertices"));
         }
         Some(v)
     } else if n.children().any(|c| c.is_element() && c.has_tag_name("V")) {
@@ -246,9 +241,7 @@ fn parse_path(n: Node, ctx: &mut Ctx) -> Option<BezPath> {
     {
         let (p, unknown) = parse_prims(t);
         for c in unknown {
-            ctx.count(format!(
-                "Primitiva de trayectoria '{c}' desconocida: se omite"
-            ));
+            ctx.count(tr!("lbrn.parse.unknown_primitive", prim = c));
         }
         Some(p)
     } else if n.children().any(|c| c.is_element() && c.has_tag_name("P")) {
@@ -263,19 +256,19 @@ fn parse_path(n: Node, ctx: &mut Ctx) -> Option<BezPath> {
     let (verts, prims) = match (verts, prims) {
         (Some(v), Some(p)) if !v.is_empty() => (v, p),
         _ => {
-            ctx.count("Se omitieron trayectorias sin vértices o sin primitivas");
+            ctx.count(tr!("lbrn.parse.path_empty"));
             return None;
         }
     };
     let built = build_path(&verts, &prims);
     if built.degraded > 0 {
-        ctx.count("Curvas Bézier sin manejadores se importaron como rectas");
+        ctx.count(tr!("lbrn.parse.bezier_straight"));
     }
     if built.invalid > 0 {
-        ctx.count("Se omitieron segmentos que citan un vértice inexistente");
+        ctx.count(tr!("lbrn.parse.missing_vertex"));
     }
     if built.path.0.is_empty() {
-        ctx.count("Se omitieron trayectorias sin segmentos");
+        ctx.count(tr!("lbrn.parse.path_no_segments"));
         return None;
     }
     Some(built.path)
@@ -310,9 +303,9 @@ fn legacy_prims(n: Node, ctx: &mut Ctx) -> Prims {
             Some("L") => PrimKind::Line,
             Some("B") => PrimKind::Bezier,
             other => {
-                ctx.count(format!(
-                    "Primitiva de trayectoria '{}' desconocida: se omite",
-                    other.unwrap_or("?")
+                ctx.count(tr!(
+                    "lbrn.parse.unknown_primitive",
+                    prim = other.unwrap_or("?")
                 ));
                 continue;
             }
@@ -376,7 +369,7 @@ fn parse_text(n: Node, ctx: &mut Ctx) -> TextShape {
 
 fn parse_bitmap(n: Node, ctx: &mut Ctx) -> Option<BitmapShape> {
     let (Some(w), Some(h)) = (attr_f64(n, "W"), attr_f64(n, "H")) else {
-        ctx.count("Un Bitmap sin W/H válidos se omite");
+        ctx.count(tr!("lbrn.parse.bitmap_invalid"));
         return None;
     };
     let raw: String = n
@@ -386,11 +379,11 @@ fn parse_bitmap(n: Node, ctx: &mut Ctx) -> Option<BitmapShape> {
         .filter(|c| !c.is_whitespace())
         .collect();
     if raw.is_empty() {
-        ctx.count("Un Bitmap sin imagen incrustada se omite");
+        ctx.count(tr!("lbrn.parse.bitmap_no_image"));
         return None;
     }
     let Ok(data) = base64::engine::general_purpose::STANDARD.decode(raw.as_bytes()) else {
-        ctx.count("Un Bitmap con la imagen incrustada ilegible (base64 inválido) se omite");
+        ctx.count(tr!("lbrn.parse.bitmap_bad_image"));
         return None;
     };
     Some(BitmapShape {

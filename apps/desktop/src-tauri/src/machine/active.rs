@@ -32,6 +32,7 @@ use super::lhymicro::{self, LhyConnection, LhyHandle};
 use super::ruida::{self, RuidaConnection, RuidaHandle};
 use super::{Connection, Handle};
 use tlaku_doc::{RealtimeCommand, StatusReport};
+use tlaku_i18n::tr;
 
 /// La conexión activa de la app, dueña del hilo del respaldo.
 pub enum ActiveMachine {
@@ -107,9 +108,9 @@ impl Machine {
     pub fn grbl(&self) -> Result<&Handle, String> {
         match self {
             Self::Grbl(h) => Ok(h),
-            Self::Ruida(_) => Err(ruida::GRBL_ONLY.into()),
-            Self::Lhy(_) => Err(lhymicro::GRBL_ONLY.into()),
-            Self::Galvo(_) => Err(galvo::GRBL_ONLY.into()),
+            Self::Ruida(_) => Err(ruida::grbl_only()),
+            Self::Lhy(_) => Err(lhymicro::grbl_only()),
+            Self::Galvo(_) => Err(galvo::grbl_only()),
         }
     }
 
@@ -117,9 +118,7 @@ impl Machine {
     pub fn ruida(&self) -> Result<&RuidaHandle, String> {
         match self {
             Self::Ruida(h) => Ok(h),
-            Self::Grbl(_) | Self::Lhy(_) | Self::Galvo(_) => {
-                Err("Esta función es solo de las controladoras Ruida.".into())
-            }
+            Self::Grbl(_) | Self::Lhy(_) | Self::Galvo(_) => Err(tr!("desktop.machine.only_ruida")),
         }
     }
 
@@ -127,9 +126,7 @@ impl Machine {
     pub fn lhy(&self) -> Result<&LhyHandle, String> {
         match self {
             Self::Lhy(h) => Ok(h),
-            Self::Grbl(_) | Self::Ruida(_) | Self::Galvo(_) => {
-                Err("Esta función es solo del K40 con placa M2 Nano.".into())
-            }
+            Self::Grbl(_) | Self::Ruida(_) | Self::Galvo(_) => Err(tr!("desktop.machine.only_k40")),
         }
     }
 
@@ -137,9 +134,7 @@ impl Machine {
     pub fn galvo(&self) -> Result<&GalvoHandle, String> {
         match self {
             Self::Galvo(h) => Ok(h),
-            Self::Grbl(_) | Self::Ruida(_) | Self::Lhy(_) => {
-                Err("Esta función es solo de las máquinas galvo (tarjeta JCZ/BJJCZ).".into())
-            }
+            Self::Grbl(_) | Self::Ruida(_) | Self::Lhy(_) => Err(tr!("desktop.machine.only_galvo")),
         }
     }
 
@@ -169,7 +164,7 @@ impl Machine {
             Self::Ruida(h) => h.pause(),
             Self::Lhy(h) => h.pause(),
             // Sin pausa, a propósito: pausar deja el espejo quieto con el haz encendido.
-            Self::Galvo(_) => Err(galvo::NO_PAUSE.into()),
+            Self::Galvo(_) => Err(galvo::no_pause()),
         }
     }
 
@@ -178,7 +173,7 @@ impl Machine {
             Self::Grbl(h) => h.resume(),
             Self::Ruida(h) => h.resume(),
             Self::Lhy(h) => h.resume(),
-            Self::Galvo(_) => Err(galvo::NO_PAUSE.into()),
+            Self::Galvo(_) => Err(galvo::no_pause()),
         }
     }
 
@@ -214,7 +209,7 @@ impl Machine {
             },
             // El galvo solo traduce detener (Reset); pausa y reanudar no existen.
             Self::Galvo(h) => match cmd {
-                RealtimeCommand::Hold | RealtimeCommand::Resume => Err(galvo::NO_PAUSE.into()),
+                RealtimeCommand::Hold | RealtimeCommand::Resume => Err(galvo::no_pause()),
                 RealtimeCommand::Reset => h.cancel(),
                 RealtimeCommand::JogCancel | RealtimeCommand::Status => Ok(()),
             },

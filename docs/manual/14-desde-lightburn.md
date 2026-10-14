@@ -23,6 +23,7 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Ramp Length | **Rampa de potencia** |
 | Sub-Layers | **Operaciones adicionales** (hasta 11 más la principal; no tienen pestañas ni nombre propio) |
 | Pass-Through, Enhance Edges, Denoise (Adjust Image) | **Enviar sin tramar (pass-through)**, **Realce de bordes** y **Quitar motas** en **Imagen avanzada** |
+| Adjust Image: presets y vista previa | **Preset de imagen** (7 de fábrica y los tuyos con **Guardar como…**) y **Vista previa de la imagen…** por imagen, sin calcular el trabajo; ver [Imágenes](06-imagenes.md) |
 | Copiar y pegar ajustes de capa, borrar capa | Menú de la fila de la capa: **Copiar ajustes**, **Pegar ajustes**, **Borrar capa y sus objetos…** |
 | Default Layer Settings | **Valores por defecto** al final del editor de capa (un solo juego para todas las capas nuevas) |
 | Beginner Mode | **Modo principiante** del editor de capa (oculta los ajustes avanzados de la capa; no cambia menús ni herramientas) |
@@ -94,10 +95,10 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Trim Shapes | Herramienta **Recortar formas** (`X`) y **Recortar en el último clic** (`Ctrl/Cmd+K`); ver [Formas avanzadas y deformar](03c-formas-y-deformar.md) |
 | Break Apart | **Separar subtrayectos…** (`Alt+B`): separa por contorno, no por segmento |
 | Optimize Shapes | **Optimizar formas…** (`Alt+Mayús+O`): quita y simplifica nodos con una tolerancia, con conteo antes y después |
-| Fillet, Radius | **Redondear esquinas…**: redondeada, chaflán o mordisco |
+| Fillet, Radius | **Redondear esquinas…**: redondeada, chaflán o mordisco; y la herramienta **Redondear esquinas con clic** (`Mayús+F`) para una sola esquina, que se revierte con `Alt`+clic (el chaflán no) |
 | Cut Shapes | **Cortar formas con una cuchilla…** (`Alt+Mayús+C`) |
 | Resize Slots | **Redimensionar ranuras…** |
-| Warp, Deform | **Deformar…**: cuatro esquinas y cuatro bordes curvos, con presets (sin malla 4×4 ni manijas en el lienzo) |
+| Warp, Deform | **Deformar…** (diálogo con presets, cuatro esquinas y cuatro bordes curvos) y **Deformar en el lienzo** (`Mayús+W`) con manijas: **Bilineal**, **Perspectiva** o **Malla 4×4** (16 puntos) |
 | Rubber Band Outline (contorno envolvente) | **Contorno de banda elástica…**: convexo o cóncavo |
 | Tangent Circle | **Círculo tangente…** |
 | Boolean Assistant | **Asistente booleano…** (`Ctrl/Cmd+B`) |
@@ -107,21 +108,27 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Variable Text (serie, CSV, fecha y hora) | **Herramientas > Texto variable…** y el menú **Insertar variable** del panel de texto; ver [Texto variable](04b-texto-variable.md) |
 | Art Library | **Herramientas > Biblioteca de arte**: 41 dibujos propios y tus SVG |
 | Notes, Templates, New Window | Pestaña **Notas** (`Ctrl/Cmd+7`), **Guardar como plantilla…** y **Nuevo desde plantilla…** (menú Archivo), **Nueva ventana** (`Ctrl/Cmd+Mayús+N`) |
-| Dockable windows | Las pestañas del panel derecho se reordenan y se ocultan; no flotan |
+| Dockable windows | Las pestañas del panel se reordenan, se ocultan, **se sacan a ventanas flotantes** (doble clic en la pestaña) y el panel y las herramientas cambian de lado; **Restablecer distribución** lo deja como de fábrica |
 | Set Image Mask, Convert to Bitmap, Save Processed Bitmap, Replace Image | **Recortar imagen con forma**, **Convertir a mapa de bits…**, **Guardar imagen procesada…** y **Reemplazar imagen…** (menú Herramientas); ver [Imágenes](06-imagenes.md) |
 | Trace Image (varias imágenes) | **Vectorizar varios archivos…** |
 | Align y Distribute | Menú **Organizar** y **Alinear y distribuir…** |
-| Print & Cut | **Máquina > Print & Cut…**: asistente de 3 pasos con 2 a 4 marcas, medidas con el láser o con la cámara, ajuste sin escala, de escala uniforme o afín y el error de cada marca; ver [Print & Cut](09c-print-and-cut.md) (las imágenes no giran con el registro) |
+| Print & Cut | **Máquina > Print & Cut…**: asistente de 3 pasos con 2 a 4 marcas, medidas con el láser o con la cámara, ajuste sin escala, de escala uniforme o afín y el error de cada marca; ver [Print & Cut](09c-print-and-cut.md) (las imágenes también giran con el registro) |
 | (no existe en LightBurn) | **Máquina > Dividir en tramos…** (*tiling*): trabajos más grandes que la cama, con solape, marcas de alineación, envío por tramos y retomar; ver [Tiling y alimentador automático](09d-tiling-y-alimentador.md) |
-| Feeder (auto-feeder) | Grupo **Alimentador automático** del perfil, que usa el tiling entre tramos (una columna); no repite trabajos con avance |
-| Galvo: Frame con luz roja, Start | `tlaku galvo light` y `tlaku galvo mark` (experimental, solo línea de comandos; ver [Galvo](13c-galvo.md) y [Seguridad del galvo](13d-galvo-seguridad.md)) |
-| 3D Slice, Cylinder Correction, Taper Warp | Existen en el motor (los controles de la app están en camino); ver [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md) |
+| Feeder (auto-feeder) | Grupo **Alimentador automático** del perfil: lo usa el tiling entre tramos (una columna) y el diálogo de inicio **repite el trabajo N veces** con avance entre repeticiones (solo GRBL); ver [Tiling y alimentador automático](09d-tiling-y-alimentador.md) |
+| Machine profiles: default, order, icon | **Perfil predeterminado**, **Subir/Bajar en la lista** e **Ícono** en el grupo General del perfil; ver [Conectar tu máquina](08-conectar-maquina.md#ajustes-del-perfil-que-conviene-conocer) |
+| Red pointer offset, Swap X/Y, Auto-home, DTR, Synchronous mode | **Desfase del puntero rojo** (y **Llevar el puntero rojo al punto**), **Intercambiar X e Y en la máquina**, **Ofrecer el homing al conectar**, **Abrir el puerto serie sin subir DTR** y **Envío síncrono** en el perfil |
+| Units: mm/s | **Unidad de velocidad** del perfil (mm/min o mm/s): solo cambia cómo se muestran las velocidades del perfil y del diálogo de inicio |
+| Camera presets, network cameras, head alignment | **Configuraciones de cámara**, **Cámara de red (URL)** y **Alineación automática con marcas**; ver [Cámara](10-camara.md) |
+| (no existe en LightBurn) | **Máquina > Revisar diseño…** (`Ctrl/Cmd+Alt+R`): doce tipos de hallazgo con arreglos de un clic; ver [Revisar diseño](07b-revisar-diseno.md) |
+| Job history / log | **Ayuda > Registro de trabajos…**: fecha, máquina, documento, tiempo estimado y real y resultado de cada trabajo enviado |
+| Galvo: Frame con luz roja, Start | Panel **Máquina** con una tarjeta galvo (encuadre con rectángulo, contorno, casco convexo u objetos sueltos, con ajuste en vivo) y `tlaku galvo`; experimental, ver [Galvo](13c-galvo.md) y [Seguridad del galvo](13d-galvo-seguridad.md) |
+| 3D Slice, Cylinder Correction, Taper Warp | Con una máquina galvo: corrección de cilindro y de cono en el perfil y grabado 3D por cortes en el editor de capa; ver [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md) |
 | Preview | **Vista previa** |
 | Wireframe | **Solo contornos** |
 | Undo History | Pestaña **Historial** |
 | Convert to Path (texto) | **Convertir a trayectos** en el panel de texto y en el menú contextual |
 
-Las ventanas de Tlaku no flotan: son pestañas del panel derecho, que se pueden reordenar (ver [La interfaz](02-interfaz.md)). La única excepción es la **Biblioteca de arte**, un panel suelto en la esquina del lienzo.
+Las ventanas de Tlaku son pestañas del panel, que se pueden reordenar y **sacar a una ventana flotante** (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)). Las barras de herramientas de arriba no se pueden mover.
 
 ## Atajos
 
@@ -132,7 +139,7 @@ El esquema de Tlaku es **propio**: no reproduce el de LightBurn, y tú puedes ca
 | Nuevo, abrir, guardar | `Ctrl/Cmd+N`, `O`, `S` | `Ctrl+N`, `O`, `S` |
 | Guardar como | `Ctrl/Cmd+Shift+S` | `Ctrl+Shift+S` |
 | Importar diseño | `Ctrl/Cmd+I` | `Ctrl+I` |
-| Exportar | G-code: `Ctrl/Cmd+Shift+E`; SVG, DXF, PNG y PDF sin atajo | `Alt+X` (exportar) |
+| Exportar | G-code: `Ctrl/Cmd+Shift+E`; SVG, DXF, PNG, PDF y AI sin atajo | `Alt+X` (exportar) |
 | Imprimir | `Ctrl/Cmd+P` | `Ctrl+P` |
 | Deshacer / Rehacer | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` o `Ctrl/Cmd+Y` | `Ctrl+Z` / `Ctrl+Shift+Z` |
 | Copiar, cortar, pegar | `Ctrl/Cmd+C`, `X`, `V` | iguales |
@@ -153,6 +160,8 @@ El esquema de Tlaku es **propio**: no reproduce el de LightBurn, y tú puedes ca
 | Medir | `M` | `Alt+M` o `Ctrl+M` (la documentación dice las dos) |
 | Puentes manuales / punto de inicio / recortar formas | `U` / `Q` / `X` | (verifícalo en tu versión) |
 | Asistente booleano / recortar en el último clic | `Ctrl/Cmd+B` / `Ctrl/Cmd+K` | (verifícalo en tu versión) |
+| Deformar en el lienzo / redondear esquinas con clic | `Mayús+W` / `Mayús+F` | (verifícalo en tu versión) |
+| Revisar diseño | `Ctrl/Cmd+Alt+R` | (no existe) |
 | Nueva ventana | `Ctrl/Cmd+Shift+N` | (verifícalo en tu versión) |
 | Offset | `Alt+O` | `Alt+O` |
 | Soldar | `Alt+W` | `Ctrl+W` |
@@ -181,19 +190,19 @@ Diferencias que muerden:
 
 ## Lo que falta o es distinto
 
-Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB y por red (TCP y WebSocket), macros, ejes Z y U, posiciones guardadas, ajustes `$$` con respaldo, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas y su asistente, arreglos (también virtuales y a lo largo de un trazo), acoplar, nesting, recortar, separar, optimizar, redondear esquinas, cortar con una cuchilla, redimensionar ranuras, deformar, guías, notas y plantillas, biblioteca de arte, máscara de imagen, convertir a mapa de bits, vectorizar varias imágenes, texto (con fuentes de una línea, curvado y soldado), [texto variable](04b-texto-variable.md) (serie, CSV, fecha y hora), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, puentes manuales, punto de inicio y sentido, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, encuadre a baja potencia y en bucle, ajustes de velocidad y potencia en vivo, potencia en puentes, cámara con ojo de pez, cámara en el cabezal, buscador de centro, paquetes de configuración, Ruida (experimental), Print & Cut, tiling con alimentador automático, y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md).
+Hecho hoy en Tlaku: capas por color con modos Línea, Relleno e Imagen, vista previa con orden de corte y ajustes de optimización, conexión GRBL por USB y por red (TCP y WebSocket), macros, ejes Z y U, posiciones guardadas, ajustes `$$` con respaldo, consola, cámara, materiales, rotativo y eje Z, vectorizar, booleanas y su asistente, arreglos (también virtuales y a lo largo de un trazo), acoplar, nesting, recortar, separar, optimizar, redondear esquinas, cortar con una cuchilla, redimensionar ranuras, deformar, guías, notas y plantillas, biblioteca de arte, máscara de imagen, convertir a mapa de bits, vectorizar varias imágenes, texto (con fuentes de una línea, curvado y soldado), [texto variable](04b-texto-variable.md) (serie, CSV, fecha y hora), QR y códigos de barras, polígono y estrella, curvas Bézier, medir, voltear, orden de dibujo y bloqueo, puentes manuales, punto de inicio y sentido, menú contextual, preferencias, atajos configurables, autoguardado, los ajustes de corte avanzados (perforación, entrada y salida, sobrecorte, pausas, corte pasante, modo punto, rampa, operaciones adicionales, prioridad y escala de potencia por objeto, relleno por regiones, incremento de ángulo, imagen sin tramar), cortar solo la selección, encuadre de contorno, posicionar el láser, encuadre a baja potencia y en bucle, ajustes de velocidad y potencia en vivo, potencia en puentes, cámara con ojo de pez, cámara en el cabezal, buscador de centro, paquetes de configuración, Ruida (experimental), Print & Cut, tiling con alimentador automático, repetir trabajos con el alimentador, deformar con manijas, redondear con un clic, paneles flotantes, presets y vista previa de imagen, cámaras de red, [Revisar diseño](07b-revisar-diseno.md), el registro de trabajos, el galvo en la app (experimental), y exportar e importar los formatos de [Importar y exportar](03b-importar-y-exportar.md) (también `.rd`, `.egv` y la exportación a `.ai`).
 
 Falta, y no lo prometo si no está en el código:
 
-- **Print & Cut y tiling ya están** (ver [Print & Cut](09c-print-and-cut.md) y [Tiling y alimentador automático](09d-tiling-y-alimentador.md)), pero se probaron solo con la máquina virtual. **El tiling es algo que LightBurn no tiene**: allí un trabajo más grande que la cama se parte a mano. Print & Cut en Tlaku admite hasta 4 marcas, un ajuste afín y medir con la cámara; lo que falta es que las imágenes giren con el registro (se mueven y escalan, pero no giran).
-- **Del alimentador:** solo se usa dentro del tiling con los tramos en una columna; no repite un trabajo N veces con avance como el *Feeder* de LightBurn.
-- **Del diseño:** deformar con manijas en el lienzo o con una malla de 16 puntos (hoy es un diálogo con cuatro esquinas y cuatro bordes), redondear esquinas con un clic por esquina o revertirlo, escala progresiva al copiar a lo largo de un trazo, que **Cortar formas** agrupe las piezas en dentro y fuera, guías temporales de alineación, paneles flotantes y texto variable con valores de ajuste de capa o «hornear» (se logra convirtiendo el texto a trayectos).
-- **Del corte:** arrastrar puentes ya puestos, valores por defecto por color y por máquina (hay un solo juego), presets de Adjust Image y velocidad en mm/s (todo está en mm/min).
-- **De la máquina:** marcar un perfil como predeterminado, ordenarlos y darles ícono; el offset del puntero rojo, las unidades de dispositivo y de control, el intercambio X/Y, el auto-home, DTR y el modo síncrono; el ajuste de U por capa y el offset del segundo láser; el autoenfoque; cámaras de red y presets de cámara; y las cámaras en los paquetes. Con Ruida no se escriben los ajustes de la controladora ni se borran o ejecutan sus documentos, y no se abren `.rd`.
+- **Print & Cut y tiling ya están** (ver [Print & Cut](09c-print-and-cut.md) y [Tiling y alimentador automático](09d-tiling-y-alimentador.md)), pero se probaron solo con la máquina virtual. **El tiling es algo que LightBurn no tiene**: allí un trabajo más grande que la cama se parte a mano. Print & Cut en Tlaku admite hasta 4 marcas, un ajuste afín, medir con la cámara y las imágenes **giran con el registro**.
+- **Del alimentador:** el diálogo de inicio repite un trabajo N veces con avance, **solo con máquinas GRBL**; el alimentador propio de una controladora DSP (Ruida, Trocen) no se maneja.
+- **Del diseño:** escala progresiva al copiar a lo largo de un trazo, que **Cortar formas** agrupe las piezas en dentro y fuera, guías temporales de alineación y texto variable con valores de ajuste de capa o «hornear» (se logra convirtiendo el texto a trayectos).
+- **Del corte:** arrastrar puentes ya puestos y valores por defecto por color y por máquina (hay un solo juego). Las velocidades de las **capas** siguen en mm/min (solo el perfil y el diálogo de inicio pueden mostrarlas en mm/s).
+- **De la máquina:** las «unidades de dispositivo y de control» como en LightBurn (solo hay la unidad de velocidad), el ajuste de U por capa (hay un desplazamiento U por trabajo en el perfil) y el offset del segundo láser; el autoenfoque. Con Ruida no se escriben los ajustes de la controladora ni se borran o ejecutan sus documentos (los `.rd` sí se abren como diseño).
 - **Del modo principiante:** en Tlaku solo oculta ajustes avanzados del editor de capa; no oculta herramientas ni menús como el de LightBurn.
 - No se pueden ocultar objetos sueltos (sí capas), no hay selección con `Tab` ni sesgar.
 - Las **pulgadas** de las preferencias se aplican en la barra numérica, la barra de estado, las reglas (décimas de pulgada), Medir y los campos de longitud de los diálogos de Organizar y de Acomodar piezas; los campos aceptan fracciones (`3/8"`, `1 1/2 in`) y sufijos (`5mm`, `50%`). Las velocidades siguen en mm/min y los campos de las capas, de las áreas de máquina y de cámara, en mm.
-- **Galvo (fibra, UV):** soporte **experimental** para la tarjeta LMCV4 de EZCAD2 desde la línea de comandos (`tlaku galvo`), solo probado contra una tarjeta simulada; la interfaz en la app está en camino. Lee primero [Seguridad del galvo](13d-galvo-seguridad.md). No hay pausa (solo detener), asistente de alta, calibración de la lente de 9 puntos ni archivos `.cor`, y EZCAD3/DLC y BSL no se soportan. Trocen y TopWisdom no están soportados. GRBL por red (TCP y WebSocket) está; Ruida y el K40 con M2 Nano son experimentales y ninguno se probó con una máquina real: ver [Controladoras soportadas](13-controladoras.md).
+- **Galvo (fibra, UV):** soporte **experimental** para la tarjeta LMCV4 de EZCAD2, desde la app (alta con verificación sin láser, perfil, encuadre, overscan, entradas requeridas) y desde la línea de comandos (`tlaku galvo`), solo probado contra una tarjeta simulada. Lee primero [Seguridad del galvo](13d-galvo-seguridad.md). No hay pausa (solo detener), calibración de la lente de 9 puntos ni archivos `.cor`, y EZCAD3/DLC y BSL no se soportan. Trocen y TopWisdom no están soportados. GRBL por red (TCP y WebSocket) está; Ruida y el K40 con M2 Nano son experimentales y ninguno se probó con una máquina real: ver [Controladoras soportadas](13-controladoras.md).
 - Solo hay una capa de guías (la de la paleta de colores); las guías de las reglas son aparte.
 - **Nueva ventana** no se ha probado en una ventana real (ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)).
 

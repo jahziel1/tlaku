@@ -124,7 +124,7 @@ export function ImagePreviewPanel({ layer }: { layer: LayerSettings }) {
   }
 
   return (
-    <aside className="img-preview" role="dialog" aria-label={t('layers.preview.title')}>
+    <section className="img-preview" role="dialog" aria-label={t('layers.preview.title')}>
       <header className="img-preview__head">
         <h2 className="panel-title">{t('layers.preview.title')}</h2>
         <button type="button" className="icon-btn" aria-label={t('layers.preview.close')} title={t('layers.preview.close')} onClick={() => set({ open: false })}>
@@ -188,6 +188,6 @@ export function ImagePreviewPanel({ layer }: { layer: LayerSettings }) {
           {zoom !== 'fit' && <p className="hint">{t('layers.preview.pan')}</p>}
         </>
       )}
-    </aside>
+    </section>
   );
 }

@@ -4,11 +4,11 @@ import { getApi } from '@/api';
 import type { DeviceProfile, LhyPreview, LhyWarning } from '@/api/types';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { t, type I18nKey } from '@/i18n';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, isStopUnconfirmed as hasStopCode } from '@/lib/errors';
 import { fmt, fmtClock } from '@/lib/platform';
 import { useStore } from '@/store';
 import { buildJobArgs } from '@/store/selectors';
-import { LHY_UNCONFIRMED, selectIsLhy } from './lhyPorts';
+import { selectIsLhy } from './lhyPorts';
 
 /** Etiqueta «Experimental» con el aviso completo como ayuda. */
 export function LhyExperimentalBadge() {
@@ -125,9 +125,9 @@ export function LhyNotApplicable({ reason }: { reason: 'lhymicro.console.reason'
   return <p className="hint" role="note">{t(reason)}</p>;
 }
 
-/** ¿El mensaje de un trabajo dice que detener no se confirmó? (el motor deja `LHY_UNCONFIRMED`). */
+/** ¿El mensaje del motor dice que detener no se confirmó? (lleva el código `stop_unconfirmed`, sin importar el idioma). */
 export function isUnconfirmedStop(...messages: (string | null | undefined)[]): boolean {
-  return messages.some((m) => !!m && m.includes(LHY_UNCONFIRMED));
+  return messages.some((m) => !!m && hasStopCode(m));
 }
 
 /**
@@ -135,9 +135,9 @@ export function isUnconfirmedStop(...messages: (string | null | undefined)[]): b
  * es el paro de emergencia. Queda hasta descartarlo o hasta que llegue otro mensaje. Recibe los
  * mensajes del trabajo para poder probarse por separado.
  */
-export function LhyStopNoticeView({ message, error }: { message: string; error: string | null }) {
+export function LhyStopNoticeView({ message, error, unconfirmed }: { message: string; error: string | null; unconfirmed: boolean }) {
   const [dismissed, setDismissed] = useState<string | null>(null);
-  const text = isUnconfirmedStop(message, error) ? `${error ?? ''}|${message}` : null;
+  const text = unconfirmed ? `${error ?? ''}|${message}` : null;
   if (text === null || dismissed === text) return null;
   return (
     <div className="mc-joberror mc-lhy-stop" role="alert">
@@ -158,5 +158,6 @@ export function LhyStopNotice() {
   const lhy = useStore(selectIsLhy);
   const message = useStore((s) => s.jobMessage);
   const error = useStore((s) => s.jobError);
-  return lhy ? <LhyStopNoticeView message={message} error={error} /> : null;
+  const unconfirmed = useStore((s) => s.stopUnconfirmed);
+  return lhy ? <LhyStopNoticeView message={message} error={error} unconfirmed={unconfirmed} /> : null;
 }

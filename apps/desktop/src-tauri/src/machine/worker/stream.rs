@@ -1,6 +1,7 @@
 //! Transmisión: el trabajador mientras el `Streamer` tiene el puerto, y el cierre del trabajo.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn stream_step(&mut self, mut run: Run) -> Result<Phase, Fail> {
@@ -25,8 +26,6 @@ impl Worker {
     }
 
     pub(super) fn stream_request(&mut self, run: &mut Run, req: Request) {
-        let busy = "Hay un trabajo en curso. Pausa o cancela antes de enviar otra cosa a la \
-                    máquina.";
         let ok = |reply: Reply| {
             let _ = reply.send(Ok(Vec::new()));
         };
@@ -82,7 +81,7 @@ impl Worker {
             | Request::Jog { reply, .. }
             | Request::JogTo { reply, .. }
             | Request::Start { reply, .. } => {
-                let _ = reply.send(Err(busy.into()));
+                let _ = reply.send(Err(tr!("desktop.worker.job_running")));
             }
             Request::Disconnect => unreachable!("se atiende antes"),
         }
@@ -92,7 +91,7 @@ impl Worker {
         run.job.control.pause();
         self.set_reported_state(MachineState::Hold);
         if run.kind == RunKind::Job {
-            self.job_event(JobState::Paused, "En pausa.");
+            self.job_event(JobState::Paused, &tr!("desktop.worker.job_paused"));
         }
     }
 
@@ -100,7 +99,7 @@ impl Worker {
         run.job.control.resume();
         self.set_reported_state(MachineState::Run);
         if run.kind == RunKind::Job {
-            self.job_event(JobState::Started, "Reanudado.");
+            self.job_event(JobState::Started, &tr!("desktop.worker.job_resumed"));
         }
     }
 
@@ -132,14 +131,18 @@ impl Worker {
                 source_line,
                 text,
             } => {
-                let at = match (source_line, text) {
-                    (Some(l), Some(t)) => format!(" en la línea {l} ({t})"),
-                    _ => String::new(),
+                let msg = error_message_for(self.fw, code);
+                let shown = match (source_line, text) {
+                    (Some(l), Some(t)) => tr!(
+                        "desktop.worker.log_error_at_line",
+                        code = code,
+                        line = l,
+                        text = t,
+                        msg = msg
+                    ),
+                    _ => format!("error:{code}: {msg}"),
                 };
-                self.log(
-                    LogDir::In,
-                    &format!("error:{code}{at}: {}", error_message_for(self.fw, code)),
-                );
+                self.log(LogDir::In, &shown);
             }
             Event::Alarm(code) => {
                 self.log(
@@ -169,7 +172,10 @@ impl Worker {
             }
         }
         if run.kind == RunKind::Job {
-            self.job_event(JobState::Cancelled, "Trabajo cancelado al desconectar.");
+            self.job_event(
+                JobState::Cancelled,
+                &tr!("desktop.worker.job_cancelled_disconnect"),
+            );
         }
         let _ = run.job.join();
     }
@@ -180,7 +186,7 @@ impl Worker {
         let (streamer, outcome) = run
             .job
             .join()
-            .map_err(|_| Fail::Lost("el hilo de envío terminó de forma inesperada".into()))?;
+            .map_err(|_| Fail::Lost(tr!("desktop.worker.stream_thread_died")))?;
         // Si la máquina se detuvo (cancelación, error, falla de Creality), cómo quedó.
         // `ALARM:3` es justo eso: reinicio con la máquina en movimiento.
         let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost)
@@ -195,43 +201,41 @@ impl Worker {
         self.set_reported_state(MachineState::Idle);
         match (&outcome, kind) {
             (Outcome::Completed { errors: 0 }, RunKind::Job) => {
-                self.job_event(JobState::Finished, "Trabajo terminado.");
+                self.job_event(JobState::Finished, &tr!("desktop.worker.job_finished"));
             }
             (Outcome::Completed { errors: 0 }, RunKind::Frame) => {
-                self.log(LogDir::In, "; encuadre terminado");
+                self.log(LogDir::In, &frame_done_log());
             }
             (Outcome::Cancelled, RunKind::Job) => {
-                let mut msg = String::from(
-                    "Trabajo cancelado: se envió pausa, se esperó a que frenara y se reinició; \
-                     el láser quedó apagado.",
-                );
+                let mut msg = tr!("desktop.worker.job_cancelled");
                 if position_lost {
                     msg.push(' ');
-                    msg.push_str(POSITION_LOST_NOTE);
+                    msg.push_str(&position_lost_note());
                 }
                 self.job_event_at(JobState::Cancelled, &msg, position_lost);
             }
             (Outcome::Cancelled, RunKind::Frame) => {
-                self.log(LogDir::In, "; encuadre cancelado");
+                self.log(LogDir::In, &frame_cancelled_log());
                 if position_lost {
-                    self.log(LogDir::In, &format!("; {POSITION_LOST_NOTE}"));
+                    self.log(LogDir::In, &format!("; {}", position_lost_note()));
                 }
             }
             _ => {
                 let mut msg = outcome_result_for(self.fw, &outcome)
                     .err()
-                    .unwrap_or_else(|| "el envío terminó con errores".into());
+                    .unwrap_or_else(|| tr!("desktop.worker.stream_errors"));
                 if position_lost {
                     msg.push(' ');
-                    msg.push_str(POSITION_LOST_NOTE);
+                    msg.push_str(&position_lost_note());
                 }
                 self.log(LogDir::In, &first_line(&msg));
                 self.job_event_at(JobState::Error, &msg, position_lost);
             }
         }
         if let Outcome::Disconnected(m) = outcome {
-            return Err(Fail::Lost(format!(
-                "se perdió la conexión con la máquina: {m}"
+            return Err(Fail::Lost(tr!(
+                "desktop.worker.connection_lost_io",
+                err = m
             )));
         }
         Ok(Phase::Idle(t))

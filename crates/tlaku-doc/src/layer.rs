@@ -4,6 +4,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use tlaku_core::Rgb;
+use tlaku_i18n::tr;
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -52,16 +53,14 @@ impl<'de> Deserialize<'de> for Overscan {
             type Value = Overscan;
 
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("\"auto\" o un número en mm")
+                f.write_str(&tr!("doc.layer.overscan_expected"))
             }
 
             fn visit_str<E: de::Error>(self, v: &str) -> Result<Overscan, E> {
                 if v.eq_ignore_ascii_case("auto") {
                     Ok(Overscan::Auto)
                 } else {
-                    Err(E::custom(format!(
-                        "overscan inválido '{v}': usa \"auto\" o un número en mm"
-                    )))
+                    Err(E::custom(tr!("doc.layer.overscan_invalid", value = v)))
                 }
             }
 
@@ -356,7 +355,7 @@ impl LayerSettings {
     /// Capa de imágenes: modo image y la velocidad de grabado habitual (3000 mm/min).
     pub fn for_images() -> Self {
         Self {
-            name: "Imagen".into(),
+            name: tr!("doc.layer.images"),
             mode: LayerMode::Image,
             speed: 3000.0,
             ..Self::for_color(Self::IMAGE_COLOR)

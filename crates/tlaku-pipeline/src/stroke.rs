@@ -35,6 +35,7 @@ use tlaku_core::toolpath::Move;
 use tlaku_core::{Point, Polyline};
 use tlaku_doc::{LayerSettings, LeadKind};
 use tlaku_geom::{PointLocation, locate_point, signed_area};
+use tlaku_i18n::tr;
 
 /// Período mínimo (mm) de la perforación y separación mínima del modo punto.
 const MIN_PERIOD_MM: f64 = 0.01;
@@ -91,19 +92,23 @@ fn resolve_lead(l: &tlaku_doc::Lead, what: &str) -> Result<Option<LeadSpec>, Str
         return Ok(None);
     }
     if !(l.length.is_finite() && l.length > 0.0) {
-        return Err(format!(
-            "{what}: el largo debe ser mayor que 0: {}",
-            l.length
+        return Err(tr!(
+            "pipeline.stroke.lead_bad_length",
+            what = what,
+            value = l.length
         ));
     }
     let (max, unit) = match l.kind {
-        LeadKind::Straight => (90.0, "ángulo"),
-        LeadKind::Arc => (180.0, "barrido"),
+        LeadKind::Straight => (90.0, tr!("pipeline.stroke.lead_angle")),
+        LeadKind::Arc => (180.0, tr!("pipeline.stroke.lead_sweep")),
     };
     if !(l.angle.is_finite() && l.angle > 0.0 && l.angle <= max) {
-        return Err(format!(
-            "{what}: el {unit} debe estar entre 0 y {max} grados: {}",
-            l.angle
+        return Err(tr!(
+            "pipeline.stroke.lead_bad_angle",
+            what = what,
+            unit = unit,
+            max = max,
+            value = l.angle
         ));
     }
     Ok(Some(LeadSpec {
@@ -116,44 +121,51 @@ fn resolve_lead(l: &tlaku_doc::Lead, what: &str) -> Result<Option<LeadSpec>, Str
 /// Lee y valida los ajustes de trazo de una capa line. `None` si no hay ninguno activo. Los
 /// ajustes desactivados no se validan (como los puentes).
 pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<StrokeSpec>, String> {
-    let err = |m: String| format!("capa {}: {m}", l.color);
+    let err = |m: String| tr!("pipeline.stroke.layer_error", layer = l.color, error = m);
     let perforation = if l.perforation.enabled {
         let p = &l.perforation;
         if !(p.cut_mm.is_finite() && p.cut_mm > 0.0 && p.skip_mm.is_finite() && p.skip_mm > 0.0) {
-            return Err(err(format!(
-                "perforación: el corte ({}) y el hueco ({}) deben ser mayores que 0 mm",
-                p.cut_mm, p.skip_mm
+            return Err(err(tr!(
+                "pipeline.stroke.perforation_bad",
+                cut = p.cut_mm,
+                skip = p.skip_mm
             )));
         }
         if p.cut_mm + p.skip_mm < MIN_PERIOD_MM {
-            return Err(err(format!(
-                "perforación: el patrón de {} mm es demasiado fino (mínimo {MIN_PERIOD_MM} mm)",
-                p.cut_mm + p.skip_mm
+            return Err(err(tr!(
+                "pipeline.stroke.perforation_too_fine",
+                period = p.cut_mm + p.skip_mm,
+                min = MIN_PERIOD_MM
             )));
         }
         Some((p.cut_mm, p.skip_mm))
     } else {
         None
     };
-    let lead_in = resolve_lead(&l.lead_in, "entrada").map_err(&err)?;
-    let lead_out = resolve_lead(&l.lead_out, "salida").map_err(&err)?;
+    let lead_in = resolve_lead(&l.lead_in, &tr!("pipeline.stroke.lead_in")).map_err(&err)?;
+    let lead_out = resolve_lead(&l.lead_out, &tr!("pipeline.stroke.lead_out")).map_err(&err)?;
     if !(l.overcut.is_finite() && l.overcut >= 0.0) {
-        return Err(err(format!("overcut inválido: {}", l.overcut)));
+        return Err(err(tr!("pipeline.stroke.bad_overcut", value = l.overcut)));
     }
-    for (name, v) in [
-        ("pausa de inicio", l.start_delay_ms),
-        ("pausa de fin", l.end_delay_ms),
-    ] {
-        if !(v.is_finite() && v >= 0.0) {
-            return Err(err(format!("{name} inválida: {v} ms")));
-        }
+    if !(l.start_delay_ms.is_finite() && l.start_delay_ms >= 0.0) {
+        return Err(err(tr!(
+            "pipeline.stroke.bad_start_delay",
+            value = l.start_delay_ms
+        )));
+    }
+    if !(l.end_delay_ms.is_finite() && l.end_delay_ms >= 0.0) {
+        return Err(err(tr!(
+            "pipeline.stroke.bad_end_delay",
+            value = l.end_delay_ms
+        )));
     }
     let cut_through = if l.cut_through.enabled {
         let c = &l.cut_through;
         if !(finite_in(c.power, 0.0, 100.0) && c.ms.is_finite() && c.ms > 0.0) {
-            return Err(err(format!(
-                "corte pasante: potencia 0-100 % y tiempo mayor que 0 ms (recibí {} % y {} ms)",
-                c.power, c.ms
+            return Err(err(tr!(
+                "pipeline.stroke.cut_through_bad",
+                power = c.power,
+                ms = c.ms
             )));
         }
         Some((c.power, c.ms))
@@ -167,10 +179,11 @@ pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<StrokeSpec>, String> {
             && d.spacing_mm.is_finite()
             && d.spacing_mm >= MIN_PERIOD_MM;
         if !ok {
-            return Err(err(format!(
-                "modo punto: tiempo mayor que 0 ms y separación de al menos {MIN_PERIOD_MM} mm \
-                 (recibí {} ms y {} mm)",
-                d.dwell_ms, d.spacing_mm
+            return Err(err(tr!(
+                "pipeline.stroke.dot_bad",
+                min = MIN_PERIOD_MM,
+                ms = d.dwell_ms,
+                mm = d.spacing_mm
             )));
         }
         Some((d.dwell_ms, d.spacing_mm))
@@ -180,9 +193,10 @@ pub(crate) fn resolve(l: &LayerSettings) -> Result<Option<StrokeSpec>, String> {
     let ramp = if l.ramp.enabled {
         let r = &l.ramp;
         if !(r.length_mm.is_finite() && r.length_mm > 0.0 && finite_in(r.start_pct, 0.0, 100.0)) {
-            return Err(err(format!(
-                "rampa: largo mayor que 0 mm y potencia inicial de 0-100 % (recibí {} mm y {} %)",
-                r.length_mm, r.start_pct
+            return Err(err(tr!(
+                "pipeline.stroke.ramp_bad",
+                mm = r.length_mm,
+                pct = r.start_pct
             )));
         }
         Some(RampSpec {
@@ -227,15 +241,12 @@ impl StrokeSpec {
         if self.dot.is_none() {
             return;
         }
-        let mut note = |what: &str, why: &str| {
-            self.conflicts
-                .push(format!("el modo punto ignora {what}: {why}"));
-        };
+        let mut note = |message: String| self.conflicts.push(message);
         if self.perforation.take().is_some() {
-            note("la perforación", "los puntos ya son intermitentes");
+            note(tr!("pipeline.stroke.dot_ignores_perforation"));
         }
         if self.ramp.take().is_some() {
-            note("la rampa", "cada punto dispara a la potencia de la capa");
+            note(tr!("pipeline.stroke.dot_ignores_ramp"));
         }
         let leads = [
             self.lead_in.take().is_some(),
@@ -243,10 +254,7 @@ impl StrokeSpec {
             std::mem::take(&mut self.overcut) > 0.0,
         ];
         if leads.contains(&true) {
-            note(
-                "la entrada, la salida y el overcut",
-                "no hay una línea que alargar",
-            );
+            note(tr!("pipeline.stroke.dot_ignores_leads"));
         }
         let pauses = [
             self.cut_through.take().is_some(),
@@ -254,10 +262,7 @@ impl StrokeSpec {
             std::mem::take(&mut self.end_delay_ms) > 0.0,
         ];
         if pauses.contains(&true) {
-            note(
-                "las pausas y el corte pasante",
-                "cada punto ya tiene su pausa",
-            );
+            note(tr!("pipeline.stroke.dot_ignores_pauses"));
         }
     }
 
@@ -292,64 +297,50 @@ impl StrokeStats {
             .map(|s| {
                 s.conflicts
                     .iter()
-                    .map(|c| format!("capa {name}: {c}"))
+                    .map(|c| tr!("pipeline.stroke.layer_warning", name = name, message = c))
                     .collect()
             })
             .unwrap_or_default();
         let mut push = |n: usize, msg: String| {
             if n > 0 {
-                out.push(format!("capa {name}: {msg}"));
+                out.push(tr!(
+                    "pipeline.stroke.layer_warning",
+                    name = name,
+                    message = msg
+                ));
             }
         };
         push(
             self.shortened,
-            format!(
-                "{} entrada(s) o salida(s) se acortaron para no cruzar la forma",
-                self.shortened
-            ),
+            tr!("pipeline.stroke.shortened", n = self.shortened),
         );
         push(
             self.dropped,
-            format!(
-                "{} entrada(s) o salida(s) se omitieron: no caben sin cruzar la forma",
-                self.dropped
-            ),
+            tr!("pipeline.stroke.dropped", n = self.dropped),
         );
         push(
             self.open_skipped,
-            format!(
-                "{} trayectoria(s) abierta(s) sin entrada, salida ni overcut: solo valen en contornos cerrados",
-                self.open_skipped
-            ),
+            tr!("pipeline.stroke.open_skipped", n = self.open_skipped),
         );
         push(
             self.tabbed_skipped,
-            format!(
-                "{} forma(s) con puentes sin entrada, salida ni overcut: no son un contorno cerrado entero",
-                self.tabbed_skipped
-            ),
+            tr!("pipeline.stroke.tabbed_skipped", n = self.tabbed_skipped),
         );
         push(
             self.overcut_clamped,
-            format!(
-                "el overcut de {} contorno(s) pasaba del perímetro y se limitó a una vuelta",
-                self.overcut_clamped
-            ),
+            tr!("pipeline.stroke.overcut_clamped", n = self.overcut_clamped),
         );
         push(
             self.too_fine,
-            format!(
-                "{} trayecto(s) demasiado largos para el patrón pedido (más de {MAX_PIECES} \
-                 tramos o puntos): se cortan sin perforar ni puntos",
-                self.too_fine
+            tr!(
+                "pipeline.stroke.too_fine",
+                n = self.too_fine,
+                max = MAX_PIECES
             ),
         );
         push(
             self.power_clamped,
-            format!(
-                "la escala de potencia de {} trayectoria(s) pasa de 100 %: se limita a 100 %",
-                self.power_clamped
-            ),
+            tr!("pipeline.stroke.power_clamped", n = self.power_clamped),
         );
         out
     }

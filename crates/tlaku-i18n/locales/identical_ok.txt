@@ -1,0 +1,20 @@
+# Claves cuyo texto en inglés puede ser idéntico al español (nombres propios, códigos, unidades).
+# Una clave por línea.
+grbl.preflight.state_home
+grbl.preflight.firmware_line
+grbl.preflight.alarm_outcome
+pipeline.layers.reason_kerf
+pipeline.preview.overscan
+pipeline.preview.z
+ruida.what.color
+ruida.cmd.at_byte
+cli.link.alarm
+cli.link.error
+text.library.with_path
+desktop.galvo.no
+desktop.galvo.firmware
+desktop.galvo.firmware_virtual
+pipeline.material_test.axis_interval
+pipeline.material_test.axis_power
+pipeline.material_test.short_interval
+pipeline.material_test.short_power

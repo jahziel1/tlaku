@@ -9,3 +9,4 @@ tlaku-core = { version = "0.1.0", path = "../tlaku-core", features = ["ts"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 ts-rs = "12.0.1"
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }

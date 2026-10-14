@@ -11,6 +11,7 @@ tlaku-dxf = { version = "0.1.0", path = "../tlaku-dxf" }
 tlaku-fill = { version = "0.1.0", path = "../tlaku-fill" }
 tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 tlaku-grbl = { version = "0.1.0", path = "../tlaku-grbl" }
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
 tlaku-lhymicro = { version = "0.1.0", path = "../tlaku-lhymicro", default-features = false }
 tlaku-lbrn = { version = "0.1.0", path = "../tlaku-lbrn" }
 tlaku-plan = { version = "0.1.0", path = "../tlaku-plan" }

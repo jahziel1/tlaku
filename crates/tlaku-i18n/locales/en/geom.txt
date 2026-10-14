@@ -1,0 +1,10 @@
+# Mensajes de tlaku-geom (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: geom.<módulo>.<qué> = plantilla
+
+# tangent.rs
+geom.tangent.too_detailed = The shapes have too much detail to look for tangent circles: simplify them first.
+geom.tangent.select = Select two or three shapes or lines for the tangent circle.
+geom.tangent.no_stroke = One of the shapes has no stroke to be tangent to.
+geom.tangent.no_size = The shapes have no size.
+geom.tangent.no_radius = The radius of the tangent circle is missing.
+geom.tangent.bad_radius = The radius must be a positive number.

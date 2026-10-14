@@ -182,7 +182,7 @@ export function CsvTableView({ table, current, onPick }: { table: CsvTable | nul
   return (
     <div className="vt-tablebox">
       <div className="vt-scroll" role="region" aria-label={t('variables.table.label')} tabIndex={0}>
-        <table className="vt-table">
+        <table className="vt-table" aria-label={t('a11y.table.variables')}>
           <thead>
             <tr>
               <th scope="col" className="num">#</th>

@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { useStore } from '@/store';
 import { openReview } from './store';
 import { useReview } from './useReview';
@@ -16,7 +16,7 @@ export function ReviewNotice() {
   return (
     <p className="warn-line rv-notice" role="status">
       <TriangleAlert size={14} aria-hidden="true" />
-      <span>{serious.length === 1 ? t('review.notice.one') : t('review.notice.other', { n: serious.length })}</span>
+      <span>{tn('review.notice', serious.length)}</span>
       <button
         type="button"
         className="rv-notice__link"

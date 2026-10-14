@@ -9,6 +9,7 @@
 
 use serde::Serialize;
 use std::path::Path;
+use tlaku_i18n::tr;
 
 /// Más filas que esto no son una lista de etiquetas, son un error de archivo.
 pub const MAX_ROWS: usize = 100_000;
@@ -139,8 +140,9 @@ fn records(text: &str, delim: char) -> Result<Vec<Vec<String>>, String> {
         }
     }
     if in_quotes {
-        return Err(format!(
-            "Comillas sin cerrar (empiezan en la línea {quote_line})."
+        return Err(tr!(
+            "desktop.edit.variables.unclosed_quote",
+            line = quote_line
         ));
     }
     if !field.is_empty() || !row.is_empty() || quoted {
@@ -152,19 +154,18 @@ fn records(text: &str, delim: char) -> Result<Vec<Vec<String>>, String> {
 /// Lee un CSV desde sus bytes (UTF-8 con o sin BOM).
 pub fn parse_csv(bytes: &[u8]) -> Result<CsvTable, String> {
     let bytes = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| "El CSV debe estar guardado como UTF-8.".to_string())?;
+    let text = std::str::from_utf8(bytes).map_err(|_| tr!("desktop.edit.variables.not_utf8"))?;
     let delim = detect_delimiter(text);
     let mut recs = records(text, delim)?.into_iter();
     let Some(head) = recs.next() else {
-        return Err("El CSV está vacío.".into());
+        return Err(tr!("desktop.edit.variables.empty"));
     };
     let headers: Vec<String> = head.iter().map(|h| h.trim().to_string()).collect();
     let width = headers.len();
     let mut rows = Vec::new();
     for mut r in recs {
         if rows.len() >= MAX_ROWS {
-            return Err(format!("El CSV tiene más de {MAX_ROWS} filas."));
+            return Err(tr!("desktop.edit.variables.too_many_rows", max = MAX_ROWS));
         }
         if r.len() < width {
             r.resize(width, String::new());
@@ -180,20 +181,30 @@ pub fn parse_csv(bytes: &[u8]) -> Result<CsvTable, String> {
 
 /// Lee el archivo y comprueba que existan las columnas de `required`.
 pub fn read_csv_file(path: &Path, required: &[String]) -> Result<CsvTable, String> {
-    let meta = std::fs::metadata(path)
-        .map_err(|e| format!("No se pudo abrir el CSV «{}»: {e}", path.display()))?;
+    let meta = std::fs::metadata(path).map_err(|e| {
+        tr!(
+            "desktop.edit.variables.open_failed",
+            path = path.display(),
+            err = e
+        )
+    })?;
     if meta.len() > MAX_BYTES {
-        return Err("El CSV pesa más de 50 MB.".into());
+        return Err(tr!("desktop.edit.variables.too_big"));
     }
-    let bytes = std::fs::read(path)
-        .map_err(|e| format!("No se pudo leer el CSV «{}»: {e}", path.display()))?;
+    let bytes = std::fs::read(path).map_err(|e| {
+        tr!(
+            "desktop.edit.variables.read_failed",
+            path = path.display(),
+            err = e
+        )
+    })?;
     let table = parse_csv(&bytes)?;
     let missing = table.missing(required);
     if !missing.is_empty() {
-        return Err(format!(
-            "Al CSV le faltan columnas que usa el diseño: {}. Columnas disponibles: {}.",
-            missing.join(", "),
-            table.headers.join(", ")
+        return Err(tr!(
+            "desktop.edit.variables.missing_columns",
+            missing = missing.join(", "),
+            available = table.headers.join(", ")
         ));
     }
     Ok(table)
@@ -207,7 +218,7 @@ pub async fn read_csv(path: String, required: Option<Vec<String>>) -> Result<Csv
         read_csv_file(Path::new(&path), &required.unwrap_or_default())
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

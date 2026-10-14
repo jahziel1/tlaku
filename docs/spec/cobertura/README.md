@@ -1,6 +1,6 @@
 # 04 - Cobertura funcional real de Tlaku frente al inventario de LightBurn
 
-Este documento se partió en un archivo por área (antes era un solo archivo de 128 KB). Aquí están el resumen y los totales; el detalle de cada fila está en los archivos de la tabla de abajo. La nota de auditoría, cómo leer las tablas, el historial por ola y las discrepancias vigentes están en [auditoria.md](auditoria.md).
+Este documento se partió en un archivo por área (antes era un solo archivo de 128 KB). Aquí están el resumen y los totales; el detalle de cada fila está en los archivos de la tabla de abajo. La nota de auditoría, cómo leer las tablas, el historial por ola y las discrepancias vigentes están en [auditoria.md](auditoria.md). Los totales de abajo los produce un script que lee las filas de `diseno.md`, `capas.md` y `maquinas.md` (auditoría final de la ola 6D, 2026-10-14).
 
 ## 1. Resumen
 
@@ -8,36 +8,36 @@ Este documento se partió en un archivo por área (antes era un solo archivo de 
 
 |  | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| P0 | 65 | 3 | 0 | 0 | 0 | 68 |
-| P1 | 75 | 13 | 0 | 0 | 0 | 88 |
-| P2 | 40 | 11 | 10 | 0 | 0 | 61 |
-| Total | 180 | 27 | 10 | 0 | 0 | 217 |
+| P0 | 68 | 0 | 0 | 0 | 0 | 68 |
+| P1 | 79 | 9 | 0 | 0 | 0 | 88 |
+| P2 | 48 | 13 | 0 | 0 | 0 | 61 |
+| Total | 195 | 22 | 0 | 0 | 0 | 217 |
 
 ### Por área
 
 |  | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| Diseño y edición | 91 | 9 | 0 | 0 | 0 | 100 |
-| Capas, corte e imagen | 57 | 1 | 2 | 0 | 0 | 60 |
-| Máquinas y avanzadas | 32 | 17 | 8 | 0 | 0 | 57 |
+| Diseño y edición | 94 | 6 | 0 | 0 | 0 | 100 |
+| Capas, corte e imagen | 59 | 1 | 0 | 0 | 0 | 60 |
+| Máquinas y avanzadas | 42 | 15 | 0 | 0 | 0 | 57 |
 
 ### Por área y prioridad
 
 | Área | Prio | Hecho | Parcial | Solo motor/CLI | Falta | No aplica | Total |
 |---|---|---:|---:|---:|---:|---:|---:|
 | Diseño y edición | P0 | 32 | 0 | 0 | 0 | 0 | 32 |
-| Diseño y edición | P1 | 35 | 4 | 0 | 0 | 0 | 39 |
-| Diseño y edición | P2 | 24 | 5 | 0 | 0 | 0 | 29 |
+| Diseño y edición | P1 | 37 | 2 | 0 | 0 | 0 | 39 |
+| Diseño y edición | P2 | 25 | 4 | 0 | 0 | 0 | 29 |
 | Capas, corte e imagen | P0 | 22 | 0 | 0 | 0 | 0 | 22 |
 | Capas, corte e imagen | P1 | 22 | 1 | 0 | 0 | 0 | 23 |
-| Capas, corte e imagen | P2 | 13 | 0 | 2 | 0 | 0 | 15 |
-| Máquinas y avanzadas | P0 | 11 | 3 | 0 | 0 | 0 | 14 |
-| Máquinas y avanzadas | P1 | 18 | 8 | 0 | 0 | 0 | 26 |
-| Máquinas y avanzadas | P2 | 3 | 6 | 8 | 0 | 0 | 17 |
+| Capas, corte e imagen | P2 | 15 | 0 | 0 | 0 | 0 | 15 |
+| Máquinas y avanzadas | P0 | 14 | 0 | 0 | 0 | 0 | 14 |
+| Máquinas y avanzadas | P1 | 20 | 6 | 0 | 0 | 0 | 26 |
+| Máquinas y avanzadas | P2 | 8 | 9 | 0 | 0 | 0 | 17 |
 
-Tras la ola 6C: 180 hechas, 27 parciales, 10 solo motor/CLI y 0 faltantes (D94 hecha; D90 parcial). Antes de la ola 5.5: 175 hechas, 27 parciales, 10 solo motor/CLI y 2 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 5: 173 hechas, 26 parciales, 0 solo motor/CLI y 15 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 4: 165 hechas, 23 parciales, 3 solo motor/CLI y 23 faltantes (P0: 62 / 6 / 0 / 0). Antes de la ola 3: 143 hechas, 22 parciales, 3 solo motor/CLI y 46 faltantes (P0 igual: 62 / 6 / 0 / 0). Antes de la ola 2: 120 hechas, 27 parciales, 6 solo motor/CLI y 61 faltantes contando las filas (el resumen de entonces decía 26 parciales y 62 faltantes: una fila de capas P1 figuraba como Falta en el resumen y como Parcial en su tabla). Antes de la ola 1: 88 hechas, 31 parciales, 6 solo motor/CLI y 89 faltantes (P0: 53 / 13 / 1 / 1).
+Tras la auditoría de la ola 6D (2026-10-14): **195 hechas, 22 parciales, 0 solo motor/CLI y 0 faltantes** de 217 (P0: 68 / 0 / 0 / 0). Antes de ella (tras la ola 6C, con las filas ya recontadas): 182 / 25 / 10 / 0 (P0: 65 / 3 / 0 / 0); el resumen de entonces decía 180 / 27 / 10 / 0 porque D04 y D12 habían pasado a Hecho en las filas sin recalcular los totales. Antes de la ola 5.5: 175 hechas, 27 parciales, 10 solo motor/CLI y 2 faltantes (P0: 64 / 4 / 0 / 0). Antes de la ola 5: 173 hechas, 26 parciales, 0 solo motor/CLI y 15 faltantes. Antes de la ola 4: 165 hechas, 23 parciales, 3 solo motor/CLI y 23 faltantes (P0: 62 / 6 / 0 / 0). Antes de la ola 3: 143 / 22 / 3 / 46. Antes de la ola 2: 120 / 27 / 6 / 61. Antes de la ola 1: 88 / 31 / 6 / 89 (P0: 53 / 13 / 1 / 1). El detalle de lo que cambió en la ola 6 está en [auditoria.md](auditoria.md).
 
-**Lectura rápida.** De 217 funciones, 178 están hechas (82 %), 27 parciales, 10 solo en el motor o el CLI y 2 faltan. En P0 (el MVP) hay 64 de 68 hechas (94 %), igual que tras la ola 4; las 4 parciales son C51, M3, M5 y M6, y no queda ninguna P0 solo en el motor ni faltante. El área de diseño y edición tiene hechas 90 de 100 y el de capas, corte e imagen 56 de 60. En máquinas y avanzadas hay 32 hechas de 57 (de 29 de 54 antes de la ola 5.5, y de 27 antes de la ola 5), 17 parciales y 8 solo en el motor o el CLI. Las dos funciones que faltan son D90 (otros formatos de máquina) y D94 (exportar AI), ambas P2. Las 10 funciones "solo motor/CLI" son todas del galvo (M30, M40 a M46, C47 y C59): existían en el motor y en `tlaku galvo` al cierre de la ola 5; desde la ola 6 (commit `61ec249`) la app también las ofrece (experimental), y la clasificación se rehará en la próxima auditoría. Sigue sin haber ninguna prueba con hardware real: lo que la ola 4 sumó para Ruida, el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, y lo que la ola 5 sumó para el galvo, Print & Cut y el tiling, se probó solo contra emuladores, máquinas virtuales e imágenes sintéticas.
+**Lectura rápida.** De 217 funciones, 195 están hechas (90 %), 22 son parciales y ninguna falta ni queda solo en el motor o el CLI. **Todas las P0 (el MVP) están hechas: 68 de 68.** En P1 hay 79 de 88 hechas (90 %) y en P2, 48 de 61 (79 %). Por área: diseño y edición 94 de 100, capas, corte e imagen 59 de 60 y máquinas y avanzadas 42 de 57. Las 22 parciales son: D18, D19, D35, D58, D60, D90, C35, M22, M23, M24, M25, M26, M28, M30, M32, M40, M43, M46, M47, M48, M51 y M52 (detalle y criterio para la beta en la sección «Parciales que quedan» de [auditoria.md](auditoria.md)). Las 10 funciones del galvo que estaban como "solo motor/CLI" se reclasificaron en la ola 6D: 6 pasaron a Hecho (M41, M42, M44, M45, C47 y C59) y 4 a Parcial (M30, M40, M43 y M46), porque la app ya las ofrece. **"Hecho" sigue sin significar probado en una máquina real:** no hay ninguna prueba con hardware real. Lo de Ruida, el K40, el galvo, la cámara (ojo de pez, cámara de red, cámara en el cabezal, buscador de centro), Print & Cut, el tiling, el alimentador, el control desde el celular y los ajustes nuevos de GRBL (DTR, envío síncrono, intercambio X/Y, desfase del puntero y home al conectar) se probó solo con emuladores, máquinas virtuales e imágenes sintéticas. La lista de lo que hay que validar, en orden de riesgo, está en [../../validacion-hardware.md](../../validacion-hardware.md).
 
 ## Archivos por área
 

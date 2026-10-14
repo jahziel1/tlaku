@@ -14,6 +14,7 @@ use std::time::Duration;
 use tlaku_emu::net::{NetServer, serve_local};
 use tlaku_grbl::net::{CONNECT_TIMEOUT, Endpoint, TcpTransport, drain_greeting};
 use tlaku_grbl::serial::Transport;
+use tlaku_i18n::tr;
 
 /// Prefijo de las máquinas virtuales por red.
 pub const VIRTUAL_NET_PREFIX: &str = "virtualnet:";
@@ -81,7 +82,7 @@ pub fn open_endpoint(port: &str) -> Result<Box<dyn Transport>, String> {
     let endpoint = match Endpoint::parse(port) {
         Some(Ok(e)) => e,
         Some(Err(msg)) => return Err(msg),
-        None => return Err(format!("'{port}' no es una dirección de red.")),
+        None => return Err(tr!("desktop.netlink.not_network_address", port = port)),
     };
     endpoint.open(CONNECT_TIMEOUT).map_err(|e| e.to_string())
 }
@@ -97,8 +98,13 @@ pub fn open(port: &str) -> Option<Result<Opened, String>> {
     }
     Some(open_endpoint(port).and_then(|mut t| {
         // Sin reinicio al abrir: solo se descarta el saludo, si lo hay.
-        drain_greeting(&mut *t, GREETING_QUIET, GREETING_MAX)
-            .map_err(|e| format!("Se perdió la conexión con {}: {e}", display_address(port)))?;
+        drain_greeting(&mut *t, GREETING_QUIET, GREETING_MAX).map_err(|e| {
+            tr!(
+                "desktop.netlink.connection_lost",
+                address = display_address(port),
+                err = e
+            )
+        })?;
         Ok((t, None))
     }))
 }
@@ -108,8 +114,8 @@ pub fn open(port: &str) -> Option<Result<Opened, String>> {
 fn open_virtual(port: &str) -> Result<Opened, String> {
     let rest = &port[VIRTUAL_NET_PREFIX.len()..];
     let (vm, handle) = virtual_port::build(&format!("{}{rest}", virtual_port::PREFIX))?;
-    let server = serve_local(vm)
-        .map_err(|e| format!("No se pudo abrir el socket local de la máquina virtual: {e}"))?;
+    let server =
+        serve_local(vm).map_err(|e| tr!("desktop.netlink.local_socket_failed", err = e))?;
     let client = TcpTransport::connect("127.0.0.1", server.port(), CONNECT_TIMEOUT)
         .map_err(|e| e.to_string())?;
     Ok((

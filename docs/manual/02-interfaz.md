@@ -13,7 +13,7 @@ De izquierda a derecha:
 - El nombre del proyecto (**Sin título** hasta que lo guardas) y el aviso **Sin guardar** cuando hay cambios.
 - El botón de tema (sol o luna) y, a la derecha, los tres botones del trabajo: **Vista previa**, **Encuadrar** e **Iniciar**. Encuadrar e Iniciar se activan solo con una máquina conectada y algo que enviar.
 
-El menú **Ayuda** abre este **Manual de usuario** (con buscador), la lista de **Atajos de teclado…**, las **Novedades**, **Reportar un problema…**, **Donar al proyecto…** y **Acerca de Tlaku**. Las preferencias están en **Editar > Preferencias…** (`Ctrl/Cmd+,`).
+El menú **Ayuda** abre este **Manual de usuario** (con buscador), la lista de **Atajos de teclado…**, las **Novedades**, el **Registro de trabajos…** (los trabajos que enviaste a una máquina desde esta computadora, ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md#registro-de-trabajos)), **Reportar un problema…**, **Donar al proyecto…** y **Acerca de Tlaku**. Las preferencias están en **Editar > Preferencias…** (`Ctrl/Cmd+,`).
 
 ![El manual de usuario abierto dentro de la aplicación, con el índice a la izquierda y el buscador](../../apps/desktop/docs/screenshots/32-manual.png)
 
@@ -106,6 +106,33 @@ Pulsa `?`, `F1` o `Ctrl/Cmd+/` para abrir la lista completa, con buscador (muest
 | Encuadrar, iniciar | `F`, `Ctrl/Cmd+Intro` |
 
 ![Diálogo de atajos de teclado con el buscador](../../apps/desktop/docs/screenshots/09-atajos.png)
+
+## Accesibilidad
+
+Tlaku se puede usar sin ratón y con lector de pantalla. El lienzo es gráfico, pero todo lo que lo rodea tiene teclado y nombre.
+
+- **Saltar al lienzo.** Al empezar a tabular aparece el enlace **Saltar al lienzo**; con `Intro` lleva el foco al lienzo sin recorrer los menús y las barras.
+- **Diálogos.** El foco entra al diálogo, `Tab` y `Shift+Tab` no se salen de él, `Esc` lo cierra y el foco vuelve al control que lo abrió. Los paneles que no son modales (revisar diseño, biblioteca de arte, imprimir y cortar, mosaico) también devuelven el foco al cerrarse.
+- **Menús.** `F10` lleva el foco a la barra de menús; `↓` o `Intro` abre un menú, las flechas recorren las entradas y los menús vecinos, `Inicio` y `Fin` saltan a los extremos, escribir una letra salta a la entrada que empieza con ella y `Esc` cierra y devuelve el foco. El menú del botón derecho y el menú de cada capa funcionan igual.
+- **Barras de herramientas.** La paleta de herramientas y las barras de la parte superior son una sola parada de `Tab`; dentro se avanza con las flechas.
+- **Panel lateral.** Las pestañas son una lista de pestañas: `←`/`→`, `Inicio` y `Fin` cambian de pestaña; `Alt+Shift+←/→` las reordena. El botón de personalizar abre un menú que se cierra con `Esc`.
+- **Paneles flotantes.** Enfoca la barra de título del panel: las flechas lo mueven y `Shift` + flechas cambian su tamaño. El asa de la esquina cambia el tamaño con las flechas.
+- **Campos numéricos.** `↑` y `↓` suman y restan un paso; con `Shift` el paso es 10 veces mayor y con `Alt`, 10 veces menor. `Intro` confirma y `Esc` revierte.
+- **Modo sencillo.** Al cambiar de paso el foco pasa al título del paso; los botones miden al menos 44 px.
+
+**Lector de pantalla**
+
+- Los botones de solo ícono tienen nombre, y las muestras de color de capa se anuncian por su nombre (también llevan su número a la vista, para no depender del color).
+- El lienzo tiene una descripción (mesa, tamaño y cantidad de objetos) y, al seleccionar, se anuncia un resumen: cuántos objetos, tamaño y esquina inferior izquierda. Se actualiza unos instantes después de cada cambio para no leer cada paso de un arrastre.
+- Los avisos se anuncian solos; las advertencias y los errores con prioridad alta. El trabajo anuncia cada cambio de estado (en marcha, pausa, terminado, cancelado, error) y su avance cada 25 %.
+- Las listas y tablas (capas, máquinas, marcas, datos de variables) tienen nombre.
+
+**Vista**
+
+- Los textos cumplen contraste 4,5:1 y los bordes de los controles 3:1, en el tema claro y en el oscuro.
+- El foco siempre se ve con un contorno.
+- Con la opción del sistema «reducir movimiento» se apagan las animaciones.
+- La página de control remoto del celular sigue las mismas reglas: botones grandes, estado y avance anunciados, y la barra de **Detener** fija.
 
 ## Tema claro u oscuro
 

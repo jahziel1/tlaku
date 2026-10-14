@@ -1,0 +1,59 @@
+name: Sitio
+
+# Publica `site/` en GitHub Pages al empujar a `main`. INACTIVO hasta que se active a mano:
+#   1. Settings > Pages > Source: "GitHub Actions".
+#   2. Settings > Secrets and variables > Actions > Variables: crea `PAGES_ENABLED` = `true`.
+#   3. Llena `site/config.json` (REPO_URL, SPONSORS_URL, KOFI_URL).
+# Sin la variable, el flujo no hace nada (ni falla). Pasos completos en docs/publicar.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "scripts/build-site.mjs"
+      - "apps/desktop/docs/screenshots/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    name: Construir el sitio
+    if: ${{ vars.PAGES_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Copia site/ a site-dist/, trae las capturas de la app y reemplaza los marcadores
+      # ({{REPO_URL}}, {{SPONSORS_URL}}, {{KOFI_URL}}) con site/config.json.
+      - name: Construir
+        run: node scripts/build-site.mjs --out site-dist
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-dist
+
+  publicar:
+    name: Publicar en Pages
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

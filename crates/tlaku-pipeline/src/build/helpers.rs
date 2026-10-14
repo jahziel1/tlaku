@@ -4,6 +4,7 @@ use crate::galvo;
 use crate::rotary;
 use tlaku_core::toolpath::{Move, ToolpathBlock};
 use tlaku_doc::{DeviceKind, DeviceProfile};
+use tlaku_i18n::tr;
 use tlaku_raster::GrayF32;
 use tlaku_sim::MachineProfile;
 
@@ -12,20 +13,24 @@ pub(super) fn machine_profile(device: &DeviceProfile) -> Result<MachineProfile, 
         if values.iter().all(|v| v.is_finite() && *v > 0.0) {
             Ok(())
         } else {
-            Err(format!(
-                "la máquina '{}': {name} debe ser mayor que 0",
-                device.name
+            Err(tr!(
+                "pipeline.build_helpers.must_be_positive",
+                machine = device.name,
+                name = name
             ))
         }
     };
-    positive("el área de trabajo", &device.bed)?;
+    positive(&tr!("pipeline.build_helpers.bed"), &device.bed)?;
     // El galvo no tiene aceleración de ejes: usa su propio perfil de tiempo.
     if device.kind == DeviceKind::Galvo {
         return Ok(galvo::sim_profile(&device.galvo));
     }
-    positive("la aceleración", &device.accel)?;
-    positive("la velocidad máxima", &device.max_rate)?;
-    positive("la velocidad de movimientos rápidos", &[device.rapid_rate])?;
+    positive(&tr!("pipeline.build_helpers.accel"), &device.accel)?;
+    positive(&tr!("pipeline.build_helpers.max_rate"), &device.max_rate)?;
+    positive(
+        &tr!("pipeline.build_helpers.rapid_rate"),
+        &[device.rapid_rate],
+    )?;
     // Con rotativo el trabajo está en mm de superficie: los límites de Y de la controladora se
     // pasan a superficie para que el tiempo y el overscan sean los reales (ver `rotary`).
     let k = rotary::y_scale(device)?;

@@ -2,6 +2,7 @@
 
 use image::DynamicImage;
 use std::path::Path;
+use tlaku_i18n::tr;
 
 /// Imagen de un canal con valores 0..1 (0 = negro, 1 = blanco), fila 0 arriba.
 #[derive(Debug, Clone, PartialEq)]
@@ -14,13 +15,13 @@ pub struct GrayF32 {
 impl GrayF32 {
     pub fn new(width: usize, height: usize, data: Vec<f32>) -> Result<Self, String> {
         if width == 0 || height == 0 {
-            return Err("la imagen no puede tener tamaño cero".into());
+            return Err(tr!("raster.gray.zero_size"));
         }
         if data.len() != width * height {
-            return Err(format!(
-                "se esperaban {} píxeles y llegaron {}",
-                width * height,
-                data.len()
+            return Err(tr!(
+                "raster.gray.data_len",
+                expected = width * height,
+                got = data.len()
             ));
         }
         Ok(Self {
@@ -76,7 +77,8 @@ pub fn from_dynamic(img: &DynamicImage, luma: Luma) -> GrayF32 {
 
 /// Decodifica PNG, JPEG, BMP, WebP, TIFF, GIF o TGA desde memoria.
 pub fn decode(bytes: &[u8], luma: Luma) -> Result<GrayF32, String> {
-    let img = image::load_from_memory(bytes).map_err(|e| format!("imagen inválida: {e}"))?;
+    let img =
+        image::load_from_memory(bytes).map_err(|e| tr!("raster.load.invalid_image", error = e))?;
     Ok(from_dynamic(&img, luma))
 }
 

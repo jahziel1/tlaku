@@ -5,6 +5,7 @@ use crate::text::TextObject;
 use serde::{Deserialize, Serialize};
 use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Bounds, Point, Polyline, Rgb};
+use tlaku_i18n::tr;
 use ts_rs::TS;
 
 /// Versión del formato del documento (y del archivo `.tlaku`). La 1 guardaba polilíneas
@@ -203,27 +204,27 @@ impl Default for Document {
 
 impl Document {
     pub fn to_json(&self) -> Result<String, String> {
-        serde_json::to_string_pretty(self).map_err(|e| format!("no se pudo serializar: {e}"))
+        serde_json::to_string_pretty(self).map_err(|e| tr!("doc.document.serialize", error = e))
     }
 
     /// Lee un documento; migra la versión 1 (polilíneas) a la actual y rechaza versiones que
     /// esta compilación no conoce.
     pub fn from_json(text: &str) -> Result<Self, String> {
         let mut value: serde_json::Value =
-            serde_json::from_str(text).map_err(|e| format!("documento inválido: {e}"))?;
+            serde_json::from_str(text).map_err(|e| tr!("doc.document.invalid", error = e))?;
         match value.get("version").map(|v| v.as_u64()) {
-            None => return Err("documento inválido: falta el campo \"version\"".into()),
+            None => return Err(tr!("doc.document.no_version")),
             Some(Some(1)) => migrate_v1(&mut value),
             Some(Some(v)) if v == u64::from(DOC_VERSION) => {}
             Some(_) => {
-                return Err(format!(
-                    "versión de documento no soportada: {} (esta aplicación entiende la {DOC_VERSION}); \
-                     actualiza la aplicación para abrirlo",
-                    value["version"]
+                return Err(tr!(
+                    "doc.document.unsupported_version",
+                    found = value["version"],
+                    supported = DOC_VERSION
                 ));
             }
         }
-        serde_json::from_value(value).map_err(|e| format!("documento inválido: {e}"))
+        serde_json::from_value(value).map_err(|e| tr!("doc.document.invalid", error = e))
     }
 
     pub fn object(&self, id: &str) -> Option<&DesignObject> {

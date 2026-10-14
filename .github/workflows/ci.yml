@@ -13,8 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Rust en los tres sistemas: formato, clippy sin avisos y pruebas de todo el espacio de trabajo.
   test:
-    name: ${{ matrix.os }}
+    name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -29,20 +30,32 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      # serialport usa libudev en Linux
-      - name: Instalar libudev-dev
+      # serialport usa libudev; la app de escritorio (Tauri) compila contra WebKitGTK y GTK.
+      - name: Instalar dependencias de Linux
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libudev-dev pkg-config
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      # `generate_context!` de Tauri exige que exista la carpeta `frontendDist` (apps/desktop/dist,
+      # que no se versiona). Para compilar y probar Rust basta una página vacía; la interfaz real
+      # se compila en el trabajo "Interfaz" y en la prueba de humo.
+      - name: Carpeta dist de relleno
+        shell: bash
+        run: |
+          mkdir -p apps/desktop/dist
+          echo '<!doctype html><title>Tlaku</title>' > apps/desktop/dist/index.html
 
       - name: Formato
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
       - name: Pruebas
-        run: cargo test --workspace
+        run: cargo test --workspace --all-features
 
+  # Licencias y orígenes de las dependencias (deny.toml).
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest
@@ -52,3 +65,82 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check licenses sources
+
+  # Interfaz (React + TypeScript): tipos, lint, pruebas y la tabla de atajos del README.
+  interfaz:
+    name: Interfaz (tsc, eslint, vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit
+
+      - name: Lint (eslint)
+        run: npx eslint .
+
+      - name: Pruebas (vitest)
+        run: npx vitest run
+
+      # La tabla de atajos del README sale del registro de comandos; si falla, `npm run readme`.
+      - name: Tabla de atajos del README
+        run: npx vitest run src/features/shell/readme.test.ts
+
+  # La app Tauri real arranca y responde a los comandos de solo lectura (ventana oculta, bajo Xvfb).
+  humo:
+    name: Prueba de humo de la app (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Instalar dependencias de Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev xvfb
+
+      # La interfaz real se empaqueta dentro de la app (apps/desktop/dist).
+      - name: Compilar la interfaz
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run build:tauri
+
+      # Sin $DISPLAY el propio script se relanza con xvfb-run.
+      - name: Prueba de humo
+        run: bash apps/desktop/scripts/smoke-tauri.sh
+
+  # El sitio se construye sin errores (marcadores válidos y capturas presentes).
+  sitio:
+    name: Sitio estático
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Construir site/
+        run: node scripts/build-site.mjs --out "$RUNNER_TEMP/site-dist"

@@ -105,9 +105,9 @@ impl<T: Transport> Streamer<T> {
             self.config.silence_timeout
         };
         if polling.is_some() && st.last_rx.elapsed() > allowance {
-            return Ok(Some(Outcome::Disconnected(
-                "la controladora dejó de responder".into(),
-            )));
+            return Ok(Some(Outcome::Disconnected(tr!(
+                "grbl.stream.controller_silent"
+            ))));
         }
         Ok(None)
     }

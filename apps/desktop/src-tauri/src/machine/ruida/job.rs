@@ -1,6 +1,7 @@
 //! Del documento a la controladora: el flujo `.rd` y las esquinas del encuadre.
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Del documento a la controladora
@@ -37,7 +38,7 @@ pub fn build_upload(
         home: tlaku_pipeline::home_for_origin(device.origin),
         estimate_s: job.preview.total_s,
         notes: if device.rotary.enabled {
-            vec![ROTARY_NOTE.to_string()]
+            vec![rotary_note()]
         } else {
             Vec::new()
         },
@@ -56,7 +57,7 @@ pub fn frame_corners(
     let job = tlaku_pipeline::compute_at(doc, device, options, at)?;
     let b = job
         .bounds()
-        .ok_or("No hay nada que encuadrar: el trabajo está vacío.")?;
+        .ok_or_else(|| tr!("desktop.common.nothing_to_frame"))?;
     let home = tlaku_pipeline::home_for_origin(device.origin);
     let (ax, ay) = home.to_machine(b.min, device.bed);
     let (cx, cy) = home.to_machine(b.max, device.bed);

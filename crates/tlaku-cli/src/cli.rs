@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tlaku_core::Rgb;
 use tlaku_grbl::serial::{self, Grbl};
+use tlaku_i18n::tr;
 use tlaku_pipeline::doc::{DeviceProfile, Optimization, PowerMode};
 use tlaku_sim::MachineProfile;
 
@@ -331,7 +332,7 @@ fn ask_to_proceed(yes: bool) -> Result<(), String> {
         return Ok(());
     }
     let ok = link::confirm(
-        link::READY_PROMPT,
+        &link::ready_prompt(),
         &mut io::stdin().lock(),
         &mut io::stdout(),
     )
@@ -339,12 +340,15 @@ fn ask_to_proceed(yes: bool) -> Result<(), String> {
     if ok {
         Ok(())
     } else {
-        Err("cancelado: no se movió la máquina".into())
+        Err(tr!("cli.cli.cancelled"))
     }
 }
 
 fn open_port(link: &LinkArgs) -> Result<Box<dyn serial::Transport>, String> {
-    println!("Conectando a {} ({} baudios)...", link.port, link.baud);
+    println!(
+        "{}",
+        tr!("cli.cli.connecting", port = link.port, baud = link.baud)
+    );
     Ok(Grbl::open(&link.port, link.baud)
         .map_err(|e| format!("{}: {e}", link.port))?
         .into_transport())
@@ -365,6 +369,12 @@ fn stream(link: &LinkArgs, lines: &[String]) -> Result<(), String> {
         io::stdout().is_terminal(),
         &mut io::stdout(),
     )
+}
+
+/// La línea que se imprime para un error: el motor antepone un código estable (`[bed_overflow] ...`)
+/// que la interfaz gráfica usa y que no le sirve a quien lee la terminal, así que se quita.
+pub fn error_line(error: &str) -> String {
+    format!("error: {}", tlaku_i18n::split_code(error).1)
 }
 
 pub fn run(cli: Cli) -> Result<(), String> {
@@ -392,7 +402,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
             let g = tlaku_pipeline::gcode(&built, &device);
             std::fs::write(&output, g).map_err(|e| format!("{}: {e}", output.display()))?;
             print!("{}", report::summary(&built));
-            println!("Escrito {}", output.display());
+            println!("{}", tr!("cli.cli.written", path = output.display()));
             Ok(())
         }
         Command::Plan { design } => {
@@ -404,7 +414,10 @@ pub fn run(cli: Cli) -> Result<(), String> {
             let text =
                 std::fs::read_to_string(&file).map_err(|e| format!("{}: {e}", file.display()))?;
             let count = link::validate_gcode(&text, link.rx_buffer)?;
-            println!("{}: {count} líneas de G-code.", file.display());
+            println!(
+                "{}",
+                tr!("cli.cli.gcode_lines", path = file.display(), n = count)
+            );
             ask_to_proceed(link.yes)?;
             let lines: Vec<String> = text.lines().map(str::to_owned).collect();
             stream(&link, &lines)
@@ -414,7 +427,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
             let request = design.into_request()?;
             let built = job::build(&request)?;
             tlaku_pipeline::check_bounds(&built, [request.bed.0, request.bed.1])?;
-            let bounds = built.bounds().ok_or("el diseño no tiene movimientos")?;
+            let bounds = built.bounds().ok_or_else(|| tr!("cli.cli.no_motion"))?;
             print!("{}", report::order_line(&built));
             print!("{}", link::frame_description(bounds, speed));
             ask_to_proceed(link.yes)?;
@@ -431,7 +444,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
                 .map(|c| link::parse_command(c, DEFAULT_RX_BUFFER))
                 .collect::<Result<Vec<_>, _>>()?;
             link::confirm_commands(&cmds, yes, &mut io::stdin().lock(), &mut io::stdout())?;
-            println!("Conectando a {port} ({baud} baudios)...");
+            println!("{}", tr!("cli.cli.connecting", port = port, baud = baud));
             let mut transport = Grbl::open(&port, baud)
                 .map_err(|e| format!("{port}: {e}"))?
                 .into_transport();
@@ -473,6 +486,15 @@ mod tests {
 
     fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
         Cli::try_parse_from(std::iter::once("tlaku").chain(args.iter().copied()))
+    }
+
+    #[test]
+    fn error_line_hides_the_engine_code() {
+        let coded = tlaku_i18n::coded("bed_overflow", "la capa se sale");
+        assert_eq!(error_line(&coded), "error: la capa se sale");
+        assert_eq!(error_line("sin código"), "error: sin código");
+        // Un corchete que no es un código no se toca.
+        assert_eq!(error_line("[Aviso] algo"), "error: [Aviso] algo");
     }
 
     #[test]

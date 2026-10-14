@@ -1,6 +1,7 @@
 //! Marcado: espera de movimiento entre piezas, `run_job` y su cierre.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     /// Espera que el usuario mueva el material y confirme. `Err(())` = se pidió detener.
@@ -11,10 +12,13 @@ impl Worker {
         }
         self.log(
             LogDir::In,
-            &format!(
-                "; paso {}/{}: mueve el material (X {:+.2} mm, Y {:+.2} mm, rotativo {:+.2}°) y \
-                 confirma para seguir",
-                info.step, info.steps, info.dx, info.dy, info.rotary_deg
+            &tr!(
+                "desktop.galvo.log_move_step",
+                step = info.step,
+                steps = info.steps,
+                dx = format!("{:+.2}", info.dx),
+                dy = format!("{:+.2}", info.dy),
+                rotary = format!("{:+.2}", info.rotary_deg)
             ),
         );
         self.sink
@@ -74,19 +78,22 @@ impl Worker {
         let ctl = self.shared.control.clone();
         self.log(
             LogDir::Out,
-            &format!(
-                "; {} galvo: {} paso(s), {} tanda(s) de 256 comandos",
-                if job.red_only {
-                    "recorrido en rojo (fuente deshabilitada)"
-                } else {
-                    "marcado"
-                },
-                job.steps.len(),
-                total_batches
-            ),
+            &if job.red_only {
+                tr!(
+                    "desktop.galvo.log_job_red",
+                    steps = job.steps.len(),
+                    batches = total_batches
+                )
+            } else {
+                tr!(
+                    "desktop.galvo.log_job_mark",
+                    steps = job.steps.len(),
+                    batches = total_batches
+                )
+            },
         );
         for w in &job.warnings {
-            self.log(LogDir::In, &format!("; AVISO: {w}"));
+            self.log(LogDir::In, &tr!("desktop.lhymicro.log_note", note = w));
         }
         self.publish(MachineState::Run);
         let mut done_batches = 0_usize;
@@ -124,7 +131,7 @@ impl Worker {
                     emit_job(
                         sink.as_ref(),
                         JobState::Started,
-                        &format!("Enviando el trabajo ({n} paso(s))."),
+                        &tr!("desktop.galvo.job_sending", n = n),
                     );
                 }
                 let due = last_emit.is_none_or(|t| t.elapsed() >= every) || p.batch == p.batches;
@@ -143,19 +150,25 @@ impl Worker {
                     done_batches += report.batches;
                     self.log(
                         LogDir::In,
-                        &format!(
-                            "; paso {}/{} enviado: {} tandas, {} comandos, en {:.1} s{}",
-                            i + 1,
-                            job.steps.len(),
-                            report.batches,
-                            report.commands,
-                            report.elapsed.as_secs_f64(),
-                            if report.armed {
-                                " (la fuente estuvo armada durante el paso)"
-                            } else {
-                                " (la fuente NO se armó)"
-                            }
-                        ),
+                        &if report.armed {
+                            tr!(
+                                "desktop.galvo.log_step_sent_armed",
+                                step = i + 1,
+                                steps = job.steps.len(),
+                                batches = report.batches,
+                                commands = report.commands,
+                                secs = format!("{:.1}", report.elapsed.as_secs_f64())
+                            )
+                        } else {
+                            tr!(
+                                "desktop.galvo.log_step_sent_unarmed",
+                                step = i + 1,
+                                steps = job.steps.len(),
+                                batches = report.batches,
+                                commands = report.commands,
+                                secs = format!("{:.1}", report.elapsed.as_secs_f64())
+                            )
+                        },
                     );
                 }
                 Err(e) => {
@@ -172,7 +185,7 @@ impl Worker {
                 self.end_job(
                     &mut reply,
                     JobState::Cancelled,
-                    "Trabajo detenido: la fuente está apagada. (Se detuvo entre pasos del marcado dividido o repetido.)",
+                    &tr!("desktop.galvo.job_stopped_between"),
                     false,
                 );
             }
@@ -182,16 +195,16 @@ impl Worker {
                     &mut reply,
                     JobState::Finished,
                     &if job.red_only {
-                        "Recorrido en rojo terminado: la fuente nunca se armó.".to_string()
+                        tr!("desktop.galvo.job_finished_red")
                     } else {
-                        "Trabajo terminado: la fuente se apagó y la lista se vació.".to_string()
+                        tr!("desktop.galvo.job_finished")
                     },
                     false,
                 );
             }
             Err(e) => {
                 let msg = job_error_text(&e);
-                self.log(LogDir::In, &format!("; {msg}"));
+                self.log(LogDir::In, &format!("; {}", tlaku_i18n::split_code(&msg).1));
                 if e.laser_may_be_on() {
                     self.note_laser_may_be_on(&msg);
                     self.end_job(&mut reply, JobState::Error, &msg, true);
@@ -200,9 +213,10 @@ impl Worker {
                     self.end_job(
                         &mut reply,
                         JobState::Cancelled,
-                        &format!(
-                            "Trabajo detenido: la fuente se apagó. (Tandas enviadas: {} de {}.)",
-                            e.batches_sent, e.batches_total
+                        &tr!(
+                            "desktop.galvo.job_stopped",
+                            sent = e.batches_sent,
+                            total = e.batches_total
                         ),
                         false,
                     );

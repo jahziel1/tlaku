@@ -5,6 +5,8 @@ use std::io;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
+use tlaku_i18n::tr;
+
 use tlaku_grbl::serial::Transport;
 
 use crate::clock::{AutoClock, Clock};
@@ -180,7 +182,7 @@ impl Transport for VirtualMachine {
         if !g.machine.is_connected() {
             return Err(io::Error::new(
                 io::ErrorKind::BrokenPipe,
-                "la controladora emulada se desconectó",
+                tr!("emu.vm.disconnected"),
             ));
         }
         g.machine.receive(data);
@@ -199,7 +201,7 @@ impl Transport for VirtualMachine {
                 if !g.machine.is_connected() {
                     return Err(io::Error::new(
                         io::ErrorKind::BrokenPipe,
-                        "la controladora emulada se desconectó",
+                        tr!("emu.vm.disconnected"),
                     ));
                 }
             }

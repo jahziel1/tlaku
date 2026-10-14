@@ -12,6 +12,7 @@ use crate::cmd::Imm;
 use crate::wire::{self, REPLY_LEN};
 use std::collections::VecDeque;
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Vendor ID de BJJCZ/JCZ.
 pub const VENDOR_ID: u16 = 0x9588;
@@ -28,7 +29,32 @@ pub enum Support {
     /// Identificada y con protocolo descrito (aun sin verificar con hardware propio).
     Supported,
     /// Conocida pero rechazada, con el motivo.
-    Rejected(&'static str),
+    Rejected(Reject),
+}
+
+/// Por qué se rechaza una tarjeta. El texto sale en el idioma activo ([`Reject::message`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reject {
+    /// Clon que se vio en un foro; no se sabe si habla el mismo protocolo.
+    UnverifiedClone,
+    /// Necesita cargar el firmware del FPGA, que Tlaku no hace.
+    NeedsFirmware,
+    /// Posible tarjeta con carga de firmware; no verificado.
+    UnverifiedFirmwareBoard,
+    /// VID:PID que no está en la tabla de tarjetas conocidas.
+    UnknownIds,
+}
+
+impl Reject {
+    /// El motivo en el idioma activo.
+    pub fn message(self) -> String {
+        match self {
+            Reject::UnverifiedClone => tr!("galvo.transport.reject_clone"),
+            Reject::NeedsFirmware => tr!("galvo.transport.reject_needs_firmware"),
+            Reject::UnverifiedFirmwareBoard => tr!("galvo.transport.reject_firmware_board"),
+            Reject::UnknownIds => tr!("galvo.transport.reject_unknown_ids"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +64,19 @@ pub struct KnownBoard {
     pub name: &'static str,
     pub support: Support,
     pub source: &'static str,
+}
+
+impl KnownBoard {
+    /// El nombre de la tarjeta en el idioma activo (`name` es el de la tabla, en español).
+    pub fn display_name(&self) -> String {
+        let ids = format!("{:04X}:{:04X}", self.vendor_id, self.product_id);
+        match self.product_id {
+            0x9980 => tr!("galvo.transport.name_clone", ids = ids),
+            0x9880 => tr!("galvo.transport.name_no_firmware", ids = ids),
+            0x9990 | 0x9999 => tr!("galvo.transport.name_inf", ids = ids),
+            _ => self.name.to_string(),
+        }
+    }
 }
 
 /// Las tarjetas conocidas. Todo VID:PID que no esté aquí se rechaza.
@@ -53,30 +92,28 @@ pub static KNOWN_BOARDS: &[KnownBoard] = &[
         vendor_id: VENDOR_ID,
         product_id: 0x9980,
         name: "clon BJJCZ (9588:9980)",
-        support: Support::Rejected("clon visto en un foro: no se sabe si usa el mismo protocolo"),
+        support: Support::Rejected(Reject::UnverifiedClone),
         source: "foro de LightBurn (INF del driver de LightBurn)",
     },
     KnownBoard {
         vendor_id: VENDOR_ID,
         product_id: 0x9880,
         name: "tarjeta FIBER/CO2-V sin firmware cargado (9588:9880)",
-        support: Support::Rejected(
-            "necesita cargar el firmware del FPGA, que Tlaku no hace (no escribe en la tarjeta)",
-        ),
+        support: Support::Rejected(Reject::NeedsFirmware),
         source: "lmcv2u-loader README",
     },
     KnownBoard {
         vendor_id: VENDOR_ID,
         product_id: 0x9990,
         name: "INF de EZCAD2 (9588:9990)",
-        support: Support::Rejected("posible tarjeta con carga de firmware; no verificado"),
+        support: Support::Rejected(Reject::UnverifiedFirmwareBoard),
         source: "foro de LightBurn (INF del driver de EZCAD2)",
     },
     KnownBoard {
         vendor_id: VENDOR_ID,
         product_id: 0x9999,
         name: "INF de EZCAD2 (9588:9999)",
-        support: Support::Rejected("posible tarjeta con carga de firmware; no verificado"),
+        support: Support::Rejected(Reject::UnverifiedFirmwareBoard),
         source: "foro de LightBurn (INF del driver de EZCAD2)",
     },
 ];
@@ -117,9 +154,9 @@ pub enum TransportError {
 impl fmt::Display for TransportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TransportError::Timeout => write!(f, "tiempo de espera agotado en el USB"),
-            TransportError::Disconnected => write!(f, "la tarjeta se desconectó del USB"),
-            TransportError::Io(m) => write!(f, "error de USB: {m}"),
+            TransportError::Timeout => write!(f, "{}", tr!("galvo.transport.timeout")),
+            TransportError::Disconnected => write!(f, "{}", tr!("galvo.transport.disconnected")),
+            TransportError::Io(m) => write!(f, "{}", tr!("galvo.transport.io", msg = m)),
         }
     }
 }

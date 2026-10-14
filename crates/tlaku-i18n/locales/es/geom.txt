@@ -1,0 +1,10 @@
+# Mensajes de tlaku-geom (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: geom.<módulo>.<qué> = plantilla
+
+# tangent.rs
+geom.tangent.too_detailed = Las formas tienen demasiado detalle para buscar círculos tangentes: simplifícalas antes.
+geom.tangent.select = Selecciona dos o tres formas o líneas para el círculo tangente.
+geom.tangent.no_stroke = Alguna de las formas no tiene trazo del que ser tangente.
+geom.tangent.no_size = Las formas no tienen tamaño.
+geom.tangent.no_radius = Falta el radio del círculo tangente.
+geom.tangent.bad_radius = El radio debe ser un número positivo.

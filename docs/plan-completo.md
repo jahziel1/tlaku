@@ -1,6 +1,6 @@
 # Plan hasta el software completo
 
-Meta: las 214 funciones del inventario (`docs/spec/01` a `03`) más lo que necesita un usuario real
+Meta: las 214 funciones del inventario (`docs/spec/01` a `03`, más M55 a M57 de la ola 5.5: 217) más lo que necesita un usuario real
 (`docs/spec/cobertura/README.md`, "Necesidades fuera del inventario"), **con o sin máquinas para
 probar**.
 
@@ -24,6 +24,8 @@ Estado tras la ola 3 (2026-10-13, `04-cobertura.md` actualizado): **165 hechas (
 Estado tras la ola 4 (2026-10-13, `04-cobertura.md` actualizado y recontado con un script): **173 hechas (81 %), 26 parciales, 0 solo en motor o CLI, 15 faltantes** de 214. P0: 64 de 68 hechas (parciales C51, M3, M5, M6). Por área: diseño y edición 90 hechas, capas, corte e imagen 56 y máquinas y avanzadas 27.
 
 Estado tras la ola 5 (2026-10-13, `04-cobertura.md` actualizado y recontado con un script): **175 hechas (82 %), 27 parciales, 10 solo en motor o CLI, 2 faltantes** de 214. P0 sin cambios: 64 de 68 hechas (parciales C51, M3, M5, M6). Por área: diseño y edición 90 hechas, capas, corte e imagen 56 y máquinas y avanzadas 29. Las 10 "solo motor o CLI" son todas del galvo y las 2 faltantes, D90 y D94 (P2).
+
+Estado tras la ola 6C y la auditoría final de la 6D (2026-10-14, recontado con un script sobre las 217 filas, incluidas M55 a M57 de la ola 5.5): **195 hechas (90 %), 22 parciales, 0 solo en motor o CLI, 0 faltantes**. **P0: 68 de 68 hechas.** Por área: diseño y edición 94 de 100, capas, corte e imagen 59 de 60 y máquinas y avanzadas 42 de 57. El resumen de la ola 6C decía 180 hechas; las filas ya sumaban 182 (D04 y D12 habían pasado a Hecho sin recalcular). La auditoría subió 13 más (M3, M5, M6, M4, M35, M36, D99 y, del galvo, C47, C59, M41, M42, M44 y M45) y pasó M30, M40, M43 y M46 de solo motor/CLI a Parcial. Detalle en [spec/cobertura/auditoria.md](spec/cobertura/auditoria.md).
 
 ## Ola 1: base para publicar
 
@@ -119,7 +121,7 @@ Cobertura nueva: M11, M16, M20, M31, M50, M54, D45 y C14 pasaron a Hecho. M4, M2
 **Pendientes de la ola que pasan a otras olas** (verificados al actualizar la cobertura):
 
 - *Ola 5*: el ajuste de U en los trabajos y el láser 2 con Ruida (M32); el autoenfoque y optimizar Z (M31), junto con los ajustes de controlador (C59). *En la ola 5:* C59 entró solo para el galvo (motor y línea de comandos, sin interfaz); *M31 y M32 no se tocaron y pasan a la ola 6.*
-- *Ola 6*: lo que falta de los ajustes de dispositivo (M3, M5, M6: marcar por defecto, ordenar, ícono, offset del puntero rojo, unidades de dispositivo y de control, intercambio X/Y, auto-home, DTR y modo síncrono); las cámaras de red y los presets (M35); la alineación automática de la cámara del cabezal (M36); las cámaras en los paquetes de usuario (M4, D99); las pulgadas en las capas, las máquinas y la cámara (D12); y la lista de validación con hardware real de todo lo experimental, que incluye escribir los ajustes de Ruida (M25), borrar o ejecutar sus documentos (M24) y probar el K40.
+- *Ola 6*: lo que falta de los ajustes de dispositivo (M3, M5, M6: marcar por defecto, ordenar, ícono, offset del puntero rojo, unidades de dispositivo y de control, intercambio X/Y, auto-home, DTR y modo síncrono); las cámaras de red y los presets (M35); la alineación automática de la cámara del cabezal (M36); las cámaras en los paquetes de usuario (M4, D99); las pulgadas en las capas, las máquinas y la cámara (D12); y la lista de validación con hardware real de todo lo experimental, que incluye escribir los ajustes de Ruida (M25), borrar o ejecutar sus documentos (M24) y probar el K40. *Resuelto en las olas 6C y 6D:* M3, M5, M6, M35, M36, M4 y D99 quedaron Hechas (6C, verificadas en la auditoría 6D); D12 quedó Hecha con las capas y las máquinas todavía en mm (Menor); y la lista de validación está escrita en [validacion-hardware.md](validacion-hardware.md). Escribir los ajustes de Ruida y borrar o ejecutar sus documentos siguen sin hacerse, a propósito, hasta que haya una máquina de pruebas.
 
 Plan original de la ola:
 
@@ -195,7 +197,7 @@ Orden de trabajo (empezó el 2026-10-13):
 | 6A ✓ | Partir archivos grandes (solo mover código) y actualizar `docs/mapa.md` | motor, drivers, app Rust, interfaz y docs |
 | 6B ✓ | Arreglos de la prueba de estrés, prueba de contrato de comandos, Revisar diseño, rendimiento del lienzo | planificador, importación e imágenes, Ruida y avisos de velocidad, G-code y estimado, contrato y humo, Revisar diseño, lienzo |
 | 6C ✓ | Pendientes de las olas 3, 4 y 5 (aviso de enlace en Iniciar, curvas del emulador (`junction_speed` y anticipación de 16 bloques), fijar potencia al importar G-code, duplicados entre drivers de la app, paneles flotantes, deformar, M3/M5/M6, M35, M36, M4, D12, M31/M32, Print & Cut, alimentador, duplicados Rust/TS) | por área |
-| 6D | Accesibilidad, job de CI para `smoke-tauri.sh`, reclasificar el galvo en la cobertura, manual y mensajes en inglés, sitio con donaciones, instaladores y actualizaciones, auditoría final, lista de validación con hardware, beta | por área |
+| 6D | Accesibilidad, job de CI para `smoke-tauri.sh`, reclasificar el galvo en la cobertura ✓, manual y mensajes en inglés, sitio con donaciones, instaladores y actualizaciones, auditoría final ✓, lista de validación con hardware ✓, beta | por área |
 
 - **Arreglos de la prueba de estrés** (lista completa y criterios en
   [pruebas-estres.md](pruebas-estres.md#prioridades-para-la-ola-6)):
@@ -211,7 +213,7 @@ Orden de trabajo (empezó el 2026-10-13):
   9. TIFF YCbCr y grandes.
   10. Lienzo con 100 000 objetos.
 - Rendimiento del lienzo con diseños grandes (índice espacial, y WebGL si hace falta).
-- Lo que quedó de la ola 3: paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías temporales y la recuperación compartida entre ventanas.
+- Lo que quedó de la ola 3: paneles flotantes, manijas y malla 4×4 de deformar, clic por esquina del redondeo, guías temporales y la recuperación compartida entre ventanas. *Hecho en la ola 6C* salvo las guías temporales (Menor de D78) y probar «Nueva ventana» en una ventana real (D19, pendiente de la prueba de humo).
 - Accesibilidad.
 - **Partir los archivos grandes** para que leerlos cueste menos y los agentes en paralelo no se
   pisen: `tlaku-pipeline/src/tests.rs`, `tlaku-grbl/src/streamer.rs`, `tlaku-emu/src/machine.rs`,
@@ -224,9 +226,43 @@ Orden de trabajo (empezó el 2026-10-13):
 - Repetir la auditoría de cobertura.
 - **Prueba de contrato de comandos:** una prueba automática que compare los argumentos de cada comando de Tauri (Rust) con lo que manda la interfaz (`api.ts`), para que no se repita el fallo de `power_pct`/`s_max`/`duration_ms` (camelCase frente a snake_case), que el modo simulado no detecta. Más una prueba de humo de la app real (Tauri) que llame a cada comando.
 - **Revisar diseño** (sin IA): un botón que analiza el diseño antes de enviar y explica lo que encuentra, con arreglo de un clic: trazos abiertos que deberían cerrarse, líneas duplicadas o encimadas, fragmentos diminutos, nodos de sobra, objetos fuera de la cama, textos sin convertir y capas sin salida. Usa las operaciones que ya existen (unir, cerrar, quitar duplicados, optimizar).
-- Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12).
-- Lo que quedó de la ola 5: M31 y M32 (lo demás de esta lista, las imágenes que giran con el registro, repetir con el alimentador y los duplicados Rust/TypeScript, quedó hecho en la ola 6C).
-- Lista de validación con hardware real, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, Print & Cut, el tiling y el alimentador, y el galvo (con el plan de prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin fuente).
+- Lo que quedó de la ola 4: los ajustes de dispositivo que faltan (M3, M5, M6), cámaras de red y presets (M35), la alineación automática de la cámara del cabezal (M36), las cámaras en los paquetes de usuario (M4) y las pulgadas en las capas, las máquinas y la cámara (D12). *Hecho en la ola 6C* (todo salvo las pulgadas en las capas, las máquinas y la cámara, que quedan como Menor de D12).
+- Lo que quedó de la ola 5: M31 y M32 (lo demás de esta lista, las imágenes que giran con el registro, repetir con el alimentador y los duplicados Rust/TypeScript, quedó hecho en la ola 6C). De M31 y M32 entró el desplazamiento de U por trabajo; siguen el autoenfoque y optimizar Z (Menor de M31, Hecha), el offset de U por capa y el láser 2 con Ruida (M32, Parcial).
+- Lista de validación con hardware real, **escrita en la ola 6D: [validacion-hardware.md](validacion-hardware.md)**, para cuando haya máquinas: Falcon2 y el resto de GRBL, la conexión por red, Ruida (incluido escribir ajustes y borrar o ejecutar documentos), el K40, el ojo de pez, la cámara en el cabezal y el buscador de centro, Print & Cut, el tiling y el alimentador, y el galvo (con el plan de prueba de `docs/hardware/galvo.md` sección 9, empezando por la tarjeta sin fuente).
+
+### Ola 6D: qué está hecho y qué queda (2026-10-14)
+
+Hecho en la auditoría final (este documento y `docs/spec/`):
+
+- [x] **Auditoría final de cobertura** con recuento por script: 195 / 22 / 0 / 0 de 217; P0 68 de 68; el galvo reclasificado (6 Hechas, 4 Parciales).
+- [x] **Líneas viejas corregidas** en este plan, `docs/spec/00-resumen.md`, `docs/spec/cobertura/` (auditoría, usuario real, lanzamiento y diferenciales) y la cifra del `README.md` de la raíz.
+- [x] **Lista de validación con hardware real**: [validacion-hardware.md](validacion-hardware.md), empezando por la Creality Falcon2.
+
+Queda de la 6D (lo hacen otros frentes en paralelo, no se cuentan aquí): accesibilidad; el job de CI para `smoke-tauri.sh` (la prueba de humo de Tauri en Windows y Linux también está en la lista de validación); los mensajes del motor y el manual en inglés (M52); el sitio con donaciones y los enlaces del repositorio (`features/help/links.ts` sigue vacío); correr el flujo de instaladores y activar las actualizaciones automáticas (M51); y publicar la beta.
+
+**Parciales que quedan para después de la beta** (una línea cada uno; el criterio completo está en la sección 2 de [spec/cobertura/auditoria.md](spec/cobertura/auditoria.md)):
+
+- D18: Modo principiante completo (ocultar herramientas y menús).
+- D19: probar «Nueva ventana» en una ventana real (con la prueba de humo, antes de la beta).
+- D35: propiedades de imagen y de texto en la misma ventana de propiedades.
+- D58: ajuste magnético de las manijas de deformar.
+- D60: revertir un chaflán (hoy se usa Deshacer).
+- D90 y M22: `.sc` y `.mage` (sin especificación pública; candidatas a «No aplica»).
+- C35: valores por defecto de capa por color y por máquina.
+- M23: elegir el nombre del documento en la memoria de Ruida y sobrescribir.
+- M24: borrar y ejecutar documentos de la memoria de Ruida (necesita máquina de pruebas).
+- M25: escribir los ajustes de Ruida, `.lbset`, respaldo automático y calibrar ejes.
+- M26: información de la controladora Ruida con direcciones y unidades verificadas.
+- M28: escribir el rotativo en la controladora DSP.
+- M30: editor propio del rotativo galvo en el perfil.
+- M32: offset de U por capa y láser 2 con Ruida.
+- M40: marcado dividido de formas enteras y marcado al vuelo del galvo.
+- M43: asistente de nueve puntos y aplicar un `.cor` de EZCAD.
+- M46: vista previa de la deformación de cilindro y cono, y validar el modelo.
+- M47: alimentador nativo de una DSP y tiling en varias columnas.
+- M48: buscador de centro tocando tres puntos con el cabezal.
+- M51: preferencias de cámara (la actualización automática es de la beta, en curso).
+- M52: manual en inglés (los mensajes del motor son de la beta, en curso).
 
 ## Ola 7: asistente con IA (opcional)
 

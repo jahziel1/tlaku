@@ -1,0 +1,35 @@
+# Mensajes de tlaku-doc (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: doc.<módulo>.<qué> = plantilla
+
+# document.rs
+doc.document.serialize = could not serialize: {error}
+doc.document.invalid = invalid document: {error}
+doc.document.no_version = invalid document: the "version" field is missing
+doc.document.unsupported_version = unsupported document version: {found} (this application understands version {supported}); update the application to open it
+
+# layer.rs
+doc.layer.overscan_expected = "auto" or a number in mm
+doc.layer.overscan_invalid = invalid overscan '{value}': use "auto" or a number in mm
+
+# virtual_array.rs
+doc.virtual_array.grid_size = object '{id}': invalid virtual array (columns and rows must be at least 1)
+doc.virtual_array.grid_gap = object '{id}': invalid virtual array (non-numeric spacing)
+doc.virtual_array.too_many = object '{id}': invalid virtual array (more than {max} pieces)
+doc.virtual_array.circular_count = object '{id}': invalid virtual array (at least one piece)
+doc.virtual_array.circular_center = object '{id}': invalid virtual array (non-numeric center or angle)
+
+# factory.rs
+doc.factory.material_unnamed = "{id}": material "{material}" has no name
+doc.factory.title_unnamed = "{id}": title "{title}" has no name
+doc.factory.invalid = Invalid factory library: {error}
+doc.factory.no_revision = The factory library has no revision.
+doc.factory.bad_id = "{id}": invalid or duplicate identifier.
+doc.factory.no_source = "{id}": the source (https address) is missing.
+doc.factory.no_confidence = "{id}": the confidence level is missing.
+doc.factory.no_class = "{id}": the machine class or role is missing.
+doc.factory.no_keys = "{id}": the translation keys are missing.
+doc.factory.out_of_range = "{id}": values out of range.
+doc.factory.restriction_no_source = Restriction for "{material}": the source is missing.
+
+# layer.rs (cont.)
+doc.layer.images = Image

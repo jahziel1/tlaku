@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 use tauri::{AppHandle, Manager};
 use tlaku_doc::Document;
+use tlaku_i18n::tr;
 
 const DIR_NAME: &str = "plantillas";
 const EXT: &str = "tlakutemplate";
@@ -39,15 +40,11 @@ pub fn check_name(name: &str) -> Result<&str, String> {
     let name = name.trim();
     let bad_char = |c: char| c.is_control() || "/\\:*?\"<>|".contains(c);
     if name.is_empty() {
-        Err("Escribe un nombre para la plantilla.".into())
+        Err(tr!("desktop.templates.name_empty"))
     } else if name.chars().count() > MAX_NAME_CHARS {
-        Err(format!(
-            "El nombre de la plantilla es demasiado largo (máximo {MAX_NAME_CHARS} caracteres)."
-        ))
+        Err(tr!("desktop.templates.name_too_long", max = MAX_NAME_CHARS))
     } else if name.chars().any(bad_char) || name.starts_with('.') || name.ends_with('.') {
-        Err(format!(
-            "El nombre «{name}» no es válido para una plantilla."
-        ))
+        Err(tr!("desktop.templates.name_invalid", name = name))
     } else {
         Ok(name)
     }
@@ -97,23 +94,24 @@ pub fn save(dir: &Path, name: &str, doc: &Document) -> Result<TemplateInfo, Stri
     let name = check_name(name)?;
     let json = doc.to_json()?;
     if json.len() as u64 > MAX_BYTES {
-        return Err("El documento es demasiado grande para guardarlo como plantilla.".into());
+        return Err(tr!("desktop.templates.doc_too_big"));
     }
     fs::create_dir_all(dir).map_err(|e| io_error(dir, &e))?;
     let file = file_of(dir, name);
     write_atomic(&file, &json)?;
-    info_of(&file).ok_or_else(|| format!("{}: no se pudo leer lo guardado.", file.display()))
+    info_of(&file).ok_or_else(|| tr!("desktop.templates.read_back_failed", path = file.display()))
 }
 
 pub fn load(dir: &Path, name: &str) -> Result<Document, String> {
     let name = check_name(name)?;
     let file = file_of(dir, name);
-    let meta = fs::metadata(&file).map_err(|_| format!("No existe la plantilla «{name}»."))?;
+    let meta = fs::metadata(&file).map_err(|_| tr!("desktop.templates.not_found", name = name))?;
     if meta.len() > MAX_BYTES {
-        return Err(format!("La plantilla «{name}» es demasiado grande."));
+        return Err(tr!("desktop.templates.too_big", name = name));
     }
     let text = fs::read_to_string(&file).map_err(|e| io_error(&file, &e))?;
-    Document::from_json(&text).map_err(|e| format!("Plantilla «{name}»: {e}"))
+    Document::from_json(&text)
+        .map_err(|e| tr!("desktop.templates.load_failed", name = name, err = e))
 }
 
 /// Borra la plantilla. No es error que no exista.
@@ -135,7 +133,7 @@ fn templates_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
         .map(|d| d.join(DIR_NAME))
-        .map_err(|e| format!("No se encontró la carpeta de configuración: {e}"))
+        .map_err(|e| tr!("desktop.common.config_dir", err = e))
 }
 
 async fn blocking<T: Send + 'static>(
@@ -143,7 +141,7 @@ async fn blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(job)
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]

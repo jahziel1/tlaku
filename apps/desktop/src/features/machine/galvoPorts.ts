@@ -1,4 +1,5 @@
 import type { DeviceProfile, GalvoSafetyAck, LaserSource } from '@/api/types';
+import { isStopUnconfirmed as hasStopCode } from '@/lib/errors';
 import { selectActiveDevice } from '@/store/selectors';
 import type { AppState } from '@/store/types';
 import { baseVirtualPort } from './virtualPort';
@@ -12,9 +13,6 @@ export const GALVO_VIRTUAL = 'virtual:galvo';
 export const GALVO_USB_PREFIX = 'usb:galvo:';
 /** VID:PID de la tarjeta compatible (LMCV4-FIBER-M). */
 export const GALVO_VID_PID = '9588:9899';
-
-/** Texto que el motor deja en el mensaje de un trabajo cuando detener NO se confirmó (`UNCONFIRMED_MARK`). */
-export const GALVO_UNCONFIRMED = 'NO hubo confirmación';
 
 /** ¿El perfil activo es una máquina galvo? */
 export function selectIsGalvo(s: Pick<AppState, 'devices' | 'activeDeviceId'>): boolean {
@@ -72,9 +70,9 @@ export function completeAck(c: { eyewear: boolean; enclosure: boolean; emergency
   return c.eyewear && c.enclosure && c.emergencyStop ? { eyewear: true, enclosure: true, emergency_stop: true } : null;
 }
 
-/** ¿El mensaje dice que detener no se confirmó? (el motor deja `GALVO_UNCONFIRMED`). */
+/** ¿El mensaje del motor dice que detener no se confirmó? (lleva el código `stop_unconfirmed`, sin importar el idioma). */
 export function isUnconfirmedStop(...messages: (string | null | undefined)[]): boolean {
-  return messages.some((m) => !!m && m.includes(GALVO_UNCONFIRMED));
+  return messages.some((m) => !!m && hasStopCode(m));
 }
 
 /** Todas las entradas de la tarjeta como bits (de 0 a 15) con su valor, para mostrarlas. */

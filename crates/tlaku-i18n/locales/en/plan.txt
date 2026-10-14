@@ -1,0 +1,48 @@
+# Mensajes de tlaku-plan (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: plan.<módulo>.<qué> = plantilla
+
+# describe.rs
+plan.describe.level_layer = layer
+plan.describe.level_group = group
+plan.describe.level_priority = priority
+plan.describe.no_levels = no ordering levels: all shapes compete equally
+plan.describe.levels = order by {levels} (from highest to lowest precedence)
+plan.describe.inner_first = inner shapes first: what is inside another shape is cut first
+plan.describe.inner_first_off = inner shapes first is off: a shape may be cut before the ones it contains
+plan.describe.reduce_travel = short path: nearest neighbor with local improvement
+plan.describe.reduce_travel_off = short path is off: the original order is kept
+plan.describe.start_chosen = closed shapes start at the most convenient point
+plan.describe.start_drawn = closed shapes start where they were drawn
+plan.describe.direction_free = open shapes may be traversed backwards
+plan.describe.direction_kept = open shapes keep their direction
+plan.describe.winding_ccw = closed shapes always run counterclockwise
+plan.describe.winding_cw = closed shapes always run clockwise
+
+# lib.rs: levels, order reasons and warnings
+plan.level.layer = layer
+plan.level.group = group
+plan.level.priority = priority
+plan.reason.bucket_layer = layer {layer}
+plan.reason.bucket_group = group {group}
+plan.reason.bucket_ungrouped = ungrouped shapes
+plan.reason.bucket_priority = priority {priority}
+plan.reason.rule_layer = layers are cut in their own order
+plan.reason.rule_group = groups are cut in their own order within the layer
+plan.reason.rule_ungrouped = ungrouped shapes go before groups
+plan.reason.rule_priority = the lower priority is cut first
+plan.reason.first = first shape of {bucket}: {rule}
+plan.reason.first_inside = first shape of {bucket}; it goes before shape #{item} (the nearest) because it is inside it and inner shapes are cut first
+plan.reason.first_overlap = first shape of {bucket}; it goes before shape #{item} (the nearest) because almost all of it lies inside it and what is held down is cut first
+plan.reason.first_blocked = first shape of {bucket}; shape #{item} was closer but has to wait for its inner shapes
+plan.reason.inner_first = goes before shape #{container}, which contains it: inner shapes first
+plan.reason.overlap_first = goes before shape #{other}, which it overlaps: {share_pct} % of it lies inside, so the part that stays held down is cut first
+plan.reason.overlap_first_others = goes before shape #{other}, which it overlaps: {share_pct} % of it lies inside and, together with other shapes, it ends up almost entirely over foreign material
+plan.reason.nearest = the nearest ({distance_mm} mm) among those that could be cut now
+plan.reason.nearest_blocked = the nearest ({distance_mm} mm) among those that could be cut now; shape #{blocked} was closer but has to wait for its inner shapes
+plan.reason.input_order = follows the original order (reducing travel is off)
+plan.reason.input_order_blocked = follows the original order; shape #{blocked} came earlier but has to wait for its inner shapes
+plan.reason.improved = the path improvement (2-opt/Or-opt, start and direction) left it here because it shortens the total, even though it is not the nearest shape
+plan.reason.level_overrides_inner = goes before its inner shape #{inner} because the order by {level} takes precedence over inner shapes first
+plan.warning.skipped_invalid = shape #{item} is empty or has invalid coordinates and was skipped
+plan.warning.overlap_limited = there are too many large overlapping shapes: not all partial overlaps were analyzed and some crossing shapes may be cut in any order
+plan.warning.inner_overridden = shape #{container} is cut before its inner shape #{inner}: the order by {level} takes precedence over inner shapes first

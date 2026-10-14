@@ -7,6 +7,7 @@
 
 use super::*;
 use clap::ValueEnum;
+use tlaku_i18n::tr;
 use tlaku_pipeline::doc::{JobOptions, RotaryKind, SplitAxes, SplitOrder};
 use tlaku_pipeline::{StageMove, job_mark_sequence};
 
@@ -116,17 +117,22 @@ impl SeqStep {
 
     /// «Paso 2 de 6 · pieza 2 de 3 · repetición 1 de 2».
     pub fn label(&self, n: usize, total: usize) -> String {
-        let mut s = format!("Paso {n} de {total}");
+        let mut parts = vec![tr!("cli.galvo.seq_step", n = n, total = total)];
         if self.pieces > 1 {
-            s.push_str(&format!(" · pieza {} de {}", self.piece, self.pieces));
-        }
-        if self.repeats > 1 {
-            s.push_str(&format!(
-                " · repetición {} de {}",
-                self.repeat, self.repeats
+            parts.push(tr!(
+                "cli.galvo.seq_piece",
+                piece = self.piece,
+                pieces = self.pieces
             ));
         }
-        s
+        if self.repeats > 1 {
+            parts.push(tr!(
+                "cli.galvo.seq_repeat",
+                repeat = self.repeat,
+                repeats = self.repeats
+            ));
+        }
+        parts.join(" · ")
     }
 
     /// Qué mover antes del paso: «mesa X +100,00 mm · Y 0,00 mm · rotativo +45,0°».
@@ -134,14 +140,17 @@ impl SeqStep {
         let signed = |v: f64, d: usize| format!("{}{v:.d$}", if v > 0.0 { "+" } else { "" });
         let mut parts = Vec::new();
         if self.stage.dx != 0.0 || self.stage.dy != 0.0 {
-            parts.push(format!(
-                "mesa X {} mm · Y {} mm",
-                signed(self.stage.dx, 2),
-                signed(self.stage.dy, 2)
+            parts.push(tr!(
+                "cli.galvo.seq_stage_move",
+                dx = signed(self.stage.dx, 2),
+                dy = signed(self.stage.dy, 2)
             ));
         }
         if self.stage.rotary_deg != 0.0 {
-            parts.push(format!("rotativo {}°", signed(self.stage.rotary_deg, 1)));
+            parts.push(tr!(
+                "cli.galvo.seq_rotary_move",
+                deg = signed(self.stage.rotary_deg, 1)
+            ));
         }
         parts.join(" · ")
     }
@@ -154,7 +163,7 @@ pub fn steps(planned: &Planned) -> Result<(Vec<SeqStep>, Vec<String>), String> {
     let request = planned
         .request
         .as_ref()
-        .ok_or("no hay un diseño del que sacar las piezas")?;
+        .ok_or_else(|| tr!("cli.galvo.seq_no_design"))?;
     let designed = job::design(request)?;
     let machine = &planned.machine;
     let mut warnings = designed.warnings.clone();
@@ -184,11 +193,14 @@ pub fn steps(planned: &Planned) -> Result<(Vec<SeqStep>, Vec<String>), String> {
         };
         let job = match tlaku_pipeline::compute_at(&designed.doc, machine, &options, None) {
             Ok(j) => j,
-            Err(e) if e.starts_with("no hay nada que producir") && s.tile.is_some() => {
-                warnings.push(format!(
-                    "La pieza {} de la repetición {} no tiene nada que marcar: se omite.",
-                    s.piece + 1,
-                    s.repeat + 1
+            Err(e)
+                if tlaku_i18n::msg_is(&e, "pipeline.build_plan.nothing_to_produce")
+                    && s.tile.is_some() =>
+            {
+                warnings.push(tr!(
+                    "cli.galvo.seq_piece_empty",
+                    piece = s.piece + 1,
+                    repeat = s.repeat + 1
                 ));
                 carried = StageMove {
                     dx: carried.dx + s.stage.dx,
@@ -222,9 +234,7 @@ pub fn steps(planned: &Planned) -> Result<(Vec<SeqStep>, Vec<String>), String> {
         carried_pause = 0.0;
     }
     if out.is_empty() {
-        return Err(
-            "no hay nada que producir: ninguna pieza del marcado dividido tiene contenido".into(),
-        );
+        return Err(tr!("cli.galvo.seq_nothing"));
     }
     // El primer paso se marca con la mesa ya colocada: no lleva movimiento.
     if let Some(first) = out.first_mut() {

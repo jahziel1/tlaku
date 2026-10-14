@@ -3,7 +3,7 @@ import { clampJogSpeed } from '@/features/machine/jogMath';
 import { planMacro, replyOk } from '@/features/machine/macros';
 import { upsertPosition, workTarget } from '@/features/machine/positions';
 import { t } from '@/i18n';
-import { errorMessage } from '@/lib/errors';
+import { ENGINE_ERROR, errorCode, errorMessage } from '@/lib/errors';
 import { readPref, writePref } from '@/lib/platform';
 import { isJobBusy, selectActiveDevice } from './selectors';
 import { jogBlockedReason } from './machine';
@@ -21,9 +21,12 @@ export const DEFAULT_FIRE = { powerPct: 2, durationMs: 200 } as const;
 export const FRAME_MAX_PCT = 20;
 export const DEFAULT_FRAME_PCT = 1;
 
-/** Texto que el motor deja en el registro cuando termina un encuadre. */
-export const FRAME_DONE_LOG = '; encuadre terminado';
-export const FRAME_CANCELLED_LOG = '; encuadre cancelado';
+/**
+ * Líneas que el motor deja en el registro cuando termina o se cancela un encuadre. Llevan un código
+ * estable (`[frame_done] ...`, `tlaku_i18n::coded`): el texto cambia con el idioma, el código no.
+ */
+export const FRAME_DONE_LOG = `[${ENGINE_ERROR.frameDone}] ; frame finished`;
+export const FRAME_CANCELLED_LOG = `[${ENGINE_ERROR.frameCancelled}] ; frame cancelled`;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
@@ -296,8 +299,9 @@ export const createMoveControlSlice: SliceCreator<MoveControlSlice> = (set, get)
     noteFrameLog: (text) => {
       const s = get();
       if (!s.frameLooping) return;
-      if (text === FRAME_CANCELLED_LOG || !s.connection.connected || isJobBusy(s)) return void set({ frameLooping: false });
-      if (text !== FRAME_DONE_LOG) return;
+      const code = errorCode(text);
+      if (code === ENGINE_ERROR.frameCancelled || !s.connection.connected || isJobBusy(s)) return void set({ frameLooping: false });
+      if (code !== ENGINE_ERROR.frameDone) return;
       // Un respiro para que la máquina vuelva a reposo antes de pedir la vuelta siguiente.
       void sleep(400).then(() => {
         const cur = get();

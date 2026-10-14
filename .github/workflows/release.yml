@@ -167,10 +167,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPIMAGE_EXTRACT_AND_RUN: "1"
-          # Actualizaciones automáticas (desactivadas; ver "Actualizaciones" en docs/publicar.md).
-          # Al activarlas, descomenta estas dos líneas:
-          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Actualizaciones automáticas. Solo se usan si `scripts/configure-updater.sh` activó
+          # `createUpdaterArtifacts` en tauri.conf.json (ver docs/publicar.md); mientras esté
+          # desactivado, Tauri ignora estas variables (aunque lleguen vacías).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
           args: ${{ matrix.args }} ${{ env.TLAKU_ARGS_FIRMA }}

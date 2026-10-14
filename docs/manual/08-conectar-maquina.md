@@ -56,6 +56,32 @@ El **Dialecto de G-code** muestra un resumen (por ejemplo "S 0-1000, M4 dinámic
 
 **Leer de la máquina** (con la máquina conectada) envía `$$`, que solo lee, y te propone valores para el perfil. Tú marcas cuáles aplicar; tampoco se guardan hasta **Guardar cambios**.
 
+## Ajustes del perfil que conviene conocer
+
+Además de los datos de la tabla, el perfil guarda ajustes que casi nadie toca al principio pero que resuelven problemas muy concretos. Todos están en **Dispositivos** y todos esperan a **Guardar cambios**.
+
+### En el grupo General: perfil predeterminado, orden e ícono
+
+- **Perfil predeterminado.** Marca **Activar este perfil al abrir Tlaku** en el que uses casi siempre: al arrancar la aplicación queda como máquina activa y en la lista se ve la insignia **Predeterminado**. **Solo uno puede serlo**: al marcar otro se quita la marca del anterior. Un proyecto guardado con otra máquina sigue abriéndose con la suya.
+- **Orden.** **Subir en la lista** y **Bajar en la lista** (junto a la lista de perfiles) ordenan tus perfiles: ponle arriba el que más uses. Con un solo perfil no hacen nada.
+- **Ícono.** Elige uno de diez (**Controladora**, **Rayo**, **Llama (CO2)**, **Sol (fibra o galvo)**, **Tijeras (corte)**, **Impresora**, **Llave**, **Caja**, **Capas**, **Indicador**) para reconocer el perfil de un vistazo en la lista.
+
+### En el grupo Cama
+
+- **Ejes cruzados: Intercambiar X e Y en la máquina.** Para máquinas cuyo eje X recorre el **alto** del diseño y su Y el **ancho**. El **Área de trabajo** de arriba sigue en la orientación del documento; el G-code, el encuadre y el movimiento manual (las flechas de **Mover cabezal**) cruzan los ejes por ti. No se combina con el rotativo.
+- **Desfase del puntero rojo** (**Puntero X** y **Puntero Y**, en mm; X a la derecha, Y arriba). Dónde cae el puntero rojo respecto del rayo. Con el desfase puesto, el **encuadre con el láser apagado** y **Posicionar el láser** con la casilla **Llevar el puntero rojo al punto** hacen que sea el **puntero** —y no el rayo— el que recorra el trabajo o llegue al punto. Mídelo sobre un material de prueba: pon el puntero sobre un punto, marca ahí a baja potencia y mide la distancia entre la marca y el punto. 0 y 0 significa que el puntero cae sobre el rayo. Ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
+- **Unidad de velocidad: mm/min o mm/s.** Solo cambia **cómo se muestran y se escriben** las velocidades del perfil (la velocidad máxima de cada eje y la de desplazamiento rápido) y las del diálogo de **Iniciar**. Por dentro, y en el G-code, todo sigue en mm/min; las velocidades de las capas se siguen escribiendo en mm/min. Útil si tu láser o tu fabricante da las velocidades en mm/s (60 mm/s son 3600 mm/min).
+
+### En el grupo Comunicación (solo controladoras de la familia GRBL)
+
+- **Homing al conectar: Ofrecer el homing ($H) al conectar.** Con finales de carrera, la máquina suele perder la posición al apagarse. Marcado, al conectar se abre la confirmación del homing (despeja el área, ¿hacer home?). **Nunca se envía solo.**
+- **No reiniciar la placa al abrir el puerto: Abrir el puerto serie sin subir DTR** (solo con USB serie). Muchas placas Arduino se reinician cuando el programa abre el puerto, y con eso pierden su posición y su estado: si la tuya lo hace cada vez que conectas, márcalo para que conserve la posición. Depende del sistema: en Linux el controlador sube DTR siempre, y algunos adaptadores USB también, así que a veces no tendrá efecto.
+- **Envío síncrono: Mandar una línea y esperar su «ok».** Tlaku envía G-code llenando el búfer de la placa (conteo de caracteres), que es lo más rápido. Algunas placas **pierden datos con el búfer lleno**: se salen líneas, hay `error:` sueltos o movimientos que no corresponden. El envío síncrono manda **una línea y espera su respuesta antes de mandar la siguiente**: es más lento y el movimiento puede **entrecortarse en trazos finos**. Úsalo solo si tu placa pierde líneas aun bajando el **Búfer de recepción**; si no, déjalo apagado.
+
+### En el grupo Ejes y accesorios
+
+- **Desplazamiento U de los trabajos** (con **La máquina tiene un eje U** marcado). Cuánto se mueve el eje U **al empezar cada trabajo**; al terminar se deshace (con movimientos relativos y el láser apagado). Sirve, por ejemplo, para avanzar una mesa o una cinta entre trabajos sin escribir una macro. 0 deja a U sin tocar.
+
 ## Conectar
 
 1. En la pestaña **Máquina**, elige tu perfil en **Máquina**.

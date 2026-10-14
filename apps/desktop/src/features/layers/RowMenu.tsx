@@ -66,7 +66,7 @@ export function RowMenu({ items, anchor, label, onClose }: Props) {
   };
 
   return (
-    <div ref={ref} className="lyr-menu" role="menu" aria-label={label} style={{ left: pos.left, top: pos.top, width: WIDTH }} onKeyDown={onKeyDown}>
+    <div ref={ref} className="lyr-menu" role="menu" tabIndex={-1} aria-label={label} style={{ left: pos.left, top: pos.top, width: WIDTH }} onKeyDown={onKeyDown}>
       {items.map((it) => (
         <button
           key={it.id}

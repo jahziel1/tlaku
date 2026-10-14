@@ -18,5 +18,5 @@ pub async fn detect_circle_in_image(
 ) -> Result<CircleFit, String> {
     tauri::async_runtime::spawn_blocking(move || run_detect_circle(&image_png_base64, hint))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }

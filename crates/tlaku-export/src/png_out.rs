@@ -10,6 +10,7 @@ use tiny_skia::{
 use tlaku_core::Rgb;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_doc::Document;
+use tlaku_i18n::tr;
 
 /// Lado máximo y área máxima del PNG, para no agotar la memoria con un ppp absurdo.
 const MAX_SIDE_PX: f64 = 30_000.0;
@@ -21,21 +22,24 @@ pub fn export_png(
     opts: &PngOptions,
 ) -> Result<Export, String> {
     if !opts.dpi.is_finite() || opts.dpi < 1.0 {
-        return Err(format!("Resolución inválida: {} ppp.", opts.dpi));
+        return Err(tr!("export.png_out.bad_dpi", dpi = opts.dpi));
     }
     let mut scene = Scene::collect(doc, selection)?;
     let page = fit_page(scene.bounds, opts.margin_mm, false);
     let scale = opts.dpi / 25.4;
     let (wf, hf) = ((page.w * scale).ceil(), (page.h * scale).ceil());
     if wf > MAX_SIDE_PX || hf > MAX_SIDE_PX || wf * hf > MAX_PIXELS {
-        return Err(format!(
-            "La imagen sería de {wf} x {hf} píxeles ({:.0} x {:.0} mm a {} ppp): es demasiado \
-             grande. Baja la resolución.",
-            page.w, page.h, opts.dpi
+        return Err(tr!(
+            "export.png_out.too_big",
+            wpx = wf,
+            hpx = hf,
+            w = format!("{:.0}", page.w),
+            h = format!("{:.0}", page.h),
+            dpi = opts.dpi
         ));
     }
-    let mut pixmap = Pixmap::new(wf as u32, hf as u32)
-        .ok_or_else(|| "No se pudo crear la imagen (tamaño inválido).".to_string())?;
+    let mut pixmap =
+        Pixmap::new(wf as u32, hf as u32).ok_or_else(|| tr!("export.png_out.create_failed"))?;
     pixmap.fill(if opts.transparent {
         Color::TRANSPARENT
     } else {
@@ -58,7 +62,7 @@ pub fn export_png(
         for it in scene.in_layer(color) {
             if let Some(img) = it.image {
                 if let Err(e) = draw_image(&mut pixmap, it, &page, scale, img.size_mm) {
-                    warnings.push(format!("No se pudo dibujar la imagen: {e}"));
+                    warnings.push(tr!("export.png_out.draw_failed", error = e));
                 }
                 continue;
             }
@@ -69,7 +73,7 @@ pub fn export_png(
     }
     let png = pixmap
         .encode_png()
-        .map_err(|e| format!("No se pudo codificar el PNG: {e}"))?;
+        .map_err(|e| tr!("export.png_out.encode_failed", error = e))?;
     Ok(Export {
         bytes: with_dpi(png, opts.dpi),
         size_mm: [page.w, page.h],
@@ -132,11 +136,11 @@ fn draw_image(
     scale: f64,
     size_mm: [f64; 2],
 ) -> Result<(), String> {
-    let img = it.image.ok_or("no es una imagen")?;
+    let img = it.image.ok_or_else(|| tr!("export.png_out.not_image"))?;
     let raw = std::fs::read(&img.source_path).map_err(|e| format!("{}: {e}", img.source_path))?;
     let rgba = decode_image(&img.source_path, &raw)?.to_rgba8();
     let (pw, ph) = (rgba.width(), rgba.height());
-    let mut tex = Pixmap::new(pw, ph).ok_or("imagen vacía")?;
+    let mut tex = Pixmap::new(pw, ph).ok_or_else(|| tr!("export.png_out.empty_image"))?;
     // tiny-skia usa alfa premultiplicado.
     for (dst, src) in tex.pixels_mut().iter_mut().zip(rgba.pixels()) {
         let [r, g, b, a] = src.0;
@@ -169,7 +173,8 @@ fn draw_image(
         ),
         ..Paint::default()
     };
-    let rect = Rect::from_xywh(0.0, 0.0, pw as f32, ph as f32).ok_or("imagen vacía")?;
+    let rect = Rect::from_xywh(0.0, 0.0, pw as f32, ph as f32)
+        .ok_or_else(|| tr!("export.png_out.empty_image"))?;
     let path = PathBuilder::from_rect(rect);
     pixmap.fill_path(&path, &paint, FillRule::Winding, transform, None);
     Ok(())

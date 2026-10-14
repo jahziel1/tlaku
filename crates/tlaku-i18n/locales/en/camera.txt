@@ -1,0 +1,111 @@
+# Mensajes de tlaku-camera (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: camera.<módulo>.<qué> = plantilla
+
+# calibration/calibrate.rs
+camera.calibrate.no_images = no image was given to calibrate with
+camera.calibrate.size_mismatch = image {n} is {w}x{h} and the first is {first_w}x{first_h}; all images must be the same size
+camera.calibrate.image_skipped = image {n}: {error}; skipped
+camera.calibrate.few_boards = only {found} of {total} images show the board; at least 3 are needed (ideally 5 or more, with the board tilted and near the corners)
+camera.calibrate.open_failed = could not open {path}: {error}
+camera.calibrate.few_views = at least 3 views of the board are needed (there are {n})
+camera.calibrate.bad_square = the square size must be greater than 0 mm
+camera.calibrate.corner_count = view {n} has {found} corners but {expected} were expected
+camera.calibrate.no_model = no lens model could be fitted
+camera.calibrate.view_dropped = view {n} discarded: reprojection error {rms} px against a median of {median} px (was the board moved, out of focus or misdetected?)
+camera.calibrate.image_dropped = image {n} discarded: reprojection error {rms} px against a median of {median} px (was the board moved, out of focus or misdetected?)
+camera.calibrate.few_useful = only {n} useful views; with 5 or more (board tilted and near the corners) the calibration is more reliable
+camera.calibrate.fisheye_chosen = the fisheye model was chosen: error on held-out views {fisheye} px against {brown} px with Brown-Conrady
+camera.calibrate.brown_failed = Brown-Conrady could not fit these views; the fisheye model is used
+camera.calibrate.fisheye_failed = the fisheye model could not fit these views; Brown-Conrady is used
+camera.calibrate.high_error = the reprojection error is high ({rms} px); check the focus, that the board is flat and the square size
+
+# calibration/fit.rs
+camera.fit.view_homography = could not compute the homography of a view: {error}
+camera.fit.singular_camera = initial camera matrix is not invertible
+camera.fit.fisheye_no_converge = the fisheye model did not converge; take more views, with the board tilted and near the corners
+camera.fit.no_converge = the calibration did not converge; take more views with the board tilted
+
+# calibration/intrinsics.rs
+camera.intrinsics.focal_unknown = could not estimate the focal length: the views are too similar; tilt the board in different directions
+
+# calibration/model.rs
+camera.model.fisheye = fisheye (Kannala-Brandt)
+camera.model.zero_size = the calibration has a zero image size
+camera.model.not_finite = the calibration contains non-finite values
+camera.model.bad_focal = the calibration has a non-positive focal length
+camera.model.bad_zoom = the calibration has a view factor out of range
+
+# calibration/select.rs
+camera.select.no_converge = did not converge
+
+# chessboard.rs
+camera.chessboard.not_found = the {cols}x{rows}-corner board was not found; check the lighting and that the whole board is visible
+camera.chessboard.too_small = the board must have at least 2x3 inner corners ({cols}x{rows} was requested)
+camera.chessboard.image_small = the image is too small ({w}x{h})
+camera.chessboard.grid_larger = a grid larger than {cols}x{rows} corners was detected; check the board size you entered
+
+# circle.rs
+camera.circle.image_small = the image is too small to look for a circle
+camera.circle.no_edges = no edges are visible in the image; improve the contrast or the lighting
+camera.circle.not_found = no circle was found in the image
+camera.circle.partial = only {pct} % of the outline is visible; the circle must be almost fully visible
+
+# height.rs
+camera.height.bad_camera = the camera matrix is not valid
+camera.height.singular_camera = the camera matrix is singular
+camera.height.degenerate_alignment = the alignment is degenerate, so the height cannot be estimated
+camera.height.degenerate_alignment_short = the alignment is degenerate
+camera.height.degenerate_points = the mark points are degenerate
+camera.height.need_two_heights = marks at two different heights are needed for the height model
+camera.height.point_mismatch = each height needs as many image points as bed points
+camera.height.few_marks = the {height} mm height has fewer than 4 marks
+camera.height.not_finite = there are non-finite values in the marks
+camera.height.span_small = the heights must differ by at least {min} mm (they differ by {span} mm)
+camera.height.svd_failed = the SVD decomposition of the height model failed
+camera.height.degenerate_marks = the marks are degenerate for the height model (collinear or repeated)
+camera.height.norm_singular = image normalization is not invertible
+camera.height.model_not_finite = the height model is not finite
+
+# homography.rs
+camera.homography.singular = the homography is singular and cannot be inverted
+camera.homography.all_equal = the points are degenerate (they all coincide)
+camera.homography.few_pairs = at least 4 point pairs are needed for the homography (there are {n})
+camera.homography.not_finite = there are points with non-finite coordinates
+camera.homography.svd_failed = the SVD decomposition of the homography failed
+camera.homography.collinear = the points are degenerate (collinear or repeated); use well-spread marks
+camera.homography.norm_singular = target normalization is not invertible
+camera.homography.not_finite_result = the resulting homography is not finite
+camera.homography.ransac_no_sample = RANSAC found no valid sample
+camera.homography.no_consensus = no consensus: only {count} of {n} pairs agree; check the marks or raise the threshold
+camera.homography.count_mismatch = there are {image} image points and {bed} bed points; they must match
+
+# marks/detect.rs
+camera.detect.image_small = the image is too small to look for marks
+camera.detect.few_candidates = not enough marks were found in the image ({n} seen, at least 4 needed); check the lighting, the focus and that the marks are inside the frame
+camera.detect.layout_unknown = the mark layout could not be recognized (are they from another document, or is the image mirrored?); the search is more reliable with a prior manual 4-point alignment
+camera.detect.no_alignment = the marks found do not define an alignment: {error}
+camera.detect.few_refined = the center of only {n} marks could be measured accurately (4 are needed); the engraved lines are very faint or out of focus: raise the power a little or refocus
+camera.detect.incoherent = the marks are not consistent with each other; check that they were engraved completely
+camera.detect.found_some = Found {found} of {total} marks.
+camera.detect.discarded = {n} mark(s) were discarded because they did not agree with the others.
+camera.detect.high_residual = One of the marks has an error of {error} mm (less than {max} mm is recommended).
+
+# marks/layout.rs
+camera.layout.bad_count = 4 or 9 marks can be generated ({count} were requested)
+camera.layout.bed_small = the bed must be at least {min} mm on each side for the marks
+
+# mosaic.rs
+camera.mosaic.no_photos = there is no photo to compose
+camera.mosaic.bad_rect = the rectangle to compose is not valid
+camera.mosaic.bad_resolution = the image resolution must be greater than 0
+camera.mosaic.too_big = the image would be {w} x {h} pixels; lower the resolution
+camera.mosaic.infinite = a photo projects to infinity: check its alignment
+
+# undistort.rs
+camera.undistort.zero_output = the output size of the correction cannot be 0
+camera.undistort.calib_small = the calibrated image is too small
+camera.undistort.size_mismatch = the image is {w}x{h} but the calibration is for {calib_w}x{calib_h}
+camera.undistort.channels = unsupported number of channels
+camera.undistort.buffer = inconsistent buffer size while correcting the image
+camera.undistort.open_failed = could not open {path}: {error}
+camera.undistort.save_failed = could not save {path}: {error}

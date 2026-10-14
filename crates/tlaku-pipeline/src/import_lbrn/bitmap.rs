@@ -9,6 +9,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tlaku_doc::ImageObject;
+use tlaku_i18n::tr;
 
 pub(super) struct Extractor {
     preferred: PathBuf,
@@ -85,18 +86,20 @@ impl Extractor {
             Ok(f) => Ok(f),
             Err(first) => {
                 let file = try_dir(&self.fallback).map_err(|e| {
-                    format!(
-                        "no se pudo guardar la imagen ni en «{}» ({first}) ni en «{}» ({e})",
-                        self.preferred.display(),
-                        self.fallback.display()
+                    tr!(
+                        "pipeline.import_lbrn_bitmap.save_failed",
+                        preferred = self.preferred.display(),
+                        first = first,
+                        fallback = self.fallback.display(),
+                        error = e
                     )
                 })?;
                 if !self.warned_fallback {
                     self.warned_fallback = true;
-                    self.warnings.push(format!(
-                        "No se pudo escribir junto al proyecto ({first}); las imágenes incrustadas \
-                         se guardaron en «{}»",
-                        self.fallback.display()
+                    self.warnings.push(tr!(
+                        "pipeline.import_lbrn_bitmap.saved_in_fallback",
+                        first = first,
+                        fallback = self.fallback.display()
                     ));
                 }
                 Ok(file)
@@ -106,7 +109,8 @@ impl Extractor {
 
     /// Extrae una imagen y devuelve su `ImageObject` con la caja local `w` x `h` mm.
     pub(super) fn extract(&mut self, data: &[u8], w: f64, h: f64) -> Result<ImageObject, String> {
-        let ext = extension(data).ok_or("formato de imagen no reconocido")?;
+        let ext =
+            extension(data).ok_or_else(|| tr!("pipeline.import_lbrn_bitmap.unknown_format"))?;
         let key = fingerprint(data);
         if let Some((path, wp, hp)) = self.done.get(&key) {
             return Ok(ImageObject {

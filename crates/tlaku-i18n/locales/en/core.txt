@@ -1,0 +1,8 @@
+# Mensajes de tlaku-core (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: core.<módulo>.<qué> = plantilla
+
+# lib.rs
+core.lib.bad_color = invalid color '{value}', use the #rrggbb format
+core.lib.speed = invalid speed: {value}
+core.lib.power = power outside 0-100 %: {value}
+core.lib.passes = passes must be at least 1

@@ -5,6 +5,7 @@ use std::path::Path;
 use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Point, Polyline};
 use tlaku_doc::LayerSettings;
+use tlaku_i18n::tr;
 use tlaku_raster::{Luma, ProcessOptions, Sampling};
 
 /// PNG en escala de grises de la imagen `source` de `size_mm` (ancho, alto) tratada con los
@@ -19,7 +20,7 @@ pub fn processed_png(
 ) -> Result<(Vec<u8>, [u32; 2]), String> {
     let [w, h] = size_mm;
     if !(w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0) {
-        return Err(format!("tamaño de imagen inválido: {w} x {h} mm"));
+        return Err(tr!("pipeline.processed.bad_size", w = w, h = h));
     }
     let r = crate::layers::resolve_image(layer)?;
     let opts = ProcessOptions {
@@ -30,8 +31,8 @@ pub fn processed_png(
     };
     let (gray, opts) = tlaku_raster::load_for_process(source, Luma::default(), w, h, &opts)
         .map_err(|e| format!("{}: {e}", source.display()))?;
-    let mut bitmap =
-        tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?;
+    let mut bitmap = tlaku_raster::process(&gray, w, h, &opts)
+        .map_err(|e| tr!("pipeline.common.image_error", error = e))?;
     let shapes: Vec<Polyline> = mask.iter().flat_map(|p| p.flatten(0.01)).collect();
     tlaku_raster::apply_mask(&mut bitmap, Point::new(0.0, 0.0), &shapes);
     let png = bitmap.to_png()?;
@@ -66,7 +67,7 @@ pub fn processed_preview(
 ) -> Result<ProcessedPreview, String> {
     let [w, h] = size_mm;
     if !(w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0) {
-        return Err(format!("tamaño de imagen inválido: {w} x {h} mm"));
+        return Err(tr!("pipeline.processed.bad_size", w = w, h = h));
     }
     let r = crate::layers::resolve_image(layer)?;
     let opts = ProcessOptions {

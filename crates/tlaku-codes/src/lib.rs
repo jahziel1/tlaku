@@ -16,6 +16,7 @@ mod geometry;
 
 use serde::{Deserialize, Serialize};
 use tlaku_core::bezpath::BezPath;
+use tlaku_i18n::tr;
 use tlaku_text::FontLibrary;
 
 pub use encode::{Encoded, check_digit, encode_linear};
@@ -113,22 +114,16 @@ const MIN_MODULE_MM: f64 = 0.25;
 /// Genera el código. `lib` solo se usa para el texto legible.
 pub fn generate(lib: &FontLibrary, spec: &CodeSpec) -> Result<CodeOutput, String> {
     if spec.data.is_empty() {
-        return Err("Escribe el contenido del código".into());
+        return Err(tr!("codes.lib.empty_content"));
     }
     if !(spec.size_mm.is_finite() && spec.size_mm > 0.0) {
-        return Err(format!(
-            "El tamaño del código debe ser mayor que 0 mm (recibido {})",
-            spec.size_mm
-        ));
+        return Err(tr!("codes.lib.bad_size", value = spec.size_mm));
     }
     if !(spec.margin_mm.is_finite() && spec.margin_mm >= 0.0) {
-        return Err("El margen no puede ser negativo".into());
+        return Err(tr!("codes.lib.negative_margin"));
     }
     if spec.kind.is_linear() && !(spec.height_mm.is_finite() && spec.height_mm > 0.0) {
-        return Err(format!(
-            "El alto de las barras debe ser mayor que 0 mm (recibido {})",
-            spec.height_mm
-        ));
+        return Err(tr!("codes.lib.bad_height", value = spec.height_mm));
     }
 
     let mut warnings = Vec::new();
@@ -142,8 +137,9 @@ pub fn generate(lib: &FontLibrary, spec: &CodeSpec) -> Result<CodeOutput, String
     };
     let module_mm = spec.size_mm / out.modules as f64;
     if module_mm < MIN_MODULE_MM {
-        warnings.push(format!(
-            "Cada módulo mide {module_mm:.2} mm: es probable que la máquina no pueda grabarlo con nitidez. Aumenta el tamaño o acorta el contenido."
+        warnings.push(tr!(
+            "codes.lib.small_module",
+            module = format!("{module_mm:.2}")
         ));
     }
     Ok(CodeOutput { warnings, ..out })

@@ -1,0 +1,53 @@
+# Mensajes de tlaku-text (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: text.<módulo>.<qué> = plantilla
+
+# layout.rs
+text.layout.bad_size = The text size must be greater than 0 mm (received {value})
+text.layout.bad_letter_spacing = The letter spacing is not a valid number
+text.layout.bad_line_spacing = The line spacing must be greater than 0 (received {value})
+text.layout.bad_bend = The text bend is not a valid number
+text.layout.line_font_style = The single-line font '{name}' has no bold or italic
+text.layout.font_unreadable = Could not read the font '{family}'
+text.layout.missing_path = The text is on a path but the path was not received
+text.layout.many_subpaths = The path has several subpaths; only the first one is used
+text.layout.weld_line_font = Welding does not apply to single-line fonts: they have no outlines to join
+text.layout.bend_on_path = Text on a path already follows a curve; the bend is ignored
+text.layout.bend_clamped = The bend was limited to {bend} degrees
+text.layout.bend_too_tight = The bend is so tight that the radius is smaller than the text height; the letters get squashed
+text.layout.face_damaged = The font is damaged or its format is not supported
+text.layout.bad_em = The font declares an invalid em size
+text.layout.missing_glyphs = The font has no glyph for: {list}; those characters are skipped
+text.layout.longer_than_closed = The text ({text} mm) is longer than the closed path ({path} mm); it will overlap itself
+text.layout.does_not_fit = The text does not fit on the path ({text} mm of text starting at {offset} mm on a path {path} mm long); {skipped} glyphs are skipped
+
+# library.rs
+text.library.read_failed = Could not read the font '{path}': {error}
+text.library.with_path = {error} ('{path}')
+text.library.not_a_font = The data is not a valid font (TrueType/OpenType is supported)
+text.library.shx_no_name = The SHX file has no name
+text.library.no_italic = The font '{name}' has no italic; the upright version is used (no synthetic italic is generated)
+text.library.only_italic = The font '{name}' only has italic; that one is used
+text.library.no_bold = The font '{name}' has no bold; weight {weight} is used (no synthetic bold is generated)
+text.library.only_weight = The font '{name}' only has weight {weight}; that one is used
+text.library.no_name = The font name is missing
+text.library.no_fonts = The font '{family}' does not exist: no font is loaded
+text.library.not_installed = The font '{family}' is not installed and there are no similar families
+text.library.not_installed_similar = The font '{family}' is not installed. Similar families: {similar}
+
+# linefont.rs
+text.linefont.bad_glyph = Glyph {index} of the font '{name}' is malformed
+text.linefont.glyph_count = The font '{name}' has {found} glyphs and {expected} were expected
+
+# path_sampler.rs
+text.path_sampler.no_segments = The text path has no segments
+text.path_sampler.zero_length = The text path has zero length
+
+# shx.rs
+text.shx.bigfont = BigFont (CJK) SHX fonts are not supported yet
+text.shx.not_shx = The file is not an AutoCAD SHX font
+text.shx.no_glyphs = The SHX font contains no characters that can be drawn
+text.shx.missing_mark = Damaged SHX file: the 0x1A mark is missing
+text.shx.nested_subshapes = Endless nested subshapes
+text.shx.truncated_shape = Truncated SHX shape
+text.shx.shape_too_long = SHX shape is too long
+text.shx.empty_stack = Empty stack in SHX shape

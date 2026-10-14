@@ -106,7 +106,7 @@ describe('menús coherentes con el registro', () => {
     expect(placed).toContain('panel.history');
     expect(menus.at(-1)!.id).toBe('help');
     const help = menus.at(-1)!.items.flatMap((i) => (i.kind === 'command' ? [i.id] : []));
-    expect(help).toEqual(['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.report', 'help.donate', 'help.about']);
+    expect(help).toEqual(['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.checkUpdates', 'help.report', 'help.donate', 'help.about']);
   });
 
   it('un comando que ningún menú menciona va al menú de su categoría', () => {

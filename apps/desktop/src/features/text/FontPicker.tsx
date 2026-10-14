@@ -136,6 +136,8 @@ export function FontPicker({ value, fallback, families, loading, onPick }: Props
               {sections && i === firstLine && (
                 <li role="presentation" className="fontpick__section">{t('text.font.sectionLine')}</li>
               )}
+              {/* Combobox: el teclado vive en el campo (flechas + aria-activedescendant); la opción solo atiende el clic. */}
+              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
               <li
                 id={`${id}-opt-${i}`}
                 role="option"

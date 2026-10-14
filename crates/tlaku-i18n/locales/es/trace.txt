@@ -1,0 +1,21 @@
+# Mensajes de tlaku-trace (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: trace.<módulo>.<qué> = plantilla
+
+# lib.rs
+trace.lib.read_failed = No se pudo leer la imagen '{path}': {error}
+trace.lib.decode_failed = No se pudo decodificar la imagen: {error}
+trace.lib.bad_size = El tamaño de salida en mm debe ser positivo y finito
+trace.lib.bad_threshold = El umbral debe estar entre 0 y 1
+trace.lib.bad_blur = El desenfoque debe estar entre 0 y 50 px
+trace.lib.bad_corner = El ángulo de esquina debe estar entre 0 y 180 grados
+trace.lib.bad_smoothness = La suavidad debe estar entre 0 y 1
+trace.lib.empty_image = La imagen está vacía
+trace.lib.too_big = La imagen de {w}x{h} px es demasiado grande: el máximo es {max_side} px por lado y {max_mp} megapíxeles en total. Redúcela antes de trazar
+trace.lib.specks_removed = Se descartaron {n} manchas menores de {side} px de lado
+trace.lib.blank = La imagen no tiene zonas que trazar con estos ajustes; revisa el umbral o la opción de invertir
+trace.lib.no_paths = No se obtuvo ninguna trayectoria
+
+# spline.rs
+trace.spline.failed = El vectorizador falló con esta imagen
+trace.spline.too_many_shapes = La imagen tiene demasiadas formas para vectorizarla; sube speckle_px o el desenfoque
+trace.spline.shapes_failed = {n} formas no se pudieron vectorizar

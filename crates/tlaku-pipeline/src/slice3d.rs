@@ -17,6 +17,7 @@ use crate::layers::ResolvedImage;
 use crate::zaxis::LayerZ;
 use tlaku_core::toolpath::ToolpathBlock;
 use tlaku_doc::Slice3d;
+use tlaku_i18n::{msg_is, tr};
 use tlaku_raster::RasterMode;
 
 /// Cortes mínimos y máximos (8 bits dan como mucho 256 niveles distintos).
@@ -24,7 +25,9 @@ pub(crate) const MIN_SLICES: u32 = 2;
 pub(crate) const MAX_SLICES: u32 = 256;
 
 /// Aviso que `Builder::image` da cuando una pasada no tiene ningún punto.
-const BLANK_WARNING: &str = "imagen: no hay ningún punto que grabar (la imagen resultó en blanco)";
+pub(crate) fn blank_warning() -> String {
+    tr!("pipeline.slice3d.blank")
+}
 
 /// Las imágenes de cada corte de `r`: una sola (`r` tal cual) si el 3D no está activo.
 pub(crate) fn expand(r: &ResolvedImage, s: &Slice3d) -> Result<Vec<ResolvedImage>, String> {
@@ -32,16 +35,15 @@ pub(crate) fn expand(r: &ResolvedImage, s: &Slice3d) -> Result<Vec<ResolvedImage
         return Ok(vec![r.clone()]);
     }
     if !(MIN_SLICES..=MAX_SLICES).contains(&s.slices) {
-        return Err(format!(
-            "imagen: el grabado 3D necesita entre {MIN_SLICES} y {MAX_SLICES} cortes (son {})",
-            s.slices
+        return Err(tr!(
+            "pipeline.slice3d.slice_count",
+            min = MIN_SLICES,
+            max = MAX_SLICES,
+            n = s.slices
         ));
     }
     if !s.angle_step_deg.is_finite() {
-        return Err(format!(
-            "imagen: ángulo por corte inválido: {}",
-            s.angle_step_deg
-        ));
+        return Err(tr!("pipeline.slice3d.bad_angle", angle = s.angle_step_deg));
     }
     let n = s.slices;
     Ok((0..n)
@@ -72,7 +74,12 @@ pub(crate) fn z_for(z: LayerZ, k: usize, total: usize) -> LayerZ {
 pub(crate) fn name_slice(reports: &mut [LayerReport], k: usize, total: usize) {
     if total > 1 {
         for r in reports {
-            r.name = format!("{} · corte {}/{total}", r.name, k + 1);
+            r.name = tr!(
+                "pipeline.slice3d.slice_name",
+                name = r.name,
+                k = k + 1,
+                total = total
+            );
         }
     }
 }
@@ -85,18 +92,18 @@ pub(crate) fn merge_blank_warnings(warnings: &mut Vec<String>, from: usize, tota
     }
     let blank = warnings[from..]
         .iter()
-        .filter(|w| w.as_str() == BLANK_WARNING)
+        .filter(|w| msg_is(w, "pipeline.slice3d.blank"))
         .count();
     if blank == 0 {
         return;
     }
     let mut tail = warnings.split_off(from);
-    tail.retain(|w| w != BLANK_WARNING);
+    tail.retain(|w| !msg_is(w, "pipeline.slice3d.blank"));
     warnings.extend(tail);
     warnings.push(if blank == total {
-        BLANK_WARNING.to_string()
+        blank_warning()
     } else {
-        format!("imagen: {blank} de {total} cortes 3D no tienen ningún punto que grabar")
+        tr!("pipeline.slice3d.some_blank", blank = blank, total = total)
     });
 }
 
@@ -204,7 +211,7 @@ mod tests {
     fn blank_warnings_collapse() {
         let mut w = vec!["otro".to_string()];
         let from = w.len();
-        w.extend([BLANK_WARNING.to_string(), BLANK_WARNING.to_string()]);
+        w.extend([blank_warning(), blank_warning()]);
         w.push("x".into());
         merge_blank_warnings(&mut w, from, 4);
         assert_eq!(w.len(), 3);

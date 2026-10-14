@@ -234,7 +234,7 @@ describe('eventos del galvo', () => {
     store.getState().setSelectedPort('virtual:galvo');
     await store.getState().connect();
     await vi.waitFor(() => expect(store.getState().connection.connected).toBe(true));
-    emitGalvo(api, { kind: 'laser_may_be_on', message: 'NO hubo confirmación de que la fuente se apagara' });
+    emitGalvo(api, { kind: 'laser_may_be_on', message: '[galvo_stop_unconfirmed] NO hubo confirmación de que la fuente se apagara' });
     expect(store.getState().galvoLaserWarning).toContain('NO hubo confirmación');
     await store.getState().disconnect();
     await vi.waitFor(() => expect(store.getState().connection.connected).toBe(false));
@@ -246,13 +246,35 @@ describe('eventos del galvo', () => {
     expect(store.getState().galvoLaserWarning).toBeNull();
   });
 
-  it('un error de trabajo o de conexión con «NO hubo confirmación» también activa el aviso', async () => {
+  it('un error de trabajo o de conexión con el código de parada sin confirmar también activa el aviso', async () => {
     const { store } = await setup();
-    store.getState().onJob({ state: 'error', message: 'cancelado (tandas enviadas: 1 de 5). Se intentó apagar la fuente pero NO hubo confirmación: puede seguir habilitada', position_lost: false });
+    store.getState().onJob({ state: 'error', message: '[galvo_stop_unconfirmed] cancelado (tandas enviadas: 1 de 5). Se intentó apagar la fuente pero NO hubo confirmación: puede seguir habilitada', position_lost: false });
     expect(store.getState().galvoLaserWarning).toContain('NO hubo confirmación');
+    // El código no se muestra: es para la interfaz, no para el usuario.
+    expect(store.getState().galvoLaserWarning).not.toContain('galvo_stop_unconfirmed');
+    expect(store.getState().jobMessage).not.toContain('[');
     store.getState().dismissGalvoLaserWarning();
-    store.getState().onConnection({ connected: false, port: 'usb:galvo:0', error: 'se perdió la conexión. NO hubo confirmación de que la fuente quedara apagada' });
+    store.getState().onConnection({ connected: false, port: 'usb:galvo:0', error: '[galvo_stop_unconfirmed] se perdió la conexión. NO hubo confirmación de que la fuente quedara apagada' });
     expect(store.getState().galvoLaserWarning).toContain('NO hubo confirmación');
+    expect(store.getState().connection.error).not.toContain('[');
+  });
+
+  it('con el motor en inglés la parada sin confirmar se detecta y se muestra igual', async () => {
+    const { api, store } = await setup();
+    store.getState().onJob({ state: 'error', message: '[galvo_stop_unconfirmed] canceled (batches sent: 1 of 5). There was NO confirmation that the source turned off: it may still be enabled', position_lost: false });
+    expect(store.getState().galvoLaserWarning).toBe('canceled (batches sent: 1 of 5). There was NO confirmation that the source turned off: it may still be enabled');
+    store.getState().dismissGalvoLaserWarning();
+    store.getState().onConnection({ connected: false, port: 'usb:galvo:0', error: '[galvo_stop_unconfirmed] connection lost. There was NO confirmation that the source turned off' });
+    expect(store.getState().galvoLaserWarning).toContain('There was NO confirmation');
+    store.getState().dismissGalvoLaserWarning();
+    emitGalvo(api, { kind: 'laser_may_be_on', message: '[galvo_stop_unconfirmed] There was NO confirmation that the source turned off.' });
+    expect(store.getState().galvoLaserWarning).toBe('There was NO confirmation that the source turned off.');
+  });
+
+  it('el texto sin código no activa el aviso', async () => {
+    const { store } = await setup();
+    store.getState().onJob({ state: 'error', message: 'Se intentó apagar la fuente pero NO hubo confirmación', position_lost: false });
+    expect(store.getState().galvoLaserWarning).toBeNull();
   });
 
   it('un error cualquiera no activa el aviso', async () => {

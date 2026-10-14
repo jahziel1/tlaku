@@ -1,0 +1,459 @@
+# Mensajes de tlaku-pipeline (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: pipeline.<módulo>.<qué> = plantilla
+
+# import_egv.rs
+pipeline.import_egv.no_motion = {name}: no parece un .egv de LHYMICRO-GL: el flujo no tiene ningún movimiento
+pipeline.import_egv.no_cut = {name}: el .egv no corta nada con el láser encendido
+pipeline.import_egv.no_cut_raster = {name}: el .egv no corta nada con el láser encendido (solo trae un grabado en modo trama, que no se importa como vectores)
+pipeline.import_egv.no_power = El .egv no guarda la potencia: las capas usan la potencia por defecto; ajústala.
+pipeline.import_egv.assumed_m2 = Se supuso una placa M2 para convertir los códigos de velocidad y el home arriba a la izquierda (se invirtió Y respecto a la cama del perfil por defecto).
+pipeline.import_egv.raster_skipped = Se omitieron {n} movimiento(s) de grabado en modo trama (G): no se importan como vectores.
+pipeline.import_egv.bad_speeds = {n} código(s) de velocidad no se entendieron y se ignoraron.
+pipeline.import_egv.no_speed = Hay cortes sin código de velocidad: se les puso 20 mm/s.
+
+# import.rs
+pipeline.import.unsupported_format = {path}: formato de entrada no soportado; usa SVG, DXF, PDF, AI, HPGL, G-code, LightBurn (.lbrn/.lbrn2), Ruida (.rd), K40 (.egv) o una imagen (PNG, JPG, BMP, WebP, TIFF, GIF, TGA)
+pipeline.import.image_converted = La ventana no muestra {ext} directamente: se convirtió a PNG y el diseño usa la copia {copy}. Conserva esa copia junto al proyecto.
+pipeline.import.image_converted_temp = La ventana no muestra {ext} directamente y no se pudo escribir junto al original: se convirtió a PNG en la carpeta temporal ({copy}). Si cambias de equipo o reinicias, vuelve a importar la imagen.
+pipeline.import.invalid_svg = {path}: SVG inválido: {error}
+pipeline.import.dxf_unit_forced = El archivo no declara unidades: se interpretó cada unidad como {unit} mm por la opción de importación.
+pipeline.import.no_paths = {path}: el archivo no contiene trayectorias
+pipeline.import.no_paths_causes = {path}: el archivo no contiene trayectorias. {causes}
+pipeline.import.hint_image = Exporta la imagen como PNG o JPG e impórtala como imagen.
+pipeline.import.hint_dxf = Convierte esos elementos a contornos (líneas, polilíneas y curvas) en tu programa de CAD y vuelve a exportar.
+pipeline.import.hint_svg = Convierte el texto y los objetos a trayectos (contornos) en tu editor y vuelve a guardar el SVG.
+pipeline.import.svg_only_images = El SVG no trae trayectorias, solo {n} imagen(es) incrustada(s): se importó como imagen (copia en {files}). Para cortar o grabar contornos hace falta un SVG con trayectos.
+
+# import_gcode.rs
+pipeline.import_gcode.zero_power = {name}: el G-code no dibuja nada con el láser encendido: trae {n} avances G1/G2/G3 pero con potencia 0 (M3 S0, o sin una S mayor que 0). Fija una potencia al generarlo, por ejemplo M3 S500 antes del corte, y vuelve a importarlo; o usa la opción «potencia para cortes sin S» al importar
+pipeline.import_gcode.nothing_drawn = {name}: el G-code no dibuja nada con el láser encendido (se buscan G1, G2 y G3 con M3/M4 y S mayor que 0; los G0 no se dibujan)
+pipeline.import_gcode.defaulted_feeds = {n} avance(s) del G-code llegaban con potencia 0 y se tomaron como cortes con S{s}.
+pipeline.import_gcode.no_spindle = El G-code no usa M3 ni M4: se tomó como encendido todo avance con S mayor que 0.
+pipeline.import_gcode.no_spindle_no_power = El G-code no usa M3, M4 ni S: se importaron todos los avances G1, G2 y G3.
+pipeline.import_gcode.many_levels = El G-code usa {n} niveles de potencia: se repartieron en {max} capas. Si es un grabado de imagen, impórtalo como imagen, no como G-code.
+pipeline.import_gcode.ignored_codes = Códigos G-code ignorados: {codes}.
+pipeline.import_gcode.non_xy_arcs = {n} arco(s) fuera del plano XY (G18/G19) se omitieron.
+pipeline.import_gcode.bad_arcs = {n} arco(s) sin centro válido se importaron como rectas.
+pipeline.import_gcode.truncated = El G-code es muy largo: solo se interpretaron las primeras {max} líneas.
+
+# import_hpgl.rs
+pipeline.import_hpgl.no_strokes = {name}: el archivo HPGL no contiene trazos (no hay PD ni PA con la pluma abajo)
+pipeline.import_hpgl.assumed_units = HPGL: se supuso 40 unidades por mm (0,025 mm). Si el tamaño no coincide, corrígelo con la escala de las opciones de importación.
+pipeline.import_hpgl.labels_skipped = Se omitieron {n} rótulo(s) de texto (LB): conviértelos a contornos antes de exportar a HPGL.
+pipeline.import_hpgl.ignored_commands = Comandos HPGL ignorados: {commands}.
+pipeline.import_hpgl.isotropic_scale = SC isótropo: se trató como escala independiente en X e Y; revisa las proporciones.
+pipeline.import_hpgl.scale_without_ip = SC sin IP: no se sabe a qué tamaño corresponde, se ignoró.
+
+# import_rd.rs
+pipeline.import_rd.not_rd = {name}: no parece un archivo .rd de Ruida: ninguna de las claves de ofuscación conocidas da un flujo de comandos válido
+pipeline.import_rd.unusual_key = El .rd usa la clave de ofuscación 0x{key} (no la 0x88 habitual).
+pipeline.import_rd.unknown_commands = {n} comando(s) del .rd no se reconocieron y se ignoraron.
+pipeline.import_rd.no_cuts = {name}: el .rd no contiene cortes (no hay A8/A9/AA/AB con el láser encendido)
+pipeline.import_rd.recolored = {n} capa(s) del .rd no traían color o lo repetían: se les asignó uno distinto.
+pipeline.import_rd.variable_power = La capa {n} varía la potencia dentro de la capa (relleno o imagen): se importó con la potencia máxima ({pct} %) y sin los tramos de overscan a potencia 0.
+pipeline.import_rd.no_speed = Las capas {layers} no declaran velocidad: se usó {speed} mm/min.
+pipeline.import_rd.assumed_origin = Ruida: se supuso el origen arriba a la izquierda con Y hacia abajo y se invirtió Y (cama del perfil por defecto). Si tu máquina tiene otro origen, el dibujo puede salir desplazado o reflejado.
+
+# import_lbrn.rs
+pipeline.import_lbrn.newer_format = Versión de formato de LightBurn desconocida (FormatVersion {version}, guardado con {app}): se intenta leer, pero puede faltar información
+pipeline.import_lbrn.unknown_app_version = una versión sin identificar
+pipeline.import_lbrn.text_note_one = Texto: {note} (en 1 texto)
+pipeline.import_lbrn.text_note_other = Texto: {note} (en {n} textos)
+pipeline.import_lbrn.omitted_shapes_one = Se omitió 1 forma de tipo «{ty}» (no soportada)
+pipeline.import_lbrn.omitted_shapes_other = Se omitieron {n} formas de tipo «{ty}» (no soportadas)
+pipeline.import_lbrn.empty_project = {path}: el proyecto de LightBurn no contiene formas ni capas
+pipeline.import_lbrn.layers_only = El proyecto no contiene formas importables: solo se importaron las capas
+pipeline.import_lbrn.image_skipped = Se omitió una imagen incrustada de {w} x {h} mm: {error}
+
+# import_lbrn/bitmap.rs
+pipeline.import_lbrn_bitmap.save_failed = no se pudo guardar la imagen ni en «{preferred}» ({first}) ni en «{fallback}» ({error})
+pipeline.import_lbrn_bitmap.saved_in_fallback = No se pudo escribir junto al proyecto ({first}); las imágenes incrustadas se guardaron en «{fallback}»
+pipeline.import_lbrn_bitmap.unknown_format = formato de imagen no reconocido
+
+# import_lbrn/text.rs
+pipeline.import_lbrn_text.spacing = el espaciado de letras/líneas de LightBurn (LS/LnS) no se importa (sus unidades no están documentadas); se usa el espaciado normal
+pipeline.import_lbrn_text.font_substituted = la fuente «{font}» no está instalada; el contorno se generó con «{family}»
+pipeline.import_lbrn_text.no_outline = el archivo no trae el contorno y no se pudo generar con las fuentes instaladas (¿falta «{font}»?); queda sin contorno hasta regenerarlo en el editor
+
+# import_lbrn/layers.rs
+pipeline.import_lbrn_layers.undefined_layer = La capa {layer} no está definida en el archivo; se usan los ajustes por defecto
+pipeline.import_lbrn_layers.images_only = La capa «{layer}» solo lleva imágenes: se importa en modo imagen
+pipeline.import_lbrn_layers.images_moved = Hay imágenes en la capa «{layer}», que también lleva vectores: van a la capa «{target}»
+pipeline.import_lbrn_layers.quoted_name = «{name}»
+pipeline.import_lbrn_layers.and_more = {list} y {more} más
+pipeline.import_lbrn_layers.note_for_layers = {note} (capas: {layers})
+pipeline.import_lbrn_layers.sub_type_mismatch = la sub-capa {n} es de un tipo ({kind}) que no se puede combinar con la capa; se ignora
+pipeline.import_lbrn_layers.too_many_subs = hay más de {max} sub-capas; se ignoran las sobrantes
+pipeline.import_lbrn_layers.sub_prefix = sub-capa {n}: {note}
+pipeline.import_lbrn_layers.fill_plus_line = «Relleno + línea» no existe en una sola capa; se importa solo el relleno (crea otra capa de línea si también quieres el contorno)
+pipeline.import_lbrn_layers.unknown_mode = modo de capa «{mode}» desconocido; se importa como línea
+pipeline.import_lbrn_layers.manual_tabs = los puentes de LightBurn se colocan a mano y aquí se reparten solos (revisa su posición)
+pipeline.import_lbrn_layers.ramp_no_length = la rampa de potencia no tiene largo; se ignora
+pipeline.import_lbrn_layers.through_no_time = el corte pasante no trae su tiempo; se usan {ms} ms
+pipeline.import_lbrn_layers.unknown_image_mode = modo de imagen «{mode}» desconocido; se usa Stucki
+pipeline.import_lbrn_layers.ignored_ppi = pulsos por pulgada (PPI)
+pipeline.import_lbrn_layers.ignored_frequency = frecuencia del láser
+pipeline.import_lbrn_layers.ignored_laser2 = segundo láser
+pipeline.import_lbrn_layers.ignored_constant_power = potencia constante
+pipeline.import_lbrn_layers.ignored_blower = velocidad del soplador
+pipeline.import_lbrn_layers.ignored_scan_individual = relleno por objeto (scanOpt individual)
+pipeline.import_lbrn_layers.ignored_feature = «{what}» no tiene equivalente en Tlaku y se ignora
+
+# import_pdf.rs
+pipeline.import_pdf.legacy_ai = {name}: es un AI antiguo (PostScript) y no se puede leer. Ábrelo en Illustrator y guárdalo con "Crear archivo compatible con PDF", o expórtalo a PDF o SVG.
+pipeline.import_pdf.not_pdf = {name}: no parece un PDF (falta la cabecera %PDF-)
+pipeline.import_pdf.password = {name}: el PDF está protegido con contraseña
+pipeline.import_pdf.invalid = {name}: PDF inválido: {error}
+pipeline.import_pdf.no_pages = {name}: el PDF no tiene páginas
+pipeline.import_pdf.no_such_page = {name}: el PDF tiene {n} páginas; no existe la {page}
+pipeline.import_pdf.multi_page = El PDF tiene {n} páginas: solo se importó la página {page}.
+pipeline.import_pdf.page_unreadable = {name}: no se pudo leer el contenido de la página: {error}
+pipeline.import_pdf.page_garbled = {name}: contenido de página ilegible: {error}
+pipeline.import_pdf.no_vectors = {name}: la página {page} no contiene trayectorias vectoriales
+pipeline.import_pdf.text_blocks = El PDF contiene {n} bloque(s) de texto con fuentes: se omitieron porque no son contornos. Conviértelos a contornos (curvas) en el programa de origen y vuelve a exportar.
+pipeline.import_pdf.images_skipped = Se omitieron {n} imagen(es) incrustada(s) del PDF: solo se importan los vectores.
+pipeline.import_pdf.shadings_skipped = Se omitieron {n} degradado(s) o patrón(es): no son trayectorias.
+pipeline.import_pdf.clips_ignored = El PDF usa {n} recorte(s) (clip) que no se aplican: la geometría se importa completa.
+pipeline.import_pdf.unsupported_colors = {n} trayectoria(s) con un espacio de color que no se evalúa se omitieron.
+pipeline.import_pdf.white_background = Se omitió el fondo blanco de la página.
+pipeline.import_pdf.too_deep = Formularios anidados demasiado profundos: se ignoró el resto.
+pipeline.import_pdf.too_big = El contenido de la página es demasiado grande: se interpretó solo una parte.
+
+# --- resto del pipeline ---
+
+# slice3d.rs
+pipeline.slice3d.blank = imagen: no hay ningún punto que grabar (la imagen resultó en blanco)
+pipeline.slice3d.slice_count = imagen: el grabado 3D necesita entre {min} y {max} cortes (son {n})
+pipeline.slice3d.bad_angle = imagen: ángulo por corte inválido: {angle}
+pipeline.slice3d.slice_name = {name} · corte {k}/{total}
+pipeline.slice3d.some_blank = imagen: {blank} de {total} cortes 3D no tienen ningún punto que grabar
+
+# comunes
+pipeline.common.layer_label = capa {name}
+pipeline.common.image_label = imagen
+pipeline.common.image_error = imagen: {error}
+
+# build/fill.rs
+pipeline.build_fill.angle_increment_offset = capa {name}: angle_increment no aplica al relleno por contornos; se ignora
+pipeline.build_fill.scale_clamped = capa {name}: la escala de potencia de {n} objeto(s) pasa de 100 %: se limita a 100 %
+pipeline.build_fill.scale_zero = capa {name}: {n} objeto(s) con potencia 0 (escala de potencia 0 %) no se rellenan
+pipeline.build_fill.several_scales = capa {name}: los objetos tienen {n} escalas de potencia distintas; se rellenan por separado (una vez por escala)
+pipeline.build_fill.scales_overlap = capa {name}: hay objetos con escalas de potencia distintas que se superponen; cada escala se rellena por su cuenta, así que lo común se graba dos veces (un hueco de otra escala no se respeta)
+pipeline.build_fill.open_ignored = capa {name}: {n} trayectoria(s) abierta(s) ignorada(s): el relleno solo usa trayectorias cerradas
+pipeline.build_fill.no_lines = capa {name}: el relleno no produjo ninguna línea
+pipeline.build_fill.layer_error = capa {name}: {error}
+
+# build/line.rs
+pipeline.build_line.open_no_kerf = capa {name}: {n} trayectoria(s) abierta(s) no se compensan por kerf
+pipeline.build_line.manual_tabs_off = capa {name}: hay objetos con puentes manuales, pero los puentes de la capa están desactivados (actívalos para que se respeten)
+pipeline.build_line.plan_warning = capa {name}: {warning}
+pipeline.build_line.nothing_to_cut = capa {name}: no quedó ninguna trayectoria que cortar
+pipeline.build_line.tabs_no_shape = capa {name}: los puentes están activos pero no hay ninguna forma cerrada donde ponerlos
+pipeline.build_line.tabs_no_shape_inner = capa {name}: los puentes están activos pero no hay ninguna forma cerrada donde ponerlos (las formas dentro de otra se omiten)
+pipeline.build_line.tab_power_high = capa {name}: la potencia de puente ({tab} %) supera la del corte ({cut} %); los huecos se marcan con la del corte
+
+# job.rs
+pipeline.job.bad_coordinates = la capa {name} tiene coordenadas que no son números
+pipeline.job.outside_bed = la capa {name} ({mode}) se sale del área de trabajo de {w}x{h} mm: ocupa X de {x0} a {x1} mm, Y de {y0} a {y1} mm
+pipeline.job.outside_bed_overscan = la capa {name} ({mode}) se sale del área de trabajo de {w}x{h} mm: ocupa X de {x0} a {x1} mm, Y de {y0} a {y1} mm (incluye {os} mm de overscan)
+pipeline.job.move_inside = mueve el diseño dentro del área (o usa una máquina con más área de trabajo)
+
+# build/plan.rs
+pipeline.build_plan.no_layer_order_nothing = sin orden por capa: no hay capas de corte consecutivas con los mismos ajustes que mezclar (las que tienen ajustes distintos no se mezclan)
+pipeline.build_plan.no_layer_order_merged = sin orden por capa: se mezclaron las capas con los mismos ajustes ({list})
+pipeline.build_plan.overlaps_removed = tramos repetidos quitados dentro de cada capa de corte (tolerancia {tolerance} mm)
+pipeline.build_plan.hide_backlash = hide_backlash: recorrido en un solo sentido, más lento
+pipeline.build_plan.optimization = optimización: {parts}
+pipeline.build_plan.nothing_to_produce = no hay nada que producir: {reason}
+pipeline.build_plan.empty_or_no_output = el diseño está vacío (o ningún objeto tiene salida)
+pipeline.build_plan.empty_design = el diseño está vacío
+pipeline.build_plan.all_hidden = todos los objetos están ocultos
+pipeline.build_plan.layer_no_output = la capa "{name}" está sin salida (la salida de la capa está desactivada); actívala para que se corte o grabe
+pipeline.build_plan.layers_no_output = las capas con objetos ({names}) están sin salida (la salida está desactivada); activa la salida de al menos una para que se corte o grabe
+
+# build/mod.rs
+pipeline.build_mod.bad_overlap_tolerance = optimización: overlap_tolerance inválida ({value}); debe ser 0 mm o más
+pipeline.build_mod.hide_backlash = hide_backlash activo: las formas cerradas se cortan siempre en sentido antihorario y los rellenos e imágenes se graban en un solo sentido; el trabajo es más lento
+pipeline.build_mod.bad_angle_increment = capa {layer}: angle_increment inválido: {value}
+pipeline.build_mod.bad_position = capa {layer}: la posición debe ser un entero desde 1
+pipeline.build_mod.same_position = las capas {a} y {b} piden la misma posición: order={n}
+pipeline.build_mod.position_too_high = capa {layer}: order={pos} excede el número de capas ({n}); queda al final
+pipeline.build_mod.sub_layers_order = las sub-capas se ordenan por su propio rol, nunca antes que su capa
+
+# build/helpers.rs
+pipeline.build_helpers.must_be_positive = la máquina '{machine}': {name} debe ser mayor que 0
+pipeline.build_helpers.bed = el área de trabajo
+pipeline.build_helpers.accel = la aceleración
+pipeline.build_helpers.max_rate = la velocidad máxima
+pipeline.build_helpers.rapid_rate = la velocidad de movimientos rápidos
+
+# rotary.rs
+pipeline.rotary.must_be_positive = la máquina '{machine}': rotativo: {name} debe ser mayor que 0
+pipeline.rotary.mm_per_rotation = mm por vuelta
+pipeline.rotary.roller_diameter = el diámetro del rodillo
+pipeline.rotary.object_diameter = el diámetro de la pieza
+pipeline.rotary.test_layer = Prueba de una vuelta
+pipeline.rotary.test_needs_rotary = activa el rotativo de la máquina '{machine}' para generar la prueba de una vuelta
+pipeline.rotary.test_needs_diameter = la máquina '{machine}': el diámetro de la pieza debe ser mayor que 0 para calcular la circunferencia de la prueba
+pipeline.rotary.test_bad_speed = la velocidad de la prueba debe ser mayor que 0: {speed}
+pipeline.rotary.test_bad_power = la potencia de la prueba debe estar entre 0 y 100 %: {power}
+
+# cylinder.rs
+pipeline.cylinder.must_be_positive = {name} debe ser mayor que 0 (es {value})
+pipeline.cylinder.cyl_diameter = corrección de cilindro: el diámetro
+pipeline.cylinder.cyl_mirror_distance = corrección de cilindro: la distancia del espejo
+pipeline.cylinder.cone_top = cono: el diámetro superior
+pipeline.cylinder.cone_bottom = cono: el diámetro inferior
+pipeline.cylinder.cone_length = cono: el largo
+pipeline.cylinder.axis_mismatch = la corrección de cilindro y la del cono deben tener el mismo eje
+
+# layers.rs
+pipeline.layers.passes_min = las pasadas deben ser al menos 1
+pipeline.layers.passes_max = demasiadas pasadas ({passes}); el máximo es {max}
+pipeline.layers.layer_error = capa {layer}: {error}
+pipeline.layers.bad_kerf = kerf inválido: {value}
+pipeline.layers.is_image_layer = es una capa de imagen
+pipeline.layers.image_bad_denoise = imagen: quitar motas inválido: {value}
+pipeline.layers.image_bad_threshold = imagen: umbral fuera de 0-1: {value}
+pipeline.layers.image_bad_interval = imagen: intervalo inválido: {value}
+pipeline.layers.speed_over_ruida = capa {name}: pide {speed} mm/min y Ruida admite como máximo {cap} mm/min; el archivo .rd usará {cap} mm/min, así que el resultado será más oscuro o más quemado de lo previsto
+pipeline.layers.speed_over_machine = capa {name}: pide {speed} mm/min y la máquina '{machine}' llega como máximo a {max} mm/min; la máquina irá al máximo, así que el resultado será más oscuro o más quemado de lo previsto (baja la velocidad de la capa o corrige la velocidad máxima del perfil)
+pipeline.layers.speed_over_machine_ruida = capa {name}: pide {speed} mm/min y la máquina '{machine}' llega como máximo a {max} mm/min; la máquina irá al máximo, así que el resultado será más oscuro o más quemado de lo previsto (si tu controladora admite más, sube la velocidad máxima del perfil)
+pipeline.layers.order_file = orden del archivo (--layer-order file)
+pipeline.layers.order_fixed = orden fijado con order=
+pipeline.layers.order_auto_file = orden automático: se conserva el orden del archivo
+pipeline.layers.order_auto_file_same_type = orden automático: se conserva el orden del archivo (todas las capas son del mismo tipo)
+pipeline.layers.role_engraves = grabados
+pipeline.layers.role_lines = líneas
+pipeline.layers.role_cuts = cortes
+pipeline.layers.order_first = {role} primero
+pipeline.layers.order_last = {role} al final
+pipeline.layers.order_then = {role} después
+pipeline.layers.order_auto = orden automático: {parts}
+pipeline.layers.reason_kerf = kerf
+pipeline.layers.reason_power = potencia ≥ 80 % con varias pasadas
+pipeline.layers.cut_by = {color} por {why}
+pipeline.layers.cut_list = (corte: {list})
+pipeline.layers.at_position = {color} en la posición {n}
+pipeline.layers.explicit_order = order= explícito: {list}
+
+# gcode.rs
+pipeline.gcode.swap_with_rotary = la máquina '{machine}' tiene el intercambio X/Y y el rotativo activos a la vez: el intercambio se ignora mientras el rotativo esté encendido
+pipeline.gcode.no_air_command = la máquina '{machine}' no tiene comando de aire en su dialecto de G-code: la asistencia de aire de las capas se ignora
+pipeline.gcode.no_laser2 = la máquina '{machine}' no tiene segundo láser: las capas que piden el láser 2 salen con el láser 1
+pipeline.gcode.no_laser2_select = el dialecto de la máquina '{machine}' no tiene comando para seleccionar el láser 2: las capas del láser 2 salen sin cambiar de láser (configúralo en el dialecto de G-code)
+pipeline.gcode.no_dynamic_power = la máquina '{machine}' no tiene potencia dinámica en su dialecto: se usa potencia constante
+pipeline.gcode.no_dynamic_power_with = la máquina '{machine}' no tiene potencia dinámica en su dialecto: se usa potencia constante ({command})
+pipeline.gcode.s_not_inline = la máquina '{machine}' pone la potencia en una línea aparte: cada cambio de S frena el cabezal y el grabado de imágenes sale con manchas; usa un dialecto con S en línea
+pipeline.gcode.grbl_no_laser_mode = la máquina '{machine}' es GRBL sin modo láser: cada cambio de S pausa el movimiento y el grabado de imágenes sale con manchas; actualiza a GRBL 1.1f o posterior
+pipeline.gcode.s_few_levels = la máquina '{machine}' escribe S sin decimales pero su S máxima es {s_max}: la potencia solo tiene {levels} nivel(es); sube la S máxima o los decimales de S
+pipeline.gcode.pointer_frame_outside = El encuadre con el puntero rojo se sale del área de la máquina '{machine}': con el desfase del puntero ({ox} mm, {oy} mm) la cabeza tendría que ir a X {x0}..{x1}, Y {y0}..{y1}. Acerca el diseño al centro o usa el encuadre con el láser.
+
+# ruida.rs
+pipeline.ruida.layers_merged = Ruida admite {max} capas y el trabajo tiene {blocks}: al exportar se fusionarán {merged} capas vecinas de ajustes idénticos (velocidad, potencia, aire) y quedarán {layers}; el orden de corte no cambia
+pipeline.ruida.layers_too_many = Ruida admite {max} capas y el trabajo tiene {blocks}: aun fusionando {merged} capas vecinas de ajustes idénticos quedan {layers}, así que no se podrá exportar ni enviar. Unifica colores o ajustes (velocidad, potencia, aire) de capas seguidas
+pipeline.ruida.cannot_export = Ruida: no se podrá exportar el trabajo: {error}
+
+# preview.rs
+pipeline.preview.paths_one = 1 trayectoria
+pipeline.preview.paths_other = {n} trayectorias
+pipeline.preview.lines_one = 1 línea
+pipeline.preview.lines_other = {n} líneas
+pipeline.preview.summary = {count}, {speed} mm/min, {power}, {passes} pasada(s)
+pipeline.preview.overscan = overscan {mm} mm
+pipeline.preview.tabs_one = 1 puente
+pipeline.preview.tabs_other = {n} puentes
+pipeline.preview.sub_layer = sub-capa {n}/{total}
+pipeline.preview.pass = pasada {n}/{total}
+pipeline.preview.z = Z {z} mm
+pipeline.preview.shape_closed = figura #{item} (cerrada): {reason}
+pipeline.preview.shape_open = figura #{item} (abierta): {reason}
+
+# processed.rs
+pipeline.processed.bad_size = tamaño de imagen inválido: {w} x {h} mm
+
+# place.rs
+pipeline.place.image_bad_size = imagen '{id}': tamaño inválido {w}x{h} mm
+pipeline.place.image_transform = imagen '{id}': solo se admiten escala, reflejo y traslado (sin rotación ni sesgo)
+pipeline.place.image_no_area = imagen '{id}': la escala deja la imagen sin área
+pipeline.place.ignored = {error}; se ignora
+pipeline.place.text_no_outline = objeto '{id}' omitido: el texto no tiene contorno generado
+pipeline.place.vector_ignored = objeto '{id}' vectorial ignorado: la capa {layer} es de modo {mode}
+pipeline.place.image_ignored = objeto '{id}' de imagen ignorado: la capa {layer} es de modo {mode}
+pipeline.place.text_ignored = objeto '{id}' de texto ignorado: la capa {layer} es de modo {mode}
+pipeline.place.too_many_sublayers = capa {layer}: demasiadas sub-capas ({n}); el máximo es {max}
+pipeline.place.missing_layer = el objeto '{id}' usa la capa {layer}, que no existe en el documento
+pipeline.place.bad_transform = el objeto '{id}' tiene una transformación inválida
+pipeline.place.bad_power_scale = el objeto '{id}': power_scale inválida ({value}); debe ser un % mayor o igual que 0
+pipeline.place.copies_ignored = {error}; se ignoran las copias
+pipeline.place.in_copies = {warning} (en las copias del arreglo virtual)
+pipeline.place.sublayer_skipped = capa {layer}, sub-capa {sub}: {n} objeto(s) ignorado(s) porque no admite el modo {mode}
+pipeline.place.bad_job_origin = job_origin fuera de 0-8: {value}
+pipeline.place.duplicate_id = el documento repite el id de objeto '{id}'
+pipeline.place.selection_missing = la selección incluye '{id}', que no existe en el documento
+pipeline.place.selection_origin_no_selection = use_selection_origin se ignora: no hay selección (usa `selection` para cortar solo algunos objetos)
+pipeline.place.selection_origin_absolute = use_selection_origin se ignora: el modo absoluto usa las coordenadas del documento
+pipeline.place.selection_empty = la selección no incluye ningún objeto con salida (oculto, de una capa sin salida o de un tipo que su capa no admite)
+pipeline.place.no_current_position = falta la posición actual de la máquina (conéctala para trabajar desde la posición actual)
+pipeline.place.no_user_origin = falta el origen de usuario (user_origin)
+pipeline.place.bad_start_point = el punto de inicio del trabajo no es un número
+
+# stroke.rs
+pipeline.stroke.lead_bad_length = {what}: el largo debe ser mayor que 0: {value}
+pipeline.stroke.lead_bad_angle = {what}: el {unit} debe estar entre 0 y {max} grados: {value}
+pipeline.stroke.lead_angle = ángulo
+pipeline.stroke.lead_sweep = barrido
+pipeline.stroke.lead_in = entrada
+pipeline.stroke.lead_out = salida
+pipeline.stroke.layer_error = capa {layer}: {error}
+pipeline.stroke.perforation_bad = perforación: el corte ({cut}) y el hueco ({skip}) deben ser mayores que 0 mm
+pipeline.stroke.perforation_too_fine = perforación: el patrón de {period} mm es demasiado fino (mínimo {min} mm)
+pipeline.stroke.bad_overcut = overcut inválido: {value}
+pipeline.stroke.bad_start_delay = pausa de inicio inválida: {value} ms
+pipeline.stroke.bad_end_delay = pausa de fin inválida: {value} ms
+pipeline.stroke.cut_through_bad = corte pasante: potencia 0-100 % y tiempo mayor que 0 ms (recibí {power} % y {ms} ms)
+pipeline.stroke.dot_bad = modo punto: tiempo mayor que 0 ms y separación de al menos {min} mm (recibí {ms} ms y {mm} mm)
+pipeline.stroke.ramp_bad = rampa: largo mayor que 0 mm y potencia inicial de 0-100 % (recibí {mm} mm y {pct} %)
+pipeline.stroke.dot_ignores_perforation = el modo punto ignora la perforación: los puntos ya son intermitentes
+pipeline.stroke.dot_ignores_ramp = el modo punto ignora la rampa: cada punto dispara a la potencia de la capa
+pipeline.stroke.dot_ignores_leads = el modo punto ignora la entrada, la salida y el overcut: no hay una línea que alargar
+pipeline.stroke.dot_ignores_pauses = el modo punto ignora las pausas y el corte pasante: cada punto ya tiene su pausa
+pipeline.stroke.layer_warning = capa {name}: {message}
+pipeline.stroke.shortened = {n} entrada(s) o salida(s) se acortaron para no cruzar la forma
+pipeline.stroke.dropped = {n} entrada(s) o salida(s) se omitieron: no caben sin cruzar la forma
+pipeline.stroke.open_skipped = {n} trayectoria(s) abierta(s) sin entrada, salida ni overcut: solo valen en contornos cerrados
+pipeline.stroke.tabbed_skipped = {n} forma(s) con puentes sin entrada, salida ni overcut: no son un contorno cerrado entero
+pipeline.stroke.overcut_clamped = el overcut de {n} contorno(s) pasaba del perímetro y se limitó a una vuelta
+pipeline.stroke.too_fine = {n} trayecto(s) demasiado largos para el patrón pedido (más de {max} tramos o puntos): se cortan sin perforar ni puntos
+pipeline.stroke.power_clamped = la escala de potencia de {n} trayectoria(s) pasa de 100 %: se limita a 100 %
+
+# tabs.rs
+pipeline.tabs.layer_error = capa {layer}: puentes: {error}
+pipeline.tabs.bad_width = el ancho debe ser mayor que 0: {value}
+pipeline.tabs.bad_spacing = la separación debe ser 0 o mayor: {value}
+pipeline.tabs.bad_power = la potencia de puente debe estar entre 0 y 100: {value}
+pipeline.tabs.too_many = demasiados puentes por forma ({n}); el máximo es {max}
+pipeline.tabs.need_count_or_spacing = indica cuántos puentes (count) o cada cuántos mm (spacing)
+pipeline.tabs.dont_fit = capa {name}: los puentes de {width} mm no caben en {n} forma(s) (el contorno más corto mide {shortest} mm); {none} se cortan sin puentes y el resto con menos de los pedidos. Los puentes no ocupan más de la mitad del contorno
+pipeline.tabs.kerf_eats_tab = capa {layer}: los puentes de {width} mm no sobreviven al corte: con kerf {kerf} mm por lado el haz quita {cut} mm y no queda puente (las piezas se soltarán); usa un ancho de al menos {min} mm
+pipeline.tabs.kerf_fragile = capa {layer}: puentes frágiles: de {width} mm quedan unos {left} mm tras el corte (kerf {kerf} mm por lado); se recomienda un ancho de al menos {min} mm
+
+# zaxis.rs
+pipeline.zaxis.bad_value = capa {layer}: {name} inválido: {value}
+pipeline.zaxis.ignored_no_axis = capa {layer}: z_offset y z_step se ignoran porque la máquina '{machine}' no tiene eje Z
+
+# split.rs
+pipeline.split.too_many_pieces = marcado dividido: {cols}x{rows} piezas es demasiado (máximo {max}); revisa el tamaño
+pipeline.split.must_be_positive = {name} debe ser mayor que 0 (es {value})
+pipeline.split.param_overlap = el solape
+pipeline.split.param_pause_move = la pausa tras el movimiento
+pipeline.split.param_piece = el tamaño de pieza
+pipeline.split.param_pause_repeat = la pausa entre repeticiones
+pipeline.split.param_field = el campo del galvo
+pipeline.split.bad_param = marcado dividido/repetido: {name} inválido: {value}
+pipeline.split.increment_not_number = marcado repetido: el avance debe ser un número
+pipeline.split.bad_repeats = marcado repetido: las repeticiones deben estar entre 1 y {max} (son {n})
+pipeline.split.rotary_needs_diameter = la máquina '{machine}': el diámetro de la pieza debe ser mayor que 0 para el rotativo
+pipeline.split.overlap_too_big = marcado dividido: el solape ({overlap} mm) debe ser menor que la pieza ({side} mm)
+pipeline.split.rotary_too_wide = rotativo galvo: el diseño mide {w} mm de ancho y la pieza {side} mm; el rotativo no mueve X (usa una mesa en X o reduce el diseño)
+pipeline.split.too_tall_for_x = marcado dividido: el diseño mide {h} mm de alto y la mesa solo se mueve en X (pieza de {side} mm)
+pipeline.split.too_wide_for_y = marcado dividido: el diseño mide {w} mm de ancho y la mesa solo se mueve en Y (pieza de {side} mm)
+pipeline.split.rotary_curvature = rotativo galvo: cada franja abarca {span} grados de la pieza (circunferencia {circ} mm): la curvatura distorsiona la marca; usa piezas más chicas (piece_mm) y la corrección de cilindro
+pipeline.split.rotary_overlap = rotativo galvo: el diseño mide {h} mm en Y y la circunferencia es {circ} mm: los extremos se encimarán
+pipeline.split.too_many_steps = marcado dividido y repetido: {pieces} piezas por {repeats} repeticiones superan el máximo de {max} pasos
+pipeline.split.no_motion = el trabajo no tiene movimientos que dividir
+
+# tile.rs
+pipeline.tile.numbers = tiling: hay valores que no son números
+pipeline.tile.empty = tiling: el diseño no tiene área
+pipeline.tile.size = tiling: el tamaño del tramo debe ser mayor que 0
+pipeline.tile.overlap_negative = tiling: el solape no puede ser negativo
+pipeline.tile.overlap = tiling: el solape ({overlap} mm) debe ser menor que el tramo ({w} x {h} mm)
+pipeline.tile.too_many = tiling: {count} tramos son demasiados (el máximo es {max}); revisa el tamaño del tramo
+pipeline.tile.rect_not_numbers = tramo: el rectángulo o el desplazamiento no son números
+pipeline.tile.rect_no_area = tramo: el rectángulo ({x0}, {y0})-({x1}, {y1}) no tiene área
+pipeline.tile.empty_tile = el tramo no contiene ninguna parte del diseño
+
+# registration.rs
+pipeline.registration.few_affine = la transformación afín pide 3 marcas o más (hay {have})
+pipeline.registration.few = hacen falta 2 marcas como mínimo (hay {have})
+pipeline.registration.nan = una marca tiene coordenadas que no son números
+pipeline.registration.close = las marcas {a} y {b} están demasiado cerca (menos de {min} mm): no se puede medir el giro
+pipeline.registration.collinear = las marcas están en línea recta: la transformación afín necesita que no estén alineadas
+pipeline.registration.mirrored = la impresión parece espejada (la transformación invierte el diseño): revisa que las marcas físicas estén en el mismo orden que las del diseño
+pipeline.registration.scale = la escala medida es {pct} % (más de {tolerance} % lejos de 100 %): la impresión puede estar deformada o la referencia es mala; revisa la escala de impresión y las posiciones
+pipeline.registration.anisotropy = la impresión está estirada de forma distinta en cada eje (X {x} %, Y {y} %)
+pipeline.registration.transform_invalid = la transformación de Print & Cut no es válida (tiene valores que no son números)
+pipeline.registration.transform_collapses = la transformación de Print & Cut colapsa el diseño (determinante cero)
+
+# material_test.rs
+pipeline.material_test.param_speed = la velocidad
+pipeline.material_test.param_power = la potencia
+pipeline.material_test.param_passes = las pasadas
+pipeline.material_test.param_interval = el intervalo
+pipeline.material_test.rows = filas
+pipeline.material_test.cols = columnas
+pipeline.material_test.bad_count = Las {which} deben ser entre 1 y {max} (se pidieron {n}).
+pipeline.material_test.bad_range = El rango de las {which} contiene valores no válidos.
+pipeline.material_test.interval_in_line = El intervalo no se usa en modo line; elige otro parámetro para las {which} o cambia a relleno.
+pipeline.material_test.bad_power = La potencia de las {which} debe estar entre 0 y 100 % (se pidió {value}).
+pipeline.material_test.needs_positive = Para {what} de las {which} se necesita un valor mayor que 0 (se pidió {value}).
+pipeline.material_test.too_many_passes = Las pasadas de las {which} no pueden pasar de {max} (se pidió {value}).
+pipeline.material_test.bad_mode = La prueba de materiales solo admite los modos line y fill.
+pipeline.material_test.same_param = Las filas y las columnas deben variar parámetros distintos.
+pipeline.material_test.bad_cell = El tamaño de la celda debe ser mayor que 0 mm.
+pipeline.material_test.bad_gap = La separación entre celdas no puede ser negativa.
+pipeline.material_test.bad_origin = El origen de la cuadrícula no es válido.
+pipeline.material_test.bad_label_speed = La velocidad de los rótulos debe ser mayor que 0.
+pipeline.material_test.bad_label_power = La potencia de los rótulos debe estar entre 0 y 100 %.
+pipeline.material_test.cell_too_narrow = Con rótulos, la celda debe medir al menos {min} mm de ancho (o aumenta la separación).
+pipeline.material_test.cell_too_short = Con rótulos, la celda debe medir al menos {min} mm de alto (o aumenta la separación).
+pipeline.material_test.labels_layer = Rótulos
+pipeline.material_test.short_speed = V {n}
+pipeline.material_test.short_power = P {n}%
+pipeline.material_test.short_passes = Pas {n}
+pipeline.material_test.short_interval = Int {n}
+pipeline.material_test.axis_speed = V MM/MIN
+pipeline.material_test.axis_power = P %
+pipeline.material_test.axis_passes = PAS
+pipeline.material_test.axis_interval = INT MM
+
+# scan_offset.rs
+pipeline.scan_offset.overscan_short = {layer}: el overscan ({overscan} mm) es menor que la corrección de barrido ({offset} mm a {speed} mm/min): las líneas corridas entran sin llegar a velocidad; sube el overscan
+
+# build/mod.rs (cont.)
+pipeline.build_mod.overlaps_with_kerf = capa {layer}: remove_overlaps no se aplica con kerf (las formas abiertas que deja no se pueden compensar); se corta como está
+pipeline.build_mod.overlaps_removed = capa {layer}: remove_overlaps quitó {mm} mm de trazo repetido en {n} trayectoria(s)
+pipeline.build_mod.rotary_overlap = el diseño mide {height} mm en Y y la circunferencia de la pieza es {circumference} mm (diámetro {diameter} mm): los extremos se encimarán
+
+# rotary.rs (cont.)
+pipeline.rotary.soft_limits = rotativo: la Y de la controladora recorre de {lo} a {hi} mm y el área de la máquina '{machine}' mide {bed_y} mm en Y: con los límites por software activos ($20=1) saldría ALARM:2. El rotativo no tiene final de carrera; desactívalos ($20=0) mientras lo uses
+
+# --- galvo.rs ---
+pipeline.galvo.bad_field = la máquina '{machine}': el campo del galvo debe ser mayor que 0 mm (es {field})
+pipeline.galvo.machine_error = la máquina '{machine}': {err}
+pipeline.galvo.invalid_value = capa {layer}: {name} inválido: {value}
+pipeline.galvo.wobble_needs_galvo = capa {layer}: el bamboleo solo funciona con máquinas galvo; se ignora
+pipeline.galvo.bad_frequency = capa {layer}: frecuencia inválida: {khz} kHz
+pipeline.galvo.bad_repeat = capa {layer}: repeat debe estar entre 1 y {max} (es {repeat})
+pipeline.galvo.what_pause_before = pausa antes
+pipeline.galvo.what_pause_after = pausa después
+pipeline.galvo.what_jump_delay_min = retardo mínimo de salto
+pipeline.galvo.what_jump_delay_max = retardo máximo de salto
+pipeline.galvo.what_jump_distance = distancia límite de salto
+pipeline.galvo.bad_delay = capa {layer}: retardo '{delay}' inválido: {value}
+pipeline.galvo.bad_jump_speed = capa {layer}: velocidad de salto inválida: {speed}
+pipeline.galvo.frequency_outside = capa {layer}: la frecuencia de {khz} kHz está fuera del rango de la fuente ({min}-{max} kHz)
+pipeline.galvo.pulse_not_in_source = capa {layer}: el ancho de pulso de {ns} ns no está entre los de la fuente ({list} ns)
+pipeline.galvo.pulse_not_adjustable = capa {layer}: la fuente de la máquina no tiene ancho de pulso ajustable; se ignora el de {ns} ns
+pipeline.galvo.power_above = capa {layer}: la potencia de {power} % supera el límite de la máquina ({max} %)
+pipeline.galvo.ppi_ignored = capa {layer}: ppi no tiene efecto en una máquina galvo; se ignora
+pipeline.galvo.overscan_ignored = capa {layer}: el galvo no necesita overscan; se ignora (el perfil puede fijar uno)
+pipeline.galvo.wobble_line_only = capa {layer}: el bamboleo solo se aplica a capas line; se ignora
+pipeline.galvo.wobble_bad_size = capa {layer}: el bamboleo necesita tamaño y paso mayores que 0 (tamaño {size}, paso {step})
+pipeline.galvo.wobble_too_many_points = {label}: el bamboleo generaría demasiados puntos (más de {max}); se omite (aumenta el paso o reduce el trazo)
+pipeline.galvo.cylinder_clipped = {label}: {n} punto(s) del diseño quedan fuera de lo visible desde el espejo (más de 90 grados de arco en el cilindro); se recortan al borde
+pipeline.galvo.layer_outside_field = la capa {layer} se sale del campo del galvo ({size}x{size} mm): ocupa X de {x0} a {x1} mm, Y de {y0} a {y1} mm
+pipeline.galvo.layer_not_finite = la capa {layer} tiene coordenadas que no son números
+pipeline.galvo.layer_mode_outside_field = la capa {layer} ({mode}) se sale del campo del galvo de {size}x{size} mm: ocupa X de {x0} a {x1} mm, Y de {y0} a {y1} mm
+pipeline.galvo.reduce_to_field = reduce el diseño al campo (o activa el marcado dividido para partirlo en piezas)

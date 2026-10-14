@@ -1,6 +1,6 @@
 # Formas avanzadas y deformar
 
-Herramientas para cambiar la forma de un dibujo ya hecho: recortar donde se cruzan, separar, simplificar nodos, redondear esquinas, partir con una cuchilla, ajustar ranuras de encastre, envolver con un contorno, deformar y combinar con un asistente de operaciones booleanas. Todas están en el menú **Organizar** y cada una es un solo paso de **Deshacer** (`Ctrl/Cmd+Z`). Los atajos se escriben con `Ctrl/Cmd`: `Cmd` en macOS, `Ctrl` en Windows y Linux, y se pueden cambiar (ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md)).
+Herramientas para cambiar la forma de un dibujo ya hecho: recortar donde se cruzan, separar, simplificar nodos, redondear esquinas (también con un clic), partir con una cuchilla, ajustar ranuras de encastre, envolver con un contorno, deformar (también con manijas en el lienzo) y combinar con un asistente de operaciones booleanas. Todas están en el menú **Organizar** y cada una es un solo paso de **Deshacer** (`Ctrl/Cmd+Z`). Los atajos se escriben con `Ctrl/Cmd`: `Cmd` en macOS, `Ctrl` en Windows y Linux, y se pueden cambiar (ver [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md)).
 
 Lo básico de dibujar, alinear y las booleanas simples está en [Dibujar y editar](03-dibujar-y-editar.md).
 
@@ -62,7 +62,18 @@ No ajusta a arcos circulares (usa curvas cúbicas) y no trata un grupo como una 
 
 **Ejemplo: tarjeta con las esquinas redondeadas.** Dibuja un rectángulo de 85 × 55 mm, selecciónalo, **Redondear esquinas…** con 3 mm: las cuatro esquinas quedan con un arco exacto. (Para un solo rectángulo también existe el campo **Radio de esquinas** al dibujarlo.)
 
-Todavía no hay una herramienta de clic por esquina en el lienzo ni un comando para revertir un redondeo (para eso, **Deshacer**).
+### Redondear con un clic (`Mayús+F`)
+
+Para tocar **una sola esquina** sin seleccionar nodos, usa la herramienta **Redondear esquinas con clic** (`Mayús+F`, o **Herramientas**). Al activarla aparece una barra arriba del lienzo:
+
+- **Redondear** o **Revertir** (el modo).
+- El **tipo de esquina** (**Redondeada**, **Chaflán** o **Mordisco**) y su **Radio** (o **Distancia**, en el chaflán): son los mismos valores del diálogo de arriba.
+
+Con el modo **Redondear**, pasa el puntero por un vértice de recta con recta: una vista previa muestra cómo quedará y un cartel dice **Clic: redondear esta esquina (radio 12 mm)**. **Un clic** redondea solo esa esquina, y es un solo paso de **Deshacer**. Si haces clic donde no hay una esquina de dos rectas, la herramienta lo dice (**Ahí no hay una esquina de recta con recta**).
+
+![La barra de Redondear esquinas con clic, una esquina ya redondeada y la vista previa de la siguiente](../../apps/desktop/docs/screenshots/66-redondear-clic.png)
+
+**Revertir una esquina.** Con el modo **Revertir** (o **manteniendo `Alt`** al hacer clic), un clic sobre una esquina **redondeada** o **mordida** la devuelve a punta. Funciona si el arco es **exacto** (el que hizo esta herramienta o el diálogo). **El chaflán no se revierte**: es un tramo recto más y no hay forma de saber cuál era la esquina original; para eso, **Deshacer**. `Alt` también cambia de sentido en el otro modo: con **Revertir** activo, `Alt`+clic vuelve a redondear.
 
 ## Cortar formas con una cuchilla
 
@@ -128,7 +139,26 @@ El diálogo lista los **candidatos** con su radio y su centro, los muestra en la
 
 ![Diálogo Deformar con los presets, la intensidad y la vista previa de una estrella deformada](../../apps/desktop/docs/screenshots/41-deformar.png)
 
-> **Ojo:** hoy se deforma desde un diálogo. Todavía no hay manijas en el lienzo para arrastrar la envolvente ni una malla de 16 puntos (4×4). El resultado reemplaza a los originales; si no te gusta, **Deshacer**.
+### Deformar con manijas en el lienzo (`Mayús+W`)
+
+Para deformar a ojo, **Deformar en el lienzo** (`Mayús+W`, o el botón **Editar en el lienzo** del diálogo, que lo cierra y deja la malla sobre el diseño) pone una **malla de control** sobre la selección y deforma el diseño **en vivo** mientras arrastras. Primero selecciona objetos vectoriales; si no hay selección, la herramienta lo dice y espera.
+
+Una barra arriba del lienzo elige el tipo:
+
+| Tipo | Manijas | Qué hace |
+|---|---|---|
+| **Bilineal** | 4 esquinas | Mueve las esquinas; los bordes quedan rectos. Sirve para inclinar o estirar una forma. |
+| **Perspectiva** | 4 esquinas | Como una foto de una hoja vista de lado: las rectas siguen rectas. Las cuatro esquinas deben formar un cuadrilátero convexo. |
+| **Malla 4×4** | 16 puntos | La superficie pasa por cada punto: permite combar, ondular y torcer. |
+
+![La malla de 4×4 puntos sobre la placa y el engranaje, con varios puntos arrastrados; la forma original se ve punteada](../../apps/desktop/docs/screenshots/65-deformar-lienzo.png)
+
+- **Arrastrar una manija** deforma en vivo. **`Mayús`** mientras arrastras mueve solo en línea recta (horizontal o vertical). Cambiar de tipo conserva la forma que llevas.
+- **Intro** o **Aplicar** escribe el resultado, con las curvas recalculadas con exactitud, en **un solo paso de Deshacer**. Mientras calcula, el botón dice **Calculando…**.
+- **Restablecer** devuelve la malla a su sitio; **Cancelar** o **`Esc`** sale sin cambiar nada (a mitad de un arrastre, `Esc` devuelve la manija).
+- Para trabajos de mucha precisión, el diálogo **Deformar…** de arriba, con milímetros exactos en cada esquina, sigue siendo la forma de escribir los números.
+
+> **Ojo:** la vista previa en vivo es una aproximación rápida; el resultado final lo recalcula el motor al aplicar. El resultado **reemplaza** a los originales; si no te gusta, **Deshacer**. Una selección sin ancho o sin alto (una línea recta) no se puede deformar.
 
 ## Asistente booleano
 

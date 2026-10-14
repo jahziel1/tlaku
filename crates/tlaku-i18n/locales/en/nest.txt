@@ -1,0 +1,11 @@
+# Mensajes de tlaku-nest (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: nest.<módulo>.<qué> = plantilla
+
+# lib.rs
+nest.lib.no_pieces = There are no pieces to nest.
+nest.lib.too_many = There are too many pieces ({n}); the maximum is {max} counting originals and copies.
+nest.lib.empty_piece = Piece {n} has no closed outline with area.
+nest.lib.invalid_container = The container has no valid area: check the bed size or the material outline.
+nest.lib.option_rotation_step = Invalid option: the rotation step must be between 1 and 180 degrees.
+nest.lib.option_spacing = Invalid option: the spacing cannot be negative.
+nest.lib.option_margin = Invalid option: the margin cannot be negative.

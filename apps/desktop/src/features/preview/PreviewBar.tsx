@@ -48,10 +48,10 @@ function Legend() {
   );
 }
 
-function ErrorBlock({ message }: { message: string }) {
+function ErrorBlock({ message, code }: { message: string; code: string | null }) {
   const compute = useStore((s) => s.computePreview);
   const clean = cleanErrorMessage(message) || t('preview.error.generic');
-  const hint = previewErrorHint(clean);
+  const hint = previewErrorHint(code);
   return (
     <div className="pv__error" role="alert">
       <TriangleAlert size={16} aria-hidden="true" />
@@ -75,6 +75,7 @@ export function PreviewBar() {
   const status = useStore((s) => s.previewStatus);
   const stale = useStore((s) => s.previewStale);
   const error = useStore((s) => s.previewError);
+  const errorCodeValue = useStore((s) => s.previewErrorCode);
   const hasLayers = useStore((s) => s.doc.layers.length > 0);
   const toggle = useCommand('view.preview');
   const optimization = useCommand('preview.optimization');
@@ -96,7 +97,7 @@ export function PreviewBar() {
         </button>
       </div>
       <SelectionOptions compact />
-      {status === 'error' && <ErrorBlock message={error ?? ''} />}
+      {status === 'error' && <ErrorBlock message={error ?? ''} code={errorCodeValue} />}
       {preview && model && (
         <>
           {model.count > 0 && <Transport model={model} layerNames={layerNames} />}

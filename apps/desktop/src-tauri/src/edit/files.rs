@@ -10,6 +10,7 @@ use tlaku_export::{
     DxfOptions, Export, PdfOptions, PngOptions, SvgOptions, export_ai, export_dxf, export_pdf,
     export_png, export_svg,
 };
+use tlaku_i18n::tr;
 use tlaku_pipeline::{ImportExtras, ImportOptions, import_file_extras};
 
 /// Opciones del diálogo de importación (D91). Los valores ausentes toman el comportamiento
@@ -54,23 +55,25 @@ impl Default for ImportDialogOptions {
 impl ImportDialogOptions {
     fn extras(&self) -> Result<ImportExtras, String> {
         if !self.scale_percent.is_finite() || self.scale_percent <= 0.0 {
-            return Err(format!("Escala inválida: {} %.", self.scale_percent));
+            return Err(tr!(
+                "desktop.edit.files.bad_scale",
+                value = self.scale_percent
+            ));
         }
-        for (name, v) in [
-            ("DPI", self.dpi),
-            ("Unidad del DXF", self.dxf_unit_mm),
-            ("Potencia para cortes sin S", self.gcode_default_power),
-        ] {
-            if let Some(v) = v
-                && (!v.is_finite() || v <= 0.0)
-            {
-                return Err(format!("{name} inválido: {v}."));
-            }
+        let invalid = |v: Option<f64>| v.filter(|v| !v.is_finite() || *v <= 0.0);
+        if let Some(v) = invalid(self.dpi) {
+            return Err(tr!("desktop.edit.files.bad_dpi", value = v));
+        }
+        if let Some(v) = invalid(self.dxf_unit_mm) {
+            return Err(tr!("desktop.edit.files.bad_dxf_unit", value = v));
+        }
+        if let Some(v) = invalid(self.gcode_default_power) {
+            return Err(tr!("desktop.edit.files.bad_gcode_power", value = v));
         }
         let target_layer = match &self.target_layer {
             Some(text) => Some(
                 text.parse::<Rgb>()
-                    .map_err(|e| format!("Color de capa inválido «{text}»: {e}"))?,
+                    .map_err(|e| tr!("desktop.edit.files.bad_layer_color", text = text, err = e))?,
             ),
             None => None,
         };
@@ -136,7 +139,7 @@ fn write_bytes_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     use std::io::Write as _;
     let name = path
         .file_name()
-        .ok_or_else(|| format!("{}: no es una ruta de archivo", path.display()))?;
+        .ok_or_else(|| tr!("desktop.edit.files.not_a_file_path", path = path.display()))?;
     let mut tmp_name = name.to_os_string();
     tmp_name.push(".tmp");
     let tmp = path.with_file_name(tmp_name);
@@ -200,7 +203,7 @@ fn open_with_system(path: &Path) -> Result<(), String> {
     };
     cmd.spawn()
         .map(|_| ())
-        .map_err(|e| format!("No se pudo abrir el visor de PDF del sistema: {e}"))
+        .map_err(|e| tr!("desktop.edit.files.pdf_viewer_failed", err = e))
 }
 
 /// Rutas de las imágenes de un resultado de importación, para permitirlas en el protocolo de assets.
@@ -220,7 +223,7 @@ async fn blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f)
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]

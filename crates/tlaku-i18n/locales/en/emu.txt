@@ -1,0 +1,8 @@
+# Mensajes de tlaku-emu (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: emu.<módulo>.<qué> = plantilla
+
+# vm.rs, profile.rs
+emu.vm.disconnected = the emulated controller disconnected
+emu.profile.marlin = Marlin 2.x (laser)
+emu.profile.marlin_emergency = Marlin 2.x (laser, EMERGENCY_PARSER)
+emu.profile.marlin_fan = Marlin 2.x (laser on M106 P1)

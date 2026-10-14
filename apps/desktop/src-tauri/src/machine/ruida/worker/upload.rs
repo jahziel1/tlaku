@@ -1,6 +1,7 @@
 //! Subida del trabajo a la controladora.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl<L: PacketLink> Worker<L> {
     pub(super) fn upload(&mut self, up: Upload) -> Result<(), String> {
@@ -11,11 +12,12 @@ impl<L: PacketLink> Worker<L> {
         if let Some([w, h]) = self.bed_mm
             && ((w - up.limits.bed_mm[0]).abs() > 1.0 || (h - up.limits.bed_mm[1]).abs() > 1.0)
         {
-            return Err(format!(
-                "La cama que informa la máquina ({w:.0} × {h:.0} mm) no coincide con la del \
-                 perfil ({:.0} × {:.0} mm): el origen del archivo depende de ella. Corrige el \
-                 tamaño de la cama en el perfil.",
-                up.limits.bed_mm[0], up.limits.bed_mm[1]
+            return Err(tr!(
+                "desktop.ruida.bed_mismatch",
+                w = format!("{w:.0}"),
+                h = format!("{h:.0}"),
+                pw = format!("{:.0}", up.limits.bed_mm[0]),
+                ph = format!("{:.0}", up.limits.bed_mm[1])
             ));
         }
         {
@@ -27,14 +29,17 @@ impl<L: PacketLink> Worker<L> {
         for note in &up.notes {
             self.log(LogDir::In, &format!("; {note}"));
         }
-        let name = match &up.mode {
-            SendMode::Run => "ejecutar al llegar".to_string(),
-            SendMode::Store { name } => format!("guardar como «{name}»"),
+        let log_line = match &up.mode {
+            SendMode::Run => tr!("desktop.ruida.log_job_run", bytes = up.rd.len()),
+            SendMode::Store { name } => {
+                tr!(
+                    "desktop.ruida.log_job_store",
+                    bytes = up.rd.len(),
+                    name = name
+                )
+            }
         };
-        self.log(
-            LogDir::Out,
-            &format!("; trabajo Ruida: {} bytes, {name}", up.rd.len()),
-        );
+        self.log(LogDir::Out, &log_line);
         let sink = self.sink.clone();
         let mut started = false;
         let result = self
@@ -44,7 +49,7 @@ impl<L: PacketLink> Worker<L> {
                     started = true;
                     sink.emit(Emit::Job(JobEvent {
                         state: JobState::Started,
-                        message: format!("Enviando el trabajo ({} paquetes).", p.packets),
+                        message: tr!("desktop.lhymicro.job_sending", packets = p.packets),
                         position_lost: false,
                     }));
                 }
@@ -58,18 +63,17 @@ impl<L: PacketLink> Worker<L> {
             Ok(report) => {
                 self.log(
                     LogDir::In,
-                    &format!(
-                        "; subido: {} paquetes, {} bytes, {} reenvíos",
-                        report.packets, report.bytes, report.resends
+                    &tr!(
+                        "desktop.ruida.log_uploaded",
+                        packets = report.packets,
+                        bytes = report.bytes,
+                        resends = report.resends
                     ),
                 );
                 match up.mode {
                     SendMode::Store { name } => self.job_event(
                         JobState::Finished,
-                        &format!(
-                            "Documento «{name}» guardado en la memoria de la controladora. No se \
-                             ejecutó: selecciónalo e inícialo desde el panel de la máquina."
-                        ),
+                        &tr!("desktop.ruida.job_stored", name = name),
                     ),
                     SendMode::Run => {
                         if let Some(sim) = self.sim.as_mut() {
@@ -80,7 +84,7 @@ impl<L: PacketLink> Worker<L> {
                             seen_running: false,
                             paused: false,
                         });
-                        self.log(LogDir::In, "; el trabajo se está ejecutando en la máquina");
+                        self.log(LogDir::In, &tr!("desktop.ruida.log_running"));
                     }
                 }
                 Ok(())
@@ -88,20 +92,22 @@ impl<L: PacketLink> Worker<L> {
             Err(e) => {
                 let msg = e.to_string();
                 if e.machine_may_be_running {
-                    self.log(
-                        LogDir::In,
-                        "; AVISO: la máquina puede estar ejecutando el trabajo incompleto: pulsa \
-                         Stop en su panel o usa el paro de emergencia",
-                    );
+                    self.log(LogDir::In, &tr!("desktop.ruida.log_may_be_running"));
                 }
                 if matches!(e.cause, SessionError::Cancelled) {
-                    self.job_event(JobState::Cancelled, &format!("Envío cancelado. {msg}"));
+                    self.job_event(
+                        JobState::Cancelled,
+                        &tr!("desktop.ruida.send_cancelled", err = msg),
+                    );
                     Ok(())
                 } else if !started {
                     // Nada llegó a salir (trabajo inválido, máquina ocupada, sin respuesta).
-                    Err(op_error_text(&e.cause, &msg))
+                    Err(op_error_text(&e.cause))
                 } else {
-                    self.job_event(JobState::Error, &format!("Falló el envío: {msg}"));
+                    self.job_event(
+                        JobState::Error,
+                        &tr!("desktop.ruida.send_failed", err = msg),
+                    );
                     Ok(())
                 }
             }

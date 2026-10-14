@@ -1,0 +1,35 @@
+# Mensajes de tlaku-doc (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: doc.<módulo>.<qué> = plantilla
+
+# document.rs
+doc.document.serialize = no se pudo serializar: {error}
+doc.document.invalid = documento inválido: {error}
+doc.document.no_version = documento inválido: falta el campo "version"
+doc.document.unsupported_version = versión de documento no soportada: {found} (esta aplicación entiende la {supported}); actualiza la aplicación para abrirlo
+
+# layer.rs
+doc.layer.overscan_expected = "auto" o un número en mm
+doc.layer.overscan_invalid = overscan inválido '{value}': usa "auto" o un número en mm
+
+# virtual_array.rs
+doc.virtual_array.grid_size = objeto '{id}': arreglo virtual inválido (columnas y filas deben ser al menos 1)
+doc.virtual_array.grid_gap = objeto '{id}': arreglo virtual inválido (separación no numérica)
+doc.virtual_array.too_many = objeto '{id}': arreglo virtual inválido (más de {max} piezas)
+doc.virtual_array.circular_count = objeto '{id}': arreglo virtual inválido (al menos una pieza)
+doc.virtual_array.circular_center = objeto '{id}': arreglo virtual inválido (centro o ángulo no numéricos)
+
+# factory.rs
+doc.factory.material_unnamed = "{id}": material "{material}" sin nombre
+doc.factory.title_unnamed = "{id}": título "{title}" sin nombre
+doc.factory.invalid = Biblioteca de fábrica inválida: {error}
+doc.factory.no_revision = La biblioteca de fábrica no tiene revisión.
+doc.factory.bad_id = "{id}": identificador inválido o repetido.
+doc.factory.no_source = "{id}": falta la fuente (dirección https).
+doc.factory.no_confidence = "{id}": falta el nivel de confianza.
+doc.factory.no_class = "{id}": falta la clase de máquina o el rol.
+doc.factory.no_keys = "{id}": faltan las claves de traducción.
+doc.factory.out_of_range = "{id}": valores fuera de rango.
+doc.factory.restriction_no_source = Restricción de "{material}": falta la fuente.
+
+# layer.rs (cont.)
+doc.layer.images = Imagen

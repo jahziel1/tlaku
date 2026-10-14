@@ -13,6 +13,7 @@
 
 use crate::crc::{self, PAYLOAD_LEN};
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Relleno de los paquetes.
 pub const PAD: u8 = b'F';
@@ -63,17 +64,13 @@ pub enum FrameError {
 impl fmt::Display for FrameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FrameError::BadByte { offset, byte } => {
-                write!(
-                    f,
-                    "byte 0x{byte:02X} no válido en el flujo (posición {offset})"
-                )
-            }
+            FrameError::BadByte { offset, byte } => f.write_str(&tr!(
+                "lhymicro.packet.bad_byte",
+                byte = format!("{byte:02X}"),
+                offset = offset
+            )),
             FrameError::MisplacedWait { offset } => {
-                write!(
-                    f,
-                    "el '-' solo puede ir al final de una línea (posición {offset})"
-                )
+                f.write_str(&tr!("lhymicro.packet.misplaced_wait", offset = offset))
             }
         }
     }

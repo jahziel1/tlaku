@@ -5,6 +5,7 @@ mod job;
 mod motion;
 
 use super::*;
+use tlaku_i18n::tr;
 
 pub(super) struct Worker {
     pub(super) session: LhySession<Box<dyn Transport>>,
@@ -106,32 +107,21 @@ impl Worker {
                     _ => MachineState::Idle,
                 };
                 if state == MachineState::Door && self.last_state != MachineState::Door {
-                    self.log(
-                        LogDir::In,
-                        "; AVISO: la placa informa energía insuficiente (239): paro de \
-                         emergencia pulsado, tapa abierta o fuente del láser apagada",
-                    );
+                    self.log(LogDir::In, &tr!("desktop.lhymicro.log_low_power"));
                 }
                 self.publish(state);
                 Ok(())
             }
-            Err(SessionError::NotM2Nano { code }) => Err(format!(
-                "la placa respondió con el código {code}, que no existe en la M2 Nano (¿una \
-                 Moshiboard?)"
-            )),
+            Err(SessionError::NotM2Nano { code }) => {
+                Err(tr!("desktop.lhymicro.unknown_status_code", code = code))
+            }
             Err(SessionError::Transport(
                 e @ (TransportError::Disconnected | TransportError::Io(_)),
-            )) => Err(format!(
-                "se perdió la conexión con la placa del K40: {e}. Revisa el cable USB y que la \
-                 máquina siga encendida."
-            )),
+            )) => Err(tr!("desktop.lhymicro.link_lost_io", err = e)),
             Err(e) => {
                 self.failures += 1;
                 if self.failures >= self.timing.lost_after {
-                    Err(format!(
-                        "se perdió la conexión con la placa del K40 ({e}). Revisa el cable USB y \
-                         que la máquina siga encendida."
-                    ))
+                    Err(tr!("desktop.lhymicro.link_lost", err = e))
                 } else {
                     Ok(())
                 }
@@ -178,16 +168,13 @@ impl Worker {
     }
 
     pub(super) fn home_now(&mut self) -> Result<(), String> {
-        self.log(
-            LogDir::Out,
-            "; home (IPP): el cabezal va a los finales de carrera",
-        );
+        self.log(LogDir::Out, &tr!("desktop.lhymicro.log_home"));
         self.publish(MachineState::Home);
         let r = self.session.home();
         self.publish(MachineState::Idle);
         match r {
             Ok(()) => {
-                self.log(LogDir::In, "; home hecho: el cabezal está en (0, 0)");
+                self.log(LogDir::In, &tr!("desktop.lhymicro.log_home_done"));
                 Ok(())
             }
             Err(e) => Err(op_error(e)),

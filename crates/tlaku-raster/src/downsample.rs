@@ -6,6 +6,7 @@
 //! origen, y se deja tal cual (peso 1) cuando no lo es: **nunca amplía**.
 
 use crate::gray::GrayF32;
+use tlaku_i18n::tr;
 
 /// Pesos de un píxel origen: cae en la celda destino `d0` con `w0` y, si cruza el borde, en
 /// `d0 + 1` con `w1` (cero si no lo cruza).
@@ -58,14 +59,14 @@ impl Downsampler {
     /// Reduce de `src_w` x `src_h` a lo sumo `max_w` x `max_h` (un eje que ya cabe no cambia).
     pub fn new(src_w: usize, src_h: usize, max_w: usize, max_h: usize) -> Result<Self, String> {
         if src_w == 0 || src_h == 0 {
-            return Err("la imagen no puede tener tamaño cero".into());
+            return Err(tr!("raster.downsample.zero_size"));
         }
         let dst_w = src_w.min(max_w.max(1));
         let dst_h = src_h.min(max_h.max(1));
         let cells = dst_w
             .checked_mul(dst_h)
             .filter(|&c| c <= isize::MAX as usize / 8)
-            .ok_or("la imagen es demasiado grande")?;
+            .ok_or_else(|| tr!("raster.downsample.too_big"))?;
         Ok(Self {
             src_w,
             src_h,

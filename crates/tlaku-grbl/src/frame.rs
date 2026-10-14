@@ -1,14 +1,15 @@
 //! Encuadre: recorrido del rectángulo del trabajo con el láser apagado.
 
 use tlaku_core::{Bounds, Point};
+use tlaku_i18n::tr;
 
 /// Esquinas del encuadre en el orden en que se recorren, con su nombre.
-pub fn frame_corners(b: Bounds) -> [(&'static str, f64, f64); 4] {
+pub fn frame_corners(b: Bounds) -> [(String, f64, f64); 4] {
     [
-        ("inferior izquierda", b.min.x, b.min.y),
-        ("inferior derecha", b.max.x, b.min.y),
-        ("superior derecha", b.max.x, b.max.y),
-        ("superior izquierda", b.min.x, b.max.y),
+        (tr!("grbl.frame.corner_bottom_left"), b.min.x, b.min.y),
+        (tr!("grbl.frame.corner_bottom_right"), b.max.x, b.min.y),
+        (tr!("grbl.frame.corner_top_right"), b.max.x, b.max.y),
+        (tr!("grbl.frame.corner_top_left"), b.min.x, b.max.y),
     ]
 }
 

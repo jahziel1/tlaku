@@ -1,0 +1,22 @@
+# Mensajes de tlaku-lbrn (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: lbrn.<módulo>.<qué> = plantilla
+
+# parse.rs
+lbrn.parse.bad_xform = A shape has an invalid XForm; the identity is used
+lbrn.parse.not_utf8 = not UTF-8 text: a LightBurn project is XML
+lbrn.parse.bad_xml = not a valid LightBurn XML ({error}); is the file damaged or compressed?
+lbrn.parse.not_project = not a LightBurn project: the root element is <{root}>
+lbrn.parse.layer_no_index = A layer (CutSetting) without an index number is skipped
+lbrn.parse.repeated = {msg} ({n} times)
+lbrn.parse.rect_invalid = A Rect without valid W/H is skipped
+lbrn.parse.ellipse_invalid = An Ellipse without valid Rx/Ry is skipped
+lbrn.parse.groups_too_deep = Groups nested too deeply were skipped
+lbrn.parse.bad_vertices = Unreadable vertices in a path were skipped
+lbrn.parse.unknown_primitive = Unknown path primitive '{prim}': skipped
+lbrn.parse.path_empty = Paths without vertices or primitives were skipped
+lbrn.parse.bezier_straight = Bezier curves without handles were imported as straight lines
+lbrn.parse.missing_vertex = Segments that refer to a missing vertex were skipped
+lbrn.parse.path_no_segments = Paths without segments were skipped
+lbrn.parse.bitmap_invalid = A Bitmap without valid W/H is skipped
+lbrn.parse.bitmap_no_image = A Bitmap without an embedded image is skipped
+lbrn.parse.bitmap_bad_image = A Bitmap with an unreadable embedded image (invalid base64) is skipped

@@ -17,6 +17,7 @@ use std::path::Path;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{Point, Rgb};
 use tlaku_doc::ImportResult;
+use tlaku_i18n::tr;
 
 /// Niveles de potencia distintos que se llevan a capas.
 const MAX_LEVELS: usize = 8;
@@ -405,33 +406,31 @@ impl Interp {
         let mut warnings = Vec::new();
         if self.runs.is_empty() {
             if self.zero_power_feeds > 0 {
-                return Err(format!(
-                    "{name}: el G-code no dibuja nada con el láser encendido: trae {} avances \
-                     G1/G2/G3 pero con potencia 0 (M3 S0, o sin una S mayor que 0). Fija una \
-                     potencia al generarlo, por ejemplo M3 S500 antes del corte, y vuelve a \
-                     importarlo; o usa la opción «potencia para cortes sin S» al importar",
-                    self.zero_power_feeds
+                // La interfaz reconoce este error por su código (no por el texto).
+                return Err(tlaku_i18n::coded(
+                    "gcode_zero_power",
+                    tr!(
+                        "pipeline.import_gcode.zero_power",
+                        name = name,
+                        n = self.zero_power_feeds
+                    ),
                 ));
             }
-            return Err(format!(
-                "{name}: el G-code no dibuja nada con el láser encendido (se buscan G1, G2 y G3 \
-                 con M3/M4 y S mayor que 0; los G0 no se dibujan)"
-            ));
+            return Err(tr!("pipeline.import_gcode.nothing_drawn", name = name));
         }
         if let (Some(p), true) = (self.default_power, self.defaulted_feeds > 0) {
-            warnings.push(format!(
-                "{} avance(s) del G-code llegaban con potencia 0 y se tomaron como cortes con S{}.",
-                self.defaulted_feeds,
-                fmt_code(p)
+            warnings.push(tr!(
+                "pipeline.import_gcode.defaulted_feeds",
+                n = self.defaulted_feeds,
+                s = fmt_code(p)
             ));
         }
         if !self.uses_spindle {
             warnings.push(if self.uses_power {
-                "El G-code no usa M3 ni M4: se tomó como encendido todo avance con S mayor que 0."
+                tr!("pipeline.import_gcode.no_spindle")
             } else {
-                "El G-code no usa M3, M4 ni S: se importaron todos los avances G1, G2 y G3."
-            }
-            .into());
+                tr!("pipeline.import_gcode.no_spindle_no_power")
+            });
         }
         // Niveles de potencia distintos, de menor a mayor.
         let mut levels: Vec<f64> = Vec::new();
@@ -442,10 +441,10 @@ impl Interp {
         }
         levels.sort_by(f64::total_cmp);
         if by_power && levels.len() > MAX_LEVELS {
-            warnings.push(format!(
-                "El G-code usa {} niveles de potencia: se repartieron en {MAX_LEVELS} capas. \
-                 Si es un grabado de imagen, impórtalo como imagen, no como G-code.",
-                levels.len()
+            warnings.push(tr!(
+                "pipeline.import_gcode.many_levels",
+                n = levels.len(),
+                max = MAX_LEVELS
             ));
         }
         let bucket = |power: f64| -> usize {
@@ -486,27 +485,22 @@ impl Interp {
             })
             .collect();
         if !self.ignored.is_empty() {
-            warnings.push(format!(
-                "Códigos G-code ignorados: {}.",
-                self.ignored.join(", ")
+            warnings.push(tr!(
+                "pipeline.import_gcode.ignored_codes",
+                codes = self.ignored.join(", ")
             ));
         }
         if self.non_xy_arcs > 0 {
-            warnings.push(format!(
-                "{} arco(s) fuera del plano XY (G18/G19) se omitieron.",
-                self.non_xy_arcs
+            warnings.push(tr!(
+                "pipeline.import_gcode.non_xy_arcs",
+                n = self.non_xy_arcs
             ));
         }
         if self.bad_arcs > 0 {
-            warnings.push(format!(
-                "{} arco(s) sin centro válido se importaron como rectas.",
-                self.bad_arcs
-            ));
+            warnings.push(tr!("pipeline.import_gcode.bad_arcs", n = self.bad_arcs));
         }
         if self.truncated {
-            warnings.push(format!(
-                "El G-code es muy largo: solo se interpretaron las primeras {MAX_LINES} líneas."
-            ));
+            warnings.push(tr!("pipeline.import_gcode.truncated", max = MAX_LINES));
         }
         Ok(from_curves(layers, warnings))
     }

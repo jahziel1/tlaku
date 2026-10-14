@@ -4,13 +4,16 @@ Fecha: 2026-10-13. Método de la investigación (secciones 1 a 7): solo se leyer
 prosa o tablas (wikis, artículos, manuales públicos, foros); las fuentes que son solo código se
 anotaron como "existe, no leída". Cada dato lleva su URL.
 
-## Estado (actualizado tras la ola 5, commit `56e717f`)
+## Estado (actualizado en la ola 6D, 2026-10-14)
 
 **Hay código, es experimental y solo se probó contra un emulador propio.** Nada se ha probado con
 una tarjeta real: las unidades de los parámetros, los bits de estado, la secuencia de arranque y lo
 que hace la tarjeta si se cae el USB siguen sin verificar. Por eso el galvo no tiene el aviso de
-"probado" de la sección 9. **Hoy se maneja desde la línea de comandos (`tlaku galvo`) y desde el
-motor; la interfaz en la app está en camino.**
+"probado" de la sección 9. **Se maneja desde la línea de comandos (`tlaku galvo`) y, desde la ola 6
+(`61ec249`) y 6C, también desde la app (tipo de máquina, asistente de alta, sección Galvo en las capas,
+calibración del campo, encuadre y marcado dividido con confirmación); el detalle por función está en
+las filas M30, M40 a M46, C47 y C59 de [../spec/cobertura/maquinas.md](../spec/cobertura/maquinas.md) y la lista de pruebas en
+[../validacion-hardware.md](../validacion-hardware.md).**
 
 | Etapa de la sección 10 | Estado |
 |---|---|
@@ -19,7 +22,7 @@ motor; la interfaz en la app está en camino.**
 | 2. Capturas de EZCAD2 de una tarjeta propia | **No hecha.** En su lugar se leyó código MIT (ver sección 11) |
 | 3. USB y sesión; pruebas 1 a 3 de la sección 9 (sin fuente) | Código hecho (`usb.rs`, `session.rs`, solo la `9588:9899`); **pruebas con tarjeta, pendientes** |
 | 4. Prueba con la fuente conectada y publicación | **Pendiente** (necesita tarjeta, cabezal y fuente) |
-| 5. Marcado al vuelo, rotativo galvo, marcado dividido | Rotativo y marcado dividido: la secuencia está calculada en el pipeline pero nada la ejecuta; marcado al vuelo y EZCAD3/DLC, no |
+| 5. Marcado al vuelo, rotativo galvo, marcado dividido | Rotativo y marcado dividido: la secuencia está calculada en el pipeline y, desde la ola 6, la app la ejecuta esperando la confirmación de la persona entre piezas; marcado al vuelo y EZCAD3/DLC, no |
 
 Qué hace el código: `tlaku galvo list/status/light/mark` (el comando `mark` con `--red-only`,
 `--dry-run`, `--dump` y `--emu`; con hardware real exige `--i-understand-laser-safety`), lista blanca

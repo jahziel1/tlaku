@@ -1,4 +1,5 @@
 import { useEffect, type CSSProperties } from 'react';
+import { getApi } from '@/api';
 import { CanvasView } from '@/features/canvas';
 import { DropOverlay, PromptHost, useCloseGuard, useFileDrop, useWindowTitle } from '@/features/history';
 import { ColorPalette } from '@/features/layers';
@@ -23,11 +24,13 @@ import { ArtPanelHost } from '@/features/art';
 import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
 import { FirstRunDialog, SimplePanel, useUiMode } from '@/features/simple';
+import { t } from '@/i18n';
 import { shellColumns, type DockLayout } from '@/lib/dockLayout';
 import { usePref, useStore } from '@/store';
 import './shell-extra.css';
 import { Dock } from './Dock';
 import { FloatingPanels } from './FloatingPanels';
+import { LiveAnnouncer } from './LiveAnnouncer';
 import { ShortcutsDialog, useShortcutsHotkey } from './ShortcutsDialog';
 import { StatusBar } from './StatusBar';
 import { TemplatesHost } from './TemplatesDialog';
@@ -45,6 +48,10 @@ export function AppShell() {
   const language = usePref('language');
   useEffect(() => {
     document.documentElement.lang = language;
+    // Los avisos y errores del motor (Rust) salen en el mismo idioma que la interfaz.
+    getApi()
+      .setEngineLocale({ locale: language })
+      .catch(() => undefined);
   }, [language]);
   return (
     <>
@@ -82,6 +89,16 @@ function ShellBody() {
   const layout = usePref('dockLayout');
   return (
     <div className={simple ? 'shell shell--simple' : 'shell'} style={simple ? undefined : shellGrid(layout)} data-tools-side={simple ? undefined : layout.toolsSide}>
+      <a
+        className="skip-link"
+        href="#canvas-main"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('canvas-main')?.focus();
+        }}
+      >
+        {t('a11y.skip.canvas')}
+      </a>
       <TopBar />
       {!simple && <ToolPalette />}
       <main className="shell__main">
@@ -99,6 +116,7 @@ function ShellBody() {
       )}
       <StatusBar />
       <Toasts />
+      <LiveAnnouncer />
       <DropOverlay />
       <RecoveryHost />
       <PromptHost />

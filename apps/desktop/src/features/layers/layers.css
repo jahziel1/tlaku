@@ -48,6 +48,18 @@
 .cpal__swatch[data-guide='true'][data-active='true'] {
   box-shadow: inset 0 0 0 2px var(--text);
 }
+/* Número de la muestra (esquina superior izquierda): identifica el color sin depender de verlo. */
+.cpal__num {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink);
+  pointer-events: none;
+}
 /* Marca de "hay objetos en esta capa", dentro de la muestra para conservar el contraste. */
 .cpal__dot {
   position: absolute;

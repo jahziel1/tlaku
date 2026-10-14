@@ -2,6 +2,58 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Ola 6: revisar el diseño, edición en el lienzo, importar y máquinas, en la próxima versión
+
+Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, el emulador, la tarjeta galvo simulada y pruebas automáticas.
+
+### Revisar diseño
+
+- **Máquina > Revisar diseño…** (`Ctrl/Cmd+Alt+R`) lee tu diseño y lista **doce tipos de hallazgo** (trazos casi cerrados, líneas duplicadas, uniones pendientes, fragmentos diminutos, nodos de sobra, objetos fuera o pasados de la cama, textos sin convertir, capas sin salida u ocultas con objetos, y imágenes con demasiada o poca resolución). Cada uno trae **Arreglar** (si lo hay), **Seleccionar** e **Ignorar**; **Arreglar todo lo seguro** cierra, une y quita duplicados en un paso de **Deshacer**.
+- Un **aviso en el diálogo de inicio** (con enlace **Ver**) cuando hay algo grave, y los mismos hallazgos en palabras simples en el **modo sencillo**. Mira [Revisar diseño](07b-revisar-diseno.md).
+
+### Lienzo y edición
+
+- **Deformar en el lienzo** (`Mayús+W`): arrastra las manijas de una malla **bilineal**, de **perspectiva** o de **4×4 puntos** y ve el resultado en vivo.
+- **Redondear esquinas con un clic** (`Mayús+F`), con `Alt`+clic para **revertir** una esquina redondeada o mordida (el chaflán no se revierte). Mira [Formas avanzadas y deformar](03c-formas-y-deformar.md).
+- **Paneles flotantes**: saca cualquier pestaña a una ventana sobre el lienzo (doble clic en la pestaña), cambia de lado el panel y las herramientas, y **Restablecer distribución**. Mira [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md).
+- Preferencias nuevas: **Volver a Seleccionar** tras dibujar una forma, **Contraste de la rejilla**, resolución de importación por omisión y opciones de importación recordadas. Los cambios de preferencias se reflejan en las demás ventanas abiertas.
+
+### Importar y exportar
+
+- **Mensajes con la causa**: cuando un archivo no trae nada importable, el error dice qué se omitió y qué hacer.
+- Un **SVG con solo imágenes** se importa como imágenes (se extraen junto al SVG); los **TIFF grandes** y los **TIFF YCbCr** cargan.
+- Se importan archivos **`.rd`** de Ruida y **`.egv`** del K40 para recuperar el diseño. Se **exporta a `.ai`** (en realidad un PDF con capas que Illustrator abre; no es un documento nativo suyo).
+- Un **G-code con potencia 0** ya no importa vacío: un diálogo deja elegir la potencia con la que tomar los cortes.
+- Mira [Importar y exportar](03b-importar-y-exportar.md).
+
+### Imágenes
+
+- **Presets de ajuste de imagen** (7 de fábrica y los tuyos) y **vista previa por imagen** sin calcular el trabajo. Mira [Imágenes](06-imagenes.md).
+
+### Máquinas
+
+- Perfil: **predeterminado**, **orden** e **ícono**; **desfase del puntero rojo** (y **Llevar el puntero rojo al punto**); **intercambiar X e Y**; velocidades en **mm/s**; **homing al conectar**; **no subir DTR** y **envío síncrono** para placas difíciles; **desplazamiento U** de los trabajos. Mira [Conectar tu máquina](08-conectar-maquina.md).
+- **Avisos al calcular**: **enlace serie saturado** (el trabajo pide más líneas por segundo de las que caben a esos baudios), **capa más rápida que la máquina**, y con Ruida **más de 128 capas** (se fusionan las vecinas iguales) y el **tope de 36 000 mm/min**. Mira [Enviar trabajos con seguridad](09-enviar-con-seguridad.md) y [Ruida y K40](13b-ruida-y-k40.md).
+- **Alimentador**: repetir un trabajo N veces con avance entre repeticiones (solo GRBL). **Print & Cut**: las imágenes giran con el registro.
+- **Registro de trabajos** (Ayuda): fecha, máquina, documento, tiempo estimado y real y resultado, guardado solo en tu computadora.
+
+### Cámara
+
+- **Cámaras de red** (URL `http://` de tu red local; las credenciales se quedan en tu equipo y no viajan en los paquetes), **configuraciones de cámara**, **ajuste manual del fondo**, **alineación automática** de la cámara del cabezal con marcas y **zona dibujada** para el recorrido. Las **cámaras y tu biblioteca de arte** viajan en los paquetes `.tlakubundle`. Mira [Cámara](10-camara.md).
+
+### Galvo (experimental)
+
+- El galvo **se maneja desde la app**: alta con **verificación sin láser**, perfil, **encuadre** con rectángulo, contorno, **casco convexo** u **objetos sueltos**, contador de vueltas y **ajuste en vivo**, **overscan** opcional y **entradas requeridas** (enclavamiento). Mira [Galvo (experimental)](13c-galvo.md) y [Seguridad del galvo](13d-galvo-seguridad.md).
+
+### Rendimiento
+
+- Mapas con decenas de miles de trayectos calculan en **1 a 1,5 s** (antes, hasta 30 s); las fotos de 60 a 100 megapíxeles se importan con menos de 75 MB; el lienzo aguanta 100 000 objetos. Mira [Rendimiento con diseños grandes](15b-rendimiento.md).
+
+### Lo que sigue sin estar
+
+- Probar todo con hardware real.
+- Arrastrar puentes ya puestos, valores por defecto por color y por máquina, y el ajuste de U por capa.
+
 ## Imágenes, Print & Cut y alimentador, en la próxima versión
 
 - **Presets de imagen** (Foto en madera, Logo de alto contraste y más) que aplican brillo, contraste, gamma, realce y quitar motas de una vez, y los tuyos con **Guardar como…**. Mira [Imágenes](06-imagenes.md).
@@ -54,7 +106,7 @@ Quinta gran tanda: lo que más se pedía para trabajos de producción, y un prim
 
 ### Galvo (experimental)
 
-- **Láseres de fibra, UV y CO2 galvo** con la tarjeta LMCV4 de EZCAD2 (USB `9588:9899`), **desde la línea de comandos**: `tlaku galvo list`, `status`, `light` (encuadre con el puntero rojo, que nunca enciende el láser) y `mark` (con `--red-only`, `--dry-run` y `--emu` para probar sin máquina). **La interfaz en la app está en camino.**
+- **Láseres de fibra, UV y CO2 galvo** con la tarjeta LMCV4 de EZCAD2 (USB `9588:9899`), **desde la línea de comandos**: `tlaku galvo list`, `status`, `light` (encuadre con el puntero rojo, que nunca enciende el láser) y `mark` (con `--red-only`, `--dry-run` y `--emu` para probar sin máquina). **La interfaz en la app llegó después, en «Ola 6».**
 - **Pensado para no dañar a nadie**: con hardware real exige `--i-understand-laser-safety`, usa una lista blanca de comandos, apaga la fuente ante cualquier error y **no tiene pausa**, solo detener. Un láser de fibra es clase 4 y su haz es invisible: **lee [Seguridad del galvo](13d-galvo-seguridad.md) antes de conectar nada.** Mira también [Galvo (experimental)](13c-galvo.md).
 - **En el motor**: grabado 3D por cortes (también sirve en pórtico), corrección de cilindro y de cono, bamboleo, y la secuencia del marcado dividido, repetido y rotativo. Mira [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md).
 - **Experimental de verdad**: las unidades de velocidad, frecuencia, potencia y retardos vienen de otros proyectos de código abierto y no están verificadas con una tarjeta real.
@@ -70,7 +122,7 @@ Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máqui
 
 ### Conexión por red y automatización
 
-- **GRBL por red**: grblHAL con Ethernet y FluidNC por **TCP / Telnet**, y FluidNC y ESP3D por **WebSocket**. Se elige en el perfil, con un botón **Probar conexión** que no mueve nada y errores de red explicados en español. Mira [Conexión por red y automatización](08b-red-y-automatizacion.md).
+- **GRBL por red**: grblHAL con Ethernet y FluidNC por **TCP / Telnet**, y FluidNC y ESP3D por **WebSocket**. Se elige en el perfil, con un botón **Probar conexión** que no mueve nada y errores de red explicados con claridad. Mira [Conexión por red y automatización](08b-red-y-automatizacion.md).
 - **Máquina virtual por red**: el mismo emulador detrás de un socket TCP local, para ver la conexión por red sin tener la máquina.
 - **Automatización por UDP**: otros programas de tu equipo pueden cargar un diseño, preguntar el estado o detener el trabajo con comandos de texto (`PING`, `LOAD`, `START`, `STATUS`, `STOP`). Está **apagada** de fábrica, solo escucha en `127.0.0.1` y `START` solo abre el diálogo de iniciar salvo que lo permitas tú.
 
@@ -105,8 +157,8 @@ Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máqui
 ### Lo que sigue sin estar
 
 - Probar todo con hardware real. Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 solo se ha probado contra el emulador, sin placa real.
-- Cámaras de red, presets de cámara y alinear la cámara del cabezal con marcas.
-- Las pulgadas en las capas, las máquinas y la cámara; marcar un perfil como predeterminado; autoenfoque.
+- Las pulgadas en las capas, las máquinas y la cámara; autoenfoque.
+- (Ya llegaron, en «Ola 6»: cámaras de red, presets de cámara, alinear la cámara del cabezal con marcas y marcar un perfil como predeterminado.)
 - Galvo, **Print & Cut** y **tiling** (llegaron en la tanda siguiente: ver «Pro y galvo»).
 
 ## Diseño avanzado, en la próxima versión
@@ -145,10 +197,10 @@ Tercera gran tanda: las herramientas de diseño que más se echaban de menos. Si
 
 ### Lo que sigue sin estar
 
-- **Deformar** se hace desde un diálogo: aún no hay manijas en el lienzo ni malla de 16 puntos.
-- **Redondear esquinas** no tiene la herramienta de clic por esquina; los **puentes manuales** no se arrastran (la potencia de puente llegó después, ver más arriba); no hay guías temporales de alineación ni paneles flotantes.
+- **Deformar** se hace desde un diálogo: aún no hay manijas en el lienzo ni malla de 16 puntos. *(Resuelto en la «Ola 6».)*
+- **Redondear esquinas** no tiene la herramienta de clic por esquina; los **puentes manuales** no se arrastran (la potencia de puente llegó después, ver más arriba); no hay guías temporales de alineación ni paneles flotantes. *(La herramienta de clic por esquina y los paneles flotantes llegaron en la «Ola 6».)*
 - **Nueva ventana** no se ha probado en una ventana real. Al abrirse, el aviso de trabajo sin guardar podía mostrar la copia de la otra ventana; la ola de máquinas lo corrigió (ver más arriba), pero sigue sin comprobarse con ventanas reales: ante la duda elige **Decidir después**.
-- **Tiling** y **Print & Cut** siguen sin estar.
+- **Tiling** y **Print & Cut** siguen sin estar. *(Llegaron en «Pro y galvo».)*
 
 ## Capas y corte: ajustes avanzados
 
@@ -189,7 +241,7 @@ Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere 
 ### Lo que sigue sin estar
 
 - La **potencia mínima** de una capa de línea no cambia el G-code (solo en imágenes); desde la tanda siguiente el campo ya no se muestra en esas capas.
-- El encuadre no se repite en bucle y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus.
+- El encuadre no se repite en bucle y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus. *(Resuelto en la tanda «Máquinas».)*
 - *(Resuelto en la tanda de diseño avanzado: los puentes manuales y el importador de proyectos de LightBurn con estos ajustes.)*
 
 ## Versión 0.1.0, primera versión pública
@@ -260,4 +312,4 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 ### Lo que viene
 
 - Las herramientas de diseño que se anunciaban aquí (recortar, separar, redondear esquinas, deformar, texto variable y números de serie) llegaron en la tanda de diseño avanzado.
-- Ruida (CO2) existe solo por línea de comandos y es experimental. Conexión por red, K40 y galvo siguen sin estar.
+- Ruida (CO2) existe solo por línea de comandos y es experimental. Conexión por red, K40 y galvo siguen sin estar. (Todo esto llegó en las tandas posteriores: ver «Máquinas», «Pro y galvo» y «Ola 6».)

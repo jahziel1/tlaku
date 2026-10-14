@@ -14,6 +14,7 @@ y `features/recovery/`.
 | `export_preferences` | `path`, `bundle` | Escribe un paquete `.tlakuprefs` |
 | `import_preferences` | `path` | `PrefsBundle` (valida `format` y `version`; máximo 1 MB) |
 | `paths_exist` | `paths` | `bool[]`: si cada archivo existe (limpia «recientes») |
+| `set_engine_locale` | `locale` (`"es"` \| `"en"`) | Fija el idioma de los avisos y errores del motor (`tlaku-i18n`, global). La interfaz lo llama al arrancar y al cambiar `language` (`store/prefs.ts`); un valor desconocido es un error |
 | `autosave_write` | `id`, `name`, `path`, `doc` | `RecoveryInfo`; reemplaza la copia `id` y recorta las más viejas |
 | `autosave_list` | — | `RecoveryInfo[]` pendientes, de la más nueva a la más vieja; borra las superadas por un guardado posterior |
 | `autosave_read` | `id` | `Document` |

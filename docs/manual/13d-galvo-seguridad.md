@@ -4,7 +4,7 @@ Esta página es la más importante de todo lo que hay sobre el galvo. Léela ent
 
 > **Qué es esto:** un láser de **fibra** (o UV, o CO2 galvo) de uso industrial. No es un diodo de 5 W con una tapa de acrílico. Puede dañar **de forma permanente** la vista de quien esté en la habitación, iniciar fuegos y perforar la pieza, el soporte y el propio cabezal en cuestión de milisegundos. El soporte galvo de Tlaku es **experimental y no se ha probado con una tarjeta real**: el software no puede garantizar tu seguridad. Las protecciones de esta página son físicas y son tuyas.
 
-> **Dónde se maneja:** el galvo se maneja hoy desde la línea de comandos (`tlaku galvo`); la interfaz en la app está en camino. Todo lo que dice esta página vale igual cuando llegue a la app.
+> **Dónde se maneja:** el galvo se maneja desde la app (ver [Galvo (experimental)](13c-galvo.md), «El galvo en la app») y desde la línea de comandos (`tlaku galvo`). Todo lo que dice esta página vale igual en los dos.
 
 ## Los peligros, uno por uno
 
@@ -50,7 +50,9 @@ Esto es lo que el código garantiza, **verificado contra la tarjeta simulada** y
 - **Revisa cada lista** antes de enviarla: que empiece y termine bien, que no haya una marca antes de fijar velocidad, retardos, frecuencia y potencia, y que la potencia, la frecuencia y el ancho de pulso estén dentro del perfil.
 - **El láser empieza desarmado.** Cada marcado arranca con la fuente desarmada y la arma justo antes de ejecutar la lista. El **encuadre con el puntero rojo nunca habilita el láser**.
 - **Apagado garantizado.** Salga como salga el trabajo (termine bien, falle o lo canceles con **Ctrl+C**), Tlaku ejecuta una **secuencia de apagado completa y la repite si falla**, y la repite también si la sesión se cierra sucia. Si no puede confirmar que apagó la fuente, **te lo dice** («NO hubo confirmación: puede seguir habilitada»); en ese caso usa el paro de emergencia y abre el recinto. Si lo que se cae es el cable USB, la orden de apagado **no tiene por dónde llegar** (ver el punto 4 de los peligros).
-- **Enclavamiento por software (opcional).** `--require-input MASK=VALOR` exige antes de cada trabajo que las entradas de la tarjeta cumplan `(entradas & MASK) == VALOR`. Es útil si la puerta o el paro de emergencia de tu máquina llegan a una entrada de la tarjeta. **Pero los bits del paro de emergencia y de las alarmas de la fuente no están documentados**: tienes que medirlos tú, y mientras no los pongas, Tlaku no puede comprobar el enclavamiento (y lo avisa).
+- **Verificación sin láser al dar de alta.** En la app, el asistente de **Agregar máquina** termina con **Verificar sin láser**: lee la tarjeta y comprueba el perfil sin mover los espejos ni encender el puntero o la fuente (con una tarjeta USB real, pide antes la confirmación de seguridad). Ver [Galvo (experimental)](13c-galvo.md).
+- **Confirmación en cada conexión.** En la app, conectar con una tarjeta USB real abre **Seguridad láser antes de conectar** y exige las tres casillas (gafas, recinto, paro de emergencia) **cada vez**.
+- **Enclavamiento por software (opcional).** En la app, el perfil tiene **Enclavamiento por entrada** (y la línea de comandos, `--require-input MASK=VALOR`) exige **antes de cada trabajo y de cada encuadre** que las entradas de la tarjeta cumplan `(entradas & MASK) == VALOR`. Es útil si la puerta o el paro de emergencia de tu máquina llegan a una entrada de la tarjeta. **Pero los bits del paro de emergencia y de las alarmas de la fuente no están documentados**: tienes que medirlos tú, y mientras no los pongas, Tlaku no puede comprobar el enclavamiento (y lo avisa).
 
 **Lo que no puede hacer:** impedir un daño por un USB desconectado, un dato de unidades equivocado, una fuente mal configurada ni una persona sin gafas. Tlaku no sustituye a la protección física.
 

@@ -20,6 +20,7 @@ use nusb::transfer::{
 use nusb::{Endpoint, MaybeFuture};
 use std::fmt;
 use std::time::Duration;
+use tlaku_i18n::tr;
 
 pub use crate::transport::{EP_IN, EP_OUT, PRODUCT_ID, VENDOR_ID};
 /// Control de fabricante del CH341 que inicializa el puerto paralelo.
@@ -62,19 +63,24 @@ pub struct UsbCandidate {
 
 impl fmt::Display for UsbCandidate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "#{} CH341 {:04X}:{:04X} (bus {}, dirección {}{})",
-            self.index,
-            VENDOR_ID,
-            PRODUCT_ID,
-            self.bus_id,
-            self.address,
-            self.product
-                .as_deref()
-                .map(|p| format!(", {p}"))
-                .unwrap_or_default()
-        )
+        let ids = format!("{VENDOR_ID:04X}:{PRODUCT_ID:04X}");
+        f.write_str(&match self.product.as_deref() {
+            Some(p) => tr!(
+                "lhymicro.usb.candidate_product",
+                index = self.index,
+                ids = ids,
+                bus = self.bus_id,
+                address = self.address,
+                product = p
+            ),
+            None => tr!(
+                "lhymicro.usb.candidate",
+                index = self.index,
+                ids = ids,
+                bus = self.bus_id,
+                address = self.address
+            ),
+        })
     }
 }
 
@@ -92,22 +98,13 @@ pub enum OpenError {
 impl fmt::Display for OpenError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OpenError::NoDevice => write!(
-                f,
-                "no se encontró ninguna placa (USB {VENDOR_ID:04X}:{PRODUCT_ID:04X}). Comprueba el \
-                 cable USB y que la máquina esté encendida"
-            ),
-            OpenError::Permission(m) => write!(
-                f,
-                "sin permiso para abrir la placa: {m}. En Linux agrega una regla de udev; en \
-                 Windows asocia la placa al controlador WinUSB con Zadig"
-            ),
-            OpenError::Busy(m) => write!(
-                f,
-                "la placa está en uso: {m}. Cierra K40 Whisperer, MeerK40t, LaserDRW o cualquier \
-                 otro programa que la tenga abierta"
-            ),
-            OpenError::Other(m) => write!(f, "no se pudo abrir la placa: {m}"),
+            OpenError::NoDevice => f.write_str(&tr!(
+                "lhymicro.usb.no_device",
+                ids = format!("{VENDOR_ID:04X}:{PRODUCT_ID:04X}")
+            )),
+            OpenError::Permission(m) => f.write_str(&tr!("lhymicro.usb.permission", m = m)),
+            OpenError::Busy(m) => f.write_str(&tr!("lhymicro.usb.busy", m = m)),
+            OpenError::Other(m) => f.write_str(&tr!("lhymicro.usb.other", m = m)),
         }
     }
 }
@@ -220,7 +217,7 @@ impl UsbTransport {
                 self.timeouts.control,
             )
             .wait()
-            .map_err(|e| OpenError::Other(format!("no se pudo poner el CH341 en modo EPP: {e}")))
+            .map_err(|e| OpenError::Other(tr!("lhymicro.usb.epp_mode", e = e)))
     }
 
     fn chip_version(&mut self) -> Result<u16, TransportError> {
@@ -240,7 +237,7 @@ impl UsbTransport {
             .wait()
             .map_err(map_transfer)?;
         if b.len() < 2 {
-            return Err(TransportError::Io("respuesta de versión incompleta".into()));
+            return Err(TransportError::Io(tr!("lhymicro.usb.short_version")));
         }
         Ok(((b[1] as u16) << 8) | b[0] as u16)
     }
@@ -261,16 +258,14 @@ impl Transport for UsbTransport {
             .transfer_blocking(Buffer::from(data), self.timeouts.write);
         match c.status {
             Ok(()) if c.actual_len == data.len() => Ok(()),
-            Ok(()) => Err(TransportError::Io(format!(
-                "escritura parcial: {} de {} bytes",
-                c.actual_len,
-                data.len()
+            Ok(()) => Err(TransportError::Io(tr!(
+                "lhymicro.usb.partial_write",
+                written = c.actual_len,
+                total = data.len()
             ))),
             Err(TransferError::Stall) => {
                 let _ = self.ep_out.clear_halt().wait();
-                Err(TransportError::Io(
-                    "endpoint de escritura detenido (stall)".into(),
-                ))
+                Err(TransportError::Io(tr!("lhymicro.usb.write_stall")))
             }
             Err(e) => Err(map_transfer(e)),
         }
@@ -287,9 +282,7 @@ impl Transport for UsbTransport {
             Ok(()) => Ok(c.buffer[..].to_vec()),
             Err(TransferError::Stall) => {
                 let _ = self.ep_in.clear_halt().wait();
-                Err(TransportError::Io(
-                    "endpoint de lectura detenido (stall)".into(),
-                ))
+                Err(TransportError::Io(tr!("lhymicro.usb.read_stall")))
             }
             Err(e) => Err(map_transfer(e)),
         }

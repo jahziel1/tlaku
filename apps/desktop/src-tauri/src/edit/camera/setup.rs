@@ -177,11 +177,11 @@ pub(super) fn check_head(h: &HeadCamera) -> Result<(), String> {
         .chain(c.offset_mm.iter())
         .chain(std::iter::once(&c.rms_mm));
     if c.image_size[0] == 0 || c.image_size[1] == 0 || vals.into_iter().any(|v| !v.is_finite()) {
-        return Err("La calibración de la cámara del cabezal no es válida.".into());
+        return Err(tr!("desktop.edit.camera.head.bad_calibration"));
     }
     let det = c.px_to_mm[0][0] * c.px_to_mm[1][1] - c.px_to_mm[0][1] * c.px_to_mm[1][0];
     if det.abs() < 1e-12 {
-        return Err("La escala de la cámara del cabezal es nula: repite la calibración.".into());
+        return Err(tr!("desktop.edit.camera.head.zero_scale"));
     }
     Ok(())
 }

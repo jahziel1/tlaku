@@ -5,6 +5,7 @@ use std::collections::VecDeque;
 use std::io::{self, Write};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 
 pub const DEFAULT_BAUD: u32 = 115_200;
 
@@ -250,7 +251,11 @@ impl Grbl {
                     || line.starts_with("Error:")
                     || line.starts_with("ALARM")
                 {
-                    return Err(io::Error::other(format!("'{cmd}' respondió {line}")));
+                    return Err(io::Error::other(tr!(
+                        "grbl.serial.command_reply",
+                        cmd = cmd,
+                        line = line
+                    )));
                 }
                 lines.push(line);
             }
@@ -258,7 +263,7 @@ impl Grbl {
             if now > deadline {
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
-                    format!("sin respuesta a '{cmd}'"),
+                    tr!("grbl.serial.command_timeout", cmd = cmd),
                 ));
             }
             let wait = (deadline - now).min(Duration::from_millis(100));

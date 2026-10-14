@@ -4,6 +4,7 @@
 
 use super::{Handle, num};
 use tlaku_grbl::link::LinkFamily;
+use tlaku_i18n::tr;
 
 /// Duración mínima y máxima del disparo de prueba, en milisegundos.
 pub const FIRE_MIN_MS: u32 = 10;
@@ -13,12 +14,33 @@ pub const FIRE_MAX_PCT: f64 = 20.0;
 /// Letras de eje que aceptan los movimientos extra (Z y los ejes adicionales habituales).
 const AXES: &str = "ZUABC";
 
+/// Qué se le pidió a la máquina; decide el texto del error si no contesta `ok`.
+#[derive(Clone, Copy)]
+enum Step {
+    AxisMove(char),
+    LaserOn,
+    FirePause,
+    LaserOff,
+}
+
 /// `Ok` si la respuesta termina en `ok`; si no, el mensaje de rechazo de la controladora.
-fn expect_ok(reply: &[String], what: &str) -> Result<(), String> {
+fn expect_ok(reply: &[String], what: Step) -> Result<(), String> {
     match reply.last().map(String::as_str) {
         Some(l) if l.starts_with("ok") => Ok(()),
-        Some(e) => Err(format!("La máquina rechazó {what} ({e}).")),
-        None => Err(format!("La máquina no respondió a {what}.")),
+        Some(e) => Err(match what {
+            Step::AxisMove(axis) => {
+                tr!("desktop.extras.axis_move_rejected", axis = axis, reply = e)
+            }
+            Step::LaserOn => tr!("desktop.extras.laser_on_rejected", reply = e),
+            Step::FirePause => tr!("desktop.extras.fire_pause_rejected", reply = e),
+            Step::LaserOff => tr!("desktop.extras.laser_off_rejected", reply = e),
+        }),
+        None => Err(match what {
+            Step::AxisMove(axis) => tr!("desktop.extras.axis_move_silent", axis = axis),
+            Step::LaserOn => tr!("desktop.extras.laser_on_silent"),
+            Step::FirePause => tr!("desktop.extras.fire_pause_silent"),
+            Step::LaserOff => tr!("desktop.extras.laser_off_silent"),
+        }),
     }
 }
 
@@ -27,7 +49,7 @@ fn check_axis(axis: char) -> Result<char, String> {
     if AXES.contains(a) {
         Ok(a)
     } else {
-        Err(format!("El eje '{axis}' no es válido; usa uno de {AXES}."))
+        Err(tr!("desktop.extras.bad_axis", axis = axis, axes = AXES))
     }
 }
 
@@ -35,7 +57,7 @@ fn check_speed(speed: f64) -> Result<(), String> {
     if speed.is_finite() && speed > 0.0 {
         Ok(())
     } else {
-        Err("La velocidad del movimiento debe ser mayor que 0.".into())
+        Err(tr!("desktop.common.move_speed"))
     }
 }
 
@@ -67,7 +89,7 @@ impl Handle {
         v
     }
 
-    fn run_axis(&self, lines: Vec<String>, what: &str) -> Result<(), String> {
+    fn run_axis(&self, lines: Vec<String>, what: Step) -> Result<(), String> {
         let mut failure = None;
         for line in &lines {
             let r = self.command(line);
@@ -92,12 +114,12 @@ impl Handle {
     ) -> Result<(), String> {
         let axis = check_axis(axis)?;
         if !delta.is_finite() {
-            return Err("El desplazamiento no es un número.".into());
+            return Err(tr!("desktop.common.offset_not_number"));
         }
         check_speed(speed)?;
         self.run_axis(
             Self::axis_lines(family, axis, delta, speed, true),
-            &format!("el movimiento del eje {axis}"),
+            Step::AxisMove(axis),
         )
     }
 
@@ -112,12 +134,12 @@ impl Handle {
     ) -> Result<(), String> {
         let axis = check_axis(axis)?;
         if !pos.is_finite() {
-            return Err("La posición de destino no es un número.".into());
+            return Err(tr!("desktop.common.target_not_number"));
         }
         check_speed(speed)?;
         self.run_axis(
             Self::axis_lines(family, axis, pos, speed, false),
-            &format!("el movimiento del eje {axis}"),
+            Step::AxisMove(axis),
         )
     }
 
@@ -136,16 +158,16 @@ impl Handle {
         duration_ms: u32,
     ) -> Result<(), String> {
         if !(power_pct.is_finite() && power_pct > 0.0 && power_pct <= FIRE_MAX_PCT) {
-            return Err(format!(
-                "La potencia del disparo de prueba debe estar entre 0 y {FIRE_MAX_PCT} %."
-            ));
+            return Err(tr!("desktop.extras.fire_power_range", max = FIRE_MAX_PCT));
         }
         if !(s_max.is_finite() && s_max > 0.0) {
-            return Err("La S máxima del perfil debe ser mayor que 0.".into());
+            return Err(tr!("desktop.common.s_max_positive"));
         }
         if !(FIRE_MIN_MS..=FIRE_MAX_MS).contains(&duration_ms) {
-            return Err(format!(
-                "La duración del disparo debe estar entre {FIRE_MIN_MS} y {FIRE_MAX_MS} ms."
+            return Err(tr!(
+                "desktop.extras.fire_duration_range",
+                min = FIRE_MIN_MS,
+                max = FIRE_MAX_MS
             ));
         }
         let s = s_max * power_pct / 100.0;
@@ -158,18 +180,15 @@ impl Handle {
         };
         let fired = self
             .command(&format!("M3 S{}", num(s)))
-            .and_then(|r| expect_ok(&r, "encender el láser"))
+            .and_then(|r| expect_ok(&r, Step::LaserOn))
             .and_then(|()| self.command(&dwell))
-            .and_then(|r| expect_ok(&r, "la pausa del disparo"));
+            .and_then(|r| expect_ok(&r, Step::FirePause));
         // Siempre se apaga, también si lo anterior falló.
         let off = self
             .command("M5")
-            .and_then(|r| expect_ok(&r, "apagar el láser"));
+            .and_then(|r| expect_ok(&r, Step::LaserOff));
         match (fired, off) {
-            (_, Err(e)) => Err(format!(
-                "No se pudo confirmar que el láser se apagó: {e} Pulsa Reiniciar (o corta la \
-                 energía) y revisa la máquina."
-            )),
+            (_, Err(e)) => Err(tr!("desktop.extras.laser_off_unconfirmed", err = e)),
             (Err(e), Ok(())) => Err(e),
             (Ok(()), Ok(())) => Ok(()),
         }

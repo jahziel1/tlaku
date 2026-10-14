@@ -106,10 +106,12 @@ function Swatch(props: {
       style={{ '--sw': entry.color, '--ink': ink } as React.CSSProperties}
       aria-pressed={active}
       aria-label={entry.guide ? t('layers.palette.guideLabel') : name}
-      title={`${name}. ${tip}`}
+      title={`${entry.guide ? '' : `${LAYER_PALETTE.indexOf(entry) + 1}. `}${name}. ${tip}`}
       tabIndex={tabStop ? 0 : -1}
       onClick={() => pickPaletteEntry(useStore.getState(), entry)}
     >
+      {/* El número identifica la muestra sin depender del color (daltonismo); el nombre completo va en el aria-label y la lectura. */}
+      {!entry.guide && <span className="cpal__num num" aria-hidden="true">{LAYER_PALETTE.indexOf(entry) + 1}</span>}
       {entry.guide && <SquareDashed size={14} aria-hidden="true" />}
       {active && !entry.guide && <Check size={14} strokeWidth={3} aria-hidden="true" />}
       {inUse && <span className="cpal__dot" aria-hidden="true" />}

@@ -11,9 +11,6 @@ import { baseVirtualPort } from './virtualPort';
 export const LHY_VIRTUAL = 'virtual:k40';
 export const LHY_USB_PREFIX = 'usb:k40:';
 
-/** Texto que el motor deja en el mensaje de un trabajo cuando detener NO se confirmó (`UNCONFIRMED_MARK`). */
-export const LHY_UNCONFIRMED = 'NO hubo confirmación';
-
 /** ¿El perfil activo es un K40 con M2 Nano? */
 export function selectIsLhy(s: Pick<AppState, 'devices' | 'activeDeviceId'>): boolean {
   return selectActiveDevice(s).kind === 'lhy_micro';

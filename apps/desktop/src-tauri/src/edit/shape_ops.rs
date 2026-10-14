@@ -40,6 +40,7 @@ use tlaku_geom::{
     cut_open, fillet_path, node_count, optimize_polyline, resize_slots, signed_area, slot_widths,
     split_subpaths, trim_at, unfillet_path,
 };
+use tlaku_i18n::tr;
 
 /// Error máximo (mm) al aplanar las curvas para calcular intersecciones y contornos.
 const FLATTEN_MM: f64 = 0.01;
@@ -221,19 +222,19 @@ fn finish(objects: &[DesignObject], slots: Vec<Slot>, mut stats: ShapeStats) -> 
 
 fn require_vectors(objects: &[DesignObject]) -> Result<(), String> {
     if objects.is_empty() {
-        return Err("No hay objetos sobre los que operar.".into());
+        return Err(tr!("desktop.edit.nothing_to_operate"));
     }
     let bad: Vec<String> = objects
         .iter()
         .filter(|o| !matches!(o.kind, ObjectKind::Vector(_)))
-        .map(|o| format!("«{}»", o.id))
+        .map(|o| crate::edit::quoted(&o.id))
         .collect();
     if bad.is_empty() {
         Ok(())
     } else {
-        Err(format!(
-            "Esta operación solo trabaja con trazos vectoriales; convierte los textos a trayecto y quita las imágenes: {}.",
-            bad.join(", ")
+        Err(tr!(
+            "desktop.edit.shape_ops.vectors_only",
+            list = bad.join(", ")
         ))
     }
 }
@@ -274,7 +275,9 @@ pub fn run(
 // --- recortar ---
 
 fn trim(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
-    let click = pt(p.point.ok_or("Falta el punto donde recortar.")?);
+    let click = pt(p
+        .point
+        .ok_or_else(|| tr!("desktop.edit.shape_ops.trim_missing_point"))?);
     // Todos los subtrayectos de la selección, con su objeto.
     let mut subs: Vec<(usize, BezPath)> = Vec::new();
     for (i, o) in objects.iter().enumerate() {
@@ -286,7 +289,7 @@ fn trim(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, Stri
         .collect();
     let usable_paths: Vec<Polyline> = usable.iter().map(|&k| flat[k].clone()).collect();
     let hit = trim_at(&usable_paths, click, p.max_dist)
-        .ok_or("No hay ningún trazo cerca del punto indicado.")?;
+        .ok_or_else(|| tr!("desktop.edit.shape_ops.trim_no_stroke"))?;
     let target = usable[hit.path_index];
     let owner = subs[target].0;
 
@@ -360,7 +363,7 @@ fn break_apart(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResul
 fn optimize(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
     let tolerance = p.tolerance.unwrap_or(0.02);
     if !tolerance.is_finite() || tolerance < 0.0 {
-        return Err("La tolerancia no es un número válido (debe ser 0 o más).".into());
+        return Err(tr!("desktop.edit.bad_tolerance"));
     }
     let opts = OptimizeOptions {
         tolerance,
@@ -402,10 +405,12 @@ const UNFILLET_DIST_MM: f64 = 2.0;
 
 /// Devuelve a punta la esquina redondeada más cercana al punto (ver `tlaku_geom::unfillet_path`).
 fn unfillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
-    let click = pt(p.point.ok_or("Falta el punto de la esquina.")?);
+    let click = pt(p
+        .point
+        .ok_or_else(|| tr!("desktop.edit.shape_ops.corner_missing_point"))?);
     let max_dist = p.max_dist.unwrap_or(UNFILLET_DIST_MM);
     if !max_dist.is_finite() || max_dist <= 0.0 {
-        return Err("La distancia al clic debe ser un número mayor que 0.".into());
+        return Err(tr!("desktop.edit.shape_ops.bad_click_distance"));
     }
     // La esquina más cercana de todos los objetos: (objeto, trayecto, resultado).
     let mut best: Option<(usize, usize, tlaku_geom::Unfillet)> = None;
@@ -434,9 +439,11 @@ fn fillet(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, St
     if p.revert {
         return unfillet(objects, p);
     }
-    let radius = p.radius.ok_or("Falta el radio.")?;
+    let radius = p
+        .radius
+        .ok_or_else(|| tr!("desktop.edit.shape_ops.radius_missing"))?;
     if !radius.is_finite() || radius <= 0.0 {
-        return Err("El radio debe ser un número mayor que 0.".into());
+        return Err(tr!("desktop.edit.shape_ops.bad_radius"));
     }
     let style = match p.style.unwrap_or(FilletKind::Round) {
         FilletKind::Round => FilletStyle::Round,
@@ -489,20 +496,20 @@ fn pieces(region: Vec<Polyline>) -> Vec<Vec<Polyline>> {
 
 fn cut_shapes(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
     if objects.len() < 2 {
-        return Err("Cortar formas necesita la cuchilla y al menos una forma más.".into());
+        return Err(tr!("desktop.edit.shape_ops.cut_needs_knife"));
     }
     let knife_index = match &p.knife_id {
         Some(id) => objects
             .iter()
             .position(|o| &o.id == id)
-            .ok_or_else(|| format!("La cuchilla «{id}» no está entre los objetos."))?,
+            .ok_or_else(|| tr!("desktop.edit.shape_ops.knife_missing", id = id))?,
         None => objects.len() - 1,
     };
     let knife_paths = objects[knife_index].polylines_with(FLATTEN_MM);
     if knife_paths.is_empty() || knife_paths.iter().any(|k| !k.closed) {
-        return Err(format!(
-            "La cuchilla «{}» debe ser una forma cerrada. Ciérrala antes (por ejemplo con «Cerrar polilínea»).",
-            objects[knife_index].id
+        return Err(tr!(
+            "desktop.edit.shape_ops.knife_open",
+            id = objects[knife_index].id
         ));
     }
     let close_pieces = p.close_pieces.unwrap_or(true);
@@ -570,16 +577,19 @@ fn cut_shapes(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult
 fn resize(objects: &[DesignObject], p: &ShapeParams) -> Result<ShapeOpResult, String> {
     let from_width = p
         .from_width
-        .ok_or("Falta el ancho actual de las ranuras.")?;
-    let to_width = p.to_width.ok_or("Falta el ancho nuevo de las ranuras.")?;
+        .ok_or_else(|| tr!("desktop.edit.shape_ops.from_width_missing"))?;
+    let to_width = p
+        .to_width
+        .ok_or_else(|| tr!("desktop.edit.shape_ops.to_width_missing"))?;
     let tolerance = p.tolerance.unwrap_or(0.1);
-    for (v, name) in [(from_width, "actual"), (to_width, "nuevo")] {
-        if !v.is_finite() || v <= 0.0 {
-            return Err(format!("El ancho {name} debe ser un número mayor que 0."));
-        }
+    if !from_width.is_finite() || from_width <= 0.0 {
+        return Err(tr!("desktop.edit.shape_ops.bad_from_width"));
+    }
+    if !to_width.is_finite() || to_width <= 0.0 {
+        return Err(tr!("desktop.edit.shape_ops.bad_to_width"));
     }
     if !tolerance.is_finite() || tolerance < 0.0 {
-        return Err("La tolerancia no es un número válido (debe ser 0 o más).".into());
+        return Err(tr!("desktop.edit.bad_tolerance"));
     }
     let opts = SlotOptions {
         from_width,
@@ -636,7 +646,7 @@ pub async fn shape_op(
 ) -> Result<ShapeOpResult, String> {
     tauri::async_runtime::spawn_blocking(move || run(op, &objects, &params.unwrap_or_default()))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

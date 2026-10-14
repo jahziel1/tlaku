@@ -1,0 +1,16 @@
+# Mensajes de tlaku-svg (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: svg.<módulo>.<qué> = plantilla
+
+# lib.rs
+svg.lib.no_size_viewbox = The SVG does not define absolute width/height (they are missing or in %, em or ex): the size was taken from the viewBox at 96 DPI, giving {size}. Check the scale.
+svg.lib.no_size_content = The SVG does not define absolute width/height (they are missing or in %, em or ex): the size was taken from the content at 96 DPI, giving {size}. Check the scale.
+svg.lib.px_illustrator = width/height without units or in px: read at 96 DPI, resulting size {size}. Adobe Illustrator detected: it usually exports at 72 DPI, so the real size would be {w} x {h} mm (133 % of the one shown); scale to 133 % to fix it.
+svg.lib.px_other = width/height without units or in px: read at 96 DPI, resulting size {size}. If it comes from Illustrator (72 DPI) the real size would be {w} x {h} mm (133 % of the one shown); if instead it looks 133 % larger in another program, scale to 75 %.
+svg.lib.images_skipped = {n} embedded image(s) skipped: the importer does not mix images with paths; import the image as a separate file (PNG or JPG) to engrave it.
+svg.lib.mask_approx = {n} group(s) with a mask: it was applied as a binary clip of its opaque geometry (approximation; gradual transparency is ignored).
+svg.lib.mask_unsupported = {n} group(s) with a mask that could not be evaluated (gradients, patterns, images, strokes or clips inside the mask): the mask was ignored and the paths are imported in full.
+svg.lib.non_color_paints = {n} path(s) with a gradient or pattern in the fill or stroke: black was used as the layer color.
+svg.lib.text_without_paths = {n} text(s) without paths: no available font was found, convert the text to curves before exporting.
+svg.lib.invisible_paths = {n} path(s) with hidden visibility skipped.
+svg.lib.hidden_elements = {n} element(s) with display:none skipped.
+svg.lib.no_paths = The document contains no importable paths: check whether the content is only text, images or hidden elements.

@@ -1,0 +1,163 @@
+# Mensajes de tlaku-galvo (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: galvo.<módulo>.<qué> = plantilla
+# --- calib.rs ---
+galvo.calib.bad_field = el campo de la lente debe ser un número positivo (llegó {v} mm)
+galvo.calib.non_finite = {what} no es un número finito
+galvo.calib.bad_scale = escala {v} fuera de rango ({min} a {max})
+galvo.calib.nonlinear_too_large = {what} = {value} fuera de rango (máximo ±{max})
+galvo.calib.out_of_field = el punto cae fuera del campo de la lente en {axis} ({mm} mm desde el centro)
+galvo.calib.what_position = la posición
+galvo.calib.what_scale = la escala
+galvo.calib.what_offset = el desplazamiento
+galvo.calib.what_rotation = el giro
+galvo.calib.what_barrel = barril
+galvo.calib.what_trapezoid = trapecio
+galvo.calib.what_skew = sesgo
+
+# --- cor.rs ---
+galvo.cor.truncated = archivo .cor truncado: hacen falta {needed} bytes y hay {got}
+galvo.cor.not_finite = el archivo .cor trae un valor que no es un número
+
+# --- wire.rs ---
+galvo.wire.bad_length = un comando mide {len} bytes y llegaron {got}
+galvo.wire.not_multiple = {got} bytes no son múltiplo de {len}
+galvo.wire.not_a_list_command = el comando {index} (código {code}) no es de lista
+
+# --- transport.rs ---
+galvo.transport.timeout = tiempo de espera agotado en el USB
+galvo.transport.disconnected = la tarjeta se desconectó del USB
+galvo.transport.io = error de USB: {msg}
+galvo.transport.reject_clone = clon visto en un foro: no se sabe si usa el mismo protocolo
+galvo.transport.reject_needs_firmware = necesita cargar el firmware del FPGA, que Tlaku no hace (no escribe en la tarjeta)
+galvo.transport.reject_firmware_board = posible tarjeta con carga de firmware; no verificado
+galvo.transport.reject_unknown_ids = VID:PID desconocido: Tlaku no habla con él
+galvo.transport.unknown_ids = VID:PID desconocido
+galvo.transport.name_clone = clon BJJCZ ({ids})
+galvo.transport.name_no_firmware = tarjeta FIBER/CO2-V sin firmware cargado ({ids})
+galvo.transport.name_inf = INF de EZCAD2 ({ids})
+
+# --- usb.rs ---
+galvo.usb.candidate_supported = #{index} {ids} {name} (bus {bus}, dirección {address}) - compatible (EXPERIMENTAL)
+galvo.usb.candidate_rejected = #{index} {ids} {name} (bus {bus}, dirección {address}) - rechazada: {why}
+galvo.usb.no_device = no se encontró ninguna tarjeta (USB {ids}). Comprueba el cable USB y que la máquina esté encendida
+galvo.usb.unsupported = la tarjeta {ids} no es compatible: {why}
+galvo.usb.permission = sin permiso para abrir la tarjeta: {msg}. En Linux agrega una regla de udev; en Windows asocia la tarjeta al controlador WinUSB con Zadig
+galvo.usb.busy = la tarjeta está en uso: {msg}. Cierra EZCAD, LightBurn, MeerK40t o cualquier otro programa que la tenga abierta
+galvo.usb.other = no se pudo abrir la tarjeta: {msg}
+galvo.usb.unknown_board = desconocida
+
+# --- emu.rs ---
+galvo.emu.board_name = tarjeta simulada
+
+# --- safety.rs ---
+galvo.safety.bad_limits = perfil de seguridad inválido: {why}
+galvo.safety.limit_overscan = el overscan del perfil debe estar entre 0 y 20 mm
+galvo.safety.limit_require_input = el enclavamiento por entrada tiene bits de valor fuera de la máscara
+galvo.safety.limit_freq_not_numbers = las frecuencias del perfil no son números
+galvo.safety.limit_freq_range = el rango de frecuencia del perfil debe cumplir 0 < mín <= máx
+galvo.safety.limit_freq_period = el rango de frecuencia no cabe en el periodo de 16 bits de la tarjeta
+galvo.safety.limit_max_power = la potencia máxima del perfil debe estar entre 0 y 100 %
+galvo.safety.limit_max_dwell = el dwell máximo debe ser positivo
+galvo.safety.limit_bits = los bits del láser y del puntero rojo deben ser distintos y menores que 16
+galvo.safety.limit_mopa_pulses = una fuente MOPA necesita la lista de anchos de pulso del perfil
+galvo.safety.missing_ready = la lista no empieza con listReadyMark
+galvo.safety.missing_end = la lista no termina en listEndOfList
+galvo.safety.after_end = comando {index} después de listEndOfList
+galvo.safety.too_long = la lista tiene {commands} comandos (máximo {max})
+galvo.safety.not_a_list_command = el comando {index} ({code}) no es de lista
+galvo.safety.forbidden = comando {index}: el código {code} ({name}) no se envía nunca desde Tlaku
+galvo.safety.not_allowed_here = comando {index}: {name} no se permite en esta clase de lista
+galvo.safety.wrong_source = comando {index}: {name} no corresponde al tipo de fuente del perfil
+galvo.safety.unprepared = comando {index}: marca o disparo sin haber fijado {missing}
+galvo.safety.zero_speed = comando {index}: velocidad 0
+galvo.safety.zero_power_mark = comando {index}: marca con potencia efectiva 0
+galvo.safety.power_above = comando {index}: potencia {pct} % por encima del máximo del perfil ({max} %)
+galvo.safety.frequency_outside = comando {index}: frecuencia {khz} kHz fuera del rango del perfil ({min} a {max} kHz)
+galvo.safety.pulse_not_allowed = comando {index}: ancho de pulso {ns} ns que no está en la lista del perfil
+galvo.safety.dwell_too_long = comando {index}: disparo continuo de {ms} ms (máximo {max} ms)
+galvo.safety.bad_port = comando {index}: salida {value} no permitida (solo 0, el bit del láser o el del puntero rojo, nunca juntos)
+galvo.safety.immediate_refused = {name} rechazado: {why}
+galvo.safety.missing_jump_speed = la velocidad de salto
+galvo.safety.missing_mark_speed = la velocidad de marcado
+galvo.safety.missing_delays = los retardos de encendido, apagado y polígono
+galvo.safety.missing_frequency = la frecuencia
+galvo.safety.missing_power = la potencia
+galvo.safety.missing_pulse_width = el ancho de pulso
+galvo.safety.missing_laser_port = el puerto del láser
+galvo.safety.missing_frequency_before_power = la frecuencia antes de la potencia
+galvo.safety.refuse_unknown_code = el código no está en la lista blanca
+galvo.safety.refuse_enable_laser = solo se habilita el láser durante un marcado real
+galvo.safety.refuse_mo_value = el valor del MO debe ser 0 o 1
+galvo.safety.refuse_not_fiber = la fuente del perfil no es de fibra
+galvo.safety.refuse_open_mo = solo se abre el MO durante un marcado real
+galvo.safety.refuse_laser_bit = el bit del láser solo se escribe durante un marcado real
+galvo.safety.refuse_port_values = solo se escribe 0, el bit del láser o el del puntero rojo
+galvo.safety.refuse_armed = la fuente está armada
+galvo.safety.refuse_use_frame = un encuadre se manda con frame o light
+
+# --- session.rs ---
+galvo.session.poisoned = estado interno dañado
+galvo.session.timeout = tiempo de espera agotado: {what}
+galvo.session.wait_ready = la tarjeta lista para otra tanda
+galvo.session.wait_idle = el fin de la ejecución
+galvo.session.unknown_board = tarjeta {ids} no compatible: {why}
+galvo.session.busy = la tarjeta está ocupada con otro trabajo
+galvo.session.cancelled = cancelado
+galvo.session.bad_reply = respuesta inesperada de la tarjeta: {what}
+galvo.session.interlock_open = el enclavamiento no está cerrado: entradas {inputs}, se exigía (entradas & {mask}) == {value}
+galvo.session.shutdown_unconfirmed = el trabajo terminó pero no se pudo confirmar el apagado de la fuente
+galvo.session.job_not_touched = {cause} (tandas enviadas: {sent} de {total}). No se tocó la tarjeta
+galvo.session.job_stopped = {cause} (tandas enviadas: {sent} de {total}). Se apagó la fuente y se vació la lista
+galvo.session.job_unconfirmed = {cause} (tandas enviadas: {sent} de {total}). Se intentó apagar la fuente pero NO hubo confirmación: puede seguir habilitada. Abre la tapa o usa el paro de emergencia
+galvo.session.note_experimental = EXPERIMENTAL: el protocolo no está verificado con hardware propio.
+galvo.session.note_no_init = Tlaku no inicializa la tarjeta ni escribe su tabla de corrección: la corrección de campo se hace en el anfitrión y supone la tabla de la tarjeta en identidad.
+galvo.session.note_interlock_bits = Los bits de EMSTOP y alarmas de la fuente no están documentados: el software no puede comprobar el enclavamiento salvo con --require-input.
+galvo.session.note_simulated = Tarjeta SIMULADA: no hay hardware detrás.
+
+# --- compile.rs ---
+galvo.compile.missing_params = el bloque {block} no tiene parámetros de galvo (frecuencia, retardos...)
+galvo.compile.bad_param = bloque {block}: {what}
+galvo.compile.too_many_commands = el trabajo supera el máximo de {max} comandos
+galvo.compile.empty = el trabajo no tiene movimientos
+galvo.compile.wrong_kind = un encuadre se compila con compile_light
+galvo.compile.pointer_offset = el desfase del puntero rojo debe estar entre -{max} y {max} mm
+galvo.compile.overscan_needs_speed = el overscan necesita la velocidad de marcado del bloque
+galvo.compile.freq_invalid = la frecuencia no es válida
+galvo.compile.freq_out_of_range = frecuencia {khz} kHz fuera del rango del perfil ({min} a {max} kHz)
+galvo.compile.freq_period = la frecuencia no cabe en el periodo de la tarjeta
+galvo.compile.mopa_needs_pulse = una fuente MOPA necesita el ancho de pulso
+galvo.compile.source_no_pulse = esta fuente no usa ancho de pulso (se pidieron {ns} ns)
+galvo.compile.pulse_not_in_list = ancho de pulso {ns} ns que no está en la lista del perfil {list}
+galvo.compile.pulse_too_big = ancho de pulso demasiado grande
+galvo.compile.what_laser_on_delay = el retardo de encendido
+galvo.compile.what_laser_off_delay = el retardo de apagado
+galvo.compile.what_end_delay = el retardo final
+galvo.compile.what_polygon_delay = el retardo de polígono
+galvo.compile.what_jump_delay_min = el retardo de salto mínimo
+galvo.compile.what_jump_delay_max = el retardo de salto máximo
+galvo.compile.what_jump_distance = la distancia límite de salto
+galvo.compile.what_pause_before = la pausa previa
+galvo.compile.what_pause_after = la pausa posterior
+galvo.compile.what_jump_speed = la velocidad de salto
+galvo.compile.what_mark_speed = la velocidad de marcado
+galvo.compile.not_a_number = {what} no es un número
+galvo.compile.delay_out_of_range = {what} fuera de ±65535 us
+galvo.compile.jump_delays_invalid = retardos de salto inválidos (0 <= mín <= máx <= 65535 us)
+galvo.compile.delays_negative = los retardos final, de polígono y las pausas no pueden ser negativos
+galvo.compile.mark_speed_zero = la velocidad de marcado debe ser mayor que 0
+galvo.compile.mark_speed_low = velocidad de marcado {speed} mm/s demasiado baja para la tarjeta (mínimo 1 unidad/ms)
+galvo.compile.jump_speed_zero = la velocidad de salto debe ser mayor que 0
+galvo.compile.jump_speed_low = velocidad de salto demasiado baja para la tarjeta
+galvo.compile.too_many_repeats = {n} repeticiones (máximo {max})
+galvo.compile.speed_clamped = bloque {block}: {what} saturada al máximo de la tarjeta
+galvo.compile.power_invalid = potencia {pct} % inválida
+galvo.compile.power_above = potencia {pct} % por encima del máximo del perfil ({max} %)
+galvo.compile.air_assist_ignored = bloque {block}: la asistencia de aire se ignora en galvo
+galvo.compile.z_ignored = bloque {block}: el eje Z se ignora en galvo
+galvo.compile.dwell_invalid = pausa de {ms} ms inválida
+galvo.compile.cor_ignored = el archivo .cor del perfil se ignora: su formato se puede leer pero su semántica no está documentada (ver cor.rs); la corrección es la paramétrica del perfil
+galvo.compile.adjust_not_number = el ajuste del encuadre debe ser un número
+galvo.compile.adjust_shift = el desplazamiento del encuadre no puede pasar de {max} mm
+galvo.compile.adjust_scale = la escala del encuadre debe estar entre {min} y {max}
+galvo.compile.light_thinned = el contorno tiene {total} vértices: se aligeró 1 de cada {keep_every} para el encuadre
+galvo.compile.light_speed_zero = la velocidad del encuadre del perfil debe ser mayor que 0

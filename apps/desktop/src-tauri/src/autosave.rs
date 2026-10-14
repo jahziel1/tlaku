@@ -28,6 +28,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, WebviewWindow, WindowEvent};
 use tlaku_doc::Document;
+use tlaku_i18n::tr;
 
 /// Carpeta de las copias dentro de la carpeta de datos de la app.
 const DIR_NAME: &str = "recuperacion";
@@ -134,7 +135,7 @@ fn check_id(id: &str) -> Result<(), String> {
     if ok {
         Ok(())
     } else {
-        Err(format!("Identificador de copia no válido: «{id}»."))
+        Err(tr!("desktop.autosave.bad_id", id = id))
     }
 }
 
@@ -163,10 +164,10 @@ pub fn write_copy(
     check_id(id)?;
     let size = json.len() as u64;
     if size > limits.max_copy_bytes {
-        return Err(format!(
-            "El documento pesa {} MB y supera el máximo de {} MB para las copias de recuperación.",
-            size / (1024 * 1024),
-            limits.max_copy_bytes / (1024 * 1024)
+        return Err(tr!(
+            "desktop.autosave.too_big",
+            size = size / (1024 * 1024),
+            max = limits.max_copy_bytes / (1024 * 1024)
         ));
     }
     fs::create_dir_all(dir).map_err(|e| io_error(dir, &e))?;
@@ -178,7 +179,8 @@ pub fn write_copy(
         size_bytes: size,
     };
     write_atomic(&doc_file(dir, id), json)?;
-    let meta = serde_json::to_string(&info).map_err(|e| format!("Copia de recuperación: {e}"))?;
+    let meta =
+        serde_json::to_string(&info).map_err(|e| tr!("desktop.autosave.meta_failed", err = e))?;
     write_atomic(&meta_file(dir, id), &meta)?;
     prune(dir, limits, Some(id));
     Ok(info)
@@ -299,7 +301,7 @@ fn recovery_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()
         .map(|d| d.join(DIR_NAME))
-        .map_err(|e| format!("No se encontró la carpeta de datos: {e}"))
+        .map_err(|e| tr!("desktop.autosave.data_dir", err = e))
 }
 
 /// Un solo acceso a la carpeta a la vez: la poda de una escritura no debe llevarse el documento
@@ -314,7 +316,7 @@ async fn blocking<T: Send + 'static>(
         f()
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]

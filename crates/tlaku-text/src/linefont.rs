@@ -12,6 +12,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
+use tlaku_i18n::tr;
 
 /// Altura de la mayúscula en unidades de las fuentes Hershey (de y = -12 a y = 9).
 const HERSHEY_CAP_UNITS: f64 = 21.0;
@@ -272,7 +273,7 @@ pub fn parse_jhf(name: &str, text: &str) -> Result<LineFont, String> {
         }
         let ch = char::from(32 + index as u8);
         index += 1;
-        let bad = || format!("Glifo {index} de la fuente '{name}' mal formado");
+        let bad = || tr!("text.linefont.bad_glyph", index = index, name = name);
         if !line.is_ascii() || line.len() < 10 {
             return Err(bad());
         }
@@ -309,9 +310,11 @@ pub fn parse_jhf(name: &str, text: &str) -> Result<LineFont, String> {
         );
     }
     if glyphs.len() != HERSHEY_GLYPHS {
-        return Err(format!(
-            "La fuente '{name}' tiene {} glifos y se esperaban {HERSHEY_GLYPHS}",
-            glyphs.len()
+        return Err(tr!(
+            "text.linefont.glyph_count",
+            name = name,
+            found = glyphs.len(),
+            expected = HERSHEY_GLYPHS
         ));
     }
     Ok(LineFont::new(

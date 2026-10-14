@@ -31,6 +31,7 @@ use tlaku_core::Point;
 use tlaku_core::bezpath::BezPath;
 use tlaku_doc::affine::{self, Transform};
 use tlaku_doc::{DesignObject, ImportResult, ObjectKind, VectorObject};
+use tlaku_i18n::tr;
 use tlaku_lbrn::{Shape, ShapeKind};
 
 /// Versión de formato más alta que se conoce (`.lbrn2`).
@@ -45,14 +46,15 @@ pub(crate) fn import(
     let project = tlaku_lbrn::parse(data).map_err(|e| format!("{}: {e}", path.display()))?;
     let mut warnings = project.warnings.clone();
     if let Some(v) = project.format_version.filter(|v| *v > KNOWN_FORMAT_VERSION) {
-        warnings.push(format!(
-            "Versión de formato de LightBurn desconocida (FormatVersion {v}, guardado con {}): \
-             se intenta leer, pero puede faltar información",
-            if project.app_version.is_empty() {
-                "una versión sin identificar"
-            } else {
-                &project.app_version
-            }
+        let app = if project.app_version.is_empty() {
+            tr!("pipeline.import_lbrn.unknown_app_version")
+        } else {
+            project.app_version.clone()
+        };
+        warnings.push(tr!(
+            "pipeline.import_lbrn.newer_format",
+            version = v,
+            app = app
         ));
     }
 
@@ -83,29 +85,28 @@ pub(crate) fn import(
     warnings.extend(images.warnings);
     warnings.extend(conv_warnings);
     for (note, n) in text_notes {
-        warnings.push(format!(
-            "Texto: {note} (en {n} texto{})",
-            if n == 1 { "" } else { "s" }
-        ));
+        warnings.push(if n == 1 {
+            tr!("pipeline.import_lbrn.text_note_one", note = note)
+        } else {
+            tr!("pipeline.import_lbrn.text_note_other", note = note, n = n)
+        });
     }
     for (ty, n) in omitted {
-        warnings.push(format!(
-            "Se omitieron {n} forma{} de tipo «{ty}» (no soportada{})",
-            if n == 1 { "" } else { "s" },
-            if n == 1 { "" } else { "s" }
-        ));
+        warnings.push(if n == 1 {
+            tr!("pipeline.import_lbrn.omitted_shapes_one", ty = ty)
+        } else {
+            tr!("pipeline.import_lbrn.omitted_shapes_other", n = n, ty = ty)
+        });
     }
 
     if objects.is_empty() {
         if new_layers.is_empty() {
-            return Err(format!(
-                "{}: el proyecto de LightBurn no contiene formas ni capas",
-                path.display()
+            return Err(tr!(
+                "pipeline.import_lbrn.empty_project",
+                path = path.display()
             ));
         }
-        warnings.push(
-            "El proyecto no contiene formas importables: solo se importaron las capas".into(),
-        );
+        warnings.push(tr!("pipeline.import_lbrn.layers_only"));
     }
     Ok(ImportResult {
         objects,
@@ -190,9 +191,11 @@ impl Converter {
                     self.finish(obj, group, locked);
                 }
                 Err(e) => {
-                    self.warnings.push(format!(
-                        "Se omitió una imagen incrustada de {:.1} x {:.1} mm: {e}",
-                        b.w, b.h
+                    self.warnings.push(tr!(
+                        "pipeline.import_lbrn.image_skipped",
+                        w = format!("{:.1}", b.w),
+                        h = format!("{:.1}", b.h),
+                        error = e
                     ));
                 }
             },

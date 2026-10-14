@@ -23,6 +23,7 @@
 //! El simulador no suma tiempo por mover Z (ver `tlaku-sim`).
 
 use tlaku_doc::{DeviceProfile, LayerSettings};
+use tlaku_i18n::tr;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct LayerZ {
@@ -52,13 +53,19 @@ pub(crate) fn resolve(
 ) -> Result<LayerZ, String> {
     for (name, v) in [("z_offset", l.z_offset), ("z_step", l.z_step)] {
         if !v.is_finite() {
-            return Err(format!("capa {}: {name} inválido: {v}", l.color));
+            return Err(tr!(
+                "pipeline.zaxis.bad_value",
+                layer = l.color,
+                name = name,
+                value = v
+            ));
         }
     }
     if !device.z_axis && (l.z_offset != 0.0 || l.z_step != 0.0) {
-        warnings.push(format!(
-            "capa {}: z_offset y z_step se ignoran porque la máquina '{}' no tiene eje Z",
-            l.color, device.name
+        warnings.push(tr!(
+            "pipeline.zaxis.ignored_no_axis",
+            layer = l.color,
+            machine = device.name
         ));
     }
     Ok(LayerZ {

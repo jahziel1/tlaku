@@ -26,6 +26,7 @@ use image::GrayImage;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Sigma del suavizado para la respuesta de silla (píxeles).
 const SADDLE_SIGMA: f32 = 2.0;
@@ -43,9 +44,10 @@ const MAX_CANDIDATES: usize = 1500;
 const MAX_SEEDS: usize = 60;
 
 fn not_found(board: [u32; 2]) -> String {
-    format!(
-        "no se encontró el tablero de {}x{} esquinas; verifica la iluminación y que se vea completo",
-        board[0], board[1]
+    tr!(
+        "camera.chessboard.not_found",
+        cols = board[0],
+        rows = board[1]
     )
 }
 
@@ -63,13 +65,11 @@ struct Cand {
 pub fn find_chessboard(img: &GrayImage, board: [u32; 2]) -> Result<Vec<Point>, String> {
     let (cols, rows) = (board[0] as usize, board[1] as usize);
     if cols < 2 || rows < 2 || cols.max(rows) < 3 {
-        return Err(format!(
-            "el tablero debe tener al menos 2x3 esquinas internas (se pidió {cols}x{rows})"
-        ));
+        return Err(tr!("camera.chessboard.too_small", cols = cols, rows = rows));
     }
     let (w, h) = (img.width() as usize, img.height() as usize);
     if w < 3 * BORDER_MARGIN || h < 3 * BORDER_MARGIN {
-        return Err(format!("la imagen es demasiado pequeña ({w}x{h})"));
+        return Err(tr!("camera.chessboard.image_small", w = w, h = h));
     }
     let base = FloatImage::from_gray(img);
     let l1 = gaussian_blur(&base, 1.0);
@@ -101,9 +101,10 @@ pub fn find_chessboard(img: &GrayImage, board: [u32; 2]) -> Result<Vec<Point>, S
         }
     }
     if too_big {
-        return Err(format!(
-            "se detectó una cuadrícula mayor que {}x{} esquinas; revisa el tamaño del tablero indicado",
-            board[0], board[1]
+        return Err(tr!(
+            "camera.chessboard.grid_larger",
+            cols = board[0],
+            rows = board[1]
         ));
     }
     Err(not_found(board))

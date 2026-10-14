@@ -21,6 +21,7 @@
 use crate::linefont::{LineFont, LineFontSource, LineGlyph, Stroke};
 use std::collections::HashMap;
 use std::f64::consts::PI;
+use tlaku_i18n::tr;
 
 const SHAPES_START: usize = 0x17;
 const UNIFONT_START: usize = 0x18;
@@ -94,9 +95,9 @@ pub fn parse_shx(name: &str, data: &[u8]) -> Result<LineFont, String> {
         let (above, shapes) = parse_unifont(data)?;
         (Kind::Unifont, above, shapes)
     } else if data.starts_with(b"AutoCAD-86 bigfont 1.0") {
-        return Err("Las fuentes SHX de tipo BigFont (CJK) todavía no se admiten".into());
+        return Err(tr!("text.shx.bigfont"));
     } else {
-        return Err("El archivo no es una fuente SHX de AutoCAD".into());
+        return Err(tr!("text.shx.not_shx"));
     };
 
     let mut glyphs: HashMap<char, LineGlyph> = HashMap::new();
@@ -116,7 +117,7 @@ pub fn parse_shx(name: &str, data: &[u8]) -> Result<LineFont, String> {
         }
     }
     if glyphs.is_empty() {
-        return Err("La fuente SHX no contiene caracteres que se puedan dibujar".into());
+        return Err(tr!("text.shx.no_glyphs"));
     }
     let mut cap = f64::from(above);
     if cap <= 0.0 {
@@ -141,7 +142,7 @@ fn parse_shapes(data: &[u8]) -> Result<(u8, HashMap<u16, Shape>), String> {
         at: SHAPES_START,
     };
     if r.u8()? != 0x1A {
-        return Err("Archivo SHX dañado: falta la marca 0x1A".into());
+        return Err(tr!("text.shx.missing_mark"));
     }
     let _first = r.u16()?;
     let _last = r.u16()?;
@@ -181,7 +182,7 @@ fn parse_unifont(data: &[u8]) -> Result<(u8, HashMap<u16, Shape>), String> {
         at: UNIFONT_START,
     };
     if r.u8()? != 0x1A {
-        return Err("Archivo SHX dañado: falta la marca 0x1A".into());
+        return Err(tr!("text.shx.missing_mark"));
     }
     r.take(6)?;
     let _font_name = r.cstr()?;
@@ -263,7 +264,7 @@ impl Pen<'_> {
 
     fn run(&mut self, number: u16, depth: usize) -> Result<(), String> {
         if depth > MAX_SUB_DEPTH {
-            return Err("Subformas anidadas sin fin".into());
+            return Err(tr!("text.shx.nested_subshapes"));
         }
         let shapes = self.shapes;
         let Some(shape) = shapes.get(&number) else {
@@ -276,13 +277,13 @@ impl Pen<'_> {
             codes
                 .get(i)
                 .copied()
-                .ok_or_else(|| "Forma SHX truncada".to_string())
+                .ok_or_else(|| tr!("text.shx.truncated_shape"))
         };
         let sbyte = |i: usize| -> Result<f64, String> { Ok(f64::from(byte(i)? as i8)) };
         while i < codes.len() {
             self.ops += 1;
             if self.ops > MAX_OPS {
-                return Err("Forma SHX demasiado larga".into());
+                return Err(tr!("text.shx.shape_too_long"));
             }
             let code = codes[i];
             i += 1;
@@ -315,7 +316,10 @@ impl Pen<'_> {
                 }
                 6 => {
                     if active {
-                        let (x, y) = self.stack.pop().ok_or("Pila vacía en forma SHX")?;
+                        let (x, y) = self
+                            .stack
+                            .pop()
+                            .ok_or_else(|| tr!("text.shx.empty_stack"))?;
                         self.flush();
                         self.x = x;
                         self.y = y;

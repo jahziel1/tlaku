@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
 ts-rs = { version = "12.0.1", optional = true }
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
 
 [features]
 # Exporta los tipos del contrato a TypeScript (lo activa `tlaku-doc`).

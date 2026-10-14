@@ -1,8 +1,9 @@
 import { Pencil, TriangleAlert } from 'lucide-react';
 import { t, type I18nKey } from '@/i18n';
 import type { FirmwareFamily } from './grblCodes';
-import { settingDescKey, settingInfo, settingNameKey, type SettingUnit } from './grblSettingsInfo';
+import { effectiveRule, settingDescKey, settingInfo, settingNameKey, type SettingUnit } from './grblSettingsInfo';
 import { validateSettingValue, validationParams, type RawSetting } from './MachineSettingsLogic';
+import { stepFromKey } from '@/ui/stepKey';
 import './MachineSettings.css';
 
 /** Texto de la unidad: los símbolos (mm, µs...) van tal cual; los demás se traducen. */
@@ -115,6 +116,14 @@ export function MachineSettingsTable({ settings, family, filter, blocked, editin
                           e.preventDefault();
                           e.stopPropagation();
                           onEditCancel();
+                        } else {
+                          // ↑/↓ cambian el texto (paso 1, dentro del rango del ajuste); se revisa igual que lo escrito.
+                          const typed = Number(editing.text.trim().replace(',', '.'));
+                          const rule = info ? effectiveRule(info, family) : null;
+                          const next = stepFromKey(e, editing.text.trim() !== '' && Number.isFinite(typed) ? typed : (s.value ?? 0), 1, rule?.min, rule?.max);
+                          if (next === null) return;
+                          e.preventDefault();
+                          onEditChange(String(next));
                         }
                       }}
                     />

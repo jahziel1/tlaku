@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Check, FolderOpen, Layers, Move, Eye, Rocket, type LucideIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { loadMaterials } from '@/features/materials/actions';
 import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
@@ -58,6 +58,13 @@ export function SimplePanel() {
     void loadMaterials();
   }, []);
   const step = useSimple((s) => s.step);
+  // Al cambiar de paso el foco pasa al título del paso: el lector de pantalla lo lee y el teclado sigue desde ahí.
+  const title = useRef<HTMLHeadingElement>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) first.current = false;
+    else title.current?.focus();
+  }, [step]);
   const actions = useSimple((s) => s.actions);
   const doc = useStore((s) => s.doc);
   const previewReady = useStore((s) => s.previewStatus === 'ready' && !s.previewStale);
@@ -70,7 +77,7 @@ export function SimplePanel() {
     <aside className="simple" aria-label={t('simple.title')}>
       <Stepper step={step} />
       <section className="simple__card" aria-labelledby="simple-title" data-step={name}>
-        <h2 id="simple-title" className="simple__title">{t(ui.title)}</h2>
+        <h2 id="simple-title" ref={title} tabIndex={-1} className="simple__title">{t(ui.title)}</h2>
         <p className="simple__lead">{t(ui.lead)}</p>
         {name === 'open' && <StepOpen data={data} />}
         {name === 'material' && <StepMaterial data={data} />}

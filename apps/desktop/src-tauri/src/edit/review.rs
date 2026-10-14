@@ -554,7 +554,7 @@ pub async fn review_design(
 ) -> Result<Vec<Finding>, String> {
     tauri::async_runtime::spawn_blocking(move || review(&doc, bed, &options.unwrap_or_default()))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))
+        .map_err(crate::edit::task_interrupted)
 }
 
 #[cfg(test)]

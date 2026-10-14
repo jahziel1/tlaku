@@ -18,6 +18,7 @@ use crate::FillRule;
 use crate::scan::{Edge, Frame, scan};
 use tlaku_core::Point;
 use tlaku_core::toolpath::Move;
+use tlaku_i18n::tr;
 
 /// Solape mínimo en x (mm) para considerar enlazados dos tramos de líneas contiguas.
 const EPS: f64 = 1e-9;
@@ -83,9 +84,7 @@ fn collect_spans(edges: Vec<Edge>, p: FloodParams) -> Result<Vec<Span>, String> 
         }
     })?;
     if overflow {
-        return Err(format!(
-            "demasiados tramos de relleno (más de {MAX_SPANS}); aumenta el intervalo"
-        ));
+        return Err(tr!("fill.flood.too_many_spans", max = MAX_SPANS));
     }
     Ok(spans)
 }

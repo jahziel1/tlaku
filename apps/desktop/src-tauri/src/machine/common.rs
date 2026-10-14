@@ -5,8 +5,24 @@ use std::thread;
 use std::time::Duration;
 
 use tlaku_doc::{LogDir, LogEvent};
+use tlaku_i18n::tr;
 
 use super::{Emit, Sink};
+
+/// Códigos estables (`tlaku_i18n::coded`) de las líneas del registro con las que la interfaz sabe
+/// que un encuadre terminó o se canceló (el de repetir el encuadre). El texto cambia con el idioma.
+pub(super) const FRAME_DONE: &str = "frame_done";
+pub(super) const FRAME_CANCELLED: &str = "frame_cancelled";
+
+/// Línea del registro: terminó el recorrido del encuadre.
+pub(super) fn frame_done_log() -> String {
+    tlaku_i18n::coded(FRAME_DONE, tr!("desktop.common.log_frame_done"))
+}
+
+/// Línea del registro: se canceló el recorrido del encuadre.
+pub(super) fn frame_cancelled_log() -> String {
+    tlaku_i18n::coded(FRAME_CANCELLED, tr!("desktop.common.log_frame_cancelled"))
+}
 
 /// Anota una línea en el registro de la consola (`machine://log`).
 pub(super) fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
@@ -23,10 +39,10 @@ pub(super) fn virtual_speed(port: &str) -> Result<f64, String> {
         None => Ok(1.0),
         Some((_, s)) => match s.parse::<f64>() {
             Ok(v) if v.is_finite() && v > 0.0 && v <= super::virtual_port::MAX_SPEED => Ok(v),
-            _ => Err(format!(
-                "La velocidad '{s}' de la máquina virtual debe ser un número entre 0 y {} veces \
-                 el tiempo real.",
-                super::virtual_port::MAX_SPEED
+            _ => Err(tr!(
+                "desktop.virtual_port.speed_range_for",
+                speed = s,
+                max = super::virtual_port::MAX_SPEED
             )),
         },
     }

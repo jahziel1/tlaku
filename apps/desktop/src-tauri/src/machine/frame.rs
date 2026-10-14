@@ -11,6 +11,7 @@ use std::f64::consts::PI;
 use tlaku_core::Point;
 use tlaku_doc::{DeviceProfile, Document, JobOptions, RotaryKind};
 use tlaku_grbl::frame::frame_hull_gcode;
+use tlaku_i18n::tr;
 
 /// Pasa un punto del documento (origen abajo a la izquierda) a las coordenadas de la máquina:
 /// esquina de origen de la cama e intercambio X/Y del perfil (igual que el G-code del trabajo).
@@ -45,7 +46,7 @@ pub fn hull_lines(
     pointer: bool,
 ) -> Result<Vec<String>, String> {
     if !(speed.is_finite() && speed > 0.0) {
-        return Err("La velocidad del encuadre debe ser mayor que 0.".into());
+        return Err(tr!("desktop.common.frame_speed"));
     }
     let current = head.map(|[x, y]| Point::new(x, y));
     let job = tlaku_pipeline::compute_at(doc, device, options, current)?;
@@ -83,17 +84,17 @@ pub fn hull_lines(
             .iter()
             .any(|p| p.x < -eps || p.y < -eps || p.x > w + eps || p.y > h / k + eps)
         {
-            return Err(format!(
-                "El encuadre con el puntero rojo se sale del área de la máquina '{}': con el \
-                 desfase del puntero ({} mm, {} mm) la cabeza tendría que salir de la cama. \
-                 Acerca el diseño al centro o usa el encuadre con el láser.",
-                device.name, device.pointer_offset[0], device.pointer_offset[1]
+            return Err(tr!(
+                "desktop.frame.pointer_outside_bed",
+                name = device.name,
+                dx = device.pointer_offset[0],
+                dy = device.pointer_offset[1]
             ));
         }
     }
     let lines = frame_hull_gcode(&points, speed, y_scale(device));
     if lines.is_empty() {
-        return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
+        return Err(tr!("desktop.common.nothing_to_frame"));
     }
     Ok(lines)
 }
@@ -114,21 +115,15 @@ pub fn low_power(
     power_pct: f64,
 ) -> Result<Vec<String>, String> {
     if !(power_pct.is_finite() && power_pct > 0.0 && power_pct <= FRAME_MAX_PCT) {
-        return Err(format!(
-            "La potencia del encuadre debe estar entre 0 y {FRAME_MAX_PCT} %."
-        ));
+        return Err(tr!("desktop.frame.power_range", max = FRAME_MAX_PCT));
     }
     let d = &device.dialect;
     if !d.s_inline || d.constant_on.trim().is_empty() {
-        return Err(
-            "Este dialecto de G-code no admite encuadrar con el láser encendido; \
-             usa el encuadre con el láser apagado."
-                .into(),
-        );
+        return Err(tr!("desktop.frame.dialect_no_low_power"));
     }
     let s = device.s_max * power_pct / 100.0;
     if !(s.is_finite() && s > 0.0) {
-        return Err("La S máxima del perfil debe ser mayor que 0.".into());
+        return Err(tr!("desktop.common.s_max_positive"));
     }
     let s_text = {
         let t = format!("{s:.*}", usize::from(d.s_decimals));
@@ -162,7 +157,7 @@ pub fn low_power(
         }
     }
     if !lit {
-        return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
+        return Err(tr!("desktop.common.nothing_to_frame"));
     }
     Ok(out)
 }

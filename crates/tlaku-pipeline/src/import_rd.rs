@@ -28,6 +28,7 @@ use std::path::Path;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{Point, Rgb};
 use tlaku_doc::{DeviceProfile, ImportResult, LayerSettings, ObjectKind, VectorObject};
+use tlaku_i18n::tr;
 use tlaku_ruida::cmd::{Command, Limit, ProcessOp, RapidRef, decode_stream};
 use tlaku_ruida::num;
 use tlaku_ruida::swizzle::{Magic, probe_candidates};
@@ -58,17 +59,13 @@ pub(crate) fn import(
     _extras: &ImportExtras,
 ) -> Result<ImportResult, String> {
     let name = path.display();
-    let (cmds, magic) = decode(data).ok_or_else(|| {
-        format!(
-            "{name}: no parece un archivo .rd de Ruida: ninguna de las claves de ofuscación \
-             conocidas da un flujo de comandos válido"
-        )
-    })?;
+    let (cmds, magic) =
+        decode(data).ok_or_else(|| tr!("pipeline.import_rd.not_rd", name = name))?;
     let mut warnings = Vec::new();
     if magic != Magic::default() {
-        warnings.push(format!(
-            "El .rd usa la clave de ofuscación 0x{:02X} (no la 0x88 habitual).",
-            magic.0
+        warnings.push(tr!(
+            "pipeline.import_rd.unusual_key",
+            key = format!("{:02X}", magic.0)
         ));
     }
     let unknown = cmds
@@ -76,16 +73,12 @@ pub(crate) fn import(
         .filter(|c| matches!(c, Command::Unknown { .. }))
         .count();
     if unknown > 0 {
-        warnings.push(format!(
-            "{unknown} comando(s) del .rd no se reconocieron y se ignoraron."
-        ));
+        warnings.push(tr!("pipeline.import_rd.unknown_commands", n = unknown));
     }
     let walk = walk(&cmds);
     let result = layers_result(walk, &mut warnings);
     if result.0.is_empty() {
-        return Err(format!(
-            "{name}: el .rd no contiene cortes (no hay A8/A9/AA/AB con el láser encendido)"
-        ));
+        return Err(tr!("pipeline.import_rd.no_cuts", name = name));
     }
     Ok(ImportResult {
         objects: result.0,
@@ -387,27 +380,23 @@ fn layers_result(
         layers.push(s);
     }
     if recolored > 0 {
-        warnings.push(format!(
-            "{recolored} capa(s) del .rd no traían color o lo repetían: se les asignó uno distinto."
-        ));
+        warnings.push(tr!("pipeline.import_rd.recolored", n = recolored));
     }
     for (n, pct) in variable {
-        warnings.push(format!(
-            "La capa {n} varía la potencia dentro de la capa (relleno o imagen): se importó con \
-             la potencia máxima ({pct:.0} %) y sin los tramos de overscan a potencia 0."
+        warnings.push(tr!(
+            "pipeline.import_rd.variable_power",
+            n = n,
+            pct = format!("{pct:.0}")
         ));
     }
     if !no_speed.is_empty() {
-        warnings.push(format!(
-            "Las capas {no_speed:?} no declaran velocidad: se usó {DEFAULT_SPEED_MM_MIN:.0} mm/min."
+        warnings.push(tr!(
+            "pipeline.import_rd.no_speed",
+            layers = format!("{no_speed:?}"),
+            speed = format!("{DEFAULT_SPEED_MM_MIN:.0}")
         ));
     }
-    warnings.push(
-        "Ruida: se supuso el origen arriba a la izquierda con Y hacia abajo y se invirtió Y \
-         (cama del perfil por defecto). Si tu máquina tiene otro origen, el dibujo puede salir \
-         desplazado o reflejado."
-            .into(),
-    );
+    warnings.push(tr!("pipeline.import_rd.assumed_origin"));
     (objects, layers)
 }
 

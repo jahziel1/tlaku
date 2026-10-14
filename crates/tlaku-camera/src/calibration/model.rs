@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Modelo matemático de la distorsión de la lente.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -15,10 +16,10 @@ pub enum LensModel {
 }
 
 impl LensModel {
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            LensModel::BrownConrady => "Brown-Conrady",
-            LensModel::Fisheye => "ojo de pez (Kannala-Brandt)",
+            LensModel::BrownConrady => "Brown-Conrady".into(),
+            LensModel::Fisheye => tr!("camera.model.fisheye"),
         }
     }
 }
@@ -174,16 +175,16 @@ impl LensCalibration {
             self.view_zoom,
         ];
         if self.width == 0 || self.height == 0 {
-            return Err("la calibración tiene un tamaño de imagen nulo".into());
+            return Err(tr!("camera.model.zero_size"));
         }
         if vals.iter().any(|v| !v.is_finite()) {
-            return Err("la calibración contiene valores no finitos".into());
+            return Err(tr!("camera.model.not_finite"));
         }
         if self.fx <= 0.0 || self.fy <= 0.0 {
-            return Err("la calibración tiene una distancia focal no positiva".into());
+            return Err(tr!("camera.model.bad_focal"));
         }
         if !(0.05..=10.0).contains(&self.view_zoom) {
-            return Err("la calibración tiene un factor de vista fuera de rango".into());
+            return Err(tr!("camera.model.bad_zoom"));
         }
         Ok(())
     }

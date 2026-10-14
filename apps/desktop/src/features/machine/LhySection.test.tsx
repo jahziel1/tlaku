@@ -168,26 +168,33 @@ describe('confirmar el envío con un K40', () => {
 
 describe('detener sin confirmación', () => {
   const UNCONFIRMED =
-    'cancelado por el usuario (paquetes confirmados: 3 de 9). Se intentó detener la placa y apagar el láser pero NO hubo confirmación: puede seguir en marcha. Usa el paro de emergencia o abre la tapa';
+    '[lhymicro_stop_unconfirmed] cancelado por el usuario (paquetes confirmados: 3 de 9). Se intentó detener la placa y apagar el láser pero NO hubo confirmación: puede seguir en marcha. Usa el paro de emergencia o abre la tapa';
 
-  it('reconoce la marca que deja el motor', () => {
+  const UNCONFIRMED_EN =
+    '[lhymicro_stop_unconfirmed] canceled by the user (packets confirmed: 3 of 9). It tried to stop the board and turn the laser off but there was NO confirmation: it may still be running. Use the emergency stop or open the lid';
+
+  it('reconoce el código que deja el motor, en español y en inglés', () => {
     expect(isUnconfirmedStop(UNCONFIRMED)).toBe(true);
+    expect(isUnconfirmedStop(UNCONFIRMED_EN)).toBe(true);
+    // Sin el código no se reconoce, aunque el texto lo diga.
+    expect(isUnconfirmedStop('Se intentó detener la placa pero NO hubo confirmación')).toBe(false);
+    expect(isUnconfirmedStop('there was NO confirmation')).toBe(false);
     expect(isUnconfirmedStop('Trabajo detenido: la placa se detuvo y el láser se apagó.')).toBe(false);
     expect(isUnconfirmedStop(null, undefined, '')).toBe(false);
   });
 
   it('muestra el aviso destacado del paro de emergencia', () => {
-    const h = renderToString(<LhyStopNoticeView message={UNCONFIRMED} error={null} />);
+    const h = renderToString(<LhyStopNoticeView message={UNCONFIRMED} error={null} unconfirmed />);
     expect(h).toContain('role="alert"');
     expect(h).toContain('La placa no confirmó la parada');
     expect(h).toContain('paro de emergencia del K40');
   });
 
   it('también cuando el envío se rechazó antes del primer paquete', () => {
-    expect(renderToString(<LhyStopNoticeView message="" error={UNCONFIRMED} />)).toContain('La placa no confirmó la parada');
+    expect(renderToString(<LhyStopNoticeView message="" error={UNCONFIRMED} unconfirmed />)).toContain('La placa no confirmó la parada');
   });
 
   it('una parada confirmada no lo muestra', () => {
-    expect(renderToString(<LhyStopNoticeView message="Trabajo detenido: la placa se detuvo y el láser se apagó." error={null} />)).toBe('');
+    expect(renderToString(<LhyStopNoticeView message="Trabajo detenido: la placa se detuvo y el láser se apagó." error={null} unconfirmed={false} />)).toBe('');
   });
 });

@@ -4,9 +4,10 @@ use super::*;
 
 pub(super) fn check_board(board: [u32; 2]) -> Result<(), String> {
     if board[0] < 2 || board[1] < 2 || board[0].max(board[1]) < 3 {
-        return Err(format!(
-            "El tablero debe tener al menos 2x3 esquinas internas (se pidió {}x{}).",
-            board[0], board[1]
+        return Err(tr!(
+            "desktop.edit.camera.board_too_small",
+            cols = board[0],
+            rows = board[1]
         ));
     }
     Ok(())
@@ -65,7 +66,7 @@ pub async fn detect_board(
 ) -> Result<Option<Vec<[f64; 2]>>, String> {
     tauri::async_runtime::spawn_blocking(move || run_detect_board(&image_png_base64, board))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -84,5 +85,5 @@ pub async fn calibrate_lens(
         )
     })
     .await
-    .map_err(blocking_error)?
+    .map_err(crate::edit::task_interrupted)?
 }

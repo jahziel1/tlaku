@@ -6,7 +6,7 @@ use crate::machine::active::{ActiveMachine, Machine};
 use crate::machine::galvo::{self, GalvoConnection, GalvoTimingCfg};
 use crate::machine::lhymicro::{self, LhyConnection, LhyTiming};
 use crate::machine::ruida::{self, RuidaConnection, RuidaTiming};
-use crate::machine::{Connection, Emit, Handle, NOT_CONNECTED, Sink, Timing, frame, virtual_port};
+use crate::machine::{Connection, Emit, Handle, Sink, Timing, frame, not_connected, virtual_port};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -17,6 +17,7 @@ use tlaku_doc::{
 };
 use tlaku_grbl::link::{LinkFamily, LinkProfile};
 use tlaku_grbl::serial::{Grbl, SerialOptions};
+use tlaku_i18n::tr;
 
 /// Estado administrado por Tauri: la conexión con la máquina (si hay una). Es una sola, de
 /// cualquier respaldo (GRBL, Ruida...): ver `machine::active`.
@@ -31,14 +32,17 @@ impl AppState {
     /// Mando de la conexión viva, de cualquier respaldo. Si la conexión se perdió, la suelta y
     /// avisa.
     pub(crate) fn machine(&self) -> Result<Machine, String> {
-        let mut g = self.conn.lock().map_err(|_| "estado interno dañado")?;
+        let mut g = self
+            .conn
+            .lock()
+            .map_err(|_| tr!("desktop.common.internal_state"))?;
         match g.as_ref().map(ActiveMachine::handle) {
             Some(m) if !m.is_closed() => Ok(m),
             Some(_) => {
                 *g = None;
-                Err(NOT_CONNECTED.into())
+                Err(not_connected())
             }
-            None => Err(NOT_CONNECTED.into()),
+            None => Err(not_connected()),
         }
     }
 
@@ -87,13 +91,13 @@ async fn blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f)
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
-        .map_err(|e| format!("No se encontró la carpeta de configuración: {e}"))
+        .map_err(|e| tr!("desktop.common.config_dir", err = e))
 }
 
 /// Permite que la interfaz muestre estas imágenes con `convertFileSrc` (protocolo de assets).
@@ -112,6 +116,16 @@ fn allow_images(app: &AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
 #[tauri::command]
 pub fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Idioma de los avisos y errores del motor (`"es"` o `"en"`). La interfaz lo llama al arrancar y
+/// cada vez que cambia la preferencia `language`. Es global: vale para todos los hilos y ventanas.
+#[tauri::command]
+pub fn set_engine_locale(locale: String) -> Result<(), String> {
+    let l = tlaku_i18n::Locale::parse(&locale)
+        .ok_or_else(|| tr!("desktop.commands.unsupported_locale", locale = locale))?;
+    tlaku_i18n::set_locale(l);
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +233,7 @@ pub async fn delete_device(app: AppHandle, id: String) -> Result<(), String> {
 pub async fn list_ports() -> Result<Vec<String>, String> {
     blocking(|| {
         let mut ports = tlaku_grbl::serial::list_ports()
-            .map_err(|e| format!("No se pudieron listar los puertos serie: {e}"))?;
+            .map_err(|e| tr!("desktop.commands.list_ports_failed", err = e))?;
         // Las placas del K40 que haya por USB (`usb:k40:<n>`), antes de las máquinas virtuales.
         ports.extend(lhymicro::usb_ports());
         // Las tarjetas galvo (BJJCZ 9588:xxxx) que haya por USB (`usb:galvo:<n>`).
@@ -247,15 +261,13 @@ pub async fn connect(
     galvo_ack: Option<galvo::SafetyAck>,
 ) -> Result<ConnectResult, String> {
     if baud == 0 {
-        return Err("Los baudios deben ser mayores que 0.".into());
+        return Err(tr!("desktop.common.baud_positive"));
     }
     if state.machine().is_ok() {
-        return Err(
-            "Ya hay una máquina conectada. Desconéctala antes de abrir otro puerto.".into(),
-        );
+        return Err(tr!("desktop.commands.already_connected"));
     }
     if state.connecting.swap(true, Ordering::SeqCst) {
-        return Err("Ya se está conectando con una máquina; espera un momento.".into());
+        return Err(tr!("desktop.commands.already_connecting"));
     }
     // Abrir el puerto sin subir DTR (la placa no se reinicia), si el perfil lo pide.
     let serial_options = SerialOptions {
@@ -270,7 +282,10 @@ pub async fn connect(
         .await;
         state.connecting.store(false, Ordering::SeqCst);
         let (conn, info) = result?;
-        *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Ruida(conn));
+        *state
+            .conn
+            .lock()
+            .map_err(|_| tr!("desktop.common.internal_state"))? = Some(ActiveMachine::Ruida(conn));
         return Ok(info);
     }
     // K40 (M2 Nano): USB (`usb:k40:<n>`) o su máquina virtual, sin puerto serie.
@@ -280,7 +295,10 @@ pub async fn connect(
                 .await;
         state.connecting.store(false, Ordering::SeqCst);
         let (conn, info) = result?;
-        *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Lhy(conn));
+        *state
+            .conn
+            .lock()
+            .map_err(|_| tr!("desktop.common.internal_state"))? = Some(ActiveMachine::Lhy(conn));
         return Ok(info);
     }
     // Galvo (JCZ/BJJCZ): USB (`usb:galvo:<n>`, con el reconocimiento de seguridad de ESTA conexión)
@@ -298,20 +316,23 @@ pub async fn connect(
         .await;
         state.connecting.store(false, Ordering::SeqCst);
         let (conn, info) = result?;
-        *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Galvo(conn));
+        *state
+            .conn
+            .lock()
+            .map_err(|_| tr!("desktop.common.internal_state"))? = Some(ActiveMachine::Galvo(conn));
         return Ok(info);
     }
     if galvo::is_virtual(&port) || galvo::usb_index(&port).is_some() {
         state.connecting.store(false, Ordering::SeqCst);
-        return Err("La tarjeta galvo solo se abre con un perfil de tipo galvo.".into());
+        return Err(tr!("desktop.commands.galvo_needs_profile"));
     }
     if ruida::is_virtual(&port) {
         state.connecting.store(false, Ordering::SeqCst);
-        return Err("La máquina virtual Ruida solo se abre con un perfil de tipo Ruida.".into());
+        return Err(tr!("desktop.commands.ruida_needs_profile"));
     }
     if lhymicro::is_virtual(&port) || lhymicro::usb_index(&port).is_some() {
         state.connecting.store(false, Ordering::SeqCst);
-        return Err("La placa del K40 solo se abre con un perfil de tipo K40 (M2 Nano).".into());
+        return Err(tr!("desktop.commands.k40_needs_profile"));
     }
     let result = blocking(move || {
         // Red (Telnet/TCP, WebSocket o máquina virtual por red): sin puerto serie ni espera de
@@ -326,19 +347,17 @@ pub async fn connect(
         }
         // Abrir el puerto reinicia muchas placas: `Grbl::open` espera el saludo y lo descarta.
         let transport = Grbl::open_with(&port, baud, serial_options)
-            .map_err(|e| {
-                format!(
-                    "No se pudo abrir {port}: {e}. Revisa el cable, que la máquina esté \
-                     encendida y que ningún otro programa use el puerto."
-                )
-            })?
+            .map_err(|e| tr!("desktop.commands.open_port_failed", port = port, err = e))?
             .into_transport();
         Connection::start(transport, &port, sink, Timing::default())
     })
     .await;
     state.connecting.store(false, Ordering::SeqCst);
     let (conn, info) = result?;
-    *state.conn.lock().map_err(|_| "estado interno dañado")? = Some(ActiveMachine::Grbl(conn));
+    *state
+        .conn
+        .lock()
+        .map_err(|_| tr!("desktop.common.internal_state"))? = Some(ActiveMachine::Grbl(conn));
     Ok(info)
 }
 
@@ -347,7 +366,7 @@ pub async fn disconnect(state: State<'_, AppState>) -> Result<(), String> {
     let conn = state
         .conn
         .lock()
-        .map_err(|_| "estado interno dañado")?
+        .map_err(|_| tr!("desktop.common.internal_state"))?
         .take();
     if let Some(c) = conn {
         blocking(move || {

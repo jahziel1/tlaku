@@ -375,7 +375,7 @@ fn disconnecting_emits_the_event_and_closes_the_handle() {
     assert!(handle.is_closed());
     let last = sink.connections().pop().unwrap();
     assert!(!last.connected && last.error.is_none());
-    assert_eq!(handle.pause().unwrap_err(), crate::machine::NOT_CONNECTED);
+    assert_eq!(handle.pause().unwrap_err(), crate::machine::not_connected());
 }
 
 // ---------------------------------------------------------------------------

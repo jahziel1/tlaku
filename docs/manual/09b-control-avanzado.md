@@ -40,7 +40,7 @@ Los botones aparecen en la pestaña **Máquina**, sección **Macros**, y cada ma
 Si el perfil declara un eje, la sección **Mover cabezal** suma el bloque **Ejes extra** con los botones **Subir** y **Bajar**.
 
 - **Eje Z:** se activa en el perfil con **Eje Z motorizado** (grupo **Ejes y accesorios**, ver [Rotativo y eje Z](12-rotativo-y-eje-z.md)). **Subir** aleja el cabezal del material y **Bajar** lo acerca; con **Invertir Z** activado Tlaku ya compensa el sentido.
-- **Eje U:** se activa con la casilla **La máquina tiene un eje U (rotativo u otro eje extra)**. Como los firmwares lo llaman distinto, elige la **Letra del eje U en el G-code** (`U`, `A`, `B` o `C`). Esta casilla solo habilita el movimiento a mano: **no cambia el G-code de los trabajos**.
+- **Eje U:** se activa con la casilla **La máquina tiene un eje U (rotativo u otro eje extra)**. Como los firmwares lo llaman distinto, elige la **Letra del eje U en el G-code** (`U`, `A`, `B` o `C`). Esta casilla habilita el movimiento a mano. Los trabajos solo mueven U si pones un **Desplazamiento U de los trabajos** distinto de 0 en el mismo grupo: es lo que se mueve el eje **al empezar cada trabajo** (y se deshace al terminar, con movimientos relativos y el láser apagado). Con 0 (de fábrica), **el G-code de los trabajos no toca U**.
 - Cada clic mueve el mismo **paso** que el pad (de `0,01` a `500 mm`) a la **Velocidad** de **Mover cabezal**. Con un trabajo en curso, sin conexión o en alarma, los botones se deshabilitan y dicen por qué.
 
 > **Ejemplo:** tu mesa motorizada baja con +Z. Marca **Eje Z motorizado**, pon el paso en `1`, pulsa **Bajar** tres veces para acercar el cabezal al material y confirma a ojo la distancia al enfoque.
@@ -79,7 +79,7 @@ Un pulso corto del láser a baja potencia para ver **dónde cae el punto** sin l
 
 ## Ajustes `$$` de la controladora, con respaldo
 
-**Ajustes de la máquina…** (botón en la sección **Ajustes de la máquina** del panel, o el comando `machine.settings`) lee los `$n` de la controladora GRBL y los muestra con **nombre en español, descripción, unidad** y una marca **Crítico** en los que, con un valor equivocado, pueden mover mal la máquina, quitarle protecciones o apagar el modo láser. Cubre GRBL 1.1 y los ajustes conocidos de grblHAL; un ajuste que Tlaku no conoce sale como «Ajuste sin descripción».
+**Ajustes de la máquina…** (botón en la sección **Ajustes de la máquina** del panel, o el comando `machine.settings`) lee los `$n` de la controladora GRBL y los muestra con **nombre, descripción, unidad** y una marca **Crítico** en los que, con un valor equivocado, pueden mover mal la máquina, quitarle protecciones o apagar el modo láser. Cubre GRBL 1.1 y los ajustes conocidos de grblHAL; un ajuste que Tlaku no conoce sale como «Ajuste sin descripción».
 
 - **Releer** vuelve a leer la máquina. El buscador filtra por número o nombre.
 - **Editar** un valor lo valida (número, rango, 0 o 1) y pasa a **Revisar el cambio**, que muestra el **valor actual** y la **línea exacta** que se enviará, con la advertencia de que se guarda en la memoria permanente (EEPROM). Solo **Escribir `$n=valor`** la envía.

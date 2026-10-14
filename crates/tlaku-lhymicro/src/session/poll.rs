@@ -4,6 +4,7 @@ use super::{BoardInfo, JobControl, LhySession, SessionError, Step};
 use crate::status::{Status, StatusReport, looks_like_moshiboard};
 use crate::transport::{self, Transport, TransportError};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 
 impl<T: Transport> LhySession<T> {
     // ------------------------------------------------------------------------------------
@@ -43,14 +44,10 @@ impl<T: Transport> LhySession<T> {
         let status = self.status()?;
         let mut notes = Vec::new();
         match status.status {
-            Status::LowPower => notes.push(
-                "energía insuficiente (239): paro de emergencia pulsado, tapa abierta o fuente \
-                 del láser apagada"
-                    .to_string(),
-            ),
-            Status::CrcError => notes.push("la placa conserva un error de CRC previo".to_string()),
-            Status::NoReply => notes.push("la placa no devolvió estado".to_string()),
-            Status::Unknown(c) => notes.push(format!("código de estado desconocido ({c})")),
+            Status::LowPower => notes.push(tr!("lhymicro.session.note_low_power")),
+            Status::CrcError => notes.push(tr!("lhymicro.session.note_crc")),
+            Status::NoReply => notes.push(tr!("lhymicro.session.note_no_reply")),
+            Status::Unknown(c) => notes.push(tr!("lhymicro.session.note_unknown", code = c)),
             _ => {}
         }
         Ok(BoardInfo {

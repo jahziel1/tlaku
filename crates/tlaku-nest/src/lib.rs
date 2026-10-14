@@ -39,6 +39,7 @@ use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 use tlaku_core::Polyline;
+use tlaku_i18n::tr;
 
 /// Tope de copias en total: más allá el cálculo deja de ser manejable. Es el mismo que usa la
 /// interfaz (`MAX_NEST_INSTANCES` en `apps/desktop/src/features/nest/request.ts`; una prueba de
@@ -152,27 +153,35 @@ pub enum NestError {
     /// La pieza (índice) no tiene área: contornos vacíos, degenerados o con puntos no finitos.
     EmptyPiece(usize),
     InvalidContainer,
-    InvalidOption(&'static str),
+    InvalidOption(BadOption),
+}
+
+/// Qué opción de [`NestOptions`] es inválida (para el mensaje de [`NestError::InvalidOption`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BadOption {
+    RotationStep,
+    NegativeSpacing,
+    NegativeMargin,
 }
 
 impl fmt::Display for NestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NestError::NoPieces => write!(f, "No hay piezas que acomodar."),
-            NestError::TooMany(n) => write!(
-                f,
-                "Son demasiadas piezas ({n}); el máximo es {MAX_INSTANCES} entre originales y copias."
-            ),
-            NestError::EmptyPiece(i) => write!(
-                f,
-                "La pieza {} no tiene un contorno cerrado con área.",
-                i + 1
-            ),
-            NestError::InvalidContainer => write!(
-                f,
-                "El contenedor no tiene un área válida: revisa el tamaño de la cama o el contorno del material."
-            ),
-            NestError::InvalidOption(what) => write!(f, "Opción inválida: {what}."),
+            NestError::NoPieces => f.write_str(&tr!("nest.lib.no_pieces")),
+            NestError::TooMany(n) => {
+                f.write_str(&tr!("nest.lib.too_many", n = n, max = MAX_INSTANCES))
+            }
+            NestError::EmptyPiece(i) => f.write_str(&tr!("nest.lib.empty_piece", n = i + 1)),
+            NestError::InvalidContainer => f.write_str(&tr!("nest.lib.invalid_container")),
+            NestError::InvalidOption(BadOption::RotationStep) => {
+                f.write_str(&tr!("nest.lib.option_rotation_step"))
+            }
+            NestError::InvalidOption(BadOption::NegativeSpacing) => {
+                f.write_str(&tr!("nest.lib.option_spacing"))
+            }
+            NestError::InvalidOption(BadOption::NegativeMargin) => {
+                f.write_str(&tr!("nest.lib.option_margin"))
+            }
         }
     }
 }
@@ -185,9 +194,7 @@ fn allowed_angles(r: Rotations) -> Result<Vec<f64>, NestError> {
         Rotations::Quarter => Ok(vec![0.0, 90.0, 180.0, 270.0]),
         Rotations::Step(s) => {
             if !s.is_finite() || !(1.0..=180.0).contains(&s) {
-                return Err(NestError::InvalidOption(
-                    "el paso de rotación debe estar entre 1 y 180 grados",
-                ));
+                return Err(NestError::InvalidOption(BadOption::RotationStep));
             }
             let n = (360.0 / s).floor() as usize;
             Ok((0..n).map(|i| i as f64 * s).collect())
@@ -206,12 +213,10 @@ pub fn nest(
     let started = Instant::now();
     let o = &input.options;
     if !(o.spacing.is_finite() && o.spacing >= 0.0) {
-        return Err(NestError::InvalidOption(
-            "la separación no puede ser negativa",
-        ));
+        return Err(NestError::InvalidOption(BadOption::NegativeSpacing));
     }
     if !(o.margin.is_finite() && o.margin >= 0.0) {
-        return Err(NestError::InvalidOption("el margen no puede ser negativo"));
+        return Err(NestError::InvalidOption(BadOption::NegativeMargin));
     }
     let angles = allowed_angles(o.rotations)?;
     let total: usize = input.pieces.iter().map(|p| p.copies as usize).sum();

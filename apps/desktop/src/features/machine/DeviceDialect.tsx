@@ -181,7 +181,7 @@ export function DialectEditor({ draft, edit, issues }: Props) {
       </details>
 
       <h3 className="mc-sub">{t('devices.preview.title')}</h3>
-      <pre className="dv-preview num" aria-label={t('devices.preview.title')} tabIndex={0}>{preview}</pre>
+      <pre className="dv-preview num" role="region" aria-label={t('devices.preview.title')} tabIndex={0}>{preview}</pre>
       <p className="hint">{t('devices.preview.hint')}</p>
     </>
   );

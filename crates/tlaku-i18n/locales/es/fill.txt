@@ -1,0 +1,22 @@
+# Mensajes de tlaku-fill (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: fill.<módulo>.<qué> = plantilla
+
+# flood.rs
+fill.flood.too_many_spans = demasiados tramos de relleno (más de {max}); aumenta el intervalo
+
+# lib.rs
+fill.lib.interval = intervalo inválido: {value}
+fill.lib.angle = ángulo inválido: {value}
+fill.lib.overscan = overscan inválido: {value}
+fill.lib.speed = velocidad inválida: {value}
+fill.lib.power = potencia fuera de 0-100 %: {value}
+fill.lib.group_ids = se esperaba un id de grupo por trayectoria ({expected}) y llegaron {got}
+
+# offset.rs
+fill.offset.too_complex = el relleno por contornos es demasiado complejo ({rings} contornos, {points} puntos); aumenta el intervalo o simplifica el diseño
+fill.offset.too_complex_work = el relleno por contornos es demasiado complejo ({work} puntos de trabajo); aumenta el intervalo o simplifica el diseño
+fill.offset.internal = fallo interno en el relleno por contornos
+fill.offset.too_many_levels = demasiados niveles concéntricos ({max}); aumenta el intervalo
+
+# scan.rs
+fill.scan.too_many_lines = demasiadas líneas de barrido ({lines}); aumenta el intervalo

@@ -46,6 +46,7 @@ use tlaku_geom::{
     BoolOp, Join, Polyline, auto_join_tracked, boolean, close_paths, dedupe_paths, offset,
     signed_area, weld,
 };
+use tlaku_i18n::tr;
 
 /// Error máximo (mm) al aplanar las curvas y en los arcos del offset.
 const TOLERANCE_MM: f64 = 0.01;
@@ -115,27 +116,21 @@ fn operands(objects: &[DesignObject]) -> Result<Vec<Operand>, String> {
     }
     let list = |ids: &[&str]| {
         ids.iter()
-            .map(|id| format!("«{id}»"))
+            .map(crate::edit::quoted)
             .collect::<Vec<_>>()
             .join(", ")
     };
     if !images.is_empty() {
-        return Err(format!(
-            "Las imágenes no pueden participar en esta operación: {}.",
-            list(&images)
+        return Err(tr!(
+            "desktop.edit.geometry.images_not_allowed",
+            list = list(&images)
         ));
     }
     if !open.is_empty() {
-        return Err(format!(
-            "Hay formas abiertas que no pueden participar: {}. Ciérralas antes (por ejemplo con «Cerrar polilínea»).",
-            list(&open)
-        ));
+        return Err(tr!("desktop.edit.geometry.open_shapes", list = list(&open)));
     }
     if !empty.is_empty() {
-        return Err(format!(
-            "Estos objetos no tienen contorno que operar (¿un texto sin contorno generado?): {}.",
-            list(&empty)
-        ));
+        return Err(tr!("desktop.edit.geometry.no_outline", list = list(&empty)));
     }
     Ok(out)
 }
@@ -212,7 +207,7 @@ pub fn run(
         return cleanup(op, objects, None);
     }
     let Some(first) = objects.first() else {
-        return Err("No hay objetos sobre los que operar.".into());
+        return Err(tr!("desktop.edit.nothing_to_operate"));
     };
     let layer = first.layer;
     let ops = operands(objects)?;
@@ -220,7 +215,7 @@ pub fn run(
     match op {
         GeometryOp::Union | GeometryOp::Difference | GeometryOp::Intersection | GeometryOp::Xor => {
             if ops.len() < 2 {
-                return Err("Las booleanas necesitan al menos dos objetos.".into());
+                return Err(tr!("desktop.edit.geometry.boolean_needs_two"));
             }
             let bool_op = match op {
                 GeometryOp::Union => BoolOp::Union,
@@ -238,9 +233,9 @@ pub fn run(
             Ok(region_objects("geo", &mut counter, layer, weld(&all)))
         }
         GeometryOp::Offset => {
-            let d = distance.ok_or("Falta la distancia del offset.")?;
+            let d = distance.ok_or_else(|| tr!("desktop.edit.geometry.offset_missing"))?;
             if !d.is_finite() {
-                return Err("La distancia del offset no es un número válido.".into());
+                return Err(tr!("desktop.edit.geometry.offset_invalid"));
             }
             let style = join_of(join);
             let mut out = Vec::new();
@@ -320,27 +315,27 @@ pub fn cleanup(
     tolerance: Option<f64>,
 ) -> Result<Vec<DesignObject>, String> {
     if objects.is_empty() {
-        return Err("No hay objetos sobre los que operar.".into());
+        return Err(tr!("desktop.edit.nothing_to_operate"));
     }
     let (prefix, default_tol) = match op {
         GeometryOp::Join => ("join", DEFAULT_JOIN_MM),
         GeometryOp::Close => ("close", DEFAULT_CLOSE_MM),
         GeometryOp::Dedupe => ("dedupe", DEFAULT_DEDUPE_MM),
-        _ => return Err("Esta operación no es una limpieza de trazos.".into()),
+        _ => return Err(tr!("desktop.edit.geometry.not_cleanup")),
     };
     let tol = tolerance.unwrap_or(default_tol);
     if !tol.is_finite() || tol < 0.0 {
-        return Err("La tolerancia no es un número válido (debe ser 0 o más).".into());
+        return Err(tr!("desktop.edit.bad_tolerance"));
     }
     let unsupported: Vec<String> = objects
         .iter()
         .filter(|o| !matches!(o.kind, ObjectKind::Vector(_)))
-        .map(|o| format!("«{}»", o.id))
+        .map(|o| crate::edit::quoted(&o.id))
         .collect();
     if !unsupported.is_empty() {
-        return Err(format!(
-            "Solo se pueden limpiar los trazos de objetos vectoriales; quita las imágenes y los textos: {}.",
-            unsupported.join(", ")
+        return Err(tr!(
+            "desktop.edit.geometry.cleanup_vectors_only",
+            list = unsupported.join(", ")
         ));
     }
 
@@ -477,7 +472,7 @@ pub async fn geometry_op(
         _ => run(op, &objects, distance, join),
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

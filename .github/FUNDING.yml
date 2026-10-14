@@ -1,0 +1,8 @@
+# Botón «Sponsor» del repositorio de GitHub.
+#
+# PENDIENTE: el proyecto todavía no tiene cuentas de donación. Cuando existan, descomenta y llena
+# las líneas que correspondan (solo el nombre de usuario, no la URL completa) y borra este aviso.
+# Formato: https://docs.github.com/es/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+#
+# github: [tu-usuario]        # GitHub Sponsors: https://github.com/sponsors/tu-usuario
+# ko_fi: tu-usuario           # Ko-fi: https://ko-fi.com/tu-usuario

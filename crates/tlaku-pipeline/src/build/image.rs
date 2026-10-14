@@ -9,6 +9,7 @@ use crate::zaxis::LayerZ;
 use std::path::Path;
 use tlaku_core::Rgb;
 use tlaku_doc::Overscan;
+use tlaku_i18n::tr;
 use tlaku_raster::{Luma, ProcessOptions, Sampling};
 
 use super::*;
@@ -67,11 +68,12 @@ impl Builder<'_> {
                 1.0,
             )?;
             let mut b = tlaku_raster::process(&turned, bw, bh, &opts)
-                .map_err(|e| format!("imagen: {e}"))?;
+                .map_err(|e| tr!("pipeline.common.image_error", error = e))?;
             tlaku_raster::apply_mask(&mut b, img.origin, &[warp_outline(wp)]);
             b
         } else {
-            tlaku_raster::process(&gray, w, h, &opts).map_err(|e| format!("imagen: {e}"))?
+            tlaku_raster::process(&gray, w, h, &opts)
+                .map_err(|e| tr!("pipeline.common.image_error", error = e))?
         };
         // Máscara de recorte: lo que queda fuera de las formas no se graba.
         tlaku_raster::apply_mask(&mut bitmap, img.origin, &img.mask);
@@ -92,9 +94,7 @@ impl Builder<'_> {
             }
             let mut block = tlaku_raster::raster_to_block(&bitmap, img.origin, &pass);
             if block.moves.is_empty() {
-                self.warnings.push(
-                    "imagen: no hay ningún punto que grabar (la imagen resultó en blanco)".into(),
-                );
+                self.warnings.push(crate::slice3d::blank_warning());
                 return Ok(());
             }
             scan_offset::apply(
@@ -107,7 +107,7 @@ impl Builder<'_> {
             if k == 0
                 && pass.bidirectional
                 && let Some(w) = scan_offset::overscan_warning(
-                    "imagen",
+                    &tr!("pipeline.common.image_label"),
                     self.scan_offsets,
                     pass.speed_mm_min,
                     pass.overscan_mm,
@@ -119,7 +119,7 @@ impl Builder<'_> {
         }
         let lines = blocks.iter().map(travel_count).sum();
         let report = LayerReport {
-            name: "imagen".into(),
+            name: tr!("pipeline.common.image_label"),
             color,
             mode: "image",
             count: lines,

@@ -400,7 +400,11 @@ pub fn friendly_agent(ua: &str) -> String {
     } else {
         let plain: String = ua.chars().filter(|c| !c.is_control()).take(40).collect();
         let plain = plain.trim();
-        return if plain.is_empty() { "Navegador" } else { plain }.to_string();
+        return if plain.is_empty() {
+            tlaku_i18n::tr!("desktop.remote.browser")
+        } else {
+            plain.to_string()
+        };
     };
     let browser = if ua.contains("Edg/") || ua.contains("EdgA/") {
         "Edge"

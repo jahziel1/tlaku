@@ -1,6 +1,6 @@
 import type { Document } from '@/api/types';
-import type { I18nKey } from '@/i18n';
-import { t } from '@/i18n';
+import type { I18nKey, PluralBase } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import type { Finding } from './types';
 
@@ -27,14 +27,20 @@ export function findingParams(f: Finding, layer: string): Record<string, string 
 }
 
 export const findingTitle = (f: Finding, doc: Pick<Document, 'layers'>): string =>
-  t(`review.kind.${f.kind}.title` as I18nKey, findingParams(f, layerLabel(doc, f)));
+  tn(`review.kind.${f.kind}.title` as PluralBase, f.count, findingParams(f, layerLabel(doc, f)));
 
 /** Por qué importa, más (si aplica) el aviso de los textos sin contorno. */
 export function findingWhy(f: Finding, doc: Pick<Document, 'layers'>): string {
   const why = t(`review.kind.${f.kind}.why` as I18nKey, findingParams(f, layerLabel(doc, f)));
-  return f.kind === 'text' && f.detail > 0 ? `${why} ${t('review.kind.text.empty', { n: f.detail })}` : why;
+  return f.kind === 'text' && f.detail > 0 ? `${why} ${tn('review.kind.text.empty', f.detail)}` : why;
 }
 
 /** El mismo hallazgo en palabras de todos los días (modo sencillo). */
 export const findingSimple = (f: Finding, doc: Pick<Document, 'layers'>): string =>
-  t(`review.simple.${f.kind}` as I18nKey, findingParams(f, layerLabel(doc, f)));
+  tn(`review.simple.${f.kind}` as PluralBase, f.count, findingParams(f, layerLabel(doc, f)));
+
+/** Texto del botón de arreglo del modo sencillo: concuerda en número con el hallazgo (los de capa hablan de una sola). */
+export const findingSimpleFix = (f: Finding): string =>
+  f.kind === 'silent_layer' || f.kind === 'hidden_layer'
+    ? t(`review.simple.fix.${f.kind}`)
+    : tn(`review.simple.fix.${f.kind}` as PluralBase, f.count);

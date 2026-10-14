@@ -80,6 +80,6 @@ Con el rotativo activo, **Posicionar el láser** (un clic en la cama) se deshabi
 
 ### Lo que no existe
 
-El rotativo para galvo (girar la pieza entre franjas) existe solo como cálculo en el motor y la corrección de cilindro y de cono es una función del galvo que no está en la app: ver [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md) y [Galvo (experimental)](13c-galvo.md). Un eje A o U aparte solo se puede mover a mano (casilla **Eje U** del perfil y botones en **Mover cabezal**); los trabajos no lo usan. Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
+El rotativo para galvo (girar la pieza entre franjas) existe solo como cálculo en el motor; la corrección de cilindro y de cono es una función del galvo y se maneja desde el perfil de una máquina galvo: ver [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md) y [Galvo (experimental)](13c-galvo.md). Un eje A o U aparte solo se puede mover a mano (casilla **Eje U** del perfil y botones en **Mover cabezal**); los trabajos no lo usan. Con una controladora Ruida el rotativo se activa en los ajustes de la propia máquina: Tlaku manda la Y en mm de superficie, sin escalarla, y no escribe esos ajustes.
 
 Siguiente: [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md)

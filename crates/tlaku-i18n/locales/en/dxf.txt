@@ -1,0 +1,32 @@
+# Mensajes de tlaku-dxf (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: dxf.<módulo>.<qué> = plantilla
+
+# lib.rs
+dxf.lib.bad_tolerance = invalid tolerance: {value} (it must be a number greater than 0)
+dxf.lib.empty = the DXF file is empty
+dxf.lib.invalid = Invalid DXF: {error}
+dxf.lib.no_units = The file does not declare units ($INSUNITS missing or 0): millimeters are assumed. If the size comes out about 25.4 times smaller than expected, the design is in inches.
+dxf.lib.no_geometry = The file contains no importable geometry.
+dxf.lib.skipped_text_one = Skipped {n} text entity (TEXT/MTEXT); convert it to outlines before exporting.
+dxf.lib.skipped_text_other = Skipped {n} text entities (TEXT/MTEXT); convert them to outlines before exporting.
+dxf.lib.skipped_dimension_one = Skipped {n} DIMENSION entity (dimension).
+dxf.lib.skipped_dimension_other = Skipped {n} DIMENSION entities (dimensions).
+dxf.lib.skipped_hatch_one = Skipped {n} HATCH entity (fill).
+dxf.lib.skipped_hatch_other = Skipped {n} HATCH entities (fills).
+dxf.lib.skipped_mesh_one = Skipped {n} mesh entity (3D surface POLYLINE).
+dxf.lib.skipped_mesh_other = Skipped {n} mesh entities (3D surface POLYLINE).
+dxf.lib.skipped_paper_space_one = Skipped {n} entity from paper space.
+dxf.lib.skipped_paper_space_other = Skipped {n} entities from paper space.
+dxf.lib.skipped_hidden_one = Skipped {n} invisible entity.
+dxf.lib.skipped_hidden_other = Skipped {n} invisible entities.
+dxf.lib.skipped_layer_off_one = Skipped {n} entity on a layer that is turned off.
+dxf.lib.skipped_layer_off_other = Skipped {n} entities on layers that are turned off.
+dxf.lib.skipped_invalid_one = Skipped {n} entity with invalid coordinates or degenerate geometry.
+dxf.lib.skipped_invalid_other = Skipped {n} entities with invalid coordinates or degenerate geometry.
+dxf.lib.skipped_other_one = Skipped {n} entity of unsupported types ({detail}).
+dxf.lib.skipped_other_other = Skipped {n} entities of unsupported types ({detail}).
+dxf.lib.spline_fit_only = {n} SPLINE(s) without control points were approximated by joining their fit points with straight lines.
+dxf.lib.block_missing = The block '{name}' does not exist: its INSERT was skipped.
+dxf.lib.block_cyclic = The block '{name}' contains itself: the cycle was cut.
+dxf.lib.blocks_too_deep = Blocks nested more than {max} levels deep: the rest was skipped.
+dxf.lib.array_too_big = {n} INSERT(s) with arrays of more than {max} copies were skipped.

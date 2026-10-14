@@ -31,6 +31,7 @@ use crate::rotary::circumference_mm;
 use serde::{Deserialize, Serialize};
 use tlaku_core::{Bounds, Point};
 use tlaku_doc::{DeviceProfile, SplitAxes, SplitOrder, TileSpec};
+use tlaku_i18n::tr;
 
 /// Tope de piezas de un plan (más es casi seguro un tamaño mal escrito).
 pub const MAX_PIECES: usize = 10_000;
@@ -111,10 +112,11 @@ fn pieces(
         .map(|(a, b)| (-b, -a))
         .collect();
     if cols.len().saturating_mul(rows.len()) > MAX_PIECES {
-        return Err(format!(
-            "marcado dividido: {}x{} piezas es demasiado (máximo {MAX_PIECES}); revisa el tamaño",
-            cols.len(),
-            rows.len()
+        return Err(tr!(
+            "pipeline.split.too_many_pieces",
+            cols = cols.len(),
+            rows = rows.len(),
+            max = MAX_PIECES
         ));
     }
     let mut out = Vec::with_capacity(cols.len() * rows.len());
@@ -133,7 +135,11 @@ fn check_positive(name: &str, v: f64) -> Result<(), String> {
     if v.is_finite() && v > 0.0 {
         Ok(())
     } else {
-        Err(format!("{name} debe ser mayor que 0 (es {v})"))
+        Err(tr!(
+            "pipeline.split.must_be_positive",
+            name = name,
+            value = v
+        ))
     }
 }
 
@@ -150,30 +156,34 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
     let rep = &g.repeat;
     let mut warnings = Vec::new();
     for (n, v) in [
-        ("el solape", sp.overlap_mm),
-        ("la pausa tras el movimiento", sp.pause_after_move_ms),
-        ("el tamaño de pieza", sp.piece_mm),
-        ("la pausa entre repeticiones", rep.pause_ms),
+        (tr!("pipeline.split.param_overlap"), sp.overlap_mm),
+        (
+            tr!("pipeline.split.param_pause_move"),
+            sp.pause_after_move_ms,
+        ),
+        (tr!("pipeline.split.param_piece"), sp.piece_mm),
+        (tr!("pipeline.split.param_pause_repeat"), rep.pause_ms),
     ] {
         if !(v.is_finite() && v >= 0.0) {
-            return Err(format!("marcado dividido/repetido: {n} inválido: {v}"));
+            return Err(tr!("pipeline.split.bad_param", name = n, value = v));
         }
     }
     if !(rep.increment_mm[0].is_finite() && rep.increment_mm[1].is_finite()) {
-        return Err("marcado repetido: el avance debe ser un número".into());
+        return Err(tr!("pipeline.split.increment_not_number"));
     }
     if rep.count == 0 || rep.count > MAX_REPEATS {
-        return Err(format!(
-            "marcado repetido: las repeticiones deben estar entre 1 y {MAX_REPEATS} (son {})",
-            rep.count
+        return Err(tr!(
+            "pipeline.split.bad_repeats",
+            max = MAX_REPEATS,
+            n = rep.count
         ));
     }
     let rotary = device.rotary.enabled;
     let circumference = if rotary {
         Some(circumference_mm(device).ok_or_else(|| {
-            format!(
-                "la máquina '{}': el diámetro de la pieza debe ser mayor que 0 para el rotativo",
-                device.name
+            tr!(
+                "pipeline.split.rotary_needs_diameter",
+                machine = device.name
             )
         })?)
     } else {
@@ -182,24 +192,26 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
     // Cada pieza: rectángulo del diseño y su centro en el campo.
     let field_center = Point::new(device.bed[0] / 2.0, device.bed[1] / 2.0);
     let rects: Vec<[[f64; 2]; 2]> = if sp.enabled {
-        check_positive("el campo del galvo", g.field_mm)?;
+        check_positive(&tr!("pipeline.split.param_field"), g.field_mm)?;
         let side = if sp.piece_mm > 0.0 {
             sp.piece_mm.min(g.field_mm)
         } else {
             g.field_mm
         };
         if sp.overlap_mm >= side {
-            return Err(format!(
-                "marcado dividido: el solape ({} mm) debe ser menor que la pieza ({side} mm)",
-                sp.overlap_mm
+            return Err(tr!(
+                "pipeline.split.overlap_too_big",
+                overlap = sp.overlap_mm,
+                side = side
             ));
         }
         let (w, h) = (design.max.x - design.min.x, design.max.y - design.min.y);
         if rotary {
             if w > side + EPS {
-                return Err(format!(
-                    "rotativo galvo: el diseño mide {w:.2} mm de ancho y la pieza {side:.2} mm; el \
-                     rotativo no mueve X (usa una mesa en X o reduce el diseño)"
+                return Err(tr!(
+                    "pipeline.split.rotary_too_wide",
+                    w = format!("{w:.2}"),
+                    side = format!("{side:.2}")
                 ));
             }
         } else {
@@ -207,17 +219,19 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
                 SplitAxes::Xy => {}
                 SplitAxes::X => {
                     if h > side + EPS {
-                        return Err(format!(
-                            "marcado dividido: el diseño mide {h:.2} mm de alto y la mesa solo se \
-                             mueve en X (pieza de {side:.2} mm)"
+                        return Err(tr!(
+                            "pipeline.split.too_tall_for_x",
+                            h = format!("{h:.2}"),
+                            side = format!("{side:.2}")
                         ));
                     }
                 }
                 SplitAxes::Y => {
                     if w > side + EPS {
-                        return Err(format!(
-                            "marcado dividido: el diseño mide {w:.2} mm de ancho y la mesa solo se \
-                             mueve en Y (pieza de {side:.2} mm)"
+                        return Err(tr!(
+                            "pipeline.split.too_wide_for_y",
+                            w = format!("{w:.2}"),
+                            side = format!("{side:.2}")
                         ));
                     }
                 }
@@ -228,18 +242,18 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
         if let Some(circ) = circumference {
             let span = side / circ * 360.0;
             if span > 120.0 {
-                warnings.push(format!(
-                    "rotativo galvo: cada franja abarca {span:.0} grados de la pieza (circunferencia \
-                     {circ:.1} mm): la curvatura distorsiona la marca; usa piezas más chicas \
-                     (piece_mm) y la corrección de cilindro"
+                warnings.push(tr!(
+                    "pipeline.split.rotary_curvature",
+                    span = format!("{span:.0}"),
+                    circ = format!("{circ:.1}")
                 ));
             }
             let total = (design.max.y - design.min.y) / circ;
             if total > 1.0 + 1e-9 {
-                warnings.push(format!(
-                    "rotativo galvo: el diseño mide {:.2} mm en Y y la circunferencia es \
-                     {circ:.2} mm: los extremos se encimarán",
-                    design.max.y - design.min.y
+                warnings.push(tr!(
+                    "pipeline.split.rotary_overlap",
+                    h = format!("{:.2}", design.max.y - design.min.y),
+                    circ = format!("{circ:.2}")
                 ));
             }
         }
@@ -280,10 +294,11 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
     };
     let n_pieces = rects.len().max(1);
     if n_pieces.saturating_mul(rep.count as usize) > MAX_PIECES {
-        return Err(format!(
-            "marcado dividido y repetido: {n_pieces} piezas por {} repeticiones superan el máximo \
-             de {MAX_PIECES} pasos",
-            rep.count
+        return Err(tr!(
+            "pipeline.split.too_many_steps",
+            pieces = n_pieces,
+            repeats = rep.count,
+            max = MAX_PIECES
         ));
     }
     let tile_of = |r: &[[f64; 2]; 2]| {
@@ -348,7 +363,7 @@ pub fn mark_sequence(design: Bounds, device: &DeviceProfile) -> Result<MarkPlan,
 pub fn job_mark_sequence(job: &ComputedJob, device: &DeviceProfile) -> Result<MarkPlan, String> {
     let bounds = job
         .bounds()
-        .ok_or_else(|| "el trabajo no tiene movimientos que dividir".to_string())?;
+        .ok_or_else(|| tr!("pipeline.split.no_motion"))?;
     mark_sequence(bounds, device)
 }
 

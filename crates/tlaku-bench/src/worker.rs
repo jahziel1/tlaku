@@ -89,7 +89,7 @@ fn phase<T>(
         Ok(Ok(v)) => Some((v, secs)),
         Ok(Err(e)) => {
             // Relleno de un diseño sin formas cerradas: no es un fallo, no hay nada que rellenar.
-            let nothing = name == "compute" && e.starts_with("no hay nada que producir");
+            let nothing = name == "compute" && tlaku_pipeline::is_nothing_to_send(&e);
             rep.status = if nothing && rep.mode == "fill" {
                 "na"
             } else {

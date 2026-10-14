@@ -2,14 +2,17 @@ import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { getApi } from '@/api';
 import { t } from '@/i18n';
+import { getPref, useStore } from '@/store';
+import { isJobBusy } from '@/store/selectors';
 import { Modal } from '@/ui/Modal';
 import { JobLogDialog } from './JobLogDialog';
 import { CopyButton } from './CopyButton';
 import { systemInfo } from './clipboard';
 import { useHelpUi } from './helpStore';
-import { PROJECT_LINKS } from './links';
+import { donationLinks, PROJECT_LINKS } from './links';
 import { MarkdownView, type MarkdownActions } from './MarkdownView';
 import { findPage, indexPages, INDEX_FILE, manualPages, NEWS_FILE, searchPages, thirdPartyBlocks } from './pages';
+import { isMainWindow, scheduleStartupCheck, useUpdateUi, type UpdateInfo, type UpdatePhase } from './updater';
 import './help.css';
 
 /** Marco común: fondo, tarjeta, título y botón de cerrar. */
@@ -44,7 +47,7 @@ function Frame({ id, title, wide, onClose, children, head }: {
 }
 
 /** Una dirección copiable, o el aviso de que aún no se publica. */
-function LinkRow({ url }: { url: string | null }) {
+function LinkRow({ url }: { url: string }) {
   if (!url) return <p className="help__pending">{t('help.linkPending')}</p>;
   return (
     <p className="help__linkrow">
@@ -133,12 +136,12 @@ export function ManualReader({ title, titleId, file, single }: { title: string; 
       </div>
       {!single && (
         <div className="help__foot">
-          <button type="button" className="btn" disabled={!prev} onClick={() => prev && goTo(prev.file)}
+          <button type="button" className="btn" disabled={!prev} aria-label={prev ? undefined : t('a11y.manual.prev')} onClick={() => prev && goTo(prev.file)}
             title={prev ? t('help.manual.prev', { title: prev.title }) : undefined}>
             <ChevronLeft size={14} aria-hidden="true" />
             <span>{prev ? t('help.manual.prev', { title: prev.title }) : ''}</span>
           </button>
-          <button type="button" className="btn" disabled={!next} onClick={() => next && goTo(next.file)}
+          <button type="button" className="btn" disabled={!next} aria-label={next ? undefined : t('a11y.manual.next')} onClick={() => next && goTo(next.file)}
             title={next ? t('help.manual.next', { title: next.title }) : undefined}>
             <span>{next ? t('help.manual.next', { title: next.title }) : ''}</span>
             <ChevronRight size={14} aria-hidden="true" />
@@ -212,7 +215,7 @@ export function ReportDialog() {
         </ul>
         <p className="help__warnnote">{t('help.report.warning')}</p>
         <h3 className="help__sub">{t('help.report.info')}</h3>
-        <pre className="md__pre" data-autofocus tabIndex={0}><code>{info}</code></pre>
+        <pre className="md__pre" data-autofocus tabIndex={0} role="region" aria-label={t('help.report.info')}><code>{info}</code></pre>
         <p><CopyButton text={info} label={t('help.report.copyInfo')} /></p>
         <h3 className="help__sub">{t('help.report.where')}</h3>
         <LinkRow url={PROJECT_LINKS.issues} />
@@ -224,21 +227,133 @@ export function ReportDialog() {
 
 export function DonateDialog() {
   const close = useHelpUi((s) => s.close);
+  const links = donationLinks();
   return (
     <Frame id="help-donate-title" title={t('help.donate.title')} onClose={close}>
       <div className="help__scroll help__prose">
-        <p>{t('help.donate.text')}</p>
-        <h3 className="help__sub">{t('help.donate.where')}</h3>
-        <LinkRow url={PROJECT_LINKS.donate} />
-        <p className="hint">{t('help.linkNote')}</p>
+        {links.length === 0 ? (
+          <p data-autofocus tabIndex={-1}>{t('help.donate.none')}</p>
+        ) : (
+          <>
+            <p>{t('help.donate.text')}</p>
+            <h3 className="help__sub">{t('help.donate.where')}</h3>
+            {links.map((l) => (
+              <div key={l.id} data-donation={l.id}>
+                <p className="help__donor">{l.id === 'sponsors' ? 'GitHub Sponsors' : 'Ko-fi'}</p>
+                <LinkRow url={l.url} />
+              </div>
+            ))}
+            <p className="hint">{t('help.linkNote')}</p>
+          </>
+        )}
       </div>
     </Frame>
+  );
+}
+
+// ---- actualizaciones -------------------------------------------------------------------------
+
+export interface UpdateViewProps {
+  phase: UpdatePhase;
+  info: UpdateInfo | null;
+  progress: { done: number; total: number | null };
+  error: string;
+  /** Hay un trabajo en la máquina: no se instala hasta que termine. */
+  jobBusy: boolean;
+  onClose: () => void;
+  onInstall: () => void;
+  onRestart: () => void;
+  onRetry: () => void;
+}
+
+/** Vista pura del diálogo de actualizaciones (un solo cuadro que pasa por buscar, avisar, bajar e instalar). */
+export function UpdateView({ phase, info, progress, error, jobBusy, onClose, onInstall, onRestart, onRetry }: UpdateViewProps) {
+  const percent = progress.total ? Math.min(100, Math.floor((progress.done / progress.total) * 100)) : null;
+  const closeOnly = phase === 'idle' || phase === 'unconfigured' || phase === 'current';
+  return (
+    <Frame id="help-update-title" title={t('help.update.title')} onClose={onClose}>
+      <div className="help__scroll help__prose">
+        {phase === 'checking' && <p role="status" data-autofocus tabIndex={-1}>{t('help.update.checking')}</p>}
+        {phase === 'unconfigured' && (
+          <>
+            <p data-autofocus tabIndex={-1}>{t('help.update.unconfigured')}</p>
+            <p className="hint">{t('help.update.unconfiguredHint')}</p>
+          </>
+        )}
+        {phase === 'current' && <p data-autofocus tabIndex={-1}>{t('help.update.current')}</p>}
+        {(phase === 'available' || phase === 'downloading') && info && (
+          <>
+            <p className="help__tagline" data-autofocus tabIndex={-1}>{t('help.update.available', { version: info.version })}</p>
+            <p>{t('help.update.yours', { current: info.current })}</p>
+            <h3 className="help__sub">{t('help.update.notes')}</h3>
+            <div className="help__notes" role="region" aria-label={t('help.update.notes')} tabIndex={0}>{info.notes || t('help.update.noNotes')}</div>
+            <p className="hint">{t('help.update.verified')}</p>
+            {phase === 'available' && jobBusy && <p className="help__warnnote">{t('help.update.busy')}</p>}
+            {phase === 'downloading' && (
+              <p role="status">{percent === null ? t('help.update.downloading') : t('help.update.downloadingPct', { percent })}</p>
+            )}
+          </>
+        )}
+        {phase === 'installed' && (
+          <>
+            <p data-autofocus tabIndex={-1}>{t('help.update.installed')}</p>
+            <p className="help__warnnote">{t('help.update.installedHint')}</p>
+          </>
+        )}
+        {phase === 'error' && <p role="alert" className="help__pending" data-autofocus tabIndex={-1}>{t('help.update.error', { error })}</p>}
+      </div>
+      <div className="help__foot help__foot--end">
+        {phase === 'available' && (
+          <>
+            <button type="button" className="btn" onClick={onClose}>{t('help.update.later')}</button>
+            <button type="button" className="btn btn--accent" disabled={jobBusy} onClick={onInstall}>{t('help.update.install')}</button>
+          </>
+        )}
+        {phase === 'installed' && (
+          <>
+            <button type="button" className="btn" onClick={onClose}>{t('help.update.restartLater')}</button>
+            <button type="button" className="btn btn--accent" onClick={onRestart}>{t('help.update.restart')}</button>
+          </>
+        )}
+        {phase === 'error' && (
+          <>
+            <button type="button" className="btn" onClick={onClose}>{t('help.close')}</button>
+            <button type="button" className="btn btn--accent" onClick={onRetry}>{t('help.update.retry')}</button>
+          </>
+        )}
+        {closeOnly && <button type="button" className="btn" onClick={onClose}>{t('help.close')}</button>}
+      </div>
+    </Frame>
+  );
+}
+
+export function UpdateDialog() {
+  const close = useHelpUi((s) => s.close);
+  const phase = useUpdateUi((s) => s.phase);
+  const info = useUpdateUi((s) => s.info);
+  const progress = useUpdateUi((s) => s.progress);
+  const error = useUpdateUi((s) => s.error);
+  const jobBusy = useStore(isJobBusy);
+  return (
+    <UpdateView
+      phase={phase}
+      info={info}
+      progress={progress}
+      error={error}
+      jobBusy={jobBusy}
+      onClose={close}
+      onInstall={() => void useUpdateUi.getState().install()}
+      onRestart={() => void useUpdateUi.getState().restart()}
+      onRetry={() => void useUpdateUi.getState().check(false)}
+    />
   );
 }
 
 /** Monta el diálogo de ayuda que esté abierto. Va una sola vez en `AppShell`. */
 export function HelpDialogHost() {
   const dialog = useHelpUi((s) => s.dialog);
+  // Chequeo de actualizaciones al iniciar, si la preferencia lo pide (apagada de fábrica).
+  useEffect(() => scheduleStartupCheck(() => getPref('updateCheckOnStart'), isMainWindow), []);
   switch (dialog) {
     case 'manual':
       return <ManualReader title={t('help.manual.title')} titleId="help-manual-title" />;
@@ -252,6 +367,8 @@ export function HelpDialogHost() {
       return <DonateDialog />;
     case 'jobLog':
       return <JobLogDialog />;
+    case 'update':
+      return <UpdateDialog />;
     default:
       return null;
   }

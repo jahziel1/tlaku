@@ -40,7 +40,8 @@ export const layers = {
   // ---- lista de capas ------------------------------------------------------------------------------
   'layers.empty': 'Aún no hay capas. Importa un diseño o elige un color en la franja de abajo.',
   'layers.list': 'Capas en orden de ejecución ({n} se ejecutan)',
-  'layers.objects': '{n} objetos en esta capa',
+  'layers.objects.one': '1 objeto en esta capa',
+  'layers.objects.other': '{n} objetos en esta capa',
   'layers.objectsShort': 'objetos',
   'layers.show': 'Mostrar la capa en el lienzo',
   'layers.hide': 'Ocultar la capa del lienzo',

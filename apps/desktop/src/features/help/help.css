@@ -396,3 +396,33 @@ ol.md__list {
 .joblog__result--error {
   color: var(--danger);
 }
+
+/* ---- actualizaciones y donaciones ------------------------------------------------------- */
+
+.help__foot--end {
+  justify-content: flex-end;
+}
+.help__foot--end .btn {
+  max-width: none;
+}
+.help__notes {
+  max-height: 220px;
+  margin: 0;
+  padding: var(--s-4) var(--s-5);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.help__notes:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.help__donor {
+  margin-bottom: var(--s-2);
+  font-weight: 600;
+}

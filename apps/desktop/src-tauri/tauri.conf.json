@@ -48,6 +48,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": false,
     "targets": [
       "dmg",
       "app",
@@ -104,6 +105,15 @@
       },
       "appimage": {
         "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

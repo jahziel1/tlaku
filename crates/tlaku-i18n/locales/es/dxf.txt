@@ -1,0 +1,32 @@
+# Mensajes de tlaku-dxf (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: dxf.<módulo>.<qué> = plantilla
+
+# lib.rs
+dxf.lib.bad_tolerance = tolerancia inválida: {value} (debe ser un número mayor que 0)
+dxf.lib.empty = el archivo DXF está vacío
+dxf.lib.invalid = DXF inválido: {error}
+dxf.lib.no_units = El archivo no declara unidades ($INSUNITS ausente o 0): se supone milímetros. Si el tamaño sale unas 25,4 veces menor de lo esperado, el diseño está en pulgadas.
+dxf.lib.no_geometry = El archivo no contiene geometría importable.
+dxf.lib.skipped_text_one = Se omitió {n} entidad de texto (TEXT/MTEXT); conviértelo a contornos antes de exportar.
+dxf.lib.skipped_text_other = Se omitieron {n} entidades de texto (TEXT/MTEXT); conviértelo a contornos antes de exportar.
+dxf.lib.skipped_dimension_one = Se omitió {n} entidad DIMENSION (cotas).
+dxf.lib.skipped_dimension_other = Se omitieron {n} entidades DIMENSION (cotas).
+dxf.lib.skipped_hatch_one = Se omitió {n} entidad HATCH (rellenos).
+dxf.lib.skipped_hatch_other = Se omitieron {n} entidades HATCH (rellenos).
+dxf.lib.skipped_mesh_one = Se omitió {n} entidad de malla (POLYLINE 3D de superficie).
+dxf.lib.skipped_mesh_other = Se omitieron {n} entidades de malla (POLYLINE 3D de superficie).
+dxf.lib.skipped_paper_space_one = Se omitió {n} entidad del espacio papel.
+dxf.lib.skipped_paper_space_other = Se omitieron {n} entidades del espacio papel.
+dxf.lib.skipped_hidden_one = Se omitió {n} entidad invisibles.
+dxf.lib.skipped_hidden_other = Se omitieron {n} entidades invisibles.
+dxf.lib.skipped_layer_off_one = Se omitió {n} entidad en capas apagadas.
+dxf.lib.skipped_layer_off_other = Se omitieron {n} entidades en capas apagadas.
+dxf.lib.skipped_invalid_one = Se omitió {n} entidad con coordenadas no válidas o geometría degenerada.
+dxf.lib.skipped_invalid_other = Se omitieron {n} entidades con coordenadas no válidas o geometría degenerada.
+dxf.lib.skipped_other_one = Se omitió {n} entidad de tipos no soportados ({detail}).
+dxf.lib.skipped_other_other = Se omitieron {n} entidades de tipos no soportados ({detail}).
+dxf.lib.spline_fit_only = {n} SPLINE sin puntos de control se aproximaron uniendo sus puntos de ajuste con rectas.
+dxf.lib.block_missing = El bloque '{name}' no existe: su INSERT se omitió.
+dxf.lib.block_cyclic = El bloque '{name}' se contiene a sí mismo: se cortó el ciclo.
+dxf.lib.blocks_too_deep = Bloques anidados a más de {max} niveles: se omitió el resto.
+dxf.lib.array_too_big = {n} INSERT con arreglos de más de {max} copias se omitieron.

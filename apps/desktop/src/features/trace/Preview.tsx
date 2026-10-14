@@ -99,11 +99,14 @@ export function Preview({ sourcePath, size, paths, showImage, onShowImage, stale
         </label>
         <span className="hint">{t('trace.preview.hint')}</span>
       </div>
+      {/* Zona de pan/zoom enfocable: flechas y +/- ya tienen su manejador de teclado (onKeyDown). */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={stage}
         className="tr-stage"
         data-panning={panning}
         data-stale={stale}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         role="img"
         aria-label={t('trace.preview.label')}

@@ -2,7 +2,7 @@
 
 Tres funciones para trabajos que no son planos: el **grabado 3D por cortes** (un relieve a partir de una imagen en grises), la **corrección de cilindro** (marcar sobre una taza o una botella con un láser galvo, sin rotativo) y la **corrección de cono** (marcar sobre un vaso que se ensancha).
 
-> **Estado: viven en el motor.** Estas tres funciones existen en el motor de Tlaku y tienen pruebas automáticas, pero **no hay banderas para ellas en la línea de comandos**, y los controles de la app están en camino. El galvo se maneja hoy desde la línea de comandos; la interfaz en la app está en camino. Esta página explica qué hacen y cómo se calculan, para que sepas qué esperar. **Nada se probó con una máquina real**, y la corrección de cilindro y cono es un **modelo geométrico propio**, no verificado con hardware.
+> **Estado: viven en el motor.** Estas tres funciones existen en el motor de Tlaku y tienen pruebas automáticas, pero **no hay banderas para ellas en la línea de comandos**. En la app, la **corrección de cilindro y de cono** y el marcado dividido están en el grupo **Galvo** del perfil de una máquina galvo, y el **grabado 3D por cortes** en el editor de capa de una máquina galvo (ver [Galvo (experimental)](13c-galvo.md)). Esta página explica qué hacen y cómo se calculan, para que sepas qué esperar. **Nada se probó con una máquina real**, y la corrección de cilindro y cono es un **modelo geométrico propio**, no verificado con hardware.
 
 ## Grabado 3D por cortes
 

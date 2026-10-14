@@ -11,6 +11,7 @@ use base64::engine::general_purpose::STANDARD;
 use serde::Serialize;
 use std::path::Path;
 use tlaku_doc::{ImageObject, LayerSettings};
+use tlaku_i18n::tr;
 
 /// Vista previa lista para mostrar.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -34,7 +35,7 @@ pub fn run_preview(
     max_px: u32,
 ) -> Result<ImagePreview, String> {
     if image.source_path.trim().is_empty() {
-        return Err("La imagen no tiene una ruta de archivo".into());
+        return Err(tr!("desktop.edit.imaging.no_path"));
     }
     let p = tlaku_pipeline::processed_preview(
         Path::new(&image.source_path),
@@ -63,7 +64,7 @@ pub async fn preview_image(
 ) -> Result<ImagePreview, String> {
     tauri::async_runtime::spawn_blocking(move || run_preview(&image, &layer, region_mm, max_px))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

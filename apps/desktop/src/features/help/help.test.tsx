@@ -1,17 +1,17 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { commands, ALL_COMMANDS, MENUS } from '@/commands';
 import { buildMenus } from '@/features/shell/menuModel';
-import { es } from '@/i18n';
+import { es, setLanguage } from '@/i18n';
 import { AboutDialog, DonateDialog, HelpDialogHost, ManualReader, ReportDialog } from './HelpDialogs';
 import { useHelpUi } from './helpStore';
 import { classifyLink, type Block, type Inline } from './markdown';
 import { MarkdownView } from './MarkdownView';
-import { findPage, indexPages, INDEX_FILE, manualPages, NEWS_FILE, resolveImage, thirdPartyBlocks } from './pages';
+import { englishFiles, findPage, indexPages, INDEX_FILE, manualPages, NEWS_FILE, rawPagesFor, resolveImage, thirdPartyBlocks } from './pages';
 import { systemInfo } from './clipboard';
-import { PROJECT_LINKS } from './links';
+import { donationLinks, PROJECT_LINKS } from './links';
 
-const HELP_IDS = ['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.report', 'help.donate', 'help.about'];
+const HELP_IDS = ['help.manual', 'help.shortcuts', 'help.news', 'help.jobLog', 'help.checkUpdates', 'help.report', 'help.donate', 'help.about'];
 
 describe('menú Ayuda', () => {
   it('todos los comandos de Ayuda existen y el menú los muestra en orden', () => {
@@ -37,6 +37,7 @@ describe('diálogos de ayuda', () => {
       'help.jobLog': 'jobLog',
       'help.report': 'report',
       'help.donate': 'donate',
+      'help.checkUpdates': 'update',
       'help.about': 'about',
     };
     for (const [id, dialog] of Object.entries(expected)) {
@@ -63,10 +64,27 @@ describe('diálogos de ayuda', () => {
   });
 
   it('reportar y donar no inventan enlaces: si faltan, lo dicen', () => {
-    if (PROJECT_LINKS.issues === null) expect(renderToStaticMarkup(<ReportDialog />)).toContain(es['help.linkPending']);
-    if (PROJECT_LINKS.donate === null) expect(renderToStaticMarkup(<DonateDialog />)).toContain(es['help.linkPending']);
+    if (!PROJECT_LINKS.issues) expect(renderToStaticMarkup(<ReportDialog />)).toContain(es['help.linkPending']);
+    if (donationLinks().length === 0) expect(renderToStaticMarkup(<DonateDialog />)).toContain(es['help.donate.none']);
     expect(systemInfo('1.2.3', { platform: 'MacIntel', userAgent: 'UA' })).toBe('Tlaku 1.2.3\nSistema: MacIntel\nWebview: UA');
     expect(systemInfo(null)).toContain('versión desconocida');
+  });
+
+  it('las donaciones muestran solo los enlaces configurados', () => {
+    const none = { repo: '', issues: '', sponsors: '', kofi: '' };
+    expect(donationLinks(none)).toEqual([]);
+    expect(donationLinks({ ...none, kofi: ' https://ko-fi.com/tlaku ' })).toEqual([{ id: 'kofi', url: 'https://ko-fi.com/tlaku' }]);
+    const saved = { ...PROJECT_LINKS };
+    try {
+      PROJECT_LINKS.sponsors = 'https://github.com/sponsors/tlaku';
+      const html = renderToStaticMarkup(<DonateDialog />);
+      expect(html).toContain('GitHub Sponsors');
+      expect(html).toContain('https://github.com/sponsors/tlaku');
+      expect(html).not.toContain('Ko-fi');
+      expect(html).not.toContain(es['help.donate.none']);
+    } finally {
+      Object.assign(PROJECT_LINKS, saved);
+    }
   });
 
   it('el manual abre en el índice y se puede abrir en otra página', () => {
@@ -148,5 +166,71 @@ describe('manual incluido', () => {
 
   it('el manual completo se dibuja sin errores', () => {
     for (const p of pages) expect(renderToStaticMarkup(<MarkdownView blocks={p.blocks} />).length, p.file).toBeGreaterThan(50);
+  });
+});
+
+/** Manual en inglés (docs/manual/en/): no exige que estén todos los capítulos; los que faltan salen en español. */
+describe('manual en inglés', () => {
+  beforeEach(() => setLanguage('en'));
+  afterEach(() => setLanguage('es'));
+
+  const walk = (nodes: Inline[], out: Inline[]) => {
+    for (const n of nodes) {
+      out.push(n);
+      if (n.t === 'strong' || n.t === 'em' || n.t === 'link') walk(n.c, out);
+    }
+  };
+  const links = (blocks: Block[]): string[] => {
+    const out: Inline[] = [];
+    const visit = (bs: Block[]) => {
+      for (const b of bs) {
+        if (b.t === 'heading' || b.t === 'p') walk(b.c, out);
+        else if (b.t === 'quote') visit(b.c);
+        else if (b.t === 'list') for (const it of b.items) { walk(it.c, out); visit(it.sub); }
+        else if (b.t === 'table') for (const row of [b.head, ...b.rows]) for (const cell of row) walk(cell, out);
+      }
+    };
+    visit(blocks);
+    return out.flatMap((n) => (n.t === 'link' ? [n.href] : []));
+  };
+
+  it('el inglés reemplaza al español y el español cubre lo que falta', () => {
+    const es = { 'a/01.md': 'es 01', 'a/02.md': 'es 02' };
+    const en = { 'b/en/01.md': 'en 01' };
+    expect(rawPagesFor('es', es, en)).toEqual(es);
+    expect(Object.values(rawPagesFor('en', es, en)).sort()).toEqual(['en 01', 'es 02']);
+  });
+
+  it('tiene la misma lista de páginas y el índice sale en inglés', () => {
+    const files = manualPages().map((p) => p.file);
+    setLanguage('es');
+    expect(files).toEqual(manualPages().map((p) => p.file));
+    setLanguage('en');
+    expect(englishFiles()).toContain(INDEX_FILE);
+    const index = findPage(INDEX_FILE)!;
+    setLanguage('es');
+    expect(index.title).not.toBe(findPage(INDEX_FILE)!.title);
+  });
+
+  it('los enlaces y las secciones de los capítulos traducidos existen', () => {
+    const translated = new Set(englishFiles());
+    for (const p of manualPages().filter((x) => translated.has(x.file))) {
+      for (const href of links(p.blocks)) {
+        const target = classifyLink(href);
+        if (target.kind === 'none') throw new Error(`${p.file}: enlace que la app no sabe abrir: ${href}`);
+        if (target.kind !== 'page') continue;
+        const dest = findPage(target.file);
+        expect(dest, `${p.file}: ${href}`).toBeDefined();
+        if (target.anchor && translated.has(target.file)) {
+          const ids = dest!.blocks.flatMap((b) => (b.t === 'heading' ? [b.id] : []));
+          expect(ids, `${p.file}: ${href}`).toContain(target.anchor);
+        }
+      }
+    }
+  });
+
+  it('la lectura del manual se dibuja en inglés', () => {
+    const html = renderToStaticMarkup(<ManualReader title="Manual" titleId="m" />);
+    expect(html).toContain(findPage(INDEX_FILE)!.title);
   });
 });

@@ -7,6 +7,7 @@ use super::{CalibrationOptions, LensModel};
 use crate::homography::estimate_homography;
 use nalgebra::Matrix3;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 #[derive(Clone)]
 pub(super) struct Fit {
@@ -41,14 +42,14 @@ fn fit(
     for v in views {
         let pairs: Vec<(Point, Point)> = obj_pts.iter().copied().zip(v.iter().copied()).collect();
         let hm = estimate_homography(&pairs)
-            .map_err(|e| format!("no se pudo calcular la homografía de una vista: {e}"))?;
+            .map_err(|e| tr!("camera.fit.view_homography", error = e))?;
         hs.push(hm);
     }
     let (fx, fy, cx, cy) = initial_intrinsics(&hs, w, h)?;
     let k = Matrix3::new(fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0);
     let k_inv = k
         .try_inverse()
-        .ok_or("matriz de cámara inicial no invertible")?;
+        .ok_or_else(|| tr!("camera.fit.singular_camera"))?;
     let mut poses: Vec<[f64; 6]> = hs
         .iter()
         .map(|hm| pose_from_homography(hm, &k_inv))
@@ -123,10 +124,7 @@ fn fit_fisheye(
             best = Some(f);
         }
     }
-    best.ok_or_else(|| {
-        "el modelo de ojo de pez no convergió; toma más vistas, con el tablero inclinado y cerca de las esquinas"
-            .into()
-    })
+    best.ok_or_else(|| tr!("camera.fit.fisheye_no_converge"))
 }
 
 /// Poses iniciales de cada vista con una lente supuesta: los píxeles se llevan a rayos con el
@@ -177,7 +175,7 @@ fn finish_fit(
     obj: &[[f64; 2]],
 ) -> Result<Fit, String> {
     if !intr.iter().all(|v| v.is_finite()) || intr[0] <= 0.0 || intr[1] <= 0.0 {
-        return Err("la calibración no convergió; toma más vistas con el tablero inclinado".into());
+        return Err(tr!("camera.fit.no_converge"));
     }
     let mut view_rms = Vec::with_capacity(views.len());
     let mut total = 0.0;
@@ -192,7 +190,7 @@ fn finish_fit(
     }
     let rms = (total / count as f64).sqrt();
     if !rms.is_finite() {
-        return Err("la calibración no convergió; toma más vistas con el tablero inclinado".into());
+        return Err(tr!("camera.fit.no_converge"));
     }
     Ok(Fit {
         intr,

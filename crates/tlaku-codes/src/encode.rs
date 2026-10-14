@@ -11,6 +11,7 @@ use barcoders::sym::tf::TF;
 use datamatrix::{DataMatrixBuilder, SymbolList};
 use qrcode::types::QrError;
 use qrcode::{Color, EcLevel, QrCode};
+use tlaku_i18n::tr;
 
 /// Código de barras 1D ya codificado.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,17 +41,17 @@ fn digits_of(data: &str, name: &str) -> Result<Vec<u8>, String> {
         .map(|c| {
             c.to_digit(10)
                 .map(|d| d as u8)
-                .ok_or_else(|| format!("{name} solo admite dígitos (hay un '{c}')"))
+                .ok_or_else(|| tr!("codes.encode.digits_only", name = name, ch = c))
         })
         .collect()
 }
 
 fn bar_error(kind: &str, e: BarError) -> String {
     match e {
-        BarError::Character => format!("El contenido tiene un carácter que {kind} no admite"),
-        BarError::Length => format!("La longitud del contenido no es válida para {kind}"),
-        BarError::Checksum => format!("El dígito de control no es correcto para {kind}"),
-        BarError::Generate => format!("No se pudo generar el código {kind}"),
+        BarError::Character => tr!("codes.encode.bar_character", kind = kind),
+        BarError::Length => tr!("codes.encode.bar_length", kind = kind),
+        BarError::Checksum => tr!("codes.encode.bar_checksum", kind = kind),
+        BarError::Generate => tr!("codes.encode.bar_generate", kind = kind),
     }
 }
 
@@ -59,16 +60,20 @@ fn bar_error(kind: &str, e: BarError) -> String {
 fn with_check(data: &str, name: &str, payload_len: usize) -> Result<Vec<u8>, String> {
     let digits = digits_of(data, name)?;
     if digits.len() != payload_len && digits.len() != payload_len + 1 {
-        return Err(format!(
-            "{name} necesita {payload_len} dígitos (o {} con el dígito de control); hay {}",
-            payload_len + 1,
-            digits.len()
+        return Err(tr!(
+            "codes.encode.digit_count",
+            name = name,
+            n = payload_len,
+            with_check = payload_len + 1,
+            found = digits.len()
         ));
     }
     let expected = check_digit(&digits[..payload_len]);
     if digits.len() == payload_len + 1 && digits[payload_len] != expected {
-        return Err(format!(
-            "El dígito de control de {name} no es correcto: debería ser {expected}"
+        return Err(tr!(
+            "codes.encode.wrong_check",
+            name = name,
+            expected = expected
         ));
     }
     let mut all = digits[..payload_len].to_vec();
@@ -107,29 +112,24 @@ pub fn encode_linear(kind: CodeKind, data: &str) -> Result<Encoded, String> {
         CodeKind::Code39 => {
             let upper = data.to_uppercase();
             if upper != data {
-                warnings
-                    .push("Code 39 solo admite mayúsculas; el texto se pasó a mayúsculas".into());
+                warnings.push(tr!("codes.encode.code39_uppercase"));
             }
             if let Some(bad) = upper
                 .chars()
                 .find(|c| !(c.is_ascii_digit() || c.is_ascii_uppercase() || "-. $/+%".contains(*c)))
             {
-                return Err(format!(
-                    "Code 39 admite A-Z, 0-9 y - . espacio $ / + % (hay un '{bad}')"
-                ));
+                return Err(tr!("codes.encode.code39_charset", ch = bad));
             }
             let code = Code39::new(&upper).map_err(|e| bar_error("Code 39", e))?;
             (code.encode(), upper)
         }
         CodeKind::Code128 => {
             if let Some(bad) = data.chars().find(|c| !(' '..='~').contains(c)) {
-                return Err(format!(
-                    "Code 128 admite caracteres ASCII imprimibles (hay un '{bad}')"
-                ));
+                return Err(tr!("codes.encode.code128_charset", ch = bad));
             }
             if data.chars().count() < 2 {
                 // barcoders no codifica un solo carácter; se avisa en vez de rellenar.
-                return Err("Code 128 necesita al menos 2 caracteres".into());
+                return Err(tr!("codes.encode.code128_short"));
             }
             // Solo dígitos y cantidad par: el juego C los comprime a la mitad de ancho. Si no,
             // el B cubre todo el ASCII imprimible. El primer carácter elige el juego inicial.
@@ -141,16 +141,13 @@ pub fn encode_linear(kind: CodeKind, data: &str) -> Result<Encoded, String> {
         CodeKind::Itf => {
             let digits = digits_of(data, "ITF")?;
             if digits.is_empty() {
-                return Err("ITF necesita al menos un dígito".into());
+                return Err(tr!("codes.encode.itf_empty"));
             }
             let mut shown = digits.clone();
             if !digits.len().is_multiple_of(2) {
                 // ITF codifica pares de dígitos: con cantidad impar se añade un dígito de control.
                 let tf = TF::interleaved(data).map_err(|e| bar_error("ITF", e))?;
-                warnings.push(
-                    "ITF necesita una cantidad par de dígitos; se añadió un dígito de control al final"
-                        .into(),
-                );
+                warnings.push(tr!("codes.encode.itf_odd"));
                 let check = tf_check(&digits);
                 shown.push(check);
                 (tf.encode(), join(&shown))
@@ -165,21 +162,20 @@ pub fn encode_linear(kind: CodeKind, data: &str) -> Result<Encoded, String> {
             let framed = if starts(upper.chars().next()) && starts(upper.chars().last()) {
                 upper.clone()
             } else {
-                warnings
-                    .push("Codabar necesita letras A-D de inicio y fin; se añadieron A y A".into());
+                warnings.push(tr!("codes.encode.codabar_frame"));
                 format!("A{upper}A")
             };
             if let Some(bad) = framed
                 .chars()
                 .find(|c| !(c.is_ascii_digit() || "ABCD-$/:.+".contains(*c)))
             {
-                return Err(format!("Codabar admite 0-9 y - $ / : . + (hay un '{bad}')"));
+                return Err(tr!("codes.encode.codabar_charset", ch = bad));
             }
             let code = Codabar::new(&framed).map_err(|e| bar_error("Codabar", e))?;
             (code.encode(), framed)
         }
         CodeKind::Qr | CodeKind::DataMatrix => {
-            return Err("Este tipo de código no es lineal".into());
+            return Err(tr!("codes.encode.not_linear"));
         }
     };
     Ok(Encoded {
@@ -208,14 +204,15 @@ pub(crate) fn matrix(
                 QrEcc::Q => EcLevel::Q,
                 QrEcc::H => EcLevel::H,
             };
-            let code = QrCode::with_error_correction_level(spec.data.as_bytes(), level).map_err(
-                |e| match e {
-                    QrError::DataTooLong => {
-                        "El contenido es demasiado largo para un QR con ese nivel de corrección; acórtalo o baja el nivel".to_string()
+            let code =
+                QrCode::with_error_correction_level(spec.data.as_bytes(), level).map_err(|e| {
+                    match e {
+                        QrError::DataTooLong => {
+                            tr!("codes.encode.qr_too_long")
+                        }
+                        other => tr!("codes.encode.qr_failed", error = other),
                     }
-                    other => format!("No se pudo generar el QR: {other}"),
-                },
-            )?;
+                })?;
             let bits = code
                 .to_colors()
                 .into_iter()
@@ -227,17 +224,14 @@ pub(crate) fn matrix(
             let dm = DataMatrixBuilder::new()
                 .with_symbol_list(SymbolList::default().enforce_square())
                 .encode_str(&spec.data)
-                .map_err(|_| {
-                    "El contenido es demasiado largo para un Data Matrix (o tiene caracteres que no admite)"
-                        .to_string()
-                })?;
+                .map_err(|_| tr!("codes.encode.dm_too_long"))?;
             let bitmap = dm.bitmap();
             if bitmap.width() != bitmap.height() {
-                warnings.push("El Data Matrix resultó rectangular".into());
+                warnings.push(tr!("codes.encode.dm_rectangular"));
             }
             let side = bitmap.width();
             Ok((bitmap.bits().to_vec(), side))
         }
-        _ => Err("Este tipo de código no es una matriz".into()),
+        _ => Err(tr!("codes.encode.not_matrix")),
     }
 }

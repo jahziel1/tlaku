@@ -10,6 +10,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use tlaku_core::bezpath::BezPath;
 use tlaku_doc::{TextAlign, TextObject};
+use tlaku_i18n::tr;
 use tlaku_text::{Align, FontFamily, FontLibrary, OnPathSpec, TextSpec};
 
 /// Misma forma que `TextOutlineResult` de `src/api/types.ts`.
@@ -72,7 +73,7 @@ pub async fn list_fonts() -> Result<Vec<FontFamily>, String> {
         all
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))
+    .map_err(crate::edit::task_interrupted)
 }
 
 /// Carpeta donde se guardan las fuentes SHX importadas (se pueden fijar en las pruebas).
@@ -121,7 +122,7 @@ pub fn run_import_shx(
     dir: Option<&Path>,
 ) -> Result<Vec<String>, String> {
     if paths.is_empty() {
-        return Err("No se eligió ningún archivo".into());
+        return Err(tr!("desktop.edit.text.no_file"));
     }
     let mut names = Vec::new();
     let mut errors = Vec::new();
@@ -154,7 +155,7 @@ pub async fn import_shx_fonts(paths: Vec<String>) -> Result<Vec<String>, String>
         run_import_shx(FontLibrary::system_shared(), &paths, shx_dir().as_deref())
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(crate::edit::task_interrupted)?
 }
 
 /// Contorno del texto; `path` es la trayectoria (en el mismo sistema local que el contorno)
@@ -168,7 +169,7 @@ pub async fn text_outline(
         run_outline(FontLibrary::system_shared(), &text, path.as_ref())
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

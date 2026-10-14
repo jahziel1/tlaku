@@ -1,0 +1,38 @@
+# Mensajes de tlaku-codes (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: codes.<módulo>.<qué> = plantilla
+
+# encode.rs
+codes.encode.digits_only = {name} only accepts digits (found a '{ch}')
+codes.encode.bar_character = The content has a character that {kind} does not support
+codes.encode.bar_length = The content length is not valid for {kind}
+codes.encode.bar_checksum = The check digit is not correct for {kind}
+codes.encode.bar_generate = Could not generate the {kind} code
+codes.encode.digit_count = {name} needs {n} digits (or {with_check} with the check digit); found {found}
+codes.encode.wrong_check = The check digit of {name} is not correct: it should be {expected}
+codes.encode.code39_uppercase = Code 39 only supports uppercase; the text was converted to uppercase
+codes.encode.code39_charset = Code 39 supports A-Z, 0-9 and - . space $ / + % (found a '{ch}')
+codes.encode.code128_charset = Code 128 supports printable ASCII characters (found a '{ch}')
+codes.encode.code128_short = Code 128 needs at least 2 characters
+codes.encode.itf_empty = ITF needs at least one digit
+codes.encode.itf_odd = ITF needs an even number of digits; a check digit was added at the end
+codes.encode.codabar_frame = Codabar needs start and stop letters A-D; A and A were added
+codes.encode.codabar_charset = Codabar supports 0-9 and - $ / : . + (found a '{ch}')
+codes.encode.not_linear = This code type is not linear
+codes.encode.qr_too_long = The content is too long for a QR code at that error correction level; shorten it or lower the level
+codes.encode.qr_failed = Could not generate the QR code: {error}
+codes.encode.dm_too_long = The content is too long for a Data Matrix (or has characters it does not support)
+codes.encode.dm_rectangular = The Data Matrix came out rectangular
+codes.encode.not_matrix = This code type is not a matrix code
+
+# geometry.rs
+codes.geometry.pick_font = Choose a font for the human-readable text
+codes.geometry.outline_font = The human-readable text needs an outline font, not a single-line one
+codes.geometry.no_shapes = The content produced no shapes
+codes.geometry.empty_result = The result has no shapes (the background is empty)
+
+# lib.rs
+codes.lib.empty_content = Enter the content of the code
+codes.lib.bad_size = The code size must be greater than 0 mm (received {value})
+codes.lib.negative_margin = The margin cannot be negative
+codes.lib.bad_height = The bar height must be greater than 0 mm (received {value})
+codes.lib.small_module = Each module is {module} mm: the machine will probably not be able to engrave it sharply. Increase the size or shorten the content.

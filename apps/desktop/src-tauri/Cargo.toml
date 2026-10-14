@@ -23,6 +23,7 @@ tlaku-core = { version = "0.1.0", path = "../../../crates/tlaku-core" }
 tlaku-doc = { version = "0.1.0", path = "../../../crates/tlaku-doc" }
 tlaku-emu = { version = "0.1.0", path = "../../../crates/tlaku-emu" }
 tlaku-grbl = { version = "0.1.0", path = "../../../crates/tlaku-grbl" }
+tlaku-i18n = { version = "0.1.0", path = "../../../crates/tlaku-i18n" }
 tlaku-pipeline = { version = "0.1.0", path = "../../../crates/tlaku-pipeline" }
 # `emu` incluye el emulador UDP con el que funciona la máquina virtual `virtual:ruida`.
 tlaku-ruida = { version = "0.1.0", path = "../../../crates/tlaku-ruida", features = ["emu"] }
@@ -48,3 +49,9 @@ tokio = { version = "1", features = ["rt", "net", "time", "sync", "macros"] }
 futures-util = { version = "0.3", default-features = false }
 getrandom = "0.3"
 if-addrs = "0.15"
+
+# Actualizaciones automáticas (ver docs/publicar.md). Sin `pubkey` ni endpoints en tauri.conf.json el
+# actualizador no se registra y la interfaz avisa que no está configurado. Ambos son MIT o Apache-2.0.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"

@@ -10,6 +10,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
+use tlaku_i18n::tr;
 use tlaku_pipeline::ComputedJob;
 use tlaku_ruida::cmd;
 use tlaku_ruida::link::{LOCAL_PORT, PacketLink, REMOTE_PORT, UdpLink};
@@ -21,8 +22,9 @@ use tlaku_ruida::session::{
 use tlaku_ruida::swizzle::{MAGIC_DEFAULT, Magic};
 
 /// Aviso que acompaña a todo lo que toca una máquina real.
-const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte Ruida no se ha probado con una máquina real \
-(docs/hardware/ruida.md). Prueba primero con el láser deshabilitado o a potencia 0.";
+fn experimental() -> String {
+    tr!("cli.ruida.experimental")
+}
 
 #[derive(Args, Clone)]
 pub struct NetArgs {
@@ -106,13 +108,11 @@ pub enum RuidaCommand {
 
 fn parse_magic(s: &str) -> Result<u8, String> {
     let t = s.trim().trim_start_matches("0x").trim_start_matches("0X");
-    u8::from_str_radix(t, 16).map_err(|_| format!("'{s}' no es un byte en hexadecimal (ej. 0x88)"))
+    u8::from_str_radix(t, 16).map_err(|_| tr!("cli.ruida.bad_magic", value = s))
 }
 
 fn parse_home(s: &str) -> Result<HomeCorner, String> {
-    HomeCorner::parse(s).ok_or_else(|| {
-        format!("'{s}' no es una esquina: usa top-left, top-right, bottom-left o bottom-right")
-    })
+    HomeCorner::parse(s).ok_or_else(|| tr!("cli.ruida.bad_corner", value = s))
 }
 
 /// Genera los bytes del `.rd` (en claro) de un trabajo ya calculado: ver
@@ -150,18 +150,22 @@ pub fn run(action: RuidaCommand) -> Result<(), String> {
             std::fs::write(&output, &out).map_err(|e| format!("{}: {e}", output.display()))?;
             print!("{}", report::summary(&built));
             let kind = if plain {
-                "en claro".to_string()
+                tr!("cli.ruida.rd_plain")
             } else {
                 format!("swizzle 0x{magic:02X}")
             };
             println!(
-                "Escrito {} ({} bytes, {kind}, home {}). EXPERIMENTAL: sin probar con hardware.",
-                output.display(),
-                out.len(),
-                home.name()
+                "{}",
+                tr!(
+                    "cli.ruida.rd_written",
+                    path = output.display(),
+                    bytes = out.len(),
+                    kind = kind,
+                    home = home.name()
+                )
             );
             if magic != MAGIC_DEFAULT && !plain {
-                println!("Aviso: se usó un magic distinto de 0x88.");
+                println!("{}", tr!("cli.ruida.rd_magic_notice"));
             }
             Ok(())
         }
@@ -236,9 +240,7 @@ impl SendPlan {
                 || name.len() > 40
                 || name.bytes().any(|b| !(0x20..0x7F).contains(&b)))
         {
-            return Err(
-                "el nombre del documento debe tener de 1 a 40 caracteres ASCII imprimibles".into(),
-            );
+            return Err(tr!("cli.ruida.bad_doc_name"));
         }
         Ok(SendPlan { bed, mode, yes })
     }
@@ -284,29 +286,37 @@ fn show<W: Write>(out: &mut W, text: &str) -> Result<(), String> {
 }
 
 fn describe_probe(info: &ProbeInfo) -> String {
-    format!(
-        "Máquina: {} (tarjeta 0x{:08X}), magic 0x{:02X}{}, cama {}",
-        info.model.unwrap_or("modelo desconocido"),
-        info.card_id,
-        info.magic.0,
-        if info.magic_changed {
-            " (detectado)"
-        } else {
-            ""
-        },
-        match info.bed_mm {
-            Some([w, h]) => format!("{w:.1} x {h:.1} mm"),
-            None => "no informada".into(),
-        }
-    )
+    let model = info
+        .model
+        .map_or_else(|| tr!("cli.ruida.unknown_model"), str::to_string);
+    let card = format!("{:08X}", info.card_id);
+    let magic = format!("{:02X}", info.magic.0);
+    let bed = match info.bed_mm {
+        Some([w, h]) => format!("{w:.1} x {h:.1} mm"),
+        None => tr!("cli.ruida.bed_unknown"),
+    };
+    if info.magic_changed {
+        tr!(
+            "cli.ruida.machine_detected",
+            model = model,
+            card = card,
+            magic = magic,
+            bed = bed
+        )
+    } else {
+        tr!(
+            "cli.ruida.machine",
+            model = model,
+            card = card,
+            magic = magic,
+            bed = bed
+        )
+    }
 }
 
 fn session_error(e: SessionError) -> String {
     match &e {
-        SessionError::Timeout { .. } => format!(
-            "{e}. Comprueba la IP, que el equipo esté en la misma red /24 que la máquina, que \
-             ningún otro programa de láser tenga abierto el puerto, y el magic (--magic)"
-        ),
+        SessionError::Timeout { .. } => tr!("cli.ruida.timeout_help", err = e),
         _ => e.to_string(),
     }
 }
@@ -321,22 +331,19 @@ pub fn status_with<L: PacketLink, W: Write>(
     let info = session.probe().map_err(session_error)?;
     show(out, &describe_probe(&info))?;
     let st = session.status().map_err(session_error)?;
-    show(out, &format!("Estado: {}", st.describe_state()))?;
+    show(out, &tr!("cli.ruida.state", state = st.describe_state()))?;
     show(
         out,
-        &format!(
-            "Posición: X {:.3} mm, Y {:.3} mm (ejes de Tlaku con el home en {}); en la máquina {:.3}, {:.3} mm",
-            st.pos_mm.x,
-            st.pos_mm.y,
-            net.home.name(),
-            st.pos_um.0 as f64 / 1000.0,
-            st.pos_um.1 as f64 / 1000.0
+        &tr!(
+            "cli.ruida.position",
+            x = format!("{:.3}", st.pos_mm.x),
+            y = format!("{:.3}", st.pos_mm.y),
+            home = net.home.name(),
+            mx = format!("{:.3}", st.pos_um.0 as f64 / 1000.0),
+            my = format!("{:.3}", st.pos_um.1 as f64 / 1000.0)
         ),
     )?;
-    show(
-        out,
-        "Solo se enviaron lecturas. Nada se movió ni se escribió.",
-    )?;
+    show(out, &tr!("cli.ruida.read_only"))?;
     Ok(())
 }
 
@@ -355,21 +362,21 @@ fn dry_run_report<W: Write>(
     .map_err(|e| e.to_string())?;
     show(
         out,
-        &format!(
-            "Trabajo .rd de {} bytes en {} paquete(s), home {}, {}.",
-            bytes.len(),
-            packets.len(),
-            net.home.name(),
-            mode_text(&plan.mode)
+        &tr!(
+            "cli.ruida.dry_job",
+            bytes = bytes.len(),
+            packets = packets.len(),
+            home = net.home.name(),
+            mode = mode_text(&plan.mode)
         ),
     )?;
-    show(out, "Simulacro (--dry-run): no se conectó con la máquina.")
+    show(out, &tr!("cli.ruida.dry_run"))
 }
 
 fn mode_text(mode: &SendMode) -> String {
     match mode {
-        SendMode::Run => "se ejecutará al recibirlo".into(),
-        SendMode::Store { name } => format!("se guardará como documento \"{name}\" (no arranca)"),
+        SendMode::Run => tr!("cli.ruida.mode_run"),
+        SendMode::Store { name } => tr!("cli.ruida.mode_store", name = name),
     }
 }
 
@@ -386,44 +393,45 @@ pub fn send_with<L: PacketLink, R: BufRead, W: Write>(
     out: &mut W,
 ) -> Result<(), String> {
     show(out, report::summary(built).trim_end())?;
-    show(out, EXPERIMENTAL)?;
+    show(out, &experimental())?;
     let mut session = RuidaSession::new(link, session_config(net, plan.bed));
     let info = session.probe().map_err(session_error)?;
     show(out, &describe_probe(&info))?;
     if let Some([w, h]) = info.bed_mm
         && ((w - plan.bed.0).abs() > 1.0 || (h - plan.bed.1).abs() > 1.0)
     {
-        return Err(format!(
-            "la cama que informa la máquina ({w:.1} x {h:.1} mm) no coincide con --bed \
-             ({:.1} x {:.1} mm): el origen del archivo depende de ella. Repite con --bed {w:.0}x{h:.0}",
-            plan.bed.0, plan.bed.1
+        return Err(tr!(
+            "cli.ruida.bed_mismatch",
+            w = format!("{w:.1}"),
+            h = format!("{h:.1}"),
+            bw = format!("{:.1}", plan.bed.0),
+            bh = format!("{:.1}", plan.bed.1),
+            rw = format!("{w:.0}"),
+            rh = format!("{h:.0}")
         ));
     }
     let st = session.status().map_err(session_error)?;
-    show(out, &format!("Estado: {}", st.describe_state()))?;
+    show(out, &tr!("cli.ruida.state", state = st.describe_state()))?;
     if !st.is_idle() {
         return Err(session_error(SessionError::Busy(st)));
     }
     show(
         out,
-        &format!(
-            "Se enviarán {} bytes de trabajo: {}. Home en {}.",
-            bytes.len(),
-            mode_text(&plan.mode),
-            net.home.name()
+        &tr!(
+            "cli.ruida.will_send",
+            bytes = bytes.len(),
+            mode = mode_text(&plan.mode),
+            home = net.home.name()
         ),
     )?;
     if !plan.yes {
         let prompt = match plan.mode {
-            SendMode::Run => {
-                "El trabajo EMPEZARÁ a ejecutarse en cuanto llegue. ¿El láser está listo y el área \
-                 despejada? [s/N] "
-            }
-            SendMode::Store { .. } => "¿Guardar el documento en la máquina? [s/N] ",
+            SendMode::Run => tr!("cli.ruida.prompt_run"),
+            SendMode::Store { .. } => tr!("cli.ruida.prompt_store"),
         };
-        let ok = link::confirm(prompt, input, out).map_err(|e| e.to_string())?;
+        let ok = link::confirm(&format!("{prompt} "), input, out).map_err(|e| e.to_string())?;
         if !ok {
-            return Err("cancelado: no se envió nada".into());
+            return Err(tr!("cli.ruida.nothing_sent"));
         }
     }
     let mut last_step = usize::MAX;
@@ -432,31 +440,35 @@ pub fn send_with<L: PacketLink, R: BufRead, W: Write>(
         let step = pct / 10;
         if step != last_step || p.packet == p.packets {
             last_step = step;
-            let _ = writeln!(out, "  {pct:>3} %  (paquete {}/{})", p.packet, p.packets);
+            let _ = writeln!(
+                out,
+                "  {}",
+                tr!(
+                    "cli.ruida.progress",
+                    pct = format!("{pct:>3}"),
+                    packet = p.packet,
+                    packets = p.packets
+                )
+            );
         }
     };
     match session.send_job(bytes, &plan.mode, cancel, &mut progress) {
         Ok(r) => {
             show(
                 out,
-                &format!(
-                    "Enviado: {} paquete(s), {} bytes, {} reenvío(s).",
-                    r.packets, r.bytes, r.resends
+                &tr!(
+                    "cli.ruida.sent",
+                    packets = r.packets,
+                    bytes = r.bytes,
+                    resends = r.resends
                 ),
             )?;
             match plan.mode {
-                SendMode::Run => show(
-                    out,
-                    "El trabajo se está ejecutando. Pausa/Stop desde el panel de la máquina; el \
-                     paro de emergencia sigue siendo lo primero en caso de problema.",
-                ),
-                SendMode::Store { .. } => show(
-                    out,
-                    "Documento guardado. Selecciónalo e inícialo desde el panel de la máquina.",
-                ),
+                SendMode::Run => show(out, &tr!("cli.ruida.running")),
+                SendMode::Store { .. } => show(out, &tr!("cli.ruida.stored")),
             }
         }
-        Err(e) => Err(format!("falló el envío: {e}")),
+        Err(e) => Err(tr!("cli.ruida.send_failed", err = e)),
     }
 }
 

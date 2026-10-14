@@ -33,7 +33,7 @@ pub fn store_setup(config_dir: &Path, setup: CameraSetup) -> Result<CameraSetup,
     let setup = normalize_setup(setup)?;
     fs::create_dir_all(config_dir).map_err(|e| format!("{}: {e}", config_dir.display()))?;
     let text = serde_json::to_string_pretty(&setup)
-        .map_err(|e| format!("No se pudo serializar la configuración de cámara: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.serialize_failed", err = e))?;
     write_atomic(&setup_file(config_dir), &text)?;
     Ok(setup)
 }
@@ -41,7 +41,7 @@ pub fn store_setup(config_dir: &Path, setup: CameraSetup) -> Result<CameraSetup,
 pub(super) fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
-        .map_err(|e| format!("No se encontró la carpeta de configuración: {e}"))
+        .map_err(crate::edit::config_dir_missing)
 }
 
 #[tauri::command]
@@ -49,7 +49,7 @@ pub async fn load_camera_setup(app: AppHandle) -> Result<CameraSetup, String> {
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || load_setup(&dir))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command]
@@ -57,7 +57,7 @@ pub async fn save_camera_setup(app: AppHandle, setup: CameraSetup) -> Result<Cam
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || store_setup(&dir, setup))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 /// Guarda el tablero de calibración (SVG o PDF) que eligió el usuario en el diálogo de guardar.
@@ -68,11 +68,11 @@ pub fn write_board_file(path: &str, content_b64: &str) -> Result<(), String> {
         .and_then(|e| e.to_str())
         .map(str::to_ascii_lowercase);
     if !matches!(ext.as_deref(), Some("svg" | "pdf")) {
-        return Err("El tablero solo se guarda como .svg o .pdf.".into());
+        return Err(tr!("desktop.edit.camera.board_format"));
     }
     let bytes = STANDARD
         .decode(content_b64)
-        .map_err(|e| format!("El contenido no es base64 válido: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.board_bad_base64", err = e))?;
     fs::write(p, bytes).map_err(|e| format!("{}: {e}", p.display()))
 }
 
@@ -80,5 +80,5 @@ pub fn write_board_file(path: &str, content_b64: &str) -> Result<(), String> {
 pub async fn save_board_file(path: String, content_base64: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || write_board_file(&path, &content_base64))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }

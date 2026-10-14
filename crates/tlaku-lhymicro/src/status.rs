@@ -22,6 +22,8 @@
 //! procesando, 237 error, 239 reinicio; MeerK40t `moshi/controller.py`): 205 y 237 no existen en
 //! la M2 Nano y delatan una Moshiboard (inferido).
 
+use tlaku_i18n::tr;
+
 pub const STATUS_OK: u8 = 206;
 pub const STATUS_BUSY: u8 = 238;
 pub const STATUS_CRC_ERROR: u8 = 207;
@@ -95,16 +97,14 @@ impl Status {
 
     pub fn describe(self) -> String {
         match self {
-            Status::Ok => "lista (206)".into(),
-            Status::Busy => "ocupada (238)".into(),
-            Status::CrcError => "rechazó el paquete por CRC (207)".into(),
-            Status::Finished => "terminó (236)".into(),
-            Status::LowPower => {
-                "energía insuficiente (239): ¿paro de emergencia o fuente apagada?".into()
-            }
-            Status::M3Finished => "terminó (204, M3)".into(),
-            Status::NoReply => "sin respuesta (0)".into(),
-            Status::Unknown(c) => format!("código desconocido ({c})"),
+            Status::Ok => tr!("lhymicro.status.ok"),
+            Status::Busy => tr!("lhymicro.status.busy"),
+            Status::CrcError => tr!("lhymicro.status.crc_error"),
+            Status::Finished => tr!("lhymicro.status.finished"),
+            Status::LowPower => tr!("lhymicro.status.low_power"),
+            Status::M3Finished => tr!("lhymicro.status.m3_finished"),
+            Status::NoReply => tr!("lhymicro.status.no_reply"),
+            Status::Unknown(c) => tr!("lhymicro.status.unknown", code = c),
         }
     }
 }

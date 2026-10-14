@@ -2,6 +2,7 @@
 
 use super::{INSET, MIN_BED_MM};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Disposición
@@ -33,14 +34,10 @@ impl MarkLayout {
     /// `count` debe ser 4 o 9.
     pub fn new(bed_mm: [f64; 2], count: usize) -> Result<Self, String> {
         if count != 4 && count != 9 {
-            return Err(format!(
-                "se pueden generar 4 o 9 marcas (se pidieron {count})"
-            ));
+            return Err(tr!("camera.layout.bad_count", count = count));
         }
         if !bed_mm.iter().all(|v| v.is_finite() && *v >= MIN_BED_MM) {
-            return Err(format!(
-                "la cama debe medir al menos {MIN_BED_MM} mm por lado para las marcas"
-            ));
+            return Err(tr!("camera.layout.bed_small", min = MIN_BED_MM));
         }
         let [w, h] = bed_mm;
         let (x0, x1) = (INSET * w, (1.0 - INSET) * w);

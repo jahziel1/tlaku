@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tlaku: software libre para cortadoras y grabadoras láser</title>
+  <meta name="description" content="Tlaku es una alternativa de código abierto (MIT) a los programas comerciales de control láser. Ninguna función de máquina se ha probado todavía con un láser real.">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate" hreflang="es" href="./">
+  <link rel="alternate" hreflang="en" href="en/">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="favicon.svg" alt="" width="30" height="30">Tlaku</a>
+      <nav class="nav" aria-label="Secciones">
+        <a href="#que-es">Qué es</a>
+        <a href="#funciones">Funciones</a>
+        <a href="#maquinas">Máquinas</a>
+        <a href="#descargas">Descargas</a>
+        <a href="#manual">Manual</a>
+        <a href="#apoyar">Apoyar</a>
+        <a class="lang" href="en/" hreflang="en" lang="en">English</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="hero" id="que-es">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Código abierto · Licencia MIT</p>
+          <h1>Software libre para cortadoras y grabadoras láser</h1>
+          <p class="lead">Tlaku es una alternativa de código abierto a los programas comerciales de control láser: diseñas o importas un trabajo, ajustas las capas, ves cómo se va a cortar y lo envías a la máquina con revisiones de seguridad antes de que se mueva nada.</p>
+          <p class="notice"><strong>Estado:</strong> la aplicación de escritorio está completa, pero <strong>ninguna función de máquina se ha probado todavía con un láser real</strong>. Todo se validó con un emulador de controladoras y con máquinas virtuales dentro de la app. Trata cada trabajo como una prueba: poca potencia, material de desecho y la mano cerca del botón de paro.</p>
+          <p class="actions">
+            <a class="btn primary" href="#descargas">Descargas</a>
+            <a class="btn" href="#manual">Manual</a>
+          </p>
+        </div>
+        <figure class="shot">
+          <img src="img/01-principal-oscuro.png" width="1440" height="900" alt="Ventana principal de Tlaku: lienzo con un diseño de ejemplo, panel de capas a la derecha y paleta de colores abajo.">
+          <figcaption>Ventana principal, con un diseño de ejemplo y sus capas.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-nombre">
+      <div class="wrap">
+        <h2 id="h-nombre">Qué es y para quién</h2>
+        <p>El nombre viene del náhuatl <em>tlacuilo</em>: el pintor-escriba que dibujaba y escribía los códices. Un tlacuilo convertía ideas en trazos sobre una superficie; Tlaku convierte un diseño en movimientos de un láser.</p>
+        <p>Es para personas con una cortadora o grabadora láser de diodo o CO2 que quieren un programa abierto y que explique lo que hace, sobre todo quienes vienen de otros programas de control láser y quienes empiezan. El manual incluye una guía para el cambio.</p>
+        <p>El proyecto es de sala limpia: no se copia código, textos, íconos ni capturas de programas comerciales.</p>
+      </div>
+    </section>
+
+    <section id="funciones" aria-labelledby="h-funciones">
+      <div class="wrap">
+        <h2 id="h-funciones">Funciones principales</h2>
+        <ul class="cards">
+          <li><h3>Modo sencillo</h3><p>Cinco pasos guiados: abrir, material, colocar, revisar e iniciar. Los ajustes salen de una biblioteca de materiales y son puntos de partida, no una garantía.</p></li>
+          <li><h3>Diseño y edición</h3><p>Lienzo con reglas y la cama de la máquina, formas, editor de nodos, alinear y distribuir, arreglos, operaciones booleanas y deshacer con historial.</p></li>
+          <li><h3>Importar y exportar</h3><p>Proyectos de LightBurn, SVG, DXF, PDF y AI (los trayectos), HPGL, G-code e imágenes. Exporta SVG, DXF, PNG y PDF a escala 1:1. Lo que no se puede importar sale como advertencia, no se omite en silencio.</p></li>
+          <li><h3>Texto y códigos</h3><p>Fuentes del sistema, 15 fuentes de una línea, códigos QR, Data Matrix y de barras, y texto variable (números de serie, datos de un CSV).</p></li>
+          <li><h3>Capas y vista previa</h3><p>Modos línea, relleno e imagen. El planificador de corte indica qué regla decidió cada paso del orden, y la vista previa estima el tiempo.</p></li>
+          <li><h3>Nesting y tiling</h3><p>Acomoda piezas en la cama o en un material irregular. Partir un trabajo más grande que la cama en tramos (tiling) es experimental: solo se probó con la máquina virtual.</p></li>
+          <li><h3>Máquina virtual</h3><p>Conecta la app a una máquina simulada y provoca fallas a propósito (llama, alarma, desconexión) para aprender o reportar errores sin tocar un láser.</p></li>
+          <li><h3>Revisión de seguridad</h3><p>Antes de enviar se consulta el estado de la máquina y no se transmite nada si está en alarma, en pausa o con la puerta abierta. La app nunca desbloquea ni hace <em>homing</em> por su cuenta.</p></li>
+          <li><h3>Materiales y cámara</h3><p>Biblioteca de materiales de fábrica con sus fuentes, prueba de materiales y calibración de cámara.</p></li>
+          <li><h3>Línea de comandos</h3><p>Lo que hace la app también se puede ejecutar con el programa <code>tlaku</code> y comprobar con pruebas automáticas.</p></li>
+        </ul>
+        <div class="gallery">
+          <figure class="shot">
+            <img src="img/59-simple-material.png" width="1440" height="900" loading="lazy" alt="Modo sencillo, paso 2: elegir máquina, potencia del láser y material, con un aviso de que los valores son de partida.">
+            <figcaption>Modo sencillo, paso 2: material y qué hacer con cada color.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/04-vista-previa.png" width="1440" height="900" loading="lazy" alt="Vista previa del trabajo: simulación del recorrido sobre el lienzo, tiempo estimado y desglose por capa.">
+            <figcaption>Vista previa con tiempo estimado y desglose por capa.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/19-materiales.png" width="1440" height="900" loading="lazy" alt="Biblioteca de materiales con sus ajustes de fábrica.">
+            <figcaption>Biblioteca de materiales.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/11-editor-de-nodos.png" width="1440" height="900" loading="lazy" alt="Editor de nodos sobre una forma del diseño.">
+            <figcaption>Editor de nodos.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/39-nesting.png" width="1440" height="900" loading="lazy" alt="Diálogo de nesting: copias de cada pieza, contenedor, rotaciones y vista previa con el aprovechamiento de la cama.">
+            <figcaption>Acomodar piezas (nesting).</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="img/25-maquina-virtual.png" width="1440" height="900" loading="lazy" alt="Máquina virtual conectada, con el panel de fallas simuladas.">
+            <figcaption>Máquina virtual con fallas simuladas.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="maquinas" aria-labelledby="h-maquinas">
+      <div class="wrap">
+        <h2 id="h-maquinas">Máquinas soportadas y su estado</h2>
+        <p><strong>Ninguna se ha probado con una máquina real.</strong> «Funciona contra el emulador» significa que va de punta a punta contra el emulador y las máquinas virtuales de la app, con pruebas automáticas. La primera prueba con hardware será con una Creality Falcon2.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Controladora</th><th scope="col">Estado</th><th scope="col">Notas</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">GRBL 1.1 (M4) y GRBL-M3, por USB serie</th><td><span class="tag">Emulador</span> <span class="tag warn">Sin probar con hardware</span></td><td>La mayoría de los láseres de diodo. Catálogo de 21 modelos con sus fuentes.</td></tr>
+              <tr><th scope="row">grblHAL y FluidNC</th><td><span class="tag">Emulador</span> <span class="tag warn">Sin probar con hardware</span></td><td>Por USB y por red (TCP/Telnet y WebSocket, probados contra un emulador por sockets).</td></tr>
+              <tr><th scope="row">Marlin y Smoothie</th><td><span class="tag">Emulador (básico)</span> <span class="tag warn">Sin probar con hardware</span></td><td>Envío línea a línea, aviso de posición perdida y máquina virtual.</td></tr>
+              <tr><th scope="row">GRBL antiguo (sin M4), GRBL-LPC y G-code personalizado</th><td><span class="tag warn">Sin probar con hardware</span></td><td>Dialecto propio, con un editor de dialecto. Sin máquina virtual dedicada.</td></tr>
+              <tr><th scope="row">Ruida (CO2)</th><td><span class="tag warn">Experimental, sin probar con hardware</span></td><td>Por red (UDP): conectar, enviar (por defecto guarda el trabajo en la controladora y no lo arranca), pausa, detener, encuadre. Probado solo contra un emulador; no escribe ajustes.</td></tr>
+              <tr><th scope="row">K40 con placa M2 Nano</th><td><span class="tag warn">Experimental, sin probar con hardware</span></td><td>USB directo, probado solo contra una placa simulada. La potencia va con la perilla de la máquina, no por software; sin Z, aire ni consola.</td></tr>
+              <tr><th scope="row">Galvo de fibra, UV o CO2 (tarjeta JCZ/BJJCZ LMCV4)</th><td><span class="tag warn">Experimental, sin probar con hardware</span></td><td>Solo por línea de comandos; la interfaz está en camino. Solo la tarjeta <code>9588:9899</code>. Haz invisible de clase 4: lee la guía de seguridad del manual antes de conectar.</td></tr>
+              <tr><th scope="row">Galvo EZCAD3/DLC y BSL, Trocen, TopWisdom</th><td><span class="tag none">No soportado</span></td><td>Un K40 con la placa cambiada a GRBL-LPC o Smoothie sí puede funcionar.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="descargas" aria-labelledby="h-descargas">
+      <div class="wrap">
+        <h2 id="h-descargas">Descargas</h2>
+        <ul class="dl">
+          <li><strong>macOS 11 o posterior</strong><span>Apple Silicon e Intel. <code>.dmg</code>: ábrelo y arrastra Tlaku a Aplicaciones.</span></li>
+          <li><strong>Windows 10 o posterior</strong><span><code>.exe</code> (instalador NSIS) o <code>.msi</code>.</span></li>
+          <li><strong>Linux</strong><span><code>.deb</code> o <code>.AppImage</code> (márcalo como ejecutable).</span></li>
+        </ul>
+        <div class="optgroup">
+          <p class="actions"><a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Última versión en GitHub</a></p>
+          <p class="fallback">Todavía no hay una dirección pública de descarga. Cuando se publique la primera versión, el enlace aparecerá aquí.</p>
+        </div>
+        <p class="notice">Mientras el proyecto no tenga certificados de firma, los instaladores de macOS y Windows no están firmados y el sistema mostrará una advertencia la primera vez (Gatekeeper en macOS, SmartScreen en Windows). El README explica cómo abrirlos. Es una aplicación en etapa temprana, sin pruebas con hardware: úsala con cuidado.</p>
+        <p>En Linux, para usar el puerto serie del láser hay que añadir tu usuario al grupo <code>dialout</code>.</p>
+      </div>
+    </section>
+
+    <section id="manual" aria-labelledby="h-manual">
+      <div class="wrap">
+        <h2 id="h-manual">Manual</h2>
+        <p>El manual de usuario va de los primeros pasos a la solución de problemas, e incluye una guía para quien viene de otros programas de control láser. También está dentro de la app, en Ayuda &gt; Manual de usuario.</p>
+        <div class="optgroup">
+          <p class="actions"><a class="btn opt" href="{{REPO_URL}}/tree/main/docs/manual">Abrir el manual (docs/manual)</a></p>
+          <p class="fallback">El manual está en la carpeta <code>docs/manual</code> del repositorio, que todavía no tiene dirección pública.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="apoyar" aria-labelledby="h-apoyar">
+      <div class="wrap">
+        <h2 id="h-apoyar">Apoyar el proyecto</h2>
+        <p>Tlaku no tiene una empresa detrás. Las donaciones, si las hay, sirven para probar con máquinas reales, pagar los certificados de firma de los instaladores y dedicar tiempo al desarrollo. Donar es voluntario: el programa es el mismo con o sin donación.</p>
+        <p>Lo que más ayuda hoy es probar Tlaku con una máquina real y contar qué pasó.</p>
+        <div class="optgroup">
+          <p class="actions">
+            <a class="btn primary opt" href="{{SPONSORS_URL}}">GitHub Sponsors</a>
+            <a class="btn opt" href="{{KOFI_URL}}">Ko-fi</a>
+          </p>
+          <p class="fallback">El proyecto aún no tiene cuentas de donación.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="licencia" aria-labelledby="h-licencia">
+      <div class="wrap">
+        <h2 id="h-licencia">Licencia</h2>
+        <p>Tlaku es software libre bajo la licencia <strong>MIT</strong>. Las dependencias deben tener licencias permisivas y una comprobación automática lo verifica en cada cambio.</p>
+        <p class="optgroup"><a class="opt" href="{{REPO_URL}}/blob/main/LICENSE">Texto de la licencia</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>Tlaku · software libre bajo licencia MIT · © 2026 tlaku contributors</p>
+      <p>Las capturas son de la propia aplicación. Este sitio no usa cookies, rastreadores ni recursos externos.</p>
+    </div>
+  </footer>
+</body>
+</html>

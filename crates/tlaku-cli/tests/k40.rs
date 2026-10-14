@@ -14,6 +14,7 @@ fn design() -> String {
 
 fn run(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_tlaku"))
+        .env("TLAKU_LANG", "es")
         .args(args)
         .stdin(Stdio::null())
         .output()

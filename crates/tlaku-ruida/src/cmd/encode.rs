@@ -2,6 +2,7 @@
 
 use super::{Command, Limit};
 use crate::num::{self, NumError};
+use tlaku_i18n::tr;
 
 // ----------------------------------------------------------------------------------------
 // Tablas de subcódigos de potencia
@@ -220,7 +221,10 @@ impl Command {
             }
             MemWrite { addr, values } => {
                 if values.is_empty() {
-                    return Err(bad("valores de escritura de memoria", "vacío"));
+                    return Err(bad(
+                        "valores de escritura de memoria",
+                        tr!("ruida.what.empty"),
+                    ));
                 }
                 out.extend([0xDA, 0x01]);
                 encode_addr(*addr, out)?;

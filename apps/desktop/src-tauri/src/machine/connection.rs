@@ -1,6 +1,7 @@
 //! [`Connection`] (hilo del trabajador sobre un puerto) e identificación del firmware (`$I`, `M115`).
 
 use super::*;
+use tlaku_i18n::tr;
 
 /// Conexión abierta: el mando y el hilo del trabajador.
 pub struct Connection {
@@ -57,13 +58,7 @@ impl Connection {
         let (firmware, family, link_family, emergency_parser) = match reprap {
             Some(r) => (r.name, Firmware::Unknown, r.family, r.emergency_parser),
             None => {
-                let lines = reply.map_err(|e| {
-                    format!(
-                        "La máquina no respondió a la identificación ($I): {e}. Revisa que sea el \
-                         puerto correcto, que esté encendida, que use GRBL 1.1 y los baudios del \
-                         perfil."
-                    )
-                })?;
+                let lines = reply.map_err(|e| tr!("desktop.machine.identify_failed", err = e))?;
                 for l in &lines {
                     log(sink.as_ref(), LogDir::In, l);
                 }
@@ -76,7 +71,7 @@ impl Connection {
             log(
                 sink.as_ref(),
                 LogDir::In,
-                "; Máquina virtual (emulador): no hay láser ni hardware reales.",
+                &tr!("desktop.machine.virtual_note"),
             );
         }
 
@@ -95,7 +90,7 @@ impl Connection {
         let thread = thread::Builder::new()
             .name("tlaku-machine".into())
             .spawn(move || worker.run(transport))
-            .map_err(|e| format!("No se pudo iniciar el hilo de la conexión: {e}"))?;
+            .map_err(|e| tr!("desktop.machine.thread_failed", err = e))?;
         Ok((
             Self {
                 handle: Handle { tx, shared, emu },

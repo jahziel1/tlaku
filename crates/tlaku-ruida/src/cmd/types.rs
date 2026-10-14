@@ -1,7 +1,9 @@
 //! Tipos de comando Ruida: opciones, `Command` y errores de decodificación.
 
 use crate::num::NumError;
+use crate::text;
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Mínima o máxima de una potencia.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,21 +258,31 @@ pub enum DecodeError {
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DecodeError::NotAnOpcode { offset, byte } => write!(
-                f,
-                "byte {offset}: 0x{byte:02X} no es un opcode (bit 7 en 0); el flujo debe empezar en un comando"
-            ),
+            DecodeError::NotAnOpcode { offset, byte } => f.write_str(&tr!(
+                "ruida.cmd.not_an_opcode",
+                offset = offset,
+                byte = format!("{byte:02X}")
+            )),
             DecodeError::BadLength {
                 offset,
                 op,
                 expected,
                 found,
-            } => write!(
-                f,
-                "byte {offset}: el comando 0x{op:02X} debería llevar {expected} bytes de datos y lleva {found}"
-            ),
-            DecodeError::Num { offset, source } => write!(f, "byte {offset}: {source}"),
-            DecodeError::Invalid { offset, what } => write!(f, "byte {offset}: {what}"),
+            } => f.write_str(&tr!(
+                "ruida.cmd.bad_length",
+                offset = offset,
+                op = format!("{op:02X}"),
+                expected = expected,
+                found = found
+            )),
+            DecodeError::Num { offset, source } => {
+                f.write_str(&tr!("ruida.cmd.at_byte", offset = offset, detail = source))
+            }
+            DecodeError::Invalid { offset, what } => f.write_str(&tr!(
+                "ruida.cmd.at_byte",
+                offset = offset,
+                detail = text::what(what)
+            )),
         }
     }
 }

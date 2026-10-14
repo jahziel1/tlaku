@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tlaku_core::Polyline;
 use tlaku_doc::{DesignObject, ObjectKind};
+use tlaku_i18n::tr;
 use tlaku_nest::{
     Gravity, MAX_INSTANCES, NestContainer, NestError, NestInput, NestOptions, NestPiece, Outcome,
     Rotations,
@@ -115,7 +116,7 @@ pub struct NestStatus {
 
 fn list(ids: &[&str]) -> String {
     ids.iter()
-        .map(|id| format!("«{id}»"))
+        .map(crate::edit::quoted)
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -142,21 +143,24 @@ fn closed_paths(objects: &[DesignObject], what: &str) -> Result<Vec<Polyline>, S
         }
     }
     if !images.is_empty() {
-        return Err(format!(
-            "Las imágenes no se pueden acomodar ({what}): {}.",
-            list(&images)
+        return Err(tr!(
+            "desktop.edit.nest.images",
+            what = what,
+            list = list(&images)
         ));
     }
     if !open.is_empty() {
-        return Err(format!(
-            "Hay formas abiertas ({what}): {}. Ciérralas antes (por ejemplo con «Cerrar polilínea»).",
-            list(&open)
+        return Err(tr!(
+            "desktop.edit.nest.open_shapes",
+            what = what,
+            list = list(&open)
         ));
     }
     if !empty.is_empty() {
-        return Err(format!(
-            "Estos objetos no tienen contorno ({what}; ¿un texto sin contorno generado?): {}.",
-            list(&empty)
+        return Err(tr!(
+            "desktop.edit.nest.no_outline",
+            what = what,
+            list = list(&empty)
         ));
     }
     Ok(out)
@@ -176,7 +180,7 @@ pub fn to_input(request: &NestRequest) -> Result<NestInput, String> {
         let region = if p.copies == 0 {
             Vec::new()
         } else {
-            closed_paths(&p.objects, &format!("pieza «{}»", p.id))?
+            closed_paths(&p.objects, &tr!("desktop.edit.nest.what_piece", id = p.id))?
         };
         pieces.push(NestPiece {
             region,
@@ -188,9 +192,10 @@ pub fn to_input(request: &NestRequest) -> Result<NestInput, String> {
             width: *width,
             height: *height,
         },
-        NestContainerInput::Object { object } => {
-            NestContainer::Region(closed_paths(std::slice::from_ref(object), "material")?)
-        }
+        NestContainerInput::Object { object } => NestContainer::Region(closed_paths(
+            std::slice::from_ref(object),
+            &tr!("desktop.edit.nest.what_material"),
+        )?),
     };
     let rotations = match request.rotation.mode {
         NestRotationMode::None => Rotations::Fixed,
@@ -199,7 +204,7 @@ pub fn to_input(request: &NestRequest) -> Result<NestInput, String> {
         NestRotationMode::Free => Rotations::Free,
     };
     if !request.time_limit_s.is_finite() {
-        return Err("El tope de tiempo no es válido.".into());
+        return Err(tr!("desktop.edit.nest.bad_time_limit"));
     }
     Ok(NestInput {
         pieces,
@@ -315,7 +320,7 @@ pub fn start(request: NestRequest) -> Result<String, String> {
     // Cancela el trabajo anterior: la interfaz solo atiende uno.
     let mut slot = current()
         .lock()
-        .map_err(|_| "Estado interno dañado".to_string())?;
+        .map_err(|_| tr!("desktop.edit.nest.state_poisoned"))?;
     if let Some(old) = slot.take() {
         old.stop.store(true, Ordering::Relaxed);
     }
@@ -347,20 +352,20 @@ pub fn start(request: NestRequest) -> Result<String, String> {
                 && let Ok(mut g) = status.lock()
             {
                 g.running = false;
-                g.error = Some("El cálculo de acomodo falló de forma inesperada.".into());
+                g.error = Some(tr!("desktop.edit.nest.crashed"));
             }
         })
-        .map_err(|e| format!("No se pudo iniciar el cálculo: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.nest.start_failed", err = e))?;
     Ok(id)
 }
 
 fn with_job<T>(job_id: &str, f: impl FnOnce(&Job) -> T) -> Result<T, String> {
     let slot = current()
         .lock()
-        .map_err(|_| "Estado interno dañado".to_string())?;
+        .map_err(|_| tr!("desktop.edit.nest.state_poisoned"))?;
     match slot.as_ref() {
         Some(j) if j.id == job_id => Ok(f(j)),
-        _ => Err("Ese cálculo de acomodo ya no existe.".into()),
+        _ => Err(tr!("desktop.edit.nest.job_gone")),
     }
 }
 
@@ -369,7 +374,7 @@ pub fn poll(job_id: &str) -> Result<NestStatus, String> {
         j.status
             .lock()
             .map(|g| g.clone())
-            .map_err(|_| "Estado interno dañado".to_string())
+            .map_err(|_| tr!("desktop.edit.nest.state_poisoned"))
     })?
 }
 

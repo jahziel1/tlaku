@@ -6,6 +6,7 @@ import { convertTextToPaths } from '@/features/text/convert';
 import { t, type I18nKey } from '@/i18n';
 import { isMac } from '@/lib/platform';
 import { useStore } from '@/store';
+import { useReturnFocus } from '@/ui/useReturnFocus';
 import './contextmenu.css';
 import { buildContextMenu, type MenuEntry } from './model';
 import { closeContextMenu, useContextMenu } from './uiStore';
@@ -17,6 +18,7 @@ function Panel({ entries, onRun, label, submenu }: { entries: MenuEntry[]; onRun
   const [open, setOpen] = useState<string | null>(null);
   const mac = isMac();
   const state = useStore.getState();
+  useReturnFocus();
 
   useEffect(() => {
     if (!submenu) ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
@@ -43,7 +45,7 @@ function Panel({ entries, onRun, label, submenu }: { entries: MenuEntry[]; onRun
   };
 
   return (
-    <div ref={ref} className={submenu ? 'ctxmenu ctxmenu--sub' : 'ctxmenu'} role="menu" aria-label={label} onKeyDown={onKeyDown}>
+    <div ref={ref} className={submenu ? 'ctxmenu ctxmenu--sub' : 'ctxmenu'} role="menu" tabIndex={-1} aria-label={label} onKeyDown={onKeyDown}>
       {entries.map((e, k) => {
         if (e.kind === 'separator') return <div key={`sep-${k}`} className="ctxmenu__sep" role="separator" />;
         if (e.kind === 'submenu') {

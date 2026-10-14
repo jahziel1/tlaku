@@ -6,12 +6,13 @@ use super::lm::levenberg_marquardt;
 use super::model::undistort_with;
 use super::{CalibrationOptions, LensModel, ModelScore};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 pub(super) fn fmt_score(v: f64) -> String {
     if v.is_finite() {
         format!("{v:.2}")
     } else {
-        "sin convergencia".into()
+        tr!("camera.select.no_converge")
     }
 }
 

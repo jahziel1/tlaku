@@ -9,6 +9,7 @@ use tlaku_core::toolpath::ToolpathBlock;
 use tlaku_core::{Polyline, Rgb};
 use tlaku_doc::Overscan;
 use tlaku_fill::FillPattern;
+use tlaku_i18n::tr;
 
 use super::*;
 
@@ -111,8 +112,9 @@ impl Builder<'_> {
         };
         let mut varied = angle_increment != 0.0 && passes > 1;
         if varied && settings.pattern == FillPattern::Offset {
-            self.warnings.push(format!(
-                "capa {name}: angle_increment no aplica al relleno por contornos; se ignora"
+            self.warnings.push(tr!(
+                "pipeline.build_fill.angle_increment_offset",
+                name = name
             ));
             varied = false;
         }
@@ -214,26 +216,28 @@ impl Builder<'_> {
             out.push(part);
         }
         if clamped > 0 {
-            self.warnings.push(format!(
-                "capa {name}: la escala de potencia de {clamped} objeto(s) pasa de 100 %: se limita a 100 %"
+            self.warnings.push(tr!(
+                "pipeline.build_fill.scale_clamped",
+                name = name,
+                n = clamped
             ));
         }
         if silent > 0 {
-            self.warnings.push(format!(
-                "capa {name}: {silent} objeto(s) con potencia 0 (escala de potencia 0 %) no se rellenan"
+            self.warnings.push(tr!(
+                "pipeline.build_fill.scale_zero",
+                name = name,
+                n = silent
             ));
         }
         if out.len() > 1 {
-            self.warnings.push(format!(
-                "capa {name}: los objetos tienen {} escalas de potencia distintas; se rellenan por separado (una vez por escala)",
-                out.len()
+            self.warnings.push(tr!(
+                "pipeline.build_fill.several_scales",
+                name = name,
+                n = out.len()
             ));
             if fill_parts_overlap(&out) {
-                self.warnings.push(format!(
-                    "capa {name}: hay objetos con escalas de potencia distintas que se superponen; \
-                     cada escala se rellena por su cuenta, así que lo común se graba dos veces \
-                     (un hueco de otra escala no se respeta)"
-                ));
+                self.warnings
+                    .push(tr!("pipeline.build_fill.scales_overlap", name = name));
             }
         }
         out
@@ -282,14 +286,16 @@ impl Builder<'_> {
             }
         }
         if first && ignored > 0 {
-            self.warnings.push(format!(
-                "capa {name}: {ignored} trayectoria(s) abierta(s) ignorada(s): el relleno solo usa trayectorias cerradas"
+            self.warnings.push(tr!(
+                "pipeline.build_fill.open_ignored",
+                name = name,
+                n = ignored
             ));
         }
         let Some(block) = merged else {
             if first {
                 self.warnings
-                    .push(format!("capa {name}: el relleno no produjo ninguna línea"));
+                    .push(tr!("pipeline.build_fill.no_lines", name = name));
             }
             return Ok(None);
         };
@@ -297,7 +303,7 @@ impl Builder<'_> {
             && matches!(settings.pattern, FillPattern::Scan | FillPattern::Flood)
             && settings.bidirectional
             && let Some(w) = scan_offset::overscan_warning(
-                &format!("capa {name}"),
+                &tr!("pipeline.common.layer_label", name = name),
                 self.scan_offsets,
                 settings.speed_mm_min,
                 settings.overscan_mm,
@@ -319,7 +325,7 @@ impl Builder<'_> {
         // Los ids de grupo solo cuentan con `FillGrouping::ByGroup`; con otra agrupación el motor
         // los ignora.
         let result = tlaku_fill::fill_with_groups(&part.paths, Some(&part.group_ids), settings)
-            .map_err(|e| format!("capa {name}: {e}"))?;
+            .map_err(|e| tr!("pipeline.build_fill.layer_error", name = name, error = e))?;
         let ignored = result.ignored_open.len();
         let mut block = result.block;
         if block.moves.is_empty() {

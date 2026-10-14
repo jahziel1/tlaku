@@ -6,6 +6,7 @@ import { t } from '@/i18n';
 import { polylineBez } from '@/lib/bezpath';
 import { objectCurves } from '@/lib/geometry';
 import { clearGesture, patchInteraction } from './interaction';
+import { tipYClearOf, toolBarBox } from './tipPlacement';
 import type { Mods, ToolDeps } from './toolDeps';
 
 /** Distancia (px de pantalla) a la que un clic todavía cuenta como sobre la esquina. */
@@ -189,18 +190,22 @@ export function createFilletTool(d: FilletToolDeps) {
     patchInteraction({ draft: { paths: [previewCorner(c, style, radius)], grips: [c.p], hotGrip: 0 } });
   };
 
+  /** Cartel junto al puntero; si la barra de la herramienta lo taparía, baja hasta quedar debajo de ella. */
+  const showTip = (sx: number, sy: number, text: string) =>
+    patchInteraction({ tip: { x: sx + 16, y: tipYClearOf(sx + 16, sy + 18, d.st().viewport.width, toolBarBox(d.el)), text } });
+
   return {
     hover(sx: number, sy: number, mods: Mods): void {
       if (reverting(mods)) {
         showHover(null);
         patchInteraction({ cursor: 'crosshair', hoverId: null });
-        d.setTip(sx, sy, t('canvas.fillet.tipRevert'));
+        showTip(sx, sy, t('canvas.fillet.tipRevert'));
         return;
       }
       const c = cornerAt(sx, sy);
       showHover(c);
       patchInteraction({ cursor: c ? 'pointer' : 'crosshair', hoverId: null });
-      d.setTip(sx, sy, c ? t('canvas.fillet.tipCorner', { r: filletSettings().radius }) : t('canvas.fillet.tip'));
+      showTip(sx, sy, c ? t('canvas.fillet.tipCorner', { r: filletSettings().radius }) : t('canvas.fillet.tip'));
     },
 
     down(sx: number, sy: number, mods: Mods): void {

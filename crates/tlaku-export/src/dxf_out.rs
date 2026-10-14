@@ -12,6 +12,7 @@ use tlaku_core::Rgb;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_doc::Document;
 use tlaku_dxf::aci_to_rgb;
+use tlaku_i18n::tr;
 
 pub fn export_dxf(
     doc: &Document,
@@ -89,14 +90,14 @@ pub fn export_dxf(
         }
     }
     if skipped_images > 0 {
-        scene.warnings.push(format!(
-            "El DXF no lleva imágenes: se omitieron {skipped_images}."
-        ));
+        scene
+            .warnings
+            .push(tr!("export.dxf_out.images_skipped", n = skipped_images));
     }
     let mut bytes = Vec::new();
     drawing
         .save(&mut bytes)
-        .map_err(|e| format!("no se pudo escribir el DXF: {e}"))?;
+        .map_err(|e| tr!("export.dxf_out.write_failed", error = e))?;
     let b = scene.bounds;
     Ok(Export {
         bytes,

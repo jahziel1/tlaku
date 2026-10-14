@@ -14,6 +14,7 @@
 use crate::homography::Homography;
 use image::RgbImage;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Una foto con su posición en la cama.
 pub struct Tile<'a> {
@@ -130,21 +131,19 @@ fn sample(img: &RgbImage, x: f64, y: f64) -> [f32; 3] {
 /// Compone las fotos en una imagen alineada con la cama.
 pub fn compose(tiles: &[Tile], opts: &MosaicOptions) -> Result<Mosaic, String> {
     if tiles.is_empty() {
-        return Err("no hay ninguna foto que componer".into());
+        return Err(tr!("camera.mosaic.no_photos"));
     }
     let [x0, y0, x1, y1] = opts.rect;
     if !(opts.rect.iter().all(|v| v.is_finite()) && x1 > x0 && y1 > y0) {
-        return Err("el rectángulo a componer no es válido".into());
+        return Err(tr!("camera.mosaic.bad_rect"));
     }
     if !(opts.px_per_mm.is_finite() && opts.px_per_mm > 0.0) {
-        return Err("la resolución de la imagen debe ser mayor que 0".into());
+        return Err(tr!("camera.mosaic.bad_resolution"));
     }
     let ppm = opts.px_per_mm;
     let (wpx, hpx) = (((x1 - x0) * ppm).ceil(), ((y1 - y0) * ppm).ceil());
     if wpx * hpx > MAX_PIXELS {
-        return Err(format!(
-            "la imagen sería de {wpx} x {hpx} píxeles; baja la resolución"
-        ));
+        return Err(tr!("camera.mosaic.too_big", w = wpx, h = hpx));
     }
     let (wpx, hpx) = (wpx.max(1.0) as usize, hpx.max(1.0) as usize);
     // La imagen cuelga de la esquina superior izquierda (x0, y1).
@@ -169,7 +168,7 @@ pub fn compose(tiles: &[Tile], opts: &MosaicOptions) -> Result<Mosaic, String> {
         ] {
             let p = t.to_bed.apply(Point::new(u, v));
             if !(p.x.is_finite() && p.y.is_finite()) {
-                return Err("una foto se proyecta al infinito: revisa su alineación".into());
+                return Err(tr!("camera.mosaic.infinite"));
             }
             bx0 = bx0.min(p.x);
             by0 = by0.min(p.y);

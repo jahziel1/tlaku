@@ -6,6 +6,8 @@
 
 use std::time::Duration;
 
+use tlaku_i18n::tr;
+
 /// Familia de firmware: solo se usa para los pocos comportamientos que no caben en un campo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Family {
@@ -443,14 +445,14 @@ impl Profile {
                 "Cap:AUTOREPORT_POS:0",
                 "Cap:EMERGENCY_PARSER:0",
             ]),
-            ..Self::reprap_base("Marlin 2.x (láser)", Family::Marlin, 255.0, 0)
+            ..Self::reprap_base(&tr!("emu.profile.marlin"), Family::Marlin, 255.0, 0)
         }
     }
 
     /// Marlin con `EMERGENCY_PARSER`: `M410`/`M112`/`M108` actúan al instante y `M0` pausa.
     pub fn marlin_emergency_parser() -> Self {
         let mut p = Self::marlin();
-        p.name = "Marlin 2.x (láser, EMERGENCY_PARSER)".into();
+        p.name = tr!("emu.profile.marlin_emergency");
         p.info[2] = "Cap:EMERGENCY_PARSER:1".into();
         p.emergency_parser = true;
         p
@@ -460,7 +462,7 @@ impl Profile {
     /// lo apaga, de modo que el generador debe apagarlo antes de cada desplazamiento.
     pub fn marlin_fan_laser() -> Self {
         let mut p = Self::marlin();
-        p.name = "Marlin 2.x (láser en M106 P1)".into();
+        p.name = tr!("emu.profile.marlin_fan");
         p.laser_fan = Some(1);
         p
     }

@@ -240,18 +240,22 @@ describe('arreglos: cada uno es un solo paso de deshacer', () => {
 describe('textos', () => {
   it('cada tipo tiene título, motivo, texto sencillo y arreglo en español e inglés', () => {
     for (const kind of ALL_KINDS) {
-      for (const part of ['title', 'why'] as const) {
-        const key = `review.kind.${kind}.${part}` as I18nKey;
+      for (const key of [`review.kind.${kind}.title.one`, `review.kind.${kind}.title.other`, `review.kind.${kind}.why`] as I18nKey[]) {
         expect(es[key], key).toBeTruthy();
         expect(en[key], key).toBeTruthy();
       }
-      expect(es[`review.simple.${kind}` as I18nKey], kind).toBeTruthy();
-      expect(en[`review.simple.${kind}` as I18nKey], kind).toBeTruthy();
+      for (const form of ['one', 'other']) {
+        expect(es[`review.simple.${kind}.${form}` as I18nKey], kind).toBeTruthy();
+        expect(en[`review.simple.${kind}.${form}` as I18nKey], kind).toBeTruthy();
+      }
     }
     for (const kind of ['near_closed', 'overlap', 'joinable', 'tiny', 'extra_nodes', 'text', 'silent_layer', 'hidden_layer']) {
-      for (const prefix of ['review.fix.', 'review.history.', 'review.simple.fix.']) {
-        expect(es[`${prefix}${kind}` as I18nKey], `${prefix}${kind}`).toBeTruthy();
-        expect(en[`${prefix}${kind}` as I18nKey], `${prefix}${kind}`).toBeTruthy();
+      const fixKeys = ['review.fix.', 'review.history.'].map((prefix) => `${prefix}${kind}`);
+      // Los botones del modo sencillo concuerdan en número, salvo los de capa (hablan de una sola).
+      fixKeys.push(...(kind.endsWith('_layer') ? [`review.simple.fix.${kind}`] : [`review.simple.fix.${kind}.one`, `review.simple.fix.${kind}.other`]));
+      for (const key of fixKeys) {
+        expect(es[key as I18nKey], key).toBeTruthy();
+        expect(en[key as I18nKey], key).toBeTruthy();
       }
     }
     expect(Object.keys(esReview).sort()).toEqual(Object.keys(enReview).sort());
@@ -269,6 +273,25 @@ describe('textos', () => {
         }
       }
     }
+  });
+});
+
+describe('plurales', () => {
+  it('con un solo objeto los títulos salen en singular, en español e inglés', async () => {
+    load(synthetic(bedOf()));
+    const found = await review();
+    const away = { ...find(found, 'outside_all'), count: 1 };
+    const tiny = { ...find(found, 'tiny'), count: 1 };
+    const doc = s().doc;
+    setLanguage('es');
+    expect(findingTitle(away, doc)).toBe('1 objeto fuera de la cama');
+    expect(findingTitle(tiny, doc)).toBe('1 fragmento diminuto');
+    expect(findingTitle({ ...tiny, count: 2 }, doc)).toBe('2 fragmentos diminutos');
+    expect(findingSimple(away, doc)).toBe('1 cosa está fuera de la cama y no se hará.');
+    setLanguage('en');
+    expect(findingTitle(away, doc)).toBe('1 object off the bed');
+    expect(findingTitle({ ...away, count: 3 }, doc)).toBe('3 objects off the bed');
+    setLanguage('es');
   });
 });
 

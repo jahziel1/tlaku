@@ -21,7 +21,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `tlaku-dxf` | `lib.rs`, `aci.rs` (colores), `geom.rs` |
 | `tlaku-lbrn` | Lector neutro de proyectos `.lbrn/.lbrn2`: `parse.rs`, `pathdata.rs` |
 | `tlaku-geom` | `boolean`, `offset`, `kerf`, `join`, `dedupe`, `tabs`, `fillet`, `trim`, `split`, `slots`, `knife`, `hull`, `tangent`, `warp`, `simplify`, `nesting` (par-impar) |
-| `tlaku-plan` | Orden de corte: `planner.rs`, `sched.rs`, `improve.rs`, `contain.rs`, `overlap.rs`, `explain.rs`, `describe.rs` |
+| `tlaku-plan` | Orden de corte: `planner.rs`, `sched.rs`, `improve.rs`, `contain.rs`, `overlap.rs`, `explain.rs`, `describe.rs`; los textos de las razones y avisos salen de `crates/tlaku-i18n/locales/{es,en}/plan.txt` |
 | `tlaku-fill` | Relleno: `scan.rs` (barrido), `offset.rs` (contornos), `flood.rs`, `cluster.rs` |
 | `tlaku-raster` | Imagen a potencia: `adjust`, `dither`, `screen` (semitono), `sketch`, `mask`, `resample`, `warp` (giro afín de una imagen), `preview` (vista previa entera o por trozo), `scan.rs` (barrido a bloque); carga sin materializar la imagen: `load.rs` (cabecera, PNG por filas, TIFF por franjas/teselas con YCbCr, `convert_to_png`) y `downsample.rs`; `load_for_process` reduce a la rejilla antes de ajustar |
 | `tlaku-sim` | Tiempo/overscan: `profile.rs`, `plan.rs`, `sample.rs` |
@@ -32,6 +32,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `tlaku-camera` | Lente/homografía/marcas sin OpenCV: `calibration.rs`, `marks.rs`, `chessboard`, `circle`, `homography`, `height`, `mosaic`, `undistort` |
 | `tlaku-export` | Salida SVG/DXF/PNG/PDF/AI: `svg.rs`, `dxf_out.rs`, `png_out.rs`, `pdf.rs` (`export_pdf`, `export_ai`: PDF 1.5 con una capa por color), `scene.rs` |
 | `tlaku-pipeline` | `Document`+`DeviceProfile`+`JobOptions` a `ComputedJob`. `build.rs` (núcleo), `layers.rs`, `place.rs`, `stroke.rs`, `tabs.rs`, `zaxis.rs`, `rotary.rs`, `scan_offset.rs`, `tile.rs` (`plan_grid`), `split.rs`, `slice3d.rs`, `cylinder.rs`, `gcode.rs`, `ruida.rs`, `galvo.rs`, `preview.rs`, `material_test.rs`, `registration.rs` (`fit_with_choice`, imágenes que giran), `processed.rs` (`processed_png`, `processed_preview`); importadores: `import.rs` (despacha por extensión), `import_pdf.rs`, `import_hpgl.rs`, `import_gcode.rs`, `import_rd.rs` (`.rd` de Ruida), `import_egv.rs` (`.egv` del K40), `import_lbrn.rs` + `import_lbrn/{layers,bitmap,text}.rs` |
+| `tlaku-i18n` | Mensajes del motor es/en: `tr!`, idioma activo (`locale.rs`), catálogos `locales/{es,en}/<crate>.txt` (`catalog.rs`), códigos de error (`coded`/`split_code`); guía en su `README.md` (receta 3.12) |
 | `tlaku-grbl` | G-code y enlace: `gcode.rs`, `streamer.rs`, `preflight.rs`, `frame.rs`, `serial.rs`, `net.rs` (TCP/Telnet/WebSocket), `link.rs` (`LinkProfile`) |
 | `tlaku-ruida` | Experimental: `rd.rs` (archivo), `cmd.rs` (comandos), `packet.rs`, `swizzle.rs`, `link.rs` (UDP), `session.rs`, `safety.rs`, `emu.rs` |
 | `tlaku-lhymicro` | Experimental (K40): `encode.rs`, `packet.rs`, `crc.rs`, `speed.rs`, `status.rs`, `transport.rs`, `usb.rs`, `session.rs`, `emu.rs`, `decode.rs` |
@@ -66,9 +67,10 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `store/` | Zustand: `index.ts` (une slices y conecta eventos `machine://*`), `document.ts`, `selection.ts`, `view.ts`, `machine.ts`, `prefs.ts`, `devices.ts`, `camera.ts`, `galvo.ts`, `preview.ts`, `notices.ts`, `selectors.ts`, `types.ts` |
 | `features/<área>/` | `arrange art automation bundle camera canvas codes contextmenu devices feeder fileio help history images layers machine materials nest preview printcut recovery remote settings shell simple text tiling trace variables`. Cada una: `index.ts(x)`, paneles/diálogos `.tsx`, lógica `.ts`, CSS y `*.test.ts(x)` junto al código |
 | `commands/` | `types.ts` (`CommandDef`), `definitions/<área>.ts`, `index.ts` (`ALL_COMMANDS`), `menus.ts` (`MENUS`), `shortcuts.ts`, `registry.ts`, `useShortcuts.ts` |
-| `i18n/` | `index.ts` (`t()`), `es.ts` y `en.ts` (unen las áreas), `es/<área>.ts`, `en/<área>.ts`, `i18n.test.ts` |
+| `i18n/` | `index.ts` (`t()`; `tn(base, n, params)` para plurales con claves `<base>.one` / `<base>.other`), `es.ts` y `en.ts` (unen las áreas), `es/<área>.ts`, `en/<área>.ts`, `i18n.test.ts` |
 | `bindings/` | Generado por ts-rs desde `tlaku-doc`. **No editar ni leer** |
-| `ui/` | `Modal`, `NumberField`, `LengthField` |
+| `ui/` | `Modal`, `NumberField`, `LengthField`; accesibilidad: `Toolbar` (barra con una sola parada de Tab y flechas, sobre `useRoving.ts`), `useReturnFocus` (el foco vuelve a quien abrió un panel no modal) y `stepKey.ts` (`stepFromKey`: ↑/↓ con Mayús y Alt en campos numéricos); `a11y.test.tsx` audita con axe |
+| `test/` | `dom.tsx`: utilidades de pruebas con jsdom y axe-core (`mount`, `press`, `click`, `audit`, `describeViolations`, `cleanup`); el archivo de prueba que las use declara `// @vitest-environment jsdom` en su primera línea |
 | `lib/` | Puro y sin UI: `layers.ts` (`makeLayer`), `device.ts` (`FALLBACK_DEVICE`, `normalizeDevice`), `units`, `bezpath`, `geometry`, `viewport`, `groups`, `dockLayout`, `warp`, `hull`, `palette`, `platform` (`readPref`/`writePref`) |
 | `styles/` | `tokens.css` (variables), `base`, `shell`, `panels`, `canvas`; cada feature trae su CSS |
 
@@ -168,6 +170,15 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 `crates/tlaku-dxf/src/tests.rs`, `crates/tlaku-export/src/tests.rs`,
 `apps/desktop/src-tauri/src/machine/{tests/,ruida/tests,lhymicro/tests,galvo/tests}.rs`, `remote/tests.rs`.
 
+### Agregado en la ola 6D (publicación)
+
+| Dónde | Qué |
+|---|---|
+| `.github/workflows/{ci,release,pages}.yml`, `.github/FUNDING.yml` | CI (Rust en 3 sistemas, deny, interfaz, humo en Linux, sitio), publicación de instaladores, GitHub Pages (inactivo hasta `PAGES_ENABLED=true`) y botón Sponsor |
+| `site/`, `scripts/build-site.mjs` | Sitio estático es/en; `site/config.json` llena `{{REPO_URL}}`, `{{SPONSORS_URL}}`, `{{KOFI_URL}}` (también en el README con `--readme`) |
+| `scripts/configure-updater.sh`, `src-tauri/src/updater.rs` | Llena `plugins.updater` y activa `createUpdaterArtifacts`; el plugin solo se registra si hay `pubkey` y `endpoints` |
+| `src/features/help/{updater.ts,links.ts}`, `UpdateDialog`/`DonateDialog` en `HelpDialogs.tsx` | Buscar actualizaciones (store `useUpdateUi`, pref `updateCheckOnStart`) y enlaces de donación (`PROJECT_LINKS`, vacíos por omisión) |
+
 ## 3. Recetas: "dónde agrego..."
 
 Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings`,
@@ -256,9 +267,16 @@ Modelo a imitar: Ruida (`tlaku-ruida`) o K40 (`tlaku-lhymicro`).
 4. El mock lee el mismo JSON (`api/mock/materials.ts`): `npx vitest run src/features/materials`.
 
 ### 3.11 Una captura del manual
-1. `apps/desktop/scripts/screenshots.mjs`: bloque con `await shot('NN-nombre.png')` en la fase/ola que corresponda (fase 3 ~191, ola 2 ~423, ola 3 ~532, ola 4 ~678; última 57). Prepara el estado con `app()`/`evaluate(...)`, `click`, `clickText`, `key`, `closeDialog()`; empieza de `fresh` y tema oscuro. Los PNG se escriben al final (Vite recarga si no).
-2. Correr: `npm run dev` en una terminal (puerto 1420, modo mock) y `npm run screenshots` en otra (necesita Chrome; variable `CHROME`). Salen en `apps/desktop/docs/screenshots/`.
+1. `apps/desktop/scripts/screenshots.mjs`: bloque con `await shot('NN-nombre.png')` en la fase/ola que corresponda (fase 3 ~191, ola 2 ~423, ola 3 ~532, ola 4 ~678; la última es la 71, `71-inicio-revisar-aviso.png`: sigue la numeración). Prepara el estado con `app()`/`evaluate(...)`, `click`, `clickText`, `key`, `closeDialog()`; empieza de `fresh` y tema oscuro. Los PNG se escriben al final (Vite recarga si no).
+2. Correr: `npm run dev` en una terminal (puerto 1420, modo mock) y `npm run screenshots` en otra (necesita Chrome; variable `CHROME`). Salen en `apps/desktop/docs/screenshots/` (o en `SCREENSHOTS_OUT=<carpeta>`). Con `SCREENSHOTS_SKIP_PHONE=1` no se levanta la demo remota y se omiten las capturas del celular (63).
 3. Enlazarla en `docs/manual/` (no lo leas entero: `grep -n` el capítulo) y en la ayuda de la app si aplica (`features/help/pages.ts`).
+
+### 3.12 Un mensaje del motor traducido (Rust)
+1. Catálogo `crates/tlaku-i18n/locales/{es,en}/<crate>.txt` (`<crate>.<módulo>.<qué> = plantilla {marcador}`) y en el código `tr!("<clave>", marcador = valor)` (`use tlaku_i18n::tr;`, dependencia `tlaku-i18n` en el `Cargo.toml` del crate). Guía completa: `crates/tlaku-i18n/README.md`.
+2. Un crate nuevo agrega su par de archivos a `CATALOGS` en `tlaku-i18n/src/catalog.rs` (ya están todos los actuales).
+3. Si la interfaz debe reconocer el error: `tlaku_i18n::coded("mi_codigo", tr!(..))` y en `lib/errors.ts` el código en `ENGINE_ERROR` (`errorCode(e)`); nunca comparar el texto. Ejemplo: `gcode_zero_power`.
+4. Idioma: la app llama a `set_engine_locale` desde `AppShell` al arrancar y al cambiar `language`; la CLI usa `TLAKU_LANG`/`LANG`. En pruebas: `with_locale(Locale::En, || ..)`.
+5. Correr: `cargo test -p tlaku-i18n -p tlaku-<crate>`.
 
 ## 4. Pruebas
 
@@ -285,7 +303,7 @@ Todo antes de entregar: bloque "Verificar" de [CLAUDE.md](../CLAUDE.md).
 | `mapa.md` | Este archivo |
 | `plan-completo.md` | Plan por fases hasta las 214 funciones; consultar al elegir qué falta |
 | `ideas-mejoras.md` | Backlog de ideas sobre LightBurn; no son compromisos |
-| `publicar.md` | Cómo publicar una versión (etiqueta `v*`, `release.yml`, borrador de GitHub Release) |
+| `publicar.md` | Cómo publicar una versión (etiqueta `v*`, `release.yml`, borrador de GitHub Release), actualizador, sitio, CI y la lista de pasos que le tocan al usuario |
 | `pruebas-estres.md` (+ `.csv`) | Resultados y método de las pruebas con archivos reales; leer al tocar rendimiento |
 | `manual/` | Manual de usuario (capturas incluidas). No leer salvo tarea de manual |
 | `spec/00-resumen.md` | Inventario de funciones y prioridades P0-P2 de LightBurn (sala limpia) |

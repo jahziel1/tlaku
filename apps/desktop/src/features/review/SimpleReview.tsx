@@ -1,11 +1,10 @@
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 import type { Document } from '@/api/types';
-import type { I18nKey } from '@/i18n';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
 import { canFix, fixFinding, selectFinding } from './fixes';
 import { useReviewUi } from './store';
-import { findingSimple } from './text';
+import { findingSimple, findingSimpleFix } from './text';
 import type { Finding, FindingKind } from './types';
 import { useReview } from './useReview';
 
@@ -37,7 +36,7 @@ function Row({ finding, doc, busy }: { finding: Finding; doc: Pick<Document, 'la
         <div className="simple__row">
           {fixable && (
             <button type="button" className="btn simple__btn" disabled={busy} onClick={() => void fixFinding(finding)}>
-              {t(`review.simple.fix.${finding.kind}` as I18nKey)}
+              {findingSimpleFix(finding)}
             </button>
           )}
           <button type="button" className="btn simple__btn" onClick={() => selectFinding(finding)}>

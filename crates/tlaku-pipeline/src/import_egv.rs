@@ -21,6 +21,7 @@ use std::path::Path;
 use tlaku_core::Point;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_doc::{DeviceProfile, ImportResult, LayerSettings, ObjectKind, VectorObject};
+use tlaku_i18n::tr;
 use tlaku_lhymicro::decode::{Event, decode_stream};
 use tlaku_lhymicro::encode::mil_to_mm;
 use tlaku_lhymicro::speed::{Board, ParsedSpeed, RasterStep, equation, speed_from_value};
@@ -41,9 +42,7 @@ pub(crate) fn import(
     let stream = strip_header(data);
     let events = decode_stream(stream);
     if !events.iter().any(|e| matches!(e, Event::Move { .. })) {
-        return Err(format!(
-            "{name}: no parece un .egv de LHYMICRO-GL: el flujo no tiene ningún movimiento"
-        ));
+        return Err(tr!("pipeline.import_egv.no_motion", name = name));
     }
 
     // Trazos con el láser encendido, agrupados por la velocidad vigente.
@@ -108,14 +107,11 @@ pub(crate) fn import(
         }
     }
     if groups.is_empty() {
-        return Err(format!(
-            "{name}: el .egv no corta nada con el láser encendido{}",
-            if raster_moves > 0 {
-                " (solo trae un grabado en modo trama, que no se importa como vectores)"
-            } else {
-                ""
-            }
-        ));
+        return Err(if raster_moves > 0 {
+            tr!("pipeline.import_egv.no_cut_raster", name = name)
+        } else {
+            tr!("pipeline.import_egv.no_cut", name = name)
+        });
     }
 
     let height_mm = {
@@ -146,24 +142,17 @@ pub(crate) fn import(
     }
 
     let mut warnings = vec![
-        "El .egv no guarda la potencia: las capas usan la potencia por defecto; ajústala.".into(),
-        "Se supuso una placa M2 para convertir los códigos de velocidad y el home arriba a la \
-         izquierda (se invirtió Y respecto a la cama del perfil por defecto)."
-            .to_string(),
+        tr!("pipeline.import_egv.no_power"),
+        tr!("pipeline.import_egv.assumed_m2"),
     ];
     if raster_moves > 0 {
-        warnings.push(format!(
-            "Se omitieron {raster_moves} movimiento(s) de grabado en modo trama (G): no se \
-             importan como vectores."
-        ));
+        warnings.push(tr!("pipeline.import_egv.raster_skipped", n = raster_moves));
     }
     if bad_speeds > 0 {
-        warnings.push(format!(
-            "{bad_speeds} código(s) de velocidad no se entendieron y se ignoraron."
-        ));
+        warnings.push(tr!("pipeline.import_egv.bad_speeds", n = bad_speeds));
     }
     if no_speed {
-        warnings.push("Hay cortes sin código de velocidad: se les puso 20 mm/s.".into());
+        warnings.push(tr!("pipeline.import_egv.no_speed"));
     }
     Ok(ImportResult {
         objects,

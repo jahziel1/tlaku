@@ -28,6 +28,7 @@ use std::fmt;
 use tlaku_core::Point;
 use tlaku_core::toolpath::{GalvoParams, Move, Toolpath, ToolpathBlock};
 use tlaku_doc::{GalvoDevice, LaserSource};
+use tlaku_i18n::tr;
 
 /// Qué punto de las coordenadas del `Toolpath` cae en el centro del campo (`0x8000`).
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -147,16 +148,19 @@ impl fmt::Display for CompileError {
         match self {
             CompileError::Calib(e) => write!(f, "{e}"),
             CompileError::Safety(e) => write!(f, "{e}"),
-            CompileError::MissingParams { block } => write!(
-                f,
-                "el bloque {block} no tiene parámetros de galvo (frecuencia, retardos...)"
-            ),
-            CompileError::BadParam { block, what } => write!(f, "bloque {block}: {what}"),
-            CompileError::TooManyCommands { max } => {
-                write!(f, "el trabajo supera el máximo de {max} comandos")
+            CompileError::MissingParams { block } => {
+                write!(f, "{}", tr!("galvo.compile.missing_params", block = block))
             }
-            CompileError::Empty => write!(f, "el trabajo no tiene movimientos"),
-            CompileError::WrongKind => write!(f, "un encuadre se compila con compile_light"),
+            CompileError::BadParam { block, what } => write!(
+                f,
+                "{}",
+                tr!("galvo.compile.bad_param", block = block, what = what)
+            ),
+            CompileError::TooManyCommands { max } => {
+                write!(f, "{}", tr!("galvo.compile.too_many_commands", max = max))
+            }
+            CompileError::Empty => write!(f, "{}", tr!("galvo.compile.empty")),
+            CompileError::WrongKind => write!(f, "{}", tr!("galvo.compile.wrong_kind")),
         }
     }
 }
@@ -283,8 +287,8 @@ impl<'a> Builder<'a> {
         {
             return Err(CompileError::BadParam {
                 block: 0,
-                what: format!(
-                    "el desfase del puntero rojo debe estar entre -{max} y {max} mm",
+                what: tr!(
+                    "galvo.compile.pointer_offset",
                     max = safety::MAX_POINTER_OFFSET_MM
                 ),
             });
@@ -399,7 +403,7 @@ impl<'a> Builder<'a> {
         let Some(mu) = self.block_mark_u else {
             return Err(CompileError::BadParam {
                 block: 0,
-                what: "el overscan necesita la velocidad de marcado del bloque".into(),
+                what: tr!("galvo.compile.overscan_needs_speed"),
             });
         };
         if self.cur.jump_speed != Some(mu) {
@@ -460,31 +464,30 @@ impl<'a> Builder<'a> {
         let dev = self.dev;
         let fin = |v: f64| v.is_finite();
         if !(fin(p.frequency_khz) && p.frequency_khz > 0.0) {
-            return Self::bad(bi, "la frecuencia no es válida");
+            return Self::bad(bi, tr!("galvo.compile.freq_invalid"));
         }
         if p.frequency_khz < dev.freq_min_khz - 1e-9 || p.frequency_khz > dev.freq_max_khz + 1e-9 {
             return Self::bad(
                 bi,
-                format!(
-                    "frecuencia {} kHz fuera del rango del perfil ({} a {} kHz)",
-                    p.frequency_khz, dev.freq_min_khz, dev.freq_max_khz
+                tr!(
+                    "galvo.compile.freq_out_of_range",
+                    khz = p.frequency_khz,
+                    min = dev.freq_min_khz,
+                    max = dev.freq_max_khz
                 ),
             );
         }
         let Some(period) = params::period(dev.source, p.frequency_khz) else {
-            return Self::bad(bi, "la frecuencia no cabe en el periodo de la tarjeta");
+            return Self::bad(bi, tr!("galvo.compile.freq_period"));
         };
         // Pulso: obligatorio y de la lista en MOPA; opcional (pero de la lista) en UV; ninguno en
         // el resto.
         match (dev.source, p.pulse_width_ns) {
             (LaserSource::FiberMopa, None) => {
-                return Self::bad(bi, "una fuente MOPA necesita el ancho de pulso");
+                return Self::bad(bi, tr!("galvo.compile.mopa_needs_pulse"));
             }
             (LaserSource::FiberQ | LaserSource::Co2, Some(ns)) => {
-                return Self::bad(
-                    bi,
-                    format!("esta fuente no usa ancho de pulso (se pidieron {ns} ns)"),
-                );
+                return Self::bad(bi, tr!("galvo.compile.source_no_pulse", ns = ns));
             }
             _ => {}
         }
@@ -492,89 +495,104 @@ impl<'a> Builder<'a> {
             if !dev.pulse_widths_ns.contains(&ns) {
                 return Self::bad(
                     bi,
-                    format!(
-                        "ancho de pulso {ns} ns que no está en la lista del perfil {:?}",
-                        dev.pulse_widths_ns
+                    tr!(
+                        "galvo.compile.pulse_not_in_list",
+                        ns = ns,
+                        list = format!("{:?}", dev.pulse_widths_ns)
                     ),
                 );
             }
             if ns > u32::from(u16::MAX) {
-                return Self::bad(bi, "ancho de pulso demasiado grande");
+                return Self::bad(bi, tr!("galvo.compile.pulse_too_big"));
             }
         }
         for (v, w) in [
-            (p.laser_on_us, "el retardo de encendido"),
-            (p.laser_off_us, "el retardo de apagado"),
-            (p.end_us, "el retardo final"),
-            (p.polygon_us, "el retardo de polígono"),
-            (p.jump_delay_min_us, "el retardo de salto mínimo"),
-            (p.jump_delay_max_us, "el retardo de salto máximo"),
-            (p.jump_distance_limit, "la distancia límite de salto"),
-            (p.pause_before_ms, "la pausa previa"),
-            (p.pause_after_ms, "la pausa posterior"),
+            (p.laser_on_us, tr!("galvo.compile.what_laser_on_delay")),
+            (p.laser_off_us, tr!("galvo.compile.what_laser_off_delay")),
+            (p.end_us, tr!("galvo.compile.what_end_delay")),
+            (p.polygon_us, tr!("galvo.compile.what_polygon_delay")),
+            (
+                p.jump_delay_min_us,
+                tr!("galvo.compile.what_jump_delay_min"),
+            ),
+            (
+                p.jump_delay_max_us,
+                tr!("galvo.compile.what_jump_delay_max"),
+            ),
+            (
+                p.jump_distance_limit,
+                tr!("galvo.compile.what_jump_distance"),
+            ),
+            (p.pause_before_ms, tr!("galvo.compile.what_pause_before")),
+            (p.pause_after_ms, tr!("galvo.compile.what_pause_after")),
         ] {
             if !fin(v) {
-                return Self::bad(bi, format!("{w} no es un número"));
+                return Self::bad(bi, tr!("galvo.compile.not_a_number", what = w));
             }
         }
         for (v, w) in [
-            (p.laser_on_us, "el retardo de encendido"),
-            (p.laser_off_us, "el retardo de apagado"),
+            (p.laser_on_us, tr!("galvo.compile.what_laser_on_delay")),
+            (p.laser_off_us, tr!("galvo.compile.what_laser_off_delay")),
         ] {
             if v.abs() > 65535.0 {
-                return Self::bad(bi, format!("{w} fuera de ±65535 us"));
+                return Self::bad(bi, tr!("galvo.compile.delay_out_of_range", what = w));
             }
         }
         if p.jump_delay_min_us < 0.0
             || p.jump_delay_max_us < p.jump_delay_min_us
             || p.jump_delay_max_us > 65535.0
         {
-            return Self::bad(
-                bi,
-                "retardos de salto inválidos (0 <= mín <= máx <= 65535 us)",
-            );
+            return Self::bad(bi, tr!("galvo.compile.jump_delays_invalid"));
         }
         if p.end_us < 0.0 || p.polygon_us < 0.0 || p.pause_before_ms < 0.0 || p.pause_after_ms < 0.0
         {
-            return Self::bad(
-                bi,
-                "los retardos final, de polígono y las pausas no pueden ser negativos",
-            );
+            return Self::bad(bi, tr!("galvo.compile.delays_negative"));
         }
         let mark_mm_s = block.speed_mm_min / 60.0;
         let Some(mark_u) = params::speed_units_f(mark_mm_s, dev.field_mm) else {
-            return Self::bad(bi, "la velocidad de marcado debe ser mayor que 0");
+            return Self::bad(bi, tr!("galvo.compile.mark_speed_zero"));
         };
         if mark_u < 1.0 {
             return Self::bad(
                 bi,
-                format!(
-                    "velocidad de marcado {mark_mm_s:.3} mm/s demasiado baja para la tarjeta (mínimo 1 unidad/ms)"
+                tr!(
+                    "galvo.compile.mark_speed_low",
+                    speed = format!("{mark_mm_s:.3}")
                 ),
             );
         }
         let Some(jump_u) = params::speed_units_f(p.jump_speed, dev.field_mm) else {
-            return Self::bad(bi, "la velocidad de salto debe ser mayor que 0");
+            return Self::bad(bi, tr!("galvo.compile.jump_speed_zero"));
         };
         if jump_u < 1.0 {
-            return Self::bad(bi, "velocidad de salto demasiado baja para la tarjeta");
+            return Self::bad(bi, tr!("galvo.compile.jump_speed_low"));
         }
         if p.repeat > MAX_REPEAT {
             return Self::bad(
                 bi,
-                format!("{} repeticiones (máximo {MAX_REPEAT})", p.repeat),
+                tr!(
+                    "galvo.compile.too_many_repeats",
+                    n = p.repeat,
+                    max = MAX_REPEAT
+                ),
             );
         }
-        let clamp = |v: f64, what: &str, warnings: &mut Vec<String>| -> u16 {
+        let clamp = |v: f64, what: String, warnings: &mut Vec<String>| -> u16 {
             if v > 65535.0 {
-                warnings.push(format!(
-                    "bloque {bi}: {what} saturada al máximo de la tarjeta"
-                ));
+                warnings.push(tr!("galvo.compile.speed_clamped", block = bi, what = what));
             }
             v.round().clamp(1.0, 65535.0) as u16
         };
-        let ju = clamp(jump_u, "la velocidad de salto", &mut self.warnings);
-        let mu = clamp(mark_u, "la velocidad de marcado", &mut self.warnings);
+        let ju = clamp(
+            jump_u,
+            tr!("galvo.compile.what_jump_speed"),
+            &mut self.warnings,
+        );
+        let mu = clamp(
+            mark_u,
+            tr!("galvo.compile.what_mark_speed"),
+            &mut self.warnings,
+        );
         self.jump_mm_s = f64::from(ju) / self.upmm * 1000.0;
         self.mark_mm_s = f64::from(mu) / self.upmm * 1000.0;
         self.block_jump_u = Some(ju);
@@ -647,14 +665,15 @@ impl<'a> Builder<'a> {
     /// Potencia en el código de la tarjeta; 0 si no dispararía.
     fn power_raw(&self, bi: usize, pct: f64, freq_khz: f64) -> Result<u16, CompileError> {
         if !pct.is_finite() || pct < 0.0 {
-            return Self::bad(bi, format!("potencia {pct} % inválida"));
+            return Self::bad(bi, tr!("galvo.compile.power_invalid", pct = pct));
         }
         if pct > self.dev.max_power_pct + 1e-9 {
             return Self::bad(
                 bi,
-                format!(
-                    "potencia {pct} % por encima del máximo del perfil ({} %)",
-                    self.dev.max_power_pct
+                tr!(
+                    "galvo.compile.power_above",
+                    pct = pct,
+                    max = self.dev.max_power_pct
                 ),
             );
         }
@@ -676,13 +695,12 @@ impl<'a> Builder<'a> {
             return Err(CompileError::MissingParams { block: bi });
         };
         if block.air_assist {
-            self.warnings.push(format!(
-                "bloque {bi}: la asistencia de aire se ignora en galvo"
-            ));
+            self.warnings
+                .push(tr!("galvo.compile.air_assist_ignored", block = bi));
         }
         if block.z_mm.is_some() {
             self.warnings
-                .push(format!("bloque {bi}: el eje Z se ignora en galvo"));
+                .push(tr!("galvo.compile.z_ignored", block = bi));
         }
         self.finish_run()?;
         let freq = self.emit_block_params(bi, block, p)?;
@@ -733,7 +751,7 @@ impl<'a> Builder<'a> {
                     Move::Dwell { to, ms, power_pct } => {
                         self.finish_run()?;
                         if !ms.is_finite() || ms < 0.0 {
-                            return Self::bad(bi, format!("pausa de {ms} ms inválida"));
+                            return Self::bad(bi, tr!("galvo.compile.dwell_invalid", ms = ms));
                         }
                         self.jump_to(to, p)?;
                         let raw = self.power_raw(bi, power_pct, freq)?;
@@ -799,11 +817,7 @@ pub fn compile(
         b = b.with_pointer_offset(opts.pointer_offset)?;
     }
     if dev.correction.cor_file.is_some() {
-        b.warnings.push(
-            "el archivo .cor del perfil se ignora: su formato se puede leer pero su semántica \
-             no está documentada (ver cor.rs); la corrección es la paramétrica del perfil"
-                .into(),
-        );
+        b.warnings.push(tr!("galvo.compile.cor_ignored"));
     }
     b.push(ListOp::Ready)?;
     if params::is_fiber(dev.source) && opts.mo_delay_ms > 0.0 {
@@ -1077,19 +1091,16 @@ impl LightAdjust {
     /// Valores finitos y dentro de los rangos.
     pub fn validate(&self) -> Result<(), String> {
         if !(self.dx.is_finite() && self.dy.is_finite() && self.scale.is_finite()) {
-            return Err("el ajuste del encuadre debe ser un número".into());
+            return Err(tr!("galvo.compile.adjust_not_number"));
         }
         if self.dx.abs() > Self::MAX_SHIFT_MM || self.dy.abs() > Self::MAX_SHIFT_MM {
-            return Err(format!(
-                "el desplazamiento del encuadre no puede pasar de {} mm",
-                Self::MAX_SHIFT_MM
-            ));
+            return Err(tr!("galvo.compile.adjust_shift", max = Self::MAX_SHIFT_MM));
         }
         if !(Self::SCALE_RANGE.0..=Self::SCALE_RANGE.1).contains(&self.scale) {
-            return Err(format!(
-                "la escala del encuadre debe estar entre {} y {}",
-                Self::SCALE_RANGE.0,
-                Self::SCALE_RANGE.1
+            return Err(tr!(
+                "galvo.compile.adjust_scale",
+                min = Self::SCALE_RANGE.0,
+                max = Self::SCALE_RANGE.1
             ));
         }
         Ok(())
@@ -1156,8 +1167,10 @@ pub fn compile_light(
                 l.push(last);
             }
         }
-        warnings.push(format!(
-            "el contorno tiene {total} vértices: se aligeró 1 de cada {keep_every} para el encuadre"
+        warnings.push(tr!(
+            "galvo.compile.light_thinned",
+            total = total,
+            keep_every = keep_every
         ));
     }
     if lines.iter().all(Vec::is_empty) {
@@ -1175,7 +1188,7 @@ pub fn compile_light(
     else {
         return Err(CompileError::BadParam {
             block: 0,
-            what: "la velocidad del encuadre del perfil debe ser mayor que 0".into(),
+            what: tr!("galvo.compile.light_speed_zero"),
         });
     };
     let ju = speed.round().clamp(1.0, 65535.0) as u16;

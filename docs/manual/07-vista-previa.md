@@ -98,4 +98,4 @@ Así sabes si una figura salió en ese puesto por estar dentro de otra, por cerc
 
 Antes de enviar, usa esta vista para revisar que lo que va primero es lo que quieres que vaya primero.
 
-Siguiente: [Conectar tu máquina](08-conectar-maquina.md)
+Siguiente: [Revisar diseño](07b-revisar-diseno.md)

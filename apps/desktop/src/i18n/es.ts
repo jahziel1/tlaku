@@ -35,6 +35,7 @@ import { shapes } from './es/shapes';
 import { review } from './es/review';
 import { tiling } from './es/tiling';
 import { simple } from './es/simple';
+import { a11y } from './es/a11y';
 
 export const base = {
   // ---- comandos -----------------------------------------------------------
@@ -305,4 +306,5 @@ export const es = {
   ...bundle,
   ...art,
   ...simple,
+  ...a11y,
 };

@@ -28,6 +28,7 @@ use std::time::Duration;
 use tlaku_doc::DeviceKind;
 use tlaku_emu::{Profile, VirtualMachine};
 use tlaku_grbl::serial::{LineReader, SerialTransport, Transport};
+use tlaku_i18n::tr;
 
 /// Prefijo de los puertos que atiende el emulador.
 pub const VIRTUAL_PREFIX: &str = "virtual:";
@@ -128,8 +129,9 @@ fn send(t: &mut dyn Transport, tx: Tx<'_>) -> io::Result<()> {
         Tx::SoftReset => t.write_all(&[SOFT_RESET]),
         Tx::Line(line) => {
             if !is_read_only_command(line) {
-                return Err(io::Error::other(format!(
-                    "la detección no puede enviar '{line}': solo lee"
+                return Err(io::Error::other(tr!(
+                    "desktop.probe.read_only",
+                    line = line
                 )));
             }
             t.write_all(format!("{line}\n").as_bytes())
@@ -517,20 +519,17 @@ fn open_transport(port: &str, baud: u32) -> io::Result<Box<dyn Transport>> {
 /// Detecta la controladora de `port` a `baud` baudios.
 pub fn probe(port: &str, baud: u32, timing: &ProbeTiming) -> Result<ProbeResult, String> {
     if baud == 0 {
-        return Err("Los baudios deben ser mayores que 0.".into());
+        return Err(tr!("desktop.common.baud_positive"));
     }
     let network = crate::netlink::is_network(port);
     let mut transport = open_transport(port, baud).map_err(|e| {
         if network {
             return e.to_string();
         }
-        format!(
-            "No se pudo abrir {port}: {e}. Revisa el cable, que la máquina esté encendida y que \
-             ningún otro programa use el puerto."
-        )
+        tr!("desktop.commands.open_port_failed", port = port, err = e)
     })?;
     probe_transport(&mut *transport, timing)
-        .map_err(|e| format!("Se perdió la comunicación con {port} durante la detección: {e}."))
+        .map_err(|e| tr!("desktop.probe.comm_lost", port = port, err = e))
 }
 
 /// Comando de Tauri: ver [`probe`]. Corre en un hilo aparte porque espera a la placa.
@@ -549,7 +548,7 @@ pub async fn probe_port(port: String, baud: u32) -> Result<ProbeResult, String> 
         probe(&port, baud, &timing)
     })
     .await
-    .map_err(|e| format!("La detección se interrumpió: {e}"))?
+    .map_err(|e| tr!("desktop.probe.interrupted", err = e))?
 }
 
 #[cfg(test)]

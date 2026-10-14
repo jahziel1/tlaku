@@ -52,6 +52,7 @@ pub mod packet;
 pub mod session;
 pub mod speed;
 pub mod status;
+mod text;
 pub mod transport;
 #[cfg(feature = "usb")]
 pub mod usb;

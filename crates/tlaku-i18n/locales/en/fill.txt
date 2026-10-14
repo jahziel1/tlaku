@@ -1,0 +1,22 @@
+# Mensajes de tlaku-fill (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: fill.<módulo>.<qué> = plantilla
+
+# flood.rs
+fill.flood.too_many_spans = too many fill spans (more than {max}); increase the interval
+
+# lib.rs
+fill.lib.interval = invalid interval: {value}
+fill.lib.angle = invalid angle: {value}
+fill.lib.overscan = invalid overscan: {value}
+fill.lib.speed = invalid speed: {value}
+fill.lib.power = power outside 0-100 %: {value}
+fill.lib.group_ids = expected one group id per path ({expected}) but got {got}
+
+# offset.rs
+fill.offset.too_complex = the offset fill is too complex ({rings} outlines, {points} points); increase the interval or simplify the design
+fill.offset.too_complex_work = the offset fill is too complex ({work} work points); increase the interval or simplify the design
+fill.offset.internal = internal failure in the offset fill
+fill.offset.too_many_levels = too many concentric levels ({max}); increase the interval
+
+# scan.rs
+fill.scan.too_many_lines = too many scan lines ({lines}); increase the interval

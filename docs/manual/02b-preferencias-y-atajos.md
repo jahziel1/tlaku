@@ -14,7 +14,7 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 
 | Sección | Ajuste | De fábrica | Rango |
 |---|---|---|---|
-| General | **Idioma** | El del sistema (español o inglés) | Español o English; cambia al momento, sin perder el documento. Los mensajes del motor siguen en español |
+| General | **Idioma** | El del sistema (español o inglés) | Español o English; cambia al momento, sin perder el documento. Los avisos y errores del motor salen en el idioma elegido |
 | Edición | **Unidades de longitud** | Milímetros (mm) | mm o pulgadas (in) |
 | Edición | **Paso normal** de las flechas | 1 mm | 0,001 a 100 mm |
 | Edición | **Paso con Mayús** | 10 mm | 0,001 a 500 mm |
@@ -22,25 +22,32 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Edición | **Paso de rotación con Mayús** | 15° | 1° a 180° |
 | Edición | **Distancia del ajuste magnético** | 8 px | 1 a 40 px |
 | Edición | **Desplazamiento al duplicar y pegar** | 5 mm | 0 a 200 mm |
+| Edición | **Volver a Seleccionar tras dibujar una forma** | Sí | Sí o no. Con sí, al terminar un rectángulo, una elipse, un polígono, una estrella o una línea la herramienta pasa a **Seleccionar** y deja la forma elegida; sin él, la herramienta sigue activa para dibujar otra |
 | Apariencia | **Tema** | Oscuro | Oscuro o Claro |
 | Apariencia | **Rejilla del lienzo** | Automática (según el zoom) | Automática o una medida fija de 1 a 100 mm |
+| Apariencia | **Contraste de la rejilla** | Normal | Suave, Normal o Alto |
+| Apariencia | **Distribución de la ventana** | Panel a la derecha, herramientas a la izquierda | Izquierda o derecha para cada uno, y **Restablecer distribución**. Ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md) |
 | Archivos | **Guardar copias de recuperación automáticamente** | Sí | Sí o no |
 | Archivos | **Intervalo entre copias** | 60 s | 10 a 3600 s |
 | Archivos | **Archivos recientes que se recuerdan** | 10 | 0 a 30 |
+| Archivos | **Resolución por omisión** (Importar archivos) | 96 ppp | 10 a 2400 ppp |
+| Archivos | **Recordar las opciones del diálogo de importar** | Sí | Sí o no |
 | Automatización | **Activar la automatización por UDP** | No | Sí o no. Ver [Conexión por red y automatización](08b-red-y-automatizacion.md) |
 | Automatización | **Puerto UDP** | 47801 | 1024 a 65535 (aparece al activarla) |
 | Automatización | **Permitir iniciar desde automatización** | No | Sí o no. **Encendida, cualquier programa de tu equipo puede arrancar el láser sin que lo confirmes** |
 | Control remoto | **Activar el control remoto desde el celular** | No | Sí o no. Muestra un código QR para abrir una página en el celular, por la red local. Ver [Control desde el celular](09e-control-desde-el-celular.md) |
 | Control remoto | **Puerto** y **Dirección de red** | 47802, automática | Puerto 1024 a 65535; la dirección se elige solo si la computadora está en varias redes |
 
-![La interfaz en inglés: paneles y menús traducidos al cambiar el idioma en Preferencias; el resumen del orden de capas todavía sale en español porque lo escribe el motor](../../apps/desktop/docs/screenshots/38-english.png)
+![La interfaz en inglés: paneles y menús traducidos al cambiar el idioma en Preferencias; en esta captura, anterior a la traducción de los mensajes del motor, el resumen del orden de capas aparece en español](../../apps/desktop/docs/screenshots/38-english.png)
 
 Detalles que conviene saber:
 
 - **Unidades.** El diseño se guarda siempre en milímetros; la unidad que eliges cambia cómo se muestran y se escriben las longitudes. Se aplica en la barra numérica (X, Y, ancho y alto), la barra de estado, las reglas y la cuadrícula (en pulgadas, de décima en décima), la herramienta **Medir** (ver [Dibujar y editar](03-dibujar-y-editar.md)), los campos de longitud de los diálogos de Organizar (arreglos, offset, alinear y acomodar piezas) y los de esta ventana. Los campos aceptan la unidad al escribir («5 mm», «0,25 in», «1/8"», «1 1/2 in», `50%`). Las velocidades siguen en mm/min, y los campos de las capas (intervalo, kerf, desplazamiento Z...), de las áreas de máquina y de la cámara, en mm.
 - **Pasos de las flechas.** Cambian los tres pasos de las flechas del teclado (ver [Dibujar y editar](03-dibujar-y-editar.md)).
 - **Paso de rotación.** Es el que usan el giro con `Mayús` al arrastrar la perilla, los comandos **Girar un paso a la izquierda/derecha** y el campo **Paso de giro** de la barra numérica.
-- **Rejilla.** Con una medida fija, la rejilla menor mide eso y la mayor diez veces más; con el zoom muy alejado se oculta para no saturar la vista.
+- **Rejilla.** **Automática** ajusta el paso al zoom; con una **medida fija** (de 1 a 100 mm), la rejilla menor mide eso y la mayor diez veces más; con el zoom muy alejado se oculta para no saturar la vista. El **Contraste de la rejilla** (**Suave**, **Normal**, **Alto**) decide cuánto se marcan sus líneas sobre la cama: súbelo a **Alto** si no la ves bien en tu pantalla o con el tema claro, y bájalo a **Suave** si te distrae al dibujar.
+- **Volver a Seleccionar.** Es lo que hace que, tras dibujar una figura, puedas moverla o escalarla enseguida sin cambiar de herramienta. Apágalo si dibujas muchas figuras seguidas del mismo tipo; `Esc` también vuelve a **Seleccionar** en cualquier momento.
+- **Importar archivos.** La **Resolución por omisión** es con la que se importan los SVG sin unidades y las imágenes cuando no eliges otra en **Importar con opciones…** (96 es lo habitual en los programas de dibujo; Illustrator usa 72). Con **Recordar las opciones del diálogo de importar**, ese diálogo arranca con lo que elegiste la vez anterior (resolución, unidad del DXF, agrupar y capa destino); la **escala** y la **página del PDF** siempre empiezan de cero. **Olvidar las opciones recordadas** las borra. Ver [Importar y exportar](03b-importar-y-exportar.md).
 - **Tema.** Es el mismo ajuste que el botón de sol o luna de la barra superior.
 - **Archivos recientes.** El botón **Vaciar la lista de recientes** borra la lista de **Archivo > Abrir reciente**. Con 0 no se recuerda ninguno.
 
@@ -55,6 +62,8 @@ Si tus medidas vienen en pulgadas (planos de EE. UU., madera de 3/4"), cambia **
 > **Ejemplo:** una pieza de 3 1/2 × 2 pulgadas. Selecciona el rectángulo, escribe `3 1/2` en **Ancho** y `2` en **Alto**. Por dentro quedan 88,9 × 50,8 mm. Para dejar 1/8" de separación al acomodar piezas, escribe `1/8"` en **Separación entre piezas** de **Acomodar piezas**.
 
 Qué **sigue en milímetros** aunque elijas pulgadas: las velocidades (siempre mm/min), los campos de las capas (intervalo, kerf, desplazamiento Z...), las áreas de las máquinas y de la cámara y el grosor del material. Si ves una cifra en milímetros en un campo de esas, no es un error: ese campo aún no cambia de unidad.
+
+Si tienes dos ventanas de Tlaku abiertas, un cambio de preferencias en una **se refleja en la otra** al momento.
 
 Las preferencias viven en un archivo `preferences.json` dentro de la carpeta de configuración de la aplicación, no en la ventana web, así que sobreviven a limpiar los datos del navegador integrado.
 

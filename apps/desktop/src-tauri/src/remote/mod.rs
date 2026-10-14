@@ -54,6 +54,7 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tlaku_codes::{CodeKind, CodeSpec, QrEcc};
 use tlaku_doc::{BezPath, PathSeg};
+use tlaku_i18n::tr;
 use tlaku_text::FontLibrary;
 
 /// Primer puerto aceptado: por debajo de 1024 hacen falta privilegios.
@@ -192,14 +193,9 @@ pub struct RemoteState {
 
 fn open_error(e: &io::Error, ip: Ipv4Addr, port: u16) -> String {
     match e.kind() {
-        io::ErrorKind::AddrInUse => {
-            format!("El puerto {port} ya lo usa otro programa; elige otro.")
-        }
-        io::ErrorKind::AddrNotAvailable => format!(
-            "La dirección {ip} ya no está disponible en este equipo; elige otra o espera a que \
-             vuelva la red."
-        ),
-        _ => format!("No se pudo abrir el puerto {port} en {ip}: {e}"),
+        io::ErrorKind::AddrInUse => tr!("desktop.common.port_in_use", port = port),
+        io::ErrorKind::AddrNotAvailable => tr!("desktop.remote.addr_unavailable", ip = ip),
+        _ => tr!("desktop.remote.open_failed", port = port, ip = ip, err = e),
     }
 }
 
@@ -261,10 +257,7 @@ impl RemoteState {
             }
             if config.port < MIN_PORT {
                 g.running = None;
-                g.error = Some(format!(
-                    "El puerto debe estar entre {MIN_PORT} y 65535 (los menores necesitan \
-                     privilegios)."
-                ));
+                g.error = Some(tr!("desktop.automation.port_range", min = MIN_PORT));
                 drop(g);
                 return self.status(addrs);
             }
@@ -444,11 +437,11 @@ pub fn remote_camera_frame(
         return Ok(false);
     }
     if jpeg_b64.len() > hub::MAX_CAMERA_BYTES * 4 / 3 + 8 {
-        return Err("La imagen de la cámara es demasiado grande.".into());
+        return Err(tr!("desktop.remote.camera_too_big"));
     }
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(jpeg_b64.as_bytes())
-        .map_err(|_| "La imagen de la cámara no es base64 válido.".to_string())?;
+        .map_err(|_| tr!("desktop.remote.camera_bad_base64"))?;
     core.set_camera(bytes, Instant::now())
 }
 

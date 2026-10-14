@@ -70,15 +70,13 @@ pub(super) fn parse_http_url(url: &str) -> Result<HttpUrl, String> {
     let url = url.trim();
     let lower = url.to_ascii_lowercase();
     if lower.starts_with("https://") {
-        return Err(
-            "Las cámaras de red se piden por http:// (https no se admite en la red local).".into(),
-        );
+        return Err(tr!("desktop.edit.camera.net.https"));
     }
     let Some(rest) = lower
         .starts_with("http://")
         .then(|| &url["http://".len()..])
     else {
-        return Err("La URL de la cámara debe empezar con http://".into());
+        return Err(tr!("desktop.edit.camera.net.scheme"));
     };
     let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     let (authority, tail) = rest.split_at(end);
@@ -97,13 +95,13 @@ pub(super) fn parse_http_url(url: &str) -> Result<HttpUrl, String> {
     let (host, port) = if let Some(v6) = hostport.strip_prefix('[') {
         let (h, after) = v6
             .split_once(']')
-            .ok_or("La dirección IPv6 de la URL no es válida.")?;
+            .ok_or_else(|| tr!("desktop.edit.camera.net.bad_ipv6"))?;
         let port = match after.strip_prefix(':') {
             Some(p) => p
                 .parse::<u16>()
-                .map_err(|_| "El puerto de la URL no es válido.")?,
+                .map_err(|_| tr!("desktop.edit.camera.net.bad_port"))?,
             None if after.is_empty() => 80,
-            None => return Err("La URL de la cámara no es válida.".into()),
+            None => return Err(tr!("desktop.edit.camera.net.bad_url")),
         };
         (h.to_string(), port)
     } else {
@@ -111,13 +109,13 @@ pub(super) fn parse_http_url(url: &str) -> Result<HttpUrl, String> {
             Some((h, p)) => (
                 h.to_string(),
                 p.parse::<u16>()
-                    .map_err(|_| "El puerto de la URL no es válido.")?,
+                    .map_err(|_| tr!("desktop.edit.camera.net.bad_port"))?,
             ),
             None => (hostport.to_string(), 80),
         }
     };
     if host.is_empty() || port == 0 {
-        return Err("La URL de la cámara no tiene dirección.".into());
+        return Err(tr!("desktop.edit.camera.net.no_host"));
     }
     Ok(HttpUrl {
         host,
@@ -145,16 +143,13 @@ pub(super) fn is_local_ip(ip: IpAddr) -> bool {
 fn local_addresses(u: &HttpUrl) -> Result<Vec<SocketAddr>, String> {
     let addrs: Vec<SocketAddr> = (u.host.as_str(), u.port)
         .to_socket_addrs()
-        .map_err(|_| format!("No se encontró la cámara «{}».", u.host))?
+        .map_err(|_| tr!("desktop.edit.camera.net.not_found", host = u.host))?
         .collect();
     if addrs.is_empty() {
-        return Err(format!("No se encontró la cámara «{}».", u.host));
+        return Err(tr!("desktop.edit.camera.net.not_found", host = u.host));
     }
     if addrs.iter().any(|a| !is_local_ip(a.ip())) {
-        return Err(format!(
-            "«{}» no está en la red local: la cámara debe ser de tu red (192.168.x.x, 10.x.x.x...).",
-            u.host
-        ));
+        return Err(tr!("desktop.edit.camera.net.not_local", host = u.host));
     }
     Ok(addrs)
 }
@@ -167,9 +162,13 @@ fn connect(addrs: &[SocketAddr], host: &str) -> Result<TcpStream, String> {
             Err(e) => last = Some(e),
         }
     }
-    Err(format!(
-        "No se pudo conectar con la cámara «{host}»: {}.",
-        last.map_or_else(|| "sin respuesta".into(), |e| e.to_string())
+    Err(tr!(
+        "desktop.edit.camera.net.connect_failed",
+        host = host,
+        err = last.map_or_else(
+            || tr!("desktop.edit.camera.net.no_reply"),
+            |e| e.to_string()
+        )
     ))
 }
 
@@ -214,13 +213,13 @@ struct Head {
 
 fn read_head<R: BufRead>(r: &mut R) -> Result<Head, String> {
     let mut line = String::new();
-    let io_err = |e: io::Error| format!("La cámara no respondió: {e}.");
+    let io_err = |e: io::Error| tr!("desktop.edit.camera.net.no_response", err = e);
     r.read_line(&mut line).map_err(io_err)?;
     let status = line
         .split_whitespace()
         .nth(1)
         .and_then(|s| s.parse::<u16>().ok())
-        .ok_or("La respuesta de la cámara no es HTTP.")?;
+        .ok_or_else(|| tr!("desktop.edit.camera.net.not_http"))?;
     let mut head = Head {
         status,
         ..Head::default()
@@ -233,7 +232,7 @@ fn read_head<R: BufRead>(r: &mut R) -> Result<Head, String> {
         }
         total += line.len();
         if total > MAX_HEADER_BYTES {
-            return Err("Los encabezados de la cámara son demasiado grandes.".into());
+            return Err(tr!("desktop.edit.camera.net.headers_too_big"));
         }
         let l = line.trim_end();
         if l.is_empty() {
@@ -279,8 +278,12 @@ impl<R: BufRead> Read for Chunked<R> {
                 }
             }
             let size = line.split(';').next().unwrap_or("").trim();
-            let size = usize::from_str_radix(size, 16)
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "fragmento inválido"))?;
+            let size = usize::from_str_radix(size, 16).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    tr!("desktop.edit.camera.net.bad_chunk"),
+                )
+            })?;
             if size == 0 {
                 self.done = true;
                 return Ok(0);
@@ -327,24 +330,24 @@ fn read_first_jpeg<R: Read>(r: &mut R, started: Instant) -> Result<Vec<u8>, Stri
     let mut chunk = [0u8; 8192];
     loop {
         if started.elapsed() > TOTAL_TIMEOUT {
-            return Err("La cámara tardó demasiado en enviar un cuadro.".into());
+            return Err(tr!("desktop.edit.camera.net.frame_timeout"));
         }
         let n = r
             .read(&mut chunk)
-            .map_err(|e| format!("Se cortó la conexión con la cámara: {e}."))?;
+            .map_err(|e| tr!("desktop.edit.camera.net.connection_lost", err = e))?;
         if n == 0 {
             return extract_jpeg(&buf)
-                .ok_or_else(|| "La cámara cerró la conexión sin enviar un cuadro.".into());
+                .ok_or_else(|| tr!("desktop.edit.camera.net.closed_no_frame"));
         }
         buf.extend_from_slice(&chunk[..n]);
         if let Some(jpeg) = extract_jpeg(&buf) {
             return Ok(jpeg);
         }
         if buf.len() > MAX_FRAME_BYTES + 65_536 {
-            return Err("El cuadro de la cámara es demasiado grande.".into());
+            return Err(tr!("desktop.edit.camera.net.frame_too_big"));
         }
         if buf.len() > 65_536 && !buf.windows(3).any(|w| w == SOI) {
-            return Err("La cámara no está enviando imágenes JPEG.".into());
+            return Err(tr!("desktop.edit.camera.net.not_jpeg"));
         }
     }
 }
@@ -368,7 +371,7 @@ pub fn grab_network_frame(url: &str) -> Result<NetworkFrame, String> {
     let u = parse_http_url(url)?;
     let addrs = local_addresses(&u)?;
     let mut stream = connect(&addrs, &u.host)?;
-    let io = |e: io::Error| format!("La cámara no respondió: {e}.");
+    let io = |e: io::Error| tr!("desktop.edit.camera.net.no_response", err = e);
     stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(io)?;
     stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(io)?;
     stream.write_all(build_request(&u).as_bytes()).map_err(io)?;
@@ -379,18 +382,17 @@ pub fn grab_network_frame(url: &str) -> Result<NetworkFrame, String> {
         401 | 403 => {
             let digest = head.www_authenticate.starts_with("digest");
             return Err(if digest {
-                "La cámara pide autenticación Digest, que no se admite: usa Basic o una URL de snapshot sin clave.".into()
+                tr!("desktop.edit.camera.net.digest")
             } else if u.credentials.is_some() {
-                "La cámara rechazó el usuario o la clave.".into()
+                tr!("desktop.edit.camera.net.auth_rejected")
             } else {
-                "La cámara pide usuario y clave: ponlos en la URL (http://usuario:clave@host/...)."
-                    .into()
+                tr!("desktop.edit.camera.net.auth_required")
             });
         }
         301 | 302 | 303 | 307 | 308 => {
-            return Err("La cámara redirige a otra dirección; pon la URL final.".into());
+            return Err(tr!("desktop.edit.camera.net.redirect"));
         }
-        code => return Err(format!("La cámara respondió con el error {code}.")),
+        code => return Err(tr!("desktop.edit.camera.net.http_error", code = code)),
     }
     let bytes = if head.chunked {
         read_body(
@@ -409,11 +411,11 @@ pub fn grab_network_frame(url: &str) -> Result<NetworkFrame, String> {
     };
     let mime = sniff_mime(&bytes).ok_or_else(|| {
         let kind = if head.content_type.is_empty() {
-            "desconocido"
+            tr!("desktop.edit.camera.net.type_unknown")
         } else {
-            head.content_type.as_str()
+            head.content_type.clone()
         };
-        format!("La respuesta de la cámara no es una imagen (tipo {kind}).")
+        tr!("desktop.edit.camera.net.not_image", kind = kind)
     })?;
     Ok(NetworkFrame {
         mime: mime.into(),
@@ -432,12 +434,12 @@ fn read_body<R: Read>(r: &mut R, head: &Head, started: Instant) -> Result<Vec<u8
     let mut bytes = Vec::new();
     r.take(MAX_FRAME_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
-        .map_err(|e| format!("Se cortó la conexión con la cámara: {e}."))?;
+        .map_err(|e| tr!("desktop.edit.camera.net.connection_lost", err = e))?;
     if bytes.len() > MAX_FRAME_BYTES {
-        return Err("El cuadro de la cámara es demasiado grande.".into());
+        return Err(tr!("desktop.edit.camera.net.frame_too_big"));
     }
     if bytes.is_empty() {
-        return Err("La cámara respondió sin imagen.".into());
+        return Err(tr!("desktop.edit.camera.net.empty_body"));
     }
     Ok(bytes)
 }
@@ -447,5 +449,5 @@ fn read_body<R: Read>(r: &mut R, head: &Head, started: Instant) -> Result<Vec<u8
 pub async fn fetch_camera_frame(url: String) -> Result<NetworkFrame, String> {
     tauri::async_runtime::spawn_blocking(move || grab_network_frame(&url))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }

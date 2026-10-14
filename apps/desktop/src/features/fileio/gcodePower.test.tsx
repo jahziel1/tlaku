@@ -11,7 +11,7 @@ import { DEFAULT_IMPORT_OPTIONS } from './types';
 const s = () => useStore.getState();
 
 const ZERO_POWER =
-  'a.nc: el G-code no dibuja nada con el láser encendido: trae 3 avances G1/G2/G3 pero con potencia 0 (M3 S0, o sin una S mayor que 0). Fija una potencia al generarlo.';
+  '[gcode_zero_power] a.nc: el G-code no dibuja nada con el láser encendido: trae 3 avances G1/G2/G3 pero con potencia 0 (M3 S0, o sin una S mayor que 0). Fija una potencia al generarlo.';
 
 function io(over: Partial<FileioIo> = {}): FileioIo {
   return {
@@ -31,6 +31,11 @@ beforeEach(() => {
 describe('G-code con potencia 0 al importar', () => {
   it('reconoce el error del importador', () => {
     expect(isGcodeZeroPowerError(ZERO_POWER)).toBe(true);
+    // El texto cambia con el idioma del motor; el código no.
+    expect(isGcodeZeroPowerError('[gcode_zero_power] a.nc: the G-code draws nothing with the laser on: it has 3 G1/G2/G3 moves but with power 0')).toBe(true);
+    expect(isGcodeZeroPowerError(new Error(ZERO_POWER))).toBe(true);
+    // Sin código no se reconoce, aunque el texto se parezca.
+    expect(isGcodeZeroPowerError('a.nc: el G-code no dibuja nada con el láser encendido: trae 3 avances G1/G2/G3 pero con potencia 0')).toBe(false);
     expect(isGcodeZeroPowerError('a.nc: el G-code no dibuja nada con el láser encendido (se buscan G1)')).toBe(false);
   });
 

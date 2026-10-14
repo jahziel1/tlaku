@@ -1,6 +1,7 @@
 use tlaku_core::Bounds;
 use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
 use tlaku_doc::{DeviceProfile, JobPreview};
+use tlaku_i18n::tr;
 use tlaku_plan::Plan;
 
 /// Margen (mm) para no rechazar un diseño que toca el borde por error de redondeo.
@@ -95,8 +96,15 @@ pub fn check_device_bounds(job: &ComputedJob, device: &DeviceProfile) -> Result<
     check_area(job, device.bed, !device.rotary.enabled)
 }
 
+/// `true` si `err` es el error de «nada que producir» (diseño vacío, objetos ocultos o capas sin
+/// salida) que da `build`/`compute`; se reconoce por su código, no por el idioma.
+pub fn is_nothing_to_send(err: &str) -> bool {
+    tlaku_i18n::split_code(err).0 == Some("nothing_to_send")
+}
+
 fn check_area(job: &ComputedJob, bed: [f64; 2], check_y: bool) -> Result<(), String> {
     let mut problems = Vec::new();
+    let mut overflow = false;
     for (layer, block) in job.layers.iter().zip(&job.toolpath.blocks) {
         let bad_point = block
             .moves
@@ -104,10 +112,7 @@ fn check_area(job: &ComputedJob, bed: [f64; 2], check_y: bool) -> Result<(), Str
             .map(Move::to)
             .any(|p| !(p.x.is_finite() && p.y.is_finite()));
         if bad_point {
-            problems.push(format!(
-                "la capa {} tiene coordenadas que no son números",
-                layer.name
-            ));
+            problems.push(tr!("pipeline.job.bad_coordinates", name = layer.name));
             continue;
         }
         let Some(b) = layer.bounds else { continue };
@@ -115,23 +120,46 @@ fn check_area(job: &ComputedJob, bed: [f64; 2], check_y: bool) -> Result<(), Str
             || b.max.x > bed[0] + BED_EPS_MM
             || (check_y && (b.min.y < -BED_EPS_MM || b.max.y > bed[1] + BED_EPS_MM))
         {
-            let os = match layer.overscan_mm {
-                Some(mm) if mm > 0.0 => format!(" (incluye {mm:.2} mm de overscan)"),
-                _ => String::new(),
-            };
-            problems.push(format!(
-                "la capa {} ({}) se sale del área de trabajo de {}x{} mm: ocupa X de {:.2} a {:.2} mm, \
-                 Y de {:.2} a {:.2} mm{os}",
-                layer.name, layer.mode, bed[0], bed[1], b.min.x, b.max.x, b.min.y, b.max.y
-            ));
+            overflow = true;
+            let (x0, x1) = (format!("{:.2}", b.min.x), format!("{:.2}", b.max.x));
+            let (y0, y1) = (format!("{:.2}", b.min.y), format!("{:.2}", b.max.y));
+            problems.push(match layer.overscan_mm {
+                Some(mm) if mm > 0.0 => tr!(
+                    "pipeline.job.outside_bed_overscan",
+                    name = layer.name,
+                    mode = layer.mode,
+                    w = bed[0],
+                    h = bed[1],
+                    x0 = x0,
+                    x1 = x1,
+                    y0 = y0,
+                    y1 = y1,
+                    os = format!("{mm:.2}")
+                ),
+                _ => tr!(
+                    "pipeline.job.outside_bed",
+                    name = layer.name,
+                    mode = layer.mode,
+                    w = bed[0],
+                    h = bed[1],
+                    x0 = x0,
+                    x1 = x1,
+                    y0 = y0,
+                    y1 = y1
+                ),
+            });
         }
     }
     if problems.is_empty() {
         Ok(())
     } else {
-        problems.push(
-            "mueve el diseño dentro del área (o usa una máquina con más área de trabajo)".into(),
-        );
-        Err(problems.join("\n"))
+        problems.push(tr!("pipeline.job.move_inside"));
+        let text = problems.join("\n");
+        // Solo el desborde lleva código: la interfaz lo usa para sugerir mover el diseño.
+        Err(if overflow {
+            tlaku_i18n::coded("bed_overflow", text)
+        } else {
+            text
+        })
     }
 }

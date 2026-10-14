@@ -1,6 +1,7 @@
 //! Tiempos, solicitudes al hilo y el mando [`LhyHandle`].
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Tiempos
@@ -94,14 +95,14 @@ pub struct LhyHandle {
 impl LhyHandle {
     fn call<T>(&self, build: impl FnOnce(Reply<T>) -> Request) -> Result<T, String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         let (tx, rx) = mpsc::channel();
         self.tx
             .send(build(tx))
-            .map_err(|_| crate::machine::NOT_CONNECTED.to_string())?;
+            .map_err(|_| crate::machine::not_connected())?;
         rx.recv()
-            .map_err(|_| "Se perdió la conexión con la máquina.".to_string())?
+            .map_err(|_| tr!("desktop.machine.connection_lost"))?
     }
 
     pub fn is_closed(&self) -> bool {
@@ -121,7 +122,7 @@ impl LhyHandle {
     /// Falla si el hilo está ocupado: las órdenes de movimiento solo valen en reposo.
     fn ensure_free(&self) -> Result<(), String> {
         if self.shared.busy.load(Ordering::SeqCst) || self.job_running() {
-            Err("La máquina está ocupada (trabajo, home o encuadre en curso). Espera a que termine o detenla.".into())
+            Err(tr!("desktop.lhymicro.busy"))
         } else {
             Ok(())
         }
@@ -157,11 +158,7 @@ impl LhyHandle {
             || now.home != was.home
             || (now.max_speed_mm_s - was.max_speed_mm_s).abs() > 1e-9
         {
-            return Err(
-                "El perfil de la máquina cambió (placa, cama, origen o velocidad máxima) \
-                        desde que te conectaste. Desconecta y vuelve a conectar para aplicarlo."
-                    .into(),
-            );
+            return Err(tr!("desktop.lhymicro.profile_changed"));
         }
         Ok(())
     }
@@ -234,10 +231,10 @@ impl LhyHandle {
 
     pub fn pause(&self) -> Result<(), String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         if !self.job_running() {
-            return Err("No hay un trabajo en marcha que pausar.".into());
+            return Err(tr!("desktop.lhymicro.no_job_to_pause"));
         }
         self.shared.control.request_pause();
         match self.wait_job_state(LhyJobState::Paused) {
@@ -245,24 +242,24 @@ impl LhyHandle {
                 emit_job(
                     self.shared.sink.as_ref(),
                     JobState::Paused,
-                    "Trabajo en pausa (PN).",
+                    &tr!("desktop.lhymicro.job_paused"),
                     false,
                 );
                 Ok(())
             }
             Err(()) => {
                 self.shared.control.request_resume();
-                Err("La placa no confirmó la pausa a tiempo (o el trabajo ya terminó).".into())
+                Err(tr!("desktop.lhymicro.pause_unconfirmed"))
             }
         }
     }
 
     pub fn resume(&self) -> Result<(), String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         if self.shared.control.state() != LhyJobState::Paused {
-            return Err("El trabajo no está en pausa.".into());
+            return Err(tr!("desktop.lhymicro.not_paused"));
         }
         self.shared.control.request_resume();
         match self.wait_job_state(LhyJobState::Running) {
@@ -270,14 +267,12 @@ impl LhyHandle {
                 emit_job(
                     self.shared.sink.as_ref(),
                     JobState::Started,
-                    "Trabajo reanudado.",
+                    &tr!("desktop.lhymicro.job_resumed"),
                     false,
                 );
                 Ok(())
             }
-            Err(()) => Err(
-                "La placa no confirmó la reanudación a tiempo (o el trabajo ya terminó).".into(),
-            ),
+            Err(()) => Err(tr!("desktop.lhymicro.resume_unconfirmed")),
         }
     }
 
@@ -285,7 +280,7 @@ impl LhyHandle {
     /// pide: el resultado (y si la placa lo confirmó) llega como evento del trabajo.
     pub fn cancel(&self) -> Result<(), String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         self.shared.cancel.store(true, Ordering::SeqCst);
         if self.job_running() {

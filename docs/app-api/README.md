@@ -41,7 +41,7 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | [taller.md](taller.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [materiales.md](materiales.md) | `load_material_library`, `load_factory_materials`, `save_material_library`, `import_material_library`, `export_material_library`, `material_test` |
 | [maquinas.md](maquinas.md) | `device_defaults`, `rotary_test`, `probe_port`, `simulate_fault` |
-| [preferencias.md](preferencias.md) | `load_preferences`, `save_preferences`, `export_preferences`, `import_preferences`, `paths_exist`, `autosave_write`, `autosave_list`, `autosave_read`, `autosave_discard`, `list_templates`, `save_template`, `load_template`, `delete_template`, `new_window` |
+| [preferencias.md](preferencias.md) | `load_preferences`, `save_preferences`, `export_preferences`, `import_preferences`, `paths_exist`, `set_engine_locale`, `autosave_write`, `autosave_list`, `autosave_read`, `autosave_discard`, `list_templates`, `save_template`, `load_template`, `delete_template`, `new_window` |
 | [red.md](red.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [ruida.md](ruida.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [k40.md](k40.md) | `lhy_preview`, `lhy_home`, `lhy_state` |

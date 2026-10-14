@@ -1,7 +1,9 @@
 //! Avisos y errores del codificador.
 
 use crate::packet::FrameError;
+use crate::text;
 use std::fmt;
+use tlaku_i18n::tr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Warning {
@@ -31,31 +33,25 @@ pub enum Warning {
 impl fmt::Display for Warning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Warning::PowerIgnored { block, pct } => write!(
-                f,
-                "bloque {block}: la potencia de {pct:.0} % se ignora; la M2 Nano no la controla \
-                 por software (se ajusta en el panel o el potenciómetro de la máquina)"
-            ),
-            Warning::GrayThresholded { block } => write!(
-                f,
-                "bloque {block}: niveles de gris binarizados (cualquier potencia mayor que 0 \
-                 quema); usa un tramado para simular grises"
-            ),
-            Warning::AirAssistIgnored { block } => write!(
-                f,
-                "bloque {block}: la asistencia de aire no se controla desde la M2 Nano"
-            ),
-            Warning::ZIgnored { block } => {
-                write!(
-                    f,
-                    "bloque {block}: el eje Z no existe en la M2 Nano y se ignora"
-                )
+            Warning::PowerIgnored { block, pct } => f.write_str(&tr!(
+                "lhymicro.encode.power_ignored",
+                block = block,
+                pct = format!("{pct:.0}")
+            )),
+            Warning::GrayThresholded { block } => {
+                f.write_str(&tr!("lhymicro.encode.gray_thresholded", block = block))
             }
-            Warning::DwellSkipped { block, ms, fires } => write!(
-                f,
-                "bloque {block}: {} de {ms} ms omitida (la placa no hace pulsos en el sitio)",
-                if *fires { "pulso" } else { "pausa" }
-            ),
+            Warning::AirAssistIgnored { block } => {
+                f.write_str(&tr!("lhymicro.encode.air_ignored", block = block))
+            }
+            Warning::ZIgnored { block } => {
+                f.write_str(&tr!("lhymicro.encode.z_ignored", block = block))
+            }
+            Warning::DwellSkipped { block, ms, fires } => f.write_str(&if *fires {
+                tr!("lhymicro.encode.pulse_skipped", block = block, ms = ms)
+            } else {
+                tr!("lhymicro.encode.pause_skipped", block = block, ms = ms)
+            }),
         }
     }
 }
@@ -84,24 +80,36 @@ pub enum EncodeError {
 impl fmt::Display for EncodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            EncodeError::BadConfig(w) => write!(f, "configuración inválida: {w}"),
-            EncodeError::NonFinite { block, what } => {
-                write!(f, "bloque {block}: {what} no es un número finito")
+            EncodeError::BadConfig(w) => {
+                f.write_str(&tr!("lhymicro.encode.bad_config", what = text::what(w)))
             }
+            EncodeError::NonFinite { block, what } => f.write_str(&tr!(
+                "lhymicro.encode.non_finite",
+                block = block,
+                what = text::what(what)
+            )),
             EncodeError::OutOfBed {
                 block,
                 index,
                 x_mm,
                 y_mm,
-            } => write!(
-                f,
-                "bloque {block}, movimiento {index}: ({x_mm:.3}, {y_mm:.3}) mm queda fuera de la cama"
-            ),
+            } => f.write_str(&tr!(
+                "lhymicro.encode.out_of_bed",
+                block = block,
+                index = index,
+                x = format!("{x_mm:.3}"),
+                y = format!("{y_mm:.3}")
+            )),
             EncodeError::Speed {
                 block,
                 mm_s,
                 reason,
-            } => write!(f, "bloque {block}: velocidad {mm_s:.2} mm/s: {reason}"),
+            } => f.write_str(&tr!(
+                "lhymicro.encode.speed",
+                block = block,
+                mm_s = format!("{mm_s:.2}"),
+                reason = reason
+            )),
             EncodeError::Frame(e) => write!(f, "{e}"),
         }
     }

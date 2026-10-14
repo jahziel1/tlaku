@@ -40,6 +40,7 @@ use std::time::{Duration, Instant};
 use tlaku_core::Point;
 use tlaku_core::toolpath::Toolpath;
 use tlaku_doc::GalvoDevice;
+use tlaku_i18n::tr;
 
 /// Condición sobre las entradas que debe cumplirse antes de cada trabajo (enclavamiento).
 /// `(entradas & mask) == value`. Los bits de EMSTOP y alarmas no están documentados: el usuario
@@ -147,7 +148,7 @@ impl JobControl {
             .inner
             .adjust
             .lock()
-            .map_err(|_| "estado interno dañado".to_string())? = adjust;
+            .map_err(|_| tr!("galvo.session.poisoned"))? = adjust;
         Ok(self.inner.adjust_gen.fetch_add(1, Ordering::SeqCst) + 1)
     }
 
@@ -250,7 +251,7 @@ pub enum StopOutcome {
 pub enum SessionError {
     Transport(TransportError),
     Timeout {
-        what: &'static str,
+        what: String,
     },
     /// VID:PID que no es una tarjeta compatible.
     UnknownBoard {
@@ -278,33 +279,44 @@ impl fmt::Display for SessionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SessionError::Transport(e) => write!(f, "{e}"),
-            SessionError::Timeout { what } => write!(f, "tiempo de espera agotado: {what}"),
+            SessionError::Timeout { what } => {
+                write!(f, "{}", tr!("galvo.session.timeout", what = what))
+            }
             SessionError::UnknownBoard {
                 vendor_id,
                 product_id,
                 why,
             } => write!(
                 f,
-                "tarjeta {vendor_id:04X}:{product_id:04X} no compatible: {why}"
+                "{}",
+                tr!(
+                    "galvo.session.unknown_board",
+                    ids = format!("{vendor_id:04X}:{product_id:04X}"),
+                    why = why
+                )
             ),
-            SessionError::Busy => write!(f, "la tarjeta está ocupada con otro trabajo"),
-            SessionError::Cancelled => write!(f, "cancelado"),
+            SessionError::Busy => write!(f, "{}", tr!("galvo.session.busy")),
+            SessionError::Cancelled => write!(f, "{}", tr!("galvo.session.cancelled")),
             SessionError::Compile(e) => write!(f, "{e}"),
             SessionError::Safety(e) => write!(f, "{e}"),
-            SessionError::BadReply(w) => write!(f, "respuesta inesperada de la tarjeta: {w}"),
+            SessionError::BadReply(w) => write!(f, "{}", tr!("galvo.session.bad_reply", what = w)),
             SessionError::InterlockOpen {
                 inputs,
                 mask,
                 value,
             } => write!(
                 f,
-                "el enclavamiento no está cerrado: entradas {inputs:#06x}, se exigía \
-                 (entradas & {mask:#06x}) == {value:#06x}"
+                "{}",
+                tr!(
+                    "galvo.session.interlock_open",
+                    inputs = format!("{inputs:#06x}"),
+                    mask = format!("{mask:#06x}"),
+                    value = format!("{value:#06x}")
+                )
             ),
-            SessionError::ShutdownUnconfirmed => write!(
-                f,
-                "el trabajo terminó pero no se pudo confirmar el apagado de la fuente"
-            ),
+            SessionError::ShutdownUnconfirmed => {
+                write!(f, "{}", tr!("galvo.session.shutdown_unconfirmed"))
+            }
         }
     }
 }
@@ -329,6 +341,10 @@ impl From<SafetyError> for SessionError {
     }
 }
 
+/// Código estable de un trabajo que terminó sin confirmar el apagado de la fuente (ver
+/// [`JobError::code`]).
+pub const STOP_UNCONFIRMED_CODE: &str = "galvo_stop_unconfirmed";
+
 /// El trabajo falló, se detuvo o terminó sin poder confirmar el apagado.
 #[derive(Debug)]
 pub struct JobError {
@@ -343,24 +359,40 @@ impl JobError {
     pub fn laser_may_be_on(&self) -> bool {
         self.stop == StopOutcome::Unconfirmed
     }
+
+    /// Código estable de este error para la interfaz, que no debe reconocerlo por su texto (cambia
+    /// con el idioma): [`STOP_UNCONFIRMED_CODE`] si el apagado no se confirmó. Se antepone con
+    /// `tlaku_i18n::coded`.
+    pub fn code(&self) -> Option<&'static str> {
+        self.laser_may_be_on().then_some(STOP_UNCONFIRMED_CODE)
+    }
 }
 
 impl fmt::Display for JobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} (tandas enviadas: {} de {})",
-            self.cause, self.batches_sent, self.batches_total
-        )?;
-        match self.stop {
-            StopOutcome::NotNeeded => write!(f, ". No se tocó la tarjeta"),
-            StopOutcome::Acked => write!(f, ". Se apagó la fuente y se vació la lista"),
-            StopOutcome::Unconfirmed => write!(
-                f,
-                ". Se intentó apagar la fuente pero NO hubo confirmación: puede seguir \
-                 habilitada. Abre la tapa o usa el paro de emergencia"
+        let cause = self.cause.to_string();
+        let (sent, total) = (self.batches_sent, self.batches_total);
+        let text = match self.stop {
+            StopOutcome::NotNeeded => tr!(
+                "galvo.session.job_not_touched",
+                cause = cause,
+                sent = sent,
+                total = total
             ),
-        }
+            StopOutcome::Acked => tr!(
+                "galvo.session.job_stopped",
+                cause = cause,
+                sent = sent,
+                total = total
+            ),
+            StopOutcome::Unconfirmed => tr!(
+                "galvo.session.job_unconfirmed",
+                cause = cause,
+                sent = sent,
+                total = total
+            ),
+        };
+        write!(f, "{text}")
     }
 }
 
@@ -417,7 +449,7 @@ impl<T: Transport> GalvoSession<T> {
                     vendor_id: info.vendor_id,
                     product_id: info.product_id,
                     why: match k.support {
-                        Support::Rejected(w) => w.to_string(),
+                        Support::Rejected(w) => w.message(),
                         Support::Supported => String::new(),
                     },
                 });
@@ -426,7 +458,7 @@ impl<T: Transport> GalvoSession<T> {
                 return Err(SessionError::UnknownBoard {
                     vendor_id: info.vendor_id,
                     product_id: info.product_id,
-                    why: "VID:PID desconocido".into(),
+                    why: tr!("galvo.transport.unknown_ids"),
                 });
             }
         }
@@ -524,20 +556,16 @@ impl<T: Transport> GalvoSession<T> {
         let inputs = self.read_inputs()?;
         let transport = self.t()?.info();
         let mut notes = vec![
-            "EXPERIMENTAL: el protocolo no está verificado con hardware propio.".to_string(),
-            "Tlaku no inicializa la tarjeta ni escribe su tabla de corrección: la corrección de \
-             campo se hace en el anfitrión y supone la tabla de la tarjeta en identidad."
-                .to_string(),
-            "Los bits de EMSTOP y alarmas de la fuente no están documentados: el software no \
-             puede comprobar el enclavamiento salvo con --require-input."
-                .to_string(),
+            tr!("galvo.session.note_experimental"),
+            tr!("galvo.session.note_no_init"),
+            tr!("galvo.session.note_interlock_bits"),
         ];
         if transport.emulated {
-            notes.push("Tarjeta SIMULADA: no hay hardware detrás.".into());
+            notes.push(tr!("galvo.session.note_simulated"));
         }
         Ok(BoardInfo {
             board_name: transport::identify(transport.vendor_id, transport.product_id)
-                .map_or_else(|| "desconocida".into(), |k| k.name.to_string()),
+                .map_or_else(|| tr!("galvo.usb.unknown_board"), |k| k.display_name()),
             transport,
             serial,
             version,
@@ -623,7 +651,7 @@ impl<T: Transport> GalvoSession<T> {
         &mut self,
         ctl: &JobControl,
         timeout: Duration,
-        what: &'static str,
+        what: String,
         done: impl Fn(&BoardStatus) -> bool,
     ) -> Result<BoardStatus, SessionError> {
         let start = Instant::now();
@@ -646,13 +674,13 @@ impl<T: Transport> GalvoSession<T> {
 
     fn wait_ready(&mut self, ctl: &JobControl) -> Result<(), SessionError> {
         let t = self.cfg.ready_timeout;
-        self.wait_status(ctl, t, "la tarjeta lista para otra tanda", |s| s.ready)
+        self.wait_status(ctl, t, tr!("galvo.session.wait_ready"), |s| s.ready)
             .map(|_| ())
     }
 
     fn wait_idle(&mut self, ctl: &JobControl, est_s: f64) -> Result<(), SessionError> {
         let t = Duration::try_from_secs_f64(est_s * 3.0 + 30.0).unwrap_or(Duration::from_secs(600));
-        self.wait_status(ctl, t, "el fin de la ejecución", |s| !s.busy)
+        self.wait_status(ctl, t, tr!("galvo.session.wait_idle"), |s| !s.busy)
             .map(|_| ())
     }
 
@@ -730,7 +758,7 @@ impl<T: Transport> GalvoSession<T> {
             return Err(self.early(
                 SafetyError::ImmediateRefused {
                     name: "send_job",
-                    why: "un encuadre se manda con frame o light",
+                    why: tr!("galvo.safety.refuse_use_frame"),
                 }
                 .into(),
             ));

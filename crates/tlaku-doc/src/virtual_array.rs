@@ -6,6 +6,7 @@ use crate::affine::{self, Transform};
 use crate::cut::VirtualArray;
 use crate::document::{DesignObject, union};
 use tlaku_core::{Bounds, Point};
+use tlaku_i18n::tr;
 
 /// Tope de copias virtuales por objeto (el mismo que el de los arreglos reales de la interfaz).
 pub const MAX_VIRTUAL_COPIES: usize = 2000;
@@ -28,22 +29,20 @@ impl DesignObject {
         let Some(array) = &self.array else {
             return Ok(Vec::new());
         };
-        let bad = |what: &str| {
-            Err(format!(
-                "objeto '{}': arreglo virtual inválido ({what})",
-                self.id
-            ))
-        };
         match *array {
             VirtualArray::Grid { cols, rows, dx, dy } => {
                 if cols == 0 || rows == 0 {
-                    return bad("columnas y filas deben ser al menos 1");
+                    return Err(tr!("doc.virtual_array.grid_size", id = self.id));
                 }
                 if !(dx.is_finite() && dy.is_finite()) {
-                    return bad("separación no numérica");
+                    return Err(tr!("doc.virtual_array.grid_gap", id = self.id));
                 }
                 if (cols as usize).saturating_mul(rows as usize) > MAX_VIRTUAL_COPIES {
-                    return bad(&format!("más de {MAX_VIRTUAL_COPIES} piezas"));
+                    return Err(tr!(
+                        "doc.virtual_array.too_many",
+                        id = self.id,
+                        max = MAX_VIRTUAL_COPIES
+                    ));
                 }
                 let Some(b) = self.bounds() else {
                     return Ok(Vec::new());
@@ -66,13 +65,17 @@ impl DesignObject {
                 rotate,
             } => {
                 if count == 0 {
-                    return bad("al menos una pieza");
+                    return Err(tr!("doc.virtual_array.circular_count", id = self.id));
                 }
                 if !(center.iter().all(|v| v.is_finite()) && sweep_deg.is_finite()) {
-                    return bad("centro o ángulo no numéricos");
+                    return Err(tr!("doc.virtual_array.circular_center", id = self.id));
                 }
                 if count as usize > MAX_VIRTUAL_COPIES {
-                    return bad(&format!("más de {MAX_VIRTUAL_COPIES} piezas"));
+                    return Err(tr!(
+                        "doc.virtual_array.too_many",
+                        id = self.id,
+                        max = MAX_VIRTUAL_COPIES
+                    ));
                 }
                 let Some(b) = self.bounds() else {
                     return Ok(Vec::new());

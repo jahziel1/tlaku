@@ -10,6 +10,10 @@ tres sistemas y los deja en un **borrador** de GitHub Release; tú lo revisas y 
 | Windows | `.exe` (NSIS) y `.msi` | `windows-latest` |
 | Linux | `.AppImage` y `.deb` | `ubuntu-22.04` |
 
+**Primera vez:** el proyecto todavía no tiene repositorio público, cuentas de donación, llaves ni
+certificados. La [lista de pasos para publicar](#pasos-para-publicar-lo-que-tienes-que-hacer-tú) al
+final de este archivo dice qué hacer y en qué orden; todo lo demás ya está preparado.
+
 La firma de código es **opcional**: sin secretos, el flujo publica instaladores sin firmar y no
 falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-el-usuario-si-no-hay-firma)).
 
@@ -89,8 +93,8 @@ Actions > New repository secret). El flujo detecta qué hay y firma solo lo que 
 | `APPLE_TEAM_ID` | macOS | notarizar | Identificador de equipo de 10 caracteres |
 | `WINDOWS_CERTIFICATE` | Windows | firmar | Certificado de firma de código `.pfx`, en base64 |
 | `WINDOWS_CERTIFICATE_PASSWORD` | Windows | firmar | Contraseña del `.pfx` |
-| `TAURI_SIGNING_PRIVATE_KEY` | todas | actualizaciones (desactivadas) | Llave privada del actualizador |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | todas | actualizaciones (desactivadas) | Su contraseña |
+| `TAURI_SIGNING_PRIVATE_KEY` | todas | actualizaciones | Contenido de la llave privada del actualizador (`tlaku.key`) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | todas | actualizaciones | Su contraseña |
 
 `GITHUB_TOKEN` lo pone GitHub; no hay que crearlo.
 
@@ -165,12 +169,29 @@ El paquete `.deb` declara dependencia de `libudev1` (que necesita la biblioteca 
 las bibliotecas de WebKitGTK las detecta Tauri solo. El `.deb` no modifica grupos del usuario a
 propósito: añadir a alguien a `dialout` es una decisión suya, por eso se documenta.
 
-## Actualizaciones automáticas (preparadas, no activadas)
+## Actualizaciones automáticas
 
-Hoy la app **no** se actualiza sola. Estos son los pasos para activarlo cuando se decida; ninguno
-está aplicado en el código ni en la configuración. Ojo: esta firma es **distinta** de la firma del
-sistema operativo; el actualizador exige la suya aunque la app no esté firmada por Apple o
-Microsoft.
+**Qué hay en el código (ya integrado):**
+
+- `tauri-plugin-updater` y `tauri-plugin-process` (ambos MIT o Apache-2.0, comprobado con
+  `cargo deny check licenses sources`) y sus equivalentes de npm.
+- Menú **Ayuda > Buscar actualizaciones…** y la preferencia **Buscar actualizaciones al iniciar**
+  (Preferencias > General, **apagada de fábrica**; ni siquiera se importa desde un `.tlakuprefs`).
+  Si hay una versión nueva, un diálogo muestra la versión y sus notas con los botones **Descargar e
+  instalar** y **Ahora no**; tras instalar ofrece **Reiniciar ahora**. No instala con un trabajo en
+  curso en la máquina. La descarga se verifica con la firma del proyecto.
+- **Sin llave configurada no pasa nada malo:** `tauri.conf.json` trae `plugins.updater` con `pubkey`
+  y `endpoints` vacíos y `bundle.createUpdaterArtifacts: false`. En esa compilación el actualizador
+  ni siquiera se registra (`src-tauri/src/updater.rs`: el plugin exige `pubkey` y fallaría al
+  arrancar) y el menú responde «Las actualizaciones automáticas no están configuradas en esta
+  compilación». Interfaz: `features/help/updater.ts` y `UpdateDialog` en `HelpDialogs.tsx`. Permisos
+  en `capabilities/default.json` (`updater:default`, `process:allow-restart`).
+- `release.yml` ya pasa `TAURI_SIGNING_PRIVATE_KEY` y su contraseña al empaquetador; mientras
+  `createUpdaterArtifacts` esté en `false` los ignora, así que la compilación local y la CI no exigen
+  la llave.
+
+**Para activarlo** (la firma es **distinta** de la del sistema operativo: el actualizador exige la
+suya aunque la app no esté firmada por Apple o Microsoft):
 
 1. **Generar las llaves** (una sola vez, desde `apps/desktop`):
 
@@ -179,73 +200,111 @@ Microsoft.
    ```
 
    Crea `tlaku.key` (privada) y `tlaku.key.pub` (pública), y pide una contraseña. **Guarda la
-   privada y la contraseña fuera del repositorio** (gestor de contraseñas). Si se pierden, las
-   instalaciones existentes ya no podrán actualizarse, solo reinstalarse a mano.
+   privada y la contraseña fuera del repositorio** (gestor de contraseñas); nunca las subas. Si se
+   pierden, las instalaciones existentes ya no podrán actualizarse, solo reinstalarse a mano.
 
-2. **Secretos de GitHub**: `TAURI_SIGNING_PRIVATE_KEY` (el contenido del archivo `tlaku.key`) y
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. En `release.yml`, descomenta las dos líneas que los pasan
-   al paso "Compilar y empaquetar".
+2. **Secretos de GitHub**: `TAURI_SIGNING_PRIVATE_KEY` (el contenido de `tlaku.key`) y
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
-3. **`apps/desktop/src-tauri/tauri.conf.json`**: activar los artefactos de actualización y la
-   llave pública (contenido de `tlaku.key.pub`):
+3. **Llenar la configuración** con el script (pública, no la privada; el script se niega a usar una
+   llave privada):
 
-   ```json
-   {
-     "bundle": { "createUpdaterArtifacts": true },
-     "plugins": {
-       "updater": {
-         "pubkey": "CONTENIDO DE tlaku.key.pub",
-         "endpoints": [
-           "https://github.com/<organización>/<repositorio>/releases/latest/download/latest.json"
-         ],
-         "windows": { "installMode": "passive" }
-       }
-     }
-   }
+   ```sh
+   scripts/configure-updater.sh https://github.com/<organización>/<repositorio> ~/.tauri/tlaku.key.pub
    ```
 
-   Con esto, `tauri-action` genera y sube `latest.json` con cada Release. El enlace `latest`
-   solo funciona con la Release **publicada** (los borradores no cuentan). Mientras
-   `createUpdaterArtifacts` esté activo, la compilación exige `TAURI_SIGNING_PRIVATE_KEY`.
+   Escribe `plugins.updater.pubkey`, el endpoint `<repo>/releases/latest/download/latest.json` y
+   activa `bundle.createUpdaterArtifacts`. Confirma el cambio con `git diff` y súbelo. Desde aquí la
+   compilación **exige** `TAURI_SIGNING_PRIVATE_KEY` (por eso viene apagado). Para volver a la
+   plantilla: `scripts/configure-updater.sh --desactivar`.
 
-4. **`apps/desktop/src-tauri/Cargo.toml`**:
+   El enlace `latest` solo funciona con la Release **publicada** (los borradores no cuentan) y
+   **no incluye pre-lanzamientos**: una beta (`-beta.1`) no se ofrece como actualización. Al publicar
+   la primera versión estable se activa de verdad el canal.
 
-   ```toml
-   [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-   tauri-plugin-updater = "2"
-   tauri-plugin-process = "2"   # opcional, para reiniciar tras instalar
-   ```
+4. **Probar con dos versiones consecutivas** antes de anunciarlo: instala la anterior, publica la
+   siguiente y comprueba Ayuda > Buscar actualizaciones….
 
-   Ambos son MIT o Apache-2.0; confirma con `cargo deny check licenses sources`.
+## Sitio web y donaciones
 
-5. **`apps/desktop/src-tauri/src/lib.rs`**, al construir la aplicación:
+- **Sitio** (`site/`): HTML y CSS estáticos, sin framework ni recursos externos, en español
+  (`site/index.html`) y en inglés (`site/en/index.html`). Muestra qué es Tlaku, capturas, funciones,
+  máquinas y su estado, descargas, manual, donaciones y licencia. Los textos dicen lo que hay: lo que
+  no se ha probado con hardware se dice claramente.
+- **Marcadores:** `{{REPO_URL}}`, `{{SPONSORS_URL}}` y `{{KOFI_URL}}`. Se llenan desde
+  `site/config.json`:
 
-   ```rust
-   tauri::Builder::default()
-       // ...plugins existentes...
-       .setup(|app| {
-           #[cfg(desktop)]
-           app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
-           Ok(())
-       })
-   ```
+  ```sh
+  node scripts/build-site.mjs                  # construye site-dist/ (gitignorado)
+  node scripts/build-site.mjs --readme         # además llena los marcadores del README
+  python3 -m http.server -d site-dist 8000     # para verlo en local
+  ```
 
-   (Si ya hay un `.setup`, añade ahí la línea con `#[cfg(desktop)]`.)
+  Un valor vacío oculta su botón o enlace y muestra «aún no hay…». El script copia las capturas de
+  `apps/desktop/docs/screenshots/` y falla si un marcador o una captura no existe.
+- **GitHub Pages:** `.github/workflows/pages.yml` publica el sitio al empujar a `main`, pero está
+  inactivo hasta crear la variable de repositorio `PAGES_ENABLED=true` (paso 6 de la lista de abajo).
+- **Donaciones:** `.github/FUNDING.yml` (botón Sponsor del repositorio; líneas comentadas), sección
+  «Apoyar el proyecto» del README y Ayuda > «Donar al proyecto…» en la app. Los enlaces de la app
+  viven en `apps/desktop/src/features/help/links.ts` (`PROJECT_LINKS`, vacíos por omisión): sin
+  ellos, el diálogo dice que el proyecto aún no tiene cuentas de donación.
 
-6. **Permisos**: en `apps/desktop/src-tauri/capabilities/default.json` añade `"updater:default"`
-   (y `"process:allow-restart"` si usas el plugin `process`).
+## CI
 
-7. **Interfaz**: `npm install @tauri-apps/plugin-updater` en `apps/desktop` (y
-   `@tauri-apps/plugin-process` si hace falta) y llamar a `check()` / `downloadAndInstall()` desde
-   un comando de menú o un aviso; ver la documentación oficial del actualizador de Tauri.
+`.github/workflows/ci.yml` corre en cada push a `main` y en cada pull request:
 
-8. Probar con dos versiones consecutivas antes de anunciarlo.
+| Trabajo | Qué comprueba |
+|---|---|
+| Rust (Linux, macOS, Windows) | `cargo fmt --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features` |
+| cargo-deny | `cargo deny check licenses sources` |
+| Interfaz | `tsc --noEmit`, `eslint`, `vitest run` y la tabla de atajos del README |
+| Prueba de humo (Linux) | arranca la app Tauri real bajo Xvfb (`apps/desktop/scripts/smoke-tauri.sh`) |
+| Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos) |
+
+Tauri exige que exista `apps/desktop/dist`; en los trabajos de Rust se crea una página vacía de
+relleno y en la prueba de humo se compila la interfaz real. Los flujos no se pueden ejecutar fuera de
+GitHub: se validaron con `actionlint` y ejecutando cada comando en local; la primera ejecución real
+puede revelar ajustes (por ejemplo, paquetes de apt).
+
+## Pasos para publicar: lo que tienes que hacer tú
+
+Todo lo siguiente necesita algo que solo tú tienes (cuentas, llaves, dinero). Hazlo en este orden;
+cada paso indica el archivo donde va el valor.
+
+1. **Crear el repositorio** en GitHub (público) y subir el código. Elige organización y nombre; con
+   eso tienes `<url>` = `https://github.com/<organización>/<repositorio>`.
+2. **Poner la URL en el proyecto:**
+   - `homepage = "<url>"` en `[workspace.package]` de `Cargo.toml` (Tauri la usa en el `.deb`).
+   - `repo` e `issues` (`<url>/issues`) en `apps/desktop/src/features/help/links.ts`.
+   - `REPO_URL` en `site/config.json`.
+   - En el README, la dirección del reporte de problemas (busca «PENDIENTE») y el `git clone`.
+3. **Generar las llaves del actualizador** y cargar los secretos (sección
+   [Actualizaciones automáticas](#actualizaciones-automáticas)): `npx tauri signer generate -w
+   ~/.tauri/tlaku.key`; secretos `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`;
+   luego `scripts/configure-updater.sh <url> ~/.tauri/tlaku.key.pub` y sube el cambio de
+   `tauri.conf.json`. Guarda la llave privada fuera del repositorio.
+4. **Configurar las donaciones** (opcional, cuando las tengas): abre GitHub Sponsors y/o Ko-fi;
+   llena `SPONSORS_URL` y `KOFI_URL` en `site/config.json`, `sponsors` y `kofi` en `links.ts` y
+   descomenta las líneas de `.github/FUNDING.yml`. Después `node scripts/build-site.mjs --readme`
+   llena la sección «Apoyar el proyecto» del README.
+5. **Certificados de firma** (opcional; sin ellos los instaladores salen sin firmar y funcionan con
+   advertencias): Apple Developer Program para macOS y un certificado de firma de código (o SignPath)
+   para Windows; los secretos y su formato están en [Firma de código](#firma-de-código).
+6. **Activar el sitio:** Settings > Pages > Source: "GitHub Actions" y, en Settings > Secrets and
+   variables > Actions > Variables, crear `PAGES_ENABLED` = `true`. Empuja a `main` (o lanza el flujo
+   "Sitio" a mano).
+7. **Comprobar la CI:** empuja a `main` y revisa que los cinco trabajos de CI pasen; corrige lo que
+   salga en la primera ejecución real.
+8. **Primera beta:** sube la versión (`0.x.0-beta.1`, en los tres lugares de
+   [Sacar una versión](#sacar-una-versión); recuerda que el `.msi` solo admite sufijos numéricos, así
+   que para probar Windows usa `0.x.0-1`), etiqueta `v0.x.0-beta.1`, empuja la etiqueta, revisa el
+   borrador en Releases, prueba un instalador y publícalo (se marca como pre-lanzamiento).
+9. **Avisar:** con la Release publicada, el enlace «Última versión en GitHub» del sitio ya apunta a
+   algo real. Antes de anunciarlo, repite el recordatorio del README: ninguna función de máquina se ha
+   probado con un láser real.
 
 ## Pendiente de decidir
 
-- **Página del proyecto.** `bundle` no declara `homepage` porque el repositorio no tiene URL
-  pública definida. Cuando exista, añade `homepage` en `[workspace.package]` de `Cargo.toml`
-  (Tauri la usa en el `.deb`) y en el README.
 - **Certificados.** Hasta que se compren, los instaladores de macOS y Windows se publican sin
   firmar. El programa de [SignPath Foundation](https://signpath.org/) (firma gratuita para
   proyectos libres) es una alternativa a evaluar para Windows.

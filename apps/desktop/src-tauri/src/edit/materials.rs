@@ -14,6 +14,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
+use tlaku_i18n::tr;
 use tlaku_pipeline::doc::{
     Document, MATERIAL_LIBRARY_VERSION, MaterialLibrary, MaterialTestParams, factory_library,
 };
@@ -24,14 +25,10 @@ const LIBRARY_FILE: &str = "materials.json";
 /// Copia instalada de la biblioteca de fábrica (aparte de la del usuario).
 const FACTORY_FILE: &str = "materials-factory.json";
 
-fn blocking_error(e: tauri::Error) -> String {
-    format!("La tarea se interrumpió: {e}")
-}
-
 fn config_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_config_dir()
-        .map_err(|e| format!("No se encontró la carpeta de configuración: {e}"))
+        .map_err(crate::edit::config_dir_missing)
 }
 
 pub fn library_file(config_dir: &Path) -> PathBuf {
@@ -69,7 +66,7 @@ pub fn sync_factory(config_dir: &Path) -> Result<(MaterialLibrary, FactorySync),
         return Ok((bundled, FactorySync::UpToDate));
     }
     let result = serde_json::to_string(&bundled)
-        .map_err(|e| format!("No se pudo serializar la biblioteca de fábrica: {e}"))
+        .map_err(|e| tr!("desktop.edit.materials.serialize_factory_failed", err = e))
         .and_then(|json| {
             fs::create_dir_all(config_dir).map_err(|e| format!("{}: {e}", config_dir.display()))?;
             write_atomic(&file, &json)
@@ -86,22 +83,22 @@ pub fn sync_factory(config_dir: &Path) -> Result<(MaterialLibrary, FactorySync),
 /// con archivos de otra versión de la app) y después los datos.
 pub fn parse_library(text: &str) -> Result<MaterialLibrary, String> {
     let value: serde_json::Value = serde_json::from_str(text)
-        .map_err(|e| format!("Biblioteca de materiales inválida: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.materials.invalid_library", err = e))?;
     match value.get("version").map(|v| v.as_u64()) {
         None => {
-            return Err("Biblioteca de materiales inválida: falta el campo \"version\".".into());
+            return Err(tr!("desktop.edit.materials.missing_version"));
         }
         Some(Some(v)) if v == u64::from(MATERIAL_LIBRARY_VERSION) => {}
         Some(_) => {
-            return Err(format!(
-                "Versión de biblioteca no soportada: {} (esta aplicación entiende la \
-                 {MATERIAL_LIBRARY_VERSION}); actualiza la aplicación para abrirla.",
-                value["version"]
+            return Err(tr!(
+                "desktop.edit.materials.unsupported_version_app",
+                version = value["version"],
+                current = MATERIAL_LIBRARY_VERSION
             ));
         }
     }
     let library: MaterialLibrary = serde_json::from_value(value)
-        .map_err(|e| format!("Biblioteca de materiales inválida: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.materials.invalid_library", err = e))?;
     check_library(&library)?;
     Ok(library)
 }
@@ -109,26 +106,29 @@ pub fn parse_library(text: &str) -> Result<MaterialLibrary, String> {
 /// Comprueba lo que el formato no garantiza: ids no vacíos y únicos, material con nombre.
 pub fn check_library(library: &MaterialLibrary) -> Result<(), String> {
     if library.version != MATERIAL_LIBRARY_VERSION {
-        return Err(format!(
-            "Versión de biblioteca no soportada: {}.",
-            library.version
+        return Err(tr!(
+            "desktop.edit.materials.unsupported_version",
+            version = library.version
         ));
     }
     let mut seen = HashSet::new();
     for (i, p) in library.presets.iter().enumerate() {
         if p.id.trim().is_empty() {
-            return Err(format!("El ajuste {} no tiene identificador.", i + 1));
+            return Err(tr!("desktop.edit.materials.preset_no_id", n = i + 1));
         }
         if !seen.insert(p.id.as_str()) {
-            return Err(format!("El identificador \"{}\" está repetido.", p.id));
+            return Err(tr!("desktop.edit.materials.duplicate_id", id = p.id));
         }
         if p.material.trim().is_empty() {
-            return Err(format!("El ajuste \"{}\" no tiene material.", p.id));
+            return Err(tr!("desktop.edit.materials.no_material", id = p.id));
         }
         if let Some(t) = p.thickness
             && (!t.is_finite() || t < 0.0)
         {
-            return Err(format!("El grosor de \"{}\" no es válido.", p.material));
+            return Err(tr!(
+                "desktop.edit.materials.bad_thickness",
+                material = p.material
+            ));
         }
     }
     Ok(())
@@ -148,7 +148,7 @@ pub fn load_library(config_dir: &Path) -> Result<MaterialLibrary, String> {
     };
     match parse_library(&text) {
         Ok(library) => Ok(library),
-        Err(e) if e.starts_with("Versión de biblioteca no soportada") => Err(e),
+        Err(e) if tlaku_i18n::msg_is(&e, "desktop.edit.materials.unsupported_version") => Err(e),
         Err(_) => {
             let aside = file.with_file_name(format!("{LIBRARY_FILE}.dañado"));
             let _ = fs::rename(&file, &aside);
@@ -159,7 +159,7 @@ pub fn load_library(config_dir: &Path) -> Result<MaterialLibrary, String> {
 
 fn to_json(library: &MaterialLibrary) -> Result<String, String> {
     serde_json::to_string_pretty(library)
-        .map_err(|e| format!("No se pudo serializar la biblioteca de materiales: {e}"))
+        .map_err(|e| tr!("desktop.edit.materials.serialize_failed", err = e))
 }
 
 /// Valida y guarda la biblioteca del usuario con escritura atómica.
@@ -187,7 +187,7 @@ pub async fn load_material_library(app: AppHandle) -> Result<MaterialLibrary, St
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || load_library(&dir))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 /// Biblioteca de fábrica de esta versión (solo lectura): instala o actualiza su copia y la devuelve.
@@ -197,7 +197,7 @@ pub async fn load_factory_materials(app: AppHandle) -> Result<MaterialLibrary, S
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || sync_factory(&dir).map(|(library, _)| library))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command]
@@ -205,7 +205,7 @@ pub async fn save_material_library(app: AppHandle, library: MaterialLibrary) -> 
     let dir = config_dir(&app)?;
     tauri::async_runtime::spawn_blocking(move || store_library(&dir, &library))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 /// Lee un archivo de biblioteca (`.tlakumat`) elegido por el usuario.
@@ -213,21 +213,21 @@ pub async fn save_material_library(app: AppHandle, library: MaterialLibrary) -> 
 pub async fn import_material_library(path: String) -> Result<MaterialLibrary, String> {
     tauri::async_runtime::spawn_blocking(move || read_library_file(Path::new(&path)))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command]
 pub async fn export_material_library(path: String, library: MaterialLibrary) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || write_library_file(Path::new(&path), &library))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command]
 pub async fn material_test(params: MaterialTestParams) -> Result<Document, String> {
     tauri::async_runtime::spawn_blocking(move || tlaku_pipeline::material_test(&params))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

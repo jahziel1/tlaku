@@ -17,7 +17,7 @@
 //! `automation://start`.
 
 use crate::commands::AppState;
-use crate::machine::NOT_CONNECTED;
+use crate::machine::not_connected;
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
@@ -28,6 +28,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tlaku_doc::{MachineState, StatusReport};
+use tlaku_i18n::tr;
 
 /// Primer puerto aceptado: por debajo de 1024 hacen falta privilegios.
 pub const MIN_PORT: u16 = 1024;
@@ -74,7 +75,7 @@ pub fn execute(line: &str, backend: &dyn Backend, allow_start: bool) -> String {
             ),
         },
         "STOP" => match backend.machine() {
-            None => err("not_connected", NOT_CONNECTED),
+            None => err("not_connected", &not_connected()),
             Some(_) => match backend.stop() {
                 Ok(()) => "OK".into(),
                 Err(e) => err("failed", &e),
@@ -82,10 +83,10 @@ pub fn execute(line: &str, backend: &dyn Backend, allow_start: bool) -> String {
         },
         "LOAD" => load(rest, backend),
         "START" => start(backend, allow_start),
-        "" => err("empty", "Comando vacío."),
+        "" => err("empty", &tr!("desktop.automation.empty")),
         _ => err(
             "unknown_command",
-            "Comando desconocido. Disponibles: PING, LOAD <ruta>, START, STATUS, STOP.",
+            &tr!("desktop.automation.unknown_command"),
         ),
     }
 }
@@ -96,17 +97,20 @@ fn err(code: &str, text: &str) -> String {
 
 fn load(path: &str, backend: &dyn Backend) -> String {
     if path.is_empty() {
-        return err("bad_argument", "Falta la ruta: LOAD <ruta absoluta>.");
+        return err("bad_argument", &tr!("desktop.automation.load_missing_path"));
     }
     if path.chars().any(char::is_control) {
-        return err("bad_argument", "La ruta tiene caracteres de control.");
+        return err(
+            "bad_argument",
+            &tr!("desktop.automation.path_control_chars"),
+        );
     }
     let p = Path::new(path);
     if !p.is_absolute() {
-        return err("bad_argument", "La ruta debe ser absoluta.");
+        return err("bad_argument", &tr!("desktop.automation.path_not_absolute"));
     }
     if !p.is_file() {
-        return err("not_found", "No existe ese archivo.");
+        return err("not_found", &tr!("desktop.automation.file_not_found"));
     }
     backend.load(path);
     "OK loading".into()
@@ -114,14 +118,14 @@ fn load(path: &str, backend: &dyn Backend) -> String {
 
 fn start(backend: &dyn Backend, allow_start: bool) -> String {
     let Some(status) = backend.machine() else {
-        return err("not_connected", NOT_CONNECTED);
+        return err("not_connected", &not_connected());
     };
     if status.state != MachineState::Idle {
         return err(
             "busy",
-            &format!(
-                "La máquina no está en reposo (estado: {}).",
-                state_name(status.state)
+            &tr!(
+                "desktop.automation.not_idle",
+                state = state_name(status.state)
             ),
         );
     }
@@ -130,7 +134,7 @@ fn start(backend: &dyn Backend, allow_start: bool) -> String {
         "OK starting".into()
     } else {
         backend.start(false);
-        "PENDING confirm_in_app: el usuario debe confirmar el inicio en Tlaku.".into()
+        tr!("desktop.automation.pending_confirm")
     }
 }
 
@@ -204,14 +208,14 @@ fn serve(socket: &UdpSocket, backend: &dyn Backend, allow_start: &AtomicBool, st
             Err(_) => continue,
         };
         let reply = if n > MAX_DATAGRAM {
-            err("too_long", "El comando es demasiado largo.")
+            err("too_long", &tr!("desktop.automation.too_long"))
         } else {
             match std::str::from_utf8(&buf[..n]) {
-                Err(_) => err("bad_text", "El comando no es texto UTF-8."),
+                Err(_) => err("bad_text", &tr!("desktop.automation.not_utf8")),
                 Ok(text) => {
                     let text = text.trim_end_matches(['\r', '\n']);
                     if text.contains(['\r', '\n']) {
-                        err("bad_text", "Un comando por mensaje, en una sola línea.")
+                        err("bad_text", &tr!("desktop.automation.one_line"))
                     } else {
                         execute(text, backend, allow_start.load(Ordering::SeqCst))
                     }
@@ -303,7 +307,10 @@ impl AutomationState {
         backend: Arc<dyn Backend>,
     ) -> Result<AutomationStatus, String> {
         self.allow_start.store(config.allow_start, Ordering::SeqCst);
-        let mut slot = self.server.lock().map_err(|_| "estado interno dañado")?;
+        let mut slot = self
+            .server
+            .lock()
+            .map_err(|_| tr!("desktop.common.internal_state"))?;
         if !config.enabled {
             *slot = None;
             return Ok(AutomationStatus {
@@ -317,10 +324,7 @@ impl AutomationState {
             return Ok(AutomationStatus {
                 running: false,
                 port: config.port,
-                error: Some(format!(
-                    "El puerto debe estar entre {MIN_PORT} y 65535 (los menores necesitan \
-                     privilegios)."
-                )),
+                error: Some(tr!("desktop.automation.port_range", min = MIN_PORT)),
             });
         }
         if let Some(s) = slot.as_ref()
@@ -348,12 +352,13 @@ impl AutomationState {
                 running: false,
                 port: config.port,
                 error: Some(if e.kind() == io::ErrorKind::AddrInUse {
-                    format!(
-                        "El puerto {} ya lo usa otro programa; elige otro.",
-                        config.port
-                    )
+                    tr!("desktop.common.port_in_use", port = config.port)
                 } else {
-                    format!("No se pudo abrir el puerto {}: {e}", config.port)
+                    tr!(
+                        "desktop.automation.port_open_failed",
+                        port = config.port,
+                        err = e
+                    )
                 }),
             }),
         }

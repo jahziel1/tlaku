@@ -237,6 +237,69 @@ fn the_page_keeps_pause_and_stop_in_a_fixed_bar_in_both_languages() {
 }
 
 #[test]
+fn the_page_declares_language_zoom_and_landmarks() {
+    let r = rig(Fake::with(MachineKind::Grbl, MachineState::Idle));
+    let page = send(r.addr, "GET", "/", &[], "").body;
+    assert!(page.contains("<html lang=\"es\">"));
+    // El zoom del usuario nunca se bloquea.
+    let viewport = page.find("name=\"viewport\"").unwrap();
+    let tag = &page[viewport..viewport + page[viewport..].find('>').unwrap()];
+    assert!(
+        !tag.contains("user-scalable") && !tag.contains("maximum-scale"),
+        "{tag}"
+    );
+    // Un solo h1, un <main> y la barra de abajo como región con nombre (en los dos idiomas).
+    assert_eq!(page.matches("<h1").count(), 1);
+    assert!(page.contains("<main id=\"main\"") && page.contains("<header>"));
+    assert!(
+        page.contains("controls: 'Controles del trabajo'")
+            && page.contains("controls: 'Job controls'")
+    );
+}
+
+#[test]
+fn the_page_announces_status_progress_and_errors_to_screen_readers() {
+    let r = rig(Fake::with(MachineKind::Grbl, MachineState::Idle));
+    let page = send(r.addr, "GET", "/", &[], "").body;
+    // Estado del trabajo en una región en vivo cortés; el avance como barra con valor, sin región en vivo.
+    assert!(page.contains("class=\"state\" role=\"status\" aria-live=\"polite\""));
+    assert!(page.contains("id=\"progress\" role=\"progressbar\""));
+    assert!(page.contains("aria-valuemin=\"0\"") && page.contains("aria-valuemax=\"100\""));
+    assert!(page.contains("setAttribute('aria-valuenow'"));
+    let bar = page.find("id=\"progress\"").unwrap();
+    assert!(
+        !page[bar..bar + 200].contains("aria-live"),
+        "el avance no debe anunciarse en cada tick"
+    );
+    // Errores y avisos urgentes en role=alert, incluido el segundo toque de Detener.
+    for id in ["offline", "stop-hint", "sheet-err"] {
+        let at = page.find(&format!("id=\"{id}\"")).unwrap();
+        let tag = &page[at..at + page[at..].find('>').unwrap()];
+        assert!(tag.contains("role=\"alert\""), "{id}: {tag}");
+    }
+    // Detener tiene nombre accesible (texto) en los dos idiomas y la barra sigue fija con el mismo id.
+    assert!(page.contains("stop: 'Detener'") && page.contains("stop: 'Stop'"));
+    assert!(page.contains("<button type=\"button\" id=\"btn-stop\" class=\"danger\">"));
+    assert!(page.contains("role=\"alertdialog\"") && page.contains("aria-modal=\"true\""));
+}
+
+#[test]
+fn the_page_respects_reduced_motion_and_shows_keyboard_focus() {
+    let r = rig(Fake::with(MachineKind::Grbl, MachineState::Idle));
+    let page = send(r.addr, "GET", "/", &[], "").body;
+    let rm = page
+        .find("@media (prefers-reduced-motion: reduce)")
+        .expect("falta la regla de movimiento reducido");
+    let block = &page[rm..rm + 260];
+    assert!(block.contains("animation: none") && block.contains("transition: none"));
+    assert!(page.contains(":focus-visible { outline: 3px solid var(--focus)"));
+    // Objetivo táctil de Detener de al menos 44 px (la barra usa 62).
+    assert!(
+        page.contains("min-width: 44px") && page.contains(".dock button { min-height: 62px; }")
+    );
+}
+
+#[test]
 fn the_host_header_must_be_an_ip_and_the_origin_this_server() {
     let r = rig(Fake::with(MachineKind::Grbl, MachineState::Idle));
     let evil_host = send(r.addr, "GET", "/", &[("Host", "evil.example:80")], "");

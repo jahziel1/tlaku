@@ -15,6 +15,7 @@ import './canvas-overlay.css';
 import { FilletBar } from './FilletBar';
 import { WarpBar } from './WarpBar';
 import { CanvasTip } from './CanvasTip';
+import { CANVAS_DESC_ID, CanvasSummary } from './CanvasSummary';
 import { useInteraction } from './interaction';
 import { NodeBar } from './NodeBar';
 import { buildNodeOverlay, withPreview } from './nodeview';
@@ -211,7 +212,8 @@ export function CanvasView() {
       <Ruler axis="x" length={rulerW} bedLength={bedSize.x} />
       <Ruler axis="y" length={rulerH} bedLength={bedSize.y} />
       <div ref={areaRef} className="canvas-area" data-testid="canvas-area">
-        <canvas ref={canvasRef} className="canvas" style={{ width: viewport.width, height: viewport.height }} aria-label={t('canvas.label')} role="img" />
+        <canvas ref={canvasRef} id="canvas-main" className="canvas" tabIndex={-1} style={{ width: viewport.width, height: viewport.height }} aria-label={t('canvas.label')} aria-describedby={CANVAS_DESC_ID} role="img" />
+        <CanvasSummary />
         <div className="canvas-hud canvas-hud--tl" aria-hidden="true">
           <span className="canvas-hud__name">{deviceName}</span>
           <span className="canvas-hud__dim num">{formatSize(bed[0], bed[1], units, 0)}</span>

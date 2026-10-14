@@ -26,6 +26,8 @@ export type UiMode = 'ask' | 'simple' | 'full';
 export interface Prefs {
   /** Idioma de la interfaz. Sin preferencia guardada se usa el del sistema (inglés si empieza por «en»; si no, español). */
   language: Language;
+  /** Buscar actualizaciones unos segundos después de abrir (`features/help/updater.ts`). Apagado de fábrica. */
+  updateCheckOnStart: boolean;
   /** Unidad con la que se muestran y se escriben las longitudes (el documento siempre va en mm). */
   units: LengthUnit;
   /** Paso de las flechas, en mm: normal, con Mayús y con Alt. */
@@ -106,6 +108,7 @@ export type PrefSpecs = { [K in PrefKey]: SpecOf<Prefs[K]> & { default: Prefs[K]
 /** Valores de fábrica y límites. Las opciones de un `choice` son textos de i18n en la ventana. */
 export const PREF_SPECS: PrefSpecs = {
   language: { kind: 'choice', options: ['es', 'en'], default: 'es' },
+  updateCheckOnStart: { kind: 'bool', default: false },
   units: { kind: 'choice', options: LENGTH_UNITS, default: 'mm' },
   nudgeStep: { kind: 'number', min: 0.001, max: 100, step: 0.5, unit: 'mm', default: 1 },
   nudgeStepBig: { kind: 'number', min: 0.001, max: 500, step: 5, unit: 'mm', default: 10 },

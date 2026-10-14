@@ -27,6 +27,9 @@ export const prefs = {
   'prefs.language.es': 'Español',
   'prefs.language.en': 'English',
   'prefs.language.hint': 'Elige el idioma de la interfaz. Con el tiempo se pueden agregar más idiomas.',
+  'prefs.updateCheckOnStart': 'Buscar actualizaciones al iniciar',
+  'prefs.updateCheckOnStart.hint': 'Unos segundos después de abrir, Tlaku consulta si hay una versión nueva y, si la hay, te lo avisa. Solo se conecta a la dirección de actualizaciones del proyecto y no envía tus diseños. Apagada de fábrica.',
+  'prefs.updateCheckOnStart.unconfigured': 'Esta compilación no tiene actualizaciones automáticas configuradas, así que la opción no tiene efecto.',
 
   // ---- Edición ------------------------------------------------------------------
   'prefs.units': 'Unidades de longitud',

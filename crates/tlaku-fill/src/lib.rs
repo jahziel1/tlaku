@@ -23,6 +23,7 @@ use flood::{FloodParams, flood};
 use scan::{Frame, push_edges, scan};
 use tlaku_core::toolpath::{Move, PowerMode, ToolpathBlock};
 use tlaku_core::{Point, Polyline};
+use tlaku_i18n::tr;
 
 /// Regla para decidir qué zonas quedan dentro cuando las formas se anidan o se cruzan.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -115,19 +116,19 @@ impl Default for FillSettings {
 impl FillSettings {
     pub fn validate(&self) -> Result<(), String> {
         if !self.interval_mm.is_finite() || self.interval_mm <= 0.0 {
-            return Err(format!("intervalo inválido: {}", self.interval_mm));
+            return Err(tr!("fill.lib.interval", value = self.interval_mm));
         }
         if !self.angle_deg.is_finite() {
-            return Err(format!("ángulo inválido: {}", self.angle_deg));
+            return Err(tr!("fill.lib.angle", value = self.angle_deg));
         }
         if !self.overscan_mm.is_finite() || self.overscan_mm < 0.0 {
-            return Err(format!("overscan inválido: {}", self.overscan_mm));
+            return Err(tr!("fill.lib.overscan", value = self.overscan_mm));
         }
         if !self.speed_mm_min.is_finite() || self.speed_mm_min <= 0.0 {
-            return Err(format!("velocidad inválida: {}", self.speed_mm_min));
+            return Err(tr!("fill.lib.speed", value = self.speed_mm_min));
         }
         if !(0.0..=100.0).contains(&self.power_pct) {
-            return Err(format!("potencia fuera de 0-100 %: {}", self.power_pct));
+            return Err(tr!("fill.lib.power", value = self.power_pct));
         }
         Ok(())
     }
@@ -161,10 +162,10 @@ pub fn fill_with_groups(
     if let Some(ids) = group_ids
         && ids.len() != paths.len()
     {
-        return Err(format!(
-            "se esperaba un id de grupo por trayectoria ({}) y llegaron {}",
-            paths.len(),
-            ids.len()
+        return Err(tr!(
+            "fill.lib.group_ids",
+            expected = paths.len(),
+            got = ids.len()
         ));
     }
     let ignored_open: Vec<usize> = paths

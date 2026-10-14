@@ -1,6 +1,7 @@
 //! Reposo: el bucle de solicitudes con el puerto en manos del trabajador.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn idle_step(&mut self, mut t: Box<dyn Transport>) -> Result<Phase, Fail> {
@@ -69,11 +70,7 @@ impl Worker {
                 }
             }
             if Instant::now() > deadline {
-                return Err(Fail::Lost(
-                    "la controladora dejó de responder (¿se desconectó el cable USB o la red, o se \
-                     apagó la máquina?)"
-                        .into(),
-                ));
+                return Err(Fail::Lost(tr!("desktop.worker.controller_silent")));
             }
         }
     }

@@ -1,0 +1,53 @@
+# Mensajes de tlaku-text (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: text.<módulo>.<qué> = plantilla
+
+# layout.rs
+text.layout.bad_size = El tamaño del texto debe ser mayor que 0 mm (recibido {value})
+text.layout.bad_letter_spacing = El espaciado entre letras no es un número válido
+text.layout.bad_line_spacing = El interlineado debe ser mayor que 0 (recibido {value})
+text.layout.bad_bend = La curvatura del texto no es un número válido
+text.layout.line_font_style = La fuente de una línea '{name}' no tiene negrita ni cursiva
+text.layout.font_unreadable = No se pudo leer la fuente '{family}'
+text.layout.missing_path = El texto está en trayecto pero no se recibió la trayectoria
+text.layout.many_subpaths = La trayectoria tiene varios subtrayectos; solo se usa el primero
+text.layout.weld_line_font = El soldado no aplica a las fuentes de una línea: no tienen contornos que unir
+text.layout.bend_on_path = El texto sobre trayecto ya sigue una curva; se ignora la curvatura
+text.layout.bend_clamped = La curvatura se limitó a {bend} grados
+text.layout.bend_too_tight = La curvatura es tan cerrada que el radio es menor que la altura del texto; las letras se aplastan
+text.layout.face_damaged = La fuente está dañada o su formato no es compatible
+text.layout.bad_em = La fuente declara un tamaño de em inválido
+text.layout.missing_glyphs = La fuente no tiene glifo para: {list}; esos caracteres se omiten
+text.layout.longer_than_closed = El texto ({text} mm) es más largo que la trayectoria cerrada ({path} mm); se solapará
+text.layout.does_not_fit = El texto no cabe en la trayectoria ({text} mm de texto desde {offset} mm sobre {path} mm de largo); se omiten {skipped} glifos
+
+# library.rs
+text.library.read_failed = No se pudo leer la fuente '{path}': {error}
+text.library.with_path = {error} ('{path}')
+text.library.not_a_font = Los datos no son una fuente válida (se admite TrueType/OpenType)
+text.library.shx_no_name = El archivo SHX no tiene nombre
+text.library.no_italic = La fuente '{name}' no tiene cursiva; se usa la versión recta (no se genera una cursiva sintética)
+text.library.only_italic = La fuente '{name}' solo tiene cursiva; se usa esa
+text.library.no_bold = La fuente '{name}' no tiene negrita; se usa el peso {weight} (no se genera una negrita sintética)
+text.library.only_weight = La fuente '{name}' solo tiene peso {weight}; se usa ese
+text.library.no_name = Falta el nombre de la fuente
+text.library.no_fonts = La fuente '{family}' no existe: no hay ninguna fuente cargada
+text.library.not_installed = La fuente '{family}' no está instalada y no hay familias parecidas
+text.library.not_installed_similar = La fuente '{family}' no está instalada. Familias parecidas: {similar}
+
+# linefont.rs
+text.linefont.bad_glyph = Glifo {index} de la fuente '{name}' mal formado
+text.linefont.glyph_count = La fuente '{name}' tiene {found} glifos y se esperaban {expected}
+
+# path_sampler.rs
+text.path_sampler.no_segments = La trayectoria del texto no tiene segmentos
+text.path_sampler.zero_length = La trayectoria del texto tiene longitud cero
+
+# shx.rs
+text.shx.bigfont = Las fuentes SHX de tipo BigFont (CJK) todavía no se admiten
+text.shx.not_shx = El archivo no es una fuente SHX de AutoCAD
+text.shx.no_glyphs = La fuente SHX no contiene caracteres que se puedan dibujar
+text.shx.missing_mark = Archivo SHX dañado: falta la marca 0x1A
+text.shx.nested_subshapes = Subformas anidadas sin fin
+text.shx.truncated_shape = Forma SHX truncada
+text.shx.shape_too_long = Forma SHX demasiado larga
+text.shx.empty_stack = Pila vacía en forma SHX

@@ -13,6 +13,7 @@
 //! (docs/hardware/galvo.md, sección 2.1). Confianza: alta para el formato, sin hardware.
 
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Bytes por comando.
 pub const CMD_LEN: usize = 12;
@@ -98,13 +99,29 @@ impl fmt::Display for WireError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WireError::BadLength { got } => {
-                write!(f, "un comando mide {CMD_LEN} bytes y llegaron {got}")
+                write!(
+                    f,
+                    "{}",
+                    tr!("galvo.wire.bad_length", len = CMD_LEN, got = got)
+                )
             }
             WireError::NotMultipleOf12 { got } => {
-                write!(f, "{got} bytes no son múltiplo de {CMD_LEN}")
+                write!(
+                    f,
+                    "{}",
+                    tr!("galvo.wire.not_multiple", got = got, len = CMD_LEN)
+                )
             }
             WireError::NotAListCommand { index, code } => {
-                write!(f, "el comando {index} (código {code:#06x}) no es de lista")
+                write!(
+                    f,
+                    "{}",
+                    tr!(
+                        "galvo.wire.not_a_list_command",
+                        index = index,
+                        code = format!("{code:#06x}")
+                    )
+                )
             }
         }
     }

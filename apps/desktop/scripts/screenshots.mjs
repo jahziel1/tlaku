@@ -8,7 +8,8 @@
 // calibración. Las capturas de la fase 3 preparan el estado con los módulos de Vite (`app()`),
 // que son los mismos que usa la página: solo funciona contra el servidor de desarrollo.
 //
-// Variables: CHROME (ruta del binario), APP_URL (por defecto http://localhost:1420/).
+// Variables: CHROME (ruta del binario), APP_URL (por defecto http://localhost:1420/), SCREENSHOTS_OUT (carpeta de salida),
+// REMOTE_DEMO_URL (enlace de una demo ya abierta) y SCREENSHOTS_SKIP_PHONE=1 (no levanta la demo remota ni toma las capturas 63).
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1001,12 +1002,239 @@ await wait(400);
 await shot('62b-control-remoto-reglas.png');
 await closeDialog();
 
+// ---- Ola 6D: revisar diseño, edición en el lienzo, imágenes, registro de trabajos y galvo (capturas 64 a 71) ----
+// Todas en modo mock. El mock de la vista previa de imagen y el de «Revisar diseño» dan datos de ejemplo, no los del motor.
+
+// 64. Revisar diseño
+await fresh();
+await app(`
+  const { polylineBez } = await import('/src/lib/bezpath.ts');
+  const cut = st().doc.layers.find((l) => l.name.includes('Corte'));
+  const mk = (id, layer, paths, tr = [1, 0, 0, 1, 0, 0]) => ({ id, layer, transform: tr, kind: { type: 'vector', paths }, locked: false, hidden: false, group: null });
+  st().applyDocChange('canvas.history.tabs', (doc) => ({
+    ...doc,
+    layers: [...doc.layers, { ...cut, color: '#22c55e', name: 'Pruebas', output: false }],
+    objects: [
+      ...doc.objects,
+      mk('obj-casi', cut.color, [polylineBez([[20, 20], [60, 20], [60, 50], [20, 50], [20, 20.3]], false)]),
+      mk('obj-dup-a', cut.color, [polylineBez([[80, 20], [120, 20]], false)]),
+      mk('obj-dup-b', cut.color, [polylineBez([[80, 20], [120, 20]], false)]),
+      mk('obj-mota', cut.color, [polylineBez([[150, 20], [150.1, 20], [150.1, 20.1], [150, 20.1]], true)]),
+      mk('obj-fuera', cut.color, [polylineBez([[0, 0], [30, 0], [30, 30], [0, 30]], true)], [1, 0, 0, 1, 520, 100]),
+      mk('obj-silencio', '#22c55e', [polylineBez([[170, 20], [200, 20], [200, 50], [170, 50]], true)]),
+    ],
+  }));
+  st().fitContent();
+  await commands.run('review.open');
+`);
+await wait(1500);
+await shot('64-revisar-diseno.png');
+await closeDialog();
+// 65. Deformar en el lienzo con la malla de 4×4
+await fresh();
+await app(`
+  st().select(['obj-placa', 'obj-engranaje']);
+  st().fitContent();
+  st().setTool('warp');
+`);
+await wait(600);
+await app(`await commands.run('warp.mode.mesh');`);
+await wait(500);
+// Se arrastran manijas de la malla con el ratón de verdad
+const drag = async (x0, y0, x1, y1) => {
+  const m = (type, x, y) => send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' ? 'none' : 'left', buttons: type === 'mouseReleased' ? 0 : (type === 'mousePressed' ? 1 : 1), clickCount: type === 'mouseMoved' ? 0 : 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0, button: 'none', buttons: 0 });
+  await m('mousePressed', x0, y0);
+  for (let i = 1; i <= 6; i++) await m('mouseMoved', x0 + ((x1 - x0) * i) / 6, y0 + ((y1 - y0) * i) / 6);
+  await m('mouseReleased', x1, y1);
+  await wait(200);
+};
+await drag(437, 383, 390, 330);
+await drag(741, 576, 800, 650);
+await drag(741, 383, 790, 330);
+await drag(437, 576, 400, 620);
+await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 600, y: 520, button: 'none', buttons: 0 });
+await wait(900);
+await shot('65-deformar-lienzo.png');
+await key('Escape', 'Escape');
+await wait(300);
+// 66. Redondear esquinas con un clic: la barra de la herramienta y la vista previa de una esquina
+await fresh();
+await app(`
+  const { polylineBez } = await import('/src/lib/bezpath.ts');
+  const cut = st().doc.layers.find((l) => l.name.includes('Corte'));
+  st().applyDocChange('canvas.history.tabs', () => ({
+    ...st().doc,
+    objects: [{ id: 'obj-regla', layer: cut.color, transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths: [polylineBez([[100, 300], [260, 300]], false)] }, locked: false, hidden: false, group: null }, { id: 'obj-caja', layer: cut.color, transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths: [polylineBez([[100, 100], [260, 100], [260, 220], [100, 220]], true)] }, locked: false, hidden: false, group: null }],
+  }));
+  st().select([]);
+  st().fitContent();
+  st().select(['obj-caja']);
+  const ops = (await import('/src/features/arrange/shapeOpsUi.ts')).useShapeOps;
+  ops.getState().patchFillet({ style: 'round', radius: 12 });
+  st().setTool('fillet');
+`);
+await wait(500);
+// Un clic en la esquina de arriba a la izquierda (queda redondeada) y el puntero sobre la de arriba a la derecha
+const mouse = (type, x, y) => send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' ? 'none' : 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: type === 'mouseMoved' ? 0 : 1 });
+await mouse('mouseMoved', 356, 422);
+await wait(200);
+await mouse('mousePressed', 356, 422);
+await mouse('mouseReleased', 356, 422);
+await wait(800);
+await evaluate(`document.querySelectorAll('.toast button').forEach(b => b.click())`);
+await mouse('mouseMoved', 380, 740);
+await mouse('mouseMoved', 357, 771);
+await wait(700);
+await shot('66-redondear-clic.png');
+await key('Escape', 'Escape');
+await wait(300);
+// 67. Panel flotante: el Historial sacado a una ventana sobre el lienzo
+await fresh();
+await app(`
+  st().select(['obj-placa']);
+  const dl = await import('/src/lib/dockLayout.ts');
+  st().setPref('dockLayout', dl.floatDockTab(st().prefs.dockLayout, 'history', { x: 150, y: 150, w: 330, h: 330 }));
+`);
+await wait(300);
+await key('ArrowRight', 'ArrowRight', SHIFT);
+await key('ArrowUp', 'ArrowUp', SHIFT);
+await wait(900);
+await shot('67-panel-flotante.png');
+// La distribución se guarda en las preferencias: se devuelve a la de fábrica para que no salga flotando en las capturas siguientes.
+await app(`st().setPref('dockLayout', (await import('/src/lib/dockLayout.ts')).DEFAULT_DOCK_LAYOUT);`);
+await wait(300);
+// 68. Editor de la capa Foto: preset de imagen «Foto en madera» y su vista previa por imagen
+await fresh();
+await evaluate(`(() => {
+  const row = [...document.querySelectorAll('.lyr-main')].find((e) => e.textContent.includes('Foto'));
+  if (!row) throw new Error('sin la capa Foto');
+  row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+})()`);
+await wait(700);
+await evaluate(`(() => {
+  const s = document.querySelector('.img-presets select');
+  if (!s) throw new Error('sin el selector de presets');
+  const o = [...s.options].find((o) => o.textContent.trim() === 'Foto en madera');
+  if (!o) throw new Error('sin el preset');
+  const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+  set.call(s, o.value);
+  s.dispatchEvent(new Event('change', { bubbles: true }));
+})()`);
+await wait(500);
+await evaluate(`(() => { const b = [...document.querySelectorAll('button')].find((e) => e.textContent.trim().startsWith('Vista previa de la imagen')); if (!b) throw new Error('sin el botón'); b.click(); })()`);
+await wait(1800);
+await evaluate(`(() => {
+  const el = document.querySelector('.img-presets');
+  el.scrollIntoView({ block: 'start' });
+  let box = el.parentElement;
+  while (box && box !== document.body && !(box.scrollHeight > box.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  if (box && box !== document.body) box.scrollTop -= 110; // lo que tapa el encabezado fijo del editor
+})()`);
+await wait(500);
+await shot('68-vista-previa-imagen.png');
+await closeDialog();
+// 69. Registro de trabajos (Ayuda): tres trabajos, uno terminado, uno cancelado y uno con error
+await fresh();
+await app(`
+  const { useJobLog } = await import('/src/features/help/jobLog.ts');
+  useJobLog.getState().clear();
+  const now = Date.now();
+  const add = (id, minsAgo, machine, document, estimatedS, actualS, result, message) => useJobLog.getState().append({ id, at: now - minsAgo * 60000, machine, document, estimatedS, actualS, result, message });
+  add('a', 5 * 24 * 60, 'Falcon2 22 W', 'placa-engranaje.tlaku', 842, 861, 'finished', 'Trabajo terminado');
+  add('b', 3 * 24 * 60 + 90, 'Falcon2 22 W', 'llaveros.tlaku', 1260, 410, 'cancelled', 'Detenido por el usuario');
+  add('c', 26 * 60, 'Banco pequeño 300 x 200', null, null, 52, 'error', 'ALARM:1 Límite duro alcanzado');
+  add('d', 130, 'Falcon2 22 W', 'placa-engranaje.tlaku', 842, 848, 'finished', 'Trabajo terminado');
+  await commands.run('help.jobLog');
+`);
+await wait(900);
+await shot('69-registro-de-trabajos.png');
+await app(`(await import('/src/features/help/jobLog.ts')).useJobLog.getState().clear();`);
+await closeDialog();
+// 70. Galvo (tarjeta simulada): el panel Máquina con el encuadre (casco convexo, contador de vueltas) y el ajuste en vivo
+await fresh();
+await app(`
+  const { FALLBACK_DEVICE } = await import('/src/lib/device.ts');
+  const { polylineBez, ellipseBez } = await import('/src/lib/bezpath.ts');
+  const { shapes } = await import('/src/lib/geometry.ts');
+  const dev = { ...structuredClone(FALLBACK_DEVICE), id: 'galvo-1', name: 'Fibra 20 W (galvo)', kind: 'galvo', bed: [110, 110], origin: 'bottom_left' };
+  await st().saveDevice(dev);
+  st().setActiveDevice(dev.id);
+  await st().refreshPorts();
+  const layer = st().doc.layers.find((l) => l.name.includes('Marcas'));
+  const mk = (id, paths) => ({ id, layer: layer.color, transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths }, locked: false, hidden: false, group: null });
+  st().applyDocChange('canvas.history.tabs', () => ({
+    ...st().doc,
+    objects: [
+      mk('g-estrella', [polylineBez(shapes.star(62, 62, 30, 12), true)]),
+      mk('g-caja', [polylineBez([[12, 78], [38, 78], [38, 98], [12, 98]], true)]),
+      mk('g-circulo', [ellipseBez(88, 24, 10, 10)]),
+    ],
+  }));
+  st().select([]);
+  st().fitContent();
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:galvo');
+`);
+await wait(500);
+await app(`await st().connect();`);
+await wait(2000);
+await scrollToText('Encuadre con el puntero rojo', 'start', 'h2, h3, h4, legend, label, span, div, p');
+await wait(500);
+await evaluate(`(() => {
+  const set = (el, proto, v) => { Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v); };
+  const sel = [...document.querySelectorAll('select')].find((e) => [...e.options].some((o) => o.textContent.trim() === 'Casco convexo'));
+  if (!sel) throw new Error('sin el selector de forma');
+  set(sel, HTMLSelectElement.prototype, [...sel.options].find((o) => o.textContent.trim() === 'Casco convexo').value);
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+})()`);
+await wait(300);
+await evaluate(`(() => {
+  const inp = [...document.querySelectorAll('input')].find((e) => e.closest('div')?.textContent.includes('Cuántas vueltas dibuja'));
+  if (!inp) throw new Error('sin el campo de vueltas');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(inp, '40');
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+  inp.blur();
+})()`);
+await wait(300);
+await click('.mc-galvo-frame > button.btn--accent');
+await wait(900);
+const adjustBtn = (label) => evaluate(`(() => { const b = [...document.querySelectorAll('button')].find((e) => e.getAttribute('aria-label') === ${JSON.stringify(label)}); if (!b) throw new Error('sin ${label}'); b.click(); })()`);
+await adjustBtn('Derecha');
+await adjustBtn('Más grande');
+await wait(300);
+await scrollToText('Encuadre con el puntero rojo', 'start', 'h2, h3, h4, legend, label, span, div, p');
+await wait(200);
+await shot('70-galvo-encuadre.png');
+// Se detiene el encuadre antes de seguir
+await evaluate(`(() => { const b = [...document.querySelectorAll('button')].find((e) => e.textContent.trim() === 'Detener y apagar'); if (b) b.click(); })()`);
+await wait(500);
+// 71. Diálogo de inicio con el aviso de Revisar diseño (un objeto fuera de la cama), máquina virtual GRBL 1.1 conectada
+await fresh();
+await app(`
+  const { polylineBez } = await import('/src/lib/bezpath.ts');
+  const cut = st().doc.layers.find((l) => l.name.includes('Corte'));
+  st().applyDocChange('canvas.history.tabs', (doc) => ({
+    ...doc,
+    objects: [...doc.objects, { id: 'obj-fuera', layer: cut.color, transform: [1, 0, 0, 1, 380, 100], kind: { type: 'vector', paths: [polylineBez([[0, 0], [40, 0], [40, 40], [0, 40]], true)] }, locked: false, hidden: false, group: null }],
+  }));
+  st().setDockTab('machine');
+  st().setSelectedPort('virtual:grbl11');
+  await st().connect();
+`);
+await wait(1500);
+await app(`void commands.run('machine.start');`);
+await wait(1500);
+await shot('71-inicio-revisar-aviso.png');
+await closeDialog();
+
 // 63. La página del celular en un viewport de teléfono (390 x 844). Es la página real (`page.html`) servida por el
 // servidor de demostración del motor contra una máquina virtual: se levanta con `cargo test ... demo_server`.
 // Si ya hay uno abierto, REMOTE_DEMO_URL=<enlace con clave> evita compilar y arrancar otro.
 let demo = null;
 let demoUrl = process.env.REMOTE_DEMO_URL ?? '';
-if (!demoUrl) {
+if (!demoUrl && process.env.SCREENSHOTS_SKIP_PHONE !== '1') {
   const root = join(here, '..', '..', '..');
   demo = spawn(process.env.CARGO ?? 'cargo', ['test', '-p', 'tlaku-desktop', 'demo_server', '--', '--ignored', '--nocapture'], {
     cwd: root, env: { ...process.env, TLAKU_DEMO_SECS: '300' }, stdio: ['ignore', 'pipe', 'inherit'], detached: true,
@@ -1047,7 +1275,7 @@ if (demoUrl) {
   await send('Emulation.setUserAgentOverride', { userAgent: '' });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 } else {
-  console.warn('AVISO: no se pudo levantar el servidor de demostración; se omiten las capturas 63.');
+  console.warn('AVISO: sin servidor de demostración (no se pudo levantar o SCREENSHOTS_SKIP_PHONE=1); se omiten las capturas 63.');
 }
 if (demo) { try { process.kill(-demo.pid); } catch { /* ya terminó */ } }
 

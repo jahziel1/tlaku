@@ -9,7 +9,7 @@ Documentos hermanos (los escriben otros agentes; aquí solo se enlazan):
 - Creality Falcon2: [falcon2.md](falcon2.md)
 - Inventario funcional de LightBurn (ventanas, cámara, rotativo...): [../spec/03-maquinas-avanzadas.md](../spec/03-maquinas-avanzadas.md)
 
-## Estado de soporte en Tlaku (2026-10-13, tras la ola 4)
+## Estado de soporte en Tlaku (2026-10-14, tras la ola 6C)
 
 Esta tabla es lo que hay **en el código**, no lo que recomienda la investigación. Ninguna fila se ha probado con una máquina real. Detalle y pruebas: [../spec/cobertura/README.md](../spec/cobertura/README.md) y [../manual/13-controladoras.md](../manual/13-controladoras.md).
 
@@ -25,7 +25,7 @@ Esta tabla es lo que hay **en el código**, no lo que recomienda la investigaci�
 | G-code personalizado | `CustomGcode` | USB serie | Por validar | El dialecto lo escribe el usuario | Todo |
 | Ruida (RDC644x...) | `Ruida` | UDP | **Experimental** | Emulador UDP propio (`tlaku-ruida`): sondeo, envío guardando o ejecutando, estado, pausa, detener, saltos, encuadre, información y lista de documentos (solo lectura) | Todo: direcciones y unidades de la información, numeración de documentos, home, estados, y el comportamiento ante una subida cortada |
 | K40 con M2 Nano | `LhyMicro` | USB (CH341) | **Experimental** (solo emulador); en la app y en la línea de comandos (`tlaku k40`) | Placa simulada (`tlaku-lhymicro`): CRC, paquetes, estados, velocidades por placa contra 1511 vectores de MeerK40t | Todo: el USB real, el home, los tiempos y los códigos de estado |
-| Galvo JCZ/BJJCZ (EZCAD2) | — | — | No soportada | — | — |
+| Galvo JCZ/BJJCZ (EZCAD2) | `Galvo` | USB (`9588:9899`) | **Experimental** (solo emulador); en la app y en la línea de comandos (`tlaku galvo`) | Tarjeta simulada (`tlaku-galvo`) con rastro del haz y fallos inyectables | Todo; ver [galvo.md](galvo.md) sección 9 |
 | EZCAD3/DLC, BSL, Trocen, TopWisdom | — | — | No soportada | — | — |
 | xTool por Wi-Fi propietario, Glowforge | — | — | No soportada | — | — |
 

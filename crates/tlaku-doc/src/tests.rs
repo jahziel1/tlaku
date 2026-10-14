@@ -238,6 +238,9 @@ fn defaults_match_the_engine_defaults() {
     assert_eq!(l.overscan, Overscan::Auto);
     assert_eq!(LayerSettings::for_images().speed, 3000.0);
     assert_eq!(LayerSettings::for_images().mode, LayerMode::Image);
+    assert_eq!(LayerSettings::for_images().name, "Imagen");
+    let en = tlaku_i18n::with_locale(tlaku_i18n::Locale::En, || LayerSettings::for_images().name);
+    assert_eq!(en, "Image");
     let d = DeviceProfile::default();
     assert_eq!(d.bed, [400.0, 415.0]);
     assert_eq!(d.kind, DeviceKind::Grbl);

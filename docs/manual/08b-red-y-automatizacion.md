@@ -46,7 +46,7 @@ La pantalla te corrige antes de guardar:
 
 ## Si la conexión falla
 
-Los errores llegan explicados en español, con la dirección que se intentó:
+Los errores llegan explicados con claridad, con la dirección que se intentó:
 
 | Mensaje | Qué significa y qué hacer |
 |---|---|
@@ -99,7 +99,7 @@ Un comando por datagrama UDP, en una sola línea de texto UTF-8 (hasta 4096 byte
 | `STATUS` | `STATUS connected=1 state=idle x=12.500 y=30.000` | Estado de la máquina y su posición de trabajo en mm; sin máquina, `STATUS connected=0` |
 | `STOP` | `OK` | Detiene el trabajo (pausa de avance y reinicio suave); sin trabajo, cancela el movimiento |
 
-Los errores llegan como `ERR <código>: <texto en español>`; los códigos son `not_connected`, `busy`, `not_found`, `bad_argument`, `bad_text`, `too_long`, `empty`, `unknown_command` y `failed`.
+Los errores llegan como `ERR <código>: <texto en el idioma de la app>`; los códigos son `not_connected`, `busy`, `not_found`, `bad_argument`, `bad_text`, `too_long`, `empty`, `unknown_command` y `failed`.
 
 > **Ojo:** este protocolo es propio de Tlaku. **No es el de LightBurn**: los scripts hechos para LightBurn no funcionan sin cambios.
 

@@ -14,6 +14,7 @@ use std::path::Path;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_core::{Point, Rgb};
 use tlaku_doc::ImportResult;
+use tlaku_i18n::tr;
 
 /// Unidades del plotter por milímetro.
 const UNITS_PER_MM: f64 = 40.0;
@@ -32,16 +33,9 @@ pub(crate) fn import(
     let name = path.display();
     let (layers, mut warnings) = parser.finish();
     if layers.is_empty() {
-        return Err(format!(
-            "{name}: el archivo HPGL no contiene trazos (no hay PD ni PA con la pluma abajo)"
-        ));
+        return Err(tr!("pipeline.import_hpgl.no_strokes", name = name));
     }
-    warnings.insert(
-        0,
-        "HPGL: se supuso 40 unidades por mm (0,025 mm). Si el tamaño no coincide, corrígelo con \
-         la escala de las opciones de importación."
-            .into(),
-    );
+    warnings.insert(0, tr!("pipeline.import_hpgl.assumed_units"));
     Ok(from_curves(layers, warnings))
 }
 
@@ -644,27 +638,19 @@ impl Parser {
             .collect();
         let mut warnings = Vec::new();
         if self.labels > 0 {
-            warnings.push(format!(
-                "Se omitieron {} rótulo(s) de texto (LB): conviértelos a contornos antes de \
-                 exportar a HPGL.",
-                self.labels
-            ));
+            warnings.push(tr!("pipeline.import_hpgl.labels_skipped", n = self.labels));
         }
         if !self.unknown.is_empty() {
-            warnings.push(format!(
-                "Comandos HPGL ignorados: {}.",
-                self.unknown.join(", ")
+            warnings.push(tr!(
+                "pipeline.import_hpgl.ignored_commands",
+                commands = self.unknown.join(", ")
             ));
         }
         if self.isotropic {
-            warnings.push(
-                "SC isótropo: se trató como escala independiente en X e Y; revisa las \
-                 proporciones."
-                    .into(),
-            );
+            warnings.push(tr!("pipeline.import_hpgl.isotropic_scale"));
         }
         if self.scale_without_ip {
-            warnings.push("SC sin IP: no se sabe a qué tamaño corresponde, se ignoró.".into());
+            warnings.push(tr!("pipeline.import_hpgl.scale_without_ip"));
         }
         (layers, warnings)
     }

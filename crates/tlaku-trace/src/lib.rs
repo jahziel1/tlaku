@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tlaku_core::Point;
 use tlaku_core::bezpath::{BezPath, PathSeg};
+use tlaku_i18n::tr;
 
 /// Lado máximo de la imagen, en píxeles.
 pub const MAX_DIMENSION_PX: u32 = 8192;
@@ -88,7 +89,7 @@ pub fn trace_path(
 ) -> Result<TraceResult, String> {
     let path = path.as_ref();
     let bytes = std::fs::read(path)
-        .map_err(|e| format!("No se pudo leer la imagen '{}': {e}", path.display()))?;
+        .map_err(|e| tr!("trace.lib.read_failed", path = path.display(), error = e))?;
     trace_bytes(&bytes, settings, size_mm)
 }
 
@@ -98,26 +99,26 @@ pub fn trace_bytes(
     settings: &TraceSettings,
     size_mm: [f64; 2],
 ) -> Result<TraceResult, String> {
-    let image = image::load_from_memory(bytes)
-        .map_err(|e| format!("No se pudo decodificar la imagen: {e}"))?;
+    let image =
+        image::load_from_memory(bytes).map_err(|e| tr!("trace.lib.decode_failed", error = e))?;
     trace(&image, settings, size_mm)
 }
 
 fn validate(settings: &TraceSettings, size_mm: [f64; 2]) -> Result<(), String> {
     if !(size_mm[0].is_finite() && size_mm[1].is_finite() && size_mm[0] > 0.0 && size_mm[1] > 0.0) {
-        return Err("El tamaño de salida en mm debe ser positivo y finito".into());
+        return Err(tr!("trace.lib.bad_size"));
     }
     if !(0.0..=1.0).contains(&settings.threshold) {
-        return Err("El umbral debe estar entre 0 y 1".into());
+        return Err(tr!("trace.lib.bad_threshold"));
     }
     if !(0.0..=50.0).contains(&settings.blur_px) {
-        return Err("El desenfoque debe estar entre 0 y 50 px".into());
+        return Err(tr!("trace.lib.bad_blur"));
     }
     if !(0.0..=180.0).contains(&settings.corner_threshold_deg) {
-        return Err("El ángulo de esquina debe estar entre 0 y 180 grados".into());
+        return Err(tr!("trace.lib.bad_corner"));
     }
     if !(0.0..=1.0).contains(&settings.smoothing) {
-        return Err("La suavidad debe estar entre 0 y 1".into());
+        return Err(tr!("trace.lib.bad_smoothness"));
     }
     Ok(())
 }
@@ -131,13 +132,15 @@ pub fn trace(
     validate(settings, size_mm)?;
     let (w, h) = (image.width(), image.height());
     if w == 0 || h == 0 {
-        return Err("La imagen está vacía".into());
+        return Err(tr!("trace.lib.empty_image"));
     }
     if w > MAX_DIMENSION_PX || h > MAX_DIMENSION_PX || u64::from(w) * u64::from(h) > MAX_PIXELS {
-        return Err(format!(
-            "La imagen de {w}x{h} px es demasiado grande: el máximo es {MAX_DIMENSION_PX} px por \
-             lado y {} megapíxeles en total. Redúcela antes de trazar",
-            MAX_PIXELS / 1_000_000
+        return Err(tr!(
+            "trace.lib.too_big",
+            w = w,
+            h = h,
+            max_side = MAX_DIMENSION_PX,
+            max_mp = MAX_PIXELS / 1_000_000
         ));
     }
 
@@ -148,17 +151,14 @@ pub fn trace(
     let side = settings.speckle_px as usize;
     let removed = bitmap.remove_specks(side.saturating_mul(side));
     if removed > 0 {
-        warnings.push(format!(
-            "Se descartaron {removed} manchas menores de {} px de lado",
-            settings.speckle_px
+        warnings.push(tr!(
+            "trace.lib.specks_removed",
+            n = removed,
+            side = settings.speckle_px
         ));
     }
     if bitmap.is_blank() {
-        warnings.push(
-            "La imagen no tiene zonas que trazar con estos ajustes; revisa el umbral o la opción \
-             de invertir"
-                .into(),
-        );
+        warnings.push(tr!("trace.lib.blank"));
         return Ok(TraceResult {
             paths: Vec::new(),
             warnings,
@@ -192,7 +192,7 @@ pub fn trace(
         }
     };
     if paths.is_empty() {
-        warnings.push("No se obtuvo ninguna trayectoria".into());
+        warnings.push(tr!("trace.lib.no_paths"));
     }
     Ok(TraceResult { paths, warnings })
 }

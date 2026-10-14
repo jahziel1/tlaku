@@ -24,7 +24,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import type { LayerOrder } from '@/api/types';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { countByLayer, layerFeatures, type LayerCount } from '@/lib/layers';
 import { colorName, isGuideColor, readableOn } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
@@ -167,6 +167,8 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
       : t(`layers.role.${entry.role}.why`);
 
   return (
+    // El clic derecho es un atajo para ratón: con teclado el mismo menú se abre con el botón de la fila.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <li
       className="lyr-row"
       data-active={active}
@@ -221,7 +223,7 @@ function LayerRow({ entry, active, canMoveUp, canMoveDown, dropMark, dragging, o
           <span className="lyr-text">
             <span className="lyr-name">
               <span className="lyr-name__text">{name}</span>
-              <span className="lyr-count num" title={t('layers.objects', { n: entry.count.total })}>
+              <span className="lyr-count num" title={tn('layers.objects', entry.count.total)}>
                 {entry.count.total}
                 <span className="sr-only"> {t('layers.objectsShort')}</span>
               </span>

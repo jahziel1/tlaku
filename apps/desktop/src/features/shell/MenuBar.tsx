@@ -184,7 +184,7 @@ export function MenuBar() {
               {t(menu.label)}
             </button>
             {open && (
-              <div role="menu" aria-label={t(menu.label)} className="menu" onKeyDown={(e) => onMenuKey(e, menu)}>
+              <div role="menu" tabIndex={-1} aria-label={t(menu.label)} className="menu" onKeyDown={(e) => onMenuKey(e, menu)}>
                 {menu.items.map((item, i) => {
                   if (item.kind === 'separator') return <div key={`sep-${i}`} role="separator" className="menu__sep" />;
                   if (item.kind === 'recent') return <RecentItems key="recent" onDone={() => closeAndRestore(menu.id)} />;

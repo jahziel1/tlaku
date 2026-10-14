@@ -187,7 +187,9 @@ fn laser_mode_off_blocks_the_job_but_not_the_frame() {
         .frame(vec!["M5".into(), "G0 X1 Y1".into()], 127)
         .unwrap();
     rig.sink.wait("encuadre", |s| {
-        s.logs().iter().any(|(_, t)| t == "; encuadre terminado")
+        s.logs()
+            .iter()
+            .any(|(_, t)| tlaku_i18n::split_code(t) == (Some("frame_done"), "; encuadre terminado"))
     });
     // Y la conexión sigue viva para corregirlo desde la consola.
     assert!(!rig.handle.is_closed());

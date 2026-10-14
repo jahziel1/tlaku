@@ -190,3 +190,32 @@ fn fire_and_axis_jogs_are_refused_while_a_job_runs() {
     );
     rig.handle.cancel().unwrap();
 }
+
+#[test]
+fn engine_messages_follow_the_language_on_the_virtual_machine() {
+    use tlaku_i18n::{Locale, with_locale};
+    let mut rig = connect_virtual("virtual:grbl11@50");
+    rig.sink.wait("estado", |s| !s.statuses().is_empty());
+    // Los errores que se arman en el hilo que llama salen en el idioma de ese hilo; en español por
+    // omisión y en inglés dentro de `with_locale`.
+    let es = rig
+        .handle
+        .jog_axis(LinkFamily::Grbl, 'Q', 1.0, 100.0)
+        .unwrap_err();
+    assert!(es.contains("no es válido"), "{es}");
+    let en = with_locale(Locale::En, || {
+        rig.handle
+            .jog_axis(LinkFamily::Grbl, 'Q', 1.0, 100.0)
+            .unwrap_err()
+    });
+    assert!(en.contains("is not valid"), "{en}");
+    let en = with_locale(Locale::En, || {
+        rig.handle
+            .jog_axis(LinkFamily::Grbl, 'Z', 1.0, 0.0)
+            .unwrap_err()
+    });
+    assert!(en.contains("move speed must be greater than 0"), "{en}");
+    rig.conn.take().unwrap().close();
+    let en = with_locale(Locale::En, || rig.handle.command("$$").unwrap_err());
+    assert!(en.contains("No machine is connected"), "{en}");
+}

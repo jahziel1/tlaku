@@ -21,6 +21,7 @@ mod remote;
 mod settings_backup;
 pub mod smoke;
 mod templates;
+mod updater;
 mod window;
 
 use commands::AppState;
@@ -47,11 +48,16 @@ pub fn run() {
 fn build_app(context: tauri::Context) -> tauri::App {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Reiniciar tras instalar una actualización (`features/help/updater.ts`).
+        .plugin(tauri_plugin_process::init())
+        // El actualizador solo se registra si tauri.conf.json trae su llave pública (ver `updater.rs`).
+        .setup(updater::setup)
         .manage(AppState::default())
         .manage(automation::AutomationState::default())
         .manage(remote::RemoteState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
+            commands::set_engine_locale,
             commands::import_file,
             commands::save_project,
             commands::load_project,

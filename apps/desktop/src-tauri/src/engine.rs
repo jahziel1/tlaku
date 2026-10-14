@@ -10,6 +10,7 @@ use tlaku_doc::{
     Connection, DeviceKind, DeviceProfile, Document, ExportResult, ImportResult, JobOptions,
     JobPreview,
 };
+use tlaku_i18n::tr;
 
 /// Posición de trabajo de la cabeza, `[x, y]`, si se conoce.
 pub type Head = Option<[f64; 2]>;
@@ -27,7 +28,7 @@ fn io_error(path: &Path, e: &std::io::Error) -> String {
 pub fn write_atomic(path: &Path, text: &str) -> Result<(), String> {
     let name = path
         .file_name()
-        .ok_or_else(|| format!("{}: no es una ruta de archivo", path.display()))?;
+        .ok_or_else(|| tr!("desktop.engine.not_a_file_path", path = path.display()))?;
     let mut tmp_name = name.to_os_string();
     tmp_name.push(".tmp");
     let tmp = path.with_file_name(tmp_name);
@@ -186,7 +187,7 @@ pub fn frame_lines(
     pointer: bool,
 ) -> Result<Vec<String>, String> {
     if !(speed.is_finite() && speed > 0.0) {
-        return Err("La velocidad del encuadre debe ser mayor que 0.".into());
+        return Err(tr!("desktop.common.frame_speed"));
     }
     let job = tlaku_pipeline::compute_at(doc, device, options, point(head))?;
     let lines = if pointer {
@@ -195,7 +196,7 @@ pub fn frame_lines(
         tlaku_pipeline::frame_gcode(&job, device, speed)
     };
     if lines.is_empty() {
-        return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
+        return Err(tr!("desktop.common.nothing_to_frame"));
     }
     Ok(lines)
 }
@@ -211,34 +212,32 @@ pub fn devices_file(config_dir: &Path) -> PathBuf {
 
 fn check_device(d: &DeviceProfile) -> Result<(), String> {
     if d.id.trim().is_empty() {
-        return Err("El perfil necesita un id.".into());
+        return Err(tr!("desktop.engine.profile_needs_id"));
     }
     if d.name.trim().is_empty() {
-        return Err("El perfil necesita un nombre.".into());
+        return Err(tr!("desktop.engine.profile_needs_name"));
     }
-    let positive = |what: &str, v: &[f64]| {
-        if v.iter().all(|x| x.is_finite() && *x > 0.0) {
-            Ok(())
-        } else {
-            Err(format!("Perfil '{}': {what} debe ser mayor que 0.", d.name))
-        }
-    };
-    positive("el área de trabajo", &d.bed)?;
-    positive("S máxima", &[d.s_max])?;
-    positive("la aceleración", &d.accel)?;
-    positive("la velocidad máxima", &d.max_rate)?;
-    positive("la velocidad de movimientos rápidos", &[d.rapid_rate])?;
+    let positive = |v: &[f64]| v.iter().all(|x| x.is_finite() && *x > 0.0);
+    if !positive(&d.bed) {
+        return Err(tr!("desktop.engine.profile_bed", name = d.name));
+    }
+    if !positive(&[d.s_max]) {
+        return Err(tr!("desktop.engine.profile_s_max", name = d.name));
+    }
+    if !positive(&d.accel) {
+        return Err(tr!("desktop.engine.profile_accel", name = d.name));
+    }
+    if !positive(&d.max_rate) {
+        return Err(tr!("desktop.engine.profile_max_rate", name = d.name));
+    }
+    if !positive(&[d.rapid_rate]) {
+        return Err(tr!("desktop.engine.profile_rapid_rate", name = d.name));
+    }
     if !d.pointer_offset.iter().all(|v| v.is_finite()) || !d.u_offset.is_finite() {
-        return Err(format!(
-            "Perfil '{}': el desfase del puntero y el desplazamiento U deben ser números.",
-            d.name
-        ));
+        return Err(tr!("desktop.engine.profile_offsets", name = d.name));
     }
     if d.baud == 0 || d.rx_buffer < 16 {
-        return Err(format!(
-            "Perfil '{}': los baudios y el búfer de recepción (mínimo 16 bytes) deben ser válidos.",
-            d.name
-        ));
+        return Err(tr!("desktop.engine.profile_serial", name = d.name));
     }
     Ok(())
 }
@@ -248,9 +247,10 @@ pub fn list_devices(config_dir: &Path) -> Result<Vec<DeviceProfile>, String> {
     let file = devices_file(config_dir);
     match fs::read_to_string(&file) {
         Ok(text) => serde_json::from_str(&text).map_err(|e| {
-            format!(
-                "{}: el archivo de perfiles está dañado ({e}). Bórralo para volver al perfil de fábrica.",
-                file.display()
+            tr!(
+                "desktop.engine.profiles_corrupt",
+                path = file.display(),
+                err = e
             )
         }),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(vec![DeviceProfile::default()]),
@@ -261,7 +261,7 @@ pub fn list_devices(config_dir: &Path) -> Result<Vec<DeviceProfile>, String> {
 fn store_devices(config_dir: &Path, devices: &[DeviceProfile]) -> Result<(), String> {
     fs::create_dir_all(config_dir).map_err(|e| io_error(config_dir, &e))?;
     let text = serde_json::to_string_pretty(devices)
-        .map_err(|e| format!("no se pudo serializar los perfiles: {e}"))?;
+        .map_err(|e| tr!("desktop.engine.profiles_serialize", err = e))?;
     write_atomic(&devices_file(config_dir), &text)
 }
 
@@ -302,7 +302,7 @@ pub fn delete_device(config_dir: &Path, id: &str) -> Result<(), String> {
     let before = all.len();
     all.retain(|d| d.id != id);
     if all.len() == before {
-        return Err(format!("No existe el perfil '{id}'."));
+        return Err(tr!("desktop.engine.no_such_profile", id = id));
     }
     store_devices(config_dir, &all)
 }

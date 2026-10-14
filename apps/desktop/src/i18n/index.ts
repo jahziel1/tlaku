@@ -39,4 +39,17 @@ export function t(key: I18nKey, params?: Params): string {
   return text.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? `{${name}}`));
 }
 
+/** Claves que existen en pareja `<base>.one` / `<base>.other` (singular y plural). */
+export type PluralBase = {
+  [K in I18nKey]: K extends `${infer B}.one` ? (`${B}.other` extends I18nKey ? B : never) : never;
+}[I18nKey];
+
+/**
+ * Traduce una clave con plural: elige `<base>.one` si `n` es 1 y `<base>.other` en cualquier otro caso
+ * (el cero va en plural, en español y en inglés). `n` también llena el marcador `{n}`.
+ */
+export function tn(base: PluralBase, n: number, params?: Params): string {
+  return t(`${base}.${n === 1 ? 'one' : 'other'}` as I18nKey, { ...params, n });
+}
+
 export { en, es };

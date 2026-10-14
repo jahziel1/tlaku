@@ -67,6 +67,10 @@ El botón **Vista previa de la imagen…**, al final de los ajustes de la imagen
 - **Entera** ajusta la imagen al visor. Si la rejilla del trabajo es más fina de lo que cabe en pantalla, la vista usa una más gruesa y lo dice: es una aproximación rápida.
 - **Tamaño real**, **200 %** y **400 %** muestran un trozo con la rejilla exacta del trabajo (cada punto es un punto grabado). Arrastra la imagen para moverte.
 
+![El editor de la capa Foto con el preset «Foto en madera» y, abajo a la derecha, la vista previa tramada de la imagen](../../apps/desktop/docs/screenshots/68-vista-previa-imagen.png)
+
+> **Ojo:** la captura se tomó con la aplicación en modo de demostración, así que la imagen y su tramado son de ejemplo; en tu equipo la vista previa muestra tu imagen con tu tramado.
+
 La vista previa no incluye el efecto de la máquina al barrer (sobrebarrido, compensación de offsets). Para eso está la vista previa del trabajo.
 
 ## Imagen avanzada

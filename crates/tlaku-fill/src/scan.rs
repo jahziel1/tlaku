@@ -2,6 +2,7 @@
 
 use crate::FillRule;
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Tolerancia (mm) bajo la cual un tramo se considera vacío y dos tramos contiguos se fusionan.
 const EPS: f64 = 1e-9;
@@ -117,8 +118,9 @@ pub(crate) fn scan(
     let top = edges.iter().fold(f64::MIN, |m, e| m.max(e.ymax));
     let lines = (top - edges[0].ymin) / interval;
     if lines.is_nan() || lines > MAX_LINES {
-        return Err(format!(
-            "demasiadas líneas de barrido ({lines:.0}); aumenta el intervalo"
+        return Err(tr!(
+            "fill.scan.too_many_lines",
+            lines = format!("{lines:.0}")
         ));
     }
 

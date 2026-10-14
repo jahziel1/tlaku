@@ -2,6 +2,7 @@
 
 use tlaku_core::Rgb;
 use tlaku_doc::{Document, Optimization};
+use tlaku_i18n::tr;
 use tlaku_plan::{PlanOptions, Winding};
 
 /// Opciones del planificador que salen de los ajustes de optimización del trabajo.
@@ -30,9 +31,7 @@ pub(super) fn optimization_note(
     let mut parts = tlaku_plan::describe(plan);
     if !o.by_layer {
         parts.push(if merged.is_empty() {
-            "sin orden por capa: no hay capas de corte consecutivas con los mismos ajustes que \
-             mezclar (las que tienen ajustes distintos no se mezclan)"
-                .to_string()
+            tr!("pipeline.build_plan.no_layer_order_nothing")
         } else {
             let list: Vec<String> = merged
                 .iter()
@@ -44,22 +43,22 @@ pub(super) fn optimization_note(
                         .join(" + ")
                 })
                 .collect();
-            format!(
-                "sin orden por capa: se mezclaron las capas con los mismos ajustes ({})",
-                list.join("; ")
+            tr!(
+                "pipeline.build_plan.no_layer_order_merged",
+                list = list.join("; ")
             )
         });
     }
     if o.remove_overlaps {
-        parts.push(format!(
-            "tramos repetidos quitados dentro de cada capa de corte (tolerancia {} mm)",
-            o.overlap_tolerance
+        parts.push(tr!(
+            "pipeline.build_plan.overlaps_removed",
+            tolerance = o.overlap_tolerance
         ));
     }
     if o.hide_backlash {
-        parts.push("hide_backlash: recorrido en un solo sentido, más lento".to_string());
+        parts.push(tr!("pipeline.build_plan.hide_backlash"));
     }
-    format!("optimización: {}", parts.join("; "))
+    tr!("pipeline.build_plan.optimization", parts = parts.join("; "))
 }
 
 /// Mensaje cuando el trabajo no produce nada. Dice por qué si el documento lo deja claro: vacío,
@@ -68,23 +67,24 @@ pub(super) fn nothing_to_produce(doc: &Document, warnings: &[String]) -> String 
     let mut parts: Vec<String> = Vec::new();
     parts.extend(empty_reason(doc));
     parts.extend(warnings.iter().cloned());
-    format!(
-        "no hay nada que producir: {}",
-        if parts.is_empty() {
-            "el diseño está vacío (o ningún objeto tiene salida)".to_string()
-        } else {
-            parts.join("; ")
-        }
+    let reason = if parts.is_empty() {
+        tr!("pipeline.build_plan.empty_or_no_output")
+    } else {
+        parts.join("; ")
+    };
+    tlaku_i18n::coded(
+        "nothing_to_send",
+        tr!("pipeline.build_plan.nothing_to_produce", reason = reason),
     )
 }
 
 fn empty_reason(doc: &Document) -> Option<String> {
     if doc.objects.is_empty() {
-        return Some("el diseño está vacío".into());
+        return Some(tr!("pipeline.build_plan.empty_design"));
     }
     let visible: Vec<_> = doc.objects.iter().filter(|o| !o.hidden).collect();
     if visible.is_empty() {
-        return Some("todos los objetos están ocultos".into());
+        return Some(tr!("pipeline.build_plan.all_hidden"));
     }
     let off = |color: Rgb| {
         doc.layers
@@ -108,16 +108,11 @@ fn empty_reason(doc: &Document) -> Option<String> {
         }
     }
     Some(if names.len() == 1 {
-        format!(
-            "la capa \"{}\" está sin salida (la salida de la capa está desactivada); \
-             actívala para que se corte o grabe",
-            names[0]
-        )
+        tr!("pipeline.build_plan.layer_no_output", name = names[0])
     } else {
-        format!(
-            "las capas con objetos ({}) están sin salida (la salida está desactivada); \
-             activa la salida de al menos una para que se corte o grabe",
-            names.join(", ")
+        tr!(
+            "pipeline.build_plan.layers_no_output",
+            names = names.join(", ")
         )
     })
 }

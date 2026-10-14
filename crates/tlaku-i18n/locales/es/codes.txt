@@ -1,0 +1,38 @@
+# Mensajes de tlaku-codes (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: codes.<módulo>.<qué> = plantilla
+
+# encode.rs
+codes.encode.digits_only = {name} solo admite dígitos (hay un '{ch}')
+codes.encode.bar_character = El contenido tiene un carácter que {kind} no admite
+codes.encode.bar_length = La longitud del contenido no es válida para {kind}
+codes.encode.bar_checksum = El dígito de control no es correcto para {kind}
+codes.encode.bar_generate = No se pudo generar el código {kind}
+codes.encode.digit_count = {name} necesita {n} dígitos (o {with_check} con el dígito de control); hay {found}
+codes.encode.wrong_check = El dígito de control de {name} no es correcto: debería ser {expected}
+codes.encode.code39_uppercase = Code 39 solo admite mayúsculas; el texto se pasó a mayúsculas
+codes.encode.code39_charset = Code 39 admite A-Z, 0-9 y - . espacio $ / + % (hay un '{ch}')
+codes.encode.code128_charset = Code 128 admite caracteres ASCII imprimibles (hay un '{ch}')
+codes.encode.code128_short = Code 128 necesita al menos 2 caracteres
+codes.encode.itf_empty = ITF necesita al menos un dígito
+codes.encode.itf_odd = ITF necesita una cantidad par de dígitos; se añadió un dígito de control al final
+codes.encode.codabar_frame = Codabar necesita letras A-D de inicio y fin; se añadieron A y A
+codes.encode.codabar_charset = Codabar admite 0-9 y - $ / : . + (hay un '{ch}')
+codes.encode.not_linear = Este tipo de código no es lineal
+codes.encode.qr_too_long = El contenido es demasiado largo para un QR con ese nivel de corrección; acórtalo o baja el nivel
+codes.encode.qr_failed = No se pudo generar el QR: {error}
+codes.encode.dm_too_long = El contenido es demasiado largo para un Data Matrix (o tiene caracteres que no admite)
+codes.encode.dm_rectangular = El Data Matrix resultó rectangular
+codes.encode.not_matrix = Este tipo de código no es una matriz
+
+# geometry.rs
+codes.geometry.pick_font = Elige una fuente para el texto legible
+codes.geometry.outline_font = El texto legible necesita una fuente de contorno, no una de una línea
+codes.geometry.no_shapes = El contenido no produjo ninguna forma
+codes.geometry.empty_result = El resultado no tiene formas (el fondo quedó vacío)
+
+# lib.rs
+codes.lib.empty_content = Escribe el contenido del código
+codes.lib.bad_size = El tamaño del código debe ser mayor que 0 mm (recibido {value})
+codes.lib.negative_margin = El margen no puede ser negativo
+codes.lib.bad_height = El alto de las barras debe ser mayor que 0 mm (recibido {value})
+codes.lib.small_module = Cada módulo mide {module} mm: es probable que la máquina no pueda grabarlo con nitidez. Aumenta el tamaño o acorta el contenido.

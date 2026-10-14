@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { t, type I18nKey } from '@/i18n';
 import type { DeviceIssue, DialectIssue } from '@/lib/device';
+import { stepFromKey } from '@/ui/stepKey';
 
 /** Texto de un error: los de las plantillas del dialecto viven en `devices.dialect.err`, el resto en `machine.dev.err`. */
 const DIALECT_ISSUES: ReadonlySet<string> = new Set<DialectIssue>(['empty', 'multiline', 'missingS', 'badPlaceholder', 'range', 'lineTooShort', 'airPair']);
@@ -82,6 +83,12 @@ export function NumInput({
           } else if (e.key === 'Escape' && text !== String(value)) {
             e.stopPropagation();
             setText(String(value));
+          } else if (!readOnly) {
+            const n = parse(text);
+            const next = stepFromKey(e, text.trim() !== '' && Number.isFinite(n) ? n : value, 1);
+            if (next === null) return;
+            e.preventDefault();
+            setText(String(next));
           }
         }}
       />

@@ -13,6 +13,7 @@ use crate::packet::Frame;
 use crate::status::{STATUS_LEN, StatusReport};
 use std::collections::VecDeque;
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// VID/PID del CH341 de la M2 Nano (la Moshiboard usa los mismos).
 pub const VENDOR_ID: u16 = 0x1A86;
@@ -34,9 +35,9 @@ pub enum TransportError {
 impl fmt::Display for TransportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TransportError::Timeout => write!(f, "tiempo de espera agotado en el USB"),
-            TransportError::Disconnected => write!(f, "la placa se desconectó del USB"),
-            TransportError::Io(m) => write!(f, "error de USB: {m}"),
+            TransportError::Timeout => f.write_str(&tr!("lhymicro.transport.timeout")),
+            TransportError::Disconnected => f.write_str(&tr!("lhymicro.transport.disconnected")),
+            TransportError::Io(m) => f.write_str(&tr!("lhymicro.transport.io", m = m)),
         }
     }
 }

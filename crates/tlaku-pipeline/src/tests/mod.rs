@@ -192,6 +192,7 @@ mod bounds;
 mod compute;
 mod curves;
 mod gcode;
+mod i18n;
 mod images;
 mod import;
 mod layers;

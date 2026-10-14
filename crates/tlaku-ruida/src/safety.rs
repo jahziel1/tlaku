@@ -13,8 +13,10 @@
 
 use crate::cmd::{self, Command, RapidRef};
 use crate::num;
+use crate::text;
 use std::fmt;
 use tlaku_core::toolpath::{Move, Toolpath};
+use tlaku_i18n::tr;
 
 /// Margen (mm) para no rechazar un diseño que toca el borde por error de redondeo.
 const BED_EPS_MM: f64 = 1e-6;
@@ -99,49 +101,65 @@ pub enum SafetyError {
 impl fmt::Display for SafetyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SafetyError::BadLimits(w) => write!(f, "límites de seguridad inválidos: {w}"),
-            SafetyError::NonFinite { block, what } => {
-                write!(f, "bloque {block}: {what} no es un número finito")
+            SafetyError::BadLimits(w) => {
+                f.write_str(&tr!("ruida.safety.bad_limits", what = text::what(w)))
             }
+            SafetyError::NonFinite { block, what } => f.write_str(&tr!(
+                "ruida.safety.non_finite",
+                block = block,
+                what = text::what(what)
+            )),
             SafetyError::OutOfBed {
                 block,
                 index,
                 x_mm,
                 y_mm,
-            } => write!(
-                f,
-                "bloque {block}, movimiento {index}: ({x_mm}, {y_mm}) mm queda fuera de la cama"
-            ),
-            SafetyError::Power { block, pct, max } => write!(
-                f,
-                "bloque {block}: potencia {pct} % fuera del rango permitido 0 a {max} %"
-            ),
-            SafetyError::Speed { block, mm_min, max } => write!(
-                f,
-                "bloque {block}: velocidad {mm_min} mm/min fuera del rango permitido (mayor que 0 y hasta {max})"
-            ),
-            SafetyError::ZUnsupported { block } => write!(
-                f,
-                "bloque {block}: el eje Z / rotativo no está soportado todavía en Ruida"
-            ),
-            SafetyError::ForbiddenCommand { index, what } => {
-                write!(f, "comando {index}: {what} no está permitido")
+            } => f.write_str(&tr!(
+                "ruida.safety.out_of_bed",
+                block = block,
+                index = index,
+                x = x_mm,
+                y = y_mm
+            )),
+            SafetyError::Power { block, pct, max } => f.write_str(&tr!(
+                "ruida.safety.power",
+                block = block,
+                pct = pct,
+                max = max
+            )),
+            SafetyError::Speed { block, mm_min, max } => f.write_str(&tr!(
+                "ruida.safety.speed",
+                block = block,
+                mm_min = mm_min,
+                max = max
+            )),
+            SafetyError::ZUnsupported { block } => {
+                f.write_str(&tr!("ruida.safety.z_unsupported", block = block))
             }
-            SafetyError::StreamOutOfBed { index, x_um, y_um } => write!(
-                f,
-                "comando {index}: la posición ({x_um}, {y_um}) µm queda fuera de la cama"
-            ),
-            SafetyError::StreamPower { index, pct, max } => {
-                write!(
-                    f,
-                    "comando {index}: potencia {pct:.3} % por encima de {max} %"
-                )
-            }
-            SafetyError::StreamSpeed { index, mm_min, max } => write!(
-                f,
-                "comando {index}: velocidad {mm_min:.1} mm/min por encima de {max} mm/min"
-            ),
-            SafetyError::Decode(e) => write!(f, "flujo ilegible: {e}"),
+            SafetyError::ForbiddenCommand { index, what } => f.write_str(&tr!(
+                "ruida.safety.forbidden",
+                index = index,
+                what = text::what(what)
+            )),
+            SafetyError::StreamOutOfBed { index, x_um, y_um } => f.write_str(&tr!(
+                "ruida.safety.stream_out_of_bed",
+                index = index,
+                x = x_um,
+                y = y_um
+            )),
+            SafetyError::StreamPower { index, pct, max } => f.write_str(&tr!(
+                "ruida.safety.stream_power",
+                index = index,
+                pct = format!("{pct:.3}"),
+                max = max
+            )),
+            SafetyError::StreamSpeed { index, mm_min, max } => f.write_str(&tr!(
+                "ruida.safety.stream_speed",
+                index = index,
+                mm_min = format!("{mm_min:.1}"),
+                max = max
+            )),
+            SafetyError::Decode(e) => f.write_str(&tr!("ruida.safety.decode", e = e)),
         }
     }
 }

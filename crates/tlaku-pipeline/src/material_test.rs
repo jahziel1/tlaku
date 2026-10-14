@@ -15,6 +15,7 @@ use tlaku_doc::{
     DOC_VERSION, DesignObject, Document, LayerMode, LayerSettings, ObjectKind, TestAxis, TestParam,
     VectorObject,
 };
+use tlaku_i18n::tr;
 
 /// Máximo de celdas por eje.
 const MAX_COUNT: u32 = 30;
@@ -278,29 +279,29 @@ fn format_value(param: TestParam, v: f64) -> String {
 fn short_name(param: TestParam, v: f64) -> String {
     let n = format_value(param, v);
     match param {
-        TestParam::Speed => format!("V {n}"),
-        TestParam::Power => format!("P {n}%"),
-        TestParam::Passes => format!("Pas {n}"),
-        TestParam::Interval => format!("Int {n}"),
+        TestParam::Speed => tr!("pipeline.material_test.short_speed", n = n),
+        TestParam::Power => tr!("pipeline.material_test.short_power", n = n),
+        TestParam::Passes => tr!("pipeline.material_test.short_passes", n = n),
+        TestParam::Interval => tr!("pipeline.material_test.short_interval", n = n),
     }
 }
 
 /// Encabezado del eje en la fuente de trazo: nombre del parámetro y su unidad.
-fn axis_header(param: TestParam) -> &'static str {
+fn axis_header(param: TestParam) -> String {
     match param {
-        TestParam::Speed => "V MM/MIN",
-        TestParam::Power => "P %",
-        TestParam::Passes => "PAS",
-        TestParam::Interval => "INT MM",
+        TestParam::Speed => tr!("pipeline.material_test.axis_speed"),
+        TestParam::Power => tr!("pipeline.material_test.axis_power"),
+        TestParam::Passes => tr!("pipeline.material_test.axis_passes"),
+        TestParam::Interval => tr!("pipeline.material_test.axis_interval"),
     }
 }
 
-fn param_label(param: TestParam) -> &'static str {
+fn param_label(param: TestParam) -> String {
     match param {
-        TestParam::Speed => "la velocidad",
-        TestParam::Power => "la potencia",
-        TestParam::Passes => "las pasadas",
-        TestParam::Interval => "el intervalo",
+        TestParam::Speed => tr!("pipeline.material_test.param_speed"),
+        TestParam::Power => tr!("pipeline.material_test.param_power"),
+        TestParam::Passes => tr!("pipeline.material_test.param_passes"),
+        TestParam::Interval => tr!("pipeline.material_test.param_interval"),
     }
 }
 
@@ -338,37 +339,46 @@ fn apply_param(layer: &mut LayerSettings, param: TestParam, v: f64) {
 
 fn check_axis(axis: &TestAxis, which: &str, mode: LayerMode) -> Result<(), String> {
     if axis.count < 1 || axis.count > MAX_COUNT {
-        return Err(format!(
-            "Las {which} deben ser entre 1 y {MAX_COUNT} (se pidieron {}).",
-            axis.count
+        return Err(tr!(
+            "pipeline.material_test.bad_count",
+            which = which,
+            max = MAX_COUNT,
+            n = axis.count
         ));
     }
     if !axis.from.is_finite() || !axis.to.is_finite() {
-        return Err(format!(
-            "El rango de las {which} contiene valores no válidos."
-        ));
+        return Err(tr!("pipeline.material_test.bad_range", which = which));
     }
     if axis.param == TestParam::Interval && mode == LayerMode::Line {
-        return Err(format!(
-            "El intervalo no se usa en modo line; elige otro parámetro para las {which} o cambia a relleno."
+        return Err(tr!(
+            "pipeline.material_test.interval_in_line",
+            which = which
         ));
     }
     let what = param_label(axis.param);
     for v in [axis.from, axis.to] {
         match axis.param {
             TestParam::Power if !(0.0..=100.0).contains(&v) => {
-                return Err(format!(
-                    "La potencia de las {which} debe estar entre 0 y 100 % (se pidió {v})."
+                return Err(tr!(
+                    "pipeline.material_test.bad_power",
+                    which = which,
+                    value = v
                 ));
             }
             TestParam::Speed | TestParam::Interval if v <= 0.0 => {
-                return Err(format!(
-                    "Para {what} de las {which} se necesita un valor mayor que 0 (se pidió {v})."
+                return Err(tr!(
+                    "pipeline.material_test.needs_positive",
+                    what = what,
+                    which = which,
+                    value = v
                 ));
             }
             TestParam::Passes if v.round() > f64::from(MAX_PASSES) => {
-                return Err(format!(
-                    "Las pasadas de las {which} no pueden pasar de {MAX_PASSES} (se pidió {v})."
+                return Err(tr!(
+                    "pipeline.material_test.too_many_passes",
+                    which = which,
+                    max = MAX_PASSES,
+                    value = v
                 ));
             }
             _ => {}
@@ -381,29 +391,29 @@ fn validate(p: &tlaku_doc::MaterialTestParams) -> Result<(), String> {
     match p.mode {
         LayerMode::Line | LayerMode::Fill => {}
         LayerMode::Image => {
-            return Err("La prueba de materiales solo admite los modos line y fill.".into());
+            return Err(tr!("pipeline.material_test.bad_mode"));
         }
     }
     if p.rows.param == p.cols.param {
-        return Err("Las filas y las columnas deben variar parámetros distintos.".into());
+        return Err(tr!("pipeline.material_test.same_param"));
     }
-    check_axis(&p.rows, "filas", p.mode)?;
-    check_axis(&p.cols, "columnas", p.mode)?;
+    check_axis(&p.rows, &tr!("pipeline.material_test.rows"), p.mode)?;
+    check_axis(&p.cols, &tr!("pipeline.material_test.cols"), p.mode)?;
     if !(p.cell[0].is_finite() && p.cell[1].is_finite() && p.cell[0] > 0.0 && p.cell[1] > 0.0) {
-        return Err("El tamaño de la celda debe ser mayor que 0 mm.".into());
+        return Err(tr!("pipeline.material_test.bad_cell"));
     }
     if !p.gap.is_finite() || p.gap < 0.0 {
-        return Err("La separación entre celdas no puede ser negativa.".into());
+        return Err(tr!("pipeline.material_test.bad_gap"));
     }
     if !p.origin.iter().all(|v| v.is_finite()) {
-        return Err("El origen de la cuadrícula no es válido.".into());
+        return Err(tr!("pipeline.material_test.bad_origin"));
     }
     if p.labels {
         if !(p.label_speed.is_finite() && p.label_speed > 0.0) {
-            return Err("La velocidad de los rótulos debe ser mayor que 0.".into());
+            return Err(tr!("pipeline.material_test.bad_label_speed"));
         }
         if !(0.0..=100.0).contains(&p.label_power) {
-            return Err("La potencia de los rótulos debe estar entre 0 y 100 %.".into());
+            return Err(tr!("pipeline.material_test.bad_label_power"));
         }
     }
     Ok(())
@@ -509,18 +519,18 @@ pub fn material_test(params: &tlaku_doc::MaterialTestParams) -> Result<Document,
                 .fold(0.0, f64::max)
         };
         if widest(&col_texts) > cw + gap - 0.5 {
-            return Err(format!(
-                "Con rótulos, la celda debe medir al menos {:.1} mm de ancho (o aumenta la separación).",
-                widest(&col_texts) - gap + 0.5
+            return Err(tr!(
+                "pipeline.material_test.cell_too_narrow",
+                min = format!("{:.1}", widest(&col_texts) - gap + 0.5)
             ));
         }
         if ch + gap < LABEL_HEIGHT + 0.5 {
-            return Err(format!(
-                "Con rótulos, la celda debe medir al menos {:.1} mm de alto (o aumenta la separación).",
-                LABEL_HEIGHT + 0.5 - gap
+            return Err(tr!(
+                "pipeline.material_test.cell_too_short",
+                min = format!("{:.1}", LABEL_HEIGHT + 0.5 - gap)
             ));
         }
-        left_margin = widest(&row_texts).max(text_width(row_header, LABEL_HEIGHT)) + LABEL_GAP;
+        left_margin = widest(&row_texts).max(text_width(&row_header, LABEL_HEIGHT)) + LABEL_GAP;
     }
 
     let grid_x = params.origin[0] + left_margin;
@@ -563,7 +573,7 @@ pub fn material_test(params: &tlaku_doc::MaterialTestParams) -> Result<Document,
 
     if params.labels {
         let mut label_layer = LayerSettings::for_color(LABEL_COLOR);
-        label_layer.name = "Rótulos".into();
+        label_layer.name = tr!("pipeline.material_test.labels_layer");
         label_layer.mode = LayerMode::Line;
         label_layer.speed = params.label_speed;
         label_layer.power = params.label_power;
@@ -580,11 +590,11 @@ pub fn material_test(params: &tlaku_doc::MaterialTestParams) -> Result<Document,
         // la primera columna.
         label(
             "label-rows-header".into(),
-            row_header,
+            &row_header,
             params.origin[0],
             header_y,
         );
-        label("label-cols-header".into(), col_header, grid_x, header_y);
+        label("label-cols-header".into(), &col_header, grid_x, header_y);
         // Valores de las columnas, centrados sobre cada una y justo encima de la cuadrícula.
         let values_y = grid_y + grid_h + LABEL_GAP;
         for (j, text) in col_texts.iter().enumerate() {
@@ -674,6 +684,19 @@ mod tests {
         assert_eq!(speeds, [600.0, 1000.0, 1400.0, 1800.0]);
         assert_eq!(doc.layers[0].name, "P 20% · V 600");
         assert_eq!(doc.layers[5].name, "P 40% · V 1000");
+    }
+
+    #[test]
+    fn los_nombres_de_capa_siguen_el_idioma() {
+        let mut p = params();
+        p.labels = true;
+        let es = material_test(&p).unwrap();
+        assert_eq!(es.layers.last().unwrap().name, "Rótulos");
+        let en = tlaku_i18n::with_locale(tlaku_i18n::Locale::En, || material_test(&p).unwrap());
+        assert_eq!(en.layers[0].name, "P 20% · S 600");
+        assert_eq!(en.layers.last().unwrap().name, "Labels");
+        // Mismo número de capas y de objetos: solo cambian los textos.
+        assert_eq!(es.layers.len(), en.layers.len());
     }
 
     #[test]
@@ -794,8 +817,11 @@ mod tests {
             TestParam::Passes,
             TestParam::Interval,
         ] {
-            for ch in axis_header(param).chars().chain("0123456789.".chars()) {
-                assert!(glyph(ch).is_some(), "falta el glifo '{ch}'");
+            for locale in [tlaku_i18n::Locale::Es, tlaku_i18n::Locale::En] {
+                let header = tlaku_i18n::with_locale(locale, || axis_header(param));
+                for ch in header.chars().chain("0123456789.".chars()) {
+                    assert!(glyph(ch).is_some(), "falta el glifo '{ch}' ({header})");
+                }
             }
         }
         // Todo glifo tiene trazos con al menos dos puntos y dentro de su caja.

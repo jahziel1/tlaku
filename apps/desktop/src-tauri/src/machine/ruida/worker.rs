@@ -6,6 +6,7 @@ mod status;
 mod upload;
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Hilo
@@ -88,18 +89,15 @@ impl<L: PacketLink> Worker<L> {
     /// Al desconectar, un trabajo en marcha se detiene (igual que con GRBL).
     pub(super) fn shutdown(&mut self) {
         if self.job.take().is_some() {
-            self.log(
-                LogDir::Out,
-                "; desconexión: se detiene el trabajo en marcha (D8 01)",
-            );
+            self.log(LogDir::Out, &tr!("desktop.ruida.log_disconnect_stop"));
             match self.session.stop() {
-                Ok(()) => self.job_event(JobState::Cancelled, "Trabajo detenido al desconectar."),
+                Ok(()) => self.job_event(
+                    JobState::Cancelled,
+                    &tr!("desktop.ruida.job_stopped_disconnect"),
+                ),
                 Err(e) => self.log(
                     LogDir::In,
-                    &format!(
-                        "; la máquina no confirmó Detener ({e}): puede seguir ejecutando; usa el \
-                         panel de la máquina o el paro de emergencia"
-                    ),
+                    &tr!("desktop.ruida.log_stop_unconfirmed", err = e),
                 ),
             }
         }
@@ -107,24 +105,13 @@ impl<L: PacketLink> Worker<L> {
 }
 
 /// Texto de un fallo de subida antes del primer paquete: el de la causa con su pista.
-pub(super) fn op_error_text(cause: &SessionError, full: &str) -> String {
+pub(super) fn op_error_text(cause: &SessionError) -> String {
+    // `UploadError` añade al texto de la causa el recuento de paquetes y el aviso sobre el
+    // documento incompleto, que aquí no aplican: solo se usa la causa.
     match cause {
-        SessionError::Timeout { .. } | SessionError::Busy(_) => {
-            // `UploadError` ya añade el aviso sobre el documento incompleto, que aquí no aplica.
-            let base = full.split(" (paquetes confirmados").next().unwrap_or(full);
-            match cause {
-                SessionError::Timeout { .. } => format!(
-                    "{base}. Comprueba la IP, la red y que la máquina no esté ejecutando otro \
-                     trabajo."
-                ),
-                _ => format!("{base}. Espera a que termine o pulsa Detener en la máquina."),
-            }
-        }
-        _ => full
-            .split(" (paquetes confirmados")
-            .next()
-            .unwrap_or(full)
-            .to_string(),
+        SessionError::Timeout { .. } => tr!("desktop.ruida.upload_silent", err = cause),
+        SessionError::Busy(_) => tr!("desktop.ruida.upload_busy", err = cause),
+        _ => cause.to_string(),
     }
 }
 

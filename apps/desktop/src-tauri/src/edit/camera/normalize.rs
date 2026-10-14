@@ -48,14 +48,12 @@ pub(super) fn normalize_manual(a: &mut CameraAlignment) -> Result<(), String> {
     let img: Vec<Point> = a.image_px.iter().copied().map(pt).collect();
     let bed: Vec<Point> = a.bed_mm.iter().copied().map(pt).collect();
     let fit = ImageToBed::fit(&img, &bed, None)
-        .map_err(|e| format!("Los 4 puntos no definen una alineación válida: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.align.bad_four_points", err = e))?;
     a.to_bed = fit.alignment.to_bed.m;
     a.rms_mm = fit.rms_mm;
     // Una homografía con valores no finitos (puntos casi alineados) no sirve.
     if a.to_bed.iter().flatten().any(|v| !v.is_finite()) {
-        return Err(
-            "Los 4 puntos están casi alineados; marca las esquinas de un rectángulo.".into(),
-        );
+        return Err(tr!("desktop.edit.camera.align.collinear"));
     }
     a.method = AlignmentMethod::Manual;
     Ok(())
@@ -68,16 +66,17 @@ pub(super) fn normalize_samples(
 ) -> Result<(), String> {
     for s in &a.samples {
         if !s.height_mm.is_finite() || !(-10.0..=500.0).contains(&s.height_mm) {
-            return Err("La altura de las marcas debe estar entre -10 y 500 mm.".into());
+            return Err(tr!("desktop.edit.camera.align.height_range"));
         }
         if s.image_px.len() != s.bed_mm.len() {
-            return Err("Cada altura necesita tantos puntos de imagen como de cama.".into());
+            return Err(tr!("desktop.edit.camera.align.point_count_mismatch"));
         }
         if s.image_px.len() < 4 || s.image_px.len() > MAX_POINTS {
-            return Err(format!(
-                "Cada altura necesita entre 4 y {MAX_POINTS} marcas (la de {:.1} mm tiene {}).",
-                s.height_mm,
-                s.image_px.len()
+            return Err(tr!(
+                "desktop.edit.camera.align.marks_per_height",
+                max = MAX_POINTS,
+                height = format!("{:.1}", s.height_mm),
+                n = s.image_px.len()
             ));
         }
         if s.image_px
@@ -86,7 +85,7 @@ pub(super) fn normalize_samples(
             .flatten()
             .any(|v| !v.is_finite())
         {
-            return Err("Las marcas contienen valores no finitos.".into());
+            return Err(tr!("desktop.edit.camera.align.marks_not_finite"));
         }
     }
     // Ordenadas por altura; una captura a la misma altura reemplaza a la anterior.
@@ -100,7 +99,10 @@ pub(super) fn normalize_samples(
         }
     }
     if sorted.len() > MAX_SAMPLES {
-        return Err(format!("Se guardan como máximo {MAX_SAMPLES} alturas."));
+        return Err(tr!(
+            "desktop.edit.camera.align.max_heights",
+            max = MAX_SAMPLES
+        ));
     }
     let lowest = sorted[0].height_mm;
     a.reference_height_mm = lowest;
@@ -108,7 +110,7 @@ pub(super) fn normalize_samples(
     if sorted.len() == 1 {
         let s = &sorted[0];
         let fit = ImageToBed::fit(&points(&s.image_px), &points(&s.bed_mm), None)
-            .map_err(|e| format!("Las marcas no definen una alineación válida: {e}"))?;
+            .map_err(|e| tr!("desktop.edit.camera.align.bad_marks", err = e))?;
         a.to_bed = fit.alignment.to_bed.m;
         a.rms_mm = fit.rms_mm;
         a.height = modelled_height(&fit.alignment.to_bed, lowest, calib, a.image_size);
@@ -122,14 +124,14 @@ pub(super) fn normalize_samples(
             })
             .collect();
         let fit = fit_height_model(&samples)
-            .map_err(|e| format!("Las marcas a varias alturas no definen un modelo: {e}"))?;
+            .map_err(|e| tr!("desktop.edit.camera.align.bad_height_model", err = e))?;
         let to_bed = fit.model.image_to_bed_at(lowest)?;
         a.to_bed = to_bed.m;
         a.rms_mm = fit.sample_rms_mm.iter().sum::<f64>() / fit.sample_rms_mm.len() as f64;
         a.height = Some(fit.model);
     }
     if a.to_bed.iter().flatten().any(|v| !v.is_finite()) || !a.rms_mm.is_finite() {
-        return Err("Las marcas dan una alineación no finita; vuelve a capturarlas.".into());
+        return Err(tr!("desktop.edit.camera.align.marks_degenerate"));
     }
     // Las 4 esquinas del rectángulo de las marcas, proyectadas, para mostrarlas y para que las
     // versiones sin marcas sigan viendo una alineación de 4 puntos.
@@ -167,10 +169,10 @@ fn check_url(url: Option<String>) -> Result<Option<String>, String> {
     };
     let lower = url.to_ascii_lowercase();
     if !(lower.starts_with("http://") || lower.starts_with("https://")) {
-        return Err("La URL de la cámara de red debe empezar con http://".into());
+        return Err(tr!("desktop.edit.camera.align.url_scheme"));
     }
     if url.len() > MAX_URL_LEN || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
-        return Err("La URL de la cámara de red no es válida.".into());
+        return Err(tr!("desktop.edit.camera.align.url_invalid"));
     }
     Ok(Some(url))
 }
@@ -199,8 +201,9 @@ fn normalize_sources(setup: &mut CameraSetup) -> Result<(), String> {
     for mut p in std::mem::take(&mut setup.presets) {
         p.name = p.name.trim().to_string();
         if p.name.is_empty() || p.name.chars().count() > MAX_PRESET_NAME {
-            return Err(format!(
-                "El nombre de una configuración de cámara debe tener entre 1 y {MAX_PRESET_NAME} caracteres."
+            return Err(tr!(
+                "desktop.edit.camera.align.preset_name_len",
+                max = MAX_PRESET_NAME
             ));
         }
         p.network_url = check_url(p.network_url.take())?;
@@ -218,8 +221,9 @@ fn normalize_sources(setup: &mut CameraSetup) -> Result<(), String> {
         }
     }
     if out.len() > MAX_PRESETS {
-        return Err(format!(
-            "Se guardan como máximo {MAX_PRESETS} configuraciones de cámara."
+        return Err(tr!(
+            "desktop.edit.camera.align.max_presets",
+            max = MAX_PRESETS
         ));
     }
     setup.presets = out;
@@ -236,7 +240,7 @@ pub fn normalize_setup(mut setup: CameraSetup) -> Result<CameraSetup, String> {
     let calib = setup.calibration.clone();
     if let Some(a) = &mut setup.alignment {
         if a.image_size[0] == 0 || a.image_size[1] == 0 {
-            return Err("La alineación tiene un tamaño de imagen nulo.".into());
+            return Err(tr!("desktop.edit.camera.align.zero_size"));
         }
         if !a.reference_height_mm.is_finite() {
             a.reference_height_mm = 0.0;
@@ -244,7 +248,7 @@ pub fn normalize_setup(mut setup: CameraSetup) -> Result<CameraSetup, String> {
         if a.samples.is_empty() {
             let all = a.image_px.iter().chain(a.bed_mm.iter()).flatten();
             if all.clone().any(|v| !v.is_finite()) {
-                return Err("La alineación contiene valores no finitos.".into());
+                return Err(tr!("desktop.edit.camera.align.not_finite"));
             }
             normalize_manual(a)?;
             a.height = modelled_height(

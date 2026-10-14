@@ -1,0 +1,31 @@
+# Mensajes de tlaku-export (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: export.<módulo>.<qué> = plantilla
+
+# dxf_out.rs
+export.dxf_out.images_skipped = The DXF does not carry images: {n} were skipped.
+export.dxf_out.write_failed = could not write the DXF: {error}
+
+# pdf.rs
+export.pdf.ai_is_pdf = The .ai file is a layered PDF: Illustrator opens it and keeps the layers and colors, but it is not a native Illustrator document.
+export.pdf.embed_failed = Could not embed the image: {error}
+export.pdf.images_off = Images were not included in the PDF (option turned off).
+export.pdf.page_too_small = The design ({w} x {h} mm) does not fit on the chosen page at 1:1 scale: the page was resized to fit the design.
+
+# png_out.rs
+export.png_out.bad_dpi = Invalid resolution: {dpi} dpi.
+export.png_out.too_big = The image would be {wpx} x {hpx} pixels ({w} x {h} mm at {dpi} dpi): that is too large. Lower the resolution.
+export.png_out.create_failed = Could not create the image (invalid size).
+export.png_out.draw_failed = Could not draw the image: {error}
+export.png_out.encode_failed = Could not encode the PNG: {error}
+export.png_out.not_image = not an image
+export.png_out.empty_image = empty image
+
+# scene.rs
+export.scene.text_no_outline = The text "{text}" has no generated outline and was skipped.
+export.scene.hidden = {n} hidden object(s), or objects on hidden layers, were not exported.
+export.scene.nothing_selection = The selection has nothing to export.
+export.scene.nothing_design = The design has nothing to export.
+
+# svg.rs
+export.svg.images_off = Images were not exported (option turned off).
+export.svg.embed_failed = Could not embed the image: {error}

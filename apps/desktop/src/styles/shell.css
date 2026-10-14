@@ -385,3 +385,20 @@
     transform: translateY(6px);
   }
 }
+
+/* Enlace «Saltar al lienzo»: invisible hasta que recibe el foco con Tab. */
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: var(--s-4);
+  z-index: 200;
+  padding: var(--s-3) var(--s-5);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: var(--s-4);
+}

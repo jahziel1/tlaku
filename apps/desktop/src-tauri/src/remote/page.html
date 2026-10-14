@@ -9,14 +9,16 @@
 <title>Tlaku</title>
 <style>
 :root {
-  --bg: #f3f4f6; --card: #ffffff; --ink: #111827; --muted: #6b7280; --line: #d1d5db;
+  --bg: #f3f4f6; --card: #ffffff; --ink: #111827; --muted: #646d7a; --line: #d1d5db;
+  --ctl: #646d7a; --focus: #0b6bcb; --armed-ink: #ffffff;
   --accent: #0b6bcb; --accent-ink: #ffffff;
-  --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+  --ok: #14773a; --warn: #b45309; --bad: #b91c1c;
   --warn-bg: #fff7e0; --bad-bg: #fde8e8; --ok-bg: #e3f6e8;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1216; --card: #1a1f26; --ink: #f3f4f6; --muted: #9aa3af; --line: #2f3742;
+    --ctl: #9aa3af; --focus: #4aa3ff; --armed-ink: #1a0505;
     --accent: #4aa3ff; --accent-ink: #06121f;
     --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
     --warn-bg: #3a2e0e; --bad-bg: #3d1717; --ok-bg: #12301c;
@@ -24,6 +26,9 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
+html { scroll-padding-bottom: 120px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 body {
   font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -47,7 +52,7 @@ header h1 { font-size: 20px; margin: 0; }
 .pill.idle { background: var(--line); color: var(--ink); }
 .who { color: var(--muted); font-size: 15px; margin-top: 6px; word-break: break-word; }
 .pct { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-.bar { height: 16px; background: var(--line); border-radius: 8px; overflow: hidden; margin: 10px 0; }
+.bar { height: 16px; background: var(--line); border-radius: 8px; overflow: hidden; margin: 10px 0; box-shadow: inset 0 0 0 1px var(--ctl); }
 .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
 .row { display: flex; justify-content: space-between; gap: 10px; font-size: 16px; font-variant-numeric: tabular-nums; }
 .row span:first-child { color: var(--muted); }
@@ -56,15 +61,19 @@ header h1 { font-size: 20px; margin: 0; }
 .hint { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 12px; }
 button {
-  font: inherit; font-weight: 700; font-size: 20px; min-height: 68px; border-radius: 16px; border: 2px solid var(--line);
+  font: inherit; font-weight: 700; font-size: 20px; min-height: 68px; min-width: 44px; border-radius: 16px; border: 2px solid var(--ctl);
   background: var(--card); color: var(--ink); padding: 10px 14px; width: 100%; touch-action: manipulation;
 }
 button:active:not(:disabled) { transform: scale(.98); }
 button:disabled { opacity: .45; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 button.danger { border-color: var(--bad); color: var(--bad); }
-button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s infinite alternate; }
+button.danger.armed { background: var(--bad); color: var(--armed-ink); animation: pulse .6s infinite alternate; }
 @keyframes pulse { to { opacity: .72; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  button:active:not(:disabled) { transform: none; }
+}
 .reason { font-size: 14px; color: var(--muted); margin: 0 2px 8px; }
 .dock {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -93,29 +102,29 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
 <div id="app">
   <header>
     <h1>Tlaku</h1>
-    <span class="badge wait" id="conn"></span>
+    <span class="badge wait" id="conn" role="status"></span>
   </header>
   <p class="note" id="warn"></p>
 
-  <section id="login" class="card center" hidden>
+  <section id="login" class="card center" hidden aria-labelledby="login-title">
     <h2 id="login-title"></h2>
-    <p id="login-text"></p>
+    <p id="login-text" role="alert"></p>
   </section>
 
   <main id="main" hidden>
-    <p class="note bad" id="offline" hidden></p>
+    <p class="note bad" id="offline" hidden role="alert"></p>
 
     <section class="card">
       <h2 id="h-machine"></h2>
-      <div class="state"><span class="pill" id="pill"></span></div>
+      <div class="state" role="status" aria-live="polite" aria-atomic="true"><span class="sr-only" id="l-state"></span><span class="pill" id="pill"></span></div>
       <div class="who" id="who"></div>
-      <div class="who" id="msg"></div>
+      <div class="who" id="msg" role="status" aria-live="polite"></div>
     </section>
 
     <section class="card">
       <h2 id="h-progress"></h2>
-      <div class="pct" id="pct">0%</div>
-      <div class="bar"><i id="barfill"></i></div>
+      <div class="pct" id="pct" aria-hidden="true">0%</div>
+      <div class="bar" id="progress" role="progressbar" aria-labelledby="h-progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="barfill"></i></div>
       <div class="row"><span id="l-elapsed"></span><b id="elapsed">—</b></div>
       <div class="row"><span id="l-remaining"></span><b id="remaining">—</b></div>
       <div class="row"><span id="l-layer"></span><b id="layer">—</b></div>
@@ -135,20 +144,20 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
   </main>
 </div>
 
-<div class="dock" id="bar" hidden>
+<div class="dock" id="bar" hidden role="region">
   <div class="dock-in">
-    <p class="stop-hint" id="stop-hint" hidden></p>
-    <p class="reason" id="pause-reason" hidden></p>
-    <p class="reason" id="start-reason" hidden></p>
+    <p class="stop-hint" id="stop-hint" hidden role="alert"></p>
+    <p class="reason" id="pause-reason" hidden role="status"></p>
+    <p class="reason" id="start-reason" hidden role="status"></p>
     <div class="actions">
-      <button id="btn-pause"></button>
-      <button id="btn-stop" class="danger"></button>
-      <button id="btn-start" class="primary"></button>
+      <button type="button" id="btn-pause"></button>
+      <button type="button" id="btn-stop" class="danger"></button>
+      <button type="button" id="btn-start" class="primary"></button>
     </div>
   </div>
 </div>
 
-<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-describedby="sheet-warn">
   <div class="panel">
     <h2 id="sheet-title"></h2>
     <p id="sheet-job" class="hint"></p>
@@ -156,23 +165,25 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     <label class="check"><input type="checkbox" id="c2"><span id="t2"></span></label>
     <label class="check"><input type="checkbox" id="c3"><span id="t3"></span></label>
     <p class="note" id="sheet-warn"></p>
-    <p class="note bad" id="sheet-err" hidden></p>
+    <p class="note bad" id="sheet-err" hidden role="alert"></p>
     <div class="actions">
-      <button id="sheet-cancel"></button>
-      <button id="sheet-go" class="primary" disabled></button>
+      <button type="button" id="sheet-cancel"></button>
+      <button type="button" id="sheet-go" class="primary" disabled></button>
     </div>
   </div>
 </div>
 
-<div class="overlay" id="alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
+<div class="overlay" id="alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="alert-title" aria-describedby="alert-text">
   <div class="panel">
     <div class="big" id="alert-title"></div>
     <p id="alert-text"></p>
-    <button id="alert-ok" class="primary"></button>
+    <button type="button" id="alert-ok" class="primary"></button>
   </div>
 </div>
 
-<div id="toast" role="status" hidden></div>
+<div id="toast" aria-hidden="true" hidden></div>
+<div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="live-alert" class="sr-only" role="alert" aria-atomic="true"></div>
 
 <script>
 (function () {
@@ -188,6 +199,7 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
       locked: 'Demasiados intentos', lockedText: 'Espera unos minutos y escanea de nuevo el código QR.',
       kicked: 'Te desconectaron', kickedText: 'La PC cerró esta sesión. Escanea de nuevo el código QR para volver a entrar.',
       hMachine: 'Máquina', hProgress: 'Avance', hRoute: 'Recorrido', hCam: 'Cámara de la PC',
+      stateLabel: 'Estado de la máquina: ', routeAlt: 'Recorrido del trabajo y posición del cabezal', camAlt: 'Imagen de la cámara de la PC', controls: 'Controles del trabajo',
       camHint: 'La imagen se actualiza cada pocos segundos.',
       elapsed: 'Transcurrido', remaining: 'Tiempo restante', layer: 'Capa', layerOf: '{i} de {n}',
       pause: 'Pausar', resume: 'Reanudar', stop: 'Detener', stopArmed: 'Toca otra vez para DETENER', stopHint: 'Toca Detener otra vez en menos de 3 segundos para confirmar.', start: 'Iniciar trabajo…',
@@ -222,6 +234,7 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
       locked: 'Too many attempts', lockedText: 'Wait a few minutes and scan the QR code again.',
       kicked: 'You were disconnected', kickedText: 'The PC closed this session. Scan the QR code again to get back in.',
       hMachine: 'Machine', hProgress: 'Progress', hRoute: 'Toolpath', hCam: 'PC camera',
+      stateLabel: 'Machine status: ', routeAlt: 'Job toolpath and head position', camAlt: 'Image from the PC camera', controls: 'Job controls',
       camHint: 'The image refreshes every few seconds.',
       elapsed: 'Elapsed', remaining: 'Time left', layer: 'Layer', layerOf: '{i} of {n}',
       pause: 'Pause', resume: 'Resume', stop: 'Stop', stopArmed: 'Tap again to STOP', stopHint: 'Tap Stop again within 3 seconds to confirm.', start: 'Start job…',
@@ -260,6 +273,8 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     return s;
   }
   function $(id) { return document.getElementById(id); }
+  // Solo escribe si cambia: en una región en vivo, reescribir el mismo texto lo anunciaría otra vez.
+  function setText(el, s) { if (el.textContent !== s) el.textContent = s; }
 
   // ---- Estado ----------------------------------------------------------------------------------
   var S = null;            // último estado del servidor
@@ -280,20 +295,27 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
   var statics = { 'h-machine': 'hMachine', 'h-progress': 'hProgress', 'h-route': 'hRoute', 'h-cam': 'hCam', camhint: 'camHint',
     'l-elapsed': 'elapsed', 'l-remaining': 'remaining', 'l-layer': 'layer', 'sheet-title': 'sheetTitle', t1: 'c1', t2: 'c2', t3: 'c3',
     'sheet-warn': 'sheetWarn', 'sheet-cancel': 'cancel', 'alert-ok': 'ok', 'login-title': 'loginTitle', 'login-text': 'loginText' };
+  statics['l-state'] = 'stateLabel';
   for (var id in statics) $(id).textContent = t(statics[id]);
+  $('bar').setAttribute('aria-label', t('controls'));
+  $('camimg').alt = t('camAlt');
 
   function setConn(kind) {
     var b = $('conn');
     b.className = 'badge' + (kind === 'ok' ? '' : kind === 'wait' ? ' wait' : ' off');
-    b.textContent = kind === 'ok' ? t('connected') : kind === 'wait' ? t('reconnecting') : t('offlineBadge');
+    setText(b, kind === 'ok' ? t('connected') : kind === 'wait' ? t('reconnecting') : t('offlineBadge'));
   }
 
   var toastTimer = null;
-  function toast(msg) {
-    var el = $('toast');
+  // El aviso visible va oculto a los lectores de pantalla; lo anuncia una región en vivo siempre presente
+  // (los errores por la asertiva, que no se corta con otros avisos).
+  function toast(msg, isErr) {
+    var el = $('toast'), live = $(isErr ? 'live-alert' : 'live');
     el.textContent = msg; el.hidden = false;
+    live.textContent = '';
+    setTimeout(function () { live.textContent = msg; }, 60);
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 4500);
+    toastTimer = setTimeout(function () { el.hidden = true; live.textContent = ''; }, isErr ? 9000 : 4500);
   }
 
   function fmtTime(sec) {
@@ -340,10 +362,10 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     $('bar').hidden = true;
     $('app').style.paddingBottom = '';
     $('login').hidden = false;
-    if (kind === 'bad') { $('login-title').textContent = t('loginBad'); $('login-text').textContent = t('loginBadText'); }
-    else if (kind === 'locked') { $('login-title').textContent = t('locked'); $('login-text').textContent = t('lockedText'); }
-    else if (kind === 'kicked') { $('login-title').textContent = t('kicked'); $('login-text').textContent = t('kickedText'); }
-    else { $('login-title').textContent = t('loginTitle'); $('login-text').textContent = t('loginText'); }
+    if (kind === 'bad') { setText($('login-title'), t('loginBad')); setText($('login-text'), t('loginBadText')); }
+    else if (kind === 'locked') { setText($('login-title'), t('locked')); setText($('login-text'), t('lockedText')); }
+    else if (kind === 'kicked') { setText($('login-title'), t('kicked')); setText($('login-text'), t('kickedText')); }
+    else { setText($('login-title'), t('loginTitle')); setText($('login-text'), t('loginText')); }
     setConn('off');
   }
 
@@ -409,16 +431,17 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     $('login').hidden = true; $('main').hidden = false;
     var ph = phase(), j = S.job || {}, m = S.machine || {};
     var pill = $('pill');
-    pill.textContent = t('st_' + ph);
+    setText(pill, t('st_' + ph));
     pill.className = 'pill' + (ph === 'running' ? ' run' : ph === 'paused' ? ' hold' : (ph === 'alarm' || ph === 'error' || ph === 'nomachine') ? ' bad' : (ph === 'ready' || ph === 'finished') ? '' : ' idle');
-    $('who').textContent = [S.device, S.doc].filter(function (x) { return x; }).join(' · ') || (m.connected ? '' : t('noMachine'));
-    $('msg').textContent = ph === 'error' || ph === 'finished' || ph === 'cancelled' ? (j.message || '') : '';
-    $('offline').hidden = S.pc_online; $('offline').textContent = t('pcOffline');
+    setText($('who'), [S.device, S.doc].filter(function (x) { return x; }).join(' · ') || (m.connected ? '' : t('noMachine')));
+    setText($('msg'), ph === 'error' || ph === 'finished' || ph === 'cancelled' ? (j.message || '') : '');
+    $('offline').hidden = S.pc_online; setText($('offline'), t('pcOffline'));
 
     var pr = ph === 'finished' ? 1 : (j.progress || 0);
     var active = ph === 'running' || ph === 'paused';
     $('pct').textContent = Math.round(pr * 100) + '%';
     $('barfill').style.width = Math.round(pr * 100) + '%';
+    $('progress').setAttribute('aria-valuenow', Math.round(pr * 100));   // la barra no es región en vivo: no anuncia cada avance
     $('elapsed').textContent = active || ph === 'finished' ? fmtTime(j.elapsed_s) : '—';
     $('remaining').textContent = active ? fmtTime(j.remaining_s) : (ph === 'finished' ? '0:00' : (j.total_s ? fmtTime(j.total_s) : '—'));
     $('layer').textContent = j.layer && active ? t('layerOf', { i: j.layer.index, n: j.layer.count }) : '—';
@@ -430,19 +453,19 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     var bp = $('btn-pause');
     var isPaused = ph === 'paused';
     bp.hidden = !active;
-    bp.textContent = isPaused ? t('resume') : t('pause');
+    setText(bp, isPaused ? t('resume') : t('pause'));
     bp.disabled = !caps.pause;
     var pr2 = $('pause-reason');
-    if (active && m.connected && caps.pause === false) { pr2.hidden = false; pr2.textContent = reasonText(caps.pause_reason); } else pr2.hidden = true;
+    if (active && m.connected && caps.pause === false) { pr2.hidden = false; setText(pr2, reasonText(caps.pause_reason)); } else pr2.hidden = true;
     $('btn-stop').disabled = !caps.stop;
     renderStop();
     var st = S.start || {};
     var go = $('btn-start');
     go.hidden = active;
-    go.textContent = t('start');
+    setText(go, t('start'));
     go.disabled = !st.allowed || busyStart;
     var rs = $('start-reason');
-    if (!active && !st.allowed) { rs.hidden = false; rs.textContent = reasonText(st.reason, st.message); } else rs.hidden = true;
+    if (!active && !st.allowed) { rs.hidden = false; setText(rs, reasonText(st.reason, st.message)); } else rs.hidden = true;
     // El contenido deja sitio abajo para que la barra no tape nada.
     $('app').style.paddingBottom = ($('bar').offsetHeight + 24) + 'px';
 
@@ -457,10 +480,10 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     var bs = $('btn-stop');
     var armed = Date.now() < stopArmedUntil;
     bs.className = 'danger' + (armed ? ' armed' : '');
-    bs.textContent = armed ? t('stopArmed') : t('stop');
+    setText(bs, armed ? t('stopArmed') : t('stop'));
     var hint = $('stop-hint');
     hint.hidden = !armed;
-    hint.textContent = armed ? t('stopHint') : '';
+    setText(hint, armed ? t('stopHint') : '');
   }
 
   // Recorrido y cabezal
@@ -478,7 +501,7 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     box.hidden = false;
     if (S.route_v === routeV && svg && bed[0] === bedW && bed[1] === bedH) return;
     routeV = S.route_v; bedW = bed[0]; bedH = bed[1];
-    var vb = el('svg', { viewBox: '0 0 ' + bedW + ' ' + bedH, role: 'img' });
+    var vb = el('svg', { viewBox: '0 0 ' + bedW + ' ' + bedH, role: 'img', 'aria-label': t('routeAlt') });
     vb.appendChild(el('rect', { x: 0, y: 0, width: bedW, height: bedH, fill: 'none', stroke: 'currentColor', 'stroke-opacity': '.35', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }));
     svg = vb;
     headG = null;
@@ -546,11 +569,39 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     $('alert-title').textContent = ok ? t('doneTitle') : t('failTitle');
     $('alert-title').className = 'big ' + (ok ? 'ok' : 'bad');
     $('alert-text').textContent = ok ? t('doneText') : ((S.job && S.job.message) || t('failText'));
-    $('alert').hidden = false;
+    openDialog($('alert'), $('alert-ok'));
     try { if (navigator.vibrate) navigator.vibrate(ok ? [300, 150, 300, 150, 600] : [800, 200, 800, 200, 800]); } catch (e) {}
     beep();
     flashTitle(ok ? t('doneTitle') : t('failTitle'));
   }
+  // Diálogos: el foco entra al abrir, vuelve al cerrar, Tab no se sale y lo de atrás queda inerte.
+  function syncInert() {
+    var any = !$('sheet').hidden || !$('alert').hidden;
+    ['app', 'bar'].forEach(function (id) { if (any) $(id).setAttribute('inert', ''); else $(id).removeAttribute('inert'); });
+    if (!$('alert').hidden) $('sheet').setAttribute('inert', ''); else $('sheet').removeAttribute('inert');
+  }
+  function openDialog(d, first) {
+    if (d.hidden) d._ret = document.activeElement;
+    d.hidden = false; syncInert();
+    try { first.focus(); } catch (e) {}
+  }
+  function closeDialog(d) {
+    d.hidden = true; syncInert();
+    var r = d._ret; d._ret = null;
+    try { if (r && r.focus && !r.disabled && !r.hidden && document.contains(r)) r.focus(); } catch (e) {}
+  }
+  document.addEventListener('keydown', function (e) {
+    var d = !$('alert').hidden ? $('alert') : !$('sheet').hidden ? $('sheet') : null;
+    if (!d) return;
+    if (e.key === 'Escape') { $(d.id === 'alert' ? 'alert-ok' : 'sheet-cancel').click(); return; }
+    if (e.key !== 'Tab') return;
+    var f = Array.prototype.filter.call(d.querySelectorAll('button, input'), function (x) { return !x.disabled; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1], cur = document.activeElement;
+    if (!d.contains(cur)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && cur === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+  });
   function checkAlerts() {
     var j = S.job || {};
     // La primera lectura solo fija el punto de partida: no se avisa de lo que pasó antes de entrar.
@@ -559,7 +610,7 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     if ((j.error_seq || 0) > seenError) { seenError = j.error_seq; showAlert(false); }
   }
   $('alert-ok').addEventListener('click', function () {
-    $('alert').hidden = true; clearInterval(titleTimer); document.title = t('title');
+    closeDialog($('alert')); clearInterval(titleTimer); document.title = t('title');
     try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
   });
 
@@ -575,9 +626,9 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
   function act(path, btn) {
     if (btn) btn.disabled = true;
     return api(path, 'POST').then(function (r) {
-      if (!r.ok) toast(reasonText(r.data && r.data.code, r.data && r.data.message));
+      if (!r.ok) toast(reasonText(r.data && r.data.code, r.data && r.data.message), true);
       else if (S) { /* el estado nuevo llega por la conexión en vivo */ }
-    }).catch(function () { toast(t('netErr')); }).then(function () { if (btn) btn.disabled = false; render(); });
+    }).catch(function () { toast(t('netErr'), true); }).then(function () { if (btn) btn.disabled = false; render(); });
   }
   $('btn-pause').addEventListener('click', function () {
     act(phase() === 'paused' ? '/api/resume' : '/api/pause', $('btn-pause'));
@@ -607,15 +658,15 @@ button.danger.armed { background: var(--bad); color: #fff; animation: pulse .6s 
     $('sheet-err').hidden = true;
     var total = S.job && S.job.total_s ? fmtTime(S.job.total_s) : '—';
     $('sheet-job').textContent = t('sheetJob', { doc: S.doc || t('untitled'), time: total });
-    $('sheet').hidden = false;
+    openDialog($('sheet'), $('c1'));
   });
-  $('sheet-cancel').addEventListener('click', function () { if (!busyStart) $('sheet').hidden = true; });
+  $('sheet-cancel').addEventListener('click', function () { if (!busyStart) closeDialog($('sheet')); });
   $('sheet-go').addEventListener('click', function () {
     if (!checks() || busyStart) return;
     busyStart = true; $('sheet-go').disabled = true; $('sheet-go').textContent = t('going'); $('sheet-err').hidden = true;
     api('/api/start', 'POST', { checklist: { nearby: true, clear: true, air: true } }, 70000).then(function (r) {
       busyStart = false;
-      if (r.ok) { $('sheet').hidden = true; toast(t('sent')); }
+      if (r.ok) { closeDialog($('sheet')); toast(t('sent')); }
       else {
         $('sheet-err').hidden = false;
         $('sheet-err').textContent = reasonText(r.data && r.data.code, r.data && r.data.message);

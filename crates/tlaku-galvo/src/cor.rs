@@ -17,6 +17,7 @@
 //!   65 x 65 pares `i32` little-endian.
 
 use std::fmt;
+use tlaku_i18n::tr;
 
 pub const GRID: usize = 65;
 const LABEL_BYTES: usize = 0x16;
@@ -54,10 +55,11 @@ impl fmt::Display for CorError {
             CorError::Truncated { needed, got } => {
                 write!(
                     f,
-                    "archivo .cor truncado: hacen falta {needed} bytes y hay {got}"
+                    "{}",
+                    tr!("galvo.cor.truncated", needed = needed, got = got)
                 )
             }
-            CorError::NotFinite => write!(f, "el archivo .cor trae un valor que no es un número"),
+            CorError::NotFinite => write!(f, "{}", tr!("galvo.cor.not_finite")),
         }
     }
 }

@@ -72,6 +72,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
 
     appVersion: () => lag(() => MOCK_VERSION),
 
+    setEngineLocale: () => lag(() => undefined),
+
     importFile: ({ path }) =>
       lag(() => {
         const warnings: string[] = [];

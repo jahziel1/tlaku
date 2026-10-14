@@ -51,7 +51,9 @@ pub use import::{
     ImportExtras, ImportOptions, InputKind, import_file, import_file_extras, import_file_with,
     input_kind,
 };
-pub use job::{ComputedJob, LayerReport, block_bounds, check_bounds, check_device_bounds};
+pub use job::{
+    ComputedJob, LayerReport, block_bounds, check_bounds, check_device_bounds, is_nothing_to_send,
+};
 pub use layers::{
     LayerRole, MAX_PASSES, ResolvedImage, ResolvedLayer, classify, layer_sequence, resolve_image,
     resolve_layer,

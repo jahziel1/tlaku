@@ -36,6 +36,7 @@
 //! placa espera de fábrica.
 
 use std::fmt;
+use tlaku_i18n::tr;
 
 /// Milímetros por mil (milésima de pulgada), la unidad de la placa.
 pub const MM_PER_MIL: f64 = 0.0254;
@@ -154,15 +155,18 @@ pub enum SpeedError {
 impl fmt::Display for SpeedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SpeedError::Invalid(v) => write!(f, "velocidad inválida: {v} mm/s"),
+            SpeedError::Invalid(v) => f.write_str(&tr!("lhymicro.speed.invalid", v = v)),
             SpeedError::TooSlow {
                 mm_per_s,
                 min_mm_per_s,
-            } => write!(
-                f,
-                "{mm_per_s} mm/s es demasiado lento para esta placa (mínimo {min_mm_per_s:.2} mm/s)"
-            ),
-            SpeedError::BadCode(c) => write!(f, "código de velocidad no válido: {c:?}"),
+            } => f.write_str(&tr!(
+                "lhymicro.speed.too_slow",
+                mm_per_s = mm_per_s,
+                min = format!("{min_mm_per_s:.2}")
+            )),
+            SpeedError::BadCode(c) => {
+                f.write_str(&tr!("lhymicro.speed.bad_code", code = format!("{c:?}")))
+            }
         }
     }
 }

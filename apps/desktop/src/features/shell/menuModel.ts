@@ -42,6 +42,7 @@ const HELP_MENU: ShellMenu = {
     { kind: 'command', id: 'help.news' },
     { kind: 'command', id: 'help.jobLog' },
     { kind: 'separator' },
+    { kind: 'command', id: 'help.checkUpdates' },
     { kind: 'command', id: 'help.report' },
     { kind: 'command', id: 'help.donate' },
     { kind: 'separator' },

@@ -9,6 +9,7 @@
 use tlaku_doc::SimulatedFault;
 use tlaku_emu::{Fault, Handle, Profile, ScaledClock, Trigger, VirtualMachine};
 use tlaku_grbl::serial::Transport;
+use tlaku_i18n::tr;
 
 /// Prefijo de los puertos virtuales.
 pub const PREFIX: &str = "virtual:";
@@ -63,17 +64,14 @@ pub fn is_virtual(port: &str) -> bool {
 fn parse(port: &str) -> Result<(&'static Kind, f64), String> {
     let rest = port
         .strip_prefix(PREFIX)
-        .ok_or_else(|| format!("'{port}' no es un puerto virtual."))?;
+        .ok_or_else(|| tr!("desktop.virtual_port.not_virtual", port = port))?;
     let (id, speed) = match rest.split_once('@') {
         Some((id, s)) => {
-            let v: f64 = s.parse().map_err(|_| {
-                format!("La velocidad '{s}' de la máquina virtual no es un número.")
-            })?;
+            let v: f64 = s
+                .parse()
+                .map_err(|_| tr!("desktop.virtual_port.speed_not_number", speed = s))?;
             if !(v.is_finite() && v > 0.0 && v <= MAX_SPEED) {
-                return Err(format!(
-                    "La velocidad de la máquina virtual debe estar entre 0 y {MAX_SPEED} veces el \
-                     tiempo real."
-                ));
+                return Err(tr!("desktop.virtual_port.speed_range", max = MAX_SPEED));
             }
             (id, v)
         }
@@ -82,7 +80,7 @@ fn parse(port: &str) -> Result<(&'static Kind, f64), String> {
     let kind = KINDS
         .iter()
         .find(|k| k.id == id)
-        .ok_or_else(|| format!("No existe la máquina virtual '{id}'."))?;
+        .ok_or_else(|| tr!("desktop.virtual_port.no_such_machine", id = id))?;
     Ok((kind, speed))
 }
 
@@ -104,7 +102,7 @@ pub fn build(port: &str) -> Result<(VirtualMachine, Handle), String> {
         .build();
     // Como al abrir un puerto real: el saludo del arranque se descarta.
     vm.clear_input()
-        .map_err(|e| format!("No se pudo preparar la máquina virtual: {e}"))?;
+        .map_err(|e| tr!("desktop.virtual_port.prepare_failed", err = e))?;
     Ok((vm, handle))
 }
 

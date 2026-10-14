@@ -6,6 +6,7 @@ export const help = {
   'help.cmd.donate': 'Donar al proyecto…',
   'help.cmd.about': 'Acerca de Tlaku',
   'help.cmd.jobLog': 'Registro de trabajos…',
+  'help.cmd.checkUpdates': 'Buscar actualizaciones…',
   'help.jobLog.title': 'Registro de trabajos',
   'help.jobLog.intro': 'Los trabajos que enviaste a una máquina desde esta computadora. El registro se guarda solo aquí y no sale de tu equipo.',
   'help.jobLog.empty': 'Todavía no hay trabajos registrados. Aparecen aquí cuando uno termina, se cancela o falla.',
@@ -80,4 +81,29 @@ export const help = {
   'help.donate.text':
     'Tlaku es de código abierto (MIT) y no tiene empresa detrás: se sostiene con donaciones. Con ellas se pagan las pruebas con máquinas reales, los certificados de firma de los instaladores y el tiempo para seguir desarrollándolo. Es voluntario: el programa es el mismo con o sin donación.',
   'help.donate.where': 'Dónde donar',
+  'help.donate.none':
+    'El proyecto aún no tiene cuentas de donación. Cuando existan, sus enlaces aparecerán aquí. Mientras tanto, lo que más ayuda es usar Tlaku, probarlo con tu máquina y reportar lo que encuentres.',
+
+  'help.update.title': 'Actualizaciones',
+  'help.update.checking': 'Buscando actualizaciones…',
+  'help.update.unconfigured': 'Las actualizaciones automáticas no están configuradas en esta compilación.',
+  'help.update.unconfiguredHint': 'Para actualizar, descarga la versión nueva desde la página del proyecto e instálala encima de esta.',
+  'help.update.current': 'Tlaku está al día: tienes la versión más reciente.',
+  'help.update.available': 'Hay una versión nueva: Tlaku {version}',
+  'help.update.yours': 'Tienes la versión {current}.',
+  'help.update.notes': 'Novedades de esta versión',
+  'help.update.noNotes': 'Esta versión no trae notas.',
+  'help.update.verified': 'La descarga se verifica con la firma del proyecto antes de instalarse.',
+  'help.update.install': 'Descargar e instalar',
+  'help.update.later': 'Ahora no',
+  'help.update.busy': 'Hay un trabajo en curso: termínalo antes de instalar la actualización.',
+  'help.update.downloading': 'Descargando la actualización…',
+  'help.update.downloadingPct': 'Descargando la actualización… {percent} %',
+  'help.update.installed': 'La actualización quedó instalada. Reinicia Tlaku para usarla.',
+  'help.update.installedHint': 'Guarda tu trabajo antes de reiniciar. En Windows el instalador puede cerrar Tlaku por su cuenta.',
+  'help.update.restart': 'Reiniciar ahora',
+  'help.update.restartLater': 'Más tarde',
+  'help.update.error': 'No se pudo completar la actualización: {error}',
+  'help.update.retry': 'Reintentar',
+
 } as const;

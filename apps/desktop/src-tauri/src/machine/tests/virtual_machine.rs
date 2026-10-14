@@ -204,7 +204,7 @@ fn a_virtual_disconnect_is_reported_as_a_lost_connection() {
         rig.handle
             .simulate_fault(SimulatedFault::Flame)
             .unwrap_err(),
-        NOT_CONNECTED
+        not_connected()
     );
 }
 

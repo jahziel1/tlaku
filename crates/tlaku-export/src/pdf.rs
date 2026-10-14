@@ -14,6 +14,7 @@ use tlaku_core::Point;
 use tlaku_core::bezpath::{BezPath, PathSeg};
 use tlaku_doc::Document;
 use tlaku_doc::affine::{self, Transform};
+use tlaku_i18n::tr;
 
 /// Puntos PDF por mm.
 const K: f64 = 72.0 / 25.4;
@@ -39,10 +40,7 @@ pub fn export_ai(
     opts: &PdfOptions,
 ) -> Result<Export, String> {
     let mut out = render(doc, selection, opts, true)?;
-    out.warnings.push(
-        "El .ai es un PDF con capas: Illustrator lo abre y conserva las capas y los colores, pero          no es un documento nativo de Illustrator."
-            .into(),
-    );
+    out.warnings.push(tr!("export.pdf.ai_is_pdf"));
     Ok(out)
 }
 
@@ -103,7 +101,7 @@ fn render(
                         ));
                         images.push(obj);
                     }
-                    Err(e) => warnings.push(format!("No se pudo incrustar la imagen: {e}")),
+                    Err(e) => warnings.push(tr!("export.pdf.embed_failed", error = e)),
                 }
                 continue;
             }
@@ -130,7 +128,7 @@ fn render(
         }
     }
     if !opts.images && scene.items.iter().any(|i| i.image.is_some()) {
-        warnings.push("Las imágenes no se incluyeron en el PDF (opción desactivada).".into());
+        warnings.push(tr!("export.pdf.images_off"));
     }
 
     let bytes = write_pdf(&page, &content, &images, &layer_names, ai);
@@ -169,10 +167,10 @@ fn page_for(scene: &Scene, opts: &PdfOptions, warnings: &mut Vec<String>) -> Pag
     } else if fits(h, w) {
         (h, w)
     } else {
-        warnings.push(format!(
-            "El diseño ({:.0} x {:.0} mm) no cabe en la hoja elegida a escala 1:1: la hoja se \
-             ajustó al tamaño del diseño.",
-            cw, ch
+        warnings.push(tr!(
+            "export.pdf.page_too_small",
+            w = format!("{cw:.0}"),
+            h = format!("{ch:.0}")
         ));
         return fit_page(b, m, false);
     };

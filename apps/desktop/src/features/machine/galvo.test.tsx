@@ -115,8 +115,13 @@ describe('puertos del galvo', () => {
 
   it('las longitudes de onda y el aviso de apagado sin confirmar', () => {
     expect(SOURCE_WAVELENGTH_NM).toEqual({ fiber_q: 1064, fiber_mopa: 1064, co2: 10600, uv: 355 });
-    expect(isUnconfirmedStop('listo', 'x. Se intentó apagar la fuente pero NO hubo confirmación: puede seguir')).toBe(true);
+    // Se reconoce por el código estable, sin importar el idioma del texto.
+    expect(isUnconfirmedStop('listo', '[galvo_stop_unconfirmed] x. Se intentó apagar la fuente pero NO hubo confirmación: puede seguir')).toBe(true);
+    expect(isUnconfirmedStop('[galvo_stop_unconfirmed] x. The source may still be enabled; there was NO confirmation')).toBe(true);
     expect(isUnconfirmedStop('Trabajo terminado', null, undefined)).toBe(false);
+    // El texto solo no basta: sin código no se reconoce (ni en español ni en inglés).
+    expect(isUnconfirmedStop('x. Se intentó apagar la fuente pero NO hubo confirmación')).toBe(false);
+    expect(isUnconfirmedStop('there was NO confirmation that the source turned off')).toBe(false);
   });
 
   it('las entradas se leen bit a bit', () => {
@@ -177,6 +182,15 @@ describe('panel del galvo', () => {
     const h = panel({ blocked: 'No hay nada que enviar.' });
     expect(h).toContain('title="No hay nada que enviar."');
     expect(h.match(/title="No hay nada que enviar\."[^>]*>|disabled=""[^>]*title="No hay nada que enviar\."/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('encuadrando, la máquina «en marcha» no apaga el ajuste en vivo (frameBlocked)', () => {
+    const framing = { ...STATE, framing: true };
+    const adjustOff = (h: string) => /aria-label="Derecha"[^>]*disabled=""|disabled=""[^>]*aria-label="Derecha"/.test(h);
+    // Sin `frameBlocked`, el motivo de `blocked` (la máquina figura en marcha por el propio encuadre) lo apagaba.
+    expect(adjustOff(panel({ state: framing, blocked: 'La máquina no está en reposo.' }))).toBe(true);
+    // El contenedor lo deja pasar mientras el único motivo sea ese.
+    expect(adjustOff(panel({ state: framing, blocked: 'La máquina no está en reposo.', frameBlocked: null }))).toBe(false);
   });
 
   it('las entradas son de solo lectura y avisan que no hay enclavamiento por software', () => {

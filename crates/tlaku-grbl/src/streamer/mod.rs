@@ -39,6 +39,7 @@ use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 
 use crate::link::LinkProfile;
 use crate::serial::{LineReader, Transport};
@@ -122,9 +123,9 @@ pub struct StopInfo {
 }
 
 /// Aviso para el usuario cuando [`StopInfo::position_maybe_lost`].
-pub const POSITION_LOST_NOTE: &str = "El reset llegó con la máquina en movimiento: la posición \
-     puede haberse perdido. Si tu máquina tiene finales de carrera, haz homing ($H) antes del \
-     siguiente trabajo; si no, vuelve a fijar el origen a mano.";
+pub fn position_lost_note() -> String {
+    tr!("grbl.stream.position_lost_note")
+}
 
 struct RunState {
     next: usize,

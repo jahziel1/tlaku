@@ -8,6 +8,7 @@
 use nalgebra::{DMatrix, Matrix3};
 use serde::{Deserialize, Serialize};
 use tlaku_core::Point;
+use tlaku_i18n::tr;
 
 /// Matriz 3x3 de transformación proyectiva, por filas: `[x', y', w'] = M [x, y, 1]`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -55,7 +56,7 @@ impl Homography {
         let inv = self
             .matrix()
             .try_inverse()
-            .ok_or_else(|| "la homografía es singular y no se puede invertir".to_string())?;
+            .ok_or_else(|| tr!("camera.homography.singular"))?;
         Ok(Self::from_matrix(&normalize_scale(inv)))
     }
 
@@ -97,7 +98,7 @@ fn normalization(pts: &[Point]) -> Result<Matrix3<f64>, String> {
     let cy = pts.iter().map(|p| p.y).sum::<f64>() / n;
     let mean = pts.iter().map(|p| (p.x - cx).hypot(p.y - cy)).sum::<f64>() / n;
     if !mean.is_finite() || mean < 1e-12 {
-        return Err("los puntos son degenerados (todos coinciden)".into());
+        return Err(tr!("camera.homography.all_equal"));
     }
     let s = std::f64::consts::SQRT_2 / mean;
     Ok(Matrix3::new(
@@ -118,16 +119,13 @@ fn normalization(pts: &[Point]) -> Result<Matrix3<f64>, String> {
 /// algebraicos.
 pub fn estimate_homography(pairs: &[(Point, Point)]) -> Result<Homography, String> {
     if pairs.len() < 4 {
-        return Err(format!(
-            "se necesitan al menos 4 pares de puntos para la homografía (hay {})",
-            pairs.len()
-        ));
+        return Err(tr!("camera.homography.few_pairs", n = pairs.len()));
     }
     if pairs
         .iter()
         .any(|(a, b)| !(a.x.is_finite() && a.y.is_finite() && b.x.is_finite() && b.y.is_finite()))
     {
-        return Err("hay puntos con coordenadas no finitas".into());
+        return Err(tr!("camera.homography.not_finite"));
     }
     let src: Vec<Point> = pairs.iter().map(|p| p.0).collect();
     let dst: Vec<Point> = pairs.iter().map(|p| p.1).collect();
@@ -148,27 +146,22 @@ pub fn estimate_homography(pairs: &[(Point, Point)]) -> Result<Homography, Strin
         }
     }
     let svd = a.svd(false, true);
-    let v_t = svd
-        .v_t
-        .ok_or("falló la descomposición SVD de la homografía")?;
+    let v_t = svd.v_t.ok_or_else(|| tr!("camera.homography.svd_failed"))?;
     let sv = &svd.singular_values;
     let mut order: Vec<usize> = (0..sv.len()).collect();
     order.sort_by(|&i, &j| sv[j].total_cmp(&sv[i]));
     let smallest = order[order.len() - 1];
     let second = order[order.len() - 2];
     if sv[second] <= 1e-9 * sv[order[0]].max(1e-300) {
-        return Err(
-            "los puntos son degenerados (colineales o repetidos); usa marcas bien repartidas"
-                .into(),
-        );
+        return Err(tr!("camera.homography.collinear"));
     }
     let hn = Matrix3::from_fn(|r, c| v_t[(smallest, 3 * r + c)]);
     let td_inv = td
         .try_inverse()
-        .ok_or("normalización del destino no invertible")?;
+        .ok_or_else(|| tr!("camera.homography.norm_singular"))?;
     let h = td_inv * hn * ts;
     if !h.iter().all(|v| v.is_finite()) {
-        return Err("la homografía resultante no es finita".into());
+        return Err(tr!("camera.homography.not_finite_result"));
     }
     Ok(Homography::from_matrix(&normalize_scale(h)))
 }
@@ -247,9 +240,7 @@ pub fn estimate_homography_ransac(
 ) -> Result<RansacResult, String> {
     let n = pairs.len();
     if n < 4 {
-        return Err(format!(
-            "se necesitan al menos 4 pares de puntos para la homografía (hay {n})"
-        ));
+        return Err(tr!("camera.homography.few_pairs", n = n));
     }
     let mut rng = XorShift(opts.seed | 1);
     let mut best: Option<(usize, f64, Homography)> = None;
@@ -302,11 +293,9 @@ pub fn estimate_homography_ransac(
             }
         }
     }
-    let (count, _, mut h) = best.ok_or("RANSAC no encontró ninguna muestra válida")?;
+    let (count, _, mut h) = best.ok_or_else(|| tr!("camera.homography.ransac_no_sample"))?;
     if count < 4 {
-        return Err(format!(
-            "no hay consenso: solo {count} de {n} pares concuerdan; revisa las marcas o sube el umbral"
-        ));
+        return Err(tr!("camera.homography.no_consensus", count = count, n = n));
     }
     // Reajuste sobre los aciertos, dos rondas.
     let mut inliers: Vec<bool> = pairs
@@ -376,10 +365,10 @@ impl ImageToBed {
         robust: Option<&RansacOptions>,
     ) -> Result<AlignmentFit, String> {
         if image_px.len() != bed_mm.len() {
-            return Err(format!(
-                "hay {} puntos de imagen y {} de cama; deben coincidir",
-                image_px.len(),
-                bed_mm.len()
+            return Err(tr!(
+                "camera.homography.count_mismatch",
+                image = image_px.len(),
+                bed = bed_mm.len()
             ));
         }
         let pairs: Vec<(Point, Point)> = image_px

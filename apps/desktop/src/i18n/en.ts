@@ -36,6 +36,7 @@ import { shapes } from './en/shapes';
 import { review } from './en/review';
 import { tiling } from './en/tiling';
 import { simple } from './en/simple';
+import { a11y } from './en/a11y';
 
 export const en: { [K in I18nKey]?: string } = {
   ...base,
@@ -71,4 +72,5 @@ export const en: { [K in I18nKey]?: string } = {
   ...tiling,
   ...review,
   ...simple,
+  ...a11y,
 };

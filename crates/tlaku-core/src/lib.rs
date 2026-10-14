@@ -10,6 +10,7 @@ pub mod toolpath;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::str::FromStr;
+use tlaku_i18n::tr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Point {
@@ -81,7 +82,7 @@ impl FromStr for Rgb {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let hex = s.strip_prefix('#').unwrap_or(s);
         if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err(format!("color inválido '{s}', usa el formato #rrggbb"));
+            return Err(tr!("core.lib.bad_color", value = s));
         }
         let channel = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap();
         Ok(Rgb(channel(0), channel(2), channel(4)))
@@ -111,13 +112,13 @@ impl Default for CutSettings {
 impl CutSettings {
     pub fn validate(&self) -> Result<(), String> {
         if self.speed_mm_min.is_nan() || self.speed_mm_min <= 0.0 {
-            return Err(format!("velocidad inválida: {}", self.speed_mm_min));
+            return Err(tr!("core.lib.speed", value = self.speed_mm_min));
         }
         if !(0.0..=100.0).contains(&self.power_pct) {
-            return Err(format!("potencia fuera de 0-100 %: {}", self.power_pct));
+            return Err(tr!("core.lib.power", value = self.power_pct));
         }
         if self.passes == 0 {
-            return Err("las pasadas deben ser al menos 1".into());
+            return Err(tr!("core.lib.passes"));
         }
         Ok(())
     }

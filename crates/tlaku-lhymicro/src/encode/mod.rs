@@ -41,6 +41,7 @@ pub use errors::{EncodeError, Warning};
 pub use program::{Program, ProgramStats, RAPID_ESTIMATE_MM_S, distance, line_runs, rapid_text};
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, Toolpath};
+use tlaku_i18n::tr;
 
 fn validate_config(cfg: &EncodeConfig) -> Result<(), EncodeError> {
     if !(cfg.bed_mm[0].is_finite() && cfg.bed_mm[1].is_finite())
@@ -87,7 +88,7 @@ pub fn encode(toolpath: &Toolpath, cfg: &EncodeConfig) -> Result<Program, Encode
             return Err(EncodeError::Speed {
                 block: bi,
                 mm_s,
-                reason: format!("supera el máximo de {} mm/s", cfg.max_speed_mm_s),
+                reason: tr!("lhymicro.encode.speed_over_max", max = cfg.max_speed_mm_s),
             });
         }
         let mut params = SpeedParams::new(cfg.board, mm_s);

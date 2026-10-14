@@ -1,6 +1,7 @@
 //! Reconocimiento de seguridad ([`SafetyAck`]) y paso del perfil a la configuración de la sesión.
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Reconocimiento de seguridad
@@ -25,16 +26,15 @@ impl SafetyAck {
         if self.eyewear && self.enclosure && self.emergency_stop {
             Ok(LaserSafetyAck::i_understand_laser_safety())
         } else {
-            Err(ACK_REQUIRED.into())
+            Err(ack_required())
         }
     }
 }
 
 /// Error cuando falta el reconocimiento de seguridad para una tarjeta real.
-pub const ACK_REQUIRED: &str = "Para conectar con una tarjeta galvo real hay que confirmar la \
-seguridad láser: gafas con la densidad óptica correcta para la longitud de onda, recinto cerrado \
-y saber dónde está el paro de emergencia. Una fibra es clase 4 y su haz es invisible. Para \
-probar sin máquina usa la máquina virtual (virtual:galvo).";
+pub fn ack_required() -> String {
+    tr!("desktop.galvo.ack_required")
+}
 
 // ---------------------------------------------------------------------------
 // Del perfil a la sesión
@@ -44,18 +44,14 @@ probar sin máquina usa la máquina virtual (virtual:galvo).";
 /// cama (convención del pipeline).
 pub fn session_config(device: &DeviceProfile) -> Result<SessionConfig, String> {
     if device.kind != DeviceKind::Galvo {
-        return Err("El perfil de la máquina no es de tipo galvo.".into());
+        return Err(tr!("desktop.galvo.profile_not_galvo"));
     }
     // La posición del galvo es la del documento: no se aplica ningún otro origen.
     if device.origin != Origin::BottomLeft {
-        return Err(
-            "El origen del perfil galvo debe ser «abajo a la izquierda»: el campo de la \
-                    lente se coloca con las coordenadas del documento."
-                .into(),
-        );
+        return Err(tr!("desktop.galvo.origin_bottom_left"));
     }
     let mut cfg = SessionConfig::new(device.galvo.clone())
-        .map_err(|e| format!("El perfil del galvo no es válido: {e}"))?;
+        .map_err(|e| tr!("desktop.galvo.profile_invalid", err = e))?;
     cfg.origin = FieldOrigin::CenterAt(Point::new(device.bed[0] / 2.0, device.bed[1] / 2.0));
     // El desfase del puntero (el mismo del perfil de las demás máquinas) lo compensan el encuadre
     // y el recorrido en rojo; una marca real nunca lo aplica.

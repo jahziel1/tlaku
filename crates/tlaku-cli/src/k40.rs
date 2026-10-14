@@ -12,6 +12,7 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+use tlaku_i18n::tr;
 use tlaku_lhymicro::emu::{EmuBoard, EmuConfig, emulator};
 use tlaku_lhymicro::encode::{EncodeConfig, HomeCorner, Program, encode};
 use tlaku_lhymicro::session::{
@@ -22,9 +23,9 @@ use tlaku_lhymicro::transport::Transport;
 use tlaku_lhymicro::usb::{self, UsbTimeouts, UsbTransport};
 
 /// Aviso que acompaña a todo lo que toca una máquina real.
-const EXPERIMENTAL: &str = "EXPERIMENTAL: el soporte K40 (M2 Nano) no se ha probado con una placa \
-real. La M2 Nano no controla la potencia por software: ajústala en el panel de la máquina. Ten el \
-paro de emergencia al alcance y prueba primero con el láser deshabilitado o muy débil.";
+fn experimental() -> String {
+    tr!("cli.k40.experimental")
+}
 
 /// Cama que usa `--bed` si no se indica otra: el valor por defecto de `DesignArgs` es el del
 /// Falcon2 (400x415), que no corresponde a un K40 (área útil habitual de 300x200).
@@ -127,14 +128,11 @@ pub enum K40Command {
 }
 
 fn parse_board(s: &str) -> Result<Board, String> {
-    Board::parse(s)
-        .ok_or_else(|| format!("'{s}' no es una placa: usa A, B, B1, B2, M, M1, M2 o M3"))
+    Board::parse(s).ok_or_else(|| tr!("cli.k40.bad_board", value = s))
 }
 
 fn parse_home(s: &str) -> Result<HomeCorner, String> {
-    HomeCorner::parse(s).ok_or_else(|| {
-        format!("'{s}' no es una esquina: usa top-left, top-right, bottom-left o bottom-right")
-    })
+    HomeCorner::parse(s).ok_or_else(|| tr!("cli.k40.bad_corner", value = s))
 }
 
 fn show<W: Write>(out: &mut W, text: &str) -> Result<(), String> {
@@ -178,22 +176,20 @@ fn describe_program<W: Write>(p: &Planned, out: &mut W) -> Result<(), String> {
     let s = &p.program.stats;
     show(
         out,
-        &format!(
-            "Trabajo LHYMICRO-GL (placa {}): {} bytes en {} paquetes de 30 bytes; {:.1} mm \
-             grabados, {:.1} mm de viajes con el láser apagado, {} saltos rápidos, {} entradas \
-             al modo de corte; tiempo estimado {}.",
-            p.program.board,
-            p.program.stream.len(),
-            frames.len(),
-            s.burn_mm,
-            s.travel_mm,
-            s.rapids,
-            s.programs,
-            report::format_duration(s.est_seconds),
+        &tr!(
+            "cli.k40.program",
+            board = p.program.board,
+            bytes = p.program.stream.len(),
+            packets = frames.len(),
+            burn = format!("{:.1}", s.burn_mm),
+            travel = format!("{:.1}", s.travel_mm),
+            rapids = s.rapids,
+            programs = s.programs,
+            time = report::format_duration(s.est_seconds)
         ),
     )?;
     if !p.program.warnings.is_empty() {
-        show(out, "Avisos de la placa:")?;
+        show(out, &tr!("cli.k40.board_warnings"))?;
         for w in &p.program.warnings {
             show(out, &format!("  - {w}"))?;
         }
@@ -228,31 +224,33 @@ fn session_config(
 
 fn session_error(e: &SessionError) -> String {
     match e {
-        SessionError::Transport(_) | SessionError::Timeout { .. } => format!(
-            "{e}. Comprueba el cable USB, que la máquina esté encendida y que ningún otro \
-             programa de láser (K40 Whisperer, MeerK40t, LaserDRW) tenga la placa abierta"
-        ),
+        SessionError::Transport(_) | SessionError::Timeout { .. } => {
+            tr!("cli.k40.usb_help", err = e)
+        }
         _ => e.to_string(),
     }
 }
 
 fn describe_info<W: Write>(info: &BoardInfo, out: &mut W) -> Result<(), String> {
     let t = &info.transport;
+    let name = if t.name.is_empty() { "CH341" } else { &t.name };
+    let usb_id = format!("{:04X}:{:04X}", t.vendor_id, t.product_id);
+    let board_line = match t.chip_version {
+        Some(v) => tr!(
+            "cli.k40.board_chip",
+            name = name,
+            usb = usb_id,
+            version = format!("{v:02X}")
+        ),
+        None => tr!("cli.k40.board", name = name, usb = usb_id),
+    };
+    show(out, &board_line)?;
     show(
         out,
-        &format!(
-            "Placa: {} (USB {:04X}:{:04X}{})",
-            if t.name.is_empty() { "CH341" } else { &t.name },
-            t.vendor_id,
-            t.product_id,
-            t.chip_version
-                .map(|v| format!(", chip CH341 versión 0x{v:02X}"))
-                .unwrap_or_default()
-        ),
+        &tr!("cli.k40.state", state = info.status.status.describe()),
     )?;
-    show(out, &format!("Estado: {}", info.status.status.describe()))?;
     for n in &info.notes {
-        show(out, &format!("Nota: {n}"))?;
+        show(out, &tr!("cli.k40.note", note = n))?;
     }
     Ok(())
 }
@@ -264,27 +262,31 @@ fn describe_emulator<W: Write>(board: &mut EmuBoard, out: &mut W) -> Result<(), 
     let bbox = board
         .burn_bbox_mm()
         .map(|(lo, hi)| {
-            format!(
-                "X {:.2} a {:.2} mm, Y {:.2} a {:.2} mm desde el home",
-                lo.0, hi.0, lo.1, hi.1
+            tr!(
+                "cli.k40.emu_bbox",
+                x0 = format!("{:.2}", lo.0),
+                x1 = format!("{:.2}", hi.0),
+                y0 = format!("{:.2}", lo.1),
+                y1 = format!("{:.2}", hi.1)
             )
         })
-        .unwrap_or_else(|| "nada".into());
+        .unwrap_or_else(|| tr!("cli.k40.emu_nothing"));
+    let laser = if board.laser_on() {
+        tr!("cli.k40.emu_laser_on")
+    } else {
+        tr!("cli.k40.emu_laser_off")
+    };
     show(
         out,
-        &format!(
-            "Emulador: la placa simulada aceptó {} paquetes ({} rechazados, {} con el búfer \
-             lleno), quemó {burn:.1} mm ({bbox}), tardó {:.1} s virtuales y terminó con el láser \
-             {}.",
-            board.accepted,
-            board.rejected,
-            board.overruns,
-            board.elapsed_s(),
-            if board.laser_on() {
-                "ENCENDIDO"
-            } else {
-                "apagado"
-            },
+        &tr!(
+            "cli.k40.emu_summary",
+            accepted = board.accepted,
+            rejected = board.rejected,
+            overruns = board.overruns,
+            burn = format!("{burn:.1}"),
+            bbox = bbox,
+            secs = format!("{:.1}", board.elapsed_s()),
+            laser = laser
         ),
     )
 }
@@ -331,19 +333,12 @@ pub fn run(action: K40Command) -> Result<(), String> {
 fn list<W: Write>(out: &mut W) -> Result<(), String> {
     let boards = usb::list_boards().map_err(|e| e.to_string())?;
     if boards.is_empty() {
-        return show(
-            out,
-            "No hay placas CH341 (USB 1A86:5512) conectadas. Comprueba el cable y que la máquina \
-             esté encendida.",
-        );
+        return show(out, &tr!("cli.k40.no_boards"));
     }
     for b in boards {
         show(out, &b.to_string())?;
     }
-    show(
-        out,
-        "Una Moshiboard comparte este USB: `tlaku k40 status` distingue una M2 Nano.",
-    )
+    show(out, &tr!("cli.k40.moshiboard_note"))
 }
 
 fn status<W: Write>(
@@ -383,18 +378,18 @@ pub fn status_with<T: Transport, W: Write>(
         show(
             out,
             &format!(
-                "  consulta {}: código {} ({}), bytes {:?}",
-                i + 1,
-                r.code(),
-                r.status.describe(),
-                r.raw
+                "  {}",
+                tr!(
+                    "cli.k40.poll",
+                    n = i + 1,
+                    code = r.code(),
+                    state = r.status.describe(),
+                    raw = format!("{:?}", r.raw)
+                )
             ),
         )?;
     }
-    show(
-        out,
-        "Solo se envió la consulta de estado. Nada se movió ni se escribió.",
-    )
+    show(out, &tr!("cli.k40.read_only"))
 }
 
 fn export_egv<W: Write>(
@@ -412,11 +407,10 @@ fn export_egv<W: Write>(
     describe_program(&planned, out)?;
     show(
         out,
-        &format!(
-            "Escrito {} ({} bytes). Supone el cabezal en el home al empezar. EXPERIMENTAL: sin \
-             probar con hardware.",
-            output.display(),
-            bytes.len()
+        &tr!(
+            "cli.k40.egv_written",
+            path = output.display(),
+            bytes = bytes.len()
         ),
     )
 }
@@ -443,9 +437,9 @@ pub fn send<R: BufRead, W: Write>(
     show(out, report::summary(&planned.built).trim_end())?;
     describe_program(&planned, out)?;
     if req.dry_run {
-        return show(out, "Simulacro (--dry-run): no se conectó con la máquina.");
+        return show(out, &tr!("cli.k40.dry_run"));
     }
-    show(out, EXPERIMENTAL)?;
+    show(out, &experimental())?;
     let emulated = req.connect.emu || req.connect.emu_moshiboard;
     let cfg = session_config(&req.encoding, planned.bed, req.no_wait_finish, emulated);
     if emulated {
@@ -453,7 +447,7 @@ pub fn send<R: BufRead, W: Write>(
             moshiboard: req.connect.emu_moshiboard,
             ..EmuConfig::default()
         });
-        show(out, "Usando la placa simulada (--emu): no se toca el USB.")?;
+        show(out, &tr!("cli.k40.using_emulator"))?;
         let result = send_with(t, cfg, &planned, &req, cancel, input, out);
         let mut b = board.lock().unwrap_or_else(|e| e.into_inner());
         describe_emulator(&mut b, out)?;
@@ -476,41 +470,38 @@ fn send_with<T: Transport, R: BufRead, W: Write>(
     let info = session.probe().map_err(|e| session_error(&e))?;
     describe_info(&info, out)?;
     if !info.ready {
-        return Err(format!(
-            "la placa no está lista: {}",
-            info.status.status.describe()
+        return Err(tr!(
+            "cli.k40.board_not_ready",
+            state = info.status.status.describe()
         ));
     }
-    let home_text = if req.no_home {
-        "Se asume que el cabezal ya está en el home (esquina de los finales de carrera)."
-    } else {
-        "Primero el cabezal irá al home (finales de carrera)."
-    };
-    show(
-        out,
-        &format!(
-            "{home_text} Después se grabará el diseño: {:.0} x {:.0} mm de cama, home en {}.",
-            planned.bed.0,
-            planned.bed.1,
-            req.encoding.home.name()
-        ),
-    )?;
-    if !req.yes {
-        let ok = link::confirm(
-            "El láser DISPARARÁ. ¿La tapa está cerrada, el área despejada y el paro de \
-             emergencia al alcance? [s/N] ",
-            input,
-            out,
+    let plan_text = if req.no_home {
+        tr!(
+            "cli.k40.plan_no_home",
+            w = format!("{:.0}", planned.bed.0),
+            h = format!("{:.0}", planned.bed.1),
+            home = req.encoding.home.name()
         )
-        .map_err(|e| e.to_string())?;
+    } else {
+        tr!(
+            "cli.k40.plan_home",
+            w = format!("{:.0}", planned.bed.0),
+            h = format!("{:.0}", planned.bed.1),
+            home = req.encoding.home.name()
+        )
+    };
+    show(out, &plan_text)?;
+    if !req.yes {
+        let ok = link::confirm(&format!("{} ", tr!("cli.k40.prompt")), input, out)
+            .map_err(|e| e.to_string())?;
         if !ok {
-            return Err("cancelado: no se envió nada".into());
+            return Err(tr!("cli.k40.nothing_sent"));
         }
     }
     if req.no_home {
         session.assume_at_home();
     } else {
-        show(out, "Haciendo home...")?;
+        show(out, &tr!("cli.k40.homing"))?;
         session.home().map_err(|e| session_error(&e))?;
     }
 
@@ -520,7 +511,16 @@ fn send_with<T: Transport, R: BufRead, W: Write>(
         let step = pct / 10;
         if step != last_step || p.packet == p.packets {
             last_step = step;
-            let _ = writeln!(out, "  {pct:>3} %  (paquete {}/{})", p.packet, p.packets);
+            let _ = writeln!(
+                out,
+                "  {}",
+                tr!(
+                    "cli.k40.progress",
+                    pct = format!("{pct:>3}"),
+                    packet = p.packet,
+                    packets = p.packets
+                )
+            );
         }
     };
 
@@ -543,30 +543,34 @@ fn send_with<T: Transport, R: BufRead, W: Write>(
     });
     match result {
         Ok(r) => {
+            let sent = if r.finish_confirmed {
+                tr!(
+                    "cli.k40.sent_confirmed",
+                    packets = r.packets,
+                    bytes = r.bytes,
+                    resends = r.resends,
+                    secs = format!("{:.1}", r.elapsed.as_secs_f64())
+                )
+            } else {
+                tr!(
+                    "cli.k40.sent_unconfirmed",
+                    packets = r.packets,
+                    bytes = r.bytes,
+                    resends = r.resends,
+                    secs = format!("{:.1}", r.elapsed.as_secs_f64())
+                )
+            };
+            show(out, &sent)?;
             show(
                 out,
-                &format!(
-                    "Enviado: {} paquetes, {} bytes, {} reenvíos por CRC, en {:.1} s.{}",
-                    r.packets,
-                    r.bytes,
-                    r.resends,
-                    r.elapsed.as_secs_f64(),
-                    if r.finish_confirmed {
-                        " La placa confirmó el final del trabajo."
-                    } else {
-                        " La placa no confirmó el final del trabajo (estado 236)."
-                    }
-                ),
-            )?;
-            show(
-                out,
-                &format!(
-                    "El cabezal quedó en X {:.2}, Y {:.2} mm.",
-                    r.end_mm.x, r.end_mm.y
+                &tr!(
+                    "cli.k40.head_at",
+                    x = format!("{:.2}", r.end_mm.x),
+                    y = format!("{:.2}", r.end_mm.y)
                 ),
             )
         }
-        Err(e) => Err(format!("falló el envío: {e}")),
+        Err(e) => Err(tr!("cli.k40.send_failed", err = e)),
     }
 }
 

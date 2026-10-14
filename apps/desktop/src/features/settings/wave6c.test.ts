@@ -44,7 +44,7 @@ describe('.tlakuprefs con las preferencias de la ola 6C', () => {
     const bundle = JSON.parse(JSON.stringify(buildBundle(prefs, {})));
     const change = applyBundle(bundle, { prefs: DEFAULT_PREFS, shortcuts: {} }, new Set());
     expect(change.prefs).toEqual(prefs);
-    expect(change.ignoredPrefs).toBe(1); // solo `remoteEnabled`, que un archivo ajeno nunca enciende
+    expect(change.ignoredPrefs).toBe(2); // `remoteEnabled` y `updateCheckOnStart`, que un archivo ajeno nunca enciende
   });
 
   it('un paquete ajeno con valores rotos no deja una distribución ni opciones inválidas', () => {

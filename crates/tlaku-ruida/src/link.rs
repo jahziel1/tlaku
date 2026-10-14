@@ -12,6 +12,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
+use tlaku_i18n::tr;
 
 /// Puerto de la controladora al que se envían los datos.
 pub const REMOTE_PORT: u16 = 50200;
@@ -63,10 +64,7 @@ impl UdpLink {
         let socket = UdpSocket::bind(local).map_err(|e| {
             io::Error::new(
                 e.kind(),
-                format!(
-                    "no se pudo abrir el puerto UDP local {}: {e} (¿hay otro programa de láser abierto?)",
-                    local.port()
-                ),
+                tr!("ruida.link.udp_bind", port = local.port(), e = e),
             )
         })?;
         socket.connect(remote)?;

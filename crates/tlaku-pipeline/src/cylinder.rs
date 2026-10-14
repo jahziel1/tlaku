@@ -28,6 +28,7 @@
 use tlaku_core::Point;
 use tlaku_core::toolpath::Move;
 use tlaku_doc::{CylinderAxis, GalvoDevice};
+use tlaku_i18n::tr;
 
 /// Largo máximo (mm, en el diseño) de un tramo antes de proyectarlo.
 pub(crate) const MAX_STEP_MM: f64 = 1.0;
@@ -77,7 +78,11 @@ fn positive(name: &str, v: f64) -> Result<(), String> {
     if v.is_finite() && v > 0.0 {
         Ok(())
     } else {
-        Err(format!("{name} debe ser mayor que 0 (es {v})"))
+        Err(tr!(
+            "pipeline.cylinder.must_be_positive",
+            name = name,
+            value = v
+        ))
     }
 }
 
@@ -87,9 +92,9 @@ impl Projection {
     pub fn from_device(g: &GalvoDevice, center: Point) -> Result<Option<Projection>, String> {
         let cyl = if g.cylinder.enabled {
             let c = &g.cylinder;
-            positive("corrección de cilindro: el diámetro", c.diameter_mm)?;
+            positive(&tr!("pipeline.cylinder.cyl_diameter"), c.diameter_mm)?;
             positive(
-                "corrección de cilindro: la distancia del espejo",
+                &tr!("pipeline.cylinder.cyl_mirror_distance"),
                 c.mirror_distance_mm,
             )?;
             Some(Cyl {
@@ -103,9 +108,9 @@ impl Projection {
         };
         let cone = if g.taper.enabled {
             let t = &g.taper;
-            positive("cono: el diámetro superior", t.top_diameter_mm)?;
-            positive("cono: el diámetro inferior", t.bottom_diameter_mm)?;
-            positive("cono: el largo", t.length_mm)?;
+            positive(&tr!("pipeline.cylinder.cone_top"), t.top_diameter_mm)?;
+            positive(&tr!("pipeline.cylinder.cone_bottom"), t.bottom_diameter_mm)?;
+            positive(&tr!("pipeline.cylinder.cone_length"), t.length_mm)?;
             let (d_neg, d_pos) = if t.top_at_positive {
                 (t.bottom_diameter_mm, t.top_diameter_mm)
             } else {
@@ -123,7 +128,7 @@ impl Projection {
         if let (Some(c), Some(k)) = (&cyl, &cone)
             && c.axis != k.axis
         {
-            return Err("la corrección de cilindro y la del cono deben tener el mismo eje".into());
+            return Err(tr!("pipeline.cylinder.axis_mismatch"));
         }
         Ok((cyl.is_some() || cone.is_some()).then_some(Projection { center, cyl, cone }))
     }

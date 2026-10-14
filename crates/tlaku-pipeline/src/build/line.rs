@@ -8,6 +8,7 @@ use crate::tabs::{self, TabSpec, TabStats};
 use crate::zaxis::LayerZ;
 use tlaku_core::toolpath::Toolpath;
 use tlaku_core::{Job, Layer, Point, Polyline, Rgb};
+use tlaku_i18n::tr;
 use tlaku_plan::{PlanItem, PlanOptions};
 
 use super::*;
@@ -80,8 +81,10 @@ impl Builder<'_> {
         if kerf_mm != 0.0 {
             let open = paths.iter().filter(|p| !p.closed).count();
             if open > 0 {
-                self.warnings.push(format!(
-                    "capa {name}: {open} trayectoria(s) abierta(s) no se compensan por kerf"
+                self.warnings.push(tr!(
+                    "pipeline.build_line.open_no_kerf",
+                    name = name,
+                    n = open
                 ));
             }
             paths = tlaku_geom::kerf_compensate(&paths, kerf_mm);
@@ -98,10 +101,8 @@ impl Builder<'_> {
             .collect();
         let manual = tabs::assign_manual(&paths, &objects, &self.line.manual);
         if tabs.is_none() && manual.iter().any(Option::is_some) {
-            self.warnings.push(format!(
-                "capa {name}: hay objetos con puentes manuales, pero los puentes de la capa están \
-                 desactivados (actívalos para que se respeten)"
-            ));
+            self.warnings
+                .push(tr!("pipeline.build_line.manual_tabs_off", name = name));
         }
         let items: Vec<PlanItem> = paths
             .into_iter()
@@ -126,12 +127,15 @@ impl Builder<'_> {
             },
         );
         for w in &plan.warnings {
-            self.warnings.push(format!("capa {name}: {w}"));
+            self.warnings.push(tr!(
+                "pipeline.build_line.plan_warning",
+                name = name,
+                warning = w
+            ));
         }
         if plan.steps.is_empty() {
-            self.warnings.push(format!(
-                "capa {name}: no quedó ninguna trayectoria que cortar"
-            ));
+            self.warnings
+                .push(tr!("pipeline.build_line.nothing_to_cut", name = name));
             return;
         }
         // La pieza se planificó como forma cerrada; recién ahora se parte en tramos.
@@ -182,14 +186,11 @@ impl Builder<'_> {
             .extend(sstats.warnings(&name, self.line.stroke.as_ref()));
         if let Some(spec) = &tabs {
             if stats.shapes == 0 {
-                self.warnings.push(format!(
-                    "capa {name}: los puentes están activos pero no hay ninguna forma cerrada donde ponerlos{}",
-                    if spec.skip_inner {
-                        " (las formas dentro de otra se omiten)"
-                    } else {
-                        ""
-                    }
-                ));
+                self.warnings.push(if spec.skip_inner {
+                    tr!("pipeline.build_line.tabs_no_shape_inner", name = name)
+                } else {
+                    tr!("pipeline.build_line.tabs_no_shape", name = name)
+                });
             }
             if let Some(w) = stats.warning(&name, spec.options.width_mm) {
                 self.warnings.push(w);
@@ -198,10 +199,11 @@ impl Builder<'_> {
                 self.warnings.push(w);
             }
             if spec.power > settings.power_pct {
-                self.warnings.push(format!(
-                    "capa {name}: la potencia de puente ({} %) supera la del corte ({} %); los \
-                     huecos se marcan con la del corte",
-                    spec.power, settings.power_pct
+                self.warnings.push(tr!(
+                    "pipeline.build_line.tab_power_high",
+                    name = name,
+                    tab = spec.power,
+                    cut = settings.power_pct
                 ));
             }
         }

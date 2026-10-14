@@ -3,6 +3,7 @@ import type { ConnectionEvent, JobEvent, LogEvent, ProgressEvent, StatusReport }
 import { parseAlarmLine, type AlarmAction } from '@/features/machine/grblCodes';
 import { portKey } from '@/features/machine/virtualPort';
 import { type GrblSettings } from '@/lib/device';
+import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
 
 export type JobUiState = 'idle' | 'running' | 'paused' | 'finished' | 'cancelled' | 'error';
 
@@ -41,6 +42,8 @@ export interface MachineData {
   progress: ProgressEvent | null;
   jobState: JobUiState;
   jobMessage: string;
+  /** El último mensaje del trabajo dice que detener NO se confirmó (código `stop_unconfirmed` del motor). */
+  stopUnconfirmed: boolean;
   /** Mensaje del motor cuando rechazó iniciar o encuadrar (por ejemplo el preflight), tal cual. */
   jobError: string | null;
   /** Último `ALARM:N` recibido (null si no se conoce la causa). Solo vale mientras el estado sea alarma. */
@@ -80,6 +83,7 @@ export const INITIAL_MACHINE_DATA: MachineData = {
   progress: null,
   jobState: 'idle',
   jobMessage: '',
+  stopUnconfirmed: false,
   jobError: null,
   alarmCode: null,
   settings: null,
@@ -135,7 +139,8 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
       const code = ev.log.dir === 'in' ? parseAlarmLine(ev.log.text) : null;
       return {
         ...m,
-        log: [...m.log, { ...ev.log, id }].slice(-LOG_LIMIT),
+        // El texto puede traer un código estable (`[frame_done] ...`): la consola muestra solo el texto.
+        log: [...m.log, { ...ev.log, text: errorMessage(ev.log.text), id }].slice(-LOG_LIMIT),
         logSeq: id,
         alarmCode: code ?? m.alarmCode,
         // ALARM:3 es justo eso: reinicio con la máquina en movimiento.
@@ -144,7 +149,14 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
     }
     case 'job': {
       const state = JOB_STATE[ev.job.state];
-      const next: MachineData = { ...m, jobState: state, jobMessage: ev.job.message, ...(ev.job.position_lost ? lostHere(m) : {}) };
+      // El mensaje puede traer un código estable al inicio (`[stop_unconfirmed] ...`): se guarda el texto limpio.
+      const next: MachineData = {
+        ...m,
+        jobState: state,
+        jobMessage: errorMessage(ev.job.message),
+        stopUnconfirmed: isStopUnconfirmed(ev.job.message),
+        ...(ev.job.position_lost ? lostHere(m) : {}),
+      };
       if (ev.job.state === 'started') {
         if (m.jobState === 'paused') {
           // Reanudar: la pausa no cuenta como tiempo de trabajo.
@@ -162,12 +174,14 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
       return next;
     }
     case 'connection': {
-      if (ev.connection.connected) {
+      // El error puede traer un código estable al inicio (`[stop_unconfirmed] ...`): se guarda el texto limpio.
+      const connection = ev.connection.error ? { ...ev.connection, error: errorMessage(ev.connection.error) } : ev.connection;
+      if (connection.connected) {
         // El aviso de posición perdida solo vale para la misma máquina.
-        const same = m.positionLost && m.positionLostPort === portKey(ev.connection.port);
+        const same = m.positionLost && m.positionLostPort === portKey(connection.port);
         return {
           ...m,
-          connection: ev.connection,
+          connection,
           alarmCode: null,
           settings: null,
           jobError: null,
@@ -178,7 +192,7 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
       // Sin conexión no queda nada vivo: se conserva el registro y la posición perdida.
       return {
         ...INITIAL_MACHINE_DATA,
-        connection: ev.connection,
+        connection,
         log: m.log,
         logSeq: m.logSeq,
         positionLost: m.positionLost,

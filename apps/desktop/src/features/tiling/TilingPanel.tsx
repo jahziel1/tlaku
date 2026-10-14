@@ -5,6 +5,7 @@ import { fmt } from '@/lib/platform';
 import { t } from '@/i18n';
 import { selectActiveDevice, useStore } from '@/store';
 import { LengthField } from '@/ui/LengthField';
+import { useReturnFocus } from '@/ui/useReturnFocus';
 import { feedBetween, isSingleDirection, type TileOrder } from './plan';
 import type { TileError } from './types';
 import { feedLines } from './feeder';
@@ -34,8 +35,17 @@ export function planErrorText(e: TileError): string {
 export function TilingPanel() {
   const phase = useTilingUi((s) => s.phase);
   const close = () => closeTiling();
+  useReturnFocus();
   return (
-    <section className="til-panel" role="dialog" aria-label={t('tiling.title')} data-phase={phase}>
+    <section
+      className="til-panel"
+      role="dialog"
+      aria-label={t('tiling.title')}
+      data-phase={phase}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && !(e.target instanceof HTMLInputElement)) close();
+      }}
+    >
       <header className="til-head">
         <h2 className="panel-title"><Grid2x2 size={15} aria-hidden="true" />{t('tiling.title')}</h2>
         <button type="button" className="icon-btn" aria-label={t('tiling.close')} title={t('tiling.close')} onClick={close}>

@@ -1,5 +1,7 @@
 //! Resultado del procesado: fracción de potencia por punto.
 
+use tlaku_i18n::tr;
+
 /// Rejilla de puntos de grabado. La fila 0 es la de arriba de la imagen.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RasterBitmap {
@@ -22,17 +24,17 @@ impl RasterBitmap {
         data: Vec<f32>,
     ) -> Result<Self, String> {
         if width == 0 || height == 0 {
-            return Err("el bitmap no puede tener tamaño cero".into());
+            return Err(tr!("raster.bitmap.zero_size"));
         }
         if data.len() != width * height {
-            return Err(format!(
-                "se esperaban {} puntos y llegaron {}",
-                width * height,
-                data.len()
+            return Err(tr!(
+                "raster.bitmap.data_len",
+                expected = width * height,
+                got = data.len()
             ));
         }
         if !(pixel_size_x_mm > 0.0 && pixel_size_y_mm > 0.0) {
-            return Err("el tamaño de punto debe ser positivo".into());
+            return Err(tr!("raster.bitmap.dot_size"));
         }
         Ok(Self {
             width,
@@ -73,10 +75,10 @@ impl RasterBitmap {
             .map(|&p| ((1.0 - p.clamp(0.0, 1.0)) * 255.0).round() as u8)
             .collect();
         let img = image::GrayImage::from_raw(self.width as u32, self.height as u32, pixels)
-            .ok_or("el bitmap no cabe en una imagen")?;
+            .ok_or_else(|| tr!("raster.bitmap.too_big"))?;
         let mut out = std::io::Cursor::new(Vec::new());
         img.write_to(&mut out, image::ImageFormat::Png)
-            .map_err(|e| format!("no se pudo codificar el PNG: {e}"))?;
+            .map_err(|e| tr!("raster.bitmap.png_encode", error = e))?;
         Ok(out.into_inner())
     }
 
@@ -84,9 +86,14 @@ impl RasterBitmap {
     /// de arriba). Falla si se sale del bitmap o tiene tamaño cero.
     pub fn crop(&self, x: usize, y: usize, w: usize, h: usize) -> Result<RasterBitmap, String> {
         if w == 0 || h == 0 || x + w > self.width || y + h > self.height {
-            return Err(format!(
-                "recorte fuera del bitmap: {w}x{h} desde ({x}, {y}) en {}x{}",
-                self.width, self.height
+            return Err(tr!(
+                "raster.bitmap.crop",
+                w = w,
+                h = h,
+                x = x,
+                y = y,
+                bw = self.width,
+                bh = self.height
             ));
         }
         let mut data = Vec::with_capacity(w * h);

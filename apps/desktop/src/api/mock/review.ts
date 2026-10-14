@@ -31,6 +31,32 @@ function imageDpi(o: DesignObject): [number, number] | null {
   return [Math.min(dx, dy), Math.max(dx, dy)];
 }
 
+/** Largo total de los trazos (mm). */
+function strokeLength(objs: readonly DesignObject[]): number {
+  let total = 0;
+  for (const o of objs) {
+    for (const { points, closed } of objectPolylines(o)) {
+      const n = closed ? points.length : points.length - 1;
+      for (let i = 0; i < n; i++) total += Math.hypot(points[(i + 1) % points.length]![0] - points[i]![0], points[(i + 1) % points.length]![1] - points[i]![1]);
+    }
+  }
+  return total;
+}
+
+/** El hueco más grande entre los extremos de los trazos abiertos (mm), como lo informa el motor. */
+function worstGap(objs: readonly DesignObject[]): number {
+  let worst = 0;
+  for (const o of objs) {
+    for (const { points, closed } of objectPolylines(o)) {
+      if (closed || points.length < 2) continue;
+      const a = points[0]!;
+      const b = points[points.length - 1]!;
+      worst = Math.max(worst, Math.hypot(b[0] - a[0], b[1] - a[1]));
+    }
+  }
+  return worst;
+}
+
 /**
  * «Revisar diseño» simulado. Detecta lo mismo que el motor, apoyándose en los otros métodos
  * simulados (qué objetos cambiaría `cerrar`, `unir`, `quitar duplicados` u `optimizar`). Es una
@@ -111,9 +137,12 @@ export function mockReviewDesign({ doc, bed, options = {} }: ReviewArgs): Findin
     };
 
     const near = consumed('close', closeMm);
-    if (near.length) out.push(make('near_closed', 'warning', color, near, { tolerance: closeMm }));
+    if (near.length) out.push(make('near_closed', 'warning', color, near, { value: worstGap(live.filter((o) => near.includes(o.id))), tolerance: closeMm }));
     const dup = consumed('dedupe', dedupeMm);
-    if (dup.length) out.push(make('overlap', 'warning', color, dup, { fix_ids: liveIds, tolerance: dedupeMm }));
+    if (dup.length) {
+      const removed = Math.max(0, strokeLength(live) - strokeLength(mockGeometryOp({ op: 'dedupe', objects: live, tolerance: dedupeMm })));
+      out.push(make('overlap', 'warning', color, dup, { value: removed, fix_ids: liveIds, tolerance: dedupeMm }));
+    }
     const joined = consumed('join', joinMm).filter((id) => !near.includes(id));
     if (joined.length >= 2) out.push(make('joinable', 'warning', color, joined, { tolerance: joinMm }));
     let saved = 0;

@@ -1,0 +1,48 @@
+# Mensajes de tlaku-plan (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: plan.<módulo>.<qué> = plantilla
+
+# describe.rs
+plan.describe.level_layer = capa
+plan.describe.level_group = grupo
+plan.describe.level_priority = prioridad
+plan.describe.no_levels = sin niveles de orden: todas las figuras compiten por igual
+plan.describe.levels = orden por {levels} (de mayor a menor precedencia)
+plan.describe.inner_first = interiores primero: lo que está dentro de otra figura se corta antes
+plan.describe.inner_first_off = interiores primero apagado: una figura puede cortarse antes que las que contiene
+plan.describe.reduce_travel = recorrido corto: vecino más cercano con mejora local
+plan.describe.reduce_travel_off = recorrido corto apagado: se conserva el orden original
+plan.describe.start_chosen = las figuras cerradas empiezan por el punto más cómodo
+plan.describe.start_drawn = las figuras cerradas empiezan donde fueron dibujadas
+plan.describe.direction_free = las figuras abiertas pueden recorrerse al revés
+plan.describe.direction_kept = las figuras abiertas conservan su sentido
+plan.describe.winding_ccw = las figuras cerradas giran siempre en sentido antihorario
+plan.describe.winding_cw = las figuras cerradas giran siempre en sentido horario
+
+# lib.rs: niveles, razones del orden y avisos
+plan.level.layer = capa
+plan.level.group = grupo
+plan.level.priority = prioridad
+plan.reason.bucket_layer = capa {layer}
+plan.reason.bucket_group = grupo {group}
+plan.reason.bucket_ungrouped = figuras sin grupo
+plan.reason.bucket_priority = prioridad {priority}
+plan.reason.rule_layer = las capas se cortan en su orden
+plan.reason.rule_group = los grupos se cortan en su orden dentro de la capa
+plan.reason.rule_ungrouped = las figuras sin grupo van antes que los grupos
+plan.reason.rule_priority = la prioridad menor se corta antes
+plan.reason.first = primera figura de {bucket}: {rule}
+plan.reason.first_inside = primera figura de {bucket}; va antes que la figura #{item} (la más cercana) porque está dentro de ella y los interiores se cortan primero
+plan.reason.first_overlap = primera figura de {bucket}; va antes que la figura #{item} (la más cercana) porque casi toda cae dentro de ella y lo más sujeto se corta primero
+plan.reason.first_blocked = primera figura de {bucket}; la figura #{item} estaba más cerca pero debe esperar a sus interiores
+plan.reason.inner_first = va antes que la figura #{container}, que la contiene: interiores primero
+plan.reason.overlap_first = va antes que la figura #{other}, con la que se solapa: el {share_pct} % de ella cae dentro, así que se corta primero la parte que queda sujeta
+plan.reason.overlap_first_others = va antes que la figura #{other}, con la que se solapa: el {share_pct} % de ella cae dentro y, junto con otras figuras, queda casi toda sobre material ajeno
+plan.reason.nearest = la más cercana ({distance_mm} mm) entre las que podían cortarse ahora
+plan.reason.nearest_blocked = la más cercana ({distance_mm} mm) entre las que podían cortarse ahora; la figura #{blocked} estaba más cerca pero debe esperar a sus interiores
+plan.reason.input_order = sigue el orden original (reducir recorrido está apagado)
+plan.reason.input_order_blocked = sigue el orden original; la figura #{blocked} iba antes pero debe esperar a sus interiores
+plan.reason.improved = la mejora de recorrido (2-opt/Or-opt, inicio y sentido) la dejó aquí porque acorta el total, aunque no es la figura más cercana
+plan.reason.level_overrides_inner = sale antes que su interior #{inner} porque el orden por {level} tiene precedencia sobre interiores primero
+plan.warning.skipped_invalid = la figura #{item} está vacía o tiene coordenadas inválidas y se omitió
+plan.warning.overlap_limited = hay demasiadas figuras grandes que se solapan: no se analizaron todos los solapes parciales y algunas figuras que se cruzan pueden cortarse en cualquier orden
+plan.warning.inner_overridden = la figura #{container} se corta antes que su interior #{inner}: el orden por {level} tiene precedencia sobre interiores primero

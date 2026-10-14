@@ -1,0 +1,224 @@
+# Mensajes de tlaku-cli (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: cli.<módulo>.<qué> = plantilla
+
+# options.rs
+cli.options.not_a_number = '{value}' is not a valid number
+cli.options.must_be_positive = '{value}' must be greater than 0
+cli.options.overscan_negative = negative overscan: '{value}'
+cli.options.overscan_invalid = invalid overscan '{value}': use "auto" or a number in mm
+cli.options.size_format = expected format: WIDTHxHEIGHT (for example 400x415), got '{value}'
+cli.options.size_invalid = invalid size '{value}'
+cli.options.pos_format = expected format: X,Y (for example 10,20), got '{value}'
+cli.options.pos_invalid = invalid position '{value}'
+cli.options.unknown_mode = unknown mode '{value}': use line or fill
+cli.options.layer_format = expected format: #rrggbb:key=value,... (for example "#ff0000:speed=300,power=80")
+cli.options.key_needs_value = the key '{key}' needs a value ({key}=...)
+cli.options.invalid_value = invalid value in '{kv}': {err}
+cli.options.key_takes_no_value = the key '{key}' does not take a value
+cli.options.mode_needs_value = the key 'mode' needs a value (mode=line|fill)
+cli.options.passes_not_integer = invalid value in '{kv}': it must be a whole number
+cli.options.order_not_integer = invalid value in '{kv}': the position must be a whole number starting at 1
+cli.options.overscan_needs_value = the key 'overscan' needs a value (mm or auto)
+cli.options.unknown_key = unknown key '{key}'; valid keys: mode, speed, power, passes, air, noair, interval, angle, crosshatch, bidir, nobidir, overscan, kerf, order
+cli.options.key_wrong_mode = layer {layer}: the key '{key}' only applies in {wanted} mode (this layer is {mode})
+cli.options.threshold_needs_mode = --threshold only applies with --image-mode threshold
+
+# report.rs
+cli.report.paths_one = {n} path
+cli.report.paths_other = {n} paths
+cli.report.lines_one = {n} line
+cli.report.lines_other = {n} lines
+cli.report.shapes_one = {n} shape
+cli.report.shapes_other = {n} shapes
+cli.report.sweep_lines_one = {n} scan line
+cli.report.sweep_lines_other = {n} scan lines
+cli.report.layer_line = {n}. {name} {mode} {count} {speed} mm/min, {power}, {passes} pass(es)
+cli.report.layer_travel = travel moves: {travel} mm (original order {baseline} mm, saved {saved} mm = {pct} %)
+cli.report.layers_header = Layers (in the order they run):
+cli.report.total_time = Estimated total time: {time}
+cli.report.occupied_area = Occupied area (with overscan): X {x0} to {x1} mm, Y {y0} to {y1} mm
+cli.report.warnings_header = Warnings:
+cli.report.layers_in_order = Layers in order: {names}. {note}
+cli.report.step_closed = shape #{item} (closed, enters at X{x} Y{y}): {reason}
+cli.report.step_open = shape #{item} (open, enters at X{x} Y{y}): {reason}
+cli.report.plan_layer = Layer {n} of {total}: {name} ({mode}, {passes} pass(es), {count})
+cli.report.plan_travel = Travel moves: {travel} mm (original order {baseline} mm, saved {saved} mm = {pct} %)
+cli.report.plan_sweep = The layer is scanned line by line; there is no shape order to decide.
+
+# job.rs
+cli.job.layer_repeated = layer {layer} appears more than once in --layer
+cli.job.image_options_ignored = the image options ({options}) were ignored because the input is not an image
+cli.job.layer_ignored_for_image = --layer was ignored: an image has no color layers
+cli.job.image_needs_size_pos = images require --image-size WIDTHxHEIGHT and --image-pos X,Y (in mm; the position is the bottom-left corner)
+cli.job.layer_not_in_design = layer {layer} from --layer does not exist in the design (layers: {layers})
+
+# link.rs
+cli.link.ready_prompt = Is the laser ready and the area clear? [y/N]
+cli.link.progress = {pct} %  ({acked}/{total} lines)  state: {state}
+cli.link.state_starting = starting
+cli.link.cancelling = Cancelling: feed hold and soft reset...
+cli.link.error_at_line = error:{code} at line {line} ({text}): {msg}
+cli.link.error = error:{code}: {msg}
+cli.link.alarm = ALARM:{code}: {msg}
+cli.link.machine_message = machine: {msg}
+cli.link.controller_reset = the controller was reset: {msg}
+cli.link.send_thread_died = the sending thread ended unexpectedly
+cli.link.job_done = Job finished.
+cli.link.settled = The machine came to a full stop before the reset: the position is kept.
+cli.link.alarm_during_stop = ALARM:{code} arrived during the stop: {msg}.
+cli.link.sending = Sending {n} lines. Ctrl+C cancels.
+cli.link.frame_header = Frame (includes the overscan), with the laser off:
+cli.link.frame_size = size {w} x {h} mm, speed {speed} mm/min
+cli.link.risk_unlock = $X clears the alarm without homing: if the machine has limit switches and you do not run $H afterwards, the position may be unknown and the job would come out shifted.
+cli.link.risk_home = $H homes the machine: it will move until it reaches the limit switches. Clear the area.
+cli.link.risk_moves = This command moves the machine.
+cli.link.risk_laser = This command turns the laser on (and may move the machine).
+cli.link.risk_setting = This command changes a setting stored in the controller.
+cli.link.risk_other = This is not a read-only command: it may move the machine, turn the laser on or change its configuration.
+cli.link.realtime_char = '{arg}' contains '{ch}', a real-time character; use the names status, hold, resume or reset
+cli.link.empty_command = '{arg}' does not contain any command
+cli.link.command_too_long = '{text}' does not fit in the controller's buffer ({rx_buffer} bytes)
+cli.link.will_send = This will be sent exactly as: {cmd}
+cli.link.warning = Warning: {warning}
+cli.link.send_prompt = Send it? [y/N]
+cli.link.nothing_sent = cancelled: nothing was sent to the machine
+cli.link.command_replied = '{text}' replied {msg}
+cli.link.no_response = no response to '{text}' within {secs} s; check the machine (it may still be running it)
+cli.link.state_line = State: {state}
+cli.link.status_timeout = the machine did not answer the status query (?) within {secs} s
+cli.link.sent_no_state = (sent; the machine did not report its state)
+cli.link.laser_still_on = Note: the laser stays on until you send M5.
+
+# cli.rs
+cli.cli.cancelled = cancelled: the machine was not moved
+cli.cli.connecting = Connecting to {port} ({baud} baud)...
+cli.cli.written = Wrote {path}
+cli.cli.gcode_lines = {path}: {n} lines of G-code.
+cli.cli.no_motion = the design has no moves
+
+# ruida.rs
+cli.ruida.experimental = EXPERIMENTAL: Ruida support has not been tested with a real machine (docs/hardware/ruida.md). Try it first with the laser disabled or at 0 power.
+cli.ruida.bad_magic = '{value}' is not a hexadecimal byte (e.g. 0x88)
+cli.ruida.bad_corner = '{value}' is not a corner: use top-left, top-right, bottom-left or bottom-right
+cli.ruida.rd_plain = plain
+cli.ruida.rd_written = Wrote {path} ({bytes} bytes, {kind}, home {home}). EXPERIMENTAL: not tested on hardware.
+cli.ruida.rd_magic_notice = Note: a magic other than 0x88 was used.
+cli.ruida.bad_doc_name = the document name must be 1 to 40 printable ASCII characters
+cli.ruida.unknown_model = unknown model
+cli.ruida.bed_unknown = not reported
+cli.ruida.machine = Machine: {model} (card 0x{card}), magic 0x{magic}, bed {bed}
+cli.ruida.machine_detected = Machine: {model} (card 0x{card}), magic 0x{magic} (detected), bed {bed}
+cli.ruida.timeout_help = {err}. Check the IP address, that this computer is on the same /24 network as the machine, that no other laser software has the port open, and the magic (--magic)
+cli.ruida.state = State: {state}
+cli.ruida.position = Position: X {x} mm, Y {y} mm (Tlaku axes with home at {home}); on the machine {mx}, {my} mm
+cli.ruida.read_only = Only reads were sent. Nothing was moved or written.
+cli.ruida.dry_job = .rd job of {bytes} bytes in {packets} packet(s), home {home}, {mode}.
+cli.ruida.dry_run = Dry run (--dry-run): the machine was not contacted.
+cli.ruida.mode_run = it will run as soon as it is received
+cli.ruida.mode_store = it will be stored as document "{name}" (it does not start)
+cli.ruida.bed_mismatch = the bed size the machine reports ({w} x {h} mm) does not match --bed ({bw} x {bh} mm): the file origin depends on it. Repeat with --bed {rw}x{rh}
+cli.ruida.will_send = {bytes} bytes of job will be sent: {mode}. Home at {home}.
+cli.ruida.prompt_run = The job will START running as soon as it arrives. Is the laser ready and the area clear? [y/N]
+cli.ruida.prompt_store = Store the document on the machine? [y/N]
+cli.ruida.nothing_sent = cancelled: nothing was sent
+cli.ruida.progress = {pct} %  (packet {packet}/{packets})
+cli.ruida.sent = Sent: {packets} packet(s), {bytes} bytes, {resends} resend(s).
+cli.ruida.running = The job is running. Pause/Stop from the machine panel; the emergency stop always comes first if something goes wrong.
+cli.ruida.stored = Document stored. Select it and start it from the machine panel.
+cli.ruida.send_failed = send failed: {err}
+
+# k40.rs
+cli.k40.experimental = EXPERIMENTAL: K40 (M2 Nano) support has not been tested with a real board. The M2 Nano does not control power in software: set it on the machine panel. Keep the emergency stop within reach and try it first with the laser disabled or very weak.
+cli.k40.bad_board = '{value}' is not a board: use A, B, B1, B2, M, M1, M2 or M3
+cli.k40.bad_corner = '{value}' is not a corner: use top-left, top-right, bottom-left or bottom-right
+cli.k40.program = LHYMICRO-GL job (board {board}): {bytes} bytes in {packets} packets of 30 bytes; {burn} mm engraved, {travel} mm of travel with the laser off, {rapids} rapid jumps, {programs} entries into cut mode; estimated time {time}.
+cli.k40.board_warnings = Board warnings:
+cli.k40.usb_help = {err}. Check the USB cable, that the machine is on, and that no other laser software (K40 Whisperer, MeerK40t, LaserDRW) has the board open
+cli.k40.board = Board: {name} (USB {usb})
+cli.k40.board_chip = Board: {name} (USB {usb}, CH341 chip version 0x{version})
+cli.k40.state = State: {state}
+cli.k40.note = Note: {note}
+cli.k40.emu_bbox = X {x0} to {x1} mm, Y {y0} to {y1} mm from home
+cli.k40.emu_nothing = nothing
+cli.k40.emu_laser_on = ON
+cli.k40.emu_laser_off = off
+cli.k40.emu_summary = Emulator: the simulated board accepted {accepted} packets ({rejected} rejected, {overruns} with a full buffer), burned {burn} mm ({bbox}), took {secs} virtual seconds and ended with the laser {laser}.
+cli.k40.no_boards = No CH341 boards (USB 1A86:5512) are connected. Check the cable and that the machine is on.
+cli.k40.moshiboard_note = A Moshiboard shares this USB ID: `tlaku k40 status` tells an M2 Nano apart.
+cli.k40.poll = query {n}: code {code} ({state}), bytes {raw}
+cli.k40.read_only = Only the status query was sent. Nothing was moved or written.
+cli.k40.egv_written = Wrote {path} ({bytes} bytes). It assumes the head is at home when it starts. EXPERIMENTAL: not tested on hardware.
+cli.k40.dry_run = Dry run (--dry-run): the machine was not contacted.
+cli.k40.using_emulator = Using the simulated board (--emu): USB is not touched.
+cli.k40.board_not_ready = the board is not ready: {state}
+cli.k40.plan_no_home = The head is assumed to be at home already (the limit-switch corner). Then the design will be engraved: {w} x {h} mm bed, home at {home}.
+cli.k40.plan_home = The head will go home first (limit switches). Then the design will be engraved: {w} x {h} mm bed, home at {home}.
+cli.k40.prompt = The laser WILL FIRE. Is the lid closed, the area clear and the emergency stop within reach? [y/N]
+cli.k40.nothing_sent = cancelled: nothing was sent
+cli.k40.homing = Homing...
+cli.k40.progress = {pct} %  (packet {packet}/{packets})
+cli.k40.sent_confirmed = Sent: {packets} packets, {bytes} bytes, {resends} CRC resends, in {secs} s. The board confirmed the end of the job.
+cli.k40.sent_unconfirmed = Sent: {packets} packets, {bytes} bytes, {resends} CRC resends, in {secs} s. The board did not confirm the end of the job (state 236).
+cli.k40.head_at = The head ended at X {x}, Y {y} mm.
+cli.k40.send_failed = send failed: {err}
+
+# galvo.rs
+cli.galvo.experimental = EXPERIMENTAL: galvo support has not been tested with any real board. A fiber laser is class 4 and its beam is INVISIBLE: wear goggles rated for the right wavelength and OD, use a closed enclosure with an interlock and a shutter, and keep the emergency stop within reach. Test first with the source disconnected (docs/hardware/galvo.md, section 9).
+cli.galvo.range_format = '{value}': use MIN-MAX, for example 20-80
+cli.galvo.range_order = '{value}': the minimum is greater than the maximum
+cli.galvo.pair_format = '{value}': use X,Y in mm, for example 1.5,-2
+cli.galvo.not_u16 = '{value}' is not a 16-bit integer
+cli.galvo.mask_format = '{value}': use MASK=VALUE, for example 0x0008=0x0008
+cli.galvo.mask_bits = '{value}': VALUE has bits outside MASK
+cli.galvo.usb_help = {err}. Check the USB cable, that the machine is on, and that EZCAD, LightBurn or MeerK40t do not have the board open
+cli.galvo.need_safety_ack = real hardware requires --i-understand-laser-safety: a fiber laser is class 4 and its beam is invisible. Read docs/hardware/galvo.md (goggles with the correct OD, enclosure, shutter, emergency stop) and test first with the source disconnected. To try it without a machine use --emu
+cli.galvo.board = Board: {name} (USB {usb})
+cli.galvo.serial = Serial: {serial}  Version: {version}
+cli.galvo.state_busy = busy
+cli.galvo.state_idle = idle
+cli.galvo.state = State: {state} (bits {raw}: busy={busy}, ready={ready})  Inputs: {inputs}
+cli.galvo.note = Note: {note}
+cli.galvo.list = Board list: {commands} commands in {batches} batches of 256; {marks} marks ({mark_mm} mm), {jumps} jumps ({jump_mm} mm), {dots} single-point shots, {zero_power} cuts at power 0 emitted as jumps; estimated time {time} (without laser delays).
+cli.galvo.warning = Warning: {warning}
+cli.galvo.emu_source_off = off
+cli.galvo.emu_source_on = ENABLED
+cli.galvo.emu_summary = Emulator: {batches} batches received, {emitted} segments with the beam on, {jumps} jumps (none fired), {secs} virtual seconds; the source ended {source}; {violations} protocol violations.
+cli.galvo.no_boards = No BJJCZ devices (USB 9588:xxxx) are connected. Check the cable and that the machine is on.
+cli.galvo.none_supported = None is supported: Tlaku only talks to the LMCV4-FIBER-M (9588:9899).
+cli.galvo.read_only = Only queries were sent. Nothing was moved or written.
+cli.galvo.light_no_motion = the design has no moves to frame
+cli.galvo.light_rect = Frame: X {x0} to {x1} mm, Y {y0} to {y1} mm (field of {field} mm).
+cli.galvo.light_objects = Frame of {n} separate object(s).
+cli.galvo.light_adjusted = Frame shifted {dx},{dy} mm and scaled x{scale}.
+cli.galvo.pointer_offset = The pointer is offset {dx},{dy} mm so it passes where the laser will mark.
+cli.galvo.using_emulator = Using the simulated board (--emu): USB is not touched.
+cli.galvo.light_drawing = Drawing with the red pointer; the laser is NOT enabled. Press Ctrl+C to stop.
+cli.galvo.light_loop = loop {n}
+cli.galvo.light_done = Framing finished: {loops} loops. Red pointer off.
+cli.galvo.light_done_stopped = Framing finished: {loops} loops (stopped). Red pointer off.
+cli.galvo.light_failed = framing failed: {err}
+cli.galvo.mark_steps = The job is marked in {total} step(s); you will have to move the material {moves} time(s) (the board has no axes).
+cli.galvo.dump_list = list {n}
+cli.galvo.dump_written = List written to {path}
+cli.galvo.dry_run = Dry run (--dry-run): the board was not contacted.
+cli.galvo.board_busy = the board is busy with another job
+cli.galvo.red_only = --red-only: the job is traced with the laser DISABLED and the red pointer.
+cli.galvo.prompt = The laser WILL FIRE. Goggles on, enclosure closed, shutter and emergency stop ready, and the right material under the beam? [y/N]
+cli.galvo.nothing_sent = cancelled: nothing was sent
+cli.galvo.move_material = Move the material: {text}.
+cli.galvo.moved_prompt = Have you moved it? When you continue, the laser will fire on the next piece. [y/N]
+cli.galvo.stopped = stopped: the remaining steps were not marked
+cli.galvo.progress = {pct} %  (batch {batch}/{batches})
+cli.galvo.sent_armed = Sent: {batches} batches, {commands} commands, {bytes} bytes in {secs} s. The source was armed during the job. The source was turned off and the list was cleared.
+cli.galvo.sent_not_armed = Sent: {batches} batches, {commands} commands, {bytes} bytes in {secs} s. The source was NOT armed. The source was turned off and the list was cleared.
+cli.galvo.mark_failed = marking failed: {err}
+
+# galvo/seq.rs
+cli.galvo.seq_step = Step {n} of {total}
+cli.galvo.seq_piece = piece {piece} of {pieces}
+cli.galvo.seq_repeat = repeat {repeat} of {repeats}
+cli.galvo.seq_stage_move = stage X {dx} mm · Y {dy} mm
+cli.galvo.seq_rotary_move = rotary {deg}°
+cli.galvo.seq_no_design = there is no design to take the pieces from
+cli.galvo.seq_piece_empty = Piece {piece} of repeat {repeat} has nothing to mark: it is skipped.
+cli.galvo.seq_nothing = nothing to produce: no piece of the split marking has any content

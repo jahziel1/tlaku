@@ -1,6 +1,7 @@
 //! Tiempos, la subida ([`Upload`]), solicitudes al hilo y el mando [`RuidaHandle`].
 
 use super::*;
+use tlaku_i18n::tr;
 
 // ---------------------------------------------------------------------------
 // Tiempos
@@ -109,14 +110,14 @@ pub struct RuidaHandle {
 impl RuidaHandle {
     fn call<T>(&self, build: impl FnOnce(Reply<T>) -> Request) -> Result<T, String> {
         if self.is_closed() {
-            return Err(crate::machine::NOT_CONNECTED.into());
+            return Err(crate::machine::not_connected());
         }
         let (tx, rx) = mpsc::channel();
         self.tx
             .send(build(tx))
-            .map_err(|_| crate::machine::NOT_CONNECTED.to_string())?;
+            .map_err(|_| crate::machine::not_connected())?;
         rx.recv()
-            .map_err(|_| "Se perdió la conexión con la máquina.".to_string())?
+            .map_err(|_| tr!("desktop.machine.connection_lost"))?
     }
 
     pub fn is_closed(&self) -> bool {
@@ -160,7 +161,7 @@ impl RuidaHandle {
         speed: f64,
     ) -> Result<(), String> {
         if !(speed.is_finite() && speed > 0.0) {
-            return Err("La velocidad del encuadre debe ser mayor que 0.".into());
+            return Err(tr!("desktop.common.frame_speed"));
         }
         let corners = frame_corners(doc, device, options, self.work_pos())?;
         self.frame(corners, speed)

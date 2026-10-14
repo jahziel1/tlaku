@@ -10,6 +10,7 @@
 use crate::job::{ComputedJob, LayerReport};
 use tlaku_core::toolpath::{Move, Toolpath};
 use tlaku_doc::{DeviceProfile, Origin};
+use tlaku_i18n::tr;
 use tlaku_ruida::rd::{self, HomeCorner, LayerOptions, MAX_LAYERS, RuidaJobOptions};
 use tlaku_ruida::safety::{MAX_SPEED_MM_MIN, SafetyLimits};
 
@@ -116,19 +117,21 @@ pub(crate) fn layer_warnings(
         limits_for_device(device),
     );
     match rd::plan_summary(toolpath, &opts) {
-        Ok(s) if s.fits() => vec![format!(
-            "Ruida admite {MAX_LAYERS} capas y el trabajo tiene {}: al exportar se fusionarán {} \
-             capas vecinas de ajustes idénticos (velocidad, potencia, aire) y quedarán {}; el \
-             orden de corte no cambia",
-            s.blocks, s.merged, s.layers
+        Ok(s) if s.fits() => vec![tr!(
+            "pipeline.ruida.layers_merged",
+            max = MAX_LAYERS,
+            blocks = s.blocks,
+            merged = s.merged,
+            layers = s.layers
         )],
-        Ok(s) => vec![format!(
-            "Ruida admite {MAX_LAYERS} capas y el trabajo tiene {}: aun fusionando {} capas \
-             vecinas de ajustes idénticos quedan {}, así que no se podrá exportar ni enviar. \
-             Unifica colores o ajustes (velocidad, potencia, aire) de capas seguidas",
-            s.blocks, s.merged, s.layers
+        Ok(s) => vec![tr!(
+            "pipeline.ruida.layers_too_many",
+            max = MAX_LAYERS,
+            blocks = s.blocks,
+            merged = s.merged,
+            layers = s.layers
         )],
-        Err(e) => vec![format!("Ruida: no se podrá exportar el trabajo: {e}")],
+        Err(e) => vec![tr!("pipeline.ruida.cannot_export", error = e)],
     }
 }
 

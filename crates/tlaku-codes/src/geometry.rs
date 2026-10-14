@@ -5,6 +5,7 @@ use crate::{CodeOutput, CodeSpec};
 use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Point, Polyline};
 use tlaku_geom::{BoolOp, boolean, signed_area, weld};
+use tlaku_i18n::tr;
 use tlaku_text::{Align, FontLibrary, TextSpec, outline};
 
 /// Tolerancia al aplanar los glifos del texto legible (mm).
@@ -86,10 +87,10 @@ pub(crate) fn linear(
 /// Contornos cerrados del texto, centrado bajo las barras.
 fn readable_text(lib: &FontLibrary, spec: &CodeSpec, text: &str) -> Result<Vec<Polyline>, String> {
     if spec.font_family.trim().is_empty() {
-        return Err("Elige una fuente para el texto legible".into());
+        return Err(tr!("codes.geometry.pick_font"));
     }
     if lib.line_font(&spec.font_family).is_some() {
-        return Err("El texto legible necesita una fuente de contorno, no una de una línea".into());
+        return Err(tr!("codes.geometry.outline_font"));
     }
     let mut em = (spec.height_mm * TEXT_EM_RATIO).max(0.5);
     let mut ts = TextSpec {
@@ -142,7 +143,7 @@ fn finish(spec: &CodeSpec, dark: Vec<Polyline>, modules: usize) -> Result<CodeOu
         max_y = max_y.max(p.y);
     }
     if !min_x.is_finite() {
-        return Err("El contenido no produjo ninguna forma".into());
+        return Err(tr!("codes.geometry.no_shapes"));
     }
     let (mut pieces, origin_x, origin_y, width, height);
     if spec.invert {
@@ -157,7 +158,7 @@ fn finish(spec: &CodeSpec, dark: Vec<Polyline>, modules: usize) -> Result<CodeOu
         (width, height) = (max_x - min_x, max_y - min_y);
     }
     if pieces.is_empty() {
-        return Err("El resultado no tiene formas (el fondo quedó vacío)".into());
+        return Err(tr!("codes.geometry.empty_result"));
     }
     let mut paths: Vec<BezPath> = Vec::new();
     for poly in &mut pieces {

@@ -90,6 +90,12 @@ impl Collect {
     }
 }
 
+/// ¿El mensaje lleva el código estable de «detener NO se confirmó»? (la interfaz lo reconoce así,
+/// en cualquier idioma).
+fn has_stop_code(msg: &str) -> bool {
+    tlaku_i18n::split_code(msg).0 == Some(STOP_UNCONFIRMED)
+}
+
 fn wait_until(what: &str, f: impl Fn() -> bool) {
     let end = Instant::now() + Duration::from_secs(15);
     while !f() {
@@ -759,7 +765,7 @@ fn stop_cancels_the_job_turns_the_laser_off_and_loses_the_position() {
     assert_eq!(ev.state, JobState::Cancelled);
     assert!(ev.position_lost, "la posición se perdió");
     assert!(ev.message.contains("home"), "{}", ev.message);
-    assert!(!ev.message.contains(UNCONFIRMED_MARK));
+    assert!(!has_stop_code(&ev.message));
     {
         let b = r.board();
         assert!(b.aborts >= 1, "llegó el I de cancelar");
@@ -824,7 +830,7 @@ fn an_unconfirmed_stop_tells_the_user_to_use_the_emergency_stop() {
                 .message
         }
     };
-    assert!(msg.contains(UNCONFIRMED_MARK), "{msg}");
+    assert!(has_stop_code(&msg), "{msg}");
     assert!(msg.contains("paro de emergencia"), "{msg}");
     assert!(r.sink.logs().contains("paro de emergencia"));
     // Y la posición se perdió.
@@ -842,18 +848,54 @@ fn an_unconfirmed_stop_tells_the_user_to_use_the_emergency_stop() {
 }
 
 #[test]
-fn the_unconfirmed_text_comes_from_the_driver_and_the_ui_can_rely_on_it() {
-    // La interfaz busca esta marca en el mensaje del trabajo: si el controlador la cambia, esta
-    // prueba avisa (hay que cambiar también `LHY_UNCONFIRMED` en la interfaz).
+fn the_unconfirmed_stop_is_decided_by_the_error_type_not_by_its_text() {
+    // La interfaz reconoce el aviso por el código (`STOP_UNCONFIRMED`), que la app antepone cuando
+    // `JobError::laser_may_be_on()`; el texto del controlador puede cambiar con el idioma.
     let e = tlaku_lhymicro::session::JobError {
         cause: SessionError::Cancelled,
         packets_sent: 1,
         packets_total: 9,
         stop: StopOutcome::Unconfirmed,
     };
+    assert!(e.laser_may_be_on());
     let text = e.to_string();
-    assert!(text.contains(UNCONFIRMED_MARK), "{text}");
     assert!(text.contains("paro de emergencia"), "{text}");
+}
+
+#[test]
+fn the_unconfirmed_stop_is_still_detected_and_shown_in_english() {
+    use tlaku_i18n::{Locale, split_code, with_locale};
+    let e = tlaku_lhymicro::session::JobError {
+        cause: SessionError::Cancelled,
+        packets_sent: 1,
+        packets_total: 9,
+        stop: StopOutcome::Unconfirmed,
+    };
+    let msg = with_locale(Locale::En, || job_error_text(&e));
+    // El código no cambia con el idioma: así la interfaz destaca el aviso del paro de emergencia.
+    assert!(has_stop_code(&msg), "{msg}");
+    assert_eq!(split_code(&msg).0, Some("lhymicro_stop_unconfirmed"));
+    // Y el texto propio del paro en reposo sale en inglés, con el mismo código.
+    let own = with_locale(Locale::En, || {
+        tlaku_i18n::coded(
+            STOP_UNCONFIRMED,
+            tlaku_i18n::tr!("desktop.lhymicro.stop_unconfirmed"),
+        )
+    });
+    assert!(has_stop_code(&own), "{own}");
+    assert!(
+        split_code(&own).1.starts_with("There was NO confirmation"),
+        "{own}"
+    );
+    assert!(!split_code(&own).1.contains("confirmación"), "{own}");
+    // Una parada confirmada no lleva el código.
+    let ok = tlaku_lhymicro::session::JobError {
+        stop: StopOutcome::Acked,
+        ..e
+    };
+    assert!(!has_stop_code(&with_locale(Locale::En, || job_error_text(
+        &ok
+    ))));
 }
 
 #[test]

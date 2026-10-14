@@ -12,6 +12,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 tlaku-text = { version = "0.1.0", path = "../tlaku-text" }
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
 
 [dev-dependencies]
 rqrr = { version = "0.11.0", default-features = false }

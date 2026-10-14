@@ -21,6 +21,7 @@ use crate::materials::{
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
 use tlaku_core::Rgb;
+use tlaku_i18n::tr;
 
 /// Datos de fábrica incluidos en el programa.
 const DATA: &str = include_str!("../data/materials-default.json");
@@ -74,14 +75,20 @@ struct FactoryEntry {
 
 impl FactoryEntry {
     fn expand(&self, data: &FactoryData) -> Result<MaterialPreset, String> {
-        let material = data
-            .materials
-            .get(&self.material)
-            .ok_or_else(|| format!("\"{}\": material \"{}\" sin nombre", self.id, self.material))?;
-        let title = data
-            .titles
-            .get(&self.title)
-            .ok_or_else(|| format!("\"{}\": título \"{}\" sin nombre", self.id, self.title))?;
+        let material = data.materials.get(&self.material).ok_or_else(|| {
+            tr!(
+                "doc.factory.material_unnamed",
+                id = self.id,
+                material = self.material
+            )
+        })?;
+        let title = data.titles.get(&self.title).ok_or_else(|| {
+            tr!(
+                "doc.factory.title_unnamed",
+                id = self.id,
+                title = self.title
+            )
+        })?;
         let mut settings = LayerSettings::for_color(Rgb(0, 0, 0));
         settings.name = title.clone();
         settings.mode = self.mode.unwrap_or(match self.role {
@@ -122,7 +129,7 @@ impl FactoryEntry {
 /// Lee y valida datos de fábrica en el formato compacto.
 pub fn parse_factory(text: &str) -> Result<MaterialLibrary, String> {
     let data: FactoryData =
-        serde_json::from_str(text).map_err(|e| format!("Biblioteca de fábrica inválida: {e}"))?;
+        serde_json::from_str(text).map_err(|e| tr!("doc.factory.invalid", error = e))?;
     let presets = data
         .presets
         .iter()
@@ -152,25 +159,25 @@ fn is_url(text: &str) -> bool {
 /// razonables, y **fuente (dirección) y confianza**.
 pub fn check_factory(library: &MaterialLibrary) -> Result<(), String> {
     if library.revision == 0 {
-        return Err("La biblioteca de fábrica no tiene revisión.".into());
+        return Err(tr!("doc.factory.no_revision"));
     }
     let mut seen = HashSet::new();
     for p in &library.presets {
         let id = p.id.as_str();
         if !id.starts_with(FACTORY_ID_PREFIX) || !seen.insert(id) {
-            return Err(format!("\"{id}\": identificador inválido o repetido."));
+            return Err(tr!("doc.factory.bad_id", id = id));
         }
         if !p.source.as_deref().is_some_and(is_url) {
-            return Err(format!("\"{id}\": falta la fuente (dirección https)."));
+            return Err(tr!("doc.factory.no_source", id = id));
         }
         if p.confidence.is_none() {
-            return Err(format!("\"{id}\": falta el nivel de confianza."));
+            return Err(tr!("doc.factory.no_confidence", id = id));
         }
         if p.machine_class.is_none() || p.role.is_none() {
-            return Err(format!("\"{id}\": falta la clase de máquina o el rol."));
+            return Err(tr!("doc.factory.no_class", id = id));
         }
         if p.material_key.is_none() || p.title_key.is_none() {
-            return Err(format!("\"{id}\": faltan las claves de traducción."));
+            return Err(tr!("doc.factory.no_keys", id = id));
         }
         let s = &p.settings;
         let ok = s.speed.is_finite()
@@ -181,14 +188,14 @@ pub fn check_factory(library: &MaterialLibrary) -> Result<(), String> {
             && s.interval > 0.0
             && p.thickness.is_none_or(|t| t.is_finite() && t > 0.0);
         if !ok {
-            return Err(format!("\"{id}\": valores fuera de rango."));
+            return Err(tr!("doc.factory.out_of_range", id = id));
         }
     }
     for r in &library.restrictions {
         if !is_url(&r.source) {
-            return Err(format!(
-                "Restricción de \"{}\": falta la fuente.",
-                r.material
+            return Err(tr!(
+                "doc.factory.restriction_no_source",
+                material = r.material
             ));
         }
     }

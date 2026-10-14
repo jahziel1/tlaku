@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useId, type KeyboardEvent, type ReactNode } from 'react';
+import { isUpdaterConfigured } from '@/features/help/updater';
 import { askChoice } from '@/features/history/prompt';
 import { useRecents } from '@/features/history/recent';
 import '@/features/history/history.css';
@@ -40,6 +41,9 @@ function GeneralPanel() {
           { value: 'en', label: t('prefs.language.en') },
         ]}
       />
+      <PrefCheck k="updateCheckOnStart" label="prefs.updateCheckOnStart" />
+      <p className="hint">{t('prefs.updateCheckOnStart.hint')}</p>
+      {isUpdaterConfigured() ? null : <p className="hint">{t('prefs.updateCheckOnStart.unconfigured')}</p>}
     </Group>
   );
 }
@@ -254,7 +258,7 @@ export function SettingsDialog() {
         </button>
       </div>
       <div className="set-body">
-        <div role="tablist" aria-orientation="vertical" aria-label={t('prefs.nav')} className="set-nav" onKeyDown={onNavKey}>
+        <div role="tablist" aria-orientation="vertical" tabIndex={-1} aria-label={t('prefs.nav')} className="set-nav" onKeyDown={onNavKey}>
           {SETTINGS_SECTIONS.map((id) => (
             <button
               key={id}

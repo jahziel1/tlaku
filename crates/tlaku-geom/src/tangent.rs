@@ -15,6 +15,7 @@
 //! fuera; no incluye el círculo que contiene a una forma tocándola desde dentro.
 
 use tlaku_core::{Point, Polyline};
+use tlaku_i18n::tr;
 
 /// Círculo tangente.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -207,10 +208,7 @@ fn cluster(points: Vec<Point>, tol: f64) -> Vec<Point> {
 
 fn check_size(a: &[Seg], b: &[Seg]) -> Result<(), String> {
     if a.len().saturating_mul(b.len()) > MAX_PAIRS {
-        return Err(
-            "Las formas tienen demasiado detalle para buscar círculos tangentes: simplifícalas antes."
-                .into(),
-        );
+        return Err(tr!("geom.tangent.too_detailed"));
     }
     Ok(())
 }
@@ -356,11 +354,11 @@ pub fn tangent_circles(
     radius: Option<f64>,
 ) -> Result<Vec<Circle>, String> {
     if !(2..=3).contains(&shapes.len()) {
-        return Err("Selecciona dos o tres formas o líneas para el círculo tangente.".into());
+        return Err(tr!("geom.tangent.select"));
     }
     let segs: Vec<Vec<Seg>> = shapes.iter().map(|s| segments(s)).collect();
     if segs.iter().any(Vec::is_empty) {
-        return Err("Alguna de las formas no tiene trazo del que ser tangente.".into());
+        return Err(tr!("geom.tangent.no_stroke"));
     }
     let all = segs.iter().flatten().flat_map(|(a, b)| [*a, *b]);
     let (mut lo, mut hi) = (
@@ -373,12 +371,12 @@ pub fn tangent_circles(
     }
     let scale = lo.dist(hi);
     if !scale.is_finite() || scale <= 0.0 {
-        return Err("Las formas no tienen tamaño.".into());
+        return Err(tr!("geom.tangent.no_size"));
     }
     let mut out = if segs.len() == 2 {
-        let r = radius.ok_or("Falta el radio del círculo tangente.")?;
+        let r = radius.ok_or_else(|| tr!("geom.tangent.no_radius"))?;
         if !(r.is_finite() && r > 0.0) {
-            return Err("El radio debe ser un número positivo.".into());
+            return Err(tr!("geom.tangent.bad_radius"));
         }
         two_shapes(&segs[0], &segs[1], r, scale.max(r))?
     } else {

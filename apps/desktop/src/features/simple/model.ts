@@ -495,15 +495,16 @@ export function validate({ doc, device, connected, choice, actions }: ValidateIn
   }
 
   const texts = active.reduce((n, g) => n + g.texts, 0);
-  if (texts > 0) out.push({ id: 'texts', level: 'warn', key: 'simple.problem.texts', params: { n: texts }, steps: ['review', 'start'] });
+  if (texts > 0) out.push({ id: 'texts', level: 'warn', key: texts === 1 ? 'simple.problem.texts.one' : 'simple.problem.texts.other', params: { n: texts }, steps: ['review', 'start'] });
 
   const open = groups.filter((g) => actions[g.color.toLowerCase()] === 'cut' && g.openPaths > 0);
   if (open.length > 0) {
+    const openPaths = open.reduce((n, g) => n + g.openPaths, 0);
     out.push({
       id: 'openCut',
       level: 'warn',
-      key: 'simple.problem.openCut',
-      params: { n: open.reduce((n, g) => n + g.openPaths, 0), names: open.map((g) => g.name || g.color).join(', ') },
+      key: openPaths === 1 ? 'simple.problem.openCut.one' : 'simple.problem.openCut.other',
+      params: { n: openPaths, names: open.map((g) => g.name || g.color).join(', ') },
       steps: ['review', 'start'],
     });
   }

@@ -1,0 +1,31 @@
+# Mensajes de tlaku-export (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: export.<módulo>.<qué> = plantilla
+
+# dxf_out.rs
+export.dxf_out.images_skipped = El DXF no lleva imágenes: se omitieron {n}.
+export.dxf_out.write_failed = no se pudo escribir el DXF: {error}
+
+# pdf.rs
+export.pdf.ai_is_pdf = El .ai es un PDF con capas: Illustrator lo abre y conserva las capas y los colores, pero          no es un documento nativo de Illustrator.
+export.pdf.embed_failed = No se pudo incrustar la imagen: {error}
+export.pdf.images_off = Las imágenes no se incluyeron en el PDF (opción desactivada).
+export.pdf.page_too_small = El diseño ({w} x {h} mm) no cabe en la hoja elegida a escala 1:1: la hoja se ajustó al tamaño del diseño.
+
+# png_out.rs
+export.png_out.bad_dpi = Resolución inválida: {dpi} ppp.
+export.png_out.too_big = La imagen sería de {wpx} x {hpx} píxeles ({w} x {h} mm a {dpi} ppp): es demasiado grande. Baja la resolución.
+export.png_out.create_failed = No se pudo crear la imagen (tamaño inválido).
+export.png_out.draw_failed = No se pudo dibujar la imagen: {error}
+export.png_out.encode_failed = No se pudo codificar el PNG: {error}
+export.png_out.not_image = no es una imagen
+export.png_out.empty_image = imagen vacía
+
+# scene.rs
+export.scene.text_no_outline = El texto «{text}» no tiene contorno generado y se omitió.
+export.scene.hidden = {n} objeto(s) oculto(s) o de capas ocultas no se exportaron.
+export.scene.nothing_selection = La selección no tiene nada que exportar.
+export.scene.nothing_design = El diseño no tiene nada que exportar.
+
+# svg.rs
+export.svg.images_off = Las imágenes no se exportaron (opción desactivada).
+export.svg.embed_failed = No se pudo incrustar la imagen: {error}

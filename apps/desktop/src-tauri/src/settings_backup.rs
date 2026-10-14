@@ -8,6 +8,7 @@ use crate::engine::write_atomic;
 use std::fs;
 use std::io::Read as _;
 use std::path::Path;
+use tlaku_i18n::tr;
 
 /// Tamaño máximo de un respaldo, al escribirlo y al leerlo (256 KiB).
 pub const MAX_BYTES: usize = 256 * 1024;
@@ -21,15 +22,16 @@ fn has_valid_extension(path: &Path) -> bool {
 /// Guarda `text` de forma atómica. Exige la extensión `.tlakuset` o `.txt` y un tamaño razonable.
 pub fn write_backup(path: &Path, text: &str) -> Result<(), String> {
     if !has_valid_extension(path) {
-        return Err(format!(
-            "{}: el respaldo debe guardarse con la extensión .tlakuset o .txt.",
-            path.display()
+        return Err(tr!(
+            "desktop.settings_backup.bad_ext",
+            path = path.display()
         ));
     }
     if text.len() > MAX_BYTES {
-        return Err(format!(
-            "El respaldo es demasiado grande ({} bytes; el máximo es {MAX_BYTES}).",
-            text.len()
+        return Err(tr!(
+            "desktop.settings_backup.too_big_write",
+            size = text.len(),
+            max = MAX_BYTES
         ));
     }
     write_atomic(path, text)
@@ -40,7 +42,10 @@ pub fn read_backup(path: &Path) -> Result<String, String> {
     let io = |e: std::io::Error| format!("{}: {e}", path.display());
     let file = fs::File::open(path).map_err(io)?;
     if !file.metadata().map_err(io)?.is_file() {
-        return Err(format!("{}: no es un archivo.", path.display()));
+        return Err(tr!(
+            "desktop.settings_backup.not_a_file",
+            path = path.display()
+        ));
     }
     // Un byte de más basta para saber que se pasó, sin cargar un archivo gigante.
     let mut bytes = Vec::new();
@@ -48,27 +53,28 @@ pub fn read_backup(path: &Path) -> Result<String, String> {
         .read_to_end(&mut bytes)
         .map_err(io)?;
     if bytes.len() > MAX_BYTES {
-        return Err(format!(
-            "{}: el archivo es demasiado grande para ser un respaldo de ajustes (máximo {MAX_BYTES} bytes).",
-            path.display()
+        return Err(tr!(
+            "desktop.settings_backup.too_big_read",
+            path = path.display(),
+            max = MAX_BYTES
         ));
     }
     String::from_utf8(bytes)
-        .map_err(|_| format!("{}: el archivo no es texto UTF-8.", path.display()))
+        .map_err(|_| tr!("desktop.settings_backup.not_utf8", path = path.display()))
 }
 
 #[tauri::command]
 pub async fn write_settings_backup(path: String, text: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || write_backup(Path::new(&path), &text))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[tauri::command]
 pub async fn read_settings_backup(path: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || read_backup(Path::new(&path)))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(|e| tr!("desktop.common.task_interrupted", err = e))?
 }
 
 #[cfg(test)]

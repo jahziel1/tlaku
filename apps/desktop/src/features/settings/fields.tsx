@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { t, type I18nKey } from '@/i18n';
-import { formatLength, parseLength, unitSymbol } from '@/lib/units';
+import { fieldText, formatLength, parseLength, stepInMm, unitSymbol } from '@/lib/units';
+import { stepFromKey } from '@/ui/stepKey';
 import { usePref, useStore, PREF_SPECS, type PrefKey, type Prefs } from '@/store';
 
 type Keys<V> = { [K in PrefKey]: Prefs[K] extends V ? K : never }[PrefKey];
@@ -73,6 +74,18 @@ export function PrefNumber({ k, label, unit }: { k: Keys<number>; label: I18nKey
             else if (e.key === 'Escape' && text !== String(value)) {
               e.stopPropagation(); // revierte el campo sin cerrar la ventana
               setText(String(value));
+            } else {
+              const n = Number(text.replace(',', '.'));
+              const next = stepFromKey(
+                e,
+                text.trim() && Number.isFinite(n) ? n : value,
+                'step' in spec ? spec.step : 1,
+                'min' in spec ? spec.min : undefined,
+                'max' in spec ? spec.max : undefined,
+              );
+              if (next === null) return;
+              e.preventDefault();
+              setText(String(next));
             }
           }}
         />
@@ -118,6 +131,19 @@ export function PrefLength({ k, label }: { k: Keys<number>; label: I18nKey }) {
             else if (e.key === 'Escape' && text !== shown) {
               e.stopPropagation();
               setText(shown);
+            } else {
+              const spec = PREF_SPECS[k];
+              const cur = parseLength(text, units) ?? value;
+              const next = stepFromKey(
+                e,
+                cur,
+                stepInMm('step' in spec ? spec.step : 1, units),
+                'min' in spec ? spec.min : undefined,
+                'max' in spec ? spec.max : undefined,
+              );
+              if (next === null) return;
+              e.preventDefault();
+              setText(fieldText(next, units));
             }
           }}
         />

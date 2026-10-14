@@ -1,6 +1,7 @@
 //! Sondeo del estado y seguimiento del trabajo y del encuadre.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl<L: PacketLink> Worker<L> {
     /// Un sondeo de estado. `Err` = conexión perdida (el hilo termina).
@@ -15,28 +16,19 @@ impl<L: PacketLink> Worker<L> {
                 self.on_status(&st);
                 Ok(())
             }
-            Err(SessionError::Io(e)) => Err(format!(
-                "se perdió la conexión con la controladora: error de red ({e})"
-            )),
+            Err(SessionError::Io(e)) => Err(tr!("desktop.ruida.link_lost_io", err = e)),
             Err(e) => {
                 self.failures += 1;
                 if self.job.is_some() {
                     // Con un trabajo en marcha el silencio no es una pérdida: se sigue esperando.
                     if !self.silent_logged {
                         self.silent_logged = true;
-                        self.log(
-                            LogDir::In,
-                            "; la controladora no contesta mientras ejecuta el trabajo (algunas \
-                             ignoran la red); se sigue esperando",
-                        );
+                        self.log(LogDir::In, &tr!("desktop.ruida.log_silent_during_job"));
                     }
                     self.report_busy();
                     Ok(())
                 } else if self.failures >= self.timing.lost_after {
-                    Err(format!(
-                        "se perdió la conexión con la controladora ({e}). Revisa el cable de red \
-                         y que la máquina siga encendida."
-                    ))
+                    Err(tr!("desktop.ruida.link_lost", err = e))
                 } else {
                     Ok(())
                 }
@@ -97,17 +89,17 @@ impl<L: PacketLink> Worker<L> {
             if st.paused != job.paused {
                 job.paused = st.paused;
                 let (state, msg) = if st.paused {
-                    (JobState::Paused, "Trabajo en pausa (desde la máquina).")
+                    (JobState::Paused, tr!("desktop.ruida.job_paused_remote"))
                 } else {
-                    (JobState::Started, "Trabajo reanudado (desde la máquina).")
+                    (JobState::Started, tr!("desktop.ruida.job_resumed_remote"))
                 };
-                self.job_event(state, msg);
+                self.job_event(state, &msg);
             }
         } else if st.is_idle()
             && (job.seen_running || job.since.elapsed() > self.timing.start_grace)
         {
             self.job = None;
-            self.job_event(JobState::Finished, "Trabajo terminado.");
+            self.job_event(JobState::Finished, &tr!("desktop.worker.job_finished"));
         }
     }
 
@@ -123,13 +115,13 @@ impl<L: PacketLink> Worker<L> {
                     self.frame = None;
                     self.log(
                         LogDir::In,
-                        &format!("; encuadre interrumpido: {}", op_error(e)),
+                        &tr!("desktop.lhymicro.log_frame_interrupted", err = op_error(e)),
                     );
                 }
             }
             None => {
                 self.frame = None;
-                self.log(LogDir::In, "; encuadre terminado");
+                self.log(LogDir::In, &frame_done_log());
             }
         }
     }

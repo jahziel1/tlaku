@@ -1,16 +1,14 @@
 //! Envío de un trabajo y su registro.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn start_job(&mut self, toolpath: Toolpath, reply: Reply<()>) {
         self.shared.cancel.store(false, Ordering::SeqCst);
         // La placa no informa dónde está: sin posición conocida se hace home antes.
         if self.machine_pos().is_none() {
-            self.log(
-                LogDir::Out,
-                "; la posición del cabezal se desconoce: home antes de empezar",
-            );
+            self.log(LogDir::Out, &tr!("desktop.lhymicro.log_home_first"));
             if let Err(e) = self.home_now() {
                 self.finish(reply, Err(e));
                 return;
@@ -20,7 +18,7 @@ impl Worker {
             emit_job(
                 self.sink.as_ref(),
                 JobState::Cancelled,
-                "Envío cancelado antes de empezar.",
+                &tr!("desktop.lhymicro.send_cancelled_early"),
                 false,
             );
             self.shared.cancel.store(false, Ordering::SeqCst);
@@ -46,7 +44,7 @@ impl Worker {
                 emit_job(
                     sink.as_ref(),
                     JobState::Started,
-                    &format!("Enviando el trabajo ({} paquetes).", p.packets),
+                    &tr!("desktop.lhymicro.job_sending", packets = p.packets),
                     false,
                 );
                 let _ = r.send(Ok(()));
@@ -66,35 +64,32 @@ impl Worker {
             Ok(report) => {
                 self.log(
                     LogDir::In,
-                    &format!(
-                        "; enviado: {} paquetes, {} bytes, {} reenvíos por CRC, en {:.1} s",
-                        report.packets,
-                        report.bytes,
-                        report.resends,
-                        report.elapsed.as_secs_f64()
+                    &tr!(
+                        "desktop.lhymicro.log_sent",
+                        packets = report.packets,
+                        bytes = report.bytes,
+                        resends = report.resends,
+                        secs = format!("{:.1}", report.elapsed.as_secs_f64())
                     ),
                 );
                 emit_job(
                     self.sink.as_ref(),
                     JobState::Finished,
                     &if report.finish_confirmed {
-                        "Trabajo terminado: la placa confirmó el final.".to_string()
+                        tr!("desktop.lhymicro.job_finished")
                     } else {
-                        "Trabajo terminado, pero la placa no confirmó el final (estado 236)."
-                            .to_string()
+                        tr!("desktop.lhymicro.job_finished_unconfirmed")
                     },
                     false,
                 );
             }
             Err(e) => {
-                let msg = e.to_string();
-                self.log(LogDir::In, &format!("; {msg}"));
+                // Si no se confirmó el apagado, el mensaje lleva un código estable para que la
+                // interfaz destaque el aviso del paro de emergencia en cualquier idioma.
+                let msg = job_error_text(&e);
+                self.log(LogDir::In, &format!("; {}", tlaku_i18n::split_code(&msg).1));
                 if e.laser_may_be_on() {
-                    self.log(
-                        LogDir::In,
-                        "; AVISO: el láser pudo quedar encendido o la placa en marcha: usa el \
-                         paro de emergencia o abre la tapa",
-                    );
+                    self.log(LogDir::In, &tr!("desktop.lhymicro.log_laser_may_be_on"));
                 }
                 if let Some(r) = reply.take() {
                     // Falló antes del primer paquete confirmado: es un rechazo del envío.
@@ -103,11 +98,10 @@ impl Worker {
                     emit_job(
                         self.sink.as_ref(),
                         JobState::Cancelled,
-                        &format!(
-                            "Trabajo detenido: la placa se detuvo y el láser se apagó. La \
-                             posición del cabezal se perdió: haz home antes de seguir. \
-                             (Paquetes confirmados: {} de {}.)",
-                            e.packets_sent, e.packets_total
+                        &tr!(
+                            "desktop.lhymicro.job_stopped",
+                            sent = e.packets_sent,
+                            total = e.packets_total
                         ),
                         true,
                     );
@@ -121,18 +115,17 @@ impl Worker {
     pub(super) fn log_program(&self, program: &Program) {
         self.log(
             LogDir::Out,
-            &format!(
-                "; trabajo LHYMICRO-GL (placa {}): {} bytes, {:.1} mm grabados, {:.1} mm de \
-                 viajes, tiempo estimado {:.0} s",
-                program.board,
-                program.stream.len(),
-                program.stats.burn_mm,
-                program.stats.travel_mm,
-                program.stats.est_seconds
+            &tr!(
+                "desktop.lhymicro.log_program",
+                board = program.board,
+                bytes = program.stream.len(),
+                burn = format!("{:.1}", program.stats.burn_mm),
+                travel = format!("{:.1}", program.stats.travel_mm),
+                secs = format!("{:.0}", program.stats.est_seconds)
             ),
         );
         for w in &program.warnings {
-            self.log(LogDir::In, &format!("; AVISO: {w}"));
+            self.log(LogDir::In, &tr!("desktop.lhymicro.log_note", note = w));
         }
     }
 }

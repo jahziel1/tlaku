@@ -111,6 +111,11 @@ function TabsMenu({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('pointerdown', down, true);
   }, [onClose]);
 
+  // Al abrir, el foco entra al menú; con Esc se cierra y el foco vuelve al botón que lo abrió.
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])')?.focus();
+  }, []);
+
   const hide = (id: DockTab, hidden: boolean) => {
     const next = setDockTabHidden(layout, id, hidden);
     setPref('dockLayout', next);
@@ -129,6 +134,7 @@ function TabsMenu({ onClose }: { onClose: () => void }) {
         if (e.key === 'Escape') {
           e.stopPropagation();
           onClose();
+          document.querySelector<HTMLElement>('[data-tabs-menu-button]')?.focus();
         }
       }}
     >
@@ -240,7 +246,7 @@ export function Dock() {
       return;
     }
     const i = shown.indexOf(active);
-    const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
+    const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? list.length - 1 : null;
     if (next === null) return;
     e.preventDefault();
     const target = list[(next + list.length) % list.length]!;
@@ -291,6 +297,7 @@ export function Dock() {
 
   return (
     <aside className={leftSide ? 'dock dock--left' : 'dock'} style={{ width }} aria-label={t('dock.label')}>
+      {/* Separador enfocable (patrón «ventana divisoria» de WAI-ARIA): flechas cambian el ancho. */}
       <div
         className="dock__grip"
         role="separator"
@@ -299,6 +306,7 @@ export function Dock() {
         aria-valuemin={DOCK_MIN}
         aria-valuemax={DOCK_MAX}
         aria-valuenow={width}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         onPointerDown={onGripDown}
         onPointerMove={onGripMove}

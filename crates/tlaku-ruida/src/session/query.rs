@@ -6,6 +6,7 @@ use crate::cmd::{self, Command};
 use crate::link::PacketLink;
 use crate::packet::{self, Response};
 use std::time::Instant;
+use tlaku_i18n::tr;
 
 impl<L: PacketLink> RuidaSession<L> {
     // ------------------------------------------------------------------------------------
@@ -46,10 +47,10 @@ impl<L: PacketLink> RuidaSession<L> {
                             nak = true;
                         }
                         Response::Unknown(b) => {
-                            return Err(SessionError::Protocol(format!(
-                                "respuesta inesperada 0x{b:02X}; ¿el magic (0x{:02X}) es el de \
-                                 esta máquina?",
-                                self.cfg.magic.0
+                            return Err(SessionError::Protocol(tr!(
+                                "ruida.session.unexpected_reply",
+                                byte = format!("{b:02X}"),
+                                magic = format!("{:02X}", self.cfg.magic.0)
                             )));
                         }
                         Response::Ack | Response::Enq => {}

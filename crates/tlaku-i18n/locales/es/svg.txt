@@ -1,0 +1,16 @@
+# Mensajes de tlaku-svg (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: svg.<módulo>.<qué> = plantilla
+
+# lib.rs
+svg.lib.no_size_viewbox = El SVG no define width/height absolutos (faltan o están en %, em o ex): el tamaño se tomó del viewBox a 96 DPI, resultado {size}. Verifica la escala.
+svg.lib.no_size_content = El SVG no define width/height absolutos (faltan o están en %, em o ex): el tamaño se tomó del contenido a 96 DPI, resultado {size}. Verifica la escala.
+svg.lib.px_illustrator = width/height sin unidades o en px: se interpretó a 96 DPI, tamaño resultante {size}. Detectado Adobe Illustrator: suele exportar a 72 DPI, así que el tamaño real sería {w} x {h} mm (133 % del mostrado); escala al 133 % para corregirlo.
+svg.lib.px_other = width/height sin unidades o en px: se interpretó a 96 DPI, tamaño resultante {size}. Si viene de Illustrator (72 DPI) el tamaño real sería {w} x {h} mm (133 % del mostrado); si en cambio se ve a 133 % en otro programa, escala al 75 %.
+svg.lib.images_skipped = {n} imagen(es) incrustada(s) omitida(s): el importador no mezcla imágenes con trayectorias; importa la imagen como archivo aparte (PNG o JPG) para grabarla.
+svg.lib.mask_approx = {n} grupo(s) con máscara (mask): se aplicó como recorte binario de su geometría opaca (aproximación; se ignora la transparencia gradual).
+svg.lib.mask_unsupported = {n} grupo(s) con máscara que no se pudo evaluar (degradados, patrones, imágenes, trazos o recortes dentro de la máscara): se ignoró la máscara y las trayectorias se importan completas.
+svg.lib.non_color_paints = {n} trayectoria(s) con degradado o patrón en relleno o trazo: se usó negro como color de capa.
+svg.lib.text_without_paths = {n} texto(s) sin trayectorias: no se encontró una fuente disponible, convierte el texto a curvas antes de exportar.
+svg.lib.invisible_paths = {n} trayectoria(s) con visibility oculta omitida(s).
+svg.lib.hidden_elements = {n} elemento(s) con display:none omitido(s).
+svg.lib.no_paths = El documento no contiene trayectorias importables: revisa si el contenido es solo texto, imágenes o elementos ocultos.

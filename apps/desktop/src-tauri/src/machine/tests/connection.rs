@@ -104,7 +104,7 @@ fn closing_disconnects_without_error() {
     assert_eq!(c.len(), 2);
     assert!(!c[1].connected && c[1].error.is_none());
     assert!(rig.handle.is_closed());
-    assert_eq!(rig.handle.command("$$").unwrap_err(), NOT_CONNECTED);
+    assert_eq!(rig.handle.command("$$").unwrap_err(), not_connected());
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn a_dropped_cable_is_reported_as_a_lost_connection() {
     assert!(handle.is_closed());
     assert_eq!(
         handle.start_job(job_lines(), 127).unwrap_err(),
-        NOT_CONNECTED
+        not_connected()
     );
 }
 

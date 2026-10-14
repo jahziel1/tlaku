@@ -29,6 +29,9 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.language.es': 'Español',
   'prefs.language.en': 'English',
   'prefs.language.hint': 'Choose the language of the interface. More languages can be added over time.',
+  'prefs.updateCheckOnStart': 'Check for updates on startup',
+  'prefs.updateCheckOnStart.hint': "A few seconds after opening, Tlaku checks whether a new version exists and tells you if so. It only connects to the project's update address and does not send your designs. Off by default.",
+  'prefs.updateCheckOnStart.unconfigured': 'This build has no automatic updates configured, so the option has no effect.',
 
   // ---- Editing ------------------------------------------------------------------
   'prefs.units': 'Length units',

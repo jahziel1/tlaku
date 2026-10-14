@@ -42,7 +42,8 @@ export const layers: { [K in keyof typeof Source]?: string } = {
   // ---- layer list ---------------------------------------------------------
   'layers.empty': 'No layers yet. Import a design or pick a color from the strip below.',
   'layers.list': 'Layers in execution order ({n} will run)',
-  'layers.objects': '{n} objects on this layer',
+  'layers.objects.one': '1 object on this layer',
+  'layers.objects.other': '{n} objects on this layer',
   'layers.objectsShort': 'objects',
   'layers.show': 'Show the layer on the canvas',
   'layers.hide': 'Hide the layer from the canvas',

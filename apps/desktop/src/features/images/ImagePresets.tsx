@@ -90,6 +90,8 @@ export function ImagePresets({ layer, target, disabled }: { layer: LayerSettings
             maxLength={MAX_NAME_LENGTH}
             placeholder={t('layers.preset.name')}
             aria-label={t('layers.preset.name')}
+            // El campo aparece al pulsar «Guardar ajuste»: el foco va a lo que el usuario acaba de pedir.
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {

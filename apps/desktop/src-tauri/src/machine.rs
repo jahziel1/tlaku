@@ -55,9 +55,9 @@ use tlaku_grbl::preflight::{
 };
 use tlaku_grbl::serial::{Grbl, LineReader, Transport};
 use tlaku_grbl::streamer::{
-    self, Event, Firmware, Job, Outcome, POSITION_LOST_NOTE, Realtime, Streamer, StreamerConfig,
-    alarm_message_for, creality_error_message, error_message_for, is_greeting, is_homing_line,
-    override_plan, parse_creality_error, prepare_line_with,
+    self, Event, Firmware, Job, Outcome, Realtime, Streamer, StreamerConfig, alarm_message_for,
+    creality_error_message, error_message_for, is_greeting, is_homing_line, override_plan,
+    parse_creality_error, position_lost_note, prepare_line_with,
 };
 
 pub mod active;
@@ -75,7 +75,9 @@ mod handle;
 mod worker;
 
 /// Mensaje cuando no hay conexión (o se perdió).
-pub const NOT_CONNECTED: &str = "No hay máquina conectada. Conéctala desde la pestaña Máquina.";
+pub fn not_connected() -> String {
+    tlaku_i18n::tr!("desktop.machine.not_connected")
+}
 
 pub use connection::Connection;
 pub use emit::{Emit, Sink, Timing};
@@ -83,6 +85,7 @@ pub use handle::Handle;
 
 // Lo que no es público se comparte entre los submódulos (y con `extras` y las pruebas) por estos
 // `use`, de modo que `super::nombre` sigue resolviéndose igual que antes de partir el archivo.
+use common::{frame_cancelled_log, frame_done_log};
 use connection::*;
 use handle::*;
 use worker::*;

@@ -1,0 +1,224 @@
+# Mensajes de tlaku-cli (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: cli.<módulo>.<qué> = plantilla
+
+# options.rs
+cli.options.not_a_number = '{value}' no es un número válido
+cli.options.must_be_positive = '{value}' debe ser mayor que 0
+cli.options.overscan_negative = overscan negativo: '{value}'
+cli.options.overscan_invalid = overscan inválido '{value}': usa "auto" o un número en mm
+cli.options.size_format = formato esperado: ANCHOxALTO (por ejemplo 400x415), recibí '{value}'
+cli.options.size_invalid = tamaño inválido '{value}'
+cli.options.pos_format = formato esperado: X,Y (por ejemplo 10,20), recibí '{value}'
+cli.options.pos_invalid = posición inválida '{value}'
+cli.options.unknown_mode = modo '{value}' desconocido: usa line o fill
+cli.options.layer_format = formato esperado: #rrggbb:clave=valor,... (por ejemplo "#ff0000:speed=300,power=80")
+cli.options.key_needs_value = la clave '{key}' necesita un valor ({key}=...)
+cli.options.invalid_value = valor inválido en '{kv}': {err}
+cli.options.key_takes_no_value = la clave '{key}' no lleva valor
+cli.options.mode_needs_value = la clave 'mode' necesita un valor (mode=line|fill)
+cli.options.passes_not_integer = valor inválido en '{kv}': deben ser enteros
+cli.options.order_not_integer = valor inválido en '{kv}': la posición debe ser un entero desde 1
+cli.options.overscan_needs_value = la clave 'overscan' necesita un valor (mm o auto)
+cli.options.unknown_key = clave desconocida '{key}'; claves válidas: mode, speed, power, passes, air, noair, interval, angle, crosshatch, bidir, nobidir, overscan, kerf, order
+cli.options.key_wrong_mode = capa {layer}: la clave '{key}' solo aplica en modo {wanted} (esta capa es {mode})
+cli.options.threshold_needs_mode = --threshold solo aplica con --image-mode threshold
+
+# report.rs
+cli.report.paths_one = {n} trayectoria
+cli.report.paths_other = {n} trayectorias
+cli.report.lines_one = {n} línea
+cli.report.lines_other = {n} líneas
+cli.report.shapes_one = {n} figura
+cli.report.shapes_other = {n} figuras
+cli.report.sweep_lines_one = {n} línea de barrido
+cli.report.sweep_lines_other = {n} líneas de barrido
+cli.report.layer_line = {n}. {name} {mode} {count} {speed} mm/min, {power}, {passes} pasada(s)
+cli.report.layer_travel = recorrido en vacío: {travel} mm (orden original {baseline} mm, ahorro {saved} mm = {pct} %)
+cli.report.layers_header = Capas (en el orden en que se ejecutan):
+cli.report.total_time = Tiempo total estimado: {time}
+cli.report.occupied_area = Área ocupada (con overscan): X {x0} a {x1} mm, Y {y0} a {y1} mm
+cli.report.warnings_header = Advertencias:
+cli.report.layers_in_order = Capas en orden: {names}. {note}
+cli.report.step_closed = figura #{item} (cerrada, entra por X{x} Y{y}): {reason}
+cli.report.step_open = figura #{item} (abierta, entra por X{x} Y{y}): {reason}
+cli.report.plan_layer = Capa {n} de {total}: {name} ({mode}, {passes} pasada(s), {count})
+cli.report.plan_travel = Recorrido en vacío: {travel} mm (orden original {baseline} mm, ahorro {saved} mm = {pct} %)
+cli.report.plan_sweep = Se barre línea por línea; no hay orden entre figuras que decidir.
+
+# job.rs
+cli.job.layer_repeated = la capa {layer} aparece más de una vez en --layer
+cli.job.image_options_ignored = se ignoraron las opciones de imagen ({options}) porque la entrada no es una imagen
+cli.job.layer_ignored_for_image = se ignoró --layer: una imagen no tiene capas por color
+cli.job.image_needs_size_pos = las imágenes requieren --image-size ANCHOxALTO y --image-pos X,Y (en mm; la posición es la esquina inferior izquierda)
+cli.job.layer_not_in_design = la capa {layer} de --layer no existe en el diseño (capas: {layers})
+
+# link.rs
+cli.link.ready_prompt = ¿El láser está listo y el área despejada? [s/N]
+cli.link.progress = {pct} %  ({acked}/{total} líneas)  estado: {state}
+cli.link.state_starting = iniciando
+cli.link.cancelling = Cancelando: feed hold y soft reset...
+cli.link.error_at_line = error:{code} en la línea {line} ({text}): {msg}
+cli.link.error = error:{code}: {msg}
+cli.link.alarm = ALARM:{code}: {msg}
+cli.link.machine_message = máquina: {msg}
+cli.link.controller_reset = la controladora se reinició: {msg}
+cli.link.send_thread_died = el hilo de envío terminó de forma inesperada
+cli.link.job_done = Trabajo terminado.
+cli.link.settled = La máquina frenó por completo antes del reset: la posición se conserva.
+cli.link.alarm_during_stop = Durante la parada llegó ALARM:{code}: {msg}.
+cli.link.sending = Enviando {n} líneas. Ctrl+C cancela.
+cli.link.frame_header = Encuadre (incluye el overscan), con el láser apagado:
+cli.link.frame_size = tamaño {w} x {h} mm, velocidad {speed} mm/min
+cli.link.risk_unlock = $X desbloquea la alarma sin hacer home: si la máquina tiene finales de carrera y no haces $H después, la posición puede quedar desconocida y el trabajo saldría desplazado.
+cli.link.risk_home = $H hace homing: la máquina se moverá hasta los finales de carrera. Despeja el área.
+cli.link.risk_moves = Este comando mueve la máquina.
+cli.link.risk_laser = Este comando enciende el láser (y puede mover la máquina).
+cli.link.risk_setting = Este comando cambia un ajuste guardado en la controladora.
+cli.link.risk_other = No es un comando de solo lectura: puede mover la máquina, encender el láser o cambiar su configuración.
+cli.link.realtime_char = '{arg}' contiene '{ch}', un carácter de tiempo real; usa los nombres status, hold, resume o reset
+cli.link.empty_command = '{arg}' no contiene ningún comando
+cli.link.command_too_long = '{text}' no cabe en el búfer de la controladora ({rx_buffer} bytes)
+cli.link.will_send = Se enviará exactamente: {cmd}
+cli.link.warning = Advertencia: {warning}
+cli.link.send_prompt = ¿Enviarlo? [s/N]
+cli.link.nothing_sent = cancelado: no se envió nada a la máquina
+cli.link.command_replied = '{text}' respondió {msg}
+cli.link.no_response = sin respuesta a '{text}' en {secs} s; revisa la máquina (puede seguir ejecutándolo)
+cli.link.state_line = Estado: {state}
+cli.link.status_timeout = la máquina no respondió a la consulta de estado (?) en {secs} s
+cli.link.sent_no_state = (enviado; la máquina no devolvió su estado)
+cli.link.laser_still_on = Aviso: el láser sigue encendido hasta que envíes M5.
+
+# cli.rs
+cli.cli.cancelled = cancelado: no se movió la máquina
+cli.cli.connecting = Conectando a {port} ({baud} baudios)...
+cli.cli.written = Escrito {path}
+cli.cli.gcode_lines = {path}: {n} líneas de G-code.
+cli.cli.no_motion = el diseño no tiene movimientos
+
+# ruida.rs
+cli.ruida.experimental = EXPERIMENTAL: el soporte Ruida no se ha probado con una máquina real (docs/hardware/ruida.md). Prueba primero con el láser deshabilitado o a potencia 0.
+cli.ruida.bad_magic = '{value}' no es un byte en hexadecimal (ej. 0x88)
+cli.ruida.bad_corner = '{value}' no es una esquina: usa top-left, top-right, bottom-left o bottom-right
+cli.ruida.rd_plain = en claro
+cli.ruida.rd_written = Escrito {path} ({bytes} bytes, {kind}, home {home}). EXPERIMENTAL: sin probar con hardware.
+cli.ruida.rd_magic_notice = Aviso: se usó un magic distinto de 0x88.
+cli.ruida.bad_doc_name = el nombre del documento debe tener de 1 a 40 caracteres ASCII imprimibles
+cli.ruida.unknown_model = modelo desconocido
+cli.ruida.bed_unknown = no informada
+cli.ruida.machine = Máquina: {model} (tarjeta 0x{card}), magic 0x{magic}, cama {bed}
+cli.ruida.machine_detected = Máquina: {model} (tarjeta 0x{card}), magic 0x{magic} (detectado), cama {bed}
+cli.ruida.timeout_help = {err}. Comprueba la IP, que el equipo esté en la misma red /24 que la máquina, que ningún otro programa de láser tenga abierto el puerto, y el magic (--magic)
+cli.ruida.state = Estado: {state}
+cli.ruida.position = Posición: X {x} mm, Y {y} mm (ejes de Tlaku con el home en {home}); en la máquina {mx}, {my} mm
+cli.ruida.read_only = Solo se enviaron lecturas. Nada se movió ni se escribió.
+cli.ruida.dry_job = Trabajo .rd de {bytes} bytes en {packets} paquete(s), home {home}, {mode}.
+cli.ruida.dry_run = Simulacro (--dry-run): no se conectó con la máquina.
+cli.ruida.mode_run = se ejecutará al recibirlo
+cli.ruida.mode_store = se guardará como documento "{name}" (no arranca)
+cli.ruida.bed_mismatch = la cama que informa la máquina ({w} x {h} mm) no coincide con --bed ({bw} x {bh} mm): el origen del archivo depende de ella. Repite con --bed {rw}x{rh}
+cli.ruida.will_send = Se enviarán {bytes} bytes de trabajo: {mode}. Home en {home}.
+cli.ruida.prompt_run = El trabajo EMPEZARÁ a ejecutarse en cuanto llegue. ¿El láser está listo y el área despejada? [s/N]
+cli.ruida.prompt_store = ¿Guardar el documento en la máquina? [s/N]
+cli.ruida.nothing_sent = cancelado: no se envió nada
+cli.ruida.progress = {pct} %  (paquete {packet}/{packets})
+cli.ruida.sent = Enviado: {packets} paquete(s), {bytes} bytes, {resends} reenvío(s).
+cli.ruida.running = El trabajo se está ejecutando. Pausa/Stop desde el panel de la máquina; el paro de emergencia sigue siendo lo primero en caso de problema.
+cli.ruida.stored = Documento guardado. Selecciónalo e inícialo desde el panel de la máquina.
+cli.ruida.send_failed = falló el envío: {err}
+
+# k40.rs
+cli.k40.experimental = EXPERIMENTAL: el soporte K40 (M2 Nano) no se ha probado con una placa real. La M2 Nano no controla la potencia por software: ajústala en el panel de la máquina. Ten el paro de emergencia al alcance y prueba primero con el láser deshabilitado o muy débil.
+cli.k40.bad_board = '{value}' no es una placa: usa A, B, B1, B2, M, M1, M2 o M3
+cli.k40.bad_corner = '{value}' no es una esquina: usa top-left, top-right, bottom-left o bottom-right
+cli.k40.program = Trabajo LHYMICRO-GL (placa {board}): {bytes} bytes en {packets} paquetes de 30 bytes; {burn} mm grabados, {travel} mm de viajes con el láser apagado, {rapids} saltos rápidos, {programs} entradas al modo de corte; tiempo estimado {time}.
+cli.k40.board_warnings = Avisos de la placa:
+cli.k40.usb_help = {err}. Comprueba el cable USB, que la máquina esté encendida y que ningún otro programa de láser (K40 Whisperer, MeerK40t, LaserDRW) tenga la placa abierta
+cli.k40.board = Placa: {name} (USB {usb})
+cli.k40.board_chip = Placa: {name} (USB {usb}, chip CH341 versión 0x{version})
+cli.k40.state = Estado: {state}
+cli.k40.note = Nota: {note}
+cli.k40.emu_bbox = X {x0} a {x1} mm, Y {y0} a {y1} mm desde el home
+cli.k40.emu_nothing = nada
+cli.k40.emu_laser_on = ENCENDIDO
+cli.k40.emu_laser_off = apagado
+cli.k40.emu_summary = Emulador: la placa simulada aceptó {accepted} paquetes ({rejected} rechazados, {overruns} con el búfer lleno), quemó {burn} mm ({bbox}), tardó {secs} s virtuales y terminó con el láser {laser}.
+cli.k40.no_boards = No hay placas CH341 (USB 1A86:5512) conectadas. Comprueba el cable y que la máquina esté encendida.
+cli.k40.moshiboard_note = Una Moshiboard comparte este USB: `tlaku k40 status` distingue una M2 Nano.
+cli.k40.poll = consulta {n}: código {code} ({state}), bytes {raw}
+cli.k40.read_only = Solo se envió la consulta de estado. Nada se movió ni se escribió.
+cli.k40.egv_written = Escrito {path} ({bytes} bytes). Supone el cabezal en el home al empezar. EXPERIMENTAL: sin probar con hardware.
+cli.k40.dry_run = Simulacro (--dry-run): no se conectó con la máquina.
+cli.k40.using_emulator = Usando la placa simulada (--emu): no se toca el USB.
+cli.k40.board_not_ready = la placa no está lista: {state}
+cli.k40.plan_no_home = Se asume que el cabezal ya está en el home (esquina de los finales de carrera). Después se grabará el diseño: {w} x {h} mm de cama, home en {home}.
+cli.k40.plan_home = Primero el cabezal irá al home (finales de carrera). Después se grabará el diseño: {w} x {h} mm de cama, home en {home}.
+cli.k40.prompt = El láser DISPARARÁ. ¿La tapa está cerrada, el área despejada y el paro de emergencia al alcance? [s/N]
+cli.k40.nothing_sent = cancelado: no se envió nada
+cli.k40.homing = Haciendo home...
+cli.k40.progress = {pct} %  (paquete {packet}/{packets})
+cli.k40.sent_confirmed = Enviado: {packets} paquetes, {bytes} bytes, {resends} reenvíos por CRC, en {secs} s. La placa confirmó el final del trabajo.
+cli.k40.sent_unconfirmed = Enviado: {packets} paquetes, {bytes} bytes, {resends} reenvíos por CRC, en {secs} s. La placa no confirmó el final del trabajo (estado 236).
+cli.k40.head_at = El cabezal quedó en X {x}, Y {y} mm.
+cli.k40.send_failed = falló el envío: {err}
+
+# galvo.rs
+cli.galvo.experimental = EXPERIMENTAL: el soporte galvo no se ha probado con ninguna tarjeta real. Una fibra es láser clase 4 y su haz es INVISIBLE: usa gafas con la longitud de onda y la DO correctas, recinto cerrado con enclavamiento y un obturador, y ten el paro de emergencia al alcance. Primero prueba sin la fuente conectada (docs/hardware/galvo.md, sección 9).
+cli.galvo.range_format = '{value}': usa MIN-MAX, por ejemplo 20-80
+cli.galvo.range_order = '{value}': el mínimo es mayor que el máximo
+cli.galvo.pair_format = '{value}': usa X,Y en mm, por ejemplo 1.5,-2
+cli.galvo.not_u16 = '{value}' no es un entero de 16 bits
+cli.galvo.mask_format = '{value}': usa MASK=VALOR, por ejemplo 0x0008=0x0008
+cli.galvo.mask_bits = '{value}': VALOR tiene bits fuera de MASK
+cli.galvo.usb_help = {err}. Comprueba el cable USB, que la máquina esté encendida y que EZCAD, LightBurn o MeerK40t no tengan la tarjeta abierta
+cli.galvo.need_safety_ack = con hardware real hace falta --i-understand-laser-safety: un láser de fibra es clase 4 y su haz es invisible. Lee docs/hardware/galvo.md (gafas con la DO correcta, recinto, obturador, paro de emergencia) y prueba primero sin la fuente conectada. Para probar sin máquina usa --emu
+cli.galvo.board = Tarjeta: {name} (USB {usb})
+cli.galvo.serial = Serie: {serial}  Versión: {version}
+cli.galvo.state_busy = ocupada
+cli.galvo.state_idle = en reposo
+cli.galvo.state = Estado: {state} (bits {raw}: ocupada={busy}, lista={ready})  Entradas: {inputs}
+cli.galvo.note = Nota: {note}
+cli.galvo.list = Lista de la tarjeta: {commands} comandos en {batches} tandas de 256; {marks} marcas ({mark_mm} mm), {jumps} saltos ({jump_mm} mm), {dots} disparos en un punto, {zero_power} cortes con potencia 0 emitidos como salto; tiempo estimado {time} (sin retardos de láser).
+cli.galvo.warning = Aviso: {warning}
+cli.galvo.emu_source_off = apagada
+cli.galvo.emu_source_on = HABILITADA
+cli.galvo.emu_summary = Emulador: {batches} tandas recibidas, {emitted} tramos con el haz saliendo, {jumps} saltos (ninguno disparó), {secs} s virtuales; la fuente terminó {source}; {violations} violaciones del protocolo.
+cli.galvo.no_boards = No hay dispositivos BJJCZ (USB 9588:xxxx) conectados. Comprueba el cable y que la máquina esté encendida.
+cli.galvo.none_supported = Ninguno es compatible: Tlaku solo habla con la LMCV4-FIBER-M (9588:9899).
+cli.galvo.read_only = Solo se enviaron consultas. Nada se movió ni se escribió.
+cli.galvo.light_no_motion = el diseño no tiene movimientos que encuadrar
+cli.galvo.light_rect = Encuadre: X {x0} a {x1} mm, Y {y0} a {y1} mm (campo de {field} mm).
+cli.galvo.light_objects = Encuadre de {n} objeto(s) suelto(s).
+cli.galvo.light_adjusted = Encuadre movido {dx},{dy} mm y escalado x{scale}.
+cli.galvo.pointer_offset = El puntero se compensa {dx},{dy} mm para pasar por donde marcará el láser.
+cli.galvo.using_emulator = Usando la tarjeta simulada (--emu): no se toca el USB.
+cli.galvo.light_drawing = Dibujando con el puntero rojo; el láser NO se habilita. Ctrl+C para detener.
+cli.galvo.light_loop = vuelta {n}
+cli.galvo.light_done = Encuadre terminado: {loops} vueltas. Puntero rojo apagado.
+cli.galvo.light_done_stopped = Encuadre terminado: {loops} vueltas (detenido). Puntero rojo apagado.
+cli.galvo.light_failed = falló el encuadre: {err}
+cli.galvo.mark_steps = El trabajo se marca en {total} paso(s); {moves} vez/veces tendrás que mover el material (la tarjeta no tiene ejes).
+cli.galvo.dump_list = lista {n}
+cli.galvo.dump_written = Lista escrita en {path}
+cli.galvo.dry_run = Simulacro (--dry-run): no se conectó con la tarjeta.
+cli.galvo.board_busy = la tarjeta está ocupada con otro trabajo
+cli.galvo.red_only = --red-only: el trabajo se recorre con el láser DESHABILITADO y el puntero rojo.
+cli.galvo.prompt = El láser DISPARARÁ. ¿Gafas puestas, recinto cerrado, obturador y paro de emergencia listos, y el material correcto bajo el haz? [s/N]
+cli.galvo.nothing_sent = cancelado: no se envió nada
+cli.galvo.move_material = Mueve el material: {text}.
+cli.galvo.moved_prompt = ¿Ya lo moviste? Al continuar el láser disparará sobre la pieza siguiente. [s/N]
+cli.galvo.stopped = detenido: no se marcaron los pasos restantes
+cli.galvo.progress = {pct} %  (tanda {batch}/{batches})
+cli.galvo.sent_armed = Enviado: {batches} tandas, {commands} comandos, {bytes} bytes en {secs} s. La fuente estuvo armada durante el trabajo. La fuente se apagó y la lista se vació.
+cli.galvo.sent_not_armed = Enviado: {batches} tandas, {commands} comandos, {bytes} bytes en {secs} s. La fuente NO se armó. La fuente se apagó y la lista se vació.
+cli.galvo.mark_failed = falló el marcado: {err}
+
+# galvo/seq.rs
+cli.galvo.seq_step = Paso {n} de {total}
+cli.galvo.seq_piece = pieza {piece} de {pieces}
+cli.galvo.seq_repeat = repetición {repeat} de {repeats}
+cli.galvo.seq_stage_move = mesa X {dx} mm · Y {dy} mm
+cli.galvo.seq_rotary_move = rotativo {deg}°
+cli.galvo.seq_no_design = no hay un diseño del que sacar las piezas
+cli.galvo.seq_piece_empty = La pieza {piece} de la repetición {repeat} no tiene nada que marcar: se omite.
+cli.galvo.seq_nothing = no hay nada que producir: ninguna pieza del marcado dividido tiene contenido

@@ -1,12 +1,14 @@
 import type { I18nKey } from '@/i18n';
+import { ENGINE_ERROR } from '@/lib/errors';
 
 /**
- * Pista para el usuario según el texto del error del motor (ya viene en español).
- * El motor rechaza el trabajo, por ejemplo, cuando "se sale de la cama" con el overscan.
+ * Pista para el usuario según el código del error del motor (`errorCode` en `lib/errors.ts`), que no
+ * cambia con el idioma. El motor rechaza el trabajo, por ejemplo, cuando "se sale de la cama" con el
+ * overscan (`bed_overflow`) o cuando no hay nada que producir (`nothing_to_send`).
  */
-export function previewErrorHint(message: string): I18nKey | null {
-  if (/cama|fuera de|se sale|no cabe|límites|limites|bed/i.test(message)) return 'preview.error.hintBed';
-  if (/nada que enviar|vac[ií]o|sin objetos/i.test(message)) return 'preview.error.hintEmpty';
+export function previewErrorHint(code: string | null): I18nKey | null {
+  if (code === ENGINE_ERROR.bedOverflow) return 'preview.error.hintBed';
+  if (code === ENGINE_ERROR.nothingToSend) return 'preview.error.hintEmpty';
   return null;
 }
 

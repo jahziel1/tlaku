@@ -8,6 +8,7 @@ use tlaku_doc::{
     DesignObject, Document, ImageObject, JobOptions, LayerMode, LayerSettings, ObjectKind,
     StartFrom, bounds_of, union,
 };
+use tlaku_i18n::tr;
 
 /// Imagen alineada a los ejes lista para rasterizar.
 #[derive(Debug, Clone)]
@@ -146,21 +147,20 @@ fn placed_image(
 ) -> Result<PlacedImage, String> {
     let [w, h] = img.size_mm;
     if !(w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0) {
-        return Err(format!("imagen '{}': tamaño inválido {w}x{h} mm", obj.id));
+        return Err(tr!(
+            "pipeline.place.image_bad_size",
+            id = obj.id,
+            w = w,
+            h = h
+        ));
     }
     if t[1] != 0.0 || t[2] != 0.0 {
-        return Err(format!(
-            "imagen '{}': solo se admiten escala, reflejo y traslado (sin rotación ni sesgo)",
-            obj.id
-        ));
+        return Err(tr!("pipeline.place.image_transform", id = obj.id));
     }
     let (x1, y1) = (t[4] + t[0] * w, t[5] + t[3] * h);
     let (sw, sh) = ((t[0] * w).abs(), (t[3] * h).abs());
     if !(sw > 0.0 && sh > 0.0) {
-        return Err(format!(
-            "imagen '{}': la escala deja la imagen sin área",
-            obj.id
-        ));
+        return Err(tr!("pipeline.place.image_no_area", id = obj.id));
     }
     Ok(PlacedImage {
         source_path: img.source_path.clone(),
@@ -225,7 +225,7 @@ fn add_object(
         (ObjectKind::Image(img), LayerMode::Image) => {
             match placed_image(obj, img, &obj.transform) {
                 Ok(p) => unit.images.push(p),
-                Err(e) if report => warnings.push(format!("{e}; se ignora")),
+                Err(e) if report => warnings.push(tr!("pipeline.place.ignored", error = e)),
                 Err(_) => {}
             }
         }
@@ -233,10 +233,7 @@ fn add_object(
             // El pipeline solo corta el contorno ya generado; no interpreta fuentes.
             if t.outline.is_empty() {
                 if report {
-                    warnings.push(format!(
-                        "objeto '{}' omitido: el texto no tiene contorno generado",
-                        obj.id
-                    ));
+                    warnings.push(tr!("pipeline.place.text_no_outline", id = obj.id));
                 }
             } else {
                 push_paths(unit);
@@ -252,11 +249,27 @@ fn outer_group(group: &str) -> Option<&str> {
     group.split('/').find(|g| !g.is_empty())
 }
 
-fn kind_name(kind: &ObjectKind) -> &'static str {
-    match kind {
-        ObjectKind::Vector(_) => "vectorial",
-        ObjectKind::Image(_) => "de imagen",
-        ObjectKind::Text(_) => "de texto",
+/// Aviso de un objeto que su capa no admite por el modo (vectorial, de imagen o de texto).
+fn kind_ignored(obj: &DesignObject, color: Rgb, mode: &str) -> String {
+    match obj.kind {
+        ObjectKind::Vector(_) => tr!(
+            "pipeline.place.vector_ignored",
+            id = obj.id,
+            layer = color,
+            mode = mode
+        ),
+        ObjectKind::Image(_) => tr!(
+            "pipeline.place.image_ignored",
+            id = obj.id,
+            layer = color,
+            mode = mode
+        ),
+        ObjectKind::Text(_) => tr!(
+            "pipeline.place.text_ignored",
+            id = obj.id,
+            layer = color,
+            mode = mode
+        ),
     }
 }
 
@@ -273,10 +286,11 @@ fn collect<'a>(
     let mut work: Vec<LayerWork<'a>> = Vec::new();
     for (parent, layer) in doc.layers.iter().enumerate() {
         if layer.sub_layers.len() > MAX_SUB_LAYERS {
-            return Err(format!(
-                "capa {}: demasiadas sub-capas ({}); el máximo es {MAX_SUB_LAYERS}",
-                layer.color,
-                layer.sub_layers.len()
+            return Err(tr!(
+                "pipeline.place.too_many_sublayers",
+                layer = layer.color,
+                n = layer.sub_layers.len(),
+                max = MAX_SUB_LAYERS
             ));
         }
         first.push(work.len());
@@ -310,9 +324,10 @@ fn collect<'a>(
             continue;
         }
         let Some(parent) = doc.layers.iter().position(|l| l.color == obj.layer) else {
-            return Err(format!(
-                "el objeto '{}' usa la capa {}, que no existe en el documento",
-                obj.id, obj.layer
+            return Err(tr!(
+                "pipeline.place.missing_layer",
+                id = obj.id,
+                layer = obj.layer
             ));
         };
         // La salida de la capa manda sobre la de sus sub-capas.
@@ -320,16 +335,14 @@ fn collect<'a>(
             continue;
         }
         if !affine::is_finite(&obj.transform) {
-            return Err(format!(
-                "el objeto '{}' tiene una transformación inválida",
-                obj.id
-            ));
+            return Err(tr!("pipeline.place.bad_transform", id = obj.id));
         }
         let power_scale = obj.power_scale.unwrap_or(100.0);
         if !(power_scale.is_finite() && power_scale >= 0.0) {
-            return Err(format!(
-                "el objeto '{}': power_scale inválida ({power_scale}); debe ser un % mayor o igual que 0",
-                obj.id
+            return Err(tr!(
+                "pipeline.place.bad_power_scale",
+                id = obj.id,
+                value = power_scale
             ));
         }
         let group = obj
@@ -351,7 +364,7 @@ fn collect<'a>(
         let copies = match obj.virtual_copies() {
             Ok(list) => list,
             Err(e) => {
-                warnings.push(format!("{e}; se ignoran las copias"));
+                warnings.push(tr!("pipeline.place.copies_ignored", error = e));
                 Vec::new()
             }
         };
@@ -375,19 +388,15 @@ fn collect<'a>(
                     add_object(unit, copy, meta, main, &mut sink);
                 }
                 if let Some(first_warning) = sink.first() {
-                    warnings.push(format!(
-                        "{first_warning} (en las copias del arreglo virtual)"
-                    ));
+                    warnings.push(tr!("pipeline.place.in_copies", warning = first_warning));
                 }
             }
             if !added {
                 if main {
-                    warnings.push(format!(
-                        "objeto '{}' {} ignorado: la capa {} es de modo {}",
-                        obj.id,
-                        kind_name(&obj.kind),
+                    warnings.push(kind_ignored(
+                        obj,
                         unit.settings.color,
-                        unit.settings.mode.name()
+                        unit.settings.mode.name(),
                     ));
                 } else {
                     skipped[u] += 1;
@@ -397,11 +406,12 @@ fn collect<'a>(
     }
     for (unit, n) in work.iter().zip(&skipped) {
         if *n > 0 {
-            warnings.push(format!(
-                "capa {}, sub-capa {}: {n} objeto(s) ignorado(s) porque no admite el modo {}",
-                unit.settings.color,
-                unit.sub.unwrap_or(0),
-                unit.settings.mode.name()
+            warnings.push(tr!(
+                "pipeline.place.sublayer_skipped",
+                layer = unit.settings.color,
+                sub = unit.sub.unwrap_or(0),
+                n = n,
+                mode = unit.settings.mode.name()
             ));
         }
     }
@@ -434,30 +444,25 @@ pub(crate) fn place<'a>(
     warnings: &mut Vec<String>,
 ) -> Result<Placement<'a>, String> {
     if options.job_origin > 8 {
-        return Err(format!("job_origin fuera de 0-8: {}", options.job_origin));
+        return Err(tr!(
+            "pipeline.place.bad_job_origin",
+            value = options.job_origin
+        ));
     }
     let mut seen = HashSet::new();
     if let Some(dup) = doc.objects.iter().find(|o| !seen.insert(o.id.as_str())) {
-        return Err(format!("el documento repite el id de objeto '{}'", dup.id));
+        return Err(tr!("pipeline.place.duplicate_id", id = dup.id));
     }
     if let Some(sel) = &options.selection {
         for id in sel.iter().filter(|id| doc.object(id).is_none()) {
-            warnings.push(format!(
-                "la selección incluye '{id}', que no existe en el documento"
-            ));
+            warnings.push(tr!("pipeline.place.selection_missing", id = id));
         }
     }
     if options.use_selection_origin {
         if options.selection.is_none() {
-            warnings.push(
-                "use_selection_origin se ignora: no hay selección (usa `selection` para cortar solo algunos objetos)"
-                    .into(),
-            );
+            warnings.push(tr!("pipeline.place.selection_origin_no_selection"));
         } else if options.start_from == StartFrom::Absolute {
-            warnings.push(
-                "use_selection_origin se ignora: el modo absoluto usa las coordenadas del documento"
-                    .into(),
-            );
+            warnings.push(tr!("pipeline.place.selection_origin_absolute"));
         }
     }
 
@@ -481,21 +486,18 @@ pub(crate) fn place<'a>(
         crate::tile::apply(&mut work, tile, warnings)?;
     }
     if work.is_empty() && selected.is_some() {
-        warnings.push(
-            "la selección no incluye ningún objeto con salida (oculto, de una capa sin salida o de un tipo que su capa no admite)"
-                .into(),
-        );
+        warnings.push(tr!("pipeline.place.selection_empty"));
     }
 
     let target = match options.start_from {
         StartFrom::Absolute => None,
-        StartFrom::CurrentPosition => Some(current.ok_or(
-            "falta la posición actual de la máquina (conéctala para trabajar desde la posición actual)",
-        )?),
+        StartFrom::CurrentPosition => {
+            Some(current.ok_or_else(|| tr!("pipeline.place.no_current_position"))?)
+        }
         StartFrom::UserOrigin => {
             let [x, y] = options
                 .user_origin
-                .ok_or("falta el origen de usuario (user_origin)")?;
+                .ok_or_else(|| tr!("pipeline.place.no_user_origin"))?;
             Some(Point::new(x, y))
         }
     };
@@ -506,7 +508,7 @@ pub(crate) fn place<'a>(
         });
     };
     if !(target.x.is_finite() && target.y.is_finite()) {
-        return Err("el punto de inicio del trabajo no es un número".into());
+        return Err(tr!("pipeline.place.bad_start_point"));
     }
 
     // Caja que ancla el origen: la de la selección, o la de todo el diseño con salida.

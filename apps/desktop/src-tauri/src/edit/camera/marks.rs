@@ -20,7 +20,7 @@ pub(super) fn marks_layout(bed: [f64; 2], count: u32) -> Result<MarkLayout, Stri
 pub fn build_marks_document(bed: [f64; 2], count: u32) -> Result<Document, String> {
     let layout = marks_layout(bed, count)?;
     let mut layer = LayerSettings::for_color(MARKS_COLOR);
-    layer.name = "Marcas de cámara".into();
+    layer.name = tr!("desktop.edit.camera.marks_layer");
     layer.mode = LayerMode::Line;
     layer.speed = MARKS_SPEED;
     layer.power = MARKS_POWER;
@@ -94,7 +94,7 @@ pub fn run_detect_marks(
 pub async fn camera_marks(bed: [f64; 2], count: u32) -> Result<Document, String> {
     tauri::async_runtime::spawn_blocking(move || build_marks_document(bed, count))
         .await
-        .map_err(blocking_error)?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -108,5 +108,5 @@ pub async fn detect_camera_marks(
         run_detect_marks(&image_png_base64, bed, count, prior_to_bed)
     })
     .await
-    .map_err(blocking_error)?
+    .map_err(crate::edit::task_interrupted)?
 }

@@ -135,7 +135,9 @@ fn frame_runs_without_job_events_or_progress() {
     );
     rig.handle.frame(lines, 127).unwrap();
     rig.sink.wait("encuadre", |s| {
-        s.logs().iter().any(|(_, t)| t == "; encuadre terminado")
+        s.logs()
+            .iter()
+            .any(|(_, t)| tlaku_i18n::split_code(t) == (Some("frame_done"), "; encuadre terminado"))
     });
     assert!(rig.sink.jobs().is_empty());
     assert!(rig.sink.progress().is_empty());

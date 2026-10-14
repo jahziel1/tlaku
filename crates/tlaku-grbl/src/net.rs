@@ -11,7 +11,7 @@
 //!   cada lectura.
 //! - Una conexión cerrada por el otro extremo es un `Err` (nunca un `Ok(0)`, que significa
 //!   "nada a tiempo").
-//! - Los errores de conexión se explican en español ([`explain_connect_error`]).
+//! - Los errores de conexión se explican en el idioma activo ([`explain_connect_error`]).
 //!
 //! Referencias públicas: Telnet (RFC 854/855) para el filtrado de negociación; WebSocket
 //! (RFC 6455) a través de la biblioteca `tungstenite` (MIT/Apache-2.0).
@@ -21,6 +21,7 @@ use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 use tungstenite::protocol::Message;
 use tungstenite::{Error as WsError, WebSocket};
 
@@ -48,22 +49,13 @@ pub const TCP_SCHEME: &str = "tcp://";
 pub fn explain_connect_error(target: &str, e: &io::Error) -> String {
     use io::ErrorKind as K;
     match e.kind() {
-        K::ConnectionRefused => format!(
-            "La máquina en {target} rechazó la conexión. El puerto está cerrado o el servicio de \
-             red de la controladora está apagado (Telnet suele usar el puerto 23)."
-        ),
-        K::TimedOut | K::WouldBlock => format!(
-            "{target} no contestó a tiempo. Revisa que la máquina esté encendida, conectada a la \
-             misma red que este equipo y que la dirección sea la correcta."
-        ),
-        K::HostUnreachable | K::NetworkUnreachable | K::NetworkDown => format!(
-            "No se puede llegar a {target}: el equipo no es alcanzable desde esta red. Revisa el \
-             Wi-Fi o el cable de red y la dirección IP."
-        ),
-        K::ConnectionReset | K::ConnectionAborted => {
-            format!("{target} cerró la conexión al abrirla: ¿hay otro programa conectado a ella?")
+        K::ConnectionRefused => tr!("grbl.net.refused", target = target),
+        K::TimedOut | K::WouldBlock => tr!("grbl.net.timed_out", target = target),
+        K::HostUnreachable | K::NetworkUnreachable | K::NetworkDown => {
+            tr!("grbl.net.unreachable", target = target)
         }
-        _ => format!("No se pudo conectar con {target}: {e}."),
+        K::ConnectionReset | K::ConnectionAborted => tr!("grbl.net.reset", target = target),
+        _ => tr!("grbl.net.connect_failed", target = target, e = e),
     }
 }
 
@@ -75,7 +67,7 @@ fn connect_error(target: &str, e: &io::Error) -> io::Error {
 fn closed(by: &str) -> io::Error {
     io::Error::new(
         io::ErrorKind::ConnectionAborted,
-        format!("{by} cerró la conexión de red."),
+        tr!("grbl.net.closed_by", by = by),
     )
 }
 
@@ -91,10 +83,7 @@ fn open_stream(host: &str, port: u16, timeout: Duration) -> io::Result<TcpStream
         .map_err(|_| {
             io::Error::new(
                 io::ErrorKind::NotFound,
-                format!(
-                    "No se encontró '{host}' en la red. Revisa que el nombre esté bien escrito \
-                     o usa la dirección IP de la máquina."
-                ),
+                tr!("grbl.net.host_not_found", host = host),
             )
         })?
         .collect();
@@ -114,7 +103,7 @@ fn open_stream(host: &str, port: u16, timeout: Duration) -> io::Result<TcpStream
         Some(e) => connect_error(&target, &e),
         None => io::Error::new(
             io::ErrorKind::NotFound,
-            format!("'{host}' no tiene ninguna dirección de red."),
+            tr!("grbl.net.no_address", host = host),
         ),
     })
 }
@@ -349,18 +338,10 @@ pub fn parse_ws_url(url: &str) -> Result<(String, u16), String> {
     let url = url.trim();
     let lower = url.to_ascii_lowercase();
     if lower.starts_with("wss://") {
-        return Err(
-            "Las conexiones cifradas (wss://) no están soportadas; usa una dirección \
-             ws:// (los módulos de las controladoras no suelen cifrar)."
-                .into(),
-        );
+        return Err(tr!("grbl.net.wss_unsupported"));
     }
     if !lower.starts_with("ws://") {
-        return Err(
-            "La dirección WebSocket debe empezar por ws://, por ejemplo \
-             ws://192.168.1.50:81"
-                .into(),
-        );
+        return Err(tr!("grbl.net.ws_scheme"));
     }
     let rest = &url["ws://".len()..];
     let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
@@ -374,7 +355,7 @@ pub fn split_host_port(text: &str, default_port: u16) -> Result<(String, u16), S
     let (host, port_text) = if let Some(rest) = text.strip_prefix('[') {
         let (host, after) = rest
             .split_once(']')
-            .ok_or("Falta el corchete de cierre de la dirección IPv6.")?;
+            .ok_or_else(|| tr!("grbl.net.ipv6_bracket"))?;
         (host, after.strip_prefix(':'))
     } else if let Some((host, port)) = text.rsplit_once(':') {
         (host, Some(port))
@@ -382,15 +363,16 @@ pub fn split_host_port(text: &str, default_port: u16) -> Result<(String, u16), S
         (text, None)
     };
     if host.is_empty() || host.chars().any(|c| c.is_whitespace() || c == '/') {
-        return Err("Falta la dirección de la máquina (nombre o IP).".into());
+        return Err(tr!("grbl.net.missing_host"));
     }
-    let port =
-        match port_text {
-            None => default_port,
-            Some(p) => p.parse::<u16>().ok().filter(|p| *p != 0).ok_or_else(|| {
-                format!("El puerto '{p}' no es válido (usa un número de 1 a 65535).")
-            })?,
-        };
+    let port = match port_text {
+        None => default_port,
+        Some(p) => p
+            .parse::<u16>()
+            .ok()
+            .filter(|p| *p != 0)
+            .ok_or_else(|| tr!("grbl.net.bad_port", port = p))?,
+    };
     Ok((host.to_string(), port))
 }
 
@@ -398,7 +380,7 @@ fn ws_error(peer: &str, e: WsError) -> io::Error {
     match e {
         WsError::Io(e) => e,
         WsError::ConnectionClosed | WsError::AlreadyClosed => closed(peer),
-        other => io::Error::other(format!("Error de WebSocket con {peer}: {other}")),
+        other => io::Error::other(tr!("grbl.net.ws_error", peer = peer, e = other)),
     }
 }
 
@@ -416,10 +398,7 @@ impl WebSocketTransport {
             Err(tungstenite::HandshakeError::Failure(e)) => {
                 return Err(match e {
                     WsError::Io(e) => connect_error(&peer, &e),
-                    other => io::Error::other(format!(
-                        "{peer} no aceptó la conexión WebSocket: {other}. Revisa que sea la \
-                         dirección del WebSocket de la máquina (FluidNC usa el puerto 81)."
-                    )),
+                    other => io::Error::other(tr!("grbl.net.ws_rejected", peer = peer, e = other)),
                 });
             }
             Err(tungstenite::HandshakeError::Interrupted(_)) => {

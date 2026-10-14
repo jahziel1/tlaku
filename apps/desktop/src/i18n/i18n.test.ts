@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { base } from './es';
-import { detectLanguage, en, es, getLanguage, locale, setLanguage, t } from './index';
+import { detectLanguage, en, es, getLanguage, locale, setLanguage, t, tn } from './index';
 import { arrange } from './es/arrange';
 import { design } from './es/design';
 import { art } from './es/art';
@@ -33,6 +33,7 @@ import { review } from './es/review';
 import { tiling } from './es/tiling';
 import { materials } from './es/materials';
 import { simple } from './es/simple';
+import { a11y } from './es/a11y';
 import { arrange as en_arrange } from './en/arrange';
 import { design as en_design } from './en/design';
 import { art as en_art } from './en/art';
@@ -66,10 +67,11 @@ import { review as en_review } from './en/review';
 import { tiling as en_tiling } from './en/tiling';
 import { base as en_base } from './en/base';
 import { simple as en_simple } from './en/simple';
+import { a11y as en_a11y } from './en/a11y';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple };
+    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple, a11y };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -112,6 +114,7 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   trace: { es: trace, en: en_trace },
   variables: { es: variables, en: en_variables },
   simple: { es: simple, en: en_simple },
+  a11y: { es: a11y, en: en_a11y },
 };
 
 /**
@@ -223,6 +226,32 @@ describe('inglés: completitud por área', () => {
 
   it('el diccionario `en` unido tiene las mismas claves que `es`', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(es).sort());
+  });
+});
+
+describe('plurales: tn()', () => {
+  afterEach(() => setLanguage('es'));
+
+  it('elige .one con 1 y .other con 0 o con más', () => {
+    expect(tn('review.count', 1)).toBe('Encontré 1 cosa por revisar.');
+    expect(tn('review.count', 0)).toBe('Encontré 0 cosas por revisar.');
+    expect(tn('review.count', 3)).toBe('Encontré 3 cosas por revisar.');
+    setLanguage('en');
+    expect(tn('review.count', 1)).toBe('Found 1 thing to look at.');
+    expect(tn('review.count', 2)).toBe('Found 2 things to look at.');
+  });
+
+  it('pasa n y los demás marcadores al texto', () => {
+    expect(tn('materials.notice.exported', 1, { path: '/a' })).toBe('Biblioteca exportada (1 ajuste) en /a.');
+    expect(tn('materials.notice.exported', 12, { path: '/a' })).toBe('Biblioteca exportada (12 ajustes) en /a.');
+  });
+
+  it('cada `.one` tiene su `.other` (o su `.many`) y cada `.other` con hermano `.one` tiene el par completo, en los dos idiomas', () => {
+    for (const [name, dict] of Object.entries({ es, en }) as [string, Dict][]) {
+      const keys = Object.keys(dict);
+      const strays = keys.filter((k) => k.endsWith('.one') && !keys.includes(`${k.slice(0, -4)}.other`) && !keys.includes(`${k.slice(0, -4)}.many`));
+      expect({ name, strays }).toEqual({ name, strays: [] });
+    }
   });
 });
 

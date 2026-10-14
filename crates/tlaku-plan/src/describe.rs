@@ -1,56 +1,53 @@
 //! Explicación en palabras de las opciones activas del planificador.
 
 use crate::{PlanOptions, Winding};
+use tlaku_i18n::tr;
 
 /// Frase por cada regla activa o desactivada que cambia el resultado, para mostrarla junto al
 /// plan. Va de la regla de mayor precedencia a la de menor (ver la documentación del crate).
 pub fn describe(options: &PlanOptions) -> Vec<String> {
     let mut out = Vec::new();
-    let levels: Vec<&str> = [
-        (options.order_by_layer, "capa"),
-        (options.order_by_group, "grupo"),
-        (options.order_by_priority, "prioridad"),
+    let levels: Vec<String> = [
+        (options.order_by_layer, tr!("plan.describe.level_layer")),
+        (options.order_by_group, tr!("plan.describe.level_group")),
+        (
+            options.order_by_priority,
+            tr!("plan.describe.level_priority"),
+        ),
     ]
     .into_iter()
     .filter_map(|(on, name)| on.then_some(name))
     .collect();
     out.push(if levels.is_empty() {
-        "sin niveles de orden: todas las figuras compiten por igual".to_string()
+        tr!("plan.describe.no_levels")
     } else {
-        format!(
-            "orden por {} (de mayor a menor precedencia)",
-            levels.join(" > ")
-        )
+        tr!("plan.describe.levels", levels = levels.join(" > "))
     });
     out.push(if options.inner_first {
-        "interiores primero: lo que está dentro de otra figura se corta antes".to_string()
+        tr!("plan.describe.inner_first")
     } else {
-        "interiores primero apagado: una figura puede cortarse antes que las que contiene"
-            .to_string()
+        tr!("plan.describe.inner_first_off")
     });
     out.push(if options.reduce_travel {
-        "recorrido corto: vecino más cercano con mejora local".to_string()
+        tr!("plan.describe.reduce_travel")
     } else {
-        "recorrido corto apagado: se conserva el orden original".to_string()
+        tr!("plan.describe.reduce_travel_off")
     });
     if options.choose_start_point {
-        out.push("las figuras cerradas empiezan por el punto más cómodo".to_string());
+        out.push(tr!("plan.describe.start_chosen"));
     } else {
-        out.push("las figuras cerradas empiezan donde fueron dibujadas".to_string());
+        out.push(tr!("plan.describe.start_drawn"));
     }
     if options.choose_direction {
-        out.push("las figuras abiertas pueden recorrerse al revés".to_string());
+        out.push(tr!("plan.describe.direction_free"));
     } else {
-        out.push("las figuras abiertas conservan su sentido".to_string());
+        out.push(tr!("plan.describe.direction_kept"));
     }
     if let Some(w) = options.closed_winding {
-        out.push(format!(
-            "las figuras cerradas giran siempre en sentido {}",
-            match w {
-                Winding::Ccw => "antihorario",
-                Winding::Cw => "horario",
-            }
-        ));
+        out.push(match w {
+            Winding::Ccw => tr!("plan.describe.winding_ccw"),
+            Winding::Cw => tr!("plan.describe.winding_cw"),
+        });
     }
     out
 }

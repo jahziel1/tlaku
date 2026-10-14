@@ -6,6 +6,7 @@ use fontdb::{Database, ID, Stretch, Style};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{Arc, OnceLock, RwLock};
+use tlaku_i18n::tr;
 
 /// Familia con los estilos disponibles (por ejemplo `["Regular", "Bold", "Italic"]`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,9 +71,9 @@ impl FontLibrary {
     /// Carga las fuentes de un archivo (.ttf, .otf o colección). Devuelve cuántas caras añadió.
     pub fn load_font_file(&mut self, path: &Path) -> Result<usize, String> {
         let data = std::fs::read(path)
-            .map_err(|e| format!("No se pudo leer la fuente '{}': {e}", path.display()))?;
+            .map_err(|e| tr!("text.library.read_failed", path = path.display(), error = e))?;
         self.load_font_data(data)
-            .map_err(|e| format!("{e} ('{}')", path.display()))
+            .map_err(|e| tr!("text.library.with_path", error = e, path = path.display()))
     }
 
     /// Carga las fuentes desde bytes. Devuelve cuántas caras añadió.
@@ -80,7 +81,7 @@ impl FontLibrary {
         let before = self.db.len();
         self.db.load_font_data(data);
         match self.db.len() - before {
-            0 => Err("Los datos no son una fuente válida (se admite TrueType/OpenType)".into()),
+            0 => Err(tr!("text.library.not_a_font")),
             n => Ok(n),
         }
     }
@@ -180,14 +181,14 @@ impl FontLibrary {
     /// registrada (el del archivo sin extensión).
     pub fn load_shx_file(&self, path: &Path) -> Result<String, String> {
         let data = std::fs::read(path)
-            .map_err(|e| format!("No se pudo leer la fuente '{}': {e}", path.display()))?;
+            .map_err(|e| tr!("text.library.read_failed", path = path.display(), error = e))?;
         let name = path
             .file_stem()
             .map(|s| s.to_string_lossy().into_owned())
             .filter(|s| !s.trim().is_empty())
-            .ok_or("El archivo SHX no tiene nombre")?;
+            .ok_or_else(|| tr!("text.library.shx_no_name"))?;
         self.load_shx_data(&name, &data)
-            .map_err(|e| format!("{e} ('{}')", path.display()))
+            .map_err(|e| tr!("text.library.with_path", error = e, path = path.display()))
     }
 
     /// Carga una fuente SHX desde bytes con el nombre dado.
@@ -230,11 +231,9 @@ impl FontLibrary {
             .collect();
         let pool = if same_slant.is_empty() {
             warnings.push(if italic {
-                format!(
-                    "La fuente '{shown}' no tiene cursiva; se usa la versión recta (no se genera una cursiva sintética)"
-                )
+                tr!("text.library.no_italic", name = shown)
             } else {
-                format!("La fuente '{shown}' solo tiene cursiva; se usa esa")
+                tr!("text.library.only_italic", name = shown)
             });
             candidates
         } else {
@@ -255,14 +254,16 @@ impl FontLibrary {
             .expect("el conjunto de candidatas no está vacío");
 
         if bold && best.weight.0 < 600 {
-            warnings.push(format!(
-                "La fuente '{shown}' no tiene negrita; se usa el peso {} (no se genera una negrita sintética)",
-                best.weight.0
+            warnings.push(tr!(
+                "text.library.no_bold",
+                name = shown,
+                weight = best.weight.0
             ));
         } else if !bold && best.weight.0 >= 600 {
-            warnings.push(format!(
-                "La fuente '{shown}' solo tiene peso {}; se usa ese",
-                best.weight.0
+            warnings.push(tr!(
+                "text.library.only_weight",
+                name = shown,
+                weight = best.weight.0
             ));
         }
         Ok(FaceChoice {
@@ -281,19 +282,20 @@ impl FontLibrary {
 
     fn not_found_message(&self, family: &str) -> String {
         if family.trim().is_empty() {
-            return "Falta el nombre de la fuente".into();
+            return tr!("text.library.no_name");
         }
         if self.db.is_empty() {
-            return format!("La fuente '{family}' no existe: no hay ninguna fuente cargada");
+            return tr!("text.library.no_fonts", family = family);
         }
         let names: Vec<String> = self.families().into_iter().map(|f| f.family).collect();
         let similar = similar_names(family, &names, 5);
         if similar.is_empty() {
-            format!("La fuente '{family}' no está instalada y no hay familias parecidas")
+            tr!("text.library.not_installed", family = family)
         } else {
-            format!(
-                "La fuente '{family}' no está instalada. Familias parecidas: {}",
-                similar.join(", ")
+            tr!(
+                "text.library.not_installed_similar",
+                family = family,
+                similar = similar.join(", ")
             )
         }
     }

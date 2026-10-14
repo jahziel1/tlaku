@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { PanelPos } from './position';
 
 /** Estado de la interfaz de «Revisar diseño». Los hallazgos no se guardan aquí: salen de `useReview`. */
 interface ReviewUiState {
@@ -8,7 +9,9 @@ interface ReviewUiState {
   showIgnored: boolean;
   /** Un arreglo está en marcha: los botones esperan. */
   busy: boolean;
-  set: (patch: Partial<Pick<ReviewUiState, 'open' | 'showIgnored' | 'busy'>>) => void;
+  /** Dónde dejó el usuario el panel (se recuerda mientras dure la sesión); null = la posición por omisión. */
+  pos: PanelPos | null;
+  set: (patch: Partial<Pick<ReviewUiState, 'open' | 'showIgnored' | 'busy' | 'pos'>>) => void;
   ignore: (key: string) => void;
   restore: (key: string) => void;
 }
@@ -18,6 +21,7 @@ export const useReviewUi = create<ReviewUiState>()((set) => ({
   ignored: [],
   showIgnored: false,
   busy: false,
+  pos: null,
   set: (patch) => set(patch),
   ignore: (key) => set((s) => (s.ignored.includes(key) ? s : { ignored: [...s.ignored, key] })),
   restore: (key) => set((s) => ({ ignored: s.ignored.filter((k) => k !== key) })),

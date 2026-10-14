@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { commands } from '@/commands';
 import { createAppStore } from '@/store';
+import { errorCode } from '@/lib/errors';
 import { cleanErrorMessage, previewErrorHint } from './errors';
 import { fmtDistance, fmtSeconds } from './format';
 
 describe('errores legibles', () => {
-  it('reconoce los trabajos que se salen de la cama y los vacíos', () => {
-    expect(previewErrorHint('El trabajo, con el margen de overscan, se sale de la cama de la máquina.')).toBe('preview.error.hintBed');
-    expect(previewErrorHint('No hay nada que enviar')).toBe('preview.error.hintEmpty');
-    expect(previewErrorHint('fallo raro')).toBeNull();
+  it('reconoce por código los trabajos que se salen de la cama y los vacíos', () => {
+    expect(previewErrorHint(errorCode('[bed_overflow] la capa 1 se sale del área'))).toBe('preview.error.hintBed');
+    expect(previewErrorHint(errorCode('[nothing_to_send] nothing to produce: the design is empty'))).toBe('preview.error.hintEmpty');
+    expect(previewErrorHint(errorCode('[bed_overflow] layer 1 goes outside the bed'))).toBe('preview.error.hintBed');
+    expect(previewErrorHint(errorCode('fallo raro'))).toBeNull();
+    // El texto ya no cuenta: sin código no hay pista, en ningún idioma.
+    expect(previewErrorHint(errorCode('se sale de la cama'))).toBeNull();
+    expect(previewErrorHint(null)).toBeNull();
   });
 
   it('quita el prefijo técnico "Error:"', () => {

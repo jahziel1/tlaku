@@ -1,6 +1,7 @@
 //! Solicitudes de la interfaz: saltos, encuadre, detener, información y archivos.
 
 use super::*;
+use tlaku_i18n::tr;
 
 impl<L: PacketLink> Worker<L> {
     pub(super) fn handle(&mut self, req: Request) {
@@ -42,7 +43,7 @@ impl<L: PacketLink> Worker<L> {
                     && !j.paused
                 {
                     j.paused = true;
-                    self.job_event(JobState::Paused, "Trabajo en pausa.");
+                    self.job_event(JobState::Paused, &tr!("desktop.ruida.job_paused"));
                 }
                 let _ = reply.send(r);
             }
@@ -53,7 +54,7 @@ impl<L: PacketLink> Worker<L> {
                     && j.paused
                 {
                     j.paused = false;
-                    self.job_event(JobState::Started, "Trabajo reanudado.");
+                    self.job_event(JobState::Started, &tr!("desktop.lhymicro.job_resumed"));
                 }
                 let _ = reply.send(r);
             }
@@ -75,9 +76,9 @@ impl<L: PacketLink> Worker<L> {
 
     pub(super) fn busy_error(&self) -> Option<String> {
         if self.job.is_some() {
-            Some("Hay un trabajo en curso. Espera a que termine o detenlo.".into())
+            Some(tr!("desktop.ruida.busy_job"))
         } else if self.frame.is_some() {
-            Some("Se está recorriendo un encuadre. Espera a que termine o detenlo.".into())
+            Some(tr!("desktop.ruida.busy_frame"))
         } else {
             None
         }
@@ -94,7 +95,7 @@ impl<L: PacketLink> Worker<L> {
             return Err(e);
         }
         if !(dx.is_finite() && dy.is_finite()) {
-            return Err("El desplazamiento no es válido.".into());
+            return Err(tr!("desktop.common.offset_invalid"));
         }
         self.set_jog_speed(speed_mm_min);
         let st = self.session.status().map_err(op_error)?;
@@ -110,7 +111,7 @@ impl<L: PacketLink> Worker<L> {
             return Err(e);
         }
         if !(x.is_finite() && y.is_finite()) {
-            return Err("La posición no es válida.".into());
+            return Err(tr!("desktop.common.position_invalid"));
         }
         self.set_jog_speed(speed_mm_min);
         self.session.jog_machine(x, y).map_err(op_error)
@@ -126,15 +127,12 @@ impl<L: PacketLink> Worker<L> {
         }
         let mut queue: VecDeque<(f64, f64)> = corners.into();
         let Some((x, y)) = queue.pop_front() else {
-            return Err("No hay nada que encuadrar: el trabajo está vacío.".into());
+            return Err(tr!("desktop.common.nothing_to_frame"));
         };
         self.set_jog_speed(speed_mm_min);
         // La primera esquina comprueba que la máquina está en reposo y dentro de la cama.
         self.session.jog_machine(x, y).map_err(op_error)?;
-        self.log(
-            LogDir::Out,
-            "; encuadre: recorrido del rectángulo con el láser apagado",
-        );
+        self.log(LogDir::Out, &tr!("desktop.common.log_frame_start"));
         self.frame = Some(FrameRun { corners: queue });
         Ok(())
     }
@@ -149,12 +147,9 @@ impl<L: PacketLink> Worker<L> {
                 sim.remaining = None;
             }
             if self.job.take().is_some() {
-                self.job_event(
-                    JobState::Cancelled,
-                    "Trabajo detenido (D8 01): el cabezal frena y el láser se apaga.",
-                );
+                self.job_event(JobState::Cancelled, &tr!("desktop.ruida.job_stopped"));
             } else {
-                self.log(LogDir::Out, "; detener (D8 01)");
+                self.log(LogDir::Out, &tr!("desktop.ruida.log_stop"));
             }
         }
         r
@@ -162,12 +157,9 @@ impl<L: PacketLink> Worker<L> {
 
     pub(super) fn info(&mut self) -> Result<RuidaInfo, String> {
         if self.job.is_some() {
-            return Err("Espera a que termine el trabajo para leer la controladora.".into());
+            return Err(tr!("desktop.ruida.wait_for_job"));
         }
-        self.log(
-            LogDir::Out,
-            "; información de la controladora (solo lectura)",
-        );
+        self.log(LogDir::Out, &tr!("desktop.ruida.log_info"));
         self.session
             .controller_info()
             .map(to_info)
@@ -176,12 +168,9 @@ impl<L: PacketLink> Worker<L> {
 
     pub(super) fn files(&mut self) -> Result<Vec<RuidaFile>, String> {
         if self.job.is_some() {
-            return Err("Espera a que termine el trabajo para leer la controladora.".into());
+            return Err(tr!("desktop.ruida.wait_for_job"));
         }
-        self.log(
-            LogDir::Out,
-            "; lista de documentos de la controladora (solo lectura, experimental)",
-        );
+        self.log(LogDir::Out, &tr!("desktop.ruida.log_files"));
         self.session
             .list_documents()
             .map(|v| {

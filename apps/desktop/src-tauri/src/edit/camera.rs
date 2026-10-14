@@ -25,24 +25,21 @@ use tlaku_doc::affine::IDENTITY;
 use tlaku_doc::{
     DOC_VERSION, DesignObject, Document, LayerMode, LayerSettings, ObjectKind, VectorObject,
 };
+use tlaku_i18n::tr;
 
 /// Archivo de la configuración de cámara dentro de la carpeta de configuración de la app.
 const SETUP_FILE: &str = "camera.json";
 /// Versión del formato de `camera.json`.
 const SETUP_VERSION: u32 = 1;
 
-fn blocking_error(e: tauri::Error) -> String {
-    format!("La tarea se interrumpió: {e}")
-}
-
 /// Decodifica un PNG (o JPEG/BMP) en base64, con o sin prefijo `data:...;base64,`, a gris.
 fn decode_gray(b64: &str) -> Result<GrayImage, String> {
     let raw = b64.split_once(',').map_or(b64, |(_, rest)| rest).trim();
     let bytes = STANDARD
         .decode(raw)
-        .map_err(|e| format!("La imagen no es base64 válido: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.bad_base64", err = e))?;
     let img = image::load_from_memory(&bytes)
-        .map_err(|e| format!("No se pudo decodificar la imagen: {e}"))?;
+        .map_err(|e| tr!("desktop.edit.camera.decode_failed", err = e))?;
     Ok(img.to_luma8())
 }
 

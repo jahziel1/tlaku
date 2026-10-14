@@ -307,14 +307,14 @@ fn verify_reads_the_board_without_lighting_anything() {
 fn verify_needs_the_safety_acknowledgement_for_a_real_board_and_refuses_the_rest() {
     let d = device();
     // Una tarjeta USB sin reconocimiento, o con uno incompleto, falla antes de abrir nada.
-    assert_eq!(verify(&d, "usb:galvo:0", None).unwrap_err(), ACK_REQUIRED);
+    assert_eq!(verify(&d, "usb:galvo:0", None).unwrap_err(), ack_required());
     let partial = SafetyAck {
         eyewear: true,
         ..SafetyAck::default()
     };
     assert_eq!(
         verify(&d, "usb:galvo:0", Some(&partial)).unwrap_err(),
-        ACK_REQUIRED
+        ack_required()
     );
     // Puertos que no son del galvo.
     assert!(

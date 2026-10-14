@@ -1,6 +1,7 @@
 //! Remuestreo a la rejilla física de barrido.
 
 use crate::gray::GrayF32;
+use tlaku_i18n::tr;
 
 /// Límite de píxeles de la rejilla de salida, para fallar con un mensaje claro en
 /// lugar de agotar la memoria con un intervalo de línea absurdamente pequeño.
@@ -57,20 +58,22 @@ pub fn grid_size(
     sampling: Sampling,
 ) -> Result<(usize, usize), String> {
     if !(width_mm.is_finite() && width_mm > 0.0 && height_mm.is_finite() && height_mm > 0.0) {
-        return Err(format!("tamaño inválido: {width_mm} x {height_mm} mm"));
+        return Err(tr!("raster.resample.bad_size", w = width_mm, h = height_mm));
     }
     let interval = match sampling {
         Sampling::Interval(i) => i,
         Sampling::Dpi(d) => interval_from_dpi(d),
     };
     if !(interval.is_finite() && interval > 0.0) {
-        return Err(format!("intervalo de línea inválido: {interval} mm"));
+        return Err(tr!("raster.resample.bad_interval", value = interval));
     }
     let cols = (width_mm / interval).round().max(1.0);
     let rows = (height_mm / interval).round().max(1.0);
     if cols * rows > MAX_PIXELS as f64 {
-        return Err(format!(
-            "la rejilla de {cols} x {rows} puntos es demasiado grande; aumenta el intervalo"
+        return Err(tr!(
+            "raster.resample.grid_too_big",
+            cols = cols,
+            rows = rows
         ));
     }
     Ok((cols as usize, rows as usize))

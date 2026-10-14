@@ -1,10 +1,11 @@
 import { X } from 'lucide-react';
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import type { LayerSettings, MachineClass, MaterialPreset, MaterialRole } from '@/api/types';
 import { t, locale } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { selectActiveDevice, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
+import { stepFromKey } from '@/ui/stepKey';
 import { activeLayerOf, savePresetFromActiveLayer, updatePreset } from './actions';
 import { classLabel, roleLabel } from './labels';
 import { formProblem, settingsSummary, type PresetForm } from './library';
@@ -51,6 +52,15 @@ export function PresetDialog({ preset, layer, onClose }: Props) {
   const source = preset ? preset.settings : layer;
   const unknownDevice = deviceId !== null && !devices.some((d) => d.id === deviceId);
 
+  // Flechas ↑/↓: ajustan el espesor (0,5 mm; mínimo 0,1) sin enviar el formulario.
+  const onThicknessKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    const cur = parseThickness(thickness);
+    const next = stepFromKey(e, cur !== null && Number.isFinite(cur) ? cur : 0, 0.5, 0.1);
+    if (next === null) return;
+    e.preventDefault();
+    setThickness(thicknessText(next));
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (problem) return;
@@ -85,7 +95,7 @@ export function PresetDialog({ preset, layer, onClose }: Props) {
           <div className="field">
             <label className="field__label" htmlFor={ids.thickness}>{t('materials.field.thickness')}</label>
             <div className="field__box">
-              <input id={ids.thickness} className="input field__input num" inputMode="decimal" value={thickness} placeholder={t('materials.field.thickness.placeholder')} onChange={(e) => setThickness(e.target.value)} />
+              <input id={ids.thickness} className="input field__input num" inputMode="decimal" value={thickness} placeholder={t('materials.field.thickness.placeholder')} onChange={(e) => setThickness(e.target.value)} onKeyDown={onThicknessKey} />
               <span className="field__unit">mm</span>
             </div>
           </div>

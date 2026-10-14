@@ -63,6 +63,7 @@ use std::ops::Range;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use tlaku_core::Point;
 use tlaku_core::toolpath::Move;
+use tlaku_i18n::tr;
 
 /// Máximo de contornos que produce una llamada.
 pub const MAX_RINGS: usize = 100_000;
@@ -111,10 +112,7 @@ impl Budget {
     fn emit(&self, points: usize, rings: usize) -> Result<(), String> {
         let (p, r) = (add(&self.points, points), add(&self.rings, rings));
         if p > MAX_POINTS || r > MAX_RINGS {
-            return Err(format!(
-                "el relleno por contornos es demasiado complejo ({r} contornos, {p} puntos); \
-                 aumenta el intervalo o simplifica el diseño"
-            ));
+            return Err(tr!("fill.offset.too_complex", rings = r, points = p));
         }
         Ok(())
     }
@@ -122,10 +120,7 @@ impl Budget {
     fn work(&self, points: usize) -> Result<(), String> {
         let w = add(&self.work, points);
         if w > MAX_WORK {
-            return Err(format!(
-                "el relleno por contornos es demasiado complejo ({w} puntos de trabajo); \
-                 aumenta el intervalo o simplifica el diseño"
-            ));
+            return Err(tr!("fill.offset.too_complex_work", work = w));
         }
         Ok(())
     }
@@ -308,7 +303,7 @@ fn trace_all(geo: &Geometry, shapes: &[Shape], budget: &Budget) -> Result<Vec<Ve
             .into_iter()
             .map(|w| {
                 w.join()
-                    .unwrap_or_else(|_| Err("fallo interno en el relleno por contornos".into()))
+                    .unwrap_or_else(|_| Err(tr!("fill.offset.internal")))
             })
             .collect()
     });
@@ -370,9 +365,7 @@ fn trace_shape(geo: &Geometry, shape: &Shape, budget: &Budget) -> Result<Vec<Rin
         step = geo.interval;
         core_lo = CORE_MIN * geo.interval;
     }
-    Err(format!(
-        "demasiados niveles concéntricos ({MAX_LEVELS}); aumenta el intervalo"
-    ))
+    Err(tr!("fill.offset.too_many_levels", max = MAX_LEVELS))
 }
 
 /// Simplifica cada contorno; descarta los que quedan degenerados y las formas sin exterior.

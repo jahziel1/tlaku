@@ -24,7 +24,7 @@ Ruida es la controladora de la mayoría de los láseres de CO2 de caja metálica
 - **No usa G-code:** la consola, los ajustes en vivo de velocidad y potencia, los ajustes `$`, las macros y el disparo de prueba no aplican (se ocultan con el motivo). La velocidad y la potencia van dentro del archivo del trabajo.
 - **No encuadra con el láser encendido.**
 - **No configura el rotativo.** En las controladoras DSP el rotativo se activa en los ajustes de la propia máquina; Tlaku manda la Y en milímetros de superficie, sin escalarla ni reflejarla, y lo avisa en el registro.
-- **No abre archivos `.rd`**, no soporta láser 2 con Ruida y tampoco se conecta a Trocen ni TopWisdom.
+- **No soporta láser 2 con Ruida** y tampoco se conecta a Trocen ni TopWisdom. Los archivos `.rd` **sí se abren** como diseño (ver [Importar y exportar](03b-importar-y-exportar.md)), pero solo para recuperar la geometría y los ajustes de cada capa.
 
 ### Preparar el perfil
 
@@ -35,6 +35,16 @@ Ruida es la controladora de la mayoría de los láseres de CO2 de caja metálica
    - **Ejecutar al subir:** déjalo **apagado** (ver más abajo).
 3. En **Origen** elige la esquina donde la máquina hace su *home* (lo más común, arriba a la izquierda). Es una suposición hasta probar con hardware: haz primero un saltito con el láser apagado.
 4. Cama: los valores de partida del asistente (600 × 400 mm) son solo eso; confírmalos con **Leer información** al conectar. **Si la cama del perfil no coincide con la que informa la máquina, Tlaku no envía ningún trabajo** hasta que la corrijas, porque el origen del archivo depende de ella.
+
+### Más de 128 capas y velocidades altas
+
+El formato `.rd` admite como máximo **128 capas**, y el límite de velocidad del protocolo es **36 000 mm/min**. Tlaku lo avisa **al calcular**, antes de que intentes enviar:
+
+- **Más de 128 capas.** Un diseño con muchos colores (por ejemplo, un SVG con 129 colores) genera una capa de corte por cada bloque de color. Si hay más de 128, el aviso dice: *Ruida admite 128 capas y el trabajo tiene N: al exportar se fusionarán M capas vecinas de ajustes idénticos (velocidad, potencia, aire) y quedarán K; el orden de corte no cambia*. Solo se fusionan capas **seguidas** y con **exactamente los mismos ajustes** (el color es solo una etiqueta); el orden de corte no cambia. Si aun fusionando quedan más de 128, el aviso dice que **no se podrá exportar ni enviar** y qué hacer: unificar colores o ajustes (velocidad, potencia, aire) de capas seguidas.
+- **Tope de 36 000 mm/min.** Si una capa pide más (por ejemplo, 48 000), el archivo `.rd` usa **36 000 mm/min** y el aviso lo dice (*capa …: pide 48000 mm/min y Ruida admite como máximo 36000 mm/min; el archivo .rd usará 36000 mm/min, así que el resultado será más oscuro o más quemado de lo previsto*). Para no depender del recorte, pon en la capa una velocidad dentro del tope.
+- **Capa más rápida que la máquina.** Si la velocidad de una capa supera la **Velocidad máxima** del perfil, sale un aviso aparte. Con Ruida ese máximo del perfil es una **suposición** (la controladora tiene el suyo): si tu máquina admite más, sube el valor en el perfil.
+
+Estos avisos no cambian lo que se manda, salvo el recorte a 36 000 mm/min.
 
 ### Por qué solo guarda por defecto
 

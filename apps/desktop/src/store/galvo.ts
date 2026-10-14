@@ -1,8 +1,7 @@
 import { getApi } from '@/api';
 import type { ConnectionEvent, GalvoEvent, GalvoFrameKind, GalvoSafetyAck, GalvoStepInfo, JobEvent } from '@/api/types';
-import { isUnconfirmedStop } from '@/features/machine/galvoPorts';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
 import { frameMarkOf } from './machine/selectors';
 import { buildJobArgs } from './selectors';
 import type { SliceCreator } from './types';
@@ -62,8 +61,9 @@ let pendingAck: ((ack: GalvoSafetyAck | null) => void) | null = null;
 const complete = (a: GalvoSafetyAck | null): GalvoSafetyAck | null => (a && a.eyewear && a.enclosure && a.emergency_stop ? { ...a } : null);
 
 export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
-  const warn = (message: string | null | undefined) => {
-    if (message && isUnconfirmedStop(message)) set({ galvoLaserWarning: message });
+  /** Si el mensaje (crudo, con su código) dice que detener no se confirmó, levanta el aviso de cortar la energía. */
+  const warn = (raw: unknown) => {
+    if (raw && isStopUnconfirmed(raw)) set({ galvoLaserWarning: errorMessage(raw) });
   };
   return {
     galvoStep: null,
@@ -103,9 +103,8 @@ export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
         await getApi().galvoRedLight({ on });
         set({ galvoRedOn: on });
       } catch (e) {
-        const message = errorMessage(e);
-        warn(message);
-        get().notify('error', message);
+        warn(e);
+        get().notify('error', errorMessage(e));
       }
     },
     galvoRedRun: async () => {
@@ -154,7 +153,7 @@ export const createGalvoSlice: SliceCreator<GalvoSlice> = (set, get) => {
           set({ galvoLoops: ev.loops, galvoAdjustGen: ev.adjust_gen, galvoAdjustRejected: ev.adjust_rejected });
           return;
         case 'laser_may_be_on':
-          set({ galvoLaserWarning: ev.message });
+          set({ galvoLaserWarning: errorMessage(ev.message) });
           return;
       }
     },

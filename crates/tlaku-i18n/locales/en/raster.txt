@@ -1,0 +1,66 @@
+# Mensajes de tlaku-raster (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: raster.<módulo>.<qué> = plantilla
+
+# adjust.rs
+raster.adjust.brightness = brightness outside -1..1: {value}
+raster.adjust.contrast = contrast outside -1..1: {value}
+raster.adjust.gamma = gamma must be greater than 0: {value}
+raster.adjust.enhance_radius = invalid sharpen radius: {value}
+raster.adjust.enhance_amount = invalid sharpen amount: {value}
+raster.adjust.denoise = despeckle allows up to {max} px: {value}
+
+# bitmap.rs
+raster.bitmap.zero_size = the bitmap cannot have zero size
+raster.bitmap.data_len = expected {expected} dots but got {got}
+raster.bitmap.dot_size = the dot size must be positive
+raster.bitmap.too_big = the bitmap does not fit in an image
+raster.bitmap.png_encode = could not encode the PNG: {error}
+raster.bitmap.crop = crop outside the bitmap: {w}x{h} from ({x}, {y}) in {bw}x{bh}
+
+# downsample.rs
+raster.downsample.zero_size = the image cannot have zero size
+raster.downsample.too_big = the image is too large
+
+# gray.rs
+raster.gray.zero_size = the image cannot have zero size
+raster.gray.data_len = expected {expected} pixels but got {got}
+
+# lib.rs
+raster.lib.threshold = threshold outside 0-1: {value}
+raster.lib.cell_size = invalid cell size: {value} mm
+raster.lib.screen_angle = invalid screen angle: {value}
+
+# load.rs
+raster.load.read_failed = could not read {path}: {error}
+raster.load.read_failed_nopath = could not read: {error}
+raster.load.write_failed = could not write {path}: {error}
+raster.load.memory_limit = the image does not fit in the decoder memory limit ({mib} MiB); reduce its size or save the image as PNG from your editor and import it again
+raster.load.rare_tiff = {error}. If this is an uncommon TIFF, save the image as PNG from your editor and import it again
+raster.load.invalid_image = invalid image: {error}
+raster.load.tiff_memory = the TIFF exceeds the decoder memory limit; save the image as PNG from your editor and import it again
+raster.load.tiff_read = could not read the TIFF ({error}); save the image as PNG from your editor and import it again
+raster.load.invalid_png = Invalid PNG: {error}
+raster.load.unknown_format = unrecognized image format
+raster.load.png_truncated = Truncated PNG: {y} of {h} rows
+raster.load.tiff_chunk = the TIFF has an incomplete chunk; save the image as PNG from your editor and import it again
+raster.load.tiff_order = the TIFF chunks are out of order
+
+# preview.rs
+raster.preview.bad_region = invalid preview region: ({x0}, {y0})-({x1}, {y1}) mm
+
+# resample.rs
+raster.resample.bad_size = invalid size: {w} x {h} mm
+raster.resample.bad_interval = invalid line interval: {value} mm
+raster.resample.grid_too_big = the {cols} x {rows} dot grid is too large; increase the interval
+
+# scan.rs
+raster.scan.speed = invalid speed: {value}
+raster.scan.min_power = minimum power outside 0-100 %: {value}
+raster.scan.max_power = maximum power outside 0-100 %: {value}
+raster.scan.power_order = the minimum power is higher than the maximum
+raster.scan.overscan = invalid overscan: {value}
+raster.scan.dot_width = invalid dot width: {value}
+
+# warp.rs
+raster.warp.not_invertible = the image transform is not invertible
+raster.warp.zero_grid = the destination grid cannot have zero size

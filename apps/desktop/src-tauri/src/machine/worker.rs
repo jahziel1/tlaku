@@ -9,6 +9,7 @@ mod status;
 mod stream;
 
 use super::*;
+use tlaku_i18n::tr;
 
 pub(super) fn log(sink: &dyn Sink, dir: LogDir, text: &str) {
     sink.emit(Emit::Log(LogEvent {
@@ -75,7 +76,7 @@ pub(super) enum Fail {
 
 impl From<io::Error> for Fail {
     fn from(e: io::Error) -> Self {
-        Self::Lost(format!("se perdió la conexión con la máquina: {e}"))
+        Self::Lost(tr!("desktop.worker.connection_lost_io", err = e))
     }
 }
 
@@ -255,23 +256,14 @@ pub(super) fn num(v: f64) -> String {
 }
 
 pub(super) fn jog_error(reply: &str) -> String {
-    let hint = if reply.starts_with("error:9") || reply.starts_with("ALARM") {
-        " Si la máquina está en alarma, desbloquéala con $X o haz homing ($H) desde la consola."
+    if reply.starts_with("error:9") || reply.starts_with("ALARM") {
+        tr!("desktop.worker.jog_rejected_alarm", reply = reply)
     } else {
-        ""
-    };
-    format!("La máquina rechazó el movimiento ({reply}).{hint}")
+        tr!("desktop.worker.jog_rejected", reply = reply)
+    }
 }
 
 /// Valida el G-code contra el búfer de la controladora antes de tocar la máquina.
 pub(super) fn validate_lines(lines: &[String], link: &LinkProfile) -> Result<(), String> {
     validate_gcode_for(&lines.join("\n"), link).map(drop)
-}
-
-/// Primera letra en mayúscula.
-pub(super) fn capitalize(s: &str) -> String {
-    let mut c = s.chars();
-    c.next()
-        .map(|f| f.to_uppercase().collect::<String>() + c.as_str())
-        .unwrap_or_default()
 }

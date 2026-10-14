@@ -7,6 +7,7 @@ use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Job, Rgb};
 use tlaku_doc::affine::IDENTITY;
 use tlaku_doc::{DesignObject, ImageObject, ImportResult, LayerSettings, ObjectKind, VectorObject};
+use tlaku_i18n::tr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputKind {
@@ -45,10 +46,9 @@ pub fn input_kind(path: &Path) -> Result<InputKind, String> {
         "lbrn" | "lbrn2" => Ok(InputKind::Lbrn),
         "rd" => Ok(InputKind::Rd),
         "egv" => Ok(InputKind::Egv),
-        _ => Err(format!(
-            "{}: formato de entrada no soportado; usa SVG, DXF, PDF, AI, HPGL, G-code, \
-             LightBurn (.lbrn/.lbrn2), Ruida (.rd), K40 (.egv) o una imagen (PNG, JPG, BMP, WebP, TIFF, GIF, TGA)",
-            path.display()
+        _ => Err(tr!(
+            "pipeline.import.unsupported_format",
+            path = path.display()
         )),
     }
 }
@@ -118,8 +118,9 @@ impl Default for ImportExtras {
     }
 }
 
-/// Comienzo del aviso del importador de DXF cuando el archivo no declara unidades.
-const DXF_NO_UNITS: &str = "El archivo no declara unidades";
+/// Aviso del importador de DXF cuando el archivo no declara unidades (clave del catálogo de
+/// `tlaku-dxf`; se reconoce con `msg_is` sin depender del idioma).
+const DXF_NO_UNITS: &str = "dxf.lib.no_units";
 
 /// Resolución con la que se interpreta una imagen sin tamaño físico conocido.
 const IMAGE_DPI: f64 = 96.0;
@@ -197,11 +198,10 @@ fn displayable_source(path: &Path) -> Result<(std::path::PathBuf, Option<String>
     if tlaku_raster::gray::convert_to_png(path, &beside).is_ok() {
         return Ok((
             beside.clone(),
-            Some(format!(
-                "La ventana no muestra {} directamente: se convirtió a PNG y el diseño usa la \
-                 copia {}. Conserva esa copia junto al proyecto.",
-                ext.to_uppercase(),
-                beside.display()
+            Some(tr!(
+                "pipeline.import.image_converted",
+                ext = ext.to_uppercase(),
+                copy = beside.display()
             )),
         ));
     }
@@ -210,12 +210,10 @@ fn displayable_source(path: &Path) -> Result<(std::path::PathBuf, Option<String>
         .map_err(|e| format!("{}: {e}", path.display()))?;
     Ok((
         tmp.clone(),
-        Some(format!(
-            "La ventana no muestra {} directamente y no se pudo escribir junto al original: se \
-             convirtió a PNG en la carpeta temporal ({}). Si cambias de equipo o reinicias, \
-             vuelve a importar la imagen.",
-            ext.to_uppercase(),
-            tmp.display()
+        Some(tr!(
+            "pipeline.import.image_converted_temp",
+            ext = ext.to_uppercase(),
+            copy = tmp.display()
         )),
     ))
 }
@@ -294,8 +292,13 @@ pub fn import_file_extras(
     let mut svg_height_mm = 0.0;
     let (layers, mut warnings) = match kind {
         InputKind::Svg => {
-            let mut doc = tlaku_svg::import_svg(&data, opts.tolerance_mm)
-                .map_err(|e| format!("{}: SVG inválido: {e}", path.display()))?;
+            let mut doc = tlaku_svg::import_svg(&data, opts.tolerance_mm).map_err(|e| {
+                tr!(
+                    "pipeline.import.invalid_svg",
+                    path = path.display(),
+                    error = e
+                )
+            })?;
             let warnings = doc.warnings.clone();
             svg_images = std::mem::take(&mut doc.images);
             svg_height_mm = doc.height_mm;
@@ -318,13 +321,12 @@ pub fn import_file_extras(
                 .map_err(|e| format!("{}: {e}", path.display()))?;
             let mut warnings = doc.warnings.clone();
             if let Some(unit) = extras.dxf_unit_mm.filter(|u| u.is_finite() && *u > 0.0)
-                && let Some(i) = warnings.iter().position(|w| w.starts_with(DXF_NO_UNITS))
+                && let Some(i) = warnings
+                    .iter()
+                    .position(|w| tlaku_i18n::msg_is(w, DXF_NO_UNITS))
             {
                 factor = unit;
-                warnings[i] = format!(
-                    "El archivo no declara unidades: se interpretó cada unidad como {unit} mm \
-                     por la opción de importación."
-                );
+                warnings[i] = tr!("pipeline.import.dxf_unit_forced", unit = unit);
             }
             (
                 job_layers(doc.into_job(|_| tlaku_core::CutSettings::default())),
@@ -356,50 +358,60 @@ pub fn import_file_extras(
 /// Avisos del importador que explican por qué no salió nada (lo omitido), sin los de escala ni
 /// los genéricos que solo repiten que el archivo no tiene geometría.
 fn cause_warnings(warnings: &[String]) -> Vec<&str> {
-    const NOISE: [&str; 5] = [
+    // Claves de los catálogos de `tlaku-svg` y `tlaku-dxf`.
+    const NOISE: [&str; 7] = [
         DXF_NO_UNITS,
-        "El SVG no define width/height",
-        "width/height sin unidades",
-        "El documento no contiene trayectorias importables",
-        "El archivo no contiene geometría importable",
+        "svg.lib.no_size_viewbox",
+        "svg.lib.no_size_content",
+        "svg.lib.px_illustrator",
+        "svg.lib.px_other",
+        "svg.lib.no_paths",
+        "dxf.lib.no_geometry",
     ];
     warnings
         .iter()
         .map(String::as_str)
-        .filter(|w| !NOISE.iter().any(|n| w.starts_with(n)))
+        .filter(|w| !NOISE.iter().any(|k| tlaku_i18n::msg_is(w, k)))
         .collect()
 }
 
 /// Error de un archivo sin trayectorias: conserva la causa que el importador ya conoce (textos,
 /// rellenos y cotas omitidos, imágenes, elementos ocultos...) y dice qué hacer.
 fn empty_error(path: &Path, kind: InputKind, warnings: &[String]) -> String {
-    let mut msg = format!("{}: el archivo no contiene trayectorias", path.display());
     let causes = cause_warnings(warnings);
     if causes.is_empty() {
-        return msg;
+        return tr!("pipeline.import.no_paths", path = path.display());
     }
     let body = causes.join(" ");
-    msg.push_str(". ");
-    msg.push_str(&body);
-    let hint = if body.contains("contornos") {
+    let mut msg = tr!(
+        "pipeline.import.no_paths_causes",
+        path = path.display(),
+        causes = body
+    );
+    // Se reconocen por clave del catálogo de `tlaku-dxf`/`tlaku-svg`, no por palabras.
+    let dxf_text = |w: &&str| {
+        tlaku_i18n::msg_matches(w, "dxf.lib.skipped_text_one")
+            || tlaku_i18n::msg_matches(w, "dxf.lib.skipped_text_other")
+    };
+    let hint = if causes.iter().any(dxf_text) {
         // Los avisos del propio importador ya dicen cómo arreglarlo.
-        ""
-    } else if body.contains("imagen") {
-        " Exporta la imagen como PNG o JPG e impórtala como imagen."
+        None
+    } else if causes
+        .iter()
+        .any(|w| tlaku_i18n::msg_matches(w, "svg.lib.images_skipped"))
+    {
+        Some(tr!("pipeline.import.hint_image"))
     } else {
         match kind {
-            InputKind::Dxf => {
-                " Convierte esos elementos a contornos (líneas, polilíneas y curvas) en tu \
-                 programa de CAD y vuelve a exportar."
-            }
-            InputKind::Svg => {
-                " Convierte el texto y los objetos a trayectos (contornos) en tu editor y \
-                 vuelve a guardar el SVG."
-            }
-            _ => "",
+            InputKind::Dxf => Some(tr!("pipeline.import.hint_dxf")),
+            InputKind::Svg => Some(tr!("pipeline.import.hint_svg")),
+            _ => None,
         }
     };
-    msg.push_str(hint);
+    if let Some(hint) = hint {
+        msg.push(' ');
+        msg.push_str(&hint);
+    }
     msg
 }
 
@@ -451,16 +463,15 @@ fn svg_images_result(
         objects.push(obj);
         saved.push(file.display().to_string());
     }
-    let mut warnings = vec![format!(
-        "El SVG no trae trayectorias, solo {} imagen(es) incrustada(s): se importó como imagen \
-         (copia en {}). Para cortar o grabar contornos hace falta un SVG con trayectos.",
-        images.len(),
-        saved.join(", ")
+    let mut warnings = vec![tr!(
+        "pipeline.import.svg_only_images",
+        n = images.len(),
+        files = saved.join(", ")
     )];
     // Los avisos que hablan de imágenes omitidas o de falta de trayectorias ya no aplican.
     warnings.extend(svg_warnings.into_iter().filter(|w| {
-        !w.contains("incrustada(s) omitida(s)")
-            && !w.starts_with("El documento no contiene trayectorias importables")
+        !tlaku_i18n::msg_matches(w, "svg.lib.images_skipped")
+            && !tlaku_i18n::msg_is(w, "svg.lib.no_paths")
     }));
     Ok(ImportResult {
         objects,
@@ -715,7 +726,11 @@ mod extras_tests {
         .unwrap();
         let mm = import_file(&dxf).unwrap();
         approx(mm.objects[0].bounds().unwrap().max.x, 10.0);
-        assert!(mm.warnings.iter().any(|w| w.starts_with(DXF_NO_UNITS)));
+        assert!(
+            mm.warnings
+                .iter()
+                .any(|w| tlaku_i18n::msg_is(w, DXF_NO_UNITS))
+        );
         let inch = import_file_extras(
             &dxf,
             &ImportOptions::default(),

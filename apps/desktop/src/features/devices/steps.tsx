@@ -298,7 +298,7 @@ export function EntryDetail({ entry: e }: { entry: CatalogEntry }) {
       <h3 className="mc-sub">{e.generic ? e.model : `${e.brand} ${e.model}`}</h3>
       <p className="hint">{t('catalog.fact.kind')}: {kindLabel(e.kind)}</p>
       {rows.length > 0 && (
-        <table className="mc-table dev-facts">
+        <table className="mc-table dev-facts" aria-label={t('a11y.table.facts')}>
           <tbody>{rows}</tbody>
         </table>
       )}
@@ -457,7 +457,7 @@ export function SaveStep({ name, onName, built, host = '', onHost, board = 'M2',
       <section aria-label={t('catalog.save.summary')}>
         <h3 className="mc-sub">{t('catalog.save.summary')}</h3>
         <p className="hint">{t('catalog.save.kind')}: {kindLabel(d.kind)}</p>
-        <table className="mc-table">
+        <table className="mc-table" aria-label={t('catalog.save.summary')}>
           <thead>
             <tr>
               <th scope="col">{t('catalog.review.field')}</th>

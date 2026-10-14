@@ -6,6 +6,7 @@ use crate::link::PacketLink;
 use crate::packet::{self, Response};
 use crate::swizzle::{Magic, probe_candidates};
 use std::time::{Duration, Instant};
+use tlaku_i18n::tr;
 
 impl<L: PacketLink> RuidaSession<L> {
     // ------------------------------------------------------------------------------------
@@ -95,9 +96,7 @@ impl<L: PacketLink> RuidaSession<L> {
                             bed_mm,
                         });
                     }
-                    last = SessionError::Protocol(
-                        "la respuesta de la tarjeta no se entiende con este magic".into(),
-                    );
+                    last = SessionError::Protocol(tr!("ruida.session.probe_unreadable"));
                 }
                 // El ACK de otro magic delata a la máquina: no hace falta insistir con éste.
                 if wire_ack.is_some_and(|b| Magic::from_wire_ack(b) != self.cfg.magic) {
@@ -113,11 +112,9 @@ impl<L: PacketLink> RuidaSession<L> {
                     continue;
                 }
                 if packet::interpret_response(b, self.cfg.magic) == Response::Ack {
-                    return Err(SessionError::Protocol(
-                        "la máquina confirma el paquete pero no contesta a la lectura del ID de \
-                         tarjeta"
-                            .into(),
-                    ));
+                    return Err(SessionError::Protocol(tr!(
+                        "ruida.session.probe_no_card_id"
+                    )));
                 }
             }
             return Err(last);

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use tlaku_core::Rgb;
 use tlaku_doc::{Document, ImageObject, LayerMode, LayerSettings, ObjectKind, union};
 use tlaku_export::{PngOptions, export_png};
+use tlaku_i18n::tr;
 use tlaku_trace::{TraceResult, TraceSettings};
 
 /// Traza el archivo de imagen `path` en contornos de `size_mm` (ancho, alto). Las curvas salen en
@@ -16,7 +17,7 @@ pub fn run_trace(
     size_mm: [f64; 2],
 ) -> Result<TraceResult, String> {
     if path.trim().is_empty() {
-        return Err("La imagen no tiene una ruta de archivo".into());
+        return Err(tr!("desktop.edit.imaging.no_path"));
     }
     tlaku_trace::trace_path(path, settings, size_mm)
 }
@@ -31,7 +32,7 @@ pub async fn trace_image(
     // El trazado es CPU puro y puede tardar segundos: fuera del hilo principal.
     tauri::async_runtime::spawn_blocking(move || run_trace(&path, &settings, size_mm))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -111,16 +112,10 @@ pub fn vectors_to_bitmap_file(
     opts: &BitmapOptions,
 ) -> Result<BitmapResult, String> {
     if !(opts.dpi.is_finite() && (10.0..=2400.0).contains(&opts.dpi)) {
-        return Err(format!(
-            "Resolución inválida: {} ppp (entre 10 y 2400).",
-            opts.dpi
-        ));
+        return Err(tr!("desktop.edit.trace.bad_dpi", value = opts.dpi));
     }
     if !(opts.stroke_mm.is_finite() && opts.stroke_mm > 0.0) {
-        return Err(format!(
-            "Grosor de contorno inválido: {} mm.",
-            opts.stroke_mm
-        ));
+        return Err(tr!("desktop.edit.trace.bad_stroke", value = opts.stroke_mm));
     }
     let black = Rgb(0, 0, 0);
     let mut tmp = doc.clone();
@@ -144,7 +139,7 @@ pub fn vectors_to_bitmap_file(
         .iter()
         .filter_map(|o| o.bounds())
         .reduce(union)
-        .ok_or("La selección no tiene formas vectoriales que convertir.")?;
+        .ok_or_else(|| tr!("desktop.edit.trace.no_vectors"))?;
     tmp.layers = vec![LayerSettings {
         mode: if opts.filled {
             LayerMode::Fill
@@ -170,7 +165,7 @@ pub fn vectors_to_bitmap_file(
     let out = export_png(&tmp, None, &png_opts)?;
     let bytes = if opts.invert {
         let mut img = image::load_from_memory(&out.bytes)
-            .map_err(|e| format!("No se pudo leer el PNG generado: {e}"))?
+            .map_err(|e| tr!("desktop.edit.trace.read_png_failed", err = e))?
             .to_rgba8();
         for p in img.pixels_mut() {
             p.0[0] = 255 - p.0[0];
@@ -179,14 +174,14 @@ pub fn vectors_to_bitmap_file(
         }
         let mut cur = std::io::Cursor::new(Vec::new());
         img.write_to(&mut cur, image::ImageFormat::Png)
-            .map_err(|e| format!("No se pudo codificar el PNG: {e}"))?;
+            .map_err(|e| tr!("desktop.edit.trace.encode_png_failed", err = e))?;
         cur.into_inner()
     } else {
         out.bytes
     };
     let (width_px, height_px) = {
         let img = image::load_from_memory(&bytes)
-            .map_err(|e| format!("No se pudo leer el PNG generado: {e}"))?;
+            .map_err(|e| tr!("desktop.edit.trace.read_png_failed", err = e))?;
         (img.width(), img.height())
     };
     let px_mm = 25.4 / opts.dpi;
@@ -231,7 +226,7 @@ pub async fn vectors_to_bitmap(
         )
     })
     .await
-    .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+    .map_err(crate::edit::task_interrupted)?
 }
 
 /// Lo que se escribió con "Guardar imagen procesada".
@@ -250,7 +245,7 @@ pub fn save_processed(
     path: &str,
 ) -> Result<ProcessedSummary, String> {
     if path.trim().is_empty() {
-        return Err("Falta la ruta del archivo.".into());
+        return Err(tr!("desktop.edit.trace.missing_path"));
     }
     let (png, [width_px, height_px]) = tlaku_pipeline::processed_png(
         Path::new(&image.source_path),
@@ -275,7 +270,7 @@ pub async fn save_processed_image(
 ) -> Result<ProcessedSummary, String> {
     tauri::async_runtime::spawn_blocking(move || save_processed(&image, &layer, &path))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

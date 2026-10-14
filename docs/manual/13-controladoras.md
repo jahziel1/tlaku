@@ -29,7 +29,7 @@ Dos columnas dicen con honestidad lo que se hizo: qué se **probó en emulador**
 | G-code propio | G-code personalizado | USB serie | Por validar con máquina real | Tú escribes el dialecto; parte del de GRBL 1.1 | Todo |
 | Ruida (CO2 de caja con pantalla) | Ruida (CO2, por red; experimental) | Red (UDP) | **Experimental** | Emulador UDP propio: conectar, sondear, subir guardando o ejecutando, pausa, reanudar, detener, saltos, encuadre, información y lista de documentos. Máquina virtual **Ruida (CO2)** | Todo. Direcciones y unidades de la información, numeración de documentos, home, estados de pausa. Ver [Ruida y K40](13b-ruida-y-k40.md) |
 | K40 con placa M2 Nano | K40 con M2 Nano (experimental) | USB directo | **Experimental** (solo contra el emulador): en la app y en la línea de comandos (`tlaku k40`) | Placa simulada: CRC, paquetes, estados, ejecución en reloj virtual; las velocidades de cada placa contra 1511 vectores de otro proyecto de código abierto | Todo: el USB real, la placa, el home, los tiempos. Ver [Ruida y K40](13b-ruida-y-k40.md) |
-| Galvo (fibra, UV, CO2 galvo; tarjeta JCZ/BJJCZ LMCV4 de EZCAD2) | — (se maneja con `tlaku galvo`) | USB directo | **Experimental**, desde la línea de comandos; la interfaz en la app está en camino | Tarjeta simulada: compilar, enviar, encuadrar con el puntero rojo, marcar, apagar ante errores, detener y fallos de USB inyectados | Todo: el USB real, las unidades de velocidad, frecuencia, potencia y retardos, los bits de estado, el apagado ante un USB caído. Solo la tarjeta `9588:9899`. Ver [Galvo](13c-galvo.md) y, **antes de conectar nada**, [Seguridad del galvo](13d-galvo-seguridad.md) |
+| Galvo (fibra, UV, CO2 galvo; tarjeta JCZ/BJJCZ LMCV4 de EZCAD2) | — (se maneja desde el panel Máquina o con `tlaku galvo`) | USB directo | **Experimental**, desde la app y desde la línea de comandos | Tarjeta simulada: compilar, enviar, encuadrar con el puntero rojo, marcar, apagar ante errores, detener y fallos de USB inyectados | Todo: el USB real, las unidades de velocidad, frecuencia, potencia y retardos, los bits de estado, el apagado ante un USB caído. Solo la tarjeta `9588:9899`. Ver [Galvo](13c-galvo.md) y, **antes de conectar nada**, [Seguridad del galvo](13d-galvo-seguridad.md) |
 | Galvo EZCAD3 / DLC, BSL | — | — | **No soportada** | — | — |
 | Trocen, TopWisdom | — | — | **No soportada** | — | — |
 | xTool por Wi-Fi propietario, Glowforge | — | — | **No soportada** | — | — |
@@ -65,7 +65,7 @@ Las dos están marcadas **experimentales** y tienen su propia página: qué hace
 
 ## Galvo
 
-Las tarjetas galvo JCZ/BJJCZ LMCV4 (láseres de fibra, UV y CO2 galvo con EZCAD2) tienen soporte **experimental** desde la línea de comandos (`tlaku galvo`); la interfaz en la app está en camino. Se probó solo contra una tarjeta simulada y, como la fibra es un láser de clase 4 con haz invisible, tiene dos páginas: [Galvo (experimental)](13c-galvo.md) y [Seguridad del galvo](13d-galvo-seguridad.md), que conviene leer **antes** de conectar nada.
+Las tarjetas galvo JCZ/BJJCZ LMCV4 (láseres de fibra, UV y CO2 galvo con EZCAD2) tienen soporte **experimental** desde la app (alta con verificación sin láser, perfil, encuadre con el puntero rojo y marcado) y desde la línea de comandos (`tlaku galvo`). Se probó solo contra una tarjeta simulada y, como la fibra es un láser de clase 4 con haz invisible, tiene dos páginas: [Galvo (experimental)](13c-galvo.md) y [Seguridad del galvo](13d-galvo-seguridad.md), que conviene leer **antes** de conectar nada.
 
 ## Marcas del catálogo
 

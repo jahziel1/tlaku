@@ -3,6 +3,7 @@
 use crate::bitmap::RasterBitmap;
 use tlaku_core::Point;
 use tlaku_core::toolpath::{Move, PowerMode, ToolpathBlock};
+use tlaku_i18n::tr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RasterSettings {
@@ -46,24 +47,22 @@ impl Default for RasterSettings {
 impl RasterSettings {
     pub fn validate(&self) -> Result<(), String> {
         if self.speed_mm_min.is_nan() || self.speed_mm_min <= 0.0 {
-            return Err(format!("velocidad inválida: {}", self.speed_mm_min));
+            return Err(tr!("raster.scan.speed", value = self.speed_mm_min));
         }
-        for (name, v) in [
-            ("mínima", self.min_power_pct),
-            ("máxima", self.max_power_pct),
-        ] {
-            if !(0.0..=100.0).contains(&v) {
-                return Err(format!("potencia {name} fuera de 0-100 %: {v}"));
-            }
+        if !(0.0..=100.0).contains(&self.min_power_pct) {
+            return Err(tr!("raster.scan.min_power", value = self.min_power_pct));
+        }
+        if !(0.0..=100.0).contains(&self.max_power_pct) {
+            return Err(tr!("raster.scan.max_power", value = self.max_power_pct));
         }
         if self.min_power_pct > self.max_power_pct {
-            return Err("la potencia mínima supera a la máxima".into());
+            return Err(tr!("raster.scan.power_order"));
         }
         if !(self.overscan_mm >= 0.0 && self.overscan_mm.is_finite()) {
-            return Err(format!("overscan inválido: {}", self.overscan_mm));
+            return Err(tr!("raster.scan.overscan", value = self.overscan_mm));
         }
         if !(self.dot_width_mm >= 0.0 && self.dot_width_mm.is_finite()) {
-            return Err(format!("ancho de punto inválido: {}", self.dot_width_mm));
+            return Err(tr!("raster.scan.dot_width", value = self.dot_width_mm));
         }
         Ok(())
     }

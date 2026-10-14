@@ -1,15 +1,20 @@
 import { CircleAlert, CircleCheck, Info, LoaderCircle, RefreshCw, ShieldCheck, TriangleAlert, X } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import type { Document } from '@/api/types';
 import type { I18nKey } from '@/i18n';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
+import { useReturnFocus } from '@/ui/useReturnFocus';
 import { useStore } from '@/store';
 import { canFix, fixFinding, fixSafe, isSafe, selectFinding } from './fixes';
+import { clampPos, defaultPos, tabsBottom, windowSize, type PanelPos } from './position';
 import { closeReview, useReviewUi } from './store';
 import { findingTitle, findingWhy } from './text';
 import type { Finding, Severity } from './types';
 import { useReview } from './useReview';
 import './review.css';
+
+/** Paso, en píxeles, del teclado al mover el panel con las flechas. */
+const KEY_STEP = 16;
 
 const SEVERITY_ICON: Record<Severity, typeof Info> = { serious: CircleAlert, warning: TriangleAlert, info: Info };
 
@@ -57,9 +62,11 @@ function FindingRow({ finding, doc, busy, ignored }: { finding: Finding; doc: Pi
 /**
  * Panel «Revisar diseño»: lista de hallazgos con «Arreglar», «Seleccionar» e «Ignorar», y «Arreglar
  * todo lo seguro». Flota sobre el lienzo (no es modal) para poder seleccionar y mirar el diseño.
- * Se actualiza solo cuando el diseño cambia.
+ * Se actualiza solo cuando el diseño cambia. Abre debajo de la barra de pestañas del panel derecho
+ * (para no taparlas) y se mueve arrastrando su título o con las flechas; la posición se recuerda.
  */
 export function ReviewPanel() {
+  useReturnFocus();
   const titleId = useId();
   const doc = useStore((s) => s.doc);
   const { findings, status, error, refresh } = useReview(true);
@@ -70,13 +77,66 @@ export function ReviewPanel() {
   const active = findings.filter((f) => !ignoredKeys.includes(f.key));
   const hidden = findings.filter((f) => ignoredKeys.includes(f.key));
   const safe = active.filter(isSafe);
-  const onKeyDown = (e: React.KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') closeReview();
   };
 
+  // Posición: la que dejó el usuario o, al abrir por primera vez, bajo la barra de pestañas.
+  const [pos, setPos] = useState<PanelPos>(() => useReviewUi.getState().pos ?? defaultPos(windowSize(), tabsBottom()));
+  const drag = useRef<{ pointerId: number; x: number; y: number; from: PanelPos } | null>(null);
+  const shown = clampPos(pos, windowSize());
+  const commit = (p: PanelPos) => {
+    const next = clampPos(p, windowSize());
+    setPos(next);
+    useReviewUi.getState().set({ pos: next });
+  };
+  const dragStart = (e: PointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || (e.target as Element).closest('button')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, from: shown };
+  };
+  const dragMove = (e: PointerEvent<HTMLElement>) => {
+    const g = drag.current;
+    if (g && g.pointerId === e.pointerId) setPos(clampPos({ x: g.from.x + e.clientX - g.x, y: g.from.y + e.clientY - g.y }, windowSize()));
+  };
+  const dragEnd = (e: PointerEvent<HTMLElement>) => {
+    const g = drag.current;
+    if (!g || g.pointerId !== e.pointerId) return;
+    drag.current = null;
+    commit(shown);
+  };
+  const headKeys = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const dx = e.key === 'ArrowLeft' ? -KEY_STEP : e.key === 'ArrowRight' ? KEY_STEP : 0;
+    const dy = e.key === 'ArrowUp' ? -KEY_STEP : e.key === 'ArrowDown' ? KEY_STEP : 0;
+    if (dx === 0 && dy === 0) return;
+    e.preventDefault();
+    commit({ x: shown.x + dx, y: shown.y + dy });
+  };
+
   return (
-    <section className="rv-panel" role="dialog" aria-labelledby={titleId} onKeyDown={onKeyDown}>
-      <header className="rv-head">
+    <section
+      className="rv-panel"
+      role="dialog"
+      aria-labelledby={titleId}
+      onKeyDown={onKeyDown}
+      style={{ left: shown.x, top: shown.y, maxHeight: `calc(100vh - ${shown.y}px - var(--status-h) - var(--s-4))` }}
+    >
+      {/* Asa de teclado: el título se enfoca y las flechas mueven el panel. */}
+      <header
+        className="rv-head"
+        role="group"
+        aria-label={t('review.move.handle')}
+        aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+        title={t('review.move.hint')}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        onPointerDown={dragStart}
+        onPointerMove={dragMove}
+        onPointerUp={dragEnd}
+        onPointerCancel={dragEnd}
+        onKeyDown={headKeys}
+      >
         <h2 id={titleId} className="panel-title">
           <ShieldCheck size={15} aria-hidden="true" />
           {t('review.title')}
@@ -112,7 +172,7 @@ export function ReviewPanel() {
         {active.length > 0 && (
           <>
             <p className="rv-summary" role="status">
-              {active.length === 1 ? t('review.count.one') : t('review.count.other', { n: active.length })}
+              {tn('review.count', active.length)}
             </p>
             <p className="hint">{t('review.intro')}</p>
             <div className="rv-safe">

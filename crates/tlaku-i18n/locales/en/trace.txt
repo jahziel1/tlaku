@@ -1,0 +1,21 @@
+# Mensajes de tlaku-trace (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: trace.<módulo>.<qué> = plantilla
+
+# lib.rs
+trace.lib.read_failed = Could not read the image '{path}': {error}
+trace.lib.decode_failed = Could not decode the image: {error}
+trace.lib.bad_size = The output size in mm must be positive and finite
+trace.lib.bad_threshold = The threshold must be between 0 and 1
+trace.lib.bad_blur = The blur must be between 0 and 50 px
+trace.lib.bad_corner = The corner angle must be between 0 and 180 degrees
+trace.lib.bad_smoothness = The smoothness must be between 0 and 1
+trace.lib.empty_image = The image is empty
+trace.lib.too_big = The {w}x{h} px image is too large: the maximum is {max_side} px per side and {max_mp} megapixels in total. Reduce it before tracing
+trace.lib.specks_removed = Discarded {n} specks smaller than {side} px on a side
+trace.lib.blank = The image has no areas to trace with these settings; check the threshold or the invert option
+trace.lib.no_paths = No path was produced
+
+# spline.rs
+trace.spline.failed = The tracer failed on this image
+trace.spline.too_many_shapes = The image has too many shapes to trace; raise speckle_px or the blur
+trace.spline.shapes_failed = {n} shapes could not be traced

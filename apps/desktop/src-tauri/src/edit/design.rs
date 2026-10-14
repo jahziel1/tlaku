@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use tlaku_core::{Bounds, Point, Polyline, Rgb};
 use tlaku_doc::{BezPath, DesignObject, ObjectKind, VectorObject, affine};
 use tlaku_geom::{Envelope, Warp, concave_hull, convex_hull, warp_path};
+use tlaku_i18n::tr;
 
 /// Error máximo (mm) al aplanar los objetos para el contorno envolvente.
 const FLATTEN_MM: f64 = 0.01;
@@ -68,19 +69,18 @@ fn vector_object(source: &DesignObject, paths: Vec<BezPath>) -> DesignObject {
 
 fn make_warp(source: Bounds, envelope: &EnvelopeArg) -> Result<Warp, String> {
     let point = |[x, y]: [f64; 2]| Point::new(x, y);
-    let empty = || "La selección no tiene ancho y alto: no se puede deformar.".to_string();
+    let empty = || tr!("desktop.edit.design.no_extent");
     let (w, h) = (source.max.x - source.min.x, source.max.y - source.min.y);
     if !(w.is_finite() && h.is_finite() && w > 1e-9 && h > 1e-9) {
         return Err(empty());
     }
     if let Some(grid) = envelope.grid {
         return Warp::mesh(source, grid.map(|row| row.map(point)))
-            .ok_or_else(|| "La malla de deformación tiene puntos que no son números.".to_string());
+            .ok_or_else(|| tr!("desktop.edit.design.mesh_not_finite"));
     }
     if let Some(corners) = envelope.perspective {
-        return Warp::perspective(source, corners.map(point)).ok_or_else(|| {
-            "Las esquinas de la perspectiva no forman un cuadrilátero convexo.".to_string()
-        });
+        return Warp::perspective(source, corners.map(point))
+            .ok_or_else(|| tr!("desktop.edit.design.perspective_not_convex"));
     }
     let env = Envelope {
         bottom: edge(envelope.bottom),
@@ -99,22 +99,22 @@ pub fn warp(
     tolerance: Option<f64>,
 ) -> Result<Vec<DesignObject>, String> {
     if objects.is_empty() {
-        return Err("No hay objetos que deformar.".into());
+        return Err(tr!("desktop.edit.design.nothing_to_warp"));
     }
     let images: Vec<String> = objects
         .iter()
         .filter(|o| matches!(o.kind, ObjectKind::Image(_)))
-        .map(|o| format!("«{}»", o.id))
+        .map(|o| crate::edit::quoted(&o.id))
         .collect();
     if !images.is_empty() {
-        return Err(format!(
-            "Las imágenes no se pueden deformar: {}.",
-            images.join(", ")
+        return Err(tr!(
+            "desktop.edit.design.warp_images",
+            list = images.join(", ")
         ));
     }
     let tol = tolerance.unwrap_or(DEFAULT_WARP_TOLERANCE_MM);
     if !(tol.is_finite() && tol > 0.0) {
-        return Err("La tolerancia de la deformación no es válida.".into());
+        return Err(tr!("desktop.edit.design.bad_warp_tolerance"));
     }
     let source = Bounds {
         min: Point::new(bounds[0][0], bounds[0][1]),
@@ -125,10 +125,7 @@ pub fn warp(
     for o in objects {
         let curves = o.curves();
         if curves.is_empty() {
-            return Err(format!(
-                "El objeto «{}» no tiene contorno que deformar (¿un texto sin contorno generado?).",
-                o.id
-            ));
+            return Err(tr!("desktop.edit.design.warp_no_outline", id = o.id));
         }
         out.push(vector_object(
             o,
@@ -145,7 +142,7 @@ pub fn hull(
     layer: Option<Rgb>,
 ) -> Result<Vec<DesignObject>, String> {
     let Some(first) = objects.first() else {
-        return Err("No hay objetos de los que sacar el contorno.".into());
+        return Err(tr!("desktop.edit.design.hull_nothing"));
     };
     let points: Vec<Point> = objects
         .iter()
@@ -154,11 +151,11 @@ pub fn hull(
         .collect();
     let outline = match max_edge {
         Some(edge) if edge.is_finite() && edge > 0.0 => concave_hull(&points, edge),
-        Some(_) => return Err("La distancia máxima de arista debe ser un número positivo.".into()),
+        Some(_) => return Err(tr!("desktop.edit.design.bad_max_edge")),
         None => convex_hull(&points),
     };
     if outline.len() < 3 {
-        return Err("La selección no tiene área: no se puede envolver.".into());
+        return Err(tr!("desktop.edit.design.hull_no_area"));
     }
     let path = BezPath::from(&Polyline {
         points: outline,
@@ -190,7 +187,7 @@ pub fn tangent(
         .iter()
         .any(|o| matches!(o.kind, ObjectKind::Image(_)))
     {
-        return Err("Las imágenes no pueden participar en el círculo tangente.".into());
+        return Err(tr!("desktop.edit.design.tangent_images"));
     }
     let shapes: Vec<Vec<Polyline>> = objects
         .iter()
@@ -215,7 +212,7 @@ pub async fn warp_objects(
 ) -> Result<Vec<DesignObject>, String> {
     tauri::async_runtime::spawn_blocking(move || warp(&objects, bounds, &envelope, tolerance))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 /// Contorno envolvente de los objetos: convexo, o cóncavo con `max_edge` (mm).
@@ -227,7 +224,7 @@ pub async fn hull_outline(
 ) -> Result<Vec<DesignObject>, String> {
     tauri::async_runtime::spawn_blocking(move || hull(&objects, max_edge, layer))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 /// Círculos tangentes a 2 o 3 objetos (con 2 hace falta `radius`).
@@ -238,7 +235,7 @@ pub async fn tangent_circles(
 ) -> Result<Vec<TangentCircle>, String> {
     tauri::async_runtime::spawn_blocking(move || tangent(&objects, radius))
         .await
-        .map_err(|e| format!("La tarea se interrumpió: {e}"))?
+        .map_err(crate::edit::task_interrupted)?
 }
 
 #[cfg(test)]

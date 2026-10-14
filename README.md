@@ -166,21 +166,31 @@ empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs
 
 ### En camino
 
-Estas funciones están en el plan y todavía no son parte de la app:
+Estas funciones siguen pendientes; ninguna bloquea la beta. El criterio completo está en la sección 2
+de [docs/spec/cobertura/auditoria.md](docs/spec/cobertura/auditoria.md) y el plan en
+[docs/plan-completo.md](docs/plan-completo.md).
 
-- Del diseño avanzado: deformar con manijas en el lienzo y con malla de 16 puntos, redondear
-  esquinas con un clic por esquina, guías temporales de alineación y paneles flotantes.
-- De las máquinas: escribir los ajustes de una controladora Ruida y borrar o ejecutar sus
-  documentos, cámaras de red y presets de cámara, alinear la cámara del cabezal con marcas, las
-  pulgadas en las capas, las máquinas y la cámara, marcar un perfil como predeterminado y
-  autoenfoque.
-- **Galvo** (fibra, UV) en la app (hoy solo por línea de comandos), y repetir un trabajo con el
-  alimentador automático (hoy solo lo usa el tiling).
-- Pruebas con una máquina real: el corte avanzado, los ajustes en vivo, la conexión por red, Ruida,
-  el K40 y el resto de las funciones de máquina solo se han validado con emuladores. La ventana
-  nueva tampoco se ha probado en una ventana real.
+- **Antes de la beta:** actualización automática, el sitio con donaciones y publicar los instaladores
+  (en curso), y probar «Nueva ventana» en una ventana real.
+- **Diseño y capas:** el Modo principiante completo (ocultar herramientas y menús; el modo sencillo
+  cubre gran parte), las propiedades de imagen y de texto en la misma ventana, el ajuste magnético
+  de las manijas de deformar, revertir un chaflán (hoy se usa Deshacer), valores por defecto de capa
+  por color y por máquina, las pulgadas en las capas, las máquinas y la cámara, y autoenfoque.
+- **Ruida:** elegir el nombre del documento y sobrescribir, borrar y ejecutar documentos de la
+  memoria de la controladora, escribir sus ajustes (con respaldo automático y `.lbset`) y el
+  rotativo. Todo esto espera una máquina de pruebas.
+- **Galvo:** un editor propio del rotativo en el perfil, partir formas enteras y marcar al vuelo, el
+  asistente de nueve puntos y aplicar un `.cor` de EZCAD, y la vista previa de la deformación de
+  cilindro y cono. Esperan una tarjeta real.
+- **Otras máquinas:** el offset de U por capa y el láser 2 con Ruida, el alimentador nativo de una
+  controladora DSP con tiling en varias columnas, y encontrar el centro tocando tres puntos con el
+  cabezal. Preferencias de cámara, el manual completo en inglés y los formatos `.sc` y `.mage`
+  (sin especificación pública) quedan para después.
+- **Pruebas con una máquina real:** el corte avanzado, los ajustes en vivo, la conexión por red,
+  Ruida, el K40, el galvo y el resto de las funciones de máquina solo se han validado con
+  emuladores. La lista para hacerlo está en [docs/validacion-hardware.md](docs/validacion-hardware.md).
 
-El estado real, función por función (178 de las 217 funciones del inventario están hechas), está en
+El estado real, función por función (195 de las 217 funciones del inventario están hechas), está en
 [docs/spec/cobertura/README.md](docs/spec/cobertura/README.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
@@ -250,7 +260,7 @@ npm run tauri build     # instaladores en target/release/bundle/
 
 Para desarrollar, `npm run tauri dev`. Detalles en [apps/desktop/README.md](apps/desktop/README.md).
 
-## Contribuir y donar
+## Contribuir
 
 Tlaku es de todos y lo hace posible quien lo prueba, lo mejora y lo difunde.
 
@@ -260,9 +270,17 @@ Tlaku es de todos y lo hace posible quien lo prueba, lo mejora y lo difunde.
   que conviene incluir.
 - **Código y documentación:** lee [CONTRIBUTING.md](CONTRIBUTING.md). El proyecto es de sala limpia:
   no se copia código, textos ni capturas de programas comerciales.
-- **Donar:** el proyecto no tiene empresa detrás y se sostiene con donaciones, que pagan las pruebas
-  con máquinas reales, la firma de los instaladores y tiempo de desarrollo. Enlace de donaciones
-  **(PENDIENTE: publicar y poner aquí la dirección)**. Donar es voluntario: el programa es el mismo.
+
+## Apoyar el proyecto
+
+El proyecto no tiene empresa detrás. Las donaciones, si las hay, pagan las pruebas con máquinas
+reales, la firma de los instaladores y tiempo de desarrollo. Donar es voluntario: el programa es el
+mismo con o sin donación. Dentro de la app: menú Ayuda > "Donar al proyecto".
+
+<!-- Los marcadores se llenan con site/config.json: `node scripts/build-site.mjs --readme`
+     (una línea con marcador vacío se borra). Ver docs/publicar.md. -->
+- GitHub Sponsors: {{SPONSORS_URL}}
+- Ko-fi: {{KOFI_URL}}
 
 ## Documentación
 
