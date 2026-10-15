@@ -290,3 +290,26 @@ Pendientes que solo se resuelven con la máquina física: `$I` real de la clási
 - Aire: https://forum.creality.com/t/falcon2-40w-air-assist/40384
 - M3/M4: https://forum.lightburnsoftware.com/t/creality-falcon-2-40w/137856 , https://docs.lightburnsoftware.com/2.0/Guides/GRBLConfiguration/
 - Conexión USB: https://forum.lightburnsoftware.com/t/lightburn-falcon2-controller-firmware-is-stuck/190904 , https://forum.creality.com/t/connection-problems-with-creality-falcon-2-22w/36882
+
+## 10. Primera sesión con una Falcon2 real (2026-10-14, macOS)
+
+Primera prueba con hardware de Tlaku, niveles N1 de [validacion-hardware.md](../validacion-hardware.md)
+(solo lectura, sin mover ni encender el láser). Máquina del autor, Falcon2 22 W, conectada a la Mac.
+
+- **Puerto:** aparece como `/dev/cu.usbmodem1234561`, dispositivo USB «Espressif Device»
+  (VID `0x303A`, PID `0x4001`): es el USB nativo del ESP32-S3, **no** un CH340, así que en macOS no hace
+  falta driver. Se desconectó y volvió a aparecer sola una vez al conectar la cámara al mismo hub: mejor
+  conectarla directa a la computadora.
+- **Cámara:** «Creality Falcon Camera» (VID `0x1BCF`, PID `0x0B19`), UVC estándar; la reconoce el sistema.
+- **`$I`:** `[VER:1.1f.20220810:]`, `[OPT:VHL,127,65536]` y
+  `[software versions: CV50-Pro-MASTER-Release V1.0.0 20231129-1024]`: la clásica usa el firmware de la
+  familia Pro.
+- **`$$`:** coincide con lo esperado (`$30=1000`, `$32=1`, `$22=1`, `$21=1`, `$23=3`, `$100=$101=80`,
+  `$130=400`, `$131=415`, `$150` a `$161` presentes). Además: `$3=4` (Y invertido), **`$110=25000` y
+  `$111=8000`** (la Y es mucho más lenta que la X), `$120=$121=1000`, `$11=0.010`, `$27=5.000`.
+- **`?` en reposo:** `<Idle|MPos:0.000,0.000,0.000|Bf:127,65535|FS:0,0|Ov:100,100,100|A:S>`; los
+  siguientes, sin `Ov` ni `A`. El primero trae `A:S` (accesorio «husillo») aunque `$G` dice `M5`.
+- **`$G`:** `[GC:G1 G54 G17 G21 G90 G94 M5 M9 T0 F600 S0.000]`.
+- **`$#`:** las coordenadas de trabajo traen **`-nan`** en X (`[G54:-nan,0.008,0.000]`, igual G55 a G59,
+  G28 y G30). Tlaku descarta los valores no finitos (`finite_list`), así que no producen posiciones
+  rotas; conviene no depender de G54 en esta máquina.

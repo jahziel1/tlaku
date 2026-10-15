@@ -168,9 +168,9 @@ export const catalog = {
 
   // ---- notas del catálogo -----------------------------------------------------
   'catalog.note.falcon.readSpeeds':
-    'Las versiones de firmware de la Falcon2 traen velocidades y aceleraciones distintas ($110 de 25 000 a 50 000; $120 de 1000 a 5000): lee los de tu máquina.',
+    'Las versiones de firmware de la Falcon2 traen velocidades y aceleraciones distintas ($110 de 25 000 a 50 000; $120 de 1000 a 5000) y la Y puede ser mucho más lenta que la X (una Falcon2 22 W real: $110=25 000, $111=8000): lee los de tu máquina.',
   'catalog.note.falcon.cable':
-    'Con USB-C se reporta que un cable C a C no funciona: usa uno A a C. Necesita el driver CH340.',
+    'Con USB-C se reporta que un cable C a C no funciona: usa uno A a C. Las placas con ESP32-S3 usan USB nativo (sin driver en macOS); las más antiguas, el driver CH340.',
   'catalog.note.falcon.workOffsets':
     'Los desplazamientos de trabajo G54 a G59 del firmware de Creality pueden dar -nan; Tlaku no los usa.',
   'catalog.note.falcon.accelDiffers': 'No hay cifra oficial de aceleración; los usuarios publican 1000 y 5000. Se compara con $120/$121.',
