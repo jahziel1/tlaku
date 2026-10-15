@@ -11,7 +11,11 @@
 //! - La colocación es voraz: gana el vértice libre con mejor puntaje ("gravedad" o "abajo e
 //!   izquierda"). Con `use_holes`, los huecos de las piezas colocadas son zonas donde caben otras.
 //! - Una búsqueda de recocido simulado sobre el orden y las rotaciones mejora la solución hasta
-//!   el tope de tiempo o hasta que se pide parar ([`search`]).
+//!   el tope de tiempo, hasta que se pide parar o hasta que deja de mejorar ([`search`]).
+//! - Cada pieza puede restringir sus giros ([`PieceRotation`]: veta de la madera = 0° y 180°, o
+//!   sin giro). [`nest_sheets`] reparte las piezas en varias hojas (primero una lista de retazos
+//!   y luego hojas nuevas) y [`leftover`] calcula el sobrante de una hoja para guardarlo como
+//!   retazo.
 //!
 //! # Referencias (solo ideas; no se copió código)
 //! Bennell y Oliveira, "The geometry of nesting problems: a tutorial" (2008); SVGnest (MIT) y

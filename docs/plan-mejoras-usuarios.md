@@ -590,7 +590,9 @@ está caliente: solo para si lleva el doble de evaluaciones que las que costó h
 intercambios y movimientos de orden son casi siempre locales (cerca en la lista), con saltos largos el 30 % de las
 veces; (4) una hoja o retazo donde no cabe ninguna pieza se abandona al instante (antes habría gastado todo su tiempo). **Probado y descartado** (sin
 mejora medible): un término de compacidad en el costo, partir del mejor de varios órdenes iniciales (por lado
-mayor, alto, ancho) y sesgar las mutaciones hacia el final del orden. Donde queda la brecha (shapes, swim, jakobs2)
+mayor, alto, ancho), sesgar las mutaciones hacia el final del orden y pulir cada solución reinsertando las
+piezas más extremas con las demás fijas (no puede mejorar nada: el hueco que quedaría ya estaba libre cuando la
+voraz las colocó). Donde queda la brecha (shapes, swim, jakobs2)
 es en piezas con muchos encajes que una colocación voraz no resuelve; cerrarla pide otra clase de búsqueda
 (minimizar solapes, como `sparrow`).
 
