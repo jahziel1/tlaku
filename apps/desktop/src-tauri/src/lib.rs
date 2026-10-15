@@ -10,6 +10,7 @@
 
 mod automation;
 mod autosave;
+mod backup;
 mod commands;
 mod edit;
 mod engine;
@@ -258,6 +259,13 @@ fn build_app(context: tauri::Context) -> tauri::App {
             templates::delete_template,
             prefs::export_user_bundle,
             prefs::import_user_bundle,
+            backup::backup_config_get,
+            backup::backup_config_set,
+            backup::backup_run,
+            backup::backup_safety,
+            backup::backup_list,
+            backup::backup_check_newer,
+            backup::backup_mark_seen,
             settings_backup::write_settings_backup,
             settings_backup::read_settings_backup,
             settings_backup::grbl_settings_autobackup,

@@ -101,6 +101,11 @@ desktop.prefs.bundle_unsupported_version = Unsupported bundle version: {version}
 desktop.prefs.bundle_devices_not_list = Invalid bundle: "devices" must be a list.
 desktop.prefs.bundle_needs_ext = {path}: the bundle must be saved with the .{ext} extension.
 desktop.prefs.bundle_too_big = {path}: the file is too large to be a Tlaku bundle.
+# backup.rs
+desktop.backup.no_folder = Choose the folder for the backups first.
+desktop.backup.folder_unavailable = The backup folder is not available: {path}. Check that the drive is connected or that the cloud has finished syncing.
+desktop.backup.secret_found = The backup was refused because it contains something that looks like a secret ("{key}"). Backups never carry keys, passwords or tokens.
+desktop.backup.too_big = The backup is too large ({size} bytes; the maximum is {max}). Try again without the job history.
 # settings_backup.rs
 desktop.settings_backup.bad_ext = {path}: the backup must be saved with the .tlakuset, .tlakuruida, .txt or .csv extension.
 desktop.settings_backup.too_big_write = The backup is too large ({size} bytes; the maximum is {max}).
