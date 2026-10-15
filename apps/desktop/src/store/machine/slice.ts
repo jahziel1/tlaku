@@ -2,14 +2,14 @@
 import { getApi } from '@/api';
 import type { ConnectionEvent, GalvoSafetyAck, JobArgs, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
 import { type AlarmAction } from '@/features/machine/grblCodes';
-import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, stepDelta, type JogDir } from '@/features/machine/jogMath';
+import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, jogOutsideBed, outsideBedMessage, stepDelta, type JogDir } from '@/features/machine/jogMath';
 import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish, writeJogSteps, type FinishPosition } from '@/features/machine/moveSettings';
 import { advanceAfterJob } from '@/features/variables/advance';
 import { resolveJobArgs } from '@/features/variables/jobResolve';
 import { needsConfirmation, parseCommand, type CommandError } from '@/features/machine/commandSafety';
 import { connectionPortId } from '@/features/machine/DeviceConnectionModel';
 import { isGalvoUsbPort } from '@/features/machine/galvoPorts';
-import { portForDevice } from '@/features/machine/ruidaPorts';
+import { defaultPort, portForDevice } from '@/features/machine/ruidaPorts';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
 import { noteJobAlarm, noteJobEvent, useJobLog, type JobLogContext } from '@/features/help/jobLog';
 import { t } from '@/i18n';
@@ -297,7 +297,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     refreshPorts: async () => {
       await guard(async () => {
         const ports = await getApi().listPorts();
-        set((s) => ({ ports, selectedPort: s.selectedPort && ports.includes(s.selectedPort) ? s.selectedPort : (ports[0] ?? null) }));
+        set((s) => ({ ports, selectedPort: s.selectedPort && ports.includes(s.selectedPort) ? s.selectedPort : defaultPort(ports) }));
       });
     },
     setSelectedPort: (selectedPort) => set({ selectedPort }),
@@ -473,6 +473,9 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     jog: async (dx, dy, speed) => {
       const why = jogBlockedReason(get());
       if (why) return void get().notify('warning', t(why));
+      // El destino fuera de la cama se rechaza con el motivo (el motor lo vuelve a comprobar con la MPos real).
+      const out = jogOutsideBed(selectActiveDevice(get()), get().status?.work_pos ?? null, [dx, dy]);
+      if (out.length > 0) return void get().notify('warning', outsideBedMessage(out));
       await guard(() => getApi().jog({ dx, dy, speed: speed ?? jogSpeedNow() }));
     },
     jogDir: async (dir, step) => {
@@ -593,7 +596,9 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
 
     onStatus: (report) => {
       const was = isJobBusy(get());
+      const rebooted = report.position_unconfirmed === true && get().status?.position_unconfirmed !== true;
       apply({ type: 'status', report });
+      if (rebooted) get().notifyKey('warning', 'machine.positionUnconfirmed.notice');
       // Una alarma en pleno trabajo lo da por fallido sin un evento propio: se anota aquí.
       if (was && get().jobState === 'error') {
         noteJobAlarm(report.state, jobLogContext());

@@ -32,4 +32,9 @@ spindle: number, buffer: BufferStatus,
  * Último `Ov:` informado por la controladora (GRBL lo manda de vez en cuando, no en cada
  * reporte). `None` mientras no se haya visto, o en Marlin y Smoothieware, que no lo tienen.
  */
-overrides?: Overrides, };
+overrides?: Overrides, 
+/**
+ * La placa se reinició por su cuenta (o a mitad de un trabajo) y la posición ya no está
+ * confirmada: hasta el próximo homing el motor no revisa los límites de la cama.
+ */
+position_unconfirmed?: boolean, };

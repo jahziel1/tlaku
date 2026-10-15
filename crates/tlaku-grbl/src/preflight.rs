@@ -1206,7 +1206,7 @@ mod tests {
         let (r, out, seen) = check(IDLE, Some("$32=1\r\n"), Some(params), &expect);
         r.unwrap();
         assert!(seen.contains(&"$#".to_string()), "{seen:?}");
-        assert!(out.contains("Aviso: G54"), "{out}");
+        assert!(out.contains("(nan) en G54 y"), "{out}");
         assert!(!out.contains("G55") && out.contains("$RST=#"), "{out}");
         // Sin nan, ni aviso; y sin pedirlo, ni siquiera se consulta `$#`.
         let clean = "[G54:0.000,0.000,0.000]\r\n[TLO:0.000]\r\n";

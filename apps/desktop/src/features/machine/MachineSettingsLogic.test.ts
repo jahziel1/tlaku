@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  needsSoftLimits,
   buildBackupText,
   diffBackup,
   parseBackupText,
@@ -203,5 +204,20 @@ describe('vista previa de diferencias', () => {
     const cur = [raw(32, '1')];
     expect(diffBackup(cur, [{ id: 32, raw: '2' }], 'grblhal').changes).toHaveLength(1);
     expect(diffBackup(cur, [{ id: 32, raw: '2' }], 'grbl').invalid).toHaveLength(1);
+  });
+});
+
+describe('límites por software', () => {
+  const settings = (pairs: Record<number, string>) => parseRawSettings(Object.entries(pairs).map(([id, v]) => `$${id}=${v}`)).settings;
+
+  it('se recomiendan con homing ($22=1) y sin límites por software ($20=0)', () => {
+    expect(needsSoftLimits(settings({ 20: '0', 22: '1' }))).toBe(true);
+  });
+
+  it('no se recomiendan sin homing, con $20=1 o si no se leyeron', () => {
+    expect(needsSoftLimits(settings({ 20: '0', 22: '0' }))).toBe(false);
+    expect(needsSoftLimits(settings({ 20: '1', 22: '1' }))).toBe(false);
+    expect(needsSoftLimits(settings({ 22: '1' }))).toBe(false);
+    expect(needsSoftLimits([])).toBe(false);
   });
 });

@@ -15,6 +15,7 @@ mod factory;
 mod galvo;
 mod job;
 mod layer;
+mod lbdev;
 mod machine;
 mod materials;
 mod resume;
@@ -48,6 +49,9 @@ pub use job::{ImportResult, JobOptions, JobPreview, LayerOrder, PreviewLayer, St
 pub use layer::{
     FillStyle, ImageMode, ImageSettings, LayerMode, LayerSettings, Overscan, TabSettings,
 };
+pub use lbdev::{
+    LbdevImport, LbdevNotice, LbdevNoticeKind, kind_from_name, origin_from_mirror, parse_lbdev,
+};
 pub use machine::{
     BufferStatus, ConnectResult, ConnectionEvent, ExportResult, JobEvent, JobState, LogDir,
     LogEvent, MachineState, OverrideKind, Overrides, ProgressEvent, RealtimeCommand,
@@ -58,8 +62,8 @@ pub use materials::{
     MaterialRestriction, MaterialRole, MaterialTestParams, MaterialWarning, TestAxis, TestParam,
 };
 pub use resume::{
-    InterruptedJob, ResumeAir, ResumeKind, ResumeModal, ResumePoint, ResumeReadiness,
-    ResumeSpindle, ResumeStart, ResumeView,
+    InterruptedJob, ResumeAir, ResumeKind, ResumeMachine, ResumeModal, ResumePoint,
+    ResumeReadiness, ResumeSpindle, ResumeStart, ResumeView,
 };
 pub use ruida::{
     RuidaApplyReport, RuidaBackup, RuidaCalibration, RuidaControllerSettings, RuidaDocResult,

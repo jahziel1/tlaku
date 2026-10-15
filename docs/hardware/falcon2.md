@@ -294,7 +294,10 @@ Pendientes que solo se resuelven con la máquina física: `$I` real de la clási
 ## 10. Primera sesión con una Falcon2 real (2026-10-14, macOS)
 
 Primera prueba con hardware de Tlaku, niveles N1 de [validacion-hardware.md](../validacion-hardware.md)
-(solo lectura, sin mover ni encender el láser). Máquina del autor, Falcon2 22 W, conectada a la Mac.
+(solo lectura, sin mover ni encender el láser). Máquina del autor: **Falcon2 Pro 22 W** (cerrada, con
+cámara integrada), conectada a la Mac. Corrige lo que este documento suponía: una Pro con este firmware
+reporta `$110=25000` y `$120=1000`, no 50 000 y 5000 como un volcado de foro anterior; esas cifras
+dependen del firmware, no del modelo, así que no sirven para distinguir la Pro de la clásica.
 
 - **Puerto:** aparece como `/dev/cu.usbmodem1234561`, dispositivo USB «Espressif Device»
   (VID `0x303A`, PID `0x4001`): es el USB nativo del ESP32-S3, **no** un CH340, así que en macOS no hace
@@ -302,8 +305,7 @@ Primera prueba con hardware de Tlaku, niveles N1 de [validacion-hardware.md](../
   conectarla directa a la computadora.
 - **Cámara:** «Creality Falcon Camera» (VID `0x1BCF`, PID `0x0B19`), UVC estándar; la reconoce el sistema.
 - **`$I`:** `[VER:1.1f.20220810:]`, `[OPT:VHL,127,65536]` y
-  `[software versions: CV50-Pro-MASTER-Release V1.0.0 20231129-1024]`: la clásica usa el firmware de la
-  familia Pro.
+  `[software versions: CV50-Pro-MASTER-Release V1.0.0 20231129-1024]` (Pro 22 W).
 - **`$$`:** coincide con lo esperado (`$30=1000`, `$32=1`, `$22=1`, `$21=1`, `$23=3`, `$100=$101=80`,
   `$130=400`, `$131=415`, `$150` a `$161` presentes). Además: `$3=4` (Y invertido), **`$110=25000` y
   `$111=8000`** (la Y es mucho más lenta que la X), `$120=$121=1000`, `$11=0.010`, `$27=5.000`.
@@ -313,3 +315,72 @@ Primera prueba con hardware de Tlaku, niveles N1 de [validacion-hardware.md](../
 - **`$#`:** las coordenadas de trabajo traen **`-nan`** en X (`[G54:-nan,0.008,0.000]`, igual G55 a G59,
   G28 y G30). Tlaku descarta los valores no finitos (`finite_list`), así que no producen posiciones
   rotas; conviene no depender de G54 en esta máquina.
+
+### 10.1 Movimiento y trabajo a potencia 0 % (misma sesión, a través de la app)
+
+Con la herramienta `apps/desktop/src-tauri/examples/hwtest.rs` (Tauri real, los mismos `invoke` que la
+interfaz; nunca enciende el láser) y la cama despejada:
+
+- **Homing (`$H`):** a 5657 mm/min hacia la esquina de los interruptores; termina en (0.025, 0.025),
+  abajo a la izquierda, y la posición crece hacia dentro. Reconectar no la pierde (abrir el puerto no
+  reinicia la placa).
+- **Jog:** cuadrado de 50 mm en X/Y y vuelta, regresa exacto a (0.025, 0.025). Sin límites por software
+  (`$20=0`) un jog de −5 mm salió 4,85 mm fuera de la cama y la placa se reinició (saludo
+  `[MSG:Using cpu_map...esp32-s3]` + `Grbl 1.1f`): ver los arreglos de la ola 6 (guarda de jog y
+  detección de reinicio).
+- **Encuadre con el láser apagado:** recorre el cuadrado exacto con `spindle` 0 todo el tiempo.
+- **Detener:** Tlaku manda el hold ~120 ms después de pulsar; **la Falcon2 tarda ~16 mm en frenar a
+  3000 mm/min** (~0,4 s), mucho más que lo teórico con `$120=1000` (1,25 mm). En una emergencia, el botón
+  físico es más rápido que cualquier programa. Tras el reset de Tlaku la placa saluda de nuevo y
+  conserva la posición.
+- **Trabajo a 0 %:** cuadrado de 30 mm a 1500 mm/min (G-code revisado: todo `S0`, sin `M3`), pausa
+  (hold), reanudar (`[MSG:Restoring spindle]`), fin y regreso a (0,0).
+- **App cerrada a mitad de un trabajo:** el punto de control queda guardado, pero la máquina **siguió
+  ejecutando** lo que tenía en su búfer y terminó el trabajo; al reconectar con la máquina en movimiento
+  `$I` no responde. Ver el arreglo de reanudación de la ola 6 (relocalizar con la posición viva).
+- **Búfer:** la Falcon2 informa `Bf:127,65535` (RX de 64 KB), pero Tlaku solo envía 127 bytes por
+  adelantado (el `rx_buffer` del perfil): si la app se cierra, la máquina para tras unos pocos
+  movimientos (con líneas largas puede ser el trabajo entero).
+
+### 10.2 Dos fallas de seguridad encontradas en esa sesión (arregladas)
+
+Con `$20=0` (sin límites por software) y `$22=1`/`$21=1` (homing y límites físicos), tras el homing la
+posición de máquina es (0.025, 0.025): el cero es la esquina abajo a la izquierda, el espacio es
+**positivo** y la cama mide 400 × 415 (`$130`/`$131`).
+
+1. **Jog fuera de la cama.** Un `jog` de dx = −5 desde (0.025, 0.025) mandó `$J=G91 G21 X-5 Y0 F2000`
+   sin revisar nada y el cabezal salió 4,85 mm de la cama, hasta el final de carrera. Ahora el
+   trabajador del motor (`machine/worker/limits.rs`, así que vale para la interfaz, la automatización
+   y el celular) rechaza todo `jog` y `jog_to` cuyo destino salga de `[-0.5, ancho + 0.5] × [-0.5,
+   alto + 0.5]`, sin recortar en silencio. Solo revisa si hubo un `$H` exitoso en esta sesión, la MPos
+   quedó entre −0.1 y 10 mm en X e Y (y `$23`, si se leyó, manda a X e Y al lado negativo) y se conoce
+   la cama (la del perfil, con los ejes cruzados si hay `swap_xy`, o `$130`/`$131`). Sin eso no bloquea
+   y avisa una vez. La interfaz muestra el mismo motivo antes de mandar el paso. Recomendación: activar
+   `$20=1` para que la propia placa rechace esos movimientos (Tlaku lo propone en «Ajustes de la
+   máquina», con confirmación y respaldo; GRBL entonces exige `$130`/`$131` correctos).
+2. **Reinicio de la placa no detectado.** Justo después del movimiento la placa mandó sola
+   `[MSG:Using cpu_map...esp32-s3]` y `Grbl 1.1f ['$' for help]` y Tlaku solo lo registró. Ahora un
+   saludo no esperado marca la posición «sin confirmar» (campo `position_unconfirmed` del estado) hasta
+   el próximo homing. El saludo es **esperado** si Tlaku mandó `0x18` en los últimos ~3 s (la parada
+   segura, cancelar un encuadre o un reset manual: la placa conserva la posición tras un reset con hold
+   previo) o si llega antes del primer reporte de estado (el de la conexión). Con un trabajo en curso,
+   la primera línea del arranque (`[MSG:Using cpu_map`, que sale antes que `Grbl 1.1f`) detiene el
+   envío con la parada segura, marca el trabajo como error y conserva el punto de control. El emulador
+   `falcon2_pro` ya emite ese saludo en `Fault::Reboot` y en el reset `0x18`.
+
+### 10.3 Tiempos medidos
+
+Trabajo de un cuadrado de 40 mm en (100, 100) a 3000 mm/min, con el perfil GRBL de la Falcon2 Pro
+(cama 400 × 415, `max_rate` [25000, 8000] mm/min, `accel` [1000, 1000] mm/s²):
+
+- **Movimiento real ~4,9 s; el estimado de Tlaku era 4,24 s.** El G-code termina con `M5` y
+  `G0 X0 Y0` (`return_to_origin`), pero el estimado solo planificaba el `Toolpath` y no contaba ese
+  regreso (unos 0,8 s con este perfil). Arreglado: `tlaku-pipeline` suma al total
+  (`preview.total_s`) el `G0` de regreso desde la última posición hasta el origen de la máquina,
+  planificado con la aceleración y la velocidad de travesía del perfil. Solo se suma en los
+  dispositivos cuyo generador emite ese regreso (G-code con `return_to_origin`; Ruida, LhyMicro y
+  galvo no lo emiten). El tiempo extra no entra en `layers[].seconds` ni en `move_times`, así que la
+  reproducción de la vista previa no se desplaza.
+- **Arranque fijo de ~1 s que no depende de Tlaku.** El firmware de la Falcon tarda ~0,85–1 s en
+  procesar el `M4 S0` inicial; un `G0` suelto arranca en ~60 ms (medido). Cada trabajo paga ese
+  segundo de arranque aunque el G-code sea mínimo, y el estimado no lo incluye.

@@ -106,6 +106,7 @@ impl Worker {
             // La tarjeta no informa búferes: ceros (la interfaz los oculta).
             buffer: BufferStatus { planner: 0, rx: 0 },
             overrides: None,
+            position_unconfirmed: None,
         };
         if let Ok(mut g) = self.shared.status.lock() {
             *g = Some(report.clone());

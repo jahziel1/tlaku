@@ -2,7 +2,7 @@ import { polylineBez } from '@/lib/bezpath';
 import { DEFAULT_ROTARY, DEVICE_EXTRA_DEFAULTS, kindDefaults } from '@/lib/device';
 import { makeLayer } from '@/lib/layers';
 import type { LaserApi } from '../api';
-import type { DeviceProfile, Document } from '../types';
+import type { DeviceProfile, Document, LbdevImport } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
@@ -76,8 +76,37 @@ export function mockRotaryTest(device: DeviceProfile, speed: number, power: numb
   };
 }
 
-export function mockDevices(lag: Lag): Pick<LaserApi, 'deviceDefaults' | 'rotaryTest'> {
+/**
+ * Lectura de un `.lbdev` en modo mock: no hay archivos reales, así que devuelve siempre el mismo
+ * perfil de ejemplo (con las conversiones del motor: mm/s a mm/min) y sus avisos. Una ruta que
+ * contiene `no-existe` simula un archivo ausente.
+ */
+export function mockReadLbdev(path: string): LbdevImport {
+  if (path.includes('no-existe')) throw new Error(`${path}: no existe o no se puede leer.`);
+  const base = engineDefaultDevice();
   return {
+    devices: [
+      {
+        ...base,
+        id: 'perfil-de-ejemplo',
+        name: 'Perfil de ejemplo',
+        bed: [400, 415],
+        home_on_connect: true,
+        max_rate: [30000, 24000],
+        rapid_rate: 24000,
+        accel: [3000, 3000],
+      },
+    ],
+    notices: [
+      { device: 'Perfil de ejemplo', kind: 'simulator_values', detail: '' },
+      { device: 'Perfil de ejemplo', kind: 'not_imported', detail: 'LaserFire_Enable, LaserFire_Power' },
+    ],
+  };
+}
+
+export function mockDevices(lag: Lag): Pick<LaserApi, 'deviceDefaults' | 'rotaryTest' | 'readLbdev'> {
+  return {
+    readLbdev: ({ path }) => lag(() => mockReadLbdev(path)),
     deviceDefaults: ({ kind }) => lag(() => mockDeviceDefaults(kind)),
     rotaryTest: ({ device, speed, power }) => lag(() => mockRotaryTest(device, speed, power)),
   };

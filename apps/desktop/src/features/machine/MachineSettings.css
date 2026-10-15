@@ -122,3 +122,10 @@
 .mset-why {
   color: var(--text-muted);
 }
+.mset-softlimits {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mset-softlimits span {
+  flex: 1 1 22rem;
+}

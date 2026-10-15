@@ -56,8 +56,8 @@ use tlaku_grbl::preflight::{
 use tlaku_grbl::serial::{Grbl, LineReader, Transport};
 use tlaku_grbl::streamer::{
     self, Event, Firmware, Job, Outcome, Realtime, Streamer, StreamerConfig, alarm_message_for,
-    creality_error_message, error_message_for, is_greeting, is_homing_line, override_plan,
-    parse_creality_error, position_lost_note, prepare_line_with,
+    creality_error_message, error_message_for, is_boot_banner, is_greeting, is_homing_line,
+    override_plan, parse_creality_error, position_lost_note, prepare_line_with,
 };
 
 pub mod active;

@@ -165,6 +165,9 @@ pub struct LinkProfile {
     pub default_baud: u32,
 }
 
+/// Primera línea de arranque de la Falcon2 (`[MSG:Using cpu_map...esp32-s3]`).
+pub const CPU_MAP_BANNER: &str = "[MSG:Using cpu_map";
+
 impl LinkProfile {
     /// GRBL con el búfer RX por defecto (127 bytes). Es lo que usa `Streamer::new`.
     pub fn grbl() -> Self {
@@ -183,7 +186,12 @@ impl LinkProfile {
             resume: vec![ControlAction::Realtime(b'~')],
             cancel: CancelStyle::SafeStopReset,
             finish: FinishDetection::StatusIdle,
-            reset_banners: vec![Banner::Prefix("grbl".into())],
+            // El `[MSG:Using cpu_map...]` de Creality sale justo antes de `Grbl 1.1f`: así el
+            // reinicio se nota una línea antes, mientras la placa aún imprime su arranque.
+            reset_banners: vec![
+                Banner::Prefix("grbl".into()),
+                Banner::Prefix(CPU_MAP_BANNER.into()),
+            ],
             strip_spaces: true,
             reject_realtime_chars: true,
             line_numbering: None,

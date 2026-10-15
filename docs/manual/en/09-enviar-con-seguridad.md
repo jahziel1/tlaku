@@ -153,7 +153,7 @@ If the power goes out, the app closes, the computer restarts, or the connection 
 
 ### When it offers to continue
 
-When you open the app, and also when the connection is lost in the middle of a job, a notice appears: **The last job was interrupted at N % (line L of T). Continue?** It has three buttons:
+When you open the app, and also when the connection is lost in the middle of a job, a notice appears: **The last job was interrupted at N %. Continue?** The percentage comes from **where the head is on the path** (the engraving path done up to that point over the total), not from the lines the machine acknowledged: with long lines almost all of them are acknowledged at the start, because they fit in its memory, and say nothing about the real progress. It has three buttons:
 
 | Button | What it does |
 |---|---|
@@ -163,11 +163,26 @@ When you open the app, and also when the connection is lost in the middle of a j
 
 If you leave it for later, the [Job log](#job-log) (**Help > Job Log…**) marks interrupted jobs with their percentage and has a **Continue** button as long as the checkpoint still exists.
 
+### If the machine kept going on its own
+
+This is the most important limit: **the machine can keep executing what it has in its memory** after Tlaku closes. A job with long lines (an 80 mm square, for example) fits entirely in its buffer: if the app dies after 4 seconds, the board finishes the job by itself. If Tlaku offered to continue from the saved position, it would go over what is already done again.
+
+That is why the checkpoint also stores the last line **sent** (not only the one acknowledged with `ok`) and, when you reconnect, Tlaku compares the machine's position now with the one it saved:
+
+- **If the machine is where it was**, there is nothing to warn about.
+- **If it moved and ended at the end of the job**, the notice says the machine kept executing what it had in its memory and seems to have finished. **Discard** becomes the main button: check the piece first, because continuing would repeat what is done.
+- **If it moved and is in the middle**, it suggests continuing from where it is now (not from where it was when the checkpoint was saved), with the warning that the machine kept going on its own and how much (lines and millimetres).
+- **If it cannot be known** (there was an alarm, the board restarted or lost power, and its position is not reliable) or no machine is connected, the usual behaviour is kept but with the warning that the machine may have kept executing up to N lines (about M mm) it already had. Check the piece before continuing.
+
+A board that restarts is left at (0, 0) with the interpreter feed `F` at zero; one that finished by itself keeps the `F` of the G-code. Tlaku uses that difference (`$G`) so it does not mistake a power cut for a finished job.
+
+If the machine is still running the job when you **connect**, it does not accept commands: Tlaku says so (**The machine is running a job (state Run)...**) instead of blaming the port. Wait for it to finish, or stop it with its own button, and connect again.
+
 ### Where to restart
 
 In GRBL, `ok` only means that the line went into the board's buffer, not that it has already run: the board can have up to 127 bytes or 15 blocks ahead of the head (the Falcon2 accepts 127 blocks). That is why the last confirmed line is almost never the last one that was engraved.
 
-- **GRBL.** Tlaku compares the last saved position with the geometry of the confirmed lines, finds the line the head was running, and **steps back cautiously**: by default 3 lines or 1.5 mm, whichever goes further back (you can change it in the dialog). It never steps back past a `G0` travel move. In an image engraving it steps back to the start of the **scan row** in progress.
+- **GRBL.** Tlaku compares the last saved position with the geometry of the confirmed lines, finds the line the head was running, and **steps back cautiously**: by default 3 lines or 1.5 mm, whichever goes further back (you can change it in the dialog); the lines rule only counts for short segments (each line is worth at most 2 mm), so on a long 80 mm side the step back is 1.5 mm and not the whole side. It never steps back past a `G0` travel move. In an image engraving it steps back to the start of the **scan row** in progress.
 - **Marlin and Smoothieware.** They have no `?`, so the position is not polled during the job. The point is estimated only from the confirmed lines and steps back a fixed stretch (about 24 motion lines).
 
 In the resume dialog the preview paints **what is already done** with a solid line in one color and **what is left** with a dashed line in another. A bar lets you move the restart point: backward to repeat a longer stretch, forward to repeat less.
@@ -195,6 +210,7 @@ All of the following is mandatory, and the app's engine enforces it, not just th
 ### Limits worth knowing
 
 - **The material and the head must not move**, and the origin must be the same. If anything moved, the result will come out shifted.
+- **The machine can keep executing what it has in its memory.** If the app dies, what it already delivered to the board keeps running until it empties. Tlaku detects this when you reconnect if it can compare positions (see [If the machine kept going on its own](#if-the-machine-kept-going-on-its-own)); if it cannot, it warns you. Always check the piece before continuing.
 - **The restart repeats a short stretch.** The saved position can be up to about 1.2 seconds old (200 ms of the `?` polling plus the save interval), so up to about 1 second of travel is repeated, plus the step back you configured. That stretch is engraved twice and shows as a **slightly darker mark**; in images a **faint mark at the seam** may remain.
 - **A power cut can make the motors lose steps.** That is why homing and framing are not a formality: check by eye before accepting.
 - **If the G-code uses `G92`, `G10`, or `G28`** it cannot be resumed midway, because they change the origin or the reference position.

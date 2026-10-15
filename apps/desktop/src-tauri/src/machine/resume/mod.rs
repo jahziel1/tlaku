@@ -12,7 +12,12 @@
 //! 3. **Punto de reinicio.** [`plan::locate`] busca, entre las líneas confirmadas, la que pasa por
 //!    la última MPos (el `ok` solo dice que la línea entró al búfer) y [`plan::landing`] retrocede
 //!    con prudencia sin cruzar un `G0`; en filas de imagen, hasta el principio de la fila.
-//! 4. **Reanudar.** [`plan::build_program`] antepone un preámbulo (láser apagado, `G0` hasta el
+//! 4. **Si la app murió.** `ok` no es «ejecutada»: lo entregado a la máquina sigue corriendo
+//!    sin la app. [`assess::assess`] compara la MPos de ahora con la guardada; si se movió, la
+//!    relocaliza hacia delante sobre el recorrido y decide si quedó a mitad (se propone seguir
+//!    desde ahí) o al final (probablemente terminó: se recomienda descartar). Sin posición fiable
+//!    conserva el comportamiento de siempre, pero avisa de cuánto pudo seguir sola.
+//! 5. **Reanudar.** [`plan::build_program`] antepone un preámbulo (láser apagado, `G0` hasta el
 //!    punto, y solo entonces `M3`/`M4` con su `S` y `F`) al resto del G-code. El trabajador lo
 //!    envía por el camino de siempre, con el preflight de siempre.
 //!
@@ -20,18 +25,21 @@
 //! `meta.json` ([`store::ResumeRun`]) cuántas líneas de preámbulo llevó y desde qué línea del
 //! original siguió, de modo que se puede interrumpir y reanudar cuantas veces haga falta.
 
+pub mod assess;
 pub mod plan;
 pub mod start;
 pub mod store;
 pub mod walker;
 pub mod writer;
 
+use assess::{Assessment, Now, PathMeter};
 use plan::{Estimate, Landing, PlanOptions};
 use std::sync::Arc;
 use std::time::Duration;
 use store::{CheckpointMeta, CheckpointStore, Loaded, OriginInfo, ResumeRun, VERSION, now_ms};
 use tlaku_doc::{
-    DeviceProfile, InterruptedJob, JobOptions, ResumeKind, ResumePoint, ResumeStart, ResumeView,
+    DeviceProfile, InterruptedJob, JobOptions, ResumeKind, ResumeMachine, ResumePoint, ResumeStart,
+    ResumeView,
 };
 use tlaku_i18n::tr;
 use walker::{Parsed, StepKind};
@@ -166,7 +174,8 @@ pub fn forget_if_other_machine(store: &CheckpointStore, device_id: &str) -> bool
 // Resumen para el aviso
 // ---------------------------------------------------------------------------
 
-/// Líneas enviables del original que ya tienen `ok`.
+/// Líneas enviables del original que ya tienen `ok`. Dato interno: con líneas largas casi todas
+/// entran al búfer al principio y no dicen dónde va la cabeza.
 fn done_in_original(meta: &CheckpointMeta, acked: u32) -> u32 {
     let n = match &meta.resume {
         None => acked,
@@ -175,28 +184,49 @@ fn done_in_original(meta: &CheckpointMeta, acked: u32) -> u32 {
     n.min(meta.total_lines)
 }
 
-/// Última línea del G-code original con `ok`, si la hay.
-fn last_original_line(l: &Loaded) -> Option<u32> {
-    let p = l.progress.as_ref()?;
-    let sent = p.sent_line?;
-    match &l.meta.resume {
-        None => Some(sent),
-        Some(r) => sent
-            .checked_sub(r.preamble_len)
-            .map(|k| r.tail_first.saturating_add(k)),
+/// El aviso sobre lo que la máquina pudo hacer sola y si conviene descartar.
+fn machine_warning(a: &Assessment) -> Option<String> {
+    let mm = format!("{:.0}", a.ahead_mm);
+    match a.machine {
+        ResumeMachine::ProbablyFinished => Some(tr!("desktop.resume.warn_finished")),
+        ResumeMachine::Moved => Some(tr!(
+            "desktop.resume.warn_moved",
+            lines = a.ahead_lines,
+            mm = mm
+        )),
+        // Sin poder comprobarlo, la máquina pudo seguir con lo que tenía en su búfer.
+        ResumeMachine::NotChecked | ResumeMachine::Unknown if a.ahead_lines > 0 => Some(tr!(
+            "desktop.resume.warn_may_run_on",
+            lines = a.ahead_lines,
+            mm = mm
+        )),
+        ResumeMachine::NotChecked | ResumeMachine::Unknown => {
+            Some(tr!("desktop.resume.warn_may_run_on_unknown"))
+        }
+        ResumeMachine::Unmoved => None,
     }
 }
 
-/// Resume el punto de control para la interfaz.
-pub fn summarize(l: &Loaded) -> InterruptedJob {
+/// Resume el punto de control para la interfaz. `now` es la máquina conectada, si la hay: con
+/// ella se sabe si siguió sola después de que la app se cerró.
+pub fn summarize(store: &CheckpointStore, l: &Loaded, now: Option<&Now>) -> InterruptedJob {
+    let parsed = store.read_gcode().ok().map(|g| Parsed::parse(&g));
+    let assessment = parsed.as_ref().map(|p| assess::assess(p, l, now));
+    summarize_with(l, parsed.as_ref(), assessment.as_ref())
+}
+
+fn summarize_with(
+    l: &Loaded,
+    parsed: Option<&Parsed>,
+    assessment: Option<&Assessment>,
+) -> InterruptedJob {
     let m = &l.meta;
     let p = l.progress.as_ref();
     let done = p.map_or(0, |p| done_in_original(m, p.acked));
-    let total = m.total_lines;
-    let percent = if total == 0 {
-        0.0
-    } else {
-        (f64::from(done) / f64::from(total) * 100.0).clamp(0.0, 100.0)
+    // El porcentaje sale de dónde está la cabeza sobre el recorrido, no de los `ok`.
+    let percent = match (parsed, assessment.and_then(|a| a.position.as_ref())) {
+        (Some(parsed), Some(e)) => PathMeter::new(parsed).percent(e.step, e.t),
+        _ => 0.0,
     };
     let (can_resume, note) = match m.kind {
         ResumeKind::Gcode if !plan::dialect_supported(&m.device.dialect) => {
@@ -208,6 +238,8 @@ pub fn summarize(l: &Loaded) -> InterruptedJob {
         ResumeKind::K40 => (false, Some(tr!("desktop.resume.note_k40"))),
         ResumeKind::Galvo => (false, Some(tr!("desktop.resume.note_galvo"))),
     };
+    // El aviso solo vale para el G-code que se pudo reanudar y del que hay avance.
+    let machine = assessment.filter(|_| m.kind == ResumeKind::Gcode && p.is_some());
     InterruptedJob {
         id: m.id.clone(),
         kind: m.kind,
@@ -218,7 +250,7 @@ pub fn summarize(l: &Loaded) -> InterruptedJob {
         device_kind: m.device.kind,
         port: m.port.clone(),
         document: m.document.clone(),
-        total_lines: total,
+        total_lines: m.total_lines,
         done_lines: done,
         percent,
         progress_known: p.is_some(),
@@ -227,6 +259,11 @@ pub fn summarize(l: &Loaded) -> InterruptedJob {
         can_resume,
         note,
         resumed: m.resume.is_some(),
+        machine: machine.map_or(ResumeMachine::NotChecked, |a| a.machine),
+        ahead_lines: machine.map_or(0, |a| a.ahead_lines),
+        ahead_mm: machine.map_or(0.0, |a| a.ahead_mm),
+        recommend_discard: machine.is_some_and(Assessment::is_finished),
+        warning: machine.and_then(machine_warning),
     }
 }
 
@@ -246,8 +283,14 @@ pub struct Suggestion {
     pub row: bool,
 }
 
-/// Propone dónde reanudar: localiza la línea real y retrocede con prudencia.
-pub fn suggest(parsed: &Parsed, l: &Loaded, opts: &PlanOptions) -> Suggestion {
+/// Propone dónde reanudar: localiza la línea real y retrocede con prudencia. Si la máquina siguió
+/// sola, parte de donde está ahora (`a.position`) y no de donde estaba al guardarse el punto.
+pub fn suggest(
+    parsed: &Parsed,
+    l: &Loaded,
+    opts: &PlanOptions,
+    a: Option<&Assessment>,
+) -> Suggestion {
     let base = l.meta.resume.as_ref().map_or(0, |r| r.tail_first);
     let floor = parsed.step_at_or_after(base);
     let from_base = |mismatch: bool| Suggestion {
@@ -259,27 +302,12 @@ pub fn suggest(parsed: &Parsed, l: &Loaded, opts: &PlanOptions) -> Suggestion {
         mismatch,
         row: false,
     };
-    let Some(last) = last_original_line(l) else {
+    if assess::last_acked_line(l).is_none() {
         // Sin avance legible hay que elegir a mano; con avance 0, se vuelve a empezar.
         return from_base(l.progress.is_none());
-    };
-    let p = l.progress.as_ref();
-    let used = |cap: Option<u32>, free: Option<u32>| match (cap, free) {
-        (Some(c), Some(f)) => c.saturating_sub(f),
-        _ => 0,
-    };
-    let window = plan::window_for(
-        used(
-            p.and_then(|p| p.planner_cap),
-            p.and_then(|p| p.planner_free),
-        ),
-        used(p.and_then(|p| p.rx_cap), p.and_then(|p| p.rx_free)),
-    );
-    let wpos = p.and_then(|p| {
-        p.wpos
-            .or_else(|| Some([p.mpos?[0] - p.wco?[0], p.mpos?[1] - p.wco?[1]]))
-    });
-    let Some(est) = plan::locate(parsed, last, wpos, window, floor) else {
+    }
+    let located = a.map_or_else(|| assess::saved_position(parsed, l).0, |a| a.position);
+    let Some(est) = located else {
         return from_base(false);
     };
     let Landing { step, at, row } = plan::landing(parsed, &est, opts, floor);
@@ -305,13 +333,19 @@ pub fn suggest(parsed: &Parsed, l: &Loaded, opts: &PlanOptions) -> Suggestion {
 const MAX_VIEW_MOVES: usize = 400_000;
 
 /// El recorrido guardado y el punto sugerido, para el diálogo de reanudación.
-pub fn view(store: &CheckpointStore, l: &Loaded, opts: &PlanOptions) -> Result<ResumeView, String> {
+pub fn view(
+    store: &CheckpointStore,
+    l: &Loaded,
+    opts: &PlanOptions,
+    now: Option<&Now>,
+) -> Result<ResumeView, String> {
     let lines = store.read_gcode()?;
     let parsed = Parsed::parse(&lines);
-    let job = summarize(l);
-    let sug = suggest(&parsed, l, opts);
+    let assessment = assess::assess(&parsed, l, now);
+    let job = summarize_with(l, Some(&parsed), Some(&assessment));
+    let sug = suggest(&parsed, l, opts, Some(&assessment));
     let s_max = l.meta.device.s_max.max(1.0);
-    let last_step = last_original_line(l)
+    let last_step = assess::last_acked_line(l)
         .map(|ln| parsed.step_at_or_after(ln.saturating_add(1)))
         .filter(|&n| n > 0)
         .map(|n| n - 1);
@@ -353,10 +387,12 @@ pub fn view(store: &CheckpointStore, l: &Loaded, opts: &PlanOptions) -> Result<R
                 .unwrap_or(0)
         })
     };
-    let total = f64::from(l.meta.total_lines.max(1));
-    let percent_at = |line: u32| (parsed.sendable_before(line) as f64 / total * 100.0).min(100.0);
+    let meter = PathMeter::new(&parsed);
     let z_delta = plan::z_delta(&lines, sug.exec_line, sug.line as usize);
     let mut warnings = Vec::new();
+    if l.meta.kind == ResumeKind::Gcode && l.progress.is_some() {
+        warnings.extend(job.warning.clone());
+    }
     if parsed.flags.offsets || parsed.flags.machine_moves {
         warnings.push(tr!("desktop.resume.warn_offsets"));
     }
@@ -383,7 +419,13 @@ pub fn view(store: &CheckpointStore, l: &Loaded, opts: &PlanOptions) -> Result<R
             distance_mm: sug.distance_mm,
             mismatch: sug.mismatch,
             row_restart: sug.row,
-            percent: percent_at(sug.line),
+            percent: sug.step.map_or(0.0, |k| {
+                let t = sug.at.map_or(0.0, |p| {
+                    let st = &parsed.steps[k];
+                    (p[0] - st.from[0]).hypot(p[1] - st.from[1]) / st.length().max(f64::EPSILON)
+                });
+                meter.percent(k, t)
+            }),
             z_delta,
         },
         warnings,
@@ -406,6 +448,7 @@ pub fn prepare(
     store: Arc<CheckpointStore>,
     l: &Loaded,
     args: &ResumeStart,
+    now: Option<&Now>,
 ) -> Result<ResumeJob, String> {
     if l.meta.kind != ResumeKind::Gcode {
         return Err(tr!("desktop.resume.not_resumable"));
@@ -417,7 +460,8 @@ pub fn prepare(
     }
     let start = args.line as usize;
     let device = l.meta.device.clone();
-    let sug = suggest(&parsed, l, &PlanOptions::default());
+    let assessment = assess::assess(&parsed, l, now);
+    let sug = suggest(&parsed, l, &PlanOptions::default(), Some(&assessment));
     let z = if sug.mismatch {
         0.0
     } else {

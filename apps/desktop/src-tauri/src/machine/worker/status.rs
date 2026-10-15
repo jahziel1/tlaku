@@ -48,6 +48,7 @@ impl Worker {
                 spindle: o.spindle,
             });
         }
+        self.learn_space(s.state, s.machine_pos);
         self.last = s.clone();
         if let Ok(mut g) = self.shared.status.lock() {
             *g = Some(s.clone());
@@ -74,10 +75,6 @@ impl Worker {
 
     /// Actualiza el silencio tolerado y la familia del firmware con una línea recibida.
     pub(super) fn note_line(&mut self, line: &str) {
-        if is_greeting(line) {
-            // La placa se reinició: la referencia del homing ya no vale.
-            self.shared.homed.store(false, Ordering::SeqCst);
-        }
         if is_critical_alarm(line) {
             self.quiet = Some(Quiet::CriticalAlarm);
         } else if self.quiet == Some(Quiet::CriticalAlarm) && (line == "ok" || is_greeting(line)) {
@@ -120,6 +117,7 @@ impl Worker {
                 Some(r) => self.on_status(&r),
                 None => {
                     self.note_line(&line);
+                    self.detect_reboot(&line);
                     others.push(line);
                 }
             }

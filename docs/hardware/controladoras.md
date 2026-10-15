@@ -91,7 +91,7 @@ Conclusión: la gran mayoría de marcas de diodo son GRBL por serie USB; los mat
 
 ### 1.5 CO2 chino y galvo (de la documentación de LightBurn y del foro)
 
-- CO2 chino de caja metálica con pantalla: DSP (Ruida mayoritario; Trocen y TopWisdom detrás). Ejemplo de un CO2 de 180 W con Ruida 644XG: [foro](https://forum.lightburnsoftware.com/t/644xg-ruida-controller-in-a-brand-new-180w-blue-and-white-chinese-co2-laser-mac-or-windows/35768). Marcas concretas (Thunder, OMTech, Monport, Cloudray): mi conocimiento previo dice que usan sobre todo Ruida, pero **no lo verifiqué en esta sesión**.
+- CO2 chino de caja metálica con pantalla: DSP (Ruida mayoritario; Trocen y TopWisdom detrás). Ejemplo de un CO2 de 180 W con Ruida 644XG: [foro](https://forum.lightburnsoftware.com/t/644xg-ruida-controller-in-a-brand-new-180w-blue-and-white-chinese-co2-laser-mac-or-windows/35768). Marcas concretas (Thunder, OMTech, Monport, Cloudray): verificadas con fuente pública para algunos modelos (OMTech Maker, Monport 20×28, Thunder Nova por un hilo de foro) e inferidas para otros; la tabla con la confianza de cada uno está en [`catalogo-fuentes.md`](catalogo-fuentes.md). El Monport 40 W Pro es GRBL, no Ruida.
 - Fibra / UV / CO2 galvo (cabezal fijo, espejos): JCZ/BJJCZ (LMC "EZCAD2"), EZCAD3 y BSL. LightBurn agregó EZCAD3 en 2.1 como función "Labs", paridad parcial con EZCAD2 (rotativo, split marking, jog de Z; Z automático pendiente; solo control de un eje a la vez): [anuncio 2.1](https://lightburnsoftware.com/blogs/news/lightburn-2-1-quick-nest-enhanced-camera-support-undo-history-and-more), [hilo EZCAD3](https://forum.lightburnsoftware.com/t/initial-ezcad3-support/188524).
 
 ## 2. Una fila por familia
@@ -294,7 +294,7 @@ Hoy la pestaña Máquina asume GRBL (`ConnectionSection`, `DeviceFields`, `grblC
 
 ## 7. Pendientes y dudas abiertas
 
-- Verificar con fabricantes los controladores de Thunder, OMTech, Monport, Cloudray y Two Trees (§1.4 y §1.5).
+- Confirmar con la pantalla de la máquina o el manual las controladoras inferidas (OMTech Pronto y Polar Lite, Thunder Nova 35; ver [`catalogo-fuentes.md`](catalogo-fuentes.md)) y las de Cloudray y Two Trees.
 - Confirmar si Marlin tiene simulador nativo utilizable en pruebas.
 - No se encontró protocolo público de Trocen ni TopWisdom ni BSL. No se intentó ingeniería inversa.
 - Las cifras de popularidad (§3) son estimaciones sin fuente.

@@ -77,6 +77,13 @@ pub struct CheckpointProgress {
     pub acked: u32,
     /// Línea (desde 0) del programa enviado a la que corresponde el último `ok`.
     pub sent_line: Option<u32>,
+    /// Líneas entregadas a la máquina, con o sin `ok` (preámbulo incluido). Lo que va entre
+    /// `acked` y `sent` está en su memoria y pudo seguir ejecutándose sin la app.
+    #[serde(default)]
+    pub sent: u32,
+    /// Línea (desde 0) del programa enviado de la última línea entregada a la máquina.
+    #[serde(default)]
+    pub sent_to_line: Option<u32>,
     pub mpos: Option<[f64; 2]>,
     pub wpos: Option<[f64; 2]>,
     pub wco: Option<[f64; 2]>,
@@ -188,6 +195,8 @@ mod tests {
             seq,
             acked,
             sent_line: Some(acked),
+            sent: acked,
+            sent_to_line: Some(acked),
             mpos: Some([1.0, 2.0]),
             wpos: Some([1.0, 2.0]),
             wco: Some([0.0, 0.0]),

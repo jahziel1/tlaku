@@ -71,6 +71,40 @@ fn mirror_sum(tp: &Toolpath, map: impl Fn(Point) -> Point) -> Option<f64> {
     (lo <= hi).then_some(lo + hi)
 }
 
+/// ¿El G-code del dispositivo termina con `G0 X0 Y0`? Solo los dialectos de G-code lo emiten
+/// (`tlaku_grbl::gcode`, con `return_to_origin`); Ruida (`.rd`/UDP), LhyMicro (K40) y galvo no
+/// tienen ese tramo: su generador termina el programa sin regresar al origen.
+pub(crate) fn emits_return_to_origin(device: &DeviceProfile) -> bool {
+    device.return_to_origin
+        && !matches!(
+            device.kind,
+            DeviceKind::Ruida | DeviceKind::LhyMicro | DeviceKind::Galvo
+        )
+}
+
+/// Tramo final que emite [`gcode`] tras el último movimiento (`G0 X0 Y0`), en coordenadas del
+/// documento: `(última posición, origen de la máquina)`. `None` si el dispositivo no lo emite o
+/// el trabajo no tiene movimientos. Aplica el mismo espejo del rotativo que `gcode`.
+pub(crate) fn return_leg(tp: &Toolpath, device: &DeviceProfile) -> Option<(Point, Point)> {
+    if !emits_return_to_origin(device) {
+        return None;
+    }
+    let last = tp.blocks.iter().rev().find_map(|b| b.moves.last())?.to();
+    let machine = doc_to_machine(last, device);
+    let machine = if device.rotary.enabled && device.rotary.mirror {
+        match mirror_sum(tp, |p| doc_to_machine(p, device)) {
+            Some(sum) => Point::new(machine.x, sum - machine.y),
+            None => machine,
+        }
+    } else {
+        machine
+    };
+    Some((
+        machine_to_doc(machine, device),
+        machine_to_doc(Point::new(0.0, 0.0), device),
+    ))
+}
+
 /// G-code del trabajo para esa máquina: dialecto del perfil, modo de potencia, S máxima,
 /// origen de la cama, espejo y escala del rotativo, sentido de Z y guiones de inicio y fin.
 pub fn gcode(job: &ComputedJob, device: &DeviceProfile) -> String {

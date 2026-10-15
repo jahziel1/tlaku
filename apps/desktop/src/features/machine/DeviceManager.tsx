@@ -1,4 +1,4 @@
-import { Copy, Download, Plus, Star, Trash2, TriangleAlert } from 'lucide-react';
+import { Copy, Download, FileUp, Plus, Star, Trash2, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getApi } from '@/api';
 import type { DeviceProfile } from '@/api/types';
@@ -42,6 +42,8 @@ import { GalvoFields } from './GalvoFields';
 import { validateGalvoProfile } from './galvoProfile';
 import { LhyFields } from './LhyFields';
 import { RuidaFields } from './RuidaFields';
+import { LbdevImportDialog } from './LbdevImportDialog';
+import { readLbdevPreview, type LbdevPreview } from './lbdevImport';
 import { Modal } from './Modal';
 
 const ORIGINS: { id: DeviceProfile['origin']; label: I18nKey }[] = [
@@ -161,6 +163,8 @@ export function DeviceManager() {
   /** Acción que espera a que el usuario decida qué hacer con los cambios sin guardar. */
   const [guard, setGuard] = useState<{ title: I18nKey; run: () => void } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** Perfil de LightBurn leído que espera confirmación (nada se guarda hasta entonces). */
+  const [lbdev, setLbdev] = useState<LbdevPreview | null>(null);
   /** Cambio de tipo que espera confirmación porque aplicar sus valores pisaría campos del perfil. */
   const [kindChange, setKindChange] = useState<{ defaults: KindDefaults; changes: KindChange[] } | null>(null);
 
@@ -250,6 +254,15 @@ export function DeviceManager() {
     void reorderDevices(ids);
   };
 
+  /** Elige un `.lbdev` y muestra el resumen; no toca el borrador ni la máquina. */
+  const importLbdev = async () => setLbdev(await readLbdevPreview());
+  const finishLbdev = (saved: DeviceProfile[]) => {
+    setLbdev(null);
+    // Con cambios sin guardar en el borrador no se lo quita al usuario: se queda donde está.
+    const first = saved[0];
+    if (first && !dirty) select(first);
+  };
+
   const remove = async () => {
     setConfirmDelete(false);
     const next = devices.find((d) => d.id !== draft.id);
@@ -330,6 +343,9 @@ export function DeviceManager() {
               <button type="button" className="btn" onClick={duplicate}><Copy size={14} aria-hidden="true" />{t('machine.dev.duplicate')}</button>
               <button type="button" className="btn btn--danger" disabled={deleteBlocked !== null} title={deleteBlocked ?? undefined} onClick={() => setConfirmDelete(true)}>
                 <Trash2 size={14} aria-hidden="true" />{t('machine.dev.delete')}
+              </button>
+              <button type="button" className="btn" title={t('devices.lbdev.button.hint')} onClick={() => void importLbdev()}>
+                <FileUp size={14} aria-hidden="true" />{t('devices.lbdev.button')}
               </button>
             </div>
           </nav>
@@ -543,6 +559,7 @@ export function DeviceManager() {
           onCancel={() => setKindChange(null)}
         />
       )}
+      {lbdev && <LbdevImportDialog preview={lbdev} onDone={finishLbdev} onCancel={() => setLbdev(null)} />}
       {guard && (
         <Modal
           title={t(guard.title)}

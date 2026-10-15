@@ -42,6 +42,11 @@ const job = (over: Partial<InterruptedJob> = {}): InterruptedJob => ({
   can_resume: true,
   note: null,
   resumed: false,
+  machine: 'not_checked',
+  ahead_lines: 0,
+  ahead_mm: 0,
+  recommend_discard: false,
+  warning: null,
   ...over,
 });
 
@@ -144,12 +149,35 @@ describe('aviso de trabajo interrumpido', () => {
     useStore.setState({ interrupted: null });
   });
 
-  it('dice el porcentaje, la línea y ofrece Continuar, Elegir el punto y Descartar', () => {
+  it('dice el porcentaje (sin la línea, dato interno) y ofrece Continuar, Elegir el punto y Descartar', () => {
     useStore.setState({ interrupted: job() });
     const html = ssr(<ResumeNotice />);
     expect(html).toContain('42 %');
-    expect(html).toContain('línea 120 de 285');
+    expect(html).not.toContain('línea 120');
     for (const label of ['Continuar', 'Elegir el punto', 'Descartar']) expect(html).toContain(label);
+  });
+
+  it('si la máquina parece haber terminado sola, avisa y deja Descartar como acción principal', () => {
+    useStore.setState({
+      interrupted: job({
+        machine: 'probably_finished',
+        recommend_discard: true,
+        percent: 100,
+        warning: 'La máquina siguió ejecutando lo que ya tenía en su memoria después de que Tlaku se cerró y parece haber terminado. Revisa la pieza: continuar volvería a pasar sobre lo hecho.',
+      }),
+    });
+    const html = ssr(<ResumeNotice />);
+    expect(html).toContain('parece haberlo terminado por su cuenta');
+    expect(html).toContain('parece haber terminado. Revisa la pieza');
+    expect(html).toMatch(/btn btn--danger" data-autofocus="true"[^>]*>Descartar/);
+    expect(html).not.toMatch(/btn btn--accent[^>]*>Continuar/);
+  });
+
+  it('sin poder comparar con la máquina, el aviso de que pudo seguir sola acompaña a Continuar', () => {
+    useStore.setState({ interrupted: job({ warning: 'La máquina pudo seguir ejecutando lo que ya tenía en su memoria (hasta 6 líneas, unos 292 mm).', ahead_lines: 6, ahead_mm: 292 }) });
+    const html = ssr(<ResumeNotice />);
+    expect(html).toContain('pudo seguir ejecutando');
+    expect(html).toMatch(/btn btn--accent" data-autofocus="true">Continuar/);
   });
 
   it('con Ruida, K40 o galvo solo explica y no ofrece continuar', () => {

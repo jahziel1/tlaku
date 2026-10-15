@@ -451,6 +451,7 @@ mod connection;
 mod firmware;
 mod jobs;
 mod jog;
+mod limits;
 mod network;
 mod overrides;
 mod probe;

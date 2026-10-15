@@ -45,7 +45,7 @@ export interface RankedEntry {
   byBanner: boolean;
 }
 
-function isCompatible(entry: CatalogEntry, d: Detection | null): boolean {
+export function isCompatible(entry: CatalogEntry, d: Detection | null): boolean {
   if (!d || d.family === 'unknown') return true;
   const kinds = new Set<DeviceKind>([entry.kind, ...(entry.alsoKinds ?? [])]);
   return KINDS_BY_FAMILY[d.family].some((k) => kinds.has(k));

@@ -127,6 +127,7 @@ pub(super) fn idle_report() -> StatusReport {
         // Ruida no informa búferes: ceros (la interfaz los oculta con Ruida).
         buffer: BufferStatus { planner: 0, rx: 0 },
         overrides: None,
+        position_unconfirmed: None,
     }
 }
 

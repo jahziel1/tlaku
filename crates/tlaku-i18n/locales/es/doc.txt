@@ -44,3 +44,9 @@ doc.community.no_name = "{id}": el material "{material}" no está en la bibliote
 doc.community.bad_title = "{id}": la operación "{title}" no existe.
 doc.community.bad_class = "{id}": {watts} W corresponde a la clase {class}.
 doc.community.out_of_range = "{id}": "{field}" fuera de rango o inválido.
+
+# lbdev.rs
+doc.lbdev.invalid_json = El archivo .lbdev no es un JSON válido: {error}
+doc.lbdev.no_device_list = El archivo no parece un perfil de LightBurn (.lbdev): no tiene la lista "DeviceList" ni un dispositivo.
+doc.lbdev.empty = El archivo .lbdev no contiene ningún dispositivo.
+doc.lbdev.nothing_importable = Ningún dispositivo del archivo se puede importar: {names}. Tlaku no crea perfiles para controladores que no soporta.

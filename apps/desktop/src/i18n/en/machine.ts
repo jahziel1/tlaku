@@ -78,6 +78,9 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.positionLost.reconnect': 'Last time, the machine stopped while moving and the position may have been lost. Run homing ($H) before working.',
   'machine.positionLost.home': 'Home ($H)…',
   'machine.positionLost.dismiss': 'Got it',
+  'machine.positionUnconfirmed.title': 'Position not confirmed',
+  'machine.positionUnconfirmed.text': 'The machine restarted (a limit switch, the lid or a power cut?). Home it before moving: until then Tlaku cannot check that moves stay inside the bed.',
+  'machine.positionUnconfirmed.notice': 'The machine restarted (a limit switch, the lid or a power cut?). Home the machine before moving.',
 
   // ---- live status --------------------------------------------------------
   'machine.state.other': 'Busy',
@@ -257,6 +260,8 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.jog.toZero': 'Go to work zero (X0 Y0)',
   'machine.jog.toUserOrigin': 'Go to user origin',
   'machine.jog.noRoom': 'There is no free travel in that direction, or the position is not known yet.',
+  'machine.jog.outsideBed': 'The move would leave the bed: {detail}.',
+  'machine.jog.outsideAxis': '{axis} would reach {value} mm (limit 0 to {max})',
   'machine.jog.help':
     'Tap to move one step; press and hold to keep moving (it stops when you let go). With focus on the pad: arrows = one step, Shift ×10, Alt ÷10. From any panel: Cmd or Ctrl + Alt + arrows.',
   'machine.origin.set': 'Set origin here',
@@ -708,7 +713,8 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   // ---- continue an interrupted job ----------------------------------------------------
   'machine.virtual.fault.power_cut': 'Power cut (the board loses its position)',
   'machine.resume.notice.title': 'Interrupted job',
-  'machine.resume.notice.text': 'The last job was interrupted at {percent}% (line {line} of {total}). Continue?',
+  'machine.resume.notice.text': 'The last job was interrupted at {percent}%. Continue?',
+  'machine.resume.notice.finished': 'The last job was interrupted, but the machine seems to have finished it on its own. Most likely there is nothing left to continue.',
   'machine.resume.notice.unknown': 'The last job was interrupted, but how far it got could not be read. You can pick by hand where to continue.',
   'machine.resume.notice.hint': 'Before continuing you will home the machine (or confirm nothing moved), frame the job and complete the checklist.',
   'machine.resume.notice.continue': 'Continue',
@@ -725,7 +731,7 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.resume.discard.cancel': 'Keep',
 
   'machine.resume.title': 'Continue the interrupted job',
-  'machine.resume.summary': 'Interrupted at {percent}% (line {line} of {total}) · {when}',
+  'machine.resume.summary': 'Interrupted at {percent}% · {when}',
   'machine.resume.machine.notConnected': 'Connect the machine "{name}" from the Machine tab to continue.',
   'machine.resume.machine.open': 'Open the Machine tab',
   'machine.resume.machine.wrong': '"{current}" is connected, but the job was for "{name}". Connect the right one or discard the job.',

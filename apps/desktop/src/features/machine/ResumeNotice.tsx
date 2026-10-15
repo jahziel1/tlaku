@@ -10,7 +10,7 @@ function when(ms: number): string {
 }
 
 /**
- * «El último trabajo se interrumpió al N % (línea L de T). ¿Continuar?». Se abre al iniciar la app y cuando la
+ * «El último trabajo se interrumpió al N %. ¿Continuar?» (N sale de la posición de la cabeza sobre el recorrido). Se abre al iniciar la app y cuando la
  * conexión se pierde a mitad de un trabajo. Con G-code ofrece Continuar, Elegir el punto y Descartar; con Ruida,
  * K40 o galvo solo explica qué pasa (el motor trae el texto en `note`).
  */
@@ -26,9 +26,13 @@ export function ResumeNotice() {
     document: job.document ? (job.document.split(/[\\/]/).pop() ?? job.document) : t('machine.resume.notice.untitled'),
     when: when(job.updated_at_ms),
   });
-  const progressText = job.progress_known
-    ? t('machine.resume.notice.text', { percent: fmt(job.percent, 0), line: job.done_lines, total: job.total_lines })
-    : t('machine.resume.notice.unknown');
+  const progressText = !job.progress_known
+    ? t('machine.resume.notice.unknown')
+    : job.recommend_discard
+      ? t('machine.resume.notice.finished')
+      : t('machine.resume.notice.text', { percent: fmt(job.percent, 0) });
+  // La máquina parece haber terminado por su cuenta: continuar repetiría lo hecho, así que lo prudente es descartar.
+  const discardFirst = job.recommend_discard;
 
   return (
     <Modal
@@ -40,9 +44,9 @@ export function ResumeNotice() {
         job.can_resume ? (
           <>
             <button type="button" className="btn" onClick={close}>{t('machine.resume.notice.later')}</button>
-            <button type="button" className="btn btn--danger" onClick={() => void discard()}>{t('machine.resume.notice.discard')}</button>
+            <button type="button" className="btn btn--danger" data-autofocus={discardFirst ? true : undefined} onClick={() => void discard()}>{t('machine.resume.notice.discard')}</button>
             <button type="button" className="btn" onClick={() => openResume(true)}>{t('machine.resume.notice.choose')}</button>
-            <button type="button" className="btn btn--accent" data-autofocus onClick={() => openResume(false)}>{t('machine.resume.notice.continue')}</button>
+            <button type="button" className={discardFirst ? 'btn' : 'btn btn--accent'} data-autofocus={discardFirst ? undefined : true} onClick={() => openResume(false)}>{t('machine.resume.notice.continue')}</button>
           </>
         ) : (
           <>
@@ -72,6 +76,12 @@ export function ResumeNotice() {
         <div className="mc-resume__bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(job.percent)} aria-label={t('machine.resume.notice.title')}>
           <span style={{ width: `${Math.min(100, Math.max(0, job.percent))}%` }} />
         </div>
+      )}
+      {job.can_resume && job.warning && (
+        <p className="warn-line" role="alert" data-testid="resume-machine-warning">
+          <TriangleAlert size={14} aria-hidden="true" />
+          <span>{job.warning}</span>
+        </p>
       )}
       {job.can_resume && job.note && (
         <p className="warn-line">

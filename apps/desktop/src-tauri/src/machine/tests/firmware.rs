@@ -228,7 +228,7 @@ fn nan_in_the_offsets_is_warned_about_before_the_job() {
         rig.sink
             .logs()
             .iter()
-            .any(|(_, t)| t.starts_with("Aviso: G54") && t.contains("$RST=#")),
+            .any(|(_, t)| t.contains("(nan) en G54") && t.contains("$RST=#")),
         "{:?}",
         rig.sink.logs()
     );

@@ -53,6 +53,13 @@ fn compute_job_returns_a_preview_with_move_times() {
     .unwrap();
     assert!(!p.moves.is_empty());
     assert_eq!(p.move_times.len() * 4, p.moves.len());
+    // El total suma además el regreso al origen (`G0 X0 Y0`) que emite el G-code.
+    assert!(p.total_s > *p.move_times.last().unwrap());
+    let device = DeviceProfile {
+        return_to_origin: false,
+        ..DeviceProfile::default()
+    };
+    let p = compute_job(&square_doc(), &device, &JobOptions::default(), None).unwrap();
     assert!((p.move_times.last().unwrap() - p.total_s).abs() < 1e-9);
 }
 

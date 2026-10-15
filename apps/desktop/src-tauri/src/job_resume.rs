@@ -90,7 +90,16 @@ pub async fn interrupted_job(
         return Ok(None);
     }
     let s = store(&app)?;
-    blocking(move || Ok(s.load().map(|l| resume::summarize(&l)))).await
+    let h = state.handle().ok();
+    blocking(move || {
+        // Con la máquina conectada se compara su posición de ahora con la guardada: si la app
+        // murió con el trabajo en su búfer, la máquina pudo seguir sola.
+        Ok(s.load().map(|l| {
+            let now = h.as_ref().and_then(resume::start::current);
+            resume::summarize(&s, &l, now.as_ref())
+        }))
+    })
+    .await
 }
 
 /// El recorrido guardado y el punto de reinicio que se propone. `back_lines` y `back_mm` son lo
@@ -98,6 +107,7 @@ pub async fn interrupted_job(
 #[tauri::command(rename_all = "snake_case")]
 pub async fn interrupted_job_view(
     app: AppHandle,
+    state: State<'_, AppState>,
     back_lines: Option<u32>,
     back_mm: Option<f64>,
 ) -> Result<ResumeView, String> {
@@ -109,7 +119,12 @@ pub async fn interrupted_job_view(
             .filter(|v| v.is_finite() && *v >= 0.0)
             .map_or(defaults.back_mm, |v| v.min(10_000.0)),
     };
-    blocking(move || resume::view(&s, &l, &opts)).await
+    let h = state.handle().ok();
+    blocking(move || {
+        let now = h.as_ref().and_then(resume::start::current);
+        resume::view(&s, &l, &opts, now.as_ref())
+    })
+    .await
 }
 
 /// Descarta el punto de control (el usuario no quiere continuar).

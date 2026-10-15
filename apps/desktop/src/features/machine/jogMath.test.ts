@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_DEVICE } from '@/lib/device';
-import { clampJogSpeed, continuousDelta, dirFromKey, JOG_DIRS, MIN_CONTINUOUS_MM, modifiedStep, stepDelta } from './jogMath';
+import { clampJogSpeed, continuousDelta, dirFromKey, JOG_DIRS, jogOutsideBed, MIN_CONTINUOUS_MM, modifiedStep, outsideBedMessage, pointOutsideBed, stepDelta } from './jogMath';
 
 const dev = { bed: [400, 300] as [number, number], origin: 'bottom_left' as const };
 
@@ -62,5 +62,36 @@ describe('velocidad', () => {
     expect(clampJogSpeed(1500.4, d)).toBe(1500);
     expect(clampJogSpeed(-5, d)).toBe(3000);
     expect(clampJogSpeed(NaN, FALLBACK_DEVICE)).toBe(3000);
+  });
+});
+
+describe('destino fuera de la cama', () => {
+  const falcon = { bed: [400, 415] as [number, number], origin: 'bottom_left' as const };
+
+  it('el caso real: -5 mm en X desde 0,025 sale 4,97 mm de la cama', () => {
+    const out = jogOutsideBed(falcon, [0.025, 0.025], [-5, 0]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ axis: 'X', max: 400 });
+    expect(out[0]!.value).toBeCloseTo(-4.975, 3);
+    expect(outsideBedMessage(out)).toBe('El movimiento saldría de la cama: X llegaría a -4,98 mm (límite 0 a 400).');
+  });
+
+  it('dentro de la cama, con el margen de 0,5 mm o sin posición conocida no avisa', () => {
+    expect(jogOutsideBed(falcon, [0.025, 0.025], [5, 5])).toEqual([]);
+    expect(jogOutsideBed(falcon, [0.025, 0.025], [-0.4, 0])).toEqual([]);
+    expect(jogOutsideBed(falcon, null, [-500, 0])).toEqual([]);
+  });
+
+  it('dice los dos ejes y respeta el origen del perfil', () => {
+    expect(jogOutsideBed(falcon, [399, 414], [5, 5]).map((o) => o.axis)).toEqual(['X', 'Y']);
+    // Origen arriba a la derecha: la posición de trabajo crece hacia dentro desde esa esquina.
+    const tr = { bed: [400, 415] as [number, number], origin: 'top_right' as const };
+    expect(jogOutsideBed(tr, [0, 0], [-5, 0]).map((o) => o.axis)).toEqual(['X']);
+    expect(jogOutsideBed(tr, [0, 0], [5, 5])).toEqual([]);
+  });
+
+  it('un punto del documento se revisa con la misma regla', () => {
+    expect(pointOutsideBed(falcon, [200, 416]).map((o) => o.axis)).toEqual(['Y']);
+    expect(pointOutsideBed(falcon, [0, 415])).toEqual([]);
   });
 });

@@ -12,6 +12,7 @@ import { openBackupFile, readMachineSettings, saveBackupFile } from './MachineSe
 import {
   buildBackupText,
   diffBackup,
+  needsSoftLimits,
   parseBackupText,
   settingLine,
   validateSettingValue,
@@ -116,6 +117,15 @@ export function MachineSettingsDialog() {
     const current = data?.settings.find((s) => s.id === id);
     if (current) setEditing({ id, text: current.raw });
     setNotice(null);
+  };
+
+  /** Lleva a la confirmación normal de `$20=1` (con el respaldo automático al escribir): nunca se escribe solo. */
+  const enableSoftLimits = () => {
+    const current = data?.settings.find((s) => s.id === 20);
+    if (!current) return;
+    setEditing(null);
+    setNotice(null);
+    setView({ kind: 'confirm', id: 20, previous: current.raw, line: settingLine(20, '1') });
   };
 
   const review = () => {
@@ -243,6 +253,15 @@ export function MachineSettingsDialog() {
             <TriangleAlert size={14} aria-hidden="true" />
             <span>{t('mset.note.fluidnc')}</span>
           </p>
+        )}
+        {data && needsSoftLimits(data.settings) && (
+          <div className="warn-line mset-softlimits" role="status">
+            <TriangleAlert size={14} aria-hidden="true" />
+            <span>{t('mset.softLimits.text')}</span>
+            <button type="button" className="btn" disabled={blocked !== null} title={blocked ? t(blocked) : undefined} onClick={enableSoftLimits}>
+              {t('mset.softLimits.button')}
+            </button>
+          </div>
         )}
         {data && data.namedLines > 0 && <p className="hint">{t('mset.note.named', { n: data.namedLines })}</p>}
         {blocked && (

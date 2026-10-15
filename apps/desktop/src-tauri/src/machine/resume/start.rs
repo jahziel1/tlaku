@@ -11,6 +11,7 @@
 //! - la lista de comprobación de siempre está completa;
 //! - el G-code resultante pasa el preflight de siempre (lo hace el trabajador al iniciar).
 
+use super::assess::Now;
 use super::store::{CheckpointStore, Loaded};
 use super::walker::Parsed;
 use super::{plan, prepare};
@@ -40,6 +41,39 @@ pub fn readiness(h: &Handle) -> ResumeReadiness {
         homed: h.is_homed(),
         state: h.status_report().map_or(MachineState::Idle, |s| s.state),
     }
+}
+
+/// La máquina conectada vista por la comparación con el punto de control: su MPos de ahora y si
+/// esa posición es fiable. `None` si no está en reposo (en movimiento o en pausa la MPos no dice
+/// dónde terminó) o aún no mandó un reporte.
+///
+/// La posición **no** es fiable con alarma (una placa con homing que se reinició queda en alarma
+/// hasta el `$H`) o si el trabajador marcó que la placa se reinició (`position_unconfirmed`). El
+/// `homed` de la conexión no sirve aquí: empieza en falso en cada conexión aunque la placa
+/// conserve su referencia.
+pub fn current(h: &Handle) -> Option<Now> {
+    let s = h.status_report()?;
+    if !matches!(s.state, MachineState::Idle | MachineState::Alarm) {
+        return None;
+    }
+    let idle = s.state == MachineState::Idle;
+    Some(Now {
+        mpos: s.machine_pos,
+        wpos: s.work_pos,
+        valid: idle && s.position_unconfirmed != Some(true),
+        parser_feed: if idle { parser_feed(h) } else { None },
+    })
+}
+
+/// `F` del estado del intérprete (`[GC:... F600 S0]` de `$G`); `None` si no contesta.
+fn parser_feed(h: &Handle) -> Option<f64> {
+    let lines = h.command("$G").ok()?;
+    lines.iter().find_map(|l| {
+        l.trim()
+            .strip_prefix("[GC:")?
+            .split_whitespace()
+            .find_map(|w| w.strip_prefix('F')?.trim_end_matches(']').parse().ok())
+    })
 }
 
 /// Comprueba las condiciones de seguridad (ver la cabecera del módulo).
@@ -86,7 +120,7 @@ pub fn resume_now(
         return Err(tr!("desktop.resume.nothing_to_resume"));
     }
     check_safety(l.meta.kind, &readiness(h), args)?;
-    let job = prepare(store, l, args)?;
+    let job = prepare(store, l, args, current(h).as_ref())?;
     let device = job.device;
     h.start_job_checkpointed(
         job.lines,

@@ -14,6 +14,9 @@ pub(super) struct Shared {
     pub(super) homed: AtomicBool,
     /// Hay un trabajo (no un encuadre) transmitiéndose ahora mismo.
     pub(super) running: AtomicBool,
+    /// Área de la cama [ancho, alto] en los ejes de la máquina (del perfil); la guarda del
+    /// movimiento manual la usa junto con `$130`/`$131`.
+    pub(super) bed: Mutex<Option<[f64; 2]>>,
 }
 
 pub(super) type Reply = Sender<Result<Vec<String>, String>>;
@@ -97,6 +100,14 @@ impl Handle {
         self.tx.send(build(tx)).map_err(|_| not_connected())?;
         rx.recv()
             .map_err(|_| tr!("desktop.machine.connection_lost"))?
+    }
+
+    /// Fija el área de la cama [ancho, alto] (ejes de la máquina) con la que el trabajador
+    /// revisa el movimiento manual. `None` = que valgan `$130`/`$131`.
+    pub fn set_bed(&self, bed: Option<[f64; 2]>) {
+        if let Ok(mut g) = self.shared.bed.lock() {
+            *g = bed;
+        }
     }
 
     /// `true` si la conexión terminó (a petición o por un fallo).

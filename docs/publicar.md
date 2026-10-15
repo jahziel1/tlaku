@@ -10,8 +10,9 @@ tres sistemas y los deja en un **borrador** de GitHub Release; tú lo revisas y 
 | Windows | `.exe` (NSIS) y `.msi` | `windows-latest` |
 | Linux | `.AppImage` y `.deb` | `ubuntu-22.04` |
 
-**Primera vez:** el repositorio es <https://github.com/jahziel1/tlaku>; todavía faltan las llaves del
-actualizador, las cuentas de donación y los certificados. La
+**Primera vez:** el repositorio es <https://github.com/jahziel1/tlaku>. Las llaves del actualizador
+ya están (2026-10-14: llave pública en `tauri.conf.json`, privada y contraseña como secretos de
+GitHub); faltan los certificados. La
 [lista de pasos para publicar](#pasos-para-publicar-lo-que-tienes-que-hacer-tú) al final de este archivo
 marca lo que ya está hecho y dice qué falta y en qué orden.
 
@@ -181,8 +182,15 @@ propósito: añadir a alguien a `dialout` es una decisión suya, por eso se docu
   Si hay una versión nueva, un diálogo muestra la versión y sus notas con los botones **Descargar e
   instalar** y **Ahora no**; tras instalar ofrece **Reiniciar ahora**. No instala con un trabajo en
   curso en la máquina. La descarga se verifica con la firma del proyecto.
-- **Sin llave configurada no pasa nada malo:** `tauri.conf.json` trae `plugins.updater` con `pubkey`
-  y `endpoints` vacíos y `bundle.createUpdaterArtifacts: false`. En esa compilación el actualizador
+- **Estado actual: activado.** `tauri.conf.json` trae la llave pública del proyecto, el endpoint
+  `https://github.com/jahziel1/tlaku/releases/latest/download/latest.json` y
+  `bundle.createUpdaterArtifacts: true`; solo `release.yml` empaqueta, con los secretos
+  `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. `releases/latest` **no incluye
+  las prereleases**: publica las betas como versión normal con «beta» en el título, o el actualizador
+  no las verá. La llave privada vive fuera del repositorio (`~/.tauri/tlaku.key` y su respaldo);
+  si se pierde, las versiones instaladas ya no aceptarán actualizaciones.
+- **Sin llave configurada no pasa nada malo** (un fork, o tras `--desactivar`): `plugins.updater` con
+  `pubkey` y `endpoints` vacíos y `bundle.createUpdaterArtifacts: false`. En esa compilación el actualizador
   ni siquiera se registra (`src-tauri/src/updater.rs`: el plugin exige `pubkey` y fallaría al
   arrancar) y el menú responde «Las actualizaciones automáticas no están configuradas en esta
   compilación». Interfaz: `features/help/updater.ts` y `UpdateDialog` en `HelpDialogs.tsx`. Permisos

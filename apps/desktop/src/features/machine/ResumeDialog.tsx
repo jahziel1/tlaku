@@ -87,7 +87,9 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
   const [sending, setSending] = useState(false);
   const sliderRef = useRef<HTMLInputElement>(null);
 
-  // El recorrido guardado y el punto propuesto (otra vez si cambia el retroceso).
+  // El recorrido guardado y el punto propuesto (otra vez si cambia el retroceso o la máquina conectada: con ella el
+  // motor compara su posición de ahora con la guardada, por si siguió sola después de que la app se cerró).
+  const machineIdle = status?.state === 'idle';
   useEffect(() => {
     let alive = true;
     const timer = setTimeout(() => {
@@ -104,7 +106,7 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
       alive = false;
       clearTimeout(timer);
     };
-  }, [back]);
+  }, [back, connected, machineIdle]);
 
   useEffect(() => {
     if (choose) sliderRef.current?.focus();
@@ -197,7 +199,7 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
   return (
     <Modal
       title={t('machine.resume.title')}
-      subtitle={t('machine.resume.summary', { percent: fmt(job.percent, 0), line: job.done_lines, total: job.total_lines, when })}
+      subtitle={t('machine.resume.summary', { percent: fmt((view?.job ?? job).percent, 0), when })}
       tone="warn"
       size="lg"
       onClose={close}

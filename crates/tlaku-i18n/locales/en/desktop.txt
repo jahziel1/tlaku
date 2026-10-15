@@ -133,6 +133,7 @@ desktop.machine.only_ruida = This function is only available on Ruida controller
 desktop.machine.only_k40 = This function is only available on the K40 with an M2 Nano board.
 desktop.machine.only_galvo = This function is only available on galvo machines (JCZ/BJJCZ board).
 desktop.machine.identify_failed = The machine did not respond to identification ($I): {err}. Check that it is the right port, that the machine is on, that it runs GRBL 1.1, and that the baud rate matches the profile.
+desktop.machine.running_on_connect = The machine is running a job (state {state}) and does not accept commands yet. Wait for it to finish or stop it with its own button; then connect again.
 desktop.machine.virtual_note = ; Virtual machine (emulator): there is no real laser or hardware.
 desktop.machine.thread_failed = Could not start the connection thread: {err}
 # machine/lhymicro.rs
@@ -568,6 +569,10 @@ desktop.resume.warn_offsets = The G-code changes the coordinate system (G92, G10
 desktop.resume.warn_mismatch = The last saved position does not match any nearby line: the suggested point is a cautious estimate. Check the preview.
 desktop.resume.warn_no_progress = The saved progress could not be read: there is no suggested point, pick one.
 desktop.resume.warn_z = The job moves the Z axis: the preamble adjusts it {dz} mm to reach the height of that point. Check the focus.
+desktop.resume.warn_finished = The machine kept executing what it already had in its memory after Tlaku closed and seems to have finished. Check the piece: continuing would go over what is already done again.
+desktop.resume.warn_moved = The machine kept executing on its own what it already had in its memory after Tlaku closed (about {lines} lines, {mm} mm). Continuing from where it is now is suggested; check the piece before going on.
+desktop.resume.warn_may_run_on = The machine may have kept executing what it already had in its memory after Tlaku closed (up to {lines} lines, about {mm} mm) and there is no way to check where it ended up. Check the piece: the suggested point may repeat something already done.
+desktop.resume.warn_may_run_on_unknown = The machine may have kept executing what it already had in its memory after Tlaku closed and there is no way to check where it ended up. Check the piece: the suggested point may repeat something already done.
 desktop.resume.offsets_unsupported = The G-code uses G92, G10 or G28: it cannot be resumed in the middle.
 desktop.resume.line_out_of_range = The restart line does not exist in the saved job.
 desktop.resume.dialect_unsupported = This machine's profile does not allow resuming a job: power must be on the motion lines and G0 must turn the laser off.
@@ -579,3 +584,12 @@ desktop.resume.needs_frame = Frame the whole job and check that the material is 
 desktop.resume.needs_checklist = Complete the checklist before continuing. Nothing was sent.
 desktop.resume.checkpoint_write_failed = WARNING: the checkpoint could not be saved, so the job cannot be continued if it is interrupted: {err}
 desktop.resume.log_resuming = Continuing the job from line {line} of {total} (the machine first goes to the point with the laser off)
+# machine/worker (bed limits and board restarts)
+desktop.worker.jog_outside_bed = The move would leave the bed: {detail}.
+desktop.worker.jog_outside_axis = {axis} would reach {value} mm (limit {min} to {max})
+desktop.worker.jog_unchecked = No known limits: manual moves are not checked.
+desktop.worker.soft_limits_off = Your machine has homing but no soft limits ($20=0). Turn them on so the machine itself rejects moves outside the bed. With $20=1 GRBL requires $130/$131 (the bed size) to be correct.
+desktop.worker.rebooted_idle = The machine restarted (a limit switch, the lid or a power cut?). Home the machine before moving.
+
+# edit/devices.rs
+desktop.devices.lbdev_too_big = {path}: the file is too large to be a LightBurn device profile (.lbdev).

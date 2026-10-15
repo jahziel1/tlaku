@@ -2,6 +2,7 @@ import type { DeviceKind } from '@/bindings/DeviceKind';
 import type {
   ConnectResult,
   DeviceProfile,
+  LbdevImport,
   Document,
   EventMap,
   EventName,
@@ -635,6 +636,12 @@ export interface LaserApi {
    * de la pieza. `speed` en mm/min y `power` en %. Falla si el rotativo del perfil está apagado.
    */
   rotaryTest(args: { device: DeviceProfile; speed: number; power: number }): Promise<Document>;
+  /**
+   * Lee un perfil de LightBurn (`.lbdev`) y devuelve los perfiles propuestos (con id y nombre que
+   * no chocan con los guardados) y los avisos. No guarda nada ni toca la máquina: quien llama
+   * guarda con `saveDevice` lo que el usuario confirme.
+   */
+  readLbdev(args: { path: string }): Promise<LbdevImport>;
 
   // Aplicación: preferencias, autoguardado
   /** Preferencias guardadas (`preferences.json`); null si todavía no hay. */
@@ -812,6 +819,7 @@ export const COMMAND_NAMES = {
   materialTest: 'material_test',
   deviceDefaults: 'device_defaults',
   rotaryTest: 'rotary_test',
+  readLbdev: 'read_lbdev',
   importFileWith: 'import_file_with',
   exportDesign: 'export_design_file',
   printDesign: 'print_design',

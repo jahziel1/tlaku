@@ -647,6 +647,19 @@ fn fault_reboot_in_idle_only_prints_banner() {
     assert_eq!(r.h.state(), StateKind::Idle);
 }
 
+#[test]
+fn falcon2_reboot_in_idle_prints_the_creality_banner() {
+    let mut r = Rig::with(Profile::falcon2_pro(), |b| b);
+    r.drain();
+    r.h.inject(Trigger::Now, Fault::Reboot);
+    let lines = r.lines();
+    let cpu = lines
+        .iter()
+        .position(|l| l.starts_with("[MSG:Using cpu_map"));
+    let grbl = lines.iter().position(|l| l.starts_with("Grbl 1.1f"));
+    assert!(cpu.is_some() && grbl.is_some() && cpu < grbl, "{lines:?}");
+}
+
 // ---------------------------------------------------------------------------
 // Perfiles
 // ---------------------------------------------------------------------------

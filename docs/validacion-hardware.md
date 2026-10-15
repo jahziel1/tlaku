@@ -65,7 +65,7 @@ Máquina de diodo azul, GRBL 1.1f modificado por Creality sobre ESP32-S3, 115 20
 | 4 | N1 | Consulta `?` varias veces y mira el panel. | Informe `<Idle\|MPos:...\|Bf:127,65535\|FS:0,0\|...>` sin `Ln:` ni `Ov:`. El panel muestra la posición y el búfer sin `NaN`. | E |
 | 5 | N1 | Abre «Ajustes de la máquina…» (panel Máquina). **Solo mira; no escribas nada.** | La tabla muestra cada `$n` con nombre y unidad; marca como críticos los que lo son. | E |
 | 6 | N2 | Con el área despejada, «Homing» (`$H`) desde la confirmación de Tlaku. | El cabezal va a la esquina de los interruptores y el estado pasa por `Home` a `Idle`. Tras el homing `MPos` es ~0 y **crece hacia dentro de la cama**. Anota en qué esquina física termina (se espera abajo a la izquierda). | P |
-| 7 | N2 | En «Mover», pasos de 1, 10 y 50 mm en las cuatro direcciones. | Cada flecha mueve en el sentido de la flecha (X a la derecha, Y hacia atrás/arriba) la distancia pedida (mídela con la regla en 50 mm: ±0,5 mm). Si algún eje va al revés, anótalo: no cambies el perfil todavía. | P |
+| 7 | N2 | En «Mover», pasos de 1, 10 y 50 mm en las cuatro direcciones. | Cada flecha mueve en el sentido de la flecha (X a la derecha, Y hacia atrás/arriba) la distancia pedida (mídela con la regla en 50 mm: ±0,5 mm). Si algún eje va al revés, anótalo: no cambies el perfil todavía. **Un jog fuera de la cama debe rechazarse:** tras el homing (paso 6), un paso de 1 mm hacia la izquierda desde el origen (o `jog` con dx = −5) no sale a la placa y Tlaku dice «el movimiento saldría de la cama: X llegaría a −4.97 mm (límite 0 a 400)». Comprueba que el cabezal no se mueve. Sin homing en la sesión, o con la posición sin confirmar, no hay revisión y el registro lo avisa una vez («sin límites conocidos»). | P |
 | 8 | N2 | «Ir al origen» y «Posiciones guardadas». | El cabezal vuelve a donde dice el panel. | E |
 | 9 | N3 | Un cuadrado de 50 mm. Encuadre con el **láser apagado** (borde del trabajo, también «contorno»). | El cabezal recorre el rectángulo exacto, sin tocar los límites. Mide con la regla: ±1 mm. El overscan queda dentro de la cama (si no, Tlaku avisa antes). | P |
 | 10 | N3 | Encuadre en bucle (activar «Repetir el encuadre hasta detener» y detener con el botón). | Repite sin deriva visible y se detiene al pulsar «No repetir más»/Detener. | P |
@@ -77,6 +77,22 @@ Máquina de diodo azul, GRBL 1.1f modificado por Creality sobre ESP32-S3, 115 20
 | 16 | N5 | Detener a mitad de un trabajo. | El cabezal se detiene, el láser se apaga, el estado queda en Reposo o alarma. Verifica que el aire también se apaga. | P |
 | 17 | N5 | Si hay sensor: un fallo provocado a propósito (levantar el cabezal/inclinar con cuidado para la alarma de inclinación; tapar el aire). | Aparece `ERROR:NN` o `ALARM:3`. Tlaku debe **detener el envío** y mostrar el consejo de la alarma en vez de quedarse esperando un `ok`. La recuperación es con reinicio físico y el botón de inicio del panel de la máquina. | R |
 | 18 | N6 | El trabajo real: corte de 3 mm de madera o el que uses a diario, en dos pasadas si hace falta. | Resultado equivalente al de LightBurn con el mismo material y ajustes. Compara tiempos (sección 12). | R |
+
+**Nota: reinicio de la placa a mitad de sesión.** La Falcon2 puede reiniciarse sola (un final de carrera
+al que se llega sin límites por software, la tapa, un corte de energía) y manda de nuevo
+`[MSG:Using cpu_map...esp32-s3]` y `Grbl 1.1f ['$' for help]`. Tlaku distingue ese saludo del esperado
+(el de la conexión y el que sigue a un `0x18` que mandó él mismo en los últimos ~3 s: cancelar,
+parada segura, reset manual). Si es inesperado: **en reposo** avisa «La máquina se reinició (¿un final
+de carrera, la tapa o un corte de energía?). Haz homing antes de mover», el panel Máquina muestra
+«Posición sin confirmar» con un botón de homing y la revisión de la cama queda apagada hasta el
+próximo homing; **con un trabajo en curso** lo detiene con la parada segura, lo marca como error («la
+máquina se reinició a mitad del trabajo») y conserva el punto de control para reanudar (sección 2.5).
+Para probarlo con cuidado: con el área despejada y sin trabajo, provoca el reinicio (apagar y encender
+la máquina con el cable USB conectado, o abrir la tapa si tu modelo reinicia) y confirma el aviso; después
+cancela un encuadre desde Tlaku y comprueba que **no** sale el aviso (el saludo lo provocó el reset de
+Tlaku y la posición se conserva). Con `$22=1` y `$20=0` Tlaku recomienda además activar los límites por
+software (`$20=1`) en «Ajustes de la máquina…»; nunca los escribe solo, y con `$20=1` GRBL exige que
+`$130`/`$131` sean correctos.
 
 ### 2.3 Los ajustes nuevos de la ola 6C
 
@@ -123,7 +139,7 @@ Prueba la función «Continuar un trabajo interrumpido» ([manual](manual/09-env
 |---|---|---|---|---|
 | 1 | N5 | Prepara un grabado con relleno (por ejemplo 40 × 40 mm a 0,1 mm de intervalo) o una imagen pequeña sobre material de desecho. Inicia desde el diálogo y espera a que pase del 40 % o 50 %. | El trabajo avanza con normalidad. Anota el porcentaje y la hora. | P |
 | 2 | N5 | **Corte de luz:** a mitad del grabado, desenchufa la **fuente de alimentación** de la máquina (no solo el cable USB). Deja pasar unos segundos. No muevas el material ni el cabezal. | La máquina se apaga y el láser deja de emitir. Anota si el cabezal siguió un trecho por inercia. | R |
-| 3 | N5 | Vuelve a conectar la fuente y enciende la máquina. Abre Tlaku (o déjala abierta y reconecta). | Aparece el aviso **El último trabajo se interrumpió al N % (línea L de T). ¿Continuar?** con **Continuar**, **Elegir el punto** y **Descartar**. El porcentaje se parece al que anotaste. El Registro de trabajos lo muestra como interrumpido y con botón **Continuar**. | P |
+| 3 | N5 | Vuelve a conectar la fuente y enciende la máquina. Abre Tlaku (o déjala abierta y reconecta). | Aparece el aviso **El último trabajo se interrumpió al N %. ¿Continuar?** con **Continuar**, **Elegir el punto** y **Descartar**. El porcentaje se parece al que anotaste. El Registro de trabajos lo muestra como interrumpido y con botón **Continuar**. | P |
 | 4 | N5 | Pulsa **Continuar**. Mira la vista previa del diálogo de reanudación y la barra del punto de reinicio. | Lo hecho se ve con línea continua y lo que falta con línea discontinua. El retroceso por omisión es de 3 líneas o 1,5 mm (lo que quede más atrás); anota el que usaste y si tuviste que moverlo. | E |
 | 5 | N2 | Sin el home hecho, intenta reanudar. Luego haz **Hacer home ($H)…** (la Falcon2 tiene `$22=1`). | Sin home, el botón de reanudar no se activa y el diálogo dice por qué. Tras el home, MPos es ~0 y el estado pasa a Reposo. | P |
 | 6 | N3 | Encuadra el trabajo completo (láser apagado) y completa la lista de comprobación. Confirma que el material sigue en su lugar. | El cabezal recorre el rectángulo del trabajo y cae sobre lo ya grabado. Si el encuadre no coincide, **para**: algo se movió. | P |
@@ -135,6 +151,26 @@ Prueba la función «Continuar un trabajo interrumpido» ([manual](manual/09-env
 Anota en cada intento: el **porcentaje** del aviso, el **retroceso usado** (líneas o mm), el **desfase en mm** medido en la unión, el sentido de la marca (más oscura o clara) y si hizo falta mover el punto con la barra. Esta prueba también sirve para confirmar el búfer real: si la marca de la unión es mucho mayor que ~1 s de recorrido, el búfer de la placa va más lleno de lo que dice `Bf:`.
 
 Datos si falla: el registro de la consola completo (incluido el preámbulo enviado), el porcentaje y la línea del aviso, el retroceso usado, la carpeta `interrupted-job/` de la app y una foto de la unión con una regla a la vista.
+
+### 2.6 Resultados de la primera sesión real (Falcon2 Pro 22 W, 2026-10-14, macOS)
+
+Sin láser (potencia 0 en todo), sin regla, sin material y sin luz para la cámara. Detalle técnico en [`hardware/falcon2.md`](hardware/falcon2.md) §10. Firmware `CV50-Pro-MASTER-Release V1.0.0 20231129-1024`, GRBL `1.1f.20220810`, placa ESP32-S3 por USB (`303A:4001`).
+
+| Paso | Resultado | Notas |
+|---|---|---|
+| 2.2 n.º 1-4 | Pasó | Saludo, `$I`, `$$` y `?` como se esperaba. `$#` trae `-nan` en la X de G54-G59, G28 y G30: Tlaku los ignora y avisa una vez. Se corrigió que la app eligiera `/dev/cu.debug-console` como puerto por omisión: ahora van primero los USB. |
+| 2.2 n.º 6 | Pasó | Homing a la esquina inferior izquierda, MPos (0.025, 0.025). Reconectar no pierde la posición. |
+| 2.2 n.º 7 | Pasó sin regla | Un cuadrado de jog de 50 mm vuelve exacto (según MPos). Un jog de −5 mm desde el origen **llegó al final de carrera y la placa se reinició** (no da `ALARM:1`): se añadió el bloqueo de jog fuera de la cama y la detección del reinicio. El bloqueo falta comprobarlo en la máquina con el perfil cargado. |
+| 2.2 n.º 9 | Pasó sin regla | Encuadre con el láser apagado (S0) exacto según MPos. |
+| 2.2 n.º 15 | Pasó con potencia 0 | Pausa y reanudar (`[MSG:Restoring spindle]`), vuelve a 0,0 al terminar. |
+| 2.2 n.º 16 | Pasó con potencia 0 | Detener: el hold llega en ~120 ms, pero **la Falcon necesita ~16 mm para frenar a 3000 mm/min**. Tras el reinicio de Tlaku la placa conserva la posición. |
+| Aire | Funciona | `M8`/`M9` funcionan; tras `M9` el aire sigue unos segundos más (el retardo de `$152`, 30 s de fábrica según foros; sin medir). |
+| Tapa | **No se detecta** | Con la tapa abierta el estado sigue en `Idle`, sin `Door` ni pin: Tlaku no puede saber que la tapa está abierta. |
+| Paro de emergencia | Corta la energía de la placa | Tlaku informa «se perdió la conexión» y guarda el punto de control (enviadas 9, confirmadas 8, MPos 167.725, 100). Al volver a encender: `Idle` en 0,0, sin alarma, sin homing. Con esos datos se corrigió el punto de reinicio (proponía repetir ~66 mm; ahora ~1,5 mm antes). |
+| Tiempo estimado | Corto en ~15 % antes del arreglo | Cuadrado de 40 mm a 3000 mm/min: 4,24 s estimado contra ~4,9 s de movimiento. Faltaba el regreso al origen. Además el firmware tarda ~0,9 s en aceptar el `M4 S0` inicial de cada trabajo (un `G0` suelto arranca en ~60 ms). |
+| Conexión | Se cayó 3 veces | Dos veces el puerto desapareció solo y una vez todo el árbol USB (cámara incluida): cable o alimentación. |
+
+Falta con la máquina: medir con regla (pasos 7 y 9), calibrar la cámara (lente con tablero y alineación de 4 puntos), los pasos con láser (11 a 14, 17 y 18), el corte de luz real con material (2.5), el control desde el teléfono con la máquina real, el bloqueo de jog fuera de la cama con el perfil y comprobar el estimado corregido.
 
 ---
 

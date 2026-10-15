@@ -44,6 +44,13 @@ export function parseRawSettings(lines: readonly string[]): ParsedSettings {
   return { settings: [...byId.values()].sort((a, b) => a.id - b.id), namedLines };
 }
 
+/** Tiene homing (`$22`) pero no límites por software (`$20=0`): se recomienda activarlos (nunca se escribe solo). */
+export function needsSoftLimits(settings: readonly RawSetting[]): boolean {
+  const value = (id: number) => settings.find((s) => s.id === id)?.value ?? null;
+  const homing = value(22);
+  return homing !== null && homing !== 0 && value(20) === 0;
+}
+
 // ---------------------------------------------------------------------------
 // Validación de un valor escrito por la persona
 // ---------------------------------------------------------------------------

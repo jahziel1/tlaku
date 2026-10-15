@@ -76,6 +76,9 @@ export const machine = {
   'machine.positionLost.reconnect': 'La última vez, la máquina se detuvo en movimiento y la posición puede haberse perdido. Conviene hacer homing ($H) antes de trabajar.',
   'machine.positionLost.home': 'Hacer home ($H)…',
   'machine.positionLost.dismiss': 'Entendido',
+  'machine.positionUnconfirmed.title': 'Posición sin confirmar',
+  'machine.positionUnconfirmed.text': 'La máquina se reinició (¿un final de carrera, la tapa o un corte de energía?). Haz homing antes de mover: hasta entonces Tlaku no puede comprobar que los movimientos queden dentro de la cama.',
+  'machine.positionUnconfirmed.notice': 'La máquina se reinició (¿un final de carrera, la tapa o un corte de energía?). Haz homing antes de mover.',
 
   // ---- estado en vivo ----------------------------------------------------------
   'machine.state.other': 'Ocupada',
@@ -255,6 +258,8 @@ export const machine = {
   'machine.jog.toZero': 'Ir al cero de trabajo (X0 Y0)',
   'machine.jog.toUserOrigin': 'Ir al origen de usuario',
   'machine.jog.noRoom': 'No hay recorrido libre en esa dirección o aún no se conoce la posición.',
+  'machine.jog.outsideBed': 'El movimiento saldría de la cama: {detail}.',
+  'machine.jog.outsideAxis': '{axis} llegaría a {value} mm (límite 0 a {max})',
   'machine.jog.help':
     'Toca para mover un paso; mantén pulsado para mover sin parar (se detiene al soltar). Con el foco en el pad: flechas = un paso, Mayús ×10, Alt ÷10. Desde cualquier panel: Cmd o Ctrl + Alt + flechas.',
   'machine.origin.set': 'Fijar origen aquí',
@@ -706,7 +711,8 @@ export const machine = {
   // ---- continuar un trabajo interrumpido -----------------------------------------------
   'machine.virtual.fault.power_cut': 'Corte de luz (la placa pierde la posición)',
   'machine.resume.notice.title': 'Trabajo interrumpido',
-  'machine.resume.notice.text': 'El último trabajo se interrumpió al {percent} % (línea {line} de {total}). ¿Continuar?',
+  'machine.resume.notice.text': 'El último trabajo se interrumpió al {percent} %. ¿Continuar?',
+  'machine.resume.notice.finished': 'El último trabajo se interrumpió, pero la máquina parece haberlo terminado por su cuenta. Lo más probable es que no quede nada por continuar.',
   'machine.resume.notice.unknown': 'El último trabajo se interrumpió, pero no se pudo leer hasta dónde llegó. Puedes elegir a mano desde dónde seguir.',
   'machine.resume.notice.hint': 'Antes de seguir se hará home (o se confirmará que nada se movió), se encuadrará el trabajo y se completará la lista de comprobación.',
   'machine.resume.notice.continue': 'Continuar',
@@ -723,7 +729,7 @@ export const machine = {
   'machine.resume.discard.cancel': 'Conservar',
 
   'machine.resume.title': 'Continuar el trabajo interrumpido',
-  'machine.resume.summary': 'Interrumpido al {percent} % (línea {line} de {total}) · {when}',
+  'machine.resume.summary': 'Interrumpido al {percent} % · {when}',
   'machine.resume.machine.notConnected': 'Conecta la máquina «{name}» desde la pestaña Máquina para continuar.',
   'machine.resume.machine.open': 'Abrir la pestaña Máquina',
   'machine.resume.machine.wrong': 'Está conectada «{current}», pero el trabajo era de «{name}». Conecta la correcta o descarta el trabajo.',

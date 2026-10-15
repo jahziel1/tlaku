@@ -9,6 +9,7 @@ import { fmt } from '@/lib/platform';
 import { entrySources, type CatalogEntry, type Fact } from './catalog';
 import type { CompareField, Comparison, CompareRow } from './compare';
 import type { RankedEntry } from './filter';
+import type { ModelGuess } from './signature';
 import type { BuiltProfile, Provenance, ProfileField } from './profile';
 import { GalvoSetupField, type GalvoSetup } from './GalvoSetupField';
 import { LhyBoardField } from './LhyBoardField';
@@ -63,6 +64,8 @@ export interface DetectStepProps {
   galvoBoards?: string[];
   /** Elegir «Galvo» y pasar al modelo; sin esto no se muestra la parte del galvo. */
   onPickGalvo?: () => void;
+  /** Modelo que delató la firma del firmware (ver `signature.ts`); se muestra con su evidencia. */
+  guess?: ModelGuess | null;
 }
 
 function portLabel(port: string): string {
@@ -109,7 +112,7 @@ export function DetectStep(p: DetectStepProps) {
         {p.probe.status === 'error' && (
           <p className="hint hint--danger" role="alert">{t('catalog.detect.failed', { error: p.probe.message })}</p>
         )}
-        {p.probe.status === 'done' && <ProbeSummary result={p.probe.result} />}
+        {p.probe.status === 'done' && <ProbeSummary result={p.probe.result} guess={p.guess} />}
       </div>
       {p.onPickK40 && (
         <section className="dev-k40" aria-labelledby={`${id}-k40`}>
@@ -143,7 +146,7 @@ export function DetectStep(p: DetectStepProps) {
   );
 }
 
-export function ProbeSummary({ result }: { result: ProbeResult }) {
+export function ProbeSummary({ result, guess }: { result: ProbeResult; guess?: ModelGuess | null }) {
   const count = result.settings ? Object.keys(result.settings).length : 0;
   return (
     <section className="dev-summary" aria-label={t('catalog.detect.result')}>
@@ -158,6 +161,7 @@ export function ProbeSummary({ result }: { result: ProbeResult }) {
       {result.family === 'unknown' && (
         <p className="warn-line"><TriangleAlert size={14} aria-hidden="true" /><span>{t('catalog.detect.unknownHelp')}</span></p>
       )}
+      {guess && guess.candidates.length > 0 && <GuessNotice guess={guess} />}
       <details>
         <summary>{t('catalog.detect.banner')}</summary>
         {result.banner || result.info.length > 0 ? (
@@ -188,6 +192,51 @@ export interface ModelStepProps {
   onShowAll: (v: boolean) => void;
   otherKind: DeviceKind;
   onOtherKind: (k: DeviceKind) => void;
+  /** Modelo(s) que la firma del firmware delató; la mejor ya viene seleccionada en `selectedId`. */
+  guess?: ModelGuess | null;
+}
+
+const modelName = (e: CatalogEntry) => (e.generic ? e.model : `${e.brand} ${e.model}`);
+
+/**
+ * «Detectamos: marca modelo» con la línea de la máquina que coincidió y de dónde sale esa firma.
+ * Con varias candidatas sin ganadora, las lista para elegir; el botón solo aparece si hay `onPick`.
+ */
+export function GuessNotice({ guess, selectedId, onPick }: { guess: ModelGuess; selectedId?: string | null; onPick?: (id: string) => void }) {
+  const { best, candidates } = guess;
+  if (candidates.length === 0) return null;
+  const show = best ? [best, ...candidates.filter((c) => c !== best)] : candidates;
+  return (
+    <section className="dev-guess" aria-label={t('catalog.guess.label')} role="status">
+      <p className="dev-guess__title">
+        <Info size={14} aria-hidden="true" />
+        <strong>{best ? t('catalog.guess.one', { model: modelName(best.entry) }) : t('catalog.guess.many')}</strong>
+      </p>
+      <ul className="dev-guess__list">
+        {show.map((m, i) => (
+          <li key={m.entry.id}>
+            {(!best || i > 0) && (
+              <p>
+                <strong>{modelName(m.entry)}</strong>
+                {onPick && (
+                  <button type="button" className="btn" disabled={selectedId === m.entry.id} onClick={() => onPick(m.entry.id)}>
+                    {selectedId === m.entry.id ? t('catalog.guess.picked') : t('catalog.guess.pick')}
+                  </button>
+                )}
+              </p>
+            )}
+            <p className="hint">{t('catalog.guess.evidence', { source: t(`catalog.source.${m.signature.kind}`) })}</p>
+            <pre className="dev-pre num">{m.evidence.join('\n')}</pre>
+            {m.bedMatches && m.signature.bed && (
+              <p className="hint">{t('catalog.guess.bed', { w: fmt(m.signature.bed[0], 0), h: fmt(m.signature.bed[1], 0) })}</p>
+            )}
+            <p className="hint dev-url"><code>{m.signature.source}</code></p>
+          </li>
+        ))}
+      </ul>
+      <p className="hint">{best ? t('catalog.guess.change') : t('catalog.guess.chooseOne')}</p>
+    </section>
+  );
 }
 
 export function ModelStep(p: ModelStepProps) {
@@ -196,6 +245,7 @@ export function ModelStep(p: ModelStepProps) {
   return (
     <div className="dev-step dev-model">
       <div className="dev-model__list">
+        {p.guess && p.guess.candidates.length > 0 && <GuessNotice guess={p.guess} selectedId={p.selectedId} onPick={p.onSelect} />}
         <div className="field">
           <label htmlFor={`${id}-q`} className="field__label">{t('catalog.model.search')}</label>
           <input id={`${id}-q`} type="search" className="input" value={p.query} placeholder={t('catalog.model.searchPlaceholder')} onChange={(e) => p.onQuery(e.target.value)} />
@@ -276,6 +326,7 @@ const yesNo = (v: boolean) => t(v ? 'catalog.fact.yes' : 'catalog.fact.no');
 /** Datos del catálogo de un modelo, cada uno con su fuente, y los que se desconocen. */
 export function EntryDetail({ entry: e }: { entry: CatalogEntry }) {
   const rows = [
+    factRow('catalog.fact.controller', e.controller, e.controller?.value ?? ''),
     factRow('catalog.fact.bed', e.bed, e.bed ? showValue(e.bed.value) + ' mm' : ''),
     factRow('catalog.fact.maxRate', e.maxRate, e.maxRate ? `${showValue(e.maxRate.value)} mm/min` : ''),
     factRow('catalog.fact.accel', e.accel, e.accel ? `${showValue(e.accel.value)} mm/s²` : ''),
@@ -291,8 +342,9 @@ export function EntryDetail({ entry: e }: { entry: CatalogEntry }) {
   const missing: I18nKey[] = [];
   if (!e.bed) missing.push('catalog.fact.bed');
   if (!e.maxRate) missing.push('catalog.fact.maxRate');
-  if (!e.accel) missing.push('catalog.fact.accel');
-  if (!e.sMax) missing.push('catalog.fact.sMax');
+  // Ruida no usa la S del G-code ni da aceleración: la controladora tiene lo suyo.
+  if (!e.accel && e.kind !== 'ruida') missing.push('catalog.fact.accel');
+  if (!e.sMax && e.kind !== 'ruida') missing.push('catalog.fact.sMax');
   return (
     <section aria-label={t('catalog.model.detail')}>
       <h3 className="mc-sub">{e.generic ? e.model : `${e.brand} ${e.model}`}</h3>

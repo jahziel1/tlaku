@@ -42,6 +42,9 @@ impl Connection {
         let mut grbl = Grbl::with_transport(transport);
         let reply = grbl.command("$I", timing.identify_timeout);
         log(sink.as_ref(), LogDir::Out, "$I");
+        if let Some(state) = running_state(&mut grbl, &reply, timing.identify_timeout) {
+            return Err(tr!("desktop.machine.running_on_connect", state = state));
+        }
         // Marlin y Smoothieware no conocen `$I` (`echo:Unknown command` o `error`): se prueba
         // `M115`. Si tampoco contesta, vale el mensaje de siempre.
         let answered_like_grbl = matches!(&reply, Ok(l) if !looks_like_reprap(l));
@@ -118,6 +121,35 @@ impl Drop for Connection {
         // Si no se llamó a `close`, al menos se le pide al trabajador que termine.
         let _ = self.handle.tx.send(Request::Disconnect);
     }
+}
+
+/// Si `$I` no obtuvo respuesta, o contestó `error:8` (o solo un `ok` suelto, de una línea anterior de la máquina), puede
+/// ser porque la máquina sigue ejecutando un trabajo que se quedó en su búfer cuando la app se
+/// cerró: una controladora con el búfer lleno no lee líneas nuevas. `?` es de tiempo real y sí
+/// contesta: devuelve el estado si es `Run`, `Hold` o `Jog`.
+fn running_state(
+    grbl: &mut Grbl,
+    reply: &std::io::Result<Vec<String>>,
+    timeout: Duration,
+) -> Option<String> {
+    let unanswered = match reply {
+        // Sin respuesta, o `error:8` («solo en reposo»): lo que contesta una controladora ocupada.
+        Err(e) => e.kind() == std::io::ErrorKind::TimedOut || e.to_string().contains("error:8"),
+        Ok(lines) => {
+            !lines.iter().any(|l| l.trim_start().starts_with("[VER:")) && !looks_like_reprap(lines)
+        }
+    };
+    if !unanswered {
+        return None;
+    }
+    let report = grbl.status_query(timeout).ok()??;
+    let state = report
+        .trim_start_matches('<')
+        .split(['|', '>'])
+        .next()?
+        .split(':')
+        .next()?;
+    matches!(state, "Run" | "Hold" | "Jog").then(|| state.to_string())
 }
 
 /// Nombre legible del firmware (`Grbl 1.1h`, `FluidNC v3.9.7`, `grblHAL 1.1f`) y su familia, a

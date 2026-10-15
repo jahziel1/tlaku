@@ -1,5 +1,7 @@
 import type { DeviceProfile, Point } from '@/api/types';
+import { t } from '@/i18n';
 import { docDeltaToWork, workToDoc, type DeviceFrame } from '@/lib/device';
+import { fmt } from '@/lib/platform';
 
 /** Pasos del jog en mm. */
 export const JOG_STEPS = [0.1, 1, 10, 50] as const;
@@ -76,6 +78,43 @@ export function continuousDelta(device: DeviceFrame, dir: JogDir, work: Point | 
   const dist = Math.min(rx, ry);
   if (!Number.isFinite(dist) || dist < MIN_CONTINUOUS_MM) return null;
   return stepDelta(device, dir, dist);
+}
+
+/** Cuánto se tolera pasar del borde de la cama (igual que en el motor). */
+export const BED_TOLERANCE_MM = 0.5;
+
+/** Un eje que se saldría de la cama: a dónde llegaría (mm del documento) y el largo de la cama en ese eje. */
+export interface OutsideAxis {
+  axis: 'X' | 'Y';
+  value: number;
+  max: number;
+}
+
+/**
+ * Ejes por los que un jog relativo `delta` (en ejes de la máquina) se saldría de la cama, o `[]` si
+ * cabe o no se conoce la posición. Mismo marco que `continuousDelta`: la posición de trabajo sobre
+ * la cama del perfil, con 0,5 mm de margen. El motor repite la comprobación con la MPos real.
+ */
+export function jogOutsideBed(device: DeviceFrame, work: Point | null, delta: Point): OutsideAxis[] {
+  if (!work || device.rotary?.enabled) return [];
+  const to = workToDoc(device, [work[0] + delta[0], work[1] + delta[1]]);
+  return pointOutsideBed(device, to);
+}
+
+/** Ejes por los que el punto del documento `p` queda fuera de la cama (con el margen de 0,5 mm). */
+export function pointOutsideBed(device: Pick<DeviceProfile, 'bed'>, p: Point): OutsideAxis[] {
+  const out: OutsideAxis[] = [];
+  (['X', 'Y'] as const).forEach((axis, i) => {
+    const max = device.bed[i]!;
+    if (p[i]! < -BED_TOLERANCE_MM || p[i]! > max + BED_TOLERANCE_MM) out.push({ axis, value: p[i]!, max });
+  });
+  return out;
+}
+
+/** «El movimiento saldría de la cama: X llegaría a -4.97 mm (límite 0 a 400)». No recorta: solo dice el motivo. */
+export function outsideBedMessage(out: readonly OutsideAxis[]): string {
+  const detail = out.map((o) => t('machine.jog.outsideAxis', { axis: o.axis, value: fmt(o.value, 2), max: fmt(o.max, 0) })).join('; ');
+  return t('machine.jog.outsideBed', { detail });
 }
 
 /** Velocidad de jog limitada a lo que soporta la máquina (la menor de sus velocidades máximas). */

@@ -39,6 +39,7 @@ impl Worker {
         // Un reset en pleno movimiento (o homing) pierde la posición: GRBL lanzará ALARM:3.
         if rt == Realtime::SoftReset {
             self.shared.homed.store(false, Ordering::SeqCst);
+            self.note_own_reset();
         }
         if rt == Realtime::SoftReset
             && matches!(
@@ -84,7 +85,16 @@ impl Worker {
         } else {
             self.timing.command_timeout
         };
-        self.exchange(t, &line, timeout)
+        self.note_line_to_send(&line);
+        let reply = self.exchange(t, &line, timeout)?;
+        if reply.last().is_some_and(|l| l == "ok") {
+            if line == "$$" {
+                self.note_settings(&reply);
+            } else {
+                self.note_setting_written(&line);
+            }
+        }
+        Ok(reply)
     }
 
     pub(super) fn exchange(
@@ -105,7 +115,7 @@ impl Worker {
         if line.eq_ignore_ascii_case("$H")
             && matches!(&r, Ok(out) if out.last().is_some_and(|l| l == "ok"))
         {
-            self.shared.homed.store(true, Ordering::SeqCst);
+            self.on_homed();
         }
         r
     }

@@ -1,83 +1,18 @@
-import type { DeviceKind } from '@/bindings/DeviceKind';
-import type { Origin } from '@/bindings/Origin';
-import type { I18nKey } from '@/i18n';
+import { official, forum, shop, measured, type CatalogEntry } from './catalogBase';
+import { DIODE_ENTRIES } from './catalog.diode';
+import { RUIDA_ENTRIES } from './catalog.ruida';
+
+export * from './catalogBase';
 
 /**
- * Catálogo de máquinas por marca y modelo.
+ * Catálogo de máquinas por marca y modelo. Las reglas (sala limpia, fuente por dato, niveles de
+ * confianza) están en `catalogBase.ts`.
  *
- * Reglas de este archivo:
- * - Sala limpia: los datos salen de fichas públicas de fabricantes, tiendas y foros, nunca de la
- *   lista de dispositivos de otro programa. Cada dato lleva su URL en `source`.
- * - Solo se escribe lo que tiene fuente. Lo que no se conoce se deja sin definir (`undefined`) y el
- *   asistente le dice al usuario que lo lea de la máquina.
- * - `kind` de la fuente: `oficial` (fabricante o proyecto del firmware), `tienda` (ficha de tienda,
- *   reseña o comparativa) y `foro` (mensaje de un usuario: puede tener la máquina modificada).
- * - Las cifras de tamaño, velocidad y aceleración son las que anuncia el fabricante o un usuario, no
- *   las que la máquina tenga hoy: el asistente las compara con `$$` y deja elegir.
  * - Datos de Creality Falcon2: `docs/hardware/falcon2.md`. Firmware de Atomstack, Ortur, Longer,
  *   Neje y xTool: `docs/hardware/controladoras.md` sección 1.4. Dialectos: `docs/hardware/dialectos-gcode.md`.
+ * - Modelos añadidos después (CO2 Ruida, diodos GRBL): un archivo por familia (`catalog.ruida.ts`,
+ *   `catalog.diode.ts`) y su documentación en `docs/hardware/catalogo-fuentes.md`.
  */
-
-export type SourceKind = 'oficial' | 'tienda' | 'foro';
-
-/** Un dato con su origen. `note` explica un conflicto entre fuentes u otra salvedad. */
-export interface Fact<T> {
-  value: T;
-  source: string;
-  kind: SourceKind;
-  note?: I18nKey;
-}
-
-export interface CatalogEntry {
-  /** Identificador estable (sin espacios). */
-  id: string;
-  /** Marca y modelo son nombres propios, no se traducen. */
-  brand: string;
-  model: string;
-  kind: DeviceKind;
-  /** Otros tipos de firmware con los que esta máquina también puede aparecer al detectarla. */
-  alsoKinds?: DeviceKind[];
-  /** Entrada de familia (no es un modelo concreto). */
-  generic?: boolean;
-  /** Otros nombres con los que se busca. */
-  aliases?: string[];
-  /** Fragmentos (en minúsculas) del saludo o de `$I` que delatan esta placa. */
-  detect?: Fact<string[]>;
-
-  /** Área de trabajo en mm. */
-  bed?: Fact<[number, number]>;
-  /** Velocidad máxima de movimiento, mm/min (el mismo valor en X e Y). */
-  maxRate?: Fact<number>;
-  /** Aceleración, mm/s² (la misma en X e Y). */
-  accel?: Fact<number>;
-  /** `S` para el 100 % de potencia (`$30` en GRBL). */
-  sMax?: Fact<number>;
-  /** Potencia dinámica con `M4` (true) o solo potencia constante con `M3` (false). */
-  m4?: Fact<boolean>;
-  /** Tiene bomba o salida de aire asistido. */
-  air?: Fact<boolean>;
-  baud?: Fact<number>;
-  origin?: Fact<Origin>;
-  /** Tiene finales de carrera y hace homing al encender. */
-  homing?: Fact<boolean>;
-  zAxis?: Fact<boolean>;
-  notes: I18nKey[];
-}
-
-// ---------------------------------------------------------------------------
-// Constructores de datos con fuente
-// ---------------------------------------------------------------------------
-
-const fact = <T>(kind: SourceKind, value: T, source: string, note?: I18nKey): Fact<T> => ({
-  value,
-  source,
-  kind,
-  ...(note ? { note } : {}),
-});
-
-const official = <T>(value: T, source: string, note?: I18nKey) => fact('oficial', value, source, note);
-const shop = <T>(value: T, source: string, note?: I18nKey) => fact('tienda', value, source, note);
-const forum = <T>(value: T, source: string, note?: I18nKey) => fact('foro', value, source, note);
 
 // ---------------------------------------------------------------------------
 // Fuentes que se repiten
@@ -88,8 +23,11 @@ const FALCON_PROFILE = 'https://forum.creality.com/t/profile-settings/36308';
 const FALCON_DUMP_A = 'https://forum.lightburnsoftware.com/t/creality-falcon2-s-value-variable-power-issue/137714';
 const FALCON_DUMP_B = 'https://forum.lightburnsoftware.com/t/falcon-2-pro-stuck-in-startup-loop/192185';
 const FALCON_M4 = 'https://forum.lightburnsoftware.com/t/creality-falcon-2-40w/137856';
+/** Sesión con una Falcon2 Pro 22 W real (firmware CV50-Pro-MASTER 2023-11-29). */
+const FALCON_MEASURED = 'https://github.com/jahziel1/tlaku/blob/main/docs/hardware/falcon2.md#10-primera-sesión-con-una-falcon2-real-2026-10-14-macos';
 const FALCON_AIR = 'https://au.crealityfalcon.com/products/falcon2-pro-40w-and-22w-enclosed-laser-engraver-cutter';
 const FALCON_HOMING = 'https://forum.lightburnsoftware.com/t/changing-default-home-location-for-creality-falcon-2-pro/184864';
+const LM3_FORUM = 'https://forum.lightburnsoftware.com/t/ortur-lm3-not-connecting-with-either-wifi-or-usb/76960';
 const ATOMSTACK_FORUM = 'https://forum.lightburnsoftware.com/t/adding-atomstack-x7-a10-s10-in-lightburn/59803';
 const LASER_MODE_DOC = 'https://github.com/gnea/grbl/wiki/Grbl-v1.1-Laser-Mode';
 const GRBL_ISSUES = 'https://github.com/gnea/grbl/wiki/Known-Issues';
@@ -137,9 +75,11 @@ export const CATALOG: readonly CatalogEntry[] = [
       'https://slickdeals.net/f/18970864-creality-falcon-2-pro-22w-laser-engraver-and-cutter-fully-enclosed-diode-laser-15-7-x-16-3-in-work-area-camera-alignment-air-assist-with-code-cffam-719-1',
       'catalog.note.falcon.proBedY',
     ),
-    maxRate: forum(50000, FALCON_DUMP_B, 'catalog.note.falcon.proSpeed'),
-    accel: forum(5000, FALCON_DUMP_B, 'catalog.note.falcon.accelDiffers'),
+    maxRate: measured(25000, FALCON_MEASURED, 'catalog.note.falcon.proSpeed'),
+    accel: measured(1000, FALCON_MEASURED, 'catalog.note.falcon.accelDiffers'),
     homing: forum(true, FALCON_HOMING, 'catalog.note.falcon.homing'),
+    // Cadena leída de `$I` en una Pro 22 W real. La clásica no tiene salida publicada: no se firma.
+    signatures: [{ contains: ['cv50-pro-master'], show: ['inquire_info->power'], bed: [400, 415], source: FALCON_MEASURED, kind: 'medido' }],
   }),
 
   {
@@ -210,7 +150,9 @@ export const CATALOG: readonly CatalogEntry[] = [
     // grblHAL con nivel de compatibilidad 1 o más dice `Grbl 1.1` en el saludo (docs/hardware/grbl.md).
     alsoKinds: ['grbl'],
     aliases: ['LM3'],
-    detect: forum(['ortur laser master 3', 'grblhal'], 'https://forum.lightburnsoftware.com/t/ortur-lm3-not-connecting-with-either-wifi-or-usb/76960'),
+    detect: forum(['ortur laser master 3', 'grblhal'], LM3_FORUM),
+    // El saludo y `[MODEL: ...]` del hilo traen el nombre completo.
+    signatures: [{ contains: ['ortur laser master 3'], show: ['grblhal'], source: LM3_FORUM, kind: 'foro' }],
     notes: ['catalog.note.ortur.lm3Hal', 'catalog.note.ortur.lm3Bed'],
   },
 
@@ -350,6 +292,10 @@ export const CATALOG: readonly CatalogEntry[] = [
     sMax: official(1, 'https://smoothieware.org/laser', 'catalog.note.smoothie.maxS'),
     notes: ['catalog.note.smoothie.baud', 'catalog.note.generic.noSettings'],
   },
+
+  // Modelos añadidos después, un archivo por familia.
+  ...RUIDA_ENTRIES,
+  ...DIODE_ENTRIES,
 ];
 
 export function findEntry(id: string): CatalogEntry | undefined {
@@ -358,7 +304,7 @@ export function findEntry(id: string): CatalogEntry | undefined {
 
 /** Todas las URLs de fuente de una entrada (para mostrarlas y para las pruebas). */
 export function entrySources(entry: CatalogEntry): string[] {
-  const facts = [entry.detect, entry.bed, entry.maxRate, entry.accel, entry.sMax, entry.m4, entry.air, entry.baud, entry.origin, entry.homing, entry.zAxis];
-  const urls = facts.flatMap((f) => (f ? [f.source] : []));
+  const facts = [entry.detect, entry.controller, entry.bed, entry.maxRate, entry.accel, entry.sMax, entry.m4, entry.air, entry.baud, entry.origin, entry.homing, entry.zAxis];
+  const urls = [...facts.flatMap((f) => (f ? [f.source] : [])), ...(entry.signatures ?? []).map((s) => s.source)];
   return [...new Set(urls)];
 }

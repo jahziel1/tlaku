@@ -4,6 +4,7 @@
 mod command;
 mod idle;
 mod jog;
+pub(in crate::machine) mod limits;
 mod probe;
 mod start;
 mod status;
@@ -130,6 +131,8 @@ pub(super) struct Worker {
     pub(super) emergency_parser: bool,
     /// Silencio tolerado ahora mismo (ver la cabecera del módulo).
     quiet: Option<Quiet>,
+    /// Guardas de la cama y del reinicio de la placa (ver `limits.rs`).
+    lim: limits::Limits,
 }
 
 pub(super) fn empty_status() -> StatusReport {
@@ -146,6 +149,7 @@ pub(super) fn empty_status() -> StatusReport {
             rx: 127,
         },
         overrides: None,
+        position_unconfirmed: None,
     }
 }
 
@@ -192,6 +196,7 @@ impl Worker {
             link_family: LinkFamily::Grbl,
             emergency_parser: false,
             quiet: None,
+            lim: limits::Limits::default(),
         }
     }
 

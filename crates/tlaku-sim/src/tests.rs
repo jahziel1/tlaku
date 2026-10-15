@@ -653,3 +653,19 @@ fn line_rate_of_an_empty_job_is_zero() {
     let r = line_rate(Point::new(0.0, 0.0), &job(vec![]), &grbl_profile(), 1.0);
     assert_eq!((r.lines, r.peak_per_s, r.mean_per_s), (0, 0.0, 0.0));
 }
+
+#[test]
+fn rapid_leg_is_a_single_travel_from_rest_to_rest() {
+    let pr = profile();
+    // Recta de 100 mm en X con los rápidos del perfil: igual que un trabajo de un solo `Travel`.
+    let leg = rapid_leg_seconds(p(10.0, 0.0), p(110.0, 0.0), &pr);
+    let direct = estimate_from(
+        p(10.0, 0.0),
+        &job(vec![block(1000.0, vec![travel(110.0, 0.0)])]),
+        &pr,
+    );
+    close(leg, direct.total_s);
+    assert!(leg > 0.0);
+    // Sin recorrido no hay tiempo.
+    close(rapid_leg_seconds(p(5.0, 5.0), p(5.0, 5.0), &pr), 0.0);
+}

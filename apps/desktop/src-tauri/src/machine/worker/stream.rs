@@ -111,9 +111,12 @@ impl Worker {
 
     pub(super) fn stream_event(&mut self, run: &mut Run, ev: Event) {
         match ev {
-            Event::Progress { acked, total, .. } => {
+            Event::Progress {
+                acked, sent, total, ..
+            } => {
                 if let Some(c) = &run.checkpoint {
                     c.writer.note_acked(acked);
+                    c.writer.note_sent(sent);
                     if let Some(e) = c.writer.take_error() {
                         self.log(
                             LogDir::In,
@@ -172,6 +175,8 @@ impl Worker {
                 );
             }
             Event::Reset(m) => {
+                // Reinicio por su cuenta: la referencia del homing ya no vale.
+                self.shared.homed.store(false, Ordering::SeqCst);
                 self.note_line(&m);
                 self.log(LogDir::In, &m);
             }
@@ -235,8 +240,16 @@ impl Worker {
         // `ALARM:3` es justo eso: reinicio con la máquina en movimiento.
         let position_lost = streamer.last_stop().is_some_and(|s| s.position_maybe_lost)
             || matches!(outcome, Outcome::Alarm(3));
+        // Si el streamer mandó un reinicio (cancelar, error), el saludo que sigue es esperado.
+        if streamer.last_stop().is_some() {
+            self.note_own_reset();
+        }
         if position_lost {
             self.shared.homed.store(false, Ordering::SeqCst);
+        }
+        // La placa se reinició por su cuenta a mitad del trabajo: posición sin confirmar.
+        if matches!(outcome, Outcome::Reset(_)) {
+            self.mark_unconfirmed();
         }
         let t = streamer.into_transport();
         self.reader.clear();

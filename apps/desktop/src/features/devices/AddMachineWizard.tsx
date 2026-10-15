@@ -15,6 +15,7 @@ import { findEntry } from './catalog';
 import { compareWithMachine, defaultMachineChoices, type CompareField } from './compare';
 import { detectionFrom, rankCatalog } from './filter';
 import { buildProfile } from './profile';
+import { identifyModel } from './signature';
 import { DEFAULT_GALVO_SETUP, setupPort, type GalvoSetup } from './GalvoSetupField';
 import { DetectStep, ModelStep, OTHER_ID, ReviewStep, SaveStep, type ProbeState } from './steps';
 import { useDevicesWizard } from './wizardStore';
@@ -86,6 +87,8 @@ export function AddMachineWizard() {
   /** Detecciones lanzadas: una respuesta tardía de una anterior se descarta. */
   const run = useRef(0);
   const alive = useRef(true);
+  /** El modelo seleccionado lo puso la firma del firmware, no el usuario. */
+  const autoPicked = useRef(false);
 
   useEffect(() => {
     alive.current = true;
@@ -102,6 +105,7 @@ export function AddMachineWizard() {
 
   const result: ProbeResult | null = probe.status === 'done' ? probe.result : null;
   const detection = useMemo(() => detectionFrom(result), [result]);
+  const guess = useMemo(() => identifyModel(result), [result]);
   const ranked = useMemo(() => rankCatalog({ query, detection, includeIncompatible: showAll }), [query, detection, showAll]);
   const entry = selectedId && selectedId !== OTHER_ID ? (findEntry(selectedId) ?? null) : null;
   const kind: DeviceKind = entry ? entry.kind : selectedId === OTHER_ID ? otherKind : (result?.suggested_kind ?? 'grbl');
@@ -125,6 +129,16 @@ export function AddMachineWizard() {
       setShowAll(false);
       // Se parte del tipo detectado: lo que difiera queda a la vista del usuario en "Revisar".
       setOtherKind(r.suggested_kind);
+      // Si la firma del firmware delata el modelo, se preselecciona (el usuario puede cambiarlo).
+      const g = identifyModel(r);
+      if (g.best) {
+        select(g.best.entry.id, r.settings, true);
+      } else if (autoPicked.current) {
+        // Una detección anterior eligió por firma y esta no: se suelta esa elección.
+        autoPicked.current = false;
+        setSelectedId(null);
+        setChoices(new Set());
+      }
     } catch (e) {
       if (!alive.current || mine !== run.current) return;
       setProbe({ status: 'error', message: errorMessage(e) });
@@ -132,10 +146,11 @@ export function AddMachineWizard() {
     }
   };
 
-  const select = (id: string) => {
+  const select = (id: string, settings: Record<string, string> | null = result?.settings ?? null, auto = false) => {
+    autoPicked.current = auto;
     setSelectedId(id);
     setNameTouched(false);
-    setChoices(defaultMachineChoices(compareWithMachine(id === OTHER_ID ? null : (findEntry(id) ?? null), result?.settings ?? null)));
+    setChoices(defaultMachineChoices(compareWithMachine(id === OTHER_ID ? null : (findEntry(id) ?? null), settings)));
   };
 
   const hasSettings = !!comparison && !comparison.nothingRead;
@@ -217,6 +232,7 @@ export function AddMachineWizard() {
               select('galvo-ezcad2');
               setStep('model');
             }}
+            guess={guess}
           />
         )}
         {step === 'model' && (
@@ -231,6 +247,7 @@ export function AddMachineWizard() {
             onShowAll={setShowAll}
             otherKind={otherKind}
             onOtherKind={setOtherKind}
+            guess={guess}
           />
         )}
         {step === 'review' && (

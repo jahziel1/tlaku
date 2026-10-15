@@ -33,7 +33,7 @@ const html = (jobBusy = false) => {
 
 describe('isUpdaterConfigured', () => {
   it('pide llave pública y al menos una dirección', () => {
-    expect(isUpdaterConfigured(undefined)).toBe(false);
+    expect(isUpdaterConfigured(null)).toBe(false);
     expect(isUpdaterConfigured({})).toBe(false);
     expect(isUpdaterConfigured({ pubkey: '', endpoints: [] })).toBe(false);
     expect(isUpdaterConfigured({ pubkey: 'abc' })).toBe(false);
@@ -42,9 +42,10 @@ describe('isUpdaterConfigured', () => {
     expect(isUpdaterConfigured({ pubkey: 'abc', endpoints: ['https://x.org/latest.json'] })).toBe(true);
   });
 
-  it('la plantilla del repositorio viene sin configurar y sin artefactos de actualización', () => {
-    expect(isUpdaterConfigured(tauriConf.plugins.updater)).toBe(false);
-    expect(tauriConf.bundle.createUpdaterArtifacts).toBe(false);
+  it('el repositorio trae el actualizador y los artefactos firmados activados a la vez', () => {
+    // scripts/configure-updater.sh activa las dos cosas juntas (o las apaga con --desactivar).
+    expect(isUpdaterConfigured(tauriConf.plugins.updater)).toBe(tauriConf.bundle.createUpdaterArtifacts);
+    expect(tauriConf.plugins.updater.endpoints).toEqual(['https://github.com/jahziel1/tlaku/releases/latest/download/latest.json']);
   });
 });
 

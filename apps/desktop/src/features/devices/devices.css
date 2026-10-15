@@ -274,3 +274,30 @@
 .dev-galvo-verify li[data-ok='false'] {
   color: var(--danger, inherit);
 }
+
+.dev-guess {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.dev-guess__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+}
+.dev-guess__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.dev-guess__list p {
+  margin: 0;
+}

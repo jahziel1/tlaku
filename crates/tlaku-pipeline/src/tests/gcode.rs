@@ -108,7 +108,12 @@ fn preview_has_one_cumulative_time_per_move() {
     let p = &job.preview;
     assert_eq!(p.move_times.len() * 4, p.moves.len());
     assert!(p.move_times.windows(2).all(|w| w[0] <= w[1]));
-    approx(*p.move_times.last().unwrap(), p.total_s);
+    // El total incluye el regreso al origen del G-code; los tiempos por movimiento, no.
+    assert!(p.total_s > *p.move_times.last().unwrap());
+    let mut dev = device();
+    dev.return_to_origin = false;
+    let job = compute(&d, &dev, &JobOptions::default()).unwrap();
+    approx(*job.preview.move_times.last().unwrap(), job.preview.total_s);
 }
 
 #[test]
@@ -433,4 +438,85 @@ fn layer_u_offset_moves_u_between_layers_only_with_the_u_axis() {
     );
     let job = compute(&flat, &dev, &JobOptions::default()).unwrap();
     assert!(!gcode(&job, &dev).contains("G0 U"));
+}
+
+/// Perfil de la Falcon2 Pro medida: cama 400x415, 25000/8000 mm/min por eje, 1000 mm/s2.
+fn falcon_device() -> DeviceProfile {
+    DeviceProfile {
+        max_rate: [25_000.0, 8_000.0],
+        accel: [1000.0, 1000.0],
+        ..device()
+    }
+}
+
+/// Cuadrado de 40 mm en (100,100) a 3000 mm/min, como el trabajo medido en la Falcon2 Pro.
+fn falcon_square() -> Document {
+    doc(
+        vec![rect_object("a", RED, 100.0, 100.0, 40.0, 40.0)],
+        vec![LayerSettings {
+            speed: 3000.0,
+            ..line_layer(RED)
+        }],
+    )
+}
+
+#[test]
+fn estimate_includes_the_g0_back_to_the_origin() {
+    let opts = JobOptions::default();
+    let mut dev = falcon_device();
+    let with_return = compute(&falcon_square(), &dev, &opts).unwrap();
+    dev.return_to_origin = false;
+    let without = compute(&falcon_square(), &dev, &opts).unwrap();
+
+    // El G-code termina de verdad con ese regreso (y sin `return_to_origin` no lo tiene).
+    assert!(!gcode(&without, &dev).contains("G0 X0 Y0"));
+    dev.return_to_origin = true;
+    assert!(gcode(&with_return, &dev).trim_end().ends_with("G0 X0 Y0"));
+
+    // El tramo es el G0 desde donde acaba el trazo (una esquina del cuadrado) hasta (0,0),
+    // planificado con el perfil de la máquina.
+    let last = with_return
+        .toolpath
+        .blocks
+        .last()
+        .and_then(|b| b.moves.last())
+        .unwrap()
+        .to();
+    let profile = tlaku_sim::MachineProfile {
+        max_rate_mm_min: dev.max_rate,
+        accel_mm_s2: dev.accel,
+        rapid_rate_mm_min: dev.rapid_rate,
+        stop_on_cut_change: false,
+        ..tlaku_sim::MachineProfile::default()
+    };
+    let leg = tlaku_sim::rapid_leg_seconds(last, Point::new(0.0, 0.0), &profile);
+    assert!(leg > 0.5 && leg < 1.5, "regreso de {last:?}: {leg} s");
+    let extra = with_return.preview.total_s - without.preview.total_s;
+    approx(extra, leg);
+    // Cuadrado desde (100,100) o su esquina más cercana: el regreso ronda 0,8 s en este perfil.
+    assert!(extra > 0.5 && extra < 1.2, "{extra}");
+
+    // Las capas y los tiempos por movimiento no se desplazan: la reproducción sigue igual.
+    assert_eq!(with_return.preview.move_times, without.preview.move_times);
+    for (a, b) in with_return.layers.iter().zip(&without.layers) {
+        approx(a.seconds, b.seconds);
+    }
+    approx(
+        *without.preview.move_times.last().unwrap(),
+        without.preview.total_s,
+    );
+}
+
+#[test]
+fn estimate_has_no_return_leg_on_devices_that_do_not_emit_it() {
+    use tlaku_doc::DeviceKind;
+    let opts = JobOptions::default();
+    for kind in [DeviceKind::Ruida, DeviceKind::LhyMicro] {
+        let mut dev = DeviceProfile::for_kind(kind);
+        dev.return_to_origin = true;
+        let a = compute(&falcon_square(), &dev, &opts).unwrap();
+        dev.return_to_origin = false;
+        let b = compute(&falcon_square(), &dev, &opts).unwrap();
+        approx(a.preview.total_s, b.preview.total_s);
+    }
 }

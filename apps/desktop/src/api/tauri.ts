@@ -131,6 +131,7 @@ export function createTauriApi(): LaserApi {
     materialTest: (a) => call('materialTest', a),
     deviceDefaults: (a) => call('deviceDefaults', a),
     rotaryTest: (a) => call('rotaryTest', a),
+    readLbdev: (a) => call('readLbdev', a),
     importFileWith: (a) => call('importFileWith', a),
     exportDesign: (a) => call('exportDesign', a),
     printDesign: (a) => call('printDesign', a),

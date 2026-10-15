@@ -133,6 +133,7 @@ desktop.machine.only_ruida = Esta función es solo de las controladoras Ruida.
 desktop.machine.only_k40 = Esta función es solo del K40 con placa M2 Nano.
 desktop.machine.only_galvo = Esta función es solo de las máquinas galvo (tarjeta JCZ/BJJCZ).
 desktop.machine.identify_failed = La máquina no respondió a la identificación ($I): {err}. Revisa que sea el puerto correcto, que esté encendida, que use GRBL 1.1 y los baudios del perfil.
+desktop.machine.running_on_connect = La máquina está ejecutando un trabajo (estado {state}) y no acepta comandos todavía. Espera a que termine o detenla con su botón; luego vuelve a conectar.
 desktop.machine.virtual_note = ; Máquina virtual (emulador): no hay láser ni hardware reales.
 desktop.machine.thread_failed = No se pudo iniciar el hilo de la conexión: {err}
 # machine/lhymicro.rs
@@ -568,6 +569,10 @@ desktop.resume.warn_offsets = El G-code cambia el sistema de coordenadas (G92, G
 desktop.resume.warn_mismatch = La última posición guardada no coincide con ninguna línea cercana: el punto propuesto es una estimación prudente. Revisa la vista previa.
 desktop.resume.warn_no_progress = No se pudo leer el avance guardado: no hay punto propuesto, elige uno.
 desktop.resume.warn_z = El trabajo mueve el eje Z: el preámbulo lo ajusta {dz} mm para llegar a la altura de ese punto. Comprueba el foco.
+desktop.resume.warn_finished = La máquina siguió ejecutando lo que ya tenía en su memoria después de que Tlaku se cerró y parece haber terminado. Revisa la pieza: continuar volvería a pasar sobre lo hecho.
+desktop.resume.warn_moved = La máquina siguió ejecutando por su cuenta lo que ya tenía en su memoria después de que Tlaku se cerró (unas {lines} líneas, {mm} mm). Se propone continuar desde donde está ahora; revisa la pieza antes de seguir.
+desktop.resume.warn_may_run_on = La máquina pudo seguir ejecutando lo que ya tenía en su memoria después de que Tlaku se cerró (hasta {lines} líneas, unos {mm} mm) y no se puede comprobar dónde quedó. Revisa la pieza: el punto propuesto puede repetir algo ya hecho.
+desktop.resume.warn_may_run_on_unknown = La máquina pudo seguir ejecutando lo que ya tenía en su memoria después de que Tlaku se cerró y no se puede comprobar dónde quedó. Revisa la pieza: el punto propuesto puede repetir algo ya hecho.
 desktop.resume.offsets_unsupported = El G-code usa G92, G10 o G28: no se puede reanudar a mitad.
 desktop.resume.line_out_of_range = La línea de reinicio no existe en el trabajo guardado.
 desktop.resume.dialect_unsupported = El perfil de esta máquina no permite reanudar un trabajo: la potencia tiene que ir en las líneas de movimiento y G0 debe apagar el láser.
@@ -579,3 +584,12 @@ desktop.resume.needs_frame = Encuadra el trabajo completo y comprueba que el mat
 desktop.resume.needs_checklist = Completa la lista de comprobación antes de continuar. Nada se envió.
 desktop.resume.checkpoint_write_failed = AVISO: no se pudo guardar el punto de control para continuar el trabajo si se interrumpe: {err}
 desktop.resume.log_resuming = Continuando el trabajo desde la línea {line} de {total} (la máquina va primero al punto con el láser apagado)
+# machine/worker (límites de la cama y reinicio de la placa)
+desktop.worker.jog_outside_bed = El movimiento saldría de la cama: {detail}.
+desktop.worker.jog_outside_axis = {axis} llegaría a {value} mm (límite {min} a {max})
+desktop.worker.jog_unchecked = Sin límites conocidos: el movimiento manual no se revisa.
+desktop.worker.soft_limits_off = Tu máquina tiene homing pero no límites por software ($20=0). Actívalos para que la propia máquina rechace los movimientos fuera de la cama. Con $20=1 GRBL exige que $130/$131 (el tamaño de la cama) sean correctos.
+desktop.worker.rebooted_idle = La máquina se reinició (¿un final de carrera, la tapa o un corte de energía?). Haz homing antes de mover.
+
+# edit/devices.rs
+desktop.devices.lbdev_too_big = {path}: el archivo es demasiado grande para ser un perfil de LightBurn (.lbdev).

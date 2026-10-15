@@ -45,3 +45,13 @@
   display: flex;
   gap: var(--s-3);
 }
+
+/* Importar perfil de LightBurn (.lbdev): lista de perfiles y de avisos. */
+.mc-lbdev__list,
+.mc-lbdev__notices {
+  margin: var(--s-2) 0;
+  padding-left: var(--s-4);
+}
+.mc-lbdev__notices li {
+  margin-bottom: var(--s-2);
+}

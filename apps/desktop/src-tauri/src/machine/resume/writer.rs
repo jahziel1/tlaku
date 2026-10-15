@@ -34,6 +34,8 @@ pub enum Finish {
 struct Shared {
     /// `ok` recibidos hasta ahora.
     acked: AtomicU32,
+    /// Líneas entregadas a la máquina hasta ahora (con o sin `ok`).
+    sent: AtomicU32,
     status: Mutex<Option<StatusSnap>>,
     stop: Mutex<Option<Finish>>,
     wake: Condvar,
@@ -59,6 +61,7 @@ impl CheckpointWriter {
         store.clear();
         let shared = Arc::new(Shared {
             acked: AtomicU32::new(0),
+            sent: AtomicU32::new(0),
             status: Mutex::new(None),
             stop: Mutex::new(None),
             wake: Condvar::new(),
@@ -77,6 +80,14 @@ impl CheckpointWriter {
         self.shared
             .acked
             .store(u32::try_from(acked).unwrap_or(u32::MAX), Ordering::Relaxed);
+    }
+
+    /// Cuántas líneas se han entregado a la máquina (las que aún no tienen `ok` ya están en su
+    /// memoria). No bloquea.
+    pub fn note_sent(&self, sent: usize) {
+        self.shared
+            .sent
+            .store(u32::try_from(sent).unwrap_or(u32::MAX), Ordering::Relaxed);
     }
 
     /// Último reporte de estado. No bloquea (la sección crítica es una asignación).
@@ -125,6 +136,7 @@ struct State {
     walked: usize,
     seq: u64,
     last_acked: u32,
+    last_sent: u32,
     last_status: Option<StatusSnap>,
     planner_cap: u32,
     rx_cap: u32,
@@ -154,6 +166,7 @@ fn run(
         walked: 0,
         seq: 0,
         last_acked: u32::MAX,
+        last_sent: u32::MAX,
         last_status: None,
         planner_cap: 0,
         rx_cap: 0,
@@ -191,8 +204,11 @@ fn set_error(shared: &Shared, e: String) {
 /// Escribe el avance si cambió algo desde la última vez.
 fn write_now(store: &CheckpointStore, sent: &[String], shared: &Shared, st: &mut State) {
     let acked = shared.acked.load(Ordering::Relaxed);
+    // Lo entregado nunca va por detrás de lo confirmado.
+    let sent_n = shared.sent.load(Ordering::Relaxed).max(acked);
     let status = shared.status.lock().ok().and_then(|g| *g);
-    if st.wrote_any && acked == st.last_acked && status == st.last_status {
+    if st.wrote_any && acked == st.last_acked && sent_n == st.last_sent && status == st.last_status
+    {
         return;
     }
     if let Some(s) = status {
@@ -201,6 +217,9 @@ fn write_now(store: &CheckpointStore, sent: &[String], shared: &Shared, st: &mut
     }
     let sent_line = (acked > 0)
         .then(|| st.sendable.get(acked as usize - 1).copied())
+        .flatten();
+    let sent_to_line = (sent_n > 0)
+        .then(|| st.sendable.get(sent_n as usize - 1).copied())
         .flatten();
     if let Some(line) = sent_line {
         while st.walked <= line as usize && st.walked < sent.len() {
@@ -217,6 +236,8 @@ fn write_now(store: &CheckpointStore, sent: &[String], shared: &Shared, st: &mut
         seq: st.seq,
         acked,
         sent_line,
+        sent: sent_n,
+        sent_to_line,
         mpos: status.map(|s| s.mpos),
         wpos: status.map(|s| s.wpos),
         wco: status.map(|s| s.wco),
@@ -230,6 +251,7 @@ fn write_now(store: &CheckpointStore, sent: &[String], shared: &Shared, st: &mut
     match store.write_progress(&p) {
         Ok(()) => {
             st.last_acked = acked;
+            st.last_sent = sent_n;
             st.last_status = status;
             st.wrote_any = true;
         }

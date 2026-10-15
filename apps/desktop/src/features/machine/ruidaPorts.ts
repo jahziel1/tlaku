@@ -96,3 +96,18 @@ export function formatDuration(seconds: number): string {
   if (m > 0) return `${m} min`;
   return `${s} s`;
 }
+
+/** Puertos que el sistema operativo crea y nunca son una máquina (Bluetooth, consolas de macOS). */
+export function isSystemPort(port: string): boolean {
+  return /bluetooth|debug-console|wlan-debug|airpods|-wireless|rfcomm/i.test(port);
+}
+
+/**
+ * El puerto que se elige solo al listar: el primero que parece una máquina real (USB-serie, `COMn`).
+ * Nunca un puerto del sistema (en macOS el primero de la lista era `/dev/cu.debug-console` y la app
+ * intentaba conectarse ahí), ni una máquina virtual o de red. `null` si no hay ninguno: que el
+ * usuario elija.
+ */
+export function defaultPort(ports: readonly string[]): string | null {
+  return ports.find((p) => !isSystemPort(p) && !/^(virtual|virtualnet|udp|usb):/i.test(p)) ?? null;
+}

@@ -399,6 +399,22 @@ fn banner_in_the_middle_of_a_job_is_a_reset() {
 }
 
 #[test]
+fn falcon2_reboot_in_the_middle_of_a_job_is_a_reset_with_a_safe_stop() {
+    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 50.0, |b| b.homed(true));
+    h.inject(Trigger::At(Duration::from_secs(2)), Fault::Reboot);
+    let run = run_job(vm, fast_config(), &long_line_job(), DEADLINE);
+    // Se nota con la primera línea del arranque de Creality, antes del `Grbl 1.1f`.
+    match run.outcome {
+        Some(Outcome::Reset(ref s)) => assert!(s.starts_with("[MSG:Using cpu_map"), "{s}"),
+        ref o => panic!("se esperaba Reset, salió {o:?}"),
+    }
+    // Parada segura: feed hold y soft reset tras el reinicio, láser apagado.
+    let rt = h.realtime_bytes();
+    assert!(rt.contains(&b'!') && rt.contains(&0x18), "{rt:?}");
+    assert!(!h.laser_on());
+}
+
+#[test]
 fn alarm3_then_banner_ends_as_alarm() {
     let (vm, h) = scaled_vm(Profile::falcon2_pro(), 50.0, |b| b.homed(true));
     h.inject(Trigger::At(Duration::from_secs(2)), Fault::Alarm3WithBanner);

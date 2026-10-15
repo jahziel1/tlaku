@@ -13,6 +13,7 @@ mod autosave;
 mod commands;
 mod edit;
 mod engine;
+pub mod hwtest;
 mod job_resume;
 mod machine;
 mod netlink;
@@ -180,6 +181,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             edit::materials::material_test,
             edit::devices::device_defaults,
             edit::devices::rotary_test,
+            edit::devices::read_lbdev,
             edit::files::import_file_with,
             edit::files::export_design_file,
             edit::files::print_design,

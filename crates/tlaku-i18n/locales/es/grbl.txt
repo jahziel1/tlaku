@@ -136,7 +136,7 @@ grbl.preflight.line_error = error:{code} en la línea {line} del archivo: {msg}.
 grbl.preflight.line_error_locked = error:{code} en la línea {line} del archivo: {msg}; si la máquina está en alarma, desbloquéala con $X o haz homing. El trabajo se detuvo (feed hold y soft reset): la máquina seguía ejecutando lo que ya tenía en el búfer y la línea rechazada no aplicó su S, F ni M3/M4
 grbl.preflight.machine_fault = falla de la máquina ERROR:{code}: {msg}. El trabajo se detuvo (feed hold y soft reset). {recovery}
 grbl.preflight.alarm_outcome = ALARM:{code}: {msg}. {hint}
-grbl.preflight.reset_midjob = la controladora se reinició a mitad del trabajo ({msg}); el trabajo quedó incompleto
+grbl.preflight.reset_midjob = la máquina se reinició a mitad del trabajo ({msg}); el trabajo quedó incompleto y la posición ya no está confirmada: haz homing antes de reanudar
 grbl.preflight.disconnected = se perdió la conexión con la máquina: {msg}
 grbl.preflight.alarm_hint_hal_10 = Suelta el paro de emergencia; solo entonces desbloquea con $X (o reinicia)
 grbl.preflight.alarm_hint_hal_11 = Haz homing con $H
@@ -153,7 +153,7 @@ grbl.preflight.laser_mode_other = $32={v} no es el modo láser ($32=1): el láse
 grbl.preflight.warn_no_32 = Aviso: la controladora no informó $32; no se pudo comprobar que el modo láser esté activado.
 grbl.preflight.warn_s_max_mismatch = Aviso: $30={v} en la controladora pero el perfil usa S máx = {expected}: la potencia saldría escalada (S={expected} equivale al {pct} % de la controladora). Haz que coincidan, cambiando el perfil o con {cmd} (GRBL-LPC usa $30=1).
 grbl.preflight.warn_no_30 = Aviso: la controladora no informó $30; no se pudo comprobar S máx.
-grbl.preflight.warn_nan_offsets = Aviso: {names} de la controladora tiene valores no numéricos (nan) y se ignoran. Tlaku no usa G54-G59, así que el trabajo no depende de ellos; si otro programa los necesita, $RST=# los restablece (borra los desplazamientos guardados: decídelo tú).
+grbl.preflight.warn_nan_offsets = Aviso: la controladora tiene valores no numéricos (nan) en {names} y se ignoran. Tlaku no usa G54-G59, así que el trabajo no depende de ellos; si otro programa los necesita, $RST=# los restablece (borra los desplazamientos guardados: decídelo tú).
 grbl.preflight.advice_console = escribe {command} en la consola de la pestaña Máquina
 grbl.preflight.advice_who_cli = send nunca ejecuta estos comandos por su cuenta; tlaku cmd pide confirmación antes de enviarlos
 grbl.preflight.advice_who_console = la app nunca ejecuta estos comandos por su cuenta; los envías tú desde la consola

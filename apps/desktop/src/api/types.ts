@@ -59,6 +59,7 @@ import type { SimulatedFault } from '@/bindings/SimulatedFault';
 import type { InterruptedJob } from '@/bindings/InterruptedJob';
 import type { ResumeAir } from '@/bindings/ResumeAir';
 import type { ResumeKind } from '@/bindings/ResumeKind';
+import type { ResumeMachine } from '@/bindings/ResumeMachine';
 import type { ResumeModal } from '@/bindings/ResumeModal';
 import type { ResumePoint } from '@/bindings/ResumePoint';
 import type { ResumeReadiness } from '@/bindings/ResumeReadiness';
@@ -86,10 +87,16 @@ import type { Guide } from '@/bindings/Guide';
 import type { GuideAxis } from '@/bindings/GuideAxis';
 import type { StartSpec } from '@/bindings/StartSpec';
 import type { Macro } from '@/bindings/Macro';
+import type { LbdevImport } from '@/bindings/LbdevImport';
+import type { LbdevNotice } from '@/bindings/LbdevNotice';
+import type { LbdevNoticeKind } from '@/bindings/LbdevNoticeKind';
 import type { SavedPosition } from '@/bindings/SavedPosition';
 import type { LaserSource } from '@/bindings/LaserSource';
 
 export type {
+  LbdevImport,
+  LbdevNotice,
+  LbdevNoticeKind,
   Confidence,
   LaserKind,
   MachineClass,
@@ -151,6 +158,7 @@ export type {
   InterruptedJob,
   ResumeAir,
   ResumeKind,
+  ResumeMachine,
   ResumeModal,
   ResumePoint,
   ResumeReadiness,

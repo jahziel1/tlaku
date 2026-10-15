@@ -235,6 +235,30 @@ impl Grbl {
         self.transport
     }
 
+    /// Pide un reporte de estado con `?` (tiempo real: no espera turno detrás de las líneas que
+    /// la controladora tenga en su búfer) y devuelve el primero que llegue (`<Run|MPos:...>`),
+    /// o `None` si no contesta a tiempo. Lo demás que llegue entretanto (los `ok` de un trabajo
+    /// en marcha) se descarta.
+    pub fn status_query(&mut self, timeout: Duration) -> io::Result<Option<String>> {
+        self.transport.write_all(b"?")?;
+        let deadline = Instant::now() + timeout;
+        let mut buf = [0u8; 256];
+        loop {
+            while let Some(line) = self.reader.next_line() {
+                if line.starts_with('<') && line.ends_with('>') {
+                    return Ok(Some(line));
+                }
+            }
+            let now = Instant::now();
+            if now > deadline {
+                return Ok(None);
+            }
+            let wait = (deadline - now).min(Duration::from_millis(100));
+            let n = self.transport.read_timeout(&mut buf, wait)?;
+            self.reader.feed(&buf[..n]);
+        }
+    }
+
     /// Envía un comando y devuelve las líneas de respuesta hasta `ok`.
     pub fn command(&mut self, cmd: &str, timeout: Duration) -> io::Result<Vec<String>> {
         self.transport.write_all(format!("{cmd}\n").as_bytes())?;
@@ -275,16 +299,80 @@ impl Grbl {
 
 /// Puertos serie disponibles (en macOS solo los `cu.*`, que son los de salida).
 pub fn list_ports() -> io::Result<Vec<String>> {
-    Ok(serialport::available_ports()?
+    let mut ports: Vec<(u8, String)> = serialport::available_ports()?
         .into_iter()
-        .map(|p| p.port_name)
-        .filter(|n| !n.starts_with("/dev/tty."))
-        .collect())
+        .filter(|p| !p.port_name.starts_with("/dev/tty."))
+        .map(|p| {
+            let usb = matches!(p.port_type, serialport::SerialPortType::UsbPort(_));
+            (port_rank(&p.port_name, usb), p.port_name)
+        })
+        .collect();
+    // Orden estable: primero lo que parece una máquina, al final los puertos del sistema.
+    ports.sort_by_key(|(rank, _)| *rank);
+    Ok(ports.into_iter().map(|(_, name)| name).collect())
+}
+
+/// Qué tan probable es que el puerto sea una máquina: 0 USB, 1 otro serie, 2 puerto del sistema.
+/// En macOS el primero de la lista solía ser `/dev/cu.debug-console`, y la interfaz lo elegía por
+/// omisión: «no se puede conectar» con la máquina enchufada.
+pub fn port_rank(name: &str, usb: bool) -> u8 {
+    if is_system_port(name) {
+        2
+    } else if usb || looks_like_usb_serial(name) {
+        0
+    } else {
+        1
+    }
+}
+
+/// Puertos que el sistema operativo crea y nunca son una máquina láser.
+pub fn is_system_port(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    [
+        "bluetooth",
+        "debug-console",
+        "wlan-debug",
+        "/dev/cu.airpods",
+        "-wireless",
+        "rfcomm",
+    ]
+    .iter()
+    .any(|k| n.contains(k))
+}
+
+/// Nombres típicos de un adaptador USB-serie o un USB nativo (CDC).
+fn looks_like_usb_serial(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    [
+        "usbmodem",
+        "usbserial",
+        "wchusbserial",
+        "slab_usbtouart",
+        "ttyusb",
+        "ttyacm",
+    ]
+    .iter()
+    .any(|k| n.contains(k))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn machine_like_ports_go_first_and_system_ports_last() {
+        assert_eq!(port_rank("/dev/cu.debug-console", false), 2);
+        assert_eq!(port_rank("/dev/cu.Bluetooth-Incoming-Port", false), 2);
+        assert_eq!(port_rank("/dev/cu.wlan-debug", false), 2);
+        assert_eq!(port_rank("/dev/cu.usbmodem1234561", false), 0);
+        assert_eq!(port_rank("/dev/cu.wchusbserial1410", false), 0);
+        assert_eq!(port_rank("/dev/ttyUSB0", false), 0);
+        assert_eq!(port_rank("/dev/ttyACM0", false), 0);
+        assert_eq!(port_rank("COM3", true), 0);
+        assert_eq!(port_rank("COM1", false), 1);
+        assert!(is_system_port("/dev/cu.debug-console"));
+        assert!(!is_system_port("/dev/cu.usbmodem1234561"));
+    }
 
     #[test]
     fn line_reader_splits_crlf_and_partial() {

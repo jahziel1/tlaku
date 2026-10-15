@@ -136,7 +136,7 @@ grbl.preflight.line_error = error:{code} on line {line} of the file: {msg}. The 
 grbl.preflight.line_error_locked = error:{code} on line {line} of the file: {msg}; if the machine is in alarm, unlock it with $X or run homing. The job was stopped (feed hold and soft reset): the machine kept running what it already had in its buffer, and the rejected line did not apply its S, F or M3/M4
 grbl.preflight.machine_fault = machine fault ERROR:{code}: {msg}. The job was stopped (feed hold and soft reset). {recovery}
 grbl.preflight.alarm_outcome = ALARM:{code}: {msg}. {hint}
-grbl.preflight.reset_midjob = the controller reset in the middle of the job ({msg}); the job is incomplete
+grbl.preflight.reset_midjob = the machine restarted in the middle of the job ({msg}); the job is incomplete and the position is no longer confirmed: home the machine before resuming
 grbl.preflight.disconnected = lost the connection to the machine: {msg}
 grbl.preflight.alarm_hint_hal_10 = Release the emergency stop; only then unlock with $X (or reset)
 grbl.preflight.alarm_hint_hal_11 = Run homing with $H
@@ -153,7 +153,7 @@ grbl.preflight.laser_mode_other = $32={v} is not laser mode ($32=1): the laser c
 grbl.preflight.warn_no_32 = Warning: the controller did not report $32; could not check that laser mode is on.
 grbl.preflight.warn_s_max_mismatch = Warning: $30={v} on the controller but the profile uses S max = {expected}: power would come out scaled (S={expected} is {pct} % of the controller's range). Make them match, either by changing the profile or with {cmd} (GRBL-LPC uses $30=1).
 grbl.preflight.warn_no_30 = Warning: the controller did not report $30; could not check S max.
-grbl.preflight.warn_nan_offsets = Warning: {names} on the controller has non-numeric values (nan) and they are ignored. Tlaku does not use G54-G59, so the job does not depend on them; if another program needs them, $RST=# resets them (it erases the saved offsets: your call).
+grbl.preflight.warn_nan_offsets = Warning: the controller has non-numeric values (nan) in {names}; they are ignored. Tlaku does not use G54-G59, so the job does not depend on them; if another program needs them, $RST=# resets them (it erases the saved offsets: your call).
 grbl.preflight.advice_console = type {command} in the console of the Machine tab
 grbl.preflight.advice_who_cli = send never runs these commands on its own; tlaku cmd asks for confirmation before sending them
 grbl.preflight.advice_who_console = the app never runs these commands on its own; you send them from the console

@@ -427,6 +427,13 @@ pub fn build(
     for (layer, e) in b.layers.iter_mut().zip(&estimate.blocks) {
         layer.seconds = e.seconds;
     }
+    // El G-code termina con `M5` y `G0 X0 Y0`: ese regreso también tarda. Solo suma al total; ni
+    // las capas (`layer.seconds`) ni `move_times` lo incluyen, para que la reproducción de la
+    // vista previa y el reparto por capa sigan siendo los del trabajo en sí.
+    let return_s = crate::gcode::return_leg(&b.toolpath, device).map_or(0.0, |(from, to)| {
+        tlaku_sim::rapid_leg_seconds(from, to, &profile)
+    });
+    estimate.total_s += return_s;
     let preview = preview(
         &b.toolpath,
         &b.layers,

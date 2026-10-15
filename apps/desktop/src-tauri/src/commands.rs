@@ -296,6 +296,15 @@ async fn connect_inner(
     let serial_options = SerialOptions {
         no_dtr_reset: device.as_ref().is_some_and(|d| d.no_dtr_reset),
     };
+    // Área de la cama en los ejes de la máquina (con los ejes cruzados, `bed` está en el
+    // plano del documento): el trabajador rechaza el movimiento manual que la sobrepase.
+    let bed = device.as_ref().map(|d| {
+        if d.swap_xy {
+            [d.bed[1], d.bed[0]]
+        } else {
+            d.bed
+        }
+    });
     let sink: Arc<dyn Sink> = Arc::new(TauriSink(app));
     // Ruida: UDP a la IP del perfil (o su máquina virtual), sin puerto serie.
     if let Some(device) = device.clone().filter(|d| d.kind == DeviceKind::Ruida) {
@@ -362,17 +371,20 @@ async fn connect_inner(
         // reinicio de la placa.
         if let Some(opened) = crate::netlink::open(&port) {
             let (transport, emu) = opened?;
-            return Connection::start_with(transport, &port, sink, Timing::default(), emu);
+            return Connection::start_with(transport, &port, sink, Timing::default(), emu)
+                .inspect(|(c, _)| c.handle().set_bed(bed));
         }
         if virtual_port::is_virtual(&port) {
             // Sin puerto serie: un emulador con reloj de pared (la velocidad va en el id).
-            return Connection::start_virtual(&port, sink, Timing::default());
+            return Connection::start_virtual(&port, sink, Timing::default())
+                .inspect(|(c, _)| c.handle().set_bed(bed));
         }
         // Abrir el puerto reinicia muchas placas: `Grbl::open` espera el saludo y lo descarta.
         let transport = Grbl::open_with(&port, baud, serial_options)
             .map_err(|e| tr!("desktop.commands.open_port_failed", port = port, err = e))?
             .into_transport();
         Connection::start(transport, &port, sink, Timing::default())
+            .inspect(|(c, _)| c.handle().set_bed(bed))
     })
     .await;
     state.connecting.store(false, Ordering::SeqCst);

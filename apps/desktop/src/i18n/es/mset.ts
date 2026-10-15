@@ -15,6 +15,8 @@ export const mset = {
   'mset.blocked': 'No se puede editar ahora: {reason}',
   'mset.busy': 'Escribiendo en la máquina… {done} de {total}. No cierres la ventana ni desconectes.',
   'mset.note.fluidnc': 'FluidNC guarda su configuración real en un archivo config.yaml, no en estos ajustes. Lo que muestra el comando de ajustes es solo una vista; para cambiarla edita ese archivo en la máquina.',
+  'mset.softLimits.text': 'Tu máquina tiene homing pero no límites por software ($20=0). Actívalos para que la propia máquina rechace los movimientos fuera de la cama. Con $20=1 GRBL exige que $130 y $131 (el tamaño de la cama) estén correctos.',
+  'mset.softLimits.button': 'Activar límites por software ($20=1)…',
   'mset.note.named': '{n} líneas con nombre (como $/axes/x/…) no se muestran aquí.',
   'mset.critical': 'Crítico',
   'mset.critical.help': 'Con un valor equivocado, este ajuste puede mover mal la máquina, desactivar sus protecciones o apagar el modo láser.',

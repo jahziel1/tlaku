@@ -82,6 +82,27 @@ impl Default for ResumeModal {
     }
 }
 
+/// Qué se sabe de la máquina frente al último punto de control, al comparar su MPos de ahora con
+/// la guardada. `ok` solo dice que la línea entró al búfer: si la app murió, la máquina pudo
+/// seguir sola con lo que ya tenía.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ResumeMachine {
+    /// No hay máquina conectada (o no está en reposo): no se pudo comparar.
+    #[default]
+    NotChecked,
+    /// Se conectó pero la posición no es fiable (alarma, reinicio) o no encaja con el trabajo:
+    /// no se sabe si la máquina siguió sola.
+    Unknown,
+    /// Sigue donde estaba al guardarse el punto de control.
+    Unmoved,
+    /// Se movió después del último punto de control y quedó a mitad del trabajo.
+    Moved,
+    /// Se movió y quedó al final del trabajo: probablemente lo terminó sola.
+    ProbablyFinished,
+}
+
 /// Un trabajo que no terminó y del que queda punto de control.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
@@ -107,7 +128,8 @@ pub struct InterruptedJob {
     pub total_lines: u32,
     /// Líneas del trabajo original ya confirmadas con `ok` (ojo: `ok` no es «ejecutada»).
     pub done_lines: u32,
-    /// 0 a 100.
+    /// 0 a 100: la parte del recorrido de grabado hecha hasta la posición ubicada de la cabeza (no
+    /// las líneas con `ok`, que con líneas largas casi todas entran al búfer al principio).
     pub percent: f64,
     /// Había avance legible. Si no, `done_lines` es 0 y hay que elegir el punto a mano.
     pub progress_known: bool,
@@ -120,6 +142,22 @@ pub struct InterruptedJob {
     pub note: Option<String>,
     /// Este trabajo ya era una reanudación de otro.
     pub resumed: bool,
+    /// Qué se sabe de si la máquina siguió sola tras el último punto de control.
+    #[serde(default)]
+    pub machine: ResumeMachine,
+    /// Líneas que la máquina tenía en su memoria (enviadas pero aún sin ejecutar) al guardarse el
+    /// último punto de control.
+    #[serde(default)]
+    pub ahead_lines: u32,
+    /// Lo mismo en mm de recorrido.
+    #[serde(default)]
+    pub ahead_mm: f64,
+    /// Lo más prudente es descartar: la máquina parece haber terminado el trabajo.
+    #[serde(default)]
+    pub recommend_discard: bool,
+    /// Aviso (ya traducido) sobre lo que la máquina pudo hacer sola después de que la app se cerró.
+    #[serde(default)]
+    pub warning: Option<String>,
 }
 
 /// Dónde reiniciar y por qué.

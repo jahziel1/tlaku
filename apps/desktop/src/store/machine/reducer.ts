@@ -128,9 +128,12 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
       const left = (prev === 'alarm' || prev === 'home') && state !== 'alarm' && state !== 'home';
       // Un homing que termina sin alarma vuelve a dar la posición de máquina.
       const homed = prev === 'home' && state !== 'alarm' && state !== 'home';
+      // La placa se reinició por su cuenta: la posición queda sin confirmar hasta el próximo homing.
+      const rebooted = ev.report.position_unconfirmed === true && m.status?.position_unconfirmed !== true;
       return {
         ...m,
         status: ev.report,
+        ...(rebooted ? lostHere(m) : {}),
         alarmCode: left ? null : m.alarmCode,
         ...(homed ? { positionLost: false, positionLostPort: null } : {}),
         ...(failed ? { jobState: 'error' as const, jobPausedAt: null, jobEndedAt: now } : {}),

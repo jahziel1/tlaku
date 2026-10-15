@@ -57,6 +57,11 @@ export function mockResume(lag: Lag, machine: MockMachine): Pick<LaserApi, 'inte
     can_resume: true,
     note: null,
     resumed: false,
+    machine: 'not_checked',
+    ahead_lines: 0,
+    ahead_mm: 0,
+    recommend_discard: false,
+    warning: null,
   });
   const need = () => {
     if (!ckpt) throw new Error('No hay un trabajo interrumpido que continuar.');

@@ -173,7 +173,7 @@ fn run_calls(handle: &tauri::AppHandle) -> Vec<String> {
 }
 
 /// Manda un `invoke` por la ventana `webview`, como lo haría su interfaz. `None` si no responde.
-fn invoke(
+pub(crate) fn invoke(
     handle: &tauri::AppHandle,
     webview: &tauri::Webview,
     cmd: &str,
@@ -204,7 +204,7 @@ fn invoke(
 }
 
 /// Respuesta correcta como JSON, o el motivo del fallo.
-fn invoke_json(
+pub(crate) fn invoke_json(
     handle: &tauri::AppHandle,
     webview: &tauri::Webview,
     cmd: &str,

@@ -84,6 +84,11 @@ pub struct StatusReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub overrides: Option<Overrides>,
+    /// La placa se reinició por su cuenta (o a mitad de un trabajo) y la posición ya no está
+    /// confirmada: hasta el próximo homing el motor no revisa los límites de la cama.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub position_unconfirmed: Option<bool>,
 }
 
 /// Evento `machine://progress`: líneas confirmadas por la controladora.

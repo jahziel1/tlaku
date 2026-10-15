@@ -153,7 +153,7 @@ Si se va la luz, se cierra la app, se reinicia la computadora o se pierde la con
 
 ### Cuándo ofrece continuar
 
-Al abrir la app, y también cuando la conexión se pierde a mitad de un trabajo, aparece un aviso: **El último trabajo se interrumpió al N % (línea L de T). ¿Continuar?** Tiene tres botones:
+Al abrir la app, y también cuando la conexión se pierde a mitad de un trabajo, aparece un aviso: **El último trabajo se interrumpió al N %. ¿Continuar?** El porcentaje sale de **dónde está la cabeza sobre el recorrido** (el trayecto de grabado hecho hasta ese punto entre el total), no de las líneas que la máquina confirmó: con líneas largas casi todas se confirman al principio, porque entran a su memoria, y no dirían nada del avance real. Tiene tres botones:
 
 | Botón | Qué hace |
 |---|---|
@@ -163,11 +163,26 @@ Al abrir la app, y también cuando la conexión se pierde a mitad de un trabajo,
 
 Si lo dejas para después, el [Registro de trabajos](#registro-de-trabajos) (**Ayuda > Registro de trabajos…**) marca los trabajos interrumpidos con su porcentaje y trae un botón **Continuar** mientras siga existiendo el punto de control.
 
+### Si la máquina siguió sola
+
+Aquí está el límite más importante: **la máquina puede seguir ejecutando lo que tiene en su memoria** después de que Tlaku se cierre. Un trabajo de líneas largas (un cuadrado de 80 mm, por ejemplo) cabe entero en su búfer: si la app muere a los 4 segundos, la placa termina el trabajo sola. Si Tlaku ofreciera continuar desde la posición guardada, volvería a pasar sobre lo ya hecho.
+
+Por eso el punto de control guarda también la última línea **enviada** (no solo la confirmada con `ok`) y, al reconectar, Tlaku compara la posición de la máquina de ahora con la que guardó:
+
+- **Si la máquina quedó donde estaba**, no hay nada que avisar.
+- **Si se movió y quedó al final del trabajo**, el aviso dice que la máquina siguió ejecutando lo que tenía en su memoria y parece haber terminado. **Descartar** pasa a ser el botón principal: revisa la pieza antes, porque continuar repetiría lo hecho.
+- **Si se movió y quedó a mitad**, propone continuar desde donde está ahora (no desde donde estaba al guardarse el punto), con el aviso de que la máquina siguió sola y cuánto fue (líneas y milímetros).
+- **Si no se puede saber** (hubo alarma, la placa se reinició o se fue la luz, y su posición no es fiable) o no hay máquina conectada, se conserva el comportamiento de siempre pero con el aviso de que la máquina pudo seguir ejecutando hasta N líneas (unos M mm) que ya tenía. Revisa la pieza antes de continuar.
+
+Una placa que se reinicia queda en (0, 0) y con la velocidad `F` del intérprete en cero; una que terminó sola conserva la `F` del G-code. Tlaku usa esa diferencia (`$G`) para no confundir un corte de luz con un trabajo terminado.
+
+Si al **conectar** la máquina sigue ejecutando el trabajo, no acepta comandos: Tlaku lo dice (**La máquina está ejecutando un trabajo (estado Run)…**) en lugar de culpar al puerto. Espera a que termine, o detenla con su propio botón, y vuelve a conectar.
+
 ### Dónde reiniciar
 
 En GRBL, el `ok` solo significa que la línea entró al búfer de la placa, no que ya se ejecutó: la placa puede tener por delante hasta 127 bytes o 15 bloques (la Falcon2 acepta 127 bloques). Por eso la última línea confirmada casi nunca es la última que se grabó.
 
-- **GRBL.** Tlaku compara la última posición guardada con la geometría de las líneas confirmadas, localiza la línea que el cabezal estaba ejecutando y **retrocede con prudencia**: por omisión 3 líneas o 1,5 mm, lo que quede más atrás (se puede cambiar en el diálogo). Nunca retrocede más allá de un desplazamiento `G0`. En un grabado de imagen retrocede al inicio de la **fila de barrido** en curso.
+- **GRBL.** Tlaku compara la última posición guardada con la geometría de las líneas confirmadas, localiza la línea que el cabezal estaba ejecutando y **retrocede con prudencia**: por omisión 3 líneas o 1,5 mm, lo que quede más atrás (se puede cambiar en el diálogo); la regla de las líneas solo cuenta con tramos cortos (cada línea vale como mucho 2 mm), así que en un lado largo de 80 mm el retroceso es de 1,5 mm y no de todo el lado. Nunca retrocede más allá de un desplazamiento `G0`. En un grabado de imagen retrocede al inicio de la **fila de barrido** en curso.
 - **Marlin y Smoothieware.** No tienen `?`, así que no se sondea la posición durante el trabajo. El punto se estima solo con las líneas confirmadas y retrocede un tramo fijo (unas 24 líneas de movimiento).
 
 En el diálogo de reanudación la vista previa pinta **lo ya hecho** con una línea continua de un color y **lo que falta** con una línea discontinua de otro. Una barra permite mover el punto de reinicio: hacia atrás para repetir un tramo más largo, hacia adelante para repetir menos.
@@ -195,6 +210,7 @@ Todo lo siguiente es obligatorio, y lo exige el motor de la app, no solo la inte
 ### Límites que conviene conocer
 
 - **El material y la cabeza no deben moverse**, y el origen debe ser el mismo. Si algo se movió, el resultado saldrá corrido.
+- **La máquina puede seguir ejecutando lo que tiene en su memoria.** Si la app muere, lo que ya entregó a la placa sigue corriendo hasta vaciarse. Tlaku lo detecta al reconectar si puede comparar posiciones (ver [Si la máquina siguió sola](#si-la-máquina-siguió-sola)); si no puede, te lo avisa. Revisa siempre la pieza antes de continuar.
 - **El reinicio repite un tramo corto.** La posición guardada tiene hasta unos 1,2 segundos de antigüedad (200 ms del sondeo `?` más el intervalo de guardado), así que se repite hasta cerca de 1 segundo de recorrido más el retroceso que hayas configurado. Ese tramo queda grabado dos veces y se ve como una **marca levemente más oscura**; en imágenes puede quedar una **marca leve en la unión**.
 - **Un corte de luz puede hacer que los motores pierdan pasos.** Por eso hacer home y encuadrar no es un trámite: compruébalo a ojo antes de aceptar.
 - **Si el G-code usa `G92`, `G10` o `G28`** no se puede reanudar a mitad, porque cambian el origen o la posición de referencia.

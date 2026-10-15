@@ -93,7 +93,8 @@ pub struct JobPreview {
     /// `[kind, x, y, power]` por movimiento; kind 0 = travel, 1 = cut (potencia 0 = overscan).
     pub moves: Vec<f32>,
     /// Segundos acumulados al terminar cada movimiento (uno por entrada de `moves`, con el
-    /// mismo modelo de aceleración que `total_s`); el último vale `total_s`.
+    /// mismo modelo de aceleración que `total_s`); el último vale `total_s` menos el regreso al origen
+    /// que emite el G-code (`G0 X0 Y0`), que solo suma al total.
     pub move_times: Vec<f64>,
     pub total_s: f64,
     /// Esquinas mínima y máxima, con overscan.

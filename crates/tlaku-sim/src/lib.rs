@@ -33,7 +33,7 @@ pub use profile::MachineProfile;
 pub use sample::Sampler;
 
 use tlaku_core::Point;
-use tlaku_core::toolpath::Toolpath;
+use tlaku_core::toolpath::{Move, Toolpath, ToolpathBlock};
 
 /// Tiempo y distancias de un bloque del trabajo.
 #[derive(Debug, Clone, PartialEq)]
@@ -122,6 +122,20 @@ pub fn estimate_with_times(
         },
         cumulative,
     )
+}
+
+/// Segundos de un único `G0` de `from` a `to` partiendo y terminando en reposo, a la velocidad de
+/// travesía y la aceleración del perfil. Es el tramo final de regreso al origen que el G-code
+/// emite tras `M5` (`return_to_origin`), que el estimado del `Toolpath` no incluye.
+pub fn rapid_leg_seconds(from: Point, to: Point, profile: &MachineProfile) -> f64 {
+    let tp = Toolpath {
+        blocks: vec![ToolpathBlock {
+            label: String::new(),
+            moves: vec![Move::Travel { to }],
+            ..ToolpathBlock::default()
+        }],
+    };
+    estimate_from(from, &tp, profile).total_s
 }
 
 /// Cuántas líneas por segundo de G-code exige un trabajo (una línea por segmento planificado).

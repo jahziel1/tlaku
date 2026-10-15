@@ -376,6 +376,18 @@ describe('reducer de la máquina: posición posiblemente perdida', () => {
     expect(m.positionLost).toBe(false);
     expect(m.positionLostPort).toBeNull();
   });
+
+  it('un reinicio de la placa deja la posición sin confirmar hasta un homing', () => {
+    let m = run([connectTo('/dev/x'), { type: 'status', report: report({ state: 'idle' }) }]);
+    expect(m.positionLost).toBe(false);
+    m = run([{ type: 'status', report: report({ state: 'idle', position_unconfirmed: true }) }], m);
+    expect(m.positionLost).toBe(true);
+    expect(m.positionLostPort).toBe('/dev/x');
+    // El motor lo sigue informando hasta el homing; el homing lo borra.
+    m = run([{ type: 'status', report: report({ state: 'home', position_unconfirmed: true }) }], m);
+    m = run([{ type: 'status', report: report({ state: 'idle' }) }], m);
+    expect(m.positionLost).toBe(false);
+  });
 });
 
 describe('selectores de máquina virtual y firmware', () => {

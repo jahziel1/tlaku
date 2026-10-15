@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { es as dict } from '@/i18n';
 import { CATALOG, entrySources, findEntry, type Fact } from './catalog';
+import { DIODE_ENTRIES } from './catalog.diode';
+import { RUIDA_ENTRIES } from './catalog.ruida';
 
-const FACT_KEYS = ['detect', 'bed', 'maxRate', 'accel', 'sMax', 'm4', 'air', 'baud', 'origin', 'homing', 'zAxis'] as const;
+const FACT_KEYS = ['detect', 'controller', 'bed', 'maxRate', 'accel', 'sMax', 'm4', 'air', 'baud', 'origin', 'homing', 'zAxis'] as const;
 
 describe('catálogo: datos con fuente', () => {
   it('trae todos los modelos pedidos', () => {
@@ -24,7 +26,7 @@ describe('catálogo: datos con fuente', () => {
         const f = e[key] as Fact<unknown> | undefined;
         if (!f) continue;
         expect(f.source, `${e.id}.${key}`).toMatch(/^https:\/\/[^\s]+$/);
-        expect(['oficial', 'tienda', 'foro']).toContain(f.kind);
+        expect(['oficial', 'tienda', 'foro', 'medido']).toContain(f.kind);
         if (f.note) expect(dict[f.note], `${e.id}.${key} nota`).toBeTypeOf('string');
       }
     }
@@ -44,8 +46,8 @@ describe('catálogo: datos con fuente', () => {
     for (const id of ['sculpfun-s30', 'ortur-lm3', 'xtool-d1', 'neje-master-2s']) {
       expect(findEntry(id)?.bed, id).toBeUndefined();
     }
-    // Aceleración: solo hay cifras (contradictorias) para la Falcon2.
-    expect(CATALOG.filter((e) => e.accel).map((e) => e.id)).toEqual(['creality-falcon2-22w', 'creality-falcon2-40w', 'creality-falcon2-pro']);
+    // Aceleración: solo hay cifras para la Falcon2 (contradictorias) y para la A1 Pro (el volcado de un usuario).
+    expect(CATALOG.filter((e) => e.accel).map((e) => e.id)).toEqual(['creality-falcon2-22w', 'creality-falcon2-40w', 'creality-falcon2-pro', 'creality-falcon-a1-pro']);
   });
 
   it('los datos de la Falcon2 siguen a docs/hardware/falcon2.md', () => {
@@ -59,7 +61,11 @@ describe('catálogo: datos con fuente', () => {
     expect(f.zAxis?.value).toBe(false);
     expect(f.air?.value).toBe(true);
     expect(f.detect?.value).toContain('cv50');
-    expect(findEntry('creality-falcon2-pro')?.maxRate?.value).toBe(50000);
+    // Medido en una Pro 22 W real (docs/hardware/falcon2.md §10), no el volcado de foro de 50 000.
+    const pro = findEntry('creality-falcon2-pro')!;
+    expect(pro.maxRate?.value).toBe(25000);
+    expect(pro.maxRate?.kind).toBe('medido');
+    expect(pro.accel?.value).toBe(1000);
   });
 
   it('las familias de firmware de las entradas genéricas coinciden con su tipo', () => {
@@ -69,6 +75,72 @@ describe('catálogo: datos con fuente', () => {
     expect(findEntry('smoothie-generic')?.kind).toBe('smoothie');
     expect(findEntry('k40-cohesion3d')?.kind).toBe('grbl_lpc');
     expect(findEntry('ortur-lm3')?.kind).toBe('grbl_hal');
+  });
+
+  it('trae los modelos añadidos: CO2 Ruida y diodos GRBL', () => {
+    const names = CATALOG.map((e) => `${e.brand} ${e.model}`).join(' | ');
+    for (const needle of [
+      'OMTech Maker 20 × 28', 'OMTech Maker 16 × 24', 'OMTech Pronto 40', 'OMTech Polar Lite', 'Monport CO2 20 × 28', 'Thunder Laser Nova 35',
+      'Ruida genérico', 'Comgrow Z1', 'Longer B1', 'Two Trees TS2', 'Atomstack A20 Pro V2', 'Atomstack A20 Pro (original)', 'Atomstack A40 Pro',
+      'Sculpfun SF-A9', 'Sculpfun iCube Pro', 'AlgoLaser Delta', 'AlgoLaser DIY Kit', 'Neje Max 4', 'Atezr P20 Plus', 'Monport 40 W Pro', 'Creality Falcon A1 Pro',
+    ]) {
+      expect(names, needle).toContain(needle);
+    }
+    expect(CATALOG.length).toBeGreaterThanOrEqual(40);
+  });
+
+  it('cada modelo añadido trae al menos una fuente y los valores de todo el catálogo están en rango', () => {
+    for (const e of [...RUIDA_ENTRIES, ...DIODE_ENTRIES]) {
+      if (!e.generic) expect(entrySources(e).length, e.id).toBeGreaterThan(0);
+    }
+    for (const e of CATALOG) {
+      if (e.bed) expect(e.bed.value.every((v) => Number.isFinite(v) && v >= 100 && v <= 1500), `${e.id} cama`).toBe(true);
+      if (e.maxRate) expect(e.maxRate.value, `${e.id} velocidad`).toBeLessThanOrEqual(200000);
+      if (e.accel) expect(e.accel.value, `${e.id} aceleración`).toBeLessThanOrEqual(20000);
+      if (e.baud) expect([9600, 19200, 38400, 57600, 115200, 230400, 250000, 460800], `${e.id} baudios`).toContain(e.baud.value);
+      if (e.sMax) expect(Number.isInteger(e.sMax.value), `${e.id} S`).toBe(true);
+      if (e.controller) expect(e.controller.value.trim(), `${e.id} controladora`).not.toBe('');
+      for (const d of e.detect?.value ?? []) expect(d, `${e.id} detect`).toBe(d.toLowerCase());
+    }
+  });
+
+  it('las máquinas Ruida llevan la controladora con su fuente y no traen datos de G-code', () => {
+    const ruida = CATALOG.filter((e) => e.kind === 'ruida');
+    expect(ruida.length).toBeGreaterThanOrEqual(6);
+    for (const e of ruida) {
+      // Ruida no usa S, baudios ni aceleración del catálogo: lo de G-code no aplica.
+      expect(e.sMax, e.id).toBeUndefined();
+      expect(e.baud, e.id).toBeUndefined();
+      expect(e.accel, e.id).toBeUndefined();
+      if (!e.generic) expect(e.controller?.value, e.id).toMatch(/Ruida|RDWorks/);
+      expect(e.notes, e.id).toContain('catalog.note.ruida.network');
+    }
+  });
+
+  it('los grblHAL del catálogo también aparecen al detectar GRBL (alsoKinds)', () => {
+    for (const e of CATALOG.filter((x) => x.kind === 'grbl_hal')) expect(e.alsoKinds, e.id).toContain('grbl');
+  });
+
+  it('las cifras de las máquinas añadidas siguen a sus fuentes', () => {
+    // Fichas oficiales (pulgadas ya convertidas a mm, ancho × alto).
+    expect(findEntry('omtech-maker-2028')?.bed?.value).toEqual([700, 500]);
+    expect(findEntry('omtech-maker-2028')?.maxRate?.value).toBe(36000);
+    expect(findEntry('omtech-maker-1624')?.bed?.value).toEqual([600, 400]);
+    expect(findEntry('thunder-nova-35')?.bed?.value).toEqual([900, 600]);
+    expect(findEntry('thunder-nova-35')?.maxRate?.value).toBe(60000);
+    expect(findEntry('sculpfun-sf-a9')?.maxRate?.value).toBe(36000);
+    expect(findEntry('atomstack-a20-pro-v2')?.bed?.value).toEqual([400, 365]);
+    expect(findEntry('atomstack-a20-pro-v2')?.maxRate?.value).toBe(24000);
+    expect(findEntry('algolaser-delta')?.bed?.value).toEqual([440, 415]);
+    expect(findEntry('longer-b1')?.baud?.value).toBe(115200);
+    expect(findEntry('longer-b1')?.sMax?.value).toBe(1000);
+    expect(findEntry('longer-b1')?.air?.value).toBe(true);
+    expect(findEntry('comgrow-z1')?.sMax?.value).toBe(1000);
+    // Sin cifra de aceleración con fuente: no se inventa.
+    expect(findEntry('longer-b1')?.accel).toBeUndefined();
+    // Lo que solo viene de un usuario del foro se rotula como tal.
+    expect(findEntry('atomstack-a20-pro')?.sMax?.kind).toBe('foro');
+    expect(findEntry('creality-falcon-a1-pro')?.accel?.kind).toBe('foro');
   });
 
   it('entrySources reúne las URL sin repetir', () => {

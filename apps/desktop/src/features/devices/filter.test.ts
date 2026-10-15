@@ -19,11 +19,14 @@ describe('rankCatalog sin detección', () => {
     expect(r).toHaveLength(CATALOG.length);
     const firstGeneric = r.findIndex((x) => x.entry.generic);
     expect(r.slice(firstGeneric).every((x) => x.entry.generic)).toBe(true);
-    expect(r.slice(0, 3).map((x) => x.entry.brand)).toEqual(['Atomstack', 'Atomstack', 'Atomstack']);
+    // Las marcas salen en orden alfabético (las genéricas, al final).
+    const brands = r.slice(0, firstGeneric).map((x) => x.entry.brand);
+    expect(brands).toEqual([...brands].sort((a, b) => a.localeCompare(b, 'es')));
+    expect(brands[0]).toBe('AlgoLaser');
   });
 
   it('la búsqueda exige todas las palabras en marca, modelo o alias', () => {
-    expect(ids(rankCatalog({ query: 'falcon', detection: null }))).toEqual(['creality-falcon2-22w', 'creality-falcon2-40w', 'creality-falcon2-pro']);
+    expect(ids(rankCatalog({ query: 'falcon', detection: null }))).toEqual(['creality-falcon-a1-pro', 'creality-falcon2-22w', 'creality-falcon2-40w', 'creality-falcon2-pro']);
     expect(ids(rankCatalog({ query: 'falcon 2 pro', detection: null }))).toEqual(['creality-falcon2-pro']);
     expect(ids(rankCatalog({ query: 'LM3', detection: null }))).toEqual(['ortur-lm3']);
     expect(ids(rankCatalog({ query: 'cohesion', detection: null }))).toEqual(['k40-cohesion3d']);
@@ -55,8 +58,11 @@ describe('rankCatalog con detección', () => {
   it('grblHAL con banner de la Ortur LM3', () => {
     const d = detectionFrom(probe({ family: 'grbl_hal', suggested_kind: 'grbl_hal', banner: "Ortur Laser Master 3 Ready!\nGrblHAL 1.1f ['$' or '$HELP' for help]" }));
     const r = rankCatalog({ query: '', detection: d });
-    expect(ids(r)).toEqual(['ortur-lm3']);
+    // Otros grblHAL del catálogo (AlgoLaser Delta, Falcon A1 Pro) también salen, pero solo la LM3 se reconoce.
+    expect(r[0]!.entry.id).toBe('ortur-lm3');
     expect(r[0]!.byBanner).toBe(true);
+    expect(r.filter((x) => x.byBanner)).toHaveLength(1);
+    expect(r.every((x) => x.entry.kind === 'grbl_hal' || x.entry.generic)).toBe(true);
   });
 
   it('Marlin y Smoothie solo muestran su familia', () => {

@@ -20,6 +20,8 @@ impl Worker {
         if self.link_family != LinkFamily::Grbl {
             return self.jog_reprap(t, dx, dy, speed);
         }
+        self.settle_home_reference(t)?;
+        self.check_destination(self.relative_target(dx, dy))?;
         let line = format!("$J=G91 G21 X{} Y{} F{}", num(dx), num(dy), num(speed));
         let reply = self.exchange(t, &line, self.timing.command_timeout)?;
         match reply.last().map(String::as_str) {
@@ -42,6 +44,10 @@ impl Worker {
         }
         if !(speed.is_finite() && speed > 0.0) {
             return Err(Fail::Msg(tr!("desktop.common.move_speed")));
+        }
+        if self.link_family == LinkFamily::Grbl {
+            self.settle_home_reference(t)?;
+            self.check_destination(self.absolute_target(x, y))?;
         }
         // `M5` primero: el láser va apagado aunque una orden de la consola lo hubiera dejado
         // encendido (el jog no lo apaga).

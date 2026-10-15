@@ -56,6 +56,18 @@ El **Dialecto de G-code** muestra un resumen (por ejemplo "S 0-1000, M4 dinámic
 
 **Leer de la máquina** (con la máquina conectada) envía `$$`, que solo lee, y te propone valores para el perfil. Tú marcas cuáles aplicar; tampoco se guardan hasta **Guardar cambios**.
 
+### Importar un perfil de LightBurn (`.lbdev`)
+
+Si ya tienes la máquina configurada en LightBurn, o el fabricante publica un perfil `.lbdev` (por ejemplo, en su foro), no tienes que teclear todo de nuevo: en **Dispositivos**, abajo de la lista, pulsa **Importar perfil de LightBurn (.lbdev)…** y elige el archivo.
+
+- Se abre un resumen con los perfiles que se van a crear y una lista de **avisos**. Hasta que pulses **Crear N perfil(es)** no se guarda nada. Los perfiles son siempre **nuevos** (con un id propio; si el nombre ya existe se añade «(2)»): tus perfiles actuales no se tocan. Importar nunca envía nada a la máquina.
+- Un archivo puede traer varias máquinas; se crea un perfil por cada una.
+- Se leen el nombre, el área de trabajo, la esquina de origen (deducida de las marcas de espejo X e Y del archivo: confírmala con un encuadre a baja potencia), el tipo de controladora (GRBL, GRBL-M3, GRBL-LPC, Smoothieware, Marlin, G-code y Ruida), los baudios, la S máxima, el eje Z, el aire por `M7`, el homing al conectar, el envío síncrono y los G-code de inicio y de fin (revísalos: se mandan en cada trabajo).
+- **Velocidades y aceleraciones:** el archivo guarda las del *simulador de tiempos* de LightBurn (en mm/s; Tlaku las pasa a mm/min), no las del firmware. Son un punto de partida: con la máquina conectada pulsa **Leer de la máquina**, que lee `$$` y te propone los valores reales (`$110/$111`, `$120/$121`, `$130/$131`, `$30`) para que decidas cuáles aplicar. Tlaku no lo hace solo al conectar.
+- Lo que no tiene equivalente (por ejemplo desfases del láser 2 o del proceso, posición final, pluma, ajustes del simulador) sale en los avisos como «no importado». Los datos locales del usuario (puerto, últimas carpetas, cámara) se ignoran. El sentido del eje Z no se importa: pruébalo con un movimiento corto.
+- Los controladores que Tlaku no soporta (por ejemplo Trocen o TopWisdom) **no se importan**: se avisa y se omite esa máquina, en lugar de inventar un perfil de G-code que no le corresponde. Para una Ruida, el archivo no trae (que sepamos) la dirección IP: escríbela en el perfil antes de conectar.
+- Solo se leen los `.lbdev`. Los paquetes `.lbvendor` y `.lbzip` de LightBurn no se importan todavía (un `.lbzip` es un zip que contiene `.lbdev`: puedes extraerlo y usar ese archivo).
+
 ## Ajustes del perfil que conviene conocer
 
 Además de los datos de la tabla, el perfil guarda ajustes que casi nadie toca al principio pero que resuelven problemas muy concretos. Todos están en **Dispositivos** y todos esperan a **Guardar cambios**.

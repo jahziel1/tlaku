@@ -44,3 +44,9 @@ doc.community.no_name = "{id}": the material "{material}" is not in the factory 
 doc.community.bad_title = "{id}": the operation "{title}" does not exist.
 doc.community.bad_class = "{id}": {watts} W corresponds to class {class}.
 doc.community.out_of_range = "{id}": "{field}" is out of range or invalid.
+
+# lbdev.rs
+doc.lbdev.invalid_json = The .lbdev file is not valid JSON: {error}
+doc.lbdev.no_device_list = The file does not look like a LightBurn device profile (.lbdev): it has no "DeviceList" list or device.
+doc.lbdev.empty = The .lbdev file contains no devices.
+doc.lbdev.nothing_importable = None of the devices in the file can be imported: {names}. Tlaku does not create profiles for controllers it does not support.

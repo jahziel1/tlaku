@@ -107,6 +107,12 @@ impl<T: Transport> Streamer<T> {
             }
         } else if self.link.is_reset_banner(line) {
             emit(Event::Reset(line.to_string()));
+            // La placa se reinició sola: lo que se haya enviado después del reinicio no debe
+            // seguir ejecutándose. Parada segura (hold y reset) y la posición se da por perdida.
+            self.stop_machine(st, emit)?;
+            if let Some(info) = self.stop.as_mut() {
+                info.position_maybe_lost = true;
+            }
             return Ok(Some(Outcome::Reset(line.to_string())));
         } else {
             emit(Event::Message(line.to_string()));
@@ -181,4 +187,15 @@ pub fn is_greeting(line: &str) -> bool {
     line.as_bytes()
         .get(..4)
         .is_some_and(|p| p.eq_ignore_ascii_case(b"grbl"))
+}
+
+/// ¿Es una línea con la que arranca una placa GRBL? El saludo (`Grbl 1.1h [...]`, `GrblHAL`,
+/// FluidNC) o el `[MSG:Using cpu_map` de Creality, que sale antes. Sirve para notar un reinicio
+/// fuera de un trabajo.
+pub fn is_boot_banner(line: &str) -> bool {
+    is_greeting(line)
+        || line
+            .as_bytes()
+            .get(..crate::link::CPU_MAP_BANNER.len())
+            .is_some_and(|p| p.eq_ignore_ascii_case(crate::link::CPU_MAP_BANNER.as_bytes()))
 }

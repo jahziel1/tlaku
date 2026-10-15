@@ -17,6 +17,8 @@ export const mset: { [K in keyof typeof Source]?: string } = {
   'mset.blocked': 'Editing is not possible right now: {reason}',
   'mset.busy': 'Writing to the machine… {done} of {total}. Do not close the window or disconnect.',
   'mset.note.fluidnc': 'FluidNC keeps its real configuration in a config.yaml file, not in these settings. What the settings command shows is only a view; to change it, edit that file on the machine.',
+  'mset.softLimits.text': 'Your machine has homing but no soft limits ($20=0). Turn them on so the machine itself rejects moves outside the bed. With $20=1 GRBL requires $130 and $131 (the bed size) to be correct.',
+  'mset.softLimits.button': 'Turn on soft limits ($20=1)…',
   'mset.note.named': '{n} named lines (such as $/axes/x/…) are not shown here.',
   'mset.critical': 'Critical',
   'mset.critical.help': 'With a wrong value this setting can make the machine move wrongly, disable its protections, or turn laser mode off.',

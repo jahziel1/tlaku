@@ -13,10 +13,15 @@ use tlaku_doc::{GcodeDialect, ResumeAir, ResumeModal, ResumeSpindle};
 use tlaku_i18n::tr;
 
 /// Cuánto puede alejarse la MPos de la geometría y seguir contando como «encima de la línea».
-const ON_PATH_MM: f64 = 0.5;
+pub(super) const ON_PATH_MM: f64 = 0.5;
 /// Empates: entre líneas a esta distancia de la mejor se elige la primera (retroceder sobra,
 /// adelantar falta).
-const TIE_MM: f64 = 0.02;
+pub(super) const TIE_MM: f64 = 0.02;
+/// Cuánto vale como máximo una línea en la regla de las líneas (mm): retroceder «3 líneas» sirve
+/// con segmentos cortos (curvas, relleno fino), pero con lados largos serían decenas de mm
+/// repetidos. Si recorrer esas líneas pasa de `líneas × esto` (o de `back_mm`, si es mayor), manda
+/// solo la regla de los mm.
+const LINE_RULE_MM_PER_LINE: f64 = 2.0;
 /// Un trazo con tantos pasos o más es una fila de barrido de imagen.
 const ROW_MIN_STEPS: usize = 4;
 
@@ -200,7 +205,12 @@ pub fn landing(parsed: &Parsed, est: &Estimate, opts: &PlanOptions, floor: usize
     };
     // Regla de las líneas: tantos pasos atrás como se pidan.
     let j_ln = k.saturating_sub(opts.back_lines).max(start);
-    let (j, o) = if opts.back_lines > 0 && (j_ln < j_mm || (j_ln == j_mm && o_mm > 0.0)) {
+    let line_reach = along + steps[j_ln..k].iter().map(Step::length).sum::<f64>();
+    let line_cap = opts
+        .back_mm
+        .max(opts.back_lines as f64 * LINE_RULE_MM_PER_LINE);
+    let line_rule = opts.back_lines > 0 && line_reach <= line_cap;
+    let (j, o) = if line_rule && (j_ln < j_mm || (j_ln == j_mm && o_mm > 0.0)) {
         (j_ln, 0.0)
     } else {
         (j_mm, o_mm)

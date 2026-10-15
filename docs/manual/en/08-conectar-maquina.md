@@ -56,6 +56,18 @@ The **G-code dialect** shows a summary (for example "S 0-1000, dynamic M4, S on 
 
 **Read from machine** (with the machine connected) sends `$$`, which only reads, and suggests values for the profile. You tick which ones to apply; they are not saved either until **Save changes**.
 
+### Importing a LightBurn profile (`.lbdev`)
+
+If your machine is already set up in LightBurn, or the manufacturer publishes a `.lbdev` profile (for example, on their forum), you do not have to type everything again: in **Devices**, below the list, press **Import a LightBurn profile (.lbdev)…** and choose the file.
+
+- A summary opens with the profiles that will be created and a list of **notes**. Nothing is saved until you press **Create N profile(s)**. Profiles are always **new** (with their own id; if the name already exists, “(2)” is added): your current profiles are not touched. Importing never sends anything to the machine.
+- A file can hold several machines; one profile is created for each.
+- What is read: the name, the work area, the origin corner (inferred from the file's X and Y mirror flags: confirm it with a low-power frame), the controller type (GRBL, GRBL-M3, GRBL-LPC, Smoothieware, Marlin, G-code and Ruida), the baud rate, the max S, the Z axis, air through `M7`, homing on connect, synchronous streaming, and the start and end G-code (review them: they are sent on every job).
+- **Speeds and accelerations:** the file stores the ones from LightBurn's *time simulator* (in mm/s; Tlaku converts them to mm/min), not the firmware's. They are a starting point: with the machine connected press **Read from machine**, which reads `$$` and proposes the real values (`$110/$111`, `$120/$121`, `$130/$131`, `$30`) so you decide which to apply. Tlaku does not do this by itself on connect.
+- Anything without an equivalent (for example laser 2 or process offsets, finish position, pen, simulator settings) shows up in the notes as “not imported”. Local user data (port, last folders, camera) is ignored. The direction of the Z axis is not imported: test it with a short move.
+- Controllers Tlaku does not support (for example Trocen or TopWisdom) are **not imported**: you get a note and that machine is skipped, instead of inventing a G-code profile that does not belong to it. For a Ruida, the file does not carry (as far as we know) the IP address: enter it in the profile before connecting.
+- Only `.lbdev` files are read. LightBurn's `.lbvendor` and `.lbzip` bundles are not imported yet (a `.lbzip` is a zip that contains `.lbdev` files: you can extract it and use that file).
+
 ## Profile settings worth knowing
 
 Besides the values in the table, the profile stores settings that almost nobody touches at first but that solve very specific problems. They are all in **Devices**, and they all wait for **Save changes**.
