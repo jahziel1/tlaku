@@ -1,6 +1,6 @@
 # Contrato app-motor: Aplicación: preferencias, atajos y autoguardado
 
-Parte de [el contrato app-motor](README.md). Preferencias, paquetes `.tlakuprefs`, autoguardado, plantillas y ventanas.
+Parte de [el contrato app-motor](README.md). Preferencias, paquetes `.tlakuprefs` y `.tlakubundle`, respaldo a carpeta, autoguardado, plantillas y ventanas.
 
 ## Aplicación: preferencias, atajos y autoguardado
 
@@ -49,6 +49,41 @@ Forma de una entrada (`JobLogEntry`, `features/help/jobLog.ts`): `id`, `at`, `ma
 "running"` y el final la reemplaza; una entrada «en curso» que ninguna ventana sigue ejecutando (no hay latido en
 `localStorage` `tlaku.jobLog.live`) se marca `interrupted` al leer. En el modo simulado vive en memoria
 (`api/mock/jobHistory.ts`).
+
+### Paquetes `.tlakubundle` y respaldo a carpeta (mejora 12)
+
+Código: `src-tauri/src/prefs.rs` (paquete) y `src-tauri/src/backup/` (respaldo a carpeta); en la interfaz `features/bundle/` (armar,
+comparar y aplicar) y `features/backup/` (diálogo, programación, pregunta al abrir).
+
+El **paquete `.tlakubundle`** es un JSON con `format: "tlaku-bundle"` y `version`. **Versión 1**: `devices` (con macros y posiciones),
+`active_device`, `materials`, `cameras`, `art`, `prefs`. **Versión 2** agrega `costs` (`machines`, `sales`, `materials`), `remnants`
+(`RemnantLibrary`), `templates` (`items: {name, doc}[]`) y `history` (`entries`). La interfaz escribe la 1 si el paquete no lleva ninguna
+sección nueva, así lo abre cualquier versión; el motor lee la 1 y la 2 y rechaza otra con «versión no soportada». Cada sección es opcional al
+importar. El motor solo valida el sobre (máximo 32 MiB); el contenido lo sanea la interfaz.
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `export_user_bundle` | `path` (con extensión `.tlakubundle`), `bundle` | Escribe el paquete de forma atómica |
+| `import_user_bundle` | `path` | `UserBundle` (valida `format`, `version` y que `devices` sea una lista) |
+| `backup_config_get` | — | `BackupConfig`: `folder`, `on_close`, `every_days`, `keep`, `include_history` y el estado `last_backup_ms`, `last_seen_ms`, `install_id`. Crea el identificador de esta instalación la primera vez. Vive en `backup.json` (no viaja en los paquetes: la ruta es de esta computadora) |
+| `backup_config_set` | `settings` (`BackupSettings`) | `BackupConfig`; acota `keep` a 1–100 y `every_days` a 0–365 y quita los espacios de `folder` |
+| `backup_run` | `bundle` | `BackupWrite` (`name`, `path`, `created_ms`, `removed`). Escribe `tlaku-respaldo-AAAA-MM-DD_HH-MM-SS.tlakubundle` (UTC) en la carpeta configurada, añade `install_id`, rota (conserva los `keep` más nuevos, solo borra archivos con ese nombre y `.tmp` huérfanos propios de más de 10 min) y anota `last_backup_ms`. Errores: sin carpeta, carpeta no disponible (no se crea), paquete con un secreto, más de 32 MiB |
+| `backup_safety` | `bundle` | `BackupWrite`; igual que `backup_run` pero siempre en `<app_config_dir>/respaldos-locales/` con el prefijo `tlaku-antes-de-importar` y conservando 5. Lo llama la interfaz antes de aplicar una importación |
+| `backup_list` | — | `BackupList` (`configured`, `available`, `entries[]` con `name`, `path`, `size_bytes`, `created_ms`), el más nuevo primero. Una carpeta ausente es `available: false`, no un error |
+| `backup_check_newer` | — | `BackupEntry` o `null`: el respaldo más nuevo de la carpeta si es posterior a `max(last_backup_ms, last_seen_ms)` y lo hizo otra instalación (`install_id` distinto o ausente) |
+| `backup_mark_seen` | `created_ms` | Sube `last_seen_ms`: el respaldo ya se importó o se descartó y no se vuelve a ofrecer |
+
+**Secretos.** `backup_run` y `backup_safety` rechazan (`desktop.backup.secret_found`) cualquier paquete que tenga un campo llamado
+`token`, `password`, `secret`, `apikey`, `privatekey`, `authorization`, `cookie`, `credentials`… (también si solo termina en `token`,
+`password` o `secret`) con valor no nulo, o una cadena con forma `esquema://usuario[:clave]@host` (salvo dentro de `templates` e
+`history`, que son texto libre del usuario). Es la segunda barrera: la interfaz ya quita las credenciales de las URL de cámara
+(`stripCredentials`), no incluye el acceso del control remoto y `remoteEnabled` está en `NEVER_IMPORTED`.
+
+**Escritura.** Atómica (`write_atomic`: archivo `.tmp` en la misma carpeta y renombrar). Si falla, no se rota ni se borra nada. La
+rotación nunca toca archivos ajenos a la carpeta. La carpeta debe existir (una unidad desconectada no se sustituye por una carpeta local).
+
+**Detección.** Compara la marca del nombre del archivo (UTC) con las del estado local: una computadora con el reloj adelantado puede
+parecer «más nueva». No es sincronización: solo ofrece y la persona decide en la vista previa.
 
 ### Plantillas y ventanas (ola 3)
 

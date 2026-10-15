@@ -97,7 +97,7 @@ Also:
 
 ## Moving your settings to another computer
 
-In the Preferences window, **Export…** saves a `.tlakuprefs` file with all your preferences **and** your shortcuts. **Import…** loads it on another computer (or after reinstalling). The file also carries the preferences that are changed outside this window: the **defaults for new layers**, including those of each color and machine (see [Layers and cut settings](05-capas-y-ajustes.md)), and the **interface mode** (see [Simple mode](01b-modo-sencillo.md)); a bundle from an earlier version with Beginner mode on moves to simple mode if it carried no chosen mode and the setup of the **Before sending** list in the Start dialog (see [Sending jobs safely](09-enviar-con-seguridad.md)). The **Optimization settings** and the **Finish position** are remembered between sessions, but do not travel in this file. To carry your **machines** (with macros and positions), your **material library**, your **cameras** and your **own art** too, use a `.tlakubundle` bundle (**File > Export settings bundle…**; see [Advanced machine control](09b-control-avanzado.md)).
+In the Preferences window, **Export…** saves a `.tlakuprefs` file with all your preferences **and** your shortcuts. **Import…** loads it on another computer (or after reinstalling). The file also carries the preferences that are changed outside this window: the **defaults for new layers**, including those of each color and machine (see [Layers and cut settings](05-capas-y-ajustes.md)), and the **interface mode** (see [Simple mode](01b-modo-sencillo.md)); a bundle from an earlier version with Beginner mode on moves to simple mode if it carried no chosen mode and the setup of the **Before sending** list in the Start dialog (see [Sending jobs safely](09-enviar-con-seguridad.md)). The **Optimization settings** and the **Finish position** are remembered between sessions, but do not travel in this file. To carry your **machines** (with macros and positions), your **material library**, your **cameras**, your **own art**, your **cost profiles**, your **remnants** and your **templates** too, use a `.tlakubundle` bundle (**File > Export settings bundle…**; see [Advanced machine control](09b-control-avanzado.md)), or have everything backed up automatically to a folder ([below](#settings-backup-to-a-folder)).
 
 When importing, Tlaku tells you how many preferences came in and for how many commands the shortcuts were. If the file comes from another version:
 
@@ -105,6 +105,26 @@ When importing, Tlaku tells you how many preferences came in and for how many co
 - Shortcuts for commands that do not exist in this version **are kept**, in case they arrive later, and you are told how many there are.
 
 A file that is not a Tlaku preferences bundle is rejected with a clear message. Materials have their own file (`.tlakumat`, see [Materials](11-materiales.md)); devices, cameras and your own art travel in the `.tlakubundle` bundle.
+
+## Settings backup to a folder
+
+So you do not lose your setup (or to have it identical on two computers), Tlaku can keep **copies of your settings in a folder you choose**: the one in iCloud Drive, Dropbox, OneDrive, a folder synced by Syncthing or a USB stick. It is in **File > Settings backup…**.
+
+**What is backed up.** Your **machines** (with their saved macros and positions), the **material library**, the **cost profiles**, the **remnants**, the **project templates**, the **camera calibration**, your **own art**, the **preferences** and the **shortcuts**. The **job history** is only included if you tick its box (it can be large). Passwords, keys and the remote control access are **never** saved, and camera URLs go without user or password.
+
+**How to set it up.**
+
+1. Press **Choose folder…** and pick where to save. Files are named `tlaku-respaldo-YYYY-MM-DD_HH-MM-SS.tlakubundle` (UTC time, so they sort the same on any computer).
+2. Pick when to back up: **when Tlaku closes** and/or **on start if N days have passed** since the last one. You can also press **Back up now** (or **File > Back up settings now**) whenever you like.
+3. Choose **how many to keep**: Tlaku deletes the oldest ones when it goes over, and only touches files with its own name; everything else in the folder is left alone. Each file is written completely before it appears (no half-written files if something is interrupted).
+
+If the folder is **not available** (the USB drive is unplugged or the cloud has not finished syncing), Tlaku **warns once** and carries on working; backups resume by themselves when it is back.
+
+**Restoring.** In the same dialog, the **Backups in the folder** list has a **Restore…** button for each one. The usual **preview** opens (the same one as **Import settings bundle…**): for each category (machines, materials, costs, remnants, templates, cameras, art, preferences and history) you see how many items are **new**, how many **differ** from what you already have and how many are **identical**, and you tick which categories to import. Where items clash by id or name you choose what to do: **Replace the local one**, **Keep both** (the incoming one is renamed, for example "Table (imported)") or **Skip the incoming one**. Nothing is written until you press **Apply**, and **before applying Tlaku saves a backup of the current state** (in its configuration folder, the last 5) so you can go back; if that backup fails, nothing is applied.
+
+**Moving your settings to another computer.** Pick the **same** backup folder there. When Tlaku starts, if the folder holds a backup **newer than what that computer has and made on another one**, a question appears: **Review…** opens the preview, **Not now** leaves it for later and **Skip this backup** marks it as seen. **It is never applied on its own.** While a foreign backup is waiting for review, automatic backups are paused so they do not bury it.
+
+**What this is not.** It is not live sync: it does not merge changes made on two computers at the same time or deal with clocks that disagree; you decide what to import. If you work on both, restore on the one you are about to use before you start. With Flatpak or sandboxed macOS, Tlaku only sees the folder you pick in the dialog.
 
 ## Autosave and recovery
 

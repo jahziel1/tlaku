@@ -2,6 +2,12 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Settings backup to a folder, in the next version
+
+- **Automatic backup** of your machines, materials, costs, remnants, templates, cameras, art, preferences and shortcuts to a folder you choose (iCloud Drive, Dropbox, OneDrive, USB…): on close and/or every N days, with dated names and rotation. If the folder is missing, it warns once and carries on. **File > Settings backup…**
+- **Restore with a preview**: per category you see what is new, different or identical, pick what to import and what to do with clashes (replace, keep both or skip). Before applying, a backup of the current state is saved.
+- **From one computer to another**: on start, if the folder has a newer backup made on another computer, it offers it; it never applies it on its own. Passwords, keys and the remote access are never backed up. See [Settings backup to a folder](02b-preferencias-y-atajos.md#settings-backup-to-a-folder).
+
 ## Nesting with several sheets, offcuts and grain, in the next version
 
 - **Several sheets**: if the parts do not fit on one, nesting continues on new sheets of the same size (up to 50), with the utilization of each. Each sheet ends up as a separate zone of the canvas with its reference outline on the guides layer.
