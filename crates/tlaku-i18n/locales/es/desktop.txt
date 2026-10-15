@@ -27,6 +27,14 @@ desktop.autosave.bad_id = Identificador de copia no válido: «{id}».
 desktop.autosave.too_big = El documento pesa {size} MB y supera el máximo de {max} MB para las copias de recuperación.
 desktop.autosave.meta_failed = Copia de recuperación: {err}
 desktop.autosave.data_dir = No se encontró la carpeta de datos: {err}
+# versions/
+desktop.versions.bad_id = Identificador de versión no válido: «{id}».
+desktop.versions.too_big = El documento pesa {size} MB y supera el máximo de {max} MB para una versión del historial.
+desktop.versions.meta_failed = Historial de versiones: {err}
+desktop.versions.compress_failed = Historial de versiones: no se pudo comprimir ({err}).
+desktop.versions.not_found = No existe la versión «{id}» en el historial de este proyecto.
+desktop.versions.bad_kind = Solo se pueden guardar versiones automáticas, manuales o de restauración desde la interfaz.
+desktop.versions.need_label = Una versión manual necesita un nombre.
 # engine.rs
 desktop.engine.not_a_file_path = {path}: no es una ruta de archivo
 desktop.engine.profile_needs_id = El perfil necesita un id.

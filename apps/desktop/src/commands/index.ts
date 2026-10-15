@@ -6,6 +6,7 @@ import { cameraCommands } from './definitions/camera';
 import { canvasToolCommands } from './definitions/canvasTools';
 import { codesCommands } from './definitions/codes';
 import { costsCommands } from './definitions/costs';
+import { versionsCommands } from './definitions/versions';
 import { partsCommands } from './definitions/parts';
 import { designCommands } from './definitions/design';
 import { deviceCommands } from './definitions/devices';
@@ -61,6 +62,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...layerCommands,
   ...previewCommands,
   ...costsCommands,
+  ...versionsCommands,
   ...partsCommands,
   ...arrangeCommands,
   ...designAdvancedCommands,

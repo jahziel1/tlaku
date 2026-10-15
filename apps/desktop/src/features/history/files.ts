@@ -12,6 +12,7 @@ import { baseName, isImportable, withExtension } from './paths';
 import { askChoice } from './prompt';
 import { useRecents } from './recent';
 import { guardUnsaved, type GuardChoice, type GuardIntent, type GuardIo } from './unsaved';
+import { captureBeforeSave } from '@/features/versions/actions';
 
 const state = () => useStore.getState();
 
@@ -121,6 +122,8 @@ export async function saveProject(asNew: boolean): Promise<boolean> {
 
 /** Escribe `doc` en `path` y, si la pestaña `tabId` sigue abierta, la marca guardada. */
 async function writeTab(tabId: string, path: string, saved: Document): Promise<boolean> {
+  // Historial de versiones: conserva lo que tiene ahora el archivo. No puede fallar ni retrasar el guardado (avisa y sigue).
+  await captureBeforeSave(path);
   try {
     await getApi().saveProject({ path, doc: saved });
   } catch (e) {

@@ -9,6 +9,7 @@ import { mockNest } from './nest';
 import { mockBundle } from './bundle';
 import { mockLiveWindow } from './live';
 import { mockPrefs } from './prefs';
+import { mockVersions } from './versions';
 import { mockSettingsBackup } from './settingsBackup';
 import { mockAutomation } from './automation';
 import { mockRemote, type MockRemote } from './remote';
@@ -269,6 +270,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockDevices(lag),
     ...mockFileio(lag),
     ...mockPrefs(lag),
+    ...mockVersions(lag, projects),
     ...liveWindowApi,
     ...mockSettingsBackup(lag),
     ...mockBundle(lag),
