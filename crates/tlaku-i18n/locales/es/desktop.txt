@@ -340,6 +340,7 @@ desktop.remote.reason_galvo = El galvo (haz invisible) solo se inicia desde la P
 desktop.remote.reason_not_framed = Primero encuadra el trabajo en la PC. Cualquier cambio al diseño, a la máquina o a las opciones del trabajo exige encuadrar de nuevo.
 desktop.remote.reason_busy_request = Ya hay un inicio en curso desde otro dispositivo.
 desktop.remote.reason_checklist = Marca todo el checklist de seguridad para iniciar.
+desktop.remote.reason_checklist_material = Antes de confirmar el siguiente trabajo de la cola, marca que ya cambiaste el material o la pieza.
 desktop.remote.reason_timeout = La PC no contestó a tiempo. Revisa Tlaku antes de volver a intentar.
 desktop.remote.reason_default = No se puede iniciar ahora.
 desktop.remote.route_too_big = El recorrido es demasiado grande para el celular.

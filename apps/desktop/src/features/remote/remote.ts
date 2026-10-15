@@ -1,6 +1,8 @@
 import { getApi, type EventMap } from '@/api';
 import type { RemoteClient, RemoteConfig, RemoteLiveRoute, RemoteStatus } from '@/api/api';
 import { buildLivePayload } from '@/features/live/remoteRoute';
+import { queueBlocksRemoteStart } from '@/features/queue/queueRemote';
+import { useQueue } from '@/features/queue/queueStore';
 import { addLiveConsumer, getLiveService, onLiveRoute, pokeLive } from '@/features/live/service';
 import type { LiveRoute } from '@/features/live/route';
 import { t, type I18nKey } from '@/i18n';
@@ -71,7 +73,7 @@ export async function kickRemoteClient(id: string): Promise<void> {
 // Pedido de inicio del celular
 // ---------------------------------------------------------------------------
 
-export type RemoteStartCode = 'not_connected' | 'job_active' | 'not_idle' | 'nothing_to_send' | 'galvo' | 'not_framed';
+export type RemoteStartCode = 'not_connected' | 'job_active' | 'not_idle' | 'nothing_to_send' | 'galvo' | 'not_framed' | 'queue_other_tab';
 
 /**
  * Por qué NO se puede iniciar desde el celular ahora (o `null`). Es la comprobación de la ventana;
@@ -86,6 +88,8 @@ export function remoteStartBlock(s: AppState): RemoteStartCode | null {
   if (!hasOutput(s)) return 'nothing_to_send';
   // Haz invisible: el galvo se inicia mirando la máquina desde la PC, con su diálogo.
   if (selectActiveDevice(s).kind === 'galvo') return 'galvo';
+  // La cola guiada espera confirmar un trabajo: el celular solo puede confirmar ESE (el de la pestaña activa).
+  if (queueBlocksRemoteStart(useQueue.getState().q, s.activeTabId)) return 'queue_other_tab';
   if (!selectFramed(s)) return 'not_framed';
   return null;
 }

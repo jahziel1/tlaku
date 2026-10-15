@@ -340,6 +340,7 @@ desktop.remote.reason_galvo = The galvo (invisible beam) can only be started fro
 desktop.remote.reason_not_framed = Frame the job on the PC first. Any change to the design, the machine or the job options requires framing again.
 desktop.remote.reason_busy_request = A start request from another device is already in progress.
 desktop.remote.reason_checklist = Check every item on the safety checklist to start.
+desktop.remote.reason_checklist_material = Before confirming the next queue job, tick that you already changed the material or the workpiece.
 desktop.remote.reason_timeout = The PC did not answer in time. Check Tlaku before trying again.
 desktop.remote.reason_default = Cannot start right now.
 desktop.remote.route_too_big = The toolpath is too large for the phone.

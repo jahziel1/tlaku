@@ -4,6 +4,7 @@ import { t } from '@/i18n';
 import { defaultLiveRect, fitLiveRect, LIVE_MIN_H, LIVE_MIN_W, maxLiveRect, resizeLiveRect, type LiveRect, type LiveWindowPref } from '@/lib/liveWindow';
 import { usePref, useStore } from '@/store';
 import { openDetached, useLiveWindow } from './detach';
+import { QueueLiveLine } from '@/features/queue';
 import { LivePanel } from './LivePanel';
 import { localSource } from './localSource';
 import './live.css';
@@ -131,7 +132,7 @@ function FloatingLive() {
         </button>
       </header>
       <div className="floatwin__body">
-        <LivePanel source={localSource()} />
+        <LivePanel source={localSource()} actions={<QueueLiveLine />} />
       </div>
       {!maximized && (
         <div

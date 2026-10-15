@@ -245,6 +245,36 @@ export interface RemoteSnapshot {
   framed: boolean;
   /** Dónde está la máquina sobre la ruta de la vista en vivo (solo si la PC la sigue). */
   live?: RemoteLiveReport | null;
+  /** La cola guiada de trabajos (solo lectura en el celular), si hay una. */
+  queue?: RemoteQueue | null;
+}
+
+/** Un trabajo de la cola guiada, como lo ve el celular. */
+export interface RemoteQueueItem {
+  name: string;
+  /** Copias pedidas y terminadas. */
+  copies: number;
+  done: number;
+  status: 'pending' | 'done' | 'skipped' | 'failed';
+}
+
+/**
+ * La cola guiada (`features/queue`). Nunca avanza sola: en `awaiting` espera la confirmación de una persona,
+ * en la PC o desde el celular con las mismas condiciones que «iniciar» (checklist en el teléfono + encuadre en la PC).
+ */
+export interface RemoteQueue {
+  state: 'idle' | 'awaiting' | 'running' | 'paused' | 'stopped' | 'done';
+  /** Trabajos (copias) terminados y total. */
+  done: number;
+  total: number;
+  /** Segundos estimados que faltan; `null` si no se conocen todos. */
+  eta_s: number | null;
+  current: RemoteQueueItem | null;
+  /** Copia en curso o por confirmar del trabajo actual (desde 1). */
+  copy: number;
+  /** Por qué se detuvo, si está detenida. */
+  message: string;
+  items: RemoteQueueItem[];
 }
 
 /** Ubicación de la máquina en la ruta de la vista en vivo (la página interpola entre informes). */

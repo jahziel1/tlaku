@@ -48,6 +48,7 @@ export const remote = {
   'remote.reason.galvo': 'El galvo solo se inicia desde la PC.',
   'remote.reason.not_framed': 'El trabajo no se ha encuadrado desde el último cambio.',
   'remote.reason.failed': 'La máquina rechazó el inicio.',
+  'remote.reason.queue_other_tab': 'La cola de trabajos espera confirmar otro documento. Encuádralo desde la computadora primero.',
   'remote.notice.starting': 'Iniciando el trabajo por pedido del celular ({client}).',
   'remote.notice.startRefused': 'El celular ({client}) pidió iniciar, pero no se puede: {reason}',
   'remote.notice.pause': 'Trabajo pausado desde el celular ({client}).',

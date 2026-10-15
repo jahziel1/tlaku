@@ -41,6 +41,7 @@ import { a11y } from './en/a11y';
 import { tabs } from './en/tabs';
 import { parts } from './en/parts';
 import { costs } from './en/costs';
+import { queue } from './en/queue';
 
 export const en: { [K in I18nKey]?: string } = {
   ...base,
@@ -81,4 +82,5 @@ export const en: { [K in I18nKey]?: string } = {
   ...tabs,
   ...parts,
   ...costs,
+  ...queue,
 };

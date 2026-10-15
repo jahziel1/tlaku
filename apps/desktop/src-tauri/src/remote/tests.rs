@@ -527,6 +527,73 @@ fn start_body(nearby: bool, clear: bool, air: bool) -> String {
 }
 
 #[test]
+fn the_phone_sees_the_queue_and_confirms_a_step_only_with_the_material_item() {
+    use super::hub::{QueueInfo, QueueItemInfo};
+    let fake = Fake::with(MachineKind::Grbl, MachineState::Idle);
+    let r = rig(fake.clone());
+    let cookie = session(r.addr, &r.core.auth.token());
+    let go = |body: &str| call(r.addr, &cookie, "POST", "/api/start", body);
+    let item = QueueItemInfo {
+        name: "caja.tlaku".to_string(),
+        copies: 3,
+        done: 1,
+        status: "pending".to_string(),
+    };
+    r.core.update(
+        Snapshot {
+            queue: Some(QueueInfo {
+                state: "awaiting".to_string(),
+                done: 1,
+                total: 3,
+                copy: 2,
+                current: Some(item.clone()),
+                items: vec![item],
+                ..QueueInfo::default()
+            }),
+            ..ready_snapshot()
+        },
+        Instant::now(),
+    );
+    // La cola se ve en el estado (solo lectura).
+    let state = call(r.addr, &cookie, "GET", "/api/state", "");
+    assert_eq!(state.json()["queue"]["state"], "awaiting");
+    assert_eq!(state.json()["queue"]["current"]["name"], "caja.tlaku");
+    assert_eq!(state.json()["queue"]["copy"], 2);
+    // Con las tres casillas de siempre no se confirma el siguiente trabajo: falta «cambié el material».
+    let denied = go(&start_body(true, true, true));
+    assert_eq!(denied.status, 409);
+    assert_eq!(denied.json()["code"], "checklist_material");
+    assert!(
+        !fake.calls().iter().any(|c| c.starts_with("ask_start")),
+        "{:?}",
+        fake.calls()
+    );
+    // Con la cuarta, el pedido llega a la interfaz (que vuelve a comprobar todo).
+    let core = r.core.clone();
+    let answerer = std::thread::spawn(move || {
+        wait_for("pedido de inicio", 5, || {
+            fake.calls().iter().any(|c| c.starts_with("ask_start"))
+        });
+        let id: u64 = fake
+            .calls()
+            .iter()
+            .find_map(|c| c.strip_prefix("ask_start ")?.parse().ok())
+            .unwrap();
+        core.finish_start(
+            id,
+            StartOutcome {
+                ok: true,
+                code: String::new(),
+                message: String::new(),
+            },
+        );
+    });
+    let ok = go("{\"checklist\":{\"nearby\":true,\"clear\":true,\"air\":true,\"material\":true}}");
+    answerer.join().unwrap();
+    assert_eq!(ok.status, 200, "{}", ok.body);
+}
+
+#[test]
 fn starting_needs_the_phone_checklist_and_a_prior_frame() {
     let fake = Fake::with(MachineKind::Grbl, MachineState::Idle);
     let r = rig(fake.clone());

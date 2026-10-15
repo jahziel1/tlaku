@@ -46,6 +46,7 @@ export const remote: { [K in keyof typeof Source]?: string } = {
   'remote.reason.nothing_to_send': 'There is nothing to send.',
   'remote.reason.galvo': 'The galvo can only be started from the PC.',
   'remote.reason.not_framed': 'The job has not been framed since the last change.',
+  'remote.reason.queue_other_tab': 'The job queue is waiting to confirm a different document. Frame it from the computer first.',
   'remote.reason.failed': 'The machine refused to start.',
   'remote.notice.starting': 'Starting the job at the phone request ({client}).',
   'remote.notice.startRefused': 'The phone ({client}) asked to start, but it cannot be done: {reason}',
