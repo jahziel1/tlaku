@@ -25,6 +25,7 @@ Tlaku is free software (MIT license) for preparing and sending jobs to laser cut
 - [Variable text](04b-texto-variable.md): serial numbers, data from a CSV, date and time inside a text, how they advance after each job and one copy per CSV row.
 - [Layers and cut settings](05-capas-y-ajustes.md): Line, Fill and Image modes, speed, power, passes, tabs, advanced cutting (perforation, lead-in and lead-out, overcut, pauses, dot mode, ramp), additional operations, defaults (general, per color and per machine), advanced settings and execution order.
 - [Images](06-imagenes.md): import photos, choose the dithering, adjust tones, send without dithering, sharpen edges, remove specks, crop with a shape, image-adjustment presets and their preview, convert vectors to bitmap, save the processed image and trace one or several images.
+- [Part generators](03g-generadores-de-piezas.md): finger-joint boxes (closed, open, sliding lid), living hinges (straight, wave, zigzag) and the fit test piece to calibrate kerf and clearance; outside or inside dimensions, engraved labels and "Regenerate" with the parameters saved in the project.
 
 ## Preparing the job
 

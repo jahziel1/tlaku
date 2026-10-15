@@ -10,6 +10,7 @@ pub mod geometry;
 pub mod imaging;
 pub mod materials;
 pub mod nest;
+pub mod parts;
 pub mod printcut;
 pub mod review;
 pub mod shape_ops;

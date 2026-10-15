@@ -96,7 +96,25 @@ mezcla con la B.
 
 ## 2. Generadores de piezas (cajas, bisagras, engranajes, bandejas, uniones)
 
-**(a) Estado: No existe.** Lo más cercano: 5 SVG fijos de paneles de caja con encastre en la biblioteca de arte
+**(a) Estado: fase 2a+2b implementada (Ola B, fase 1); faltan engranajes, bandejas y cola de milano.** Hecho en `crates/tlaku-parts`
+(geometría) y `apps/desktop/src/features/parts/` (diálogo «Herramientas > Generadores de piezas…», vista previa en vivo,
+Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en [mapa.md](mapa.md)):
+
+- **Caja con dientes:** cerrada, abierta y con tapa deslizante; medidas exteriores o interiores; ancho de diente que se
+  ajusta a un número impar de celdas iguales (simétrico en cada arista); holgura de encaje (ranura − diente) aparte del
+  kerf; rótulos grabados en la cara exterior. El encaje se prueba en 3D (cada punto de las losas de los paneles lo tiene
+  exactamente un panel; dientes alternados, profundidad = grosor). Pendiente de la lista original: divisores con media
+  ranura y patas.
+- **Bisagra flexible:** rectas escalonadas, onda y zigzag, en horizontal o vertical, con puentes, margen y esquinas
+  redondeadas. Pendiente: integrarla en un lateral de caja (franja flexible con dientes) y los patrones ladrillo y rombo.
+- **Pieza de prueba de encaje:** placa de 13 ranuras (grosor o diente ± pasos de 0,05 mm, valores grabados) y un macho.
+- **Kerf:** la geometría es nominal y el kerf lo compensa la capa (`LayerSettings.kerf`, C12); el diálogo avisa que hay
+  que activarlo para que las uniones encajen.
+- **Registro en el documento:** `Document.generators` (grupo, generador, parámetros JSON, capas), retrocompatible.
+- **Falta validar con la Falcon2:** cortar la pieza de prueba y una caja chica en madera de 3 mm; hasta entonces los
+  números de holgura son un punto de partida, no un resultado medido.
+
+Estado anterior: no existía. Lo más cercano era: 5 SVG fijos de paneles de caja con encastre en la biblioteca de arte
 (`features/art/svg/cajas-*.svg`, D47; no son paramétricos). Hay piezas reutilizables:
 
 - Kerf por capa (C12): `crates/tlaku-geom/src/kerf.rs` (`kerf_compensate`, convención explícita de signo).

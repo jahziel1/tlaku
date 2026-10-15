@@ -36,7 +36,7 @@ export const MENUS: MenuDef[] = [
   {
     id: 'tools',
     label: 'menu.tools',
-    items: ['tool.select', 'tool.nodes', '-', 'tool.line', 'tool.rect', 'tool.ellipse', 'tool.polygon', 'tool.star', 'tool.text', '-', 'tool.pan', 'tool.measure'],
+    items: ['tool.select', 'tool.nodes', '-', 'tool.line', 'tool.rect', 'tool.ellipse', 'tool.polygon', 'tool.star', 'tool.text', '-', 'tool.pan', 'tool.measure', '-', 'parts.open', 'parts.regenerate'],
   },
   {
     id: 'view',

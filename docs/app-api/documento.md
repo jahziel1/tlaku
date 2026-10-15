@@ -128,3 +128,25 @@ interface JobOptions {
   dentro de la cama desde ella. El documento y la vista previa siempre usan origen abajo a la
   izquierda; solo `export_gcode`/`start_job` convierten (`top_left`: `y' = alto - y`, etc.).
 - `start_gcode`/`end_gcode` vacíos significan "ninguno"; `power_mode` se aplica a todos los bloques.
+
+### Piezas de un generador (mejora 2)
+
+Campo opcional y retrocompatible: un documento anterior no lo lleva y se lee igual (`generators` vacío no se escribe).
+
+```ts
+interface Document { /* ... */ generators?: GeneratorRecord[] }
+interface GeneratorRecord {
+  group: string;            // id del grupo de más afuera (DesignObject.group) de las piezas
+  generator: string;        // 'box' | 'hinge' | 'fit_test' ...
+  params: { [clave: string]: unknown }; // los parámetros tal como los lee el generador
+  cut_layer: string;        // capa de corte (#rrggbb)
+  engrave_layer?: string | null; // capa de los rótulos
+}
+```
+
+- El motor no interpreta el registro; la interfaz lo busca por la cadena de grupos del objeto seleccionado
+  (`features/parts/partsModel.ts: recordFor`) y ofrece «Regenerar…», que reabre el diálogo con esos `params`
+  (los campos que falten toman el valor de fábrica) y reemplaza las piezas del grupo **en el mismo lugar**.
+- Si el usuario borra las piezas o las edita, el vínculo se rompe como con las formas paramétricas: regenerar
+  vuelve a generar el conjunto completo (el diálogo avisa si el grupo ya no tiene las mismas piezas).
+

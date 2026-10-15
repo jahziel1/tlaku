@@ -72,6 +72,7 @@ fn sample() -> Document {
         device_id: Some("falcon".into()),
         notes: String::new(),
         guides: Vec::new(),
+        generators: Vec::new(),
         variable_text: Default::default(),
     }
 }
@@ -594,4 +595,24 @@ fn layer_u_offset_defaults_to_zero_and_roundtrips() {
     let back: LayerSettings =
         serde_json::from_str(&serde_json::to_string(&layer).unwrap()).unwrap();
     assert_eq!(back.u_offset, -3.5);
+}
+
+#[test]
+fn generator_records_roundtrip_and_old_files_have_none() {
+    let mut doc = sample();
+    assert!(
+        !doc.to_json().unwrap().contains("generators"),
+        "vacío no se escribe"
+    );
+    doc.generators.push(crate::GeneratorRecord {
+        group: "grupo-1".into(),
+        generator: "box".into(),
+        params: serde_json::json!({"width_mm": 100.0, "kind": "open"}),
+        cut_layer: "#ff0000".into(),
+        engrave_layer: Some("#0000ff".into()),
+    });
+    let back = Document::from_json(&doc.to_json().unwrap()).unwrap();
+    assert_eq!(back, doc);
+    let old = sample().to_json().unwrap();
+    assert!(Document::from_json(&old).unwrap().generators.is_empty());
 }

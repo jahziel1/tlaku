@@ -61,6 +61,7 @@ pub fn build_marks_document(bed: [f64; 2], count: u32) -> Result<Document, Strin
         device_id: None,
         notes: String::new(),
         guides: Vec::new(),
+        generators: Vec::new(),
         variable_text: Default::default(),
     })
 }

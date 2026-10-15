@@ -160,6 +160,7 @@ pub fn rotary_test(
         device_id: None,
         notes: String::new(),
         guides: Vec::new(),
+        generators: Vec::new(),
         variable_text: Default::default(),
     })
 }

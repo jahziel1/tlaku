@@ -1,0 +1,118 @@
+/** Generadores de piezas (cajas con dientes, bisagras flexibles, prueba de encaje). Todas las claves empiezan con `parts.`. */
+export const parts = {
+  // ---- comandos y avisos de historial ----
+  'parts.cmd.open': 'Generadores de piezas…',
+  'parts.cmd.regenerate': 'Regenerar piezas…',
+  'parts.reason.noGenerated': 'La selección no es un grupo de piezas generadas.',
+  'parts.history.insert': 'Insertar piezas generadas',
+  'parts.history.regenerate': 'Regenerar piezas',
+
+  // ---- diálogo ----
+  'parts.title': 'Generadores de piezas',
+  'parts.titleRegen': 'Regenerar piezas',
+  'parts.subtitle': 'Cajas con dientes, bisagras flexibles y piezas de prueba. Salen como objetos vectoriales editables, agrupados.',
+  'parts.close': 'Cerrar',
+  'parts.list.label': 'Generadores',
+  'parts.form.label': 'Parámetros',
+  'parts.preview.label': 'Vista previa',
+  'parts.preview.empty': 'Corrige los parámetros para ver las piezas.',
+  'parts.preview.loading': 'Calculando…',
+  'parts.preview.size.one': 'Conjunto: {w} × {h} mm · {n} pieza',
+  'parts.preview.size.other': 'Conjunto: {w} × {h} mm · {n} piezas',
+  'parts.preview.alt': 'Vista previa de las piezas generadas',
+  'parts.insert': 'Insertar',
+  'parts.regenerate': 'Regenerar',
+  'parts.reset': 'Valores de fábrica',
+  'parts.cancel': 'Cancelar',
+  'parts.working': 'Insertando…',
+
+  // ---- capas ----
+  'parts.layers.title': 'Capas',
+  'parts.layers.cut': 'Capa de corte',
+  'parts.layers.engrave': 'Capa de los rótulos grabados',
+  'parts.layers.engraveNone': 'Sin rótulos',
+  'parts.layers.newEngrave': 'Rótulos de piezas',
+  'parts.kerf.on': 'La capa «{layer}» compensa un kerf de {kerf} mm: la geometría sale nominal y la capa la ajusta al cortar. Deja la holgura de encaje en 0 si ese kerf ya corrige el ajuste.',
+  'parts.kerf.off': 'Para que las uniones encajen, activa el kerf en la capa de corte (Capas, campo «Kerf») con el que mediste en la pieza de prueba. La geometría sale nominal; el kerf lo compensa la capa.',
+
+  // ---- resultado ----
+  'parts.inserted.one': 'Se insertó {n} pieza en la pestaña activa.',
+  'parts.inserted.other': 'Se insertaron {n} piezas en la pestaña activa.',
+  'parts.regenerated.one': 'Se regeneró {n} pieza en el mismo lugar.',
+  'parts.regenerated.other': 'Se regeneraron {n} piezas en el mismo lugar.',
+  'parts.failed': 'No se pudo generar: {error}',
+  'parts.warn.bed': 'El conjunto mide {w} × {h} mm y la cama {bw} × {bh} mm: acomódalo o usa piezas más pequeñas.',
+  'parts.warn.spot': 'No había un hueco libre en la cama: las piezas se pusieron en la esquina y pueden tapar otras. Muévelas antes de cortar.',
+  'parts.warn.edited': 'El grupo ya no tiene las mismas piezas (se editó o se borró algo): regenerar lo reemplaza por completo.',
+
+  // ---- barra sobre el lienzo ----
+  'parts.bar.label': 'Piezas generadas',
+  'parts.bar.text': 'Piezas generadas: {generator}',
+  'parts.bar.regenerate': 'Regenerar…',
+
+  // ---- secciones del formulario ----
+  'parts.section.box': 'Tipo de caja',
+  'parts.section.size': 'Medidas',
+  'parts.section.joints': 'Uniones',
+  'parts.section.options': 'Opciones',
+  'parts.section.pattern': 'Patrón',
+  'parts.section.cuts': 'Cortes',
+  'parts.section.wave': 'Onda',
+  'parts.section.outline': 'Contorno',
+  'parts.section.test': 'Prueba',
+
+  // ---- generadores ----
+  'parts.generator.box': 'Caja con dientes',
+  'parts.generator.box.desc': 'Cinco o seis paneles con uniones de dientes (finger joints) que encajan en el grosor del material.',
+  'parts.generator.hinge': 'Bisagra flexible',
+  'parts.generator.hinge.desc': 'Una zona de cortes alternados que deja doblar la madera o el acrílico. Rectas, onduladas o en zigzag.',
+  'parts.generator.fit_test': 'Prueba de encaje',
+  'parts.generator.fit_test.desc': 'Placa de ranuras de varios anchos y un macho para calibrar la holgura y el kerf en tu máquina y material.',
+
+  // ---- caja ----
+  'parts.box.kind': 'Tipo',
+  'parts.box.kind.closed': 'Cerrada (con tapa)',
+  'parts.box.kind.open': 'Abierta (sin tapa)',
+  'parts.box.kind.sliding_lid': 'Con tapa deslizante',
+  'parts.box.dims': 'Las medidas son',
+  'parts.box.dims.outer': 'Exteriores',
+  'parts.box.dims.inner': 'Interiores',
+  'parts.box.width_mm': 'Ancho (X)',
+  'parts.box.depth_mm': 'Fondo (Y)',
+  'parts.box.height_mm': 'Alto (Z)',
+  'parts.box.thickness_mm': 'Grosor del material',
+  'parts.box.finger_mm': 'Ancho de diente (se ajusta a un número impar)',
+  'parts.box.fit_mm': 'Holgura de encaje (ranura − diente)',
+  'parts.box.lid_clearance_mm': 'Juego de la tapa',
+  'parts.box.labels': 'Grabar el nombre de cada panel',
+
+  // ---- bisagra ----
+  'parts.hinge.pattern': 'Forma de los cortes',
+  'parts.hinge.pattern.straight': 'Rectas escalonadas',
+  'parts.hinge.pattern.wave': 'Onda',
+  'parts.hinge.pattern.zigzag': 'Zigzag (en ángulo)',
+  'parts.hinge.orientation': 'Dirección de los cortes',
+  'parts.hinge.orientation.horizontal': 'Horizontal (a lo largo de X)',
+  'parts.hinge.orientation.vertical': 'Vertical (a lo largo de Y)',
+  'parts.hinge.width_mm': 'Ancho de la zona',
+  'parts.hinge.height_mm': 'Alto de la zona',
+  'parts.hinge.cut_length_mm': 'Largo de cada corte',
+  'parts.hinge.bridge_mm': 'Puente entre cortes',
+  'parts.hinge.row_gap_mm': 'Separación entre filas',
+  'parts.hinge.margin_mm': 'Margen sin cortes',
+  'parts.hinge.amplitude_mm': 'Altura de la onda',
+  'parts.hinge.wavelength_mm': 'Longitud de onda',
+  'parts.hinge.corner_radius_mm': 'Radio de las esquinas',
+  'parts.hinge.outline': 'Incluir el contorno como corte',
+
+  // ---- prueba de encaje ----
+  'parts.fit_test.mode': 'Qué se mide',
+  'parts.fit_test.mode.thickness': 'Ranura contra el canto del material',
+  'parts.fit_test.mode.finger': 'Ranura contra un diente cortado',
+  'parts.fit_test.thickness_mm': 'Grosor del material',
+  'parts.fit_test.finger_mm': 'Ancho de diente',
+  'parts.fit_test.step_mm': 'Paso entre ranuras',
+  'parts.fit_test.count': 'Ranuras a cada lado de la nominal',
+  'parts.fit_test.slot_length_mm': 'Largo de las ranuras',
+  'parts.fit_test.labels': 'Grabar los valores',
+} as const;

@@ -911,6 +911,18 @@ export interface WarpArgs {
   tolerance?: number;
 }
 
+/** Argumentos de `generate_part` (generadores de piezas, `tlaku-parts`). */
+export interface GeneratePartArgs {
+  /** `box`, `hinge`, `fit_test`... (ver `list_generators`). */
+  generator: string;
+  /** Parámetros del generador; los que falten toman el valor de fábrica. */
+  params: Record<string, unknown>;
+  /** Ancho máximo (mm) de una fila de piezas, normalmente el de la cama. */
+  max_width_mm?: number | null;
+  /** Separación entre piezas, mm (5 por omisión). */
+  gap_mm?: number | null;
+}
+
 export interface HullArgs {
   objects: DesignObject[];
   /** Con valor: casco cóncavo con aristas de a lo sumo estos mm donde se pueda; sin valor: convexo. */

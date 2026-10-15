@@ -1,0 +1,118 @@
+/* ---- diálogo «Generadores de piezas» ---------------------------------------------------- */
+
+.mc-modal.parts-modal {
+  width: min(1180px, 100%);
+}
+.mc-modal__body.parts__body {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(260px, 1fr) minmax(320px, 1.25fr);
+  align-items: start;
+  gap: var(--s-6);
+  overflow: auto;
+}
+.parts__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.parts__gen {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  text-align: left;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.parts__gen[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.parts__gen:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.parts__gen-name {
+  display: block;
+  font-weight: 600;
+}
+.parts__gen-desc {
+  display: block;
+  margin-top: var(--s-1);
+}
+.parts__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+.parts__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.parts__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.parts__group > legend {
+  padding: 0;
+  margin-bottom: var(--s-3);
+}
+.parts__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.parts__field[data-invalid] .field__input {
+  border-color: var(--danger, #e5484d);
+}
+.parts__error {
+  margin: var(--s-1) 0 0;
+}
+.parts__check {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.parts__stage {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.parts__svg {
+  width: 100%;
+  max-height: 340px;
+}
+.parts__empty {
+  margin: 0;
+  text-align: center;
+}
+.parts__warn {
+  margin: 0;
+}
+.parts__spacer {
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .mc-modal__body.parts__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .parts__list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

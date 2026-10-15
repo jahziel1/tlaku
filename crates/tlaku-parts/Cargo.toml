@@ -1,0 +1,16 @@
+[package]
+name = "tlaku-parts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Generadores de piezas para corte láser: cajas con dientes, bisagras flexibles y pieza de prueba de encaje"
+
+[dependencies]
+tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
+tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ts-rs = "12.0.1"
+
+[dev-dependencies]
+tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }

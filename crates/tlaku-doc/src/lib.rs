@@ -37,8 +37,8 @@ pub use device::{
     SavedPosition, ScanOffset, SpeedUnit,
 };
 pub use document::{
-    CornerMark, DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, ImageObject, ObjectKind,
-    VectorObject, bounds_of, union,
+    CornerMark, DOC_VERSION, DesignObject, Document, FLATTEN_TOLERANCE_MM, GeneratorRecord,
+    ImageObject, ObjectKind, VectorObject, bounds_of, union,
 };
 pub use factory::{FACTORY_ID_PREFIX, check_factory, factory_library, parse_factory};
 pub use galvo::{

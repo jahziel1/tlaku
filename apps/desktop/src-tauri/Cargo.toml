@@ -39,6 +39,7 @@ tlaku-camera = { version = "0.1.0", path = "../../../crates/tlaku-camera" }
 tlaku-codes = { version = "0.1.0", path = "../../../crates/tlaku-codes" }
 tlaku-export = { version = "0.1.0", path = "../../../crates/tlaku-export" }
 tlaku-geom = { version = "0.1.0", path = "../../../crates/tlaku-geom" }
+tlaku-parts = { version = "0.1.0", path = "../../../crates/tlaku-parts" }
 tlaku-nest = { version = "0.1.0", path = "../../../crates/tlaku-nest" }
 tlaku-raster = { version = "0.1.0", path = "../../../crates/tlaku-raster" }
 base64 = "0.22"

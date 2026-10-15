@@ -625,6 +625,7 @@ pub fn material_test(params: &tlaku_doc::MaterialTestParams) -> Result<Document,
         device_id: None,
         notes: String::new(),
         guides: Vec::new(),
+        generators: Vec::new(),
         variable_text: Default::default(),
     })
 }

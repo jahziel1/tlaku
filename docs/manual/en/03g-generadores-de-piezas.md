@@ -1,0 +1,68 @@
+# Part generators: boxes, living hinges and the fit test
+
+**Tools > Part generators…** draws laser-cut parts for you: a **finger-joint box**, a **living hinge** and a **fit test piece** to calibrate your machine. You enter the dimensions, watch the parts update live, and **Insert** drops them into the design as regular vector objects that you can edit, move or nest like any other.
+
+Shortcuts are written with `Ctrl/Cmd`: `Cmd` on macOS and `Ctrl` on Windows and Linux. Dimensions use the unit from **Preferences** (mm or inches); everything is mm inside.
+
+## The dialog
+
+On the left you choose the **generator**; in the middle are its **parameters** (with the unit next to each dimension) and on the right the **preview**, which updates as you type. A value that does not work is marked in red with the reason (for example "the box is too small for fingers of this thickness") and **Insert** stays off until you fix it. Below the preview:
+
+- **Cut layer**: the line layer that receives the cuts. By default the active layer (if it is a line layer) or the first line layer.
+- **Layer for engraved labels** (only if you ask for labels): an existing layer, **No labels**, or a **new layer** ("Part labels", line mode, low power and higher speed so it **engraves without cutting through**). Check its power against your material.
+- The generator's **warnings** (fingers narrower than the material, very thin bridges, and so on).
+
+**Insert** adds one cut object per part (and one engraving object per labelled part), **all in one group**, in the active tab, inside the bed and **without covering what is already there**: parts are arranged in rows as wide as the bed and the set goes to the first free spot. If there is no free spot it lands in the corner and a notice says so. Everything is **one undo step**.
+
+## Finger-joint box
+
+Panels join with **alternating fingers**: on every edge, one panel has a finger where the other has a notch, and the depth is the material **thickness**. Dimensions come out exact.
+
+- **Type**: *Closed* (6 panels), *Open* (no lid, 5) or *With sliding lid*: the lid slides in slots in the side panels and goes in from behind; the back panel is lower. A gap of two thicknesses is left in front of the lid (a block on each side panel holds up the strip above), and the side panels get a slot one thickness tall plus the **lid play**.
+- **Dimensions are** *Outside* or *Inside*. With inside dimensions the finished box is two thicknesses larger per side (and, on the open one, one thickness taller; on the sliding-lid one, the inside height is the one **under the lid**).
+- **Material thickness**: your sheet's. Measure it with calipers; a "3 mm" sheet often measures 2.8 to 3.2.
+- **Finger width**: the one you prefer. Tlaku **adjusts** it on every edge to an **odd** number of equal cells, so fingers are symmetric and both ends of an edge belong to the same panel. A finger narrower than the thickness breaks easily: the generator warns you.
+- **Fit clearance** (slot − finger): see below. **0** is nominal; positive is looser, negative is tighter.
+- **Engrave each panel name**: labels every panel (FRONT, BACK, LEFT, RIGHT, BOTTOM, LID) on its **outer face**, reading correctly when you place the piece with that face up. If it does not fit between the fingers it is left out with a notice.
+
+## Kerf and clearance: two different things
+
+The laser removes material: the beam has a width (the **kerf**, 0.1 to 0.3 mm depending on machine and material). That is why a "perfect" joint in the drawing comes out loose or tight when cut.
+
+- Parts are drawn **nominal**: fingers of the exact width and notches of the exact depth, no kerf.
+- The **layer compensates the kerf**: in **Layers** (cut layer editor) there is a **Kerf** field. With a positive value the layer grows outer contours and shrinks holes and notches, so the **physical** piece comes out the drawn size. **For joints to fit, turn on kerf in the cut layer** with the value you measured (see "Calibrating"). The dialog reminds you, and if the layer already has kerf it tells you it is being used.
+- The **fit clearance** is a fine adjustment of slot against finger drawn into the geometry (it widens the notches and narrows the fingers equally on both pieces). Use it **or** the kerf for the same effect, not both: the generator warns you if you set a clearance. The usual way: measured kerf on the layer and clearance 0; if the fit is a hair loose or tight, adjust the clearance by 0.02 to 0.05 mm.
+
+## Calibrating with the fit test piece
+
+The **Fit test** is a **plate with thirteen slots** of different widths and a **tab** (a tongue with a handle). Cut it with **the same layer and the same material** as your box and it tells you which clearance works for you.
+
+1. Choose the mode:
+   - **Slot against a cut finger**: the one for box fingers. Slots are the finger width plus a step (−0.30 … +0.30 mm with the factory values), and the tab is a finger of that width.
+   - **Slot against the material edge**: for tab-and-slot joints. Slots are the **thickness** plus a step and the tab goes in **edgewise**.
+2. Enter the **thickness** (or finger width), the **step** (0.05 mm is a good start; raise it if your beam is wide) and how many slots on each side (6 cover up to ±0.30 mm). Leave **Engrave the values** on: every slot gets its offset engraved (`-0.10`, `0.00`, `+0.05`…).
+3. In the cut layer set the **kerf** you use (or 0 if you do not know it yet) and **Insert**. Cut with the **real layer and material**. Do not use that sheet for anything else first: thickness varies from sheet to sheet.
+4. Try the tab in each slot. Look for the one it enters **with a slight press**: no forcing, no wobble, not falling out. Its engraved value is what you were looking for.
+5. With finger mode you have two ways to apply the result (use **one**):
+   - Enter the value as the box **Fit clearance** and leave the layer kerf at 0; or
+   - Leave the clearance at 0 and set the layer **kerf** to **a quarter** of the value, without the sign. Reason: the Kerf field is how far each line moves (half the beam width), and in a finger-in-slot joint the beam eats material on both sides, so slot minus finger opens by **two beam widths**: if slot `-0.20` fits, your beam is about 0.10 mm and the layer kerf should be **0.05 mm**. Repeat the test with that kerf set: slot `0.00` should now fit.
+
+A negative value that fits is normal: it means your cut leaves slots **wider** and fingers **narrower** than drawn. Write the value down per **material and thickness**: each one has its own.
+
+## Living hinge
+
+An area of **staggered cuts** lets wood, plywood or thin acrylic bend. Choose the **cut shape**: *Staggered straight cuts* (the classic pattern), *Wave* or *Zigzag*; the **direction** (cuts run along X or along Y; the material curves the other way); the **size of the area**; the **length of each cut**, the **bridge** left uncut between two cuts, the **row spacing** and the **margin** without cuts next to the edge. With wave or zigzag, also the **height** and **wavelength**. Even rows start on a cut and odd rows on a bridge (half a step offset) and everything is symmetric about the centre.
+
+- **Corner radius** rounds the outline; **Include the outline as a cut** removes it if you only want the pattern inside a piece you draw yourself (move the group where you need it).
+- More bridges and wider-spaced rows = stiffer; longer cuts and closer rows = more flexible. Real flex depends on the material and the grain: **test a scrap** before cutting the final piece. Bridges under 1 mm or rows closer than 1 mm break easily and the generator warns you.
+- Every cut is an **open line** with no width; the layer kerf does not change them (the bridges already allow for the beam eating a little).
+
+## Regenerate
+
+Parameters are saved **in the project**. Selecting the group shows the **Generated parts [Regenerate…]** bar over the canvas (also **Tools > Regenerate parts…**): it reopens the dialog with the saved parameters and **replaces the parts in the same place** (same corner, same group). It works like parametric shapes: if you delete parts or edit their nodes, the link is broken and the dialog warns that regenerating redoes the whole set. A project saved by an earlier version opens just the same: whatever is missing takes its factory value.
+
+## Limits
+
+- Boxes are **flat panels with fingers**: no dividers, feet or rounded corners (for now). The **sliding lid** is a simple solution: make sure the strip above the side panels (two thicknesses) holds up in your material.
+- Geometry and fit are checked by automated tests, but the **real fit depends on your machine and material**: always cut the test piece and a small box first.
+- Everything is computed on your computer; nothing is sent to the internet.

@@ -5504,6 +5504,7 @@ dependencies = [
  "tlaku-i18n",
  "tlaku-lhymicro",
  "tlaku-nest",
+ "tlaku-parts",
  "tlaku-pipeline",
  "tlaku-raster",
  "tlaku-ruida",
@@ -5635,6 +5636,18 @@ dependencies = [
  "i_overlay",
  "tlaku-core",
  "tlaku-i18n",
+]
+
+[[package]]
+name = "tlaku-parts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tlaku-core",
+ "tlaku-geom",
+ "tlaku-i18n",
+ "ts-rs",
 ]
 
 [[package]]

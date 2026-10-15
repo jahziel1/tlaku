@@ -1,0 +1,419 @@
+[
+  {
+    "id": "box",
+    "params": [
+      {
+        "key": "kind",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "closed",
+            "open",
+            "sliding_lid"
+          ],
+          "default": "closed"
+        },
+        "section": "box",
+        "when": null
+      },
+      {
+        "key": "dims",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "outer",
+            "inner"
+          ],
+          "default": "outer"
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "width_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 5000.0,
+          "step": 1.0,
+          "default": 100.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "depth_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 5000.0,
+          "step": 1.0,
+          "default": 80.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "height_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 5000.0,
+          "step": 1.0,
+          "default": 60.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "thickness_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.5,
+          "max": 20.0,
+          "step": 0.1,
+          "default": 3.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "finger_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.5,
+          "max": 200.0,
+          "step": 0.5,
+          "default": 10.0
+        },
+        "section": "joints",
+        "when": null
+      },
+      {
+        "key": "fit_mm",
+        "kind": {
+          "type": "length",
+          "min": -0.5,
+          "max": 1.0,
+          "step": 0.01,
+          "default": 0.0
+        },
+        "section": "joints",
+        "when": null
+      },
+      {
+        "key": "lid_clearance_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 2.0,
+          "step": 0.05,
+          "default": 0.2
+        },
+        "section": "joints",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "sliding_lid"
+          ]
+        }
+      },
+      {
+        "key": "labels",
+        "kind": {
+          "type": "bool",
+          "default": false
+        },
+        "section": "options",
+        "when": null
+      }
+    ],
+    "defaults": {
+      "depth_mm": 80.0,
+      "dims": "outer",
+      "finger_mm": 10.0,
+      "fit_mm": 0.0,
+      "height_mm": 60.0,
+      "kind": "closed",
+      "labels": false,
+      "lid_clearance_mm": 0.2,
+      "thickness_mm": 3.0,
+      "width_mm": 100.0
+    }
+  },
+  {
+    "id": "hinge",
+    "params": [
+      {
+        "key": "pattern",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "straight",
+            "wave",
+            "zigzag"
+          ],
+          "default": "straight"
+        },
+        "section": "pattern",
+        "when": null
+      },
+      {
+        "key": "orientation",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "horizontal",
+            "vertical"
+          ],
+          "default": "horizontal"
+        },
+        "section": "pattern",
+        "when": null
+      },
+      {
+        "key": "width_mm",
+        "kind": {
+          "type": "length",
+          "min": 5.0,
+          "max": 2000.0,
+          "step": 1.0,
+          "default": 100.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "height_mm",
+        "kind": {
+          "type": "length",
+          "min": 5.0,
+          "max": 2000.0,
+          "step": 1.0,
+          "default": 50.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "cut_length_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 500.0,
+          "step": 0.5,
+          "default": 20.0
+        },
+        "section": "cuts",
+        "when": null
+      },
+      {
+        "key": "bridge_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.2,
+          "max": 100.0,
+          "step": 0.1,
+          "default": 3.0
+        },
+        "section": "cuts",
+        "when": null
+      },
+      {
+        "key": "row_gap_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.4,
+          "max": 50.0,
+          "step": 0.1,
+          "default": 2.0
+        },
+        "section": "cuts",
+        "when": null
+      },
+      {
+        "key": "margin_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 200.0,
+          "step": 0.5,
+          "default": 3.0
+        },
+        "section": "cuts",
+        "when": null
+      },
+      {
+        "key": "amplitude_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 50.0,
+          "step": 0.1,
+          "default": 1.5
+        },
+        "section": "wave",
+        "when": {
+          "key": "pattern",
+          "any_of": [
+            "wave",
+            "zigzag"
+          ]
+        }
+      },
+      {
+        "key": "wavelength_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 500.0,
+          "step": 0.5,
+          "default": 10.0
+        },
+        "section": "wave",
+        "when": {
+          "key": "pattern",
+          "any_of": [
+            "wave",
+            "zigzag"
+          ]
+        }
+      },
+      {
+        "key": "corner_radius_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 1000.0,
+          "step": 0.5,
+          "default": 0.0
+        },
+        "section": "outline",
+        "when": null
+      },
+      {
+        "key": "outline",
+        "kind": {
+          "type": "bool",
+          "default": true
+        },
+        "section": "outline",
+        "when": null
+      }
+    ],
+    "defaults": {
+      "amplitude_mm": 1.5,
+      "bridge_mm": 3.0,
+      "corner_radius_mm": 0.0,
+      "cut_length_mm": 20.0,
+      "height_mm": 50.0,
+      "margin_mm": 3.0,
+      "orientation": "horizontal",
+      "outline": true,
+      "pattern": "straight",
+      "row_gap_mm": 2.0,
+      "wavelength_mm": 10.0,
+      "width_mm": 100.0
+    }
+  },
+  {
+    "id": "fit_test",
+    "params": [
+      {
+        "key": "mode",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "thickness",
+            "finger"
+          ],
+          "default": "thickness"
+        },
+        "section": "test",
+        "when": null
+      },
+      {
+        "key": "thickness_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.5,
+          "max": 20.0,
+          "step": 0.1,
+          "default": 3.0
+        },
+        "section": "test",
+        "when": null
+      },
+      {
+        "key": "finger_mm",
+        "kind": {
+          "type": "length",
+          "min": 2.0,
+          "max": 100.0,
+          "step": 0.5,
+          "default": 10.0
+        },
+        "section": "test",
+        "when": {
+          "key": "mode",
+          "any_of": [
+            "finger"
+          ]
+        }
+      },
+      {
+        "key": "step_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.01,
+          "max": 0.5,
+          "step": 0.01,
+          "default": 0.05
+        },
+        "section": "test",
+        "when": null
+      },
+      {
+        "key": "count",
+        "kind": {
+          "type": "int",
+          "min": 1,
+          "max": 10,
+          "default": 6
+        },
+        "section": "test",
+        "when": null
+      },
+      {
+        "key": "slot_length_mm",
+        "kind": {
+          "type": "length",
+          "min": 4.0,
+          "max": 60.0,
+          "step": 1.0,
+          "default": 12.0
+        },
+        "section": "test",
+        "when": null
+      },
+      {
+        "key": "labels",
+        "kind": {
+          "type": "bool",
+          "default": true
+        },
+        "section": "options",
+        "when": null
+      }
+    ],
+    "defaults": {
+      "count": 6,
+      "finger_mm": 10.0,
+      "labels": true,
+      "mode": "thickness",
+      "slot_length_mm": 12.0,
+      "step_mm": 0.05,
+      "thickness_mm": 3.0
+    }
+  }
+]

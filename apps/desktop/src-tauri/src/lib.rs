@@ -184,6 +184,8 @@ fn build_app(context: tauri::Context) -> tauri::App {
             edit::nest::nest_cancel,
             edit::shape_ops::shape_op,
             edit::review::review_design,
+            edit::parts::list_generators,
+            edit::parts::generate_part,
             edit::design::warp_objects,
             edit::design::hull_outline,
             edit::design::tangent_circles,

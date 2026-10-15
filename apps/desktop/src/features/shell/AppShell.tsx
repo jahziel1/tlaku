@@ -15,6 +15,7 @@ import { AutomationHost } from '@/features/automation';
 import { LiveHost } from '@/features/live';
 import { RemoteHost } from '@/features/remote';
 import { CostDialog } from '@/features/costs';
+import { PartsDialog } from '@/features/parts';
 import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
 import { TextPanel } from '@/features/text';
@@ -132,6 +133,7 @@ function ShellBody() {
       <PromptHost />
       <ShortcutsDialog />
       <CostDialog />
+      <PartsDialog />
       <MachineDialogHost />
       <ArrangeDialogHost />
       <DesignDialogHost />

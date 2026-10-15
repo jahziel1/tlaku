@@ -1,4 +1,6 @@
 import type { DeviceKind } from '@/bindings/DeviceKind';
+import type { GenerateResult } from '@/bindings/GenerateResult';
+import type { GeneratorInfo } from '@/bindings/GeneratorInfo';
 import type {
   ConnectResult,
   DeviceProfile,
@@ -57,6 +59,7 @@ import type {
   GeometryOpArgs,
   ShapeOpArgs,
   ShapeOpResult,
+  GeneratePartArgs,
   HullArgs,
   TangentArgs,
   TangentCircle,
@@ -574,6 +577,10 @@ export interface LaserApi {
   warpObjects(args: WarpArgs): Promise<DesignObject[]>;
   /** Una forma cerrada con el casco convexo (o cóncavo, con `max_edge`) de los objetos. */
   hullOutline(args: HullArgs): Promise<DesignObject[]>;
+  /** Generadores de piezas con su formulario y valores de fábrica (`edit/parts.rs`). */
+  listGenerators(): Promise<GeneratorInfo[]>;
+  /** Genera las piezas de un generador y las acomoda en filas; los parámetros inválidos vuelven en `error`, no como fallo. */
+  generatePart(args: GeneratePartArgs): Promise<GenerateResult>;
   /** Círculos tangentes a 2 o 3 operandos, de menor a mayor radio; vacío si no hay solución. */
   tangentCircles(args: TangentArgs): Promise<TangentCircle[]>;
   traceImage(args: { path: string; settings: TraceSettings; size_mm: [number, number] }): Promise<TraceResult>;
@@ -852,6 +859,8 @@ export const COMMAND_NAMES = {
   shapeOp: 'shape_op',
   warpObjects: 'warp_objects',
   hullOutline: 'hull_outline',
+  listGenerators: 'list_generators',
+  generatePart: 'generate_part',
   tangentCircles: 'tangent_circles',
   traceImage: 'trace_image',
   vectorsToBitmap: 'vectors_to_bitmap',

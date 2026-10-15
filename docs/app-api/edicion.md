@@ -39,6 +39,8 @@ interface TextObject {                // ObjectKind "text"
 | `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento, transform identidad) |
 | `shape_op` | `{ op: "trim" \| "break_apart" \| "optimize" \| "fillet" \| "cut_shapes" \| "resize_slots", objects: DesignObject[], params?: ShapeParams }` | `{ objects: DesignObject[], stats: ShapeStats }` (misma convención de resultado que `join`/`close`/`dedupe`) |
 | `review_design` | `{ doc: Document, bed: [number, number], options?: ReviewOptions }` | `Finding[]` (lo grave primero; solo lee, no cambia nada) |
+| `list_generators` | | `GeneratorInfo[]`: `{ id: 'box' \| 'hinge' \| 'fit_test', params: ParamSpec[], defaults: { [clave]: unknown } }` (formulario de cada generador de piezas y sus valores de fábrica; ver abajo) |
+| `generate_part` | `{ generator: string, params: { [clave]: unknown }, max_width_mm?: number \| null, gap_mm?: number \| null }` (snake_case: lleva `rename_all`) | `GenerateResult`: `{ parts: PlacedPart[], warnings: string[], width: number, height: number, error: { field: string \| null, message: string } \| null }` |
 | `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `{ paths: BezPath[], warnings: string[] }` |
 | `vectors_to_bitmap` | `{ doc, selection: string[], dir: string \| null, stem, options: { dpi, filled, stroke_mm, invert } }` | `{ path, width_px, height_px, size_mm, origin_mm, in_temp_dir }` |
 | `save_processed_image` | `{ image: ImageObject, layer: LayerSettings, path }` | `{ path, bytes, width_px, height_px }` |
@@ -211,3 +213,30 @@ necesita más objetos que los afectados: quitar duplicados), `count`, `value`, `
 la misma con la que se arregla). `options` (todo opcional): `close_mm` 0,5, `join_mm` 0,1, `dedupe_mm` 0,01,
 `tiny_mm` 0,2, `node_mm` 0,02, `dpi_high` 2 y `dpi_low` 0,5. Los ocultos, las guías y las capas sin salida
 no entran en el análisis geométrico, y los bloqueados tampoco en lo que se arregla editando su trazo.
+
+### Generadores de piezas (`list_generators`, `generate_part`)
+
+Cajas con dientes (`box`), bisagras flexibles (`hinge`) y pieza de prueba de encaje (`fit_test`); la geometría
+está en `crates/tlaku-parts` y los comandos en `src-tauri/src/edit/parts.rs`. Cada generador es una función pura:
+mismos parámetros, mismas piezas. Todo en mm, origen abajo a la izquierda y Y hacia arriba; la geometría es
+**nominal** (sin kerf): el kerf lo compensa la capa del documento (`LayerSettings.kerf`, regla par-impar de
+`tlaku_geom::kerf_compensate`) y la **holgura de encaje** (`fit_mm`, ranura menos diente) es un parámetro aparte.
+
+- `params` se completa con los valores de fábrica y lo que sobre se ignora (un guardado de otra versión sigue
+  abriendo). Un valor inválido **no** hace fallar el comando: vuelve en `error` con el campo (`field`, clave del
+  parámetro; `null` si es del conjunto) y el mensaje en el idioma activo; `parts` queda vacío. Solo un `generator`
+  que no existe es un `Err(String)`.
+- `ParamSpec`: `{ key, kind, section, when? }`. `kind` es `{ type: 'length' \| 'number', min, max, step, default }`
+  (`length` en mm), `{ type: 'int', min, max, default }`, `{ type: 'bool', default }` o
+  `{ type: 'choice', options: string[], default }`. `when: { key, any_of }` muestra el campo solo si otro campo vale
+  alguno de esos valores. Los textos del formulario salen de la interfaz (`parts.<generador>.<key>`).
+- `PlacedPart`: `{ key, name, x, y, width, height, cuts: PathDto[], engraves: PathDto[] }` con
+  `PathDto = { points: [x, y][], closed: boolean }`. Las piezas se acomodan en filas de a lo más `max_width_mm`
+  (sin tope si falta), separadas `gap_mm` (5 por omisión) y las trayectorias ya vienen en las coordenadas del
+  conjunto (su esquina inferior izquierda es (0, 0)). Los `cuts` cerrados siguen la regla par-impar (un agujero
+  está dentro de su contorno); los abiertos son cortes sueltos (bisagra). `engraves` son los rótulos (trazos
+  abiertos), que la interfaz pone en otra capa.
+- La interfaz inserta cada pieza como un `DesignObject` vectorial normal (uno de corte y, si hay rótulos, uno de
+  grabado), todos con el mismo `group`, y guarda en `Document.generators` un `GeneratorRecord` para «Regenerar»
+  (ver [documento.md](documento.md)).
+

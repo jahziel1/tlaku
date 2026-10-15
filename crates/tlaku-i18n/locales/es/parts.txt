@@ -1,0 +1,49 @@
+# Mensajes de tlaku-parts (es). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: parts.<módulo>.<qué> = plantilla
+
+# boxes
+parts.box.range = Debe estar entre {min} y {max}.
+parts.box.too_small = La caja es demasiado pequeña para dientes de este grosor: cada medida debe ser de al menos {min} mm.
+parts.box.name.front = Frente
+parts.box.name.back = Atrás
+parts.box.name.left = Lateral izquierdo
+parts.box.name.right = Lateral derecho
+parts.box.name.bottom = Base
+parts.box.name.top = Tapa
+parts.box.name.lid = Tapa deslizante
+parts.box.label.front = FRENTE
+parts.box.label.back = ATRAS
+parts.box.label.left = IZQ
+parts.box.label.right = DER
+parts.box.label.bottom = BASE
+parts.box.label.top = TAPA
+parts.box.label.lid = TAPA
+parts.box.label_skipped = El rótulo de «{name}» no cabe entre los dientes y se omitió.
+parts.box.fit_vs_kerf = Ya hay holgura de encaje: no la sumes a un kerf de capa que compense lo mismo. Usa solo uno de los dos y calibra con la pieza de prueba de encaje.
+parts.box.thin_fingers = Los dientes miden {width} mm, menos que el grosor ({thickness} mm): son frágiles. Sube el ancho de diente.
+parts.box.sliding_note = La tapa corre por ranuras de los laterales; el panel trasero mide {back} mm de alto y la tapa se mete por detrás. Delante de la tapa queda una rendija de dos grosores.
+
+# hinge
+parts.hinge.name = Bisagra flexible
+parts.hinge.range = Debe estar entre {min} y {max}.
+parts.hinge.radius_too_big = El radio de las esquinas no puede pasar de la mitad del lado menor.
+parts.hinge.margin_vs_radius = El margen es demasiado pequeño para el radio de las esquinas: los cortes tocarían el contorno redondeado.
+parts.hinge.rows_too_close = Con esa onda las filas quedan a {web} mm una de otra (medido perpendicular): sube la separación entre filas o baja la altura de la onda.
+parts.hinge.no_room = La zona es demasiado pequeña para su margen: no cabe ningún corte.
+parts.hinge.thin_bridge = Los puentes de {bridge} mm son muy finos: la bisagra puede rasgarse al flexionar.
+parts.hinge.thin_web = Con {gap} mm entre filas el material entre cortes es muy delgado y puede romperse.
+
+# fit_test
+parts.fit.name.plate = Placa de ranuras
+parts.fit.name.tab = Macho
+parts.fit.range = Debe estar entre {min} y {max}.
+parts.fit.too_narrow = Con ese paso y ese número de ranuras la más angosta queda por debajo de 0,3 mm: baja el paso o el número de ranuras.
+parts.fit.howto_thickness = Corta con la capa y el material de tu trabajo. Mete el macho de canto en cada ranura: la que entra con un leve apriete (sin forzar ni bailar) da la holgura que necesitan las uniones de pestaña en ranura.
+parts.fit.howto_finger = Corta con la capa y el material de tu trabajo. Mete el macho plano en cada ranura: la que entra con un leve apriete (sin forzar ni bailar) marca la holgura de encaje de los dientes; el valor grabado se escribe tal cual en la holgura de encaje de la caja (con el kerf de la capa en 0). Si prefieres usar el kerf de la capa, pon la cuarta parte de ese valor, sin signo.
+parts.fit.wide = La placa mide {width} mm de ancho y puede no caber en la cama: baja el número de ranuras.
+
+# registry
+parts.registry.unknown = No existe el generador «{id}».
+parts.registry.bad_params = Los parámetros del generador no son válidos: {error}
+parts.box.too_many_fingers = Habría más de {max} dientes por arista: sube el ancho de diente.
+parts.hinge.too_many = La bisagra tendría más de {max} cortes: baja el tamaño de la zona o sube el largo de los cortes y la separación entre filas.

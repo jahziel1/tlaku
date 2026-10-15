@@ -32,6 +32,7 @@ import { Ruler, RULER_SIZE } from './Ruler';
 import { PositionIndicator } from './PositionIndicator';
 import { PriorityBadges } from './PriorityBadges';
 import { ShapeProps } from './ShapeProps';
+import { PartsBar } from '@/features/parts';
 import { SnapBar } from './SnapBar';
 import { canRotate } from './transform';
 import { useCanvasTools } from './useCanvasTools';
@@ -234,6 +235,7 @@ export function CanvasView() {
         <WarpBar />
         <FilletBar />
         <ShapeProps />
+        <PartsBar />
         <MeasureReadout />
         <PositionIndicator />
         <CanvasTip />

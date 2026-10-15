@@ -105,6 +105,11 @@ pub const CATALOGS: &[(&str, &str, &str)] = &[
         include_str!("../locales/en/nest.txt"),
     ),
     (
+        "parts",
+        include_str!("../locales/es/parts.txt"),
+        include_str!("../locales/en/parts.txt"),
+    ),
+    (
         "pipeline",
         include_str!("../locales/es/pipeline.txt"),
         include_str!("../locales/en/pipeline.txt"),

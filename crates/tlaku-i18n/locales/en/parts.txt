@@ -1,0 +1,49 @@
+# Mensajes de tlaku-parts (en). Formato y guía: crates/tlaku-i18n/README.md
+# Claves: parts.<módulo>.<qué> = plantilla
+
+# boxes
+parts.box.range = Must be between {min} and {max}.
+parts.box.too_small = The box is too small for fingers of this thickness: every dimension must be at least {min} mm.
+parts.box.name.front = Front
+parts.box.name.back = Back
+parts.box.name.left = Left side
+parts.box.name.right = Right side
+parts.box.name.bottom = Bottom
+parts.box.name.top = Lid
+parts.box.name.lid = Sliding lid
+parts.box.label.front = FRONT
+parts.box.label.back = BACK
+parts.box.label.left = LEFT
+parts.box.label.right = RIGHT
+parts.box.label.bottom = BOTTOM
+parts.box.label.top = LID
+parts.box.label.lid = LID
+parts.box.label_skipped = The label of "{name}" does not fit between the fingers and was left out.
+parts.box.fit_vs_kerf = A fit clearance is set: do not add it on top of a layer kerf that compensates the same thing. Use only one of the two and calibrate with the fit test piece.
+parts.box.thin_fingers = The fingers are {width} mm wide, less than the material thickness ({thickness} mm): they are fragile. Increase the finger width.
+parts.box.sliding_note = The lid slides in slots in the side panels; the back panel is {back} mm tall and the lid goes in from behind. A gap of two material thicknesses is left in front of the lid.
+
+# hinge
+parts.hinge.name = Living hinge
+parts.hinge.range = Must be between {min} and {max}.
+parts.hinge.radius_too_big = The corner radius cannot be more than half the shorter side.
+parts.hinge.margin_vs_radius = The margin is too small for the corner radius: the cuts would touch the rounded outline.
+parts.hinge.rows_too_close = With that wave the rows end up {web} mm apart (measured perpendicular): increase the row gap or lower the wave height.
+parts.hinge.no_room = The area is too small for its margin: no cut fits.
+parts.hinge.thin_bridge = {bridge} mm bridges are very thin: the hinge can tear when it bends.
+parts.hinge.thin_web = With {gap} mm between rows the material between cuts is very thin and can break.
+
+# fit_test
+parts.fit.name.plate = Slot plate
+parts.fit.name.tab = Tab
+parts.fit.range = Must be between {min} and {max}.
+parts.fit.too_narrow = With that step and number of slots the narrowest one falls below 0.3 mm: lower the step or the number of slots.
+parts.fit.howto_thickness = Cut with your job's layer and material. Push the tab in edgewise into each slot: the one that goes in with a slight press (no forcing, no wobble) gives the clearance that tab-and-slot joints need.
+parts.fit.howto_finger = Cut with your job's layer and material. Push the tab in flat into each slot: the one that goes in with a slight press (no forcing, no wobble) marks the fit clearance for the fingers; the engraved value is entered as is as the box fit clearance (with the layer kerf at 0). If you prefer the layer kerf, use a quarter of that value, without the sign.
+parts.fit.wide = The plate is {width} mm wide and may not fit on the bed: lower the number of slots.
+
+# registry
+parts.registry.unknown = There is no generator "{id}".
+parts.registry.bad_params = The generator parameters are not valid: {error}
+parts.box.too_many_fingers = There would be more than {max} fingers per edge: increase the finger width.
+parts.hinge.too_many = The hinge would have more than {max} cuts: reduce the area or increase the cut length and row spacing.

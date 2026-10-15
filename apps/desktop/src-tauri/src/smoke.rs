@@ -59,6 +59,12 @@ fn calls() -> Vec<Call> {
         c("list_devices", json!({}), Ok),
         c("device_defaults", json!({ "kind": "grbl" }), Ok),
         c("list_fonts", json!({}), Ok),
+        c("list_generators", json!({}), Ok),
+        c(
+            "generate_part",
+            json!({ "generator": "box", "params": {}, "max_width_mm": 300.0, "gap_mm": 5.0 }),
+            Ok,
+        ),
         c("load_preferences", json!({}), Ok),
         c("load_factory_materials", json!({}), Ok),
         c("load_material_library", json!({}), Ok),

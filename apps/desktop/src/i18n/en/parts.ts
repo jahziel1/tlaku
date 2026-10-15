@@ -1,0 +1,118 @@
+/** Part generators (finger-joint boxes, living hinges, fit test). Every key starts with `parts.`. */
+export const parts = {
+  // ---- commands and history labels ----
+  'parts.cmd.open': 'Part generators…',
+  'parts.cmd.regenerate': 'Regenerate parts…',
+  'parts.reason.noGenerated': 'The selection is not a group of generated parts.',
+  'parts.history.insert': 'Insert generated parts',
+  'parts.history.regenerate': 'Regenerate parts',
+
+  // ---- dialog ----
+  'parts.title': 'Part generators',
+  'parts.titleRegen': 'Regenerate parts',
+  'parts.subtitle': 'Finger-joint boxes, living hinges and test pieces. They come out as editable vector objects, grouped.',
+  'parts.close': 'Close',
+  'parts.list.label': 'Generators',
+  'parts.form.label': 'Parameters',
+  'parts.preview.label': 'Preview',
+  'parts.preview.empty': 'Fix the parameters to see the parts.',
+  'parts.preview.loading': 'Calculating…',
+  'parts.preview.size.one': 'Set: {w} × {h} mm · {n} part',
+  'parts.preview.size.other': 'Set: {w} × {h} mm · {n} parts',
+  'parts.preview.alt': 'Preview of the generated parts',
+  'parts.insert': 'Insert',
+  'parts.regenerate': 'Regenerate',
+  'parts.reset': 'Factory values',
+  'parts.cancel': 'Cancel',
+  'parts.working': 'Inserting…',
+
+  // ---- layers ----
+  'parts.layers.title': 'Layers',
+  'parts.layers.cut': 'Cut layer',
+  'parts.layers.engrave': 'Layer for engraved labels',
+  'parts.layers.engraveNone': 'No labels',
+  'parts.layers.newEngrave': 'Part labels',
+  'parts.kerf.on': 'Layer "{layer}" compensates a kerf of {kerf} mm: the geometry is nominal and the layer adjusts it when cutting. Leave the fit clearance at 0 if that kerf already corrects the fit.',
+  'parts.kerf.off': 'For joints to fit, turn on kerf in the cut layer (Layers, "Kerf" field) with the value you measured on the test piece. The geometry is nominal; the layer compensates the kerf.',
+
+  // ---- result ----
+  'parts.inserted.one': '{n} part was inserted in the active tab.',
+  'parts.inserted.other': '{n} parts were inserted in the active tab.',
+  'parts.regenerated.one': '{n} part was regenerated in place.',
+  'parts.regenerated.other': '{n} parts were regenerated in place.',
+  'parts.failed': 'Could not generate: {error}',
+  'parts.warn.bed': 'The set is {w} × {h} mm and the bed is {bw} × {bh} mm: rearrange it or use smaller parts.',
+  'parts.warn.spot': 'There was no free spot on the bed: the parts were placed in the corner and may cover other objects. Move them before cutting.',
+  'parts.warn.edited': 'The group no longer has the same parts (something was edited or deleted): regenerating replaces it completely.',
+
+  // ---- bar over the canvas ----
+  'parts.bar.label': 'Generated parts',
+  'parts.bar.text': 'Generated parts: {generator}',
+  'parts.bar.regenerate': 'Regenerate…',
+
+  // ---- form sections ----
+  'parts.section.box': 'Box type',
+  'parts.section.size': 'Dimensions',
+  'parts.section.joints': 'Joints',
+  'parts.section.options': 'Options',
+  'parts.section.pattern': 'Pattern',
+  'parts.section.cuts': 'Cuts',
+  'parts.section.wave': 'Wave',
+  'parts.section.outline': 'Outline',
+  'parts.section.test': 'Test',
+
+  // ---- generators ----
+  'parts.generator.box': 'Finger-joint box',
+  'parts.generator.box.desc': 'Five or six panels with finger joints that match the material thickness.',
+  'parts.generator.hinge': 'Living hinge',
+  'parts.generator.hinge.desc': 'An area of staggered cuts that lets wood or acrylic bend. Straight, wavy or zigzag.',
+  'parts.generator.fit_test': 'Fit test',
+  'parts.generator.fit_test.desc': 'A plate of slots in several widths and a tab to calibrate clearance and kerf on your machine and material.',
+
+  // ---- box ----
+  'parts.box.kind': 'Type',
+  'parts.box.kind.closed': 'Closed (with lid)',
+  'parts.box.kind.open': 'Open (no lid)',
+  'parts.box.kind.sliding_lid': 'With sliding lid',
+  'parts.box.dims': 'Dimensions are',
+  'parts.box.dims.outer': 'Outside',
+  'parts.box.dims.inner': 'Inside',
+  'parts.box.width_mm': 'Width (X)',
+  'parts.box.depth_mm': 'Depth (Y)',
+  'parts.box.height_mm': 'Height (Z)',
+  'parts.box.thickness_mm': 'Material thickness',
+  'parts.box.finger_mm': 'Finger width (adjusted to an odd count)',
+  'parts.box.fit_mm': 'Fit clearance (slot − finger)',
+  'parts.box.lid_clearance_mm': 'Lid play',
+  'parts.box.labels': 'Engrave each panel name',
+
+  // ---- hinge ----
+  'parts.hinge.pattern': 'Cut shape',
+  'parts.hinge.pattern.straight': 'Staggered straight cuts',
+  'parts.hinge.pattern.wave': 'Wave',
+  'parts.hinge.pattern.zigzag': 'Zigzag',
+  'parts.hinge.orientation': 'Cut direction',
+  'parts.hinge.orientation.horizontal': 'Horizontal (along X)',
+  'parts.hinge.orientation.vertical': 'Vertical (along Y)',
+  'parts.hinge.width_mm': 'Area width',
+  'parts.hinge.height_mm': 'Area height',
+  'parts.hinge.cut_length_mm': 'Length of each cut',
+  'parts.hinge.bridge_mm': 'Bridge between cuts',
+  'parts.hinge.row_gap_mm': 'Row spacing',
+  'parts.hinge.margin_mm': 'Margin without cuts',
+  'parts.hinge.amplitude_mm': 'Wave height',
+  'parts.hinge.wavelength_mm': 'Wavelength',
+  'parts.hinge.corner_radius_mm': 'Corner radius',
+  'parts.hinge.outline': 'Include the outline as a cut',
+
+  // ---- fit test ----
+  'parts.fit_test.mode': 'What to measure',
+  'parts.fit_test.mode.thickness': 'Slot against the material edge',
+  'parts.fit_test.mode.finger': 'Slot against a cut finger',
+  'parts.fit_test.thickness_mm': 'Material thickness',
+  'parts.fit_test.finger_mm': 'Finger width',
+  'parts.fit_test.step_mm': 'Step between slots',
+  'parts.fit_test.count': 'Slots on each side of the nominal',
+  'parts.fit_test.slot_length_mm': 'Slot length',
+  'parts.fit_test.labels': 'Engrave the values',
+};

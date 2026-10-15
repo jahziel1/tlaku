@@ -101,6 +101,8 @@ export function createTauriApi(): LaserApi {
     shapeOp: (a) => call('shapeOp', a),
     warpObjects: (a) => call('warpObjects', a),
     hullOutline: (a) => call('hullOutline', a),
+    listGenerators: () => call('listGenerators'),
+    generatePart: (a) => call('generatePart', a),
     tangentCircles: (a) => call('tangentCircles', a),
     traceImage: (a) => call('traceImage', a),
     vectorsToBitmap: (a) => call('vectorsToBitmap', a),

@@ -225,6 +225,34 @@ pub struct Document {
     #[serde(default)]
     #[ts(as = "Option<VariableText>", optional)]
     pub variable_text: VariableText,
+    /// Parámetros de los grupos que salieron de un generador de piezas (`tlaku-parts`), para
+    /// «Regenerar». El motor no los interpreta; la interfaz los busca por el id del grupo.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<GeneratorRecord>>", optional)]
+    pub generators: Vec<GeneratorRecord>,
+}
+
+/// Registro de un grupo generado: qué generador lo hizo y con qué parámetros.
+///
+/// Si el usuario edita los nodos de las piezas el vínculo se rompe (como con las formas
+/// paramétricas): la interfaz ya no ofrece regenerar cuando el grupo cambió.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct GeneratorRecord {
+    /// Id del grupo (`DesignObject.group`, el nivel más externo).
+    pub group: String,
+    /// Id del generador (`box`, `hinge`, `fit_test`...).
+    pub generator: String,
+    /// Parámetros tal como los entiende el generador (JSON; los campos que falten toman su
+    /// valor de fábrica al regenerar).
+    #[ts(type = "Record<string, unknown>")]
+    pub params: serde_json::Value,
+    /// Capa de corte y de grabado en que se insertaron (colores `#rrggbb`).
+    pub cut_layer: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub engrave_layer: Option<String>,
 }
 
 impl Default for Document {
@@ -237,6 +265,7 @@ impl Default for Document {
             notes: String::new(),
             guides: Vec::new(),
             variable_text: Default::default(),
+            generators: Vec::new(),
         }
     }
 }

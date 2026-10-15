@@ -39,6 +39,7 @@ import { tiling } from './en/tiling';
 import { simple } from './en/simple';
 import { a11y } from './en/a11y';
 import { tabs } from './en/tabs';
+import { parts } from './en/parts';
 import { costs } from './en/costs';
 
 export const en: { [K in I18nKey]?: string } = {
@@ -78,5 +79,6 @@ export const en: { [K in I18nKey]?: string } = {
   ...simple,
   ...a11y,
   ...tabs,
+  ...parts,
   ...costs,
 };

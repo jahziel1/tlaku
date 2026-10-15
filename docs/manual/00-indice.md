@@ -23,6 +23,7 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 - [Texto variable](04b-texto-variable.md): números de serie, datos de un CSV, fecha y hora dentro de un texto, cómo avanzan después de cada trabajo y una copia por fila del CSV.
 - [Capas y ajustes de corte](05-capas-y-ajustes.md): modos Línea, Relleno e Imagen, velocidad, potencia, pasadas, puentes, corte avanzado (perforación, entrada y salida, sobrecorte, pausas, modo punto, rampa), operaciones adicionales, valores por defecto (generales, por color y por máquina), ajustes avanzados y orden de ejecución.
 - [Imágenes](06-imagenes.md): importar fotos, elegir el tramado, ajustar tonos, enviar sin tramar, realzar bordes, quitar motas, recortar con una forma, presets de ajuste de imagen y su vista previa, convertir vectores a mapa de bits, guardar la imagen procesada y vectorizar una o varias imágenes.
+- [Generadores de piezas](03g-generadores-de-piezas.md): cajas con dientes (cerrada, abierta, con tapa deslizante), bisagras flexibles (rectas, onda, zigzag) y la pieza de prueba de encaje para calibrar kerf y holgura; medidas exteriores o interiores, rótulos grabados y «Regenerar» con los parámetros guardados en el proyecto.
 
 ## Preparar el trabajo
 
