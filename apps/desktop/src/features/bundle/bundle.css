@@ -51,6 +51,14 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
+.bnd-policy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: var(--s-2) 0 0 calc(var(--s-4) + 16px);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
 .bnd-foot {
   align-items: center;
 }
