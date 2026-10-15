@@ -43,7 +43,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
-  max-height: 168px;
+  max-height: 232px;
   margin: 0;
   padding: var(--s-3);
   overflow-y: auto;
@@ -182,10 +182,19 @@
   margin: 0;
 }
 
-/* selector de giros de cada pieza */
-.ne-rot {
+/* cada pieza: sus copias y, debajo, sus giros */
+.ne-row__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+.ne-row__main .field {
   flex: none;
-  width: 132px;
+}
+.ne-rot {
+  width: 100%;
 }
 
 /* varias hojas: etiqueta en la vista previa y resumen por hoja */

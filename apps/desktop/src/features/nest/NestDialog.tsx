@@ -215,22 +215,24 @@ export function NestDialog() {
               {units.map((u) => (
                 <li key={u.id} className="ne-row">
                   <UnitThumb unit={u} />
-                  <NumberField
-                    label={t('nest.piece.copies', { name: nameOf(u.id) })}
-                    value={sanitizeCopies(copies[u.id] ?? 1)}
-                    min={1}
-                    max={MAX_NEST_INSTANCES}
-                    step={1}
-                    onCommit={(v) => setCopies((c) => ({ ...c, [u.id]: sanitizeCopies(v) }))}
-                  />
-                  <select
-                    className="select ne-rot"
-                    aria-label={t('nest.piece.rotation', { name: nameOf(u.id) })}
-                    value={rotations[u.id] ?? 'inherit'}
-                    onChange={(e) => setRotations((r) => ({ ...r, [u.id]: e.target.value as NestPieceRotation }))}
-                  >
-                    {PIECE_ROTATIONS.map((r) => <option key={r} value={r}>{rotationLabel(r)}</option>)}
-                  </select>
+                  <div className="ne-row__main">
+                    <NumberField
+                      label={t('nest.piece.copies', { name: nameOf(u.id) })}
+                      value={sanitizeCopies(copies[u.id] ?? 1)}
+                      min={1}
+                      max={MAX_NEST_INSTANCES}
+                      step={1}
+                      onCommit={(v) => setCopies((c) => ({ ...c, [u.id]: sanitizeCopies(v) }))}
+                    />
+                    <select
+                      className="select ne-rot"
+                      aria-label={t('nest.piece.rotation', { name: nameOf(u.id) })}
+                      value={rotations[u.id] ?? 'inherit'}
+                      onChange={(e) => setRotations((r) => ({ ...r, [u.id]: e.target.value as NestPieceRotation }))}
+                    >
+                      {PIECE_ROTATIONS.map((r) => <option key={r} value={r}>{rotationLabel(r)}</option>)}
+                    </select>
+                  </div>
                 </li>
               ))}
             </ul>
