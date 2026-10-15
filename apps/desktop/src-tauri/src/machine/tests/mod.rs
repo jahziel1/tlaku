@@ -459,4 +459,5 @@ mod overrides;
 mod probe;
 mod reprap;
 mod resume;
+mod soak;
 mod virtual_machine;

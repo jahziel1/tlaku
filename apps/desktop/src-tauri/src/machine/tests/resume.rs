@@ -15,18 +15,18 @@ use tlaku_emu::{Fault, Trigger};
 
 /// Banco de pruebas: una máquina virtual que sobrevive a las conexiones (como la placa de verdad
 /// sobrevive a que la app se cierre o se corte la luz) y una carpeta de punto de control propia.
-struct Bench {
-    dir: PathBuf,
-    store: Arc<CheckpointStore>,
-    emu: tlaku_emu::Handle,
-    port: String,
-    device: DeviceProfile,
-    sink: Arc<Collect>,
-    conn: Option<Connection>,
+pub(super) struct Bench {
+    pub(super) dir: PathBuf,
+    pub(super) store: Arc<CheckpointStore>,
+    pub(super) emu: tlaku_emu::Handle,
+    pub(super) port: String,
+    pub(super) device: DeviceProfile,
+    pub(super) sink: Arc<Collect>,
+    pub(super) conn: Option<Connection>,
 }
 
 impl Bench {
-    fn new(name: &str, port: &str, kind: DeviceKind) -> Self {
+    pub(super) fn new(name: &str, port: &str, kind: DeviceKind) -> Self {
         let dir =
             std::env::temp_dir().join(format!("tlaku-resume-it-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -43,11 +43,19 @@ impl Bench {
     }
 
     /// «Abre otra vez el puerto» de la misma placa.
-    fn connect(&mut self) -> Handle {
+    pub(super) fn connect(&mut self) -> Handle {
+        self.connect_via(|vm| Box::new(vm))
+    }
+
+    /// Como [`connect`](Self::connect), pasando el puerto por `wrap` (p. ej. un enlace con fallas).
+    pub(super) fn connect_via(
+        &mut self,
+        wrap: impl FnOnce(tlaku_emu::VirtualMachine) -> Box<dyn Transport>,
+    ) -> Handle {
         self.sink = Arc::new(Collect::default());
         let vm = self.emu.reconnect();
         let (conn, _) = Connection::start_with(
-            Box::new(vm),
+            wrap(vm),
             &self.port,
             self.sink.clone(),
             // El homing de la Falcon2 simulada dura 8 s de reloj de la máquina.
@@ -64,7 +72,7 @@ impl Bench {
         h
     }
 
-    fn plan(&self, lines: &[String]) -> CheckpointPlan {
+    pub(super) fn plan(&self, lines: &[String]) -> CheckpointPlan {
         resume::plan_for_job(
             self.store.clone(),
             &self.device,
@@ -76,7 +84,7 @@ impl Bench {
         .expect("el perfil se puede reanudar")
     }
 
-    fn start(&self, h: &Handle, lines: &[String]) {
+    pub(super) fn start(&self, h: &Handle, lines: &[String]) {
         h.start_job_checkpointed(
             lines.to_vec(),
             LinkProfile::for_device(&self.device),
@@ -88,7 +96,7 @@ impl Bench {
     }
 
     /// Espera a que el láser lleve `mm` grabados.
-    fn wait_burned(&self, mm: f64) {
+    pub(super) fn wait_burned(&self, mm: f64) {
         let end = Instant::now() + Duration::from_secs(30);
         while self.emu.trace().total_length() < mm {
             assert!(Instant::now() < end, "el trabajo no avanzó");
@@ -100,7 +108,7 @@ impl Bench {
     /// escritor sin bloquear el envío, así que en discos lentos (Windows en la CI, con muchas
     /// pruebas haciendo `sync_all` a la vez) puede tardar más que en quemar los primeros
     /// milímetros.
-    fn wait_checkpoint(&self) {
+    pub(super) fn wait_checkpoint(&self) {
         let end = Instant::now() + Duration::from_secs(30);
         while self.store.load().is_none() && Instant::now() < end {
             thread::sleep(Duration::from_millis(10));
@@ -159,7 +167,7 @@ fn first_burn_point(lines: &[String], line: u32, at: Option<[f64; 2]>) -> [f64; 
     })
 }
 
-fn cut_length(lines: &[String]) -> f64 {
+pub(super) fn cut_length(lines: &[String]) -> f64 {
     Parsed::parse(lines)
         .steps
         .iter()
@@ -168,7 +176,7 @@ fn cut_length(lines: &[String]) -> f64 {
         .sum()
 }
 
-fn args(
+pub(super) fn args(
     l: &resume::store::Loaded,
     view: &tlaku_doc::ResumeView,
 ) -> impl Fn(bool, bool, bool) -> ResumeStart + use<> {
@@ -184,7 +192,7 @@ fn args(
 }
 
 /// Todo punto de un corte del trabajo tiene el láser encendido a menos de `tol` mm en el rastro.
-fn uncovered(lines: &[String], emu: &tlaku_emu::Handle, tol: f64) -> usize {
+pub(super) fn uncovered(lines: &[String], emu: &tlaku_emu::Handle, tol: f64) -> usize {
     uncovered_where(lines, emu, tol, |_| true)
 }
 
@@ -648,7 +656,7 @@ fn kill_app(b: &mut Bench) {
 }
 
 /// Espera a que la placa vacíe su memoria y quede en reposo.
-fn wait_machine_idle(b: &Bench) {
+pub(super) fn wait_machine_idle(b: &Bench) {
     let end = Instant::now() + Duration::from_secs(60);
     while !(b.emu.state() == tlaku_emu::StateKind::Idle && b.emu.planner_used() == 0) {
         assert!(Instant::now() < end, "la máquina no terminó sola");
@@ -694,7 +702,7 @@ fn a_job_that_fit_in_the_buffer_finishes_alone_and_the_resume_recommends_discard
 }
 
 /// 150 filas de 5 mm (zig-zag, 750 mm de corte): más líneas que memoria tiene la placa.
-fn long_job() -> Vec<String> {
+pub(super) fn long_job() -> Vec<String> {
     let mut v: Vec<String> = ["G90", "G21", "M4 S0", "G0 X10 Y10"]
         .map(String::from)
         .to_vec();

@@ -106,6 +106,7 @@
 
 pub mod clock;
 pub mod fault;
+pub mod flaky;
 pub mod machine;
 mod model;
 pub mod net;

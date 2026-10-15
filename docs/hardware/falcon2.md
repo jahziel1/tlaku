@@ -457,6 +457,10 @@ una cola llena hasta 30 s (**sin probar en hardware**); (3) los segmentos de ima
 Pendiente: decidir si conviene un `silence_timeout` mayor con el planificador lleno y menos bytes en
 vuelo; con una placa congelada de verdad la parada segura al declararla perdida sigue siendo lo
 prudente.
+La prueba de resistencia en emulador con estas fallas (trabajos de ~120 000 líneas, bloqueos de 2–20 s,
+una pausa de 40 s) y las propuestas que salieron están en
+[`validacion-hardware.md` §2.8](../validacion-hardware.md#28-trabajo-largo-validado-en-emulador-con-las-fallas-medidas-de-la-falcon-2026-10-15):
+al declarar perdida la conexión por silencio el streamer hoy no manda ninguna parada.
 
 ### 10.7 Disparo de prueba: el retardo del primer `M3` cuenta como láser encendido
 
