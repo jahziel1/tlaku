@@ -11,6 +11,7 @@
 mod automation;
 mod autosave;
 mod commands;
+mod community_catalog;
 mod edit;
 mod engine;
 pub mod hwtest;
@@ -238,6 +239,8 @@ fn build_app(context: tauri::Context) -> tauri::App {
             edit::materials::import_material_library,
             edit::materials::export_material_library,
             edit::materials::material_test,
+            community_catalog::community_catalog_cached,
+            community_catalog::community_catalog_refresh,
             edit::devices::device_defaults,
             edit::devices::rotary_test,
             edit::devices::read_lbdev,

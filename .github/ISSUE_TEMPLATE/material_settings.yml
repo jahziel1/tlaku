@@ -10,7 +10,7 @@ body:
 
         **ES:** Los ajustes que compartas aquí pueden entrar a la biblioteca de materiales de Tlaku como **datos de la comunidad sin verificar**, con licencia CC0. Comparte solo valores que probaste tú. Quien los use debe hacer siempre una prueba: las máquinas, los lentes y los materiales varían.
 
-        Tip / Consejo: in the Materials panel, on one of your own presets, use *Share…* to open this form already filled in. / En el panel Materiales, sobre un ajuste tuyo, usa *Compartir…* para abrir este formulario ya lleno.
+        Tip / Consejo: in the Materials panel, on one of your own presets, use *Share this setting…* to open this form already filled in. / En el panel Materiales, sobre un ajuste tuyo, usa *Compartir este ajuste…* para abrir este formulario ya lleno.
   - type: dropdown
     id: laser_type
     attributes:
@@ -36,6 +36,12 @@ body:
       placeholder: "Creality Falcon2 22 W"
     validations:
       required: true
+  - type: input
+    id: tlaku_version
+    attributes:
+      label: "Tlaku version / Versión de Tlaku"
+      description: "Optional; the app fills it in. / Opcional; la app lo llena."
+      placeholder: "0.1.0"
   - type: input
     id: material
     attributes:

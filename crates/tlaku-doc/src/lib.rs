@@ -8,6 +8,7 @@ pub mod affine;
 // Re-exporta las curvas para quien solo depende de este crate.
 pub use tlaku_core::bezpath::{BezPath, PathSeg};
 mod community;
+mod community_catalog;
 mod cut;
 mod device;
 mod document;
@@ -25,7 +26,13 @@ mod variables;
 mod virtual_array;
 
 pub use community::{
-    COMMUNITY_ID_PREFIX, COMMUNITY_ISSUES_URL, COMMUNITY_LICENSE, CommunityEntry, issue_number,
+    COMMUNITY_ID_PREFIX, COMMUNITY_ISSUES_URL, COMMUNITY_LICENSE, CommunityEntry, Confirmation,
+    MAX_CONFIRMATIONS, issue_number,
+};
+pub use community_catalog::{
+    CATALOG_PATH, CATALOG_SCHEMA, CATALOG_VERSION, CatalogEntry, CatalogIndex, CatalogOperation,
+    CatalogSource, CatalogState, MAX_ENTRIES, MAX_INDEX_BYTES, build_index, build_index_from_dir,
+    validate_index,
 };
 pub use cut::{
     CutThrough, DotMode, FillGrouping, Guide, GuideAxis, Lead, LeadKind, Optimization, Perforation,

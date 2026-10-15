@@ -16,7 +16,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | Crate | Qué es / módulos clave |
 |---|---|
 | `tlaku-core` | `Point`, `Polyline`, `Rgb`, `Job`, `Toolpath`. `bezpath.rs`, `optimize.rs`, `toolpath.rs` |
-| `tlaku-doc` | Contrato con la app (serde + ts-rs). `document.rs` (`Document`, `DesignObject`), `layer.rs` (`LayerSettings`), `device.rs` (`DeviceProfile`, `DeviceKind`, `GcodeDialect`), `lbdev.rs` (+`lbdev/tests.rs`: `parse_lbdev`, lector de perfiles `.lbdev` de LightBurn, `LbdevImport`/`LbdevNotice`), `job.rs` (`JobOptions`, `JobPreview`), `machine.rs` (`StatusReport`, eventos), `cut.rs`, `galvo.rs`, `materials.rs`, `factory.rs` + `data/materials-default.json`, `community.rs` + `build.rs` (aportes de `community/materials/*.json`, validados por `cargo test -p tlaku-doc community`), `text.rs`, `virtual_array.rs`, `tests.rs` |
+| `tlaku-doc` | Contrato con la app (serde + ts-rs). `document.rs` (`Document`, `DesignObject`), `layer.rs` (`LayerSettings`), `device.rs` (`DeviceProfile`, `DeviceKind`, `GcodeDialect`), `lbdev.rs` (+`lbdev/tests.rs`: `parse_lbdev`, lector de perfiles `.lbdev` de LightBurn, `LbdevImport`/`LbdevNotice`), `job.rs` (`JobOptions`, `JobPreview`), `machine.rs` (`StatusReport`, eventos), `cut.rs`, `galvo.rs`, `materials.rs`, `factory.rs` + `data/materials-default.json`, `community.rs` + `build.rs` (aportes de `community/materials/*.json`, validados por `cargo test -p tlaku-doc community`), `community_catalog.rs` (+`community_catalog/tests.rs`: índice publicado `catalog/v1/index.json`, `build_index`, `validate_index`; ejemplo `examples/community_catalog.rs`), `text.rs`, `virtual_array.rs`, `tests.rs` |
 | `tlaku-svg` | `lib.rs` (`import_svg`), `clip.rs` (clip-path/mask) |
 | `tlaku-dxf` | `lib.rs`, `aci.rs` (colores), `geom.rs` |
 | `tlaku-lbrn` | Lector neutro de proyectos `.lbrn/.lbrn2`: `parse.rs`, `pathdata.rs` |
@@ -216,6 +216,18 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/costs/{CostDialog,CostInputsPanel,CostResultPanel,useCostCalc}.tsx`, `costs.css` | Diálogo «Costos y precio» (se monta en `AppShell`); botones en `machine/JobSection.tsx` y `preview/PreviewBar.tsx`; comando `costs.open` en `commands/definitions/costs.ts` |
 | `src/features/costs/{costReport,costFiles}.ts` | Desglose en texto y CSV (`reportText`, `reportCsv`, `csvField` neutraliza fórmulas) y guardado (`write_settings_backup` acepta `.csv`) |
 | `src/i18n/{es,en}/costs.ts`; manual `docs/manual/07c-costos-y-precio.md` (+ `en/`) | Textos (prefijo `costs.`) y página del manual |
+
+### Agregado: biblioteca comunitaria de materiales (mejora 5 del plan de usuarios)
+
+| Dónde | Qué |
+|---|---|
+| `crates/tlaku-doc/src/community_catalog.rs` (+`community_catalog/tests.rs`), `examples/community_catalog.rs` | Contrato del catálogo publicado: `CatalogIndex`/`CatalogEntry`/`CatalogState`/`CatalogSource` (ts-rs), `CatalogOperation::of(role, mode)`, `build_index`/`build_index_from_dir` (desde `community/materials/`), `validate_index` (límites `MAX_INDEX_BYTES`, `MAX_ENTRIES`; reglas por entrada = `community::check_entry` más coherencia de `operation`/`verified_by`). `community.rs` agrega `date`, `tlaku_version`, `machine_model` y `Confirmation` al aporte |
+| `src-tauri/src/community_catalog.rs` (+`community_catalog/tests.rs`) | **Única red de esta área:** comandos `community_catalog_cached` (sin red) y `community_catalog_refresh` (GET a un destino fijo del sitio, https, sin cookies, tope de tamaño al vuelo, solo mismo sitio en redirecciones, `If-None-Match`); caché `community-catalog.json` (carpeta de caché, se revalida al leer). Pruebas con un servidor local |
+| `src/features/materials/{communityModel,communityStore,communityActions}.ts` | Lógica pura (`myMachine`, `catalogModelOf`, `compatOf` = mismo modelo/clase/tipo/otro, `filterEntries`, `presetFromEntry`), estado (`useCommunity`) y acciones (`openCommunity` = única vía de descarga, `copyEntryToLibrary`, `applyEntryToLayer` con `askChoice`, `shareFromActiveLayer`) |
+| `src/features/materials/{CommunityBrowser.tsx,community.css}` | Diálogo «Explorar la comunidad…» (botón en `MaterialsPanel.tsx`, montado en `MaterialsDialogHost`); textos `materials.community.*` en `i18n/{es,en}/materials.ts`. Pruebas: `communityModel.test.ts`, `communityActions.test.ts`, `CommunityBrowser.test.tsx` |
+| `src/features/help/{githubForms.ts,ShareDialogs.tsx}` | «Compartir este ajuste…»: `tlaku_version` en el formulario y `contributionDraft` (borrador JSON sin datos personales); prueba `shareMaterial.test.tsx` |
+| `src/api/mock/communityCatalog.ts` | Catálogo simulado (ejemplos inventados, marcados); `?community=offline\|empty\|invalid` en la dirección del modo mock muestra los demás estados |
+| `.github/workflows/{pages,ci}.yml`, `scripts/community/issue-to-preset.mjs`, `.github/ISSUE_TEMPLATE/material_settings.yml` | El flujo del sitio compila el catálogo con el ejemplo de Rust; el script agrega fecha, versión y `--machine-model`; el formulario trae «Versión de Tlaku». Proceso de revisión y confirmaciones en `community/materials/README*.md` y `CONTRIBUTING*.md`; verificación en Chrome: `scripts/community-verify.mjs` |
 
 ### Agregado: datos variables desde CSV (mejora 14)
 

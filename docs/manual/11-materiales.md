@@ -94,6 +94,33 @@ Tu biblioteca (**Mis materiales**) se guarda sola en tu equipo, en un archivo `m
 
 Los `.tlakumat` sirven para compartir tus ajustes con otras personas o pasarlos a otro equipo. No se importan bibliotecas de otros programas.
 
-**Compartir con la comunidad.** Si un ajuste tuyo te funcionó, usa el botón **Compartir…** de ese ajuste (o Ayuda > «Compartir ajustes de material…»): la app abre tu navegador con el formulario de GitHub ya lleno con la máquina, el material, la velocidad y la potencia. Tú lo revisas y decides si lo publicas; Tlaku no envía nada por su cuenta. Tras una revisión, los ajustes entran a la sección **Comunidad (sin verificar)** de la biblioteca con licencia CC0. Son valores de una persona en una máquina: haz siempre una prueba antes de usarlos.
+## Explorar la comunidad
+
+El botón **Explorar la comunidad…** (arriba del panel Materiales) abre un navegador de ajustes que otras personas probaron en sus máquinas y que el proyecto publicó en su sitio. No hace falta una versión nueva de la app para ver los ajustes nuevos.
+
+**Cuándo usa internet.** Solo al abrir esa ventana (o al pulsar **Actualizar**): la app baja un archivo de solo lectura de `jahziel1.github.io` y nada más. El sitio solo ve tu dirección IP; no se envía tu diseño, tu máquina ni ningún identificador. Nunca se descarga al arrancar ni en segundo plano. La última copia queda guardada en tu equipo con su fecha, así que **sin conexión sigues viendo la última copia** (la línea de estado te dice de qué día es y por qué no se pudo actualizar).
+
+**Antes de mostrarlo se valida.** La app revisa el catálogo descargado (versión, tamaño, número de ajustes y que cada valor tenga sentido: potencia de 0 a 100 %, velocidades positivas...). Si algo no cuadra, lo descarta, lo dice y conserva la última copia buena. Son solo datos: nada del catálogo se ejecuta ni se envía a la máquina.
+
+**Qué ves.**
+
+- Filtros: **Máquina** (por omisión **Mi máquina**, con el modelo del catálogo de máquinas de Tlaku y la potencia de tu láser; también «Mismo tipo de láser, cualquier potencia» y «Todas»), **Material**, **Grosor**, **Operación** (corte, marcado, grabado de línea, relleno, imagen), búsqueda de texto y **Solo verificados por otras personas**. Si tu máquina no tiene la clase elegida, el aviso te manda a **Clase de mi máquina** del panel.
+- La lista pone primero lo que más se parece a tu máquina y lo más confirmado. Cada ajuste dice si es del **mismo modelo**, de la **misma clase**, de **otra potencia** o de **otro láser**, y si está **verificado por N personas**.
+- El detalle muestra velocidad, potencia, pasadas, intervalo, la máquina donde se probó, las notas de quien lo aportó, su alias de GitHub, la fecha, la versión de Tlaku, las confirmaciones y el enlace al aporte original (foto incluida).
+
+> **«Misma máquina» se declara, no se demuestra.** Quien aporta escribe qué máquina usó y nadie lo comprueba. Un ajuste de otra máquina o de otra potencia es **solo orientativo**: puede quemar de más o no cortar. Incluso el del mismo modelo depende de tu lente, enfoque, aire y material. Prueba siempre en un retazo, empezando con menos potencia.
+
+**Usarlo.**
+
+- **Usar (copiar a mi biblioteca)** guarda una copia en **Mis materiales**, con su origen (el enlace al aporte y la etiqueta *Comunidad (sin verificar)*), para editarla o aplicarla cuando quieras. No cambia ninguna capa. Si ya la tienes, no la duplica.
+- **Aplicar a la capa seleccionada…** pregunta antes (con los valores y, si la máquina del ajuste no es la tuya, el aviso de «solo orientativo») y recién entonces copia los ajustes a la capa; se puede deshacer. Nunca envía nada a la máquina: el trabajo sigue pasando por la vista previa, la revisión y el envío normales.
+
+Si todavía no hay ajustes publicados, la ventana lo dice y te invita a compartir el primero.
+
+## Compartir con la comunidad
+
+Si un ajuste tuyo te funcionó, usa **Compartir este ajuste…** en ese ajuste del panel (o **Compartir un ajuste mío…** en el navegador de la comunidad, que toma los valores de la capa seleccionada; o Ayuda > «Compartir ajustes de material…»). Se abre un diálogo que muestra qué se pondrá en el formulario y, desplegable, el aporte como JSON (solo los valores, tu máquina, su clase y la versión de Tlaku: ni rutas, ni notas, ni tu diseño). **Abrir el formulario en GitHub** abre tu navegador con el formulario ya lleno; tú lo revisas, escribes el resultado y decides si lo publicas. Tlaku no envía nada por su cuenta y hace falta una cuenta de GitHub.
+
+Una persona del proyecto revisa cada aporte (que los valores tengan sentido, que el resultado coincida con la foto, que no sea inseguro) y, si lo aprueba, lo agrega con un pull request; entonces aparece en el catálogo con licencia CC0. Si otra persona prueba los mismos valores y lo cuenta en el issue, el proyecto la agrega como confirmación y el ajuste pasa a «Verificado por N personas». Detalles para quien mantiene el proyecto: `community/materials/README.es.md` en el repositorio del proyecto.
 
 Siguiente: [Rotativo y eje Z](12-rotativo-y-eje-z.md)

@@ -387,7 +387,7 @@ confirmación. El historial se prueba con trabajos virtuales y migración desde 
 
 ## 5. Biblioteca de materiales de la comunidad
 
-**(a) Estado: Parcial.** Existe la biblioteca de materiales (C54, `.tlakumat` versionado, prueba de materiales
+**(a) Estado: Hecho en lo técnico (Ola D, 2026-10-15); faltan aportes reales y la firma del catálogo.** Existe la biblioteca de materiales (C54, `.tlakumat` versionado, prueba de materiales
 C55) y unos 134 ajustes de fábrica con fuente y confianza (`crates/tlaku-doc/data/materials-default.json`).
 Existe el **flujo de aportes sin servidor:** el formulario `.github/ISSUE_TEMPLATE/material_settings.yml`,
 el flujo `community.yml` (comenta un resumen y el aviso de seguridad, sin escribir nada), el script
@@ -397,14 +397,37 @@ máquina contra vatios, licencia CC0) y `build.rs`, que **compila los aportes de
 etiqueta «Comunidad (sin verificar)». Menú Ayuda > «Compartir ajustes de material…» abre el formulario ya
 lleno (`features/help/githubForms.ts`), sin enviar nada solo.
 
+**Hecho en la ola D (opción A del plan, sin servidor propio).**
+
+- **Catálogo publicado:** `crates/tlaku-doc/src/community_catalog.rs` define el índice versionado
+  (`schema` `tlaku.community-materials`, `version` 1, `entries` con material, grosor, rol y modo, `operation`
+  calculada, máquina declarada y su clase/potencia, `machine_model` del catálogo de máquinas de Tlaku, ajustes,
+  notas, alias, fecha, versión de Tlaku y `verified_by` con sus confirmaciones). El ejemplo
+  `cargo run -p tlaku-doc --example community_catalog` lo compila desde `community/materials/` y lo usan
+  `pages.yml` (publica `catalog/v1/index.json` en GitHub Pages) y `ci.yml` (lo valida en cada cambio).
+- **Navegador en la app:** botón «Explorar la comunidad…» del panel Materiales (`features/materials/Community*`).
+  Filtra por máquina (por omisión la activa con su modelo y su potencia; con la advertencia de que otra máquina o
+  potencia es solo orientativo), material, grosor y operación; detalle con confirmaciones; «Usar» copia a Mis
+  materiales con su origen; «Aplicar a la capa seleccionada» pregunta antes y se puede deshacer.
+- **Red:** comandos de Rust `community_catalog_cached` (sin red) y `community_catalog_refresh` (un GET a un destino
+  fijo, https, sin cookies, con tope de tamaño y redirecciones solo al mismo sitio); se llama solo al abrir el
+  navegador o pulsar «Actualizar», con caché local (`community-catalog.json`, `ETag`) para trabajar sin conexión.
+  La CSP y el alcance de `opener` no cambiaron; `reqwest` ya estaba en el árbol por el actualizador. Contrato en
+  `docs/app-api/materiales.md`.
+- **Seguridad:** el índice se valida (tamaño, versión, número de entradas, rangos de cada valor) antes de
+  mostrarse o guardarse; es solo datos y nada se envía a la máquina sin la revisión y el envío normales.
+- **Aportar y moderar:** «Compartir este ajuste…» arma el formulario de GitHub (con la versión de Tlaku) y un
+  borrador JSON sin datos personales; no envía nada. La revisión, las confirmaciones y que «misma máquina» se
+  declara y no se demuestra están en `community/materials/README*.md` y `CONTRIBUTING*.md`.
+
 **(b) Qué falta.**
 
-- Hoy `community/materials/` **no tiene ningún aporte** (solo los README): no hay nada que descargar.
-- Un **navegador dentro de la app** (buscar por material, grosor, operación, clase de máquina; ver notas y
-  foto; «Usar en mi capa») que se actualice **sin esperar una versión nueva** de la app.
+- Hoy `community/materials/` **no tiene ningún aporte** (solo los README): el catálogo se publica vacío y el navegador lo dice con un estado vacío que invita a compartir (no se inventan ajustes de ejemplo).
+- ~~Un **navegador dentro de la app** (buscar por material, grosor, operación, clase de máquina; ver notas y
+  foto; «Usar en mi capa») que se actualice **sin esperar una versión nueva** de la app.~~ Hecho (ola D); la foto queda en el enlace al issue.
 - Un catálogo publicable: un JSON generado en CI a partir de `community/materials/` y publicado en GitHub
-  Pages, con versión y firma.
-- Señales de confianza: cuántas personas lo confirmaron y en qué máquinas.
+  Pages, con versión y firma. **Hecho con versión; la firma (minisign) sigue pendiente.**
+- Señales de confianza: cuántas personas lo confirmaron y en qué máquinas. **Hecho** (`confirmations`, «Verificado por N personas»).
 
 **(c) Viabilidad y alojamiento sin servidor propio.**
 
@@ -943,7 +966,7 @@ un lote de 3 placas con serie y logotipo distinto sobre material de desecho.
 | 2. Generadores de piezas | No existe | Alta (propio, sin dependencias) | Alta en bisagras (83 votos) y cajas (14 y 8 votos; miles de vistas); media-baja engranajes | L (por fases) |
 | 3. Calculadora de costos | No existe (insumos listos) | Alta | Media-alta (30 y 27 votos) | S-M |
 | 4. Cola e historial | **Hecho en lo principal** (historial en archivo con ajustes, cola guiada) | Alta (historial), media (cola guiada) | Historial alta (71 votos); cola baja (7 votos) | S-M historial, M cola |
-| 5. Biblioteca comunitaria | Parcial (flujo de aportes y compilación; sin aportes ni navegador) | Alta técnicamente; depende de la masa crítica | Media implícita (foros) | M |
+| 5. Biblioteca comunitaria | **Hecho en lo técnico (Ola D)**: catálogo publicado, navegador y caché sin conexión; faltan aportes reales (0) y firma | Alta técnicamente; depende de la masa crítica | Media implícita (foros) | M |
 | 6. Scripts en sandbox | No existe | Media (Boa o rquickjs; depende de la lista permitida de la ola 7) | Alta en votos (114, 79, 40), usuarios avanzados | L |
 | 7. Nesting | **Hecho** (`tlaku-nest`, con varias hojas, retazos y veta; medido contra ESICUP) | Alta | Alta, ya cubierta (113 votos; LightBurn lo cobra en Pro) | L solo si se cambia de motor |
 | 8. Vista previa realista | Parcial (tono por potencia en trazos) | Media-baja si es "realista"; media si es tonal | Baja (4 y 5 votos) | M (tonal), L (texturas) |
@@ -990,8 +1013,8 @@ conviene que la ola 7 llegue antes.
 **Ola D: comunidad y alcance.**
 
 10. **12. Respaldo a carpeta** (reducido) y, si hay demanda, **11b. Flatpak**.
-11. **5. Biblioteca comunitaria:** primero reunir aportes con el flujo actual; el navegador y el catálogo
-    firmado cuando haya masa crítica (decenas de aportes) o cuando se quiera poblar con los ajustes de fábrica.
+11. **5. Biblioteca comunitaria (hecho el catálogo y el navegador, sin firma):** falta reunir aportes con el flujo
+    actual (hoy hay cero) y, cuando haya masa crítica (decenas), decidir si se firma el catálogo.
 12. **8. Vista previa tonal** (reducida): útil para mostrar al cliente; sin prisa por su baja demanda.
 
 **Ola E: extensibilidad.**

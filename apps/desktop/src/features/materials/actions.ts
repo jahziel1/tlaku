@@ -104,6 +104,11 @@ function mutate(change: (library: MaterialLibrary) => MaterialLibrary): void {
 
 const presetName = (p: Pick<MaterialPreset, 'material' | 'title' | 'material_key' | 'title_key'>) => `${materialName(p)} · ${titleName(p)}`;
 
+/** Agrega un ajuste ya armado a la biblioteca del usuario y la guarda (lo usa el navegador de la comunidad). */
+export function addPreset(preset: MaterialPreset): void {
+  mutate((lib) => ({ ...lib, presets: [...lib.presets, preset] }));
+}
+
 // ---------------------------------------------------------------------------
 // Clase de la máquina y enlaces de fuente
 // ---------------------------------------------------------------------------

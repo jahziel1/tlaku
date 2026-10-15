@@ -64,6 +64,7 @@ import type {
   TangentArgs,
   TangentCircle,
   WarpArgs,
+  CatalogState,
   MaterialLibrary,
   MaterialTestParams,
   TextObject,
@@ -739,6 +740,17 @@ export interface LaserApi {
   /** Documento con la cuadrícula de prueba (una capa por celda más la de rótulos). */
   materialTest(args: { params: MaterialTestParams }): Promise<Document>;
 
+  // Catálogo de ajustes de la comunidad (mejora 5): sin servidor propio, solo el sitio del proyecto.
+  /** Última copia guardada del catálogo (índice ya validado y su fecha). **No usa la red.** */
+  communityCatalogCached(): Promise<CatalogState>;
+  /**
+   * Baja el catálogo del sitio del proyecto (destino fijo en Rust; la interfaz no lo elige), lo valida
+   * (esquema, tamaño, número de entradas, rangos) y lo guarda en la caché. Solo se llama cuando la
+   * persona abre el navegador de la comunidad o pulsa «Actualizar»: nunca al arrancar ni en segundo
+   * plano. Sin conexión o ante un índice inválido devuelve la última copia buena con `error`.
+   */
+  communityCatalogRefresh(): Promise<CatalogState>;
+
   // Perfiles de dispositivo (fase 4)
   /** Perfil de partida de un tipo de controladora (dialecto, `s_max`, modo de potencia y baudios): `DeviceProfile::for_kind`. */
   deviceDefaults(args: { kind: DeviceProfile['kind'] }): Promise<DeviceProfile>;
@@ -978,6 +990,8 @@ export const COMMAND_NAMES = {
   importMaterialLibrary: 'import_material_library',
   exportMaterialLibrary: 'export_material_library',
   materialTest: 'material_test',
+  communityCatalogCached: 'community_catalog_cached',
+  communityCatalogRefresh: 'community_catalog_refresh',
   deviceDefaults: 'device_defaults',
   rotaryTest: 'rotary_test',
   readLbdev: 'read_lbdev',

@@ -17,9 +17,10 @@
 use crate::factory::{FactoryData, FactoryEntry};
 use crate::layer::LayerMode;
 use crate::materials::{Confidence, MachineClass, MaterialPreset, MaterialRole};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use tlaku_i18n::tr;
+use ts_rs::TS;
 
 /// Lista JSON con todos los aportes, generada por `build.rs`.
 pub(crate) const DATA: &str = include_str!(concat!(env!("OUT_DIR"), "/community.json"));
@@ -30,6 +31,33 @@ pub const COMMUNITY_ID_PREFIX: &str = "community.";
 pub const COMMUNITY_LICENSE: &str = "CC0-1.0";
 /// Los issues del repositorio; la fuente de un aporte es uno de ellos.
 pub const COMMUNITY_ISSUES_URL: &str = "https://github.com/jahziel1/tlaku/issues/";
+
+/// Más confirmaciones que esto no se guardan en un aporte (con 100 el dato ya está de sobra confirmado).
+pub const MAX_CONFIRMATIONS: usize = 100;
+
+/// Una persona que probó el ajuste en su máquina y lo confirmó (comentario en el issue del aporte).
+/// La máquina es **declarada**: nadie la demuestra, ni al aportar ni al confirmar.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+#[ts(export)]
+pub struct Confirmation {
+    /// Usuario de GitHub de quien confirma (distinto de quien aportó).
+    pub by: String,
+    /// Máquina en la que lo probó, tal como la escribió.
+    pub machine: String,
+    /// Clase de su máquina, si la dijo.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub machine_class: Option<MachineClass>,
+    /// Día de la confirmación, `AAAA-MM-DD`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub date: Option<String>,
+    /// Dirección del comentario (`.../issues/N#issuecomment-ID`) o del issue donde lo dijo.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub source: Option<String>,
+}
 
 /// Un aporte tal como está en su archivo.
 #[derive(Debug, Clone, Deserialize)]
@@ -67,6 +95,70 @@ pub struct CommunityEntry {
     pub license: String,
     /// Usuario de GitHub de quien lo aportó (opcional).
     pub contributor: Option<String>,
+    /// Día en que se abrió el issue, `AAAA-MM-DD` (opcional).
+    pub date: Option<String>,
+    /// Versión de Tlaku con la que se probó (opcional), por ejemplo `0.1.0`.
+    pub tlaku_version: Option<String>,
+    /// Modelo del catálogo de máquinas de Tlaku (su `id`, por ejemplo `creality-falcon2-22w`) que
+    /// puso quien revisó el aporte; sin él solo se compara por clase. Es declarado, no demostrado.
+    pub machine_model: Option<String>,
+    /// Personas que lo confirmaron (las agrega quien revisa, tras leer el comentario).
+    #[serde(default)]
+    pub confirmations: Vec<Confirmation>,
+}
+
+/// `AAAA-MM-DD` con mes y día posibles (no comprueba los meses de 30 días: es un dato informativo).
+pub(crate) fn is_date(text: &str) -> bool {
+    let b = text.as_bytes();
+    if !text.is_ascii() || b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    let digits = |r: std::ops::Range<usize>| text[r].parse::<u32>().ok();
+    match (digits(0..4), digits(5..7), digits(8..10)) {
+        (Some(y), Some(m), Some(d)) => {
+            (2020..=2100).contains(&y) && (1..=12).contains(&m) && (1..=31).contains(&d)
+        }
+        _ => false,
+    }
+}
+
+/// `1.2.3` o `1.2.3-beta.1`, de a lo más 32 caracteres.
+fn is_version(text: &str) -> bool {
+    let (core, rest) = match text.split_once(['-', '+']) {
+        Some((c, r)) => (c, Some(r)),
+        None => (text, None),
+    };
+    let parts: Vec<&str> = core.split('.').collect();
+    text.len() <= 32
+        && parts.len() == 3
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.len() <= 6 && p.chars().all(|c| c.is_ascii_digit()))
+        && rest.is_none_or(|r| {
+            !r.is_empty()
+                && r.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'))
+        })
+}
+
+fn is_alias(text: &str) -> bool {
+    !text.is_empty()
+        && text.len() <= 39
+        && text.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+}
+
+/// `https://github.com/jahziel1/tlaku/issues/N` con, a lo más, `#issuecomment-ID` al final.
+fn is_confirmation_source(text: &str) -> bool {
+    let (base, fragment) = match text.split_once('#') {
+        Some((b, f)) => (b, Some(f)),
+        None => (text, None),
+    };
+    issue_number(base).is_some()
+        && fragment.is_none_or(|f| {
+            f.strip_prefix("issuecomment-").is_some_and(|id| {
+                !id.is_empty() && id.len() <= 20 && id.chars().all(|c| c.is_ascii_digit())
+            })
+        })
 }
 
 fn is_key(text: &str) -> bool {
@@ -190,10 +282,51 @@ pub(crate) fn check_entry(e: &CommunityEntry, data: &FactoryData) -> Result<(), 
     if e.notes.as_deref().is_some_and(|n| !clean_text(n, 400)) {
         return Err(bad("notes"));
     }
-    if e.contributor.as_deref().is_some_and(|c| {
-        c.is_empty() || c.len() > 39 || !c.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
-    }) {
+    if e.contributor.as_deref().is_some_and(|c| !is_alias(c)) {
         return Err(bad("contributor"));
+    }
+    if e.date.as_deref().is_some_and(|d| !is_date(d)) {
+        return Err(bad("date"));
+    }
+    if e.tlaku_version.as_deref().is_some_and(|v| !is_version(v)) {
+        return Err(bad("tlaku_version"));
+    }
+    if e.machine_model.as_deref().is_some_and(|m| {
+        m.is_empty()
+            || m.len() > 60
+            || !m
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    }) {
+        return Err(bad("machine_model"));
+    }
+    if e.mode == Some(LayerMode::Image) && e.role != MaterialRole::Engrave {
+        return Err(bad("mode"));
+    }
+    check_confirmations(e, id)
+}
+
+/// Las confirmaciones: sin repetir a nadie, sin contar a quien aportó y con la máquina escrita.
+fn check_confirmations(e: &CommunityEntry, id: &str) -> Result<(), String> {
+    let bad = |field: &str| tr!("doc.community.out_of_range", id = id, field = field);
+    if e.confirmations.len() > MAX_CONFIRMATIONS {
+        return Err(bad("confirmations"));
+    }
+    let mut seen = HashSet::new();
+    for c in &e.confirmations {
+        let valid = is_alias(&c.by)
+            && clean_text(&c.machine, 80)
+            && c.date.as_deref().is_none_or(is_date)
+            && c.source.as_deref().is_none_or(is_confirmation_source)
+            && c.machine_class.is_none_or(|k| MachineClass::ALL.contains(&k))
+            // Quien aportó no se confirma a sí mismo: no sumaría confianza.
+            && e.contributor
+                .as_deref()
+                .is_none_or(|who| !who.eq_ignore_ascii_case(&c.by))
+            && seen.insert(c.by.to_ascii_lowercase());
+        if !valid {
+            return Err(bad("confirmations"));
+        }
     }
     Ok(())
 }

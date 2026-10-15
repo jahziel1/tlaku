@@ -43,6 +43,11 @@ tlaku-parts = { version = "0.1.0", path = "../../../crates/tlaku-parts" }
 tlaku-nest = { version = "0.1.0", path = "../../../crates/tlaku-nest" }
 tlaku-raster = { version = "0.1.0", path = "../../../crates/tlaku-raster" }
 base64 = "0.22"
+# Catálogo de ajustes de la comunidad (src/community_catalog.rs): un GET a un destino fijo del sitio del
+# proyecto. Mismas versiones y funciones que ya trae el actualizador (reqwest 0.13 con rustls y `ring`,
+# raíces del sistema), así que no suma dependencias nuevas al árbol; `deny.toml` ya las admite.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 # Historial de versiones: cada versión se guarda comprimida con gzip (MIT o Apache-2.0; ya la usa tlaku-export).
 flate2 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }

@@ -45,6 +45,18 @@ doc.community.bad_title = "{id}": the operation "{title}" does not exist.
 doc.community.bad_class = "{id}": {watts} W corresponds to class {class}.
 doc.community.out_of_range = "{id}": "{field}" is out of range or invalid.
 
+# community_catalog.rs
+doc.catalog.invalid = The community catalog is not valid JSON: {error}
+doc.catalog.no_version = The community catalog does not state its version.
+doc.catalog.unsupported_version = The catalog is version {version} and this app only understands version {supported}: update Tlaku.
+doc.catalog.bad_schema = The file is not a community settings catalog ("schema" must be {schema}).
+doc.catalog.bad_date = The catalog date must be YYYY-MM-DD.
+doc.catalog.too_big = The catalog is {size} bytes and the maximum is {max}: it was discarded.
+doc.catalog.too_many = The catalog has {count} settings and the maximum is {max}: it was discarded.
+doc.catalog.duplicate = The catalog repeats the identifier "{id}".
+doc.catalog.file_invalid = {file}: invalid contribution JSON: {error}
+doc.catalog.file_name = {file}: the file must be named "{issue}.json" (its issue number) and must not repeat.
+
 # lbdev.rs
 doc.lbdev.invalid_json = The .lbdev file is not valid JSON: {error}
 doc.lbdev.no_device_list = The file does not look like a LightBurn device profile (.lbdev): it has no "DeviceList" list or device.

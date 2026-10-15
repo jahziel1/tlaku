@@ -1,4 +1,4 @@
-import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Link2, Pencil, Share2, Trash2, TriangleAlert, Upload } from 'lucide-react';
+import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Globe, Link2, Pencil, Share2, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import { useEffect, useId, useMemo } from 'react';
 import type { DeviceProfile, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { useCommand, type CommandView } from '@/commands/useCommand';
@@ -19,6 +19,7 @@ import {
   loadMaterials,
   syncMachineClass,
 } from './actions';
+import { openCommunity } from './communityActions';
 import { classLabel, confidenceLabel, confidenceWhy, materialKeyName, materialName, roleLabel, siteOf, titleName, warningText } from './labels';
 import { filterPresets, groupPresets, matchingLayers, settingsSummary, thicknessLabel } from './library';
 import { classKind, laserKindOf, MACHINE_CLASSES } from './machineClass';
@@ -276,6 +277,10 @@ export function MaterialsPanelView({
         <button type="button" className="btn" aria-disabled={!test.enabled} title={test.tooltip} onClick={test.enabled ? test.run : undefined}>
           <FlaskConical size={14} aria-hidden="true" />
           {test.label}
+        </button>
+        <button type="button" className="btn" title={t('materials.community.open.why')} onClick={() => void openCommunity()}>
+          <Globe size={14} aria-hidden="true" />
+          {t('materials.community.open')}
         </button>
         {saveWhy && <p className="hint">{t(saveWhy)}</p>}
       </section>

@@ -80,7 +80,13 @@ import type { TabSettings } from '@/bindings/TabSettings';
 import type { RotaryKind } from '@/bindings/RotaryKind';
 import type { RotarySettings } from '@/bindings/RotarySettings';
 import type { ScanOffset } from '@/bindings/ScanOffset';
+import type { CatalogEntry } from '@/bindings/CatalogEntry';
+import type { CatalogIndex } from '@/bindings/CatalogIndex';
+import type { CatalogOperation } from '@/bindings/CatalogOperation';
+import type { CatalogSource } from '@/bindings/CatalogSource';
+import type { CatalogState } from '@/bindings/CatalogState';
 import type { Confidence } from '@/bindings/Confidence';
+import type { Confirmation } from '@/bindings/Confirmation';
 import type { LaserKind } from '@/bindings/LaserKind';
 import type { MachineClass } from '@/bindings/MachineClass';
 import type { MaterialLibrary } from '@/bindings/MaterialLibrary';
@@ -136,6 +142,12 @@ export type {
   LogDir,
   LogEvent,
   MachineState,
+  CatalogEntry,
+  CatalogIndex,
+  CatalogOperation,
+  CatalogSource,
+  CatalogState,
+  Confirmation,
   MaterialLibrary,
   MaterialPreset,
   MaterialRestriction,

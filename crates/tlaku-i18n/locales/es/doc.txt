@@ -45,6 +45,18 @@ doc.community.bad_title = "{id}": la operación "{title}" no existe.
 doc.community.bad_class = "{id}": {watts} W corresponde a la clase {class}.
 doc.community.out_of_range = "{id}": "{field}" fuera de rango o inválido.
 
+# community_catalog.rs
+doc.catalog.invalid = El catálogo de la comunidad no es un JSON válido: {error}
+doc.catalog.no_version = El catálogo de la comunidad no dice su versión.
+doc.catalog.unsupported_version = El catálogo es de la versión {version} y esta app solo entiende la {supported}: actualiza Tlaku.
+doc.catalog.bad_schema = El archivo no es un catálogo de ajustes de la comunidad (el «schema» debe ser {schema}).
+doc.catalog.bad_date = La fecha del catálogo debe ser AAAA-MM-DD.
+doc.catalog.too_big = El catálogo pesa {size} bytes y el máximo es {max}: se descartó.
+doc.catalog.too_many = El catálogo trae {count} ajustes y el máximo es {max}: se descartó.
+doc.catalog.duplicate = El catálogo repite el identificador "{id}".
+doc.catalog.file_invalid = {file}: JSON de aporte inválido: {error}
+doc.catalog.file_name = {file}: el archivo debe llamarse "{issue}.json" (el número de su issue) y no repetirse.
+
 # lbdev.rs
 doc.lbdev.invalid_json = El archivo .lbdev no es un JSON válido: {error}
 doc.lbdev.no_device_list = El archivo no parece un perfil de LightBurn (.lbdev): no tiene la lista "DeviceList" ni un dispositivo.

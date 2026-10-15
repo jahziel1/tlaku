@@ -11,6 +11,8 @@ on:
     paths:
       - "site/**"
       - "scripts/build-site.mjs"
+      - "community/materials/**"
+      - "crates/tlaku-doc/**"
       - "apps/desktop/docs/screenshots/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -40,6 +42,17 @@ jobs:
       # ({{REPO_URL}}, {{SPONSORS_URL}}, {{KOFI_URL}}) con site/config.json.
       - name: Construir
         run: node scripts/build-site.mjs --out site-dist
+
+      # Catálogo de ajustes de la comunidad (mejora 5 del plan de usuarios): compila
+      # community/materials/*.json al índice `catalog/v1/index.json` con el MISMO validador que aplica la app
+      # al descargarlo (esquema, tamaño, entradas, rangos). Si un aporte no pasa, el paso falla y no se
+      # publica nada. Sin aportes, el índice sale vacío y la app lo muestra como «aún no hay ajustes».
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Compilar el catálogo de la comunidad
+        run: cargo run --locked -q -p tlaku-doc --example community_catalog -- --out site-dist/catalog/v1/index.json
 
       - uses: actions/configure-pages@v5
 
