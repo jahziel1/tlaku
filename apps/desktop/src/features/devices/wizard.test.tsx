@@ -211,6 +211,14 @@ describe('buildProfile', () => {
     expect(p.id).toBe('mi-laser');
   });
 
+  it('Falcon2 Pro sin conexión: velocidad por eje 25 000 × 8000 y salto rápido del eje lento', () => {
+    const { profile: p, provenance } = build('creality-falcon2-pro', null, new Set());
+    expect(p.max_rate).toEqual([25000, 8000]);
+    expect(p.rapid_rate).toBe(8000);
+    expect(provenance.max_rate).toBe('catalog');
+    expect(validateDevice(p)).toEqual({});
+  });
+
   it('con la máquina conectada: lo marcado "usar de la máquina" pisa al catálogo', () => {
     const probe = falconProProbe();
     const { profile: p, provenance } = build('creality-falcon2-22w', probe);

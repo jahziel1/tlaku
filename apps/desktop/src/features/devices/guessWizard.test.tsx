@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setApi } from '@/api';
 import { createMockApi } from '@/api/mock';
 import { genericGrblProbe } from '@/api/mock/probe';
@@ -76,5 +76,30 @@ describe('asistente: preselección del modelo por la firma del firmware', () => 
     expect(document.body.textContent).not.toContain('Detectamos:');
     await click(button('Siguiente'));
     expect([...document.querySelectorAll<HTMLInputElement>('input[type=radio]')].some((r) => r.checked)).toBe(false);
+  });
+});
+
+describe('asistente: la máquina agregada queda como la de siempre', () => {
+  it('Guardar y activar la deja activa y recordada para la próxima vez que se abra la app', async () => {
+    const memory = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => void memory.set(k, v) });
+    try {
+      await useStore.getState().loadDevices();
+      await mount(<AddMachineWizard />);
+      await settle();
+      await click(button('Detectar'));
+      await settle();
+      await click(button('Siguiente'));
+      await click(button('Siguiente'));
+      await click(button('Siguiente'));
+      await click(button('Guardar y activar'));
+      await settle();
+      const active = useStore.getState().activeDeviceId;
+      expect(active).toBeTruthy();
+      expect(useStore.getState().devices.find((d) => d.id === active)?.name).toContain('Falcon2 Pro');
+      expect(memory.get('tlaku.lastDevice')).toBe(active);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

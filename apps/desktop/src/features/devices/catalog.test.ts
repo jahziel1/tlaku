@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { es as dict } from '@/i18n';
-import { CATALOG, entrySources, findEntry, type Fact } from './catalog';
+import { CATALOG, entryMaxRate, entrySources, findEntry, type Fact } from './catalog';
 import { DIODE_ENTRIES } from './catalog.diode';
 import { RUIDA_ENTRIES } from './catalog.ruida';
 
-const FACT_KEYS = ['detect', 'controller', 'bed', 'maxRate', 'accel', 'sMax', 'm4', 'air', 'baud', 'origin', 'homing', 'zAxis'] as const;
+const FACT_KEYS = ['detect', 'controller', 'bed', 'maxRate', 'maxRateY', 'accel', 'sMax', 'm4', 'air', 'baud', 'origin', 'homing', 'zAxis'] as const;
 
 describe('catálogo: datos con fuente', () => {
   it('trae todos los modelos pedidos', () => {
@@ -65,6 +65,11 @@ describe('catálogo: datos con fuente', () => {
     const pro = findEntry('creality-falcon2-pro')!;
     expect(pro.maxRate?.value).toBe(25000);
     expect(pro.maxRate?.kind).toBe('medido');
+    // $110=25000 (X) y $111=8000 (Y): el eje Y es más lento.
+    expect(pro.maxRateY?.value).toBe(8000);
+    expect(pro.maxRateY?.kind).toBe('medido');
+    expect(entryMaxRate(pro)).toEqual([25000, 8000]);
+    expect(entryMaxRate(f)).toEqual([25000, 25000]);
     expect(pro.accel?.value).toBe(1000);
   });
 

@@ -10,6 +10,7 @@ import { galvoUsbBoards } from '@/features/machine/galvoPorts';
 import { lhyUsbBoards } from '@/features/machine/lhyPorts';
 import { withoutRuidaPort } from '@/features/machine/ruidaPorts';
 import { useStore } from '@/store';
+import { rememberDevice } from '@/store/devices';
 import { Modal } from '@/ui/Modal';
 import { findEntry } from './catalog';
 import { compareWithMachine, defaultMachineChoices, type CompareField } from './compare';
@@ -181,6 +182,8 @@ export function AddMachineWizard() {
     setSaving(false);
     if (!ok) return;
     setActiveDevice(profile.id);
+    // Al reabrir la app la nueva sigue activa (no vuelve la «por defecto» de antes).
+    rememberDevice(profile.id);
     if (!connected) {
       if (probe.status === 'done' && port) setSelectedPort(port);
       // Galvo: la tarjeta que se verificó (USB o simulada) queda elegida para conectar.

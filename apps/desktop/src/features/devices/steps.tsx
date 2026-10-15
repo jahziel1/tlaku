@@ -6,7 +6,7 @@ import type { DeviceKind } from '@/bindings/DeviceKind';
 import { t, type I18nKey } from '@/i18n';
 import { BAUD_RATES, DEVICE_KINDS } from '@/lib/device';
 import { fmt } from '@/lib/platform';
-import { entrySources, type CatalogEntry, type Fact } from './catalog';
+import { entryMaxRate, entrySources, type CatalogEntry, type Fact } from './catalog';
 import type { CompareField, Comparison, CompareRow } from './compare';
 import type { RankedEntry } from './filter';
 import type { ModelGuess } from './signature';
@@ -321,6 +321,12 @@ function factRow(label: I18nKey, f: Fact<unknown> | undefined, text: string) {
   );
 }
 
+/** Velocidad del catálogo: un número si X e Y coinciden, «X × Y» si no. */
+function showRate(e: CatalogEntry): string {
+  const r = entryMaxRate(e);
+  return r && r[0] !== r[1] ? showValue(r) : showValue(e.maxRate?.value ?? null);
+}
+
 const yesNo = (v: boolean) => t(v ? 'catalog.fact.yes' : 'catalog.fact.no');
 
 /** Datos del catálogo de un modelo, cada uno con su fuente, y los que se desconocen. */
@@ -328,7 +334,7 @@ export function EntryDetail({ entry: e }: { entry: CatalogEntry }) {
   const rows = [
     factRow('catalog.fact.controller', e.controller, e.controller?.value ?? ''),
     factRow('catalog.fact.bed', e.bed, e.bed ? showValue(e.bed.value) + ' mm' : ''),
-    factRow('catalog.fact.maxRate', e.maxRate, e.maxRate ? `${showValue(e.maxRate.value)} mm/min` : ''),
+    factRow('catalog.fact.maxRate', e.maxRate, e.maxRate ? `${showRate(e)} mm/min` : ''),
     factRow('catalog.fact.accel', e.accel, e.accel ? `${showValue(e.accel.value)} mm/s²` : ''),
     factRow('catalog.fact.sMax', e.sMax, e.sMax ? showValue(e.sMax.value) : ''),
     factRow('catalog.fact.m4', e.m4, e.m4 ? yesNo(e.m4.value) : ''),

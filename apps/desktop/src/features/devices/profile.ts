@@ -1,7 +1,7 @@
 import type { DeviceKind } from '@/bindings/DeviceKind';
 import type { DeviceProfile, Point } from '@/api/types';
 import { dialectForKind, defaultSMax, FALLBACK_DEVICE, uniqueDeviceId } from '@/lib/device';
-import type { CatalogEntry } from './catalog';
+import { entryMaxRate, type CatalogEntry } from './catalog';
 import { compareWithMachine, type CompareField } from './compare';
 
 /** De dónde sale cada dato del perfil nuevo. */
@@ -88,8 +88,9 @@ export function buildProfile(args: {
       profile.bed = [...entry.bed.value];
       provenance.bed = 'catalog';
     }
-    if (entry.maxRate) {
-      profile.max_rate = [entry.maxRate.value, entry.maxRate.value];
+    const rate = entryMaxRate(entry);
+    if (rate) {
+      profile.max_rate = rate;
       provenance.max_rate = 'catalog';
     }
     if (entry.accel) {

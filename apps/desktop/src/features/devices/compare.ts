@@ -1,5 +1,5 @@
 import type { Point } from '@/api/types';
-import type { CatalogEntry } from './catalog';
+import { entryMaxRate, type CatalogEntry } from './catalog';
 
 /** Ajustes de GRBL por número: `{ "$130": "400.000" }` -> `{ 130: 400 }`. Ignora lo que no es un número. */
 export function numericSettings(raw: Record<string, string> | null): Record<number, number> {
@@ -71,12 +71,12 @@ export function compareWithMachine(entry: CatalogEntry | null, raw: Record<strin
   const sMax = s[30] !== undefined && s[30] > 0 ? s[30] : null;
   const maxRate = pair(s, 110, 111);
   const accel = pair(s, 120, 121);
-  const rate = entry?.maxRate?.value;
+  const rate = entry ? entryMaxRate(entry) : null;
   const acc = entry?.accel?.value;
   const rows: CompareRow[] = [
     { field: 's_max', codes: '$30', catalog: entry?.sMax?.value ?? null, machine: sMax, status: 'unread' },
     { field: 'bed', codes: '$130/$131', catalog: entry?.bed?.value ?? null, machine: pair(s, 130, 131), status: 'unread' },
-    { field: 'max_rate', codes: '$110/$111', catalog: rate === undefined ? null : [rate, rate], machine: maxRate, status: 'unread' },
+    { field: 'max_rate', codes: '$110/$111', catalog: rate, machine: maxRate, status: 'unread' },
     { field: 'accel', codes: '$120/$121', catalog: acc === undefined ? null : [acc, acc], machine: accel, status: 'unread' },
   ];
   for (const r of rows) r.status = status(r.catalog, r.machine);
