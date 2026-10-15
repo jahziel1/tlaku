@@ -192,6 +192,7 @@ desktop.worker.profile_mismatch = The machine profile is for {profile} but the c
 desktop.worker.log_job_lines = ; job: {total} G-code lines
 desktop.worker.job_sending = Sending {total} lines.
 desktop.common.log_frame_start = ; frame: tracing the rectangle with the laser off
+desktop.common.log_frame_start_lit = ; frame: tracing the rectangle with the laser at low power
 desktop.common.log_frame_done = ; frame finished
 desktop.common.log_frame_cancelled = ; frame cancelled
 desktop.worker.job_running = A job is running. Pause or cancel it before sending anything else to the machine.

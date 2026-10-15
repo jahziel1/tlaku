@@ -169,6 +169,147 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                     }
                 }
             }
+            // ---- Pasos con láser: solo con TLAKU_HW_LASER=1 y con topes fijos. ----
+            s if s.starts_with("fire:") => {
+                // fire:<pct>,<ms>: disparo de prueba (tope 5 % y 500 ms).
+                let v = nums(&s[5..]);
+                match laser_allowed() {
+                    Err(e) => Err(e),
+                    Ok(())
+                        if v.len() != 2
+                            || v[0] <= 0.0
+                            || v[0] > 5.0
+                            || v[1] <= 0.0
+                            || v[1] > 500.0 =>
+                    {
+                        Err("fire:<pct ≤ 5>,<ms ≤ 500>".into())
+                    }
+                    Ok(()) => invoke_json(
+                        handle,
+                        wv,
+                        "fire_test",
+                        json!({ "kind": "grbl", "power_pct": v[0], "s_max": 1000.0, "duration_ms": v[1] as u32 }),
+                    ),
+                }
+            }
+            s if s.starts_with("framelaser:") => {
+                // framelaser:<x>,<y>,<lado>,<vel>,<pct>: encuadre con el láser a baja potencia (tope 5 %).
+                let v = nums(&s[11..]);
+                match laser_allowed() {
+                    Err(e) => Err(e),
+                    Ok(()) if v.len() != 5 || v[4] <= 0.0 || v[4] > 5.0 => {
+                        Err("framelaser:<x>,<y>,<lado>,<vel>,<pct ≤ 5>".into())
+                    }
+                    Ok(()) => invoke_json(
+                        handle,
+                        wv,
+                        "frame_job",
+                        json!({
+                            "doc": square_doc(v[0], v[1], v[2]),
+                            "device": falcon2(),
+                            "options": tlaku_doc::JobOptions::default(),
+                            "speed": v[3],
+                            "power_pct": v[4],
+                        }),
+                    ),
+                }
+            }
+            s if s.starts_with("job:") || s.starts_with("fill:") || s.starts_with("grid:") => {
+                // job:<x>,<y>,<lado>,<vel>,<pot>  (contorno)
+                // fill:<x>,<y>,<lado>,<vel>,<pot>,<intervalo>  (relleno)
+                // grid:<x>,<y>,<celda>,<n>,<pot0>,<pot1>,<vel0>,<vel1>  (prueba de materiales n×n, relleno 0,1 mm)
+                // Topes: potencia ≤ 40 %, piezas ≤ 40 mm, n ≤ 6.
+                let kind = &s[..s.find(':').unwrap()];
+                let v = nums(&s[kind.len() + 1..]);
+                match laser_allowed().and_then(|()| laser_doc(kind, &v)) {
+                    Err(e) => Err(e),
+                    Ok(doc) => {
+                        if let Ok(job) = tlaku_pipeline::compute_at(
+                            &doc,
+                            &falcon2(),
+                            &tlaku_doc::JobOptions::default(),
+                            None,
+                        ) {
+                            println!("  ESTIMADO {:.2} s", job.preview.total_s);
+                        }
+                        let (device, options) = (falcon2(), tlaku_doc::JobOptions::default());
+                        match crate::engine::job_gcode(&doc, &device, &options, None) {
+                            Err(e) => Err(e),
+                            Ok(g) => match power_at_most(&g.lines, MAX_JOB_PCT * 10.0) {
+                                Err(bad) => {
+                                    Err(format!("ABORTADO: potencia por encima del tope: «{bad}»"))
+                                }
+                                Ok(max) => {
+                                    println!(
+                                        "  G-code revisado: {} líneas, S máxima {max}",
+                                        g.lines.len()
+                                    );
+                                    invoke_json(
+                                        handle,
+                                        wv,
+                                        "start_job",
+                                        json!({ "doc": doc, "device": device, "options": options, "document": Value::Null }),
+                                    )
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+            s if s.starts_with("contframe:") => {
+                // contframe:<vel>: encuadre del trabajo interrumpido con el láser apagado.
+                let speed: f64 = s[10..].parse().unwrap_or(3000.0);
+                invoke_json(handle, wv, "continue_frame", json!({ "speed": speed }))
+            }
+            "contjob" => {
+                // Continúa el trabajo interrumpido desde el punto sugerido. Sin TLAKU_HW_LASER=1 solo
+                // si el G-code guardado no puede encender el láser.
+                let gcode = crate::job_resume::dir(handle)
+                    .map(|d| d.join("job.gcode"))
+                    .and_then(|p| std::fs::read_to_string(&p).map_err(|e| e.to_string()));
+                let lines: Vec<String> = gcode
+                    .unwrap_or_default()
+                    .lines()
+                    .map(str::to_string)
+                    .collect();
+                let safe = laser_allowed().is_ok()
+                    || (!lines.is_empty() && zero_power_only(&lines).is_ok());
+                if !safe {
+                    Err(
+                        "contjob: el trabajo guardado enciende el láser y falta TLAKU_HW_LASER=1"
+                            .into(),
+                    )
+                } else {
+                    let job = invoke_json(handle, wv, "interrupted_job", json!({}));
+                    let view = invoke_json(
+                        handle,
+                        wv,
+                        "interrupted_job_view",
+                        json!({ "back_lines": Value::Null, "back_mm": Value::Null }),
+                    );
+                    match (job, view) {
+                        (Ok(j), Ok(v)) => {
+                            let id = j.get("id").cloned().unwrap_or(Value::Null);
+                            let sug = v.get("suggested").cloned().unwrap_or(Value::Null);
+                            println!("  CONTINUAR desde {sug}");
+                            invoke_json(
+                                handle,
+                                wv,
+                                "continue_job",
+                                json!({ "args": {
+                                    "id": id,
+                                    "line": sug.get("line").cloned().unwrap_or(json!(0)),
+                                    "at": sug.get("at").cloned().unwrap_or(Value::Null),
+                                    "confirm_unmoved": false,
+                                    "framed_ok": true,
+                                    "checklist_ok": true,
+                                }}),
+                            )
+                        }
+                        (Err(e), _) | (_, Err(e)) => Err(e),
+                    }
+                }
+            }
             s if s.starts_with("wait:") => {
                 std::thread::sleep(Duration::from_millis(s[5..].parse().unwrap_or(1000)));
                 Ok(Value::Null)
@@ -237,6 +378,125 @@ fn falcon2() -> tlaku_doc::DeviceProfile {
         max_rate: [25000.0, 8000.0],
         ..tlaku_doc::DeviceProfile::default()
     }
+}
+
+/// Tope de potencia de los trabajos con láser de esta herramienta (porcentaje de `s_max`).
+const MAX_JOB_PCT: f64 = 40.0;
+
+fn nums(s: &str) -> Vec<f64> {
+    s.split(',').filter_map(|x| x.trim().parse().ok()).collect()
+}
+
+/// Los pasos con láser solo corren si quien lanza la herramienta lo pide con `TLAKU_HW_LASER=1`.
+fn laser_allowed() -> Result<(), String> {
+    if std::env::var("TLAKU_HW_LASER").as_deref() == Ok("1") {
+        Ok(())
+    } else {
+        Err("paso con láser bloqueado: hace falta TLAKU_HW_LASER=1".into())
+    }
+}
+
+/// Documento de un paso con láser, validado contra los topes.
+fn laser_doc(kind: &str, v: &[f64]) -> Result<tlaku_doc::Document, String> {
+    use tlaku_core::Rgb;
+    let pct_ok = |p: f64| p > 0.0 && p <= MAX_JOB_PCT;
+    match kind {
+        "job" | "fill" => {
+            let need = if kind == "job" { 5 } else { 6 };
+            if v.len() != need || v[2] <= 0.0 || v[2] > 40.0 || v[3] <= 0.0 || !pct_ok(v[4]) {
+                return Err(format!(
+                    "{kind}: argumentos fuera de rango (lado ≤ 40 mm, potencia ≤ {MAX_JOB_PCT} %)"
+                ));
+            }
+            let mut doc = square_doc(v[0], v[1], v[2]);
+            for l in &mut doc.layers {
+                l.speed = v[3];
+                l.power = v[4];
+                l.min_power = 0.0;
+                l.passes = 1;
+                l.air = false;
+                if kind == "fill" {
+                    l.mode = tlaku_doc::LayerMode::Fill;
+                    l.interval = v[5].clamp(0.05, 1.0);
+                }
+            }
+            Ok(doc)
+        }
+        "grid" => {
+            if v.len() != 8
+                || v[2] <= 0.0
+                || v[3] < 2.0
+                || v[3] > 6.0
+                || !pct_ok(v[4])
+                || !pct_ok(v[5])
+                || v[6] <= 0.0
+                || v[7] <= 0.0
+            {
+                return Err(
+                    "grid:<x>,<y>,<celda>,<n 2..6>,<pot0>,<pot1>,<vel0>,<vel1> (potencia ≤ 40 %)"
+                        .into(),
+                );
+            }
+            let (x0, y0, cell, n) = (v[0], v[1], v[2], v[3] as usize);
+            let gap = 2.0;
+            if (cell + gap) * n as f64 > 40.0 {
+                return Err("grid: la cuadrícula pasa de 40 mm".into());
+            }
+            let mut doc = tlaku_doc::Document::default();
+            for row in 0..n {
+                for col in 0..n {
+                    let k = row * n + col;
+                    let color = Rgb((10 + k * 9) as u8, (200 - k * 5) as u8, (40 + k * 3) as u8);
+                    let mut sq = square_doc(
+                        x0 + col as f64 * (cell + gap),
+                        y0 + row as f64 * (cell + gap),
+                        cell,
+                    );
+                    let mut obj = sq.objects.remove(0);
+                    obj.id = format!("g{k}");
+                    obj.layer = color;
+                    doc.objects.push(obj);
+                    let mut l = tlaku_doc::LayerSettings::for_color(color);
+                    let t = |a: f64, b: f64, i: usize| a + (b - a) * i as f64 / (n - 1) as f64;
+                    l.power = t(v[4], v[5], col);
+                    l.speed = t(v[6], v[7], row);
+                    l.min_power = 0.0;
+                    l.passes = 1;
+                    l.air = false;
+                    l.mode = tlaku_doc::LayerMode::Fill;
+                    l.interval = 0.1;
+                    doc.layers.push(l);
+                }
+            }
+            Ok(doc)
+        }
+        _ => Err(format!("paso desconocido: {kind}")),
+    }
+}
+
+/// Revisa que ninguna `S` pase de `max` y que no haya `M3`; devuelve la S más alta.
+fn power_at_most(lines: &[String], max: f64) -> Result<f64, String> {
+    let mut top: f64 = 0.0;
+    for line in lines {
+        let code = line.split(';').next().unwrap_or("").to_ascii_uppercase();
+        if code.contains("M3") {
+            return Err(line.clone());
+        }
+        let b = code.as_bytes();
+        for i in 0..b.len() {
+            if b[i] == b'S' {
+                let rest: String = code[i + 1..]
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit() || *c == '.')
+                    .collect();
+                match rest.parse::<f64>() {
+                    Ok(v) if v <= max => top = top.max(v),
+                    _ => return Err(line.clone()),
+                }
+            }
+        }
+    }
+    Ok(top)
 }
 
 /// Un cuadrado de `side` mm con la esquina inferior izquierda en (`x`, `y`).

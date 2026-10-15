@@ -192,6 +192,7 @@ desktop.worker.profile_mismatch = El perfil de la máquina es de {profile} pero 
 desktop.worker.log_job_lines = ; trabajo: {total} líneas de G-code
 desktop.worker.job_sending = Enviando {total} líneas.
 desktop.common.log_frame_start = ; encuadre: recorrido del rectángulo con el láser apagado
+desktop.common.log_frame_start_lit = ; encuadre: recorrido del rectángulo con el láser a baja potencia
 desktop.common.log_frame_done = ; encuadre terminado
 desktop.common.log_frame_cancelled = ; encuadre cancelado
 desktop.worker.job_running = Hay un trabajo en curso. Pausa o cancela antes de enviar otra cosa a la máquina.
