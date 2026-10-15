@@ -8,7 +8,8 @@
 # Después prueba «Nueva ventana» (D19) con una segunda ventana real: `new_window`, que la ventana
 # exista y responda, que las preferencias se vean entre ventanas, que la recuperación no mezcle
 # documentos, que el `localStorage` de una ventana llegue a la otra (evento `storage`) y que al
-# cerrarla sus copias queden huérfanas.
+# cerrarla sus copias queden huérfanas. También abre la ventana aparte de la vista en vivo (`live`)
+# y comprueba que su capacidad rechaza los comandos de máquina y todos los demás salvo los suyos.
 # Sale con 0 si todo respondió como se esperaba. No usa la interfaz web ni el modo simulado.
 #
 # Uso:    apps/desktop/scripts/smoke-tauri.sh

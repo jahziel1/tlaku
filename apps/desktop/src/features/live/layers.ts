@@ -1,5 +1,5 @@
 import { MoveClass } from '@/features/preview/model';
-import { isLaserMove, layerOfMove, type LiveRoute } from './route';
+import { isLaserMove, layerOfMove, type RouteShape } from './route';
 
 /**
  * Capas fuera de pantalla de la vista en vivo, en coordenadas del documento:
@@ -46,7 +46,7 @@ export interface LayerGeometry {
 }
 
 /** Escala y tamaño de las capas para una ruta. */
-export function layerGeometry(route: LiveRoute, maxSide = MAX_SIDE, wantScale = Infinity): LayerGeometry {
+export function layerGeometry(route: RouteShape, maxSide = MAX_SIDE, wantScale = Infinity): LayerGeometry {
   const [[bx0, by0], [bx1, by1]] = route.bounds;
   const x0 = bx0 - MARGIN_MM;
   const y1 = by1 + MARGIN_MM;
@@ -97,7 +97,7 @@ export class LiveLayers {
   private readonly zoomHint: number;
 
   constructor(
-    private readonly route: LiveRoute,
+    private readonly route: RouteShape,
     private readonly style: LayerStyle,
     createCanvas: CanvasFactory,
     opts: LayersOptions = {},

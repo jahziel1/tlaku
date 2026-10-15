@@ -7,9 +7,9 @@ import type { AppState } from '@/store/types';
 import { takeJobStart } from './capture';
 import { reportToDoc } from './frame';
 import { jobFraction } from './progress';
-import { buildLiveRoute, isLaserMove, pointAt, posAtTime, RouteLocator, type LiveRoute } from './route';
+import { buildLiveRoute, RouteLocator, type LiveRoute } from './route';
+import { emittingAt, frameAt, type LiveFrame } from './follow';
 import { LiveTracker, type TrackerMode } from './tracker';
-import { MoveClass } from '@/features/preview/model';
 
 /**
  * Servicio de la vista en vivo (sin React). Sigue la posición REAL que reporta la máquina
@@ -47,19 +47,7 @@ const INITIAL: LiveInfo = { jobSeq: 0, route: 'none', source: null, fraction: 0,
 
 export const useLive = create<LiveInfo>()(() => INITIAL);
 
-export interface LiveFrame {
-  /** Tiempo de trabajo dibujado (s) y su fracción del total. */
-  t: number;
-  fraction: number;
-  /** Cabezal (mm del documento). */
-  x: number;
-  y: number;
-  /** Movimiento de la ruta donde está y fracción recorrida de él. */
-  move: number;
-  frac: number;
-  emitting: boolean;
-  mode: TrackerMode;
-}
+export type { LiveFrame };
 
 /** Lo que se le cuenta al celular en cada informe (ver `RemoteSnapshot.live`). */
 export interface LiveReport {
@@ -68,6 +56,20 @@ export interface LiveReport {
   /** Sube cada vez que la máquina retrocedió de verdad. */
   retreat_seq: number;
   src: LiveSourceKind;
+}
+
+/**
+ * Dónde está la máquina según el último reporte, para quien dibuja en otra ventana (la ventana aparte
+ * de la vista en vivo): con esto y la ruta arma su propio `LiveTracker` y se mueve igual de fluido.
+ */
+export interface LiveReading {
+  jobSeq: number;
+  /** Tiempo de trabajo (s) del último reporte ubicado. */
+  t: number;
+  mode: TrackerMode;
+  /** Sube cada vez que la máquina retrocedió de verdad. */
+  retreatSeq: number;
+  spindle: number;
 }
 
 type StoreLike = Pick<StoreApi<AppState>, 'getState' | 'subscribe'>;
@@ -104,6 +106,13 @@ let instance: LiveService | null = null;
 /** Quién más (un celular conectado) quiere seguir el trabajo aunque la preferencia de la ventana esté apagada. */
 const consumers = new Set<() => boolean>();
 const routeListeners = new Set<(route: LiveRoute | null) => void>();
+const readingListeners = new Set<() => void>();
+
+/** Avisa cada vez que llega un reporte de la máquina o cambia el final del trabajo (ver `LiveService.reading`). */
+export function onLiveReading(fn: () => void): () => void {
+  readingListeners.add(fn);
+  return () => readingListeners.delete(fn);
+}
 
 /** Registra un consumidor externo; `wants()` dice si ahora quiere el seguimiento. Devuelve cómo quitarlo. */
 export function addLiveConsumer(wants: () => boolean): () => void {
@@ -332,23 +341,18 @@ export class LiveService {
   private publish(cur: Cur): void {
     if (this.cur !== cur) return;
     const total = cur.route?.total ?? 0;
-    const t = cur.tracker && total > 0 ? cur.tracker.t : 0;
+    // Lo dibujado (`tracker.t`) solo avanza cuando alguien pide cuadros (`frame`); con la ventana flotante oculta
+    // (la ventana aparte dibuja aparte) nadie los pide, así que el porcentaje no puede depender de eso: nunca queda
+    // por detrás de lo último que ubicó la máquina.
+    const t = cur.tracker && total > 0 ? Math.max(cur.tracker.t, cur.tracker.started ? cur.tracker.located : 0) : 0;
     const fraction = cur.ended === 'finished' ? 1 : total > 0 ? Math.min(1, t / total) : 0;
     const info = useLive.getState();
-    const emitting = cur.tracker?.mode === 'running' && this.emittingAt(cur, cur.tracker.t);
+    const emitting = !!cur.route && cur.tracker?.mode === 'running' && emittingAt(cur.route, cur.spindle, t);
     const rounded = Math.round(fraction * 1000) / 1000;
     if (info.fraction !== rounded || info.source !== cur.source || info.ended !== cur.ended || info.emitting !== emitting) {
       useLive.setState({ fraction: rounded, source: cur.source, ended: cur.ended, emitting });
     }
-  }
-
-  private emittingAt(cur: Cur, t: number): boolean {
-    const route = cur.route;
-    if (!route) return false;
-    const k = posAtTime(route, t).move;
-    const laser = isLaserMove(route, k);
-    const travel = route.model.cls[k] === MoveClass.Travel;
-    return laser || (cur.spindle > 0 && !travel && route.model.cls[k] !== MoveClass.Overscan);
+    readingListeners.forEach((fn) => fn());
   }
 
   // ---- lo que piden quienes dibujan ----
@@ -356,20 +360,8 @@ export class LiveService {
   /** El cuadro a dibujar en el instante actual (ms del reloj del servicio). `null` si todavía no hay con qué. */
   frame(wallMs: number = this.now()): LiveFrame | null {
     const cur = this.cur;
-    if (!cur?.route || !cur.tracker || !cur.tracker.started) return null;
-    const t = cur.tracker.step(wallMs / 1000);
-    const pos = posAtTime(cur.route, t);
-    const [x, y] = pointAt(cur.route, pos.move, pos.frac);
-    return {
-      t,
-      fraction: cur.route.total > 0 ? t / cur.route.total : 0,
-      x,
-      y,
-      move: pos.move,
-      frac: pos.frac,
-      emitting: cur.tracker.mode === 'running' && this.emittingAt(cur, t),
-      mode: cur.tracker.mode,
-    };
+    if (!cur?.route || !cur.tracker) return null;
+    return frameAt(cur.route, cur.tracker, cur.spindle, wallMs);
   }
 
   /** Para el celular: dónde está la máquina según el último reporte (sin interpolar). `null` si no se sigue. */
@@ -383,6 +375,13 @@ export class LiveService {
       retreat_seq: cur.retreatSeq,
       src: cur.source,
     };
+  }
+
+  /** El último reporte ubicado en la ruta (sin interpolar); `null` si todavía no hay. */
+  reading(): LiveReading | null {
+    const cur = this.cur;
+    if (!cur?.tracker?.started) return null;
+    return { jobSeq: cur.seq, t: cur.tracker.located, mode: cur.tracker.mode, retreatSeq: cur.retreatSeq, spindle: cur.spindle };
   }
 
   /** ¿Hay un trabajo seguido (en curso o el último)? */

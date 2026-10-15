@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "live",
+  "description": "Ventana aparte de la vista en vivo del trabajo: SOLO LECTURA. Escucha los eventos que le manda la ventana principal (la ruta y el avance) y puede pedir que se los reenvíen (live_window_hello) o cerrarse (live_window_close). No puede llamar a ningún otro comando de la app (ni de máquina, ni de archivos), ni a diálogos, rutas, el actualizador o el navegador.",
+  "windows": ["live"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-live-window-hello",
+    "allow-live-window-close"
+  ]
+}

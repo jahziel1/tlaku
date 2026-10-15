@@ -7,6 +7,7 @@ import { mockFileio } from './fileio';
 import { mockMaterials } from './materials';
 import { mockNest } from './nest';
 import { mockBundle } from './bundle';
+import { mockLiveWindow } from './live';
 import { mockPrefs } from './prefs';
 import { mockSettingsBackup } from './settingsBackup';
 import { mockAutomation } from './automation';
@@ -65,6 +66,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
       }, opts.latencyMs),
     );
   const clone = <T>(v: T): T => structuredClone(v);
+  const { onLive, ...liveWindowApi } = mockLiveWindow(lag);
   const remoteApi = mockRemote(lag);
   const ruidaApi = mockRuida(lag, machine);
   const resumeApi = mockResume(lag, machine);
@@ -265,9 +267,10 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockDevices(lag),
     ...mockFileio(lag),
     ...mockPrefs(lag),
+    ...liveWindowApi,
     ...mockSettingsBackup(lag),
     ...mockBundle(lag),
 
-    on: (event, handler) => Promise.resolve(machine.on(event, handler)),
+    on: (event, handler) => Promise.resolve(event.startsWith('live://') ? onLive(event as `live://${string}` & typeof event, handler as never) : machine.on(event, handler)),
   };
 }

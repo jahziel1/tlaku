@@ -11,6 +11,10 @@
 //! `localStorage` que escribe una llega a la otra como evento `storage` (en lo que se apoya
 //! `startPrefsWindowSync`).
 //!
+//! También prueba la ventana aparte de la vista en vivo (`live`): que solo pueda escuchar eventos
+//! y llamar a `live_window_hello` / `live_window_close`, y que CUALQUIER otro comando de la app
+//! (máquina, trabajo, archivos, preferencias) lo rechace el control de acceso de Tauri.
+//!
 //! Se lanza con `apps/desktop/scripts/smoke-tauri.sh` (aísla `HOME` para no tocar los datos
 //! reales) y necesita un servidor de ventanas: el de macOS, o `xvfb-run` en Linux.
 
@@ -112,7 +116,7 @@ pub fn run() -> i32 {
                 }
                 if failures.is_empty() {
                     println!(
-                        "smoke-tauri: {} llamadas correctas, segunda ventana y evento storage",
+                        "smoke-tauri: {} llamadas correctas, segunda ventana, ventana aparte de solo lectura y evento storage",
                         calls().len()
                     );
                 }
@@ -168,6 +172,7 @@ fn run_calls(handle: &tauri::AppHandle) -> Vec<String> {
     }
     let first: &tauri::Webview = window.as_ref();
     failures.extend(second_window(handle, first));
+    failures.extend(live_window(handle, first));
     failures.extend(storage_between_windows(handle));
     failures
 }
@@ -417,6 +422,135 @@ fn second_window(handle: &tauri::AppHandle, first: &tauri::Webview) -> Vec<Strin
 
     for id in ["smoke-primera", "smoke-segunda"] {
         let _ = invoke_json(handle, first, "autosave_discard", json!({ "id": id }));
+    }
+    fails
+}
+
+/// La ventana aparte de la vista en vivo es de solo lectura: su capacidad (`capabilities/live.json`)
+/// no deja llamar a los comandos de máquina ni a ninguno más que los dos suyos. Ninguna de estas
+/// llamadas llega a ejecutarse (la rechaza el control de acceso antes), así que no se toca nada.
+fn live_window(handle: &tauri::AppHandle, first: &tauri::Webview) -> Vec<String> {
+    use tauri::Manager;
+    let mut fails = Vec::new();
+    if let Err(e) = invoke_json(handle, first, "live_window_open", json!({})) {
+        return vec![format!("abrir la ventana aparte: {e}")];
+    }
+    let Some(live) = handle.get_webview_window("live") else {
+        return vec!["la ventana «live» no existe tras live_window_open".into()];
+    };
+    let _ = live.hide(); // la prueba no necesita verla
+    let view: &tauri::Webview = live.as_ref();
+
+    // Una sola ventana `live`: abrir otra vez la reutiliza.
+    if let Err(e) = invoke_json(handle, first, "live_window_open", json!({})) {
+        fails.push(format!("abrir la ventana aparte por segunda vez: {e}"));
+    }
+    check(
+        &mut fails,
+        handle
+            .webview_windows()
+            .keys()
+            .filter(|l| l.as_str() == "live")
+            .count()
+            == 1,
+        "debía haber una sola ventana «live»",
+    );
+
+    // Todo comando de la app que no sea suyo lo rechaza el ACL (mensaje «not allowed»).
+    let denied: [(&str, Value); 14] = [
+        ("app_version", json!({})),
+        ("list_ports", json!({})),
+        ("connect", json!({ "port": "", "baud": 0 })),
+        ("disconnect", json!({})),
+        ("machine_command", json!({ "line": "$H" })),
+        ("machine_realtime", json!({ "cmd": "status" })),
+        ("jog", json!({ "dx": 0.0, "dy": 0.0, "speed": 1.0 })),
+        ("start_job", json!({})),
+        ("pause_job", json!({})),
+        ("cancel_job", json!({})),
+        (
+            "fire_test",
+            json!({ "kind": "grbl", "power_pct": 1.0, "s_max": 1000.0, "duration_ms": 10 }),
+        ),
+        (
+            "save_preferences",
+            json!({ "data": { "version": 1, "prefs": {}, "shortcuts": {} } }),
+        ),
+        ("live_window_send", json!({ "kind": "state", "data": "{}" })),
+        ("new_window", json!({})),
+    ];
+    for (cmd, args) in denied {
+        match invoke(handle, view, cmd, args) {
+            Some(InvokeResponse::Err(e)) => {
+                let msg = e.0.to_string();
+                check(
+                    &mut fails,
+                    msg.contains("not allowed") || msg.contains("ACL"),
+                    &format!("{cmd} desde la ventana «live» falló, pero no por el ACL: {msg}"),
+                );
+            }
+            Some(InvokeResponse::Ok(_)) => fails.push(format!(
+                "la ventana «live» pudo llamar a {cmd}: su capacidad debe rechazarlo"
+            )),
+            None => fails.push(format!("{cmd} desde «live»: sin respuesta en 20 s")),
+        }
+    }
+
+    // Lo suyo sí: pedir el estado (solo ella) y mandarlo desde la principal.
+    if let Err(e) = invoke_json(handle, view, "live_window_hello", json!({})) {
+        fails.push(format!("live_window_hello desde la ventana «live»: {e}"));
+    }
+    check(
+        &mut fails,
+        invoke_json(handle, first, "live_window_hello", json!({})).is_err(),
+        "live_window_hello debe rechazar a una ventana que no es «live»",
+    );
+    match invoke_json(
+        handle,
+        first,
+        "live_window_send",
+        json!({ "kind": "state", "data": "{}" }),
+    ) {
+        Ok(v) => check(
+            &mut fails,
+            v == json!(true),
+            "live_window_send debía devolver true con la ventana abierta",
+        ),
+        Err(e) => fails.push(e),
+    }
+    check(
+        &mut fails,
+        invoke_json(
+            handle,
+            first,
+            "live_window_send",
+            json!({ "kind": "machine_command", "data": "x" }),
+        )
+        .is_err(),
+        "live_window_send debe rechazar un canal desconocido",
+    );
+
+    // Cerrarse sí puede.
+    if let Err(e) = invoke_json(handle, view, "live_window_close", json!({})) {
+        fails.push(format!("live_window_close desde la ventana «live»: {e}"));
+    }
+    check(
+        &mut fails,
+        wait_until(|| handle.get_webview_window("live").is_none()),
+        "la ventana «live» sigue existiendo tras live_window_close",
+    );
+    match invoke_json(
+        handle,
+        first,
+        "live_window_send",
+        json!({ "kind": "state", "data": "{}" }),
+    ) {
+        Ok(v) => check(
+            &mut fails,
+            v == json!(false),
+            "sin ventana, live_window_send debía devolver false",
+        ),
+        Err(e) => fails.push(e),
     }
     fails
 }

@@ -4,3 +4,6 @@ dist/
 .DS_Store
 tests/corpus-downloaded
 site-dist/
+
+# Permisos que genera apps/desktop/src-tauri/build.rs
+apps/desktop/src-tauri/permissions/

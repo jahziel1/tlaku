@@ -8,7 +8,7 @@ Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de
 
 ### Vista en vivo del trabajo
 
-- **Vista en vivo** (casilla en la pestaña **Máquina**, apagada de fábrica): dibuja sobre el diseño lo que hace la máquina, sin cámara, siguiendo la posición real que reporta: lo ya quemado en oscuro, lo pendiente tenue y el cabezal. Se enciende y apaga cuando quieras, también a mitad de un trabajo. También está en la página del **celular** (con su propio interruptor). Solo mira. Mira [Enviar con seguridad](09-enviar-con-seguridad.md#vista-en-vivo-del-trabajo) y [Control desde el celular](09e-control-desde-el-celular.md#vista-en-vivo-en-el-celular).
+- **Vista en vivo** (casilla en la pestaña **Máquina**, apagada de fábrica): una **ventana flotante** que no tapa el diseño muestra la cama completa y lo que hace la máquina, sin cámara, siguiendo la posición real que reporta: lo ya quemado en oscuro, lo pendiente tenue y el cabezal, con porcentaje, estado, transcurrido y restante. Se mueve, cambia de tamaño, se agranda, se cierra y se puede **abrir en una ventana aparte** (por ejemplo, en otro monitor). Se enciende y apaga cuando quieras, también a mitad de un trabajo. También está en la página del **celular** (con su propio interruptor). Solo mira. Mira [Enviar con seguridad](09-enviar-con-seguridad.md#vista-en-vivo-del-trabajo) y [Control desde el celular](09e-control-desde-el-celular.md#vista-en-vivo-en-el-celular).
 
 ### Revisar diseño
 

@@ -4,29 +4,26 @@ import type { LiveFrame } from './service';
 
 /** Colores de la vista en vivo (se leen de los tokens CSS para seguir el tema). */
 export interface LivePalette {
-  /** El material sobre el que se «quema»: tapa el diseño por completo (cama) para que solo se lea la simulación. */
+  /** El material sobre el que se «quema» (la cama de la simulación). */
   sheet: string;
-  /** Velo sobre lo que queda fuera de la cama (objetos fuera, tiradores): atenúa fuerte el diseño. */
-  veil: string;
+  /** Fondo de la ventana de la vista en vivo, fuera de la cama. */
+  workspace: string;
   reticle: string;
   laser: string;
 }
 
-export const FALLBACK_PALETTE: LivePalette = { sheet: '#d6be96', veil: '#0d0f14', reticle: '#1b1b1b', laser: '#ff2d2d' };
+export const FALLBACK_PALETTE: LivePalette = { sheet: '#d6be96', workspace: '#0d0f14', reticle: '#1b1b1b', laser: '#ff2d2d' };
 
 export function readLivePalette(el: Element = document.documentElement): LivePalette {
   const css = getComputedStyle(el);
   const get = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
   return {
     sheet: get('--live-sheet', FALLBACK_PALETTE.sheet),
-    veil: get('--cv-workspace', FALLBACK_PALETTE.veil),
+    workspace: get('--cv-workspace', FALLBACK_PALETTE.workspace),
     reticle: get('--live-reticle', FALLBACK_PALETTE.reticle),
     laser: get('--live-laser', FALLBACK_PALETTE.laser),
   };
 }
-
-/** Opacidad del velo sobre lo que queda fuera de la cama. */
-export const VEIL_ALPHA = 0.9;
 
 /** Radio de la retícula en px de pantalla. */
 export const RETICLE_PX = 8;
@@ -93,15 +90,16 @@ export interface LiveDrawArgs {
   palette: LivePalette;
 }
 
-/** Un cuadro: el material, lo pendiente y lo quemado (dos `drawImage`) y el cabezal. */
+/**
+ * Un cuadro: el fondo, la cama (el material), lo pendiente y lo quemado (dos `drawImage`) y el cabezal.
+ * Se dibuja en el lienzo PROPIO de la ventana de la vista en vivo, con su propia vista (`view`): no
+ * toca ni tapa el lienzo del diseño.
+ */
 export function drawLive(a: LiveDrawArgs): void {
   const { ctx, view, bed } = a;
   ctx.clearRect(0, 0, a.width, a.height);
-  // El diseño de debajo (objetos, tiradores de selección, recuadros) queda tapado: fuera de la cama, con un velo casi opaco; dentro, con el material.
-  ctx.globalAlpha = VEIL_ALPHA;
-  ctx.fillStyle = a.palette.veil;
+  ctx.fillStyle = a.palette.workspace;
   ctx.fillRect(0, 0, a.width, a.height);
-  ctx.globalAlpha = 1;
   ctx.fillStyle = a.palette.sheet;
   ctx.fillRect(view.panX, view.panY - bed[1] * view.zoom, bed[0] * view.zoom, bed[1] * view.zoom);
   a.layers?.blit(ctx, view);

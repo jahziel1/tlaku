@@ -1,6 +1,7 @@
 import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts';
 import { sanitizeColorDefaults, sanitizeLayerTemplate, type ColorDefaults, type LayerTemplate } from '@/lib/layers';
 import { DEFAULT_DOCK_LAYOUT, sanitizeDockLayout, type DockLayout } from '@/lib/dockLayout';
+import { sanitizeLiveWindow, type LiveWindowPref } from '@/lib/liveWindow';
 import { IMPORT_DPI_DEFAULT, IMPORT_DPI_MAX, IMPORT_DPI_MIN, sanitizeRememberedImport, type RememberedImport } from '@/lib/importOptions';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
 import { detectLanguage, setLanguage } from '@/i18n';
@@ -97,10 +98,15 @@ export interface Prefs {
   /** IP de la red local donde escuchar; `null` = la recomendada. */
   remoteIp: string | null;
   /**
-   * «Vista en vivo» del trabajo en curso (`features/live`): simulación dibujada sobre el diseño que
-   * sigue a la máquina real. Apagada de fábrica; desapagada no ubica ni anima nada. Solo lectura.
+   * «Vista en vivo» del trabajo en curso (`features/live`): simulación dibujada en una ventana flotante
+   * (o aparte) que sigue a la máquina real y NO tapa el diseño. Apagada de fábrica; apagada no ubica ni anima nada. Solo lectura.
    */
   liveView: boolean;
+  /**
+   * Posición y tamaño de la ventana flotante de la vista en vivo dentro de la ventana de la app, y si
+   * está agrandada (ver `lib/liveWindow.ts`). `null` = todavía no se movió: aparece en la esquina del lienzo.
+   */
+  liveWindow: LiveWindowPref | null;
   /** Orden, visibilidad, borde y paneles flotantes de las pestañas, y borde de las herramientas (ver `lib/dockLayout.ts`). */
   dockLayout: DockLayout;
   /** Tras dibujar una forma (rectángulo, elipse, polígono, línea...) la herramienta vuelve a Seleccionar. */
@@ -162,6 +168,15 @@ export const PREF_SPECS: PrefSpecs = {
     check: (raw) => (raw === null ? { value: null } : typeof raw === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw) ? { value: raw } : null),
   },
   liveView: { kind: 'bool', default: false },
+  liveWindow: {
+    kind: 'json',
+    default: null,
+    check: (raw) => {
+      if (raw === null) return { value: null };
+      const value = sanitizeLiveWindow(raw);
+      return value ? { value } : null;
+    },
+  },
   dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
   returnToSelect: { kind: 'bool', default: true },
   gridContrast: { kind: 'choice', options: ['low', 'normal', 'high'], default: 'normal' },

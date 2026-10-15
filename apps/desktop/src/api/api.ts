@@ -721,6 +721,17 @@ export interface LaserApi {
   deleteTemplate(args: { name: string }): Promise<void>;
   /** Abre otra ventana de la app con un documento independiente (comparte la máquina y las preferencias). Devuelve su etiqueta. */
   newWindow(): Promise<string>;
+  /**
+   * Abre la ventana aparte de la vista en vivo (`live`, de solo lectura; una sola a la vez) o la trae al
+   * frente. La ventana que llama pasa a ser la dueña: a ella le llegan `live://ready` y `live://closed`.
+   */
+  liveWindowOpen(): Promise<void>;
+  /** Cierra la ventana aparte de la vista en vivo si está abierta. */
+  liveWindowClose(): Promise<void>;
+  /** Manda `data` (texto JSON) a la ventana aparte como evento `live://route` o `live://state`. Devuelve si la ventana existe. */
+  liveWindowSend(args: { kind: 'route' | 'state'; data: string }): Promise<boolean>;
+  /** Solo la ventana aparte: ya escucha y pide a la dueña que le reenvíe la ruta y el estado (`live://ready`). */
+  liveWindowHello(): Promise<void>;
 
   // Formatos de archivo (ola 1)
   /**
@@ -881,6 +892,10 @@ export const COMMAND_NAMES = {
   loadTemplate: 'load_template',
   deleteTemplate: 'delete_template',
   newWindow: 'new_window',
+  liveWindowOpen: 'live_window_open',
+  liveWindowClose: 'live_window_close',
+  liveWindowSend: 'live_window_send',
+  liveWindowHello: 'live_window_hello',
 } as const satisfies Record<Exclude<keyof LaserApi, 'on'>, string>;
 
 export const EVENT_NAMES: readonly EventName[] = [

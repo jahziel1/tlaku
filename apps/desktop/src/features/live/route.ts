@@ -17,10 +17,13 @@ export const TIE_MM = 0.02;
 /** Hasta dónde se mira hacia delante de la última ubicación, en segundos de trabajo. */
 export const HORIZON_S = 3;
 
-export interface LiveRoute {
-  model: PreviewModel;
-  /** Movimientos de la vista previa tal cual (`[kind, x, y, power]`). */
-  moves: ArrayLike<number>;
+/**
+ * Lo mínimo de una ruta para dibujarla y seguirla (`layers.ts`, `posAtTime`...). La ventana aparte
+ * de la vista en vivo recibe solo esto (`wire.ts`); `LiveRoute` agrega lo que hace falta para UBICAR
+ * la posición de la máquina en ella, que solo hace la ventana principal.
+ */
+export interface RouteShape {
+  model: Pick<PreviewModel, 'pos' | 'cls' | 'times' | 'approximate' | 'layerStarts'>;
   count: number;
   /** Duración de la ruta (s); es el 100 %. */
   total: number;
@@ -28,6 +31,12 @@ export interface LiveRoute {
   layerColors: string[];
   /** Cajas mínima y máxima de lo que se mueve (mm), con el punto de partida. */
   bounds: [[number, number], [number, number]];
+}
+
+export interface LiveRoute extends RouteShape {
+  model: PreviewModel;
+  /** Movimientos de la vista previa tal cual (`[kind, x, y, power]`). */
+  moves: ArrayLike<number>;
 }
 
 /**
@@ -76,7 +85,7 @@ export interface RoutePos {
 }
 
 /** Tiempo de trabajo (s) al estar en la fracción `frac` del movimiento `move`. */
-export function timeAt(route: LiveRoute, move: number, frac: number): number {
+export function timeAt(route: RouteShape, move: number, frac: number): number {
   const times = route.model.times;
   if (move >= route.count) return route.total;
   const t0 = move > 0 ? times[move - 1]! : 0;
@@ -84,7 +93,7 @@ export function timeAt(route: LiveRoute, move: number, frac: number): number {
 }
 
 /** Posición sobre la ruta al cumplirse `t` segundos de trabajo. */
-export function posAtTime(route: LiveRoute, t: number): RoutePos {
+export function posAtTime(route: RouteShape, t: number): RoutePos {
   const n = route.count;
   const tt = Math.min(Math.max(t, 0), route.total);
   const k = completedMoves(route.model.times, tt);
@@ -95,7 +104,7 @@ export function posAtTime(route: LiveRoute, t: number): RoutePos {
 }
 
 /** Punto (mm) de la ruta en `move`/`frac`. */
-export function pointAt(route: LiveRoute, move: number, frac: number): [number, number] {
+export function pointAt(route: RouteShape, move: number, frac: number): [number, number] {
   const p = route.model.pos;
   const k = Math.min(Math.max(move, 0), route.count - 1);
   const a = 2 * k;
@@ -103,7 +112,7 @@ export function pointAt(route: LiveRoute, move: number, frac: number): [number, 
 }
 
 /** Capa (índice en la vista previa) del movimiento `k`, o -1 si no se conocen los límites de las capas. */
-export function layerOfMove(route: LiveRoute, k: number): number {
+export function layerOfMove(route: RouteShape, k: number): number {
   const s = route.model.layerStarts;
   if (!s || route.model.approximate) return -1;
   let lo = 0;
@@ -117,7 +126,7 @@ export function layerOfMove(route: LiveRoute, k: number): number {
 }
 
 /** El movimiento es de láser con potencia (corte o grabado), no un desplazamiento ni un overscan. */
-export function isLaserMove(route: LiveRoute, k: number): boolean {
+export function isLaserMove(route: RouteShape, k: number): boolean {
   const c = route.model.cls[k];
   return c === MoveClass.Cut || c === MoveClass.Engrave;
 }

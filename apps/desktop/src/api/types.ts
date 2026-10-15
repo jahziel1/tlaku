@@ -403,6 +403,14 @@ export interface EventMap {
   'remote://start': { id: number; client: string };
   /** Se pausó, reanudó o detuvo el trabajo desde un celular. */
   'remote://action': { action: 'pause' | 'resume' | 'stop'; client: string };
+  /** Ventana aparte de la vista en vivo: la ruta del trabajo (texto JSON, ver `features/live/wire.ts`). Llega solo a la ventana `live`. */
+  'live://route': string;
+  /** Ventana aparte de la vista en vivo: el estado y el avance (texto JSON). Llega solo a la ventana `live`. */
+  'live://state': string;
+  /** La ventana aparte ya escucha y pide la ruta y el estado. Llega a la ventana que la abrió. */
+  'live://ready': null;
+  /** Se cerró la ventana aparte. Llega a la ventana que la abrió. */
+  'live://closed': null;
 }
 
 export type EventName = keyof EventMap;

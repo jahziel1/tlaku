@@ -15,6 +15,7 @@ mod edit;
 mod engine;
 pub mod hwtest;
 mod job_resume;
+mod live_window;
 mod machine;
 mod netlink;
 mod prefs;
@@ -65,6 +66,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
         .manage(AppState::default())
         .manage(automation::AutomationState::default())
         .manage(remote::RemoteState::default())
+        .manage(live_window::LiveWindowState::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
             commands::set_engine_locale,
@@ -205,6 +207,10 @@ fn build_app(context: tauri::Context) -> tauri::App {
             settings_backup::read_settings_backup,
             settings_backup::grbl_settings_autobackup,
             window::new_window,
+            live_window::live_window_open,
+            live_window::live_window_close,
+            live_window::live_window_send,
+            live_window::live_window_hello,
         ])
         .build(context)
         .expect("no se pudo iniciar la aplicación Tlaku")

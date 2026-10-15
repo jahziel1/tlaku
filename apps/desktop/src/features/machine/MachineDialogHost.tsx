@@ -1,5 +1,5 @@
 import { useEffect, useId } from 'react';
-import { LiveOverlay } from '@/features/live';
+import { LiveWindow } from '@/features/live';
 import { OptimizationDialog } from '@/features/preview/OptimizationDialog';
 import { useStore, type AppState } from '@/store';
 import { AlarmActionDialog } from './AlarmActionDialog';
@@ -36,7 +36,7 @@ export function MachineDialogHost() {
       <GalvoMoveDialog />
       <GalvoStopModal />
       <GalvoWarpOverlay />
-      <LiveOverlay />
+      <LiveWindow />
       <ProbeCenterDialog />
       {dialog && <MachineDialog dialog={dialog} />}
     </>

@@ -8,7 +8,7 @@ Seventh batch, of polish and of gaps that remained compared with LightBurn. **No
 
 ### Live view of the job
 
-- **Live view** (checkbox in the **Machine** tab, off by default): draws on top of the design what the machine is doing, without a camera, following the real position it reports: what is already burned in dark, what is pending faint, and the head. Turn it on and off whenever you like, also in the middle of a job. It is also on the **phone** page (with its own switch). View only. See [Sending safely](09-enviar-con-seguridad.md#live-view-of-the-job) and [Control from the phone](09e-control-desde-el-celular.md#live-view-on-the-phone).
+- **Live view** (checkbox in the **Machine** tab, off by default): a **floating window** that does not cover the design shows the whole bed and what the machine is doing, without a camera, following the real position it reports: what is already burned in dark, what is pending faint, and the head, with percentage, state, elapsed and time left. You can move it, resize it, enlarge it, close it, and **open it in a separate window** (for example, on another monitor). Turn it on and off whenever you like, also in the middle of a job. It is also on the **phone** page (with its own switch). View only. See [Sending safely](09-enviar-con-seguridad.md#live-view-of-the-job) and [Control from the phone](09e-control-desde-el-celular.md#live-view-on-the-phone).
 
 ### Review design
 

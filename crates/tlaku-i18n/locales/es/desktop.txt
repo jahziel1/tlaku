@@ -55,6 +55,10 @@ desktop.commands.open_port_failed = No se pudo abrir {port}: {err}. Revisa el ca
 desktop.machine.not_connected = No hay máquina conectada. Conéctala desde la pestaña Máquina.
 # window.rs
 desktop.window.open_failed = No se pudo abrir la ventana nueva: {err}
+desktop.live_window.title = Tlaku: vista en vivo
+desktop.live_window.bad_kind = «{kind}» no es un canal de la ventana de la vista en vivo.
+desktop.live_window.too_big = El mensaje para la ventana de la vista en vivo es demasiado grande.
+desktop.live_window.only_live = Solo la ventana de la vista en vivo puede pedir esto.
 # machine/handle.rs y mandos
 desktop.machine.connection_lost = Se perdió la conexión con la máquina.
 # virtual_port.rs

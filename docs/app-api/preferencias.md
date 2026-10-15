@@ -31,9 +31,22 @@ Código: `src-tauri/src/templates.rs` y `src-tauri/src/window.rs`; en la interfa
 | `load_template` | `name` | `Document` |
 | `delete_template` | `name` | Borra la plantilla (no es error que no exista) |
 | `new_window` | — | Etiqueta de la ventana nueva (`doc-N`). Cada ventana tiene su propio documento; comparten la máquina y las preferencias |
+| `live_window_open` | — | Abre la ventana aparte de la vista en vivo (etiqueta `live`, una sola; si ya está abierta la trae al frente). La ventana que llama queda como dueña: a ella le llegan `live://ready` y `live://closed` |
+| `live_window_close` | — | Cierra la ventana `live` si está abierta |
+| `live_window_send` | `kind` (`route` \| `state`), `data` (texto JSON, hasta 48 MiB) | `bool`: si la ventana `live` existe. La reenvía como evento `live://route` o `live://state`; otro canal es error. Formato en `src/features/live/wire.ts` |
+| `live_window_hello` | — | Solo la ventana `live`: ya escucha, que la dueña reenvíe la ruta y el estado (`live://ready`) |
 
 Las plantillas viven en `<app_config_dir>/plantillas/`. La capacidad `capabilities/default.json` cubre las
-ventanas `main` y `doc-*`.
+ventanas `main` y `doc-*`, con el conjunto de permisos `main-window` (un `allow-<comando>` por cada comando de
+`lib.rs`, que arma `build.rs`).
+
+**Ventana aparte de la vista en vivo (`live`).** Es de solo lectura y su capacidad (`capabilities/live.json`) es la
+mínima: escuchar eventos (`core:event:allow-listen` y `allow-unlisten`) y los comandos `live_window_hello` y
+`live_window_close`. No puede llamar a ningún otro comando de la app (máquina, trabajo, archivos, preferencias),
+ni a diálogos, rutas, el actualizador o el navegador. Eventos para la ventana `live`: `live://route` (la ruta del
+trabajo) y `live://state` (porcentaje, estado, tiempos y último reporte de la máquina); para la dueña:
+`live://ready` y `live://closed`. Código: `src-tauri/src/live_window.rs`; en la interfaz `features/live/` (`detach.ts`,
+`DetachedLive.tsx`).
 
 - **Preferencias**: `preferences.json` en `app_config_dir()` (sobrevive a reinstalar y se puede copiar).
   Forma: `{ "version": 1, "prefs": { ... }, "shortcuts": { "<id de comando>": ["Mod+K", ...] } }`.
