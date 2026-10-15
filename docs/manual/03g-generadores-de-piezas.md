@@ -25,6 +25,26 @@ Los paneles se unen con **dientes alternados**: en cada arista, un panel tiene d
 - **Holgura de encaje** (ranura − diente): mira abajo. **0** es lo nominal; positivo es más flojo, negativo, más apretado.
 - **Grabar el nombre de cada panel**: rotula cada panel (FRENTE, ATRAS, IZQ, DER, BASE, TAPA) en su **cara exterior**, con letras que se leen bien si pones la pieza con esa cara hacia arriba. Si no cabe entre los dientes, se omite y avisa.
 
+## Divisores, zócalo y patas de la caja
+
+En la caja, la sección **Divisores** reparte el interior en compartimentos.
+
+- **Divisores a lo ancho (reparten X)** y **a lo fondo (reparten Y)**: cuántas láminas lleva la caja en cada dirección (0 a 10). Con 2 y 1 salen seis compartimentos. Los divisores van a **todo el alto** del interior (en la caja cerrada llegan hasta la tapa; en la de tapa deslizante, hasta la tapa; en la abierta, hasta el borde).
+- **Anchos de los compartimentos**: vacío = todos iguales. Si escribes medidas (`40, 60`; también sirven `;` o espacios) valen para los **primeros** compartimentos y los que falten se reparten por igual lo que sobra; si escribes **todos**, deben sumar lo que mide la cavidad menos los divisores (el campo te dice cuánto). Un compartimento no puede medir menos de dos grosores.
+- **Sujeción**: con *Pestañas en ranuras* cada divisor tiene pestañas, del grosor exacto de la pared o la base que las recibe, que entran en **ranuras** de las paredes laterales, de la base y de la tapa (si hay); las pestañas usan el mismo reparto de dientes de la caja y siempre dejan un trozo liso entre la ranura y el borde. Con *Sueltos* no hay ranuras en las paredes: cada divisor se acorta el **juego de los divisores sueltos** en largo y en alto y se mete entre las paredes (un punto de pegamento lo fija si hace falta).
+- **Cruces de media madera**: donde un divisor de X cruza uno de Y, el de X pierde la mitad de arriba y el de Y la mitad de abajo, en ranuras de un grosor (más la holgura) y de **exactamente media altura**. Se arman metiendo uno en el otro, y no se solapan ni dejan hueco. En los cruces no hay pestañas.
+- La **holgura de encaje** de la caja también vale aquí: las ranuras miden la pestaña (o el grosor del divisor que cruza) más esa holgura, repartida a los dos lados. Con 0 es lo nominal; el kerf lo compensa la capa, igual que en los dientes.
+
+La sección **Zócalo o patas** eleva la caja. Es una pila de **capas planas del grosor del material** que se **pegan** entre sí y debajo de la base (no tienen uniones, así que no cambian la caja): *Zócalo* es un marco retranqueado un grosor del borde de la base y *Cuatro patas* son cuatro cuadrados por capa, una pata en cada esquina. La **altura** se redondea a un número de capas (hasta 10) y el aviso dice cuántas capas y cuántos mm salen.
+
+## Bandeja y cajón
+
+El generador **Bandeja y cajón** usa la misma caja abierta de dientes (mismas reglas de arista, holgura y kerf) y le añade asas y, si quieres, un frente y una caja exterior. Las medidas son las del **cuerpo**.
+
+- **Bandeja abierta**: cinco paneles de lados bajos. Con **Asa** en *Muesca redondeada* los laterales izquierdo y derecho llevan un recorte en U con el fondo redondeado, abierto en el borde superior; con *Ojal* es una ranura en forma de píldora cerca del borde. **Ancho del asa** y **hondo de la muesca / alto del ojal** se validan para que no toquen los dientes de las esquinas ni de la base.
+- **Cajón con frente grande**: el cuerpo más un **frente liso** que sobresale **Cuánto sobresale el frente por cada lado** de cada lado, por arriba y por abajo. Se **pega por fuera** de la pared frontal, centrado, y tapa el hueco del mueble. El asa va en el frente, y el mismo recorte atraviesa la pared frontal del cuerpo que queda detrás para que se pueda meter el dedo.
+- **Cajón y caja exterior**: además sale una caja abierta por el frente cuyo interior es el cajón más el **juego entre cajón y caja** por cada lado y de fondo; es la caja abierta de dientes con los ejes cambiados (cinco piezas: base, tapa, dos laterales y fondo). El cajón entra por el frente y su frente queda por fuera; el generador avisa si el frente no alcanza a tapar la rendija (sobrante menos juego menor de 2 mm).
+
 ## Kerf y holgura: dos cosas distintas
 
 El láser quita material: el haz tiene un ancho (el **kerf**, de 0,1 a 0,3 mm según la máquina y el material). Por eso una unión «perfecta» en el dibujo sale floja o apretada al cortar.
@@ -63,6 +83,6 @@ Los parámetros se guardan **en el proyecto**. Al seleccionar el grupo aparece s
 
 ## Límites
 
-- Las cajas son de **paneles planos con dientes**: sin divisores, patas ni esquinas redondeadas (de momento). La **tapa deslizante** es una solución sencilla: cuida que la franja de arriba de los laterales (dos grosores) aguante con tu material.
+- Las cajas son de **paneles planos con dientes**: sin esquinas redondeadas (de momento). Los divisores y el zócalo funcionan con medidas y holgura nominales; la prueba de encaje te da el valor para tu material. La **tapa deslizante** es una solución sencilla: cuida que la franja de arriba de los laterales (dos grosores) aguante con tu material.
 - La geometría y el encaje se comprueban con pruebas automáticas, pero el **ajuste real depende de tu máquina y de tu material**: corta siempre primero la pieza de prueba y una caja chica.
 - Todo se calcula en tu computadora; no se envía nada a internet.

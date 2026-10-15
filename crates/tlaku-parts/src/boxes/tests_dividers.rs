@@ -75,7 +75,9 @@ fn in_extent(d: &Divider, t: f64, p: [f64; 3]) -> bool {
 /// Divisores con material en el punto 3D.
 fn div_holders(divs: &[Divider], t: f64, p: [f64; 3]) -> usize {
     divs.iter()
-        .filter(|d| in_slab(d, t, p) && inside(&d.cuts, p[d.axis.run()] - d.o[d.axis.run()], p[2] - d.o[2]))
+        .filter(|d| {
+            in_slab(d, t, p) && inside(&d.cuts, p[d.axis.run()] - d.o[d.axis.run()], p[2] - d.o[2])
+        })
         .count()
 }
 
@@ -86,7 +88,10 @@ fn div_holders(divs: &[Divider], t: f64, p: [f64; 3]) -> usize {
 fn dividers_fill_slots_exactly_and_never_overlap_in_3d() {
     for b in divider_sets() {
         for fit in [0.0, 0.2] {
-            let p = BoxParams { fit_mm: fit, ..b.clone() };
+            let p = BoxParams {
+                fit_mm: fit,
+                ..b.clone()
+            };
             let (s, panels, divs) = built_all(&p);
             let t = p.thickness_mm;
             let step = if fit == 0.0 { 1.07 } else { 1.9 };
@@ -117,7 +122,10 @@ fn dividers_fill_slots_exactly_and_never_overlap_in_3d() {
             if fit == 0.0 {
                 assert!(checked > 1000, "{p:?}: pocos puntos ({checked})");
                 assert!(tab_points > 50, "{p:?}: las pestañas no se probaron");
-                assert!(p.dividers_x * p.dividers_y == 0 || cross_points > 20, "{p:?}: los cruces no se probaron");
+                assert!(
+                    p.dividers_x * p.dividers_y == 0 || cross_points > 20,
+                    "{p:?}: los cruces no se probaron"
+                );
             }
         }
     }
@@ -126,12 +134,20 @@ fn dividers_fill_slots_exactly_and_never_overlap_in_3d() {
 #[test]
 fn dividers_split_the_cavity_into_equal_compartments() {
     let (_, _, divs) = built_all(&with_dividers(base()));
-    let xs: Vec<f64> = divs.iter().filter(|d| d.axis == Axis::X).map(|d| d.pos).collect();
+    let xs: Vec<f64> = divs
+        .iter()
+        .filter(|d| d.axis == Axis::X)
+        .map(|d| d.pos)
+        .collect();
     // Cavidad 144 = 3 compartimentos + 2 divisores de 3: compartimentos de 46.
     assert_eq!(xs.len(), 2);
     assert!((xs[0] - 49.0).abs() < 1e-9, "{xs:?}");
     assert!((xs[1] - 98.0).abs() < 1e-9);
-    let ys: Vec<f64> = divs.iter().filter(|d| d.axis == Axis::Y).map(|d| d.pos).collect();
+    let ys: Vec<f64> = divs
+        .iter()
+        .filter(|d| d.axis == Axis::Y)
+        .map(|d| d.pos)
+        .collect();
     // Cavidad 94 = 2 compartimentos + 1 divisor: 45,5 cada uno.
     assert!((ys[0] - (3.0 + 45.5)).abs() < 1e-9);
 }
@@ -162,14 +178,21 @@ fn custom_widths_are_exact_and_rest_is_shared() {
     assert_eq!(sum("40 51"), None);
     assert_eq!(sum("40 50"), Some(Some("divider_widths_x".to_string())));
     for bad in ["abc", "10 20 30", "2 89"] {
-        assert_eq!(sum(bad), Some(Some("divider_widths_x".to_string())), "{bad}");
+        assert_eq!(
+            sum(bad),
+            Some(Some("divider_widths_x".to_string())),
+            "{bad}"
+        );
     }
 }
 
 #[test]
 fn crossing_slots_are_complementary_half_laps() {
     for fit in [0.0, 0.15] {
-        let p = with_dividers(BoxParams { fit_mm: fit, ..base() });
+        let p = with_dividers(BoxParams {
+            fit_mm: fit,
+            ..base()
+        });
         let t = p.thickness_mm;
         let (_, _, divs) = built_all(&p);
         let height = 50.0 - 2.0 * t;
@@ -184,7 +207,10 @@ fn crossing_slots_are_complementary_half_laps() {
                 assert!(inside(&d.cuts, lo - 0.005, z) && inside(&d.cuts, hi + 0.005, z));
             }
             for z in [0.01, height / 2.0 - 0.01] {
-                assert!(inside(&d.cuts, (lo + hi) / 2.0, z), "el de X conserva su mitad inferior");
+                assert!(
+                    inside(&d.cuts, (lo + hi) / 2.0, z),
+                    "el de X conserva su mitad inferior"
+                );
             }
             assert!((hi - lo - (t + fit)).abs() < 1e-9);
         }
@@ -203,7 +229,10 @@ fn crossing_slots_are_complementary_half_laps() {
 #[test]
 fn tabs_fit_their_slots_with_exactly_the_requested_clearance() {
     let fit = 0.2;
-    let p = with_dividers(BoxParams { fit_mm: fit, ..base() });
+    let p = with_dividers(BoxParams {
+        fit_mm: fit,
+        ..base()
+    });
     let t = p.thickness_mm;
     let (_, panels, divs) = built_all(&p);
     // Toda ranura mide T + holgura en el grosor del divisor.
@@ -233,7 +262,11 @@ fn tabs_fit_their_slots_with_exactly_the_requested_clearance() {
         assert!(!inside(&d.cuts, -t / 2.0, z0 - 0.01) && !inside(&d.cuts, -t / 2.0, z1 + 0.01));
         assert!(inside(&d.cuts, -t / 2.0, z0 + 0.01) && inside(&d.cuts, -t / 2.0, z1 - 0.01));
         // Y la ranura es un agujero del panel.
-        assert!(!inside(&front.cuts, (r.x0 + r.x1) / 2.0, (r.y0 + r.y1) / 2.0));
+        assert!(!inside(
+            &front.cuts,
+            (r.x0 + r.x1) / 2.0,
+            (r.y0 + r.y1) / 2.0
+        ));
     }
     assert!(seen >= 1);
 }
@@ -293,11 +326,20 @@ fn loose_dividers_have_no_tabs_and_keep_the_clearance() {
 fn divider_validation_reports_the_failing_field() {
     let f = |p: BoxParams| build_all(&p).err().and_then(|e| e.field);
     assert_eq!(
-        f(BoxParams { dividers_x: 11, ..BoxParams::default() }).as_deref(),
+        f(BoxParams {
+            dividers_x: 11,
+            ..BoxParams::default()
+        })
+        .as_deref(),
         Some("dividers_x")
     );
     assert_eq!(
-        f(BoxParams { dividers_y: 10, depth_mm: 40.0, ..BoxParams::default() }).as_deref(),
+        f(BoxParams {
+            dividers_y: 10,
+            depth_mm: 40.0,
+            ..BoxParams::default()
+        })
+        .as_deref(),
         Some("divider_widths_y")
     );
     let e = box_parts(&BoxParams {
@@ -312,7 +354,9 @@ fn divider_validation_reports_the_failing_field() {
 #[test]
 fn dividers_add_one_part_each() {
     assert_eq!(box_parts(&BoxParams::default()).unwrap().parts.len(), 6);
-    let parts = box_parts(&with_dividers(BoxParams::default())).unwrap().parts;
+    let parts = box_parts(&with_dividers(BoxParams::default()))
+        .unwrap()
+        .parts;
     assert_eq!(parts.len(), 6 + 3);
     let keys: Vec<&str> = parts.iter().map(|p| p.key.as_str()).collect();
     for k in ["divider_x1", "divider_x2", "divider_y1"] {
@@ -326,14 +370,34 @@ fn plinth_and_legs_stack_layers_of_one_thickness() {
         foot_height_mm: 9.0,
         ..BoxParams::default()
     };
-    let plinth = box_parts(&BoxParams { feet: Feet::Plinth, ..base.clone() }).unwrap();
-    let rings: Vec<_> = plinth.parts.iter().filter(|p| p.key.starts_with("plinth")).collect();
-    assert_eq!(rings.len(), 3, "9 mm de zócalo con material de 3 mm = 3 capas");
+    let plinth = box_parts(&BoxParams {
+        feet: Feet::Plinth,
+        ..base.clone()
+    })
+    .unwrap();
+    let rings: Vec<_> = plinth
+        .parts
+        .iter()
+        .filter(|p| p.key.starts_with("plinth"))
+        .collect();
+    assert_eq!(
+        rings.len(),
+        3,
+        "9 mm de zócalo con material de 3 mm = 3 capas"
+    );
     // Marco retranqueado un grosor por lado, con un agujero.
     assert!((rings[0].width - 94.0).abs() < 1e-9 && (rings[0].height - 74.0).abs() < 1e-9);
     assert_eq!(rings[0].cuts.len(), 2);
-    let legs = box_parts(&BoxParams { feet: Feet::Legs, ..base }).unwrap();
-    let sets: Vec<_> = legs.parts.iter().filter(|p| p.key.starts_with("legs")).collect();
+    let legs = box_parts(&BoxParams {
+        feet: Feet::Legs,
+        ..base
+    })
+    .unwrap();
+    let sets: Vec<_> = legs
+        .parts
+        .iter()
+        .filter(|p| p.key.starts_with("legs"))
+        .collect();
     assert_eq!(sets.len(), 3);
     assert!(sets.iter().all(|s| s.cuts.len() == 4));
     assert!(legs.warnings.iter().any(|w| w.contains("9.0")));

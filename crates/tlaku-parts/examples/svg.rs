@@ -60,6 +60,31 @@ fn main() {
             "box",
             json!({"kind": "sliding_lid", "labels": true}),
         ),
+        (
+            "caja-divisores-medidas",
+            "box",
+            json!({"kind": "open", "dividers_x": 2, "dividers_y": 1, "divider_widths_x": "20, 40", "feet": "plinth", "foot_height_mm": 6}),
+        ),
+        (
+            "caja-divisores-sueltos",
+            "box",
+            json!({"kind": "open", "dividers_x": 1, "dividers_y": 1, "divider_joint": "loose"}),
+        ),
+        (
+            "bandeja-asas",
+            "tray",
+            json!({"handle": "notch", "handle_width_mm": 40, "handle_depth_mm": 14}),
+        ),
+        (
+            "cajon",
+            "tray",
+            json!({"kind": "drawer", "width_mm": 120, "depth_mm": 100, "height_mm": 40, "handle": "hole", "front_overlap_mm": 8}),
+        ),
+        (
+            "cajon-con-caja",
+            "tray",
+            json!({"kind": "drawer_case", "width_mm": 120, "depth_mm": 100, "height_mm": 40, "handle": "notch", "handle_depth_mm": 16, "front_overlap_mm": 8}),
+        ),
         ("bisagra-recta", "hinge", json!({})),
         (
             "bisagra-onda",

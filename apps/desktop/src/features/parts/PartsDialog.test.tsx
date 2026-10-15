@@ -82,7 +82,7 @@ describe('diálogo «Generadores de piezas»', () => {
     await open();
     expect(dialog().textContent).toContain('Generadores de piezas');
     const names = [...dialog().querySelectorAll('.parts__gen-name')].map((n) => n.textContent);
-    expect(names).toEqual(['Caja con dientes', 'Bisagra flexible', 'Prueba de encaje']);
+    expect(names).toEqual(['Caja con dientes', 'Bandeja y cajón', 'Bisagra flexible', 'Prueba de encaje']);
     const svg = dialog().querySelector('[data-testid="parts-preview"]');
     expect(svg).not.toBeNull();
     expect(svg!.querySelectorAll('[data-part]')).toHaveLength(6);
@@ -112,6 +112,31 @@ describe('diálogo «Generadores de piezas»', () => {
     await choose('Tipo', 'sliding_lid');
     expect(byLabel('Juego de la tapa')).toBeTruthy();
     expect(dialog().querySelectorAll('.field__unit')[0]!.textContent).toBe('mm');
+  });
+
+  it('los divisores y su campo de texto llegan a los parámetros (el mock solo avisa que no los dibuja)', async () => {
+    await open();
+    await type('Divisores a lo ancho (reparten X)', '2');
+    const widths = 'Anchos de los compartimentos en X (opcional, p. ej. 40, 60)';
+    await type(widths, '30, 40');
+    expect((byLabel(widths) as HTMLInputElement).value).toBe('30, 40');
+    expect(usePartsUi.getState().values.box).toMatchObject({ dividers_x: 2, divider_widths_x: '30, 40' });
+    expect(dialog().textContent).toContain('no se dibujan en la vista previa');
+  });
+
+  it('«Bandeja y cajón»: cajón con caja exterior y campos según el tipo', async () => {
+    await open();
+    await act(async () => usePartsUi.getState().setGenerator('tray'));
+    await settle();
+    expect(dialog().querySelectorAll('[data-part]')).toHaveLength(5);
+    expect(() => byLabel('Cuánto sobresale el frente por cada lado')).toThrow();
+    await choose('Qué generar', 'drawer_case');
+    expect(byLabel('Cuánto sobresale el frente por cada lado')).toBeTruthy();
+    expect(byLabel('Juego entre cajón y caja (por lado y de fondo)')).toBeTruthy();
+    expect(dialog().querySelectorAll('[data-part]')).toHaveLength(11);
+    await choose('Qué generar', 'drawer');
+    expect(dialog().querySelectorAll('[data-part]')).toHaveLength(6);
+    expect(() => byLabel('Juego entre cajón y caja (por lado y de fondo)')).toThrow();
   });
 
   it('Insertar pone un objeto por pieza, agrupado, en la capa de corte, y guarda los parámetros', async () => {

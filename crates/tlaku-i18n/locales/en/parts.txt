@@ -57,10 +57,24 @@ parts.box.div.sum = The widths add up to {sum} mm but must add up to {total} mm 
 parts.box.div.narrow = A compartment would be {width} mm wide; the minimum is {min} mm. Remove dividers or make the box wider.
 parts.box.div.thin_tabs = Some divider tabs are {width} mm wide, less than the material thickness ({thickness} mm): they are fragile. Increase the finger width.
 parts.box.div.loose_note = Loose dividers: they are shortened by {clearance} mm in length and height and have no tabs; add a dab of glue if they need holding. They still lock together through the half-lap slots.
-parts.box.feet.name = Feet
 parts.box.feet.plinth = Plinth, layer {n}
 parts.box.feet.legs = Legs, layer {n}
 parts.box.feet.too_tall = That would be more than {max} layers of material: lower the height or use thicker material.
 parts.box.feet.too_small = The box is too small for a plinth or legs.
 parts.box.feet.note_plinth = Plinth of {layers} layers ({height} mm): glue the layers together and the stack under the base, set back {inset} mm from the edge.
 parts.box.feet.note_legs = Legs of {layers} layers ({height} mm): cut each piece (four squares) and glue the layers together; one leg at each corner of the base.
+
+# tray
+parts.tray.range = Must be between {min} and {max}.
+parts.tray.name.front = Drawer front
+parts.tray.case.bottom = Outer case: bottom
+parts.tray.case.top = Outer case: top
+parts.tray.case.left = Outer case: left side
+parts.tray.case.right = Outer case: right side
+parts.tray.case.back = Outer case: back
+parts.tray.handle_wide = The handle is too wide for the piece: at most {max} mm.
+parts.tray.handle_deep = The handle is too deep and would reach the teeth of the base: at most {max} mm.
+parts.tray.handle_skipped = The handle does not fit on the straight edge of some piece and was left out.
+parts.tray.front_glue = The front is {w} x {h} mm: glue it on the outside of the body's front wall, centred, so it covers the opening.
+parts.tray.front_short = The front only overhangs {overlap} mm per side and the drawer clearance is {clearance} mm: less than 2 mm is left to cover the gap. Increase the front overhang.
+parts.tray.case_note = Outer case: inside {w} x {h} mm and {d} mm deep, with {c} mm of clearance around the drawer. Open at the front; the drawer slides in there and its front stays outside.

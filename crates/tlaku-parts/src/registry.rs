@@ -16,6 +16,7 @@ use crate::fit_test::{FitTestParams, fit_test_parts};
 use crate::hinge::{HingeParams, hinge_parts};
 use crate::layout::pack;
 use crate::part::{Generated, Part};
+use crate::tray::{TrayParams, tray_parts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tlaku_core::Polyline;
@@ -186,6 +187,12 @@ pub const GENERATORS: &[GeneratorDef] = &[
         run: |v| run::<BoxParams>(v, box_parts),
     },
     GeneratorDef {
+        id: "tray",
+        schema: crate::tray::schema,
+        defaults: to_value::<TrayParams>,
+        run: |v| run::<TrayParams>(v, tray_parts),
+    },
+    GeneratorDef {
         id: "hinge",
         schema: crate::hinge::schema,
         defaults: to_value::<HingeParams>,
@@ -342,10 +349,10 @@ mod tests {
     use tlaku_i18n::{Locale, with_locale};
 
     #[test]
-    fn lists_the_three_generators_with_consistent_schemas() {
+    fn lists_every_generator_with_consistent_schemas() {
         let all = list();
         let ids: Vec<&str> = all.iter().map(|g| g.id.as_str()).collect();
-        assert_eq!(ids, ["box", "hinge", "fit_test"]);
+        assert_eq!(ids, ["box", "tray", "hinge", "fit_test"]);
         for g in &all {
             let defaults = g
                 .defaults

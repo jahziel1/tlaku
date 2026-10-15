@@ -95,7 +95,12 @@ pub(crate) fn feet_parts(
     }
     let height = format!("{:.1}", n as f64 * t);
     let warnings = vec![if p.feet == Feet::Plinth {
-        tr!("parts.box.feet.note_plinth", layers = n, height = height, inset = format!("{t:.1}"))
+        tr!(
+            "parts.box.feet.note_plinth",
+            layers = n,
+            height = height,
+            inset = format!("{t:.1}")
+        )
     } else {
         tr!("parts.box.feet.note_legs", layers = n, height = height)
     }];

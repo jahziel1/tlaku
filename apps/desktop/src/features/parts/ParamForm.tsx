@@ -30,6 +30,16 @@ function Choice({ id, spec, generator, value, onChange }: { id: string; spec: Pa
   );
 }
 
+function TextField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const fieldId = useId();
+  return (
+    <div className="field">
+      <label htmlFor={fieldId} className="field__label">{label}</label>
+      <input id={fieldId} className="input" type="text" maxLength={120} value={value} spellCheck={false} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
 function Field({ info, spec, values, error, onChange }: { info: GeneratorInfo; spec: ParamSpec; values: FormValues; error: PartsError | null; onChange: (key: string, value: unknown) => void }) {
   const label = pt(`${info.id}.${spec.key}`);
   const raw = values[spec.key];
@@ -49,6 +59,8 @@ function Field({ info, spec, values, error, onChange }: { info: GeneratorInfo; s
         {label}
       </label>
     );
+  } else if (kind.type === 'text') {
+    control = <TextField label={label} value={typeof raw === 'string' ? raw : kind.default} onChange={(v) => onChange(spec.key, v)} />;
   } else {
     control = <Choice id={info.id} spec={spec} generator={info.id} value={typeof raw === 'string' ? raw : kind.default} onChange={(v) => onChange(spec.key, v)} />;
   }

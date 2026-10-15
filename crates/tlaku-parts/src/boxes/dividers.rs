@@ -270,7 +270,14 @@ struct Cavity {
 
 /// Arma un divisor. `cross` son las posiciones `s` (desde el inicio de la cavidad) donde otros
 /// divisores lo cruzan.
-fn build(axis: Axis, index: usize, pos: f64, cav: &Cavity, cross: &[f64], p: &BoxParams) -> Divider {
+fn build(
+    axis: Axis,
+    index: usize,
+    pos: f64,
+    cav: &Cavity,
+    cross: &[f64],
+    p: &BoxParams,
+) -> Divider {
     let (t, fit) = (p.thickness_mm, p.fit_mm);
     let (len, height) = (cav.len, cav.height);
     let loose = p.divider_joint == DividerJoint::Loose;
@@ -365,8 +372,16 @@ pub(crate) fn build_dividers(
     };
     let height = top - t;
     let (lx, ly) = (sizes.w - 2.0 * t, sizes.d - 2.0 * t);
-    let xs = positions(t, &compartments(lx, nx, t, &p.divider_widths_x, "divider_widths_x")?, t);
-    let ys = positions(t, &compartments(ly, ny, t, &p.divider_widths_y, "divider_widths_y")?, t);
+    let xs = positions(
+        t,
+        &compartments(lx, nx, t, &p.divider_widths_x, "divider_widths_x")?,
+        t,
+    );
+    let ys = positions(
+        t,
+        &compartments(ly, ny, t, &p.divider_widths_y, "divider_widths_y")?,
+        t,
+    );
     // `s` de los cruces: posición menos el inicio de la cavidad.
     let cross_y: Vec<f64> = ys.iter().map(|y| y - t).collect();
     let cross_x: Vec<f64> = xs.iter().map(|x| x - t).collect();

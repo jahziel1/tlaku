@@ -217,6 +217,50 @@ function boxParts(p: Params): Generated {
   const warnings = [];
   if (kind === 'sliding_lid') warnings.push('Modo simulado: la tapa deslizante se dibuja como tapa lisa sobre una caja abierta.');
   if (fit !== 0) warnings.push('Ya hay holgura de encaje: no la sumes a un kerf de capa que compense lo mismo.');
+  if (num(p, 'dividers_x', 0) + num(p, 'dividers_y', 0) > 0 || str(p, 'feet', 'none') !== 'none') {
+    warnings.push('Modo simulado: los divisores, el zócalo y las patas no se dibujan en la vista previa; el motor real los genera.');
+  }
+  return { parts, warnings };
+}
+
+// ---- bandeja y cajón (aproximación) -----------------------------------------------------------
+
+/**
+ * Aproximación: el cuerpo es la misma caja abierta de arriba; el cajón añade un frente liso más
+ * grande y la caja exterior sale con los ejes cambiados, como en el motor. Las asas no se dibujan
+ * (el motor sí las recorta) y no se validan los anchos de asa.
+ */
+function trayParts(p: Params): Generated {
+  const kind = str(p, 'kind', 'tray');
+  const t = num(p, 'thickness_mm', 3);
+  const body = boxParts({ ...p, kind: 'open', labels: false });
+  const parts = [...body.parts];
+  const warnings = body.warnings.filter((w) => !w.startsWith('Modo simulado'));
+  if (kind !== 'tray') {
+    const front = body.parts.find((x) => x.key === 'front')!;
+    const ov = num(p, 'front_overlap_mm', 6);
+    const w = front.width + 2 * ov;
+    const h = front.height + 2 * ov;
+    parts.push({ key: 'drawer_front', name: 'Frente del cajón', cuts: rectMinusRects(w, h, []), engraves: [], width: w, height: h });
+  }
+  if (kind === 'drawer_case') {
+    const c = num(p, 'drawer_clearance_mm', 0.5);
+    const front = body.parts.find((x) => x.key === 'front')!;
+    const left = body.parts.find((x) => x.key === 'left')!;
+    const names: Record<string, [string, string]> = {
+      front: ['case_bottom', 'Caja exterior: base'],
+      back: ['case_top', 'Caja exterior: tapa'],
+      left: ['case_left', 'Caja exterior: lateral izquierdo'],
+      right: ['case_right', 'Caja exterior: lateral derecho'],
+      bottom: ['case_back', 'Caja exterior: fondo'],
+    };
+    const outer = boxParts({ kind: 'open', dims: 'inner', width_mm: front.width + 2 * c, depth_mm: front.height + 2 * c, height_mm: left.width + c, thickness_mm: t, finger_mm: num(p, 'finger_mm', 10), fit_mm: num(p, 'fit_mm', 0) });
+    for (const x of outer.parts) {
+      const [key, name] = names[x.key]!;
+      parts.push({ ...x, key, name });
+    }
+  }
+  warnings.push('Modo simulado: las asas no se dibujan en la vista previa; el motor real las recorta.');
   return { parts, warnings };
 }
 
@@ -400,13 +444,13 @@ const shift = (paths: PathDto[], dx: number, dy: number): PathDto[] => paths.map
 /** Genera y acomoda en filas, como `tlaku_parts::generate`. */
 export function mockGenerate(id: string, params: Params, maxWidth: number | null | undefined, gapMm: number | null | undefined): GenerateResult {
   const gap = typeof gapMm === 'number' && Number.isFinite(gapMm) ? Math.min(Math.max(gapMm, 0), 100) : 5;
-  if (!['box', 'hinge', 'fit_test'].includes(id)) throw new Error(`No existe el generador «${id}».`);
+  if (!['box', 'tray', 'hinge', 'fit_test'].includes(id)) throw new Error(`No existe el generador «${id}».`);
   try {
     // Como el motor: lo que falte toma el valor de fábrica (el mismo JSON que da el formulario).
     const defaults = (schema as unknown as { id: string; defaults: Params }[]).find((g) => g.id === id)?.defaults ?? {};
     const full: Params = { ...defaults, ...params };
     validateRanges(id, full);
-    const g = id === 'box' ? boxParts(full) : id === 'hinge' ? hingeParts(full) : fitParts(full);
+    const g = id === 'box' ? boxParts(full) : id === 'tray' ? trayParts(full) : id === 'hinge' ? hingeParts(full) : fitParts(full);
     const max = maxWidth && maxWidth > 0 ? maxWidth : Infinity;
     let x = 0, y = 0, rowH = 0, width = 0;
     const placed: PlacedPart[] = g.parts.map((p) => {
