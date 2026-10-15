@@ -678,11 +678,16 @@ fn a_silent_device_is_waited_for_not_dropped_and_cancel_still_ends_the_job() {
         &job.events,
         |e| matches!(e, Event::Silence { ms } if *ms > 0),
     );
-    assert!(
-        job.events
-            .recv_timeout(Duration::from_millis(900))
-            .is_ok_and(|e| !matches!(e, Event::Finished(_)))
-    );
+    // Durante 1,5 s más de silencio el trabajo no termina (no se compara con el ritmo de los
+    // avisos, que sale cada segundo y en una CI lenta puede llegar justo después del plazo).
+    let until = Instant::now() + Duration::from_millis(1500);
+    while let Some(left) = until.checked_duration_since(Instant::now()) {
+        match job.events.recv_timeout(left) {
+            Ok(Event::Finished(_)) => panic!("el trabajo terminó con la placa muda"),
+            Ok(_) => {}
+            Err(_) => break,
+        }
+    }
     let asked = Instant::now();
     job.control.cancel();
     let (_, out) = job.join().unwrap();
