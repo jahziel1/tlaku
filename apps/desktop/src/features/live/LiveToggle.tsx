@@ -11,12 +11,12 @@ export function LiveToggle() {
   const setPref = useStore((s) => s.setPref);
   return (
     <div className="mc-live">
-      <label className="mc-check">
+      <label className="mc-check" title={t('live.toggle.hint')}>
         <input type="checkbox" checked={on} onChange={(e) => setPref('liveView', e.target.checked)} />
         <Eye size={14} aria-hidden="true" />
         <span>{t('live.toggle')}</span>
       </label>
-      <p className="hint">{t('live.toggle.hint')}</p>
+      <p className="hint">{t('live.toggle.short')}</p>
     </div>
   );
 }

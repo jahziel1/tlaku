@@ -4,6 +4,7 @@
  */
 export const live = {
   'live.toggle': 'Vista en vivo',
+  'live.toggle.short': 'Ventana flotante que sigue a la máquina. Solo mira: no envía nada.',
   'live.toggle.hint': 'Muestra en una ventana flotante, sin tapar el diseño, lo que hace la máquina: la cama completa con lo ya quemado en oscuro, lo que falta tenue y el cabezal, siguiendo la posición real que reporta la máquina. Se puede mover, cambiar de tamaño, agrandar o abrir en una ventana aparte (por ejemplo, en otro monitor). Solo mira: no envía nada a la máquina. Apagada, no consume recursos; puedes encenderla en cualquier momento, también a mitad de un trabajo.',
   'live.hud.title': 'Vista en vivo',
   'live.hud.percent': '{percent} %',

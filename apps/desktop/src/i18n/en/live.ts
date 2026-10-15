@@ -3,6 +3,7 @@ import type { live as Source } from '../es/live';
 /** English for the `live` area. Missing keys fall back to Spanish (see `i18n/index.ts`). */
 export const live: { [K in keyof typeof Source]?: string } = {
   'live.toggle': 'Live view',
+  'live.toggle.short': 'A floating window that follows the machine. View only: it sends nothing.',
   'live.toggle.hint': 'Shows what the machine is doing in a floating window that does not cover the design: the whole bed with what is already burned in dark, what is left faint, and the head, following the real position the machine reports. You can move it, resize it, enlarge it, or open it in a separate window (for example, on another monitor). View only: it sends nothing to the machine. When off it uses no resources; you can turn it on at any time, also in the middle of a job.',
   'live.hud.title': 'Live view',
   'live.hud.percent': '{percent}%',
