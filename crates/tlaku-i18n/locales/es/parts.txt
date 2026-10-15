@@ -72,3 +72,34 @@ parts.gears.no_room = En el engranaje de {teeth} dientes no cabe el aligeramient
 parts.gears.ring_more = La corona debe tener más dientes que el piñón ({teeth}).
 parts.gears.ring_diff = La corona tiene solo {diff} dientes más que el piñón (se recomiendan al menos {min}): los dientes pueden interferir.
 parts.gears.contact = La relación de contacto es {ratio} (menos de 1,2): el par puede engranar a tirones o saltarse dientes. Sube el número de dientes o baja el ángulo de presión.
+
+# boxes: divisores, zócalo y patas
+parts.box.div.name_x = Divisor X {n}
+parts.box.div.name_y = Divisor Y {n}
+parts.box.div.bad_width = «{value}» no es un ancho válido: escribe números separados por comas, por ejemplo 40, 60.
+parts.box.div.too_many_widths = Hay más anchos que compartimentos: son {n}.
+parts.box.div.sum = Los anchos suman {sum} mm y deben sumar {total} mm (la cavidad menos los divisores). Escribe solo los primeros y el resto se reparte solo.
+parts.box.div.narrow = Un compartimento mediría {width} mm; el mínimo es {min} mm. Quita divisores o ensancha la caja.
+parts.box.div.thin_tabs = Hay pestañas de divisor de {width} mm, menos que el grosor ({thickness} mm): son frágiles. Sube el ancho de diente.
+parts.box.div.loose_note = Divisores sueltos: se acortan {clearance} mm en largo y en alto y no llevan pestañas; sujétalos con un punto de pegamento si hace falta. Entre sí encajan por las ranuras de media madera.
+parts.box.feet.plinth = Zócalo, capa {n}
+parts.box.feet.legs = Patas, capa {n}
+parts.box.feet.too_tall = Serían más de {max} capas de material: baja la altura o usa un material más grueso.
+parts.box.feet.too_small = La caja es demasiado pequeña para llevar zócalo o patas.
+parts.box.feet.note_plinth = Zócalo de {layers} capas ({height} mm): pega las capas entre sí y la pila bajo la base, retranqueada {inset} mm del borde.
+parts.box.feet.note_legs = Patas de {layers} capas ({height} mm): corta cada pieza (cuatro cuadrados) y pega las capas entre sí; una pata en cada esquina de la base.
+
+# tray
+parts.tray.range = Debe estar entre {min} y {max}.
+parts.tray.name.front = Frente del cajón
+parts.tray.case.bottom = Caja exterior: base
+parts.tray.case.top = Caja exterior: tapa
+parts.tray.case.left = Caja exterior: lateral izquierdo
+parts.tray.case.right = Caja exterior: lateral derecho
+parts.tray.case.back = Caja exterior: fondo
+parts.tray.handle_wide = El asa es demasiado ancha para la pieza: como máximo {max} mm.
+parts.tray.handle_deep = El asa es demasiado honda y llegaría a los dientes de la base: como máximo {max} mm.
+parts.tray.handle_skipped = El asa no cabe en el borde recto de alguna pieza y se omitió.
+parts.tray.front_glue = El frente mide {w} × {h} mm: pégalo por fuera de la pared frontal del cuerpo, centrado, para que tape el hueco.
+parts.tray.front_short = El frente solo sobresale {overlap} mm por lado y el juego del cajón es de {clearance} mm: queda menos de 2 mm para tapar la rendija. Sube el sobrante del frente.
+parts.tray.case_note = Caja exterior: interior de {w} × {h} mm y {d} mm de fondo, con {c} mm de juego alrededor del cajón. Abierta por el frente; el cajón entra por ahí y su frente queda por fuera.

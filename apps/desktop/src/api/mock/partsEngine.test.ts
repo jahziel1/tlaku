@@ -10,7 +10,7 @@ const area = (p: PathDto) => p.points.reduce((s, [x, y], i) => {
 
 describe('simulación de los generadores (la verdad es el motor Rust)', () => {
   it('el formulario viene del mismo JSON que el motor', () => {
-    expect((schema as { id: string }[]).map((g) => g.id)).toEqual(['box', 'hinge', 'fit_test', 'gears']);
+    expect((schema as { id: string }[]).map((g) => g.id)).toEqual(['box', 'tray', 'hinge', 'fit_test', 'gears']);
   });
 
   it('caja de 100×80×60: seis paneles con las medidas pedidas', () => {
@@ -46,6 +46,28 @@ describe('simulación de los generadores (la verdad es el motor Rust)', () => {
     expect(r.parts.find((p) => p.key === 'front')!.width).toBe(96);
     expect(r.parts.find((p) => p.key === 'left')!.width).toBe(76);
     expect(r.parts.find((p) => p.key === 'front')!.height).toBe(46);
+  });
+
+  it('bandeja: cinco paneles; cajón: más un frente mayor; con caja: cinco piezas más', () => {
+    const tray = mockGenerate('tray', {}, null, 5);
+    expect(tray.error).toBeNull();
+    expect(tray.parts.map((p) => p.key)).toEqual(['front', 'back', 'left', 'right', 'bottom']);
+    expect(tray.parts[0]!.height).toBe(30);
+    const drawer = mockGenerate('tray', { kind: 'drawer', front_overlap_mm: 8 }, null, 5);
+    const plate = drawer.parts.find((p) => p.key === 'drawer_front')!;
+    expect([plate.width, plate.height]).toEqual([136, 46]);
+    const cased = mockGenerate('tray', { kind: 'drawer_case', drawer_clearance_mm: 1 }, null, 5);
+    expect(cased.parts.map((p) => p.key)).toEqual(expect.arrayContaining(['case_back', 'case_top', 'case_bottom', 'case_left', 'case_right']));
+    // Interior de la caja = cajón + 2 de juego; exterior suma el grosor.
+    expect(cased.parts.find((p) => p.key === 'case_back')!.width).toBeCloseTo(120 + 2 + 6, 9);
+  });
+
+  it('los divisores avisan que el modo simulado no los dibuja', () => {
+    const r = mockGenerate('box', { dividers_x: 2 }, null, 5);
+    expect(r.error).toBeNull();
+    expect(r.warnings.some((w) => w.includes('divisores'))).toBe(true);
+    const bad = mockGenerate('box', { dividers_x: 11 }, null, 5);
+    expect(bad.error?.field).toBe('dividers_x');
   });
 
   it('acomoda en filas dentro del ancho dado y sin tocarse', () => {

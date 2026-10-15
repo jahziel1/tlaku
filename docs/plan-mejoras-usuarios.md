@@ -96,15 +96,25 @@ mezcla con la B.
 
 ## 2. Generadores de piezas (cajas, bisagras, engranajes, bandejas, uniones)
 
-**(a) Estado: fases 2a+2b+2c implementadas (Ola B, fase 1); faltan bandejas y cola de milano.** Hecho en `crates/tlaku-parts`
+**(a) Estado: fases 2a+2b+2c implementadas (Ola B, fase 1), más engranajes, bandejas, cajones, divisores y patas; falta cola de milano.** Hecho en `crates/tlaku-parts`
 (geometría) y `apps/desktop/src/features/parts/` (diálogo «Herramientas > Generadores de piezas…», vista previa en vivo,
 Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en [mapa.md](mapa.md)):
 
 - **Caja con dientes:** cerrada, abierta y con tapa deslizante; medidas exteriores o interiores; ancho de diente que se
   ajusta a un número impar de celdas iguales (simétrico en cada arista); holgura de encaje (ranura − diente) aparte del
   kerf; rótulos grabados en la cara exterior. El encaje se prueba en 3D (cada punto de las losas de los paneles lo tiene
-  exactamente un panel; dientes alternados, profundidad = grosor). Pendiente de la lista original: divisores con media
-  ranura y patas.
+  exactamente un panel; dientes alternados, profundidad = grosor).
+- **Divisores de la caja (hecho):** `dividers_x` y `dividers_y` láminas con compartimentos iguales o de anchos propios
+  (`divider_widths_*`, texto libre), pestañas en ranuras de paredes, base y tapa (repartidas con el mismo reparto de dientes,
+  con holgura `fit_mm`) o sueltos con juego propio, y cruces de media madera complementarios (cada uno pierde media altura
+  exacta). La prueba volumétrica de la caja se amplió: con holgura 0 cada punto de una losa de panel o de divisor tiene
+  exactamente una pieza (las pestañas llenan sus ranuras, los cruces se complementan) y con holgura nunca hay dos.
+- **Zócalo y patas (hecho, versión sencilla):** pila de capas planas del grosor del material que se pegan bajo la base
+  (marco retranqueado o cuatro cuadrados); no cambia las uniones de la caja. Pendiente: patas con pestañas en ranuras de la
+  base y arcos recortados en las paredes.
+- **Bandeja y cajón (hecho):** generador `tray` sobre la caja abierta de dientes, con asas (muesca redondeada o ojal en dos
+  lados), cajón con frente grande pegado que tapa el hueco y caja exterior abierta por el frente con el juego pedido.
+  Pendiente: guías o correderas del cajón y divisores dentro de la bandeja.
 - **Bisagra flexible:** rectas escalonadas, onda y zigzag, en horizontal o vertical, con puentes, margen y esquinas
   redondeadas. Pendiente: integrarla en un lateral de caja (franja flexible con dientes) y los patrones ladrillo y rombo.
 - **Pieza de prueba de encaje:** placa de 13 ranuras (grosor o diente ± pasos de 0,05 mm, valores grabados) y un macho.

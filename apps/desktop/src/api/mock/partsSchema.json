@@ -126,19 +126,333 @@
         },
         "section": "options",
         "when": null
+      },
+      {
+        "key": "dividers_x",
+        "kind": {
+          "type": "int",
+          "min": 0,
+          "max": 10,
+          "default": 0
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "dividers_y",
+        "kind": {
+          "type": "int",
+          "min": 0,
+          "max": 10,
+          "default": 0
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_widths_x",
+        "kind": {
+          "type": "text",
+          "default": ""
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_widths_y",
+        "kind": {
+          "type": "text",
+          "default": ""
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_joint",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "tabs",
+            "loose"
+          ],
+          "default": "tabs"
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_clearance_mm",
+        "kind": {
+          "type": "length",
+          "min": -0.5,
+          "max": 1.0,
+          "step": 0.05,
+          "default": 0.1
+        },
+        "section": "dividers",
+        "when": {
+          "key": "divider_joint",
+          "any_of": [
+            "loose"
+          ]
+        }
+      },
+      {
+        "key": "feet",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "none",
+            "plinth",
+            "legs"
+          ],
+          "default": "none"
+        },
+        "section": "feet",
+        "when": null
+      },
+      {
+        "key": "foot_height_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 60.0,
+          "step": 1.0,
+          "default": 12.0
+        },
+        "section": "feet",
+        "when": {
+          "key": "feet",
+          "any_of": [
+            "plinth",
+            "legs"
+          ]
+        }
       }
     ],
     "defaults": {
       "depth_mm": 80.0,
       "dims": "outer",
+      "divider_clearance_mm": 0.1,
+      "divider_joint": "tabs",
+      "divider_widths_x": "",
+      "divider_widths_y": "",
+      "dividers_x": 0,
+      "dividers_y": 0,
+      "feet": "none",
       "finger_mm": 10.0,
       "fit_mm": 0.0,
+      "foot_height_mm": 12.0,
       "height_mm": 60.0,
       "kind": "closed",
       "labels": false,
       "lid_clearance_mm": 0.2,
       "thickness_mm": 3.0,
       "width_mm": 100.0
+    }
+  },
+  {
+    "id": "tray",
+    "params": [
+      {
+        "key": "kind",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "tray",
+            "drawer",
+            "drawer_case"
+          ],
+          "default": "tray"
+        },
+        "section": "tray",
+        "when": null
+      },
+      {
+        "key": "dims",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "outer",
+            "inner"
+          ],
+          "default": "outer"
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "width_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 5000.0,
+          "step": 1.0,
+          "default": 120.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "depth_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 5000.0,
+          "step": 1.0,
+          "default": 90.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "height_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 5000.0,
+          "step": 1.0,
+          "default": 30.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "thickness_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.5,
+          "max": 20.0,
+          "step": 0.1,
+          "default": 3.0
+        },
+        "section": "size",
+        "when": null
+      },
+      {
+        "key": "finger_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.5,
+          "max": 200.0,
+          "step": 0.5,
+          "default": 10.0
+        },
+        "section": "joints",
+        "when": null
+      },
+      {
+        "key": "fit_mm",
+        "kind": {
+          "type": "length",
+          "min": -0.5,
+          "max": 1.0,
+          "step": 0.01,
+          "default": 0.0
+        },
+        "section": "joints",
+        "when": null
+      },
+      {
+        "key": "handle",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "none",
+            "notch",
+            "hole"
+          ],
+          "default": "none"
+        },
+        "section": "handle",
+        "when": null
+      },
+      {
+        "key": "handle_width_mm",
+        "kind": {
+          "type": "length",
+          "min": 5.0,
+          "max": 300.0,
+          "step": 1.0,
+          "default": 30.0
+        },
+        "section": "handle",
+        "when": {
+          "key": "handle",
+          "any_of": [
+            "notch",
+            "hole"
+          ]
+        }
+      },
+      {
+        "key": "handle_depth_mm",
+        "kind": {
+          "type": "length",
+          "min": 3.0,
+          "max": 100.0,
+          "step": 1.0,
+          "default": 12.0
+        },
+        "section": "handle",
+        "when": {
+          "key": "handle",
+          "any_of": [
+            "notch",
+            "hole"
+          ]
+        }
+      },
+      {
+        "key": "front_overlap_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 30.0,
+          "step": 0.5,
+          "default": 6.0
+        },
+        "section": "drawer",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "drawer",
+            "drawer_case"
+          ]
+        }
+      },
+      {
+        "key": "drawer_clearance_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 5.0,
+          "step": 0.1,
+          "default": 0.5
+        },
+        "section": "drawer",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "drawer_case"
+          ]
+        }
+      }
+    ],
+    "defaults": {
+      "depth_mm": 90.0,
+      "dims": "outer",
+      "drawer_clearance_mm": 0.5,
+      "finger_mm": 10.0,
+      "fit_mm": 0.0,
+      "front_overlap_mm": 6.0,
+      "handle": "none",
+      "handle_depth_mm": 12.0,
+      "handle_width_mm": 30.0,
+      "height_mm": 30.0,
+      "kind": "tray",
+      "thickness_mm": 3.0,
+      "width_mm": 120.0
     }
   },
   {

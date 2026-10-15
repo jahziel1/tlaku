@@ -24,6 +24,7 @@ pub mod rectilinear;
 pub mod registry;
 #[cfg(test)]
 mod testutil;
+pub mod tray;
 
 pub use error::PartsError;
 pub use part::{Generated, Part};

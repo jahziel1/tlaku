@@ -25,6 +25,26 @@ Panels join with **alternating fingers**: on every edge, one panel has a finger 
 - **Fit clearance** (slot − finger): see below. **0** is nominal; positive is looser, negative is tighter.
 - **Engrave each panel name**: labels every panel (FRONT, BACK, LEFT, RIGHT, BOTTOM, LID) on its **outer face**, reading correctly when you place the piece with that face up. If it does not fit between the fingers it is left out with a notice.
 
+## Box dividers, plinth and legs
+
+In the box, the **Dividers** section splits the inside into compartments.
+
+- **Dividers across the width (split X)** and **across the depth (split Y)**: how many sheets the box has in each direction (0 to 10). With 2 and 1 you get six compartments. Dividers go the **full inside height** (in the closed box they reach the lid; in the sliding-lid box, up to the lid; in the open box, to the rim).
+- **Compartment widths**: empty = all equal. If you type sizes (`40, 60`; `;` or spaces also work) they apply to the **first** compartments and the remaining ones share what is left equally; if you type **all** of them they must add up to the cavity minus the dividers (the field tells you how much). A compartment cannot be narrower than two thicknesses.
+- **How they are held**: with *Tabs in slots* every divider has tabs, exactly as thick as the wall or base that receives them, that go into **slots** in the side walls, the base and the lid (if any); the tabs use the same finger layout as the box and always leave a plain stretch between the slot and the edge. With *Loose* there are no slots in the walls: every divider is shortened by the **loose divider clearance** in length and height and drops in between the walls (a dab of glue holds it if needed).
+- **Half-lap crossings**: where an X divider crosses a Y divider, the X one loses its top half and the Y one its bottom half, in slots one thickness wide (plus clearance) and **exactly half the height** deep. You assemble them by sliding one into the other, and they neither overlap nor leave a gap. There are no tabs at crossings.
+- The box **fit clearance** applies here too: slots are the tab (or the thickness of the crossing divider) plus that clearance, split between both sides. At 0 it is nominal; the layer compensates the kerf, just like the fingers.
+
+The **Plinth or legs** section raises the box. It is a stack of **flat layers one material thickness thick** that you **glue** together and under the base (they have no joints, so the box does not change): *Plinth* is a frame set back one thickness from the edge of the base and *Four legs* is four squares per layer, one leg at each corner. The **height** is rounded to a number of layers (up to 10) and the notice tells you how many layers and how many mm you get.
+
+## Tray and drawer
+
+The **Tray and drawer** generator uses the same open finger-joint box (same edge rules, clearance and kerf) and adds handles and, if you want, a front and an outer case. Dimensions are those of the **body**.
+
+- **Open tray**: five low-sided panels. With **Handle** set to *Rounded notch* the left and right sides get a U-shaped cutout with a rounded bottom, open at the top edge; with *Pill-shaped hole* it is a slot near the edge. **Handle width** and **notch depth / hole height** are validated so they do not touch the corner or base fingers.
+- **Drawer with oversized front**: the body plus a **plain front** that overhangs by **Front overhang on each side** on every side, top and bottom. It is **glued on the outside** of the front wall, centred, and covers the opening of the cabinet. The handle goes on the front, and the same cutout goes through the body's front wall behind it so a finger can get in.
+- **Drawer and outer case**: it also produces a case open at the front whose inside is the drawer plus the **drawer-to-case clearance** on every side and at the back; it is the open finger-joint box with swapped axes (five pieces: bottom, top, two sides and back). The drawer slides in through the front and its front stays outside; the generator warns if the front does not cover the gap (overhang minus clearance under 2 mm).
+
 ## Kerf and clearance: two different things
 
 The laser removes material: the beam has a width (the **kerf**, 0.1 to 0.3 mm depending on machine and material). That is why a "perfect" joint in the drawing comes out loose or tight when cut.
@@ -80,6 +100,6 @@ Parameters are saved **in the project**. Selecting the group shows the **Generat
 
 ## Limits
 
-- Boxes are **flat panels with fingers**: no dividers, feet or rounded corners (for now). The **sliding lid** is a simple solution: make sure the strip above the side panels (two thicknesses) holds up in your material.
+- Boxes are **flat panels with fingers**: no rounded corners (for now). Dividers and plinth use nominal sizes and clearance; the fit test gives you the value for your material. The **sliding lid** is a simple solution: make sure the strip above the side panels (two thicknesses) holds up in your material.
 - Geometry and fit are checked by automated tests, but the **real fit depends on your machine and material**: always cut the test piece and a small box first.
 - Everything is computed on your computer; nothing is sent to the internet.

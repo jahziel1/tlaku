@@ -17,6 +17,7 @@ use crate::gears::{GearParams, gears_parts};
 use crate::hinge::{HingeParams, hinge_parts};
 use crate::layout::pack;
 use crate::part::{Generated, Part};
+use crate::tray::{TrayParams, tray_parts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tlaku_core::Polyline;
@@ -50,6 +51,10 @@ pub enum ParamKind {
     },
     Bool {
         default: bool,
+    },
+    /// Texto corto libre (una lista de medidas, por ejemplo).
+    Text {
+        default: String,
     },
     /// Una opción de una lista cerrada (los valores son los del JSON).
     Choice {
@@ -120,6 +125,16 @@ impl ParamSpec {
         Self::new(key, section, ParamKind::Bool { default })
     }
 
+    pub(crate) fn text(key: &str, section: &str, default: &str) -> Self {
+        Self::new(
+            key,
+            section,
+            ParamKind::Text {
+                default: default.to_string(),
+            },
+        )
+    }
+
     pub(crate) fn choice(key: &str, section: &str, options: &[&str], default: &str) -> Self {
         Self::new(
             key,
@@ -171,6 +186,12 @@ pub const GENERATORS: &[GeneratorDef] = &[
         schema: crate::boxes::schema,
         defaults: to_value::<BoxParams>,
         run: |v| run::<BoxParams>(v, box_parts),
+    },
+    GeneratorDef {
+        id: "tray",
+        schema: crate::tray::schema,
+        defaults: to_value::<TrayParams>,
+        run: |v| run::<TrayParams>(v, tray_parts),
     },
     GeneratorDef {
         id: "hinge",
@@ -335,10 +356,10 @@ mod tests {
     use tlaku_i18n::{Locale, with_locale};
 
     #[test]
-    fn lists_the_generators_with_consistent_schemas() {
+    fn lists_every_generator_with_consistent_schemas() {
         let all = list();
         let ids: Vec<&str> = all.iter().map(|g| g.id.as_str()).collect();
-        assert_eq!(ids, ["box", "hinge", "fit_test", "gears"]);
+        assert_eq!(ids, ["box", "tray", "hinge", "fit_test", "gears"]);
         for g in &all {
             let defaults = g
                 .defaults
@@ -370,6 +391,7 @@ mod tests {
                         assert!(min < max);
                     }
                     ParamKind::Bool { default } => assert_eq!(v.as_bool(), Some(*default)),
+                    ParamKind::Text { default } => assert_eq!(v.as_str(), Some(default.as_str())),
                     ParamKind::Choice { options, default } => {
                         assert_eq!(v.as_str(), Some(default.as_str()));
                         assert!(options.contains(default));

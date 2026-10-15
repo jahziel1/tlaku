@@ -55,7 +55,9 @@ mod tests {
     #[test]
     fn lists_every_generator() {
         let ids: Vec<String> = list_generators().into_iter().map(|g| g.id).collect();
-        assert_eq!(ids, ["box", "hinge", "fit_test", "gears"]);
+        for id in ["box", "tray", "hinge", "fit_test", "gears"] {
+            assert!(ids.iter().any(|i| i == id), "falta {id}");
+        }
     }
 
     #[test]

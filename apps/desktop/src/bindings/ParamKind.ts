@@ -3,4 +3,4 @@
 /**
  * Tipo de un campo del formulario.
  */
-export type ParamKind = { "type": "length", min: number, max: number, step: number, default: number, } | { "type": "number", min: number, max: number, step: number, default: number, } | { "type": "int", min: number, max: number, default: number, } | { "type": "bool", default: boolean, } | { "type": "choice", options: Array<string>, default: string, };
+export type ParamKind = { "type": "length", min: number, max: number, step: number, default: number, } | { "type": "number", min: number, max: number, step: number, default: number, } | { "type": "int", min: number, max: number, default: number, } | { "type": "bool", default: boolean, } | { "type": "text", default: string, } | { "type": "choice", options: Array<string>, default: string, };
