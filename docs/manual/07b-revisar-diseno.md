@@ -72,4 +72,4 @@ En el paso **Revisar** del [modo sencillo](01b-modo-sencillo.md), los mismos hal
 - No cambia los umbrales desde la interfaz.
 - Mira el diseño tal como está **ahora**: no recuerda lo que viste antes, salvo lo que ignoraste en esta sesión.
 
-Siguiente: [Conectar tu máquina](08-conectar-maquina.md)
+Siguiente: [Costos y precio por pieza](07c-costos-y-precio.md)

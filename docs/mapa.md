@@ -199,6 +199,17 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/store/prefs.ts` (`cameraReopen`, `cameraFrameWidth`), `features/settings/SettingsDialog.tsx` (`CameraGroup`) | Preferencias de cámara (M51) |
 | `crates/tlaku-doc/src/lbdev.rs`, `src-tauri/src/edit/devices.rs` (`read_lbdev`), `src/features/machine/{lbdevImport.ts,LbdevImportDialog.tsx}`, mock `api/mock/devices.ts` (`mockReadLbdev`), textos `devices.lbdev.*` | Importar perfil de LightBurn (`.lbdev`, M3): el motor lee y propone perfiles (nada se guarda ni se envía a la máquina) y el diálogo del gestor de dispositivos muestra resumen y avisos antes de guardar con `save_device`. Mapeo de claves y deducción del origen en la cabecera de `lbdev.rs` |
 
+### Agregado: costos y precio por pieza (mejora 3 del plan de usuarios)
+
+| Dónde | Qué |
+|---|---|
+| `src/features/costs/costModel.ts` | Fórmulas puras (`computeCost`, `priceBeforeRounding`, `roundMoney`, `roundUpTo`); la cabecera documenta costo y precio: la comisión y los impuestos se cobran sobre el precio final (`C(1+m)/(1−c−t)` o `C/(1−c−t−m)`), el precio se redondea siempre hacia arriba |
+| `src/features/costs/costMetrics.ts` | Del diseño y la vista previa: tiempo, tiempo con láser encendido (`getModel().distances`), longitud de corte, caja envolvente y área real (`evenOddArea`), piezas; `calibrationFactor`/`resolveTime` con el registro de trabajos (`features/help/jobLog.ts`) |
+| `src/features/costs/{currency,costProfiles,costStore}.ts` | Moneda y formato regional (`defaultCurrency`, `formatMoney`), saneado y persistencia en `localStorage` (`tlaku.costs`: valores por máquina, perfiles de material con nombre, venta), store de zustand con `openDialog` |
+| `src/features/costs/{CostDialog,CostInputsPanel,CostResultPanel,useCostCalc}.tsx`, `costs.css` | Diálogo «Costos y precio» (se monta en `AppShell`); botones en `machine/JobSection.tsx` y `preview/PreviewBar.tsx`; comando `costs.open` en `commands/definitions/costs.ts` |
+| `src/features/costs/{costReport,costFiles}.ts` | Desglose en texto y CSV (`reportText`, `reportCsv`, `csvField` neutraliza fórmulas) y guardado (`write_settings_backup` acepta `.csv`) |
+| `src/i18n/{es,en}/costs.ts`; manual `docs/manual/07c-costos-y-precio.md` (+ `en/`) | Textos (prefijo `costs.`) y página del manual |
+
 ## 3. Recetas: "dónde agrego..."
 
 Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings`,
