@@ -16,6 +16,7 @@ pub mod error;
 pub mod fingers;
 pub mod fit_test;
 pub mod font;
+pub mod gears;
 pub mod hinge;
 pub mod layout;
 pub mod part;

@@ -82,7 +82,7 @@ describe('diálogo «Generadores de piezas»', () => {
     await open();
     expect(dialog().textContent).toContain('Generadores de piezas');
     const names = [...dialog().querySelectorAll('.parts__gen-name')].map((n) => n.textContent);
-    expect(names).toEqual(['Caja con dientes', 'Bisagra flexible', 'Prueba de encaje']);
+    expect(names).toEqual(['Caja con dientes', 'Bisagra flexible', 'Prueba de encaje', 'Engranajes']);
     const svg = dialog().querySelector('[data-testid="parts-preview"]');
     expect(svg).not.toBeNull();
     expect(svg!.querySelectorAll('[data-part]')).toHaveLength(6);

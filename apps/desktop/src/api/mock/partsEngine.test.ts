@@ -10,7 +10,7 @@ const area = (p: PathDto) => p.points.reduce((s, [x, y], i) => {
 
 describe('simulación de los generadores (la verdad es el motor Rust)', () => {
   it('el formulario viene del mismo JSON que el motor', () => {
-    expect((schema as { id: string }[]).map((g) => g.id)).toEqual(['box', 'hinge', 'fit_test']);
+    expect((schema as { id: string }[]).map((g) => g.id)).toEqual(['box', 'hinge', 'fit_test', 'gears']);
   });
 
   it('caja de 100×80×60: seis paneles con las medidas pedidas', () => {
@@ -101,5 +101,27 @@ describe('simulación de los generadores (la verdad es el motor Rust)', () => {
     expect(r).toHaveLength(1);
     expect(r[0]!.points).toHaveLength(6);
     expect(area(r[0]!)).toBeCloseTo(88, 9);
+  });
+
+  it('engranajes: radio exterior m(z+2)/2 y par con distancia entre centros m(z1+z2)/2', () => {
+    const one = mockGenerate('gears', { teeth: 20, module_mm: 2, bore_mm: 0 }, null, 5);
+    expect(one.error).toBeNull();
+    expect(one.parts[0]!.width).toBeGreaterThan(43.5);
+    expect(one.parts[0]!.width).toBeLessThanOrEqual(44 + 1e-9);
+    const pair = mockGenerate('gears', { kind: 'pair', teeth: 20, teeth2: 40, module_mm: 2 }, null, 5);
+    expect(pair.parts).toHaveLength(1);
+    const [, bore1, , bore2] = pair.parts[0]!.cuts;
+    const center = (c: PathDto) => [c.points.reduce((a, q) => a + q[0], 0) / c.points.length, c.points.reduce((a, q) => a + q[1], 0) / c.points.length] as const;
+    expect(Math.hypot(center(bore1!)[0] - center(bore2!)[0], center(bore1!)[1] - center(bore2!)[1])).toBeCloseTo(60, 6);
+    expect(pair.warnings.length).toBeGreaterThan(0);
+    const separate = mockGenerate('gears', { kind: 'pair', layout: 'separate' }, null, 5);
+    expect(separate.parts).toHaveLength(2);
+  });
+
+  it('engranajes: la corona necesita más dientes que el piñón y pocos dientes avisa de socavado', () => {
+    const r = mockGenerate('gears', { kind: 'ring', teeth: 30, teeth2: 30 }, null, 5);
+    expect(r.error?.field).toBe('teeth2');
+    expect(mockGenerate('gears', { teeth: 10 }, null, 5).warnings.some((w) => w.includes('17'))).toBe(true);
+    expect(mockGenerate('gears', { kind: 'rack', rack_teeth: 8 }, null, 5).parts[0]!.width).toBeCloseTo(8 * Math.PI * 2, 6);
   });
 });

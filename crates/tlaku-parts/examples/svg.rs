@@ -72,6 +72,21 @@ fn main() {
             "fit_test",
             json!({"mode": "finger"}),
         ),
+        (
+            "engranajes-par-20-40",
+            "gears",
+            json!({"kind": "pair", "teeth": 20, "teeth2": 40, "bore_type": "keyway", "bore_mm": 6, "bore2_mm": 8, "key_width_mm": 2, "key_depth_mm": 1, "lightening": "holes", "lightening_count": 6}),
+        ),
+        (
+            "engranajes-corona",
+            "gears",
+            json!({"kind": "ring", "teeth": 18, "teeth2": 45, "bore_type": "d_flat", "bore_mm": 6}),
+        ),
+        (
+            "engranajes-cremallera",
+            "gears",
+            json!({"kind": "rack_pinion", "teeth": 16, "rack_teeth": 10, "lightening": "spokes", "lightening_count": 5, "bore_mm": 6}),
+        ),
     ];
     for (name, id, params) in cases {
         let r = generate(id, &params, Some(420.0), 5.0).unwrap();

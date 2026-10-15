@@ -1,6 +1,6 @@
-# Generadores de piezas: cajas, bisagras flexibles y prueba de encaje
+# Generadores de piezas: cajas, bisagras flexibles, engranajes y prueba de encaje
 
-**Herramientas > Generadores de piezas…** dibuja por ti piezas que se cortan con láser y se arman: una **caja con dientes** (finger joints), una **bisagra flexible** (living hinge) y una **pieza de prueba de encaje** para calibrar tu máquina. Pones las medidas, ves las piezas en vivo y **Insertar** las deja en el diseño como objetos vectoriales normales, que puedes editar, mover o anidar como cualquier otro.
+**Herramientas > Generadores de piezas…** dibuja por ti piezas que se cortan con láser y se arman: una **caja con dientes** (finger joints), una **bisagra flexible** (living hinge) y una **pieza de prueba de encaje** para calibrar tu máquina y **engranajes** de evolvente. Pones las medidas, ves las piezas en vivo y **Insertar** las deja en el diseño como objetos vectoriales normales, que puedes editar, mover o anidar como cualquier otro.
 
 Los atajos se escriben con `Ctrl/Cmd`: `Cmd` en macOS y `Ctrl` en Windows y Linux. Las medidas usan la unidad de **Preferencias** (mm o pulgadas); por dentro todo es mm.
 
@@ -56,6 +56,23 @@ Una zona de **cortes alternados** deja doblar madera, contrachapado o acrílico 
 - **Radio de las esquinas** redondea el contorno; **Incluir el contorno como corte** lo quita si solo quieres el patrón dentro de una pieza que tú dibujas (mueve el grupo adonde lo necesites).
 - Más puentes y filas más separadas = más rígida; cortes más largos y filas más juntas = más flexible. La flexión real depende del material y de la veta: **prueba un trozo** antes de cortar la pieza final. Puentes menores de 1 mm o filas a menos de 1 mm se rompen con facilidad y el generador avisa.
 - Cada corte es una **línea abierta** sin ancho; el kerf de la capa no los modifica (los puentes ya cuentan con que el haz se come un poco).
+
+## Engranajes
+
+Engranajes **rectos de evolvente**, listos para cortar. En **Qué generar** eliges: *Un engranaje*, *Par de engranajes* (dos que engranan), *Piñón y corona* (engranaje interior: el piñón gira dentro de un aro dentado), *Cremallera* o *Piñón y cremallera*.
+
+- **Tamaño del diente:** por **módulo** (mm; el diámetro primitivo es `m·z` y el exterior `m·(z+2)`) o por **paso diametral** (dientes por pulgada: `m = 25,4/DP`). Con módulo 2 y 20 dientes sale un engranaje de 40 mm primitivo y 44 mm exterior. Para que dos engranajes engranen deben tener **el mismo módulo y el mismo ángulo de presión**; el generador usa el mismo para todo el conjunto.
+- **Ángulo de presión:** 14,5° (antiguo), **20° (estándar)** o 25° (diente más robusto, de pie más ancho).
+- **Distancia entre centros:** en un par es `m·(z1+z2)/2`; en la corona, `m·(z2−z1)/2`. Con **Engranando, en un solo objeto** las piezas salen ya colocadas a esa distancia y con el diente de uno metido en el hueco del otro (un solo objeto, para ver el engrane; mueve el grupo adonde lo necesites). Con **Separadas** sale una pieza por engranaje, en filas, para cortar o mover por separado.
+- **Juego (backlash)** y **holgura de cabeza:** el juego adelgaza cada diente la mitad del valor sobre el círculo primitivo, de modo que el par queda con ese juego entre flancos **sin cambiar la distancia entre centros**; 0,1 mm es un punto de partida para madera de 3 mm, pero depende de tu kerf y de tu máquina (con el kerf de la capa activado, el juego pedido es el que queda de verdad). La holgura de cabeza (0,25 del módulo por omisión) deja libre el fondo para la punta del otro engranaje.
+- **Pie del diente:** con **filete** (más resistente) o **simple**. La **tolerancia de las curvas** (0,01 mm) es cuánto puede apartarse el polígono del evolvente exacto; más baja = más puntos.
+- **Agujero central:** redondo, con **chavetero** (ancho y profundidad) o **eje en D** (un plano); 0 = sin agujero. El segundo engranaje de un par tiene su propio diámetro. Si el agujero deja menos de 1 mm de pared bajo el fondo de los dientes, se rechaza.
+- **Aligeramiento:** **agujeros redondos** o **radios** (aberturas entre rayos de ancho constante), en la cantidad que pidas, entre el cubo y el fondo de los dientes; el **material mínimo** fija la pared del cubo y del aro y el ancho de los rayos. Si no cabe, se omite con un aviso.
+- **Corona:** el **espesor del aro** exterior es aparte. **Cremallera:** número de dientes y espesor del cuerpo bajo el fondo; el largo es `dientes × π·m`.
+
+**Avisos:** con pocos dientes hay **socavado** (el pie del diente se debilita y el engranaje puede trabarse): el mínimo práctico es `2/sin²α` (17 dientes a 20°, 32 a 14,5°, 11 a 25°) y el aviso lo sugiere. También avisa de puntas muy finas, de una **relación de contacto** menor de 1,2 (el par engrana a tirones) y de una corona con menos de 8 dientes más que el piñón. Los dientes que acaban en punta o un agujero que no cabe son errores y marcan el campo. El generador no sabe el tamaño de tu cama: el diálogo avisa si el conjunto no cabe.
+
+Los dientes pierden precisión con módulos menores de 1 mm en madera o acrílico (el haz ya es del orden del diente): empieza con módulo 2 o más y corta primero un par de prueba.
 
 ## Regenerar
 

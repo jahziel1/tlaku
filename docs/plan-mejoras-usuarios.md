@@ -96,7 +96,7 @@ mezcla con la B.
 
 ## 2. Generadores de piezas (cajas, bisagras, engranajes, bandejas, uniones)
 
-**(a) Estado: fase 2a+2b implementada (Ola B, fase 1); faltan engranajes, bandejas y cola de milano.** Hecho en `crates/tlaku-parts`
+**(a) Estado: fases 2a+2b+2c implementadas (Ola B, fase 1); faltan bandejas y cola de milano.** Hecho en `crates/tlaku-parts`
 (geometría) y `apps/desktop/src/features/parts/` (diálogo «Herramientas > Generadores de piezas…», vista previa en vivo,
 Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en [mapa.md](mapa.md)):
 
@@ -108,6 +108,17 @@ Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en
 - **Bisagra flexible:** rectas escalonadas, onda y zigzag, en horizontal o vertical, con puentes, margen y esquinas
   redondeadas. Pendiente: integrarla en un lateral de caja (franja flexible con dientes) y los patrones ladrillo y rombo.
 - **Pieza de prueba de encaje:** placa de 13 ranuras (grosor o diente ± pasos de 0,05 mm, valores grabados) y un macho.
+- **Engranajes (2c):** `crates/tlaku-parts/src/gears/` (`involute.rs` = perfil, `mod.rs` = parámetros y piezas). Engranaje recto
+  de evolvente por módulo o paso diametral (14,5°/20°/25°), holgura de cabeza, juego (adelgaza cada diente `b/2`: el par
+  conserva la distancia entre centros `m(z1+z2)/2`), pie con filete (tangente y sin invadir la holgura del conjugado) o
+  simple, agujero redondo/con chavetero/en D y aligeramiento (agujeros o radios). Un engranaje, par, piñón con corona
+  (hueco = perfil exterior con cabeza y pie intercambiados), cremallera y piñón con cremallera, engranando en un solo
+  objeto o por separado. Avisos: socavado con `z < 2/sin²α` (sugiere el mínimo), punta fina, relación de contacto < 1,2,
+  corona con < 8 dientes más. Pruebas: medidas nominales, puntos contra la evolvente en cartesianas, flecha ≤ tolerancia,
+  simetría, sin autointersección (3 ángulos, con y sin filete y juego), el par/corona/cremallera no se traslapan en 13
+  posiciones del giro y el juego es exacto (`r·δ = b/2` por lado). Sin simular el tallado: por debajo del círculo base el
+  flanco sigue radial. Pendiente: corrección de perfil (desplazamiento) para evitar el socavado, dientes helicoidales
+  y validar con corte real (holgura en madera de 3 mm).
 - **Kerf:** la geometría es nominal y el kerf lo compensa la capa (`LayerSettings.kerf`, C12); el diálogo avisa que hay
   que activarlo para que las uniones encajen.
 - **Registro en el documento:** `Document.generators` (grupo, generador, parámetros JSON, capas), retrocompatible.

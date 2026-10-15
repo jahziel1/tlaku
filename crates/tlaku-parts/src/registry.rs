@@ -13,6 +13,7 @@
 use crate::boxes::{BoxParams, box_parts};
 use crate::error::PartsError;
 use crate::fit_test::{FitTestParams, fit_test_parts};
+use crate::gears::{GearParams, gears_parts};
 use crate::hinge::{HingeParams, hinge_parts};
 use crate::layout::pack;
 use crate::part::{Generated, Part};
@@ -183,6 +184,12 @@ pub const GENERATORS: &[GeneratorDef] = &[
         defaults: to_value::<FitTestParams>,
         run: |v| run::<FitTestParams>(v, fit_test_parts),
     },
+    GeneratorDef {
+        id: "gears",
+        schema: crate::gears::schema,
+        defaults: to_value::<GearParams>,
+        run: |v| run::<GearParams>(v, gears_parts),
+    },
 ];
 
 /// Ficha de un generador para el formulario.
@@ -328,10 +335,10 @@ mod tests {
     use tlaku_i18n::{Locale, with_locale};
 
     #[test]
-    fn lists_the_three_generators_with_consistent_schemas() {
+    fn lists_the_generators_with_consistent_schemas() {
         let all = list();
         let ids: Vec<&str> = all.iter().map(|g| g.id.as_str()).collect();
-        assert_eq!(ids, ["box", "hinge", "fit_test"]);
+        assert_eq!(ids, ["box", "hinge", "fit_test", "gears"]);
         for g in &all {
             let defaults = g
                 .defaults

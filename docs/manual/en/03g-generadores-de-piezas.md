@@ -1,6 +1,6 @@
-# Part generators: boxes, living hinges and the fit test
+# Part generators: boxes, living hinges, gears and the fit test
 
-**Tools > Part generators…** draws laser-cut parts for you: a **finger-joint box**, a **living hinge** and a **fit test piece** to calibrate your machine. You enter the dimensions, watch the parts update live, and **Insert** drops them into the design as regular vector objects that you can edit, move or nest like any other.
+**Tools > Part generators…** draws laser-cut parts for you: a **finger-joint box**, a **living hinge** and a **fit test piece** to calibrate your machine and involute **gears**. You enter the dimensions, watch the parts update live, and **Insert** drops them into the design as regular vector objects that you can edit, move or nest like any other.
 
 Shortcuts are written with `Ctrl/Cmd`: `Cmd` on macOS and `Ctrl` on Windows and Linux. Dimensions use the unit from **Preferences** (mm or inches); everything is mm inside.
 
@@ -56,6 +56,23 @@ An area of **staggered cuts** lets wood, plywood or thin acrylic bend. Choose th
 - **Corner radius** rounds the outline; **Include the outline as a cut** removes it if you only want the pattern inside a piece you draw yourself (move the group where you need it).
 - More bridges and wider-spaced rows = stiffer; longer cuts and closer rows = more flexible. Real flex depends on the material and the grain: **test a scrap** before cutting the final piece. Bridges under 1 mm or rows closer than 1 mm break easily and the generator warns you.
 - Every cut is an **open line** with no width; the layer kerf does not change them (the bridges already allow for the beam eating a little).
+
+## Gears
+
+**Involute spur gears**, ready to cut. Under **What to generate** choose: *One gear*, *Gear pair* (two that mesh), *Pinion and ring gear* (internal gear: the pinion turns inside a toothed ring), *Rack* or *Pinion and rack*.
+
+- **Tooth size:** by **module** (mm; pitch diameter is `m·z` and outside diameter `m·(z+2)`) or by **diametral pitch** (teeth per inch: `m = 25.4/DP`). Module 2 and 20 teeth gives a 40 mm pitch / 44 mm outside gear. Two gears only mesh with **the same module and pressure angle**; the generator uses one for the whole set.
+- **Pressure angle:** 14.5° (legacy), **20° (standard)** or 25° (sturdier tooth with a wider root).
+- **Center distance:** for a pair it is `m·(z1+z2)/2`; for the ring gear, `m·(z2−z1)/2`. With **Meshed, as a single object** the parts come out already placed at that distance with one tooth in the other's gap (one object, to see the mesh; move the group wherever you need it). With **Separate** you get one part per gear, in rows, to cut or move independently.
+- **Backlash** and **tip clearance:** the backlash thins each tooth by half the value at the pitch circle, so the pair has that play between flanks **without changing the center distance**; 0.1 mm is a starting point for 3 mm wood, but it depends on your kerf and machine (with the layer kerf on, the requested backlash is what you really get). Tip clearance (0.25 of the module by default) leaves the root free for the other gear's tip.
+- **Tooth root:** with **fillet** (stronger) or **plain**. **Curve tolerance** (0.01 mm) is how far the polygon may stray from the exact involute; lower = more points.
+- **Center bore:** round, with a **keyway** (width and depth) or a **D shaft** (one flat); 0 = no bore. The second gear of a pair has its own diameter. A bore leaving less than 1 mm of wall under the tooth roots is rejected.
+- **Lightening:** **round holes** or **spokes** (openings between constant-width arms), in the number you ask for, between the hub and the tooth roots; **minimum material** sets the hub and rim wall and the arm width. If it does not fit, it is left out with a warning.
+- **Ring gear:** the outer **rim thickness** is separate. **Rack:** number of teeth and body thickness under the root; the length is `teeth × π·m`.
+
+**Warnings:** with few teeth there is **undercut** (the tooth root weakens and the gear may bind): the practical minimum is `2/sin²α` (17 teeth at 20°, 32 at 14.5°, 11 at 25°) and the warning suggests it. It also warns about very thin tips, a **contact ratio** below 1.2 (the pair meshes roughly) and a ring gear with fewer than 8 more teeth than the pinion. Teeth that end in a point or a bore that does not fit are errors and mark the field. The generator does not know your bed size: the dialog warns when the set does not fit.
+
+Teeth lose accuracy with modules under 1 mm in wood or acrylic (the beam is about the size of the tooth): start with module 2 or more and cut a test pair first.
 
 ## Regenerate
 
