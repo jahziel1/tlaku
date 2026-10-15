@@ -3,7 +3,6 @@
 use super::*;
 use tlaku_i18n::tr;
 
-
 /// Cuántas veces `silence_timeout` se tolera de silencio con la máquina en reposo (5 s → 30 s).
 const IDLE_SILENCE_FACTOR: u32 = 6;
 impl Worker {
