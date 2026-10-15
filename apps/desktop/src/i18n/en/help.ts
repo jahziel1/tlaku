@@ -179,7 +179,7 @@ export const help: { [K in keyof typeof Source]?: string } = {
   'help.update.unconfigured': 'Automatic updates are not configured in this build.',
   'help.update.unconfiguredHint': 'To update, download the new version from the project page and install it over this one.',
   'help.update.managed': 'This copy of Tlaku was installed with Flatpak: updates are delivered by Flathub.',
-  'help.update.managedHint': 'To update, use your software store or run “flatpak update org.tlaku.app”.',
+  'help.update.managedHint': 'To update, use your software store or run “flatpak update io.github.jahziel1.tlaku”.',
   'help.update.current': 'Tlaku is up to date: you have the latest version.',
   'help.update.available': 'A new version is available: Tlaku {version}',
   'help.update.yours': 'You have version {current}.',

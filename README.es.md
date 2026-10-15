@@ -277,7 +277,7 @@ la primera vez que abras el instalador:
   `dialout` (`sudo usermod -aG dialout "$USER"`) y vuelve a iniciar sesión.
 
 **Flatpak (sin probar).** El paquete se arma en la CI a partir del `.deb`, pero **todavía nadie lo ha
-ejecutado en un Linux real** (tampoco está en Flathub). Se ejecuta con `flatpak run org.tlaku.app`. Para el
+ejecutado en un Linux real** (tampoco está en Flathub). Se ejecuta con `flatpak run io.github.jahziel1.tlaku`. Para el
 puerto serie sigue haciendo falta estar en el grupo `dialout` **del sistema**, y las actualizaciones las da
 Flatpak (la app no se actualiza sola). Tiene acceso a dispositivos (`--device=all`) por el puerto serie y
 el USB. Detalles y permisos en [docs/publicar.md](docs/publicar.md#flatpak-y-flathub).

@@ -4,14 +4,14 @@
      las capturas existan: hace falta que la etiqueta vX.Y.Z ya esté publicada). Cada versión nueva
      añade un elemento release arriba; ver docs/publicar.md. -->
 <component type="desktop-application">
-  <id>org.tlaku.app</id>
-  <launchable type="desktop-id">org.tlaku.app.desktop</launchable>
+  <id>io.github.jahziel1.tlaku</id>
+  <launchable type="desktop-id">io.github.jahziel1.tlaku.desktop</launchable>
 
   <name>Tlaku</name>
   <summary>Free software to prepare and send jobs to laser cutters and engravers</summary>
   <summary xml:lang="es">Software libre para preparar y enviar trabajos a cortadoras y grabadoras láser</summary>
 
-  <developer id="org.tlaku">
+  <developer id="io.github.jahziel1">
     <name>tlaku contributors</name>
   </developer>
 

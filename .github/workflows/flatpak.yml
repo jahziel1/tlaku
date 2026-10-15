@@ -63,11 +63,11 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           version="${TAG#v}"
-          if ! grep -q "<release version=\"$version\"" packaging/flatpak/org.tlaku.app.metainfo.xml; then
-            echo "::warning file=packaging/flatpak/org.tlaku.app.metainfo.xml::Falta un <release version=\"$version\"> en los metadatos AppStream (obligatorio para enviar a Flathub)."
+          if ! grep -q "<release version=\"$version\"" packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml; then
+            echo "::warning file=packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml::Falta un <release version=\"$version\"> en los metadatos AppStream (obligatorio para enviar a Flathub)."
           fi
-          if ! cmp -s apps/desktop/src-tauri/icons/source/tlaku.svg packaging/flatpak/org.tlaku.app.svg; then
-            echo "::warning file=packaging/flatpak/org.tlaku.app.svg::El ícono del Flatpak difiere de apps/desktop/src-tauri/icons/source/tlaku.svg."
+          if ! cmp -s apps/desktop/src-tauri/icons/source/tlaku.svg packaging/flatpak/io.github.jahziel1.tlaku.svg; then
+            echo "::warning file=packaging/flatpak/io.github.jahziel1.tlaku.svg::El ícono del Flatpak difiere de apps/desktop/src-tauri/icons/source/tlaku.svg."
           fi
 
       # --no-net: las capturas apuntan a la etiqueta y pueden no estar subidas todavía.
@@ -75,8 +75,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y appstream desktop-file-utils
-          appstreamcli validate --no-net packaging/flatpak/org.tlaku.app.metainfo.xml
-          desktop-file-validate packaging/flatpak/org.tlaku.app.desktop
+          appstreamcli validate --no-net packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml
+          desktop-file-validate packaging/flatpak/io.github.jahziel1.tlaku.desktop
 
       - uses: actions/upload-artifact@v4
         with:
@@ -126,9 +126,9 @@ jobs:
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           bundle: tlaku-${{ matrix.arch }}.flatpak
-          manifest-path: packaging/flatpak/org.tlaku.app.yml
+          manifest-path: packaging/flatpak/io.github.jahziel1.tlaku.yml
           arch: ${{ matrix.arch }}
-          cache-key: flatpak-builder-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/org.tlaku.app.yml') }}
+          cache-key: flatpak-builder-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/io.github.jahziel1.tlaku.yml') }}
           upload-artifact: false
 
       - uses: actions/upload-artifact@v4

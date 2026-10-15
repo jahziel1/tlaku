@@ -2,6 +2,12 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Nuevo identificador de la aplicación, en la próxima versión
+
+- Tlaku cambia su identificador interno de `org.tlaku.app` a `io.github.jahziel1.tlaku` (lo pide Flathub para publicar el paquete Flatpak). Con él cambian los nombres de las carpetas donde Tlaku guarda sus datos.
+- **Tus ajustes se migran solos**: al abrir la nueva versión por primera vez, Tlaku **copia** (no mueve) lo que había en la carpeta antigua a la nueva: dispositivos, materiales, preferencias, plantillas, retazos, historial de trabajos, historial de versiones y copias de recuperación. Solo ocurre si la carpeta nueva está vacía, no se repite y no pisa nada; si la copia falla, la app abre igual con la carpeta nueva vacía y lo intenta de nuevo al siguiente arranque. La carpeta antigua queda intacta y puedes borrarla cuando quieras.
+- Lo que la ventana web recuerda por su cuenta (perfiles de la calculadora de costos, ajustes guardados de imágenes, pestañas abiertas, cola de trabajos, archivos recientes y estados de paneles) no se puede trasladar y empieza de cero.
+
 ## Nesting con varias hojas, retazos y veta, en la próxima versión
 
 - **Varias hojas**: si las piezas no caben en una, el acomodo sigue en hojas nuevas del mismo tamaño (hasta 50), con el aprovechamiento de cada una. Cada hoja queda como una zona aparte del lienzo con su contorno de referencia en la capa de guías.

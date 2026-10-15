@@ -46,9 +46,9 @@ Por omisión, en la **carpeta de datos de la aplicación**, en una subcarpeta `v
 
 | Sistema | Carpeta |
 |---|---|
-| macOS | `~/Library/Application Support/org.tlaku.app/versiones/` |
-| Windows | `%APPDATA%\org.tlaku.app\versiones\` |
-| Linux | `~/.local/share/org.tlaku.app/versiones/` |
+| macOS | `~/Library/Application Support/io.github.jahziel1.tlaku/versiones/` |
+| Windows | `%APPDATA%\io.github.jahziel1.tlaku\versiones\` |
+| Linux | `~/.local/share/io.github.jahziel1.tlaku/versiones/` |
 
 Esto no ensucia tus carpetas ni viaja por error con el proyecto cuando lo mandas por correo o lo sincronizas con una nube (las versiones contienen el diseño completo, por ejemplo el de un cliente). Si prefieres que **viajen con el archivo**, en **Ajustes del historial** elige **Junto al archivo**: se guardan en una carpeta oculta `.tlaku-versions` al lado del proyecto. Al cambiar de lugar, el historial anterior sigue visible; solo lo nuevo va al lugar elegido. Para **borrar todo el historial de un proyecto** usa **Borrar todo el historial de este proyecto…** (pide confirmación).
 

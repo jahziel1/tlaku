@@ -80,9 +80,9 @@ mod tests {
 
     #[test]
     fn detecta_el_sandbox_de_flatpak() {
-        assert!(detect_flatpak(Some("org.tlaku.app"), false));
+        assert!(detect_flatpak(Some("io.github.jahziel1.tlaku"), false));
         assert!(detect_flatpak(None, true));
-        assert!(detect_flatpak(Some("org.tlaku.app"), true));
+        assert!(detect_flatpak(Some("io.github.jahziel1.tlaku"), true));
         assert!(!detect_flatpak(None, false));
         assert!(!detect_flatpak(Some(""), false));
         assert!(!detect_flatpak(Some("  "), false));

@@ -781,14 +781,14 @@ Pi real no se mide rendimiento**: se declara *experimental* hasta que alguien de
 (plantilla `machine_report.yml`). Con la Falcon2: conectarla desde una Pi, si alguien la presta.
 
 **(g) Avance del Flatpak (Ola D, mejora 11b): preparado, sin probar en Linux real.** Hecho: manifiesto
-`packaging/flatpak/org.tlaku.app.yml` (runtime `org.gnome.Platform//50`, reempaqueta el `.deb` de la
+`packaging/flatpak/io.github.jahziel1.tlaku.yml` (runtime `org.gnome.Platform//50`, reempaqueta el `.deb` de la
 Release: estrategia A), AppStream es/en validado con `appstreamcli --pedantic`, `.desktop` validado,
 ícono SVG, `flatpak.yml` (x86_64 y aarch64, adjunta los `.flatpak` al borrador; lo llama `release.yml`) y
 el actualizador desactivado dentro del sandbox (`updater.rs::in_flatpak`, `updatesManagedByStore`,
 con pruebas). Permisos: red, `--device=all` (serie, USB, cámara), `dri`, y tres carpetas XDG por la
 vista previa `asset://`. **Falta:** probarlo en Linux (sobre todo si `serialport` ve los puertos dentro
-del sandbox); decidir el id (`org.tlaku.app` exige dominio en Flathub; alternativa
-`io.github.jahziel1.tlaku`); que Flathub acepte reempaquetar (si no, estrategia B con
+del sandbox); id decidido: `io.github.jahziel1.tlaku` (antes `org.tlaku.app`, que exigía dominio en Flathub; la app
+migra sola sus datos con `id_migration.rs`); que Flathub acepte reempaquetar (si no, estrategia B con
 `flatpak-cargo-generator` y `flatpak-node-generator`, descrita en `docs/publicar.md#flatpak-y-flathub`);
 regla udev para K40 y galvo. Snap sigue descartado.
 

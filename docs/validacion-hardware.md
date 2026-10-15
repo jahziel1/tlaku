@@ -150,7 +150,7 @@ Prueba la función «Continuar un trabajo interrumpido» ([manual](manual/09-env
 
 Anota en cada intento: el **porcentaje** del aviso, el **retroceso usado** (líneas o mm), el **desfase en mm** medido en la unión, el sentido de la marca (más oscura o clara) y si hizo falta mover el punto con la barra. Esta prueba también sirve para confirmar el búfer real: si la marca de la unión es mucho mayor que ~1 s de recorrido, el búfer de la placa va más lleno de lo que dice `Bf:`.
 
-Datos si falla: el registro de la consola completo (incluido el preámbulo enviado), el porcentaje y la línea del aviso, el retroceso usado, la carpeta `interrupted-job/` de la app y una foto de la unión con una regla a la vista.
+Datos si falla: el registro de la consola completo (incluido el preámbulo enviado), el porcentaje y la línea del aviso, el retroceso usado, la carpeta `interrupted-job/` de la app (macOS: `~/Library/Application Support/io.github.jahziel1.tlaku/interrupted-job/`; Windows: `%APPDATA%\io.github.jahziel1.tlaku\interrupted-job\`; Linux: `~/.local/share/io.github.jahziel1.tlaku/interrupted-job/`) y una foto de la unión con una regla a la vista.
 
 ### 2.6 Resultados de la primera sesión real (Falcon2 Pro 22 W, 2026-10-14, macOS)
 

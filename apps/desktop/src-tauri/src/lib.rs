@@ -14,6 +14,7 @@ mod commands;
 mod edit;
 mod engine;
 pub mod hwtest;
+mod id_migration;
 mod job_history;
 mod job_resume;
 mod live_window;
@@ -92,7 +93,11 @@ fn build_app(context: tauri::Context) -> tauri::App {
                 .build(),
         )
         // El actualizador solo se registra si tauri.conf.json trae su llave pública (ver `updater.rs`).
-        .setup(updater::setup)
+        .setup(|app| {
+            // Antes que nada: copia los datos de la carpeta del id anterior (`id_migration.rs`).
+            id_migration::run(app.handle());
+            updater::setup(app)
+        })
         // macOS: el menú por defecto trae «Cerrar ventana» con Cmd+W, que cerraría la ventana entera antes de que la
         // interfaz lo vea. Con pestañas, Cmd+W cierra la pestaña activa (comando `tabs.close`).
         .menu(|handle| {

@@ -268,7 +268,7 @@ first time you open the installer:
   (`sudo usermod -aG dialout "$USER"`) and log in again.
 
 **Flatpak (untested).** CI builds the package from the `.deb`, but **nobody has run it on a real Linux
-machine yet** (and it is not on Flathub). Run it with `flatpak run org.tlaku.app`. The serial port still
+machine yet** (and it is not on Flathub). Run it with `flatpak run io.github.jahziel1.tlaku`. The serial port still
 needs your user in the **system's** `dialout` group, and updates come from Flatpak (the app does not
 update itself). It has device access (`--device=all`) for the serial port and USB. Details and
 permissions in [docs/publicar.md](docs/publicar.md#flatpak-y-flathub) (Spanish).

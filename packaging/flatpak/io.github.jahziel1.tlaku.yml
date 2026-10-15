@@ -4,12 +4,12 @@
 # Compilar a mano (Linux con flatpak-builder; los .deb de la Release van en packaging/flatpak/debs/
 # con los nombres tlaku_x86_64.deb y tlaku_aarch64.deb):
 #   flatpak-builder --force-clean --user --install-deps-from=flathub \
-#     --repo=repo build-dir packaging/flatpak/org.tlaku.app.yml
-#   flatpak build-bundle repo tlaku.flatpak org.tlaku.app
-#   flatpak install --user tlaku.flatpak && flatpak run org.tlaku.app
+#     --repo=repo build-dir packaging/flatpak/io.github.jahziel1.tlaku.yml
+#   flatpak build-bundle repo tlaku.flatpak io.github.jahziel1.tlaku
+#   flatpak install --user tlaku.flatpak && flatpak run io.github.jahziel1.tlaku
 #
 # Sin probar en un Linux real todavía (ver docs/publicar.md).
-id: org.tlaku.app
+id: io.github.jahziel1.tlaku
 
 # GNOME y no org.freedesktop + webkit2gtk a mano: la Plataforma GNOME ya trae GTK 3, WebKitGTK 4.1
 # (libwebkit2gtk-4.1, la que enlaza Tauri 2) y libsoup 3; con el runtime freedesktop habría que
@@ -62,11 +62,11 @@ modules:
         dest-filename: tlaku.deb
         only-arches: [aarch64]
       - type: file
-        path: org.tlaku.app.desktop
+        path: io.github.jahziel1.tlaku.desktop
       - type: file
-        path: org.tlaku.app.metainfo.xml
+        path: io.github.jahziel1.tlaku.metainfo.xml
       - type: file
-        path: org.tlaku.app.svg
+        path: io.github.jahziel1.tlaku.svg
     build-commands:
       # Un .deb es un archivo `ar` con control.tar.* y data.tar.* (Tauri usa gzip).
       - ar -x tlaku.deb --output deb-extract
@@ -86,9 +86,9 @@ modules:
         done
       # El .desktop, los metadatos y el ícono vienen del repositorio (no del .deb), con el
       # identificador de la aplicación como nombre, como exige Flathub.
-      - install -Dm644 org.tlaku.app.desktop /app/share/applications/org.tlaku.app.desktop
-      - install -Dm644 org.tlaku.app.metainfo.xml /app/share/metainfo/org.tlaku.app.metainfo.xml
-      - install -Dm644 org.tlaku.app.svg /app/share/icons/hicolor/scalable/apps/org.tlaku.app.svg
+      - install -Dm644 io.github.jahziel1.tlaku.desktop /app/share/applications/io.github.jahziel1.tlaku.desktop
+      - install -Dm644 io.github.jahziel1.tlaku.metainfo.xml /app/share/metainfo/io.github.jahziel1.tlaku.metainfo.xml
+      - install -Dm644 io.github.jahziel1.tlaku.svg /app/share/icons/hicolor/scalable/apps/io.github.jahziel1.tlaku.svg
       # Red de seguridad: si el ejecutable necesita una biblioteca que el runtime no trae (por
       # ejemplo libxdo), la compilación falla aquí con el nombre en vez de fallar al abrir la app.
       - |

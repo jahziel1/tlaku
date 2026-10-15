@@ -2,6 +2,12 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## New application identifier, in the next version
+
+- Tlaku changes its internal identifier from `org.tlaku.app` to `io.github.jahziel1.tlaku` (Flathub requires it to publish the Flatpak package). The names of the folders where Tlaku keeps its data change with it.
+- **Your settings migrate on their own**: the first time you open the new version, Tlaku **copies** (does not move) what was in the old folder to the new one: devices, materials, preferences, templates, offcuts, job history, version history and recovery copies. It only happens if the new folder is empty, it is not repeated and it never overwrites anything; if the copy fails, the app still opens with the new empty folder and tries again on the next start. The old folder is left untouched and you can delete it whenever you like.
+- What the web view remembers on its own (cost calculator profiles, saved image settings, open tabs, the job queue, recent files and panel states) cannot be carried over and starts from scratch.
+
 ## Nesting with several sheets, offcuts and grain, in the next version
 
 - **Several sheets**: if the parts do not fit on one, nesting continues on new sheets of the same size (up to 50), with the utilization of each. Each sheet ends up as a separate zone of the canvas with its reference outline on the guides layer.

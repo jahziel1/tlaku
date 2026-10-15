@@ -46,9 +46,9 @@ By default, in the **application data folder**, in a `versiones` subfolder with 
 
 | System | Folder |
 |---|---|
-| macOS | `~/Library/Application Support/org.tlaku.app/versiones/` |
-| Windows | `%APPDATA%\org.tlaku.app\versiones\` |
-| Linux | `~/.local/share/org.tlaku.app/versiones/` |
+| macOS | `~/Library/Application Support/io.github.jahziel1.tlaku/versiones/` |
+| Windows | `%APPDATA%\io.github.jahziel1.tlaku\versiones\` |
+| Linux | `~/.local/share/io.github.jahziel1.tlaku/versiones/` |
 
 This does not clutter your folders and does not travel by mistake with the project when you email it or sync it to a cloud (versions hold the whole design, for example a client's). If you prefer them to **travel with the file**, in **History settings** pick **Next to the file**: they are stored in a hidden `.tlaku-versions` folder beside the project. When you change the location, the earlier history stays visible; only new versions go to the chosen place. To **delete a project's whole history** use **Delete this project's whole history…** (asks for confirmation).
 

@@ -82,6 +82,8 @@ trabajo) y `live://state` (porcentaje, estado, tiempos y último reporte de la m
   Forma: `{ "version": 1, "prefs": { ... }, "shortcuts": { "<id de comando>": ["Mod+K", ...] } }`.
   El catálogo de claves, valores de fábrica y límites está en `src/store/prefs.ts` (`PREF_SPECS`); Rust
   no conoce cada clave, solo valida el sobre. `localStorage` guarda una copia para arrancar sin parpadeo.
+  Las carpetas de la app dependen del `identifier` de Tauri (`io.github.jahziel1.tlaku`); al arrancar,
+  `id_migration.rs` copia las del id anterior `org.tlaku.app` si las nuevas están vacías.
 - **Paquete `.tlakuprefs`**: el mismo JSON más `"format": "tlaku-prefs"`. Puede ser parcial (por ejemplo solo
   `shortcuts`): al importar, lo que falta se deja como está y lo que no se entiende se descarta con aviso.
 - **Atajos**: `shortcuts` es el reemplazo completo de los atajos de un comando (`[]` = sin atajo); los

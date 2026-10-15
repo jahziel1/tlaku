@@ -31,7 +31,7 @@ falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-
    | `Cargo.toml` (raíz) | `version` en `[workspace.package]`. Todos los crates, incluido `apps/desktop/src-tauri`, la heredan. |
    | `apps/desktop/src-tauri/tauri.conf.json` | `"version"`. Es la versión que muestran los instaladores. |
    | `apps/desktop/package.json` | `"version"`. |
-   | `packaging/flatpak/org.tlaku.app.metainfo.xml` | Un `<release version="X.Y.Z" date="AAAA-MM-DD">` nuevo arriba y la etiqueta `vX.Y.Z` en las URL de las capturas. No bloquea la publicación (`flatpak.yml` solo avisa si falta), pero Flathub lo exige: ver [Flatpak y Flathub](#flatpak-y-flathub). |
+   | `packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml` | Un `<release version="X.Y.Z" date="AAAA-MM-DD">` nuevo arriba y la etiqueta `vX.Y.Z` en las URL de las capturas. No bloquea la publicación (`flatpak.yml` solo avisa si falta), pero Flathub lo exige: ver [Flatpak y Flathub](#flatpak-y-flathub). |
 
    ```sh
    # desde la raíz del repositorio, por ejemplo para 0.2.0
@@ -233,10 +233,10 @@ compilaron aquí; las corre la CI).
 
 | Archivo | Para qué |
 |---|---|
-| `packaging/flatpak/org.tlaku.app.yml` | Manifiesto (estrategia A, ver abajo). Id `org.tlaku.app`, runtime `org.gnome.Platform//50`. |
-| `packaging/flatpak/org.tlaku.app.metainfo.xml` | AppStream: nombre y resumen es/en, descripción, 5 capturas (de `apps/desktop/docs/screenshots/`, por la URL de la etiqueta), licencia MIT, donación Ko-fi, release 0.1.0, OARS sin contenido. |
-| `packaging/flatpak/org.tlaku.app.desktop` | Entrada de menú: categorías `Graphics;2DGraphics;VectorGraphics;Engineering;` y palabras clave es/en. **Sin `MimeType`**: la app aún no abre archivos `.tlaku` pasados por argumento (no hay asociación de archivos en `tauri.conf.json`); declararlo sería prometer algo que no hace. |
-| `packaging/flatpak/org.tlaku.app.svg` | Ícono (copia de `apps/desktop/src-tauri/icons/source/tlaku.svg`; Flathub prefiere SVG). `flatpak.yml` avisa si difieren. |
+| `packaging/flatpak/io.github.jahziel1.tlaku.yml` | Manifiesto (estrategia A, ver abajo). Id `io.github.jahziel1.tlaku`, runtime `org.gnome.Platform//50`. |
+| `packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml` | AppStream: nombre y resumen es/en, descripción, 5 capturas (de `apps/desktop/docs/screenshots/`, por la URL de la etiqueta), licencia MIT, donación Ko-fi, release 0.1.0, OARS sin contenido. |
+| `packaging/flatpak/io.github.jahziel1.tlaku.desktop` | Entrada de menú: categorías `Graphics;2DGraphics;VectorGraphics;Engineering;` y palabras clave es/en. **Sin `MimeType`**: la app aún no abre archivos `.tlaku` pasados por argumento (no hay asociación de archivos en `tauri.conf.json`); declararlo sería prometer algo que no hace. |
+| `packaging/flatpak/io.github.jahziel1.tlaku.svg` | Ícono (copia de `apps/desktop/src-tauri/icons/source/tlaku.svg`; Flathub prefiere SVG). `flatpak.yml` avisa si difieren. |
 | `.github/workflows/flatpak.yml` | Baja los `.deb` de la Release, construye con `flatpak/flatpak-github-actions/flatpak-builder@v6` en `x86_64` y `aarch64` (este con QEMU, como documenta esa acción) y adjunta los `.flatpak` a la misma Release. Se lanza a mano con la etiqueta de una Release que ya tenga los `.deb`. |
 | `release.yml` (trabajo `flatpak`) | Llama a `flatpak.yml` tras «instaladores», solo con etiqueta. No cambia los otros trabajos. |
 
@@ -310,8 +310,26 @@ Dentro del sandbox el plugin `tauri-plugin-updater` **no se registra** y Rust in
 (`features/help/updater.ts`, `updatesManagedByStore`) no programa el chequeo de arranque y Ayuda >
 «Buscar actualizaciones…» dice que las actualizaciones las da Flathub y cómo actualizar. Pruebas:
 `updater.rs` (detección y script) y `updater.test.tsx`. Los datos del Flatpak viven en
-`~/.var/app/org.tlaku.app/` y **no se comparten** con una instalación `.deb` de la misma persona; para
+`~/.var/app/io.github.jahziel1.tlaku/` y **no se comparten** con una instalación `.deb` de la misma persona; para
 pasar los ajustes, un `.tlakubundle`.
+
+### Cambio de identificador y migración de datos
+
+El `identifier` pasó de `org.tlaku.app` a `io.github.jahziel1.tlaku` antes de publicar la beta 0.1.0. Tauri
+cuelga de él las carpetas de la app (`app_config_dir`, `app_data_dir`, `app_local_data_dir`; la caché no se
+usa), el bundle de macOS (`CFBundleIdentifier`), el `app_id` de GTK y el
+código de actualización del MSI (`upgradeCode`, que Tauri deriva del id; no hay otro fijado en `tauri.conf.json`): como no hay instalaciones públicas, no hay
+nada que actualizar «en sitio». `src-tauri/src/id_migration.rs` copia al arrancar lo que haya en las
+carpetas del id viejo (ver `docs/mapa.md`) y está probado en `id_migration/tests.rs`.
+
+Lo que **no** se migra: el `localStorage` del WebView, que WKWebView (macOS) y WebView2 (Windows) guardan por
+id y no se puede leer desde Rust. Vive ahí solo lo que la interfaz recuerda de pasada: perfiles de costos
+(`tlaku.costs`), ajustes de imagen propios (`tlaku.imagePresets`), pestañas abiertas (`tlaku.tabs.session`),
+cola de trabajos, archivos recientes, sesión de tiling, historial de la consola, pasos de movimiento y
+estados de paneles. Lo importante (dispositivos, materiales, preferencias del motor, historial de trabajos,
+versiones, retazos, cámara, plantillas, recuperación, punto de control de un trabajo interrumpido) está en
+archivos y sí se migra; las preferencias se reconstruyen desde `preferences.json`. Solo afectó a quien
+corrió compilaciones de desarrollo con el id viejo.
 
 ### Probar el paquete en Linux (lo que falta comprobar)
 
@@ -319,11 +337,11 @@ pasar los ajustes, un `.tlakubundle`.
 # Linux con flatpak y flatpak-builder; los .deb de la Release en packaging/flatpak/debs/
 mkdir -p packaging/flatpak/debs
 cp Tlaku_0.1.0_amd64.deb packaging/flatpak/debs/tlaku_x86_64.deb      # (o _arm64.deb -> tlaku_aarch64.deb)
-flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo build-dir packaging/flatpak/org.tlaku.app.yml
-flatpak build-bundle repo tlaku.flatpak org.tlaku.app && flatpak install --user tlaku.flatpak
-flatpak run org.tlaku.app
+flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo build-dir packaging/flatpak/io.github.jahziel1.tlaku.yml
+flatpak build-bundle repo tlaku.flatpak io.github.jahziel1.tlaku && flatpak install --user tlaku.flatpak
+flatpak run io.github.jahziel1.tlaku
 # El linter de Flathub (lo que revisará el PR):
-flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/org.tlaku.app.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/io.github.jahziel1.tlaku.yml
 flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
 ```
 
@@ -334,18 +352,15 @@ control remoto desde el celular; Ayuda > Buscar actualizaciones (debe decir que 
 
 ### Enviar a Flathub (pasos)
 
-1. **Decide el identificador.** `org.tlaku.app` coincide con el `identifier` de Tauri (de él salen el
-   `app_id` de GTK/Wayland, el ícono de la barra de tareas y la carpeta de datos). **Pero Flathub exige
-   que quien envía controle el dominio** (`tlaku.org`, accesible por HTTPS) para los identificadores
-   `org.`; el proyecto hoy solo tiene `jahziel1.github.io/tlaku`. Opciones: (a) registrar `tlaku.org`
-   y publicar el sitio ahí; (b) usar `io.github.jahziel1.tlaku` (Flathub lo acepta para proyectos en
-   GitHub) y cambiar a la vez el `identifier` de `tauri.conf.json` (para que el `app_id` coincida con
-   el `.desktop`), los nombres y `<id>` de los tres archivos de `packaging/flatpak/`, `Icon=`,
-   `<launchable>` y el texto `flatpak update ...` de `help.update.managedHint`. Cambiar el `identifier`
-   mueve la carpeta de datos de la app en todos los sistemas: hazlo antes de la primera versión pública.
+1. **El identificador ya está decidido: `io.github.jahziel1.tlaku`** (Flathub exige que quien envía controle
+   el dominio del id; para proyectos en GitHub acepta `io.github.<usuario>.<app>`). Es también el
+   `identifier` de `tauri.conf.json`, de donde salen el `app_id` de GTK/Wayland, el ícono de la barra de
+   tareas, el nombre de los archivos de `packaging/flatpak/`, `Icon=`, `<launchable>` y la carpeta de datos.
+   Antes de la beta el id era `io.github.jahziel1.tlaku`; al arrancar, la app copia sola su configuración y sus datos
+   de la carpeta antigua a la nueva (`src-tauri/src/id_migration.rs`; ver la nota de la sección siguiente).
 2. **Publica la Release** (`vX.Y.Z`) con sus `.deb` y confirma que las URL de las capturas del metainfo
-   responden (`appstreamcli validate packaging/flatpak/org.tlaku.app.metainfo.xml`, sin `--no-net`).
-3. **Prepara el manifiesto de Flathub**: copia `packaging/flatpak/org.tlaku.app.yml` y cambia las dos
+   responden (`appstreamcli validate packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml`, sin `--no-net`).
+3. **Prepara el manifiesto de Flathub**: copia `packaging/flatpak/io.github.jahziel1.tlaku.yml` y cambia las dos
    fuentes `.deb` locales por las URL de la Release con su suma de verificación (`sha256sum`):
 
    ```yaml
