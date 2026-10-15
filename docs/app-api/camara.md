@@ -109,6 +109,48 @@ usan con la cámara en el cabezal.
 - **Zona del recorrido.** `scanBed({ save, useSelection, zone })`: `zone` (mm, `[x0, y0, x1, y1]`) tiene prioridad sobre la
   selección; se recorta a la cama. Es solo del lado de la interfaz (el motor recibe el `rect` de `compose_bed_image`).
 
+### Alinear la cámara fija con el cabezal (sin grabar)
+
+Alternativa a las marcas grabadas para una cámara **fija** sobre la cama (la de la tapa de una Falcon2 Pro), sin gastar material.
+Con el láser apagado la interfaz mueve el cabezal con `jog_to` (vía `goToDocPoint`, con su guarda de la cama) a los puntos de
+`camera_head_align_plan`, espera a que el reporte de estado diga `idle` en el punto y toma la foto corregida de lente (`grabCorrectedPng`);
+la solución es de una sola llamada, `camera_head_align_solve`. El flujo del motor (`run_head_align_flow`, en `edit/camera/head_align_flow.rs`)
+hace lo mismo con la máquina virtual y una cámara simulada (pruebas) y con la máquina real (`hwtest headalign`); la interfaz lo repite
+paso a paso (`features/camera/headAlign.ts`) porque la cámara es del navegador.
+
+- **Localizar el cabezal** (`tlaku_camera::head_align::detect`). `HeadMethod`: `led` busca el exceso de verde sobre rojo (el núcleo del
+  LED satura a blanco, se sigue su halo) y descarta un punto verde que no se mueve entre fotos; `diff` toma el fondo de cada píxel como la
+  **mediana de las fotos de la misma fila** (misma Y: el pórtico del eje X solo se mueve con Y, así queda en el fondo), iguala el brillo con
+  una ganancia y un desfase robustos, umbral relativo (deja fuera sombras), cierre morfológico y la mayor componente conexa con huecos
+  rellenos; su punto es el centroide (o el extremo inferior, `HeadFeature`). `auto` usa el LED si aparece en alguna foto. Cada foto sin
+  cabezal dice por qué: `no_change`, `too_small`, `too_large`, `touches_border` (cabezal a medias fuera de la foto), `ambiguous`,
+  `no_background` (menos de 3 fotos en la fila).
+- **Ajustar** (`fit`). Con los pares (mm de la máquina, píxel) ajusta una homografía píxel → cama (DLT normalizada). Descarta atípicos de
+  uno en uno (error > `max(1,5 mm, 4 × la mediana robusta)`, hasta el 30 %) y mide el error de cada punto con validación cruzada (cada punto
+  predicho sin él). Calidad: `good` (validación cruzada rms ≤ 1 mm y máx. ≤ 2,5 mm), `fair` (≤ 2,5 mm), `poor`. Avisos (`HeadAlignIssue`):
+  `not_detected`, `dropped`, `few_points`, `partial_coverage` (la caja de los puntos usados cubre menos del 60 % del área segura),
+  `high_error`, `lens_estimated`. `covered_mm` es esa caja.
+- **Lente.** Si las fotos ya vienen corregidas (`config.lens`), basta la homografía. Sin calibración y con `estimate_lens`, se estima una
+  distorsión aproximada (Brown-Conrady `k1, k2` u ojo de pez `focal, k1`, Nelder-Mead sobre el error recortado) solo si mejora el ajuste al menos
+  15 % y el error sin lente pasa de 0,4 mm; el informe trae `lens` y la alineación vale sobre la imagen corregida con ella (la interfaz
+  guarda las dos juntas y borra la calibración de la cámara del cabezal).
+- **Paralaje y desfase.** `parallax: { camera_height_mm, feature_height_mm }` escala la posición de la máquina alrededor de la vertical de
+  la cámara por `cámara / (cámara - punto)` (la vertical se toma en el punto principal de la imagen corregida); `offset_mm` se suma después.
+  Ambos entran en los puntos de la cama de la muestra, así que `to_bed` ya vale a nivel del material (`reference_height_mm = 0`).
+  `camera_head_align_shift` calcula el desfase con **un solo punto de referencia** (un disparo de prueba marcado en la imagen).
+- **Formato guardado.** La alineación sale con `method: "head_sweep"` (nuevo valor de `AlignmentMethod`) y **una muestra a altura 0** con los
+  puntos usados (`image_px` con el origen en el borde del píxel, `bed_mm` tras paralaje y desfase, `loo_rms_mm`, `loo_max_mm`);
+  `normalize_samples` recalcula la homografía y el modelo de altura de respaldo como con las marcas y conserva el método. Es el mismo
+  `camera.json`: las versiones sin este método leen una alineación de marcas a una altura. Las esquinas `image_px`/`bed_mm` son las de la
+  caja de los puntos.
+- **Interfaz.** `HeadAlignSection` (panel) y `HeadAlignDialog` (preparación con confirmación, avance por punto con miniatura y
+  resultado) en `features/camera/`; estado en `headAlignState.ts`, lógica en `headAlign.ts`. Los ajustes (rejilla, margen, método, alturas,
+  desfase) se recuerdan en `localStorage` (`tlaku.headAlign.settings`). El punto de referencia usa la herramienta de vista `alignRef`.
+- **`hwtest headalign[:<lado>[,<vel>]]`** (`src/hwtest/headalign.rs`): el mismo flujo con la máquina y la cámara reales, con el láser apagado;
+  mueve con `jog_to`, espera el reporte `idle` en el punto y toma las fotos con `fetch_camera_frame` (`TLAKU_HW_CAMERA_URL`) o el programa
+  de `TLAKU_HW_SNAP`. Guarda en `TLAKU_HW_ALIGN_DIR` las fotos, `resultado.json`, `alineacion.json` y `resumen.txt`. Ver
+  [validacion-hardware.md](../validacion-hardware.md).
+
 ### Paquete `.tlakubundle`
 
 Dos secciones opcionales nuevas (el sobre y su versión no cambian; un paquete anterior sigue leyéndose):

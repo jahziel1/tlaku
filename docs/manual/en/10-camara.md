@@ -45,7 +45,7 @@ Calibrate at the same resolution you are going to work with. **Clear calibration
 
 ## Step 2: align with the bed
 
-Aligning tells Tlaku which part of the image is which part of the bed. There are two methods; without alignment the backdrop is not shown.
+Aligning tells Tlaku which part of the image is which part of the bed. There are three methods; without alignment the backdrop is not shown.
 
 ### With engraved marks (recommended)
 
@@ -61,6 +61,19 @@ Engrave crosses at known positions and the camera aligns itself, measuring its a
 ### By hand, with 4 points
 
 In **Bed alignment**, mark on the image the 4 corners of a sheet of known size (or of the bed), in this order, seen from the front of the machine: lower left, lower right, upper right, upper left. Drag the points to adjust them and type their coordinates in mm, or press **Full bed**, **A4 sheet**, or **Letter sheet** to fill them in. Then **Apply alignment**. It tells you the error of the points in mm. **Remove points** and **Clear alignment** undo.
+
+### With the head, no engraving (fixed camera)
+
+For a camera fixed above the bed (like the one in the lid of a Creality Falcon2 Pro). **Nothing is engraved and no material is used**: with the laser **off**, Tlaku moves the head to a grid of known bed points, takes a photo at each, finds the head in the photos and works out how the image maps to the bed.
+
+1. In **Align with the head (no engraving)** press **Align with the head…**. If there is no lens calibration, Tlaku estimates an approximate one; for better accuracy calibrate the lens first (Step 1).
+2. In **Options** (all optional): the **Grid of points** (3 × 3 to 5 × 5), the **Bed margin**, **How the head is located** (automatic: by its **green LED** if it has one; or by **image difference**, which tracks the silhouette even if the gantry moves), the **parallax correction** (the heights of the camera and of the head point above the material) and a fixed **offset** between the tracked point and the laser.
+3. Clear the bed, close the lid, tick the confirmation and press **Start alignment**. The machine must be connected, idle and homed. The head visits the points (the laser is **never** turned on); you see the progress per point with a thumbnail of each photo and can **Stop** between two moves.
+4. If the camera sees only part of the bed (usual for a lid camera: the head does not show in the front rows, or only peeks out at a corner), points out of view are dropped and Tlaku **repeats a finer grid where it did see the head**, up to three more rounds.
+5. In the **Result** you see the error per point in mm, the quality (**Good** with a cross-validation error up to 1 mm; **Acceptable** up to 2.5 mm; **Poor**), how many photos did not show the head, which points were **dropped** for not agreeing, and **which zone of the bed the points cover**: outside that zone the alignment is an extrapolation and may fail. **Adjust the offset** recomputes with the same photos without moving anything.
+6. If it is good, **Save alignment**: it is stored as the camera alignment (the same `camera.json`) and the backdrop uses it. If there was no lens calibration, the approximate lens is saved with the alignment.
+
+**Parallax and offset.** The tracked head point is higher than the material and the camera sees it shifted away from its vertical; with both heights the alignment is valid at material level. The LED is not over the nozzle either: that fixed offset can be typed in or, better, computed with **a single reference point**: fire a test mark at a known position, open **Fine-tune with a reference point**, type its coordinates, press **Mark on the image**, click the center of the mark and **Apply reference point**. The alignment shifts so that point matches.
 
 ## Step 3: using the backdrop
 

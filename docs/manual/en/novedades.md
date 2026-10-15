@@ -2,6 +2,12 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Align the camera with the head, no engraving, in the next version
+
+- **Align with the head (no engraving)** for cameras fixed above the bed (like the one in the lid of a Creality Falcon2 Pro): with the laser **off**, the head visits a grid of known points, a photo is taken at each and Tlaku works out the camera-to-bed alignment. No cardboard, nothing engraved and no material used.
+- It finds the head by its **green LED** or by **image difference** (the gantry stays in the background). It drops points out of view, refines the grid where the head is visible, and tells you the error of each point in mm and **which zone of the bed was covered**.
+- It corrects **parallax** with the camera and head-point heights, and an **offset** that is computed with a single reference point (a test mark you click on the image). See [Camera](10-camara.md#with-the-head-no-engraving-fixed-camera).
+
 ## New application identifier, in the next version
 
 - Tlaku changes its internal identifier from `org.tlaku.app` to `io.github.jahziel1.tlaku` (Flathub requires it to publish the Flatpak package). The names of the folders where Tlaku keeps its data change with it.

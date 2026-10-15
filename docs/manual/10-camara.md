@@ -45,7 +45,7 @@ Calibra a la misma resolución con la que vas a trabajar. **Quitar calibración*
 
 ## Paso 2: alinear con la cama
 
-Alinear le dice a Tlaku qué parte de la imagen es qué parte de la cama. Hay dos métodos; sin alineación el fondo no se muestra.
+Alinear le dice a Tlaku qué parte de la imagen es qué parte de la cama. Hay tres métodos; sin alineación el fondo no se muestra.
 
 ### Con marcas grabadas (recomendado)
 
@@ -61,6 +61,19 @@ Graba cruces en posiciones conocidas y la cámara se alinea sola, midiendo su pr
 ### A mano, con 4 puntos
 
 En **Alineación con la cama**, marca en la imagen las 4 esquinas de una hoja de tamaño conocido (o de la cama), en este orden, vistas desde el frente de la máquina: inferior izquierda, inferior derecha, superior derecha, superior izquierda. Arrastra los puntos para ajustarlos y escribe sus coordenadas en mm, o pulsa **Cama completa**, **Hoja A4** u **Hoja carta** para rellenarlas. Luego **Aplicar alineación**. Te dice el error de los puntos en mm. **Quitar puntos** y **Borrar alineación** deshacen.
+
+### Con el cabezal, sin grabar (cámara fija)
+
+Para una cámara fija sobre la cama (como la de la tapa de una Creality Falcon2 Pro). **No graba nada ni gasta material**: con el láser **apagado**, Tlaku lleva el cabezal a una rejilla de puntos conocidos de la cama, toma una foto en cada uno, localiza el cabezal en las fotos y calcula cómo se corresponde la imagen con la cama.
+
+1. En **Alinear con el cabezal (sin grabar)** pulsa **Alinear con el cabezal…**. Si no hay calibración de lente, Tlaku estima una aproximada; para más precisión calibra la lente antes (Paso 1).
+2. En **Opciones** (todo es opcional): la **Rejilla de puntos** (3 × 3 a 5 × 5), el **Margen de la cama**, **Cómo se localiza el cabezal** (automático: por su **LED verde** si lo tiene; o por **diferencia de imágenes**, que sigue la silueta aunque el pórtico se mueva), la **corrección del paralaje** (las alturas de la cámara y del punto del cabezal sobre el material) y un **desfase** fijo entre el punto que se sigue y el láser.
+3. Despeja la cama, cierra la tapa, marca la confirmación y pulsa **Iniciar alineación**. La máquina debe estar conectada, quieta y con el origen fijado. El cabezal recorre los puntos (el láser **nunca** se enciende); verás el avance por punto con la miniatura de cada foto y puedes **Detener** entre dos movimientos.
+4. Si la cámara solo ve una parte de la cama (lo normal en una cámara de tapa: el cabezal no aparece en las filas delanteras o solo asoma en una esquina), los puntos fuera de su vista se descartan y Tlaku **repite una rejilla más fina donde sí vio el cabezal**, hasta tres rondas más.
+5. En el **Resultado** ves el error por punto en mm, la calidad (**Buena** con error de validación cruzada hasta 1 mm; **Aceptable** hasta 2,5 mm; **Mala**), cuántas fotos no mostraban el cabezal, qué puntos se **descartaron** por no concordar y **qué zona de la cama cubren los puntos**: fuera de esa zona la alineación es una extrapolación y puede fallar. Con **Ajustar el desfase** recalculas con las mismas fotos sin mover nada.
+6. Si es buena, **Guardar alineación**: se guarda como la alineación de la cámara (el mismo `camera.json`) y el fondo la usa. Si no había calibración de lente, la lente aproximada se guarda junto con la alineación.
+
+**Paralaje y desfase.** El punto que se sigue del cabezal está más alto que el material y la cámara lo ve desplazado hacia fuera de su vertical; con las dos alturas la alineación vale a nivel del material. El LED tampoco está sobre la boquilla: ese desfase fijo se puede escribir o, mejor, calcular con **un único punto de referencia**: dispara una marca de prueba en una posición conocida, abre **Ajuste fino con un punto de referencia**, escribe sus coordenadas, pulsa **Marcar en la imagen**, haz clic en el centro de la marca y **Aplicar punto de referencia**. La alineación se mueve para que ese punto coincida.
 
 ## Paso 3: usar el fondo
 

@@ -2,6 +2,12 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Alinear la cámara con el cabezal, sin grabar, en la próxima versión
+
+- **Alinear con el cabezal (sin grabar)** para cámaras fijas sobre la cama (como la de la tapa de una Creality Falcon2 Pro): con el láser **apagado**, el cabezal recorre una rejilla de puntos conocidos, se toma una foto en cada uno y Tlaku calcula la alineación de la cámara con la cama. Sin cartón, sin grabar y sin gastar material.
+- Localiza el cabezal por su **LED verde** o por **diferencia de imágenes** (el pórtico queda como fondo). Descarta los puntos fuera de vista, afina la rejilla donde sí se ve el cabezal, y te dice el error de cada punto en mm y **qué zona de la cama quedó cubierta**.
+- Corrige el **paralaje** con las alturas de la cámara y del punto del cabezal, y un **desfase** que se calcula con un único punto de referencia (un disparo de prueba que marcas en la imagen). Mira [Cámara](10-camara.md#con-el-cabezal-sin-grabar-cámara-fija).
+
 ## Nuevo identificador de la aplicación, en la próxima versión
 
 - Tlaku cambia su identificador interno de `org.tlaku.app` a `io.github.jahziel1.tlaku` (lo pide Flathub para publicar el paquete Flatpak). Con él cambian los nombres de las carpetas donde Tlaku guarda sus datos.
