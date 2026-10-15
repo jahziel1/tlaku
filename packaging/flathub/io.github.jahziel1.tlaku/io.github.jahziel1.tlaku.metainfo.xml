@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Metadatos AppStream de Tlaku para Flatpak/Flathub. Se valida con
+     "appstreamcli validate" y la opción de no usar la red (la validación completa comprueba que
+     las capturas existan: hace falta que la etiqueta vX.Y.Z ya esté publicada). Cada versión nueva
+     añade un elemento release arriba; ver docs/publicar.md. -->
+<component type="desktop-application">
+  <id>io.github.jahziel1.tlaku</id>
+  <launchable type="desktop-id">io.github.jahziel1.tlaku.desktop</launchable>
+
+  <name>Tlaku</name>
+  <summary>Laser cutter and engraver software</summary>
+  <summary xml:lang="es">Software para cortadoras láser</summary>
+
+  <developer id="io.github.jahziel1">
+    <name>tlaku contributors</name>
+  </developer>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>Tlaku is a free and open source (MIT) alternative for laser cutters and engravers. Import SVG, DXF and images, organize layers and cut settings, plan the toolpath, estimate the time and run the job on your machine.</p>
+    <p xml:lang="es">Tlaku es una alternativa libre y de código abierto (MIT) para cortadoras y grabadoras láser. Importa SVG, DXF e imágenes, organiza capas y ajustes de corte, planifica el recorrido, estima el tiempo y ejecuta el trabajo en tu máquina.</p>
+    <p>Highlights:</p>
+    <p xml:lang="es">Lo principal:</p>
+    <ul>
+      <li>GRBL controllers over USB serial or the network, Ruida controllers, K40 boards (M2 Nano) and galvo cards (experimental).</li>
+      <li xml:lang="es">Controladoras GRBL por puerto serie USB o por red, controladoras Ruida, placas K40 (M2 Nano) y tarjetas galvo (experimental).</li>
+      <li>Layers with power and speed, preview and time estimate, node editor, nesting, camera alignment and a material library.</li>
+      <li xml:lang="es">Capas con potencia y velocidad, vista previa y tiempo estimado, editor de nodos, nesting, alineación con cámara y biblioteca de materiales.</li>
+      <li>Optional remote control from your phone on the local network, always with the confirmations that keep the machine safe.</li>
+      <li xml:lang="es">Control remoto opcional desde el celular en la red local, siempre con las confirmaciones que cuidan la máquina.</li>
+      <li>English and Spanish interface.</li>
+      <li xml:lang="es">Interfaz en español y en inglés.</li>
+    </ul>
+    <p>Experimental: most machine features have only been tested against simulated controllers, not yet on many real lasers. A laser can burn and blind: use proper eye protection and never leave a running machine unattended.</p>
+    <p xml:lang="es">Experimental: la mayoría de las funciones de máquina se han probado solo con controladoras simuladas y aún en pocos láseres reales. Un láser puede quemar y dañar la vista: usa protección ocular adecuada y nunca dejes una máquina en marcha sin vigilancia.</p>
+    <p>Serial lasers (/dev/ttyUSB0, /dev/ttyACM0): your user must belong to the "dialout" group on the host system (the "uucp" group on Arch-based distributions), for example with "sudo usermod -aG dialout $USER" followed by logging out and in again. USB boards (K40, galvo) may need a udev rule on the host that allows your user to open them.</p>
+    <p xml:lang="es">Láseres por puerto serie (/dev/ttyUSB0, /dev/ttyACM0): tu usuario debe pertenecer al grupo "dialout" del sistema (grupo "uucp" en las derivadas de Arch), por ejemplo con "sudo usermod -aG dialout $USER" y volviendo a iniciar sesión. Las placas USB (K40, galvo) pueden necesitar una regla udev en el sistema que permita a tu usuario abrirlas.</p>
+  </description>
+
+  <categories>
+    <category>Graphics</category>
+    <category>2DGraphics</category>
+    <category>VectorGraphics</category>
+    <category>Engineering</category>
+  </categories>
+  <keywords>
+    <keyword>laser</keyword>
+    <keyword xml:lang="es">láser</keyword>
+    <keyword>engraver</keyword>
+    <keyword xml:lang="es">grabadora</keyword>
+    <keyword>cutter</keyword>
+    <keyword xml:lang="es">cortadora</keyword>
+    <keyword>GRBL</keyword>
+    <keyword>G-code</keyword>
+    <keyword>CNC</keyword>
+    <keyword>SVG</keyword>
+  </keywords>
+
+  <url type="homepage">https://github.com/jahziel1/tlaku</url>
+  <url type="bugtracker">https://github.com/jahziel1/tlaku/issues</url>
+  <url type="vcs-browser">https://github.com/jahziel1/tlaku</url>
+  <url type="contribute">https://github.com/jahziel1/tlaku/blob/main/CONTRIBUTING.md</url>
+  <url type="donation">https://ko-fi.com/danielmartinez55371</url>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#c9cdff</color>
+    <color type="primary" scheme_preference="dark">#3a43a8</color>
+  </branding>
+
+  <requires>
+    <display_length compare="ge">1100</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <!-- Las capturas apuntan a la etiqueta de la versión, no a una rama (requisito de Flathub). -->
+  <screenshots>
+    <screenshot type="default">
+      <image type="source" width="1440" height="900">https://raw.githubusercontent.com/jahziel1/tlaku/v0.1.0/apps/desktop/docs/screenshots/01-principal-oscuro.png</image>
+      <caption>Design workspace with layers and cut settings</caption>
+      <caption xml:lang="es">Área de diseño con capas y ajustes de corte</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1440" height="900">https://raw.githubusercontent.com/jahziel1/tlaku/v0.1.0/apps/desktop/docs/screenshots/04-vista-previa.png</image>
+      <caption>Toolpath preview with time estimate</caption>
+      <caption xml:lang="es">Vista previa del recorrido con tiempo estimado</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1440" height="900">https://raw.githubusercontent.com/jahziel1/tlaku/v0.1.0/apps/desktop/docs/screenshots/06-maquina-trabajo.png</image>
+      <caption>Running a job on the machine</caption>
+      <caption xml:lang="es">Ejecución de un trabajo en la máquina</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1440" height="900">https://raw.githubusercontent.com/jahziel1/tlaku/v0.1.0/apps/desktop/docs/screenshots/39-nesting.png</image>
+      <caption>Nesting of parts on the sheet</caption>
+      <caption xml:lang="es">Nesting de piezas en la hoja</caption>
+    </screenshot>
+    <screenshot>
+      <image type="source" width="1440" height="900">https://raw.githubusercontent.com/jahziel1/tlaku/v0.1.0/apps/desktop/docs/screenshots/10-principal-claro.png</image>
+      <caption>Light theme</caption>
+      <caption xml:lang="es">Tema claro</caption>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.1.0" date="2026-10-15">
+      <description>
+        <p>First public version.</p>
+        <p xml:lang="es">Primera versión pública.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+</component>

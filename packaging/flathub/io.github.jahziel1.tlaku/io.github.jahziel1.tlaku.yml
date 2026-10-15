@@ -1,0 +1,101 @@
+# Manifiesto para el PR a Flathub (estrategia A: reempaqueta los .deb de la Release v0.1.0).
+# Es packaging/flatpak/io.github.jahziel1.tlaku.yml con las fuentes locales cambiadas por URL + sha256
+# de la Release. Pasos del envío, riesgos (Flathub exige compilar desde fuentes) y política de IA:
+# docs/publicar.md#flathub-linux. Esta carpeta se copia tal cual al PR; no se envía desde aquí.
+#
+# Probar en Linux (con flatpak-builder):
+#   flatpak-builder --force-clean --user --install-deps-from=flathub \
+#     --repo=repo build-dir io.github.jahziel1.tlaku.yml
+#   flatpak build-bundle repo tlaku.flatpak io.github.jahziel1.tlaku
+#   flatpak install --user tlaku.flatpak && flatpak run io.github.jahziel1.tlaku
+id: io.github.jahziel1.tlaku
+
+# GNOME y no org.freedesktop + webkit2gtk a mano: la Plataforma GNOME ya trae GTK 3, WebKitGTK 4.1
+# (libwebkit2gtk-4.1, la que enlaza Tauri 2) y libsoup 3; con el runtime freedesktop habría que
+# compilar WebKitGTK (horas de compilación). Es también el runtime que
+# documenta Tauri. Cuando salga una versión nueva, sube `runtime-version` y la imagen de la CI
+# (.github/workflows/flatpak.yml); una versión de runtime sin soporte hace que Flathub rechace
+# la aplicación.
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+
+command: tlaku
+
+# Permisos mínimos y por qué (detalle en docs/publicar.md):
+finish-args:
+  # Ventana: Wayland y, si no hay, X11 (WebKitGTK necesita IPC compartido con X11).
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Aceleración gráfica del lienzo (WebKitGTK).
+  - --device=dri
+  # Red: controladoras por red (GRBL por TCP, Ruida por UDP), cámaras IP y el control remoto desde
+  # el celular, que abre un servidor HTTP en la red local.
+  - --share=network
+  # Puerto serie (/dev/ttyUSB*, /dev/ttyACM*), placas USB directas (K40, galvo: /dev/bus/usb) y
+  # cámaras USB (/dev/video*). Flatpak no tiene un permiso más acotado para puertos serie:
+  # `--device=usb` (Flatpak 1.16) cubre /dev/bus/usb pero no /dev/tty*.
+  - --device=all
+  # Carpetas donde la gente guarda sus diseños. Los diálogos de archivo ya usan el portal de
+  # documentos; esto hace que la vista previa de imágenes (protocolo asset://, alcance de
+  # tauri.conf.json: $DOCUMENT, $DOWNLOAD, $PICTURE) vea las rutas reales y no la ruta del portal.
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+  - --filesystem=xdg-pictures:ro
+  # Si la ventana sale en blanco con una GPU NVIDIA o en Wayland, prueba (a mano, con
+  # `flatpak run --env=...`) WEBKIT_DISABLE_DMABUF_RENDERER=1 o WEBKIT_DISABLE_COMPOSITING_MODE=1.
+
+modules:
+  - name: tlaku
+    buildsystem: simple
+    sources:
+      # Los .deb que genera release.yml (Tauri) y publica la Release v0.1.0. Al subir de versión:
+      # URL + sha256 nuevos aquí (sha256sum del asset) y un <release> nuevo en el metainfo.
+      - type: file
+        url: https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_amd64.deb
+        sha256: 444b1d7facbf6b998d0dad534e2a8db9fe68ae300eae60c1aaf73e581af9efbe
+        dest-filename: tlaku.deb
+        only-arches: [x86_64]
+      - type: file
+        url: https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_arm64.deb
+        sha256: 6feb2e63e6b7c8af964359c61bb68da91dd3ecaeb9028f4235b12dcfd9f5f36d
+        dest-filename: tlaku.deb
+        only-arches: [aarch64]
+      - type: file
+        path: io.github.jahziel1.tlaku.desktop
+      - type: file
+        path: io.github.jahziel1.tlaku.metainfo.xml
+      - type: file
+        path: io.github.jahziel1.tlaku.svg
+    build-commands:
+      # Un .deb es un archivo `ar` con control.tar.* y data.tar.* (Tauri usa gzip).
+      # GNU ar no crea la carpeta de `--output`: hay que crearla antes.
+      - mkdir -p deb-extract
+      - ar -x tlaku.deb --output deb-extract
+      - tar -C deb-extract -xf deb-extract/data.tar.*
+      # El ejecutable: el .deb trae uno solo en usr/bin (su nombre depende de la versión de
+      # Tauri); se instala siempre como `tlaku`, que es lo que lanza el .desktop.
+      - |
+        set -- deb-extract/usr/bin/*
+        if [ "$#" -ne 1 ]; then echo "se esperaba un solo ejecutable en usr/bin del .deb" >&2; exit 1; fi
+        install -Dm755 "$1" /app/bin/tlaku
+      # Recursos que el .deb pudiera traer en usr/lib/<nombre> (hoy ninguno).
+      - |
+        for d in deb-extract/usr/lib/*/; do
+          [ -d "$d" ] || continue
+          mkdir -p /app/lib/tlaku
+          cp -r "$d". /app/lib/tlaku/
+        done
+      # El .desktop, los metadatos y el ícono vienen del repositorio (no del .deb), con el
+      # identificador de la aplicación como nombre, como exige Flathub.
+      - install -Dm644 io.github.jahziel1.tlaku.desktop /app/share/applications/io.github.jahziel1.tlaku.desktop
+      - install -Dm644 io.github.jahziel1.tlaku.metainfo.xml /app/share/metainfo/io.github.jahziel1.tlaku.metainfo.xml
+      - install -Dm644 io.github.jahziel1.tlaku.svg /app/share/icons/hicolor/scalable/apps/io.github.jahziel1.tlaku.svg
+      # Red de seguridad: si el ejecutable necesita una biblioteca que el runtime no trae (por
+      # ejemplo libxdo), la compilación falla aquí con el nombre en vez de fallar al abrir la app.
+      - |
+        if ldd /app/bin/tlaku | grep "not found"; then
+          echo "faltan bibliotecas en el runtime (lista arriba): hay que añadir un módulo que las compile" >&2
+          exit 1
+        fi
