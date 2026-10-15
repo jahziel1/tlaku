@@ -108,14 +108,32 @@ Hay dos formas de ayudar sin escribir código, y las dos usan formularios de Git
   máquina sola.
 - **Compartir ajustes de material.** Con el formulario
   [Compartir ajustes de material](https://github.com/jahziel1/tlaku/issues/new?template=material_settings.yml)
-  (o «Compartir…» en el panel Materiales de la app). Solo comparte valores que probaste tú, y confirma
-  que los publicas con licencia **CC0**. Tras la revisión entran a la biblioteca como «Comunidad (sin
-  verificar)». El proceso y el formato están en [community/materials](community/materials/README.es.md).
+  (o «Compartir este ajuste…» en el panel Materiales de la app, o «Compartir un ajuste mío…» en el
+  navegador de la comunidad; la app solo abre el formulario en tu navegador, nada se envía solo). Solo
+  comparte valores que probaste tú, y confirma que los publicas con licencia **CC0**. Tras la revisión
+  entran a la biblioteca como «Comunidad (sin verificar)» y se publican en el catálogo de la comunidad que
+  la app puede explorar. El proceso y el formato están en [community/materials](community/materials/README.es.md).
   No se acepta pegar tablas copiadas de manuales o sitios con derechos de autor: solo tus propias
   pruebas.
+- **Confirmar los ajustes de otra persona.** Si probaste los valores de un aporte en tu máquina, comenta
+  en su issue con tu máquina, la potencia del láser, el material y el resultado. Quien mantiene el proyecto
+  te agrega a sus `confirmations` y la app muestra «Verificado por N personas».
 
-Si eres quien mantiene el proyecto y quieres convertir un issue en un aporte:
-`node scripts/community/issue-to-preset.mjs <número>` y después `cargo test -p tlaku-doc community`.
+Cómo se revisan y aprueban los aportes (para quien mantiene el proyecto):
+
+1. Alguien abre el issue con el formulario. Un comentario automático solo lo resume y repite el aviso de
+   seguridad; no escribe nada.
+2. Quien mantiene el proyecto lo lee con la lista de
+   [community/materials](community/materials/README.es.md#revisar-un-aporte-quien-mantiene-el-proyecto)
+   (valores plausibles, resultado coherente con la foto, nada inseguro, solo pruebas propias, sin tablas copiadas).
+3. Si se aprueba: `node scripts/community/issue-to-preset.mjs <número>` (con `--machine-model <id>` cuando
+   la máquina corresponde con claridad a un modelo del catálogo de la app), luego `cargo test -p tlaku-doc
+   community` y se abre un pull request que solo agrega `community/materials/<número>.json`. Integrar ese
+   pull request es la aprobación: el archivo entra a la siguiente versión de la app y al catálogo publicado.
+4. Las confirmaciones se agregan igual, con un pull request que edita `confirmations` en ese archivo. Solo
+   cuentan personas distintas y «misma máquina» es lo que cada persona **declara**; no se demuestra.
+5. Para retirar un aporte, abre un issue; borrar el archivo lo quita del catálogo en la siguiente
+   publicación (las copias ya distribuidas no se pueden recoger, por eso se exige CC0).
 
 ## Traducir
 

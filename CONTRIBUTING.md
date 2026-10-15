@@ -111,13 +111,31 @@ There are two ways to help without writing code, and both use GitHub forms:
   alone.
 - **Share material settings.** With the
   [Share material settings](https://github.com/jahziel1/tlaku/issues/new?template=material_settings.yml)
-  form (or "Share…" in the app's Materials panel). Only share values you tested yourself, and confirm
-  you publish them under the **CC0** license. After review they join the library as "Community
-  (unverified)". The process and the format are in [community/materials](community/materials/README.md).
+  form (or "Share this setting…" in the app's Materials panel, or "Share a setting of mine…" in the
+  community browser; the app only opens the form in your browser, nothing is sent automatically). Only
+  share values you tested yourself, and confirm you publish them under the **CC0** license. After review
+  they join the library as "Community (unverified)" and are published in the community catalog that the
+  app can browse. The process and the format are in [community/materials](community/materials/README.md).
   Pasting tables copied from copyrighted manuals or sites is not accepted: only your own tests.
+- **Confirm someone's settings.** If you tried the values of an existing contribution on your machine,
+  comment on its issue with your machine, laser power, material and the result. A maintainer adds you to
+  its `confirmations`, and the app shows "Verified by N people".
 
-If you are the maintainer and want to turn an issue into a contribution:
-`node scripts/community/issue-to-preset.mjs <number>` and then `cargo test -p tlaku-doc community`.
+How contributions are reviewed and approved (for maintainers):
+
+1. A person opens the issue with the form. An automatic comment only summarizes it and repeats the safety
+   notice; it writes nothing.
+2. A maintainer reads it against the checklist in
+   [community/materials](community/materials/README.md#reviewing-a-contribution-maintainers) (plausible
+   values, result matches the photo, nothing unsafe, own tests only, no copied tables).
+3. If it is approved: `node scripts/community/issue-to-preset.mjs <number>` (add `--machine-model <id>`
+   when the machine clearly matches a model of the app's catalog), then `cargo test -p tlaku-doc
+   community`, and open a pull request that only adds `community/materials/<number>.json`. Merging that
+   pull request is the approval: the file enters the next app version and the published catalog.
+4. Confirmations are added the same way, by a pull request that edits `confirmations` in that file.
+   Only different people count, and "same machine" is what each person **declares**; it is not proven.
+5. To remove a contribution, open an issue; deleting the file removes it from the catalog on the next
+   publication (copies already distributed cannot be recalled, which is why CC0 is required).
 
 ## Translating
 

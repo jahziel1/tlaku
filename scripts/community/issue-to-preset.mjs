@@ -3,7 +3,12 @@
 // Converts an issue made with the `material_settings` form into a community/materials/ file.
 //
 //   node scripts/community/issue-to-preset.mjs <número> [--repo propietario/repo] [--dry-run]
-//   node scripts/community/issue-to-preset.mjs <número> --body-file issue.md [--author usuario]
+//   node scripts/community/issue-to-preset.mjs <número> --body-file issue.md [--author usuario] [--date AAAA-MM-DD]
+//   node scripts/community/issue-to-preset.mjs <número> --machine-model creality-falcon2-22w
+//
+// `--machine-model` es el `id` del modelo en el catálogo de máquinas de la app
+// (apps/desktop/src/features/devices/catalog*.ts): lo pone quien revisa si la máquina que escribió la
+// persona corresponde a uno. Es declarado, no demostrado. La fecha sale de la creación del issue.
 //
 // Con `gh issue view --json` lee el issue (hace falta `gh auth login`) y escribe
 // `community/materials/<número>.json`. Con `--dry-run` solo lo imprime. No toca git ni GitHub.
@@ -126,13 +131,16 @@ export function materialKey(name) {
   return { key: slug, known: false };
 }
 
+/** `1.2.3` o `1.2.3-beta.1` (hasta 32 caracteres), como exige el validador. */
+const isVersion = (text) => text.length <= 32 && /^\d{1,6}\.\d{1,6}\.\d{1,6}(?:[-+][0-9A-Za-z.+-]+)?$/.test(text);
+
 const checked = (text, n) => [...text.matchAll(/^- \[([ xX])\]/gm)].slice(0, n).every((m) => m[1] !== ' ') && [...text.matchAll(/^- \[/gm)].length >= n;
 
 /**
  * Del cuerpo del issue al JSON del aporte.
  * @param {string} body cuerpo del issue
  * @param {number} number número del issue
- * @param {{ formText?: string, repo?: string, author?: string }} [opts]
+ * @param {{ formText?: string, repo?: string, author?: string, date?: string, machineModel?: string }} [opts]
  */
 export function bodyToPreset(body, number, opts = {}) {
   const formText = opts.formText ?? readFileSync(FORM_FILE, 'utf8');
@@ -186,22 +194,27 @@ export function bodyToPreset(body, number, opts = {}) {
     confidence: 'forum',
     license: 'CC0-1.0',
     ...(opts.author && /^[A-Za-z0-9-]{1,39}$/.test(opts.author) ? { contributor: opts.author } : {}),
+    ...(opts.date && /^\d{4}-\d{2}-\d{2}$/.test(opts.date) ? { date: opts.date } : {}),
+    ...(isVersion((f.tlaku_version ?? '').trim()) ? { tlaku_version: (f.tlaku_version ?? '').trim() } : {}),
+    ...(opts.machineModel && /^[a-z0-9-]{1,60}$/.test(opts.machineModel) ? { machine_model: opts.machineModel } : {}),
   };
   return entry;
 }
 
 function parseArgs(argv) {
-  const args = { repo: DEFAULT_REPO, dry: false, number: null, bodyFile: null, author: undefined };
+  const args = { repo: DEFAULT_REPO, dry: false, number: null, bodyFile: null, author: undefined, date: undefined, machineModel: undefined };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') args.dry = true;
     else if (a === '--repo') args.repo = argv[++i];
     else if (a === '--body-file') args.bodyFile = argv[++i];
     else if (a === '--author') args.author = argv[++i];
+    else if (a === '--date') args.date = argv[++i];
+    else if (a === '--machine-model') args.machineModel = argv[++i];
     else if (/^\d+$/.test(a)) args.number = Number(a);
     else throw new FormError(`Argumento desconocido: ${a}`);
   }
-  if (args.number === null) throw new FormError('Uso: issue-to-preset.mjs <número> [--repo propietario/repo] [--dry-run] [--body-file archivo] [--author usuario]');
+  if (args.number === null) throw new FormError('Uso: issue-to-preset.mjs <número> [--repo propietario/repo] [--dry-run] [--body-file archivo] [--author usuario] [--date AAAA-MM-DD] [--machine-model id]');
   return args;
 }
 
@@ -209,16 +222,18 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   let body;
   let author = args.author;
+  let date = args.date;
   if (args.bodyFile) {
     body = readFileSync(args.bodyFile, 'utf8');
   } else {
-    const json = execFileSync('gh', ['issue', 'view', String(args.number), '--repo', args.repo, '--json', 'body,author,labels,state'], { encoding: 'utf8' });
+    const json = execFileSync('gh', ['issue', 'view', String(args.number), '--repo', args.repo, '--json', 'body,author,labels,state,createdAt'], { encoding: 'utf8' });
     const issue = JSON.parse(json);
     body = issue.body ?? '';
     author ??= issue.author?.login;
+    date ??= typeof issue.createdAt === 'string' ? issue.createdAt.slice(0, 10) : undefined;
     if (!(issue.labels ?? []).some((l) => l.name === 'material-settings')) console.error('Aviso: el issue no tiene la etiqueta material-settings.');
   }
-  const entry = bodyToPreset(body, args.number, { repo: args.repo, author });
+  const entry = bodyToPreset(body, args.number, { repo: args.repo, author, date, machineModel: args.machineModel });
   const text = `${JSON.stringify(entry, null, 2)}\n`;
   if (args.dry) {
     process.stdout.write(text);

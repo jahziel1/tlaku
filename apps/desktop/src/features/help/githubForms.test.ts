@@ -7,7 +7,7 @@ import { FALLBACK_DEVICE } from '@/lib/device';
 import { makeLayer } from '@/lib/layers';
 // @ts-expect-error -- módulo .mjs de scripts/, sin tipos
 import { bodyToPreset, parseSpeed } from '../../../../../scripts/community/issue-to-preset.mjs';
-import { DROPDOWN_VALUES, FORM_FIELDS, FORM_FILES, bugReportUrl, formUrl, lastInfoResponse, machineContext, machineReportUrl, materialFormValues, materialShareUrl, systemLine } from './githubForms';
+import { DROPDOWN_VALUES, FORM_FIELDS, FORM_FILES, bugReportUrl, formUrl, lastInfoResponse, machineContext, machineReportUrl, materialFormValues, materialShareUrl, systemLine, contributionDraft } from './githubForms';
 import { isAllowedUrl, openEnv, openExternal } from './openExternal';
 import { PROJECT_LINKS, REPO_URL } from './links';
 
@@ -149,6 +149,28 @@ describe('dirección del formulario prellenado', () => {
     expect(new URL(materialShareUrl(null, device())).searchParams.get('machine')).toBe('Falcon2 22 W');
   });
 
+  it('la versión de Tlaku se prellena y el borrador JSON no lleva datos personales', () => {
+    const preset: MaterialPreset = {
+      id: 'mat-secreto-123', material: 'Contrachapado de tilo', thickness: 3, title: 'Corte', notes: 'Nota privada: la llave está en /Users/juan/doc.tlaku', device_id: 'dispositivo-privado',
+      settings: makeLayer('#000000', 'Corte', { speed: 500, power: 100, passes: 2, air: true }),
+      role: 'cut', machine_class: 'diode_20', source: 'https://github.com/jahziel1/tlaku/issues/9', confidence: 'forum',
+    };
+    expect(materialFormValues(preset, device(), null, '0.1.0').tlaku_version).toBe('0.1.0');
+    expect(materialFormValues(preset, device()).tlaku_version).toBeUndefined();
+    expect(new URL(materialShareUrl(preset, device(), null, '0.1.0')).searchParams.get('tlaku_version')).toBe('0.1.0');
+    expect(new URL(materialShareUrl(null, device(), null, '0.1.0')).searchParams.get('tlaku_version')).toBe('0.1.0');
+
+    const draft = contributionDraft(preset, device(), null, '0.1.0');
+    expect(draft).toEqual({ material: 'Contrachapado de tilo', thickness: 3, role: 'cut', machine_class: 'diode_20', laser_watts: 20, machine: 'Falcon2 22 W', speed: 500, power: 100, passes: 2, air: true, tlaku_version: '0.1.0' });
+    // Ni identificadores, ni notas, ni rutas, ni la dirección de origen: solo lo que el formulario ya muestra.
+    const text = JSON.stringify(draft);
+    for (const leak of ['mat-secreto', 'privada', '/Users', 'dispositivo-privado', 'issues/9']) expect(text).not.toContain(leak);
+    // Un relleno agrega su modo e intervalo; sin material no se inventa uno.
+    const fill: MaterialPreset = { ...preset, material: '', settings: makeLayer('#000000', 'G', { mode: 'fill', speed: 3000, power: 30, interval: 0.1 }), role: undefined, machine_class: undefined };
+    expect(contributionDraft(fill, device(), 'diode_10')).toMatchObject({ mode: 'fill', interval: 0.1, role: 'engrave', machine_class: 'diode_10', laser_watts: 10 });
+    expect(contributionDraft(fill, device())).not.toHaveProperty('material');
+  });
+
   it('systemLine junta plataforma y webview', () => {
     expect(systemLine({})).toBe('');
     expect(systemLine({ platform: 'Win32' })).toBe('Win32');
@@ -229,6 +251,16 @@ describe('script issue-to-preset', () => {
     expect(e.thickness).toBeUndefined();
     expect(() => bodyToPreset(body({ confirm: '- [X] a\n- [ ] b' }), 5, { formText: formLabels() })).toThrow(/casillas/);
     expect(() => bodyToPreset('hola', 5, { formText: formLabels() })).toThrow(/formulario/);
+  });
+
+  it('toma la versión de Tlaku, la fecha del issue y el modelo declarado por quien revisa', () => {
+    const e = bodyToPreset(body({ tlaku_version: '0.1.0' }), 12, { formText: formLabels(), date: '2026-10-01', machineModel: 'creality-falcon2-22w' });
+    expect(e).toMatchObject({ tlaku_version: '0.1.0', date: '2026-10-01', machine_model: 'creality-falcon2-22w' });
+    // Valores mal formados no entran al archivo.
+    const bad = bodyToPreset(body({ tlaku_version: 'última' }), 13, { formText: formLabels(), date: 'ayer', machineModel: 'Falcon 2' });
+    expect(bad).not.toHaveProperty('tlaku_version');
+    expect(bad).not.toHaveProperty('date');
+    expect(bad).not.toHaveProperty('machine_model');
   });
 
   it('convierte unidades de velocidad', () => {

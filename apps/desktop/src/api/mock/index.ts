@@ -5,6 +5,7 @@ import { mockCodes } from './codes';
 import { mockDevices } from './devices';
 import { mockFileio } from './fileio';
 import { mockMaterials } from './materials';
+import { mockCommunityCatalog } from './communityCatalog';
 import { mockNest } from './nest';
 import { mockRemnants } from './remnants';
 import { mockBundle } from './bundle';
@@ -267,6 +268,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockRemnants(lag),
     ...mockCamera(lag),
     ...mockMaterials(lag),
+    ...mockCommunityCatalog(lag),
     ...mockProbe(lag),
     ...mockAutomation(lag),
     ...remoteApi,

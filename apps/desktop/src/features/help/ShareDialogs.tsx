@@ -2,12 +2,13 @@ import { ExternalLink } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { MaterialPreset } from '@/api/types';
 import { getApi } from '@/api';
+import { myMachine } from '@/features/materials/communityModel';
 import { useMaterials } from '@/features/materials/state';
 import { t, type I18nKey } from '@/i18n';
 import { selectActiveDevice, useStore } from '@/store';
 import { selectIsVirtual } from '@/store/machine';
 import { CopyButton } from './CopyButton';
-import { bugReportUrl, machineContext, machineReportUrl, materialFormValues, materialShareUrl, FORM_FIELDS, type MachineContext } from './githubForms';
+import { bugReportUrl, contributionDraft, machineContext, machineReportUrl, materialFormValues, materialShareUrl, FORM_FIELDS, type MachineContext } from './githubForms';
 import { Frame } from './HelpFrame';
 import { useHelpUi } from './helpStore';
 import { openExternal } from './openExternal';
@@ -128,17 +129,45 @@ export function ShareMachineDialog() {
   );
 }
 
+/** Versión de la app (para el aporte); `null` mientras se lee o si no se pudo. */
+function useAppVersion(): string | null {
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getApi()
+      .appVersion()
+      .then((v) => alive && setVersion(v))
+      .catch(() => alive && setVersion(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return version;
+}
+
 export function ShareMaterialDialog() {
   const close = useHelpUi((s) => s.close);
   const preset: MaterialPreset | null = useHelpUi((s) => s.sharePreset);
   const device = useStore(selectActiveDevice);
-  const chosenClass = useMaterials((s) => s.machineClass);
-  const url = useMemo(() => materialShareUrl(preset, device, chosenClass), [preset, device, chosenClass]);
-  const values = preset ? materialFormValues(preset, device, chosenClass) : { machine: device.name };
+  const chosen = useMaterials((s) => s.machineClass);
+  // La clase que eligió la persona o, si no, la potencia que dice el nombre del modelo («Falcon2 22 W»).
+  const chosenClass = useMemo(() => myMachine(device, chosen).machineClass, [device, chosen]);
+  const version = useAppVersion();
+  const url = useMemo(() => materialShareUrl(preset, device, chosenClass, version), [preset, device, chosenClass, version]);
+  const values = preset ? materialFormValues(preset, device, chosenClass, version) : { machine: device.name, ...(version ? { tlaku_version: version } : {}) };
+  const draft = useMemo(() => (preset ? JSON.stringify(contributionDraft(preset, device, chosenClass, version), null, 2) : null), [preset, device, chosenClass, version]);
   return (
     <ShareView id="help-share-material-title" title={t('help.shareMaterial.title')} fields={visibleFields('material', values)} url={url} onClose={close}>
       <p>{t('help.shareMaterial.intro')}</p>
       {preset ? <p className="hint">{t('help.shareMaterial.classNote')}</p> : <p className="hint">{t('help.shareMaterial.noPreset')}</p>}
+      {draft && (
+        <details className="help__draft">
+          <summary>{t('help.shareMaterial.draft')}</summary>
+          <p className="hint">{t('help.shareMaterial.draftHint')}</p>
+          <pre className="md__pre"><code>{draft}</code></pre>
+          <CopyButton text={draft} label={t('help.shareMaterial.draftCopy')} />
+        </details>
+      )}
     </ShareView>
   );
 }

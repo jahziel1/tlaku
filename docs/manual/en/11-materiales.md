@@ -94,6 +94,33 @@ Your library (**My materials**) is saved automatically on your computer, in a `m
 
 `.tlakumat` files are for sharing your settings with other people or moving them to another computer. Libraries from other programs are not imported.
 
-**Sharing with the community.** If one of your settings worked for you, use that setting's **Share…** button (or Help > "Share Material Settings…"): the app opens your browser with the GitHub form already filled in with the machine, the material, the speed and the power. You review it and decide whether to post it; Tlaku sends nothing on its own. After a review, the settings join the **Community (unverified)** section of the library under the CC0 license. They are one person's values on one machine: always run a test before using them.
+## Browsing the community
+
+The **Browse the community…** button (at the top of the Materials panel) opens a browser of settings that other people tested on their machines and that the project published on its site. You do not need a new app version to see new settings.
+
+**When it uses the internet.** Only when you open that window (or press **Refresh**): the app downloads one read-only file from `jahziel1.github.io` and nothing else. The site only sees your IP address; your design, your machine and any identifier are not sent. It is never downloaded at startup or in the background. The last copy is saved on your computer with its date, so **offline you still see the last copy** (the status line tells you which day it is from and why it could not be refreshed).
+
+**It is validated before it is shown.** The app checks the downloaded catalog (version, size, number of settings and that every value makes sense: power 0 to 100 %, positive speeds...). If something does not add up, it discards it, says so and keeps the last good copy. It is data only: nothing in the catalog is run or sent to the machine.
+
+**What you see.**
+
+- Filters: **Machine** (by default **My machine**, using the model from Tlaku's machine catalog and the power of your laser; also "Same laser type, any power" and "All"), **Material**, **Thickness**, **Operation** (cut, score, line engraving, fill, image), text search and **Only verified by other people**. If your machine has no class chosen, the note sends you to **My machine class** in the panel.
+- The list puts what looks most like your machine first, and the most confirmed. Each setting says whether it is from the **same model**, the **same class**, **another power** or **another laser**, and whether it is **verified by N people**.
+- The details show speed, power, passes, interval, the machine it was tested on, the contributor's notes, their GitHub alias, the date, the Tlaku version, the confirmations and the link to the original contribution (photo included).
+
+> **"Same machine" is declared, not proven.** The contributor writes which machine they used and nobody checks it. A setting from another machine or another power is **only a rough guide**: it may burn too much or not cut. Even one from the same model depends on your lens, focus, air and material. Always test on a scrap, starting with less power.
+
+**Using one.**
+
+- **Use (copy to my library)** saves a copy in **My materials**, with its origin (the link to the contribution and the *Community (unverified)* tag), to edit or apply whenever you want. It changes no layer. If you already have it, it is not duplicated.
+- **Apply to the selected layer…** asks first (with the values and, if the setting's machine is not yours, the "only a rough guide" warning) and only then copies the settings to the layer; it can be undone. It never sends anything to the machine: the job still goes through the preview, the review and the normal send.
+
+If no settings are published yet, the window says so and invites you to share the first one.
+
+## Sharing with the community
+
+If one of your settings worked for you, use **Share this setting…** on that setting in the panel (or **Share a setting of mine…** in the community browser, which takes the values of the selected layer; or Help > "Share Material Settings…"). A dialog shows what will be put in the form and, expandable, the contribution as JSON (only the values, your machine, its class and the Tlaku version: no paths, no notes, nothing from your design). **Open the form on GitHub** opens your browser with the form already filled in; you review it, write the result and decide whether to post it. Tlaku sends nothing on its own and a GitHub account is required.
+
+A person on the project reviews each contribution (values make sense, the result matches the photo, nothing unsafe) and, if approved, adds it with a pull request; it then appears in the catalog under the CC0 license. If another person tries the same values and tells it in the issue, the project adds them as a confirmation and the setting becomes "Verified by N people". Details for maintainers: `community/materials/README.md` in the project repository.
 
 Next: [Rotary and Z axis](12-rotativo-y-eje-z.md)

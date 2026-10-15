@@ -624,6 +624,17 @@ desktop.worker.rebooted_idle = The machine restarted (a limit switch, the lid or
 # edit/devices.rs
 desktop.devices.lbdev_too_big = {path}: the file is too large to be a LightBurn device profile (.lbdev).
 
+# community_catalog.rs
+desktop.community.cache_dir = Could not locate the app cache folder: {err}
+desktop.community.client = Could not prepare the connection to the Tlaku site: {err}
+desktop.community.connect = Could not connect to the Tlaku site: {err}
+desktop.community.timeout = the site took too long to respond
+desktop.community.status = The Tlaku site answered with code {status}.
+desktop.community.too_big = The catalog is larger than the allowed maximum ({max} bytes): it was discarded.
+desktop.community.not_utf8 = The downloaded catalog is not valid text: it was discarded.
+desktop.community.invalid = The downloaded catalog is not valid and was discarded: {err}
+desktop.community.write_cache = Could not save the local copy of the catalog: {err}
+
 # job_history.rs
 desktop.job_history.data_dir = Could not find the app data folder: {err}
 desktop.job_history.bad_entry = The history entry is not valid: it must be an object with "id" (text) and "at" (number).

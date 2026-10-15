@@ -624,6 +624,17 @@ desktop.worker.rebooted_idle = La máquina se reinició (¿un final de carrera, 
 # edit/devices.rs
 desktop.devices.lbdev_too_big = {path}: el archivo es demasiado grande para ser un perfil de LightBurn (.lbdev).
 
+# community_catalog.rs
+desktop.community.cache_dir = No se pudo ubicar la carpeta de caché de la app: {err}
+desktop.community.client = No se pudo preparar la conexión con el sitio de Tlaku: {err}
+desktop.community.connect = No se pudo conectar con el sitio de Tlaku: {err}
+desktop.community.timeout = el sitio tardó demasiado en responder
+desktop.community.status = El sitio de Tlaku respondió con el código {status}.
+desktop.community.too_big = El catálogo es más grande que el máximo permitido ({max} bytes): se descartó.
+desktop.community.not_utf8 = El catálogo descargado no es texto válido: se descartó.
+desktop.community.invalid = El catálogo descargado no es válido y se descartó: {err}
+desktop.community.write_cache = No se pudo guardar la copia local del catálogo: {err}
+
 # job_history.rs
 desktop.job_history.data_dir = No se pudo ubicar la carpeta de datos de la app: {err}
 desktop.job_history.bad_entry = La entrada del historial no es válida: debe ser un objeto con «id» (texto) y «at» (número).

@@ -195,3 +195,11 @@ jobs:
 
       - name: Construir site/
         run: node scripts/build-site.mjs --out "$RUNNER_TEMP/site-dist"
+
+      # El catálogo de la comunidad se compila y valida igual que al publicar (pages.yml).
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Compilar el catálogo de la comunidad
+        run: cargo run --locked -q -p tlaku-doc --example community_catalog -- --out "$RUNNER_TEMP/site-dist/catalog/v1/index.json"

@@ -25,7 +25,7 @@ export const FORM_FILES: Record<IssueForm, string> = {
 export const FORM_FIELDS: Record<IssueForm, readonly string[]> = {
   bug: ['version', 'system', 'machine', 'controller'],
   machine: ['version', 'system', 'model', 'controller', 'firmware', 'grbl_i', 'connection'],
-  material: ['laser_type', 'laser_watts', 'machine', 'material', 'thickness', 'operation', 'speed', 'power', 'passes', 'interval', 'air'],
+  material: ['laser_type', 'laser_watts', 'machine', 'tlaku_version', 'material', 'thickness', 'operation', 'speed', 'power', 'passes', 'interval', 'air'],
 };
 
 /** Opciones exactas de los campos desplegables que se prellenan (deben coincidir con el YAML). */
@@ -176,7 +176,7 @@ export function machineReportUrl(c: BugContext): string {
 }
 
 /** Valores del formulario de ajustes de material a partir de un ajuste propio. */
-export function materialFormValues(preset: MaterialPreset, device: DeviceProfile, chosenClass: MachineClass | null = null): Record<string, string> {
+export function materialFormValues(preset: MaterialPreset, device: DeviceProfile, chosenClass: MachineClass | null = null, version: string | null = null): Record<string, string> {
   const machineClass = preset.machine_class ?? chosenClass;
   const kind = machineClass ? classKind(machineClass) : laserKindOf(device);
   const role = effectiveRole(preset);
@@ -194,9 +194,35 @@ export function materialFormValues(preset: MaterialPreset, device: DeviceProfile
   if (machineClass) out.laser_watts = String(classWatts(machineClass));
   if (preset.thickness !== null) out.thickness = String(preset.thickness);
   if (s.mode !== 'line') out.interval = String(s.interval);
+  if (version) out.tlaku_version = version;
   return out;
 }
 
-export function materialShareUrl(preset: MaterialPreset | null, device: DeviceProfile, chosenClass: MachineClass | null = null): string {
-  return formUrl('material', preset ? materialFormValues(preset, device, chosenClass) : { machine: device.name });
+export function materialShareUrl(preset: MaterialPreset | null, device: DeviceProfile, chosenClass: MachineClass | null = null, version: string | null = null): string {
+  return formUrl('material', preset ? materialFormValues(preset, device, chosenClass, version) : { machine: device.name, ...(version ? { tlaku_version: version } : {}) });
+}
+
+/**
+ * Borrador del aporte en el formato de `community/materials/*.json` (sin `source`, `license` ni `contributor`,
+ * que pone quien lo revisa). Es lo mismo que se prellena en el formulario, para verlo y copiarlo: solo
+ * valores del ajuste, la máquina (el nombre de tu perfil, que puedes cambiar), la clase y la versión de
+ * Tlaku. No lleva rutas, identificadores, notas ni nada del documento. Nada se envía: lo publica quien abre el formulario.
+ */
+export function contributionDraft(preset: MaterialPreset, device: DeviceProfile, chosenClass: MachineClass | null = null, version: string | null = null): Record<string, unknown> {
+  const machineClass = preset.machine_class ?? chosenClass;
+  const s = preset.settings;
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return {
+    ...(preset.material.trim() ? { material: preset.material.trim() } : {}),
+    ...(preset.thickness !== null ? { thickness: preset.thickness } : {}),
+    role: effectiveRole(preset),
+    ...(machineClass ? { machine_class: machineClass, laser_watts: classWatts(machineClass) } : {}),
+    machine: device.name,
+    speed: round(s.speed),
+    power: round(s.power),
+    passes: s.passes,
+    ...(s.mode !== 'line' ? { mode: s.mode, interval: s.interval } : {}),
+    air: s.air,
+    ...(version ? { tlaku_version: version } : {}),
+  };
 }

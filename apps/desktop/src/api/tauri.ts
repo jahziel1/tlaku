@@ -143,6 +143,8 @@ export function createTauriApi(): LaserApi {
     importMaterialLibrary: (a) => call('importMaterialLibrary', a),
     exportMaterialLibrary: (a) => call('exportMaterialLibrary', a),
     materialTest: (a) => call('materialTest', a),
+    communityCatalogCached: () => call('communityCatalogCached'),
+    communityCatalogRefresh: () => call('communityCatalogRefresh'),
     deviceDefaults: (a) => call('deviceDefaults', a),
     rotaryTest: (a) => call('rotaryTest', a),
     readLbdev: (a) => call('readLbdev', a),

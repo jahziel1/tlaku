@@ -5485,6 +5485,8 @@ dependencies = [
  "getrandom 0.3.4",
  "if-addrs",
  "image",
+ "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",
