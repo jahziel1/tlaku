@@ -3,7 +3,24 @@ import type { DeviceProfile } from '@/api/types';
 import { t } from '@/i18n';
 import { normalizeDevice, validateDevice } from '@/lib/device';
 import { errorMessage } from '@/lib/errors';
+import { readPref, writePref } from '@/lib/platform';
 import type { SliceCreator } from './types';
+
+const LAST_DEVICE_PREF = 'lastDevice';
+
+/**
+ * Recuerda la máquina «de siempre» de este equipo: la última con la que se conectó o la que se
+ * acaba de agregar con el asistente. Al abrir la app manda sobre la estrella «por defecto».
+ */
+export function rememberDevice(id: string): void {
+  writePref(LAST_DEVICE_PREF, id);
+}
+
+/** Id de la última máquina recordada (puede ya no existir), o `null`. */
+export function rememberedDevice(): string | null {
+  const id = readPref(LAST_DEVICE_PREF);
+  return id ? id : null;
+}
 
 export interface DevicesSlice {
   devices: DeviceProfile[];
@@ -30,9 +47,11 @@ export const createDevicesSlice: SliceCreator<DevicesSlice> = (set, get) => ({
     try {
       // Perfiles guardados antes de la fase 4 llegan sin Z, rotativo ni corrección de barrido.
       const devices = (await getApi().listDevices()).map(normalizeDevice);
-      const wanted = get().doc.device_id ?? get().activeDeviceId;
-      // Sin documento ni perfil activo (al abrir la app) se activa el marcado como predeterminado.
-      const activeDeviceId = devices.find((d) => d.id === wanted)?.id ?? devices.find((d) => d.is_default)?.id ?? devices[0]?.id ?? null;
+      // Orden: la del documento, la que ya está activa y, al abrir la app, la última con la que se
+      // conectó (o agregó). Si nunca se conectó (o ya no existe) manda la marcada «por defecto».
+      const known = (id: string | null | undefined) => (id ? devices.find((d) => d.id === id)?.id : undefined);
+      const activeDeviceId =
+        known(get().doc.device_id) ?? known(get().activeDeviceId) ?? known(rememberedDevice()) ?? devices.find((d) => d.is_default)?.id ?? devices[0]?.id ?? null;
       set({ devices, activeDeviceId, devicesLoading: false });
       get().fitBed();
     } catch (e) {

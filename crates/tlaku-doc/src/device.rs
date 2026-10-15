@@ -452,6 +452,11 @@ pub struct DeviceProfile {
     /// terminar). 0 = no se mueve.
     #[serde(default)]
     pub u_offset: f64,
+    /// Potencia nominal del láser en W (22 en una Falcon2 Pro 22 W), si se conoce. Sirve para
+    /// convertir a la máquina los valores de partida por watt de la vista previa por tonos. El
+    /// asistente de máquinas la llena desde el catálogo; `None` = no se sabe.
+    #[serde(default)]
+    pub laser_watts: Option<f64>,
 }
 
 /// Transporte hacia la controladora.
@@ -584,6 +589,8 @@ struct DeviceProfileRepr {
     sync_streaming: bool,
     #[serde(default)]
     u_offset: f64,
+    #[serde(default)]
+    laser_watts: Option<f64>,
 }
 
 impl<'de> Deserialize<'de> for DeviceProfile {
@@ -634,6 +641,7 @@ impl From<DeviceProfileRepr> for DeviceProfile {
             no_dtr_reset: r.no_dtr_reset,
             sync_streaming: r.sync_streaming,
             u_offset: r.u_offset,
+            laser_watts: r.laser_watts,
         }
     }
 }
@@ -703,6 +711,7 @@ impl Default for DeviceProfile {
             no_dtr_reset: false,
             sync_streaming: false,
             u_offset: 0.0,
+            laser_watts: None,
         }
     }
 }
@@ -821,6 +830,8 @@ mod tests {
         assert_eq!(d.speed_unit, SpeedUnit::MmPerMin);
         assert!(!d.swap_xy && !d.home_on_connect && !d.no_dtr_reset && !d.sync_streaming);
         assert_eq!(d.u_offset, 0.0);
+        // Un perfil de antes no trae los watts del láser: no se sabe.
+        assert_eq!(d.laser_watts, None);
         let d = DeviceProfile {
             is_default: true,
             icon: "printer".into(),
@@ -831,6 +842,7 @@ mod tests {
             no_dtr_reset: true,
             sync_streaming: true,
             u_offset: 12.5,
+            laser_watts: Some(22.0),
             ..DeviceProfile::default()
         };
         let json = serde_json::to_string(&d).unwrap();

@@ -139,12 +139,55 @@ fn frame_runs_without_job_events_or_progress() {
             .iter()
             .any(|(_, t)| tlaku_i18n::split_code(t) == (Some("frame_done"), "; encuadre terminado"))
     });
+    // El registro dice que el recorrido va con el láser apagado (no mezcla los dos textos).
+    let started: Vec<String> = rig
+        .sink
+        .logs()
+        .into_iter()
+        .map(|(_, t)| t)
+        .filter(|t| t.contains("encuadre: recorrido"))
+        .collect();
+    assert_eq!(started.len(), 1, "{started:?}");
+    assert!(
+        started[0].contains("láser apagado") && !started[0].contains("baja potencia"),
+        "{started:?}"
+    );
     assert!(rig.sink.jobs().is_empty());
     assert!(rig.sink.progress().is_empty());
     assert!(rig.fake.lines().contains(&"G1X10Y5S0F1500".to_string()));
     // Con la máquina en alarma tampoco se encuadra.
     rig.fake.set_state("Alarm");
     assert!(rig.handle.frame(vec!["G0 X1".into()], 127).is_err());
+}
+
+#[test]
+fn a_low_power_frame_says_so_in_the_log() {
+    let rig = connect();
+    // Encuadre con el láser a baja potencia: una S mayor que 0 en los G1.
+    let lines = vec![
+        "G0 X0 Y0".to_string(),
+        "M4 S0".to_string(),
+        "G1 X10 Y0 S20 F1500".to_string(),
+        "M5".to_string(),
+    ];
+    rig.handle.frame(lines, 127).unwrap();
+    rig.sink.wait("encuadre", |s| {
+        s.logs()
+            .iter()
+            .any(|(_, t)| t.contains("encuadre terminado"))
+    });
+    let started: Vec<String> = rig
+        .sink
+        .logs()
+        .into_iter()
+        .map(|(_, t)| t)
+        .filter(|t| t.contains("encuadre: recorrido"))
+        .collect();
+    assert_eq!(started.len(), 1, "{started:?}");
+    assert!(
+        started[0].contains("baja potencia") && !started[0].contains("láser apagado"),
+        "{started:?}"
+    );
 }
 
 #[test]

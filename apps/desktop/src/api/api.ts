@@ -622,9 +622,12 @@ export interface LaserApi {
   jogAxisTo(args: { kind: DeviceKind; axis: string; pos: number; speed: number }): Promise<void>;
   /**
    * Disparo de prueba: láser a `power_pct` % (máx. 20) de `s_max` durante `duration_ms` (10 a 2000) y
-   * apagado siempre al terminar, aunque falle. Falla con un trabajo en curso.
+   * apagado siempre al terminar, aunque falle. Falla con un trabajo en curso. Devuelve los ms que
+   * tardó la máquina en aceptar el `M3` (su `ok`): la pausa pedida corre después de ese `ok`, pero si
+   * el firmware enciende el láser y retrasa el `ok` (la Falcon2 tarda ~1 s en el primer disparo) el
+   * láser estuvo encendido ese tiempo además de la duración pedida.
    */
-  fireTest(args: { kind: DeviceKind; power_pct: number; s_max: number; duration_ms: number }): Promise<void>;
+  fireTest(args: { kind: DeviceKind; power_pct: number; s_max: number; duration_ms: number }): Promise<number>;
   /**
    * Lleva el override en vivo de velocidad (`feed`) o potencia (`spindle`) a `percent` por ciento
    * (10 a 200) con los bytes en tiempo real de GRBL. Vale durante un trabajo. Falla en Marlin y
@@ -1181,4 +1184,5 @@ export const EVENT_NAMES: readonly EventName[] = [
   'remote://clients',
   'remote://start',
   'remote://action',
+  'menu://preferences',
 ];

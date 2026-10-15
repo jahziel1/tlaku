@@ -431,6 +431,8 @@ export interface EventMap {
   'remote://start': { id: number; client: string };
   /** Se pausó, reanudó o detuvo el trabajo desde un celular. */
   'remote://action': { action: 'pause' | 'resume' | 'stop'; client: string };
+  /** macOS: se eligió «Settings…» (Cmd+,) en el menú de la app. Llega solo a la ventana con el foco. */
+  'menu://preferences': null;
   /** Ventana aparte de la vista en vivo: la ruta del trabajo (texto JSON, ver `features/live/wire.ts`). Llega solo a la ventana `live`. */
   'live://route': string;
   /** Ventana aparte de la vista en vivo: el estado y el avance (texto JSON). Llega solo a la ventana `live`. */

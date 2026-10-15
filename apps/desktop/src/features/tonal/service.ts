@@ -14,7 +14,8 @@ import { hasTemplates, resolveJobArgs } from '@/features/variables/jobResolve';
 import { useMaterials } from '@/features/materials/state';
 import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
-import { buildJobArgs } from '@/store/selectors';
+import { buildJobArgs, selectActiveDevice } from '@/store/selectors';
+import { laserWattsOf } from '@/lib/device';
 import { curveFor, type ToneCurve } from './curve';
 import { clearTonalLayers, getTonalLayers, setTonalLayers, type TonalLayer } from './layers';
 import { FULL_MAX_PX, planDetail } from './plan';
@@ -61,7 +62,9 @@ async function request(req: TonalRequest): Promise<TonalPreview> {
 /** Curva y ancho de punto de ahora. */
 function currentSettings(): { curve: ToneCurve; spotMm: number } {
   const { material, spotMm } = useTonal.getState();
-  return { curve: curveFor(material, useMaterials.getState().library.tones), spotMm };
+  // Los materiales de partida van por watt: se ajustan al láser de la máquina activa (la calibración del usuario no).
+  const watts = laserWattsOf(selectActiveDevice(useStore.getState()));
+  return { curve: curveFor(material, useMaterials.getState().library.tones, watts), spotMm };
 }
 
 /** ¿La vista «por tonos» está activa y tiene una vista previa vigente de la que partir? */

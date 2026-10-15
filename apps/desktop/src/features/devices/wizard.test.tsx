@@ -12,6 +12,7 @@ import { AddMachineWizard, StepList } from './AddMachineWizard';
 import { CATALOG, findEntry } from './catalog';
 import { compareWithMachine, defaultMachineChoices } from './compare';
 import { detectionFrom, rankCatalog } from './filter';
+import { wattsFromProbe } from './signature';
 import { buildProfile } from './profile';
 import { DetectStep, EntryDetail, LaserModeNotice, ModelStep, OTHER_ID, ReviewStep, SaveStep, type DetectStepProps } from './steps';
 import { useDevicesWizard } from './wizardStore';
@@ -209,6 +210,30 @@ describe('buildProfile', () => {
     expect(p).toMatchObject({ kind: 'grbl', bed: [400, 415], max_rate: [25000, 25000], rapid_rate: 25000, accel: [1000, 1000], s_max: 1000, baud: 115200, origin: 'bottom_left', z_axis: false, power_mode: 'dynamic' });
     expect(provenance).toMatchObject({ bed: 'catalog', max_rate: 'catalog', s_max: 'catalog', baud: 'catalog', origin: 'catalog' });
     expect(p.id).toBe('mi-laser');
+  });
+
+  it('los watts del perfil salen de lo que dice la placa y, si no, del catálogo (Pro: ambiguo)', () => {
+    expect(build('creality-falcon2-22w', null, new Set()).profile.laser_watts).toBe(22);
+    expect(build('creality-falcon2-40w', null, new Set()).profile.laser_watts).toBe(40);
+    // La Pro viene en 22 y 40 W: el catálogo no adivina.
+    expect(build('creality-falcon2-pro', null, new Set()).profile.laser_watts).toBeNull();
+    expect(build('sculpfun-s30', null, new Set()).profile.laser_watts).toBeNull();
+    // La placa dice `inquire_info->power:22W`: manda, también sin modelo del catálogo.
+    const probe = falconProProbe();
+    expect(wattsFromProbe(probe)).toBe(22);
+    expect(wattsFromProbe(genericGrblProbe())).toBeNull();
+    const pro = buildProfile({ entry: findEntry('creality-falcon2-pro')!, kind: 'grbl', name: 'Pro', takenIds: [], probedBaud: 115200, settings: probe.settings, probedWatts: wattsFromProbe(probe), useMachine: new Set() });
+    expect(pro.profile.laser_watts).toBe(22);
+    const other = buildProfile({ entry: null, kind: 'grbl', name: 'Otro', takenIds: [], probedBaud: 115200, settings: null, probedWatts: 40, useMachine: new Set() });
+    expect(other.profile.laser_watts).toBe(40);
+  });
+
+  it('Falcon2 Pro sin conexión: velocidad por eje 25 000 × 8000 y salto rápido del eje lento', () => {
+    const { profile: p, provenance } = build('creality-falcon2-pro', null, new Set());
+    expect(p.max_rate).toEqual([25000, 8000]);
+    expect(p.rapid_rate).toBe(8000);
+    expect(provenance.max_rate).toBe('catalog');
+    expect(validateDevice(p)).toEqual({});
   });
 
   it('con la máquina conectada: lo marcado "usar de la máquina" pisa al catálogo', () => {

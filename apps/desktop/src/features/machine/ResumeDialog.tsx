@@ -10,6 +10,7 @@ import { selectActiveDevice, usePref, useStore } from '@/store';
 import { isJobBusy } from '@/store/selectors';
 import { checklistPending, checklistSatisfied, visibleChecklist, type ChecklistItem } from './checklist';
 import { Modal } from './Modal';
+import { stateLabel } from './StatusSection';
 import { choiceAt, homeMode, moveCount, nearestMove, resumeBlockedReason, suggestedChoice, type RestartChoice } from './resumeModel';
 
 /** Retroceso por omisión: lo que pase de las dos reglas (líneas, mm) manda lo que quede más atrás. */
@@ -308,7 +309,7 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
         ) : mode === 'busy' ? (
           <p className="warn-line" role="status">
             <TriangleAlert size={14} aria-hidden="true" />
-            <span>{t('machine.resume.steps.busy', { state: ready?.state ?? '' })}</span>
+            <span>{t('machine.resume.steps.busy', { state: ready ? stateLabel(ready.state) : '' })}</span>
           </p>
         ) : mode === 'noReply' ? (
           <p className="warn-line" role="status">

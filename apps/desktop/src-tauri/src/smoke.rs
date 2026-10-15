@@ -192,6 +192,7 @@ fn run_calls(handle: &tauri::AppHandle) -> Vec<String> {
     failures.extend(live_window(handle, first));
     failures.extend(storage_between_windows(handle));
     failures.extend(menu_without_close_window(handle));
+    failures.extend(menu_has_settings(handle));
     failures
 }
 
@@ -222,6 +223,41 @@ fn menu_without_close_window(handle: &tauri::AppHandle) -> Vec<String> {
             }
         }
         fails
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = handle;
+        Vec::new()
+    }
+}
+
+/// macOS: el menú de la app trae «Settings…» con Cmd+, (si no, no hay cómo hallar las Preferencias
+/// y el atajo nativo tampoco llegaba a la interfaz). Se comprueba su id y su lugar tras «About».
+fn menu_has_settings(handle: &tauri::AppHandle) -> Vec<String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::menu::MenuItemKind;
+        let Some(menu) = handle.menu() else {
+            return vec!["la app no tiene menú".to_string()];
+        };
+        let Some(MenuItemKind::Submenu(app_menu)) =
+            menu.items().unwrap_or_default().into_iter().next()
+        else {
+            return vec!["el menú no tiene el submenú de la app".to_string()];
+        };
+        let items = app_menu.items().unwrap_or_default();
+        match items
+            .iter()
+            .position(|i| i.id().as_ref() == crate::PREFS_MENU_ID)
+        {
+            None => vec!["el menú de la app no trae «Settings…» (Cmd+,)".to_string()],
+            Some(i) => match &items[i] {
+                MenuItemKind::MenuItem(m) if m.text().unwrap_or_default() == "Settings…" => {
+                    Vec::new()
+                }
+                _ => vec!["«Settings…» del menú tiene otro texto o tipo".to_string()],
+            },
+        }
     }
     #[cfg(not(target_os = "macos"))]
     {

@@ -115,6 +115,7 @@ export function sampleDevices(): DeviceProfile[] {
       scan_offsets: [],
       scan_initial_offset: 0,
       ...DEVICE_EXTRA_DEFAULTS,
+      laser_watts: 22,
     },
     {
       id: 'taller-co2',

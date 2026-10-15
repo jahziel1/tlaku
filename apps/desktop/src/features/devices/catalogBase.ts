@@ -65,10 +65,14 @@ export interface CatalogEntry {
 
   /** Área de trabajo en mm. */
   bed?: Fact<[number, number]>;
-  /** Velocidad máxima de movimiento, mm/min (el mismo valor en X e Y). */
+  /** Velocidad máxima de movimiento, mm/min. Sin `maxRateY`, el mismo valor en X e Y. */
   maxRate?: Fact<number>;
+  /** Velocidad máxima del eje Y si difiere de la de X (`$111`; `maxRate` pasa a ser solo X, `$110`). */
+  maxRateY?: Fact<number>;
   /** Aceleración, mm/s² (la misma en X e Y). */
   accel?: Fact<number>;
+  /** Potencia nominal del láser en W (solo si el modelo tiene una sola; la Falcon2 Pro viene en 22 y 40 W). */
+  watts?: Fact<number>;
   /** `S` para el 100 % de potencia (`$30` en GRBL). */
   sMax?: Fact<number>;
   /** Potencia dinámica con `M4` (true) o solo potencia constante con `M3` (false). */
@@ -81,6 +85,12 @@ export interface CatalogEntry {
   homing?: Fact<boolean>;
   zAxis?: Fact<boolean>;
   notes: I18nKey[];
+}
+
+/** Velocidad máxima por eje `[X, Y]` de la entrada: `maxRateY` si existe; si no, `maxRate` en ambos. */
+export function entryMaxRate(entry: Pick<CatalogEntry, 'maxRate' | 'maxRateY'>): [number, number] | null {
+  if (!entry.maxRate) return null;
+  return [entry.maxRate.value, (entry.maxRateY ?? entry.maxRate).value];
 }
 
 // ---------------------------------------------------------------------------

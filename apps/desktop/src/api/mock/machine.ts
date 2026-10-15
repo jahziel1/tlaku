@@ -392,7 +392,7 @@ export class MockMachine {
   }
 
   /** Disparo de prueba: M3, pausa y M5 (siempre). */
-  fire(powerPct: number, sMax: number, durationMs: number): void {
+  fire(powerPct: number, sMax: number, durationMs: number): number {
     this.requireConnection();
     if (this.lhy) throw new Error(LHY_GRBL_ONLY);
     if (this.job) throw new Error(BUSY_MESSAGE);
@@ -402,6 +402,7 @@ export class MockMachine {
     this.log('out', `G4 P${durationMs / 1000}`);
     this.log('out', 'M5');
     this.log('in', 'ok');
+    return 0;
   }
 
   /** Movimiento absoluto en coordenadas de trabajo (`$J=G90`), con el láser apagado. */

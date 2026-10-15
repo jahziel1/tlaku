@@ -103,18 +103,7 @@ impl Worker {
                     }
                     RunKind::Frame => {
                         // Con el encuadre a baja potencia alguna línea lleva una S distinta de 0.
-                        let lit = lines.iter().any(|l| {
-                            let c = l.split(';').next().unwrap_or("").to_ascii_uppercase();
-                            c.match_indices('S').any(|(i, _)| {
-                                c[i + 1..]
-                                    .chars()
-                                    .take_while(|ch| ch.is_ascii_digit() || *ch == '.')
-                                    .collect::<String>()
-                                    .parse::<f64>()
-                                    .is_ok_and(|v| v > 0.0)
-                            })
-                        });
-                        let key = if lit {
+                        let key = if crate::machine::frame::lights_laser(&lines) {
                             tr!("desktop.common.log_frame_start_lit")
                         } else {
                             tr!("desktop.common.log_frame_start")

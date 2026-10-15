@@ -104,6 +104,7 @@ export const DEVICE_WAVE6C_DEFAULTS: Pick<
   | 'no_dtr_reset'
   | 'sync_streaming'
   | 'u_offset'
+  | 'laser_watts'
 > = {
   is_default: false,
   icon: '',
@@ -114,6 +115,7 @@ export const DEVICE_WAVE6C_DEFAULTS: Pick<
   no_dtr_reset: false,
   sync_streaming: false,
   u_offset: 0,
+  laser_watts: null,
 };
 
 /** Todos los campos con valor por defecto que un perfil guardado antes puede no traer. */
@@ -243,11 +245,24 @@ export type DeviceField =
   | 'object_diameter'
   | 'scan_initial_offset'
   | 'scan_offsets'
-  | 'macros';
+  | 'macros'
+  | 'laser_watts';
 
 export type DeviceIssue = 'required' | 'positive' | 'integer' | 'tooBig' | 'tooSmall' | 'duplicate' | 'macro';
 
 const pos = (n: number) => Number.isFinite(n) && n > 0;
+
+/** Tope de la potencia del láser que acepta el perfil (W). */
+export const MAX_LASER_WATTS = 1000;
+
+/**
+ * Potencia nominal del láser del perfil (W), o `null` si no se sabe. En un galvo es la de su fuente;
+ * en el resto, `laser_watts` (el asistente la llena desde el catálogo o desde lo que dice la placa).
+ */
+export function laserWattsOf(device: Pick<DeviceProfile, 'kind' | 'laser_watts' | 'galvo'>): number | null {
+  const w = device.kind === 'galvo' ? (device.laser_watts ?? device.galvo?.watts) : device.laser_watts;
+  return w != null && Number.isFinite(w) && w > 0 ? w : null;
+}
 
 /** Filas de la tabla de corrección de barrido con problema: velocidad no positiva o repetida. */
 export function scanOffsetRowIssues(rows: readonly ScanOffset[]): (DeviceIssue | null)[] {
@@ -277,6 +292,11 @@ export function validateDevice(d: DeviceProfile): Partial<Record<DeviceField, De
   if (!d.accel.every(pos)) out.accel = 'positive';
   if (!d.max_rate.every(pos)) out.max_rate = 'positive';
   if (!pos(d.rapid_rate)) out.rapid_rate = 'positive';
+  // Los watts son opcionales (`null` = no se sabe); si están, deben ser una potencia razonable.
+  if (d.laser_watts != null) {
+    if (!pos(d.laser_watts)) out.laser_watts = 'positive';
+    else if (d.laser_watts > MAX_LASER_WATTS) out.laser_watts = 'tooBig';
+  }
   if (!pos(d.baud)) out.baud = 'positive';
   else if (!Number.isInteger(d.baud)) out.baud = 'integer';
   if (!pos(d.rx_buffer)) out.rx_buffer = 'positive';

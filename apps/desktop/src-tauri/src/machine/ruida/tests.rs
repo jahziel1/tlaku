@@ -705,6 +705,13 @@ fn framing_walks_the_four_corners_without_blocking_and_can_be_stopped() {
     r.sink.wait("encuadre terminado", |c| {
         c.logs().contains("encuadre terminado")
     });
+    // Ruida siempre encuadra con el láser apagado, y el registro lo dice así.
+    let logs = r.sink.logs();
+    assert!(
+        logs.contains("recorrido del rectángulo con el láser apagado"),
+        "{logs}"
+    );
+    assert!(!logs.contains("baja potencia"), "{logs}");
     assert_eq!(r.emu.emulator().pos_um, (10_000, 10_000));
     assert!(!r.emu.emulator().running);
     // El encuadre no es un trabajo: no hay eventos de trabajo.

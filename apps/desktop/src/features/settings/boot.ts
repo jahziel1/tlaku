@@ -3,6 +3,7 @@ import { getApi } from '@/api';
 import { useJobLog } from '@/features/help/jobLog';
 import { useRecents } from '@/features/history/recent';
 import { useStore } from '@/store';
+import { useSettingsUi } from './uiStore';
 import { loadPrefsFromDisk, startPrefsPersistence, startPrefsWindowSync, startThemeSync } from './persist';
 
 /**
@@ -23,6 +24,10 @@ export function usePrefsBoot(): void {
     const stopRecents = useStore.subscribe((s, prev) => {
       if (s.prefs.recentMax !== prev.prefs.recentMax) useRecents.getState().trim(s.prefs.recentMax);
     });
+    // macOS: «Settings…» (Cmd+,) del menú de la app llega como evento y abre las Preferencias.
+    let stopMenu = false;
+    let offMenu: (() => void) | null = null;
+    void api.on('menu://preferences', () => useSettingsUi.getState().openSettings()).then((off) => (stopMenu ? off() : (offMenu = off)));
     const flush = () => void persistence.flush();
     const onHide = () => document.visibilityState === 'hidden' && flush();
     window.addEventListener('pagehide', flush);
@@ -41,6 +46,8 @@ export function usePrefsBoot(): void {
       cancelled = true;
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onHide);
+      stopMenu = true;
+      offMenu?.();
       stopRecents();
       stopTheme();
       stopWindowSync();

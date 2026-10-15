@@ -16,6 +16,8 @@ export type ULetter = (typeof U_LETTERS)[number];
 
 /** Límites del disparo de prueba: los mismos que hace cumplir el motor (`machine/extras.rs`). */
 export const FIRE_LIMITS = { maxPct: 20, minMs: 10, maxMs: 2000 } as const;
+/** Si la máquina tarda más de esto en aceptar el `M3`, el láser pudo estar encendido más de lo pedido. */
+export const FIRE_SLOW_ACCEPT_MS = 400;
 export const DEFAULT_FIRE = { powerPct: 2, durationMs: 200 } as const;
 /** Potencia máxima del encuadre con el láser encendido (`machine/frame.rs`). */
 export const FRAME_MAX_PCT = 20;
@@ -173,8 +175,9 @@ export const createMoveControlSlice: SliceCreator<MoveControlSlice> = (set, get)
       set({ firing: true });
       let ok = false;
       try {
-        await getApi().fireTest({ kind: device.kind, power_pct: s.fire.powerPct, s_max: device.s_max, duration_ms: s.fire.durationMs });
+        const acceptMs = await getApi().fireTest({ kind: device.kind, power_pct: s.fire.powerPct, s_max: device.s_max, duration_ms: s.fire.durationMs });
         ok = true;
+        if (acceptMs >= FIRE_SLOW_ACCEPT_MS) s.notify('warning', t('machine.fire.slowAccept', { ms: Math.round(acceptMs), asked: s.fire.durationMs }));
       } catch (e) {
         s.notify('error', errorMessage(e));
       } finally {

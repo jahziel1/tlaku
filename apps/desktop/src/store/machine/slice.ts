@@ -18,6 +18,7 @@ import { docToWork, isGrblFamily, parseGrblSettings, type GrblSettings } from '@
 import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
 import { fmt, readPref, writePref } from '@/lib/platform';
 import { noteJobStart } from '@/features/live/capture';
+import { rememberDevice } from '../devices';
 import { buildJobArgs, isJobBusy, selectActiveDevice } from '../selectors';
 import type { AppState, SliceCreator } from '../types';
 import { activeTabLabel, type JobOrigin } from '../tabs';
@@ -349,6 +350,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         const port = isVirtualPort(selectedPort) ? withVirtualSpeed(selectedPort, virtualSpeed) : selectedPort;
         const { firmware } = await getApi().connect({ port, baud, device, ...(galvoAck ? { galvoAck } : {}) });
         set({ firmware });
+        rememberDevice(device.id);
         // Mejor esfuerzo: sirve para el aviso de modo láser y para sugerir $H o $X ante una alarma.
         // Ruida y el K40 no tienen ajustes `$`: Ruida lee su información desde el panel Máquina.
         if (device.kind !== 'ruida' && device.kind !== 'lhy_micro' && device.kind !== 'galvo') void get().readSettings({ silent: true });

@@ -130,4 +130,10 @@ sync_streaming: boolean,
  * Con `u_axis`: mm que se mueve el eje U al empezar cada trabajo (y que vuelve a deshacer al
  * terminar). 0 = no se mueve.
  */
-u_offset: number, };
+u_offset: number, 
+/**
+ * Potencia nominal del láser en W (22 en una Falcon2 Pro 22 W), si se conoce. Sirve para
+ * convertir a la máquina los valores de partida por watt de la vista previa por tonos. El
+ * asistente de máquinas la llena desde el catálogo; `None` = no se sabe.
+ */
+laser_watts: number | null, };

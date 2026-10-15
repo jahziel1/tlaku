@@ -1,7 +1,7 @@
 import type { DeviceKind } from '@/bindings/DeviceKind';
 import type { DeviceProfile, Point } from '@/api/types';
 import { dialectForKind, defaultSMax, FALLBACK_DEVICE, uniqueDeviceId } from '@/lib/device';
-import type { CatalogEntry } from './catalog';
+import { entryMaxRate, type CatalogEntry } from './catalog';
 import { compareWithMachine, type CompareField } from './compare';
 
 /** De dónde sale cada dato del perfil nuevo. */
@@ -37,9 +37,11 @@ export function buildProfile(args: {
   /** Baudios con los que la detección tuvo éxito; null si no se detectó. */
   probedBaud: number | null;
   settings: Record<string, string> | null;
+  /** Watts que dijo la placa al detectarla (`wattsFromProbe`); manda sobre el catálogo. */
+  probedWatts?: number | null;
   useMachine: ReadonlySet<CompareField>;
 }): BuiltProfile {
-  const { entry, kind, name, takenIds, probedBaud, settings, useMachine } = args;
+  const { entry, kind, name, takenIds, probedBaud, settings, probedWatts, useMachine } = args;
   const dialect = dialectForKind(kind);
   const provenance: Record<ProfileField, Provenance> = {
     s_max: 'default',
@@ -83,13 +85,17 @@ export function buildProfile(args: {
     profile.origin = 'bottom_left';
   }
 
+  // Potencia del láser: lo que dice la placa, si no el modelo del catálogo (si solo hay una).
+  profile.laser_watts = probedWatts ?? entry?.watts?.value ?? null;
+
   if (entry) {
     if (entry.bed) {
       profile.bed = [...entry.bed.value];
       provenance.bed = 'catalog';
     }
-    if (entry.maxRate) {
-      profile.max_rate = [entry.maxRate.value, entry.maxRate.value];
+    const rate = entryMaxRate(entry);
+    if (rate) {
+      profile.max_rate = rate;
       provenance.max_rate = 'catalog';
     }
     if (entry.accel) {

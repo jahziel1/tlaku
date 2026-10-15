@@ -86,6 +86,22 @@ describe('disparo de prueba', () => {
     expect(store.getState().firing).toBe(false);
   });
 
+  it('avisa si la máquina tardó en aceptar el M3 (el láser pudo estar prendido más de lo pedido)', async () => {
+    const { api, store } = await setup();
+    store.getState().setFire({ powerPct: 2, durationMs: 200 });
+    const spy = vi.spyOn(api, 'fireTest').mockResolvedValue(1050);
+    expect(await store.getState().fireTest()).toBe(true);
+    const notice = store.getState().notices.at(-1);
+    expect(notice?.level).toBe('warning');
+    expect(notice?.text).toContain('1050');
+    expect(notice?.text).toContain('200');
+    spy.mockResolvedValue(30);
+    const before = store.getState().notices.length;
+    expect(await store.getState().fireTest()).toBe(true);
+    expect(store.getState().notices.length).toBe(before);
+    spy.mockRestore();
+  });
+
   it('si el motor lo rechaza, igual manda M5 y avisa; no dispara durante un trabajo', async () => {
     const { api, store } = await setup();
     const spy = vi.spyOn(api, 'fireTest').mockRejectedValue(new Error('error:20'));

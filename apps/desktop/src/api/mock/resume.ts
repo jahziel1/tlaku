@@ -1,3 +1,4 @@
+import { t } from '@/i18n';
 import type { LaserApi } from '../api';
 import type { DeviceProfile, InterruptedJob, JobPreview, ResumeView } from '../types';
 import type { MockMachine } from './machine';
@@ -108,7 +109,7 @@ export function mockResume(lag: Lag, machine: MockMachine): Pick<LaserApi, 'inte
       lag(() => {
         const c = need();
         machine.requireConnection();
-        if (machine.state !== 'idle' && machine.state !== 'alarm') throw new Error(`La máquina está ocupada (${machine.state}): espera a que termine el encuadre o el movimiento antes de continuar. Nada se envió.`);
+        if (machine.state !== 'idle' && machine.state !== 'alarm') throw new Error(`La máquina está ocupada (${t(`machine.state.${machine.state}`)}): espera a que termine el encuadre o el movimiento antes de continuar. Nada se envió.`);
         if (machine.homingEnabled() && !machine.homed) throw new Error('Haz primero el homing: la máquina perdió su posición y el trabajo no puede continuar sin referenciarla. Nada se envió.');
         if (!machine.homingEnabled() && !args.confirm_unmoved) throw new Error('Esta máquina no tiene homing: confirma que la cabeza y el material no se movieron y que el origen es el mismo. Nada se envió.');
         if (!args.framed_ok) throw new Error('Encuadra el trabajo completo y comprueba que el material sigue en su lugar antes de continuar. Nada se envió.');

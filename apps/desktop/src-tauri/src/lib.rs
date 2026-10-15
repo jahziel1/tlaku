@@ -73,6 +73,49 @@ fn without_close_window<R: tauri::Runtime>(menu: &tauri::menu::Menu<R>) -> tauri
     Ok(())
 }
 
+/// Id del elemento «Settings…» del menú de la app (macOS).
+#[cfg(target_os = "macos")]
+pub(crate) const PREFS_MENU_ID: &str = "tlaku.preferences";
+
+/// Evento hacia la interfaz: abrir las Preferencias (`menu://preferences`, ver `features/settings/boot.ts`).
+#[cfg(target_os = "macos")]
+const EVENT_PREFERENCES: &str = "menu://preferences";
+
+/// macOS: agrega «Settings…» (Cmd+,) al menú de la app, entre «About» y «Services», como cualquier app
+/// del sistema. El menú por defecto de Tauri no lo trae, así que las Preferencias solo se hallaban
+/// por la interfaz. Con el atajo en el menú, Cmd+, ya no llega a la web: lo atiende `open_preferences`.
+#[cfg(target_os = "macos")]
+fn with_settings_item<R: tauri::Runtime>(
+    handle: &tauri::AppHandle<R>,
+    menu: &tauri::menu::Menu<R>,
+) -> tauri::Result<()> {
+    use tauri::menu::{MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
+    // El primer submenú es el de la app (el que lleva el nombre del programa).
+    let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() else {
+        return Ok(());
+    };
+    let item = MenuItemBuilder::with_id(PREFS_MENU_ID, "Settings…")
+        .accelerator("CmdOrCtrl+,")
+        .build(handle)?;
+    // [About, ---, Settings…, ---, Services, ...]: el separador de después ya existía.
+    app_menu.insert(&item, 2)?;
+    app_menu.insert(&PredefinedMenuItem::separator(handle)?, 3)?;
+    Ok(())
+}
+
+/// Pide a la ventana con el foco (o a la principal) que abra las Preferencias.
+#[cfg(target_os = "macos")]
+fn open_preferences<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Emitter;
+    let target = app
+        .webview_windows()
+        .into_iter()
+        .find(|(label, w)| label != "live" && w.is_focused().unwrap_or(false))
+        .map(|(label, _)| label)
+        .unwrap_or_else(|| "main".to_string());
+    let _ = app.emit_to(target, EVENT_PREFERENCES, ());
+}
+
 /// La aplicación con todos sus comandos registrados. La comparten `run` y la prueba de humo
 /// (`smoke`), que le pasa un contexto sin ventanas.
 fn build_app(context: tauri::Context) -> tauri::App {
@@ -105,8 +148,17 @@ fn build_app(context: tauri::Context) -> tauri::App {
         .menu(|handle| {
             let menu = tauri::menu::Menu::default(handle)?;
             #[cfg(target_os = "macos")]
-            without_close_window(&menu)?;
+            {
+                without_close_window(&menu)?;
+                with_settings_item(handle, &menu)?;
+            }
             Ok(menu)
+        })
+        .on_menu_event(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if _event.id() == PREFS_MENU_ID {
+                open_preferences(_app);
+            }
         })
         .manage(AppState::default())
         .manage(automation::AutomationState::default())

@@ -61,11 +61,13 @@ function falcon(model: string, id: string, extra: Partial<CatalogEntry>): Catalo
 export const CATALOG: readonly CatalogEntry[] = [
   falcon('Falcon2 22 W', 'creality-falcon2-22w', {
     bed: official([400, 415], FALCON_COMPARE),
+    watts: official(22, FALCON_COMPARE),
     maxRate: shop(25000, 'https://www.adorama.com/cr1005010047.html'),
     accel: forum(1000, FALCON_DUMP_A, 'catalog.note.falcon.accelDiffers'),
   }),
   falcon('Falcon2 40 W', 'creality-falcon2-40w', {
     bed: official([400, 415], FALCON_COMPARE),
+    watts: official(40, FALCON_COMPARE),
     maxRate: shop(25000, 'https://www.adorama.com/cr1005010047.html'),
     accel: forum(1000, FALCON_DUMP_A, 'catalog.note.falcon.accelDiffers'),
   }),
@@ -76,6 +78,7 @@ export const CATALOG: readonly CatalogEntry[] = [
       'catalog.note.falcon.proBedY',
     ),
     maxRate: measured(25000, FALCON_MEASURED, 'catalog.note.falcon.proSpeed'),
+    maxRateY: measured(8000, FALCON_MEASURED, 'catalog.note.falcon.proSpeed'),
     accel: measured(1000, FALCON_MEASURED, 'catalog.note.falcon.accelDiffers'),
     homing: forum(true, FALCON_HOMING, 'catalog.note.falcon.homing'),
     // Cadena leída de `$I` en una Pro 22 W real. La clásica no tiene salida publicada: no se firma.
@@ -304,7 +307,7 @@ export function findEntry(id: string): CatalogEntry | undefined {
 
 /** Todas las URLs de fuente de una entrada (para mostrarlas y para las pruebas). */
 export function entrySources(entry: CatalogEntry): string[] {
-  const facts = [entry.detect, entry.controller, entry.bed, entry.maxRate, entry.accel, entry.sMax, entry.m4, entry.air, entry.baud, entry.origin, entry.homing, entry.zAxis];
+  const facts = [entry.detect, entry.controller, entry.bed, entry.watts, entry.maxRate, entry.maxRateY, entry.accel, entry.sMax, entry.m4, entry.air, entry.baud, entry.origin, entry.homing, entry.zAxis];
   const urls = [...facts.flatMap((f) => (f ? [f.source] : [])), ...(entry.signatures ?? []).map((s) => s.source)];
   return [...new Set(urls)];
 }

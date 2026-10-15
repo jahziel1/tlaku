@@ -24,6 +24,15 @@ describe('compareWithMachine', () => {
     expect(c.nothingRead).toBe(false);
   });
 
+  it('Falcon2 Pro real (25 000 × 8000): el catálogo por eje coincide con $110/$111 medidos', () => {
+    const pro = findEntry('creality-falcon2-pro')!;
+    const real = { $30: '1000', $32: '1', $110: '25000.000', $111: '8000.000', $120: '1000.000', $121: '1000.000', $130: '400.000', $131: '415.000' };
+    const c = compareWithMachine(pro, real);
+    expect(rowOf(c, 'max_rate')).toMatchObject({ catalog: [25000, 8000], machine: [25000, 8000], status: 'match' });
+    // Con el volcado viejo (50 000 en ambos) difiere.
+    expect(rowOf(compareWithMachine(pro, falconProSettings()), 'max_rate').status).toBe('differs');
+  });
+
   it('modelo sin dato en el catálogo: el de la máquina es el único', () => {
     const c = compareWithMachine(findEntry('sculpfun-s30')!, genericGrblSettings());
     expect(rowOf(c, 'bed')).toMatchObject({ catalog: null, machine: [400, 400], status: 'catalogEmpty' });
