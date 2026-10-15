@@ -28,6 +28,7 @@ Este contrato se partió por área (antes era un solo archivo de 55 KB). Busca e
 | [automatizacion.md](automatizacion.md) | Servidor UDP local con comandos de texto. | 4 |
 | [control-remoto.md](control-remoto.md) | Servidor HTTP, seguridad, API, vista en vivo y aviso al terminar. | 9 |
 | [camara.md](camara.md) | Comandos de la cámara (ola 4). | 3 |
+| [versiones.md](versiones.md) | Historial de versiones del proyecto (mejora 10): almacén, retención, instantáneas, restaurar. | 10 |
 
 ## Comandos por área
 
@@ -48,3 +49,4 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | [automatizacion.md](automatizacion.md) | `PING`, `START`, `STATUS`, `STOP` |
 | [control-remoto.md](control-remoto.md) | `remote_configure`, `remote_status`, `remote_regenerate`, `remote_kick`, `remote_update`, `remote_set_route`, `remote_set_live`, `remote_camera_frame`, `remote_start_result` |
 | [camara.md](camara.md) | `calibrate_lens`, `compose_bed_image`, `detect_circle_in_image`, `fetch_camera_frame` |
+| [versiones.md](versiones.md) | `versions_list`, `versions_thumb`, `versions_read`, `versions_capture`, `versions_snapshot`, `versions_delete`, `versions_clear`, `versions_projects`, `versions_config_get`, `versions_config_set` |

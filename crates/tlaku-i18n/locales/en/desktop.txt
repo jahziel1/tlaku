@@ -27,6 +27,14 @@ desktop.autosave.bad_id = Invalid recovery copy ID: "{id}".
 desktop.autosave.too_big = The document is {size} MB, which exceeds the {max} MB limit for recovery copies.
 desktop.autosave.meta_failed = Recovery copy: {err}
 desktop.autosave.data_dir = Could not find the data folder: {err}
+# versions/
+desktop.versions.bad_id = Invalid version ID: "{id}".
+desktop.versions.too_big = The document is {size} MB, which exceeds the {max} MB limit for a history version.
+desktop.versions.meta_failed = Version history: {err}
+desktop.versions.compress_failed = Version history: could not compress ({err}).
+desktop.versions.not_found = Version "{id}" does not exist in this project's history.
+desktop.versions.bad_kind = Only automatic, manual or restore versions can be saved from the interface.
+desktop.versions.need_label = A manual version needs a name.
 # engine.rs
 desktop.engine.not_a_file_path = {path}: not a file path
 desktop.engine.profile_needs_id = The profile needs an ID.

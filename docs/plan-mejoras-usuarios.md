@@ -588,7 +588,22 @@ ajustar la curva por defecto para las recetas de diodo; sin esa prueba el realis
 
 ## 10. Historial de versiones del proyecto
 
-**(a) Estado: Parcial.** Hay deshacer con historial saltable (D13, D14: `HistoryPanel.tsx`; hasta un
+> **Implementado (Ola C, 2026-10-15).** Qué se hizo y qué se decidió: cada guardado conserva antes lo que tenía el
+> archivo (`versions_capture`, aparte del guardado: si falla avisa y el proyecto se guarda igual), instantáneas
+> automáticas por pestaña con archivo y cambios (5 min), versiones con nombre («Guardar versión…», nunca se borran
+> solas) y la versión «antes de restaurar». Almacén por proyecto (identificado por su ruta absoluta: el `.tlaku` no
+> tiene id propio, mover el archivo empieza otro historial), **por omisión en la carpeta de datos de la app**
+> (no viaja con una nube ni un correo; configurable a una carpeta oculta junto al archivo), gzip (`flate2`, ya
+> usada por `tlaku-export`), escritura atómica con el `meta` al final, sin repetir lo que no cambió. Retención: todas
+> las de 24 h, una por día 30 días, una por semana 26 semanas, topes de 200 MB y 500 versiones, sin tocar la más
+> nueva ni las con nombre. UI: Archivo > Historial de versiones… (lista con miniatura, vista previa, qué cambiaría al
+> restaurar, restaurar como pestaña nueva o reemplazando con confirmación y un solo paso de deshacer, resaltar,
+> borrar, historial de un archivo cerrado), manual 03h y [contrato](app-api/versiones.md). **Queda fuera:** «abrir
+> como copia» con ruta propia (se abre como pestaña sin archivo), id estable del proyecto (renombrar pierde el hilo,
+> aunque el historial viejo sigue en «Otros proyectos con historial»), hash de las imágenes referenciadas (se
+> documenta que no se protegen) y la prueba de archivos grandes con `tlaku-bench`.
+
+**(a) Estado (antes de implementarse): Parcial.** Hay deshacer con historial saltable (D13, D14: `HistoryPanel.tsx`; hasta un
 presupuesto de puntos, `HISTORY_POINT_BUDGET`, por sesión), copia de recuperación automática
 (`autosave.rs`: una copia por documento, con tope de número y tamaño, huérfanas tras cierre inesperado) y
 escritura atómica de proyectos (`write_atomic`). **No hay versiones anteriores tras guardar:** guardar
@@ -833,7 +848,7 @@ un lote de 3 placas con serie y logotipo distinto sobre material de desecho.
 | 6. Scripts en sandbox | No existe | Media (Boa o rquickjs; depende de la lista permitida de la ola 7) | Alta en votos (114, 79, 40), usuarios avanzados | L |
 | 7. Nesting | **Hecho en lo principal** (`tlaku-nest`); faltan hojas, retazos y veta | Alta | Alta, ya cubierta (113 votos; LightBurn lo cobra en Pro) | M (mejoras); L si se cambia de motor |
 | 8. Vista previa realista | Parcial (tono por potencia en trazos) | Media-baja si es "realista"; media si es tonal | Baja (4 y 5 votos) | M (tonal), L (texturas) |
-| 10. Historial de versiones | Parcial (deshacer y recuperación; no tras guardar) | Alta | Baja-media (12, 11, 14 votos) | M |
+| 10. Historial de versiones | **Hecho (Ola C, 2026-10-15)**; antes: Parcial (deshacer y recuperación; no tras guardar) | Alta | Baja-media (12, 11, 14 votos) | M |
 | 11. Linux ARM64 / Flatpak / Snap | No existe | ARM64 alta; Flatpak media; Snap no conviene | Media (49 votos; 19 097 vistas) | S ARM64, M Flatpak |
 | 12. Respaldo y sincronización | Parcial (`.tlakubundle` manual) | Alta si se reduce a respaldo en carpeta | Baja (5 y 4 votos) | S-M |
 | 13. Texto avanzado | Parcial (curvo, trayecto, ligaduras base) | Alta (OpenType), media (variables) | Media (33 votos) | S-M |

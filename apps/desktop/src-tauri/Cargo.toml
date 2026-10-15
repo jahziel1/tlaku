@@ -43,6 +43,8 @@ tlaku-parts = { version = "0.1.0", path = "../../../crates/tlaku-parts" }
 tlaku-nest = { version = "0.1.0", path = "../../../crates/tlaku-nest" }
 tlaku-raster = { version = "0.1.0", path = "../../../crates/tlaku-raster" }
 base64 = "0.22"
+# Historial de versiones: cada versión se guarda comprimida con gzip (MIT o Apache-2.0; ya la usa tlaku-export).
+flate2 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp"] }
 # Control remoto desde el celular por la red local (ola 5.5, `src/remote/`). Todas son MIT o Apache-2.0.
 # `axum` sirve la página y la API (solo HTTP/1.1, con SSE para los eventos en vivo); `tokio` es el

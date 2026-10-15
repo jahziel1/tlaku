@@ -83,6 +83,7 @@ import type { PlanArgs, PlanResult } from '@/features/tiling/types';
 import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
 import type { NestRequest, NestStatus } from '@/features/nest/types';
 import type { Finding, ReviewArgs } from '@/features/review/types';
+import type { ProjectSummary, SnapshotKind, VersionInfo, VersionListing, VersionsConfig } from '@/features/versions/types';
 
 export type Unlisten = () => void;
 
@@ -729,6 +730,27 @@ export interface LaserApi {
   autosaveRead(args: { id: string }): Promise<Document>;
   autosaveDiscard(args: { id: string }): Promise<void>;
 
+  // Historial de versiones del proyecto (`src-tauri/src/versions/`, mejora 10 del plan de usuarios)
+  /** Versiones de `path` (de la más nueva a la más vieja) y lo que ocupan; mira la carpeta de la app y la de junto al archivo. */
+  versionsList(args: { path: string }): Promise<VersionListing>;
+  /** Miniatura SVG de la versión, o null si no tiene (diseño vacío o demasiado denso). */
+  versionsThumb(args: { path: string; id: string }): Promise<string | null>;
+  /** El documento de la versión, sin tocar el abierto. */
+  versionsRead(args: { path: string; id: string }): Promise<Document>;
+  /** Antes de guardar: conserva lo que tiene ahora el archivo `path`. Null si no hay archivo, no cambió o el historial está apagado. */
+  versionsCapture(args: { path: string }): Promise<VersionInfo | null>;
+  /** Guarda `doc` como versión `auto`, `manual` (con nombre) o `restore` (estado anterior a restaurar). Null si no cambió. */
+  versionsSnapshot(args: { path: string; doc: Document; kind: SnapshotKind; label?: string | null }): Promise<VersionInfo | null>;
+  /** Borra versiones; devuelve cuántas. */
+  versionsDelete(args: { path: string; ids: string[] }): Promise<number>;
+  /** Borra todo el historial del proyecto; devuelve cuántas versiones había. */
+  versionsClear(args: { path: string }): Promise<number>;
+  /** Proyectos con historial en la carpeta de datos de la app, el más reciente primero (para abrir el historial de un archivo que no está abierto). */
+  versionsProjects(): Promise<ProjectSummary[]>;
+  versionsConfigGet(): Promise<VersionsConfig>;
+  /** Guarda la configuración (el motor la acota a rangos válidos) y devuelve la que quedó. */
+  versionsConfigSet(args: { config: VersionsConfig }): Promise<VersionsConfig>;
+
   // Plantillas de proyecto (ola 3)
   /** Plantillas guardadas, por nombre. */
   listTemplates(): Promise<TemplateInfo[]>;
@@ -912,6 +934,16 @@ export const COMMAND_NAMES = {
   autosaveList: 'autosave_list',
   autosaveRead: 'autosave_read',
   autosaveDiscard: 'autosave_discard',
+  versionsList: 'versions_list',
+  versionsThumb: 'versions_thumb',
+  versionsRead: 'versions_read',
+  versionsCapture: 'versions_capture',
+  versionsSnapshot: 'versions_snapshot',
+  versionsDelete: 'versions_delete',
+  versionsClear: 'versions_clear',
+  versionsProjects: 'versions_projects',
+  versionsConfigGet: 'versions_config_get',
+  versionsConfigSet: 'versions_config_set',
   listTemplates: 'list_templates',
   saveTemplate: 'save_template',
   loadTemplate: 'load_template',

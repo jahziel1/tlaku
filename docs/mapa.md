@@ -57,6 +57,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `machine/{extras,frame}.rs` | Ejes extra, encuadre |
 | `edit/` | Un archivo por área: `text`, `variables`, `codes`, `geometry`, `shape_ops`, `design`, `nest`, `trace`, `art`, `camera`, `materials`, `devices`, `files`, `imaging` (`preview_image`), `printcut` (`fit_registration`, `plan_tiles`) (registro en `edit/mod.rs`) |
 | `remote/` | Control remoto por celular (axum): `server.rs`, `hub.rs`, `auth.rs`, `net.rs`, `page.html`, `tests.rs` |
+| `versions/` | Historial de versiones del proyecto (mejora 10): `store.rs` (una carpeta de versiones: gzip, escritura atómica, sin repetir), `retention.rs` (`plan`, política pura), `config.rs` (`versions.json`), `project.rs` (ruta a carpeta, `capture_file`, `snapshot`, `list`, `read_doc`, miniatura SVG), `commands.rs` (`versions_*`), `tests.rs` |
 | `automation.rs`, `autosave.rs`, `prefs.rs`, `settings_backup.rs`, `templates.rs`, `probe.rs`, `netlink.rs`, `window.rs`, `live_window.rs` | UDP M54, autoguardado, preferencias y paquetes, plantillas, sondeo de puerto, red, ventanas (`live_window.rs`: la ventana aparte de la vista en vivo) |
 | `tauri.conf.json`, `capabilities/{default,live}.json`, `build.rs` | Config y permisos de Tauri. `build.rs` lee `generate_handler!` de `lib.rs` y crea el permiso `allow-<comando>` de cada comando y el conjunto `main-window` (lo incluye `default.json`); `live.json` (ventana aparte `live`) no lo incluye y solo deja escuchar eventos y 2 comandos propios |
 
@@ -66,7 +67,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 |---|---|
 | `api/` | `api.ts` (interfaz `LaserApi`, `COMMAND_NAMES`, `EVENT_NAMES`), `tauri.ts` (`invoke`/`listen`), `types.ts` (`JobArgs`, `EventMap`), `index.ts` (`getApi`, `VITE_API=mock\|tauri`), `mock/` (un archivo por área + `index.ts` que los une, `machine.ts` simula la máquina) |
 | `store/` | Zustand: `index.ts` (une slices y conecta eventos `machine://*`), `document.ts`, `selection.ts`, `view.ts`, `machine.ts`, `prefs.ts`, `devices.ts`, `camera.ts`, `galvo.ts`, `preview.ts`, `notices.ts`, `selectors.ts`, `types.ts` |
-| `features/<área>/` | `arrange art automation bundle camera canvas codes contextmenu devices feeder fileio help history images layers machine materials nest preview printcut recovery remote settings shell simple tabs text tiling trace variables`. Cada una: `index.ts(x)`, paneles/diálogos `.tsx`, lógica `.ts`, CSS y `*.test.ts(x)` junto al código |
+| `features/<área>/` | `arrange art automation bundle camera canvas codes contextmenu devices feeder fileio help history images layers machine materials nest preview printcut recovery remote settings shell simple tabs text tiling trace variables versions`. Cada una: `index.ts(x)`, paneles/diálogos `.tsx`, lógica `.ts`, CSS y `*.test.ts(x)` junto al código |
 | `commands/` | `types.ts` (`CommandDef`), `definitions/<área>.ts`, `index.ts` (`ALL_COMMANDS`), `menus.ts` (`MENUS`), `shortcuts.ts`, `registry.ts`, `useShortcuts.ts` |
 | `i18n/` | `index.ts` (`t()`; `tn(base, n, params)` para plurales con claves `<base>.one` / `<base>.other`), `es.ts` y `en.ts` (unen las áreas), `es/<área>.ts`, `en/<área>.ts`, `i18n.test.ts` |
 | `bindings/` | Generado por ts-rs desde `tlaku-doc`. **No editar ni leer** |
@@ -225,7 +226,20 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/variables/{ImageVariableField.tsx,ColumnPicker.tsx}` (usado desde `canvas/ShapeProps.tsx`), `features/codes/CodesDialog.tsx` | Marcar una imagen como variable; contenido variable en el diálogo de códigos |
 | Pruebas: `variables/{multiSource.test.ts,sourcesUi.test.tsx}`, `codes/codesVariable.test.tsx` | Varias fuentes, filas distintas, imágenes ausentes, códigos, documentos viejos, vista previa por fila |
 
+### Agregado: historial de versiones del proyecto (mejora 10)
+
+| Dónde | Qué |
+|---|---|
+| `src-tauri/src/versions/` (+ comandos `versions_*` en `lib.rs`) | Motor: por proyecto (ruta absoluta) una carpeta con `<id>.tlaku.gz`, `<id>.thumb.svg.gz` y `<id>.meta.json` (el meta va al final y define que la versión existe). Por omisión en `<datos de la app>/versiones/`; opcional `.tlaku-versions` junto al archivo (`VersionsConfig.location`; listar, leer y borrar miran los dos). Retención en `retention.rs::plan` (pura, con reloj inyectado). Contrato: [app-api/versiones.md](app-api/versiones.md) |
+| `src/features/versions/{VersionsDialog,VersionDetail,VersionsSettings,SaveVersionDialog,Thumb}.tsx`, `versions.css` | Diálogo «Historial de versiones» (lista con miniatura, vista previa, comparación, restaurar, borrar, ajustes) y «Guardar versión…»; `VersionsHost.tsx` los monta en `AppShell` (antes de `PromptHost`, para que las confirmaciones queden encima) y arranca las instantáneas |
+| `src/features/versions/{actions,autoSnapshot,diff,diffText,useVersions,versionsUi,types}.ts` | `captureBeforeSave` (lo llama `writeTab` de `features/history/files.ts`; nunca lanza), `restoreAsNewTab`, `restoreInPlace` (confirma, guarda el estado como `restore`, un paso de deshacer con `applyDocChange` y `runInTab`), `AutoSnapshots` (por pestaña con archivo y cambios; sin archivo lo cubre `features/recovery`), `diffDocuments` (objetos por id, capas por color) |
+| `src/commands/definitions/versions.ts`, menú Archivo (`menus.ts`) | `versions.open`, `versions.saveNamed` |
+| `src/api/mock/versions.ts`, `scripts/versions-verify.mjs [--shots DIR]` | API simulada (dedupe, manual nombra a la última) y verificación en Chrome con capturas |
+| Pruebas | Rust: `versions/tests.rs`; interfaz: `features/versions/{versions.test.ts,VersionsDialog.test.tsx}` |
+| Manual | `docs/manual/03h-historial-de-versiones.md` (+ `en/`) |
+
 ## 3. Recetas: "dónde agrego..."
+
 
 Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings`,
 `npx tsc --noEmit && npx eslint .` y la prueba de tu área (sección 4).

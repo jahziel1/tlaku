@@ -70,6 +70,7 @@ There is no `Cmd+1..9` or `Cmd+Option+←/→`: they already have another owner 
 ## Recovery and session
 
 - **One recovery copy per tab** with changes (each with its own name, for example "Untitled 2"). It is deleted when you save that tab, go back to the saved state with **Undo**, or close it. Up to 40 copies are kept across all windows.
+- The recovery copy is for **not losing unsaved work**. To **go back to an earlier saved state** there is the [version history](03h-historial-de-versiones.md) (each tab with a file has its own).
 - After an unexpected shutdown, **Unsaved work found** lists each copy; each **Recover** opens it in **its own tab** (marked as unsaved), and **Recover all** opens them all at once. If the source project is already open and has no changes, the copy takes that tab instead of duplicating it. With several windows, each one only offers orphan copies: those of other open windows are not mixed in.
 - **Reopen tabs at startup** (**Preferences > General**, on by default): when Tlaku starts, the projects that were open in tabs when it closed are opened again and the one that was active is active again. **Untitled** tabs are not reopened (if they had unsaved work, recovery offers it). If a file no longer exists, you are told and the rest continue. Only the main window saves and restores the session.
 

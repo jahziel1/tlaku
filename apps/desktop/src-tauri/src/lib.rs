@@ -25,6 +25,7 @@ mod settings_backup;
 pub mod smoke;
 mod templates;
 mod updater;
+mod versions;
 mod window;
 
 use commands::AppState;
@@ -226,6 +227,16 @@ fn build_app(context: tauri::Context) -> tauri::App {
             autosave::autosave_list,
             autosave::autosave_read,
             autosave::autosave_discard,
+            versions::commands::versions_list,
+            versions::commands::versions_thumb,
+            versions::commands::versions_read,
+            versions::commands::versions_capture,
+            versions::commands::versions_snapshot,
+            versions::commands::versions_delete,
+            versions::commands::versions_clear,
+            versions::commands::versions_projects,
+            versions::commands::versions_config_get,
+            versions::commands::versions_config_set,
             prefs::load_preferences,
             prefs::save_preferences,
             prefs::export_preferences,

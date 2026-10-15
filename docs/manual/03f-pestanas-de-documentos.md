@@ -70,6 +70,7 @@ No existen `Cmd+1..9` ni `Cmd+Opción+←/→`: ya tienen otro dueño (`Ctrl/Cmd
 ## Recuperación y sesión
 
 - **Una copia de recuperación por pestaña** con cambios (cada una con su propio nombre, por ejemplo «Sin título 2»). Se borra cuando guardas esa pestaña, vuelves con **Deshacer** al estado guardado o la cierras. Se conservan hasta 40 copias entre todas las ventanas.
+- La copia de recuperación es para **no perder trabajo sin guardar**. Para **volver a un estado anterior ya guardado** está el [historial de versiones](03h-historial-de-versiones.md) (cada pestaña con archivo tiene el suyo).
 - Tras un cierre inesperado, **Se encontró trabajo sin guardar** lista cada copia; cada **Recuperar** la abre en **su propia pestaña** (marcada como sin guardar), y **Recuperar todas** abre todas de una vez. Si el proyecto de origen ya está abierto y sin cambios, la copia ocupa esa pestaña en vez de duplicarla. Con varias ventanas, cada una solo ofrece copias huérfanas: las de otras ventanas abiertas no se mezclan.
 - **Reabrir las pestañas al iniciar** (**Preferencias > General**, encendido de fábrica): al abrir Tlaku se vuelven a abrir los proyectos que tenían las pestañas al cerrar y queda activa la que lo estaba. Las pestañas **Sin título** no se reabren (si tenían trabajo sin guardar, lo ofrece la recuperación). Si un archivo ya no existe, se avisa y se sigue con los demás. Solo la ventana principal guarda y restaura la sesión.
 
