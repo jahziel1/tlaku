@@ -17,6 +17,11 @@ on:
         description: Etiqueta de una Release que ya tenga los .deb (por ejemplo v0.1.0)
         required: true
         type: string
+      ref:
+        description: Rama o commit del que tomar el manifiesto (vacío = la etiqueta). Sirve para rehacer el Flatpak de una Release con un manifiesto corregido sin mover la etiqueta.
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: write # leer los .deb del borrador y adjuntar los .flatpak
@@ -30,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.ref || inputs.tag }}
 
       - name: Bajar los .deb
         env:
@@ -101,7 +106,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.ref || inputs.tag }}
 
       - uses: actions/download-artifact@v4
         with:

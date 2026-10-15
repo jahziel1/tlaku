@@ -69,8 +69,10 @@ modules:
         path: io.github.jahziel1.tlaku.svg
     build-commands:
       # Un .deb es un archivo `ar` con control.tar.* y data.tar.* (Tauri usa gzip).
+      # GNU ar no crea la carpeta de `--output`: hay que crearla antes.
+      - mkdir -p deb-extract
       - ar -x tlaku.deb --output deb-extract
-      - tar -C deb-extract -xf deb-extract/data.tar.gz
+      - tar -C deb-extract -xf deb-extract/data.tar.*
       # El ejecutable: el .deb trae uno solo en usr/bin (su nombre depende de la versión de
       # Tauri); se instala siempre como `tlaku`, que es lo que lanza el .desktop.
       - |
