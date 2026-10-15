@@ -39,7 +39,7 @@ interface TextObject {                // ObjectKind "text"
 | `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento, transform identidad) |
 | `shape_op` | `{ op: "trim" \| "break_apart" \| "optimize" \| "fillet" \| "cut_shapes" \| "resize_slots", objects: DesignObject[], params?: ShapeParams }` | `{ objects: DesignObject[], stats: ShapeStats }` (misma convención de resultado que `join`/`close`/`dedupe`) |
 | `review_design` | `{ doc: Document, bed: [number, number], options?: ReviewOptions }` | `Finding[]` (lo grave primero; solo lee, no cambia nada) |
-| `list_generators` | | `GeneratorInfo[]`: `{ id: 'box' \| 'hinge' \| 'fit_test', params: ParamSpec[], defaults: { [clave]: unknown } }` (formulario de cada generador de piezas y sus valores de fábrica; ver abajo) |
+| `list_generators` | | `GeneratorInfo[]`: `{ id: 'box' \| 'hinge' \| 'fit_test' \| 'joints' \| 'rounded_box', params: ParamSpec[], defaults: { [clave]: unknown } }` (formulario de cada generador de piezas y sus valores de fábrica; ver abajo) |
 | `generate_part` | `{ generator: string, params: { [clave]: unknown }, max_width_mm?: number \| null, gap_mm?: number \| null }` (snake_case: lleva `rename_all`) | `GenerateResult`: `{ parts: PlacedPart[], warnings: string[], width: number, height: number, error: { field: string \| null, message: string } \| null }` |
 | `trace_image` | `{ path, settings: TraceSettings, size_mm: [number, number] }` | `{ paths: BezPath[], warnings: string[] }` |
 | `vectors_to_bitmap` | `{ doc, selection: string[], dir: string \| null, stem, options: { dpi, filled, stroke_mm, invert } }` | `{ path, width_px, height_px, size_mm, origin_mm, in_temp_dir }` |
@@ -216,7 +216,8 @@ no entran en el análisis geométrico, y los bloqueados tampoco en lo que se arr
 
 ### Generadores de piezas (`list_generators`, `generate_part`)
 
-Cajas con dientes (`box`), bisagras flexibles (`hinge`) y pieza de prueba de encaje (`fit_test`); la geometría
+Cajas con dientes (`box`), bisagras flexibles (`hinge`), pieza de prueba de encaje (`fit_test`), uniones sueltas
+(`joints`: cola de milano y pestaña-ranura) y caja redondeada con lateral flexible (`rounded_box`); la geometría
 está en `crates/tlaku-parts` y los comandos en `src-tauri/src/edit/parts.rs`. Cada generador es una función pura:
 mismos parámetros, mismas piezas. Todo en mm, origen abajo a la izquierda y Y hacia arriba; la geometría es
 **nominal** (sin kerf): el kerf lo compensa la capa del documento (`LayerSettings.kerf`, regla par-impar de

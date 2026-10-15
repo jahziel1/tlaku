@@ -10,7 +10,7 @@ const area = (p: PathDto) => p.points.reduce((s, [x, y], i) => {
 
 describe('simulación de los generadores (la verdad es el motor Rust)', () => {
   it('el formulario viene del mismo JSON que el motor', () => {
-    expect((schema as { id: string }[]).map((g) => g.id)).toEqual(['box', 'tray', 'hinge', 'fit_test', 'gears']);
+    expect((schema as { id: string }[]).map((g) => g.id)).toEqual(['box', 'tray', 'hinge', 'fit_test', 'gears', 'joints', 'rounded_box']);
   });
 
   it('caja de 100×80×60: seis paneles con las medidas pedidas', () => {
@@ -107,6 +107,54 @@ describe('simulación de los generadores (la verdad es el motor Rust)', () => {
         expect(y).toBeLessThanOrEqual(47 + 1e-9);
       }
     }
+  });
+
+  it('bisagra: ladrillo y rombo salen como rectas con un aviso de aproximación', () => {
+    for (const pattern of ['brick', 'diamond']) {
+      const r = mockGenerate('hinge', { pattern }, null, 5);
+      expect(r.error).toBeNull();
+      expect(r.parts[0]!.cuts.filter((c) => !c.closed).length).toBeGreaterThan(10);
+      expect(r.warnings.some((w) => w.includes('aproximada'))).toBe(true);
+    }
+  });
+
+  it('cola de milano: las áreas de las dos placas suman el rectángulo y la holgura abre la ranura', () => {
+    const r = mockGenerate('joints', {}, null, 5);
+    expect(r.error).toBeNull();
+    const [tails, sockets] = r.parts;
+    expect(tails!.height).toBe(60);
+    expect(sockets!.height).toBe(60);
+    // 40 de placa por lado: la placa de colas mide 40 + profundidad de la cola.
+    expect(tails!.width).toBeCloseTo(48, 9);
+    const total = area(tails!.cuts[0]!) + area(sockets!.cuts[0]!);
+    expect(total).toBeCloseTo(2 * 40 * 60, 6);
+    const loose = mockGenerate('joints', { fit_mm: 0.2 }, null, 5);
+    expect(area(loose.parts[0]!.cuts[0]!) + area(loose.parts[1]!.cuts[0]!)).toBeLessThan(total - 1e-6);
+    expect(mockGenerate('joints', { count: 8, neck_mm: 12 }, null, 5).error?.field).toBe('count');
+  });
+
+  it('pestaña-ranura: la ranura es más ancha que la pestaña justo la holgura', () => {
+    const r = mockGenerate('joints', { kind: 'tab_slot', fit_mm: 0.1 }, null, 5);
+    expect(r.error).toBeNull();
+    const holes = r.parts[1]!.cuts.filter((c) => area(c) < 0);
+    expect(holes).toHaveLength(3);
+    const w = (c: PathDto) => Math.max(...c.points.map((p) => p[0])) - Math.min(...c.points.map((p) => p[0]));
+    const h = (c: PathDto) => Math.max(...c.points.map((p) => p[1])) - Math.min(...c.points.map((p) => p[1]));
+    expect(w(holes[0]!)).toBeCloseTo(10.1, 9);
+    expect(h(holes[0]!)).toBeCloseTo(3.1, 9);
+    expect(mockGenerate('joints', { kind: 'tab_slot', tab_mm: 30 }, null, 5).error?.field).toBe('tab_mm');
+  });
+
+  it('caja redondeada (aproximada): lateral del largo de la línea media y aviso', () => {
+    const r = mockGenerate('rounded_box', {}, null, 5);
+    expect(r.error).toBeNull();
+    expect(r.parts.map((p) => p.key)).toEqual(['base', 'lid', 'wall']);
+    const rm = 15 - 1.5;
+    const per = 2 * (97 + 67) - 8 * rm + 2 * Math.PI * rm;
+    expect(r.parts[2]!.width).toBeCloseTo(per, 6);
+    expect(r.warnings.some((w) => w.includes('aproximada'))).toBe(true);
+    expect(mockGenerate('rounded_box', { lid: false }, null, 5).parts.map((p) => p.key)).toEqual(['base', 'wall']);
+    expect(mockGenerate('rounded_box', { radius_mm: 4 }, null, 5).error?.field).toBe('radius_mm');
   });
 
   it('prueba de encaje: ranuras de grosor ± pasos (trece por omisión: ±0,30 mm)', () => {

@@ -32,6 +32,42 @@ parts.hinge.rows_too_close = Con esa onda las filas quedan a {web} mm una de otr
 parts.hinge.no_room = La zona es demasiado pequeña para su margen: no cabe ningún corte.
 parts.hinge.thin_bridge = Los puentes de {bridge} mm son muy finos: la bisagra puede rasgarse al flexionar.
 parts.hinge.thin_web = Con {gap} mm entre filas el material entre cortes es muy delgado y puede romperse.
+parts.hinge.brick_tight = Con esa separación el remate de los cortes queda a {web} mm de la fila vecina: sube la separación entre filas.
+parts.hinge.diamond_tight = Con esos valores los cortes del rombo quedan a {web} mm unos de otros: sube el puente, o cambia el largo y la separación entre filas.
+parts.hinge.diamond_bridge = El puente es demasiado largo para el rombo (cada lado mide {side} mm): baja el puente o agranda el rombo.
+
+# joints
+parts.joints.range = Debe estar entre {min} y {max}.
+parts.joints.not_dovetail = Esta función es solo para la cola de milano.
+parts.joints.not_tab_slot = Esta función es solo para la pestaña-ranura.
+parts.joints.name.tails = Cola de milano: placa con colas
+parts.joints.name.sockets = Cola de milano: placa con ranuras
+parts.joints.name.tabs = Pestaña-ranura: placa con pestañas
+parts.joints.name.slots = Pestaña-ranura: placa con ranuras
+parts.joints.too_wide = Las colas no caben: cada una (con su ranura) debe medir como máximo {max} mm de ancho en la punta para dejar material entre ranuras. Baja el cuello, el ángulo o la profundidad, o el número de colas.
+parts.joints.too_deep = La ranura es demasiado profunda para la placa: la profundidad no puede pasar de {max} mm.
+parts.joints.tab_too_wide = La ranura de cada pestaña debe dejar material entre una y otra: la pestaña no puede medir más de {max} mm con ese número de pestañas.
+parts.joints.offset_range = La ranura debe quedar a entre {min} y {max} mm del borde de la placa para dejar material a los lados.
+parts.joints.dovetail_note = Las dos placas se ensamblan deslizando una sobre la otra a lo largo de la arista; la forma de cola impide separarlas tirando en perpendicular, pero no al deslizar. Para fijarlas, una gota de pegamento o un tope.
+parts.joints.thin_neck = El cuello de {neck} mm es muy fino: la cola puede romperse. Sube el ancho del cuello.
+parts.joints.thin_tab = Las pestañas miden {tab} mm, menos que el grosor ({thickness} mm): son frágiles. Sube su ancho.
+parts.joints.fit_vs_kerf = Ya hay holgura de encaje: no la sumes a un kerf de capa que compense lo mismo. Usa solo uno de los dos y calibra con la pieza de prueba de encaje.
+
+# rounded_box
+parts.rounded.range = Debe estar entre {min} y {max}.
+parts.rounded.name.base = Base
+parts.rounded.name.lid = Tapa
+parts.rounded.name.wall = Lateral con bisagra
+parts.rounded.radius_small = El radio de las esquinas debe ser de al menos {min} mm (el grosor más 2 mm) para que el lateral pueda curvarse por dentro.
+parts.rounded.radius_big = El radio de las esquinas no puede pasar de la mitad del lado menor.
+parts.rounded.too_many_fingers = Habría más de {max} dientes alrededor de la caja: sube el ancho de diente.
+parts.rounded.cells_too_narrow = Los dientes saldrían demasiado angostos para cortarse: sube el ancho de diente.
+parts.rounded.too_short = La caja es muy baja para la base, la tapa, la bisagra y el cierre: el alto debe ser de al menos {min} mm.
+parts.rounded.seam_no_room = El tramo recto del frente es muy corto para el cierre en cola de milano: necesita al menos {need} mm entre las dos esquinas. Agranda el ancho, baja el radio o cierra a tope.
+parts.rounded.strip_note = El lateral mide {len} mm de largo: el perímetro de la línea media del grosor (la que no se estira al curvarse). El contorno exterior mide {outer} mm. Las colas del cierre sobresalen del largo.
+parts.rounded.hinge_note = La bisagra de las esquinas no está probada con tu material: corta primero una bisagra de prueba con el mismo patrón y comprueba que dobla al radio de la esquina sin romperse.
+parts.rounded.fit_vs_kerf = Ya hay holgura de encaje: no la sumes a un kerf de capa que compense lo mismo. Usa solo uno de los dos y calibra con la pieza de prueba de encaje.
+parts.rounded.thin_fingers = Los dientes miden {width} mm, menos que el grosor ({thickness} mm): son frágiles. Sube el ancho de diente.
 
 # fit_test
 parts.fit.name.plate = Placa de ranuras

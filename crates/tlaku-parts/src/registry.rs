@@ -15,8 +15,10 @@ use crate::error::PartsError;
 use crate::fit_test::{FitTestParams, fit_test_parts};
 use crate::gears::{GearParams, gears_parts};
 use crate::hinge::{HingeParams, hinge_parts};
+use crate::joints::{JointsParams, joints_parts};
 use crate::layout::pack;
 use crate::part::{Generated, Part};
+use crate::rounded_box::{RoundedBoxParams, rounded_box_parts};
 use crate::tray::{TrayParams, tray_parts};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -211,6 +213,18 @@ pub const GENERATORS: &[GeneratorDef] = &[
         defaults: to_value::<GearParams>,
         run: |v| run::<GearParams>(v, gears_parts),
     },
+    GeneratorDef {
+        id: "joints",
+        schema: crate::joints::schema,
+        defaults: to_value::<JointsParams>,
+        run: |v| run::<JointsParams>(v, joints_parts),
+    },
+    GeneratorDef {
+        id: "rounded_box",
+        schema: crate::rounded_box::schema,
+        defaults: to_value::<RoundedBoxParams>,
+        run: |v| run::<RoundedBoxParams>(v, rounded_box_parts),
+    },
 ];
 
 /// Ficha de un generador para el formulario.
@@ -359,7 +373,18 @@ mod tests {
     fn lists_every_generator_with_consistent_schemas() {
         let all = list();
         let ids: Vec<&str> = all.iter().map(|g| g.id.as_str()).collect();
-        assert_eq!(ids, ["box", "tray", "hinge", "fit_test", "gears"]);
+        assert_eq!(
+            ids,
+            [
+                "box",
+                "tray",
+                "hinge",
+                "fit_test",
+                "gears",
+                "joints",
+                "rounded_box"
+            ]
+        );
         for g in &all {
             let defaults = g
                 .defaults

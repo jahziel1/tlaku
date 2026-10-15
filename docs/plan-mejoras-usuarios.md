@@ -96,7 +96,7 @@ mezcla con la B.
 
 ## 2. Generadores de piezas (cajas, bisagras, engranajes, bandejas, uniones)
 
-**(a) Estado: fases 2a+2b+2c implementadas (Ola B, fase 1), más engranajes, bandejas, cajones, divisores y patas; falta cola de milano.** Hecho en `crates/tlaku-parts`
+**(a) Estado: fases 2a+2b+2c+2d implementadas (Ola B, fase 1): caja con divisores y patas, bandeja y cajón, bisagras, engranajes, uniones sueltas y caja redondeada; falta validar con material real.** Hecho en `crates/tlaku-parts`
 (geometría) y `apps/desktop/src/features/parts/` (diálogo «Herramientas > Generadores de piezas…», vista previa en vivo,
 Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en [mapa.md](mapa.md)):
 
@@ -115,8 +115,16 @@ Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en
 - **Bandeja y cajón (hecho):** generador `tray` sobre la caja abierta de dientes, con asas (muesca redondeada o ojal en dos
   lados), cajón con frente grande pegado que tapa el hueco y caja exterior abierta por el frente con el juego pedido.
   Pendiente: guías o correderas del cajón y divisores dentro de la bandeja.
-- **Bisagra flexible:** rectas escalonadas, onda y zigzag, en horizontal o vertical, con puentes, margen y esquinas
-  redondeadas. Pendiente: integrarla en un lateral de caja (franja flexible con dientes) y los patrones ladrillo y rombo.
+- **Bisagra flexible:** rectas escalonadas, onda, zigzag, **ladrillo** (cortes con remate en ⊓) y **rombo** (retícula
+  con puentes en los vértices), en horizontal o vertical, con puentes, margen y esquinas redondeadas; pruebas de cortes
+  dentro del área, sin cruces y con separación mínima entre cortes.
+- **Caja redondeada:** base y tapa de esquinas de radio `R` y un solo lateral con bisagra flexible solo en los arcos,
+  unido con dientes (número par de celdas a lo largo de la línea media del grosor; muescas de corona en las curvas)
+  y cerrado con cola de milano o a tope. El largo de la tira es el perímetro de la línea media (`R - T/2`), no el del
+  contorno exterior. Falta validarla en material real (radio mínimo de doblez por material y patrón).
+- **Uniones sueltas:** cola de milano plana (ángulo, cuello, profundidad, número, holgura) y pestaña-ranura (ranuras
+  pasantes con holgura) como piezas de ejemplo; complementariedad y holgura probadas. Pendiente: aplicarlas a una arista
+  de un objeto seleccionado del documento.
 - **Pieza de prueba de encaje:** placa de 13 ranuras (grosor o diente ± pasos de 0,05 mm, valores grabados) y un macho.
 - **Engranajes (2c):** `crates/tlaku-parts/src/gears/` (`involute.rs` = perfil, `mod.rs` = parámetros y piezas). Engranaje recto
   de evolvente por módulo o paso diametral (14,5°/20°/25°), holgura de cabeza, juego (adelgaza cada diente `b/2`: el par
