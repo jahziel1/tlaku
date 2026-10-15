@@ -6,12 +6,14 @@
   <title>Tlaku: software libre para cortadoras y grabadoras láser</title>
   <meta name="description" content="Tlaku es una alternativa de código abierto (MIT) a los programas comerciales de control láser. Ninguna función de máquina se ha probado todavía con un láser real.">
   <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="alternate" hreflang="es" href="./">
   <link rel="alternate" hreflang="en" href="en/">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true" focusable="false"><symbol id="i-cup" viewBox="0 0 24 24"><path d="M3.5 9h12.5v5a5 5 0 0 1-5 5H8.5a5 5 0 0 1-5-5z" fill="currentColor"/><path d="M16 10.2h1.4a2.6 2.6 0 0 1 0 5.2H15.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M7 2.6c-1 1.1 1 2.1 0 3.4M10.6 2.6c-1 1.1 1 2.1 0 3.4M14 2.6c-1 1.1 1 2.1 0 3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2.5" y="20.4" width="14.5" height="1.8" rx=".9" fill="currentColor"/></symbol></svg>
   <a class="skip" href="#contenido">Saltar al contenido</a>
   <header class="top">
     <div class="wrap">
@@ -23,7 +25,7 @@
         <a href="#probar">Probar</a>
         <a href="#descargas">Descargas</a>
         <a href="#manual">Manual</a>
-        <a href="#apoyar">Apoyar</a>
+        <a class="support" href="#apoyar"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Apoyar</a>
         <a class="lang" href="en/" hreflang="en" lang="en">English</a>
       </nav>
     </div>
@@ -40,6 +42,7 @@
           <p class="actions">
             <a class="btn primary" href="#descargas">Descargas</a>
             <a class="btn" href="#manual">Manual</a>
+            <a class="btn kofi opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Invítame un café</a>
           </p>
         </div>
         <figure class="shot">
@@ -169,17 +172,34 @@
       </div>
     </section>
 
-    <section id="apoyar" aria-labelledby="h-apoyar">
+    <section class="support-sec" id="apoyar" aria-labelledby="h-apoyar">
       <div class="wrap">
-        <h2 id="h-apoyar">Apoyar el proyecto</h2>
-        <p>Tlaku no tiene una empresa detrás. Las donaciones, si las hay, sirven para probar con máquinas reales, pagar los certificados de firma de los instaladores y dedicar tiempo al desarrollo. Donar es voluntario: el programa es el mismo con o sin donación.</p>
-        <p>Lo que más ayuda hoy es probar Tlaku con una máquina real y contar qué pasó.</p>
+        <h2 id="h-apoyar">Apoya Tlaku</h2>
+        <p class="lead">Tlaku es gratis y de código abierto (MIT), y lo seguirá siendo. Lo hace una sola persona en México, sin empresa detrás. Si te sirve y quieres que avance más rápido, puedes invitarme un café.</p>
+        <h3 class="sub">En qué se usaría tu apoyo</h3>
+        <ul class="cards">
+          <li><h3>Máquinas de prueba</h3><p>Hoy solo tengo una Creality Falcon2 Pro, un láser de diodo. Con apoyo podría probar otras familias, como CO2 con controladora Ruida o galvo de fibra, que ahora están marcadas como experimentales.</p></li>
+          <li><h3>Certificados de firma</h3><p>Los certificados de Windows y de Apple son de pago y se renuevan. Sin ellos, los instaladores muestran el aviso de SmartScreen o de Gatekeeper. Con ellos se podría quitar.</p></li>
+          <li><h3>Tiempo de desarrollo</h3><p>Más horas para corregir errores, probar con hardware real y mantener el manual al día.</p></li>
+        </ul>
+        <div class="donate">
+          <div class="optgroup">
+            <p class="actions">
+              <a class="btn kofi big opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Invítame un café en Ko-fi</a>
+              <a class="btn big opt" href="{{SPONSORS_URL}}" rel="noopener">GitHub Sponsors</a>
+            </p>
+            <p class="fallback">El proyecto aún no tiene cuentas de donación.</p>
+          </div>
+          <p class="small">Donar es voluntario y no desbloquea nada: el programa es el mismo con o sin donación. Ko-fi es un sitio externo; al pulsar el botón sales de esta página.</p>
+        </div>
+        <h3 class="sub">¿Prefieres no donar? También ayuda, y mucho</h3>
         <div class="optgroup">
-          <p class="actions">
-            <a class="btn primary opt" href="{{SPONSORS_URL}}">GitHub Sponsors</a>
-            <a class="btn opt" href="{{KOFI_URL}}">Ko-fi</a>
-          </p>
-          <p class="fallback">El proyecto aún no tiene cuentas de donación.</p>
+          <div class="alt actions">
+            <a class="alt-card opt" href="{{REPO_URL}}" rel="noopener"><strong>Dale una estrella en GitHub</strong>Ayuda a que más gente encuentre el proyecto.</a>
+            <a class="alt-card opt" href="{{REPO_URL}}/issues/new?template=machine_report.yml" rel="noopener"><strong>Comparte tu máquina</strong>Cuéntanos cómo le fue a Tlaku en tu láser, también si todo salió bien.</a>
+            <a class="alt-card opt" href="{{REPO_URL}}/issues/new?template=material_settings.yml" rel="noopener"><strong>Comparte ajustes de materiales</strong>Valores que te funcionaron, para la biblioteca de la comunidad.</a>
+          </div>
+          <p class="fallback">Estos enlaces estarán disponibles cuando el repositorio tenga dirección pública.</p>
         </div>
       </div>
     </section>
@@ -196,8 +216,15 @@
   <footer>
     <div class="wrap">
       <p>Tlaku · software libre bajo licencia MIT · © 2026 tlaku contributors</p>
+      <p class="optgroup footer-support"><a class="kofi opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Invítame un café en Ko-fi</a></p>
       <p>Las capturas son de la propia aplicación. Este sitio no usa cookies, rastreadores ni recursos externos.</p>
     </div>
   </footer>
+
+  <div class="fab" id="fab" hidden>
+    <a href="#apoyar"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Apoyar</a>
+    <button type="button" aria-label="Cerrar el aviso de apoyo" title="Cerrar"><span aria-hidden="true">&times;</span></button>
+  </div>
+  <script src="support.js" defer></script>
 </body>
 </html>

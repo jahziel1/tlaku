@@ -6,12 +6,14 @@
   <title>Tlaku: free software for laser cutters and engravers</title>
   <meta name="description" content="Tlaku is an open source (MIT) alternative to commercial laser control software. No machine feature has been tested with a real laser yet.">
   <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
   <link rel="icon" type="image/svg+xml" href="../favicon.svg">
   <link rel="alternate" hreflang="es" href="../">
   <link rel="alternate" hreflang="en" href="./">
   <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+  <svg class="sprite" aria-hidden="true" focusable="false"><symbol id="i-cup" viewBox="0 0 24 24"><path d="M3.5 9h12.5v5a5 5 0 0 1-5 5H8.5a5 5 0 0 1-5-5z" fill="currentColor"/><path d="M16 10.2h1.4a2.6 2.6 0 0 1 0 5.2H15.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M7 2.6c-1 1.1 1 2.1 0 3.4M10.6 2.6c-1 1.1 1 2.1 0 3.4M14 2.6c-1 1.1 1 2.1 0 3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2.5" y="20.4" width="14.5" height="1.8" rx=".9" fill="currentColor"/></symbol></svg>
   <a class="skip" href="#content">Skip to content</a>
   <header class="top">
     <div class="wrap">
@@ -23,7 +25,7 @@
         <a href="#test">Test</a>
         <a href="#downloads">Downloads</a>
         <a href="#manual">Manual</a>
-        <a href="#support">Support</a>
+        <a class="support" href="#support"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Support</a>
         <a class="lang" href="../" hreflang="es" lang="es">Español</a>
       </nav>
     </div>
@@ -40,6 +42,7 @@
           <p class="actions">
             <a class="btn primary" href="#downloads">Downloads</a>
             <a class="btn" href="#manual">Manual</a>
+            <a class="btn kofi opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Buy me a coffee</a>
           </p>
         </div>
         <figure class="shot">
@@ -170,17 +173,34 @@
       </div>
     </section>
 
-    <section id="support" aria-labelledby="h-support">
+    <section class="support-sec" id="support" aria-labelledby="h-support">
       <div class="wrap">
-        <h2 id="h-support">Support the project</h2>
-        <p>Tlaku has no company behind it. Donations, if any, go toward testing on real machines, paying for installer code-signing certificates and time for development. Donating is voluntary: the program is the same with or without a donation.</p>
-        <p>What helps most today is trying Tlaku with a real machine and telling us what happened.</p>
+        <h2 id="h-support">Support Tlaku</h2>
+        <p class="lead">Tlaku is free and open source (MIT), and it will stay that way. It is built by one person in Mexico, with no company behind it. If it is useful to you and you would like it to move faster, you can buy me a coffee.</p>
+        <h3 class="sub">What your support would pay for</h3>
+        <ul class="cards">
+          <li><h3>Test machines</h3><p>Right now I only have one Creality Falcon2 Pro, a diode laser. With support I could test other families, such as CO2 with a Ruida controller or fiber galvo, which are currently marked experimental.</p></li>
+          <li><h3>Signing certificates</h3><p>Windows and Apple certificates cost money and have to be renewed. Without them, the installers show the SmartScreen or Gatekeeper warning. With them, that warning could go away.</p></li>
+          <li><h3>Development time</h3><p>More hours to fix bugs, test on real hardware and keep the manual up to date.</p></li>
+        </ul>
+        <div class="donate">
+          <div class="optgroup">
+            <p class="actions">
+              <a class="btn kofi big opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Buy me a coffee on Ko-fi</a>
+              <a class="btn big opt" href="{{SPONSORS_URL}}" rel="noopener">GitHub Sponsors</a>
+            </p>
+            <p class="fallback">The project does not have donation accounts yet.</p>
+          </div>
+          <p class="small">Donating is optional and unlocks nothing: the program is the same with or without a donation. Ko-fi is an external site; the button takes you away from this page.</p>
+        </div>
+        <h3 class="sub">Rather not donate? You can still help a lot</h3>
         <div class="optgroup">
-          <p class="actions">
-            <a class="btn primary opt" href="{{SPONSORS_URL}}">GitHub Sponsors</a>
-            <a class="btn opt" href="{{KOFI_URL}}">Ko-fi</a>
-          </p>
-          <p class="fallback">The project does not have donation accounts yet.</p>
+          <div class="alt actions">
+            <a class="alt-card opt" href="{{REPO_URL}}" rel="noopener"><strong>Star it on GitHub</strong>It helps more people find the project.</a>
+            <a class="alt-card opt" href="{{REPO_URL}}/issues/new?template=machine_report.yml" rel="noopener"><strong>Share your machine</strong>Tell us how Tlaku did on your laser, good results included.</a>
+            <a class="alt-card opt" href="{{REPO_URL}}/issues/new?template=material_settings.yml" rel="noopener"><strong>Share material settings</strong>Values that worked for you, for the community library.</a>
+          </div>
+          <p class="fallback">These links will be available once the repository has a public address.</p>
         </div>
       </div>
     </section>
@@ -197,8 +217,15 @@
   <footer>
     <div class="wrap">
       <p>Tlaku · free software under the MIT license · © 2026 tlaku contributors</p>
+      <p class="optgroup footer-support"><a class="kofi opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Buy me a coffee on Ko-fi</a></p>
       <p>Screenshots are from the application itself. This site uses no cookies, trackers or external resources.</p>
     </div>
   </footer>
+
+  <div class="fab" id="fab" hidden>
+    <a href="#support"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Support</a>
+    <button type="button" aria-label="Close the support notice" title="Close"><span aria-hidden="true">&times;</span></button>
+  </div>
+  <script src="../support.js" defer></script>
 </body>
 </html>

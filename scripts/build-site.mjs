@@ -9,8 +9,8 @@
 //
 // Sitio: copia `site/` a la carpeta de salida (sin config.json), copia a `img/` las capturas de
 // `apps/desktop/docs/screenshots/` que las páginas usan y reemplaza los marcadores en los .html.
-// Un valor vacío NO se reemplaza: el marcador queda y el CSS (`a.opt[href^="{{"]`) oculta el botón
-// y muestra el aviso de "aún no hay...". Con un valor, el botón aparece.
+// Un valor vacío quita el enlace entero (p. ej. el botón de GitHub Sponsors mientras no exista) y, si
+// un grupo `.optgroup` se queda sin enlaces, el CSS muestra su aviso de "aún no hay...".
 //
 // README (`--readme`): regenera el bloque entre `<!-- support:start -->` y `<!-- support:end -->` de
 // README.md (inglés) y README.es.md (español) con los enlaces de donación que tengan valor.
@@ -48,10 +48,15 @@ function assertKnown(text, where) {
   }
 }
 
-/** HTML: reemplaza los marcadores con valor y deja los vacíos (el CSS los oculta). */
+/**
+ * HTML: reemplaza los marcadores con valor. Un enlace `<a href="{{X}}">…</a>` cuyo valor está vacío
+ * se quita (no queda un botón roto ni un `{{X}}` visible); el CSS (`.optgroup`) muestra entonces el
+ * aviso de "aún no hay..." si el grupo se queda sin enlaces.
+ */
 export function fillHtml(html, config, where = 'html') {
   assertKnown(html, where);
-  return html.replace(MARKER, (all, name) => (config[name] ? config[name] : all));
+  const sinVacios = html.replace(/<a\b[^>]*\bhref="\{\{([A-Z_]+)\}\}"[^>]*>[\s\S]*?<\/a>/g, (all, name) => (config[name] ? all : ''));
+  return sinVacios.replace(MARKER, (all, name) => (config[name] ? config[name] : all));
 }
 
 /** Markdown: un marcador vacío quita su línea entera; con valor se reemplaza. */
