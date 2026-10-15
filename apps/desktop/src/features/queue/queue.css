@@ -1,5 +1,9 @@
 /* Cola guiada de trabajos: gestión, paso de confirmación y píldora de estado. */
 
+.mc-modal.queue-modal {
+  width: min(880px, 100%);
+}
+
 .queue__safety {
   margin: 0 0 var(--s-5);
   padding: var(--s-4) var(--s-5);
@@ -138,7 +142,8 @@
 .queue__chip {
   position: fixed;
   left: var(--s-6);
-  bottom: calc(var(--status-h) + var(--s-5));
+  /* Encima de la paleta de colores (38 px) y la barra de estado. */
+  bottom: calc(var(--status-h) + var(--palette-h) + var(--s-5));
   z-index: 40;
   display: inline-flex;
   align-items: center;

@@ -1,10 +1,11 @@
-import { ArrowDown, ArrowUp, FileUp, Layers, Pause, Play, RotateCcw, SkipForward, Square, Trash2 } from 'lucide-react';
-import { Modal } from '@/features/machine/Modal';
+import { ArrowDown, ArrowUp, FileUp, Layers, Pause, Play, RotateCcw, SkipForward, Square, Trash2, X } from 'lucide-react';
+import { useId } from 'react';
 import { useNow } from '@/features/machine/hooks';
 import { jobFraction } from '@/features/live/progress';
 import { t, type I18nKey } from '@/i18n';
 import { fmtClock } from '@/lib/platform';
 import { useStore } from '@/store';
+import { Modal } from '@/ui/Modal';
 import {
   MAX_COPIES,
   currentCopy,
@@ -115,10 +116,9 @@ function ItemRow({ item, index, last, q, editable }: { item: QueueItem; index: n
   );
 }
 
-/** Gestión de la cola guiada: lista ordenable, copias, avisos por paso, progreso total y controles. */
-export function QueueDialog() {
+/** Contenido de la gestión de la cola: lista ordenable, copias, avisos por paso, progreso total y controles. */
+export function QueueBody() {
   const q = useQueue((s) => s.q);
-  const close = () => useQueue.getState().setDialogOpen(false);
   const tabs = useStore((s) => s.tabs);
   // Para que cambien los estimados al calcularse una vista previa y el avance mientras corre un trabajo.
   useStore((s) => s.preview);
@@ -135,21 +135,7 @@ export function QueueDialog() {
   const addable = tabs.filter((tab) => !q.items.some((i) => i.tabId === tab.id)).length;
 
   return (
-    <Modal
-      title={t('queue.title')}
-      subtitle={t('queue.subtitle')}
-      size="lg"
-      onClose={close}
-      footer={
-        <>
-          <button type="button" className="btn" disabled={!q.items.some((i) => i.status === 'done' || i.status === 'skipped')} onClick={clearFinishedFromQueue}>
-            {t('queue.clearFinished')}
-          </button>
-          <span className="queue__spacer" />
-          <button type="button" className="btn" data-autofocus onClick={close}>{t('queue.close')}</button>
-        </>
-      }
-    >
+    <>
       <p className="hint queue__safety" role="note">{t('queue.safety')}</p>
 
       <div className="queue__toolbar" role="group" aria-label={t('queue.add.label')}>
@@ -229,6 +215,36 @@ export function QueueDialog() {
           </button>
         )}
       </div>
+    </>
+  );
+}
+
+/** Diálogo de gestión de la cola guiada (se abre con el comando `queue.open`). */
+export function QueueDialog() {
+  const titleId = useId();
+  const close = () => useQueue.getState().setDialogOpen(false);
+  const finished = useQueue((s) => s.q.items.some((i) => i.status === 'done' || i.status === 'skipped'));
+  return (
+    <Modal labelId={titleId} onClose={close} portal closeOnBackdrop backdropClassName="mc-backdrop" cardClassName="mc-modal queue-modal" initialFocus="[data-autofocus]" passKey={(e) => (e.metaKey || e.ctrlKey) && e.key === '.'}>
+      <header className="mc-modal__head">
+        <div>
+          <h2 id={titleId} className="mc-modal__title">{t('queue.title')}</h2>
+          <p className="hint">{t('queue.subtitle')}</p>
+        </div>
+        <button type="button" className="icon-btn" title={t('queue.close')} aria-label={t('queue.close')} onClick={close}>
+          <X size={16} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="mc-modal__body">
+        <QueueBody />
+      </div>
+      <footer className="mc-modal__foot">
+        <button type="button" className="btn" disabled={!finished} onClick={clearFinishedFromQueue}>
+          {t('queue.clearFinished')}
+        </button>
+        <span className="queue__spacer" />
+        <button type="button" className="btn" data-autofocus onClick={close}>{t('queue.close')}</button>
+      </footer>
     </Modal>
   );
 }

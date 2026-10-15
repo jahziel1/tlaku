@@ -27,8 +27,9 @@ import {
   startQueueWatcher,
   stopQueue,
 } from './queue';
-import { QueueDialog } from './QueueDialog';
-import { QueueStepDialog } from './QueueStepDialog';
+import { QueueBody } from './QueueDialog';
+import { QueueStepDialog, stepChecks } from './QueueStepDialog';
+import { CHECKLIST_ALL, CHECKLIST_ITEMS } from '@/features/machine/checklist';
 import { currentItem } from './queueModel';
 import { loadQueue, saveQueue } from './queuePersist';
 import { resetQueue, useQueue } from './queueStore';
@@ -421,8 +422,7 @@ describe('dependencias de la interfaz', () => {
   it('el diálogo de gestión muestra la lista y avisa que nunca avanza sola', () => {
     const a = openDoc('a');
     addTab(a);
-    const html = ssrAll(<QueueDialog />);
-    expect(html).toContain('Cola de trabajos');
+    const html = ssrAll(<QueueBody />);
     expect(html).toContain('nunca envía el siguiente trabajo por sí sola');
     expect(html).toContain('Empezar la cola');
     expect(html).toContain('a-');
@@ -437,6 +437,14 @@ describe('dependencias de la interfaz', () => {
     expect(html).toContain('el área está despejada');
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Continuar al diálogo de inicio/);
     expect(html).toContain('no envía nada');
+  });
+
+  it('las casillas del paso son las propias de la cola más la lista de comprobación, sin ids repetidos', () => {
+    const all = stepChecks(CHECKLIST_ALL);
+    expect(all.map((c) => c.id)).toEqual(['queue-material', 'queue-area', ...CHECKLIST_ITEMS.map((i) => i.id)]);
+    expect(new Set(all.map((c) => c.id)).size).toBe(all.length);
+    // Sin lista de comprobación configurada quedan las dos propias: la cola siempre pide el material y el área.
+    expect(stepChecks(0).map((c) => c.id)).toEqual(['queue-material', 'queue-area']);
   });
 
   it('la definición se recuerda (solo archivos) y se restaura detenida y sin copias hechas', () => {

@@ -2,6 +2,11 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Guided queue and job history, in the next version
+
+- **Job queue** (**Machine > Job Queue…**): several documents (tabs or files) with copies, run one at a time. **Between jobs it always stops** and asks you to confirm the material or workpiece change and the checklist; it never moves on by itself, and every job goes through the regular start dialog. If one fails or is cancelled, the queue stops. Reorder, skip, remove and pause, with overall progress and estimated time. The phone **shows** the queue and only confirms the next job under the rules for starting (checklist on the phone and framing on the PC). See [Job queue and job history](09f-cola-e-historial-de-trabajos.md).
+- A fuller **job history**: it keeps the **layers with their settings**, the material, the area, a thumbnail, the origin tab and **notes**; **search and filter** by date, machine, material and result; **Repeat with these settings** (with confirmation, sending nothing) and **export to CSV**. It lives in a file in the data folder (1000 jobs by default, configurable) and migrates the previous log by itself.
+
 ## Document tabs, in the next version
 
 - **Several projects in the same window**, each in its own tab, with its own Undo history, selection, zoom, preview and saved state (something LightBurn does not have). A tab bar above the canvas with an unsaved-changes dot, close, **+**, drag-to-reorder and a context menu (close, close others, duplicate, move, **move to a new window**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` and `Ctrl+Tab`.
@@ -68,7 +73,7 @@ Seventh batch, of polish and of gaps that remained compared with LightBurn. **No
 - Profile: **default**, **order**, and **icon**; **red pointer offset** (and **Bring the red pointer to the point**); **swap X and Y**; speeds in **mm/s**; **homing on connect**; **do not raise DTR** and **synchronous streaming** for difficult boards; **U offset** of jobs. See [Connecting your machine](08-conectar-maquina.md).
 - **Warnings when calculating**: **saturated serial link** (the job asks for more lines per second than fit at that baud rate), **layer faster than the machine**, and with Ruida **more than 128 layers** (identical neighbors are merged) and the **36,000 mm/min cap**. See [Sending jobs safely](09-enviar-con-seguridad.md) and [Ruida and K40](13b-ruida-y-k40.md).
 - **Feeder**: repeat a job N times with an advance between repeats (GRBL only). **Print & Cut**: images rotate with the registration.
-- **Job log** (Help): date, machine, document, estimated and actual time, and result, stored only on your computer.
+- **Job log** (Help; now **Job history**): date, machine, document, estimated and actual time, and result, stored only on your computer.
 
 ### Camera
 

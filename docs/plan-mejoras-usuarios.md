@@ -307,6 +307,11 @@ de 3 o 4 trabajos para fijar el factor de calibración (el historial lo anota).
 
 ## 4. Cola de trabajos e historial de trabajos
 
+**Actualización (ola C, 2026-10-15): hecho en lo principal.** El historial pasó a un archivo JSONL de la carpeta de datos
+con los ajustes, el material, la miniatura y las notas de cada trabajo, filtros, «Repetir con estos ajustes» y CSV; y
+la cola guiada existe (`features/queue`). Lo que sigue en (a) a (c) es el análisis previo; el diseño final y lo que
+quedó fuera están en «Estado actual» al final de esta sección.
+
 **(a) Estado: Parcial (historial) y No existe (cola).**
 
 - **Historial:** «Registro de trabajos» (M51, Ayuda > Registro de trabajos…): `features/help/jobLog.ts` +
@@ -348,6 +353,30 @@ personal responde que LightBurn no tiene cola
 (1 a 7 votos en tres publicaciones); el de historial, grande.
 
 **(e) Esfuerzo:** historial enriquecido S-M; cola guiada M.
+
+**Estado actual (ola C, 2026-10-15).**
+
+- *Historial (hecho):* `src-tauri/src/job_history.rs` (JSONL `job-history.jsonl` en `app_data_dir`, escritura atómica,
+  rotación por tope, líneas dañadas aparte, comandos `job_history_*`) y `features/help/jobLog*.ts`. Guarda fecha, máquina,
+  documento y ruta, pestaña de origen, estimado y real, resultado (terminado, cancelado, con error, interrumpido o en curso:
+  el trabajo se guarda al empezar y la app lo marca interrumpido si se cerró a mitad), capas con velocidad, potencia,
+  pasadas, modo e intervalo (y ángulo, bidireccional, aire, ancho de corte), material reconocido en la biblioteca, área,
+  longitud de corte, miniatura SVG y notas. Tope configurable (`jobHistoryMax`, 1000 por omisión) y migración del
+  `localStorage` viejo. La calculadora de costos sigue calibrándose con él. **Fuera:** compartirlo con el celular o con los
+  respaldos `.tlakubundle`, y el número de copias del alimentador (el trabajo de «Repetir con el alimentador» se anota como
+  uno por cada envío).
+- *Repetir con estos ajustes (hecho):* abre el documento (o ofrece la pestaña activa si ya no existe), muestra qué ajustes
+  de las capas cambian, aplica con un paso de deshacer tras confirmar y **nunca envía nada**.
+- *Cola guiada (hecha):* lista de pestañas abiertas o archivos `.tlaku` con copias y un aviso por paso; **siempre se detiene
+  entre trabajos** (también entre copias del mismo documento) y pide confirmar material o pieza, área despejada y la lista de
+  comprobación configurada, con encuadre opcional; confirmar abre el diálogo de inicio normal (preflight y lista de
+  comprobación incluidos), así que la cola no tiene ningún camino que envíe por sí sola. Un trabajo fallido o cancelado
+  detiene la cola. Reordenar, saltar, quitar, pausar, progreso total y estimado. El celular la ve (tarjeta de solo lectura) y
+  confirma el siguiente solo con las reglas de «iniciar» (checklist en el teléfono con una casilla extra de material, encuadre
+  en la PC y documento de la pestaña activa); si no, solo desde la PC. La vista en vivo muestra el paso. La definición se
+  recuerda (solo archivos); la ejecución, no. **Fuera:** la receta de material por elemento y la máquina por elemento (todos
+  usan la máquina y los ajustes de su documento), retomar una cola tras un cierre con su avance, y avanzar automáticamente
+  entre copias (descartado a propósito por seguridad; para eso está «Repetir con el alimentador»).
 
 **(f) Cómo se prueba.** Vitest sobre el modelo de la cola con una máquina simulada; pruebas de la app con
 `virtual:falcon2@5` y el reloj simulado de `tlaku-emu` (`clock.rs`): dos elementos, pausa, confirmación,
@@ -828,7 +857,7 @@ un lote de 3 placas con serie y logotipo distinto sobre material de desecho.
 | 1. Pestañas | Parcial («Nueva ventana», D19) | Media (rediseño del estado por documento) | Alta (33, 24 votos; 8 486 vistas) | L (S la barra de documentos) |
 | 2. Generadores de piezas | No existe | Alta (propio, sin dependencias) | Alta en bisagras (83 votos) y cajas (14 y 8 votos; miles de vistas); media-baja engranajes | L (por fases) |
 | 3. Calculadora de costos | No existe (insumos listos) | Alta | Media-alta (30 y 27 votos) | S-M |
-| 4. Cola e historial | Historial Parcial; cola No existe | Alta (historial), media (cola guiada) | Historial alta (71 votos); cola baja (7 votos) | S-M historial, M cola |
+| 4. Cola e historial | **Hecho en lo principal** (historial en archivo con ajustes, cola guiada) | Alta (historial), media (cola guiada) | Historial alta (71 votos); cola baja (7 votos) | S-M historial, M cola |
 | 5. Biblioteca comunitaria | Parcial (flujo de aportes y compilación; sin aportes ni navegador) | Alta técnicamente; depende de la masa crítica | Media implícita (foros) | M |
 | 6. Scripts en sandbox | No existe | Media (Boa o rquickjs; depende de la lista permitida de la ola 7) | Alta en votos (114, 79, 40), usuarios avanzados | L |
 | 7. Nesting | **Hecho en lo principal** (`tlaku-nest`); faltan hojas, retazos y veta | Alta | Alta, ya cubierta (113 votos; LightBurn lo cobra en Pro) | M (mejoras); L si se cambia de motor |

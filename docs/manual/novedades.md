@@ -2,6 +2,11 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Cola guiada e historial de trabajos, en la próxima versión
+
+- **Cola de trabajos** (**Máquina > Cola de trabajos…**): varios documentos (pestañas o archivos) con copias, que se ejecutan de uno en uno. **Entre trabajos siempre se detiene** y te pide confirmar el cambio de material o pieza y la lista de comprobación; nunca avanza sola, y cada trabajo pasa por el diálogo de inicio de siempre. Si uno falla o se cancela, la cola se detiene. Reordenar, saltar, quitar y pausar, con progreso y tiempo estimado total. El celular **ve** la cola y solo confirma el siguiente con las reglas de iniciar (checklist en el teléfono y encuadre en la PC). Mira [Cola e historial de trabajos](09f-cola-e-historial-de-trabajos.md).
+- **Historial de trabajos** más completo: guarda las **capas con sus ajustes**, el material, el área, una miniatura, la pestaña de origen y **notas**; **busca y filtra** por fecha, máquina, material y resultado; **Repetir con estos ajustes** (con confirmación, sin enviar nada) y **exportar a CSV**. Vive en un archivo de la carpeta de datos (1000 trabajos por omisión, configurable) y migra solo el registro anterior.
+
 ## Pestañas de documentos, en la próxima versión
 
 - **Varios proyectos en la misma ventana**, cada uno en su pestaña, con su propio historial de Deshacer, selección, zoom, vista previa y estado de guardado (algo que LightBurn no tiene). Barra de pestañas encima del lienzo con punto de cambios sin guardar, cerrar, **+**, reordenar arrastrando y menú contextual (cerrar, cerrar las demás, duplicar, mover, **mover a una ventana nueva**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` y `Ctrl+Tab`.
@@ -68,7 +73,7 @@ Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de
 - Perfil: **predeterminado**, **orden** e **ícono**; **desfase del puntero rojo** (y **Llevar el puntero rojo al punto**); **intercambiar X e Y**; velocidades en **mm/s**; **homing al conectar**; **no subir DTR** y **envío síncrono** para placas difíciles; **desplazamiento U** de los trabajos. Mira [Conectar tu máquina](08-conectar-maquina.md).
 - **Avisos al calcular**: **enlace serie saturado** (el trabajo pide más líneas por segundo de las que caben a esos baudios), **capa más rápida que la máquina**, y con Ruida **más de 128 capas** (se fusionan las vecinas iguales) y el **tope de 36 000 mm/min**. Mira [Enviar trabajos con seguridad](09-enviar-con-seguridad.md) y [Ruida y K40](13b-ruida-y-k40.md).
 - **Alimentador**: repetir un trabajo N veces con avance entre repeticiones (solo GRBL). **Print & Cut**: las imágenes giran con el registro.
-- **Registro de trabajos** (Ayuda): fecha, máquina, documento, tiempo estimado y real y resultado, guardado solo en tu computadora.
+- **Registro de trabajos** (Ayuda; hoy **Historial de trabajos**): fecha, máquina, documento, tiempo estimado y real y resultado, guardado solo en tu computadora.
 
 ### Cámara
 

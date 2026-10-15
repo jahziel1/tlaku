@@ -19,7 +19,7 @@ Se abre un diálogo con tus datos a la izquierda y el **resultado** a la derecha
 Elige qué tiempo usar:
 
 - **Estimado de Tlaku**: el de la vista previa. Es una estimación y suele quedar corta frente a lo real; el resultado lo avisa («Tiempo estimado sin calibrar»).
-- **Estimado calibrado con tus trabajos**: el estimado multiplicado por cuánto tardaron de verdad tus trabajos terminados en esa máquina. Usa el [registro de trabajos](09-enviar-con-seguridad.md) (la mediana de tiempo real ÷ estimado de los últimos 20 trabajos) y necesita **al menos 3**. El diálogo muestra el factor («los trabajos duraron 1,35× lo estimado»).
+- **Estimado calibrado con tus trabajos**: el estimado multiplicado por cuánto tardaron de verdad tus trabajos terminados en esa máquina. Usa el [historial de trabajos](09f-cola-e-historial-de-trabajos.md) (la mediana de tiempo real ÷ estimado de los últimos 20 trabajos) y necesita **al menos 3**. El diálogo muestra el factor («los trabajos duraron 1,35× lo estimado»).
 - **Tiempo real del último trabajo**: el tiempo del último trabajo terminado en esa máquina, sin contar pausas. Útil si repites siempre la misma pieza.
 
 Si eliges una opción y todavía no hay historial suficiente, queda deshabilitada y se usa el estimado (el diálogo lo dice).

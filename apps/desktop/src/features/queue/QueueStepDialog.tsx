@@ -11,7 +11,16 @@ import { confirmStep, estimateOne, frameStep, pauseQueue, skipCurrent, stopQueue
 import { useQueue } from './queueStore';
 
 /** Casillas del paso: lo propio de la cola más las de la lista de comprobación del diálogo de inicio. */
-type StepCheck = 'material' | 'area' | ChecklistItem['id'];
+type StepCheck = 'queue-material' | 'queue-area' | ChecklistItem['id'];
+
+/** Las casillas del paso con la configuración de la lista de comprobación `mask`. Los ids no se repiten (la lista de comprobación ya tiene una «material»). */
+export function stepChecks(mask: number): { id: StepCheck; label: string }[] {
+  return [
+    { id: 'queue-material', label: t('queue.step.material') },
+    { id: 'queue-area', label: t('queue.step.area') },
+    ...visibleChecklist(mask).map((c) => ({ id: c.id, label: t(CHECKLIST_ITEMS.find((x) => x.id === c.id)!.label) })),
+  ];
+}
 
 /**
  * «Siguiente trabajo de la cola»: la parada obligatoria ENTRE trabajos. La cola nunca envía el siguiente por sí
@@ -29,11 +38,7 @@ function StepBody() {
   const [busy, setBusy] = useState(false);
   if (!item || q.run !== 'awaiting') return null;
 
-  const checks: { id: StepCheck; label: string }[] = [
-    { id: 'material', label: t('queue.step.material') },
-    { id: 'area', label: t('queue.step.area') },
-    ...visibleChecklist(mask).map((c) => ({ id: c.id, label: t(CHECKLIST_ITEMS.find((x) => x.id === c.id)!.label) })),
-  ];
+  const checks = stepChecks(mask);
   const all = checks.every((c) => ticked.has(c.id));
   const pending = checks.filter((c) => !ticked.has(c.id)).length;
   const toggle = (id: StepCheck, on: boolean) =>

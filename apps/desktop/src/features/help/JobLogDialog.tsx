@@ -31,7 +31,8 @@ export function JobRows({ entries, resumableId = null, onContinue, selectedId = 
   return (
     <tbody>
       {entries.map((e) => {
-        const delta = deltaLabel(e);
+        // Solo un trabajo terminado se compara con su estimado (uno cancelado a los 3 s no «tardó -99 %»).
+        const delta = e.result === 'finished' ? deltaLabel(e) : null;
         const name = e.document ?? t('help.jobLog.untitled');
         const material = materialsOf(e).join(', ');
         return (

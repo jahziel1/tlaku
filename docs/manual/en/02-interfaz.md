@@ -13,7 +13,7 @@ From left to right:
 - The project name (**Untitled** until you save it) and the **Unsaved** notice when there are changes.
 - The theme button (sun or moon) and, on the right, the three job buttons: **Preview**, **Frame** and **Start**. Frame and Start are enabled only with a connected machine and something to send.
 
-The **Help** menu opens this **User Manual** (with search), the list of **Keyboard Shortcuts**, **What's New**, the **Job Log…** (the jobs you sent to a machine from this computer, see [Sending jobs safely](09-enviar-con-seguridad.md#job-log)), **Report a Problem…**, **Donate to the Project…** and **About Tlaku**. Preferences are under **Edit > Preferences…** (`Ctrl/Cmd+,`).
+The **Help** menu opens this **User Manual** (with search), the list of **Keyboard Shortcuts**, **What's New**, the **Job History…** (the jobs you sent to a machine from this computer, with their settings, see [Job queue and job history](09f-cola-e-historial-de-trabajos.md)), **Report a Problem…**, **Donate to the Project…** and **About Tlaku**. Preferences are under **Edit > Preferences…** (`Ctrl/Cmd+,`).
 
 ![The user manual open inside the application, with the table of contents on the left and the search box](../../../apps/desktop/docs/screenshots/32-manual.png)
 

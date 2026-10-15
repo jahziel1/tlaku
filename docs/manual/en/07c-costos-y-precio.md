@@ -19,7 +19,7 @@ A dialog opens with your inputs on the left and the **result** on the right: the
 Choose which time to use:
 
 - **Tlaku estimate**: the one from the preview. It is an estimate and tends to run short against reality; the result warns about it ("Uncalibrated time estimate").
-- **Estimate calibrated with your jobs**: the estimate multiplied by how long your finished jobs on that machine really took. It uses the [job log](09-enviar-con-seguridad.md) (the median of real time ÷ estimate over the last 20 jobs) and needs **at least 3**. The dialog shows the factor ("jobs took 1.35x the estimate").
+- **Estimate calibrated with your jobs**: the estimate multiplied by how long your finished jobs on that machine really took. It uses the [job history](09f-cola-e-historial-de-trabajos.md) (the median of real time ÷ estimate over the last 20 jobs) and needs **at least 3**. The dialog shows the factor ("jobs took 1.35x the estimate").
 - **Real time of the last job**: the time of the last finished job on that machine, not counting pauses. Handy if you always repeat the same piece.
 
 If you pick an option and there is not enough history yet, it is disabled and the estimate is used (the dialog says so).

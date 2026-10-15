@@ -57,6 +57,8 @@ El interruptor **Vista en vivo del trabajo** de la página dibuja lo mismo que l
 | **Pausar y reanudar** | Siempre, con cualquier máquina que tenga pausa. |
 | **Detener** | **Siempre.** Va directo a la máquina, sin pasar por la ventana de la computadora: si Tlaku se congela, detener sigue funcionando. No mira el estado, el encuadre ni la lista de comprobación. En la página pide un segundo toque ("Toca otra vez para DETENER") para evitar toques sin querer. |
 | **Iniciar un trabajo** | Solo si se cumple **todo** lo siguiente (abajo). |
+| **Ver la cola de trabajos** | Sí, en una tarjeta de solo lectura: estado, avance, tiempo que falta, el trabajo actual y la lista. |
+| **Confirmar el siguiente trabajo de la cola** | Con las mismas reglas que iniciar (abajo) y una casilla más en el checklist del teléfono: *Ya cambié el material o la pieza*. El documento que la cola espera debe estar **encuadrado en la computadora** y ser el de la pestaña activa; si no, solo se confirma desde la computadora. La cola nunca avanza sola. Ver [Cola e historial de trabajos](09f-cola-e-historial-de-trabajos.md). |
 | **Ver avance, recorrido, vista en vivo y cámara** | Sí. |
 | **Iniciar un láser galvo** | **Nunca.** El haz de un galvo es invisible: solo se inicia desde la computadora. El galvo tampoco tiene pausa, solo detener. |
 | **Cambiar el diseño, los ajustes o la máquina** | No: eso se hace en la computadora. |

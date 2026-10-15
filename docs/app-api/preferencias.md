@@ -4,7 +4,7 @@ Parte de [el contrato app-motor](README.md). Preferencias, paquetes `.tlakuprefs
 
 ## Aplicación: preferencias, atajos y autoguardado
 
-Código: `src-tauri/src/prefs.rs`, `src-tauri/src/autosave.rs`; en la interfaz `features/settings/`
+Código: `src-tauri/src/prefs.rs`, `src-tauri/src/autosave.rs`, `src-tauri/src/job_history.rs`; en la interfaz `features/settings/`
 y `features/recovery/`.
 
 | Comando | Argumentos | Resultado |
@@ -19,6 +19,36 @@ y `features/recovery/`.
 | `autosave_list` | — | `RecoveryInfo[]` pendientes, de la más nueva a la más vieja; borra las superadas por un guardado posterior |
 | `autosave_read` | `id` | `Document` |
 | `autosave_discard` | `id` | Borra la copia (no es error que no exista) |
+
+### Historial de trabajos (mejora 4 del plan de usuarios)
+
+Código: `src-tauri/src/job_history.rs`; en la interfaz `features/help/jobLog*.ts`, `JobLogDialog.tsx` y `JobLogDetail.tsx`.
+Un archivo JSONL (`job-history.jsonl`, un trabajo por línea) en la **carpeta de datos de la app** (`app_data_dir`).
+Rust no conoce el significado de los campos (los define y sanea la interfaz): exige un objeto con `id` (texto) y `at`
+(ms desde 1970, número) de a lo más 48 KiB; las líneas dañadas se saltan al leer (y antes de reescribir sin ellas se
+guarda el original como `job-history.jsonl.dañado`). Toda escritura es atómica (`write_atomic`) y se serializa con un
+candado (varias ventanas anotan a la vez). La rotación borra las entradas más viejas (por `at`) al pasar el tope
+`max` (20 a 20 000, por omisión 1000; la interfaz manda la preferencia `jobHistoryMax`). Todos los argumentos son de una
+sola palabra, así que no hace falta `rename_all`.
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `job_history_load` | `max` (opcional) | `object[]`, de la entrada más vieja a la más nueva; rota si el archivo pasa de `max` |
+| `job_history_append` | `entry` (objeto con `id` y `at`), `max` (opcional) | Agrega o, si ya hay una con ese `id`, **reemplaza** (la entrada «en curso» que el final completa); rota |
+| `job_history_update` | `id`, `patch` (objeto) | `bool`: si existía. Mezcla campos de primer nivel; un `null` borra el campo; `id` y `at` no cambian (notas, marca de interrupción) |
+| `job_history_remove` | `ids` | Cuántas entradas quitó |
+| `job_history_clear` | — | Borra el archivo (no es error que no exista) |
+| `job_history_import` | `entries`, `max` (opcional) | Cuántas entraron: migración del registro viejo de `localStorage` (`tlaku.jobLog`); salta las inválidas y las de `id` repetido |
+| `job_history_export` | `path` (`.csv`), `text` | Escribe el CSV (hasta 32 MiB; atómico). Lo arma la interfaz |
+
+Forma de una entrada (`JobLogEntry`, `features/help/jobLog.ts`): `id`, `at`, `machine`, `document`, `documentPath?`,
+`tab?`, `estimatedS`, `actualS`, `result` (`finished` \| `cancelled` \| `error` \| `interrupted` \| `running`), `message`,
+`interrupted?` (punto de control), `layers?` (`color`, `name`, `mode`, `material?`, `settings` con `speed`, `power`,
+`min_power`, `passes`, `interval`, `angle`, `crosshatch`, `bidirectional`, `air`, `kerf`), `material?`, `areaMm2?`,
+`lengthMm?`, `thumb?` (SVG de hasta 12 000 caracteres) y `notes?`. Al empezar un trabajo se guarda con `result:
+"running"` y el final la reemplaza; una entrada «en curso» que ninguna ventana sigue ejecutando (no hay latido en
+`localStorage` `tlaku.jobLog.live`) se marca `interrupted` al leer. En el modo simulado vive en memoria
+(`api/mock/jobHistory.ts`).
 
 ### Plantillas y ventanas (ola 3)
 

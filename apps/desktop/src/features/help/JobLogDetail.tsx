@@ -26,7 +26,7 @@ export function JobLogDetail({ entry, onClose, onRepeated, onDeleted }: { entry:
   const saveNotes = () => {
     if (notes !== (entry.notes ?? '')) patch(entry.id, { notes });
   };
-  const delta = deltaLabel(entry);
+  const delta = entry.result === 'finished' ? deltaLabel(entry) : null;
   const canRepeat = (entry.layers?.length ?? 0) > 0 && entry.result !== 'running';
 
   const onDelete = async () => {

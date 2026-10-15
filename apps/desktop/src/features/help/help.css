@@ -430,6 +430,9 @@ ol.md__list {
 .joblog__row {
   cursor: pointer;
 }
+.joblog__row td {
+  vertical-align: middle;
+}
 .joblog__row:hover td {
   background: var(--bg-hover);
 }

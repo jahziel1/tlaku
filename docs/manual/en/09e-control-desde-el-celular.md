@@ -57,6 +57,8 @@ The **Live view of the job** switch on the page draws the same as the computer: 
 | **Pause and resume** | Always, with any machine that has pause. |
 | **Stop** | **Always.** It goes straight to the machine, without passing through the computer's window: if Tlaku freezes, stopping still works. It does not look at the state, the framing, or the checklist. On the page it asks for a second tap ("Tap again to STOP") to avoid accidental taps. |
 | **Start a job** | Only if **everything** below is met. |
+| **See the job queue** | Yes, in a read-only card: status, progress, time left, the current job and the list. |
+| **Confirm the next queue job** | Under the same rules as starting (below) plus one more box in the phone checklist: *I already changed the material or the workpiece*. The document the queue is waiting for must be **framed on the computer** and be the one in the active tab; otherwise it can only be confirmed from the computer. The queue never moves on by itself. See [Job queue and job history](09f-cola-e-historial-de-trabajos.md). |
 | **See progress, path, live view, and camera** | Yes. |
 | **Start a galvo laser** | **Never.** A galvo's beam is invisible: it can only be started from the computer. The galvo also has no pause, only stop. |
 | **Change the design, the settings, or the machine** | No: that is done on the computer. |
