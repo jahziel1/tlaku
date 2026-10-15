@@ -19,9 +19,13 @@
 //! tiene diente y el otro muesca. La holgura de encaje ensancha las muescas (la mitad por cada
 //! pieza), de modo que ranura menos diente es `fit_mm`. La compensación del kerf no se hace aquí.
 
+mod dividers;
+mod feet;
 mod panels;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_dividers;
 
 use crate::error::PartsError;
 use crate::fingers::MIN_CELLS;
@@ -31,6 +35,9 @@ use crate::registry::ParamSpec;
 use panels::{Id, Panel, build_panel};
 use serde::{Deserialize, Serialize};
 use tlaku_i18n::tr;
+
+pub use dividers::DividerJoint;
+pub use feet::Feet;
 
 /// Si las medidas pedidas son exteriores o interiores.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +78,21 @@ pub struct BoxParams {
     pub lid_clearance_mm: f64,
     /// Grabar el nombre de cada panel en su cara exterior.
     pub labels: bool,
+    /// Divisores perpendiculares a X (reparten el ancho en `n + 1` compartimentos).
+    pub dividers_x: i32,
+    /// Divisores perpendiculares a Y (reparten el fondo).
+    pub dividers_y: i32,
+    /// Anchos de los primeros compartimentos en X, separados por comas; los que falten se reparten
+    /// por igual. Vacío = todos iguales.
+    pub divider_widths_x: String,
+    /// Lo mismo para Y.
+    pub divider_widths_y: String,
+    pub divider_joint: DividerJoint,
+    /// Juego de los divisores sueltos (solo `divider_joint = loose`): se acortan esto en largo y alto.
+    pub divider_clearance_mm: f64,
+    pub feet: Feet,
+    /// Altura del zócalo o de las patas (se redondea a capas del grosor del material).
+    pub foot_height_mm: f64,
 }
 
 impl Default for BoxParams {
@@ -86,6 +108,14 @@ impl Default for BoxParams {
             fit_mm: 0.0,
             lid_clearance_mm: 0.2,
             labels: false,
+            dividers_x: 0,
+            dividers_y: 0,
+            divider_widths_x: String::new(),
+            divider_widths_y: String::new(),
+            divider_joint: DividerJoint::Tabs,
+            divider_clearance_mm: 0.1,
+            feet: Feet::None,
+            foot_height_mm: 12.0,
         }
     }
 }
@@ -125,6 +155,10 @@ impl BoxParams {
             out_of("width_mm", self.width_mm, 1.0, 5000.0),
             out_of("depth_mm", self.depth_mm, 1.0, 5000.0),
             out_of("height_mm", self.height_mm, 1.0, 5000.0),
+            out_of("dividers_x", f64::from(self.dividers_x), 0.0, 10.0),
+            out_of("dividers_y", f64::from(self.dividers_y), 0.0, 10.0),
+            out_of("divider_clearance_mm", self.divider_clearance_mm, -0.5, 1.0),
+            out_of("foot_height_mm", self.foot_height_mm, 1.0, 60.0),
         ]
         .into_iter()
         .flatten()
@@ -203,8 +237,15 @@ fn ids(kind: BoxKind) -> &'static [Id] {
     }
 }
 
-/// Paneles de la caja con su geometría 3D y sus contornos (sin el origen normalizado).
-pub(crate) fn build_panels(p: &BoxParams) -> Result<(Sizes, Vec<Panel>, Vec<String>), PartsError> {
+/// Todo lo que sale de la caja: medidas, paneles con su geometría 3D, divisores y avisos.
+pub(crate) struct Built {
+    pub sizes: Sizes,
+    pub panels: Vec<Panel>,
+    pub dividers: Vec<dividers::Divider>,
+    pub warnings: Vec<String>,
+}
+
+pub(crate) fn build_all(p: &BoxParams) -> Result<Built, PartsError> {
     let sizes = p.sizes()?;
     let list: Vec<Id> = ids(p.kind).to_vec();
     let mut warnings = Vec::new();
@@ -213,13 +254,25 @@ pub(crate) fn build_panels(p: &BoxParams) -> Result<(Sizes, Vec<Panel>, Vec<Stri
     for panel in &mut panels {
         build_panel(panel, &snapshot, p, &mut warnings)?;
     }
+    let dividers = dividers::build_dividers(p, &sizes, &mut panels, &mut warnings)?;
     if p.labels {
         for panel in &mut panels {
             label_panel(panel, p, &mut warnings);
         }
     }
     warnings.dedup();
-    Ok((sizes, panels, warnings))
+    Ok(Built {
+        sizes,
+        panels,
+        dividers,
+        warnings,
+    })
+}
+
+/// Paneles de la caja con su geometría 3D y sus contornos (sin el origen normalizado).
+pub(crate) fn build_panels(p: &BoxParams) -> Result<(Sizes, Vec<Panel>, Vec<String>), PartsError> {
+    let b = build_all(p)?;
+    Ok((b.sizes, b.panels, b.warnings))
 }
 
 /// Rótulo grabado en el centro de la cara exterior, si cabe entre los dientes y la ranura.
@@ -252,7 +305,8 @@ fn label_panel(panel: &mut Panel, p: &BoxParams, warnings: &mut Vec<String>) {
     let clear = height >= 2.0
         && tw <= free_w
         && !panel.cut_rects.iter().any(|r| r.overlaps(&area))
-        && !panel.voids.iter().any(|r| r.overlaps(&area));
+        && !panel.voids.iter().any(|r| r.overlaps(&area))
+        && !panel.slots.iter().any(|r| r.overlaps(&area));
     if clear {
         panel.engraves = font::text_centered(&text, cx, cy, height);
     } else {
@@ -262,7 +316,12 @@ fn label_panel(panel: &mut Panel, p: &BoxParams, warnings: &mut Vec<String>) {
 
 /// Genera las piezas de la caja.
 pub fn box_parts(p: &BoxParams) -> Result<Generated, PartsError> {
-    let (sizes, panels, mut warnings) = build_panels(p)?;
+    let Built {
+        sizes,
+        panels,
+        dividers,
+        mut warnings,
+    } = build_all(p)?;
     if p.fit_mm != 0.0 {
         warnings.push(tr!("parts.box.fit_vs_kerf"));
     }
@@ -283,13 +342,17 @@ pub fn box_parts(p: &BoxParams) -> Result<Generated, PartsError> {
             back = format!("{:.1}", sizes.back_h)
         ));
     }
-    let parts = panels
+    let mut parts: Vec<Part> = panels
         .into_iter()
         .map(|panel| {
             let name = panel.name();
             Part::new(panel.key(), name, panel.cuts, panel.engraves)
         })
         .collect();
+    parts.extend(dividers::divider_parts(dividers));
+    let (feet, feet_warnings) = feet::feet_parts(p, &sizes)?;
+    parts.extend(feet);
+    warnings.extend(feet_warnings);
     Ok(Generated { parts, warnings })
 }
 
@@ -315,5 +378,22 @@ pub fn schema() -> Vec<ParamSpec> {
         )
         .when("kind", &["sliding_lid"]),
         ParamSpec::boolean("labels", "options", d.labels),
+        ParamSpec::int("dividers_x", "dividers", 0, 10, d.dividers_x),
+        ParamSpec::int("dividers_y", "dividers", 0, 10, d.dividers_y),
+        ParamSpec::text("divider_widths_x", "dividers", &d.divider_widths_x),
+        ParamSpec::text("divider_widths_y", "dividers", &d.divider_widths_y),
+        ParamSpec::choice("divider_joint", "dividers", &["tabs", "loose"], "tabs"),
+        ParamSpec::length(
+            "divider_clearance_mm",
+            "dividers",
+            -0.5,
+            1.0,
+            0.05,
+            d.divider_clearance_mm,
+        )
+        .when("divider_joint", &["loose"]),
+        ParamSpec::choice("feet", "feet", &["none", "plinth", "legs"], "none"),
+        ParamSpec::length("foot_height_mm", "feet", 1.0, 60.0, 1.0, d.foot_height_mm)
+            .when("feet", &["plinth", "legs"]),
     ]
 }

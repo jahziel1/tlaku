@@ -47,3 +47,20 @@ parts.registry.unknown = There is no generator "{id}".
 parts.registry.bad_params = The generator parameters are not valid: {error}
 parts.box.too_many_fingers = There would be more than {max} fingers per edge: increase the finger width.
 parts.hinge.too_many = The hinge would have more than {max} cuts: reduce the area or increase the cut length and row spacing.
+
+# boxes: dividers, plinth and legs
+parts.box.div.name_x = Divider X {n}
+parts.box.div.name_y = Divider Y {n}
+parts.box.div.bad_width = "{value}" is not a valid width: type numbers separated by commas, for example 40, 60.
+parts.box.div.too_many_widths = There are more widths than compartments: there are {n}.
+parts.box.div.sum = The widths add up to {sum} mm but must add up to {total} mm (the cavity minus the dividers). Type only the first ones and the rest is shared out.
+parts.box.div.narrow = A compartment would be {width} mm wide; the minimum is {min} mm. Remove dividers or make the box wider.
+parts.box.div.thin_tabs = Some divider tabs are {width} mm wide, less than the material thickness ({thickness} mm): they are fragile. Increase the finger width.
+parts.box.div.loose_note = Loose dividers: they are shortened by {clearance} mm in length and height and have no tabs; add a dab of glue if they need holding. They still lock together through the half-lap slots.
+parts.box.feet.name = Feet
+parts.box.feet.plinth = Plinth, layer {n}
+parts.box.feet.legs = Legs, layer {n}
+parts.box.feet.too_tall = That would be more than {max} layers of material: lower the height or use thicker material.
+parts.box.feet.too_small = The box is too small for a plinth or legs.
+parts.box.feet.note_plinth = Plinth of {layers} layers ({height} mm): glue the layers together and the stack under the base, set back {inset} mm from the edge.
+parts.box.feet.note_legs = Legs of {layers} layers ({height} mm): cut each piece (four squares) and glue the layers together; one leg at each corner of the base.

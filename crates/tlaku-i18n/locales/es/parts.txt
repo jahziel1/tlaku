@@ -47,3 +47,20 @@ parts.registry.unknown = No existe el generador «{id}».
 parts.registry.bad_params = Los parámetros del generador no son válidos: {error}
 parts.box.too_many_fingers = Habría más de {max} dientes por arista: sube el ancho de diente.
 parts.hinge.too_many = La bisagra tendría más de {max} cortes: baja el tamaño de la zona o sube el largo de los cortes y la separación entre filas.
+
+# boxes: divisores, zócalo y patas
+parts.box.div.name_x = Divisor X {n}
+parts.box.div.name_y = Divisor Y {n}
+parts.box.div.bad_width = «{value}» no es un ancho válido: escribe números separados por comas, por ejemplo 40, 60.
+parts.box.div.too_many_widths = Hay más anchos que compartimentos: son {n}.
+parts.box.div.sum = Los anchos suman {sum} mm y deben sumar {total} mm (la cavidad menos los divisores). Escribe solo los primeros y el resto se reparte solo.
+parts.box.div.narrow = Un compartimento mediría {width} mm; el mínimo es {min} mm. Quita divisores o ensancha la caja.
+parts.box.div.thin_tabs = Hay pestañas de divisor de {width} mm, menos que el grosor ({thickness} mm): son frágiles. Sube el ancho de diente.
+parts.box.div.loose_note = Divisores sueltos: se acortan {clearance} mm en largo y en alto y no llevan pestañas; sujétalos con un punto de pegamento si hace falta. Entre sí encajan por las ranuras de media madera.
+parts.box.feet.name = Pies
+parts.box.feet.plinth = Zócalo, capa {n}
+parts.box.feet.legs = Patas, capa {n}
+parts.box.feet.too_tall = Serían más de {max} capas de material: baja la altura o usa un material más grueso.
+parts.box.feet.too_small = La caja es demasiado pequeña para llevar zócalo o patas.
+parts.box.feet.note_plinth = Zócalo de {layers} capas ({height} mm): pega las capas entre sí y la pila bajo la base, retranqueada {inset} mm del borde.
+parts.box.feet.note_legs = Patas de {layers} capas ({height} mm): corta cada pieza (cuatro cuadrados) y pega las capas entre sí; una pata en cada esquina de la base.

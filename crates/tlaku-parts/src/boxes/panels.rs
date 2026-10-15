@@ -18,7 +18,7 @@ pub(crate) enum Id {
     Lid,
 }
 
-type V3 = [f64; 3];
+pub(crate) type V3 = [f64; 3];
 
 /// Un panel con su marco 3D. El marco `(o, u, v)` lleva las coordenadas locales (u, v) del panel
 /// a la caja: `o` es la esquina de la cara **exterior** y la normal exterior es `u x v`, de modo
@@ -38,6 +38,8 @@ pub(crate) struct Panel {
     pub voids: Vec<Rect>,
     /// Muescas de los dientes (ya con la holgura).
     pub cut_rects: Vec<Rect>,
+    /// Ranuras interiores (agujeros) de las pestañas de los divisores.
+    pub slots: Vec<Rect>,
     pub cuts: Vec<Polyline>,
     pub engraves: Vec<Polyline>,
     /// Ancho de celda más angosto de las aristas de este panel.
@@ -104,6 +106,7 @@ impl Panel {
             thickness: t,
             voids,
             cut_rects: Vec::new(),
+            slots: Vec::new(),
             cuts: Vec::new(),
             engraves: Vec::new(),
             min_cell: None,
@@ -132,6 +135,14 @@ impl Panel {
             Id::Top => tr!("parts.box.name.top"),
             Id::Lid => tr!("parts.box.name.lid"),
         }
+    }
+
+    /// Recalcula el contorno con las muescas, las ranuras de la tapa y las de los divisores.
+    pub fn rebuild(&mut self) {
+        let mut holes = self.cut_rects.clone();
+        holes.extend(self.voids.iter().copied());
+        holes.extend(self.slots.iter().copied());
+        self.cuts = rect_minus_rects(self.w, self.h, &holes);
     }
 
     /// Punto 3D de la cara exterior en coordenadas locales.
@@ -274,9 +285,7 @@ pub(crate) fn build_panel(
             break;
         }
     }
-    let mut holes = panel.cut_rects.clone();
-    holes.extend(panel.voids.iter().copied());
-    panel.cuts = rect_minus_rects(panel.w, panel.h, &holes);
+    panel.rebuild();
     Ok(())
 }
 

@@ -10,12 +10,12 @@ fn built(p: &BoxParams) -> (Sizes, Vec<Panel>) {
     (s, panels)
 }
 
-fn panel(panels: &[Panel], id: Id) -> &Panel {
+pub(super) fn panel(panels: &[Panel], id: Id) -> &Panel {
     panels.iter().find(|p| p.id == id).expect("panel")
 }
 
 /// Paneles cuya losa (rectángulo x espesor) contiene el punto 3D.
-fn slabs(panels: &[Panel], p: [f64; 3]) -> Vec<Id> {
+pub(super) fn slabs(panels: &[Panel], p: [f64; 3]) -> Vec<Id> {
     panels
         .iter()
         .filter(|pn| {
@@ -28,7 +28,7 @@ fn slabs(panels: &[Panel], p: [f64; 3]) -> Vec<Id> {
 }
 
 /// Paneles que tienen material en el punto 3D.
-fn holders(panels: &[Panel], p: [f64; 3]) -> Vec<Id> {
+pub(super) fn holders(panels: &[Panel], p: [f64; 3]) -> Vec<Id> {
     slabs(panels, p)
         .into_iter()
         .filter(|&id| {
@@ -39,7 +39,7 @@ fn holders(panels: &[Panel], p: [f64; 3]) -> Vec<Id> {
         .collect()
 }
 
-fn in_void(panels: &[Panel], p: [f64; 3]) -> bool {
+pub(super) fn in_void(panels: &[Panel], p: [f64; 3]) -> bool {
     slabs(panels, p).into_iter().any(|id| {
         let pn = panel(panels, id);
         let (u, v) = pn.local(p);
@@ -53,7 +53,7 @@ fn all_cuts(panels: &[Panel]) -> Vec<Vec<Polyline>> {
     panels.iter().map(|p| p.cuts.clone()).collect()
 }
 
-fn bbox(cuts: &[Polyline]) -> (f64, f64, f64, f64) {
+pub(super) fn bbox(cuts: &[Polyline]) -> (f64, f64, f64, f64) {
     crate::part::bounds_of(cuts.iter()).expect("hay cortes")
 }
 

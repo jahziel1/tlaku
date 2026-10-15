@@ -50,6 +50,10 @@ pub enum ParamKind {
     Bool {
         default: bool,
     },
+    /// Texto corto libre (una lista de medidas, por ejemplo).
+    Text {
+        default: String,
+    },
     /// Una opción de una lista cerrada (los valores son los del JSON).
     Choice {
         options: Vec<String>,
@@ -117,6 +121,16 @@ impl ParamSpec {
 
     pub(crate) fn boolean(key: &str, section: &str, default: bool) -> Self {
         Self::new(key, section, ParamKind::Bool { default })
+    }
+
+    pub(crate) fn text(key: &str, section: &str, default: &str) -> Self {
+        Self::new(
+            key,
+            section,
+            ParamKind::Text {
+                default: default.to_string(),
+            },
+        )
     }
 
     pub(crate) fn choice(key: &str, section: &str, options: &[&str], default: &str) -> Self {
@@ -363,6 +377,7 @@ mod tests {
                         assert!(min < max);
                     }
                     ParamKind::Bool { default } => assert_eq!(v.as_bool(), Some(*default)),
+                    ParamKind::Text { default } => assert_eq!(v.as_str(), Some(default.as_str())),
                     ParamKind::Choice { options, default } => {
                         assert_eq!(v.as_str(), Some(default.as_str()));
                         assert!(options.contains(default));

@@ -126,13 +126,123 @@
         },
         "section": "options",
         "when": null
+      },
+      {
+        "key": "dividers_x",
+        "kind": {
+          "type": "int",
+          "min": 0,
+          "max": 10,
+          "default": 0
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "dividers_y",
+        "kind": {
+          "type": "int",
+          "min": 0,
+          "max": 10,
+          "default": 0
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_widths_x",
+        "kind": {
+          "type": "text",
+          "default": ""
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_widths_y",
+        "kind": {
+          "type": "text",
+          "default": ""
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_joint",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "tabs",
+            "loose"
+          ],
+          "default": "tabs"
+        },
+        "section": "dividers",
+        "when": null
+      },
+      {
+        "key": "divider_clearance_mm",
+        "kind": {
+          "type": "length",
+          "min": -0.5,
+          "max": 1.0,
+          "step": 0.05,
+          "default": 0.1
+        },
+        "section": "dividers",
+        "when": {
+          "key": "divider_joint",
+          "any_of": [
+            "loose"
+          ]
+        }
+      },
+      {
+        "key": "feet",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "none",
+            "plinth",
+            "legs"
+          ],
+          "default": "none"
+        },
+        "section": "feet",
+        "when": null
+      },
+      {
+        "key": "foot_height_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 60.0,
+          "step": 1.0,
+          "default": 12.0
+        },
+        "section": "feet",
+        "when": {
+          "key": "feet",
+          "any_of": [
+            "plinth",
+            "legs"
+          ]
+        }
       }
     ],
     "defaults": {
       "depth_mm": 80.0,
       "dims": "outer",
+      "divider_clearance_mm": 0.1,
+      "divider_joint": "tabs",
+      "divider_widths_x": "",
+      "divider_widths_y": "",
+      "dividers_x": 0,
+      "dividers_y": 0,
+      "feet": "none",
       "finger_mm": 10.0,
       "fit_mm": 0.0,
+      "foot_height_mm": 12.0,
       "height_mm": 60.0,
       "kind": "closed",
       "labels": false,

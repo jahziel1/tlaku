@@ -46,6 +46,11 @@ fn main() {
             json!({"width_mm": 100, "depth_mm": 80, "height_mm": 60, "labels": true}),
         ),
         (
+            "caja-150x100x50-divisores-2x1",
+            "box",
+            json!({"width_mm": 150, "depth_mm": 100, "height_mm": 50, "dividers_x": 2, "dividers_y": 1}),
+        ),
+        (
             "caja-abierta",
             "box",
             json!({"kind": "open", "labels": true}),
