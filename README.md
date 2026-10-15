@@ -256,6 +256,7 @@ No version has been published yet; until the first one, build from source (next 
 | Windows 10 or later | `.exe` (NSIS installer) or `.msi` |
 | Linux x86_64 | `.deb` (`sudo apt install ./Tlaku_*_amd64.deb`) or `.AppImage` (`chmod +x` and run it) |
 | Linux ARM64 / Raspberry Pi 4 and 5, 64-bit system (experimental) | `.deb` (`sudo apt install ./Tlaku_*_arm64.deb`) or `*_aarch64.AppImage` |
+| Linux, any distribution (Flatpak, **untested**) | `Tlaku_*_x86_64.flatpak` or `Tlaku_*_aarch64.flatpak`: `flatpak install --user ./Tlaku_*_x86_64.flatpak` |
 
 **Unsigned application.** While the project has no signing certificates, the system will warn you the
 first time you open the installer:
@@ -265,6 +266,12 @@ first time you open the installer:
 - **Windows (SmartScreen):** "More info" and then "Run anyway".
 - **Linux:** no warnings. To use the laser's serial port, add your user to the `dialout` group
   (`sudo usermod -aG dialout "$USER"`) and log in again.
+
+**Flatpak (untested).** CI builds the package from the `.deb`, but **nobody has run it on a real Linux
+machine yet** (and it is not on Flathub). Run it with `flatpak run org.tlaku.app`. The serial port still
+needs your user in the **system's** `dialout` group, and updates come from Flatpak (the app does not
+update itself). It has device access (`--device=all`) for the serial port and USB. Details and
+permissions in [docs/publicar.md](docs/publicar.md#flatpak-y-flathub) (Spanish).
 
 **Raspberry Pi (experimental).** You need a **64-bit** system (`uname -m` must print `aarch64`): Raspberry
 Pi OS 64-bit (Debian 12 "bookworm" or later) or Ubuntu ARM on a Pi 4 or 5 (4 GB of RAM or more

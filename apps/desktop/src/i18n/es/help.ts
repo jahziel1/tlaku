@@ -176,6 +176,8 @@ export const help = {
   'help.update.checking': 'Buscando actualizaciones…',
   'help.update.unconfigured': 'Las actualizaciones automáticas no están configuradas en esta compilación.',
   'help.update.unconfiguredHint': 'Para actualizar, descarga la versión nueva desde la página del proyecto e instálala encima de esta.',
+  'help.update.managed': 'Esta copia de Tlaku se instaló con Flatpak: las actualizaciones las da Flathub.',
+  'help.update.managedHint': 'Para actualizar, usa la tienda de software de tu sistema o ejecuta «flatpak update org.tlaku.app».',
   'help.update.current': 'Tlaku está al día: tienes la versión más reciente.',
   'help.update.available': 'Hay una versión nueva: Tlaku {version}',
   'help.update.yours': 'Tienes la versión {current}.',

@@ -73,7 +73,13 @@ fn without_close_window<R: tauri::Runtime>(menu: &tauri::menu::Menu<R>) -> tauri
 /// La aplicación con todos sus comandos registrados. La comparten `run` y la prueba de humo
 /// (`smoke`), que le pasa un contexto sin ventanas.
 fn build_app(context: tauri::Context) -> tauri::App {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // En Flatpak la interfaz se entera de que las actualizaciones las da Flathub (`updater.rs`).
+    let builder = match updater::sandbox_init_script() {
+        Some(script) => builder.append_invoke_initialization_script(script),
+        None => builder,
+    };
+    builder
         .plugin(tauri_plugin_dialog::init())
         // Reiniciar tras instalar una actualización (`features/help/updater.ts`).
         .plugin(tauri_plugin_process::init())

@@ -4,7 +4,7 @@ import { en, es, setLanguage } from '@/i18n';
 import tauriConf from '../../../src-tauri/tauri.conf.json';
 import { UpdateView } from './HelpDialogs';
 import { useHelpUi } from './helpStore';
-import { isUpdaterConfigured, scheduleStartupCheck, updaterEnv, useUpdateUi, type DownloadEvent, type UpdateLike } from './updater';
+import { isUpdaterConfigured, scheduleStartupCheck, updaterEnv, updatesManagedByStore, useUpdateUi, type DownloadEvent, type UpdateLike } from './updater';
 
 // Los dos plugins se simulan: ninguna prueba toca la red ni Tauri.
 const checkMock = vi.fn<() => Promise<UpdateLike | null>>();
@@ -174,6 +174,69 @@ describe('flujo de actualización', () => {
     await commands.run('help.checkUpdates');
     expect(useHelpUi.getState().dialog).toBe('update');
     await vi.waitFor(() => expect(useUpdateUi.getState().phase).toBe('unconfigured'));
+  });
+});
+
+describe('Flatpak: las actualizaciones las da Flathub', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('la marca que inyecta Rust activa el modo gestionado; sin ella o con otro valor, no', () => {
+    vi.stubGlobal('window', {});
+    expect(updatesManagedByStore()).toBe(false);
+    vi.stubGlobal('window', { __TLAKU_SANDBOX__: 'otro' });
+    expect(updatesManagedByStore()).toBe(false);
+    vi.stubGlobal('window', { __TLAKU_SANDBOX__: 'flatpak' });
+    expect(updatesManagedByStore()).toBe(true);
+  });
+
+  it('sin ventana (render en servidor) no hay sandbox', () => {
+    vi.stubGlobal('window', undefined);
+    expect(updatesManagedByStore()).toBe(false);
+  });
+
+  it('buscar a mano explica que Flathub actualiza y nunca llama al plugin; en silencio no dice nada', async () => {
+    setLanguage('es');
+    checkMock.mockReset();
+    useUpdateUi.getState().reset();
+    useHelpUi.getState().close();
+    const prev = { ...updaterEnv };
+    updaterEnv.available = () => false;
+    updaterEnv.managed = () => true;
+    try {
+      await useUpdateUi.getState().check(true);
+      expect(useUpdateUi.getState().phase).toBe('idle');
+      expect(useHelpUi.getState().dialog).toBeNull();
+
+      await useUpdateUi.getState().check(false);
+      expect(checkMock).not.toHaveBeenCalled();
+      expect(useUpdateUi.getState().phase).toBe('managed');
+      expect(html()).toContain(es['help.update.managed']);
+      expect(html()).toContain('Flathub');
+      setLanguage('en');
+      expect(html()).toContain(en['help.update.managed']);
+      expect(en['help.update.managed']).not.toBe(es['help.update.managed']);
+      expect(en['help.update.managedHint']).not.toBe(es['help.update.managedHint']);
+    } finally {
+      updaterEnv.available = prev.available;
+      updaterEnv.managed = prev.managed;
+      setLanguage('es');
+    }
+  });
+
+  it('el chequeo de arranque ni se programa en Flatpak', async () => {
+    vi.useFakeTimers();
+    const prev = { ...updaterEnv };
+    updaterEnv.available = () => false;
+    updaterEnv.managed = () => true;
+    try {
+      scheduleStartupCheck(() => true, async () => true, 10);
+      await vi.advanceTimersByTimeAsync(50);
+      expect(checkMock).not.toHaveBeenCalled();
+    } finally {
+      updaterEnv.available = prev.available;
+      updaterEnv.managed = prev.managed;
+      vi.useRealTimers();
+    }
   });
 });
 

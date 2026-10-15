@@ -1,0 +1,177 @@
+name: Flatpak
+
+# Construye el paquete Flatpak de Tlaku (x86_64 y aarch64) reempaquetando los .deb de una Release y
+# lo adjunta a esa misma Release (borrador o publicada). Lo llama release.yml cuando termina de
+# compilar los instaladores de una etiqueta `v*`, y también se puede lanzar a mano para una
+# etiqueta que ya tenga sus .deb. Guía completa en docs/publicar.md#flatpak-y-flathub.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Etiqueta de la Release (por ejemplo v0.1.0)
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Etiqueta de una Release que ya tenga los .deb (por ejemplo v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write # leer los .deb del borrador y adjuntar los .flatpak
+
+jobs:
+  # Baja los dos .deb de la Release (el borrador no se encuentra por etiqueta en la API, se busca
+  # en la lista) y valida que la etiqueta tenga el formato esperado.
+  debs:
+    name: Bajar los .deb de la Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Bajar los .deb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::La etiqueta debe empezar por v y un número (recibí «$TAG»)"; exit 1 ;;
+          esac
+          mkdir -p packaging/flatpak/debs
+          bajar() {
+            # $1 = sufijo del nombre del .deb en la Release, $2 = nombre local
+            id=$(gh api "repos/$GH_REPO/releases?per_page=30" \
+              --jq "[.[] | select(.tag_name == \"$TAG\")][0] | (.assets // []) | map(select(.name | endswith(\"$1\")))[0].id // empty")
+            if [ -z "$id" ]; then
+              echo "::error::La Release $TAG no tiene un archivo *$1"
+              return 1
+            fi
+            gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id" > "packaging/flatpak/debs/$2"
+          }
+          bajar "_amd64.deb" tlaku_x86_64.deb
+          bajar "_arm64.deb" tlaku_aarch64.deb
+          ls -l packaging/flatpak/debs
+
+      # Aviso (no error): una versión de prueba como v0.1.0-beta.1 no está en los metadatos.
+      - name: Comprobar que los metadatos conocen esta versión
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          version="${TAG#v}"
+          if ! grep -q "<release version=\"$version\"" packaging/flatpak/org.tlaku.app.metainfo.xml; then
+            echo "::warning file=packaging/flatpak/org.tlaku.app.metainfo.xml::Falta un <release version=\"$version\"> en los metadatos AppStream (obligatorio para enviar a Flathub)."
+          fi
+          if ! cmp -s apps/desktop/src-tauri/icons/source/tlaku.svg packaging/flatpak/org.tlaku.app.svg; then
+            echo "::warning file=packaging/flatpak/org.tlaku.app.svg::El ícono del Flatpak difiere de apps/desktop/src-tauri/icons/source/tlaku.svg."
+          fi
+
+      # --no-net: las capturas apuntan a la etiqueta y pueden no estar subidas todavía.
+      - name: Validar metadatos y .desktop
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y appstream desktop-file-utils
+          appstreamcli validate --no-net packaging/flatpak/org.tlaku.app.metainfo.xml
+          desktop-file-validate packaging/flatpak/org.tlaku.app.desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-debs
+          path: packaging/flatpak/debs
+          if-no-files-found: error
+
+  flatpak:
+    name: Flatpak (${{ matrix.arch }})
+    needs: debs
+    runs-on: ubuntu-latest
+    container:
+      # La imagen debe corresponder al runtime del manifiesto (runtime-version).
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    strategy:
+      fail-fast: false
+      matrix:
+        # aarch64 se construye con emulación QEMU en el mismo runner (así lo documenta
+        # flatpak-github-actions). Como solo se reempaqueta un .deb, la emulación es rápida.
+        arch: [x86_64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: flatpak-debs
+          path: packaging/flatpak/debs
+
+      # Docker hace falta para QEMU; el contenedor no tiene gestor de paquetes, se usan los binarios estáticos.
+      - name: Instalar Docker (solo para emular otra arquitectura)
+        if: matrix.arch != 'x86_64'
+        run: |
+          curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-26.0.0.tgz -o docker.tgz
+          tar xzf docker.tgz
+          mv docker/* /usr/bin/
+          rm -rf docker docker.tgz
+
+      - name: Preparar QEMU
+        if: matrix.arch != 'x86_64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: tlaku-${{ matrix.arch }}.flatpak
+          manifest-path: packaging/flatpak/org.tlaku.app.yml
+          arch: ${{ matrix.arch }}
+          cache-key: flatpak-builder-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/org.tlaku.app.yml') }}
+          upload-artifact: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-${{ matrix.arch }}
+          path: tlaku-${{ matrix.arch }}.flatpak
+          if-no-files-found: error
+
+  # Adjunta los .flatpak a la Release. No toca nada más de la Release.
+  adjuntar:
+    name: Adjuntar a la Release
+    needs: flatpak
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: flatpak-*
+          path: paquetes
+          merge-multiple: true
+
+      - name: Subir a la Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          release=$(gh api "repos/$GH_REPO/releases?per_page=30" --jq "[.[] | select(.tag_name == \"$TAG\")][0].id // empty")
+          if [ -z "$release" ]; then
+            echo "::error::No encuentro la Release $TAG"
+            exit 1
+          fi
+          version="${TAG#v}"
+          for f in paquetes/*.flatpak; do
+            base=$(basename "$f" .flatpak)
+            nombre="Tlaku_${version}_${base#tlaku-}.flatpak"
+            echo "Subiendo $nombre"
+            # Si ya hay un archivo con ese nombre (relanzamiento), se reemplaza.
+            previo=$(gh api "repos/$GH_REPO/releases/$release/assets" --paginate --jq ".[] | select(.name == \"$nombre\") | .id")
+            if [ -n "$previo" ]; then
+              gh api --method DELETE "repos/$GH_REPO/releases/assets/$previo"
+            fi
+            gh api --method POST \
+              -H "Content-Type: application/octet-stream" \
+              --input "$f" \
+              "https://uploads.github.com/repos/$GH_REPO/releases/$release/assets?name=$nombre" > /dev/null
+          done
