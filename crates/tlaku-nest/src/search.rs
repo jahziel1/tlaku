@@ -134,6 +134,15 @@ pub fn search(
             interrupted: true,
         };
     }
+    // Si no cupo ni una pieza no hay nada que mejorar (ninguna pieza entra en este contenedor):
+    // seguir buscando solo gastaría el tiempo. Importa con retazos que no sirven.
+    if first.placed.is_empty() {
+        return Found {
+            solution: best,
+            evaluations,
+            interrupted: false,
+        };
+    }
 
     let mut rng = Rng::new(seed);
     let mut cur = first;
@@ -155,8 +164,9 @@ pub fn search(
             break false;
         }
         // Termina por estancamiento solo si ya se probó el doble de lo que costó encontrar la
-        // mejor y no mejora: así una búsqueda que sigue progresando usa todo su tiempo.
-        if best.unplaced.is_empty() && since_improve > min_stall.max(improved_at) {
+        // mejor y no mejora: así una búsqueda que sigue progresando usa todo su tiempo. Vale
+        // también con piezas sin colocar (una hoja intermedia): mejorar es colocar más área.
+        if since_improve > min_stall.max(improved_at) {
             break false;
         }
         // A temperatura alta la solución actual se aleja de la mejor: se vuelve a ella de vez en

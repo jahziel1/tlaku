@@ -1,11 +1,11 @@
 //! Sobrante de una hoja: la hoja menos las piezas colocadas (con un margen de seguridad).
 //! Sirve para guardar el retazo y reutilizarlo como contenedor de otro trabajo.
 
-use crate::{NestContainer, SheetsInput, SheetsOutcome};
 use crate::geom::{Ring, signed_area};
 use crate::ops::{difference, union_rings};
 use crate::prep::region_rings;
 use crate::region::{offset, point_in_ring};
+use crate::{NestContainer, SheetsInput, SheetsOutcome};
 use tlaku_core::{Point, Polyline};
 
 /// Esquinas más agudas que esto (razón punta/distancia) se recortan en los desplazamientos.

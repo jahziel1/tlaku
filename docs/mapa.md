@@ -28,7 +28,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `tlaku-text` | Texto a contornos: `library.rs`, `layout.rs`, `opentype.rs` (funciones OpenType y ejes variables: `font_capabilities`, `selected_features`; `TextSpec.features/variations/uppercase/valign/word_spacing_mm` en `spec.rs`), `linefont.rs` (Hershey en `data/`), `shx.rs`, `effects.rs`, `path_sampler.rs`. Pruebas: `tests/outline.rs` (Bebas Neue) y `tests/opentype.rs` (fuente sintética `tests/fixtures/TlakuTest-Var.ttf`, que genera `make_test_font.py`) |
 | `tlaku-trace` | Vectorizar imagen: `binarize`, `polygon`, `spline` (usa `visioncortex` mediante `vtracer/`, la parte de biblioteca de vtracer 0.6.5 adaptada, solo modo binario; ver `THIRD_PARTY.md`); `golden.rs` compara byte a byte con `tests/fixtures/golden_*` |
 | `tlaku-codes` | QR y barras: `encode.rs`, `geometry.rs` |
-| `tlaku-nest` | Nesting: `engine.rs`, `search.rs`, `prep.rs`, `region.rs`, `convex.rs`, `ops.rs` |
+| `tlaku-nest` | Nesting: `engine.rs`, `search.rs`, `prep.rs`, `region.rs`, `convex.rs`, `ops.rs`; varias hojas y retazos: `solve.rs` (preparar piezas y una hoja), `sheets.rs` (`nest_sheets`), `leftover.rs` (sobrante de cada hoja); giros por pieza (`PieceRotation`: veta, sin giro) en `lib.rs`; banco de calidad `examples/nest_bench.rs` |
 | `tlaku-camera` | Lente/homografía/marcas sin OpenCV: `calibration.rs`, `marks.rs`, `chessboard`, `circle`, `homography`, `height`, `mosaic`, `undistort` |
 | `tlaku-export` | Salida SVG/DXF/PNG/PDF/AI: `svg.rs`, `dxf_out.rs`, `png_out.rs`, `pdf.rs` (`export_pdf`, `export_ai`: PDF 1.5 con una capa por color), `scene.rs` |
 | `tlaku-pipeline` | `Document`+`DeviceProfile`+`JobOptions` a `ComputedJob`. `build.rs` (núcleo), `layers.rs`, `place.rs`, `stroke.rs`, `tabs.rs`, `zaxis.rs`, `rotary.rs`, `scan_offset.rs`, `tile.rs` (`plan_grid`), `split.rs` (`galvo_rotary`, `mark_sequence`), `split_shapes.rs` (formas enteras, `doc_mark_sequence`), `slice3d.rs`, `cylinder.rs`, `gcode.rs`, `ruida.rs`, `galvo.rs`, `preview.rs`, `material_test.rs`, `registration.rs` (`fit_with_choice`, imágenes que giran), `processed.rs` (`processed_png`, `processed_preview`); importadores: `import.rs` (despacha por extensión), `import_pdf.rs`, `import_hpgl.rs`, `import_gcode.rs`, `import_rd.rs` (`.rd` de Ruida), `import_egv.rs` (`.egv` del K40), `import_lbrn.rs` + `import_lbrn/{layers,bitmap,text}.rs` |
@@ -55,7 +55,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `machine/common.rs` | Lo que repiten esos tres: `log` (consola), `virtual_speed` (`virtual:<perfil>@vel`) y `Paced` (transporte con ritmo) |
 | `machine/virtual_port.rs` | Puertos `virtual:<perfil>[@vel]` (6 perfiles GRBL/Marlin/Smoothie en `KINDS`) |
 | `machine/{extras,frame}.rs` | Ejes extra, encuadre |
-| `edit/` | Un archivo por área: `text`, `variables`, `codes`, `geometry`, `shape_ops`, `design`, `nest`, `trace`, `art`, `camera`, `materials`, `devices`, `files`, `imaging` (`preview_image`), `printcut` (`fit_registration`, `plan_tiles`) (registro en `edit/mod.rs`) |
+| `edit/` | Un archivo por área: `text`, `variables`, `codes`, `geometry`, `shape_ops`, `design`, `nest`, `remnants` (inventario de retazos), `trace`, `art`, `camera`, `materials`, `devices`, `files`, `imaging` (`preview_image`), `printcut` (`fit_registration`, `plan_tiles`) (registro en `edit/mod.rs`) |
 | `remote/` | Control remoto por celular (axum): `server.rs`, `hub.rs`, `auth.rs`, `net.rs`, `page.html`, `tests.rs` |
 | `automation.rs`, `autosave.rs`, `prefs.rs`, `settings_backup.rs`, `templates.rs`, `probe.rs`, `netlink.rs`, `window.rs`, `live_window.rs` | UDP M54, autoguardado, preferencias y paquetes, plantillas, sondeo de puerto, red, ventanas (`live_window.rs`: la ventana aparte de la vista en vivo) |
 | `tauri.conf.json`, `capabilities/{default,live}.json`, `build.rs` | Config y permisos de Tauri. `build.rs` lee `generate_handler!` de `lib.rs` y crea el permiso `allow-<comando>` de cada comando y el conjunto `main-window` (lo incluye `default.json`); `live.json` (ventana aparte `live`) no lo incluye y solo deja escuchar eventos y 2 comandos propios |
@@ -224,6 +224,21 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/variables/{check.ts,DataCheck.tsx}` | «Revisar datos»: filas con celdas vacías, imágenes ausentes o códigos sin contenido |
 | `src/features/variables/{ImageVariableField.tsx,ColumnPicker.tsx}` (usado desde `canvas/ShapeProps.tsx`), `features/codes/CodesDialog.tsx` | Marcar una imagen como variable; contenido variable en el diálogo de códigos |
 | Pruebas: `variables/{multiSource.test.ts,sourcesUi.test.tsx}`, `codes/codesVariable.test.tsx` | Varias fuentes, filas distintas, imágenes ausentes, códigos, documentos viejos, vista previa por fila |
+
+### Agregado: nesting con varias hojas, retazos y veta (mejora 7 del plan de usuarios)
+
+| Dónde | Qué |
+|---|---|
+| `crates/tlaku-nest/src/lib.rs` (`PieceRotation`: `Inherit`/`Fixed`/`Only(ángulos)`, `PieceRotation::grain()` = 0° y 180°) | Giros por pieza: la veta y «sin giro». `solve.rs::prepare` arma la tabla de ángulos de cada pieza; `engine.rs` y `search.rs` solo mutan/prueban los que ella admite |
+| `crates/tlaku-nest/src/sheets.rs` (`nest_sheets`, `SheetsInput`, `SheetsOutcome`) | Varias hojas: lista de hojas (retazos) y hoja nueva `refill`, tope `max_sheets`; cada hoja es un `nest` independiente con su parte del tiempo; la que no admite nada se salta |
+| `crates/tlaku-nest/src/leftover.rs` (`leftover`, `sheet_leftovers`) | Sobrante = hoja menos las piezas con margen, abierto (ancho mínimo) y partido en retazos conexos |
+| `crates/tlaku-nest/examples/nest_bench.rs` | Banco de calidad y tiempo (instancias ESICUP en formato jagua-rs con `--dir`, más casos propios con piezas de `tlaku-parts`); `--evals N` lo hace reproducible |
+| `src-tauri/src/edit/nest.rs` | `NestRequest.{max_sheets,remnants,leftover_min_mm}`, `NestPieceInput.rotation`; `NestStatus.sheets` y `NestPlacementOut.sheet` |
+| `src-tauri/src/edit/remnants.rs` | Inventario local `remnants.json` (`load_remnants`, `save_remnants`; valida ids, nombres, medidas y contornos) |
+| `src/features/nest/{remnants.ts,remnantStore.ts}` | Tipos y funciones puras del inventario (`remnantFromLeftover`, `matchingRemnants`) y su estado con guardado encadenado |
+| `src/features/nest/{sheets.ts,apply.ts}` | Hojas en fila en el lienzo (`sheetOffsets`), contornos `hoja-N` en la capa de guías (`sheetReferences`) y `applyNest(..., layout)` |
+| `src/features/nest/{SheetsPanels.tsx,RemnantsDialog.tsx,NestDialog.tsx,NestPreview.tsx}` | Sección «Hojas y retazos», resumen por hoja con «Guardar el sobrante», inventario (comando `arrange.remnants`), selector de giros por pieza y vista previa en fila |
+| `src/api/mock/{nest.ts,remnants.ts}`, `scripts/nest-verify.mjs [--shots DIR]` | Mock con hojas, retazos y veta; verificación visual en Chrome headless |
 
 ## 3. Recetas: "dónde agrego..."
 

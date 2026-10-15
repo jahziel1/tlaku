@@ -187,6 +187,38 @@ fn las_hojas_de_la_lista_van_primero_y_la_que_no_sirve_se_salta() {
 }
 
 #[test]
+fn un_retazo_inutil_no_gasta_el_tiempo_del_trabajo() {
+    // Sin tope de evaluaciones y con 600 s de margen: el retazo de 10 x 10 no admite nada y se
+    // abandona al instante; la hoja nueva termina por estancamiento (2 piezas).
+    let inp = sheets_input(
+        pieces_of(vec![(rect(30.0, 30.0), 2, PieceRotation::Inherit)]),
+        vec![NestContainer::Rect {
+            width: 10.0,
+            height: 10.0,
+        }],
+        Some(NestContainer::Rect {
+            width: 100.0,
+            height: 100.0,
+        }),
+        5,
+        NestOptions {
+            time_limit: Duration::from_secs(600),
+            max_evaluations: None,
+            ..NestOptions::default()
+        },
+    );
+    let out = run_sheets(&inp);
+    assert!(out.unplaced.is_empty());
+    assert_eq!(out.sheets.len(), 1);
+    assert_eq!(out.sheets[0].index, 1);
+    assert!(
+        out.elapsed < Duration::from_secs(20),
+        "tardó {:?}: el retazo inútil consumió su tiempo",
+        out.elapsed
+    );
+}
+
+#[test]
 fn sin_hoja_nueva_lo_que_no_cabe_queda_sin_colocar() {
     let inp = sheets_input(
         pieces_of(vec![(rect(50.0, 50.0), 6, PieceRotation::Inherit)]),

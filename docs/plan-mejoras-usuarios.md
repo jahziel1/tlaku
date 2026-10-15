@@ -487,7 +487,7 @@ de aplicación en un paso de deshacer; ejemplos de la documentación ejecutados 
 
 ## 7. Acomodo (nesting) por forma real, giros y retazos
 
-**(a) Estado: Hecho en lo principal; faltan hojas y retazos.** Corrección a la premisa: el acomodo "par-impar"
+**(a) Estado: Hecho (hojas, retazos y veta incluidos); quedan prioridad/agrupación de corte y, si se decide, un motor alterno.** Corrección a la premisa: el acomodo "par-impar"
 de `tlaku-geom` (`nesting`) es solo la regla de contención (piezas y huecos). El **nesting real es el crate
 `tlaku-nest`** (D76, Hecho): polígonos de no-ajuste por suma de Minkowski de partes convexas (`ops.rs`,
 `convex.rs`), ajuste interior del contenedor, colocación voraz por gravedad o abajo-izquierda, **recocido
@@ -496,17 +496,28 @@ cierto ángulo o libre), espejo opcional, **piezas dentro de los huecos de otras
 cualquiera (un objeto cerrado hace de material, por lo tanto **un retazo irregular ya sirve**), progreso en
 vivo, cancelar, determinismo por semilla y pruebas (`tests.rs`: separación, rotaciones, contenedor
 irregular, hueco). Tope de 2000 copias. UI: `features/nest/`, comando `arrange.nest`. Es decir: **ya compite
-con "True Nest" de LightBurn 2.2, que es solo Pro y de pago.**
+con "True Nest" de LightBurn 2.2, que es solo Pro y de pago.** Con la mejora 7 se sumaron **varias hojas**
+(`nest_sheets`), **retazos** como inventario local con sobrante automático y **giros por pieza** (veta y sin
+giro); los detalles y su medición están en (g).
 
-**(b) Qué falta** (todo menor; la fila D76 lo reconoce: "no hay veta, orden de corte propio ni varias hojas"):
+**(b) Qué había que hacer y cómo quedó** (la fila D76 reconocía: "no hay veta, orden de corte propio ni varias hojas"):
 
-- **Varias hojas:** cuando no cabe todo, repartir en hoja 1, hoja 2... (hoy se reporta lo que no cabe).
-- **Retazos como inventario:** guardar el contorno del retazo sobrante y ofrecerlo como contenedor del
-  siguiente trabajo (con la mejora 3, el costo cuenta solo el material usado).
-- **Veta (dirección de la fibra):** restringir giros por pieza.
-- **Prioridad y agrupación:** piezas del mismo color/capa juntas para ordenar el corte.
-- **Calidad medida:** no hay en el repositorio una comparación del aprovechamiento contra SVGnest, Deepnest o
-  sparrow sobre instancias públicas.
+- **Varias hojas: hecho.** Cuando no cabe todo, el acomodo sigue en hojas nuevas iguales al contenedor
+  (`nest_sheets`, tope 50), cada una con su aprovechamiento; **decisión:** cada hoja queda como una **zona aparte
+  del lienzo** (en fila a la derecha, la primera donde está) con un contorno de referencia `hoja-N` en la capa de
+  guías, y **no** como grupo, porque la app no tiene grupos anidados y regrupar disolvería los grupos que el
+  usuario ya tenía (por ejemplo los de un generador, que perderían su «Regenerar»); tampoco como pestañas, porque
+  las copias nuevas de una hoja tendrían que escribirse en otro documento (más estado compartido y riesgo con
+  `pinTab`). Se envía una hoja por separado seleccionándola con un recuadro.
+- **Retazos como inventario: hecho.** `remnants.json` local (contorno real o rectángulo, material, grosor); al
+  acomodar se prueban antes que una hoja nueva si coinciden material y grosor, y al terminar cada hoja ofrece
+  guardar su sobrante (hoja menos piezas con margen, sin astillas). Un retazo irregular ya servía de contenedor.
+- **Veta (dirección de la fibra): hecho.** Por pieza o grupo: según las opciones, sin giro o solo 0° y 180°
+  (`PieceRotation`); la pieza se dibuja con la veta en horizontal. No hay veta a ángulos arbitrarios.
+- **Respeta** cantidades por pieza, separación y margen (pruebas de reparto sin solapes y a distancia).
+- **Prioridad y agrupación:** piezas del mismo color/capa juntas para ordenar el corte. Sigue pendiente.
+- **Calidad medida: hecho** (g). Resultado: entre 4 y 20 puntos por debajo del estado del arte en las instancias
+  clásicas; razonable en piezas de uso común.
 
 **(c) Viabilidad: opciones permisivas y licencias (leídas en cada repositorio).**
 
@@ -518,11 +529,14 @@ con "True Nest" de LightBurn 2.2, que es solo Pro y de pago.**
 | [jagua-rs](https://github.com/JeroenGar/jagua-rs) (Rust, motor de colisiones, publicado en INFORMS J. Comput.) | **MPL-2.0** (`LICENSE`) | Copyleft **por archivo**: usable como **dependencia sin modificar**; `deny.toml` ya permite `MPL-2.0`. No copiar sus archivos dentro de crates nuestros |
 | [sparrow](https://github.com/JeroenGar/sparrow) (Rust, heurística del estado del arte para 2D irregular) | **MIT** (`LICENSE`); depende de jagua-rs (MPL-2.0) | Solo resuelve "strip packing" (una tira de alto fijo y largo variable): no cubre hojas rectangulares múltiples ni contenedores irregulares con huecos |
 
-**Recomendación:** **no reemplazar** `tlaku-nest`. Primero medir (instancias públicas, p. ej. las de ESICUP) y
-solo si el aprovechamiento queda claramente por debajo, evaluar `sparrow` + `jagua-rs` como **motor
-alterno opcional** (dependencia de Cargo, sin copiar archivos; la MIT de sparrow y la MPL de jagua-rs no
-afectan al código de Tlaku mientras no se modifiquen sus archivos). Mientras tanto, agregar hojas múltiples,
-retazos y veta sobre el motor propio.
+**Recomendación:** **no reemplazar** `tlaku-nest`. Ya se midió (g): queda entre 4 y 20 puntos por debajo de
+`sparrow` en las instancias clásicas de ESICUP (que tiene mucho más cómputo y una búsqueda por solapes), pero
+hojas múltiples, retazos y veta ya funcionan sobre el motor propio y en piezas típicas de láser (cajas con
+dientes, rectángulos, formas irregulares) el aprovechamiento es de 73 a 90 %. Si más adelante se quiere cerrar la
+brecha, evaluar `sparrow` + `jagua-rs` como **motor alterno opcional** (dependencia de Cargo, sin copiar
+archivos; la MIT de sparrow y la MPL de jagua-rs no afectan al código de Tlaku mientras no se modifiquen sus
+archivos); no resuelve hojas rectangulares múltiples ni contenedores irregulares, así que habría que mantener
+`tlaku-nest` para esos casos.
 
 **(d) Demanda: alta, y ya cubierta.** «Auto-arrange objects on available material» **113 votos**
 <https://lightburn.fider.io/posts/235/auto-arrange-objects-on-available-material>; «For the new nesting
@@ -537,6 +551,48 @@ LightBurn ya respondió (Pro de pago), así que lo que Tlaku ofrece gratis es di
 separación se respeta, misma semilla = mismo resultado); banco de aprovechamiento sobre instancias públicas
 y compararlo con valores publicados de SVGnest/sparrow; hojas múltiples con casos construidos a mano
 (reparto exacto). Sin hardware; con la Falcon2, cortar un acomodo real en un retazo.
+
+**(g) Medición (banco `crates/tlaku-nest/examples/nest_bench.rs`).** Instancias públicas de «strip packing»
+(ESICUP: albano, dagli, fu, jakobs1/2, mao, marques, shapes0/1, shirts, swim, trousers) en el formato JSON de
+`sparrow`/`jagua-rs`; **no se incluyen** en el repositorio (licencia no explícita): se descargan de
+`data/input/*.json` de <https://github.com/JeroenGar/sparrow> (MIT) y se pasan con `--dir`. Una tira de alto fijo
+y largo libre; **densidad = suma de áreas / (alto × largo usado)**; cada pieza con sus giros permitidos (0, 0/180
+o 0/90/180/270) y sin separación. «Sparrow» es la densidad publicada en los registros de su propio repositorio
+(`data/records/final_best_*.svg`), con muchísimo más cómputo: es un techo, no una meta. Corrida de 10 s por
+instancia, semilla 1, máquina de desarrollo compartida (los tiempos son orientativos):
+
+| Instancia | Piezas | Antes | Después | Sparrow |
+|---|---:|---:|---:|---:|
+| albano | 24 | 82,7 % | 83,1 % | 89,8 % |
+| dagli | 30 | 80,2 % | 83,7 % | 90,2 % |
+| fu | 12 | 82,6 % | 83,8 % | 92,4 % |
+| jakobs1 | 25 | 65,3 % | 81,7 % (60 a 82 según la semilla) | 89,2 % |
+| jakobs2 | 25 | 68,9 % | 68,9 % | 87,7 % |
+| mao | 20 | 76,5 % | 78,6 % | 86,9 % |
+| marques | 24 | 83,3 % | 86,5 % | 92,0 % |
+| shapes0 | 43 | 57,0 % | 57,8 % | 70,0 % |
+| shapes1 | 43 | 61,4 % | 65,4 % | 76,7 % |
+| shirts | 99 | 83,8 % | 84,5 % | 90,9 % |
+| swim | 48 | 66,2 % | 66,7 % | 79,8 % |
+| trousers | 64 | 84,7 % | 84,1 % | 92,6 % |
+| **Media** | | **74,4 %** | **77,1 %** | **86,5 %** |
+
+Casos propios (tira de ancho fijo, giros de 90°, separación 1 a 2 mm): caja con dientes 100×80×60 ×4: 73,5 → 75,2 %;
+engranajes (6 tamaños ×2): 45,9 → 47,4 %; 30 formas irregulares (giros cada 30°): 75,2 → 77,1 %; 40 rectángulos al
+azar: 85,3 → 90,2 %; reparto en hojas de 300×200 de 6 cajas y 6 engranajes (42 piezas): 8 hojas, 63,1 % global.
+Con un tope fijo de 400 evaluaciones y 3 semillas (resultado reproducible) la media de las 12 instancias pasa de
+74,2 a 76,1 %: la mejora no depende del reloj. Un tiempo 4 veces mayor aporta solo ~0,4 puntos más: la búsqueda
+satura por la representación (orden y giros sobre una colocación voraz), no por falta de tiempo.
+
+**Qué se cambió en el algoritmo (sin reescribirlo):** (1) el recocido ya no termina por estancamiento cuando aún
+está caliente: solo para si lleva el doble de evaluaciones que las que costó hallar la mejor (mínimo 200 + 4 n);
+(2) cada cierto número de evaluaciones sin mejora vuelve a la mejor solución en vez de seguir alejándose; (3) los
+intercambios y movimientos de orden son casi siempre locales (cerca en la lista), con saltos largos el 30 % de las
+veces; (4) una hoja o retazo donde no cabe ninguna pieza se abandona al instante (antes habría gastado todo su tiempo). **Probado y descartado** (sin
+mejora medible): un término de compacidad en el costo, partir del mejor de varios órdenes iniciales (por lado
+mayor, alto, ancho) y sesgar las mutaciones hacia el final del orden. Donde queda la brecha (shapes, swim, jakobs2)
+es en piezas con muchos encajes que una colocación voraz no resuelve; cerrarla pide otra clase de búsqueda
+(minimizar solapes, como `sparrow`).
 
 ---
 
@@ -831,7 +887,7 @@ un lote de 3 placas con serie y logotipo distinto sobre material de desecho.
 | 4. Cola e historial | Historial Parcial; cola No existe | Alta (historial), media (cola guiada) | Historial alta (71 votos); cola baja (7 votos) | S-M historial, M cola |
 | 5. Biblioteca comunitaria | Parcial (flujo de aportes y compilación; sin aportes ni navegador) | Alta técnicamente; depende de la masa crítica | Media implícita (foros) | M |
 | 6. Scripts en sandbox | No existe | Media (Boa o rquickjs; depende de la lista permitida de la ola 7) | Alta en votos (114, 79, 40), usuarios avanzados | L |
-| 7. Nesting | **Hecho en lo principal** (`tlaku-nest`); faltan hojas, retazos y veta | Alta | Alta, ya cubierta (113 votos; LightBurn lo cobra en Pro) | M (mejoras); L si se cambia de motor |
+| 7. Nesting | **Hecho** (`tlaku-nest`, con varias hojas, retazos y veta; medido contra ESICUP) | Alta | Alta, ya cubierta (113 votos; LightBurn lo cobra en Pro) | L solo si se cambia de motor |
 | 8. Vista previa realista | Parcial (tono por potencia en trazos) | Media-baja si es "realista"; media si es tonal | Baja (4 y 5 votos) | M (tonal), L (texturas) |
 | 10. Historial de versiones | Parcial (deshacer y recuperación; no tras guardar) | Alta | Baja-media (12, 11, 14 votos) | M |
 | 11. Linux ARM64 / Flatpak / Snap | No existe | ARM64 alta; Flatpak media; Snap no conviene | Media (49 votos; 19 097 vistas) | S ARM64, M Flatpak |
@@ -870,7 +926,7 @@ conviene que la ola 7 llegue antes.
    del par (71 votos).
 8. **10. Historial de versiones.** Barato sobre la infraestructura de recuperación; protege el trabajo de
    quien vende por encargo.
-9. **7. Mejoras de nesting:** hojas múltiples, retazos como inventario y veta; con el costo de la mejora 3
+9. **7. Mejoras de nesting (hecho):** hojas múltiples, retazos como inventario y veta; con el costo de la mejora 3
    calculado sobre material usado.
 
 **Ola D: comunidad y alcance.**
@@ -912,7 +968,7 @@ conviene que la ola 7 llegue antes.
   confirmaciones.
 - **Scripts (6): viable, pero lo último.** Sin sandbox bien probado no se publica; sin Web Worker; sin
   scripts que se ejecuten al abrir un documento.
-- **Nesting (7): no se reescribe.** Ya existe y es competitivo; solo se mide y se amplía. No copiar nada de
+- **Nesting (7): no se reescribe.** Ya existe y es competitivo; se midió y se amplió (hojas, retazos, veta). No copiar nada de
   deepnest (su núcleo es GPLv3 pese a que el repositorio se anuncie como MIT) ni usar el Deepnest original (sin
   licencia).
 - **Generadores: sin biblioteca externa.** No hay opción permisiva madura; la GPL (boxes.py,

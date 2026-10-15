@@ -2,6 +2,13 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Nesting con varias hojas, retazos y veta, en la próxima versión
+
+- **Varias hojas**: si las piezas no caben en una, el acomodo sigue en hojas nuevas del mismo tamaño (hasta 50), con el aprovechamiento de cada una. Cada hoja queda como una zona aparte del lienzo con su contorno de referencia en la capa de guías.
+- **Retazos**: guarda lo que sobra de una hoja (contorno real, material y grosor) en una biblioteca local, y al acomodar úsalos antes que una hoja nueva. **Organizar > Retazos guardados…** para verlos, renombrarlos y borrarlos.
+- **Veta y sin giro por pieza**: restringe cada pieza o grupo a 0° y 180° (la veta de la madera) o a no girar.
+- El motor sigue buscando mientras mejora (ya no se detiene antes de tiempo) y hay un banco de calidad reproducible contra las instancias clásicas de la literatura. Mira [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md#varias-hojas).
+
 ## Pestañas de documentos, en la próxima versión
 
 - **Varios proyectos en la misma ventana**, cada uno en su pestaña, con su propio historial de Deshacer, selección, zoom, vista previa y estado de guardado (algo que LightBurn no tiene). Barra de pestañas encima del lienzo con punto de cambios sin guardar, cerrar, **+**, reordenar arrastrando y menú contextual (cerrar, cerrar las demás, duplicar, mover, **mover a una ventana nueva**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` y `Ctrl+Tab`.

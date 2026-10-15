@@ -2,6 +2,13 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Nesting with several sheets, offcuts and grain, in the next version
+
+- **Several sheets**: if the parts do not fit on one, nesting continues on new sheets of the same size (up to 50), with the utilization of each. Each sheet ends up as a separate zone of the canvas with its reference outline on the guides layer.
+- **Offcuts**: save what is left of a sheet (real outline, material and thickness) in a local library, and use them before a new sheet when nesting. **Arrange > Saved offcuts…** to view, rename and delete them.
+- **Grain and no rotation per part**: restrict each part or group to 0° and 180° (the grain of wood) or to not rotating.
+- The engine keeps searching while it improves (it no longer stops too early) and there is a reproducible quality benchmark against the classic instances of the literature. See [Copies, virtual array and nesting](03d-copias-y-nesting.md#several-sheets).
+
 ## Document tabs, in the next version
 
 - **Several projects in the same window**, each in its own tab, with its own Undo history, selection, zoom, preview and saved state (something LightBurn does not have). A tab bar above the canvas with an unsaved-changes dot, close, **+**, drag-to-reorder and a context menu (close, close others, duplicate, move, **move to a new window**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` and `Ctrl+Tab`.
