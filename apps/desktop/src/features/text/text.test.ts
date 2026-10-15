@@ -395,7 +395,7 @@ describe('panel', () => {
     const { TextEditor } = await import('./TextPanel');
     // En el servidor zustand lee el estado inicial: basta para ver la estructura del panel.
     const html = renderToString(createElement(TextEditor, { obj: asText(textObj('t')) }));
-    for (const label of ['Propiedades del texto', 'Contenido', 'Fuente', 'Negrita', 'Cursiva', 'Tamaño', 'Espaciado', 'Interlineado', 'Sobre trayecto', 'Convertir a trayectos', 'Hola']) {
+    for (const label of ['Propiedades del texto', 'Contenido', 'Fuente', 'Negrita', 'Cursiva', 'Tamaño', 'Espaciado', 'Interlineado', 'Sobre trayecto', 'Convertir a trayectos', 'Hola', 'Mayúsculas', 'Alineación vertical', 'Entre palabras', 'Funciones y ejes de la fuente']) {
       expect(html, label).toContain(label);
     }
     // Sin contorno el botón se explica en vez de quedar gris sin motivo.

@@ -12,3 +12,6 @@ tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-geom = { version = "0.1.0", path = "../tlaku-geom" }
 ttf-parser = "0.25"
 tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
+
+[dev-dependencies]
+serde_json = "1.0"

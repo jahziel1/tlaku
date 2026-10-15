@@ -15,6 +15,12 @@ Seventh batch, of polish and of gaps that remained compared with LightBurn. **No
 - **Machine > Review design…** (`Ctrl/Cmd+Alt+R`) reads your design and lists **twelve kinds of findings** (almost-closed strokes, duplicate lines, pending joins, tiny fragments, extra nodes, objects outside or past the bed, unconverted text, layers with no output or hidden with objects, and images with too much or too little resolution). Each one comes with **Fix** (if there is one), **Select**, and **Ignore**; **Fix everything safe** closes, joins, and removes duplicates in a single **Undo** step.
 - A **notice in the Start dialog** (with a **Look** link) when there is something serious, and the same findings in plain words in **simple mode**. See [Review design](07b-revisar-diseno.md).
 
+### Advanced text
+
+- **OpenType features per text**: ligatures (standard and discretionary), stylistic alternates and sets, swash, small caps, numerals (old-style, lining, tabular, proportional), fractions and kerning on or off. The panel reads the font and **offers only what it has**, with an off/on preview of each feature.
+- **Variable fonts**: one slider per axis (weight, width, slant, optical size and custom axes) and the named styles; the outline is computed at the chosen position.
+- **Forced uppercase**, **word gap** and **vertical alignment** (also on a path: the text can hang from the line, centre on it or sit on top). See [Text](04-texto.md#advanced-text-font-features-and-variable-fonts).
+
 ### Canvas and editing
 
 - **Warp on canvas** (`Shift+W`): drag the handles of a **bilinear**, **perspective**, or **4×4-point** mesh and see the result live.

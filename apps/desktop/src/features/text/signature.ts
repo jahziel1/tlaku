@@ -28,6 +28,12 @@ export function paramsKey(t: TextObject): string {
     // Ausente y 0 / falso son lo mismo: un documento viejo no se regenera al abrirlo.
     t.bend_deg ?? 0,
     t.welded ?? false,
+    // Lo mismo con las opciones avanzadas: ausentes equivalen a los valores por omisión.
+    (t.features ?? []).map((f) => [f.tag, f.value]),
+    (t.variations ?? []).map((a) => [a.tag, a.value]),
+    t.uppercase ?? false,
+    t.valign ?? 'baseline',
+    t.word_spacing_mm ?? 0,
   ]);
 }
 
