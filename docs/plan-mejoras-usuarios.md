@@ -96,7 +96,7 @@ mezcla con la B.
 
 ## 2. Generadores de piezas (cajas, bisagras, engranajes, bandejas, uniones)
 
-**(a) Estado: fase 2a+2b implementada (Ola B, fase 1); faltan engranajes, bandejas y cola de milano.** Hecho en `crates/tlaku-parts`
+**(a) Estado: fases 2a+2b+2d(parte) implementadas (Ola B, fase 1); faltan engranajes y bandejas.** Hecho en `crates/tlaku-parts`
 (geometría) y `apps/desktop/src/features/parts/` (diálogo «Herramientas > Generadores de piezas…», vista previa en vivo,
 Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en [mapa.md](mapa.md)):
 
@@ -105,8 +105,16 @@ Insertar y Regenerar; manual [03g](manual/03g-generadores-de-piezas.md), mapa en
   kerf; rótulos grabados en la cara exterior. El encaje se prueba en 3D (cada punto de las losas de los paneles lo tiene
   exactamente un panel; dientes alternados, profundidad = grosor). Pendiente de la lista original: divisores con media
   ranura y patas.
-- **Bisagra flexible:** rectas escalonadas, onda y zigzag, en horizontal o vertical, con puentes, margen y esquinas
-  redondeadas. Pendiente: integrarla en un lateral de caja (franja flexible con dientes) y los patrones ladrillo y rombo.
+- **Bisagra flexible:** rectas escalonadas, onda, zigzag, **ladrillo** (cortes con remate en ⊓) y **rombo** (retícula
+  con puentes en los vértices), en horizontal o vertical, con puentes, margen y esquinas redondeadas; pruebas de cortes
+  dentro del área, sin cruces y con separación mínima entre cortes.
+- **Caja redondeada:** base y tapa de esquinas de radio `R` y un solo lateral con bisagra flexible solo en los arcos,
+  unido con dientes (número par de celdas a lo largo de la línea media del grosor; muescas de corona en las curvas)
+  y cerrado con cola de milano o a tope. El largo de la tira es el perímetro de la línea media (`R - T/2`), no el del
+  contorno exterior. Falta validarla en material real (radio mínimo de doblez por material y patrón).
+- **Uniones sueltas:** cola de milano plana (ángulo, cuello, profundidad, número, holgura) y pestaña-ranura (ranuras
+  pasantes con holgura) como piezas de ejemplo; complementariedad y holgura probadas. Pendiente: aplicarlas a una arista
+  de un objeto seleccionado del documento.
 - **Pieza de prueba de encaje:** placa de 13 ranuras (grosor o diente ± pasos de 0,05 mm, valores grabados) y un macho.
 - **Kerf:** la geometría es nominal y el kerf lo compensa la capa (`LayerSettings.kerf`, C12); el diálogo avisa que hay
   que activarlo para que las uniones encajen.

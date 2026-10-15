@@ -82,7 +82,7 @@ describe('diálogo «Generadores de piezas»', () => {
     await open();
     expect(dialog().textContent).toContain('Generadores de piezas');
     const names = [...dialog().querySelectorAll('.parts__gen-name')].map((n) => n.textContent);
-    expect(names).toEqual(['Caja con dientes', 'Bisagra flexible', 'Prueba de encaje']);
+    expect(names).toEqual(['Caja con dientes', 'Bisagra flexible', 'Prueba de encaje', 'Uniones (cola de milano, pestaña-ranura)', 'Caja redondeada']);
     const svg = dialog().querySelector('[data-testid="parts-preview"]');
     expect(svg).not.toBeNull();
     expect(svg!.querySelectorAll('[data-part]')).toHaveLength(6);
@@ -333,5 +333,45 @@ describe('textos', () => {
       expect(en, k).not.toBe(es);
     }
     setLanguage('es');
+  });
+});
+
+describe('uniones y caja redondeada', () => {
+  const pick = async (name: string) => {
+    await act(async () => click(buttons().find((b) => b.textContent?.includes(name))!));
+    await settle();
+  };
+
+  it('uniones: dos placas de cola de milano y el cambio a pestaña-ranura muestra otros campos', async () => {
+    await open();
+    await pick('Uniones');
+    expect(dialog().querySelectorAll('[data-testid="parts-preview"] [data-part]')).toHaveLength(2);
+    expect(() => byLabel('Ancho del cuello de la cola')).not.toThrow();
+    expect(() => byLabel('Ancho de cada pestaña')).toThrow();
+    await choose('Tipo de unión', 'tab_slot');
+    expect(() => byLabel('Ancho de cada pestaña')).not.toThrow();
+    expect(() => byLabel('Ancho del cuello de la cola')).toThrow();
+    expect(describeViolations(await audit(dialog()))).toEqual([]);
+  });
+
+  it('caja redondeada: tres piezas, aviso de vista simulada y se insertan agrupadas', async () => {
+    await open();
+    await pick('Caja redondeada');
+    expect(dialog().querySelectorAll('[data-testid="parts-preview"] [data-part]')).toHaveLength(3);
+    expect(dialog().textContent).toContain('aproximada');
+    await type('Radio de las esquinas', '40');
+    expect(dialog().textContent).toContain('mitad del lado menor');
+    await type('Radio de las esquinas', '12');
+    await act(async () => click(button('Insertar')));
+    await wait(30);
+    expect(doc().objects).toHaveLength(3);
+    expect(doc().generators![0]!.generator).toBe('rounded_box');
+  });
+
+  it('bisagra: ladrillo y rombo están entre las formas de corte', async () => {
+    await open();
+    await pick('Bisagra flexible');
+    const select = byLabel('Forma de los cortes') as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(['straight', 'wave', 'zigzag', 'brick', 'diamond']);
   });
 });

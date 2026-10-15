@@ -1,4 +1,4 @@
-import { Box, FlaskConical, Spline, X } from 'lucide-react';
+import { Box, FlaskConical, Puzzle, Spline, SquareRoundCorner, X } from 'lucide-react';
 import { useEffect, useId, useMemo } from 'react';
 import { selectActiveDevice, useStore } from '@/store';
 import { t, tn, type I18nKey } from '@/i18n';
@@ -12,7 +12,7 @@ import { NEW_ENGRAVE, NO_ENGRAVE, usePartsUi, valuesFor } from './partsStore';
 import { usePartsPreview } from './usePartsPreview';
 import './parts.css';
 
-const ICONS: Record<string, typeof Box> = { box: Box, hinge: Spline, fit_test: FlaskConical };
+const ICONS: Record<string, typeof Box> = { box: Box, hinge: Spline, fit_test: FlaskConical, joints: Puzzle, rounded_box: SquareRoundCorner };
 
 function Dialog() {
   const titleId = useId();

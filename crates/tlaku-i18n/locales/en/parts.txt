@@ -55,7 +55,7 @@ parts.joints.fit_vs_kerf = A fit clearance is set: do not add it on top of a lay
 
 # rounded_box
 parts.rounded.range = Must be between {min} and {max}.
-parts.rounded.name.base = Base
+parts.rounded.name.base = Bottom plate
 parts.rounded.name.lid = Lid
 parts.rounded.name.wall = Wall with hinge
 parts.rounded.radius_small = The corner radius must be at least {min} mm (the thickness plus 2 mm) so the wall can curve on the inside.

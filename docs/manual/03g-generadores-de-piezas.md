@@ -1,6 +1,6 @@
-# Generadores de piezas: cajas, bisagras flexibles y prueba de encaje
+# Generadores de piezas: cajas, bisagras flexibles, uniones y prueba de encaje
 
-**Herramientas > Generadores de piezas…** dibuja por ti piezas que se cortan con láser y se arman: una **caja con dientes** (finger joints), una **bisagra flexible** (living hinge) y una **pieza de prueba de encaje** para calibrar tu máquina. Pones las medidas, ves las piezas en vivo y **Insertar** las deja en el diseño como objetos vectoriales normales, que puedes editar, mover o anidar como cualquier otro.
+**Herramientas > Generadores de piezas…** dibuja por ti piezas que se cortan con láser y se arman: una **caja con dientes** (finger joints), una **caja redondeada** con lateral flexible, una **bisagra flexible** (living hinge), **uniones** sueltas (cola de milano y pestaña-ranura) y una **pieza de prueba de encaje** para calibrar tu máquina. Pones las medidas, ves las piezas en vivo y **Insertar** las deja en el diseño como objetos vectoriales normales, que puedes editar, mover o anidar como cualquier otro.
 
 Los atajos se escriben con `Ctrl/Cmd`: `Cmd` en macOS y `Ctrl` en Windows y Linux. Las medidas usan la unidad de **Preferencias** (mm o pulgadas); por dentro todo es mm.
 
@@ -51,11 +51,34 @@ Un valor negativo que ajusta es lo normal: significa que tu corte deja las ranur
 
 ## Bisagra flexible
 
-Una zona de **cortes alternados** deja doblar madera, contrachapado o acrílico delgado. Elige la **forma de los cortes**: *Rectas escalonadas* (el patrón clásico), *Onda* o *Zigzag*; la **dirección** (los cortes corren a lo largo de X o de Y; el material se curva en el otro sentido); el **tamaño de la zona**; el **largo de cada corte**, el **puente** que queda sin cortar entre dos cortes, la **separación entre filas** y el **margen** sin cortes junto al borde. Con onda o zigzag, además la **altura** y la **longitud de onda**. Las filas pares empiezan en un corte y las impares en un puente (medio paso de desfase) y todo queda simétrico respecto al centro.
+Una zona de **cortes alternados** deja doblar madera, contrachapado o acrílico delgado. Elige la **forma de los cortes**: *Rectas escalonadas* (el patrón clásico), *Onda*, *Zigzag*, *Ladrillo* o *Rombo*; la **dirección** (los cortes corren a lo largo de X o de Y; el material se curva en el otro sentido); el **tamaño de la zona**; el **largo de cada corte**, el **puente** que queda sin cortar entre dos cortes, la **separación entre filas** y el **margen** sin cortes junto al borde. Con onda o zigzag, además la **altura** y la **longitud de onda**. Las filas pares empiezan en un corte y las impares en un puente (medio paso de desfase) y todo queda simétrico respecto al centro.
 
 - **Radio de las esquinas** redondea el contorno; **Incluir el contorno como corte** lo quita si solo quieres el patrón dentro de una pieza que tú dibujas (mueve el grupo adonde lo necesites).
 - Más puentes y filas más separadas = más rígida; cortes más largos y filas más juntas = más flexible. La flexión real depende del material y de la veta: **prueba un trozo** antes de cortar la pieza final. Puentes menores de 1 mm o filas a menos de 1 mm se rompen con facilidad y el generador avisa.
+- **Ladrillo**: filas escalonadas como las rectas, pero cada corte lleva un **remate corto** en cada extremo (forma de ⊓, como las juntas de una pared de ladrillos). Flexiona también al torcer. El remate mide la mitad de la separación entre filas y deja al menos 0,3 mm de material contra la fila vecina; si no cabe, el generador te pide más separación.
+- **Rombo**: una **retícula de rombos**. Cada lado de rombo es un corte y el puente queda en los vértices. Aquí el **largo del corte** es el ancho del rombo (su diagonal a lo largo de los cortes), la **separación entre filas** es la **mitad de su diagonal** perpendicular (rombos más altos con más separación) y el **puente** es el material que une los rombos en cada vértice. Si el puente es tan largo que se come el lado, o los lados quedan a menos de 0,3 mm entre sí en un vértice, el generador marca el campo y explica por qué.
 - Cada corte es una **línea abierta** sin ancho; el kerf de la capa no los modifica (los puentes ya cuentan con que el haz se come un poco).
+
+## Uniones: cola de milano y pestaña-ranura
+
+Piezas **sueltas** para unir dos placas por una arista: sirven de prueba o para usarlas en diseños propios (las cajas ya traen sus dientes). Elige el **tipo de unión**; sale un par de placas y se inserta como cualquier otro generador. El **largo de la arista** y el **fondo** de cada placa son los de la pieza de ejemplo; copia solo la forma de la unión a tu diseño.
+
+- **Cola de milano plana (mismo plano)**: las dos placas quedan en el mismo plano, como piezas de un rompecabezas. Una placa lleva **colas** trapezoidales repartidas a intervalos iguales y la otra, las **ranuras** del mismo trapecio. Parámetros: **número de colas**, **ancho del cuello** (en la arista), **profundidad**, **ángulo** (qué tanto se ensancha la cola; 8 a 15° es lo habitual, más ángulo traba más) y **holgura**. La holgura (ranura − cola) deja la mitad por cada lado: con **0** las dos placas juntas rellenan el rectángulo completo sin huecos ni solapes. Se ensamblan **deslizando** una placa sobre la otra a lo largo de la arista; la forma impide separarlas tirando en perpendicular, pero no al deslizar: fija con un tope o una gota de pegamento. Si las colas no caben (no queda material entre ranuras) o la ranura pasa del fondo de la placa, el generador lo marca.
+- **Pestaña y ranura (perpendiculares)**: una placa se apoya de canto sobre la cara de la otra. La primera lleva **pestañas** del **ancho** pedido y de un largo igual al **grosor**; la segunda, las **ranuras pasantes** de `(pestaña + holgura) × (grosor + holgura)`, a la **distancia del borde** que elijas. Las pestañas se reparten a intervalos iguales y van centradas. Una pestaña más angosta que el grosor se rompe fácil y el generador avisa.
+
+Las dos usan la **holgura de encaje** de la misma forma que la caja: con el kerf en la capa, déjala en 0; si no, calíbrala con la **Prueba de encaje** (su modo «Ranura contra el canto del material» sirve justo para las pestañas).
+
+## Caja redondeada
+
+**Base y tapa con esquinas redondeadas y un solo lateral** que da la vuelta y se **dobla en las esquinas** gracias a una bisagra flexible, unido con dientes a la base y a la tapa. Salen **tres piezas**: *Base*, *Tapa* (si la pides) y *Lateral con bisagra*.
+
+- **Medidas**: **ancho**, **fondo** y **alto exteriores**, **radio de las esquinas** (al menos el grosor más 2 mm y no más de la mitad del lado menor) y **grosor**. **Con tapa** apagado deja la caja abierta (base y lateral).
+- **Largo del lateral**: es el **perímetro de la línea media del grosor** del lateral (el contorno corrido medio grosor hacia adentro, de radio `R − grosor/2`): al curvar la tira esa línea no se estira ni se comprime, así que conserva su largo. El contorno exterior mide `2π × grosor/2` más y el interior, menos. El diálogo te dice el largo exacto.
+- **Bisagra**: solo en los **arcos** de las cuatro esquinas; los lados rectos quedan planos y sin cortes. Los cortes son verticales (paralelos al eje de flexión) con el patrón, el largo, el puente, la separación y el margen que elijas, como en la bisagra suelta (también ladrillo y rombo).
+- **Dientes**: el contorno se reparte en un número **par** de celdas iguales a lo largo de la línea media. Las celdas pares son **dientes del lateral** (entran en muescas de la base y de la tapa) y las impares, lengüetas de la placa. En las curvas las muescas son sectores de corona de ancho igual al grosor; su área coincide con la del diente plano. La **holgura** ensancha cada muesca la mitad por lado.
+- **Cierre del lateral**: empieza y termina en el centro del lado frontal. Con **cola de milano** (una o dos, según el alto) los dos extremos se traban; con **a tope** quedan rectos y se pegan. Las colas del cierre sobresalen del largo de la tira. Si el tramo recto del frente es muy corto para el cierre, el generador te lo dice.
+
+**Importante:** la bisagra de las esquinas **no está probada en material real** con esta geometría. Antes de cortar la caja, corta una **bisagra de prueba** con el mismo patrón y comprueba que dobla al radio de la esquina sin romperse; un radio muy chico exige cortes más largos y puentes más delgados. En modo simulado (sin el motor) la vista previa de la caja redondeada es solo **aproximada**.
 
 ## Regenerar
 
@@ -63,6 +86,6 @@ Los parámetros se guardan **en el proyecto**. Al seleccionar el grupo aparece s
 
 ## Límites
 
-- Las cajas son de **paneles planos con dientes**: sin divisores, patas ni esquinas redondeadas (de momento). La **tapa deslizante** es una solución sencilla: cuida que la franja de arriba de los laterales (dos grosores) aguante con tu material.
+- Las cajas son de **paneles planos con dientes**: sin divisores ni patas (de momento); las esquinas redondeadas son la **Caja redondeada**, de un solo lateral con bisagra. Las uniones sueltas no se aplican todavía a una arista de un objeto de tu diseño: salen como piezas de ejemplo con el largo que pidas. La **tapa deslizante** es una solución sencilla: cuida que la franja de arriba de los laterales (dos grosores) aguante con tu material.
 - La geometría y el encaje se comprueban con pruebas automáticas, pero el **ajuste real depende de tu máquina y de tu material**: corta siempre primero la pieza de prueba y una caja chica.
 - Todo se calcula en tu computadora; no se envía nada a internet.

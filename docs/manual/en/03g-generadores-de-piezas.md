@@ -1,6 +1,6 @@
-# Part generators: boxes, living hinges and the fit test
+# Part generators: boxes, living hinges, joints and the fit test
 
-**Tools > Part generators…** draws laser-cut parts for you: a **finger-joint box**, a **living hinge** and a **fit test piece** to calibrate your machine. You enter the dimensions, watch the parts update live, and **Insert** drops them into the design as regular vector objects that you can edit, move or nest like any other.
+**Tools > Part generators…** draws laser-cut parts for you: a **finger-joint box**, a **rounded box** with a flexible wall, a **living hinge**, loose **joints** (dovetail and tab and slot) and a **fit test piece** to calibrate your machine. You enter the dimensions, watch the parts update live, and **Insert** drops them into the design as regular vector objects that you can edit, move or nest like any other.
 
 Shortcuts are written with `Ctrl/Cmd`: `Cmd` on macOS and `Ctrl` on Windows and Linux. Dimensions use the unit from **Preferences** (mm or inches); everything is mm inside.
 
@@ -51,11 +51,34 @@ A negative value that fits is normal: it means your cut leaves slots **wider** a
 
 ## Living hinge
 
-An area of **staggered cuts** lets wood, plywood or thin acrylic bend. Choose the **cut shape**: *Staggered straight cuts* (the classic pattern), *Wave* or *Zigzag*; the **direction** (cuts run along X or along Y; the material curves the other way); the **size of the area**; the **length of each cut**, the **bridge** left uncut between two cuts, the **row spacing** and the **margin** without cuts next to the edge. With wave or zigzag, also the **height** and **wavelength**. Even rows start on a cut and odd rows on a bridge (half a step offset) and everything is symmetric about the centre.
+An area of **staggered cuts** lets wood, plywood or thin acrylic bend. Choose the **cut shape**: *Staggered straight cuts* (the classic pattern), *Wave*, *Zigzag*, *Brick* or *Diamond*; the **direction** (cuts run along X or along Y; the material curves the other way); the **size of the area**; the **length of each cut**, the **bridge** left uncut between two cuts, the **row spacing** and the **margin** without cuts next to the edge. With wave or zigzag, also the **height** and **wavelength**. Even rows start on a cut and odd rows on a bridge (half a step offset) and everything is symmetric about the centre.
 
 - **Corner radius** rounds the outline; **Include the outline as a cut** removes it if you only want the pattern inside a piece you draw yourself (move the group where you need it).
 - More bridges and wider-spaced rows = stiffer; longer cuts and closer rows = more flexible. Real flex depends on the material and the grain: **test a scrap** before cutting the final piece. Bridges under 1 mm or rows closer than 1 mm break easily and the generator warns you.
+- **Brick**: staggered rows like the straight cuts, but each cut has a **short end tick** at each end (a ⊓ shape, like the joints of a brick wall). It also flexes when twisted. The tick is half the row spacing and leaves at least 0.3 mm of material against the neighbouring row; if it does not fit, the generator asks for more spacing.
+- **Diamond**: a **lattice of diamonds**. Each diamond side is a cut and the bridge is left at the vertices. Here the **cut length** is the diamond width (its diagonal along the cuts), the **row spacing** is **half of its other diagonal** (taller diamonds with more spacing) and the **bridge** is the material that joins the diamonds at each vertex. If the bridge is so long that it eats the side, or the sides end up closer than 0.3 mm at a vertex, the generator marks the field and explains why.
 - Every cut is an **open line** with no width; the layer kerf does not change them (the bridges already allow for the beam eating a little).
+
+## Joints: dovetail and tab and slot
+
+**Loose** parts to join two plates along an edge: use them as a test or in your own designs (the boxes already come with their fingers). Choose the **joint type**; a pair of plates comes out and is inserted like any other generator. The **edge length** and the **depth** of each plate are those of the sample piece; copy only the shape of the joint into your design.
+
+- **Flat dovetail (same plane)**: both plates lie in the same plane, like jigsaw pieces. One plate has trapezoidal **tails** at equal spacing and the other the **sockets** of the same trapezoid. Parameters: **number of tails**, **neck width** (at the edge), **depth**, **angle** (how much the tail widens; 8 to 15° is usual, a larger angle locks more) and **clearance**. The clearance (socket − tail) leaves half on each side: with **0** the two plates together fill the whole rectangle with no gaps or overlaps. They assemble by **sliding** one plate over the other along the edge; the shape stops them being pulled apart sideways but not sliding: fix with a stop or a drop of glue. If the tails do not fit (no material left between sockets) or the socket goes past the plate depth, the generator flags it.
+- **Tab and slot (perpendicular)**: one plate stands on edge on the face of the other. The first has **tabs** of the requested **width** and a length equal to the **thickness**; the second has the **through slots** of `(tab + clearance) × (thickness + clearance)`, at the **distance from the edge** you choose. The tabs are evenly spaced and centred. A tab narrower than the thickness breaks easily and the generator warns you.
+
+Both use the **fit clearance** the same way as the box: with the kerf on the layer, leave it at 0; otherwise calibrate it with the **Fit test** (its "Slot against the material edge" mode is made for tabs).
+
+## Rounded box
+
+**Base and lid with rounded corners and a single wall** that wraps around and **bends at the corners** thanks to a living hinge, joined with fingers to the base and the lid. **Three parts** come out: *Base*, *Lid* (if you ask for it) and *Wall with hinge*.
+
+- **Dimensions**: **outer width**, **depth** and **height**, **corner radius** (at least the thickness plus 2 mm and no more than half the shorter side) and **thickness**. **With lid** off leaves the box open (base and wall).
+- **Wall length**: it is the **perimeter of the thickness mid-line** of the wall (the contour moved half a thickness inwards, with radius `R − thickness/2`): when the strip is curved that line neither stretches nor compresses, so it keeps its length. The outer contour is `2π × thickness/2` longer and the inner one shorter. The dialog tells you the exact length.
+- **Hinge**: only on the **arcs** of the four corners; the straight sides stay flat and uncut. The cuts are vertical (parallel to the bending axis) with the pattern, length, bridge, spacing and margin you choose, as in the loose hinge (brick and diamond too).
+- **Fingers**: the contour is split into an **even** number of equal cells along the mid-line. Even cells are **wall fingers** (they go into notches in the base and lid) and odd cells are plate tabs. On the curves the notches are ring sectors as wide as the thickness; their area equals that of the flat finger. The **clearance** widens each notch by half per side.
+- **Wall seam**: it starts and ends at the centre of the front side. With **dovetail** (one or two, depending on the height) the two ends lock together; with **butt** they stay straight and are glued. The seam tails stick out past the length of the strip. If the straight stretch at the front is too short for the seam, the generator tells you.
+
+**Important:** the corner hinge is **not tested in real material** with this geometry. Before cutting the box, cut a **test hinge** with the same pattern and check that it bends to the corner radius without breaking; a very small radius calls for longer cuts and thinner bridges. In simulated mode (without the engine) the rounded box preview is only **approximate**.
 
 ## Regenerate
 
@@ -63,6 +86,6 @@ Parameters are saved **in the project**. Selecting the group shows the **Generat
 
 ## Limits
 
-- Boxes are **flat panels with fingers**: no dividers, feet or rounded corners (for now). The **sliding lid** is a simple solution: make sure the strip above the side panels (two thicknesses) holds up in your material.
+- Boxes are **flat panels with fingers**: no dividers or feet (for now); rounded corners are the **Rounded box**, with a single wall with a hinge. The loose joints are not yet applied to an edge of an object in your design: they come out as sample pieces with the length you ask for. The **sliding lid** is a simple solution: make sure the strip above the side panels (two thicknesses) holds up in your material.
 - Geometry and fit are checked by automated tests, but the **real fit depends on your machine and material**: always cut the test piece and a small box first.
 - Everything is computed on your computer; nothing is sent to the internet.

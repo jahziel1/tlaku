@@ -8,19 +8,20 @@
 import type { GenerateResult } from '@/bindings/GenerateResult';
 import type { PlacedPart } from '@/bindings/PlacedPart';
 import type { PathDto } from '@/bindings/PathDto';
+import { jointsParts, roundedBoxParts } from './partsEngineJoints';
 import schema from './partsSchema.json';
 
 type P = [number, number];
 type V3 = [number, number, number];
 interface Rect { x0: number; y0: number; x1: number; y1: number }
-interface Part { key: string; name: string; cuts: PathDto[]; engraves: PathDto[]; width: number; height: number }
-type Params = Record<string, unknown>;
+export interface Part { key: string; name: string; cuts: PathDto[]; engraves: PathDto[]; width: number; height: number }
+export type Params = Record<string, unknown>;
 
 const num = (p: Params, k: string, d: number) => (typeof p[k] === 'number' ? (p[k] as number) : d);
 const str = (p: Params, k: string, d: string) => (typeof p[k] === 'string' ? (p[k] as string) : d);
 const bool = (p: Params, k: string, d: boolean) => (typeof p[k] === 'boolean' ? (p[k] as boolean) : d);
 
-class Invalid extends Error {
+export class Invalid extends Error {
   constructor(readonly field: string | null, message: string) {
     super(message);
   }
@@ -228,7 +229,10 @@ const tri = (phase: number) => {
 };
 
 function hingeParts(p: Params): Generated {
-  const pattern = str(p, 'pattern', 'straight');
+  const asked = str(p, 'pattern', 'straight');
+  // Ladrillo y rombo solo los dibuja el motor real: aquí salen como rectas escalonadas.
+  const approx = asked === 'brick' || asked === 'diamond';
+  const pattern = approx ? 'straight' : asked;
   const vertical = str(p, 'orientation', 'horizontal') === 'vertical';
   const W = num(p, 'width_mm', 100);
   const H = num(p, 'height_mm', 50);
@@ -281,6 +285,7 @@ function hingeParts(p: Params): Generated {
   }
   if (slits.length === 0) throw new Invalid(null, 'La zona es demasiado pequeña para su margen: no cabe ningún corte.');
   const warnings = bridge < 1 ? [`Los puentes de ${bridge} mm son muy finos: la bisagra puede rasgarse al flexionar.`] : [];
+  if (approx) warnings.push('Vista previa aproximada (modo simulado): este patrón sale como rectas escalonadas; el motor real dibuja el ladrillo y el rombo.');
   return { parts: [{ key: 'hinge', name: 'Bisagra flexible', cuts: [...cuts, ...slits], engraves: [], width: W, height: H }], warnings };
 }
 
@@ -382,7 +387,7 @@ const textCentered = (text: string, cx: number, cy: number, height: number) => t
 
 // ---- acomodo y fachada ------------------------------------------------------------------------
 
-interface Generated { parts: Part[]; warnings: string[] }
+export interface Generated { parts: Part[]; warnings: string[] }
 
 function validateRanges(id: string, params: Params): void {
   const info = (schema as { id: string; params: { key: string; kind: { type: string; min?: number; max?: number } }[] }[]).find((g) => g.id === id);
@@ -400,13 +405,13 @@ const shift = (paths: PathDto[], dx: number, dy: number): PathDto[] => paths.map
 /** Genera y acomoda en filas, como `tlaku_parts::generate`. */
 export function mockGenerate(id: string, params: Params, maxWidth: number | null | undefined, gapMm: number | null | undefined): GenerateResult {
   const gap = typeof gapMm === 'number' && Number.isFinite(gapMm) ? Math.min(Math.max(gapMm, 0), 100) : 5;
-  if (!['box', 'hinge', 'fit_test'].includes(id)) throw new Error(`No existe el generador «${id}».`);
+  if (!['box', 'hinge', 'fit_test', 'joints', 'rounded_box'].includes(id)) throw new Error(`No existe el generador «${id}».`);
   try {
     // Como el motor: lo que falte toma el valor de fábrica (el mismo JSON que da el formulario).
     const defaults = (schema as unknown as { id: string; defaults: Params }[]).find((g) => g.id === id)?.defaults ?? {};
     const full: Params = { ...defaults, ...params };
     validateRanges(id, full);
-    const g = id === 'box' ? boxParts(full) : id === 'hinge' ? hingeParts(full) : fitParts(full);
+    const g = id === 'box' ? boxParts(full) : id === 'hinge' ? hingeParts(full) : id === 'joints' ? jointsParts(full) : id === 'rounded_box' ? roundedBoxParts(full) : fitParts(full);
     const max = maxWidth && maxWidth > 0 ? maxWidth : Infinity;
     let x = 0, y = 0, rowH = 0, width = 0;
     const placed: PlacedPart[] = g.parts.map((p) => {
