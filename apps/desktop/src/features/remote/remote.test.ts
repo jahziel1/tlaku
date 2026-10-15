@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getApi, setApi } from '@/api';
 import { createMockApi, type MockApi } from '@/api/mock';
 import { sampleLayers, sampleObjects } from '@/api/mock/sample';
+import { startLive } from '@/features/live/service';
 import { applyBundle, buildBundle } from '@/features/settings/bundle';
 import { bindMachineEvents, DEFAULT_PREFS, selectActiveDevice, useStore } from '@/store';
 import { frameMarkOf, selectFramed } from '@/store/machine';
@@ -411,6 +412,83 @@ describe('arranque: servidor, informe, recorrido y cámara', () => {
     s().setCameraState({ cameraStatus: 'off' });
     await vi.advanceTimersByTimeAsync(8000);
     expect(api.remote.frames).toBe(sent);
+  });
+
+  describe('vista en vivo del celular (solo lectura)', () => {
+    let stopLive: () => void;
+    afterEach(() => stopLive?.());
+
+    const phone = () => {
+      api.remote.clients = [{ id: 'a1b2c3d4', ip: '192.168.1.9', agent: 'iPhone · Safari', since_ms: 1, idle_s: 0, connected: true }];
+      useRemote.setState({ clients: api.remote.clients });
+    };
+
+    it('sin celulares conectados no se sigue el trabajo ni se manda ruta, aunque el control remoto esté encendido', async () => {
+      stopLive = startLive(useStore);
+      stop = startRemote();
+      s().setPref('remoteEnabled', true);
+      await vi.waitFor(() => expect(useRemote.getState().status?.running).toBe(true));
+      await s().computePreview();
+      await s().startJob();
+      await vi.waitFor(() => expect(s().jobState).toBe('running'));
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(api.remote.liveRoutes.filter((r) => r !== null)).toHaveLength(0);
+      expect(api.remote.snapshots.at(-1)?.live ?? null).toBeNull();
+    });
+
+    it('con un celular conectado manda la ruta UNA vez y en cada informe dónde está la máquina', async () => {
+      stopLive = startLive(useStore);
+      stop = startRemote();
+      s().setPref('remoteEnabled', true);
+      await vi.waitFor(() => expect(useRemote.getState().status?.running).toBe(true));
+      phone();
+      await s().computePreview();
+      await s().startJob();
+      await vi.waitFor(() => expect(api.remote.liveRoutes.some((r) => r !== null)).toBe(true));
+      const routes = api.remote.liveRoutes.filter((r) => r !== null);
+      expect(routes).toHaveLength(1);
+      const r = routes[0]!;
+      expect(r.runs.length).toBeGreaterThan(0);
+      expect(JSON.stringify(r).length).toBeLessThanOrEqual(300_000);
+      expect(r.layers.every((c) => /^#[0-9a-f]{6}$/i.test(c))).toBe(true);
+      // Los informes de estado llevan la ubicación sobre esa ruta y nada más.
+      await vi.waitFor(() => expect(api.remote.snapshots.some((x) => x.live)).toBe(true));
+      const live = api.remote.snapshots.findLast((x) => x.live)!.live!;
+      expect(Object.keys(live).sort()).toEqual(['retreat_seq', 'running', 'src', 't']);
+      expect(live.t).toBeGreaterThanOrEqual(0);
+      expect(live.t).toBeLessThanOrEqual(r.total + 0.01);
+      // Seguir informando no vuelve a mandar la ruta.
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(api.remote.liveRoutes.filter((x) => x !== null)).toHaveLength(1);
+    });
+
+    it('un celular que entra con el trabajo a la mitad recibe la ruta entonces', async () => {
+      stopLive = startLive(useStore);
+      stop = startRemote();
+      s().setPref('remoteEnabled', true);
+      await vi.waitFor(() => expect(useRemote.getState().status?.running).toBe(true));
+      await s().computePreview();
+      await s().startJob();
+      await vi.waitFor(() => expect(s().jobState).toBe('running'));
+      expect(api.remote.liveRoutes.filter((x) => x !== null)).toHaveLength(0);
+      phone();
+      await vi.waitFor(() => expect(api.remote.liveRoutes.filter((x) => x !== null)).toHaveLength(1));
+    });
+
+    it('al empezar otro trabajo se borra la ruta vieja y se manda la nueva', async () => {
+      stopLive = startLive(useStore);
+      stop = startRemote();
+      s().setPref('remoteEnabled', true);
+      await vi.waitFor(() => expect(useRemote.getState().status?.running).toBe(true));
+      phone();
+      await s().computePreview();
+      await s().startJob();
+      await vi.waitFor(() => expect(api.remote.liveRoutes.some((r) => r !== null)).toBe(true));
+      await vi.waitFor(() => expect(s().jobState).toBe('finished'), { timeout: 8000 });
+      await s().startJob();
+      await vi.waitFor(() => expect(api.remote.liveRoutes.filter((r) => r !== null)).toHaveLength(2));
+      expect(api.remote.liveRoutes).toContain(null);
+    });
   });
 
   it('las pruebas dejan el servidor apagado', () => {

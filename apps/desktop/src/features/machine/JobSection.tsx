@@ -9,6 +9,7 @@ import { useNow } from './hooks';
 import { remainingSeconds } from './jobSummary';
 import { FrameOptions } from './FrameOptions';
 import { SelectionOptions } from './SelectionOptions';
+import { LiveToggle } from '@/features/live';
 import { TilingOffer } from '@/features/tiling/TilingOffer';
 import { StartFromSection } from './StartFromSection';
 
@@ -100,6 +101,7 @@ export function JobSection() {
           <Square size={15} aria-hidden="true" />{stop.label}
         </button>
       </div>
+      <LiveToggle />
       {jobError && (
         <div className="mc-joberror" role="alert">
           <TriangleAlert size={15} aria-hidden="true" />

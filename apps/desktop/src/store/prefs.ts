@@ -96,6 +96,11 @@ export interface Prefs {
   remotePort: number;
   /** IP de la red local donde escuchar; `null` = la recomendada. */
   remoteIp: string | null;
+  /**
+   * «Vista en vivo» del trabajo en curso (`features/live`): simulación dibujada sobre el diseño que
+   * sigue a la máquina real. Apagada de fábrica; desapagada no ubica ni anima nada. Solo lectura.
+   */
+  liveView: boolean;
   /** Orden, visibilidad, borde y paneles flotantes de las pestañas, y borde de las herramientas (ver `lib/dockLayout.ts`). */
   dockLayout: DockLayout;
   /** Tras dibujar una forma (rectángulo, elipse, polígono, línea...) la herramienta vuelve a Seleccionar. */
@@ -156,6 +161,7 @@ export const PREF_SPECS: PrefSpecs = {
     default: null,
     check: (raw) => (raw === null ? { value: null } : typeof raw === 'string' && /^\d{1,3}(\.\d{1,3}){3}$/.test(raw) ? { value: raw } : null),
   },
+  liveView: { kind: 'bool', default: false },
   dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
   returnToSelect: { kind: 'bool', default: true },
   gridContrast: { kind: 'choice', options: ['low', 'normal', 'high'], default: 'normal' },

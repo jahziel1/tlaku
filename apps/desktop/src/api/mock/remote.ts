@@ -1,5 +1,5 @@
 import type { LaserApi } from '../api';
-import type { RemoteAddr, RemoteClient, RemoteConfig, RemoteSnapshot, RemoteStatus } from '../api';
+import type { RemoteAddr, RemoteClient, RemoteConfig, RemoteLiveRoute, RemoteSnapshot, RemoteStatus } from '../api';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
@@ -13,6 +13,7 @@ export interface MockRemote {
   config: RemoteConfig | null;
   snapshots: RemoteSnapshot[];
   routes: ({ bed: [number, number]; d: string } | null)[];
+  liveRoutes: (RemoteLiveRoute | null)[];
   frames: number;
   startResults: { id: number; ok: boolean; code?: string; message?: string }[];
   clients: RemoteClient[];
@@ -24,8 +25,8 @@ function randomToken(): string {
 }
 
 /** Control remoto simulado: no abre ningún socket, solo guarda lo que la ventana le manda y valida la configuración como el motor. */
-export function mockRemote(lag: Lag): Pick<LaserApi, 'remoteConfigure' | 'remoteStatus' | 'remoteRegenerate' | 'remoteKick' | 'remoteUpdate' | 'remoteSetRoute' | 'remoteCameraFrame' | 'remoteStartResult'> & { remote: MockRemote } {
-  const remote: MockRemote = { config: null, snapshots: [], routes: [], frames: 0, startResults: [], clients: [], token: randomToken() };
+export function mockRemote(lag: Lag): Pick<LaserApi, 'remoteConfigure' | 'remoteStatus' | 'remoteRegenerate' | 'remoteKick' | 'remoteUpdate' | 'remoteSetRoute' | 'remoteSetLive' | 'remoteCameraFrame' | 'remoteStartResult'> & { remote: MockRemote } {
+  const remote: MockRemote = { config: null, snapshots: [], routes: [], liveRoutes: [], frames: 0, startResults: [], clients: [], token: randomToken() };
   let error: string | null = null;
   const status = (): RemoteStatus => {
     const c = remote.config;
@@ -70,6 +71,7 @@ export function mockRemote(lag: Lag): Pick<LaserApi, 'remoteConfigure' | 'remote
       }),
     remoteUpdate: ({ snapshot }) => lag(() => void remote.snapshots.push(snapshot)),
     remoteSetRoute: ({ route }) => lag(() => void remote.routes.push(route)),
+    remoteSetLive: ({ route }) => lag(() => void remote.liveRoutes.push(route)),
     remoteCameraFrame: ({ jpeg_b64 }) =>
       lag(() => {
         if (jpeg_b64) remote.frames += 1;

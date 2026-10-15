@@ -337,6 +337,11 @@ async fn route(State(sh): State<Shared>) -> Response {
     json_response(StatusCode::OK, sh.core.route_json())
 }
 
+/// `GET /api/live`: la ruta de la vista en vivo (solo lectura; el celular la pide al encenderla).
+async fn live(State(sh): State<Shared>) -> Response {
+    json_response(StatusCode::OK, sh.core.live_json())
+}
+
 async fn camera(State(sh): State<Shared>) -> Response {
     match sh.core.camera_jpeg(Instant::now()) {
         Some(bytes) => {
@@ -501,6 +506,7 @@ fn router(sh: Shared) -> Router {
         .route("/state", get(state))
         .route("/events", get(events))
         .route("/route", get(route))
+        .route("/live", get(live))
         .route("/camera.jpg", get(camera))
         .route("/pause", post(pause))
         .route("/resume", post(resume))

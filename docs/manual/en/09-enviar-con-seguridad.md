@@ -113,6 +113,17 @@ If **Stop** happens while the machine is moving, the position may have been lost
 
 If you close the app with a job running, it is cancelled in the same way, but Tlaku keeps the checkpoint and offers to continue when you open it again (see [Continue an interrupted job](#continue-an-interrupted-job)).
 
+## Live view of the job
+
+While a job runs, the **Live view** checkbox (**Machine** tab, **Job** section) draws on the canvas what the machine is doing, **without a camera** (while on it covers the design, its handles and frames so that only the simulation is read; when you turn it off everything is back as it was): what has already been cut or engraved in dark (its layer color, charred), what is left faint (cuts as a dashed line), the head as a crosshair and, while the laser is emitting, a glowing red dot. A box at the bottom left shows the **percentage**, the **elapsed time** and the **time left**, and **Back to design** turns the view off.
+
+- **Off by default**, and your last choice is remembered. When off it does not locate or animate anything. You can turn it on and off **at any time, also in the middle of a job**: when you turn it on it shows everything already done at once.
+- **It follows the real machine, not the clock.** It takes the position the machine reports (about 4 to 5 times a second), finds it on the preview path respecting the profile's origin, X/Y swap and rotary, and moves the head smoothly between reports. If the machine is slower or faster than the estimate it corrects without jumping; on **pause** the animation stops, and if the job is **stopped or fails** it stays frozen where it was. When it finishes it shows 100 % with the head at the last position of the path.
+- **If the position does not match** the path (for example, a profile with a mirrored rotary) it uses the send progress; on machines that do not report their position while working (K40, galvo) the view is a **time estimate** and the text says so.
+- **View only.** It sends nothing to the machine: pause and stop stay where they always were. A job **resumed** from a checkpoint has no live view.
+- **Accessibility:** the canvas has a text description with the percentage and the state, updated without bothering the screen reader (the state is announced every 10 %).
+- With jobs of tens of thousands of moves (image engraving) it stays smooth: what is already burned accumulates in a layer and what is pending is drawn only once. On the phone you get the same view; see [Control from the phone](09e-control-desde-el-celular.md#live-view-on-the-phone).
+
 ## Live adjustments: speed and power
 
 The **Live adjustments** section, at the end of the **Machine** tab, changes the **Speed** and the **Power** of the running job as a percentage of what was programmed, **without touching the G-code or recalculating it**. Each has the **-10**, **-1**, **+1**, and **+10** buttons, a percentage field (from 10 % to 200 %), and a button to go **Back to 100 %**. The current value is the one the controller reports; until it has reported one (it sends it from time to time) "—" is shown.

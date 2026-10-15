@@ -34,6 +34,7 @@
 
 pub mod auth;
 pub mod hub;
+pub mod live;
 pub mod net;
 pub mod server;
 
@@ -418,6 +419,19 @@ pub fn remote_set_route(
 ) -> Result<(), String> {
     match state.core() {
         Some(core) => core.set_route(route),
+        None => Ok(()),
+    }
+}
+
+/// La ventana manda la ruta de la vista en vivo del celular, simplificada y una vez por trabajo (o
+/// `null` si ya no hay). Solo lectura: el celular la dibuja, no hay ninguna acción.
+#[tauri::command(rename_all = "snake_case")]
+pub fn remote_set_live(
+    state: State<'_, RemoteState>,
+    route: Option<live::LiveRouteIn>,
+) -> Result<(), String> {
+    match state.core() {
+        Some(core) => core.set_live(route),
         None => Ok(()),
     }
 }

@@ -16,6 +16,7 @@ import { t } from '@/i18n';
 import { docToWork, isGrblFamily, parseGrblSettings, type GrblSettings } from '@/lib/device';
 import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
 import { fmt, readPref, writePref } from '@/lib/platform';
+import { noteJobStart } from '@/features/live/capture';
 import { buildJobArgs, isJobBusy, selectActiveDevice } from '../selectors';
 import type { AppState, SliceCreator } from '../types';
 import { INITIAL_MACHINE_DATA, jobElapsedSeconds, reduceMachine, type MachineData, type MachineDialog, type MachineEvent } from './reducer';
@@ -540,7 +541,13 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       await get().startJob();
     },
     // `document` (la ruta del proyecto) la anota el motor en el punto de control del trabajo.
-    startJob: (tweak) => guardJob(async () => getApi().startJob({ ...(await resolveJobArgs(tweak ? tweak(buildJobArgs(get())) : buildJobArgs(get()))), document: get().filePath ?? null })),
+    startJob: (tweak) =>
+      guardJob(async () => {
+        const args = await resolveJobArgs(tweak ? tweak(buildJobArgs(get())) : buildJobArgs(get()));
+        // La vista en vivo (solo lectura) toma estos argumentos al llegar el evento `started`.
+        noteJobStart(args, tweak !== undefined);
+        await getApi().startJob({ ...args, document: get().filePath ?? null });
+      }),
     pauseJob: async () => {
       await guard(() => getApi().pauseJob());
     },

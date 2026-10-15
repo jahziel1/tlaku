@@ -22,6 +22,7 @@ import { nodes } from './es/nodes';
 import { preview } from './es/preview';
 import { prefs } from './es/prefs';
 import { remote } from './es/remote';
+import { live } from './es/live';
 import { bundle } from './es/bundle';
 import { text } from './es/text';
 import { trace } from './es/trace';
@@ -303,6 +304,7 @@ export const es = {
   ...catalog,
   ...prefs,
   ...remote,
+  ...live,
   ...bundle,
   ...art,
   ...simple,

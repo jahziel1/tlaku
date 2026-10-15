@@ -113,6 +113,17 @@ Si **Detener** ocurre con la máquina en movimiento, la posición puede haberse 
 
 Si cierras la app con un trabajo en curso, se cancela de la misma forma, pero Tlaku conserva el punto de control y al abrirla de nuevo te ofrece continuar (ver [Continuar un trabajo interrumpido](#continuar-un-trabajo-interrumpido)).
 
+## Vista en vivo del trabajo
+
+Con un trabajo en curso, la casilla **Vista en vivo** (pestaña **Máquina**, sección **Trabajo**) dibuja sobre el lienzo lo que va haciendo la máquina, **sin cámara** (mientras está encendida tapa el diseño, sus tiradores y recuadros para que solo se lea la simulación; al apagarla todo vuelve como estaba): lo que ya se cortó o grabó en oscuro (con el color de su capa tostado), lo que falta tenue (los cortes con línea discontinua), el cabezal como una retícula y, cuando el láser está emitiendo, un punto rojo con brillo. Un cuadro abajo a la izquierda muestra el **porcentaje**, el **tiempo transcurrido** y el **restante**, y **Volver al diseño** apaga la vista.
+
+- **Apagada de fábrica**, y se recuerda tu última elección. Apagada no ubica ni anima nada. Puedes encenderla y apagarla **en cualquier momento, también a mitad de un trabajo**: al encenderla muestra de una vez todo lo que ya se hizo.
+- **Sigue a la máquina real, no al reloj.** Toma la posición que reporta la máquina (unas 4 a 5 veces por segundo), la busca sobre la ruta de la vista previa respetando el origen, el intercambio X/Y y el rotativo del perfil, y mueve el cabezal con fluidez entre reportes. Si la máquina va más lenta o más rápida que el estimado, se corrige sin saltar; en **pausa** la animación se detiene, y si el trabajo se **detiene o falla** queda congelada donde quedó. Al terminar muestra el 100 % con el cabezal en la última posición de la ruta.
+- **Si la posición no encaja** con el recorrido (por ejemplo, un perfil con el rotativo reflejado) usa el progreso del envío; en máquinas que no reportan su posición mientras trabajan (K40, galvo) la vista es un **estimado por el tiempo** y el texto lo dice.
+- **Solo mira.** No envía nada a la máquina: pausar y detener siguen donde siempre. Un trabajo que se **reanuda** desde un punto de control no tiene vista en vivo.
+- **Accesibilidad:** el lienzo tiene una descripción en texto con el porcentaje y el estado, que se actualiza sin molestar al lector de pantalla (el estado se anuncia cada 10 %).
+- Con trabajos de decenas de miles de movimientos (grabado de imágenes) va fluida: lo ya quemado se acumula en una capa y lo pendiente se dibuja una sola vez. En el celular tienes la misma vista; mira [Control desde el celular](09e-control-desde-el-celular.md#vista-en-vivo-en-el-celular).
+
 ## Ajustes en vivo: velocidad y potencia
 
 La sección **Ajustes en vivo**, al final de la pestaña **Máquina**, cambia la **Velocidad** y la **Potencia** del trabajo en curso como un porcentaje de lo programado, **sin tocar el G-code ni volver a calcularlo**. Cada una tiene los botones **-10**, **-1**, **+1** y **+10**, un campo de porcentaje (de 10 % a 200 %) y un botón para **Volver al 100 %**. El valor vigente es el que informa la controladora; mientras no lo haya informado (lo manda de vez en cuando) se muestra "—".

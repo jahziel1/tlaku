@@ -30,6 +30,7 @@ El control remoto además viene **apagado de fábrica**, solo escucha en una dir
 - **Máquina**: el estado (**Listo**, **Trabajando**, **En pausa**, **Terminado**, **Detenido**, **Falló**, **Alarma**...) y el nombre de la máquina y del documento.
 - **Avance**: el porcentaje, el tiempo transcurrido, el tiempo restante y la capa por la que va ("1 de 2").
 - **Recorrido**: el dibujo del trabajo con un punto que sigue al cabezal.
+- **Vista en vivo**: un interruptor que cambia el recorrido por la simulación del trabajo (ver abajo). Apagado de fábrica.
 - **Cámara de la PC**: si la cámara está encendida en la computadora, una imagen que se actualiza cada pocos segundos (sin celulares conectados no se manda nada).
 - Una **barra fija abajo**, siempre a la vista sin desplazar la página: con el trabajo en marcha o en pausa lleva **Pausar** (que pasa a **Reanudar**) y **Detener** (en rojo); en reposo lleva **Detener** e **Iniciar trabajo…** (si no se puede iniciar, arriba de la barra dice por qué). **Detener** pide un segundo toque en menos de 3 segundos y la barra muestra un aviso mientras espera.
 
@@ -39,6 +40,16 @@ El control remoto además viene **apagado de fábrica**, solo escucha en una dir
 
 Cuando el trabajo termina o falla, la página muestra un aviso a pantalla completa (**¡Trabajo terminado!** o **El trabajo falló**), suena un pitido, parpadea el título de la pestaña y mantiene la pantalla encendida mientras trabaja. Además **vibra el celular**, salvo en **Safari de iPhone y iPad (iOS)**, que no permite que una página haga vibrar el aparato: allí solo verás y oirás el aviso (el pitido necesita que hayas tocado la página al menos una vez).
 
+### Vista en vivo en el celular
+
+El interruptor **Vista en vivo del trabajo** de la página dibuja lo mismo que la computadora: lo ya quemado en oscuro, lo pendiente tenue y el cabezal (retícula, con un punto rojo cuando el láser emite), siguiendo la posición real de la máquina y moviéndose con fluidez entre informes. Es **solo para mirar**: no añade ninguna acción y usa la misma clave y las mismas reglas de red local que el resto.
+
+- **Apagado de fábrica.** Tu elección se guarda en el navegador de ese celular. Apagado no descarga la ruta ni anima nada.
+- **Al encenderlo** (también con el trabajo a la mitad) la página baja una sola vez una versión simplificada de la ruta (unos cientos de KB como máximo; en rellenos e imágenes se agrupan las líneas y se dibujan más anchas) y se pone al día con todo lo ya hecho. Después solo recibe la posición.
+- Si la ruta es demasiado grande, o la máquina no reporta su posición mientras trabaja (K40, galvo), la página lo dice y se ve el cabezal sobre el recorrido o un estimado por el tiempo.
+- Funciona en Safari de iPhone y iPad y en Chrome de Android. Con **reducir movimiento** activado en el sistema, el cabezal salta de informe en informe en vez de animarse. El dibujo tiene una descripción en texto con el porcentaje y el estado; el porcentaje y el estado también están arriba, en **Avance** y **Máquina**.
+- La computadora solo sigue el trabajo para el celular mientras **haya algún celular conectado**.
+
 ## Qué se puede hacer y qué no
 
 | Acción | Desde el celular |
@@ -46,7 +57,7 @@ Cuando el trabajo termina o falla, la página muestra un aviso a pantalla comple
 | **Pausar y reanudar** | Siempre, con cualquier máquina que tenga pausa. |
 | **Detener** | **Siempre.** Va directo a la máquina, sin pasar por la ventana de la computadora: si Tlaku se congela, detener sigue funcionando. No mira el estado, el encuadre ni la lista de comprobación. En la página pide un segundo toque ("Toca otra vez para DETENER") para evitar toques sin querer. |
 | **Iniciar un trabajo** | Solo si se cumple **todo** lo siguiente (abajo). |
-| **Ver avance, recorrido y cámara** | Sí. |
+| **Ver avance, recorrido, vista en vivo y cámara** | Sí. |
 | **Iniciar un láser galvo** | **Nunca.** El haz de un galvo es invisible: solo se inicia desde la computadora. El galvo tampoco tiene pausa, solo detener. |
 | **Cambiar el diseño, los ajustes o la máquina** | No: eso se hace en la computadora. |
 

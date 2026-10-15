@@ -57,6 +57,9 @@ header h1 { font-size: 20px; margin: 0; }
 .row { display: flex; justify-content: space-between; gap: 10px; font-size: 16px; font-variant-numeric: tabular-nums; }
 .row span:first-child { color: var(--muted); }
 #route svg { width: 100%; height: auto; max-height: 52vh; display: block; background: var(--bg); border-radius: 10px; }
+#livebox canvas { width: 100%; display: block; border-radius: 10px; background: var(--bg); touch-action: pan-y; }
+.live-toggle { display: flex; gap: 12px; align-items: center; font-size: 18px; padding: 6px 0; }
+.live-toggle input { width: 26px; height: 26px; flex: none; accent-color: var(--accent); }
 #cam img { width: 100%; height: auto; display: block; border-radius: 10px; background: #000; }
 .hint { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 12px; }
@@ -128,6 +131,16 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
       <div class="row"><span id="l-elapsed"></span><b id="elapsed">—</b></div>
       <div class="row"><span id="l-remaining"></span><b id="remaining">—</b></div>
       <div class="row"><span id="l-layer"></span><b id="layer">—</b></div>
+    </section>
+
+    <section class="card" id="livecard" hidden aria-labelledby="h-live">
+      <h2 id="h-live"></h2>
+      <label class="live-toggle"><input type="checkbox" id="live-on"><span id="t-live"></span></label>
+      <p class="hint" id="live-hint"></p>
+      <div id="livebox" hidden>
+        <canvas id="livecv" role="img"></canvas>
+        <p class="hint" id="live-note"></p>
+      </div>
     </section>
 
     <section class="card" id="route" hidden>
@@ -224,7 +237,13 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
       cancel: 'Cancelar', go: 'Iniciar', going: 'Esperando a la PC…',
       doneTitle: '¡Trabajo terminado!', doneText: 'El trabajo terminó correctamente.',
       failTitle: 'El trabajo falló', failText: 'Revisa la máquina y Tlaku en la PC.', ok: 'Entendido',
-      untitled: 'Sin título', sent: 'Hecho', netErr: 'Sin conexión con la PC'
+      untitled: 'Sin título', sent: 'Hecho', netErr: 'Sin conexión con la PC',
+      hLive: 'Vista en vivo', liveOn: 'Vista en vivo del trabajo',
+      liveHint: 'Dibuja lo que va haciendo la máquina: lo ya quemado en oscuro y lo que falta tenue. Solo mira; no controla nada. Apagada, no descarga nada.',
+      liveWait: 'Esperando la ruta del trabajo desde la PC…', liveNoRoute: 'La ruta de este trabajo es demasiado grande para el celular: solo se ve el cabezal en el recorrido.',
+      liveAlt: 'Vista en vivo del trabajo: {pct} %, {state}.', liveClock: 'Estimado por el tiempo: esta máquina no reporta su posición mientras trabaja.',
+      liveProgress: 'Según el progreso del envío (la posición no encajó con el recorrido).', liveDecimated: 'Ruta simplificada para el celular.',
+      liveFail: 'No se pudo bajar la ruta. Se reintentará.'
     },
     en: {
       title: 'Tlaku remote', connected: 'Connected', reconnecting: 'Reconnecting…', offlineBadge: 'Offline',
@@ -259,7 +278,13 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
       cancel: 'Cancel', go: 'Start', going: 'Waiting for the PC…',
       doneTitle: 'Job finished!', doneText: 'The job finished correctly.',
       failTitle: 'The job failed', failText: 'Check the machine and Tlaku on the PC.', ok: 'Got it',
-      untitled: 'Untitled', sent: 'Done', netErr: 'No connection to the PC'
+      untitled: 'Untitled', sent: 'Done', netErr: 'No connection to the PC',
+      hLive: 'Live view', liveOn: 'Live view of the job',
+      liveHint: 'Draws what the machine is doing: what is already burned in dark and what is left faint. View only; it controls nothing. When off, it downloads nothing.',
+      liveWait: 'Waiting for the job route from the PC…', liveNoRoute: 'This job route is too large for the phone: only the head is shown on the toolpath.',
+      liveAlt: 'Live view of the job: {pct}%, {state}.', liveClock: 'Estimated from time: this machine does not report its position while working.',
+      liveProgress: 'Based on the send progress (the position did not match the toolpath).', liveDecimated: 'Route simplified for the phone.',
+      liveFail: 'Could not download the route. It will retry.'
     }
   };
   var lang = /^en/i.test(navigator.language || '') ? 'en' : 'es';
@@ -294,6 +319,7 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
   $('warn').textContent = t('warn');
   var statics = { 'h-machine': 'hMachine', 'h-progress': 'hProgress', 'h-route': 'hRoute', 'h-cam': 'hCam', camhint: 'camHint',
     'l-elapsed': 'elapsed', 'l-remaining': 'remaining', 'l-layer': 'layer', 'sheet-title': 'sheetTitle', t1: 'c1', t2: 'c2', t3: 'c3',
+    'h-live': 'hLive', 't-live': 'liveOn', 'live-hint': 'liveHint',
     'sheet-warn': 'sheetWarn', 'sheet-cancel': 'cancel', 'alert-ok': 'ok', 'login-title': 'loginTitle', 'login-text': 'loginText' };
   statics['l-state'] = 'stateLabel';
   for (var id in statics) $(id).textContent = t(statics[id]);
@@ -471,6 +497,7 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
 
     drawRoute();
     drawHead();
+    renderLive();
     drawCamera();
     checkAlerts();
     if (ph === 'running') requestWake(); else releaseWake();
@@ -538,6 +565,281 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
     card.hidden = false;
     if (S.camera_v !== camV) { camV = S.camera_v; $('camimg').src = '/api/camera.jpg?v=' + camV; }
   }
+
+  // ---- Vista en vivo (solo lectura) ----------------------------------------------------------------
+  // El interruptor se recuerda en este navegador. Apagada no descarga la ruta ni anima nada; al
+  // encenderla (también con el trabajo a la mitad) baja la ruta una vez y se pone al día con lo ya hecho.
+
+  /* <live-core> */
+  // Interpolación del cabezal entre informes: misma lógica que `features/live/tracker.ts` de la PC
+  // (una prueba de la PC fija que den lo mismo). El tiempo de trabajo que se dibuja nunca retrocede
+  // salvo que la PC avise de un retroceso real de la máquina.
+  var LIVE_TAU = 0.12, LIVE_MAX_AGE = 0.8, LIVE_RATE_MIN = 0.25, LIVE_RATE_MAX = 20, LIVE_CATCH_UP = 8, LIVE_SNAP_AHEAD = 6, LIVE_MAX_DT = 0.1;
+  function liveClamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function LiveTracker(total) {
+    this.total = total; this.t = 0; this.mode = 'hold'; this.rate = 1;
+    this.tLoc = 0; this.wLoc = 0; this.seen = false; this.lastWall = 0; this.stalled = 0;
+  }
+  LiveTracker.prototype.report = function (r, wall) {
+    if (this.mode === 'frozen' || this.mode === 'done') return;
+    var t = liveClamp(r.t, 0, this.total);
+    if (!this.seen) {
+      this.seen = true; this.t = t; this.lastWall = wall;
+    } else {
+      var dw = wall - this.wLoc;
+      if (r.running && this.mode === 'running' && dw >= 0.08 && dw <= 3) {
+        var dt = t - this.tLoc;
+        if (dt > 1e-3) { this.rate = liveClamp(this.rate * 0.6 + (dt / dw) * 0.4, LIVE_RATE_MIN, LIVE_RATE_MAX); this.stalled = 0; }
+        else if (++this.stalled >= 2) { this.rate = Math.max(LIVE_RATE_MIN, this.rate * 0.5); }
+      }
+      if (r.retreat && t < this.t) this.t = t;
+      else if (t - this.t > LIVE_SNAP_AHEAD) this.t = t;
+    }
+    this.tLoc = r.retreat ? t : Math.max(t, this.tLoc);
+    this.wLoc = wall;
+    this.mode = r.running ? 'running' : 'hold';
+  };
+  LiveTracker.prototype.step = function (wall) {
+    var dt = liveClamp(wall - this.lastWall, 0, LIVE_MAX_DT);
+    this.lastWall = wall;
+    if (this.mode === 'frozen') return this.t;
+    if (this.mode === 'done') { this.t = this.total; return this.t; }
+    if (!this.seen) return this.t;
+    var target = this.mode === 'running' ? this.tLoc + this.rate * liveClamp(wall - this.wLoc, 0, LIVE_MAX_AGE) : this.tLoc;
+    if (target > this.t) {
+      var lag = (target - this.t) * (1 - Math.exp(-dt / LIVE_TAU));
+      var cap = dt * Math.max(this.rate, 1) * LIVE_CATCH_UP;
+      this.t = Math.min(this.total, this.t + Math.min(lag, cap));
+      if (target - this.t < 1e-3) this.t = Math.min(this.total, target);
+    }
+    return this.t;
+  };
+  LiveTracker.prototype.freeze = function () { this.mode = 'frozen'; };
+  LiveTracker.prototype.finish = function () { this.mode = 'done'; this.t = this.total; this.seen = true; };
+  /* </live-core> */
+
+  var LIVE_KEY = 'tlaku.remote.live';
+  function liveStored() { try { return localStorage.getItem(LIVE_KEY) === '1'; } catch (e) { return false; } }
+  function liveSave(on) { try { localStorage.setItem(LIVE_KEY, on ? '1' : '0'); } catch (e) {} }
+  var liveOn = liveStored();
+  var L_ = { v: 0, route: null, fetching: 0, failedAt: 0, trk: null, retreatSeq: null, cv: null, ctx: null, pend: null, burn: null,
+    cw: 0, ch: 0, scale: 1, dpr: 1, ri: 0, vi: 0, vf: 0, raf: 0, lastT: -1, lastAlt: 0, altPhase: '', starts: null, ends: null, waitSince: 0 };
+  var reduceMotion = false;
+  try { reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) {}
+
+  function liveReset() {
+    L_.route = null; L_.v = 0; L_.trk = null; L_.retreatSeq = null; L_.pend = null; L_.burn = null; L_.cv = null; L_.ctx = null;
+    L_.ri = 0; L_.vi = 0; L_.vf = 0; L_.cw = 0; L_.ch = 0; L_.lastT = -1; L_.starts = null; L_.ends = null; L_.waitSince = 0;
+    if (L_.raf) { cancelAnimationFrame(L_.raf); L_.raf = 0; }
+    var box = $('livebox'); box.hidden = true;
+  }
+
+  function liveCharred(hex) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+    var c = m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [128, 128, 128];
+    var burnt = [38, 24, 16];
+    return 'rgb(' + c.map(function (v, i) { return Math.round(v * 0.28 + burnt[i] * 0.72); }).join(',') + ')';
+  }
+
+  function liveBuild(data) {
+    // Índices por tiempo: inicio y fin de cada trazo, para ubicar el cabezal con una búsqueda binaria.
+    var runs = data.runs, n = runs.length;
+    L_.starts = new Array(n); L_.ends = new Array(n);
+    for (var i = 0; i < n; i++) { var p = runs[i].p; L_.starts[i] = p[2]; L_.ends[i] = p[p.length - 1]; }
+    L_.route = data; L_.v = data.version;
+    L_.trk = new LiveTracker(data.total);
+    L_.retreatSeq = null; L_.ri = 0; L_.vi = 0; L_.vf = 0; L_.cw = 0;
+  }
+
+  function liveFetch() {
+    if (L_.fetching || Date.now() - L_.failedAt < 3000) return;
+    L_.fetching = S.live_v;
+    api('/api/live').then(function (r) {
+      L_.fetching = 0;
+      if (!liveOn) return;                                   // se apagó mientras bajaba
+      if (r.ok && r.data && r.data.version > 0 && r.data.runs) {
+        liveBuild(r.data);
+        if (S && S.live_v !== r.data.version) liveFetch();    // la PC mandó otra mientras tanto
+        renderLive();
+      } else { L_.failedAt = Date.now(); setText($('live-note'), t('liveFail')); }
+    }).catch(function () { L_.fetching = 0; L_.failedAt = Date.now(); setText($('live-note'), t('liveFail')); });
+  }
+
+  function liveLayout() {
+    var cv = $('livecv'), bed = L_.route.bed;
+    var cssW = Math.max(120, $('livebox').clientWidth || 300);
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    var w = Math.round(cssW * dpr), h = Math.max(1, Math.round(w * bed[1] / bed[0]));
+    if (L_.cw === w && L_.ch === h && L_.cv === cv) return;
+    L_.cv = cv; L_.ctx = cv.getContext('2d'); L_.cw = w; L_.ch = h; L_.dpr = dpr; L_.scale = w / bed[0];
+    cv.width = w; cv.height = h; cv.style.height = (cssW * bed[1] / bed[0]) + 'px';
+    L_.pend = document.createElement('canvas'); L_.pend.width = w; L_.pend.height = h;
+    L_.burn = document.createElement('canvas'); L_.burn.width = w; L_.burn.height = h;
+    L_.ri = 0; L_.vi = 0; L_.vf = 0;
+    // Lo pendiente se traza una sola vez por tamaño de lienzo.
+    var c = L_.pend.getContext('2d'), runs = L_.route.runs, sc = L_.scale, H = h;
+    c.lineCap = 'butt'; c.lineJoin = 'round';
+    for (var i = 0; i < runs.length; i++) {
+      var r = runs[i], p = r.p;
+      c.beginPath(); c.strokeStyle = L_.route.layers[r.l] || '#808080';
+      c.lineWidth = Math.max(1.2 * L_.dpr, r.w * sc); c.globalAlpha = r.k === 0 ? 0.6 : 0.3;
+      c.setLineDash(r.k === 0 ? [4 * L_.dpr, 3 * L_.dpr] : []);
+      c.moveTo(p[0] * sc, H - p[1] * sc);
+      for (var j = 3; j < p.length; j += 3) c.lineTo(p[j] * sc, H - p[j + 1] * sc);
+      c.stroke();
+    }
+    c.globalAlpha = 1; c.setLineDash([]);
+  }
+
+  function liveBurnTo(tt) {
+    var c = L_.burn.getContext('2d'), runs = L_.route.runs, sc = L_.scale, H = L_.ch;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    var open = -1;
+    function seg(ri, vi, f0, f1) {
+      var r = runs[ri], p = r.p;
+      if (open !== ri) {
+        if (open >= 0) c.stroke();
+        c.beginPath(); c.strokeStyle = liveCharred(L_.route.layers[r.l]); c.lineWidth = Math.max(1.8 * L_.dpr, r.w * sc);
+        open = ri;
+      }
+      var ax = p[3 * vi], ay = p[3 * vi + 1], bx = p[3 * vi + 3], by = p[3 * vi + 4];
+      c.moveTo((ax + (bx - ax) * f0) * sc, H - (ay + (by - ay) * f0) * sc);
+      c.lineTo((ax + (bx - ax) * f1) * sc, H - (ay + (by - ay) * f1) * sc);
+    }
+    while (L_.ri < runs.length) {
+      var p = runs[L_.ri].p, nv = p.length / 3;
+      if (L_.vi >= nv - 1) { L_.ri++; L_.vi = 0; L_.vf = 0; continue; }
+      var t0 = p[3 * L_.vi + 2], t1 = p[3 * L_.vi + 5];
+      if (tt >= t1) { seg(L_.ri, L_.vi, L_.vf, 1); L_.vi++; L_.vf = 0; continue; }
+      if (tt > t0) { var f = (tt - t0) / (t1 - t0); if (f > L_.vf) { seg(L_.ri, L_.vi, L_.vf, f); L_.vf = f; } }
+      break;
+    }
+    if (open >= 0) c.stroke();
+  }
+
+  // Posición del cabezal en el instante tt: dentro de un trazo, sobre él; entre trazos, en línea recta del final de uno al inicio del siguiente.
+  function liveHeadAt(tt) {
+    var runs = L_.route.runs, n = runs.length, st = L_.starts, en = L_.ends;
+    var lo = 0, hi = n;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (st[mid] <= tt) lo = mid + 1; else hi = mid; }
+    var r = lo - 1;                                           // último trazo que ya empezó
+    if (r < 0) return { x: runs[0].p[0], y: runs[0].p[1], inRun: false };
+    var p = runs[r].p;
+    if (tt <= en[r]) {
+      var nv = p.length / 3, a = 0, b = nv - 1;
+      while (b - a > 1) { var m = (a + b) >> 1; if (p[3 * m + 2] <= tt) a = m; else b = m; }
+      var t0 = p[3 * a + 2], t1 = p[3 * b + 2], f = t1 > t0 ? liveClamp((tt - t0) / (t1 - t0), 0, 1) : 1;
+      return { x: p[3 * a] + (p[3 * b] - p[3 * a]) * f, y: p[3 * a + 1] + (p[3 * b + 1] - p[3 * a + 1]) * f, inRun: true };
+    }
+    if (r + 1 >= n) return { x: p[p.length - 3], y: p[p.length - 2], inRun: false };
+    var q = runs[r + 1].p, g = en[r], d = st[r + 1] - g, k = d > 0 ? liveClamp((tt - g) / d, 0, 1) : 1;
+    return { x: p[p.length - 3] + (q[0] - p[p.length - 3]) * k, y: p[p.length - 2] + (q[1] - p[p.length - 2]) * k, inRun: false };
+  }
+
+  function liveDraw(now) {
+    if (!L_.route || !L_.trk) return false;
+    liveLayout();
+    var trk = L_.trk, before = trk.t;
+    // Con «reducir movimiento» no se anima: el cabezal salta a lo último que informó la máquina.
+    var tt = reduceMotion ? ((trk.mode === 'running' || trk.mode === 'hold') ? (trk.t = Math.max(trk.t, trk.tLoc)) : trk.t) : trk.step(now / 1000);
+    liveBurnTo(tt);
+    var c = L_.ctx, w = L_.cw, h = L_.ch, sc = L_.scale;
+    c.clearRect(0, 0, w, h);
+    c.fillStyle = 'rgba(214,190,150,0.82)'; c.fillRect(0, 0, w, h);
+    c.drawImage(L_.pend, 0, 0); c.drawImage(L_.burn, 0, 0);
+    c.strokeStyle = 'rgba(80,60,40,0.55)'; c.lineWidth = 2; c.strokeRect(0, 0, w, h);
+    if (trk.seen) {
+      var hd = liveHeadAt(tt), x = hd.x * sc, y = h - hd.y * sc, on = hd.inRun && trk.mode === 'running', R = 9 * L_.dpr;
+      if (on) {
+        var gr = c.createRadialGradient(x, y, 0, x, y, R * 2);
+        gr.addColorStop(0, 'rgba(255,40,40,0.9)'); gr.addColorStop(1, 'rgba(255,40,40,0)');
+        c.fillStyle = gr; c.beginPath(); c.arc(x, y, R * 2, 0, 6.2832); c.fill();
+      }
+      c.lineWidth = 3.5 * L_.dpr; c.strokeStyle = 'rgba(255,255,255,0.85)';
+      for (var pass = 0; pass < 2; pass++) {
+        c.beginPath(); c.arc(x, y, R, 0, 6.2832);
+        c.moveTo(x - R * 1.7, y); c.lineTo(x - R * 0.6, y); c.moveTo(x + R * 0.6, y); c.lineTo(x + R * 1.7, y);
+        c.moveTo(x, y - R * 1.7); c.lineTo(x, y - R * 0.6); c.moveTo(x, y + R * 0.6); c.lineTo(x, y + R * 1.7);
+        c.stroke(); c.lineWidth = 1.6 * L_.dpr; c.strokeStyle = '#14110d';
+      }
+      c.fillStyle = on ? '#ff2d2d' : '#14110d'; c.beginPath(); c.arc(x, y, (on ? 4 : 2) * L_.dpr, 0, 6.2832); c.fill();
+    }
+    var moving = trk.mode === 'running' || Math.abs(tt - before) > 1e-4;
+    L_.lastT = tt;
+    liveAlt(tt);
+    return moving;
+  }
+
+  function liveLoop(ts) {
+    L_.raf = 0;
+    if (!liveOn || document.hidden || !L_.route) return;
+    var more = liveDraw(ts);
+    if (more && !reduceMotion) L_.raf = requestAnimationFrame(liveLoop);
+  }
+  function liveKick() {
+    if (!liveOn || !L_.route || L_.raf || document.hidden) return;
+    L_.raf = requestAnimationFrame(liveLoop);
+  }
+
+  // Alternativa textual del lienzo: porcentaje y estado, a lo más una vez por segundo.
+  function liveAlt(tt) {
+    var nowMs = Date.now(), ph = phase();
+    if ((nowMs - L_.lastAlt < 1000 && ph === L_.altPhase) || !L_.cv) return;
+    L_.lastAlt = nowMs; L_.altPhase = ph;
+    var pct = ph === 'finished' ? 100 : L_.route.total > 0 ? Math.round(100 * tt / L_.route.total) : 0;
+    L_.cv.setAttribute('aria-label', t('liveAlt', { pct: pct, state: t('st_' + ph) }));
+  }
+
+  // Un informe nuevo de la PC (cada cambio de estado).
+  function liveFeed() {
+    if (!L_.route || !L_.trk) return;
+    var ph = phase(), trk = L_.trk, lv = S.live;
+    if (ph === 'finished') trk.finish();
+    else if (ph === 'cancelled' || ph === 'error') trk.freeze();
+    else if (lv && (ph === 'running' || ph === 'paused' || ph === 'alarm')) {
+      var retreat = L_.retreatSeq !== null && lv.retreat_seq !== L_.retreatSeq;
+      L_.retreatSeq = lv.retreat_seq;
+      if (retreat) { L_.ri = 0; L_.vi = 0; L_.vf = 0; if (L_.burn) L_.burn.getContext('2d').clearRect(0, 0, L_.cw, L_.ch); }
+      trk.report({ t: lv.t, running: !!lv.running && ph === 'running', retreat: retreat }, performance.now() / 1000);
+    }
+    var note = lv && lv.src === 'clock' ? t('liveClock') : lv && lv.src === 'progress' ? t('liveProgress') : L_.route.decimated ? t('liveDecimated') : '';
+    setText($('live-note'), note);
+    liveKick();
+  }
+
+  function renderLive() {
+    var card = $('livecard');
+    card.hidden = !S.bed;
+    if (!S.bed) return;
+    $('live-on').checked = liveOn;
+    var box = $('livebox');
+    if (!liveOn) { if (L_.route || L_.raf) liveReset(); box.hidden = true; return; }
+    var active = !!(S.job && (S.job.phase === 'running' || S.job.phase === 'paused'));
+    if (S.live_v > 0 && (!L_.route || L_.v !== S.live_v)) { if (L_.route) liveReset(); liveFetch(); }
+    else if (S.live_v === 0 && L_.route) liveReset();
+    var ready = !!L_.route;
+    // Con la vista en vivo lista el recorrido de siempre sobra: la vista ya lo dibuja con el cabezal.
+    if (ready) $('route').hidden = true;
+    box.hidden = !ready && !active;
+    $('livecv').hidden = !ready;
+    if (!ready) {
+      // La PC ya sigue el trabajo pero no manda ruta: si pasan unos segundos es que era demasiado grande.
+      if (!active || !S.live || S.live_v > 0) L_.waitSince = 0; else if (!L_.waitSince) L_.waitSince = Date.now();
+      setText($('live-note'), !active ? '' : L_.waitSince && Date.now() - L_.waitSince > 4000 ? t('liveNoRoute') : t('liveWait'));
+      if (L_.waitSince) setTimeout(function () { if (liveOn && S && !L_.route) renderLive(); }, 4200);
+      return;
+    }
+    liveFeed();
+  }
+
+  $('live-on').addEventListener('change', function () {
+    liveOn = $('live-on').checked;
+    liveSave(liveOn);
+    if (!liveOn) liveReset();
+    if (S) renderLive();
+  });
+  window.addEventListener('resize', function () { if (liveOn && L_.route) { L_.cw = 0; liveKick(); } });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) liveKick(); });
 
   // ---- Aviso al terminar -----------------------------------------------------------------------
   function beep() {

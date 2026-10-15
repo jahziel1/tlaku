@@ -30,6 +30,7 @@ Remote control also comes **off by default**, listens only on one address of you
 - **Machine**: the status (**Ready**, **Working**, **Paused**, **Finished**, **Stopped**, **Failed**, **Alarm**...) and the name of the machine and of the document.
 - **Progress**: the percentage, the elapsed time, the remaining time, and the layer it is on ("1 of 2").
 - **Path**: the drawing of the job with a dot that follows the head.
+- **Live view**: a switch that replaces the path with a simulation of the job (see below). Off by default.
 - **PC camera**: if the camera is on at the computer, an image that refreshes every few seconds (with no phones connected nothing is sent).
 - A **fixed bar at the bottom**, always in view without scrolling the page: with the job running or paused it carries **Pause** (which becomes **Resume**) and **Stop** (in red); when idle it carries **Stop** and **Start job…** (if it cannot be started, above the bar it says why). **Stop** asks for a second tap within 3 seconds and the bar shows a notice while it waits.
 
@@ -39,6 +40,16 @@ Remote control also comes **off by default**, listens only on one address of you
 
 When the job finishes or fails, the page shows a full-screen notice (**Job finished!** or **The job failed**), a beep sounds, the tab title blinks, and the screen stays on while it works. The **phone also vibrates**, except in **Safari on iPhone and iPad (iOS)**, which does not allow a page to vibrate the device: there you will only see and hear the notice (the beep needs you to have tapped the page at least once).
 
+### Live view on the phone
+
+The **Live view of the job** switch on the page draws the same as the computer: what is already burned in dark, what is pending faint, and the head (crosshair, with a red dot when the laser emits), following the real position of the machine and moving smoothly between reports. It is **view only**: it adds no action and uses the same key and the same local-network rules as everything else.
+
+- **Off by default.** Your choice is saved in that phone's browser. When off it downloads no route and animates nothing.
+- **When you turn it on** (also in the middle of a job) the page downloads once a simplified version of the route (a few hundred KB at most; for fills and images the lines are grouped and drawn wider) and catches up with everything already done. After that it only receives the position.
+- If the route is too large, or the machine does not report its position while working (K40, galvo), the page says so and you see the head on the path or a time estimate.
+- It works in Safari on iPhone and iPad and in Chrome on Android. With **reduce motion** on in the system, the head jumps from report to report instead of animating. The drawing has a text description with the percentage and the state; the percentage and the state are also above, in **Progress** and **Machine**.
+- The computer only follows the job for the phone while **a phone is connected**.
+
 ## What can and cannot be done
 
 | Action | From the phone |
@@ -46,7 +57,7 @@ When the job finishes or fails, the page shows a full-screen notice (**Job finis
 | **Pause and resume** | Always, with any machine that has pause. |
 | **Stop** | **Always.** It goes straight to the machine, without passing through the computer's window: if Tlaku freezes, stopping still works. It does not look at the state, the framing, or the checklist. On the page it asks for a second tap ("Tap again to STOP") to avoid accidental taps. |
 | **Start a job** | Only if **everything** below is met. |
-| **See progress, path, and camera** | Yes. |
+| **See progress, path, live view, and camera** | Yes. |
 | **Start a galvo laser** | **Never.** A galvo's beam is invisible: it can only be started from the computer. The galvo also has no pause, only stop. |
 | **Change the design, the settings, or the machine** | No: that is done on the computer. |
 

@@ -22,6 +22,7 @@
 //!   comprobar el encuadre: la lógica de inicio no se duplica aquí.
 
 use super::auth::{Auth, ClientView};
+use super::live::{self, LiveReport, LiveRoute, LiveRouteIn};
 use crate::machine::{galvo, not_connected};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -146,6 +147,8 @@ pub struct Snapshot {
     /// El trabajo se encuadró en la PC después del último cambio del documento, de la máquina o de
     /// las opciones del trabajo.
     pub framed: bool,
+    /// Dónde está la máquina sobre la ruta de la vista en vivo (solo si la PC la sigue).
+    pub live: Option<LiveReport>,
 }
 
 fn clean_text(s: &str, max: usize) -> String {
@@ -177,6 +180,7 @@ impl Snapshot {
         self.total_s = finite_opt(self.total_s);
         self.head = finite_pair(self.head);
         self.bed = finite_pair(self.bed).filter(|b| b[0] > 0.0 && b[1] > 0.0);
+        self.live = self.live.take().map(LiveReport::sanitized);
         if let Some(l) = &mut self.layer {
             l.color = clean_text(&l.color, 16);
             l.mode = clean_text(&l.mode, 16);
@@ -274,6 +278,8 @@ impl Checklist {
 struct HubInner {
     snapshot: Option<(Snapshot, Instant)>,
     route: Option<Route>,
+    live: Option<LiveRoute>,
+    live_version: u64,
     camera: Option<(Vec<u8>, Instant)>,
     camera_version: u64,
     route_version: u64,
@@ -384,6 +390,33 @@ impl Core {
         }
         self.bump();
         Ok(())
+    }
+
+    /// Ruta de la vista en vivo del celular (mandada una vez por trabajo); `None` la borra. Falla
+    /// si no es válida o no cabe en el tope. Es solo lectura: no toca la máquina.
+    pub fn set_live(&self, route: Option<LiveRouteIn>) -> Result<(), String> {
+        {
+            let mut g = self.lock();
+            match route {
+                None => g.live = None,
+                Some(r) => {
+                    let version = g.live_version + 1;
+                    let valid = live::validate(&r, version)?;
+                    g.live_version = version;
+                    g.live = Some(valid);
+                }
+            }
+        }
+        self.bump();
+        Ok(())
+    }
+
+    /// La ruta de la vista en vivo para `GET /api/live`.
+    pub fn live_json(&self) -> Value {
+        match &self.lock().live {
+            Some(r) => r.json(),
+            None => live::empty_json(),
+        }
     }
 
     /// El recorrido para `GET /api/route`.
@@ -603,6 +636,7 @@ impl Core {
         let finished_seq = g.finished_seq;
         let error_seq = g.error_seq;
         let route_v = g.route.as_ref().map_or(0, |r| r.version);
+        let live_v = g.live.as_ref().map_or(0, |r| r.version);
         let camera_v = match &g.camera {
             Some((_, at)) if now.saturating_duration_since(*at) < CAMERA_FRESH => g.camera_version,
             _ => 0,
@@ -654,6 +688,8 @@ impl Core {
                 "message": block.map(start_reason_text),
             },
             "route_v": route_v,
+            "live_v": live_v,
+            "live": s.live,
             "camera_v": camera_v,
         })
     }

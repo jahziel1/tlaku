@@ -342,6 +342,7 @@ fn every_api_route_refuses_requests_without_a_valid_token() {
         ("GET", "/api/state"),
         ("GET", "/api/events"),
         ("GET", "/api/route"),
+        ("GET", "/api/live"),
         ("GET", "/api/camera.jpg"),
         ("POST", "/api/pause"),
         ("POST", "/api/resume"),
@@ -879,6 +880,104 @@ fn route_and_camera_are_served_to_authenticated_clients_only() {
     let st = call(r.addr, &cookie, "GET", "/api/state", "").json();
     assert_eq!(st["camera_v"], 1);
     assert_eq!(st["route_v"], 1);
+}
+
+fn live_run(t0: f64) -> super::live::LiveRun {
+    super::live::LiveRun {
+        k: 0,
+        l: 0,
+        w: 0.3,
+        p: vec![10.0, 10.0, t0, 50.0, 10.0, t0 + 4.0, 50.0, 40.0, t0 + 7.0],
+    }
+}
+
+fn live_route(runs: Vec<super::live::LiveRun>) -> super::live::LiveRouteIn {
+    super::live::LiveRouteIn {
+        bed: [400.0, 300.0],
+        total: 20.0,
+        layers: vec!["#ff0000".into()],
+        runs,
+        decimated: false,
+    }
+}
+
+#[test]
+fn live_view_is_read_only_and_served_to_authenticated_clients_only() {
+    let fake = Fake::with(MachineKind::Grbl, MachineState::Run);
+    let r = rig(fake.clone());
+    let cookie = session(r.addr, &r.core.auth.token());
+    // Sin ruta: versión 0 y nada que dibujar.
+    let none = call(r.addr, &cookie, "GET", "/api/live", "").json();
+    assert_eq!(
+        (
+            none["version"].as_u64(),
+            none["runs"].as_array().map(Vec::len)
+        ),
+        (Some(0), Some(0))
+    );
+    let st = call(r.addr, &cookie, "GET", "/api/state", "").json();
+    assert_eq!(st["live_v"], 0);
+    assert!(st["live"].is_null());
+
+    r.core
+        .set_live(Some(live_route(vec![live_run(0.0), live_run(10.0)])))
+        .unwrap();
+    let live = call(r.addr, &cookie, "GET", "/api/live", "").json();
+    assert_eq!(live["version"], 1);
+    assert_eq!(live["runs"].as_array().unwrap().len(), 2);
+    assert_eq!(live["layers"][0], "#ff0000");
+    // Sin sesión no se sirve.
+    assert_eq!(call(r.addr, "", "GET", "/api/live", "").status, 401);
+    // No hay ninguna acción en esa ruta: solo se puede leer.
+    for m in ["POST", "PUT", "DELETE"] {
+        let resp = call(r.addr, &cookie, m, "/api/live", "{}");
+        assert!(
+            resp.status == 405 || resp.status == 404,
+            "{m}: {}",
+            resp.status
+        );
+    }
+    // Lo único que pasó con la máquina fue el aviso de que entró un cliente.
+    assert!(
+        fake.calls().iter().all(|c| c.starts_with("clients")),
+        "{:?}",
+        fake.calls()
+    );
+
+    // La ubicación viaja en el estado y se acota.
+    let mut snap = ready_snapshot();
+    snap.job_state = JobPhase::Running;
+    snap.live = Some(super::live::LiveReport {
+        t: 6.5,
+        running: true,
+        retreat_seq: 2,
+        src: "position".into(),
+    });
+    r.core.update(snap, Instant::now());
+    let st = call(r.addr, &cookie, "GET", "/api/state", "").json();
+    assert_eq!(st["live_v"], 1);
+    assert_eq!(st["live"]["t"], 6.5);
+    assert_eq!(st["live"]["running"], true);
+    assert_eq!(st["live"]["retreat_seq"], 2);
+
+    // Una ruta nueva sube la versión; una inválida se rechaza y no pisa la buena.
+    r.core
+        .set_live(Some(live_route(vec![live_run(0.0)])))
+        .unwrap();
+    assert!(
+        r.core
+            .set_live(Some(live_route(vec![live_run(0.0), live_run(0.0)])))
+            .is_err()
+    );
+    assert_eq!(
+        call(r.addr, &cookie, "GET", "/api/live", "").json()["version"],
+        2
+    );
+    r.core.set_live(None).unwrap();
+    assert_eq!(
+        call(r.addr, &cookie, "GET", "/api/live", "").json()["version"],
+        0
+    );
 }
 
 #[test]

@@ -1,5 +1,8 @@
 import { getApi, type EventMap } from '@/api';
-import type { RemoteClient, RemoteConfig, RemoteStatus } from '@/api/api';
+import type { RemoteClient, RemoteConfig, RemoteLiveRoute, RemoteStatus } from '@/api/api';
+import { buildLivePayload } from '@/features/live/remoteRoute';
+import { addLiveConsumer, getLiveService, onLiveRoute, pokeLive } from '@/features/live/service';
+import type { LiveRoute } from '@/features/live/route';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore, hasOutput, type Prefs } from '@/store';
@@ -18,6 +21,9 @@ import { buildRoute, buildSnapshot } from './snapshot';
  *   encuadró tras el último cambio), todo a partir de los eventos `machine://*` que el store ya sigue;
  * - le manda el recorrido y, solo si hay celulares conectados y la cámara está encendida, un
  *   cuadro reducido cada pocos segundos;
+ * - para la vista en vivo del celular (solo lectura, ver `features/live`): con celulares conectados
+ *   pide a la PC seguir el trabajo, le manda la ruta simplificada UNA vez por trabajo y, en cada
+ *   informe, dónde está la máquina sobre ella;
  * - atiende el pedido de INICIAR del celular con la ruta de siempre (`startJob`), volviendo a
  *   comprobar el encuadre: la lógica de inicio no se duplica en el servidor.
  */
@@ -181,6 +187,33 @@ export function startRemote(): () => void {
     void api.remoteSetRoute({ route: buildRoute(s.preview, [device.bed[0], device.bed[1]]) }).catch(() => undefined);
   };
 
+  // ---- vista en vivo del celular (solo lectura) ----
+  // Con celulares conectados la PC sigue el trabajo (ubica la posición real en la ruta) aunque su
+  // propia vista en vivo esté apagada; sin celulares no hace nada.
+  const hasClients = () => running() && useRemote.getState().clients.some((c) => c.connected);
+  const removeConsumer = addLiveConsumer(hasClients);
+  // `undefined`: todavía no hay nada que mandar; `null`: borrar la ruta del servidor.
+  let livePayload: RemoteLiveRoute | null | undefined;
+  let liveFor: LiveRoute | null = null;
+  const sendLive = () => {
+    if (stopped || !running() || livePayload === undefined) return;
+    void api.remoteSetLive({ route: livePayload }).catch(() => undefined);
+  };
+  const offLiveRoute = onLiveRoute((route) => {
+    liveFor = route;
+    if (!route) {
+      livePayload = null;
+      return sendLive();
+    }
+    // Se arma fuera del camino del evento: con trabajos enormes tarda unos milisegundos.
+    setTimeout(() => {
+      if (stopped || liveFor !== route) return;
+      const bed = getLiveService()?.device?.bed ?? [0, 0];
+      livePayload = buildLivePayload(route, [bed[0], bed[1]]);
+      sendLive();
+    }, 0);
+  });
+
   // ---- cámara ----
   let cameraBusy = false;
   let cameraSent = false;
@@ -208,6 +241,7 @@ export function startRemote(): () => void {
     void applyRemote(remoteConfig(useStore.getState().prefs)).then(() => {
       lastJson = '';
       routeFor = Symbol('nuevo');
+      sendLive();
       schedule();
       if (running() && routeTimer === undefined) routeTimer = setTimeout(pushRoute, 100);
     });
@@ -226,11 +260,16 @@ export function startRemote(): () => void {
     if (r.status?.running && !prev.status?.running) {
       schedule();
       if (routeTimer === undefined) routeTimer = setTimeout(pushRoute, 100);
+      sendLive();
     }
+    // Entró o salió un celular: la PC empieza o deja de seguir el trabajo.
+    if (r.clients !== prev.clients || r.status?.running !== prev.status?.running) pokeLive();
   });
 
   return () => {
     stopped = true;
+    removeConsumer();
+    offLiveRoute();
     unsubscribe();
     unsubscribeRemote();
     clearTimeout(timer);

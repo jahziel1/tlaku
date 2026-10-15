@@ -37,6 +37,7 @@ export function createTauriApi(): LaserApi {
     remoteKick: (a) => call('remoteKick', a),
     remoteUpdate: (a) => call('remoteUpdate', a),
     remoteSetRoute: (a) => call('remoteSetRoute', a),
+    remoteSetLive: (a) => call('remoteSetLive', a),
     remoteCameraFrame: (a) => call('remoteCameraFrame', a),
     remoteStartResult: (a) => call('remoteStartResult', a),
     connect: (a) => call('connect', a),

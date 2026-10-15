@@ -87,6 +87,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             remote::remote_kick,
             remote::remote_update,
             remote::remote_set_route,
+            remote::remote_set_live,
             remote::remote_camera_frame,
             remote::remote_start_result,
             commands::connect,

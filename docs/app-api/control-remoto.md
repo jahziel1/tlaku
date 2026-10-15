@@ -68,6 +68,7 @@ español; la página traduce por `code`). Todo lo de `/api/*` excepto `login` ex
 | `GET /api/state` | Estado completo (abajo). |
 | `GET /api/events` | **SSE** (`text/event-stream`): un evento `state` (el mismo JSON de `/api/state`) al conectar, en cada cambio (con un pequeño agrupado de 150 ms) y cada 10 s como latido. Se cierra sola si el cliente es expulsado. |
 | `GET /api/route` | `{ version, bed: [w, h] \| null, d }`: recorrido del trabajo como trazado SVG en mm del documento (Y arriba). |
+| `GET /api/live` | **Vista en vivo** (solo lectura): `{ version, bed, total, layers: ["#rrggbb"], runs: [{ k: 0\|1, l, w, p: [x, y, t, ...] }], decimated }`, la ruta del trabajo simplificada (abajo). `version: 0` y sin trazos si no hay. La página solo la pide al encender su interruptor. |
 | `GET /api/camera.jpg` | Último cuadro de la cámara de la PC (JPEG); 404 `no_camera` si no hay uno de los últimos 20 s. |
 | `POST /api/pause`, `/api/resume`, `/api/stop` | 200 `{ ok: true }`; 409 con `not_connected`, `no_pause` (galvo) o `failed` (la máquina lo rechazó). |
 | `POST /api/start` · `{ "checklist": { "nearby": true, "clear": true, "air": true } }` | 200 si la ventana inició el trabajo; 409 con `checklist`, `pc_offline`, `not_connected`, `job_active`, `not_idle`, `nothing_to_send`, `galvo`, `not_framed`, `busy_request` o `failed` (el motivo del preflight va en `message`); 504 `timeout`. |
@@ -88,6 +89,8 @@ interface RemoteState {
   caps: { pause: boolean; pause_reason: string | null; stop: boolean };
   start: { allowed: boolean; reason: string | null; message: string | null };
   route_v: number; camera_v: number;        // 0 = no hay; la página los compara para volver a pedir
+  live_v: number;                           // versión de `GET /api/live`; 0 = no hay ruta para la vista en vivo
+  live: { t: number; running: boolean; retreat_seq: number; src: 'position'|'progress'|'clock' } | null;  // dónde está la máquina sobre esa ruta
 }
 ```
 
@@ -105,6 +108,7 @@ lo resume y se lo manda al servidor (`features/remote/`), como mucho 4 veces por
 | `remote_kick` | `id` | `RemoteStatus` |
 | `remote_update` | `snapshot: RemoteSnapshot` | — |
 | `remote_set_route` | `route: { bed, d } \| null` | — (error si pasa de 400 KB o trae caracteres que no son de un trazado) |
+| `remote_set_live` | `route: { bed, total, layers, runs, decimated } \| null` | — (error si no es válida o pasa de 320 KB / 30 000 trazos / 60 000 vértices; ver «Vista en vivo») |
 | `remote_camera_frame` | `jpeg_b64` (vacío = cámara apagada) | `boolean`: hay algún celular esperándolo. Si es `false` la ventana no manda más hasta que haya clientes |
 | `remote_start_result` | `result: { id, ok, code?, message? }` | — |
 
@@ -116,6 +120,36 @@ servidor limpia y acota todo lo que recibe (texto de 120 caracteres, números fi
 Eventos hacia la ventana: `remote://clients` `{ clients }` (entró, salió, caducó o lo desconectaron),
 `remote://start` `{ id, client }` (un celular pidió iniciar con su checklist completo) y `remote://action`
 `{ action: 'pause' | 'resume' | 'stop', client }` (para avisar en la PC y cortar el bucle de encuadre).
+
+### Vista en vivo (solo lectura)
+
+La simulación dibujada del trabajo que sigue a la máquina real (`features/live`). En el celular **no añade
+ninguna acción**: es una ruta `GET` más, con el mismo token y las mismas reglas de red local que el resto;
+las rutas `POST/PUT/DELETE` de `/api/live` no existen. Lo que viaja:
+
+- **La ruta, una vez por trabajo** (`remote_set_live`, la arma `features/live/remoteRoute.ts`). Son los **trazos
+  continuos con láser** (`k` 0 = corte, 1 = grabado; `l` = capa en `layers`; `w` = ancho en mm) con `p` =
+  `[x, y, t, ...]`, es decir, la posición en mm del documento (Y arriba) y el **tiempo de trabajo** (s) en cada
+  vértice. Los desplazamientos y el overscan no van: la página mueve la cabeza en línea recta del final de un
+  trazo al inicio del siguiente usando los tiempos. Cada trazo se simplifica con Douglas-Peucker (tolerancia
+  en mm: 0,1 o 1/4000 de la diagonal de la cama, la mayor). **Tope: 300 000 bytes de JSON** (el servidor
+  acepta hasta 320 KB, 30 000 trazos y 60 000 vértices). Si no cabe: primero sube la tolerancia (hasta 1/500
+  de la diagonal) y después, para rellenos e imágenes, manda **líneas agrupadas** (una de cada `s` pasadas,
+  dibujada `s` veces más ancha con el paso entre líneas estimado de los datos; `decimated: true`); los cortes
+  no se agrupan salvo como último recurso. Con más de 3 000 000 de movimientos no se manda ruta y la página
+  sigue mostrando el recorrido de siempre. Cada ruta nueva sube `live_v`; al empezar otro trabajo se manda
+  `null` (se borra) y luego la nueva.
+- **La ubicación, en cada informe** (`RemoteSnapshot.live`, ~4 por segundo): `t` es el tiempo de trabajo en
+  que la PC **ubicó la posición real** que reporta la máquina sobre esa misma ruta; `running` es falso en
+  Hold/pausa; `retreat_seq` sube si la máquina retrocedió de verdad; `src` es `position`, `progress` (la
+  posición no encajó con el recorrido y se usa el progreso del envío) o `clock` (máquinas que no reportan
+  posición mientras trabajan: K40, galvo; la página lo dice). Solo se informa mientras haya al menos un
+  celular conectado; sin celulares la PC no sigue el trabajo.
+- **La página interpola** el cabezal entre informes con la misma lógica que la PC (`features/live/tracker.ts`;
+  el bloque `live-core` de `page.html` es una copia que una prueba fija) y dibuja en un `<canvas>`: capa
+  pendiente pre-renderizada una vez, capa quemada incremental. El interruptor se guarda en `localStorage`
+  (`tlaku.remote.live`, con try/catch); apagado no baja la ruta ni anima nada, y al encenderlo (también a
+  mitad del trabajo) baja la ruta una vez y se pone al día con lo ya hecho.
 
 ### Cámara
 

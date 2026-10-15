@@ -1,0 +1,82 @@
+/* Vista en vivo (features/live): lienzo sobre el diseño, cuadro de avance y material. */
+:root,
+:root[data-theme='dark'] {
+  --live-sheet: #a8906c;
+  --live-reticle: #14110d;
+  --live-laser: #ff3030;
+}
+:root[data-theme='light'] {
+  --live-sheet: #dcc79d;
+  --live-reticle: #14110d;
+  --live-laser: #e01818;
+}
+
+.live-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  pointer-events: none;
+}
+
+.live-hud {
+  position: absolute;
+  left: var(--s-4);
+  bottom: var(--s-4);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 200px;
+  max-width: 300px;
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-chrome) 90%, transparent);
+  border: 1px solid var(--border);
+  /* Los controles de pausa y detener siguen en el panel: el cuadro solo deja apagar la vista. */
+}
+.live-hud__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.live-hud__head strong {
+  flex: 1;
+  font-weight: 620;
+}
+.live-hud__laser {
+  font-size: var(--text-sm);
+  color: var(--danger);
+  font-weight: 620;
+}
+.live-hud__note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.live-hud__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  align-items: flex-end;
+  margin: 0;
+}
+.live-hud__meta > div {
+  display: flex;
+  flex-direction: column;
+}
+.live-hud__meta dt {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.live-hud__meta dd {
+  margin: 0;
+}
+.live-hud__pct dd {
+  font-size: 1.6em;
+  font-weight: 700;
+  line-height: 1;
+}
+.mc-live .hint {
+  margin-top: var(--s-1);
+}

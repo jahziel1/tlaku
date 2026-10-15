@@ -238,6 +238,42 @@ export interface RemoteSnapshot {
   has_output: boolean;
   /** El trabajo se encuadró en la PC después del último cambio. */
   framed: boolean;
+  /** Dónde está la máquina sobre la ruta de la vista en vivo (solo si la PC la sigue). */
+  live?: RemoteLiveReport | null;
+}
+
+/** Ubicación de la máquina en la ruta de la vista en vivo (la página interpola entre informes). */
+export interface RemoteLiveReport {
+  /** Tiempo de trabajo (s) en que se ubicó la posición real. */
+  t: number;
+  /** La máquina está ejecutando (no en pausa). */
+  running: boolean;
+  /** Sube cada vez que la máquina retrocedió de verdad. */
+  retreat_seq: number;
+  src: 'position' | 'progress' | 'clock';
+}
+
+/** Un trazo continuo con láser de la ruta del celular. */
+export interface RemoteLiveRun {
+  /** 0 = corte, 1 = grabado. */
+  k: 0 | 1;
+  /** Capa (índice en `RemoteLiveRoute.layers`). */
+  l: number;
+  /** Ancho con que se dibuja (mm). */
+  w: number;
+  /** `[x, y, t, ...]`: mm del documento (Y arriba) y tiempo de trabajo (s) en cada vértice. */
+  p: number[];
+}
+
+/** Ruta simplificada de la vista en vivo del celular: se manda una vez por trabajo. */
+export interface RemoteLiveRoute {
+  bed: [number, number];
+  /** Duración de la ruta (s): el 100 %. */
+  total: number;
+  layers: string[];
+  runs: RemoteLiveRun[];
+  /** Hubo que simplificar más de lo normal para caber en el tope. */
+  decimated: boolean;
 }
 
 /** Recorrido del trabajo para dibujarlo en el celular. */
@@ -324,6 +360,8 @@ export interface LaserApi {
   /** La ventana informa el estado del trabajo al servidor remoto. */
   remoteUpdate(args: { snapshot: RemoteSnapshot }): Promise<void>;
   remoteSetRoute(args: { route: RemoteRoute | null }): Promise<void>;
+  /** Ruta de la vista en vivo del celular (solo lectura); `null` la borra. */
+  remoteSetLive(args: { route: RemoteLiveRoute | null }): Promise<void>;
   /** Un cuadro de la cámara (JPEG en base64; vacío = apagada). Devuelve si algún celular lo espera. */
   remoteCameraFrame(args: { jpeg_b64: string }): Promise<boolean>;
   remoteStartResult(args: { result: RemoteStartResult }): Promise<void>;
@@ -725,6 +763,7 @@ export const COMMAND_NAMES = {
   remoteKick: 'remote_kick',
   remoteUpdate: 'remote_update',
   remoteSetRoute: 'remote_set_route',
+  remoteSetLive: 'remote_set_live',
   remoteCameraFrame: 'remote_camera_frame',
   remoteStartResult: 'remote_start_result',
   connect: 'connect',

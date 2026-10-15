@@ -1,28 +1,19 @@
 import type { JobPreview } from '@/api';
 import type { RemoteLayer, RemoteRoute, RemoteSnapshot } from '@/api/api';
 import { baseName } from '@/features/history/paths';
+import { jobFraction } from '@/features/live/progress';
+import { getLiveService } from '@/features/live/service';
 import { hasOutput, selectActiveDevice } from '@/store';
 import { jobElapsedSeconds, selectFramed, selectHeadDoc } from '@/store/machine';
 import type { AppState } from '@/store/types';
+
+export { jobFraction };
 
 /**
  * Lo que la ventana le cuenta al servidor remoto (`src-tauri/src/remote`) para que el celular lo
  * muestre. Todo sale del estado que los eventos `machine://*` ya mantienen en el store: aquí solo se
  * resume. Funciones puras: se prueban sin red ni motor.
  */
-
-/** Fracción 0..1 del trabajo. */
-export function jobFraction(s: AppState, now: number): number {
-  if (s.jobState === 'finished') return 1;
-  if (s.jobState !== 'running' && s.jobState !== 'paused') return 0;
-  const total = s.preview?.total_s ?? 0;
-  const byTime = total > 0 ? Math.min(0.99, jobElapsedSeconds(s, now) / total) : null;
-  const byLines = s.progress && s.progress.total > 0 ? Math.min(1, s.progress.acked / s.progress.total) : null;
-  // Ruida, K40 y galvo no transmiten línea a línea: su "progreso" es la subida del archivo, no el trabajo.
-  const kind = selectActiveDevice(s).kind;
-  const streams = kind !== 'ruida' && kind !== 'lhy_micro' && kind !== 'galvo';
-  return (streams ? (byLines ?? byTime) : (byTime ?? byLines)) ?? 0;
-}
 
 /** Capa que se está ejecutando cuando el trabajo va en `fraction` del tiempo estimado. */
 export function layerAt(preview: JobPreview | null, fraction: number): RemoteLayer | null {
@@ -72,6 +63,8 @@ export function buildSnapshot(s: AppState, now: number): RemoteSnapshot {
     head: head ? [head[0], head[1]] : null,
     has_output: hasOutput(s),
     framed: selectFramed(s),
+    // Solo lectura: dónde está la máquina sobre la ruta de la vista en vivo (null si la PC no la sigue).
+    live: getLiveService()?.report() ?? null,
   };
 }
 

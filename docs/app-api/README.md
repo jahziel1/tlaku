@@ -26,7 +26,7 @@ Este contrato se partió por área (antes era un solo archivo de 55 KB). Busca e
 | [ruida.md](ruida.md) | Controladoras Ruida por UDP. | 0 |
 | [k40.md](k40.md) | Placa M2 Nano (`tlaku-lhymicro`) por USB. | 3 |
 | [automatizacion.md](automatizacion.md) | Servidor UDP local con comandos de texto. | 4 |
-| [control-remoto.md](control-remoto.md) | Servidor HTTP, seguridad, API y aviso al terminar. | 8 |
+| [control-remoto.md](control-remoto.md) | Servidor HTTP, seguridad, API, vista en vivo y aviso al terminar. | 9 |
 | [camara.md](camara.md) | Comandos de la cámara (ola 4). | 3 |
 
 ## Comandos por área
@@ -46,5 +46,5 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | [ruida.md](ruida.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [k40.md](k40.md) | `lhy_preview`, `lhy_home`, `lhy_state` |
 | [automatizacion.md](automatizacion.md) | `PING`, `START`, `STATUS`, `STOP` |
-| [control-remoto.md](control-remoto.md) | `remote_configure`, `remote_status`, `remote_regenerate`, `remote_kick`, `remote_update`, `remote_set_route`, `remote_camera_frame`, `remote_start_result` |
+| [control-remoto.md](control-remoto.md) | `remote_configure`, `remote_status`, `remote_regenerate`, `remote_kick`, `remote_update`, `remote_set_route`, `remote_set_live`, `remote_camera_frame`, `remote_start_result` |
 | [camara.md](camara.md) | `calibrate_lens`, `compose_bed_image`, `detect_circle_in_image`, `fetch_camera_frame` |

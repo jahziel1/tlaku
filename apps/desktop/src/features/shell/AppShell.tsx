@@ -12,6 +12,7 @@ import { RecoveryHost } from '@/features/recovery';
 import { BundleHost } from '@/features/bundle';
 import { SettingsHost } from '@/features/settings';
 import { AutomationHost } from '@/features/automation';
+import { LiveHost } from '@/features/live';
 import { RemoteHost } from '@/features/remote';
 import { HelpDialogHost } from '@/features/help';
 import { AlarmBanner, MachineDialogHost } from '@/features/machine';
@@ -59,6 +60,7 @@ export function AppShell() {
       <SettingsHost />
       <AutomationHost />
       <RemoteHost />
+      <LiveHost />
       <BundleHost />
     </>
   );

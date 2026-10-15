@@ -452,6 +452,7 @@ mod firmware;
 mod jobs;
 mod jog;
 mod limits;
+mod live_view;
 mod network;
 mod overrides;
 mod probe;

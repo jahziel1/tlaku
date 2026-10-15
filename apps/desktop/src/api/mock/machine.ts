@@ -590,7 +590,13 @@ export class MockMachine {
     const t = f * job.preview.total_s;
     const i = Math.min(job.total - 1, firstAtOrAfter(job.preview.move_times, t, job.total));
     const m = job.preview.moves;
-    this.pos = [m[i * 4 + 1]!, m[i * 4 + 2]!];
+    // La cabeza avanza por el movimiento en curso (no salta a su final): así la vista en vivo ve lo mismo que con una máquina real.
+    const t1 = job.preview.move_times[i];
+    const t0 = i > 0 ? job.preview.move_times[i - 1]! : 0;
+    const frac = t1 !== undefined && t1 > t0 ? Math.min(1, Math.max(0, (t - t0) / (t1 - t0))) : 1;
+    const ax = i > 0 ? m[(i - 1) * 4 + 1]! : 0;
+    const ay = i > 0 ? m[(i - 1) * 4 + 2]! : 0;
+    this.pos = [ax + (m[i * 4 + 1]! - ax) * frac, ay + (m[i * 4 + 2]! - ay) * frac];
     this.feed = m[i * 4]! === 1 ? 1500 : 12000;
     this.spindle = Math.round((m[i * 4 + 3]! / 100) * job.device.s_max);
     this.emit('machine://progress', { acked: Math.floor(f * job.total), total: job.total } satisfies ProgressEvent);

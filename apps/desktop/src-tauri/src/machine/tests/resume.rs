@@ -142,6 +142,23 @@ fn hatch_job() -> Vec<String> {
     v
 }
 
+/// Dónde empieza a quemar de verdad una reanudación que arranca en la línea `line` (desde 0):
+/// `at` si cae a mitad de un corte; si no, el inicio del primer corte en o después de esa línea.
+/// Cuando el punto cae en un `G0` (o al final de un corte), el preámbulo va hasta la posición
+/// previa a ese desplazamiento, pero el láser solo se enciende en el corte que viene después, que
+/// puede estar a un paso del rayado (0,5 mm) de aquel punto.
+fn first_burn_point(lines: &[String], line: u32, at: Option<[f64; 2]>) -> [f64; 2] {
+    at.unwrap_or_else(|| {
+        let parsed = Parsed::parse(lines);
+        parsed
+            .steps
+            .iter()
+            .find(|s| s.line >= line && s.kind == StepKind::Cut)
+            .expect("queda algún corte desde el punto")
+            .from
+    })
+}
+
 fn cut_length(lines: &[String]) -> f64 {
     Parsed::parse(lines)
         .steps
@@ -265,14 +282,10 @@ fn continue_after_interruption(b: &mut Bench, lines: &[String]) -> tlaku_doc::Re
         .expect("enciende el láser");
     assert!(g0 < on, "el láser se enciende antes de llegar: {sent:?}");
     assert!(b.emu.trace().burned_during_rapids().is_empty());
-    // Lo primero que quema la reanudación empieza en el punto de inicio.
+    // Lo primero que quema la reanudación empieza donde empieza el primer corte desde el punto.
     let trace = b.emu.trace();
     let first = &trace.segments()[trace_mark];
-    let start_pt = view.suggested.at.unwrap_or_else(|| {
-        resume::walker::modal_at(lines, view.suggested.line as usize, false)
-            .1
-            .unwrap()
-    });
+    let start_pt = first_burn_point(lines, view.suggested.line, view.suggested.at);
     let d =
         ((first.start[0] - start_pt[0]).powi(2) + (first.start[1] - start_pt[1]).powi(2)).sqrt();
     assert!(
@@ -318,6 +331,26 @@ fn a_power_cut_in_the_middle_can_be_continued_after_homing_and_framing() {
     let view = continue_after_interruption(&mut b, &lines);
     // Retrocedió algo, pero no volvió a empezar.
     assert!(view.suggested.line > 6);
+}
+
+/// Reproduce sin azar el caso que hacía intermitente la prueba del reinicio: el punto sugerido cae
+/// en el `G0` de una fila y lo primero que se quema es el inicio de la fila siguiente, a 0,5 mm de
+/// la posición que da `modal_at` (el final de la fila anterior).
+#[test]
+fn the_first_burn_after_a_rapid_is_the_next_cut_not_the_position_before_it() {
+    let lines = hatch_job();
+    // Fila 8 (y = 14): su G0 está en la línea 4 + 2·8 = 20 y la fila anterior acabó en (10, 13.5).
+    let g0_line = 20;
+    assert_eq!(lines[g0_line as usize], "G0 X10 Y14");
+    let before = resume::walker::modal_at(&lines, g0_line as usize, false).1;
+    assert_eq!(before, Some([10.0, 13.5]));
+    assert_eq!(first_burn_point(&lines, g0_line, None), [10.0, 14.0]);
+    // En el corte mismo, y con un punto a mitad de corte, nada cambia.
+    assert_eq!(first_burn_point(&lines, g0_line + 1, None), [10.0, 14.0]);
+    assert_eq!(
+        first_burn_point(&lines, g0_line + 1, Some([20.0, 14.0])),
+        [20.0, 14.0]
+    );
 }
 
 #[test]

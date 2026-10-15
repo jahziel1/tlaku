@@ -6,6 +6,10 @@ Lo más importante que trae cada versión de Tlaku, escrito para quien usa la ap
 
 Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, el emulador, la tarjeta galvo simulada y pruebas automáticas.
 
+### Vista en vivo del trabajo
+
+- **Vista en vivo** (casilla en la pestaña **Máquina**, apagada de fábrica): dibuja sobre el diseño lo que hace la máquina, sin cámara, siguiendo la posición real que reporta: lo ya quemado en oscuro, lo pendiente tenue y el cabezal. Se enciende y apaga cuando quieras, también a mitad de un trabajo. También está en la página del **celular** (con su propio interruptor). Solo mira. Mira [Enviar con seguridad](09-enviar-con-seguridad.md#vista-en-vivo-del-trabajo) y [Control desde el celular](09e-control-desde-el-celular.md#vista-en-vivo-en-el-celular).
+
 ### Revisar diseño
 
 - **Máquina > Revisar diseño…** (`Ctrl/Cmd+Alt+R`) lee tu diseño y lista **doce tipos de hallazgo** (trazos casi cerrados, líneas duplicadas, uniones pendientes, fragmentos diminutos, nodos de sobra, objetos fuera o pasados de la cama, textos sin convertir, capas sin salida u ocultas con objetos, y imágenes con demasiada o poca resolución). Cada uno trae **Arreglar** (si lo hay), **Seleccionar** e **Ignorar**; **Arreglar todo lo seguro** cierra, une y quita duplicados en un paso de **Deshacer**.

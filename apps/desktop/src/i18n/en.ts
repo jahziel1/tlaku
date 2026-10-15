@@ -23,6 +23,7 @@ import { nodes } from './en/nodes';
 import { preview } from './en/preview';
 import { prefs } from './en/prefs';
 import { remote } from './en/remote';
+import { live } from './en/live';
 import { bundle } from './en/bundle';
 import { text } from './en/text';
 import { trace } from './en/trace';
@@ -59,6 +60,7 @@ export const en: { [K in I18nKey]?: string } = {
   ...preview,
   ...prefs,
   ...remote,
+  ...live,
   ...bundle,
   ...text,
   ...variables,

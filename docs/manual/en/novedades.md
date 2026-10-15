@@ -6,6 +6,10 @@ The most important things each version of Tlaku brings, written for people who u
 
 Seventh batch, of polish and of gaps that remained compared with LightBurn. **None of this has been tested with a real machine**: it was validated with the virtual machine, the emulator, the simulated galvo board, and automated tests.
 
+### Live view of the job
+
+- **Live view** (checkbox in the **Machine** tab, off by default): draws on top of the design what the machine is doing, without a camera, following the real position it reports: what is already burned in dark, what is pending faint, and the head. Turn it on and off whenever you like, also in the middle of a job. It is also on the **phone** page (with its own switch). View only. See [Sending safely](09-enviar-con-seguridad.md#live-view-of-the-job) and [Control from the phone](09e-control-desde-el-celular.md#live-view-on-the-phone).
+
 ### Review design
 
 - **Machine > Review design…** (`Ctrl/Cmd+Alt+R`) reads your design and lists **twelve kinds of findings** (almost-closed strokes, duplicate lines, pending joins, tiny fragments, extra nodes, objects outside or past the bed, unconverted text, layers with no output or hidden with objects, and images with too much or too little resolution). Each one comes with **Fix** (if there is one), **Select**, and **Ignore**; **Fix everything safe** closes, joins, and removes duplicates in a single **Undo** step.
