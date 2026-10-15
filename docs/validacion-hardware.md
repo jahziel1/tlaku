@@ -173,6 +173,29 @@ Sin láser (potencia 0 en todo), sin regla, sin material y sin luz para la cáma
 
 Falta con la máquina: medir con regla (pasos 7 y 9), calibrar la cámara (lente con tablero y alineación de 4 puntos), los pasos con láser (11 a 14, 17 y 18), el corte de luz real con material (2.5), el control desde el teléfono con la máquina real, el bloqueo de jog fuera de la cama con el perfil y comprobar el estimado corregido.
 
+### 2.7 Segunda sesión: primeras pruebas con el láser (Falcon2 Pro 22 W, 2026-10-15, macOS)
+
+MDF de 3 mm (pedazo de desecho), tapa cerrada, **sin ajustar el enfoque**, sin regla. Con la herramienta `hwtest` (pasos con láser acotados: disparo ≤ 5 %, encuadre ≤ 5 %, trabajos ≤ 40 % y ≤ 40 mm).
+
+| Prueba | Resultado | Notas |
+|---|---|---|
+| Elegir el puerto | Pasó | Con un Flipper Zero conectado, la Falcon sale primero. |
+| Bloqueo de jog fuera de la cama (2.2 n.º 7) | Pasó | Tras el homing, −5 mm en X o Y y −30 mm desde X=20 se rechazan sin enviar nada; dentro de la cama, se mueve. |
+| Migración del identificador | Pasó | Al abrir con `io.github.jahziel1.tlaku` se copiaron los ajustes de `org.tlaku.app` y quedó la marca. |
+| Continuar tras el corte de energía (2.5) | Pasó tras corregir | Primer intento: con el punto de control de ayer y la máquina en (0,0), la app concluyó «terminó» y tras el encuadre se saltó ~252 mm; además decía «sin homing» con el encuadre en curso y el encuadre iba desde el origen. Corregido (compara la posición viva solo con un punto reciente y sin movimientos desde la conexión; mensaje «ocupada»; encuadre solo de la pieza; «línea 7 de 12»). Repetido: reanudó en (166,2, 100), 1,5 mm antes del corte, y recorrió todo lo que faltaba. |
+| Encuadre con láser al 1 % (2.2 n.º 11) | Pasó | S10 en el borde y 0 en los viajes; no marca y casi no se ve a través de la ventana naranja. |
+| Disparo de prueba (2.2 n.º 12) | Pasó a medias | La máquina acepta `M3 S20/S50` + `G4`; a 2–5 % sin enfoque no dejó marca visible. El primer `M3` tardó ~1 s en aceptarse antes de la pausa, así que el disparo pudo durar hasta ~1,2 s (pendiente: contar el tiempo tras la confirmación). |
+| Cuadrado de línea 20 mm, 15 %, 1000 mm/min (2.2 n.º 13) | Pasó | Marca bien. Estimado 5,39 s, real ~5,5 s. |
+| Relleno 15×15 mm, 20 %, 3000 mm/min, 0,1 mm (2.2 n.º 14) | Pasó | Se ve parejo. Estimado 61,3 s, real 60,8 s. |
+| Prueba de materiales 4×4 (10–40 %, 3000–1000 mm/min) | Pasó | Se distinguen los tonos. Estimado 139,0 s, real 136,9 s. |
+| Pausa, reanudar y detener con láser y aire (2.2 n.º 15 y 16) | Pasó | En la pausa el láser queda en 0 y reanuda con `[MSG:Restoring spindle]`; detener apaga el láser al instante, frena en ~1,5 mm y la placa conserva la posición tras el reinicio propio. |
+| Aire | Medido | `M8`/`M9` funcionan; el aire sigue **~5 s** tras `M9` con `$152=30` (así que `$152` no son segundos en este firmware). |
+| **Imagen 15×15 mm** (dithering, 9187 líneas, 35 %) | **Falló** | A los ~31 s la placa dejó de mandar reportes de estado y a los 50 s Tlaku declaró la conexión perdida; la placa siguió y vació su planificador (al reconectar: Idle, láser apagado). Antes apareció una línea de estado truncada pegada a un `ok` (`…Ov:100,100,10ok`). En investigación. |
+
+Falta con la máquina: grabar una imagen completa (tras el arreglo), medir con regla, calibrar la cámara, corte (necesita enfoque y subir el tope), corte de luz real con material, la app con su ventana (diálogo de inicio, modo sencillo, vista en vivo) y el control desde el teléfono.
+
+
+
 ---
 
 ## 3. Otros GRBL (diodos genéricos, grblHAL, FluidNC, Marlin y Smoothie)

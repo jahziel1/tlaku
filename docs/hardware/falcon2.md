@@ -384,3 +384,11 @@ Trabajo de un cuadrado de 40 mm en (100, 100) a 3000 mm/min, con el perfil GRBL 
 - **Arranque fijo de ~1 s que no depende de Tlaku.** El firmware de la Falcon tarda ~0,85–1 s en
   procesar el `M4 S0` inicial; un `G0` suelto arranca en ~60 ms (medido). Cada trabajo paga ese
   segundo de arranque aunque el G-code sea mínimo, y el estimado no lo incluye.
+
+### 10.4 Segunda sesión con láser (2026-10-15)
+
+- **Aire:** tras `M9` el aire sigue unos **5 s** (medido a oído) con `$152=30`. `$150=30`, `$151=100`, `$153=0`… son ajustes propios de Creality sin documentación pública confirmada; `$152` no está en segundos.
+- **`M3`/`M4` tardan ~1 s en aceptarse** la primera vez (el `ok` y el arranque del movimiento llegan ~1 s después); un segundo `M3` seguido no tarda.
+- **Línea de estado truncada pegada a un `ok`:** `<Run|MPos:0.287,0.112,0.000|Bf:28,65427|FS:10530,0|Ov:100,100,10ok` (con aire y relleno) y `<Run|MPos:94.188,28.750,0.000|Bf:0,65419|FS:3000,0|Ov:100,100,10ok` (imagen). Defecto del firmware al mezclar el reporte con la respuesta.
+- **Imagen densa:** con el planificador lleno (`Bf:0`) y miles de líneas cortas la placa dejó de mandar reportes ~20 s y la app la dio por perdida; la placa siguió moviéndose. En investigación (ver docs/validacion-hardware.md §2.7).
+- **Grabado en MDF 3 mm sin enfocar:** marca desde el 15 % a 1000 mm/min (línea) y desde el 10 % a 3000 mm/min (relleno 0,1 mm).
