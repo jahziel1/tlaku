@@ -95,7 +95,7 @@ pub async fn interrupted_job(
         // Con la máquina conectada se compara su posición de ahora con la guardada: si la app
         // murió con el trabajo en su búfer, la máquina pudo seguir sola.
         Ok(s.load().map(|l| {
-            let now = h.as_ref().and_then(resume::start::current);
+            let now = h.as_ref().and_then(|h| resume::start::current_for(h, &l));
             resume::summarize(&s, &l, now.as_ref())
         }))
     })
@@ -121,7 +121,7 @@ pub async fn interrupted_job_view(
     };
     let h = state.handle().ok();
     blocking(move || {
-        let now = h.as_ref().and_then(resume::start::current);
+        let now = h.as_ref().and_then(|h| resume::start::current_for(h, &l));
         resume::view(&s, &l, &opts, now.as_ref())
     })
     .await

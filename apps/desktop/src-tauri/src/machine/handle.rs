@@ -14,6 +14,18 @@ pub(super) struct Shared {
     pub(super) homed: AtomicBool,
     /// Hay un trabajo (no un encuadre) transmitiéndose ahora mismo.
     pub(super) running: AtomicBool,
+    /// Hay algo transmitiéndose (un trabajo o un encuadre): la consola y los movimientos se
+    /// rechazan hasta que termine.
+    pub(super) streaming: AtomicBool,
+    /// Desde que se abrió esta conexión se hizo algo que mueve la cabeza (homing, jog, ir a una
+    /// posición, sonda, encuadre, otro trabajo o una línea de G-code a mano). Ya no se puede
+    /// suponer que la MPos de ahora es la que dejó un trabajo anterior (ver
+    /// `resume::start::current_for`).
+    pub(super) moved: AtomicBool,
+    /// Con qué se comparó el punto de control en esta conexión (id del punto y la máquina vista,
+    /// o `None` si no se compara); se fija en la primera evaluación y no cambia, así la
+    /// sugerencia no se mueve por hacer homing o encuadrar. Ver `resume::start::current_for`.
+    pub(super) resume_baseline: Mutex<Option<(String, Option<resume::assess::Now>)>>,
     /// Área de la cama [ancho, alto] en los ejes de la máquina (del perfil); la guarda del
     /// movimiento manual la usa junto con `$130`/`$131`.
     pub(super) bed: Mutex<Option<[f64; 2]>>,
@@ -269,6 +281,22 @@ impl Handle {
     /// Hay un trabajo transmitiéndose: su punto de control no es de uno «interrumpido».
     pub fn is_running(&self) -> bool {
         self.shared.running.load(Ordering::SeqCst)
+    }
+
+    /// Memoria de la comparación del punto de control (ver `resume::start::current_for`).
+    pub fn resume_baseline(&self) -> &Mutex<Option<(String, Option<resume::assess::Now>)>> {
+        &self.shared.resume_baseline
+    }
+
+    /// Hay un trabajo o un encuadre transmitiéndose.
+    pub fn is_streaming(&self) -> bool {
+        self.shared.streaming.load(Ordering::SeqCst)
+    }
+
+    /// Desde que se abrió la conexión se hizo algo que mueve la cabeza (homing, jog, encuadre,
+    /// otro trabajo, ir a una posición, una línea de G-code a mano…). La marca no se quita.
+    pub fn position_altered(&self) -> bool {
+        self.shared.moved.load(Ordering::SeqCst)
     }
 
     /// Se hizo homing y la posición no se ha perdido desde entonces.

@@ -3,6 +3,18 @@
 use super::*;
 use tlaku_i18n::tr;
 
+/// ¿La línea puede mover la cabeza (o cambiar lo que la MPos significa)? Solo se descartan las
+/// consultas y ajustes (`$$`, `$G`, `$I`, `$100=...`) y los `M` (láser, aire, consultas de Marlin),
+/// que no mueven nada; `$H` y `$J=` sí, y cualquier otra cosa se da por movimiento.
+fn line_may_move(line: &str) -> bool {
+    let l = line.trim().to_ascii_uppercase();
+    match l.chars().next() {
+        None | Some('?' | 'M') => false,
+        Some('$') => l.starts_with("$H") || l.starts_with("$J"),
+        Some(_) => true,
+    }
+}
+
 impl Worker {
     pub(super) fn realtime(
         &mut self,
@@ -79,6 +91,9 @@ impl Worker {
                 line = line,
                 max = max
             )));
+        }
+        if line_may_move(&line) {
+            self.note_head_moves();
         }
         let timeout = if line.eq_ignore_ascii_case("$H") {
             self.timing.home_timeout
@@ -180,5 +195,32 @@ impl Worker {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::line_may_move;
+
+    #[test]
+    fn only_queries_settings_and_m_codes_leave_the_head_alone() {
+        for q in [
+            "$$", "$G", "$I", "$#", "$100=250", "?", "M5", "M114", "m3s0",
+        ] {
+            assert!(!line_may_move(q), "{q}");
+        }
+        for m in [
+            "$H",
+            "$h",
+            "$HX",
+            "$J=G91X10F600",
+            "G0X10",
+            "G1 X5",
+            "g28",
+            "X10",
+            "G92",
+        ] {
+            assert!(line_may_move(m), "{m}");
+        }
     }
 }

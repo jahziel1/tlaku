@@ -16,7 +16,12 @@
 //!    sin la app. [`assess::assess`] compara la MPos de ahora con la guardada; si se movió, la
 //!    relocaliza hacia delante sobre el recorrido y decide si quedó a mitad (se propone seguir
 //!    desde ahí) o al final (probablemente terminó: se recomienda descartar). Sin posición fiable
-//!    conserva el comportamiento de siempre, pero avisa de cuánto pudo seguir sola.
+//!    conserva el comportamiento de siempre, pero avisa de cuánto pudo seguir sola. Esa
+//!    comparación solo vale si el punto de control es reciente (menos de
+//!    [`start::MAX_CHECKPOINT_AGE_MS`]) y la conexión no ha movido la cabeza desde que se abrió
+//!    (homing, jog, encuadre, otro trabajo...): si no, `machine` es `NotChecked` y se usa la
+//!    posición guardada. Se decide una vez por conexión y punto ([`start::current_for`]), así la
+//!    sugerencia no cambia por hacer homing o encuadrar.
 //! 5. **Reanudar.** [`plan::build_program`] antepone un preámbulo (láser apagado, `G0` hasta el
 //!    punto, y solo entonces `M3`/`M4` con su `S` y `F`) al resto del G-code. El trabajador lo
 //!    envía por el camino de siempre, con el preflight de siempre.

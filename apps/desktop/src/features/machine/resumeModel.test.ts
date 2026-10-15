@@ -12,7 +12,7 @@ const view = {
   suggested: { line: 5, move_index: 2, at: [10, 4], executing_line: 5, distance_mm: 0, mismatch: false, row_restart: false, percent: 40, z_delta: 0 },
 } as unknown as ResumeView;
 
-const ready = (homing: boolean | null, homed: boolean): ResumeReadiness => ({ homing, homed, state: 'idle' });
+const ready = (homing: boolean | null, homed: boolean): ResumeReadiness => ({ homing, settings_read: true, homed, state: 'idle' });
 const ok: ResumeGate = { connected: true, sameMachine: true, jobBusy: false, state: 'idle', ready: ready(true, true), hasPoint: true, unmoved: false, framedRun: true, framedOk: true, checklistOk: true };
 
 describe('restart choice', () => {
@@ -55,5 +55,19 @@ describe('resumeBlockedReason', () => {
     expect(resumeBlockedReason({ ...nohome, unmoved: true, framedRun: false })).toBe('machine.resume.blocked.frame');
     // Marlin/Smoothie no contestan `$$`: sin dato se pide la confirmación, no se supone homing.
     expect(homeMode(ready(null, false))).toBe('confirm');
+  });
+
+  it('a busy machine or one that did not answer `$$` is not asked to confirm that nothing moved', () => {
+    // Encuadre en curso: no es «sin homing».
+    const framing: ResumeReadiness = { homing: null, settings_read: false, homed: true, state: 'run' };
+    expect(homeMode(framing)).toBe('busy');
+    expect(resumeBlockedReason({ ...ok, ready: framing, state: undefined })).toBe('machine.resume.blocked.busy');
+    expect(resumeBlockedReason({ ...ok, ready: framing, state: undefined, unmoved: true })).toBe('machine.resume.blocked.busy');
+    // En reposo pero sin respuesta de `$$`.
+    const silent: ResumeReadiness = { homing: null, settings_read: false, homed: false, state: 'idle' };
+    expect(homeMode(silent)).toBe('noReply');
+    expect(resumeBlockedReason({ ...ok, ready: silent })).toBe('machine.resume.blocked.noReply');
+    // Con alarma y respuesta sigue siendo el homing.
+    expect(homeMode({ homing: true, settings_read: true, homed: false, state: 'alarm' })).toBe('home');
   });
 });
