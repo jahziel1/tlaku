@@ -109,3 +109,18 @@ camera.undistort.channels = unsupported number of channels
 camera.undistort.buffer = inconsistent buffer size while correcting the image
 camera.undistort.open_failed = could not open {path}: {error}
 camera.undistort.save_failed = could not save {path}: {error}
+
+# head_align/
+camera.head_align.plan.grid_range = the grid must have between {min} and {max} points per side
+camera.head_align.plan.bad_bed = the bed or the margin are not valid numbers
+camera.head_align.plan.bad_region = the camera zone is not valid
+camera.head_align.plan.too_small = the safe area is under {min} mm on a side: lower the margin or widen the zone
+camera.head_align.detect.few_frames = there are {n} photos and at least {min} are needed
+camera.head_align.detect.tiny = the photos are too small
+camera.head_align.detect.size_mismatch = one photo is {w}x{h} and the others {fw}x{fh}
+camera.head_align.detect.groups_mismatch = the row list does not match the photo list
+camera.head_align.fit.few_points = only {n} points have the head located and at least {min} are needed
+camera.head_align.fit.zero_size = the image size cannot be 0
+camera.head_align.fit.not_finite = some positions or pixels are not valid numbers
+camera.head_align.fit.bad_parallax = the camera height must be greater than the head point height (and both valid)
+camera.head_align.fit.degenerate = the points cannot give an alignment (nearly collinear or repeated)

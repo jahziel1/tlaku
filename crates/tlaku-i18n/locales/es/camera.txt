@@ -109,3 +109,18 @@ camera.undistort.channels = número de canales no soportado
 camera.undistort.buffer = tamaño de búfer inconsistente al corregir la imagen
 camera.undistort.open_failed = no se pudo abrir {path}: {error}
 camera.undistort.save_failed = no se pudo guardar {path}: {error}
+
+# head_align/
+camera.head_align.plan.grid_range = la rejilla debe tener entre {min} y {max} puntos por lado
+camera.head_align.plan.bad_bed = la cama o el margen no son números válidos
+camera.head_align.plan.bad_region = la zona de la cámara no es válida
+camera.head_align.plan.too_small = el área segura mide menos de {min} mm de lado: baja el margen o amplía la zona
+camera.head_align.detect.few_frames = hay {n} fotos y se necesitan al menos {min}
+camera.head_align.detect.tiny = las fotos son demasiado pequeñas
+camera.head_align.detect.size_mismatch = una foto mide {w}x{h} y las demás {fw}x{fh}
+camera.head_align.detect.groups_mismatch = la lista de filas no coincide con la de fotos
+camera.head_align.fit.few_points = quedan {n} puntos con el cabezal localizado y se necesitan al menos {min}
+camera.head_align.fit.zero_size = el tamaño de la imagen no puede ser 0
+camera.head_align.fit.not_finite = hay posiciones o píxeles que no son números válidos
+camera.head_align.fit.bad_parallax = la altura de la cámara debe ser mayor que la del punto del cabezal (y ambas válidas)
+camera.head_align.fit.degenerate = los puntos no permiten calcular la alineación (casi alineados o repetidos)

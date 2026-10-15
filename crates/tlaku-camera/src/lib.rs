@@ -14,6 +14,9 @@
 //! - Mosaico: fotos con su posición en la cama (una captura de la cama o la cámara del cabezal)
 //!   compuestas con mezcla en los bordes (ver [`mosaic`]).
 //! - Buscador de círculos: Hough con gradiente y ajuste por mínimos cuadrados (ver [`circle`]).
+//! - Alinear con el cabezal (cámara fija, sin grabar): el cabezal visita puntos conocidos, se lo
+//!   localiza por su LED verde o por diferencia de imágenes y se ajusta una homografía píxel a cama
+//!   (ver [`head_align`]).
 //! - Altura del material: `H(h) = [H1 H2 (H3 + h·G)]` ajustado con marcas a dos alturas
 //!   (ver [`height`]).
 //!
@@ -23,6 +26,7 @@
 pub mod calibration;
 pub mod chessboard;
 pub mod circle;
+pub mod head_align;
 pub mod height;
 pub mod homography;
 mod imgproc;
@@ -39,6 +43,12 @@ pub use calibration::{
 };
 pub use chessboard::find_chessboard;
 pub use circle::{CircleFit, CircleHint, circle_from_three, detect_circle, fit_circle_points};
+pub use head_align::{
+    DetectFailure, DetectOutcome, HeadAlignFit, HeadAlignIssue, HeadAlignOptions, HeadAlignPlan,
+    HeadDetectOptions, HeadDetection, HeadFeature, HeadMethod, HeadObservation, Parallax,
+    PlanOptions, PointFit, Quality, detect_heads, fit_head_alignment, plan_grid, plan_refine,
+    reference_offset,
+};
 pub use height::{
     HeightFit, HeightModel, HeightSample, HeightSource, MIN_HEIGHT_SPAN_MM, fit_height_model,
 };
