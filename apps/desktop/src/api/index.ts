@@ -4,7 +4,7 @@ import { createMockApi } from './mock';
 import { createTauriApi } from './tauri';
 
 export type { LaserApi, Unlisten } from './api';
-export type { ArtBundle, CamerasBundle, PrefsBundle, PrefsFile, RecoveryInfo, TemplateInfo, UserBundle } from './api';
+export type { ArtBundle, BackupConfig, BackupEntry, BackupList, BackupSettings, BackupWrite, CamerasBundle, CostsBundle, HistoryBundle, PrefsBundle, PrefsFile, RecoveryInfo, TemplateInfo, TemplatesBundle, UserBundle } from './api';
 export * from './types';
 
 export type ApiKind = 'mock' | 'tauri';

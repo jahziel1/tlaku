@@ -1,0 +1,47 @@
+/*
+ * Estilos del diálogo de respaldo de ajustes. Reutiliza .bnd-* del paquete de configuración;
+ * clases con prefijo bkp-. Solo tokens de src/styles/tokens.css.
+ */
+
+.bkp-body {
+  max-height: min(70vh, 640px);
+}
+.bkp-path {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: var(--font-mono, monospace);
+}
+.bkp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4);
+  margin-left: calc(var(--s-4) + 16px);
+  font-size: var(--text-sm);
+}
+.bkp-opt {
+  margin-left: calc(var(--s-4) + 16px);
+  font-weight: 400;
+  font-size: var(--text-sm);
+}
+.bkp-newer {
+  border-color: var(--warning, var(--border));
+}
+.bkp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bkp-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  font-size: var(--text-sm);
+}
+.bkp-item__size {
+  color: var(--text-muted);
+}

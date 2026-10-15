@@ -1,14 +1,10 @@
 import { getApi, getApiKind, type UserBundle } from '@/api';
-import { loadUserArt } from '@/features/art/actions';
-import { useArtPanel } from '@/features/art/artStore';
-import { loadCameraSetup } from '@/features/camera/actions';
 import { baseName, withExtension } from '@/features/history/paths';
-import { useMaterials } from '@/features/materials/state';
-import { loadMaterials } from '@/features/materials/actions';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
-import { buildUserBundle, DEFAULT_USER_BUNDLE_NAME, isUserBundle, USER_BUNDLE_EXTENSION, type SectionChoice } from './model';
+import { DEFAULT_USER_BUNDLE_NAME, isUserBundle, USER_BUNDLE_EXTENSION, type SectionChoice } from './model';
+import { buildCurrentBundle } from './sources';
 
 const FILTERS = () => [{ name: t('bundle.file.filter'), extensions: [USER_BUNDLE_EXTENSION] }];
 
@@ -37,22 +33,7 @@ export async function exportUserBundle(sections: SectionChoice): Promise<boolean
   const path = withExtension(picked, USER_BUNDLE_EXTENSION);
   const s = useStore.getState();
   try {
-    if (sections.materials) await loadMaterials();
-    if (sections.cameras) await loadCameraSetup();
-    if (sections.art) await loadUserArt();
-    const app = await getApi().appVersion().catch(() => '');
-    const bundle = buildUserBundle(
-      {
-        devices: s.devices,
-        activeDeviceId: s.activeDeviceId,
-        library: useMaterials.getState().library,
-        prefs: s.prefs,
-        shortcuts: s.shortcutOverrides,
-        cameras: useStore.getState().cameraSetup,
-        userArt: useArtPanel.getState().user,
-      },
-      { sections, app },
-    );
+    const bundle = await buildCurrentBundle(sections);
     await getApi().exportUserBundle({ path, bundle });
   } catch (e) {
     s.notify('error', t('bundle.notice.exportFailed', { error: errorMessage(e) }));

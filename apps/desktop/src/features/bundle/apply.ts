@@ -2,25 +2,37 @@ import { commands } from '@/commands';
 import { loadUserArt } from '@/features/art/actions';
 import { useArtPanel } from '@/features/art/artStore';
 import { loadCameraSetup, persistCameraSetup } from '@/features/camera/actions';
+import { useCostStore } from '@/features/costs/costStore';
+import { writeCosts } from '@/features/costs/costProfiles';
 import { loadMaterials, persistMaterials } from '@/features/materials/actions';
 import { useMaterials } from '@/features/materials/state';
-import { getApi } from '@/api';
+import { loadRemnants, useRemnants } from '@/features/nest/remnantStore';
+import { getApi, type UserBundle } from '@/api';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { isJobBusy, useStore, type AppState } from '@/store';
-import { type CurrentState, type ImportPlan, type SectionChoice } from './model';
+import { defaultPolicies, resolveCosts, resolveRemnants, templatesToWrite, type PolicyChoice } from './extras';
+import { resolveDevices, resolveMaterials, sectionChanges, type CurrentState, type ImportPlan, type SectionChoice } from './model';
+import { buildCurrentBundle, currentCosts, loadHistoryEntries, loadTemplateItems } from './sources';
 
 /** Por qué no se puede importar ahora (un trabajo en curso), o `null`. */
 export function importBlockedReason(s: Pick<AppState, 'jobState'>): I18nKey | null {
   return isJobBusy(s) ? 'bundle.blocked.job' : null;
 }
 
-/** Estado actual contra el que se calcula la vista previa. Carga lo que haga falta (materiales, cámara, arte). */
-export async function currentState(): Promise<CurrentState> {
+/**
+ * Estado actual contra el que se calcula la vista previa. Carga lo que haga falta (materiales, cámara,
+ * arte...). Con el paquete a la vista, solo se leen las plantillas y el historial que él también trae.
+ */
+export async function currentState(bundle?: UserBundle): Promise<CurrentState> {
   await loadMaterials();
   await loadCameraSetup();
   await loadUserArt();
+  await loadRemnants();
   const s = useStore.getState();
+  const bundleTemplates = bundle?.templates?.items?.map((i) => String(i?.name ?? '').toLowerCase()) ?? [];
+  const templates = bundle?.templates ? await loadTemplateItems(new Set(bundleTemplates)) : { items: [], names: [] };
+  const historyIds = bundle?.history ? new Set((await loadHistoryEntries()).map((e) => String(e.id))) : new Set<string>();
   return {
     cameras: s.cameraSetup,
     userArt: useArtPanel.getState().user,
@@ -29,12 +41,17 @@ export async function currentState(): Promise<CurrentState> {
     library: useMaterials.getState().library,
     prefs: s.prefs,
     shortcuts: s.shortcutOverrides,
+    costs: currentCosts(),
+    remnants: useRemnants.getState().library,
+    templates: templates.items,
+    templateNames: templates.names,
+    historyIds,
     knownCommands: new Set(commands.list().map((c) => c.id)),
   };
 }
 
 export interface ApplyResult {
-  /** No se aplicó nada porque hay un trabajo en curso. */
+  /** No se aplicó nada porque hay un trabajo en curso o porque no se pudo guardar el respaldo previo. */
   blocked: boolean;
   devices: { saved: number; failed: number; activated: boolean } | null;
   materials: { added: number } | null;
@@ -42,35 +59,54 @@ export interface ApplyResult {
   cameras: { parts: number; presets: number } | null;
   art: { added: number; failed: number } | null;
   prefs: { prefs: number; shortcuts: number } | null;
+  costs: { changes: number } | null;
+  remnants: { saved: number; dropped: number } | null;
+  templates: { saved: number; failed: number } | null;
+  history: { added: number } | null;
+}
+
+/**
+ * Guarda un respaldo local del estado actual (todo menos el historial de trabajos) antes de aplicar
+ * una importación, para poder volver atrás. Devuelve `false` si no se pudo: no se aplica nada sin él.
+ */
+export async function saveSafetyBackup(): Promise<boolean> {
+  try {
+    const bundle = await buildCurrentBundle({ devices: true, materials: true, costs: true, remnants: true, templates: true, cameras: true, art: true, prefs: true });
+    await getApi().backupSafety({ bundle });
+    return true;
+  } catch (e) {
+    useStore.getState().notify('error', t('bundle.err.safetyFailed', { error: errorMessage(e) }));
+    return false;
+  }
 }
 
 /**
  * Aplica las secciones elegidas de `plan`. Nada se escribe antes de llamarla (la vista previa solo
- * lee). Los perfiles se guardan con `saveDevice` del store; la biblioteca de materiales ya viene
- * mezclada en el plan (no se pierde nada local); las preferencias reemplazan lo que el paquete trae.
- * Una sección que falla no impide aplicar las demás.
+ * lee); antes de escribir se guarda un respaldo del estado actual. Los conflictos por id se resuelven
+ * con `policies`. Una sección que falla no impide aplicar las demás.
  */
-export async function applyImport(plan: ImportPlan, choice: SectionChoice, name = ''): Promise<ApplyResult> {
-  const result: ApplyResult = { blocked: false, devices: null, materials: null, cameras: null, art: null, prefs: null };
+export async function applyImport(plan: ImportPlan, choice: SectionChoice, name = '', policies: PolicyChoice = defaultPolicies()): Promise<ApplyResult> {
+  const result: ApplyResult = { blocked: false, devices: null, materials: null, cameras: null, art: null, prefs: null, costs: null, remnants: null, templates: null, history: null };
   const blocked = importBlockedReason(useStore.getState());
   if (blocked) {
     useStore.getState().notify('warning', t(blocked));
     return { ...result, blocked: true };
   }
+  if (!(await saveSafetyBackup())) return { ...result, blocked: true };
 
   if (choice.devices && plan.devices) {
-    const todo = [...plan.devices.added, ...plan.devices.replaced];
+    const { save, idMap } = resolveDevices(plan.devices, useStore.getState().devices, policies.devices);
     let saved = 0;
-    for (const device of todo) {
+    for (const device of save) {
       if (await useStore.getState().saveDevice(device)) saved++;
     }
     let activated = false;
-    const wanted = plan.devices.activeDevice;
+    const wanted = plan.devices.activeDevice ? (idMap.get(plan.devices.activeDevice) ?? plan.devices.activeDevice) : null;
     if (wanted && useStore.getState().devices.some((d) => d.id === wanted)) {
       useStore.getState().setActiveDevice(wanted);
       activated = true;
     }
-    result.devices = { saved, failed: todo.length - saved, activated };
+    result.devices = { saved, failed: save.length - saved, activated };
   }
 
   if (choice.materials && plan.materials) {
@@ -79,10 +115,47 @@ export async function applyImport(plan: ImportPlan, choice: SectionChoice, name 
     if (!ui.loaded || ui.loadError) {
       useStore.getState().notify('error', t('bundle.err.materialsUnavailable'));
     } else {
-      ui.setLibrary(plan.materials.library);
+      ui.setLibrary(resolveMaterials(plan.materials, policies.materials));
       await persistMaterials();
-      result.materials = { added: plan.materials.added };
+      result.materials = { added: sectionChanges(plan, policies).materials };
     }
+  }
+
+  if (choice.costs && plan.costs) {
+    try {
+      const merged = resolveCosts(plan.costs, currentCosts(), policies.costs);
+      writeCosts(merged);
+      useCostStore.setState({ machines: merged.machines, sales: merged.sales, materials: merged.materials });
+      result.costs = { changes: sectionChanges(plan, policies).costs };
+    } catch (e) {
+      useStore.getState().notify('error', t('bundle.err.costsFailed', { error: errorMessage(e) }));
+    }
+  }
+
+  if (choice.remnants && plan.remnants) {
+    try {
+      await loadRemnants(true);
+      const { library, dropped } = resolveRemnants(plan.remnants, useRemnants.getState().library, policies.remnants);
+      await getApi().saveRemnants({ library });
+      await loadRemnants(true);
+      result.remnants = { saved: sectionChanges(plan, policies).remnants - dropped, dropped };
+    } catch (e) {
+      useStore.getState().notify('error', t('bundle.err.remnantsFailed', { error: errorMessage(e) }));
+    }
+  }
+
+  if (choice.templates && plan.templates) {
+    const write = templatesToWrite(plan.templates, plan.templates.localNames, policies.templates);
+    let saved = 0;
+    for (const item of write) {
+      try {
+        await getApi().saveTemplate({ name: item.name, doc: item.doc });
+        saved++;
+      } catch {
+        // Se cuenta abajo: una plantilla que falla no detiene las demás.
+      }
+    }
+    result.templates = { saved, failed: write.length - saved };
   }
 
   if (choice.cameras && plan.cameras) {
@@ -105,6 +178,15 @@ export async function applyImport(plan: ImportPlan, choice: SectionChoice, name 
     }
   }
 
+  if (choice.history && plan.history) {
+    try {
+      const added = plan.history.added.length > 0 ? await getApi().jobHistoryImport({ entries: plan.history.added, max: useStore.getState().prefs.jobHistoryMax }) : 0;
+      result.history = { added };
+    } catch (e) {
+      useStore.getState().notify('error', t('bundle.err.historyFailed', { error: errorMessage(e) }));
+    }
+  }
+
   if (choice.prefs && plan.prefs) {
     const { change } = plan.prefs;
     useStore.getState().replacePrefs({ prefs: change.prefs, shortcuts: change.shortcuts }, false);
@@ -121,10 +203,19 @@ export async function applyImport(plan: ImportPlan, choice: SectionChoice, name 
     art: result.art?.added ?? 0,
     prefs: result.prefs?.prefs ?? 0,
   });
+  const extras = [
+    result.costs && t('bundle.notice.costs', { n: result.costs.changes }),
+    result.remnants && t('bundle.notice.remnants', { n: result.remnants.saved }),
+    result.templates && t('bundle.notice.templates', { n: result.templates.saved }),
+    result.history && t('bundle.notice.history', { n: result.history.added }),
+  ].filter((x): x is string => !!x);
   const details: string[] = [];
   if (failed > 0) details.push(t('bundle.notice.devicesFailed', { n: failed }));
   if ((result.art?.failed ?? 0) > 0) details.push(t('bundle.notice.artFailed', { n: result.art!.failed }));
-  if (details.length > 0) s.notify('warning', text, details);
-  else s.notify('success', text);
+  if ((result.templates?.failed ?? 0) > 0) details.push(t('bundle.notice.templatesFailed', { n: result.templates!.failed }));
+  if ((result.remnants?.dropped ?? 0) > 0) details.push(t('bundle.notice.remnantsDropped', { n: result.remnants!.dropped }));
+  const full = extras.length > 0 ? `${text} ${extras.join(' ')}` : text;
+  if (details.length > 0) s.notify('warning', full, details);
+  else s.notify('success', full);
   return result;
 }

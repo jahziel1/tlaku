@@ -128,7 +128,8 @@ export interface PrefsBundle extends PrefsFile {
  */
 export interface UserBundle {
   format: 'tlaku-bundle';
-  version: 1;
+  /** 1: máquinas, materiales, cámaras, arte y preferencias. 2: suma costos, retazos, plantillas e historial. */
+  version: 1 | 2;
   /** Fecha de creación, ISO 8601. */
   created: string;
   /** Versión de la aplicación que lo creó. */
@@ -141,6 +142,79 @@ export interface UserBundle {
   cameras?: CamerasBundle | null;
   /** Biblioteca de arte propia (los SVG con su nombre). */
   art?: ArtBundle | null;
+  /** Versión 2: perfiles de costos (por máquina, venta y perfiles de material). */
+  costs?: CostsBundle | null;
+  /** Versión 2: inventario de retazos. */
+  remnants?: RemnantLibrary | null;
+  /** Versión 2: plantillas de proyecto (nombre y documento). */
+  templates?: TemplatesBundle | null;
+  /** Versión 2: historial de trabajos (opcional al respaldar). */
+  history?: HistoryBundle | null;
+  /** Lo agrega el motor al respaldar a una carpeta: qué instalación lo hizo. */
+  install_id?: string;
+}
+
+/** Sección `costs` de un paquete: ver `features/bundle/extras.ts`. */
+export interface CostsBundle {
+  machines: Record<string, unknown>;
+  sales: unknown;
+  materials: unknown[];
+}
+
+/** Sección `templates` de un paquete. */
+export interface TemplatesBundle {
+  items: { name: string; doc: Document }[];
+}
+
+/** Sección `history` de un paquete: las entradas del registro de trabajos. */
+export interface HistoryBundle {
+  entries: Record<string, unknown>[];
+}
+
+/** Respaldo a carpeta (ver `src-tauri/src/backup/mod.rs` y `features/backup`). */
+export interface BackupSettings {
+  /** Carpeta de destino; `null` = todavía no se eligió. */
+  folder: string | null;
+  /** Respaldar al cerrar la aplicación. */
+  on_close: boolean;
+  /** Respaldar al abrir si pasaron estos días desde el último (0 = no). */
+  every_days: number;
+  /** Cuántos respaldos conservar en la carpeta. */
+  keep: number;
+  /** Incluir el historial de trabajos. */
+  include_history: boolean;
+}
+
+export interface BackupConfig extends BackupSettings {
+  version: number;
+  /** Marca (ms desde 1970) del último respaldo hecho aquí. */
+  last_backup_ms: number;
+  /** Marca del respaldo más nuevo ya importado o descartado. */
+  last_seen_ms: number;
+  install_id: string;
+}
+
+export interface BackupEntry {
+  name: string;
+  path: string;
+  size_bytes: number;
+  /** Ms desde 1970, tomados del nombre del archivo. */
+  created_ms: number;
+}
+
+export interface BackupWrite {
+  name: string;
+  path: string;
+  created_ms: number;
+  /** Respaldos viejos que borró la rotación. */
+  removed: string[];
+}
+
+export interface BackupList {
+  configured: boolean;
+  /** `false` si la carpeta no existe o no se puede leer (unidad desconectada). */
+  available: boolean;
+  entries: BackupEntry[];
 }
 
 /** Sección `cameras` de un paquete: ver `features/bundle/cameras.ts`. */
@@ -766,6 +840,20 @@ export interface LaserApi {
   exportUserBundle(args: { path: string; bundle: UserBundle }): Promise<void>;
   /** Lee un paquete `.tlakubundle`; el motor valida el sobre, la interfaz el contenido. */
   importUserBundle(args: { path: string }): Promise<UserBundle>;
+  /** Configuración del respaldo a carpeta (crea el identificador de esta instalación la primera vez). */
+  backupConfigGet(): Promise<BackupConfig>;
+  /** Guarda lo elegido (carpeta, cuándo, cuántos); el motor lo acota y devuelve la configuración. */
+  backupConfigSet(args: { settings: BackupSettings }): Promise<BackupConfig>;
+  /** Escribe un respaldo fechado del paquete en la carpeta elegida y rota. Rechaza paquetes con secretos. */
+  backupRun(args: { bundle: UserBundle }): Promise<BackupWrite>;
+  /** Respaldo local (en la carpeta de configuración) del estado actual, antes de aplicar una importación. */
+  backupSafety(args: { bundle: UserBundle }): Promise<BackupWrite>;
+  /** Respaldos de la carpeta elegida, el más nuevo primero. Una carpeta ausente no es un error: `available: false`. */
+  backupList(): Promise<BackupList>;
+  /** Respaldo más nuevo que el estado de esta computadora y hecho en otra; `null` si no hay. */
+  backupCheckNewer(): Promise<BackupEntry | null>;
+  /** Anota que el respaldo con esa marca ya se importó o se descartó. */
+  backupMarkSeen(args: { created_ms: number }): Promise<void>;
   /** Para cada ruta, si el archivo existe. */
   pathsExist(args: { paths: string[] }): Promise<boolean[]>;
   /** Guarda el texto de un respaldo de ajustes GRBL (`.tlakuset` o `.txt`, hasta 256 KiB; atómico). */
@@ -990,6 +1078,13 @@ export const COMMAND_NAMES = {
   importPreferences: 'import_preferences',
   exportUserBundle: 'export_user_bundle',
   importUserBundle: 'import_user_bundle',
+  backupConfigGet: 'backup_config_get',
+  backupConfigSet: 'backup_config_set',
+  backupRun: 'backup_run',
+  backupSafety: 'backup_safety',
+  backupList: 'backup_list',
+  backupCheckNewer: 'backup_check_newer',
+  backupMarkSeen: 'backup_mark_seen',
   pathsExist: 'paths_exist',
   writeSettingsBackup: 'write_settings_backup',
   readSettingsBackup: 'read_settings_backup',

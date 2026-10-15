@@ -17,7 +17,7 @@ export const MENUS: MenuDef[] = [
     label: 'menu.file',
     items: [
       'file.new', 'file.open', '-', 'tabs.new', 'tabs.close', 'tabs.closeOthers', 'tabs.duplicate', 'tabs.moveToWindow', '-', 'file.save', 'file.saveAs', 'tabs.saveAll', 'versions.saveNamed', 'versions.open', '-', 'file.import', 'fileio.importOptions', '-',
-      'bundle.export', 'bundle.import', '-',
+      'bundle.export', 'bundle.import', 'backup.open', 'backup.now', '-',
       'file.exportGcode', 'fileio.exportSvg', 'fileio.exportDxf', 'fileio.exportPng', 'fileio.exportPdf', 'fileio.exportAi', '-', 'fileio.print',
     ],
   },
