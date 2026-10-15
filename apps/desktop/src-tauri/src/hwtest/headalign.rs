@@ -226,8 +226,14 @@ fn summary(report: &HeadAlignReport) -> String {
             (None, Some(e)) => format!("NO se vio: {e:?}"),
             _ => String::new(),
         };
-        let err = f.error_mm.map_or(String::new(), |e| format!(" error {e:.2} mm"));
-        let used = if f.px.is_some() && !f.used { " (descartado)" } else { "" };
+        let err = f
+            .error_mm
+            .map_or(String::new(), |e| format!(" error {e:.2} mm"));
+        let used = if f.px.is_some() && !f.used {
+            " (descartado)"
+        } else {
+            ""
+        };
         s += &format!(
             "  x={:6.1} y={:6.1}  {what}{err}{used}\n",
             f.machine_mm[0], f.machine_mm[1]
@@ -283,9 +289,8 @@ pub(super) fn run(
     if !(100.0..=12000.0).contains(&speed) {
         return Err("headalign: velocidad fuera de 100..12000 mm/min".into());
     }
-    let dir = PathBuf::from(
-        std::env::var("TLAKU_HW_ALIGN_DIR").map_err(|_| "falta TLAKU_HW_ALIGN_DIR")?,
-    );
+    let dir =
+        PathBuf::from(std::env::var("TLAKU_HW_ALIGN_DIR").map_err(|_| "falta TLAKU_HW_ALIGN_DIR")?);
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let camera = match (
         std::env::var("TLAKU_HW_CAMERA_URL"),
@@ -300,13 +305,9 @@ pub(super) fn run(
         _ => return Err("falta TLAKU_HW_CAMERA_URL o TLAKU_HW_SNAP".into()),
     };
     // Configuración de cámara guardada (la misma que lee la app).
-    let setup: CameraSetup = serde_json::from_value(invoke_json(
-        handle,
-        wv,
-        "load_camera_setup",
-        json!({}),
-    )?)
-    .map_err(|e| format!("camera.json: {e}"))?;
+    let setup: CameraSetup =
+        serde_json::from_value(invoke_json(handle, wv, "load_camera_setup", json!({}))?)
+            .map_err(|e| format!("camera.json: {e}"))?;
     let lens: Option<LensCalibration> = setup.calibration.clone();
     let undistort = match &lens {
         Some(l) => Some((
@@ -317,10 +318,11 @@ pub(super) fn run(
     };
     println!(
         "  lente: {}",
-        lens.as_ref().map_or("sin calibración (se estima una)".to_string(), |l| format!(
-            "calibrada {}x{}, las fotos se corrigen",
-            l.width, l.height
-        ))
+        lens.as_ref()
+            .map_or("sin calibración (se estima una)".to_string(), |l| format!(
+                "calibrada {}x{}, las fotos se corrigen",
+                l.width, l.height
+            ))
     );
 
     let plan = PlanOptions {

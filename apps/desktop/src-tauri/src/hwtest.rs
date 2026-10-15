@@ -92,7 +92,9 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
     {
         let shared = last_status.clone();
         handle.listen("machine://status", move |e| {
-            if let (Some(s), Ok(mut slot)) = (headalign::snap_from_payload(e.payload()), shared.lock()) {
+            if let (Some(s), Ok(mut slot)) =
+                (headalign::snap_from_payload(e.payload()), shared.lock())
+            {
                 *slot = Some(s);
             }
         });
@@ -409,9 +411,13 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                     invoke_json(handle, wv, "machine_command", json!({ "line": line }))
                 }
             }
-            s if s == "headalign" || s.starts_with("headalign:") => {
-                headalign::run(handle, wv, &s["headalign".len()..], last_status.clone(), falcon2().bed)
-            }
+            s if s == "headalign" || s.starts_with("headalign:") => headalign::run(
+                handle,
+                wv,
+                &s["headalign".len()..],
+                last_status.clone(),
+                falcon2().bed,
+            ),
             other => Err(format!("paso desconocido: {other}")),
         };
         match r {

@@ -2,9 +2,7 @@
 //! apagado y una cámara simulada genera cada foto según la posición que reporta el emulador.
 
 use super::*;
-use crate::edit::camera::{
-    AlignRig, FlowEvent, FlowOptions, HeadAlignConfig, run_head_align_flow,
-};
+use crate::edit::camera::{AlignRig, FlowEvent, FlowOptions, HeadAlignConfig, run_head_align_flow};
 use base64::Engine as _;
 use image::{ImageFormat, RgbImage};
 use std::io::Cursor;
@@ -34,8 +32,9 @@ impl VirtualRig {
     fn new(scene: SimScene, corrected: bool) -> Self {
         let rig = connect_virtual("virtual:falcon2@50");
         rig.sink.wait("estado", |s| !s.statuses().is_empty());
-        let undistort = corrected
-            .then(|| UndistortMap::new(&scene.lens, (scene.lens.width, scene.lens.height)).unwrap());
+        let undistort = corrected.then(|| {
+            UndistortMap::new(&scene.lens, (scene.lens.width, scene.lens.height)).unwrap()
+        });
         Self {
             rig,
             scene,
@@ -50,7 +49,10 @@ impl VirtualRig {
 impl AlignRig for VirtualRig {
     fn move_to(&mut self, mm: [f64; 2]) -> Result<(), String> {
         self.rig.handle.jog_to(mm[0], mm[1], 6000.0)?;
-        assert!(emu(&self.rig).wait_idle(Duration::from_secs(30)), "no se detuvo");
+        assert!(
+            emu(&self.rig).wait_idle(Duration::from_secs(30)),
+            "no se detuvo"
+        );
         self.visited.push(mm);
         Ok(())
     }
@@ -101,7 +103,10 @@ fn assert_laser_never_on(rig: &VirtualRig) {
         "{lines:?}"
     );
     assert!(
-        e.trace().segments().iter().all(|s| s.s_peak <= 0.0 && s.energy <= 0.0),
+        e.trace()
+            .segments()
+            .iter()
+            .all(|s| s.s_peak <= 0.0 && s.energy <= 0.0),
         "el emulador registró un trazo con láser"
     );
 }
@@ -146,7 +151,7 @@ fn the_head_visits_the_grid_with_the_laser_off_and_the_alignment_is_found() {
 fn a_camera_that_sees_only_the_middle_triggers_a_finer_grid_where_the_head_was_seen() {
     // Cámara baja: solo ve el cabezal en una franja alrededor del centro de la cama, como la de
     // la tapa de una Falcon2 Pro.
-    let mut scene = SimScene::fisheye(BED, 85.0);
+    let mut scene = SimScene::fisheye(BED, 85.0).scaled(0.75);
     scene.camera_mm[0] = 200.0;
     scene.camera_mm[1] = 207.0;
     let mut rig = VirtualRig::new(scene.clone(), true);
@@ -158,16 +163,18 @@ fn a_camera_that_sees_only_the_middle_triggers_a_finer_grid_where_the_head_was_s
     assert!(fit.loo_rms_mm < 1.5, "loo {:.3}", fit.loo_rms_mm);
     // Lo que no se vio queda dicho: fotos sin cabezal y cobertura parcial de la cama.
     assert!(r.report.failed > 0);
-    assert!(r
-        .report
-        .issues
-        .iter()
-        .any(|i| matches!(i, HeadAlignIssue::NotDetected { .. })));
-    assert!(r
-        .report
-        .issues
-        .iter()
-        .any(|i| matches!(i, HeadAlignIssue::PartialCoverage { .. })));
+    assert!(
+        r.report
+            .issues
+            .iter()
+            .any(|i| matches!(i, HeadAlignIssue::NotDetected { .. }))
+    );
+    assert!(
+        r.report
+            .issues
+            .iter()
+            .any(|i| matches!(i, HeadAlignIssue::PartialCoverage { .. }))
+    );
     let c = r.report.covered_mm.expect("zona cubierta");
     assert!(c[0] > 60.0 && c[2] < 340.0, "{c:?}");
     assert_laser_never_on(&rig);

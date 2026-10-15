@@ -71,13 +71,25 @@ fn la_solucion_localiza_el_cabezal_y_entrega_una_alineacion_guardable() {
     let back = load_setup(dir).unwrap();
     // Al releer el JSON los decimales pueden diferir en el último dígito.
     let (sa, ba) = (saved.alignment.unwrap(), back.alignment.unwrap());
-    assert_eq!((sa.method, sa.image_size, sa.samples.len()), (ba.method, ba.image_size, ba.samples.len()));
-    assert!(sa.to_bed.iter().flatten().zip(ba.to_bed.iter().flatten()).all(|(x, y)| (x - y).abs() < 1e-9));
+    assert_eq!(
+        (sa.method, sa.image_size, sa.samples.len()),
+        (ba.method, ba.image_size, ba.samples.len())
+    );
+    assert!(
+        sa.to_bed
+            .iter()
+            .flatten()
+            .zip(ba.to_bed.iter().flatten())
+            .all(|(x, y)| (x - y).abs() < 1e-9)
+    );
     let b = ba;
     assert_eq!(b.method, AlignmentMethod::HeadSweep);
     assert_eq!(b.samples.len(), 1);
     assert!((b.rms_mm - a.rms_mm).abs() < 1e-6);
-    assert!(b.height.is_some(), "con lente, el modelo de altura de respaldo se calcula");
+    assert!(
+        b.height.is_some(),
+        "con lente, el modelo de altura de respaldo se calcula"
+    );
     let json = std::fs::read_to_string(setup_file(dir)).unwrap();
     assert!(json.contains("\"head_sweep\""));
     // El mapeo guardado lleva un píxel de la imagen a su punto de la cama.
@@ -106,8 +118,16 @@ fn sin_cabezal_a_la_vista_no_hay_ajuste_pero_si_informe() {
     assert!(r.fit.is_none() && r.alignment.is_none() && r.fit_error.is_some());
     assert!(r.seen_mm.is_empty());
     assert_eq!(r.frames.len(), 10);
-    assert!(r.frames.iter().all(|f| f.failure.is_some() && f.px.is_none()));
-    assert!(r.issues.iter().any(|i| matches!(i, HeadAlignIssue::NotDetected { count: 10 })));
+    assert!(
+        r.frames
+            .iter()
+            .all(|f| f.failure.is_some() && f.px.is_none())
+    );
+    assert!(
+        r.issues
+            .iter()
+            .any(|i| matches!(i, HeadAlignIssue::NotDetected { count: 10 }))
+    );
 }
 
 #[test]
@@ -160,8 +180,13 @@ fn la_alineacion_manual_tambien_se_puede_desplazar() {
     .unwrap()
     .alignment
     .unwrap();
-    let (s, d) = run_head_align_shift(a.clone(), None, a.image_px[0], [a.bed_mm[0][0] + 5.0, a.bed_mm[0][1]])
-        .unwrap();
+    let (s, d) = run_head_align_shift(
+        a.clone(),
+        None,
+        a.image_px[0],
+        [a.bed_mm[0][0] + 5.0, a.bed_mm[0][1]],
+    )
+    .unwrap();
     assert!((d[0] - 5.0).abs() < 1e-6 && d[1].abs() < 1e-6);
     assert_eq!(s.method, AlignmentMethod::Manual);
 }

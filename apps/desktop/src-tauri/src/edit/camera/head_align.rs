@@ -227,12 +227,13 @@ pub fn run_head_align_solve(
     if failed > 0 {
         issues.push(HeadAlignIssue::NotDetected { count: failed });
     }
-    let area = cfg
-        .safe_area
-        .unwrap_or([0.0, 0.0, cfg.bed[0], cfg.bed[1]]);
+    let area = cfg.safe_area.unwrap_or([0.0, 0.0, cfg.bed[0], cfg.bed[1]]);
     if let Some(f) = &fit {
         issues.extend(f.issues.iter().cloned());
-        let (cw, ch) = (f.covered_mm[2] - f.covered_mm[0], f.covered_mm[3] - f.covered_mm[1]);
+        let (cw, ch) = (
+            f.covered_mm[2] - f.covered_mm[0],
+            f.covered_mm[3] - f.covered_mm[1],
+        );
         let full = (area[2] - area[0]).max(1.0) * (area[3] - area[1]).max(1.0);
         if cw * ch < PARTIAL_COVERAGE * full {
             issues.push(HeadAlignIssue::PartialCoverage {
@@ -340,8 +341,12 @@ pub async fn camera_head_align_shift(
     ref_bed: [f64; 2],
 ) -> Result<HeadAlignShift, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        run_head_align_shift(alignment, lens, ref_px, ref_bed)
-            .map(|(alignment, shift_mm)| HeadAlignShift { alignment, shift_mm })
+        run_head_align_shift(alignment, lens, ref_px, ref_bed).map(|(alignment, shift_mm)| {
+            HeadAlignShift {
+                alignment,
+                shift_mm,
+            }
+        })
     })
     .await
     .map_err(crate::edit::task_interrupted)?

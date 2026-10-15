@@ -102,7 +102,10 @@ pub enum HeadAlignIssue {
     FewPoints { used: usize },
     /// La cámara solo vio el cabezal en parte del área segura: fuera de la caja de los puntos
     /// usados el mapeo extrapola.
-    PartialCoverage { covered_mm: [f64; 4], area_mm: [f64; 4] },
+    PartialCoverage {
+        covered_mm: [f64; 4],
+        area_mm: [f64; 4],
+    },
     /// El error de validación cruzada es grande.
     HighError { loo_rms_mm: f64 },
     /// No había calibración de lente: se estimó una aproximada.

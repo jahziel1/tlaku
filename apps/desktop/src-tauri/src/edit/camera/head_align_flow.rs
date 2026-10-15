@@ -23,10 +23,7 @@ pub trait AlignRig {
 #[derive(Debug, Clone)]
 pub enum FlowEvent {
     /// Empieza una ronda con estos puntos (la primera, la rejilla; las siguientes, la afinada).
-    Round {
-        round: usize,
-        points: Vec<[f64; 2]>,
-    },
+    Round { round: usize, points: Vec<[f64; 2]> },
     /// Foto `index` de `total` (de esta ronda) tomada con el cabezal en `mm`.
     Shot {
         index: usize,
@@ -113,10 +110,10 @@ fn edge_all_seen(plan: &HeadAlignPlan, seen: &[[f64; 2]]) -> bool {
             .iter()
             .any(|d| d.abs() < 1.0)
     };
-    plan.points.iter().filter(|p| on_edge(p)).all(|p| {
-        seen.iter()
-            .any(|s| (s[0] - p[0]).hypot(s[1] - p[1]) < 1.0)
-    })
+    plan.points
+        .iter()
+        .filter(|p| on_edge(p))
+        .all(|p| seen.iter().any(|s| (s[0] - p[0]).hypot(s[1] - p[1]) < 1.0))
 }
 
 pub fn run_head_align_flow(
