@@ -310,6 +310,27 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                     }
                 }
             }
+            s if s.starts_with("snap:") => {
+                // snap:<archivo>: foto con el programa de TLAKU_HW_SNAP (cámara de la máquina).
+                match std::env::var("TLAKU_HW_SNAP") {
+                    Err(_) => Err("snap: falta TLAKU_HW_SNAP".into()),
+                    Ok(bin) => std::process::Command::new(bin)
+                        .arg(std::env::var("TLAKU_HW_CAMERA").unwrap_or_else(|_| "Creality Falcon Camera".into()))
+                        .arg(&s[5..])
+                        .output()
+                        .map_err(|e| e.to_string())
+                        .and_then(|o| if o.status.success() { Ok(Value::Null) } else { Err(String::from_utf8_lossy(&o.stdout).into_owned()) }),
+                }
+            }
+            s if s.starts_with("goto:") => {
+                // goto:<x>,<y>,<vel>: lleva el cabezal a una posición de máquina (láser apagado).
+                let v = nums(&s[5..]);
+                if v.len() == 3 {
+                    invoke_json(handle, wv, "jog_to", json!({ "x": v[0], "y": v[1], "speed": v[2] }))
+                } else {
+                    Err("goto:<x>,<y>,<vel>".into())
+                }
+            }
             s if s.starts_with("wait:") => {
                 std::thread::sleep(Duration::from_millis(s[5..].parse().unwrap_or(1000)));
                 Ok(Value::Null)
