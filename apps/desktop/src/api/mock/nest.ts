@@ -1,5 +1,5 @@
 import type { Affine, DesignObject, Point } from '../types';
-import type { NestPlacement, NestRef, NestRequest, NestStatus } from '@/features/nest/types';
+import type { NestPlacement, NestRef, NestRequest, NestSheet, NestStatus } from '@/features/nest/types';
 import { objectPolylines, pointsBounds, type Bounds } from '@/lib/geometry';
 import type { LaserApi } from '../api';
 
@@ -16,6 +16,20 @@ interface Instance {
   min: Point;
   max: Point;
   area: number;
+  /** Puede girar 90° (ni «sin giro» ni veta, y las opciones lo permiten). */
+  canRotate: boolean;
+}
+
+/** Una hoja usada: su caja, su área y lo que cayó en ella. */
+interface SheetPlan {
+  source: NestSheet['source'];
+  remnantId: string | null;
+  bounds: [number, number, number, number];
+  area: number;
+  /** Índices en `Job.placements`. */
+  members: number[];
+  /** Sobrante simulado: el rectángulo libre sobre la última fila (si es aprovechable). */
+  leftovers: [number, number][][][];
 }
 
 interface Job {
@@ -24,10 +38,10 @@ interface Job {
   stoppedAt: number | null;
   placements: NestPlacement[];
   areas: number[];
+  sheets: SheetPlan[];
   /** Cuántas no cupieron por tamaño (se calcularon de entrada). */
   unfit: NestRef[];
   total: number;
-  containerArea: number;
   timeLimitMs: number;
 }
 
@@ -78,6 +92,10 @@ function validate(req: NestRequest): Bounds {
   }
   if (!(req.time_limit_s >= 1 && req.time_limit_s <= 600)) invalid('El tope de tiempo debe estar entre 1 y 600 segundos');
   if (!Number.isInteger(req.seed) || req.seed < 0) invalid('La semilla debe ser un entero mayor o igual que 0');
+  if (!Number.isInteger(req.max_sheets) || req.max_sheets < 1) invalid('El máximo de hojas debe ser al menos 1');
+  for (const r of req.remnants) {
+    if (r.paths.length === 0 || r.paths.some((p) => p.length < 3)) invalid(`El retazo «${r.id}» no tiene un contorno cerrado válido.`);
+  }
   const c = req.container;
   if (c.type === 'rect') {
     if (!(c.width > 0 && c.height > 0) || !Number.isFinite(c.width) || !Number.isFinite(c.height)) {
@@ -91,28 +109,37 @@ function validate(req: NestRequest): Bounds {
   return b;
 }
 
-/** Acomodo por filas con cajas envolventes: 0°, o 90° si la pieza no cabe de otra forma. */
-function shelfPack(req: NestRequest, area: Bounds): { placements: NestPlacement[]; areas: number[]; unfit: NestRef[] } {
+function pieceInstances(req: NestRequest): Instance[] {
   const instances: Instance[] = [];
   for (const piece of req.pieces) {
     const pts = polys(piece.objects).flatMap((p) => p.points);
     const b = pointsBounds(pts);
     const netA = netArea(piece.objects);
+    // El simulado solo gira 90°: «sin giro» y veta (0° y 180°) no lo permiten.
+    const canRotate = req.rotation.mode !== 'none' && piece.rotation === 'inherit';
     for (let copy = 0; copy < piece.copies; copy++) {
       if (!b) continue;
-      instances.push({ ref: { piece: piece.id, copy }, w: b[1][0] - b[0][0], h: b[1][1] - b[0][1], min: b[0], max: b[1], area: netA });
+      instances.push({ ref: { piece: piece.id, copy }, w: b[1][0] - b[0][0], h: b[1][1] - b[0][1], min: b[0], max: b[1], area: netA, canRotate });
     }
   }
+  return instances;
+}
+
+/** Acomodo por filas con cajas envolventes en una hoja: 0°, o 90° si la pieza lo admite y no cabe de otra forma. */
+function shelfPack(
+  instances: readonly Instance[],
+  req: Pick<NestRequest, 'spacing' | 'margin'>,
+  area: Bounds,
+): { placements: NestPlacement[]; placed: Instance[]; rest: Instance[]; usedTop: number } {
   const left = area[0][0] + req.margin;
   const right = area[1][0] - req.margin;
   const bottom = area[0][1] + req.margin;
   const top = area[1][1] - req.margin;
   const eps = 1e-9;
-  const canRotate = req.rotation.mode !== 'none';
 
   const placements: NestPlacement[] = [];
-  const areas: number[] = [];
-  const unfit: NestRef[] = [];
+  const placed: Instance[] = [];
+  const rest: Instance[] = [];
   let x = left;
   let y = bottom;
   let rowH = 0;
@@ -128,12 +155,12 @@ function shelfPack(req: NestRequest, area: Bounds): { placements: NestPlacement[
   for (const inst of instances) {
     let spot = fit(inst.w, inst.h);
     let rotated = false;
-    if (!spot && canRotate) {
+    if (!spot && inst.canRotate) {
       spot = fit(inst.h, inst.w);
       rotated = spot !== null;
     }
     if (!spot) {
-      unfit.push(inst.ref);
+      rest.push(inst);
       continue;
     }
     const [w, h] = rotated ? [inst.h, inst.w] : [inst.w, inst.h];
@@ -145,17 +172,67 @@ function shelfPack(req: NestRequest, area: Bounds): { placements: NestPlacement[
     const transform: Affine = rotated
       ? [0, 1, -1, 0, spot[0] + inst.max[1], spot[1] - inst.min[0]]
       : [1, 0, 0, 1, spot[0] - inst.min[0], spot[1] - inst.min[1]];
-    placements.push({ piece: inst.ref.piece, copy: inst.ref.copy, rotation_deg: rotated ? 90 : 0, mirror: false, transform });
-    areas.push(inst.area);
+    placements.push({ piece: inst.ref.piece, sheet: 0, copy: inst.ref.copy, rotation_deg: rotated ? 90 : 0, mirror: false, transform });
+    placed.push(inst);
     x = spot[0] + w + req.spacing;
     rowH = Math.max(rowH, h);
   }
-  return { placements, areas, unfit };
+  return { placements, placed, rest, usedTop: y + rowH };
+}
+
+/** Caja y área de un retazo a partir de sus contornos (el primero es el exterior). */
+function remnantArea(paths: readonly [number, number][][]): { bounds: Bounds; area: number } {
+  const b = pointsBounds(paths.flat()) ?? [[0, 0], [0, 0]];
+  const [outer, ...holes] = paths.map((p) => shoelace(p));
+  return { bounds: b, area: Math.max(0, (outer ?? 0) - holes.reduce((a, h) => a + h, 0)) };
 }
 
 /**
- * Métodos simulados del área `nest`: un acomodo por filas que se revela en 1,5 s. `now` se puede
- * inyectar en las pruebas para controlar el tiempo.
+ * Reparte las piezas: primero los retazos (los que no admiten nada se saltan) y luego hojas nuevas
+ * iguales al contenedor, hasta `max_sheets` hojas usadas.
+ */
+function packSheets(req: NestRequest, area: Bounds): { placements: NestPlacement[]; areas: number[]; sheets: SheetPlan[]; unfit: NestRef[] } {
+  let pending = pieceInstances(req);
+  const placements: NestPlacement[] = [];
+  const areas: number[] = [];
+  const sheets: SheetPlan[] = [];
+  const containerArea = req.container.type === 'rect' ? req.container.width * req.container.height : netArea([req.container.object]);
+  const cb: [number, number, number, number] = [area[0][0], area[0][1], area[1][0], area[1][1]];
+  const sources = [
+    ...req.remnants.map((r) => ({ source: 'remnant' as const, id: r.id, ...remnantArea(r.paths), fresh: false })),
+    ...Array.from({ length: req.max_sheets }, () => ({ source: 'container' as const, id: null, bounds: area, area: containerArea, fresh: true })),
+  ];
+  for (const src of sources) {
+    if (pending.length === 0 || sheets.length >= req.max_sheets) break;
+    const r = shelfPack(pending, req, src.bounds);
+    if (r.placements.length === 0) {
+      if (src.fresh) break; // ni una hoja nueva admite lo que queda
+      continue;
+    }
+    const k = sheets.length;
+    const members = r.placements.map((_, i) => placements.length + i);
+    placements.push(...r.placements.map((p) => ({ ...p, sheet: k })));
+    areas.push(...r.placed.map((i) => i.area));
+    const bounds: [number, number, number, number] =
+      src.source === 'container' ? cb : [src.bounds[0][0], src.bounds[0][1], src.bounds[1][0], src.bounds[1][1]];
+    // Sobrante simulado: la franja libre sobre la última fila, si es aprovechable.
+    const min = Math.max(5, req.leftover_min_mm);
+    const y0 = r.usedTop + req.spacing;
+    const free = bounds[3] - req.margin - y0;
+    const wide = bounds[2] - bounds[0] - 2 * req.margin;
+    const leftovers: [number, number][][][] =
+      req.leftover_min_mm > 0 && free >= min && wide >= min
+        ? [[[[bounds[0] + req.margin, y0], [bounds[2] - req.margin, y0], [bounds[2] - req.margin, bounds[3] - req.margin], [bounds[0] + req.margin, bounds[3] - req.margin]]]]
+        : [];
+    sheets.push({ source: src.source, remnantId: src.id, bounds, area: src.area, members, leftovers });
+    pending = r.rest;
+  }
+  return { placements, areas, sheets, unfit: pending.map((i) => i.ref) };
+}
+
+/**
+ * Métodos simulados del área `nest`: un acomodo por filas (con varias hojas y retazos) que se revela
+ * en 1,5 s. `now` se puede inyectar en las pruebas para controlar el tiempo.
  */
 export function mockNest(lag: Lag, now: () => number = Date.now): Pick<LaserApi, 'nestStart' | 'nestPoll' | 'nestCancel'> {
   const jobs = new Map<string, Job>();
@@ -173,19 +250,17 @@ export function mockNest(lag: Lag, now: () => number = Date.now): Pick<LaserApi,
     nestStart: ({ request }) =>
       lag(() => {
         const area = validate(request);
-        const { placements, areas, unfit } = shelfPack(request, area);
+        const { placements, areas, sheets, unfit } = packSheets(request, area);
         stop(latest);
         const id = `nest-${++counter}`;
-        const container = request.container;
-        const containerArea = container.type === 'rect' ? container.width * container.height : netArea([container.object]);
         jobs.set(id, {
           startedAt: now(),
           stoppedAt: null,
           placements,
           areas,
+          sheets,
           unfit,
           total: placements.length + unfit.length,
-          containerArea,
           timeLimitMs: request.time_limit_s * 1000,
         });
         latest = id;
@@ -203,18 +278,40 @@ export function mockNest(lag: Lag, now: () => number = Date.now): Pick<LaserApi,
         const done = job.stoppedAt !== null || elapsed >= limit;
         const shown = Math.floor((job.placements.length * elapsed) / MOCK_NEST_MS);
         const placements = job.placements.slice(0, shown);
-        const placedArea = job.areas.slice(0, shown).reduce((a, b) => a + b, 0);
         const unplaced: NestRef[] = done
           ? [...job.placements.slice(shown).map((p) => ({ piece: p.piece, copy: p.copy })), ...job.unfit]
           : [];
+        // Solo se ven las hojas que ya recibieron alguna pieza; el sobrante, al terminar y completo.
+        const sheets: NestSheet[] = [];
+        let placedArea = 0;
+        let totalArea = 0;
+        job.sheets.forEach((sp, k) => {
+          const seen = sp.members.filter((m) => m < shown);
+          if (seen.length === 0) return;
+          const a = seen.reduce((sum, m) => sum + (job.areas[m] ?? 0), 0);
+          placedArea += a;
+          totalArea += sp.area;
+          sheets.push({
+            index: k,
+            source: sp.source,
+            remnant_id: sp.remnantId,
+            bounds: sp.bounds,
+            utilization: sp.area > 0 ? Math.min(100, (a / sp.area) * 100) : 0,
+            placed: seen.length,
+            area_mm2: sp.area,
+            placed_area_mm2: a,
+            leftovers: done && shown === job.placements.length ? sp.leftovers : [],
+          });
+        });
         return {
           running: !done,
           elapsed_ms: elapsed,
           evaluations: Math.round(elapsed * 4),
-          utilization: job.containerArea > 0 ? Math.min(100, (placedArea / job.containerArea) * 100) : 0,
+          utilization: totalArea > 0 ? Math.min(100, (placedArea / totalArea) * 100) : 0,
           placed: placements.length,
           total: job.total,
           placements,
+          sheets,
           unplaced,
           timed_out: done && job.timeLimitMs < MOCK_NEST_MS && elapsed >= job.timeLimitMs,
           error: null,

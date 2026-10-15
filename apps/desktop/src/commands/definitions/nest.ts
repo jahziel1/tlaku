@@ -1,5 +1,6 @@
 import { selectionUnits } from '@/features/arrange/units';
 import { useNestUi } from '@/features/nest/nestStore';
+import { setRemnantsPanel } from '@/features/nest/remnantStore';
 import type { I18nKey } from '@/i18n';
 import type { AppState } from '@/store';
 import type { CommandDef } from '../types';
@@ -20,5 +21,11 @@ export const nestCommands: CommandDef[] = [
       if (nestEnabled(s) !== true) return;
       useNestUi.getState().show();
     },
+  },
+  {
+    id: 'arrange.remnants',
+    label: 'nest.cmd.remnants',
+    category: 'arrange',
+    run: () => setRemnantsPanel(true),
   },
 ];

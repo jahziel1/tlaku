@@ -32,9 +32,9 @@ describe('vista previa', () => {
   it('aplica el transform del acomodo a cada contorno y calcula la caja', () => {
     expect(pathData(flat.get('a')!, [1, 0, 0, 1, 10, 0])).toBe('M11 2L21 2L21 7L11 7Z');
     const { pieces, bounds } = placedPieces(flat, [
-      { piece: 'a', copy: 0, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 10, 0] },
-      { piece: 'a', copy: 1, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 0, 30] },
-      { piece: 'zzz', copy: 0, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 0, 0] },
+      { piece: 'a', sheet: 0, copy: 0, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 10, 0] },
+      { piece: 'a', sheet: 0, copy: 1, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 0, 30] },
+      { piece: 'zzz', sheet: 0, copy: 0, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 0, 0] },
     ]);
     expect(pieces.map((p) => [p.key, p.copy])).toEqual([['a#0', 0], ['a#1', 1]]);
     expect(bounds).toEqual([[1, 2], [21, 37]]);
@@ -46,8 +46,8 @@ describe('vista previa', () => {
         container={{ type: 'rect', width: 100, height: 60 }}
         flat={flat}
         placements={[
-          { piece: 'a', copy: 0, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 0, 0] },
-          { piece: 'a', copy: 1, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 20, 0] },
+          { piece: 'a', sheet: 0, copy: 0, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 0, 0] },
+          { piece: 'a', sheet: 0, copy: 1, rotation_deg: 0, mirror: false, transform: [1, 0, 0, 1, 20, 0] },
         ]}
       />,
     );

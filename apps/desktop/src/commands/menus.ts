@@ -75,7 +75,7 @@ export const MENUS: MenuDef[] = [
       'arrange.align.top', 'arrange.align.vcenter', 'arrange.align.bottom', '-',
       'arrange.distribute.h', 'arrange.distribute.v', 'arrange.alignDialog', '-',
       'arrange.alignTo.selection', 'arrange.alignTo.object', 'arrange.alignTo.bed', 'arrange.centerOnBed', '-',
-      'arrange.grid', 'arrange.circular', 'arrange.nest',
+      'arrange.grid', 'arrange.circular', 'arrange.nest', 'arrange.remnants',
     ],
   },
 ];

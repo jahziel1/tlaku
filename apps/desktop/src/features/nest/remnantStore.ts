@@ -34,6 +34,8 @@ export const useRemnants = create<RemnantState>()((set) => ({
   setPanelOpen: (panelOpen) => set({ panelOpen }),
 }));
 
+export const setRemnantsPanel = (open: boolean): void => useRemnants.getState().setPanelOpen(open);
+
 const ui = () => useRemnants.getState();
 const notify = (level: 'success' | 'warning' | 'error', text: string) => useStore.getState().notify(level, text);
 
