@@ -518,6 +518,26 @@ export interface LaserApi {
   /** Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión...). Falla con una máquina real. */
   simulateFault(args: { fault: SimulatedFault }): Promise<void>;
 
+  // Historial de trabajos (archivo JSONL en la carpeta de datos de la app; ver `features/help/jobLog.ts`)
+  /**
+   * Historial guardado (`job-history.jsonl`), de la entrada más vieja a la más nueva. `max`: tope de entradas
+   * (20 a 20 000, por omisión 1000); si el archivo lo pasa se rota. Cada entrada es un objeto con `id` y `at`;
+   * el resto lo define y sanea la interfaz.
+   */
+  jobHistoryLoad(args: { max?: number | null }): Promise<Record<string, unknown>[]>;
+  /** Agrega una entrada o, si ya hay una con ese `id`, la reemplaza; rota al tope `max`. */
+  jobHistoryAppend(args: { entry: Record<string, unknown>; max?: number | null }): Promise<void>;
+  /** Mezcla campos de primer nivel en la entrada `id` (un `null` borra el campo; `id` y `at` no cambian). Devuelve si existía. */
+  jobHistoryUpdate(args: { id: string; patch: Record<string, unknown> }): Promise<boolean>;
+  /** Quita entradas por `id`; devuelve cuántas quitó. */
+  jobHistoryRemove(args: { ids: string[] }): Promise<number>;
+  /** Borra todo el historial. */
+  jobHistoryClear(): Promise<void>;
+  /** Migra entradas de otro almacén (el `localStorage` anterior): agrega las válidas cuyo `id` aún no está. Devuelve cuántas entraron. */
+  jobHistoryImport(args: { entries: Record<string, unknown>[]; max?: number | null }): Promise<number>;
+  /** Escribe el CSV del historial en `path` (extensión `.csv`, hasta 32 MiB; atómico). */
+  jobHistoryExport(args: { path: string; text: string }): Promise<void>;
+
   // Continuar un trabajo interrumpido (corte de luz, app cerrada, conexión perdida)
   /**
    * El trabajo interrumpido del que queda punto de control, o `null`. El motor lo guarda mientras envía
@@ -841,6 +861,13 @@ export const COMMAND_NAMES = {
   fireTest: 'fire_test',
   setOverride: 'set_override',
   simulateFault: 'simulate_fault',
+  jobHistoryLoad: 'job_history_load',
+  jobHistoryAppend: 'job_history_append',
+  jobHistoryUpdate: 'job_history_update',
+  jobHistoryRemove: 'job_history_remove',
+  jobHistoryClear: 'job_history_clear',
+  jobHistoryImport: 'job_history_import',
+  jobHistoryExport: 'job_history_export',
   interruptedJob: 'interrupted_job',
   interruptedJobView: 'interrupted_job_view',
   discardInterruptedJob: 'discard_interrupted_job',

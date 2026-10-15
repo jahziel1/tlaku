@@ -91,6 +91,7 @@ export const prefs = {
   'prefs.autosaveSecs': 'Intervalo entre copias',
   'prefs.autosave.hint': 'Solo se guarda si hay cambios sin guardar, y la copia se borra al guardar el proyecto o cerrar la aplicación. Si Tlaku se cierra de golpe, al abrirlo se ofrece recuperarla.',
   'prefs.recentMax': 'Archivos recientes que se recuerdan',
+  'prefs.jobHistoryMax': 'Trabajos que guarda el historial',
   'prefs.recent.clear': 'Vaciar la lista de recientes',
   'prefs.import.title': 'Importar archivos',
   'prefs.importDpi': 'Resolución por omisión',

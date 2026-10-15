@@ -602,3 +602,10 @@ desktop.worker.rebooted_idle = La máquina se reinició (¿un final de carrera, 
 
 # edit/devices.rs
 desktop.devices.lbdev_too_big = {path}: el archivo es demasiado grande para ser un perfil de LightBurn (.lbdev).
+
+# job_history.rs
+desktop.job_history.data_dir = No se pudo ubicar la carpeta de datos de la app: {err}
+desktop.job_history.bad_entry = La entrada del historial no es válida: debe ser un objeto con «id» (texto) y «at» (número).
+desktop.job_history.entry_too_big = La entrada del historial es demasiado grande ({size} bytes; el máximo es {max}).
+desktop.job_history.csv_ext = {path}: el historial se exporta con la extensión .csv.
+desktop.job_history.csv_too_big = El CSV del historial es demasiado grande ({size} bytes; el máximo es {max}).

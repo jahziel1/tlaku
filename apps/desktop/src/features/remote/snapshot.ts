@@ -82,7 +82,7 @@ const ROUTE_MAX_MOVES = 2_000_000;
 type Run = number[];
 
 /** Trazados continuos (`[x, y, x, y, ...]`) de los movimientos con láser; los saltos los separan. */
-function cutRuns(moves: ArrayLike<number>): Run[] {
+export function cutRuns(moves: ArrayLike<number>): Run[] {
   const runs: Run[] = [];
   let run: Run | null = null;
   let lastX = NaN;
@@ -108,7 +108,7 @@ function cutRuns(moves: ArrayLike<number>): Run[] {
 }
 
 /** Quita los puntos que quedan a menos de `eps` del último conservado (siempre deja el último). */
-function simplify(run: Run, eps: number): Run {
+export function simplify(run: Run, eps: number): Run {
   const out: Run = [run[0]!, run[1]!];
   let lx = run[0]!;
   let ly = run[1]!;

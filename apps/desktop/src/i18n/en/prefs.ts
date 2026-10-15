@@ -93,6 +93,7 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.autosaveSecs': 'Interval between copies',
   'prefs.autosave.hint': 'A copy is only saved when there are unsaved changes, and it is deleted when you save the project or close the application. If Tlaku closes unexpectedly, you are offered the chance to recover it on the next launch.',
   'prefs.recentMax': 'Recent files to remember',
+  'prefs.jobHistoryMax': 'Jobs kept in the history',
   'prefs.recent.clear': 'Clear the recent files list',
   'prefs.import.title': 'Importing files',
   'prefs.importDpi': 'Default resolution',

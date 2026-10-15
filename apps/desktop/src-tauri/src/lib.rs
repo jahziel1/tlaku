@@ -14,6 +14,7 @@ mod commands;
 mod edit;
 mod engine;
 pub mod hwtest;
+mod job_history;
 mod job_resume;
 mod live_window;
 mod machine;
@@ -162,6 +163,13 @@ fn build_app(context: tauri::Context) -> tauri::App {
             commands::galvo_red_run,
             commands::galvo_red_light,
             commands::galvo_confirm_move,
+            job_history::job_history_load,
+            job_history::job_history_append,
+            job_history::job_history_update,
+            job_history::job_history_remove,
+            job_history::job_history_clear,
+            job_history::job_history_import,
+            job_history::job_history_export,
             job_resume::interrupted_job,
             job_resume::interrupted_job_view,
             job_resume::discard_interrupted_job,

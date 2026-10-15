@@ -602,3 +602,10 @@ desktop.worker.rebooted_idle = The machine restarted (a limit switch, the lid or
 
 # edit/devices.rs
 desktop.devices.lbdev_too_big = {path}: the file is too large to be a LightBurn device profile (.lbdev).
+
+# job_history.rs
+desktop.job_history.data_dir = Could not find the app data folder: {err}
+desktop.job_history.bad_entry = The history entry is not valid: it must be an object with "id" (text) and "at" (number).
+desktop.job_history.entry_too_big = The history entry is too large ({size} bytes; the maximum is {max}).
+desktop.job_history.csv_ext = {path}: the job history is exported with the .csv extension.
+desktop.job_history.csv_too_big = The job history CSV is too large ({size} bytes; the maximum is {max}).

@@ -9,6 +9,7 @@ import { mockNest } from './nest';
 import { mockBundle } from './bundle';
 import { mockLiveWindow } from './live';
 import { mockPrefs } from './prefs';
+import { mockJobHistory } from './jobHistory';
 import { mockSettingsBackup } from './settingsBackup';
 import { mockAutomation } from './automation';
 import { mockRemote, type MockRemote } from './remote';
@@ -271,6 +272,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockPrefs(lag),
     ...liveWindowApi,
     ...mockSettingsBackup(lag),
+    ...mockJobHistory(lag),
     ...mockBundle(lag),
 
     on: (event, handler) => Promise.resolve(event.startsWith('live://') ? onLive(event as `live://${string}` & typeof event, handler as never) : machine.on(event, handler)),

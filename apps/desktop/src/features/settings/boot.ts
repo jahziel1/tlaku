@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { getApi } from '@/api';
+import { useJobLog } from '@/features/help/jobLog';
 import { useRecents } from '@/features/history/recent';
 import { useStore } from '@/store';
 import { loadPrefsFromDisk, startPrefsPersistence, startPrefsWindowSync, startThemeSync } from './persist';
@@ -32,6 +33,8 @@ export function usePrefsBoot(): void {
       if (cancelled) return;
       useRecents.getState().trim(useStore.getState().prefs.recentMax);
       void useRecents.getState().pruneMissing((paths) => api.pathsExist({ paths }));
+      // El historial de trabajos (archivo de la carpeta de datos) y la migración del registro viejo de localStorage.
+      void useJobLog.getState().load();
     });
 
     return () => {

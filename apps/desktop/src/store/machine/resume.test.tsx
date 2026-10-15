@@ -3,7 +3,7 @@ import { setApi } from '@/api';
 import { createMockApi, type MockApi } from '@/api/mock';
 import { sampleLayers, sampleObjects } from '@/api/mock/sample';
 import type { InterruptedJob } from '@/api/types';
-import { readJobLog, resetJobLogRecorder, useJobLog } from '@/features/help/jobLog';
+import { flushJobLog, resetJobLogRecorder, useJobLog } from '@/features/help/jobLog';
 import { ssr } from '@/features/machine/galvoFixtures';
 import { ResumeNotice } from '@/features/machine/ResumeNotice';
 import * as prompt from '@/features/history/prompt';
@@ -86,7 +86,9 @@ describe('continuar un trabajo interrumpido (store + máquina simulada)', () => 
     expect(j.percent).toBeGreaterThan(0);
     expect(store.getState().dialog).toEqual({ kind: 'resumeNotice' });
     await vi.waitFor(() => expect(useJobLog.getState().entries[0]?.interrupted?.id).toBe(j.id));
-    expect(readJobLog()[0]!.interrupted!.total).toBe(j.total_lines);
+    await flushJobLog();
+    const saved = (await api.jobHistoryLoad({})).at(-1) as { interrupted: { total: number } };
+    expect(saved.interrupted.total).toBe(j.total_lines);
   });
 
   it('cancelar a propósito no deja nada que continuar', async () => {
