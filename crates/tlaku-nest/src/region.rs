@@ -12,7 +12,7 @@ use std::f64::consts::PI;
 /// Áreas (mm²) por debajo de esto se consideran cero.
 const MIN_AREA: f64 = 1e-9;
 
-fn point_in_ring(p: Pt, ring: &[Pt]) -> bool {
+pub(crate) fn point_in_ring(p: Pt, ring: &[Pt]) -> bool {
     let n = ring.len();
     let mut inside = false;
     for i in 0..n {

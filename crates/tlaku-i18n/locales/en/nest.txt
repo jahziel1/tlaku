@@ -9,3 +9,5 @@ nest.lib.invalid_container = The container has no valid area: check the bed size
 nest.lib.option_rotation_step = Invalid option: the rotation step must be between 1 and 180 degrees.
 nest.lib.option_spacing = Invalid option: the spacing cannot be negative.
 nest.lib.option_margin = Invalid option: the margin cannot be negative.
+nest.lib.option_piece_angle = Invalid option: a piece rotation angle is not a number.
+nest.lib.option_max_sheets = Invalid option: the maximum number of sheets must be at least 1.

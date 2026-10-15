@@ -55,7 +55,7 @@ pub struct Found {
     pub interrupted: bool,
 }
 
-fn mutate(order: &mut Vec<Gene>, n_angles: usize, allow_mirror: bool, rng: &mut Rng) {
+fn mutate(order: &mut Vec<Gene>, allowed: &[Vec<usize>], allow_mirror: bool, rng: &mut Rng) {
     let n = order.len();
     if n == 0 {
         return;
@@ -66,8 +66,9 @@ fn mutate(order: &mut Vec<Gene>, n_angles: usize, allow_mirror: bool, rng: &mut 
         match rng.below(ops) {
             0 => {
                 let k = rng.below(n);
-                order[k].rot = if n_angles > 1 && rng.unit() < 0.8 {
-                    Some(rng.below(n_angles))
+                let opts = &allowed[order[k].piece];
+                order[k].rot = if opts.len() > 1 && rng.unit() < 0.8 {
+                    Some(opts[rng.below(opts.len())])
                 } else {
                     None
                 };
@@ -127,7 +128,6 @@ pub fn search(
     let t0 = (cur.cost * 0.01).max(1.0);
     let mut since_improve = 0u64;
     let stagnation = 60 + 2 * n as u64;
-    let n_angles = engine.angles.len();
     let allow_mirror = engine.allow_mirror;
 
     let interrupted = loop {
@@ -141,7 +141,7 @@ pub fn search(
             break false;
         }
         let mut cand_order = cur_order.clone();
-        mutate(&mut cand_order, n_angles, allow_mirror, &mut rng);
+        mutate(&mut cand_order, &engine.piece_angles, allow_mirror, &mut rng);
         let cand = engine.greedy(&cand_order, ctl);
         if !cand.complete {
             break true;

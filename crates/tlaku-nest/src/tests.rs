@@ -45,7 +45,11 @@ fn input(
     NestInput {
         pieces: pieces
             .into_iter()
-            .map(|(region, copies)| NestPiece { region, copies })
+            .map(|(region, copies)| NestPiece {
+                region,
+                copies,
+                rotation: PieceRotation::Inherit,
+            })
             .collect(),
         container,
         options,

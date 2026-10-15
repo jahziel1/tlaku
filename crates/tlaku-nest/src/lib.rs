@@ -28,13 +28,16 @@ mod geom;
 mod ops;
 mod prep;
 mod region;
+mod leftover;
 mod search;
+mod sheets;
+mod solve;
 
 pub use engine::Gravity;
+pub use leftover::{LeftoverOptions, leftover};
 pub use prep::TOL_MM as TOLERANCE_MM;
+pub use sheets::{SheetOutcome, SheetsInput, SheetsOutcome, nest_sheets};
 
-use engine::{Ctl, Engine, Gene};
-use search::{Limits, Step, search};
 use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
@@ -52,6 +55,28 @@ pub const MAX_INSTANCES: usize = 2000;
 pub struct NestPiece {
     pub region: Vec<Polyline>,
     pub copies: u32,
+    /// Giros permitidos a esta pieza (la veta o «sin giro»).
+    pub rotation: PieceRotation,
+}
+
+/// Giros permitidos a una pieza concreta. Sirve para la veta de la madera (solo 0° y 180°) y
+/// para las piezas que no deben girar.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum PieceRotation {
+    /// Los de [`NestOptions::rotations`].
+    #[default]
+    Inherit,
+    /// Solo la orientación original.
+    Fixed,
+    /// Solo estos ángulos (grados antihorarios; se normalizan a `[0, 360)`).
+    Only(Vec<f64>),
+}
+
+impl PieceRotation {
+    /// Veta horizontal: la pieza puede estar derecha o volteada 180°, nunca de lado.
+    pub fn grain() -> Self {
+        PieceRotation::Only(vec![0.0, 180.0])
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -160,6 +185,10 @@ pub enum NestError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BadOption {
     RotationStep,
+    /// Un ángulo de pieza no es finito.
+    PieceAngle,
+    /// `max_sheets` es cero.
+    MaxSheets,
     NegativeSpacing,
     NegativeMargin,
 }
@@ -176,6 +205,12 @@ impl fmt::Display for NestError {
             NestError::InvalidOption(BadOption::RotationStep) => {
                 f.write_str(&tr!("nest.lib.option_rotation_step"))
             }
+            NestError::InvalidOption(BadOption::PieceAngle) => {
+                f.write_str(&tr!("nest.lib.option_piece_angle"))
+            }
+            NestError::InvalidOption(BadOption::MaxSheets) => {
+                f.write_str(&tr!("nest.lib.option_max_sheets"))
+            }
             NestError::InvalidOption(BadOption::NegativeSpacing) => {
                 f.write_str(&tr!("nest.lib.option_spacing"))
             }
@@ -188,23 +223,9 @@ impl fmt::Display for NestError {
 
 impl std::error::Error for NestError {}
 
-fn allowed_angles(r: Rotations) -> Result<Vec<f64>, NestError> {
-    match r {
-        Rotations::Fixed => Ok(vec![0.0]),
-        Rotations::Quarter => Ok(vec![0.0, 90.0, 180.0, 270.0]),
-        Rotations::Step(s) => {
-            if !s.is_finite() || !(1.0..=180.0).contains(&s) {
-                return Err(NestError::InvalidOption(BadOption::RotationStep));
-            }
-            let n = (360.0 / s).floor() as usize;
-            Ok((0..n).map(|i| i as f64 * s).collect())
-        }
-        Rotations::Free => Ok((0..72).map(|i| i as f64 * 5.0).collect()),
-    }
-}
-
-/// Acomoda las piezas. `stop` interrumpe en cualquier momento (devuelve lo mejor hasta ahora);
-/// `progress` se llama tras cada evaluación con la mejor solución y su conteo.
+/// Acomoda las piezas en un solo contenedor. `stop` interrumpe en cualquier momento (devuelve lo
+/// mejor hasta ahora); `progress` se llama tras cada evaluación con la mejor solución y su
+/// conteo. Para repartir en varias hojas, véase [`nest_sheets`].
 pub fn nest(
     input: &NestInput,
     stop: &AtomicBool,
@@ -212,142 +233,30 @@ pub fn nest(
 ) -> Result<Outcome, NestError> {
     let started = Instant::now();
     let o = &input.options;
+    check_options(o)?;
+    let prepared = solve::prepare(&input.pieces, o)?;
+    let genes = solve::all_genes(&input.pieces);
+    solve::solve_sheet(
+        &prepared,
+        &genes,
+        &input.container,
+        o,
+        stop,
+        started,
+        o.time_limit,
+        progress,
+    )
+}
+
+/// Revisa las opciones comunes a [`nest`] y [`nest_sheets`].
+pub(crate) fn check_options(o: &NestOptions) -> Result<(), NestError> {
     if !(o.spacing.is_finite() && o.spacing >= 0.0) {
         return Err(NestError::InvalidOption(BadOption::NegativeSpacing));
     }
     if !(o.margin.is_finite() && o.margin >= 0.0) {
         return Err(NestError::InvalidOption(BadOption::NegativeMargin));
     }
-    let angles = allowed_angles(o.rotations)?;
-    let total: usize = input.pieces.iter().map(|p| p.copies as usize).sum();
-    if total == 0 {
-        return Err(NestError::NoPieces);
-    }
-    if total > MAX_INSTANCES {
-        return Err(NestError::TooMany(total));
-    }
-
-    let container = match &input.container {
-        NestContainer::Rect { width, height } => {
-            prep::prepare_container(Some((*width, *height)), &[], o.spacing, o.margin)
-        }
-        NestContainer::Region(paths) => prep::prepare_container(None, paths, o.spacing, o.margin),
-    }
-    .ok_or(NestError::InvalidContainer)?;
-
-    // Las piezas sin copias no participan, pero se conserva el índice original.
-    let mut prepared = Vec::with_capacity(input.pieces.len());
-    for (i, p) in input.pieces.iter().enumerate() {
-        match prep::prepare_piece(&p.region, o.spacing, o.use_holes) {
-            Some(pt) => prepared.push(pt),
-            None if p.copies == 0 => prepared.push(prep::empty_piece()),
-            None => return Err(NestError::EmptyPiece(i)),
-        }
-    }
-    let container_area = container.net_area;
-    let mut engine = Engine::new(
-        prepared,
-        container,
-        angles,
-        o.gravity,
-        o.use_holes,
-        o.allow_mirror,
-    );
-
-    // Orden inicial: de mayor a menor área; a igualdad, por índice (estable y reproducible).
-    let mut start: Vec<Gene> = Vec::with_capacity(total);
-    for (i, p) in input.pieces.iter().enumerate() {
-        for c in 0..p.copies {
-            start.push(Gene {
-                piece: i,
-                copy: c,
-                rot: None,
-                mirror: false,
-            });
-        }
-    }
-    start.sort_by(|a, b| {
-        let (pa, pb) = (&engine.pieces[a.piece], &engine.pieces[b.piece]);
-        pb.inflated_area
-            .total_cmp(&pa.inflated_area)
-            .then(a.piece.cmp(&b.piece))
-            .then(a.copy.cmp(&b.copy))
-    });
-
-    let ctl = Ctl {
-        stop,
-        deadline: started + o.time_limit,
-    };
-    let limits = Limits {
-        max_evaluations: o.max_evaluations,
-        started,
-        time_limit_s: o.time_limit.as_secs_f64(),
-    };
-
-    let mut cached: Option<Outcome> = None;
-    let mut revision = 0u64;
-    let found = {
-        // La conversión a `Outcome` solo se hace cuando hay mejora, para no copiar cientos de
-        // transformaciones en cada evaluación.
-        let mut observer = |eng: &Engine, step: &Step| {
-            if step.improved || cached.is_none() {
-                revision += 1;
-                let mut o = build_outcome(eng, step.solution, container_area, started);
-                o.revision = revision;
-                cached = Some(o);
-            }
-            if let Some(c) = cached.as_mut() {
-                c.evaluations = step.evaluations;
-                c.elapsed = started.elapsed();
-                progress(c);
-            }
-        };
-        search(&mut engine, start, &ctl, &limits, o.seed, &mut observer)
-    };
-    let mut out = build_outcome(&engine, &found.solution, container_area, started);
-    out.evaluations = found.evaluations;
-    out.revision = revision;
-    out.interrupted = found.interrupted;
-    Ok(out)
-}
-
-fn build_outcome(
-    engine: &Engine,
-    sol: &engine::Solution,
-    container_area: f64,
-    started: Instant,
-) -> Outcome {
-    let placements = sol
-        .placed
-        .iter()
-        .map(|p| {
-            let v = engine.variant(p.variant);
-            Placement {
-                piece: p.piece,
-                copy: p.copy,
-                rotation_deg: v.angle,
-                mirror: v.mirror,
-                transform: engine.transform(p.piece, p.variant, p.pos),
-            }
-        })
-        .collect();
-    let mut unplaced = sol.unplaced.clone();
-    unplaced.sort_unstable();
-    Outcome {
-        placements,
-        unplaced,
-        utilization: if container_area > 0.0 {
-            sol.placed_area / container_area * 100.0
-        } else {
-            0.0
-        },
-        placed_area: sol.placed_area,
-        container_area,
-        evaluations: 0,
-        revision: 0,
-        interrupted: false,
-        elapsed: started.elapsed(),
-    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -5634,8 +5634,10 @@ name = "tlaku-nest"
 version = "0.1.0"
 dependencies = [
  "i_overlay",
+ "serde_json",
  "tlaku-core",
  "tlaku-i18n",
+ "tlaku-parts",
 ]
 
 [[package]]
