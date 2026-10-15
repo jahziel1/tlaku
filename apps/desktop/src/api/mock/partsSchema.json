@@ -415,5 +415,437 @@
       "step_mm": 0.05,
       "thickness_mm": 3.0
     }
+  },
+  {
+    "id": "gears",
+    "params": [
+      {
+        "key": "kind",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "single",
+            "pair",
+            "ring",
+            "rack",
+            "rack_pinion"
+          ],
+          "default": "single"
+        },
+        "section": "gear_main",
+        "when": null
+      },
+      {
+        "key": "size_by",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "module",
+            "diametral_pitch"
+          ],
+          "default": "module"
+        },
+        "section": "gear_main",
+        "when": null
+      },
+      {
+        "key": "module_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.2,
+          "max": 25.0,
+          "step": 0.1,
+          "default": 2.0
+        },
+        "section": "gear_main",
+        "when": {
+          "key": "size_by",
+          "any_of": [
+            "module"
+          ]
+        }
+      },
+      {
+        "key": "diametral_pitch",
+        "kind": {
+          "type": "number",
+          "min": 1.0,
+          "max": 127.0,
+          "step": 0.5,
+          "default": 12.0
+        },
+        "section": "gear_main",
+        "when": {
+          "key": "size_by",
+          "any_of": [
+            "diametral_pitch"
+          ]
+        }
+      },
+      {
+        "key": "teeth",
+        "kind": {
+          "type": "int",
+          "min": 6,
+          "max": 200,
+          "default": 20
+        },
+        "section": "gear_main",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "single",
+            "pair",
+            "ring",
+            "rack_pinion"
+          ]
+        }
+      },
+      {
+        "key": "teeth2",
+        "kind": {
+          "type": "int",
+          "min": 6,
+          "max": 400,
+          "default": 40
+        },
+        "section": "gear_main",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "pair",
+            "ring"
+          ]
+        }
+      },
+      {
+        "key": "rack_teeth",
+        "kind": {
+          "type": "int",
+          "min": 2,
+          "max": 200,
+          "default": 10
+        },
+        "section": "gear_main",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "rack",
+            "rack_pinion"
+          ]
+        }
+      },
+      {
+        "key": "pressure_angle",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "deg14_5",
+            "deg20",
+            "deg25"
+          ],
+          "default": "deg20"
+        },
+        "section": "gear_main",
+        "when": null
+      },
+      {
+        "key": "clearance",
+        "kind": {
+          "type": "number",
+          "min": 0.05,
+          "max": 0.5,
+          "step": 0.01,
+          "default": 0.25
+        },
+        "section": "gear_tooth",
+        "when": null
+      },
+      {
+        "key": "backlash_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 2.0,
+          "step": 0.01,
+          "default": 0.1
+        },
+        "section": "gear_tooth",
+        "when": null
+      },
+      {
+        "key": "root",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "fillet",
+            "simple"
+          ],
+          "default": "fillet"
+        },
+        "section": "gear_tooth",
+        "when": null
+      },
+      {
+        "key": "tolerance_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.002,
+          "max": 0.1,
+          "step": 0.002,
+          "default": 0.01
+        },
+        "section": "gear_tooth",
+        "when": null
+      },
+      {
+        "key": "bore_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 500.0,
+          "step": 0.5,
+          "default": 5.0
+        },
+        "section": "gear_bore",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "single",
+            "pair",
+            "ring",
+            "rack_pinion"
+          ]
+        }
+      },
+      {
+        "key": "bore2_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.0,
+          "max": 500.0,
+          "step": 0.5,
+          "default": 5.0
+        },
+        "section": "gear_bore",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "pair"
+          ]
+        }
+      },
+      {
+        "key": "bore_type",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "round",
+            "keyway",
+            "d_flat"
+          ],
+          "default": "round"
+        },
+        "section": "gear_bore",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "single",
+            "pair",
+            "ring",
+            "rack_pinion"
+          ]
+        }
+      },
+      {
+        "key": "key_width_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.5,
+          "max": 50.0,
+          "step": 0.5,
+          "default": 2.0
+        },
+        "section": "gear_bore",
+        "when": {
+          "key": "bore_type",
+          "any_of": [
+            "keyway"
+          ]
+        }
+      },
+      {
+        "key": "key_depth_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.2,
+          "max": 25.0,
+          "step": 0.1,
+          "default": 1.0
+        },
+        "section": "gear_bore",
+        "when": {
+          "key": "bore_type",
+          "any_of": [
+            "keyway"
+          ]
+        }
+      },
+      {
+        "key": "flat_depth_mm",
+        "kind": {
+          "type": "length",
+          "min": 0.1,
+          "max": 100.0,
+          "step": 0.1,
+          "default": 0.5
+        },
+        "section": "gear_bore",
+        "when": {
+          "key": "bore_type",
+          "any_of": [
+            "d_flat"
+          ]
+        }
+      },
+      {
+        "key": "lightening",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "none",
+            "holes",
+            "spokes"
+          ],
+          "default": "none"
+        },
+        "section": "gear_light",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "single",
+            "pair",
+            "ring",
+            "rack_pinion"
+          ]
+        }
+      },
+      {
+        "key": "lightening_count",
+        "kind": {
+          "type": "int",
+          "min": 3,
+          "max": 24,
+          "default": 5
+        },
+        "section": "gear_light",
+        "when": {
+          "key": "lightening",
+          "any_of": [
+            "holes",
+            "spokes"
+          ]
+        }
+      },
+      {
+        "key": "web_mm",
+        "kind": {
+          "type": "length",
+          "min": 1.0,
+          "max": 50.0,
+          "step": 0.5,
+          "default": 4.0
+        },
+        "section": "gear_light",
+        "when": {
+          "key": "lightening",
+          "any_of": [
+            "holes",
+            "spokes"
+          ]
+        }
+      },
+      {
+        "key": "ring_rim_mm",
+        "kind": {
+          "type": "length",
+          "min": 2.0,
+          "max": 100.0,
+          "step": 0.5,
+          "default": 6.0
+        },
+        "section": "gear_layout",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "ring"
+          ]
+        }
+      },
+      {
+        "key": "rack_base_mm",
+        "kind": {
+          "type": "length",
+          "min": 2.0,
+          "max": 200.0,
+          "step": 0.5,
+          "default": 8.0
+        },
+        "section": "gear_layout",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "rack",
+            "rack_pinion"
+          ]
+        }
+      },
+      {
+        "key": "layout",
+        "kind": {
+          "type": "choice",
+          "options": [
+            "meshed",
+            "separate"
+          ],
+          "default": "meshed"
+        },
+        "section": "gear_layout",
+        "when": {
+          "key": "kind",
+          "any_of": [
+            "pair",
+            "ring",
+            "rack_pinion"
+          ]
+        }
+      }
+    ],
+    "defaults": {
+      "backlash_mm": 0.1,
+      "bore2_mm": 5.0,
+      "bore_mm": 5.0,
+      "bore_type": "round",
+      "clearance": 0.25,
+      "diametral_pitch": 12.0,
+      "flat_depth_mm": 0.5,
+      "key_depth_mm": 1.0,
+      "key_width_mm": 2.0,
+      "kind": "single",
+      "layout": "meshed",
+      "lightening": "none",
+      "lightening_count": 5,
+      "module_mm": 2.0,
+      "pressure_angle": "deg20",
+      "rack_base_mm": 8.0,
+      "rack_teeth": 10,
+      "ring_rim_mm": 6.0,
+      "root": "fillet",
+      "size_by": "module",
+      "teeth": 20,
+      "teeth2": 40,
+      "tolerance_mm": 0.01,
+      "web_mm": 4.0
+    }
   }
 ]

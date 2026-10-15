@@ -9,6 +9,7 @@ import type { GenerateResult } from '@/bindings/GenerateResult';
 import type { PlacedPart } from '@/bindings/PlacedPart';
 import type { PathDto } from '@/bindings/PathDto';
 import schema from './partsSchema.json';
+import { gearsParts } from './partsGears';
 
 type P = [number, number];
 type V3 = [number, number, number];
@@ -400,13 +401,13 @@ const shift = (paths: PathDto[], dx: number, dy: number): PathDto[] => paths.map
 /** Genera y acomoda en filas, como `tlaku_parts::generate`. */
 export function mockGenerate(id: string, params: Params, maxWidth: number | null | undefined, gapMm: number | null | undefined): GenerateResult {
   const gap = typeof gapMm === 'number' && Number.isFinite(gapMm) ? Math.min(Math.max(gapMm, 0), 100) : 5;
-  if (!['box', 'hinge', 'fit_test'].includes(id)) throw new Error(`No existe el generador «${id}».`);
+  if (!['box', 'hinge', 'fit_test', 'gears'].includes(id)) throw new Error(`No existe el generador «${id}».`);
   try {
     // Como el motor: lo que falte toma el valor de fábrica (el mismo JSON que da el formulario).
     const defaults = (schema as unknown as { id: string; defaults: Params }[]).find((g) => g.id === id)?.defaults ?? {};
     const full: Params = { ...defaults, ...params };
     validateRanges(id, full);
-    const g = id === 'box' ? boxParts(full) : id === 'hinge' ? hingeParts(full) : fitParts(full);
+    const g = id === 'box' ? boxParts(full) : id === 'hinge' ? hingeParts(full) : id === 'gears' ? gearsParts(full, (f, m) => new Invalid(f, m)) : fitParts(full);
     const max = maxWidth && maxWidth > 0 ? maxWidth : Infinity;
     let x = 0, y = 0, rowH = 0, width = 0;
     const placed: PlacedPart[] = g.parts.map((p) => {
