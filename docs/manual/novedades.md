@@ -15,6 +15,13 @@ Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de
 - **Máquina > Revisar diseño…** (`Ctrl/Cmd+Alt+R`) lee tu diseño y lista **doce tipos de hallazgo** (trazos casi cerrados, líneas duplicadas, uniones pendientes, fragmentos diminutos, nodos de sobra, objetos fuera o pasados de la cama, textos sin convertir, capas sin salida u ocultas con objetos, y imágenes con demasiada o poca resolución). Cada uno trae **Arreglar** (si lo hay), **Seleccionar** e **Ignorar**; **Arreglar todo lo seguro** cierra, une y quita duplicados en un paso de **Deshacer**.
 - Un **aviso en el diálogo de inicio** (con enlace **Ver**) cuando hay algo grave, y los mismos hallazgos en palabras simples en el **modo sencillo**. Mira [Revisar diseño](07b-revisar-diseno.md).
 
+### Datos variables desde CSV
+
+- **Varios CSV por proyecto**, cada uno con su nombre: `{csv.productos:Nombre}` elige la fuente y la columna. La primera es la principal y manda sobre las filas; las demás se repiten desde el inicio (o bloquean el envío) si tienen menos filas. Se guardan con ruta relativa al proyecto y un proyecto con un solo CSV se abre como antes.
+- **Imágenes y logotipos variables**: una columna con la ruta del archivo (absoluta o relativa al CSV) reemplaza la imagen marcada, encajada en su caja (entera o llenando y recortando) y grabada con el modo de imagen de su capa. Si falta un archivo, el envío se bloquea y dice cuál.
+- **QR y códigos de barras variables**: el contenido puede llevar `{csv:Id}` y se regenera con los datos de cada fila.
+- **Vista previa por fila**, **Una copia por fila** con todo lo anterior y **Revisar datos**, que lista las filas con celdas vacías, imágenes ausentes o códigos sin contenido. Mira [Texto variable](04b-texto-variable.md).
+
 ### Lienzo y edición
 
 - **Deformar en el lienzo** (`Mayús+W`): arrastra las manijas de una malla **bilineal**, de **perspectiva** o de **4×4 puntos** y ve el resultado en vivo.

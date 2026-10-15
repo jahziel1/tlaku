@@ -145,6 +145,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             edit::text::text_outline,
             edit::text::import_shx_fonts,
             edit::variables::read_csv,
+            edit::variables::probe_images,
             edit::codes::generate_code,
             edit::geometry::geometry_op,
             edit::nest::nest_start,

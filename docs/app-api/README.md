@@ -17,7 +17,7 @@ Este contrato se partió por área (antes era un solo archivo de 55 KB). Busca e
 |---|---|---:|
 | [documento.md](documento.md) | El documento, los objetos, las capas, el perfil de dispositivo y las opciones de trabajo. | 0 |
 | [conexion-y-trabajo.md](conexion-y-trabajo.md) | Comandos de importar, calcular, exportar y enviar el trabajo; conexión con la máquina; eventos `machine://*`; imágenes. | 19 |
-| [edicion.md](edicion.md) | Curvas, grupos, texto, vectorizado, operaciones de geometría y de formas y arte; incluye los primeros comandos de cámara de la fase 3 (`detect_board`, `calibrate_lens`, marcas). | 18 |
+| [edicion.md](edicion.md) | Curvas, grupos, texto, vectorizado, operaciones de geometría y de formas y arte; incluye los primeros comandos de cámara de la fase 3 (`detect_board`, `calibrate_lens`, marcas). | 20 |
 | [taller.md](taller.md) | Campos nuevos de capas y perfiles (puentes, Z, rotativo, dialectos G-code) de las fases de taller. | 0 |
 | [materiales.md](materiales.md) | Comandos y contrato de la biblioteca de materiales y la prueba de material. | 6 |
 | [maquinas.md](maquinas.md) | Comandos de máquinas de la fase 4, oleada C (`device_defaults`, `probe_port`, `simulate_fault`) y `probe_touch` (ola 6E). | 11 |
@@ -37,7 +37,7 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 |---|---|
 | [documento.md](documento.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [conexion-y-trabajo.md](conexion-y-trabajo.md) | `import_file`, `compute_job`, `export_gcode`, `save_project`, `load_project`, `list_devices`, `save_device`, `delete_device`, `reorder_devices`, `job_link_warning`, `list_ports`, `connect`, `disconnect`, `machine_command`, `machine_realtime`, `jog`, `start_job`, `pause_job`, `resume_job`, `cancel_job`, `frame_job` |
-| [edicion.md](edicion.md) | `list_fonts`, `text_outline`, `geometry_op`, `shape_op`, `review_design`, `trace_image`, `vectors_to_bitmap`, `save_processed_image`, `preview_image`, `fit_registration`, `plan_tiles`, `art_import_svg`, `art_list_user`, `art_add_user`, `art_remove_user`, `art_save_user`, `detect_board`, `calibrate_lens`, `load_camera_setup`, `save_camera_setup`, `save_board_file`, `fetch_camera_frame`, `camera_marks`, `detect_camera_marks` |
+| [edicion.md](edicion.md) | `list_fonts`, `read_csv`, `probe_images`, `text_outline`, `geometry_op`, `shape_op`, `review_design`, `trace_image`, `vectors_to_bitmap`, `save_processed_image`, `preview_image`, `fit_registration`, `plan_tiles`, `art_import_svg`, `art_list_user`, `art_add_user`, `art_remove_user`, `art_save_user`, `detect_board`, `calibrate_lens`, `load_camera_setup`, `save_camera_setup`, `save_board_file`, `fetch_camera_frame`, `camera_marks`, `detect_camera_marks` |
 | [taller.md](taller.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [materiales.md](materiales.md) | `load_material_library`, `load_factory_materials`, `save_material_library`, `import_material_library`, `export_material_library`, `material_test` |
 | [maquinas.md](maquinas.md) | `device_defaults`, `rotary_test`, `read_lbdev`, `probe_port`, `simulate_fault`, `probe_touch`, `interrupted_job`, `interrupted_job_view`, `discard_interrupted_job`, `continue_check`, `continue_frame`, `continue_job` |

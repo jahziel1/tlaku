@@ -1,10 +1,9 @@
 import type { DesignObject, Document } from '@/api/types';
-import { isTextObject } from '@/features/text/signature';
 import { objectBounds, translateAffine, unionBounds } from '@/lib/geometry';
 import { groupIdsOf, regroupCopies } from '@/lib/groups';
 import { useStore } from '@/store';
 import { uniqueId } from '@/store/document';
-import { shiftTemplate } from './syntax';
+import { shiftObject } from './varObjects';
 
 /** Tope de copias de una vez (más que esto no cabe en ninguna cama). */
 export const MAX_COPIES = 500;
@@ -46,8 +45,7 @@ export function copiesPerRow(doc: Document, ids: readonly string[], plan: Copies
       const id = uniqueId(o.id.replace(/-\d+$/, ''), taken);
       taken.add(id);
       created.push(id);
-      const moved = { ...o, id, locked: false, transform: translateAffine(o.transform, dx, dy) };
-      return isTextObject(moved) ? { ...moved, kind: { ...moved.kind, text: shiftTemplate(moved.kind.text, k) } } : moved;
+      return shiftObject({ ...o, id, locked: false, transform: translateAffine(o.transform, dx, dy) }, k);
     });
     copies.push(...regroupCopies(batch, groups));
   }

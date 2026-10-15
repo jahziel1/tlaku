@@ -723,7 +723,7 @@ del documento), capturas. Sin hardware.
 
 ## 14. Numeración y datos variables desde CSV
 
-**(a) Estado: Hecho en lo básico; hay huecos con alta demanda.** D42/M38 (Hecho): variables entre llaves
+**(a) Estado: Hecho (ola A: varios CSV, imágenes/logotipos y QR/códigos variables, vista previa por fila y revisión de datos); quedan rango de filas y variables de ajuste de capa.** D42/M38 (Hecho): variables entre llaves
 (`{serie:6}`, `{csv:Nombre}`, `{fila}`, fecha y hora con formato, número de copia, desplazamiento `@N`), diálogo
 «Texto variable» con serie (paso, dígitos, hexadecimal), CSV (UTF-8, separador detectado, hasta 100 000
 filas), avance **solo tras un trabajo que termina bien** (deshacible), «Una copia por fila», plantilla guardada
@@ -733,11 +733,9 @@ entiende. Código: `features/variables/`, `edit/variables.rs`, `tlaku-doc` (`Var
 
 **(b) Qué falta (los límites que la propia fila reconoce, más los que piden los usuarios).**
 
-- **Más de un CSV por proyecto** (hoy `VariableText.csv_path` es único).
-- **Imágenes y logotipos variables** (una columna con la ruta de un archivo; reemplazar el `source_path` de un
-  objeto imagen o una forma SVG por fila).
-- **QR y códigos de barras variables** (hoy se generan ya como trayecto y no son dato variable; la fila D43 lo
-  dice) y QR serializados.
+- ~~**Más de un CSV por proyecto**~~ **Hecho** (`VariableText.sources`; la principal manda, las demás se repiten o bloquean si son más cortas).
+- ~~**Imágenes y logotipos variables**~~ **Hecho** para objetos imagen (`ImageObject.variable`); una forma SVG por fila queda pendiente.
+- ~~**QR y códigos de barras variables**~~ **Hecho** (`VectorObject.code`, se regeneran al enviar); QR serializados con `{serie}` en el contenido.
 - **Variables de ajuste de capa** (velocidad, potencia) desde una columna del CSV; hoy no.
 - **Selección de filas** (rango inicial-final, filtro, saltar vacías) y **buscar y reemplazar** texto en bloque.
 - Opcional: "hornear" a texto fijo con un clic (hoy se logra convirtiendo a trayectos).

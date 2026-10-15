@@ -56,6 +56,7 @@ fn image(id: &str, layer: Rgb, px: u32, mm: f64) -> DesignObject {
             height_px: px,
             size_mm: [mm, mm],
             mask: Vec::new(),
+            variable: None,
         }),
     )
 }

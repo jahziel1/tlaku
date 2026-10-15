@@ -119,6 +119,7 @@ impl Extractor {
                 height_px: *hp,
                 size_mm: [w, h],
                 mask: Vec::new(),
+                variable: None,
             });
         }
         // Se comprueba la cabecera antes de dejar un archivo inútil en disco (y no se decodifica
@@ -133,6 +134,7 @@ impl Extractor {
             height_px: hp,
             size_mm: [w, h],
             mask: Vec::new(),
+            variable: None,
         })
     }
 }

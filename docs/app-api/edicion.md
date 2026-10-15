@@ -32,6 +32,8 @@ interface TextObject {                // ObjectKind "text"
 | Comando | Entrada | Salida |
 |---|---|---|
 | `list_fonts` | | `{ family: string; styles: string[] }[]` |
+| `read_csv` | `{ path: string, required?: string[] }` | `{ headers: string[], rows: string[][], delimiter: string }` (CSV de una fuente de datos del texto variable: UTF-8 con o sin BOM, separador `,` `;` o tabulador detectado, hasta 100 000 filas y 50 MB; con `required` falla nombrando las columnas que faltan; se llama una vez por fuente) |
+| `probe_images` | `{ paths: string[] }` | `{ path: string, ok: boolean, width_px: number, height_px: number, error: string \| null }[]` (mismo orden; para las imágenes variables: si el archivo existe y su tamaño, leyendo solo la cabecera; un archivo ausente o ilegible no es un error del comando: sale con `ok: false` y su motivo) |
 | `text_outline` | `{ text: TextObject, path: BezPath \| null }` | `{ paths: BezPath[], warnings: string[] }` (un `BezPath` por glifo, en coordenadas locales del texto; las advertencias son sustituciones de fuente, caracteres sin glifo o texto que no cabe en la trayectoria) |
 | `geometry_op` | `{ op: "union" \| "difference" \| "intersection" \| "xor" \| "weld" \| "offset", objects: DesignObject[], distance?: number, join?: "round" \| "miter" \| "bevel" }` | `DesignObject[]` (resultado en coordenadas de documento, transform identidad) |
 | `shape_op` | `{ op: "trim" \| "break_apart" \| "optimize" \| "fillet" \| "cut_shapes" \| "resize_slots", objects: DesignObject[], params?: ShapeParams }` | `{ objects: DesignObject[], stats: ShapeStats }` (misma convención de resultado que `join`/`close`/`dedupe`) |

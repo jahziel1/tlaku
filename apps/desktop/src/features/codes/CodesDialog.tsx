@@ -5,6 +5,8 @@ import type { CodeSpec } from '@/api/types';
 import { effectiveFont, isLineFont, pickDefaultFont, useFonts } from '@/features/text/fonts';
 import { FontPicker } from '@/features/text/FontPicker';
 import { bezToSvgD } from '@/features/trace/stats';
+import { ColumnPicker, displayContext, issueMessage, resolveTemplate, useVariablesUi, variableCodeOf } from '@/features/variables';
+import { hasVariables } from '@/features/variables/syntax';
 import { t } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { fmt } from '@/lib/platform';
@@ -60,7 +62,24 @@ export function CodesContent({ titleId }: { titleId: string }) {
   const font = effectiveFont(outlineFonts, spec.font_family).family;
 
   const info = kindInfo(spec.kind);
-  const toSend = useMemo(() => specToSend(spec, font), [spec, font]);
+  // Contenido con variables ({csv:Columna}): la vista previa y lo que se inserta usan la fila actual.
+  const doc = useStore((s) => s.doc);
+  const csvState = useVariablesUi((s) => s.csv);
+  const extraState = useVariablesUi((s) => s.extra);
+  // Solo si lleva una variable de verdad: unas llaves sueltas (un JSON, por ejemplo) se codifican tal cual.
+  const variable = hasVariables(spec.data);
+  const resolvedData = useMemo(
+    () => (variable ? resolveTemplate(spec.data, displayContext(doc)) : null),
+    // `csvState` y `extraState` no se leen, pero `displayContext` toma los CSV cargados del estado de la interfaz.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [variable, spec.data, doc, csvState, extraState],
+  );
+  const variableIssues = resolvedData?.issues ?? [];
+  const toSend = useMemo(
+    () => specToSend({ ...spec, data: resolvedData ? (variableIssues.length > 0 ? '' : resolvedData.text) : spec.data }, font),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [spec, font, resolvedData],
+  );
   const run = useCodeRun(toSend);
   const result = run.result;
 
@@ -70,7 +89,9 @@ export function CodesContent({ titleId }: { titleId: string }) {
   const blocked =
     spec.data.length === 0
       ? t('codes.insert.empty')
-      : run.status === 'computing'
+      : variableIssues.length > 0
+        ? t('codes.insert.variableIssue', { problem: issueMessage(variableIssues[0]!) })
+        : run.status === 'computing'
         ? t('codes.insert.busy')
         : run.status === 'error' || !result
           ? t('codes.insert.error')
@@ -85,7 +106,13 @@ export function CodesContent({ titleId }: { titleId: string }) {
       selectActiveDevice(s).bed,
     );
     s.applyDocChange('codes.history.insert', (doc) => {
-      const r = applyCodeToDoc(doc, { paths: result.paths, size: [result.width_mm, result.height_mm], center, layer: targetColor });
+      const r = applyCodeToDoc(doc, {
+        paths: result.paths,
+        size: [result.width_mm, result.height_mm],
+        center,
+        layer: targetColor,
+        code: variable ? variableCodeOf({ ...specToSend(spec, font), data: spec.data }) : undefined,
+      });
       out.id = r.id;
       return r.doc;
     });
@@ -194,7 +221,18 @@ export function CodesContent({ titleId }: { titleId: string }) {
               />
             )}
             <p className="hint">{t(info.hint)}</p>
+            <p className="hint">{t('codes.field.variableHint')}</p>
+            {variable && variableIssues.length === 0 && resolvedData && (
+              <p className="hint num">{t('codes.field.variablePreview', { value: resolvedData.text })}</p>
+            )}
+            {variableIssues.map((issue, i) => (
+              <p key={i} className="warn-line">
+                <TriangleAlert size={14} aria-hidden="true" />
+                <span>{issueMessage(issue)}</span>
+              </p>
+            ))}
           </div>
+          <ColumnPicker label={t('codes.field.insertColumn')} onPick={(snippet) => patch({ data: spec.data + snippet })} />
 
           {spec.kind === 'qr' && (
             <div className="field">

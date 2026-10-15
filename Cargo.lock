@@ -5505,6 +5505,7 @@ dependencies = [
  "tlaku-lhymicro",
  "tlaku-nest",
  "tlaku-pipeline",
+ "tlaku-raster",
  "tlaku-ruida",
  "tlaku-text",
  "tlaku-trace",

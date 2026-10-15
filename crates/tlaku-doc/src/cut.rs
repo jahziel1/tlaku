@@ -2,6 +2,7 @@
 //! pausas, modo punto, rampa y agrupación del relleno. Todos tienen un valor por defecto que
 //! no cambia nada, así que los documentos viejos se comportan igual.
 
+use crate::variables::DataSource;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -281,12 +282,16 @@ pub struct VariableText {
     pub serial_step: i64,
     /// Dígitos mínimos (rellena con ceros).
     pub serial_digits: u32,
-    /// Ruta del CSV con los datos (columnas por nombre de encabezado).
+    /// Ruta del CSV principal (columnas por nombre de encabezado). Es el CSV único de los
+    /// documentos antiguos y repite la ruta de `sources[0]`; ver `VariableText::normalize`.
     pub csv_path: Option<String>,
-    /// Fila actual del CSV (0 = la primera de datos).
+    /// Fila actual de la fuente principal (0 = la primera de datos); las demás usan la misma.
     pub csv_row: u32,
     /// Avanzar serie y fila automáticamente al terminar un trabajo.
     pub advance_after_job: bool,
+    /// Fuentes de datos con nombre; la primera es la principal. Vacía en documentos anteriores
+    /// a los varios CSV (se migra desde `csv_path`).
+    pub sources: Vec<DataSource>,
 }
 
 impl Default for VariableText {
@@ -298,6 +303,7 @@ impl Default for VariableText {
             csv_path: None,
             csv_row: 0,
             advance_after_job: true,
+            sources: Vec::new(),
         }
     }
 }

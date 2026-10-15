@@ -45,6 +45,7 @@ fn sample() -> Document {
             height_px: 50,
             size_mm: [20.0, 10.0],
             mask: Vec::new(),
+            variable: None,
         }),
         locked: true,
         hidden: false,

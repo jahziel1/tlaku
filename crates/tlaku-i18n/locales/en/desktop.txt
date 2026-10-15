@@ -525,6 +525,8 @@ desktop.edit.variables.open_failed = Could not open the CSV "{path}": {err}
 desktop.edit.variables.too_big = The CSV is larger than 50 MB.
 desktop.edit.variables.read_failed = Could not read the CSV "{path}": {err}
 desktop.edit.variables.missing_columns = The CSV is missing columns the design uses: {missing}. Available columns: {available}.
+desktop.edit.variables.image_missing = The image file "{path}" was not found.
+desktop.edit.variables.image_unreadable = Could not read the image "{path}": {err}
 desktop.edit.text.no_file = No file was chosen
 
 # wave 6E: contact probe (machine/probe.rs, machine/worker/probe.rs)

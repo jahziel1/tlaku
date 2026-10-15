@@ -5,8 +5,14 @@ import { useVariablesSync } from './useVariablesSync';
 
 export { VariablesDialog } from './VariablesDialog';
 export { InsertVariable } from './InsertVariable';
+export { ImageVariableField } from './ImageVariableField';
+export { ColumnPicker } from './ColumnPicker';
 export { useVariablesUi } from './context';
 export { advanceAfterJob } from './advance';
+export { displayContext } from './context';
+export { issueMessage } from './messages';
+export { resolveTemplate } from './resolve';
+export { variableCodeOf } from './varObjects';
 export { resolveDocForOutput, resolveJobArgs, VariableError } from './jobResolve';
 
 /**

@@ -13,8 +13,12 @@
  *                         con dígitos opcionales (`hex4`). @N suma N pasos de la serie.
  *   csv                   dato de la fila actual del CSV. Opción obligatoria: el nombre de la
  *                         columna (`{csv:Nombre}`) o su número desde 1 (`{csv:2}`).
- *                         @N toma la fila actual + N.
+ *                         @N toma la fila actual + N. Con varios CSV en el proyecto,
+ *                         `{csv.fuente:Columna}` elige la fuente por su nombre; sin nombre
+ *                         es la fuente principal (la primera).
  *   fila | row            número de la fila actual del CSV, desde 1 (@N igual que csv).
+ *                         `{fila.fuente}` es la fila que le toca a esa fuente (si es más
+ *                         corta y se repite, puede ser menor que la de la principal).
  *   fecha | date          fecha de hoy. Opción: formato (por defecto `dd/MM/yyyy`).
  *   hora | time           hora actual. Opción: formato (por defecto `HH:mm`).
  *   copia | copy          número de copia, desde 1. @N lo desplaza (`{copia@2}` vale 3).
@@ -51,6 +55,8 @@ export type Token =
       name: VarName;
       /** Nombre tal como lo escribió el usuario (se conserva al reescribir la plantilla). */
       alias: string;
+      /** Fuente de datos elegida (`{csv.fuente:...}`); vacío = la principal. Solo `csv` y `fila`. */
+      source: string;
       arg: string;
       offset: number;
       raw: string;
@@ -104,8 +110,13 @@ export function parseTemplate(source: string): Token[] {
       if (!body) {
         out.push({ kind: 'bad', reason: 'empty', raw });
       } else {
-        const name = VAR_ALIASES[body.alias.toLowerCase()];
-        if (name) out.push({ kind: 'var', name, alias: body.alias, arg: body.arg, offset: body.offset, raw });
+        const dot = body.alias.indexOf('.');
+        const baseName = dot < 0 ? body.alias : body.alias.slice(0, dot);
+        const source = dot < 0 ? '' : body.alias.slice(dot + 1).trim();
+        const name = VAR_ALIASES[baseName.trim().toLowerCase()];
+        // Solo los datos del CSV admiten `.fuente`, y el nombre no puede quedar vacío.
+        const sourceOk = dot < 0 || ((name === 'csv' || name === 'row') && source !== '');
+        if (name && sourceOk) out.push({ kind: 'var', name, alias: body.alias, source, arg: body.arg, offset: body.offset, raw });
         else out.push({ kind: 'bad', reason: 'unknown', raw });
       }
       i = end + 1;
@@ -155,13 +166,30 @@ export function variablesOf(text: string): Extract<Token, { kind: 'var' }>[] {
   return parseTemplate(text).filter((t): t is Extract<Token, { kind: 'var' }> => t.kind === 'var');
 }
 
-/** Columnas del CSV que menciona la plantilla (nombres o números tal como se escribieron). */
+/** Columnas del CSV principal que menciona la plantilla (nombres o números tal como se escribieron). */
 export function csvColumnsUsed(text: string): string[] {
-  const cols = variablesOf(text)
-    .filter((v) => v.name === 'csv')
-    .map((v) => v.arg.trim())
-    .filter((a) => a !== '');
-  return [...new Set(cols)];
+  return csvColumnsBySource(text).get('') ?? [];
+}
+
+/**
+ * Columnas que menciona la plantilla, por fuente. La clave es el nombre de la fuente en
+ * minúsculas (`''` = la principal, la que no lleva `.fuente`).
+ */
+export function csvColumnsBySource(text: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const v of variablesOf(text)) {
+    if (v.name !== 'csv' || v.arg.trim() === '') continue;
+    const key = v.source.toLowerCase();
+    const list = out.get(key) ?? [];
+    if (!list.includes(v.arg.trim())) list.push(v.arg.trim());
+    out.set(key, list);
+  }
+  return out;
+}
+
+/** Nombres de las fuentes (en minúsculas) que usa la plantilla; `''` es la principal. */
+export function sourcesUsed(text: string): string[] {
+  return [...new Set(variablesOf(text).filter((v) => v.name === 'csv' || v.name === 'row').map((v) => v.source.toLowerCase()))];
 }
 
 /** ¿La plantilla necesita datos del CSV (`csv` o `fila`)? */
