@@ -154,12 +154,15 @@ pub async fn import_preferences(path: String) -> Result<Value, String> {
 
 /// Marca de un paquete de usuario completo (máquinas, materiales, preferencias).
 pub const USER_BUNDLE_FORMAT: &str = "tlaku-bundle";
-/// Versión del paquete que esta compilación entiende.
-pub const USER_BUNDLE_VERSION: u64 = 1;
+/// Versión más nueva del paquete que esta compilación entiende. La 2 agrega las secciones
+/// `costs`, `remnants`, `templates` y `history` (respaldo a carpeta); se leen también los de la 1.
+pub const USER_BUNDLE_VERSION: u64 = 2;
+/// Versión más vieja que se lee: los paquetes de la 1 son un subconjunto de la 2.
+pub const USER_BUNDLE_MIN_VERSION: u64 = 1;
 /// Extensión obligatoria al escribir un paquete.
 const USER_BUNDLE_EXT: &str = "tlakubundle";
 /// Un paquete lleva perfiles y materiales; más de esto no es un paquete razonable.
-const USER_BUNDLE_MAX_BYTES: u64 = 32 * 1024 * 1024;
+pub(crate) const USER_BUNDLE_MAX_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Comprueba el sobre de un paquete de usuario: objeto con `format`, `version` y, si existe,
 /// `devices` como arreglo. El contenido de cada sección lo valida la interfaz.
@@ -172,7 +175,7 @@ pub fn check_user_bundle(value: &Value) -> Result<(), String> {
     }
     match obj.get("version").map(Value::as_u64) {
         None => return Err(tr!("desktop.prefs.bundle_no_version")),
-        Some(Some(USER_BUNDLE_VERSION)) => {}
+        Some(Some(v)) if (USER_BUNDLE_MIN_VERSION..=USER_BUNDLE_VERSION).contains(&v) => {}
         Some(_) => {
             return Err(tr!(
                 "desktop.prefs.bundle_unsupported_version",
@@ -411,7 +414,7 @@ mod tests {
         let tmp = TempDir::new();
         let file = tmp.0.join("futuro.tlakubundle");
         let mut futuro = user_bundle();
-        futuro["version"] = json!(2);
+        futuro["version"] = json!(USER_BUNDLE_VERSION + 1);
         assert!(export_user_bundle_file(&file, &futuro).is_err());
         fs::write(&file, serde_json::to_string(&futuro).unwrap()).unwrap();
         let err = import_user_bundle_file(&file).unwrap_err();
@@ -419,6 +422,19 @@ mod tests {
         let mut sin = user_bundle();
         sin.as_object_mut().unwrap().remove("version");
         assert!(check_user_bundle(&sin).unwrap_err().contains("version"));
+    }
+
+    #[test]
+    fn paquete_de_usuario_lee_la_version_1_y_la_2() {
+        let mut v1 = user_bundle();
+        v1["version"] = json!(1);
+        assert!(check_user_bundle(&v1).is_ok());
+        let mut v2 = user_bundle();
+        v2["version"] = json!(2);
+        assert!(check_user_bundle(&v2).is_ok());
+        let mut v0 = user_bundle();
+        v0["version"] = json!(0);
+        assert!(check_user_bundle(&v0).is_err());
     }
 
     #[test]

@@ -8,6 +8,12 @@ Lo más importante que trae cada versión de Tlaku, escrito para quien usa la ap
 - **Tus ajustes se migran solos**: al abrir la nueva versión por primera vez, Tlaku **copia** (no mueve) lo que había en la carpeta antigua a la nueva: dispositivos, materiales, preferencias, plantillas, retazos, historial de trabajos, historial de versiones y copias de recuperación. Solo ocurre si la carpeta nueva está vacía, no se repite y no pisa nada; si la copia falla, la app abre igual con la carpeta nueva vacía y lo intenta de nuevo al siguiente arranque. La carpeta antigua queda intacta y puedes borrarla cuando quieras.
 - Lo que la ventana web recuerda por su cuenta (perfiles de la calculadora de costos, ajustes guardados de imágenes, pestañas abiertas, cola de trabajos, archivos recientes y estados de paneles) no se puede trasladar y empieza de cero.
 
+## Respaldo de ajustes en una carpeta, en la próxima versión
+
+- **Respaldo automático** de tus máquinas, materiales, costos, retazos, plantillas, cámaras, arte, preferencias y atajos a una carpeta que elijas (iCloud Drive, Dropbox, OneDrive, USB…): al cerrar y/o cada N días, con nombre fechado y rotación. Si la carpeta no está, avisa una vez y sigue. **Archivo > Respaldo de ajustes…**
+- **Restaurar con vista previa**: por categoría ves qué es nuevo, distinto o igual, eliges qué importar y qué hacer con lo que choca (reemplazar, conservar ambos u omitir). Antes de aplicar se guarda un respaldo del estado actual.
+- **De una computadora a otra**: al abrir, si en la carpeta hay un respaldo más nuevo hecho en otra, te lo ofrece; nunca lo aplica solo. Nunca se respaldan contraseñas, llaves ni el acceso remoto. Mira [Respaldo de ajustes en una carpeta](02b-preferencias-y-atajos.md#respaldo-de-ajustes-en-una-carpeta).
+
 ## Nesting con varias hojas, retazos y veta, en la próxima versión
 
 - **Varias hojas**: si las piezas no caben en una, el acomodo sigue en hojas nuevas del mismo tamaño (hasta 50), con el aprovechamiento de cada una. Cada hoja queda como una zona aparte del lienzo con su contorno de referencia en la capa de guías.

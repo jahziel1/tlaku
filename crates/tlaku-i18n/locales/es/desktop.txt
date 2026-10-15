@@ -101,6 +101,11 @@ desktop.prefs.bundle_unsupported_version = Versión de paquete no soportada: {ve
 desktop.prefs.bundle_devices_not_list = Paquete inválido: "devices" debe ser una lista.
 desktop.prefs.bundle_needs_ext = {path}: el paquete debe guardarse con la extensión .{ext}.
 desktop.prefs.bundle_too_big = {path}: el archivo es demasiado grande para ser un paquete de Tlaku.
+# backup.rs
+desktop.backup.no_folder = Elige primero la carpeta donde guardar los respaldos.
+desktop.backup.folder_unavailable = La carpeta de respaldo no está disponible: {path}. Revisa que la unidad esté conectada o que la nube haya terminado de sincronizar.
+desktop.backup.secret_found = El respaldo se rechazó porque contiene un dato que parece un secreto ("{key}"). Los respaldos nunca llevan llaves, contraseñas ni tokens.
+desktop.backup.too_big = El respaldo es demasiado grande ({size} bytes; el máximo es {max}). Prueba sin el historial de trabajos.
 # settings_backup.rs
 desktop.settings_backup.bad_ext = {path}: el respaldo debe guardarse con la extensión .tlakuset, .tlakuruida, .txt o .csv.
 desktop.settings_backup.too_big_write = El respaldo es demasiado grande ({size} bytes; el máximo es {max}).

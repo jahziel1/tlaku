@@ -21,7 +21,7 @@ Este contrato se partió por área (antes era un solo archivo de 55 KB). Busca e
 | [taller.md](taller.md) | Campos nuevos de capas y perfiles (puentes, Z, rotativo, dialectos G-code) de las fases de taller. | 0 |
 | [materiales.md](materiales.md) | Comandos y contrato de la biblioteca de materiales, la prueba de material y el catálogo de la comunidad. | 8 |
 | [maquinas.md](maquinas.md) | Comandos de máquinas de la fase 4, oleada C (`device_defaults`, `probe_port`, `simulate_fault`) y `probe_touch` (ola 6E). | 11 |
-| [preferencias.md](preferencias.md) | Preferencias, paquetes `.tlakuprefs`, autoguardado, historial de trabajos, plantillas y ventanas. | 25 |
+| [preferencias.md](preferencias.md) | Preferencias, paquetes `.tlakuprefs` y `.tlakubundle`, respaldo a carpeta, autoguardado, historial de trabajos, plantillas y ventanas. | 34 |
 | [red.md](red.md) | GRBL por TCP y WebSocket. | 0 |
 | [ruida.md](ruida.md) | Controladoras Ruida por UDP. | 0 |
 | [k40.md](k40.md) | Placa M2 Nano (`tlaku-lhymicro`) por USB. | 3 |
@@ -42,7 +42,7 @@ Los nombres salen de la primera columna de las tablas de comandos de cada archiv
 | [taller.md](taller.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [materiales.md](materiales.md) | `load_material_library`, `load_factory_materials`, `save_material_library`, `import_material_library`, `export_material_library`, `material_test`, `community_catalog_cached`, `community_catalog_refresh` |
 | [maquinas.md](maquinas.md) | `device_defaults`, `rotary_test`, `read_lbdev`, `probe_port`, `simulate_fault`, `probe_touch`, `interrupted_job`, `interrupted_job_view`, `discard_interrupted_job`, `continue_check`, `continue_frame`, `continue_job` |
-| [preferencias.md](preferencias.md) | `load_preferences`, `save_preferences`, `export_preferences`, `import_preferences`, `paths_exist`, `set_engine_locale`, `autosave_write`, `autosave_list`, `autosave_read`, `autosave_discard`, `job_history_load`, `job_history_append`, `job_history_update`, `job_history_remove`, `job_history_clear`, `job_history_import`, `job_history_export`, `list_templates`, `save_template`, `load_template`, `delete_template`, `new_window`, `live_window_open`, `live_window_close`, `live_window_send`, `live_window_hello` |
+| [preferencias.md](preferencias.md) | `load_preferences`, `save_preferences`, `export_preferences`, `import_preferences`, `paths_exist`, `set_engine_locale`, `autosave_write`, `autosave_list`, `autosave_read`, `autosave_discard`, `job_history_load`, `job_history_append`, `job_history_update`, `job_history_remove`, `job_history_clear`, `job_history_import`, `job_history_export`, `export_user_bundle`, `import_user_bundle`, `backup_config_get`, `backup_config_set`, `backup_run`, `backup_safety`, `backup_list`, `backup_check_newer`, `backup_mark_seen`, `list_templates`, `save_template`, `load_template`, `delete_template`, `new_window`, `live_window_open`, `live_window_close`, `live_window_send`, `live_window_hello` |
 | [red.md](red.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [ruida.md](ruida.md) | (sin tabla de comandos; ver el texto del archivo) |
 | [k40.md](k40.md) | `lhy_preview`, `lhy_home`, `lhy_state` |

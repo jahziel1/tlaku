@@ -292,7 +292,7 @@ describe('diálogo: cámaras y arte', () => {
     expect(html).toContain('sin usuario ni clave');
     expect(html).toContain('4 dibujos');
     expect(html).not.toMatch(/bundle\.[a-z]/);
-    expect((html.match(/type="checkbox"/g) ?? []).length).toBe(5);
+    expect((html.match(/type="checkbox"/g) ?? []).length).toBe(9);
   });
 
   it('la vista previa avisa de lo que reemplaza, de lo que se quita y de las claves descartadas', () => {

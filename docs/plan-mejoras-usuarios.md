@@ -819,7 +819,7 @@ regla udev para K40 y galvo. Snap sigue descartado.
 
 ## 12. Respaldo y sincronización de ajustes entre computadoras
 
-**(a) Estado: Parcial (por archivo, manual).** El paquete `.tlakubundle` (M4, Hecho) lleva máquinas con sus
+**(a) Estado: Hecho en su versión reducida (respaldo a carpeta + importar con vista previa).** Ver «Implementado» al final de esta sección. Antes de la mejora: Parcial (por archivo, manual). El paquete `.tlakubundle` (M4, Hecho) lleva máquinas con sus
 macros y posiciones, máquina activa, biblioteca de materiales, cámaras (calibración y configuraciones, sin
 credenciales), arte propio, preferencias y atajos; al importar muestra una vista previa por secciones con
 casillas y no escribe nada hasta confirmar; las configuraciones, materiales y dibujos se mezclan sin pisar lo
@@ -860,6 +860,33 @@ PC, shared resources, setup checklist?» 128 vistas
 «archivo más nuevo / igual / más viejo» y con carpetas de prueba temporales; dos "computadoras" simuladas con
 dos carpetas de configuración. Sin hardware.
 
+
+**Implementado (2026-10, versión reducida aprobada).**
+
+- **Formato:** el `.tlakubundle` pasa a la **versión 2** (el motor lee la 1 y la 2): suma `costs` (por máquina, venta y
+  perfiles de material), `remnants`, `templates` e `history` (opcional). Sin secciones nuevas se sigue escribiendo la versión 1,
+  así lo abre cualquier versión. Las macros y posiciones ya viajaban dentro de `devices`; la calibración de cámara, en `cameras`.
+- **Respaldo a carpeta** (`src-tauri/src/backup/`, `features/backup/`): **Archivo > Respaldo de ajustes…** y **Respaldar ajustes
+  ahora**. Carpeta elegida con el diálogo; al cerrar y/o al abrir si pasaron N días; nombre fechado
+  `tlaku-respaldo-AAAA-MM-DD_HH-MM-SS.tlakubundle` (UTC); rotación de los últimos N (1–100, por omisión 10) que solo toca archivos
+  con ese nombre; escritura atómica (`.tmp` + renombrar) y sin rotar si la escritura falla; carpeta ausente: avisa una vez por
+  sesión y sigue (no se crea la carpeta). Estado propio en `backup.json` (la ruta no viaja en los paquetes).
+- **Sin secretos:** la interfaz no incluye el acceso del control remoto ni credenciales de cámara, y el motor lo vuelve a
+  comprobar (rechaza campos `token`/`password`/`secret`/`apikey`… y URL con usuario y clave; ver `docs/app-api/preferencias.md`).
+- **Importar con vista previa:** por categoría (máquinas, materiales, costos, retazos, plantillas, cámaras, arte, preferencias,
+  historial) muestra nuevo/distinto/igual, deja marcar qué importar y, donde hay choques por id o nombre, elegir **reemplazar**,
+  **conservar ambos** (se renombra el que entra) u **omitir**. Antes de aplicar se guarda un respaldo local del estado actual
+  (`respaldos-locales/`, los últimos 5); si no se puede, no se aplica nada.
+- **Detección al abrir:** si el respaldo más nuevo de la carpeta es posterior a lo último respaldado o visto aquí y lo hizo otra
+  instalación (`install_id`), pregunta (**Revisar…**, **Ahora no**, **Omitir este respaldo**); nunca aplica solo y, mientras esté
+  pendiente, pausa los respaldos automáticos para no taparlo.
+- **Límites conocidos:** no es sincronización en vivo ni fusiona cambios divergentes; la detección usa la hora del nombre del
+  archivo (un reloj adelantado puede parecer «más nuevo»); el paquete se limita a 32 MiB (el historial y las plantillas pesadas
+  pueden pasarse: el aviso sugiere quitar el historial); el costo por máquina no tiene «conservar ambos» (lleva el id de la
+  máquina: con esa opción se conservan los costos locales). En Flatpak o macOS en sandbox solo se ve la carpeta del diálogo.
+- **Pruebas:** Rust (`backup/tests.rs`: contenido, rotación, atomicidad, sin secretos, versión, detección) y vitest
+  (`features/backup/backup.test.tsx`, `features/bundle/extras.test.ts`, `importV2.test.tsx`: vista previa de diferencias,
+  selección por categoría, conflictos, respaldo previo, detección con dos «computadoras» simuladas por el mock).
 ---
 
 ## 13. Texto avanzado
@@ -972,7 +999,7 @@ un lote de 3 placas con serie y logotipo distinto sobre material de desecho.
 | 8. Vista previa realista | Parcial (tono por potencia en trazos) | Media-baja si es "realista"; media si es tonal | Baja (4 y 5 votos) | M (tonal), L (texturas) |
 | 10. Historial de versiones | **Hecho (Ola C, 2026-10-15)**; antes: Parcial (deshacer y recuperación; no tras guardar) | Alta | Baja-media (12, 11, 14 votos) | M |
 | 11. Linux ARM64 / Flatpak / Snap | No existe | ARM64 alta; Flatpak media; Snap no conviene | Media (49 votos; 19 097 vistas) | S ARM64, M Flatpak |
-| 12. Respaldo y sincronización | Parcial (`.tlakubundle` manual) | Alta si se reduce a respaldo en carpeta | Baja (5 y 4 votos) | S-M |
+| 12. Respaldo y sincronización | Hecho (respaldo a carpeta + importar con vista previa; versión reducida) | Alta si se reduce a respaldo en carpeta | Baja (5 y 4 votos) | S-M |
 | 13. Texto avanzado | Parcial (curvo, trayecto, ligaduras base) | Alta (OpenType), media (variables) | Media (33 votos) | S-M |
 | 14. Datos variables CSV | Hecho en lo básico; huecos | Alta | **Muy alta** (270 y 142 votos) | M |
 

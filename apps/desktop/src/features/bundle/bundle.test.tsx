@@ -55,9 +55,9 @@ describe('textos', () => {
     }
   });
 
-  it('los dos comandos están en el menú Archivo', () => {
+  it('los comandos de paquetes y de respaldo están en el menú Archivo', () => {
     const file = MENUS.find((m) => m.id === 'file')!;
-    expect(file.items).toEqual(expect.arrayContaining(['bundle.export', 'bundle.import']));
+    expect(file.items).toEqual(expect.arrayContaining(['bundle.export', 'bundle.import', 'backup.open', 'backup.now']));
   });
 });
 
@@ -65,7 +65,7 @@ describe('buildUserBundle', () => {
   it('lleva el sobre, las secciones y la máquina activa', () => {
     const now = new Date('2026-01-02T03:04:05.000Z');
     const b = buildUserBundle(source({ library: sampleMaterialLibrary() }), { app: '0.1.0', now });
-    expect(b).toMatchObject({ format: 'tlaku-bundle', version: 1, created: '2026-01-02T03:04:05.000Z', app: '0.1.0' });
+    expect(b).toMatchObject({ format: 'tlaku-bundle', version: 2, created: '2026-01-02T03:04:05.000Z', app: '0.1.0' });
     expect(b.devices).toHaveLength(sampleDevices().length);
     expect(b.active_device).toBe('falcon2-22w');
     expect(b.materials?.presets.length).toBeGreaterThan(0);
@@ -179,7 +179,8 @@ describe('planImport', () => {
   it('rechaza lo que no es un paquete o es de otra versión', () => {
     const ok = buildUserBundle(source());
     expect(() => planImport({ ...ok, format: 'tlaku-prefs' }, current())).toThrow();
-    expect(() => planImport({ ...ok, version: 2 }, current())).toThrow();
+    expect(() => planImport({ ...ok, version: 3 }, current())).toThrow();
+    expect(() => planImport({ ...ok, version: 1 }, current())).not.toThrow();
     expect(() => planImport(null, current())).toThrow();
     expect(() => planImport([], current())).toThrow();
   });
@@ -195,7 +196,7 @@ describe('mock de los paquetes', () => {
     const api = getApi();
     const b = buildUserBundle(source());
     await expect(api.exportUserBundle({ path: 'x.json', bundle: b })).rejects.toThrow('.tlakubundle');
-    await expect(api.exportUserBundle({ path: 'x.tlakubundle', bundle: { ...b, version: 2 } as never })).rejects.toThrow('no soportada');
+    await expect(api.exportUserBundle({ path: 'x.tlakubundle', bundle: { ...b, version: 3 } as never })).rejects.toThrow('no soportada');
     await expect(api.exportUserBundle({ path: 'x.tlakubundle', bundle: { ...b, devices: {} } as never })).rejects.toThrow('devices');
     await expect(api.importUserBundle({ path: 'falta.tlakubundle' })).rejects.toThrow();
     await api.exportUserBundle({ path: 'x.tlakubundle', bundle: b });
@@ -290,7 +291,7 @@ describe('ida y vuelta contra el mock', () => {
 describe('diálogo', () => {
   it('la exportación pinta una casilla por sección con su detalle', () => {
     const html = renderToString(<ExportBody choice={allSections()} onChange={() => {}} counts={{ devices: 3, materials: 7 }} />);
-    expect((html.match(/type="checkbox"/g) ?? []).length).toBe(5);
+    expect((html.match(/type="checkbox"/g) ?? []).length).toBe(9);
     expect(html).toContain('Máquinas');
     expect(html).toContain('Materiales');
     expect(html).toContain('Preferencias y atajos');
@@ -315,7 +316,7 @@ describe('diálogo', () => {
     const plan = planImport(bundle, current({ devices: [a!] }));
     const html = renderToString(<ImportPreview plan={plan} choice={{ ...allSections(false), devices: true, prefs: true }} onChange={() => {}} />);
     expect(html).toContain('1 nuevas');
-    expect(html).toContain('Se reemplazarán: Cambiada');
+    expect(html).toContain('Chocan con una máquina local del mismo id: Cambiada');
     expect(html).toContain('1 perfiles descartados');
     expect(html).toContain('«roto»');
     expect(html).not.toMatch(/bundle\.[a-z]/);
@@ -326,7 +327,7 @@ describe('diálogo', () => {
     const prefsOnly = buildUserBundle(source(), { sections: { devices: false, materials: false, prefs: true } });
     const plan = planImport(prefsOnly, current());
     const html = renderToString(<ImportPreview plan={plan} choice={allSections()} onChange={() => {}} />);
-    expect((html.match(/disabled=""/g) ?? []).length).toBe(4);
+    expect((html.match(/disabled=""/g) ?? []).length).toBe(7);
     expect(html).toContain('no incluye esta sección');
     expect(applicableSections(plan, allSections())).toEqual({ ...allSections(false), prefs: true });
   });

@@ -9,6 +9,7 @@ import { mockCommunityCatalog } from './communityCatalog';
 import { mockNest } from './nest';
 import { mockRemnants } from './remnants';
 import { mockBundle } from './bundle';
+import { mockBackup, type MockBackupSim } from './backup';
 import { mockLiveWindow } from './live';
 import { mockPrefs } from './prefs';
 import { mockVersions } from './versions';
@@ -30,7 +31,7 @@ import { mockTraceExtras } from './traceExtras';
 import { mockImages } from './images';
 import { mockLayout } from './layout';
 import { mockVariables } from './variables';
-import type { LaserApi } from '../api';
+import type { LaserApi, UserBundle } from '../api';
 import type { DeviceProfile, Document } from '../types';
 import { mockComputeJob } from './job';
 import { MockGalvo } from './galvo';
@@ -44,6 +45,8 @@ export interface MockApi extends LaserApi {
   readonly galvo: MockGalvo;
   /** Para pruebas: lo que el control remoto simulado recibió de la ventana. */
   readonly remote: MockRemote;
+  /** Para pruebas y capturas: la carpeta de respaldo simulada (unidad ausente, respaldo de otra computadora). */
+  readonly backupSim: MockBackupSim;
   dispose(): void;
 }
 
@@ -75,10 +78,13 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
   const remoteApi = mockRemote(lag);
   const ruidaApi = mockRuida(lag, machine);
   const resumeApi = mockResume(lag, machine);
+  const bundleFiles = new Map<string, UserBundle>();
+  const backup = mockBackup(lag, bundleFiles);
 
   return {
     machine,
     galvo,
+    backupSim: backup.sim,
     dispose: () => machine.dispose(),
 
     appVersion: () => lag(() => MOCK_VERSION),
@@ -279,7 +285,8 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...liveWindowApi,
     ...mockSettingsBackup(lag),
     ...mockJobHistory(lag),
-    ...mockBundle(lag),
+    ...mockBundle(lag, bundleFiles),
+    ...backup.api,
 
     on: (event, handler) => Promise.resolve(event.startsWith('live://') ? onLive(event as `live://${string}` & typeof event, handler as never) : machine.on(event, handler)),
   };

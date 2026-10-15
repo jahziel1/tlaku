@@ -97,7 +97,7 @@ Además:
 
 ## Llevar tu configuración a otro equipo
 
-En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas**, también los de cada color y máquina (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)), y el **modo de la interfaz** (ver [Modo sencillo](01b-modo-sencillo.md)); un paquete de una versión anterior con el Modo principiante encendido pasa al modo sencillo si no traía un modo elegido y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones), tu **biblioteca de materiales**, tus **cámaras** y tu **arte propio** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)).
+En la ventana de Preferencias, **Exportar…** guarda un archivo `.tlakuprefs` con todas tus preferencias **y** tus atajos. **Importar…** lo carga en otro equipo (o después de reinstalar). El archivo lleva también las preferencias que se cambian fuera de esta ventana: los **valores por defecto de las capas nuevas**, también los de cada color y máquina (ver [Capas y ajustes de corte](05-capas-y-ajustes.md)), y el **modo de la interfaz** (ver [Modo sencillo](01b-modo-sencillo.md)); un paquete de una versión anterior con el Modo principiante encendido pasa al modo sencillo si no traía un modo elegido y la configuración de la lista **Antes de enviar** del diálogo de iniciar (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Los **Ajustes de optimización** y la **Posición final** se recuerdan entre sesiones, pero no viajan en este archivo. Para llevar también tus **máquinas** (con macros y posiciones), tu **biblioteca de materiales**, tus **cámaras**, tu **arte propio**, tus **perfiles de costos**, tus **retazos** y tus **plantillas** usa un paquete `.tlakubundle` (**Archivo > Exportar paquete de configuración…**; ver [Control avanzado de la máquina](09b-control-avanzado.md)), o déjalo todo respaldado solo en una carpeta ([abajo](#respaldo-de-ajustes-en-una-carpeta)).
 
 Al importar, Tlaku dice cuántas preferencias y de cuántos comandos son los atajos que entraron. Si el archivo viene de otra versión:
 
@@ -105,6 +105,26 @@ Al importar, Tlaku dice cuántas preferencias y de cuántos comandos son los ata
 - Los atajos de comandos que no existen en esta versión **se conservan**, por si llegan después, y se avisa cuántos son.
 
 Un archivo que no es un paquete de preferencias de Tlaku se rechaza con un mensaje claro. Los materiales tienen su propio archivo (`.tlakumat`, ver [Materiales](11-materiales.md)); los dispositivos, las cámaras y el arte propio viajan en el paquete `.tlakubundle`.
+
+## Respaldo de ajustes en una carpeta
+
+Para no perder tu configuración (o para tenerla igual en dos computadoras) Tlaku puede guardar **copias de tus ajustes en una carpeta que tú elijas**: la de iCloud Drive, Dropbox, OneDrive, una carpeta que sincroniza Syncthing o una memoria USB. Está en **Archivo > Respaldo de ajustes…**.
+
+**Qué se respalda.** Tus **máquinas** (con sus macros y posiciones guardadas), la **biblioteca de materiales**, los **perfiles de costos**, los **retazos**, las **plantillas de proyecto**, la **calibración de las cámaras**, tu **arte propio**, las **preferencias** y los **atajos**. El **historial de trabajos** solo entra si marcas su casilla (puede pesar bastante). **Nunca** se guardan contraseñas, llaves ni el acceso del control remoto, y las URL de cámara van sin usuario ni clave.
+
+**Cómo se configura.**
+
+1. Pulsa **Elegir carpeta…** y escoge dónde guardar. Los archivos se llaman `tlaku-respaldo-AAAA-MM-DD_HH-MM-SS.tlakubundle` (hora UTC, así ordenan igual en cualquier computadora).
+2. Marca cuándo respaldar: **al cerrar Tlaku** y/o **al abrir si pasaron N días** desde el último. También puedes pulsar **Respaldar ahora** (o **Archivo > Respaldar ajustes ahora**) cuando quieras.
+3. Elige **cuántos conservar**: Tlaku borra los más viejos al pasarse, y solo toca archivos con su propio nombre; el resto de la carpeta queda como está. Cada archivo se escribe completo antes de aparecer (no deja archivos a medias si algo se interrumpe).
+
+Si la carpeta **no está disponible** (la unidad USB está desconectada o la nube no ha terminado de sincronizar), Tlaku **avisa una vez** y sigue trabajando; los respaldos se reanudan solos cuando vuelve.
+
+**Restaurar.** En el mismo diálogo, la lista **Respaldos en la carpeta** tiene un botón **Restaurar…** por cada uno. Se abre la **vista previa** de siempre (la misma de **Importar paquete de configuración…**): por cada categoría (máquinas, materiales, costos, retazos, plantillas, cámaras, arte, preferencias e historial) ves cuántos elementos son **nuevos**, cuántos **distintos** de los que ya tienes y cuántos **iguales**, y marcas qué categorías importar. Donde hay elementos que chocan por id o nombre eliges qué hacer: **Reemplazar el local**, **Conservar ambos** (el que entra se renombra, por ejemplo «Mesa (importado)») u **Omitir el que entra**. Nada se escribe hasta que pulsas **Aplicar**, y **antes de aplicar Tlaku guarda un respaldo del estado actual** (en su carpeta de configuración, los últimos 5) para que puedas volver atrás; si ese respaldo previo falla, no se aplica nada.
+
+**Llevar tus ajustes a otra computadora.** Elige la **misma carpeta** de respaldo allá. Al abrir Tlaku, si en la carpeta hay un respaldo **más nuevo que lo de esa computadora y hecho en otra**, aparece una pregunta: **Revisar…** abre la vista previa, **Ahora no** lo deja para después y **Omitir este respaldo** lo da por visto. **Nunca se aplica solo.** Mientras haya un respaldo ajeno sin revisar, los respaldos automáticos se pausan para no taparlo.
+
+**Lo que esto no es.** No es sincronización en vivo: no fusiona cambios de dos computadoras a la vez ni resuelve relojes desalineados; tú decides qué importar. Si trabajas en ambas, restaura en la que vas a usar antes de empezar. En Flatpak o con macOS en sandbox, Tlaku solo ve la carpeta que eliges con el diálogo.
 
 ## Autoguardado y recuperación
 

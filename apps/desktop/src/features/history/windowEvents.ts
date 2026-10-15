@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { getApiKind } from '@/api';
 import { t } from '@/i18n';
+import { backupOnClose, shouldBackupOnClose } from '@/features/backup/actions';
 import { discardOnClose } from '@/features/recovery/autosave';
 import { dirtyTabs, confirmCloseWindow } from '@/features/tabs/actions';
 import { activeTabLabel, useStore } from '@/store';
@@ -80,14 +81,18 @@ export function useCloseGuard(): void {
     void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
       const win = getCurrentWindow();
       const unlisten = await win.onCloseRequested(async (event) => {
-        if (dirtyTabs().length === 0) return; // se cierra sin preguntar
+        const dirty = dirtyTabs().length > 0;
+        const backup = shouldBackupOnClose(); // respaldo a la carpeta elegida, si la persona lo pidió
+        if (!dirty && !backup) return; // se cierra sin preguntar
         event.preventDefault();
-        // Una pestaña con cambios: la pregunta de siempre. Varias: una lista con «Guardar todas» / «Descartar todas».
-        if (await confirmCloseWindow()) {
+        if (dirty) {
+          // Una pestaña con cambios: la pregunta de siempre. Varias: una lista con «Guardar todas» / «Descartar todas».
+          if (!(await confirmCloseWindow())) return;
           // Cerrar limpiamente (guardando o descartando) borra las copias de recuperación de todas las pestañas.
           await discardOnClose();
-          await win.destroy();
         }
+        await backupOnClose();
+        await win.destroy();
       });
       if (cancelled) unlisten();
       else off = unlisten;
