@@ -6,6 +6,7 @@ import { hasPointerOffset } from '@/lib/device';
 import { fmt } from '@/lib/platform';
 import { selectActiveDevice, useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
+import { PanelSection } from '@/ui/PanelSection';
 import { JOG_STEPS } from './jogMath';
 import { FINISH_MODES, MAX_JOG_STEPS, parseJogSteps, type FinishMode } from './moveSettings';
 
@@ -81,7 +82,6 @@ export function FinishPositionControls() {
 
   return (
     <div className="mc-finish">
-      <h4 className="mc-sub">{t('machine.finish')}</h4>
       <div className="mc-modes mc-modes--row" role="radiogroup" aria-label={t('machine.finish')}>
         {FINISH_MODES.map((m) => (
           <button key={m} type="button" role="radio" aria-checked={finish.mode === m} className="chip" onClick={() => set({ mode: m })}>
@@ -131,5 +131,24 @@ export function PositionLaserButton() {
         </label>
       )}
     </>
+  );
+}
+
+/** Pasos del movimiento (avanzado): sección plegable. */
+export function MoveSettingsSection() {
+  return (
+    <PanelSection id="machine.moveSettings" title={t('machine.move.settings')}>
+      <JogStepsEditor />
+    </PanelSection>
+  );
+}
+
+/** Posición final del cabezal al terminar un trabajo: sección plegable; cerrada muestra el modo elegido. */
+export function FinishSection() {
+  const mode = useStore((s) => s.finish.mode);
+  return (
+    <PanelSection id="machine.finish" title={t('machine.finish')} summary={t(FINISH_LABEL[mode])}>
+      <FinishPositionControls />
+    </PanelSection>
   );
 }

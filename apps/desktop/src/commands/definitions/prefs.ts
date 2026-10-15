@@ -1,6 +1,7 @@
 import { useSettingsUi } from '@/features/settings/uiStore';
 import { DEFAULT_DOCK_LAYOUT } from '@/lib/dockLayout';
 import { t } from '@/i18n';
+import { resetPanelSections } from '@/ui/PanelSection';
 import type { CommandDef } from '../types';
 
 /**
@@ -17,6 +18,16 @@ export const prefsCommands: CommandDef[] = [
     run: (s) => {
       s.setPref('dockLayout', DEFAULT_DOCK_LAYOUT);
       s.notify('info', t('prefs.dock.resetDone'));
+    },
+  },
+  // Vuelve las secciones plegables de los paneles a su estado de fábrica (solo las más usadas abiertas).
+  {
+    id: 'prefs.resetPanel',
+    label: 'prefs.panel.resetSections',
+    category: 'panels',
+    run: (s) => {
+      resetPanelSections();
+      s.notify('info', t('prefs.panel.resetDone'));
     },
   },
 ];

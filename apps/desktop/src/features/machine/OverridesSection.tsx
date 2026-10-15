@@ -4,6 +4,7 @@ import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
 import { overrideBlockedReason } from '@/store/machine';
 import { NumberField } from '@/ui/NumberField';
+import { PanelSection } from '@/ui/PanelSection';
 import { RuidaNotApplicable } from './RuidaSection';
 import { GalvoNotApplicable } from './GalvoNotice';
 import { LhyNotApplicable } from './LhyNotice';
@@ -71,34 +72,30 @@ export function OverridesSection() {
   const galvo = useStore(selectIsGalvo);
   if (galvo) {
     return (
-      <section className="section" aria-labelledby="sec-override">
-        <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+      <PanelSection id="machine.overrides" title={t('machine.override')}>
         <GalvoNotApplicable reason="galvo.override.reason" />
-      </section>
+      </PanelSection>
     );
   }
   if (lhy) {
     return (
-      <section className="section" aria-labelledby="sec-override">
-        <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+      <PanelSection id="machine.overrides" title={t('machine.override')}>
         <LhyNotApplicable reason="lhymicro.override.reason" />
-      </section>
+      </PanelSection>
     );
   }
   if (ruida) {
     return (
-      <section className="section" aria-labelledby="sec-override">
-        <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+      <PanelSection id="machine.overrides" title={t('machine.override')}>
         <RuidaNotApplicable reason="ruida.override.reason" />
-      </section>
+      </PanelSection>
     );
   }
   return (
-    <section className="section" aria-labelledby="sec-override">
-      <h3 id="sec-override" className="panel-title">{t('machine.override')}</h3>
+    <PanelSection id="machine.overrides" title={t('machine.override')}>
       {KINDS.map((k) => (
         <OverrideRow key={k.kind} {...k} />
       ))}
-    </section>
+    </PanelSection>
   );
 }

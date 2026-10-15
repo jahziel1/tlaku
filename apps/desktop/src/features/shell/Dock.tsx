@@ -5,6 +5,7 @@ import { t, type I18nKey } from '@/i18n';
 import { DEFAULT_DOCK_LAYOUT, dockFloatingTab, floatDockTab, isFloating, moveDockTab, nudgeDockTab, setDockSide, setDockTabHidden, setToolsSide, visibleTabs } from '@/lib/dockLayout';
 import { usePref, useStore } from '@/store';
 import { DOCK_MAX, DOCK_MIN, type DockTab } from '@/store/view';
+import { resetPanelSections } from '@/ui/PanelSection';
 import { PanelBody, TAB_BY_ID, type DockTabDef } from './dockPanels';
 
 /** Qué pestaña se arrastra y sobre cuál va a caer (antes o después de ella). */
@@ -185,6 +186,9 @@ function TabsMenu({ onClose }: { onClose: () => void }) {
       <p className="hint">{t('canvas.dock.hint')} {t('prefs.dock.hintFloat')}</p>
       <button type="button" className="btn" onClick={() => setPref('dockLayout', DEFAULT_DOCK_LAYOUT)}>
         {t('canvas.dock.reset')}
+      </button>
+      <button type="button" className="btn" onClick={resetPanelSections}>
+        {t('prefs.panel.resetSections')}
       </button>
     </div>
   );

@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Crosshair, MoveRight, Square, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useCommand } from '@/commands/useCommand';
@@ -96,8 +97,7 @@ export function HeadSection() {
   const running = useHeadUi((s) => s.progress !== null);
 
   return (
-    <section className="section" aria-label={t('camera.head.title')}>
-      <h3 className="panel-title">{t('camera.head.title')}</h3>
+    <PanelSection id="camera.head" title={t('camera.head.title')} defaultOpen>
       <p className="hint">{t('camera.head.help')}</p>
       <label className="mc-check">
         <input type="checkbox" checked={enabled} onChange={(e) => setHeadEnabled(e.target.checked)} />
@@ -126,7 +126,7 @@ export function HeadSection() {
         </>
       )}
       <Unvalidated k="camera.head.unvalidated" />
-    </section>
+    </PanelSection>
   );
 }
 

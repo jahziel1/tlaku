@@ -111,7 +111,20 @@ Warnings the section can give you:
 
 If the port is not found or the connection fails, see [Troubleshooting](15-solucion-de-problemas.md).
 
-Once connected, the **Machine** tab also offers **Move the head** (with configurable steps, **Position the laser** with a click on the canvas, **Finish position**, Z and U axes, saved positions, and test fire), the **Macros**, the framing buttons, and the **Live adjustments** for speed and power during a job. All of that is explained in [Sending jobs safely](09-enviar-con-seguridad.md) and in [Advanced machine control](09b-control-avanzado.md). Live adjustments exist only with GRBL-family controllers (not with Marlin or Smoothieware).
+Once connected, the **Machine** tab also offers **Job** (framing, preview, start, pause, stop, **Live view**, and progress), **Jog head** (with **Position the laser** by a click on the canvas), **Saved positions**, the **Macros**, the **Live adjustments** for speed and power during a job, **Finish position**, the Z and U axes, **Test fire**, and **Movement settings** (the steps). All of that is explained in [Sending jobs safely](09-enviar-con-seguridad.md) and in [Advanced machine control](09b-control-avanzado.md). Live adjustments exist only with GRBL-family controllers (not with Marlin or Smoothieware).
+
+### The Machine panel: sections that fold
+
+So that the panel does not get very long, every block of the **Machine** tab is a **collapsible section**: the title is a button with an arrow (`›` closed, `⌄` open) that opens and closes with the mouse or with `Enter` / `Space` when focused. Each section remembers how you left it, also after restarting the app.
+
+- **Open by default:** **Job** (at the top, the most used while engraving) and **Jog head**. The order is: Connection, Status, Job, Jog head and then **Saved positions**, **Macros**, **Live adjustments**, **Extra axes**, **Finish position**, **Test fire**, **Movement settings**, **Machine settings**, and **Virtual machine**, all closed. With a Ruida, K40, or galvo profile, its own panel appears open right below **Jog head**.
+- **Inside Job** there are three closed sections: **Start from**, **What gets sent**, and **Frame options**. When closed they show one line with what is chosen (for example "Absolute coordinates" or "The whole design"); if the job does not fit the bed or the origin is missing, that line warns you in red. Safety warnings (alarm, laser mode off, old firmware) are always visible, even when the section is closed.
+- **Connection.** With no machine connected it is shown in full, as always: it is the first thing you do. With the machine connected it shrinks to one line ("Falcon2 Pro · Connected on /dev/…" with the **Disconnect** button); press the **Connection** title to see the detail (machine, port, and baud rate).
+- **Status** is a strip: the state (for example **Running**), the work position X/Y and, if the machine reports them, the feed **F** and power **S**. The **Machine position** is in a foldable detail.
+- When something asks you to go to a section (for example the **Go to Live view** command in the command search), the section opens, is brought into view inside the panel, and focus moves to its title.
+- **Reset the panel** puts every section back to its default state. It is in **Preferences › Appearance › Window layout**, in the panel's **Customize tabs** button, and in the command search.
+
+The **Camera** tab uses the same system: **Camera**, **Canvas backdrop**, **Bed image**, **Bed alignment**, and **Head-mounted camera** stay open; the rest (lens, marks, material height, adjustment, etc.) is closed. **Simple mode** does not change.
 
 ## Virtual machine
 
@@ -122,6 +135,6 @@ At the end of the **Port** list there are six virtual machines, which are an emu
 - They start homed and with no alarm, ready to work.
 - **Time speed** (`×1`, `×5`, `×20`) speeds up the simulated job; at `×1` it lasts the same as a real one.
 - The **VIRTUAL** badge appears in the **Machine** panel and in the status bar.
-- The **Virtual machine** section has **Simulate fault**: **Flame detected (ERROR:05)**, **Abnormal tilt (ERROR:01)**, **Alarm 3 (reset while moving)**, and **Cable unplugged**. Choose one and press **Trigger** to see how the alarm banner, the console, and the job react. That section does not exist with a real machine.
+- The **Virtual machine** section has **Simulate fault**: **Flame detected (ERROR:05)**, **Abnormal tilt (ERROR:01)**, **Alarm 3 (reset while moving)**, and **Cable unplugged**. Choose one and press **Trigger** to see how the alarm banner, the console, and the job react. That section does not exist with a real machine and starts closed: press its title to open it.
 
 Next: [Network connection and automation](08b-red-y-automatizacion.md)

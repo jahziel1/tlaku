@@ -1,5 +1,6 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { t } from '@/i18n';
+import { PanelSection } from '@/ui/PanelSection';
 import { useCommand } from '@/commands/useCommand';
 import { useStore } from '@/store';
 import { GalvoNotApplicable } from './GalvoNotice';
@@ -19,29 +20,26 @@ export function MachineSettingsSection() {
   // El galvo no tiene ajustes `$`: se dice por qué en lugar del botón.
   if (galvo) {
     return (
-      <section className="section" aria-labelledby="sec-mset">
-        <h3 id="sec-mset" className="panel-title">{t('mset.section')}</h3>
+      <PanelSection id="machine.settings" title={t('mset.section')}>
         <GalvoNotApplicable reason="galvo.mset.reason" />
-      </section>
+      </PanelSection>
     );
   }
   // El K40 no tiene ajustes `$`: se dice por qué en lugar del botón.
   if (lhy) {
     return (
-      <section className="section" aria-labelledby="sec-mset">
-        <h3 id="sec-mset" className="panel-title">{t('mset.section')}</h3>
+      <PanelSection id="machine.settings" title={t('mset.section')}>
         <LhyNotApplicable reason="lhymicro.mset.reason" />
-      </section>
+      </PanelSection>
     );
   }
   return (
-    <section className="section" aria-labelledby="sec-mset">
-      <h3 id="sec-mset" className="panel-title">{t('mset.section')}</h3>
+    <PanelSection id="machine.settings" title={t('mset.section')}>
       <button type="button" className="btn" disabled={!cmd.enabled} title={cmd.tooltip} onClick={cmd.run}>
         <SlidersHorizontal size={14} aria-hidden="true" />
         {cmd.label}
       </button>
       <p className="hint">{cmd.reason ?? t('mset.section.help')}</p>
-    </section>
+    </PanelSection>
   );
 }

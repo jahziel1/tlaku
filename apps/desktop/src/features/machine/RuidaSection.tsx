@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { FileText, Info, Settings2, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { getApi } from '@/api';
@@ -128,10 +129,7 @@ export function RuidaPanel({ device, connected, busy }: { device: DeviceProfile;
   const mismatch = info !== null && bedMismatch(device.bed, info.bed);
 
   return (
-    <section className="section" aria-labelledby="sec-ruida">
-      <h3 id="sec-ruida" className="panel-title">
-        {t('ruida.panel.title')} <RuidaExperimentalBadge />
-      </h3>
+    <PanelSection id="machine.ruida" title={<>{t('ruida.panel.title')} <RuidaExperimentalBadge /></>} defaultOpen>
       <div className="warn-line" role="note">
         <TriangleAlert size={14} aria-hidden="true" />
         <div>
@@ -228,7 +226,7 @@ export function RuidaPanel({ device, connected, busy }: { device: DeviceProfile;
           }}
         />
       )}
-    </section>
+    </PanelSection>
   );
 }
 

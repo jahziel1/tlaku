@@ -12,6 +12,7 @@ import { selectIsGalvo } from './galvoPorts';
 import { selectIsLhy } from './lhyPorts';
 import { MAX_POSITIONS } from './positions';
 import { Modal } from './Modal';
+import { PanelSection } from '@/ui/PanelSection';
 
 /** Jog de los ejes extra: Z (con «Enfocar») y U, solo si el perfil los declara. */
 export function ExtraAxesControls() {
@@ -32,7 +33,6 @@ export function ExtraAxesControls() {
   if (galvo) {
     return (
       <div className="mc-axes">
-        <h4 className="mc-sub">{t('machine.axes')}</h4>
         <GalvoNotApplicable reason="galvo.axes.reason" />
       </div>
     );
@@ -41,7 +41,6 @@ export function ExtraAxesControls() {
   if (lhy) {
     return (
       <div className="mc-axes">
-        <h4 className="mc-sub">{t('machine.axes')}</h4>
         <LhyNotApplicable reason="lhymicro.axes.reason" />
       </div>
     );
@@ -63,7 +62,6 @@ export function ExtraAxesControls() {
 
   return (
     <div className="mc-axes">
-      <h4 className="mc-sub">{t('machine.axes')}</h4>
       {device.z_axis && axisRow('z', t('machine.axis.z'))}
       {device.z_axis && (
         <>
@@ -107,7 +105,6 @@ export function SavedPositions() {
 
   return (
     <div className="mc-positions">
-      <h4 className="mc-sub">{t('machine.positions')}</h4>
       <div className="row">
         <label htmlFor={id} className="sr-only">{t('machine.positions.name')}</label>
         <input id={id} className="input grow" value={name} maxLength={40} placeholder={t('machine.positions.name')} onChange={(e) => setName(e.target.value)} />
@@ -195,7 +192,6 @@ export function FireControls() {
   if (galvo) {
     return (
       <div className="mc-fire">
-        <h4 className="mc-sub">{t('machine.fire')}</h4>
         <GalvoNotApplicable reason="galvo.fire.reason" />
       </div>
     );
@@ -204,14 +200,12 @@ export function FireControls() {
   if (lhy) {
     return (
       <div className="mc-fire">
-        <h4 className="mc-sub">{t('machine.fire')}</h4>
         <LhyNotApplicable reason="lhymicro.fire.reason" />
       </div>
     );
   }
   return (
     <div className="mc-fire">
-      <h4 className="mc-sub">{t('machine.fire')}</h4>
       <div className="field-grid">
         <NumberField label={t('machine.fire.power')} unit="%" value={fire.powerPct} step={0.5} min={0.1} max={FIRE_LIMITS.maxPct} onCommit={(powerPct) => setFire({ powerPct })} />
         <NumberField label={t('machine.fire.duration')} unit="ms" value={fire.durationMs} step={50} min={FIRE_LIMITS.minMs} max={FIRE_LIMITS.maxMs} onCommit={(durationMs) => setFire({ durationMs })} />
@@ -229,13 +223,45 @@ export function FireControls() {
   );
 }
 
+/** Ejes extra (Z y U): sección plegable; no aparece si el perfil no los declara. */
+export function ExtraAxesSection() {
+  const device = useStore(selectActiveDevice);
+  const lhy = useStore(selectIsLhy);
+  const galvo = useStore(selectIsGalvo);
+  if (!galvo && !lhy && !device.z_axis && !device.u_axis) return null;
+  return (
+    <PanelSection id="machine.axes" title={t('machine.axes')}>
+      <ExtraAxesControls />
+    </PanelSection>
+  );
+}
+
+/** Posiciones guardadas: sección plegable; cerrada muestra cuántas hay. */
+export function PositionsSection() {
+  const count = useStore((s) => selectActiveDevice(s).positions.length);
+  return (
+    <PanelSection id="machine.positions" title={t('machine.positions')} summary={count > 0 ? String(count) : undefined}>
+      <SavedPositions />
+    </PanelSection>
+  );
+}
+
+/** Disparo de prueba: sección plegable. */
+export function FireSection() {
+  return (
+    <PanelSection id="machine.fire" title={t('machine.fire')}>
+      <FireControls />
+    </PanelSection>
+  );
+}
+
 /** Todo lo que la ventana Mover suma a los pasos básicos: ejes extra, posiciones guardadas y disparo de prueba. */
 export function MoveWindowExtras() {
   return (
     <>
-      <ExtraAxesControls />
-      <SavedPositions />
-      <FireControls />
+      <ExtraAxesSection />
+      <PositionsSection />
+      <FireSection />
     </>
   );
 }

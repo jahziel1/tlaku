@@ -801,4 +801,11 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.resume.log.interrupted': 'Interrupted at {percent}%',
   'machine.resume.log.continue': 'Continue',
   'machine.resume.log.continueTitle': 'Continue this job from where it stopped',
+  // ---- collapsible sections of the Machine panel ----
+  'machine.status.detail': 'Machine position',
+  'machine.selection.summaryAll': 'The whole design',
+  'machine.job.frameOpts': 'Frame options',
+  'machine.move.settings': 'Movement settings',
+  'machine.cmd.showLive': 'Go to Live view',
+  'machine.cmd.showPositions': 'Go to saved positions',
 };

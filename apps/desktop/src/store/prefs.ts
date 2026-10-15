@@ -2,6 +2,7 @@ import { sanitizeOverrides, type ShortcutOverrides } from '@/commands/shortcuts'
 import { sanitizeColorDefaults, sanitizeLayerTemplate, type ColorDefaults, type LayerTemplate } from '@/lib/layers';
 import { DEFAULT_DOCK_LAYOUT, sanitizeDockLayout, type DockLayout } from '@/lib/dockLayout';
 import { sanitizeLiveWindow, type LiveWindowPref } from '@/lib/liveWindow';
+import { NO_PANEL_SECTIONS, sanitizePanelSections, type PanelSections } from '@/lib/panelSections';
 import { IMPORT_DPI_DEFAULT, IMPORT_DPI_MAX, IMPORT_DPI_MIN, sanitizeRememberedImport, type RememberedImport } from '@/lib/importOptions';
 import { LENGTH_UNITS, type LengthUnit } from '@/lib/units';
 import { detectLanguage, setLanguage } from '@/i18n';
@@ -113,6 +114,11 @@ export interface Prefs {
   liveWindow: LiveWindowPref | null;
   /** Orden, visibilidad, borde y paneles flotantes de las pestañas, y borde de las herramientas (ver `lib/dockLayout.ts`). */
   dockLayout: DockLayout;
+  /**
+   * Secciones plegables de los paneles de la derecha que el usuario abrió o cerró a mano
+   * (`ui/PanelSection.tsx`, ids en `lib/panelSections.ts`). Lo que no aparece usa su valor por omisión.
+   */
+  panelSections: PanelSections;
   /** Tras dibujar una forma (rectángulo, elipse, polígono, línea...) la herramienta vuelve a Seleccionar. */
   returnToSelect: boolean;
   /** Contraste de la rejilla del lienzo respecto del tema. */
@@ -184,6 +190,7 @@ export const PREF_SPECS: PrefSpecs = {
     },
   },
   dockLayout: { kind: 'json', default: DEFAULT_DOCK_LAYOUT, check: (raw) => ({ value: sanitizeDockLayout(raw) }) },
+  panelSections: { kind: 'json', default: NO_PANEL_SECTIONS, check: (raw) => ({ value: sanitizePanelSections(raw) }) },
   returnToSelect: { kind: 'bool', default: true },
   gridContrast: { kind: 'choice', options: ['low', 'normal', 'high'], default: 'normal' },
   importDpi: { kind: 'number', min: IMPORT_DPI_MIN, max: IMPORT_DPI_MAX, step: 1, unit: 'dpi', integer: true, default: IMPORT_DPI_DEFAULT },

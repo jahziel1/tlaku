@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getApi } from '@/api';
@@ -23,10 +24,7 @@ export function statusText(code: number): string {
  */
 export function LhyPanel({ connected, state }: { connected: boolean; state: LhyState | null }) {
   return (
-    <section className="section" aria-labelledby="sec-lhy">
-      <h3 id="sec-lhy" className="panel-title">
-        {t('lhymicro.panel.title')} <LhyExperimentalBadge />
-      </h3>
+    <PanelSection id="machine.lhy" title={<>{t('lhymicro.panel.title')} <LhyExperimentalBadge /></>} defaultOpen>
       <div className="warn-line" role="note">
         <TriangleAlert size={14} aria-hidden="true" />
         <div>
@@ -70,7 +68,7 @@ export function LhyPanel({ connected, state }: { connected: boolean; state: LhyS
       )}
       <p className="hint">{t('lhymicro.panel.positionNote')}</p>
       <p className="hint">{t('lhymicro.panel.moshiboard')}</p>
-    </section>
+    </PanelSection>
   );
 }
 

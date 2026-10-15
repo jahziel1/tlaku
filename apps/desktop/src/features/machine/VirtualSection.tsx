@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Zap } from 'lucide-react';
 import { useState } from 'react';
 import type { SimulatedFault } from '@/api/types';
@@ -32,10 +33,7 @@ export function VirtualSection() {
   const [fault, setFault] = useState<SimulatedFault | ''>('');
   if (!virtual || ruida || lhy || galvo) return null;
   return (
-    <section className="section mc-virtual" aria-labelledby="sec-virtual">
-      <h3 id="sec-virtual" className="panel-title">
-        {t('machine.virtual.title')} <VirtualBadge />
-      </h3>
+    <PanelSection id="machine.virtual" title={<>{t('machine.virtual.title')} <VirtualBadge /></>} className="mc-virtual">
       <p className="hint">{t('machine.virtual.note')}</p>
       <div className="row">
         <div className="field grow">
@@ -53,6 +51,6 @@ export function VirtualSection() {
         </button>
       </div>
       <p className="hint">{t('machine.virtual.faultHint')}</p>
-    </section>
+    </PanelSection>
   );
 }

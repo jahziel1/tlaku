@@ -3,15 +3,16 @@ import { useShallow } from 'zustand/react/shallow';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
 import { fmt, fmtClock } from '@/lib/platform';
-import { selectJobPreview, useStore } from '@/store';
+import { selectJobPreview, selectionBlockedReason, useStore } from '@/store';
 import { jobElapsedSeconds } from '@/store/machine';
-import { useNow } from './hooks';
+import { useJobPlacement, useNow } from './hooks';
 import { remainingSeconds } from './jobSummary';
 import { FrameOptions } from './FrameOptions';
 import { SelectionOptions } from './SelectionOptions';
 import { LiveToggle } from '@/features/live';
 import { TilingOffer } from '@/features/tiling/TilingOffer';
-import { StartFromSection } from './StartFromSection';
+import { placementSummary, START_FROM_TITLE, StartFromSection } from './StartFromSection';
+import { PanelSection } from '@/ui/PanelSection';
 
 function Progress() {
   const progress = useStore((s) => s.progress);
@@ -53,7 +54,27 @@ function Progress() {
   );
 }
 
-/** Trabajo: de dónde sale, encuadrar, iniciar, pausar, detener y progreso. */
+/** Resumen de «Iniciar desde» para la sección cerrada: el modo o, si el trabajo no cabe o falta algo, el problema. */
+function StartFromSummary() {
+  const startFrom = useStore((s) => s.jobOptions.start_from);
+  const jobOrigin = useStore((s) => s.jobOptions.job_origin);
+  const placement = useJobPlacement();
+  const summary = placementSummary(placement, startFrom, jobOrigin);
+  if (summary.problem) return <span className="hint--danger">{summary.text}</span>;
+  return <>{t(START_FROM_TITLE[startFrom])}</>;
+}
+
+/** Resumen de «Qué se envía» para la sección cerrada. */
+function SelectionSummary() {
+  const only = useStore((s) => s.cutSelectionOnly);
+  const blocked = useStore((s) => selectionBlockedReason(s) !== null);
+  return <>{only && !blocked ? t('machine.selection.only') : t('machine.selection.summaryAll')}</>;
+}
+
+/**
+ * Trabajo: encuadrar, vista previa, iniciar, pausar, detener, vista en vivo y progreso. De dónde sale
+ * el trabajo, qué se envía y las opciones del encuadre van en secciones cerradas dentro de esta.
+ */
 export function JobSection() {
   const frame = useCommand('machine.frame');
   const hull = useCommand('machine.frameHull');
@@ -66,14 +87,10 @@ export function JobSection() {
   const dismiss = useStore((s) => s.dismissJobError);
   const jobState = useStore((s) => s.jobState);
   const jobMessage = useStore((s) => s.jobMessage);
+  const frameLaserOn = useStore((s) => s.frameLaser.on);
 
   return (
-    <section className="section" aria-labelledby="sec-job">
-      <h3 id="sec-job" className="panel-title">{t('machine.job')}</h3>
-      <h4 className="mc-sub">{t('machine.startFrom')}</h4>
-      <StartFromSection />
-      <h4 className="mc-sub">{t('machine.selection')}</h4>
-      <SelectionOptions />
+    <PanelSection id="machine.job" title={t('machine.job')} defaultOpen>
       <TilingOffer />
       <div className="row">
         <button type="button" className="btn grow" disabled={!frame.enabled} title={frame.tooltip} onClick={frame.run}>
@@ -83,7 +100,6 @@ export function JobSection() {
           <Spline size={15} aria-hidden="true" />{hull.label}
         </button>
       </div>
-      <FrameOptions />
       <div className="row">
         <button type="button" className="btn grow" onClick={optimization.run} title={optimization.tooltip}>
           <Settings2 size={15} aria-hidden="true" />{optimization.label}
@@ -121,6 +137,15 @@ export function JobSection() {
       {jobState === 'cancelled' && <p className="hint">{jobMessage || t('machine.job.cancelled')}</p>}
       {jobState === 'error' && !jobError && <p className="hint hint--danger" role="alert">{jobMessage || t('machine.job.failed')}</p>}
       <Progress />
-    </section>
+      <PanelSection id="machine.job.startFrom" title={t('machine.startFrom')} summary={<StartFromSummary />} nested>
+        <StartFromSection />
+      </PanelSection>
+      <PanelSection id="machine.job.selection" title={t('machine.selection')} summary={<SelectionSummary />} nested>
+        <SelectionOptions />
+      </PanelSection>
+      <PanelSection id="machine.job.frame" title={t('machine.job.frameOpts')} summary={frameLaserOn ? t('machine.frame.laserOn') : undefined} nested>
+        <FrameOptions />
+      </PanelSection>
+    </PanelSection>
   );
 }

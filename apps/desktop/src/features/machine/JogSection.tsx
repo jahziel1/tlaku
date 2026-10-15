@@ -9,8 +9,8 @@ import { fmt } from '@/lib/platform';
 import { selectActiveDevice, useStore } from '@/store';
 import { jogBlockedReason } from '@/store/machine';
 import { JOG_DIRS, type JogDirName } from './jogMath';
-import { FinishPositionControls, JogStepsEditor, PositionLaserButton } from './MoveExtras';
-import { MoveWindowExtras } from './MoveWindowExtras';
+import { PositionLaserButton } from './MoveExtras';
+import { PanelSection } from '@/ui/PanelSection';
 import { onPadKeyDown, useHoldJog } from './useHoldJog';
 
 const ICONS: Record<JogDirName, LucideIcon> = {
@@ -59,8 +59,7 @@ export function JogSection() {
   const disabled = whyKey !== null;
 
   return (
-    <section className="section" aria-labelledby="sec-jog">
-      <h3 id="sec-jog" className="panel-title">{t('machine.jog')}</h3>
+    <PanelSection id="machine.jog" title={t('machine.jog')} defaultOpen>
       <div className="jog">
         <div className="mc-pad" role="group" aria-label={t('machine.jog')} aria-describedby="jog-help" onKeyDown={onPadKeyDown}>
           {GRID.map((cell) => {
@@ -114,9 +113,6 @@ export function JogSection() {
         </p>
       )}
       <PositionLaserButton />
-      <JogStepsEditor />
-      <MoveWindowExtras />
-      <FinishPositionControls />
-    </section>
+    </PanelSection>
   );
 }

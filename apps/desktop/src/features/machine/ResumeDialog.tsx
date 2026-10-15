@@ -12,6 +12,8 @@ import { checklistPending, checklistSatisfied, visibleChecklist, type ChecklistI
 import { Modal } from './Modal';
 import { stateLabel } from './StatusSection';
 import { choiceAt, homeMode, moveCount, nearestMove, resumeBlockedReason, suggestedChoice, type RestartChoice } from './resumeModel';
+import { SECTION_IDS } from '@/lib/panelSections';
+import { revealPanelSection } from '@/ui/PanelSection';
 
 /** Retroceso por omisión: lo que pase de las dos reglas (líneas, mm) manda lo que quede más atrás. */
 const DEFAULT_BACK = { lines: 3, mm: 1.5 };
@@ -70,7 +72,6 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
   const jogSpeed = useStore((s) => s.jogSpeed);
   const sendLine = useStore((s) => s.sendLine);
   const notify = useStore((s) => s.notify);
-  const setDockTab = useStore((s) => s.setDockTab);
   const discard = useStore((s) => s.discardInterrupted);
   const mask = usePref('jobChecklistItems');
   const required = usePref('jobChecklistRequired');
@@ -217,7 +218,7 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
         <p className="warn-line" role="status">
           <TriangleAlert size={14} aria-hidden="true" />
           <span>{t('machine.resume.machine.notConnected', { name: job.device_name })}</span>
-          <button type="button" className="btn" onClick={() => { close(); setDockTab('machine'); }}>{t('machine.resume.machine.open')}</button>
+          <button type="button" className="btn" onClick={() => { close(); revealPanelSection(SECTION_IDS.connection); }}>{t('machine.resume.machine.open')}</button>
         </p>
       ) : !sameMachine ? (
         <p className="warn-line" role="status">

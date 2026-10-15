@@ -186,4 +186,8 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.automation.startAsked': 'An external program asked to start the job. Review the dialog and confirm to begin.',
   'prefs.automation.startBlocked': 'An external program asked to start the job, but it cannot start: {reason}',
   'prefs.automation.started': 'Job started by an external program.',
+  // ---- collapsible panel sections ----
+  'prefs.panel.resetSections': 'Reset the panel',
+  'prefs.panel.resetSections.hint': 'The sections of the panels (Machine, Camera) fold and unfold, and each one remembers how you left it. This puts them back to the defaults: only the most used ones open.',
+  'prefs.panel.resetDone': 'Panel reset.',
 };
