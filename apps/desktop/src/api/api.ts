@@ -65,7 +65,9 @@ import type {
   MaterialTestParams,
   TextObject,
   TextOutlineResult,
+  FontCapabilities,
   CsvTable,
+  ImageProbe,
   TraceResult,
   TraceSettings,
 } from './types';
@@ -545,6 +547,12 @@ export interface LaserApi {
    * del texto (con la inversa del `transform` del texto aplicada), no de documento.
    */
   textOutline(args: { text: TextObject; path: BezPath | null }): Promise<TextOutlineResult>;
+  /**
+   * Funciones OpenType (con vista previa) y ejes variables de la fuente del texto (familia, negrita y
+   * cursiva; los ejes ya puestos en `variations` se aplican a las vistas previas). Solo lista lo que
+   * la fuente declara; las fuentes de una línea devuelven todo vacío.
+   */
+  fontCapabilities(args: { text: TextObject }): Promise<FontCapabilities>;
   /** Importa fuentes SHX de AutoCAD; devuelve los nombres con que quedan disponibles en `listFonts`. */
   importShxFonts(args: { paths: string[] }): Promise<string[]>;
   /**
@@ -552,6 +560,8 @@ export interface LaserApi {
    * `required` falla si falta alguna de esas columnas (por nombre o número desde 1).
    */
   readCsv(args: { path: string; required?: string[] }): Promise<CsvTable>;
+  /** Para cada ruta de una imagen variable (mismo orden): si existe y su tamaño en píxeles. Un archivo ausente no es un error: sale con `ok: false`. */
+  probeImages(args: { paths: string[] }): Promise<ImageProbe[]>;
   /** QR o código de barras como formas cerradas (rellenables). */
   generateCode(args: { spec: CodeSpec }): Promise<CodeResult>;
   /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
@@ -832,8 +842,10 @@ export const COMMAND_NAMES = {
   continueJob: 'continue_job',
   listFonts: 'list_fonts',
   textOutline: 'text_outline',
+  fontCapabilities: 'font_capabilities',
   importShxFonts: 'import_shx_fonts',
   readCsv: 'read_csv',
+  probeImages: 'probe_images',
   generateCode: 'generate_code',
   geometryOp: 'geometry_op',
   reviewDesign: 'review_design',

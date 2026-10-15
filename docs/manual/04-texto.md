@@ -27,6 +27,10 @@ Para editar un texto existente, haz doble clic sobre él con **Seleccionar**, o 
 | **Interlineado** | En múltiplos del tamaño; empieza en 1,2. |
 | **Curvatura** | Grados que abarca el texto sobre un arco (ver "Texto curvado"). |
 | **Soldar letras** | Une en un solo contorno las letras que se tocan (ver "Texto soldado"). |
+| **Entre palabras** | Espacio extra en cada espacio entre palabras, en mm (negativo las acerca). |
+| **Alineación vertical** | Dónde queda el ancla del texto: **Línea base** (de siempre), **Arriba**, **Centro** o **Abajo** del bloque. Sobre un trayecto decide de qué lado de la línea queda el texto. |
+| **Mayúsculas** | Da forma al texto en mayúsculas sin cambiar lo que escribiste. |
+| **Funciones y ejes de la fuente** | Ligaduras, alternativas, versalitas, números, fracciones, kerning y ejes de fuentes variables (ver "Texto avanzado"). |
 | **Insertar variable** | Pone una variable entre llaves (número de serie, dato de un CSV, fecha u hora) donde está el cursor. Ver [Texto variable](04b-texto-variable.md). |
 
 > **Ojo:** Tlaku nunca inventa una negrita o una cursiva. Si la familia no tiene esa variante, usa la más cercana que exista y lo dice en los **Avisos del contorno**. Si la fuente que elegiste no está instalada (por ejemplo, al abrir un proyecto en otro equipo), usa otra y avisa: "La fuente '...' no está instalada; se usa '...'". Revisa el aviso antes de enviar nada.
@@ -70,6 +74,29 @@ Las fuentes cursivas y de caligrafía tienen letras que se solapan: en una capa 
 
 - Solo funciona con fuentes de contorno (las del sistema). Con una fuente de una línea no hay contornos que unir y el panel lo avisa.
 - Lo mismo se consigue a mano con **Convertir a trayectos** y luego **Soldar** (`Alt+W`), pero el texto deja de ser editable. Con la casilla, el texto sigue siendo texto.
+
+## Texto avanzado: funciones de la fuente y fuentes variables
+
+Abre **Funciones y ejes de la fuente** en el panel Texto. Tlaku lee la fuente elegida y muestra **solo lo que esa fuente realmente trae**; si no trae nada, lo dice. Todo se guarda en el texto, se aplica a todo su contenido y el contorno se vuelve a calcular al instante.
+
+**Funciones OpenType.** Cada una es una casilla con su nombre y, a la derecha, una **vista previa apagada y encendida** con letras que sí cambian en esa fuente:
+
+| Grupo | Funciones |
+|---|---|
+| Ligaduras y kerning | Ajuste de pares (kerning), ligaduras estándar, según contexto y discrecionales |
+| Alternativas | Alternativas estilísticas (con el número de la alternativa), conjuntos estilísticos 1 a 20, variantes de carácter, remates (swash) |
+| Mayúsculas | Versalitas y mayúsculas a versalitas |
+| Números | De texto (old-style), alineados a la altura, de ancho fijo, proporcionales, cero tachado |
+| Fracciones y posición | Fracciones, superíndices, subíndices, ordinales |
+
+- Solo se guarda lo que **difiere de la fuente**: el kerning y las ligaduras estándar vienen encendidos y una función apagada no deja rastro. **Quitar cambios** vuelve a lo que trae la fuente.
+- Si activas una función que la fuente no trae (por ejemplo, al abrir un proyecto en otro equipo con otra fuente), el panel avisa y la forma no cambia.
+- El **Espaciado** entre letras apaga las ligaduras (una ligadura funde letras y no habría dónde separarlas); si aun así marcas una, se respeta tu elección.
+- Si una función aparece con "Ninguna de las letras probadas cambia", la fuente la declara pero la muestra no usa ninguna letra con efecto; puede afectar a otras letras.
+
+**Fuentes variables.** Si la fuente es variable aparece un **deslizador por eje** (**Peso**, **Ancho**, **Inclinación**, **Tamaño óptico** y los ejes propios de la fuente) y, si trae **estilos con nombre**, un selector. El contorno se calcula con la posición elegida, así que lo que ves es lo que se graba; **Restablecer ejes** vuelve a los valores de la fuente.
+
+> **Ojo:** las funciones y los ejes dependen de la fuente instalada. Al abrir el proyecto en otro equipo sin esa fuente, se usa otra y el panel avisa. Las **fuentes de una línea** no tienen funciones ni ejes. Las casillas **Negrita** y **Cursiva** eligen una cara de la familia; con una fuente variable usa el deslizador de **Peso** para el grosor.
 
 ## Fuentes de una línea
 

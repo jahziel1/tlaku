@@ -1,4 +1,5 @@
-import type { CsvTable, VariableText } from '@/api/types';
+import type { CsvTable, ShortRows, VariableText } from '@/api/types';
+import { variableTextOf } from './defaults';
 import {
   DEFAULT_DATE_FORMAT,
   DEFAULT_TIME_FORMAT,
@@ -9,15 +10,33 @@ import {
 } from './format';
 import { isTemplate, parseTemplate, type Token } from './syntax';
 
+/** Una fuente de datos ya leída. */
+export interface SourceCtx {
+  /** Nombre en minúsculas (así se busca). */
+  name: string;
+  /** Nombre como lo escribió el usuario (para los mensajes). */
+  label: string;
+  /** Ruta del CSV (las rutas de imágenes relativas parten de su carpeta). */
+  path: string;
+  table: CsvTable | null;
+  onShort: ShortRows;
+}
+
 /** Todo lo que hace falta para sustituir las variables de un texto. */
 export interface VarContext {
   /** Próximo número de serie. */
   serial: number;
   serialStep: number;
   serialDigits: number;
-  /** El CSV leído; `null` si el documento no tiene CSV o aún no se cargó. */
+  /** El CSV principal leído; `null` si el documento no tiene CSV o aún no se cargó. */
   csv: CsvTable | null;
-  /** Fila actual del CSV (0 = la primera de datos). */
+  /**
+   * Todas las fuentes de datos, la principal primero. Sin esto (contextos armados a mano) solo
+   * existe la principal, `csv`. Las fuentes secundarias usan la misma fila que la principal; si
+   * son más cortas, se repiten o bloquean según su ajuste.
+   */
+  sources?: SourceCtx[];
+  /** Fila actual de la fuente principal (0 = la primera de datos). */
   csvRow: number;
   now: Date;
   lang: Lang;
@@ -32,7 +51,15 @@ export type IssueCode =
   | 'noColumn' //  la columna no existe
   | 'noColumnArg' // `{csv}` sin columna
   | 'rowEnd' //    la fila pedida no existe (se acabó el CSV)
-  | 'badFormat'; // opción de serie que no se entiende
+  | 'badFormat' // opción de serie que no se entiende
+  | 'noSource' //  `{csv.fuente:...}` con una fuente que el proyecto no tiene
+  | 'emptySource' // la fuente elegida no tiene filas
+  | 'sourceRowEnd' // la fuente elegida es más corta y está en «bloquear»
+  | 'emptyCell' // aviso: la celda de una columna está vacía
+  | 'imageEmpty' // imagen variable: la celda de la ruta está vacía
+  | 'imageMissing' // imagen variable: el archivo no existe
+  | 'codeEmpty' // código variable: el contenido de la fila está vacío
+  | 'codeFailed'; // código variable: el generador rechazó el contenido
 
 export interface Issue {
   code: IssueCode;
@@ -40,11 +67,15 @@ export interface Issue {
   raw: string;
   /** Dato extra para el mensaje: columna, número de fila... */
   detail: string;
+  /** Fila del CSV (desde 1) a la que corresponde, si se conoce. */
+  row?: number;
 }
 
 export interface Resolved {
   text: string;
   issues: Issue[];
+  /** Variables de CSV que salieron vacías (celda vacía): no es un error, pero se avisa. */
+  empties?: Issue[];
 }
 
 /** Contexto a partir de los ajustes del documento. */
@@ -53,13 +84,23 @@ export function makeContext(
   csv: CsvTable | null,
   now: Date,
   lang: Lang,
+  /** Tablas de las fuentes secundarias, por nombre en minúsculas. */
+  extra: Record<string, CsvTable | null> = {},
 ): VarContext {
-  const v = vt ?? { serial: 1, serial_step: 1, serial_digits: 0, csv_path: null, csv_row: 0, advance_after_job: true };
+  const v = variableTextOf({ variable_text: vt });
+  const sources: SourceCtx[] = v.sources.map((s, i) => ({
+    name: s.name.toLowerCase(),
+    label: s.name,
+    path: s.path,
+    table: i === 0 ? csv : (extra[s.name.toLowerCase()] ?? null),
+    onShort: s.on_short,
+  }));
   return {
     serial: Number(v.serial),
     serialStep: Number(v.serial_step),
     serialDigits: v.serial_digits,
     csv,
+    sources,
     csvRow: v.csv_row,
     now,
     lang,
@@ -81,7 +122,7 @@ export function csvColumnIndex(csv: CsvTable, arg: string): number {
   return -1;
 }
 
-function resolveVar(tok: Extract<Token, { kind: 'var' }>, ctx: VarContext): { value: string } | { issue: Issue } {
+function resolveVar(tok: Extract<Token, { kind: 'var' }>, ctx: VarContext): { value: string; empty?: boolean; row?: number } | { issue: Issue } {
   const fail = (code: Issue['code'], detail = ''): { issue: Issue } => ({ issue: { code, raw: tok.raw, detail } });
   switch (tok.name) {
     case 'serial': {
@@ -98,13 +139,31 @@ function resolveVar(tok: Extract<Token, { kind: 'var' }>, ctx: VarContext): { va
     case 'csv':
     case 'row': {
       if (tok.name === 'csv' && tok.arg.trim() === '') return fail('noColumnArg');
-      if (!ctx.csv) return fail('noCsv');
+      if (!ctx.csv) return fail('noCsv', tok.source);
       const row = ctx.csvRow + tok.offset;
+      // La fuente principal manda: pasada su última fila se acabaron los datos para todas.
       if (row < 0 || row >= ctx.csv.rows.length) return fail('rowEnd', String(row + 1));
-      if (tok.name === 'row') return { value: String(row + 1) };
-      const col = csvColumnIndex(ctx.csv, tok.arg);
+      let table: CsvTable = ctx.csv;
+      let used = row;
+      if (tok.source !== '') {
+        const idx = (ctx.sources ?? []).findIndex((s) => s.name === tok.source.toLowerCase());
+        const src = (ctx.sources ?? [])[idx];
+        if (!src) return fail('noSource', tok.source);
+        if (idx > 0) {
+          if (!src.table) return fail('noCsv', src.label);
+          table = src.table;
+          const n = table.rows.length;
+          if (n === 0) return fail('emptySource', src.label);
+          if (row >= n) {
+            if (src.onShort === 'block') return fail('sourceRowEnd', `${src.label} ${row + 1}`);
+            used = row % n;
+          }
+        }
+      }
+      if (tok.name === 'row') return { value: String(used + 1) };
+      const col = csvColumnIndex(table, tok.arg);
       if (col < 0) return fail('noColumn', tok.arg.trim());
-      return { value: ctx.csv.rows[row]?.[col] ?? '' };
+      return { value: table.rows[used]?.[col] ?? '', empty: (table.rows[used]?.[col] ?? '').trim() === '', row: row + 1 };
     }
   }
 }
@@ -116,6 +175,7 @@ function resolveVar(tok: Extract<Token, { kind: 'var' }>, ctx: VarContext): { va
 export function resolveTemplate(template: string, ctx: VarContext): Resolved {
   if (!isTemplate(template)) return { text: template, issues: [] };
   const issues: Issue[] = [];
+  const empties: Issue[] = [];
   let text = '';
   for (const tok of parseTemplate(template)) {
     if (tok.kind === 'text') text += tok.text;
@@ -124,12 +184,14 @@ export function resolveTemplate(template: string, ctx: VarContext): Resolved {
       issues.push({ code: tok.reason, raw: tok.raw, detail: '' });
     } else {
       const r = resolveVar(tok, ctx);
-      if ('value' in r) text += r.value;
-      else {
+      if ('value' in r) {
+        text += r.value;
+        if (r.empty) empties.push({ code: 'emptyCell', raw: tok.raw, detail: tok.arg.trim(), row: r.row });
+      } else {
         text += tok.raw;
         issues.push(r.issue);
       }
     }
   }
-  return { text, issues };
+  return empties.length > 0 ? { text, issues, empties } : { text, issues };
 }

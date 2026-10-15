@@ -198,3 +198,127 @@
   margin: 0;
   font-size: var(--text-xs);
 }
+
+/* funciones OpenType y ejes variables */
+.ot {
+  border-top: 1px solid var(--border);
+  padding-top: var(--s-3);
+}
+.ot__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-height: var(--control-h);
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+.ot__summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.ot__count {
+  padding: 0 var(--s-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+}
+.ot__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-top: var(--s-3);
+}
+.ot__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+}
+.ot__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ot__legend {
+  padding: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ot__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.ot__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ot-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-3);
+}
+.ot-row__main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  min-height: var(--control-h);
+  color: var(--text);
+}
+.ot-row__name {
+  overflow-wrap: anywhere;
+}
+.ot-row__tag {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.ot-row__previews {
+  /* Siempre debajo del nombre y alineada con él: si no, unas filas la ponen al lado y otras abajo. */
+  flex-basis: 100%;
+  padding-left: calc(var(--s-3) + 14px);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--text-muted);
+}
+.ot-row > .field {
+  flex-basis: 100%;
+}
+.ot-row__note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.ot-preview {
+  width: 64px;
+  height: 24px;
+  fill: var(--text);
+}
+.ot-preview--off {
+  fill: var(--text-muted);
+  opacity: 0.7;
+}
+.ot-axis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.ot-axis__range {
+  width: 100%;
+  accent-color: var(--accent);
+}

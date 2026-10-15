@@ -3,8 +3,9 @@
 use crate::effects::{MAX_BEND_DEG, bend_path, bend_radius, has_closed, weld_paths};
 use crate::library::FontLibrary;
 use crate::linefont::LineFont;
+use crate::opentype::{parse_tag, selected_features, selected_variations};
 use crate::path_sampler::PathSampler;
-use crate::spec::{Align, TextSpec};
+use crate::spec::{Align, FontFeature, TextSpec, VAlign};
 use serde::Serialize;
 use std::collections::BTreeSet;
 use tlaku_core::bezpath::{BezPath, PathSeg};
@@ -20,6 +21,8 @@ const MIN_AREA_MM2: f64 = 1e-10;
 const MEASURE_TOL_MM: f64 = 0.005;
 /// Espacios que equivale un tabulador.
 const TAB_SPACES: usize = 4;
+/// Altura de la mayúscula (en em) cuando la fuente no la declara.
+const DEFAULT_CAP_EM: f64 = 0.7;
 
 /// Resultado de convertir un texto en curvas.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -73,6 +76,22 @@ pub fn outline(
     if !spec.bend_deg.is_finite() {
         return Err(tr!("text.layout.bad_bend"));
     }
+    if !spec.word_spacing_mm.is_finite() {
+        return Err(tr!("text.layout.bad_word_spacing"));
+    }
+    for f in &spec.features {
+        if parse_tag(&f.tag).is_none() {
+            return Err(tr!("text.layout.bad_tag", tag = f.tag));
+        }
+    }
+    for a in &spec.variations {
+        if parse_tag(&a.tag).is_none() {
+            return Err(tr!("text.layout.bad_tag", tag = a.tag));
+        }
+        if !a.value.is_finite() {
+            return Err(tr!("text.layout.bad_axis_value", tag = a.tag));
+        }
+    }
 
     let line_font = lib.line_font(&spec.font_family);
     let (mut warnings, shaped) = match &line_font {
@@ -80,6 +99,9 @@ pub fn outline(
             let mut w = Vec::new();
             if spec.bold || spec.italic {
                 w.push(tr!("text.layout.line_font_style", name = font.name));
+            }
+            if !spec.features.is_empty() || !spec.variations.is_empty() {
+                w.push(tr!("text.layout.line_font_opentype", name = font.name));
             }
             (w, shape_line_font(font, spec))
         }
@@ -111,11 +133,22 @@ pub fn outline(
     warnings.extend(shaped.warnings);
 
     let width = shaped.lines.iter().map(|l| l.width).fold(0.0_f64, f64::max);
+    // Alineación vertical: se desplaza el bloque entero antes de colocarlo (en recta, curvado
+    // o sobre un trayecto), así el origen queda arriba, al medio o abajo del texto.
+    let last_baseline =
+        -((shaped.lines.len().max(1) - 1) as f64) * spec.line_spacing * spec.size_mm;
+    let y_shift = match spec.valign {
+        VAlign::Baseline => 0.0,
+        VAlign::Top => -shaped.cap_height_mm,
+        VAlign::Middle => -(shaped.cap_height_mm + last_baseline) / 2.0,
+        VAlign::Bottom => -last_baseline,
+    };
     let mut paths = place(
         &shaped.glyph_paths,
         &shaped.lines,
         spec,
         width,
+        y_shift,
         sampler.as_ref(),
         &mut warnings,
     );
@@ -142,9 +175,7 @@ pub fn outline(
                     Align::Center => 0.0,
                     Align::Right => -width / 2.0,
                 };
-                let lowest =
-                    -((shaped.lines.len().max(1) - 1) as f64) * spec.line_spacing * spec.size_mm
-                        - spec.size_mm * 0.3;
+                let lowest = last_baseline + y_shift - spec.size_mm * 0.3;
                 if radius > 0.0 && radius + lowest <= 0.0 {
                     warnings.push(tr!("text.layout.bend_too_tight"));
                 }
@@ -165,14 +196,24 @@ pub fn outline(
 /// Datos que salen del paso que necesita los bytes de la fuente.
 struct Shaped {
     lines: Vec<Line>,
+    /// Altura de la mayúscula (mm), para la alineación vertical.
+    cap_height_mm: f64,
     /// Contorno de cada glifo usado, en mm con el origen en su punto de pluma.
     glyph_paths: std::collections::HashMap<u16, BezPath>,
     warnings: Vec<String>,
 }
 
 fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped, String> {
-    let face =
+    let mut face =
         rustybuzz::Face::from_slice(data, index).ok_or_else(|| tr!("text.layout.face_damaged"))?;
+    let mut warnings = Vec::new();
+    if !spec.variations.is_empty() {
+        if face.is_variable() {
+            face.set_variations(&selected_variations(&spec.variations));
+        } else {
+            warnings.push(tr!("text.layout.not_variable"));
+        }
+    }
     let upem = f64::from(face.units_per_em());
     if upem <= 0.0 {
         return Err(tr!("text.layout.bad_em"));
@@ -187,9 +228,11 @@ fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped,
             features.push(rustybuzz::Feature::new(Tag::from_bytes(tag), 0, ..));
         }
     }
+    // Las funciones elegidas por el usuario van después: ante la misma etiqueta, la última gana.
+    features.extend(selected_features(&spec.features));
+    warnings.extend(missing_feature_warnings(&face, &spec.features));
 
-    let normalized = spec
-        .text
+    let normalized = source_text(spec)
         .replace("\r\n", "\n")
         .replace('\r', "\n")
         .replace('\t', &" ".repeat(TAB_SPACES));
@@ -234,6 +277,9 @@ fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped,
                 y_offset: f64::from(pos.y_offset) * scale,
             });
             pen += advance;
+            if is_word_space(text_line, info.cluster as usize) {
+                pen += spec.word_spacing_mm;
+            }
         }
         lines.push(Line {
             glyphs: placed,
@@ -241,7 +287,6 @@ fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped,
         });
     }
 
-    let mut warnings = Vec::new();
     if !missing.is_empty() {
         let list: String = missing
             .iter()
@@ -250,8 +295,12 @@ fn shape_and_extract(data: &[u8], index: u32, spec: &TextSpec) -> Result<Shaped,
             .join(" ");
         warnings.push(tr!("text.layout.missing_glyphs", list = list));
     }
+    let cap_units = face
+        .capital_height()
+        .map_or(upem * DEFAULT_CAP_EM, f64::from);
     Ok(Shaped {
         lines,
+        cap_height_mm: cap_units * scale,
         glyph_paths,
         warnings,
     })
@@ -266,8 +315,7 @@ pub const LINE_FONT_CAP_RATIO: f64 = 0.72;
 /// trayectoria abierta con varios subtrayectos (uno por trazo), sin cerrar.
 fn shape_line_font(font: &LineFont, spec: &TextSpec) -> Shaped {
     let unit = spec.size_mm * LINE_FONT_CAP_RATIO / font.cap_units;
-    let normalized = spec
-        .text
+    let normalized = source_text(spec)
         .replace("\r\n", "\n")
         .replace('\r', "\n")
         .replace('\t', &" ".repeat(TAB_SPACES));
@@ -317,6 +365,9 @@ fn shape_line_font(font: &LineFont, spec: &TextSpec) -> Shaped {
                 y_offset: 0.0,
             });
             pen += advance;
+            if ch == ' ' || ch == '\u{a0}' {
+                pen += spec.word_spacing_mm;
+            }
         }
         lines.push(Line {
             glyphs: placed,
@@ -334,9 +385,36 @@ fn shape_line_font(font: &LineFont, spec: &TextSpec) -> Shaped {
     }
     Shaped {
         lines,
+        cap_height_mm: spec.size_mm * LINE_FONT_CAP_RATIO,
         glyph_paths,
         warnings,
     }
+}
+
+/// Texto que se le da a la fuente: en mayúsculas si el objeto lo pide.
+fn source_text(spec: &TextSpec) -> String {
+    if spec.uppercase {
+        spec.text.to_uppercase()
+    } else {
+        spec.text.clone()
+    }
+}
+
+/// ¿El carácter que originó el glifo en `cluster` es un espacio entre palabras?
+fn is_word_space(line: &str, cluster: usize) -> bool {
+    line.get(cluster..)
+        .and_then(|s| s.chars().next())
+        .is_some_and(|c| c == ' ' || c == '\u{a0}')
+}
+
+/// Avisos de las funciones que se encienden y la fuente no declara (en GSUB ni GPOS).
+fn missing_feature_warnings(face: &rustybuzz::Face, features: &[FontFeature]) -> Vec<String> {
+    let have = crate::opentype::layout_tags(face);
+    features
+        .iter()
+        .filter(|f| f.value > 0 && parse_tag(&f.tag).is_some_and(|t| !have.contains(&t.to_bytes())))
+        .map(|f| tr!("text.layout.feature_missing", tag = f.tag))
+        .collect()
 }
 
 /// Recoge los comandos de ttf-parser sin aplanar, ya escalados a mm.
@@ -477,6 +555,7 @@ fn place(
     lines: &[Line],
     spec: &TextSpec,
     block_width: f64,
+    y_shift: f64,
     sampler: Option<&PathSampler>,
     warnings: &mut Vec<String>,
 ) -> Vec<BezPath> {
@@ -485,7 +564,7 @@ fn place(
     let offset = spec.on_path.map_or(0.0, |o| o.offset_mm);
 
     for (line_idx, line) in lines.iter().enumerate() {
-        let baseline = -(line_idx as f64) * spec.line_spacing * spec.size_mm;
+        let baseline = -(line_idx as f64) * spec.line_spacing * spec.size_mm + y_shift;
         for g in &line.glyphs {
             let Some(base) = glyph_paths.get(&g.id.0) else {
                 continue;

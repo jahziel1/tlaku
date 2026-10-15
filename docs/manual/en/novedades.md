@@ -18,10 +18,27 @@ Seventh batch, of polish and of gaps that remained compared with LightBurn. **No
 
 - **Live view** (checkbox in the **Machine** tab, off by default): a **floating window** that does not cover the design shows the whole bed and what the machine is doing, without a camera, following the real position it reports: what is already burned in dark, what is pending faint, and the head, with percentage, state, elapsed and time left. You can move it, resize it, enlarge it, close it, and **open it in a separate window** (for example, on another monitor). Turn it on and off whenever you like, also in the middle of a job. It is also on the **phone** page (with its own switch). View only. See [Sending safely](09-enviar-con-seguridad.md#live-view-of-the-job) and [Control from the phone](09e-control-desde-el-celular.md#live-view-on-the-phone).
 
+### Cost and price per piece
+
+- **Machine > Cost and price…** (also in the **Machine** tab and in the preview bar) works out what a piece costs to make and what to sell it for if you sell on Etsy, Mercado Libre or to order: machine time (the estimate, calibrated with your jobs, or the real time of the last one), **tube or diode wear** only for the time the laser is on, electricity, **material** by area, by real area or by sheet, labor, packaging, quantity and a **price that covers the platform fee and taxes** (they are charged on the final price, not on the cost). It keeps values **per machine** and **material profiles**, uses your region's currency and format (MXN with `es-MX`), shows the formula with your numbers and lets you **copy the breakdown** as text or CSV. Nothing leaves your computer. See [Cost and price per piece](07c-costos-y-precio.md).
+
 ### Review design
 
 - **Machine > Review design…** (`Ctrl/Cmd+Alt+R`) reads your design and lists **twelve kinds of findings** (almost-closed strokes, duplicate lines, pending joins, tiny fragments, extra nodes, objects outside or past the bed, unconverted text, layers with no output or hidden with objects, and images with too much or too little resolution). Each one comes with **Fix** (if there is one), **Select**, and **Ignore**; **Fix everything safe** closes, joins, and removes duplicates in a single **Undo** step.
 - A **notice in the Start dialog** (with a **Look** link) when there is something serious, and the same findings in plain words in **simple mode**. See [Review design](07b-revisar-diseno.md).
+
+### Advanced text
+
+- **OpenType features per text**: ligatures (standard and discretionary), stylistic alternates and sets, swash, small caps, numerals (old-style, lining, tabular, proportional), fractions and kerning on or off. The panel reads the font and **offers only what it has**, with an off/on preview of each feature.
+- **Variable fonts**: one slider per axis (weight, width, slant, optical size and custom axes) and the named styles; the outline is computed at the chosen position.
+- **Forced uppercase**, **word gap** and **vertical alignment** (also on a path: the text can hang from the line, centre on it or sit on top). See [Text](04-texto.md#advanced-text-font-features-and-variable-fonts).
+
+### Variable data from CSV
+
+- **Several CSV files per project**, each with its own name: `{csv.products:Name}` picks the source and the column. The first one is the main source and rules over the rows; the others repeat from the start (or block sending) if they have fewer rows. They are saved with a path relative to the project, and a project with a single CSV opens as before.
+- **Variable images and logos**: a column with the file path (absolute or relative to the CSV) replaces the marked image, fitted into its box (whole or filling and cropping) and engraved with its layer's image mode. If a file is missing, sending is blocked and says which one.
+- **Variable QR and barcodes**: the content can contain `{csv:Id}` and is generated again with each row's data.
+- **Preview by row**, **One copy per row** with all of the above, and **Check data**, which lists the rows with empty cells, missing images or codes without content. See [Variable text](04b-texto-variable.md).
 
 ### Canvas and editing
 

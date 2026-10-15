@@ -21,6 +21,7 @@ mod materials;
 mod resume;
 mod ruida;
 mod text;
+mod variables;
 mod virtual_array;
 
 pub use community::{
@@ -70,7 +71,11 @@ pub use ruida::{
     RuidaFile, RuidaInfo, RuidaPlannedChange, RuidaSetting, RuidaSettingChange, RuidaSettingsPlan,
     RuidaVerified,
 };
-pub use text::{TextAlign, TextObject, TextOnPath};
+pub use text::{TextAlign, TextAxis, TextFeature, TextObject, TextOnPath, TextVAlign};
+pub use variables::{
+    DataSource, ImageFit, ShortRows, VariableCode, VariableImage, absolutize, clean_source_name,
+    relativize,
+};
 pub use virtual_array::MAX_VIRTUAL_COPIES;
 
 #[cfg(test)]

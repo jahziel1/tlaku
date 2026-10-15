@@ -21,7 +21,41 @@ pub struct OnPathSpec {
     pub flip: bool,
 }
 
+/// Alineación vertical del bloque de texto respecto del origen (o del trayecto).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VAlign {
+    /// La línea base de la primera línea queda en el origen (comportamiento de siempre).
+    #[default]
+    Baseline,
+    /// La parte alta de la mayúscula de la primera línea queda en el origen.
+    Top,
+    /// El origen queda a media altura entre la mayúscula de la primera línea y la línea base
+    /// de la última.
+    Middle,
+    /// La línea base de la última línea queda en el origen.
+    Bottom,
+}
+
+/// Función OpenType (`liga`, `ss01`, `smcp`, `kern`...) con su valor: 0 la apaga, 1 la
+/// enciende (algunas, como `salt`, aceptan el número de la alternativa).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FontFeature {
+    /// Etiqueta de cuatro caracteres ASCII.
+    pub tag: String,
+    pub value: u32,
+}
+
+/// Valor de un eje de una fuente variable (`wght`, `wdth`, `slnt`, `opsz` o personalizado).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FontAxis {
+    /// Etiqueta de cuatro caracteres ASCII.
+    pub tag: String,
+    pub value: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TextSpec {
     /// Admite varias líneas separadas por `\n`.
     pub text: String,
@@ -43,6 +77,18 @@ pub struct TextSpec {
     /// Une en un solo contorno las letras que se tocan o se solapan (fuentes cursivas).
     /// No aplica a las fuentes de una línea.
     pub welded: bool,
+    /// Funciones OpenType que se fuerzan (encendidas o apagadas) sobre las de la fuente. Las
+    /// que no aparecen siguen el valor por omisión de HarfBuzz. Se aplican a todo el texto.
+    pub features: Vec<FontFeature>,
+    /// Posición en los ejes de una fuente variable; los ejes no citados quedan en su valor
+    /// por omisión y los valores fuera de rango se acotan al eje.
+    pub variations: Vec<FontAxis>,
+    /// Pasa el texto a mayúsculas antes de darle forma.
+    pub uppercase: bool,
+    /// Alineación vertical del bloque.
+    pub valign: VAlign,
+    /// Espacio extra (mm) que se suma a cada espacio entre palabras; negativo lo acerca.
+    pub word_spacing_mm: f64,
 }
 
 impl Default for TextSpec {
@@ -59,6 +105,11 @@ impl Default for TextSpec {
             on_path: None,
             bend_deg: 0.0,
             welded: false,
+            features: Vec::new(),
+            variations: Vec::new(),
+            uppercase: false,
+            valign: VAlign::Baseline,
+            word_spacing_mm: 0.0,
         }
     }
 }

@@ -5,6 +5,7 @@ import { bundleCommands } from './definitions/bundle';
 import { cameraCommands } from './definitions/camera';
 import { canvasToolCommands } from './definitions/canvasTools';
 import { codesCommands } from './definitions/codes';
+import { costsCommands } from './definitions/costs';
 import { designCommands } from './definitions/design';
 import { deviceCommands } from './definitions/devices';
 import { editCommands } from './definitions/edit';
@@ -58,6 +59,7 @@ export const ALL_COMMANDS: CommandDef[] = [
   ...panelCommands,
   ...layerCommands,
   ...previewCommands,
+  ...costsCommands,
   ...arrangeCommands,
   ...designAdvancedCommands,
   ...shapeCommands,

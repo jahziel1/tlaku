@@ -1,5 +1,7 @@
 import { useId, useMemo, type RefObject } from 'react';
 import { t, getLanguage } from '@/i18n';
+import { useStore } from '@/store';
+import { variableTextOf } from './defaults';
 import { useVariablesUi } from './context';
 import { insertOptions, insertSnippet } from './insert';
 
@@ -14,8 +16,17 @@ interface Props {
 export function InsertVariable({ value, areaRef, onChange }: Props) {
   const id = useId();
   const headers = useVariablesUi((s) => s.csv.table?.headers);
+  const extra = useVariablesUi((s) => s.extra);
+  const sources = useStore((s) => variableTextOf(s.doc).sources);
   const lang = getLanguage();
-  const options = useMemo(() => insertOptions(lang, headers ?? []), [lang, headers]);
+  const options = useMemo(() => {
+    // Las fuentes secundarias con su nombre del documento y los encabezados ya leídos.
+    const named = sources.slice(1).flatMap((s) => {
+      const st = extra[s.name.toLowerCase()];
+      return st?.table && st.path === s.path ? [{ name: s.name, headers: st.table.headers }] : [];
+    });
+    return insertOptions(lang, headers ?? [], named);
+  }, [lang, headers, extra, sources]);
   const groups: { key: 'serial' | 'csv' | 'time' | 'other'; label: Parameters<typeof t>[0] }[] = [
     { key: 'serial', label: 'variables.insert.group.serial' },
     { key: 'csv', label: 'variables.insert.group.csv' },
@@ -49,7 +60,7 @@ export function InsertVariable({ value, areaRef, onChange }: Props) {
               .filter((o) => o.group === g.key)
               .map((o) => (
                 <option key={o.id} value={o.id}>
-                  {t(o.label, { column: o.column ?? '' })}  {o.snippet}
+                  {t(o.label, { column: o.column ?? '', source: o.source ?? '' })}  {o.snippet}
                 </option>
               ))}
           </optgroup>

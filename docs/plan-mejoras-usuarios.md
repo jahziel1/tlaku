@@ -214,7 +214,7 @@ y una caja pequeña; ese es el único modo de validar los números de holgura.
 
 ## 3. Calculadora de costos / precio por pieza
 
-**(a) Estado: No existe.** Búsqueda en `apps/desktop/src` y `i18n/es`: no hay costos, precios ni tarifas. Sí hay
+**(a) Estado: implementada (Ola A)** en `apps/desktop/src/features/costs/` (diálogo «Costos y precio», manual `07c-costos-y-precio.md`); lo que sigue es el análisis previo. Faltan la cotización imprimible y comparar el factor de calibración con trabajos reales de la Falcon2. Antes: no existía; búsqueda en `apps/desktop/src` y `i18n/es`: no había costos, precios ni tarifas. Sí hay
 los insumos: tiempo estimado total y por capa (`JobPreview.total_s`, `PreviewLayer.seconds`), tiempo con láser
 encendido (se obtiene de `moves` y `move_times`: kind=1 con potencia mayor que 0), área de las piezas y la
 cama, grosor y receta del material (biblioteca `.tlakumat`), cantidad de copias (arreglos, tiling, texto
@@ -680,7 +680,7 @@ dos carpetas de configuración. Sin hardware.
 
 ## 13. Texto avanzado
 
-**(a) Estado: Parcial, y mejor que LightBurn en varios puntos.** Tlaku usa `rustybuzz` 0.20 (HarfBuzz en Rust)
+**(a) Estado: Hecho en su núcleo (ola A); queda lo listado como pendiente.** Funciones OpenType por texto (`TextObject.features`), fuentes variables con deslizador por eje (`variations`), mayúsculas forzadas, espacio entre palabras y alineación vertical (también sobre trayecto) ya están: el motor lee GSUB/GPOS/`fvar` (`tlaku-text/src/opentype.rs`, comando `font_capabilities`) y el panel solo ofrece lo que la fuente trae, con vista previa. Pendiente: alineación X sobre el trayecto (centrar/ajustar), dos arcos con un control, distorsión libre, estilos mezclados en un bloque, derecha a izquierda, `ssNN` con nombres propios de la fuente (la tabla `name` de las características). Lo siguiente era el estado antes de la ola A: **Parcial, y mejor que LightBurn en varios puntos.** Tlaku usa `rustybuzz` 0.20 (HarfBuzz en Rust)
 y `ttf-parser` 0.25 (`crates/tlaku-text`): formas de texto con kerning, ligaduras (se apagan solo cuando hay
 espaciado entre letras), varias líneas, alineación, tamaño/espaciados, negrita y cursiva, **texto curvado** en
 un arco de hasta ±360° (D39, `bend_deg`), **texto sobre un trayecto** con desplazamiento y voltear lado (D40),
@@ -732,7 +732,7 @@ del documento), capturas. Sin hardware.
 
 ## 14. Numeración y datos variables desde CSV
 
-**(a) Estado: Hecho en lo básico; hay huecos con alta demanda.** D42/M38 (Hecho): variables entre llaves
+**(a) Estado: Hecho (ola A: varios CSV, imágenes/logotipos y QR/códigos variables, vista previa por fila y revisión de datos); quedan rango de filas y variables de ajuste de capa.** D42/M38 (Hecho): variables entre llaves
 (`{serie:6}`, `{csv:Nombre}`, `{fila}`, fecha y hora con formato, número de copia, desplazamiento `@N`), diálogo
 «Texto variable» con serie (paso, dígitos, hexadecimal), CSV (UTF-8, separador detectado, hasta 100 000
 filas), avance **solo tras un trabajo que termina bien** (deshacible), «Una copia por fila», plantilla guardada
@@ -742,11 +742,9 @@ entiende. Código: `features/variables/`, `edit/variables.rs`, `tlaku-doc` (`Var
 
 **(b) Qué falta (los límites que la propia fila reconoce, más los que piden los usuarios).**
 
-- **Más de un CSV por proyecto** (hoy `VariableText.csv_path` es único).
-- **Imágenes y logotipos variables** (una columna con la ruta de un archivo; reemplazar el `source_path` de un
-  objeto imagen o una forma SVG por fila).
-- **QR y códigos de barras variables** (hoy se generan ya como trayecto y no son dato variable; la fila D43 lo
-  dice) y QR serializados.
+- ~~**Más de un CSV por proyecto**~~ **Hecho** (`VariableText.sources`; la principal manda, las demás se repiten o bloquean si son más cortas).
+- ~~**Imágenes y logotipos variables**~~ **Hecho** para objetos imagen (`ImageObject.variable`); una forma SVG por fila queda pendiente.
+- ~~**QR y códigos de barras variables**~~ **Hecho** (`VectorObject.code`, se regeneran al enviar); QR serializados con `{serie}` en el contenido.
 - **Variables de ajuste de capa** (velocidad, potencia) desde una columna del CSV; hoy no.
 - **Selección de filas** (rango inicial-final, filtro, saltar vacías) y **buscar y reemplazar** texto en bloque.
 - Opcional: "hornear" a texto fijo con un clic (hoy se logra convirtiendo a trayectos).

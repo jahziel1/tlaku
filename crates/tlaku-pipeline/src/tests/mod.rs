@@ -66,6 +66,7 @@ fn image_object(
             height_px: 16,
             size_mm: size,
             mask: Vec::new(),
+            variable: None,
         }),
         locked: false,
         hidden: false,

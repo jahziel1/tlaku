@@ -150,6 +150,45 @@ fn projects_roundtrip_and_reject_bad_files() {
 }
 
 #[test]
+fn project_stores_data_sources_relative_and_loads_them_absolute() {
+    let dir = temp("fuentes");
+    let path = dir.join("a.tlaku");
+    let csv = dir.join("datos").join("etiquetas.csv");
+    let mut doc = square_doc();
+    doc.variable_text.sources = vec![tlaku_doc::DataSource {
+        name: "etiquetas".into(),
+        path: csv.to_string_lossy().into_owned(),
+        on_short: tlaku_doc::ShortRows::Repeat,
+    }];
+    save_project(path.to_str().unwrap(), &doc).unwrap();
+    // En el archivo la ruta va relativa a la carpeta del proyecto...
+    let text = fs::read_to_string(&path).unwrap();
+    assert!(text.contains("datos/etiquetas.csv"), "{text}");
+    assert!(!text.contains(&*dir.to_string_lossy()), "{text}");
+    // ... y al abrir vuelve absoluta; el documento en memoria no se tocó al guardar.
+    assert_eq!(doc.variable_text.sources[0].path, csv.to_string_lossy());
+    let loaded = load_project(path.to_str().unwrap()).unwrap();
+    assert_eq!(loaded.variable_text.sources[0].path, csv.to_string_lossy());
+}
+
+#[test]
+fn old_single_csv_project_loads_as_one_source() {
+    let dir = temp("csvviejo");
+    let path = dir.join("viejo.tlaku");
+    fs::write(
+        &path,
+        r#"{"version":2,"objects":[],"layers":[],"device_id":null,
+        "variable_text":{"csv_path":"etiquetas.csv","csv_row":2}}"#,
+    )
+    .unwrap();
+    let doc = load_project(path.to_str().unwrap()).unwrap();
+    let expected = dir.join("etiquetas.csv").to_string_lossy().into_owned();
+    assert_eq!(doc.variable_text.sources.len(), 1);
+    assert_eq!(doc.variable_text.sources[0].path, expected);
+    assert_eq!(doc.variable_text.csv_row, 2);
+}
+
+#[test]
 fn version_1_projects_are_migrated_on_load() {
     let dir = temp("v1");
     let path = dir.join("viejo.tlaku");
@@ -256,6 +295,7 @@ fn image_paths_lists_only_images() {
             height_px: 4,
             size_mm: [10.0, 10.0],
             mask: Vec::new(),
+            variable: None,
         }),
         locked: false,
         hidden: false,

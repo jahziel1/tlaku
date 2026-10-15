@@ -1,0 +1,148 @@
+/* ---- diálogo «Costos y precio» ---------------------------------------------------------- */
+
+.mc-modal.cost-modal {
+  width: min(1040px, 100%);
+}
+.mc-modal__body.cost__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr);
+  align-items: start;
+  gap: var(--s-6);
+}
+.cost__inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  min-width: 0;
+}
+.cost__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cost__group > legend {
+  /* La leyenda de un fieldset no entra en el `gap` del contenedor ni alinea con su contenido. */
+  padding: 0;
+  margin-bottom: var(--s-3);
+}
+.cost__help {
+  margin: 0;
+}
+.cost__use {
+  justify-content: flex-end;
+}
+.cost__result {
+  position: sticky;
+  top: 0;
+  /* Con el desglose abierto es más alto que el diálogo: se desplaza solo y el precio no se pierde arriba. */
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+  padding: var(--s-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.cost__price {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.cost__price-label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.cost__price-value {
+  color: var(--accent-ink, var(--text));
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.cost__cost {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin: 0;
+}
+.cost__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.cost__table th,
+.cost__table td {
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-weight: 400;
+}
+.cost__table thead th {
+  color: var(--text-muted);
+}
+.cost__table th:first-child,
+.cost__table td:first-child {
+  padding-left: 0;
+}
+.cost__table th:last-child,
+.cost__table td:last-child {
+  padding-right: 0;
+}
+.cost__table .num {
+  text-align: right;
+}
+.cost__table tfoot th,
+.cost__table tfoot td {
+  border-bottom: 0;
+  font-weight: 650;
+}
+.cost__split {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+}
+.cost__split dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.cost__split dd {
+  margin: 0;
+  font-weight: 600;
+}
+.cost__warns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cost__formula summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.cost__formula p {
+  margin: var(--s-3) 0 0;
+}
+.cost__foot {
+  flex-wrap: wrap;
+}
+.cost__private {
+  margin-right: auto;
+}
+
+@media (max-width: 760px) {
+  .mc-modal__body.cost__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cost__result {
+    position: static;
+  }
+}

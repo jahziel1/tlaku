@@ -597,6 +597,7 @@ fn image_doc(path: &Path, layer: LayerSettings) -> Document {
             height_px: 16,
             size_mm: [16.0, 16.0],
             mask: Vec::new(),
+            variable: None,
         }),
         locked: false,
         hidden: false,

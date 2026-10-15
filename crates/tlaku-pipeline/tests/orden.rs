@@ -183,6 +183,7 @@ fn gradient_image(dir: &Path) -> DesignObject {
             height_px: 16,
             size_mm: [8.0, 8.0],
             mask: Vec::new(),
+            variable: None,
         }),
         locked: false,
         hidden: false,

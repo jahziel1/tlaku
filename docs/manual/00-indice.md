@@ -28,6 +28,7 @@ Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cort
 
 - [Vista previa y orden de corte](07-vista-previa.md): reproducir el recorrido, leer los resultados, los ajustes de optimización y entender por qué se cortó en ese orden.
 - [Revisar diseño](07b-revisar-diseno.md): los doce tipos de hallazgo (trazos casi cerrados, líneas duplicadas, objetos fuera de la cama...), arreglar, seleccionar o ignorar, «Arreglar todo lo seguro» y el aviso al iniciar.
+- [Costos y precio por pieza](07c-costos-y-precio.md): para quien vende: cuánto cuesta hacer una pieza (máquina, desgaste del tubo o diodo, electricidad, material, mano de obra, empaque) y a cuánto venderla cubriendo la comisión de la plataforma y los impuestos; perfiles de máquina y de material, moneda, y copiar el desglose o guardarlo como CSV.
 
 ## La máquina
 

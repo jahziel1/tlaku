@@ -25,7 +25,7 @@ Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). 
 | `tlaku-fill` | Relleno: `scan.rs` (barrido), `offset.rs` (contornos), `flood.rs`, `cluster.rs` |
 | `tlaku-raster` | Imagen a potencia: `adjust`, `dither`, `screen` (semitono), `sketch`, `mask`, `resample`, `warp` (giro afín de una imagen), `preview` (vista previa entera o por trozo), `scan.rs` (barrido a bloque); carga sin materializar la imagen: `load.rs` (cabecera, PNG por filas, TIFF por franjas/teselas con YCbCr, `convert_to_png`) y `downsample.rs`; `load_for_process` reduce a la rejilla antes de ajustar |
 | `tlaku-sim` | Tiempo/overscan: `profile.rs`, `plan.rs`, `sample.rs` |
-| `tlaku-text` | Texto a contornos: `library.rs`, `layout.rs`, `linefont.rs` (Hershey en `data/`), `shx.rs`, `effects.rs`, `path_sampler.rs` |
+| `tlaku-text` | Texto a contornos: `library.rs`, `layout.rs`, `opentype.rs` (funciones OpenType y ejes variables: `font_capabilities`, `selected_features`; `TextSpec.features/variations/uppercase/valign/word_spacing_mm` en `spec.rs`), `linefont.rs` (Hershey en `data/`), `shx.rs`, `effects.rs`, `path_sampler.rs`. Pruebas: `tests/outline.rs` (Bebas Neue) y `tests/opentype.rs` (fuente sintética `tests/fixtures/TlakuTest-Var.ttf`, que genera `make_test_font.py`) |
 | `tlaku-trace` | Vectorizar imagen: `binarize`, `polygon`, `spline` (usa `visioncortex` mediante `vtracer/`, la parte de biblioteca de vtracer 0.6.5 adaptada, solo modo binario; ver `THIRD_PARTY.md`); `golden.rs` compara byte a byte con `tests/fixtures/golden_*` |
 | `tlaku-codes` | QR y barras: `encode.rs`, `geometry.rs` |
 | `tlaku-nest` | Nesting: `engine.rs`, `search.rs`, `prep.rs`, `region.rs`, `convex.rs`, `ops.rs` |
@@ -170,7 +170,7 @@ nombre con `grep -rn` dentro de la carpeta.
 Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "fn "`):
 `crates/tlaku-pipeline/tests/{orden,galvo}.rs`, `crates/tlaku-plan/tests/plan.rs`,
 `crates/tlaku-cli/tests/cli.rs`, `crates/tlaku-emu/tests/{reprap,behavior,estimate}.rs`,
-`crates/tlaku-grbl/tests/streamer.rs`, `crates/tlaku-text/tests/outline.rs`, `crates/tlaku-geom/src/tests.rs`,
+`crates/tlaku-grbl/tests/streamer.rs`, `crates/tlaku-text/tests/outline.rs`, `crates/tlaku-text/tests/opentype.rs`, `crates/tlaku-geom/src/tests.rs`,
 `crates/tlaku-dxf/src/tests.rs`, `crates/tlaku-export/src/tests.rs`,
 `apps/desktop/src-tauri/src/machine/{tests/,ruida/tests,lhymicro/tests,galvo/tests}.rs`, `remote/tests.rs`.
 
@@ -180,7 +180,7 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 |---|---|
 | `.github/ISSUE_TEMPLATE/*.yml` (formularios es/en), `PULL_REQUEST_TEMPLATE.md`, `CODEOWNERS`, `dependabot.yml`, `labels.yml` (+ `scripts/sync-labels.sh`), `workflows/community.yml` | Comunidad: los ids de los formularios son los que prellena `features/help/githubForms.ts` (lo comprueba `githubForms.test.ts`); `community/materials/` y `scripts/community/issue-to-preset.mjs` convierten un issue de ajustes de material en un aporte |
 | `src/features/help/{githubForms.ts,openExternal.ts,ShareDialogs.tsx}` | Menú Ayuda > «Reportar un problema…», «Compartir resultados de mi máquina…» y «Compartir ajustes de material…»: arman la dirección del formulario de GitHub y abren el navegador con `tauri-plugin-opener` (alcance en `capabilities/default.json`); nunca envían nada solos |
-| `.github/workflows/{ci,release,pages}.yml`, `.github/FUNDING.yml` | CI (Rust en 3 sistemas, deny, interfaz, humo en Linux, sitio), publicación de instaladores, GitHub Pages (inactivo hasta `PAGES_ENABLED=true`) y botón Sponsor |
+| `.github/workflows/{ci,release,pages}.yml`, `.github/FUNDING.yml` | CI (Rust en 3 sistemas, Rust y humo en Linux ARM64 `ubuntu-22.04-arm`, deny, interfaz, humo en Linux, sitio), publicación de instaladores (incluye Linux ARM64; ver `docs/publicar.md`), GitHub Pages (inactivo hasta `PAGES_ENABLED=true`) y botón Sponsor |
 | `site/`, `scripts/build-site.mjs` | Sitio estático es/en; `site/config.json` llena `{{REPO_URL}}`, `{{SPONSORS_URL}}`, `{{KOFI_URL}}` (también en el README con `--readme`) |
 | `scripts/configure-updater.sh`, `src-tauri/src/updater.rs` | Llena `plugins.updater` y activa `createUpdaterArtifacts`; el plugin solo se registra si hay `pubkey` y `endpoints` |
 | `src/features/help/{updater.ts,links.ts}`, `UpdateDialog`/`DonateDialog` en `HelpDialogs.tsx` | Buscar actualizaciones (store `useUpdateUi`, pref `updateCheckOnStart`) y enlaces de donación (`PROJECT_LINKS`, vacíos por omisión) |
@@ -198,6 +198,31 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/tiling/{guide.ts,MoveMaterialDialog.tsx}` | Tiling en varias columnas (M47): pausa guiada y marcas de registro; el alimentador avanza solo entre tramos de la misma columna (`run.ts`, `advanceFrom`) |
 | `src/store/prefs.ts` (`cameraReopen`, `cameraFrameWidth`), `features/settings/SettingsDialog.tsx` (`CameraGroup`) | Preferencias de cámara (M51) |
 | `crates/tlaku-doc/src/lbdev.rs`, `src-tauri/src/edit/devices.rs` (`read_lbdev`), `src/features/machine/{lbdevImport.ts,LbdevImportDialog.tsx}`, mock `api/mock/devices.ts` (`mockReadLbdev`), textos `devices.lbdev.*` | Importar perfil de LightBurn (`.lbdev`, M3): el motor lee y propone perfiles (nada se guarda ni se envía a la máquina) y el diálogo del gestor de dispositivos muestra resumen y avisos antes de guardar con `save_device`. Mapeo de claves y deducción del origen en la cabecera de `lbdev.rs` |
+
+### Agregado: costos y precio por pieza (mejora 3 del plan de usuarios)
+
+| Dónde | Qué |
+|---|---|
+| `src/features/costs/costModel.ts` | Fórmulas puras (`computeCost`, `priceBeforeRounding`, `roundMoney`, `roundUpTo`); la cabecera documenta costo y precio: la comisión y los impuestos se cobran sobre el precio final (`C(1+m)/(1−c−t)` o `C/(1−c−t−m)`), el precio se redondea siempre hacia arriba |
+| `src/features/costs/costMetrics.ts` | Del diseño y la vista previa: tiempo, tiempo con láser encendido (`getModel().distances`), longitud de corte, caja envolvente y área real (`evenOddArea`), piezas; `calibrationFactor`/`resolveTime` con el registro de trabajos (`features/help/jobLog.ts`) |
+| `src/features/costs/{currency,costProfiles,costStore}.ts` | Moneda y formato regional (`defaultCurrency`, `formatMoney`), saneado y persistencia en `localStorage` (`tlaku.costs`: valores por máquina, perfiles de material con nombre, venta), store de zustand con `openDialog` |
+| `src/features/costs/{CostDialog,CostInputsPanel,CostResultPanel,useCostCalc}.tsx`, `costs.css` | Diálogo «Costos y precio» (se monta en `AppShell`); botones en `machine/JobSection.tsx` y `preview/PreviewBar.tsx`; comando `costs.open` en `commands/definitions/costs.ts` |
+| `src/features/costs/{costReport,costFiles}.ts` | Desglose en texto y CSV (`reportText`, `reportCsv`, `csvField` neutraliza fórmulas) y guardado (`write_settings_backup` acepta `.csv`) |
+| `src/i18n/{es,en}/costs.ts`; manual `docs/manual/07c-costos-y-precio.md` (+ `en/`) | Textos (prefijo `costs.`) y página del manual |
+
+### Agregado: datos variables desde CSV (mejora 14)
+
+| Dónde | Qué |
+|---|---|
+| `crates/tlaku-doc/src/variables.rs` (+ campos `VariableText.sources`, `ImageObject.variable`, `VectorObject.code`) | `DataSource` (nombre, ruta, `ShortRows`), `VariableImage`/`ImageFit`, `VariableCode`; `VariableText::normalize` (migra el `csv_path` único, nombres únicos); `relativize`/`absolutize` y `Document::{relativize,absolutize}_data_paths` (rutas relativas al `.tlaku`). Pruebas en el mismo archivo |
+| `src-tauri/src/engine.rs` (`save_project`/`load_project`), `edit/variables.rs` (`probe_images`) | Rutas relativas al guardar y absolutas al abrir; comando que dice si existe cada imagen variable y su tamaño |
+| `src/features/variables/{syntax,resolve}.ts` | `{csv.fuente:Columna}` y `{fila.fuente}`; `VarContext.sources` (la principal manda; las demás se repiten o bloquean) |
+| `src/features/variables/{sources.ts,SourcesPanel.tsx,settings.ts,csvSync.ts,context.ts}` | Lista de fuentes (agregar, renombrar con reescritura de plantillas, hacer principal, quitar), lectura de cada CSV (`useVariablesUi.csv` = principal, `.extra` = las demás por nombre) |
+| `src/features/variables/{varObjects.ts,imageVar.ts,codeVar.ts,jobResolve.ts}` | Plantillas de imágenes y códigos variables (`objectTemplates`, `shiftObject`), encaje en la caja (`fitImageObject`), código regenerado centrado (`placeCodeResult`) y la resolución al enviar |
+| `src/features/variables/canvasDisplay.ts` (llamado desde `canvas/CanvasView.tsx` → `buildScene`) | Copia de presentación para el lienzo: imágenes y códigos variables con la fila actual (`canvasDisplayObjects`), sin tocar el documento; caché por ruta/contenido (sondeo y generación una sola vez), memo por objeto y aviso `onCanvasDisplayChange`; `scene.selected` sigue siendo el objeto real. Pruebas: `variables/canvasDisplay.test.ts` |
+| `src/features/variables/{check.ts,DataCheck.tsx}` | «Revisar datos»: filas con celdas vacías, imágenes ausentes o códigos sin contenido |
+| `src/features/variables/{ImageVariableField.tsx,ColumnPicker.tsx}` (usado desde `canvas/ShapeProps.tsx`), `features/codes/CodesDialog.tsx` | Marcar una imagen como variable; contenido variable en el diálogo de códigos |
+| Pruebas: `variables/{multiSource.test.ts,sourcesUi.test.tsx}`, `codes/codesVariable.test.tsx` | Varias fuentes, filas distintas, imágenes ausentes, códigos, documentos viejos, vista previa por fila |
 
 ## 3. Recetas: "dónde agrego..."
 
@@ -382,3 +407,4 @@ Los slices vivos (`doc`, `past`, `selectedIds`, `zoom`...) siempre son los de la
 | `src/features/recovery/autosave.ts` | `Autosaver` con una sesión de copia por pestaña (`tick(force, tabId)`, `endSession(tabId)`, `endAll`); `recover.ts` abre cada copia en su pestaña (`recoverAll`) |
 | `src-tauri/src/window.rs` (`handoff_url`), `autosave.rs` (`Limits.max_copies` = 40), `lib.rs` (`without_close_window`: macOS sin «Cerrar ventana» Cmd+W) | Lado Rust; pruebas en cada archivo y `smoke.rs` (`second_window`: `handoff` llega a la dirección) |
 | `scripts/tabs-verify.mjs [--shots DIR]` | Verificación en Chrome headless con el mock: tres documentos, deshacer por pestaña, teclado, arrastre, menú, cerrar con cambios, trabajo desde una pestaña y sesión |
+| `src/features/text/{advanced.ts,capabilities.ts,OpenTypeSection.tsx,FeaturePreview.tsx}` + `src-tauri/src/edit/text.rs` (`font_capabilities`, `to_spec`) | Texto avanzado (mejora 13): `advanced.ts` (lógica pura: qué funciones OpenType están encendidas, `withFeature`/`withAxis`, grupos, instancias con nombre), `capabilities.ts` (`useFontCapabilities`, memoria por cara+ejes con debounce), `OpenTypeSection.tsx` (sección plegable del panel Texto: casillas con vista previa apagada/encendida y deslizadores de ejes) y `FeaturePreview.tsx` (SVG). Campos de `TextObject`: `features`, `variations`, `uppercase`, `valign`, `word_spacing_mm` (todos opcionales); `paramsKey` en `signature.ts` los incluye. Textos `text.ot.*`/`text.var.*` en `i18n/{es,en}/text.ts`. Pruebas `advanced.test.ts`, `OpenTypeSection.test.tsx` |

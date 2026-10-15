@@ -163,7 +163,11 @@ fn vector_object(source: &DesignObject, id: String, paths: Vec<BezPath>) -> Desi
     DesignObject {
         id,
         transform: affine::IDENTITY,
-        kind: ObjectKind::Vector(VectorObject { paths, corners }),
+        kind: ObjectKind::Vector(VectorObject {
+            paths,
+            corners,
+            code: None,
+        }),
         locked: false,
         // La forma paramétrica, el punto de inicio, los puentes y las copias virtuales dejan de valer.
         shape: None,
@@ -744,6 +748,7 @@ mod tests {
             height_px: 1,
             size_mm: [1.0, 1.0],
             mask: Vec::new(),
+            variable: None,
         });
         let e = run(ShapeOp::BreakApart, &[img], &params()).unwrap_err();
         assert!(e.contains("«i»"), "{e}");

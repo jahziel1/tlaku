@@ -30,6 +30,7 @@ Tlaku is free software (MIT license) for preparing and sending jobs to laser cut
 
 - [Preview and cut order](07-vista-previa.md): play back the path, read the results, the optimization settings and understand why things were cut in that order.
 - [Review design](07b-revisar-diseno.md): the twelve types of finding (almost-closed paths, duplicate lines, objects outside the bed...), fix, select or ignore, "Fix everything safe" and the warning when starting.
+- [Cost and price per piece](07c-costos-y-precio.md): for people who sell: what a piece costs to make (machine, tube or diode wear, electricity, material, labor, packaging) and what to sell it for while covering the platform fee and taxes; machine and material profiles, currency, and copying the breakdown or saving it as CSV.
 
 ## The machine
 

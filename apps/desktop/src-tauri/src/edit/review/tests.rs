@@ -56,6 +56,7 @@ fn image(id: &str, layer: Rgb, px: u32, mm: f64) -> DesignObject {
             height_px: px,
             size_mm: [mm, mm],
             mask: Vec::new(),
+            variable: None,
         }),
     )
 }
@@ -86,6 +87,11 @@ fn synthetic() -> Document {
         on_path: None,
         bend_deg: None,
         welded: None,
+        features: None,
+        variations: None,
+        uppercase: None,
+        valign: None,
+        word_spacing_mm: None,
         outline: Vec::new(),
     };
     let mut objects = vec![

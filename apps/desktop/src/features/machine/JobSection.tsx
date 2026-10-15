@@ -1,4 +1,4 @@
-import { Crosshair, Pause, Play, Settings2, Spline, Square, TriangleAlert, X } from 'lucide-react';
+import { Calculator, Crosshair, Pause, Play, Settings2, Spline, Square, TriangleAlert, X } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
@@ -58,6 +58,7 @@ export function JobSection() {
   const frame = useCommand('machine.frame');
   const hull = useCommand('machine.frameHull');
   const optimization = useCommand('preview.optimization');
+  const costs = useCommand('costs.open');
   const start = useCommand('machine.start');
   const pause = useCommand('machine.pause');
   const stop = useCommand('machine.stop');
@@ -86,6 +87,9 @@ export function JobSection() {
       <div className="row">
         <button type="button" className="btn grow" onClick={optimization.run} title={optimization.tooltip}>
           <Settings2 size={15} aria-hidden="true" />{optimization.label}
+        </button>
+        <button type="button" className="btn grow" onClick={costs.run} title={costs.tooltip}>
+          <Calculator size={15} aria-hidden="true" />{costs.label}
         </button>
       </div>
       <div className="row">

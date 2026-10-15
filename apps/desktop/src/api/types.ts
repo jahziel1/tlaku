@@ -23,13 +23,21 @@ import type { Origin } from '@/bindings/Origin';
 import type { BezPath } from '@/bindings/BezPath';
 import type { PathSeg } from '@/bindings/PathSeg';
 import type { TextAlign } from '@/bindings/TextAlign';
+import type { TextAxis } from '@/bindings/TextAxis';
+import type { TextFeature } from '@/bindings/TextFeature';
 import type { TextObject } from '@/bindings/TextObject';
 import type { TextOnPath } from '@/bindings/TextOnPath';
+import type { TextVAlign } from '@/bindings/TextVAlign';
 import type { PreviewLayer } from '@/bindings/PreviewLayer';
 import type { StartFrom } from '@/bindings/StartFrom';
 import type { ImageObject } from '@/bindings/ImageObject';
 import type { VectorObject } from '@/bindings/VectorObject';
 import type { VariableText } from '@/bindings/VariableText';
+import type { DataSource } from '@/bindings/DataSource';
+import type { ImageFit } from '@/bindings/ImageFit';
+import type { ShortRows } from '@/bindings/ShortRows';
+import type { VariableCode } from '@/bindings/VariableCode';
+import type { VariableImage } from '@/bindings/VariableImage';
 import type { BufferStatus } from '@/bindings/BufferStatus';
 import type { ConnectResult } from '@/bindings/ConnectResult';
 import type { RuidaApplyReport } from '@/bindings/RuidaApplyReport';
@@ -171,10 +179,18 @@ export type {
   TestAxis,
   TestParam,
   TextAlign,
+  TextAxis,
+  TextFeature,
   TextObject,
   TextOnPath,
+  TextVAlign,
   VectorObject,
+  VariableCode,
+  VariableImage,
   VariableText,
+  DataSource,
+  ImageFit,
+  ShortRows,
 };
 export type DeviceOrigin = Origin;
 export type ImageDitherMode = ImageMode;
@@ -458,6 +474,55 @@ export interface CodeResult {
 export interface TextOutlineResult {
   paths: BezPath[];
   warnings: string[];
+}
+
+/** Función OpenType que declara la fuente (comando `font_capabilities`). */
+export interface FontFeatureInfo {
+  /** Etiqueta de cuatro caracteres (`liga`, `ss01`, `smcp`...). */
+  tag: string;
+  /** Encendida sin pedirlo (ligaduras estándar, kerning...). */
+  default_on: boolean;
+  /** Letras de la vista previa: las que la función cambia en esta fuente. */
+  sample: string;
+  /** La muestra sale distinta con la función encendida y apagada. */
+  changes: boolean;
+  /** Muestra con la función encendida (tamaño 10 mm, línea base en y = 0). */
+  on: BezPath[];
+  off: BezPath[];
+}
+
+/** Eje de una fuente variable. */
+export interface FontAxisInfo {
+  tag: string;
+  name: string | null;
+  min: number;
+  default: number;
+  max: number;
+}
+
+/** Instancia con nombre de una fuente variable. */
+export interface FontInstanceInfo {
+  name: string;
+  coords: TextAxis[];
+}
+
+/** Lo que ofrece la fuente de un texto: solo lo que realmente declara. */
+export interface FontCapabilities {
+  features: FontFeatureInfo[];
+  axes: FontAxisInfo[];
+  instances: FontInstanceInfo[];
+}
+
+/** Resultado de mirar el archivo de una imagen variable (comando `probe_images`). */
+export interface ImageProbe {
+  /** La ruta tal como se pidió. */
+  path: string;
+  /** El archivo existe y se pudo leer su cabecera. */
+  ok: boolean;
+  width_px: number;
+  height_px: number;
+  /** Por qué no (archivo ausente, formato desconocido...). */
+  error: string | null;
 }
 
 /** CSV del texto variable (comando `read_csv`). */

@@ -77,6 +77,11 @@ fn text_object(id: &str, outline: Vec<BezPath>) -> DesignObject {
             on_path: None,
             bend_deg: None,
             welded: None,
+            features: None,
+            variations: None,
+            uppercase: None,
+            valign: None,
+            word_spacing_mm: None,
             outline,
         }),
         ..rect_object(id, RED, 0.0, 0.0, 1.0, 1.0)

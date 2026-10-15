@@ -94,7 +94,7 @@ desktop.prefs.bundle_devices_not_list = Paquete inválido: "devices" debe ser un
 desktop.prefs.bundle_needs_ext = {path}: el paquete debe guardarse con la extensión .{ext}.
 desktop.prefs.bundle_too_big = {path}: el archivo es demasiado grande para ser un paquete de Tlaku.
 # settings_backup.rs
-desktop.settings_backup.bad_ext = {path}: el respaldo debe guardarse con la extensión .tlakuset, .tlakuruida o .txt.
+desktop.settings_backup.bad_ext = {path}: el respaldo debe guardarse con la extensión .tlakuset, .tlakuruida, .txt o .csv.
 desktop.settings_backup.too_big_write = El respaldo es demasiado grande ({size} bytes; el máximo es {max}).
 desktop.settings_backup.not_a_file = {path}: no es un archivo.
 desktop.settings_backup.too_big_read = {path}: el archivo es demasiado grande para ser un respaldo de ajustes (máximo {max} bytes).
@@ -526,6 +526,8 @@ desktop.edit.variables.open_failed = No se pudo abrir el CSV «{path}»: {err}
 desktop.edit.variables.too_big = El CSV pesa más de 50 MB.
 desktop.edit.variables.read_failed = No se pudo leer el CSV «{path}»: {err}
 desktop.edit.variables.missing_columns = Al CSV le faltan columnas que usa el diseño: {missing}. Columnas disponibles: {available}.
+desktop.edit.variables.image_missing = No se encontró el archivo de imagen «{path}».
+desktop.edit.variables.image_unreadable = No se pudo leer la imagen «{path}»: {err}
 desktop.edit.text.no_file = No se eligió ningún archivo
 
 # ola 6E: sonda de contacto (machine/probe.rs, machine/worker/probe.rs)

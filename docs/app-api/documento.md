@@ -65,6 +65,36 @@ Semántica que fija el motor (`tlaku-pipeline`):
   bidirectional/overscan; `image` usa speed/power (máxima)/min_power/passes/air/interval/
   bidirectional/overscan/`image`.
 
+### Datos variables (mejora 14)
+
+Campos opcionales y retrocompatibles (un documento anterior no los lleva y se lee igual):
+
+```ts
+interface VariableText {          // Document.variable_text (opcional)
+  serial: number; serial_step: number; serial_digits: number;
+  csv_path: string | null;        // repite la ruta de sources[0]; es el CSV único de los documentos antiguos
+  csv_row: number;                // fila actual de la fuente principal (0 = la primera de datos)
+  advance_after_job: boolean;
+  sources: DataSource[];          // fuentes con nombre; la primera es la principal. Vacía = documento antiguo
+}
+interface DataSource { name: string; path: string; on_short: "repeat" | "block" }
+// name: letras, números, _ y -; único sin distinguir mayúsculas. path: absoluta en memoria; en el
+// archivo es relativa a la carpeta del .tlaku si el CSV queda ahí o hasta 3 niveles arriba.
+// on_short: qué hace una fuente secundaria con menos filas que la principal.
+interface ImageObject  { /* ... */ variable?: { source: string; fit: "contain" | "cover" } }
+interface VectorObject { /* ... */ code?: VariableCode }   // QR o código de barras con contenido variable
+interface VariableCode { kind: string; data: string; ecc: string; size_mm: number; height_mm: number;
+                         margin_mm: number; human_readable: boolean; invert: boolean; font_family: string }
+```
+
+- `Document::from_json` normaliza `variable_text` (`VariableText::normalize`): sin `sources` y con
+  `csv_path` crea la fuente principal con el nombre del archivo; limpia y desduplica nombres; y deja
+  `csv_path` igual a la ruta de la principal. Es idempotente.
+- `source` de una imagen variable y `data` de un código son plantillas (`{csv:Logo}`,
+  `{csv.productos:Sku}`) que la interfaz resuelve antes de calcular el trabajo (`resolveDocForOutput`):
+  la imagen pasa a apuntar al archivo de su fila (ajustado a su caja) y el código se regenera con
+  `generate_code`. El motor del trabajo nunca ve las plantillas.
+
 ## Dispositivo y opciones de trabajo
 
 ```ts

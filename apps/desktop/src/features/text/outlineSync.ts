@@ -196,7 +196,7 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
   // Los valores del texto variable también cambian con el CSV cargado, el reloj y "ver plantilla".
   let prevUi = useVariablesUi.getState();
   const unsubscribeUi = useVariablesUi.subscribe((ui) => {
-    const changed = ui.csv !== prevUi.csv || ui.showTemplate !== prevUi.showTemplate || ui.clock !== prevUi.clock;
+    const changed = ui.csv !== prevUi.csv || ui.extra !== prevUi.extra || ui.showTemplate !== prevUi.showTemplate || ui.clock !== prevUi.clock;
     prevUi = ui;
     if (changed) scan();
   });

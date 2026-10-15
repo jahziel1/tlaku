@@ -7,12 +7,14 @@ import { useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { NumberField } from '@/ui/NumberField';
 import { atCsvEnd, variableTexts } from './advance';
-import { useVariablesUi } from './context';
-import { loadCsv, pickCsvFile } from './csvSync';
+import { displayContext, useVariablesUi } from './context';
 import { makeCopiesPerRow, MAX_COPIES } from './copies';
+import { DataCheck } from './DataCheck';
 import { formatSerial } from './format';
 import { issueMessage } from './messages';
-import { makeContext, resolveTemplate } from './resolve';
+import { resolveTemplate } from './resolve';
+import { SourcesPanel, useSourceStates } from './SourcesPanel';
+import { objectTemplates } from './varObjects';
 import './variables.css';
 
 /** Filas que se dibujan a la vez en la tabla (un CSV grande no debe congelar el diálogo). */
@@ -21,10 +23,6 @@ export const TABLE_WINDOW = 100;
 /** Primera fila que se dibuja para que la actual quede a la vista. */
 export function windowStart(current: number, total: number, size = TABLE_WINDOW): number {
   return Math.max(0, Math.min(current - 4, total - size));
-}
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
 }
 
 /** Diálogo "Texto variable": serie, CSV, fila actual y avance. */
@@ -46,19 +44,18 @@ export function VariablesContent({ titleId }: { titleId: string }) {
   const setShowTemplate = useVariablesUi((s) => s.setShowTemplate);
   const doc = useStore((s) => s.doc);
   const vt = variableTextOf(doc);
+  const states = useSourceStates(vt.sources);
   const rows = csv.table && csv.path === vt.csv_path ? csv.table.rows.length : null;
   const end = atCsvEnd(vt, rows);
   const serialPreview = formatSerial(Number(vt.serial), vt.serial_digits);
+  // La tabla que se ve: la fuente elegida (por omisión, la principal).
+  const [viewIndex, setViewIndex] = useState(0);
+  const shown = Math.min(viewIndex, Math.max(0, vt.sources.length - 1));
+  const shownTable = states[shown]?.table ?? null;
+  // En una fuente secundaria más corta, la fila que se resalta es la que le toca (se repite).
+  const highlight = shown > 0 && shownTable && shownTable.rows.length > 0 ? vt.csv_row % shownTable.rows.length : vt.csv_row;
 
   const goRow = (row: number) => editVariableText({ csv_row: Math.max(0, rows === null ? row : Math.min(row, rows)) }, 'row');
-  const choose = async () => {
-    try {
-      const path = await pickCsvFile();
-      if (path) editVariableText({ csv_path: path, csv_row: 0 }, 'csv');
-    } catch (e) {
-      useStore.getState().notify('error', t('variables.csv.pickFailed', { message: String(e instanceof Error ? e.message : e) }));
-    }
-  };
 
   return (
     <>
@@ -89,19 +86,14 @@ export function VariablesContent({ titleId }: { titleId: string }) {
             </div>
           </fieldset>
 
+          <SourcesPanel />
+
           <fieldset className="vt-group">
-            <legend className="vt-legend">{t('variables.csv.title')}</legend>
-            <p className="vt-path" title={vt.csv_path ?? undefined}>
-              {vt.csv_path ? baseName(vt.csv_path) : t('variables.csv.none')}
-            </p>
-            <div className="vt-row">
-              <button type="button" className="btn" onClick={() => void choose()}>{t('variables.csv.choose')}</button>
-              <button type="button" className="btn" disabled={!vt.csv_path} onClick={() => void loadCsv(vt.csv_path)}>{t('variables.csv.reload')}</button>
-              <button type="button" className="btn" disabled={!vt.csv_path} onClick={() => editVariableText({ csv_path: null, csv_row: 0 }, 'csv')}>{t('variables.csv.clear')}</button>
-            </div>
-            <CsvStatus />
+            <legend className="vt-legend">{t('variables.row.title')}</legend>
+            <p className="hint">{t('variables.row.hint')}</p>
             {vt.csv_path && csv.table && (
               <>
+                <p className="hint num" role="status">{t('variables.row.current', { row: Math.min(vt.csv_row + 1, csv.table.rows.length), total: csv.table.rows.length })}</p>
                 <div className="vt-row">
                   <button type="button" className="btn" disabled={vt.csv_row <= 0} onClick={() => goRow(vt.csv_row - 1)}>{t('variables.row.prev')}</button>
                   <button type="button" className="btn" disabled={rows !== null && vt.csv_row >= rows} onClick={() => goRow(vt.csv_row + 1)}>{t('variables.row.next')}</button>
@@ -141,8 +133,19 @@ export function VariablesContent({ titleId }: { titleId: string }) {
         </div>
 
         <div className="vt-main">
-          <CsvTableView table={csv.path === vt.csv_path ? csv.table : null} current={vt.csv_row} onPick={goRow} />
+          {vt.sources.length > 1 && (
+            <label className="vt-viewsel">
+              <span>{t('variables.table.source')}</span>
+              <select className="select" value={shown} onChange={(e) => setViewIndex(Number(e.target.value))}>
+                {vt.sources.map((s, i) => (
+                  <option key={s.name} value={i}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <CsvTableView table={shownTable} current={highlight} onPick={shown === 0 ? goRow : () => undefined} />
           <TextsPreview />
+          <DataCheck onPickRow={goRow} />
           <CopiesPerRow rows={rows} />
         </div>
       </div>
@@ -152,22 +155,6 @@ export function VariablesContent({ titleId }: { titleId: string }) {
       </footer>
     </>
   );
-}
-
-function CsvStatus() {
-  const csv = useVariablesUi((s) => s.csv);
-  if (csv.loading) return <p className="hint" role="status">{t('variables.csv.loading')}</p>;
-  if (csv.error) {
-    return (
-      <p className="warn-line" role="alert">
-        <TriangleAlert size={14} aria-hidden="true" />
-        <span>{t('variables.csv.error', { message: csv.error })}</span>
-      </p>
-    );
-  }
-  if (!csv.table) return null;
-  const sep = csv.table.delimiter === '\t' ? t('variables.csv.sepTab') : csv.table.delimiter;
-  return <p className="hint num">{t('variables.csv.summary', { cols: csv.table.headers.length, rows: csv.table.rows.length, sep })}</p>;
 }
 
 /** Tabla con las filas del CSV y la actual resaltada; un clic en una fila la hace la actual. */
@@ -220,21 +207,23 @@ export function CsvTableView({ table, current, onPick }: { table: CsvTable | nul
   );
 }
 
-/** Los textos con variables del diseño, cada uno con lo que se grabaría ahora y sus problemas. */
+/** Los objetos con variables del diseño (textos, imágenes y códigos), cada uno con lo que se grabaría ahora y sus problemas. */
 function TextsPreview() {
   const doc = useStore((s) => s.doc);
-  // Se recalcula con el CSV y el reloj de la interfaz.
+  // Se recalcula con los CSV y el reloj de la interfaz.
   const csvState = useVariablesUi((s) => s.csv);
+  const extra = useVariablesUi((s) => s.extra);
   const clock = useVariablesUi((s) => s.clock);
   const items = useMemo(() => {
-    const path = doc.variable_text?.csv_path ?? null;
-    const table = path !== null && csvState.path === path ? csvState.table : null;
-    const ctx = makeContext(doc.variable_text, table, new Date(clock), getLanguage());
+    const ctx = displayContext(doc);
     return variableTexts(doc).map((o) => {
-      const template = o.kind.type === 'text' ? o.kind.text : '';
-      return { id: o.id, template, ...resolveTemplate(template, ctx) };
+      const template = objectTemplates(o)[0] ?? '';
+      const kind: 'text' | 'image' | 'code' = o.kind.type === 'image' ? 'image' : o.kind.type === 'vector' ? 'code' : 'text';
+      return { id: o.id, template, kind, ...resolveTemplate(template, ctx) };
     });
-  }, [doc, csvState, clock]);
+    // `csvState`, `extra` y `clock` no se leen aquí, pero `displayContext` los toma del estado de la interfaz.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, csvState, extra, clock]);
   return (
     <section className="vt-texts" aria-label={t('variables.texts.title')}>
       <h3 className="vt-sub">{t('variables.texts.title')}</h3>
@@ -244,6 +233,7 @@ function TextsPreview() {
         <ul className="vt-list">
           {items.map((it) => (
             <li key={it.id}>
+              {it.kind !== 'text' && <span className="vt-kind">{t(it.kind === 'image' ? 'variables.texts.kindImage' : 'variables.texts.kindCode')}</span>}
               <code className="vt-code">{it.template.replace(/\n/g, ' ⏎ ')}</code>
               <span aria-hidden="true"> → </span>
               <strong className="vt-value">{it.text.replace(/\n/g, ' ⏎ ')}</strong>

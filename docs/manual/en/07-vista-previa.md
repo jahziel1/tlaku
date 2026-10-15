@@ -10,7 +10,7 @@ The preview shows you the exact path the laser will follow before anything is se
 - A panel appears under the canvas, **Job preview**, and the path is drawn on top of the design.
 - It recalculates by itself when you change objects, layers, the active machine or the job options (with a short wait; meanwhile you see **Updating…**).
 - If there is nothing to show you will see "Import a design to see the toolpath."
-- In the panel's bar are the **Optimization settings…** button (see below) and the **Selection only** and **Use the selection's origin** checkboxes (see [Sending jobs safely](09-enviar-con-seguridad.md)). With **Selection only** on, the preview shows only what you have selected and recalculates when the selection changes.
+- In the panel's bar are the **Cost and price…** button (what the piece costs and what to sell it for: [Cost and price per piece](07c-costos-y-precio.md)), the **Optimization settings…** button (see below) and the **Selection only** and **Use the selection's origin** checkboxes (see [Sending jobs safely](09-enviar-con-seguridad.md)). With **Selection only** on, the preview shows only what you have selected and recalculates when the selection changes.
 
 > **Tip:** if the calculation fails, the panel says **The preview could not be calculated** and gives the reason. Two cases the app recognizes and gives a hint for: the design goes beyond the bed (move it or reduce the overscan of the fill and image layers) and no layer with objects has output turned on. With **Retry** you calculate again.
 
