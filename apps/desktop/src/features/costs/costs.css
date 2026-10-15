@@ -24,6 +24,11 @@
   padding: 0;
   border: 0;
 }
+.cost__group > legend {
+  /* La leyenda de un fieldset no entra en el `gap` del contenedor ni alinea con su contenido. */
+  padding: 0;
+  margin-bottom: var(--s-3);
+}
 .cost__help {
   margin: 0;
 }
@@ -33,6 +38,9 @@
 .cost__result {
   position: sticky;
   top: 0;
+  /* Con el desglose abierto es más alto que el diálogo: se desplaza solo y el precio no se pierde arriba. */
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
@@ -77,6 +85,14 @@
 }
 .cost__table thead th {
   color: var(--text-muted);
+}
+.cost__table th:first-child,
+.cost__table td:first-child {
+  padding-left: 0;
+}
+.cost__table th:last-child,
+.cost__table td:last-child {
+  padding-right: 0;
 }
 .cost__table .num {
   text-align: right;

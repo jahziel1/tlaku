@@ -252,6 +252,13 @@
   gap: var(--s-3);
   font-size: var(--text-sm);
 }
+.vt-viewsel > span {
+  flex: none;
+  white-space: nowrap;
+}
+.vt-viewsel .select {
+  flex: 0 1 320px;
+}
 .vt-kind {
   margin-right: var(--s-3);
   padding: 0 var(--s-2);

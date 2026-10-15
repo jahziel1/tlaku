@@ -288,10 +288,16 @@
   font-size: var(--text-xs);
 }
 .ot-row__previews {
+  /* Siempre debajo del nombre y alineada con él: si no, unas filas la ponen al lado y otras abajo. */
+  flex-basis: 100%;
+  padding-left: calc(var(--s-3) + 14px);
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
   color: var(--text-muted);
+}
+.ot-row > .field {
+  flex-basis: 100%;
 }
 .ot-row__note {
   flex-basis: 100%;
