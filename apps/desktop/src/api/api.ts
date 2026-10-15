@@ -246,6 +246,36 @@ export interface RemoteSnapshot {
   framed: boolean;
   /** Dónde está la máquina sobre la ruta de la vista en vivo (solo si la PC la sigue). */
   live?: RemoteLiveReport | null;
+  /** La cola guiada de trabajos (solo lectura en el celular), si hay una. */
+  queue?: RemoteQueue | null;
+}
+
+/** Un trabajo de la cola guiada, como lo ve el celular. */
+export interface RemoteQueueItem {
+  name: string;
+  /** Copias pedidas y terminadas. */
+  copies: number;
+  done: number;
+  status: 'pending' | 'done' | 'skipped' | 'failed';
+}
+
+/**
+ * La cola guiada (`features/queue`). Nunca avanza sola: en `awaiting` espera la confirmación de una persona,
+ * en la PC o desde el celular con las mismas condiciones que «iniciar» (checklist en el teléfono + encuadre en la PC).
+ */
+export interface RemoteQueue {
+  state: 'idle' | 'awaiting' | 'running' | 'paused' | 'stopped' | 'done';
+  /** Trabajos (copias) terminados y total. */
+  done: number;
+  total: number;
+  /** Segundos estimados que faltan; `null` si no se conocen todos. */
+  eta_s: number | null;
+  current: RemoteQueueItem | null;
+  /** Copia en curso o por confirmar del trabajo actual (desde 1). */
+  copy: number;
+  /** Por qué se detuvo, si está detenida. */
+  message: string;
+  items: RemoteQueueItem[];
 }
 
 /** Ubicación de la máquina en la ruta de la vista en vivo (la página interpola entre informes). */
@@ -518,6 +548,26 @@ export interface LaserApi {
   setOverride(args: { kind: OverrideKind; percent: number }): Promise<void>;
   /** Provoca una falla en la máquina virtual conectada (llama, alarma 3, desconexión...). Falla con una máquina real. */
   simulateFault(args: { fault: SimulatedFault }): Promise<void>;
+
+  // Historial de trabajos (archivo JSONL en la carpeta de datos de la app; ver `features/help/jobLog.ts`)
+  /**
+   * Historial guardado (`job-history.jsonl`), de la entrada más vieja a la más nueva. `max`: tope de entradas
+   * (20 a 20 000, por omisión 1000); si el archivo lo pasa se rota. Cada entrada es un objeto con `id` y `at`;
+   * el resto lo define y sanea la interfaz.
+   */
+  jobHistoryLoad(args: { max?: number | null }): Promise<Record<string, unknown>[]>;
+  /** Agrega una entrada o, si ya hay una con ese `id`, la reemplaza; rota al tope `max`. */
+  jobHistoryAppend(args: { entry: Record<string, unknown>; max?: number | null }): Promise<void>;
+  /** Mezcla campos de primer nivel en la entrada `id` (un `null` borra el campo; `id` y `at` no cambian). Devuelve si existía. */
+  jobHistoryUpdate(args: { id: string; patch: Record<string, unknown> }): Promise<boolean>;
+  /** Quita entradas por `id`; devuelve cuántas quitó. */
+  jobHistoryRemove(args: { ids: string[] }): Promise<number>;
+  /** Borra todo el historial. */
+  jobHistoryClear(): Promise<void>;
+  /** Migra entradas de otro almacén (el `localStorage` anterior): agrega las válidas cuyo `id` aún no está. Devuelve cuántas entraron. */
+  jobHistoryImport(args: { entries: Record<string, unknown>[]; max?: number | null }): Promise<number>;
+  /** Escribe el CSV del historial en `path` (extensión `.csv`, hasta 32 MiB; atómico). */
+  jobHistoryExport(args: { path: string; text: string }): Promise<void>;
 
   // Continuar un trabajo interrumpido (corte de luz, app cerrada, conexión perdida)
   /**
@@ -863,6 +913,13 @@ export const COMMAND_NAMES = {
   fireTest: 'fire_test',
   setOverride: 'set_override',
   simulateFault: 'simulate_fault',
+  jobHistoryLoad: 'job_history_load',
+  jobHistoryAppend: 'job_history_append',
+  jobHistoryUpdate: 'job_history_update',
+  jobHistoryRemove: 'job_history_remove',
+  jobHistoryClear: 'job_history_clear',
+  jobHistoryImport: 'job_history_import',
+  jobHistoryExport: 'job_history_export',
   interruptedJob: 'interrupted_job',
   interruptedJobView: 'interrupted_job_view',
   discardInterruptedJob: 'discard_interrupted_job',

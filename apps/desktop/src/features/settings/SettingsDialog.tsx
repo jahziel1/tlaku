@@ -237,6 +237,7 @@ function FilesPanel() {
       <Group>
         <div className="set-grid">
           <PrefNumber k="recentMax" label="prefs.recentMax" unit="prefs.unit.count" />
+          <PrefNumber k="jobHistoryMax" label="prefs.jobHistoryMax" unit="prefs.unit.count" />
         </div>
         <div>
           <button type="button" className="btn" disabled={recent === 0} onClick={clear}>{t('prefs.recent.clear')}</button>

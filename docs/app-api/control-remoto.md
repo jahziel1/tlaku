@@ -40,7 +40,7 @@ con la API de abajo. La página está en español e inglés según el idioma del
   pasar por la ventana: si la ventana se congela, detener sigue funcionando. Detener no mira el estado,
   el encuadre ni el checklist. El galvo no tiene pausa (`caps.pause = false`), solo detener.
 - **Iniciar** exige todo esto a la vez: el checklist completo del celular (*estoy junto a la máquina*, *área
-  despejada*, *aire o extractor encendidos*); máquina conectada y en reposo; sin trabajo en curso; la ventana
+  despejada*, *aire o extractor encendidos*; con la cola guiada esperando, además *ya cambié el material o la pieza*, ver «Cola guiada»); máquina conectada y en reposo; sin trabajo en curso; la ventana
   de la PC informando (si calla más de 12 s, `pc_offline`); algo que enviar; **que el trabajo se haya
   encuadrado en la PC después del último cambio** del documento, de la máquina o de las opciones del trabajo
   (`selectFramed` en `store/machine.ts`: la marca guarda las referencias de `doc`, `jobOptions`, el
@@ -71,7 +71,7 @@ español; la página traduce por `code`). Todo lo de `/api/*` excepto `login` ex
 | `GET /api/live` | **Vista en vivo** (solo lectura): `{ version, bed, total, layers: ["#rrggbb"], runs: [{ k: 0\|1, l, w, p: [x, y, t, ...] }], decimated }`, la ruta del trabajo simplificada (abajo). `version: 0` y sin trazos si no hay. La página solo la pide al encender su interruptor. |
 | `GET /api/camera.jpg` | Último cuadro de la cámara de la PC (JPEG); 404 `no_camera` si no hay uno de los últimos 20 s. |
 | `POST /api/pause`, `/api/resume`, `/api/stop` | 200 `{ ok: true }`; 409 con `not_connected`, `no_pause` (galvo) o `failed` (la máquina lo rechazó). |
-| `POST /api/start` · `{ "checklist": { "nearby": true, "clear": true, "air": true } }` | 200 si la ventana inició el trabajo; 409 con `checklist`, `pc_offline`, `not_connected`, `job_active`, `not_idle`, `nothing_to_send`, `galvo`, `not_framed`, `busy_request` o `failed` (el motivo del preflight va en `message`); 504 `timeout`. |
+| `POST /api/start` · `{ "checklist": { "nearby": true, "clear": true, "air": true, "material": false } }` (`material` solo cuenta si la cola espera) | 200 si la ventana inició el trabajo; 409 con `checklist`, `checklist_material`, `pc_offline`, `not_connected`, `job_active`, `not_idle`, `nothing_to_send`, `galvo`, `not_framed`, `busy_request` o `failed` (el motivo del preflight va en `message`); 504 `timeout`. |
 
 Estado (`/api/state` y eventos `state`):
 
@@ -91,8 +91,37 @@ interface RemoteState {
   route_v: number; camera_v: number;        // 0 = no hay; la página los compara para volver a pedir
   live_v: number;                           // versión de `GET /api/live`; 0 = no hay ruta para la vista en vivo
   live: { t: number; running: boolean; retreat_seq: number; src: 'position'|'progress'|'clock' } | null;  // dónde está la máquina sobre esa ruta
+  queue: RemoteQueue | null;                // la cola guiada de trabajos (solo lectura); null si no hay
+}
+
+interface RemoteQueue {
+  state: 'idle'|'awaiting'|'running'|'paused'|'stopped'|'done';
+  done: number; total: number;              // trabajos (copias) terminados y total
+  eta_s: number | null;                     // segundos que faltan; null si no se conocen todos
+  current: { name: string; copies: number; done: number; status: string } | null;
+  copy: number;                             // copia en curso o por confirmar del trabajo actual (desde 1)
+  message: string;                          // por qué se detuvo (`stopped`)
+  items: { name: string; copies: number; done: number; status: 'pending'|'done'|'skipped'|'failed' }[];  // hasta 12
 }
 ```
+
+### Cola guiada
+
+La cola de trabajos (`features/queue` en la PC) viaja en `RemoteSnapshot.queue` y el servidor la reenvía tal cual en el
+estado (`queue`; limpia el texto, acota a 12 trabajos y a los seis estados). El celular **solo la ve**: no hay ninguna
+ruta `/api/queue`. **La cola nunca avanza sola**: al terminar un trabajo queda en `awaiting` hasta que una persona
+confirme el siguiente, en la PC (diálogo «Siguiente trabajo de la cola», que abre el diálogo de inicio normal) o desde el
+celular con la misma ruta que «iniciar»:
+
+- el checklist del celular lleva una casilla más (`checklist.material`, *ya cambié el material o la pieza*): con
+  `queue.state == "awaiting"` en el último informe de la PC, `POST /api/start` sin ella responde 409
+  `checklist_material`; para un inicio normal no cuenta;
+- el documento debe estar **encuadrado en la PC** y ser el de la pestaña activa: mientras la cola espera confirmar
+  otro documento, la ventana informa `framed: false` (`not_framed`) y `handleRemoteStart` responde `queue_other_tab`
+  (`remote.reason.queue_other_tab`);
+- todo lo demás de «Iniciar» (máquina en reposo, sin trabajo en curso, ventana informando, sin galvo) sigue igual y la
+  ventana vuelve a comprobarlo; el trabajo se inicia con `startJob` (preflight incluido) y la cola solo lo observa
+  (pasa a `running` cuando la máquina empieza un trabajo de la pestaña esperada).
 
 ### Lo que informa la ventana
 

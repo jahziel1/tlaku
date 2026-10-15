@@ -348,6 +348,7 @@ desktop.remote.reason_galvo = The galvo (invisible beam) can only be started fro
 desktop.remote.reason_not_framed = Frame the job on the PC first. Any change to the design, the machine or the job options requires framing again.
 desktop.remote.reason_busy_request = A start request from another device is already in progress.
 desktop.remote.reason_checklist = Check every item on the safety checklist to start.
+desktop.remote.reason_checklist_material = Before confirming the next queue job, tick that you already changed the material or the workpiece.
 desktop.remote.reason_timeout = The PC did not answer in time. Check Tlaku before trying again.
 desktop.remote.reason_default = Cannot start right now.
 desktop.remote.route_too_big = The toolpath is too large for the phone.
@@ -610,3 +611,10 @@ desktop.worker.rebooted_idle = The machine restarted (a limit switch, the lid or
 
 # edit/devices.rs
 desktop.devices.lbdev_too_big = {path}: the file is too large to be a LightBurn device profile (.lbdev).
+
+# job_history.rs
+desktop.job_history.data_dir = Could not find the app data folder: {err}
+desktop.job_history.bad_entry = The history entry is not valid: it must be an object with "id" (text) and "at" (number).
+desktop.job_history.entry_too_big = The history entry is too large ({size} bytes; the maximum is {max}).
+desktop.job_history.csv_ext = {path}: the job history is exported with the .csv extension.
+desktop.job_history.csv_too_big = The job history CSV is too large ({size} bytes; the maximum is {max}).

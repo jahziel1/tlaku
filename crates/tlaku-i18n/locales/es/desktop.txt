@@ -348,6 +348,7 @@ desktop.remote.reason_galvo = El galvo (haz invisible) solo se inicia desde la P
 desktop.remote.reason_not_framed = Primero encuadra el trabajo en la PC. Cualquier cambio al diseño, a la máquina o a las opciones del trabajo exige encuadrar de nuevo.
 desktop.remote.reason_busy_request = Ya hay un inicio en curso desde otro dispositivo.
 desktop.remote.reason_checklist = Marca todo el checklist de seguridad para iniciar.
+desktop.remote.reason_checklist_material = Antes de confirmar el siguiente trabajo de la cola, marca que ya cambiaste el material o la pieza.
 desktop.remote.reason_timeout = La PC no contestó a tiempo. Revisa Tlaku antes de volver a intentar.
 desktop.remote.reason_default = No se puede iniciar ahora.
 desktop.remote.route_too_big = El recorrido es demasiado grande para el celular.
@@ -610,3 +611,10 @@ desktop.worker.rebooted_idle = La máquina se reinició (¿un final de carrera, 
 
 # edit/devices.rs
 desktop.devices.lbdev_too_big = {path}: el archivo es demasiado grande para ser un perfil de LightBurn (.lbdev).
+
+# job_history.rs
+desktop.job_history.data_dir = No se pudo ubicar la carpeta de datos de la app: {err}
+desktop.job_history.bad_entry = La entrada del historial no es válida: debe ser un objeto con «id» (texto) y «at» (número).
+desktop.job_history.entry_too_big = La entrada del historial es demasiado grande ({size} bytes; el máximo es {max}).
+desktop.job_history.csv_ext = {path}: el historial se exporta con la extensión .csv.
+desktop.job_history.csv_too_big = El CSV del historial es demasiado grande ({size} bytes; el máximo es {max}).

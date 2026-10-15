@@ -3,6 +3,9 @@ import type { RemoteLayer, RemoteRoute, RemoteSnapshot } from '@/api/api';
 import { baseName } from '@/features/history/paths';
 import { jobFraction } from '@/features/live/progress';
 import { getLiveService } from '@/features/live/service';
+import { buildQueueInfo, queueBlocksRemoteStart } from '@/features/queue/queueRemote';
+import { useQueue } from '@/features/queue/queueStore';
+import { estimateOne } from '@/features/queue/queue';
 import { hasOutput, selectActiveDevice, selectJobPreview } from '@/store';
 import { jobElapsedSeconds, selectFramed, selectHeadDoc } from '@/store/machine';
 import type { AppState } from '@/store/types';
@@ -64,7 +67,9 @@ export function buildSnapshot(s: AppState, now: number): RemoteSnapshot {
     layer: active ? layerAt(jobPreview, fraction) : null,
     head: head ? [head[0], head[1]] : null,
     has_output: hasOutput(s),
-    framed: selectFramed(s),
+    // Con la cola esperando confirmar OTRO documento, lo encuadrado en la pestaña activa no vale para ella.
+    framed: selectFramed(s) && !queueBlocksRemoteStart(useQueue.getState().q, s.activeTabId),
+    queue: buildQueueInfo(useQueue.getState().q, estimateOne),
     // Solo lectura: dónde está la máquina sobre la ruta de la vista en vivo (null si la PC no la sigue).
     live: getLiveService()?.report() ?? null,
   };
@@ -82,7 +87,7 @@ const ROUTE_MAX_MOVES = 2_000_000;
 type Run = number[];
 
 /** Trazados continuos (`[x, y, x, y, ...]`) de los movimientos con láser; los saltos los separan. */
-function cutRuns(moves: ArrayLike<number>): Run[] {
+export function cutRuns(moves: ArrayLike<number>): Run[] {
   const runs: Run[] = [];
   let run: Run | null = null;
   let lastX = NaN;
@@ -108,7 +113,7 @@ function cutRuns(moves: ArrayLike<number>): Run[] {
 }
 
 /** Quita los puntos que quedan a menos de `eps` del último conservado (siempre deja el último). */
-function simplify(run: Run, eps: number): Run {
+export function simplify(run: Run, eps: number): Run {
   const out: Run = [run[0]!, run[1]!];
   let lx = run[0]!;
   let ly = run[1]!;

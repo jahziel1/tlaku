@@ -11,7 +11,8 @@ import { connectionPortId } from '@/features/machine/DeviceConnectionModel';
 import { isGalvoUsbPort } from '@/features/machine/galvoPorts';
 import { defaultPort, portForDevice } from '@/features/machine/ruidaPorts';
 import { DEFAULT_VIRTUAL_SPEED, isVirtualPort, VIRTUAL_SPEEDS, withVirtualSpeed } from '@/features/machine/virtualPort';
-import { noteJobAlarm, noteJobEvent, useJobLog, type JobLogContext } from '@/features/help/jobLog';
+import { noteJobAlarm, noteJobEvent, touchJobLog, useJobLog, type JobLogContext } from '@/features/help/jobLog';
+import { buildJobSnapshot } from '@/features/help/jobLogSnapshot';
 import { t } from '@/i18n';
 import { docToWork, isGrblFamily, parseGrblSettings, type GrblSettings } from '@/lib/device';
 import { errorMessage, isStopUnconfirmed } from '@/lib/errors';
@@ -208,6 +209,15 @@ async function waitIdleThen(get: () => AppState, action: () => Promise<void>): P
   }
 }
 
+/** El resumen para el historial es un extra: si falla, el trabajo se anota igual (sin capas ni miniatura). */
+function safeSnapshot(s: AppState): ReturnType<typeof buildJobSnapshot> | null {
+  try {
+    return buildJobSnapshot(s);
+  } catch {
+    return null;
+  }
+}
+
 export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
   /**
    * Un trabajo acaba de terminar sin llegar al final: si el motor guardó un punto de control, se anota en el
@@ -223,7 +233,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
   const apply = (ev: MachineEvent) => set((s) => reduceMachine(pickData(s), ev, Date.now()));
 
   /** Lo que el registro de trabajos (`features/help/jobLog.ts`) anota de un trabajo: máquina, archivo y tiempos. */
-  const jobLogContext = (): JobLogContext => {
+  const jobLogContext = (withSnapshot = false): JobLogContext => {
     const s = get();
     const now = Date.now();
     // El trabajo usa lo de la pestaña desde la que se lanzó, aunque ahora haya otra activa.
@@ -235,6 +245,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       document: path ? (path.split(/[\\/]/).pop() ?? path) : null,
       estimatedS: o ? (o.preview?.total_s ?? null) : s.previewStatus === 'ready' && s.preview && !s.previewStale ? s.preview.total_s : null,
       elapsedS: jobElapsedSeconds(s, now),
+      // Capas, material, medidas y miniatura: solo al empezar (cuesta algo y el historial lo guarda una vez).
+      ...(withSnapshot ? { snapshot: safeSnapshot(s) } : {}),
     };
   };
 
@@ -622,6 +634,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
 
     onStatus: (report) => {
       const was = isJobBusy(get());
+      touchJobLog(Date.now());
       const rebooted = report.position_unconfirmed === true && get().status?.position_unconfirmed !== true;
       apply({ type: 'status', report });
       if (rebooted) get().notifyKey('warning', 'machine.positionUnconfirmed.notice');
@@ -645,7 +658,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       apply({ type: 'job', job: raw });
       // El mensaje del motor puede traer un código estable al inicio: lo que se muestra y se anota va limpio.
       const job = { ...raw, message: errorMessage(raw.message) };
-      noteJobEvent(wasBusy, job, jobLogContext());
+      noteJobEvent(wasBusy, job, jobLogContext(job.state === 'started' && !wasBusy));
       get().onGalvoJob(raw);
       if (job.state === 'finished') {
         get().notify('success', job.message);

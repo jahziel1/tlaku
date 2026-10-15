@@ -38,6 +38,7 @@ import { tabs } from './es/tabs';
 import { parts } from './es/parts';
 import { costs } from './es/costs';
 import { versions } from './es/versions';
+import { queue } from './es/queue';
 import { arrange as en_arrange } from './en/arrange';
 import { design as en_design } from './en/design';
 import { art as en_art } from './en/art';
@@ -76,10 +77,11 @@ import { tabs as en_tabs } from './en/tabs';
 import { parts as en_parts } from './en/parts';
 import { costs as en_costs } from './en/costs';
 import { versions as en_versions } from './en/versions';
+import { queue as en_queue } from './en/queue';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple, a11y, tabs, costs, parts, versions };
+    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple, a11y, tabs, costs, parts, versions, queue };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -127,6 +129,7 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   parts: { es: parts, en: en_parts },
   costs: { es: costs, en: en_costs },
   versions: { es: versions, en: en_versions },
+  queue: { es: queue, en: en_queue },
 };
 
 /**

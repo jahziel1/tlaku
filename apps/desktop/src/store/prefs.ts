@@ -55,6 +55,8 @@ export interface Prefs {
   autosaveSecs: number;
   /** Cuántos archivos recientes se recuerdan. */
   recentMax: number;
+  /** Cuántos trabajos guarda el historial (`features/help/jobLog.ts`); al pasarse se descartan los más viejos. */
+  jobHistoryMax: number;
   /**
    * Modo de la interfaz: sencillo (el modo para principiantes: flujo guiado de 5 pasos, sin menús ni
    * herramientas avanzadas) o completo. Ver `features/simple`.
@@ -156,6 +158,7 @@ export const PREF_SPECS: PrefSpecs = {
   autosave: { kind: 'bool', default: true },
   autosaveSecs: { kind: 'number', min: 10, max: 3600, step: 10, unit: 's', integer: true, default: 60 },
   recentMax: { kind: 'number', min: 0, max: 30, step: 1, unit: 'count', integer: true, default: 10 },
+  jobHistoryMax: { kind: 'number', min: 20, max: 20000, step: 100, unit: 'count', integer: true, default: 1000 },
   uiMode: { kind: 'choice', options: ['ask', 'simple', 'full'], default: 'ask' },
   jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
   jobChecklistRequired: { kind: 'bool', default: false },

@@ -13,7 +13,7 @@ De izquierda a derecha:
 - El nombre del proyecto (**Sin título** hasta que lo guardas) y el aviso **Sin guardar** cuando hay cambios.
 - El botón de tema (sol o luna) y, a la derecha, los tres botones del trabajo: **Vista previa**, **Encuadrar** e **Iniciar**. Encuadrar e Iniciar se activan solo con una máquina conectada y algo que enviar.
 
-El menú **Ayuda** abre este **Manual de usuario** (con buscador), la lista de **Atajos de teclado…**, las **Novedades**, el **Registro de trabajos…** (los trabajos que enviaste a una máquina desde esta computadora, ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md#registro-de-trabajos)), **Reportar un problema…**, **Donar al proyecto…** y **Acerca de Tlaku**. Las preferencias están en **Editar > Preferencias…** (`Ctrl/Cmd+,`).
+El menú **Ayuda** abre este **Manual de usuario** (con buscador), la lista de **Atajos de teclado…**, las **Novedades**, el **Historial de trabajos…** (los trabajos que enviaste a una máquina desde esta computadora, con sus ajustes, ver [Cola e historial de trabajos](09f-cola-e-historial-de-trabajos.md)), **Reportar un problema…**, **Donar al proyecto…** y **Acerca de Tlaku**. Las preferencias están en **Editar > Preferencias…** (`Ctrl/Cmd+,`).
 
 ![El manual de usuario abierto dentro de la aplicación, con el índice a la izquierda y el buscador](../../apps/desktop/docs/screenshots/32-manual.png)
 

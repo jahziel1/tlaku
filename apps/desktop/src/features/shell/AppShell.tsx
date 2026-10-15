@@ -8,6 +8,7 @@ import { DesignDialogHost } from '@/features/arrange/DesignDialogHost';
 import { CameraDialogHost } from '@/features/camera';
 import { DevicesDialogHost } from '@/features/devices';
 import { MaterialsDialogHost } from '@/features/materials';
+import { QueueHost } from '@/features/queue';
 import { RecoveryHost } from '@/features/recovery';
 import { BundleHost } from '@/features/bundle';
 import { SettingsHost } from '@/features/settings';
@@ -132,6 +133,7 @@ function ShellBody() {
       <RecoveryHost />
       <TabsHost />
       <VersionsHost />
+      <QueueHost />
       <PromptHost />
       <ShortcutsDialog />
       <CostDialog />

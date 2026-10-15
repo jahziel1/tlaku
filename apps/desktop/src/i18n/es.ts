@@ -6,6 +6,7 @@
 import { arrange } from './es/arrange';
 import { costs } from './es/costs';
 import { versions } from './es/versions';
+import { queue } from './es/queue';
 import { design } from './es/design';
 import { art } from './es/art';
 import { camera } from './es/camera';
@@ -317,4 +318,5 @@ export const es = {
   ...parts,
   ...costs,
   ...versions,
+  ...queue,
 };

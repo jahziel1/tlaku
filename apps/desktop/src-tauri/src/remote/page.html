@@ -98,6 +98,11 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
 .ok { color: var(--ok); } .bad { color: var(--bad); }
 #toast { position: fixed; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20; background: var(--ink); color: var(--bg); padding: 12px 14px; border-radius: 12px; font-size: 16px; }
 .center { text-align: center; padding: 30px 6px; }
+.qlist { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.qlist li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; background: var(--card2, rgba(127,127,127,.12)); font-size: 14px; }
+.qlist li[data-current="1"] { outline: 2px solid var(--accent, #8793ff); }
+.qlist li[data-status="skipped"], .qlist li[data-status="done"] { opacity: .6; }
+.qlist li span:first-child { overflow-wrap: anywhere; }
 .center h2 { font-size: 22px; text-transform: none; letter-spacing: 0; color: var(--ink); }
 </style>
 </head>
@@ -131,6 +136,17 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
       <div class="row"><span id="l-elapsed"></span><b id="elapsed">—</b></div>
       <div class="row"><span id="l-remaining"></span><b id="remaining">—</b></div>
       <div class="row"><span id="l-layer"></span><b id="layer">—</b></div>
+    </section>
+
+    <section class="card" id="queue" hidden aria-labelledby="h-queue">
+      <h2 id="h-queue"></h2>
+      <div class="row"><span id="q-state-l"></span><b id="q-state">—</b></div>
+      <div class="row"><span id="q-prog-l"></span><b id="q-prog">—</b></div>
+      <div class="row"><span id="q-eta-l"></span><b id="q-eta">—</b></div>
+      <p class="who" id="q-current"></p>
+      <p class="note bad" id="q-msg" hidden role="status"></p>
+      <ol class="qlist" id="q-list"></ol>
+      <p class="note" id="q-hint"></p>
     </section>
 
     <section class="card" id="livecard" hidden aria-labelledby="h-live">
@@ -177,6 +193,7 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
     <label class="check"><input type="checkbox" id="c1"><span id="t1"></span></label>
     <label class="check"><input type="checkbox" id="c2"><span id="t2"></span></label>
     <label class="check"><input type="checkbox" id="c3"><span id="t3"></span></label>
+    <label class="check" id="c4row" hidden><input type="checkbox" id="c4"><span id="t4"></span></label>
     <p class="note" id="sheet-warn"></p>
     <p class="note bad" id="sheet-err" hidden role="alert"></p>
     <div class="actions">
@@ -243,7 +260,13 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
       liveWait: 'Esperando la ruta del trabajo desde la PC…', liveNoRoute: 'La ruta de este trabajo es demasiado grande para el celular: solo se ve el cabezal en el recorrido.',
       liveAlt: 'Vista en vivo del trabajo: {pct} %, {state}.', liveClock: 'Estimado por el tiempo: esta máquina no reporta su posición mientras trabaja.',
       liveProgress: 'Según el progreso del envío (la posición no encajó con el recorrido).', liveDecimated: 'Ruta simplificada para el celular.',
-      liveFail: 'No se pudo bajar la ruta. Se reintentará.'
+      liveFail: 'No se pudo bajar la ruta. Se reintentará.',
+      hQueue: 'Cola de trabajos', qStateL: 'Estado', qProgL: 'Trabajos', qEtaL: 'Faltan',
+      qs_idle: 'Sin empezar', qs_awaiting: 'Esperando confirmar el siguiente', qs_running: 'Trabajo en la máquina', qs_paused: 'En pausa', qs_stopped: 'Detenida', qs_done: 'Terminada',
+      qProg: '{done} de {total}', qCurrent: 'Siguiente: {name} (copia {copy} de {copies})', qCurrentRun: 'Ahora: {name} (copia {copy} de {copies})',
+      qItem: '{done}/{copies}', qHint: 'La cola nunca avanza sola. Para confirmar el siguiente trabajo desde aquí: marca el checklist (incluida la casilla del material) y encuádralo antes en la PC. Si no, hazlo desde la PC.',
+      startQueue: 'Confirmar el siguiente trabajo…', c4: 'Ya cambié el material o la pieza', sheetTitleQueue: 'Antes de confirmar el siguiente trabajo',
+      r_checklist_material: 'Marca también que cambiaste el material o la pieza.', r_queue_other_tab: 'La cola espera confirmar otro documento: encuádralo desde la PC primero.'
     },
     en: {
       title: 'Tlaku remote', connected: 'Connected', reconnecting: 'Reconnecting…', offlineBadge: 'Offline',
@@ -284,7 +307,13 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
       liveWait: 'Waiting for the job route from the PC…', liveNoRoute: 'This job route is too large for the phone: only the head is shown on the toolpath.',
       liveAlt: 'Live view of the job: {pct}%, {state}.', liveClock: 'Estimated from time: this machine does not report its position while working.',
       liveProgress: 'Based on the send progress (the position did not match the toolpath).', liveDecimated: 'Route simplified for the phone.',
-      liveFail: 'Could not download the route. It will retry.'
+      liveFail: 'Could not download the route. It will retry.',
+      hQueue: 'Job queue', qStateL: 'Status', qProgL: 'Jobs', qEtaL: 'Time left',
+      qs_idle: 'Not started', qs_awaiting: 'Waiting to confirm the next one', qs_running: 'Job on the machine', qs_paused: 'Paused', qs_stopped: 'Stopped', qs_done: 'Finished',
+      qProg: '{done} of {total}', qCurrent: 'Next: {name} (copy {copy} of {copies})', qCurrentRun: 'Now: {name} (copy {copy} of {copies})',
+      qItem: '{done}/{copies}', qHint: 'The queue never moves on by itself. To confirm the next job from here: tick the checklist (including the material box) and frame it on the PC first. Otherwise do it from the PC.',
+      startQueue: 'Confirm the next job…', c4: 'I already changed the material or the workpiece', sheetTitleQueue: 'Before confirming the next job',
+      r_checklist_material: 'Also tick that you changed the material or the workpiece.', r_queue_other_tab: 'The queue is waiting to confirm a different document: frame it from the PC first.'
     }
   };
   var lang = /^en/i.test(navigator.language || '') ? 'en' : 'es';
@@ -318,7 +347,8 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
   document.title = t('title');
   $('warn').textContent = t('warn');
   var statics = { 'h-machine': 'hMachine', 'h-progress': 'hProgress', 'h-route': 'hRoute', 'h-cam': 'hCam', camhint: 'camHint',
-    'l-elapsed': 'elapsed', 'l-remaining': 'remaining', 'l-layer': 'layer', 'sheet-title': 'sheetTitle', t1: 'c1', t2: 'c2', t3: 'c3',
+    'l-elapsed': 'elapsed', 'l-remaining': 'remaining', 'l-layer': 'layer', 'sheet-title': 'sheetTitle', t1: 'c1', t2: 'c2', t3: 'c3', t4: 'c4',
+    'h-queue': 'hQueue', 'q-state-l': 'qStateL', 'q-prog-l': 'qProgL', 'q-eta-l': 'qEtaL', 'q-hint': 'qHint',
     'h-live': 'hLive', 't-live': 'liveOn', 'live-hint': 'liveHint',
     'sheet-warn': 'sheetWarn', 'sheet-cancel': 'cancel', 'alert-ok': 'ok', 'login-title': 'loginTitle', 'login-text': 'loginText' };
   statics['l-state'] = 'stateLabel';
@@ -488,19 +518,51 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
     var st = S.start || {};
     var go = $('btn-start');
     go.hidden = active;
-    setText(go, t('start'));
+    setText(go, queueAwaiting() ? t('startQueue') : t('start'));
     go.disabled = !st.allowed || busyStart;
     var rs = $('start-reason');
     if (!active && !st.allowed) { rs.hidden = false; setText(rs, reasonText(st.reason, st.message)); } else rs.hidden = true;
     // El contenido deja sitio abajo para que la barra no tape nada.
     $('app').style.paddingBottom = ($('bar').offsetHeight + 24) + 'px';
 
+    renderQueue(active);
     drawRoute();
     drawHead();
     renderLive();
     drawCamera();
     checkAlerts();
     if (ph === 'running') requestWake(); else releaseWake();
+  }
+
+  // Cola guiada: solo lectura. Nunca avanza sola; el celular puede confirmar el siguiente trabajo con las mismas
+  // reglas que «iniciar» (checklist aquí, encuadre en la PC) y además marcando el cambio de material.
+  function queueAwaiting() { return !!(S && S.queue && S.queue.state === 'awaiting'); }
+  function renderQueue(active) {
+    var q = S && S.queue, card = $('queue');
+    if (!q || !q.items || !q.items.length) { card.hidden = true; return; }
+    card.hidden = false;
+    setText($('q-state'), t('qs_' + q.state));
+    setText($('q-prog'), t('qProg', { done: q.done, total: q.total }));
+    setText($('q-eta'), q.eta_s ? fmtTime(q.eta_s) : '—');
+    var cur = q.current;
+    setText($('q-current'), cur && (q.state === 'awaiting' || q.state === 'running' || q.state === 'paused')
+      ? t(q.state === 'running' ? 'qCurrentRun' : 'qCurrent', { name: cur.name, copy: q.copy, copies: cur.copies }) : '');
+    var msg = $('q-msg');
+    msg.hidden = !(q.state === 'stopped' && q.message);
+    setText(msg, q.state === 'stopped' ? (q.message || '') : '');
+    var ul = $('q-list'), sig = JSON.stringify(q.items) + '|' + (cur ? cur.name : '');
+    if (ul.getAttribute('data-sig') !== sig) {
+      ul.setAttribute('data-sig', sig);
+      while (ul.firstChild) ul.removeChild(ul.firstChild);
+      q.items.forEach(function (it) {
+        var li = document.createElement('li');
+        li.setAttribute('data-status', it.status);
+        if (cur && it.name === cur.name && (q.state === 'awaiting' || q.state === 'running')) li.setAttribute('data-current', '1');
+        var a = document.createElement('span'); a.textContent = it.name;
+        var b = document.createElement('span'); b.textContent = t('qItem', { done: it.done, copies: it.copies });
+        li.appendChild(a); li.appendChild(b); ul.appendChild(li);
+      });
+    }
   }
 
   function renderStop() {
@@ -949,24 +1011,30 @@ button.danger.armed { background: var(--bad); color: var(--armed-ink); animation
   });
 
   // Iniciar con checklist
-  function checks() { return $('c1').checked && $('c2').checked && $('c3').checked; }
-  ['c1', 'c2', 'c3'].forEach(function (id) {
+  var sheetForQueue = false;   // la hoja se abrió para confirmar el siguiente trabajo de la cola
+  function checks() { return $('c1').checked && $('c2').checked && $('c3').checked && (!sheetForQueue || $('c4').checked); }
+  ['c1', 'c2', 'c3', 'c4'].forEach(function (id) {
     $(id).addEventListener('change', function () { $('sheet-go').disabled = !checks() || busyStart; });
   });
   $('btn-start').addEventListener('click', function () {
     if (!S || !S.start || !S.start.allowed) return;
-    $('c1').checked = $('c2').checked = $('c3').checked = false;
+    $('c1').checked = $('c2').checked = $('c3').checked = $('c4').checked = false;
+    sheetForQueue = queueAwaiting();
+    $('c4row').hidden = !sheetForQueue;
+    setText($('sheet-title'), sheetForQueue ? t('sheetTitleQueue') : t('sheetTitle'));
     $('sheet-go').disabled = true; $('sheet-go').textContent = t('go');
     $('sheet-err').hidden = true;
     var total = S.job && S.job.total_s ? fmtTime(S.job.total_s) : '—';
-    $('sheet-job').textContent = t('sheetJob', { doc: S.doc || t('untitled'), time: total });
+    $('sheet-job').textContent = queueAwaiting() && S.queue.current
+      ? t('qCurrent', { name: S.queue.current.name, copy: S.queue.copy, copies: S.queue.current.copies })
+      : t('sheetJob', { doc: S.doc || t('untitled'), time: total });
     openDialog($('sheet'), $('c1'));
   });
   $('sheet-cancel').addEventListener('click', function () { if (!busyStart) closeDialog($('sheet')); });
   $('sheet-go').addEventListener('click', function () {
     if (!checks() || busyStart) return;
     busyStart = true; $('sheet-go').disabled = true; $('sheet-go').textContent = t('going'); $('sheet-err').hidden = true;
-    api('/api/start', 'POST', { checklist: { nearby: true, clear: true, air: true } }, 70000).then(function (r) {
+    api('/api/start', 'POST', { checklist: { nearby: true, clear: true, air: true, material: sheetForQueue && $('c4').checked } }, 70000).then(function (r) {
       busyStart = false;
       if (r.ok) { closeDialog($('sheet')); toast(t('sent')); }
       else {

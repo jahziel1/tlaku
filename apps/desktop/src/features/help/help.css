@@ -397,6 +397,146 @@ ol.md__list {
   color: var(--danger);
 }
 
+/* ---- historial de trabajos: filtros, miniaturas y detalle ------------------------------------- */
+
+.joblog__filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s-4);
+  align-items: end;
+  margin: var(--s-4) 0 var(--s-5);
+}
+.joblog__search {
+  grid-column: 1 / -1;
+}
+.joblog__date {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.joblog__thumbcell {
+  width: 56px;
+  padding: var(--s-2) var(--s-3);
+}
+.joblog__thumb {
+  display: block;
+  width: 48px;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.joblog__row {
+  cursor: pointer;
+}
+.joblog__row td {
+  vertical-align: middle;
+}
+.joblog__row:hover td {
+  background: var(--bg-hover);
+}
+.joblog__row--selected td {
+  background: var(--accent-subtle);
+}
+.joblog__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.joblog__open:hover {
+  text-decoration: underline;
+}
+.joblog__result--interrupted {
+  color: var(--warn);
+}
+.joblog__result--running {
+  color: var(--accent-ink);
+}
+.joblog__foot {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.joblog__foot .btn {
+  max-width: none;
+}
+.joblog__foot .hint {
+  margin-right: auto;
+}
+.joblog__cap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.joblog__cap .select {
+  width: auto;
+}
+.joblog__detail {
+  margin-top: var(--s-6);
+  padding: var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+.joblog__detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.joblog__detail-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6);
+  margin: var(--s-4) 0;
+}
+.joblog__thumb-big {
+  width: 192px;
+  height: auto;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.joblog__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s-2) var(--s-6);
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+}
+.joblog__facts dt {
+  color: var(--text-faint);
+}
+.joblog__facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.joblog--layers {
+  margin-top: var(--s-4);
+}
+.joblog__notes {
+  margin-top: var(--s-5);
+}
+.joblog__notes textarea {
+  height: auto;
+  padding: var(--s-3) var(--s-4);
+  resize: vertical;
+}
+.joblog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+}
+
 /* ---- actualizaciones y donaciones ------------------------------------------------------- */
 
 .help__foot--end {

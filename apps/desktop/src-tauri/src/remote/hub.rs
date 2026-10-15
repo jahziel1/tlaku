@@ -124,6 +124,74 @@ pub struct LayerInfo {
     pub mode: String,
 }
 
+/// Un trabajo de la cola guiada, resumido para el celular (solo lectura).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct QueueItemInfo {
+    pub name: String,
+    /// Copias pedidas y terminadas.
+    pub copies: u32,
+    pub done: u32,
+    /// `pending`, `done`, `skipped` o `failed`.
+    pub status: String,
+}
+
+/// La cola guiada de trabajos (`features/queue` en la PC), tal como la ve el celular. La cola NUNCA
+/// avanza sola de un trabajo al siguiente: en `awaiting` espera la confirmación de una persona, en la PC
+/// o desde el celular con las mismas condiciones que «iniciar» (checklist en el teléfono y encuadre en la PC).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct QueueInfo {
+    /// `idle`, `awaiting`, `running`, `paused`, `stopped` o `done`.
+    pub state: String,
+    /// Trabajos (copias) terminados y total de la cola.
+    pub done: u32,
+    pub total: u32,
+    /// Segundos estimados que faltan, si se conocen.
+    pub eta_s: Option<f64>,
+    /// Trabajo que corre o que espera confirmación; `copy` es la copia en curso (desde 1).
+    pub current: Option<QueueItemInfo>,
+    pub copy: u32,
+    /// Por qué se detuvo (`stopped`), en el idioma de la PC.
+    pub message: String,
+    pub items: Vec<QueueItemInfo>,
+}
+
+/// Cuántos trabajos de la cola se reenvían al celular.
+const QUEUE_ITEMS_MAX: usize = 12;
+
+impl QueueInfo {
+    /// La cola espera que alguien confirme el siguiente trabajo.
+    pub fn awaiting(&self) -> bool {
+        self.state == "awaiting"
+    }
+
+    fn sanitized(mut self) -> Self {
+        if !matches!(
+            self.state.as_str(),
+            "idle" | "awaiting" | "running" | "paused" | "stopped" | "done"
+        ) {
+            self.state = "idle".to_string();
+        }
+        self.eta_s = finite_opt(self.eta_s);
+        self.message = clean_text(&self.message, 200);
+        self.items.truncate(QUEUE_ITEMS_MAX);
+        let clean = |i: QueueItemInfo| QueueItemInfo {
+            name: clean_text(&i.name, 80),
+            copies: i.copies.min(999),
+            done: i.done.min(999),
+            status: match i.status.as_str() {
+                "done" | "skipped" | "failed" => i.status,
+                _ => "pending".to_string(),
+            },
+        };
+        self.current = self.current.take().map(clean);
+        self.items = self.items.into_iter().map(clean).collect();
+        self.copy = self.copy.min(999);
+        self
+    }
+}
+
 /// Estado que la ventana de la PC manda al servidor remoto.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -149,6 +217,8 @@ pub struct Snapshot {
     pub framed: bool,
     /// Dónde está la máquina sobre la ruta de la vista en vivo (solo si la PC la sigue).
     pub live: Option<LiveReport>,
+    /// La cola guiada de trabajos, si hay una.
+    pub queue: Option<QueueInfo>,
 }
 
 fn clean_text(s: &str, max: usize) -> String {
@@ -181,6 +251,7 @@ impl Snapshot {
         self.head = finite_pair(self.head);
         self.bed = finite_pair(self.bed).filter(|b| b[0] > 0.0 && b[1] > 0.0);
         self.live = self.live.take().map(LiveReport::sanitized);
+        self.queue = self.queue.take().map(QueueInfo::sanitized);
         if let Some(l) = &mut self.layer {
             l.color = clean_text(&l.color, 16);
             l.mode = clean_text(&l.mode, 16);
@@ -247,6 +318,7 @@ pub fn start_reason_text(code: &str) -> String {
         "not_framed" => tr!("desktop.remote.reason_not_framed"),
         "busy_request" => tr!("desktop.remote.reason_busy_request"),
         "checklist" => tr!("desktop.remote.reason_checklist"),
+        "checklist_material" => tr!("desktop.remote.reason_checklist_material"),
         "timeout" => tr!("desktop.remote.reason_timeout"),
         _ => tr!("desktop.remote.reason_default"),
     }
@@ -262,6 +334,9 @@ pub struct Checklist {
     pub clear: bool,
     /// El aire o el extractor están encendidos.
     pub air: bool,
+    /// Ya cambié el material o la pieza. Solo se exige cuando la cola guiada espera confirmar el
+    /// siguiente trabajo (`QueueInfo::awaiting`); para un inicio normal no cuenta.
+    pub material: bool,
 }
 
 impl Checklist {
@@ -564,6 +639,16 @@ impl Core {
         if let Some(code) = self.start_block(now) {
             return Err(ActionError::new(code, start_reason_text(code)));
         }
+        // Confirmar el siguiente trabajo de la cola exige, además, haber cambiado el material o la pieza.
+        let awaiting = self
+            .snapshot_now(now)
+            .is_some_and(|s| s.queue.as_ref().is_some_and(QueueInfo::awaiting));
+        if awaiting && !checklist.material {
+            return Err(ActionError::new(
+                "checklist_material",
+                start_reason_text("checklist_material"),
+            ));
+        }
         let (tx, rx) = oneshot::channel();
         let mut g = self.lock();
         if g.pending_start.is_some() {
@@ -690,6 +775,7 @@ impl Core {
             "route_v": route_v,
             "live_v": live_v,
             "live": s.live,
+            "queue": s.queue,
             "camera_v": camera_v,
         })
     }
@@ -801,6 +887,7 @@ mod tests {
             nearby: true,
             clear: true,
             air: true,
+            material: false,
         }
     }
 
@@ -886,16 +973,19 @@ mod tests {
                 nearby: true,
                 clear: true,
                 air: false,
+                material: true,
             },
             Checklist {
                 nearby: false,
                 clear: true,
                 air: true,
+                material: true,
             },
             Checklist {
                 nearby: true,
                 clear: false,
                 air: true,
+                material: true,
             },
         ] {
             assert_eq!(c.begin_start(partial, now).unwrap_err().code, "checklist");
@@ -927,6 +1017,123 @@ mod tests {
             }
         ));
         assert!(c.begin_start(all_checked(), now).is_ok());
+    }
+
+    fn awaiting() -> Snapshot {
+        Snapshot {
+            queue: Some(QueueInfo {
+                state: "awaiting".to_string(),
+                done: 1,
+                total: 3,
+                ..QueueInfo::default()
+            }),
+            ..ready()
+        }
+    }
+
+    #[test]
+    fn confirming_the_next_queue_job_also_needs_the_material_item() {
+        let fake = Fake::with(MachineKind::Grbl, MachineState::Idle);
+        let c = core(&fake);
+        let now = Instant::now();
+        c.update(awaiting(), now);
+        // Con las tres de siempre no basta mientras la cola espera: falta «cambié el material».
+        assert_eq!(
+            c.begin_start(all_checked(), now).unwrap_err().code,
+            "checklist_material"
+        );
+        assert!(fake.calls().is_empty());
+        let with_material = Checklist {
+            material: true,
+            ..all_checked()
+        };
+        assert!(c.begin_start(with_material, now).is_ok());
+        // Las demás condiciones de «iniciar» siguen valiendo: sin encuadre en la PC, no.
+        let c = core(&fake);
+        c.update(
+            Snapshot {
+                framed: false,
+                ..awaiting()
+            },
+            now,
+        );
+        assert_eq!(
+            c.begin_start(with_material, now).unwrap_err().code,
+            "not_framed"
+        );
+        // Y la lista incompleta se rechaza antes que nada.
+        assert_eq!(
+            c.begin_start(
+                Checklist {
+                    air: false,
+                    ..with_material
+                },
+                now
+            )
+            .unwrap_err()
+            .code,
+            "checklist"
+        );
+    }
+
+    #[test]
+    fn without_a_waiting_queue_the_material_item_is_not_required() {
+        let fake = Fake::with(MachineKind::Grbl, MachineState::Idle);
+        let c = core(&fake);
+        let now = Instant::now();
+        for state in ["idle", "running", "paused", "stopped", "done"] {
+            c.update(
+                Snapshot {
+                    queue: Some(QueueInfo {
+                        state: state.to_string(),
+                        ..QueueInfo::default()
+                    }),
+                    ..ready()
+                },
+                now,
+            );
+            let (id, _rx) = c.begin_start(all_checked(), now).unwrap();
+            c.abandon_start(id);
+        }
+    }
+
+    #[test]
+    fn the_queue_is_sanitized_and_travels_in_the_state() {
+        let fake = Fake::with(MachineKind::Grbl, MachineState::Idle);
+        let c = core(&fake);
+        let now = Instant::now();
+        let item = |n: usize| QueueItemInfo {
+            name: format!("trabajo {n}\u{7}"),
+            copies: 5000,
+            done: 1,
+            status: "raro".to_string(),
+        };
+        c.update(
+            Snapshot {
+                queue: Some(QueueInfo {
+                    state: "inventado".to_string(),
+                    eta_s: Some(f64::NAN),
+                    items: (0..40).map(item).collect(),
+                    current: Some(item(0)),
+                    ..QueueInfo::default()
+                }),
+                ..ready()
+            }
+            .sanitized(),
+            now,
+        );
+        let json = c.view(now);
+        let q = &json["queue"];
+        assert_eq!(q["state"], "idle");
+        assert!(q["eta_s"].is_null());
+        assert_eq!(q["items"].as_array().unwrap().len(), QUEUE_ITEMS_MAX);
+        assert_eq!(q["items"][0]["name"], "trabajo 0");
+        assert_eq!(q["items"][0]["copies"], 999);
+        assert_eq!(q["items"][0]["status"], "pending");
+        assert_eq!(q["current"]["name"], "trabajo 0");
+        // Sin cola, el campo es nulo.
+        c.update(ready(), now);
+        assert!(c.view(now)["queue"].is_null());
     }
 
     #[test]

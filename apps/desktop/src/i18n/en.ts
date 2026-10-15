@@ -42,6 +42,7 @@ import { tabs } from './en/tabs';
 import { parts } from './en/parts';
 import { costs } from './en/costs';
 import { versions } from './en/versions';
+import { queue } from './en/queue';
 
 export const en: { [K in I18nKey]?: string } = {
   ...base,
@@ -83,4 +84,5 @@ export const en: { [K in I18nKey]?: string } = {
   ...parts,
   ...costs,
   ...versions,
+  ...queue,
 };

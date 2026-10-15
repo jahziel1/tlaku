@@ -177,7 +177,7 @@ When you open the app, and also when the connection is lost in the middle of a j
 | **Choose the point** | Opens the same dialog so you can move the restart point yourself |
 | **Discard** | Deletes the checkpoint; you will no longer be able to continue that job |
 
-If you leave it for later, the [Job log](#job-log) (**Help > Job Log…**) marks interrupted jobs with their percentage and has a **Continue** button as long as the checkpoint still exists.
+If you leave it for later, the [Job history](#job-history) (**Help > Job History…**) marks interrupted jobs with their percentage and has a **Continue** button as long as the checkpoint still exists.
 
 ### If the machine kept going on its own
 
@@ -235,18 +235,19 @@ All of the following is mandatory, and the app's engine enforces it, not just th
 
 > **Tip:** the first time, try it on scrap material and with a virtual machine ([Connecting your machine](08-conectar-maquina.md)). Like the rest of the manual, none of this has been tested with a real machine yet; the power-cut test is in the hardware validation list.
 
-## Job log
+## Job history
 
-**Help > Job Log…** shows a table with the jobs you **sent to a machine from this computer**: **Date**, **Machine**, **Document**, **Estimate** (the time the preview calculated at the start; **—** if there was no up-to-date one), **Actual** (the time spent working, not counting pauses), and **Result**: **Finished**, **Cancelled**, or **Failed**. It is for comparing how long it really took against the estimate, and for remembering what was cut and when.
+**Help > Job History…** (formerly "Job Log") shows the jobs you **sent to a machine from this computer**: **Date**, **Machine**, **Document**, **Material**, **Estimate** (the time the preview calculated at the start; **—** if there was no up-to-date one), **Actual** (the time working, without counting pauses) and **Result**: **Finished**, **Cancelled**, **Failed**, **Interrupted** or **Running**. It is useful to compare how long it really took with the estimate, to remember what was cut and with which settings, and to **repeat it**.
 
-![The Job log with four jobs: two finished, one cancelled, and one failed](../../../apps/desktop/docs/screenshots/69-registro-de-trabajos.png)
+![The Job history with four jobs: two finished, one cancelled, and one failed](../../../apps/desktop/docs/screenshots/69-registro-de-trabajos.png)
 
-- A job is recorded **when it finishes, is cancelled, or fails**; a pause and its resumption do not count as new jobs.
-- It is stored **only on this computer**, in the application's storage; it **does not leave your computer**, it does not travel in the project or in bundles, and it is not sent anywhere. Open Tlaku windows share it.
-- It keeps the **last 200** jobs; beyond that the oldest are discarded.
+- A job is logged **when it starts** and completed **when it finishes, is cancelled or fails**; if the application closes in the middle of a job it stays as **Interrupted**. A pause and its resume do not count as new jobs.
+- It also keeps the **layers with their settings**, the **material**, the **area**, a **thumbnail**, the origin **tab** and your **notes**; it lets you **search and filter**, **Repeat with these settings** and **export to CSV**. All that, and where it is stored (only on this computer, in the application data folder, up to 1000 jobs by default), is in [Job queue and job history](09f-cola-e-historial-de-trabajos.md).
 - **Clear the log** empties it (it asks for confirmation and cannot be undone).
-- A job that was interrupted (power cut, app closed, connection lost) is marked as interrupted with its percentage and has the **Continue** button as long as the checkpoint exists. See [Continue an interrupted job](#continue-an-interrupted-job).
-- It does not record G-code export or what you send from the console.
+- A job that was interrupted (power cut, app closed, lost connection) is marked as interrupted with its percentage and has the **Continue** button as long as the checkpoint exists. See [Continuing an interrupted job](#continuing-an-interrupted-job).
+- It does not record G-code exports or what you send from the console.
+
+For several documents in a row, the [job queue](09f-cola-e-historial-de-trabajos.md) walks you from one to the next and **never sends the next one by itself**.
 
 ## Exporting G-code
 

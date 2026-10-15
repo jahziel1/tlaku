@@ -177,7 +177,7 @@ Al abrir la app, y también cuando la conexión se pierde a mitad de un trabajo,
 | **Elegir el punto** | Abre el mismo diálogo para que muevas tú el punto de reinicio |
 | **Descartar** | Borra el punto de control; ya no podrás continuar ese trabajo |
 
-Si lo dejas para después, el [Registro de trabajos](#registro-de-trabajos) (**Ayuda > Registro de trabajos…**) marca los trabajos interrumpidos con su porcentaje y trae un botón **Continuar** mientras siga existiendo el punto de control.
+Si lo dejas para después, el [Historial de trabajos](#historial-de-trabajos) (**Ayuda > Historial de trabajos…**) marca los trabajos interrumpidos con su porcentaje y trae un botón **Continuar** mientras siga existiendo el punto de control.
 
 ### Si la máquina siguió sola
 
@@ -235,18 +235,19 @@ Todo lo siguiente es obligatorio, y lo exige el motor de la app, no solo la inte
 
 > **Consejo:** la primera vez, pruébalo con material de desecho y una máquina virtual ([Conectar tu máquina](08-conectar-maquina.md)). Como el resto del manual, nada de esto se ha probado todavía con una máquina real; la prueba con corte de luz está en la lista de validación con hardware.
 
-## Registro de trabajos
+## Historial de trabajos
 
-**Ayuda > Registro de trabajos…** muestra una tabla con los trabajos que **enviaste a una máquina desde esta computadora**: **Fecha**, **Máquina**, **Documento**, **Estimado** (el tiempo que calculó la vista previa al empezar; **—** si no había una al día), **Real** (el tiempo trabajando, sin contar las pausas) y **Resultado**: **Terminado**, **Cancelado** o **Con error**. Sirve para comparar cuánto tardó de verdad con lo estimado, y para acordarte de qué se cortó y cuándo.
+**Ayuda > Historial de trabajos…** (antes «Registro de trabajos») muestra los trabajos que **enviaste a una máquina desde esta computadora**: **Fecha**, **Máquina**, **Documento**, **Material**, **Estimado** (el tiempo que calculó la vista previa al empezar; **—** si no había una al día), **Real** (el tiempo trabajando, sin contar las pausas) y **Resultado**: **Terminado**, **Cancelado**, **Con error**, **Interrumpido** o **En curso**. Sirve para comparar cuánto tardó de verdad con lo estimado, para acordarte de qué se cortó y con qué ajustes, y para **repetirlo**.
 
-![El Registro de trabajos con cuatro trabajos: dos terminados, uno cancelado y uno con error](../../apps/desktop/docs/screenshots/69-registro-de-trabajos.png)
+![El Historial de trabajos con cuatro trabajos: dos terminados, uno cancelado y uno con error](../../apps/desktop/docs/screenshots/69-registro-de-trabajos.png)
 
-- Un trabajo se anota **cuando termina, se cancela o falla**; una pausa y su reanudación no cuentan como trabajos nuevos.
-- Se guarda **solo en esta computadora**, en el almacenamiento de la aplicación; **no sale de tu equipo**, no viaja en el proyecto ni en los paquetes y no se envía a ningún lado. Las ventanas abiertas de Tlaku lo comparten.
-- Guarda los **últimos 200** trabajos; al pasarse se descartan los más viejos.
+- Un trabajo se anota **al empezar** y se completa **cuando termina, se cancela o falla**; si la aplicación se cierra a mitad de un trabajo queda como **Interrumpido**. Una pausa y su reanudación no cuentan como trabajos nuevos.
+- Guarda también las **capas con sus ajustes**, el **material**, el **área**, una **miniatura**, la **pestaña** de origen y tus **notas**; permite **buscar y filtrar**, **Repetir con estos ajustes** y **exportar a CSV**. Todo eso, y dónde se guarda (solo en esta computadora, en la carpeta de datos de la aplicación, hasta 1000 trabajos por omisión), está en [Cola e historial de trabajos](09f-cola-e-historial-de-trabajos.md).
 - **Borrar el registro** lo vacía (pide confirmación y no se puede deshacer).
 - Un trabajo que se interrumpió (corte de luz, app cerrada, conexión perdida) se marca como interrumpido con su porcentaje y trae el botón **Continuar** mientras exista el punto de control. Ver [Continuar un trabajo interrumpido](#continuar-un-trabajo-interrumpido).
 - No registra la exportación de G-code ni lo que mandas desde la consola.
+
+Para varios documentos seguidos, la [cola de trabajos](09f-cola-e-historial-de-trabajos.md) te guía de uno al siguiente y **nunca envía el siguiente sola**.
 
 ## Exportar G-code
 
