@@ -43,9 +43,22 @@ fn decode_gray(b64: &str) -> Result<GrayImage, String> {
     Ok(img.to_luma8())
 }
 
+/// Como [`decode_gray`] pero a color (el LED del cabezal se busca por su tono).
+fn decode_rgb(b64: &str) -> Result<image::RgbImage, String> {
+    let raw = b64.split_once(',').map_or(b64, |(_, rest)| rest).trim();
+    let bytes = STANDARD
+        .decode(raw)
+        .map_err(|e| tr!("desktop.edit.camera.bad_base64", err = e))?;
+    let img = image::load_from_memory(&bytes)
+        .map_err(|e| tr!("desktop.edit.camera.decode_failed", err = e))?;
+    Ok(img.to_rgb8())
+}
+
 mod bed_image;
 mod board;
 mod circle;
+mod head_align;
+mod head_align_flow;
 mod marks;
 mod network;
 mod normalize;
@@ -57,6 +70,8 @@ mod store;
 pub use bed_image::*;
 pub use board::*;
 pub use circle::*;
+pub use head_align::*;
+pub use head_align_flow::*;
 pub use marks::*;
 pub use network::*;
 pub use normalize::*;

@@ -14,6 +14,9 @@ pub enum AlignmentMethod {
     Manual,
     /// Marcas grabadas, detectadas en la foto (una o varias alturas).
     Marks,
+    /// Posiciones del cabezal con el láser apagado (cámara fija, sin grabar): una sola muestra
+    /// a altura 0 con los puntos (píxel, mm de cama) ya corregidos de paralaje y desfase.
+    HeadSweep,
 }
 
 /// Marcas medidas a una altura del material: la base de la alineación con marcas.

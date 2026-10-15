@@ -221,6 +221,7 @@ fn sample_setup() -> CameraSetup {
 
 mod bed_image;
 mod board;
+mod head_align;
 mod height;
 mod marks;
 mod network;

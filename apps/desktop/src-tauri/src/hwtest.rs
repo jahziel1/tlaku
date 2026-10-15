@@ -8,7 +8,9 @@
 //! `frame:<x>,<y>,<lado>,<vel>` (encuadre con el láser apagado), `job0:<x>,<y>,<lado>,<vel>` y
 //! `fill0:...` (trabajo con potencia 0: el G-code se revisa antes de enviarlo), `pause`, `resume`,
 //! `cancel`, `interrupted`, `view`, `readiness`, `discard`, `wait:<ms>` y `cmd:<línea>` (solo de
-//! lectura o movimiento; se rechaza `M3`, `M4` y cualquier `S` distinto de 0).
+//! lectura o movimiento; se rechaza `M3`, `M4` y cualquier `S` distinto de 0), `goto:<x>,<y>,<vel>`,
+//! `snap:<archivo>` (foto con la cámara de la máquina) y `headalign[:<lado>[,<vel>]]` (alinear la
+//! cámara fija con el cabezal, sin láser: ver `hwtest/headalign.rs`, que lista sus variables).
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -17,6 +19,8 @@ use serde_json::{Value, json};
 use tauri::{Listener, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 use crate::smoke::invoke_json;
+
+mod headalign;
 
 /// Líneas que nunca se mandan desde aquí: todo lo que pueda encender el láser.
 fn forbidden(line: &str) -> bool {
@@ -81,6 +85,18 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                 t0.elapsed().as_millis(),
                 e.payload()
             )
+        });
+    }
+    // Último estado de la máquina, para esperar a que el cabezal se detenga (`headalign`).
+    let last_status: headalign::Shared = Arc::default();
+    {
+        let shared = last_status.clone();
+        handle.listen("machine://status", move |e| {
+            if let (Some(s), Ok(mut slot)) =
+                (headalign::snap_from_payload(e.payload()), shared.lock())
+            {
+                *slot = Some(s);
+            }
         });
     }
     let wv = window.as_ref();
@@ -214,7 +230,12 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                     ),
                 }
             }
-            s if s.starts_with("job:") || s.starts_with("fill:") || s.starts_with("fillair:") || s.starts_with("grid:") || s.starts_with("image:") => {
+            s if s.starts_with("job:")
+                || s.starts_with("fill:")
+                || s.starts_with("fillair:")
+                || s.starts_with("grid:")
+                || s.starts_with("image:") =>
+            {
                 // job:<x>,<y>,<lado>,<vel>,<pot>  (contorno)
                 // fill:<x>,<y>,<lado>,<vel>,<pot>,<intervalo>  (relleno)
                 // grid:<x>,<y>,<celda>,<n>,<pot0>,<pot1>,<vel0>,<vel1>  (prueba de materiales n×n, relleno 0,1 mm)
@@ -315,18 +336,32 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                 match std::env::var("TLAKU_HW_SNAP") {
                     Err(_) => Err("snap: falta TLAKU_HW_SNAP".into()),
                     Ok(bin) => std::process::Command::new(bin)
-                        .arg(std::env::var("TLAKU_HW_CAMERA").unwrap_or_else(|_| "Creality Falcon Camera".into()))
+                        .arg(
+                            std::env::var("TLAKU_HW_CAMERA")
+                                .unwrap_or_else(|_| "Creality Falcon Camera".into()),
+                        )
                         .arg(&s[5..])
                         .output()
                         .map_err(|e| e.to_string())
-                        .and_then(|o| if o.status.success() { Ok(Value::Null) } else { Err(String::from_utf8_lossy(&o.stdout).into_owned()) }),
+                        .and_then(|o| {
+                            if o.status.success() {
+                                Ok(Value::Null)
+                            } else {
+                                Err(String::from_utf8_lossy(&o.stdout).into_owned())
+                            }
+                        }),
                 }
             }
             s if s.starts_with("goto:") => {
                 // goto:<x>,<y>,<vel>: lleva el cabezal a una posición de máquina (láser apagado).
                 let v = nums(&s[5..]);
                 if v.len() == 3 {
-                    invoke_json(handle, wv, "jog_to", json!({ "x": v[0], "y": v[1], "speed": v[2] }))
+                    invoke_json(
+                        handle,
+                        wv,
+                        "jog_to",
+                        json!({ "x": v[0], "y": v[1], "speed": v[2] }),
+                    )
                 } else {
                     Err("goto:<x>,<y>,<vel>".into())
                 }
@@ -376,6 +411,13 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                     invoke_json(handle, wv, "machine_command", json!({ "line": line }))
                 }
             }
+            s if s == "headalign" || s.starts_with("headalign:") => headalign::run(
+                handle,
+                wv,
+                &s["headalign".len()..],
+                last_status.clone(),
+                falcon2().bed,
+            ),
             other => Err(format!("paso desconocido: {other}")),
         };
         match r {
@@ -494,9 +536,12 @@ fn laser_doc(kind: &str, v: &[f64]) -> Result<tlaku_doc::Document, String> {
         "image" => {
             // image:<x>,<y>,<lado>,<vel>,<pot>; el archivo sale de TLAKU_HW_IMAGE (PNG en escala de grises).
             if v.len() != 5 || v[2] <= 0.0 || v[2] > 40.0 || v[3] <= 0.0 || !pct_ok(v[4]) {
-                return Err(format!("image: argumentos fuera de rango (lado ≤ 40 mm, potencia ≤ {MAX_JOB_PCT} %)"));
+                return Err(format!(
+                    "image: argumentos fuera de rango (lado ≤ 40 mm, potencia ≤ {MAX_JOB_PCT} %)"
+                ));
             }
-            let path = std::env::var("TLAKU_HW_IMAGE").map_err(|_| "image: falta TLAKU_HW_IMAGE".to_string())?;
+            let path = std::env::var("TLAKU_HW_IMAGE")
+                .map_err(|_| "image: falta TLAKU_HW_IMAGE".to_string())?;
             let (w, h) = image::image_dimensions(&path).map_err(|e| format!("image: {e}"))?;
             let mut layer = tlaku_doc::LayerSettings::for_images();
             layer.speed = v[3];
@@ -527,7 +572,11 @@ fn laser_doc(kind: &str, v: &[f64]) -> Result<tlaku_doc::Document, String> {
                 manual_tabs: Vec::new(),
                 array: None,
             };
-            Ok(tlaku_doc::Document { objects: vec![obj], layers: vec![layer], ..tlaku_doc::Document::default() })
+            Ok(tlaku_doc::Document {
+                objects: vec![obj],
+                layers: vec![layer],
+                ..tlaku_doc::Document::default()
+            })
         }
         _ => Err(format!("paso desconocido: {kind}")),
     }

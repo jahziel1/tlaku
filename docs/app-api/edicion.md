@@ -60,6 +60,10 @@ interface TextObject {                // ObjectKind "text"
 | `save_board_file` | `{ path: string, content_base64: string }` | `void`: escribe el tablero de calibración (solo `.svg` o `.pdf`) en la ruta que eligió el usuario |
 | `camera_marks` | `{ bed: [number, number], count: 4 \| 9 }` | `Document`: `count` cruces en posiciones conocidas de la cama (coordenadas absolutas, 85 % del ancho y alto), un objeto por marca, en una sola capa `line` de baja potencia (3000 mm/min, 10 %). La marca 1 (esquina inferior izquierda) lleva además un círculo que la rodea. La interfaz lo abre como documento nuevo |
 | `detect_camera_marks` | `{ image_png_base64: string, bed: [number, number], count: 4 \| 9, prior_to_bed: Mat3 \| null }` | `MarksReport`: busca las marcas en una foto **ya corregida de lente**, las asigna a sus posiciones, ajusta la homografía con RANSAC y mide la precisión con validación cruzada. `prior_to_bed` (imagen a mm) es una alineación provisional, p. ej. la manual; sin ella la orientación la fija el círculo de la marca 1 |
+| `camera_head_align_plan` | `{ options: { bed: [number, number], grid: number, margin_mm: number, region?: [x0, y0, x1, y1] \| null } }` | `HeadAlignPlan { points, reference, area }`: rejilla `grid x grid` (3 a 6) de lado a lado del área segura (la cama menos el margen, recortada a `region`), en serpentina, y la posición de la foto de referencia (en la primera fila, entre sus dos primeros puntos). Ver [camara.md](camara.md#alinear-la-cámara-fija-con-el-cabezal-sin-grabar) |
+| `camera_head_align_refine` | `{ area: [x0, y0, x1, y1], seen: [number, number][], grid: number }` | `HeadAlignPlan \| null`: nueva rejilla alrededor de donde ya se vio el cabezal (la caja de `seen` crece 50 %, o 60 mm si es un punto), recortada a `area`; `null` si no hay nada visto o ya ocupa toda el área |
+| `camera_head_align_solve` | `{ frames: { png_base64: string, machine_mm: [number, number] }[], config: HeadAlignConfig }` | `HeadAlignReport`: localiza el cabezal en las fotos (LED verde o diferencia de imágenes con una mediana por fila), ajusta la homografía píxel → cama, descarta atípicos y devuelve el error por punto, los avisos y la `alignment` lista para guardar. Con menos de 5 puntos devuelve el informe sin ajuste (`fit: null`, `fit_error`) |
+| `camera_head_align_shift` | `{ alignment: CameraAlignment, lens: LensCalibration \| null, ref_px: [number, number], ref_bed: [number, number] }` | `{ alignment, shift_mm }`: mueve la alineación para que `ref_px` (origen en el borde del píxel) caiga en `ref_bed` (el desfase con un único punto de referencia conocido) |
 
 Todos corren fuera del hilo principal y los argumentos van en `snake_case` (`image_png_base64`, `size_mm`...).
 
@@ -92,7 +96,7 @@ interface CameraAlignment {
   to_bed: Mat3;                             // homografía px -> mm a la altura `reference_height_mm`
   rms_mm: number;
   // Campos nuevos (todos con valor por defecto al leer un camera.json anterior):
-  method: "manual" | "marks";
+  method: "manual" | "marks" | "head_sweep";   // head_sweep: posiciones del cabezal con el láser apagado (camara.md)
   reference_height_mm: number;              // altura (mm sobre la cama) del plano de `to_bed`; 0 por defecto
   samples: AlignmentSample[];               // marcas por altura; vacío en la manual
   height: HeightModel | null;               // lo calcula el motor al guardar

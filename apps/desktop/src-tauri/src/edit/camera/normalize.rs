@@ -106,7 +106,10 @@ pub(super) fn normalize_samples(
     }
     let lowest = sorted[0].height_mm;
     a.reference_height_mm = lowest;
-    a.method = AlignmentMethod::Marks;
+    // La alineación con el cabezal usa el mismo ajuste que las marcas y conserva su origen.
+    if a.method != AlignmentMethod::HeadSweep {
+        a.method = AlignmentMethod::Marks;
+    }
     if sorted.len() == 1 {
         let s = &sorted[0];
         let fit = ImageToBed::fit(&points(&s.image_px), &points(&s.bed_mm), None)

@@ -96,7 +96,7 @@ export const useHeadCal = create<HeadCalState>()((set) => ({
 }));
 
 /** Herramienta que atiende los clics sobre la imagen del panel. */
-export type ViewTool = 'align' | 'headMark' | 'center';
+export type ViewTool = 'align' | 'headMark' | 'center' | 'alignRef';
 
 interface ViewToolState {
   tool: ViewTool;

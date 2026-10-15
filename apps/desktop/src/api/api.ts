@@ -45,11 +45,19 @@ import type {
   CircleHint,
   ComposeBedArgs,
   LensModelChoice,
+  CameraAlignment,
+  LensCalibration,
   CameraPreset,
   CameraSetup,
   HeadCamera,
   NetworkFrame,
   MarksReport,
+  HeadAlignConfig,
+  HeadAlignFrame,
+  HeadAlignPlan,
+  HeadAlignPlanOptions,
+  HeadAlignReport,
+  HeadAlignShift,
   DesignObject,
   ImageObject,
   LayerSettings,
@@ -791,6 +799,32 @@ export interface LaserApi {
     count: 4 | 9;
     prior_to_bed: [[number, number, number], [number, number, number], [number, number, number]] | null;
   }): Promise<MarksReport>;
+  /**
+   * Alinear la cámara fija con el cabezal, sin grabar: puntos que debe visitar el cabezal (rejilla
+   * `grid x grid` dentro del área segura, en serpentina) y la posición de la foto de referencia.
+   */
+  cameraHeadAlignPlan(args: { options: HeadAlignPlanOptions }): Promise<HeadAlignPlan>;
+  /**
+   * Nueva rejilla alrededor de donde ya se vio el cabezal (la cámara solo cubre parte de la cama);
+   * `null` si no hay nada que afinar.
+   */
+  cameraHeadAlignRefine(args: { area: [number, number, number, number]; seen: [number, number][]; grid: number }): Promise<HeadAlignPlan | null>;
+  /**
+   * Localiza el cabezal en las fotos (LED verde o diferencia de imágenes, con el pórtico como fondo) y
+   * ajusta la alineación: descarta atípicos, mide el error por punto (mm) y devuelve la alineación
+   * lista para guardar. Con pocos puntos devuelve el informe sin ajuste.
+   */
+  cameraHeadAlignSolve(args: { frames: HeadAlignFrame[]; config: HeadAlignConfig }): Promise<HeadAlignReport>;
+  /**
+   * Mueve una alineación guardada para que el píxel `ref_px` (imagen corregida, origen en el borde del
+   * píxel) caiga en `ref_bed` (mm): el ajuste de desfase con un único punto de referencia conocido.
+   */
+  cameraHeadAlignShift(args: {
+    alignment: CameraAlignment;
+    lens: LensCalibration | null;
+    ref_px: [number, number];
+    ref_bed: [number, number];
+  }): Promise<HeadAlignShift>;
 
   // Cámara (ola 4): imagen de la cama, mosaico del cabezal y buscador de centro
   /**
@@ -1074,6 +1108,10 @@ export const COMMAND_NAMES = {
   fetchCameraFrame: 'fetch_camera_frame',
   cameraMarks: 'camera_marks',
   detectCameraMarks: 'detect_camera_marks',
+  cameraHeadAlignPlan: 'camera_head_align_plan',
+  cameraHeadAlignRefine: 'camera_head_align_refine',
+  cameraHeadAlignSolve: 'camera_head_align_solve',
+  cameraHeadAlignShift: 'camera_head_align_shift',
   composeBedImage: 'compose_bed_image',
   detectCircle: 'detect_circle_in_image',
   loadMaterialLibrary: 'load_material_library',

@@ -514,3 +514,26 @@ $$:
 Registro de la consola:
 Adjuntos:          (.tlaku, G-code, .tlakubundle, capturas, fotos con regla)
 ```
+
+### Alinear la cámara fija con el cabezal (`hwtest headalign`)
+
+Con el láser **apagado** y la cama despejada (tapa cerrada), la máquina conectada y con homing: el mismo flujo que el asistente de la
+app (rejilla de puntos, foto en cada uno, ajuste y rejillas más finas donde la cámara ve el cabezal), pero con la máquina y la cámara
+reales y guardando todo en una carpeta para revisarlo después. El único movimiento es `jog_to` (apaga el láser antes de mover).
+
+```sh
+export TLAKU_HW_ALIGN_DIR=$HOME/alinear-cabezal     # fotos y resultado
+export TLAKU_HW_SNAP=/ruta/al/programa-de-foto      # el mismo del paso snap: (o TLAKU_HW_CAMERA_URL=http://… para una cámara de red)
+export TLAKU_HW_CAMERA="Creality Falcon Camera"
+cargo run -p tlaku-desktop --example hwtest -- <puerto> connect home headalign:3,6000
+```
+
+`headalign:<lado>[,<velocidad mm/min>]` (por defecto `3,6000`). Variables opcionales: `TLAKU_HW_ALIGN_MARGIN` (mm de margen, 20),
+`TLAKU_HW_ALIGN_REGION=x0,y0,x1,y1` (zona de la cama que ve la cámara), `TLAKU_HW_SETTLE_MS` (espera tras cada movimiento, 1200),
+`TLAKU_HW_CAMERA_HEIGHT` y `TLAKU_HW_FEATURE_HEIGHT` (mm sobre el material, corrigen el paralaje), `TLAKU_HW_ALIGN_OFFSET=dx,dy` y
+`TLAKU_HW_ALIGN_SAVE=1` (guarda la alineación en la configuración de cámara de la app; sin ella solo escribe la carpeta). Si hay
+calibración de lente guardada, las fotos se corrigen con ella antes de detectar.
+
+Deja en la carpeta `foto_NN_x…_y….jpg` (una por posición), `resultado.json` (informe completo con el error por punto), `alineacion.json`
+y `resumen.txt`. Se asume que las coordenadas de trabajo de `jog_to` son las del documento (origen abajo a la izquierda, como en el homing de
+la Falcon2). El paso se detiene si la máquina entra en alarma o el cabezal no llega en 120 s.

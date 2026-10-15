@@ -714,8 +714,11 @@ type Quad = [Point, Point, Point, Point];
 
 type Mat3 = [[number, number, number], [number, number, number], [number, number, number]];
 
-/** Cómo se obtuvo la alineación: 4 puntos a mano o marcas grabadas detectadas en la foto. */
-export type AlignmentMethod = 'manual' | 'marks';
+/**
+ * Cómo se obtuvo la alineación: 4 puntos a mano, marcas grabadas detectadas en la foto o las
+ * posiciones del cabezal con el láser apagado (`head_sweep`, cámara fija, sin grabar).
+ */
+export type AlignmentMethod = 'manual' | 'marks' | 'head_sweep';
 
 /** Marcas medidas a una altura del material (base de la alineación con marcas). */
 export interface AlignmentSample {
@@ -842,6 +845,152 @@ export interface MarksReport {
   /** Se usó la alineación provisional para asignar. */
   used_prior: boolean;
   warnings: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Alinear la cámara fija con el cabezal, sin grabar (`camera_head_align_*`)
+// ---------------------------------------------------------------------------
+
+/** Cómo se localiza el cabezal: su LED verde, diferencia de imágenes, o el LED si se ve en alguna foto. */
+export type HeadMethod = 'auto' | 'led' | 'diff';
+
+/** Qué punto de la silueta se sigue con el método por diferencia. */
+export type HeadFeature = 'centroid' | 'bottom_tip';
+
+/** Por qué no se encontró el cabezal en una foto. */
+export type HeadDetectFailure = 'no_change' | 'too_small' | 'too_large' | 'touches_border' | 'ambiguous' | 'no_background';
+
+/** Opciones del detector; todas opcionales (el motor trae valores por defecto). */
+export interface HeadDetectOptions {
+  method?: HeadMethod;
+  feature?: HeadFeature;
+  min_contrast?: number;
+  relative_threshold?: number;
+  min_area_frac?: number;
+  max_area_frac?: number;
+  border_px?: number;
+  blur_sigma?: number;
+  led_min_score?: number;
+  led_max_area_frac?: number;
+}
+
+export interface HeadAlignPlanOptions {
+  bed: [number, number];
+  /** Puntos por lado de la rejilla (3 a 6). */
+  grid: number;
+  /** Margen libre a cada lado de la cama (mm). */
+  margin_mm: number;
+  /** Zona de la cama que ve la cámara `[x0, y0, x1, y1]`; `null` = toda. */
+  region?: [number, number, number, number] | null;
+}
+
+/** Puntos que visita el cabezal (mm de documento) y la posición de la foto de referencia. */
+export interface HeadAlignPlan {
+  points: [number, number][];
+  reference: [number, number];
+  /** Área segura usada `[x0, y0, x1, y1]`. */
+  area: [number, number, number, number];
+}
+
+/** Una foto con el cabezal en una posición conocida. */
+export interface HeadAlignFrame {
+  png_base64: string;
+  machine_mm: [number, number];
+}
+
+/** Alturas (mm sobre el material) para corregir el paralaje del punto del cabezal. */
+export interface HeadAlignParallax {
+  camera_height_mm: number;
+  feature_height_mm: number;
+}
+
+export interface HeadAlignConfig {
+  bed: [number, number];
+  safe_area?: [number, number, number, number] | null;
+  detect?: HeadDetectOptions;
+  /** Calibración con que ya se corrigieron las fotos; `null` = fotos crudas. */
+  lens?: LensCalibration | null;
+  /** Sin calibración, estimar una distorsión aproximada si mejora el ajuste. */
+  estimate_lens?: boolean;
+  parallax?: HeadAlignParallax | null;
+  /** Desfase fijo (mm) entre el punto detectado y el punto del láser. */
+  offset_mm?: [number, number];
+}
+
+export type HeadAlignQuality = 'good' | 'fair' | 'poor';
+
+export type HeadAlignIssue =
+  | { kind: 'not_detected'; count: number }
+  | { kind: 'dropped'; count: number }
+  | { kind: 'few_points'; used: number }
+  | { kind: 'partial_coverage'; covered_mm: [number, number, number, number]; area_mm: [number, number, number, number] }
+  | { kind: 'high_error'; loo_rms_mm: number }
+  | { kind: 'lens_estimated'; model: 'brown_conrady' | 'fisheye'; rms_before_mm: number; rms_after_mm: number };
+
+export interface HeadAlignPoint {
+  machine_mm: [number, number];
+  /** Píxel en la imagen corregida con el origen en el borde del píxel. */
+  image_px: [number, number];
+  bed_mm: [number, number];
+  /** Validación cruzada si se usó; error del ajuste final si se descartó. */
+  error_mm: number;
+  residual_mm: number;
+  used: boolean;
+}
+
+export interface HeadAlignFit {
+  to_bed: Mat3;
+  lens: LensCalibration | null;
+  points: HeadAlignPoint[];
+  rms_mm: number;
+  max_mm: number;
+  loo_rms_mm: number;
+  loo_max_mm: number;
+  used: number;
+  dropped: number;
+  /** Caja `[x0, y0, x1, y1]` (mm) de los puntos usados. */
+  covered_mm: [number, number, number, number];
+  quality: HeadAlignQuality;
+  offset_mm: [number, number];
+  parallax_scale: number;
+  nadir_mm: [number, number];
+  issues: HeadAlignIssue[];
+}
+
+/** Qué pasó con una foto del recorrido. */
+export interface HeadFrameReport {
+  machine_mm: [number, number];
+  /** Punto del cabezal en la imagen (origen en el borde del píxel). */
+  px: [number, number] | null;
+  failure: HeadDetectFailure | null;
+  confidence: number;
+  error_mm: number | null;
+  used: boolean;
+}
+
+export interface HeadAlignReport {
+  /** Método con que se localizó el cabezal (`led` o `diff`). */
+  method: HeadMethod;
+  image_size: [number, number];
+  frames: HeadFrameReport[];
+  /** Posiciones de la máquina donde se vio el cabezal. */
+  seen_mm: [number, number][];
+  detected: number;
+  failed: number;
+  /** `null` si hubo muy pocos puntos (ver `fit_error`). */
+  fit: HeadAlignFit | null;
+  fit_error: string | null;
+  /** Alineación lista para guardar (método `head_sweep`). */
+  alignment: CameraAlignment | null;
+  /** Lente aproximada estimada: la alineación vale sobre la imagen corregida con ella. */
+  lens: LensCalibration | null;
+  covered_mm: [number, number, number, number] | null;
+  issues: HeadAlignIssue[];
+}
+
+export interface HeadAlignShift {
+  alignment: CameraAlignment;
+  shift_mm: [number, number];
 }
 
 /** Configuración de cámara con nombre: la fuente y los ajustes del fondo. */
