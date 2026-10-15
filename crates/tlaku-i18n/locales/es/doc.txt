@@ -62,3 +62,8 @@ doc.lbdev.invalid_json = El archivo .lbdev no es un JSON válido: {error}
 doc.lbdev.no_device_list = El archivo no parece un perfil de LightBurn (.lbdev): no tiene la lista "DeviceList" ni un dispositivo.
 doc.lbdev.empty = El archivo .lbdev no contiene ningún dispositivo.
 doc.lbdev.nothing_importable = Ningún dispositivo del archivo se puede importar: {names}. Tlaku no crea perfiles para controladores que no soporta.
+
+# tonal.rs
+doc.tonal.bad_curve = La curva de tono no es válida (dosis característica {dose}, gamma {gamma}): la dosis debe ser mayor que 0 y gamma estar entre 0,2 y 4.
+doc.tonal.no_material = La curva de tono no dice a qué material pertenece.
+doc.tonal.bad_sample = Las observaciones de tono de «{material}» no son válidas: la dosis debe ser un número no negativo y el tono, entre 0 y 1.

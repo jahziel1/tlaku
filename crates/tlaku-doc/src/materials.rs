@@ -1,6 +1,7 @@
 //! Biblioteca de materiales y prueba de materiales.
 
 use crate::layer::{LayerMode, LayerSettings};
+use crate::tonal::ToneCalibration;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -246,6 +247,11 @@ pub struct MaterialLibrary {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(optional, as = "Option<Vec<MaterialRestriction>>")]
     pub restrictions: Vec<MaterialRestriction>,
+    /// Curvas de tono calibradas por el usuario con la prueba de materiales (vista previa «por
+    /// tonos», ver [`crate::tonal`]). Solo las lleva la biblioteca del usuario.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<ToneCalibration>>")]
+    pub tones: Vec<ToneCalibration>,
 }
 
 fn is_zero(v: &u32) -> bool {
@@ -259,6 +265,7 @@ impl Default for MaterialLibrary {
             presets: Vec::new(),
             revision: 0,
             restrictions: Vec::new(),
+            tones: Vec::new(),
         }
     }
 }

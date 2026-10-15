@@ -467,3 +467,8 @@ pipeline.split.rotary_too_tall = el diseño mide {h} mm de alto y la pieza {side
 pipeline.split.whole_images = el trabajo lleva imágenes y no se pueden asignar a una pieza entera: se parte en franjas del tamaño del campo (las formas que cruzan el borde se marcan en dos partes)
 pipeline.split.whole_transform = el trabajo tiene una transformación de registro (Print & Cut) y no se puede partir por formas: se parte en franjas del tamaño del campo
 pipeline.split.whole_too_big = la forma «{id}» mide {w} x {h} mm y la pieza {side} mm: no cabe entera en el campo, se parte en franjas del tamaño del campo (las formas que cruzan el borde se marcan en dos partes)
+
+# tonal.rs
+pipeline.tonal.bad_spot = el ancho del punto del láser no es válido: {spot} mm
+pipeline.tonal.nothing = No hay nada que grabar: el trabajo no tiene movimientos con láser encendido.
+pipeline.tonal.outside = La zona pedida para la vista por tonos queda fuera del material.

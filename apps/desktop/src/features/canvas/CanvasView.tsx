@@ -7,6 +7,8 @@ import { useArrangeUi } from '@/features/arrange';
 import { ContextMenuHost } from '@/features/contextmenu';
 import { canvasDisplayObjects, onCanvasDisplayChange } from '@/features/variables/canvasDisplay';
 import { useVariablesUi } from '@/features/variables/context';
+import { onTonalChange } from '@/features/tonal/layers';
+import { useTonal } from '@/features/tonal/store';
 import { selectSceneTiles } from '@/features/tiling/overlay';
 import { useTilingUi } from '@/features/tiling/store';
 import { selectActiveDevice, usePref, useStore, type AppState } from '@/store';
@@ -194,6 +196,11 @@ export function CanvasView() {
       if (ui.csv !== prev.csv || ui.extra !== prev.extra || ui.showTemplate !== prev.showTemplate || ui.clock !== prev.clock) schedule();
     });
     const unsubDisplay = onCanvasDisplayChange(schedule);
+    // La vista previa «por tonos»: llegan imágenes nuevas o se cambia de modo.
+    const unsubTonal = onTonalChange(schedule);
+    const unsubTonalMode = useTonal.subscribe((s, prev) => {
+      if (s.mode !== prev.mode) schedule();
+    });
     // La forma principal de una booleana se resalta mientras el diálogo está abierto.
     // Los tramos del asistente de tiling.
     const unsubTiling = useTilingUi.subscribe(schedule);
@@ -206,6 +213,8 @@ export function CanvasView() {
       unsubInteraction();
       unsubVariables();
       unsubDisplay();
+      unsubTonal();
+      unsubTonalMode();
       unsubArrange();
       unsubTiling();
       if (frame) cancelAnimationFrame(frame);

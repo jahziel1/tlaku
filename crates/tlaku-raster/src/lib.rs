@@ -21,6 +21,7 @@ pub mod resample;
 pub mod scan;
 pub mod screen;
 pub mod sketch;
+pub mod tonal;
 pub mod warp;
 
 pub use adjust::ImageAdjust;
@@ -31,6 +32,7 @@ pub use mask::apply_mask;
 pub use preview::{Preview, PreviewView, preview};
 pub use resample::Sampling;
 pub use scan::{RasterSettings, raster_to_block};
+pub use tonal::{DoseMap, rgba_to_png};
 
 /// Opciones del procesado de una imagen.
 #[derive(Debug, Clone, Copy, PartialEq)]

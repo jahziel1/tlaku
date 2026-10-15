@@ -203,7 +203,10 @@ export function mergeLibraries(current: MaterialLibrary, incoming: MaterialLibra
       renamed++;
     }
   }
-  return { library: { version: LIBRARY_VERSION, presets }, added, renamed, skipped };
+  // Las curvas de tono se unen por material: la que ya está gana (es la calibración de este equipo).
+  const have = new Set((current.tones ?? []).map((c) => c.material));
+  const tones = [...(current.tones ?? []), ...(incoming.tones ?? []).filter((c) => !have.has(c.material))];
+  return { library: { version: LIBRARY_VERSION, presets, ...(tones.length > 0 ? { tones } : {}) }, added, renamed, skipped };
 }
 
 // ---------------------------------------------------------------------------

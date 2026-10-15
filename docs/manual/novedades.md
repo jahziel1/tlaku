@@ -14,6 +14,11 @@ Lo más importante que trae cada versión de Tlaku, escrito para quien usa la ap
 - **Restaurar con vista previa**: por categoría ves qué es nuevo, distinto o igual, eliges qué importar y qué hacer con lo que choca (reemplazar, conservar ambos u omitir). Antes de aplicar se guarda un respaldo del estado actual.
 - **De una computadora a otra**: al abrir, si en la carpeta hay un respaldo más nuevo hecho en otra, te lo ofrece; nunca lo aplica solo. Nunca se respaldan contraseñas, llaves ni el acceso remoto. Mira [Respaldo de ajustes en una carpeta](02b-preferencias-y-atajos.md#respaldo-de-ajustes-en-una-carpeta).
 
+## Vista previa «por tonos», en la próxima versión
+
+- **Normal / Por tonos** en la barra de la vista previa: simula **cuánto se oscurece el material** según la potencia, la velocidad, el intervalo y las pasadas, con curvas por material (madera clara, MDF, contrachapado, cuero, acrílico esmerilado, cartón, papel, aluminio anodizado y personalizado), M3 contra M4 y las **fotos con sus puntos reales** (acerca el zoom y se ven). Es una **simulación aproximada**, sin texturas, y funciona con trabajos grandes.
+- **Calibrar…** con tu prueba de materiales: indicas a qué tono se parece cada celda y la curva de ese material se ajusta y se guarda en tu biblioteca de materiales. Mira [Vista previa](07-vista-previa.md#vista-por-tonos) y [Materiales](11-materiales.md#calibrar-el-tono-con-la-prueba).
+
 ## Nesting con varias hojas, retazos y veta, en la próxima versión
 
 - **Varias hojas**: si las piezas no caben en una, el acomodo sigue en hojas nuevas del mismo tamaño (hasta 50), con el aprovechamiento de cada una. Cada hoja queda como una zona aparte del lienzo con su contorno de referencia en la capa de guías.

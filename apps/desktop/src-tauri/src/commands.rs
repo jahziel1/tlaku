@@ -54,7 +54,7 @@ impl AppState {
     }
 
     /// Posición de trabajo de la cabeza, si hay máquina conectada con estado conocido.
-    fn head(&self) -> Head {
+    pub(crate) fn head(&self) -> Head {
         self.machine().ok().and_then(|m| m.work_pos())
     }
 

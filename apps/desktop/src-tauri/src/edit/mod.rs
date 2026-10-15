@@ -16,6 +16,7 @@ pub mod remnants;
 pub mod review;
 pub mod shape_ops;
 pub mod text;
+pub mod tonal;
 pub mod trace;
 pub mod variables;
 

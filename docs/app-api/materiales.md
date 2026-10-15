@@ -29,6 +29,14 @@ La biblioteca vive en `materials.json` dentro de la carpeta de configuración de
 atómica; un archivo dañado se aparta como `materials.json.dañado`, uno de versión desconocida da
 error sin tocarlo). Los archivos `.tlakumat` son el mismo JSON de `MaterialLibrary`.
 
+Curvas de tono (vista previa «por tonos», mejora 8): `MaterialLibrary.tones` (opcional, solo en la
+biblioteca del usuario) es una lista de `ToneCalibration { material, curve: ToneCurve, samples }`, una
+por material de la vista por tonos (`light_wood`, `mdf`, `plywood`, `leather`, `acrylic`, `cardboard`,
+`paper`, `anodized`, `custom`; los valores de partida están en `crates/tlaku-doc/data/tone-presets.json`).
+`save_material_library` y las importaciones validan cada curva (`ToneCalibration::validate`: dosis
+característica > 0, gamma entre 0,2 y 4, muestras finitas). Ver `tonal_preview` en
+[conexion-y-trabajo.md](conexion-y-trabajo.md).
+
 ## Catálogo de ajustes de la comunidad (mejora 5)
 
 Sin servidor propio: el sitio estático del proyecto (GitHub Pages) publica `catalog/v1/index.json`, que el

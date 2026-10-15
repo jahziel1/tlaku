@@ -4,6 +4,8 @@ import { useCommand } from '@/commands/useCommand';
 import { SelectionOptions } from '@/features/machine/SelectionOptions';
 import { t } from '@/i18n';
 import { useStore } from '@/store';
+import { TonalControls } from '@/features/tonal/TonalControls';
+import { useTonal } from '@/features/tonal/store';
 import { cleanErrorMessage, previewErrorHint } from './errors';
 import { getModel } from './model';
 import { LayerList, Notes, Stats } from './Results';
@@ -80,6 +82,7 @@ export function PreviewBar() {
   const toggle = useCommand('view.preview');
   const optimization = useCommand('preview.optimization');
   const costs = useCommand('costs.open');
+  const tonal = useTonal((s) => s.mode === 'tonal');
 
   const model = useMemo(() => (preview ? getModel(preview) : null), [preview?.moves]); // eslint-disable-line react-hooks/exhaustive-deps
   const layerNames = useMemo(() => preview?.layers.map((l) => l.summary) ?? [], [preview?.layers]);
@@ -101,11 +104,12 @@ export function PreviewBar() {
         </button>
       </div>
       <SelectionOptions compact />
+      <TonalControls />
       {status === 'error' && <ErrorBlock message={error ?? ''} code={errorCodeValue} />}
       {preview && model && (
         <>
-          {model.count > 0 && <Transport model={model} layerNames={layerNames} />}
-          <Legend />
+          {model.count > 0 && !tonal && <Transport model={model} layerNames={layerNames} />}
+          {!tonal && <Legend />}
           <div className="pv__body">
             <Stats model={model} totalS={preview.total_s} />
             <LayerList layers={preview.layers} model={model} totalS={preview.total_s} />

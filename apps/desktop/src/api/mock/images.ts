@@ -10,6 +10,24 @@ const BLANK_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQV
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 /**
+ * ¿El punto (x, y) de la rejilla tramada está encendido? `u`, `v` (0..1) son su posición en la imagen
+ * (u hacia la derecha, v hacia abajo desde el borde de arriba). Retrato abstracto con degradado, con el brillo, el contraste,
+ * el gamma y la inversión de la capa; no es el algoritmo del motor.
+ */
+export function simulatedDot(layer: LayerSettings, u: number, v: number, x: number, y: number): boolean {
+  const { brightness, contrast, gamma, invert } = layer.image;
+  // Fondo en degradado, un óvalo claro (cara) y una franja oscura (cabello).
+  let g = 0.25 + 0.55 * u * (1 - 0.4 * v);
+  const e = ((u - 0.5) / 0.28) ** 2 + ((v - 0.55) / 0.38) ** 2;
+  if (e < 1) g = 0.62 + 0.3 * (1 - e) - 0.18 * Math.abs(u - 0.5);
+  if (v < 0.22 && e >= 1 && Math.abs(u - 0.5) < 0.34) g = 0.12;
+  g = (g - 0.5) * (1 + contrast) + 0.5 + brightness * 0.5;
+  g = Math.min(1, Math.max(0, g)) ** (1 / (gamma > 0 ? gamma : 1));
+  if (invert) g = 1 - g;
+  return g * 16 > BAYER4[(((y % 4) + 4) % 4) * 4 + (((x % 4) + 4) % 4)]!;
+}
+
+/**
  * Cuadro tramado de ejemplo (un retrato abstracto con degradado) de `width` x `height` puntos, con el
  * brillo, el contraste, el gamma y la inversión de la capa. Solo vive en el navegador: sin canvas
  * (pruebas) devuelve el cuadro blanco. No es el algoritmo del motor, solo una imagen creíble.
@@ -22,21 +40,12 @@ function simulatedDither(layer: LayerSettings, width: number, height: number, co
   const ctx = canvas.getContext('2d');
   if (!ctx) return BLANK_PNG_BASE64;
   const img = ctx.createImageData(width, height);
-  const { brightness, contrast, gamma, invert } = layer.image;
   const [x0, y0, x1, y1] = cover;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const u = (x0 + ((x + 0.5) / width) * (x1 - x0)) / size[0];
       const v = (y0 + ((y + 0.5) / height) * (y1 - y0)) / size[1];
-      // Fondo en degradado, un óvalo claro (cara) y una franja oscura (cabello).
-      let g = 0.25 + 0.55 * u * (1 - 0.4 * v);
-      const e = ((u - 0.5) / 0.28) ** 2 + ((v - 0.55) / 0.38) ** 2;
-      if (e < 1) g = 0.62 + 0.3 * (1 - e) - 0.18 * Math.abs(u - 0.5);
-      if (v < 0.22 && e >= 1 && Math.abs(u - 0.5) < 0.34) g = 0.12;
-      g = (g - 0.5) * (1 + contrast) + 0.5 + brightness * 0.5;
-      g = Math.min(1, Math.max(0, g)) ** (1 / (gamma > 0 ? gamma : 1));
-      if (invert) g = 1 - g;
-      const on = g * 16 > BAYER4[(y % 4) * 4 + (x % 4)]!;
+      const on = simulatedDot(layer, u, v, x, y);
       const o = (y * width + x) * 4;
       img.data[o] = img.data[o + 1] = img.data[o + 2] = on ? 255 : 0;
       img.data[o + 3] = 255;

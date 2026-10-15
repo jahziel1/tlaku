@@ -79,6 +79,7 @@ import type {
 import type { AddArtResult, UserArt } from '@/features/art/types';
 import type { BitmapOptions, BitmapResult, ProcessedSummary } from '@/features/trace/types';
 import type { ImagePreview, ImagePreviewArgs } from '@/features/images/types';
+import type { TonalPreview, TonalRequest } from '@/features/tonal/types';
 import type { FitChoice, FitResult, MarkPair } from '@/features/printcut/types';
 import type { PlanArgs, PlanResult } from '@/features/tiling/types';
 import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
@@ -721,6 +722,8 @@ export interface LaserApi {
   saveProcessedImage(args: { image: ImageObject; layer: LayerSettings; path: string }): Promise<ProcessedSummary>;
   /** Vista previa de lo que se grabaría de una imagen con los ajustes de su capa, sin calcular el trabajo (C51). */
   previewImage(args: ImagePreviewArgs): Promise<ImagePreview>;
+  /** Vista previa «por tonos» (mejora 8): imagen aproximada de cuánto se oscurece el material con el trabajo; la calcula el motor. */
+  tonalPreview(args: JobArgs & { request: TonalRequest }): Promise<TonalPreview>;
   /** Print & Cut (M37): transformación del diseño a la cama a partir de las marcas medidas; el cálculo es del motor. */
   fitRegistration(args: { pairs: MarkPair[]; mode: FitChoice }): Promise<FitResult>;
   /** Tiling (M39): reparte la caja del diseño en tramos con solape y da las cruces de alineación; el cálculo es del motor. */
@@ -1050,6 +1053,7 @@ export const COMMAND_NAMES = {
   vectorsToBitmap: 'vectors_to_bitmap',
   saveProcessedImage: 'save_processed_image',
   previewImage: 'preview_image',
+  tonalPreview: 'tonal_preview',
   fitRegistration: 'fit_registration',
   planTiles: 'plan_tiles',
   artImportSvg: 'art_import_svg',

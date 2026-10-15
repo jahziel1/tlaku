@@ -115,6 +115,7 @@ export function createTauriApi(): LaserApi {
     vectorsToBitmap: (a) => call('vectorsToBitmap', a),
     saveProcessedImage: (a) => call('saveProcessedImage', a),
     previewImage: (a) => call('previewImage', a),
+    tonalPreview: (a) => call('tonalPreview', a),
     fitRegistration: (a) => call('fitRegistration', a),
     planTiles: (a) => call('planTiles', a),
     artImportSvg: (a) => call('artImportSvg', a),

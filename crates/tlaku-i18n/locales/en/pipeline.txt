@@ -467,3 +467,8 @@ pipeline.split.rotary_too_tall = the design is {h} mm tall and the piece {side} 
 pipeline.split.whole_images = the job has images and they cannot be assigned to a whole piece: it is split into field-sized strips (shapes crossing the edge are marked in two parts)
 pipeline.split.whole_transform = the job has a registration transform (Print & Cut) and cannot be split by shapes: it is split into field-sized strips
 pipeline.split.whole_too_big = the shape "{id}" is {w} x {h} mm and the piece {side} mm: it does not fit whole in the field, it is split into field-sized strips (shapes crossing the edge are marked in two parts)
+
+# tonal.rs
+pipeline.tonal.bad_spot = the laser spot width is not valid: {spot} mm
+pipeline.tonal.nothing = There is nothing to burn: the job has no moves with the laser on.
+pipeline.tonal.outside = The requested area of the tonal preview is outside the material.

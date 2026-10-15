@@ -40,6 +40,7 @@ mod start;
 mod stroke;
 mod tabs;
 mod tile;
+mod tonal;
 mod zaxis;
 
 pub use build::{build, compute, compute_at};
@@ -75,6 +76,9 @@ pub use split_shapes::{ShapeScan, ShapeUnit, doc_mark_sequence, scan_shapes};
 pub use tile::{
     MARK_ID_PREFIX, MAX_TILES, PlannedTile, TileError, TileOrder, TilePlan, add_alignment_marks,
     plan_grid, plan_tiles, shift_tiles, tile_marks,
+};
+pub use tonal::{
+    MAX_BOOST, MAX_SIDE_PX, MIN_PX_MM, SHEET_MARGIN_MM, TonalImage, TonalOptions, render_tonal,
 };
 
 /// Los tipos del documento, para quien solo depende de este crate.

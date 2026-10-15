@@ -154,6 +154,7 @@ pub(crate) fn parse_with_community(text: &str, community: &str) -> Result<Materi
         presets,
         revision: data.revision,
         restrictions: data.restrictions.clone(),
+        tones: Vec::new(),
     };
     check_factory(&library)?;
     library
