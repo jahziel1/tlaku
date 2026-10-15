@@ -2,7 +2,7 @@
 //!
 //! Rust solo guarda y devuelve el texto, con límites claros: la interfaz decide qué líneas son
 //! ajustes y las valida una por una antes de escribir nada en la máquina. Un respaldo es texto
-//! plano (`.tlakuset`, `.tlakuruida` o `.txt`) de pocos KiB; lo que pase de [`MAX_BYTES`] no lo es.
+//! plano (`.tlakuset`, `.tlakuruida`, `.txt` o `.csv`, este último del desglose de costos) de pocos KiB; lo que pase de [`MAX_BYTES`] no lo es.
 
 use crate::engine::write_atomic;
 use std::fs;
@@ -15,13 +15,13 @@ pub const MAX_BYTES: usize = 256 * 1024;
 
 fn has_valid_extension(path: &Path) -> bool {
     path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
-        ["tlakuset", "tlakuruida", "txt"]
+        ["tlakuset", "tlakuruida", "txt", "csv"]
             .iter()
             .any(|ok| e.eq_ignore_ascii_case(ok))
     })
 }
 
-/// Guarda `text` de forma atómica. Exige la extensión `.tlakuset` o `.txt` y un tamaño razonable.
+/// Guarda `text` de forma atómica. Exige la extensión `.tlakuset`, `.tlakuruida`, `.txt` o `.csv` y un tamaño razonable.
 pub fn write_backup(path: &Path, text: &str) -> Result<(), String> {
     if !has_valid_extension(path) {
         return Err(tr!(
@@ -178,9 +178,15 @@ mod tests {
     const SAMPLE: &str = "; Tlaku: respaldo de ajustes GRBL\n$0=10\n$30=1000\n";
 
     #[test]
-    fn ida_y_vuelta_con_ambas_extensiones() {
+    fn ida_y_vuelta_con_las_extensiones_validas() {
         let dir = TempDir::new();
-        for name in ["a.tlakuset", "b.txt", "c.TLAKUSET"] {
+        for name in [
+            "a.tlakuset",
+            "b.txt",
+            "c.TLAKUSET",
+            "d.tlakuruida",
+            "costos.csv",
+        ] {
             let path = dir.file(name);
             write_backup(&path, SAMPLE).unwrap();
             assert_eq!(read_backup(&path).unwrap(), SAMPLE);

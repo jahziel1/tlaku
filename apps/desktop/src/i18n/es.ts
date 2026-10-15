@@ -4,6 +4,7 @@
  * y una sección por panel. Los marcadores `{nombre}` se reemplazan con los parámetros de `t()`.
  */
 import { arrange } from './es/arrange';
+import { costs } from './es/costs';
 import { design } from './es/design';
 import { art } from './es/art';
 import { camera } from './es/camera';
@@ -309,4 +310,5 @@ export const es = {
   ...art,
   ...simple,
   ...a11y,
+  ...costs,
 };

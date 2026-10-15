@@ -205,7 +205,7 @@ y una caja pequeña; ese es el único modo de validar los números de holgura.
 
 ## 3. Calculadora de costos / precio por pieza
 
-**(a) Estado: No existe.** Búsqueda en `apps/desktop/src` y `i18n/es`: no hay costos, precios ni tarifas. Sí hay
+**(a) Estado: implementada (Ola A)** en `apps/desktop/src/features/costs/` (diálogo «Costos y precio», manual `07c-costos-y-precio.md`); lo que sigue es el análisis previo. Faltan la cotización imprimible y comparar el factor de calibración con trabajos reales de la Falcon2. Antes: no existía; búsqueda en `apps/desktop/src` y `i18n/es`: no había costos, precios ni tarifas. Sí hay
 los insumos: tiempo estimado total y por capa (`JobPreview.total_s`, `PreviewLayer.seconds`), tiempo con láser
 encendido (se obtiene de `moves` y `move_times`: kind=1 con potencia mayor que 0), área de las piezas y la
 cama, grosor y receta del material (biblioteca `.tlakumat`), cantidad de copias (arreglos, tiling, texto

@@ -7,7 +7,7 @@ const MAX_BYTES = 256 * 1024;
 
 /**
  * Respaldos de ajustes GRBL en memoria (modo mock). Lo guardado se recuerda por ruta para poder
- * leerlo de vuelta; una ruta sin la extensión `.tlakuset` o `.txt` se rechaza, como en el motor.
+ * leerlo de vuelta; una ruta sin la extensión `.tlakuset`, `.tlakuruida`, `.txt` o `.csv` se rechaza, como en el motor.
  */
 export function mockSettingsBackup(lag: Lag): Pick<LaserApi, 'writeSettingsBackup' | 'readSettingsBackup' | 'grblSettingsAutobackup'> {
   const files = new Map<string, string>();
@@ -22,7 +22,7 @@ export function mockSettingsBackup(lag: Lag): Pick<LaserApi, 'writeSettingsBacku
       }),
     writeSettingsBackup: ({ path, text }) =>
       lag(() => {
-        if (!/\.(tlakuset|tlakuruida|txt)$/i.test(path)) throw new Error(`${path}: el respaldo debe guardarse con la extensión .tlakuset, .tlakuruida o .txt.`);
+        if (!/\.(tlakuset|tlakuruida|txt|csv)$/i.test(path)) throw new Error(`${path}: el respaldo debe guardarse con la extensión .tlakuset, .tlakuruida, .txt o .csv.`);
         if (text.length > MAX_BYTES) throw new Error('El respaldo es demasiado grande.');
         files.set(path, text);
       }),

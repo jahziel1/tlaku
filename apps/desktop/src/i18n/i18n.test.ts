@@ -34,6 +34,7 @@ import { tiling } from './es/tiling';
 import { materials } from './es/materials';
 import { simple } from './es/simple';
 import { a11y } from './es/a11y';
+import { costs } from './es/costs';
 import { arrange as en_arrange } from './en/arrange';
 import { design as en_design } from './en/design';
 import { art as en_art } from './en/art';
@@ -68,10 +69,11 @@ import { tiling as en_tiling } from './en/tiling';
 import { base as en_base } from './en/base';
 import { simple as en_simple } from './en/simple';
 import { a11y as en_a11y } from './en/a11y';
+import { costs as en_costs } from './en/costs';
 
 describe('diccionarios por área', () => {
   it('cada clave lleva el prefijo de su área, así ningún archivo pisa a otro', () => {
-    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple, a11y };
+    const areas = { review, tiling, art, canvas, help, history, layers, machine, mset, preview, arrange, design, text, nodes, trace, nest, printcut, ruida, lhymicro, galvo, shapes, camera, materials, devices, catalog, prefs, remote, bundle, codes, fileio, variables, simple, a11y, costs };
     for (const [area, dict] of Object.entries(areas)) {
       for (const key of Object.keys(dict)) expect(key.startsWith(`${area}.`), key).toBe(true);
     }
@@ -115,6 +117,7 @@ const AREAS: Record<string, { es: Dict; en: Dict }> = {
   variables: { es: variables, en: en_variables },
   simple: { es: simple, en: en_simple },
   a11y: { es: a11y, en: en_a11y },
+  costs: { es: costs, en: en_costs },
 };
 
 /**

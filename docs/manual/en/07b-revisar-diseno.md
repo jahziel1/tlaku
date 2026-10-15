@@ -72,4 +72,4 @@ In the **Review** step of [simple mode](01b-modo-sencillo.md), the same findings
 - It does not change the thresholds from the interface.
 - It looks at the design as it is **now**: it does not remember what you saw before, except what you ignored in this session.
 
-Next: [Connecting your machine](08-conectar-maquina.md)
+Next: [Cost and price per piece](07c-costos-y-precio.md)

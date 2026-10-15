@@ -10,7 +10,7 @@ La vista previa te muestra el recorrido exacto que hará el láser antes de envi
 - Aparece un panel bajo el lienzo, **Vista previa del trabajo**, y el recorrido se dibuja encima del diseño.
 - Se recalcula sola cuando cambias objetos, capas, la máquina activa o las opciones del trabajo (con una pequeña espera; mientras tanto ves **Actualizando…**).
 - Si no hay nada que mostrar verás "Importa un diseño para ver el recorrido".
-- En la barra del panel están el botón **Ajustes de optimización…** (ver más abajo) y las casillas **Solo la selección** y **Usar el origen de la selección** (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Con **Solo la selección** encendida, la vista previa muestra únicamente lo que tengas seleccionado y se recalcula al cambiar la selección.
+- En la barra del panel están el botón **Costos y precio…** (cuánto cuesta la pieza y a cuánto venderla: [Costos y precio por pieza](07c-costos-y-precio.md)), el botón **Ajustes de optimización…** (ver más abajo) y las casillas **Solo la selección** y **Usar el origen de la selección** (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md)). Con **Solo la selección** encendida, la vista previa muestra únicamente lo que tengas seleccionado y se recalcula al cambiar la selección.
 
 > **Consejo:** si el cálculo falla, el panel dice **No se pudo calcular la vista previa** y el motivo. Dos casos que la app reconoce y para los que da una pista: el diseño se sale de la cama (muévelo o reduce el overscan de las capas de relleno e imagen) y ninguna capa con objetos tiene la salida activada. Con **Reintentar** vuelves a calcular.
 
