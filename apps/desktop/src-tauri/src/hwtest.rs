@@ -214,7 +214,7 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                     ),
                 }
             }
-            s if s.starts_with("job:") || s.starts_with("fill:") || s.starts_with("grid:") => {
+            s if s.starts_with("job:") || s.starts_with("fill:") || s.starts_with("fillair:") || s.starts_with("grid:") || s.starts_with("image:") => {
                 // job:<x>,<y>,<lado>,<vel>,<pot>  (contorno)
                 // fill:<x>,<y>,<lado>,<vel>,<pot>,<intervalo>  (relleno)
                 // grid:<x>,<y>,<celda>,<n>,<pot0>,<pot1>,<vel0>,<vel1>  (prueba de materiales n×n, relleno 0,1 mm)
@@ -401,7 +401,7 @@ fn laser_doc(kind: &str, v: &[f64]) -> Result<tlaku_doc::Document, String> {
     use tlaku_core::Rgb;
     let pct_ok = |p: f64| p > 0.0 && p <= MAX_JOB_PCT;
     match kind {
-        "job" | "fill" => {
+        "job" | "fill" | "fillair" => {
             let need = if kind == "job" { 5 } else { 6 };
             if v.len() != need || v[2] <= 0.0 || v[2] > 40.0 || v[3] <= 0.0 || !pct_ok(v[4]) {
                 return Err(format!(
@@ -414,8 +414,8 @@ fn laser_doc(kind: &str, v: &[f64]) -> Result<tlaku_doc::Document, String> {
                 l.power = v[4];
                 l.min_power = 0.0;
                 l.passes = 1;
-                l.air = false;
-                if kind == "fill" {
+                l.air = kind == "fillair";
+                if kind != "job" {
                     l.mode = tlaku_doc::LayerMode::Fill;
                     l.interval = v[5].clamp(0.05, 1.0);
                 }
@@ -469,6 +469,44 @@ fn laser_doc(kind: &str, v: &[f64]) -> Result<tlaku_doc::Document, String> {
                 }
             }
             Ok(doc)
+        }
+        "image" => {
+            // image:<x>,<y>,<lado>,<vel>,<pot>; el archivo sale de TLAKU_HW_IMAGE (PNG en escala de grises).
+            if v.len() != 5 || v[2] <= 0.0 || v[2] > 40.0 || v[3] <= 0.0 || !pct_ok(v[4]) {
+                return Err(format!("image: argumentos fuera de rango (lado ≤ 40 mm, potencia ≤ {MAX_JOB_PCT} %)"));
+            }
+            let path = std::env::var("TLAKU_HW_IMAGE").map_err(|_| "image: falta TLAKU_HW_IMAGE".to_string())?;
+            let (w, h) = image::image_dimensions(&path).map_err(|e| format!("image: {e}"))?;
+            let mut layer = tlaku_doc::LayerSettings::for_images();
+            layer.speed = v[3];
+            layer.power = v[4];
+            layer.min_power = 0.0;
+            layer.passes = 1;
+            layer.air = false;
+            layer.interval = 0.1;
+            let obj = tlaku_doc::DesignObject {
+                id: "img".into(),
+                layer: tlaku_doc::LayerSettings::IMAGE_COLOR,
+                transform: tlaku_doc::affine::translate(v[0], v[1]),
+                kind: tlaku_doc::ObjectKind::Image(tlaku_doc::ImageObject {
+                    source_path: path,
+                    width_px: w,
+                    height_px: h,
+                    size_mm: [v[2], v[2] * h as f64 / w as f64],
+                    mask: Vec::new(),
+                    variable: None,
+                }),
+                locked: false,
+                hidden: false,
+                group: None,
+                priority: None,
+                power_scale: None,
+                shape: None,
+                start: None,
+                manual_tabs: Vec::new(),
+                array: None,
+            };
+            Ok(tlaku_doc::Document { objects: vec![obj], layers: vec![layer], ..tlaku_doc::Document::default() })
         }
         _ => Err(format!("paso desconocido: {kind}")),
     }
