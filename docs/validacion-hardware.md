@@ -199,6 +199,45 @@ MDF de 3 mm (pedazo de desecho), tapa cerrada, **sin ajustar el enfoque**, sin r
 
 Falta con la máquina: medir con regla, calibrar la lente y alinear la cámara, corte (necesita enfoque y subir el tope), corte de luz real con material y un trabajo largo.
 
+### 2.8 Trabajo largo: validado en emulador con las fallas medidas de la Falcon (2026-10-15)
+
+**Esto NO es una prueba con la máquina.** Un trabajo largo todavía no se ha corrido en la Falcon real (falta de la lista de arriba); lo que sí se hizo es un trabajo de imagen grande en el emulador (`tlaku-emu`, perfil `falcon2_pro`) con las fallas que la Falcon real mostró en 2.7 (detalle en [`hardware/falcon2.md`](hardware/falcon2.md) §10.4–10.6), inyectadas al azar con semilla fija (`FlakyLink`, `crates/tlaku-emu/src/flaky.rs`):
+
+- estado cortado pegado al `ok` (`<Run|…|Ov:100,100,10ok`), 1 de cada 250 líneas (en la placa real, ~1 de cada 600);
+- la placa deja de leer el USB: el `write` del anfitrión se cuelga y la placa se **para** (su reloj se congela) durante 2–20 s, y luego sigue;
+- silencios de la placa de 1–4,2 s con el anfitrión sin bloquear (lo dicho llega de golpe al terminar), `?` perdidos (aislados y en ráfagas de hasta 12) y lecturas partidas en trozos de 1–16 bytes;
+- el planificador lleno (`Bf:0`): 4096 bytes en vuelo llenan los 127 bloques de la Falcon.
+
+El G-code sale del pipeline real: una imagen sintética de 50 × 35 mm (anillos y degradado, tonos medios) con dithering Floyd–Steinberg a 0,1 mm, 3000 mm/min y S hasta 350, como la imagen de la sesión real.
+
+| Prueba | Tamaño | Fallas inyectadas | Resultado |
+|---|---|---|---|
+| `tlaku-emu` `soak_long_image_job_survives_the_falcon_faults` (siempre) | 52 651 líneas (38 × 20 mm), 0,67 MB | ~215 estados cortados, bloqueos de 0,3–1,2 s con `silence_timeout` de 1 s (a escala de 2–20 s con 5 s), silencios, `?` perdidos, lecturas partidas | Termina en ~15–25 s; avance al total; la placa recibió **exactamente** las líneas, en orden; el láser quemó lo que dice el G-code; sin desconexión falsa; RSS plano (~21–30 MB) |
+| `tlaku-emu` `soak_full_scale_with_real_2_to_20_second_stalls` (`#[ignore]`) | 120 985 líneas, 1,55 MB, 1050 s de máquina | 497 estados cortados, 7 bloqueos reales de escritura (**97,6 s en total**, de 2 a 20 s), 7 silencios (22,3 s), 142 `?` perdidos, 593 lecturas partidas; 176 de 1311 reportes con `Bf:0` | Terminó en 140 s reales con los plazos por omisión (silencio de 5 s); todas las comprobaciones anteriores; RSS 35–42 MB sin crecer con las líneas |
+| App (`Connection`/`Worker` reales) `a_dense_raster_job_finishes_through_the_worker_…` (siempre) | 10 341 líneas con forma de trama | Las mismas, a escala (silencio de 1 s) | Termina `Started → Finished`; el punto de control de disco nunca se contradice (confirmadas ≤ entregadas ≤ total, sin retroceder) y se borra al terminar; la consola no se llena; la conexión nunca cae |
+| App `a_120k_line_raster_job_…_real_stalls` (`#[ignore]`) | ~120 000 líneas | Bloqueos reales de 2–20 s, plazos de la app (5 s) | Termina `Started → Finished` en 382 s reales (120 069 líneas): 615 estados cortados, 25 bloqueos reales (**279 s en total**), 29 silencios, 148 `?` perdidos; el punto de control, el avance y la placa quedan coherentes; conexión sin caídas |
+
+Para correr a mano las versiones de escala real:
+
+```sh
+cargo test -p tlaku-emu --test soak -- --ignored --nocapture                              # ~3 min
+cargo test -p tlaku-desktop --lib machine::tests::soak -- --ignored --nocapture          # ~6-7 min
+```
+
+**Una pausa de 40 s durante el trabajo** (`soak.rs`, probada con 40 s reales y con 8 veces el plazo a escala), con `silence_timeout` de 5 s en el envío:
+
+| Qué pasa a los 40 s | Qué hace Tlaku |
+|---|---|
+| La placa deja de leer y el `write` se cuelga | **No lo cuenta como silencio** (el bloqueo de la propia escritura no es silencio de la placa). Con un puerto que sigue esperando, el trabajo continúa y termina entero (41,9 s). Con el `SerialTransport` real, que reintenta la escritura 30 s (`WRITE_STALL_LIMIT`) y luego falla, se declara **perdida a los 30 s** (`Disconnected`: error de E/S). |
+| La placa calla 40 s pero el anfitrión no está bloqueado (los `?` quedan sin respuesta) | Se declara **perdida a los 5 s** (medido 5,2 s), no a los 40. El trabajo termina como «error» y la conexión se cierra. |
+| Después de declararla perdida | El streamer **no manda ninguna parada** (ni `!` ni reset: solo salieron `?`): la placa termina sola lo que tenía en su búfer y queda en reposo con el láser apagado. El **punto de control se conserva** (solo se borra al terminar bien o al cancelar a propósito). Al reconectar, la app ve que la placa siguió sola (`Moved`), propone el punto de la posición de ahora y, tras homing y encuadre, continúa: sin huecos y con menos de 6 mm de solape (`a_long_silence_loses_the_job_but_the_checkpoint_can_continue_it`). |
+
+Propuestas (sin tocar los plazos de seguridad; pendientes de decidir):
+
+1. **Parada al declarar perdida por silencio.** Hoy, si el enlace está vivo pero la placa no contesta, Tlaku se rinde sin detener nada y la placa sigue cortando lo que tenía en su búfer (hasta 127 bloques) sin supervisión. Conviene intentar, en el mismo hilo y una sola vez, un `!` (retención de avance) antes de cerrar. Con la escritura bloqueada no serviría (el `write` volvería a colgarse), así que debe hacerse en un hilo aparte con plazo corto. Ojo: deja la placa en `Hold` y el diálogo de conexión debe saber ofrecer `~`/reset.
+2. **El límite de 30 s de escritura y la cancelación.** Mientras el `write` está colgado el trabajador no atiende «Cancelar». Pasar el indicador de cancelación al bucle de reintento de `SerialTransport::write_all` haría posible cancelar sin tocar el plazo.
+3. **Aviso antes de rendirse.** Mostrar «la placa no contesta desde hace N s» a los 2 s de silencio (con la ventana de 5 s intacta) daría tiempo a mirar la máquina antes de que se declare perdida.
+
 
 
 ---
@@ -487,7 +526,7 @@ Datos si falla: la salida completa de la prueba, el sistema y su versión, el ti
 
 | Área | Lo que ya cubre el emulador o las pruebas | Lo que solo la máquina real puede validar |
 |---|---|---|
-| GRBL / Falcon2 | Protocolo, conteo de caracteres, alarmas y fallas simuladas, preflight, punto de control y preámbulo de reanudación, dialectos, geometría de `swap_xy` y `pointer_offset`, diálogo de homing al conectar, ajustes `$`, la sonda `G38.2` a `G38.5` contra una superficie simulada y el G-code del eje U por capa | Pin de la sonda real (`$6`), cuánto frena tras el contacto, eje U real, DTR y reinicio de la placa, continuar tras un corte de luz (reinicio de la placa, pasos perdidos, marca y desfase en la unión), envío síncrono real, `ERROR:NN` físicos, sensores, scan offset, potencia y tamaño del resultado, búfer real, G92, tiempos |
+| GRBL / Falcon2 | Protocolo, conteo de caracteres, alarmas y fallas simuladas, **un trabajo de imagen de ~120 000 líneas con las fallas medidas de la Falcon (2.8)**, preflight, punto de control y preámbulo de reanudación, dialectos, geometría de `swap_xy` y `pointer_offset`, diálogo de homing al conectar, ajustes `$`, la sonda `G38.2` a `G38.5` contra una superficie simulada y el G-code del eje U por capa | Pin de la sonda real (`$6`), cuánto frena tras el contacto, eje U real, DTR y reinicio de la placa, continuar tras un corte de luz (reinicio de la placa, pasos perdidos, marca y desfase en la unión), envío síncrono real, `ERROR:NN` físicos, sensores, scan offset, potencia y tamaño del resultado, búfer real, G92, tiempos |
 | Red | `virtualnet:` (TCP local), WebSocket, «Probar conexión» | Latencia y pérdida del Wi-Fi, ESP32 reales, aislamiento del router |
 | Ruida | Emulador UDP, `.rd` de ida y vuelta, aviso y recorte de velocidad, lectura y escritura de ajustes con respaldo, confirmación, verificación y restauración, borrar/ejecutar documentos con el formato de MeerK40t, nombre y reemplazo, láser 2 en el `.rd` | Magic y ACK reales, unidades de las lecturas y de los ajustes, **que la controladora acepte `DA 01 dirección v v` y no cambie nada más**, la forma real de `E8 00` y `E8 03`, numeración de documentos, qué hace guardar un nombre repetido, la dirección de la calibración, cómo se activa el rotativo, `CA 01 11` y la máscara `CA 03`, `.rd` reales, el tope de velocidad en la máquina |
 | K40 | Placa simulada, codificador contra 1511 vectores, `.egv` de ida y vuelta | USB CH341 real, códigos de estado, home, paro, `.egv` reales, potencia por perilla |
