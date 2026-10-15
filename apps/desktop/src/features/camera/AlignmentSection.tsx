@@ -11,6 +11,7 @@ import { correctedSpace } from './session';
 import { CameraView } from './CameraView';
 import { detectAt, pickPoint, useCenter } from './centerFinder';
 import { addObservation } from './headCal';
+import { useHeadAlignRef } from './headAlignState';
 import { useHeadCal, useViewTool } from './headState';
 
 
@@ -90,21 +91,24 @@ export function ViewSection({ editor }: { editor: AlignmentEditor }) {
   const tool = useViewTool((s) => s.tool);
   const setTool = useViewTool((s) => s.setTool);
   const lastObs = useHeadCal((s) => s.obs.at(-1));
+  const refPx = useHeadAlignRef((s) => s.px);
   const measuring = useHeadCal((s) => s.measuring);
   const picks = useCenter((s) => s.picks);
   const centerMode = useCenter((s) => s.mode);
   const live = status === 'live' || frozen;
 
   const align = tool === 'align';
-  const points: (Vec2 | null)[] = align ? editor.draft.px : tool === 'headMark' ? [lastObs?.px ?? null] : picks.map((p) => p.px);
+  const points: (Vec2 | null)[] = align ? editor.draft.px : tool === 'headMark' ? [lastObs?.px ?? null] : tool === 'alignRef' ? [refPx] : picks.map((p) => p.px);
   const onPlace = align
     ? editor.place
     : tool === 'headMark'
       ? (p: Vec2) => {
           if (measuring) addObservation(p);
         }
-      : (p: Vec2) => (centerMode === 'auto' ? void detectAt(p) : pickPoint(p));
-  const hint: I18nKey | null = align ? null : tool === 'headMark' ? 'camera.view.tool.headMark' : centerMode === 'auto' ? 'camera.view.tool.centerAuto' : 'camera.view.tool.center';
+      : tool === 'alignRef'
+        ? (p: Vec2) => useHeadAlignRef.getState().setPx(p)
+        : (p: Vec2) => (centerMode === 'auto' ? void detectAt(p) : pickPoint(p));
+  const hint: I18nKey | null = align ? null : tool === 'headMark' ? 'camera.view.tool.headMark' : tool === 'alignRef' ? 'camera.headAlign.ref.tool' : centerMode === 'auto' ? 'camera.view.tool.centerAuto' : 'camera.view.tool.center';
 
   return (
     <section className="section">

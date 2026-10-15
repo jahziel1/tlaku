@@ -307,6 +307,86 @@
   list-style: none;
 }
 
+/* ---- alinear con el cabezal -------------------------------------------------------- */
+
+.cam-ha__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-height: 0;
+  padding: var(--s-6);
+  overflow-y: auto;
+}
+.cam-ha__options > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.cam-ha__options[open] > summary {
+  margin-bottom: var(--s-3);
+}
+.cam-ha__shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--s-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cam-ha__shot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.cam-ha__shot[data-state='moving'] {
+  border-color: var(--accent);
+}
+.cam-ha__shot[data-state='pending'] {
+  opacity: 0.65;
+}
+.cam-ha__shot-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cam-ha__thumb {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+}
+.cam-ha__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cam-ha__thumb--row {
+  width: 40px;
+  height: 26px;
+  margin-right: var(--s-2);
+  vertical-align: middle;
+}
+.cam-ha__issues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding-left: var(--s-5);
+}
+.cam-ha__table tr[data-tone='missing'] td {
+  color: var(--danger);
+}
+.cam-ha__table tr[data-tone='warn'] td {
+  color: var(--warn);
+}
+
 @media (max-width: 900px) {
   .cam-dialog__body {
     grid-template-columns: minmax(0, 1fr);

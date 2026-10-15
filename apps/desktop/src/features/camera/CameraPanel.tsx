@@ -10,6 +10,7 @@ import { AlignmentSection, ViewSection, useAlignmentEditor } from './AlignmentSe
 import { AdjustSection } from './AdjustSection';
 import { CaptureSection } from './CaptureSection';
 import { CenterSection } from './CenterSection';
+import { HeadAlignSection } from './HeadAlignSection';
 import { HeadConfirm, HeadSection } from './HeadSection';
 import { NetworkUrlField, PresetsSection, SourceKindField } from './NetworkSection';
 import { clearLens, loadCameraSetup, updateCameraPrefs } from './actions';
@@ -38,6 +39,7 @@ export function CameraPanel() {
       <CaptureSection />
       <LensSection />
       <MarksSection />
+      <HeadAlignSection />
       <HeightSection />
       <AlignmentSection editor={editor} />
       <HeadSection />

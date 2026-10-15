@@ -1,5 +1,6 @@
 import { startCamera, stopCamera, setFrozen } from '@/features/camera/session';
 import { updateCameraPrefs } from '@/features/camera/actions';
+import { openHeadAlignDialog } from '@/features/camera/headAlignState';
 import { openMarksDialog } from '@/features/camera/marksState';
 import { captureBlockedReason, overlayBlockedReason, requestAction } from '@/features/camera/bedImage';
 import { useCenter } from '@/features/camera/centerFinder';
@@ -45,6 +46,12 @@ export const cameraCommands: CommandDef[] = [
     label: 'camera.cmd.alignMarks',
     category: 'camera',
     run: () => openMarksDialog(),
+  },
+  {
+    id: 'camera.alignHead',
+    label: 'camera.cmd.alignHead',
+    category: 'camera',
+    run: () => openHeadAlignDialog(),
   },
   {
     id: 'camera.capture',

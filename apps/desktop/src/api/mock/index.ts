@@ -1,6 +1,7 @@
 import { t } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { mockCamera } from './camera';
+import { mockHeadAlign } from './headAlign';
 import { mockCodes } from './codes';
 import { mockDevices } from './devices';
 import { mockFileio } from './fileio';
@@ -275,6 +276,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockNest(lag),
     ...mockRemnants(lag),
     ...mockCamera(lag),
+    ...mockHeadAlign(lag),
     ...mockMaterials(lag),
     ...mockCommunityCatalog(lag),
     ...mockProbe(lag),

@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { getPref, useStore } from '@/store';
 import { loadCameraSetup } from './actions';
 import { CalibrationDialog } from './CalibrationDialog';
+import { HeadAlignDialog } from './HeadAlignDialog';
+import { useHeadAlign } from './headAlignState';
 import { MarksDialog } from './MarksDialog';
 import { useMarks } from './marksState';
 import { startAutoRefresh } from './refresh';
@@ -19,6 +21,8 @@ export function CameraDialogHost() {
   const close = useStore((s) => s.setCameraCalibrationOpen);
   const marksOpen = useMarks((s) => s.open);
   const closeMarks = useMarks((s) => s.closeDialog);
+  const headAlignOpen = useHeadAlign((s) => s.open);
+  const closeHeadAlign = useHeadAlign((s) => s.closeDialog);
 
   // "Actualizar al terminar un trabajo": mientras la app está abierta.
   useEffect(() => startAutoRefresh(), []);
@@ -35,6 +39,7 @@ export function CameraDialogHost() {
     <>
       {open && <CalibrationDialog onClose={() => close(false)} />}
       {marksOpen && <MarksDialog onClose={closeMarks} />}
+      {headAlignOpen && <HeadAlignDialog onClose={closeHeadAlign} />}
       <ZoneOverlay />
     </>
   );

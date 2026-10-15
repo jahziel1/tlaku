@@ -28,6 +28,7 @@ export const a11y = {
 
   // ---- table names ----
   'a11y.table.marks': 'Camera registration marks',
+  'a11y.table.headAlign': 'Points of the head alignment run',
   'a11y.table.printcut': 'Print and cut result',
   'a11y.table.variables': 'Variable data rows',
   'a11y.table.devices': 'Saved machines',

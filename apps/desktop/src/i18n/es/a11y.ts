@@ -28,6 +28,7 @@ export const a11y = {
 
   // ---- nombres de tablas ----
   'a11y.table.marks': 'Marcas de registro de la cámara',
+  'a11y.table.headAlign': 'Puntos del recorrido de la alineación con el cabezal',
   'a11y.table.printcut': 'Resultado de imprimir y cortar',
   'a11y.table.variables': 'Filas de datos de las variables',
   'a11y.table.devices': 'Máquinas guardadas',
