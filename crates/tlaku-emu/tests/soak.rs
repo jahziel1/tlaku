@@ -12,9 +12,10 @@
 //! El trabajo corre con el `Streamer` real contra la Falcon2 emulada (`tlaku-emu`) envuelta en un
 //! [`FlakyLink`]; el azar usa semilla fija.
 //!
-//! - `soak_*` (siempre): bloqueos de 0,3–1,4 s con `silence_timeout` de 1 s. Es la versión a escala
-//!   de la real (bloqueos de 2–20 s con 5 s): lo que importa es que haya bloqueos MÁS LARGOS que
-//!   el plazo de silencio y MÁS LARGOS que `WRITE_STALL` (250 ms).
+//! - `soak_*` (siempre): bloqueos de 0,3–1,4 s con aviso de silencio a 1 s. Es la versión a escala
+//!   de la real (bloqueos de 2–20 s con aviso a 2 s): lo que importa es que haya bloqueos MÁS
+//!   LARGOS que el aviso y MÁS LARGOS que `WRITE_STALL` (250 ms). La conexión **nunca** se da por
+//!   perdida por silencio (§2.8): todos los trabajos terminan enteros.
 //! - `soak_full_scale_*` (`#[ignore]`, ~3 min): bloqueos de 2–20 s reales y los plazos por
 //!   omisión. A mano: `cargo test -p tlaku-emu --test soak -- --ignored --nocapture`.
 
@@ -216,6 +217,9 @@ struct Report {
     errors: usize,
     alarms: usize,
     resets: usize,
+    /// Avisos tempranos de silencio (`Event::Silence`) con más de 0 ms y el último valor visto.
+    silence_notices: usize,
+    last_silence_ms: Option<u64>,
     /// (líneas confirmadas, RSS en KiB) a cada ~10 % del trabajo.
     rss: Vec<(usize, u64)>,
     scheduled_truncations: usize,
@@ -308,6 +312,13 @@ fn run_soak(spec: &Soak) -> Report {
             Ok(Event::Error { .. }) => r.errors += 1,
             Ok(Event::Alarm(_)) => r.alarms += 1,
             Ok(Event::Reset(_)) => r.resets += 1,
+            // Aviso temprano de silencio (no cambia el resultado).
+            Ok(Event::Silence { ms }) => {
+                if ms > 0 {
+                    r.silence_notices += 1;
+                }
+                r.last_silence_ms = Some(ms);
+            }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 if started.elapsed() > spec.deadline && !r.timed_out {
                     r.timed_out = true;
@@ -438,12 +449,12 @@ fn assert_memory_is_flat(r: &Report, lines: usize) {
     );
 }
 
-fn falcon_config(silence: Duration) -> StreamerConfig {
+fn falcon_config(notice: Duration) -> StreamerConfig {
     StreamerConfig {
         // Con 4096 bytes en vuelo (~300 líneas cortas) el planificador de 127 bloques se llena.
         rx_buffer: 4096,
         status_interval: Some(Duration::from_millis(20)),
-        silence_timeout: silence,
+        silence_notice: Some(notice),
         ..StreamerConfig::default()
     }
 }
@@ -563,17 +574,14 @@ fn a_write_stall_eight_times_the_silence_window_is_forgiven() {
     assert_eq!(r.counters.as_ref().unwrap().write_stalls(), 1);
 }
 
-/// La placa calla 8 veces el plazo de silencio pero el anfitrión NO está bloqueado (lo normal con
-/// `?` sin respuesta): el streamer la da por perdida al cumplirse `silence_timeout`, sin esperar a
-/// que la pausa termine. No manda ninguna parada: la placa sigue con lo que ya tenía en su memoria
-/// y termina sola (el trabajo se puede continuar con el punto de control, ver
-/// `machine/tests/resume.rs` de la app).
+/// La placa calla 8 veces el antiguo plazo de silencio sin bloquear al anfitrión (lo normal con
+/// `?` sin respuesta): ya no se da por perdida; se avisa (`Event::Silence`) y, al volver la
+/// respuesta, el trabajo termina entero y el aviso se retira.
 #[test]
-fn a_silence_eight_times_the_window_is_declared_lost_at_the_window_without_a_stop() {
-    let silence = Duration::from_millis(500);
+fn a_silence_eight_times_the_old_window_is_waited_out_and_the_job_completes() {
     let mute = Duration::from_secs(4);
     let spec = short_spec(
-        silence,
+        Duration::from_millis(500),
         FlakyConfig {
             scripted_read_mute: Some((20, mute)),
             ..FlakyConfig::default()
@@ -581,35 +589,27 @@ fn a_silence_eight_times_the_window_is_declared_lost_at_the_window_without_a_sto
     );
     let r = run_soak(&spec);
     report("silencio 8x", &spec, &r);
-    assert!(!r.panicked && !r.timed_out);
-    assert!(
-        matches!(r.outcome, Some(Outcome::Disconnected(_))),
-        "{:?}",
-        r.outcome
-    );
-    // Se dio por perdida cerca del plazo, no al terminar la pausa de 4 s.
-    assert!(r.elapsed < mute, "{:?}", r.elapsed);
+    assert_clean_finish(&spec, &r);
+    assert_eq!(r.counters.as_ref().unwrap().read_mutes(), 1);
+    assert!(r.silence_notices >= 1, "no hubo aviso de silencio");
+    assert_eq!(r.last_silence_ms, Some(0), "el aviso no se retiró");
+    // El streamer no mandó ninguna parada (`!` ni reset): solo `?`.
     let h = r.handle.as_ref().unwrap();
-    // El streamer no mandó `!` ni reset: ninguna parada al declararla perdida.
     assert!(
         h.realtime_bytes().iter().all(|&b| b == b'?'),
         "{:?}",
         h.realtime_bytes()
     );
-    // La placa terminó sola lo que tenía en su búfer, sin quemar de más: quedó en reposo, con el
-    // láser apagado, sin haber completado el trabajo.
-    assert!(h.wait_idle(Duration::from_secs(60)));
-    assert!(!h.laser_on());
-    assert!(h.lines_received() < spec.lines.len());
 }
 
-/// El caso real a escala: 40 s de pausa y los plazos por omisión (5 s). Tarda ~1 min.
+/// El caso real a escala: 40 s de pausa y el aviso a los 2 s. Tarda ~1 min.
 #[test]
 #[ignore = "tarda ~1 min (pausas reales de 40 s): cargo test -p tlaku-emu --test soak -- --ignored --nocapture"]
 fn a_real_forty_second_pause_write_stall_and_read_silence() {
-    // (a) Escritura colgada 40 s, con el puerto esperando como el de la prueba anterior: sigue.
+    // (a) Escritura colgada 40 s: el puerto espera (como el `SerialTransport` real, sin límite) y
+    //     el trabajo termina entero.
     let spec = short_spec(
-        Duration::from_secs(5),
+        Duration::from_secs(2),
         FlakyConfig {
             scripted_write_stall: Some((20, Duration::from_secs(40))),
             ..FlakyConfig::default()
@@ -619,27 +619,10 @@ fn a_real_forty_second_pause_write_stall_and_read_silence() {
     report("40 s escritura", &spec, &r);
     assert_clean_finish(&spec, &r);
 
-    // (b) Lo mismo con el `SerialTransport` real: reintenta 30 s y falla -> perdida por E/S.
+    // (b) La placa calla 40 s sin bloquear al anfitrión: también termina entero, con el aviso
+    //     (y, pasado el minuto, la interfaz lo vuelve más serio; el streamer sigue sin cortar).
     let spec = short_spec(
-        Duration::from_secs(5),
-        FlakyConfig {
-            scripted_write_stall: Some((20, Duration::from_secs(40))),
-            write_limit: Some(Duration::from_secs(30)),
-            ..FlakyConfig::default()
-        },
-    );
-    let r = run_soak(&spec);
-    report("40 s escritura, límite 30 s", &spec, &r);
-    assert!(
-        matches!(&r.outcome, Some(Outcome::Disconnected(m)) if m.contains("no avanzó")),
-        "{:?}",
-        r.outcome
-    );
-    assert!(r.elapsed >= Duration::from_secs(30) && r.elapsed < Duration::from_secs(40));
-
-    // (c) La placa calla 40 s sin bloquear al anfitrión: perdida a los 5 s.
-    let spec = short_spec(
-        Duration::from_secs(5),
+        Duration::from_secs(2),
         FlakyConfig {
             scripted_read_mute: Some((20, Duration::from_secs(40))),
             ..FlakyConfig::default()
@@ -647,10 +630,7 @@ fn a_real_forty_second_pause_write_stall_and_read_silence() {
     );
     let r = run_soak(&spec);
     report("40 s silencio", &spec, &r);
-    assert!(
-        matches!(r.outcome, Some(Outcome::Disconnected(_))),
-        "{:?}",
-        r.outcome
-    );
-    assert!(r.elapsed < Duration::from_secs(15), "{:?}", r.elapsed);
+    assert_clean_finish(&spec, &r);
+    assert!(r.silence_notices >= 30, "{}", r.silence_notices);
+    assert_eq!(r.last_silence_ms, Some(0));
 }

@@ -145,6 +145,7 @@ Para GRBL, grblHAL y FluidNC por TCP o WebSocket (ver [Conexión por red y autom
 Otras ideas:
 
 - **Se conecta pero se corta a mitad del trabajo.** Es casi siempre el Wi-Fi: acerca la máquina al router o usa un cable. Una conexión que se cae puede dejar la máquina ejecutando lo que ya tenía en su búfer; ten el paro de emergencia a mano.
+- **La placa «se queda callada» unos segundos (Falcon2 por USB).** Tlaku espera y el trabajo sigue cuando contesta; un concentrador USB o un cable largo lo empeoran. Si el aviso dura más de un minuto en pleno trabajo, mira la máquina y usa el paro de emergencia si hace falta.
 - **No puedes cambiar la dirección en la pestaña Máquina.** Está a propósito: la dirección es del perfil. Abre **Gestionar dispositivos…** y desconéctate primero.
 - **Probar la app sin la red de la máquina:** usa la **Máquina virtual por red**. Si esa conecta, el problema está en la máquina o en tu red, no en Tlaku.
 - **La automatización por UDP no contesta** (`PING` sin respuesta): comprueba que esté activada en **Preferencias > Automatización**, que el estado diga «Escuchando en 127.0.0.1:…» (si el puerto está ocupado lo dice) y que mandes el datagrama a `127.0.0.1`, no a la IP de tu red: solo escucha en tu propio equipo.
@@ -159,7 +160,7 @@ La conexión con Ruida es experimental (ver [Ruida y K40](13b-ruida-y-k40.md)). 
 4. **El magic.** En **Automático** Tlaku prueba `0x88` y luego los demás conocidos; si tu controladora usa otro, fíjalo **A mano** (`0x88` en casi todas las RDC644x, `0x11` en la 634XG, `0x38` en la RDL9635).
 5. **«Sin respuesta de la máquina»** al conectar o al leer información: la máquina no contestó. Prueba con un cable directo al PC o al router, sin repetidores Wi-Fi. UDP no tiene reintentos y las controladoras Ruida son poco tolerantes a una red lenta.
 6. **La cama no coincide.** Si el aviso dice que la cama del perfil no coincide con la de la máquina, no se enviará ningún trabajo: corrige el tamaño de la cama del perfil con lo que informa la máquina (**Leer información**).
-7. **Durante un trabajo** algunas controladoras ignoran la red; Tlaku no lo toma por una conexión perdida mientras hay un trabajo en marcha.
+7. **Durante un trabajo** algunas controladoras ignoran la red; Tlaku no lo toma por una conexión perdida: **nunca desconecta por silencio** (ni en reposo ni en un trabajo), solo muestra «La máquina no contesta desde hace N s…» con **Detener** y **Desconectar**.
 8. **«La máquina rechazó el paquete N»** al subir: el trabajo no llegó entero. Tlaku manda *Detener*; revisa la red y vuelve a intentarlo.
 9. **Descartar a Tlaku:** conecta con la máquina virtual **Ruida (CO2)**. Si esa funciona, el problema está en la red o en la controladora.
 

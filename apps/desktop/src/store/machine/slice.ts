@@ -1,6 +1,6 @@
 /** Rebanada del store con la conexión, el trabajo, el jog y las acciones de la máquina. */
 import { getApi } from '@/api';
-import type { ConnectionEvent, GalvoSafetyAck, JobArgs, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SimulatedFault, StatusReport } from '@/api/types';
+import type { ConnectionEvent, GalvoSafetyAck, JobArgs, JobEvent, LogEvent, OverrideKind, Point, ProgressEvent, RealtimeCommand, SilenceEvent, SimulatedFault, StatusReport } from '@/api/types';
 import { type AlarmAction } from '@/features/machine/grblCodes';
 import { clampJogSpeed, continuousDelta, DEFAULT_JOG_SPEED, DEFAULT_JOG_STEP, jogOutsideBed, outsideBedMessage, stepDelta, type JogDir } from '@/features/machine/jogMath';
 import { readFinish, readJogSteps, sanitizeFinish, sanitizeJogSteps, writeFinish, writeJogSteps, type FinishPosition } from '@/features/machine/moveSettings';
@@ -129,6 +129,7 @@ export interface MachineSlice extends MachineData, ResumeSlice {
   // Entrada de eventos `machine://*` (los conecta `bindMachineEvents`).
   onStatus: (s: StatusReport) => void;
   onProgress: (p: ProgressEvent) => void;
+  onSilence: (s: SilenceEvent) => void;
   onLog: (l: LogEvent) => void;
   onJob: (j: JobEvent) => void;
   onConnection: (c: ConnectionEvent) => void;
@@ -140,6 +141,7 @@ function pickData(s: MachineData): MachineData {
     firmware: s.firmware,
     status: s.status,
     progress: s.progress,
+    silenceMs: s.silenceMs,
     jobState: s.jobState,
     jobMessage: s.jobMessage,
     stopUnconfirmed: s.stopUnconfirmed,
@@ -649,6 +651,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (was && !isJobBusy(get()) && get().jobOrigin) get().noteJobOrigin(null);
     },
     onProgress: (progress) => apply({ type: 'progress', progress }),
+    onSilence: (silence) => apply({ type: 'silence', silence }),
     onLog: (log) => {
       apply({ type: 'log', log });
       // El texto crudo trae el código de la línea (`[frame_done] ...`): el bucle del encuadre lo lee.

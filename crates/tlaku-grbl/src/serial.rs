@@ -3,6 +3,8 @@
 
 use std::collections::VecDeque;
 use std::io::{self, Write};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 use tlaku_i18n::tr;
@@ -22,6 +24,13 @@ pub trait Transport: Send {
     fn clear_input(&mut self) -> io::Result<()> {
         Ok(())
     }
+
+    /// Indicador de «abandonar»: mientras un `write_all` espera a que la placa vuelva a leer (la
+    /// cola del puerto no avanza), si el indicador se activa la espera se corta con un error en
+    /// lugar de seguir hasta su plazo propio (30 s en el puerto serie). Lo activa quien cancela o
+    /// cierra la conexión desde otro hilo: el hilo del envío no puede oír una orden mientras está
+    /// dentro de la escritura. Por omisión no hace nada (el transporte no se queda bloqueado).
+    fn set_abort(&mut self, _abort: Arc<AtomicBool>) {}
 }
 
 impl Transport for Box<dyn Transport> {
@@ -36,16 +45,63 @@ impl Transport for Box<dyn Transport> {
     fn clear_input(&mut self) -> io::Result<()> {
         (**self).clear_input()
     }
+
+    fn set_abort(&mut self, abort: Arc<AtomicBool>) {
+        (**self).set_abort(abort);
+    }
 }
 
-/// Cuánto se insiste en escribir a un puerto cuya cola no avanza (la placa dejó de leer) antes
-/// de darlo por fallido.
-const WRITE_STALL_LIMIT: Duration = Duration::from_secs(30);
+// Sin límite de tiempo: una placa que deja de leer (la Falcon2 detrás de un hub USB, 2–20 s) vuelve
+// sola, y declarar fallida la escritura no detiene nada. El reintento sigue mientras no haya un error
+// real del sistema o el usuario cancele o cierre la conexión (`Transport::set_abort`).
+
+/// Con el indicador de «abandonar» activo, cuánto se espera todavía a que la cola del puerto
+/// avance antes de rendirse. Una cola llena un instante (la placa lee en cuanto puede) no debe
+/// perder la parada de una cancelación; una que lleva este tiempo sin avanzar no va a leer.
+pub const ABORT_GRACE: Duration = Duration::from_millis(500);
 
 /// Transporte sobre un puerto serie real.
 pub struct SerialTransport {
     port: Box<dyn serialport::SerialPort>,
     timeout: Duration,
+    abort: Option<Arc<AtomicBool>>,
+}
+
+/// Escribe todo `data` reintentando mientras la cola del puerto no avanza (`TimedOut`,
+/// `WouldBlock`, `Interrupted`), sin límite de tiempo: solo corta un error real del sistema o, si
+/// `abort` se activa, [`ABORT_GRACE`] después de empezar la escritura (error `ConnectionAborted`).
+fn write_retrying<W: Write + ?Sized>(
+    port: &mut W,
+    data: &[u8],
+    abort: Option<&AtomicBool>,
+) -> io::Result<()> {
+    let started = Instant::now();
+    let mut sent = 0;
+    while sent < data.len() {
+        match port.write(&data[sent..]) {
+            Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+            Ok(n) => sent += n,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::Interrupted
+                        | io::ErrorKind::TimedOut
+                        | io::ErrorKind::WouldBlock
+                ) =>
+            {
+                if started.elapsed() >= ABORT_GRACE
+                    && abort.is_some_and(|a| a.load(Ordering::SeqCst))
+                {
+                    return Err(io::Error::new(
+                        io::ErrorKind::ConnectionAborted,
+                        tr!("grbl.serial.write_abandoned"),
+                    ));
+                }
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 /// Cómo se abre el puerto serie.
@@ -69,7 +125,11 @@ impl SerialTransport {
             builder = builder.dtr_on_open(false);
         }
         let port = builder.open()?;
-        Ok(Self { port, timeout })
+        Ok(Self {
+            port,
+            timeout,
+            abort: None,
+        })
     }
 }
 
@@ -79,23 +139,7 @@ impl Transport for SerialTransport {
         // (en un USB CDC cuya placa se detiene, el hilo queda colgado y ni siquiera puede
         // cancelar). `write` ya entrega al controlador del puerto; si su cola está llena
         // (`TimedOut` tras el plazo de lectura) se reintenta hasta `WRITE_STALL_LIMIT`.
-        let started = Instant::now();
-        let mut sent = 0;
-        while sent < data.len() {
-            match Write::write(&mut self.port, &data[sent..]) {
-                Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
-                Ok(n) => sent += n,
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        io::ErrorKind::Interrupted
-                            | io::ErrorKind::TimedOut
-                            | io::ErrorKind::WouldBlock
-                    ) && started.elapsed() < WRITE_STALL_LIMIT => {}
-                Err(e) => return Err(e),
-            }
-        }
-        Ok(())
+        write_retrying(&mut self.port, data, self.abort.as_deref())
     }
 
     fn read_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> io::Result<usize> {
@@ -114,6 +158,10 @@ impl Transport for SerialTransport {
 
     fn clear_input(&mut self) -> io::Result<()> {
         Ok(self.port.clear(serialport::ClearBuffer::Input)?)
+    }
+
+    fn set_abort(&mut self, abort: Arc<AtomicBool>) {
+        self.abort = Some(abort);
     }
 }
 
@@ -403,6 +451,91 @@ fn looks_like_usb_serial(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Puerto cuya cola no avanza: cada `write` espera un poco y falla con `TimedOut`, como el
+    /// de una placa USB que dejó de leer. Tras `accept_after` intentos acepta todo.
+    struct StuckPort {
+        tries: usize,
+        accept_after: usize,
+        got: Vec<u8>,
+    }
+
+    impl Write for StuckPort {
+        fn write(&mut self, data: &[u8]) -> io::Result<usize> {
+            self.tries += 1;
+            std::thread::sleep(Duration::from_millis(5));
+            if self.tries > self.accept_after {
+                self.got.extend_from_slice(data);
+                Ok(data.len())
+            } else {
+                Err(io::ErrorKind::TimedOut.into())
+            }
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn stuck(accept_after: usize) -> StuckPort {
+        StuckPort {
+            tries: 0,
+            accept_after,
+            got: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_stuck_write_keeps_waiting_without_a_time_limit_until_the_port_moves() {
+        // 200 intentos fallidos (~1 s): sin límite de tiempo, la escritura acaba pasando.
+        let mut port = stuck(200);
+        write_retrying(&mut port, b"G1 X1\n", None).unwrap();
+        assert_eq!(port.got, b"G1 X1\n");
+    }
+
+    #[test]
+    fn the_abort_flag_cuts_a_stuck_write_after_the_grace() {
+        let abort = AtomicBool::new(true);
+        let mut port = stuck(usize::MAX);
+        let t = Instant::now();
+        let e = write_retrying(&mut port, b"M5\n", Some(&abort)).unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::ConnectionAborted);
+        let took = t.elapsed();
+        assert!(took >= ABORT_GRACE, "{took:?}");
+        assert!(took < Duration::from_secs(5), "{took:?}");
+    }
+
+    #[test]
+    fn the_abort_flag_does_not_break_a_write_that_moves_within_the_grace() {
+        // Una cancelación con la cola llena un instante no pierde su propia parada.
+        let abort = AtomicBool::new(true);
+        let mut port = stuck(4);
+        write_retrying(&mut port, b"!", Some(&abort)).unwrap();
+        assert_eq!(port.got, b"!");
+    }
+
+    #[test]
+    fn an_unset_abort_flag_never_cuts_the_wait() {
+        let abort = AtomicBool::new(false);
+        let mut port = stuck(150);
+        write_retrying(&mut port, b"M5\n", Some(&abort)).unwrap();
+        assert_eq!(port.got, b"M5\n");
+    }
+
+    #[test]
+    fn a_real_system_error_still_fails_at_once() {
+        struct Gone;
+        impl Write for Gone {
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::ErrorKind::BrokenPipe.into())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let e = write_retrying(&mut Gone, b"M5\n", None).unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::BrokenPipe);
+    }
 
     #[test]
     fn machine_like_ports_go_first_and_system_ports_last() {

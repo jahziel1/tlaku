@@ -9,9 +9,9 @@
 //! la interfaz, el punto de control y qué pasa con una pausa de «40 s» (a escala: 8 veces el
 //! plazo de silencio de `fast()`, igual que 40 s frente a 5 s).
 
-use super::resume::{Bench, args, cut_length, long_job as slow_rows, uncovered, wait_machine_idle};
+use super::resume::{Bench, long_job as slow_rows, uncovered};
 use super::*;
-use crate::machine::resume::{self, plan::PlanOptions, start, store::CheckpointStore};
+use crate::machine::resume::{self, store::CheckpointStore};
 use tlaku_doc::{DeviceKind, DeviceProfile, JobOptions};
 use tlaku_emu::flaky::{
     FlakyConfig, FlakyCounters, FlakyLink, FreezeClock, Rng, truncated_schedule,
@@ -148,11 +148,11 @@ impl Drop for FlakyRig {
     }
 }
 
-/// Plazos de la app a escala: el silencio de 5 s se queda en 1 s y las pausas duran 0,3–1,2 s.
+/// Plazos de la app a escala: el aviso de silencio de 2 s se queda en 1 s y las pausas duran 0,3–1,2 s.
 fn soak_timing() -> Timing {
     Timing {
         status_interval: Duration::from_millis(20),
-        silence_timeout: Duration::from_secs(1),
+        silence_notice: Duration::from_secs(1),
         ..fast()
     }
 }
@@ -324,11 +324,44 @@ fn a_write_stall_eight_times_the_silence_window_does_not_drop_the_connection() {
     assert!(rig.store.load().is_none());
 }
 
-/// La placa calla 8 veces el plazo (40 s frente a 5 s) sin bloquear al anfitrión: el trabajo se
-/// da por perdido al cumplirse el plazo, el punto de control se conserva y, con la placa
-/// terminando sola lo que tenía en su memoria, se puede continuar desde donde quedó.
+/// La placa deja de leer 20 s con la escritura colgada y el usuario cierra la conexión: el cierre
+/// no espera la escritura (el `SerialTransport` real reintenta 30 s), porque el hilo del envío
+/// recibe el indicador de «abandonar» (§2.8, propuesta 2).
 #[test]
-fn a_long_silence_loses_the_job_but_the_checkpoint_can_continue_it() {
+fn closing_the_connection_does_not_wait_for_a_stalled_write() {
+    let lines = raster_job(40, 12.0, 11);
+    let mut rig = FlakyRig::new(
+        "stall-close",
+        25.0,
+        FlakyConfig {
+            scripted_write_stall: Some((15, Duration::from_secs(20))),
+            ..FlakyConfig::default()
+        },
+        soak_timing(),
+    );
+    rig.start(&lines, 1_000_000_000, 1);
+    // Espera a que el envío esté dentro de la escritura colgada.
+    let end = Instant::now() + Duration::from_secs(30);
+    while rig.counters.write_stalls() == 0 {
+        assert!(Instant::now() < end, "la escritura no se colgó");
+        thread::sleep(Duration::from_millis(5));
+    }
+    thread::sleep(Duration::from_millis(300));
+    let t = Instant::now();
+    rig.conn.take().unwrap().close();
+    let took = t.elapsed();
+    assert!(took < Duration::from_secs(8), "el cierre tardó {took:?}");
+    // El trabajo se da por detenido sin quedar marcado como terminado.
+    assert!(!rig.sink.jobs().contains(&JobState::Finished));
+}
+
+/// La placa calla 8 veces el antiguo plazo (8 s frente a 1 s a escala; 40 s frente a 5 s reales)
+/// sin bloquear al anfitrión: **no se da por perdida** (como LightBurn, se espera). El trabajo
+/// sigue y termina entero, el aviso de silencio sale y se retira, no se manda ningún `!` ni reset,
+/// y el punto de control se borra al terminar. Si de verdad se cae la conexión (cable fuera), el
+/// punto de control permite continuar: eso lo cubren las pruebas de `resume.rs` (`kill_app`).
+#[test]
+fn a_long_silence_does_not_lose_the_job() {
     let mut b = Bench::new("soak-pause", "virtual:falcon2@4", DeviceKind::Grbl);
     let lines = slow_rows();
     let mut counters = None;
@@ -348,72 +381,23 @@ fn a_long_silence_loses_the_job_but_the_checkpoint_can_continue_it() {
     let counters = counters.unwrap();
     counters.arm(true);
     b.start(&h, &lines);
-    let started = Instant::now();
-    b.sink.wait("conexión perdida", |s| {
-        s.connections().iter().any(|c| !c.connected)
+    b.sink.wait("trabajo terminado", |s| {
+        s.jobs().contains(&JobState::Finished) || s.jobs().contains(&JobState::Error)
     });
-    // Perdida al cumplirse el plazo de silencio, no al terminar la pausa de 8 s.
-    assert!(
-        started.elapsed() < Duration::from_secs(6),
-        "{:?}",
-        started.elapsed()
-    );
     assert_eq!(counters.read_mutes(), 1);
     let jobs = b.sink.jobs();
-    assert_eq!(jobs, [JobState::Started, JobState::Error], "{jobs:?}");
-    let msg = b.sink.job_messages().pop().unwrap();
-    assert!(msg.contains("responder"), "{msg}");
-    b.conn = None;
-
-    // El punto de control sobrevivió y dice cuánto se hizo.
-    let loaded = b.store.load().expect("quedó el punto de control");
-    let saved = resume::summarize(&b.store, &loaded, None);
-    assert!(saved.can_resume, "{saved:?}");
-    assert!(
-        saved.percent > 0.0 && saved.percent < 100.0,
-        "{}",
-        saved.percent
-    );
-    // Nadie le mandó una parada: la placa termina sola lo que ya tenía y se queda quieta.
-    wait_machine_idle(&b);
-    assert!(!b.emu.laser_on());
-    assert!(!b.emu.position_lost());
+    assert_eq!(jobs, [JobState::Started, JobState::Finished], "{jobs:?}");
+    assert!(b.sink.connections().iter().all(|c| c.connected));
+    // El aviso salió (el silencio supera los 2 s de `Timing::silence_notice`) y se retiró.
+    let silences = b.sink.silences();
+    assert!(silences.iter().any(|&m| m >= 2000), "{silences:?}");
+    assert_eq!(silences.last(), Some(&0), "{silences:?}");
+    // Nadie mandó una parada: solo `?`.
     assert!(
         b.emu.realtime_bytes().iter().all(|&x| x == b'?'),
         "{:?}",
         b.emu.realtime_bytes()
     );
-    let burned_alone = b.emu.trace().total_length();
-    assert!(
-        burned_alone < cut_length(&lines) * 0.95,
-        "no debió terminar"
-    );
-
-    // Se reconecta y se continúa con el punto de control: la posición de ahora se compara con la
-    // guardada porque la placa siguió sola.
-    let h = b.connect();
-    let now = start::current_for(&h, &loaded).expect("en reposo");
-    let view = resume::view(&b.store, &loaded, &PlanOptions::default(), Some(&now)).unwrap();
-    assert_eq!(
-        view.job.machine,
-        tlaku_doc::ResumeMachine::Moved,
-        "{:?}",
-        view.job
-    );
-    assert!(!view.job.recommend_discard);
-    h.command("$H").unwrap();
-    start::frame(&h, &b.store, &loaded, 6000.0).unwrap();
-    b.sink.wait("encuadre", |s| {
-        s.logs().iter().any(|(_, t)| t.contains("frame_done"))
-    });
-    let make = args(&loaded, &view);
-    start::resume_now(&h, b.store.clone(), &loaded, &make(false, true, true)).unwrap();
-    b.sink.wait("trabajo terminado", |s| {
-        s.jobs().contains(&JobState::Finished)
-    });
-    // Lo grabado antes más lo reanudado cubre todo el trabajo, con poco solape.
-    assert_eq!(uncovered(&lines, &b.emu, 0.3), 0, "quedaron huecos");
-    let overlap = b.emu.trace().total_length() - cut_length(&lines);
-    assert!(overlap < 6.0, "solape de {overlap} mm");
     assert!(b.store.load().is_none());
+    assert!(uncovered(&lines, &b.emu, 0.3) == 0, "quedaron huecos");
 }

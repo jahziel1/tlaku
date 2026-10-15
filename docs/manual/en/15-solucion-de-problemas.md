@@ -145,6 +145,7 @@ For GRBL, grblHAL, and FluidNC over TCP or WebSocket (see [Network connection an
 Other ideas:
 
 - **It connects but drops in the middle of the job.** It is almost always the Wi-Fi: bring the machine closer to the router or use a cable. A connection that drops can leave the machine running what it already had in its buffer; keep the emergency stop within reach.
+- **The board "goes quiet" for a few seconds (Falcon2 over USB).** Tlaku waits and the job carries on when it answers; a USB hub or a long cable makes it worse. If the notice lasts more than a minute in the middle of a job, look at the machine and use the emergency stop if needed.
 - **You cannot change the address in the Machine tab.** This is on purpose: the address belongs to the profile. Open **Manage Devices…** and disconnect first.
 - **Trying the app without the machine's network:** use the **Virtual machine over network**. If that one connects, the problem is in the machine or in your network, not in Tlaku.
 - **UDP automation does not answer** (`PING` with no reply): check that it is turned on in **Preferences > Automation**, that the status says "Listening on 127.0.0.1:…" (if the port is busy it says so), and that you send the datagram to `127.0.0.1`, not to your network IP: it only listens on your own computer.
@@ -159,7 +160,7 @@ The Ruida connection is experimental (see [Ruida and K40](13b-ruida-y-k40.md)). 
 4. **The magic.** In **Automatic** Tlaku tries `0x88` and then the other known ones; if your controller uses another, set it **Manual** (`0x88` on almost all RDC644x, `0x11` on the 634XG, `0x38` on the RDL9635).
 5. **"No response from the machine"** when connecting or reading information: the machine did not answer. Try a direct cable to the PC or to the router, without Wi-Fi repeaters. UDP has no retries and Ruida controllers are not very tolerant of a slow network.
 6. **The bed does not match.** If the warning says the profile's bed does not match the machine's, no job will be sent: fix the profile's bed size with what the machine reports (**Read information**).
-7. **During a job** some controllers ignore the network; Tlaku does not take that for a lost connection while a job is running.
+7. **During a job** some controllers ignore the network; Tlaku does not take that for a lost connection: it **never disconnects because of silence** (neither idle nor during a job), it only shows "The machine has not answered for N s…" with **Stop** and **Disconnect**.
 8. **"The machine rejected packet N"** when uploading: the job did not arrive in full. Tlaku sends *Stop*; check the network and try again.
 9. **Ruling out Tlaku:** connect with the **Ruida (CO2)** virtual machine. If that one works, the problem is in the network or in the controller.
 

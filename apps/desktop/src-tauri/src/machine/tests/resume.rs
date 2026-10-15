@@ -61,6 +61,7 @@ impl Bench {
             // El homing de la Falcon2 simulada dura 8 s de reloj de la máquina.
             Timing {
                 home_timeout: Duration::from_secs(10),
+                silence_notice: Duration::from_secs(1),
                 ..fast()
             },
             Some(self.emu.clone()),

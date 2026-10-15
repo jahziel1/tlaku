@@ -1,0 +1,55 @@
+/* ---- avisos de salud de la conexión (la máquina no contesta / quedó en pausa) ------------ */
+
+.silence-notices {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--status-h) + var(--palette-h) + var(--s-5));
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: min(440px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.silence-notice {
+  display: flex;
+  gap: var(--s-4);
+  align-items: flex-start;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--warn);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+.silence-notice__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}
+.silence-notice__body {
+  flex: 1;
+  min-width: 0;
+}
+.silence-notice__title {
+  font-weight: 620;
+}
+.silence-notice__text {
+  margin-top: var(--s-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.silence-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+}
+.silence-notice[data-kind='serious'] {
+  border-left-color: var(--danger);
+}
+.silence-notice[data-kind='serious'] .silence-notice__icon {
+  color: var(--danger);
+}

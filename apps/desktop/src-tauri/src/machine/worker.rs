@@ -133,6 +133,8 @@ pub(super) struct Worker {
     quiet: Option<Quiet>,
     /// Guardas de la cama y del reinicio de la placa (ver `limits.rs`).
     lim: limits::Limits,
+    /// Segundos de silencio ya avisados a la interfaz (`machine://silence`); `None` = ninguno.
+    silence_shown: Option<u64>,
 }
 
 pub(super) fn empty_status() -> StatusReport {
@@ -197,10 +199,13 @@ impl Worker {
             emergency_parser: false,
             quiet: None,
             lim: limits::Limits::default(),
+            silence_shown: None,
         }
     }
 
-    pub(super) fn run(mut self, transport: Box<dyn Transport>) {
+    pub(super) fn run(mut self, mut transport: Box<dyn Transport>) {
+        // Desconectar abandona una escritura colgada en lugar de esperarla (`Shared::abort`).
+        transport.set_abort(self.shared.abort.clone());
         let mut phase = Phase::Idle(transport);
         let lost = loop {
             let next = match phase {

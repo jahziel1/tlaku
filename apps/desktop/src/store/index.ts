@@ -64,6 +64,7 @@ export async function bindMachineEvents(
   const offs = await Promise.all([
     api.on('machine://status', (p) => s().onStatus(p)),
     api.on('machine://progress', (p) => s().onProgress(p)),
+    api.on('machine://silence', (p) => s().onSilence(p)),
     api.on('machine://log', (p) => s().onLog(p)),
     api.on('machine://job', (p) => s().onJob(p)),
     api.on('machine://connection', (p) => s().onConnection(p)),

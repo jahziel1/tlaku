@@ -60,7 +60,8 @@ verificarla (el CLI lo usa en `plan`); `gcode(&ComputedJob, &DeviceProfile)` gen
 | `machine://progress` | `{ acked, total }` (líneas de G-code confirmadas; como máximo cada 100 ms, el último siempre sale) |
 | `machine://log` | `{ dir: "in" \| "out", text }`. Los reportes `?` no se registran; los `error:N` y `ALARM:N` llegan con su explicación |
 | `machine://job` | `{ state: "started" \| "paused" \| "finished" \| "cancelled" \| "error", message }` |
-| `machine://connection` | `{ connected: boolean, port: string \| null, error: string \| null }`. `error` solo se llena si la conexión se perdió (cable, silencio de más de 5 s, fallo de E/S) |
+| `machine://connection` | `{ connected: boolean, port: string \| null, error: string \| null }`. `error` solo se llena si la conexión se perdió por un error real de E/S del sistema (cable, puerto desaparecido, máquina apagada). **El silencio de la placa nunca la pierde** (ver `machine://silence`) |
+| `machine://silence` | `{ silence_ms: number }`. Aviso (solo aviso): la placa no contesta desde hace `silence_ms` ms (desde ~2 s, con la conexión abierta, durante un trabajo o en reposo); se repite cada segundo entero y llega con `0` al volver a contestar. Tlaku **no desconecta ni manda nada por el silencio**; la interfaz ofrece Detener (`cancel_job`, feed hold y reinicio) y Desconectar, y pasado 1 min en pleno trabajo cambia a un aviso serio. No se emite durante el homing, tras `ALARM:1/2` ni con Marlin/Smoothieware |
 
 ```ts
 interface StatusReport {

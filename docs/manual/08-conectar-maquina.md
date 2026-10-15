@@ -107,7 +107,8 @@ Avisos que puede darte la sección:
 
 - Firmware anterior a GRBL 1.1f: no soporta bien el modo láser (M4); usa potencia constante (M3) en el perfil.
 - Modo láser desactivado (`$32=0`): el grabado saldría mal. El botón **Activar modo láser ($32=1)…** te pide confirmación antes de enviarlo.
-- Si la conexión se pierde (cable, o la placa calla más de 5 segundos), la app lo avisa.
+- Si la conexión se pierde (cable desconectado, puerto que desaparece, máquina apagada), la app lo avisa.
+- Si la placa **deja de contestar** unos segundos (pasa con algunas placas USB, como la Falcon2 detrás de un concentrador), Tlaku **no desconecta**: espera, igual que LightBurn. A los 2 segundos aparece un aviso discreto «La máquina no contesta desde hace N s…» con **Detener** y **Desconectar**; se quita solo cuando la placa vuelve a contestar y el trabajo sigue sin que hagas nada. Si en pleno trabajo pasa más de un minuto, el aviso se vuelve más serio («Lleva más de un minuto sin contestar»): revisa la máquina y, si sigue moviéndose y no responde, usa el paro de emergencia.
 
 Si no encuentra el puerto o falla la conexión, mira [Solución de problemas](15-solucion-de-problemas.md).
 

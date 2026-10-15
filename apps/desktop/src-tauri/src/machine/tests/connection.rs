@@ -143,19 +143,22 @@ fn a_dropped_cable_is_reported_as_a_lost_connection() {
 }
 
 #[test]
-fn a_silent_machine_is_reported_as_lost() {
-    let rig = connect();
+fn a_silent_machine_is_waited_for_not_dropped() {
+    // Antes, 6 veces el plazo de 400 ms (2,4 s) sin contestar daba la conexión por perdida.
+    let rig = connect_with(Timing {
+        silence_notice: Duration::from_millis(300),
+        ..fast()
+    });
     rig.sink.wait("estado", |s| !s.statuses().is_empty());
     rig.fake.mute.store(true, Ordering::SeqCst);
-    rig.sink
-        .wait("silencio", |s| s.connections().iter().any(|c| !c.connected));
-    let c = rig.sink.connections().pop().unwrap();
-    assert!(
-        c.error
-            .as_deref()
-            .is_some_and(|e| e.contains("dejó de responder")),
-        "{c:?}"
-    );
+    thread::sleep(Duration::from_millis(3200));
+    assert!(!rig.handle.is_closed(), "{:?}", rig.sink.connections());
+    assert!(rig.sink.connections().iter().all(|c| c.connected));
+    // Vuelve a contestar y sigue funcionando.
+    let n = rig.sink.statuses().len();
+    rig.fake.mute.store(false, Ordering::SeqCst);
+    rig.sink.wait("sondeo", |s| s.statuses().len() > n + 2);
+    assert_eq!(rig.handle.command("$$").unwrap().last().unwrap(), "ok");
 }
 
 #[test]
@@ -195,12 +198,12 @@ fn a_long_homing_silence_is_not_a_lost_connection() {
     assert_eq!(r.last().unwrap(), "ok");
     assert!(!rig.handle.is_closed());
     assert!(rig.sink.connections().iter().all(|c| c.connected));
-    // Tras el homing vale otra vez el plazo normal.
+    // Tras el homing el sondeo sigue y el silencio tampoco corta la conexión.
     rig.sink
         .wait("sondeo tras el homing", |s| s.statuses().len() > 3);
     rig.fake.mute.store(true, Ordering::SeqCst);
-    rig.sink
-        .wait("silencio", |s| s.connections().iter().any(|c| !c.connected));
+    thread::sleep(Duration::from_millis(1000));
+    assert!(!rig.handle.is_closed());
 }
 
 #[test]

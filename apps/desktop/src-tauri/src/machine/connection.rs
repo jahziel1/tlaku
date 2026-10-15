@@ -112,6 +112,7 @@ impl Connection {
 
     /// Cierra la conexión (cancelando antes un trabajo en curso) y espera al hilo.
     pub fn close(mut self) {
+        self.handle.shared.abort.store(true, Ordering::SeqCst);
         let _ = self.handle.tx.send(Request::Disconnect);
         if let Some(t) = self.thread.take() {
             let _ = t.join();
@@ -122,6 +123,7 @@ impl Connection {
 impl Drop for Connection {
     fn drop(&mut self) {
         // Si no se llamó a `close`, al menos se le pide al trabajador que termine.
+        self.handle.shared.abort.store(true, Ordering::SeqCst);
         let _ = self.handle.tx.send(Request::Disconnect);
     }
 }

@@ -100,6 +100,17 @@ pub struct ProgressEvent {
     pub total: u32,
 }
 
+/// Evento `machine://silence`: la placa no contesta desde hace `silence_ms` milisegundos (con la
+/// conexión abierta, durante un trabajo o en reposo). Es un aviso temprano, a partir de ~2 s: los
+/// plazos que dan la conexión por perdida (5 s en un envío, 30 s en reposo) no cambian. Se repite
+/// cada segundo entero y se manda con `silence_ms: 0` al volver a contestar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub struct SilenceEvent {
+    pub silence_ms: u32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub enum LogDir {

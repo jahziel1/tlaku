@@ -108,7 +108,6 @@ fn device(mut f: impl FnMut(Input) -> Vec<u8> + Send + 'static) -> (Device, Memo
 fn config() -> StreamerConfig {
     StreamerConfig {
         status_interval: Some(Duration::from_millis(10)),
-        silence_timeout: Duration::from_secs(3),
         cancel_delay: Duration::from_millis(5),
         hold_timeout: Duration::from_millis(400),
         hold_poll_interval: Duration::from_millis(10),
@@ -612,20 +611,36 @@ fn mute_after(trigger: &'static str, quiet: Duration) -> (Device, MemoryTranspor
 }
 
 #[test]
-fn a_long_silence_during_homing_is_not_a_lost_connection() {
+fn a_long_silence_is_never_a_lost_connection_and_only_warns_outside_homing() {
     let cfg = StreamerConfig {
-        silence_timeout: Duration::from_millis(100),
-        home_timeout: Duration::from_secs(3),
+        silence_notice: Some(Duration::from_millis(100)),
         ..config()
     };
+    let silences = |events: &[Event]| {
+        events
+            .iter()
+            .filter(|e| matches!(e, Event::Silence { .. }))
+            .count()
+    };
+    // En el homing el silencio es lo esperado: el trabajo termina y no se avisa.
     let (_dev, host) = mute_after("$H", Duration::from_millis(500));
-    let (out, _) = run(host, cfg.clone(), &["$H".to_string(), "G0 X1".to_string()]);
+    let (out, events) = run(host, cfg.clone(), &["$H".to_string(), "G0 X1".to_string()]);
     assert_eq!(out, Outcome::Completed { errors: 0 });
+    assert_eq!(silences(&events), 0, "{events:?}");
 
-    // El mismo silencio sin homing sí es una conexión perdida.
+    // El mismo silencio sin homing tampoco da la conexión por perdida (se espera, como
+    // LightBurn): el trabajo termina y la interfaz recibe el aviso y su retirada.
     let (_dev, host) = mute_after("G0X5", Duration::from_millis(500));
-    let (out, _) = run(host, cfg, &["G0 X5".to_string(), "G0 X1".to_string()]);
-    assert!(matches!(out, Outcome::Disconnected(_)), "{out:?}");
+    let (out, events) = run(host, cfg, &["G0 X5".to_string(), "G0 X1".to_string()]);
+    assert_eq!(out, Outcome::Completed { errors: 0 });
+    assert!(silences(&events) >= 2, "{events:?}");
+    assert_eq!(
+        events.iter().rev().find_map(|e| match e {
+            Event::Silence { ms } => Some(*ms),
+            _ => None,
+        }),
+        Some(0)
+    );
 }
 
 // ---------------------------------------------------------------------------

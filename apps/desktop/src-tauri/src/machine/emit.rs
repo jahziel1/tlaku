@@ -10,6 +10,8 @@ pub enum Emit {
     Log(LogEvent),
     Job(JobEvent),
     Connection(ConnectionEvent),
+    /// La placa no contesta desde hace un rato (aviso temprano; ver [`SilenceEvent`]).
+    Silence(SilenceEvent),
     /// Lo propio del galvo (pasos del marcado dividido, vueltas del encuadre, aviso de energía).
     Galvo(galvo::GalvoEvent),
 }
@@ -23,6 +25,7 @@ impl Emit {
             Self::Log(_) => "machine://log",
             Self::Job(_) => "machine://job",
             Self::Connection(_) => "machine://connection",
+            Self::Silence(_) => "machine://silence",
             Self::Galvo(_) => "machine://galvo",
         }
     }
@@ -41,12 +44,14 @@ pub trait Sink: Send + Sync + 'static {
 pub struct Timing {
     /// Cada cuánto se consulta `?` en reposo.
     pub status_interval: Duration,
-    /// Sin recibir nada durante este tiempo (con el sondeo activo) la conexión se da por perdida.
-    pub silence_timeout: Duration,
+    /// A partir de cuánto silencio de la placa se avisa a la interfaz (`machine://silence`).
+    /// Solo avisa: **el silencio nunca da la conexión por perdida** (como LightBurn, se espera;
+    /// ver la cabecera de `machine.rs`). `ZERO` = sin aviso.
+    pub silence_notice: Duration,
     /// Espera de la respuesta a un comando normal.
     pub command_timeout: Duration,
-    /// Espera de la respuesta a `$H` (GRBL contesta `ok` al terminar el homing) y plazo de
-    /// silencio mientras dura (`?` puede no contestarse durante el homing).
+    /// Espera de la respuesta a `$H` (GRBL contesta `ok` al terminar el homing; `?` puede no
+    /// contestarse mientras dura).
     pub home_timeout: Duration,
     /// Tras un feed hold de cancelación, cuánto se espera a que la máquina termine de frenar
     /// (`Hold:0`) antes de resetear de todos modos.
@@ -68,7 +73,7 @@ impl Default for Timing {
     fn default() -> Self {
         Self {
             status_interval: Duration::from_millis(250),
-            silence_timeout: Duration::from_secs(5),
+            silence_notice: Duration::from_secs(2),
             command_timeout: Duration::from_secs(5),
             home_timeout: Duration::from_secs(120),
             hold_timeout: Duration::from_secs(2),

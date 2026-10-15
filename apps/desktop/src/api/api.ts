@@ -1179,6 +1179,7 @@ export const EVENT_NAMES: readonly EventName[] = [
   'machine://log',
   'machine://job',
   'machine://connection',
+  'machine://silence',
   'automation://load',
   'automation://start',
   'remote://clients',

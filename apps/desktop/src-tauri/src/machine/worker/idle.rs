@@ -1,7 +1,6 @@
 //! Reposo: el bucle de solicitudes con el puerto en manos del trabajador.
 
 use super::*;
-use tlaku_i18n::tr;
 
 impl Worker {
     pub(super) fn idle_step(&mut self, mut t: Box<dyn Transport>) -> Result<Phase, Fail> {
@@ -54,8 +53,9 @@ impl Worker {
         t.write_all(b"M114\n")?;
         self.last_poll = Some(Instant::now());
         // Marlin contesta `M114` en su turno, detrás de los movimientos que aún tenga en cola
-        // (p. ej. tras cancelar un trabajo largo): el plazo es el largo, como en el homing.
-        let deadline = Instant::now() + self.timing.silence_timeout.max(self.timing.home_timeout);
+        // (p. ej. tras cancelar un trabajo largo): el plazo es el largo, como en el homing. Si
+        // vence, no es una conexión perdida: se deja esta consulta y se repite en la siguiente.
+        let deadline = Instant::now() + self.timing.home_timeout;
         let mut pos = None;
         loop {
             for l in self.pump(t, self.timing.tick)? {
@@ -71,7 +71,7 @@ impl Worker {
                 }
             }
             if Instant::now() > deadline {
-                return Err(Fail::Lost(tr!("desktop.worker.controller_silent")));
+                return Ok(());
             }
         }
     }

@@ -26,16 +26,12 @@ pub struct StreamerConfig {
     /// Cada cuánto se consulta `?`; `None` desactiva el sondeo (y con él la
     /// espera de reposo y el aviso por silencio).
     pub status_interval: Option<Duration>,
-    /// Sin recibir ningún byte durante este tiempo (con sondeo activo) se da
-    /// la conexión por perdida.
-    ///
-    /// Regla del silencio: `?` puede no contestarse durante el homing. Si hay una línea de
-    /// homing (`$H`...) sin responder, el plazo es [`home_timeout`](Self::home_timeout) en
-    /// lugar de este. Las alarmas (`ALARM:N`) terminan el trabajo al instante, así que no
-    /// hay silencio posterior que vigilar aquí.
-    pub silence_timeout: Duration,
-    /// Plazo de silencio mientras una línea `$H` espera su `ok`.
-    pub home_timeout: Duration,
+    /// Con sondeo activo, a partir de cuánto silencio de la placa se informa [`Event::Silence`]
+    /// (cada segundo entero, y con `ms: 0` al volver a contestar). Es solo un aviso: **el
+    /// silencio nunca da la conexión por perdida** (como LightBurn, se espera; ver
+    /// `docs/validacion-hardware.md` §2.8). No se avisa durante el homing (`$H`...), donde `?`
+    /// puede no contestarse. `None` = sin aviso.
+    pub silence_notice: Option<Duration>,
     /// Terminar solo cuando la máquina informe `Idle` tras el último `ok`
     /// (los `ok` llegan al interpretar la línea, no al ejecutarla).
     pub wait_idle: bool,
@@ -79,8 +75,7 @@ impl Default for StreamerConfig {
             rx_buffer: 127,
             error_policy: ErrorPolicy::Stop,
             status_interval: Some(Duration::from_millis(200)),
-            silence_timeout: Duration::from_secs(5),
-            home_timeout: Duration::from_secs(120),
+            silence_notice: Some(Duration::from_secs(2)),
             wait_idle: true,
             cancel_delay: Duration::from_millis(50),
             hold_timeout: Duration::from_secs(2),

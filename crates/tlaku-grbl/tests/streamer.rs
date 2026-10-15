@@ -251,7 +251,6 @@ fn with_newlines(lines: Vec<String>) -> Vec<String> {
 fn fast_config() -> StreamerConfig {
     StreamerConfig {
         status_interval: Some(Duration::from_millis(10)),
-        silence_timeout: Duration::from_secs(3),
         cancel_delay: Duration::from_millis(5),
         ..Default::default()
     }
@@ -661,19 +660,34 @@ fn lost_connection_is_reported() {
 }
 
 #[test]
-fn silent_device_is_detected_by_timeout() {
+fn a_silent_device_is_waited_for_not_dropped_and_cancel_still_ends_the_job() {
     let (_mock, host) = Mock::start(MockConfig {
         silent: true,
         ..Default::default()
     });
     let config = StreamerConfig {
-        silence_timeout: Duration::from_millis(150),
+        silence_notice: Some(Duration::from_millis(100)),
+        cancel_delay: Duration::from_millis(5),
+        hold_timeout: Duration::from_millis(200),
+        reset_wait: Duration::from_millis(100),
         ..fast_config()
     };
-    let started = Instant::now();
-    let (out, _) = run_sync(host, config, &gcode_lines(10));
-    assert!(matches!(out, Outcome::Disconnected(_)), "{out:?}");
-    assert!(started.elapsed() < Duration::from_secs(3));
+    let job = Streamer::new(host, config).spawn(&gcode_lines(10)).unwrap();
+    // Avisa, pero no se rinde: pasa mucho más que cualquier plazo de antes (5 s).
+    wait_for(
+        &job.events,
+        |e| matches!(e, Event::Silence { ms } if *ms > 0),
+    );
+    assert!(
+        job.events
+            .recv_timeout(Duration::from_millis(900))
+            .is_ok_and(|e| !matches!(e, Event::Finished(_)))
+    );
+    let asked = Instant::now();
+    job.control.cancel();
+    let (_, out) = job.join().unwrap();
+    assert_eq!(out, Outcome::Cancelled);
+    assert!(asked.elapsed() < Duration::from_secs(3));
 }
 
 // ---------------------------------------------------------------------------

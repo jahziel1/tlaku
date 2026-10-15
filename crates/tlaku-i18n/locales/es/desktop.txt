@@ -183,7 +183,6 @@ desktop.worker.realtime_char = '{raw}' contiene {ch}, que GRBL interpretaría co
 desktop.worker.line_empty = La línea está vacía.
 desktop.worker.line_too_long = '{line}' no cabe en el búfer de la controladora ({max} bytes).
 desktop.worker.no_reply = La máquina no respondió a '{line}' en {secs} s.
-desktop.worker.controller_silent = la controladora dejó de responder (¿se desconectó el cable USB o la red, o se apagó la máquina?)
 desktop.worker.move_no_reply = La máquina no respondió al movimiento.
 desktop.worker.no_overrides = Los ajustes en vivo de velocidad y potencia solo existen en controladoras GRBL: Marlin y Smoothieware no los tienen.
 desktop.worker.log_override_feed = ; override de velocidad (feed) al {percent} %

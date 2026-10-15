@@ -1,5 +1,5 @@
 /** Reductor puro de los eventos `machine://*` y los tipos de datos de la máquina. */
-import type { ConnectionEvent, JobEvent, LogEvent, ProgressEvent, StatusReport } from '@/api/types';
+import type { ConnectionEvent, JobEvent, LogEvent, ProgressEvent, SilenceEvent, StatusReport } from '@/api/types';
 import { parseAlarmLine, type AlarmAction } from '@/features/machine/grblCodes';
 import { portKey } from '@/features/machine/virtualPort';
 import { type GrblSettings } from '@/lib/device';
@@ -44,6 +44,8 @@ export interface MachineData {
   firmware: string | null;
   status: StatusReport | null;
   progress: ProgressEvent | null;
+  /** Milisegundos que la placa lleva sin contestar (aviso temprano de `machine://silence`); 0 = contesta. */
+  silenceMs: number;
   jobState: JobUiState;
   jobMessage: string;
   /** El último mensaje del trabajo dice que detener NO se confirmó (código `stop_unconfirmed` del motor). */
@@ -73,6 +75,7 @@ export interface MachineData {
 export type MachineEvent =
   | { type: 'status'; report: StatusReport }
   | { type: 'progress'; progress: ProgressEvent }
+  | { type: 'silence'; silence: SilenceEvent }
   | { type: 'log'; log: LogEvent }
   | { type: 'job'; job: JobEvent }
   | { type: 'connection'; connection: ConnectionEvent }
@@ -85,6 +88,7 @@ export const INITIAL_MACHINE_DATA: MachineData = {
   firmware: null,
   status: null,
   progress: null,
+  silenceMs: 0,
   jobState: 'idle',
   jobMessage: '',
   stopUnconfirmed: false,
@@ -141,6 +145,8 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
     }
     case 'progress':
       return { ...m, progress: ev.progress };
+    case 'silence':
+      return { ...m, silenceMs: ev.silence.silence_ms };
     case 'log': {
       const id = m.logSeq + 1;
       const code = ev.log.dir === 'in' ? parseAlarmLine(ev.log.text) : null;
@@ -192,6 +198,7 @@ export function reduceMachine(m: MachineData, ev: MachineEvent, now: number): Ma
           alarmCode: null,
           settings: null,
           jobError: null,
+          silenceMs: 0,
           positionLost: same,
           positionLostPort: same ? m.positionLostPort : null,
         };

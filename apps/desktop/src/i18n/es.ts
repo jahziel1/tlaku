@@ -41,6 +41,7 @@ import { tiling } from './es/tiling';
 import { simple } from './es/simple';
 import { a11y } from './es/a11y';
 import { tabs } from './es/tabs';
+import { silence } from './es/silence';
 import { parts } from './es/parts';
 
 export const base = {
@@ -315,6 +316,7 @@ export const es = {
   ...simple,
   ...a11y,
   ...tabs,
+  ...silence,
   ...parts,
   ...costs,
   ...versions,

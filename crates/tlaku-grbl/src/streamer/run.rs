@@ -36,6 +36,7 @@ impl<T: Transport> Streamer<T> {
             cmd_rx,
             reader,
             stop: None,
+            abort: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -63,6 +64,7 @@ impl<T: Transport> Streamer<T> {
     pub fn control(&self) -> Control {
         Control {
             tx: self.cmd_tx.clone(),
+            abort: self.abort.clone(),
         }
     }
 
@@ -164,6 +166,8 @@ impl<T: Transport> Streamer<T> {
         while self.cmd_rx.try_recv().is_ok() {}
         self.reader.clear();
         self.stop = None;
+        self.abort.store(false, Ordering::SeqCst);
+        self.transport.set_abort(self.abort.clone());
         let mut st = RunState {
             next: 0,
             acked: 0,
@@ -174,6 +178,7 @@ impl<T: Transport> Streamer<T> {
             idle_seen: false,
             last_poll: None,
             last_rx: Instant::now(),
+            silence_reported: None,
             last_state: None,
             hidden: job.iter().take_while(|p| p.silent).count(),
             sync_sent: false,
@@ -187,10 +192,25 @@ impl<T: Transport> Streamer<T> {
                 match self.tick(job, &mut st, emit) {
                     Ok(Some(outcome)) => break outcome,
                     Ok(None) => {}
+                    // Una escritura abandonada porque el usuario canceló o cerró la conexión
+                    // mientras la placa no leía (ver [`Transport::set_abort`]): no es una
+                    // desconexión. Se intenta la parada de siempre (feed hold y reset); si el
+                    // puerto sigue sin avanzar, sus escrituras también se abandonan enseguida.
+                    Err(e)
+                        if e.kind() == io::ErrorKind::ConnectionAborted
+                            && self.abort.load(Ordering::SeqCst) =>
+                    {
+                        let _ = self.stop_machine(&mut st, emit);
+                        break Outcome::Cancelled;
+                    }
                     Err(e) => break Outcome::Disconnected(e.to_string()),
                 }
             }
         };
+        // Un aviso de silencio abierto se retira al terminar, sea cual sea el final.
+        if st.silence_reported.take().is_some() {
+            emit(Event::Silence { ms: 0 });
+        }
         emit(Event::Finished(outcome.clone()));
         outcome
     }

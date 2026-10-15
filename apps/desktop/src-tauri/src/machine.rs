@@ -18,21 +18,24 @@
 //! envío, pausa, jog, consola) corre exactamente igual. [`Handle::simulate_fault`] provoca fallas
 //! (llama, alarma 3, desconexión) y solo existe con una máquina virtual.
 //!
-//! Regla del silencio ("conexión perdida"). Con el sondeo activo, sin recibir ni un byte durante
-//! `silence_timeout` (5 s) la conexión se da por perdida, porque en funcionamiento normal GRBL
-//! contesta `?` en 5 a 20 ms. Pero hay dos casos en que el silencio es legítimo, y en ellos
-//! no se declara la pérdida:
+//! Regla del silencio. **El silencio de la placa nunca da la conexión por perdida**, ni en reposo
+//! ni durante un trabajo (igual que LightBurn, que simplemente espera): la Falcon2 se para 2–20 s
+//! detrás de un concentrador USB y sigue sola, y declarar la pérdida no detiene la máquina (con la
+//! placa trabada no se le puede mandar nada), solo desconecta y molesta. La conexión solo se
+//! pierde por un error real de E/S del sistema (puerto desaparecido, cable, máquina apagada: el
+//! error de lectura o escritura del SO) o porque el usuario desconecta. Mientras no contesta:
 //!
-//! - **Homing (`$H`)**: `?` puede no contestarse y el `ok` llega al terminar el ciclo (un
-//!   minuto o más). Mientras haya un `$H` sin responder, el plazo es `home_timeout` (120 s).
-//!   En el trabajo (`Streamer`) rige la misma regla si una de sus líneas es un `$H`.
-//! - **Bloqueo crítico** tras `ALARM:1`/`ALARM:2` o `[MSG:Reset to continue]`: GRBL deja de
-//!   atender `?` hasta un soft reset. No hay plazo: solo se sale al recibir un `ok` o el
-//!   saludo (`Grbl ...`) tras el reset, y entretanto `?` se manda cada 2 s en vez de cada
-//!   250 ms. Un cable arrancado sigue detectándose, porque la lectura o la escritura
-//!   fallan con error de E/S (eso no depende del silencio).
+//! - A los 2 s (`Timing::silence_notice`) el trabajador emite `machine://silence`
+//!   (`silence_ms`, cada segundo entero; `0` = volvió a contestar) y la interfaz muestra «la
+//!   máquina no contesta desde hace N s…» con Detener y Desconectar. Durante un trabajo lo mide
+//!   el `Streamer` y el trabajador solo lo reenvía. No se avisa en el homing (`$H`: `?` puede no
+//!   contestarse y el `ok` llega al terminar el ciclo, un minuto o más) ni tras `ALARM:1`/`ALARM:2`
+//!   o `[MSG:Reset to continue]` (GRBL deja de atender `?` hasta un soft reset; entonces `?` se
+//!   manda cada 2 s en vez de cada 250 ms).
+//! - Nada se manda solo por el silencio (ni `!`): detener es decisión del usuario (feed hold y
+//!   reset, como siempre). Las escrituras al puerto serie esperan sin límite mientras no haya un
+//!   error real; Detener y Desconectar las abandonan al instante (`Transport::set_abort`).
 //!
-//! Fuera de esos dos casos el plazo no cambia.
 //! Nada aquí depende de Tauri: los eventos salen por [`Sink`], de modo que se prueba con
 //! `memory_pair` sin hardware.
 
@@ -45,8 +48,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 use tlaku_doc::{
     BufferStatus, ConnectResult, ConnectionEvent, JobEvent, JobState, LogDir, LogEvent,
-    MachineState, OverrideKind, Overrides, ProgressEvent, RealtimeCommand, SimulatedFault,
-    StatusReport,
+    MachineState, OverrideKind, Overrides, ProgressEvent, RealtimeCommand, SilenceEvent,
+    SimulatedFault, StatusReport,
 };
 use tlaku_grbl::link::{LinkFamily, LinkProfile};
 use tlaku_grbl::preflight::{

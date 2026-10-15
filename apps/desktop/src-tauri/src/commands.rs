@@ -84,6 +84,7 @@ impl Sink for TauriSink {
                 self.0.emit(name, p)
             }
             Emit::Connection(p) => self.0.emit(name, p),
+            Emit::Silence(p) => self.0.emit(name, p),
             Emit::Galvo(p) => self.0.emit(name, p),
         };
     }
