@@ -449,6 +449,7 @@ fn reprap_long_job() -> Vec<String> {
 
 mod connection;
 mod firmware;
+mod head_align;
 mod jobs;
 mod jog;
 mod limits;

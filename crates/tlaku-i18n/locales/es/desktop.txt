@@ -652,3 +652,7 @@ desktop.job_history.csv_too_big = El CSV del historial es demasiado grande ({siz
 
 # edit/tonal.rs
 desktop.edit.tonal.bad_size = El tamaño pedido para la vista por tonos no es válido.
+
+# edit/camera/head_align.rs
+desktop.edit.camera.head_align.frame_count = hay {n} fotos y el máximo es {max}
+desktop.edit.camera.head_align.bad_position = una posición del cabezal no es un número válido

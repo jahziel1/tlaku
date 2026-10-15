@@ -652,3 +652,7 @@ desktop.job_history.csv_too_big = The job history CSV is too large ({size} bytes
 
 # edit/tonal.rs
 desktop.edit.tonal.bad_size = The size requested for the tonal preview is not valid.
+
+# edit/camera/head_align.rs
+desktop.edit.camera.head_align.frame_count = there are {n} photos and the maximum is {max}
+desktop.edit.camera.head_align.bad_position = a head position is not a valid number
