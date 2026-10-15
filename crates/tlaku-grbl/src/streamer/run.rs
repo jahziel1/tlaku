@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use tlaku_doc::DeviceProfile;
 
-use crate::link::{LinkProfile, numbered_line};
+use crate::link::{LinkFamily, LinkProfile, numbered_line};
 use crate::serial::{LineReader, Transport};
 
 use super::*;
@@ -25,13 +25,16 @@ impl<T: Transport> Streamer<T> {
     /// [`StreamerConfig::for_link`].
     pub fn with_link(transport: T, config: StreamerConfig, link: LinkProfile) -> Self {
         let (cmd_tx, cmd_rx) = mpsc::channel();
+        let mut reader = LineReader::default();
+        // Una respuesta pegada a otra cosa (`<Run|...|Ov:100,100,10ok`) solo se da en GRBL.
+        reader.set_split_glued(link.family == LinkFamily::Grbl);
         Self {
             transport,
             config,
             link,
             cmd_tx,
             cmd_rx,
-            reader: LineReader::default(),
+            reader,
             stop: None,
         }
     }

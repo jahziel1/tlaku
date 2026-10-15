@@ -38,6 +38,10 @@ impl Transport for Box<dyn Transport> {
     }
 }
 
+/// Cuánto se insiste en escribir a un puerto cuya cola no avanza (la placa dejó de leer) antes
+/// de darlo por fallido.
+const WRITE_STALL_LIMIT: Duration = Duration::from_secs(30);
+
 /// Transporte sobre un puerto serie real.
 pub struct SerialTransport {
     port: Box<dyn serialport::SerialPort>,
@@ -71,8 +75,27 @@ impl SerialTransport {
 
 impl Transport for SerialTransport {
     fn write_all(&mut self, data: &[u8]) -> io::Result<()> {
-        Write::write_all(&mut self.port, data)?;
-        self.port.flush()
+        // Sin `flush()`: en POSIX es `tcdrain`, que espera sin límite a que la placa lea todo
+        // (en un USB CDC cuya placa se detiene, el hilo queda colgado y ni siquiera puede
+        // cancelar). `write` ya entrega al controlador del puerto; si su cola está llena
+        // (`TimedOut` tras el plazo de lectura) se reintenta hasta `WRITE_STALL_LIMIT`.
+        let started = Instant::now();
+        let mut sent = 0;
+        while sent < data.len() {
+            match Write::write(&mut self.port, &data[sent..]) {
+                Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
+                Ok(n) => sent += n,
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        io::ErrorKind::Interrupted
+                            | io::ErrorKind::TimedOut
+                            | io::ErrorKind::WouldBlock
+                    ) && started.elapsed() < WRITE_STALL_LIMIT => {}
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
     }
 
     fn read_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> io::Result<usize> {
@@ -164,17 +187,39 @@ const MAX_PARTIAL_LINE: usize = 64 * 1024;
 pub struct LineReader {
     partial: Vec<u8>,
     ready: VecDeque<String>,
+    split_glued: bool,
 }
 
 impl LineReader {
+    /// Lector de la familia GRBL: además separa las respuestas pegadas en una línea
+    /// (`<Run|...|Ov:100,100,10ok`, `okok`, ver [`crate::glued`]). El resto de firmwares usa
+    /// [`LineReader::default`].
+    pub fn grbl() -> Self {
+        Self {
+            split_glued: true,
+            ..Self::default()
+        }
+    }
+
+    /// Activa o desactiva la separación de respuestas pegadas (solo familia GRBL).
+    pub fn set_split_glued(&mut self, on: bool) {
+        self.split_glued = on;
+    }
+
     pub fn feed(&mut self, bytes: &[u8]) {
         for &b in bytes {
             if b == b'\n' || b == b'\r' {
                 if !self.partial.is_empty() {
                     let line = String::from_utf8_lossy(&self.partial).trim().to_string();
                     self.partial.clear();
-                    if !line.is_empty() {
-                        self.ready.push_back(line);
+                    if line.is_empty() {
+                        continue;
+                    }
+                    match self.split_glued.then(|| crate::glued::split_glued(&line)) {
+                        Some(Some(pieces)) => {
+                            self.ready.extend(pieces.into_iter().map(str::to_string));
+                        }
+                        _ => self.ready.push_back(line),
                     }
                 }
             } else {

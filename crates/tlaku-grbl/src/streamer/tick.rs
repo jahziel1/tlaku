@@ -32,6 +32,7 @@ impl<T: Transport> Streamer<T> {
             }
         }
 
+        let tick_started = Instant::now();
         // Tras un `Resend:` se espera el `ok` que lo acompaña (con un tope de tiempo).
         if st.resend_until.is_some_and(|t| Instant::now() >= t) {
             st.resend_until = None;
@@ -78,10 +79,18 @@ impl<T: Transport> Streamer<T> {
             st.last_poll = Some(Instant::now());
         }
 
+        // Una escritura puede quedarse bloqueada (el vaciado de un puerto USB CDC espera a que la
+        // placa lea). Mientras el anfitrión está bloqueado no puede oír a la placa ni consultarla
+        // con `?`: ese tiempo no es silencio de la controladora. Si la vuelta ya tardó, la
+        // ventana de silencio vuelve a empezar al ver que la escritura terminó (la placa tendrá
+        // su plazo completo para contestar); una placa que de verdad calla se detecta igual.
+        let stalled = tick_started.elapsed() >= WRITE_STALL;
         let mut buf = [0u8; 256];
         let n = self.transport.read_timeout(&mut buf, TICK)?;
-        if n > 0 {
+        if n > 0 || stalled {
             st.last_rx = Instant::now();
+        }
+        if n > 0 {
             self.reader.feed(&buf[..n]);
         }
         while let Some(line) = self.reader.next_line() {

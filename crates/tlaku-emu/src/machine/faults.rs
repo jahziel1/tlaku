@@ -68,6 +68,7 @@ impl Machine {
             Fault::Noise(bytes) => self.emit_raw(&bytes),
             Fault::ErrorReply(c) => self.next_reply = Some(Reply::Error(c)),
             Fault::DropReply => self.next_reply = Some(Reply::Drop),
+            Fault::TruncatedStatusBeforeReply => self.next_reply = Some(Reply::GluedStatus),
             Fault::CrealityError { code, halt } => {
                 self.emit_line(&format!("ERROR:{code:02}"));
                 if halt {

@@ -28,6 +28,11 @@ pub enum Fault {
     /// La línea que dispara la falla se ejecuta pero su respuesta se pierde (cuenta mal en el
     /// anfitrión). Requiere `Trigger::Line`.
     DropReply,
+    /// La respuesta de la línea que dispara la falla llega pegada a un reporte de estado
+    /// cortado, sin salto de línea entre ambos: `<Run|MPos:...|Ov:100,100,10ok`. Es lo que se vio
+    /// en una Falcon2 Pro real (el `?` se contestó a medias y el `ok` siguió en la misma línea).
+    /// El `ok` (o `error:N`) llega completo. Requiere `Trigger::Line`.
+    TruncatedStatusBeforeReply,
     /// Falla propia de Creality: línea `ERROR:NN` (mayúsculas, dos dígitos). Con `halt` la
     /// máquina se detiene (vacía el planificador, apaga el láser, deja de contestar líneas, pero
     /// sigue respondiendo a `?`) hasta el soft-reset: es lo que se espera de `ERROR:05` (llama).

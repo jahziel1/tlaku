@@ -47,6 +47,10 @@ use crate::serial::{LineReader, Transport};
 /// Espera máxima de cada lectura; acota la latencia de pausa, cancelación y sondeo.
 const TICK: Duration = Duration::from_millis(5);
 
+/// Si escribir (más el sondeo) tarda esto o más en una vuelta, el anfitrión estuvo bloqueado y
+/// no puede contar ese lapso como silencio de la controladora.
+const WRITE_STALL: Duration = Duration::from_millis(250);
+
 #[derive(Debug)]
 enum Command {
     Pause,

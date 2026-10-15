@@ -83,6 +83,9 @@ impl Connection {
         let mut worker = Worker::new(rx, sink.clone(), shared.clone(), timing, port.to_string());
         worker.fw = family;
         worker.link_family = link_family;
+        worker
+            .reader
+            .set_split_glued(link_family == LinkFamily::Grbl);
         worker.emergency_parser = emergency_parser;
         let transport = grbl.into_transport();
         sink.emit(Emit::Connection(ConnectionEvent {
