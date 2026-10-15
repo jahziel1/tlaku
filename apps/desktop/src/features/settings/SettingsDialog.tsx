@@ -10,6 +10,7 @@ import { formatLength } from '@/lib/units';
 import { setUiMode } from '@/features/simple';
 import { usePref, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
+import { resetPanelSections } from '@/ui/PanelSection';
 import { AutomationPanel } from '@/features/automation';
 import { RemotePanel } from '@/features/remote';
 import { PrefCheck, PrefLength, PrefNumber, PrefSelect } from './fields';
@@ -190,6 +191,10 @@ function LayoutGroup() {
       <p className="hint">{t('prefs.dock.hint')}</p>
       <div>
         <button type="button" className="btn" onClick={() => setPref('dockLayout', DEFAULT_DOCK_LAYOUT)}>{t('prefs.dock.resetLayout')}</button>
+      </div>
+      <p className="hint">{t('prefs.panel.resetSections.hint')}</p>
+      <div>
+        <button type="button" className="btn" onClick={resetPanelSections}>{t('prefs.panel.resetSections')}</button>
       </div>
     </Group>
   );

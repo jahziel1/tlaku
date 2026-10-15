@@ -799,4 +799,11 @@ export const machine = {
   'machine.resume.log.interrupted': 'Interrumpido al {percent} %',
   'machine.resume.log.continue': 'Continuar',
   'machine.resume.log.continueTitle': 'Continuar este trabajo desde donde se quedó',
+  // ---- secciones plegables del panel Máquina ----
+  'machine.status.detail': 'Posición de máquina',
+  'machine.selection.summaryAll': 'Todo el diseño',
+  'machine.job.frameOpts': 'Opciones del encuadre',
+  'machine.move.settings': 'Ajustes del movimiento',
+  'machine.cmd.showLive': 'Ir a la vista en vivo',
+  'machine.cmd.showPositions': 'Ir a las posiciones guardadas',
 } as const;

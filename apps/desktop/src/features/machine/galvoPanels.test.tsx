@@ -65,7 +65,7 @@ describe('el panel Máquina con un galvo oculta lo que no aplica y dice por qué
 
   it('el estado no muestra F ni S, y no hay panel de fallas simuladas', () => {
     useGalvo(true);
-    expect(ssr(<StatusSection />)).not.toContain('mc-kv2');
+    expect(ssr(<StatusSection />)).not.toContain('mc-strip__kv');
     expect(ssr(<VirtualSection />)).toBe('');
   });
 
@@ -87,8 +87,8 @@ describe('el panel Máquina con un galvo oculta lo que no aplica y dice por qué
   it('el panel completo trae el del galvo, el aviso de energía y no el del K40 ni el de Ruida', () => {
     useGalvo(true);
     const h = ssr(<MachinePanel />);
-    expect(h).toContain('id="sec-galvo"');
-    expect(h).not.toContain('id="sec-lhy"');
+    expect(h).toContain('data-section="machine.galvo"');
+    expect(h).not.toContain('data-section="machine.lhy"');
     expect(h).toContain('Experimental');
     // Sin aviso pendiente no se muestra el de cortar la energía.
     expect(h).not.toContain('Ya corté la energía');
@@ -101,8 +101,8 @@ describe('el panel Máquina con un galvo oculta lo que no aplica y dice por qué
 
   it('con un perfil GRBL el panel de siempre', () => {
     const h = ssr(<MachinePanel />);
-    expect(h).not.toContain('id="sec-galvo"');
-    expect(h).toContain('id="sec-override"');
+    expect(h).not.toContain('data-section="machine.galvo"');
+    expect(h).toContain('data-section="machine.overrides"');
   });
 });
 

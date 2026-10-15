@@ -9,6 +9,12 @@ import { ANCHOR_KEYS, OriginPicker } from './OriginPicker';
 import { OriginIllustration } from './OriginIllustration';
 import type { Placement } from './placement';
 
+export const START_FROM_TITLE: Record<StartFrom, I18nKey> = {
+  absolute: 'machine.startFrom.absolute',
+  current_position: 'machine.startFrom.current',
+  user_origin: 'machine.startFrom.user',
+};
+
 const MODES: { id: StartFrom; title: I18nKey; desc: I18nKey }[] = [
   { id: 'absolute', title: 'machine.startFrom.absolute', desc: 'machine.startFrom.absolute.desc' },
   { id: 'current_position', title: 'machine.startFrom.current', desc: 'machine.startFrom.current.desc' },

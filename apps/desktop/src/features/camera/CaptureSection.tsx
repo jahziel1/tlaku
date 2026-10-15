@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Camera, ScanLine } from 'lucide-react';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
@@ -18,8 +19,7 @@ export function CaptureSection() {
   const frozen = useStore((s) => s.cameraFrozen);
 
   return (
-    <section className="section" aria-label={t('camera.capture.title')}>
-      <h3 className="panel-title">{t('camera.capture.title')}</h3>
+    <PanelSection id="camera.capture" title={t('camera.capture.title')} defaultOpen>
       <p className="hint">{t(head ? 'camera.capture.helpHead' : 'camera.capture.help')}</p>
       <div className="row cam-wrap">
         <button type="button" className="btn btn--accent grow" aria-disabled={!capture.enabled} title={capture.enabled ? capture.tooltip : (capture.reason ?? undefined)} onClick={capture.enabled ? capture.run : undefined}>
@@ -45,6 +45,6 @@ export function CaptureSection() {
       </label>
       <p className="hint">{t(head ? 'camera.overlay.onJobHintHead' : 'camera.overlay.onJobHint')}</p>
       {onJob && !head && !frozen && <p className="hint">{t('camera.overlay.onJobNeedsFreeze')}</p>}
-    </section>
+    </PanelSection>
   );
 }

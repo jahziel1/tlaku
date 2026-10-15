@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { RotateCcw } from 'lucide-react';
 import { t } from '@/i18n';
 import { fmt } from '@/lib/platform';
@@ -22,8 +23,7 @@ export function AdjustSection() {
   const manual = adj.dpm !== null;
 
   return (
-    <section className="section" aria-label={t('camera.adjust.title')}>
-      <h3 className="panel-title">{t('camera.adjust.title')}</h3>
+    <PanelSection id="camera.adjust" title={t('camera.adjust.title')}>
       <p className="hint">{t('camera.adjust.help')}</p>
       <label className="mc-check">
         <input
@@ -54,6 +54,6 @@ export function AdjustSection() {
           {t('camera.adjust.reset')}
         </button>
       )}
-    </section>
+    </PanelSection>
   );
 }

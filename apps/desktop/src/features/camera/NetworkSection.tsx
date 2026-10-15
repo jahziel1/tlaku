@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { useState } from 'react';
 import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
@@ -114,8 +115,7 @@ export function PresetsSection() {
   };
 
   return (
-    <section className="section" aria-label={t('camera.presets.title')}>
-      <h3 className="panel-title">{t('camera.presets.title')}</h3>
+    <PanelSection id="camera.presets" title={t('camera.presets.title')}>
       <p className="hint">{t('camera.presets.help')}</p>
       {presets.length > 0 ? (
         <div className="field">
@@ -155,6 +155,6 @@ export function PresetsSection() {
         )}
       </div>
       {problem && <p className="hint hint--danger" role="alert">{t(`camera.presets.err.${problem}` as I18nKey, { max: MAX_PRESETS })}</p>}
-    </section>
+    </PanelSection>
   );
 }

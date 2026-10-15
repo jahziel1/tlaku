@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Camera, CameraOff, Snowflake } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCommand } from '@/commands/useCommand';
@@ -61,7 +62,7 @@ function SourceSection() {
   const detail = useStore((s) => s.cameraProblemDetail);
 
   return (
-    <section className="section" aria-label={t('camera.source.title')}>
+    <PanelSection id="camera.source" title={t('camera.source.title')} defaultOpen>
       <h3 className="panel-title">{t('camera.source.title')}</h3>
       <SourceKindField />
       {network && <NetworkUrlField />}
@@ -106,7 +107,7 @@ function SourceSection() {
       {status === 'live' && size && <p className="hint num">{t('camera.source.stream', { w: size[0], h: size[1] })}</p>}
       {problem && <p className="hint hint--danger" role="alert">{t(`camera.problem.${problem}` as I18nKey)}</p>}
       {problem === 'network' && detail && <p className="hint hint--danger">{detail}</p>}
-    </section>
+    </PanelSection>
   );
 }
 
@@ -125,7 +126,7 @@ function BackdropSection() {
   const stale = !headMode && alignment !== null && size !== null && !alignmentIsCurrent();
 
   return (
-    <section className="section" aria-label={t('camera.backdrop.title')}>
+    <PanelSection id="camera.backdrop" title={t('camera.backdrop.title')} defaultOpen>
       <h3 className="panel-title">{t('camera.backdrop.title')}</h3>
       <label className="mc-check" title={show.tooltip}>
         <input type="checkbox" checked={show.checked} disabled={!show.enabled} onChange={show.run} />
@@ -152,7 +153,7 @@ function BackdropSection() {
       </button>
       {frozen && <p className="hint">{t('camera.backdrop.frozenHint')}</p>}
       {stale && alignment && <p className="warn-line" role="alert">{t('camera.backdrop.stale', { w: alignment.image_size[0], h: alignment.image_size[1] })}</p>}
-    </section>
+    </PanelSection>
   );
 }
 
@@ -165,7 +166,7 @@ function LensSection() {
   const grade = calibration ? rateRms(calibration.rms_error_px) : null;
 
   return (
-    <section className="section" aria-label={t('camera.lens.title')}>
+    <PanelSection id="camera.lens" title={t('camera.lens.title')}>
       <h3 className="panel-title">{t('camera.lens.title')}</h3>
       {calibration && grade ? (
         <>
@@ -182,7 +183,7 @@ function LensSection() {
         <button type="button" className="btn grow" onClick={open.run}>{calibration ? t('camera.lens.recalibrate') : t('camera.lens.calibrate')}</button>
         {calibration && <button type="button" className="btn" onClick={clearLens}>{t('camera.lens.clear')}</button>}
       </div>
-    </section>
+    </PanelSection>
   );
 }
 
@@ -204,7 +205,7 @@ function MarksSection() {
   };
 
   return (
-    <section className="section" aria-label={t('camera.marks.title')}>
+    <PanelSection id="camera.marks" title={t('camera.marks.title')}>
       <h3 className="panel-title">{t('camera.marks.title')}</h3>
       <p className="hint">{t('camera.marks.help')}</p>
       <div className="field">
@@ -233,7 +234,7 @@ function MarksSection() {
           </ul>
         </>
       )}
-    </section>
+    </PanelSection>
   );
 }
 
@@ -246,7 +247,7 @@ function HeightSection() {
   const shift = alignment && thickness !== ref ? maxShiftMm(alignment, thickness) : 0;
 
   return (
-    <section className="section" aria-label={t('camera.height.title')}>
+    <PanelSection id="camera.height" title={t('camera.height.title')}>
       <h3 className="panel-title">{t('camera.height.title')}</h3>
       <NumberField
         label={t('camera.height.thickness')}
@@ -273,6 +274,6 @@ function HeightSection() {
       {alignment && alignment.height && shift > 0.05 && (
         <p className="hint num" role="status">{t('camera.height.shift', { mm: fmt(shift, 1), ref: fmt(ref, 1) })}</p>
       )}
-    </section>
+    </PanelSection>
   );
 }

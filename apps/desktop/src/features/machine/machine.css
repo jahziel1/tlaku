@@ -1211,3 +1211,54 @@ button.mc-devitem:hover {
 .joblog__resume {
   margin-left: var(--s-4);
 }
+
+/* ---- franja de estado y línea de conexión (secciones plegables) ------------------------ */
+
+.mc-strip {
+  gap: var(--s-3);
+  padding-block: var(--s-4);
+}
+.mc-strip__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-5);
+}
+.mc-strip__pos {
+  white-space: nowrap;
+}
+.mc-strip__gap {
+  margin-left: var(--s-4);
+}
+.mc-strip__kv {
+  display: flex;
+  gap: var(--s-5);
+  margin: 0;
+}
+.mc-strip__kv > div {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+}
+.mc-strip__kv dt {
+  color: var(--text-faint);
+}
+.mc-strip__kv dd {
+  margin: 0;
+}
+.mc-connline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+  color: var(--text-muted);
+}
+.mc-connline__text {
+  flex: 1 1 calc(100% - 20px);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+.mc-connline__btn {
+  margin-left: auto;
+}

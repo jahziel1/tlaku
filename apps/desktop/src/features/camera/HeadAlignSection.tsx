@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Crosshair, Move } from 'lucide-react';
 import { useState } from 'react';
 import type { CameraAlignment } from '@/api/types';
@@ -77,8 +78,7 @@ export function HeadAlignView({ alignment, headMode, bed, px, refBed, marking, b
   const fromHead = alignment?.method === 'head_sweep';
   const loo = alignment?.samples?.[0]?.loo_rms_mm ?? null;
   return (
-    <section className="section" aria-label={t('camera.headAlign.title')}>
-      <h3 className="panel-title">{t('camera.headAlign.title')}</h3>
+    <PanelSection id="camera.headAlign" title={t('camera.headAlign.title')}>
       <p className="hint">{t('camera.headAlign.help')}</p>
       <button type="button" className="btn btn--accent" aria-disabled={headMode} title={headMode ? t('camera.headAlign.reason.headMode') : undefined} onClick={() => !headMode && onOpen()}>
         <Move size={14} aria-hidden="true" />
@@ -110,6 +110,6 @@ export function HeadAlignView({ alignment, headMode, bed, px, refBed, marking, b
           <p className="hint num" role="status">{px ? t('camera.headAlign.ref.marked', { x: fmt(px[0], 1), y: fmt(px[1], 1) }) : t('camera.headAlign.ref.none')}</p>
         </details>
       )}
-    </section>
+    </PanelSection>
   );
 }

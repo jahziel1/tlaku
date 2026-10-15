@@ -224,3 +224,71 @@
   padding: var(--s-4) var(--s-5);
   border-top: 1px solid var(--border);
 }
+
+/* secciones plegables (ui/PanelSection.tsx) */
+.psec__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.psec__head {
+  flex: 1;
+  min-width: 0;
+}
+.psec__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.psec__toggle:hover {
+  color: var(--text);
+}
+.psec__chev {
+  flex: none;
+  transition: transform 0.12s ease;
+}
+.psec__toggle[aria-expanded='true'] .psec__chev {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .psec__chev {
+    transition: none;
+  }
+}
+.psec__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.psec__body[hidden] {
+  display: none;
+}
+.psec__summary {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.psec[data-open='false']:not(.psec--nested) {
+  gap: var(--s-2);
+  padding-block: var(--s-4);
+}
+.psec--nested {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--border);
+}
+.psec--nested[data-open='false'] {
+  gap: var(--s-1);
+}

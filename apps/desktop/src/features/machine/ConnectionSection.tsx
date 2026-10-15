@@ -15,6 +15,7 @@ import { RuidaExperimentalBadge } from './RuidaSection';
 import { isUdpPort, portForDevice, portsForDevice } from './ruidaPorts';
 import { isVirtualNetPort, isVirtualPort, portLabel, VIRTUAL_SPEEDS } from './virtualPort';
 import { VirtualBadge } from './VirtualBadge';
+import { PanelSection } from '@/ui/PanelSection';
 
 /** Perfil, puerto, baudios, conectar/desconectar, versión de firmware y avisos de configuración. */
 export function ConnectionSection() {
@@ -62,9 +63,64 @@ export function ConnectionSection() {
 
   const version = firmware ? parseGrblVersion(firmware) : null;
 
+  const connectButton = (
+    <button type="button" className={`btn ${connected ? 'mc-connline__btn' : 'grow btn--accent'}`} disabled={!connectCmd.enabled} title={connectCmd.tooltip} onClick={connectCmd.run}>
+      {connected ? <Unplug size={15} aria-hidden="true" /> : <Plug size={15} aria-hidden="true" />}
+      {connecting ? t('machine.connecting') : connectCmd.label}
+    </button>
+  );
+  const badges = (
+    <>
+      {virtual && <VirtualBadge />}
+      {isRuida && <RuidaExperimentalBadge />}
+      {isLhy && <LhyExperimentalBadge />}
+      {isGalvo && <GalvoExperimentalBadge />}
+    </>
+  );
+
+  // Con máquina conectada la sección se reduce a una línea (el detalle se despliega); sin conexión
+  // se muestra completa porque es lo primero que se hace.
+  const line = connected ? (
+    <div role="status" className="mc-connline">
+      <span className="dot" data-tone="ok" aria-hidden="true" />
+      <span className="mc-connline__text">
+        {device.name} · {t('machine.connectedTo', { port: portLabel(connectedPort ?? selectedPort ?? '') })}
+      </span>
+      {badges}
+      {firmware && <span className="num mc-conn__fw" title={t('machine.firmware')}>{firmware}</span>}
+      {connectButton}
+    </div>
+  ) : undefined;
+
+  const warnings = (
+    <>
+      {connectionError && !connected && (
+        <p className="warn-line" role="alert">
+          <TriangleAlert size={14} aria-hidden="true" />
+          <span>{connectionError}</span>
+        </p>
+      )}
+      {connected && version && !version.modernEnough && (
+        <p className="warn-line">
+          <TriangleAlert size={14} aria-hidden="true" />
+          <span>{t('machine.fw.old')}</span>
+        </p>
+      )}
+      {dialog}
+      {connected && laserMode === 0 && (
+        <div className="warn-line mc-laserwarn" role="alert">
+          <TriangleAlert size={14} aria-hidden="true" />
+          <div>
+            <p>{t('machine.laserModeOff')}</p>
+            <button type="button" className="btn" onClick={() => ask('$32=1')}>{t('machine.laserModeOff.fix')}</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <section className="section" aria-labelledby="sec-conn">
-      <h3 id="sec-conn" className="panel-title">{t('machine.connection')}</h3>
+    <PanelSection id="machine.connection" title={t('machine.connection')} alwaysOpen={!connected} defaultOpen={false} summary={line} summaryAlways always={warnings}>
       <div className="row">
         <div className="field grow">
           <label htmlFor="sel-device" className="field__label">{t('machine.device')}</label>
@@ -132,49 +188,17 @@ export function ConnectionSection() {
             </select>
           </div>
         )}
-        <button type="button" className={`btn grow ${connected ? '' : 'btn--accent'}`} disabled={!connectCmd.enabled} title={connectCmd.tooltip} onClick={connectCmd.run}>
-          {connected ? <Unplug size={15} aria-hidden="true" /> : <Plug size={15} aria-hidden="true" />}
-          {connecting ? t('machine.connecting') : connectCmd.label}
-        </button>
+        {!connected && connectButton}
       </div>
 
-      <div role="status" className="mc-conn">
-        <span className="dot" data-tone={connected ? 'ok' : 'off'} aria-hidden="true" />
-        <span>
-          {connecting
-            ? t('machine.connecting')
-            : connected
-              ? t('machine.connectedTo', { port: portLabel(connectedPort ?? selectedPort ?? '') })
-              : t('machine.notConnected')}
-        </span>
-        {virtual && <VirtualBadge />}
-        {isRuida && <RuidaExperimentalBadge />}
-        {isLhy && <LhyExperimentalBadge />}
-        {isGalvo && <GalvoExperimentalBadge />}
-        {firmware && <span className="num mc-conn__fw" title={t('machine.firmware')}>{firmware}</span>}
-      </div>
-      {connectionError && !connected && (
-        <p className="warn-line" role="alert">
-          <TriangleAlert size={14} aria-hidden="true" />
-          <span>{connectionError}</span>
-        </p>
-      )}
-      {connected && version && !version.modernEnough && (
-        <p className="warn-line">
-          <TriangleAlert size={14} aria-hidden="true" />
-          <span>{t('machine.fw.old')}</span>
-        </p>
-      )}
-      {connected && laserMode === 0 && (
-        <div className="warn-line mc-laserwarn" role="alert">
-          <TriangleAlert size={14} aria-hidden="true" />
-          <div>
-            <p>{t('machine.laserModeOff')}</p>
-            <button type="button" className="btn" onClick={() => ask('$32=1')}>{t('machine.laserModeOff.fix')}</button>
-          </div>
+      {!connected && (
+        <div role="status" className="mc-conn">
+          <span className="dot" data-tone="off" aria-hidden="true" />
+          <span>{connecting ? t('machine.connecting') : t('machine.notConnected')}</span>
+          {badges}
         </div>
       )}
-      {dialog}
-    </section>
+
+    </PanelSection>
   );
 }

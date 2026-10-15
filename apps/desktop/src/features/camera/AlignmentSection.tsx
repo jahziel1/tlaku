@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { useEffect, useMemo, useState } from 'react';
 import { NumberField } from '@/ui/NumberField';
 import { t, type I18nKey } from '@/i18n';
@@ -155,8 +156,7 @@ export function AlignmentSection({ editor }: { editor: AlignmentEditor }) {
   };
 
   return (
-    <section className="section" aria-label={t('camera.align.title')}>
-      <h3 className="panel-title">{t('camera.align.title')}</h3>
+    <PanelSection id="camera.align" title={t('camera.align.title')} defaultOpen>
       <p className="hint">{t('camera.align.help')}</p>
       <ol className="cam-points">
         {ALIGN_ORDER.map((c, i) => (
@@ -189,6 +189,6 @@ export function AlignmentSection({ editor }: { editor: AlignmentEditor }) {
       <p className={saved ? 'hint cam-ok' : 'hint'} role="status">
         {note ?? (saved ? t('camera.align.done', { rms: fmt(saved.rms_mm, 3) }) : t('camera.align.none'))}
       </p>
-    </section>
+    </PanelSection>
   );
 }

@@ -3,6 +3,8 @@ import type { AppState } from '@/store';
 import { isJobBusy, selectActiveDevice } from '@/store';
 import { useProbeCenter } from '@/features/machine/probeCenter';
 import { jogBlockedReason } from '@/store/machine';
+import { SECTION_IDS } from '@/lib/panelSections';
+import { revealPanelSection } from '@/ui/PanelSection';
 import type { CommandDef } from '../types';
 
 /** Una macro por comando (`machine.macro1` a `machine.macro10`): así cada una puede tener su atajo propio en Ajustes. */
@@ -34,6 +36,9 @@ export const machineExtraCommands: CommandDef[] = [
     category: 'machine',
     run: () => useProbeCenter.getState().openDialog(),
   },
+  // Abren la sección del panel Máquina, la dejan a la vista y mueven el foco a su encabezado.
+  { id: 'machine.showLive', label: 'machine.cmd.showLive', category: 'machine', run: () => revealPanelSection(SECTION_IDS.job) },
+  { id: 'machine.showPositions', label: 'machine.cmd.showPositions', category: 'machine', run: () => revealPanelSection(SECTION_IDS.positions) },
   ...MACRO_LABELS.map(
     (label, i): CommandDef => ({
       id: `machine.macro${i + 1}`,

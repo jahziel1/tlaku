@@ -4,6 +4,7 @@ import { isJobBusy, selectActiveDevice, useStore } from '@/store';
 import { RISK_WARNING } from './CommandConfirm';
 import { MAX_MACROS, planMacro } from './macros';
 import { Modal } from './Modal';
+import { PanelSection } from '@/ui/PanelSection';
 
 /** Botones de las macros del perfil activo (hasta diez) en el panel Máquina. */
 export function MacroButtons() {
@@ -15,8 +16,7 @@ export function MacroButtons() {
   if (macros.length === 0) return null;
   const why = !connected ? t('reason.needMachine') : busy ? t('reason.jobRunning') : undefined;
   return (
-    <section className="section" aria-labelledby="sec-macros">
-      <h3 id="sec-macros" className="panel-title">{t('machine.macros')}</h3>
+    <PanelSection id="machine.macros" title={t('machine.macros')} summary={String(macros.length)}>
       <div className="mc-macrobtns" role="group" aria-label={t('machine.macros')}>
         {macros.map((m, i) => (
           <button key={i} type="button" className="btn" disabled={why !== undefined} title={why ?? t('machine.macros.runHint', { name: m.name })} onClick={() => void run(i)}>
@@ -25,7 +25,7 @@ export function MacroButtons() {
         ))}
       </div>
       <p className="hint">{t('machine.macros.panelHelp')}</p>
-    </section>
+    </PanelSection>
   );
 }
 

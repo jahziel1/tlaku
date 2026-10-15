@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Crosshair, LocateFixed } from 'lucide-react';
 import { useStore } from '@/store';
 import { t } from '@/i18n';
@@ -26,8 +27,7 @@ export function CenterSection() {
   };
 
   return (
-    <section className="section" aria-label={t('camera.center.title')}>
-      <h3 className="panel-title">{t('camera.center.title')}</h3>
+    <PanelSection id="camera.center" title={t('camera.center.title')}>
       <p className="hint">{t('camera.center.help')}</p>
       <div className="field">
         <label className="field__label" htmlFor="cam-center-mode">{t('camera.center.mode')}</label>
@@ -60,6 +60,6 @@ export function CenterSection() {
         </div>
       )}
       <p className="hint hint--warn">{t('camera.center.unvalidated')}</p>
-    </section>
+    </PanelSection>
   );
 }

@@ -111,7 +111,20 @@ Avisos que puede darte la sección:
 
 Si no encuentra el puerto o falla la conexión, mira [Solución de problemas](15-solucion-de-problemas.md).
 
-Ya conectado, la pestaña **Máquina** ofrece también **Mover cabezal** (con pasos configurables, **Posicionar el láser** con un clic en el lienzo, **Posición final**, ejes Z y U, posiciones guardadas y disparo de prueba), las **Macros**, los botones de encuadre y los **Ajustes en vivo** de velocidad y potencia durante un trabajo. Todo eso está explicado en [Enviar trabajos con seguridad](09-enviar-con-seguridad.md) y en [Control avanzado de la máquina](09b-control-avanzado.md). Los ajustes en vivo solo existen con controladoras de la familia GRBL (no con Marlin ni Smoothieware).
+Ya conectado, la pestaña **Máquina** ofrece también **Trabajo** (encuadre, vista previa, iniciar, pausar, detener, **Vista en vivo** y progreso), **Mover cabezal** (con **Posicionar el láser** con un clic en el lienzo), las **Posiciones guardadas**, las **Macros**, los **Ajustes en vivo** de velocidad y potencia durante un trabajo, la **Posición final**, los ejes Z y U, el **Disparo de prueba** y los **Ajustes del movimiento** (los pasos). Todo eso está explicado en [Enviar trabajos con seguridad](09-enviar-con-seguridad.md) y en [Control avanzado de la máquina](09b-control-avanzado.md). Los ajustes en vivo solo existen con controladoras de la familia GRBL (no con Marlin ni Smoothieware).
+
+### El panel Máquina: secciones que se pliegan
+
+Para que el panel no se haga larguísimo, cada bloque de la pestaña **Máquina** es una **sección plegable**: el título es un botón con una flecha (`›` cerrada, `⌄` abierta) que se abre y se cierra con el ratón o con `Enter` / `Espacio` estando enfocado. Cada sección recuerda cómo la dejaste, también al reiniciar la app.
+
+- **Abiertas de fábrica:** **Trabajo** (arriba, lo que más se usa mientras graba) y **Mover cabezal**. El orden es: Conexión, Estado, Trabajo, Mover cabezal y, después, **Posiciones guardadas**, **Macros**, **Ajustes en vivo**, **Ejes extra**, **Posición final**, **Disparo de prueba**, **Ajustes del movimiento**, **Ajustes de la máquina** y **Máquina virtual**, todas cerradas. Con un perfil Ruida, K40 o galvo, su panel propio aparece abierto justo debajo de **Mover cabezal**.
+- **Dentro de Trabajo** hay tres secciones cerradas: **Iniciar desde**, **Qué se envía** y **Opciones del encuadre**. Cerradas muestran una línea con lo elegido (por ejemplo «Coordenadas absolutas» o «Todo el diseño»); si el trabajo no cabe en la cama o falta el origen, esa línea te lo avisa en rojo. Los avisos de seguridad (alarma, modo láser apagado, firmware antiguo) se ven siempre, aunque la sección esté cerrada.
+- **Conexión.** Sin máquina conectada se muestra completa, como siempre: es lo primero que haces. Con la máquina conectada se reduce a una línea («Falcon2 Pro · Conectada en /dev/… » con el botón **Desconectar**); pulsa el título **Conexión** para ver el detalle (máquina, puerto y baudios).
+- **Estado** es una franja: el estado (por ejemplo **En marcha**), la posición de trabajo X/Y y, si la máquina los informa, el avance **F** y la potencia **S**. La **Posición de máquina** está en un detalle plegable.
+- Si algo te pide ir a una sección (por ejemplo el comando **Ir a la vista en vivo** de la búsqueda de comandos), la sección se abre, queda a la vista dentro del panel y el foco va a su título.
+- **Restablecer el panel** devuelve todas las secciones a su estado de fábrica. Está en **Preferencias › Apariencia › Distribución de la ventana**, en el botón **Personalizar pestañas** del panel y en la búsqueda de comandos.
+
+La pestaña **Cámara** usa el mismo sistema: quedan abiertas **Cámara**, **Fondo en el lienzo**, **Imagen de la cama**, **Alineación con la cama** y **Cámara en el cabezal**; el resto (lente, marcas, altura del material, ajuste, etc.) está cerrado. El **modo sencillo** no cambia.
 
 ## Máquina virtual
 
@@ -122,6 +135,6 @@ Al final de la lista **Puerto** hay seis máquinas virtuales, que son un emulado
 - Arrancan referenciadas y sin alarma, listas para trabajar.
 - **Velocidad del tiempo** (`×1`, `×5`, `×20`) acelera el trabajo simulado; con `×1` dura lo mismo que uno real.
 - La insignia **VIRTUAL** aparece en el panel **Máquina** y en la barra de estado.
-- La sección **Máquina virtual** tiene **Simular falla**: **Llama detectada (ERROR:05)**, **Inclinación anormal (ERROR:01)**, **Alarma 3 (reinicio en movimiento)** y **Cable desconectado**. Elige una y pulsa **Provocar** para ver cómo reaccionan el banner de alarma, la consola y el trabajo. Esa sección no existe con una máquina real.
+- La sección **Máquina virtual** tiene **Simular falla**: **Llama detectada (ERROR:05)**, **Inclinación anormal (ERROR:01)**, **Alarma 3 (reinicio en movimiento)** y **Cable desconectado**. Elige una y pulsa **Provocar** para ver cómo reaccionan el banner de alarma, la consola y el trabajo. Esa sección no existe con una máquina real y viene cerrada: pulsa su título para abrirla.
 
 Siguiente: [Conexión por red y automatización](08b-red-y-automatizacion.md)

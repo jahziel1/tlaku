@@ -184,4 +184,8 @@ export const prefs = {
   'prefs.automation.startAsked': 'Un programa externo pidió iniciar el trabajo. Revisa el diálogo y confirma para empezar.',
   'prefs.automation.startBlocked': 'Un programa externo pidió iniciar el trabajo, pero no se puede: {reason}',
   'prefs.automation.started': 'Trabajo iniciado por un programa externo.',
+  // ---- secciones plegables de los paneles ----
+  'prefs.panel.resetSections': 'Restablecer el panel',
+  'prefs.panel.resetSections.hint': 'Las secciones de los paneles (Máquina, Cámara) se pliegan y despliegan, y cada una recuerda cómo la dejaste. Esto las devuelve a su estado de fábrica: abiertas solo las más usadas.',
+  'prefs.panel.resetDone': 'Panel restablecido.',
 } as const;

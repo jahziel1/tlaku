@@ -1,3 +1,4 @@
+import { PanelSection } from '@/ui/PanelSection';
 import { Crosshair, EyeOff, Route, Square, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getApi } from '@/api';
@@ -107,10 +108,7 @@ export function GalvoPanel({ connected, state, step, loops, adjustRejected = fal
   const waiting = state?.waiting_move ?? null;
   const working = !!state?.working;
   return (
-    <section className="section" aria-labelledby="sec-galvo">
-      <h3 id="sec-galvo" className="panel-title">
-        {t('galvo.panel.title')} <GalvoExperimentalBadge />
-      </h3>
+    <PanelSection id="machine.galvo" title={<>{t('galvo.panel.title')} <GalvoExperimentalBadge /></>} defaultOpen>
       <div className="warn-line" role="note">
         <TriangleAlert size={14} aria-hidden="true" />
         <div>
@@ -185,7 +183,7 @@ export function GalvoPanel({ connected, state, step, loops, adjustRejected = fal
         ))}
       </ul>
       <p className="hint">{t('galvo.panel.noG')}</p>
-    </section>
+    </PanelSection>
   );
 }
 
