@@ -3,6 +3,7 @@ import { t } from '@/i18n';
 import { normalizeLayers } from '@/lib/layers';
 import { emptyDocument, trimHistory, type HistoryEntry } from './document';
 import { DEFAULT_JOB_OPTIONS, type PreviewStatus } from './preview';
+import { captureExtras, restoreExtras } from './tabExtras';
 import type { AppState, SliceCreator } from './types';
 
 /**
@@ -53,6 +54,8 @@ export interface TabData {
   previewStale: boolean;
   previewError: string | null;
   previewErrorCode: string | null;
+  /** Estado por pestaña de fuera del store principal (ver `tabExtras.ts`: p. ej. los CSV leídos). */
+  extras?: Record<string, unknown>;
 }
 
 export interface TabEntry {
@@ -196,6 +199,7 @@ export function captureTab(s: AppState): TabData {
     previewStale: computing ? true : s.previewStale,
     previewError: s.previewError,
     previewErrorCode: s.previewErrorCode,
+    extras: captureExtras(),
   };
 }
 
@@ -214,8 +218,13 @@ export function trimInactive(d: TabData): TabData {
   return past === d.past && future === d.future ? d : { ...d, past, future };
 }
 
-/** Lo que se escribe en los slices vivos al activar una foto. */
+/**
+ * Lo que se escribe en los slices vivos al activar una foto. Además restaura (como efecto) el estado por
+ * pestaña de fuera del store (`extras`), ANTES del `set` del llamador: así los suscriptores del store
+ * ya ven los CSV de la pestaña que se activa junto con su documento.
+ */
 function restoreOf(d: TabData): Partial<AppState> {
+  restoreExtras(d.extras);
   return {
     doc: d.doc,
     savedDoc: d.savedDoc,

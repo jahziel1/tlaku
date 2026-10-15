@@ -24,17 +24,23 @@ function Dialog({ onClose }: { onClose: () => void }) {
   const titleId = useId();
   const calc = useCostCalc();
   const notify = useStore((s) => s.notify);
-  const stale = useStore((s) => s.previewStale);
-  const status = useStore((s) => s.previewStatus);
   const compute = useStore((s) => s.computePreview);
   const refreshLog = useJobLog((s) => s.refresh);
 
-  // Al abrir: el registro de trabajos (otra ventana pudo anotar uno) y un cálculo al día del trabajo.
+  // Al abrir: el registro de trabajos (otra ventana pudo anotar uno).
   useEffect(() => {
     refreshLog();
-    if (stale || status === 'idle') void compute();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir; después manda la sincronización normal
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir
   }, []);
+
+  // Al abrir y cada vez que se cambia de pestaña: un cálculo al día del trabajo de la pestaña activa (las cifras
+  // salen de su diseño y de su vista previa; la de una pestaña recién activada puede faltar o estar vencida).
+  const tabId = useStore((s) => s.activeTabId);
+  useEffect(() => {
+    const s = useStore.getState();
+    if (s.previewStale || s.previewStatus === 'idle') void compute();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir y al cambiar de pestaña; después manda la sincronización normal
+  }, [tabId]);
 
   const ctx = () => ({ ...calc.report, date: today() });
   const doCopy = async (text: string, okKey: 'costs.copied' | 'costs.copiedCsv') => {

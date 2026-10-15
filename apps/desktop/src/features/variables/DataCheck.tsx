@@ -14,20 +14,26 @@ import { variableTexts } from './advance';
  * una fila de la lista la deja como fila actual para ver qué se grabaría.
  */
 export function DataCheck({ onPickRow }: { onPickRow: (row: number) => void }) {
-  const [state, setState] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; result?: DataCheckResult; error?: string }>({ status: 'idle' });
+  // El resultado es de la pestaña donde se pidió: en otra pestaña no se muestra (ni se aplica) y al volver sigue ahí.
+  const tabId = useStore((s) => s.activeTabId);
+  type Entry = { status: 'running' | 'done' | 'error'; result?: DataCheckResult; error?: string };
+  const [byTab, setByTab] = useState<Record<string, Entry>>({});
+  const state: Entry | { status: 'idle'; result?: undefined; error?: undefined } = byTab[tabId] ?? { status: 'idle' };
+  const setState = (next: Entry, forTab: string) => setByTab((m) => ({ ...m, [forTab]: next }));
   const hasWork = useStore((s) => variableTexts(s.doc).length > 0);
   const main = useVariablesUi((s) => s.csv);
 
   const run = async () => {
-    setState({ status: 'running' });
+    const forTab = useStore.getState().activeTabId;
+    setState({ status: 'running' }, forTab);
     try {
       const doc = useStore.getState().doc;
       const path = variableTextOf(doc).csv_path;
       const table = path !== null && main.path === path ? main.table : null;
       const result = await checkData(doc, { main: table, extra: extraTables(doc) }, getApi());
-      setState({ status: 'done', result });
+      setState({ status: 'done', result }, forTab);
     } catch (e) {
-      setState({ status: 'error', error: String(e instanceof Error ? e.message : e) });
+      setState({ status: 'error', error: String(e instanceof Error ? e.message : e) }, forTab);
     }
   };
 

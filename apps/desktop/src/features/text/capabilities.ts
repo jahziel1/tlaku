@@ -13,6 +13,11 @@ export function capabilitiesKey(kind: TextObject, family: string): string {
   return JSON.stringify([family.trim().toLowerCase(), kind.bold, kind.italic, (kind.variations ?? []).map((a) => [a.tag, a.value])]);
 }
 
+/** Solo la cara (sin la posición de los ejes): lo que decide qué ejes y funciones existen. */
+export function faceKey(kind: TextObject, family: string): string {
+  return JSON.stringify([family.trim().toLowerCase(), kind.bold, kind.italic]);
+}
+
 /** Pide (con memoria) las funciones y ejes de la fuente del texto. */
 export function loadCapabilities(kind: TextObject, family: string, api: () => Pick<ReturnType<typeof getApi>, 'fontCapabilities'> = getApi): Promise<FontCapabilities> {
   const key = capabilitiesKey(kind, family);
@@ -45,7 +50,8 @@ export interface CapabilitiesState {
  */
 export function useFontCapabilities(kind: TextObject, family: string, enabled: boolean): CapabilitiesState {
   const key = capabilitiesKey(kind, family);
-  const [state, setState] = useState<CapabilitiesState & { key: string }>({ caps: null, loading: false, error: null, key: '' });
+  const face = faceKey(kind, family);
+  const [state, setState] = useState<CapabilitiesState & { key: string; face: string }>({ caps: null, loading: false, error: null, key: '', face: '' });
 
   useEffect(() => {
     if (!enabled) return;
@@ -53,8 +59,8 @@ export function useFontCapabilities(kind: TextObject, family: string, enabled: b
     const timer = setTimeout(() => {
       setState((s) => ({ ...s, loading: true, error: null }));
       loadCapabilities(kind, family).then(
-        (caps) => alive && setState({ caps, loading: false, error: null, key }),
-        (e: unknown) => alive && setState({ caps: null, loading: false, error: String(e instanceof Error ? e.message : e), key }),
+        (caps) => alive && setState({ caps, loading: false, error: null, key, face }),
+        (e: unknown) => alive && setState({ caps: null, loading: false, error: String(e instanceof Error ? e.message : e), key, face }),
       );
     }, CAPABILITIES_DEBOUNCE_MS);
     return () => {
@@ -66,5 +72,8 @@ export function useFontCapabilities(kind: TextObject, family: string, enabled: b
   }, [key, enabled]);
 
   if (!enabled) return { caps: null, loading: false, error: null };
-  return { caps: state.caps, loading: state.loading || state.key !== key, error: state.error };
+  // La respuesta anterior se conserva solo si es de la misma cara: al pasar a otro texto (otra pestaña, otra
+  // selección) los ejes y funciones de la fuente anterior no se ofrecen para esta.
+  const sameFace = state.face === face;
+  return { caps: sameFace ? state.caps : null, loading: state.loading || state.key !== key, error: sameFace ? state.error : null };
 }

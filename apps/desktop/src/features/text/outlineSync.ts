@@ -102,12 +102,22 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
     const resolved = obj && resolveText(obj, store.getState().doc);
     if (!obj || !resolved?.ok || resolved.sig !== sig) return;
 
+    // El contorno es del documento de la pestaña que lo pidió: si el usuario cambia de pestaña mientras llega,
+    // se descarta (al volver, `scan` lo pide de nuevo). Los ids se repiten entre pestañas duplicadas, así que
+    // la firma sola no distingue el documento.
+    const tabId = store.getState().activeTabId;
+    const elsewhere = () => store.getState().activeTabId !== tabId;
+    const drop = () => {
+      if (jobs.get(id) === job) jobs.delete(id);
+      scan();
+    };
     let families: FontFamily[] = [];
     try {
       families = await fonts();
     } catch {
       // Sin lista de fuentes se respeta la familia pedida y el motor dirá si no existe.
     }
+    if (stopped || elsewhere()) return drop();
     const font = effectiveFont(families, obj.kind.font_family);
     let result;
     try {
@@ -117,6 +127,7 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
       });
     } catch (e) {
       if (stopped || jobs.get(id) !== job) return;
+      if (elsewhere()) return drop();
       jobs.delete(id);
       failed.set(id, sig);
       status.set(id, { busy: false, warnings: [], error: String(e instanceof Error ? e.message : e) });
@@ -124,6 +135,7 @@ export function startOutlineSync(options: OutlineSyncOptions = {}): OutlineSync 
     }
     // Si mientras tanto cambió algo, esta respuesta ya no sirve: hay otro trabajo en camino.
     if (stopped || jobs.get(id) !== job) return;
+    if (elsewhere()) return drop();
     const now = find(store.getState().doc, id);
     const again = now && resolveText(now, store.getState().doc);
     if (!now || !again?.ok || again.sig !== sig) {

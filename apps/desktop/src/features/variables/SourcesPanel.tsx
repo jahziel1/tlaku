@@ -2,7 +2,7 @@ import { ArrowUpToLine, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
 import { useId } from 'react';
 import type { CsvTable, DataSource } from '@/api/types';
 import { t } from '@/i18n';
-import { useStore } from '@/store';
+import { pinTab, useStore } from '@/store';
 import { useVariablesUi, type CsvState } from './context';
 import { loadCsv, loadExtraCsv, pickCsvFile } from './csvSync';
 import { variableTextOf } from './defaults';
@@ -51,11 +51,17 @@ export function SourcesPanel() {
   const listId = useId();
 
   const pick = async (replaceIndex: number | null) => {
+    // El archivo elegido es de la pestaña donde se abrió el selector, aunque el usuario cambie de pestaña mientras tanto.
+    const inTab = pinTab(useStore.getState());
     try {
       const path = await pickCsvFile();
       if (!path) return;
-      if (replaceIndex === null) addDataSource(path);
-      else replaceDataSource(replaceIndex, path);
+      const applied = inTab(() => {
+        if (replaceIndex === null) addDataSource(path);
+        else replaceDataSource(replaceIndex, path);
+        return true;
+      });
+      if (applied === undefined) useStore.getState().notify('warning', t('tabs.targetClosedGeneric'));
     } catch (e) {
       useStore.getState().notify('error', t('variables.csv.pickFailed', { message: String(e instanceof Error ? e.message : e) }));
     }

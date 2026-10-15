@@ -59,14 +59,14 @@ struct Case {
     size_mm: [f64; 2],
 }
 
-/// Casos cuyo ajuste de curvas toma decisiones distintas en otra arquitectura (la imagen de ruido:
-/// un decimal distinto mueve un punto de control hasta ~0,2 mm). Los dorados se generaron en macOS
-/// ARM y sirven para comprobar que el código adaptado de vtracer da exactamente lo mismo; en x86 se
-/// omiten (los demás casos se comparan en todas las arquitecturas).
+/// Casos cuyo ajuste de curvas toma decisiones distintas en otra plataforma (la imagen de ruido:
+/// un decimal distinto mueve un punto de control hasta ~0,5 mm). Los dorados se generaron en macOS
+/// ARM y sirven para comprobar que el código adaptado de vtracer da exactamente lo mismo; en x86 y
+/// en Linux ARM (otra libm) se omiten. Los demás casos se comparan en todas las plataformas.
 const ARCH_SENSITIVE: &[&str] = &["blobs", "blobs_inverted"];
 
 fn compared_here(name: &str) -> bool {
-    cfg!(target_arch = "aarch64") || !ARCH_SENSITIVE.contains(&name)
+    cfg!(all(target_arch = "aarch64", target_os = "macos")) || !ARCH_SENSITIVE.contains(&name)
 }
 
 fn cases() -> Vec<Case> {

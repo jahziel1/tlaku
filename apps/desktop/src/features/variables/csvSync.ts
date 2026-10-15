@@ -1,6 +1,6 @@
 import { getApi, getApiKind, type LaserApi } from '@/api';
 import { t } from '@/i18n';
-import { useStore } from '@/store';
+import { pinTab, useStore } from '@/store';
 import { EMPTY_CSV, useVariablesUi, type CsvState } from './context';
 import { variableTextOf } from './defaults';
 
@@ -14,36 +14,58 @@ export async function pickCsvFile(): Promise<string | null> {
   return typeof picked === 'string' ? picked : null;
 }
 
-let seq = 0;
+/**
+ * Las tablas leídas son POR PESTAÑA (ver `context.ts`). Cada lectura fija la pestaña donde empezó
+ * (`pinTab`) y su resultado se escribe en ella con `runInTab`, aunque el usuario ya esté en otra; si esa
+ * pestaña se cerró, se descarta. El número de lectura también es por pestaña: una lectura nueva de la
+ * misma fuente en la misma pestaña invalida la anterior, pero nunca la de otra pestaña.
+ */
+const seqs = new Map<string, number>();
+const bump = (key: string): number => {
+  const n = (seqs.get(key) ?? 0) + 1;
+  seqs.set(key, n);
+  return n;
+};
 
-/** Lee el CSV de `path` y lo deja en el estado de la interfaz (o el error). `null` lo descarta. */
+const errorText = (e: unknown): string => String(e instanceof Error ? e.message : e);
+
+/** Lee el CSV de `path` y lo deja en el estado de la interfaz de la pestaña activa (o el error). `null` lo descarta. */
 export async function loadCsv(path: string | null, api: () => Pick<LaserApi, 'readCsv'> = getApi): Promise<void> {
-  const mine = ++seq;
+  const s0 = useStore.getState();
+  const inTab = pinTab(s0);
+  const key = `${s0.activeTabId}\u0000main`;
+  const mine = bump(key);
   const ui = useVariablesUi.getState();
   if (path === null) return ui.setCsv(EMPTY_CSV);
   // Se conserva la tabla anterior mientras se lee la nueva, para que el lienzo no parpadee.
   ui.setCsv({ path, table: ui.csv.path === path ? ui.csv.table : null, error: null, loading: true });
+  const land = (state: CsvState) =>
+    inTab(() => {
+      // Si esa pestaña ya apunta a otro archivo, la respuesta no es suya.
+      if (useVariablesUi.getState().csv.path === path) useVariablesUi.getState().setCsv(state);
+    });
   try {
     const table = await api().readCsv({ path });
-    if (mine !== seq) return;
-    useVariablesUi.getState().setCsv({ path, table, error: null, loading: false });
+    if (seqs.get(key) !== mine) return;
+    land({ path, table, error: null, loading: false });
   } catch (e) {
-    if (mine !== seq) return;
-    useVariablesUi.getState().setCsv({ path, table: null, error: String(e instanceof Error ? e.message : e), loading: false });
+    if (seqs.get(key) !== mine) return;
+    land({ path, table: null, error: errorText(e), loading: false });
   }
 }
 
-const extraSeq = new Map<string, number>();
-
 /**
- * Lee el CSV de la fuente secundaria `name` (en minúsculas) y deja su estado en la interfaz.
- * `null` borra el estado de esa fuente.
+ * Lee el CSV de la fuente secundaria `name` (en minúsculas) y deja su estado en la interfaz de la pestaña
+ * activa. `null` borra el estado de esa fuente.
  */
 export async function loadExtraCsv(name: string, path: string | null, api: () => Pick<LaserApi, 'readCsv'> = getApi): Promise<void> {
-  const mine = (extraSeq.get(name) ?? 0) + 1;
-  extraSeq.set(name, mine);
-  const put = (state: CsvState | null) => {
+  const s0 = useStore.getState();
+  const inTab = pinTab(s0);
+  const key = `${s0.activeTabId}\u0000extra\u0000${name}`;
+  const mine = bump(key);
+  const put = (state: CsvState | null, onlyIfPath?: string) => {
     const { extra, setExtra } = useVariablesUi.getState();
+    if (onlyIfPath !== undefined && extra[name]?.path !== onlyIfPath) return;
     const next = { ...extra };
     if (state === null) delete next[name];
     else next[name] = state;
@@ -54,11 +76,11 @@ export async function loadExtraCsv(name: string, path: string | null, api: () =>
   put({ path, table: prev?.path === path ? prev.table : null, error: null, loading: true });
   try {
     const table = await api().readCsv({ path });
-    if (extraSeq.get(name) !== mine) return;
-    put({ path, table, error: null, loading: false });
+    if (seqs.get(key) !== mine) return;
+    inTab(() => put({ path, table, error: null, loading: false }, path));
   } catch (e) {
-    if (extraSeq.get(name) !== mine) return;
-    put({ path, table: null, error: String(e instanceof Error ? e.message : e), loading: false });
+    if (seqs.get(key) !== mine) return;
+    inTab(() => put({ path, table: null, error: errorText(e), loading: false }, path));
   }
 }
 
@@ -69,31 +91,20 @@ export function reloadAllCsv(): void {
   sources.slice(1).forEach((s) => void loadExtraCsv(s.name.toLowerCase(), s.path));
 }
 
-/** Clave que cambia cuando cambia cualquier ruta de las fuentes (o sus nombres). */
-function sourcesKey(): string {
-  return variableTextOf(useStore.getState().doc)
-    .sources.map((s) => `${s.name.toLowerCase()}\u0000${s.path}`)
-    .join('\u0001');
-}
-
-/** Mantiene las fuentes cargadas al día con `variable_text.sources` del documento. Devuelve cómo parar. */
+/**
+ * Mantiene las fuentes cargadas al día con `variable_text.sources` del documento de la pestaña ACTIVA:
+ * lo que ya está cargado (que viaja con la pestaña) se compara con lo que el documento pide, y solo se
+ * lee lo que falta. Devuelve cómo parar.
+ */
 export function startCsvSync(): () => void {
-  let prevMain: string | null | undefined;
-  let prevKey: string | undefined;
   const check = () => {
     const { sources } = variableTextOf(useStore.getState().doc);
+    const ui = useVariablesUi.getState();
     const main = sources[0]?.path ?? null;
-    if (main !== prevMain) {
-      prevMain = main;
-      void loadCsv(main);
-    }
-    const key = sourcesKey();
-    if (key === prevKey) return;
-    prevKey = key;
+    if (main !== ui.csv.path) void loadCsv(main);
     const wanted = new Map(sources.slice(1).map((s) => [s.name.toLowerCase(), s.path]));
-    const have = useVariablesUi.getState().extra;
-    for (const name of Object.keys(have)) if (!wanted.has(name)) void loadExtraCsv(name, null);
-    for (const [name, path] of wanted) if (have[name]?.path !== path) void loadExtraCsv(name, path);
+    for (const name of Object.keys(ui.extra)) if (!wanted.has(name)) void loadExtraCsv(name, null);
+    for (const [name, path] of wanted) if (ui.extra[name]?.path !== path) void loadExtraCsv(name, path);
   };
   check();
   const unsubscribe = useStore.subscribe(check);

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CsvTable, Document } from '@/api/types';
 import { getLanguage } from '@/i18n';
+import { registerTabExtra } from '@/store/tabExtras';
 import { variableTextOf } from './defaults';
 import { makeContext, type VarContext } from './resolve';
 
@@ -13,6 +14,7 @@ export interface CsvState {
 }
 
 export const EMPTY_CSV: CsvState = { path: null, table: null, error: null, loading: false };
+const EMPTY_EXTRA: Record<string, CsvState> = {};
 
 interface VariablesUi {
   /** Diálogo "Texto variable" abierto. */
@@ -40,7 +42,7 @@ export const useVariablesUi = create<VariablesUi>()((set) => ({
   showTemplate: false,
   clock: Date.now(),
   csv: EMPTY_CSV,
-  extra: {},
+  extra: EMPTY_EXTRA,
   show: () => set({ open: true }),
   close: () => set({ open: false }),
   setShowTemplate: (showTemplate) => set({ showTemplate }),
@@ -48,6 +50,28 @@ export const useVariablesUi = create<VariablesUi>()((set) => ({
   setCsv: (csv) => set({ csv }),
   setExtra: (extra) => set({ extra }),
 }));
+
+/**
+ * Las tablas CSV leídas son POR PESTAÑA: cada documento tiene sus propias fuentes. `csv` y `extra` son
+ * siempre las de la pestaña activa; al cambiar de pestaña se guardan en su foto y se restauran las de la
+ * que se activa (`store/tabExtras.ts`). El diálogo abierto, «ver plantilla» y el reloj son de la ventana.
+ */
+interface CsvSnapshot {
+  csv: CsvState;
+  extra: Record<string, CsvState>;
+}
+registerTabExtra<CsvSnapshot>('variables.csv', {
+  capture: () => {
+    const { csv, extra } = useVariablesUi.getState();
+    return { csv, extra };
+  },
+  restore: (v) => {
+    const csv = v?.csv ?? EMPTY_CSV;
+    const extra = v?.extra ?? EMPTY_EXTRA;
+    const cur = useVariablesUi.getState();
+    if (cur.csv !== csv || cur.extra !== extra) useVariablesUi.setState({ csv, extra });
+  },
+});
 
 /** Tablas ya leídas de las fuentes secundarias del documento (solo las que coinciden con su ruta). */
 export function extraTables(doc: Pick<Document, 'variable_text'>): Record<string, CsvTable | null> {

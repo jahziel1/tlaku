@@ -257,6 +257,15 @@ impl Document {
 mod tests {
     use super::*;
 
+    /// Ruta absoluta del sistema para las pruebas: en Windows le falta la unidad a `/home/...`.
+    fn abs(p: &str) -> String {
+        if cfg!(windows) {
+            format!("C:{}", p.replace('/', "\\"))
+        } else {
+            p.to_string()
+        }
+    }
+
     #[test]
     fn old_document_with_single_csv_migrates_to_a_source() {
         let json = r#"{"version":2,"objects":[],"layers":[],"device_id":null,
@@ -327,31 +336,31 @@ mod tests {
 
     #[test]
     fn relative_paths_when_close_and_absolute_when_far() {
-        let base = Path::new("/home/ana/proyectos/etiquetas");
+        let base = &PathBuf::from(abs("/home/ana/proyectos/etiquetas"));
         assert_eq!(
-            relativize("/home/ana/proyectos/etiquetas/datos/a.csv", base),
+            relativize(&abs("/home/ana/proyectos/etiquetas/datos/a.csv"), base),
             "datos/a.csv"
         );
         assert_eq!(
-            relativize("/home/ana/proyectos/otros/b.csv", base),
+            relativize(&abs("/home/ana/proyectos/otros/b.csv"), base),
             "../otros/b.csv"
         );
         // Demasiado lejos o sin ancestro común: se queda absoluta.
-        assert_eq!(relativize("/mnt/x/c.csv", base), "/mnt/x/c.csv");
-        assert_eq!(relativize("/c.csv", base), "/c.csv");
+        assert_eq!(relativize(&abs("/mnt/x/c.csv"), base), abs("/mnt/x/c.csv"));
+        assert_eq!(relativize(&abs("/c.csv"), base), abs("/c.csv"));
         // Ya relativa: no se toca.
         assert_eq!(relativize("datos/a.csv", base), "datos/a.csv");
     }
 
     #[test]
     fn absolutize_undoes_relativize() {
-        let base = Path::new("/home/ana/proyectos/etiquetas");
+        let base = &PathBuf::from(abs("/home/ana/proyectos/etiquetas"));
         for p in [
-            "/home/ana/proyectos/etiquetas/datos/a.csv",
-            "/home/ana/proyectos/otros/b.csv",
-            "/mnt/x/c.csv",
+            abs("/home/ana/proyectos/etiquetas/datos/a.csv"),
+            abs("/home/ana/proyectos/otros/b.csv"),
+            abs("/mnt/x/c.csv"),
         ] {
-            let rel = relativize(p, base);
+            let rel = relativize(&p, base);
             assert_eq!(absolutize(&rel, base), p, "{rel}");
         }
         assert_eq!(absolutize("", base), "");
@@ -359,17 +368,17 @@ mod tests {
 
     #[test]
     fn save_writes_relative_and_load_restores_absolute() {
-        let dir = Path::new("/home/ana/trabajo");
+        let dir = &PathBuf::from(abs("/home/ana/trabajo"));
         let mut doc = Document::default();
         doc.variable_text.sources = vec![
             DataSource {
                 name: "a".into(),
-                path: "/home/ana/trabajo/datos/a.csv".into(),
+                path: abs("/home/ana/trabajo/datos/a.csv"),
                 on_short: ShortRows::Repeat,
             },
             DataSource {
                 name: "b".into(),
-                path: "/mnt/lejos/b.csv".into(),
+                path: abs("/mnt/lejos/b.csv"),
                 on_short: ShortRows::Repeat,
             },
         ];
@@ -377,15 +386,18 @@ mod tests {
         saved.relativize_data_paths(dir);
         assert_eq!(saved.variable_text.sources[0].path, "datos/a.csv");
         assert_eq!(saved.variable_text.csv_path.as_deref(), Some("datos/a.csv"));
-        assert_eq!(saved.variable_text.sources[1].path, "/mnt/lejos/b.csv");
+        assert_eq!(saved.variable_text.sources[1].path, abs("/mnt/lejos/b.csv"));
         // El proyecto se mueve de carpeta: las relativas siguen a la carpeta nueva.
         let mut loaded = Document::from_json(&saved.to_json().unwrap()).unwrap();
-        loaded.absolutize_data_paths(Path::new("/media/usb/trabajo"));
+        loaded.absolutize_data_paths(&PathBuf::from(abs("/media/usb/trabajo")));
         assert_eq!(
             loaded.variable_text.sources[0].path,
-            "/media/usb/trabajo/datos/a.csv"
+            abs("/media/usb/trabajo/datos/a.csv")
         );
-        assert_eq!(loaded.variable_text.sources[1].path, "/mnt/lejos/b.csv");
+        assert_eq!(
+            loaded.variable_text.sources[1].path,
+            abs("/mnt/lejos/b.csv")
+        );
     }
 
     #[test]
