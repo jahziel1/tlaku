@@ -318,6 +318,10 @@ describe('resolución al enviar', () => {
             if (missing.length) throw new Error(`faltan columnas: ${missing.join(', ')}`);
             return CSV;
           },
+          probeImages: async () => [],
+          generateCode: async () => {
+            throw new Error('no se usa en estas pruebas');
+          },
         }),
         fonts: async () => [],
         now: () => NOW,

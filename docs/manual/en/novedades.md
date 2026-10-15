@@ -25,6 +25,13 @@ Seventh batch, of polish and of gaps that remained compared with LightBurn. **No
 - **Variable fonts**: one slider per axis (weight, width, slant, optical size and custom axes) and the named styles; the outline is computed at the chosen position.
 - **Forced uppercase**, **word gap** and **vertical alignment** (also on a path: the text can hang from the line, centre on it or sit on top). See [Text](04-texto.md#advanced-text-font-features-and-variable-fonts).
 
+### Variable data from CSV
+
+- **Several CSV files per project**, each with its own name: `{csv.products:Name}` picks the source and the column. The first one is the main source and rules over the rows; the others repeat from the start (or block sending) if they have fewer rows. They are saved with a path relative to the project, and a project with a single CSV opens as before.
+- **Variable images and logos**: a column with the file path (absolute or relative to the CSV) replaces the marked image, fitted into its box (whole or filling and cropping) and engraved with its layer's image mode. If a file is missing, sending is blocked and says which one.
+- **Variable QR and barcodes**: the content can contain `{csv:Id}` and is generated again with each row's data.
+- **Preview by row**, **One copy per row** with all of the above, and **Check data**, which lists the rows with empty cells, missing images or codes without content. See [Variable text](04b-texto-variable.md).
+
 ### Canvas and editing
 
 - **Warp on canvas** (`Shift+W`): drag the handles of a **bilinear**, **perspective**, or **4×4-point** mesh and see the result live.

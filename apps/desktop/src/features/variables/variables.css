@@ -197,3 +197,103 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* ---- varias fuentes de datos ---------------------------------------------------- */
+.vt-sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vt-source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel, transparent);
+}
+.vt-source__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.vt-source__name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.vt-source__label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.vt-source__tag {
+  padding: var(--s-1) var(--s-3);
+  border-radius: var(--radius);
+  background: var(--bg-input, var(--bg-chrome));
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.vt-source__short {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+.vt-viewsel {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--text-sm);
+}
+.vt-kind {
+  margin-right: var(--s-3);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ---- revisar datos ----------------------------------------------------------------- */
+.vt-check-data {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.vt-check-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.vt-linkbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ok-line {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+  color: var(--ok);
+  font-size: var(--text-sm);
+}
+
+/* ---- imagen variable (propiedades de la imagen) --------------------------------------- */
+.vt-imgvar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: var(--s-3);
+}

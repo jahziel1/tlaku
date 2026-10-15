@@ -1077,6 +1077,7 @@ mod tests {
                     height_px: 20,
                     size_mm: [80.0, 40.0],
                     mask: Vec::new(),
+                    variable: None,
                 }),
                 locked: false,
                 hidden: false,

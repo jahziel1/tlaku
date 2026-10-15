@@ -13,11 +13,29 @@ const NAMES: Record<Lang, { serial: string; row: string; date: string; time: str
   en: { serial: 'serial', row: 'row', date: 'date', time: 'time', copy: 'copy' },
 };
 
+/** Encabezados de una fuente de datos secundaria, para ofrecer sus columnas. */
+export interface ExtraHeaders {
+  /** Nombre de la fuente tal como se escribe en `{csv.nombre:...}`. */
+  name: string;
+  headers: readonly string[];
+}
+
+/**
+ * `{csv:Columna}` (o `{csv.fuente:Columna}`) para la columna `index` de `header`. Una columna cuyo
+ * nombre rompería la sintaxis (lleva `}` o `@`, o es solo un número) se inserta por su número.
+ */
+export function columnSnippet(header: string, index: number, source = ''): string {
+  const safe = header.trim() !== '' && !/[}@]/.test(header) && !/^\d+$/.test(header.trim());
+  return `{csv${source ? `.${source}` : ''}:${safe ? header.trim() : index + 1}}`;
+}
+
 export interface InsertOption {
   id: string;
   label: I18nKey;
   /** Columna del CSV (solo en las opciones de dato). */
   column?: string;
+  /** Fuente de datos de la columna (solo en las de fuentes secundarias). */
+  source?: string;
   snippet: string;
   group: 'serial' | 'csv' | 'time' | 'other';
 }
@@ -27,7 +45,7 @@ export interface InsertOption {
  * hay una opción genérica que el usuario completa. Una columna cuyo nombre rompería la sintaxis
  * (lleva `}` o `@`) se inserta por su número.
  */
-export function insertOptions(lang: Lang, headers: readonly string[]): InsertOption[] {
+export function insertOptions(lang: Lang, headers: readonly string[], extra: readonly ExtraHeaders[] = []): InsertOption[] {
   const n = NAMES[lang];
   const opts: InsertOption[] = [
     { id: 'serial', label: 'variables.insert.serial', snippet: `{${n.serial}}`, group: 'serial' },
@@ -37,12 +55,23 @@ export function insertOptions(lang: Lang, headers: readonly string[]): InsertOpt
     opts.push({ id: 'csv', label: 'variables.insert.csvGeneric', snippet: `{csv:${lang === 'es' ? 'Columna' : 'Column'}}`, group: 'csv' });
   } else {
     headers.forEach((h, i) => {
-      const safe = h.trim() !== '' && !/[}@]/.test(h) && !/^\d+$/.test(h.trim());
       opts.push({
         id: `csv:${i}`,
         label: 'variables.insert.csvColumn',
         column: h.trim() === '' ? String(i + 1) : h,
-        snippet: `{csv:${safe ? h.trim() : i + 1}}`,
+        snippet: columnSnippet(h, i),
+        group: 'csv',
+      });
+    });
+  }
+  for (const src of extra) {
+    src.headers.forEach((h, i) => {
+      opts.push({
+        id: `csv.${src.name}:${i}`,
+        label: 'variables.insert.csvColumnIn',
+        column: h.trim() === '' ? String(i + 1) : h,
+        source: src.name,
+        snippet: columnSnippet(h, i, src.name),
         group: 'csv',
       });
     });

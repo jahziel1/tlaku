@@ -8,6 +8,7 @@ import { editText } from '@/features/text/convert';
 import { FontPicker } from '@/features/text/FontPicker';
 import { isLineFamily, pickDefaultFont, useFonts } from '@/features/text/fonts';
 import { ImagePreviewPanel } from '@/features/images/ImagePreviewPanel';
+import { ImageVariableField } from '@/features/variables/ImageVariableField';
 import { usePreviewUi } from '@/features/images/previewStore';
 import { openEditorFor } from '@/features/layers/actions';
 import { useLayerUi } from '@/features/layers/layerUi';
@@ -180,6 +181,7 @@ export function ShapePropsView({ params: first, mixed, cut, text, fonts, onText,
               <Eye size={14} aria-hidden="true" />{t('layers.preview.open')}
             </button>
           </div>
+          <ImageVariableField />
         </>
       )}
       {cut && onCut && (

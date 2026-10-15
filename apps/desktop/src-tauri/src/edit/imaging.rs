@@ -85,6 +85,7 @@ mod tests {
             height_px: 40,
             size_mm: [10.0, 10.0],
             mask: Vec::new(),
+            variable: None,
         };
         let mut layer = LayerSettings::for_images();
         layer.interval = 0.5;

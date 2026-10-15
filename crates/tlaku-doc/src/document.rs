@@ -2,6 +2,7 @@ use crate::affine::{self, Transform};
 use crate::cut::{Guide, ShapeParams, StartSpec, VariableText, VirtualArray};
 use crate::layer::LayerSettings;
 use crate::text::TextObject;
+use crate::variables::{VariableCode, VariableImage};
 use serde::{Deserialize, Serialize};
 use tlaku_core::bezpath::BezPath;
 use tlaku_core::{Bounds, Point, Polyline, Rgb};
@@ -28,6 +29,11 @@ pub struct VectorObject {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<CornerMark>>", optional)]
     pub corners: Vec<CornerMark>,
+    /// Si es un QR o código de barras cuyo contenido puede llevar variables: sus ajustes. Al
+    /// enviar, las formas se regeneran con el contenido de la fila. `None` en cualquier otro vector.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub code: Option<VariableCode>,
 }
 
 impl VectorObject {
@@ -36,6 +42,7 @@ impl VectorObject {
         Self {
             paths,
             corners: Vec::new(),
+            code: None,
         }
     }
 }
@@ -67,6 +74,10 @@ pub struct ImageObject {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<BezPath>>", optional)]
     pub mask: Vec<BezPath>,
+    /// Si la imagen es variable: de dónde sale el archivo de cada fila. `None` = imagen fija.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub variable: Option<VariableImage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -252,7 +263,10 @@ impl Document {
                 ));
             }
         }
-        serde_json::from_value(value).map_err(|e| tr!("doc.document.invalid", error = e))
+        let mut doc: Self =
+            serde_json::from_value(value).map_err(|e| tr!("doc.document.invalid", error = e))?;
+        doc.variable_text.normalize();
+        Ok(doc)
     }
 
     pub fn object(&self, id: &str) -> Option<&DesignObject> {

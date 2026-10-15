@@ -67,6 +67,7 @@ import type {
   TextOutlineResult,
   FontCapabilities,
   CsvTable,
+  ImageProbe,
   TraceResult,
   TraceSettings,
 } from './types';
@@ -559,6 +560,8 @@ export interface LaserApi {
    * `required` falla si falta alguna de esas columnas (por nombre o número desde 1).
    */
   readCsv(args: { path: string; required?: string[] }): Promise<CsvTable>;
+  /** Para cada ruta de una imagen variable (mismo orden): si existe y su tamaño en píxeles. Un archivo ausente no es un error: sale con `ok: false`. */
+  probeImages(args: { paths: string[] }): Promise<ImageProbe[]>;
   /** QR o código de barras como formas cerradas (rellenables). */
   generateCode(args: { spec: CodeSpec }): Promise<CodeResult>;
   /** Booleanas, soldar y offset; el resultado viene en coordenadas de documento con transform identidad. */
@@ -838,6 +841,7 @@ export const COMMAND_NAMES = {
   fontCapabilities: 'font_capabilities',
   importShxFonts: 'import_shx_fonts',
   readCsv: 'read_csv',
+  probeImages: 'probe_images',
   generateCode: 'generate_code',
   geometryOp: 'geometry_op',
   reviewDesign: 'review_design',

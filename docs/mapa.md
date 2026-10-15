@@ -210,6 +210,19 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/costs/{costReport,costFiles}.ts` | Desglose en texto y CSV (`reportText`, `reportCsv`, `csvField` neutraliza fórmulas) y guardado (`write_settings_backup` acepta `.csv`) |
 | `src/i18n/{es,en}/costs.ts`; manual `docs/manual/07c-costos-y-precio.md` (+ `en/`) | Textos (prefijo `costs.`) y página del manual |
 
+### Agregado: datos variables desde CSV (mejora 14)
+
+| Dónde | Qué |
+|---|---|
+| `crates/tlaku-doc/src/variables.rs` (+ campos `VariableText.sources`, `ImageObject.variable`, `VectorObject.code`) | `DataSource` (nombre, ruta, `ShortRows`), `VariableImage`/`ImageFit`, `VariableCode`; `VariableText::normalize` (migra el `csv_path` único, nombres únicos); `relativize`/`absolutize` y `Document::{relativize,absolutize}_data_paths` (rutas relativas al `.tlaku`). Pruebas en el mismo archivo |
+| `src-tauri/src/engine.rs` (`save_project`/`load_project`), `edit/variables.rs` (`probe_images`) | Rutas relativas al guardar y absolutas al abrir; comando que dice si existe cada imagen variable y su tamaño |
+| `src/features/variables/{syntax,resolve}.ts` | `{csv.fuente:Columna}` y `{fila.fuente}`; `VarContext.sources` (la principal manda; las demás se repiten o bloquean) |
+| `src/features/variables/{sources.ts,SourcesPanel.tsx,settings.ts,csvSync.ts,context.ts}` | Lista de fuentes (agregar, renombrar con reescritura de plantillas, hacer principal, quitar), lectura de cada CSV (`useVariablesUi.csv` = principal, `.extra` = las demás por nombre) |
+| `src/features/variables/{varObjects.ts,imageVar.ts,codeVar.ts,jobResolve.ts}` | Plantillas de imágenes y códigos variables (`objectTemplates`, `shiftObject`), encaje en la caja (`fitImageObject`), código regenerado centrado (`placeCodeResult`) y la resolución al enviar |
+| `src/features/variables/{check.ts,DataCheck.tsx}` | «Revisar datos»: filas con celdas vacías, imágenes ausentes o códigos sin contenido |
+| `src/features/variables/{ImageVariableField.tsx,ColumnPicker.tsx}` (usado desde `canvas/ShapeProps.tsx`), `features/codes/CodesDialog.tsx` | Marcar una imagen como variable; contenido variable en el diálogo de códigos |
+| Pruebas: `variables/{multiSource.test.ts,sourcesUi.test.tsx}`, `codes/codesVariable.test.tsx` | Varias fuentes, filas distintas, imágenes ausentes, códigos, documentos viejos, vista previa por fila |
+
 ## 3. Recetas: "dónde agrego..."
 
 Después de cualquiera: `cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings`,

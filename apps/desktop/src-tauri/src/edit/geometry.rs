@@ -779,6 +779,7 @@ mod tests {
             height_px: 1,
             size_mm: [1.0, 1.0],
             mask: Vec::new(),
+            variable: None,
         });
         let e = run(GeometryOp::Weld, &[img], None, None).unwrap_err();
         assert!(e.contains("«foto»"));
@@ -1097,6 +1098,7 @@ mod tests {
             height_px: 1,
             size_mm: [1.0, 1.0],
             mask: Vec::new(),
+            variable: None,
         });
         for op in [GeometryOp::Join, GeometryOp::Close, GeometryOp::Dedupe] {
             let e = run(op, std::slice::from_ref(&img), None, None).unwrap_err();

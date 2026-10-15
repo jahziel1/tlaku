@@ -33,6 +33,11 @@ import type { StartFrom } from '@/bindings/StartFrom';
 import type { ImageObject } from '@/bindings/ImageObject';
 import type { VectorObject } from '@/bindings/VectorObject';
 import type { VariableText } from '@/bindings/VariableText';
+import type { DataSource } from '@/bindings/DataSource';
+import type { ImageFit } from '@/bindings/ImageFit';
+import type { ShortRows } from '@/bindings/ShortRows';
+import type { VariableCode } from '@/bindings/VariableCode';
+import type { VariableImage } from '@/bindings/VariableImage';
 import type { BufferStatus } from '@/bindings/BufferStatus';
 import type { ConnectResult } from '@/bindings/ConnectResult';
 import type { RuidaApplyReport } from '@/bindings/RuidaApplyReport';
@@ -180,7 +185,12 @@ export type {
   TextOnPath,
   TextVAlign,
   VectorObject,
+  VariableCode,
+  VariableImage,
   VariableText,
+  DataSource,
+  ImageFit,
+  ShortRows,
 };
 export type DeviceOrigin = Origin;
 export type ImageDitherMode = ImageMode;
@@ -501,6 +511,18 @@ export interface FontCapabilities {
   features: FontFeatureInfo[];
   axes: FontAxisInfo[];
   instances: FontInstanceInfo[];
+}
+
+/** Resultado de mirar el archivo de una imagen variable (comando `probe_images`). */
+export interface ImageProbe {
+  /** La ruta tal como se pidió. */
+  path: string;
+  /** El archivo existe y se pudo leer su cabecera. */
+  ok: boolean;
+  width_px: number;
+  height_px: number;
+  /** Por qué no (archivo ausente, formato desconocido...). */
+  error: string | null;
 }
 
 /** CSV del texto variable (comando `read_csv`). */

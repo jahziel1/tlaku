@@ -221,6 +221,64 @@ pub async fn read_csv(path: String, required: Option<Vec<String>>) -> Result<Csv
     .map_err(crate::edit::task_interrupted)?
 }
 
+/// Resultado de mirar un archivo de imagen de una imagen variable.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ImageProbe {
+    /// La ruta tal como se pidió.
+    pub path: String,
+    /// El archivo existe y se pudo leer su cabecera.
+    pub ok: bool,
+    pub width_px: u32,
+    pub height_px: u32,
+    /// Por qué no (archivo ausente, formato desconocido...); vacío si `ok`.
+    pub error: Option<String>,
+}
+
+/// Mira un archivo de imagen: si existe y qué tamaño en píxeles tiene (solo lee la cabecera).
+pub fn probe_image_file(path: &str) -> ImageProbe {
+    let fail = |error: String| ImageProbe {
+        path: path.to_string(),
+        ok: false,
+        width_px: 0,
+        height_px: 0,
+        error: Some(error),
+    };
+    let p = Path::new(path);
+    if path.trim().is_empty() || !p.is_file() {
+        return fail(tr!("desktop.edit.variables.image_missing", path = path));
+    }
+    match tlaku_raster::gray::dimensions(p) {
+        Ok((w, h)) if w > 0 && h > 0 => ImageProbe {
+            path: path.to_string(),
+            ok: true,
+            width_px: w,
+            height_px: h,
+            error: None,
+        },
+        Ok(_) => fail(tr!(
+            "desktop.edit.variables.image_unreadable",
+            path = path,
+            err = "0 px"
+        )),
+        Err(e) => fail(tr!(
+            "desktop.edit.variables.image_unreadable",
+            path = path,
+            err = e
+        )),
+    }
+}
+
+/// Para cada ruta de una imagen variable, si existe y su tamaño (en el mismo orden). Un archivo
+/// ausente o ilegible no es un error del comando: sale con `ok: false` y su motivo.
+#[tauri::command]
+pub async fn probe_images(paths: Vec<String>) -> Result<Vec<ImageProbe>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        paths.iter().map(|p| probe_image_file(p)).collect()
+    })
+    .await
+    .map_err(crate::edit::task_interrupted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,6 +368,24 @@ mod tests {
             err.contains("Edad") && err.contains("Nombre, Cargo"),
             "{err}"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn probe_image_file_distingue_ausente_ilegible_y_valida() {
+        let dir = std::env::temp_dir().join(format!("tlaku-probe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ok = dir.join("logo.png");
+        image::RgbaImage::new(7, 3).save(&ok).unwrap();
+        let p = probe_image_file(ok.to_str().unwrap());
+        assert!(p.ok && p.width_px == 7 && p.height_px == 3, "{p:?}");
+        let bad = dir.join("roto.png");
+        std::fs::write(&bad, b"no es una imagen").unwrap();
+        let p = probe_image_file(bad.to_str().unwrap());
+        assert!(!p.ok && p.error.is_some());
+        let p = probe_image_file(dir.join("no-existe.png").to_str().unwrap());
+        assert!(!p.ok && p.error.unwrap().contains("no-existe.png"));
+        assert!(!probe_image_file("").ok);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

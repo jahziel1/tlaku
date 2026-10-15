@@ -1,4 +1,4 @@
-import type { BezPath, DesignObject, Document, LayerSettings, Point } from '@/api/types';
+import type { BezPath, DesignObject, Document, LayerSettings, Point, VariableCode } from '@/api/types';
 import { uniqueId } from '@/store/document';
 import { ensureLayerIn } from '@/lib/layers';
 import { pickDrawLayer } from '@/features/canvas/shapes';
@@ -10,6 +10,8 @@ export interface PlaceCodeOptions {
   /** Centro del código en el documento (mm). */
   center: Point;
   layer: string;
+  /** Si el contenido lleva variables: los ajustes del código, para regenerarlo al enviar con los datos de cada fila. */
+  code?: VariableCode;
 }
 
 /**
@@ -29,7 +31,7 @@ export function codeObject(id: string, o: PlaceCodeOptions): DesignObject {
     id,
     layer: o.layer,
     transform: [1, 0, 0, 1, o.center[0] - o.size[0] / 2, o.center[1] - o.size[1] / 2],
-    kind: { type: 'vector', paths: o.paths },
+    kind: { type: 'vector', paths: o.paths, ...(o.code ? { code: o.code } : {}) },
     locked: false,
     hidden: false,
     group: null,

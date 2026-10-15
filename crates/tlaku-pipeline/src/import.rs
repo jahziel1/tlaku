@@ -230,6 +230,7 @@ fn image_kind(source: &Path, shown_as: &Path, dpi: f64) -> Result<ObjectKind, St
         height_px: h,
         size_mm: [mm(w), mm(h)],
         mask: Vec::new(),
+        variable: None,
     }))
 }
 

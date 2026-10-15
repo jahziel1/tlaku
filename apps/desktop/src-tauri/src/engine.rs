@@ -55,13 +55,37 @@ pub fn import(path: &str) -> Result<ImportResult, String> {
     tlaku_pipeline::import_file(&abs)
 }
 
-pub fn save_project(path: &str, doc: &Document) -> Result<(), String> {
-    write_atomic(Path::new(path), &doc.to_json()?)
+/// Carpeta (absoluta) del archivo de proyecto: contra ella se guardan y leen las rutas relativas
+/// de las fuentes de datos.
+fn project_dir(path: &str) -> Option<PathBuf> {
+    std::path::absolute(path)
+        .ok()
+        .and_then(|p| p.parent().map(Path::to_path_buf))
 }
 
+/// Guarda el proyecto. Las fuentes de datos cercanas al archivo se escriben con ruta relativa
+/// (el proyecto se puede mover con sus CSV); en memoria siguen siendo absolutas.
+pub fn save_project(path: &str, doc: &Document) -> Result<(), String> {
+    match project_dir(path) {
+        Some(dir)
+            if !doc.variable_text.sources.is_empty() || doc.variable_text.csv_path.is_some() =>
+        {
+            let mut doc = doc.clone();
+            doc.relativize_data_paths(&dir);
+            write_atomic(Path::new(path), &doc.to_json()?)
+        }
+        _ => write_atomic(Path::new(path), &doc.to_json()?),
+    }
+}
+
+/// Lee el proyecto: las rutas relativas de las fuentes de datos se vuelven absolutas.
 pub fn load_project(path: &str) -> Result<Document, String> {
     let text = fs::read_to_string(path).map_err(|e| io_error(Path::new(path), &e))?;
-    Document::from_json(&text).map_err(|e| format!("{path}: {e}"))
+    let mut doc = Document::from_json(&text).map_err(|e| format!("{path}: {e}"))?;
+    if let Some(dir) = project_dir(path) {
+        doc.absolutize_data_paths(&dir);
+    }
+    Ok(doc)
 }
 
 /// Rutas de las imágenes que referencia el documento (para permitirlas en el protocolo de assets).

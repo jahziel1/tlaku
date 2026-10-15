@@ -1,14 +1,14 @@
 import type { DesignObject, Document, VariableText } from '@/api/types';
 import type { StoreApi } from 'zustand';
 import type { AppState } from '@/store';
-import { isTextObject } from '@/features/text/signature';
 import { useVariablesUi } from './context';
 import { variableTextOf } from './defaults';
-import { hasVariables, variablesOf } from './syntax';
+import { variablesOf } from './syntax';
+import { hasObjectVariables, objectTemplates } from './varObjects';
 
-/** Textos del documento que usan variables. */
+/** Objetos del documento que usan variables: textos, imágenes variables y códigos variables. */
 export function variableTexts(doc: Pick<Document, 'objects'>): DesignObject[] {
-  return doc.objects.filter((o) => isTextObject(o) && hasVariables(o.kind.text));
+  return doc.objects.filter(hasObjectVariables);
 }
 
 /**
@@ -20,10 +20,11 @@ export function jobSpans(doc: Pick<Document, 'objects'>): { serial: number; row:
   let serial = 1;
   let row = 1;
   for (const o of doc.objects) {
-    if (!isTextObject(o)) continue;
-    for (const v of variablesOf(o.kind.text)) {
-      if (v.name === 'serial') serial = Math.max(serial, 1 + v.offset);
-      else if (v.name === 'csv' || v.name === 'row') row = Math.max(row, 1 + v.offset);
+    for (const template of objectTemplates(o)) {
+      for (const v of variablesOf(template)) {
+        if (v.name === 'serial') serial = Math.max(serial, 1 + v.offset);
+        else if (v.name === 'csv' || v.name === 'row') row = Math.max(row, 1 + v.offset);
+      }
     }
   }
   return { serial, row };
