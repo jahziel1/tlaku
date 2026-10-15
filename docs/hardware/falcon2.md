@@ -453,3 +453,36 @@ una cola llena hasta 30 s (**sin probar en hardware**); (3) los segmentos de ima
 Pendiente: decidir si conviene un `silence_timeout` mayor con el planificador lleno y menos bytes en
 vuelo; con una placa congelada de verdad la parada segura al declararla perdida sigue siendo lo
 prudente.
+
+### 10.7 Lo deducido de la sesión del 2026-10-15 (sin volver a usar la máquina)
+
+**Medidas.** `$100=$101=80` pasos/mm es lo esperado con motor de 200 pasos, micropasos 1/16 y correa
+GT2 con polea de 20 dientes (3200 pasos / 40 mm). Los movimientos de ida y vuelta regresan exactos
+según MPos. Medidas probablemente correctas; falta confirmar con regla (pérdida de pasos con carga).
+
+**Prueba de materiales en MDF 3 mm, sin enfocar** (relleno 4 mm a 0,1 mm, foto con el celular,
+oscuridad = (L_base − L)/(L_base − L_negro), luminancia mediana por cuadro; dos cuadros descartados
+porque un corte viejo del retazo pasaba por encima):
+
+| mm/min \ potencia | 10 % | 20 % | 30 % | 40 % |
+|---|---|---|---|---|
+| 1000 | 72 % | 90 % | 96 % | 100 % (empieza a carbonizar) |
+| 1667 | — | 78 % | 88 % | — |
+| 2333 | 50 % | 69 % | 77 % | 82 % |
+| 3000 | 43 % | 62 % | 72 % | 79 % |
+
+Ajuste de la curva de la vista por tonos (`oscuridad = 1 − exp(−(D/D₀)^γ)`, `D = potencia/(v·intervalo)`
+en fracción·s/mm²): **D₀ = 0,042, γ = 0,74, error rms 1,5 %** con 14 cuadros. El valor de partida del
+proyecto para MDF (`dose_char` 0,35, `gamma` 1,2 en `tone-presets.json`) es unas 8 veces más lento:
+los valores de partida están en fracción de la potencia y no saben los watts del láser, así que con
+22 W el MDF oscurece mucho antes. Calibra cada máquina con su prueba de materiales.
+
+**Receta de grabado (punto de partida) en MDF 3 mm con la Falcon2 Pro 22 W, sin enfocar:** relleno
+a 0,1 mm, 3000 mm/min: 10 % tono claro, 20 % medio, 30–40 % oscuro; 1000 mm/min y 30 % o más llega a
+negro y empieza a carbonizar. Con el enfoque ajustado el tono sube.
+
+**Corte de MDF 3 mm (sin probar):** no hay una cifra oficial de Creality para MDF con 22 W. Lo más
+cercano publicado es contrachapado de 3 mm a 60 %, 400 mm/min, 1 pasada (biblioteca personal de un
+usuario de la Falcon 2 22 W: https://laser.joeldare.com/library.html); el MDF es más denso. Punto de
+partida a probar, con enfoque y aire: 80–100 %, 300–400 mm/min, 1–2 pasadas, en un retazo.
+Hilo sin respuesta confirmada: https://forum.creality.com/t/please-advise-with-best-settings-to-cut-mdf/2389
