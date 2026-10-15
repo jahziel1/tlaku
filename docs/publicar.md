@@ -316,8 +316,8 @@ pasar los ajustes, un `.tlakubundle`.
 ### Cambio de identificador y migración de datos
 
 El `identifier` pasó de `org.tlaku.app` a `io.github.jahziel1.tlaku` antes de publicar la beta 0.1.0. Tauri
-cuelga de él las carpetas de la app (`app_config_dir`, `app_data_dir`, `app_local_data_dir`; la caché no se
-usa), el bundle de macOS (`CFBundleIdentifier`), el `app_id` de GTK y el
+cuelga de él las carpetas de la app (`app_config_dir`, `app_data_dir`, `app_local_data_dir`, y `app_cache_dir` para la copia del catálogo comunitario, que no se migra porque se
+vuelve a bajar), el bundle de macOS (`CFBundleIdentifier`), el `app_id` de GTK y el
 código de actualización del MSI (`upgradeCode`, que Tauri deriva del id; no hay otro fijado en `tauri.conf.json`): como no hay instalaciones públicas, no hay
 nada que actualizar «en sitio». `src-tauri/src/id_migration.rs` copia al arrancar lo que haya en las
 carpetas del id viejo (ver `docs/mapa.md`) y está probado en `id_migration/tests.rs`.
@@ -327,7 +327,7 @@ id y no se puede leer desde Rust. Vive ahí solo lo que la interfaz recuerda de 
 (`tlaku.costs`), ajustes de imagen propios (`tlaku.imagePresets`), pestañas abiertas (`tlaku.tabs.session`),
 cola de trabajos, archivos recientes, sesión de tiling, historial de la consola, pasos de movimiento y
 estados de paneles. Lo importante (dispositivos, materiales, preferencias del motor, historial de trabajos,
-versiones, retazos, cámara, plantillas, recuperación, punto de control de un trabajo interrumpido) está en
+versiones, retazos, cámara, plantillas, `backup.json` y `respaldos-locales/` del respaldo a carpeta, curvas de tono, recuperación, punto de control de un trabajo interrumpido) está en
 archivos y sí se migra; las preferencias se reconstruyen desde `preferences.json`. Solo afectó a quien
 corrió compilaciones de desarrollo con el id viejo.
 

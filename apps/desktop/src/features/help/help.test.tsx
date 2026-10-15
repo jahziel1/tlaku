@@ -170,7 +170,10 @@ describe('manual incluido', () => {
     }
   });
 
-  it('el manual completo se dibuja sin errores', () => {
+  // Dibuja todas las páginas del manual (cientos de KB de Markdown); con la máquina cargada (suite en
+  // paralelo, otros procesos) puede pasar de los 5 s que da vitest por defecto sin que haya un fallo. No mide
+  // tiempo: el tope explícito solo evita un falso rojo, y un cuelgue de verdad sigue cortándose a los 60 s.
+  it('el manual completo se dibuja sin errores', { timeout: 60_000 }, () => {
     for (const p of pages) expect(renderToStaticMarkup(<MarkdownView blocks={p.blocks} />).length, p.file).toBeGreaterThan(50);
   });
 });

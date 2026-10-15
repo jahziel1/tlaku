@@ -89,6 +89,30 @@ fn una_carpeta_nueva_con_solo_webview_cuenta_como_vacia_y_no_se_copia_el_webview
     assert!(!sb.dest().join("EBWebView/Local Storage").exists());
 }
 
+/// Lo que añadió el respaldo a carpeta y las curvas de tono (viven en la carpeta de configuración):
+/// la copia genérica y recursiva los lleva sin lista de archivos.
+#[test]
+fn copia_el_respaldo_y_los_tonos() {
+    let sb = Sandbox::new();
+    let old = sb.old();
+    fs::create_dir_all(old.join("respaldos-locales")).unwrap();
+    fs::write(old.join("backup.json"), b"{\"install_id\":\"x\"}").unwrap();
+    fs::write(old.join("materials.json"), b"{\"tones\":[]}").unwrap();
+    fs::write(old.join("respaldos-locales/antes-1.tlakubundle"), b"{}").unwrap();
+    let out = migrate_dir(&sb.old(), &sb.dest());
+    assert_eq!(out, Outcome::Migrated { files: 3 });
+    assert_eq!(
+        read(&sb.dest().join("backup.json")),
+        "{\"install_id\":\"x\"}"
+    );
+    assert_eq!(read(&sb.dest().join("materials.json")), "{\"tones\":[]}");
+    assert!(
+        sb.dest()
+            .join("respaldos-locales/antes-1.tlakubundle")
+            .exists()
+    );
+}
+
 #[test]
 fn ya_migrado_no_repite() {
     let sb = Sandbox::new().with_old_data();

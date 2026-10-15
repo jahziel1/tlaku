@@ -197,15 +197,23 @@ describe('geometría de un objeto movido', () => {
     expect(first[1]).toBeCloseTo(g0.polys[0]!.pts[0]! + 5, 9);
   });
 
-  it('con un trayecto de 300 000 nodos derivar es mucho más rápido que construir', () => {
+  // Prueba de rendimiento relativa: compara dos medidas de la misma corrida, nunca milisegundos fijos, así
+  // que no depende de la velocidad de la máquina. Para que un tropiezo pasajero (recolector de basura, otro
+  // proceso ocupando el procesador) no la haga fallar sin que el código esté mal, derivar se mide varias
+  // veces y cuenta el mejor intento, y el margen pide solo que derivar sea la mitad de construir (medido:
+  // cientos de veces más rápido). Lo que caza es que derivar vuelva a recorrer los 300 000 nodos.
+  it('con un trayecto de 300 000 nodos derivar es mucho más rápido que construir', { timeout: 60_000 }, () => {
     const pts = Array.from({ length: 300_000 }, (_, i) => [(i % 1000) * 0.2, Math.floor(i / 1000) * 0.2] as [number, number]);
     const o = newVectorObject('huge', '#ff0000', [polylineBez(pts, false)]);
     const t0 = performance.now();
     const built = buildGeom(o);
     const buildMs = performance.now() - t0;
-    const t1 = performance.now();
-    translateGeom(built, 1, 1);
-    const deriveMs = performance.now() - t1;
-    expect(deriveMs).toBeLessThan(buildMs / 3);
+    let deriveMs = Infinity;
+    for (let i = 0; i < 5; i++) {
+      const t1 = performance.now();
+      translateGeom(built, 1, 1);
+      deriveMs = Math.min(deriveMs, performance.now() - t1);
+    }
+    expect(deriveMs, `derivar ${deriveMs.toFixed(2)} ms, construir ${buildMs.toFixed(2)} ms`).toBeLessThan(buildMs / 2);
   });
 });

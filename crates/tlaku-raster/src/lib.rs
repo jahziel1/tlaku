@@ -188,10 +188,79 @@ mod tests {
         }
     }
 
+    // Pruebas de rendimiento. Antes comparaban contra segundos fijos, y fallaban de vez en cuando
+    // con la máquina cargada (varios procesos de prueba o agentes compilando a la vez) aunque el
+    // código estuviera bien. Su propósito es cazar un costo que se dispara (algo cuadrático, una
+    // copia por punto), no medir la velocidad de la máquina, así que ahora:
+    //
+    // 1. Comparan contra una **referencia medida en la misma corrida**: el camino mínimo
+    //    (escala de grises sin ajustes, un remuestreo lineal) sobre el mismo tamaño. Si la máquina
+    //    va lenta, la referencia también.
+    // 2. Toman el **mejor de varios intentos**: la carga suele ser un tropiezo pasajero, y el
+    //    mínimo lo descarta; un costo disparado de verdad es lento en todos los intentos.
+    // 3. Con `TLAKU_PERF_STRICT=1` (máquina quieta, p. ej. la de pruebas de rendimiento) se
+    //    exige además el tope absoluto original.
+    const PERF_ATTEMPTS: usize = 3;
+
+    fn strict_perf() -> bool {
+        std::env::var_os("TLAKU_PERF_STRICT").is_some_and(|v| v != "0" && !v.is_empty())
+    }
+
+    /// El menor tiempo de `attempts` ejecuciones de `f`, y el último resultado.
+    fn best_of<T>(attempts: usize, mut f: impl FnMut() -> T) -> (std::time::Duration, T) {
+        let mut best = std::time::Duration::MAX;
+        let mut last = None;
+        for _ in 0..attempts {
+            let t = std::time::Instant::now();
+            let r = f();
+            best = best.min(t.elapsed());
+            last = Some(r);
+        }
+        (best, last.expect("al menos un intento"))
+    }
+
+    /// Referencia: el camino mínimo de `process` (escala de grises, sin ajustes) sobre `img`.
+    fn baseline(img: &GrayF32, w_mm: f64, h_mm: f64, interval: Sampling) -> std::time::Duration {
+        let opts = ProcessOptions {
+            sampling: interval,
+            mode: RasterMode::Grayscale,
+            ..Default::default()
+        };
+        best_of(PERF_ATTEMPTS, || process(img, w_mm, h_mm, &opts).unwrap()).0
+    }
+
+    /// Falla si `best` supera `ratio` veces la referencia (o, en modo estricto, `abs_secs`).
+    fn assert_within(
+        label: &str,
+        best: std::time::Duration,
+        base: std::time::Duration,
+        ratio: f64,
+        abs_secs: f64,
+    ) {
+        eprintln!(
+            "{label}: {best:?} (referencia {base:?}, x{:.1})",
+            best.as_secs_f64() / base.as_secs_f64()
+        );
+        let limit = base.mul_f64(ratio);
+        assert!(
+            best <= limit,
+            "{label} tardó {best:?}: más de {ratio} veces la referencia ({base:?})"
+        );
+        if strict_perf() {
+            assert!(
+                best.as_secs_f64() < abs_secs,
+                "{label} tardó {best:?} (tope absoluto {abs_secs} s)"
+            );
+        }
+    }
+
     #[test]
     fn process_big_image_is_fast() {
-        // 100 x 100 mm a 0.1 mm = 1 millón de puntos; en debug debe bajar de ~1 s.
+        // 100 x 100 mm a 0.1 mm = 1 millón de puntos. Los tramados cuestan unas pocas veces
+        // el camino mínimo; el tope relativo (60x; medido entre 2,5x y 6x) deja un margen amplio y aun así detecta un
+        // costo que se dispara. Tope absoluto (solo con TLAKU_PERF_STRICT): 3 s.
         let img = GrayF32::from_fn(400, 400, |x, y| ((x + y) % 400) as f32 / 399.0);
+        let base = baseline(&img, 100.0, 100.0, ProcessOptions::default().sampling);
         for mode in [
             RasterMode::Halftone {
                 cell_mm: 1.0,
@@ -207,22 +276,25 @@ mod tests {
                 mode,
                 ..Default::default()
             };
-            let t = std::time::Instant::now();
-            let b = process(&img, 100.0, 100.0, &opts).unwrap();
-            let elapsed = t.elapsed();
+            let (best, b) = best_of(PERF_ATTEMPTS, || {
+                process(&img, 100.0, 100.0, &opts).unwrap()
+            });
             assert_eq!(b.width * b.height, 1_000_000);
-            assert!(elapsed.as_secs_f64() < 3.0, "{mode:?} tardó {elapsed:?}");
-            eprintln!("{mode:?}: {elapsed:?}");
+            assert_within(&format!("{mode:?}"), best, base, 60.0, 3.0);
         }
     }
 
     #[test]
     fn process_with_enhance_and_denoise_on_a_million_points_is_fast() {
-        // 100 x 100 mm a 0,1 mm con una fuente de 1000 x 1000 px: realce y quitar motas
-        // activos: en debug el camino sin tramado baja de 1 s.
+        // 100 x 100 mm a 0,1 mm con una fuente de 1000 x 1000 px: realce y quitar motas activos.
+        // Referencia: el camino mínimo (sin realce ni motas). Realce y motas añaden unos pocos
+        // pasos lineales; la difusión de error (Stucki) suma su propio coste (medido: 17x y 27x la
+        // referencia, que es muy rápida y por eso la razón es alta). Tope relativo 100x
+        // y, solo con TLAKU_PERF_STRICT, los absolutos originales (1 s y 2 s).
         let img = GrayF32::from_fn(1000, 1000, |x, y| {
             (((x / 7 + y / 5) % 9) as f32 / 8.0 + ((x * 31 + y * 17) % 13) as f32 / 400.0).min(1.0)
         });
+        let base = baseline(&img, 100.0, 100.0, Sampling::Interval(0.1));
         for mode in [RasterMode::Grayscale, RasterMode::Stucki] {
             let opts = ProcessOptions {
                 adjust: ImageAdjust {
@@ -235,18 +307,22 @@ mod tests {
                 mode,
                 ..Default::default()
             };
-            let t = std::time::Instant::now();
-            let b = process(&img, 100.0, 100.0, &opts).unwrap();
-            let elapsed = t.elapsed();
+            let (best, b) = best_of(PERF_ATTEMPTS, || {
+                process(&img, 100.0, 100.0, &opts).unwrap()
+            });
             assert_eq!(b.width * b.height, 1_000_000);
-            eprintln!("{mode:?} con realce y quitar motas: {elapsed:?}");
-            // Grayscale es el camino de pass-through; la difusión de error suma su propio coste.
-            let limit = if mode == RasterMode::Grayscale {
+            let abs = if mode == RasterMode::Grayscale {
                 1.0
             } else {
                 2.0
             };
-            assert!(elapsed.as_secs_f64() < limit, "{mode:?} tardó {elapsed:?}");
+            assert_within(
+                &format!("{mode:?} con realce y quitar motas"),
+                best,
+                base,
+                100.0,
+                abs,
+            );
         }
     }
 

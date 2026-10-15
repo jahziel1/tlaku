@@ -68,7 +68,11 @@ const heapMb = (): number => {
   return process.memoryUsage().heapUsed / 1024 / 1024;
 };
 
-describe('memoria del historial con varias pestañas', () => {
+// Estas pruebas arman documentos de 6000 objetos y los editan cientos de veces; el costo es de CPU y de
+// memoria, y con la máquina cargada pasa de los 5 s de vitest por defecto sin que haya un fallo. No miden
+// tiempo (comprueban cuántos puntos quedan alcanzables): el tope explícito de la suite solo evita un falso
+// rojo, y un cuelgue de verdad sigue cortándose a los 2 minutos.
+describe('memoria del historial con varias pestañas', { timeout: 120_000 }, () => {
   it('cinco pestañas con un documento grande y mucha edición: las inactivas respetan su presupuesto', () => {
     const store = createAppStore();
     const heapBase = heapMb();

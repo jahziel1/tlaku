@@ -2,9 +2,10 @@
 //! `io.github.jahziel1.tlaku`, requisito de Flathub).
 //!
 //! Tauri cuelga las carpetas de la app del `identifier`: `app_config_dir`, `app_data_dir`,
-//! `app_local_data_dir` (y `app_cache_dir`, que Tlaku no usa). Al cambiar el id la app arrancaría
-//! con todo vacío (dispositivos, materiales, preferencias, historial de trabajos, versiones,
-//! retazos...). Al arrancar, [`run`] **copia** (no mueve) el contenido de cada carpeta antigua a la
+//! `app_local_data_dir` (y `app_cache_dir`, que **no se migra**: solo guarda la copia del catálogo
+//! comunitario, que se vuelve a bajar a pedido). Al cambiar el id la app arrancaría con todo vacío
+//! (dispositivos, materiales con sus curvas de tono, preferencias, historial de trabajos, versiones,
+//! retazos, `backup.json` y `respaldos-locales/` del respaldo a carpeta...). Al arrancar, [`run`] **copia** (no mueve) el contenido de cada carpeta antigua a la
 //! nueva si esta no existe o está vacía.
 //!
 //! Reglas, por carpeta:
