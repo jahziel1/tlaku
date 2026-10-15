@@ -28,7 +28,7 @@ import type { VariableImageObject } from './varObjects';
 // El selector de archivos real es un diálogo del sistema: aquí lo controla la prueba.
 const picker = vi.hoisted(() => ({ resolve: null as null | ((path: string | null) => void) }));
 vi.mock('./csvSync', async (original) => ({
-  ...(await original<typeof import('./csvSync')>()),
+  ...(await original<Record<string, unknown>>()),
   pickCsvFile: () => new Promise<string | null>((resolve) => void (picker.resolve = resolve)),
 }));
 
