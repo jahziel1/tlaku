@@ -299,7 +299,9 @@ impl Parsed {
         self.steps.partition_point(|s| s.line < line)
     }
 
-    /// Caja de los pasos con láser; si no hay ninguno, de todos.
+    /// Caja del área de trabajo: los pasos con láser; si no hay ninguno (un trabajo de prueba
+    /// con `S0`), los de avance `G1`/`G2`/`G3`; y solo si tampoco hay, todos. Los `G0` no cuentan
+    /// mientras haya otra cosa: el que sale del origen o vuelve a él no es parte de la pieza.
     pub fn bounds(&self) -> Option<[[f64; 2]; 2]> {
         let boxed = |keep: &dyn Fn(&Step) -> bool| {
             let mut it = self.steps.iter().filter(|s| keep(s));
@@ -315,7 +317,9 @@ impl Parsed {
             }
             Some(b)
         };
-        boxed(&|s| s.kind == StepKind::Cut).or_else(|| boxed(&|_| true))
+        boxed(&|s| s.kind == StepKind::Cut)
+            .or_else(|| boxed(&|s| s.kind != StepKind::Rapid))
+            .or_else(|| boxed(&|_| true))
     }
 }
 

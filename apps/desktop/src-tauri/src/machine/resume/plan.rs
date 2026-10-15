@@ -581,6 +581,31 @@ mod tests {
         assert!(frame_lines(&p, 0.0).is_err());
     }
 
+    /// El caso de la Falcon2 de prueba: un trabajo de `S0` (no dispara el láser) en 100..180 con
+    /// `G0` desde y hacia el origen. El encuadre y los límites son de la pieza, no del origen.
+    #[test]
+    fn the_frame_covers_the_work_area_and_not_the_trips_from_and_to_the_origin() {
+        let job = |s: &str| {
+            lines(&format!(
+                "; Tlaku\n; pieza\nG90\nG21\nM4 S0\nG0 X100 Y100\nG1 X180{s} F600\nG1 Y180\nG1 X100\nG1 Y100\nM5\nG0 X0 Y0"
+            ))
+        };
+        for s in ["", " S500"] {
+            let p = Parsed::parse(&job(s));
+            assert_eq!(p.bounds(), Some([[100.0, 100.0], [180.0, 180.0]]), "{s:?}");
+            let f = frame_lines(&p, 3000.0).unwrap();
+            assert!(f.iter().any(|x| x.starts_with("G0 X100 Y100")), "{f:?}");
+            assert!(f.iter().any(|x| x.starts_with("G1 X180 Y180")), "{f:?}");
+            assert!(
+                !f.iter().any(|x| x.contains("X0 ") || x.contains("Y0 ")),
+                "{f:?}"
+            );
+        }
+        // Solo desplazamientos (el primero sale del origen): no hay otra cosa que encuadrar.
+        let rapids = Parsed::parse(&lines("G0 X5 Y5\nG0 X20 Y30"));
+        assert_eq!(rapids.bounds(), Some([[0.0, 0.0], [20.0, 30.0]]));
+    }
+
     #[test]
     fn z_delta_is_the_difference_between_the_two_points() {
         let l = lines("G0 X1 Y1\nG91\nG0 Z-1.5\nG90\nG1 X2 S100\nG1 X3\nG91\nG0 Z1.5\nG90");

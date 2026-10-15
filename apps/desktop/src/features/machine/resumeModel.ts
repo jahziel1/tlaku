@@ -44,9 +44,14 @@ export function nearestMove(view: Pick<ResumeView, 'moves'>, x: number, y: numbe
   return best;
 }
 
-/** Qué paso de seguridad pide esta máquina antes de reanudar. */
-export function homeMode(ready: ResumeReadiness | null): 'checking' | 'home' | 'confirm' {
+/**
+ * Qué paso de seguridad pide esta máquina antes de reanudar. `busy` (encuadre o movimiento en curso) y `noReply`
+ * (no contestó a `$$`) no son «sin homing»: no hay nada que confirmar hasta que la máquina responda.
+ */
+export function homeMode(ready: ResumeReadiness | null): 'checking' | 'busy' | 'noReply' | 'home' | 'confirm' {
   if (!ready) return 'checking';
+  if (ready.state !== 'idle' && ready.state !== 'alarm') return 'busy';
+  if (!ready.settings_read) return 'noReply';
   return ready.homing === true ? 'home' : 'confirm';
 }
 
@@ -76,6 +81,8 @@ export function resumeBlockedReason(g: ResumeGate): I18nKey | null {
   if (!g.hasPoint) return 'machine.resume.blocked.point';
   const mode = homeMode(g.ready);
   if (mode === 'checking') return 'machine.resume.blocked.checking';
+  if (mode === 'busy') return 'machine.resume.blocked.busy';
+  if (mode === 'noReply') return 'machine.resume.blocked.noReply';
   if (mode === 'home' && !g.ready?.homed) return 'machine.resume.blocked.home';
   if (mode === 'confirm' && !g.unmoved) return 'machine.resume.blocked.confirm';
   if (!g.framedRun) return 'machine.resume.blocked.frame';

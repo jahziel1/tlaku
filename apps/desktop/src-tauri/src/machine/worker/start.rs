@@ -104,6 +104,8 @@ impl Worker {
                     RunKind::Frame => self.log(LogDir::Out, &tr!("desktop.common.log_frame_start")),
                 }
                 self.set_reported_state(MachineState::Run);
+                self.note_head_moves();
+                self.shared.streaming.store(true, Ordering::SeqCst);
                 self.shared
                     .running
                     .store(kind == RunKind::Job, Ordering::SeqCst);
@@ -132,13 +134,18 @@ impl Worker {
             original,
         } = plan;
         meta.port = self.port.clone();
+        // Líneas del archivo (con sus comentarios y vacías), como las numera la interfaz;
+        // `total_lines` solo cuenta las que se envían y quedaría por debajo del número de línea.
+        let shown_total = original.as_ref().map_or(meta.total_lines, |o| {
+            u32::try_from(o.len()).unwrap_or(u32::MAX)
+        });
         if let Some(r) = &meta.resume {
             self.log(
                 LogDir::Out,
                 &tr!(
                     "desktop.resume.log_resuming",
-                    line = r.tail_first + 1,
-                    total = meta.total_lines
+                    line = (r.tail_first + 1).min(shown_total),
+                    total = shown_total
                 ),
             );
         }

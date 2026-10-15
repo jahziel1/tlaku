@@ -185,6 +185,17 @@ fn args(
 
 /// Todo punto de un corte del trabajo tiene el láser encendido a menos de `tol` mm en el rastro.
 fn uncovered(lines: &[String], emu: &tlaku_emu::Handle, tol: f64) -> usize {
+    uncovered_where(lines, emu, tol, |_| true)
+}
+
+/// Como [`uncovered`], mirando solo los puntos que cumplen `wanted` (lo que se grabó antes de la
+/// interrupción no está en el rastro de una máquina virtual nueva).
+fn uncovered_where(
+    lines: &[String],
+    emu: &tlaku_emu::Handle,
+    tol: f64,
+    wanted: impl Fn([f64; 2]) -> bool,
+) -> usize {
     let trace = emu.trace();
     let mut missing = 0;
     for s in Parsed::parse(lines)
@@ -202,7 +213,7 @@ fn uncovered(lines: &[String], emu: &tlaku_emu::Handle, tol: f64) -> usize {
             let near = trace.segments().iter().any(|g| {
                 dist_point_segment(p, [g.start[0], g.start[1]], [g.end[0], g.end[1]]) <= tol
             });
-            if !near {
+            if !near && wanted(p) {
                 missing += 1;
             }
         }
@@ -667,7 +678,7 @@ fn a_job_that_fit_in_the_buffer_finishes_alone_and_the_resume_recommends_discard
 
     // Al reconectar se compara la posición de ahora con la guardada.
     let h = b.connect();
-    let now = start::current(&h).expect("en reposo");
+    let now = start::current_for(&h, &loaded).expect("en reposo");
     let view = resume::view(&b.store, &loaded, &PlanOptions::default(), Some(&now)).unwrap();
     assert_eq!(view.job.machine, tlaku_doc::ResumeMachine::ProbablyFinished);
     assert!(view.job.recommend_discard);
@@ -719,7 +730,7 @@ fn a_job_longer_than_the_buffer_is_relocated_with_the_position_of_now() {
     );
 
     let h = b.connect();
-    let now = start::current(&h).expect("en reposo");
+    let now = start::current_for(&h, &loaded).expect("en reposo");
     let view = resume::view(&b.store, &loaded, &PlanOptions::default(), Some(&now)).unwrap();
     assert_eq!(
         view.job.machine,
@@ -758,6 +769,18 @@ fn a_job_longer_than_the_buffer_is_relocated_with_the_position_of_now() {
     b.sink.wait("encuadre", |s| {
         s.logs().iter().any(|(_, t)| t.contains("frame_done"))
     });
+    // El homing y el encuadre no cambian lo que se vio al conectar: sigue siendo «siguió sola»
+    // y el mismo punto (la MPos de después ya no es la de la máquina que terminó sola).
+    assert!(h.position_altered());
+    let after = resume::view(
+        &b.store,
+        &loaded,
+        &PlanOptions::default(),
+        start::current_for(&h, &loaded).as_ref(),
+    )
+    .unwrap();
+    assert_eq!(after.job.machine, tlaku_doc::ResumeMachine::Moved);
+    assert_eq!(after.suggested, view.suggested);
     let args = args(&loaded, &view);
     start::resume_now(&h, b.store.clone(), &loaded, &args(false, true, true)).unwrap();
     b.sink.wait("trabajo terminado", |s| {
@@ -784,7 +807,7 @@ fn after_a_power_cut_the_board_at_zero_is_not_taken_for_a_finished_job() {
     b.conn = None;
     let loaded = b.store.load().expect("quedó el punto de control");
     let h = b.connect();
-    let now = start::current(&h).expect("en reposo");
+    let now = start::current_for(&h, &loaded).expect("en reposo");
     assert_eq!(now.parser_feed, Some(0.0), "{now:?}");
     let info = resume::summarize(&b.store, &loaded, Some(&now));
     assert!(info.can_resume && !info.recommend_discard, "{info:?}");
@@ -845,4 +868,225 @@ fn connecting_to_a_machine_still_running_says_so_instead_of_blaming_the_port() {
     .err()
     .expect("no debe conectar");
     assert!(err.contains("puerto correcto"), "{err}");
+}
+
+// ---------------------------------------------------------------------------
+// Punto de control de otra sesión (la prueba de la Falcon2 Pro): la máquina se usó para otras
+// cosas y volvió a (0, 0); homing y encuadre no deben tomarse por «terminó sola».
+// ---------------------------------------------------------------------------
+
+/// El trabajo de la prueba real, con las dos líneas de comentario de la cabecera: 10 líneas que
+/// se envían en 12 del archivo. Cuadrado de 80 mm en 100..180 y vuelta al origen.
+fn yesterday_job() -> Vec<String> {
+    "; Tlaku\n; pieza\nG90\nG21\nM4 S0\nG0 X100 Y100\nG1 X180 S500 F600\nG1 Y180\nG1 X100\nG1 Y100\nM5\nG0 X0 Y0"
+        .lines()
+        .map(str::to_string)
+        .collect()
+}
+
+/// Escribe en la carpeta del punto de control lo que dejó la app hace `age_ms`: ocho `ok`, la
+/// última línea con `ok` es `G1 Y100` (línea 9 del archivo) y la cabeza iba en (167,725, 100),
+/// 67,7 mm dentro del primer lado, con la memoria de la placa casi llena.
+fn write_old_checkpoint(b: &Bench, lines: &[String], age_ms: u64) {
+    use resume::store::{CheckpointProgress, VERSION, now_ms};
+    let mut meta = b.plan(lines).meta;
+    let then = now_ms() - age_ms;
+    meta.started_at_ms = then - 60_000;
+    b.store.begin(&meta, Some(lines)).unwrap();
+    let head = Some([167.725, 100.0]);
+    let progress = CheckpointProgress {
+        version: VERSION,
+        seq: 1,
+        acked: 8,
+        sent_line: Some(9),
+        sent: 10,
+        sent_to_line: Some(11),
+        mpos: head,
+        wpos: head,
+        wco: Some([0.0, 0.0]),
+        planner_free: Some(1),
+        rx_free: Some(100),
+        planner_cap: Some(15),
+        rx_cap: Some(127),
+        modal: tlaku_doc::ResumeModal {
+            spindle: tlaku_doc::ResumeSpindle::M4,
+            s: Some(500.0),
+            f: Some(600.0),
+            ..Default::default()
+        },
+        t_ms: then,
+    };
+    b.store.write_progress(&progress).unwrap();
+}
+
+fn wait_frame_done(b: &Bench, n: usize) {
+    b.sink.wait("encuadre", move |s| {
+        s.logs()
+            .iter()
+            .filter(|(_, t)| t.contains("frame_done"))
+            .count()
+            >= n
+    });
+}
+
+#[test]
+fn an_old_checkpoint_is_not_taken_for_a_finished_job_after_homing_and_framing() {
+    const DAY: u64 = 24 * 3600 * 1000;
+    let mut b = Bench::new("yesterday", "virtual:falcon2@4", DeviceKind::Grbl);
+    let lines = yesterday_job();
+    write_old_checkpoint(&b, &lines, DAY);
+
+    // Hoy la máquina se usó para otras cosas: quedó en (0, 0) y con el avance de otro trabajo
+    // (`F` distinto de cero), así que no parece una placa recién reiniciada.
+    let h = b.connect();
+    h.command("G1 X0 Y0 F1000").unwrap();
+    b.conn.take().unwrap().close();
+    assert!(b.emu.mpos()[0].abs() < 0.01 && b.emu.mpos()[1].abs() < 0.01);
+
+    // Secuencia de la app: conectar → aviso → homing → encuadre → continuar.
+    let h = b.connect();
+    assert!(!h.position_altered());
+    let loaded = b.store.load().expect("el punto de ayer sigue ahí");
+    let now = start::current_for(&h, &loaded);
+    assert!(now.is_none(), "un punto de ayer no se compara: {now:?}");
+    let info = resume::summarize(&b.store, &loaded, now.as_ref());
+    assert_eq!(
+        info.machine,
+        tlaku_doc::ResumeMachine::NotChecked,
+        "{info:?}"
+    );
+    assert!(!info.recommend_discard, "{info:?}");
+    assert!(
+        info.percent > 15.0 && info.percent < 30.0,
+        "{}",
+        info.percent
+    );
+    let view0 = resume::view(&b.store, &loaded, &PlanOptions::default(), now.as_ref()).unwrap();
+    // La pieza son los 80 mm de 100 a 180, no el viaje al origen.
+    assert_eq!(view0.bounds, [[100.0, 100.0], [180.0, 180.0]]);
+    // Se reanuda en el primer lado, ~1,5 mm antes de donde iba la cabeza.
+    let at = view0.suggested.at.expect("a mitad del primer lado");
+    assert!(
+        (at[0] - 166.2).abs() < 0.5 && (at[1] - 100.0).abs() < 0.01,
+        "{:?}",
+        view0.suggested
+    );
+    assert!(!view0.suggested.mismatch);
+
+    h.command("$H").unwrap();
+    assert!(h.position_altered());
+    // Encuadre: solo la pieza; la cabeza termina en la esquina de la pieza y no en (0, 0).
+    let mark = b.emu.received_lines().len();
+    start::frame(&h, &b.store, &loaded, 3000.0).unwrap();
+    // Con el encuadre en curso, continuar dice que la máquina está ocupada: no pide confirmar
+    // que «no se movió» (la máquina tiene homing y el mensaje no habla de eso).
+    let ready = start::readiness(&h);
+    assert!(
+        !ready.settings_read && ready.state == tlaku_doc::MachineState::Run,
+        "{ready:?}"
+    );
+    let make = args(&loaded, &view0);
+    let e = start::resume_now(&h, b.store.clone(), &loaded, &make(true, true, true)).unwrap_err();
+    assert!(e.contains("ocupada"), "{e}");
+    assert!(!e.contains("no tiene homing"), "{e}");
+    wait_frame_done(&b, 1);
+    let framed = b.gcode_since(mark);
+    assert!(
+        !framed.iter().any(|l| l.contains("X0Y0")),
+        "el encuadre no debe ir al origen: {framed:?}"
+    );
+    let end = b.emu.mpos();
+    assert!(
+        (end[0] - 100.0).abs() < 0.5 && (end[1] - 100.0).abs() < 0.5,
+        "{end:?}"
+    );
+
+    // Con la cabeza en la esquina de la pieza la sugerencia es la misma de antes.
+    let now = start::current_for(&h, &loaded);
+    assert!(now.is_none());
+    let info = resume::summarize(&b.store, &loaded, now.as_ref());
+    assert_eq!(info.machine, tlaku_doc::ResumeMachine::NotChecked);
+    assert!(!info.recommend_discard);
+    let view1 = resume::view(&b.store, &loaded, &PlanOptions::default(), now.as_ref()).unwrap();
+    assert_eq!(view1.suggested, view0.suggested);
+    assert_eq!(view1.bounds, view0.bounds);
+
+    // Continuar con esa sugerencia.
+    let sent_mark = b.emu.received_lines().len();
+    start::resume_now(&h, b.store.clone(), &loaded, &make(false, true, true)).unwrap();
+    b.sink.wait("trabajo terminado", |s| {
+        s.jobs().contains(&JobState::Finished)
+    });
+    // El registro numera las líneas del archivo y nunca pasa del total.
+    let log = b
+        .sink
+        .logs()
+        .into_iter()
+        .map(|(_, t)| t)
+        .find(|t| t.contains("Continuando el trabajo desde la línea"))
+        .expect("el registro dice desde dónde continúa");
+    let nums: Vec<u32> = log
+        .split(|c: char| !c.is_ascii_digit())
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    assert_eq!(nums.len(), 2, "{log}");
+    assert_eq!(nums[1], 12, "{log}");
+    assert_eq!(nums[0], view0.suggested.line + 1, "{log}");
+    assert!(nums[0] <= nums[1], "{log}");
+
+    // Empezó a grabar donde iba (166,2, 100) y grabó lo que faltaba, sin saltarse nada.
+    let trace = b.emu.trace();
+    let first = trace.segments().first().expect("grabó algo");
+    assert!(
+        (first.start[0] - 166.2).abs() < 0.6 && (first.start[1] - 100.0).abs() < 0.3,
+        "{first:?}"
+    );
+    let left = 180.0 - 166.2 + 3.0 * 80.0;
+    assert!(
+        (trace.total_length() - left).abs() < 3.0,
+        "grabó {} mm y faltaban {left}",
+        trace.total_length()
+    );
+    let missing = uncovered_where(&lines, &b.emu, 0.3, |p| p[0] > 166.5 || p[1] > 100.5);
+    assert_eq!(missing, 0, "quedaron huecos");
+    assert!(b.emu.trace().burned_during_rapids().is_empty());
+    let sent = b.gcode_since(sent_mark);
+    assert_eq!(sent.first().map(String::as_str), Some("M5"), "{sent:?}");
+    assert!(b.store.load().is_none());
+}
+
+#[test]
+fn a_recent_checkpoint_is_not_compared_either_once_the_head_has_moved() {
+    // Un punto de hace un minuto sí se compara al conectar, pero si antes de preguntar ya se
+    // hizo homing, la MPos es la del homing y no la del trabajo.
+    let mut b = Bench::new("moved-first", "virtual:falcon2@4", DeviceKind::Grbl);
+    let lines = yesterday_job();
+    write_old_checkpoint(&b, &lines, 60_000);
+    let h = b.connect();
+    h.command("G1 X0 Y0 F1000").unwrap();
+    b.conn.take().unwrap().close();
+    let h = b.connect();
+    h.command("$H").unwrap();
+    let loaded = b.store.load().unwrap();
+    assert!(start::current_for(&h, &loaded).is_none());
+    let info = resume::summarize(&b.store, &loaded, None);
+    assert_eq!(info.machine, tlaku_doc::ResumeMachine::NotChecked);
+    assert!(!info.recommend_discard);
+
+    // En cambio, sin tocar la cabeza se compara (la máquina volvió a (0, 0), con `F` de otro
+    // trabajo: parece haber terminado sola).
+    b.conn.take().unwrap().close();
+    let h = b.connect();
+    assert!(!h.position_altered());
+    let now = start::current_for(&h, &loaded);
+    assert!(now.is_some());
+    let info = resume::summarize(&b.store, &loaded, now.as_ref());
+    assert_eq!(
+        info.machine,
+        tlaku_doc::ResumeMachine::ProbablyFinished,
+        "{info:?}"
+    );
+    // Y esa decisión no cambia por hacer homing después.
+    h.command("$H").unwrap();
+    assert_eq!(start::current_for(&h, &loaded), now);
 }

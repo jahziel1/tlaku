@@ -107,6 +107,12 @@ impl Worker {
         t: &mut dyn Transport,
         req: Request,
     ) -> Result<(), Fail> {
+        if matches!(
+            req,
+            Request::Jog { .. } | Request::JogTo { .. } | Request::Probe { .. }
+        ) {
+            self.note_head_moves();
+        }
         let (reply, result) = match req {
             Request::Command { line, reply } => (reply, self.command(t, &line)),
             Request::Realtime { cmd, reply } => (reply, self.realtime(t, cmd).map(|()| vec![])),

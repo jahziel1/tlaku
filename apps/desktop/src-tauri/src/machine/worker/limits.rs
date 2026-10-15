@@ -154,6 +154,12 @@ impl Worker {
         [x + self.wco[0], y + self.wco[1]]
     }
 
+    /// La cabeza se mueve (o puede moverse) por orden de Tlaku: se anota en la conexión para que
+    /// la reanudación no tome la MPos de ahora por la que dejó un trabajo anterior.
+    pub(super) fn note_head_moves(&self) {
+        self.shared.moved.store(true, Ordering::SeqCst);
+    }
+
     /// Un `$H` terminó bien: la posición vuelve a estar confirmada y falta saber el espacio.
     pub(super) fn on_homed(&mut self) {
         self.shared.homed.store(true, Ordering::SeqCst);

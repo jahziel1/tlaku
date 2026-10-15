@@ -198,6 +198,7 @@ impl Worker {
             }
         }
         self.shared.running.store(false, Ordering::SeqCst);
+        self.shared.streaming.store(false, Ordering::SeqCst);
         // Desconectar con un trabajo en curso lo detiene, pero no es «cancelar a propósito»: el
         // punto de control se queda para poder continuarlo (se borra al pasar a otra máquina).
         if let Some(c) = run.checkpoint {
@@ -217,6 +218,7 @@ impl Worker {
         let kind = run.kind;
         let checkpoint = run.checkpoint;
         self.shared.running.store(false, Ordering::SeqCst);
+        self.shared.streaming.store(false, Ordering::SeqCst);
         let (streamer, outcome) = run
             .job
             .join()

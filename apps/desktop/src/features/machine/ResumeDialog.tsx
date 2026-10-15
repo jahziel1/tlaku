@@ -126,11 +126,10 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
       setReady(null);
       return;
     }
-    if (!idle && status?.state !== 'alarm') return;
     void refreshReady();
     const id = setInterval(() => void refreshReady(), 2000);
     return () => clearInterval(id);
-  }, [connected, idle, status?.state, refreshReady]);
+  }, [connected, status?.state, refreshReady]);
 
   const choice: RestartChoice | null = useMemo(() => (view ? (picked === null ? suggestedChoice(view) : choiceAt(view, picked)) : null), [view, picked]);
 
@@ -306,6 +305,16 @@ export function ResumeDialog({ choose }: { choose: boolean }) {
         <h3 id="rs-steps" className="mc-sub">{t('machine.resume.steps.title')}</h3>
         {mode === 'checking' ? (
           <p className="hint" role="status">{connected ? t('machine.resume.checking') : t('machine.resume.blocked.connect')}</p>
+        ) : mode === 'busy' ? (
+          <p className="warn-line" role="status">
+            <TriangleAlert size={14} aria-hidden="true" />
+            <span>{t('machine.resume.steps.busy', { state: ready?.state ?? '' })}</span>
+          </p>
+        ) : mode === 'noReply' ? (
+          <p className="warn-line" role="status">
+            <TriangleAlert size={14} aria-hidden="true" />
+            <span>{t('machine.resume.steps.noReply')}</span>
+          </p>
         ) : mode === 'home' ? (
           <div className="mc-resume__step" data-done={ready?.homed ? 'true' : 'false'}>
             <h4>{t('machine.resume.home.title')}</h4>

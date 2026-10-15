@@ -6,9 +6,16 @@ import type { MachineState } from "./MachineState";
  */
 export type ResumeReadiness = { 
 /**
- * La controladora tiene homing (`$22`); `null` si no contestó.
+ * La controladora tiene homing (`$22`); `null` si no contestó o no es de las que tienen
+ * ese ajuste (Marlin, Smoothieware). Mira `settings_read` para distinguirlo.
  */
 homing: boolean | null, 
+/**
+ * Se pudo preguntar `$$`. Es falso si la máquina estaba ocupada (un encuadre o un
+ * movimiento en curso) o no contestó: en ese caso `homing` no dice nada y no hay que pedir
+ * la confirmación de «no se movió».
+ */
+settings_read: boolean, 
 /**
  * Ya se hizo homing desde que la placa se reinició o perdió la posición.
  */
