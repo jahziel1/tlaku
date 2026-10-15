@@ -5401,7 +5401,7 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "tlaku-bench"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "image",
@@ -5417,7 +5417,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-camera"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "image",
  "nalgebra",
@@ -5450,7 +5450,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-codes"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "barcoders",
  "datamatrix",
@@ -5476,7 +5476,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -5518,7 +5518,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-doc"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5529,7 +5529,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-dxf"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dxf",
  "tlaku-core",
@@ -5538,7 +5538,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-emu"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "tlaku-core",
  "tlaku-doc",
@@ -5551,7 +5551,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-export"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "dxf",
@@ -5570,7 +5570,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-fill"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "i_overlay",
  "tlaku-core",
@@ -5579,7 +5579,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-galvo"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nusb",
  "tlaku-core",
@@ -5589,7 +5589,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-geom"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "i_overlay",
  "tlaku-core",
@@ -5610,11 +5610,11 @@ dependencies = [
 
 [[package]]
 name = "tlaku-i18n"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "tlaku-lbrn"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "roxmltree",
@@ -5624,7 +5624,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-lhymicro"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nusb",
  "tlaku-core",
@@ -5634,7 +5634,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-nest"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "i_overlay",
  "serde_json",
@@ -5645,7 +5645,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-parts"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5657,7 +5657,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-pipeline"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "image",
  "lopdf",
@@ -5683,7 +5683,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-plan"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "tlaku-core",
  "tlaku-i18n",
@@ -5691,7 +5691,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-raster"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "image",
  "png 0.18.1",
@@ -5712,7 +5712,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-sim"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "tlaku-core",
 ]
@@ -5729,7 +5729,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-text"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "fontdb",
  "rustybuzz",
@@ -5743,7 +5743,7 @@ dependencies = [
 
 [[package]]
 name = "tlaku-trace"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "image",
  "serde",

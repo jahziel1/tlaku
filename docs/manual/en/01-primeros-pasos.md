@@ -14,7 +14,7 @@ The installers are published on the repository's **Releases** page:
 | Windows 10 or later | `.exe` (NSIS installer) or `.msi` |
 | Linux | `.deb` or `.AppImage` |
 
-The application is not signed yet, so the system will warn you the first time. On macOS, right-click Tlaku and choose **Open**; on Windows, choose **More info** and then **Run anyway**. On Linux, to use the serial port add your user to the `dialout` group (see [Troubleshooting](15-solucion-de-problemas.md)).
+The application is not signed yet, so the system will warn you the first time. On macOS, try to open it once and then go to **System Settings > Privacy & Security > Open Anyway** (on macOS 14 or earlier, right-click Tlaku and choose **Open** also works); on Windows, choose **More info** and then **Run anyway**. On Linux, to use the serial port add your user to the `dialout` group (see [Troubleshooting](15-solucion-de-problemas.md)).
 
 ## 2. Open it and get to know the window
 

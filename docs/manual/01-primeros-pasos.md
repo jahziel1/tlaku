@@ -15,7 +15,7 @@ Los instaladores se publican en la página **Releases** del repositorio:
 | Linux x86_64 | `.deb` o `.AppImage` |
 | Linux ARM64 (Raspberry Pi 4 y 5 con sistema de 64 bits; experimental) | `.deb` (`_arm64`) o `.AppImage` (`_aarch64`) |
 
-La aplicación todavía no está firmada, así que el sistema avisará la primera vez. En macOS, clic derecho sobre Tlaku y **Abrir**; en Windows, **Más información** y **Ejecutar de todas formas**. En Linux, para usar el puerto serie añade tu usuario al grupo `dialout` (ver [Solución de problemas](15-solucion-de-problemas.md)).
+La aplicación todavía no está firmada, así que el sistema avisará la primera vez. En macOS, intenta abrirla una vez y luego ve a **Ajustes del Sistema > Privacidad y seguridad > Abrir de todas formas** (en macOS 14 o anterior también sirve clic derecho sobre Tlaku y **Abrir**); en Windows, **Más información** y **Ejecutar de todas formas**. En Linux, para usar el puerto serie añade tu usuario al grupo `dialout` (ver [Solución de problemas](15-solucion-de-problemas.md)).
 
 **Raspberry Pi (experimental).** Necesitas un sistema de **64 bits** (en una terminal, `uname -m` debe decir `aarch64`), por ejemplo Raspberry Pi OS de 64 bits o Ubuntu ARM, en una Pi 4 o 5 con 4 GB de RAM o más. La Pi 3 o anteriores y los sistemas de 32 bits no funcionan. Si la ventana sale en blanco o rota, abre Tlaku así: `WEBKIT_DISABLE_COMPOSITING_MODE=1 tlaku`. Aún no se ha probado en una Raspberry Pi real; si lo haces, comparte tu experiencia en un reporte de máquina.
 
