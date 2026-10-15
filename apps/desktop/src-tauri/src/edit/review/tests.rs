@@ -86,6 +86,11 @@ fn synthetic() -> Document {
         on_path: None,
         bend_deg: None,
         welded: None,
+        features: None,
+        variations: None,
+        uppercase: None,
+        valign: None,
+        word_spacing_mm: None,
         outline: Vec::new(),
     };
     let mut objects = vec![

@@ -9,9 +9,12 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use tlaku_core::bezpath::BezPath;
-use tlaku_doc::{TextAlign, TextObject};
+use tlaku_doc::{TextAlign, TextObject, TextVAlign};
 use tlaku_i18n::tr;
-use tlaku_text::{Align, FontFamily, FontLibrary, OnPathSpec, TextSpec};
+use tlaku_text::{
+    Align, FontAxis, FontCapabilities, FontFamily, FontFeature, FontLibrary, OnPathSpec, TextSpec,
+    VAlign,
+};
 
 /// Misma forma que `TextOutlineResult` de `src/api/types.ts`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -44,6 +47,32 @@ pub fn to_spec(text: &TextObject) -> TextSpec {
         }),
         bend_deg: text.bend_deg.unwrap_or(0.0),
         welded: text.welded.unwrap_or(false),
+        features: text
+            .features
+            .iter()
+            .flatten()
+            .map(|f| FontFeature {
+                tag: f.tag.clone(),
+                value: f.value,
+            })
+            .collect(),
+        variations: text
+            .variations
+            .iter()
+            .flatten()
+            .map(|a| FontAxis {
+                tag: a.tag.clone(),
+                value: a.value,
+            })
+            .collect(),
+        uppercase: text.uppercase.unwrap_or(false),
+        valign: match text.valign {
+            None | Some(TextVAlign::Baseline) => VAlign::Baseline,
+            Some(TextVAlign::Top) => VAlign::Top,
+            Some(TextVAlign::Middle) => VAlign::Middle,
+            Some(TextVAlign::Bottom) => VAlign::Bottom,
+        },
+        word_spacing_mm: text.word_spacing_mm.unwrap_or(0.0),
     }
 }
 
@@ -158,6 +187,22 @@ pub async fn import_shx_fonts(paths: Vec<String>) -> Result<Vec<String>, String>
     .map_err(crate::edit::task_interrupted)?
 }
 
+/// Funciones OpenType y ejes variables de la fuente del texto (familia, negrita y cursiva), con
+/// una vista previa de cada función. Solo lista lo que la fuente declara.
+pub fn run_capabilities(lib: &FontLibrary, text: &TextObject) -> Result<FontCapabilities, String> {
+    tlaku_text::font_capabilities(lib, &to_spec(text))
+}
+
+/// Qué ofrece la fuente del texto: funciones OpenType (con vista previa) y ejes variables.
+#[tauri::command]
+pub async fn font_capabilities(text: TextObject) -> Result<FontCapabilities, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_capabilities(FontLibrary::system_shared(), &text)
+    })
+    .await
+    .map_err(crate::edit::task_interrupted)?
+}
+
 /// Contorno del texto; `path` es la trayectoria (en el mismo sistema local que el contorno)
 /// cuando el texto va sobre una curva.
 #[tauri::command]
@@ -202,6 +247,11 @@ mod tests {
             on_path: None,
             bend_deg: None,
             welded: None,
+            features: None,
+            variations: None,
+            uppercase: None,
+            valign: None,
+            word_spacing_mm: None,
             outline: vec![],
         }
     }
@@ -410,6 +460,115 @@ mod tests {
         // Sin valores no se escriben.
         let back = serde_json::to_value(&t).unwrap();
         assert!(back.get("bend_deg").is_none() && back.get("welded").is_none());
+    }
+
+    fn test_font_lib() -> FontLibrary {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../crates/tlaku-text/tests/fixtures/TlakuTest-Var.ttf");
+        let mut lib = FontLibrary::new();
+        lib.load_font_file(&path)
+            .expect("la fuente de prueba debe cargar");
+        lib
+    }
+
+    #[test]
+    fn conversion_copies_opentype_options() {
+        use tlaku_doc::{TextAxis, TextFeature};
+        let mut t = text("x");
+        let plain = to_spec(&t);
+        assert!(plain.features.is_empty() && plain.variations.is_empty());
+        assert!(!plain.uppercase && plain.valign == VAlign::Baseline);
+        assert_eq!(plain.word_spacing_mm, 0.0);
+        t.features = Some(vec![TextFeature {
+            tag: "ss01".into(),
+            value: 1,
+        }]);
+        t.variations = Some(vec![TextAxis {
+            tag: "wght".into(),
+            value: 650.0,
+        }]);
+        t.uppercase = Some(true);
+        t.valign = Some(TextVAlign::Middle);
+        t.word_spacing_mm = Some(1.5);
+        let s = to_spec(&t);
+        assert_eq!(
+            (s.features[0].tag.as_str(), s.features[0].value),
+            ("ss01", 1)
+        );
+        assert_eq!(
+            (s.variations[0].tag.as_str(), s.variations[0].value),
+            ("wght", 650.0)
+        );
+        assert!(s.uppercase);
+        assert_eq!(s.valign, VAlign::Middle);
+        assert_eq!(s.word_spacing_mm, 1.5);
+    }
+
+    #[test]
+    fn opentype_options_change_the_outline_through_the_command_path() {
+        use tlaku_doc::{TextAxis, TextFeature};
+        let lib = test_font_lib();
+        let mut t = text("fi");
+        t.font_family = "Tlaku Test".into();
+        let lig = run_outline(&lib, &t, None).unwrap();
+        t.features = Some(vec![TextFeature {
+            tag: "liga".into(),
+            value: 0,
+        }]);
+        let apart = run_outline(&lib, &t, None).unwrap();
+        assert_eq!((lig.paths.len(), apart.paths.len()), (1, 2));
+        let mut v = text("A");
+        v.font_family = "Tlaku Test".into();
+        let light = run_outline(&lib, &v, None).unwrap();
+        v.variations = Some(vec![TextAxis {
+            tag: "wght".into(),
+            value: 900.0,
+        }]);
+        assert_ne!(run_outline(&lib, &v, None).unwrap().paths, light.paths);
+    }
+
+    #[test]
+    fn capabilities_come_from_the_font() {
+        let lib = test_font_lib();
+        let mut t = text("");
+        t.font_family = "Tlaku Test".into();
+        let caps = run_capabilities(&lib, &t).unwrap();
+        assert!(caps.features.iter().any(|f| f.tag == "smcp"));
+        assert_eq!(caps.axes.len(), 5);
+        let json = serde_json::to_value(&caps).unwrap();
+        assert!(json["features"][0]["on"].is_array() && json["axes"][0]["tag"].is_string());
+        assert!(
+            run_capabilities(&lib, &text("")).is_err(),
+            "Bebas no está cargada"
+        );
+    }
+
+    #[test]
+    fn documents_without_the_new_fields_still_load_and_omit_them() {
+        let json = serde_json::json!({
+            "text": "A", "font_family": "Bebas Neue", "bold": false, "italic": false,
+            "size_mm": 10.0, "letter_spacing_mm": 0.0, "line_spacing": 1.2,
+            "align": "left", "on_path": null, "outline": [], "bend_deg": 20.0
+        });
+        let t: TextObject = serde_json::from_value(json).unwrap();
+        assert!(t.features.is_none() && t.variations.is_none() && t.valign.is_none());
+        assert!(t.uppercase.is_none() && t.word_spacing_mm.is_none());
+        let back = serde_json::to_value(&t).unwrap();
+        for key in [
+            "features",
+            "variations",
+            "uppercase",
+            "valign",
+            "word_spacing_mm",
+        ] {
+            assert!(back.get(key).is_none(), "{key} no debería escribirse vacío");
+        }
+        // Y con valores se guardan y se leen igual.
+        let mut t = t;
+        t.valign = Some(TextVAlign::Top);
+        t.uppercase = Some(true);
+        let again: TextObject = serde_json::from_value(serde_json::to_value(&t).unwrap()).unwrap();
+        assert_eq!(again, t);
     }
 
     #[test]

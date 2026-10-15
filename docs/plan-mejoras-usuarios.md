@@ -671,7 +671,7 @@ dos carpetas de configuración. Sin hardware.
 
 ## 13. Texto avanzado
 
-**(a) Estado: Parcial, y mejor que LightBurn en varios puntos.** Tlaku usa `rustybuzz` 0.20 (HarfBuzz en Rust)
+**(a) Estado: Hecho en su núcleo (ola A); queda lo listado como pendiente.** Funciones OpenType por texto (`TextObject.features`), fuentes variables con deslizador por eje (`variations`), mayúsculas forzadas, espacio entre palabras y alineación vertical (también sobre trayecto) ya están: el motor lee GSUB/GPOS/`fvar` (`tlaku-text/src/opentype.rs`, comando `font_capabilities`) y el panel solo ofrece lo que la fuente trae, con vista previa. Pendiente: alineación X sobre el trayecto (centrar/ajustar), dos arcos con un control, distorsión libre, estilos mezclados en un bloque, derecha a izquierda, `ssNN` con nombres propios de la fuente (la tabla `name` de las características). Lo siguiente era el estado antes de la ola A: **Parcial, y mejor que LightBurn en varios puntos.** Tlaku usa `rustybuzz` 0.20 (HarfBuzz en Rust)
 y `ttf-parser` 0.25 (`crates/tlaku-text`): formas de texto con kerning, ligaduras (se apagan solo cuando hay
 espaciado entre letras), varias líneas, alineación, tamaño/espaciados, negrita y cursiva, **texto curvado** en
 un arco de hasta ±360° (D39, `bend_deg`), **texto sobre un trayecto** con desplazamiento y voltear lado (D40),

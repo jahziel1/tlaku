@@ -15,6 +15,12 @@ Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de
 - **Máquina > Revisar diseño…** (`Ctrl/Cmd+Alt+R`) lee tu diseño y lista **doce tipos de hallazgo** (trazos casi cerrados, líneas duplicadas, uniones pendientes, fragmentos diminutos, nodos de sobra, objetos fuera o pasados de la cama, textos sin convertir, capas sin salida u ocultas con objetos, y imágenes con demasiada o poca resolución). Cada uno trae **Arreglar** (si lo hay), **Seleccionar** e **Ignorar**; **Arreglar todo lo seguro** cierra, une y quita duplicados en un paso de **Deshacer**.
 - Un **aviso en el diálogo de inicio** (con enlace **Ver**) cuando hay algo grave, y los mismos hallazgos en palabras simples en el **modo sencillo**. Mira [Revisar diseño](07b-revisar-diseno.md).
 
+### Texto avanzado
+
+- **Funciones OpenType por texto**: ligaduras (estándar y discrecionales), alternativas y conjuntos estilísticos, remates, versalitas, números (de texto, alineados, de ancho fijo, proporcionales), fracciones y kerning encendido o apagado. El panel lee la fuente y **ofrece solo lo que trae**, con una vista previa apagada y encendida de cada función.
+- **Fuentes variables**: un deslizador por eje (peso, ancho, inclinación, tamaño óptico y ejes propios) y los estilos con nombre; el contorno se calcula con la posición elegida.
+- **Mayúsculas forzadas**, **espacio entre palabras** y **alineación vertical** (también sobre un trayecto: el texto puede colgar de la línea, centrarse en ella o apoyarse encima). Mira [Texto](04-texto.md#texto-avanzado-funciones-de-la-fuente-y-fuentes-variables).
+
 ### Lienzo y edición
 
 - **Deformar en el lienzo** (`Mayús+W`): arrastra las manijas de una malla **bilineal**, de **perspectiva** o de **4×4 puntos** y ve el resultado en vivo.

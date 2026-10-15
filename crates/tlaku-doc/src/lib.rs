@@ -70,7 +70,7 @@ pub use ruida::{
     RuidaFile, RuidaInfo, RuidaPlannedChange, RuidaSetting, RuidaSettingChange, RuidaSettingsPlan,
     RuidaVerified,
 };
-pub use text::{TextAlign, TextObject, TextOnPath};
+pub use text::{TextAlign, TextAxis, TextFeature, TextObject, TextOnPath, TextVAlign};
 pub use virtual_array::MAX_VIRTUAL_COPIES;
 
 #[cfg(test)]

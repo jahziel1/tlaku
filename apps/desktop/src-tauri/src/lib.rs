@@ -143,6 +143,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             commands::galvo_verify,
             edit::text::list_fonts,
             edit::text::text_outline,
+            edit::text::font_capabilities,
             edit::text::import_shx_fonts,
             edit::variables::read_csv,
             edit::codes::generate_code,

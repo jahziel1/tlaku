@@ -1,6 +1,6 @@
 import { flattenBez, polylineBez, type BezPath } from '@/lib/bezpath';
 import type { LaserApi } from '../api';
-import type { FontFamily, Point, TextObject, TextOutlineResult } from '../types';
+import type { FontCapabilities, FontFamily, Point, TextObject, TextOutlineResult } from '../types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
@@ -155,11 +155,52 @@ function bendBez(path: BezPath, xMid: number, width: number, bendDeg: number): B
   });
 }
 
+/** Funciones simuladas por familia (el motor real las lee de GSUB/GPOS de la fuente). */
+const MOCK_FEATURES: Record<string, string[]> = {
+  arial: ['kern', 'liga'],
+  'bebas neue': ['kern', 'tnum', 'pnum', 'frac'],
+  georgia: ['kern', 'liga', 'smcp', 'onum', 'lnum', 'ss01'],
+  'helvetica neue': ['kern', 'liga', 'dlig', 'ss01', 'ss02', 'salt', 'swsh', 'tnum', 'frac'],
+};
+const MOCK_SAMPLES: Record<string, string> = { liga: 'fi fl', dlig: 'st ct', smcp: 'Ab', frac: '1/2', tnum: '101', onum: '123' };
+
+/** Muestra de un rectángulo por letra; encendida, un poco más alta (solo para ver cambios en el simulador). */
+function mockSample(text: string, tall: boolean): FontCapabilities['features'][number]['on'] {
+  return [...text].filter((c) => c !== ' ').map((_, i) => polylineBez([[i * 6, 0], [i * 6 + 4, 0], [i * 6 + 4, tall ? 8 : 7], [i * 6, tall ? 8 : 7]], true));
+}
+
+export function mockFontCapabilities(text: TextObject): FontCapabilities {
+  const key = text.font_family.trim().toLowerCase();
+  if (LINE_FONTS.some((f) => f.family.toLowerCase() === key) || !FONTS.some((f) => f.family.toLowerCase() === key)) {
+    return { features: [], axes: [], instances: [] };
+  }
+  const variable = key === 'helvetica neue';
+  return {
+    features: (MOCK_FEATURES[key] ?? ['kern']).map((tag) => {
+      const sample = MOCK_SAMPLES[tag] ?? 'Ra';
+      return { tag, default_on: tag === 'kern' || tag === 'liga', sample, changes: true, on: mockSample(sample, true), off: mockSample(sample, false) };
+    }),
+    axes: variable
+      ? [
+          { tag: 'wght', name: 'Weight', min: 100, default: 400, max: 900 },
+          { tag: 'wdth', name: 'Width', min: 75, default: 100, max: 125 },
+        ]
+      : [],
+    instances: variable
+      ? [
+          { name: 'Regular', coords: [{ tag: 'wght', value: 400 }, { tag: 'wdth', value: 100 }] },
+          { name: 'Bold Condensed', coords: [{ tag: 'wght', value: 700 }, { tag: 'wdth', value: 80 }] },
+        ]
+      : [],
+  };
+}
+
 /** Métodos simulados del área `text`: fuentes plausibles y un contorno aproximado. */
-export function mockText(lag: Lag): Pick<LaserApi, 'listFonts' | 'textOutline' | 'importShxFonts'> {
+export function mockText(lag: Lag): Pick<LaserApi, 'listFonts' | 'textOutline' | 'fontCapabilities' | 'importShxFonts'> {
   return {
     listFonts: () => lag(() => structuredClone([...FONTS, ...LINE_FONTS, ...importedShx])),
     textOutline: ({ text, path }) => lag(() => mockTextOutline(text, path)),
+    fontCapabilities: ({ text }) => lag(() => mockFontCapabilities(text)),
     importShxFonts: ({ paths }) =>
       lag(() => {
         const names = paths.map((p) => (p.split(/[\\/]/).pop() ?? p).replace(/\.shx$/i, '')).filter(Boolean);

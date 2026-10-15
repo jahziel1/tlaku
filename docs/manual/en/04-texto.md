@@ -27,6 +27,10 @@ To edit an existing text, double-click it with **Select**, or select it: the **T
 | **Line spacing** | In multiples of the size; it starts at 1.2. |
 | **Bend** | Degrees the text spans along an arc (see "Curved text"). |
 | **Weld letters** | Joins letters that touch into a single outline (see "Welded text"). |
+| **Word gap** | Extra space added at every gap between words, in mm (negative brings them closer). |
+| **Vertical alignment** | Where the text anchor sits: **Baseline** (as always), **Top**, **Middle** or **Bottom** of the block. On a path it decides which side of the line the text falls on. |
+| **Uppercase** | Sets the text in capitals without changing what you typed. |
+| **Font features and axes** | Ligatures, alternates, small caps, numerals, fractions, kerning and variable-font axes (see "Advanced text"). |
 | **Insert variable** | Puts a variable in braces (serial number, CSV data, date or time) where the cursor is. See [Variable text](04b-texto-variable.md). |
 
 > **Heads up:** Tlaku never fakes a bold or an italic. If the family does not have that variant, it uses the closest one that exists and says so in the **Outline warnings**. If the font you chose is not installed (for example, when opening a project on another computer), it uses another one and warns you: "The font '...' is not installed; '...' is used instead." Check the warning before sending anything.
@@ -70,6 +74,29 @@ Italic and calligraphy fonts have letters that overlap: on a **Line** layer the 
 
 - It only works with outline fonts (the system ones). With a single-line font there are no outlines to join and the panel warns you.
 - The same can be done by hand with **Convert to paths** and then **Weld** (`Alt+W`), but the text stops being editable. With the checkbox, the text stays text.
+
+## Advanced text: font features and variable fonts
+
+Open **Font features and axes** in the Text panel. Tlaku reads the chosen font and shows **only what that font really provides**; if it provides nothing, it says so. Everything is stored in the text, applies to all its content, and the outline is recomputed right away.
+
+**OpenType features.** Each is a checkbox with its name and, on the right, a **preview off and on** using letters that do change in that font:
+
+| Group | Features |
+|---|---|
+| Ligatures and kerning | Kerning, standard, contextual and discretionary ligatures |
+| Alternates | Stylistic alternates (with the alternate number), stylistic sets 1 to 20, character variants, swash |
+| Capitals | Small caps and capitals to small caps |
+| Numerals | Old-style, lining, tabular, proportional, slashed zero |
+| Fractions and position | Fractions, superscript, subscript, ordinals |
+
+- Only what **differs from the font** is stored: kerning and standard ligatures are on by default, and a feature left as the font has it leaves no trace. **Clear changes** goes back to what the font does.
+- If you turn on a feature the font does not have (for example, opening a project on another computer with a different font), the panel warns and the shape does not change.
+- Letter **Spacing** turns ligatures off (a ligature merges letters, so there would be nothing to space); if you tick one anyway, your choice is respected.
+- A feature shown with "None of the tested letters change" is declared by the font but none of the sample letters use it; it may affect other letters.
+
+**Variable fonts.** If the font is variable you get a **slider per axis** (**Weight**, **Width**, **Slant**, **Optical size** and the font's own axes) and, when it has **named styles**, a selector. The outline is computed at the chosen position, so what you see is what is engraved; **Reset axes** goes back to the font's values.
+
+> **Careful:** features and axes depend on the installed font. Opening the project on another computer without that font uses a different one and the panel warns. **Single-line fonts** have no features or axes. The **Bold** and **Italic** buttons pick a face from the family; with a variable font use the **Weight** slider for thickness.
 
 ## Single-line fonts
 

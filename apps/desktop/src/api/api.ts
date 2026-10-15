@@ -65,6 +65,7 @@ import type {
   MaterialTestParams,
   TextObject,
   TextOutlineResult,
+  FontCapabilities,
   CsvTable,
   TraceResult,
   TraceSettings,
@@ -545,6 +546,12 @@ export interface LaserApi {
    * del texto (con la inversa del `transform` del texto aplicada), no de documento.
    */
   textOutline(args: { text: TextObject; path: BezPath | null }): Promise<TextOutlineResult>;
+  /**
+   * Funciones OpenType (con vista previa) y ejes variables de la fuente del texto (familia, negrita y
+   * cursiva; los ejes ya puestos en `variations` se aplican a las vistas previas). Solo lista lo que
+   * la fuente declara; las fuentes de una línea devuelven todo vacío.
+   */
+  fontCapabilities(args: { text: TextObject }): Promise<FontCapabilities>;
   /** Importa fuentes SHX de AutoCAD; devuelve los nombres con que quedan disponibles en `listFonts`. */
   importShxFonts(args: { paths: string[] }): Promise<string[]>;
   /**
@@ -828,6 +835,7 @@ export const COMMAND_NAMES = {
   continueJob: 'continue_job',
   listFonts: 'list_fonts',
   textOutline: 'text_outline',
+  fontCapabilities: 'font_capabilities',
   importShxFonts: 'import_shx_fonts',
   readCsv: 'read_csv',
   generateCode: 'generate_code',

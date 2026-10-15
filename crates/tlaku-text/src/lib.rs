@@ -4,6 +4,7 @@
 //!   negrita y cursiva, informando cuando hay que usar un sustituto.
 //! - [`outline`] convierte un [`TextSpec`] en curvas [`BezPath`](tlaku_core::bezpath::BezPath)
 //!   en milímetros, con kerning y ligaduras (rustybuzz), varias líneas y texto en trayecto.
+//! - [`font_capabilities`] lista las funciones OpenType y los ejes variables que trae una fuente.
 //!
 //! Convenciones: Y hacia arriba, la línea base de la primera línea en `y = 0`; `size_mm` es el
 //! tamaño del em (no la altura de la mayúscula). Los contornos conservan el sentido que traen
@@ -13,6 +14,7 @@ mod effects;
 mod layout;
 mod library;
 mod linefont;
+mod opentype;
 mod path_sampler;
 mod shx;
 mod spec;
@@ -21,4 +23,5 @@ pub use effects::MAX_BEND_DEG;
 pub use layout::{LINE_FONT_CAP_RATIO, TextOutline, outline};
 pub use library::{FaceChoice, FontFamily, FontLibrary};
 pub use linefont::{LineFont, LineFontSource, LineGlyph, builtin_line_fonts};
-pub use spec::{Align, OnPathSpec, TextSpec};
+pub use opentype::{AxisInfo, FeatureInfo, FontCapabilities, InstanceInfo, font_capabilities};
+pub use spec::{Align, FontAxis, FontFeature, OnPathSpec, TextSpec, VAlign};

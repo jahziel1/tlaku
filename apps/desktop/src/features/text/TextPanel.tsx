@@ -1,7 +1,7 @@
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { TextAlign } from '@/api/types';
+import type { TextAlign, TextVAlign } from '@/api/types';
 import { CodesDialogHost } from '@/features/codes';
 import { InsertVariable, VariablesHost, useVariablesUi } from '@/features/variables';
 import { variableExamples } from '@/features/variables/insert';
@@ -12,7 +12,8 @@ import { useStore } from '@/store';
 import { NumberField } from '@/ui/NumberField';
 import { convertTextToPaths, editText, guideCandidates } from './convert';
 import { FontPicker } from './FontPicker';
-import { isLineFamily, pickDefaultFont, useFonts } from './fonts';
+import { effectiveFont, isLineFamily, pickDefaultFont, useFonts } from './fonts';
+import { OpenTypeSection } from './OpenTypeSection';
 import { useOutlineSync } from './outlineSync';
 import { choosePanelSide, PANEL_WIDTH, screenBox } from './placement';
 import { isTextObject, type TextDesignObject } from './signature';
@@ -24,6 +25,13 @@ const ALIGNS: { value: TextAlign; icon: typeof AlignLeft; key: 'text.align.left'
   { value: 'left', icon: AlignLeft, key: 'text.align.left' },
   { value: 'center', icon: AlignCenter, key: 'text.align.center' },
   { value: 'right', icon: AlignRight, key: 'text.align.right' },
+];
+
+const VALIGNS: { value: TextVAlign; key: 'text.valign.baseline' | 'text.valign.top' | 'text.valign.middle' | 'text.valign.bottom' }[] = [
+  { value: 'baseline', key: 'text.valign.baseline' },
+  { value: 'top', key: 'text.valign.top' },
+  { value: 'middle', key: 'text.valign.middle' },
+  { value: 'bottom', key: 'text.valign.bottom' },
 ];
 
 /**
@@ -178,6 +186,23 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
         <p className="hint text-panel__hint">{t('text.field.sizeHint')} {t('text.field.lineSpacingHint')}</p>
 
         <div className="text-panel__grid text-panel__grid--2">
+          <NumberField label={t('text.field.wordSpacing')} unit="mm" value={text.word_spacing_mm ?? 0} min={-100} max={500} step={0.5} onCommit={(v) => set({ word_spacing_mm: v === 0 ? undefined : v }, 'wordspacing')} />
+          <div className="field">
+            <label className="field__label" htmlFor={`text-valign-${id}`}>{t('text.field.valign')}</label>
+            <select id={`text-valign-${id}`} className="select" value={text.valign ?? 'baseline'} onChange={(e) => set({ valign: e.target.value === 'baseline' ? undefined : (e.target.value as TextVAlign) }, 'valign')}>
+              {VALIGNS.map(({ value, key }) => (
+                <option key={value} value={value}>{t(key)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <p className="hint text-panel__hint">{t('text.field.wordSpacingHint')} {t('text.field.valignHint')}</p>
+        <label className="text-panel__check" title={t('text.field.uppercaseTitle')}>
+          <input type="checkbox" checked={text.uppercase === true} onChange={(e) => set({ uppercase: e.target.checked ? true : undefined }, 'uppercase')} />
+          {t('text.field.uppercase')}
+        </label>
+
+        <div className="text-panel__grid text-panel__grid--2">
           <NumberField
             label={t('text.field.bend')}
             unit="°"
@@ -199,6 +224,8 @@ export function TextEditor({ obj }: { obj: TextDesignObject }) {
           </label>
         </div>
         <p className="hint text-panel__hint">{onPath !== null ? t('text.field.bendIgnored') : t('text.field.bendHint')}</p>
+
+        <OpenTypeSection kind={text} family={effectiveFont(fonts, text.font_family.trim() || fallbackFont).family} lineFont={lineFont} onChange={set} />
 
         <fieldset className="text-panel__path">
           <label className="text-panel__check">

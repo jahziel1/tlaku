@@ -91,6 +91,7 @@ export function createTauriApi(): LaserApi {
     continueJob: (a) => call('continueJob', a),
     listFonts: () => call('listFonts'),
     textOutline: (a) => call('textOutline', a),
+    fontCapabilities: (a) => call('fontCapabilities', a),
     importShxFonts: (a) => call('importShxFonts', a),
     readCsv: (a) => call('readCsv', a),
     generateCode: (a) => call('generateCode', a),
