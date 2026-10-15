@@ -62,6 +62,7 @@ import type { MachineState } from '@/bindings/MachineState';
 import type { OverrideKind } from '@/bindings/OverrideKind';
 import type { Overrides } from '@/bindings/Overrides';
 import type { ProgressEvent } from '@/bindings/ProgressEvent';
+import type { SilenceEvent } from '@/bindings/SilenceEvent';
 import type { RealtimeCommand } from '@/bindings/RealtimeCommand';
 import type { SimulatedFault } from '@/bindings/SimulatedFault';
 import type { InterruptedJob } from '@/bindings/InterruptedJob';
@@ -162,6 +163,7 @@ export type {
   RuidaApplyReport,
   RuidaBackup,
   RuidaCalibration,
+  SilenceEvent,
   RuidaControllerSettings,
   RuidaDocResult,
   RuidaFile,
@@ -419,6 +421,8 @@ export interface EventMap {
   'machine://log': LogEvent;
   'machine://job': JobEvent;
   'machine://connection': ConnectionEvent;
+  /** La placa no contesta desde hace `silence_ms` (aviso temprano, ~2 s); `0` = volvió a contestar. */
+  'machine://silence': SilenceEvent;
   /** Lo propio del galvo: pasos del marcado dividido, vueltas del encuadre y el aviso de cortar la energía. */
   'machine://galvo': GalvoEvent;
   /** Un programa externo pidió abrir un archivo (`LOAD` de la automatización por UDP). */

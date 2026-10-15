@@ -81,9 +81,8 @@ impl<T: Transport> Streamer<T> {
 
         // Una escritura puede quedarse bloqueada (el vaciado de un puerto USB CDC espera a que la
         // placa lea). Mientras el anfitrión está bloqueado no puede oír a la placa ni consultarla
-        // con `?`: ese tiempo no es silencio de la controladora. Si la vuelta ya tardó, la
-        // ventana de silencio vuelve a empezar al ver que la escritura terminó (la placa tendrá
-        // su plazo completo para contestar); una placa que de verdad calla se detecta igual.
+        // con `?`: ese tiempo no es silencio de la controladora. Si la vuelta ya tardó, el aviso
+        // de silencio vuelve a contar desde que la escritura terminó.
         let stalled = tick_started.elapsed() >= WRITE_STALL;
         let mut buf = [0u8; 256];
         let n = self.transport.read_timeout(&mut buf, TICK)?;
@@ -93,6 +92,16 @@ impl<T: Transport> Streamer<T> {
         if n > 0 {
             self.reader.feed(&buf[..n]);
         }
+        // `?` no se contesta durante el homing: ahí el silencio es lo esperado y no se avisa.
+        // La conexión NUNCA se da por perdida por silencio (igual que LightBurn, que espera): una
+        // placa que se para unos segundos y sigue es lo normal en la Falcon, y declarar la
+        // pérdida no detiene nada (con la placa trabada no se le puede mandar nada). Solo la
+        // pierde un error real de E/S del sistema o que el usuario cancele o desconecte.
+        let homing = st
+            .pending
+            .iter()
+            .any(|&(i, _)| job.get(i).is_some_and(|p| is_homing_line(&p.text)));
+        self.note_silence(st, polling.is_some() && !homing, emit);
         while let Some(line) = self.reader.next_line() {
             if let Some(outcome) = self.handle_line(&line, job, st, emit)? {
                 return Ok(Some(outcome));
@@ -102,23 +111,32 @@ impl<T: Transport> Streamer<T> {
         if let Some(outcome) = self.check_finished(job, st, polling.is_some())? {
             return Ok(Some(outcome));
         }
-        // `?` no se contesta durante el homing: con una línea `$H` sin responder se espera
-        // `home_timeout` en lugar de `silence_timeout`.
-        let homing = st
-            .pending
-            .iter()
-            .any(|&(i, _)| job.get(i).is_some_and(|p| is_homing_line(&p.text)));
-        let allowance = if homing {
-            self.config.home_timeout.max(self.config.silence_timeout)
-        } else {
-            self.config.silence_timeout
-        };
-        if polling.is_some() && st.last_rx.elapsed() > allowance {
-            return Ok(Some(Outcome::Disconnected(tr!(
-                "grbl.stream.controller_silent"
-            ))));
-        }
         Ok(None)
+    }
+
+    /// Avisa con [`Event::Silence`] que la placa no contesta desde hace un rato (cada segundo
+    /// entero desde `silence_notice`) y que volvió a contestar. `watch` es falso sin sondeo o
+    /// con un homing en curso, donde el silencio es lo esperado.
+    fn note_silence(&self, st: &mut RunState, watch: bool, emit: &mut dyn FnMut(Event)) {
+        let silent = self
+            .config
+            .silence_notice
+            .filter(|_| watch)
+            .map(|notice| (notice, st.last_rx.elapsed()))
+            .filter(|(notice, elapsed)| elapsed >= notice);
+        match (silent, st.silence_reported) {
+            (Some((_, elapsed)), reported) if reported != Some(elapsed.as_secs()) => {
+                st.silence_reported = Some(elapsed.as_secs());
+                emit(Event::Silence {
+                    ms: u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX),
+                });
+            }
+            (None, Some(_)) => {
+                st.silence_reported = None;
+                emit(Event::Silence { ms: 0 });
+            }
+            _ => {}
+        }
     }
 
     /// ¿Terminó el trabajo? GRBL: todas las líneas respondidas y, con sondeo, estado `Idle`.

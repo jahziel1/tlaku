@@ -31,7 +31,7 @@ describe('selección de implementación', () => {
         'save_device', 'delete_device', 'list_ports', 'connect', 'disconnect', 'machine_command', 'machine_realtime',
         'jog', 'start_job', 'pause_job', 'resume_job', 'cancel_job', 'frame_job']),
     );
-    expect(EVENT_NAMES).toHaveLength(11);
+    expect(EVENT_NAMES).toHaveLength(12);
   });
 });
 

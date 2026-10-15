@@ -161,7 +161,8 @@ pub fn stream_lines<T: Transport + 'static, W: Write>(
             }
             Ok(Event::Message(m)) => p.line(&tr!("cli.link.machine_message", msg = m)),
             Ok(Event::Reset(m)) => p.line(&tr!("cli.link.controller_reset", msg = m)),
-            Ok(Event::Finished(_)) => {}
+            // El aviso temprano de silencio es para la interfaz; la CLI espera al plazo de siempre.
+            Ok(Event::Silence { .. } | Event::Finished(_)) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
         }

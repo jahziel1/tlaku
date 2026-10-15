@@ -449,26 +449,66 @@ fn disconnect_mid_job_is_reported() {
 }
 
 #[test]
-fn prolonged_silence_is_reported_as_disconnection() {
-    // Tiempo real (x1): el streamer mide el silencio con su propio reloj.
+fn prolonged_silence_is_waited_out_and_the_job_finishes() {
+    // Tiempo real (x1). Antes de §2.8 la conexión se daba por perdida a los 5 s de silencio; ahora
+    // se espera (como LightBurn): la placa de la Falcon se para 2–20 s y sigue sola.
     let (vm, h) = scaled_vm(Profile::grbl_1_1h(), 1.0, |b| b);
     h.inject(
         Trigger::At(Duration::from_millis(300)),
         Fault::Silence {
-            duration: Duration::from_secs(30),
+            duration: Duration::from_millis(1500),
+            drop_output: false,
+        },
+    );
+    let cfg = StreamerConfig {
+        silence_notice: Some(Duration::from_millis(500)),
+        ..fast_config()
+    };
+    let run = run_job(vm, cfg, &gl(&["G90", "G1 X2 F600", "G0 X0"]), DEADLINE);
+    assert_eq!(run.outcome, Some(Outcome::Completed { errors: 0 }));
+    assert!(
+        run.events
+            .iter()
+            .any(|e| matches!(e, Event::Silence { ms } if *ms >= 500)),
+        "{:?}",
+        run.events
+    );
+}
+
+#[test]
+fn a_board_that_never_answers_keeps_the_job_waiting_and_cancel_ends_it() {
+    let (vm, h) = scaled_vm(Profile::grbl_1_1h(), 1.0, |b| b);
+    h.inject(
+        Trigger::At(Duration::from_millis(300)),
+        Fault::Silence {
+            duration: Duration::from_secs(3600),
             drop_output: true,
         },
     );
     let cfg = StreamerConfig {
-        silence_timeout: Duration::from_millis(500),
+        silence_notice: Some(Duration::from_millis(300)),
+        hold_timeout: Duration::from_millis(300),
         ..fast_config()
     };
-    let run = run_job(vm, cfg, &gl(&["G90", "G1 X100 F600", "G0 X0"]), DEADLINE);
-    assert!(
-        matches!(run.outcome, Some(Outcome::Disconnected(_))),
-        "{:?}",
-        run.outcome
-    );
+    let job = Streamer::new(vm, cfg)
+        .spawn(&gl(&["G90", "G1 X100 F600", "G0 X0"]))
+        .unwrap();
+    // Pasa mucho más que el plazo de antes (5 s a escala 1/10) y sigue esperando, con el aviso.
+    let t = std::time::Instant::now();
+    let mut warned = false;
+    while t.elapsed() < Duration::from_millis(1500) {
+        match job.events.recv_timeout(Duration::from_millis(20)) {
+            Ok(Event::Finished(o)) => panic!("terminó solo: {o:?}"),
+            Ok(Event::Silence { ms }) if ms > 0 => warned = true,
+            _ => {}
+        }
+    }
+    assert!(warned);
+    let asked = std::time::Instant::now();
+    job.control.cancel();
+    let (_, out) = job.join().unwrap();
+    assert_eq!(out, Outcome::Cancelled);
+    assert!(asked.elapsed() < Duration::from_secs(3));
 }
 
 // ---------------------------------------------------------------------------
@@ -518,7 +558,7 @@ fn homing_inside_a_job_is_not_mistaken_for_a_dead_link() {
             .status_during_home(false)
     });
     let cfg = StreamerConfig {
-        silence_timeout: Duration::from_millis(400),
+        silence_notice: Some(Duration::from_millis(400)),
         ..fast_config()
     };
     let run = run_job(vm, cfg, &gl(&["$H", "G90", "G0 X5 Y5"]), DEADLINE);
@@ -529,6 +569,12 @@ fn homing_inside_a_job_is_not_mistaken_for_a_dead_link() {
         run.outcome
     );
     assert_eq!(h.mpos(), [5.0, 5.0, 0.0]);
+    // En el homing el silencio es lo esperado: no hay aviso.
+    assert!(
+        !run.events
+            .iter()
+            .any(|e| matches!(e, Event::Silence { .. }))
+    );
 }
 
 #[test]
@@ -538,7 +584,7 @@ fn homing_inside_a_job_works_when_status_is_answered() {
         b.homing_duration(Duration::from_millis(800))
     });
     let cfg = StreamerConfig {
-        silence_timeout: Duration::from_millis(400),
+        silence_notice: Some(Duration::from_millis(400)),
         ..fast_config()
     };
     let run = run_job(vm, cfg, &gl(&["$H", "G90", "G0 X5 Y5"]), DEADLINE);
@@ -699,7 +745,7 @@ fn a_write_that_blocks_longer_than_the_silence_window_is_not_a_dead_controller()
     };
     let started = std::time::Instant::now();
     let cfg = StreamerConfig {
-        silence_timeout: Duration::from_millis(300),
+        silence_notice: Some(Duration::from_millis(300)),
         ..fast_config()
     };
     let lines = many_cuts_job(400);
@@ -727,45 +773,6 @@ fn a_write_that_blocks_longer_than_the_silence_window_is_not_a_dead_controller()
         "no hubo bloqueo"
     );
     assert_eq!(h.state(), StateKind::Idle);
-}
-
-#[test]
-fn a_truly_silent_controller_is_still_detected_after_a_stall_was_forgiven() {
-    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 1.0, |b| b.homed(true));
-    h.inject(
-        Trigger::At(Duration::from_millis(300)),
-        Fault::Silence {
-            duration: Duration::from_secs(30),
-            drop_output: true,
-        },
-    );
-    let transport = StallingWrites {
-        inner: vm,
-        writes: 0,
-        quiet_reads: 0,
-        after: 3,
-        stall: Duration::from_millis(600),
-    };
-    let cfg = StreamerConfig {
-        silence_timeout: Duration::from_millis(400),
-        ..fast_config()
-    };
-    let job = Streamer::new(transport, cfg)
-        .spawn(&gl(&["G90", "G1 X100 F600", "G0 X0"]))
-        .unwrap();
-    let mut outcome = None;
-    let end = std::time::Instant::now() + Duration::from_secs(15);
-    while std::time::Instant::now() < end {
-        if let Ok(Event::Finished(o)) = job.events.recv_timeout(Duration::from_millis(20)) {
-            outcome = Some(o);
-            break;
-        }
-    }
-    assert!(
-        matches!(outcome, Some(Outcome::Disconnected(_))),
-        "{outcome:?}"
-    );
-    let _ = job.join();
 }
 
 #[test]

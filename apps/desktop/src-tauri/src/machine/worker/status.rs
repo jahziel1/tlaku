@@ -1,10 +1,7 @@
 //! Estado del trabajador: reportes `?`, silencio y lectura del puerto.
 
 use super::*;
-use tlaku_i18n::tr;
 
-/// Cuántas veces `silence_timeout` se tolera de silencio con la máquina en reposo (5 s → 30 s).
-const IDLE_SILENCE_FACTOR: u32 = 6;
 impl Worker {
     pub(super) fn on_status(&mut self, r: &streamer::StatusReport) {
         self.statuses += 1;
@@ -58,27 +55,29 @@ impl Worker {
         self.sink.emit(Emit::Status(s));
     }
 
-    /// ¿Se superó el silencio tolerado? Ver la regla en la cabecera del módulo.
-    pub(super) fn silence_exceeded(&self) -> bool {
-        // Sin `?` no hay sondeo que contestar: la pérdida se detecta con `M114` y con los
-        // errores de E/S.
-        if self.link_family != LinkFamily::Grbl {
-            return false;
-        }
+    /// Aviso temprano a la interfaz: la placa no contesta desde hace `silence_notice` (2 s). Se
+    /// repite cada segundo entero y se retira (`silence_ms: 0`) al volver a contestar. No cambia
+    /// la conexión (nunca se pierde por silencio). No avisa donde el silencio es lo esperado (homing,
+    /// bloqueo tras una alarma) ni sin `?` (Marlin, Smoothieware).
+    pub(super) fn report_silence(&mut self) {
+        let notice = self.timing.silence_notice;
         let elapsed = self.last_rx.elapsed();
-        match self.quiet {
-            // En reposo se tolera más: algunas placas ESP32 detrás de un concentrador USB (la
-            // Creality Falcon2) dejan de contestar `?` varios segundos sin estar caídas, y en
-            // reposo no hay nada que detener. Durante un envío vale el plazo corto.
-            None if !self.shared.streaming.load(Ordering::SeqCst) => {
-                elapsed > self.timing.silence_timeout * IDLE_SILENCE_FACTOR
+        let watch = self.link_family == LinkFamily::Grbl && self.quiet.is_none();
+        if watch && !notice.is_zero() && elapsed >= notice {
+            if self.silence_shown != Some(elapsed.as_secs()) {
+                self.emit_silence(u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX));
             }
-            None => elapsed > self.timing.silence_timeout,
-            Some(Quiet::Homing) => {
-                elapsed > self.timing.silence_timeout.max(self.timing.home_timeout)
-            }
-            Some(Quiet::CriticalAlarm) => false,
+        } else if self.silence_shown.is_some() {
+            self.emit_silence(0);
         }
+    }
+
+    /// Emite `machine://silence` y recuerda lo avisado (`ms: 0` = volvió a contestar).
+    pub(super) fn emit_silence(&mut self, ms: u64) {
+        self.silence_shown = (ms > 0).then_some(ms / 1000);
+        self.sink.emit(Emit::Silence(SilenceEvent {
+            silence_ms: u32::try_from(ms).unwrap_or(u32::MAX),
+        }));
     }
 
     /// Actualiza el silencio tolerado y la familia del firmware con una línea recibida.
@@ -116,9 +115,10 @@ impl Worker {
         if n > 0 {
             self.last_rx = Instant::now();
             self.reader.feed(&buf[..n]);
-        } else if self.silence_exceeded() {
-            return Err(Fail::Lost(tr!("desktop.worker.controller_silent")));
         }
+        // Sin respuesta no pasa nada más que el aviso: la conexión solo la pierde un error real de
+        // E/S del sistema (arriba, con `?`) o que el usuario desconecte.
+        self.report_silence();
         let mut others = Vec::new();
         while let Some(line) = self.reader.next_line() {
             match streamer::StatusReport::parse(&line) {

@@ -63,7 +63,7 @@ pub use lbdev::{
 };
 pub use machine::{
     BufferStatus, ConnectResult, ConnectionEvent, ExportResult, JobEvent, JobState, LogDir,
-    LogEvent, MachineState, OverrideKind, Overrides, ProgressEvent, RealtimeCommand,
+    LogEvent, MachineState, OverrideKind, Overrides, ProgressEvent, RealtimeCommand, SilenceEvent,
     SimulatedFault, StatusReport,
 };
 pub use materials::{

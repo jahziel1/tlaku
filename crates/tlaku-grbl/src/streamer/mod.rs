@@ -36,6 +36,8 @@ pub use status::*;
 pub use stop::*;
 
 use std::collections::VecDeque;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -64,6 +66,8 @@ enum Command {
 #[derive(Clone)]
 pub struct Control {
     tx: Sender<Command>,
+    /// Indicador de «abandonar» compartido con el transporte (ver [`Transport::set_abort`]).
+    abort: Arc<AtomicBool>,
 }
 
 impl Control {
@@ -78,7 +82,13 @@ impl Control {
     }
 
     /// Feed hold, soft reset y fin del trabajo.
+    ///
+    /// También activa el indicador de «abandonar» del transporte: si el hilo del envío está
+    /// dentro de una escritura que no avanza (la placa dejó de leer), no puede oír esta orden
+    /// hasta que la escritura termine; con el indicador, el puerto serie corta la espera en
+    /// medio segundo en lugar de agotar sus 30 s.
     pub fn cancel(&self) {
+        self.abort.store(true, Ordering::SeqCst);
         let _ = self.tx.send(Command::Cancel);
     }
 
@@ -111,6 +121,8 @@ pub struct Streamer<T: Transport> {
     cmd_rx: Receiver<Command>,
     reader: LineReader,
     stop: Option<StopInfo>,
+    /// Indicador de «abandonar» (ver [`Control::cancel`]); se baja al empezar cada trabajo.
+    abort: Arc<AtomicBool>,
 }
 
 /// Qué pasó al detener la máquina (cancelación, `error:N` con la política `Stop`, falla de
@@ -142,6 +154,8 @@ struct RunState {
     idle_seen: bool,
     last_poll: Option<Instant>,
     last_rx: Instant,
+    /// Segundos de silencio de la placa ya avisados con [`Event::Silence`] (`None` = ninguno).
+    silence_reported: Option<u64>,
     /// Último estado informado por la máquina.
     last_state: Option<MachineState>,
     /// Líneas propias del streamer al inicio del trabajo (no cuentan en el avance).

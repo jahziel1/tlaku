@@ -24,6 +24,12 @@ pub enum Event {
     Message(String),
     /// La controladora se reinició (saludo `Grbl ...`).
     Reset(String),
+    /// La placa no contesta desde hace `ms` milisegundos (con sondeo, durante el trabajo): se
+    /// repite cada segundo entero desde [`StreamerConfig::silence_notice`]; `ms: 0` = volvió a
+    /// contestar. Es solo un aviso: el silencio nunca da la conexión por perdida.
+    Silence {
+        ms: u64,
+    },
     Finished(Outcome),
 }
 
@@ -48,6 +54,7 @@ pub enum Outcome {
     Alarm(u32),
     /// La controladora se reinició a mitad del trabajo.
     Reset(String),
-    /// Fallo de E/S o silencio prolongado.
+    /// Fallo de E/S del sistema (puerto desaparecido, cable, máquina apagada). El silencio de la
+    /// placa no cuenta: se espera.
     Disconnected(String),
 }

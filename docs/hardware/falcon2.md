@@ -442,7 +442,7 @@ Causa más probable del lado de Tlaku: el hilo del streamer estuvo bloqueado en 
 el `flush()` de `serialport` es `tcdrain`, que espera sin límite a que la placa lea; un USB CDC de un
 ESP32-S3 parado lo deja colgado. Sin hilo no hay `?` (por eso ningún reporte) ni lectura. Al volver,
 la misma vuelta leía 5 ms, no recibía aún nada, y medía «silencio» con `last_rx` de 19 s atrás
-(`silence_timeout` = 5 s): daba la conexión por perdida y paraba la máquina sin haber podido oír.
+(`silence_timeout` = 5 s, hoy eliminado): daba la conexión por perdida y paraba la máquina sin haber podido oír.
 La causa de fondo (que la placa se pare) está en el firmware y no la controla Tlaku; la bibliografía
 pública apunta en la misma dirección sin resolverla: ESP32 + GRBL «el flujo se detiene cuando el búfer se
 llena y no reanuda», que desaparecía quitando el concentrador USB (foro de LightBurn, «Lightburn stops
@@ -452,15 +452,19 @@ No se encontró ninguna fuente específica de la Falcon2.
 Arreglos: (1) el streamer no cuenta como silencio de la placa el tiempo que él mismo estuvo
 bloqueado escribiendo (`WRITE_STALL`, 250 ms): la ventana de 5 s empieza al volver, y una placa
 realmente muda se sigue detectando; (2) `SerialTransport::write_all` ya no llama a `tcdrain` y reintenta
-una cola llena hasta 30 s (**sin probar en hardware**); (3) los segmentos de imagen ya se agrupan:
+una cola llena hasta 30 s (**sin probar en hardware**; después se quitó el límite, ver abajo); (3) los segmentos de imagen ya se agrupan:
 `row_runs` (`tlaku-raster/src/scan.rs`) fusiona píxeles vecinos de igual potencia en un solo `G1`.
-Pendiente: decidir si conviene un `silence_timeout` mayor con el planificador lleno y menos bytes en
-vuelo; con una placa congelada de verdad la parada segura al declararla perdida sigue siendo lo
-prudente.
+Ya no hace falta decidir un `silence_timeout` mayor: el silencio dejó de cortar la conexión (abajo).
 La prueba de resistencia en emulador con estas fallas (trabajos de ~120 000 líneas, bloqueos de 2–20 s,
 una pausa de 40 s) y las propuestas que salieron están en
 [`validacion-hardware.md` §2.8](../validacion-hardware.md#28-trabajo-largo-validado-en-emulador-con-las-fallas-medidas-de-la-falcon-2026-10-15):
-al declarar perdida la conexión por silencio el streamer hoy no manda ninguna parada.
+el cambio que salió de ahí (2026-10-15, solo en emulador): **Tlaku ya no da nunca la conexión por perdida por silencio**, ni en reposo ni durante un trabajo, y no manda ningún `!` por su cuenta. Igual que LightBurn, espera: la Falcon2 se para 2–20 s detrás de un concentrador USB y sigue sola, y declarar la pérdida no aporta seguridad (no detiene la máquina; con la placa trabada no se le puede mandar nada) y solo producía desconexiones y reconexiones falsas. La conexión solo se pierde por un error real de E/S del sistema o porque el usuario desconecta.
+
+- **Aviso:** desde los 2 s de silencio, «La máquina no contesta desde hace N s…» con **Detener** (feed hold y reinicio, como siempre) y **Desconectar**; se quita solo al volver la respuesta y el trabajo sigue sin intervención. Si pasan más de 60 s en pleno trabajo, el aviso se vuelve serio («revisa la máquina; si sigue moviéndose y no responde, usa el paro de emergencia») sin desconectar.
+- **Escritura:** `SerialTransport::write_all` ya no se rinde a los 30 s; reintenta mientras no haya un error real del sistema. **Detener y Desconectar** la abandonan al instante (indicador de «abandonar» tras 500 ms de cola sin avanzar), así que nunca se bloquean.
+- **Punto de control:** se conserva si la conexión se pierde de verdad y permite continuar (`resume`).
+
+Pendiente con la máquina real: que Detener llegue a la Falcon cuando vuelve a leer tras una pausa y cuánto tarda en recuperarse.
 
 ### 10.7 Disparo de prueba: el retardo del primer `M3` cuenta como láser encendido
 

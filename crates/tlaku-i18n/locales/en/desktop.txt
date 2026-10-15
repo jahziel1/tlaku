@@ -183,7 +183,6 @@ desktop.worker.realtime_char = '{raw}' contains {ch}, which GRBL would interpret
 desktop.worker.line_empty = The line is empty.
 desktop.worker.line_too_long = '{line}' does not fit in the controller's buffer ({max} bytes).
 desktop.worker.no_reply = The machine did not respond to '{line}' within {secs} s.
-desktop.worker.controller_silent = the controller stopped responding (was the USB or network cable unplugged, or was the machine turned off?)
 desktop.worker.move_no_reply = The machine did not respond to the move.
 desktop.worker.no_overrides = Live speed and power adjustments only exist on GRBL controllers: Marlin and Smoothieware do not have them.
 desktop.worker.log_override_feed = ; speed override (feed) set to {percent} %

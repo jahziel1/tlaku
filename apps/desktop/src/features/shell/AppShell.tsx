@@ -10,6 +10,7 @@ import { DevicesDialogHost } from '@/features/devices';
 import { MaterialsDialogHost } from '@/features/materials';
 import { QueueHost } from '@/features/queue';
 import { RecoveryHost } from '@/features/recovery';
+import { SilenceNotice } from '@/features/silence';
 import { BundleHost } from '@/features/bundle';
 import { SettingsHost } from '@/features/settings';
 import { AutomationHost } from '@/features/automation';
@@ -128,6 +129,7 @@ function ShellBody() {
       )}
       <StatusBar />
       <Toasts />
+      <SilenceNotice />
       <LiveAnnouncer />
       <DropOverlay />
       <RecoveryHost />

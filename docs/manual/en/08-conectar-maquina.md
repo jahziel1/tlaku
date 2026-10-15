@@ -107,7 +107,8 @@ Warnings the section can give you:
 
 - Firmware older than GRBL 1.1f: it does not support laser mode (M4) well; use constant power (M3) in the profile.
 - Laser mode disabled (`$32=0`): engraving would come out wrong. The **Enable laser mode ($32=1)…** button asks for confirmation before sending it.
-- If the connection is lost (cable, or the board is silent for more than 5 seconds), the app tells you.
+- If the connection is lost (cable unplugged, port gone, machine switched off), the app tells you.
+- If the board **stops answering** for a few seconds (some USB boards do this, such as the Falcon2 behind a hub), Tlaku **does not disconnect**: it waits, just like LightBurn. After 2 seconds a discreet notice appears, "The machine has not answered for N s…", with **Stop** and **Disconnect**; it goes away by itself when the board answers again and the job carries on without you doing anything. If more than a minute passes in the middle of a job, the notice becomes more serious ("It has been silent for over a minute"): check the machine and, if it keeps moving and does not respond, use the emergency stop.
 
 If the port is not found or the connection fails, see [Troubleshooting](15-solucion-de-problemas.md).
 

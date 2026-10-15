@@ -29,6 +29,11 @@ pub(super) struct Shared {
     /// Área de la cama [ancho, alto] en los ejes de la máquina (del perfil); la guarda del
     /// movimiento manual la usa junto con `$130`/`$131`.
     pub(super) bed: Mutex<Option<[f64; 2]>>,
+    /// Se pidió cerrar la conexión: el transporte abandona una escritura que no avanza (la placa
+    /// dejó de leer) en lugar de esperarla, para que desconectar no se bloquee nunca (ver
+    /// `Transport::set_abort`). Durante un envío manda el indicador del `Streamer`
+    /// (`Control::cancel`, que el trabajador activa al desconectar).
+    pub(super) abort: Arc<AtomicBool>,
 }
 
 pub(super) type Reply = Sender<Result<Vec<String>, String>>;

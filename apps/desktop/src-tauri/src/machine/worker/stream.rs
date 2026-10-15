@@ -184,6 +184,9 @@ impl Worker {
                 self.note_line(&m);
                 self.log(LogDir::In, &m);
             }
+            // El streamer mide el silencio durante el envío; la interfaz lo ve por el mismo evento
+            // que el del reposo.
+            Event::Silence { ms } => self.emit_silence(ms),
             Event::Finished(_) => {}
         }
     }
@@ -253,7 +256,11 @@ impl Worker {
         if matches!(outcome, Outcome::Reset(_)) {
             self.mark_unconfirmed();
         }
-        let t = streamer.into_transport();
+        let mut t = streamer.into_transport();
+        t.set_abort(self.shared.abort.clone());
+        if self.silence_shown.is_some() {
+            self.emit_silence(0);
+        }
         self.reader.clear();
         self.last_poll = None;
         self.last_rx = Instant::now();

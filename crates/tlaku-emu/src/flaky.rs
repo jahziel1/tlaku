@@ -173,8 +173,9 @@ pub struct FlakyConfig {
     pub write_stall_every: usize,
     /// Duración (de pared) de cada bloqueo de escritura, uniforme en el rango.
     pub write_stall: (Duration, Duration),
-    /// Plazo tras el cual una escritura colgada falla con `TimedOut` (el `SerialTransport` real
-    /// reintenta 30 s); `None` = nunca falla, solo tarda.
+    /// Plazo tras el cual una escritura colgada falla con `TimedOut`; `None` = nunca falla, solo
+    /// tarda (como el `SerialTransport` real, que reintenta sin límite hasta un error del sistema
+    /// o hasta que el usuario cancele).
     pub write_limit: Option<Duration>,
     /// Cada cuántas lecturas con datos (de media; entre la mitad y vez y media) la placa calla;
     /// `0` = nunca.
@@ -311,6 +312,8 @@ pub struct FlakyLink<T: Transport> {
     quiet_reads: usize,
     /// `?` que quedan por perder de la ráfaga en curso.
     skipping: usize,
+    /// Indicador de «abandonar» del transporte (como el del puerto serie real).
+    abort: Option<Arc<AtomicBool>>,
 }
 
 impl<T: Transport> FlakyLink<T> {
@@ -345,6 +348,7 @@ impl<T: Transport> FlakyLink<T> {
             data_reads: 0,
             quiet_reads: 0,
             skipping: 0,
+            abort: None,
         };
         (link, counters)
     }
@@ -408,6 +412,11 @@ impl<T: Transport> Transport for FlakyLink<T> {
         self.held.clear();
         self.inner.clear_input()
     }
+
+    fn set_abort(&mut self, abort: Arc<AtomicBool>) {
+        self.inner.set_abort(abort.clone());
+        self.abort = Some(abort);
+    }
 }
 
 impl<T: Transport> FlakyLink<T> {
@@ -422,9 +431,34 @@ impl<T: Transport> FlakyLink<T> {
         }
         // Un puerto real (`SerialTransport`) reintenta la escritura hasta su plazo y luego falla.
         let blocked = self.cfg.write_limit.map_or(d, |limit| d.min(limit));
-        std::thread::sleep(blocked);
+        // Como el puerto real: con el indicador de «abandonar» activo, la espera se corta tras la
+        // gracia (ver `tlaku_grbl::serial::ABORT_GRACE`).
+        let started = Instant::now();
+        let mut aborted = false;
+        while started.elapsed() < blocked {
+            if started.elapsed() >= tlaku_grbl::serial::ABORT_GRACE
+                && self
+                    .abort
+                    .as_ref()
+                    .is_some_and(|a| a.load(Ordering::SeqCst))
+            {
+                aborted = true;
+                break;
+            }
+            std::thread::sleep(
+                blocked
+                    .saturating_sub(started.elapsed())
+                    .min(Duration::from_millis(10)),
+            );
+        }
         if let Some(c) = &self.clock {
             c.thaw();
+        }
+        if aborted {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionAborted,
+                "la escritura se abandonó: se canceló o se cerró la conexión",
+            ));
         }
         if blocked < d {
             return Err(io::Error::new(

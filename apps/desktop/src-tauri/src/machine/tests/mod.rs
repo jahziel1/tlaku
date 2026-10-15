@@ -343,7 +343,8 @@ impl Drop for Fake {
 fn fast() -> Timing {
     Timing {
         status_interval: Duration::from_millis(20),
-        silence_timeout: Duration::from_millis(400),
+        // Sin aviso temprano de silencio: las pruebas que lo quieren lo piden (`silence.rs`).
+        silence_notice: Duration::ZERO,
         command_timeout: Duration::from_millis(800),
         home_timeout: Duration::from_secs(2),
         hold_timeout: Duration::from_millis(400),
@@ -459,5 +460,6 @@ mod overrides;
 mod probe;
 mod reprap;
 mod resume;
+mod silence;
 mod soak;
 mod virtual_machine;

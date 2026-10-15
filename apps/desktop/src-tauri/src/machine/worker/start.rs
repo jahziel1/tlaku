@@ -74,8 +74,7 @@ impl Worker {
         let lines = Arc::new(lines);
         let total = lines.len();
         let config = StreamerConfig {
-            silence_timeout: self.timing.silence_timeout,
-            home_timeout: self.timing.home_timeout,
+            silence_notice: Some(self.timing.silence_notice).filter(|d| !d.is_zero()),
             hold_timeout: self.timing.hold_timeout,
             reset_wait: self.timing.reset_wait,
             ..StreamerConfig::for_link(&link)
