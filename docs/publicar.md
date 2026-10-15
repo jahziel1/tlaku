@@ -352,6 +352,9 @@ control remoto desde el celular; Ayuda > Buscar actualizaciones (debe decir que 
 
 ### Enviar a Flathub (pasos)
 
+> La carpeta lista, los hashes de la Release 0.1.0 y los obstáculos conocidos (compilar desde fuentes y
+> política de IA de Flathub) están en [Dar de alta en tiendas > Flathub (Linux)](#flathub-linux).
+
 1. **El identificador ya está decidido: `io.github.jahziel1.tlaku`** (Flathub exige que quien envía controle
    el dominio del id; para proyectos en GitHub acepta `io.github.<usuario>.<app>`). Es también el
    `identifier` de `tauri.conf.json`, de donde salen el `app_id` de GTK/Wayland, el ícono de la barra de
@@ -396,12 +399,265 @@ control remoto desde el celular; Ayuda > Buscar actualizaciones (debe decir que 
 ### Qué falta para Flathub
 
 - Probar el paquete en un Linux real (x86_64 y, si se puede, ARM64): ventana, serie, USB, cámara, actualizador.
-- Decidir el identificador y el dominio (punto 1).
-- Que exista la Release `v0.1.0` con sus `.deb` y la etiqueta que usan las capturas.
+- ~~Decidir el identificador y el dominio~~ (hecho: `io.github.jahziel1.tlaku`).
+- ~~Que exista la Release `v0.1.0`~~ (publicada el 2026-10-15; la carpeta de envío está en `packaging/flathub/`, ver [Dar de alta en tiendas](#flathub-linux)).
 - Decidir A o B según la respuesta de los revisores y mantener el runtime al día.
 - Una regla udev distribuida para K40 y galvo (hoy no la hay) y confirmar que `serialport` ve los puertos dentro del sandbox.
 - Opcional: ampliar el alcance de `asset://` a la ruta del portal para poder quitar los `--filesystem`.
 - Opcional: asociación de archivos `.tlaku` (hay que implementarla en la app antes de poner `MimeType`).
+
+## Dar de alta en tiendas
+
+Tres vías para que la gente instale Tlaku con su gestor de paquetes. **Los archivos están preparados
+para la versión 0.1.0; no se ha enviado nada** (ni a `microsoft/winget-pkgs`, ni a Homebrew, ni a
+`flathub/flathub`). Los tres envíos los haces tú, con tu cuenta: esta sección dice cómo.
+
+### Lista de comprobación
+
+| | winget (Windows) | Homebrew (macOS) | Flathub (Linux) |
+|---|---|---|---|
+| **Lo que el usuario escribe** | `winget install jahziel1.Tlaku` | `brew install --cask jahziel1/tlaku/tlaku` | `flatpak install flathub io.github.jahziel1.tlaku` |
+| **Archivos listos** | `packaging/winget/manifests/j/jahziel1/Tlaku/0.1.0/` (4 YAML) | `packaging/homebrew/Casks/tlaku.rb` | `packaging/flathub/io.github.jahziel1.tlaku/` (4 archivos) |
+| **Dónde va** | PR a `microsoft/winget-pkgs` | Repositorio **tuyo** `jahziel1/homebrew-tlaku` (tap) | PR a `flathub/flathub` (rama `new-pr`) |
+| **Qué necesitas** | Cuenta de GitHub y, si usas `wingetcreate`, un token con permiso `public_repo`. La primera vez el bot pide aceptar el CLA de Microsoft. | Cuenta de GitHub y crear un repositorio público llamado exactamente `homebrew-tlaku`. | Cuenta de GitHub con autenticación en dos pasos, **un Linux real** (o una VM) para probar el paquete antes, y leer la política de IA (ver abajo). |
+| **Decisiones tuyas** | ¿`jahziel1.Tlaku` o `Tlaku.Tlaku` como identificador? (no se puede cambiar después sin duplicar el paquete). Solo el instalador `.exe`, no el `.msi`. | ¿Tap propio ya, o esperar a firmar y notarizar para pedir el cask oficial? | ¿Estrategia A (reempaquetar `.deb`, probablemente rechazada) o B (compilar desde fuentes)? ¿Runtime 50 o 51? Cómo declarar el uso de IA. |
+| **Tiempo tuyo** | 30–45 min | 15–20 min | 2–4 h de pruebas en Linux + 30 min del PR (+ rehacer a B: 1–3 días) |
+| **Espera hasta estar disponible** | Validación automática en horas; revisión humana de 1 a 7 días (más si el antivirus marca el instalador sin firmar) | Inmediata | Revisión de 1 a 4 semanas con varias rondas de comentarios |
+| **Riesgo principal** | Antivirus/SmartScreen con el instalador sin firmar; `ProductCode` sin comprobar en Windows | Gatekeeper: la app no está notarizada (el usuario debe quitar la cuarentena) | Flathub exige compilar desde fuentes y prohíbe contenido hecho con IA en el manifiesto |
+
+Los tiempos son estimaciones (ni Microsoft ni Flathub los garantizan). Orden recomendado: **Homebrew
+(tap)** hoy; **winget** esta semana; **Flathub** cuando haya probado el paquete en Linux y decidido A/B.
+
+### winget (Windows)
+
+**Qué hay** en `packaging/winget/manifests/j/jahziel1/Tlaku/0.1.0/` (la ruta es la que exige
+`winget-pkgs`: `manifests/<inicial>/<Publicador>/<Paquete>/<versión>/`):
+
+| Archivo | Contenido |
+|---|---|
+| `jahziel1.Tlaku.yaml` | Versión (esquema **1.28.0**, el vigente según `doc/manifest/schema/` de winget-pkgs al 2026-10-15), idioma por omisión `en-US`. |
+| `jahziel1.Tlaku.installer.yaml` | Instalador NSIS (`InstallerType: nullsoft`), `Scope: user` (Tauri lo instala por usuario, sin administrador), x64, URL de la Release y SHA256 del `.exe`, `ProductCode: Tlaku`, fecha de la Release. |
+| `jahziel1.Tlaku.locale.en-US.yaml` | Descripción en inglés: licencia MIT, enlaces (sitio, soporte, Release, manual), etiquetas, notas de versión. |
+| `jahziel1.Tlaku.locale.es-MX.yaml` | Lo mismo en español de México. |
+
+SHA256 usado (calculado bajando el asset real de la Release v0.1.0; coincide con el que publica GitHub):
+`Tlaku_0.1.0_x64-setup.exe` = `97c86f8b25a2c3514de793ab7f0748b011093ae6c987120ce6a4d969f92e3880`.
+
+**Por qué solo el `.exe` y no el `.msi`.** winget admite varios instaladores por manifiesto, pero el
+`.msi` existe en dos idiomas (`en-US`, `es-ES`) y aportaría un segundo `ProductCode`/`UpgradeCode` que
+no se puede leer desde macOS. Con un solo instalador por arquitectura no hay ambigüedad y se evita
+una instalación doble. Si quieres ofrecer el MSI (por ejemplo para empresas), añade un segundo
+elemento en `Installers` con `InstallerType: wix`, `Scope: machine`, `InstallerLocale` y su
+`ProductCode` (se lee con Orca o en la clave de desinstalación de Windows tras instalarlo).
+
+**Validación hecha (en macOS, sin `winget`):** los cuatro YAML contra los esquemas JSON oficiales
+1.28.0 (`microsoft/winget-cli`, `schemas/JSON/manifests/v1.28.0/`) con `ajv`:
+`node scripts/winget-manifests.mjs validate <carpeta> <esquemas>` (el script y sus instrucciones de uso
+están en su cabecera; también se probó que un valor inválido falla). **Sin comprobar en Windows:**
+`winget validate`, la instalación en Windows Sandbox y el `ProductCode`. El valor `Tlaku` sale de la
+plantilla NSIS de Tauri (la clave de desinstalación es
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\<productName>`); compruébalo en un Windows con
+el instalador puesto:
+
+```powershell
+reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Tlaku" /v DisplayVersion
+winget settings --enable LocalManifestFiles
+winget validate --manifest .\manifests\j\jahziel1\Tlaku\0.1.0
+winget install --manifest .\manifests\j\jahziel1\Tlaku\0.1.0      # instala y abre la app
+winget uninstall jahziel1.Tlaku
+# Opcional, en un clon de winget-pkgs (usa Windows Sandbox):
+.\Tools\SandboxTest.ps1 manifests\j\jahziel1\Tlaku\0.1.0
+```
+
+**Cómo enviarlo** (elige una):
+
+1. **Con `wingetcreate`** (<https://github.com/microsoft/winget-create>; `winget install wingetcreate`).
+   Para el primer envío usa el manifiesto ya hecho: bifurca y haz el PR a mano (opción 2), o deja que la
+   herramienta lo cree: `wingetcreate new https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_x64-setup.exe`
+   (te hará las mismas preguntas; copia los textos de nuestros YAML). Para **versiones siguientes** es
+   lo más cómodo: `wingetcreate update jahziel1.Tlaku -u <URL del .exe nuevo> -v <versión> -t <token> --submit`
+   (baja el instalador, recalcula el SHA256 y abre el PR). El token es un *personal access token* de
+   GitHub con permiso `public_repo` (`wingetcreate token --store` lo guarda).
+2. **PR manual:** bifurca <https://github.com/microsoft/winget-pkgs>, clona con
+   `--filter=blob:none --no-checkout`, `sparse-checkout set manifests/j/jahziel1`, crea una rama,
+   copia la carpeta `packaging/winget/manifests/j/jahziel1` dentro de `manifests/j/` (queda
+   `manifests/j/jahziel1/Tlaku/0.1.0/`), `git commit -m "New package: jahziel1.Tlaku version 0.1.0"`,
+   sube y abre el PR contra `master`. Llena la lista de la plantilla del PR. **Un PR por versión y por
+   paquete**.
+
+**Qué revisan** (<https://learn.microsoft.com/windows/package-manager/package/repository>): una tubería
+automática valida el esquema y la ruta; comprueba que la URL responda y que el SHA256 coincida
+(`Error-Hash-Mismatch`); que la URL venga directo del lugar de publicación del autor, sin redirecciones
+raras (GitHub Releases es lo normal); instala **sin interacción** en máquinas virtuales (`/S`, lo
+estándar de NSIS) y desinstala; busca el binario con Microsoft Defender y varios antivirus
+(`Binary-Validation-Error` / `Validation-Defender-Error`); y aplica las políticas de contenido (nombre,
+descripciones no engañosas). Luego un moderador aprueba. Si falla, el bot etiqueta el PR
+(`Needs-Author-Feedback`): tienes 10 días para responder. **Riesgo propio:** el instalador no está
+firmado; los falsos positivos de antivirus en instaladores sin firma son lo más probable que retrase la
+aprobación (se resuelve enviando el archivo a <https://www.microsoft.com/wdsi/filesubmission>).
+Firmar el `.exe` (ver [Firma de código](#firma-de-código)) lo evita en buena parte.
+
+**Cada versión nueva:** el flujo opcional `.github/workflows/winget.yml` se dispara al **publicar** la
+Release (o a mano con la etiqueta) y deja los manifiestos de esa versión como **artefacto** del flujo
+(`winget-vX.Y.Z`): versión, URL, fecha y SHA256 reales, validados contra el esquema; omite las versiones
+de prueba (`-beta`). No envía nada. Descarga el artefacto y haz el PR, o ejecuta
+`wingetcreate update`. En local: `node scripts/winget-manifests.mjs generate vX.Y.Z salida`. El script
+parte de los archivos de la 0.1.0 y quita sus notas de versión (quedan `ReleaseNotesUrl` y la descripción).
+La aplicación también se actualiza sola (Ayuda > Buscar actualizaciones); `UpgradeBehavior: install`
+hace que `winget upgrade` instale encima sin desinstalar.
+
+### Homebrew (macOS)
+
+**Recomendación: tap propio ahora.** El cask oficial (`Homebrew/homebrew-cask`) hoy no es viable:
+
+- **Notoriedad.** Las reglas de `brew audit --new` exigen que el repositorio llegue a alguno de estos mínimos: 30 forks,
+  30 seguidores (*watchers*) o 75 estrellas (`GITHUB_NOTABILITY_THRESHOLDS` en el código de Homebrew; la
+  página <https://docs.brew.sh/Acceptable-Casks> permite revisiones caso por caso, sin garantía).
+  El repositorio tiene 0 de cada una (creado el 2026-10-14).
+- **Firma y notarización.** El código de Homebrew 6 dice textualmente «The homebrew/cask tap requires
+  all casks to be signed and notarized by Apple», y desde el **2026-09-01** los casks que no pasan
+  Gatekeeper se deshabilitan (anuncio de Homebrew 5.0; lo vimos citado por terceros, y el código local
+  de `brew audit` lo confirma). La app de Tlaku no está notarizada.
+  La prueba: `brew audit --cask --new --online` sobre nuestro cask da exactamente esos dos errores
+  («Signature verification failed… not signed by a distributor that meets the system Gatekeeper
+  requirements» y «GitHub repository not notable enough»).
+
+**Ventajas del tap propio** (`jahziel1/homebrew-tlaku`): sin revisión ni espera, sin requisitos de
+notoriedad ni de notarización, tú decides cuándo subir de versión, y se puede migrar al cask oficial
+después (basta cambiar el comando de instalación). Desventajas: el usuario ejecuta un paso más
+(`brew tap` implícito en `brew install --cask jahziel1/tlaku/tlaku`) y Homebrew no avisa de
+actualizaciones automáticamente hasta que subas el cask.
+
+**Qué hay:** `packaging/homebrew/Casks/tlaku.rb` (raíz del tap = esa carpeta): `url` del `.dmg` universal
+de la Release, `sha256` real `7dbabd44861389c01b3534ea377f69a5403e37e1a9d114dcdb77b6d097f885e6`,
+`app "Tlaku.app"` (comprobado montando el `.dmg`: contiene `Tlaku.app`, binario universal
+x86_64+arm64, `CFBundleIdentifier` `io.github.jahziel1.tlaku`, `LSMinimumSystemVersion` 11.0),
+`livecheck` con `:github_latest`, `auto_updates true`, `depends_on macos: :big_sur`, `zap` de las
+carpetas de datos que Tauri crea a partir del identificador (`Application Support`, `Caches`,
+`HTTPStorages`, `Logs`, `Preferences`, `Saved Application State`, `WebKit`) y un `caveats` sobre
+Gatekeeper.
+
+**Validación hecha** con Homebrew 6.0.21 en un tap local temporal (ya borrado): `brew style --cask`
+sin ofensas, `brew audit --cask --strict --online` sin errores (descarga el `.dmg` y comprueba el
+`sha256`), `brew livecheck --cask` devuelve `0.1.0 ==> 0.1.0` y `brew info` muestra los avisos. No se
+probó `brew install` (instalaría en `/Applications`). Para repetirla:
+
+```sh
+brew tap-new --no-git local/tlaku-prueba
+cp packaging/homebrew/Casks/tlaku.rb "$(brew --repository local/tlaku-prueba)/Casks/"
+brew style --cask local/tlaku-prueba/tlaku
+brew audit --cask --strict --online local/tlaku-prueba/tlaku
+brew livecheck --cask local/tlaku-prueba/tlaku
+brew untap local/tlaku-prueba
+```
+
+(`brew audit` puede clonar `homebrew/core` la primera vez: ~1.4 GB; se quita con `brew untap homebrew/core`.)
+
+**Cómo publicarlo:**
+
+1. Crea el repositorio público **`jahziel1/homebrew-tlaku`** (el prefijo `homebrew-` es obligatorio).
+2. Copia el contenido de `packaging/homebrew/` (la carpeta `Casks/`) a la raíz, añade un `README.md`
+   con la instalación y haz commit y push a la rama principal.
+3. Prueba en tu Mac: `brew install --cask jahziel1/tlaku/tlaku` y, si Gatekeeper lo bloquea,
+   `xattr -dr com.apple.quarantine /Applications/Tlaku.app`.
+4. Anúnciala en el README y en la Release.
+
+**Gatekeeper (importante).** Homebrew 6 ya no tiene `--no-quarantine`: la app instalada con `brew`
+conserva la cuarentena y macOS la bloquea la primera vez. El `caveats` del cask da la solución
+(`xattr -dr com.apple.quarantine /Applications/Tlaku.app` o «Abrir de todos modos» en Ajustes del
+Sistema > Privacidad y seguridad). **Hallazgo:** al revisar el `.dmg`, `codesign -dv` muestra la app con
+firma *ad hoc* de enlazador (`adhoc,linker-signed`, `Info.plist=not bound`, `Sealed Resources=none`) y
+`spctl` la rechaza («no usable signature»). En Apple Silicon una app con firma así y en cuarentena suele
+mostrar «Tlaku está dañado y no se puede abrir» en vez del aviso normal (no comprobado en un Mac real); mientras no se notarice, vale
+la pena firmarla al menos *ad hoc* completa en la compilación (`codesign --force --deep -s -`) para que
+el sello cubra el paquete. Con la membresía de Apple Developer (la sección [macOS: firmar y
+notarizar](#macos-firmar-y-notarizar) ya está lista) desaparece el problema y el cask oficial pasa a
+ser posible cuando el proyecto tenga notoriedad.
+
+**Cada versión nueva:** cambia `version` y `sha256` (`shasum -a 256 Tlaku_X.Y.Z_universal.dmg`), repite
+`brew audit` y sube. `brew livecheck --cask jahziel1/tlaku/tlaku` avisa cuando hay versión nueva.
+
+### Flathub (Linux)
+
+**Carpeta lista para el PR:** `packaging/flathub/io.github.jahziel1.tlaku/` (los cuatro archivos van
+en la **raíz** de la rama del PR, no en una subcarpeta):
+
+| Archivo | Diferencia con `packaging/flatpak/` |
+|---|---|
+| `io.github.jahziel1.tlaku.yml` | Las fuentes `.deb` locales se cambiaron por URL + sha256 de la Release v0.1.0: `Tlaku_0.1.0_amd64.deb` = `444b1d7facbf6b998d0dad534e2a8db9fe68ae300eae60c1aaf73e581af9efbe` (x86_64) y `Tlaku_0.1.0_arm64.deb` = `6feb2e63e6b7c8af964359c61bb68da91dd3ecaeb9028f4235b12dcfd9f5f36d` (aarch64). Hashes calculados con los assets reales y iguales a los que publica GitHub. |
+| `io.github.jahziel1.tlaku.metainfo.xml` | Idéntico al de `packaging/flatpak/`: `<release version="0.1.0" date="2026-10-15">`, capturas por la etiqueta `v0.1.0`. Se acortó el `<summary>` a 34 caracteres (la guía de calidad de Flathub pide ≤35; antes tenía 70). |
+| `io.github.jahziel1.tlaku.desktop`, `.svg` | Idénticos. |
+| `flathub.json` | **No hace falta**: Flathub compila x86_64 y aarch64 por omisión, y solo se necesita para limitar arquitecturas o desactivar compilaciones. |
+
+Mantén las copias sincronizadas: `diff -r packaging/flatpak packaging/flathub/io.github.jahziel1.tlaku`
+solo debe mostrar el manifiesto `.yml` (y que en `flatpak` no estén los `.deb`).
+
+**Validación hecha (macOS):** `appstreamcli validate --pedantic --no-net` sin avisos (con red solo
+avisa que `ko-fi.com` devuelve 403 a los robots; el linter de Flathub usa `--no-net`);
+`desktop-file-validate` sin errores; el manifiesto cargado con `ruamel.yaml`; y las comprobaciones de
+manifiesto de `flatpak-builder-lint` (`finish_args`, `toplevel`, `modules`, `jsonschema`, `flathub_json`)
+ejecutadas directamente en Python: **0 errores**. **No se pudo ejecutar** el linter completo
+(`flatpak-builder-lint manifest/repo/builddir`: necesita `flatpak-builder`, OSTree y el repositorio de
+Flathub, solo en Linux) ni se construyó el paquete. Hazlo tú en Linux:
+
+```sh
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest io.github.jahziel1.tlaku.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder appstream io.github.jahziel1.tlaku.metainfo.xml
+flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo build-dir io.github.jahziel1.tlaku.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
+```
+
+**Tres obstáculos que debes conocer antes de enviar** (leídos de
+<https://docs.flathub.org/docs/for-app-authors/requirements> el 2026-10-15):
+
+1. **Compilar desde fuentes.** «All source available submissions must be built entirely from source
+   code.» Las excepciones son «case-by-case» para proveedores conocidos. La estrategia A (reempaquetar
+   los `.deb`) **probablemente será rechazada**; esta carpeta la deja lista porque es lo que se
+   construyó y publicó como `.flatpak` en la Release, pero el camino realista es la **estrategia B**
+   (descrita arriba, en [Estrategia](#estrategia-reempaquetar-el-deb-a-y-no-compilar-desde-fuentes-b)):
+   `cargo-sources.json` + `node-sources.json` con `flatpak-builder-tools`, módulo `simple` que compila
+   offline. No está hecha ni probada.
+2. **Política de IA de Flathub.** Exige declarar cualquier código, documentación o empaquetado generado
+   con IA, y dice: «Flathub manifests must not contain AI-generated or AI-assisted content» (declararlo
+   no exime) y «AI tools or agents must not open or automate Flathub submission pull requests» ni
+   redactar mensajes de commit, descripciones o respuestas de revisión. Tlaku se desarrolló con
+   asistencia de IA y **estos archivos de empaquetado también**. Antes de enviar tienes que decidir tú:
+   escribir a mano el manifiesto (es corto; esta carpeta sirve de referencia, no de entrega), abrir y
+   redactar tú el PR y todas las respuestas, y declarar en el PR el uso de IA en el código de la
+   aplicación. Una declaración falsa o incompleta puede acabar en rechazo o veto. Esto no lo decide
+   ningún agente: es tuyo.
+3. **Runtime.** El manifiesto usa `org.gnome.Platform//50`. GNOME 51 salió el 2026-09-16 y ya está en
+   Flathub (`org.gnome.Platform//51`). El linter solo marca un runtime como **error** cuando lleva 3
+   versiones de atraso; con 50 daría un aviso `runtime-update-available-to-org.gnome.Platform-51`, pero
+   un revisor puede pedir subirlo. Para subir: `runtime-version: '51'` y, en `flatpak.yml`, la imagen
+   `gnome-51` (existe `gnome-50` y `gnome-49`; confirma `gnome-51` en
+   <https://github.com/flathub-infra/flatpak-github-actions/pkgs/container/flatpak-github-actions>), y
+   comprueba que el `ldd` del manifiesto sigue pasando (que 51 aún trae `libwebkit2gtk-4.1`).
+
+**Pasos del envío** (ver también «Enviar a Flathub (pasos)», más arriba):
+
+1. Prueba el paquete en un Linux real (lista de comprobación en «Probar el paquete en Linux»).
+2. Decide A/B, el runtime y la declaración de IA (obstáculos 1–3). Si vas con B, regenera los
+   `*-sources.json` y reemplaza las fuentes `.deb`.
+3. Bifurca <https://github.com/flathub/flathub> **con todas las ramas** (no solo `master`), clona la
+   rama `new-pr` y crea una rama nueva: `git checkout -b tlaku new-pr`.
+4. Copia los archivos de `packaging/flathub/io.github.jahziel1.tlaku/` a la raíz, `git add`,
+   `git commit -m "Add io.github.jahziel1.tlaku"` y sube.
+5. Abre el PR **contra `new-pr`** (no `master`) con el título `Add io.github.jahziel1.tlaku`, llena la
+   lista de la plantilla y escribe tú la descripción, incluida la justificación de `--device=all`
+   (puertos serie `/dev/ttyUSB*`/`ttyACM*`, placas USB K40/galvo y cámaras `/dev/video*`; no existe
+   permiso más acotado para serie) y de `--share=network` (controladoras por red y control remoto).
+6. Comenta `bot, build` en el PR para lanzar la compilación de prueba de Flathub; corrige lo que salga.
+7. Revisores: responden en el PR (suelen tardar semanas; contesta rápido). Al aceptar, se crea
+   `github.com/flathub/io.github.jahziel1.tlaku` y te invitan (necesitas 2FA); el ID `io.github.jahziel1.*`
+   se verifica con tu inicio de sesión de GitHub.
+8. Cada versión nueva: PR (o commit) en ese repositorio con el `<release>` nuevo en el metainfo y
+   `url` + `sha256` nuevos (o el commit y la etiqueta con B). Opcional: `x-checker-data`
+   (flatpak-external-data-checker) para que un bot proponga las subidas.
+
+**Qué revisan:** `flatpak-builder-lint` (errores bloqueantes), metainfo (capturas accesibles y de la
+versión, descripción, licencia, ID), permisos justificados, fuente construida desde código, runtime
+vigente, que el nombre e ícono no suplanten a otro programa y que quien envía mantenga el proyecto.
 
 ## Actualizaciones automáticas
 
@@ -504,6 +760,7 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 | cargo-deny | `cargo deny check licenses sources` |
 | Interfaz | `tsc --noEmit`, `eslint`, `vitest run` y la tabla de atajos del README |
 | Flatpak (`flatpak.yml`; solo con etiqueta o a mano) | `appstreamcli validate --no-net` y `desktop-file-validate` de los metadatos, `flatpak-builder` en x86_64 y aarch64 y adjunta los `.flatpak` a la Release |
+| Manifiestos de tiendas (`winget.yml`; opcional, al publicar una Release o a mano) | genera los manifiestos de winget de esa versión, los valida contra el esquema JSON y los deja como artefacto; no envía nada |
 | Prueba de humo (Linux) | arranca la app Tauri real bajo Xvfb (`apps/desktop/scripts/smoke-tauri.sh`) |
 | Rust y humo (Linux ARM64) | en `ubuntu-22.04-arm`: `cargo nextest run --workspace --all-features` y la prueba de humo. Sin fmt ni clippy (no dependen de la arquitectura). Aún no es obligatorio en el ruleset |
 | Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos) |

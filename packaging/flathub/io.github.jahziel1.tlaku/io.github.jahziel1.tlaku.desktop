@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Tlaku
+GenericName=Laser software
+GenericName[es]=Software para láser
+Comment=Free software to prepare and send jobs to laser cutters and engravers
+Comment[es]=Software libre para preparar y enviar trabajos a cortadoras y grabadoras láser
+Exec=tlaku
+Icon=io.github.jahziel1.tlaku
+Terminal=false
+StartupNotify=true
+Categories=Graphics;2DGraphics;VectorGraphics;Engineering;
+Keywords=laser;engraver;cutter;GRBL;G-code;CNC;SVG;DXF;Ruida;
+Keywords[es]=láser;grabadora;cortadora;GRBL;G-code;CNC;SVG;DXF;Ruida;

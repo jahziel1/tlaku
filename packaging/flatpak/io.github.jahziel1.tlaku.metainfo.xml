@@ -8,8 +8,8 @@
   <launchable type="desktop-id">io.github.jahziel1.tlaku.desktop</launchable>
 
   <name>Tlaku</name>
-  <summary>Free software to prepare and send jobs to laser cutters and engravers</summary>
-  <summary xml:lang="es">Software libre para preparar y enviar trabajos a cortadoras y grabadoras láser</summary>
+  <summary>Laser cutter and engraver software</summary>
+  <summary xml:lang="es">Software para cortadoras láser</summary>
 
   <developer id="io.github.jahziel1">
     <name>tlaku contributors</name>

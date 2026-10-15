@@ -1,0 +1,69 @@
+name: Manifiestos de tiendas
+
+# OPCIONAL. Cuando se publica una Release (o a mano con una etiqueta), genera los manifiestos de
+# winget con la versión, la URL, la fecha y el SHA256 reales del instalador, los valida contra los
+# esquemas JSON públicos de winget y los deja como ARTEFACTO del flujo. No envía nada a
+# microsoft/winget-pkgs ni a ningún otro repositorio: el envío lo haces tú
+# (docs/publicar.md#winget-windows).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Etiqueta de una Release ya publicada (por ejemplo v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  winget:
+    name: Manifiestos de winget
+    # Las versiones de prueba (v0.2.0-beta.1) no se generan: winget solo lleva versiones finales.
+    if: ${{ !contains(inputs.tag || github.event.release.tag_name, '-') }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      FECHA: ${{ github.event.release.published_at }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Comprobar la etiqueta
+        run: |
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::La etiqueta debe ser vX.Y.Z (recibí «$TAG»)"; exit 1 ;;
+          esac
+
+      - name: Generar los manifiestos
+        run: |
+          # En una publicación, la fecha de la Release; a mano, la de hoy (UTC).
+          fecha="${FECHA%%T*}"
+          fecha="${fecha:-$(date -u +%F)}"
+          node scripts/winget-manifests.mjs generate "$TAG" salida --date "$fecha"
+
+      - name: Bajar los esquemas JSON de winget y las herramientas de validación
+        run: |
+          mkdir -p esquemas herramientas
+          for k in version installer defaultLocale locale; do
+            curl -fsSL -o "esquemas/manifest.$k.1.28.0.json" \
+              "https://raw.githubusercontent.com/microsoft/winget-cli/master/schemas/JSON/manifests/v1.28.0/manifest.$k.1.28.0.json"
+          done
+          npm install --prefix herramientas --no-audit --no-fund ajv@8 js-yaml@4
+
+      - name: Validar contra el esquema
+        run: |
+          dir=$(echo salida/manifests/j/jahziel1/Tlaku/*)
+          NODE_PATH="$PWD/herramientas/node_modules" node scripts/winget-manifests.mjs validate "$dir" esquemas
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winget-${{ env.TAG }}
+          path: salida/manifests
+          if-no-files-found: error
