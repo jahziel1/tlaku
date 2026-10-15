@@ -9,7 +9,7 @@ contrato de comandos y eventos, en [app-api/](app-api/README.md) (su tabla dice 
 
 Workspace Cargo: `crates/*` y `apps/desktop/src-tauri` (crate `tlaku-desktop`). Otros: `scripts/`
 (`run-stress.sh`, `fetch-corpus.sh`), `tests/corpus/` (archivos reales; no leer), `.cargo/config.toml`
-(`TS_RS_EXPORT_DIR` de los bindings), `.github/workflows/{ci,release}.yml`.
+(`TS_RS_EXPORT_DIR` de los bindings), `.github/workflows/{ci,release,flatpak}.yml`, `packaging/flatpak/`.
 
 ### 1.1 `crates/*` (entrada `src/lib.rs` salvo que se indique)
 
@@ -187,7 +187,8 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/help/{githubForms.ts,openExternal.ts,ShareDialogs.tsx}` | Menú Ayuda > «Reportar un problema…», «Compartir resultados de mi máquina…» y «Compartir ajustes de material…»: arman la dirección del formulario de GitHub y abren el navegador con `tauri-plugin-opener` (alcance en `capabilities/default.json`); nunca envían nada solos |
 | `.github/workflows/{ci,release,pages}.yml`, `.github/FUNDING.yml` | CI (Rust en 3 sistemas, Rust y humo en Linux ARM64 `ubuntu-22.04-arm`, deny, interfaz, humo en Linux, sitio), publicación de instaladores (incluye Linux ARM64; ver `docs/publicar.md`), GitHub Pages (inactivo hasta `PAGES_ENABLED=true`) y botón Sponsor |
 | `site/`, `scripts/build-site.mjs` | Sitio estático es/en; `site/config.json` llena `{{REPO_URL}}`, `{{SPONSORS_URL}}`, `{{KOFI_URL}}` (también en el README con `--readme`) |
-| `scripts/configure-updater.sh`, `src-tauri/src/updater.rs` | Llena `plugins.updater` y activa `createUpdaterArtifacts`; el plugin solo se registra si hay `pubkey` y `endpoints` |
+| `scripts/configure-updater.sh`, `src-tauri/src/updater.rs` | Llena `plugins.updater` y activa `createUpdaterArtifacts`; el plugin solo se registra si hay `pubkey` y `endpoints` **y no hay sandbox de Flatpak** (`in_flatpak()`: `FLATPAK_ID` o `/.flatpak-info`; en Flatpak `lib.rs::build_app` inyecta `window.__TLAKU_SANDBOX__`, que lee `updatesManagedByStore` en `updater.ts`) |
+| `packaging/flatpak/` (`org.tlaku.app.{yml,metainfo.xml,desktop,svg}`), `.github/workflows/flatpak.yml` | Paquete Flatpak (mejora 11b): manifiesto que reempaqueta el `.deb` de la Release (runtime `org.gnome.Platform//50`), AppStream, `.desktop`, ícono; `flatpak.yml` (llamado desde `release.yml`, o a mano con una etiqueta) construye x86_64 y aarch64 y adjunta los `.flatpak`. Permisos, estrategia B (desde fuentes) y pasos de Flathub en `docs/publicar.md#flatpak-y-flathub`. Sin probar en Linux real |
 | `src/features/help/{updater.ts,links.ts}`, `UpdateDialog`/`DonateDialog` en `HelpDialogs.tsx` | Buscar actualizaciones (store `useUpdateUi`, pref `updateCheckOnStart`) y enlaces de donación (`PROJECT_LINKS`, vacíos por omisión) |
 
 ### Agregado en la ola 6E (máquina y periféricos)
@@ -381,7 +382,7 @@ Todo antes de entregar: bloque "Verificar" de [CLAUDE.md](../CLAUDE.md).
 | `mapa.md` | Este archivo |
 | `plan-completo.md` | Plan por fases hasta las 214 funciones; consultar al elegir qué falta |
 | `ideas-mejoras.md` | Backlog de ideas sobre LightBurn; no son compromisos |
-| `publicar.md` | Cómo publicar una versión (etiqueta `v*`, `release.yml`, borrador de GitHub Release), actualizador, sitio, CI y la lista de pasos que le tocan al usuario |
+| `publicar.md` | Cómo publicar una versión (etiqueta `v*`, `release.yml`, borrador de GitHub Release), actualizador, Flatpak y Flathub, sitio, CI y la lista de pasos que le tocan al usuario |
 | `pruebas-estres.md` (+ `.csv`) | Resultados y método de las pruebas con archivos reales; leer al tocar rendimiento |
 | `manual/` | Manual de usuario (capturas incluidas). No leer salvo tarea de manual |
 | `spec/00-resumen.md` | Inventario de funciones y prioridades P0-P2 de LightBurn (sala limpia) |

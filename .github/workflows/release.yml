@@ -1,7 +1,8 @@
 name: Publicar
 
 # Al empujar una etiqueta `v*` compila los instaladores de macOS, Windows y Linux (x86_64 y
-# ARM64) y los sube a un borrador de Release. Guía completa en docs/publicar.md.
+# ARM64) y los sube a un borrador de Release; después empaqueta el Flatpak (flatpak.yml). Guía
+# completa en docs/publicar.md.
 #
 # La firma es opcional. Sin los secretos descritos en docs/publicar.md se publican instaladores
 # sin firmar y el flujo no falla.
@@ -257,3 +258,17 @@ jobs:
             jq -e --arg p "$p" '.platforms[$p]' latest.json > /dev/null || { echo "::error::latest.json no incluye $p"; falta=1; }
           done
           exit $falta
+
+  # Paquete Flatpak (x86_64 y aarch64): reempaqueta los .deb que acaba de subir «instaladores» y
+  # adjunta los .flatpak al mismo borrador. Es un trabajo aparte: no cambia los demás. Solo con
+  # etiqueta (lanzado a mano no hay Release). Para repetirlo sin recompilar: flujo «Flatpak»
+  # (workflow_dispatch). Ver docs/publicar.md#flatpak-y-flathub.
+  flatpak:
+    name: Flatpak
+    needs: instaladores
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/flatpak.yml
+    with:
+      tag: ${{ github.ref_name }}
+    permissions:
+      contents: write

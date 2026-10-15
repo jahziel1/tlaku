@@ -2,7 +2,7 @@
 
 Una versión se publica empujando una etiqueta `v*` al repositorio. El flujo
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) compila los instaladores en
-tres sistemas (Linux en x86_64 y en ARM64) y los deja en un **borrador** de GitHub Release; tú lo revisas y lo publicas.
+tres sistemas (Linux en x86_64 y en ARM64) y los deja en un **borrador** de GitHub Release; después `flatpak.yml` añade los paquetes Flatpak. Tú lo revisas y lo publicas.
 
 | Sistema | Instaladores | Runner |
 |---|---|---|
@@ -10,6 +10,7 @@ tres sistemas (Linux en x86_64 y en ARM64) y los deja en un **borrador** de GitH
 | Windows | `.exe` (NSIS) y `.msi` | `windows-latest` |
 | Linux x86_64 | `.AppImage` (`_amd64`) y `.deb` (`_amd64`) | `ubuntu-22.04` |
 | Linux ARM64 (experimental) | `.AppImage` (`_aarch64`) y `.deb` (`_arm64`) | `ubuntu-22.04-arm` |
+| Linux Flatpak (sin probar) | `Tlaku_<versión>_x86_64.flatpak` y `_aarch64.flatpak`, reempaquetando los `.deb` | `flatpak.yml` (lo llama `release.yml`) |
 
 **Primera vez:** el repositorio es <https://github.com/jahziel1/tlaku>. Las llaves del actualizador
 ya están (2026-10-14: llave pública en `tauri.conf.json`, privada y contraseña como secretos de
@@ -30,6 +31,7 @@ falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-
    | `Cargo.toml` (raíz) | `version` en `[workspace.package]`. Todos los crates, incluido `apps/desktop/src-tauri`, la heredan. |
    | `apps/desktop/src-tauri/tauri.conf.json` | `"version"`. Es la versión que muestran los instaladores. |
    | `apps/desktop/package.json` | `"version"`. |
+   | `packaging/flatpak/org.tlaku.app.metainfo.xml` | Un `<release version="X.Y.Z" date="AAAA-MM-DD">` nuevo arriba y la etiqueta `vX.Y.Z` en las URL de las capturas. No bloquea la publicación (`flatpak.yml` solo avisa si falta), pero Flathub lo exige: ver [Flatpak y Flathub](#flatpak-y-flathub). |
 
    ```sh
    # desde la raíz del repositorio, por ejemplo para 0.2.0
@@ -218,6 +220,174 @@ El paquete `.deb` declara dependencia de `libudev1` (que necesita la biblioteca 
 las bibliotecas de WebKitGTK las detecta Tauri solo. El `.deb` no modifica grupos del usuario a
 propósito: añadir a alguien a `dialout` es una decisión suya, por eso se documenta.
 
+## Flatpak y Flathub
+
+**Estado: preparado, sin probar en un Linux real.** La máquina de desarrollo es macOS: el manifiesto no
+se ha construido con `flatpak-builder` ni la aplicación se ha ejecutado dentro del sandbox. Lo que sí
+se validó: los metadatos con `appstreamcli validate --pedantic` y el `.desktop` con
+`desktop-file-validate`, los flujos con `actionlint`, el YAML del manifiesto con un analizador, y el
+código del actualizador con las pruebas de la interfaz (las de Rust están escritas, pero no se
+compilaron aquí; las corre la CI).
+
+### Qué hay
+
+| Archivo | Para qué |
+|---|---|
+| `packaging/flatpak/org.tlaku.app.yml` | Manifiesto (estrategia A, ver abajo). Id `org.tlaku.app`, runtime `org.gnome.Platform//50`. |
+| `packaging/flatpak/org.tlaku.app.metainfo.xml` | AppStream: nombre y resumen es/en, descripción, 5 capturas (de `apps/desktop/docs/screenshots/`, por la URL de la etiqueta), licencia MIT, donación Ko-fi, release 0.1.0, OARS sin contenido. |
+| `packaging/flatpak/org.tlaku.app.desktop` | Entrada de menú: categorías `Graphics;2DGraphics;VectorGraphics;Engineering;` y palabras clave es/en. **Sin `MimeType`**: la app aún no abre archivos `.tlaku` pasados por argumento (no hay asociación de archivos en `tauri.conf.json`); declararlo sería prometer algo que no hace. |
+| `packaging/flatpak/org.tlaku.app.svg` | Ícono (copia de `apps/desktop/src-tauri/icons/source/tlaku.svg`; Flathub prefiere SVG). `flatpak.yml` avisa si difieren. |
+| `.github/workflows/flatpak.yml` | Baja los `.deb` de la Release, construye con `flatpak/flatpak-github-actions/flatpak-builder@v6` en `x86_64` y `aarch64` (este con QEMU, como documenta esa acción) y adjunta los `.flatpak` a la misma Release. Se lanza a mano con la etiqueta de una Release que ya tenga los `.deb`. |
+| `release.yml` (trabajo `flatpak`) | Llama a `flatpak.yml` tras «instaladores», solo con etiqueta. No cambia los otros trabajos. |
+
+### Estrategia: reempaquetar el `.deb` (A) y no compilar desde fuentes (B)
+
+Se evaluaron dos caminos (guía de Tauri: <https://v2.tauri.app/distribute/flatpak/>):
+
+- **A. Reempaquetar el `.deb`** (implementada). El manifiesto extrae el `.deb` que ya produce `release.yml`
+  y lo instala en `/app`. Ventajas: es **exactamente el binario** que se probó y publicó; no hacen falta
+  Rust, Node ni fuentes sin red; la CI tarda poco (incluso emulando ARM). Es uno de los dos caminos
+  que describe la documentación de Tauri. Desventaja: **a Flathub le interesa lo contrario**: sus
+  requisitos dicen que el código abierto debe compilarse íntegramente desde fuentes (con excepciones
+  caso por caso). Un PR que reempaqueta un binario puede ser rechazado o pedir justificación; no hay
+  garantía.
+- **B. Compilar desde fuentes** (lo que Flathub prefiere; no implementada). Hay que generar
+  `cargo-sources.json` (`flatpak-cargo-generator.py Cargo.lock`) y `node-sources.json`
+  (`flatpak-node-generator npm apps/desktop/package-lock.json`) con
+  <https://github.com/flatpak/flatpak-builder-tools>, usar las extensiones
+  `org.freedesktop.Sdk.Extension.rust-stable` y `node` y compilar sin red: `CARGO_HOME` apuntando a las
+  fuentes generadas, `npm ci --offline`, `npm run build:tauri` y `npx tauri build -b deb` (o
+  `cargo build --release -p tlaku-desktop`; Tauri exige el `dist` ya construido) y extraer el `.deb` igual
+  que en A. Cuidado con tres cosas: (1) el toolchain está fijado a Rust 1.99.0 en `rust-toolchain.toml`
+  y el workspace usa edition 2024: la extensión `rust-stable` del runtime elegido debe ser igual o más
+  nueva; (2) `build.rs` y `tauri-build` no deben intentar salir a la red; (3) el árbol de dependencias
+  de npm y Cargo es grande: el manifiesto de fuentes se regenera en cada versión. Es mantenimiento
+  real; no se hizo ahora porque no se puede probar sin Linux.
+
+**Recomendación:** usar A para el `.flatpak` de cada Release (instalable con `flatpak install --user`
+sin esperar a nadie) y, **si Flathub rechaza A**, pasar a B solo para el repositorio de Flathub. El
+resto (permisos, metainfo, `.desktop`, ícono, código del actualizador) es común a las dos.
+
+### Runtime: `org.gnome.Platform//50`
+
+La Plataforma GNOME trae GTK 3, WebKitGTK 4.1 (`libwebkit2gtk-4.1`, la que enlaza Tauri 2) y libsoup 3,
+así que la app no compila ningún módulo de más. La alternativa `org.freedesktop.Platform` obligaría a
+compilar WebKitGTK. Flathub rechaza runtimes sin soporte: antes de enviar, comprueba la versión vigente
+en <https://docs.flathub.org/docs/for-app-authors/runtimes> y sube `runtime-version` (y la imagen
+`gnome-NN` de `flatpak.yml`; las que existen se ven en
+<https://github.com/flathub-infra/flatpak-github-actions/pkgs/container/flatpak-github-actions>). El
+manifiesto incluye una comprobación con `ldd` que **hace fallar la compilación** si el ejecutable
+necesita una biblioteca que el runtime no trae (por ejemplo `libxdo`); si ocurre, hay que añadir un
+módulo que la compile.
+
+### Permisos (`finish-args`) y por qué
+
+| Permiso | Por qué |
+|---|---|
+| `--share=ipc`, `--socket=wayland`, `--socket=fallback-x11` | Mostrar la ventana (Wayland; X11 si no hay). |
+| `--device=dri` | Aceleración gráfica de WebKitGTK para el lienzo. |
+| `--share=network` | Controladoras por red (GRBL por TCP, Ruida por UDP), cámaras IP (`fetch_camera_frame`, solo red local) y el **control remoto desde el celular** (servidor HTTP en la red local). |
+| `--device=all` | **El permiso más amplio y el que Flathub revisará.** Cubre `/dev/ttyUSB*` y `/dev/ttyACM*` (láseres GRBL), `/dev/bus/usb` (K40 y galvo con `nusb`) y `/dev/video*` (cámaras USB). No existe un permiso más acotado para puertos serie: `--device=usb` (Flatpak 1.16) cubre USB pero no `tty`. |
+| `--filesystem=xdg-documents`, `xdg-download`, `xdg-pictures:ro` | Los diálogos de archivo ya pasan por el **portal de documentos** (no hace falta permiso para lo que el usuario elige). Estas carpetas existen porque la vista previa de imágenes usa el protocolo `asset://` con el alcance de `tauri.conf.json` (`$DOCUMENT`, `$DOWNLOAD`, `$PICTURE`, `$DESKTOP`): un archivo abierto por el portal tiene la ruta `/run/user/<uid>/doc/...`, fuera de ese alcance, y la imagen no se vería. Con acceso directo la ruta coincide. Mejora pendiente: añadir `/run/user/*/doc/**` al alcance y quitar estos permisos (es un cambio de seguridad en `tauri.conf.json`; no se hizo aquí). `$DESKTOP` no se concede: los archivos del escritorio abren por el portal, solo falla la vista previa de imágenes. |
+
+No se piden: `--socket=pulseaudio`, `--talk-name=*`, `--filesystem=home`, `--socket=session-bus`, `--socket=ssh-auth`.
+
+**Grupo `dialout` en el sandbox.** Flatpak no crea ni cambia grupos: los permisos de `/dev/ttyUSB0` los
+decide el sistema anfitrión. El usuario debe estar en `dialout` (`uucp` en Arch) **en el sistema**,
+exactamente como con el `.deb` (ver [Linux: permiso del puerto serie](#linux-permiso-del-puerto-serie));
+no hay nada que configurar dentro del sandbox. Para K40 y galvo por USB, el sistema puede necesitar una
+regla udev que dé acceso al usuario (el proyecto aún no distribuye una). **Riesgo sin comprobar:**
+`serialport` enumera los puertos con libudev; dentro del sandbox la base de datos de udev puede no
+estar visible y la lista de puertos podría salir vacía aunque el dispositivo exista. Es lo primero que
+hay que probar en un Linux real.
+
+### Actualizador desactivado en Flatpak
+
+Las actualizaciones las da Flathub; el programa no puede reemplazar sus propios archivos. La detección
+está en `src-tauri/src/updater.rs` (`in_flatpak()`): variable `FLATPAK_ID` o archivo `/.flatpak-info`.
+Dentro del sandbox el plugin `tauri-plugin-updater` **no se registra** y Rust inyecta
+`window.__TLAKU_SANDBOX__ = 'flatpak'` en las ventanas (`lib.rs`, `build_app`). La interfaz
+(`features/help/updater.ts`, `updatesManagedByStore`) no programa el chequeo de arranque y Ayuda >
+«Buscar actualizaciones…» dice que las actualizaciones las da Flathub y cómo actualizar. Pruebas:
+`updater.rs` (detección y script) y `updater.test.tsx`. Los datos del Flatpak viven en
+`~/.var/app/org.tlaku.app/` y **no se comparten** con una instalación `.deb` de la misma persona; para
+pasar los ajustes, un `.tlakubundle`.
+
+### Probar el paquete en Linux (lo que falta comprobar)
+
+```sh
+# Linux con flatpak y flatpak-builder; los .deb de la Release en packaging/flatpak/debs/
+mkdir -p packaging/flatpak/debs
+cp Tlaku_0.1.0_amd64.deb packaging/flatpak/debs/tlaku_x86_64.deb      # (o _arm64.deb -> tlaku_aarch64.deb)
+flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo build-dir packaging/flatpak/org.tlaku.app.yml
+flatpak build-bundle repo tlaku.flatpak org.tlaku.app && flatpak install --user tlaku.flatpak
+flatpak run org.tlaku.app
+# El linter de Flathub (lo que revisará el PR):
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder manifest packaging/flatpak/org.tlaku.app.yml
+flatpak run --command=flatpak-builder-lint org.flatpak.Builder repo repo
+```
+
+Lista de comprobación: abre la ventana (Wayland y X11; con GPU NVIDIA prueba
+`--env=WEBKIT_DISABLE_DMABUF_RENDERER=1`); importar un SVG por el diálogo; guardar y abrir un proyecto;
+la vista previa de una imagen; **la lista de puertos con un láser conectado**; conectar y mover; el
+control remoto desde el celular; Ayuda > Buscar actualizaciones (debe decir que lo da Flathub).
+
+### Enviar a Flathub (pasos)
+
+1. **Decide el identificador.** `org.tlaku.app` coincide con el `identifier` de Tauri (de él salen el
+   `app_id` de GTK/Wayland, el ícono de la barra de tareas y la carpeta de datos). **Pero Flathub exige
+   que quien envía controle el dominio** (`tlaku.org`, accesible por HTTPS) para los identificadores
+   `org.`; el proyecto hoy solo tiene `jahziel1.github.io/tlaku`. Opciones: (a) registrar `tlaku.org`
+   y publicar el sitio ahí; (b) usar `io.github.jahziel1.tlaku` (Flathub lo acepta para proyectos en
+   GitHub) y cambiar a la vez el `identifier` de `tauri.conf.json` (para que el `app_id` coincida con
+   el `.desktop`), los nombres y `<id>` de los tres archivos de `packaging/flatpak/`, `Icon=`,
+   `<launchable>` y el texto `flatpak update ...` de `help.update.managedHint`. Cambiar el `identifier`
+   mueve la carpeta de datos de la app en todos los sistemas: hazlo antes de la primera versión pública.
+2. **Publica la Release** (`vX.Y.Z`) con sus `.deb` y confirma que las URL de las capturas del metainfo
+   responden (`appstreamcli validate packaging/flatpak/org.tlaku.app.metainfo.xml`, sin `--no-net`).
+3. **Prepara el manifiesto de Flathub**: copia `packaging/flatpak/org.tlaku.app.yml` y cambia las dos
+   fuentes `.deb` locales por las URL de la Release con su suma de verificación (`sha256sum`):
+
+   ```yaml
+   - type: file
+     url: https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_amd64.deb
+     sha256: <sha256 del .deb>
+     dest-filename: tlaku.deb
+     only-arches: [x86_64]
+   - type: file
+     url: https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_arm64.deb
+     sha256: <sha256 del .deb>
+     dest-filename: tlaku.deb
+     only-arches: [aarch64]
+   ```
+
+   Los otros tres archivos (`.desktop`, metainfo, SVG) se suben junto al manifiesto (Flathub no admite
+   binarios en el PR; el SVG es texto). Con la estrategia B, ahí también van `cargo-sources.json` y
+   `node-sources.json`.
+4. **Abre el PR**: bifurca <https://github.com/flathub/flathub>, clona la rama `new-pr`
+   (`git clone --branch=new-pr git@github.com:<tu usuario>/flathub.git`), crea una rama con el nombre
+   de la app, añade los archivos y abre el PR **contra `new-pr`** (no contra `master`); sigue la lista de
+   <https://docs.flathub.org/docs/for-app-authors/submission>.
+5. **Qué revisarán**: que pase `flatpak-builder-lint` (manifiesto, metainfo y repositorio; los avisos y
+   errores de AppStream son bloqueantes); que el id coincida con un dominio que controlas o use el
+   prefijo `io.github.`; la justificación de cada permiso (sobre todo `--device=all`: explica serie, USB y
+   cámara, como arriba); que el runtime sea el vigente; que el código abierto se compile desde fuentes (el
+   riesgo de la estrategia A: prepara la respuesta a «por qué reempaquetar» o pasa a B); que el nombre y
+   el ícono no suplanten a otro programa; que el `.desktop` y el ícono estén bien nombrados; capturas
+   accesibles y de la versión; y que quien envía sea quien mantiene el proyecto.
+6. **Después de aceptado**: llega una invitación al repositorio de la app en Flathub. Cada versión
+   nueva: añade el `<release>` al metainfo, actualiza `url` y `sha256` (o el commit, con B) y abre un PR.
+
+### Qué falta para Flathub
+
+- Probar el paquete en un Linux real (x86_64 y, si se puede, ARM64): ventana, serie, USB, cámara, actualizador.
+- Decidir el identificador y el dominio (punto 1).
+- Que exista la Release `v0.1.0` con sus `.deb` y la etiqueta que usan las capturas.
+- Decidir A o B según la respuesta de los revisores y mantener el runtime al día.
+- Una regla udev distribuida para K40 y galvo (hoy no la hay) y confirmar que `serialport` ve los puertos dentro del sandbox.
+- Opcional: ampliar el alcance de `asset://` a la ruta del portal para poder quitar los `--filesystem`.
+- Opcional: asociación de archivos `.tlaku` (hay que implementarla en la app antes de poner `MimeType`).
+
 ## Actualizaciones automáticas
 
 **Qué hay en el código (ya integrado):**
@@ -229,6 +399,8 @@ propósito: añadir a alguien a `dialout` es una decisión suya, por eso se docu
   Si hay una versión nueva, un diálogo muestra la versión y sus notas con los botones **Descargar e
   instalar** y **Ahora no**; tras instalar ofrece **Reiniciar ahora**. No instala con un trabajo en
   curso en la máquina. La descarga se verifica con la firma del proyecto.
+- **En Flatpak el actualizador se desactiva** (las actualizaciones las da Flathub): no se registra el
+  plugin y el menú lo explica; ver [Flatpak y Flathub](#flatpak-y-flathub).
 - **Estado actual: activado.** `tauri.conf.json` trae la llave pública del proyecto, el endpoint
   `https://github.com/jahziel1/tlaku/releases/latest/download/latest.json` y
   `bundle.createUpdaterArtifacts: true`; solo `release.yml` empaqueta, con los secretos
@@ -316,6 +488,7 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 | Rust (Linux, macOS, Windows) | `cargo fmt --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo test --workspace --all-features` |
 | cargo-deny | `cargo deny check licenses sources` |
 | Interfaz | `tsc --noEmit`, `eslint`, `vitest run` y la tabla de atajos del README |
+| Flatpak (`flatpak.yml`; solo con etiqueta o a mano) | `appstreamcli validate --no-net` y `desktop-file-validate` de los metadatos, `flatpak-builder` en x86_64 y aarch64 y adjunta los `.flatpak` a la Release |
 | Prueba de humo (Linux) | arranca la app Tauri real bajo Xvfb (`apps/desktop/scripts/smoke-tauri.sh`) |
 | Rust y humo (Linux ARM64) | en `ubuntu-22.04-arm`: `cargo nextest run --workspace --all-features` y la prueba de humo. Sin fmt ni clippy (no dependen de la arquitectura). Aún no es obligatorio en el ruleset |
 | Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos) |

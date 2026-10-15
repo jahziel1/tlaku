@@ -247,7 +247,7 @@ export interface UpdateViewProps {
 /** Vista pura del diálogo de actualizaciones (un solo cuadro que pasa por buscar, avisar, bajar e instalar). */
 export function UpdateView({ phase, info, progress, error, jobBusy, onClose, onInstall, onRestart, onRetry }: UpdateViewProps) {
   const percent = progress.total ? Math.min(100, Math.floor((progress.done / progress.total) * 100)) : null;
-  const closeOnly = phase === 'idle' || phase === 'unconfigured' || phase === 'current';
+  const closeOnly = phase === 'idle' || phase === 'unconfigured' || phase === 'managed' || phase === 'current';
   return (
     <Frame id="help-update-title" title={t('help.update.title')} onClose={onClose}>
       <div className="help__scroll help__prose">
@@ -256,6 +256,12 @@ export function UpdateView({ phase, info, progress, error, jobBusy, onClose, onI
           <>
             <p data-autofocus tabIndex={-1}>{t('help.update.unconfigured')}</p>
             <p className="hint">{t('help.update.unconfiguredHint')}</p>
+          </>
+        )}
+        {phase === 'managed' && (
+          <>
+            <p data-autofocus tabIndex={-1}>{t('help.update.managed')}</p>
+            <p className="hint">{t('help.update.managedHint')}</p>
           </>
         )}
         {phase === 'current' && <p data-autofocus tabIndex={-1}>{t('help.update.current')}</p>}

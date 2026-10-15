@@ -1,0 +1,98 @@
+# Manifiesto Flatpak de Tlaku (estrategia A: reempaqueta el .deb de la Release).
+# Guía completa, permisos justificados y pasos para Flathub: docs/publicar.md#flatpak-y-flathub
+#
+# Compilar a mano (Linux con flatpak-builder; los .deb de la Release van en packaging/flatpak/debs/
+# con los nombres tlaku_x86_64.deb y tlaku_aarch64.deb):
+#   flatpak-builder --force-clean --user --install-deps-from=flathub \
+#     --repo=repo build-dir packaging/flatpak/org.tlaku.app.yml
+#   flatpak build-bundle repo tlaku.flatpak org.tlaku.app
+#   flatpak install --user tlaku.flatpak && flatpak run org.tlaku.app
+#
+# Sin probar en un Linux real todavía (ver docs/publicar.md).
+id: org.tlaku.app
+
+# GNOME y no org.freedesktop + webkit2gtk a mano: la Plataforma GNOME ya trae GTK 3, WebKitGTK 4.1
+# (libwebkit2gtk-4.1, la que enlaza Tauri 2) y libsoup 3; con el runtime freedesktop habría que
+# compilar WebKitGTK (horas de compilación). Es también el runtime que
+# documenta Tauri. Cuando salga una versión nueva, sube `runtime-version` y la imagen de la CI
+# (.github/workflows/flatpak.yml); una versión de runtime sin soporte hace que Flathub rechace
+# la aplicación.
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+
+command: tlaku
+
+# Permisos mínimos y por qué (detalle en docs/publicar.md):
+finish-args:
+  # Ventana: Wayland y, si no hay, X11 (WebKitGTK necesita IPC compartido con X11).
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Aceleración gráfica del lienzo (WebKitGTK).
+  - --device=dri
+  # Red: controladoras por red (GRBL por TCP, Ruida por UDP), cámaras IP y el control remoto desde
+  # el celular, que abre un servidor HTTP en la red local.
+  - --share=network
+  # Puerto serie (/dev/ttyUSB*, /dev/ttyACM*), placas USB directas (K40, galvo: /dev/bus/usb) y
+  # cámaras USB (/dev/video*). Flatpak no tiene un permiso más acotado para puertos serie:
+  # `--device=usb` (Flatpak 1.16) cubre /dev/bus/usb pero no /dev/tty*.
+  - --device=all
+  # Carpetas donde la gente guarda sus diseños. Los diálogos de archivo ya usan el portal de
+  # documentos; esto hace que la vista previa de imágenes (protocolo asset://, alcance de
+  # tauri.conf.json: $DOCUMENT, $DOWNLOAD, $PICTURE) vea las rutas reales y no la ruta del portal.
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+  - --filesystem=xdg-pictures:ro
+  # Si la ventana sale en blanco con una GPU NVIDIA o en Wayland, prueba (a mano, con
+  # `flatpak run --env=...`) WEBKIT_DISABLE_DMABUF_RENDERER=1 o WEBKIT_DISABLE_COMPOSITING_MODE=1.
+
+modules:
+  - name: tlaku
+    buildsystem: simple
+    sources:
+      # El .deb que genera release.yml (Tauri). Aquí van archivos locales para la CI; para Flathub se
+      # sustituye `path` por `url` + `sha256` del .deb publicado (docs/publicar.md).
+      - type: file
+        path: debs/tlaku_x86_64.deb
+        dest-filename: tlaku.deb
+        only-arches: [x86_64]
+      - type: file
+        path: debs/tlaku_aarch64.deb
+        dest-filename: tlaku.deb
+        only-arches: [aarch64]
+      - type: file
+        path: org.tlaku.app.desktop
+      - type: file
+        path: org.tlaku.app.metainfo.xml
+      - type: file
+        path: org.tlaku.app.svg
+    build-commands:
+      # Un .deb es un archivo `ar` con control.tar.* y data.tar.* (Tauri usa gzip).
+      - ar -x tlaku.deb --output deb-extract
+      - tar -C deb-extract -xf deb-extract/data.tar.gz
+      # El ejecutable: el .deb trae uno solo en usr/bin (su nombre depende de la versión de
+      # Tauri); se instala siempre como `tlaku`, que es lo que lanza el .desktop.
+      - |
+        set -- deb-extract/usr/bin/*
+        if [ "$#" -ne 1 ]; then echo "se esperaba un solo ejecutable en usr/bin del .deb" >&2; exit 1; fi
+        install -Dm755 "$1" /app/bin/tlaku
+      # Recursos que el .deb pudiera traer en usr/lib/<nombre> (hoy ninguno).
+      - |
+        for d in deb-extract/usr/lib/*/; do
+          [ -d "$d" ] || continue
+          mkdir -p /app/lib/tlaku
+          cp -r "$d". /app/lib/tlaku/
+        done
+      # El .desktop, los metadatos y el ícono vienen del repositorio (no del .deb), con el
+      # identificador de la aplicación como nombre, como exige Flathub.
+      - install -Dm644 org.tlaku.app.desktop /app/share/applications/org.tlaku.app.desktop
+      - install -Dm644 org.tlaku.app.metainfo.xml /app/share/metainfo/org.tlaku.app.metainfo.xml
+      - install -Dm644 org.tlaku.app.svg /app/share/icons/hicolor/scalable/apps/org.tlaku.app.svg
+      # Red de seguridad: si el ejecutable necesita una biblioteca que el runtime no trae (por
+      # ejemplo libxdo), la compilación falla aquí con el nombre en vez de fallar al abrir la app.
+      - |
+        if ldd /app/bin/tlaku | grep "not found"; then
+          echo "faltan bibliotecas en el runtime (lista arriba): hay que añadir un módulo que las compile" >&2
+          exit 1
+        fi

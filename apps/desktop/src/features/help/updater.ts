@@ -9,7 +9,16 @@ import { useHelpUi } from './helpStore';
  * `scripts/configure-updater.sh`, ver `docs/publicar.md`), buscar actualizaciones solo informa que no
  * están configuradas y nunca llama al plugin (que en esa compilación ni siquiera está registrado;
  * ver `src-tauri/src/updater.rs`, que aplica la misma regla).
+ *
+ * Dentro de un sandbox de Flatpak el actualizador se desactiva: las actualizaciones las da Flathub.
+ * Rust detecta el sandbox (`FLATPAK_ID` o `/.flatpak-info`) e inyecta `window.__TLAKU_SANDBOX__`.
  */
+
+/** ¿Las actualizaciones las gestiona una tienda (Flathub) y no la propia app? */
+export function updatesManagedByStore(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (window as unknown as { __TLAKU_SANDBOX__?: unknown }).__TLAKU_SANDBOX__ === 'flatpak';
+}
 
 /** La parte de `plugins.updater` que importa para decidir si hay actualizador. */
 export interface UpdaterConfig {
@@ -46,7 +55,7 @@ export interface UpdateInfo {
   date: string | null;
 }
 
-export type UpdatePhase = 'idle' | 'checking' | 'unconfigured' | 'current' | 'available' | 'downloading' | 'installed' | 'error';
+export type UpdatePhase = 'idle' | 'checking' | 'unconfigured' | 'managed' | 'current' | 'available' | 'downloading' | 'installed' | 'error';
 
 interface UpdateUi {
   phase: UpdatePhase;
@@ -65,10 +74,14 @@ interface UpdateUi {
 export interface UpdaterEnv {
   /** ¿La compilación tiene actualizador configurado y corre dentro de Tauri? */
   available: () => boolean;
+  /** ¿Las actualizaciones las da una tienda (Flatpak)? Entonces no se busca nada. */
+  managed: () => boolean;
 }
 
 export const updaterEnv: UpdaterEnv = {
-  available: () => isUpdaterConfigured() && getApiKind() === 'tauri',
+  available: () => isUpdaterConfigured() && getApiKind() === 'tauri' && !updatesManagedByStore(),
+  /** ¿Flathub (u otra tienda) se encarga de actualizar? */
+  managed: () => getApiKind() === 'tauri' && updatesManagedByStore(),
 };
 
 let pending: UpdateLike | null = null;
@@ -88,7 +101,7 @@ export const useUpdateUi = create<UpdateUi>()((set, get) => ({
     if (phase === 'checking' || phase === 'downloading') return;
     if (!updaterEnv.available()) {
       // En silencio no se molesta a nadie; a mano se explica.
-      if (!silent) set({ phase: 'unconfigured', info: null, error: '' });
+      if (!silent) set({ phase: updaterEnv.managed() ? 'managed' : 'unconfigured', info: null, error: '' });
       return;
     }
     set({ phase: 'checking', info: null, error: '' });

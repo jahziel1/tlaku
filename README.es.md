@@ -264,6 +264,7 @@ sección "Assets"):
 | Windows 10 o posterior | `.exe` (instalador NSIS) o `.msi` |
 | Linux x86_64 | `.deb` (`sudo apt install ./Tlaku_*_amd64.deb`) o `.AppImage` (`chmod +x` y ejecútalo) |
 | Linux ARM64 / Raspberry Pi 4 y 5 con sistema de 64 bits (experimental) | `.deb` (`sudo apt install ./Tlaku_*_arm64.deb`) o `*_aarch64.AppImage` |
+| Linux, cualquier distribución (Flatpak, **sin probar**) | `Tlaku_*_x86_64.flatpak` o `Tlaku_*_aarch64.flatpak`: `flatpak install --user ./Tlaku_*_x86_64.flatpak` |
 
 **Aplicación sin firmar.** Mientras el proyecto no tenga certificados de firma, el sistema avisará
 la primera vez que abras el instalador:
@@ -274,6 +275,12 @@ la primera vez que abras el instalador:
 - **Windows (SmartScreen):** "Más información" y luego "Ejecutar de todas formas".
 - **Linux:** sin avisos. Para usar el puerto serie del láser, añade tu usuario al grupo
   `dialout` (`sudo usermod -aG dialout "$USER"`) y vuelve a iniciar sesión.
+
+**Flatpak (sin probar).** El paquete se arma en la CI a partir del `.deb`, pero **todavía nadie lo ha
+ejecutado en un Linux real** (tampoco está en Flathub). Se ejecuta con `flatpak run org.tlaku.app`. Para el
+puerto serie sigue haciendo falta estar en el grupo `dialout` **del sistema**, y las actualizaciones las da
+Flatpak (la app no se actualiza sola). Tiene acceso a dispositivos (`--device=all`) por el puerto serie y
+el USB. Detalles y permisos en [docs/publicar.md](docs/publicar.md#flatpak-y-flathub).
 
 **Raspberry Pi (experimental).** Hace falta un sistema de **64 bits** (`uname -m` debe decir `aarch64`):
 Raspberry Pi OS de 64 bits (Debian 12 «bookworm» o posterior) o Ubuntu ARM en una Pi 4 o 5 (se recomiendan
