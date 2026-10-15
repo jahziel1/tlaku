@@ -10,12 +10,14 @@ import { createNoticesSlice } from './notices';
 import { createPreviewSlice } from './preview';
 import { createPrefsSlice, type PrefKey, type Prefs } from './prefs';
 import { createSelectionSlice } from './selection';
+import { createTabsSlice } from './tabs';
 import type { AppState } from './types';
 import { createViewSlice } from './view';
 
 export type { AppState } from './types';
 export { DEFAULT_PREFS, PREF_KEYS, PREF_SPECS, type PrefKey, type Prefs } from './prefs';
 export * from './selectors';
+export { activeTabLabel, findTabByPath, isPristine, pinTab, tabDoc, tabLabel, tabViews, type TabEntry, type TabView, type JobOrigin } from './tabs';
 
 /** Crea un store nuevo (la app usa `useStore`; las pruebas crean el suyo). */
 export function createAppStore(): UseBoundStore<StoreApi<AppState>> {
@@ -31,6 +33,7 @@ export function createAppStore(): UseBoundStore<StoreApi<AppState>> {
     ...createNoticesSlice(...a),
     ...createCameraSlice(...a),
     ...createPrefsSlice(...a),
+    ...createTabsSlice(...a),
   }));
 }
 

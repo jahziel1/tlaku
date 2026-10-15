@@ -1,6 +1,5 @@
 import { getApi } from '@/api';
 import type { DeviceProfile, Document } from '@/api/types';
-import { ensureSaved } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { fmt } from '@/lib/platform';
@@ -30,9 +29,8 @@ export async function openRotaryTestAsNewDocument(device: DeviceProfile, speed: 
     app().notify('error', t('devices.rotary.test.err', { error: errorMessage(e) }));
     return false;
   }
-  if (!(await ensureSaved('new'))) return false;
   const s = app();
-  s.replaceDocument({ ...doc, device_id: s.doc.device_id }, null);
+  s.openInTab({ ...doc, device_id: s.doc.device_id }, null);
   s.fitContent();
   void s.computePreview();
   app().notify('success', t('devices.rotary.test.done', { mm: fmt(rotaryCircumference(device.rotary) ?? 0, 1) }));

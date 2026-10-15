@@ -72,7 +72,7 @@ Las plantillas se guardan en la carpeta de configuración de Tlaku, no dentro de
 
 ## Nueva ventana
 
-**Archivo > Nueva ventana** (`Ctrl/Cmd+Mayús+N`) abre otra ventana de Tlaku con un **documento independiente**: tiene su propio historial y selección. Lo que comparten es la máquina (la conexión y el trabajo en curso) y las preferencias. Sirve para copiar de un proyecto a otro o consultar un diseño mientras trabajas en otro.
+**Archivo > Nueva ventana** (`Ctrl/Cmd+Mayús+N`) abre otra ventana de Tlaku con un **documento independiente**: tiene su propio historial y selección. Lo que comparten es la máquina (la conexión y el trabajo en curso) y las preferencias. Sirve para copiar de un proyecto a otro o consultar un diseño mientras trabajas en otro. Para tener varios proyectos en la misma ventana usa las [pestañas de documentos](03f-pestanas-de-documentos.md); una pestaña también se puede **mover a una ventana nueva**.
 
 La recuperación no mezcla ventanas: cada una marca su copia de autoguardado como viva y el aviso **Se encontró trabajo sin guardar** solo ofrece las copias huérfanas (las de ventanas ya cerradas). Esto se comprueba con ventanas reales en la prueba de humo de la aplicación (`npm run smoke:tauri`): abre una segunda ventana, comprueba que existe y responde, que las preferencias se comparten, que cada ventana solo ve la copia de su propio documento, que al cerrarla su copia queda disponible para recuperar y que se cierra sin problema. Límite: el registro es de un solo programa; dos copias de Tlaku abiertas a la vez no se ven entre sí. Guarda tus proyectos con frecuencia.
 
@@ -116,4 +116,4 @@ La distribución se guarda en las preferencias, así que viaja con tu [paquete d
 
 La biblioteca no tiene etiquetas ni subcarpetas por ahora.
 
-Siguiente: [Texto](04-texto.md)
+Siguiente: [Pestañas de documentos](03f-pestanas-de-documentos.md)

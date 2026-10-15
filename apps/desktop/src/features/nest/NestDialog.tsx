@@ -37,6 +37,7 @@ export function NestDialog() {
   const close = useNestUi((s) => s.close);
   const run = useNestRun();
   const pickId = useId();
+  const [tabId] = useState(() => useStore.getState().activeTabId);
 
   const units = useMemo(() => selectionUnits(doc, selectedIds), [doc, selectedIds]);
   const [copies, setCopies] = useState<Record<string, number>>({});
@@ -93,15 +94,16 @@ export function NestDialog() {
     if (done.length === 0) return;
     const s = useStore.getState();
     let ids: string[] = [];
-    s.applyDocChange('nest.history', (d) => {
-      const r = applyNest(d, units, done);
-      ids = r.placed;
-      return r.doc;
+    // El resultado va a la pestaña donde se abrió el diálogo (no a la que esté activa al aceptar).
+    s.runInTab(tabId, () => {
+      s.applyDocChange('nest.history', (d) => {
+        const r = applyNest(d, units, done);
+        ids = r.placed;
+        return r.doc;
+      });
+      if (ids.length > 0) s.select(ids);
     });
-    if (ids.length > 0) {
-      s.select(ids);
-      s.notify('success', t('nest.done', { n: done.length }));
-    }
+    if (ids.length > 0) s.notify('success', t('nest.done', { n: done.length }));
     close();
   };
 

@@ -2,7 +2,7 @@ import { getApi, getApiKind } from '@/api';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { baseName } from '@/features/history/paths';
-import { useStore } from '@/store';
+import { pinTab, useStore } from '@/store';
 import { applyBatchToDoc, runBatch, type BatchEntry } from './batch';
 import { useBatchDialog } from './batchStore';
 import { traceLayerFor } from './placement';
@@ -59,6 +59,8 @@ export async function runBatchTrace(): Promise<void> {
   const d = useBatchDialog.getState();
   if (d.entries.length === 0 || d.progress) return;
   stop = false;
+  // El lote puede tardar: los resultados se agregan a la pestaña donde se lanzó aunque se cambie de pestaña.
+  const inTab = pinTab(state());
   d.setFailures([]);
   d.setProgress({ done: 0, total: d.entries.length, current: null });
   const r = await runBatch({
@@ -76,16 +78,24 @@ export async function runBatchTrace(): Promise<void> {
     state().notify('info', t('trace.batch.cancelled'));
     return;
   }
-  const layer = traceLayerFor(state().doc.layers, state().activeLayer);
   const out: { ids: string[] } = { ids: [] };
   if (r.outcomes.length > 0) {
-    state().applyDocChange('trace.batch.history', (doc) => {
-      const applied = applyBatchToDoc(doc, r.outcomes, layer, [0, 0]);
-      out.ids = applied.ids;
-      return applied.doc;
+    const applied = inTab(() => {
+      const layer = traceLayerFor(state().doc.layers, state().activeLayer);
+      state().applyDocChange('trace.batch.history', (doc) => {
+        const applied = applyBatchToDoc(doc, r.outcomes, layer, [0, 0]);
+        out.ids = applied.ids;
+        return applied.doc;
+      });
+      state().select(out.ids);
+      state().fitContent();
+      return true;
     });
-    state().select(out.ids);
-    state().fitContent();
+    if (!applied) {
+      state().notify('warning', t('tabs.targetClosedGeneric'));
+      dlg.setProgress(null);
+      return;
+    }
     const warnings = r.outcomes.flatMap((o) => o.warnings.map((w) => `${o.name}: ${w}`));
     if (warnings.length > 0) state().notify('warning', t('trace.batch.doneWarnings', { n: r.outcomes.length, w: warnings.length }), warnings);
     else state().notify('success', t('trace.batch.done', { n: r.outcomes.length }));

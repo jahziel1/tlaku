@@ -38,6 +38,15 @@ usuarios de LightBurn (de pago), no una encuesta de usuarios de Tlaku.
 
 ## 1. Pestañas / varios diseños en una ventana
 
+> **Actualización (2026-10): hecho.** Las pestañas reales dentro de una ventana ya existen (fila D19 de
+> [diseno.md](spec/cobertura/diseno.md), manual [03f](manual/03f-pestanas-de-documentos.md), mapa en
+> [mapa.md](mapa.md)). Se eligió el «cajón por pestaña» de (c): los slices vivos son los de la pestaña activa y
+> las inactivas son una foto que se intercambia; las operaciones asíncronas se fijan a su pestaña (`pinTab` /
+> `runInTab`); el historial de las inactivas se acota (30 pasos, ~200 mil puntos) y se midió con un documento
+> grande; la recuperación es una copia por pestaña; el trabajo en curso lleva su pestaña de origen. Lo de (b) que
+> sigue pendiente: arrastrar objetos de un documento a otro (queda copiar y pegar: el portapapeles es común a las
+> pestañas), «Mostrar en la carpeta» y un menú «Ventana». El texto de abajo es la evaluación original.
+
 **(a) Estado: Parcial.** Existe «Nueva ventana» (`Ctrl/Cmd+Mayús+N`): fila D19 de
 [diseno.md](spec/cobertura/diseno.md) (Hecho, probada con ventanas reales en `npm run smoke:tauri`). Cada
 ventana es una interfaz web aparte con documento, historial y selección propios; comparten la máquina (el

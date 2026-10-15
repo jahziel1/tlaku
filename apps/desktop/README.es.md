@@ -194,6 +194,8 @@ se desactualiza; para regenerarla (en este archivo y en el inglés), `npm run re
 |  | Importar diseño… | `Ctrl+I` |
 |  | Exportar G-code… | `Ctrl+Mayús+E` |
 |  | Imprimir… | `Ctrl+P` |
+|  | Nueva pestaña | `Ctrl+T` |
+|  | Cerrar pestaña | `Ctrl+W` |
 |  | Nueva ventana | `Ctrl+Mayús+N` |
 | Edición | Deshacer | `Ctrl+Z` |
 |  | Rehacer | `Ctrl+Mayús+Z` o `Ctrl+Y` |
@@ -286,7 +288,9 @@ se desactualiza; para regenerarla (en este archivo y en el inglés), `npm run re
 |  | Separar subtrayectos… | `Alt+B` |
 |  | Optimizar formas… | `Alt+Mayús+O` |
 |  | Cortar formas con una cuchilla… | `Alt+Mayús+C` |
-| Vista | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |
+| Vista | Pestaña siguiente | `Ctrl+Tab` |
+|  | Pestaña anterior | `Ctrl+Mayús+Tab` |
+|  | Acercar | `Ctrl+=` o `Ctrl+Mayús+=` |
 |  | Alejar | `Ctrl+-` |
 |  | Ajustar a la cama | `Ctrl+0` |
 |  | Ajustar al diseño | `Ctrl+Mayús+0` |

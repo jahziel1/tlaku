@@ -31,6 +31,8 @@ export interface Prefs {
   updateCheckOnStart: boolean;
   /** Cámara (M51): reabrir el fondo de la cama al arrancar si estaba visible al cerrar. Encendido de fábrica. */
   cameraReopen: boolean;
+  /** Pestañas: al abrir la app se reabren los proyectos que tenían las pestañas al cerrar (las «Sin título» no). Encendido de fábrica. */
+  restoreTabs: boolean;
   /** Cámara (M51): ancho máximo (px) de la imagen corregida que se pinta y se manda al motor para detectar. */
   cameraFrameWidth: number;
   /** Unidad con la que se muestran y se escriben las longitudes (el documento siempre va en mm). */
@@ -140,6 +142,7 @@ export const PREF_SPECS: PrefSpecs = {
   language: { kind: 'choice', options: ['es', 'en'], default: 'es' },
   updateCheckOnStart: { kind: 'bool', default: false },
   cameraReopen: { kind: 'bool', default: true },
+  restoreTabs: { kind: 'bool', default: true },
   cameraFrameWidth: { kind: 'number', min: 320, max: 1920, step: 160, unit: 'px', integer: true, default: 1280 },
   units: { kind: 'choice', options: LENGTH_UNITS, default: 'mm' },
   nudgeStep: { kind: 'number', min: 0.001, max: 100, step: 0.5, unit: 'mm', default: 1 },

@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useCommand } from '@/commands/useCommand';
 import { t } from '@/i18n';
 import { fmt, fmtClock } from '@/lib/platform';
-import { useStore } from '@/store';
+import { selectJobPreview, useStore } from '@/store';
 import { jobElapsedSeconds } from '@/store/machine';
 import { useNow } from './hooks';
 import { remainingSeconds } from './jobSummary';
@@ -16,7 +16,7 @@ import { StartFromSection } from './StartFromSection';
 function Progress() {
   const progress = useStore((s) => s.progress);
   const jobState = useStore((s) => s.jobState);
-  const estimate = useStore((s) => s.preview?.total_s ?? null);
+  const estimate = useStore((s) => selectJobPreview(s)?.total_s ?? null);
   const timing = useStore(useShallow((s) => ({ jobStartedAt: s.jobStartedAt, jobPausedAt: s.jobPausedAt, jobPausedMs: s.jobPausedMs, jobEndedAt: s.jobEndedAt })));
   const running = jobState === 'running';
   const live = running || jobState === 'paused';

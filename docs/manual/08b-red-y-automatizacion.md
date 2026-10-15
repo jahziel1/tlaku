@@ -94,7 +94,7 @@ Un comando por datagrama UDP, en una sola línea de texto UTF-8 (hasta 4096 byte
 | Comando | Respuesta | Qué hace |
 |---|---|---|
 | `PING` | `PONG` | Comprueba que Tlaku escucha |
-| `LOAD /ruta/absoluta/pieza.svg` | `OK loading` | Abre un proyecto `.tlaku` o importa el diseño, como si lo soltaras sobre la ventana. La ruta puede llevar espacios |
+| `LOAD /ruta/absoluta/pieza.svg` | `OK loading` | Abre un proyecto `.tlaku` en una pestaña nueva o importa el diseño en la pestaña activa, como si lo soltaras sobre la ventana. La ruta puede llevar espacios |
 | `START` | `OK starting` o `PENDING confirm_in_app: ...` | Pide iniciar el trabajo (ver Seguridad) |
 | `STATUS` | `STATUS connected=1 state=idle x=12.500 y=30.000` | Estado de la máquina y su posición de trabajo en mm; sin máquina, `STATUS connected=0` |
 | `STOP` | `OK` | Detiene el trabajo (pausa de avance y reinicio suave); sin trabajo, cancela el movimiento |

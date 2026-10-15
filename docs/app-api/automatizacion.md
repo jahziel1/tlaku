@@ -22,7 +22,7 @@ terminada en `\n`, enviado al origen.
 | Comando | Respuesta | Qué hace |
 |---|---|---|
 | `PING` | `PONG` | Comprueba que la app escucha |
-| `LOAD <ruta>` | `OK loading` | Pide abrir un proyecto `.tlaku` o importar el diseño, como si se soltara sobre la ventana. La ruta debe ser **absoluta** y de un archivo que existe (el resto de la línea es la ruta, con espacios). El resultado de la importación se avisa en la interfaz |
+| `LOAD <ruta>` | `OK loading` | Pide abrir un proyecto `.tlaku` (en una **pestaña nueva**, sin tocar la actual) o importar el diseño en la pestaña **activa**, como si se soltara sobre la ventana. La ruta debe ser **absoluta** y de un archivo que existe (el resto de la línea es la ruta, con espacios). El resultado de la importación se avisa en la interfaz |
 | `START` | `OK starting` o `PENDING confirm_in_app: ...` | Ver seguridad |
 | `STATUS` | `STATUS connected=0` o `STATUS connected=1 state=<idle\|run\|hold\|alarm...> x=<mm> y=<mm>` | Estado de la máquina y posición de trabajo |
 | `STOP` | `OK` | Detiene el trabajo (feed hold y soft reset; sin trabajo, cancela el jog). Siempre se atiende si hay máquina conectada |

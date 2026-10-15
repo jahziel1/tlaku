@@ -132,6 +132,15 @@
   color: var(--text-muted);
   line-height: 1.5;
 }
+.modal__list {
+  margin: 0;
+  padding: 0 var(--s-6) var(--s-6) calc(var(--s-6) + var(--s-6));
+  max-height: 40vh;
+  overflow-y: auto;
+  list-style: disc;
+  color: var(--text);
+  line-height: 1.6;
+}
 .modal__foot {
   display: flex;
   justify-content: flex-end;

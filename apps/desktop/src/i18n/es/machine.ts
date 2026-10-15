@@ -316,6 +316,7 @@ export const machine = {
   'machine.progress.elapsed': 'Transcurrido',
   'machine.progress.remaining': 'Restante',
   'machine.progress.paused': 'En pausa: el láser está apagado. Reanuda o detén el trabajo.',
+  'machine.start.subtitle': 'Se enviará «{doc}» a {machine}',
   'machine.start.title': '¿Láser listo y área despejada?',
   'machine.start.check2': 'Nada estorba el recorrido del cabezal.',
   'machine.start.check3': 'Llevas las gafas de protección adecuadas para tu láser.',

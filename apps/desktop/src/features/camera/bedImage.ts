@@ -11,7 +11,7 @@ import { applyBitmapToDoc, projectDir, projectStem } from '@/features/trace/bitm
 import { useTraceDialog } from '@/features/trace/traceStore';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
-import { selectActiveDevice, useStore, type AppState } from '@/store';
+import { pinTab, selectActiveDevice, useStore, type AppState } from '@/store';
 import { currentMapping, matrixForFrame, MAPPING_PROBLEM_KEY } from './mapping';
 import { grabCorrectedColorPng } from './session';
 import { currentScanArea, scanBed, ScanError } from './headScan';
@@ -68,6 +68,8 @@ async function captureFixed(): Promise<BedImage> {
  */
 export async function captureBedImage(): Promise<string | null> {
   const s = app();
+  // La imagen entra en la pestaña desde la que se pidió, aunque el recorrido de la cámara tarde y se cambie de pestaña.
+  const inTab = pinTab(s);
   try {
     let image: BedImage;
     if (s.cameraSetup.head?.enabled) {
@@ -81,7 +83,11 @@ export async function captureBedImage(): Promise<string | null> {
     } else {
       image = await captureFixed();
     }
-    const id = insertBedImage(image);
+    const id = inTab(() => insertBedImage(image));
+    if (id === undefined) {
+      s.notify('warning', t('tabs.targetClosedGeneric'));
+      return null;
+    }
     s.notify('success', t('camera.capture.done', { w: image.width_px, h: image.height_px, path: image.path }));
     if (image.in_temp_dir) s.notify('warning', t('camera.capture.temp'));
     return id;

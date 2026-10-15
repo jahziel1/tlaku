@@ -21,6 +21,7 @@ import { prefsCommands } from './definitions/prefs';
 import { printcutCommands } from './definitions/printcut';
 import { reviewCommands } from './definitions/review';
 import { shapeCommands } from './definitions/shapes';
+import { tabCommands } from './definitions/tabs';
 import { simpleCommands } from './definitions/simple';
 import { previewCommands } from './definitions/preview';
 import { tilingCommands } from './definitions/tiling';
@@ -43,6 +44,7 @@ export type { CommandDef, CommandCategory } from './types';
 export const ALL_COMMANDS: CommandDef[] = [
   ...fileCommands,
   ...fileioCommands,
+  ...tabCommands,
   ...editCommands,
   ...toolCommands,
   ...canvasToolCommands,

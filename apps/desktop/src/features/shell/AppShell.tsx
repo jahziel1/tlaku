@@ -24,6 +24,7 @@ import { PrintCutHost } from '@/features/printcut';
 import { ArtPanelHost } from '@/features/art';
 import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
+import { TabBar, TabPanel, TabsHost } from '@/features/tabs';
 import { FirstRunDialog, SimplePanel, useUiMode } from '@/features/simple';
 import { t } from '@/i18n';
 import { shellColumns, type DockLayout } from '@/lib/dockLayout';
@@ -84,6 +85,8 @@ function ShellBody() {
   const machineTab = useStore((s) => s.dockTab === 'machine');
   // Modo sencillo: flujo guiado en lugar de herramientas, panel con pestañas y paleta de capas.
   const simple = useUiMode() === 'simple';
+  // La barra de pestañas se ve siempre en el modo completo; en el sencillo solo si ya hay varias.
+  const showTabs = useStore((s) => !simple || s.tabs.length > 1);
   useWindowTitle();
   useCloseGuard();
   useFileDrop();
@@ -105,7 +108,10 @@ function ShellBody() {
       {!simple && <ToolPalette />}
       <main className="shell__main">
         {!machineTab && <AlarmBanner compact />}
-        <CanvasView />
+        {showTabs && <TabBar />}
+        <TabPanel>
+          <CanvasView />
+        </TabPanel>
         <TextPanel />
         {previewVisible && <PreviewBar />}
       </main>
@@ -121,6 +127,7 @@ function ShellBody() {
       <LiveAnnouncer />
       <DropOverlay />
       <RecoveryHost />
+      <TabsHost />
       <PromptHost />
       <ShortcutsDialog />
       <MachineDialogHost />

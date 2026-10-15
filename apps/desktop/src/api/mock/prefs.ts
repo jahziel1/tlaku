@@ -66,10 +66,14 @@ export function mockPrefs(lag: Lag): Pick<
         if (!found) throw new Error(`No existe la plantilla «${name}».`);
         return structuredClone(found.doc);
       }),
-    newWindow: () =>
+    newWindow: (args) =>
       lag(() => {
         // En el navegador (modo mock) una pestaña nueva hace de ventana nueva.
-        if (typeof window !== 'undefined' && typeof window.open === 'function') window.open(window.location.href, '_blank');
+        if (typeof window !== 'undefined' && typeof window.open === 'function') {
+          const url = new URL(window.location.href);
+          url.search = args?.handoff ? `?handoff=${args.handoff}` : '';
+          window.open(url.toString(), '_blank');
+        }
         return 'doc-mock';
       }),
     deleteTemplate: ({ name }) =>

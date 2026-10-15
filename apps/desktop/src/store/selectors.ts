@@ -1,4 +1,4 @@
-import type { DesignObject, DeviceProfile, JobArgs, JobOptions } from '@/api/types';
+import type { DesignObject, DeviceProfile, JobArgs, JobOptions, JobPreview } from '@/api/types';
 import type { I18nKey } from '@/i18n';
 import { FALLBACK_DEVICE } from '@/lib/device';
 import type { AppState } from './types';
@@ -46,4 +46,12 @@ export function buildJobArgs(s: AppState): JobArgs {
 
 export function isJobBusy(s: Pick<AppState, 'jobState'>): boolean {
   return s.jobState === 'running' || s.jobState === 'paused';
+}
+
+/**
+ * Vista previa del trabajo que corre: la de la pestaña desde la que se lanzó (aunque ahora haya otra
+ * activa) o, sin trabajo propio, la de la pestaña activa.
+ */
+export function selectJobPreview(s: Pick<AppState, 'jobOrigin' | 'preview'>): JobPreview | null {
+  return s.jobOrigin ? s.jobOrigin.preview : s.preview;
 }

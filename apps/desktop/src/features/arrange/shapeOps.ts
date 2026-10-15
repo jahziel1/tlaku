@@ -5,7 +5,7 @@ import type { I18nKey } from '@/i18n';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { fmt } from '@/lib/platform';
-import type { AppState } from '@/store';
+import { pinTab, type AppState } from '@/store';
 import { cleanupOperands, replaceCleaned } from './cleanup';
 import { kindInfo } from './geomOps';
 import { useShapeOps } from './shapeOpsUi';
@@ -212,6 +212,7 @@ export async function runShapeOp(s: AppState, op: ShapeOp, params: ShapeParams =
     return false;
   }
   const operands = cleanupOperands(s);
+  const inTab = pinTab(s);
   useArrangeUi.getState().setBusy(true);
   let result;
   try {
@@ -233,13 +234,17 @@ export async function runShapeOp(s: AppState, op: ShapeOp, params: ShapeParams =
   }
   const created: string[] = [];
   const removeIds = new Set(consumed.map((o) => o.id));
-  s.applyDocChange(params.revert ? 'shapes.history.unfillet' : HISTORY[op], (doc) => {
-    created.length = 0;
-    return replaceCleaned(doc, removeIds, fresh, ID_BASE[op], created);
+  const applied = inTab(() => {
+    s.applyDocChange(params.revert ? 'shapes.history.unfillet' : HISTORY[op], (doc) => {
+      created.length = 0;
+      return replaceCleaned(doc, removeIds, fresh, ID_BASE[op], created);
+    });
+    // Quedan seleccionados los objetos nuevos y, si se conservó, la cuchilla.
+    const kept = op === 'cut_shapes' ? result.objects.filter((r) => sent.has(r.id) && r.id === params.knife_id).map((r) => r.id) : [];
+    s.select([...kept, ...created]);
+    return true;
   });
-  // Quedan seleccionados los objetos nuevos y, si se conservó, la cuchilla.
-  const kept = op === 'cut_shapes' ? result.objects.filter((r) => sent.has(r.id) && r.id === params.knife_id).map((r) => r.id) : [];
-  s.select([...kept, ...created]);
+  if (!applied) return false; // la pestaña se cerró mientras tanto
   s.notify('success', params.revert ? t('shapes.msg.unfillet') : shapeSummary(op, result.stats));
   return true;
 }

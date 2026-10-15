@@ -94,7 +94,7 @@ One command per UDP datagram, as a single line of UTF-8 text (up to 4096 bytes).
 | Command | Reply | What it does |
 |---|---|---|
 | `PING` | `PONG` | Checks that Tlaku is listening |
-| `LOAD /absolute/path/piece.svg` | `OK loading` | Opens a `.tlaku` project or imports the design, as if you dropped it onto the window. The path may contain spaces |
+| `LOAD /absolute/path/piece.svg` | `OK loading` | Opens a `.tlaku` project in a new tab or imports the design into the active tab, as if you dropped it onto the window. The path may contain spaces |
 | `START` | `OK starting` or `PENDING confirm_in_app: ...` | Asks to start the job (see Security) |
 | `STATUS` | `STATUS connected=1 state=idle x=12.500 y=30.000` | Machine state and its work position in mm; with no machine, `STATUS connected=0` |
 | `STOP` | `OK` | Stops the job (feed hold and soft reset); with no job, cancels the movement |

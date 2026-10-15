@@ -2,6 +2,14 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Document tabs, in the next version
+
+- **Several projects in the same window**, each in its own tab, with its own Undo history, selection, zoom, preview and saved state (something LightBurn does not have). A tab bar above the canvas with an unsaved-changes dot, close, **+**, drag-to-reorder and a context menu (close, close others, duplicate, move, **move to a new window**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` and `Ctrl+Tab`.
+- **Opening** a project opens it in a new tab (or replaces the empty one; if it was already open, its tab is activated). The clipboard is shared between tabs.
+- **Closing with changes** asks about the tab; closing the window with several unsaved shows **the list** with **Save all** / **Discard all**.
+- **One recovery copy per tab**, and **Recover all** after an unexpected shutdown; at startup the tabs with a file are **reopened** (it can be turned off in Preferences).
+- There is **only one machine**: the job in progress uses its own copy, the tab of origin carries a printer and the live view keeps showing it even if you switch tabs. See [Document tabs](03f-pestanas-de-documentos.md).
+
 ## Wave 6: Review design, canvas editing, importing, and machines, in the next version
 
 Seventh batch, of polish and of gaps that remained compared with LightBurn. **None of this has been tested with a real machine**: it was validated with the virtual machine, the emulator, the simulated galvo board, and automated tests.

@@ -1,6 +1,5 @@
 import { getApi } from '@/api';
 import type { Document } from '@/api/types';
-import { ensureSaved } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { useStore } from '@/store';
@@ -32,12 +31,11 @@ export async function saveAsTemplate(name: string): Promise<boolean> {
   }
 }
 
-/** Reemplaza el documento por la plantilla `name` (pregunta antes si hay cambios sin guardar). */
+/** Abre la plantilla `name` en una pestaña nueva. */
 export async function newFromTemplate(name: string): Promise<boolean> {
-  if (!(await ensureSaved('new'))) return false;
   try {
     const doc = await getApi().loadTemplate({ name });
-    state().replaceDocument(documentFromTemplate(doc, state().doc.device_id), null);
+    state().openInTab(documentFromTemplate(doc, state().doc.device_id), null);
     state().fitBed();
     void state().computePreview();
     state().notify('success', t('canvas.templates.created', { name }));

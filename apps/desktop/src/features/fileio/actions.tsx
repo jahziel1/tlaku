@@ -8,7 +8,7 @@ import { pickImportPaths } from '@/features/history/dialogs';
 import { resolveDocForOutput } from '@/features/variables/jobResolve';
 import { baseName, extensionOf, isImportable, withExtension } from '@/features/history/paths';
 import { effectiveImportDpi } from '@/lib/importOptions';
-import { useStore, type AppState } from '@/store';
+import { pinTab, useStore, type AppState } from '@/store';
 import { ExportDialog, defaultRemembered, type ExportChoice, type RememberedOptions } from './ExportDialog';
 import { GcodePowerDialog } from './GcodePowerDialog';
 import { ImportOptionsDialog, kindsOf } from './ImportOptionsDialog';
@@ -95,22 +95,24 @@ function report(summary: ExportSummary): void {
 }
 
 /** Ids de la selección que existen y se pueden exportar, o `null` si se exporta todo. */
-function scopeIds(choice: ExportChoice): string[] | null {
-  return choice.scope === 'selection' ? [...state().selectedIds] : null;
+function scopeIds(choice: ExportChoice, selected: readonly string[]): string[] | null {
+  return choice.scope === 'selection' ? [...selected] : null;
 }
 
 /** Exporta el diseño (o la selección) al formato elegido. `true` si se escribió el archivo. */
 export async function exportAs(format: ExportFormat, io: FileioIo = defaultIo): Promise<boolean> {
   if (exportEnabled(state()) !== true) return false;
-  const choice = await io.askExport(format, false, state().selectedIds.length);
+  // Se exporta la pestaña activa al pedirlo, aunque se cambie de pestaña mientras se eligen opciones y archivo.
+  const { doc: source, selectedIds: selected, filePath } = state();
+  const choice = await io.askExport(format, false, selected.length);
   if (!choice) return false;
-  const picked = await io.pickSavePath(format, suggestedName(state().filePath, format));
+  const picked = await io.pickSavePath(format, suggestedName(filePath, format));
   if (!picked) return false;
   const path = withExtension(picked, EXPORT_EXTENSION[format]);
   try {
     // Los textos variables salen con los valores de ahora.
-    const doc: Document = await resolveDocForOutput(state().doc);
-    const summary = await getApi().exportDesign({ doc, selection: scopeIds(choice), path, request: choice.request });
+    const doc: Document = await resolveDocForOutput(source);
+    const summary = await getApi().exportDesign({ doc, selection: scopeIds(choice, selected), path, request: choice.request });
     report(summary);
     return true;
   } catch (e) {
@@ -122,11 +124,12 @@ export async function exportAs(format: ExportFormat, io: FileioIo = defaultIo): 
 /** Imprimir: genera el PDF a escala 1:1 y lo abre en el visor del sistema. */
 export async function printDesign(io: FileioIo = defaultIo): Promise<boolean> {
   if (exportEnabled(state()) !== true) return false;
-  const choice = await io.askExport('pdf', true, state().selectedIds.length);
+  const { doc: source, selectedIds: selected } = state();
+  const choice = await io.askExport('pdf', true, selected.length);
   if (!choice || choice.request.format !== 'pdf') return false;
   const { format: _format, ...options } = choice.request;
   try {
-    const summary = await getApi().printDesign({ doc: await resolveDocForOutput(state().doc), selection: scopeIds(choice), options });
+    const summary = await getApi().printDesign({ doc: await resolveDocForOutput(source), selection: scopeIds(choice, selected), options });
     if (summary.warnings.length > 0) {
       state().notify('warning', t('fileio.notice.printed', { path: summary.path }), summary.warnings);
     } else {
@@ -165,6 +168,8 @@ async function importGcodeAware(path: string, file: string, options: Omit<Import
  * ajuste de la vista), pero con `importFileWith`. Devuelve cuántos objetos entraron.
  */
 export async function importWithOptions(io: FileioIo = defaultIo): Promise<number> {
+  // Lo importado va a la pestaña activa al pedirlo, aunque se cambie de pestaña mientras se eligen opciones.
+  const inTab = pinTab(state());
   const paths = (await io.pickImportPaths()).filter((p) => {
     const ok = isImportable(p);
     if (!ok) state().notify('error', t('history.notice.unsupported', { file: baseName(p) }));
@@ -183,14 +188,19 @@ export async function importWithOptions(io: FileioIo = defaultIo): Promise<numbe
       const { auto_group: autoGroup, ...engineOptions } = options;
       const result = await importGcodeAware(path, file, engineOptions, io);
       if (autoGroup) {
-        const grouped = autoGroupObjects(result.objects, groupIdsOf(state().doc.objects));
-        result.objects = grouped.objects;
+        const grouped = inTab(() => autoGroupObjects(result.objects, groupIdsOf(state().doc.objects)));
+        if (grouped) result.objects = grouped.objects;
       }
       if (result.objects.length === 0) {
         state().notify('warning', t('history.notice.importedNothing', { file }), result.warnings);
         continue;
       }
-      ids.push(...state().applyImport(result));
+      const placed = inTab(() => state().applyImport(result));
+      if (!placed) {
+        state().notify('warning', t('tabs.targetClosed', { file }));
+        break;
+      }
+      ids.push(...placed);
       const n = result.objects.length;
       if (result.warnings.length > 0) {
         state().notify('warning', t('history.notice.importedWithWarnings', { n, file, w: result.warnings.length }), result.warnings);
@@ -202,8 +212,10 @@ export async function importWithOptions(io: FileioIo = defaultIo): Promise<numbe
     }
   }
   if (ids.length > 0) {
-    state().select(ids);
-    state().fitContent();
+    inTab(() => {
+      state().select(ids);
+      state().fitContent();
+    });
   }
   return ids.length;
 }

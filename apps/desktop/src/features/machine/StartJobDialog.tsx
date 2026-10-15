@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { t } from '@/i18n';
 import { speedToDisplay, speedUnitLabel } from '@/lib/device';
 import { fmt, fmtClock } from '@/lib/platform';
-import { selectActiveDevice, usePref, useStore } from '@/store';
+import { activeTabLabel, selectActiveDevice, usePref, useStore } from '@/store';
 import { CHECKLIST_ALL, checklistPending, checklistSatisfied, visibleChecklist, withChecklistItem, CHECKLIST_ITEMS, type ChecklistItem } from './checklist';
 import { summarizeJob } from './jobSummary';
 import { useJobPlacement } from './hooks';
@@ -31,6 +31,8 @@ export function StartJobDialog() {
   const close = useStore((s) => s.closeDialog);
   const confirm = useStore((s) => s.confirmStart);
   const doc = useStore((s) => s.doc);
+  // El trabajo es el de la pestaña activa: el diálogo dice cuál.
+  const docName = useStore((s) => activeTabLabel(s));
   const preview = useStore((s) => s.preview);
   const previewStatus = useStore((s) => s.previewStatus);
   const previewError = useStore((s) => s.previewError);
@@ -78,7 +80,7 @@ export function StartJobDialog() {
   return (
     <Modal
       title={t('machine.start.title')}
-      subtitle={device.name}
+      subtitle={t('machine.start.subtitle', { doc: docName, machine: device.name })}
       tone="warn"
       size="md"
       onClose={close}

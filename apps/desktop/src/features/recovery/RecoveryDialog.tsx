@@ -4,7 +4,7 @@ import { Modal } from '@/features/history/Modal';
 import { baseName } from '@/features/history/paths';
 import { t } from '@/i18n';
 import { formatBytes, formatCopyDate } from './format';
-import { discardAll, discardCopy, recoverCopy, useRecovery } from './recover';
+import { discardAll, discardCopy, recoverAll, recoverCopy, useRecovery } from './recover';
 import './recovery.css';
 
 async function confirmDiscardAll(n: number): Promise<void> {
@@ -60,6 +60,11 @@ export function RecoveryDialog() {
         ))}
       </ul>
       <div className="modal__foot">
+        {items.length > 1 && (
+          <button type="button" className="btn btn--accent" disabled={busy !== null} onClick={() => void recoverAll()}>
+            {t('prefs.recovery.recoverAll')}
+          </button>
+        )}
         {items.length > 1 && (
           <button type="button" className="btn btn--danger" disabled={busy !== null} onClick={() => void confirmDiscardAll(items.length)}>
             {t('prefs.recovery.discardAll')}

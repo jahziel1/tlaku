@@ -3,7 +3,7 @@ import type { DesignObject, ImageObject } from '@/api/types';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { baseName } from '@/features/history/paths';
-import { selectSelectedObjects, useStore, type AppState } from '@/store';
+import { pinTab, selectSelectedObjects, useStore, type AppState } from '@/store';
 
 const state = () => useStore.getState();
 
@@ -69,6 +69,7 @@ export function replacedImage(old: ImageObject, next: Pick<ImageObject, 'source_
 export async function replaceImage(): Promise<boolean> {
   const obj = singleImage(state());
   if (!obj) return false;
+  const inTab = pinTab(state());
   let path: string | null;
   if (getApiKind() !== 'tauri') {
     path = 'ejemplos/nueva.png';
@@ -87,10 +88,15 @@ export async function replaceImage(): Promise<boolean> {
     const next = r.objects.map((o) => o.kind).find((k) => k.type === 'image');
     if (next?.type !== 'image') throw new Error(t('trace.batch.notImage', { file: baseName(path) }));
     const id = obj.id;
-    state().applyDocChange('trace.replace.history', (doc) => ({
-      ...doc,
-      objects: doc.objects.map((o) => (o.id === id && o.kind.type === 'image' ? { ...o, kind: { type: 'image' as const, ...replacedImage(o.kind, next) } } : o)),
-    }));
+    // Se aplica en la pestaña donde se pidió, aunque ya haya otra activa.
+    const applied = inTab(() => {
+      state().applyDocChange('trace.replace.history', (doc) => ({
+        ...doc,
+        objects: doc.objects.map((o) => (o.id === id && o.kind.type === 'image' ? { ...o, kind: { type: 'image' as const, ...replacedImage(o.kind, next) } } : o)),
+      }));
+      return true;
+    });
+    if (!applied) return false;
     state().notify('success', t('trace.replace.done', { name: baseName(path) }));
     void state().computePreview();
     return true;

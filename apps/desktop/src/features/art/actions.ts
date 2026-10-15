@@ -3,7 +3,7 @@ import type { Point } from '@/api/types';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { screenToWorld } from '@/lib/viewport';
-import { useStore } from '@/store';
+import { pinTab, useStore } from '@/store';
 import { useArtPanel } from './artStore';
 import { artName, type ArtItem } from './catalog';
 import { placeArt } from './place';
@@ -25,14 +25,19 @@ export function viewCenter(): Point {
 
 /** Inserta el dibujo con su centro en `at` (o en el centro de la vista) y lo deja seleccionado. */
 export async function insertArt(item: ArtItem, at?: Point): Promise<boolean> {
+  const inTab = pinTab(state());
   try {
     const result = await getApi().artImportSvg({ svg: item.svg, target_layer: targetLayer() });
-    const placed = placeArt(result, at ?? viewCenter(), state().doc.objects);
-    const ids = state().applyImport(placed);
-    if (ids.length > 0) {
-      state().select(ids);
-      state().notify('success', t('art.inserted', { name: artName(item) }));
-    }
+    const center = at ?? viewCenter();
+    // Se inserta en la pestaña donde se pidió, aunque ya haya otra activa.
+    const ids = inTab(() => {
+      const placed = placeArt(result, center, state().doc.objects);
+      const made = state().applyImport(placed);
+      if (made.length > 0) state().select(made);
+      return made;
+    });
+    if (!ids) return false;
+    if (ids.length > 0) state().notify('success', t('art.inserted', { name: artName(item) }));
     if (result.warnings.length > 0) state().notify('warning', t('art.insertWarnings', { n: result.warnings.length }), result.warnings);
     void state().computePreview();
     return ids.length > 0;

@@ -2,7 +2,7 @@ import { Moon, Sun } from 'lucide-react';
 import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
 import { ModeSwitch, useUiMode } from '@/features/simple';
-import { useStore } from '@/store';
+import { activeTabLabel, useStore } from '@/store';
 import { Toolbar } from '@/ui/Toolbar';
 import { CommandButton } from './CommandButton';
 import { MenuBar } from './MenuBar';
@@ -25,7 +25,7 @@ function Brand() {
 function DocumentName() {
   const path = useStore((s) => s.filePath);
   const dirty = useStore((s) => s.dirty);
-  const name = path ? (path.split(/[\\/]/).pop() ?? path) : t('doc.untitled');
+  const name = useStore((s) => activeTabLabel(s));
   return (
     <div className="docname" title={path ?? undefined}>
       <span className="docname__text">{name}</span>
@@ -41,6 +41,8 @@ function DocumentName() {
 
 export function TopBar() {
   const theme = useStore((s) => s.theme);
+  // Vista previa, Encuadrar e Iniciar actúan sobre la pestaña activa: con varias pestañas, la barra dice de cuál.
+  const jobLabel = useStore((s) => (s.tabs.length > 1 ? t('tabs.job.toolbar', { name: activeTabLabel(s) }) : t('toolbar.job')));
   const toggleTheme = useCommand('view.theme');
   const ThemeIcon = theme === 'dark' ? Sun : Moon;
   const simple = useUiMode() === 'simple';
@@ -89,7 +91,7 @@ export function TopBar() {
         <ThemeIcon size={17} aria-hidden="true" />
       </button>
       <div className="topbar__sep" role="separator" />
-      <Toolbar className="topbar__group topbar__group--actions" label={t('toolbar.job')}>
+      <Toolbar className="topbar__group topbar__group--actions" label={jobLabel}>
         <CommandButton id="view.preview" variant="labeled" />
         <CommandButton id="machine.frame" variant="labeled" />
         <CommandButton id="machine.start" variant="labeled" accent />

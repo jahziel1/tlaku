@@ -5,7 +5,7 @@ import { createAppStore } from '@/store';
 import { emptyDocument } from '@/store/document';
 import { Autosaver } from './autosave';
 import { formatBytes, formatCopyDate } from './format';
-import { checkRecovery, discardAll, discardCopy, recoverCopy, useRecovery, type RecoveryDeps } from './recover';
+import { checkRecovery, discardAll, discardCopy, recoverAll, recoverCopy, useRecovery, type RecoveryDeps } from './recover';
 
 /** Documento con un objeto, distinto de uno vacío (para tener «cambios»). */
 function docWith(id: string): Document {
@@ -178,6 +178,143 @@ describe('autoguardado', () => {
   });
 });
 
+describe('autoguardado por pestaña', () => {
+  it('escribe una copia por cada pestaña con cambios, con id y nombre propios; las limpias no tienen copia', async () => {
+    const { store, api, saver } = setup();
+    store.getState().openInTab(docWith('a'), '/p/mesa.tlaku');
+    const a = store.getState().activeTabId;
+    edit(store, 'a2'); // A con cambios
+    store.getState().newTab();
+    edit(store, 'b1'); // B (Sin título 2) con cambios
+    store.getState().newTab(); // C limpia
+    expect(await saver.tick()).toBe('saved');
+    const copies = await api.autosaveList();
+    expect(copies.map((c) => c.name).sort()).toEqual(['Sin título 1', 'mesa.tlaku']);
+    expect(new Set(copies.map((c) => c.id)).size).toBe(2);
+    expect(copies.find((c) => c.name === 'mesa.tlaku')!.path).toBe('/p/mesa.tlaku');
+    expect(saver.currentId(a)).toBe(copies.find((c) => c.name === 'mesa.tlaku')!.id);
+  });
+
+  it('cambiar de pestaña no cierra la sesión de la copia (la pestaña sigue con cambios)', async () => {
+    const { store, api, saver, discards } = setup();
+    saver.start();
+    edit(store);
+    const a = store.getState().activeTabId;
+    await saver.tick();
+    store.getState().newTab(); // A pasa a segundo plano con cambios; la activa (limpia) no
+    store.getState().activateTab(a);
+    store.getState().newTab();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(discards).not.toHaveBeenCalled();
+    expect(await api.autosaveList()).toHaveLength(1);
+    saver.stop();
+  });
+
+  it('guardar una pestaña de fondo borra solo su copia', async () => {
+    const { store, api, saver } = setup();
+    saver.start();
+    store.getState().openInTab(docWith('a'), '/p/a.tlaku');
+    edit(store, 'a2');
+    const a = store.getState().activeTabId;
+    store.getState().newTab();
+    edit(store, 'b1');
+    await saver.tick();
+    expect(await api.autosaveList()).toHaveLength(2);
+    store.getState().runInTab(a, () => store.getState().markSaved('/p/a.tlaku'));
+    await vi.waitFor(async () => expect((await api.autosaveList()).map((c) => c.name)).toEqual(['Sin título 1']));
+    saver.stop();
+  });
+
+  it('cerrar una pestaña (sin importar cómo) borra su copia y deja las demás', async () => {
+    const { store, api, saver } = setup();
+    saver.start();
+    edit(store, 'a1');
+    const a = store.getState().activeTabId;
+    store.getState().newTab();
+    edit(store, 'b1');
+    await saver.tick();
+    store.getState().removeTab(a);
+    await vi.waitFor(async () => expect((await api.autosaveList()).map((c) => c.name)).toEqual(['Sin título 2']));
+    saver.stop();
+  });
+
+  it('cerrar la última pestaña con cambios descarta su copia (la pestaña vacía que queda es otra)', async () => {
+    const { store, api, saver } = setup();
+    saver.start();
+    edit(store);
+    await saver.tick();
+    store.getState().removeTab(store.getState().activeTabId);
+    await vi.waitFor(async () => expect(await api.autosaveList()).toEqual([]));
+    saver.stop();
+  });
+
+  it('endAll (cerrar la ventana) borra las copias de todas las pestañas', async () => {
+    const { store, api, saver } = setup();
+    edit(store, 'a1');
+    store.getState().newTab();
+    edit(store, 'b1');
+    await saver.tick();
+    expect(await api.autosaveList()).toHaveLength(2);
+    await saver.endAll();
+    expect(await api.autosaveList()).toEqual([]);
+  });
+
+  it('una petición forzada (recuperar) escribe solo la pestaña pedida', async () => {
+    const { store, saver, writes } = setup();
+    store.getState().newTab();
+    const b = store.getState().activeTabId;
+    expect(await saver.tick(true, b)).toBe('saved');
+    expect(writes).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('recuperación por pestaña', () => {
+  beforeEach(() => useRecovery.setState({ open: false, items: [], busy: null }));
+
+  it('cada copia se recupera en su propia pestaña, con cambios sin guardar y sin tocar lo que ya había abierto', async () => {
+    const s = setup();
+    const d: RecoveryDeps = { api: s.api, store: s.store, writeNow: async (tabId) => (await s.saver.tick(true, tabId)) === 'saved' };
+    s.store.getState().openInTab(docWith('abierto'), '/p/abierto.tlaku');
+    await s.api.autosaveWrite({ id: 'c1', name: 'Mesa', path: '/p/mesa.tlaku', doc: docWith('m') });
+    await s.api.autosaveWrite({ id: 'c2', name: 'Sin título', path: null, doc: docWith('n') });
+    const items = await checkRecovery(d);
+    expect(items).toHaveLength(2);
+    expect(await recoverAll(d)).toBe(2);
+    const st = s.store.getState();
+    expect(st.tabs).toHaveLength(3);
+    const byPath = Object.fromEntries(
+      st.tabs.map((e) => {
+        const data = e.data ?? { doc: st.doc, filePath: st.filePath, dirty: st.dirty };
+        return [data.filePath ?? 'nuevo', { objs: data.doc.objects.map((o) => o.id), dirty: data.dirty }];
+      }),
+    );
+    expect(byPath['/p/abierto.tlaku']).toEqual({ objs: ['abierto'], dirty: false });
+    expect(byPath['/p/mesa.tlaku']).toEqual({ objs: ['m'], dirty: true });
+    expect(byPath['nuevo']).toEqual({ objs: ['n'], dirty: true });
+    // Las copias viejas se sustituyeron por una nueva por pestaña recuperada.
+    const left = await s.api.autosaveList();
+    expect(left.map((c) => c.id)).not.toContain('c1');
+    expect(left.map((c) => c.id)).not.toContain('c2');
+    expect(left).toHaveLength(2);
+    expect(useRecovery.getState().open).toBe(false);
+  });
+
+  it('si el proyecto de la copia ya está abierto y sin cambios, la copia ocupa esa pestaña', async () => {
+    const s = setup();
+    const d: RecoveryDeps = { api: s.api, store: s.store, writeNow: async () => false };
+    s.store.getState().openInTab(docWith('viejo'), '/p/mesa.tlaku');
+    s.store.getState().newTab();
+    await s.api.autosaveWrite({ id: 'c1', name: 'mesa.tlaku', path: '/p/mesa.tlaku', doc: docWith('rec') });
+    const [info] = await checkRecovery(d);
+    expect(await recoverCopy(info!, d)).toBe(true);
+    const st = s.store.getState();
+    expect(st.tabs).toHaveLength(2);
+    expect(st.filePath).toBe('/p/mesa.tlaku');
+    expect(st.doc.objects.map((o) => o.id)).toEqual(['rec']);
+    expect(st.dirty).toBe(true);
+  });
+});
+
 describe('recuperación', () => {
   beforeEach(() => useRecovery.setState({ open: false, items: [], busy: null }));
 
@@ -186,8 +323,7 @@ describe('recuperación', () => {
     const d: RecoveryDeps = {
       api: s.api,
       store: s.store,
-      ensureSaved: async () => true,
-      writeNow: async () => (await s.saver.tick(true)) === 'saved',
+      writeNow: async (tabId) => (await s.saver.tick(true, tabId)) === 'saved',
       ...over,
     };
     return { ...s, d };
@@ -235,16 +371,6 @@ describe('recuperación', () => {
     const [info] = await checkRecovery(d);
     await recoverCopy(info!, d);
     expect((await api.autosaveList()).map((c) => c.id)).toEqual(['viejo']);
-  });
-
-  it('si el usuario cancela por los cambios sin guardar, no pasa nada', async () => {
-    const { d, api, store } = deps({ ensureSaved: async () => false });
-    await api.autosaveWrite({ id: 'x1', name: 'Mesa', path: null, doc: docWith('rec') });
-    const [info] = await checkRecovery(d);
-    expect(await recoverCopy(info!, d)).toBe(false);
-    expect(store.getState().doc.objects).toHaveLength(0);
-    expect((await api.autosaveList()).map((c) => c.id)).toEqual(['x1']);
-    expect(useRecovery.getState().busy).toBeNull();
   });
 
   it('una copia que no se puede leer avisa y sigue en la lista', async () => {

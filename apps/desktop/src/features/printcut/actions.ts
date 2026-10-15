@@ -4,7 +4,7 @@ import { workToDoc } from '@/lib/device';
 import { newLayerFor } from '@/lib/layers';
 import { GUIDE_COLOR, isGuideColor } from '@/lib/palette';
 import { fmt } from '@/lib/platform';
-import { selectActiveDevice, useStore, type AppState } from '@/store';
+import { pinTab, selectActiveDevice, useStore, type AppState } from '@/store';
 import { jogBlockedReason } from '@/store/machine';
 import { computeRegistration, nextMissing } from './flow';
 import {
@@ -104,13 +104,19 @@ export function sanitizeCount(n: number): MarkCount {
 /** Paso 3: guarda la transformación en las opciones del trabajo; la vista previa se recalcula sola. */
 export async function acceptRegistration(): Promise<boolean> {
   const ui = usePrintCut.getState();
+  const inTab = pinTab(useStore.getState());
   const result = await computeRegistration(ui.marks, ui.physical, ui.mode);
   const s = useStore.getState();
   if (!result?.ok) return false;
   const { fit } = result;
   // Print & Cut trabaja con coordenadas absolutas de la cama: no tiene sentido con otro origen del trabajo.
-  const switched = s.jobOptions.start_from !== 'absolute';
-  s.setJobOptions({ transform: fit.transform, ...(switched ? { start_from: 'absolute' as const } : {}) });
+  // Las opciones del trabajo son de la pestaña donde se pidió el registro.
+  const switched = inTab(() => {
+    const was = useStore.getState().jobOptions.start_from !== 'absolute';
+    s.setJobOptions({ transform: fit.transform, ...(was ? { start_from: 'absolute' as const } : {}) });
+    return was;
+  });
+  if (switched === undefined) return false;
   usePrintCut.setState({
     applied: {
       transform: fit.transform,

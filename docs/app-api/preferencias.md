@@ -15,7 +15,7 @@ y `features/recovery/`.
 | `import_preferences` | `path` | `PrefsBundle` (valida `format` y `version`; máximo 1 MB) |
 | `paths_exist` | `paths` | `bool[]`: si cada archivo existe (limpia «recientes») |
 | `set_engine_locale` | `locale` (`"es"` \| `"en"`) | Fija el idioma de los avisos y errores del motor (`tlaku-i18n`, global). La interfaz lo llama al arrancar y al cambiar `language` (`store/prefs.ts`); un valor desconocido es un error |
-| `autosave_write` | `id`, `name`, `path`, `doc` | `RecoveryInfo`; reemplaza la copia `id` y recorta las más viejas |
+| `autosave_write` | `id`, `name`, `path`, `doc` | `RecoveryInfo`; reemplaza la copia `id` y recorta las más viejas (tope de 40 copias). La interfaz usa **una copia por pestaña** (cada sesión de copia de cada pestaña tiene su `id`) y una copia con id `handoff-…` para «Mover a ventana nueva»; todas quedan marcadas como vivas de la ventana que escribe |
 | `autosave_list` | — | `RecoveryInfo[]` pendientes, de la más nueva a la más vieja; borra las superadas por un guardado posterior |
 | `autosave_read` | `id` | `Document` |
 | `autosave_discard` | `id` | Borra la copia (no es error que no exista) |
@@ -30,7 +30,7 @@ Código: `src-tauri/src/templates.rs` y `src-tauri/src/window.rs`; en la interfa
 | `save_template` | `name`, `doc` | `TemplateInfo`; reemplaza la plantilla del mismo nombre. El nombre es el del archivo `<nombre>.tlakutemplate` y no admite separadores de ruta ni caracteres reservados |
 | `load_template` | `name` | `Document` |
 | `delete_template` | `name` | Borra la plantilla (no es error que no exista) |
-| `new_window` | — | Etiqueta de la ventana nueva (`doc-N`). Cada ventana tiene su propio documento; comparten la máquina y las preferencias |
+| `new_window` | `handoff` (opcional) | Etiqueta de la ventana nueva (`doc-N`). Cada ventana tiene sus propias pestañas y documentos; comparten la máquina y las preferencias. `handoff` es un texto ya codificado con `encodeURIComponent` (solo `A-Za-z0-9%-_.~`, hasta 2048 caracteres; otro valor es error) que se añade como `?handoff=…` a la dirección de la ventana: así recibe la pestaña que se movió (`features/tabs/handoff.ts`: JSON `{id, path, dirty}` con el id de una copia `autosave_write`) |
 | `live_window_open` | — | Abre la ventana aparte de la vista en vivo (etiqueta `live`, una sola; si ya está abierta la trae al frente). La ventana que llama queda como dueña: a ella le llegan `live://ready` y `live://closed` |
 | `live_window_close` | — | Cierra la ventana `live` si está abierta |
 | `live_window_send` | `kind` (`route` \| `state`), `data` (texto JSON, hasta 48 MiB) | `bool`: si la ventana `live` existe. La reenvía como evento `live://route` o `live://state`; otro canal es error. Formato en `src/features/live/wire.ts` |

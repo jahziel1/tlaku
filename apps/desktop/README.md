@@ -197,6 +197,8 @@ Windows/Linux format (on macOS, `Ctrl` is `⌘`, `Alt` is `⌥` and `Shift` is `
 |  | Import Design… | `Ctrl+I` |
 |  | Export G-code… | `Ctrl+Shift+E` |
 |  | Print… | `Ctrl+P` |
+|  | New tab | `Ctrl+T` |
+|  | Close tab | `Ctrl+W` |
 |  | New window | `Ctrl+Shift+N` |
 | Edit | Undo | `Ctrl+Z` |
 |  | Redo | `Ctrl+Shift+Z` or `Ctrl+Y` |
@@ -289,7 +291,9 @@ Windows/Linux format (on macOS, `Ctrl` is `⌘`, `Alt` is `⌥` and `Shift` is `
 |  | Break apart subpaths… | `Alt+B` |
 |  | Optimize shapes… | `Alt+Shift+O` |
 |  | Cut shapes with a blade… | `Alt+Shift+C` |
-| View | Zoom In | `Ctrl+=` or `Ctrl+Shift+=` |
+| View | Next tab | `Ctrl+Tab` |
+|  | Previous tab | `Ctrl+Shift+Tab` |
+|  | Zoom In | `Ctrl+=` or `Ctrl+Shift+=` |
 |  | Zoom Out | `Ctrl+-` |
 |  | Fit to Bed | `Ctrl+0` |
 |  | Fit to Design | `Ctrl+Shift+0` |

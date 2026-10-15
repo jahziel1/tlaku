@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 import { getApi, type LaserApi, type RecoveryInfo } from '@/api';
-import { ensureSaved } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { emptyDocument } from '@/store/document';
-import { useStore, type AppState } from '@/store';
+import { findTabByPath, tabViews, useStore, type AppState } from '@/store';
 import { activeAutosaver } from './autosave';
 
 type RecoveryApi = Pick<LaserApi, 'autosaveList' | 'autosaveRead' | 'autosaveDiscard'>;
@@ -12,10 +11,8 @@ type RecoveryApi = Pick<LaserApi, 'autosaveList' | 'autosaveRead' | 'autosaveDis
 export interface RecoveryDeps {
   api: RecoveryApi;
   store: { getState: () => AppState; setState: (partial: Partial<AppState>) => void };
-  /** Pregunta por los cambios sin guardar antes de reemplazar el documento. */
-  ensureSaved: () => Promise<boolean>;
-  /** Guarda de inmediato una copia del documento recién recuperado; `false` si no se pudo. */
-  writeNow: () => Promise<boolean>;
+  /** Guarda de inmediato una copia de la pestaña recién recuperada; `false` si no se pudo. */
+  writeNow: (tabId: string) => Promise<boolean>;
 }
 
 interface RecoveryUi {
@@ -38,8 +35,7 @@ function defaultDeps(): RecoveryDeps {
   return {
     api: getApi(),
     store: useStore,
-    ensureSaved: () => ensureSaved('open'),
-    writeNow: async () => (await activeAutosaver()?.tick(true)) === 'saved',
+    writeNow: async (tabId) => (await activeAutosaver()?.tick(true, tabId)) === 'saved',
   };
 }
 
@@ -74,7 +70,6 @@ export async function recoverCopy(info: RecoveryInfo, deps: RecoveryDeps = defau
   if (useRecovery.getState().busy) return false;
   useRecovery.setState({ busy: info.id });
   try {
-    if (!(await deps.ensureSaved())) return false;
     let doc;
     try {
       doc = await deps.api.autosaveRead({ id: info.id });
@@ -82,13 +77,23 @@ export async function recoverCopy(info: RecoveryInfo, deps: RecoveryDeps = defau
       state().notify('error', t('prefs.recovery.recoverFailed', { name: info.name, error: errorMessage(e) }));
       return false;
     }
-    state().replaceDocument(doc, info.path);
-    // Lo recuperado nunca está guardado: se compara contra un documento vacío para que cuente como con cambios.
-    deps.store.setState({ savedDoc: emptyDocument(), dirty: true });
+    // Cada copia se abre en su propia pestaña (lo recuperado nunca está guardado: cuenta como con cambios). Si el
+    // proyecto de origen ya está abierto y sin cambios, la copia ocupa su pestaña en vez de duplicarla.
+    const open = info.path ? findTabByPath(state(), info.path) : null;
+    const openClean = open ? tabViews(state()).find((v) => v.id === open && !v.dirty) : undefined;
+    let tabId: string;
+    if (openClean) {
+      state().activateTab(openClean.id);
+      state().replaceDocument(doc, info.path);
+      deps.store.setState({ savedDoc: emptyDocument(), dirty: true });
+      tabId = openClean.id;
+    } else {
+      tabId = state().openInTab(doc, info.path, { unsaved: true });
+    }
     state().fitContent();
     void state().computePreview();
     state().notify('success', t('prefs.recovery.recovered', { name: info.name }));
-    if (await deps.writeNow()) await discardCopy(info.id, deps);
+    if (await deps.writeNow(tabId)) await discardCopy(info.id, deps);
     else drop(info.id);
     return true;
   } finally {
@@ -109,4 +114,11 @@ export async function discardCopy(id: string, deps: Pick<RecoveryDeps, 'api' | '
 
 export async function discardAll(deps: Pick<RecoveryDeps, 'api' | 'store'> = defaultDeps()): Promise<void> {
   for (const item of [...useRecovery.getState().items]) await discardCopy(item.id, deps);
+}
+
+/** Recupera todas las copias pendientes, cada una en su pestaña. Devuelve cuántas se recuperaron. */
+export async function recoverAll(deps: RecoveryDeps = defaultDeps()): Promise<number> {
+  let n = 0;
+  for (const item of [...useRecovery.getState().items]) if (await recoverCopy(item, deps)) n++;
+  return n;
 }

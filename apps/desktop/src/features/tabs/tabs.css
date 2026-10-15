@@ -1,0 +1,165 @@
+/* Barra de pestañas de documentos (encima del lienzo) y su menú. */
+
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  min-width: 0;
+  height: 34px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+.tabbar__list {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 190px;
+  min-width: 96px;
+  max-width: 220px;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  background: transparent;
+}
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tab[data-active] {
+  background: var(--bg-chrome);
+  color: var(--text);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.tab[data-dragging] {
+  background: var(--bg-raised);
+  box-shadow: inset 0 2px 0 var(--accent), 0 2px 8px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+}
+.tab__main {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--s-2) 0 var(--s-5);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: default;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tab__main:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.tab__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab__dirty {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.tab__job {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent-ink);
+}
+.tab__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  opacity: 0;
+}
+.tab:hover .tab__close,
+.tab[data-active] .tab__close,
+.tab__main:focus-visible .tab__close {
+  opacity: 1;
+}
+.tab__close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tabbar__new {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+.tabbar__new:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tabbar__new:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.tabpanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tabmenu {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  padding: var(--s-2);
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-pop);
+}
+.tabmenu__item {
+  display: block;
+  width: 100%;
+  padding: var(--s-3) var(--s-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+}
+.tabmenu__item:hover,
+.tabmenu__item:focus-visible {
+  background: var(--accent-subtle);
+  outline: none;
+}
+.tabmenu__item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.tabmenu__item[aria-disabled='true'] {
+  color: var(--text-faint);
+}

@@ -87,6 +87,8 @@ Pulsa `?`, `F1` o `Ctrl/Cmd+/` para abrir la lista completa, con buscador (muest
 |---|---|
 | Nuevo, abrir, guardar | `Ctrl/Cmd+N`, `Ctrl/Cmd+O`, `Ctrl/Cmd+S` |
 | Nueva ventana | `Ctrl/Cmd+Shift+N` |
+| Nueva pestaña, cerrar pestaña | `Ctrl/Cmd+T`, `Ctrl/Cmd+W` |
+| Pestaña siguiente, anterior | `Ctrl+Tab`, `Ctrl+Shift+Tab` (ver [Pestañas de documentos](03f-pestanas-de-documentos.md)) |
 | Importar diseño | `Ctrl/Cmd+I` |
 | Deshacer, rehacer | `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` (o `Ctrl/Cmd+Y`) |
 | Copiar, cortar, pegar | `Ctrl/Cmd+C`, `Ctrl/Cmd+X`, `Ctrl/Cmd+V` |

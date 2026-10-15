@@ -318,6 +318,7 @@ export const machine: { [K in keyof typeof Source]?: string } = {
   'machine.progress.elapsed': 'Elapsed',
   'machine.progress.remaining': 'Remaining',
   'machine.progress.paused': 'Paused: the laser is off. Resume or stop the job.',
+  'machine.start.subtitle': '"{doc}" will be sent to {machine}',
   'machine.start.title': 'Laser ready and area clear?',
   'machine.start.check2': 'Nothing is in the way of the head’s path.',
   'machine.start.check3': 'You are wearing the right protective eyewear for your laser.',

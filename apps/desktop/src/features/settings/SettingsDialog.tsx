@@ -74,6 +74,8 @@ function GeneralPanel() {
         ]}
       />
       <UiModeField />
+      <PrefCheck k="restoreTabs" label="prefs.restoreTabs" />
+      <p className="hint">{t('prefs.restoreTabs.hint')}</p>
       <PrefCheck k="updateCheckOnStart" label="prefs.updateCheckOnStart" />
       <p className="hint">{t('prefs.updateCheckOnStart.hint')}</p>
       {isUpdaterConfigured() ? null : <p className="hint">{t('prefs.updateCheckOnStart.unconfigured')}</p>}

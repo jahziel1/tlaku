@@ -5,7 +5,7 @@ import { addLiveConsumer, getLiveService, onLiveRoute, pokeLive } from '@/featur
 import type { LiveRoute } from '@/features/live/route';
 import { t, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
-import { selectActiveDevice, useStore, hasOutput, type Prefs } from '@/store';
+import { selectActiveDevice, selectJobPreview, useStore, hasOutput, type Prefs } from '@/store';
 import { selectFramed } from '@/store/machine';
 import type { AppState } from '@/store/types';
 import { create } from 'zustand';
@@ -182,9 +182,11 @@ export function startRemote(): () => void {
     routeTimer = undefined;
     if (stopped || !running()) return;
     const s = useStore.getState();
-    routeFor = s.preview?.moves ?? null;
+    // Con un trabajo en curso, el celular ve el recorrido de la pestaña desde la que se lanzó.
+    const preview = selectJobPreview(s);
+    routeFor = preview?.moves ?? null;
     const device = selectActiveDevice(s);
-    void api.remoteSetRoute({ route: buildRoute(s.preview, [device.bed[0], device.bed[1]]) }).catch(() => undefined);
+    void api.remoteSetRoute({ route: buildRoute(preview, [device.bed[0], device.bed[1]]) }).catch(() => undefined);
   };
 
   // ---- vista en vivo del celular (solo lectura) ----
@@ -253,7 +255,7 @@ export function startRemote(): () => void {
     if (a.enabled !== b.enabled || a.port !== b.port || a.ip !== b.ip) return apply();
     if (!running()) return;
     schedule();
-    if ((s.preview?.moves ?? null) !== routeFor && routeTimer === undefined) routeTimer = setTimeout(pushRoute, 600);
+    if ((selectJobPreview(s)?.moves ?? null) !== routeFor && routeTimer === undefined) routeTimer = setTimeout(pushRoute, 600);
   });
   // Al cambiar el estado del servidor (arrancó, o entró el primer celular) se informa de inmediato.
   const unsubscribeRemote = useRemote.subscribe((r, prev) => {

@@ -256,6 +256,48 @@ describe('pausa, cancelado y fin', () => {
   });
 });
 
+describe('con pestañas', () => {
+  it('cambiar de pestaña o editar otra no descarta el trabajo terminado; editar la pestaña de origen sí', () => {
+    const { route, preview } = setup();
+    const origin = s().activeTabId;
+    s().setPref('liveView', true);
+    s().noteJobOrigin({ tabId: origin, name: 'a', path: null, preview });
+    startJob();
+    report(route, 2);
+    s().onJob({ state: 'finished', message: '', position_lost: false });
+    expect(svc.active).toBe(true);
+    s().newTab(); // otra pestaña: cambia el documento visible, pero no se editó nada
+    expect(svc.active).toBe(true);
+    store.setState({ doc: { ...s().doc, layers: [] } }); // editar la otra pestaña
+    s().applyImport({ objects: [], new_layers: [], warnings: [] });
+    expect(svc.active).toBe(true);
+    s().activateTab(origin);
+    expect(svc.active).toBe(true);
+    store.setState({ doc: { ...s().doc, objects: [] } }); // ahora sí: editar el diseño del trabajo
+    expect(svc.active).toBe(false);
+  });
+
+  it('la ruta sale de la vista previa con la que se lanzó, aunque al llegar `started` haya otra pestaña activa', () => {
+    const { preview } = setup();
+    s().setPref('liveView', true);
+    const origin = s().activeTabId;
+    s().noteJobOrigin({ tabId: origin, name: 'a', path: null, preview });
+    s().newTab(); // el usuario cambia de pestaña antes de que la máquina avise que arrancó
+    expect(s().previewStatus).toBe('idle');
+    startJob();
+    expect(svc.route).not.toBeNull();
+    expect(svc.route!.total).toBeCloseTo(buildLiveRoute(preview)!.total, 6);
+  });
+
+  it('sin pestaña de origen conocida (celular, reanudación) vale la vista previa de la activa, como antes', () => {
+    const { preview } = setup();
+    s().setPref('liveView', true);
+    expect(s().jobOrigin).toBeNull();
+    startJob();
+    expect(svc.route!.total).toBeCloseTo(buildLiveRoute(preview)!.total, 6);
+  });
+});
+
 describe('vista encendida después de terminar', () => {
   it('muestra el trabajo terminado al 100 % con el cabezal al final', () => {
     const { route } = setup();

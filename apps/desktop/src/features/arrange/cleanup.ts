@@ -6,7 +6,7 @@ import { errorMessage } from '@/lib/errors';
 import { objectPolylines, polylineLength } from '@/lib/geometry';
 import { expandGroups } from '@/lib/groups';
 import { fmt } from '@/lib/platform';
-import type { AppState } from '@/store';
+import { pinTab, type AppState } from '@/store';
 import { uniqueId } from '@/store/document';
 import { kindInfo } from './geomOps';
 import { useArrangeUi, type CleanupOp } from './uiStore';
@@ -114,6 +114,7 @@ export async function runCleanup(s: AppState, op: CleanupOp, tolerance: number):
     return false;
   }
   const operands = cleanupOperands(s);
+  const inTab = pinTab(s);
   const ui = useArrangeUi.getState();
   ui.setBusy(true);
   let results: DesignObject[];
@@ -137,12 +138,16 @@ export async function runCleanup(s: AppState, op: CleanupOp, tolerance: number):
 
   const created: string[] = [];
   const removeIds = new Set(consumed.map((o) => o.id));
-  s.applyDocChange(HISTORY[op], (doc) => {
-    created.length = 0;
-    return replaceCleaned(doc, removeIds, fresh, op, created);
+  const applied = inTab(() => {
+    s.applyDocChange(HISTORY[op], (doc) => {
+      created.length = 0;
+      return replaceCleaned(doc, removeIds, fresh, op, created);
+    });
+    const kept = results.filter((r) => sent.has(r.id)).map((r) => r.id);
+    s.select([...kept, ...created]);
+    return true;
   });
-  const kept = results.filter((r) => sent.has(r.id)).map((r) => r.id);
-  s.select([...kept, ...created]);
+  if (!applied) return false; // la pestaña se cerró mientras tanto
   s.notify('success', cleanupSummary(op, consumed, fresh));
   return true;
 }

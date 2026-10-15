@@ -87,6 +87,8 @@ Press `?`, `F1` or `Ctrl/Cmd+/` to open the full list, with a search box (it sho
 |---|---|
 | New, open, save | `Ctrl/Cmd+N`, `Ctrl/Cmd+O`, `Ctrl/Cmd+S` |
 | New window | `Ctrl/Cmd+Shift+N` |
+| New tab, close tab | `Ctrl/Cmd+T`, `Ctrl/Cmd+W` |
+| Next, previous tab | `Ctrl+Tab`, `Ctrl+Shift+Tab` (see [Document tabs](03f-pestanas-de-documentos.md)) |
 | Import design | `Ctrl/Cmd+I` |
 | Undo, redo | `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` (or `Ctrl/Cmd+Y`) |
 | Copy, cut, paste | `Ctrl/Cmd+C`, `Ctrl/Cmd+X`, `Ctrl/Cmd+V` |

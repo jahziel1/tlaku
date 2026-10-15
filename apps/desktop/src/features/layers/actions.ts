@@ -1,5 +1,5 @@
 import type { Document, LayerMode, LayerSettings } from '@/api/types';
-import type { AppState } from '@/store';
+import { pinTab, type AppState } from '@/store';
 import { askChoice } from '@/features/history/prompt';
 import { t } from '@/i18n';
 import { applyTemplate, assignObjectsToLayer, ensureLayerIn, layerTemplate, MAX_SUB_LAYERS, newSubLayer, normalizeLayer } from '@/lib/layers';
@@ -118,6 +118,7 @@ export async function deleteLayerWithObjects(get: () => AppState, color: string)
     return false;
   }
   const n = get().doc.objects.filter((o) => sameColor(o.layer, color)).length;
+  const inTab = pinTab(get());
   const answer = await askChoice({
     title: t('layers.delete.title'),
     message: n > 0 ? t('layers.delete.ask', { name, n }) : t('layers.delete.askEmpty', { name }),
@@ -128,12 +129,17 @@ export async function deleteLayerWithObjects(get: () => AppState, color: string)
     cancelId: 'cancel',
   });
   if (answer !== 'delete') return false;
-  const st = get();
-  if (!st.doc.layers.some((l) => l.color === color) || lockedInLayer(st.doc, color) > 0) return false;
-  st.applyDocChange('layers.history.delete', (doc) => removeLayerFrom(doc, color));
-  const after = get();
-  if (after.activeLayer && sameColor(after.activeLayer, color)) after.setActiveLayer(null);
-  after.notify('success', t('layers.notice.deleted', { name }));
+  // Se borra en la pestaña donde se pidió (la pregunta es modal, pero un atajo podría haber cambiado de pestaña).
+  const done = inTab(() => {
+    const st = get();
+    if (!st.doc.layers.some((l) => l.color === color) || lockedInLayer(st.doc, color) > 0) return false;
+    st.applyDocChange('layers.history.delete', (doc) => removeLayerFrom(doc, color));
+    const after = get();
+    if (after.activeLayer && sameColor(after.activeLayer, color)) after.setActiveLayer(null);
+    return true;
+  });
+  if (!done) return false;
+  get().notify('success', t('layers.notice.deleted', { name }));
   return true;
 }
 

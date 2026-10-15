@@ -8,7 +8,9 @@
 //!
 //! Siempre se escribe el documento primero y el meta después, y los dos de forma atómica: una copia
 //! sin meta no existe para la lista (y se limpia sola), así un corte a media escritura nunca deja una
-//! copia a medias. El número y el tamaño están acotados (`Limits`).
+//! copia a medias. El número y el tamaño están acotados (`Limits`). Con pestañas (`features/tabs`) cada
+//! pestaña con cambios tiene su propia copia, y puede haber varias ventanas: el tope de 40 deja sitio de
+//! sobra a 8 pestañas sucias en 4 ventanas más las copias de pestañas que se mueven entre ventanas.
 //!
 //! **Copias vivas.** Con varias ventanas (`new_window`) todas leen la misma carpeta. Cada copia se
 //! marca como viva de la ventana que la escribe (`LiveCopies`, en memoria: no sobrevive a un cierre
@@ -46,7 +48,7 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
-            max_copies: 10,
+            max_copies: 40,
             max_copy_bytes: 128 * 1024 * 1024,
             max_total_bytes: 512 * 1024 * 1024,
         }
@@ -493,6 +495,36 @@ mod tests {
         // La última escrita siempre se conserva; las viejas se van primero.
         assert!(ids.contains(&"c5".to_string()), "{ids:?}");
         assert!(!ids.contains(&"c0".to_string()), "{ids:?}");
+    }
+
+    #[test]
+    fn los_limites_de_fabrica_dan_sitio_a_una_copia_por_pestana() {
+        // 4 ventanas con 8 pestañas sucias cada una: ninguna copia se poda.
+        let tmp = TempDir::new();
+        let dir = tmp.recovery();
+        for i in 0..32 {
+            let id = format!("tab-{i}");
+            write_copy(&dir, &id, "Sin título", None, &json(), Limits::default()).unwrap();
+        }
+        assert_eq!(list_pending(&dir).len(), 32);
+        assert!(Limits::default().max_copies >= 32);
+    }
+
+    #[test]
+    fn varias_copias_de_una_misma_ventana_se_marcan_vivas_por_id() {
+        // Una ventana con tres pestañas escribe tres copias; otra ventana no las ofrece, y al cerrar la
+        // primera pasan a huérfanas todas juntas. Descartar una (cerrar su pestaña) no toca las demás.
+        let mut live = LiveCopies::default();
+        assert!(live.mark("main", "tab-a"));
+        assert!(!live.mark("main", "tab-b"));
+        assert!(!live.mark("main", "tab-c"));
+        let others = live.held_by_others("doc-1");
+        assert_eq!(others.len(), 3);
+        assert!(live.held_by_others("main").is_empty());
+        live.release_id("tab-b");
+        assert_eq!(live.held_by_others("doc-1").len(), 2);
+        live.release_window("main");
+        assert!(live.held_by_others("doc-1").is_empty());
     }
 
     #[test]

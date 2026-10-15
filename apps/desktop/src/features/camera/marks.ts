@@ -5,7 +5,6 @@
  */
 import { getApi } from '@/api';
 import type { CameraAlignment, MarksReport } from '@/api/types';
-import { ensureSaved } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore } from '@/store';
@@ -24,7 +23,7 @@ export function activeBed(): [number, number] {
 }
 
 /**
- * Abre las marcas como documento nuevo (pregunta antes si hay cambios sin guardar). El usuario las
+ * Abre las marcas como documento nuevo (en una pestaña nueva). El usuario las
  * graba con los controles normales de trabajo. Devuelve si se abrió.
  */
 export async function openMarksAsNewDocument(count: MarkCount): Promise<boolean> {
@@ -36,9 +35,8 @@ export async function openMarksAsNewDocument(count: MarkCount): Promise<boolean>
     app().notify('error', t('camera.marks.err.generate', { error: errorMessage(e) }));
     return false;
   }
-  if (!(await ensureSaved('new'))) return false;
   const s = app();
-  s.replaceDocument({ ...doc, device_id: s.doc.device_id }, null);
+  s.openInTab({ ...doc, device_id: s.doc.device_id }, null);
   s.fitContent();
   void s.computePreview();
   s.notify('success', t('camera.marks.opened', { n: count, w: bed[0], h: bed[1] }));

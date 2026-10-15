@@ -719,8 +719,12 @@ export interface LaserApi {
   saveTemplate(args: { name: string; doc: Document }): Promise<TemplateInfo>;
   loadTemplate(args: { name: string }): Promise<Document>;
   deleteTemplate(args: { name: string }): Promise<void>;
-  /** Abre otra ventana de la app con un documento independiente (comparte la máquina y las preferencias). Devuelve su etiqueta. */
-  newWindow(): Promise<string>;
+  /**
+   * Abre otra ventana de la app con un documento independiente (comparte la máquina y las preferencias). Devuelve su etiqueta.
+   * `handoff` (opcional): texto seguro para una dirección (`encodeURIComponent`) que se añade como `?handoff=...` a la
+   * ventana nueva; así recibe la pestaña que se movió (ver `features/tabs/handoff.ts`).
+   */
+  newWindow(args?: { handoff?: string }): Promise<string>;
   /**
    * Abre la ventana aparte de la vista en vivo (`live`, de solo lectura; una sola a la vez) o la trae al
    * frente. La ventana que llama pasa a ser la dueña: a ella le llegan `live://ready` y `live://closed`.

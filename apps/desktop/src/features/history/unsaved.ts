@@ -4,7 +4,7 @@
  * `guardUnsaved` la maneja con las operaciones reales inyectadas, así se prueba sin interfaz.
  */
 
-export type GuardIntent = 'new' | 'open' | 'close';
+export type GuardIntent = 'new' | 'open' | 'close' | 'tab';
 export type GuardChoice = 'save' | 'discard' | 'cancel';
 
 export type GuardState =

@@ -2,6 +2,14 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Pestañas de documentos, en la próxima versión
+
+- **Varios proyectos en la misma ventana**, cada uno en su pestaña, con su propio historial de Deshacer, selección, zoom, vista previa y estado de guardado (algo que LightBurn no tiene). Barra de pestañas encima del lienzo con punto de cambios sin guardar, cerrar, **+**, reordenar arrastrando y menú contextual (cerrar, cerrar las demás, duplicar, mover, **mover a una ventana nueva**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` y `Ctrl+Tab`.
+- **Abrir** un proyecto lo abre en una pestaña nueva (o reemplaza la vacía; si ya estaba abierto, activa su pestaña). El portapapeles se comparte entre pestañas.
+- **Cerrar con cambios** pregunta por la pestaña; al cerrar la ventana con varias sin guardar sale **la lista** con **Guardar todas** / **Descartar todas**.
+- **Una copia de recuperación por pestaña**, y **Recuperar todas** tras un cierre inesperado; al iniciar se **reabren las pestañas** con archivo (se puede apagar en Preferencias).
+- La **máquina es una sola**: el trabajo en curso usa su copia, la pestaña de origen lleva una impresora y la vista en vivo sigue mostrándolo aunque cambies de pestaña. Mira [Pestañas de documentos](03f-pestanas-de-documentos.md).
+
 ## Ola 6: revisar el diseño, edición en el lienzo, importar y máquinas, en la próxima versión
 
 Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, el emulador, la tarjeta galvo simulada y pruebas automáticas.

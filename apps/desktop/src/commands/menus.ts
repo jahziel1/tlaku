@@ -16,7 +16,7 @@ export const MENUS: MenuDef[] = [
     id: 'file',
     label: 'menu.file',
     items: [
-      'file.new', 'file.open', '-', 'file.save', 'file.saveAs', '-', 'file.import', 'fileio.importOptions', '-',
+      'file.new', 'file.open', '-', 'tabs.new', 'tabs.close', 'tabs.closeOthers', 'tabs.duplicate', 'tabs.moveToWindow', '-', 'file.save', 'file.saveAs', 'tabs.saveAll', '-', 'file.import', 'fileio.importOptions', '-',
       'bundle.export', 'bundle.import', '-',
       'file.exportGcode', 'fileio.exportSvg', 'fileio.exportDxf', 'fileio.exportPng', 'fileio.exportPdf', 'fileio.exportAi', '-', 'fileio.print',
     ],
@@ -42,6 +42,7 @@ export const MENUS: MenuDef[] = [
     id: 'view',
     label: 'menu.view',
     items: [
+      'tabs.next', 'tabs.prev', '-',
       'view.zoomIn', 'view.zoomOut', 'view.fitBed', 'view.fitContent', '-',
       'view.wireframe', 'view.preview', 'view.priorityBadges', '-',
       'view.snap', 'view.snapGrid', 'view.snapObjects', '-',

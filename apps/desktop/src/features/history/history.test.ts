@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setApi } from '@/api';
 import { createMockApi } from '@/api/mock';
 import type { Document } from '@/api/types';
+import { resetTabs } from '@/test/tabs';
 import { useStore } from '@/store';
 import type { HistoryEntry } from '@/store/document';
 import { importPaths, openProject, openRecent, saveProject } from './files';
@@ -227,7 +228,7 @@ describe('título de la ventana y permisos', () => {
 describe('importar, abrir y guardar con la API simulada', () => {
   beforeEach(() => {
     setApi(createMockApi({ latencyMs: 0 }));
-    s().newDocument();
+    resetTabs();
     for (const n of s().notices) s().dismissNotice(n.id);
     useRecents.setState({ paths: [] });
   });
@@ -267,25 +268,40 @@ describe('importar, abrir y guardar con la API simulada', () => {
     expect(useRecents.getState().paths[0]).toBe(s().filePath);
   });
 
-  it('abrir con cambios y cancelar la pregunta no toca el documento', async () => {
+  it('abrir un proyecto con cambios sin guardar lo abre en otra pestaña y no toca el documento', async () => {
     await importPaths(['a.png']);
     const before = s().doc;
-    const pending = openProject('ejemplos/placa.tlaku');
-    await vi.waitFor(() => expect(usePrompts.getState().current).not.toBeNull());
-    usePrompts.getState().answer('cancel');
-    expect(await pending).toBe(false);
-    expect(s().doc).toBe(before);
-  });
-
-  it('abrir descartando los cambios reemplaza el documento y limpia el historial', async () => {
-    await importPaths(['a.png']);
-    const pending = openProject('ejemplos/placa.tlaku');
-    await vi.waitFor(() => expect(usePrompts.getState().current).not.toBeNull());
-    usePrompts.getState().answer('discard');
-    expect(await pending).toBe(true);
+    const first = s().activeTabId;
+    expect(await openProject('ejemplos/placa.tlaku')).toBe(true);
+    // No se pregunta nada: el documento con cambios sigue intacto en su pestaña.
+    expect(usePrompts.getState().current).toBeNull();
+    expect(s().tabs).toHaveLength(2);
+    expect(s().activeTabId).not.toBe(first);
+    expect(s().filePath).toBe('ejemplos/placa.tlaku');
     expect(s().dirty).toBe(false);
     expect(s().past).toHaveLength(0);
+    s().activateTab(first);
+    expect(s().doc).toBe(before);
+    expect(s().dirty).toBe(true);
+  });
+
+  it('abrir en una pestaña vacía y sin cambios la reemplaza', async () => {
+    const first = s().activeTabId;
+    expect(await openProject('ejemplos/placa.tlaku')).toBe(true);
+    expect(s().tabs).toHaveLength(1);
+    expect(s().activeTabId).toBe(first);
     expect(s().filePath).toBe('ejemplos/placa.tlaku');
+  });
+
+  it('abrir un archivo que ya está abierto activa su pestaña', async () => {
+    await openProject('ejemplos/placa.tlaku');
+    const placa = s().activeTabId;
+    s().newTab();
+    expect(s().activeTabId).not.toBe(placa);
+    expect(await openProject('ejemplos/placa.tlaku')).toBe(true);
+    expect(s().tabs).toHaveLength(2);
+    expect(s().activeTabId).toBe(placa);
+    expect(s().notices.at(-1)).toMatchObject({ level: 'info' });
   });
 
   it('un reciente que ya no se puede abrir se quita de la lista y se avisa', async () => {

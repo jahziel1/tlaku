@@ -154,7 +154,7 @@ export function createTauriApi(): LaserApi {
     saveTemplate: (a) => call('saveTemplate', a),
     loadTemplate: (a) => call('loadTemplate', a),
     deleteTemplate: (a) => call('deleteTemplate', a),
-    newWindow: () => call('newWindow'),
+    newWindow: (a) => call('newWindow', a),
     liveWindowOpen: () => call('liveWindowOpen'),
     liveWindowClose: () => call('liveWindowClose'),
     liveWindowSend: (a) => call('liveWindowSend', a),

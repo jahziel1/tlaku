@@ -19,6 +19,7 @@ import { fmt, readPref, writePref } from '@/lib/platform';
 import { noteJobStart } from '@/features/live/capture';
 import { buildJobArgs, isJobBusy, selectActiveDevice } from '../selectors';
 import type { AppState, SliceCreator } from '../types';
+import { activeTabLabel, type JobOrigin } from '../tabs';
 import { INITIAL_MACHINE_DATA, jobElapsedSeconds, reduceMachine, type MachineData, type MachineDialog, type MachineEvent } from './reducer';
 import { createResumeActions, type ResumeSlice } from './resume';
 import { selectIsVirtual, jogBlockedReason, positionLaserBlockedReason, overrideBlockedReason, frameMarkOf, sendBlockedReason, type FrameMark } from './selectors';
@@ -225,11 +226,14 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
   const jobLogContext = (): JobLogContext => {
     const s = get();
     const now = Date.now();
+    // El trabajo usa lo de la pestaña desde la que se lanzó, aunque ahora haya otra activa.
+    const o = s.jobOrigin;
+    const path = o ? o.path : s.filePath;
     return {
       now,
       machine: selectActiveDevice(s).name,
-      document: s.filePath ? (s.filePath.split(/[\\/]/).pop() ?? s.filePath) : null,
-      estimatedS: s.previewStatus === 'ready' && s.preview && !s.previewStale ? s.preview.total_s : null,
+      document: path ? (path.split(/[\\/]/).pop() ?? path) : null,
+      estimatedS: o ? (o.preview?.total_s ?? null) : s.previewStatus === 'ready' && s.preview && !s.previewStale ? s.preview.total_s : null,
       elapsedS: jobElapsedSeconds(s, now),
     };
   };
@@ -543,10 +547,25 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     // `document` (la ruta del proyecto) la anota el motor en el punto de control del trabajo.
     startJob: (tweak) =>
       guardJob(async () => {
-        const args = await resolveJobArgs(tweak ? tweak(buildJobArgs(get())) : buildJobArgs(get()));
+        // Todo se toma de la pestaña activa AHORA: si el usuario cambia de pestaña mientras se resuelven las
+        // variables, el trabajo sigue siendo el de la pestaña desde la que se pidió.
+        const s0 = get();
+        const origin: JobOrigin = {
+          tabId: s0.activeTabId,
+          name: activeTabLabel(s0),
+          path: s0.filePath,
+          preview: s0.previewStatus === 'ready' && !s0.previewStale ? s0.preview : null,
+        };
+        const args = await resolveJobArgs(tweak ? tweak(buildJobArgs(s0)) : buildJobArgs(s0));
         // La vista en vivo (solo lectura) toma estos argumentos al llegar el evento `started`.
         noteJobStart(args, tweak !== undefined);
-        await getApi().startJob({ ...args, document: get().filePath ?? null });
+        get().noteJobOrigin(origin);
+        try {
+          await getApi().startJob({ ...args, document: origin.path });
+        } catch (e) {
+          get().noteJobOrigin(null);
+          throw e;
+        }
       }),
     pauseJob: async () => {
       await guard(() => getApi().pauseJob());
@@ -611,6 +630,8 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
         noteJobAlarm(report.state, jobLogContext());
         noteInterruption();
       }
+      // (solo al pasar de en curso a terminado: entre pedir el inicio y el evento `started` llegan reportes con el trabajo aún en reposo)
+      if (was && !isJobBusy(get()) && get().jobOrigin) get().noteJobOrigin(null);
     },
     onProgress: (progress) => apply({ type: 'progress', progress }),
     onLog: (log) => {
@@ -620,6 +641,7 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     onJob: (raw) => {
       const wasBusy = isJobBusy(get());
+      const origin = get().jobOrigin;
       apply({ type: 'job', job: raw });
       // El mensaje del motor puede traer un código estable al inicio: lo que se muestra y se anota va limpio.
       const job = { ...raw, message: errorMessage(raw.message) };
@@ -628,13 +650,16 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
       if (job.state === 'finished') {
         get().notify('success', job.message);
         // Texto variable: la serie y la fila del CSV pasan al siguiente trabajo (solo si terminó bien).
-        advanceAfterJob({ getState: get });
+        // (en la pestaña desde la que se lanzó; si ya se cerró, no hay nada que avanzar)
+        if (origin) get().runInTab(origin.tabId, () => advanceAfterJob({ getState: get }));
+        else advanceAfterJob({ getState: get });
         // Solo si el trabajo terminó bien: tras una cancelación o un error la cabeza no se mueve sola.
         if (get().finish.mode !== 'stay') void waitIdleThen(get, () => get().goToFinishPosition());
       }
       if (job.state === 'error') get().notify('error', job.message);
       // Error, o cancelado por desconectar con el trabajo en marcha: puede quedar punto de control.
       if (job.state === 'error' || job.state === 'cancelled') noteInterruption();
+      if (!isJobBusy(get()) && get().jobOrigin) get().noteJobOrigin(null);
     },
     onConnection: (connection) => {
       const pending = get().positionLost && !get().connection.connected;

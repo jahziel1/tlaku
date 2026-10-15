@@ -15,6 +15,9 @@
 //! y llamar a `live_window_hello` / `live_window_close`, y que CUALQUIER otro comando de la app
 //! (máquina, trabajo, archivos, preferencias) lo rechace el control de acceso de Tauri.
 //!
+//! Para las pestañas de documentos comprueba además que `new_window` pasa el parámetro `handoff` a la dirección de
+//! la ventana nueva (y rechaza uno raro) y que en macOS el menú de la app no trae «Cerrar ventana» (Cmd+W es de la pestaña).
+//!
 //! Se lanza con `apps/desktop/scripts/smoke-tauri.sh` (aísla `HOME` para no tocar los datos
 //! reales) y necesita un servidor de ventanas: el de macOS, o `xvfb-run` en Linux.
 
@@ -174,7 +177,43 @@ fn run_calls(handle: &tauri::AppHandle) -> Vec<String> {
     failures.extend(second_window(handle, first));
     failures.extend(live_window(handle, first));
     failures.extend(storage_between_windows(handle));
+    failures.extend(menu_without_close_window(handle));
     failures
+}
+
+/// Pestañas: en macOS el menú de la app no debe traer «Cerrar ventana» (su Cmd+W es de la pestaña).
+/// En el resto de sistemas no hay nada que comprobar.
+fn menu_without_close_window(handle: &tauri::AppHandle) -> Vec<String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::menu::MenuItemKind;
+        let Some(menu) = handle.menu() else {
+            return vec!["la app no tiene menú".to_string()];
+        };
+        let mut fails = Vec::new();
+        let items = menu.items().unwrap_or_default();
+        if items.is_empty() {
+            fails.push("el menú de la app está vacío".to_string());
+        }
+        for kind in items {
+            let MenuItemKind::Submenu(sub) = kind else {
+                continue;
+            };
+            for item in sub.items().unwrap_or_default() {
+                if let MenuItemKind::Predefined(p) = &item
+                    && p.text().unwrap_or_default() == "Close Window"
+                {
+                    fails.push("el menú aún trae «Close Window» (Cmd+W cerraría la ventana, no la pestaña)".to_string());
+                }
+            }
+        }
+        fails
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = handle;
+        Vec::new()
+    }
 }
 
 /// Manda un `invoke` por la ventana `webview`, como lo haría su interfaz. `None` si no responde.
@@ -304,6 +343,32 @@ fn second_window(handle: &tauri::AppHandle, first: &tauri::Webview) -> Vec<Strin
         }
         Err(e) => fails.push(format!("segunda llamada a new_window: {e}")),
     }
+    // «Mover a ventana nueva» (pestañas): `handoff` llega a la dirección de la ventana, y uno raro se rechaza.
+    let handoff = "%7B%22id%22%3A%22handoff-smoke%22%7D";
+    match invoke_json(handle, first, "new_window", json!({ "handoff": handoff })) {
+        Ok(v) => {
+            let l3 = v.as_str().unwrap_or_default().to_string();
+            match handle.get_webview_window(&l3).map(|w| (w.url(), w)) {
+                Some((Ok(url), w)) => {
+                    check(
+                        &mut fails,
+                        url.query() == Some(&format!("handoff={handoff}")),
+                        "la ventana movida no recibió el parámetro handoff en su dirección",
+                    );
+                    let _ = w.destroy();
+                }
+                _ => {
+                    fails.push("la ventana con handoff no existe o no tiene dirección".to_string())
+                }
+            }
+        }
+        Err(e) => fails.push(format!("new_window con handoff: {e}")),
+    }
+    check(
+        &mut fails,
+        invoke_json(handle, first, "new_window", json!({ "handoff": "a&b=1" })).is_err(),
+        "new_window aceptó un handoff con caracteres que no son de una dirección",
+    );
     let _ = second.hide(); // la prueba no necesita verla
     let second_view: &tauri::Webview = second.as_ref();
 

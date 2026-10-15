@@ -30,6 +30,12 @@ export function startPreviewSync(store: SyncStore, delays: { visibleMs: number; 
   };
 
   const unsub = store.subscribe((s, prev) => {
+    // Cambiar de pestaña cambia el documento, pero no es una edición: la pestaña trae su propio resultado
+    // (y su marca de vencido). Solo se recalcula si lo que trae no está al día.
+    if (s.activeTabId !== prev.activeTabId) {
+      if (s.previewStale || s.previewStatus === 'idle') schedule(s.previewVisible ? delays.visibleMs : delays.hiddenMs);
+      return;
+    }
     // "Solo la selección" hace que el trabajo dependa de lo que esté seleccionado.
     const selectionChanged = s.cutSelectionOnly !== prev.cutSelectionOnly || (s.cutSelectionOnly && s.selectedIds !== prev.selectedIds);
     const changed =

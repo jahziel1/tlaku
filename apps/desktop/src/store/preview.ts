@@ -37,6 +37,8 @@ export interface PreviewSlice {
   computePreview: () => Promise<void>;
   /** Descarta el cálculo en vuelo (su respuesta ya no vale) y marca la vista previa como vencida. */
   invalidatePreview: () => void;
+  /** Descarta el cálculo en vuelo sin marcar nada como vencido (cambio de pestaña: el estado de la otra pestaña ya viene con su marca). */
+  abandonPreview: () => void;
   setPreviewVisible: (v: boolean) => void;
   togglePreview: () => void;
   setScrub: (v: number) => void;
@@ -119,6 +121,10 @@ export const createPreviewSlice: SliceCreator<PreviewSlice> = (set, get) => {
         if (mine !== seq) return;
         set({ previewStatus: 'error', previewError: errorMessage(e), previewErrorCode: errorCode(e), preview: null, playing: false });
       }
+    },
+
+    abandonPreview: () => {
+      seq++;
     },
 
     invalidatePreview: () => {

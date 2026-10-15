@@ -37,6 +37,7 @@ import { review } from './es/review';
 import { tiling } from './es/tiling';
 import { simple } from './es/simple';
 import { a11y } from './es/a11y';
+import { tabs } from './es/tabs';
 
 export const base = {
   // ---- comandos -----------------------------------------------------------
@@ -309,4 +310,5 @@ export const es = {
   ...art,
   ...simple,
   ...a11y,
+  ...tabs,
 };

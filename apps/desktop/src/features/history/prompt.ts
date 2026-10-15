@@ -10,6 +10,8 @@ export interface PromptRequest {
   id: number;
   title: string;
   message: string;
+  /** Lista que se muestra bajo el mensaje (por ejemplo los documentos con cambios sin guardar). */
+  items?: string[];
   choices: PromptChoice[];
   /** Opción que se toma con Esc o al cerrar el diálogo. */
   cancelId: string;

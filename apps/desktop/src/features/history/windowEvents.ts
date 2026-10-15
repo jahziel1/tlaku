@@ -3,16 +3,16 @@ import { create } from 'zustand';
 import { getApiKind } from '@/api';
 import { t } from '@/i18n';
 import { discardOnClose } from '@/features/recovery/autosave';
-import { useStore } from '@/store';
-import { importPaths, unsavedIo } from './files';
+import { dirtyTabs, confirmCloseWindow } from '@/features/tabs/actions';
+import { activeTabLabel, useStore } from '@/store';
+import { importPaths } from './files';
 import { baseName } from './paths';
-import { guardUnsaved } from './unsaved';
 
 // ---- título de la ventana ----------------------------------------------------
 
 /** Título de la ventana: marca de cambios sin guardar, nombre del proyecto y de la app. */
-export function documentTitle(path: string | null, dirty: boolean): string {
-  const name = path ? baseName(path) : t('doc.untitled');
+export function documentTitle(path: string | null, dirty: boolean, untitled: string = t('doc.untitled')): string {
+  const name = path ? baseName(path) : untitled;
   return `${dirty ? '● ' : ''}${name} — Tlaku`;
 }
 
@@ -53,15 +53,17 @@ export function canSetNativeTitle(perms: Set<string> = declaredPermissions()): b
 export function useWindowTitle(): void {
   const path = useStore((s) => s.filePath);
   const dirty = useStore((s) => s.dirty);
+  // «Sin título 2» si hay varias pestañas: el título de la ventana es el de la pestaña activa.
+  const untitled = useStore((s) => (s.tabs.length > 1 ? activeTabLabel(s) : t('doc.untitled')));
   useEffect(() => {
-    const title = documentTitle(path, dirty);
+    const title = documentTitle(path, dirty, untitled);
     document.title = title;
     if (getApiKind() === 'tauri' && canSetNativeTitle()) {
       void import('@tauri-apps/api/window')
         .then(({ getCurrentWindow }) => getCurrentWindow().setTitle(title))
         .catch((e) => console.warn('No se pudo poner el título de la ventana', e));
     }
-  }, [path, dirty]);
+  }, [path, dirty, untitled]);
 }
 
 // ---- cerrar la ventana con cambios --------------------------------------------------------
@@ -78,10 +80,11 @@ export function useCloseGuard(): void {
     void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
       const win = getCurrentWindow();
       const unlisten = await win.onCloseRequested(async (event) => {
-        if (!useStore.getState().dirty) return; // se cierra sin preguntar
+        if (dirtyTabs().length === 0) return; // se cierra sin preguntar
         event.preventDefault();
-        if (await guardUnsaved('close', unsavedIo)) {
-          // Cerrar limpiamente (guardando o descartando) borra la copia de recuperación.
+        // Una pestaña con cambios: la pregunta de siempre. Varias: una lista con «Guardar todas» / «Descartar todas».
+        if (await confirmCloseWindow()) {
+          // Cerrar limpiamente (guardando o descartando) borra las copias de recuperación de todas las pestañas.
           await discardOnClose();
           await win.destroy();
         }

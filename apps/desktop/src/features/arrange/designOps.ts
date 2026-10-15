@@ -6,7 +6,7 @@ import { errorMessage } from '@/lib/errors';
 import { multiplyAffine, objectCurves } from '@/lib/geometry';
 import { groupIdsOf, regroupCopies } from '@/lib/groups';
 import { virtualArrayIssue, virtualCopies } from '@/lib/virtualArray';
-import { selectSelectedObjects, type AppState } from '@/store';
+import { pinTab, selectSelectedObjects, type AppState } from '@/store';
 import { uniqueId } from '@/store/document';
 import { analyzeSelection, operandOf } from './geomOps';
 import { useDesignUi } from './designUi';
@@ -63,6 +63,7 @@ export function replaceObjects(doc: Document, results: readonly DesignObject[]):
  */
 export async function runWarpEnvelope(s: AppState, envelope: WarpEnvelope): Promise<boolean> {
   const units = selectionUnits(s.doc, s.selectedIds);
+  const inTab = pinTab(s);
   const ui = useDesignUi.getState();
   ui.setBusy(true);
   let results: DesignObject[];
@@ -74,8 +75,10 @@ export async function runWarpEnvelope(s: AppState, envelope: WarpEnvelope): Prom
   } finally {
     useDesignUi.getState().setBusy(false);
   }
-  s.applyDocChange('design.history.warp', (doc) => replaceObjects(doc, results));
-  return true;
+  return inTab(() => {
+    s.applyDocChange('design.history.warp', (doc) => replaceObjects(doc, results));
+    return true;
+  }) === true;
 }
 
 export async function runWarp(s: AppState, params: WarpParams): Promise<boolean> {
@@ -94,6 +97,7 @@ export async function requestHull(units: readonly Unit[], maxEdge: number | null
 /** Agrega el contorno (y quita los originales si no se conservan). Devuelve el id nuevo o `null`. */
 export async function runHull(s: AppState, concave: boolean, maxEdge: number, keepOriginal: boolean): Promise<string | null> {
   const units = selectionUnits(s.doc, s.selectedIds);
+  const inTab = pinTab(s);
   const ui = useDesignUi.getState();
   ui.setBusy(true);
   let results: DesignObject[];
@@ -107,17 +111,19 @@ export async function runHull(s: AppState, concave: boolean, maxEdge: number, ke
   }
   const removed = keepOriginal ? new Set<string>() : new Set(units.flatMap((u) => u.ids));
   let id: string | null = null;
-  s.applyDocChange('design.history.hull', (doc) => {
-    const taken = new Set(doc.objects.map((o) => o.id));
-    const fresh = results.map((r) => {
-      const unique = uniqueId('contorno', taken);
-      taken.add(unique);
-      id = unique;
-      return { ...r, id: unique, group: null, locked: false, hidden: false };
+  inTab(() => {
+    s.applyDocChange('design.history.hull', (doc) => {
+      const taken = new Set(doc.objects.map((o) => o.id));
+      const fresh = results.map((r) => {
+        const unique = uniqueId('contorno', taken);
+        taken.add(unique);
+        id = unique;
+        return { ...r, id: unique, group: null, locked: false, hidden: false };
+      });
+      return { ...doc, objects: [...doc.objects.filter((o) => !removed.has(o.id)), ...fresh] };
     });
-    return { ...doc, objects: [...doc.objects.filter((o) => !removed.has(o.id)), ...fresh] };
+    if (id) s.select([id]);
   });
-  if (id) s.select([id]);
   return id;
 }
 

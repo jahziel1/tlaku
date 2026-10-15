@@ -6,7 +6,7 @@ import { errorMessage } from '@/lib/errors';
 import { objectCurves } from '@/lib/geometry';
 import { expandGroups } from '@/lib/groups';
 import type { BezPath } from '@/lib/bezpath';
-import type { AppState } from '@/store';
+import { pinTab, type AppState } from '@/store';
 import { uniqueId } from '@/store/document';
 import { selectionUnits, type Unit } from './units';
 import { useArrangeUi, type OffsetParams } from './uiStore';
@@ -195,6 +195,7 @@ export async function runGeometry(s: AppState, run: GeometryRun): Promise<boolea
     args.distance = run.offset?.distance ?? 0;
     args.join = run.offset?.join ?? 'round';
   }
+  const inTab = pinTab(s);
   const ui = useArrangeUi.getState();
   ui.setBusy(true);
   let results: DesignObject[];
@@ -221,10 +222,14 @@ export async function runGeometry(s: AppState, run: GeometryRun): Promise<boolea
     }
   }
   const created: string[] = [];
-  s.applyDocChange(HISTORY[run.op], (doc) => {
-    created.length = 0;
-    return replaceWithResults(doc, remove, results, run.op, created);
+  // El resultado se escribe en la pestaña donde empezó la operación, aunque ahora haya otra activa.
+  const applied = inTab(() => {
+    s.applyDocChange(HISTORY[run.op], (doc) => {
+      created.length = 0;
+      return replaceWithResults(doc, remove, results, run.op, created);
+    });
+    if (created.length > 0) s.select(created);
+    return true;
   });
-  if (created.length > 0) s.select(created);
-  return created.length > 0;
+  return applied === true && created.length > 0;
 }

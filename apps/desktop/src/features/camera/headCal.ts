@@ -4,7 +4,6 @@
  * milímetros con los comandos de jog) y se calcula el desfase y la escala (ver `head.ts`).
  */
 import type { DesignObject, Document, HeadCalibration } from '@/api/types';
-import { ensureSaved } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { makeLayer } from '@/lib/layers';
@@ -54,13 +53,12 @@ export function headMarkDocument(mark: Vec2): Document {
   return { version: 2, objects: [obj], layers: [makeLayer(MARK_COLOR, t('camera.head.cal.layer'), { mode: 'line', speed: 3000, power: 10 })], device_id: null };
 }
 
-/** Abre la marca como documento nuevo (pregunta antes si hay cambios sin guardar). */
+/** Abre la marca como documento nuevo (en una pestaña nueva). */
 export async function openHeadMarkAsDocument(): Promise<boolean> {
   const mark = useHeadCal.getState().mark ?? defaultMark();
   useHeadCal.getState().setMark(mark);
-  if (!(await ensureSaved('new'))) return false;
   const s = app();
-  s.replaceDocument({ ...headMarkDocument(mark), device_id: s.doc.device_id }, null);
+  s.openInTab({ ...headMarkDocument(mark), device_id: s.doc.device_id }, null);
   s.fitContent();
   void s.computePreview();
   s.notify('success', t('camera.head.cal.opened', { x: mark[0], y: mark[1] }));

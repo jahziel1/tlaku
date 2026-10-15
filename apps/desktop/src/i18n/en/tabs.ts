@@ -1,0 +1,47 @@
+/** Document tabs inside the window. Every key starts with `tabs.`. */
+export const tabs = {
+  // ---- commands ----
+  'tabs.cmd.new': 'New tab',
+  'tabs.cmd.close': 'Close tab',
+  'tabs.cmd.closeOthers': 'Close other tabs',
+  'tabs.cmd.next': 'Next tab',
+  'tabs.cmd.prev': 'Previous tab',
+  'tabs.cmd.duplicate': 'Duplicate tab',
+  'tabs.cmd.moveToWindow': 'Move to a new window',
+  'tabs.cmd.saveAll': 'Save all tabs',
+  'tabs.reason.onlyOne': 'Only one tab is open.',
+  'tabs.reason.nothingToSave': 'No tabs have unsaved changes.',
+
+  // ---- bar ----
+  'tabs.bar.label': 'Open documents',
+  'tabs.bar.new': 'New tab',
+  'tabs.untitledN': 'Untitled {n}',
+  'tabs.tab.close': 'Close "{name}"',
+  'tabs.tab.unsaved': 'has unsaved changes',
+  'tabs.tab.running': 'Job running from this tab',
+  'tabs.tab.runningHint': 'The job in progress was started from this tab.',
+  'tabs.menu.label': 'Options for tab "{name}"',
+  'tabs.menu.moveLeft': 'Move left',
+  'tabs.menu.moveRight': 'Move right',
+  'tabs.reason.atStart': 'It is already the first tab.',
+  'tabs.reason.atEnd': 'It is already the last tab.',
+  'tabs.job.toolbar': 'Job of "{name}"',
+  'tabs.moved': 'Tab moved to a new window.',
+  'tabs.moveFailed': 'Could not move the tab to a new window: {error}',
+  'tabs.handoffFailed': 'Could not receive the tab from the other window: {error}',
+  'tabs.alreadyOpen': '"{name}" was already open: its tab is now active.',
+  'tabs.duplicated': 'Tab duplicated. The copy has no file yet: save it to keep it.',
+  'tabs.targetClosed': '"{file}" was not imported: the target tab was closed.',
+  'tabs.targetClosedGeneric': 'The tab where the operation started was closed: the result was not applied.',
+  'tabs.restoreFailed': 'Could not reopen "{name}": {error}',
+
+  // ---- unsaved changes ----
+  'tabs.close.title': 'Unsaved changes',
+  'tabs.close.ask': '"{name}" has unsaved changes. Do you want to save them before closing the tab?',
+  'tabs.closeMany.title': 'Unsaved changes in {n} tabs',
+  'tabs.closeMany.ask.window': '{n} tabs have unsaved changes. What do you want to do before closing Tlaku?',
+  'tabs.closeMany.ask.others': '{n} tabs have unsaved changes. What do you want to do before closing the other tabs?',
+  'tabs.closeMany.saveAll': 'Save all',
+  'tabs.closeMany.discardAll': 'Discard all',
+  'tabs.closeMany.cancel': 'Cancel',
+};

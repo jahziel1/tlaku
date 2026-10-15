@@ -1,7 +1,6 @@
 import { getApi, getApiKind } from '@/api';
 import type { DeviceProfile, Document, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { baseName, withExtension } from '@/features/history/paths';
-import { ensureSaved } from '@/features/history/files';
 import { askChoice } from '@/features/history/prompt';
 import { t, tn, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
@@ -283,9 +282,8 @@ export async function openTestAsNewDocument(form: TestForm): Promise<boolean> {
     app().notify('error', t('materials.test.err.generate', { error: errorMessage(e) }));
     return false;
   }
-  if (!(await ensureSaved('new'))) return false;
   const s = app();
-  s.replaceDocument({ ...doc, device_id: s.doc.device_id }, null);
+  s.openInTab({ ...doc, device_id: s.doc.device_id }, null);
   s.fitContent();
   void s.computePreview();
   app().notify('success', t('materials.test.done', { cells: form.rows.count * form.cols.count }));

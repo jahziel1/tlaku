@@ -10,7 +10,6 @@
  */
 import { getApi } from '@/api';
 import type { Document, HeadCalibration, MarksReport } from '@/api/types';
-import { ensureSaved } from '@/features/history/files';
 import { t } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore } from '@/store';
@@ -58,7 +57,7 @@ export function observationsFromReport(report: MarksReport, laser: Vec2, origin:
   return out;
 }
 
-/** Abre el cuadro de marcas como documento nuevo (pregunta antes si hay cambios sin guardar). */
+/** Abre el cuadro de marcas como documento nuevo (en una pestaña nueva). */
 export async function openHeadMarksAsDocument(): Promise<boolean> {
   const ui = useHeadMarks.getState();
   const bed = selectActiveDevice(app()).bed;
@@ -75,10 +74,9 @@ export async function openHeadMarksAsDocument(): Promise<boolean> {
     app().notify('error', t('camera.marks.err.generate', { error: errorMessage(e) }));
     return false;
   }
-  if (!(await ensureSaved('new'))) return false;
   ui.setOrigin(origin);
   const s = app();
-  s.replaceDocument({ ...shiftDocument(doc, origin[0], origin[1]), device_id: s.doc.device_id }, null);
+  s.openInTab({ ...shiftDocument(doc, origin[0], origin[1]), device_id: s.doc.device_id }, null);
   s.fitContent();
   void s.computePreview();
   s.notify('success', t('camera.head.marks.opened', { size, x: origin[0], y: origin[1] }));

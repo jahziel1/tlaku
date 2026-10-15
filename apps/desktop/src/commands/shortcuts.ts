@@ -74,8 +74,10 @@ export function normalizeCombo(combo: string): string {
  * (solo un modificador, Ctrl en macOS sin Cmd, Meta en Windows...).
  */
 export function eventToCombo(e: KeyEventLike, mac: boolean): string | null {
-  if (mac ? e.ctrlKey : e.metaKey) return null;
-  const mod = mac ? e.metaKey : e.ctrlKey;
+  // Ctrl+Tab también cambia de pestaña en macOS (Cmd+Tab es del sistema y nunca llega a la app): cuenta como `Mod`.
+  const macCtrlTab = mac && e.ctrlKey && !e.metaKey && e.key === 'Tab';
+  if (!macCtrlTab && (mac ? e.ctrlKey : e.metaKey)) return null;
+  const mod = macCtrlTab || (mac ? e.metaKey : e.ctrlKey);
 
   let key: string | null = null;
   if (/^Key[A-Z]$/.test(e.code)) {
@@ -94,6 +96,8 @@ export function eventToCombo(e: KeyEventLike, mac: boolean): string | null {
 export function formatCombo(combo: string, mac: boolean, lang: 'es' | 'en' = 'es'): string {
   const p = parseCombo(combo);
   const key = (lang === 'en' ? KEY_LABELS_EN[p.key] : undefined) ?? KEY_LABELS[p.key] ?? p.key;
+  // En macOS, `Mod+Tab` se escribe Ctrl+Tab (⌃): Cmd+Tab es el cambio de aplicación del sistema.
+  if (mac && p.key === 'Tab') return `${p.mod ? '⌃' : ''}${p.alt ? '⌥' : ''}${p.shift ? '⇧' : ''}${key}`;
   if (mac) return `${p.alt ? '⌥' : ''}${p.shift ? '⇧' : ''}${p.mod ? '⌘' : ''}${key}`;
   return [p.mod && 'Ctrl', p.alt && 'Alt', p.shift && (lang === 'en' ? 'Shift' : 'Mayús'), key].filter(Boolean).join('+');
 }

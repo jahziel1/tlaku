@@ -82,6 +82,8 @@ export interface LiveOptions {
 }
 
 interface Cur {
+  /** Pestaña desde la que se lanzó el trabajo (`null` si no se sabe: reanudación, celular). */
+  tabId: string | null;
   seq: number;
   device: DeviceProfile;
   preview: JobPreview | null;
@@ -198,8 +200,9 @@ export class LiveService {
   private onChange(s: AppState, prev: AppState): void {
     if (s.jobState !== prev.jobState) this.onJobState(s, prev);
     const cur = this.cur;
-    // Con el trabajo ya terminado, editar el diseño deja la vista en vivo sin sentido.
-    if (cur?.ended && s.doc !== prev.doc) return this.clear();
+    // Con el trabajo ya terminado, editar el diseño deja la vista en vivo sin sentido. Cambiar de pestaña no es
+    // editar, y editar OTRA pestaña tampoco: solo cuenta el diseño de la pestaña desde la que se lanzó el trabajo.
+    if (cur?.ended && s.doc !== prev.doc && s.activeTabId === prev.activeTabId && (cur.tabId === null || cur.tabId === s.activeTabId)) return this.clear();
     if (cur && s.progress !== prev.progress) {
       cur.prior = s.progress && s.progress.total > 0 ? Math.min(1, s.progress.acked / s.progress.total) : null;
     }
@@ -231,9 +234,16 @@ export class LiveService {
     const startFrom = args?.options.start_from ?? s.jobOptions.start_from;
     // La vista previa en caché sirve si es del mismo trabajo: sin ajustes del llamador, al día y
     // sin depender de dónde está la cabeza.
-    const cached = !note?.tweaked && !s.previewStale && s.previewStatus === 'ready' && startFrom !== 'current_position' ? s.preview : null;
+    // (y solo si la pestaña activa es la que lanzó el trabajo: la vista previa en caché es de la pestaña activa)
+    const tabId = s.jobOrigin?.tabId ?? null;
+    const fromActiveTab = tabId === null || tabId === s.activeTabId;
+    // La vista previa con la que se lanzó el trabajo (`jobOrigin`) vale aunque ahora haya otra pestaña activa.
+    const own = s.jobOrigin?.preview ?? null;
+    const live = fromActiveTab && !s.previewStale && s.previewStatus === 'ready' ? s.preview : null;
+    const cached = !note?.tweaked && startFrom !== 'current_position' ? (own ?? live) : null;
     const device = args?.device ?? selectActiveDevice(s);
     this.cur = {
+      tabId,
       seq: ++this.seq,
       device,
       start: s.status ? reportToDoc(device, s.status.work_pos) : null,

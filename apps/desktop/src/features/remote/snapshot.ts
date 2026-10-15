@@ -3,7 +3,7 @@ import type { RemoteLayer, RemoteRoute, RemoteSnapshot } from '@/api/api';
 import { baseName } from '@/features/history/paths';
 import { jobFraction } from '@/features/live/progress';
 import { getLiveService } from '@/features/live/service';
-import { hasOutput, selectActiveDevice } from '@/store';
+import { hasOutput, selectActiveDevice, selectJobPreview } from '@/store';
 import { jobElapsedSeconds, selectFramed, selectHeadDoc } from '@/store/machine';
 import type { AppState } from '@/store/types';
 
@@ -42,7 +42,8 @@ export function buildSnapshot(s: AppState, now: number): RemoteSnapshot {
   const active = s.jobState === 'running' || s.jobState === 'paused';
   const fraction = jobFraction(s, now);
   const elapsed = jobElapsedSeconds(s, now);
-  const total = s.preview?.total_s ?? null;
+  const jobPreview = selectJobPreview(s);
+  const total = jobPreview?.total_s ?? null;
   let remaining: number | null = null;
   if (active) {
     if (total !== null && total > 0) remaining = Math.max(0, total * (1 - fraction));
@@ -50,7 +51,8 @@ export function buildSnapshot(s: AppState, now: number): RemoteSnapshot {
   }
   const head = selectHeadDoc(s);
   return {
-    doc_name: s.filePath ? baseName(s.filePath) : '',
+    // Con un trabajo en curso, el documento es el de la pestaña desde la que se lanzó.
+    doc_name: (active && s.jobOrigin ? s.jobOrigin.path : s.filePath) ? baseName((active && s.jobOrigin ? s.jobOrigin.path : s.filePath)!) : '',
     device_name: device.name,
     bed: [device.bed[0], device.bed[1]],
     job_state: s.jobState,
@@ -59,7 +61,7 @@ export function buildSnapshot(s: AppState, now: number): RemoteSnapshot {
     elapsed_s: active || s.jobState === 'finished' ? elapsed : 0,
     remaining_s: remaining,
     total_s: total,
-    layer: active ? layerAt(s.preview, fraction) : null,
+    layer: active ? layerAt(jobPreview, fraction) : null,
     head: head ? [head[0], head[1]] : null,
     has_output: hasOutput(s),
     framed: selectFramed(s),

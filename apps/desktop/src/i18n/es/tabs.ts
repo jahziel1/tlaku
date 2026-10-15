@@ -1,0 +1,47 @@
+/** Pestañas de documentos dentro de la ventana. Todas las claves empiezan con `tabs.`. */
+export const tabs = {
+  // ---- comandos ----
+  'tabs.cmd.new': 'Nueva pestaña',
+  'tabs.cmd.close': 'Cerrar pestaña',
+  'tabs.cmd.closeOthers': 'Cerrar las demás pestañas',
+  'tabs.cmd.next': 'Pestaña siguiente',
+  'tabs.cmd.prev': 'Pestaña anterior',
+  'tabs.cmd.duplicate': 'Duplicar pestaña',
+  'tabs.cmd.moveToWindow': 'Mover a una ventana nueva',
+  'tabs.cmd.saveAll': 'Guardar todas las pestañas',
+  'tabs.reason.onlyOne': 'Solo hay una pestaña abierta.',
+  'tabs.reason.nothingToSave': 'No hay pestañas con cambios sin guardar.',
+
+  // ---- barra ----
+  'tabs.bar.label': 'Documentos abiertos',
+  'tabs.bar.new': 'Nueva pestaña',
+  'tabs.untitledN': 'Sin título {n}',
+  'tabs.tab.close': 'Cerrar «{name}»',
+  'tabs.tab.unsaved': 'con cambios sin guardar',
+  'tabs.tab.running': 'Trabajo en curso desde esta pestaña',
+  'tabs.tab.runningHint': 'El trabajo en curso se lanzó desde esta pestaña.',
+  'tabs.menu.label': 'Opciones de la pestaña «{name}»',
+  'tabs.menu.moveLeft': 'Mover a la izquierda',
+  'tabs.menu.moveRight': 'Mover a la derecha',
+  'tabs.reason.atStart': 'Ya es la primera pestaña.',
+  'tabs.reason.atEnd': 'Ya es la última pestaña.',
+  'tabs.job.toolbar': 'Trabajo de «{name}»',
+  'tabs.moved': 'Pestaña movida a una ventana nueva.',
+  'tabs.moveFailed': 'No se pudo mover la pestaña a una ventana nueva: {error}',
+  'tabs.handoffFailed': 'No se pudo recibir la pestaña de la otra ventana: {error}',
+  'tabs.alreadyOpen': '«{name}» ya estaba abierto: se activó su pestaña.',
+  'tabs.duplicated': 'Pestaña duplicada. La copia no tiene archivo: guárdala para conservarla.',
+  'tabs.targetClosed': '«{file}» no se importó: la pestaña de destino se cerró.',
+  'tabs.targetClosedGeneric': 'La pestaña donde empezó la operación se cerró: no se aplicó el resultado.',
+  'tabs.restoreFailed': 'No se pudo reabrir «{name}»: {error}',
+
+  // ---- cambios sin guardar ----
+  'tabs.close.title': 'Cambios sin guardar',
+  'tabs.close.ask': '«{name}» tiene cambios sin guardar. ¿Quieres guardarlos antes de cerrar la pestaña?',
+  'tabs.closeMany.title': 'Cambios sin guardar en {n} pestañas',
+  'tabs.closeMany.ask.window': 'Hay {n} pestañas con cambios sin guardar. ¿Qué quieres hacer antes de cerrar Tlaku?',
+  'tabs.closeMany.ask.others': 'Hay {n} pestañas con cambios sin guardar. ¿Qué quieres hacer antes de cerrar las demás pestañas?',
+  'tabs.closeMany.saveAll': 'Guardar todas',
+  'tabs.closeMany.discardAll': 'Descartar todas',
+  'tabs.closeMany.cancel': 'Cancelar',
+};

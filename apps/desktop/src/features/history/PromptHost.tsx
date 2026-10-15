@@ -14,6 +14,13 @@ export function PromptHost() {
         <h2 id={labelId} className="modal__title">{current.title}</h2>
       </div>
       <p className="modal__body">{current.message}</p>
+      {current.items && current.items.length > 0 && (
+        <ul className="modal__list" aria-label={current.title}>
+          {current.items.map((item, i) => (
+            <li key={`${i}-${item}`}>{item}</li>
+          ))}
+        </ul>
+      )}
       <div className="modal__foot">
         {current.choices.map((c) => (
           <button

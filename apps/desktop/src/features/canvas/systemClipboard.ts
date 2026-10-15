@@ -5,7 +5,7 @@ import { groupDoc } from '@/lib/groups';
 import { makeLayer } from '@/lib/layers';
 import { colorName } from '@/lib/palette';
 import { screenToWorld } from '@/lib/viewport';
-import type { AppState } from '@/store';
+import { pinTab, type AppState } from '@/store';
 import { uniqueId } from '@/store/document';
 import { looksLikeSvg, objectsToSvg, svgToObjects } from './svgClip';
 import { newTextObject } from './textTool';
@@ -105,7 +105,13 @@ function pasteText(s: AppState, text: string, center: Point): string {
 
 /** Pega según lo que haya en el portapapeles del sistema o, si no sirve, el interno. */
 export async function pasteFromSystem(s: AppState): Promise<PasteResult> {
+  // Se pega en la pestaña activa al pedirlo, aunque se cambie de pestaña mientras se lee el portapapeles.
+  const inTab = pinTab(s);
   const text = await readText();
+  return inTab(() => pasteInto(s, text)) ?? 'none';
+}
+
+function pasteInto(s: AppState, text: string | null): PasteResult {
   const trimmed = text?.trim() ?? '';
   if (trimmed && text !== lastWritten) {
     const center = viewCenter(s);

@@ -31,6 +31,7 @@ At the bottom there are three buttons: **Import…** and **Export…** (see belo
 | Appearance | **Grid contrast** | Standard | Soft, Standard or High |
 | Appearance | **Window layout** | Panel on the right, tools on the left | Left or right for each, and **Reset layout**. See [Guides, tabs, start point and project](03e-guias-puentes-y-proyecto.md) |
 | Files | **Save recovery copies automatically** | Yes | Yes or no |
+| General | **Reopen tabs at startup** | Yes | Yes or no. With yes, when Tlaku starts the projects (with a file) that were open in tabs when it closed are opened again. See [Document tabs](03f-pestanas-de-documentos.md#recovery-and-session) |
 | Files | **Interval between copies** | 60 s | 10 to 3600 s |
 | Files | **Recent files to remember** | 10 | 0 to 30 |
 | Files | **Default resolution** (Importing files) | 96 dpi | 10 to 2400 dpi |
@@ -110,13 +111,13 @@ A file that is not a Tlaku preferences bundle is rejected with a clear message. 
 While you work, Tlaku saves a **recovery copy** of your document. It does not replace your `.tlaku` file: **Save** is still what keeps your work, and the copy never overwrites your project.
 
 - Every 60 seconds by default (adjustable in **Preferences > Files**, from 10 to 3600 s), and **only if there are unsaved changes** since the last copy.
-- The copy is in the application's data folder, in a `recuperacion` subfolder. At most 10 copies are kept.
+- The copy is in the application's data folder, in a `recuperacion` subfolder. There is **one copy per tab** with changes (see [Document tabs](03f-pestanas-de-documentos.md#recovery-and-session)); at most 40 copies are kept across all windows.
 - It is deleted automatically when you save the project, open another one or close the application normally.
 - It can be turned off with **Save recovery copies automatically**. If the copy cannot be written, Tlaku warns you once.
 
 If Tlaku closes abruptly (a power cut, a crash, a forced quit), the next time you open it **Unsaved work found** appears, with one row per document: its name, **Copy from** the date and time, and the source project (or **Document that was never saved**). For each one:
 
-- **Recover** opens the copy as your current document, marked as **Unsaved** (if you already had something with changes, Tlaku asks first). After recovering, **save it** to keep it.
+- **Recover** opens the copy in a **new tab**, marked as **Unsaved** (your current document is not touched). **Recover all** opens them all at once, each in its own tab. After recovering, **save it** to keep it.
 - **Discard** deletes it.
 - **Discard all** deletes them all (asks for confirmation; it cannot be undone).
 - **Decide later** closes the window without touching anything.

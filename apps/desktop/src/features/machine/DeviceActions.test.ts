@@ -28,14 +28,15 @@ describe('probar una vuelta', () => {
     expect(lastNotice()?.level).toBe('success');
   });
 
-  it('con cambios sin guardar pregunta primero y, si se cancela, no toca el documento', async () => {
+  it('con cambios sin guardar abre la prueba en otra pestaña y no toca el documento', async () => {
     useStore.getState().updateLayer('#ff3b4a', { power: 10 });
     const doc = useStore.getState().doc;
-    const pending = openRotaryTestAsNewDocument(device(), 1500, 10);
-    await new Promise((r) => setTimeout(r, 10));
-    expect(usePrompts.getState().current).not.toBeNull();
-    usePrompts.getState().answer('cancel');
-    expect(await pending).toBe(false);
+    const first = useStore.getState().activeTabId;
+    const tabs = useStore.getState().tabs.length;
+    expect(await openRotaryTestAsNewDocument(device(), 1500, 10)).toBe(true);
+    expect(usePrompts.getState().current).toBeNull();
+    expect(useStore.getState().tabs).toHaveLength(tabs + 1);
+    useStore.getState().activateTab(first);
     expect(useStore.getState().doc).toBe(doc);
   });
 

@@ -46,6 +46,28 @@ pub fn run() {
     });
 }
 
+/// Quita de un menú los elementos «Cerrar ventana» (su atajo Cmd+W es de la pestaña) y los menús que queden vacíos.
+#[cfg(target_os = "macos")]
+fn without_close_window<R: tauri::Runtime>(menu: &tauri::menu::Menu<R>) -> tauri::Result<()> {
+    use tauri::menu::MenuItemKind;
+    for kind in menu.items()? {
+        let MenuItemKind::Submenu(sub) = kind else {
+            continue;
+        };
+        for item in sub.items()? {
+            if let MenuItemKind::Predefined(p) = &item
+                && p.text()? == "Close Window"
+            {
+                sub.remove(p)?;
+            }
+        }
+        if sub.items()?.is_empty() {
+            menu.remove(&sub)?;
+        }
+    }
+    Ok(())
+}
+
 /// La aplicación con todos sus comandos registrados. La comparten `run` y la prueba de humo
 /// (`smoke`), que le pasa un contexto sin ventanas.
 fn build_app(context: tauri::Context) -> tauri::App {
@@ -63,6 +85,14 @@ fn build_app(context: tauri::Context) -> tauri::App {
         )
         // El actualizador solo se registra si tauri.conf.json trae su llave pública (ver `updater.rs`).
         .setup(updater::setup)
+        // macOS: el menú por defecto trae «Cerrar ventana» con Cmd+W, que cerraría la ventana entera antes de que la
+        // interfaz lo vea. Con pestañas, Cmd+W cierra la pestaña activa (comando `tabs.close`).
+        .menu(|handle| {
+            let menu = tauri::menu::Menu::default(handle)?;
+            #[cfg(target_os = "macos")]
+            without_close_window(&menu)?;
+            Ok(menu)
+        })
         .manage(AppState::default())
         .manage(automation::AutomationState::default())
         .manage(remote::RemoteState::default())

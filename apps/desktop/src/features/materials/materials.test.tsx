@@ -201,15 +201,16 @@ describe('prueba como documento nuevo', () => {
     expect(s.dirty).toBe(false);
   });
 
-  it('con cambios sin guardar pregunta primero y, si se cancela, no toca el documento', async () => {
+  it('con cambios sin guardar abre la prueba en otra pestaña y no toca el documento', async () => {
     useStore.getState().updateLayer(RED, { power: 10 });
     expect(useStore.getState().dirty).toBe(true);
     const doc = useStore.getState().doc;
-    const pending = openTestAsNewDocument(defaultForm(null));
-    await new Promise((r) => setTimeout(r, 10));
-    expect(usePrompts.getState().current).not.toBeNull();
-    usePrompts.getState().answer('cancel');
-    expect(await pending).toBe(false);
+    const first = useStore.getState().activeTabId;
+    const tabs = useStore.getState().tabs.length;
+    expect(await openTestAsNewDocument(defaultForm(null))).toBe(true);
+    expect(usePrompts.getState().current).toBeNull();
+    expect(useStore.getState().tabs).toHaveLength(tabs + 1);
+    useStore.getState().activateTab(first);
     expect(useStore.getState().doc).toBe(doc);
   });
 

@@ -6,7 +6,7 @@ import { errorMessage } from '@/lib/errors';
 import { objectBounds, unionBounds } from '@/lib/geometry';
 import { fmt } from '@/lib/platform';
 import { useShallow } from 'zustand/react/shallow';
-import { selectSelectedObjects, useStore } from '@/store';
+import { pinTab, selectSelectedObjects, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { NumberField } from '@/ui/NumberField';
 import { applyBitmapToDoc, BITMAP_DPI_PRESETS, BITMAP_LIMITS, bitmapSourceIds, projectDir, projectStem } from './bitmap';
@@ -41,6 +41,7 @@ export function BitmapDialog() {
     setError(null);
     try {
       const s = useStore.getState();
+      const inTab = pinTab(s);
       const ids = bitmapSourceIds(selectSelectedObjects(s));
       const result = await getApi().vectorsToBitmap({
         doc: s.doc,
@@ -50,12 +51,16 @@ export function BitmapDialog() {
         options,
       });
       const out: { id: string | null } = { id: null };
-      s.applyDocChange('trace.bitmap.history', (doc) => {
-        const r = applyBitmapToDoc(doc, result, { sourceIds: ids, replace });
-        out.id = r.id;
-        return r.doc;
+      const placed = inTab(() => {
+        s.applyDocChange('trace.bitmap.history', (doc) => {
+          const r = applyBitmapToDoc(doc, result, { sourceIds: ids, replace });
+          out.id = r.id;
+          return r.doc;
+        });
+        if (out.id) s.select([out.id]);
+        return true;
       });
-      if (out.id) s.select([out.id]);
+      if (!placed) throw new Error(t('tabs.targetClosedGeneric'));
       s.notify('success', t('trace.bitmap.done', { w: result.width_px, h: result.height_px, path: result.path }));
       if (result.in_temp_dir) s.notify('warning', t('trace.bitmap.temp'));
       void s.computePreview();

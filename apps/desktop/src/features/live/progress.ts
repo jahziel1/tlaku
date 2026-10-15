@@ -1,4 +1,4 @@
-import { selectActiveDevice } from '@/store/selectors';
+import { selectActiveDevice, selectJobPreview } from '@/store/selectors';
 import { jobElapsedSeconds } from '@/store/machine/reducer';
 import type { AppState } from '@/store/types';
 
@@ -10,7 +10,7 @@ import type { AppState } from '@/store/types';
 export function jobFraction(s: AppState, now: number): number {
   if (s.jobState === 'finished') return 1;
   if (s.jobState !== 'running' && s.jobState !== 'paused') return 0;
-  const total = s.preview?.total_s ?? 0;
+  const total = selectJobPreview(s)?.total_s ?? 0;
   const byTime = total > 0 ? Math.min(0.99, jobElapsedSeconds(s, now) / total) : null;
   const byLines = s.progress && s.progress.total > 0 ? Math.min(1, s.progress.acked / s.progress.total) : null;
   const kind = selectActiveDevice(s).kind;

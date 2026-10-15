@@ -31,6 +31,7 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Apariencia | **Contraste de la rejilla** | Normal | Suave, Normal o Alto |
 | Apariencia | **Distribución de la ventana** | Panel a la derecha, herramientas a la izquierda | Izquierda o derecha para cada uno, y **Restablecer distribución**. Ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md) |
 | Archivos | **Guardar copias de recuperación automáticamente** | Sí | Sí o no |
+| General | **Reabrir las pestañas al iniciar** | Sí | Sí o no. Con sí, al abrir Tlaku se vuelven a abrir los proyectos (con archivo) que tenían las pestañas al cerrar. Ver [Pestañas de documentos](03f-pestanas-de-documentos.md#recuperacion-y-sesion) |
 | Archivos | **Intervalo entre copias** | 60 s | 10 a 3600 s |
 | Archivos | **Archivos recientes que se recuerdan** | 10 | 0 a 30 |
 | Archivos | **Resolución por omisión** (Importar archivos) | 96 ppp | 10 a 2400 ppp |
@@ -110,13 +111,13 @@ Un archivo que no es un paquete de preferencias de Tlaku se rechaza con un mensa
 Tlaku guarda, mientras trabajas, una **copia de recuperación** de tu documento. No sustituye a tu archivo `.tlaku`: **Guardar** sigue siendo lo que conserva tu trabajo, y la copia nunca sobrescribe tu proyecto.
 
 - Cada 60 segundos por omisión (ajustable en **Preferencias > Archivos**, de 10 a 3600 s), y **solo si hay cambios sin guardar** desde la última copia.
-- La copia está en la carpeta de datos de la aplicación, en una subcarpeta `recuperacion`. Se conservan como máximo 10 copias.
+- La copia está en la carpeta de datos de la aplicación, en una subcarpeta `recuperacion`. Hay **una copia por pestaña** con cambios (ver [Pestañas de documentos](03f-pestanas-de-documentos.md#recuperacion-y-sesion)); se conservan como máximo 40 copias entre todas las ventanas.
 - Se borra sola cuando guardas el proyecto, abres otro o cierras la aplicación con normalidad.
 - Se puede apagar con **Guardar copias de recuperación automáticamente**. Si no se puede escribir la copia, Tlaku lo avisa una vez.
 
 Si Tlaku se cierra de golpe (un corte de luz, una falla, un cierre forzado), la próxima vez que lo abras aparece **Se encontró trabajo sin guardar**, con una fila por documento: su nombre, **Copia del** día y hora, y el proyecto de origen (o **Documento que nunca se guardó**). Para cada una:
 
-- **Recuperar** abre la copia como tu documento actual, marcado como **Sin guardar** (si ya tenías algo con cambios, Tlaku pregunta antes). Después de recuperar, **guárdalo** para conservarlo.
+- **Recuperar** abre la copia en una **pestaña nueva**, marcada como **Sin guardar** (tu documento actual no se toca). **Recuperar todas** abre todas de una vez, cada una en su pestaña. Después de recuperar, **guárdalo** para conservarlo.
 - **Descartar** la borra.
 - **Descartar todo** borra todas (pide confirmación; no se puede deshacer).
 - **Decidir después** cierra la ventana sin tocar nada.

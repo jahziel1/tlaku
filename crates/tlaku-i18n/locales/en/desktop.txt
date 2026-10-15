@@ -55,6 +55,7 @@ desktop.commands.open_port_failed = Could not open {port}: {err}. Check the cabl
 desktop.machine.not_connected = No machine is connected. Connect one from the Machine tab.
 # window.rs
 desktop.window.open_failed = Could not open the new window: {err}
+desktop.window.bad_handoff = The tab to move is not valid.
 desktop.live_window.title = Tlaku: live view
 desktop.live_window.bad_kind = "{kind}" is not a channel of the live view window.
 desktop.live_window.too_big = The message for the live view window is too big.
