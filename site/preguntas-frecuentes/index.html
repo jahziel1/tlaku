@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <!--@include head-->
+  <title>Preguntas frecuentes de Tlaku, software láser libre y gratis</title>
+  <meta name="description" content="¿Es gratis? ¿Qué máquinas láser soporta (GRBL, Ruida, K40, Falcon2)? ¿Abre archivos de LightBurn? ¿Funciona sin internet? Y cómo abrir el aviso de desarrollador no identificado.">
+  <!--@seo-->
+</head>
+<body>
+  <!--@include sprite-->
+  <!--@include header-->
+
+  <main id="contenido">
+    <div class="page-head">
+      <div class="wrap">
+        <p class="crumbs"><a href="{{HOME}}">Tlaku</a> &rsaquo; Preguntas frecuentes</p>
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h1>Preguntas frecuentes sobre Tlaku</h1>
+        <p class="lead">Tlaku es software libre y gratis para grabadoras y cortadoras láser, una alternativa a LightBurn. Estas son las dudas más comunes, con respuestas que se pueden comprobar en el repositorio.</p>
+        <ul class="toc" aria-label="Preguntas">
+          <li><a href="#gratis">¿Es gratis?</a></li>
+          <li><a href="#maquinas">¿Qué máquinas soporta?</a></li>
+          <li><a href="#lightburn">¿Abre archivos de LightBurn?</a></li>
+          <li><a href="#ruida-k40">¿Ruida o K40?</a></li>
+          <li><a href="#sin-internet">¿Sin internet?</a></li>
+          <li><a href="#actualizaciones">¿Se actualiza solo?</a></li>
+          <li><a href="#aviso-desarrollador">Aviso de desarrollador no identificado</a></li>
+          <li><a href="#ayudar">¿Cómo ayudo?</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="prose" aria-labelledby="h-preguntas">
+      <div class="wrap">
+        <h2 id="h-preguntas">Preguntas</h2>
+
+        <div class="qa">
+          <h3 id="gratis">¿Tlaku es gratis?</h3>
+          <div class="a">
+            <p>Sí. Tlaku es software libre con licencia MIT: puedes usarlo, copiarlo y modificarlo sin pagar, y su código está abierto en GitHub. No hay una versión de pago ni funciones bloqueadas: donar es voluntario y no desbloquea nada, el programa es el mismo con o sin donación.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="maquinas">¿Qué máquinas láser soporta?</h3>
+          <div class="a">
+            <p>La mayoría de los láseres de diodo con controladora GRBL por USB (GRBL 1.1 con M4 y GRBL-M3), y también grblHAL, FluidNC, Marlin y Smoothie. Hay un catálogo de modelos de marcas como Creality, Sculpfun, Atomstack, Ortur, xTool, Longer, Neje y Two Trees. Ruida (CO2), K40 con placa M2 Nano y galvo de fibra son experimentales.</p>
+            <p><strong>Importante:</strong> hasta ahora solo se probó con una máquina real, una Creality Falcon2 Pro 22&nbsp;W (sin corte con potencia alta). Las demás se probaron con emuladores y máquinas virtuales. Mira la <a href="{{HOME}}#maquinas">tabla de máquinas y su estado</a> y la página <a href="{{HOME}}falcon2/">Tlaku para la Creality Falcon2</a>.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="lightburn">¿Abre archivos de LightBurn?</h3>
+          <div class="a">
+            <p>Sí: abre proyectos <code>.lbrn</code> y <code>.lbrn2</code> con sus capas y ajustes (<em>Archivo &gt; Importar diseño…</em> o arrastrando el archivo), e importa perfiles de máquina <code>.lbdev</code> desde <em>Dispositivos</em>. No lee los paquetes <code>.lbvendor</code> ni <code>.lbzip</code> (un <code>.lbzip</code> es un zip: extrae el <code>.lbdev</code> y úsalo).</p>
+            <p>Lo que no tiene equivalente sale en un aviso, y algunas conversiones se dedujeron de la documentación pública: revisa cada capa con la vista previa antes de cortar. Más en <a href="{{HOME}}alternativa-a-lightburn/">Alternativa libre a LightBurn</a>. LightBurn es una marca de su titular; Tlaku no está afiliado a ella.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="ruida-k40">¿Funciona con una controladora Ruida o con un K40?</h3>
+          <div class="a">
+            <p><strong>Ruida (CO2):</strong> soporte experimental por red (UDP): conectar, enviar (por omisión guarda el trabajo en la controladora y no lo arranca), pausa, detener y encuadre. Solo se probó contra un emulador y no escribe los ajustes de la controladora.</p>
+            <p><strong>K40 con placa M2 Nano:</strong> soporte experimental por USB directo, probado solo contra una placa simulada. La potencia se ajusta con la perilla de la máquina, no por software. Un K40 con la placa cambiada a GRBL-LPC o Smoothie puede funcionar como una máquina GRBL.</p>
+            <p>Ninguna de las dos se ha probado con hardware real: trátalas como una prueba y cuéntanos cómo te va.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="sin-internet">¿Funciona sin internet?</h3>
+          <div class="a">
+            <p>Sí. Diseñar, preparar un trabajo y enviarlo a la máquina no necesita internet: la máquina se conecta por USB o por tu red local. Internet solo se usa en dos cosas opcionales:</p>
+            <ul>
+              <li>Abrir la biblioteca de ajustes de la comunidad, que descarga un catálogo del sitio del proyecto (sin conexión muestra la última copia guardada).</li>
+              <li>Buscar actualizaciones (menú <em>Ayuda</em>).</li>
+            </ul>
+            <p>Tlaku no envía nada por su cuenta: los reportes de errores y de pruebas se abren ya prellenados en tu navegador y tú decides si los publicas. Para instalarlo sí hace falta descargar el instalador una vez.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="actualizaciones">¿Se actualiza solo?</h3>
+          <div class="a">
+            <p>Avisa y se actualiza con tu permiso, no a escondidas. En <em>Ayuda &gt; Buscar actualizaciones…</em>, si hay una versión nueva, ves su número y sus notas y eliges <em>Descargar e instalar</em> o <em>Ahora no</em>. La búsqueda al iniciar viene <strong>apagada de fábrica</strong> (se activa en Preferencias &gt; General), nunca instala con un trabajo en marcha y la descarga se verifica con la firma del proyecto.</p>
+            <p>En Linux solo el AppImage se actualiza desde la app; el <code>.deb</code> se reinstala a mano, y en Flatpak las actualizaciones las da Flatpak.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="aviso-desarrollador">¿Por qué sale el aviso de «desarrollador no identificado» y cómo lo abro?</h3>
+          <div class="a">
+            <p>Porque los instaladores todavía <strong>no están firmados</strong>: los certificados de firma de Apple y de Microsoft son de pago y se renuevan, y el proyecto aún no los tiene. El sistema avisa con cualquier programa sin firmar. Descarga Tlaku solo de la <a href="{{REPO_URL}}/releases/latest">página de versiones del repositorio</a>; el código es abierto y puedes revisarlo.</p>
+            <ul>
+              <li><strong>macOS:</strong> clic derecho sobre Tlaku, <em>Abrir</em>; o en <em>Ajustes del Sistema &gt; Privacidad y seguridad</em>, <em>Abrir de todos modos</em>. Si dice que la app está dañada, ejecuta en la Terminal: <code>xattr -dr com.apple.quarantine /Applications/Tlaku.app</code></li>
+              <li><strong>Windows (SmartScreen):</strong> <em>Más información</em> y luego <em>Ejecutar de todas formas</em>.</li>
+              <li><strong>Linux:</strong> no hay avisos. Para usar el puerto serie del láser, agrega tu usuario al grupo <code>dialout</code> (<code>sudo usermod -aG dialout "$USER"</code>) y vuelve a iniciar sesión.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="sistemas">¿Para qué sistemas está disponible?</h3>
+          <div class="a">
+            <p>Windows 10 o posterior (instalador <code>.exe</code> o <code>.msi</code>), macOS 11 o posterior (un <code>.dmg</code> universal para Apple Silicon e Intel) y Linux (<code>.deb</code> y <code>.AppImage</code>). Linux ARM64 (Raspberry Pi 4 y 5 de 64 bits) y Flatpak son experimentales y no se han probado en un equipo real. La app y el manual están en español y en inglés.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="listo">¿Está listo para usarlo en producción?</h3>
+          <div class="a">
+            <p>Todavía no: es una beta. El grabado de líneas, rellenos e imágenes se probó en una Creality Falcon2 Pro 22&nbsp;W real, pero el corte con potencia alta no se ha probado en ninguna máquina. Trata cada trabajo como una prueba: poca potencia, material de desecho y la mano cerca del paro de emergencia. Si dependes de otro programa, mantenlo como plan B.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="ayudar">¿Cómo puedo ayudar?</h3>
+          <div class="a">
+            <ul>
+              <li><strong>Prueba Tlaku en tu máquina y cuéntanos cómo te fue</strong>, también si todo salió bien: <a href="{{REPO_URL}}/issues/new?template=machine_report.yml">reporte de prueba</a> y <a href="{{REPO_URL}}/blob/main/docs/validacion-hardware.md">lista de validación</a>.</li>
+              <li><strong>Comparte tus ajustes de material</strong> (entran a la biblioteca como datos de la comunidad sin verificar, CC0): <a href="{{REPO_URL}}/issues/new?template=material_settings.yml">formulario</a>.</li>
+              <li><strong>Pide tu controladora</strong> si falta: <a href="{{REPO_URL}}/issues/new?template=new_controller.yml">solicitud de soporte</a>. Y reporta errores con el <a href="{{REPO_URL}}/issues/new?template=bug_report.yml">formulario de errores</a>.</li>
+              <li><strong>Invita un café en Ko-fi:</strong> es voluntario y paga máquinas de prueba y tiempo de desarrollo. <a href="{{KOFI_URL}}" rel="noopener">Ko-fi</a></li>
+              <li><strong>Dale una estrella al repositorio</strong> y cuéntaselo a quien tenga un láser: ayuda a que más gente lo encuentre.</li>
+              <li><strong>Código, documentación y traducciones:</strong> lee <a href="{{REPO_URL}}/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <p class="actions">
+          <a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Descargar la beta</a>
+          <a class="btn" href="{{HOME}}alternativa-a-lightburn/">Alternativa a LightBurn</a>
+          <a class="btn" href="{{HOME}}falcon2/">Para la Falcon2</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!--@include footer-->
+</body>
+</html>

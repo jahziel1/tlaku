@@ -1,0 +1,20 @@
+{
+  "_aviso": "Registro de las páginas del sitio: lo usa scripts/build-site.mjs para el SEO (canonical, hreflang, Open Graph, JSON-LD), el sitemap.xml y el robots.txt. Cada página es site/<ruta>index.html; el título y la descripción salen del propio HTML. Al sumar una página: crea sus dos archivos (es y en), agrégala aquí y corre node scripts/check-site.mjs.",
+  "site_url": "https://jahziel1.github.io/tlaku/",
+  "og": {
+    "es": {
+      "image": "og-es.png",
+      "alt": "Ventana principal de Tlaku con un diseño de ejemplo y el texto «Alternativa libre y gratis a LightBurn»."
+    },
+    "en": {
+      "image": "og-en.png",
+      "alt": "Tlaku main window with a sample design and the text “Free open-source LightBurn alternative”."
+    }
+  },
+  "pages": [
+    { "id": "home", "kind": "home", "es": "", "en": "en/" },
+    { "id": "lightburn", "kind": "article", "es": "alternativa-a-lightburn/", "en": "en/lightburn-alternative/" },
+    { "id": "falcon2", "kind": "article", "es": "falcon2/", "en": "en/falcon2/" },
+    { "id": "faq", "kind": "faq", "es": "preguntas-frecuentes/", "en": "en/faq/" }
+  ]
+}

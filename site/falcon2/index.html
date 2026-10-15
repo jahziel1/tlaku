@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <!--@include head-->
+  <title>Programa gratis para Creality Falcon2 | Tlaku</title>
+  <meta name="description" content="Programa libre y gratis para la Creality Falcon2, probado en una Falcon2 Pro 22 W real: grabado, pausa y reanudar. Cómo empezar y qué falta: el corte con potencia alta.">
+  <!--@seo-->
+</head>
+<body>
+  <!--@include sprite-->
+  <!--@include header-->
+
+  <main id="contenido">
+    <div class="page-head">
+      <div class="wrap">
+        <p class="crumbs"><a href="{{HOME}}">Tlaku</a> &rsaquo; Creality Falcon2</p>
+        <p class="eyebrow">Probado en una máquina real</p>
+        <h1>Tlaku para la Creality Falcon2</h1>
+        <p class="lead">Tlaku es un programa libre y gratis (licencia MIT) para controlar una Creality Falcon2 por USB, una alternativa a LightBurn. La Falcon2 es la primera máquina con la que se probó: aquí está lo que funcionó, cómo empezar y lo que todavía falta.</p>
+        <p class="notice"><strong>Beta ({{VERSION}}).</strong> Lo de esta página se midió con una <strong>Falcon2 Pro 22&nbsp;W</strong> los días 14 y 15 de octubre de 2026, desde macOS. <strong>El corte con potencia alta todavía no se ha probado.</strong> Las demás variantes (Falcon2 clásica de 22 y 40&nbsp;W, Pro de 40&nbsp;W y Pro S) no se han probado con Tlaku.</p>
+        <p class="actions">
+          <a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Descargar la beta</a>
+          <a class="btn" href="{{HOME}}alternativa-a-lightburn/">Alternativa a LightBurn</a>
+          <a class="btn opt" href="{{REPO_URL}}/issues/new?template=machine_report.yml">Reportar mi Falcon2</a>
+        </p>
+        <ul class="toc" aria-label="En esta página">
+          <li><a href="#probado">Lo que se probó</a></li>
+          <li><a href="#empezar">Cómo empezar</a></li>
+          <li><a href="#ajustes">Ajustes de partida en MDF</a></li>
+          <li><a href="#falta">Lo que falta</a></li>
+          <li><a href="#ayudar">Ayúdanos</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="prose" id="probado" aria-labelledby="h-probado">
+      <div class="wrap">
+        <h2 id="h-probado">Lo que se probó en una Falcon2 Pro 22&nbsp;W real</h2>
+        <p>Firmware <code>CV50-Pro-MASTER-Release V1.0.0 20231129-1024</code>, GRBL <code>1.1f.20220810</code>, placa ESP32-S3 por USB. Para el láser se usó MDF de 3&nbsp;mm de desecho, con la tapa cerrada, sin ajustar el enfoque y sin regla. La lista completa de pasos y resultados está en la <a href="{{REPO_URL}}/blob/main/docs/validacion-hardware.md">lista de validación</a> (§2.6 a §2.8) y los datos de la máquina en <a href="{{REPO_URL}}/blob/main/docs/hardware/falcon2.md">hardware/falcon2.md</a>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Prueba</th><th scope="col">Resultado</th><th scope="col">Notas</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Conexión y detección</th><td><span class="tag ok">Pasó</span></td><td>El asistente «Agregar máquina» detectó la Falcon2 Pro y propuso los valores de la máquina donde difieren del catálogo (por ejemplo, la velocidad en Y de 8000). Si hay otros dispositivos USB conectados, la Falcon sale primero.</td></tr>
+              <tr><th scope="row">Homing, movimiento y encuadre</th><td><span class="tag ok">Pasó</span></td><td>Homing a la esquina inferior izquierda; encuadre con el láser apagado exacto según la posición que reporta la máquina. Se midió sin regla.</td></tr>
+              <tr><th scope="row">Encuadre con el láser al 1&nbsp;%</th><td><span class="tag ok">Pasó</span></td><td>No marca el material y casi no se ve por la ventana naranja de la tapa.</td></tr>
+              <tr><th scope="row">Grabado de línea y de relleno</th><td><span class="tag ok">Pasó</span></td><td>Cuadrado de línea de 20&nbsp;mm a 15&nbsp;% y 1000&nbsp;mm/min: marca bien. Relleno de 15 × 15&nbsp;mm a 20&nbsp;% y 3000&nbsp;mm/min con intervalo de 0,1&nbsp;mm: se ve parejo.</td></tr>
+              <tr><th scope="row">Prueba de materiales 4 × 4</th><td><span class="tag ok">Pasó</span></td><td>De 10 a 40&nbsp;% y de 3000 a 1000&nbsp;mm/min: se distinguen los tonos.</td></tr>
+              <tr><th scope="row">Imagen de 15 × 15&nbsp;mm (tramado, 9187 líneas, 35&nbsp;%)</th><td><span class="tag ok">Pasó</span> tras un arreglo</td><td>La primera vez la conexión se dio por perdida; se corrigieron dos causas (un estado truncado pegado a un <code>ok</code> y una pausa de escritura de la placa contada como silencio). Repetida: completa y sin pausas.</td></tr>
+              <tr><th scope="row">Tiempo estimado frente a real</th><td><span class="tag ok">Medido</span></td><td>Línea de 20&nbsp;mm: 5,39&nbsp;s estimados, ~5,5&nbsp;s reales. Relleno: 61,3 contra 60,8&nbsp;s. Prueba de materiales: 139,0 contra 136,9&nbsp;s. Imagen: 54,75 contra 54,3&nbsp;s.</td></tr>
+              <tr><th scope="row">Pausa, reanudar y detener con láser y aire</th><td><span class="tag ok">Pasó</span></td><td>En la pausa el láser queda en 0 y reanuda sin perder el trabajo; detener apaga el láser al instante. El cabezal necesita un trecho para frenar (~16&nbsp;mm a 3000&nbsp;mm/min, medido a potencia 0).</td></tr>
+              <tr><th scope="row">Continuar tras un corte de energía</th><td><span class="tag ok">Pasó</span> tras un arreglo</td><td>Reanudó 1,5&nbsp;mm antes del punto del corte y recorrió lo que faltaba. El paro de emergencia corta la energía de la placa: Tlaku avisa que se perdió la conexión y guarda el punto de control.</td></tr>
+              <tr><th scope="row">Aire (<code>M8</code>/<code>M9</code>)</th><td><span class="tag ok">Funciona</span></td><td>Tras <code>M9</code> el aire sigue unos 5&nbsp;s más.</td></tr>
+              <tr><th scope="row">Bloqueo de movimientos fuera de la cama</th><td><span class="tag ok">Pasó</span></td><td>Un movimiento de −5&nbsp;mm desde el origen llegó al final de carrera y la placa se reinició; ahora Tlaku rechaza esos movimientos sin enviar nada.</td></tr>
+              <tr><th scope="row">Vista en vivo y control desde el celular</th><td><span class="tag ok">Pasó</span></td><td>La ventana flotante y la página del celular siguieron el grabado real.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure class="shot">
+          <img src="{{ROOT}}img/26-agregar-maquina.png" width="1440" height="900" alt="Asistente «Agregar máquina» de Tlaku, paso Detectar: puerto, baudios y botón Detectar, con la Falcon2 22 W y su cama de 400 por 415 mm al fondo.">
+          <figcaption>Asistente «Agregar máquina»: detecta la placa sin moverla ni cambiar su configuración.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="prose" id="empezar" aria-labelledby="h-empezar">
+      <div class="wrap">
+        <h2 id="h-empezar">Cómo empezar con la Falcon2</h2>
+        <ol>
+          <li><strong>Cable y puerto.</strong> Usa un cable USB <strong>A a C</strong> (varios reportes dicen que C a C no funciona) e instala el driver CH340/CH341 si tu sistema lo pide. Cierra cualquier otro programa que use el puerto (LightBurn, LaserGRBL).</li>
+          <li><strong>Instala Tlaku</strong> desde la <a href="{{REPO_URL}}/releases/latest">última versión</a>.</li>
+          <li><strong>Agrega la máquina.</strong> En el asistente <em>Agregar máquina</em> elige el puerto y pulsa <em>Detectar</em>; después elige el modelo del catálogo (Falcon2 22&nbsp;W o 40&nbsp;W) y revisa los datos. La Falcon2 es una máquina GRBL de 400 × 415&nbsp;mm con origen abajo a la izquierda, <code>$30=1000</code>, M4 dinámico y 115&nbsp;200 baudios; si la detección difiere del catálogo, Tlaku propone por omisión lo que contestó la máquina.</li>
+          <li><strong>Homing.</strong> Tlaku nunca lo hace por su cuenta: lánzalo tú desde el panel Máquina. La Falcon tiene finales de carrera.</li>
+          <li><strong>Empieza por lo seguro:</strong> encuadra con el láser apagado, luego a baja potencia, y haz una <em>Prueba de materiales</em> sobre un retazo.</li>
+          <li><strong>Sigue la lista de validación</strong> de lo más seguro a lo más arriesgado, con protección ocular para 455&nbsp;nm, material de desecho y la mano cerca del paro de emergencia.</li>
+        </ol>
+        <figure class="shot">
+          <img src="{{ROOT}}img/20-prueba-materiales.png" width="1440" height="900" loading="lazy" alt="Diálogo «Prueba de materiales» de Tlaku: cuadrícula de 5 por 5 celdas, potencia en las filas y velocidad en las columnas, con el tiempo estimado.">
+          <figcaption>Prueba de materiales: una cuadrícula con potencia en las filas y velocidad en las columnas.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="prose" id="ajustes" aria-labelledby="h-ajustes">
+      <div class="wrap">
+        <h2 id="h-ajustes">Ajustes de partida medidos en MDF de 3&nbsp;mm</h2>
+        <p>Son <strong>puntos de partida de una sola máquina</strong> (Falcon2 Pro 22&nbsp;W), <strong>sin enfocar</strong>, medidos fotografiando una prueba de materiales con relleno de 4&nbsp;mm a 0,1&nbsp;mm. Con el enfoque ajustado el tono sube. Calibra con tu propia prueba de materiales.</p>
+        <p>Oscuridad medida del relleno, según potencia y velocidad:</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Velocidad</th><th scope="col">10&nbsp;%</th><th scope="col">20&nbsp;%</th><th scope="col">30&nbsp;%</th><th scope="col">40&nbsp;%</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">1000&nbsp;mm/min</th><td>72&nbsp;%</td><td>90&nbsp;%</td><td>96&nbsp;%</td><td>100&nbsp;% (empieza a carbonizar)</td></tr>
+              <tr><th scope="row">1667&nbsp;mm/min</th><td>&mdash;</td><td>78&nbsp;%</td><td>88&nbsp;%</td><td>&mdash;</td></tr>
+              <tr><th scope="row">2333&nbsp;mm/min</th><td>50&nbsp;%</td><td>69&nbsp;%</td><td>77&nbsp;%</td><td>82&nbsp;%</td></tr>
+              <tr><th scope="row">3000&nbsp;mm/min</th><td>43&nbsp;%</td><td>62&nbsp;%</td><td>72&nbsp;%</td><td>79&nbsp;%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul>
+          <li><strong>Relleno a 3000&nbsp;mm/min, intervalo 0,1&nbsp;mm:</strong> 10&nbsp;% tono claro, 20&nbsp;% medio, 30 a 40&nbsp;% oscuro.</li>
+          <li><strong>Relleno a 1000&nbsp;mm/min:</strong> con 30&nbsp;% o más llega a negro y empieza a carbonizar.</li>
+          <li><strong>Línea:</strong> marca desde el 15&nbsp;% a 1000&nbsp;mm/min.</li>
+        </ul>
+        <p>Si ajustas otros materiales y quieres compartirlos, el formulario <a href="{{REPO_URL}}/issues/new?template=material_settings.yml">Compartir ajustes de material</a> los incorpora a la biblioteca de la comunidad como datos sin verificar (CC0).</p>
+      </div>
+    </section>
+
+    <section class="prose" id="falta" aria-labelledby="h-falta">
+      <div class="wrap">
+        <h2 id="h-falta">Lo que falta</h2>
+        <ul>
+          <li><strong>Corte con potencia alta: sin probar.</strong> Se necesita enfoque y subir el tope de la herramienta de prueba. Para MDF de 3&nbsp;mm no hay una cifra oficial de Creality con 22&nbsp;W; lo único publicado por un usuario es contrachapado de 3&nbsp;mm a 60&nbsp;%, 400&nbsp;mm/min y una pasada, y el MDF es más denso. Un punto de partida <em>a probar</em> en un retazo, con enfoque y aire, sería 80 a 100&nbsp;%, 300 a 400&nbsp;mm/min y 1 o 2 pasadas. No es un valor verificado.</li>
+          <li><strong>La tapa no se detecta:</strong> con la tapa abierta la máquina sigue en <code>Idle</code>, sin alarma ni pin, así que Tlaku no puede saber que está abierta.</li>
+          <li><strong>Disparo de prueba:</strong> la primera vez la Falcon tarda ~1&nbsp;s en aceptar el encendido, así que el láser pudo estar encendido hasta ~1,2&nbsp;s en lugar del tiempo pedido. Tlaku avisa si la espera pasa de 400&nbsp;ms; falta medirlo con un fotodiodo.</li>
+          <li><strong>Cámara de la tapa:</strong> ve bien el centro y el fondo de la cama pero no cubre la franja delantera, y tiene un ojo de pez fuerte. Falta calibrar la lente y alinearla.</li>
+          <li><strong>Medir con regla</strong> los desplazamientos y comprobar que no se pierden pasos con carga.</li>
+          <li><strong>Un trabajo largo en la máquina real:</strong> se probó solo en el emulador con las fallas que mostró la Falcon (la placa a veces deja de contestar unos segundos; Tlaku avisa y espera, sin cortar el trabajo).</li>
+          <li><strong>Un corte de luz real con material</strong> y <strong>las otras variantes</strong> de la Falcon2.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="prose" id="ayudar" aria-labelledby="h-ayudar">
+      <div class="wrap">
+        <h2 id="h-ayudar">¿Tienes una Falcon2? Ayúdanos</h2>
+        <p>Casi toda la evidencia pública es de la Falcon2 Pro, y la Falcon2 clásica no tiene una salida de consola publicada. Si tienes cualquier variante, probarla y contarnos cómo salió (<strong>también si todo salió bien</strong>) completa estos datos.</p>
+        <p class="actions">
+          <a class="btn primary opt" href="{{REPO_URL}}/issues/new?template=machine_report.yml">Reporte de prueba en mi máquina</a>
+          <a class="btn opt" href="{{REPO_URL}}/blob/main/docs/validacion-hardware.md">Lista de validación</a>
+          <a class="btn" href="{{HOME}}preguntas-frecuentes/">Preguntas frecuentes</a>
+        </p>
+        <p>Creality es una marca de su titular; Tlaku es un proyecto independiente, sin relación con Creality. El nombre del modelo se usa solo para decir con qué máquina se probó.</p>
+      </div>
+    </section>
+  </main>
+
+  <!--@include footer-->
+</body>
+</html>

@@ -10,9 +10,21 @@ English · [Español](README.es.md)
 > [buy the project a coffee on Ko-fi](https://ko-fi.com/danielmartinez55371) ☕ — it pays for test machines and development time.
 > Testing on your machine and [sharing the results](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml) helps just as much.
 
-**Free software for laser cutters and engravers.** Tlaku is an open source alternative (MIT license)
-to commercial laser control programs: you design or import a job, adjust the layers, see how it will
-be cut and send it to the machine with safety checks before anything moves.
+**Tlaku is a free, open source alternative to LightBurn for laser engravers and cutters (MIT
+license).** It opens LightBurn projects (`.lbrn`, `.lbrn2`), imports `.lbdev` machine profiles and
+drives GRBL lasers such as the Creality Falcon2: you design or import a job, adjust the layers, see
+how it will be cut and send it to the machine with safety checks before anything moves.
+LightBurn is a trademark of its owner; Tlaku is an independent project and is not affiliated with it.
+
+### Download the beta (0.1.0)
+
+[![Download for Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_x64-setup.exe) [![Download for macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_universal.dmg) [![Download for Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_amd64.deb) [![Download for Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_amd64.AppImage)
+
+[All files and release notes](https://github.com/jahziel1/tlaku/releases/latest) ·
+[Website](https://jahziel1.github.io/tlaku/en/) ·
+[Free LightBurn alternative](https://jahziel1.github.io/tlaku/en/lightburn-alternative/) ·
+[Tlaku for the Creality Falcon2](https://jahziel1.github.io/tlaku/en/falcon2/) ·
+[FAQ](https://jahziel1.github.io/tlaku/en/faq/)
 
 The name comes from the Nahuatl *tlacuilo*: the painter-scribe who drew and wrote the codices. A
 tlacuilo turned ideas into strokes on a surface; Tlaku turns a design into the movements of a laser.
@@ -21,20 +33,23 @@ tlacuilo turned ideas into strokes on a surface; Tlaku turns a design into the m
 explains what it does, especially people coming from LightBurn and people just starting out. There is
 a specific guide for switching: [coming from LightBurn](docs/manual/en/14-desde-lightburn.md).
 
-> **Honest status:** Tlaku already has a complete desktop application, but **no machine feature has
-> been tested with a real laser yet**. Everything has been validated with a controller emulator and
-> with virtual machines inside the app. Until there are hardware tests, treat every job as a test:
-> start with low power, scrap material and your hand near the emergency stop. Details in
+> **Honest status: beta.** Tlaku already has a complete desktop application and it has been tried on
+> a **real Creality Falcon2 Pro 22 W**: connecting, model detection, homing, jogging, framing,
+> engraving lines, fills and images, a material test, pause, stop, resuming after a power cut, the live
+> view and the phone remote. **High-power cutting has not been tested on a real machine yet**, and every
+> other machine (Ruida, K40, galvo and other GRBL brands) has been validated only with a controller
+> emulator and with virtual machines inside the app. Treat every job as a test: start with low power,
+> scrap material and your hand near the emergency stop. Details in
 > [supported controllers](#supported-controllers).
 
 ![Tlaku main window with a sample design and its layers](apps/desktop/docs/screenshots/01-principal-oscuro.png)
 
 ## Help us test on real machines
 
-Tlaku has been tested **only with emulators, virtual machines and automated tests**. No machine
-feature has been used with a real laser yet: the first test will be the author's Creality Falcon2,
-and everything else depends on people who own other machines. That is why the most valuable thing you
-can do today is to try it on yours and tell us what happened, **even if everything went well**.
+Tlaku has been tested on **one real machine** (the author's Creality Falcon2 Pro 22 W, without
+high-power cutting); everything else only with emulators, virtual machines and automated tests, and it
+depends on people who own other machines. That is why the most valuable thing you can do today is to try
+it on yours and tell us what happened, **even if everything went well**.
 
 - **Tell us how it works on your machine:** open the
   [Real machine test report](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml)
@@ -58,6 +73,26 @@ its own:** you review the form and decide whether to post it (a GitHub account i
 emergency stop and never leave the machine alone. Tlaku is provided without warranty. If you find
 something that could fire the laser where it should not, fail to stop it, or move the machine
 unexpectedly, do not open a public issue: follow [SECURITY.md](SECURITY.md).
+
+## Frequently asked questions
+
+Full answers on the [FAQ page](https://jahziel1.github.io/tlaku/en/faq/).
+
+- **Is there a free alternative to LightBurn?** Tlaku is one: free and open source (MIT), for
+  Windows, macOS and Linux. It is a beta, so read [what it does and what is still untested](https://jahziel1.github.io/tlaku/en/lightburn-alternative/).
+- **Does it open LightBurn files?** Yes: `.lbrn` and `.lbrn2` projects with their layers and settings,
+  and `.lbdev` machine profiles. Check every layer in the preview before cutting.
+- **Which laser machines does it support?** GRBL diode lasers over USB or the network, grblHAL,
+  FluidNC, Marlin and Smoothie; Ruida (CO2), K40 and galvo are experimental. Only a Creality Falcon2 Pro
+  has been tested on real hardware: see [Tlaku for the Creality Falcon2](https://jahziel1.github.io/tlaku/en/falcon2/).
+- **Does it work without internet?** Yes. The internet is used only to open the community settings
+  library and to check for updates (off at startup by default).
+- **Does it update itself?** It tells you when there is a new version and installs it with your
+  permission, never during a job.
+- **Why does my system say "unidentified developer"?** The installers are not signed yet. On macOS,
+  right-click > Open; on Windows, "More info" > "Run anyway" (details in [Installation](#installation)).
+- **How can I help?** Test it on your machine and [tell us how it went](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml),
+  share material settings, or [buy the project a coffee on Ko-fi](https://ko-fi.com/danielmartinez55371).
 
 ## Main features
 
@@ -228,13 +263,13 @@ The real status, feature by feature (213 of the 217 features in the inventory ar
 
 ## Supported controllers
 
-None has been tested with a real machine; "stable" means it works end to end against the emulator
-and the app's virtual machines, with automated tests. The first test with real hardware will be a
-Creality Falcon2. Full guide: [docs/manual/en/13-controladoras.md](docs/manual/en/13-controladoras.md).
+Only the Creality Falcon2 Pro 22 W has been tested with a real machine (without high-power cutting);
+"stable" means it works end to end against the emulator and the app's virtual machines, with
+automated tests. Full guide: [docs/manual/en/13-controladoras.md](docs/manual/en/13-controladoras.md).
 
 | Controller or firmware | Status | Notes |
 |---|---|---|
-| GRBL 1.1 (M4) and GRBL-M3, over USB serial | Stable in the emulator; **to be validated on a real machine** | Most diode lasers (Creality Falcon2 included). Catalog of 21 models with sources. |
+| GRBL 1.1 (M4) and GRBL-M3, over USB serial | Stable in the emulator; **validated on a real Falcon2 Pro, the rest to be validated** | Most diode lasers. **Tested on a real Creality Falcon2 Pro 22 W** (no high-power cutting); other brands untested. Catalog of models with sources. |
 | grblHAL and FluidNC | Stable in the emulator; **to be validated on a real machine** | Own G-code dialect and virtual machine. Over USB, and over the network (TCP/Telnet and WebSocket, tested against the emulator over real sockets). |
 | Marlin and Smoothie | Stable in the emulator (basic); **to be validated on a real machine** | Line-by-line sending, lost-position warning and virtual machine. |
 | Old GRBL (no M4), GRBL-LPC and custom G-code | **To be validated on a real machine** | Own dialect; no dedicated virtual machine. The custom type comes with a dialect editor. |
@@ -247,8 +282,9 @@ Creality Falcon2. Full guide: [docs/manual/en/13-controladoras.md](docs/manual/e
 
 ### Download the application
 
-The installers will be on the repository's **Releases** page (the latest version, "Assets" section).
-No version has been published yet; until the first one, build from source (next section).
+Tlaku **0.1.0 (beta)** is published on the repository's
+[**Releases**](https://github.com/jahziel1/tlaku/releases/latest) page ("Assets" section), or use the
+download buttons at the top of this page. You can also build from source (next section).
 
 | System | File |
 |---|---|
