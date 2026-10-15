@@ -390,5 +390,66 @@ Trabajo de un cuadrado de 40 mm en (100, 100) a 3000 mm/min, con el perfil GRBL 
 - **Aire:** tras `M9` el aire sigue unos **5 s** (medido a oído) con `$152=30`. `$150=30`, `$151=100`, `$153=0`… son ajustes propios de Creality sin documentación pública confirmada; `$152` no está en segundos.
 - **`M3`/`M4` tardan ~1 s en aceptarse** la primera vez (el `ok` y el arranque del movimiento llegan ~1 s después); un segundo `M3` seguido no tarda.
 - **Línea de estado truncada pegada a un `ok`:** `<Run|MPos:0.287,0.112,0.000|Bf:28,65427|FS:10530,0|Ov:100,100,10ok` (con aire y relleno) y `<Run|MPos:94.188,28.750,0.000|Bf:0,65419|FS:3000,0|Ov:100,100,10ok` (imagen). Defecto del firmware al mezclar el reporte con la respuesta.
-- **Imagen densa:** con el planificador lleno (`Bf:0`) y miles de líneas cortas la placa dejó de mandar reportes ~20 s y la app la dio por perdida; la placa siguió moviéndose. En investigación (ver docs/validacion-hardware.md §2.7).
+- **Imagen densa:** con el planificador lleno (`Bf:0`) y miles de líneas cortas la placa dejó de mandar reportes ~20 s y la app la dio por perdida; la placa siguió moviéndose. Análisis y arreglo en 10.6.
 - **Grabado en MDF 3 mm sin enfocar:** marca desde el 15 % a 1000 mm/min (línea) y desde el 10 % a 3000 mm/min (relleno 0,1 mm).
+
+### 10.5 Estado cortado pegado al `ok` (arreglado)
+
+Durante un relleno con aire (`M8`), la placa mandó (1 vez en ~600 líneas; también en el trabajo de la
+imagen, ver 10.6) una línea de respuesta que juntaba un reporte de estado **sin su final** con el `ok`
+de una línea del trabajo, sin salto de línea entre ambos:
+
+```text
+<Run|MPos:0.287,0.112,0.000|Bf:28,65427|FS:10530,0|Ov:100,100,10ok
+```
+
+Faltan los dos últimos caracteres del reporte (`0>`): la placa dejó de escribir el reporte a medias y
+siguió con el `ok`. Efecto antes del arreglo (reproducido en el emulador con
+`Fault::TruncatedStatusBeforeReply`): la línea no es `ok` exacto ni un reporte válido (no termina en
+`>`), se registraba como mensaje y **el `ok` se perdía**. El streamer creía una línea más en vuelo:
+al llegar a la última línea `acked` se quedaba una por debajo del total y el trabajo **no terminaba
+nunca** (hasta que el usuario cancelaba), con un solo `ok` perdido; el avance y el punto de control
+iban una línea por detrás, y un `error:N` posterior se atribuía a la línea anterior.
+
+Arreglo (`crates/tlaku-grbl/src/glued.rs`, `LineReader::grbl()`, solo familia GRBL): el lector separa
+`<…truncado` + `ok`/`error:N`, `<…>` + `ok`, `[MSG:…]ok`, `ok<…>`, `okok` y `error:3ok`. El fragmento
+truncado se entrega aparte y no es un reporte (`StatusReport::parse` lo rechaza), así que no mueve la
+posición y `Ov:100,100,10` nunca es un override del 10 %; queda en el registro como mensaje. `okay`,
+`ok T:20` (Marlin) y `[OK] … ok` no se tocan. Pruebas: `glued::tests`,
+`streamer::tests::glued_error_and_ok_…` y, en el emulador, `tests/streamer.rs`
+(`truncated_status_glued_to_ok_…`, `glued_statuses_repeated_…`).
+
+### 10.6 Imagen densa: la placa dejó de contestar 19 s y Tlaku declaró la conexión perdida
+
+Imagen de 15 × 15 mm con dithering (9187 líneas, `M4`, 3000 mm/min, intervalo 0,1 mm, S hasta 350).
+Con el planificador siempre lleno (`Bf:0,…`), reportes cada ~200 ms hasta los 31 215 ms; luego
+ninguno hasta uno suelto a los 50 417 ms y, a los 50 755 ms, «la controladora dejó de responder». Al
+reconectar, la placa estaba en `Idle`, sin búfer, en (90.2, 28.05).
+
+Lectura del registro: la Y baja ~0,1 mm cada 0,4 s. El reporte de los 50 417 ms está en
+(87.512, 28.25), una fila (~0,4 s) después del de los 31 215 ms (79.287, 28.35): la placa estuvo
+**parada del todo unos 19 s** (sin moverse y sin hablar) y reanudó. El `ok` pegado de los 29 380 ms
+**no** es la causa: los reportes siguieron llegando 1,8 s después de él (el lector no se bloqueó) y el
+mismo pegado ocurrió en otros trabajos que terminaron bien. La posición final (28,05, dos filas
+después) cuadra con ~0,8 s de movimiento tras la reanudación y la parada segura de Tlaku, no con 19 s
+de trabajo.
+
+Causa más probable del lado de Tlaku: el hilo del streamer estuvo bloqueado en `write_all`. En POSIX
+el `flush()` de `serialport` es `tcdrain`, que espera sin límite a que la placa lea; un USB CDC de un
+ESP32-S3 parado lo deja colgado. Sin hilo no hay `?` (por eso ningún reporte) ni lectura. Al volver,
+la misma vuelta leía 5 ms, no recibía aún nada, y medía «silencio» con `last_rx` de 19 s atrás
+(`silence_timeout` = 5 s): daba la conexión por perdida y paraba la máquina sin haber podido oír.
+La causa de fondo (que la placa se pare) está en el firmware y no la controla Tlaku; la bibliografía
+pública apunta en la misma dirección sin resolverla: ESP32 + GRBL «el flujo se detiene cuando el búfer se
+llena y no reanuda», que desaparecía quitando el concentrador USB (foro de LightBurn, «Lightburn stops
+while engraving»), y bloqueos de `flush()` en el USB CDC del ESP32-S3 (arduino-esp32, issue 6922).
+No se encontró ninguna fuente específica de la Falcon2.
+
+Arreglos: (1) el streamer no cuenta como silencio de la placa el tiempo que él mismo estuvo
+bloqueado escribiendo (`WRITE_STALL`, 250 ms): la ventana de 5 s empieza al volver, y una placa
+realmente muda se sigue detectando; (2) `SerialTransport::write_all` ya no llama a `tcdrain` y reintenta
+una cola llena hasta 30 s (**sin probar en hardware**); (3) los segmentos de imagen ya se agrupan:
+`row_runs` (`tlaku-raster/src/scan.rs`) fusiona píxeles vecinos de igual potencia en un solo `G1`.
+Pendiente: decidir si conviene un `silence_timeout` mayor con el planificador lleno y menos bytes en
+vuelo; con una placa congelada de verdad la parada segura al declararla perdida sigue siendo lo
+prudente.

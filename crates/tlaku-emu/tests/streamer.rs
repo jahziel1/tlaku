@@ -582,3 +582,207 @@ fn default_auto_clock_runs_a_job_without_wall_time() {
         start.elapsed()
     );
 }
+
+// ---------------------------------------------------------------------------
+// Estado truncado pegado al `ok` (Falcon2 Pro real, GRBL 1.1f CV50-Pro)
+// ---------------------------------------------------------------------------
+
+/// Trabajo de `n` cortes cortos tras la cabecera.
+fn many_cuts_job(n: usize) -> Vec<String> {
+    let mut lines = gl(&["G90", "G21", "M4 S0", "G0 X0 Y0"]);
+    for i in 0..n {
+        let x = 1.0 + (i % 20) as f64 * 0.5;
+        let y = 1.0 + (i / 20) as f64 * 0.5;
+        if i == 0 {
+            lines.push(format!("G1 X{x:.3} Y{y:.3} S300 F6000"));
+        } else {
+            lines.push(format!("G1 X{x:.3} Y{y:.3}"));
+        }
+    }
+    lines.push("M5".into());
+    lines
+}
+
+#[test]
+fn a_single_truncated_status_glued_to_ok_does_not_hang_the_job() {
+    // El caso real: 1 vez en ~600 líneas. Sin el arreglo el `ok` se perdía y, al terminar, el
+    // streamer se quedaba esperando una línea más para siempre.
+    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 100.0, |b| b.homed(true));
+    let lines = many_cuts_job(30);
+    h.inject(Trigger::Line(12), Fault::TruncatedStatusBeforeReply);
+    let run = run_job(vm, fast_config(), &lines, Duration::from_secs(8));
+    assert!(!run.timed_out, "el trabajo no termina");
+    assert_eq!(run.outcome, Some(Outcome::Completed { errors: 0 }));
+}
+
+#[test]
+fn truncated_status_glued_to_ok_does_not_hang_or_skew_the_count() {
+    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 100.0, |b| b.homed(true));
+    let lines = many_cuts_job(60);
+    for n in [6, 15, 16, 30, 47, 64] {
+        h.inject(Trigger::Line(n), Fault::TruncatedStatusBeforeReply);
+    }
+    let run = run_job(vm, fast_config(), &lines, Duration::from_secs(15));
+    assert!(!run.panicked);
+    assert!(
+        !run.timed_out,
+        "el trabajo quedó esperando el ok que venía pegado a un estado cortado"
+    );
+    assert_eq!(run.outcome, Some(Outcome::Completed { errors: 0 }));
+    // Se cuentan todas las líneas: el último avance confirma el total, ninguna de más.
+    let last = run.events.iter().rev().find_map(|e| match e {
+        Event::Progress {
+            acked, sent, total, ..
+        } => Some((*acked, *sent, *total)),
+        _ => None,
+    });
+    assert_eq!(last, Some((lines.len(), lines.len(), lines.len())));
+    // Ningún reporte cortado se interpretó como estado: el `Ov:100,100,10` no es un 10 %.
+    for e in &run.events {
+        if let Event::Status(r) = e
+            && let Some(ov) = r.overrides
+        {
+            assert_eq!((ov.feed, ov.rapid, ov.spindle), (100, 100, 100));
+        }
+    }
+    assert_eq!(h.state(), StateKind::Idle);
+    assert!(!h.laser_on());
+}
+
+/// Transporte que, tras `after` escrituras, se queda bloqueado `stall` dentro de `write_all`
+/// (como el `tcdrain` de un puerto USB CDC cuya placa dejó de leer unos segundos).
+struct StallingWrites {
+    inner: tlaku_emu::VirtualMachine,
+    writes: usize,
+    after: usize,
+    stall: Duration,
+    /// Lecturas vacías justo después del bloqueo: la placa aún no ha contestado al volver.
+    quiet_reads: usize,
+}
+
+impl Transport for StallingWrites {
+    fn write_all(&mut self, data: &[u8]) -> std::io::Result<()> {
+        self.writes += 1;
+        if self.writes == self.after {
+            std::thread::sleep(self.stall);
+            self.quiet_reads = 2;
+        }
+        self.inner.write_all(data)
+    }
+
+    fn read_timeout(&mut self, buf: &mut [u8], timeout: Duration) -> std::io::Result<usize> {
+        if self.quiet_reads > 0 {
+            self.quiet_reads -= 1;
+            std::thread::sleep(timeout);
+            return Ok(0);
+        }
+        self.inner.read_timeout(buf, timeout)
+    }
+
+    fn clear_input(&mut self) -> std::io::Result<()> {
+        self.inner.clear_input()
+    }
+}
+
+#[test]
+fn a_write_that_blocks_longer_than_the_silence_window_is_not_a_dead_controller() {
+    // Registro real (Falcon2 Pro, imagen de 9187 líneas): ningún reporte durante 19 s y, al
+    // volver, la conexión se daba por perdida (y se paraba la máquina) sin haber podido leer
+    // nada, porque el tiempo bloqueado en la escritura contaba como silencio de la placa.
+    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 100.0, |b| b.homed(true));
+    let transport = StallingWrites {
+        inner: vm,
+        writes: 0,
+        quiet_reads: 0,
+        after: 6,
+        stall: Duration::from_millis(900),
+    };
+    let started = std::time::Instant::now();
+    let cfg = StreamerConfig {
+        silence_timeout: Duration::from_millis(300),
+        ..fast_config()
+    };
+    let lines = many_cuts_job(400);
+    let job = Streamer::new(transport, cfg).spawn(&lines).unwrap();
+    let mut outcome = None;
+    let end = std::time::Instant::now() + Duration::from_secs(15);
+    while std::time::Instant::now() < end {
+        match job.events.recv_timeout(Duration::from_millis(20)) {
+            Ok(Event::Finished(o)) => {
+                outcome = Some(o);
+                break;
+            }
+            Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(_) => break,
+        }
+    }
+    assert_eq!(
+        outcome,
+        Some(Outcome::Completed { errors: 0 }),
+        "{outcome:?}"
+    );
+    let _ = job.join();
+    assert!(
+        started.elapsed() >= Duration::from_millis(900),
+        "no hubo bloqueo"
+    );
+    assert_eq!(h.state(), StateKind::Idle);
+}
+
+#[test]
+fn a_truly_silent_controller_is_still_detected_after_a_stall_was_forgiven() {
+    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 1.0, |b| b.homed(true));
+    h.inject(
+        Trigger::At(Duration::from_millis(300)),
+        Fault::Silence {
+            duration: Duration::from_secs(30),
+            drop_output: true,
+        },
+    );
+    let transport = StallingWrites {
+        inner: vm,
+        writes: 0,
+        quiet_reads: 0,
+        after: 3,
+        stall: Duration::from_millis(600),
+    };
+    let cfg = StreamerConfig {
+        silence_timeout: Duration::from_millis(400),
+        ..fast_config()
+    };
+    let job = Streamer::new(transport, cfg)
+        .spawn(&gl(&["G90", "G1 X100 F600", "G0 X0"]))
+        .unwrap();
+    let mut outcome = None;
+    let end = std::time::Instant::now() + Duration::from_secs(15);
+    while std::time::Instant::now() < end {
+        if let Ok(Event::Finished(o)) = job.events.recv_timeout(Duration::from_millis(20)) {
+            outcome = Some(o);
+            break;
+        }
+    }
+    assert!(
+        matches!(outcome, Some(Outcome::Disconnected(_))),
+        "{outcome:?}"
+    );
+    let _ = job.join();
+}
+
+#[test]
+fn glued_statuses_repeated_through_a_dense_job_keep_the_count_exact() {
+    // Imagen densa: muchas líneas cortas y un estado cortado pegado al ok cada pocas líneas.
+    let (vm, h) = scaled_vm(Profile::falcon2_pro(), 200.0, |b| b.homed(true));
+    let lines = many_cuts_job(300);
+    for n in (5..300).step_by(7) {
+        h.inject(Trigger::Line(n), Fault::TruncatedStatusBeforeReply);
+    }
+    let run = run_job(vm, fast_config(), &lines, Duration::from_secs(20));
+    assert!(!run.timed_out && !run.panicked);
+    assert_eq!(run.outcome, Some(Outcome::Completed { errors: 0 }));
+    let last = run.events.iter().rev().find_map(|e| match e {
+        Event::Progress { acked, total, .. } => Some((*acked, *total)),
+        _ => None,
+    });
+    assert_eq!(last, Some((lines.len(), lines.len())));
+    assert_eq!(h.received_lines().len(), lines.len());
+}

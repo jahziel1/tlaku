@@ -521,3 +521,89 @@ fn extended_codes_depend_on_the_firmware_family() {
     assert_eq!(error_message_for(Firmware::Grbl, 50), "error desconocido");
     assert_eq!(error_message(0), "error desconocido");
 }
+
+#[test]
+fn glued_error_and_ok_after_a_truncated_status_keep_the_accounting() {
+    // Falcon2 Pro real: `<Run|...|Ov:100,100,10ok`. El `ok` (o el `error:N`) pegado a un
+    // reporte cortado cuenta como respuesta de la línea y el fragmento no es un estado.
+    let (host, mut dev) = memory_pair();
+    let cfg = StreamerConfig {
+        error_policy: ErrorPolicy::Continue,
+        status_interval: Some(Duration::from_secs(60)),
+        ..Default::default()
+    };
+    let job = Streamer::new(host, cfg)
+        .spawn(&["G90", "G0 X1", "G0 X2", "G0 X3"])
+        .unwrap();
+    let sent = read_for(&mut dev, 80);
+    assert!(sent.contains("G90\nG0X1\nG0X2\nG0X3\n"), "{sent:?}");
+    // Respuestas: 1 = fragmento + ok; 2 = ok; 3 = fragmento + error:20; 4 = ok.
+    dev.write_all(
+        b"<Run|MPos:0.287,0.112,0.000|Bf:28,65427|FS:10530,0|Ov:100,100,10ok\r\n\
+          ok\r\n\
+          <Run|MPos:0.287,0.1error:20\r\n\
+          ok\r\n\
+          <Idle|MPos:0.000,0.000,0.000|FS:0,0>\r\n",
+    )
+    .unwrap();
+    let mut events = Vec::new();
+    let end = Instant::now() + Duration::from_secs(5);
+    let mut outcome = None;
+    while Instant::now() < end {
+        match job.events.recv_timeout(Duration::from_millis(20)) {
+            Ok(Event::Finished(o)) => {
+                outcome = Some(o);
+                break;
+            }
+            Ok(e) => events.push(e),
+            Err(_) => {}
+        }
+    }
+    assert_eq!(
+        outcome,
+        Some(Outcome::Completed { errors: 1 }),
+        "{events:?}"
+    );
+    // El error pegado se atribuye a su línea (la 3: `G0 X2`), no a otra.
+    assert!(events.iter().any(|e| matches!(
+        e,
+        Event::Error {
+            code: 20,
+            source_line: Some(3),
+            ..
+        }
+    )));
+    // Ningún fragmento se tomó por reporte: solo el `Idle` completo llegó como estado.
+    let statuses: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Status(r) => Some(r),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(statuses.len(), 1, "{statuses:?}");
+    assert_eq!(statuses[0].state, MachineState::Idle);
+    // Los fragmentos quedan como mensaje (visibles en el registro), no se pierden en silencio.
+    let frag = "<Run|MPos:0.287,0.112,0.000|Bf:28,65427|FS:10530,0|Ov:100,100,10";
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Message(m) if m == frag))
+    );
+    let _ = job.join();
+}
+
+#[test]
+fn only_the_grbl_family_splits_glued_replies() {
+    use crate::serial::LineReader;
+    let mut generic = LineReader::default();
+    generic.feed(b"okok\n");
+    assert_eq!(generic.next_line().as_deref(), Some("okok"));
+    let mut grbl = LineReader::grbl();
+    grbl.feed(b"okok\nok T:20\n<Run|MPos:1,2,3|Ov:100,100,10ok\n");
+    let lines: Vec<_> = std::iter::from_fn(|| grbl.next_line()).collect();
+    assert_eq!(
+        lines,
+        ["ok", "ok", "ok T:20", "<Run|MPos:1,2,3|Ov:100,100,10", "ok"]
+    );
+}

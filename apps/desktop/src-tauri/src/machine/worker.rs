@@ -114,7 +114,7 @@ pub(super) struct Worker {
     shared: Arc<Shared>,
     timing: Timing,
     port: String,
-    reader: LineReader,
+    pub(super) reader: LineReader,
     last_poll: Option<Instant>,
     last_rx: Instant,
     /// Desplazamiento de coordenadas de trabajo (`WCO`), para convertir MPos <-> WPos.
@@ -186,7 +186,7 @@ impl Worker {
             shared,
             timing,
             port,
-            reader: LineReader::default(),
+            reader: LineReader::grbl(),
             last_poll: None,
             last_rx: Instant::now(),
             wco: [0.0, 0.0],

@@ -84,6 +84,8 @@ enum Reply {
     Normal,
     Error(u32),
     Drop,
+    /// Respuesta normal precedida de un reporte de estado cortado y sin salto de línea.
+    GluedStatus,
 }
 
 #[derive(Debug, Clone, Copy)]

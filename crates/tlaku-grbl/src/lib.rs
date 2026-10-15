@@ -3,6 +3,7 @@
 
 pub mod frame;
 pub mod gcode;
+pub mod glued;
 pub mod link;
 pub mod net;
 pub mod preflight;

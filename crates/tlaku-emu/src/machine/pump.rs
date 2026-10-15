@@ -48,6 +48,17 @@ impl Machine {
         self.line_ctx.bytes = 0;
         match (ctx.reply, result) {
             (Reply::Drop, _) => {}
+            (Reply::GluedStatus, result) => {
+                // Reporte sin sus dos últimos caracteres (`0>`) y sin terminador, pegado a la
+                // respuesta de la línea.
+                let mut counters = self.rep;
+                let mut status = self.status_with(&mut counters, true, true);
+                status.truncate(status.len().saturating_sub(2));
+                match result {
+                    Ok(()) => self.emit_line(&format!("{status}ok")),
+                    Err(c) => self.emit_line(&format!("{status}error:{c}")),
+                }
+            }
             (Reply::Error(c), _) => self.emit_line(&format!("error:{c}")),
             (Reply::Normal, Ok(())) => self.emit_line("ok"),
             (Reply::Normal, Err(c)) => self.emit_line(&format!("error:{c}")),
