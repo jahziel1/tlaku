@@ -4,7 +4,7 @@ import { Check, Choice, Dialog } from '@/features/arrange/Dialog';
 import { selectionUnits } from '@/features/arrange/units';
 import { UnitThumb } from '@/features/arrange/UnitThumb';
 import { unitLabel } from '@/features/arrange/unitLabel';
-import { t } from '@/i18n';
+import { t, tn } from '@/i18n';
 import { colorName } from '@/lib/palette';
 import { fmt } from '@/lib/platform';
 import { formatSize } from '@/lib/units';
@@ -16,15 +16,20 @@ import { pieceNames } from './names';
 import { useNestUi } from './nestStore';
 import { NestPreview } from './NestPreview';
 import { flatPolylines, unplacedSummary } from './preview';
+import { addLeftover, loadRemnants, removeRemnants, useRemnants } from './remnantStore';
+import { matchingRemnants } from './remnants';
 import {
   buildNestRequest, materialCandidates, MAX_NEST_INSTANCES, NEST_STEP_RANGE, NEST_TIME_RANGE, resolveContainer, sanitizeCopies, totalInstances,
   type NestOptions,
 } from './request';
-import type { NestGravity, NestRotationMode } from './types';
+import { sheetOffsets, sheetReferences } from './sheets';
+import { SheetsResult, SheetsSection } from './SheetsPanels';
+import type { NestGravity, NestPieceRotation, NestRotationMode, NestSheet, NestStatus } from './types';
 import { useNestRun } from './useNestRun';
 import './nest.css';
 
 const MAX_UNPLACED_SHOWN = 8;
+const PIECE_ROTATIONS: readonly NestPieceRotation[] = ['inherit', 'none', 'grain'];
 
 /** Diálogo "Acomodar piezas (nesting)": piezas y copias, contenedor, opciones, avance y vista previa. */
 export function NestDialog() {
@@ -41,6 +46,11 @@ export function NestDialog() {
 
   const units = useMemo(() => selectionUnits(doc, selectedIds), [doc, selectedIds]);
   const [copies, setCopies] = useState<Record<string, number>>({});
+  const [rotations, setRotations] = useState<Record<string, NestPieceRotation>>({});
+  const [removeUsed, setRemoveUsed] = useState(true);
+  const [saved, setSaved] = useState<ReadonlySet<number>>(new Set());
+  const library = useRemnants((s) => s.library);
+  useEffect(() => void loadRemnants(), []);
   const total = totalInstances(units, copies);
   const flat = useMemo(() => new Map(units.map((u) => [u.id, flatPolylines(u.objects)])), [units]);
   // Nombre legible de cada pieza ("Rectángulo 40×20 mm"); si dos se llaman igual, se numeran.
@@ -60,6 +70,10 @@ export function NestDialog() {
   const inputKey = JSON.stringify([units.map((u) => [u.id, sanitizeCopies(copies[u.id] ?? 1)]), options.containerKind, material?.id ?? null, bed]);
   const { reset } = run;
   useEffect(() => reset(), [inputKey, reset]);
+
+  const matching = useMemo(() => matchingRemnants(library.remnants, options.material, options.thicknessMm), [library.remnants, options.material, options.thicknessMm]);
+  const remnantMap = useMemo(() => new Map(library.remnants.map((r) => [r.id, r])), [library.remnants]);
+  const materials = useMemo(() => [...new Set(library.remnants.map((r) => r.material).filter(Boolean))], [library.remnants]);
 
   const running = run.phase === 'running';
   const stopping = run.phase === 'stopping';
@@ -84,30 +98,56 @@ export function NestDialog() {
       return;
     }
     if (startBlocked || !container) return;
-    void run.start(buildNestRequest({ units, copies, container, options }));
+    setSaved(new Set());
+    void run.start(buildNestRequest({ units, copies, container, options, rotations, remnants: matching }));
+  };
+
+  /** Cuánto se traslada cada hoja y los contornos de referencia que se agregan al lienzo. */
+  const layoutFor = (final: NestStatus) => {
+    const offsets = sheetOffsets(final.sheets);
+    const materialPolys = container?.type === 'object' ? flatPolylines([container.object]) : null;
+    return { offsets, references: sheetReferences(final.sheets, offsets, container, remnantMap, materialPolys) };
+  };
+
+  const saveLeftover = (sheet: NestSheet) => {
+    const done = sheet.leftovers.map((rings) => addLeftover(rings, { material: options.material, thicknessMm: options.thicknessMm }));
+    const n = done.filter(Boolean).length;
+    if (n === 0) return;
+    setSaved((prev) => new Set(prev).add(sheet.index));
+    useStore.getState().notify('success', tn('nest.remnants.savedNotice', n, { n }));
   };
 
   const accept = async () => {
     if (applyBlocked) return;
     const final = running ? await run.stop() : status;
     const done = final?.placements ?? [];
-    if (done.length === 0) return;
+    if (!final || done.length === 0) return;
+    const layout = layoutFor(final);
     const s = useStore.getState();
     let ids: string[] = [];
     // El resultado va a la pestaña donde se abrió el diálogo (no a la que esté activa al aceptar).
     s.runInTab(tabId, () => {
       s.applyDocChange('nest.history', (d) => {
-        const r = applyNest(d, units, done);
+        const r = applyNest(d, units, done, layout);
         ids = r.placed;
         return r.doc;
       });
       if (ids.length > 0) s.select(ids);
     });
-    if (ids.length > 0) s.notify('success', t('nest.done', { n: done.length }));
+    const sheets = final.sheets;
+    if (ids.length > 0) {
+      s.notify('success', sheets.length > 1 ? t('nest.doneSheets', { n: done.length, sheets: sheets.length }) : t('nest.done', { n: done.length }));
+      // Los retazos que se usaron como hoja ya no existen: salen del inventario.
+      const used = sheets.flatMap((h) => (h.source === 'remnant' && h.remnant_id ? [h.remnant_id] : []));
+      if (removeUsed && used.length > 0) void removeRemnants(used);
+    }
     close();
   };
 
   const setAll = (n: number) => setCopies(Object.fromEntries(units.map((u) => [u.id, sanitizeCopies(n)])));
+  const setAllRotations = (r: NestPieceRotation) => setRotations(Object.fromEntries(units.map((u) => [u.id, r])));
+  const usedRemnants = status?.sheets.filter((h) => h.source === 'remnant').length ?? 0;
+  const rotationLabel = (r: NestPieceRotation) => t(`nest.pieceRot.${r}`);
   const reason = startBlocked ?? (applyBlocked && !busy ? applyBlocked : null);
   const pct = status ? Math.round(status.utilization * 10) / 10 : 0;
   const unplaced = status && !status.running ? unplacedSummary(status.unplaced) : [];
@@ -158,18 +198,41 @@ export function NestDialog() {
               step={1}
               onCommit={(v) => setAll(v)}
             />
+            <div className="field">
+              <label htmlFor={`${pickId}-allrot`} className="field__label">{t('nest.pieces.allRotation')}</label>
+              <select
+                id={`${pickId}-allrot`}
+                className="select"
+                value={units.length > 0 && units.every((u) => (rotations[u.id] ?? 'inherit') === (rotations[units[0]!.id] ?? 'inherit')) ? (rotations[units[0]!.id] ?? 'inherit') : ''}
+                onChange={(e) => e.target.value && setAllRotations(e.target.value as NestPieceRotation)}
+              >
+                <option value="" disabled>{t('nest.pieceRot.mixed')}</option>
+                {PIECE_ROTATIONS.map((r) => <option key={r} value={r}>{rotationLabel(r)}</option>)}
+              </select>
+              <p className="hint">{t('nest.pieces.grainHint')}</p>
+            </div>
             <ul className="ne-list" aria-label={t('nest.pieces.list')}>
               {units.map((u) => (
                 <li key={u.id} className="ne-row">
                   <UnitThumb unit={u} />
-                  <NumberField
-                    label={t('nest.piece.copies', { name: nameOf(u.id) })}
-                    value={sanitizeCopies(copies[u.id] ?? 1)}
-                    min={1}
-                    max={MAX_NEST_INSTANCES}
-                    step={1}
-                    onCommit={(v) => setCopies((c) => ({ ...c, [u.id]: sanitizeCopies(v) }))}
-                  />
+                  <div className="ne-row__main">
+                    <NumberField
+                      label={t('nest.piece.copies', { name: nameOf(u.id) })}
+                      value={sanitizeCopies(copies[u.id] ?? 1)}
+                      min={1}
+                      max={MAX_NEST_INSTANCES}
+                      step={1}
+                      onCommit={(v) => setCopies((c) => ({ ...c, [u.id]: sanitizeCopies(v) }))}
+                    />
+                    <select
+                      className="select ne-rot"
+                      aria-label={t('nest.piece.rotation', { name: nameOf(u.id) })}
+                      value={rotations[u.id] ?? 'inherit'}
+                      onChange={(e) => setRotations((r) => ({ ...r, [u.id]: e.target.value as NestPieceRotation }))}
+                    >
+                      {PIECE_ROTATIONS.map((r) => <option key={r} value={r}>{rotationLabel(r)}</option>)}
+                    </select>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -209,6 +272,8 @@ export function NestDialog() {
                 </div>
               ))}
           </section>
+
+          <SheetsSection options={options} patch={patch} matching={matching} materials={materials} />
 
           <section className="ne-section" aria-labelledby={`${pickId}-options`}>
             <h3 id={`${pickId}-options`} className="ne-heading">{t('nest.opt.title')}</h3>
@@ -266,7 +331,7 @@ export function NestDialog() {
 
         <div className="ne-side">
           <span className="field__label">{t('nest.preview.title')}</span>
-          <NestPreview container={container} flat={flat} placements={status ? placements : null} />
+          <NestPreview container={container} flat={flat} placements={status ? placements : null} sheets={status?.sheets ?? null} remnants={remnantMap} />
           <div className="ne-legend">
             <span><i className="ne-swatch" aria-hidden="true" />{t('nest.legend.original')}</span>
             <span><i className="ne-swatch ne-swatch--copy" aria-hidden="true" />{t('nest.legend.copy')}</span>
@@ -292,6 +357,18 @@ export function NestDialog() {
                 <span>{t('nest.progress.elapsed', { s: fmt(status.elapsed_ms / 1000) })}</span>
               </p>
             </div>
+          )}
+          {status && (
+            <SheetsResult
+              status={status}
+              remnantName={(id) => remnantMap.get(id)?.name ?? id}
+              saved={saved}
+              onSave={saveLeftover}
+              disabled={busy}
+            />
+          )}
+          {usedRemnants > 0 && !busy && (
+            <Check label={t('nest.sheets.removeUsed', { n: usedRemnants })} checked={removeUsed} onChange={setRemoveUsed} />
           )}
           <p className="hint" role="status" aria-live="polite">
             {busy ? t('nest.progress.running') : status ? (status.timed_out ? t('nest.progress.timeout') : t('nest.progress.done')) : ''}

@@ -6,6 +6,7 @@ import { mockDevices } from './devices';
 import { mockFileio } from './fileio';
 import { mockMaterials } from './materials';
 import { mockNest } from './nest';
+import { mockRemnants } from './remnants';
 import { mockBundle } from './bundle';
 import { mockLiveWindow } from './live';
 import { mockPrefs } from './prefs';
@@ -263,6 +264,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockImages(lag),
     ...mockLayout(lag),
     ...mockNest(lag),
+    ...mockRemnants(lag),
     ...mockCamera(lag),
     ...mockMaterials(lag),
     ...mockProbe(lag),

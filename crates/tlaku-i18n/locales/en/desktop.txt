@@ -498,6 +498,18 @@ desktop.edit.nest.state_poisoned = Internal state is corrupted
 desktop.edit.nest.crashed = The nesting calculation failed unexpectedly.
 desktop.edit.nest.start_failed = Could not start the calculation: {err}
 desktop.edit.nest.job_gone = That nesting calculation no longer exists.
+desktop.edit.nest.bad_remnant = The offcut "{id}" does not have a valid closed outline.
+desktop.edit.nest.too_many_remnants = Too many offcuts for one nesting run (the maximum is {max}).
+
+# remnants.rs
+desktop.remnants.unsupported_version = The offcut inventory is from a version this app does not know ({version}); the file was not touched.
+desktop.remnants.too_many = Too many saved offcuts (the maximum is {max}).
+desktop.remnants.no_id = Offcut {n} has no id.
+desktop.remnants.duplicate_id = The offcut id "{id}" is repeated.
+desktop.remnants.bad_name = The offcut "{id}" needs a name of up to {max} characters.
+desktop.remnants.bad_thickness = The thickness of the offcut "{id}" is not valid.
+desktop.remnants.bad_shape = The offcut "{id}" does not have a valid closed outline or its dimensions are not positive.
+desktop.remnants.invalid_file = The offcut file is not valid: {err}
 # files.rs
 desktop.edit.files.bad_scale = Invalid scale: {value} %.
 desktop.edit.files.bad_dpi = Invalid DPI: {value}.

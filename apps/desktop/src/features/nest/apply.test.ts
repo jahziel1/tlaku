@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { selectionUnits } from '@/features/arrange/units';
 import { applyNest } from './apply';
+import { sheetOffsets, sheetReferences } from './sheets';
+import { GUIDE_COLOR } from '@/lib/palette';
 import { docOf, rectObject } from './testUtils';
 import type { NestPlacement } from './types';
 import { createAppStore } from '@/store';
 
-const place = (piece: string, copy: number, transform: NestPlacement['transform']): NestPlacement => ({ piece, copy, rotation_deg: 0, mirror: false, transform });
+const place = (piece: string, copy: number, transform: NestPlacement['transform']): NestPlacement => ({ piece, sheet: 0, copy, rotation_deg: 0, mirror: false, transform });
 
 describe('applyNest', () => {
   const a = rectObject('a', 10, 5, [3, 4]);
@@ -76,5 +78,69 @@ describe('applyNest', () => {
     expect(store.getState().past[0]!.label).toBe('nest.history');
     store.getState().undo();
     expect(store.getState().doc).toBe(doc);
+  });
+
+  describe('varias hojas', () => {
+    const sheet = (index: number, source: 'container' | 'remnant' = 'container', remnant_id: string | null = null) => ({
+      index,
+      source,
+      remnant_id,
+      bounds: [0, 0, 100, 60] as [number, number, number, number],
+      utilization: 50,
+      placed: 1,
+      area_mm2: 6000,
+      placed_area_mm2: 3000,
+      leftovers: [],
+    });
+    const bed = { type: 'rect', width: 100, height: 60 } as const;
+
+    it('cada hoja se traslada a su zona y la segunda queda a la derecha de la primera', () => {
+      const doc = docOf([a, b]);
+      const units = selectionUnits(doc, ['a', 'b']);
+      const sheets = [sheet(0), sheet(1)];
+      const offsets = sheetOffsets(sheets);
+      const layout = { offsets, references: sheetReferences(sheets, offsets, bed, new Map(), null) };
+      const r = applyNest(doc, units, [{ ...place('a', 0, [1, 0, 0, 1, 10, 10]), sheet: 0 }, { ...place('b', 0, [1, 0, 0, 1, 5, 5]), sheet: 1 }], layout);
+      expect(r.doc.objects.find((o) => o.id === 'a')!.transform).toEqual([1, 0, 0, 1, 13, 14]);
+      // b está en (20, 0): +5 de la colocación y +120 de la hoja 2
+      expect(r.doc.objects.find((o) => o.id === 'b')!.transform).toEqual([1, 0, 0, 1, 145, 5]);
+      expect(r.placed).toEqual(['a', 'b']);
+    });
+
+    it('agrega un contorno por hoja en la capa de guías, que no se corta, y no lo cuenta como acomodado', () => {
+      const doc = docOf([a, b]);
+      const units = selectionUnits(doc, ['a', 'b']);
+      const sheets = [sheet(0), sheet(1)];
+      const offsets = sheetOffsets(sheets);
+      const layout = { offsets, references: sheetReferences(sheets, offsets, bed, new Map(), null) };
+      const r = applyNest(doc, units, [{ ...place('a', 0, [1, 0, 0, 1, 0, 0]), sheet: 0 }, { ...place('b', 0, [1, 0, 0, 1, 0, 0]), sheet: 1 }], layout);
+      const refs = r.doc.objects.filter((o) => o.id.startsWith('hoja-'));
+      expect(refs.map((o) => o.id)).toEqual(['hoja-1', 'hoja-2']);
+      expect(refs.every((o) => o.layer === GUIDE_COLOR && o.kind.type === 'vector')).toBe(true);
+      expect(r.doc.layers.find((l) => l.color === GUIDE_COLOR)?.output).toBe(false);
+      expect(r.placed).toEqual(['a', 'b']);
+    });
+
+    it('una sola hoja de la cama no agrega nada (como antes) y un retazo sí agrega su contorno', () => {
+      const doc = docOf([a]);
+      const units = selectionUnits(doc, ['a']);
+      const one = [sheet(0)];
+      const noRef = applyNest(doc, units, [place('a', 0, [1, 0, 0, 1, 1, 1])], { offsets: [[0, 0]], references: sheetReferences(one, [[0, 0]], bed, new Map(), null) });
+      expect(noRef.doc.objects).toHaveLength(1);
+      expect(noRef.doc.layers).toHaveLength(0);
+      const rem = [sheet(0, 'remnant', 'r')];
+      const rems = new Map([['r', { paths: [[[0, 0], [100, 0], [100, 60], [0, 60]] as [number, number][]] }]]);
+      const withRef = applyNest(doc, units, [place('a', 0, [1, 0, 0, 1, 1, 1])], { offsets: [[0, 0]], references: sheetReferences(rem, [[0, 0]], bed, rems, null) });
+      expect(withRef.doc.objects.map((o) => o.id)).toEqual(['a', 'hoja-1']);
+    });
+
+    it('si el id de la hoja ya existe usa otro', () => {
+      const doc = docOf([a, { ...rectObject('hoja-1', 5, 5), id: 'hoja-1' }]);
+      const units = selectionUnits(doc, ['a']);
+      const rem = [sheet(0, 'remnant', 'r')];
+      const rems = new Map([['r', { paths: [[[0, 0], [10, 0], [10, 10]] as [number, number][]] }]]);
+      const r = applyNest(doc, units, [place('a', 0, [1, 0, 0, 1, 1, 1])], { offsets: [[0, 0]], references: sheetReferences(rem, [[0, 0]], bed, rems, null) });
+      expect(r.doc.objects.map((o) => o.id)).toEqual(['a', 'hoja-1', 'hoja-1-2']);
+    });
   });
 });

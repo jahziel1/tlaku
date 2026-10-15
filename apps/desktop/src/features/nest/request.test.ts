@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { selectionUnits } from '@/features/arrange/units';
-import { DEFAULT_NEST_OPTIONS, buildNestRequest, materialCandidates, resolveContainer, sanitizeCopies, totalInstances, MAX_NEST_INSTANCES } from './request';
+import { DEFAULT_NEST_OPTIONS, buildNestRequest, materialCandidates, resolveContainer, sanitizeCopies, totalInstances, MAX_NEST_INSTANCES, MAX_NEST_SHEETS } from './request';
 import { docOf, rectObject } from './testUtils';
 
 const a = rectObject('a', 10, 5);
@@ -82,5 +82,46 @@ describe('tope de piezas', () => {
     const match = /pub const MAX_INSTANCES: usize = (\d[\d_]*);/.exec(rust);
     expect(match).not.toBeNull();
     expect(Number(match![1]!.replace(/_/g, ''))).toBe(MAX_NEST_INSTANCES);
+  });
+});
+
+describe('giros por pieza, hojas y retazos en la petición', () => {
+  const remnant = { id: 'r1', paths: [[[0, 0], [50, 0], [50, 20], [0, 20]] as [number, number][]] };
+  const stored = { ...remnant, name: 'R', material: 'Triplay', thickness_mm: 3, width_mm: 50, height_mm: 20, area_mm2: 1000, rect: true, created_ms: 1 };
+
+  it('cada pieza lleva sus giros; las que no se tocan siguen las opciones', () => {
+    const req = buildNestRequest({ units, copies: {}, container: bed, options: DEFAULT_NEST_OPTIONS, rotations: { a: 'grain', b: 'none' } });
+    expect(req.pieces.map((p) => [p.id, p.rotation])).toEqual([['a', 'grain'], ['b', 'none']]);
+    expect(buildNestRequest({ units, copies: {}, container: bed, options: DEFAULT_NEST_OPTIONS }).pieces.map((p) => p.rotation)).toEqual(['inherit', 'inherit']);
+  });
+
+  it('por omisión es una sola hoja, sin retazos, y siempre pide el sobrante', () => {
+    const req = buildNestRequest({ units, copies: {}, container: bed, options: DEFAULT_NEST_OPTIONS });
+    expect(req).toMatchObject({ max_sheets: 1, remnants: [], leftover_min_mm: 20 });
+  });
+
+  it('las hojas nuevas y los retazos suman el tope de hojas usadas', () => {
+    const o = { ...DEFAULT_NEST_OPTIONS, multiSheet: true, maxSheets: 4, useRemnants: true };
+    const req = buildNestRequest({ units, copies: {}, container: bed, options: o, remnants: [stored, { ...stored, id: 'r2' }] });
+    expect(req.max_sheets).toBe(6);
+    expect(req.remnants).toEqual([remnant, { ...remnant, id: 'r2' }]);
+    const off = buildNestRequest({ units, copies: {}, container: bed, options: { ...o, useRemnants: false }, remnants: [stored] });
+    expect(off).toMatchObject({ max_sheets: 4, remnants: [] });
+    const single = buildNestRequest({ units, copies: {}, container: bed, options: { ...o, multiSheet: false }, remnants: [stored] });
+    expect(single.max_sheets).toBe(2);
+  });
+
+  it('sanea el máximo de hojas', () => {
+    const o = { ...DEFAULT_NEST_OPTIONS, multiSheet: true };
+    expect(buildNestRequest({ units, copies: {}, container: bed, options: { ...o, maxSheets: 9999 } }).max_sheets).toBe(MAX_NEST_SHEETS);
+    expect(buildNestRequest({ units, copies: {}, container: bed, options: { ...o, maxSheets: -3 } }).max_sheets).toBe(1);
+    expect(buildNestRequest({ units, copies: {}, container: bed, options: { ...o, maxSheets: Number.NaN } }).max_sheets).toBe(1);
+  });
+
+  it('el tope de hojas coincide con el del motor (MAX_SHEETS en edit/nest.rs)', () => {
+    const rust = readFileSync(new URL('../../../src-tauri/src/edit/nest.rs', import.meta.url), 'utf8');
+    const match = /pub const MAX_SHEETS: u32 = (\d+);/.exec(rust);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBe(MAX_NEST_SHEETS);
   });
 });

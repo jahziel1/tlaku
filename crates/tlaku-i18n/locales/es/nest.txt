@@ -9,3 +9,5 @@ nest.lib.invalid_container = El contenedor no tiene un área válida: revisa el 
 nest.lib.option_rotation_step = Opción inválida: el paso de rotación debe estar entre 1 y 180 grados.
 nest.lib.option_spacing = Opción inválida: la separación no puede ser negativa.
 nest.lib.option_margin = Opción inválida: el margen no puede ser negativo.
+nest.lib.option_piece_angle = Opción inválida: un ángulo de giro de pieza no es un número.
+nest.lib.option_max_sheets = Opción inválida: el máximo de hojas debe ser al menos 1.

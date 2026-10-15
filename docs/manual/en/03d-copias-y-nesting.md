@@ -70,6 +70,7 @@ It requires at least two closed shapes. It uses the largest closed outline of ea
 
 - Each **loose object** or whole **group** counts as one part. Locked or hidden objects are not moved.
 - **Copies**: in the parts list each one has its number of copies (or **Copies of all**). Up to 2000 parts in total.
+- **Rotation of each part** (grain): under the copies, each part has its own selector: **As in the options** (whatever the rotations below say), **No rotation** (the part stays as drawn, useful for parts with a good side or a label) or **Grain (0° and 180°)** (only upright or flipped 180°, never sideways). For wood with a grain, draw the parts with the grain running horizontally and set them to **Grain**; **Rotation of all parts** changes them all at once. A part or a group is a single unit, so the grain is decided per part or per group.
 - **Container**: **Bed** (with its size) or **Material: an object of the document**. The material object has to be a closed shape; it is not moved or nested, the parts fit inside its outline and avoid its holes.
 
 ### Options
@@ -82,8 +83,24 @@ It requires at least two closed shapes. It uses the largest closed outline of ea
 | **Allow mirroring** | Parts can be flipped. Turn it off if the part has a good side. |
 | **Use holes of other parts** | Small parts can fall inside the holes of large ones. |
 | **Strategy** | **Gravity** (compacts toward a corner) or **Bottom left**. |
-| **Time limit** | From 1 to 600 s (20 by default). It is the most time spent searching for a better arrangement. |
+| **Time limit** | From 1 to 600 s (20 by default). It is the most time spent searching for a better arrangement. If the result stops improving earlier, it finishes earlier. |
 | **Seed** | A different number, a different variant of the arrangement; useful to test whether it comes out better. |
+
+### Several sheets
+
+If the parts do not fit on one sheet, turn on **Continue on new sheets if they do not fit** and choose the **Maximum new sheets** (up to 50). Tlaku fills the first sheet with as much area as possible, continues with the parts that did not fit on a second sheet of the same size as the container, and so on until all of them are placed (or until the maximum is reached; what is left over is listed under **Did not fit**). It respects the copies of each part, the spacing and the margin.
+
+The summary in the window lists **each sheet** with its utilization, its parts and, if something usable is left over, the **leftover**. In the preview and when you **Apply**, each sheet ends up as a **separate zone of the canvas**, in a row to the right: the first sheet stays where it is (the bed or the material) and the others go 20 mm from the previous one. Each sheet gets an outline `hoja-N` on the **Guides** layer (it is not cut), which serves as a reference. To **send one sheet separately**, select it with a selection box (or move it onto the bed) and use **Send selection** or move its contents onto the bed; nesting does not group the parts, so that the groups you already had are not undone (for example those of a generator, which keep their **Regenerate**).
+
+### Offcuts: inventory of leftovers
+
+An **offcut** is what is left of a sheet, saved with its **real outline** (or rectangle), the **material** and the **thickness**, in a local library on this computer.
+
+1. **Save the leftover.** Type the **Material** and the **Thickness** in the **Sheets and offcuts** section. When a nesting run finishes, each sheet with a leftover shows "1 offcut left: 420×180 mm" and the **Save the leftover as an offcut** button. The leftover is the sheet minus the placed parts with a safety margin (the spacing, at least 1 mm); strips and slivers narrower than the **Minimum width of a leftover** (20 mm by default) are not offered.
+2. **Use offcuts first.** With **Use saved offcuts of the same material and thickness first**, nesting tries the matching offcuts (smallest first) before a new sheet. An offcut where no part fits is skipped. The ones that are used leave the inventory when you apply (you can leave it checked or unchecked with **Remove the used offcuts from the inventory**). The material is compared ignoring case and accents; the thickness, with a tolerance of 0.05 mm (if either one has no thickness, only the material counts).
+3. **View and delete.** **Arrange > Saved offcuts…** (or the **Saved offcuts…** button in the dialog) opens the inventory: outline thumbnail, name, material, thickness, size and area. You can **rename**, correct the material and thickness, **delete** one (with confirmation) or **Delete all** the ones shown.
+
+An offcut that is not a rectangle works like any other irregular material: the parts fit inside its outline and avoid its holes.
 
 ![Nesting dialog with the parts, the container, the options and the preview with the utilization](../../../apps/desktop/docs/screenshots/39-nesting.png)
 
@@ -97,10 +114,14 @@ It requires at least two closed shapes. It uses the largest closed outline of ea
 
 **Example: 24 acrylic keychains on a 300 × 200 mm sheet.** Draw a keychain, select it, and in the dialog set **Copies** to 24, spacing of 2 mm, rotations of 0 / 90 / 180 / 270° and **Start**. In a few seconds you see the utilization (for example, 71 %) and the parts laid out; if two do not fit, switch to 15° rotations and try again. **Apply** and check the [preview](07-vista-previa.md).
 
-**Example: making use of an irregular scrap.** Import or draw the outline of the scrap (for example, with holes from previous cuts) on a layer with no output, choose **Material: an object of the document** and nesting places the parts inside, avoiding the holes.
+**Example: making use of an irregular scrap.** Import or draw the outline of the scrap (for example, with holes from previous cuts) on a layer with no output, choose **Material: an object of the document** and nesting places the parts inside, avoiding the holes. If you already saved it as an offcut, you do not even need to draw it: turn on **Use saved offcuts first** and type its material and thickness.
 
-> **Tip:** the engine works with a slightly simplified version of each outline, but always a conservative one (never smaller than the real part), so the parts do not overlap and stay at least at the requested spacing. Leave a spacing larger than the kerf, and if the material has a grain, turn off mirroring and do not use free rotation: Tlaku does not know the grain, you decide which rotations are acceptable.
+**Example: 60 parts of 3 mm plywood on 600 × 400 sheets.** Choose **Bed** (or the object that stands for the sheet), turn on **Continue on new sheets** with a maximum of 5, type **Material** "Plywood" and **Thickness** 3, and **Start**. The summary says, for example, "Sheet 1 · 82.4 % · 21 parts", "Sheet 2 · 80.1 %", "Sheet 3 · 41.0 %" and "1 offcut left: 600×210 mm". Press **Save the leftover as an offcut** on the last sheet, **Apply**, and the next 3 mm plywood job will start from that offcut.
 
-> **Heads up:** the arrangement does not change the cutting order; that is decided by the [planner](07-vista-previa.md) as usual. Nesting only places the parts, without splitting the job across several sheets.
+> **Tip:** the engine works with a slightly simplified version of each outline, but always a conservative one (never smaller than the real part), so the parts do not overlap and stay at least at the requested spacing. Leave a spacing larger than the kerf. If the material has a grain, set the parts to **Grain (0° and 180°)** (or **No rotation**) and turn off mirroring if the part has a good side: Tlaku does not guess the grain, you draw the part with the grain running horizontally and decide which rotations each part accepts.
+
+> **Measured quality:** on the classic instances of the literature (ESICUP) Tlaku reaches a utilization of 60 to 87 %, between 4 and 20 points below the best research algorithm (which takes far longer); on everyday parts (finger-jointed boxes, rectangles, irregular shapes) it lands at 73 to 87 %. Try another **Seed** or more **time** if you need to squeeze the result. The full comparison and how to repeat it is in `crates/tlaku-nest/examples/nest_bench.rs`.
+
+> **Heads up:** the arrangement does not change the cutting order; that is decided by the [planner](07-vista-previa.md) as usual. Nesting places the parts (on one sheet or several), it does not decide in which order the sheets are cut.
 
 Next: [Guides, tabs, start point and project](03e-guias-puentes-y-proyecto.md)

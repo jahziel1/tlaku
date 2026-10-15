@@ -214,6 +214,40 @@ la misma con la que se arregla). `options` (todo opcional): `close_mm` 0,5, `joi
 `tiny_mm` 0,2, `node_mm` 0,02, `dpi_high` 2 y `dpi_low` 0,5. Los ocultos, las guías y las capas sin salida
 no entran en el análisis geométrico, y los bloqueados tampoco en lo que se arregla editando su trazo.
 
+### Acomodo, varias hojas y retazos (`nest_start`, `nest_poll`, `nest_cancel`, `load_remnants`, `save_remnants`)
+
+El motor es `crates/tlaku-nest`; los comandos están en `src-tauri/src/edit/nest.rs` y `edit/remnants.rs`. Un solo
+trabajo a la vez (uno nuevo cancela el anterior); la interfaz sondea `nest_poll` cada ~250 ms.
+
+| Comando | Argumentos | Resultado |
+|---|---|---|
+| `nest_start` | `request: NestRequest` | `job_id`; rechaza con un mensaje si la petición no es válida |
+| `nest_poll` | `job_id` | `NestStatus` (la mejor solución hasta ahora) |
+| `nest_cancel` | `job_id` | — (el siguiente `nest_poll` trae `running: false`) |
+| `load_remnants` | — | `RemnantLibrary` (vacía si no hay archivo) |
+| `save_remnants` | `library: RemnantLibrary` | — (valida ids únicos, nombre, medidas y contornos) |
+
+- `NestRequest`: `pieces[{ id, objects, copies, rotation }]`, `container` (`{ type: 'rect', width, height }` o
+  `{ type: 'object', object }`), `spacing`, `margin`, `rotation { mode, step_deg }`, `allow_mirror`, `use_holes`,
+  `gravity`, `time_limit_s`, `seed` y, desde la mejora 7, **todos opcionales**: `pieces[].rotation` (`inherit`
+  por omisión, `none` = sin giro, `grain` = solo 0° y 180°), `max_sheets` (1 por omisión; total de hojas usadas,
+  tope 50), `remnants[{ id, paths }]` (contornos cerrados en mm que se prueban antes que la hoja nueva, en ese
+  orden) y `leftover_min_mm` (0 por omisión = no calcular el sobrante).
+- `NestStatus`: `running`, `elapsed_ms`, `evaluations`, `utilization` (área colocada entre área de las hojas
+  usadas), `placed`, `total`, `placements[{ piece, sheet, copy, rotation_deg, mirror, transform }]`, `sheets`,
+  `unplaced`, `timed_out`, `error`. `sheet` es la posición en `sheets`. Cada `NestSheet`: `{ index, source
+  ('remnant' \| 'container'), remnant_id, bounds [x0, y0, x1, y1], utilization, placed, area_mm2,
+  placed_area_mm2, leftovers }`; `leftovers` (solo con el trabajo terminado y `leftover_min_mm > 0`) son los
+  retazos que sobran: cada uno, contornos cerrados (exterior primero, luego huecos) en las coordenadas de la hoja.
+- `transform` (afín `[a b c d e f]`, en coordenadas de documento) va **por encima** del `transform` de cada objeto
+  de la pieza; para una hoja que no es la primera la interfaz le suma el traslado de su zona del lienzo
+  (`sheetOffsets`). La copia 0 es el objeto original.
+- Los retazos que no admiten ninguna pieza se saltan y no cuentan como hoja usada. Una hoja nueva donde no cabe
+  nada detiene el reparto (lo que queda va a `unplaced`).
+- `Remnant`: `{ id, name, material, thickness_mm, width_mm, height_mm, area_mm2, rect, paths, created_ms }` con los
+  contornos llevados al origen. La biblioteca vive en `remnants.json` (carpeta de configuración, escritura atómica;
+  un archivo dañado se aparta como `remnants.json.dañado`; versión desconocida da error sin tocarlo); máximo 500.
+
 ### Generadores de piezas (`list_generators`, `generate_part`)
 
 Cajas con dientes (`box`), bisagras flexibles (`hinge`), pieza de prueba de encaje (`fit_test`), uniones sueltas

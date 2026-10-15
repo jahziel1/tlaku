@@ -68,6 +68,7 @@ fn calls() -> Vec<Call> {
         c("load_preferences", json!({}), Ok),
         c("load_factory_materials", json!({}), Ok),
         c("load_material_library", json!({}), Ok),
+        c("load_remnants", json!({}), Ok),
         c("load_camera_setup", json!({}), Ok),
         c("art_list_user", json!({}), Ok),
         c("autosave_list", json!({}), Ok),

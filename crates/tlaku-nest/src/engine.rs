@@ -118,7 +118,10 @@ pub(crate) struct Engine {
     pub pieces: Vec<PieceType>,
     pub container: Container,
     pub angles: Vec<f64>,
-    try_angles: Vec<usize>,
+    /// Por pieza: índices de `angles` permitidos (la veta o «sin giro» los reducen).
+    pub piece_angles: Vec<Vec<usize>>,
+    /// Por pieza: los que se prueban cuando el gen no fija la rotación (a lo más 8, repartidos).
+    try_angles: Vec<Vec<usize>>,
     min_hole_area: f64,
     variants: Vec<Variant>,
     vkey: HashMap<(usize, i64, bool), usize>,
@@ -138,15 +141,21 @@ impl Engine {
         pieces: Vec<PieceType>,
         container: Container,
         angles: Vec<f64>,
+        piece_angles: Vec<Vec<usize>>,
         gravity: Gravity,
         use_holes: bool,
         allow_mirror: bool,
     ) -> Self {
-        let try_angles = if angles.len() <= 8 {
-            (0..angles.len()).collect()
-        } else {
-            (0..8).map(|i| i * angles.len() / 8).collect()
-        };
+        let try_angles = piece_angles
+            .iter()
+            .map(|a| {
+                if a.len() <= 8 {
+                    a.clone()
+                } else {
+                    (0..8).map(|i| a[i * a.len() / 8]).collect()
+                }
+            })
+            .collect();
         let min_hole_area = pieces
             .iter()
             .map(|p| p.inflated_area)
@@ -158,6 +167,7 @@ impl Engine {
             pieces,
             container,
             angles,
+            piece_angles,
             try_angles,
             min_hole_area,
             variants: Vec::new(),
@@ -373,7 +383,7 @@ impl Engine {
                 } else {
                     &[false]
                 };
-                for k in self.try_angles.clone() {
+                for k in self.try_angles[g.piece].clone() {
                     for &m in mirrors {
                         let a = self.angles[k];
                         out.push(self.variant_id(g.piece, a, m));

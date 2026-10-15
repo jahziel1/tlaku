@@ -3,19 +3,19 @@ use crate::geom::{Pt, dist_point_segment};
 use std::sync::atomic::AtomicBool;
 use tlaku_core::Point;
 
-fn poly(pts: &[Pt]) -> Polyline {
+pub(crate) fn poly(pts: &[Pt]) -> Polyline {
     Polyline {
         points: pts.iter().map(|p| Point::new(p[0], p[1])).collect(),
         closed: true,
     }
 }
 
-fn rect(w: f64, h: f64) -> Vec<Polyline> {
+pub(crate) fn rect(w: f64, h: f64) -> Vec<Polyline> {
     vec![poly(&[[0.0, 0.0], [w, 0.0], [w, h], [0.0, h]])]
 }
 
 /// Ele de tres celdas de `c` mm.
-fn ele(c: f64) -> Vec<Polyline> {
+pub(crate) fn ele(c: f64) -> Vec<Polyline> {
     vec![poly(&[
         [0.0, 0.0],
         [2.0 * c, 0.0],
@@ -26,7 +26,7 @@ fn ele(c: f64) -> Vec<Polyline> {
     ])]
 }
 
-fn circle(r: f64, n: usize) -> Polyline {
+pub(crate) fn circle(r: f64, n: usize) -> Polyline {
     poly(
         &(0..n)
             .map(|i| {
@@ -37,7 +37,7 @@ fn circle(r: f64, n: usize) -> Polyline {
     )
 }
 
-fn input(
+pub(crate) fn input(
     pieces: Vec<(Vec<Polyline>, u32)>,
     container: NestContainer,
     options: NestOptions,
@@ -45,14 +45,18 @@ fn input(
     NestInput {
         pieces: pieces
             .into_iter()
-            .map(|(region, copies)| NestPiece { region, copies })
+            .map(|(region, copies)| NestPiece {
+                region,
+                copies,
+                rotation: PieceRotation::Inherit,
+            })
             .collect(),
         container,
         options,
     }
 }
 
-fn quick() -> NestOptions {
+pub(crate) fn quick() -> NestOptions {
     NestOptions {
         time_limit: Duration::from_secs(20),
         max_evaluations: Some(8),
@@ -65,7 +69,7 @@ fn run(inp: &NestInput) -> Outcome {
 }
 
 /// Contornos de una copia colocada, en coordenadas finales.
-fn placed_paths(inp: &NestInput, pl: &Placement) -> Vec<Vec<Pt>> {
+pub(crate) fn placed_paths(inp: &NestInput, pl: &Placement) -> Vec<Vec<Pt>> {
     let t = pl.transform;
     inp.pieces[pl.piece]
         .region
@@ -89,7 +93,7 @@ fn seg_intersect(a: Pt, b: Pt, c: Pt, d: Pt) -> bool {
     o(a, b, c) * o(a, b, d) < 0.0 && o(c, d, a) * o(c, d, b) < 0.0
 }
 
-fn inside(p: Pt, ring: &[Pt]) -> bool {
+pub(crate) fn inside(p: Pt, ring: &[Pt]) -> bool {
     let n = ring.len();
     let mut ins = false;
     for i in 0..n {
@@ -104,7 +108,7 @@ fn inside(p: Pt, ring: &[Pt]) -> bool {
 }
 
 /// Distancia entre dos regiones (contornos exteriores): 0 si se solapan.
-fn distance(a: &[Vec<Pt>], b: &[Vec<Pt>]) -> f64 {
+pub(crate) fn distance(a: &[Vec<Pt>], b: &[Vec<Pt>]) -> f64 {
     let mut best = f64::INFINITY;
     for ra in a {
         for rb in b {
@@ -132,7 +136,7 @@ fn distance(a: &[Vec<Pt>], b: &[Vec<Pt>]) -> f64 {
 }
 
 /// Distancia mínima entre cualquier par de piezas colocadas.
-fn min_pair_distance(inp: &NestInput, out: &Outcome) -> f64 {
+pub(crate) fn min_pair_distance(inp: &NestInput, out: &Outcome) -> f64 {
     let paths: Vec<_> = out
         .placements
         .iter()
@@ -147,7 +151,7 @@ fn min_pair_distance(inp: &NestInput, out: &Outcome) -> f64 {
     best
 }
 
-fn bbox_of(paths: &[Vec<Pt>]) -> (Pt, Pt) {
+pub(crate) fn bbox_of(paths: &[Vec<Pt>]) -> (Pt, Pt) {
     crate::geom::bounds(paths).unwrap()
 }
 

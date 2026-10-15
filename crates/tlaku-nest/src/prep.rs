@@ -23,6 +23,7 @@ const MAX_CONTAINER_VERTS: usize = 160;
 /// Esquinas más agudas que esto (razón punta/distancia) se recortan en los offsets.
 const MITER_LIMIT: f64 = 20.0;
 
+#[derive(Clone)]
 pub struct PieceType {
     /// Área real (sin huecos) en mm².
     pub true_area: f64,

@@ -2,6 +2,13 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## Nesting con varias hojas, retazos y veta, en la próxima versión
+
+- **Varias hojas**: si las piezas no caben en una, el acomodo sigue en hojas nuevas del mismo tamaño (hasta 50), con el aprovechamiento de cada una. Cada hoja queda como una zona aparte del lienzo con su contorno de referencia en la capa de guías.
+- **Retazos**: guarda lo que sobra de una hoja (contorno real, material y grosor) en una biblioteca local, y al acomodar úsalos antes que una hoja nueva. **Organizar > Retazos guardados…** para verlos, renombrarlos y borrarlos.
+- **Veta y sin giro por pieza**: restringe cada pieza o grupo a 0° y 180° (la veta de la madera) o a no girar.
+- El motor sigue buscando mientras mejora (ya no se detiene antes de tiempo) y hay un banco de calidad reproducible contra las instancias clásicas de la literatura. Mira [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md#varias-hojas).
+
 ## Cola guiada e historial de trabajos, en la próxima versión
 
 - **Cola de trabajos** (**Máquina > Cola de trabajos…**): varios documentos (pestañas o archivos) con copias, que se ejecutan de uno en uno. **Entre trabajos siempre se detiene** y te pide confirmar el cambio de material o pieza y la lista de comprobación; nunca avanza sola, y cada trabajo pasa por el diálogo de inicio de siempre. Si uno falla o se cancela, la cola se detiene. Reordenar, saltar, quitar y pausar, con progreso y tiempo estimado total. El celular **ve** la cola y solo confirma el siguiente con las reglas de iniciar (checklist en el teléfono y encuadre en la PC). Mira [Cola e historial de trabajos](09f-cola-e-historial-de-trabajos.md).

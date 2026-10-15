@@ -1,7 +1,8 @@
 import type { DesignObject, Document } from '@/api/types';
 import { objectPolylines } from '@/lib/geometry';
 import type { Unit } from '@/features/arrange/units';
-import type { NestContainer, NestGravity, NestPieceInput, NestRequest, NestRotationMode } from './types';
+import { remnantInputs, DEFAULT_REMNANT_MIN_MM, type Remnant } from './remnants';
+import type { NestContainer, NestGravity, NestPieceInput, NestPieceRotation, NestRequest, NestRotationMode } from './types';
 
 /**
  * Tope de instancias (piezas con sus copias): más allá, el cálculo y el documento se vuelven
@@ -9,7 +10,11 @@ import type { NestContainer, NestGravity, NestPieceInput, NestRequest, NestRotat
  * (`request.test.ts`) comprueba que coinciden.
  */
 export const MAX_NEST_INSTANCES = 2000;
+/** Tope de hojas nuevas por acomodo (el mismo `MAX_SHEETS` de `edit/nest.rs`; lo comprueba `request.test.ts`). */
+export const MAX_NEST_SHEETS = 50;
 export const NEST_TIME_RANGE = [1, 600] as const;
+/** Ancho mínimo (mm) de los retazos que sobran y se ofrecen para guardar. */
+export const NEST_REMNANT_MIN_RANGE = [5, 500] as const;
 export const NEST_STEP_RANGE = [0.5, 180] as const;
 
 /** Opciones del diálogo que se recuerdan durante la sesión. */
@@ -27,6 +32,17 @@ export interface NestOptions {
   gravity: NestGravity;
   timeLimitS: number;
   seed: number;
+  /** Seguir en hojas nuevas iguales al contenedor cuando las piezas no caben. */
+  multiSheet: boolean;
+  /** Tope de hojas nuevas (con `multiSheet`). */
+  maxSheets: number;
+  /** Probar antes los retazos guardados del mismo material y grosor. */
+  useRemnants: boolean;
+  /** Material y grosor (mm) del trabajo: con ellos se eligen y se etiquetan los retazos. */
+  material: string;
+  thicknessMm: number;
+  /** Ancho mínimo (mm) de un sobrante para ofrecerlo como retazo. */
+  remnantMinMm: number;
 }
 
 export const DEFAULT_NEST_OPTIONS: NestOptions = {
@@ -41,6 +57,12 @@ export const DEFAULT_NEST_OPTIONS: NestOptions = {
   gravity: 'gravity',
   timeLimitS: 20,
   seed: 1,
+  multiSheet: false,
+  maxSheets: 10,
+  useRemnants: false,
+  material: '',
+  thicknessMm: 3,
+  remnantMinMm: DEFAULT_REMNANT_MIN_MM,
 };
 
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));
@@ -80,13 +102,20 @@ export function buildNestRequest(args: {
   copies: Readonly<Record<string, number>>;
   container: NestContainer;
   options: NestOptions;
+  /** Giros de cada pieza (las que no aparecen siguen las opciones). */
+  rotations?: Readonly<Record<string, NestPieceRotation>>;
+  /** Retazos que se ofrecen antes que una hoja nueva, en el orden en que se prueban. */
+  remnants?: readonly Remnant[];
 }): NestRequest {
   const { units, copies, container, options: o } = args;
   const pieces: NestPieceInput[] = units.map((u) => ({
     id: u.id,
     objects: u.objects,
     copies: sanitizeCopies(copies[u.id] ?? 1),
+    rotation: args.rotations?.[u.id] ?? 'inherit',
   }));
+  const remnants = o.useRemnants ? (args.remnants ?? []) : [];
+  const newSheets = o.multiSheet ? clamp(Math.round(finiteOr(o.maxSheets, 1)), 1, MAX_NEST_SHEETS) : 1;
   return {
     pieces,
     container,
@@ -98,5 +127,8 @@ export function buildNestRequest(args: {
     gravity: o.gravity,
     time_limit_s: clamp(Math.round(finiteOr(o.timeLimitS, 20)), NEST_TIME_RANGE[0], NEST_TIME_RANGE[1]),
     seed: Math.max(0, Math.floor(finiteOr(o.seed, 1))),
+    max_sheets: Math.min(MAX_NEST_SHEETS, newSheets + remnants.length),
+    remnants: remnantInputs(remnants),
+    leftover_min_mm: clamp(finiteOr(o.remnantMinMm, DEFAULT_REMNANT_MIN_MM), NEST_REMNANT_MIN_RANGE[0], NEST_REMNANT_MIN_RANGE[1]),
   };
 }

@@ -9,3 +9,7 @@ description = "Nesting: acomoda piezas planas en una cama o material irregular c
 i_overlay = "9.0.1"
 tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
+
+[dev-dependencies]
+serde_json = "1.0.154"
+tlaku-parts = { version = "0.1.0", path = "../tlaku-parts" }

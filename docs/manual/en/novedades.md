@@ -2,6 +2,13 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Nesting with several sheets, offcuts and grain, in the next version
+
+- **Several sheets**: if the parts do not fit on one, nesting continues on new sheets of the same size (up to 50), with the utilization of each. Each sheet ends up as a separate zone of the canvas with its reference outline on the guides layer.
+- **Offcuts**: save what is left of a sheet (real outline, material and thickness) in a local library, and use them before a new sheet when nesting. **Arrange > Saved offcuts…** to view, rename and delete them.
+- **Grain and no rotation per part**: restrict each part or group to 0° and 180° (the grain of wood) or to not rotating.
+- The engine keeps searching while it improves (it no longer stops too early) and there is a reproducible quality benchmark against the classic instances of the literature. See [Copies, virtual array and nesting](03d-copias-y-nesting.md#several-sheets).
+
 ## Guided queue and job history, in the next version
 
 - **Job queue** (**Machine > Job Queue…**): several documents (tabs or files) with copies, run one at a time. **Between jobs it always stops** and asks you to confirm the material or workpiece change and the checklist; it never moves on by itself, and every job goes through the regular start dialog. If one fails or is cancelled, the queue stops. Reorder, skip, remove and pause, with overall progress and estimated time. The phone **shows** the queue and only confirms the next job under the rules for starting (checklist on the phone and framing on the PC). See [Job queue and job history](09f-cola-e-historial-de-trabajos.md).

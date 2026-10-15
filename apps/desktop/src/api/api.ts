@@ -81,6 +81,7 @@ import type { ImagePreview, ImagePreviewArgs } from '@/features/images/types';
 import type { FitChoice, FitResult, MarkPair } from '@/features/printcut/types';
 import type { PlanArgs, PlanResult } from '@/features/tiling/types';
 import type { ExportRequest, ExportSummary, ImportDialogOptions, PdfOptions } from '@/features/fileio/types';
+import type { RemnantLibrary } from '@/features/nest/remnants';
 import type { NestRequest, NestStatus } from '@/features/nest/types';
 import type { Finding, ReviewArgs } from '@/features/review/types';
 import type { ProjectSummary, SnapshotKind, VersionInfo, VersionListing, VersionsConfig } from '@/features/versions/types';
@@ -669,6 +670,10 @@ export interface LaserApi {
   nestPoll(args: { job_id: string }): Promise<NestStatus>;
   /** Pide parar; el siguiente `nestPoll` devuelve `running: false` con la mejor solución. */
   nestCancel(args: { job_id: string }): Promise<void>;
+  /** Inventario de retazos (vacío si no hay archivo). */
+  loadRemnants(): Promise<RemnantLibrary>;
+  /** Guarda el inventario entero (valida ids únicos, nombres, medidas y contornos). */
+  saveRemnants(args: { library: RemnantLibrary }): Promise<void>;
 
   // Cámara (fase 3): las imágenes viajan como PNG en base64, sin prefijo data:.
   /** Esquinas internas del tablero en píxeles, o `null` si no se encontró. */
@@ -955,6 +960,8 @@ export const COMMAND_NAMES = {
   nestStart: 'nest_start',
   nestPoll: 'nest_poll',
   nestCancel: 'nest_cancel',
+  loadRemnants: 'load_remnants',
+  saveRemnants: 'save_remnants',
   detectBoard: 'detect_board',
   calibrateLens: 'calibrate_lens',
   loadCameraSetup: 'load_camera_setup',

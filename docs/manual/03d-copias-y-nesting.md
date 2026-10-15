@@ -70,6 +70,7 @@ Pide al menos dos formas cerradas. Usa el contorno cerrado más grande de cada o
 
 - Cada **objeto suelto** o **grupo** completo cuenta como una pieza. Los objetos bloqueados u ocultos no se mueven.
 - **Copias**: en la lista de piezas cada una tiene su número de copias (o **Copias de todas**). Hasta 2000 piezas en total.
+- **Giros de cada pieza** (veta): bajo las copias, cada pieza tiene su selector: **Según las opciones** (lo que digan las rotaciones de abajo), **Sin giro** (la pieza se queda como está dibujada, útil para piezas con lado bueno o con rótulo) o **Veta (0° y 180°)** (solo derecha o volteada 180°, nunca de lado). Para madera con veta dibuja las piezas con la veta en horizontal y ponles **Veta**; **Giros de todas las piezas** cambia todas de una vez. Una pieza o un grupo es una sola unidad, así que la veta se decide por pieza o por grupo.
 - **Contenedor**: **Cama** (con su tamaño) o **Material: un objeto del documento**. El objeto material tiene que ser una forma cerrada; no se mueve ni se acomoda, las piezas caben dentro de su contorno y esquivan sus huecos.
 
 ### Opciones
@@ -82,8 +83,24 @@ Pide al menos dos formas cerradas. Usa el contorno cerrado más grande de cada o
 | **Permitir espejo** | Las piezas se pueden voltear. Apágalo si la pieza tiene lado bueno. |
 | **Usar huecos de otras piezas** | Piezas pequeñas pueden caer dentro de los agujeros de las grandes. |
 | **Criterio** | **Gravedad** (compacta hacia una esquina) o **Abajo a la izquierda**. |
-| **Tope de tiempo** | De 1 a 600 s (20 de fábrica). Es lo máximo que se dedica a buscar un acomodo mejor. |
+| **Tope de tiempo** | De 1 a 600 s (20 de fábrica). Es lo máximo que se dedica a buscar un acomodo mejor. Si el resultado deja de mejorar antes, termina antes. |
 | **Semilla** | Otro número, otra variante del acomodo; útil para probar si sale mejor. |
+
+### Varias hojas
+
+Si las piezas no caben en una hoja, activa **Seguir en hojas nuevas si no caben** y elige el **Máximo de hojas nuevas** (hasta 50). Tlaku llena la primera hoja con la mayor área posible, sigue con las que no cupieron en una segunda hoja del mismo tamaño que el contenedor, y así hasta colocarlas todas (o hasta llegar al máximo; lo que sobre se lista en **No cupieron**). Respeta las copias de cada pieza, la separación y el margen.
+
+El resumen de la ventana lista **cada hoja** con su aprovechamiento, sus piezas y, si sobra algo aprovechable, el **sobrante**. En la vista previa y al **Aplicar**, cada hoja queda como una **zona aparte del lienzo**, en fila hacia la derecha: la primera hoja se queda donde está (la cama o el material) y las demás van a 20 mm de la anterior. Cada hoja lleva un contorno `hoja-N` en la capa **Guías** (no se corta), que sirve de referencia. Para **enviar una hoja por separado**, selecciónala con un recuadro (o muévela a la cama) y usa **Enviar selección** o mueve su contenido sobre la cama; el acomodo no agrupa las piezas, para no deshacer los grupos que ya tenías (por ejemplo los de un generador, que conservan su **Regenerar**).
+
+### Retazos: inventario de sobrantes
+
+Un **retazo** es lo que sobra de una hoja, guardado con su **contorno real** (o rectángulo), el **material** y el **grosor**, en una biblioteca local de este equipo.
+
+1. **Guardar el sobrante.** Escribe el **Material** y el **Grosor** en la sección **Hojas y retazos**. Al terminar un acomodo, cada hoja con sobrante muestra «Sobra 1 retazo: 420×180 mm» y el botón **Guardar el sobrante como retazo**. El sobrante es la hoja menos las piezas colocadas con un margen de seguridad (la separación, al menos 1 mm); las tiras y astillas más angostas que el **Ancho mínimo de un sobrante** (20 mm de fábrica) no se ofrecen.
+2. **Usar primero los retazos.** Con **Usar antes los retazos guardados del mismo material y grosor**, el acomodo prueba los retazos que coinciden (los más chicos primero) antes de una hoja nueva. Un retazo donde no cabe ninguna pieza se salta. Los que se usan salen del inventario al aplicar (puedes dejarlo marcado o desmarcado con **Quitar del inventario los retazos usados**). El material se compara sin mayúsculas ni acentos; el grosor, con una tolerancia de 0,05 mm (si alguno de los dos no indica grosor, solo cuenta el material).
+3. **Ver y borrar.** **Organizar > Retazos guardados…** (o el botón **Retazos guardados…** del diálogo) abre el inventario: miniatura del contorno, nombre, material, grosor, medidas y área. Puedes **renombrar**, corregir el material y el grosor, **borrar** uno (con confirmación) o **Borrar todos** los mostrados.
+
+Un retazo que no es rectángulo funciona igual que cualquier otro material irregular: las piezas caben dentro de su contorno y esquivan sus huecos.
 
 ![Diálogo de nesting con las piezas, el contenedor, las opciones y la vista previa con el aprovechamiento](../../apps/desktop/docs/screenshots/39-nesting.png)
 
@@ -97,10 +114,14 @@ Pide al menos dos formas cerradas. Usa el contorno cerrado más grande de cada o
 
 **Ejemplo: 24 llaveros de acrílico en una lámina de 300 × 200 mm.** Dibuja un llavero, selecciónalo, y en el diálogo pon **Copias** en 24, separación de 2 mm, rotaciones de 0 / 90 / 180 / 270° y **Empezar**. En unos segundos ves el aprovechamiento (por ejemplo, 71 %) y las piezas ordenadas; si dos no caben, cambia a rotaciones de 15° y vuelve a probar. **Aplicar** y revisa la [vista previa](07-vista-previa.md).
 
-**Ejemplo: aprovechar un retazo irregular.** Importa o dibuja el contorno del retazo (por ejemplo, con huecos de los cortes anteriores) en una capa sin salida, elige **Material: un objeto del documento** y el nesting coloca las piezas dentro, esquivando los huecos.
+**Ejemplo: aprovechar un retazo irregular.** Importa o dibuja el contorno del retazo (por ejemplo, con huecos de los cortes anteriores) en una capa sin salida, elige **Material: un objeto del documento** y el nesting coloca las piezas dentro, esquivando los huecos. Si ya lo guardaste como retazo, ni siquiera hace falta dibujarlo: marca **Usar antes los retazos guardados** y escribe su material y grosor.
 
-> **Consejo:** el motor trabaja con una versión ligeramente simplificada de cada contorno, pero siempre conservadora (nunca más chica que la pieza real), así que las piezas no se solapan y quedan al menos a la separación pedida. Deja una separación mayor que el kerf, y si el material tiene veta, apaga el espejo y no uses rotación libre: Tlaku no conoce la veta, tú decides qué rotaciones son aceptables.
+**Ejemplo: 60 piezas de triplay de 3 mm en láminas de 600 × 400.** Elige **Cama** (o el objeto que representa la lámina), activa **Seguir en hojas nuevas** con un máximo de 5, escribe **Material** «Triplay» y **Grosor** 3, y **Empezar**. El resumen dice, por ejemplo, «Hoja 1 · 82,4 % · 21 piezas», «Hoja 2 · 80,1 %», «Hoja 3 · 41,0 %» y «Sobra 1 retazo: 600×210 mm». Pulsa **Guardar el sobrante como retazo** en la última hoja, **Aplicar**, y el próximo trabajo en triplay de 3 mm empezará por ese retazo.
 
-> **Ojo:** el acomodo no cambia el orden de corte; ese lo decide el [planificador](07-vista-previa.md) como siempre. El nesting solo coloca las piezas, sin dividir el trabajo en varias hojas.
+> **Consejo:** el motor trabaja con una versión ligeramente simplificada de cada contorno, pero siempre conservadora (nunca más chica que la pieza real), así que las piezas no se solapan y quedan al menos a la separación pedida. Deja una separación mayor que el kerf. Si el material tiene veta, ponle a las piezas **Veta (0° y 180°)** (o **Sin giro**) y apaga el espejo si la pieza tiene lado bueno: Tlaku no adivina la veta, tú dibujas la pieza con la veta en horizontal y decides qué giros acepta cada pieza.
+
+> **Calidad medida:** en las instancias clásicas de la literatura (ESICUP) Tlaku llega a un aprovechamiento de 60 a 87 %, entre 4 y 20 puntos por debajo del mejor algoritmo de investigación (que tarda mucho más); en piezas de uso común (cajas con dientes, rectángulos, formas irregulares) queda en 73 a 87 %. Prueba otra **Semilla** o más **tiempo** si necesitas apretar el resultado. La comparación completa y cómo repetirla está en `crates/tlaku-nest/examples/nest_bench.rs`.
+
+> **Ojo:** el acomodo no cambia el orden de corte; ese lo decide el [planificador](07-vista-previa.md) como siempre. El nesting coloca las piezas (en una o varias hojas), no decide en qué orden se cortan las hojas.
 
 Siguiente: [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md)

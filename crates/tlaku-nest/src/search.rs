@@ -55,7 +55,20 @@ pub struct Found {
     pub interrupted: bool,
 }
 
-fn mutate(order: &mut Vec<Gene>, n_angles: usize, allow_mirror: bool, rng: &mut Rng) {
+/// Dos posiciones del orden: casi siempre cercanas (ajuste fino: lo que se cambia al final del
+/// orden altera poco lo ya colocado) y a veces cualquiera.
+fn pair(n: usize, rng: &mut Rng) -> (usize, usize) {
+    let i = rng.below(n);
+    if rng.unit() < 0.3 {
+        return (i, rng.below(n));
+    }
+    let reach = (n / 8).max(2);
+    let lo = i.saturating_sub(reach);
+    let hi = (i + reach).min(n - 1);
+    (i, lo + rng.below(hi - lo + 1))
+}
+
+fn mutate(order: &mut Vec<Gene>, allowed: &[Vec<usize>], allow_mirror: bool, rng: &mut Rng) {
     let n = order.len();
     if n == 0 {
         return;
@@ -66,8 +79,9 @@ fn mutate(order: &mut Vec<Gene>, n_angles: usize, allow_mirror: bool, rng: &mut 
         match rng.below(ops) {
             0 => {
                 let k = rng.below(n);
-                order[k].rot = if n_angles > 1 && rng.unit() < 0.8 {
-                    Some(rng.below(n_angles))
+                let opts = &allowed[order[k].piece];
+                order[k].rot = if opts.len() > 1 && rng.unit() < 0.8 {
+                    Some(opts[rng.below(opts.len())])
                 } else {
                     None
                 };
@@ -81,11 +95,11 @@ fn mutate(order: &mut Vec<Gene>, n_angles: usize, allow_mirror: bool, rng: &mut 
                 }
             }
             2 => {
-                let (i, j) = (rng.below(n), rng.below(n));
+                let (i, j) = pair(n, rng);
                 order.swap(i, j);
             }
             _ => {
-                let (i, j) = (rng.below(n), rng.below(n));
+                let (i, j) = pair(n, rng);
                 let g = order.remove(i);
                 order.insert(j.min(order.len()), g);
             }
@@ -120,14 +134,26 @@ pub fn search(
             interrupted: true,
         };
     }
+    // Si no cupo ni una pieza no hay nada que mejorar (ninguna pieza entra en este contenedor):
+    // seguir buscando solo gastaría el tiempo. Importa con retazos que no sirven.
+    if first.placed.is_empty() {
+        return Found {
+            solution: best,
+            evaluations,
+            interrupted: false,
+        };
+    }
 
     let mut rng = Rng::new(seed);
     let mut cur = first;
     let mut cur_order = start;
+    let mut best_order = cur_order.clone();
     let t0 = (cur.cost * 0.01).max(1.0);
     let mut since_improve = 0u64;
-    let stagnation = 60 + 2 * n as u64;
-    let n_angles = engine.angles.len();
+    let mut since_restart = 0u64;
+    let mut improved_at = evaluations;
+    // Mínimo de evaluaciones sin mejora para dar la búsqueda por terminada.
+    let min_stall = (200 + 4 * n) as u64;
     let allow_mirror = engine.allow_mirror;
 
     let interrupted = loop {
@@ -137,11 +163,26 @@ pub fn search(
         if limits.max_evaluations.is_some_and(|m| evaluations >= m) {
             break false;
         }
-        if best.unplaced.is_empty() && since_improve > stagnation {
+        // Termina por estancamiento solo si ya se probó el doble de lo que costó encontrar la
+        // mejor y no mejora: así una búsqueda que sigue progresando usa todo su tiempo. Vale
+        // también con piezas sin colocar (una hoja intermedia): mejorar es colocar más área.
+        if since_improve > min_stall.max(improved_at) {
             break false;
         }
+        // A temperatura alta la solución actual se aleja de la mejor: se vuelve a ella de vez en
+        // cuando para explorar su vecindad.
+        if since_restart > (40 + n as u64) {
+            cur = best.clone();
+            cur_order = best_order.clone();
+            since_restart = 0;
+        }
         let mut cand_order = cur_order.clone();
-        mutate(&mut cand_order, n_angles, allow_mirror, &mut rng);
+        mutate(
+            &mut cand_order,
+            &engine.piece_angles,
+            allow_mirror,
+            &mut rng,
+        );
         let cand = engine.greedy(&cand_order, ctl);
         if !cand.complete {
             break true;
@@ -155,15 +196,19 @@ pub fn search(
         let delta = cand.cost - cur.cost;
         let accept = delta <= 0.0 || (temp > 1e-9 && rng.unit() < (-delta / temp).exp());
         let improved = cand.cost < best.cost - 1e-9;
-        if accept {
-            cur = cand.clone();
-            cur_order = cand_order.clone();
-        }
+        since_restart += 1;
         if improved {
-            best = cand;
+            best_order = cand_order.clone();
+            best = cand.clone();
             since_improve = 0;
+            since_restart = 0;
+            improved_at = evaluations;
         } else {
             since_improve += 1;
+        }
+        if accept {
+            cur = cand;
+            cur_order = cand_order;
         }
         observer(
             engine,

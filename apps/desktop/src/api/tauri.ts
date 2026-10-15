@@ -125,6 +125,8 @@ export function createTauriApi(): LaserApi {
     nestStart: (a) => call('nestStart', a),
     nestPoll: (a) => call('nestPoll', a),
     nestCancel: (a) => call('nestCancel', a),
+    loadRemnants: () => call('loadRemnants'),
+    saveRemnants: (a) => call('saveRemnants', a),
     detectBoard: (a) => call('detectBoard', a),
     calibrateLens: (a) => call('calibrateLens', a),
     loadCameraSetup: () => call('loadCameraSetup'),

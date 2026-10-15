@@ -20,10 +20,11 @@ describe('Acomodar piezas (nesting)…', () => {
   const b = rectObject('b', 10, 10, [20, 0]);
 
   it('está en el menú Organizar, después del arreglo circular', () => {
-    expect(nestCommands.map((c) => [c.id, c.category])).toEqual([['arrange.nest', 'arrange']]);
+    expect(nestCommands.map((c) => [c.id, c.category])).toEqual([['arrange.nest', 'arrange'], ['arrange.remnants', 'arrange']]);
     expect(commands.get('arrange.nest')).toBeDefined();
     const items = MENUS.find((m) => m.id === 'arrange')!.items;
     expect(items[items.indexOf('arrange.circular') + 1]).toBe('arrange.nest');
+    expect(items[items.indexOf('arrange.nest') + 1]).toBe('arrange.remnants');
   });
 
   it('se habilita con al menos una unidad móvil seleccionada', () => {
