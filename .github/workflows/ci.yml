@@ -182,7 +182,7 @@ jobs:
       - name: Prueba de humo
         run: bash apps/desktop/scripts/smoke-tauri.sh
 
-  # El sitio se construye sin errores (marcadores válidos y capturas presentes).
+  # El sitio se construye sin errores (marcadores válidos y capturas presentes) y pasa la revisión de enlaces y SEO.
   sitio:
     name: Sitio estático
     runs-on: ubuntu-latest
@@ -195,6 +195,10 @@ jobs:
 
       - name: Construir site/
         run: node scripts/build-site.mjs --out "$RUNNER_TEMP/site-dist"
+
+      # Enlaces internos, metadatos SEO (canonical, hreflang, Open Graph), JSON-LD, sitemap y CSP.
+      - name: Revisar el sitio
+        run: node scripts/check-site.mjs "$RUNNER_TEMP/site-dist"
 
       # El catálogo de la comunidad se compila y valida igual que al publicar (pages.yml).
       - uses: dtolnay/rust-toolchain@1.99.0

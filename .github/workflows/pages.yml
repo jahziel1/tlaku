@@ -11,6 +11,8 @@ on:
     paths:
       - "site/**"
       - "scripts/build-site.mjs"
+      - "scripts/site-seo.mjs"
+      - "scripts/check-site.mjs"
       - "community/materials/**"
       - "crates/tlaku-doc/**"
       - "apps/desktop/docs/screenshots/**"
@@ -42,6 +44,10 @@ jobs:
       # ({{REPO_URL}}, {{SPONSORS_URL}}, {{KOFI_URL}}) con site/config.json.
       - name: Construir
         run: node scripts/build-site.mjs --out site-dist
+
+      # Si hay un enlace roto o un metadato SEO inválido, no se publica nada.
+      - name: Revisar el sitio
+        run: node scripts/check-site.mjs site-dist
 
       # Catálogo de ajustes de la comunidad (mejora 5 del plan de usuarios): compila
       # community/materials/*.json al índice `catalog/v1/index.json` con el MISMO validador que aplica la app

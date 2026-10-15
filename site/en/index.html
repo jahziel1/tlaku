@@ -1,54 +1,45 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tlaku: free software for laser cutters and engravers</title>
-  <meta name="description" content="Tlaku is an open source (MIT) alternative to commercial laser control software. No machine feature has been tested with a real laser yet.">
-  <meta name="color-scheme" content="dark light">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
-  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-  <link rel="alternate" hreflang="es" href="../">
-  <link rel="alternate" hreflang="en" href="./">
-  <link rel="stylesheet" href="../style.css">
+  <!--@include head-->
+  <title>Tlaku: free LightBurn alternative, open source laser software</title>
+  <meta name="description" content="Free open source laser engraver software: a LightBurn alternative that opens its files. GRBL and Falcon2; Ruida and K40, experimental. Beta for Windows, macOS and Linux.">
+  <!--@seo-->
 </head>
 <body>
-  <svg class="sprite" aria-hidden="true" focusable="false"><symbol id="i-cup" viewBox="0 0 24 24"><path d="M3.5 9h12.5v5a5 5 0 0 1-5 5H8.5a5 5 0 0 1-5-5z" fill="currentColor"/><path d="M16 10.2h1.4a2.6 2.6 0 0 1 0 5.2H15.4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M7 2.6c-1 1.1 1 2.1 0 3.4M10.6 2.6c-1 1.1 1 2.1 0 3.4M14 2.6c-1 1.1 1 2.1 0 3.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="2.5" y="20.4" width="14.5" height="1.8" rx=".9" fill="currentColor"/></symbol></svg>
-  <a class="skip" href="#content">Skip to content</a>
-  <header class="top">
-    <div class="wrap">
-      <a class="brand" href="./"><img src="../favicon.svg" alt="" width="30" height="30">Tlaku</a>
-      <nav class="nav" aria-label="Sections">
-        <a href="#what">What it is</a>
-        <a href="#features">Features</a>
-        <a href="#machines">Machines</a>
-        <a href="#test">Test</a>
-        <a href="#downloads">Downloads</a>
-        <a href="#manual">Manual</a>
-        <a class="support" href="#support"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Support</a>
-        <a class="lang" href="../" hreflang="es" lang="es">Español</a>
-      </nav>
-    </div>
-  </header>
+  <!--@include sprite-->
+  <!--@include header-->
 
   <main id="content">
     <section class="hero" id="what">
       <div class="wrap hero-grid">
         <div>
           <p class="eyebrow">Open source · MIT license</p>
-          <h1>Free software for laser cutters and engravers</h1>
-          <p class="lead">Tlaku is an open source alternative to commercial laser control software: you design or import a job, adjust the layers, see how it will be cut and send it to the machine with safety checks before anything moves.</p>
-          <p class="notice"><strong>Status:</strong> the desktop app is complete and has been tried on a real Creality Falcon2 Pro <strong>without firing the laser</strong> (connecting, homing, jogging, framing, jobs at 0&nbsp;% power, pause, stop and emergency stop). <strong>Engraving and cutting with the laser on have not been tested on a real machine yet</strong>; every other machine only with emulators and virtual machines inside the app. Treat every job as a test: low power, scrap material and your hand near the stop button.</p>
+          <h1>Free open source software for laser engravers and cutters</h1>
+          <p class="lead">Tlaku is an open source alternative to commercial laser control software such as LightBurn: you design or import a job (a LightBurn project too), adjust the layers, see how it will be cut and send it to the machine with safety checks before anything moves. <a href="{{HOME}}lightburn-alternative/">Read the comparison</a>.</p>
+          <p class="notice"><strong>Status: beta {{VERSION}}.</strong> It has been tested on a <strong>real Creality Falcon2 Pro 22&nbsp;W</strong>: connecting, model detection, homing, jogging, framing, <strong>engraving lines, fills and images and a material test</strong>, pause, stop, resuming after a power cut, the live view and the phone remote. <strong>High-power cutting has not been tested on a real machine yet</strong>, and every other machine (Ruida, K40, galvo and other GRBL brands) only with emulators and virtual machines inside the app. Treat every job as a test: low power, scrap material and your hand near the stop button.</p>
           <p class="actions">
             <a class="btn primary" href="#downloads">Downloads</a>
-            <a class="btn" href="#manual">Manual</a>
+            <a class="btn" href="{{HOME}}lightburn-alternative/">LightBurn alternative</a>
+            <a class="btn" href="{{HOME}}falcon2/">For the Falcon2</a>
             <a class="btn kofi opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Buy me a coffee</a>
           </p>
         </div>
         <figure class="shot">
-          <img src="../img/38-english.png" width="1440" height="900" alt="Tlaku main window in English.">
+          <img src="{{ROOT}}img/38-english.png" width="1440" height="900" alt="Tlaku main window in English.">
           <figcaption>Main window (the app also comes in Spanish).</figcaption>
         </figure>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-guides">
+      <div class="wrap">
+        <h2 id="h-guides">Guides</h2>
+        <ul class="cards guides">
+          <li><h3><a href="{{HOME}}lightburn-alternative/">Free open source LightBurn alternative</a></h3><p>What Tlaku does, which features have an equivalent, what it opens from LightBurn and what is missing or untested.</p></li>
+          <li><h3><a href="{{HOME}}falcon2/">Tlaku for the Creality Falcon2</a></h3><p>What was tested on a real Falcon2 Pro 22&nbsp;W, how to get started and what is missing.</p></li>
+          <li><h3><a href="{{HOME}}faq/">Frequently asked questions</a></h3><p>Is it free, which machines it supports, whether it works offline and what to do about the unidentified-developer warning.</p></li>
+        </ul>
       </div>
     </section>
 
@@ -79,27 +70,27 @@
         </ul>
         <div class="gallery">
           <figure class="shot">
-            <img src="../img/59-simple-material.png" width="1440" height="900" loading="lazy" alt="Simple mode, step 2: choose machine, laser power and material, with a notice that the values are starting points.">
+            <img src="{{ROOT}}img/59-simple-material.png" width="1440" height="900" loading="lazy" alt="Simple mode, step 2: choose machine, laser power and material, with a notice that the values are starting points.">
             <figcaption>Simple mode, step 2: material and what to do with each color (screenshot in Spanish).</figcaption>
           </figure>
           <figure class="shot">
-            <img src="../img/04-vista-previa.png" width="1440" height="900" loading="lazy" alt="Job preview: toolpath simulation on the canvas, estimated time and per-layer breakdown.">
+            <img src="{{ROOT}}img/04-vista-previa.png" width="1440" height="900" loading="lazy" alt="Job preview: toolpath simulation on the canvas, estimated time and per-layer breakdown.">
             <figcaption>Preview with estimated time and per-layer breakdown (Spanish).</figcaption>
           </figure>
           <figure class="shot">
-            <img src="../img/19-materiales.png" width="1440" height="900" loading="lazy" alt="Material library with its factory settings.">
+            <img src="{{ROOT}}img/19-materiales.png" width="1440" height="900" loading="lazy" alt="Material library with its factory settings.">
             <figcaption>Material library (Spanish).</figcaption>
           </figure>
           <figure class="shot">
-            <img src="../img/11-editor-de-nodos.png" width="1440" height="900" loading="lazy" alt="Node editor on a shape of the design.">
+            <img src="{{ROOT}}img/11-editor-de-nodos.png" width="1440" height="900" loading="lazy" alt="Node editor on a shape of the design.">
             <figcaption>Node editor (Spanish).</figcaption>
           </figure>
           <figure class="shot">
-            <img src="../img/39-nesting.png" width="1440" height="900" loading="lazy" alt="Nesting dialog: copies of each part, container, rotations and a preview with bed utilization.">
+            <img src="{{ROOT}}img/39-nesting.png" width="1440" height="900" loading="lazy" alt="Nesting dialog: copies of each part, container, rotations and a preview with bed utilization.">
             <figcaption>Fit parts (nesting) (Spanish).</figcaption>
           </figure>
           <figure class="shot">
-            <img src="../img/25-maquina-virtual.png" width="1440" height="900" loading="lazy" alt="Virtual machine connected, with the simulated faults panel.">
+            <img src="{{ROOT}}img/25-maquina-virtual.png" width="1440" height="900" loading="lazy" alt="Virtual machine connected, with the simulated faults panel.">
             <figcaption>Virtual machine with simulated faults (Spanish).</figcaption>
           </figure>
         </div>
@@ -109,12 +100,12 @@
     <section id="machines" aria-labelledby="h-machines">
       <div class="wrap">
         <h2 id="h-machines">Supported machines and their status</h2>
-        <p><strong>None has been tested on a real machine.</strong> “Emulator” means it works end to end against the app's emulator and virtual machines, with automated tests. The first hardware test will be with a Creality Falcon2.</p>
+        <p><strong>Only the Creality Falcon2 Pro 22&nbsp;W has been tested on a real machine</strong> (no high-power cutting); nothing else has. “Emulator” means it works end to end against the app's emulator and virtual machines, with automated tests. Falcon2 details in <a href="{{HOME}}falcon2/">Tlaku for the Creality Falcon2</a>.</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th scope="col">Controller</th><th scope="col">Status</th><th scope="col">Notes</th></tr></thead>
             <tbody>
-              <tr><th scope="row">GRBL 1.1 (M4) and GRBL-M3, over USB serial</th><td><span class="tag">Emulator</span> <span class="tag warn">Not tested on hardware</span></td><td>Most diode lasers. Catalog of 21 models with their sources.</td></tr>
+              <tr><th scope="row">GRBL 1.1 (M4) and GRBL-M3, over USB serial</th><td><span class="tag">Emulator</span> <span class="tag ok">Falcon2 Pro tested</span> <span class="tag warn">Others untested</span></td><td>Most diode lasers. Tested on a real Creality Falcon2 Pro 22&nbsp;W, without high-power cutting. Catalog of models with their sources.</td></tr>
               <tr><th scope="row">grblHAL and FluidNC</th><td><span class="tag">Emulator</span> <span class="tag warn">Not tested on hardware</span></td><td>Over USB and over the network (TCP/Telnet and WebSocket, tested against an emulator over real sockets).</td></tr>
               <tr><th scope="row">Marlin and Smoothie</th><td><span class="tag">Emulator (basic)</span> <span class="tag warn">Not tested on hardware</span></td><td>Line-by-line sending, lost-position warning and virtual machine.</td></tr>
               <tr><th scope="row">Old GRBL (no M4), GRBL-LPC and custom G-code</th><td><span class="tag warn">Not tested on hardware</span></td><td>Own dialect, with a dialect editor. No dedicated virtual machine.</td></tr>
@@ -131,7 +122,7 @@
     <section id="test" aria-labelledby="h-test">
       <div class="wrap">
         <h2 id="h-test">Help us test</h2>
-        <p>Tlaku has been tested <strong>only with emulators and virtual machines</strong>: no real laser has used it yet. If you own a machine, the most helpful thing is to try it and tell us what happened, <strong>even if everything went well</strong>. Follow the validation list in order, from the safest level to the riskiest, with eye protection and scrap material.</p>
+        <p>Tlaku has been tested on a <strong>real Creality Falcon2 Pro 22&nbsp;W</strong>; everything else <strong>only with emulators and virtual machines</strong>. If you own a machine, the most helpful thing is to try it and tell us what happened, <strong>even if everything went well</strong>. Follow the validation list in order, from the safest level to the riskiest, with eye protection and scrap material.</p>
         <div class="optgroup">
           <p class="actions">
             <a class="btn primary opt" href="{{REPO_URL}}/issues/new?template=machine_report.yml">Test report from my machine</a>
@@ -147,17 +138,18 @@
 
     <section id="downloads" aria-labelledby="h-downloads">
       <div class="wrap">
-        <h2 id="h-downloads">Downloads</h2>
+        <h2 id="h-downloads">Download Tlaku {{VERSION}} (beta)</h2>
+        <p>Free, MIT license. It is a beta: it has had one real-machine test and high-power cutting is still untested.</p>
         <ul class="dl">
-          <li><strong>macOS 11 or later</strong><span>Apple Silicon and Intel. <code>.dmg</code>: open it and drag Tlaku to Applications.</span></li>
+          <li><strong>macOS 11 or later</strong><span>Apple Silicon and Intel (one universal <code>.dmg</code>): open it and drag Tlaku to Applications.</span></li>
           <li><strong>Windows 10 or later</strong><span><code>.exe</code> (NSIS installer) or <code>.msi</code>.</span></li>
-          <li><strong>Linux</strong><span><code>.deb</code> or <code>.AppImage</code> (mark it as executable).</span></li>
+          <li><strong>Linux</strong><span><code>.deb</code> or <code>.AppImage</code> (mark it as executable). ARM64 and Flatpak are experimental.</span></li>
         </ul>
         <div class="optgroup">
-          <p class="actions"><a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Latest release on GitHub</a></p>
+          <p class="actions"><a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Download the beta on GitHub</a></p>
           <p class="fallback">There is no public download address yet. When the first version is published, the link will appear here.</p>
         </div>
-        <p class="notice">Until the project has code-signing certificates, the macOS and Windows installers are unsigned and the system will show a warning the first time (Gatekeeper on macOS, SmartScreen on Windows). The README explains how to open them. This is an early-stage application with no hardware testing: use it with care.</p>
+        <p class="notice">Until the project has code-signing certificates, the macOS and Windows installers are unsigned and the system will show a warning the first time (Gatekeeper on macOS, SmartScreen on Windows). How to open them is in the <a href="{{HOME}}faq/#developer-warning">FAQ</a>. This is an early-stage application: use it with care.</p>
         <p>On Linux, to use the laser's serial port you need to add your user to the <code>dialout</code> group.</p>
       </div>
     </section>
@@ -214,18 +206,12 @@
     </section>
   </main>
 
-  <footer>
-    <div class="wrap">
-      <p>Tlaku · free software under the MIT license · © 2026 tlaku contributors</p>
-      <p class="optgroup footer-support"><a class="kofi opt" href="{{KOFI_URL}}" rel="noopener"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Buy me a coffee on Ko-fi</a></p>
-      <p>Screenshots are from the application itself. This site uses no cookies, trackers or external resources.</p>
-    </div>
-  </footer>
+  <!--@include footer-->
 
   <div class="fab" id="fab" hidden>
     <a href="#support"><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-cup"/></svg> Support</a>
     <button type="button" aria-label="Close the support notice" title="Close"><span aria-hidden="true">&times;</span></button>
   </div>
-  <script src="../support.js" defer></script>
+  <script src="{{ROOT}}support.js" defer></script>
 </body>
 </html>

@@ -146,6 +146,7 @@ td:nth-child(3) { color: var(--text-muted); }
 .tag { display: inline-block; padding: 1px 8px; border: 1px solid var(--border-strong); border-radius: 99px; font: 600 0.78rem/1.6 var(--font-num); white-space: nowrap; }
 .tag.warn { border-color: var(--warn); color: var(--warn); }
 .tag.none { color: var(--text-muted); }
+.tag.ok { border-color: var(--ok); color: var(--ok); }
 
 /* ---- descargas ---- */
 .dl { display: grid; gap: 12px; margin: 0 0 20px; padding: 0; list-style: none; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
@@ -201,8 +202,45 @@ a.alt-card:hover { background: var(--bg-hover); color: var(--text); }
   @keyframes fab-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 }
 
+/* ---- páginas de guía (comparación, Falcon2, preguntas frecuentes) ---- */
+.guides h3 a { color: var(--accent-ink); text-decoration: none; }
+.guides h3 a:hover { text-decoration: underline; }
+.crumbs { margin: 0 0 14px; color: var(--text-muted); font-size: 0.88rem; }
+.crumbs a { color: var(--text-muted); }
+.crumbs a:hover { color: var(--text); }
+.page-head { padding: 40px 0 36px; border-bottom: 1px solid var(--border); }
+.page-head .lead { max-width: var(--measure); }
+.prose h2 { margin-top: 36px; }
+.prose h2:first-child { margin-top: 0; }
+.prose h3 { margin-top: 22px; font-size: 1.1rem; }
+.prose ul, .prose ol { max-width: var(--measure); margin: 0 0 14px; padding-left: 1.3em; }
+.prose li { margin-bottom: 6px; }
+.prose pre { max-width: var(--measure); margin: 0 0 14px; padding: 12px 16px; overflow-x: auto; border-radius: var(--radius); background: var(--bg-sunken); font: 0.9rem/1.5 var(--font-num); }
+.prose pre code { padding: 0; background: none; }
+.prose .table-wrap { margin: 0 0 18px; }
+.prose .shot { max-width: 760px; margin: 22px 0; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; padding: 4px 12px; border: 1px solid var(--border-strong); border-radius: 99px; color: var(--text); font-size: 0.9rem; text-decoration: none; }
+.toc a:hover { background: var(--bg-hover); }
+.qa { padding: 20px 0; border-bottom: 1px solid var(--border); }
+.qa:last-of-type { border-bottom: 0; }
+.qa h3 { margin: 0 0 8px; font-size: 1.15rem; }
+.qa .a p:last-child, .qa .a ul:last-child, .qa .a ol:last-child { margin-bottom: 0; }
+.qa .a ul, .qa .a ol { max-width: var(--measure); margin: 0 0 14px; padding-left: 1.3em; }
+.qa h3:target { color: var(--accent-ink); }
+.foot-nav { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 16px; }
+.foot-nav a { color: var(--accent-ink); }
+
 footer { padding: 28px 0 40px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.9rem; }
 footer p { max-width: none; margin-bottom: 6px; }
 
 /* Que el botón flotante no tape el final de la página, sobre todo en móvil. */
 @media (max-width: 700px) { footer { padding-bottom: 88px; } }
+
+/* Móvil: el menú va en una sola fila desplazable para que la cabecera fija no ocupe media pantalla. */
+@media (max-width: 700px) {
+  .top .wrap { padding-block: 4px; }
+  .nav { flex: 1 0 100%; flex-wrap: nowrap; margin-left: 0; overflow-x: auto; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { flex: none; white-space: nowrap; }
+}

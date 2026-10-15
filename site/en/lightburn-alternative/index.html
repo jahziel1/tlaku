@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!--@include head-->
+  <title>Free open-source LightBurn alternative for lasers | Tlaku</title>
+  <meta name="description" content="Tlaku is a free, open source (MIT) LightBurn alternative: it opens .lbrn2 projects, imports .lbdev profiles and drives GRBL machines. An honest comparison of a beta.">
+  <!--@seo-->
+</head>
+<body>
+  <!--@include sprite-->
+  <!--@include header-->
+
+  <main id="content">
+    <div class="page-head">
+      <div class="wrap">
+        <p class="crumbs"><a href="{{HOME}}">Tlaku</a> &rsaquo; LightBurn alternative</p>
+        <p class="eyebrow">Free software · MIT license</p>
+        <h1>Free open-source LightBurn alternative</h1>
+        <p class="lead">Tlaku is free software for laser engravers and cutters. If you are looking for a LightBurn alternative that costs nothing, this page says plainly what Tlaku does today, which LightBurn files it opens and what is still untested.</p>
+        <p class="notice"><strong>This is a beta ({{VERSION}}).</strong> It has been tested on a single real machine, a Creality Falcon2 Pro 22&nbsp;W, and high-power cutting has not been tested yet. If your work depends on LightBurn, keep it as a plan B while you try Tlaku.</p>
+        <p class="actions">
+          <a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Download the beta</a>
+          <a class="btn" href="{{HOME}}falcon2/">Tlaku for the Falcon2</a>
+          <a class="btn" href="{{HOME}}faq/">FAQ</a>
+        </p>
+        <ul class="toc" aria-label="On this page">
+          <li><a href="#summary">In short</a></li>
+          <li><a href="#features">What Tlaku does</a></li>
+          <li><a href="#comparison">Comparison</a></li>
+          <li><a href="#equivalents">Equivalent features</a></li>
+          <li><a href="#untested">What is untested</a></li>
+          <li><a href="#switching">Switching</a></li>
+          <li><a href="#trademarks">Trademarks</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="prose" id="summary" aria-labelledby="h-summary">
+      <div class="wrap">
+        <h2 id="h-summary">In short</h2>
+        <ul>
+          <li><strong>Free and open source</strong> (MIT license). Donating is optional and unlocks nothing: the program is the same with or without a donation.</li>
+          <li><strong>Opens LightBurn projects</strong> (<code>.lbrn</code> and <code>.lbrn2</code>) with their layers and settings, and warns you about whatever it could not bring over instead of dropping it silently.</li>
+          <li><strong>Imports LightBurn machine profiles</strong> (<code>.lbdev</code>), so you do not have to retype the work area, the controller and the baud rate.</li>
+          <li><strong>Drives GRBL lasers</strong> over USB and the network (tested on a real Creality Falcon2 Pro). Ruida (CO2), K40 and galvo are <strong>experimental</strong>.</li>
+          <li><strong>Windows, macOS and Linux</strong>, with the interface and the manual in Spanish and English.</li>
+          <li><strong>Clean room:</strong> Tlaku was written from scratch, with no code, text, icons or screenshots from LightBurn.</li>
+        </ul>
+        <figure class="shot">
+          <img src="{{ROOT}}img/04-vista-previa.png" width="1440" height="900" alt="Job preview in Tlaku: toolpath simulation on the canvas, estimated time and per-layer breakdown.">
+          <figcaption>Preview with the estimated time and a per-layer breakdown (interface shown in Spanish).</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="prose" id="features" aria-labelledby="h-features">
+      <div class="wrap">
+        <h2 id="h-features">What Tlaku does</h2>
+        <p>You design or import a job, adjust the layers by color, see how it will be cut and send it to the machine with safety checks before anything moves. Specifically:</p>
+        <ul>
+          <li><strong>Design and editing:</strong> canvas with rulers and the machine bed, shapes, node editor, align and distribute, arrays, boolean operations, text, QR codes and barcodes, variable text and undo with history.</li>
+          <li><strong>Layers:</strong> Line, Fill and Image modes, with speed, power, passes, interval, image dithering, tabs and other cut settings.</li>
+          <li><strong>Preview</strong> with an explained cut order, estimated time and a per-layer breakdown.</li>
+          <li><strong>Check before sending:</strong> the machine state is queried and nothing is transmitted if it is in alarm, paused or has the door open. The app never homes or unlocks on its own.</li>
+          <li><strong>Simple mode</strong> to get started: five guided steps (open, material, place, review and start).</li>
+          <li><strong>Materials and camera:</strong> a material library with its sources (starting points, not a guarantee), a material test and camera calibration.</li>
+          <li><strong>Production:</strong> nesting, Print &amp; Cut and splitting a job larger than the bed into sections (<em>tiling</em>), the latter experimental.</li>
+          <li><strong>Phone control</strong> and a live view of the job; pause and stop always work.</li>
+          <li><strong>Command line</strong> (<code>tlaku</code>) for what the app does.</li>
+        </ul>
+        <p>The full list is in the <a href="{{REPO_URL}}/blob/main/README.md">README</a> and the manual.</p>
+      </div>
+    </section>
+
+    <section class="prose" id="comparison" aria-labelledby="h-comparison">
+      <div class="wrap">
+        <h2 id="h-comparison">Comparison</h2>
+        <p>Only what we can state from the repository and from LightBurn's public documentation. For LightBurn's prices, versions and features, always check its official site.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Topic</th><th scope="col">LightBurn</th><th scope="col">Tlaku</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Kind of program</th><td>Commercial program.</td><td>Free software, MIT license, open source on GitHub.</td></tr>
+              <tr><th scope="row">LightBurn project files</th><td>Its own format (<code>.lbrn</code>, <code>.lbrn2</code>).</td><td>Opens them with layers and settings. Whatever has no equivalent appears in a notice; check it in the preview.</td></tr>
+              <tr><th scope="row">Machine profiles</th><td><code>.lbdev</code> files (and <code>.lbvendor</code>, <code>.lbzip</code> bundles).</td><td>Imports <code>.lbdev</code>. It does not read <code>.lbvendor</code> or <code>.lbzip</code> (a <code>.lbzip</code> is a zip: extract the <code>.lbdev</code> and use that).</td></tr>
+              <tr><th scope="row">Ruida controller (CO2)</th><td>Supported.</td><td>Experimental: tested only against an emulator.</td></tr>
+              <tr><th scope="row">Keyboard shortcuts</th><td>Its own.</td><td>Its own, configurable scheme; there is no “LightBurn-style” profile, and some keys mean something else (for example <kbd>Alt</kbd>+<kbd>V</kbd>). The table is in the manual.</td></tr>
+              <tr><th scope="row">Job larger than the bed</th><td>Split by hand.</td><td>Tiling (splitting into sections with alignment marks): experimental, tested only with the virtual machine.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="prose" id="equivalents" aria-labelledby="h-equivalents">
+      <div class="wrap">
+        <h2 id="h-equivalents">Equivalent features and how well tested they are</h2>
+        <p>“Real machine” means the Creality Falcon2 Pro 22&nbsp;W used in the tests. “Emulator” means it works end to end against the app's emulator and virtual machines, with automated tests, but nobody has used it with a laser yet.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Feature</th><th scope="col">In Tlaku</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Layers by color with Line, Fill and Image</th><td>Yes.</td><td><span class="tag ok">Real machine</span> lines, fills and images on MDF.</td></tr>
+              <tr><th scope="row">Preview with estimated time</th><td>Yes.</td><td><span class="tag ok">Real machine</span> for example 61.3 s estimated against 60.8 s actual on a 15 × 15 mm fill, and 139.0 s against 136.9 s on the material test.</td></tr>
+              <tr><th scope="row">GRBL over USB (diode)</th><td>Yes, with an “Add machine” wizard and detection.</td><td><span class="tag ok">Real Falcon2 Pro</span> <span class="tag warn">Other brands, untested</span></td></tr>
+              <tr><th scope="row">GRBL over the network (TCP and WebSocket), grblHAL, FluidNC, Marlin, Smoothie</th><td>Yes.</td><td><span class="tag">Emulator</span> <span class="tag warn">Not tested on hardware</span></td></tr>
+              <tr><th scope="row">Ruida (CO2), K40 with M2 Nano, fiber galvo</th><td>Experimental.</td><td><span class="tag warn">Emulator or simulated board only</span> Galvo from the command line only.</td></tr>
+              <tr><th scope="row">Material test</th><td>Yes.</td><td><span class="tag ok">Real machine</span> 4 × 4 grid on MDF.</td></tr>
+              <tr><th scope="row">Pause, stop and resume after a power cut</th><td>Yes.</td><td><span class="tag ok">Real machine</span></td></tr>
+              <tr><th scope="row">Camera, lens calibration and alignment</th><td>Yes.</td><td><span class="tag warn">Partial</span> with the Falcon2's lid camera, calibration and alignment are still pending.</td></tr>
+              <tr><th scope="row">Print &amp; Cut and tiling</th><td>Yes (tiling, experimental).</td><td><span class="tag">Virtual machine</span> <span class="tag warn">Not tested on hardware</span></td></tr>
+              <tr><th scope="row">Phone control and live view</th><td>Yes.</td><td><span class="tag ok">Real machine</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="prose" id="untested" aria-labelledby="h-untested">
+      <div class="wrap">
+        <h2 id="h-untested">What is still untested</h2>
+        <ul>
+          <li><strong>High-power cutting</strong> (for example cutting several millimeters of wood or acrylic) has not been tested on a real machine.</li>
+          <li><strong>Any machine other than the Creality Falcon2 Pro 22&nbsp;W:</strong> other GRBL diodes, Ruida, K40, galvo, grblHAL, FluidNC, Marlin and Smoothie were tested only with emulators and virtual machines.</li>
+          <li><strong>Importing LightBurn projects</strong> is covered by automated tests, and several conversions (for example overscan and the through-cut time) were inferred from public documentation: <strong>check every layer</strong> in the preview before cutting.</li>
+          <li><strong>The installers are not signed</strong> by Apple or Microsoft; the system will show a warning the first time. The Flatpak and the Raspberry Pi (ARM64) build are experimental and have not been tried on a real device.</li>
+          <li>It is the work of one person with no company behind it: there is no commercial support. Bugs are reported on GitHub.</li>
+        </ul>
+        <p>If you own a machine, trying it and telling us how it went (even if everything worked) is the most valuable help: <a href="{{REPO_URL}}/issues/new?template=machine_report.yml">test report form</a>.</p>
+      </div>
+    </section>
+
+    <section class="prose" id="switching" aria-labelledby="h-switching">
+      <div class="wrap">
+        <h2 id="h-switching">How to switch from LightBurn</h2>
+        <ol>
+          <li><strong>Install Tlaku</strong> from the <a href="{{REPO_URL}}/releases/latest">latest release</a>.</li>
+          <li><strong>Add your machine.</strong> With the machine connected over USB, the <em>Add machine</em> wizard detects it without moving it or changing its configuration. If you already had it in LightBurn, in <em>Devices</em> press <em>Import a LightBurn profile (.lbdev)…</em>; the profiles are new and send nothing to the machine.</li>
+          <li><strong>Open your project:</strong> <em>File &gt; Import Design…</em> with the <code>.lbrn2</code> (or <code>.lbrn</code>) file, or drag the file onto the window.</li>
+          <li><strong>Review the notices and the preview.</strong> Layer colors are approximate and some settings have no equivalent; the notice lists them.</li>
+          <li><strong>Test on scrap material</strong> at low power, with your hand near the emergency stop.</li>
+        </ol>
+        <p>Name equivalences, shortcut differences and what is missing are in the manual's <a href="{{REPO_URL}}/blob/main/docs/manual/en/14-desde-lightburn.md">Coming from LightBurn</a> guide.</p>
+      </div>
+    </section>
+
+    <section class="prose" id="trademarks" aria-labelledby="h-trademarks">
+      <div class="wrap">
+        <h2 id="h-trademarks">Trademarks</h2>
+        <p>LightBurn is a trademark of its owner. Tlaku is an independent project and is <strong>not affiliated with, sponsored by or endorsed by</strong> LightBurn or its owner. The name is used only descriptively: to say which files Tlaku is compatible with and which program it can replace. Tlaku does not use LightBurn's code, text, icons or logo.</p>
+        <p class="actions">
+          <a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Download the beta</a>
+          <a class="btn" href="{{HOME}}">Back to the home page</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!--@include footer-->
+</body>
+</html>

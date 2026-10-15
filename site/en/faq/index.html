@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!--@include head-->
+  <title>Tlaku FAQ: free open source laser software</title>
+  <meta name="description" content="Is it free? Which laser machines does it support (GRBL, Ruida, K40, Falcon2)? Does it open LightBurn files? Does it work offline? How to open the unidentified-developer warning.">
+  <!--@seo-->
+</head>
+<body>
+  <!--@include sprite-->
+  <!--@include header-->
+
+  <main id="content">
+    <div class="page-head">
+      <div class="wrap">
+        <p class="crumbs"><a href="{{HOME}}">Tlaku</a> &rsaquo; FAQ</p>
+        <p class="eyebrow">Frequently asked questions</p>
+        <h1>Frequently asked questions about Tlaku</h1>
+        <p class="lead">Tlaku is free, open source software for laser engravers and cutters, and a LightBurn alternative. These are the most common questions, with answers you can check in the repository.</p>
+        <ul class="toc" aria-label="Questions">
+          <li><a href="#free">Is it free?</a></li>
+          <li><a href="#machines">Which machines?</a></li>
+          <li><a href="#lightburn">LightBurn files?</a></li>
+          <li><a href="#ruida-k40">Ruida or K40?</a></li>
+          <li><a href="#offline">Offline?</a></li>
+          <li><a href="#updates">Does it update itself?</a></li>
+          <li><a href="#developer-warning">Unidentified-developer warning</a></li>
+          <li><a href="#help">How can I help?</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="prose" aria-labelledby="h-questions">
+      <div class="wrap">
+        <h2 id="h-questions">Questions</h2>
+
+        <div class="qa">
+          <h3 id="free">Is Tlaku free?</h3>
+          <div class="a">
+            <p>Yes. Tlaku is free software under the MIT license: you can use, copy and modify it without paying, and its code is open on GitHub. There is no paid version and no locked features: donating is optional and unlocks nothing, the program is the same with or without a donation.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="machines">Which laser machines does it support?</h3>
+          <div class="a">
+            <p>Most diode lasers with a GRBL controller over USB (GRBL 1.1 with M4 and GRBL-M3), plus grblHAL, FluidNC, Marlin and Smoothie. There is a catalog of models from brands such as Creality, Sculpfun, Atomstack, Ortur, xTool, Longer, Neje and Two Trees. Ruida (CO2), K40 with an M2 Nano board and fiber galvo are experimental.</p>
+            <p><strong>Important:</strong> so far it has been tested on only one real machine, a Creality Falcon2 Pro 22&nbsp;W (without high-power cutting). The others were tested with emulators and virtual machines. See the <a href="{{HOME}}#machines">machine table and its status</a> and the <a href="{{HOME}}falcon2/">Tlaku for the Creality Falcon2</a> page.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="lightburn">Does it open LightBurn files?</h3>
+          <div class="a">
+            <p>Yes: it opens <code>.lbrn</code> and <code>.lbrn2</code> projects with their layers and settings (<em>File &gt; Import Design…</em> or by dragging the file in), and it imports <code>.lbdev</code> machine profiles from <em>Devices</em>. It does not read <code>.lbvendor</code> or <code>.lbzip</code> bundles (a <code>.lbzip</code> is a zip: extract the <code>.lbdev</code> and use that).</p>
+            <p>Whatever has no equivalent appears in a notice, and some conversions were inferred from public documentation: check every layer in the preview before cutting. More in <a href="{{HOME}}lightburn-alternative/">Free open-source LightBurn alternative</a>. LightBurn is a trademark of its owner; Tlaku is not affiliated with it.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="ruida-k40">Does it work with a Ruida controller or a K40?</h3>
+          <div class="a">
+            <p><strong>Ruida (CO2):</strong> experimental support over the network (UDP): connect, send (by default it stores the job on the controller and does not start it), pause, stop and framing. Tested only against an emulator, and it does not write the controller's settings.</p>
+            <p><strong>K40 with an M2 Nano board:</strong> experimental support over direct USB, tested only against a simulated board. Power is set with the machine's knob, not by software. A K40 whose board was swapped for GRBL-LPC or Smoothie may work as a GRBL machine.</p>
+            <p>Neither has been tested on real hardware: treat them as a test and tell us how it goes.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="offline">Does it work without internet?</h3>
+          <div class="a">
+            <p>Yes. Designing, preparing a job and sending it to the machine does not need internet: the machine connects over USB or your local network. The internet is used for only two optional things:</p>
+            <ul>
+              <li>Opening the community settings library, which downloads a catalog from the project's site (offline it shows the last saved copy).</li>
+              <li>Checking for updates (<em>Help</em> menu).</li>
+            </ul>
+            <p>Tlaku sends nothing on its own: error and test reports open pre-filled in your browser and you decide whether to post them. To install it you do need to download the installer once.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="updates">Does it update itself?</h3>
+          <div class="a">
+            <p>It tells you and updates with your permission, not behind your back. In <em>Help &gt; Check for Updates…</em>, if there is a new version you see its number and notes and choose <em>Download and install</em> or <em>Not now</em>. The check at startup is <strong>off by default</strong> (turn it on in Preferences &gt; General), it never installs while a job is running, and the download is verified with the project's signature.</p>
+            <p>On Linux only the AppImage updates from the app; the <code>.deb</code> is reinstalled by hand, and with Flatpak updates come from Flatpak.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="developer-warning">Why does the “unidentified developer” warning appear and how do I open it?</h3>
+          <div class="a">
+            <p>Because the installers are still <strong>unsigned</strong>: Apple and Microsoft code-signing certificates are paid and must be renewed, and the project does not have them yet. The system warns about any unsigned program. Download Tlaku only from the <a href="{{REPO_URL}}/releases/latest">repository's releases page</a>; the code is open and you can inspect it.</p>
+            <ul>
+              <li><strong>macOS:</strong> right-click Tlaku, <em>Open</em>; or in <em>System Settings &gt; Privacy &amp; Security</em>, <em>Open Anyway</em>. If it says the app is damaged, run in Terminal: <code>xattr -dr com.apple.quarantine /Applications/Tlaku.app</code></li>
+              <li><strong>Windows (SmartScreen):</strong> <em>More info</em> and then <em>Run anyway</em>.</li>
+              <li><strong>Linux:</strong> no warnings. To use the laser's serial port, add your user to the <code>dialout</code> group (<code>sudo usermod -aG dialout "$USER"</code>) and log in again.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="systems">Which operating systems does it run on?</h3>
+          <div class="a">
+            <p>Windows 10 or later (<code>.exe</code> or <code>.msi</code> installer), macOS 11 or later (one universal <code>.dmg</code> for Apple Silicon and Intel) and Linux (<code>.deb</code> and <code>.AppImage</code>). Linux ARM64 (64-bit Raspberry Pi 4 and 5) and Flatpak are experimental and have not been tried on a real device. The app and the manual are in Spanish and English.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="ready">Is it ready for production use?</h3>
+          <div class="a">
+            <p>Not yet: it is a beta. Engraving lines, fills and images was tested on a real Creality Falcon2 Pro 22&nbsp;W, but high-power cutting has not been tested on any machine. Treat every job as a test: low power, scrap material and your hand near the emergency stop. If you depend on another program, keep it as a plan B.</p>
+          </div>
+        </div>
+
+        <div class="qa">
+          <h3 id="help">How can I help?</h3>
+          <div class="a">
+            <ul>
+              <li><strong>Try Tlaku on your machine and tell us how it went</strong>, even if everything worked: <a href="{{REPO_URL}}/issues/new?template=machine_report.yml">test report</a> and <a href="{{REPO_URL}}/blob/main/docs/validacion-hardware.md">validation list</a> (in Spanish).</li>
+              <li><strong>Share your material settings</strong> (they join the library as unverified community data, CC0): <a href="{{REPO_URL}}/issues/new?template=material_settings.yml">form</a>.</li>
+              <li><strong>Ask for your controller</strong> if it is missing: <a href="{{REPO_URL}}/issues/new?template=new_controller.yml">support request</a>. And report bugs with the <a href="{{REPO_URL}}/issues/new?template=bug_report.yml">bug form</a>.</li>
+              <li><strong>Buy a coffee on Ko-fi:</strong> it is optional and pays for test machines and development time. <a href="{{KOFI_URL}}" rel="noopener">Ko-fi</a></li>
+              <li><strong>Star the repository</strong> and tell anyone who owns a laser: it helps more people find it.</li>
+              <li><strong>Code, documentation and translations:</strong> read <a href="{{REPO_URL}}/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <p class="actions">
+          <a class="btn primary opt" href="{{REPO_URL}}/releases/latest">Download the beta</a>
+          <a class="btn" href="{{HOME}}lightburn-alternative/">LightBurn alternative</a>
+          <a class="btn" href="{{HOME}}falcon2/">For the Falcon2</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!--@include footer-->
+</body>
+</html>

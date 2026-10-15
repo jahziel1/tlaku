@@ -10,10 +10,21 @@
 > [invitarle un café al proyecto en Ko-fi](https://ko-fi.com/danielmartinez55371) ☕: paga máquinas de prueba y tiempo de desarrollo.
 > Probarlo en tu máquina y [compartir los resultados](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml) ayuda igual.
 
-**Software libre para cortadoras y grabadoras láser.** Tlaku es una alternativa de código abierto
-(licencia MIT) a los programas comerciales de control láser: diseñas o importas un trabajo, ajustas
-las capas, ves cómo se va a cortar y lo envías a la máquina con revisiones de seguridad antes de
-que se mueva nada.
+**Tlaku es una alternativa libre y gratis a LightBurn para grabadoras y cortadoras láser (licencia
+MIT).** Abre proyectos de LightBurn (`.lbrn`, `.lbrn2`), importa perfiles de máquina `.lbdev` y
+controla láseres GRBL como la Creality Falcon2: diseñas o importas un trabajo, ajustas las capas,
+ves cómo se va a cortar y lo envías a la máquina con revisiones de seguridad antes de que se mueva
+nada. LightBurn es una marca de su titular; Tlaku es un proyecto independiente y no está afiliado a ella.
+
+### Descarga la beta (0.1.0)
+
+[![Descargar para Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_x64-setup.exe) [![Descargar para macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_universal.dmg) [![Descargar para Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_amd64.deb) [![Descargar para Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.0/Tlaku_0.1.0_amd64.AppImage)
+
+[Todos los archivos y las notas de la versión](https://github.com/jahziel1/tlaku/releases/latest) ·
+[Sitio web](https://jahziel1.github.io/tlaku/) ·
+[Alternativa libre a LightBurn](https://jahziel1.github.io/tlaku/alternativa-a-lightburn/) ·
+[Tlaku para la Creality Falcon2](https://jahziel1.github.io/tlaku/falcon2/) ·
+[Preguntas frecuentes](https://jahziel1.github.io/tlaku/preguntas-frecuentes/)
 
 El nombre viene del náhuatl *tlacuilo*: el pintor-escriba que dibujaba y escribía los códices. Un
 tlacuilo convertía ideas en trazos sobre una superficie; Tlaku convierte un diseño en movimientos
@@ -23,20 +34,23 @@ de un láser.
 programa abierto y que explique lo que hace, sobre todo quienes vienen de LightBurn y quienes
 empiezan. Hay una guía específica para el cambio: [venir desde LightBurn](docs/manual/14-desde-lightburn.md).
 
-> **Estado honesto:** Tlaku ya tiene aplicación de escritorio completa, pero **ninguna función de
-> máquina se ha probado todavía con un láser real**. Todo se ha validado con un emulador de
-> controladoras y con máquinas virtuales dentro de la app. Hasta que haya pruebas con hardware,
-> trata cada trabajo como una prueba: empieza con poca potencia, material de desecho y la mano
-> cerca del botón de paro. Detalle en [controladoras soportadas](#controladoras-soportadas).
+> **Estado honesto: beta.** Tlaku ya tiene aplicación de escritorio completa y se probó con una
+> **Creality Falcon2 Pro 22 W real**: conexión, detección del modelo, homing, movimiento, encuadre,
+> grabado de líneas, rellenos e imágenes, prueba de materiales, pausa, detener, continuar tras un
+> corte de energía, la vista en vivo y el control desde el celular. **El corte con potencia alta
+> todavía no se ha probado en una máquina real**, y las demás máquinas (Ruida, K40, galvo y otras
+> marcas GRBL) solo se han validado con un emulador de controladoras y con máquinas virtuales dentro
+> de la app. Trata cada trabajo como una prueba: empieza con poca potencia, material de desecho y la
+> mano cerca del botón de paro. Detalle en [controladoras soportadas](#controladoras-soportadas).
 
 ![Ventana principal de Tlaku con un diseño de ejemplo y sus capas](apps/desktop/docs/screenshots/01-principal-oscuro.png)
 
 ## Ayúdanos a probar con máquinas reales
 
-Tlaku se ha probado **solo con emuladores, máquinas virtuales y pruebas automáticas**. Ninguna función
-de máquina se ha usado todavía con un láser real: la primera prueba será una Creality Falcon2 del
-autor, y el resto depende de quien tenga otra máquina. Por eso lo más valioso que puedes hacer hoy es
-probarlo con la tuya y contarnos qué pasó, **incluso si todo salió bien**.
+Tlaku se ha probado con **una máquina real** (la Creality Falcon2 Pro 22 W del autor, sin corte con
+potencia alta); todo lo demás, solo con emuladores, máquinas virtuales y pruebas automáticas, y
+depende de quien tenga otra máquina. Por eso lo más valioso que puedes hacer hoy es probarlo con la
+tuya y contarnos qué pasó, **incluso si todo salió bien**.
 
 - **Cuéntanos cómo te funciona en tu máquina:** abre el formulario
   [Reporte de prueba en una máquina real](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml).
@@ -59,6 +73,27 @@ nada por su cuenta:** revisas el formulario y decides si lo publicas (hace falta
 mano cerca del paro de emergencia y nunca dejes la máquina sola. Tlaku se ofrece sin garantía. Si
 encuentras algo que pueda encender el láser donde no debe, no detenerlo o mover la máquina sin querer,
 no abras un issue público: sigue [SECURITY.es.md](SECURITY.es.md).
+
+## Preguntas frecuentes
+
+Respuestas completas en la [página de preguntas frecuentes](https://jahziel1.github.io/tlaku/preguntas-frecuentes/).
+
+- **¿Hay una alternativa gratis a LightBurn?** Tlaku lo es: libre y gratis (MIT), para Windows, macOS
+  y Linux. Es una beta, así que lee [qué hace y qué no está probado](https://jahziel1.github.io/tlaku/alternativa-a-lightburn/).
+- **¿Abre archivos de LightBurn?** Sí: proyectos `.lbrn` y `.lbrn2` con sus capas y ajustes, y
+  perfiles de máquina `.lbdev`. Revisa cada capa con la vista previa antes de cortar.
+- **¿Qué máquinas soporta, y hay un programa para la Creality Falcon2?** Láseres de diodo GRBL por USB
+  o por red, grblHAL, FluidNC, Marlin y Smoothie; Ruida (CO2), K40 y galvo son experimentales. Solo una
+  Falcon2 Pro se ha probado con hardware real: mira [Tlaku para la Creality Falcon2](https://jahziel1.github.io/tlaku/falcon2/).
+- **¿Funciona sin internet?** Sí. Internet solo se usa para abrir la biblioteca de ajustes de la
+  comunidad y para buscar actualizaciones (la búsqueda al iniciar viene apagada).
+- **¿Se actualiza solo?** Avisa cuando hay una versión nueva y la instala con tu permiso, nunca con un
+  trabajo en curso.
+- **¿Por qué mi sistema dice «desarrollador no identificado»?** Los instaladores todavía no están
+  firmados. En macOS, clic derecho > Abrir; en Windows, «Más información» > «Ejecutar de todas formas»
+  (detalle en [Instalación](#instalación)).
+- **¿Cómo ayudo?** Pruébalo en tu máquina y [cuéntanos cómo te fue](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml),
+  comparte ajustes de material o [invita un café al proyecto en Ko-fi](https://ko-fi.com/danielmartinez55371).
 
 ## Funciones principales
 
@@ -235,14 +270,14 @@ El estado real, función por función (213 de las 217 funciones del inventario e
 
 ## Controladoras soportadas
 
-Ninguna se ha probado con una máquina real; "estable" significa que funciona de punta a punta
-contra el emulador y las máquinas virtuales de la app, con pruebas automáticas. La primera prueba
-con hardware real será una Creality Falcon2. Guía completa:
+Solo la Creality Falcon2 Pro 22 W se ha probado con una máquina real (sin corte con potencia alta);
+"estable" significa que funciona de punta a punta contra el emulador y las máquinas virtuales de la
+app, con pruebas automáticas. Guía completa:
 [docs/manual/13-controladoras.md](docs/manual/13-controladoras.md).
 
 | Controladora o firmware | Estado | Notas |
 |---|---|---|
-| GRBL 1.1 (M4) y GRBL-M3, por USB serie | Estable en emulador; **por validar con máquina real** | La mayoría de los láseres de diodo (Creality Falcon2 incluida). Catálogo de 21 modelos con fuentes. |
+| GRBL 1.1 (M4) y GRBL-M3, por USB serie | Estable en emulador; **validado en una Falcon2 Pro real, el resto por validar** | La mayoría de los láseres de diodo. **Probado con una Creality Falcon2 Pro 22 W real** (sin corte con potencia alta); otras marcas, sin probar. Catálogo de modelos con fuentes. |
 | grblHAL y FluidNC | Estable en emulador; **por validar con máquina real** | Dialecto de G-code propio y máquina virtual. Por USB, y por red (TCP/Telnet y WebSocket, probados contra el emulador por sockets de verdad). |
 | Marlin y Smoothie | Estable en emulador (básico); **por validar con máquina real** | Envío línea a línea, aviso de posición perdida y máquina virtual. |
 | GRBL antiguo (sin M4), GRBL-LPC y G-code personalizado | **Por validar con máquina real** | Dialecto propio; sin máquina virtual dedicada. El tipo personalizado trae un editor de dialecto. |
@@ -255,8 +290,9 @@ con hardware real será una Creality Falcon2. Guía completa:
 
 ### Descargar la aplicación
 
-Los instaladores están en la página de **Releases** del repositorio (la versión más reciente,
-sección "Assets"):
+Tlaku **0.1.0 (beta)** está publicado en la página de
+[**Releases**](https://github.com/jahziel1/tlaku/releases/latest) del repositorio (sección "Assets"), o
+usa los botones de descarga del inicio de esta página:
 
 | Sistema | Archivo |
 |---|---|

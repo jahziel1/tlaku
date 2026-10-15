@@ -470,22 +470,46 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 
 ## Sitio web y donaciones
 
-- **Sitio** (`site/`): HTML y CSS estáticos, sin framework ni recursos externos, en español
-  (`site/index.html`) y en inglés (`site/en/index.html`). Muestra qué es Tlaku, capturas, funciones,
+- **Sitio** (`site/`): HTML y CSS estáticos, sin framework ni recursos externos, en español y en
+  inglés. Portada (`site/index.html`, `site/en/index.html`) con qué es Tlaku, capturas, funciones,
   máquinas y su estado, la sección «Ayúdanos a probar» (con enlaces a los formularios de GitHub),
-  descargas, manual, donaciones y licencia. Los textos dicen lo que hay: lo que
-  no se ha probado con hardware se dice claramente.
+  descargas, manual, donaciones y licencia, y tres páginas por idioma pensadas para las búsquedas:
+  «Alternativa libre a LightBurn» (`alternativa-a-lightburn/`, `en/lightburn-alternative/`), «Tlaku para
+  la Creality Falcon2» (`falcon2/`, `en/falcon2/`) y las preguntas frecuentes (`preguntas-frecuentes/`,
+  `en/faq/`). Los textos dicen lo que hay: lo que no se ha probado con hardware se dice claramente (hoy:
+  solo una Falcon2 Pro 22 W real, sin corte con potencia alta); al cambiar el estado de las pruebas,
+  actualiza la portada, esas tres páginas y los README.
+- **Cómo se arma una página:** cada `index.html` lleva su `<title>`, su `<meta name="description">` y
+  los marcadores `<!--@include head-->`, `sprite`, `header` y `footer` (parciales en `site/_partials/`,
+  uno por idioma donde cambia el texto) y `<!--@seo-->`, que `scripts/build-site.mjs` sustituye por
+  canonical, hreflang (es, en y x-default), Open Graph, Twitter Card y JSON-LD (`scripts/site-seo.mjs`).
+  Además de los marcadores de abajo hay `{{ROOT}}`, `{{HOME}}` y `{{ALT_URL}}` (rutas relativas de cada
+  página) y `{{VERSION}}` (la de `tauri.conf.json`). **Para sumar una página:** crea sus dos archivos
+  (es y en), regístrala en `site/pages.json` (el build falla si un `.html` no está ahí) y enlázala desde
+  `site/_partials/{es,en}/header.html` y `footer.html`.
+- **Imágenes para redes** (`site/og-es.png`, `site/og-en.png`, 1200 × 630): se generan una vez con
+  `python3 scripts/site-og.py` a partir de una captura de `apps/desktop/docs/screenshots/` y se guardan
+  en el repositorio; no se regeneran en la CI.
 - **Marcadores:** `{{REPO_URL}}`, `{{SPONSORS_URL}}` y `{{KOFI_URL}}`. Se llenan desde
   `site/config.json`:
 
   ```sh
-  node scripts/build-site.mjs                  # construye site-dist/ (gitignorado)
+  node scripts/build-site.mjs                  # construye site-dist/ (gitignorado), con sitemap.xml y robots.txt
+  node scripts/check-site.mjs site-dist        # enlaces internos, metadatos, JSON-LD, sitemap y CSP
   node scripts/build-site.mjs --readme         # además regenera el bloque de apoyo de README.md y README.es.md
   python3 -m http.server -d site-dist 8000     # para verlo en local
   ```
 
   Un valor vacío oculta su botón o enlace y muestra «aún no hay…». El script copia las capturas de
-  `apps/desktop/docs/screenshots/` y falla si un marcador o una captura no existe.
+  `apps/desktop/docs/screenshots/` y falla si un marcador o una captura no existe. `check-site.mjs`
+  falla si hay un enlace o una ancla rota, un recurso externo (la CSP es `default-src 'none'`), un
+  estilo o script en línea, un JSON-LD que no parsea o no coincide con la página, o un sitemap sin
+  alguna página. El JSON-LD (`<script type="application/ld+json">`) es un bloque de datos, no se
+  ejecuta, y la CSP (`script-src 'self'`) no lo bloquea: se comprobó en Chrome sin avisos en la consola.
+- **Botones de descarga de los README:** apuntan a los archivos de la versión publicada
+  (`releases/download/v0.1.0/Tlaku_0.1.0_…`). Al sacar una versión nueva, actualiza esos enlaces y el
+  número en «Descarga la beta» / «Download the beta» de `README.md` y `README.es.md`. El sitio usa
+  `releases/latest` y la versión de `tauri.conf.json`, así que no necesita tocarse.
 - **GitHub Pages:** `.github/workflows/pages.yml` publica el sitio al empujar a `main`, pero está
   inactivo hasta crear la variable de repositorio `PAGES_ENABLED=true` (paso 6 de la lista de abajo).
 - **Donaciones:** `.github/FUNDING.yml` (botón Sponsor del repositorio; líneas comentadas), sección
@@ -493,6 +517,38 @@ suya aunque la app no esté firmada por Apple o Microsoft):
   regenera `--readme`; hoy dice que aún no hay cuentas) y Ayuda > «Donar al proyecto…» en la app. Los enlaces de la app
   viven en `apps/desktop/src/features/help/links.ts` (`PROJECT_LINKS`, vacíos por omisión): sin
   ellos, el diálogo dice que el proyecto aún no tiene cuentas de donación.
+
+### Dar de alta el sitio en Google Search Console
+
+Aún no está hecho; son pasos para cuando el autor quiera que Google conozca el sitio (sin esto Google
+también lo encuentra por los enlaces, pero más despacio). La indexación tarda de días a semanas y
+no se puede forzar.
+
+1. Entra en <https://search.google.com/search-console> con la cuenta de Google del autor.
+2. **Añadir propiedad** > tipo **Prefijo de la URL** con `https://jahziel1.github.io/tlaku/`. El tipo
+   «Dominio» no sirve: `github.io` no es del autor.
+3. **Verificar** con la **etiqueta HTML**: Search Console da una línea
+   `<meta name="google-site-verification" content="…">`. Pégala dentro del `<head>` de `site/index.html`
+   (debe estar en la portada), construye, comprueba con `check-site.mjs`, súbela a `main` y, cuando el
+   sitio ya la sirva, pulsa **Verificar**. No uses el método del archivo `googleXXXX.html`: el build
+   falla con cualquier `.html` que no esté en `site/pages.json`. Deja la etiqueta puesta, o Google
+   revocará la verificación.
+4. **Sitemaps** > escribe `sitemap.xml` (queda en `https://jahziel1.github.io/tlaku/sitemap.xml`) >
+   Enviar. Debe decir «Correcto» y detectar 8 páginas (4 por idioma).
+5. **Inspección de URL**: pega la portada y las tres páginas nuevas, en español y en inglés, y pulsa
+   **Solicitar indexación** (hay una cuota diaria pequeña).
+6. Más adelante revisa **Indexación > Páginas** (que las 8 estén indexadas y qué razón dan las que no),
+   **Rendimiento** (con qué consultas aparece el sitio) y **Mejoras** (datos estructurados). No esperes
+   el desplegable de preguntas en los resultados: Google limita ese formato a sitios de ciertos tipos
+   (gobierno, salud), y los resultados enriquecidos de `SoftwareApplication` piden valoraciones, que el
+   sitio no inventa. El marcado es válido y no estorba.
+7. Opcional: **Bing Webmaster Tools** permite importar la propiedad desde Search Console.
+
+Notas: en un sitio de proyecto de GitHub Pages el `robots.txt` queda en `/tlaku/robots.txt`, no en la
+raíz del dominio, así que los rastreadores no lo consultan (leen `https://jahziel1.github.io/robots.txt`,
+que el autor no controla); es inofensivo y por eso el sitemap se envía a mano en el paso 4. Si algún día
+hay un dominio propio (Settings > Pages > Custom domain), cambia `site_url` en `site/pages.json`,
+vuelve a construir y da de alta una propiedad de tipo **Dominio**.
 
 ## CI
 
@@ -506,7 +562,7 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 | Flatpak (`flatpak.yml`; solo con etiqueta o a mano) | `appstreamcli validate --no-net` y `desktop-file-validate` de los metadatos, `flatpak-builder` en x86_64 y aarch64 y adjunta los `.flatpak` a la Release |
 | Prueba de humo (Linux) | arranca la app Tauri real bajo Xvfb (`apps/desktop/scripts/smoke-tauri.sh`) |
 | Rust y humo (Linux ARM64) | en `ubuntu-22.04-arm`: `cargo nextest run --workspace --all-features` y la prueba de humo. Sin fmt ni clippy (no dependen de la arquitectura). Aún no es obligatorio en el ruleset |
-| Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos) |
+| Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos), el catálogo de la comunidad y `node scripts/check-site.mjs` (enlaces internos, metadatos SEO, JSON-LD, sitemap) |
 
 Las pruebas de Rust incluyen la validación de `community/materials/*.json` (`cargo test -p tlaku-doc
 community`) y las de la interfaz comprueban que los formularios de `.github/ISSUE_TEMPLATE/` tengan los
@@ -562,9 +618,9 @@ cada paso indica el archivo donde va el valor.
    [Sacar una versión](#sacar-una-versión); recuerda que el `.msi` solo admite sufijos numéricos, así
    que para probar Windows usa `0.x.0-1`), etiqueta `v0.x.0-beta.1`, empuja la etiqueta, revisa el
    borrador en Releases, prueba un instalador y publícalo (se marca como pre-lanzamiento).
-10. **Avisar:** con la Release publicada, el enlace «Última versión en GitHub» del sitio ya apunta a
-    algo real. Antes de anunciarlo, repite el recordatorio del README: ninguna función de máquina se ha
-    probado con un láser real, y pide a la comunidad que pruebe con los formularios de
+10. **Avisar:** con la Release publicada, el enlace «Descargar la beta en GitHub» del sitio ya apunta a
+    algo real. Antes de anunciarlo, repite el recordatorio del README: solo se probó una Falcon2 Pro (sin
+    corte con potencia alta) y lo demás va con emuladores, y pide a la comunidad que pruebe con los formularios de
     [Ayúdanos a probar](../README.es.md#ayúdanos-a-probar-con-máquinas-reales).
 
 ### Comandos de `gh` para el primer arranque
@@ -573,10 +629,14 @@ cada paso indica el archivo donde va el valor.
 scripts/sync-labels.sh --dry-run                 # muestra lo que haría
 scripts/sync-labels.sh                           # crea o actualiza las etiquetas
 gh repo edit jahziel1/tlaku --enable-discussions --enable-issues \
-  --description "Free and open source software for laser cutters and engravers / Software libre para láseres" \
+  --description "Free open source LightBurn alternative for laser engravers and cutters / Alternativa libre a LightBurn para láseres" \
   --homepage "https://jahziel1.github.io/tlaku/" \
-  --add-topic laser --add-topic lasercutter --add-topic grbl --add-topic tauri --add-topic rust
+  --add-topic laser --add-topic lasercutter --add-topic grbl --add-topic tauri --add-topic rust \
+  --add-topic lightburn-alternative --add-topic laser-engraver --add-topic gcode --add-topic ruida --add-topic k40
 ```
+
+La descripción y los temas del repositorio también cuentan para las búsquedas (GitHub muestra la
+descripción como título del resultado); revisa que digan lo mismo que el sitio.
 
 Las categorías de Discussions y el Private vulnerability reporting se activan en la web (Settings).
 
