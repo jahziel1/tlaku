@@ -108,7 +108,8 @@ try {
   await waitFor(`!!document.querySelector('[data-testid="parts-preview"] [data-part]')`, 'la vista previa de la caja');
   await wait(300);
   check(await evaluate(`document.querySelectorAll('[data-testid="parts-preview"] [data-part]').length`) === 6, 'la caja cerrada se previsualiza con 6 piezas');
-  check(await evaluate(`[...document.querySelectorAll('.parts__gen-name')].map((n) => n.textContent).join('|')`) === 'Caja con dientes|Bisagra flexible|Prueba de encaje', 'lista de generadores');
+  check(await evaluate(`[...document.querySelectorAll('.parts__gen-name')].map((n) => n.textContent).join('|')`) === 'Caja con dientes|Bandeja y cajón|Bisagra flexible|Prueba de encaje|Engranajes|Uniones (cola de milano, pestaña-ranura)|Caja redondeada', 'lista de generadores (7)');
+  check(await evaluate(`[...document.querySelectorAll('.parts__gen')].every((b) => !!b.querySelector('svg'))`) && await evaluate(`document.querySelectorAll('.parts__gen').length`) === 7, 'los 7 generadores llevan icono');
   await shot('01-dialogo-caja.png');
 
   await setField('Grosor del material', 6);
@@ -126,6 +127,13 @@ try {
   await wait(450);
   check(await evaluate(`document.querySelectorAll('[data-testid="parts-preview"] [data-part]').length`) === 2, 'prueba de encaje: placa y macho');
   await shot('03-dialogo-prueba-encaje.png');
+
+  for (const [name, file] of [['Bandeja y cajón', '03b-dialogo-bandeja.png'], ['Engranajes', '03c-dialogo-engranajes.png'], ['Uniones', '03d-dialogo-uniones.png'], ['Caja redondeada', '03e-dialogo-caja-redondeada.png']]) {
+    await clickText(name);
+    await wait(500);
+    check(await evaluate(`document.querySelectorAll('[data-testid="parts-preview"] [data-part]').length`) > 0, `${name}: la vista previa muestra piezas`);
+    await shot(file);
+  }
 
   console.log('Insertar una caja con rótulos');
   await clickText('Caja con dientes');
