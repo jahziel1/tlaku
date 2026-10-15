@@ -5,6 +5,8 @@ import { t } from '@/i18n';
 import { useCommand } from '@/commands/useCommand';
 import { useArrangeUi } from '@/features/arrange';
 import { ContextMenuHost } from '@/features/contextmenu';
+import { canvasDisplayObjects, onCanvasDisplayChange } from '@/features/variables/canvasDisplay';
+import { useVariablesUi } from '@/features/variables/context';
 import { selectSceneTiles } from '@/features/tiling/overlay';
 import { useTilingUi } from '@/features/tiling/store';
 import { selectActiveDevice, usePref, useStore, type AppState } from '@/store';
@@ -97,7 +99,9 @@ function buildScene(s: AppState, palette: CanvasPalette, dpr: number): Scene {
     dpr,
     view: { zoom: s.zoom, panX: s.panX, panY: s.panY },
     bed,
-    objects,
+    // Las imágenes y los códigos variables se ven con los datos de la fila actual; la selección y los
+    // controladores (`selected`) siguen usando el objeto real del documento.
+    objects: canvasDisplayObjects(s.doc, objects),
     layers: layersMap,
     selectedIds: selSet,
     selected: pickedAll,
@@ -184,6 +188,11 @@ export function CanvasView() {
     });
     // La interacción (hover, arrastres, guías) también repinta.
     const unsubInteraction = useInteraction.subscribe(schedule);
+    // Las imágenes y los códigos variables siguen a la fila, al CSV cargado y a la vista de plantilla.
+    const unsubVariables = useVariablesUi.subscribe((ui, prev) => {
+      if (ui.csv !== prev.csv || ui.extra !== prev.extra || ui.showTemplate !== prev.showTemplate || ui.clock !== prev.clock) schedule();
+    });
+    const unsubDisplay = onCanvasDisplayChange(schedule);
     // La forma principal de una booleana se resalta mientras el diálogo está abierto.
     // Los tramos del asistente de tiling.
     const unsubTiling = useTilingUi.subscribe(schedule);
@@ -194,6 +203,8 @@ export function CanvasView() {
     return () => {
       unsub();
       unsubInteraction();
+      unsubVariables();
+      unsubDisplay();
       unsubArrange();
       unsubTiling();
       if (frame) cancelAnimationFrame(frame);

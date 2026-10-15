@@ -110,7 +110,7 @@ Las fuentes se guardan en el `.tlaku` con **ruta relativa** a la carpeta del pro
 ## Qué falta o es distinto
 
 - Las variables funcionan en **textos**, en **imágenes** (la ruta del archivo) y en **QR y códigos de barras** (el contenido). No en el relleno de formas ni en los vectores.
-- En el lienzo, una imagen o un código variable muestra el de muestra o el que insertaste; **la vista previa del trabajo** y lo que se envía usan los datos de la fila. Revisa la fila en la vista previa antes de grabar.
+- En el lienzo, una imagen o un código variable muestra los de **la fila actual** (igual que el texto), siempre que el CSV esté leído y el archivo exista; si no, ves la muestra. Es solo lo que ves: el proyecto guarda la muestra, y al seleccionar o editar el objeto trabajas con ella. **Ver la plantilla en el lienzo** vuelve a mostrar la muestra. La vista previa del trabajo y lo que se envía usan los mismos datos de la fila. Revisa la fila en la vista previa antes de grabar.
 - Las fuentes secundarias se leen con el mismo número de fila que la principal; no hay una fila propia por fuente ni una unión por clave (como en una base de datos).
 - No hay selección de filas (rango, filtro) ni buscar y reemplazar en bloque; ni QR con numeración propia (para eso usa `{serie}` en el contenido).
 - No hay un modo de variable de ajuste de capa (velocidad, potencia) ni «hornear» el texto a valores fijos; para fijar un texto, conviértelo a trayectos.

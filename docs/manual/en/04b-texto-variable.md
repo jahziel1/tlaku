@@ -110,7 +110,7 @@ Sources are saved in the `.tlaku` with a **path relative** to the project's fold
 ## What is missing or different
 
 - Variables work in **texts**, in **images** (the file path) and in **QR and barcodes** (the content). Not in shape fills or in vectors.
-- On the canvas, a variable image or code shows the sample or the one you inserted; **the job preview** and what is sent use the row's data. Check the row in the preview before engraving.
+- On the canvas, a variable image or code shows those of **the current row** (like the text), as long as the CSV is loaded and the file exists; otherwise you see the sample. This is only what you see: the project keeps the sample, and selecting or editing the object works on it. **Show the template on the canvas** shows the sample again. The job preview and what is sent use the same row data. Check the row in the preview before engraving.
 - Secondary sources are read with the same row number as the main one; there is no row of their own per source and no key-based join (as in a database).
 - There is no row selection (range, filter) or bulk find and replace; nor QR codes with their own numbering (use `{serial}` in the content for that).
 - There is no variable mode for layer settings (speed, power) and no "baking" the text into fixed values; to fix a text, convert it to paths.
