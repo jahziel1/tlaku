@@ -204,6 +204,7 @@ fn build_app(context: tauri::Context) -> tauri::App {
             edit::trace::vectors_to_bitmap,
             edit::trace::save_processed_image,
             edit::imaging::preview_image,
+            edit::tonal::tonal_preview,
             edit::printcut::fit_registration,
             edit::printcut::plan_tiles,
             edit::art::art_import_svg,

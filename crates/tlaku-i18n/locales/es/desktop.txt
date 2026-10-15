@@ -630,3 +630,6 @@ desktop.job_history.bad_entry = La entrada del historial no es válida: debe ser
 desktop.job_history.entry_too_big = La entrada del historial es demasiado grande ({size} bytes; el máximo es {max}).
 desktop.job_history.csv_ext = {path}: el historial se exporta con la extensión .csv.
 desktop.job_history.csv_too_big = El CSV del historial es demasiado grande ({size} bytes; el máximo es {max}).
+
+# edit/tonal.rs
+desktop.edit.tonal.bad_size = El tamaño pedido para la vista por tonos no es válido.

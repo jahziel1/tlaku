@@ -27,6 +27,7 @@ import { mockText } from './text';
 import { mockTrace } from './trace';
 import { mockTraceExtras } from './traceExtras';
 import { mockImages } from './images';
+import { mockTonal } from './tonal';
 import { mockLayout } from './layout';
 import { mockVariables } from './variables';
 import type { LaserApi } from '../api';
@@ -262,6 +263,7 @@ export function createMockApi(options: Partial<MockMachineOptions> = {}): MockAp
     ...mockTrace(lag),
     ...mockTraceExtras(lag),
     ...mockImages(lag),
+    ...mockTonal(lag),
     ...mockLayout(lag),
     ...mockNest(lag),
     ...mockRemnants(lag),

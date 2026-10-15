@@ -85,6 +85,18 @@ A grid of squares where each cell is a layer with its own combination of setting
 
 > **Tip:** start with a wide range and few cells, and then repeat with a narrow range around the best cell. Record the result with **Save layer as material…**. Always run the test with your real machine and scrap material; nothing is engraved in the emulator.
 
+### Calibrate the tone with the test
+
+The [tonal view](07-vista-previa.md#tonal-view) starts from approximate values. With your burned test you can adjust the curve of **your** material:
+
+1. In the preview choose **By tone** and the **Material** you used; press **Calibrate…**.
+2. The dialog draws the grid from the last **Material test** form (by default, the 5 × 5 one), with the tone the curve predicts in each cell.
+3. Look at your burned test. Click a cell and pick on the scale (0 % is the unburned material, 100 % the strongest tone) the tone that cell **looks most like** on your material. Mark two or three cells with different tones: with just one only the characteristic dose moves; with two or more the slope is fitted too.
+4. If your material color is not the starting one, change **Unburned** and **Strongest burn** (for example, for a **Custom** material).
+5. Below you see the fitted curve. **Save calibration** stores it in your local material library (`materials.json`, next to your settings) and the tonal view is redrawn. **Back to the starting values** removes that material's calibration.
+
+It is a calibration **by eye**: it makes the simulated tone look like yours, it does not measure the laser. If you change lens, material or batch, repeat it.
+
 ## Import and export
 
 Your library (**My materials**) is saved automatically on your computer, in a `materials.json` file inside the app's configuration folder. If the file is damaged, the app sets it aside (as `materials.json.dañado`) and saves nothing until you try again, so as not to overwrite it.

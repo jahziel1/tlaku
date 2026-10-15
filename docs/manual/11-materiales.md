@@ -85,6 +85,18 @@ Una cuadrícula de cuadrados donde cada celda es una capa con su propia combinac
 
 > **Consejo:** empieza con un rango amplio y pocas celdas, y después repite con un rango estrecho alrededor de la mejor celda. Anota el resultado con **Guardar capa como material…**. Haz la prueba siempre con tu máquina real y material de desecho; en el emulador no se graba nada.
 
+### Calibrar el tono con la prueba
+
+La [vista por tonos](07-vista-previa.md#vista-por-tonos) parte de valores aproximados. Con tu prueba grabada puedes ajustar la curva de **tu** material:
+
+1. En la vista previa elige **Por tonos** y el **Material** que usaste; pulsa **Calibrar…**.
+2. El diálogo dibuja la cuadrícula del último formulario de **Prueba de materiales** (por omisión, la de 5 × 5), con el tono que la curva predice en cada celda.
+3. Mira tu prueba grabada. Pulsa una celda y elige en la escala (0 % es el material sin grabar, 100 % el tono más intenso) el tono al que **más se parece** esa celda en tu material. Indica dos o tres celdas con tonos distintos: con una sola solo se mueve la dosis característica; con dos o más también se ajusta la pendiente.
+4. Si el color de tu material no es el de partida, cambia **Sin grabar** y **Grabado más intenso** (por ejemplo, para un material **Personalizado**).
+5. Abajo ves la curva ajustada. **Guardar calibración** la deja en tu biblioteca local de materiales (`materials.json`, junto a tus ajustes) y la vista por tonos se vuelve a dibujar. **Volver a los valores de partida** quita la calibración de ese material.
+
+Es una calibración **a ojo**: sirve para que el tono simulado se parezca al tuyo, no mide el láser. Si cambias de lente, de material o de lote, repítela.
+
 ## Importar y exportar
 
 Tu biblioteca (**Mis materiales**) se guarda sola en tu equipo, en un archivo `materials.json` dentro de la carpeta de configuración de la app. Si el archivo está dañado, la app lo aparta (como `materials.json.dañado`) y no guarda nada hasta que reintentes, para no pisarlo.

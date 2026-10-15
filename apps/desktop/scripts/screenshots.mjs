@@ -1229,6 +1229,36 @@ await wait(1500);
 await shot('71-inicio-revisar-aviso.png');
 await closeDialog();
 
+// 74. Vista previa «por tonos»: un diseño mixto (corte, relleno y foto) simulado sobre madera clara
+await fresh();
+await app(`
+  const { polylineBez } = await import('/src/lib/bezpath.ts');
+  const { makeLayer } = await import('/src/lib/layers.ts');
+  const { useTonal } = await import('/src/features/tonal/store.ts');
+  const poly = (pts) => polylineBez(pts, true);
+  const base = { locked: false, hidden: false, group: null };
+  const rect = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  const hexagon = (cx, cy, r) => Array.from({ length: 6 }, (_, i) => [cx + r * Math.cos((i * Math.PI) / 3), cy + r * Math.sin((i * Math.PI) / 3)]);
+  const objects = [
+    { id: 'marco', layer: '#ff3b4a', transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths: [poly(rect(10, 10, 170, 110))] }, ...base },
+    { id: 'sello', layer: '#2fd18f', transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths: [poly(hexagon(145, 65, 26))] }, ...base },
+    { id: 'banda', layer: '#2fd18f', transform: [1, 0, 0, 1, 0, 0], kind: { type: 'vector', paths: [poly(rect(20, 22, 70, 14))] }, ...base },
+    { id: 'foto', layer: '#2f7bff', transform: [1, 0, 0, 1, 24, 44], kind: { type: 'image', source_path: 'retrato.png', width_px: 600, height_px: 600, size_mm: [66, 66], mask: [], variable: null }, ...base },
+  ];
+  const layers = [
+    makeLayer('#ff3b4a', 'Corte', { mode: 'line', speed: 300, power: 85, passes: 2 }),
+    makeLayer('#2fd18f', 'Relleno', { mode: 'fill', interval: 0.1, speed: 2200, power: 45 }),
+    makeLayer('#2f7bff', 'Foto', { mode: 'image', interval: 0.1, speed: 1400, power: 60 }),
+  ];
+  st().replaceDocument({ version: 2, objects, layers, device_id: null }, null);
+  st().setPreviewVisible(true);
+  await st().computePreview();
+  st().fitContent();
+  useTonal.getState().setMode('tonal');
+`);
+await wait(2500);
+await shot('74-vista-por-tonos.png');
+
 // 63. La página del celular en un viewport de teléfono (390 x 844). Es la página real (`page.html`) servida por el
 // servidor de demostración del motor contra una máquina virtual: se levanta con `cargo test ... demo_server`.
 // Si ya hay uno abierto, REMOTE_DEMO_URL=<enlace con clave> evita compilar y arrancar otro.

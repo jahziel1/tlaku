@@ -1,0 +1,15 @@
+{
+  "revision": 1,
+  "nota": "Valores de partida propios del proyecto (aproximados, sin fuente externa): cada material se calibra con la prueba de materiales. dose_char = dosis (potencia en fracción x segundos / mm2) con la que el material llega al 63 % de su tono máximo; gamma = pendiente de la curva.",
+  "presets": [
+    { "id": "light_wood", "base": [226, 190, 140], "burn": [70, 38, 18], "dose_char": 0.30, "gamma": 1.3 },
+    { "id": "mdf", "base": [170, 126, 84], "burn": [38, 24, 14], "dose_char": 0.35, "gamma": 1.2 },
+    { "id": "plywood", "base": [208, 166, 112], "burn": [64, 36, 20], "dose_char": 0.32, "gamma": 1.25 },
+    { "id": "leather", "base": [143, 96, 58], "burn": [34, 22, 14], "dose_char": 0.20, "gamma": 1.1 },
+    { "id": "acrylic", "base": [188, 206, 214], "burn": [248, 250, 252], "dose_char": 0.25, "gamma": 1.0 },
+    { "id": "cardboard", "base": [191, 152, 102], "burn": [72, 44, 26], "dose_char": 0.15, "gamma": 1.2 },
+    { "id": "paper", "base": [244, 241, 232], "burn": [90, 62, 36], "dose_char": 0.08, "gamma": 1.3 },
+    { "id": "anodized", "base": [36, 38, 46], "burn": [196, 202, 208], "dose_char": 0.40, "gamma": 1.5 },
+    { "id": "custom", "base": [200, 170, 130], "burn": [50, 30, 20], "dose_char": 0.30, "gamma": 1.2 }
+  ]
+}

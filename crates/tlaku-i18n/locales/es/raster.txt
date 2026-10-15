@@ -64,3 +64,7 @@ raster.scan.dot_width = ancho de punto inválido: {value}
 # warp.rs
 raster.warp.not_invertible = la transformación de la imagen no es invertible
 raster.warp.zero_grid = la rejilla destino no puede tener tamaño cero
+
+# tonal.rs
+raster.tonal.bad_region = La región o el tamaño de píxel de la vista por tonos no son válidos.
+raster.tonal.too_big = La vista por tonos pediría {w} x {h} píxeles, demasiados: acerca la vista o usa un píxel más grande.

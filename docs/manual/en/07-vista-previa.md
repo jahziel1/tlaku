@@ -35,6 +35,23 @@ Each type of movement has its color:
 
 The more transparent a stroke is, the less power it carries.
 
+## Tonal view
+
+Below the preview bar, **Standard** shows the usual toolpath and **By tone** simulates **how dark the material gets** with your job: the toolpath is replaced by an image of the part as if it were already engraved. It helps you pick power and speed before burning, or show the result to a customer.
+
+![Tonal view of a mixed design: cut, fill and photo on light wood](../../../apps/desktop/docs/screenshots/74-vista-por-tonos.png)
+
+- **Material**: light wood, MDF board, plywood, leather, acrylic (white frosting), cardboard, paper, anodized aluminum or **Custom**. Each one brings an unburned color, the color of the strongest burn, and a starting response curve.
+- **Laser spot**: the width of the spot on the material, in mm (0.1 by default). If the spot is wider than one image pixel, the energy is spread over that width.
+- The tone comes from the **dose** at each point: power ÷ (speed × interval or line width), multiplied by the **passes**. More power, less speed or more passes darken; a larger interval lightens. Passes and overlapping fills add up, and the tone **saturates** at the strongest color.
+- **M3 and M4** (the power mode of the machine profile): with dynamic power (M4) the dose is even; with constant power (M3) the head burns more where it starts and stops, at the beginning and end of each run that leaves from rest. Corners are not simulated.
+- **Images** are shown with the real dots and tones of the dithering. From far away you see the average tone; when you **zoom in** and wait a moment, the view is redrawn with one image pixel per screen pixel and the dots appear.
+- **Calibrate…** adjusts the material curve with your material test ([Materials](11-materiales.md#calibrate-the-tone-with-the-test)). The button says **Calibrated** if that material already has a calibration.
+
+> **Heads up:** this is an **approximate simulation, not a prediction**. The real result depends on the material, lens, focus, air assist and batch, and the starting values are the project's estimates. Use it to compare settings and calibrate the curve with a test that was really burned. The material sheet is assumed to be the size of what is engraved plus a 3 mm margin. This mode has no toolpath playback; go back to **Standard** to see it.
+
+It works with large jobs: the image is drawn by the engine (a 240 × 240 mm photo at 0.1 mm, almost 2.8 million moves, takes about 0.2 s for the full view and for each zoom), and the job that was already calculated is reused.
+
 ## Results
 
 - **Total time**, with the **Estimated** label. It is calculated with the acceleration of the machine profile. The real time can change, especially with images.

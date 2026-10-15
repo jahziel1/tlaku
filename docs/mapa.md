@@ -256,6 +256,21 @@ Pruebas de más de 800 líneas (no leer enteras; busca el nombre con `grep -n "f
 | `src/features/nest/{SheetsPanels.tsx,RemnantsDialog.tsx,NestDialog.tsx,NestPreview.tsx}` | Sección «Hojas y retazos», resumen por hoja con «Guardar el sobrante», inventario (comando `arrange.remnants`), selector de giros por pieza y vista previa en fila |
 | `src/api/mock/{nest.ts,remnants.ts}`, `scripts/nest-verify.mjs [--shots DIR]` | Mock con hojas, retazos y veta; verificación visual en Chrome headless |
 
+### Agregado: vista previa «por tonos» (mejora 8 del plan de usuarios)
+
+| Dónde | Qué |
+|---|---|
+| `crates/tlaku-doc/src/tonal.rs` + `data/tone-presets.json` | `ToneCurve` (`base`, `burn`, `dose_char`, `gamma`; `darkness`, `color`, `mix`, `validate`), `tone_dose`, `tone_preset(_ids)` (9 materiales de partida con `custom`), `ToneSample`, `ToneCalibration` (se guarda en `MaterialLibrary.tones`; `check_library` de `edit/materials.rs` las valida). Fórmula en la cabecera del archivo. Pruebas en el mismo archivo |
+| `crates/tlaku-raster/src/tonal.rs` | `DoseMap`: rejilla de energía (recorrido exacto de la rejilla por segmento con recorte, `add_point`, `spread` = ancho del punto con promedio de caja, `to_rgba`) y `rgba_to_png`. No sabe de capas ni de materiales |
+| `crates/tlaku-pipeline/src/tonal.rs` (+`tests/tonal.rs`) | `render_tonal(&ComputedJob, &DeviceProfile, &TonalOptions)` → `TonalImage`: recorre la trayectoria (cada movimiento con láser deposita potencia/velocidad), M3 (`device.power_mode`) sube la dosis en los extremos de cada cadena de cortes que sale del reposo (`deposit_chain_m3`, aceleración del perfil), hoja = caja de lo grabado + 3 mm, zona (`region_mm`) para el zoom. La medición de rendimiento es `large_image_job_renders_fast` (`--ignored --nocapture`, en release) |
+| `src-tauri/src/edit/tonal.rs` | Comando `tonal_preview`: calcula el trabajo (como `compute_job`) y guarda el último (`LAST_JOB`, por hash de `doc+device+options+head`) para que acercar o cambiar de material no lo recalcule; devuelve el PNG en base64 |
+| `src/features/tonal/curve.ts`, `calibration.ts` | Copia en TypeScript de la curva (fijada por `curve.test.ts` con los vectores de Rust), `fitCurve` (mínimos cuadrados de `ln(-ln(1-d)) = γ(ln D - ln D₀)`), `curveFor`, `withCalibration`; cuadrícula de la prueba de materiales (`gridCells`, dosis por celda, `samplesOf`, `marksFromSamples`) |
+| `src/features/tonal/{plan,service,layers,store}.ts` | `planDetail` (qué zona pedir al acercar), `startTonalService`/`useTonalSync` (pide la hoja entera y, tras una pausa, el detalle; números de petición, descarta lo tardío), `layers.ts` (las dos imágenes y `drawTonal`, que llama `canvas/previewLayer.ts`; `onTonalChange` repinta el lienzo desde `CanvasView`), `store.ts` (modo, material y ancho del punto; `readPref`/`writePref` `preview.tonal.*`) |
+| `src/features/tonal/{TonalControls,CalibrateDialog}.tsx`, `tonal.css` | Fila «Normal / Por tonos» en `preview/PreviewBar.tsx` y diálogo de calibración. Textos `preview.tonal.*` en `i18n/{es,en}/preview.ts` |
+| `src/api/mock/tonal.ts` (+`mockComputeJob(..., collect)` en `mock/job.ts`, `simulatedDot` en `mock/images.ts`) | Versión reducida de la simulación para el modo mock (sin M3). `scripts/tonal-verify.mjs [--shots DIR]`: verificación en Chrome con prueba 5×5, foto y diseño mixto |
+| Pruebas | `features/tonal/{curve,calibration,plan,service}.test.ts`, `tonalUi.test.tsx`; Rust: `tonal::tests` en los tres crates y `edit::tonal::tests` |
+| Manual | `docs/manual/07-vista-previa.md` («Vista por tonos») y `11-materiales.md` («Calibrar el tono con la prueba») + `en/`; captura 74 en `screenshots.mjs` |
+
 ## 3. Recetas: "dónde agrego..."
 
 

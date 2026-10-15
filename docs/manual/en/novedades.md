@@ -2,6 +2,11 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## Tonal ("By tone") preview, in the next version
+
+- **Standard / By tone** in the preview bar: simulates **how dark the material gets** from power, speed, interval and passes, with per-material curves (light wood, MDF board, plywood, leather, frosted acrylic, cardboard, paper, anodized aluminum and custom), M3 versus M4 and **photos with their real dots** (zoom in and they show). It is an **approximate simulation**, without textures, and it works with large jobs.
+- **Calibrate…** with your material test: you say which tone each cell looks like and that material's curve is fitted and saved in your material library. See [Preview](07-vista-previa.md#tonal-view) and [Materials](11-materiales.md#calibrate-the-tone-with-the-test).
+
 ## Nesting with several sheets, offcuts and grain, in the next version
 
 - **Several sheets**: if the parts do not fit on one, nesting continues on new sheets of the same size (up to 50), with the utilization of each. Each sheet ends up as a separate zone of the canvas with its reference outline on the guides layer.

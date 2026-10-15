@@ -199,4 +199,5 @@ mod power_scale;
 mod rotary;
 mod scan_offset;
 mod tabs;
+mod tonal;
 mod zaxis;

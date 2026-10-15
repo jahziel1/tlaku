@@ -1,6 +1,8 @@
 import { BlockCache, type BlockPaths } from '@/features/preview/blocks';
 import { buildLayerPaths, drawPreviewModel, qualityLevel } from '@/features/preview/draw';
 import { getModel, type PreviewData, type PreviewModel } from '@/features/preview/model';
+import { drawTonal, hasTonalImage } from '@/features/tonal/layers';
+import { useTonal } from '@/features/tonal/store';
 import { useStore } from '@/store';
 import type { Scene } from './renderer';
 
@@ -31,6 +33,11 @@ function cachesFor(model: PreviewModel): ModelCaches {
 
 export function drawPreview(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (!scene.preview) return;
+  // Vista «por tonos»: la imagen simulada reemplaza a los trazos (hasta que llegue, se ven los trazos).
+  if (useTonal.getState().mode === 'tonal' && hasTonalImage()) {
+    drawTonal(ctx, scene.view, scene.dpr);
+    return;
+  }
   const model = getModel(scene.preview.data);
   if (model.count === 0) return;
   const c = cachesFor(model);

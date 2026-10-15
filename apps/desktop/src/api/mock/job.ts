@@ -6,6 +6,9 @@ import type { DesignObject, DeviceProfile, Document, JobLayerSummary, JobOptions
 
 type Move = [kind: 0 | 1, x: number, y: number, power: number];
 
+/** Cada operación del trabajo simulado (la vista «por tonos» del modo simulado la usa para estimar la dosis). */
+export type BlockCollector = (block: { op: LayerSettings; moves: [0 | 1, number, number, number][]; objects: DesignObject[] }) => void;
+
 /** Abscisas donde el segmento horizontal y = `y` cruza las polilíneas (par-impar). */
 function scanCrossings(polys: { points: Point[] }[], y: number): number[] {
   const xs: number[] = [];
@@ -219,7 +222,7 @@ export function fmtDuration(s: number): string {
  * Simula `compute_job`: movimientos plausibles a partir del documento.
  * No es el planificador real: solo sirve para diseñar la interfaz.
  */
-export function mockComputeJob(doc: Document, device: DeviceProfile, options: JobOptions): JobPreview {
+export function mockComputeJob(doc: Document, device: DeviceProfile, options: JobOptions, collect?: BlockCollector): JobPreview {
   const selection = options.selection ? new Set(options.selection) : null;
   const layers = doc.layers.filter((l) => l.output);
   // Automático: lo que se forzó con `order`, y luego grabar antes de cortar (la pieza se suelta al final).
@@ -296,6 +299,7 @@ export function mockComputeJob(doc: Document, device: DeviceProfile, options: Jo
         });
       }
       if (moves.length === 0) continue;
+      collect?.({ op, moves, objects: objs });
 
       // Pausas y arranque con potencia extra: se suman por cada trazo (un tramo apagado seguido de uno encendido).
       let strokes = 0;

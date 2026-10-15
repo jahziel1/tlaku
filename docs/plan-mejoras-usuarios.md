@@ -629,7 +629,7 @@ es en piezas con muchos encajes que una colocación voraz no resuelve; cerrarla 
 
 ## 8. Vista previa realista (textura y tono según potencia)
 
-**(a) Estado: Parcial.** La vista previa (C57, `features/preview/`, `draw.ts`) dibuja en Canvas2D los trazos
+**(a) Estado: Hecho en su versión reducida (Ola D: vista previa «por tonos»); quedan las texturas, la foto con la cámara y el fondo de la vista en vivo.** Implementado: selector **Normal / Por tonos** y material en la barra de la vista previa (`features/tonal/`, `preview/PreviewBar.tsx`), simulación en el motor (`tlaku-pipeline/src/tonal.rs` sobre la rejilla de energía de `tlaku-raster/src/tonal.rs`, comando `tonal_preview`), curva por material (`tlaku-doc/src/tonal.rs`, 8 materiales y «personalizado») con **calibración desde la cuadrícula de la prueba de materiales** (indicar a qué tono se parece cada celda; se guarda en `MaterialLibrary.tones` de la biblioteca local), M3 contra M4 con la aceleración del perfil, imágenes con los puntos reales del procesado y detalle al acercar el zoom. **Modelo de tono:** dosis `D` = pasadas × (potencia/100) ÷ (velocidad en mm/s × ancho), con el ancho = intervalo (relleno e imagen) o ancho del punto (línea); oscuridad `1 − exp(−(D/D₀)^γ)` (monótona, acotada, sin NaN); color = mezcla de `base` a `burn`. **Rendimiento medido** (release, `large_image_job_renders_fast`): foto de 240 × 240 mm a 0,1 mm (2,76 M de movimientos; calcular el trabajo 0,38 s) = 0,19 s la hoja entera a 2048 px y 0,20 s una zona con zoom. **Límites declarados:** el perfil de máquina no tiene ancho de punto (se pide en la barra, 0,1 mm por omisión); las esquinas, el enfoque, el aire y el lote no se simulan; los valores de partida son estimaciones del proyecto, **sin contrastar con un grabado real** (falta la prueba en la Falcon2 de abajo); la calibración es a ojo (sin foto de cámara); la vista en vivo no usa la simulación como fondo. Lo siguiente era el estado antes de esta implementación: **Parcial.** La vista previa (C57, `features/preview/`, `draw.ts`) dibuja en Canvas2D los trazos
 de corte, grabado, viajes y overscan, con reproducción en tiempo real, y modula el **trazo por nivel de
 potencia** (`POWER_LEVELS`, `LEVEL_ALPHA`). Las imágenes se previsualizan ya procesadas y tramadas
 (`tlaku-raster/preview.rs`, `preview_image`). La fila C57 lo dice: "no hay sombreado continuo por potencia".
@@ -934,7 +934,7 @@ un lote de 3 placas con serie y logotipo distinto sobre material de desecho.
 | 5. Biblioteca comunitaria | Parcial (flujo de aportes y compilación; sin aportes ni navegador) | Alta técnicamente; depende de la masa crítica | Media implícita (foros) | M |
 | 6. Scripts en sandbox | No existe | Media (Boa o rquickjs; depende de la lista permitida de la ola 7) | Alta en votos (114, 79, 40), usuarios avanzados | L |
 | 7. Nesting | **Hecho** (`tlaku-nest`, con varias hojas, retazos y veta; medido contra ESICUP) | Alta | Alta, ya cubierta (113 votos; LightBurn lo cobra en Pro) | L solo si se cambia de motor |
-| 8. Vista previa realista | Parcial (tono por potencia en trazos) | Media-baja si es "realista"; media si es tonal | Baja (4 y 5 votos) | M (tonal), L (texturas) |
+| 8. Vista previa realista | **Hecho en su versión reducida (Ola D, 2026-10-15): vista «por tonos» aproximada, calibrable; sin texturas** (antes: Parcial, tono por potencia en trazos) | Media-baja si es "realista"; media si es tonal | Baja (4 y 5 votos) | M (tonal), L (texturas) |
 | 10. Historial de versiones | **Hecho (Ola C, 2026-10-15)**; antes: Parcial (deshacer y recuperación; no tras guardar) | Alta | Baja-media (12, 11, 14 votos) | M |
 | 11. Linux ARM64 / Flatpak / Snap | No existe | ARM64 alta; Flatpak media; Snap no conviene | Media (49 votos; 19 097 vistas) | S ARM64, M Flatpak |
 | 12. Respaldo y sincronización | Parcial (`.tlakubundle` manual) | Alta si se reduce a respaldo en carpeta | Baja (5 y 4 votos) | S-M |
@@ -980,7 +980,7 @@ conviene que la ola 7 llegue antes.
 10. **12. Respaldo a carpeta** (reducido) y, si hay demanda, **11b. Flatpak**.
 11. **5. Biblioteca comunitaria:** primero reunir aportes con el flujo actual; el navegador y el catálogo
     firmado cuando haya masa crítica (decenas de aportes) o cuando se quiera poblar con los ajustes de fábrica.
-12. **8. Vista previa tonal** (reducida): útil para mostrar al cliente; sin prisa por su baja demanda.
+12. **8. Vista previa tonal** (reducida; **hecha**): útil para mostrar al cliente; sin prisa por su baja demanda.
 
 **Ola E: extensibilidad.**
 

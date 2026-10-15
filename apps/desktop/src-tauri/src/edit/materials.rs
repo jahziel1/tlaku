@@ -131,6 +131,9 @@ pub fn check_library(library: &MaterialLibrary) -> Result<(), String> {
             ));
         }
     }
+    for tone in &library.tones {
+        tone.validate()?;
+    }
     Ok(())
 }
 
@@ -281,7 +284,29 @@ mod tests {
             presets: vec![preset("a", "MDF"), preset("b", "Acrílico")],
             revision: 0,
             restrictions: Vec::new(),
+            tones: Vec::new(),
         }
+    }
+
+    #[test]
+    fn las_curvas_de_tono_se_guardan_y_se_validan() {
+        use tlaku_pipeline::doc::{ToneCalibration, tone_preset};
+        let tmp = TempDir::new();
+        let mut lib = sample();
+        lib.tones.push(ToneCalibration {
+            material: "mdf".into(),
+            curve: tone_preset("mdf").unwrap(),
+            samples: Vec::new(),
+        });
+        store_library(&tmp.0, &lib).unwrap();
+        assert_eq!(load_library(&tmp.0).unwrap(), lib);
+        // Una biblioteca sin curvas no escribe el campo: los archivos viejos siguen igual.
+        let json = serde_json::to_string(&sample()).unwrap();
+        assert!(!json.contains("tones"));
+        lib.tones[0].curve.dose_char = -1.0;
+        assert!(check_library(&lib).is_err());
+        let text = serde_json::to_string(&lib).unwrap();
+        assert!(parse_library(&text).is_err());
     }
 
     #[test]

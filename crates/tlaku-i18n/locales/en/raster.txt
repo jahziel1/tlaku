@@ -64,3 +64,7 @@ raster.scan.dot_width = invalid dot width: {value}
 # warp.rs
 raster.warp.not_invertible = the image transform is not invertible
 raster.warp.zero_grid = the destination grid cannot have zero size
+
+# tonal.rs
+raster.tonal.bad_region = The region or pixel size of the tonal preview is not valid.
+raster.tonal.too_big = The tonal preview would need {w} x {h} pixels, which is too many: zoom in or use a larger pixel.

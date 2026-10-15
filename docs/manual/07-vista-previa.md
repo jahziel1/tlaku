@@ -35,6 +35,23 @@ Cada tipo de movimiento tiene su color:
 
 Cuanto más transparente sea un trazo, menos potencia lleva.
 
+## Vista por tonos
+
+Debajo de la barra de la vista previa, **Normal** muestra el recorrido de siempre y **Por tonos** simula **cuánto se oscurece el material** con tu trabajo: el recorrido se reemplaza por una imagen de la pieza ya grabada. Sirve para elegir potencia y velocidad antes de quemar, o para enseñarle el resultado a un cliente.
+
+![Vista por tonos de un diseño mixto: corte, relleno y foto sobre madera clara](../../apps/desktop/docs/screenshots/74-vista-por-tonos.png)
+
+- **Material**: madera clara, MDF, contrachapado, cuero, acrílico (esmerilado blanco), cartón, papel, aluminio anodizado o **Personalizado**. Cada uno trae un color sin grabar, el color del grabado más intenso y una curva de respuesta de partida.
+- **Punto del láser**: el ancho del punto sobre el material, en mm (0,1 por omisión). Si el punto es más ancho que un píxel de la imagen, la energía se reparte en ese ancho.
+- El tono sale de la **dosis** de cada punto: potencia ÷ (velocidad × intervalo o ancho de línea), multiplicada por las **pasadas**. Más potencia, menos velocidad o más pasadas oscurecen; más intervalo aclara. Las pasadas y los rellenos que se solapan se acumulan, y el tono se **satura** en el color más intenso.
+- **M3 y M4** (el modo de potencia del perfil de la máquina): con potencia dinámica (M4) la dosis es pareja; con potencia constante (M3) el cabezal quema más donde arranca y frena, al inicio y al final de cada recorrido que sale del reposo. No se simulan las esquinas.
+- Las **imágenes** se ven con los puntos y tonos reales del tramado. De lejos se ve el tono medio; al **acercar el zoom** y esperar un instante, la vista se vuelve a dibujar con un píxel de imagen por píxel de pantalla y aparecen los puntos.
+- **Calibrar…** ajusta la curva del material con tu prueba de materiales ([Materiales](11-materiales.md#calibrar-el-tono-con-la-prueba)). El botón dice **Calibrado** si ese material ya tiene una calibración.
+
+> **Ojo:** es una **simulación aproximada, no una predicción**. El resultado real depende del material, el lente, el enfoque, el aire y el lote, y los valores de partida son estimaciones del proyecto. Úsala para comparar entre ajustes y calibra la curva con una prueba grabada de verdad. La hoja de material se supone del tamaño de lo que se graba más 3 mm de margen. En este modo no hay reproducción del recorrido; vuelve a **Normal** para verla.
+
+Funciona con trabajos grandes: la imagen la dibuja el motor (una foto de 240 × 240 mm a 0,1 mm, casi 2,8 millones de movimientos, tarda unos 0,2 s en la vista completa y en cada zoom) y se reutiliza el trabajo ya calculado.
+
 ## Resultados
 
 - **Tiempo total**, con la etiqueta **Estimado**. Se calcula con la aceleración del perfil de la máquina. El tiempo real puede cambiar, sobre todo con imágenes.
