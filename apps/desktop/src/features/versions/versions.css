@@ -200,6 +200,9 @@
 .ver-settings__body .hint {
   margin: 0;
 }
+.ver-settings .field-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 .ver-settings__btns {
   display: flex;
   flex-wrap: wrap;
@@ -235,6 +238,9 @@
 }
 
 @media (max-width: 760px) {
+  .ver-settings .field-grid {
+    grid-template-columns: 1fr 1fr;
+  }
   .ver-body {
     grid-template-columns: 1fr;
     overflow-y: auto;

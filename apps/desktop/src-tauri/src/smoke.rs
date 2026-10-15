@@ -71,6 +71,13 @@ fn calls() -> Vec<Call> {
         c("load_camera_setup", json!({}), Ok),
         c("art_list_user", json!({}), Ok),
         c("autosave_list", json!({}), Ok),
+        c("versions_projects", json!({}), Ok),
+        c("versions_config_get", json!({}), Ok),
+        c(
+            "versions_list",
+            json!({ "path": "/no/existe/smoke.tlaku" }),
+            Ok,
+        ),
         c("list_templates", json!({}), Ok),
         c("remote_status", json!({}), Ok),
         c("paths_exist", json!({ "paths": ["/no/existe"] }), Ok),
