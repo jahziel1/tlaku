@@ -80,7 +80,10 @@ pub use ruida::{
     RuidaVerified,
 };
 pub use text::{TextAlign, TextAxis, TextFeature, TextObject, TextOnPath, TextVAlign};
-pub use tonal::{ToneCalibration, ToneCurve, ToneSample, tone_dose, tone_preset, tone_preset_ids};
+pub use tonal::{
+    ToneCalibration, ToneCurve, ToneSample, tone_default_watts, tone_dose, tone_preset,
+    tone_preset_for, tone_preset_ids,
+};
 pub use variables::{
     DataSource, ImageFit, ShortRows, VariableCode, VariableImage, absolutize, clean_source_name,
     relativize,

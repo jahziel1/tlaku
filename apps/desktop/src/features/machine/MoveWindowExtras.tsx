@@ -174,6 +174,7 @@ function FireDialog({ onClose }: { onClose: () => void }) {
         <TriangleAlert size={14} aria-hidden="true" />
         <span>{t('machine.fire.warning')}</span>
       </p>
+      <p className="hint">{t('machine.fire.timing')}</p>
       <label className="mc-check">
         <input type="checkbox" checked={ready} disabled={firing} onChange={(e) => setReady(e.target.checked)} />
         <span>{t('machine.fire.ack')}</span>

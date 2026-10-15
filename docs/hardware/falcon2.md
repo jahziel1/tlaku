@@ -385,6 +385,10 @@ Trabajo de un cuadrado de 40 mm en (100, 100) a 3000 mm/min, con el perfil GRBL 
   procesar el `M4 S0` inicial; un `G0` suelto arranca en ~60 ms (medido). Cada trabajo paga ese
   segundo de arranque aunque el G-code sea mínimo, y el estimado no lo incluye.
 
+El catálogo del asistente (`catalog.ts`) guarda la velocidad máxima por eje de la Falcon2 Pro:
+`maxRate` = 25 000 (X, `$110`) y `maxRateY` = 8000 (Y, `$111`), ambos «medido»; el `rapid_rate`
+del perfil sale del eje más lento (8000).
+
 ### 10.4 Segunda sesión con láser (2026-10-15)
 
 - **Aire:** tras `M9` el aire sigue unos **5 s** (medido a oído) con `$152=30`. `$150=30`, `$151=100`, `$153=0`… son ajustes propios de Creality sin documentación pública confirmada; `$152` no está en segundos.
@@ -453,3 +457,45 @@ una cola llena hasta 30 s (**sin probar en hardware**); (3) los segmentos de ima
 Pendiente: decidir si conviene un `silence_timeout` mayor con el planificador lleno y menos bytes en
 vuelo; con una placa congelada de verdad la parada segura al declararla perdida sigue siendo lo
 prudente.
+
+### 10.7 Disparo de prueba: el retardo del primer `M3` cuenta como láser encendido
+
+Observado (2026-10-15): en el disparo de prueba el primer `M3` tarda ~1 s en aceptarse (el firmware
+retrasa el `ok`, ver 10.4) y el láser pudo estar encendido hasta ~1,2 s en lugar de 0,2 s pedidos.
+
+Lo que hace Tlaku hoy (`machine/extras.rs`, `fire`): es **estrictamente secuencial**. Manda
+`M3 S…`, espera su `ok`, solo entonces manda `G4 P…`, espera su `ok` y manda `M5` (siempre, aunque
+algo falle). Por lo tanto la pausa pedida empieza **después** del `ok` del `M3` y corre completa; el
+código no puede acortarla ni alargarla.
+
+Lo que no se puede saber desde el puerto serie es en qué momento el firmware enciende de verdad el
+láser dentro de ese ~1 s. Si lo enciende al empezar a ejecutar el `M3` y retrasa solo el `ok`, el
+tiempo real encendido es **retardo + pausa** (~1,2 s). Si el retardo es previo al encendido, es
+solo la pausa. No hay hardware de prueba para decidir entre las dos (el láser no se enciende en las
+pruebas automáticas), así que se decidió **no cambiar la secuencia** (por ejemplo, armar con
+`M3 S0` y luego subir la `S`, que depende de cómo trate este firmware el `S` suelto) y avisar:
+
+- `fire` mide cuánto tardó el `ok` del `M3` y lo devuelve (`fire_test` devuelve esos milisegundos).
+- Si pasa de 400 ms, la interfaz muestra un aviso con la cifra («la máquina tardó N ms en aceptar el
+  encendido: el láser pudo estar prendido hasta ese tiempo más que los M ms pedidos»).
+- El diálogo del disparo de prueba explica de antemano que algunas máquinas (como la Falcon2) tardan
+  ~1 s en aceptar el primer encendido y que el tiempo real puede ser mayor que el pedido.
+- Para punteos de verdad cortos, un segundo disparo seguido sí cumple la duración (el segundo `M3`
+  no tarda); si hay que medirla, hacerlo con la potencia más baja y sin material sensible debajo.
+
+Pendiente con hardware: filmar o medir con un fotodiodo la duración real del primer y del segundo
+disparo para saber si el retardo ocurre con el láser encendido.
+
+### 10.8 Vista previa por tonos: MDF medido y valores por watt
+
+Medido con la Falcon2 Pro 22 W y MDF de 3 mm: curva de tono con `dose_char` = 0,042 (fracción de
+potencia · s/mm²) y gamma = 0,74, unas 8 veces más rápida que el valor de partida anterior (0,35 /
+1,2). Como la dosis depende de los watts del láser, los materiales de partida
+(`crates/tlaku-doc/data/tone-presets.json`) ahora se guardan **por watt**: `dose_char_w` (W·s/mm²) y
+la curva de un láser de W watts usa `dose_char_w / W`. El MDF queda en `0,924 / 22 = 0,042`
+(fuente «medido»); los demás materiales siguen siendo estimaciones (las cifras de antes, a 10 W).
+
+Los watts salen de `DeviceProfile.laser_watts`: el asistente de máquinas los lee de la placa
+(`inquire_info->power:22W` en `$I`) o del catálogo (Falcon2 22 W y 40 W; la Pro viene en ambas, así
+que solo la placa decide) y se editan en Máquina > Dispositivos. Sin watts se suponen 10 W. La
+calibración que guarda el usuario ya es de su láser y su material: no se convierte.

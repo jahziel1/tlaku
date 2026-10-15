@@ -37,9 +37,11 @@ export function buildProfile(args: {
   /** Baudios con los que la detección tuvo éxito; null si no se detectó. */
   probedBaud: number | null;
   settings: Record<string, string> | null;
+  /** Watts que dijo la placa al detectarla (`wattsFromProbe`); manda sobre el catálogo. */
+  probedWatts?: number | null;
   useMachine: ReadonlySet<CompareField>;
 }): BuiltProfile {
-  const { entry, kind, name, takenIds, probedBaud, settings, useMachine } = args;
+  const { entry, kind, name, takenIds, probedBaud, settings, probedWatts, useMachine } = args;
   const dialect = dialectForKind(kind);
   const provenance: Record<ProfileField, Provenance> = {
     s_max: 'default',
@@ -82,6 +84,9 @@ export function buildProfile(args: {
     profile.bed = [profile.galvo.field_mm, profile.galvo.field_mm];
     profile.origin = 'bottom_left';
   }
+
+  // Potencia del láser: lo que dice la placa, si no el modelo del catálogo (si solo hay una).
+  profile.laser_watts = probedWatts ?? entry?.watts?.value ?? null;
 
   if (entry) {
     if (entry.bed) {

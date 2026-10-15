@@ -16,7 +16,7 @@ import { findEntry } from './catalog';
 import { compareWithMachine, defaultMachineChoices, type CompareField } from './compare';
 import { detectionFrom, rankCatalog } from './filter';
 import { buildProfile } from './profile';
-import { identifyModel } from './signature';
+import { identifyModel, wattsFromProbe } from './signature';
 import { DEFAULT_GALVO_SETUP, setupPort, type GalvoSetup } from './GalvoSetupField';
 import { DetectStep, ModelStep, OTHER_ID, ReviewStep, SaveStep, type ProbeState } from './steps';
 import { useDevicesWizard } from './wizardStore';
@@ -115,7 +115,7 @@ export function AddMachineWizard() {
   const defaultName = entry ? (entry.generic ? entry.model : `${entry.brand} ${entry.model}`) : t('catalog.other.name');
   const shownName = nameTouched ? name : defaultName;
   const built = useMemo(
-    () => buildProfile({ entry, kind, name: shownName || defaultName, takenIds: devices.map((d) => d.id), probedBaud, settings: result?.settings ?? null, useMachine: choices }),
+    () => buildProfile({ entry, kind, name: shownName || defaultName, takenIds: devices.map((d) => d.id), probedBaud, settings: result?.settings ?? null, probedWatts: wattsFromProbe(result ?? null), useMachine: choices }),
     [entry, kind, shownName, defaultName, devices, probedBaud, result, choices],
   );
 

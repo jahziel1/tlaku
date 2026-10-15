@@ -16,6 +16,7 @@ import {
   kindDefaults,
   matchRotaryPreset,
   newDeviceProfile,
+  laserWattsOf,
   normalizeDevice,
   parseGrblSettings,
   parseGrblVersion,
@@ -112,6 +113,25 @@ describe('proposeFromSettings', () => {
     expect(only.bed).toEqual([410, 400]);
     expect(only.s_max).toBe(255);
     expect(only.max_rate).toEqual(FALLBACK_DEVICE.max_rate);
+  });
+});
+
+describe('potencia del láser (laser_watts)', () => {
+  it('es opcional: null no es un error; cero, negativo o enorme sí', () => {
+    expect(validateDevice({ ...FALLBACK_DEVICE, laser_watts: null })).toEqual({});
+    expect(validateDevice({ ...FALLBACK_DEVICE, laser_watts: 22 })).toEqual({});
+    expect(validateDevice({ ...FALLBACK_DEVICE, laser_watts: 0 }).laser_watts).toBe('positive');
+    expect(validateDevice({ ...FALLBACK_DEVICE, laser_watts: -3 }).laser_watts).toBe('positive');
+    expect(validateDevice({ ...FALLBACK_DEVICE, laser_watts: 5000 }).laser_watts).toBe('tooBig');
+  });
+
+  it('un perfil guardado antes carga sin watts; laserWattsOf usa la fuente del galvo', () => {
+    const { laser_watts: _w, ...old } = FALLBACK_DEVICE;
+    expect(normalizeDevice(old).laser_watts).toBeNull();
+    expect(laserWattsOf(FALLBACK_DEVICE)).toBeNull();
+    expect(laserWattsOf({ ...FALLBACK_DEVICE, laser_watts: 22 })).toBe(22);
+    expect(laserWattsOf({ ...FALLBACK_DEVICE, kind: 'galvo' })).toBe(FALLBACK_DEVICE.galvo.watts);
+    expect(laserWattsOf({ ...FALLBACK_DEVICE, kind: 'galvo', laser_watts: 30 })).toBe(30);
   });
 });
 

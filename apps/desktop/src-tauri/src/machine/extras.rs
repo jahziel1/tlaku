@@ -146,6 +146,11 @@ impl Handle {
     /// Disparo de prueba: enciende el láser a `power_pct` % de `s_max` durante `duration_ms` y lo
     /// apaga. La potencia se limita a [`FIRE_MAX_PCT`] y la duración a [`FIRE_MAX_MS`].
     ///
+    /// Devuelve cuántos milisegundos tardó la máquina en aceptar el `M3` (su `ok`). El `G4` solo se
+    /// manda después de ese `ok`, así que la pausa pedida corre completa, pero si el firmware ya
+    /// encendió el láser y retrasa el `ok` (la Falcon2 tarda ~1 s en el primer `M3`), el láser estuvo
+    /// encendido ese tiempo además de la pausa: la interfaz lo avisa con este número.
+    ///
     /// Usa `M3` (potencia constante) y una pausa `G4`, porque `M4` en modo láser no dispara sin
     /// movimiento. **Siempre** manda `M5` al final, falle lo que falle (también si la pausa no
     /// llegó a cumplirse porque se canceló con un reinicio): lo último que debe pasar es que el
@@ -156,7 +161,7 @@ impl Handle {
         power_pct: f64,
         s_max: f64,
         duration_ms: u32,
-    ) -> Result<(), String> {
+    ) -> Result<u64, String> {
         if !(power_pct.is_finite() && power_pct > 0.0 && power_pct <= FIRE_MAX_PCT) {
             return Err(tr!("desktop.extras.fire_power_range", max = FIRE_MAX_PCT));
         }
@@ -178,9 +183,14 @@ impl Handle {
                 format!("G4 P{}", num(f64::from(duration_ms) / 1000.0))
             }
         };
+        let started = std::time::Instant::now();
+        let mut accept_ms = 0;
         let fired = self
             .command(&format!("M3 S{}", num(s)))
             .and_then(|r| expect_ok(&r, Step::LaserOn))
+            .inspect(|()| {
+                accept_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+            })
             .and_then(|()| self.command(&dwell))
             .and_then(|r| expect_ok(&r, Step::FirePause));
         // Siempre se apaga, también si lo anterior falló.
@@ -190,7 +200,7 @@ impl Handle {
         match (fired, off) {
             (_, Err(e)) => Err(tr!("desktop.extras.laser_off_unconfirmed", err = e)),
             (Err(e), Ok(())) => Err(e),
-            (Ok(()), Ok(())) => Ok(()),
+            (Ok(()), Ok(())) => Ok(accept_ms),
         }
     }
 }

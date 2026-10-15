@@ -651,7 +651,8 @@ pub async fn jog_axis_to(
 }
 
 /// Disparo de prueba del láser: `power_pct` % de `s_max` durante `duration_ms`. Apaga el láser
-/// siempre al terminar, aunque falle.
+/// siempre al terminar, aunque falle. Devuelve los ms que tardó la máquina en aceptar el `M3`
+/// (ver `Handle::fire`).
 // La interfaz manda los argumentos en snake_case (`power_pct`, `s_max`, `duration_ms`).
 #[tauri::command(rename_all = "snake_case")]
 pub async fn fire_test(
@@ -660,7 +661,7 @@ pub async fn fire_test(
     power_pct: f64,
     s_max: f64,
     duration_ms: u32,
-) -> Result<(), String> {
+) -> Result<u64, String> {
     with_handle(&state, move |h| {
         h.fire(family_of(kind), power_pct, s_max, duration_ms)
     })

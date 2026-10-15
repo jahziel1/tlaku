@@ -988,6 +988,8 @@ fn an_old_checkpoint_is_not_taken_for_a_finished_job_after_homing_and_framing() 
     let make = args(&loaded, &view0);
     let e = start::resume_now(&h, b.store.clone(), &loaded, &make(true, true, true)).unwrap_err();
     assert!(e.contains("ocupada"), "{e}");
+    // El estado va traducido como en la barra de estado, no el nombre interno («run»).
+    assert!(e.contains("(En marcha)") && !e.contains("(run)"), "{e}");
     assert!(!e.contains("no tiene homing"), "{e}");
     wait_frame_done(&b, 1);
     let framed = b.gcode_since(mark);

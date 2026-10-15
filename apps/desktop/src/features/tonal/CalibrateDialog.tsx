@@ -6,6 +6,8 @@ import { axisValues, defaultForm, valueText, type TestForm } from '@/features/ma
 import { t, type I18nKey } from '@/i18n';
 import { fmt } from '@/lib/platform';
 import { useStore } from '@/store';
+import { selectActiveDevice } from '@/store/selectors';
+import { laserWattsOf } from '@/lib/device';
 import { Modal } from '@/ui/Modal';
 import { cellKey, gridCells, marksFromSamples, samplesOf, type GridCell } from './calibration';
 import { curveFor, fitCurve, hexOf, presetCurve, rgbOfHex, toneDarkness, toneMix, withCalibration, type ToneCurve, type ToneSample } from './curve';
@@ -61,12 +63,13 @@ export function CalibrateDialog() {
   const spotMm = useTonal((s) => s.spotMm);
   const library = useMaterials((s) => s.library);
   const loadError = useMaterials((s) => s.loadError);
+  const watts = useStore((s) => laserWattsOf(selectActiveDevice(s)));
   const form = useGridForm();
   const cells = useMemo(() => gridCells(form, spotMm), [form, spotMm]);
   const saved = library.tones?.find((c) => c.material === material) ?? null;
 
   const [colors, setColors] = useState(() => {
-    const c = curveFor(material, library.tones);
+    const c = curveFor(material, library.tones, watts);
     return { base: c.base, burn: c.burn };
   });
   const [marks, setMarks] = useState<Record<string, number>>(() => marksFromSamples(cells, saved?.samples ?? []));
@@ -78,7 +81,7 @@ export function CalibrateDialog() {
   });
   const [selected, setSelected] = useState<string | null>(null);
 
-  const start = useMemo<ToneCurve>(() => ({ ...presetCurve(material), base: colors.base, burn: colors.burn }), [material, colors]);
+  const start = useMemo<ToneCurve>(() => ({ ...presetCurve(material, watts), base: colors.base, burn: colors.burn }), [material, colors, watts]);
   const samples = useMemo(() => [...kept, ...samplesOf(cells, marks)], [kept, cells, marks]);
   const curve = useMemo(() => fitCurve(start, samples), [start, samples]);
   const sel = selected ? cells.flat().find((c) => cellKey(c.row, c.col) === selected) ?? null : null;

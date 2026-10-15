@@ -416,6 +416,9 @@ export function DeviceManager() {
                 <Field label={t('machine.dev.sMax')} help="machine.dev.sMax.help" error={issues.s_max}>
                   {({ id, describedBy, invalid: bad }) => <NumInput id={id} value={draft.s_max} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ s_max: v })} />}
                 </Field>
+                <Field label={t('machine.dev.watts')} help="machine.dev.watts.help" error={issues.laser_watts}>
+                  {({ id, describedBy, invalid: bad }) => <NumInput id={id} unit="W" value={draft.laser_watts ?? 0} describedBy={describedBy} invalid={bad} onCommit={(v) => edit({ laser_watts: v > 0 ? v : null })} />}
+                </Field>
                 <Field label={t('machine.dev.powerMode')} help="machine.dev.powerMode.help">
                   {({ id, describedBy }) => (
                     <select id={id} className="select" value={draft.power_mode} aria-describedby={describedBy} onChange={(e) => edit({ power_mode: e.target.value as DeviceProfile['power_mode'] })}>

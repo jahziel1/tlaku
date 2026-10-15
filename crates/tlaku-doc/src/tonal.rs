@@ -9,7 +9,8 @@
 //!   en 1 (sin NaN);
 //! - color = mezcla de `base` (material sin tocar) a `burn` (tono máximo) en proporción `d`.
 //!
-//! Los valores de partida de cada material viven en `data/tone-presets.json`. La calibración
+//! Los valores de partida de cada material viven en `data/tone-presets.json`, por watt del láser
+//! (`tone_preset_for`). La calibración
 //! con la prueba de materiales ([`ToneCalibration`]) los reemplaza y se guarda en la biblioteca
 //! local de materiales. La interfaz tiene una copia de `darkness`/`mix` (`features/tonal/curve.ts`)
 //! fijada por prueba con los mismos vectores.
@@ -105,23 +106,38 @@ pub fn tone_dose(power_pct: f64, speed_mm_min: f64, passes: u32, width_mm: f64) 
 
 #[derive(Debug, Deserialize)]
 struct PresetFile {
+    /// Watts que se suponen cuando el perfil de la máquina no dice los del láser.
+    watts_por_defecto: f64,
     presets: Vec<PresetEntry>,
 }
 
 #[derive(Debug, Deserialize)]
 struct PresetEntry {
     id: String,
-    #[serde(flatten)]
-    curve: ToneCurve,
+    base: [u8; 3],
+    burn: [u8; 3],
+    /// Dosis característica por watt (W·s/mm²): `dose_char = dose_char_w / watts`.
+    dose_char_w: f64,
+    gamma: f64,
+}
+
+fn file() -> &'static PresetFile {
+    static CELL: OnceLock<PresetFile> = OnceLock::new();
+    CELL.get_or_init(|| {
+        serde_json::from_str::<PresetFile>(DATA).unwrap_or(PresetFile {
+            watts_por_defecto: 10.0,
+            presets: Vec::new(),
+        })
+    })
 }
 
 fn presets() -> &'static [PresetEntry] {
-    static CELL: OnceLock<Vec<PresetEntry>> = OnceLock::new();
-    CELL.get_or_init(|| {
-        serde_json::from_str::<PresetFile>(DATA)
-            .map(|f| f.presets)
-            .unwrap_or_default()
-    })
+    &file().presets
+}
+
+/// Watts del láser que se suponen para una curva de partida cuando no se conocen.
+pub fn tone_default_watts() -> f64 {
+    file().watts_por_defecto
 }
 
 /// Identificadores de los materiales de partida (incluye `custom`, el personalizado).
@@ -129,9 +145,32 @@ pub fn tone_preset_ids() -> Vec<&'static str> {
     presets().iter().map(|p| p.id.as_str()).collect()
 }
 
-/// Curva de partida de un material por su identificador.
+/// Curva de partida de un material por su identificador, para un láser de [`tone_default_watts`].
 pub fn tone_preset(id: &str) -> Option<ToneCurve> {
-    presets().iter().find(|p| p.id == id).map(|p| p.curve)
+    tone_preset_for(id, None)
+}
+
+/// Redondea a 6 cifras significativas: la división por los watts no deja decimales de más
+/// (0,0924 y no 0,09240000000000001), que además se guardan y leen sin deriva.
+fn round_sig(v: f64) -> f64 {
+    format!("{v:.5e}").parse().unwrap_or(v)
+}
+
+/// Curva de partida de un material para un láser de `watts` (`None` o un valor inválido: los watts
+/// por defecto). Los valores de partida van por watt: la dosis (fracción de potencia x s/mm2) con
+/// la que el material llega al 63 % de su tono es `dose_char_w / watts`, así que un láser de 22 W
+/// llega al mismo tono con menos de la mitad de dosis que uno de 10 W. La curva calibrada por el
+/// usuario ya es de su máquina y no se convierte (no pasa por aquí).
+pub fn tone_preset_for(id: &str, watts: Option<f64>) -> Option<ToneCurve> {
+    let w = watts
+        .filter(|w| w.is_finite() && *w > 0.0)
+        .unwrap_or_else(tone_default_watts);
+    presets().iter().find(|p| p.id == id).map(|p| ToneCurve {
+        base: p.base,
+        burn: p.burn,
+        dose_char: round_sig(p.dose_char_w / w),
+        gamma: p.gamma,
+    })
 }
 
 /// Una observación hecha por el usuario sobre su prueba de materiales: una celda de dosis
@@ -185,6 +224,36 @@ mod tests {
 
     fn wood() -> ToneCurve {
         tone_preset("light_wood").unwrap()
+    }
+
+    #[test]
+    fn presets_scale_with_the_laser_watts() {
+        let base = tone_preset("mdf").unwrap();
+        // Sin watts, o con watts inválidos, se suponen los de por defecto.
+        assert_eq!(tone_preset_for("mdf", None), Some(base));
+        assert_eq!(tone_preset_for("mdf", Some(0.0)), Some(base));
+        assert_eq!(tone_preset_for("mdf", Some(f64::NAN)), Some(base));
+        // MDF medido en una Falcon2 Pro de 22 W: dosis característica 0,042 y gamma 0,74.
+        let falcon = tone_preset_for("mdf", Some(22.0)).unwrap();
+        assert!((falcon.dose_char - 0.042).abs() < 1e-9, "{falcon:?}");
+        assert!((falcon.gamma - 0.74).abs() < 1e-12);
+        // Doble de watts, mitad de dosis; los colores y la gamma no cambian.
+        let w10 = tone_preset_for("light_wood", Some(10.0)).unwrap();
+        let w20 = tone_preset_for("light_wood", Some(20.0)).unwrap();
+        assert!((w10.dose_char / w20.dose_char - 2.0).abs() < 1e-12);
+        assert_eq!(
+            (w10.base, w10.burn, w10.gamma),
+            (w20.base, w20.burn, w20.gamma)
+        );
+        // Los demás siguen siendo estimaciones a los watts por defecto (las cifras de antes).
+        assert!((tone_preset("light_wood").unwrap().dose_char - 0.30).abs() < 1e-9);
+        assert!(tone_preset_for("no-existe", Some(22.0)).is_none());
+        // Todos válidos con cualquier potencia razonable.
+        for id in tone_preset_ids() {
+            for w in [0.5, 5.0, 22.0, 60.0, 130.0] {
+                tone_preset_for(id, Some(w)).unwrap().validate().unwrap();
+            }
+        }
     }
 
     #[test]

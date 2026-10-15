@@ -61,11 +61,13 @@ function falcon(model: string, id: string, extra: Partial<CatalogEntry>): Catalo
 export const CATALOG: readonly CatalogEntry[] = [
   falcon('Falcon2 22 W', 'creality-falcon2-22w', {
     bed: official([400, 415], FALCON_COMPARE),
+    watts: official(22, FALCON_COMPARE),
     maxRate: shop(25000, 'https://www.adorama.com/cr1005010047.html'),
     accel: forum(1000, FALCON_DUMP_A, 'catalog.note.falcon.accelDiffers'),
   }),
   falcon('Falcon2 40 W', 'creality-falcon2-40w', {
     bed: official([400, 415], FALCON_COMPARE),
+    watts: official(40, FALCON_COMPARE),
     maxRate: shop(25000, 'https://www.adorama.com/cr1005010047.html'),
     accel: forum(1000, FALCON_DUMP_A, 'catalog.note.falcon.accelDiffers'),
   }),
@@ -305,7 +307,7 @@ export function findEntry(id: string): CatalogEntry | undefined {
 
 /** Todas las URLs de fuente de una entrada (para mostrarlas y para las pruebas). */
 export function entrySources(entry: CatalogEntry): string[] {
-  const facts = [entry.detect, entry.controller, entry.bed, entry.maxRate, entry.maxRateY, entry.accel, entry.sMax, entry.m4, entry.air, entry.baud, entry.origin, entry.homing, entry.zAxis];
+  const facts = [entry.detect, entry.controller, entry.bed, entry.watts, entry.maxRate, entry.maxRateY, entry.accel, entry.sMax, entry.m4, entry.air, entry.baud, entry.origin, entry.homing, entry.zAxis];
   const urls = [...facts.flatMap((f) => (f ? [f.source] : [])), ...(entry.signatures ?? []).map((s) => s.source)];
   return [...new Set(urls)];
 }

@@ -27,6 +27,23 @@ export function probeLines(result: ProbeResult): string[] {
   return [...result.banner.split('\n'), ...result.info].map((l) => l.trim()).filter(Boolean);
 }
 
+/**
+ * Potencia del láser que dice la placa en `$I` o en el saludo (la Falcon2 escribe
+ * `inquire_info->power:22W ,CV50-LASER-22W-Release…`), o `null`. Solo se lee la línea `power:`
+ * para no confundir con otros números; es un dato de la máquina real, mejor que el del catálogo.
+ */
+export function wattsFromProbe(result: ProbeResult | null): number | null {
+  if (!result) return null;
+  for (const line of probeLines(result)) {
+    const m = /\bpower\s*:\s*(\d+(?:\.\d+)?)\s*w\b/i.exec(line);
+    if (m) {
+      const w = Number(m[1]);
+      if (Number.isFinite(w) && w > 0 && w <= 1000) return w;
+    }
+  }
+  return null;
+}
+
 const SAME_EPS = 0.5;
 
 /**

@@ -934,6 +934,13 @@ fn framing_walks_the_rectangle_with_the_laser_off() {
     r.sink.wait("fin del encuadre", |c| {
         c.logs().contains("encuadre terminado")
     });
+    // El K40 siempre encuadra con el láser apagado, y el registro lo dice así.
+    let logs = r.sink.logs();
+    assert!(
+        logs.contains("recorrido del rectángulo con el láser apagado"),
+        "{logs}"
+    );
+    assert!(!logs.contains("baja potencia"), "{logs}");
     let mut b = r.board();
     b.run_to_idle();
     assert_eq!(b.burn_length_mm(), 0.0, "el encuadre no quema");

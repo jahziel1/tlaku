@@ -4,7 +4,7 @@ import { CATALOG, entryMaxRate, entrySources, findEntry, type Fact } from './cat
 import { DIODE_ENTRIES } from './catalog.diode';
 import { RUIDA_ENTRIES } from './catalog.ruida';
 
-const FACT_KEYS = ['detect', 'controller', 'bed', 'maxRate', 'maxRateY', 'accel', 'sMax', 'm4', 'air', 'baud', 'origin', 'homing', 'zAxis'] as const;
+const FACT_KEYS = ['detect', 'controller', 'bed', 'watts', 'maxRate', 'maxRateY', 'accel', 'sMax', 'm4', 'air', 'baud', 'origin', 'homing', 'zAxis'] as const;
 
 describe('catálogo: datos con fuente', () => {
   it('trae todos los modelos pedidos', () => {

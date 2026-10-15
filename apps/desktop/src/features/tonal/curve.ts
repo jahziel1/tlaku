@@ -17,11 +17,25 @@ interface PresetRow {
   id: string;
   base: number[];
   burn: number[];
-  dose_char: number;
+  /** Dosis característica por watt (W·s/mm²): `dose_char = dose_char_w / watts`. */
+  dose_char_w: number;
   gamma: number;
+  /** `medido` (en una máquina real) o `estimado`. */
+  fuente: string;
 }
 
 const ROWS = presetData.presets as PresetRow[];
+
+/** Watts que se suponen cuando el perfil no dice los del láser (`watts_por_defecto` del archivo de datos). */
+export const DEFAULT_TONE_WATTS: number = presetData.watts_por_defecto;
+
+/** Si el valor de partida de un material fue medido en una máquina real o es una estimación. */
+export function presetSource(id: string): 'medido' | 'estimado' {
+  return ROWS.find((r) => r.id === id)?.fuente === 'medido' ? 'medido' : 'estimado';
+}
+
+/** 6 cifras significativas, igual que `tone_preset_for` del motor (0,0924 y no 0,09240000000000001). */
+const roundSig = (v: number) => Number(v.toPrecision(6));
 
 /** Identificadores de los materiales de partida; el último, `custom`, es el personalizado. */
 export const TONE_MATERIALS: readonly string[] = ROWS.map((r) => r.id);
@@ -34,15 +48,24 @@ export const SPOT_RANGE = { min: 0.01, max: 1, step: 0.01 } as const;
 
 const rgb = (v: number[]): [number, number, number] => [v[0] ?? 0, v[1] ?? 0, v[2] ?? 0];
 
-/** Curva de partida de un material (la del personalizado si no se conoce). */
-export function presetCurve(id: string): ToneCurve {
+/**
+ * Curva de partida de un material (la del personalizado si no se conoce) para un láser de `watts`.
+ * Los valores van por watt: un láser de 22 W llega al mismo tono con menos de la mitad de dosis que
+ * uno de 10 W. Sin watts conocidos (o inválidos) se suponen `DEFAULT_TONE_WATTS`. Igual que
+ * `tone_preset_for` del motor.
+ */
+export function presetCurve(id: string, watts?: number | null): ToneCurve {
   const row = ROWS.find((r) => r.id === id) ?? ROWS.find((r) => r.id === CUSTOM_TONE_MATERIAL) ?? ROWS[0]!;
-  return { base: rgb(row.base), burn: rgb(row.burn), dose_char: row.dose_char, gamma: row.gamma };
+  const w = watts != null && Number.isFinite(watts) && watts > 0 ? watts : DEFAULT_TONE_WATTS;
+  return { base: rgb(row.base), burn: rgb(row.burn), dose_char: roundSig(row.dose_char_w / w), gamma: row.gamma };
 }
 
-/** La curva calibrada del material si existe y, si no, la de partida. */
-export function curveFor(material: string, tones: readonly ToneCalibration[] | undefined): ToneCurve {
-  return tones?.find((c) => c.material === material)?.curve ?? presetCurve(material);
+/**
+ * La curva calibrada del material si existe (ya es de la máquina y el material del usuario: no se
+ * convierte con los watts) y, si no, la de partida para el láser de `watts`.
+ */
+export function curveFor(material: string, tones: readonly ToneCalibration[] | undefined, watts?: number | null): ToneCurve {
+  return tones?.find((c) => c.material === material)?.curve ?? presetCurve(material, watts);
 }
 
 /** Oscuridad (0 = material sin tocar, 1 = tono máximo) para una dosis; monótona, acotada y sin NaN. */

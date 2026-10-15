@@ -118,7 +118,9 @@ fn a_z_jog_on_marlin_goes_relative_and_returns_to_absolute() {
 #[test]
 fn fire_turns_the_laser_on_waits_and_always_ends_with_m5() {
     let rig = connect();
-    rig.handle.fire(LinkFamily::Grbl, 5.0, 1000.0, 250).unwrap();
+    // Devuelve lo que tardó el `ok` del M3 (el simulado contesta al instante).
+    let accept_ms = rig.handle.fire(LinkFamily::Grbl, 5.0, 1000.0, 250).unwrap();
+    assert!(accept_ms < 400, "{accept_ms}");
     let lines = rig.fake.lines();
     let at = lines.iter().position(|l| l == "M3S50").expect("M3 S50");
     assert_eq!(lines[at + 1], "G4P0.25", "{lines:?}");

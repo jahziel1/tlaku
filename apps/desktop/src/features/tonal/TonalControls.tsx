@@ -3,6 +3,8 @@ import { useId, useMemo } from 'react';
 import { useMaterials } from '@/features/materials/state';
 import { t, type I18nKey } from '@/i18n';
 import { useStore } from '@/store';
+import { selectActiveDevice } from '@/store/selectors';
+import { laserWattsOf } from '@/lib/device';
 import { NumberField } from '@/ui/NumberField';
 import { CalibrateDialog } from './CalibrateDialog';
 import { curveFor, hexOf, SPOT_RANGE, TONE_MATERIALS } from './curve';
@@ -32,7 +34,8 @@ export function TonalControls() {
   const hasPreview = useStore((s) => s.preview !== null);
   const empty = useStore((s) => s.preview !== null && s.preview.moves.length === 0);
   const stale = useStore((s) => s.previewStale);
-  const curve = useMemo(() => curveFor(material, tones), [material, tones]);
+  const watts = useStore((s) => laserWattsOf(selectActiveDevice(s)));
+  const curve = useMemo(() => curveFor(material, tones, watts), [material, tones, watts]);
   const calibrated = tones?.some((c) => c.material === material) ?? false;
   const tonal = mode === 'tonal';
 

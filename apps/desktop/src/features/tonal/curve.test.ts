@@ -3,8 +3,10 @@ import {
   curveFor,
   CUSTOM_TONE_MATERIAL,
   fitCurve,
+  DEFAULT_TONE_WATTS,
   hexOf,
   presetCurve,
+  presetSource,
   rgbOfHex,
   TONE_MATERIALS,
   toneDarkness,
@@ -16,6 +18,43 @@ import {
 } from './curve';
 
 const wood = presetCurve('light_wood');
+
+describe('materiales de partida por watt', () => {
+  it('MDF medido en una Falcon2 Pro de 22 W: D₀ = 0,042 y gamma = 0,74', () => {
+    const c = presetCurve('mdf', 22);
+    expect(c.dose_char).toBeCloseTo(0.042, 9);
+    expect(c.gamma).toBe(0.74);
+    expect(presetSource('mdf')).toBe('medido');
+    expect(presetSource('light_wood')).toBe('estimado');
+  });
+
+  it('un láser con el doble de watts llega al tono con la mitad de dosis; colores y gamma no cambian', () => {
+    const a = presetCurve('light_wood', 10);
+    const b = presetCurve('light_wood', 20);
+    expect(a.dose_char / b.dose_char).toBeCloseTo(2, 9);
+    expect([a.base, a.burn, a.gamma]).toEqual([b.base, b.burn, b.gamma]);
+  });
+
+  it('sin watts, o con watts inválidos, se suponen los de por defecto (las cifras de antes)', () => {
+    expect(DEFAULT_TONE_WATTS).toBe(10);
+    expect(presetCurve('light_wood').dose_char).toBeCloseTo(0.3, 9);
+    for (const w of [null, undefined, 0, -5, Number.NaN]) expect(presetCurve('light_wood', w)).toEqual(presetCurve('light_wood'));
+  });
+
+  it('la curva calibrada por el usuario no se convierte con los watts', () => {
+    const mine: ToneCalibration = { material: 'mdf', curve: { ...presetCurve('mdf'), dose_char: 0.5, gamma: 1 }, samples: [] };
+    expect(curveFor('mdf', [mine], 22)).toEqual(mine.curve);
+    expect(curveFor('mdf', [mine], 5)).toEqual(mine.curve);
+    // Otro material sin calibrar sí usa los watts.
+    expect(curveFor('leather', [mine], 20).dose_char).toBeCloseTo(0.1, 9);
+  });
+
+  it('la copia en TypeScript coincide con el motor (tone_preset_for) en MDF 22 W', () => {
+    // Mismo vector que `presets_scale_with_the_laser_watts` de crates/tlaku-doc/src/tonal.rs.
+    const c = presetCurve('mdf', 22);
+    expect([c.dose_char, c.gamma]).toEqual([0.042, 0.74]);
+  });
+});
 
 describe('materiales de partida', () => {
   it('trae los materiales pedidos y el personalizado, todos válidos', () => {

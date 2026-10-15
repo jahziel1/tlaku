@@ -78,6 +78,22 @@ fn fresh_state(h: &Handle) -> MachineState {
     state
 }
 
+/// Nombre del estado en el idioma activo, el mismo que muestra la barra de estado (`machine.state.*`).
+fn state_label(state: MachineState) -> String {
+    match state {
+        MachineState::Idle => tr!("desktop.resume.state.idle"),
+        MachineState::Run => tr!("desktop.resume.state.run"),
+        MachineState::Hold => tr!("desktop.resume.state.hold"),
+        MachineState::Jog => tr!("desktop.resume.state.jog"),
+        MachineState::Alarm => tr!("desktop.resume.state.alarm"),
+        MachineState::Door => tr!("desktop.resume.state.door"),
+        MachineState::Check => tr!("desktop.resume.state.check"),
+        MachineState::Home => tr!("desktop.resume.state.home"),
+        MachineState::Sleep => tr!("desktop.resume.state.sleep"),
+        MachineState::Other => tr!("desktop.resume.state.other"),
+    }
+}
+
 /// La máquina no está en reposo ni en alarma: se está moviendo, en pausa, en homing...
 fn is_busy(state: MachineState) -> bool {
     !matches!(state, MachineState::Idle | MachineState::Alarm)
@@ -178,10 +194,7 @@ pub fn check_safety(
         return Err(tr!("desktop.resume.not_resumable"));
     }
     if is_busy(ready.state) {
-        return Err(tr!(
-            "desktop.resume.busy",
-            state = format!("{:?}", ready.state).to_lowercase()
-        ));
+        return Err(tr!("desktop.resume.busy", state = state_label(ready.state)));
     }
     if !ready.settings_read {
         return Err(tr!("desktop.resume.no_reply"));
@@ -283,7 +296,10 @@ mod tests {
             state: MachineState::Run,
         };
         let e = check_safety(g, &busy, &all).unwrap_err();
-        assert!(e.contains("ocupada") && e.contains("run"), "{e}");
+        assert!(
+            e.contains("ocupada") && e.contains("(En marcha)") && !e.contains("run"),
+            "{e}"
+        );
         assert!(!e.contains("no tiene homing"), "{e}");
         let silent = ResumeReadiness {
             state: MachineState::Idle,

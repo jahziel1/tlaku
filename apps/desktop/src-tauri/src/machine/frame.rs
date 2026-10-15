@@ -162,6 +162,23 @@ pub fn low_power(
     Ok(out)
 }
 
+/// `true` si alguna línea del encuadre lleva una `S` mayor que 0, es decir, el láser queda
+/// encendido a baja potencia durante el recorrido. Decide qué dice el registro al empezar
+/// («láser apagado» o «láser a baja potencia»): el texto no debe mentir.
+pub fn lights_laser(lines: &[String]) -> bool {
+    lines.iter().any(|l| {
+        let c = l.split(';').next().unwrap_or("").to_ascii_uppercase();
+        c.match_indices('S').any(|(i, _)| {
+            c[i + 1..]
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit() || *ch == '.')
+                .collect::<String>()
+                .parse::<f64>()
+                .is_ok_and(|v| v > 0.0)
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,6 +216,38 @@ mod tests {
             layers: vec![LayerSettings::for_color(red)],
             ..Document::default()
         }
+    }
+
+    fn gcode(text: &str) -> Vec<String> {
+        text.lines().map(str::to_string).collect()
+    }
+
+    #[test]
+    fn lights_laser_tells_a_dark_frame_from_a_low_power_one() {
+        // Encuadre con el láser apagado: S0 en cada G1 (o sin S) y comentarios que mencionan S.
+        assert!(!lights_laser(&gcode(
+            "G90\nM4 S0\nG0 X1 Y1\nG1 X5 S0 F1500\nG1 Y5 S0.0\nM5 ; S500 solo en el comentario"
+        )));
+        assert!(!lights_laser(&[]));
+        // Con baja potencia alguna línea lleva una S mayor que 0.
+        assert!(lights_laser(&gcode("M4 S0\nG1 X5 S50 F1500\nM5")));
+        assert!(lights_laser(&gcode("G1X5S12.5F1500")));
+        assert!(lights_laser(&gcode("g1 x5 s100")));
+        // El dialecto con S en una línea aparte (`constant_on`) también cuenta si enciende.
+        assert!(lights_laser(&gcode("M3 S80\nG1 X5")));
+    }
+
+    #[test]
+    fn the_real_frames_say_what_they_do() {
+        let bounds = tlaku_core::Bounds {
+            min: Point::new(0.0, 0.0),
+            max: Point::new(10.0, 5.0),
+        };
+        let dark = tlaku_grbl::frame::frame_gcode(bounds, 1500.0);
+        assert!(!lights_laser(&dark), "{dark:?}");
+        let dev = DeviceProfile::default();
+        let lit = low_power(dark, &dev, 2.0).unwrap();
+        assert!(lights_laser(&lit), "{lit:?}");
     }
 
     fn visits(lines: &[String], x: &str, y: &str) -> bool {
