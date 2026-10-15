@@ -2,13 +2,14 @@
 
 Una versión se publica empujando una etiqueta `v*` al repositorio. El flujo
 [`.github/workflows/release.yml`](../.github/workflows/release.yml) compila los instaladores en
-tres sistemas y los deja en un **borrador** de GitHub Release; tú lo revisas y lo publicas.
+tres sistemas (Linux en x86_64 y en ARM64) y los deja en un **borrador** de GitHub Release; tú lo revisas y lo publicas.
 
 | Sistema | Instaladores | Runner |
 |---|---|---|
 | macOS | `.dmg` (binario universal: Apple Silicon e Intel) y `.app.tar.gz` | `macos-latest` |
 | Windows | `.exe` (NSIS) y `.msi` | `windows-latest` |
-| Linux | `.AppImage` y `.deb` | `ubuntu-22.04` |
+| Linux x86_64 | `.AppImage` (`_amd64`) y `.deb` (`_amd64`) | `ubuntu-22.04` |
+| Linux ARM64 (experimental) | `.AppImage` (`_aarch64`) y `.deb` (`_arm64`) | `ubuntu-22.04-arm` |
 
 **Primera vez:** el repositorio es <https://github.com/jahziel1/tlaku>. Las llaves del actualizador
 ya están (2026-10-14: llave pública en `tauri.conf.json`, privada y contraseña como secretos de
@@ -60,7 +61,8 @@ falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-
    acción actualiza el mismo borrador.
 
 5. **Revisa el borrador** en Releases:
-   - Están los instaladores de los tres sistemas (`.dmg`, `.exe`, `.msi`, `.AppImage`, `.deb`).
+   - Están los instaladores de los tres sistemas (`.dmg`, `.exe`, `.msi`, `.AppImage`, `.deb`; los de
+     Linux, en `_amd64` y en `_arm64`/`_aarch64`).
    - Las notas generadas automáticamente (lista de cambios y colaboradores) son legibles; edítalas
      si hace falta y añade lo importante para quien instala.
    - Descarga al menos un instalador y pruébalo.
@@ -151,6 +153,51 @@ Es normal en un proyecto sin certificados de pago, y la sección "Instalación" 
   de todas formas".
 - **Linux.** Sin avisos. El `.AppImage` necesita permiso de ejecución
   (`chmod +x Tlaku_*.AppImage`) y, en distribuciones recientes, `libfuse2`.
+
+## Linux ARM64 y Raspberry Pi
+
+La entrada «Linux ARM64» de `release.yml` compila **de forma nativa** en el runner `ubuntu-22.04-arm`
+(alojado por GitHub; gratis en repositorios públicos, 4 núcleos y 16 GB; en repositorios privados
+consume minutos). No se cruza desde x86 porque `linuxdeploy` no sabe hacer AppImage de ARM por
+compilación cruzada. Se instalan las mismas dependencias de apt que en x86 y se firman con las mismas
+variables `TAURI_SIGNING_*`.
+
+**`latest.json`.** `tauri-action` (v0.6.2) toma la arquitectura del runner y escribe en `latest.json` las
+claves `linux-aarch64` y `linux-aarch64-appimage`; antes lee el `latest.json` del borrador y fusiona, así
+que no pisa `linux-x86_64`. Las dos entradas de Linux dejan archivos con nombres distintos
+(`Tlaku_X.Y.Z_amd64.AppImage` / `_aarch64.AppImage`, `_amd64.deb` / `_arm64.deb`). Si dos entradas terminan
+a la vez, una podría pisar a la otra (lectura-modificación-escritura sin bloqueo): el trabajo
+«Comprobar latest.json» falla si falta alguna de `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64`,
+`linux-x86_64` o `linux-aarch64`; en ese caso, «Re-run failed jobs» sobre la entrada que falte vuelve a
+fusionarla. Solo el **AppImage** se actualiza desde la app; el `.deb` se reinstala a mano (igual que en x86).
+
+**Requisitos para el usuario (Raspberry Pi y otras ARM64).**
+
+- **Sistema de 64 bits obligatorio** (`uname -m` debe decir `aarch64`). Raspberry Pi 3B+, 4, 400 y 5 con
+  Raspberry Pi OS de 64 bits (Debian 12 *bookworm* o posterior) o Ubuntu ARM 22.04+. **No** sirve el
+  sistema de 32 bits (`armv7l`), aunque la placa sea de 64 bits, ni la Pi 2 o anteriores.
+- **Memoria:** se recomiendan **4 GB de RAM o más** (Pi 4/5). Con 2 GB conviene proyectos pequeños y
+  cerrar el navegador; imágenes grandes y vista previa consumen memoria. Con 1 GB no es razonable.
+- **Gráficos:** la ventana es WebKitGTK (`libwebkit2gtk-4.1-0`, que Tauri añade como dependencia del `.deb` y Raspberry Pi OS
+  bookworm trae). Usa el escritorio con aceleración 3D (Wayland/labwc o X11 con *KMS*, no el modo de
+  *framebuffer*). Si la ventana sale en blanco, parpadea o se ve rota, prueba antes de abrir la app:
+  `WEBKIT_DISABLE_COMPOSITING_MODE=1 tlaku`, y si no basta, `WEBKIT_DISABLE_DMABUF_RENDERER=1`
+  (variables de WebKitGTK; no las hemos podido comprobar en una Pi real). El lienzo con miles de
+  objetos puede ir lento en una Pi.
+- **Puerto serie:** el usuario debe estar en `dialout` (ver la sección siguiente; en Raspberry Pi OS el
+  usuario inicial ya suele estarlo).
+- **AppImage:** necesita `libfuse2` (`sudo apt install libfuse2`; en bookworm el paquete se llama
+  `libfuse2`, en Ubuntu 24.04 `libfuse2t64`) o ejecutarlo con `--appimage-extract-and-run`.
+- **Cámara local:** se captura con `getUserMedia` dentro de WebKitGTK; en Linux depende de que esa
+  versión de WebKitGTK tenga activo el flujo de medios, algo que no está comprobado ni en x86. Una cámara
+  de red (URL) no tiene esa dependencia.
+- **Qué no cubre:** Raspberry Pi 32 bits, `armv7`, RISC-V.
+
+**Estado: experimental.** Compila y se prueba en el runner ARM de la CI (`ci.yml`, trabajo «Rust y humo
+(Linux ARM64)»: pruebas de todo el espacio de trabajo y prueba de humo bajo Xvfb), pero **no se ha
+ejecutado en una Raspberry Pi real**: no se ha medido el rendimiento ni probado con un láser. Lo que
+hay que comprobar en una Pi real está en el informe de la mejora 11a de
+[plan-mejoras-usuarios.md](plan-mejoras-usuarios.md) y se recoge con la plantilla `machine_report.yml`.
 
 ## Linux: permiso del puerto serie
 
@@ -270,6 +317,7 @@ suya aunque la app no esté firmada por Apple o Microsoft):
 | cargo-deny | `cargo deny check licenses sources` |
 | Interfaz | `tsc --noEmit`, `eslint`, `vitest run` y la tabla de atajos del README |
 | Prueba de humo (Linux) | arranca la app Tauri real bajo Xvfb (`apps/desktop/scripts/smoke-tauri.sh`) |
+| Rust y humo (Linux ARM64) | en `ubuntu-22.04-arm`: `cargo nextest run --workspace --all-features` y la prueba de humo. Sin fmt ni clippy (no dependen de la arquitectura). Aún no es obligatorio en el ruleset |
 | Sitio estático | `node scripts/build-site.mjs` (marcadores y capturas válidos) |
 
 Las pruebas de Rust incluyen la validación de `community/materials/*.json` (`cargo test -p tlaku-doc

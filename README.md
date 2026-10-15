@@ -254,7 +254,8 @@ No version has been published yet; until the first one, build from source (next 
 |---|---|
 | macOS 11 or later (Apple Silicon and Intel) | `.dmg`: open it and drag Tlaku to Applications |
 | Windows 10 or later | `.exe` (NSIS installer) or `.msi` |
-| Linux | `.deb` (`sudo apt install ./Tlaku_*.deb`) or `.AppImage` (`chmod +x` and run it) |
+| Linux x86_64 | `.deb` (`sudo apt install ./Tlaku_*_amd64.deb`) or `.AppImage` (`chmod +x` and run it) |
+| Linux ARM64 / Raspberry Pi 4 and 5, 64-bit system (experimental) | `.deb` (`sudo apt install ./Tlaku_*_arm64.deb`) or `*_aarch64.AppImage` |
 
 **Unsigned application.** While the project has no signing certificates, the system will warn you the
 first time you open the installer:
@@ -264,6 +265,15 @@ first time you open the installer:
 - **Windows (SmartScreen):** "More info" and then "Run anyway".
 - **Linux:** no warnings. To use the laser's serial port, add your user to the `dialout` group
   (`sudo usermod -aG dialout "$USER"`) and log in again.
+
+**Raspberry Pi (experimental).** You need a **64-bit** system (`uname -m` must print `aarch64`): Raspberry
+Pi OS 64-bit (Debian 12 "bookworm" or later) or Ubuntu ARM on a Pi 4 or 5 (4 GB of RAM or more
+recommended). The 32-bit system and the Pi 3 or earlier are not supported. The window uses WebKitGTK
+with graphics acceleration; if it comes up blank or garbled, try `WEBKIT_DISABLE_COMPOSITING_MODE=1 tlaku`.
+It has been built and tested in CI on an ARM64 machine, but **not yet on a real Raspberry Pi**: if you
+try it, tell us how it went with the
+[machine report](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml). Details in
+[docs/publicar.md](docs/publicar.md#linux-arm64-y-raspberry-pi) (Spanish).
 
 More detail, and how each version is published, in [docs/publicar.md](docs/publicar.md) (Spanish).
 

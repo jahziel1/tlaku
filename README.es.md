@@ -262,7 +262,8 @@ sección "Assets"):
 |---|---|
 | macOS 11 o posterior (Apple Silicon e Intel) | `.dmg`: ábrelo y arrastra Tlaku a Aplicaciones |
 | Windows 10 o posterior | `.exe` (instalador NSIS) o `.msi` |
-| Linux | `.deb` (`sudo apt install ./Tlaku_*.deb`) o `.AppImage` (`chmod +x` y ejecútalo) |
+| Linux x86_64 | `.deb` (`sudo apt install ./Tlaku_*_amd64.deb`) o `.AppImage` (`chmod +x` y ejecútalo) |
+| Linux ARM64 / Raspberry Pi 4 y 5 con sistema de 64 bits (experimental) | `.deb` (`sudo apt install ./Tlaku_*_arm64.deb`) o `*_aarch64.AppImage` |
 
 **Aplicación sin firmar.** Mientras el proyecto no tenga certificados de firma, el sistema avisará
 la primera vez que abras el instalador:
@@ -273,6 +274,15 @@ la primera vez que abras el instalador:
 - **Windows (SmartScreen):** "Más información" y luego "Ejecutar de todas formas".
 - **Linux:** sin avisos. Para usar el puerto serie del láser, añade tu usuario al grupo
   `dialout` (`sudo usermod -aG dialout "$USER"`) y vuelve a iniciar sesión.
+
+**Raspberry Pi (experimental).** Hace falta un sistema de **64 bits** (`uname -m` debe decir `aarch64`):
+Raspberry Pi OS de 64 bits (Debian 12 «bookworm» o posterior) o Ubuntu ARM en una Pi 4 o 5 (se recomiendan
+4 GB de RAM o más). No sirve el sistema de 32 bits ni la Pi 3 o anteriores. La ventana usa WebKitGTK con
+aceleración gráfica; si sale en blanco o rota, prueba `WEBKIT_DISABLE_COMPOSITING_MODE=1 tlaku`. Se
+compila y se prueba en la CI sobre una máquina ARM64, pero **aún no en una Raspberry Pi real**: si la
+pruebas, cuéntanos cómo te fue con el
+[reporte de máquina](https://github.com/jahziel1/tlaku/issues/new?template=machine_report.yml). Detalles
+en [docs/publicar.md](docs/publicar.md#linux-arm64-y-raspberry-pi).
 
 Más detalle, y cómo se publica cada versión, en [docs/publicar.md](docs/publicar.md). Los instaladores todavía no se han publicado: hasta la primera versión, compila desde el código fuente.
 

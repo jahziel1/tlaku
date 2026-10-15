@@ -1,7 +1,7 @@
 name: Publicar
 
-# Al empujar una etiqueta `v*` compila los instaladores de macOS, Windows y Linux y los sube
-# a un borrador de Release. Guía completa en docs/publicar.md.
+# Al empujar una etiqueta `v*` compila los instaladores de macOS, Windows y Linux (x86_64 y
+# ARM64) y los sube a un borrador de Release. Guía completa en docs/publicar.md.
 #
 # La firma es opcional. Sin los secretos descritos en docs/publicar.md se publican instaladores
 # sin firmar y el flujo no falla.
@@ -63,6 +63,16 @@ jobs:
             # 22.04 y no latest: el AppImage queda enlazado con una glibc más antigua y corre
             # en más distribuciones.
             os: ubuntu-22.04
+            rust_targets: ""
+            args: ""
+          # Raspberry Pi 4/5 con Raspberry Pi OS de 64 bits, Ubuntu ARM y otras Debian/Ubuntu
+          # aarch64. Se compila de forma NATIVA en el runner ARM de GitHub (gratis en repositorios
+          # públicos): linuxdeploy no sabe hacer AppImage de ARM por compilación cruzada. Es
+          # experimental hasta que alguien lo pruebe en una Pi real (docs/publicar.md). Los
+          # nombres de archivo (`_arm64.deb`, `_aarch64.AppImage`) no chocan con los de x86_64 y
+          # tauri-action añade `linux-aarch64` a latest.json sin tocar `linux-x86_64`.
+          - nombre: Linux ARM64 (AppImage y deb)
+            os: ubuntu-22.04-arm
             rust_targets: ""
             args: ""
     runs-on: ${{ matrix.os }}
@@ -184,7 +194,10 @@ jobs:
 
             - **macOS**: abre el `.dmg` y arrastra Tlaku a Aplicaciones.
             - **Windows**: ejecuta el instalador `.exe` (NSIS) o el `.msi`.
-            - **Linux**: instala el `.deb` o marca el `.AppImage` como ejecutable.
+            - **Linux** (x86_64): instala el `.deb` (`_amd64`) o marca el `.AppImage` como ejecutable.
+            - **Linux ARM64** (Raspberry Pi 4/5 con sistema de 64 bits, Ubuntu ARM; experimental):
+              el `.deb` `_arm64` o el `.AppImage` `_aarch64`. No sirve para sistemas de 32 bits
+              ni para Raspberry Pi 3 o anteriores con sistema de 32 bits.
 
             Si el instalador no está firmado, el sistema mostrará una advertencia la primera vez;
             consulta la sección "Instalación" del README para abrirlo.
@@ -206,7 +219,8 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
-          name: tlaku-${{ runner.os }}
+          # La arquitectura distingue Linux x86_64 de Linux ARM64 (dos entradas con el mismo SO).
+          name: tlaku-${{ runner.os }}-${{ runner.arch }}
           path: |
             target/**/release/bundle/**/*.dmg
             target/**/release/bundle/**/*.msi
@@ -214,3 +228,32 @@ jobs:
             target/**/release/bundle/**/*.deb
             target/**/release/bundle/**/*.AppImage
           if-no-files-found: error
+
+  # latest.json lo escribe cada entrada de la matriz leyendo el que ya hay en el borrador y
+  # añadiendo su plataforma. Si dos terminan a la vez, una puede pisar a la otra (condición de
+  # carrera de tauri-action). Este paso lo detecta; si falla, vuelve a lanzar solo la entrada que
+  # falte (Re-run failed jobs en «instaladores»), que vuelve a fusionar su plataforma.
+  comprobar-latest:
+    name: Comprobar latest.json
+    needs: instaladores
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar que latest.json lleva todas las plataformas
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # El borrador no se encuentra por etiqueta en la API; se busca en la lista.
+          id=$(gh api "repos/$GH_REPO/releases?per_page=30" --jq "[.[] | select(.tag_name == \"$GITHUB_REF_NAME\")][0] | (.assets // []) | map(select(.name == \"latest.json\"))[0].id // empty")
+          if [ -z "$id" ]; then
+            echo "::notice::Sin latest.json en la Release: el actualizador no está configurado (docs/publicar.md). Nada que comprobar."
+            exit 0
+          fi
+          gh api -H "Accept: application/octet-stream" "repos/$GH_REPO/releases/assets/$id" > latest.json
+          jq -r '.platforms | keys[]' latest.json | sed 's/^/plataforma: /'
+          falta=0
+          for p in darwin-aarch64 darwin-x86_64 windows-x86_64 linux-x86_64 linux-aarch64; do
+            jq -e --arg p "$p" '.platforms[$p]' latest.json > /dev/null || { echo "::error::latest.json no incluye $p"; falta=1; }
+          done
+          exit $falta
