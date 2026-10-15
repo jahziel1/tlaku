@@ -68,10 +68,8 @@ pub fn prepare(pieces: &[NestPiece], o: &NestOptions) -> Result<Prepared, NestEr
                 if list.iter().any(|a| !a.is_finite()) {
                     return Err(NestError::InvalidOption(BadOption::PieceAngle));
                 }
-                let mut idx: Vec<usize> = list
-                    .iter()
-                    .map(|&a| angle_index(&mut angles, a))
-                    .collect();
+                let mut idx: Vec<usize> =
+                    list.iter().map(|&a| angle_index(&mut angles, a)).collect();
                 idx.sort_unstable();
                 idx.dedup();
                 if idx.is_empty() {

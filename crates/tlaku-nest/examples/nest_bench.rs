@@ -8,6 +8,7 @@
 //!   --seed N         semilla (por omisión 1)
 //!   --only a,b       solo estas instancias (por nombre)
 //!   --evals N        tope de evaluaciones (resultado reproducible, sin depender del reloj)
+//!   --svg CARPETA    escribe un SVG del acomodo de cada instancia en tira
 //! ```
 //!
 //! # Instancias públicas
@@ -56,6 +57,7 @@ struct Args {
     seed: u64,
     only: Vec<String>,
     evals: Option<u64>,
+    svg: Option<String>,
 }
 
 fn args() -> Args {
@@ -65,6 +67,7 @@ fn args() -> Args {
         seed: 1,
         only: Vec::new(),
         evals: None,
+        svg: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(k) = it.next() {
@@ -75,6 +78,7 @@ fn args() -> Args {
             "--seed" => a.seed = v.parse().expect("--seed N"),
             "--only" => a.only = v.split(',').map(str::to_string).collect(),
             "--evals" => a.evals = Some(v.parse().expect("--evals N")),
+            "--svg" => a.svg = Some(v),
             _ => panic!("opción desconocida: {k}"),
         }
     }
@@ -188,7 +192,14 @@ fn used_length(pieces: &[Piece], placements: &[tlaku_nest::Placement]) -> f64 {
     max_x
 }
 
-fn strip_case(a: &Args, name: &str, height: f64, pieces: &[Piece], opts: NestOptions, ref_pct: Option<f64>) {
+fn strip_case(
+    a: &Args,
+    name: &str,
+    height: f64,
+    pieces: &[Piece],
+    opts: NestOptions,
+    ref_pct: Option<f64>,
+) {
     let total: f64 = pieces
         .iter()
         .map(|p| net_area(&p.region) * p.copies as f64)
@@ -207,7 +218,9 @@ fn strip_case(a: &Args, name: &str, height: f64, pieces: &[Piece], opts: NestOpt
     let out = nest(&input, &AtomicBool::new(false), &mut |_| {}).expect("instancia válida");
     let len = used_length(pieces, &out.placements);
     let density = total / (height * len) * 100.0;
-    let _ = a;
+    if let Some(dir) = &a.svg {
+        write_svg(dir, name, height, len, pieces, &out.placements);
+    }
     println!(
         "{name:<22} {n:>4} piezas  densidad {density:>6.2} %  ref {:>7}  largo {len:>10.1}  sin colocar {:>2}  evals {:>6}  {:>6.1} s",
         ref_pct.map_or("-".to_string(), |r| format!("{r:.2} %")),
@@ -215,6 +228,53 @@ fn strip_case(a: &Args, name: &str, height: f64, pieces: &[Piece], opts: NestOpt
         out.evaluations,
         out.elapsed.as_secs_f64(),
     );
+}
+
+fn write_svg(
+    dir: &str,
+    name: &str,
+    height: f64,
+    len: f64,
+    pieces: &[Piece],
+    placements: &[tlaku_nest::Placement],
+) {
+    use std::fmt::Write;
+    let mut s = String::new();
+    let _ = writeln!(
+        s,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 {} {len} {height}" width="1200">"#,
+        0.0
+    );
+    let _ = writeln!(
+        s,
+        r##"<rect x="0" y="0" width="{len}" height="{height}" fill="#fff" stroke="#000" stroke-width="{}"/>"##,
+        len / 1000.0
+    );
+    for pl in placements {
+        let t = pl.transform;
+        for p in &pieces[pl.piece].region {
+            let pts: Vec<String> = p
+                .points
+                .iter()
+                .map(|q| {
+                    format!(
+                        "{:.3},{:.3}",
+                        t[0] * q.x + t[2] * q.y + t[4],
+                        height - (t[1] * q.x + t[3] * q.y + t[5])
+                    )
+                })
+                .collect();
+            let _ = writeln!(
+                s,
+                r##"<polygon points="{}" fill="#9cf" fill-opacity="0.6" stroke="#036" stroke-width="{}"/>"##,
+                pts.join(" "),
+                len / 1500.0
+            );
+        }
+    }
+    s.push_str("</svg>\n");
+    let _ = std::fs::create_dir_all(dir);
+    let _ = std::fs::write(format!("{dir}/{name}.svg"), s);
 }
 
 // ---- Casos propios ----
@@ -282,7 +342,14 @@ fn own_cases(a: &Args) {
             ),
             4,
         );
-        strip_case(a, "propio-caja", 300.0, &b, options(a, Rotations::Quarter, 2.0), None);
+        strip_case(
+            a,
+            "propio-caja",
+            300.0,
+            &b,
+            options(a, Rotations::Quarter, 2.0),
+            None,
+        );
     }
     if want("propio-engranajes") {
         let mut regs = Vec::new();
@@ -293,13 +360,27 @@ fn own_cases(a: &Args) {
             ));
         }
         let g = plain(regs, 2);
-        strip_case(a, "propio-engranajes", 250.0, &g, options(a, Rotations::Quarter, 2.0), None);
+        strip_case(
+            a,
+            "propio-engranajes",
+            250.0,
+            &g,
+            options(a, Rotations::Quarter, 2.0),
+            None,
+        );
     }
     if want("propio-irregulares") {
         let mut rng = Lcg(7);
         let regs: Vec<Vec<Polyline>> = (0..30).map(|_| vec![blob(&mut rng, 12.0, 40.0)]).collect();
         let g = plain(regs, 1);
-        strip_case(a, "propio-irregulares", 300.0, &g, options(a, Rotations::Step(30.0), 1.0), None);
+        strip_case(
+            a,
+            "propio-irregulares",
+            300.0,
+            &g,
+            options(a, Rotations::Step(30.0), 1.0),
+            None,
+        );
     }
     if want("propio-rectangulos") {
         let mut rng = Lcg(11);
@@ -310,7 +391,14 @@ fn own_cases(a: &Args) {
             })
             .collect();
         let g = plain(regs, 1);
-        strip_case(a, "propio-rectangulos", 300.0, &g, options(a, Rotations::Quarter, 1.0), None);
+        strip_case(
+            a,
+            "propio-rectangulos",
+            300.0,
+            &g,
+            options(a, Rotations::Quarter, 1.0),
+            None,
+        );
     }
     if want("propio-hojas") {
         let mut pieces = plain(
@@ -373,7 +461,14 @@ fn main() {
                 continue;
             }
             let (_, height, pieces) = load_instance(&path);
-            strip_case(&a, name, height, &pieces, options(&a, Rotations::Fixed, 0.0), Some(*ref_pct));
+            strip_case(
+                &a,
+                name,
+                height,
+                &pieces,
+                options(&a, Rotations::Fixed, 0.0),
+                Some(*ref_pct),
+            );
         }
     }
     own_cases(&a);

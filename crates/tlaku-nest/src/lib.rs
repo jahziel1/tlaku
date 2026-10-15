@@ -25,10 +25,10 @@
 mod convex;
 mod engine;
 mod geom;
+mod leftover;
 mod ops;
 mod prep;
 mod region;
-mod leftover;
 mod search;
 mod sheets;
 mod solve;
@@ -261,3 +261,5 @@ pub(crate) fn check_options(o: &NestOptions) -> Result<(), NestError> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_sheets;

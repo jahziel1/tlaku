@@ -193,8 +193,7 @@ pub fn nest_sheets(
             }
             continue;
         }
-        let mut done = sheet_from(index, &out);
-        done.placements = out.placements;
+        let done = sheet_from(index, &out);
         if snap.sheets.len() > slot {
             snap.sheets[slot] = done;
         } else {
