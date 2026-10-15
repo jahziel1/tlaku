@@ -66,6 +66,38 @@ fn main() {
             "hinge",
             json!({"pattern": "zigzag", "orientation": "vertical"}),
         ),
+        (
+            "bisagra-ladrillo",
+            "hinge",
+            json!({"pattern": "brick", "corner_radius_mm": 6}),
+        ),
+        (
+            "bisagra-rombo",
+            "hinge",
+            json!({"pattern": "diamond", "cut_length_mm": 12, "row_gap_mm": 4, "bridge_mm": 2, "corner_radius_mm": 6}),
+        ),
+        ("union-cola-de-milano", "joints", json!({})),
+        (
+            "union-cola-de-milano-holgura",
+            "joints",
+            json!({"count": 2, "fit_mm": 0.3, "angle_deg": 20, "length_mm": 50}),
+        ),
+        (
+            "union-pestana-ranura",
+            "joints",
+            json!({"kind": "tab_slot", "fit_mm": 0.1}),
+        ),
+        ("caja-redondeada", "rounded_box", json!({})),
+        (
+            "caja-redondeada-rombo-abierta",
+            "rounded_box",
+            json!({"lid": false, "pattern": "diamond", "cut_length_mm": 10, "row_gap_mm": 3, "radius_mm": 18}),
+        ),
+        (
+            "caja-redondeada-ladrillo-tope",
+            "rounded_box",
+            json!({"pattern": "brick", "seam": "butt", "width_mm": 80, "depth_mm": 80, "radius_mm": 25}),
+        ),
         ("prueba-encaje-grosor", "fit_test", json!({})),
         (
             "prueba-encaje-diente",

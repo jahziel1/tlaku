@@ -32,6 +32,42 @@ parts.hinge.rows_too_close = With that wave the rows end up {web} mm apart (meas
 parts.hinge.no_room = The area is too small for its margin: no cut fits.
 parts.hinge.thin_bridge = {bridge} mm bridges are very thin: the hinge can tear when it bends.
 parts.hinge.thin_web = With {gap} mm between rows the material between cuts is very thin and can break.
+parts.hinge.brick_tight = With that spacing the end ticks of the cuts end up {web} mm from the neighbouring row: increase the row gap.
+parts.hinge.diamond_tight = With those values the diamond cuts end up {web} mm from each other: increase the bridge, or change the cut length and row gap.
+parts.hinge.diamond_bridge = The bridge is too long for the diamond (each side is {side} mm): lower the bridge or make the diamond bigger.
+
+# joints
+parts.joints.range = Must be between {min} and {max}.
+parts.joints.not_dovetail = This function is only for the dovetail.
+parts.joints.not_tab_slot = This function is only for the tab and slot.
+parts.joints.name.tails = Dovetail: plate with tails
+parts.joints.name.sockets = Dovetail: plate with sockets
+parts.joints.name.tabs = Tab and slot: plate with tabs
+parts.joints.name.slots = Tab and slot: plate with slots
+parts.joints.too_wide = The tails do not fit: each one (with its socket) can be at most {max} mm wide at the tip to leave material between sockets. Lower the neck, the angle or the depth, or the number of tails.
+parts.joints.too_deep = The socket is too deep for the plate: the depth cannot exceed {max} mm.
+parts.joints.tab_too_wide = The slots must leave material between them: with that number of tabs a tab cannot be wider than {max} mm.
+parts.joints.offset_range = The slot must sit between {min} and {max} mm from the plate edge to leave material at the sides.
+parts.joints.dovetail_note = The two plates assemble by sliding one over the other along the edge; the dovetail shape stops them being pulled apart sideways, but not sliding. To fix them, use a drop of glue or a stop.
+parts.joints.thin_neck = The {neck} mm neck is very thin: the tail can break. Increase the neck width.
+parts.joints.thin_tab = The tabs are {tab} mm wide, less than the thickness ({thickness} mm): they are fragile. Increase their width.
+parts.joints.fit_vs_kerf = A fit clearance is set: do not add it on top of a layer kerf that compensates the same thing. Use only one of the two and calibrate with the fit test piece.
+
+# rounded_box
+parts.rounded.range = Must be between {min} and {max}.
+parts.rounded.name.base = Base
+parts.rounded.name.lid = Lid
+parts.rounded.name.wall = Wall with hinge
+parts.rounded.radius_small = The corner radius must be at least {min} mm (the thickness plus 2 mm) so the wall can curve on the inside.
+parts.rounded.radius_big = The corner radius cannot be more than half the shorter side.
+parts.rounded.too_many_fingers = There would be more than {max} fingers around the box: increase the finger width.
+parts.rounded.cells_too_narrow = The fingers would be too narrow to cut: increase the finger width.
+parts.rounded.too_short = The box is too low for the base, lid, hinge and seam: the height must be at least {min} mm.
+parts.rounded.seam_no_room = The straight stretch at the front is too short for the dovetail seam: it needs at least {need} mm between the two corners. Increase the width, lower the radius or close it butt-joined.
+parts.rounded.strip_note = The wall is {len} mm long: the perimeter of the thickness mid-line (the one that does not stretch when curved). The outer contour is {outer} mm. The seam tails stick out past that length.
+parts.rounded.hinge_note = The corner hinge is not tested with your material: first cut a test hinge with the same pattern and check that it bends to the corner radius without breaking.
+parts.rounded.fit_vs_kerf = A fit clearance is set: do not add it on top of a layer kerf that compensates the same thing. Use only one of the two and calibrate with the fit test piece.
+parts.rounded.thin_fingers = The fingers are {width} mm wide, less than the thickness ({thickness} mm): they are fragile. Increase the finger width.
 
 # fit_test
 parts.fit.name.plate = Slot plate

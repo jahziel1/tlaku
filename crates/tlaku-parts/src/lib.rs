@@ -17,10 +17,12 @@ pub mod fingers;
 pub mod fit_test;
 pub mod font;
 pub mod hinge;
+pub mod joints;
 pub mod layout;
 pub mod part;
 pub mod rectilinear;
 pub mod registry;
+pub mod rounded_box;
 #[cfg(test)]
 mod testutil;
 
