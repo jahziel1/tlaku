@@ -489,6 +489,18 @@ desktop.edit.nest.state_poisoned = Estado interno dañado
 desktop.edit.nest.crashed = El cálculo de acomodo falló de forma inesperada.
 desktop.edit.nest.start_failed = No se pudo iniciar el cálculo: {err}
 desktop.edit.nest.job_gone = Ese cálculo de acomodo ya no existe.
+desktop.edit.nest.bad_remnant = El retazo «{id}» no tiene un contorno cerrado válido.
+desktop.edit.nest.too_many_remnants = Son demasiados retazos para un solo acomodo (el máximo es {max}).
+
+# remnants.rs
+desktop.remnants.unsupported_version = El inventario de retazos es de una versión que esta app no conoce ({version}); no se tocó el archivo.
+desktop.remnants.too_many = Son demasiados retazos guardados (el máximo es {max}).
+desktop.remnants.no_id = El retazo {n} está sin id.
+desktop.remnants.duplicate_id = El id de retazo «{id}» está repetido.
+desktop.remnants.bad_name = El retazo «{id}» necesita un nombre de hasta {max} caracteres.
+desktop.remnants.bad_thickness = El grosor del retazo «{id}» no es válido.
+desktop.remnants.bad_shape = El retazo «{id}» no tiene un contorno cerrado válido o sus medidas no son positivas.
+desktop.remnants.invalid_file = El archivo de retazos no es válido: {err}
 # files.rs
 desktop.edit.files.bad_scale = Escala inválida: {value} %.
 desktop.edit.files.bad_dpi = DPI inválido: {value}.

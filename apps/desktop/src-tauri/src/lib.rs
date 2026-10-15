@@ -182,6 +182,8 @@ fn build_app(context: tauri::Context) -> tauri::App {
             edit::nest::nest_start,
             edit::nest::nest_poll,
             edit::nest::nest_cancel,
+            edit::remnants::load_remnants,
+            edit::remnants::save_remnants,
             edit::shape_ops::shape_op,
             edit::review::review_design,
             edit::parts::list_generators,

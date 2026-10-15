@@ -34,7 +34,7 @@ mod sheets;
 mod solve;
 
 pub use engine::Gravity;
-pub use leftover::{LeftoverOptions, leftover};
+pub use leftover::{LeftoverOptions, leftover, sheet_leftovers};
 pub use prep::TOL_MM as TOLERANCE_MM;
 pub use sheets::{SheetOutcome, SheetsInput, SheetsOutcome, nest_sheets};
 

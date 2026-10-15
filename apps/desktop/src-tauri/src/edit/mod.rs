@@ -12,6 +12,7 @@ pub mod materials;
 pub mod nest;
 pub mod parts;
 pub mod printcut;
+pub mod remnants;
 pub mod review;
 pub mod shape_ops;
 pub mod text;

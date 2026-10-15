@@ -1,7 +1,7 @@
 //! Sobrante de una hoja: la hoja menos las piezas colocadas (con un margen de seguridad).
 //! Sirve para guardar el retazo y reutilizarlo como contenedor de otro trabajo.
 
-use crate::NestContainer;
+use crate::{NestContainer, SheetsInput, SheetsOutcome};
 use crate::geom::{Ring, signed_area};
 use crate::ops::{difference, union_rings};
 use crate::prep::region_rings;
@@ -115,5 +115,49 @@ pub fn leftover(
     groups
         .into_iter()
         .map(|(_, rings)| rings.iter().map(to_polyline).collect())
+        .collect()
+}
+
+/// Sobrante de cada hoja usada de un resultado de [`crate::nest_sheets`], en el mismo orden que
+/// `out.sheets` y en las coordenadas de cada hoja.
+pub fn sheet_leftovers(
+    input: &SheetsInput,
+    out: &SheetsOutcome,
+    opts: &LeftoverOptions,
+) -> Vec<Vec<Vec<Polyline>>> {
+    out.sheets
+        .iter()
+        .map(|sheet| {
+            let container = input
+                .sheets
+                .get(sheet.index)
+                .or(input.refill.as_ref())
+                .expect("la hoja usada sale de la lista o de la hoja nueva");
+            let placed: Vec<Vec<Polyline>> = sheet
+                .placements
+                .iter()
+                .map(|pl| {
+                    let t = pl.transform;
+                    input.pieces[pl.piece]
+                        .region
+                        .iter()
+                        .map(|p| Polyline {
+                            points: p
+                                .points
+                                .iter()
+                                .map(|q| {
+                                    Point::new(
+                                        t[0] * q.x + t[2] * q.y + t[4],
+                                        t[1] * q.x + t[3] * q.y + t[5],
+                                    )
+                                })
+                                .collect(),
+                            closed: p.closed,
+                        })
+                        .collect()
+                })
+                .collect();
+            leftover(container, &placed, opts)
+        })
         .collect()
 }
