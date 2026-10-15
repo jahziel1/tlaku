@@ -192,7 +192,12 @@ MDF de 3 mm (pedazo de desecho), tapa cerrada, **sin ajustar el enfoque**, sin r
 | Aire | Medido | `M8`/`M9` funcionan; el aire sigue **~5 s** tras `M9` con `$152=30` (así que `$152` no son segundos en este firmware). |
 | **Imagen 15×15 mm** (dithering, 9187 líneas, 35 %) | **Falló** | A los ~31 s la placa dejó de mandar reportes de estado y a los 50 s Tlaku declaró la conexión perdida; la placa siguió y vació su planificador (al reconectar: Idle, láser apagado). Antes apareció una línea de estado truncada pegada a un `ok` (`…Ov:100,100,10ok`). En investigación. |
 
-Falta con la máquina: grabar una imagen completa (tras el arreglo), medir con regla, calibrar la cámara, corte (necesita enfoque y subir el tope), corte de luz real con material, la app con su ventana (diálogo de inicio, modo sencillo, vista en vivo) y el control desde el teléfono.
+| Imagen 15×15 mm, repetida tras el arreglo | **Pasó** | Completa y sin pausas; 54,3 s contra 54,75 s estimados. Causas de la primera falla: el `ok` pegado a un estado truncado se perdía (el trabajo no terminaba) y una pausa de escritura de la placa se contaba como silencio. |
+| Cámara de la tapa | Medido | Ve bien el centro y el fondo de la cama; **no cubre la franja delantera** (Y bajas). Ojo de pez fuerte. Durante una foto la placa dejó de contestar ~8 s en reposo: Tlaku ahora tolera 30 s de silencio en reposo (5 s durante un envío). |
+| La app con su ventana | Pasó | Asistente «Agregar máquina»: detectó la Falcon2 Pro y propuso los valores de la máquina donde difieren del catálogo (velocidad Y 8000). Conectar, homing, rectángulo, vista previa, diálogo de inicio con la lista y grabado: bien. Fallas encontradas y corregidas: «Agregar máquina» no estaba en ningún menú; el menú Máquina largo desplazaba toda la ventana. |
+| Vista en vivo y control desde el teléfono | Pasó | La ventana flotante y la página del celular siguieron el grabado real. |
+
+Falta con la máquina: medir con regla, calibrar la lente y alinear la cámara, corte (necesita enfoque y subir el tope), corte de luz real con material y un trabajo largo.
 
 
 

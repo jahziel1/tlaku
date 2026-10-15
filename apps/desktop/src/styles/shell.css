@@ -132,6 +132,10 @@
   border: 1px solid var(--border-strong);
   background: var(--bg-raised);
   box-shadow: var(--shadow-pop);
+  /* Un menú largo (Máquina, con las macros) no debe salirse de la ventana: se desplaza por dentro. */
+  max-height: calc(100vh - var(--topbar-h) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .menu__item {
   display: flex;

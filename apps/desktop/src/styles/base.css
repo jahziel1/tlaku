@@ -9,6 +9,9 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  /* `clip` y no `hidden`: con `hidden` el navegador aún puede desplazar la ventana entera al
+     enfocar algo que se sale (un menú largo), y la interfaz queda corrida hacia arriba. */
+  overflow: clip;
 }
 
 body {

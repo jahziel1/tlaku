@@ -3,6 +3,9 @@
 use super::*;
 use tlaku_i18n::tr;
 
+
+/// Cuántas veces `silence_timeout` se tolera de silencio con la máquina en reposo (5 s → 30 s).
+const IDLE_SILENCE_FACTOR: u32 = 6;
 impl Worker {
     pub(super) fn on_status(&mut self, r: &streamer::StatusReport) {
         self.statuses += 1;
@@ -65,6 +68,12 @@ impl Worker {
         }
         let elapsed = self.last_rx.elapsed();
         match self.quiet {
+            // En reposo se tolera más: algunas placas ESP32 detrás de un concentrador USB (la
+            // Creality Falcon2) dejan de contestar `?` varios segundos sin estar caídas, y en
+            // reposo no hay nada que detener. Durante un envío vale el plazo corto.
+            None if !self.shared.streaming.load(Ordering::SeqCst) => {
+                elapsed > self.timing.silence_timeout * IDLE_SILENCE_FACTOR
+            }
             None => elapsed > self.timing.silence_timeout,
             Some(Quiet::Homing) => {
                 elapsed > self.timing.silence_timeout.max(self.timing.home_timeout)

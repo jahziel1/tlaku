@@ -1,4 +1,5 @@
-import { Copy, Download, FileUp, Plus, Star, Trash2, TriangleAlert } from 'lucide-react';
+import { Copy, Download, FileUp, Plus, Star, Trash2, TriangleAlert, Wand2 } from 'lucide-react';
+import { useDevicesWizard } from '@/features/devices/wizardStore';
 import { useEffect, useMemo, useState } from 'react';
 import { getApi } from '@/api';
 import type { DeviceProfile } from '@/api/types';
@@ -339,6 +340,7 @@ export function DeviceManager() {
             </ul>
             <div className="mc-devlist__actions">
               <DeviceOrderButtons index={isNew ? -1 : devices.findIndex((d) => d.id === draft.id)} count={devices.length} disabled={isNew || devices.length < 2} onMove={moveDevice} />
+              <button type="button" className="btn btn--accent" onClick={() => useDevicesWizard.getState().openWizard()}><Wand2 size={14} aria-hidden="true" />{t('catalog.cmd.add')}</button>
               <button type="button" className="btn" onClick={create}><Plus size={14} aria-hidden="true" />{t('machine.dev.new')}</button>
               <button type="button" className="btn" onClick={duplicate}><Copy size={14} aria-hidden="true" />{t('machine.dev.duplicate')}</button>
               <button type="button" className="btn btn--danger" disabled={deleteBlocked !== null} title={deleteBlocked ?? undefined} onClick={() => setConfirmDelete(true)}>
