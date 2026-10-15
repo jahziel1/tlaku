@@ -104,6 +104,21 @@ fn fresh(plan: &HeadAlignPlan, frames: &[HeadAlignFrame]) -> Vec<[f64; 2]> {
     all
 }
 
+/// ¿Se vio el cabezal en todo el borde de la rejilla? Si es así la cámara probablemente ve más allá
+/// de ella y conviene probar una rejilla mayor.
+fn edge_all_seen(plan: &HeadAlignPlan, seen: &[[f64; 2]]) -> bool {
+    let a = plan.area;
+    let on_edge = |p: &[f64; 2]| {
+        [p[0] - a[0], a[2] - p[0], p[1] - a[1], a[3] - p[1]]
+            .iter()
+            .any(|d| d.abs() < 1.0)
+    };
+    plan.points.iter().filter(|p| on_edge(p)).all(|p| {
+        seen.iter()
+            .any(|s| (s[0] - p[0]).hypot(s[1] - p[1]) < 1.0)
+    })
+}
+
 pub fn run_head_align_flow(
     rig: &mut dyn AlignRig,
     opts: &FlowOptions,
@@ -119,7 +134,12 @@ pub fn run_head_align_flow(
         detected: report.detected,
     });
     let mut round = 0;
-    while round < opts.max_rounds && report.detected < opts.target_points {
+    let mut last = scout.clone();
+    // Se afina mientras falten puntos o la cámara siga viendo el cabezal en el borde de la rejilla
+    // (puede ver más); `plan_refine` termina cuando ya no hay por dónde crecer.
+    while round < opts.max_rounds
+        && (report.detected < opts.target_points || edge_all_seen(&last, &report.seen_mm))
+    {
         let Some(plan) = plan_refine(scout.area, &report.seen_mm, opts.refine_grid, 0.5, 60.0)
         else {
             break;
@@ -129,6 +149,7 @@ pub fn run_head_align_flow(
             break;
         }
         round += 1;
+        last = plan;
         shoot(rig, round, &positions, &mut frames)?;
         report = run_head_align_solve(&frames, &config)?;
         rig.event(&FlowEvent::Solved {

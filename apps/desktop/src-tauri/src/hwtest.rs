@@ -8,7 +8,9 @@
 //! `frame:<x>,<y>,<lado>,<vel>` (encuadre con el láser apagado), `job0:<x>,<y>,<lado>,<vel>` y
 //! `fill0:...` (trabajo con potencia 0: el G-code se revisa antes de enviarlo), `pause`, `resume`,
 //! `cancel`, `interrupted`, `view`, `readiness`, `discard`, `wait:<ms>` y `cmd:<línea>` (solo de
-//! lectura o movimiento; se rechaza `M3`, `M4` y cualquier `S` distinto de 0).
+//! lectura o movimiento; se rechaza `M3`, `M4` y cualquier `S` distinto de 0), `goto:<x>,<y>,<vel>`,
+//! `snap:<archivo>` (foto con la cámara de la máquina) y `headalign[:<lado>[,<vel>]]` (alinear la
+//! cámara fija con el cabezal, sin láser: ver `hwtest/headalign.rs`, que lista sus variables).
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -17,6 +19,8 @@ use serde_json::{Value, json};
 use tauri::{Listener, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 use crate::smoke::invoke_json;
+
+mod headalign;
 
 /// Líneas que nunca se mandan desde aquí: todo lo que pueda encender el láser.
 fn forbidden(line: &str) -> bool {
@@ -81,6 +85,16 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                 t0.elapsed().as_millis(),
                 e.payload()
             )
+        });
+    }
+    // Último estado de la máquina, para esperar a que el cabezal se detenga (`headalign`).
+    let last_status: headalign::Shared = Arc::default();
+    {
+        let shared = last_status.clone();
+        handle.listen("machine://status", move |e| {
+            if let (Some(s), Ok(mut slot)) = (headalign::snap_from_payload(e.payload()), shared.lock()) {
+                *slot = Some(s);
+            }
         });
     }
     let wv = window.as_ref();
@@ -394,6 +408,9 @@ fn steps_on(handle: &tauri::AppHandle, port: &str, steps: &[String]) -> i32 {
                 } else {
                     invoke_json(handle, wv, "machine_command", json!({ "line": line }))
                 }
+            }
+            s if s == "headalign" || s.starts_with("headalign:") => {
+                headalign::run(handle, wv, &s["headalign".len()..], last_status.clone(), falcon2().bed)
             }
             other => Err(format!("paso desconocido: {other}")),
         };
