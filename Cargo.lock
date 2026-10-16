@@ -5479,7 +5479,7 @@ name = "tlaku-desktop"
 version = "0.1.2"
 dependencies = [
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "flate2",
  "futures-util",
  "getrandom 0.3.4",
@@ -5553,7 +5553,7 @@ dependencies = [
 name = "tlaku-export"
 version = "0.1.2"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "dxf",
  "flate2",
  "image",
@@ -5616,7 +5616,7 @@ version = "0.1.2"
 name = "tlaku-lbrn"
 version = "0.1.2"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "roxmltree",
  "tlaku-core",
  "tlaku-i18n",
