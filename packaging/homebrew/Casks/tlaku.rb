@@ -2,8 +2,8 @@
 # Instalar:  brew install --cask jahziel1/tlaku/tlaku
 # Guía de envío y por qué NO va al cask oficial: docs/publicar.md#homebrew-macos
 cask "tlaku" do
-  version "0.1.1"
-  sha256 "88be394ad14b6a9ef333b8f8cdf5105fff2a0992079ba064b6e4026197cdf939"
+  version "0.1.2"
+  sha256 "08b73d43d5a597ff53d614d096e0738cb711ffec04f96b7eeb27fcce8ef1c2e4"
 
   url "https://github.com/jahziel1/tlaku/releases/download/v#{version}/Tlaku_#{version}_universal.dmg"
   name "Tlaku"
@@ -17,7 +17,7 @@ cask "tlaku" do
 
   # La app trae su propio actualizador (Ayuda > Buscar actualizaciones).
   auto_updates true
-  depends_on macos: :big_sur
+  depends_on :macos
 
   app "Tlaku.app"
 

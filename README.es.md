@@ -18,7 +18,7 @@ nada. LightBurn es una marca de su titular; Tlaku es un proyecto independiente y
 
 ### Descarga la beta (0.1.0)
 
-[![Descargar para Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.1/Tlaku_0.1.1_x64-setup.exe) [![Descargar para macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.1/Tlaku_0.1.1_universal.dmg) [![Descargar para Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.1/Tlaku_0.1.1_amd64.deb) [![Descargar para Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.1/Tlaku_0.1.1_amd64.AppImage)
+[![Descargar para Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_x64-setup.exe) [![Descargar para macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_universal.dmg) [![Descargar para Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.deb) [![Descargar para Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.AppImage)
 
 [Todos los archivos y las notas de la versión](https://github.com/jahziel1/tlaku/releases/latest) ·
 [Sitio web](https://jahziel1.github.io/tlaku/) ·
