@@ -79,6 +79,9 @@ falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-
    git diff --stat      # README.md, README.es.md, packaging/homebrew, packaging/winget/.../0.2.0
    ```
 
+   Al empujar ese cambio a `main` el sitio se vuelve a construir y anuncia la versión nueva: el sitio
+   muestra siempre la última Release publicada, no la de `tauri.conf.json`.
+
    Luego copia `packaging/homebrew/Casks/tlaku.rb` al tap `jahziel1/homebrew-tlaku` y abre en
    `microsoft/winget-pkgs` el PR «Update: jahziel1.Tlaku to 0.2.0» con la carpeta nueva (ver
    [Dar de alta en tiendas](#dar-de-alta-en-tiendas)).

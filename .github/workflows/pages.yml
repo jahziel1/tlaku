@@ -17,6 +17,9 @@ on:
       - "crates/tlaku-doc/**"
       - "apps/desktop/docs/screenshots/**"
       - ".github/workflows/pages.yml"
+      # `release-version.mjs after` cambia el cask al publicar cada versión: así el sitio se vuelve a
+      # construir y anuncia la versión nueva (GitHub Pages solo despliega desde main, no desde la etiqueta).
+      - "packaging/homebrew/Casks/tlaku.rb"
   workflow_dispatch:
 
 permissions:
@@ -42,8 +45,16 @@ jobs:
 
       # Copia site/ a site-dist/, trae las capturas de la app y reemplaza los marcadores
       # ({{REPO_URL}}, {{SPONSORS_URL}}, {{KOFI_URL}}) con site/config.json.
+      # El sitio anuncia la última Release publicada, no la de tauri.conf.json (que sube antes de
+      # publicar). Sin Releases, build-site usa la de tauri.conf.json.
+      - name: Versión publicada
+        id: publicada
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)" >> "$GITHUB_OUTPUT"
+
       - name: Construir
-        run: node scripts/build-site.mjs --out site-dist
+        run: node scripts/build-site.mjs --out site-dist ${{ steps.publicada.outputs.tag && format('--version {0}', steps.publicada.outputs.tag) || '' }}
 
       # Si hay un enlace roto o un metadato SEO inválido, no se publica nada.
       - name: Revisar el sitio

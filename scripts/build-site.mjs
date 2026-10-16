@@ -2,13 +2,13 @@
 // Construye el sitio estático de `site/` y reemplaza los marcadores con los valores de
 // `site/config.json`.
 //
-//   node scripts/build-site.mjs [--config site/config.json] [--out site-dist]
+//   node scripts/build-site.mjs [--config site/config.json] [--out site-dist] [--version X.Y.Z]
 //   node scripts/build-site.mjs --readme            # también llena la sección de apoyo de README.md y README.es.md
 //
 // Marcadores de la configuración: {{REPO_URL}}, {{SPONSORS_URL}}, {{KOFI_URL}}.
 // Marcadores calculados por página: {{ROOT}} (ruta relativa a la raíz del sitio), {{HOME}} (a la portada
-// del idioma de la página), {{ALT_URL}} (a la misma página en el otro idioma) y {{VERSION}} (la de
-// apps/desktop/src-tauri/tauri.conf.json).
+// del idioma de la página), {{ALT_URL}} (a la misma página en el otro idioma) y {{VERSION}} (la de `--version`,
+// que en pages.yml es la última Release publicada; sin ella, la de apps/desktop/src-tauri/tauri.conf.json).
 //
 // Sitio: copia `site/` a la carpeta de salida (sin config.json, pages.json ni _partials), copia a `img/`
 // las capturas de `apps/desktop/docs/screenshots/` que las páginas usan y reemplaza los marcadores en los
@@ -128,14 +128,16 @@ export function includePartials(html, siteDir, lang, where = 'html') {
   });
 }
 
-export function build({ root, configPath, outDir }) {
+export function build({ root, configPath, outDir, version: published }) {
   const siteDir = join(root, 'site');
   const shots = join(root, 'apps', 'desktop', 'docs', 'screenshots');
   const config = parseConfig(readFileSync(configPath, 'utf8'));
   const registry = JSON.parse(readFileSync(join(siteDir, 'pages.json'), 'utf8'));
   const known = indexPages(registry);
-  const version = JSON.parse(readFileSync(join(root, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
-  if (!/^\d+\.\d+\.\d+/.test(version)) throw new Error(`versión inválida en tauri.conf.json: ${version}`);
+  // La versión que se anuncia es la última publicada (`--version`, que pasa pages.yml); sin ella, la
+  // de tauri.conf.json, que entre el aumento de versión y la Release va un paso adelante.
+  const version = published || JSON.parse(readFileSync(join(root, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
+  if (!/^\d+\.\d+\.\d+/.test(version)) throw new Error(`versión inválida: ${version}`);
 
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
@@ -205,8 +207,9 @@ function main() {
   if (!existsSync(configPath)) throw new Error(`no existe ${configPath}`);
   if (outDir === root || outDir === join(root, 'site')) throw new Error('la carpeta de salida no puede ser la raíz ni site/');
 
-  const { config, images, files } = build({ root, configPath, outDir });
-  console.log(`Sitio construido en ${relative(root, outDir) || '.'}: ${files} páginas, ${images.length} capturas, sitemap.xml y robots.txt.`);
+  const version = opt('--version', undefined)?.replace(/^v/, '');
+  const { config, version: built, images, files } = build({ root, configPath, outDir, version });
+  console.log(`Sitio construido en ${relative(root, outDir) || '.'} (versión ${built}): ${files} páginas, ${images.length} capturas, sitemap.xml y robots.txt.`);
   for (const key of KEYS) console.log(`  ${key}: ${config[key] || '(vacío: se oculta)'}`);
 
   if (args.includes('--readme')) {
