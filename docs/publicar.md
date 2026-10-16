@@ -408,9 +408,10 @@ control remoto desde el celular; Ayuda > Buscar actualizaciones (debe decir que 
 
 ## Dar de alta en tiendas
 
-Tres vías para que la gente instale Tlaku con su gestor de paquetes. **Los archivos están preparados
-para la versión 0.1.0; no se ha enviado nada** (ni a `microsoft/winget-pkgs`, ni a Homebrew, ni a
-`flathub/flathub`). Los tres envíos los haces tú, con tu cuenta: esta sección dice cómo.
+Tres vías para que la gente instale Tlaku con su gestor de paquetes. **El cask de Homebrew y los
+manifiestos de winget están al día con la 0.1.1** (`packaging/winget/.../0.1.1/`; la carpeta `0.1.0`
+queda como base del script `winget-manifests.mjs`); Flathub sigue en 0.1.0. Hasta el 2026-10-16 no se
+había enviado nada (ni a `microsoft/winget-pkgs`, ni a Homebrew, ni a `flathub/flathub`). Los tres envíos los haces tú, con tu cuenta: esta sección dice cómo.
 
 ### Lista de comprobación
 

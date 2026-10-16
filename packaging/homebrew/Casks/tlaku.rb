@@ -2,8 +2,8 @@
 # Instalar:  brew install --cask jahziel1/tlaku/tlaku
 # Guía de envío y por qué NO va al cask oficial: docs/publicar.md#homebrew-macos
 cask "tlaku" do
-  version "0.1.0"
-  sha256 "7dbabd44861389c01b3534ea377f69a5403e37e1a9d114dcdb77b6d097f885e6"
+  version "0.1.1"
+  sha256 "88be394ad14b6a9ef333b8f8cdf5105fff2a0992079ba064b6e4026197cdf939"
 
   url "https://github.com/jahziel1/tlaku/releases/download/v#{version}/Tlaku_#{version}_universal.dmg"
   name "Tlaku"
