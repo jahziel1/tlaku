@@ -340,6 +340,40 @@ fn the_writer_does_not_block_the_sender_and_saves_ack_status_and_modal_state() {
 }
 
 #[test]
+fn the_writer_learns_the_buffer_capacity_from_every_report_not_only_from_the_ones_it_saves() {
+    // Disco lento: el primer guardado llega cuando el planificador ya está lleno (`planner_free`
+    // 0). La capacidad se vio en un reporte anterior, que no se guardó, y no debe perderse: sin
+    // ella la ventana de búsqueda queda mínima y la posición no encaja (`Unknown`).
+    let lines = sample();
+    let dir = tmp("writer-cap");
+    let store = Arc::new(CheckpointStore::new(&dir));
+    let sent = Arc::new(lines.clone());
+    let w = CheckpointWriter::start(
+        store.clone(),
+        meta("cap", &lines),
+        sent.clone(),
+        sent,
+        // Intervalo largo: ningún guardado ocurre entre los dos reportes.
+        Duration::from_secs(3600),
+    );
+    let snap = |planner_free| StatusSnap {
+        mpos: [1.0, 2.0],
+        wpos: [1.0, 2.0],
+        wco: [0.0, 0.0],
+        planner_free,
+        rx_free: 100,
+    };
+    w.note_status(snap(180));
+    w.note_status(snap(0));
+    w.note_acked(5);
+    w.finish(Finish::Keep, &store);
+    let p = store.load().unwrap().progress.unwrap();
+    assert_eq!(p.planner_free, Some(0));
+    assert_eq!(p.planner_cap, Some(180));
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
 fn a_dropped_writer_keeps_the_checkpoint() {
     let lines = sample();
     let dir = tmp("dropped");

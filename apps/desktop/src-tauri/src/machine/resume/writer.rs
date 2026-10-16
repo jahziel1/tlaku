@@ -37,6 +37,12 @@ struct Shared {
     /// Líneas entregadas a la máquina hasta ahora (con o sin `ok`).
     sent: AtomicU32,
     status: Mutex<Option<StatusSnap>>,
+    /// Mayor `planner_free` visto en cualquier reporte (la capacidad del planificador). Se anota
+    /// en cada reporte, no al escribir: si el disco tarda, el primer guardado llega con el
+    /// planificador ya lleno y la capacidad no se vería nunca.
+    planner_cap: AtomicU32,
+    /// Lo mismo para `rx_free` (el búfer serie).
+    rx_cap: AtomicU32,
     stop: Mutex<Option<Finish>>,
     wake: Condvar,
     error: Mutex<Option<String>>,
@@ -63,6 +69,8 @@ impl CheckpointWriter {
             acked: AtomicU32::new(0),
             sent: AtomicU32::new(0),
             status: Mutex::new(None),
+            planner_cap: AtomicU32::new(0),
+            rx_cap: AtomicU32::new(0),
             stop: Mutex::new(None),
             wake: Condvar::new(),
             error: Mutex::new(None),
@@ -92,6 +100,12 @@ impl CheckpointWriter {
 
     /// Último reporte de estado. No bloquea (la sección crítica es una asignación).
     pub fn note_status(&self, snap: StatusSnap) {
+        self.shared
+            .planner_cap
+            .fetch_max(snap.planner_free, Ordering::Relaxed);
+        self.shared
+            .rx_cap
+            .fetch_max(snap.rx_free, Ordering::Relaxed);
         if let Ok(mut g) = self.shared.status.lock() {
             *g = Some(snap);
         }
@@ -138,8 +152,6 @@ struct State {
     last_acked: u32,
     last_sent: u32,
     last_status: Option<StatusSnap>,
-    planner_cap: u32,
-    rx_cap: u32,
     wrote_any: bool,
 }
 
@@ -168,8 +180,6 @@ fn run(
         last_acked: u32::MAX,
         last_sent: u32::MAX,
         last_status: None,
-        planner_cap: 0,
-        rx_cap: 0,
         wrote_any: false,
     };
     loop {
@@ -211,10 +221,8 @@ fn write_now(store: &CheckpointStore, sent: &[String], shared: &Shared, st: &mut
     {
         return;
     }
-    if let Some(s) = status {
-        st.planner_cap = st.planner_cap.max(s.planner_free);
-        st.rx_cap = st.rx_cap.max(s.rx_free);
-    }
+    let planner_cap = shared.planner_cap.load(Ordering::Relaxed);
+    let rx_cap = shared.rx_cap.load(Ordering::Relaxed);
     let sent_line = (acked > 0)
         .then(|| st.sendable.get(acked as usize - 1).copied())
         .flatten();
@@ -243,8 +251,8 @@ fn write_now(store: &CheckpointStore, sent: &[String], shared: &Shared, st: &mut
         wco: status.map(|s| s.wco),
         planner_free: status.map(|s| s.planner_free),
         rx_free: status.map(|s| s.rx_free),
-        planner_cap: (st.planner_cap > 0).then_some(st.planner_cap),
-        rx_cap: (st.rx_cap > 0).then_some(st.rx_cap),
+        planner_cap: (planner_cap > 0).then_some(planner_cap),
+        rx_cap: (rx_cap > 0).then_some(rx_cap),
         modal: st.walker.modal(),
         t_ms: now_ms(),
     };
