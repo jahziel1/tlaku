@@ -55,15 +55,20 @@ function bump(version) {
   console.log(`Versión ${antes} -> ${version}. Revisa con git diff y crea la etiqueta v${version} solo con aprobación.`);
 }
 
-/** Botones de descarga: cambia vA.B.C/Tlaku_A.B.C_ por la versión nueva. */
+/**
+ * README: los cuatro botones de descarga (vA.B.C/Tlaku_A.B.C_), el título «Download the beta (A.B.C)»
+ * o «Descarga la beta (A.B.C)» y «Tlaku **A.B.C (beta)**» de la instalación.
+ */
 export function botonesReadme(texto, version, donde) {
-  return sustituir(
+  let t = sustituir(
     texto,
     /releases\/download\/v\d+\.\d+\.\d+\/Tlaku_\d+\.\d+\.\d+_/,
     `releases/download/v${version}/Tlaku_${version}_`,
     donde,
     4,
   );
+  t = sustituir(t, /^(### (?:Download the beta|Descarga la beta) \()\d+\.\d+\.\d+\)/m, `$1${version})`, donde);
+  return sustituir(t, /Tlaku \*\*\d+\.\d+\.\d+ \(beta\)\*\*/, `Tlaku **${version} (beta)**`, donde);
 }
 
 export function cask(texto, version, sha256) {

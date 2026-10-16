@@ -16,9 +16,11 @@ controla láseres GRBL como la Creality Falcon2: diseñas o importas un trabajo,
 ves cómo se va a cortar y lo envías a la máquina con revisiones de seguridad antes de que se mueva
 nada. LightBurn es una marca de su titular; Tlaku es un proyecto independiente y no está afiliado a ella.
 
-### Descarga la beta (0.1.0)
+### Descarga la beta (0.1.2)
 
 [![Descargar para Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_x64-setup.exe) [![Descargar para macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_universal.dmg) [![Descargar para Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.deb) [![Descargar para Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.AppImage)
+
+En Mac también se instala con Homebrew: `brew install --cask jahziel1/tlaku/tlaku`.
 
 [Todos los archivos y las notas de la versión](https://github.com/jahziel1/tlaku/releases/latest) ·
 [Sitio web](https://jahziel1.github.io/tlaku/) ·
@@ -118,13 +120,15 @@ Respuestas completas en la [página de preguntas frecuentes](https://jahziel1.gi
   de encastre al grosor real del material, deformar (arco, abombado, perspectiva y más), contorno
   de banda elástica, círculo tangente, asistente booleano con miniaturas, copiar a lo largo de un
   trazo, arreglo virtual (copias que no son objetos), acoplar y mover juntos, agrupar por
-  contención y **nesting** para acomodar piezas en la cama o en un material irregular. Guías desde
+  contención y **nesting** para acomodar piezas en la cama, en un material irregular o en varias hojas
+  (con inventario de retazos y dirección de la veta). Guías desde
   las reglas, puentes manuales, punto de inicio y sentido del corte, notas, plantillas, nueva
   ventana, pestañas reordenables y una biblioteca de arte con 41 dibujos.
 - **Texto y códigos:** texto con fuentes del sistema (sobre un trayecto, curvado o con las letras
   soldadas), 15 fuentes de una línea (Hershey) y lector de fuentes SHX, y códigos QR, Data Matrix y
   de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar). **Texto variable:** números de
-  serie, datos de un CSV, fecha y hora, con avance tras cada trabajo y una copia por fila.
+  serie, datos de uno o varios CSV (con imágenes y códigos QR por fila), fecha y hora, con avance tras
+  cada trabajo y una copia por fila. **Texto avanzado:** funciones OpenType y fuentes variables.
 - **Operaciones de geometría:** unión, diferencia, intersección, soldar, offset, unir trazos,
   cerrar trayectos y quitar duplicados.
 - **Importar:** proyectos de LightBurn (`.lbrn`, `.lbrn2`) con sus capas y ajustes, SVG (con
@@ -136,8 +140,8 @@ Respuestas completas en la [página de preguntas frecuentes](https://jahziel1.gi
 - **Exportar e imprimir:** SVG, DXF, PNG y PDF vectorial a escala 1:1, del diseño completo o de la
   selección, e imprimir a tamaño real.
 - **Preferencias y respaldo:** ventana de preferencias, atajos de teclado configurables, archivos
-  `.tlakuprefs` para llevar la configuración a otro equipo, autoguardado y recuperación tras un
-  cierre inesperado.
+  `.tlakuprefs` para llevar la configuración a otro equipo, respaldo de los ajustes a una carpeta tuya,
+  autoguardado y recuperación tras un cierre inesperado.
 - **Capas de corte:** modos Línea, Relleno e Imagen; velocidad, potencia, pasadas, intervalo,
   ángulo, incremento de ángulo, bidireccional, overscan calculado con la física de la máquina,
   kerf, puentes (tabs), aire, eje Z por capa y por pasada, y relleno por barrido, por contornos o
@@ -155,7 +159,8 @@ Respuestas completas en la [página de preguntas frecuentes](https://jahziel1.gi
   bits y guardar la imagen procesada.
 - **Vista previa:** reproducción del recorrido con tiempo estimado y desglose por capa, y una
   ventana de ajustes de optimización (respetar capas, grupos y prioridad, interiores primero,
-  mejor punto de inicio, quitar tramos que se cortarían dos veces, esconder el juego mecánico).
+  mejor punto de inicio, quitar tramos que se cortarían dos veces, esconder el juego mecánico). La
+  vista **por tonos** aproxima qué tan oscuro quedará cada zona según el material y los watts del láser.
 - **Máquina:** asistente "Agregar máquina" con detección de solo lectura, conexión por puerto
   serie o **por red** (TCP/Telnet y WebSocket, con "Probar conexión"), mover el cabezal (pasos
   configurables, ejes Z y U, enfocar, posiciones guardadas, posicionar el láser con un clic,
@@ -177,6 +182,22 @@ Respuestas completas en la [página de preguntas frecuentes](https://jahziel1.gi
   el celular. Apagado de fábrica, solo en tu red local y con una clave que cambia cada vez que se
   abre la app. **No hay HTTPS: úsalo solo en una red de confianza.** Mira
   [Control desde el celular](docs/manual/09e-control-desde-el-celular.md).
+- **Pestañas y vista en vivo:** varios diseños abiertos en pestañas dentro de una misma ventana, y
+  una **vista en vivo** del trabajo en curso (el cabezal y lo que ya se grabó) en una ventana
+  flotante, en una ventana aparte o en el celular; se puede apagar.
+- **Generadores de piezas:** cajas con dientes (con divisores, zócalo y patas), bandejas y cajones,
+  bisagras flexibles (rectas, onda, zigzag, ladrillo y rombo), engranajes, uniones de cola de milano
+  y de ranura y pestaña, caja redondeada y una pieza de prueba de encaje para calibrar el kerf de tu
+  material.
+- **Costos y precio:** calculadora por pieza con el tiempo de máquina, el material, la electricidad,
+  la mano de obra, la comisión y los impuestos.
+- **Trabajos:** **historial de trabajos** con los ajustes de cada uno, **cola guiada** que siempre se
+  detiene entre trabajos para que cambies el material, e **historial de versiones** del proyecto.
+- **Catálogo de máquinas:** 46 máquinas, con detección del modelo al agregar la máquina, e
+  importación de perfiles de máquina de LightBurn (`.lbdev`). Si la placa deja de contestar unos
+  segundos (pasa con algunas placas ESP32), Tlaku avisa y espera en vez de cortar el trabajo.
+- **Se actualiza sola:** avisa cuando hay una versión nueva y la instala con tu permiso, nunca con un
+  trabajo en curso.
 - **Automatización:** servidor UDP local opcional (apagado de fábrica, solo `127.0.0.1`) para que
   otros programas manden `LOAD`, `START`, `STATUS` y `STOP`; `START` pide confirmación en la app.
 - **Ruida y K40 (experimental):** controladoras Ruida (CO2) por red desde la app, y K40 con placa
@@ -190,9 +211,10 @@ Respuestas completas en la [página de preguntas frecuentes](https://jahziel1.gi
 - **Taller:** biblioteca de materiales con **134 ajustes de fábrica** (cada uno con su fuente y su nivel de confianza, por clase de máquina: diodo, CO2 y fibra; son puntos de partida), ajustes de la comunidad (CC0, sin verificar), prueba de materiales, rotativo (rodillo o mandril),
   corrección de barrido (scanning offset), cámara con calibración de lente (incluido el modelo de
   ojo de pez), alineación y marcas grabadas, captura y vectorizado de la cama, cámara en el cabezal
-  con mosaico y buscador de centro. Pulgadas en la interfaz.
+  con mosaico y buscador de centro, y alineación de la cámara con el propio cabezal, sin grabar marcas.
+  Biblioteca comunitaria de ajustes que se descarga desde la app. Pulgadas en la interfaz.
 - **Idiomas:** español e inglés, con cambio en vivo.
-- **Ayuda:** manual de usuario de 34 páginas, en español y en inglés, dentro de la aplicación (menú Ayuda, con buscador) y en
+- **Ayuda:** manual de usuario de 40 páginas, en español y en inglés, dentro de la aplicación (menú Ayuda, con buscador) y en
   [docs/manual](docs/manual/00-indice.md) ([English](docs/manual/en/00-indice.md)), atajos con `F1`, novedades y "Acerca de".
 
 ![El modo sencillo en el paso Material: la potencia del láser, el material y los avisos de puntos de partida](apps/desktop/docs/screenshots/59-simple-material.png)
@@ -244,8 +266,8 @@ Estas funciones siguen pendientes; ninguna bloquea la beta. El criterio completo
 de [docs/spec/cobertura/auditoria.md](docs/spec/cobertura/auditoria.md) y el plan en
 [docs/plan-completo.md](docs/plan-completo.md).
 
-- **Antes de la beta:** actualización automática, el sitio con donaciones y publicar los instaladores
-  (en curso), y probar «Nueva ventana» en una ventana real.
+- **Gestores de paquetes:** winget (Windows; en revisión por Microsoft) y Flathub (Linux; aún sin
+  enviar). Homebrew ya funciona (ver [Instalación](#instalación)).
 - **Diseño y capas:** el Modo principiante completo (ocultar herramientas y menús; el modo sencillo
   cubre gran parte), las propiedades de imagen y de texto en la misma ventana, el ajuste magnético
   de las manijas de deformar, revertir un chaflán (hoy se usa Deshacer), valores por defecto de capa
@@ -290,7 +312,7 @@ app, con pruebas automáticas. Guía completa:
 
 ### Descargar la aplicación
 
-Tlaku **0.1.0 (beta)** está publicado en la página de
+Tlaku **0.1.2 (beta)** está publicado en la página de
 [**Releases**](https://github.com/jahziel1/tlaku/releases/latest) del repositorio (sección "Assets"), o
 usa los botones de descarga del inicio de esta página:
 
@@ -301,6 +323,9 @@ usa los botones de descarga del inicio de esta página:
 | Linux x86_64 | `.deb` (`sudo apt install ./Tlaku_*_amd64.deb`) o `.AppImage` (`chmod +x` y ejecútalo) |
 | Linux ARM64 / Raspberry Pi 4 y 5 con sistema de 64 bits (experimental) | `.deb` (`sudo apt install ./Tlaku_*_arm64.deb`) o `*_aarch64.AppImage` |
 | Linux, cualquier distribución (Flatpak, **sin probar**) | `Tlaku_*_x86_64.flatpak` o `Tlaku_*_aarch64.flatpak`: `flatpak install --user ./Tlaku_*_x86_64.flatpak` |
+
+**Con Homebrew (macOS):** `brew install --cask jahziel1/tlaku/tlaku` instala el mismo `.dmg` y al
+terminar explica cómo abrirla la primera vez. Después la app se actualiza sola.
 
 **Aplicación sin firmar.** Mientras el proyecto no tenga certificados de firma, el sistema avisará
 la primera vez que abras el instalador:

@@ -16,9 +16,11 @@ drives GRBL lasers such as the Creality Falcon2: you design or import a job, adj
 how it will be cut and send it to the machine with safety checks before anything moves.
 LightBurn is a trademark of its owner; Tlaku is an independent project and is not affiliated with it.
 
-### Download the beta (0.1.0)
+### Download the beta (0.1.2)
 
 [![Download for Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_x64-setup.exe) [![Download for macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_universal.dmg) [![Download for Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.deb) [![Download for Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.AppImage)
+
+On a Mac you can also install it with Homebrew: `brew install --cask jahziel1/tlaku/tlaku`.
 
 [All files and release notes](https://github.com/jahziel1/tlaku/releases/latest) ·
 [Website](https://jahziel1.github.io/tlaku/en/) ·
@@ -114,13 +116,14 @@ Full answers on the [FAQ page](https://jahziel1.github.io/tlaku/en/faq/).
   (rounded, chamfer or bite), cut shapes with a knife, resize interlocking slots to the real material
   thickness, warp (arc, bulge, perspective and more), rubber-band outline, tangent circle, boolean
   wizard with thumbnails, copy along a path, virtual array (copies that are not objects), dock and
-  move together, group by containment and **nesting** to arrange pieces on the bed or on an irregular
-  material. Guides from the rulers, manual tabs, start point and cut direction, notes, templates, new
+  move together, group by containment and **nesting** to arrange pieces on the bed, on an irregular
+  material or across several sheets (with an offcut inventory and grain direction). Guides from the rulers, manual tabs, start point and cut direction, notes, templates, new
   window, reorderable tabs and an art library with 41 drawings.
 - **Text and codes:** text with system fonts (on a path, curved or with welded letters), 15
   single-line fonts (Hershey) and an SHX font reader, and QR, Data Matrix and barcodes (Code 128, Code
-  39, EAN-13, EAN-8, UPC-A, ITF and Codabar). **Variable text:** serial numbers, data from a CSV, date
-  and time, advancing after each job and one copy per row.
+  39, EAN-13, EAN-8, UPC-A, ITF and Codabar). **Variable text:** serial numbers, data from one or several
+  CSV files (with per-row images and QR codes), date and time, advancing after each job and one copy
+  per row. **Advanced text:** OpenType features and variable fonts.
 - **Geometry operations:** union, difference, intersection, weld, offset, join paths, close paths and
   remove duplicates.
 - **Import:** LightBurn projects (`.lbrn`, `.lbrn2`) with their layers and settings, SVG (with real
@@ -131,7 +134,8 @@ Full answers on the [FAQ page](https://jahziel1.github.io/tlaku/en/faq/).
 - **Export and print:** SVG, DXF, PNG and vector PDF at 1:1 scale, of the whole design or of the
   selection, and print at real size.
 - **Preferences and backup:** preferences window, configurable keyboard shortcuts, `.tlakuprefs`
-  files to take your settings to another computer, autosave and recovery after an unexpected close.
+  files to take your settings to another computer, settings backup to a folder of your choice,
+  autosave and recovery after an unexpected close.
 - **Cut layers:** Line, Fill and Image modes; speed, power, passes, interval, angle, angle increment,
   bidirectional, overscan computed with the machine's physics, kerf, tabs, air, Z axis per layer and
   per pass, and fill by sweep, by contours or by regions, grouped by shape or by group.
@@ -147,7 +151,8 @@ Full answers on the [FAQ page](https://jahziel1.github.io/tlaku/en/faq/).
   processed image.
 - **Preview:** playback of the toolpath with estimated time and a per-layer breakdown, and a window
   of optimization settings (respect layers, groups and priority, inner first, best start point, remove
-  segments that would be cut twice, hide mechanical backlash).
+  segments that would be cut twice, hide mechanical backlash). The **tonal** view approximates how
+  dark each area will come out for the material and the laser's watts.
 - **Machine:** "Add machine" wizard with read-only detection, connection by serial port or **by
   network** (TCP/Telnet and WebSocket, with "Test connection"), move the head (configurable steps, Z
   and U axes, focus, saved positions, position the laser with a click, final position), test fire with
@@ -168,6 +173,21 @@ Full answers on the [FAQ page](https://jahziel1.github.io/tlaku/en/faq/).
   only on your local network and with a key that changes every time the app opens. **There is no
   HTTPS: use it only on a trusted network.** See
   [Control from your phone](docs/manual/en/09e-control-desde-el-celular.md).
+- **Tabs and live view:** several designs open as tabs in one window, and a **live view** of the
+  running job (the head and what has already been engraved) in a floating window, a separate window
+  or on the phone; it can be turned off.
+- **Part generators:** finger-joint boxes (with dividers, base and feet), trays and drawers, living
+  hinges (straight, wave, zigzag, brick and diamond), gears, dovetail and slot-and-tab joints, a
+  rounded box and a fit-test piece to calibrate the kerf of your material.
+- **Costs and price:** per-piece calculator with machine time, material, electricity, labor,
+  commission and taxes.
+- **Jobs:** **job history** with the settings of each job, a **guided queue** that always stops
+  between jobs so you can change the material, and the project's **version history**.
+- **Machine catalog:** 46 machines, with the model detected when you add the machine, and import of
+  LightBurn machine profiles (`.lbdev`). If the board stops answering for a few seconds (some ESP32
+  boards do), Tlaku warns you and waits instead of aborting the job.
+- **Updates itself:** it tells you when there is a new version and installs it with your consent,
+  never during a job.
 - **Automation:** optional local UDP server (off by default, `127.0.0.1` only) so other programs can
   send `LOAD`, `START`, `STATUS` and `STOP`; `START` asks for confirmation in the app.
 - **Ruida and K40 (experimental):** Ruida controllers (CO2) over the network from the app, and K40 with
@@ -183,9 +203,10 @@ Full answers on the [FAQ page](https://jahziel1.github.io/tlaku/en/faq/).
   level, by machine class: diode, CO2 and fiber; they are starting points), community settings (CC0,
   unverified), material test, rotary (roller or chuck), scanning offset correction, camera with lens
   calibration (including the fisheye model), alignment and engraved marks, bed capture and tracing,
-  head camera with mosaic and center finder. Inches in the interface.
+  head camera with mosaic and center finder, and camera alignment using the head itself, with no marks
+  to engrave. A community settings library you can download from the app. Inches in the interface.
 - **Languages:** Spanish and English, switchable live.
-- **Help:** a 34-page user manual inside the application (Help menu, with search) and in
+- **Help:** a 40-page user manual inside the application (Help menu, with search) and in
   [docs/manual/en](docs/manual/en/00-indice.md) (also in Spanish in [docs/manual](docs/manual/00-indice.md)),
   shortcuts with `F1`, what's new and "About".
 
@@ -236,8 +257,8 @@ These features are still pending; none blocks the beta. The full criterion is in
 [docs/spec/cobertura/auditoria.md](docs/spec/cobertura/auditoria.md) and the plan in
 [docs/plan-completo.md](docs/plan-completo.md) (both in Spanish).
 
-- **Before the beta:** automatic updates, the site with donations and publishing the installers (in
-  progress), and testing "New window" in a real window.
+- **Package managers:** winget (Windows; under review by Microsoft) and Flathub (Linux; not
+  submitted yet). Homebrew already works (see [Installation](#installation)).
 - **Design and layers:** the full Beginner mode (hiding tools and menus; simple mode covers a lot of
   it), image and text properties in the same window, snapping of the warp handles, reverting a
   chamfer (today Undo is used), per-color and per-machine layer defaults, inches in layers, machines
@@ -282,7 +303,7 @@ automated tests. Full guide: [docs/manual/en/13-controladoras.md](docs/manual/en
 
 ### Download the application
 
-Tlaku **0.1.0 (beta)** is published on the repository's
+Tlaku **0.1.2 (beta)** is published on the repository's
 [**Releases**](https://github.com/jahziel1/tlaku/releases/latest) page ("Assets" section), or use the
 download buttons at the top of this page. You can also build from source (next section).
 
@@ -293,6 +314,9 @@ download buttons at the top of this page. You can also build from source (next s
 | Linux x86_64 | `.deb` (`sudo apt install ./Tlaku_*_amd64.deb`) or `.AppImage` (`chmod +x` and run it) |
 | Linux ARM64 / Raspberry Pi 4 and 5, 64-bit system (experimental) | `.deb` (`sudo apt install ./Tlaku_*_arm64.deb`) or `*_aarch64.AppImage` |
 | Linux, any distribution (Flatpak, **untested**) | `Tlaku_*_x86_64.flatpak` or `Tlaku_*_aarch64.flatpak`: `flatpak install --user ./Tlaku_*_x86_64.flatpak` |
+
+**With Homebrew (macOS):** `brew install --cask jahziel1/tlaku/tlaku` installs the same `.dmg` and,
+when it finishes, explains how to open it the first time. After that the app updates itself.
 
 **Unsigned application.** While the project has no signing certificates, the system will warn you the
 first time you open the installer:

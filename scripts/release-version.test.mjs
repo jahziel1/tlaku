@@ -11,6 +11,8 @@ test('los botones de los dos README cambian a la versión nueva', () => {
     const t = botonesReadme(leer(f), '9.8.7', f);
     assert.equal([...t.matchAll(/releases\/download\/v9\.8\.7\/Tlaku_9\.8\.7_/g)].length, 4);
     assert.doesNotMatch(t, /releases\/download\/v0\.\d+\.\d+\//);
+    assert.match(t, /^### (Download the beta|Descarga la beta) \(9\.8\.7\)$/m);
+    assert.match(t, /Tlaku \*\*9\.8\.7 \(beta\)\*\*/);
   }
 });
 
