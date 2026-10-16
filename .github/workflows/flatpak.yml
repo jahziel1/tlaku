@@ -33,7 +33,7 @@ jobs:
     name: Bajar los .deb de la Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || inputs.tag }}
 
@@ -83,7 +83,7 @@ jobs:
           appstreamcli validate --no-net packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml
           desktop-file-validate packaging/flatpak/io.github.jahziel1.tlaku.desktop
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flatpak-debs
           path: packaging/flatpak/debs
@@ -104,11 +104,11 @@ jobs:
         # flatpak-github-actions). Como solo se reempaqueta un .deb, la emulación es rápida.
         arch: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || inputs.tag }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: flatpak-debs
           path: packaging/flatpak/debs
@@ -124,7 +124,7 @@ jobs:
 
       - name: Preparar QEMU
         if: matrix.arch != 'x86_64'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
@@ -136,7 +136,7 @@ jobs:
           cache-key: flatpak-builder-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/io.github.jahziel1.tlaku.yml') }}
           upload-artifact: false
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flatpak-${{ matrix.arch }}
           path: tlaku-${{ matrix.arch }}.flatpak
@@ -148,7 +148,7 @@ jobs:
     needs: flatpak
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: flatpak-*
           path: paquetes
