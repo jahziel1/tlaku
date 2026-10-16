@@ -191,3 +191,9 @@ export function sitemapXml(registry) {
 export function robotsTxt(registry) {
   return `User-agent: *\nAllow: /\n\nSitemap: ${registry.site_url}sitemap.xml\n`;
 }
+
+/** Archivo de verificación de Google Search Console (`google<hex>.html` en la raíz): se publica tal cual. */
+export const GOOGLE_VERIFY = /^google[0-9a-f]+\.html$/;
+export function isGoogleVerification(name, text) {
+  return GOOGLE_VERIFY.test(name) && text.trim() === `google-site-verification: ${name}`;
+}

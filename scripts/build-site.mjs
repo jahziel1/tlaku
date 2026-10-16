@@ -32,7 +32,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { indexPages, relUrl, robotsTxt, seoBlock, sitemapXml } from './site-seo.mjs';
+import { GOOGLE_VERIFY, indexPages, isGoogleVerification, relUrl, robotsTxt, seoBlock, sitemapXml } from './site-seo.mjs';
 
 export const KEYS = ['REPO_URL', 'SPONSORS_URL', 'KOFI_URL'];
 /** Marcadores que calcula el script para cada página (no vienen de site/config.json). */
@@ -141,8 +141,12 @@ export function build({ root, configPath, outDir }) {
   mkdirSync(outDir, { recursive: true });
   cpSync(siteDir, outDir, { recursive: true, filter: (src) => !EXCLUDED.has(basename(src)) });
 
-  // Cada .html del sitio debe estar en pages.json y viceversa.
-  const files = htmlFiles(outDir);
+  // Cada .html del sitio debe estar en pages.json y viceversa (salvo la verificación de Google).
+  const files = htmlFiles(outDir).filter((f) => {
+    if (dirname(f) !== outDir || !GOOGLE_VERIFY.test(basename(f))) return true;
+    if (!isGoogleVerification(basename(f), readFileSync(f, 'utf8'))) throw new Error(`${relative(root, f)}: no tiene el contenido de verificación de Google`);
+    return false;
+  });
   const seen = new Set();
   for (const file of files) {
     const path = relative(outDir, dirname(file)).split('\\').join('/');

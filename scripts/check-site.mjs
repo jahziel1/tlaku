@@ -17,7 +17,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { OG_SIZE, decode, faqFromHtml, indexPages, pageDescription, pageTitle } from './site-seo.mjs';
+import { OG_SIZE, decode, faqFromHtml, indexPages, isGoogleVerification, pageDescription, pageTitle } from './site-seo.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = resolve(process.argv[2] ?? 'site-dist');
@@ -218,6 +218,7 @@ function walk(dir) {
 for (const f of walk(outDir)) {
   if (!f.endsWith('.html')) continue;
   const rel = f.slice(outDir.length + 1);
+  if (isGoogleVerification(rel, readFileSync(f, 'utf8'))) continue;
   if (!known.has(rel === 'index.html' ? '' : rel.replace(/index\.html$/, ''))) err(rel, 'página que no está en site/pages.json');
 }
 
