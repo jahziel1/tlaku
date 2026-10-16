@@ -34,13 +34,13 @@ falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-
    | `packaging/flatpak/io.github.jahziel1.tlaku.metainfo.xml` | Un `<release version="X.Y.Z" date="AAAA-MM-DD">` nuevo arriba y la etiqueta `vX.Y.Z` en las URL de las capturas. No bloquea la publicación (`flatpak.yml` solo avisa si falta), pero Flathub lo exige: ver [Flatpak y Flathub](#flatpak-y-flathub). |
 
    ```sh
-   # desde la raíz del repositorio, por ejemplo para 0.2.0
-   sed -i '' 's/^version = ".*"/version = "0.2.0"/' Cargo.toml   # en Linux: sed -i sin ''
-   # revisa que solo cambió la línea de [workspace.package]
-   (cd apps/desktop && npm version 0.2.0 --no-git-tag-version)   # package.json y package-lock.json
-   # edita "version" en apps/desktop/src-tauri/tauri.conf.json
-   cargo check --workspace          # actualiza Cargo.lock
+   # desde la raíz del repositorio, por ejemplo para 0.2.0: cambia los tres archivos,
+   # package-lock.json y Cargo.lock (solo las versiones de los crates propios)
+   node scripts/release-version.mjs bump 0.2.0
+   git diff --stat
    ```
+
+   El `<release>` del metainfo de Flatpak se escribe a mano (texto corto en inglés y español).
 
 2. **Comprueba que todo pasa** (los mismos comandos que la CI):
 
@@ -70,6 +70,18 @@ falla (ver [Firma](#firma-de-código) y [Qué ve el usuario sin firma](#qué-ve-
    - Descarga al menos un instalador y pruébalo.
    - Pulsa **Publish release**. Una etiqueta con guion (`v0.2.0-beta.1`) se marca como
      pre-lanzamiento.
+
+6. **Después de publicar**, pon al día los botones de descarga de los dos README, el cask de
+   Homebrew y los manifiestos de winget con los archivos reales de la Release:
+
+   ```sh
+   node scripts/release-version.mjs after v0.2.0
+   git diff --stat      # README.md, README.es.md, packaging/homebrew, packaging/winget/.../0.2.0
+   ```
+
+   Luego copia `packaging/homebrew/Casks/tlaku.rb` al tap `jahziel1/homebrew-tlaku` y abre en
+   `microsoft/winget-pkgs` el PR «Update: jahziel1.Tlaku to 0.2.0» con la carpeta nueva (ver
+   [Dar de alta en tiendas](#dar-de-alta-en-tiendas)).
 
 Notas:
 

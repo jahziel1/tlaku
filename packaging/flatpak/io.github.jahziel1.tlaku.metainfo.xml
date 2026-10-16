@@ -107,6 +107,18 @@
   </screenshots>
 
   <releases>
+    <release version="0.1.2" date="2026-10-16">
+      <description>
+        <p>Resuming an interrupted job now finds the right position on computers with a slow disk.</p>
+        <p xml:lang="es">Continuar un trabajo interrumpido ya encuentra la posición correcta en computadoras con disco lento.</p>
+      </description>
+    </release>
+    <release version="0.1.1" date="2026-10-16">
+      <description>
+        <p>The macOS app is fully signed (ad hoc), so macOS no longer says it is damaged.</p>
+        <p xml:lang="es">La app de macOS va firmada completa (firma local) y macOS ya no dice que está dañada.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-15">
       <description>
         <p>First public version.</p>
