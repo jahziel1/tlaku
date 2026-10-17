@@ -2,42 +2,63 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
-## Alinear la cámara con el cabezal, sin grabar, en la próxima versión
+## 0.1.2 (beta), 16 de octubre de 2026
+
+- **Continuar un trabajo interrumpido, arreglado.** En computadoras con disco lento, como en las pruebas en Windows, Tlaku podía decir que la posición no coincidía aunque fuera correcta. Ahora aprende la capacidad de memoria de la placa a partir de cada reporte de estado que ella misma envía, y ya no da falsas alarmas. Mira [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
+- **Instalar en macOS con Homebrew:** `brew install --cask jahziel1/tlaku/tlaku`. Mira [Primeros pasos](01-primeros-pasos.md#1-instalar).
+
+## 0.1.1 (beta), 16 de octubre de 2026
+
+- **macOS ya no dice que Tlaku está «dañado».** Con la 0.1.0, macOS podía mostrar ese aviso; ahora la app de macOS va firmada por completo.
+- Sigue sin estar notarizada por Apple: la primera vez macOS avisa y hay que usar **Abrir de todas formas** en **Ajustes del Sistema > Privacidad y seguridad**. Mira [Primeros pasos](01-primeros-pasos.md#1-instalar) y [Solución de problemas](15-solucion-de-problemas.md#macos-dice-que-la-app-esta-danada).
+
+## 0.1.0 (beta), 15 de octubre de 2026, primera versión publicada
+
+Es la primera versión pública y trae todo lo que se describe debajo. Se probó con una **Creality Falcon2 Pro de 22 W real** (GRBL 1.1f, en macOS, los días 14 y 15 de octubre): conectar y detectar el modelo, elegir el puerto, homing, mover el cabezal, bloqueo de movimiento fuera de la cama, encuadre (apagado y al 1 %), disparo de prueba, **grabado de líneas, rellenos e imágenes** con tramado y prueba de materiales, tiempo estimado (con un error de entre 1 y 3 % frente al real), **pausa, reanudar y detener** con láser y aire, aire asistido, **continuar tras un corte de energía** (paro de emergencia), la **vista en vivo** y el **control desde el celular** siguiendo un grabado real.
+
+Cuando la Falcon deja de contestar unos segundos, Tlaku espera y avisa que la máquina «no contesta» en lugar de dar la conexión por perdida. Si otro programa (como LightBurn) tiene el puerto abierto, Tlaku no puede conectarse y lo dice.
+
+**Todavía no se ha probado con una máquina real:** el corte con potencia alta (por ejemplo, cortar MDF), un corte de luz real a mitad de un grabado con material, trabajos largos (de más de 10 minutos), medidas absolutas con regla, calibrar y alinear la cámara, la conexión por red, el rotativo, el eje Z, la sonda, Print & Cut, el tiling y el alimentador, Ruida, K40, galvo, otras marcas y firmwares GRBL, Linux, Raspberry Pi y Flatpak. Esas partes solo se validaron con emuladores y máquinas virtuales: empieza con potencia baja, material de desecho y supervisión. El detalle por máquina está en [Controladoras soportadas](13-controladoras.md).
+
+Debajo está lo que trae cada tanda de trabajo, de la más reciente a la más antigua.
+
+### Alinear la cámara con el cabezal, sin grabar
 
 - **Alinear con el cabezal (sin grabar)** para cámaras fijas sobre la cama (como la de la tapa de una Creality Falcon2 Pro): con el láser **apagado**, el cabezal recorre una rejilla de puntos conocidos, se toma una foto en cada uno y Tlaku calcula la alineación de la cámara con la cama. Sin cartón, sin grabar y sin gastar material.
 - Localiza el cabezal por su **LED verde** o por **diferencia de imágenes** (el pórtico queda como fondo). Descarta los puntos fuera de vista, afina la rejilla donde sí se ve el cabezal, y te dice el error de cada punto en mm y **qué zona de la cama quedó cubierta**.
 - Corrige el **paralaje** con las alturas de la cámara y del punto del cabezal, y un **desfase** que se calcula con un único punto de referencia (un disparo de prueba que marcas en la imagen). Mira [Cámara](10-camara.md#con-el-cabezal-sin-grabar-camara-fija).
+- **Límite:** la alineación todavía no se ha probado con una cámara real calibrada.
 
-## Nuevo identificador de la aplicación, en la próxima versión
+### Nuevo identificador de la aplicación
 
 - Tlaku cambia su identificador interno de `org.tlaku.app` a `io.github.jahziel1.tlaku` (lo pide Flathub para publicar el paquete Flatpak). Con él cambian los nombres de las carpetas donde Tlaku guarda sus datos.
 - **Tus ajustes se migran solos**: al abrir la nueva versión por primera vez, Tlaku **copia** (no mueve) lo que había en la carpeta antigua a la nueva: dispositivos, materiales, preferencias, plantillas, retazos, historial de trabajos, historial de versiones y copias de recuperación. Solo ocurre si la carpeta nueva está vacía, no se repite y no pisa nada; si la copia falla, la app abre igual con la carpeta nueva vacía y lo intenta de nuevo al siguiente arranque. La carpeta antigua queda intacta y puedes borrarla cuando quieras.
 - Lo que la ventana web recuerda por su cuenta (perfiles de la calculadora de costos, ajustes guardados de imágenes, pestañas abiertas, cola de trabajos, archivos recientes y estados de paneles) no se puede trasladar y empieza de cero.
 
-## Respaldo de ajustes en una carpeta, en la próxima versión
+### Respaldo de ajustes en una carpeta
 
 - **Respaldo automático** de tus máquinas, materiales, costos, retazos, plantillas, cámaras, arte, preferencias y atajos a una carpeta que elijas (iCloud Drive, Dropbox, OneDrive, USB…): al cerrar y/o cada N días, con nombre fechado y rotación. Si la carpeta no está, avisa una vez y sigue. **Archivo > Respaldo de ajustes…**
 - **Restaurar con vista previa**: por categoría ves qué es nuevo, distinto o igual, eliges qué importar y qué hacer con lo que choca (reemplazar, conservar ambos u omitir). Antes de aplicar se guarda un respaldo del estado actual.
 - **De una computadora a otra**: al abrir, si en la carpeta hay un respaldo más nuevo hecho en otra, te lo ofrece; nunca lo aplica solo. Nunca se respaldan contraseñas, llaves ni el acceso remoto. Mira [Respaldo de ajustes en una carpeta](02b-preferencias-y-atajos.md#respaldo-de-ajustes-en-una-carpeta).
 
-## Vista previa «por tonos», en la próxima versión
+### Vista previa «por tonos»
 
 - **Normal / Por tonos** en la barra de la vista previa: simula **cuánto se oscurece el material** según la potencia, la velocidad, el intervalo y las pasadas, con curvas por material (madera clara, MDF, contrachapado, cuero, acrílico esmerilado, cartón, papel, aluminio anodizado y personalizado), M3 contra M4 y las **fotos con sus puntos reales** (acerca el zoom y se ven). Es una **simulación aproximada**, sin texturas, y funciona con trabajos grandes.
 - **Calibrar…** con tu prueba de materiales: indicas a qué tono se parece cada celda y la curva de ese material se ajusta y se guarda en tu biblioteca de materiales. Mira [Vista previa](07-vista-previa.md#vista-por-tonos) y [Materiales](11-materiales.md#calibrar-el-tono-con-la-prueba).
 
-## Nesting con varias hojas, retazos y veta, en la próxima versión
+### Nesting con varias hojas, retazos y veta
 
 - **Varias hojas**: si las piezas no caben en una, el acomodo sigue en hojas nuevas del mismo tamaño (hasta 50), con el aprovechamiento de cada una. Cada hoja queda como una zona aparte del lienzo con su contorno de referencia en la capa de guías.
 - **Retazos**: guarda lo que sobra de una hoja (contorno real, material y grosor) en una biblioteca local, y al acomodar úsalos antes que una hoja nueva. **Organizar > Retazos guardados…** para verlos, renombrarlos y borrarlos.
 - **Veta y sin giro por pieza**: restringe cada pieza o grupo a 0° y 180° (la veta de la madera) o a no girar.
 - El motor sigue buscando mientras mejora (ya no se detiene antes de tiempo) y hay un banco de calidad reproducible contra las instancias clásicas de la literatura. Mira [Copias, arreglo virtual y nesting](03d-copias-y-nesting.md#varias-hojas).
 
-## Cola guiada e historial de trabajos, en la próxima versión
+### Cola guiada e historial de trabajos
 
 - **Cola de trabajos** (**Máquina > Cola de trabajos…**): varios documentos (pestañas o archivos) con copias, que se ejecutan de uno en uno. **Entre trabajos siempre se detiene** y te pide confirmar el cambio de material o pieza y la lista de comprobación; nunca avanza sola, y cada trabajo pasa por el diálogo de inicio de siempre. Si uno falla o se cancela, la cola se detiene. Reordenar, saltar, quitar y pausar, con progreso y tiempo estimado total. El celular **ve** la cola y solo confirma el siguiente con las reglas de iniciar (checklist en el teléfono y encuadre en la PC). Mira [Cola e historial de trabajos](09f-cola-e-historial-de-trabajos.md).
 - **Historial de trabajos** más completo: guarda las **capas con sus ajustes**, el material, el área, una miniatura, la pestaña de origen y **notas**; **busca y filtra** por fecha, máquina, material y resultado; **Repetir con estos ajustes** (con confirmación, sin enviar nada) y **exportar a CSV**. Vive en un archivo de la carpeta de datos (1000 trabajos por omisión, configurable) y migra solo el registro anterior.
 
-## Pestañas de documentos, en la próxima versión
+### Pestañas de documentos
 
 - **Varios proyectos en la misma ventana**, cada uno en su pestaña, con su propio historial de Deshacer, selección, zoom, vista previa y estado de guardado (algo que LightBurn no tiene). Barra de pestañas encima del lienzo con punto de cambios sin guardar, cerrar, **+**, reordenar arrastrando y menú contextual (cerrar, cerrar las demás, duplicar, mover, **mover a una ventana nueva**). `Ctrl/Cmd+T`, `Ctrl/Cmd+W` y `Ctrl+Tab`.
 - **Abrir** un proyecto lo abre en una pestaña nueva (o reemplaza la vacía; si ya estaba abierto, activa su pestaña). El portapapeles se comparte entre pestañas.
@@ -45,52 +66,52 @@ Lo más importante que trae cada versión de Tlaku, escrito para quien usa la ap
 - **Una copia de recuperación por pestaña**, y **Recuperar todas** tras un cierre inesperado; al iniciar se **reabren las pestañas** con archivo (se puede apagar en Preferencias).
 - La **máquina es una sola**: el trabajo en curso usa su copia, la pestaña de origen lleva una impresora y la vista en vivo sigue mostrándolo aunque cambies de pestaña. Mira [Pestañas de documentos](03f-pestanas-de-documentos.md).
 
-## Ola 6: revisar el diseño, edición en el lienzo, importar y máquinas, en la próxima versión
+### Ola 6: revisar el diseño, edición en el lienzo, importar y máquinas
 
-Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, el emulador, la tarjeta galvo simulada y pruebas automáticas.
+Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. De todo esto, solo la **vista en vivo** (en la ventana flotante y en una ventana aparte) se probó con la Falcon2 Pro real; lo demás se validó con la máquina virtual, el emulador, la tarjeta galvo simulada y pruebas automáticas.
 
-### Vista en vivo del trabajo
+#### Vista en vivo del trabajo
 
 - **Vista en vivo** (casilla en la pestaña **Máquina**, apagada de fábrica): una **ventana flotante** que no tapa el diseño muestra la cama completa y lo que hace la máquina, sin cámara, siguiendo la posición real que reporta: lo ya quemado en oscuro, lo pendiente tenue y el cabezal, con porcentaje, estado, transcurrido y restante. Se mueve, cambia de tamaño, se agranda, se cierra y se puede **abrir en una ventana aparte** (por ejemplo, en otro monitor). Se enciende y apaga cuando quieras, también a mitad de un trabajo. También está en la página del **celular** (con su propio interruptor). Solo mira. Mira [Enviar con seguridad](09-enviar-con-seguridad.md#vista-en-vivo-del-trabajo) y [Control desde el celular](09e-control-desde-el-celular.md#vista-en-vivo-en-el-celular).
 
-### Generadores de piezas
+#### Generadores de piezas
 
 - **Herramientas > Generadores de piezas…** dibuja piezas que se arman: **caja con dientes** (cerrada, abierta o con tapa deslizante; medidas exteriores o interiores; ancho de diente que se ajusta a un número impar de celdas; holgura de encaje aparte del kerf; nombre grabado en cada panel), **bisagra flexible** (rectas escalonadas, onda o zigzag) y **pieza de prueba de encaje** (trece ranuras de anchos distintos y un macho) para calibrar kerf y holgura con tu material. La caja suma **divisores** con compartimentos, **zócalo o patas**, y hay un generador de **bandeja y cajón** (asas, frente grande y caja exterior) y otro de **engranajes** de evolvente (uno, par, piñón con corona o con cremallera; agujero, chavetero y aligeramiento). La bisagra suma los patrones **ladrillo** y **rombo**; también hay **uniones** sueltas (cola de milano plana y pestaña-ranura con holgura) y una **caja redondeada** con un lateral que se dobla en las esquinas gracias a la bisagra. Vista previa en vivo, **Insertar** como objetos vectoriales agrupados dentro de la cama y sin tapar lo que ya hay, y **Regenerar** reemplaza las piezas en el mismo lugar con los parámetros guardados en el proyecto. La geometría sale nominal: **activa el kerf en la capa de corte** para que las uniones encajen. Mira [Generadores de piezas](03g-generadores-de-piezas.md).
 
-### Costos y precio por pieza
+#### Costos y precio por pieza
 
 - **Máquina > Costos y precio…** (también en la pestaña **Máquina** y en la barra de la vista previa) calcula lo que cuesta hacer una pieza y a cuánto venderla si vendes en Etsy, Mercado Libre o por pedido: tiempo de máquina (el estimado, calibrado con tus trabajos o el real del último), **desgaste del tubo o diodo** solo por el tiempo con láser encendido, electricidad, **material** por área, por área real o por hoja, mano de obra, empaque, cantidad y un **precio que cubre la comisión de la plataforma y los impuestos** (se cobran sobre el precio final, no sobre el costo). Guarda valores **por máquina** y **perfiles de material**, usa la moneda y el formato de tu región (MXN con `es-MX`), muestra la fórmula con tus números y deja **copiar el desglose** como texto o CSV. Nada sale de tu computadora. Mira [Costos y precio por pieza](07c-costos-y-precio.md).
 
-### Historial de versiones
+#### Historial de versiones
 
 - **Archivo > Historial de versiones…** te deja **volver a cómo estaba el proyecto aunque ya lo hayas guardado**. Cada vez que guardas se conserva antes lo que tenía el archivo; mientras editas se hacen **instantáneas automáticas** cada pocos minutos (si hay cambios), y **Archivo > Guardar versión…** guarda una versión **con nombre** que nunca se borra sola. Se comprimen, no se repiten si no cambió nada y se guardan en la carpeta de datos de la app (o, si lo prefieres, junto al archivo, en una carpeta oculta). La limpieza es configurable: todas las de 24 horas, una por día durante 30 días, una por semana después, con tope de tamaño por proyecto. La lista trae miniatura, fecha, tipo y tamaño; al elegir una versión ves una **vista previa**, **qué cambiaría al restaurarla** y puedes **restaurar como pestaña nueva** o **reemplazar el documento** (antes guarda lo que tenías y es un solo paso de Deshacer), resaltar lo que cambia, borrar la versión o abrir el historial de un archivo que no está abierto. Si el disco falla, avisa y guarda el proyecto igual. Todo es local. Mira [Historial de versiones](03h-historial-de-versiones.md).
 
-### Revisar diseño
+#### Revisar diseño
 
 - **Máquina > Revisar diseño…** (`Ctrl/Cmd+Alt+R`) lee tu diseño y lista **doce tipos de hallazgo** (trazos casi cerrados, líneas duplicadas, uniones pendientes, fragmentos diminutos, nodos de sobra, objetos fuera o pasados de la cama, textos sin convertir, capas sin salida u ocultas con objetos, y imágenes con demasiada o poca resolución). Cada uno trae **Arreglar** (si lo hay), **Seleccionar** e **Ignorar**; **Arreglar todo lo seguro** cierra, une y quita duplicados en un paso de **Deshacer**.
 - Un **aviso en el diálogo de inicio** (con enlace **Ver**) cuando hay algo grave, y los mismos hallazgos en palabras simples en el **modo sencillo**. Mira [Revisar diseño](07b-revisar-diseno.md).
 
-### Texto avanzado
+#### Texto avanzado
 
 - **Funciones OpenType por texto**: ligaduras (estándar y discrecionales), alternativas y conjuntos estilísticos, remates, versalitas, números (de texto, alineados, de ancho fijo, proporcionales), fracciones y kerning encendido o apagado. El panel lee la fuente y **ofrece solo lo que trae**, con una vista previa apagada y encendida de cada función.
 - **Fuentes variables**: un deslizador por eje (peso, ancho, inclinación, tamaño óptico y ejes propios) y los estilos con nombre; el contorno se calcula con la posición elegida.
 - **Mayúsculas forzadas**, **espacio entre palabras** y **alineación vertical** (también sobre un trayecto: el texto puede colgar de la línea, centrarse en ella o apoyarse encima). Mira [Texto](04-texto.md#texto-avanzado-funciones-de-la-fuente-y-fuentes-variables).
 
-### Datos variables desde CSV
+#### Datos variables desde CSV
 
 - **Varios CSV por proyecto**, cada uno con su nombre: `{csv.productos:Nombre}` elige la fuente y la columna. La primera es la principal y manda sobre las filas; las demás se repiten desde el inicio (o bloquean el envío) si tienen menos filas. Se guardan con ruta relativa al proyecto y un proyecto con un solo CSV se abre como antes.
 - **Imágenes y logotipos variables**: una columna con la ruta del archivo (absoluta o relativa al CSV) reemplaza la imagen marcada, encajada en su caja (entera o llenando y recortando) y grabada con el modo de imagen de su capa. Si falta un archivo, el envío se bloquea y dice cuál.
 - **QR y códigos de barras variables**: el contenido puede llevar `{csv:Id}` y se regenera con los datos de cada fila.
 - **Vista previa por fila**, **Una copia por fila** con todo lo anterior y **Revisar datos**, que lista las filas con celdas vacías, imágenes ausentes o códigos sin contenido. Mira [Texto variable](04b-texto-variable.md).
 
-### Lienzo y edición
+#### Lienzo y edición
 
 - **Deformar en el lienzo** (`Mayús+W`): arrastra las manijas de una malla **bilineal**, de **perspectiva** o de **4×4 puntos** y ve el resultado en vivo.
 - **Redondear esquinas con un clic** (`Mayús+F`), con `Alt`+clic para **revertir** una esquina redondeada o mordida (también el chaflán, porque el objeto guarda la punta original). Mira [Formas avanzadas y deformar](03c-formas-y-deformar.md).
 - **Paneles flotantes**: saca cualquier pestaña a una ventana sobre el lienzo (doble clic en la pestaña), cambia de lado el panel y las herramientas, y **Restablecer distribución**. Mira [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md).
 - Preferencias nuevas: **Volver a Seleccionar** tras dibujar una forma, **Contraste de la rejilla**, resolución de importación por omisión y opciones de importación recordadas. Los cambios de preferencias se reflejan en las demás ventanas abiertas.
 
-### Importar y exportar
+#### Importar y exportar
 
 - **Mensajes con la causa**: cuando un archivo no trae nada importable, el error dice qué se omitió y qué hacer.
 - Un **SVG con solo imágenes** se importa como imágenes (se extraen junto al SVG); los **TIFF grandes** y los **TIFF YCbCr** cargan.
@@ -98,112 +119,112 @@ Séptima tanda, de pulido y de huecos que quedaban frente a LightBurn. **Nada de
 - Un **G-code con potencia 0** ya no importa vacío: un diálogo deja elegir la potencia con la que tomar los cortes.
 - Mira [Importar y exportar](03b-importar-y-exportar.md).
 
-### Imágenes
+#### Imágenes
 
 - **Presets de ajuste de imagen** (7 de fábrica y los tuyos) y **vista previa por imagen** sin calcular el trabajo. Mira [Imágenes](06-imagenes.md).
 
-### Máquinas
+#### Máquinas
 
 - Perfil: **predeterminado**, **orden** e **ícono**; **desfase del puntero rojo** (y **Llevar el puntero rojo al punto**); **intercambiar X e Y**; velocidades en **mm/s**; **homing al conectar**; **no subir DTR** y **envío síncrono** para placas difíciles; **desplazamiento U** de los trabajos. Mira [Conectar tu máquina](08-conectar-maquina.md).
 - **Avisos al calcular**: **enlace serie saturado** (el trabajo pide más líneas por segundo de las que caben a esos baudios), **capa más rápida que la máquina**, y con Ruida **más de 128 capas** (se fusionan las vecinas iguales) y el **tope de 36 000 mm/min**. Mira [Enviar trabajos con seguridad](09-enviar-con-seguridad.md) y [Ruida y K40](13b-ruida-y-k40.md).
 - **Alimentador**: repetir un trabajo N veces con avance entre repeticiones (solo GRBL). **Print & Cut**: las imágenes giran con el registro.
 - **Registro de trabajos** (Ayuda; hoy **Historial de trabajos**): fecha, máquina, documento, tiempo estimado y real y resultado, guardado solo en tu computadora.
 
-### Cámara
+#### Cámara
 
 - **Cámaras de red** (URL `http://` de tu red local; las credenciales se quedan en tu equipo y no viajan en los paquetes), **configuraciones de cámara**, **ajuste manual del fondo**, **alineación automática** de la cámara del cabezal con marcas y **zona dibujada** para el recorrido. Las **cámaras y tu biblioteca de arte** viajan en los paquetes `.tlakubundle`. Mira [Cámara](10-camara.md).
 
-### Galvo (experimental)
+#### Galvo (experimental)
 
 - El galvo **se maneja desde la app**: alta con **verificación sin láser**, perfil, **encuadre** con rectángulo, contorno, **casco convexo** u **objetos sueltos**, contador de vueltas y **ajuste en vivo**, **overscan** opcional y **entradas requeridas** (enclavamiento). Mira [Galvo (experimental)](13c-galvo.md) y [Seguridad del galvo](13d-galvo-seguridad.md).
 
-### Rendimiento
+#### Rendimiento
 
 - Mapas con decenas de miles de trayectos calculan en **1 a 1,5 s** (antes, hasta 30 s); las fotos de 60 a 100 megapíxeles se importan con menos de 75 MB; el lienzo aguanta 100 000 objetos. Mira [Rendimiento con diseños grandes](15b-rendimiento.md).
 
-### Lo que sigue sin estar
+#### Lo que sigue sin estar
 
-- Probar todo con hardware real.
+- Probar con hardware real todo lo de esta tanda salvo la vista en vivo.
 - Arrastrar puentes ya puestos, valores por defecto por color y por máquina, y el ajuste de U por capa.
 
-## Imágenes, Print & Cut y alimentador, en la próxima versión
+### Imágenes, Print & Cut y alimentador
 
 - **Presets de imagen** (Foto en madera, Logo de alto contraste y más) que aplican brillo, contraste, gamma, realce y quitar motas de una vez, y los tuyos con **Guardar como…**. Mira [Imágenes](06-imagenes.md).
 - **Vista previa de la imagen**: ve el resultado tramado de una imagen antes de calcular el trabajo, entera o a tamaño real con zoom.
 - **Las imágenes giran con el registro de Print & Cut.**
 - **Repetir un trabajo con el alimentador**: N repeticiones con el avance del alimentador entre una y otra, desde el diálogo de inicio. Mira [Tiling y alimentador](09d-tiling-y-alimentador.md). Solo con máquinas GRBL; el alimentador propio de una controladora DSP sigue sin estar.
-- **Límite:** nada de esto se ha probado con una máquina real.
+- **Límite:** el grabado de imágenes con tramado ya se probó con la Falcon2 Pro real, pero Print & Cut y el alimentador no se han probado con una máquina real.
 
-## Modo sencillo, materiales de fábrica y control desde el celular, en la próxima versión
+### Modo sencillo, materiales de fábrica y control desde el celular
 
-Sexta tanda: Tlaku se vuelve más fácil para quien empieza, trae ajustes de partida para los materiales más comunes y deja vigilar un trabajo desde el celular. **Nada de esto se ha probado con una máquina real**: se validó con la máquina virtual, con pruebas automáticas y con un celular simulado.
+Sexta tanda: Tlaku se vuelve más fácil para quien empieza, trae ajustes de partida para los materiales más comunes y deja vigilar un trabajo desde el celular. El **control desde el celular** se probó siguiendo un grabado real en la Falcon2 Pro; el modo sencillo y los materiales de fábrica se validaron con la máquina virtual y con pruebas automáticas.
 
-### Modo sencillo
+#### Modo sencillo
 
 - **Una versión guiada en cinco pasos**: abrir el diseño, elegir el material, colocarlo, revisar e iniciar. La primera vez, Tlaku pregunta **¿Es tu primera vez con un láser?**; el botón de la barra superior cambia de modo cuando quieras, **sin tocar tu diseño**.
 - **Cortar, Grabar o Ignorar por color**: eliges el material y qué hacer con cada color; Tlaku pone velocidad, potencia y pasadas. Con **Ajustar** (más pasadas, menos quemado, más claro o más oscuro), **Ver números** y **Guardar como mi material**.
 - **Te pregunta los watts de tu láser** ("¿De cuántos watts es tu láser?") para usar los ajustes de la clase correcta; sin saberlo, usa los más prudentes. El acrílico transparente con diodo no deja elegir **Cortar**. Mira [Modo sencillo](01b-modo-sencillo.md).
 
-### Materiales de fábrica
+#### Materiales de fábrica
 
 - **134 ajustes de partida** de corte y grabado, en la sección **De fábrica** de la pestaña Materiales (la biblioteca ya no empieza vacía). Cada uno dice su **fuente** (con enlace) y su **confianza** (**Oficial**, **Guía** o **Foro**).
 - **Clase de máquina** (diodo, CO2 o fibra, por potencia) para ver los ajustes de la tuya, y un aviso fijo: **son puntos de partida, no una garantía**. Se duplican a **Mis materiales** para editarlos. Mira [Materiales](11-materiales.md).
 
-### Control desde el celular
+#### Control desde el celular
 
 - **Ver el avance y pausar o detener desde el celular**, escaneando un código QR en **Preferencias > Control remoto**; sin instalar nada. **Pausar y detener funcionan siempre**; **iniciar** exige el checklist en el celular y que el trabajo esté **encuadrado en la computadora después del último cambio**. El láser galvo nunca se inicia desde el celular.
 - **Apagado de fábrica, solo en tu red local y con una clave que cambia cada vez que abres la app.** **No hay HTTPS**: úsalo solo en una red de confianza. Mira [Control desde el celular](09e-control-desde-el-celular.md).
 - **Límite:** Safari en iPhone y iPad no deja que la página haga vibrar el celular al terminar (el aviso y el pitido sí salen).
 
-### Lo que sigue sin estar
+#### Lo que sigue sin estar
 
-- Probar todo con hardware real y con celulares reales.
+- Probar con más celulares y navegadores, y comprobar los materiales de fábrica cortando de verdad (el corte con potencia alta todavía no se ha probado).
 
-## Pro y galvo, en la próxima versión
+### Pro y galvo
 
 Quinta gran tanda: lo que más se pedía para trabajos de producción, y un primer paso hacia los láseres galvo. **Nada de esto se ha probado con una máquina real**: Print & Cut y el tiling se validaron con la máquina virtual, una hoja impresa simulada y fotos sintéticas, y el galvo con una tarjeta simulada que escribimos nosotros.
 
-### Print & Cut
+#### Print & Cut
 
 - **Cortar justo sobre lo impreso.** Un asistente de tres pasos (**Máquina > Print & Cut…**): agrega marcas de registro de 2 a 4 (cruces o círculos) en las esquinas del diseño, imprímelas a tamaño real y mide dónde quedaron, **con el láser** (las flechas y «Guardar posición») **o con la cámara** (un clic en la imagen alineada).
 - **Ajuste sin escala, de escala uniforme o afín**, con el error de cada marca a la vista antes de aceptar y avisos si la impresión salió escalada, espejada o estirada distinto en cada eje. La vista previa, el encuadre y el trabajo salen movidos según el registro. Mira [Print & Cut](09c-print-and-cut.md).
 - Las imágenes **giran** con el registro, igual que los vectores.
 
-### Tiling y alimentador automático
+#### Tiling y alimentador automático
 
 - **Dividir en tramos** (**Máquina > Dividir en tramos…**): un trabajo más grande que la cama se parte en tramos con solape, por filas o en serpentina, con el plano dibujado en el lienzo. **LightBurn no tiene tiling.**
 - **Marcas de alineación** en las zonas de solape, grabadas en los dos tramos, para colocar el material.
 - **Envío por tramos**: tú mueves el material entre uno y otro, puedes saltar o repetir un tramo, y si se cierra la app o se corta la conexión, **retomas** donde ibas.
 - **Alimentador automático** en el perfil de la máquina: un G-code de avance con `{mm}` que el tiling usa solo entre tramos cuando van en una sola columna. Mira [Tiling y alimentador automático](09d-tiling-y-alimentador.md).
 
-### Galvo (experimental)
+#### Galvo (experimental)
 
 - **Láseres de fibra, UV y CO2 galvo** con la tarjeta LMCV4 de EZCAD2 (USB `9588:9899`), **desde la línea de comandos**: `tlaku galvo list`, `status`, `light` (encuadre con el puntero rojo, que nunca enciende el láser) y `mark` (con `--red-only`, `--dry-run` y `--emu` para probar sin máquina). **La interfaz en la app llegó después, en «Ola 6».**
 - **Pensado para no dañar a nadie**: con hardware real exige `--i-understand-laser-safety`, usa una lista blanca de comandos, apaga la fuente ante cualquier error y **no tiene pausa**, solo detener. Un láser de fibra es clase 4 y su haz es invisible: **lee [Seguridad del galvo](13d-galvo-seguridad.md) antes de conectar nada.** Mira también [Galvo (experimental)](13c-galvo.md).
 - **En el motor**: grabado 3D por cortes (también sirve en pórtico), corrección de cilindro y de cono, bamboleo, y la secuencia del marcado dividido, repetido y rotativo. Mira [Grabado 3D por cortes, cilindro y cono](12b-grabado-3d-y-cilindro.md).
 - **Experimental de verdad**: las unidades de velocidad, frecuencia, potencia y retardos vienen de otros proyectos de código abierto y no están verificadas con una tarjeta real.
 
-### Lo que sigue sin estar
+#### Lo que sigue sin estar
 
-- Probar todo con hardware real, y la prueba mínima del galvo con una tarjeta sin fuente.
+- Probar todo esto con hardware real (Print & Cut, tiling y galvo), y la prueba mínima del galvo con una tarjeta sin fuente.
 - Autoenfoque, y el ajuste de U por capa.
 
-## Máquinas, en la próxima versión
+### Máquinas
 
-Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máquina gana lo que más se echaba de menos. **Nada de esto se ha probado con una máquina real**: se validó con emuladores, máquinas virtuales e imágenes sintéticas. Lo marcado *experimental* puede equivocarse con una máquina de verdad: empieza con el láser deshabilitado o a potencia baja, material de desecho y el paro de emergencia al alcance.
+Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máquina gana lo que más se echaba de menos. Después, con la Falcon2 Pro real se comprobó lo básico de la ventana de la máquina (mover el cabezal, home, encuadre y disparo de prueba). **La conexión por red, la automatización, Ruida, el K40, la cámara y el resto no se han probado con una máquina real**: se validaron con emuladores, máquinas virtuales e imágenes sintéticas. Lo marcado *experimental* puede equivocarse con una máquina de verdad: empieza con el láser deshabilitado o a potencia baja, material de desecho y el paro de emergencia al alcance.
 
-### Conexión por red y automatización
+#### Conexión por red y automatización
 
 - **GRBL por red**: grblHAL con Ethernet y FluidNC por **TCP / Telnet**, y FluidNC y ESP3D por **WebSocket**. Se elige en el perfil, con un botón **Probar conexión** que no mueve nada y errores de red explicados con claridad. Mira [Conexión por red y automatización](08b-red-y-automatizacion.md).
 - **Máquina virtual por red**: el mismo emulador detrás de un socket TCP local, para ver la conexión por red sin tener la máquina.
 - **Automatización por UDP**: otros programas de tu equipo pueden cargar un diseño, preguntar el estado o detener el trabajo con comandos de texto (`PING`, `LOAD`, `START`, `STATUS`, `STOP`). Está **apagada** de fábrica, solo escucha en `127.0.0.1` y `START` solo abre el diálogo de iniciar salvo que lo permitas tú.
 
-### Ruida y K40 (experimental)
+#### Ruida y K40 (experimental)
 
 - **Ruida (CO2) en la app**: conectar por IP, enviar el trabajo (por defecto **se guarda en la memoria de la controladora y no arranca**; tú lo inicias desde su panel), pausar, reanudar, detener, mover, encuadrar, leer la información de la máquina y la lista de documentos. Los ajustes de la controladora solo se leen. Hay una máquina virtual **Ruida (CO2)**. Mira [Ruida y K40](13b-ruida-y-k40.md).
 - **K40 con placa M2 Nano**, que LightBurn no soporta: ahora también **en la app** (tipo de máquina «K40 con M2 Nano»): conexión por USB directo, home propio, aviso de lo que la placa ignora antes de enviar, aviso de paro de emergencia si detener no se confirma y máquina virtual `virtual:k40`. Sigue disponible `tlaku k40` (envío, estado de solo lectura, `.egv`). Es **experimental y solo está probado contra el emulador**. **La potencia no se controla por software: va con la perilla de la máquina.**
 
-### Control de la máquina
+#### Control de la máquina
 
 - **Macros** (hasta 10 por perfil), con botones y atajos, que pasan por las reglas de seguridad de la consola.
 - **Mover con Z y U**, **Enfocar**, **posiciones guardadas** y **disparo de prueba** (hasta 20 % y 2 s, con doble confirmación). Mira [Control avanzado de la máquina](09b-control-avanzado.md).
@@ -213,96 +234,96 @@ Cuarta gran tanda: Tlaku sale del cable USB y de GRBL, y la ventana de la máqui
 - **Paquetes `.tlakubundle`**: tus máquinas (con macros y posiciones), materiales, preferencias y atajos en un solo archivo, con vista previa antes de importar.
 - **Potencia en puentes**: el láser puede marcar el puente sin atravesarlo, para que la pieza se suelte con un golpe. Mira [Capas y ajustes de corte](05-capas-y-ajustes.md).
 
-### Cámara
+#### Cámara
 
 - **Ojo de pez**: nuevo modelo de lente con elección automática, que se prueba con vistas reservadas. Pensado para las cámaras de la tapa de los láseres de CO2.
 - **Capturar la imagen de la cama** como imagen del documento y **vectorizarla**.
 - **Cámara en el cabezal**: calibración del desfase y mosaico de la cama.
 - **Buscador de centro**: encuentra el centro de un objeto redondo y mueve la cabeza o fija el origen ahí. Mira [Cámara](10-camara.md).
 
-### Pequeñas mejoras
+#### Pequeñas mejoras
 
 - Las **pulgadas** de las preferencias llegan a la barra de estado, las reglas, los pasos de las flechas y los diálogos de Organizar y de Acomodar piezas, con fracciones (`3/8"`).
 - Las piezas del nesting llevan nombres legibles, y las copias del arreglo virtual cuentan en las cajas del diseño.
 - La copia de recuperación de una ventana ya no se ofrece en otra ventana abierta (corregido leyendo el código y con pruebas; falta comprobarlo con ventanas reales).
 
-### Lo que sigue sin estar
+#### Lo que sigue sin estar
 
-- Probar todo con hardware real. Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 solo se ha probado contra el emulador, sin placa real.
+- Probar con hardware real lo que falta (red, Ruida, K40, cámara, rotativo, eje Z y sonda). Ruida no escribe ajustes ni borra o ejecuta documentos; el K40 solo se ha probado contra el emulador, sin placa real.
 - Las pulgadas en las capas, las máquinas y la cámara; autoenfoque.
 - (Ya llegaron, en «Ola 6»: cámaras de red, presets de cámara, alinear la cámara del cabezal con marcas y marcar un perfil como predeterminado.)
 - Galvo, **Print & Cut** y **tiling** (llegaron en la tanda siguiente: ver «Pro y galvo»).
 
-## Diseño avanzado, en la próxima versión
+### Diseño avanzado
 
-Tercera gran tanda: las herramientas de diseño que más se echaban de menos. Sigue sin probarse con una máquina real: revisa siempre la vista previa y empieza con material de desecho.
+Tercera gran tanda: las herramientas de diseño que más se echaban de menos. Estas herramientas cambian el diseño, no la forma de hablar con la máquina; aun así, revisa siempre la vista previa y empieza con material de desecho.
 
-### Cambiar la forma de un dibujo
+#### Cambiar la forma de un dibujo
 
 - **Recortar formas** (herramienta `X`): clic en un tramo entre dos cruces para borrarlo.
 - **Separar subtrayectos**, **optimizar formas** (menos nodos con una tolerancia), **redondear esquinas** (redondeada, chaflán o mordisco), **cortar formas con una cuchilla** y **redimensionar ranuras** de encastre al grosor real del material.
 - **Deformar** (arco, abombado, pellizco, perspectiva y sesgo, con esquinas y bordes ajustables), **contorno de banda elástica**, **círculo tangente** y el **asistente booleano** (`Ctrl/Cmd+B`), que enseña el resultado de cada operación antes de aplicarla.
 
-### Copias y acomodo
+#### Copias y acomodo
 
 - **Copiar a lo largo de un trazo**, **arreglo virtual** (copias que no son objetos, con fantasmas en el lienzo), **acoplar y mover juntos** y **agrupar automáticamente por contención**.
 - **Nesting**: acomoda piezas en la cama o dentro de un material de forma irregular, con rotaciones, espejo, huecos aprovechables y un tope de tiempo, con progreso, aprovechamiento y vista previa; se puede detener.
 
-### Texto variable
+#### Texto variable
 
 - **Números de serie**, **datos de un CSV**, **fecha y hora** dentro de un texto, con avance al terminar cada trabajo y **una copia por fila**. Mira [Texto variable](04b-texto-variable.md).
 
-### Lienzo y proyecto
+#### Lienzo y proyecto
 
 - **Guías** que se arrastran desde las reglas, **puentes manuales** (`U`), **punto de inicio y sentido** del corte (`Q`) que el planificador respeta, **notas** del proyecto, **plantillas**, **nueva ventana** y pestañas del panel derecho que se reordenan.
 - **Biblioteca de arte** con 41 dibujos (flechas, marcos, estrellas, corazones, iconos, bordes y cajas con encastre) y tus propios SVG.
 
-### Imágenes
+#### Imágenes
 
 - **Recortar una imagen con una forma** (máscara), **convertir vectores a mapa de bits**, **guardar la imagen procesada**, **reemplazar la imagen** y **vectorizar varios archivos** de una vez.
 
-### Importar proyectos de LightBurn
+#### Importar proyectos de LightBurn
 
 - El importador ahora trae el **perforado**, el **modo de puntos**, el **relleno inundado**, el **sobrecorte**, la **rampa**, las **pausas**, el **corte pasante** y las **sub-capas** (como operaciones adicionales). Varias conversiones se infirieron de la documentación pública: revisa cada capa.
 - El editor de capas ya no deja escribir valores que el motor rechazaría (ángulos de entrada y salida, corte pasante de 0 ms) y admite el mismo máximo de operaciones adicionales.
 - La **potencia mínima** deja de mostrarse en las capas de línea, con una explicación: la baja de potencia en las esquinas la decide la controladora.
 
-### Lo que sigue sin estar
+#### Lo que sigue sin estar
 
 - **Deformar** se hace desde un diálogo: aún no hay manijas en el lienzo ni malla de 16 puntos. *(Resuelto en la «Ola 6».)*
 - **Redondear esquinas** no tiene la herramienta de clic por esquina; los **puentes manuales** no se arrastran (la potencia de puente llegó después, ver más arriba); no hay guías temporales de alineación ni paneles flotantes. *(La herramienta de clic por esquina y los paneles flotantes llegaron en la «Ola 6».)*
 - **Nueva ventana** no se ha probado en una ventana real. Al abrirse, el aviso de trabajo sin guardar podía mostrar la copia de la otra ventana; la ola de máquinas lo corrigió (ver más arriba), pero sigue sin comprobarse con ventanas reales: ante la duda elige **Decidir después**.
 - **Tiling** y **Print & Cut** siguen sin estar. *(Llegaron en «Pro y galvo».)*
 
-## Capas y corte: ajustes avanzados
+### Capas y corte: ajustes avanzados
 
-Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere el mismo control sobre cómo se corta. Sigue sin probarse con una máquina real: empieza con poca potencia y material de desecho.
+Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere el mismo control sobre cómo se corta. El grabado de líneas, los rellenos y las imágenes se probaron después con la Falcon2 Pro real; el corte avanzado (perforación, entrada y salida, rampa) y el corte con potencia alta, no. Empieza con poca potencia y material de desecho.
 
-### Ajustes de corte (capas de Línea)
+#### Ajustes de corte (capas de Línea)
 
 - **Corte avanzado** en el editor de capa: **perforación** (corta un tramo y salta otro, ideal para dobleces en cartón), **entrada y salida del contorno** (recta o en arco, para que el arranque no deje marca en el borde), **sobrecorte**, **pausas** al empezar y al terminar, **corte pasante**, **modo punto** y **rampa de potencia**.
 - Las pausas usan `G4`; el **Dialecto de G-code** ahora dice en qué unidad (segundos o milisegundos) las lee tu controladora.
 - Si dos ajustes no se combinan (modo punto con perforación, por ejemplo), el editor lo marca y la vista previa avisa cuál se ignoró.
 
-### Relleno e imagen
+#### Relleno e imagen
 
 - Relleno **por regiones** (menos viajes en vacío con muchas piezas sueltas) y **agrupación** del relleno: todo junto, forma por forma o por grupos.
 - **Incremento de ángulo** entre pasadas.
 - Imágenes: **enviar sin tramar** (pass-through), **realce de bordes** y **quitar motas**.
 
-### Capas
+#### Capas
 
 - **Operaciones adicionales (sub-capas)**: rellena y luego contornea la misma forma con una sola capa.
 - **Copiar y pegar ajustes** entre capas, **borrar una capa con sus objetos**, **valores por defecto** propios para las capas nuevas y **Modo principiante** para ocultar los ajustes avanzados.
 - **Prioridad de corte** y **escala de potencia** por objeto (ventana Propiedades del objeto), con números sobre el lienzo para revisarlas.
 - Las formas paramétricas (rectángulo, elipse, polígono y estrella) **guardan sus parámetros en el proyecto**: al reabrirlo se siguen editando.
 
-### Orden del trabajo
+#### Orden del trabajo
 
 - **Ajustes de optimización**: respetar capas, grupos y prioridad, interiores primero, mejor punto de inicio, quitar tramos que se cortarían dos veces y esconder el juego mecánico.
 - **Solo la selección**: vista previa, encuadre, trabajo y G-code con únicamente lo seleccionado, con la opción de usar su propio origen.
 
-### En la máquina
+#### En la máquina
 
 - **Encuadrar contorno** (banda elástica) para piezas largas o en diagonal.
 - **Posicionar el láser**: un clic en la cama lleva el cabezal allí, con el láser apagado.
@@ -310,17 +331,17 @@ Segunda gran tanda de funciones, pensada para quien viene de LightBurn y quiere 
 - Ventana Mover: **pasos configurables**, **posición final** (quedarse, volver al origen o ir a un punto) e **ir al origen de trabajo**.
 - **Lista de comprobación** configurable en el diálogo de iniciar (aire, enfoque, material, extractor y tapa), con la opción de exigirla antes de enviar.
 
-### Lo que sigue sin estar
+#### Lo que sigue sin estar
 
 - La **potencia mínima** de una capa de línea no cambia el G-code (solo en imágenes); desde la tanda siguiente el campo ya no se muestra en esas capas.
 - El encuadre no se repite en bucle y la ventana Mover no tiene Z, posiciones guardadas, Fire ni Focus. *(Resuelto en la tanda «Máquinas».)*
 - *(Resuelto en la tanda de diseño avanzado: los puentes manuales y el importador de proyectos de LightBurn con estos ajustes.)*
 
-## Versión 0.1.0, primera versión pública
+### Lo que traía la primera versión
 
-Primera versión de la aplicación de escritorio. Es una versión beta: **todavía no se ha probado con una máquina láser real**, solo con el emulador y las máquinas virtuales de la app. Empieza siempre con poca potencia y material de desecho.
+Lo que traía la primera versión pública, para quien quiera el detalle. Qué se probó y qué no con una máquina real está en el párrafo de la 0.1.0, arriba.
 
-### Diseño y edición
+#### Diseño y edición
 
 - Lienzo con la cama de tu máquina, reglas, zoom, ajuste magnético y barra de valores exactos.
 - Herramientas de línea (con curvas Bézier), rectángulo, elipse, polígono, estrella, texto, medir y editor de nodos.
@@ -333,7 +354,7 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 - Códigos QR, Data Matrix y de barras (Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF y Codabar).
 - Deshacer y rehacer con un historial al que puedes saltar.
 
-### Importar
+#### Importar
 
 - SVG (con recortes reales), DXF, **PDF**, **AI**, **HPGL** (`.plt`), **G-code** e imágenes PNG, JPG, BMP, **WebP**, **TIFF**, **GIF** y **TGA**. Cada color del archivo se vuelve una capa.
 - **Importar con opciones**: escala, DPI, unidad de un DXF, página de un PDF, agrupar y capa destino.
@@ -341,29 +362,29 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 - Proyectos de LightBurn (`.lbrn` y `.lbrn2`) con sus capas y ajustes.
 - Los importadores avisan de todo lo que no pudieron traer, en vez de callar.
 
-### Exportar e imprimir
+#### Exportar e imprimir
 
 - Exportar el diseño (todo o solo la selección) a **SVG**, **DXF**, **PNG** y **PDF** vectorial a escala 1:1, y **Imprimir** a tamaño real.
 
-### Preferencias y respaldo
+#### Preferencias y respaldo
 
 - Ventana de **Preferencias** (`Ctrl/Cmd+,`): unidades, pasos de las flechas, imán, rejilla, tema, autoguardado y archivos recientes.
 - **Atajos de teclado configurables**, con aviso de conflictos, y archivos `.tlakuprefs` para llevar tu configuración a otro equipo.
 - **Autoguardado** y recuperación del trabajo tras un cierre inesperado.
 
-### Capas y corte
+#### Capas y corte
 
 - Modos Línea, Relleno e Imagen, con velocidad, potencia, pasadas, intervalo, ángulo y overscan calculado con la física de la máquina.
 - Compensación de kerf, puentes para que la pieza no se suelte, aire asistido y eje Z.
 - Imágenes con varios métodos de dithering, semitono, periódico y boceto.
 - Biblioteca de materiales y prueba de materiales.
 
-### Vista previa y orden de corte
+#### Vista previa y orden de corte
 
 - Reproducción del recorrido con tiempo estimado y desglose por capa.
 - Planificador explicable: cada paso dice qué regla lo decidió.
 
-### Máquina
+#### Máquina
 
 - Asistente para agregar tu máquina, con detección de solo lectura y un catálogo de modelos.
 - Máquinas virtuales con fallas simuladas, para practicar sin riesgo.
@@ -373,15 +394,15 @@ Primera versión de la aplicación de escritorio. Es una versión beta: **todav�
 - Rotativo (rodillo o mandril) y corrección de barrido.
 - Cámara con calibración de lente, alineación y marcas grabadas.
 
-### Idiomas
+#### Idiomas
 
 - Interfaz en español e inglés, con cambio de idioma en vivo desde Preferencias.
 
-### Ayuda
+#### Ayuda
 
 - Este manual dentro de la app (menú Ayuda, con buscador), atajos de teclado con `F1`, Novedades, Reportar un problema y Acerca de.
 
-### Lo que viene
+#### Lo que viene
 
 - Las herramientas de diseño que se anunciaban aquí (recortar, separar, redondear esquinas, deformar, texto variable y números de serie) llegaron en la tanda de diseño avanzado.
 - Ruida (CO2) existe solo por línea de comandos y es experimental. Conexión por red, K40 y galvo siguen sin estar. (Todo esto llegó en las tandas posteriores: ver «Máquinas», «Pro y galvo» y «Ola 6».)

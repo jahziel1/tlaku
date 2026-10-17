@@ -2,7 +2,7 @@
 
 You print a design on paper, vinyl, or wood with your printer and you want the laser to cut **exactly** along the outline, even if you placed the sheet a little crooked or shifted on the bed. That is **Print & Cut**: some **registration marks** are printed along with the design, you tell Tlaku where they really ended up on the machine, and Tlaku moves, rotates (and if necessary stretches) the whole job so it lands on what was printed.
 
-> **Warning:** Print & Cut was tested with the virtual machine and with a simulated printed sheet (a few millimeters off and slightly rotated). **It has not been tested with a real laser or a real camera.** Do the first tests with scrap paper, the power at minimum or the laser disabled, and your hand near the emergency stop.
+> **Warning:** Print & Cut was tested with the virtual machine and with a simulated printed sheet (a few millimeters off and slightly rotated). **This feature has not been tested with a real laser or a real camera** (other parts of Tlaku were tested on a Falcon2 Pro, but not Print & Cut). Do the first tests with scrap paper, the power at minimum or the laser disabled, and your hand near the emergency stop.
 
 ## When it is useful
 

@@ -2,12 +2,13 @@
 
 Which firmware Tlaku understands, what state each one is in, and which G-code dialect it uses. Read it before connecting a real machine.
 
-> **Warning, the most important thing:** Tlaku **has never been tested with a real machine**. Everything was validated with the emulator (`tlaku-emu`), with the app's virtual machines, and with automated tests. When this page says "stable in emulator" it means exactly that: the workflow works against a simulated laser, not against yours. Do your first test with the laser at low power, scrap material, without leaving the machine unattended and with the emergency stop within reach.
+> **Warning, the most important thing:** Tlaku has been tested with **a single real machine**: a Creality Falcon2 Pro (22 W, GRBL 1.1f) from macOS. Everything else (other brands and firmwares, the network, Ruida, K40, galvo, rotary, Print & Cut, tiling) was validated only with the emulator (`tlaku-emu`), the app's virtual machines, and automated tests. When this page says "stable in emulator" it means exactly that: the workflow works against a simulated laser, not against yours. Even with the Falcon2 Pro, high-power cutting, a long job, and a real power cut with material are still untested. Do your first test with the laser at low power, scrap material, without leaving the machine unattended and with the emergency stop within reach.
 
 ## States used on this page
 
 | State | What it means |
 |---|---|
+| **Tested on a real machine** | Tested with one specific real machine (today, only the Creality Falcon2 Pro). The table says what happened and what is missing; another machine with the same firmware may behave differently. |
 | **Stable in emulator** | Connects, moves, frames, sends, pauses, stops, and handles alarms against an emulator. Still to be tested with hardware. |
 | **To be validated with a real machine** | It exists in the app or in the engine, but with less coverage or without its own virtual machine. |
 | **Experimental** | It is marked that way in the app or on the command line. It was tested only against an emulator or a simulated board and can be wrong with a real machine. |
@@ -15,11 +16,11 @@ Which firmware Tlaku understands, what state each one is in, and which G-code di
 
 ## Controller table
 
-Two columns say honestly what was done: what was **tested in emulator** and what remains **to be validated with hardware**. In every row, the second is "everything": none has been tested with a real machine yet.
+Two columns say honestly what was done: what was **tested in emulator** and what remains **to be validated with hardware**. In every row except GRBL 1.1, the second is "everything": none of the others has been tested with a real machine yet. For GRBL 1.1 that column lists only what is missing, and the tested column separates what happened on the real Falcon2 Pro.
 
-| Family | Type in the profile | Connection | State | Tested in emulator | To be validated with hardware |
+| Family | Type in the profile | Connection | State | Tested (emulator or real machine) | To be validated with hardware |
 |---|---|---|---|---|---|
-| GRBL 1.1f or later (most diodes) | GRBL 1.1 | USB serial | Stable in emulator | Connect, move, frame, send, pause, stop, alarms. **GRBL 1.1** and **Falcon2 Pro** virtual machines | Everything. The first real test will be a Creality Falcon2 |
+| GRBL 1.1f or later (most diodes) | GRBL 1.1 | USB serial | **Tested on a real machine** (Creality Falcon2 Pro) | **On the real Falcon2 Pro (22 W, GRBL 1.1f, macOS):** detecting the model with the wizard, choosing the port, homing, jogging the head with the out-of-bed block, framing (laser off and at 1 %), test fire, engraving lines, fills, dithered images, and a material test, estimated time (within ~1 to 3 % of the real one), pause, resume, and stop with laser and air, assist air, continuing after a power cut (emergency stop), live view, and phone control. **In emulator:** alarms and the **GRBL 1.1** and **Falcon2 Pro** virtual machines | High-power cutting (for example, MDF), a long job (over 10 minutes; only tested in the emulator with the Falcon's measured faults), a real power cut in the middle of an engraving with material, ruler measurements, and other GRBL brands or firmwares |
 | grblHAL (for example, Ortur Laser Master 3) | grblHAL | USB serial; TCP network | Stable in emulator | Same; **grblHAL** virtual machine | Everything, including the network |
 | FluidNC | FluidNC | USB serial; TCP or WebSocket network | Stable in emulator | Same; **FluidNC** virtual machine | Everything, including the network |
 | Marlin 2.x with laser | Marlin | USB serial | Stable in emulator | Line-by-line sending and slow start; **Marlin** virtual machine | Everything |
@@ -44,11 +45,18 @@ For GRBL, grblHAL, and FluidNC the app connects over **TCP / Telnet** or **WebSo
 
 | Function | Tested in emulator or with test data | To be validated with hardware |
 |---|---|---|
+| Homing, jogging the head, and the out-of-bed movement block | Virtual machines and the **real Falcon2 Pro** (passed) | Ruler measurements; other machines |
+| Framing with the laser off and at 1 % | Virtual machines and the **real Falcon2 Pro** (passed; it does not mark and is barely visible) | Ruler measurements |
+| Pause, resume, and stop | Virtual machines and the **real Falcon2 Pro**, with laser and air (during a pause the laser stays at 0 and resumes cleanly) | High power and long jobs |
+| Assist air (`M8`/`M9`) | The **real Falcon2 Pro**: it works and the air keeps running about 5 s after being switched off | Other machines |
+| Continuing after a power cut | Emulator and the **real Falcon2 Pro** with an emergency stop (resumes ~1.5 mm before the cut) | A real power cut in the middle of an engraving with material |
+| Estimated time | The **real Falcon2 Pro** (within ~1 to 3 % of the real time on jobs of 5 s to 2 min) | Long jobs |
+| Live view and phone control | The **real Falcon2 Pro**: the floating window and the phone page followed a real engraving | Long cuts and other machines |
 | Macros, saved positions, moving Z and U, focus | GRBL virtual machines and automated tests | Everything |
-| Test fire and framing with the laser on | Virtual machines (the G-code is checked, and that `M5` is always sent) | **Everything, and it is the most delicate: it turns the laser on** |
-| `$$` settings with backup | Virtual machines; writing one at a time with a re-read | Everything; a critical setting set wrong makes the machine move wrongly |
+| Test fire and framing with the laser on | Virtual machines (the G-code is checked, and that `M5` is always sent) and the **real Falcon2 Pro** at low power (2 to 5 % test fire and 1 % framing, with the focus not adjusted) | **High power and with the focus adjusted; it is the most delicate: it turns the laser on.** How long the test fire lasts still needs measuring (it could reach ~1.2 s) |
+| `$$` settings with backup | Virtual machines; writing one at a time with a re-read. Reading `$$` was done on the **real Falcon2 Pro** (with the wizard) | Writing them on a real machine; a critical setting set wrong makes the machine move wrongly |
 | Laser 2 | Generated G-code, with the dialect's commands | Everything, with the firmware you use |
-| Fisheye | Synthetic cameras | A real lens |
+| Fisheye | Synthetic cameras. The lid camera of the real Falcon2 Pro was seen working (strong fisheye; it does not cover the front strip) | Calibrating the lens with a board and aligning the camera; a real calibrated lens |
 | Head-mounted camera and mosaic | Virtual machine and synthetic photos | A camera mounted on a head |
 | Center finder (camera) | Synthetic images | A real camera |
 | Center finder with the head (`G38` probe) | GRBL emulator with a simulated contact surface (`G38.2` to `G38.5`, `[PRB:...]`, `Pn:P`, `ALARM:4` and `ALARM:5`) and a virtual machine with a test disc | A real probe or touch plate: the pin, how far it coasts after contact, and the tip offset |
@@ -90,7 +98,7 @@ How to read the catalog honestly:
 - A model being on the list does **not** mean it has been tested. It only means Tlaku knows its firmware and some data.
 - Each value (bed, speed, max S, baud rate...) cites its source: **Official**, **Store or review**, or **Forum**. Store and forum values may differ from your unit.
 - Whatever has no source is left blank and the wizard asks you to read it from the machine (`$$`).
-- The Falcon2 is the only machine with in-depth research (its own `ERROR:NN` alarms are in [troubleshooting](15-solucion-de-problemas.md)). Even so, most of it comes from public reports on the Pro; nobody has connected one yet.
+- The Falcon2 is the only machine with in-depth research (its own `ERROR:NN` alarms are in [troubleshooting](15-solucion-de-problemas.md)). Even so, part of it comes from public reports on the Pro; the 22 W Falcon2 Pro is the only machine tested in reality with Tlaku, and the other catalog entries have no real tests.
 - xTool uses a GRBL with its own extensions: if the G-code fails, try the generic profile first. USB only.
 
 ## G-code dialects

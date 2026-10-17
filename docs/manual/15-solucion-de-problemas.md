@@ -2,7 +2,7 @@
 
 Qué significan las alarmas y errores que muestra Tlaku y qué hacer cuando no hay puerto, el láser no dispara o el tamaño no sale bien.
 
-> **Ojo:** estas soluciones salen del código de Tlaku, de la documentación pública del firmware GRBL y de reportes de usuarios. Nada se ha probado con una máquina real todavía. Si algo no coincide con lo que ves, la máquina manda: ante la duda, detén el trabajo y apaga el láser.
+> **Ojo:** estas soluciones salen del código de Tlaku, de la documentación pública del firmware GRBL y de reportes de usuarios. Tlaku se probó con una Creality Falcon2 Pro de 22 W real (grabado, pausa, detener y continuar tras un corte de energía), pero el corte con potencia alta y las demás máquinas solo se han probado con emuladores. Si algo no coincide con lo que ves, la máquina manda: ante la duda, detén el trabajo y apaga el láser.
 
 ## Dónde mirar primero
 
@@ -79,6 +79,21 @@ Otros puntos de la Falcon2, según reportes públicos (sin probar aquí):
 
 Puedes ver cómo se muestran estas fallas sin riesgo en la máquina virtual (**Simular falla**: llama, inclinación, alarma 3, cable desconectado). Ver [Conectar tu máquina](08-conectar-maquina.md).
 
+## macOS dice que la app está dañada
+
+Con la 0.1.0, macOS podía decir «Tlaku está dañado». Desde la 0.1.1 la app va firmada por completo y eso ya no debería pasar. Si usas una versión nueva y solo ves un aviso de que macOS no puede comprobarla, es lo normal: Tlaku todavía no está notarizada por Apple.
+
+1. Abre **Ajustes del Sistema > Privacidad y seguridad** y pulsa **Abrir de todas formas** junto al aviso de Tlaku (en macOS 14 o anterior, clic derecho sobre Tlaku y **Abrir**). Solo se hace la primera vez.
+2. Si aun así dice que está **dañada**, instala la versión más reciente de [Releases](https://github.com/jahziel1/tlaku/releases/latest). Si sigue igual, abre la Terminal y quita la marca de cuarentena:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Tlaku.app
+```
+
+## Windows protegió su PC
+
+Tlaku no lleva firma de código de pago, así que SmartScreen puede mostrar **Windows protegió su PC** al abrir el instalador. Pulsa **Más información** y luego **Ejecutar de todas formas**. Descarga siempre el instalador de la página [Releases](https://github.com/jahziel1/tlaku/releases/latest) del proyecto.
+
 ## La app no encuentra el puerto
 
 > Si tu máquina se conecta **por red** (TCP, WebSocket o Ruida) no hay puerto serie que buscar: mira más abajo las secciones **La conexión por red falla** y **Ruida no responde**.
@@ -99,6 +114,19 @@ sudo usermod -aG dialout "$USER"
 ```
 
 Cierra la sesión y vuelve a entrar para que surta efecto. Si la máquina aparece y desaparece, suele ser `ModemManager` o `brltty` quedándose con el puerto: desactiva `ModemManager` (`sudo systemctl disable --now ModemManager`) o desinstala `brltty`.
+
+## No puedo conectar: el puerto está ocupado
+
+Un puerto serie solo lo puede usar un programa a la vez. Si LightBurn, otra copia de Tlaku, un monitor serie u otro programa de láser tiene abierto el puerto de tu máquina, Tlaku no puede conectarse y lo dice. Cierra ese programa por completo (revisa también la bandeja del sistema), pulsa **Buscar puertos de nuevo** y conecta otra vez. Si no sabes cuál lo tiene, desconecta el cable USB, espera unos segundos y vuélvelo a conectar.
+
+## La placa no contesta
+
+La Falcon a veces deja de contestar durante varios segundos y luego vuelve sola. Desde la 0.1.0 Tlaku no da la conexión por perdida: espera y muestra el aviso **La máquina no contesta desde hace N s…**. El aviso se quita solo cuando la placa contesta, y si había un trabajo, continúa por sí solo.
+
+- **Espera un poco.** Casi siempre se resuelve sin hacer nada.
+- Si el aviso cambia a **Lleva más de un minuto sin contestar**, mira la máquina. Si sigue moviéndose y no responde, usa el **paro de emergencia**. Tlaku no la desconecta por esto.
+- Revisa el **cable USB** (que sea corto y de datos, sin concentrador) y la **alimentación** de la máquina: una fuente débil es una causa común.
+- **Detener** y **Desconectar** siguen funcionando mientras tanto, desde el mismo aviso.
 
 ## Conecta pero no responde
 

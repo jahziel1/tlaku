@@ -2,19 +2,33 @@
 
 On this page you go from zero to a ready job: you install Tlaku, import a design, check its layers, look at the preview, test it with a virtual machine and save the project. You do not need a laser to follow along.
 
-> **Heads up:** nothing in Tlaku has been tested with a real machine yet. What you see here works against the emulator and the app's virtual machines. When you connect a real laser, do it under supervision and at low power.
+> **Heads up:** Tlaku is a beta. It has been tested on a real Creality Falcon2 Pro 22 W (line engraving, fills, images, pause, stop, resuming after a power cut, live view, and phone control). Cutting at high power has not been tested yet, and other machines have only been tested with emulators. When you connect a real laser, start with low power and under supervision. Details in [Supported controllers](13-controladoras.md).
 
 ## 1. Install
 
-The installers are published on the repository's **Releases** page:
+Tlaku is in beta. The latest version is 0.1.2, and you download it from the repository's [Releases](https://github.com/jahziel1/tlaku/releases/latest) page:
 
 | System | File |
 |---|---|
-| macOS 11 or later | `.dmg`: open it and drag Tlaku to Applications |
-| Windows 10 or later | `.exe` (NSIS installer) or `.msi` |
-| Linux | `.deb` or `.AppImage` |
+| macOS 11 or later (Apple Silicon and Intel) | Universal `.dmg`: open it and drag Tlaku to Applications |
+| Windows 10 or later | `x64-setup.exe` (installer) or `.msi` (English or Spanish) |
+| Linux x86_64 | `.deb` or `.AppImage` |
+| Linux ARM64 (Raspberry Pi 4 and 5 with a 64-bit system; experimental) | `.deb` (`_arm64`) or `.AppImage` (`_aarch64`) |
+| Linux with Flatpak (x86_64 and aarch64) | `.flatpak`. **Untested** so far |
 
-The application is not signed yet, so the system will warn you the first time. On macOS, try to open it once and then go to **System Settings > Privacy & Security > Open Anyway** (on macOS 14 or earlier, right-click Tlaku and choose **Open** also works); on Windows, choose **More info** and then **Run anyway**. On Linux, to use the serial port add your user to the `dialout` group (see [Troubleshooting](15-solucion-de-problemas.md)).
+**With Homebrew (macOS):** `brew install --cask jahziel1/tlaku/tlaku`.
+
+**winget (Windows):** the package has been submitted to Microsoft and is under review; you cannot install it that way yet. For now, use the installer from the table.
+
+The application is not signed with a paid certificate, so the system will warn you the first time:
+
+- **macOS.** Tlaku is not notarized by Apple. The first time, macOS warns that it cannot check the app: open Tlaku once, go to **System Settings > Privacy & Security**, and click **Open Anyway** (on macOS 14 or earlier, right-clicking Tlaku and choosing **Open** also works). If it still says the app is **damaged**, see [Troubleshooting](15-solucion-de-problemas.md#macos-says-the-app-is-damaged).
+- **Windows.** SmartScreen may show **Windows protected your PC**: choose **More info** and then **Run anyway**.
+- **Linux.** To use the serial port, add your user to the `dialout` group (see [Troubleshooting](15-solucion-de-problemas.md)).
+
+After installing, Tlaku can check for new versions by itself: see [Updates](02b-preferencias-y-atajos.md#updates).
+
+**Raspberry Pi (experimental).** You need a **64-bit** system (in a terminal, `uname -m` must say `aarch64`), for example 64-bit Raspberry Pi OS or Ubuntu ARM, on a Pi 4 or 5 with 4 GB of RAM or more. The Pi 3 or earlier and 32-bit systems do not work. If the window comes up blank or garbled, start Tlaku like this: `WEBKIT_DISABLE_COMPOSITING_MODE=1 tlaku`. It has not been tested on a real Raspberry Pi yet; if you try it, share your experience in a machine report.
 
 ## 2. Open it and get to know the window
 

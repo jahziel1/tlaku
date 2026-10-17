@@ -115,6 +115,6 @@ Las fuentes se guardan en el `.tlaku` con **ruta relativa** a la carpeta del pro
 - No hay selección de filas (rango, filtro) ni buscar y reemplazar en bloque; ni QR con numeración propia (para eso usa `{serie}` en el contenido).
 - No hay un modo de variable de ajuste de capa (velocidad, potencia) ni «hornear» el texto a valores fijos; para fijar un texto, conviértelo a trayectos.
 - La sintaxis de Tlaku es propia: los archivos de LightBurn con texto variable no se traducen automáticamente.
-- Nada de esto se ha probado todavía con una máquina real; se probó con el emulador y la máquina virtual.
+- El texto variable avanzando en trabajos reales no se ha probado todavía en una máquina real; se probó con el emulador y la máquina virtual.
 
 Siguiente: [Capas y ajustes de corte](05-capas-y-ajustes.md)

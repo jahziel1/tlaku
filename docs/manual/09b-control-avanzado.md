@@ -2,7 +2,7 @@
 
 Lo que la pestaña **Máquina** ofrece además de mover, encuadrar e iniciar: **macros**, mover los ejes **Z** y **U**, **posiciones guardadas**, **enfocar**, el **disparo de prueba**, los **ajustes `$$`** de la controladora con respaldo, el **encuadre a baja potencia y en bucle**, el **láser 2** y los **paquetes `.tlakubundle`** para llevar tu configuración a otro equipo.
 
-> **Ojo:** nada de esto se ha probado con una máquina real; se validó con el emulador y las máquinas virtuales ([Conectar tu máquina](08-conectar-maquina.md)). Todo lo que enciende el láser o escribe en la controladora pide confirmación, y aun así conviene probarlo primero en una máquina virtual. Casi todo esto es de la **familia GRBL** (GRBL, grblHAL, FluidNC, GRBL-LPC); con Marlin y Smoothieware varias funciones cambian o no existen, y con Ruida no aplican (ver [Ruida y K40](13b-ruida-y-k40.md)).
+> **Ojo:** de todo esto, con una máquina real (una Creality Falcon2 Pro) solo se probaron mover el cabezal, el homing, el disparo de prueba a baja potencia y el aire asistido. Lo demás (macros, ejes Z y U, la sonda, el segundo láser y el resto) se validó con el emulador y las máquinas virtuales ([Conectar tu máquina](08-conectar-maquina.md)). Todo lo que enciende el láser o escribe en la controladora pide confirmación, y aun así conviene probarlo primero en una máquina virtual. Casi todo esto es de la **familia GRBL** (GRBL, grblHAL, FluidNC, GRBL-LPC); con Marlin y Smoothieware varias funciones cambian o no existen, y con Ruida no aplican (ver [Ruida y K40](13b-ruida-y-k40.md)).
 
 ## Macros
 

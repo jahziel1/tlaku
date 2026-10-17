@@ -2,7 +2,7 @@
 
 Dos accesorios que cambian cómo se genera el G-code: el eje Z motorizado (para enfocar por capa y bajar en cada pasada) y el rotativo (para grabar piezas cilíndricas en lugar de planas). Los dos se activan en el perfil de la máquina.
 
-> **Ojo:** ni el rotativo ni el eje Z se han probado con una máquina real; todo se validó con el emulador y con pruebas automáticas. Los modelos de rotativo precargados usan cifras de fabricante o de reseñas: calibra siempre con la **Prueba de una vuelta** y empieza con poca potencia y una pieza de desecho.
+> **Ojo:** ni el rotativo ni el eje Z se han probado con una máquina real (Tlaku sí se probó con una Falcon2 Pro, pero sin rotativo ni eje Z); esto se validó con el emulador y con pruebas automáticas. Los modelos de rotativo precargados usan cifras de fabricante o de reseñas: calibra siempre con la **Prueba de una vuelta** y empieza con poca potencia y una pieza de desecho.
 
 ## Eje Z
 

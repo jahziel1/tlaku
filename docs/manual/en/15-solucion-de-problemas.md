@@ -2,7 +2,7 @@
 
 What the alarms and errors Tlaku shows mean, and what to do when there is no port, the laser does not fire, or the size does not come out right.
 
-> **Warning:** these solutions come from Tlaku's code, from the public documentation of the GRBL firmware, and from user reports. Nothing has been tested with a real machine yet. If something does not match what you see, the machine rules: when in doubt, stop the job and turn off the laser.
+> **Warning:** these solutions come from Tlaku's code, from the public documentation of the GRBL firmware, and from user reports. Tlaku has been tested on a real Creality Falcon2 Pro 22 W (engraving, pause, stop, and resuming after a power cut), but cutting at high power and other machines have only been tested with emulators. If something does not match what you see, the machine rules: when in doubt, stop the job and turn off the laser.
 
 ## Where to look first
 
@@ -79,6 +79,21 @@ Other Falcon2 points, according to public reports (untested here):
 
 You can see how these faults appear, without risk, in the virtual machine (**Simulate fault**: flame, tilt, alarm 3, cable unplugged). See [Connecting your machine](08-conectar-maquina.md).
 
+## macOS says the app is damaged
+
+With 0.1.0, macOS could say "Tlaku is damaged". Since 0.1.1 the app is fully signed, so this should no longer happen. If you are on a newer version and only see a warning that macOS cannot check the app, that is normal: Tlaku is not yet notarized by Apple.
+
+1. Open **System Settings > Privacy & Security** and click **Open Anyway** next to the Tlaku notice (on macOS 14 or earlier, right-click Tlaku and choose **Open**). You only do this the first time.
+2. If it still says the app is **damaged**, install the latest version from [Releases](https://github.com/jahziel1/tlaku/releases/latest). If nothing changes, open Terminal and remove the quarantine mark:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Tlaku.app
+```
+
+## Windows protected your PC
+
+Tlaku does not have a paid code-signing certificate, so SmartScreen may show **Windows protected your PC** when you open the installer. Click **More info** and then **Run anyway**. Always download the installer from the project's [Releases](https://github.com/jahziel1/tlaku/releases/latest) page.
+
 ## The app does not find the port
 
 > If your machine connects **over the network** (TCP, WebSocket, or Ruida) there is no serial port to look for: see the sections **The network connection fails** and **Ruida does not respond** below.
@@ -99,6 +114,19 @@ sudo usermod -aG dialout "$USER"
 ```
 
 Log out and back in for it to take effect. If the machine appears and disappears, it is usually `ModemManager` or `brltty` grabbing the port: disable `ModemManager` (`sudo systemctl disable --now ModemManager`) or uninstall `brltty`.
+
+## I cannot connect: the port is busy
+
+A serial port can only be used by one program at a time. If LightBurn, another copy of Tlaku, a serial monitor, or other laser software has your machine's port open, Tlaku cannot connect and says so. Close that program completely (check the system tray too), click **Scan for ports again**, and connect again. If you do not know which one has it, unplug the USB cable, wait a few seconds, and plug it back in.
+
+## The board does not answer
+
+The Falcon sometimes stops answering for several seconds and then comes back on its own. Since 0.1.0, Tlaku does not treat the connection as lost: it waits and shows the notice **The machine has not answered for N s…**. The notice goes away by itself when the board answers, and if a job was running, it carries on by itself.
+
+- **Wait a little.** It usually clears up without doing anything.
+- If the notice changes to **It has been silent for over a minute**, look at the machine. If it keeps moving and does not respond, use the **emergency stop**. Tlaku does not disconnect it because of this.
+- Check the **USB cable** (short, a data cable, no hub) and the machine's **power**: a weak power supply is a common cause.
+- **Stop** and **Disconnect** keep working in the meantime, from the same notice.
 
 ## It connects but does not respond
 

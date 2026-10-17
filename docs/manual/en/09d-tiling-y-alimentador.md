@@ -4,7 +4,7 @@
 
 The **automatic feeder** is a belt or a set of rollers that advance the material by themselves. Tlaku uses it inside tiling so you do not have to move the material by hand between tiles.
 
-> **Warning:** tiling and the feeder were tested with the virtual machine and with automated tests. **They have not been tested with a real machine.** The tiles line up with material placed by hand or with a feeder: the precision of each joint depends on how well you place the material, not on Tlaku. Start with a test design on cardboard and with the laser at low power.
+> **Warning:** tiling and the feeder were tested with the virtual machine and with automated tests. **These features have not been tested with a real machine** (other parts of Tlaku were tested on a Falcon2 Pro, but not tiling or the feeder). The tiles line up with material placed by hand or with a feeder: the precision of each joint depends on how well you place the material, not on Tlaku. Start with a test design on cardboard and with the laser at low power.
 
 ## When to use it
 

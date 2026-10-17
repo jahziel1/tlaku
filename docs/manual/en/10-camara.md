@@ -2,7 +2,7 @@
 
 Put a camera over the bed and Tlaku shows its image as the canvas backdrop, so you can place the design right on the material. For it to match you need to correct the lens, align the image with the bed, and, if you want precision, enter the material's thickness.
 
-> **Warning:** the camera was tested with simulated cameras and photos, not with a real machine's camera. Besides serving as a reference backdrop, the image can be saved in the document, traced to vectors, assembled into a mosaic with a head-mounted camera, and used to find the center of a round object. **Network cameras** (a snapshot or MJPEG URL on your local network), named **camera presets**, and a **manual adjustment** of the backdrop are also supported. Anything marked *to be validated with real hardware* was tested only with synthetic data.
+> **Warning:** the camera was tested mostly with simulated cameras and photos. On a real machine, only the lid camera of a Falcon2 Pro was seen working: it shows the center and the back of the bed well, but does not cover the front strip (low Y) and its lens distorts heavily (fisheye). **The lens was not calibrated and the alignment was not tested** with it. Besides serving as a reference backdrop, the image can be saved in the document, traced to vectors, assembled into a mosaic with a head-mounted camera, and used to find the center of a round object. **Network cameras** (a snapshot or MJPEG URL on your local network), named **camera presets**, and a **manual adjustment** of the backdrop are also supported. Anything marked *to be validated with real hardware* was tested only with synthetic data.
 
 ## The Camera panel
 

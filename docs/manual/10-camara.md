@@ -2,7 +2,7 @@
 
 Pon una cámara sobre la cama y Tlaku muestra su imagen como fondo del lienzo, para colocar el diseño justo sobre el material. Para que coincida hace falta corregir la lente, alinear la imagen con la cama y, si quieres precisión, indicar el grosor del material.
 
-> **Ojo:** la cámara se probó con cámaras y fotos simuladas, no con la cámara de una máquina real. Además de servir de fondo de referencia, la imagen puede guardarse en el documento, vectorizarse, armarse como mosaico con una cámara montada en el cabezal y usarse para encontrar el centro de un objeto redondo. También se admiten **cámaras de red** (una URL de snapshot o MJPEG de tu red local), **configuraciones de cámara** con nombre y un **ajuste manual** del fondo. Lo marcado *por validar con hardware real* se probó solo con datos sintéticos.
+> **Ojo:** la cámara se probó sobre todo con cámaras y fotos simuladas. Con una máquina real solo se vio funcionar la cámara de la tapa de una Falcon2 Pro: ve bien el centro y el fondo de la cama, pero no cubre la franja delantera (las Y bajas) y su lente deforma mucho (ojo de pez). **No se calibró la lente ni se probó la alineación** con ella. Además de servir de fondo de referencia, la imagen puede guardarse en el documento, vectorizarse, armarse como mosaico con una cámara montada en el cabezal y usarse para encontrar el centro de un objeto redondo. También se admiten **cámaras de red** (una URL de snapshot o MJPEG de tu red local), **configuraciones de cámara** con nombre y un **ajuste manual** del fondo. Lo marcado *por validar con hardware real* se probó solo con datos sintéticos.
 
 ## El panel Cámara
 

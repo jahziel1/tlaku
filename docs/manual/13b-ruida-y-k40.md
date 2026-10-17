@@ -2,7 +2,7 @@
 
 Dos familias de máquinas que LightBurn trata distinto y que Tlaku soporta **de forma experimental**: las controladoras **Ruida** de los láseres de CO2 con pantalla, y el **K40 con placa M2 Nano**. Esta página dice qué hace cada una, qué no hace y cómo probarlas con cuidado.
 
-> **Ojo, honestidad:** ninguna de las dos se ha probado con una máquina real. Ruida se validó contra un emulador UDP propio y el K40 contra una placa simulada y vectores de prueba de otro proyecto de código abierto. Cuando esta página dice «funciona» significa exactamente eso: funciona contra el emulador. **Una orden equivocada a una controladora de CO2 puede dañar un tubo láser o a quien esté cerca.** Haz la primera prueba con el láser deshabilitado, sin material valioso, con el paro de emergencia al alcance y sin dejar la máquina sola.
+> **Ojo, honestidad:** ninguna de las dos se ha probado con una máquina real (otras partes de Tlaku sí se probaron en una Falcon2 Pro con GRBL, pero no Ruida ni K40). Ruida se validó contra un emulador UDP propio y el K40 contra una placa simulada y vectores de prueba de otro proyecto de código abierto. Cuando esta página dice «funciona» significa exactamente eso: funciona contra el emulador. **Una orden equivocada a una controladora de CO2 puede dañar un tubo láser o a quien esté cerca.** Haz la primera prueba con el láser deshabilitado, sin material valioso, con el paro de emergencia al alcance y sin dejar la máquina sola.
 
 ## Ruida
 

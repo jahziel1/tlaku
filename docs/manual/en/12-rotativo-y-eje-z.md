@@ -2,7 +2,7 @@
 
 Two accessories that change how the G-code is generated: the motorized Z axis (to focus per layer and step down on each pass) and the rotary (to engrave cylindrical pieces instead of flat ones). Both are turned on in the machine profile.
 
-> **Warning:** neither the rotary nor the Z axis has been tested with a real machine; everything was validated with the emulator and automated tests. The preloaded rotary models use manufacturer or review figures: always calibrate with the **One-rotation test** and start with low power and a scrap piece.
+> **Warning:** neither the rotary nor the Z axis has been tested with a real machine (Tlaku was tested on a Falcon2 Pro, but without a rotary or Z axis); this was validated with the emulator and automated tests. The preloaded rotary models use manufacturer or review figures: always calibrate with the **One-rotation test** and start with low power and a scrap piece.
 
 ## Z axis
 

@@ -2,7 +2,7 @@
 
 Imprimes un diseño en papel, vinilo o madera con la impresora y quieres que el láser corte **exactamente** por el contorno, aunque hayas puesto la hoja un poco torcida o corrida sobre la cama. Eso es **Print & Cut**: se imprimen unas **marcas de registro** junto con el diseño, le dices a Tlaku dónde quedaron de verdad en la máquina, y Tlaku mueve, gira (y si hace falta estira) todo el trabajo para que caiga sobre lo impreso.
 
-> **Ojo:** Print & Cut se probó con la máquina virtual y con una hoja impresa simulada (unos milímetros corrida y un poco girada). **No se ha probado con un láser ni con una cámara reales.** Haz las primeras pruebas con papel de desecho, la potencia al mínimo o el láser deshabilitado, y la mano cerca del paro de emergencia.
+> **Ojo:** Print & Cut se probó con la máquina virtual y con una hoja impresa simulada (unos milímetros corrida y un poco girada). **Esta función no se ha probado con un láser ni con una cámara reales** (otras partes de Tlaku sí se probaron en una Falcon2 Pro, pero no Print & Cut). Haz las primeras pruebas con papel de desecho, la potencia al mínimo o el láser deshabilitado, y la mano cerca del paro de emergencia.
 
 ## Cuándo sirve
 

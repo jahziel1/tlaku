@@ -2,7 +2,7 @@
 
 El orden recomendado para mandar un diseño a la máquina: revisar la vista previa, elegir qué se envía, colocar el trabajo, encuadrar, confirmar y vigilar. Tlaku frena todo lo que puede mover el láser sin que tú lo pidas.
 
-> **Ojo:** nada de esto se ha probado con una máquina real. Todo el flujo (encuadrar, iniciar, pausar, detener, alarmas) se validó contra el emulador y las máquinas virtuales de la app. Practica primero con una **máquina virtual** ([Conectar tu máquina](08-conectar-maquina.md)) y haz tu primer trabajo real con material de desecho. Mantén siempre a mano el paro de emergencia físico de tu máquina.
+> **Ojo:** este flujo se probó con una máquina real, una Creality Falcon2 Pro de 22 W: encuadrar, iniciar, pausar, reanudar, detener, el aire asistido, continuar tras un corte de energía y la vista en vivo. Eso fue con trabajos cortos y potencias bajas o medias, con una sola máquina. **Falta** probar el corte con potencia alta, un trabajo largo y un corte de luz real a mitad de un grabado con material; las alarmas se validaron con el emulador y las máquinas virtuales de la app. Practica primero con una **máquina virtual** ([Conectar tu máquina](08-conectar-maquina.md)) y haz tu primer trabajo real con material de desecho. Mantén siempre a mano el paro de emergencia físico de tu máquina.
 
 ## Qué comprueba Tlaku antes de transmitir
 
@@ -107,7 +107,7 @@ Durante el trabajo ves el progreso (porcentaje, **Líneas**, **Transcurrido** y 
 | **Pausar** (`Ctrl/Cmd+Shift+P`) | Feed hold: detiene el movimiento. El mismo botón pasa a **Reanudar** |
 | **Detener** (`Ctrl/Cmd+.`) | Feed hold, espera a que frene y reinicio suave de la controladora; el trabajo termina y el láser queda apagado |
 
-La app indica que en pausa el láser está apagado, pero eso aún no está comprobado con una máquina real: en una pausa larga no dejes un diodo enfocado sobre el material.
+La app indica que en pausa el láser está apagado. En la Falcon2 Pro se comprobó: en pausa el láser queda en 0 y al reanudar sigue donde iba. Con otra máquina no está comprobado, así que en una pausa larga no dejes un diodo enfocado sobre el material.
 
 Si **Detener** ocurre con la máquina en movimiento, la posición puede haberse perdido. Aparece **La posición puede haberse perdido**: con finales de carrera haz **Hacer home ($H)…**; sin ellos, vuelve a fijar el origen a mano. Con Marlin y Smoothieware, cancelar siempre marca la posición como posiblemente perdida.
 
@@ -235,7 +235,7 @@ Todo lo siguiente es obligatorio, y lo exige el motor de la app, no solo la inte
 - **Un trabajo reanudado también deja punto de control**, así que se puede interrumpir y continuar varias veces.
 - **El aire asistido y la Z se restauran**, pero comprueba el enfoque antes de continuar.
 
-> **Consejo:** la primera vez, pruébalo con material de desecho y una máquina virtual ([Conectar tu máquina](08-conectar-maquina.md)). Como el resto del manual, nada de esto se ha probado todavía con una máquina real; la prueba con corte de luz está en la lista de validación con hardware.
+> **Consejo:** la primera vez, pruébalo con material de desecho y una máquina virtual ([Conectar tu máquina](08-conectar-maquina.md)). Con la Falcon2 Pro ya se probó continuar tras cortar la energía con el paro de emergencia, pero un corte de luz real a mitad de un grabado con material todavía está en la lista de validación con hardware.
 
 ## Historial de trabajos
 

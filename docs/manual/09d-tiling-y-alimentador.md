@@ -4,7 +4,7 @@ El **tiling** divide un trabajo **más grande que la cama** en tramos que sí ca
 
 El **alimentador automático** es una cinta o unos rodillos que avanzan el material solos. Tlaku lo usa dentro del tiling para no tener que mover el material a mano entre tramos.
 
-> **Ojo:** el tiling y el alimentador se probaron con la máquina virtual y con pruebas automáticas. **No se han probado con una máquina real.** Los tramos se alinean con el material colocado a mano o con un alimentador: la precisión de cada empalme depende de lo bien que coloques el material, no de Tlaku. Empieza con un diseño de prueba en cartón y con el láser a potencia baja.
+> **Ojo:** el tiling y el alimentador se probaron con la máquina virtual y con pruebas automáticas. **Estas funciones no se han probado con una máquina real** (otras partes de Tlaku sí se probaron en una Falcon2 Pro, pero no el tiling ni el alimentador). Los tramos se alinean con el material colocado a mano o con un alimentador: la precisión de cada empalme depende de lo bien que coloques el material, no de Tlaku. Empieza con un diseño de prueba en cartón y con el láser a potencia baja.
 
 ## Cuándo usarlo
 

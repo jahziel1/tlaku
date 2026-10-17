@@ -2,7 +2,7 @@
 
 Con el control remoto puedes **ver el avance de un trabajo y pausarlo o detenerlo desde el celular**, sin instalar nada: el celular abre una página en su navegador. Sirve, por ejemplo, para vigilar un trabajo largo desde el otro lado del taller, o para detenerlo sin tener que correr hasta la computadora.
 
-> **Ojo:** es una ayuda, no un reemplazo de estar junto a la máquina. **Úsalo solo en una red de confianza y solo estando cerca del láser y viéndolo.** Nunca dejes un láser trabajando sin vigilancia. Tampoco se probó todavía con una máquina real: empieza con una máquina virtual.
+> **Ojo:** es una ayuda, no un reemplazo de estar junto a la máquina. **Úsalo solo en una red de confianza y solo estando cerca del láser y viéndolo.** Nunca dejes un láser trabajando sin vigilancia. Se probó con una máquina real una sola vez: la página del celular siguió un grabado real en una Falcon2 Pro. Falta probarlo con cortes largos y con otras máquinas, así que empieza con una máquina virtual.
 
 ## Antes de empezar: dos avisos de seguridad
 

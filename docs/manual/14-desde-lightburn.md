@@ -246,10 +246,10 @@ Nada se pierde en silencio. Al importar, un aviso lista lo que no pudo traer:
 - **Puentes manuales:** la posición de los puentes que pusiste a mano en LightBurn no se importa; aquí se reparten solos según los ajustes de la capa. Si te importa dónde quedan, pon los tuyos con la herramienta **Puentes manuales** (`U`).
 - **Capas citadas pero no definidas** en el archivo, un modo de capa o de imagen desconocido, o un archivo guardado con una versión de LightBurn más nueva de las que Tlaku conoce (se intenta leer igual).
 
-> **Ojo:** aunque los ajustes lleguen, **compruébalos antes de cortar**. La conversión de unidades de overscan se infirió de la documentación pública, y nada de esto se ha probado todavía con una máquina real. Revisa cada capa y mira la **Vista previa**.
+> **Ojo:** aunque los ajustes lleguen, **compruébalos antes de cortar**. La conversión de unidades de overscan se infirió de la documentación pública, y los ajustes importados de un archivo de LightBurn todavía no se han probado cortando o grabando en una máquina real. Revisa cada capa y mira la **Vista previa**.
 
 > **Consejo:** prueba con la **máquina virtual** antes de tu primer trabajo real: no gasta material y te enseña cómo se ven el encuadre, las pausas y las alarmas.
 
-> **Ojo:** nada de la conexión con la máquina se ha probado con hardware real. Mientras LightBurn te siga funcionando con tu láser, mantenlo como plan B.
+> **Ojo:** con una máquina real, una Creality Falcon2 Pro con GRBL 1.1, Tlaku ya conectó, hizo homing, encuadró, grabó líneas, rellenos e imágenes, pausó, reanudó, detuvo y continuó tras un corte de energía. Con otras marcas, firmwares y controladoras (Ruida, K40, galvo), con la conexión por red, con cortes de potencia alta y con trabajos largos todavía no hay pruebas reales. Mientras Tlaku siga en beta, y mientras LightBurn te siga funcionando con tu láser, mantenlo como plan B.
 
 Siguiente: [Solución de problemas](15-solucion-de-problemas.md)

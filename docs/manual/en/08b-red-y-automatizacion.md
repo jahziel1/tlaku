@@ -2,7 +2,7 @@
 
 How to connect your machine over Wi-Fi or Ethernet instead of a USB cable, how to test the connection before using it, how to rehearse without a machine using a virtual machine over the network, and how to let other programs on your own computer drive Tlaku with UDP commands.
 
-> **Be aware, in all honesty:** the network connection **has not been tested with a real machine**. It was validated with the `tlaku-emu` emulator behind real sockets (TCP and WebSocket) and with automated tests, like the rest of the connection. Do your first test with the laser at low power and without leaving the machine unattended. Which controllers work and in what state: [Supported controllers](13-controladoras.md).
+> **Be aware, in all honesty:** the network connection and UDP automation **have not been tested with a real machine**. They were validated with the `tlaku-emu` emulator behind real sockets (TCP and WebSocket) and with automated tests. (What was tested on a real machine, a Falcon2 Pro over USB, is the serial connection; see [Supported controllers](13-controladoras.md).) Do your first test with the laser at low power and without leaving the machine unattended. Which controllers work and in what state: [Supported controllers](13-controladoras.md).
 
 ## Which machines connect over the network
 

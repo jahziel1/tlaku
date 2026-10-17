@@ -246,10 +246,10 @@ Nothing is lost silently. On import, a notice lists what could not be brought in
 - **Manual tabs:** the position of the tabs you placed by hand in LightBurn is not imported; here they are distributed automatically according to the layer settings. If it matters to you where they end up, place your own with the **Manual tabs** tool (`U`).
 - **Layers cited but not defined** in the file, an unknown layer or image mode, or a file saved with a newer LightBurn version than Tlaku knows (it tries to read it anyway).
 
-> **Warning:** even if the settings arrive, **check them before cutting**. The overscan unit conversion was inferred from public documentation, and none of this has yet been tested with a real machine. Review each layer and look at the **Preview**.
+> **Warning:** even if the settings arrive, **check them before cutting**. The overscan unit conversion was inferred from public documentation, and settings imported from a LightBurn file have not yet been tested by cutting or engraving on a real machine. Review each layer and look at the **Preview**.
 
 > **Tip:** try the **virtual machine** before your first real job: it uses no material and shows you how the framing, pauses, and alarms look.
 
-> **Warning:** none of the machine connection has been tested with real hardware. As long as LightBurn keeps working with your laser, keep it as plan B.
+> **Warning:** on a real machine, a Creality Falcon2 Pro with GRBL 1.1, Tlaku has connected, homed, framed, engraved lines, fills, and images, paused, resumed, stopped, and continued after a power cut. There are no real-machine tests yet with other brands, firmwares, and controllers (Ruida, K40, galvo), with network connections, with high-power cutting, or with long jobs. While Tlaku is in beta, and as long as LightBurn keeps working with your laser, keep it as plan B.
 
 Next: [Troubleshooting](15-solucion-de-problemas.md)

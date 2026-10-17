@@ -2,14 +2,14 @@
 
 Tlaku es un programa libre (licencia MIT) para preparar y enviar trabajos a cortadoras y grabadoras láser. Este manual explica lo que la aplicación hace hoy. Lo que todavía no está en la aplicación se dice con claridad en cada página (por ejemplo, en la sección "Lo que falta o es distinto" de [Venir desde LightBurn](14-desde-lightburn.md)); no se promete nada que no esté en el código.
 
-> **Ojo:** nada se ha probado todavía con una máquina real. Todo el envío, la conexión, las controladoras, Print & Cut, el tiling y el soporte galvo se validaron con el emulador (`tlaku-emu`), con la tarjeta galvo simulada y con las máquinas virtuales de la propia app. Empieza siempre con la máquina virtual y, cuando uses un láser de verdad, hazlo con supervisión. **Si vas a usar un láser galvo (fibra), lee antes [Seguridad del galvo](13d-galvo-seguridad.md)**: su haz es invisible.
+> **Ojo:** Tlaku es una beta. Se probó con una Creality Falcon2 Pro de 22 W real: grabado de líneas, rellenos e imágenes, pausa, detener, continuar tras un corte de energía, vista en vivo y control desde el celular. El **corte con potencia alta todavía no se ha probado**, y las demás máquinas y controladoras (Ruida, K40, galvo, red, rotativo, cámara calibrada…) solo se han probado con emuladores y con las máquinas virtuales de la propia app. El detalle está en [Controladoras soportadas](13-controladoras.md). Empieza con potencia baja, material de desecho y supervisión. **Si vas a usar un láser galvo (fibra), lee antes [Seguridad del galvo](13d-galvo-seguridad.md)**: su haz es invisible.
 
 ## Para empezar
 
 - [Primeros pasos](01-primeros-pasos.md): instalar, importar un diseño, revisar las capas, ver la vista previa, probar con la máquina virtual y guardar.
 - [Modo sencillo](01b-modo-sencillo.md): la versión guiada en cinco pasos para quien nunca ha usado un láser: elegir el material, cortar, grabar o ignorar cada color, ajustar con palabras simples y revisar antes de iniciar.
 - [La interfaz](02-interfaz.md): barra superior, herramientas, lienzo y guías, paneles reordenables, paleta de colores, barra de estado y atajos de teclado.
-- [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md): la ventana de preferencias (con las pulgadas, el contraste de la rejilla, volver a Seleccionar, las opciones de importación, la automatización por UDP y el control remoto), cambiar atajos, llevar tu configuración a otro equipo y recuperar el trabajo tras un cierre inesperado.
+- [Preferencias, atajos y autoguardado](02b-preferencias-y-atajos.md): la ventana de preferencias (con las pulgadas, el contraste de la rejilla, volver a Seleccionar, las opciones de importación, la automatización por UDP y el control remoto), cambiar atajos, llevar tu configuración a otro equipo, buscar actualizaciones y recuperar el trabajo tras un cierre inesperado.
 
 ## Diseñar
 

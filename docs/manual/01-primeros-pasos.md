@@ -2,20 +2,31 @@
 
 En esta página vas de cero a un trabajo listo: instalas Tlaku, importas un diseño, revisas sus capas, miras la vista previa, lo pruebas con una máquina virtual y guardas el proyecto. No necesitas un láser para seguirla.
 
-> **Ojo:** nada de Tlaku se ha probado todavía con una máquina real. Lo que ves aquí funciona contra el emulador y las máquinas virtuales de la app. Cuando conectes un láser de verdad, hazlo con supervisión y con potencias bajas.
+> **Ojo:** Tlaku es una beta. Se probó con una Creality Falcon2 Pro de 22 W real (grabado de líneas, rellenos, imágenes, pausa, detener, continuar tras un corte de energía, vista en vivo y celular). El corte con potencia alta todavía no, y las demás máquinas solo con emuladores. Cuando conectes un láser de verdad, empieza con potencia baja y con supervisión. Detalle en [Controladoras soportadas](13-controladoras.md).
 
 ## 1. Instalar
 
-Los instaladores se publican en la página **Releases** del repositorio:
+Tlaku está en beta. La versión más reciente es la 0.1.2 y se descarga de la página [Releases](https://github.com/jahziel1/tlaku/releases/latest) del repositorio:
 
 | Sistema | Archivo |
 |---|---|
-| macOS 11 o posterior | `.dmg`: ábrelo y arrastra Tlaku a Aplicaciones |
-| Windows 10 o posterior | `.exe` (instalador NSIS) o `.msi` |
+| macOS 11 o posterior (Apple Silicon e Intel) | `.dmg` universal: ábrelo y arrastra Tlaku a Aplicaciones |
+| Windows 10 o posterior | `x64-setup.exe` (instalador) o `.msi` (en inglés o en español) |
 | Linux x86_64 | `.deb` o `.AppImage` |
 | Linux ARM64 (Raspberry Pi 4 y 5 con sistema de 64 bits; experimental) | `.deb` (`_arm64`) o `.AppImage` (`_aarch64`) |
+| Linux con Flatpak (x86_64 y aarch64) | `.flatpak`. **Sin probar** todavía |
 
-La aplicación todavía no está firmada, así que el sistema avisará la primera vez. En macOS, intenta abrirla una vez y luego ve a **Ajustes del Sistema > Privacidad y seguridad > Abrir de todas formas** (en macOS 14 o anterior también sirve clic derecho sobre Tlaku y **Abrir**); en Windows, **Más información** y **Ejecutar de todas formas**. En Linux, para usar el puerto serie añade tu usuario al grupo `dialout` (ver [Solución de problemas](15-solucion-de-problemas.md)).
+**Con Homebrew (macOS):** `brew install --cask jahziel1/tlaku/tlaku`.
+
+**winget (Windows):** el paquete ya se envió a Microsoft y está en revisión; todavía no se puede instalar así. Por ahora usa el instalador de la tabla.
+
+La aplicación no está firmada con un certificado de pago, así que el sistema avisará la primera vez:
+
+- **macOS.** Tlaku no está notarizada por Apple. La primera vez macOS avisa que no puede comprobarla: abre Tlaku una vez, ve a **Ajustes del Sistema > Privacidad y seguridad** y pulsa **Abrir de todas formas** (en macOS 14 o anterior también sirve clic derecho sobre Tlaku y **Abrir**). Si aun así dijera que la app está **dañada**, mira [Solución de problemas](15-solucion-de-problemas.md#macos-dice-que-la-app-esta-danada).
+- **Windows.** SmartScreen puede mostrar **Windows protegió su PC**: elige **Más información** y luego **Ejecutar de todas formas**.
+- **Linux.** Para usar el puerto serie añade tu usuario al grupo `dialout` (ver [Solución de problemas](15-solucion-de-problemas.md)).
+
+Después de instalar, Tlaku puede buscar versiones nuevas por sí solo: ver [Actualizaciones](02b-preferencias-y-atajos.md#actualizaciones).
 
 **Raspberry Pi (experimental).** Necesitas un sistema de **64 bits** (en una terminal, `uname -m` debe decir `aarch64`), por ejemplo Raspberry Pi OS de 64 bits o Ubuntu ARM, en una Pi 4 o 5 con 4 GB de RAM o más. La Pi 3 o anteriores y los sistemas de 32 bits no funcionan. Si la ventana sale en blanco o rota, abre Tlaku así: `WEBKIT_DISABLE_COMPOSITING_MODE=1 tlaku`. Aún no se ha probado en una Raspberry Pi real; si lo haces, comparte tu experiencia en un reporte de máquina.
 

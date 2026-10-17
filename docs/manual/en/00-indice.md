@@ -4,14 +4,14 @@
 
 Tlaku is free software (MIT license) for preparing and sending jobs to laser cutters and engravers. This manual explains what the application does today. Anything that is not in the application yet is stated clearly on each page (for example, in the "What is missing or different" section of [Coming from LightBurn](14-desde-lightburn.md)); nothing is promised that is not in the code.
 
-> **Heads up:** nothing has been tested with a real machine yet. Sending, connecting, controllers, Print & Cut, tiling and galvo support were all validated with the emulator (`tlaku-emu`), with the simulated galvo card and with the app's own virtual machines. Always start with the virtual machine and, when you use a real laser, do it under supervision. **If you are going to use a galvo laser (fiber), read [Galvo safety](13d-galvo-seguridad.md) first**: its beam is invisible.
+> **Heads up:** Tlaku is a beta. It has been tested on a real Creality Falcon2 Pro 22 W: line engraving, fills and images, pause, stop, resuming after a power cut, live view, and control from your phone. **Cutting at high power has not been tested yet**, and other machines and controllers (Ruida, K40, galvo, network, rotary, a calibrated camera…) have only been tested with emulators and with the app's own virtual machines. The details are in [Supported controllers](13-controladoras.md). Start with low power, scrap material, and supervision. **If you are going to use a galvo laser (fiber), read [Galvo safety](13d-galvo-seguridad.md) first**: its beam is invisible.
 
 ## Getting started
 
 - [Getting started](01-primeros-pasos.md): install, import a design, check the layers, see the preview, test with the virtual machine and save.
 - [Simple mode](01b-modo-sencillo.md): the guided five-step version for people who have never used a laser: choose the material, cut, engrave or ignore each color, adjust with plain words and review before starting.
 - [The interface](02-interfaz.md): top bar, tools, canvas and guides, rearrangeable panels, color palette, status bar and keyboard shortcuts.
-- [Preferences, shortcuts and autosave](02b-preferencias-y-atajos.md): the Preferences window (including inches, grid contrast, returning to Select, import options, UDP automation and remote control), changing shortcuts, moving your settings to another computer and recovering your work after an unexpected shutdown.
+- [Preferences, shortcuts and autosave](02b-preferencias-y-atajos.md): the Preferences window (including inches, grid contrast, returning to Select, import options, UDP automation and remote control), changing shortcuts, moving your settings to another computer, checking for updates and recovering your work after an unexpected shutdown.
 
 ## Designing
 

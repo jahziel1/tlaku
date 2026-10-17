@@ -2,7 +2,7 @@
 
 What the **Machine** tab offers beyond moving, framing, and starting: **macros**, moving the **Z** and **U** axes, **saved positions**, **focusing**, the **test fire**, the controller's **`$$` settings** with backup, **low-power and looping framing**, **laser 2**, and **`.tlakubundle` bundles** for taking your configuration to another computer.
 
-> **Warning:** none of this has been tested with a real machine; it was validated with the emulator and the virtual machines ([Connecting your machine](08-conectar-maquina.md)). Everything that turns the laser on or writes to the controller asks for confirmation, and even so you should try it first on a virtual machine. Almost all of this is for the **GRBL family** (GRBL, grblHAL, FluidNC, GRBL-LPC); with Marlin and Smoothieware several functions change or do not exist, and with Ruida they do not apply (see [Ruida and K40](13b-ruida-y-k40.md)).
+> **Warning:** of all this, only jogging the head, homing, the test fire at low power, and assist air were tested on a real machine (a Creality Falcon2 Pro). The rest (macros, Z and U axes, the probe, the second laser, and so on) was validated with the emulator and the virtual machines ([Connecting your machine](08-conectar-maquina.md)). Everything that turns the laser on or writes to the controller asks for confirmation, and even so you should try it first on a virtual machine. Almost all of this is for the **GRBL family** (GRBL, grblHAL, FluidNC, GRBL-LPC); with Marlin and Smoothieware several functions change or do not exist, and with Ruida they do not apply (see [Ruida and K40](13b-ruida-y-k40.md)).
 
 ## Macros
 

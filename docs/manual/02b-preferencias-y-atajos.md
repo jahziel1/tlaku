@@ -32,6 +32,7 @@ Abajo hay tres botones: **Importar…** y **Exportar…** (ver más abajo) y **R
 | Apariencia | **Distribución de la ventana** | Panel a la derecha, herramientas a la izquierda | Izquierda o derecha para cada uno, y **Restablecer distribución**. Ver [Guías, puentes, punto de inicio y proyecto](03e-guias-puentes-y-proyecto.md) |
 | Archivos | **Guardar copias de recuperación automáticamente** | Sí | Sí o no |
 | General | **Reabrir las pestañas al iniciar** | Sí | Sí o no. Con sí, al abrir Tlaku se vuelven a abrir los proyectos (con archivo) que tenían las pestañas al cerrar. Ver [Pestañas de documentos](03f-pestanas-de-documentos.md#recuperacion-y-sesion) |
+| General | **Buscar actualizaciones al iniciar** | No | Sí o no. Unos segundos después de abrir, Tlaku consulta si hay una versión nueva y te avisa. Ver [Actualizaciones](#actualizaciones) |
 | Archivos | **Intervalo entre copias** | 60 s | 10 a 3600 s |
 | Archivos | **Archivos recientes que se recuerdan** | 10 | 0 a 30 |
 | Archivos | **Resolución por omisión** (Importar archivos) | 96 ppp | 10 a 2400 ppp |
@@ -125,6 +126,22 @@ Si la carpeta **no está disponible** (la unidad USB está desconectada o la nub
 **Llevar tus ajustes a otra computadora.** Elige la **misma carpeta** de respaldo allá. Al abrir Tlaku, si en la carpeta hay un respaldo **más nuevo que lo de esa computadora y hecho en otra**, aparece una pregunta: **Revisar…** abre la vista previa, **Ahora no** lo deja para después y **Omitir este respaldo** lo da por visto. **Nunca se aplica solo.** Mientras haya un respaldo ajeno sin revisar, los respaldos automáticos se pausan para no taparlo.
 
 **Lo que esto no es.** No es sincronización en vivo: no fusiona cambios de dos computadoras a la vez ni resuelve relojes desalineados; tú decides qué importar. Si trabajas en ambas, restaura en la que vas a usar antes de empezar. En Flatpak o con macOS en sandbox, Tlaku solo ve la carpeta que eliges con el diálogo.
+
+## Actualizaciones
+
+Tlaku puede avisarte cuando hay una versión nueva y, si quieres, instalarla desde la misma aplicación.
+
+**Buscar a mano.** Elige **Ayuda > Buscar actualizaciones…**. Se abre la ventana **Actualizaciones** y dice una de tres cosas: que **Tlaku está al día**, que **hay una versión nueva** (con las novedades de esa versión) o por qué no pudo comprobarlo.
+
+**Instalar.** Si hay una versión nueva, pulsa **Descargar e instalar**. La descarga se verifica con la firma del proyecto antes de instalarse. Al terminar, la ventana dice que la actualización quedó instalada y te pide **reiniciar Tlaku** para usarla (**Reiniciar ahora** o **Más tarde**). Guarda tu trabajo antes de reiniciar; en Windows el instalador puede cerrar Tlaku por su cuenta. Si algo falla, el botón **Reintentar** vuelve a intentarlo.
+
+**Con un trabajo en curso no se instala nada.** Mientras la máquina ejecuta un trabajo, la ventana avisa que lo termines antes de instalar la actualización.
+
+**Buscar al iniciar.** En **Preferencias > General** está la casilla **Buscar actualizaciones al iniciar**, **apagada de fábrica**. Si la enciendes, unos segundos después de abrir Tlaku consulta si hay una versión nueva y te avisa. Solo se conecta a la dirección de actualizaciones del proyecto y no envía tus diseños. Esta casilla no viaja en los archivos `.tlakuprefs`: en un equipo nuevo se enciende a mano.
+
+**Flatpak.** Si instalaste Tlaku con Flatpak, las actualizaciones las da Flathub: usa la tienda de software de tu sistema o ejecuta `flatpak update io.github.jahziel1.tlaku`.
+
+**Compilaciones sin actualizaciones.** Si tu copia no trae las actualizaciones automáticas configuradas, la ventana lo dice y la casilla no hace nada: descarga la versión nueva de la página del proyecto e instálala encima de la anterior.
 
 ## Autoguardado y recuperación
 

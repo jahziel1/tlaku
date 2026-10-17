@@ -2,7 +2,7 @@
 
 Cómo conectar tu máquina por Wi-Fi o Ethernet en lugar de un cable USB, cómo probar la conexión antes de usarla, cómo ensayar sin máquina con una máquina virtual por red y cómo dejar que otros programas de tu propio equipo manejen Tlaku con comandos UDP.
 
-> **Ojo, honestidad:** la conexión por red **no se ha probado con una máquina real**. Se validó con el emulador de `tlaku-emu` detrás de sockets de verdad (TCP y WebSocket) y con pruebas automáticas, igual que el resto de la conexión. Haz tu primera prueba con el láser a potencia baja y sin dejar la máquina sola. Qué controladoras funcionan y en qué estado: [Controladoras soportadas](13-controladoras.md).
+> **Ojo, honestidad:** la conexión por red y la automatización por UDP **no se han probado con una máquina real**. Se validaron con el emulador de `tlaku-emu` detrás de sockets de verdad (TCP y WebSocket) y con pruebas automáticas. (Lo que sí se probó con una máquina real, una Falcon2 Pro por USB, es la conexión serie; ver [Controladoras soportadas](13-controladoras.md).) Haz tu primera prueba con el láser a potencia baja y sin dejar la máquina sola. Qué controladoras funcionan y en qué estado: [Controladoras soportadas](13-controladoras.md).
 
 ## Qué máquinas se conectan por red
 

@@ -32,6 +32,7 @@ At the bottom there are three buttons: **Import…** and **Export…** (see belo
 | Appearance | **Window layout** | Panel on the right, tools on the left | Left or right for each, and **Reset layout**. See [Guides, tabs, start point and project](03e-guias-puentes-y-proyecto.md) |
 | Files | **Save recovery copies automatically** | Yes | Yes or no |
 | General | **Reopen tabs at startup** | Yes | Yes or no. With yes, when Tlaku starts the projects (with a file) that were open in tabs when it closed are opened again. See [Document tabs](03f-pestanas-de-documentos.md#recovery-and-session) |
+| General | **Check for updates on startup** | No | Yes or no. A few seconds after opening, Tlaku checks whether a new version exists and lets you know. See [Updates](#updates) |
 | Files | **Interval between copies** | 60 s | 10 to 3600 s |
 | Files | **Recent files to remember** | 10 | 0 to 30 |
 | Files | **Default resolution** (Importing files) | 96 dpi | 10 to 2400 dpi |
@@ -125,6 +126,22 @@ If the folder is **not available** (the USB drive is unplugged or the cloud has 
 **Moving your settings to another computer.** Pick the **same** backup folder there. When Tlaku starts, if the folder holds a backup **newer than what that computer has and made on another one**, a question appears: **Review…** opens the preview, **Not now** leaves it for later and **Skip this backup** marks it as seen. **It is never applied on its own.** While a foreign backup is waiting for review, automatic backups are paused so they do not bury it.
 
 **What this is not.** It is not live sync: it does not merge changes made on two computers at the same time or deal with clocks that disagree; you decide what to import. If you work on both, restore on the one you are about to use before you start. With Flatpak or sandboxed macOS, Tlaku only sees the folder you pick in the dialog.
+
+## Updates
+
+Tlaku can tell you when a new version is out and, if you want, install it from within the application.
+
+**Check by hand.** Choose **Help > Check for Updates…**. The **Updates** window opens and tells you one of three things: that **Tlaku is up to date**, that **a new version is available** (with what is in that version), or why it could not check.
+
+**Install.** If there is a new version, click **Download and install**. The download is checked against the project's signature before it is installed. When it finishes, the window says the update is installed and asks you to **restart Tlaku** to use it (**Restart now** or **Later**). Save your work before restarting; on Windows the installer may close Tlaku by itself. If something fails, **Try again** runs it again.
+
+**Nothing is installed while a job is running.** While the machine is running a job, the window tells you to finish it before installing the update.
+
+**Check on startup.** In **Preferences > General** there is a **Check for updates on startup** checkbox, **off by default**. If you turn it on, a few seconds after Tlaku opens it checks whether a new version exists and tells you. It only connects to the project's update address and does not send your designs. This checkbox is not carried in `.tlakuprefs` files: on a new computer, turn it on by hand.
+
+**Flatpak.** If you installed Tlaku with Flatpak, updates are delivered by Flathub: use your system's software store or run `flatpak update io.github.jahziel1.tlaku`.
+
+**Builds without updates.** If your copy does not have automatic updates configured, the window says so and the checkbox does nothing: download the new version from the project page and install it over the old one.
 
 ## Autosave and recovery
 

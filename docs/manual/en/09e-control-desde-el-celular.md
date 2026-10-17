@@ -2,7 +2,7 @@
 
 With remote control you can **see a job's progress and pause or stop it from your phone**, without installing anything: the phone opens a page in its browser. It is useful, for example, for keeping an eye on a long job from the other side of the shop, or for stopping it without running to the computer.
 
-> **Warning:** it is an aid, not a replacement for being next to the machine. **Use it only on a trusted network and only while you are near the laser and can see it.** Never leave a laser working unattended. It has also not yet been tested with a real machine: start with a virtual machine.
+> **Warning:** it is an aid, not a replacement for being next to the machine. **Use it only on a trusted network and only while you are near the laser and can see it.** Never leave a laser working unattended. It has been tested on a real machine only once: the phone page followed a real engraving on a Falcon2 Pro. Long cuts and other machines are still untested, so start with a virtual machine.
 
 ## Before you start: two safety notices
 

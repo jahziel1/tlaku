@@ -2,7 +2,7 @@
 
 The recommended order for sending a design to the machine: review the preview, choose what gets sent, place the job, frame, confirm, and watch. Tlaku blocks everything that could move the laser without you asking.
 
-> **Warning:** none of this has been tested with a real machine. The entire workflow (framing, starting, pausing, stopping, alarms) was validated against the emulator and the app's virtual machines. Practice first with a **virtual machine** ([Connecting your machine](08-conectar-maquina.md)) and do your first real job on scrap material. Always keep your machine's physical emergency stop within reach.
+> **Warning:** this workflow was tested on a real machine, a Creality Falcon2 Pro (22 W): framing, starting, pausing, resuming, stopping, assist air, continuing after a power cut, and live view. That was with short jobs at low or medium power, on a single machine. **Still untested:** high-power cutting, a long job, and a real power cut in the middle of an engraving with material; alarms were validated with the emulator and the app's virtual machines. Practice first with a **virtual machine** ([Connecting your machine](08-conectar-maquina.md)) and do your first real job on scrap material. Always keep your machine's physical emergency stop within reach.
 
 ## What Tlaku checks before transmitting
 
@@ -107,7 +107,7 @@ During the job you see the progress (percentage, **Lines**, **Elapsed**, and **R
 | **Pause** (`Ctrl/Cmd+Shift+P`) | Feed hold: stops the movement. The same button becomes **Resume** |
 | **Stop** (`Ctrl/Cmd+.`) | Feed hold, waits for it to brake, and soft reset of the controller; the job ends and the laser is left off |
 
-The app indicates that the laser is off while paused, but that has not yet been verified with a real machine: during a long pause, do not leave a diode laser focused on the material.
+The app indicates that the laser is off while paused. On the Falcon2 Pro this was verified: during a pause the laser stays at 0 and, on resume, carries on where it left off. It is not verified on other machines, so during a long pause do not leave a diode laser focused on the material.
 
 If **Stop** happens while the machine is moving, the position may have been lost. **The position may have been lost** appears: with limit switches do **Home ($H)…**; without them, set the origin again by hand. With Marlin and Smoothieware, cancelling always marks the position as possibly lost.
 
@@ -235,7 +235,7 @@ All of the following is mandatory, and the app's engine enforces it, not just th
 - **A resumed job also leaves a checkpoint**, so it can be interrupted and continued several times.
 - **Assist air and Z are restored**, but check the focus before continuing.
 
-> **Tip:** the first time, try it on scrap material and with a virtual machine ([Connecting your machine](08-conectar-maquina.md)). Like the rest of the manual, none of this has been tested with a real machine yet; the power-cut test is in the hardware validation list.
+> **Tip:** the first time, try it on scrap material and with a virtual machine ([Connecting your machine](08-conectar-maquina.md)). Continuing after cutting the power with the emergency stop has been tested on the Falcon2 Pro, but a real power cut in the middle of an engraving with material is still on the hardware validation list.
 
 ## Job history
 

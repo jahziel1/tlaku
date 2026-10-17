@@ -2,7 +2,7 @@
 
 Two families of machines that LightBurn treats differently and that Tlaku supports **experimentally**: the **Ruida** controllers of CO2 lasers with a screen, and the **K40 with an M2 Nano board**. This page says what each one does, what it does not do, and how to test them carefully.
 
-> **Warning, in all honesty:** neither has been tested with a real machine. Ruida was validated against an emulator of our own over UDP, and the K40 against a simulated board and test vectors from another open-source project. When this page says "works" it means exactly that: it works against the emulator. **A wrong command to a CO2 controller can damage a laser tube or hurt whoever is nearby.** Do the first test with the laser disabled, without valuable material, with the emergency stop within reach, and without leaving the machine unattended.
+> **Warning, in all honesty:** neither has been tested with a real machine (other parts of Tlaku were tested on a Falcon2 Pro with GRBL, but not Ruida or K40). Ruida was validated against an emulator of our own over UDP, and the K40 against a simulated board and test vectors from another open-source project. When this page says "works" it means exactly that: it works against the emulator. **A wrong command to a CO2 controller can damage a laser tube or hurt whoever is nearby.** Do the first test with the laser disabled, without valuable material, with the emergency stop within reach, and without leaving the machine unattended.
 
 ## Ruida
 

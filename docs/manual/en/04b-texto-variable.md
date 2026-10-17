@@ -115,6 +115,6 @@ Sources are saved in the `.tlaku` with a **path relative** to the project's fold
 - There is no row selection (range, filter) or bulk find and replace; nor QR codes with their own numbering (use `{serial}` in the content for that).
 - There is no variable mode for layer settings (speed, power) and no "baking" the text into fixed values; to fix a text, convert it to paths.
 - Tlaku's syntax is its own: LightBurn files with variable text are not translated automatically.
-- None of this has been tested with a real machine yet; it was tested with the emulator and the virtual machine.
+- Variable text advancing in real jobs has not been tested on a real machine yet; it was tested with the emulator and the virtual machine.
 
 Next: [Layers and cut settings](05-capas-y-ajustes.md)

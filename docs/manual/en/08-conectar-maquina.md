@@ -2,7 +2,7 @@
 
 How to give Tlaku your laser's profile, open the USB port (or the network connection), and try everything first with a virtual machine. This page covers the connection; for networking and automation go to [Network connection and automation](08b-red-y-automatizacion.md), and for sending jobs go to [Sending jobs safely](09-enviar-con-seguridad.md).
 
-> **Be aware, in all honesty:** Tlaku **has not yet been tested with any real machine**. Connecting, detecting, and sending were validated with the `tlaku-emu` emulator and with the app's virtual machines. Do your first real test with scrap material, low power, and without leaving the machine unattended. Which controllers work and in what state: [Supported controllers](13-controladoras.md).
+> **Be aware, in all honesty:** Tlaku has been tested with **a single real machine**: a Creality Falcon2 Pro (22 W, GRBL 1.1) from macOS. On it, the **Add machine** wizard, port selection, homing, jogging, framing, sending jobs, and pausing all worked. It has **not** been tested with other brands or firmwares, over the network, or with Ruida, K40, or galvo; those connections were only validated with the `tlaku-emu` emulator and the app's virtual machines. Do your first test with scrap material, low power, and without leaving the machine unattended. Which controllers work and in what state: [Supported controllers](13-controladoras.md).
 
 ## Two concepts: profile and port
 
@@ -19,7 +19,7 @@ The easiest way to create a profile. Open it from the **Machine** menu, **Add ma
 
 1. **Detect.** Choose the **Port** and the **Baud rate** (115200 for almost all GRBL machines; Marlin often uses 250000) and press **Detect**. Detection only listens for the board's greeting and asks for its version and settings (`$I`, `$$`, `M115`). It never moves the machine or changes its configuration. Opening the port may reset the board and takes a few seconds. If you do not have the machine at hand, choose **Skip detection and pick from the catalog**.
 2. **Model.** Search the catalog for your brand or model (for example `falcon`, `S9`, `xTool`). If detection recognized the family, only models from that family are listed; tick **Also show models from other firmware families** to see them all. If your machine is not listed, choose **Other / generic** and the firmware type.
-3. **Review.** Tlaku compares what the catalog says with what the machine answered to `$$` (max S, bed, max speed, and acceleration). Where they differ, you choose with **Use the machine's value**; by default the machine's value is suggested. This step also warns you if laser mode is off (`$32=0`) or if GRBL is older than 1.1f.
+3. **Review.** Tlaku compares what the catalog says with what the machine answered to `$$` (max S, bed, max speed, and acceleration). Where they differ, you choose with **Use the machine's value**; by default the machine's value is suggested. With the Falcon2 Pro, for example, the wizard recognized the model and suggested the values the machine reports where they differ from the catalog (such as the Y-axis speed, 8000). This step also warns you if laser mode is off (`$32=0`) or if GRBL is older than 1.1f.
 4. **Save.** Give it a **Machine name** and press **Save and activate**. The profile becomes the active machine.
 
 The catalog has 21 entries: 18 models (Creality Falcon2, Sculpfun, Atomstack, Ortur, xTool, Longer, Neje, Two Trees, K40 with Cohesion3D) and 3 generic families (GRBL, Marlin, Smoothieware). Each value says where it comes from (**Official**, **Store or review**, or **Forum**), and values that no source provides are left blank so you can read them from your machine. The advertised figures can differ on your unit: trust what the machine reports.
@@ -108,6 +108,8 @@ Warnings the section can give you:
 - Firmware older than GRBL 1.1f: it does not support laser mode (M4) well; use constant power (M3) in the profile.
 - Laser mode disabled (`$32=0`): engraving would come out wrong. The **Enable laser mode ($32=1)…** button asks for confirmation before sending it.
 - If the connection is lost (cable unplugged, port gone, machine switched off), the app tells you.
+- If **another program** (for example LightBurn) already has the port open, Tlaku cannot connect and tells you so: a USB port can only be used by one program at a time. Close it and connect again.
+- **The lid is not reported.** The Falcon2 Pro board does not report whether the lid is open (with the lid open it still says "Ready"), so Tlaku cannot know and cannot warn you. Check yourself that it is closed before starting.
 - If the board **stops answering** for a few seconds (some USB boards do this, such as the Falcon2 behind a hub), Tlaku **does not disconnect**: it waits, just like LightBurn. After 2 seconds a discreet notice appears, "The machine has not answered for N s…", with **Stop** and **Disconnect**; it goes away by itself when the board answers again and the job carries on without you doing anything. If more than a minute passes in the middle of a job, the notice becomes more serious ("It has been silent for over a minute"): check the machine and, if it keeps moving and does not respond, use the emergency stop.
 
 If the port is not found or the connection fails, see [Troubleshooting](15-solucion-de-problemas.md).

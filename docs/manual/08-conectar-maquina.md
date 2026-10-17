@@ -2,7 +2,7 @@
 
 Cómo darle a Tlaku el perfil de tu láser, abrir el puerto USB (o la conexión de red) y probar todo primero con una máquina virtual. Esta página cubre la conexión; para la red y la automatización ve a [Conexión por red y automatización](08b-red-y-automatizacion.md), y para enviar trabajos a [Enviar trabajos con seguridad](09-enviar-con-seguridad.md).
 
-> **Ojo, honestidad:** Tlaku **todavía no se ha probado con ninguna máquina real**. Conectar, detectar y enviar se validaron con el emulador `tlaku-emu` y con las máquinas virtuales de la app. Haz tu primera prueba real con material de desecho, potencia baja y sin dejar la máquina sola. Qué controladoras funcionan y en qué estado: [Controladoras soportadas](13-controladoras.md).
+> **Ojo, honestidad:** Tlaku se probó con **una sola máquina real**: una Creality Falcon2 Pro de 22 W con GRBL 1.1, desde macOS. Con ella pasaron el asistente **Agregar máquina**, la elección del puerto, el homing, mover el cabezal, el encuadre, el envío de trabajos y las pausas. **No** se ha probado con otras marcas o firmwares, por red ni con Ruida, K40 o galvo; esas conexiones solo se validaron con el emulador `tlaku-emu` y con las máquinas virtuales de la app. Haz tu primera prueba con material de desecho, potencia baja y sin dejar la máquina sola. Qué controladoras funcionan y en qué estado: [Controladoras soportadas](13-controladoras.md).
 
 ## Dos conceptos: perfil y puerto
 
@@ -19,7 +19,7 @@ La forma más cómoda de crear un perfil. Ábrelo desde el menú **Máquina**, *
 
 1. **Detectar.** Elige el **Puerto** y los **Baudios** (115200 para casi todos los GRBL; Marlin suele usar 250000) y pulsa **Detectar**. La detección solo escucha el saludo de la placa y le pide su versión y sus ajustes (`$I`, `$$`, `M115`). Nunca mueve la máquina ni cambia su configuración. Abrir el puerto puede reiniciar la placa y tarda unos segundos. Si no tienes la máquina a mano, elige **Saltar la detección y elegir del catálogo**.
 2. **Modelo.** Busca tu marca o modelo en el catálogo (por ejemplo `falcon`, `S9`, `xTool`). Si la detección reconoció la familia, se filtran los modelos de esa familia; marca **Mostrar también modelos de otras familias de firmware** para ver todos. Si tu máquina no aparece, elige **Otro / genérico** y el tipo de firmware.
-3. **Revisar.** Tlaku compara lo que dice el catálogo con lo que la máquina contestó a `$$` (S máxima, cama, velocidad máxima y aceleración). Donde difieren, tú eliges con **Usar lo de la máquina**; por defecto se propone lo de la máquina. Aquí también te avisa si el modo láser está apagado (`$32=0`) o si el GRBL es anterior a 1.1f.
+3. **Revisar.** Tlaku compara lo que dice el catálogo con lo que la máquina contestó a `$$` (S máxima, cama, velocidad máxima y aceleración). Donde difieren, tú eliges con **Usar lo de la máquina**; por defecto se propone lo de la máquina. Con la Falcon2 Pro, por ejemplo, el asistente reconoció el modelo y propuso los valores que informa la máquina donde difieren del catálogo (como la velocidad del eje Y, 8000). Aquí también te avisa si el modo láser está apagado (`$32=0`) o si el GRBL es anterior a 1.1f.
 4. **Guardar.** Ponle un **Nombre de la máquina** y pulsa **Guardar y activar**. El perfil queda como la máquina activa.
 
 El catálogo trae 21 entradas: 18 modelos (Creality Falcon2, Sculpfun, Atomstack, Ortur, xTool, Longer, Neje, Two Trees, K40 con Cohesion3D) y 3 familias genéricas (GRBL, Marlin, Smoothieware). Cada dato dice de dónde sale (**Oficial**, **Tienda o reseña** o **Foro**), y los que ninguna fuente aporta se dejan sin dato para que los leas de tu máquina. Las cifras anunciadas pueden ser distintas en tu unidad: confía en lo que lea la máquina.
@@ -108,6 +108,8 @@ Avisos que puede darte la sección:
 - Firmware anterior a GRBL 1.1f: no soporta bien el modo láser (M4); usa potencia constante (M3) en el perfil.
 - Modo láser desactivado (`$32=0`): el grabado saldría mal. El botón **Activar modo láser ($32=1)…** te pide confirmación antes de enviarlo.
 - Si la conexión se pierde (cable desconectado, puerto que desaparece, máquina apagada), la app lo avisa.
+- Si **otro programa** (por ejemplo LightBurn) ya tiene abierto el puerto, Tlaku no puede conectarse y te lo dice: un puerto USB solo lo usa un programa a la vez. Ciérralo y vuelve a conectar.
+- **La tapa no se reporta.** La placa de la Falcon2 Pro no informa si la tapa está abierta (con la tapa abierta sigue diciendo «Lista»), así que Tlaku no puede saberlo ni avisarte. Revisa tú que esté cerrada antes de empezar.
 - Si la placa **deja de contestar** unos segundos (pasa con algunas placas USB, como la Falcon2 detrás de un concentrador), Tlaku **no desconecta**: espera, igual que LightBurn. A los 2 segundos aparece un aviso discreto «La máquina no contesta desde hace N s…» con **Detener** y **Desconectar**; se quita solo cuando la placa vuelve a contestar y el trabajo sigue sin que hagas nada. Si en pleno trabajo pasa más de un minuto, el aviso se vuelve más serio («Lleva más de un minuto sin contestar»): revisa la máquina y, si sigue moviéndose y no responde, usa el paro de emergencia.
 
 Si no encuentra el puerto o falla la conexión, mira [Solución de problemas](15-solucion-de-problemas.md).
