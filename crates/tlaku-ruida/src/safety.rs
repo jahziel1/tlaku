@@ -11,7 +11,7 @@
 //! - coordenadas dentro de la cama;
 //! - ninguna escritura de memoria (`DA 01`) salvo permiso explícito.
 
-use crate::cmd::{self, Command, RapidRef};
+use crate::cmd::{self, Command, ProcessOp, RapidRef};
 use crate::num;
 use crate::text;
 use std::fmt;
@@ -247,6 +247,31 @@ pub fn check_toolpath(tp: &Toolpath, limits: &SafetyLimits) -> Result<(), Safety
     Ok(())
 }
 
+/// Como [`check_toolpath`] para un trabajo con referencia relativa (`D8 11/12`): las coordenadas
+/// son relativas al ancla (0, 0) y pueden ser negativas, y el punto de partida real no se conoce
+/// al generar. Lo que se puede garantizar es que el trabajo entero (con el ancla incluida) cabe
+/// en la cama: se traslada para que la esquina mínima quede en (0, 0) y se aplican las reglas
+/// de siempre.
+pub fn check_toolpath_relative(tp: &Toolpath, limits: &SafetyLimits) -> Result<(), SafetyError> {
+    let (mut min_x, mut min_y) = (0.0f64, 0.0f64);
+    for m in tp.blocks.iter().flat_map(|b| &b.moves) {
+        let p = m.to();
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+    }
+    let mut shifted = tp.clone();
+    for m in shifted.blocks.iter_mut().flat_map(|b| &mut b.moves) {
+        match m {
+            Move::Cut { to, .. } | Move::Travel { to } => {
+                to.x -= min_x;
+                to.y -= min_y;
+            }
+            Move::Dwell { .. } => {}
+        }
+    }
+    check_toolpath(&shifted, limits)
+}
+
 /// Verifica una lista de comandos ya generada: potencias, velocidades, posición (absoluta o
 /// resultado de sumar los relativos, partiendo de (0, 0)) y comandos prohibidos.
 /// `allow_memory_write` permite `DA 01` (solo para el pie opcional del archivo).
@@ -273,6 +298,18 @@ pub fn check_commands_at(
     ];
     let max_um_s = limits.max_speed_mm_min * 1000.0 / 60.0;
     let (mut x, mut y) = start;
+    // Con `D8 11/12` las coordenadas son relativas a un punto que se conoce al arrancar: lo que
+    // se comprueba es que el recorrido entero (con el punto de partida) cabe en la cama.
+    let relative = cmds.iter().any(|c| {
+        matches!(
+            c,
+            Command::Process(ProcessOp::RefOrigin | ProcessOp::RefCurrent)
+        )
+    });
+    let (mut lo, mut hi) = (
+        (start.0.min(0), start.1.min(0)),
+        (start.0.max(0), start.1.max(0)),
+    );
     let in_bed = |x: i64, y: i64| x >= 0 && y >= 0 && x <= bed_um[0] && y <= bed_um[1];
     let check_pow = |index: usize, raw: u16| {
         let pct = num::power_to_pct(raw);
@@ -360,7 +397,14 @@ pub fn check_commands_at(
             _ => (x, y),
         };
         if (nx, ny) != (x, y) {
-            if !in_bed(nx, ny) {
+            let fits = if relative {
+                lo = (lo.0.min(nx), lo.1.min(ny));
+                hi = (hi.0.max(nx), hi.1.max(ny));
+                hi.0 - lo.0 <= bed_um[0] && hi.1 - lo.1 <= bed_um[1]
+            } else {
+                in_bed(nx, ny)
+            };
+            if !fits {
                 return Err(SafetyError::StreamOutOfBed {
                     index: i,
                     x_um: nx,

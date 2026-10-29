@@ -254,6 +254,7 @@ pipeline.ruida.layers_merged = Ruida supports {max} layers and the job has {bloc
 pipeline.ruida.layers_too_many = Ruida supports {max} layers and the job has {blocks}: even after merging {merged} neighboring layers with identical settings, {layers} remain, so it cannot be exported or sent. Unify the colors or settings (speed, power, air) of consecutive layers
 pipeline.ruida.cannot_export = Ruida: the job cannot be exported: {error}
 pipeline.ruida.no_laser2 = machine '{machine}' has no second laser in its profile: layers that ask for laser 2 are output with laser 1
+pipeline.ruida.anchored_too_big = the job measures {w} x {h} mm (with its anchor point) and does not fit the {bed_w} x {bed_h} mm bed, not even with the head in the best spot. Make it smaller or split it
 
 # preview.rs
 pipeline.preview.paths_one = 1 path

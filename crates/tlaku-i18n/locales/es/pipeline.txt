@@ -254,6 +254,7 @@ pipeline.ruida.layers_merged = Ruida admite {max} capas y el trabajo tiene {bloc
 pipeline.ruida.layers_too_many = Ruida admite {max} capas y el trabajo tiene {blocks}: aun fusionando {merged} capas vecinas de ajustes idénticos quedan {layers}, así que no se podrá exportar ni enviar. Unifica colores o ajustes (velocidad, potencia, aire) de capas seguidas
 pipeline.ruida.cannot_export = Ruida: no se podrá exportar el trabajo: {error}
 pipeline.ruida.no_laser2 = la máquina '{machine}' no tiene segundo láser en su perfil: las capas que piden el láser 2 salen con el láser 1
+pipeline.ruida.anchored_too_big = el trabajo mide {w} x {h} mm (con su punto de anclaje) y no cabe en la cama de {bed_w} x {bed_h} mm, ni siquiera con el cabezal en el mejor sitio. Hazlo más pequeño o divídelo
 
 # preview.rs
 pipeline.preview.paths_one = 1 trayectoria

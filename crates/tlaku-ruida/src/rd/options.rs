@@ -1,5 +1,6 @@
 //! Opciones del trabajo `.rd`, esquina de home y errores.
 
+use crate::cmd::ProcessOp;
 use crate::num::NumError;
 use crate::safety::{SafetyError, SafetyLimits};
 use crate::text;
@@ -164,6 +165,43 @@ pub enum FileChecksum {
     SumAll,
 }
 
+/// Respecto a qué punto interpreta la controladora las coordenadas del archivo (`D8 10/11/12`,
+/// ruida.md 4.4 y 12.15).
+///
+/// - [`RefMode::Machine`]: cero de la máquina (el home). Las coordenadas son absolutas en la
+///   cama y el cabezal va a ellas pase lo que pase.
+/// - [`RefMode::UserOrigin`]: origen del usuario de la controladora (el que se fija con el botón
+///   Origin del panel). El archivo lleva coordenadas relativas al punto de anclaje del trabajo.
+/// - [`RefMode::Current`]: posición del cabezal al arrancar. Igual que el anterior, pero el
+///   punto cero es donde esté el cabezal en ese momento.
+///
+/// En los dos modos relativos el cero del archivo es el **ancla** del trabajo (el punto de la
+/// rejilla de 9 puntos) y las coordenadas se invierten según la esquina del home como siempre,
+/// pero **sin** sumar el tamaño de la cama; por eso pueden ser negativas. **Sin verificar en
+/// hardware** (ruida.md 12.15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RefMode {
+    #[default]
+    Machine,
+    UserOrigin,
+    Current,
+}
+
+impl RefMode {
+    /// Las coordenadas del archivo son relativas al ancla (no absolutas en la cama).
+    pub fn is_relative(self) -> bool {
+        self != RefMode::Machine
+    }
+
+    pub fn process_op(self) -> ProcessOp {
+        match self {
+            RefMode::Machine => ProcessOp::RefPoint,
+            RefMode::UserOrigin => ProcessOp::RefOrigin,
+            RefMode::Current => ProcessOp::RefCurrent,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuidaJobOptions {
     /// Límites de seguridad; se comprueban antes y después de generar.
@@ -172,6 +210,9 @@ pub struct RuidaJobOptions {
     pub layers: Vec<LayerOptions>,
     /// Esquina del home de la máquina (define el origen y el signo de X e Y del archivo).
     pub home: HomeCorner,
+    /// Referencia de las coordenadas (`D8 10/11/12`). Con una referencia relativa el `Toolpath`
+    /// debe venir con el ancla del trabajo en (0, 0).
+    pub reference: RefMode,
     /// Desplazamiento en mm que se suma a todas las coordenadas (ya en el sistema de la máquina).
     pub offset_mm: [f64; 2],
     /// Usar movimientos relativos cuando el salto cabe en 14 bits con signo (+-8,191 mm).
@@ -198,6 +239,7 @@ impl Default for RuidaJobOptions {
             limits: SafetyLimits::default(),
             layers: Vec::new(),
             home: HomeCorner::default(),
+            reference: RefMode::default(),
             offset_mm: [0.0, 0.0],
             use_relative: true,
             use_axis_shortcuts: false,

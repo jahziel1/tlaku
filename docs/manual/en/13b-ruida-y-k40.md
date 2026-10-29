@@ -63,6 +63,18 @@ The `.rd` format supports at most **128 layers**, and the protocol's speed limit
 
 These warnings do not change what is sent, except for the clamp to 36,000 mm/min.
 
+### Start from: absolute coordinates, current position and user origin
+
+With Ruida, **Start from** works like this:
+
+- **Absolute coordinates:** the job comes out where you see it on the canvas bed, wherever the head is.
+- **Current position:** the controller cuts from **wherever the head is when you start the job**, with the job point you chose on the 9-point grid right there. If you save it and start it later from the panel, the position at that moment counts, not the one when you uploaded it.
+- **User origin:** this is **the origin stored in the controller** (the one you set with the *Origin* button on its panel), not Tlaku's "Set origin here", which is not used with Ruida. Tlaku cannot read that origin, so it cannot draw where the job will land or frame from it: to frame, move the head to that origin and use "Current position".
+
+With these last two modes Tlaku **cannot know beforehand whether the job fits the bed**: when uploading it writes in the log between which coordinates the head (or the origin) must be for it to fit, and warns if the head is now outside that range. If the job is bigger than the bed, it is not sent.
+
+> **Pending verification on a real machine.** This is based on the protocol's `D8 11` and `D8 12` codes and on the emulator, but it has not been tested on a Ruida controller. Before using it on material, test with the laser disabled or at power 0 and check that the path starts where you expect (see `docs/hardware/ruida.md`, section 12.15).
+
 ### Why it only saves by default
 
 With **Run after upload** off (the default and the recommended setting), the job is **saved as a document** in the controller's memory (with a name like `TLAKU123`) and **does not start**: you start it yourself, from the machine's panel, with your hand on the stop button. The **Start** dialog says "The job will be saved as a document in the controller's memory and will NOT start".

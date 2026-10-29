@@ -116,7 +116,11 @@ fn cut_length_mm(plans: &[LayerPlan]) -> u64 {
 /// Genera la lista de comandos del trabajo (sin bytes ni swizzle).
 #[allow(clippy::vec_init_then_push)]
 pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Command>, RdError> {
-    safety::check_toolpath(tp, &opts.limits)?;
+    if opts.reference.is_relative() {
+        safety::check_toolpath_relative(tp, &opts.limits)?;
+    } else {
+        safety::check_toolpath(tp, &opts.limits)?;
+    }
     let sec = num::power_from_pct(opts.secondary_laser_power_pct)?;
     if opts.laser_tube_start > 0x7F {
         return Err(RdError::BadOption("laser_tube_start debe caber en 7 bits"));
@@ -133,7 +137,8 @@ pub fn build_commands(tp: &Toolpath, opts: &RuidaJobOptions) -> Result<Vec<Comma
 
     // 1. Arranque. `D8 00` va siempre: está en todos los archivos de RDWorks, en la captura
     // de Nova 35 y en lo que envían MeerK40t y ruida-pa (verificado en RDC6442S).
-    c.push(Command::Process(ProcessOp::RefPoint));
+    // `D8 10` (cero de la máquina), `D8 11` (origen del usuario) o `D8 12` (posición actual).
+    c.push(Command::Process(opts.reference.process_op()));
     c.push(Command::SetReference);
     c.push(Command::Absolute);
     c.push(Command::Small {

@@ -77,6 +77,43 @@ fn current_position_needs_the_head_and_uses_it() {
 }
 
 #[test]
+fn ruida_resolves_current_position_and_user_origin_on_the_controller() {
+    let ruida = DeviceProfile {
+        kind: DeviceKind::Ruida,
+        ..DeviceProfile::default()
+    };
+    for start_from in [
+        tlaku_doc::StartFrom::CurrentPosition,
+        tlaku_doc::StartFrom::UserOrigin,
+    ] {
+        let opts = JobOptions {
+            start_from,
+            job_origin: 6,
+            // El origen de la aplicación no cuenta para Ruida.
+            user_origin: None,
+            ..JobOptions::default()
+        };
+        // Sin cabezal ni origen de la aplicación sí hay vista previa (en la posición del diseño).
+        let p = compute_job(&square_doc(), &ruida, &opts, None).unwrap();
+        assert_eq!(p.bounds[0], [10.0, 10.0], "{start_from:?}");
+    }
+    // Con el cabezal conocido y «Posición actual», colocada en el cabezal.
+    let opts = JobOptions {
+        start_from: tlaku_doc::StartFrom::CurrentPosition,
+        job_origin: 6,
+        ..JobOptions::default()
+    };
+    let p = compute_job(&square_doc(), &ruida, &opts, Some([100.0, 50.0])).unwrap();
+    assert_eq!(p.bounds[0], [100.0, 50.0]);
+    // Un trabajo que no cabe en la cama no cabe en ningún sitio.
+    let small = DeviceProfile {
+        bed: [15.0, 15.0],
+        ..ruida
+    };
+    assert!(compute_job(&square_doc(), &small, &opts, None).is_err());
+}
+
+#[test]
 fn a_design_outside_the_bed_is_an_error_with_an_explanation() {
     let d = DeviceProfile {
         bed: [20.0, 20.0],

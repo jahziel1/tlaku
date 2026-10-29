@@ -169,6 +169,12 @@ desktop.galvo.profile_invalid = The galvo profile is not valid: {err}
 # machine/ruida.rs
 desktop.ruida.experimental = EXPERIMENTAL: Ruida support has not been tested with a real machine (docs/hardware/ruida.md). Test first with the laser disabled or at power 0.
 desktop.ruida.rotary_note = Rotary: Ruida enables it in the controller's own settings; Tlaku sends Y in surface mm, without scaling or mirroring it. The two public rotary settings can be written from the Ruida panel (experimental).
+desktop.ruida.note_current = Start from current position (D8 12): the controller cuts from wherever the head is when you start the job, with the design's anchor point at that spot. To fit in the bed, the head must be between X {x0} and {x1} mm and Y {y0} and {y1} mm (machine coordinates). Not verified on a real machine.
+desktop.ruida.note_user_origin = Start from user origin (D8 11): the controller uses the origin it has stored (the one you set with the Origin button on its panel), not one from Tlaku, and puts the design's anchor point there. To fit in the bed, that origin must be between X {x0} and {x1} mm and Y {y0} and {y1} mm (machine coordinates). Not verified on a real machine.
+desktop.ruida.head_out_of_range = Warning: the head is now at X {x}, Y {y} mm, outside that range. Move it before starting the job from the panel or it will not fit in the bed.
+desktop.ruida.run_head_out_of_range = With the head at X {x}, Y {y} mm the job does not fit in the bed: it would have to be between X {x0} and {x1} mm and Y {y0} and {y1} mm. Move it and try again.
+desktop.ruida.frame_user_origin = Framing cannot start from the user origin: that origin is stored in the controller and Tlaku cannot read it. Move the head to that origin and frame with "Current position".
+desktop.ruida.frame_head_out_of_range = With the head at X {x}, Y {y} mm the frame would leave the bed: it would have to be between X {x0} and {x1} mm and Y {y0} and {y1} mm. Move it and try again.
 desktop.ruida.grbl_only = This function is only for GRBL: the Ruida controller does not use G-code or live overrides.
 # machine/worker (GRBL)
 desktop.worker.connection_lost_io = the connection to the machine was lost: {err}

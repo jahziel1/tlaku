@@ -25,6 +25,7 @@ export function useJobPlacement(): Placement {
     const d = selectActiveDevice(s);
     return { bed: d.bed, origin: d.origin, swap_xy: d.swap_xy, rotary: d.rotary };
   }));
+  const controllerResolves = useStore((s) => selectActiveDevice(s).kind === 'ruida');
   const head = useStore(useShallow((s) => (s.connection.connected && s.status ? s.status.work_pos : null)));
   const design = useMemo(() => designBounds(doc, selection), [doc, selection]);
   // Solo la selección, anclada a la caja de todo el diseño (a menos que se pida su propio origen).
@@ -39,7 +40,8 @@ export function useJobPlacement(): Placement {
         device,
         design,
         originBox,
+        controllerResolves,
       }),
-    [options.start_from, options.job_origin, options.user_origin, head, device, design, originBox],
+    [options.start_from, options.job_origin, options.user_origin, head, device, design, originBox, controllerResolves],
   );
 }

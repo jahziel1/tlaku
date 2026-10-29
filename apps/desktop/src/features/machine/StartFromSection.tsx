@@ -21,11 +21,21 @@ const MODES: { id: StartFrom; title: I18nKey; desc: I18nKey }[] = [
   { id: 'user_origin', title: 'machine.startFrom.user', desc: 'machine.startFrom.user.desc' },
 ];
 
+/** Con Ruida el punto de partida lo resuelve la controladora: otras descripciones. */
+const RUIDA_DESC: Partial<Record<StartFrom, I18nKey>> = {
+  current_position: 'machine.startFrom.current.desc.ruida',
+  user_origin: 'machine.startFrom.user.desc.ruida',
+};
+
 /** Frase que dice, con coordenadas, dónde quedará el trabajo (o qué falta para saberlo). */
 export function placementSummary(p: Placement, startFrom: StartFrom, jobOrigin: number): { text: string; problem: boolean } {
   if (p.status === 'noDesign') return { text: t('machine.place.noDesign'), problem: false };
   if (p.status === 'needHead') return { text: t('machine.place.needHead'), problem: true };
   if (p.status === 'needUserOrigin') return { text: t('machine.place.needUserOrigin'), problem: true };
+  if (p.status === 'deferred') {
+    const anchor = t(ANCHOR_KEYS[jobOrigin]!);
+    return { text: t(startFrom === 'current_position' ? 'machine.place.ruidaCurrent' : 'machine.place.ruidaUser', { anchor }), problem: false };
+  }
   const [[x0, y0], [x1, y1]] = p.rect!;
   const range = { x0: fmt(x0, 1), x1: fmt(x1, 1), y0: fmt(y0, 1), y1: fmt(y1, 1) };
   let text =
@@ -65,6 +75,7 @@ export function StartFromSection() {
     const d = selectActiveDevice(s);
     return { bed: d.bed, origin: d.origin, swap_xy: d.swap_xy, rotary: d.rotary };
   }));
+  const isRuida = useStore((s) => selectActiveDevice(s).kind === 'ruida');
   const head = useStore(useShallow((s) => (s.connection.connected && s.status ? s.status.work_pos : null)));
   const connected = useStore((s) => s.connection.connected);
   const setHere = useStore((s) => s.setUserOriginHere);
@@ -85,7 +96,7 @@ export function StartFromSection() {
             onClick={() => setJobOptions({ start_from: m.id })}
           >
             <span className="mc-mode__title">{t(m.title)}</span>
-            <span className="mc-mode__desc">{t(m.desc)}</span>
+            <span className="mc-mode__desc">{t((isRuida && RUIDA_DESC[m.id]) || m.desc)}</span>
           </button>
         ))}
       </div>
@@ -100,7 +111,12 @@ export function StartFromSection() {
         <p className="hint">{startFrom === 'absolute' ? t('machine.anchor.disabled') : t('machine.anchor.help', { anchor: t(ANCHOR_KEYS[jobOrigin]!) })}</p>
       </div>
 
-      {startFrom === 'user_origin' && (
+      {startFrom === 'user_origin' && isRuida && (
+        <div className="mc-userorigin">
+          <p className="hint">{t('machine.origin.ruida')}</p>
+        </div>
+      )}
+      {startFrom === 'user_origin' && !isRuida && (
         <div className="mc-userorigin">
           <p className="hint num">
             {userOrigin ? t('machine.origin.current', { x: fmt(userOrigin[0], 2), y: fmt(userOrigin[1], 2) }) : t('machine.origin.none')}
