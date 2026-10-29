@@ -107,6 +107,12 @@
   </screenshots>
 
   <releases>
+    <release version="0.1.3" date="2026-10-29">
+      <description>
+        <p>Ruida: "Current position" and "User origin" now work. Saved components with their layers, a quick bar for the selection, favorite materials and an optional production mode.</p>
+        <p xml:lang="es">Ruida: «Posición actual» y «Origen de usuario» ya funcionan. Componentes guardados con sus capas, barra rápida de la selección, materiales favoritos y un modo producción opcional.</p>
+      </description>
+    </release>
     <release version="0.1.2" date="2026-10-16">
       <description>
         <p>Resuming an interrupted job now finds the right position on computers with a slow disk.</p>

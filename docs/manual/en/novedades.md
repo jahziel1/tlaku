@@ -2,7 +2,7 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
-## 0.1.3 (beta), next version
+## 0.1.3 (beta), October 29, 2026
 
 The first batch based on reports from a workshop that uses Tlaku every day with a **Ruida** machine.
 
