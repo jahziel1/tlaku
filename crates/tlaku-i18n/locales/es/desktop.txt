@@ -169,6 +169,12 @@ desktop.galvo.profile_invalid = El perfil del galvo no es válido: {err}
 # machine/ruida.rs
 desktop.ruida.experimental = EXPERIMENTAL: el soporte Ruida no se ha probado con una máquina real (docs/hardware/ruida.md). Prueba primero con el láser deshabilitado o a potencia 0.
 desktop.ruida.rotary_note = Rotativo: Ruida lo activa en los ajustes de la propia controladora; Tlaku envía la Y en mm de superficie, sin escalarla ni reflejarla. Los dos ajustes públicos del rotativo se pueden escribir desde el panel de Ruida (experimental).
+desktop.ruida.note_current = Iniciar desde la posición actual (D8 12): la controladora corta a partir de donde esté el cabezal cuando arranques el trabajo, con el punto de anclaje del diseño en ese punto. Para que quepa en la cama, el cabezal debe estar entre X {x0} y {x1} mm e Y {y0} y {y1} mm (coordenadas de la máquina). Sin verificar con una máquina real.
+desktop.ruida.note_user_origin = Iniciar desde el origen de usuario (D8 11): la controladora usa el origen que tiene guardado (el que fijas con el botón Origin de su panel), no uno de Tlaku, y coloca ahí el punto de anclaje del diseño. Para que quepa en la cama, ese origen debe estar entre X {x0} y {x1} mm e Y {y0} y {y1} mm (coordenadas de la máquina). Sin verificar con una máquina real.
+desktop.ruida.head_out_of_range = Aviso: el cabezal está ahora en X {x}, Y {y} mm, fuera de ese rango. Muévelo antes de arrancar el trabajo desde el panel o no cabrá en la cama.
+desktop.ruida.run_head_out_of_range = Con el cabezal en X {x}, Y {y} mm el trabajo no cabe en la cama: tendría que estar entre X {x0} y {x1} mm e Y {y0} y {y1} mm. Muévelo y vuelve a intentarlo.
+desktop.ruida.frame_user_origin = El encuadre no puede partir del origen de usuario: ese origen está guardado en la controladora y Tlaku no puede leerlo. Lleva el cabezal a ese origen y encuadra con «Posición actual».
+desktop.ruida.frame_head_out_of_range = Con el cabezal en X {x}, Y {y} mm el encuadre se saldría de la cama: tendría que estar entre X {x0} y {x1} mm e Y {y0} y {y1} mm. Muévelo y vuelve a intentarlo.
 desktop.ruida.grbl_only = Esta función es solo de GRBL: la controladora Ruida no usa G-code ni overrides en vivo.
 # machine/worker (GRBL)
 desktop.worker.connection_lost_io = se perdió la conexión con la máquina: {err}

@@ -109,7 +109,36 @@ pub fn compute_job(
     options: &JobOptions,
     head: Head,
 ) -> Result<JobPreview, String> {
+    if let Some(preview) = ruida_deferred_preview(doc, device, options, head) {
+        return preview;
+    }
     Ok(tlaku_pipeline::compute_at(doc, device, options, point(head))?.preview)
+}
+
+/// Vista previa de un trabajo Ruida cuyo punto de partida resuelve la controladora al arrancar
+/// (`D8 11/12`, ruida.md 12.15): ni el origen de la aplicación ni, sin conexión, el cabezal
+/// sirven. Se comprueba que el trabajo **quepa** en la cama y se muestra en su posición del
+/// diseño. Con «Posición actual» y el cabezal conocido, la vista previa es la normal (colocada en
+/// el cabezal). `None` si no es el caso.
+fn ruida_deferred_preview(
+    doc: &Document,
+    device: &DeviceProfile,
+    options: &JobOptions,
+    head: Head,
+) -> Option<Result<JobPreview, String>> {
+    use tlaku_doc::StartFrom;
+    let at_head = options.start_from == StartFrom::CurrentPosition && head.is_some();
+    if device.kind != DeviceKind::Ruida || options.start_from == StartFrom::Absolute || at_head {
+        return None;
+    }
+    Some((|| {
+        tlaku_pipeline::compute_anchored(doc, device, options)?;
+        let shown = JobOptions {
+            start_from: StartFrom::Absolute,
+            ..options.clone()
+        };
+        Ok(tlaku_pipeline::build(doc, device, &shown, None)?.preview)
+    })())
 }
 
 pub fn export_gcode(

@@ -6,7 +6,7 @@
 //! `UNNAMED `, las matrices de copias son 1x1 y la máscara de tubos de `CA 03` es 1.
 //!
 //! Orden del flujo generado:
-//! 1. Arranque: `D8 10`, `F0`, `E6 01`, `F1 02 00`, `D8 00`.
+//! 1. Arranque: `D8 10` (o `D8 11/12`, ver [`RefMode`]), `F0`, `E6 01`, `F1 02 00`, `D8 00`.
 //! 2. Cajas del trabajo (`E7 06/03/07/50/51/04/05`).
 //! 3. Cabecera de cada capa (`C9 04`, `C6 31..38`, `CA 06`, `CA 41`, `E7 52/53/61/62`).
 //! 4. `CA 22`, offsets (siempre 0) y bloque de elemento (`E7 54/55`, `F1`, `F2`).
@@ -36,8 +36,8 @@ use crate::swizzle::Magic;
 use crate::{cmd, safety};
 pub use build::build_commands;
 pub use options::{
-    ELEMENT_NAME, FileChecksum, HomeCorner, LayerOptions, MAX_LAYERS, RdError, RuidaJobOptions,
-    ZeroPower, decode_element_name, encode_element_name,
+    ELEMENT_NAME, FileChecksum, HomeCorner, LayerOptions, MAX_LAYERS, RdError, RefMode,
+    RuidaJobOptions, ZeroPower, decode_element_name, encode_element_name,
 };
 use tlaku_core::toolpath::Toolpath;
 

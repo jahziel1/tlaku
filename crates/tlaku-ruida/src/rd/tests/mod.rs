@@ -3,6 +3,7 @@
 mod example;
 mod layers;
 mod power;
+mod reference;
 
 use super::*;
 use crate::cmd::{self, Command};

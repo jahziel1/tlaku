@@ -10,7 +10,12 @@ import { workToDoc, type DeviceFrame } from '@/lib/device';
  * Y hacia arriba); las posiciones de la máquina se convierten con el origen del perfil.
  */
 
-export type PlacementStatus = 'ok' | 'noDesign' | 'needHead' | 'needUserOrigin';
+/**
+ * `deferred`: el punto de partida lo resuelve la controladora al arrancar (Ruida con «Posición
+ * actual» u «Origen de usuario»), así que la aplicación no puede dibujar dónde quedará; no
+ * bloquea el inicio.
+ */
+export type PlacementStatus = 'ok' | 'noDesign' | 'needHead' | 'needUserOrigin' | 'deferred';
 
 export interface Placement {
   status: PlacementStatus;
@@ -37,6 +42,12 @@ export interface PlacementInput {
   device: DeviceFrame;
   /** Rectángulo envolvente de lo que se envía (sin overscan); null si no hay nada. */
   design: Bounds | null;
+  /**
+   * La controladora resuelve «Posición actual» y «Origen de usuario» por su cuenta al arrancar
+   * (Ruida: `D8 12` / `D8 11`, con el origen guardado en la controladora): ni el cabezal de ahora
+   * ni el origen de la aplicación cuentan.
+   */
+  controllerResolves?: boolean;
   /**
    * Caja de la que sale el punto de anclaje del trabajo. Por omisión es `design`; al enviar solo
    * la selección sin "usar el origen de la selección" es la caja de todo el diseño, así lo
@@ -91,6 +102,7 @@ export function computeJobPlacement(input: PlacementInput): Placement {
   };
 
   if (startFrom === 'absolute') return finish(design, null, null);
+  if (input.controllerResolves) return empty('deferred');
 
   const workPoint = startFrom === 'current_position' ? head : userOrigin;
   if (!workPoint) return empty(startFrom === 'current_position' ? 'needHead' : 'needUserOrigin');

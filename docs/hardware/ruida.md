@@ -178,7 +178,7 @@ Comportamiento observado (foro): a velocidades por debajo de un umbral ("Start S
 
 | Bytes | Significado |
 |---|---|
-| `D8 10` / `D8 11` / `D8 12` | Coordenadas respecto al cero de la máquina / al origen del usuario / a la posición actual ([RPAC]: `REF_POINT_MACHINE/ORIGIN/CURRENT`, verificado en RDC6442S). El ejemplo empieza con `D8 10` + `F0`; los `.rd` de RDWorks vistos usan `D8 12` |
+| `D8 10` / `D8 11` / `D8 12` | Coordenadas respecto al cero de la máquina / al origen del usuario / a la posición actual ([RPAC]: `REF_POINT_MACHINE/ORIGIN/CURRENT`, verificado en RDC6442S). El ejemplo empieza con `D8 10` + `F0`; los `.rd` de RDWorks vistos usan `D8 12`. Tlaku escribe `D8 10` con «Coordenadas absolutas», `D8 12` con «Posición actual» y `D8 11` con «Origen de usuario» (sección 12.15) |
 | `F0` | Fijar punto de referencia [EDU] |
 | `E6 01` | Absoluto [EDU] |
 | `F1 02 n` | Habilitar corte por bloques [EDU] |
@@ -502,9 +502,32 @@ Cada punto indica qué dice cada fuente, qué adopta Tlaku y por qué. Rutas rel
 
 - **Escala de la potencia**: el valor es `trunc(p * 16383 / 100)`, no `round(p * 16384 / 100)`. Se comprobó con 72 pares porcentaje-valor de RDWorks ([JNWC] `example-files/laser_percentages/codes.txt`, solo como referencia: 0 fallos con truncar sobre 16383, 38 con truncar sobre 16384, 35 con redondear sobre 16383); [MK40] también usa 16383. El 100 % es `7F 7F`. Cambió `power_from_pct`.
 - **`CA 01 xx` (1 a 5)** no son "modos de trabajo": son los modos de overscan del ráster (12.8).
-- **`D8 12`** (posición actual) es el modo de referencia de los `.rd` de RDWorks; Tlaku usa `D8 10` (cero de la máquina) como el ejemplo de EduTech y [MK40].
+- **`D8 12`** (posición actual) es el modo de referencia de los `.rd` de RDWorks. Tlaku usa `D8 10` (cero de la máquina, como el ejemplo de EduTech y [MK40]) solo con «Coordenadas absolutas»; con «Posición actual» y «Origen de usuario» escribe `D8 12` / `D8 11` (sección 12.15).
 - **634XG** ("altered scrambling"): [MK40] solo le asigna el magic 0x11; sin más datos se mantiene y sigue sin probarse.
 - El pie `DA 01 06 20 L L` de RDWorks es una escritura de memoria (longitud de corte); [MK40] no lo emite. Sigue siendo opcional y apagado, y `send_job` rechaza cualquier `DA 01`.
+
+### 12.15 Iniciar desde: `D8 10`, `D8 11` y `D8 12` (issue #21)
+
+**Problema.** Tlaku escribía siempre `D8 10` con coordenadas absolutas de la cama, así que «Posición actual» y «Origen de usuario» no cambiaban nada en una controladora Ruida: la máquina iba siempre a la posición del diseño. Además el trabajo se **guarda** en la controladora y se arranca después desde su panel, de modo que la posición del cabezal al subir no sirve.
+
+**Qué dicen las fuentes** (re-expresado, sin copiar código):
+- Los tres códigos existen y significan «las coordenadas del archivo son respecto a» cero de la máquina / origen del usuario / posición actual ([RPAC] `REF_POINT_MACHINE/ORIGIN/CURRENT`, marcados verificados en una RDC6442S; [EDU] los lista igual). [JNWC] (GPL, solo referencia) muestra que RDWorks guarda `D8 12 F0` al principio de sus archivos y de la captura de Nova 35.
+- **No hemos encontrado una descripción escrita de cómo se desplaza el origen** (si es la esquina de la caja del trabajo, el punto de la rejilla de 9 puntos u otro, ni qué pasa con las cajas `E7 xx`). Lo que sigue es una **inferencia propia** compatible con lo que hacen los programas de láser (el punto de anclaje elegido va al cabezal o al origen), y no se ha probado con hardware.
+
+**Lo que hace Tlaku** (`RefMode` en `tlaku-ruida`, `compute_anchored` en `tlaku-pipeline`):
+1. «Coordenadas absolutas»: `D8 10` y coordenadas de la cama, como siempre (con `HomeCorner`: `x_archivo = ancho - x` si el home está a la derecha, `y_archivo = alto - y` si está arriba).
+2. «Posición actual» (`D8 12`) y «Origen de usuario» (`D8 11`): el trabajo se calcula con su **punto de anclaje** (`job_origin` de la rejilla de 9 puntos, o la caja de la selección con «usar el origen de la selección») en (0, 0). Las coordenadas del archivo son la distancia a ese punto, con los ejes invertidos según `HomeCorner` pero **sin sumar el tamaño de la cama**: salen negativas a un lado del ancla (el protocolo admite coordenadas con signo de 35 bits). Es la regla que se aplica de la misma forma a movimientos, cajas del trabajo y del documento (`E7 03/07`, `E7 50/51`), cajas de capa (`E7 52/53/61/62`) y los bloques de elemento (`F2 03/04`, `E7 13/17`): todas son geometría del archivo y se desplazan juntas con el origen. Decisión: todo va en el mismo sistema relativo y no solo los movimientos, para que las cajas sigan describiendo el recorrido del archivo (una caja en coordenadas de la cama junto a un recorrido relativo sería incoherente; qué hace la controladora con las cajas no está documentado).
+3. «Origen de usuario» en Ruida es **el que la controladora tiene guardado** (el botón Origin del panel). Tlaku no lo puede leer (no hay dirección de memoria documentada) ni cambiarlo, y no usa el `user_origin` de la aplicación. Por eso el encuadre desde el origen de usuario se rechaza con un mensaje que manda a mover el cabezal al origen y encuadrar con «Posición actual».
+4. «Posición actual»: con el trabajo guardado, la controladora toma la posición del cabezal **al arrancarlo**. El encuadre sí conoce el cabezal (se lee antes) y recorre la caja del trabajo alrededor de él.
+
+**Seguridad.** Con coordenadas relativas no se puede garantizar en el momento de generar que el trabajo quede dentro de la cama (depende de dónde esté el cabezal). Lo que se comprueba:
+- El trabajo, con su ancla, **cabe** en la cama (`safety::check_toolpath_relative` y, sobre el flujo ya codificado, `check_commands`, que con `D8 11/12` compara la extensión del recorrido incluido el punto de partida y no la posición absoluta).
+- Se calcula el rango en el que debe estar el cabezal (o el origen de usuario) para que quepa (`tlaku_pipeline::head_range`) y se escribe en el registro al subir. Si el cabezal está ahora fuera de ese rango se avisa (el trabajo guardado se arrancará más tarde y el cabezal se habrá movido), y si el trabajo se **ejecuta al subir** (`run_after_upload`) la subida se rechaza.
+- Si el trabajo sobrepasa la cama arrancando desde un punto que la controladora acepta, es ella (límites de software, si los tiene) la que protege; Tlaku no lo puede comprobar.
+
+**Emulador** (`emu.rs`): `D8 11/12` desplazan las coordenadas con el origen del usuario (`Emulator::user_origin_um`, fijado por las pruebas) y con la posición del cabezal en el momento de arrancar (`D8 00` fuera de una transferencia o `E8 03`); `replay` y `to_toolpath` devuelven coordenadas de máquina. Pruebas: `emu::tests::*reference*`, `rd::tests::reference`, `machine::ruida::tests::current_position_*`.
+
+**Sin verificar con hardware** (probar al conectar una Ruida, junto con las pruebas de 10.6): (a) que `D8 12` ponga el cero del archivo en el punto de anclaje y no en otra esquina de la caja; (b) que las coordenadas negativas se acepten con `D8 11/12` (y las cajas con negativos); (c) que un archivo guardado con `E8 02` resuelva la posición actual al arrancarlo desde el panel y no al subirlo; (d) que `D8 11` use el origen fijado con el botón Origin y que sin origen fijado se use el cero de la máquina; (e) el signo de Y con el home arriba (misma reserva que 12.10).
 
 ## 13. Qué hace la etapa 3
 

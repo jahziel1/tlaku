@@ -757,6 +757,196 @@ fn the_frame_follows_the_machine_corner_when_the_home_is_at_the_top() {
 }
 
 // ---------------------------------------------------------------------------
+// Iniciar desde: absoluto, posición actual y origen de usuario (issue #21)
+// ---------------------------------------------------------------------------
+
+fn start_opts(start_from: tlaku_doc::StartFrom) -> JobOptions {
+    JobOptions {
+        start_from,
+        // Ancla abajo a la izquierda: el cuadrado (20 mm) queda con esa esquina en el punto.
+        job_origin: 6,
+        ..JobOptions::default()
+    }
+}
+
+/// Caja (mín, máx) en mm de los puntos a los que llegó el cabezal.
+fn walked_box(r: &Rig) -> ((f64, f64), (f64, f64)) {
+    let segs = r.emu.emulator().replay().unwrap();
+    let pts: Vec<(f64, f64)> = segs
+        .iter()
+        .map(|s| s.to)
+        .map(|(x, y)| (x as f64 / 1000.0, y as f64 / 1000.0))
+        .collect();
+    let min = |f: fn(&(f64, f64)) -> f64| pts.iter().map(f).fold(f64::MAX, f64::min);
+    let max = |f: fn(&(f64, f64)) -> f64| pts.iter().map(f).fold(f64::MIN, f64::max);
+    ((min(|p| p.0), min(|p| p.1)), (max(|p| p.0), max(|p| p.1)))
+}
+
+fn close2(a: (f64, f64), b: (f64, f64)) -> bool {
+    (a.0 - b.0).abs() < 0.01 && (a.1 - b.1).abs() < 0.01
+}
+
+/// Guarda el trabajo con el cabezal en el origen, lo mueve a `head` y lo arranca como lo haría
+/// el panel (`E8 03`).
+fn store_then_run_with_head_at(r: &Rig, opts: &JobOptions, head: (f64, f64)) {
+    r.handle.start_job(&square_doc(), &r.device, opts).unwrap();
+    let name = r.emu.emulator().stored[0].name.clone();
+    r.handle.jog_to(head.0, head.1, 6000.0).unwrap();
+    r.handle.file_run(1, name, true, true).unwrap();
+    assert!(r.emu.emulator().running);
+}
+
+#[test]
+fn current_position_cuts_where_the_head_is_when_the_stored_job_starts() {
+    let r = rig(false);
+    store_then_run_with_head_at(
+        &r,
+        &start_opts(tlaku_doc::StartFrom::CurrentPosition),
+        (100.0, 50.0),
+    );
+    // El cabezal estaba en (100, 50) al arrancar: el trayecto empieza ahí y mide 20 x 20 mm.
+    let first = r.emu.emulator().replay().unwrap()[0].from;
+    assert_eq!(first, (100_000, 50_000));
+    let (min, max) = walked_box(&r);
+    assert!(close2(min, (100.0, 50.0)), "{min:?}");
+    assert!(close2(max, (120.0, 70.0)), "{max:?}");
+}
+
+#[test]
+fn current_position_follows_a_head_moved_after_the_upload() {
+    let r = rig(false);
+    let o = start_opts(tlaku_doc::StartFrom::CurrentPosition);
+    store_then_run_with_head_at(&r, &o, (300.0, 200.0));
+    let (min, _) = walked_box(&r);
+    assert!(close2(min, (300.0, 200.0)), "{min:?}");
+}
+
+#[test]
+fn absolute_coordinates_ignore_the_head() {
+    let r = rig(false);
+    store_then_run_with_head_at(
+        &r,
+        &start_opts(tlaku_doc::StartFrom::Absolute),
+        (100.0, 50.0),
+    );
+    // Igual que antes: el cuadrado del diseño, en (10..30).
+    let (min, max) = walked_box(&r);
+    assert!(close2(min, (10.0, 10.0)), "{min:?}");
+    assert!(close2(max, (30.0, 30.0)), "{max:?}");
+}
+
+#[test]
+fn user_origin_uses_the_one_stored_in_the_controller_not_the_apps() {
+    let r = rig(false);
+    r.emu.emulator().user_origin_um = (30_000, 40_000);
+    let mut o = start_opts(tlaku_doc::StartFrom::UserOrigin);
+    // El origen de usuario de la aplicación no cuenta para Ruida.
+    o.user_origin = Some([500.0, 300.0]);
+    store_then_run_with_head_at(&r, &o, (100.0, 50.0));
+    let (min, max) = walked_box(&r);
+    assert!(close2(min, (30.0, 40.0)), "{min:?}");
+    assert!(close2(max, (50.0, 60.0)), "{max:?}");
+}
+
+#[test]
+fn running_on_upload_starts_from_the_head_it_has_now() {
+    let r = rig(true);
+    r.handle.jog_to(100.0, 50.0, 6000.0).unwrap();
+    r.sink.wait("el cabezal en el punto", |c| {
+        c.statuses()
+            .last()
+            .is_some_and(|s| s.work_pos == [100.0, 50.0])
+    });
+    r.handle
+        .start_job(
+            &square_doc(),
+            &r.device,
+            &start_opts(tlaku_doc::StartFrom::CurrentPosition),
+        )
+        .unwrap();
+    let (min, max) = walked_box(&r);
+    assert!(close2(min, (100.0, 50.0)), "{min:?}");
+    assert!(close2(max, (120.0, 70.0)), "{max:?}");
+}
+
+#[test]
+fn a_head_that_would_leave_the_bed_is_warned_when_storing_and_refused_when_running() {
+    let o = start_opts(tlaku_doc::StartFrom::CurrentPosition);
+    // Cabezal en (595, 50): el cuadrado de 20 mm se saldría por la derecha.
+    let r = rig(false);
+    let up = build_upload(&square_doc(), &r.device, &o, Some([595.0, 50.0])).unwrap();
+    assert_eq!(up.notes.len(), 2, "{:?}", up.notes);
+    assert!(
+        up.notes[0].contains("D8 12") && up.notes[0].contains("580.0"),
+        "{:?}",
+        up.notes
+    );
+    assert!(up.notes[1].contains("595.0"), "{:?}", up.notes);
+    let ok = build_upload(&square_doc(), &r.device, &o, Some([100.0, 50.0])).unwrap();
+    assert_eq!(ok.notes.len(), 1);
+    // Sin cabezal conocido al guardar: solo la nota (se arrancará después desde el panel).
+    assert_eq!(
+        build_upload(&square_doc(), &r.device, &o, None)
+            .unwrap()
+            .notes
+            .len(),
+        1
+    );
+    // Al ejecutar nada más subir sí se comprueba.
+    let run = device(true);
+    let e = build_upload(&square_doc(), &run, &o, Some([595.0, 50.0]))
+        .err()
+        .unwrap();
+    assert!(e.contains("595.0") && e.contains("580.0"), "{e}");
+    assert!(build_upload(&square_doc(), &run, &o, None).is_err());
+    assert!(build_upload(&square_doc(), &run, &o, Some([100.0, 50.0])).is_ok());
+    // El origen de usuario lleva su propia nota y nunca depende del cabezal.
+    let u = start_opts(tlaku_doc::StartFrom::UserOrigin);
+    let up = build_upload(&square_doc(), &run, &u, None).unwrap();
+    assert!(up.notes[0].contains("D8 11"), "{:?}", up.notes);
+}
+
+#[test]
+fn framing_from_the_current_position_walks_the_box_around_the_head() {
+    let r = rig(false);
+    let o = start_opts(tlaku_doc::StartFrom::CurrentPosition);
+    let corners = ruida_frame_corners(&square_doc(), &r.device, &o, Some([100.0, 50.0])).unwrap();
+    assert_eq!(
+        corners,
+        [
+            (100.0, 50.0),
+            (120.0, 50.0),
+            (120.0, 70.0),
+            (100.0, 70.0),
+            (100.0, 50.0)
+        ]
+    );
+    // Con el home arriba, la Y de la máquina crece hacia abajo: la caja queda entre 30 y 50.
+    let mut top = device(false);
+    top.origin = Origin::TopLeft;
+    let c = ruida_frame_corners(&square_doc(), &top, &o, Some([100.0, 50.0])).unwrap();
+    let ys: Vec<f64> = c.iter().map(|p| p.1).collect();
+    assert!(
+        (ys.iter().cloned().fold(f64::MAX, f64::min) - 30.0).abs() < 1e-6,
+        "{c:?}"
+    );
+    assert!(
+        (ys.iter().cloned().fold(f64::MIN, f64::max) - 50.0).abs() < 1e-6,
+        "{c:?}"
+    );
+    // Sin cabezal conocido, o con uno desde el que no cabría, no se encuadra.
+    assert!(ruida_frame_corners(&square_doc(), &r.device, &o, None).is_err());
+    assert!(ruida_frame_corners(&square_doc(), &r.device, &o, Some([599.0, 50.0])).is_err());
+    // El origen de usuario vive en la controladora: no se puede encuadrar desde él.
+    let u = start_opts(tlaku_doc::StartFrom::UserOrigin);
+    let e = ruida_frame_corners(&square_doc(), &r.device, &u, Some([100.0, 50.0])).unwrap_err();
+    assert!(e.contains("controladora"), "{e}");
+    // Absoluto: igual que siempre.
+    let a = ruida_frame_corners(&square_doc(), &r.device, &JobOptions::default(), None).unwrap();
+    assert_eq!(a[0], (10.0, 10.0));
+}
+
+// ---------------------------------------------------------------------------
 // Información y archivos
 // ---------------------------------------------------------------------------
 

@@ -104,7 +104,14 @@ fn merge_consecutive(plans: Vec<LayerPlan>) -> Vec<LayerPlan> {
 }
 
 fn to_um(p: Point, opts: &RuidaJobOptions) -> Result<(i64, i64), NumError> {
-    let (x, y) = opts.home.to_machine(p, opts.limits.bed_mm);
+    // Con referencia relativa (`D8 11/12`) el cero es el ancla: se invierten los ejes según el
+    // home, pero sin sumar el tamaño de la cama.
+    let bed = if opts.reference.is_relative() {
+        [0.0, 0.0]
+    } else {
+        opts.limits.bed_mm
+    };
+    let (x, y) = opts.home.to_machine(p, bed);
     Ok((
         num::mm_to_um(x + opts.offset_mm[0])?,
         num::mm_to_um(y + opts.offset_mm[1])?,

@@ -67,7 +67,10 @@ pub use registration::{
     SCALE_WARN, are_collinear, fit_registration, fit_with_choice,
 };
 pub use rotary::rotary_test;
-pub use ruida::{export_rd, export_rd_for_device, home_for_origin, limits_for_device};
+pub use ruida::{
+    anchored_frame_corners, compute_anchored, export_rd, export_rd_for_device,
+    export_rd_for_device_ref, head_range, home_for_origin, limits_for_device, ref_mode_for,
+};
 pub use split::{
     GalvoRotarySetup, MAX_PIECES, MarkPlan, MarkStep, StageMove, galvo_rotary, job_mark_sequence,
     mark_sequence, mark_sequence_shapes,

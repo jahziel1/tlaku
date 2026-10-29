@@ -63,6 +63,18 @@ El formato `.rd` admite como máximo **128 capas**, y el límite de velocidad de
 
 Estos avisos no cambian lo que se manda, salvo el recorte a 36 000 mm/min.
 
+### Iniciar desde: coordenadas absolutas, posición actual y origen de usuario
+
+Con Ruida, **Iniciar desde** funciona así:
+
+- **Coordenadas absolutas:** el trabajo sale en el lugar de la cama donde lo ves en el lienzo, sea cual sea la posición del cabezal.
+- **Posición actual:** la controladora corta a partir de **donde esté el cabezal cuando arranques el trabajo**, con el punto del trabajo que elegiste en la rejilla de 9 puntos justo ahí. Si lo guardas y lo inicias después desde el panel, vale la posición de ese momento, no la de cuando lo subiste.
+- **Origen de usuario:** es **el origen que tiene guardado la controladora** (el que fijas con el botón *Origin* de su panel), no el «Fijar origen aquí» de Tlaku, que con Ruida no se usa. Tlaku no puede leer ese origen, así que no puede dibujar dónde quedará el trabajo ni encuadrar desde él: para encuadrar, lleva el cabezal a ese origen y usa «Posición actual».
+
+Con estos dos últimos modos Tlaku **no puede saber de antemano si el trabajo cabe en la cama**: al subirlo escribe en el registro entre qué coordenadas debe estar el cabezal (o el origen) para que quepa, y avisa si el cabezal está ahora fuera de ese rango. Si el trabajo es más grande que la cama, no se envía.
+
+> **Pendiente de verificar en una máquina real.** Esto se basa en los códigos `D8 11` y `D8 12` del protocolo y en el emulador, pero no se ha probado con una controladora Ruida. Antes de usarlo con material, prueba con el láser deshabilitado o a potencia 0 y comprueba que el recorrido parte donde esperas (ver `docs/hardware/ruida.md`, sección 12.15).
+
 ### Por qué solo guarda por defecto
 
 Con **Ejecutar al subir** apagado (de fábrica y lo recomendado), el trabajo se **guarda como documento** en la memoria de la controladora (con un nombre como `TLAKU123`) y **no arranca**: lo inicias tú, desde el panel de la máquina, con la mano en el botón de paro. El diálogo **Iniciar** dice «El trabajo se guardará como documento en la memoria de la controladora y NO arrancará».

@@ -245,7 +245,7 @@ impl RuidaHandle {
         if !(speed.is_finite() && speed > 0.0) {
             return Err(tr!("desktop.common.frame_speed"));
         }
-        let corners = frame_corners(doc, device, options, self.work_pos())?;
+        let corners = ruida_frame_corners(doc, device, options, self.work_pos())?;
         self.frame(corners, speed)
     }
 

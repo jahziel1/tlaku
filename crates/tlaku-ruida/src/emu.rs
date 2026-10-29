@@ -144,6 +144,13 @@ pub struct Emulator {
     complete: bool,
     /// Posición del cabezal (µm, sistema de la máquina).
     pub pos_um: (i64, i64),
+    /// Origen del usuario guardado en la controladora (µm, sistema de la máquina): el cero de
+    /// los archivos con `D8 11`. Las pruebas lo fijan a mano (en la máquina real, el botón
+    /// Origin del panel).
+    pub user_origin_um: (i64, i64),
+    /// Posición del cabezal cuando arrancó el último trabajo (`D8 00` o `E8 03`): el cero de los
+    /// archivos con `D8 12`.
+    start_um: (i64, i64),
     /// Documento en transferencia (`E8 02`): nombre una vez que llega `E7 01`.
     transfer: Option<Option<String>>,
     transfer_start: usize,
@@ -377,6 +384,7 @@ impl Emulator {
                         && !self.running
                     {
                         self.ran.push(doc.name.clone());
+                        self.start_um = self.pos_um;
                         self.run_stream = Some(doc.stream.clone());
                         self.running = true;
                         self.paused = false;
@@ -390,6 +398,7 @@ impl Emulator {
                 }
                 Command::Process(ProcessOp::Start) => {
                     if self.transfer.is_none() {
+                        self.start_um = self.pos_um;
                         self.running = true;
                         self.paused = false;
                         self.complete = false;
@@ -450,8 +459,9 @@ impl Emulator {
     /// Da por terminado el trabajo en marcha: el cabezal queda en el último punto y la máquina
     /// libre.
     pub fn finish_job(&mut self) {
+        let frame = self.frame();
         let segs = match self.run_stream.take() {
-            Some(doc) => cmd::decode_stream(&doc).map(|c| replay(&c)),
+            Some(doc) => cmd::decode_stream(&doc).map(|c| replay_with(&c, frame)),
             None => self.replay(),
         };
         if let Ok(segs) = segs
@@ -494,16 +504,26 @@ impl Emulator {
             .collect())
     }
 
-    /// Recorre los comandos como lo haría el cabezal: posición (sumando relativos), capa,
+    /// Los tres ceros posibles de un archivo: el de la máquina, el origen del usuario y el
+    /// cabezal al arrancar.
+    fn frame(&self) -> RefFrame {
+        RefFrame {
+            user_origin_um: self.user_origin_um,
+            head_um: self.start_um,
+        }
+    }
+
+    /// Recorre los comandos como lo haría el cabezal: posición (sumando relativos y aplicando
+    /// `D8 11/12` con el origen del usuario y la posición del cabezal al arrancar), capa,
     /// velocidad y potencia vigentes.
     pub fn replay(&self) -> Result<Vec<Segment>, DecodeError> {
-        Ok(replay(&self.commands()?))
+        Ok(replay_with(&self.commands()?, self.frame()))
     }
 
     /// Reconstruye un `Toolpath` (un bloque por capa, en mm) para compararlo con el original.
     /// La velocidad sale de `C9 02` y la potencia de `C7` o, si no hay, de `C6 02` (láser 1).
     pub fn to_toolpath(&self) -> Result<Toolpath, DecodeError> {
-        Ok(to_toolpath(&replay(&self.commands()?)))
+        Ok(to_toolpath(&self.replay()?))
     }
 }
 
@@ -615,17 +635,46 @@ impl Drop for UdpEmulator {
     }
 }
 
-/// Ejecuta los comandos sobre un cabezal virtual que parte de (0, 0).
+/// Puntos que fijan el cero de un archivo según su `D8 10/11/12` (µm, sistema de la máquina).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RefFrame {
+    /// Origen del usuario guardado en la controladora (`D8 11`).
+    pub user_origin_um: (i64, i64),
+    /// Posición del cabezal al arrancar el trabajo (`D8 12`).
+    pub head_um: (i64, i64),
+}
+
+/// Ejecuta los comandos sobre un cabezal virtual que parte de (0, 0), con los tres ceros en
+/// (0, 0) (el caso de un archivo `D8 10`).
 pub fn replay(cmds: &[Command]) -> Vec<Segment> {
+    replay_with(cmds, RefFrame::default())
+}
+
+/// Como [`replay`]: `D8 10` deja las coordenadas como vienen; `D8 11` y `D8 12` las desplazan
+/// con el origen del usuario o con la posición del cabezal de `frame`, y el cabezal virtual
+/// pasa a ese punto. Las coordenadas de los segmentos son siempre de la máquina.
+pub fn replay_with(cmds: &[Command], frame: RefFrame) -> Vec<Segment> {
     let mut out = Vec::new();
     let (mut x, mut y) = (0i64, 0i64);
+    let (mut ox, mut oy) = (0i64, 0i64);
     let (mut layer, mut speed, mut power) = (0u8, 0u64, 0u16);
     // Potencia inmediata (`C7`) vigente en la capa; manda sobre la máxima de la capa.
     let mut imm: Option<u16> = None;
     for c in cmds {
         let (nx, ny, on) = match *c {
-            Command::MoveAbs { x, y } => (x, y, false),
-            Command::CutAbs { x, y } => (x, y, true),
+            Command::Process(
+                op @ (ProcessOp::RefPoint | ProcessOp::RefOrigin | ProcessOp::RefCurrent),
+            ) => {
+                (ox, oy) = match op {
+                    ProcessOp::RefOrigin => frame.user_origin_um,
+                    ProcessOp::RefCurrent => frame.head_um,
+                    _ => (0, 0),
+                };
+                (x, y) = (ox, oy);
+                continue;
+            }
+            Command::MoveAbs { x, y } => (x + ox, y + oy, false),
+            Command::CutAbs { x, y } => (x + ox, y + oy, true),
             Command::MoveRel { dx, dy } => (x + i64::from(dx), y + i64::from(dy), false),
             Command::CutRel { dx, dy } => (x + i64::from(dx), y + i64::from(dy), true),
             Command::MoveRelX(d) => (x + i64::from(d), y, false),
@@ -935,6 +984,133 @@ mod tests {
         assert!(emu.running);
         emu.handle(&p(&jog.to_bytes().unwrap()));
         assert_eq!(emu.jogs.len(), 1);
+    }
+
+    /// Cuadrado de 20 x 10 mm con el ancla (esquina inferior izquierda) en (0, 0), como lo deja
+    /// la colocación relativa de una referencia `D8 11/12`.
+    fn anchored_toolpath() -> Toolpath {
+        let c = |x: f64, y: f64| Move::Cut {
+            to: Point::new(x, y),
+            power_pct: 40.0,
+        };
+        Toolpath {
+            blocks: vec![ToolpathBlock {
+                speed_mm_min: 3000.0,
+                moves: vec![
+                    Move::Travel {
+                        to: Point::new(0.0, 0.0),
+                    },
+                    c(20.0, 0.0),
+                    c(20.0, 10.0),
+                    c(0.0, 10.0),
+                    c(0.0, 0.0),
+                ],
+                ..Default::default()
+            }],
+        }
+    }
+
+    /// Manda `plain` a un emulador con el cabezal en `head_um` y devuelve el emulador con el
+    /// trabajo en marcha.
+    fn run_with_head(plain: &[u8], head_um: (i64, i64), user_origin_um: (i64, i64)) -> Emulator {
+        let cfg = PacketConfig::default();
+        let mut emu = Emulator::new(EmuConfig::default());
+        emu.pos_um = head_um;
+        emu.user_origin_um = user_origin_um;
+        for p in split_into_packets(plain, &cfg).unwrap() {
+            assert_eq!(emu.receive(&p), ack(&emu));
+        }
+        assert!(emu.running && emu.run_complete());
+        emu
+    }
+
+    fn first_and_last(tp: &Toolpath) -> (Point, Point) {
+        let m = &tp.blocks[0].moves;
+        (m[0].to(), m[m.len() - 1].to())
+    }
+
+    #[test]
+    fn current_position_reference_starts_at_the_head() {
+        let plain = rd::build_rd(
+            &anchored_toolpath(),
+            &RuidaJobOptions {
+                reference: rd::RefMode::Current,
+                ..opts()
+            },
+        )
+        .unwrap();
+        assert_eq!(&plain[..2], [0xD8, 0x12]);
+        let emu = run_with_head(&plain, (100_000, 50_000), (7_000, 8_000));
+        let back = emu.to_toolpath().unwrap();
+        let (first, last) = first_and_last(&back);
+        assert!(close(first.x, 100.0) && close(first.y, 50.0), "{first:?}");
+        assert!(close(last.x, 100.0) && close(last.y, 50.0), "{last:?}");
+        let max_x = back.blocks[0]
+            .moves
+            .iter()
+            .map(|m| m.to().x)
+            .fold(0.0, f64::max);
+        assert!(close(max_x, 120.0), "el cuadrado mide 20 mm: {max_x}");
+        // Al terminar, el cabezal queda donde acabó el trabajo.
+        let mut emu = emu;
+        emu.finish_job();
+        assert_eq!(emu.pos_um, (100_000, 50_000));
+    }
+
+    #[test]
+    fn user_origin_reference_starts_at_the_controllers_origin() {
+        let plain = rd::build_rd(
+            &anchored_toolpath(),
+            &RuidaJobOptions {
+                reference: rd::RefMode::UserOrigin,
+                ..opts()
+            },
+        )
+        .unwrap();
+        assert_eq!(&plain[..2], [0xD8, 0x11]);
+        let emu = run_with_head(&plain, (100_000, 50_000), (30_000, 40_000));
+        let (first, _) = first_and_last(&emu.to_toolpath().unwrap());
+        assert!(close(first.x, 30.0) && close(first.y, 40.0), "{first:?}");
+    }
+
+    #[test]
+    fn machine_reference_ignores_head_and_origin() {
+        let plain = rd::build_rd(&anchored_toolpath(), &opts()).unwrap();
+        assert_eq!(&plain[..2], [0xD8, 0x10]);
+        let emu = run_with_head(&plain, (100_000, 50_000), (30_000, 40_000));
+        let (first, _) = first_and_last(&emu.to_toolpath().unwrap());
+        assert!(close(first.x, 0.0) && close(first.y, 0.0), "{first:?}");
+    }
+
+    #[test]
+    fn stored_document_resolves_the_head_when_it_runs() {
+        // El trabajo se guarda con el cabezal en un sitio y se arranca con él en otro.
+        let plain = rd::build_rd(
+            &anchored_toolpath(),
+            &RuidaJobOptions {
+                reference: rd::RefMode::Current,
+                ..opts()
+            },
+        )
+        .unwrap();
+        let cfg = PacketConfig::default();
+        let mut emu = Emulator::new(EmuConfig::default());
+        emu.pos_um = (1_000, 2_000);
+        let mut stream = vec![0xE8, 0x02, 0xE7, 0x01, b'A', 0];
+        stream.extend(&plain);
+        for p in split_into_packets(&stream, &cfg).unwrap() {
+            emu.receive(&p);
+        }
+        assert_eq!(emu.stored.len(), 1);
+        assert!(!emu.running);
+        emu.pos_um = (200_000, 90_000);
+        for p in split_into_packets(&[0xE8, 0x03, 0x00, 0x01], &cfg).unwrap() {
+            emu.receive(&p);
+        }
+        assert!(emu.running);
+        emu.finish_job();
+        // Termina en el último punto: el ancla, o sea donde estaba el cabezal al arrancar.
+        assert_eq!(emu.pos_um, (200_000, 90_000));
     }
 
     #[test]

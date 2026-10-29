@@ -67,9 +67,10 @@ export function StartJobDialog() {
   // Ruida guarda el trabajo con un nombre: uno repetido pide confirmar el reemplazo.
   const connected = useStore((s) => s.connection.connected);
   const ruidaGate = useRuidaStartGate(device, connected);
-  const canStart = ready && placement.status === 'ok' && placement.fits && checklistOk && ruidaGate.ok && (!repeat.enabled || repeating);
+  const placed = placement.status === 'ok' || placement.status === 'deferred';
+  const canStart = ready && placed && placement.fits && checklistOk && ruidaGate.ok && (!repeat.enabled || repeating);
   const blockedWhy =
-    !ready || placement.status !== 'ok' || !placement.fits
+    !ready || !placed || !placement.fits
       ? t('machine.start.blocked')
       : !checklistOk
         ? t('machine.checklist.blocked', { n: pending.length })
