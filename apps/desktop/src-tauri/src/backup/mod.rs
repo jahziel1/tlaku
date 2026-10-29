@@ -213,7 +213,7 @@ fn url_with_credentials(s: &str) -> bool {
 }
 
 /// Secciones de texto libre del usuario (diseños y notas): ahí no se buscan URLs con credenciales.
-const FREE_TEXT_SECTIONS: &[&str] = &["templates", "history"];
+const FREE_TEXT_SECTIONS: &[&str] = &["templates", "history", "components"];
 
 fn scan(value: &Value, path: &str, free_text: bool) -> Result<(), String> {
     match value {

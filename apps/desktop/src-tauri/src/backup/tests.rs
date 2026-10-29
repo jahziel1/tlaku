@@ -299,6 +299,7 @@ fn lo_que_no_es_un_secreto_pasa() {
     b["cameras"] = json!({"presets": [{"url": "rtsp://192.168.0.5:554/stream"}], "token": null});
     b["templates"] = json!({"items": [{"name": "t", "doc": {"text": "mira http://yo@sitio.com"}}]});
     b["history"] = json!({"entries": [{"note": "usuario:clave@host://x"}]});
+    b["components"] = json!({"items": [{"name": "c", "data": {"objects": [{"text": "mira http://yo@sitio.com"}]}}]});
     b["prefs"]["prefs"]["keyboardLayout"] = json!("es");
     assert!(write_backup(&tmp.0, FOLDER_PREFIX, &b, "x", 5, T0).is_ok());
 }

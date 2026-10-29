@@ -3,6 +3,7 @@
 pub mod art;
 pub mod camera;
 pub mod codes;
+pub mod components;
 pub mod design;
 pub mod devices;
 pub mod files;

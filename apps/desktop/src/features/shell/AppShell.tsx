@@ -26,7 +26,7 @@ import { NestDialogHost } from '@/features/nest';
 import { ReviewHost } from '@/features/review';
 import { TilingHost } from '@/features/tiling';
 import { PrintCutHost } from '@/features/printcut';
-import { ArtPanelHost } from '@/features/art';
+import { ArtPanelHost, SaveComponentHost } from '@/features/art';
 import { TraceDialogHost } from '@/features/trace';
 import { PreviewBar } from '@/features/preview';
 import { TabBar, TabPanel, TabsHost } from '@/features/tabs';
@@ -145,6 +145,7 @@ function ShellBody() {
       <DesignDialogHost />
       <TraceDialogHost />
       <ArtPanelHost />
+      <SaveComponentHost />
       <NestDialogHost />
       <TilingHost />
       <ReviewHost />

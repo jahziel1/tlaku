@@ -1,5 +1,6 @@
 import { getApi } from '@/api';
 import { loadUserArt } from '@/features/art/actions';
+import { loadUserComponents } from '@/features/art/componentActions';
 import { useArtPanel } from '@/features/art/artStore';
 import { loadCameraSetup } from '@/features/camera/actions';
 import { readCosts } from '@/features/costs/costProfiles';
@@ -51,7 +52,10 @@ export async function loadHistoryEntries(): Promise<Record<string, unknown>[]> {
 export async function collectSource(sections: Partial<SectionChoice>): Promise<BundleSource> {
   if (sections.materials) await loadMaterials();
   if (sections.cameras) await loadCameraSetup();
-  if (sections.art) await loadUserArt();
+  if (sections.art) {
+    await loadUserArt();
+    await loadUserComponents();
+  }
   if (sections.remnants) await loadRemnants();
   const templates = sections.templates ? (await loadTemplateItems()).items : [];
   const history = sections.history ? await loadHistoryEntries() : [];
@@ -64,6 +68,7 @@ export async function collectSource(sections: Partial<SectionChoice>): Promise<B
     shortcuts: s.shortcutOverrides,
     cameras: s.cameraSetup,
     userArt: useArtPanel.getState().user,
+    userComponents: useArtPanel.getState().components,
     costs: sections.costs ? currentCosts() : undefined,
     remnants: useRemnants.getState().library,
     templates,

@@ -116,4 +116,27 @@ La distribución se guarda en las preferencias, así que viaja con tu [paquete d
 
 La biblioteca no tiene etiquetas ni subcarpetas por ahora.
 
+## Mis componentes: guardar una selección con sus capas y ajustes
+
+Un SVG de la biblioteca pierde las capas y los ajustes de corte. Un **componente** no: guarda los objetos que tengas seleccionados **con sus capas, velocidad, potencia y demás ajustes** y la posición que tenían, para volver a insertarlos en otro proyecto o en otro día. Sirve, por ejemplo, para una hoja de 60 × 60 cm con muchas copias ya acomodadas: la guardas entera y la cargas cuando la necesites.
+
+**Guardar.** Selecciona uno o varios objetos y elige **Guardar como componente…** en el menú contextual (clic derecho), en **Herramientas** o en el botón **Guardar selección como componente…** de la pestaña **Mis componentes** de la biblioteca. Pide un nombre y lo guarda en la carpeta `components` de la configuración de Tlaku, junto a `art`. Si ya existe un componente con ese nombre no lo reemplaza: se guarda como `nombre-2`. Es una copia: lo que cambies después en el documento no cambia el componente.
+
+**La pestaña Mis componentes.** En **Herramientas > Biblioteca de arte**, la categoría **Mis componentes** lista cada uno con su miniatura (con los colores de sus capas), su nombre, su tamaño en mm y cuántos objetos tiene. El buscador filtra por nombre.
+
+- **Un clic** lo inserta; también puedes **arrastrarlo** al lienzo y soltarlo donde quieras (se centra en ese punto).
+- El lápiz lo **renombra** y la papelera lo **borra**, pidiendo confirmación (los proyectos donde ya lo insertaste no cambian).
+
+**Dónde cae al insertarlo.** El selector **Insertar** de la pestaña tiene tres opciones:
+
+- **En su posición original si cabe en la cama** (la de fábrica): si la caja del componente entra entera en la cama de la máquina activa, queda exactamente donde estaba; si no, va al centro de lo que ves.
+- **Siempre en su posición original:** respeta las coordenadas aunque se salga de la cama (y avisa si es así). Es lo que quieres para una hoja ya acomodada.
+- **En el centro de la vista.**
+
+Insertar es **un solo paso de Deshacer**, deja lo insertado seleccionado y crea las capas que le falten con los ajustes del componente. Los grupos del componente se vuelven grupos nuevos, sin unirse a los del documento.
+
+**Si una capa ya existe con otros ajustes.** Si el documento ya tiene una capa del mismo color pero con otra velocidad, potencia u otros ajustes de corte, **se conservan los del documento** (igual que al pegar entre pestañas): el componente se adapta a tu proyecto y no cambia cómo se corta lo que ya tenías. Un aviso te dice cuántas capas eran distintas y cuáles; si quieres los ajustes del componente, cámbialos en la capa.
+
+**Respaldo y paquetes.** Los componentes viajan con la casilla **Biblioteca de arte** del paquete de configuración y del respaldo a una carpeta ([Control avanzado](09b-control-avanzado.md)). Al importar nunca pisan los tuyos: uno con el mismo nombre y otro contenido entra con un nombre nuevo.
+
 Siguiente: [Pestañas de documentos](03f-pestanas-de-documentos.md)

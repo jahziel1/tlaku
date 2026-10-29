@@ -155,3 +155,88 @@
   justify-content: space-between;
   gap: var(--s-3);
 }
+
+/* Mis componentes (issue #22). */
+.art-comps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.art-comps__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.art-comps__placement {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--text-sm);
+}
+.art-comp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.art-comp {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.art-comp__main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  padding: var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.art-comp__main:hover,
+.art-comp__main:focus-visible {
+  border-color: var(--accent);
+}
+.art-comp__img {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  padding: 3px;
+  border-radius: 4px;
+  /* Los trazos llevan el color de su capa: el fondo claro los muestra igual en los dos temas. */
+  background: #fff;
+}
+.art-comp__img--empty {
+  display: inline-block;
+}
+.art-comp__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.art-comp__name,
+.art-comp__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-comp__meta {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.art-comp__rename {
+  flex: 1;
+  min-width: 0;
+}

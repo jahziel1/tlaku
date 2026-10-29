@@ -1,7 +1,7 @@
 import type { LaserApi } from '../api';
 import type { ImportResult } from '../types';
 import { polylineBez } from '@/lib/bezpath';
-import type { UserArt } from '@/features/art/types';
+import type { UserArt, UserComponent } from '@/features/art/types';
 
 type Lag = <T>(value: () => T) => Promise<T>;
 
@@ -16,9 +16,10 @@ export function mockTraceExtras(
   lag: Lag,
 ): Pick<
   LaserApi,
-  'vectorsToBitmap' | 'saveProcessedImage' | 'artImportSvg' | 'artListUser' | 'artAddUser' | 'artRemoveUser' | 'artSaveUser'
+  'vectorsToBitmap' | 'saveProcessedImage' | 'artImportSvg' | 'artListUser' | 'artAddUser' | 'artRemoveUser' | 'artSaveUser' | 'componentListUser' | 'componentSaveUser' | 'componentRenameUser' | 'componentRemoveUser'
 > {
   let user: UserArt[] = [];
+  let components: UserComponent[] = [];
   return {
     vectorsToBitmap: ({ doc, selection, dir, stem, options }) =>
       lag(() => {
@@ -123,6 +124,48 @@ export function mockTraceExtras(
         }
         user = [...user, ...added];
         return { added, errors };
+      }),
+
+    componentListUser: () => lag(() => components.map((c) => structuredClone(c)).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))),
+
+    componentSaveUser: ({ items }) =>
+      lag(() => {
+        const added: UserComponent[] = [];
+        const errors: string[] = [];
+        for (const it of items) {
+          const base = it.name.trim().replace(/[/\\:*?"<>|]/g, '-').replace(/^\.+|\.+$/g, '').trim();
+          if (base === '') {
+            errors.push(`«${it.name}»: el nombre no es válido.`);
+            continue;
+          }
+          if (it.data?.format !== 'tlaku-component' || !Array.isArray(it.data.objects) || it.data.objects.length === 0) {
+            errors.push(`«${it.name}»: no es un componente válido.`);
+            continue;
+          }
+          let name = base;
+          for (let k = 2; components.some((c) => c.name === name) || added.some((c) => c.name === name); k++) name = `${base}-${k}`;
+          added.push({ name, data: structuredClone(it.data) });
+        }
+        components = [...components, ...added];
+        return { added: added.map((c) => structuredClone(c)), errors };
+      }),
+
+    componentRenameUser: ({ name, new_name }) =>
+      lag(() => {
+        const base = new_name.trim().replace(/[/\\:*?"<>|]/g, '-').replace(/^\.+|\.+$/g, '').trim();
+        if (base === '') throw new Error(`Nombre de componente inválido: «${new_name}».`);
+        if (!components.some((c) => c.name === name)) throw new Error(`No existe el componente «${name}».`);
+        if (base === name) return base;
+        let final = base;
+        for (let k = 2; components.some((c) => c.name === final); k++) final = `${base}-${k}`;
+        components = components.map((c) => (c.name === name ? { ...c, name: final } : c));
+        return final;
+      }),
+
+    componentRemoveUser: ({ name }) =>
+      lag(() => {
+        if (!components.some((c) => c.name === name)) throw new Error(`No existe el componente «${name}».`);
+        components = components.filter((c) => c.name !== name);
       }),
   };
 }

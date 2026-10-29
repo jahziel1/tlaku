@@ -5,6 +5,7 @@ import { errorMessage } from '@/lib/errors';
 import { loadMaterials } from '@/features/materials/actions';
 import { useArtPanel } from '@/features/art/artStore';
 import { loadUserArt } from '@/features/art/actions';
+import { loadUserComponents } from '@/features/art/componentActions';
 import { loadCameraSetup } from '@/features/camera/actions';
 import { useMaterials } from '@/features/materials/state';
 import { loadRemnants, useRemnants } from '@/features/nest/remnantStore';
@@ -64,13 +65,13 @@ function Section({ id, checked, disabled, detail, onChange, children }: {
 // Exportar
 // ---------------------------------------------------------------------------
 
-export function ExportBody({ choice, onChange, counts }: { choice: SectionChoice; onChange: (c: SectionChoice) => void; counts: { devices: number; materials: number; art?: number; presets?: number; lens?: boolean; alignment?: boolean; head?: boolean; costProfiles?: number; remnants?: number } }) {
+export function ExportBody({ choice, onChange, counts }: { choice: SectionChoice; onChange: (c: SectionChoice) => void; counts: { devices: number; materials: number; art?: number; components?: number; presets?: number; lens?: boolean; alignment?: boolean; head?: boolean; costProfiles?: number; remnants?: number } }) {
   const parts = [counts.lens && t('bundle.export.cameras.lens'), counts.alignment && t('bundle.export.cameras.alignment'), counts.head && t('bundle.export.cameras.head')].filter((x): x is string => !!x);
   const detail: Record<BundleSection, string> = {
     devices: t('bundle.export.devices', { n: counts.devices }),
     materials: t('bundle.export.materials', { n: counts.materials }),
     cameras: parts.length + (counts.presets ?? 0) > 0 ? t('bundle.export.cameras', { parts: parts.join(', ') || t('bundle.export.cameras.noParts'), n: counts.presets ?? 0 }) : t('bundle.export.cameras.none'),
-    art: t('bundle.export.art', { n: counts.art ?? 0 }),
+    art: t('bundle.export.art', { n: counts.art ?? 0, c: counts.components ?? 0 }),
     prefs: t('bundle.export.prefs'),
     costs: t('bundle.export.costs', { n: counts.costProfiles ?? 0 }),
     remnants: t('bundle.export.remnants', { n: counts.remnants ?? 0 }),
@@ -214,6 +215,11 @@ export function ImportPreview({ plan, choice, onChange, policies = defaultPolici
       <>
         <p className="bnd-detail">{t('bundle.art.summary', { added: a.items.length, skipped: a.skipped })}</p>
         {a.items.length > 0 && listNames(a.items.map((x) => x.name))}
+        {a.components.length + a.componentsSkipped + a.componentsInvalid > 0 && (
+          <p className="bnd-detail">{t('bundle.art.components', { added: a.components.length, skipped: a.componentsSkipped })}</p>
+        )}
+        {a.components.length > 0 && listNames(a.components.map((x) => x.name))}
+        {a.componentsInvalid > 0 && <p className="bnd-detail bnd-detail--warn">{t('bundle.art.componentsInvalid', { n: a.componentsInvalid })}</p>}
         {a.renamed > 0 && <p className="bnd-detail">{t('bundle.art.renamed', { n: a.renamed })}</p>}
         {a.invalid > 0 && <p className="bnd-detail bnd-detail--warn">{t('bundle.art.invalid', { n: a.invalid })}</p>}
       </>
@@ -343,6 +349,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   const devices = useStore((s) => s.devices.length);
   const materials = useMaterials((s) => s.library.presets.length);
   const art = useArtPanel((s) => s.user.length);
+  const components = useArtPanel((s) => s.components.length);
   const camera = useStore((s) => s.cameraSetup);
   const remnants = useRemnants((s) => s.library.remnants.length);
   const [costProfiles, setCostProfiles] = useState(0);
@@ -353,6 +360,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
     void loadMaterials();
     void loadCameraSetup();
     void loadUserArt();
+    void loadUserComponents();
     void loadRemnants();
     setCostProfiles(currentCosts().materials.length);
   }, []);
@@ -376,7 +384,7 @@ function ExportDialog({ onClose }: { onClose: () => void }) {
   );
   return (
     <Frame title={t('bundle.title.export')} onClose={onClose} foot={foot}>
-      <ExportBody choice={choice} onChange={setChoice} counts={{ devices, materials, art, presets: cams.presets, lens: cams.lens, alignment: cams.alignment, head: cams.head, costProfiles, remnants }} />
+      <ExportBody choice={choice} onChange={setChoice} counts={{ devices, materials, art, components, presets: cams.presets, lens: cams.lens, alignment: cams.alignment, head: cams.head, costProfiles, remnants }} />
     </Frame>
   );
 }

@@ -52,6 +52,10 @@ interface TextObject {                // ObjectKind "text"
 | `art_add_user` | `{ paths: string[] }` | `{ added: { name, svg }[], errors: string[] }` |
 | `art_remove_user` | `{ name }` | — |
 | `art_save_user` | `{ items: { name, svg }[] }` | `{ added: { name, svg }[], errors: string[] }`: guarda dibujos que llegan con su texto (importar un `.tlakubundle`). Nunca pisa uno existente (`nombre`, `nombre-2`...); el nombre pierde la extensión y cualquier ruta; cada SVG debe leerse como dibujo (2 MB como máximo) |
+| `component_list_user` | — | `{ name, data }[]` (componentes guardados de `<configuración>/components/`, archivos `.tlakucomp`; `data` es el JSON `tlaku-component` de la interfaz: `format`, `version`, `created`, `objects`, `layers`, `bounds`, `thumb`). Un archivo dañado se salta |
+| `component_save_user` | `{ items: { name, data }[] }` | `{ added: { name, data }[], errors: string[] }`: guarda componentes (issue #22). Nunca pisa uno existente (`nombre`, `nombre-2`...); el nombre pierde cualquier ruta; `data` debe tener `format: "tlaku-component"`, `objects` no vacío y `layers` (64 MB como máximo); escritura atómica |
+| `component_rename_user` | `{ name, new_name }` | `string`: el nombre final (con otro número si `new_name` ya existía) |
+| `component_remove_user` | `{ name }` | — |
 | `detect_board` | `{ image_png_base64: string, board: [number, number] }` | `[number, number][] \| null`: esquinas internas del tablero, fila por fila, en píxeles de la imagen; `null` si no se ve completo |
 | `calibrate_lens` | `{ images_png_base64: string[], board: [number, number], square_mm: number }` | `CalibrationReport` |
 | `load_camera_setup` | | `CameraSetup`; sin `camera.json`, una configuración vacía. Un archivo dañado se aparta como `camera.json.dañado` y se devuelve una vacía |

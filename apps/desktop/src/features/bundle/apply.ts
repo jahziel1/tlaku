@@ -1,6 +1,7 @@
 import { commands } from '@/commands';
 import { loadUserArt } from '@/features/art/actions';
 import { useArtPanel } from '@/features/art/artStore';
+import { loadUserComponents } from '@/features/art/componentActions';
 import { loadCameraSetup, persistCameraSetup } from '@/features/camera/actions';
 import { useCostStore } from '@/features/costs/costStore';
 import { writeCosts } from '@/features/costs/costProfiles';
@@ -36,6 +37,7 @@ export async function currentState(bundle?: UserBundle): Promise<CurrentState> {
   return {
     cameras: s.cameraSetup,
     userArt: useArtPanel.getState().user,
+    userComponents: useArtPanel.getState().components,
     devices: s.devices,
     activeDeviceId: s.activeDeviceId,
     library: useMaterials.getState().library,
@@ -171,8 +173,11 @@ export async function applyImport(plan: ImportPlan, choice: SectionChoice, name 
   if (choice.art && plan.art) {
     try {
       const saved = plan.art.items.length > 0 ? await getApi().artSaveUser({ items: plan.art.items }) : { added: [], errors: [] };
-      result.art = { added: saved.added.length, failed: saved.errors.length };
+      // Los componentes viajan con la biblioteca de arte y entran igual: nunca pisan uno local.
+      const comps = plan.art.components.length > 0 ? await getApi().componentSaveUser({ items: plan.art.components }) : { added: [], errors: [] };
+      result.art = { added: saved.added.length + comps.added.length, failed: saved.errors.length + comps.errors.length };
       await loadUserArt();
+      await loadUserComponents();
     } catch (e) {
       useStore.getState().notify('error', t('bundle.err.artFailed', { error: errorMessage(e) }));
     }

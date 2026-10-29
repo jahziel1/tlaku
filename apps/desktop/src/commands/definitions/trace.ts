@@ -1,5 +1,6 @@
 import type { I18nKey } from '@/i18n';
 import { useArtPanel } from '@/features/art/artStore';
+import { requestSaveComponent } from '@/features/art/componentActions';
 import { bitmapEnabled } from '@/features/trace/bitmap';
 import { useBitmapDialog } from '@/features/trace/bitmapStore';
 import { useBatchDialog } from '@/features/trace/batchStore';
@@ -106,6 +107,16 @@ export const traceCommands: CommandDef[] = [
     run: () => {
       const a = useArtPanel.getState();
       a.setOpen(!a.open);
+    },
+  },
+  {
+    // Issue #22: la selección con sus capas y ajustes, a la biblioteca (Mis componentes).
+    id: 'tools.saveComponent',
+    label: 'art.component.cmd.save',
+    category: 'tools',
+    enabled: (s) => (s.selectedIds.length > 0 ? true : 'reason.noSelection'),
+    run: () => {
+      requestSaveComponent();
     },
   },
 ];
