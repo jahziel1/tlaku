@@ -4,12 +4,12 @@ import { sanitizeStored, type CostStored } from '@/features/costs/costProfiles';
 import type { RemnantLibrary } from '@/features/nest/remnants';
 import { getLanguage } from '@/i18n';
 import { uniqueDeviceId } from '@/lib/device';
-import type { UserArt } from '@/features/art/types';
+import type { UserArt, UserComponent } from '@/features/art/types';
 import { applyBundle, buildBundle, type BundleChange } from '@/features/settings/bundle';
 import { mergeLibraries, presetExtras, sameValue } from '@/features/materials/library';
 import { t } from '@/i18n';
 import { emptyCameraSetup } from '@/store/camera';
-import { buildArtSection, planArt, type ArtPlan } from './art';
+import { buildArtSection, buildComponentsSection, planArt, type ArtPlan } from './art';
 import { buildCamerasSection, camerasChanges, planCameras, type CamerasPlan } from './cameras';
 import {
   buildCostsSection,
@@ -76,6 +76,8 @@ export interface BundleSource {
   cameras?: CameraSetup;
   /** Biblioteca de arte propia (sin ella, vacía). */
   userArt?: readonly UserArt[];
+  /** Componentes guardados (sin ellos, vacío). Viajan con la casilla de la biblioteca de arte. */
+  userComponents?: readonly UserComponent[];
   /** Perfiles de costos (versión 2). */
   costs?: CostStored;
   /** Inventario de retazos (versión 2). */
@@ -106,6 +108,7 @@ export function buildUserBundle(
     materials: sections.materials ? structuredClone(source.library) : null,
     cameras: sections.cameras ? buildCamerasSection(source.cameras ?? emptyCameraSetup()) : null,
     art: sections.art ? buildArtSection(source.userArt ?? []) : null,
+    ...(sections.art ? { components: buildComponentsSection(source.userComponents ?? []) } : {}),
     prefs: sections.prefs ? buildBundle(source.prefs, source.shortcuts, 'all') : null,
     ...(sections.costs ? { costs: buildCostsSection(source.costs ?? sanitizeStored({}, getLanguage())) } : {}),
     ...(sections.remnants ? { remnants: structuredClone(source.remnants ?? { version: 1, remnants: [] }) } : {}),
@@ -355,7 +358,7 @@ export function planImport(bundle: unknown, current: CurrentState): ImportPlan {
     devices: planDevices(bundle, current),
     materials: planMaterials(bundle, current),
     cameras: planCameras(bundle.cameras, current.cameras ?? emptyCameraSetup()),
-    art: planArt(bundle.art, current.userArt ?? []),
+    art: planArt(bundle.art, current.userArt ?? [], bundle.components, current.userComponents ?? []),
     prefs: planPrefs(bundle, current),
     costs: planCosts(bundle.costs, current.costs ?? sanitizeStored({}, getLanguage()), getLanguage()),
     remnants: planRemnants(bundle.remnants, current.remnants ?? { version: 1, remnants: [] }),
@@ -376,7 +379,7 @@ export function sectionChanges(plan: ImportPlan, policies: PolicyChoice = defaul
     remnants: plan.remnants ? remnantsChanges(plan.remnants, policies.remnants) : 0,
     templates: plan.templates ? templatesChanges(plan.templates, policies.templates) : 0,
     cameras: plan.cameras ? camerasChanges(plan.cameras) : 0,
-    art: plan.art ? plan.art.items.length : 0,
+    art: plan.art ? plan.art.items.length + plan.art.components.length : 0,
     prefs: p ? p.appliedPrefs + p.appliedShortcuts : 0,
     history: plan.history ? plan.history.added.length : 0,
   };

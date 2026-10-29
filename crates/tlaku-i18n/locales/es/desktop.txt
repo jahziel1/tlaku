@@ -394,6 +394,10 @@ desktop.edit.art.invalid_name = «{name}»: el nombre no es válido.
 desktop.edit.art.too_big_short = {name}: el SVG pesa demasiado.
 desktop.edit.art.bad_name = Nombre de dibujo inválido: «{name}».
 desktop.edit.art.no_paths = El SVG no tiene trayectos que insertar.
+desktop.edit.component.invalid = «{name}»: no es un componente válido.
+desktop.edit.component.too_big = «{name}»: el componente pesa demasiado ({mb} MB; el máximo es {max} MB).
+desktop.edit.component.bad_name = Nombre de componente inválido: «{name}».
+desktop.edit.component.not_found = No existe el componente «{name}».
 # camera/
 desktop.edit.camera.bad_base64 = La imagen no es base64 válido: {err}
 desktop.edit.camera.decode_failed = No se pudo decodificar la imagen: {err}

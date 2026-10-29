@@ -43,6 +43,7 @@ export function buildContextMenu(s: AppState, onObject: boolean, hooks: MenuHook
     }
     if (only?.kind.type === 'image' && hooks.has('tools.traceImage')) add(cmd('tools.traceImage'), SEP);
     add(cmd('edit.cut'), cmd('edit.copy'), cmd('edit.copySvg'), cmd('edit.paste'), cmd('edit.duplicate'), cmd('edit.delete'), SEP);
+    add(cmd('tools.saveComponent'), SEP);
     add(cmd('edit.group'), cmd('edit.ungroup'), cmd('arrange.lock'), SEP);
     add(
       {

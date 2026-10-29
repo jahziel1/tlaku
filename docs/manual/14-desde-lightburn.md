@@ -107,6 +107,7 @@ Tlaku es un programa independiente, hecho desde cero y sin usar el código ni lo
 | Start Point, Reverse Direction | Herramienta **Punto de inicio** (`Q`), **Invertir sentido** y **Quitar inicio y sentido fijados** |
 | Variable Text (serie, CSV, fecha y hora) | **Herramientas > Texto variable…** y el menú **Insertar variable** del panel de texto; ver [Texto variable](04b-texto-variable.md) |
 | Art Library | **Herramientas > Biblioteca de arte**: 41 dibujos propios y tus SVG |
+| (guardar una selección para reutilizarla) | **Guardar como componente…** (clic derecho) y la categoría **Mis componentes** de la biblioteca: guarda objetos con sus capas y ajustes; ver [Guías, puentes y proyecto](03e-guias-puentes-y-proyecto.md#mis-componentes-guardar-una-seleccion-con-sus-capas-y-ajustes) |
 | Notes, Templates, New Window | Pestaña **Notas** (`Ctrl/Cmd+7`), **Guardar como plantilla…** y **Nuevo desde plantilla…** (menú Archivo), **Nueva ventana** (`Ctrl/Cmd+Mayús+N`) |
 | Dockable windows | Las pestañas del panel se reordenan, se ocultan, **se sacan a ventanas flotantes** (doble clic en la pestaña) y el panel y las herramientas cambian de lado; **Restablecer distribución** lo deja como de fábrica |
 | Set Image Mask, Convert to Bitmap, Save Processed Bitmap, Replace Image | **Recortar imagen con forma**, **Convertir a mapa de bits…**, **Guardar imagen procesada…** y **Reemplazar imagen…** (menú Herramientas); ver [Imágenes](06-imagenes.md) |

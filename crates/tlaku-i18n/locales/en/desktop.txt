@@ -394,6 +394,10 @@ desktop.edit.art.invalid_name = "{name}": the name is not valid.
 desktop.edit.art.too_big_short = {name}: the SVG is too large.
 desktop.edit.art.bad_name = Invalid artwork name: "{name}".
 desktop.edit.art.no_paths = The SVG has no paths to insert.
+desktop.edit.component.invalid = "{name}": not a valid component.
+desktop.edit.component.too_big = "{name}": the component is too large ({mb} MB; the limit is {max} MB).
+desktop.edit.component.bad_name = Invalid component name: "{name}".
+desktop.edit.component.not_found = There is no component named "{name}".
 # camera/
 desktop.edit.camera.bad_base64 = The image is not valid base64: {err}
 desktop.edit.camera.decode_failed = Could not decode the image: {err}

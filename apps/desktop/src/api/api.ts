@@ -84,7 +84,7 @@ import type {
   TraceSettings,
 } from './types';
 
-import type { AddArtResult, UserArt } from '@/features/art/types';
+import type { AddArtResult, SaveComponentsResult, UserArt, UserComponent } from '@/features/art/types';
 import type { BitmapOptions, BitmapResult, ProcessedSummary } from '@/features/trace/types';
 import type { ImagePreview, ImagePreviewArgs } from '@/features/images/types';
 import type { TonalPreview, TonalRequest } from '@/features/tonal/types';
@@ -152,6 +152,8 @@ export interface UserBundle {
   cameras?: CamerasBundle | null;
   /** Biblioteca de arte propia (los SVG con su nombre). */
   art?: ArtBundle | null;
+  /** Componentes guardados (viajan con la casilla de la biblioteca de arte; sin ella no están). */
+  components?: ComponentsBundle | null;
   /** Versión 2: perfiles de costos (por máquina, venta y perfiles de material). */
   costs?: CostsBundle | null;
   /** Versión 2: inventario de retazos. */
@@ -238,6 +240,11 @@ export interface CamerasBundle {
 /** Sección `art` de un paquete: los SVG de la biblioteca del usuario. */
 export interface ArtBundle {
   items: UserArt[];
+}
+
+/** Sección `components` de un paquete: los componentes de la biblioteca del usuario. */
+export interface ComponentsBundle {
+  items: UserComponent[];
 }
 
 /** Automatización por UDP (Preferencias): ver `docs/app-api/automatizacion.md` y `src-tauri/src/automation.rs`. */
@@ -748,6 +755,13 @@ export interface LaserApi {
   artRemoveUser(args: { name: string }): Promise<void>;
   /** Guarda dibujos que llegan con su texto (importar un paquete). Nunca pisa uno existente: usa otro nombre. */
   artSaveUser(args: { items: UserArt[] }): Promise<AddArtResult>;
+  /** Componentes guardados (objetos con sus capas y ajustes), en `<configuración>/components/`. */
+  componentListUser(): Promise<UserComponent[]>;
+  /** Guarda componentes. Nunca pisa uno existente: usa otro nombre (`nombre-2`). Los inválidos vuelven en `errors`. */
+  componentSaveUser(args: { items: UserComponent[] }): Promise<SaveComponentsResult>;
+  /** Cambia el nombre de un componente y devuelve el nombre final (con otro número si el nuevo ya existía). */
+  componentRenameUser(args: { name: string; new_name: string }): Promise<string>;
+  componentRemoveUser(args: { name: string }): Promise<void>;
 
   // Nesting: acomodar piezas en la cama o en un material irregular
   /**
@@ -1098,6 +1112,10 @@ export const COMMAND_NAMES = {
   artAddUser: 'art_add_user',
   artRemoveUser: 'art_remove_user',
   artSaveUser: 'art_save_user',
+  componentListUser: 'component_list_user',
+  componentSaveUser: 'component_save_user',
+  componentRenameUser: 'component_rename_user',
+  componentRemoveUser: 'component_remove_user',
   nestStart: 'nest_start',
   nestPoll: 'nest_poll',
   nestCancel: 'nest_cancel',

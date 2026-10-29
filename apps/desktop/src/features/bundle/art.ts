@@ -1,5 +1,6 @@
-import type { ArtBundle } from '@/api';
-import type { UserArt } from '@/features/art/types';
+import type { ArtBundle, ComponentsBundle } from '@/api';
+import { validComponents } from '@/features/art/components';
+import type { UserArt, UserComponent } from '@/features/art/types';
 
 /**
  * Sección `art` del paquete `.tlakubundle` (M4): la biblioteca de arte propia (los SVG que el
@@ -22,6 +23,14 @@ export interface ArtPlan {
   skipped: number;
   /** No eran válidos (sin nombre, sin SVG o demasiado pesados) o sobraron del tope. */
   invalid: number;
+  /** Componentes guardados (issue #22) que entran; igual que los dibujos, nunca pisan los locales. */
+  components: UserComponent[];
+  /** De los `components`, los que entrarán con otro nombre por chocar con uno distinto. */
+  componentsRenamed: number;
+  /** Componentes idénticos a uno que ya estaba. */
+  componentsSkipped: number;
+  /** Componentes que no eran válidos. */
+  componentsInvalid: number;
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -30,13 +39,42 @@ export function buildArtSection(user: readonly UserArt[]): ArtBundle {
   return { items: user.map((a) => ({ name: a.name, svg: a.svg })) };
 }
 
+/** Sección `components` del paquete: los componentes guardados (viajan con la casilla de la biblioteca de arte). */
+export function buildComponentsSection(components: readonly UserComponent[]): ComponentsBundle {
+  return { items: components.map((c) => ({ name: c.name, data: structuredClone(c.data) })) };
+}
+
+/** Qué componentes entrarían: los válidos que no están ya (mismo nombre y mismo contenido). */
+export function planComponents(raw: unknown, current: readonly UserComponent[]): Pick<ArtPlan, 'components' | 'componentsRenamed' | 'componentsSkipped' | 'componentsInvalid'> {
+  const { items, invalid } = validComponents(isObject(raw) ? raw.items : []);
+  const byName = new Map(current.map((c) => [c.name.toLowerCase(), c]));
+  const seen = new Set<string>();
+  const components: UserComponent[] = [];
+  let renamed = 0;
+  let skipped = 0;
+  for (const c of items) {
+    const key = c.name.toLowerCase();
+    const existing = byName.get(key);
+    const same = (x: UserComponent) => JSON.stringify(x.data) === JSON.stringify(c.data);
+    if ((existing && same(existing)) || components.some((x) => x.name.toLowerCase() === key && same(x))) {
+      skipped++;
+      continue;
+    }
+    if (existing || seen.has(key)) renamed++;
+    seen.add(key);
+    components.push(c);
+  }
+  return { components, componentsRenamed: renamed, componentsSkipped: skipped, componentsInvalid: invalid };
+}
+
 /** ¿Parece un SVG? (el motor lo vuelve a probar con el importador al guardar) */
 const looksSvg = (text: string) => /<svg[\s>]/i.test(text);
 
 /** Qué entraría de la sección sobre la biblioteca actual; `null` si no es una sección. */
-export function planArt(raw: unknown, current: readonly UserArt[]): ArtPlan | null {
-  if (!isObject(raw)) return null;
-  const list = Array.isArray(raw.items) ? (raw.items as unknown[]) : [];
+export function planArt(raw: unknown, current: readonly UserArt[], rawComponents?: unknown, currentComponents: readonly UserComponent[] = []): ArtPlan | null {
+  if (!isObject(raw) && !isObject(rawComponents)) return null;
+  const comp = planComponents(rawComponents, currentComponents);
+  const list = isObject(raw) && Array.isArray(raw.items) ? (raw.items as unknown[]) : [];
   const byName = new Map(current.map((a) => [a.name.toLowerCase(), a]));
   const seen = new Set<string>();
   const items: UserArt[] = [];
@@ -64,5 +102,5 @@ export function planArt(raw: unknown, current: readonly UserArt[]): ArtPlan | nu
     seen.add(name.toLowerCase());
     items.push({ name, svg });
   }
-  return { items, renamed, skipped, invalid };
+  return { items, renamed, skipped, invalid, ...comp };
 }

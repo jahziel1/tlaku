@@ -128,7 +128,7 @@ pub fn add_art(dir: &Path, paths: &[String]) -> Result<AddArtResult, String> {
 
 /// Nombre de archivo seguro para un dibujo que llega con su texto (paquete `.tlakubundle`): sin
 /// rutas, sin la extensión y con un largo razonable. `None` si no queda nada.
-fn clean_art_name(raw: &str) -> Option<String> {
+pub(crate) fn clean_art_name(raw: &str) -> Option<String> {
     let base = raw.trim();
     let base = base
         .strip_suffix(".svg")

@@ -107,6 +107,7 @@ Tlaku is an independent program, built from scratch without using LightBurn's co
 | Start Point, Reverse Direction | **Start point** tool (`Q`), **Reverse direction**, and **Clear fixed start and direction** |
 | Variable Text (serial, CSV, date and time) | **Tools > Variable text…** and the **Insert variable** menu of the text panel; see [Variable text](04b-texto-variable.md) |
 | Art Library | **Tools > Art library**: 41 drawings of our own and your SVGs |
+| (saving a selection to reuse it) | **Save as component…** (right click) and the **My components** category of the library: saves objects with their layers and settings; see [Guides, tabs, start point, and project](03e-guias-puentes-y-proyecto.md#my-components-save-a-selection-with-its-layers-and-settings) |
 | Notes, Templates, New Window | **Notes** tab (`Ctrl/Cmd+7`), **Save as template…** and **New from template…** (File menu), **New window** (`Ctrl/Cmd+Shift+N`) |
 | Dockable windows | Panel tabs can be reordered, hidden, **pulled out into floating windows** (double-click the tab), and the panel and tools can switch sides; **Reset Layout** puts it back to the default |
 | Set Image Mask, Convert to Bitmap, Save Processed Bitmap, Replace Image | **Crop image to shape**, **Convert to bitmap…**, **Save processed image…**, and **Replace image…** (Tools menu); see [Images](06-imagenes.md) |

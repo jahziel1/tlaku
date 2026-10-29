@@ -175,7 +175,7 @@ describe('sección de arte', () => {
     const big = { name: 'enorme', svg: `<svg>${'x'.repeat(2 * 1024 * 1024)}</svg>` };
     expect(planArt({ items: [big] }, [])!.invalid).toBe(1);
     expect(planArt(null, [])).toBeNull();
-    expect(planArt({}, [])).toEqual({ items: [], renamed: 0, skipped: 0, invalid: 0 });
+    expect(planArt({}, [])).toEqual({ items: [], renamed: 0, skipped: 0, invalid: 0, components: [], componentsRenamed: 0, componentsSkipped: 0, componentsInvalid: 0 });
   });
 });
 

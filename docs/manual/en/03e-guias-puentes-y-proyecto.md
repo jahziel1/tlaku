@@ -116,4 +116,27 @@ The layout is saved in the preferences, so it travels with your [settings bundle
 
 The library has no tags or subfolders for now.
 
+## My components: save a selection with its layers and settings
+
+An SVG from the library loses its layers and cut settings. A **component** does not: it saves the objects you have selected **with their layers, speed, power and other settings** and the position they had, so you can insert them again in another project or on another day. It is useful, for example, for a 60 × 60 cm sheet with many copies already nested: you save it whole and load it when you need it.
+
+**Saving.** Select one or more objects and choose **Save as component…** from the context menu (right click), from **Tools**, or from the **Save selection as component…** button on the **My components** tab of the library. It asks for a name and saves it in the `components` folder of Tlaku's configuration, next to `art`. If a component with that name already exists it does not replace it: it is saved as `name-2`. It is a copy: whatever you change in the document afterwards does not change the component.
+
+**The My components tab.** In **Tools > Art library**, the **My components** category lists each one with its thumbnail (in the colors of its layers), its name, its size in mm and how many objects it has. The search box filters by name.
+
+- **One click** inserts it; you can also **drag** it onto the canvas and drop it wherever you want (it is centered on that point).
+- The pencil **renames** it and the trash can **deletes** it, asking for confirmation (projects where you already inserted it are not changed).
+
+**Where it lands.** The **Insert** selector on the tab has three options:
+
+- **At its original position if it fits the bed** (the default): if the component's box fits entirely inside the active machine's bed, it lands exactly where it was; otherwise it goes to the center of what you see.
+- **Always at its original position:** keeps the coordinates even if it falls off the bed (and warns you when it does). This is what you want for a sheet that is already nested.
+- **At the center of the view.**
+
+Inserting is **a single Undo step**, leaves what was inserted selected, and creates any missing layers with the component's settings. The component's groups become new groups, so they do not merge with the document's.
+
+**If a layer already exists with different settings.** If the document already has a layer of the same color but with a different speed, power or other cut settings, **the document's settings are kept** (just like when pasting between tabs): the component adapts to your project and does not change how the things you already had are cut. A notice tells you how many layers differed and which; if you want the component's settings, change them on the layer.
+
+**Backup and bundles.** Components travel with the **Art library** checkbox of the configuration bundle and of the folder backup ([Advanced control](09b-control-avanzado.md)). When importing they never overwrite yours: one with the same name and different content comes in under a new name.
+
 Next: [Document tabs](03f-pestanas-de-documentos.md)
