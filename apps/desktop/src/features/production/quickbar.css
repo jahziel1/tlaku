@@ -51,10 +51,17 @@
   gap: var(--s-1);
   white-space: nowrap;
 }
+/* Los avisos (que salen justo al usar la barra: aplicar un favorito, girar...) se apilan por encima de ella y no la tapan. */
+body:has(.qbar) .toasts {
+  bottom: calc(var(--status-h) + var(--palette-h) + var(--s-5) + 44px);
+}
 /* En lienzos angostos la barra baja sobre el ajuste magnético y el zoom en vez de recortarse. */
 @media (max-width: 900px) {
   .qbar {
     max-width: calc(100% - 2 * var(--s-4));
     bottom: calc(var(--s-4) + 40px);
+  }
+  body:has(.qbar) .toasts {
+    bottom: calc(var(--status-h) + var(--palette-h) + var(--s-5) + 84px);
   }
 }

@@ -2,6 +2,16 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## 0.1.3 (beta), next version
+
+The first batch based on reports from a workshop that uses Tlaku every day with a **Ruida** machine.
+
+- **Ruida: "Current position" and "User origin" now work.** Before, with a Ruida controller, all three origin modes behaved like "Absolute coordinates" and the machine always went to where the design was on screen. Now the file tells the controller to use the laser head (or the origin stored with its Origin key) as the starting point. **Only tested against the emulator:** run your first test at minimum power with a small square. See [Ruida and K40](13b-ruida-y-k40.md#start-from-absolute-coordinates-current-position-and-user-origin).
+- **My components.** Right-click a selection > **Save as component**: it is saved with its layers and cut settings, and from **My components** in the Art Library you can insert it again in its original position (for example, a 60 × 60 cm sheet already laid out) or in the middle of the view. See [My components](03e-guias-puentes-y-proyecto.md#my-components-save-a-selection-with-its-layers-and-settings).
+- **Quick bar for the selection:** rotate 90°, flip, apply a favorite material and **Start selection**, without opening panels. You can hide it in Preferences. See [The interface](02-interfaz.md#quick-bar-for-the-selection).
+- **Favorite materials:** star the ones you use most; they show first in Materials and in the quick bar. See [Materials](11-materiales.md#favorites).
+- **Production mode (optional, off by default):** when you repeat a job with no changes (same machine and connection, same settings, origin and material, no warnings, and the previous job finished correctly), the checklist is skipped and a single confirmation remains, which you accept with Enter. If anything changes, the full dialog comes back. It does not apply to the phone or the queue. See [Production mode](09-enviar-con-seguridad.md#production-mode-do-not-repeat-the-checklist-if-nothing-changed).
+
 ## 0.1.2 (beta), October 16, 2026
 
 - **Resuming an interrupted job, fixed.** On computers with a slow disk, as in the Windows tests, Tlaku could say the position did not match even when it was correct. Now it learns the board's memory capacity from every status report the board sends, so the false alarms are gone. See [Sending jobs safely](09-enviar-con-seguridad.md).

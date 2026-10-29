@@ -37,13 +37,13 @@ function Dialog({ ids }: { ids: string[] }) {
       <div className="modal__head">
         <h2 id={labelId} className="modal__title">{t('art.component.dialog.title')}</h2>
       </div>
-      <div className="modal__body">
+      <div className="modal__body art-save">
         <p className="hint">{t('art.component.dialog.hint', { n: ids.length })}</p>
         <div className="field">
           <label htmlFor={nameId} className="field__label">{t('art.component.dialog.name')}</label>
           <input
             id={nameId}
-            className="field__input"
+            className="input"
             value={name}
             maxLength={MAX_COMPONENT_NAME}
             onChange={(e) => setName(e.target.value)}

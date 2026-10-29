@@ -71,7 +71,7 @@ describe('Mis componentes: interfaz', () => {
   it('el diálogo pide un nombre y guarda la selección con sus ajustes', async () => {
     useArtPanel.getState().setSaving(['a', 'b']);
     await mount(<SaveComponentHost />);
-    const input = document.querySelector<HTMLInputElement>('input.field__input')!;
+    const input = document.querySelector<HTMLInputElement>('.art-save input')!;
     expect(input.value).toBe('Componente');
     expect(document.body.textContent).toContain('2 objeto(s)');
     await act(async () => {

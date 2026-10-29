@@ -240,3 +240,13 @@
   flex: 1;
   min-width: 0;
 }
+
+/* Diálogo «Guardar como componente»: el texto, el campo y el aviso respiran en columna. */
+.art-save {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.art-save .hint {
+  margin: 0;
+}
