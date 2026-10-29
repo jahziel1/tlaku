@@ -70,6 +70,14 @@ Each row has icons to **Edit**, **Duplicate**, and **Delete** (which asks for co
 
 All of the material's settings are copied to the layer, except its color, its name, whether it is visible, whether it has output, and its position in the order. It can be undone (it appears as **Apply material to layer** in the history). If the layer already has those settings, the button is disabled. If the material brings Z settings but your active machine has no Z axis, the app warns that the job will ignore them.
 
+## Favorites
+
+Mark with the **star** (on each material's row, whether from your library, the factory library or the community) the settings you use every day:
+
+- Favorites appear **at the top** of the tab, in the **Favorites** section, unaffected by search and filters, and also in the canvas **quick bar** ([The interface](02-interfaz.md#quick-bar-for-the-selection)). Pressing the star again removes it. The maximum is 40.
+- **Apply to selection** (in the Favorites section and in the quick bar) moves the selected objects to **a layer with those settings**: if a layer with exactly those settings and with output already exists, it uses that one; if not, it creates one in the first free palette color and applies the material to it, just like **Apply to layer**. It is a single history step (**Move the selection to a favorite material**). It does not move locked objects, and a line or fill material is not applied to an image (or the other way around): the button says why.
+- Favorites are stored **among the preferences** (not inside the library), so they travel in the `.tlakuprefs` file and in the [folder backup](02b-preferencias-y-atajos.md#settings-backup-to-a-folder). If you delete a material it stops being a favorite.
+
 ## Material test
 
 A grid of squares where each cell is a layer with its own combination of settings. You engrave it on a scrap and pick the cell that came out best. Open it from **Tools > Material test…** or from the **Materials** tab.

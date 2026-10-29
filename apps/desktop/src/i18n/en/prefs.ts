@@ -190,4 +190,13 @@ export const prefs: { [K in keyof typeof Source]?: string } = {
   'prefs.panel.resetSections': 'Reset the panel',
   'prefs.panel.resetSections.hint': 'The sections of the panels (Machine, Camera) fold and unfold, and each one remembers how you left it. This puts them back to the defaults: only the most used ones open.',
   'prefs.panel.resetDone': 'Panel reset.',
+  'prefs.quickBar': 'Quick bar over the canvas when something is selected',
+  'prefs.quickBar.hint': 'Rotate 90°, flip, move to a favorite material and start only the selection, in one click. When off, the same actions stay in the menus and shortcuts.',
+  'prefs.production.title': 'Production',
+  'prefs.productionMode': 'Production mode: do not repeat the checklist if nothing changed',
+  'prefs.productionMode.hint': 'Off by default. When on, the start dialog skips ONLY the "Before sending" checklist, and only if in this session you already confirmed a job with the full checklist, it finished fine, and since then the machine and connection, the output layers, the origin and the material have not changed and the review shows no warnings. A one-click "Start (production mode)" step with Enter always remains. It does not apply to the phone remote or the guided queue.',
+  'prefs.productionMode.confirmTitle': 'Turn on production mode?',
+  'prefs.productionMode.confirmText': 'With production mode, in some starts you will no longer see the "Before sending" checklist (air, focus, material fixed, extractor, lid). If something physical changed without the app knowing, for example you swapped the material sheet or touched the focus, the app cannot notice and the laser may cut or burn what it should not. You remain responsible for the machine: never leave it unattended. You can turn the mode off at any time.',
+  'prefs.productionMode.confirmYes': 'I understand the risk, turn on',
+  'prefs.productionMode.confirmNo': 'Cancel',
 };

@@ -170,8 +170,13 @@
 }
 .mat-item__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2);
+}
+/* Estrella de favoritos: encendida se pinta en el color de aviso (no depende solo del relleno). */
+.mat-star[data-on] {
+  color: var(--warn);
 }
 .mat-apply {
   flex: 1 1 auto;

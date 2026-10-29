@@ -78,6 +78,16 @@ export interface Prefs {
   /** El diálogo de inicio exige tener marcadas las casillas de la lista antes de enviar. */
   jobChecklistRequired: boolean;
   /**
+   * Modo producción: el diálogo de inicio puede omitir SOLO la lista de comprobación cuando nada cambió desde un
+   * trabajo anterior confirmado con la lista completa y terminado bien (ver `features/production`). Apagado de
+   * fábrica y nunca se importa de un paquete: se enciende a mano, con una confirmación que explica el riesgo.
+   */
+  productionMode: boolean;
+  /** Barra rápida sobre el lienzo con una selección (girar, voltear, capa favorita, iniciar la selección). */
+  quickBar: boolean;
+  /** Ids de los materiales (de la biblioteca del usuario o de fábrica) marcados con la estrella. Ver `features/production/favorites.ts`. */
+  favoriteMaterials: string[];
+  /**
    * Permite las escrituras experimentales en una controladora Ruida: ajustes, calibración, rotativo,
    * borrar y ejecutar documentos y reemplazar uno existente. Apagada de fábrica y nunca se importa de
    * un paquete (ver `features/settings/bundle.ts`). Solo probadas con un emulador.
@@ -145,6 +155,11 @@ export type PrefSpecs = { [K in PrefKey]: SpecOf<Prefs[K]> & { default: Prefs[K]
 /** Lista vacía compartida (el valor de fábrica de `layerColorDefaults`; nadie la modifica). */
 const NO_COLOR_DEFAULTS: ColorDefaults[] = [];
 
+/** Lista vacía compartida (el valor de fábrica de `favoriteMaterials`; nadie la modifica). */
+const NO_FAVORITES: string[] = [];
+/** Tope de materiales favoritos. */
+export const MAX_FAVORITES = 40;
+
 /** Valores de fábrica y límites. Las opciones de un `choice` son textos de i18n en la ventana. */
 export const PREF_SPECS: PrefSpecs = {
   language: { kind: 'choice', options: ['es', 'en'], default: 'es' },
@@ -168,6 +183,17 @@ export const PREF_SPECS: PrefSpecs = {
   uiMode: { kind: 'choice', options: ['ask', 'simple', 'full'], default: 'ask' },
   jobChecklistItems: { kind: 'number', min: 0, max: 31, step: 1, integer: true, default: 31 },
   jobChecklistRequired: { kind: 'bool', default: false },
+  productionMode: { kind: 'bool', default: false },
+  quickBar: { kind: 'bool', default: true },
+  favoriteMaterials: {
+    kind: 'json',
+    default: NO_FAVORITES,
+    check: (raw) => {
+      if (!Array.isArray(raw)) return null;
+      const ids = [...new Set(raw.filter((x): x is string => typeof x === 'string' && x.length > 0 && x.length <= 200))].slice(0, MAX_FAVORITES);
+      return { value: ids.length ? ids : NO_FAVORITES };
+    },
+  },
   ruidaExperimentalWrites: { kind: 'bool', default: false },
   automationEnabled: { kind: 'bool', default: false },
   automationPort: { kind: 'number', min: 1024, max: 65535, step: 1, integer: true, default: 47801 },

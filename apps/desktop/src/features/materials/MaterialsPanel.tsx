@@ -1,11 +1,12 @@
-import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Globe, Link2, Pencil, Share2, Trash2, TriangleAlert, Upload } from 'lucide-react';
+import { BookmarkPlus, Copy, Download, ExternalLink, FlaskConical, Globe, Link2, Pencil, Share2, Star, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import { useEffect, useId, useMemo } from 'react';
 import type { DeviceProfile, LayerSettings, MachineClass, MaterialLibrary, MaterialPreset } from '@/api/types';
 import { useCommand, type CommandView } from '@/commands/useCommand';
 import { t, tn } from '@/i18n';
 import { useHelpUi } from '@/features/help/helpStore';
 import { colorName } from '@/lib/palette';
-import { selectActiveDevice, useStore } from '@/store';
+import { MAX_FAVORITES } from '@/store/prefs';
+import { selectActiveDevice, usePref, useStore } from '@/store';
 import {
   activeLayerOf,
   applyMaterial,
@@ -20,6 +21,7 @@ import {
   syncMachineClass,
 } from './actions';
 import { openCommunity } from './communityActions';
+import { applyFavoriteToSelection, favoriteApplyReason, favoritePresets, isFavorite, setFavorite } from './favorites';
 import { classLabel, confidenceLabel, confidenceWhy, materialKeyName, materialName, roleLabel, siteOf, titleName, warningText } from './labels';
 import { filterPresets, groupPresets, matchingLayers, settingsSummary, thicknessLabel } from './library';
 import { classKind, laserKindOf, MACHINE_CLASSES } from './machineClass';
@@ -54,6 +56,42 @@ interface RowProps {
   inUse: LayerSettings[];
   /** Velocidad máxima de la máquina activa (mm/min), para avisar de ajustes más rápidos. */
   maxSpeed: number;
+  /** Fila de la sección «Favoritos»: suma «Aplicar a la selección». */
+  inFavorites?: boolean;
+}
+
+/** La estrella de un material: lo marca o lo quita de los favoritos. */
+function FavoriteStar({ preset, name }: { preset: MaterialPreset; name: string }) {
+  const ids = usePref('favoriteMaterials');
+  const notify = useStore((s) => s.notify);
+  const on = isFavorite(preset.id, ids);
+  return (
+    <button
+      type="button"
+      className="icon-btn mat-star"
+      aria-pressed={on}
+      data-on={on || undefined}
+      title={on ? t('materials.fav.remove') : t('materials.fav.add')}
+      aria-label={on ? t('materials.fav.removeFor', { name }) : t('materials.fav.addFor', { name })}
+      onClick={() => {
+        if (!setFavorite(preset.id, !on)) notify('warning', t('materials.fav.full', { max: MAX_FAVORITES }));
+      }}
+    >
+      <Star size={14} aria-hidden="true" fill={on ? 'currentColor' : 'none'} />
+    </button>
+  );
+}
+
+/** Mover la selección del lienzo a una capa con este material (solo en la sección «Favoritos»). */
+function ApplyToSelection({ preset }: { preset: MaterialPreset }) {
+  // Selector primitivo (la clave): el objeto con parámetros sería nuevo en cada lectura.
+  const key = useStore((s) => favoriteApplyReason(s, preset)?.key ?? null);
+  const reason = key ? t(key, { mode: t(`materials.mode.${preset.settings.mode}`) }) : null;
+  return (
+    <ReasonButton className="btn mat-apply" reason={reason} onRun={() => applyFavoriteToSelection(preset)} label={t('materials.fav.applySelection')}>
+      {t('materials.fav.applySelection')}
+    </ReasonButton>
+  );
 }
 
 /** Fuente de un ajuste: enlace y botón para copiarlo, con el nivel de confianza. */
@@ -80,7 +118,7 @@ function SourceLine({ preset, name }: { preset: MaterialPreset; name: string }) 
   );
 }
 
-function PresetRow({ preset, factory, deviceName, activeLayer, inUse, maxSpeed }: RowProps) {
+function PresetRow({ preset, factory, deviceName, activeLayer, inUse, maxSpeed, inFavorites }: RowProps) {
   const applyKey = applyReasonFor(activeLayer, preset);
   const applyWhy = applyKey ? t(applyKey) : null;
   const name = `${materialName(preset)} · ${titleName(preset)}`;
@@ -126,6 +164,8 @@ function PresetRow({ preset, factory, deviceName, activeLayer, inUse, maxSpeed }
         <ReasonButton className="btn btn--accent mat-apply" reason={applyWhy} onRun={() => applyMaterial(preset)} label={t('materials.apply')}>
           {t('materials.apply')}
         </ReasonButton>
+        {inFavorites && <ApplyToSelection preset={preset} />}
+        <FavoriteStar preset={preset} name={name} />
         {!factory && (
           <button
             type="button"
@@ -189,9 +229,11 @@ export interface PanelViewProps {
 }
 
 /** Una lista de ajustes agrupada por material y grosor. */
-function PresetGroups({ groups, factory, deviceName, activeLayer, layers, maxSpeed }: {
+function PresetGroups({ groups, factory, deviceName, activeLayer, layers, maxSpeed, inFavorites }: {
   groups: ReturnType<typeof groupPresets>;
-  factory: boolean;
+  /** `true` = todos son de fábrica (solo lectura); una función decide ajuste por ajuste (la sección «Favoritos» mezcla ambos). */
+  factory: boolean | ((p: MaterialPreset) => boolean);
+  inFavorites?: boolean;
   deviceName: (id: string | null) => string | null;
   activeLayer: LayerSettings | null;
   layers: LayerSettings[];
@@ -207,7 +249,7 @@ function PresetGroups({ groups, factory, deviceName, activeLayer, layers, maxSpe
               <h5 className="mat-thickness__title num">{th.thickness === null ? t('materials.noThickness') : thicknessLabel(th.thickness)}</h5>
               <ul className="mat-list">
                 {th.presets.map((p) => (
-                  <PresetRow key={p.id} preset={p} factory={factory} deviceName={deviceName(p.device_id)} activeLayer={activeLayer} inUse={matchingLayers(layers, p)} maxSpeed={maxSpeed} />
+                  <PresetRow key={p.id} preset={p} factory={typeof factory === 'function' ? factory(p) : factory} deviceName={deviceName(p.device_id)} activeLayer={activeLayer} inUse={matchingLayers(layers, p)} maxSpeed={maxSpeed} inFavorites={inFavorites} />
                 ))}
               </ul>
             </div>
@@ -238,6 +280,11 @@ export function MaterialsPanelView({
     [factory.presets, search, onlyClass, machineClass],
   );
   const communityTotal = useMemo(() => factory.presets.filter((p) => p.confidence === 'forum').length, [factory.presets]);
+  const favIds = usePref('favoriteMaterials');
+  // Los favoritos se ven siempre (no los toca la búsqueda ni los filtros): son el atajo, no una lista más.
+  const favorites = useMemo(() => favoritePresets(library.presets, factory.presets, favIds), [library.presets, factory.presets, favIds]);
+  const favoriteGroups = useMemo(() => groupPresets(favorites), [favorites]);
+  const factoryIds = useMemo(() => new Set(factory.presets.map((p) => p.id)), [factory.presets]);
   const mineGroups = useMemo(() => groupPresets(mine), [mine]);
   const factoryGroups = useMemo(() => groupPresets(factoryShown), [factoryShown]);
   const communityGroups = useMemo(() => groupPresets(communityShown), [communityShown]);
@@ -342,6 +389,17 @@ export function MaterialsPanelView({
           </p>
         ))}
       </section>
+
+      {favorites.length > 0 && (
+        <section className="section mat-section" aria-label={t('materials.fav.section')}>
+          <h3 className="mat-section__title">
+            <Star size={13} aria-hidden="true" fill="currentColor" /> {t('materials.fav.section')}
+            <span className="mat-section__count num">{tn('materials.count', favorites.length)}</span>
+          </h3>
+          <p className="hint">{t('materials.fav.section.hint')}</p>
+          <PresetGroups groups={favoriteGroups} factory={(p) => factoryIds.has(p.id)} inFavorites deviceName={deviceName} activeLayer={activeLayer} layers={layers} maxSpeed={maxSpeed} />
+        </section>
+      )}
 
       <section className="section mat-section" aria-label={t('materials.section.mine')}>
         <h3 className="mat-section__title">{t('materials.section.mine')}</h3>

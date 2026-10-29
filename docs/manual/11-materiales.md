@@ -70,6 +70,14 @@ Cada fila tiene iconos para **Editar**, **Duplicar** y **Borrar** (que pide conf
 
 Se copian todos los ajustes del material a la capa, menos su color, su nombre, si está visible, si tiene salida y su posición en el orden. Se puede deshacer (aparece como **Aplicar material a la capa** en el historial). Si la capa ya tiene esos ajustes, el botón queda desactivado. Si el material trae ajustes de Z pero tu máquina activa no tiene eje Z, la app avisa que el trabajo los ignorará.
 
+## Favoritos
+
+Marca con la **estrella** (en la fila de cada material, de tu biblioteca, de fábrica o de la comunidad) los ajustes que usas todos los días:
+
+- Los favoritos aparecen **arriba** de la pestaña, en la sección **Favoritos**, sin que los afecten la búsqueda ni los filtros, y también en la **barra rápida** del lienzo ([La interfaz](02-interfaz.md#barra-rapida-de-la-seleccion)). Volver a pulsar la estrella lo quita. Hay un máximo de 40.
+- **Aplicar a la selección** (en la sección Favoritos y en la barra rápida) mueve los objetos seleccionados a **una capa con esos ajustes**: si ya existe una capa con exactamente esos ajustes y con salida, usa esa; si no, crea una en el primer color libre de la paleta y le aplica el material, igual que **Aplicar a la capa**. Es un solo paso del historial (**Mover la selección a un material favorito**). No mueve objetos bloqueados, y un material de línea o relleno no se aplica a una imagen (ni al revés): el botón dice por qué.
+- Los favoritos se guardan **entre las preferencias** (no dentro de la biblioteca), así que viajan en el archivo `.tlakuprefs` y en el [respaldo a carpeta](02b-preferencias-y-atajos.md#respaldo-de-ajustes-en-una-carpeta). Si borras un material, deja de ser favorito.
+
 ## Prueba de materiales
 
 Una cuadrícula de cuadrados donde cada celda es una capa con su propia combinación de ajustes. La grabas sobre un retazo y eliges la celda que mejor quedó. Ábrela desde **Herramientas > Prueba de materiales…** o desde la pestaña **Materiales**.

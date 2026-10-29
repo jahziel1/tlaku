@@ -18,8 +18,12 @@ export interface LogEntry extends LogEvent {
 
 /** Diálogos de la máquina. Los muestra `MachineDialogHost` y los abren comandos y paneles. */
 export type MachineDialog =
-  /** "¿Láser listo y área despejada?" antes de iniciar. */
-  | { kind: 'start' }
+  /**
+   * "¿Láser listo y área despejada?" antes de iniciar. `production`: lo abrió una persona con Iniciar (o «Iniciar la
+   * selección»); solo así el modo producción puede cambiarlo por su paso compacto. Sin esto (cola guiada, automatización,
+   * modo sencillo) es siempre el diálogo completo.
+   */
+  | { kind: 'start'; production?: boolean }
   /** Confirmación de `$X` (desbloquear) o `$H` (home). */
   | { kind: 'alarm'; action: AlarmAction }
   /** Gestor de dispositivos. */

@@ -1,0 +1,60 @@
+/* Barra rápida de la selección: flota abajo y al centro del lienzo, entre el ajuste magnético (izquierda) y el zoom (derecha). */
+.qbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--s-4);
+  z-index: 3;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  max-width: calc(100% - 2 * 220px);
+  padding: var(--s-1) var(--s-2);
+  overflow-x: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg-chrome) 94%, transparent);
+  box-shadow: var(--shadow-pop);
+}
+.qbar__sep {
+  align-self: stretch;
+  width: 1px;
+  margin: var(--s-1) 0;
+  background: var(--border-strong);
+}
+.qbar__favs {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.qbar__fav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  max-width: 16ch;
+}
+.qbar__fav[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.qbar__fav-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qbar [aria-disabled='true'] {
+  cursor: not-allowed;
+}
+.qbar__start {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  white-space: nowrap;
+}
+/* En lienzos angostos la barra baja sobre el ajuste magnético y el zoom en vez de recortarse. */
+@media (max-width: 900px) {
+  .qbar {
+    max-width: calc(100% - 2 * var(--s-4));
+    bottom: calc(var(--s-4) + 40px);
+  }
+}

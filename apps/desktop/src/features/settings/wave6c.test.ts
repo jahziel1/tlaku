@@ -44,7 +44,7 @@ describe('.tlakuprefs con las preferencias de la ola 6C', () => {
     const bundle = JSON.parse(JSON.stringify(buildBundle(prefs, {})));
     const change = applyBundle(bundle, { prefs: DEFAULT_PREFS, shortcuts: {} }, new Set());
     expect(change.prefs).toEqual(prefs);
-    expect(change.ignoredPrefs).toBe(3); // `remoteEnabled`, `updateCheckOnStart` y `ruidaExperimentalWrites`, que un archivo ajeno nunca enciende
+    expect(change.ignoredPrefs).toBe(4); // `remoteEnabled`, `updateCheckOnStart`, `ruidaExperimentalWrites` y `productionMode`, que un archivo ajeno nunca enciende
   });
 
   it('un paquete ajeno con valores rotos no deja una distribución ni opciones inválidas', () => {

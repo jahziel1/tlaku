@@ -55,6 +55,16 @@ El lienzo muestra la cama de la máquina activa (arriba a la izquierda, su nombr
 
 Sobre el lienzo, con objetos seleccionados, escribe valores exactos: **X**, **Y**, **Ancho**, **Alto**, **Rotación** (en grados, antihorario) y el **Paso de giro** (el de `Mayús` al girar). La cuadrícula de nueve puntos de la izquierda elige el **punto de referencia**: el origen de X e Y, el ancla de la escala y el centro del giro. El candado mantiene la proporción. Los campos aceptan expresiones: `100/3`, `+5` (suma), `*2` (multiplica), `50 %`, `5in`. Con **Editar nodos** esta barra pasa a ser la barra de nodos (ver [Dibujar y editar](03-dibujar-y-editar.md)). Las imágenes no se pueden rotar.
 
+## Barra rápida de la selección
+
+Con algo seleccionado y la herramienta **Seleccionar**, flota abajo y al centro del lienzo una barra pequeña con lo que más se repite en producción:
+
+- **Girar 90° a la izquierda / a la derecha** y **Voltear horizontal / vertical**: son los mismos comandos del menú **Organizar** y del menú contextual, con sus atajos (`[`, `]`, `Alt+H`, `Alt+V`).
+- **Materiales favoritos** (hasta cuatro, con una estrella): un clic mueve la selección a una capa con esos ajustes (ver [Materiales](11-materiales.md#favoritos)). La estrella de al lado abre la pestaña **Materiales**.
+- **Iniciar la selección**: abre el diálogo de inicio normal con **Solo la selección** ya marcada. No se salta ninguna comprobación ni envía nada por sí sola (ver [Enviar trabajos con seguridad](09-enviar-con-seguridad.md#modo-produccion-no-repetir-la-lista-si-nada-cambio)).
+
+Va abajo y no sobre la pieza para no taparla mientras la giras. Se puede ocultar en **Preferencias > General > Producción > Barra rápida sobre el lienzo con una selección**; las mismas acciones siguen en los menús y los atajos.
+
 ## Panel acoplado
 
 A la derecha hay un panel con pestañas. Arrastra su borde izquierdo para cambiar el ancho; si queda estrecho, las pestañas pasan a solo ícono.
