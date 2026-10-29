@@ -100,6 +100,26 @@ During the job you see the progress (percentage, **Lines**, **Elapsed**, and **R
 
 > **If the design has variable text:** before sending, Tlaku resolves the variables with the values of that moment. If any of them is not understood, the job **does not go out** and the warning says which one. When it finishes successfully, the serial number and the CSV row advance on their own (if you turned that on); a cancelled or failed job does not advance. See [Variable text](04b-texto-variable.md).
 
+### Production mode: do not repeat the checklist if nothing changed
+
+If you work in series (the same piece, the same material, one after another), ticking five boxes on every job gets tiring and ends up done out of habit. **Production mode** lets you skip **only the checklist** when it is safe to do so. It is a safety decision, so:
+
+- **It is off by default.** Turn it on in **Edit > Preferences… > General > Production**: **Production mode: do not repeat the checklist if nothing changed**. When you turn it on, Tlaku asks you to confirm with a text that explains the risk: if something physical changed without the app knowing (you swapped the material sheet, you touched the focus), it cannot notice. Turning it off is immediate.
+- **A foreign file never turns it on.** When you import a `.tlakuprefs` or restore a backup, this preference is ignored: you enable it by hand on each computer.
+- **Only the checklist is skipped**, and only if **all** of these conditions hold:
+  1. it is the same machine and the same connection, without reconnecting;
+  2. in **this session of the app** you already confirmed a job with the full dialog and it **finished fine** (a cancelled or failed one does not count, and if a job fails later the checklist is asked for again);
+  3. the settings of the layers with output are the same;
+  4. the job origin is the same (Start from, corner, user origin, **Selection only** and its origin);
+  5. the material is the same (the one from the library that the output layers match; Tlaku cannot know which sheet you put on the bed: that is still up to you);
+  6. the pre-check gives no warning: no calculation warnings, no saturated link, no serious **Review design** findings, and the job fits on the bed.
+- If anything changed or there is **any** warning, you see the usual full dialog. With a galvo machine or a K40 the full dialog is always shown, and also with **Repeat with the feeder**.
+- Even when the checklist is skipped there is **a one-click step**: **Start (production mode)**. It shows the estimated time and where the job lands, the **Start (Enter)** button has focus (Enter confirms it; holding Enter down does not count) and **Show the full checklist** opens the usual dialog.
+- **Nothing else changes:** **Stop** and the emergency stop work the same; the phone remote and the [guided queue](09f-cola-e-historial-de-trabajos.md) follow their own rules and never use this step.
+- The session memory is not saved to disk: when you close the app, the first start shows the full checklist again.
+
+**Start the selection** (quick bar on the canvas and the **Machine** menu) opens this same dialog with **Selection only** already checked; no check is skipped, and going from the whole design to the selection counts as an origin change. See [The interface](02-interfaz.md#quick-bar-for-the-selection).
+
 ## Pausing and stopping
 
 | Action | What it does |

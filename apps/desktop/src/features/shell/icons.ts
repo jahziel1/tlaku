@@ -43,6 +43,7 @@ export const COMMAND_ICONS: Record<string, LucideIcon> = {
   'view.snapObjects': SquareDashed,
   'machine.frame': Crosshair,
   'machine.start': Play,
+  'machine.startSelection': Play,
   'machine.pause': Pause,
   'machine.stop': SquareStop,
   'panel.layers': Layers,

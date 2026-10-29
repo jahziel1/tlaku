@@ -35,6 +35,7 @@ import { PositionIndicator } from './PositionIndicator';
 import { PriorityBadges } from './PriorityBadges';
 import { ShapeProps } from './ShapeProps';
 import { PartsBar } from '@/features/parts';
+import { QuickBar } from '@/features/production';
 import { SnapBar } from './SnapBar';
 import { canRotate } from './transform';
 import { useCanvasTools } from './useCanvasTools';
@@ -241,6 +242,7 @@ export function CanvasView() {
         </div>
         <PriorityBadges />
         <SnapBar />
+        <QuickBar />
         <WarpBar />
         <FilletBar />
         <ShapeProps />

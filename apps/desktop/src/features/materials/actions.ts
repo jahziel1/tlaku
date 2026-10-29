@@ -6,6 +6,7 @@ import { t, tn, type I18nKey } from '@/i18n';
 import { errorMessage } from '@/lib/errors';
 import { selectActiveDevice, useStore, type AppState } from '@/store';
 import { DEFAULT_EXPORT_NAME, downloadText, pickLibraryToOpen, pickLibraryToSave } from './files';
+import { dropFavorite } from './favorites';
 import { materialName, siteOf, titleName } from './labels';
 import { resolveMachineClass, storeClassFor } from './machineClass';
 import {
@@ -197,6 +198,7 @@ export async function deleteMaterial(id: string): Promise<boolean> {
   });
   if (answer !== 'delete') return false;
   mutate((lib) => ({ ...lib, presets: lib.presets.filter((p) => p.id !== id) }));
+  dropFavorite(id);
   app().notify('success', t('materials.notice.deleted', { name: presetName(preset) }));
   return true;
 }

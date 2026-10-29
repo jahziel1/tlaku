@@ -15,11 +15,11 @@ export const DEFAULT_BUNDLE_NAME = `tlaku.${BUNDLE_EXTENSION}`;
 export const DEFAULT_SHORTCUTS_NAME = `atajos.${BUNDLE_EXTENSION}`;
 
 /**
- * Preferencias que un archivo ajeno nunca enciende: abren el láser a la red (control remoto) o hacen
- * conexiones a internet (buscar actualizaciones). Se exportan, pero al importar se ignoran y cada
+ * Preferencias que un archivo ajeno nunca enciende: abren el láser a la red (control remoto), hacen
+ * conexiones a internet (buscar actualizaciones) o quitan una confirmación de seguridad (modo producción). Se exportan, pero al importar se ignoran y cada
  * persona las activa a mano en esta computadora.
  */
-export const NEVER_IMPORTED: ReadonlySet<string> = new Set(['remoteEnabled', 'updateCheckOnStart', 'ruidaExperimentalWrites']);
+export const NEVER_IMPORTED: ReadonlySet<string> = new Set(['remoteEnabled', 'updateCheckOnStart', 'ruidaExperimentalWrites', 'productionMode']);
 
 /** Qué parte del estado entra al exportar o se aplica al importar. */
 export type BundleScope = 'all' | 'shortcuts';

@@ -53,7 +53,7 @@ export const MENUS: MenuDef[] = [
   {
     id: 'machine',
     label: 'menu.machine',
-    items: ['machine.connect', 'machine.addDevice', '-', 'machine.frame', 'machine.frameHull', 'review.open', 'machine.start', 'machine.pause', 'machine.stop', '-', 'machine.positionLaser', 'machine.probeCenter', 'preview.optimization', '-', 'printcut.open', 'printcut.reset', 'machine.tiling'],
+    items: ['machine.connect', 'machine.addDevice', '-', 'machine.frame', 'machine.frameHull', 'review.open', 'machine.start', 'machine.startSelection', 'machine.pause', 'machine.stop', '-', 'machine.positionLaser', 'machine.probeCenter', 'preview.optimization', '-', 'printcut.open', 'printcut.reset', 'machine.tiling'],
   },
   {
     id: 'arrange',

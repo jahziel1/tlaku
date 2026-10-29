@@ -100,6 +100,26 @@ Durante el trabajo ves el progreso (porcentaje, **Líneas**, **Transcurrido** y 
 
 > **Si el diseño lleva texto variable:** antes de enviar, Tlaku resuelve las variables con los valores de ese momento. Si alguna no se entiende, el trabajo **no sale** y el aviso dice cuál. Al terminar bien, la serie y la fila del CSV avanzan solas (si lo activaste); un trabajo cancelado o con error no avanza. Ver [Texto variable](04b-texto-variable.md).
 
+### Modo producción: no repetir la lista si nada cambió
+
+Si trabajas en serie (la misma pieza, el mismo material, uno tras otro), marcar cinco casillas en cada trabajo cansa y acaba haciéndose por costumbre. El **modo producción** deja saltar **solo la lista de comprobación** cuando es seguro hacerlo. Es una decisión de seguridad, así que:
+
+- **Está apagado de fábrica.** Se enciende en **Editar > Preferencias… > General > Producción**: **Modo producción: no repetir la lista de comprobación si nada cambió**. Al encenderlo, Tlaku te pide confirmar con un texto que explica el riesgo: si algo físico cambió sin que la app lo sepa (cambiaste la hoja de material, tocaste el enfoque) no puede notarlo. Apagarlo es inmediato.
+- **Un archivo ajeno nunca lo enciende.** Al importar un `.tlakuprefs` o restaurar un respaldo, esta preferencia se ignora: se activa a mano en cada equipo.
+- **Solo se salta la lista**, y solo si se cumplen **todas** estas condiciones:
+  1. es la misma máquina y la misma conexión, sin haber reconectado;
+  2. en **esta sesión de la app** ya confirmaste un trabajo con el diálogo completo y **terminó bien** (uno cancelado o con error no vale, y si un trabajo falla después, vuelve a pedirse la lista);
+  3. los ajustes de las capas con salida son los mismos;
+  4. el origen del trabajo es el mismo (Iniciar desde, esquina, origen de usuario, **Solo la selección** y su origen);
+  5. el material es el mismo (el de la biblioteca que reconocen las capas con salida; Tlaku no puede saber qué hoja pusiste en la cama: eso sigue siendo cosa tuya);
+  6. la revisión previa no da ningún aviso: ni avisos del cálculo, ni enlace saturado, ni hallazgos graves de **Revisar diseño**, y el trabajo cabe en la cama.
+- Si algo cambió o hay **cualquier** aviso, ves el diálogo completo de siempre. Con una máquina de galvo o un K40 el diálogo completo siempre se muestra, y también con **Repetir con el alimentador**.
+- Aun saltando la lista queda **un paso de un clic**: **Iniciar (modo producción)**. Muestra el tiempo estimado y dónde queda el trabajo, el botón **Iniciar (Enter)** lleva el foco (Enter lo confirma; mantener Enter pulsado no cuenta) y **Ver la lista completa** abre el diálogo de siempre.
+- **No cambia nada más:** **Detener** y la parada de emergencia funcionan igual; el control remoto desde el celular y la [cola guiada](09f-cola-e-historial-de-trabajos.md) siguen sus propias reglas y nunca usan este paso.
+- La memoria de la sesión no se guarda en disco: al cerrar la app, el primer inicio vuelve a mostrar la lista completa.
+
+**Iniciar la selección** (barra rápida del lienzo y menú **Máquina**) abre este mismo diálogo con **Solo la selección** ya marcada; no se salta ninguna comprobación, y pasar de todo el diseño a la selección cuenta como un cambio de origen. Ver [La interfaz](02-interfaz.md#barra-rapida-de-la-seleccion).
+
 ## Pausar y detener
 
 | Acción | Qué hace |

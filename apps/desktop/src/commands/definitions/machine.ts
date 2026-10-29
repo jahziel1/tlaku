@@ -1,6 +1,6 @@
 import { JOG_DIRS, type JogDirName } from '@/features/machine/jogMath';
 import type { I18nKey } from '@/i18n';
-import { isJobBusy, selectActiveDevice } from '@/store';
+import { isJobBusy, selectActiveDevice, selectionBlockedReason } from '@/store';
 import { jogBlockedReason, positionLaserBlockedReason, sendBlockedReason } from '@/store/machine';
 import type { AppState } from '@/store';
 import type { CommandDef } from '../types';
@@ -62,7 +62,18 @@ export const machineCommands: CommandDef[] = [
   // Encuadre de banda elástica: sigue el casco convexo del trabajo (sin el rectángulo vacío de las esquinas).
   { id: 'machine.frameHull', label: 'machine.cmd.frameHull', category: 'machine', enabled: canSend, run: (s) => s.frameHull() },
   // Iniciar nunca sale directo: abre "¿Láser listo y área despejada?" y solo el botón de ese diálogo envía.
-  { id: 'machine.start', label: 'cmd.machine.start', category: 'machine', shortcuts: ['Mod+Enter'], enabled: canSend, run: (s) => s.requestStart() },
+  { id: 'machine.start', label: 'cmd.machine.start', category: 'machine', shortcuts: ['Mod+Enter'], enabled: canSend, run: (s) => s.requestStart({ production: true }) },
+  // «Iniciar la selección»: abre el mismo diálogo con «Solo la selección» ya marcada. No salta ninguna comprobación.
+  {
+    id: 'machine.startSelection',
+    label: 'machine.cmd.startSelection',
+    category: 'machine',
+    enabled: (s) => selectionBlockedReason(s) ?? sendBlockedReason({ ...s, cutSelectionOnly: true }) ?? true,
+    run: (s) => {
+      s.setCutSelectionOnly(true);
+      s.requestStart({ production: true });
+    },
+  },
   {
     id: 'machine.pause',
     label: 'cmd.machine.pause',

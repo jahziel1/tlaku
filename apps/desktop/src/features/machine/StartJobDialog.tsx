@@ -1,5 +1,5 @@
 import { Clock, Layers, TriangleAlert, Zap } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { t } from '@/i18n';
 import { speedToDisplay, speedUnitLabel } from '@/lib/device';
@@ -22,12 +22,34 @@ import { repeatBlockedReason, useRepeat } from '@/features/feeder/repeat';
 import { RepeatSection } from '@/features/feeder/RepeatSection';
 import { TilingOffer } from '@/features/tiling/TilingOffer';
 import { placementSummary } from './StartFromSection';
+import { currentSnapshot } from '@/features/production/current';
+import { ProductionStartDialog } from '@/features/production/ProductionStartDialog';
+import { noteFullConfirm, noteStartRejected } from '@/features/production/session';
+import { useProductionStart } from '@/features/production/useProductionStart';
+
+/**
+ * Diálogo de inicio. Casi siempre es el completo (`FullStartDialog`). Con el modo producción encendido y
+ * SOLO si lo abrió una persona con Iniciar, `useProductionStart` puede cambiarlo por el paso compacto
+ * «Iniciar (modo producción)»; la cola guiada, la automatización y el modo sencillo (que piden el inicio sin
+ * `production`) ven siempre el completo. Una vez que se decide mostrar el completo, ya no se cambia solo.
+ */
+export function StartJobDialog() {
+  const fromUser = useStore((s) => s.dialog?.kind === 'start' && s.dialog.production === true);
+  const { mode } = useProductionStart(fromUser);
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    if (mode === 'full') setFull(true);
+  }, [mode]);
+  if (full || mode === 'full') return <FullStartDialog fromUser={fromUser} />;
+  return <ProductionStartDialog mode={mode} onFull={() => setFull(true)} />;
+}
 
 /**
  * "¿Láser listo y área despejada?": última parada antes de que el láser se encienda. Resume tiempo,
  * capas, potencia máxima y dónde quedará el trabajo; "Cancelar" es el foco inicial.
+ * `fromUser`: lo abrió una persona; al confirmar se anota como trabajo confirmado con la lista completa (modo producción).
  */
-export function StartJobDialog() {
+function FullStartDialog({ fromUser }: { fromUser: boolean }) {
   const close = useStore((s) => s.closeDialog);
   const confirm = useStore((s) => s.confirmStart);
   const doc = useStore((s) => s.doc);
@@ -77,6 +99,15 @@ export function StartJobDialog() {
           ? t('ruida.name.overwriteNeeded')
           : repeatBlockedReason(device, repeat) ?? t('machine.start.blocked');
 
+  const onConfirm = async () => {
+    if (repeating) return void launchRepeat();
+    if (!(await ruidaGate.commit())) return;
+    // Modo producción: este inicio, con la lista completa a la vista, es la referencia de los siguientes.
+    if (fromUser) noteFullConfirm(currentSnapshot(useStore.getState()));
+    await confirm();
+    if (fromUser && useStore.getState().jobError) noteStartRejected();
+  };
+
   return (
     <Modal
       title={t('machine.start.title')}
@@ -87,7 +118,7 @@ export function StartJobDialog() {
       footer={
         <>
           <button type="button" className="btn" data-autofocus onClick={close}>{t('machine.dlg.cancel')}</button>
-          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void (repeating ? launchRepeat() : ruidaGate.commit().then((ok) => (ok ? confirm() : undefined)))}>
+          <button type="button" className="btn btn--accent" disabled={!canStart} title={canStart ? undefined : blockedWhy} onClick={() => void onConfirm()}>
             {t(repeating ? 'tiling.repeat.start' : (ruidaConfirmKey(device) ?? lhyConfirmKey(device) ?? galvoConfirmKey(device) ?? 'machine.start.confirm'))}
           </button>
         </>

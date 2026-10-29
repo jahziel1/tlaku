@@ -188,4 +188,13 @@ export const prefs = {
   'prefs.panel.resetSections': 'Restablecer el panel',
   'prefs.panel.resetSections.hint': 'Las secciones de los paneles (Máquina, Cámara) se pliegan y despliegan, y cada una recuerda cómo la dejaste. Esto las devuelve a su estado de fábrica: abiertas solo las más usadas.',
   'prefs.panel.resetDone': 'Panel restablecido.',
+  'prefs.quickBar': 'Barra rápida sobre el lienzo con una selección',
+  'prefs.quickBar.hint': 'Girar 90°, voltear, mover a un material favorito e iniciar solo la selección, a un clic. Apagada, las mismas acciones siguen en los menús y los atajos.',
+  'prefs.production.title': 'Producción',
+  'prefs.productionMode': 'Modo producción: no repetir la lista de comprobación si nada cambió',
+  'prefs.productionMode.hint': 'Apagado de fábrica. Encendido, el diálogo de inicio omite SOLO la lista «Antes de enviar», y solo si en esta sesión ya confirmaste un trabajo con la lista completa, terminó bien y desde entonces no cambió la máquina ni la conexión, las capas con salida, el origen ni el material, y la revisión no da ningún aviso. Siempre queda un paso «Iniciar (modo producción)» con Enter. No aplica al control remoto ni a la cola guiada.',
+  'prefs.productionMode.confirmTitle': '¿Encender el modo producción?',
+  'prefs.productionMode.confirmText': 'Con el modo producción, en algunos inicios ya no verás la lista «Antes de enviar» (aire, enfoque, material fijo, extractor, tapa). Si algo físico cambió sin que la app lo sepa, por ejemplo cambiaste la hoja de material o tocaste el enfoque, la app no puede notarlo y el láser puede cortar o quemar lo que no debe. Tú sigues siendo responsable de la máquina: no la dejes sin vigilancia. Puedes apagar el modo cuando quieras.',
+  'prefs.productionMode.confirmYes': 'Entiendo el riesgo, encender',
+  'prefs.productionMode.confirmNo': 'Cancelar',
 } as const;

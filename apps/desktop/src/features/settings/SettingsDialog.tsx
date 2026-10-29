@@ -12,6 +12,7 @@ import { usePref, useStore } from '@/store';
 import { Modal } from '@/ui/Modal';
 import { resetPanelSections } from '@/ui/PanelSection';
 import { AutomationPanel } from '@/features/automation';
+import { resetProductionSession } from '@/features/production';
 import { RemotePanel } from '@/features/remote';
 import { PrefCheck, PrefLength, PrefNumber, PrefSelect } from './fields';
 import { exportPrefs, importPrefs } from './files';
@@ -81,8 +82,46 @@ function GeneralPanel() {
       <p className="hint">{t('prefs.updateCheckOnStart.hint')}</p>
       {isUpdaterConfigured() ? null : <p className="hint">{t('prefs.updateCheckOnStart.unconfigured')}</p>}
     </Group>
+    <ProductionGroup />
     <CameraGroup />
     </>
+  );
+}
+
+/**
+ * Producción: la barra rápida de la selección y el modo producción. Encender el modo pide confirmar con un texto
+ * que explica el riesgo (se salta la lista de comprobación en algunos inicios); apagarlo es inmediato.
+ */
+function ProductionGroup() {
+  const on = usePref('productionMode');
+  const setPref = useStore((s) => s.setPref);
+  const toggle = async (next: boolean) => {
+    if (!next) {
+      setPref('productionMode', false);
+      resetProductionSession();
+      return;
+    }
+    const answer = await askChoice({
+      title: t('prefs.productionMode.confirmTitle'),
+      message: t('prefs.productionMode.confirmText'),
+      choices: [
+        { id: 'yes', label: t('prefs.productionMode.confirmYes'), tone: 'danger' },
+        { id: 'no', label: t('prefs.productionMode.confirmNo') },
+      ],
+      cancelId: 'no',
+    });
+    if (answer === 'yes') setPref('productionMode', true);
+  };
+  return (
+    <Group title="prefs.production.title">
+      <PrefCheck k="quickBar" label="prefs.quickBar" />
+      <p className="hint">{t('prefs.quickBar.hint')}</p>
+      <label className="set-check">
+        <input type="checkbox" checked={on} onChange={(e) => void toggle(e.target.checked)} />
+        {t('prefs.productionMode')}
+      </label>
+      <p className="hint">{t('prefs.productionMode.hint')}</p>
+    </Group>
   );
 }
 

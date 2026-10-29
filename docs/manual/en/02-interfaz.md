@@ -55,6 +55,16 @@ The canvas shows the bed of the active machine (its name and size in mm at the t
 
 Above the canvas, with objects selected, type exact values: **X**, **Y**, **Width**, **Height**, **Rotation** (in degrees, counterclockwise) and the **Rotation step** (the one used with `Shift` when rotating). The nine-point grid on the left chooses the **reference point**: the origin of X and Y, the scale anchor and the center of rotation. The lock keeps the proportions. The fields accept expressions: `100/3`, `+5` (add), `*2` (multiply), `50%`, `5in`. With **Edit Nodes**, this bar becomes the node bar (see [Drawing and editing](03-dibujar-y-editar.md)). Images cannot be rotated.
 
+## Quick bar for the selection
+
+With something selected and the **Select** tool, a small bar floats at the bottom center of the canvas with what repeats the most in production:
+
+- **Rotate 90° counterclockwise / clockwise** and **Flip horizontal / vertical**: they are the same commands as in the **Arrange** menu and the context menu, with their shortcuts (`[`, `]`, `Alt+H`, `Alt+V`).
+- **Favorite materials** (up to four, with a star): one click moves the selection to a layer with those settings (see [Materials](11-materiales.md#favorites)). The star next to them opens the **Materials** tab.
+- **Start the selection**: opens the normal start dialog with **Selection only** already checked. No check is skipped and it sends nothing on its own (see [Sending jobs safely](09-enviar-con-seguridad.md#production-mode-do-not-repeat-the-checklist-if-nothing-changed)).
+
+It sits at the bottom, not over the piece, so it does not cover it while you rotate it. It can be hidden in **Preferences > General > Production > Quick bar over the canvas when something is selected**; the same actions stay in the menus and shortcuts.
+
 ## Docked panel
 
 On the right there is a tabbed panel. Drag its left edge to change the width; if it gets narrow, the tabs switch to icons only.

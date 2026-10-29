@@ -101,7 +101,7 @@ export interface MachineSlice extends MachineData, ResumeSlice {
   clearUserOrigin: () => void;
 
   /** Abre el diálogo de confirmación de inicio (el trabajo no sale hasta confirmarlo). */
-  requestStart: () => void;
+  requestStart: (opts?: { production?: boolean }) => void;
   confirmStart: () => Promise<void>;
   /** `tweak` ajusta los argumentos antes de enviar (el asistente de tiling pone el tramo y las marcas). */
   startJob: (tweak?: (args: JobArgs) => JobArgs) => Promise<void>;
@@ -547,14 +547,14 @@ export const createMachineSlice: SliceCreator<MachineSlice> = (set, get) => {
     },
     clearUserOrigin: () => get().setJobOptions({ user_origin: null }),
 
-    requestStart: () => {
+    requestStart: (opts) => {
       const s = get();
       const why = sendBlockedReason(s);
       if (why) return void s.notify('warning', t(why));
       ensureDialogHost();
       // El diálogo muestra tiempo, capas y potencia: hace falta una vista previa al día.
       if (s.previewStatus !== 'ready') void s.computePreview();
-      set({ dialog: { kind: 'start' } });
+      set({ dialog: opts?.production ? { kind: 'start', production: true } : { kind: 'start' } });
     },
     confirmStart: async () => {
       set({ dialog: null });
