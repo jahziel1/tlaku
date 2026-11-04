@@ -28,9 +28,9 @@ jobs:
       TAG: ${{ inputs.tag || github.event.release.tag_name }}
       FECHA: ${{ github.event.release.published_at }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -62,7 +62,7 @@ jobs:
           dir=$(echo salida/manifests/j/jahziel1/Tlaku/*)
           NODE_PATH="$PWD/herramientas/node_modules" node scripts/winget-manifests.mjs validate "$dir" esquemas
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: winget-${{ env.TAG }}
           path: salida/manifests
