@@ -42,7 +42,7 @@ tlaku-geom = { version = "0.1.0", path = "../../../crates/tlaku-geom" }
 tlaku-parts = { version = "0.1.0", path = "../../../crates/tlaku-parts" }
 tlaku-nest = { version = "0.1.0", path = "../../../crates/tlaku-nest" }
 tlaku-raster = { version = "0.1.0", path = "../../../crates/tlaku-raster" }
-base64 = "0.22"
+base64 = "0.23"
 # Catálogo de ajustes de la comunidad (src/community_catalog.rs): un GET a un destino fijo del sitio del
 # proyecto. Mismas versiones y funciones que ya trae el actualizador (reqwest 0.13 con rustls y `ring`,
 # raíces del sistema), así que no suma dependencias nuevas al árbol; `deny.toml` ya las admite.
@@ -58,7 +58,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
 tokio = { version = "1", features = ["rt", "net", "time", "sync", "macros"] }
 futures-util = { version = "0.3", default-features = false }
-getrandom = "0.3"
+getrandom = "0.4"
 if-addrs = "0.15"
 
 # Actualizaciones automáticas (ver docs/publicar.md). Sin `pubkey` ni endpoints en tauri.conf.json el
