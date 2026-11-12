@@ -2,6 +2,13 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
+## 0.1.4 (beta), 12 de noviembre de 2026
+
+Versión de mantenimiento, sin cambios en cómo se usa Tlaku.
+
+- **Actualizaciones de seguridad.** El actualizador automático usa una versión nueva de la librería que abre los paquetes de actualización, que corrige una falla grave. En Tlaku no se podía aprovechar, porque todo lo que abre el actualizador va firmado y se revisa antes, pero ya no queda. También se pusieron al día las librerías que dibujan e importan SVG y las de la interfaz.
+- Si ya tienes una versión anterior, esta te llega sola por el actualizador.
+
 ## 0.1.3 (beta), 11 de noviembre de 2026
 
 Primera tanda a partir de los reportes de un taller que usa Tlaku a diario con una máquina **Ruida**.

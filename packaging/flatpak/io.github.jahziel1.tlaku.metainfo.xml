@@ -107,6 +107,12 @@
   </screenshots>
 
   <releases>
+    <release version="0.1.4" date="2026-11-12">
+      <description>
+        <p>Maintenance release: security updates for the built-in updater and up-to-date drawing, SVG and interface libraries.</p>
+        <p xml:lang="es">Versión de mantenimiento: actualizaciones de seguridad del actualizador automático y librerías de dibujo, SVG e interfaz al día.</p>
+      </description>
+    </release>
     <release version="0.1.3" date="2026-11-11">
       <description>
         <p>Saved components with their layers, a quick bar for the selection, favorite materials and an optional production mode. With Ruida, "Current position" and "User origin" are turned off until verified on a real machine.</p>

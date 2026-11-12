@@ -2,6 +2,13 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
+## 0.1.4 (beta), November 12, 2026
+
+A maintenance release; nothing changes in how you use Tlaku.
+
+- **Security updates.** The built-in updater now uses a new version of the library that opens update packages, which fixes a serious flaw. It could not be exploited in Tlaku, because everything the updater opens is signed and checked first, but it is gone now. The libraries that draw and import SVG and the interface libraries were also brought up to date.
+- If you have an earlier version, this update arrives through the built-in updater.
+
 ## 0.1.3 (beta), November 11, 2026
 
 The first batch based on reports from a workshop that uses Tlaku every day with a **Ruida** machine.
