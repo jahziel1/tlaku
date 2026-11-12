@@ -19,5 +19,5 @@ tlaku-i18n = { version = "0.1.0", path = "../tlaku-i18n" }
 
 [dev-dependencies]
 tlaku-svg = { version = "0.1.0", path = "../tlaku-svg" }
-lopdf = { version = "0.45", default-features = false }
+lopdf = { version = "0.47", default-features = false }
 tlaku-pipeline = { version = "0.1.0", path = "../tlaku-pipeline" }
