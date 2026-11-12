@@ -26,6 +26,11 @@ updates:
       # `engines`); un salto mayor de @types/node no aplica hasta cambiar de Node.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 (el compilador nativo) ya no trae la API de JavaScript que usan
+      # typescript-eslint (pide typescript < 6.1) y src/api/tauri.contract.test.ts. Quitar esta
+      # regla cuando typescript-eslint lo admita (PR #6, cerrado el 2026-11-12).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
