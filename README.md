@@ -16,9 +16,9 @@ drives GRBL lasers such as the Creality Falcon2: you design or import a job, adj
 how it will be cut and send it to the machine with safety checks before anything moves.
 LightBurn is a trademark of its owner; Tlaku is an independent project and is not affiliated with it.
 
-### Download the beta (0.1.2)
+### Download the beta (0.1.3)
 
-[![Download for Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_x64-setup.exe) [![Download for macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_universal.dmg) [![Download for Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.deb) [![Download for Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.2/Tlaku_0.1.2_amd64.AppImage)
+[![Download for Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_x64-setup.exe) [![Download for macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_universal.dmg) [![Download for Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_amd64.deb) [![Download for Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_amd64.AppImage)
 
 On a Mac you can also install it with Homebrew: `brew install --cask jahziel1/tlaku/tlaku`.
 
@@ -303,7 +303,7 @@ automated tests. Full guide: [docs/manual/en/13-controladoras.md](docs/manual/en
 
 ### Download the application
 
-Tlaku **0.1.2 (beta)** is published on the repository's
+Tlaku **0.1.3 (beta)** is published on the repository's
 [**Releases**](https://github.com/jahziel1/tlaku/releases/latest) page ("Assets" section), or use the
 download buttons at the top of this page. You can also build from source (next section).
 
