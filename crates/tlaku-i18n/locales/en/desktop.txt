@@ -175,6 +175,7 @@ desktop.ruida.head_out_of_range = Warning: the head is now at X {x}, Y {y} mm, o
 desktop.ruida.run_head_out_of_range = With the head at X {x}, Y {y} mm the job does not fit in the bed: it would have to be between X {x0} and {x1} mm and Y {y0} and {y1} mm. Move it and try again.
 desktop.ruida.frame_user_origin = Framing cannot start from the user origin: that origin is stored in the controller and Tlaku cannot read it. Move the head to that origin and frame with "Current position".
 desktop.ruida.frame_head_out_of_range = With the head at X {x}, Y {y} mm the frame would leave the bed: it would have to be between X {x0} and {x1} mm and Y {y0} and {y1} mm. Move it and try again.
+desktop.ruida.relative_off = With Ruida, "Current position" and "User origin" are turned off until they are verified on a real machine. Choose "Absolute coordinates" under "Start from".
 desktop.ruida.grbl_only = This function is only for GRBL: the Ruida controller does not use G-code or live overrides.
 # machine/worker (GRBL)
 desktop.worker.connection_lost_io = the connection to the machine was lost: {err}

@@ -2,11 +2,11 @@
 
 Lo más importante que trae cada versión de Tlaku, escrito para quien usa la aplicación. El detalle técnico está en el repositorio.
 
-## 0.1.3 (beta), 29 de octubre de 2026
+## 0.1.3 (beta), 11 de noviembre de 2026
 
 Primera tanda a partir de los reportes de un taller que usa Tlaku a diario con una máquina **Ruida**.
 
-- **Ruida: «Posición actual» y «Origen de usuario» ya funcionan.** Antes, con una controladora Ruida, los tres modos de origen se comportaban como «Coordenadas absolutas» y la máquina iba siempre a donde estaba el diseño en la pantalla. Ahora el archivo le dice a la controladora que use el cabezal (o el origen guardado con su botón Origin) como punto de partida. **Solo se ha probado con el emulador:** haz la primera prueba con potencia mínima y un cuadrado pequeño. Mira [Ruida y K40](13b-ruida-y-k40.md#iniciar-desde-coordenadas-absolutas-posicion-actual-y-origen-de-usuario).
+- **Ruida: «Posición actual» y «Origen de usuario» desactivados por ahora.** Con una controladora Ruida, los tres modos de origen se comportaban como «Coordenadas absolutas» sin avisar. La primera corrección no pasó la prueba en una máquina real (el encuadre y el corte salían en otro sitio), así que, hasta verificarla, con Ruida solo se puede elegir **Coordenadas absolutas**: los otros dos aparecen desactivados. Mira [Ruida y K40](13b-ruida-y-k40.md#iniciar-desde-coordenadas-absolutas-posicion-actual-y-origen-de-usuario).
 - **Mis componentes.** Clic derecho sobre una selección > **Guardar como componente**: se guarda con sus capas y ajustes de corte, y desde **Mis componentes** en la Biblioteca de arte se vuelve a insertar en su posición original (por ejemplo, una hoja de 60 × 60 cm ya acomodada) o en el centro de la vista. Mira [Mis componentes](03e-guias-puentes-y-proyecto.md#mis-componentes-guardar-una-seleccion-con-sus-capas-y-ajustes).
 - **Barra rápida de la selección:** girar 90°, voltear, aplicar un material favorito e **Iniciar la selección**, sin abrir paneles. Se puede ocultar en Preferencias. Mira [La interfaz](02-interfaz.md#barra-rapida-de-la-seleccion).
 - **Materiales favoritos:** marca con una estrella los que más usas; salen arriba en Materiales y en la barra rápida. Mira [Materiales](11-materiales.md#favoritos).

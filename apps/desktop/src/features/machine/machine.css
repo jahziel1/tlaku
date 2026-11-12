@@ -360,8 +360,12 @@
   background: var(--bg-raised);
   text-align: left;
 }
-.mc-mode:hover {
+.mc-mode:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+.mc-mode:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .mc-mode[aria-checked='true'] {
   border-color: var(--accent);

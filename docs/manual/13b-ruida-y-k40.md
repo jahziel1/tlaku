@@ -65,6 +65,8 @@ Estos avisos no cambian lo que se manda, salvo el recorte a 36 000 mm/min.
 
 ### Iniciar desde: coordenadas absolutas, posición actual y origen de usuario
 
+> **Por ahora, con Ruida solo se puede elegir «Coordenadas absolutas».** «Posición actual» y «Origen de usuario» aparecen desactivados: en la primera prueba con una máquina real (una RDC6442S) el encuadre y el corte salieron en otro sitio. Se volverán a activar cuando se verifique la corrección. Lo que sigue describe cómo funcionarán.
+
 Con Ruida, **Iniciar desde** funciona así:
 
 - **Coordenadas absolutas:** el trabajo sale en el lugar de la cama donde lo ves en el lienzo, sea cual sea la posición del cabezal.

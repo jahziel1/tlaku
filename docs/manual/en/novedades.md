@@ -2,11 +2,11 @@
 
 The most important things each version of Tlaku brings, written for people who use the application. The technical detail is in the repository.
 
-## 0.1.3 (beta), October 29, 2026
+## 0.1.3 (beta), November 11, 2026
 
 The first batch based on reports from a workshop that uses Tlaku every day with a **Ruida** machine.
 
-- **Ruida: "Current position" and "User origin" now work.** Before, with a Ruida controller, all three origin modes behaved like "Absolute coordinates" and the machine always went to where the design was on screen. Now the file tells the controller to use the laser head (or the origin stored with its Origin key) as the starting point. **Only tested against the emulator:** run your first test at minimum power with a small square. See [Ruida and K40](13b-ruida-y-k40.md#start-from-absolute-coordinates-current-position-and-user-origin).
+- **Ruida: "Current position" and "User origin" turned off for now.** With a Ruida controller, all three origin modes silently behaved like "Absolute coordinates". The first fix did not pass the test on a real machine (framing and cutting landed somewhere else), so until it is verified, Ruida only offers **Absolute coordinates**: the other two show as unavailable. See [Ruida and K40](13b-ruida-y-k40.md#start-from-absolute-coordinates-current-position-and-user-origin).
 - **My components.** Right-click a selection > **Save as component**: it is saved with its layers and cut settings, and from **My components** in the Art Library you can insert it again in its original position (for example, a 60 × 60 cm sheet already laid out) or in the middle of the view. See [My components](03e-guias-puentes-y-proyecto.md#my-components-save-a-selection-with-its-layers-and-settings).
 - **Quick bar for the selection:** rotate 90°, flip, apply a favorite material and **Start selection**, without opening panels. You can hide it in Preferences. See [The interface](02-interfaz.md#quick-bar-for-the-selection).
 - **Favorite materials:** star the ones you use most; they show first in Materials and in the quick bar. See [Materials](11-materiales.md#favorites).

@@ -797,6 +797,18 @@ fn store_then_run_with_head_at(r: &Rig, opts: &JobOptions, head: (f64, f64)) {
 }
 
 #[test]
+fn only_absolute_coordinates_are_allowed_until_verified_on_a_real_machine() {
+    assert!(check_start_from(&start_opts(tlaku_doc::StartFrom::Absolute)).is_ok());
+    for s in [
+        tlaku_doc::StartFrom::CurrentPosition,
+        tlaku_doc::StartFrom::UserOrigin,
+    ] {
+        let e = check_start_from(&start_opts(s)).unwrap_err();
+        assert!(e.contains("Coordenadas absolutas"), "{e}");
+    }
+}
+
+#[test]
 fn current_position_cuts_where_the_head_is_when_the_stored_job_starts() {
     let r = rig(false);
     store_then_run_with_head_at(

@@ -29,6 +29,19 @@ fn mm_text(v: f64) -> String {
     }
 }
 
+/// «Posición actual» y «Origen de usuario» (`D8 12` / `D8 11`) quedan desactivados con Ruida hasta
+/// verificarlos con una máquina real: en una RDC6442S el encuadre y el corte salieron en otro sitio
+/// (issue #21). Los comandos de inicio y encuadre lo comprueban antes de tocar la máquina; el resto
+/// del código (y sus pruebas con el emulador) sigue aquí para cuando se verifique. La interfaz los
+/// desactiva igual (`ruidaOff` en `placement.ts`).
+pub fn check_start_from(options: &tlaku_doc::JobOptions) -> Result<(), String> {
+    if options.start_from == tlaku_doc::StartFrom::Absolute {
+        Ok(())
+    } else {
+        Err(tr!("desktop.ruida.relative_off"))
+    }
+}
+
 /// Calcula el trabajo y lo convierte en un flujo `.rd` listo para subir.
 ///
 /// «Iniciar desde» decide la referencia del archivo (ruida.md 12.15):

@@ -508,6 +508,8 @@ Cada punto indica qué dice cada fuente, qué adopta Tlaku y por qué. Rutas rel
 
 ### 12.15 Iniciar desde: `D8 10`, `D8 11` y `D8 12` (issue #21)
 
+**Estado (2026-11-11): desactivado.** En la primera prueba con hardware real (RDC6442S, tarjeta 0x65106510, reporte en el issue #21/#23), con «Posición actual» el encuadre y el corte salieron en otro sitio; «Coordenadas absolutas» funcionó. Hasta verificar una corrección, la app solo deja «Coordenadas absolutas» con Ruida (`check_start_from` en `machine/ruida/job.rs` y `ruidaOff` en `placement.ts`). El código y las pruebas con el emulador de esta sección siguen en su sitio.
+
 **Problema.** Tlaku escribía siempre `D8 10` con coordenadas absolutas de la cama, así que «Posición actual» y «Origen de usuario» no cambiaban nada en una controladora Ruida: la máquina iba siempre a la posición del diseño. Además el trabajo se **guarda** en la controladora y se arranca después desde su panel, de modo que la posición del cabezal al subir no sirve.
 
 **Qué dicen las fuentes** (re-expresado, sin copiar código):

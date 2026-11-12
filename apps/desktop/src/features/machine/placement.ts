@@ -14,8 +14,12 @@ import { workToDoc, type DeviceFrame } from '@/lib/device';
  * `deferred`: el punto de partida lo resuelve la controladora al arrancar (Ruida con «Posición
  * actual» u «Origen de usuario»), así que la aplicación no puede dibujar dónde quedará; no
  * bloquea el inicio.
+ *
+ * `ruidaOff`: lo mismo, pero esos dos modos están desactivados con Ruida hasta verificarlos con una
+ * máquina real (issue #21: en una RDC6442S el encuadre y el corte salieron en otro sitio). Bloquea
+ * el inicio. Para reactivarlos, devolver otra vez `deferred` (y quitar `check_start_from` en Rust).
  */
-export type PlacementStatus = 'ok' | 'noDesign' | 'needHead' | 'needUserOrigin' | 'deferred';
+export type PlacementStatus = 'ok' | 'noDesign' | 'needHead' | 'needUserOrigin' | 'deferred' | 'ruidaOff';
 
 export interface Placement {
   status: PlacementStatus;
@@ -102,7 +106,7 @@ export function computeJobPlacement(input: PlacementInput): Placement {
   };
 
   if (startFrom === 'absolute') return finish(design, null, null);
-  if (input.controllerResolves) return empty('deferred');
+  if (input.controllerResolves) return empty('ruidaOff');
 
   const workPoint = startFrom === 'current_position' ? head : userOrigin;
   if (!workPoint) return empty(startFrom === 'current_position' ? 'needHead' : 'needUserOrigin');

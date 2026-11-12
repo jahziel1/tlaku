@@ -487,6 +487,7 @@ pub async fn start_job(
     // Ruida: genera el `.rd` y lo sube (guardando o ejecutando, según el perfil). El trabajo vive en
     // la controladora: un marcador avisa, si la app se reinicia, que sigue por su cuenta.
     if let Machine::Ruida(r) = state.machine()? {
+        ruida::check_start_from(&options)?;
         let mark = crate::job_resume::begin_marker(&app, &device, &options, document);
         let result = blocking(move || r.start_job(&doc, &device, &options)).await;
         crate::job_resume::end_marker(mark, result.is_ok());
@@ -543,6 +544,7 @@ pub async fn frame_job(
 ) -> Result<(), String> {
     // Ruida recorre el rectángulo con el láser apagado; no admite encuadre con potencia baja.
     if let Machine::Ruida(r) = state.machine()? {
+        ruida::check_start_from(&options)?;
         return blocking(move || r.frame_job(&doc, &device, &options, speed)).await;
     }
     // K40: igual, con el láser apagado y a la velocidad de salto de la placa.
@@ -580,6 +582,7 @@ pub async fn frame_hull(
 ) -> Result<(), String> {
     // Ruida no tiene banda elástica: recorre el rectángulo envolvente.
     if let Machine::Ruida(r) = state.machine()? {
+        ruida::check_start_from(&options)?;
         return blocking(move || r.frame_job(&doc, &device, &options, speed)).await;
     }
     // El K40 tampoco: recorre el rectángulo envolvente.

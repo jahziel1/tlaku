@@ -65,6 +65,8 @@ These warnings do not change what is sent, except for the clamp to 36,000 mm/min
 
 ### Start from: absolute coordinates, current position and user origin
 
+> **For now, Ruida only offers "Absolute coordinates".** "Current position" and "User origin" show as unavailable: in the first test on a real machine (an RDC6442S), framing and cutting landed somewhere else. They will come back once the fix is verified. The rest of this section describes how they will work.
+
 With Ruida, **Start from** works like this:
 
 - **Absolute coordinates:** the job comes out where you see it on the canvas bed, wherever the head is.

@@ -72,12 +72,12 @@ describe('computeJobPlacement', () => {
     // Ni el cabezal de ahora ni el origen de la aplicación cuentan, y no bloquea el inicio.
     for (const startFrom of ['current_position', 'user_origin'] as const) {
       const p = computeJobPlacement({ ...base, startFrom, head: [350, 10], userOrigin: [390, 10], controllerResolves: true });
-      expect(p.status).toBe('deferred');
+      expect(p.status).toBe('ruidaOff');
       expect(p.rect).toBeNull();
       expect(p.fits).toBe(true);
     }
     // Sin cabezal ni origen de la aplicación tampoco se pide nada.
-    expect(computeJobPlacement({ ...base, startFrom: 'current_position', controllerResolves: true }).status).toBe('deferred');
+    expect(computeJobPlacement({ ...base, startFrom: 'current_position', controllerResolves: true }).status).toBe('ruidaOff');
     // Absoluto sigue colocándose en la cama; sin diseño no hay nada que enviar.
     expect(computeJobPlacement({ ...base, controllerResolves: true }).status).toBe('ok');
     expect(computeJobPlacement({ ...base, startFrom: 'user_origin', design: null, controllerResolves: true }).status).toBe('noDesign');

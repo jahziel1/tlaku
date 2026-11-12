@@ -32,6 +32,7 @@ export function placementSummary(p: Placement, startFrom: StartFrom, jobOrigin: 
   if (p.status === 'noDesign') return { text: t('machine.place.noDesign'), problem: false };
   if (p.status === 'needHead') return { text: t('machine.place.needHead'), problem: true };
   if (p.status === 'needUserOrigin') return { text: t('machine.place.needUserOrigin'), problem: true };
+  if (p.status === 'ruidaOff') return { text: t('machine.place.ruidaOff'), problem: true };
   if (p.status === 'deferred') {
     const anchor = t(ANCHOR_KEYS[jobOrigin]!);
     return { text: t(startFrom === 'current_position' ? 'machine.place.ruidaCurrent' : 'machine.place.ruidaUser', { anchor }), problem: false };
@@ -86,19 +87,24 @@ export function StartFromSection() {
   return (
     <div className="mc-startfrom">
       <div className="mc-modes" role="radiogroup" aria-label={t('machine.startFrom')}>
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            role="radio"
-            aria-checked={startFrom === m.id}
-            className="mc-mode"
-            onClick={() => setJobOptions({ start_from: m.id })}
-          >
-            <span className="mc-mode__title">{t(m.title)}</span>
-            <span className="mc-mode__desc">{t((isRuida && RUIDA_DESC[m.id]) || m.desc)}</span>
-          </button>
-        ))}
+        {MODES.map((m) => {
+          // Con Ruida, los modos relativos están desactivados hasta verificarlos (placement.ts, `ruidaOff`).
+          const off = isRuida && m.id !== 'absolute';
+          return (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={startFrom === m.id}
+              className="mc-mode"
+              disabled={off}
+              onClick={() => setJobOptions({ start_from: m.id })}
+            >
+              <span className="mc-mode__title">{t(m.title)}</span>
+              <span className="mc-mode__desc">{t(off ? 'machine.startFrom.ruidaOff' : (isRuida && RUIDA_DESC[m.id]) || m.desc)}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="mc-anchor">
