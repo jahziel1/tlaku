@@ -179,7 +179,7 @@ consume minutos). No se cruza desde x86 porque `linuxdeploy` no sabe hacer AppIm
 compilación cruzada. Se instalan las mismas dependencias de apt que en x86 y se firman con las mismas
 variables `TAURI_SIGNING_*`.
 
-**`latest.json`.** `tauri-action` (v0.6.2) toma la arquitectura del runner y escribe en `latest.json` las
+**`latest.json`.** `tauri-action` (v1.0.0) toma la arquitectura del runner y escribe en `latest.json` las
 claves `linux-aarch64` y `linux-aarch64-appimage`; antes lee el `latest.json` del borrador y fusiona, así
 que no pisa `linux-x86_64`. Las dos entradas de Linux dejan archivos con nombres distintos
 (`Tlaku_X.Y.Z_amd64.AppImage` / `_aarch64.AppImage`, `_amd64.deb` / `_arm64.deb`). Si dos entradas terminan
@@ -187,6 +187,10 @@ a la vez, una podría pisar a la otra (lectura-modificación-escritura sin bloqu
 «Comprobar latest.json» falla si falta alguna de `darwin-aarch64`, `darwin-x86_64`, `windows-x86_64`,
 `linux-x86_64` o `linux-aarch64`; en ese caso, «Re-run failed jobs» sobre la entrada que falte vuelve a
 fusionarla. Solo el **AppImage** se actualiza desde la app; el `.deb` se reinstala a mano (igual que en x86).
+
+Desde `tauri-action` 1.0 (0.1.4) el paquete de actualización de macOS lleva la versión en el nombre
+(`Tlaku_X.Y.Z_universal.app.tar.gz`, antes `Tlaku_universal.app.tar.gz`) y las URL de `latest.json` usan la
+de GitHub en lugar de la de descarga del navegador. A la app le da igual: lee la URL de `latest.json`.
 
 **Requisitos para el usuario (Raspberry Pi y otras ARM64).**
 
