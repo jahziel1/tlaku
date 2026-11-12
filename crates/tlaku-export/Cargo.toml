@@ -10,7 +10,7 @@ tlaku-core = { version = "0.1.0", path = "../tlaku-core" }
 tlaku-doc = { version = "0.1.0", path = "../tlaku-doc" }
 tlaku-dxf = { version = "0.1.0", path = "../tlaku-dxf" }
 serde = { version = "1.0.229", features = ["derive"] }
-base64 = "0.22"
+base64 = "0.23"
 dxf = "0.6.2"
 flate2 = "1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tiff", "gif", "tga"] }
