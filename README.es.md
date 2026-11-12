@@ -16,9 +16,9 @@ controla láseres GRBL como la Creality Falcon2: diseñas o importas un trabajo,
 ves cómo se va a cortar y lo envías a la máquina con revisiones de seguridad antes de que se mueva
 nada. LightBurn es una marca de su titular; Tlaku es un proyecto independiente y no está afiliado a ella.
 
-### Descarga la beta (0.1.3)
+### Descarga la beta (0.1.4)
 
-[![Descargar para Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_x64-setup.exe) [![Descargar para macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_universal.dmg) [![Descargar para Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_amd64.deb) [![Descargar para Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.3/Tlaku_0.1.3_amd64.AppImage)
+[![Descargar para Windows](https://img.shields.io/badge/Windows-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.4/Tlaku_0.1.4_x64-setup.exe) [![Descargar para macOS](https://img.shields.io/badge/macOS-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.4/Tlaku_0.1.4_universal.dmg) [![Descargar para Linux (.deb)](https://img.shields.io/badge/Linux%20.deb-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.4/Tlaku_0.1.4_amd64.deb) [![Descargar para Linux (AppImage)](https://img.shields.io/badge/Linux%20AppImage-8793ff?style=for-the-badge)](https://github.com/jahziel1/tlaku/releases/download/v0.1.4/Tlaku_0.1.4_amd64.AppImage)
 
 En Mac también se instala con Homebrew: `brew install --cask jahziel1/tlaku/tlaku`.
 
@@ -312,7 +312,7 @@ app, con pruebas automáticas. Guía completa:
 
 ### Descargar la aplicación
 
-Tlaku **0.1.3 (beta)** está publicado en la página de
+Tlaku **0.1.4 (beta)** está publicado en la página de
 [**Releases**](https://github.com/jahziel1/tlaku/releases/latest) del repositorio (sección "Assets"), o
 usa los botones de descarga del inicio de esta página:
 

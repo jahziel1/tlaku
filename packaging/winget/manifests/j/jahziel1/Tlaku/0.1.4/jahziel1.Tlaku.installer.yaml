@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.28.0.schema.json
+
+PackageIdentifier: jahziel1.Tlaku
+PackageVersion: 0.1.4
+InstallerType: nullsoft
+Scope: user
+InstallModes:
+- interactive
+- silent
+- silentWithProgress
+UpgradeBehavior: install
+ReleaseDate: 2026-11-12
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/jahziel1/tlaku/releases/download/v0.1.4/Tlaku_0.1.4_x64-setup.exe
+  InstallerSha256: 6A56C1A5ED77DEAD5F788D5EDFE298339F5C4697F041BA7A89BA2DE19E0F2667
+  ProductCode: Tlaku
+  AppsAndFeaturesEntries:
+  - DisplayName: Tlaku
+    Publisher: tlaku contributors
+    DisplayVersion: 0.1.4
+    ProductCode: Tlaku
+ManifestType: installer
+ManifestVersion: 1.28.0
